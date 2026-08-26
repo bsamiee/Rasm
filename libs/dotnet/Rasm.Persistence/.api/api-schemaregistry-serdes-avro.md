@@ -59,7 +59,7 @@
 - `Confluent.Kafka`(`.api/api-kafka.md`): the serde IS the `IAsyncSerializer<T>`/`IAsyncDeserializer<T>` mounted on the `ProducerBuilder.SetValueSerializer`/`ConsumerBuilder.SetValueDeserializer` value/key slot; `SerializationContext.Component` carries the key/value split.
 - `Confluent.SchemaRegistry`(`.api/api-schemaregistry.md`): each payload frames through the shared `SchemaId` encoder, and evolution and CSFLE ride the single shared `CachedSchemaRegistryClient` + `RuleRegistry` — the serde binds one shared client, never a per-message instance.
 - `Apache.Avro` body codec: `GenericRecord` carries its `Avro.Schema`, `ISpecificRecord` exposes its generated `Schema`, a POCO maps through the reflect builder — the reference Avro binary body under the framed id.
-- within-lib: built once per changefeed stream, sharing the one `CachedSchemaRegistryClient` with the Protobuf and Json serdes on the egress rail.
+- within-lib: built once per changefeed stream, sharing the one `CachedSchemaRegistryClient` with the Protobuf and Json serdes on the egress path.
 
 [LOCAL_ADMISSION]:
 - Durable path pins `T` to the generated `ISpecificRecord` op-log projection so a schema drift is a build break; `GenericRecord` is admitted only for the dynamic catalog-replay lane where the reader schema is itself data.

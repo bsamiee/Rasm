@@ -1,6 +1,6 @@
 # [RASM_BIM_API_XBIM_COBIEEXPRESS]
 
-`Xbim.CobieExpress` owns the COBie EXPRESS FM asset-register: an operations-handover schema, the `CobieModel` STEP21/Esent/spreadsheet store, and the turnkey IFC→COBie converter. COBie feeds `Exchange/export#EXPORT_RAIL` as the FM digital-handover export leg, carrying the asset information the geometry and IFC-graph arms omit. Its exchanger reads a PARALLEL xBIM `IModel`, never Rasm's GeometryGym authority, so the canonical path authors the `CobieModel` from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph`, the exchanger admitted only as a terminal `.ifc` file→file handover.
+`Xbim.CobieExpress` owns the COBie EXPRESS FM asset-register: an operations-handover schema, the `CobieModel` STEP21/Esent/spreadsheet store, and the turnkey IFC→COBie converter. COBie feeds `Exchange/export#EXPORT_PIPELINE` as the FM digital-handover export leg, carrying the asset information the geometry and IFC-graph arms omit. Its exchanger reads a PARALLEL xBIM `IModel`, never Rasm's GeometryGym authority, so the canonical path authors the `CobieModel` from the `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph`, the exchanger admitted only as a terminal `.ifc` file→file handover.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -127,7 +127,7 @@
 - `IfcToCoBieExpressExchanger` reads the xBIM `Xbim.Ifc`/`Xbim.Ifc4` toolkit (`IIfcBuilding`/`IIfcSpace`/`IIfcTypeObject`), a separate IFC implementation from Rasm's GeometryGym semantic authority (`api-geometrygym-ifc`); the two never share an in-memory graph
 
 [STACKING]:
-- `Exchange/export#EXPORT_RAIL`: COBie is one export leg beside the geometry (`SharpGLTF`) and IFC-graph (`GeometryGym DatabaseIfc`) arms — an `InterchangeCodec.Cobie` arm and `InterchangeFormat` rows (XLSX via `ExportToTable`, STEP21 via `SaveAsStep21`, JSON), the `ExportArtifact` bytes content-keyed by the shared `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity`
+- `Exchange/export#EXPORT_PIPELINE`: COBie is one export leg beside the geometry (`SharpGLTF`) and IFC-graph (`GeometryGym DatabaseIfc`) arms — an `InterchangeCodec.Cobie` arm and `InterchangeFormat` rows (XLSX via `ExportToTable`, STEP21 via `SaveAsStep21`, JSON), the `ExportArtifact` bytes content-keyed by the shared `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity`
 - `Semantics/properties#PROPERTY_TEMPLATES` (`api-xbim-properties`): the `CobieAttribute` rows project the Pset properties onto (name + `AttributeValue` + unit), the same Pset vocabulary the template defines, never a re-typed property model
 - `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`libs/dotnet/.api/api-unitsnet.md`): the `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values stamp from the `NodaMoney` `Currency` and `UnitsNet` SI units the cost/quantity owners hold
 - `VividOrange.Stages` (`api-vividorange-stages`): the `CobiePhase`/`CobieStageType`/`CobieImpactStage` draw their stage vocabulary from the project-lifecycle taxonomy

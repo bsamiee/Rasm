@@ -26,9 +26,9 @@
 |  [16]   | `.nodeOptions?`                       | socket / TLS      | passed to `http`/`https` `request()` or `http2` `connect()`         |
 |  [17]   | `.useHttpGet?` (Connect arm)          | verb              | GET for idempotent side-effect-free unary methods                   |
 
-[SESSION_MANAGER_SEAM]: `.sessionManager` accepts the concrete exported `Http2SessionManager`; providing it supersedes `nodeOptions` and the inline ping fields, so the adapter scopes one manager and never duplicates its residency on a transport record.
+[SESSION_MANAGER]: `.sessionManager` accepts the concrete exported `Http2SessionManager`; providing it supersedes `nodeOptions` and the inline ping fields, so the adapter scopes one manager and never duplicates its residency on a transport record.
 
-[PUBLIC_TYPE_SCOPE]: server adapter and HTTP/2 session surface — `ConnectNodeAdapterOptions` extends `ConnectRouterOptions`, `Http2SessionManager`/`Http2SessionOptions` own the client-lane keepalive; rail serve/live.
+[PUBLIC_TYPE_SCOPE]: server adapter and HTTP/2 session surface — `ConnectNodeAdapterOptions` extends `ConnectRouterOptions`, `Http2SessionManager`/`Http2SessionOptions` own the client-lane keepalive; route serve/live.
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                     |
 | :-----: | :---------------------------------------- | :-------------- | :---------------------------------------------------------------------- |
@@ -45,25 +45,25 @@
 |  [11]   | `ConnectRouterOptions`                    | router options  | inherited public protocol enablement, codec, frame, and lifetime policy |
 |  [12]   | `.interceptors` on every transport option | client onion    | `Interceptor[]` on the connect, grpc, and grpc-web records              |
 
-[SERVER_POLICY_SEAM]: `ConnectNodeAdapterOptions` publicly extends `ConnectRouterOptions`, so protocol enablement, interceptors, compression, frame ceilings, deadlines, and shutdown policy arrive on the same server mount record as `routes`.
+[SERVER_POLICY]: `ConnectNodeAdapterOptions` publicly extends `ConnectRouterOptions`, so protocol enablement, interceptors, compression, frame ceilings, deadlines, and shutdown policy arrive on the same server mount record as `routes`.
 
 [ADAPTER_MUTATION_TRAP]: `connectNodeAdapter` WRITES its default compression roster back onto the options object it was handed before building the router, so the record is not treated as read-only — a frozen literal throws under strict mode and a record shared across two adapters carries the first one's mutation into the second. Build a fresh record per adapter, or declare `acceptCompression` and leave nothing to default.
 
-[HANDLER_REJECTION_TRAP]: the returned `NodeHandlerFn` returns void and never rejects — it drives the universal handler's promise itself, returns silently on `Code.Aborted`, and routes every other failure to `console.error`. So a mounting fence's own error rail sees NOTHING from a served call: an RPC fault renders as a Connect wire error on the response and a transport fault reaches the package's console sink alone, which also means the sink escapes any log rail the host installed.
+[HANDLER_REJECTION_TRAP]: the returned `NodeHandlerFn` returns void and never rejects — it drives the universal handler's promise itself, returns silently on `Code.Aborted`, and routes every other failure to `console.error`. So a mounting fence's own error channel sees NOTHING from a served call: an RPC fault renders as a Connect wire error on the response and a transport fault reaches the package's console sink alone, which also means the sink escapes any logger the host installed.
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the three public `(options) -> Transport` factories, compression values, and HTTP/2 manager forming the scoped Node adapter; rail net/client
+[ENTRYPOINT_SCOPE]: the three public `(options) -> Transport` factories, compression values, and HTTP/2 manager forming the scoped Node adapter; route net/client
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                            |
 | :-----: | :------------------------------------------- | :---------------- | :------------------------------------------------------------- |
 |  [01]   | `createConnectTransport(options): Transport` | connect arm       | `protocol:"connect"` — `http`/`https`/`http2`, `useHttpGet`    |
 |  [02]   | `createGrpcTransport(options): Transport`    | grpc arm          | `protocol:"grpc"` — `http2`-only, native gRPC gateway          |
 |  [03]   | `createGrpcWebTransport(options): Transport` | grpc-web arm      | `protocol:"grpc-web"` — `http`/`https`/`http2`, binary         |
-|  [04]   | `compressionGzip` / `compressionBrotli`      | compression const | zlib `Compression` the root hands `Invoke.Dial`'s seam         |
+|  [04]   | `compressionGzip` / `compressionBrotli`      | compression const | zlib `Compression` the root hands `Invoke.Dial`'s adapters     |
 |  [05]   | `new Http2SessionManager(url, ping?, opts?)` | keepalive         | one `http2` connection; `opts` is `http2.ClientSessionOptions` |
 
-[ENTRYPOINT_SCOPE]: the public server mount and framework-adapter helpers — `connectNodeAdapter` is the Mount port; rail serve/live
+[ENTRYPOINT_SCOPE]: the public server mount and framework-adapter helpers — `connectNodeAdapter` is the Mount port; route serve/live
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                      |
 | :-----: | :-------------------------------------------------- | :---------------- | :------------------------------------------------------- |
@@ -86,12 +86,12 @@
 - `@bufbuild/protobuf`(`../../.api/bufbuild-protobuf.md`): client and server share emitted `DescService` values and codec options.
 - `effect` + `@effect/platform-node`(`../../.api/effect.md`, `../../.api/effect-platform-node.md`): transports construct once at the `net/client.md` root, each unary method lifting through `Effect.tryPromise` and each server-streaming through `Stream.fromAsyncIterable`; `CallOptions.signal` binds fiber interruption to `Code.Canceled`; the `NodeHandlerFn` mounts under the platform-node HTTP server at `serve/live.md`; `nodeOptions` carries `Config`-decoded TLS/socket policy.
 - `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): the hand-written W3C `Interceptor` pair reads `Tracer.currentOtelSpan` and writes/reads `traceparent` — injected on client egress via `interceptors`, extracted on server ingress through the inherited router option — carrying trace both directions since no TS `otelconnect` exists; `otel/emit.md`'s `Propagation` owns the header codec. `Interceptor` is `(next: AnyFn) => AnyFn` over an UNEXPORTED `AnyFn = (req: UnaryRequest | StreamRequest) => Promise<UnaryResponse | StreamResponse>`, so a composing fence spells the onion through the exported `Interceptor` alias and never annotates the inner function; the carrier is `header: Headers` on `RequestCommon` — present on BOTH request arms beside `requestMethod`, `url`, `signal`, and `contextValues` — while `ResponseCommon` carries `header`/`trailer` and no context values at all. Server-side the same alias wraps the IMPLEMENTATION invocation rather than the HTTP exchange: it runs after protocol negotiation and message decode, its `req.header` IS the handler context's inbound header bag and its `req.contextValues` IS the `ContextValues` the implementation then reads, and on any streaming method `next` settles once the response iterable is CONSTRUCTED — the messages flow after the onion returned, so an interceptor seats per-call policy and can never bracket a streaming body.
-- `@effect/platform-node`(`../../.api/effect-platform-node.md`) node-handler lift: `HttpApp` exposes `fromWebHandler` over a FETCH-shaped handler alone and no member accepting a `NodeHandlerFn`, so an adapter reaches `HttpApp.Default` by pulling the request inside an effect and driving `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse` — the identical accessor pair `serve/route.md`'s rail mount already drives a raw node handler through, and the mount rides `Seam.guard` by construction because the router attaches that middleware once above every mounted row.
-- `net/client.md` Node adapter (within-lib): the seat scopes one `Http2SessionManager` per origin and publishes the three public factory closures to the dial seam; frame caps, the retry ladder, execution-plan failover, and the `Code`→class grading are `core:interchange/invoke`'s and `Wire.Hops`'s — a policy or budget minted here is the second owner the branch deleted.
+- `@effect/platform-node`(`../../.api/effect-platform-node.md`) node-handler lift: `HttpApp` exposes `fromWebHandler` over a FETCH-shaped handler alone and no member accepting a `NodeHandlerFn`, so an adapter reaches `HttpApp.Default` by pulling the request inside an effect and driving `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse` — the identical accessor pair `serve/route.md`'s ingest mount already drives a raw node handler through, and the mount rides `Edge.guard` by construction because the router attaches that middleware once above every mounted row.
+- `net/client.md` Node adapter (within-lib): the seat scopes one `Http2SessionManager` per origin and publishes the three public factory closures to the dial adapters; frame caps, the retry ladder, execution-plan failover, and the `Code`→class grading are `core:interchange/invoke`'s and `Wire.Hops`'s — a policy or budget minted here is the second owner the branch deleted.
 
 [LOCAL_ADMISSION]:
 - mount the server through `connectNodeAdapter({ routes })` with `contextValues` extracting the per-request principal/tenant; the returned `NodeHandlerFn` is the `serve/live.md` Mount port, never a hand-written Node request switch.
-- `contextValues` is the EARLIEST server seam and the only one holding the raw Node request — it runs before path dispatch and before any decode, so per-request identity crosses there and an interceptor is left to policy that needs the decoded message.
+- `contextValues` is the EARLIEST server boundary and the only one holding the raw Node request — it runs before path dispatch and before any decode, so per-request identity crosses there and an interceptor is left to policy that needs the decoded message.
 - `requestPathPrefix` and the mounting route's own prefix are ONE value: the adapter matches `prefix + requestPath` against the raw url, so a mismatch serves a path no client reaches and answers the adapter's 404 for every call.
 - keep `baseUrl` `Config`-decoded and every codec, frame, and compression coordinate a declared row value; a hardcoded endpoint or an inherited default a reader cannot see is the parameterization defect.
 - declare `sendCompression` rather than inheriting the uncompressed default, since the record exposes the knob and silence ships every request raw.

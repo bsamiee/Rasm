@@ -11,7 +11,7 @@ Identity and derivation never cross: a content key built from a `Deterministic` 
 
 ## [02]-[CONTENT_KEY]
 
-- Owner: one capsule, two owners with one seam — `CanonicalWriter` owns FRAMING (how fields become bytes), `ContentHash` owns the DIGEST (how bytes become the `UInt128` currency) and its two text projections. `CanonicalWriter` is the only public way to emit a multi-field preimage, so the caller's obligation collapses from "produce canonical bytes" to "name the fields in order".
+- Owner: one capsule, two owners with one boundary — `CanonicalWriter` owns FRAMING (how fields become bytes), `ContentHash` owns the DIGEST (how bytes become the `UInt128` currency) and its two text projections. `CanonicalWriter` is the only public way to emit a multi-field preimage, so the caller's obligation collapses from "produce canonical bytes" to "name the fields in order".
 - Entry: `ContentHash.Of` is one name over three ingress shapes — `Of(ReadOnlySpan<byte>)` for a payload already canonical in one span, `Of(Stream)` for a source no span holds, `Of<TState>(TState, Action<TState, CanonicalWriter>)` for a field stream the caller emits through the writer. `CanonicalWriter.Streaming(tolerance, accumulator)` binds a writer to an accumulator the caller already owns (the dual-digest pass that folds `XxHash128` beside a `Crc32` frame check in one traversal); `Retaining(tolerance)` is the mint for callers that store or wire the canonical bytes themselves.
 - Cases: members by field shape — fixed-width (`Bool`, `Ordinal`, `I64`, `U128`, `Single`, `Double`, and the bit-exact `Bits`) concatenate injectively and carry NO frame; variable-width (`String`) is ALWAYS int32-LE length-framed UTF-8; collections (`Rows<T>`, `Doubles`, and the order-publishing `Sorted<T,TKey>`) are count-framed; absence (`Optional<T>`) is presence-prefixed; `Raw` is the one named exemption. `Double` and `Bits` are two identities: the quantized leg keys a tolerance-banded geometry, the exact leg a replay or chaos chain that must re-derive bit-exact.
 - Law: `String` has exactly one spelling and it frames — the int32-LE UTF-8 byte count precedes the bytes, so `("ab","c")` and `("a","bc")` cannot key alike, and because no member writes text any other way the `MemoryMarshal.AsBytes(string.AsSpan())` shape (machine-endian UTF-16, which keys differently on a big-endian partner) is unspellable on this surface rather than merely discouraged.
@@ -174,7 +174,6 @@ public sealed class CanonicalWriter {
     // --- [CLOSE]
     public UInt128 Digest() => accumulator.GetCurrentHashAsUInt128();
 
-    [BoundaryAdapter]
     public Fin<ReadOnlyMemory<byte>> ToBytes(Op? key = null) =>
         retained.Map(static buffer => buffer.WrittenMemory)
             .ToFin(Fail: key.OrDefault().InvalidContext());
@@ -197,16 +196,14 @@ public sealed class CanonicalWriter {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentHash {
-    [BoundaryAdapter] public static UInt128 Of(ReadOnlySpan<byte> canonicalBytes) => XxHash128.HashToUInt128(source: canonicalBytes);
+    public static UInt128 Of(ReadOnlySpan<byte> canonicalBytes) => XxHash128.HashToUInt128(source: canonicalBytes);
 
-    [BoundaryAdapter]
     public static UInt128 Of(Stream canonical) {
         XxHash128 accumulator = new(seed: 0L);
         accumulator.Append(stream: canonical);
         return accumulator.GetCurrentHashAsUInt128();
     }
 
-    [BoundaryAdapter]
     public static UInt128 Of<TState>(TState state, Action<TState, CanonicalWriter> chunks) {
         CanonicalWriter writer = CanonicalWriter.Streaming(tolerance: EpsilonPolicy.ZeroTolerance, accumulator: new XxHash128(seed: 0L));
         chunks(state, writer);
@@ -223,7 +220,6 @@ public static class ContentHash {
         return ByteString.CopyFrom(bytes: wire);
     }
 
-    [BoundaryAdapter]
     public static Fin<UInt128> Admit(ReadOnlySpan<char> hex, Op key) =>
         hex.Length == 32
         && !hex.ContainsAnyInRange(lowInclusive: 'A', highInclusive: 'F')
@@ -231,7 +227,6 @@ public static class ContentHash {
             ? Fin.Succ(value: digest)
             : Fin.Fail<UInt128>(error: key.InvalidInput());
 
-    [BoundaryAdapter]
     public static Fin<UInt128> Admit(ReadOnlySpan<byte> wire, Op key) =>
         wire.Length == 16
             ? Fin.Succ(value: BinaryPrimitives.ReadUInt128BigEndian(source: wire))
@@ -242,7 +237,7 @@ public static class ContentHash {
 ## [03]-[DETERMINISTIC_DERIVATION]
 
 - Owner: `Deterministic` static class — the one splitmix64 owner: `Mix` (finalizer), `Advance` (golden-gamma stream), `Fold` (the lane fold), and `Project` (the top-53-bit unit rule) are the private mechanism; the public family is the unit draws, order keys, clamped intervals, lane-keyed draws, the bound `Draw`, the injectable `Supplier`, the bounded integer draw, the equidistributed family, and the one `System.Random` adapter. `Mix` stays unreachable outside the owner.
-- Entry: three modalities by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit` for real bases, `NextSignedComplexUnit` for Hermitian, `NextBelow` for an unbiased bounded index at either integer width); coordinate keying is stateless (`OrderKey(coordinates, seed)`, the `Point3d` overload routing into the span fold, `UnitInterval(point, salt, seed)` for per-point draws); lane keying is stateless over integer lanes (`Stream(lanes, seed)` mints a threadable state, `Unit(lanes, seed)` projects one clamped draw). `Draw` binds a seed and a lane PREFIX so a per-generation or per-element draw supplies only the varying suffix; `Supplier(seed, purpose)` hands a sampler seam a `Func<double>` it can inject, and `Source(seed, lanes)` is THE one adapter for a package API whose SIGNATURE demands `System.Random`.
+- Entry: three modalities by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit` for real bases, `NextSignedComplexUnit` for Hermitian, `NextBelow` for an unbiased bounded index at either integer width); coordinate keying is stateless (`OrderKey(coordinates, seed)`, the `Point3d` overload routing into the span fold, `UnitInterval(point, salt, seed)` for per-point draws); lane keying is stateless over integer lanes (`Stream(lanes, seed)` mints a threadable state, `Unit(lanes, seed)` projects one clamped draw). `Draw` binds a seed and a lane PREFIX so a per-generation or per-element draw supplies only the varying suffix; `Supplier(seed, purpose)` hands a sampler site a `Func<double>` it can inject, and `Source(seed, lanes)` is THE one adapter for a package API whose SIGNATURE demands `System.Random`.
 - Cases: consumers by member — the matrix eigensolver's LOBPCG starting bases (`NextSignedUnit`/`NextSignedComplexUnit` under its named basis-seed policy), the sampler's candidate ordering, active-set rotation, annulus, and weighted-rejection draws (`OrderKey`/`UnitInterval`), the fit consensus sampler's minimal-set draws (`NextBelow` over a `Stream`-minted state), per-(stream, ordinal, dimension) texel and jitter draws (`Unit`), threaded generation and uncertainty chains that carry a prefix through a loop (`Draw`), trace and probe samplers that take their draw as a dependency (`Supplier`), Halton and Sobol coordinates (`RadicalInverse`/`ReverseBits`/`Hammersley`), MathNet distribution constructors (`Source`), and any reproducible tie-break in the processing suite (`OrderKey`).
 - Law: a lane ordinal is DECLARED, never derived from a name at runtime — `IDrawLane<TSelf>` exists so a roster publishes `Lane` as data (a `[SmartEnum]` roster satisfies `Items` with its generated member), and scar `SEEDED_FROM_STRING_HASH` is what a `GetHashCode()`-seeded lane costs: perfect stability inside one process and no replay across two.
 - Law: coordinate keys normalize the signed zero — `-0.0` projects to `+0.0` before bit extraction so the two zeros key identically, and the seed widens unsigned (`(uint)seed`) so a negative seed never sign-extends into the state.

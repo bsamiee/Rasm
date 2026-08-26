@@ -15,7 +15,7 @@ gitGraph LR:
   commit id: "tokens"
   branch develop
   checkout develop
-  commit id: "rails"
+  commit id: "types"
   branch feature
   checkout feature
   commit id: "elk"

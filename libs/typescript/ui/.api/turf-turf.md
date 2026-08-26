@@ -59,7 +59,7 @@ Scalar-over-geometry measurements and geometry→geometry transforms, each a pur
 
 - `removeBbox(geojson) -> void`: strips every nested `bbox` in place and answers nothing, the one mutating member beside a family of pure transforms; `transformRotate`/`transformScale`/`transformTranslate` already strip the stale box themselves, so it serves a box a caller's own edit invalidated.
 - `buffer(geojson, radius?, options?)`: one conditional generic — a `FeatureCollection`/`GeometryCollection` input answers a `FeatureCollection<Polygon|MultiPolygon>` and any other input a `Feature<Polygon|MultiPolygon>`, each `| undefined` where the offset collapses the shape, so the result lifts through `Option` before it binds a layer.
-- `booleanValid(feature)` answers a return its shipped declaration widens past `boolean`, so a call site annotates the result and holds the predicate's type at the seam.
+- `booleanValid(feature)` answers a return its shipped declaration widens past `boolean`, so a call site annotates the result and holds the predicate's type at the boundary.
 
 [ENTRYPOINT_SCOPE]: boolean predicates + line/segment queries + spatial index
 
@@ -102,7 +102,7 @@ Surface-analysis, tessellation, spatial-statistics, projection, and random famil
 - `effect` (`libs/typescript/.api/effect.md`): GeoJSON arrives `Schema`-decoded at `wire` and typed through `wire#vocab`; turf ops are pure sync, wrapped in `Effect.sync` only to sit inside an effectful pipeline, and a feature `Stream` folds through them with `Stream.map`/`Effect.forEach`, so a decode `ParseError` never reaches turf.
 - `@geoarrow/deck.gl-geoarrow` + `apache-arrow` (`.api/geoarrow-deck.gl-geoarrow.md`, `.api/apache-arrow.md`): geoarrow renders `arrow.RecordBatch` columns zero-copy while turf runs over materialized GeoJSON at interaction scale — a drawn query polygon, a buffer, a mask, a boolean hit-test — then feeds the result to a layer; materializing a bulk `RecordBatch` to GeoJSON for a turf op discards the columnar path.
 - `@deck.gl/layers` (`.api/deck.gl-layers.md`): a geometry-producing op output binds as `GeoJsonLayer.data` (the omnibus point/line/fill dispatch) or `PolygonLayer.getPolygon` (the per-object ring accessor); `bboxPolygon` yields `Feature<Polygon>` and `buffer` a `Feature<Polygon|MultiPolygon> | undefined` mirroring its input shape, `union`/`intersect`/`difference` take one `FeatureCollection<Polygon|MultiPolygon>` and yield `Feature<Polygon|MultiPolygon> | null`, `voronoi`/`isobands` yield a `FeatureCollection`, and `featureCollection`/`feature` assemble the `data`.
-- `maplibre-gl` (`.api/maplibre-gl.md`): a turf `FeatureCollection` is a `GeoJSONSource`; `bbox` drives `map.fitBounds`, `center`/`centroid` the camera target, and `toMercator`/`toWgs84` reconcile the projection — the `viewer/geo/project` camera-sync seam shared with the deck overlay `viewState`.
+- `maplibre-gl` (`.api/maplibre-gl.md`): a turf `FeatureCollection` is a `GeoJSONSource`; `bbox` drives `map.fitBounds`, `center`/`centroid` the camera target, and `toMercator`/`toWgs84` reconcile the projection — the `viewer/geo/project` camera-sync contract shared with the deck overlay `viewState`.
 - `geojsonRbush` (within-lib): build one R-tree (`geojsonRbush().load(fc)`) and `search(bbox)`/`collides` it for many-feature point-in-polygon or nearest queries; a per-query `booleanPointInPolygon` scan over the whole collection is the O(n) defect the index removes, the `viewer/mark/selection` many-`GlobalId` hit-test path.
 
 [LOCAL_ADMISSION]:

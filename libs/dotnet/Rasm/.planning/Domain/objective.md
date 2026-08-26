@@ -16,7 +16,7 @@ Every admission here proves against ONE roster shape — the declaration keyset 
 - Owner: `LevelBreach` is the polarity column a level indicator reads, so exhaustion measures and utilization measures share one shape; `Sli` is the closed reliability-indicator family every objective binds; `SloSample` is the window pair every rate divides.
 - Cases: five indicator shapes — `Ratio` over a good and a total counter, `Partition` over ONE counter whose good half is a value set on a declared dimension, `Latency` over a distribution against a ceiling with its display quantile, `Saturation` over a level against a bound on either polarity, `Freshness` over a level against a staleness horizon; two breach polarities.
 - Auto: level indicators read a scalar cell or one key of a mounted family with no arithmetic change, so both pulled kinds answer one shape and a per-key headroom target needs no second case. Each case's own field domain proves once through `Wellformed`, where the objective is still editable; the TypeScript reference form spells these as schema refinements, so both branches refuse identical policy values.
-- Law: the sample proves `Breaching <= Total` at admission, so every rate the fold divides is bounded and no consumer re-checks it; a sampler folding its own evidence stream constructs the breaching count as a subset of the total by filter order, so the claim holds structurally at the seam that mints it.
+- Law: the sample proves `Breaching <= Total` at admission, so every rate the fold divides is bounded and no consumer re-checks it; a sampler folding its own evidence stream constructs the breaching count as a subset of the total by filter order, so the claim holds structurally at the site that mints it.
 - Law: `Partition` carries a success share over one tag-partitioned counter, never a second counter minted for the numerator — a good-half twin doubles the series a roster mounts, strands its own denominator on any arm edit, and re-mints per value the dimension already keys; `Ratio` stays the shape for genuinely independent counters. `Saturation` bounds a level in that level's OWN unit rather than a normalized share, so a rank, a depth, and a fraction each read one shape and the polarity row decides the side.
 - Output: `Rate` answers absence rather than a quotient outside `[0,1]` — the shape is a boundary carrier a foreign series read fills and `default` mints, so an empty window and an invalid one both read `None` rather than handing a burn factor a fabricated quotient to read as a firing alert or a quiet stream.
 - Packages: NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Text.Json`).
@@ -91,7 +91,7 @@ public abstract partial record Sli {
         freshness: static row => row.Horizon > Duration.Zero);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SloSample(long Breaching, long Total) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Breaching >= 0L, Breaching <= Total);
 
@@ -219,7 +219,7 @@ public sealed partial class Objective {
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct BurnReading(SloSample Long, SloSample Short);
 
 [Union]
@@ -315,7 +315,7 @@ public static class Slo {
 - Auto: measurement shape carries a canonical reading, so a descriptor plane derives its default panel instead of re-deciding one per package; a board wanting a different widget overrides on its own row.
 - Law: three INDEPENDENT claims close a pack — panels resolve widget and break keys, objectives resolve series and partition keys, and objective names stay distinct — so the fold ACCUMULATES rather than aborting: a pack with four broken panels and a collided objective name reports all five, each named. Name collision is the claim no per-row admission can make, because each row sees a single objective and a collided slug silently overwrites its twin's rules at the deploy plane rather than refusing anywhere.
 - Law: `BoardPack` carries the provenance key the deploy plane admits it under as its FIRST column, so pack and key travel as one value and a key spelled only at the consuming tier has no construction path; the deploy tuple owns the closed vocabulary of admitted keys, so this column stays a plain `string` here and refuses at that boundary rather than forking a second roster in this branch.
-- Output: `Admit` exits `ToFin` at the pack boundary, so a caller reads one rail while the accumulation stays inside the fold that earned it.
+- Output: `Admit` exits `ToFin` at the pack boundary, so a caller reads one result while the accumulation stays inside the fold that earned it.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new visualization is one `PanelKind` row every pack reads through `For` without an edit; a new board row is one `PanelSpec` on the owning pack; a new pack-wide claim is one leg in the applicative product every sink inherits.
 - Boundary: panel rows name visualization alone and carry no query dialect, provider field, or datasource binding, and a break key outside the declared row's own dimensions refuses at pack admission where the descriptor is still editable rather than at the first empty render.

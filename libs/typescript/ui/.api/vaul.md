@@ -1,6 +1,6 @@
 # [TS_UI_API_VAUL]
 
-`vaul` owns the drag-dismissable drawer/sheet: the `Drawer` compound wraps a `@radix-ui/react-dialog` and layers pointer-drag translation, snap-point detents, velocity dismiss past `closeThreshold`, four-way `direction`, and background scale over it — Radix owns the accessible modal semantics, vaul owns the pointer math. It hosts the `view/overlay` sheet, distinct from the `@floating-ui/react` anchored-overlay rail.
+`vaul` owns the drag-dismissable drawer/sheet: the `Drawer` compound wraps a `@radix-ui/react-dialog` and layers pointer-drag translation, snap-point detents, velocity dismiss past `closeThreshold`, four-way `direction`, and background scale over it — Radix owns the accessible modal semantics, vaul owns the pointer math. It hosts the `view/overlay` sheet, distinct from the `@floating-ui/react` anchored-overlay path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -40,7 +40,7 @@
 - `cmdk`(`.api/cmdk.md`): a command palette in a sheet mounts a bare `Command` inside `Drawer.Content`, never `cmdk`'s `CommandDialog`, whose own portal and focus trap double vaul's.
 - `@floating-ui/react`(`.api/floating-ui-react.md`): the overlay-class split — floating-ui owns anchored overlays through `useFloating`/`FloatingPortal`/`FloatingFocusManager`/`FloatingOverlay`, and vaul takes portal, focus-trap, and scroll-lock (`scrollLockTimeout`) from the bundled Radix Dialog; the two overlay stacks never compose over one surface.
 - `@effect-atom/atom-react`(`.api/effect-atom-atom-react.md`): `open`/`onOpenChange` and `activeSnapPoint`/`setActiveSnapPoint` bind to atoms, so sheet visibility and detent are store state, undoable and URL-syncable.
-- `class-variance-authority`(`.api/class-variance-authority.md`): `cva` selectors style `Drawer.Content`/`Overlay`/`Handle` through the one `cn` rail; vaul sets `[vaul-drawer]` data attributes and drag-transform CSS vars, and `tw-animate-css` keys enter/exit off `direction`.
+- `class-variance-authority`(`.api/class-variance-authority.md`): `cva` selectors style `Drawer.Content`/`Overlay`/`Handle` through the one `cn` fold; vaul sets `[vaul-drawer]` data attributes and drag-transform CSS vars, and `tw-animate-css` keys enter/exit off `direction`.
 - `react`(`.api/react.md`): the parts are `ForwardRefExoticComponent`s rendering real DOM with no `asChild` slot — pass a ref to `Drawer.Content` directly.
 
 [LOCAL_ADMISSION]:

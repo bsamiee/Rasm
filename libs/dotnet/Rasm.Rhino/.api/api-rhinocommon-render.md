@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: batch renderer, framebuffer, and texture evaluation
-- rail: batch-render boundary
+- concern: batch-render boundary
 
 | [INDEX] | [SYMBOL]                   | [KIND]             | [CAPABILITY]                                                       |
 | :-----: | :------------------------- | :----------------- | :----------------------------------------------------------------- |
@@ -18,7 +18,7 @@
 |  [07]   | `TextureEvaluator`         | per-point eval     | `Color4f` evaluation at a UVW with derivative filtering            |
 
 [PUBLIC_TYPE_SCOPE]: post-effect family
-- rail: batch-render boundary
+- concern: batch-render boundary
 
 | [INDEX] | [SYMBOL]                     | [KIND]            | [CAPABILITY]                                                  |
 | :-----: | :--------------------------- | :---------------- | :------------------------------------------------------------ |
@@ -102,7 +102,7 @@
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
 - `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a `RenderPipeline`/`RenderWindow`/`RenderWindow.Channel`/`TextureEvaluator`/`PostEffectExecutionControl` `IDisposable` rides `Custody.Bracket` or `Lease<T>.Use`; `Render` returning `RenderReturnCode` projects to `Fin<Unit>` with `Ok` as success; `RenderWindow.Create`/`GetBitmap` cross through `Op.Catch`, and null binds onto `Fin<A>` through `Optional(...).ToFin(Fail: op.InvalidResult())`.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): `RenderReturnCode`, `StandardChannels`, `RenderSuccessCode`, `TextureEvaluatorFlags`, `TextureGeneration`, `PostEffectType`, `PostEffectStyles`, and `PostEffectExecuteWhileRenderingOptions` map at the edge to `[SmartEnum]`/flag owners; a `RenderReturnCode` result folds into a `[Union]` outcome the domain matches over the bounded channel/effect vocabulary.
-- `Rasm` kernel: `Color4f` channel writes through `Channel.SetValue`/`AddValue`/`SetRGBAChannelColors` and the `GetBitmap` read-back compose the kernel color owner, and `Size`/`Rectangle` render extents compose the kernel size owner; a re-derived color blend beside the composed kernel rail is the deleted form.
+- `Rasm` kernel: `Color4f` channel writes through `Channel.SetValue`/`AddValue`/`SetRGBAChannelColors` and the `GetBitmap` read-back compose the kernel color owner, and `Size`/`Rectangle` render extents compose the kernel size owner; a re-derived color blend beside the composed kernel owner is the deleted form.
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-render-realtime.md`: `RenderPipeline`'s `AsyncRenderContext` overload and a realtime engine's `StartRenderer` consume the `RenderWindow` this catalog owns; the realtime catalog participates through the window, this catalog owns the window and its channels.
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-rendercontent.md`: `RenderTexture.CreateEvaluator`/`SimulateTexture` evaluate the content the content catalog authors, `SimulatedTexture` is its bake carrier, and the change scope `PostEffect.BeginChange(RenderContent.ChangeContexts)` names is the content change protocol.
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-rendersettings.md`: a render consumes a `RenderSettings`, and the post-effects populate the `RenderSettings.PostEffects -> PostEffectCollection` container the settings catalog owns — that catalog tables the collection's reorder/select/enumerate surface and the `PostEffectData` cursor semantics, so a configuration edit never spells an execute-side member and this catalog re-tables neither.

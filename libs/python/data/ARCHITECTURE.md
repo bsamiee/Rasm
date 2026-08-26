@@ -111,7 +111,7 @@ flowchart TB
 ```
 
 - S0 `tabular` — `interop` the floor, `columnar` the scan base above it; `contract`, `profile`, `query`, `lakehouse`, `egress` branch independently.
-- S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration rail.
+- S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration path.
 - S0 `materialize` threads the root-bound `BackendGeneration` into every per-partition query, so one refresh reads one contract generation.
 - S0 `materialize` reads the change feed through the `lakehouse` `LakeOp.ChangeFeed` result payload, never a CDF provider of its own.
 - S0 `cost` prices canonical results it never produces, so the fold imports result families one-way.
@@ -126,7 +126,7 @@ flowchart TB
 - S2 `spatial` — apex consumer composing columnar, the `ObjectEgress` result owner, and the gridded `VirtualReference` plane.
 - S2 `spatial` store operations cross from the runtime lane, never from `tabular`; `cube` egresses with the gridded content key.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -137,7 +137,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Data package Python host-runtime seam registry
+    accTitle: Data package Python host-runtime interface registry
     accDescr: Which kinded contracts cross between the data owners and the Python host runtime, the evidence port and facts among them.
     subgraph data[DATA]
         Tabular[Tabular interchange]
@@ -188,7 +188,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Data package Python domain-peer seam registry
+    accTitle: Data package Python domain-peer interface registry
     accDescr: Which kinded contracts cross between the data owners and the Python sibling packages.
     subgraph data[DATA]
         Tabular[Tabular interchange]
@@ -220,7 +220,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Data package .NET-peer seam registry
+    accTitle: Data package .NET-peer interface registry
     accDescr: Data sub-domain owners exchanging frame shapes, content keys, plan wires, and the environmental set with the .NET peers.
     subgraph data[DATA]
         Tabular[Tabular interchange]
@@ -253,13 +253,13 @@ Fences split by peer plane: host runtime, Python siblings, .NET peers. Each coll
 
 `[PORT]` and `[SHAPE]: Fact` run one evidence spine in opposite directions: runtime declares the `Ledger` a data owner implements, and every data mutation leg records its own facts back through that port's writer. Geometry's mesh census lands its `FactJournal` rows through the same ledger leg. Producing legs are awaitable by law, so a synchronous entrypoint carries no such edge.
 
-Intra-`data` relations are composition, never seams; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
+Intra-`data` relations are composition, never boundaries; `[02]-[STRATA]` renders the acyclic import DAG this registry excludes.
 
 Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `ContentIdentity` primitive over the public `arrow_bytes` fold, never a per-page hash, and each crossing agrees with its counterpart page verbatim. Single-sided edges declare on the producing side and bind their counterpart when that page lands its mirror row.
 
 ## [04]-[INTERNAL]
 
-One interchange spine runs the tabular floor: frames admit once at `interop`, gate through `contract`, land on the lakehouse residence, and serve through `query`; `materialize` closes the operational apex while `cost` and `journal` close the evidence apex. Exact per-stage wiring lives on the owning implementation pages.
+One interchange spine runs the tabular floor: frames admit once at `interop`, gate through `contract`, land on the lakehouse store, and serve through `query`; `materialize` closes the operational apex while `cost` and `journal` close the evidence apex. Exact per-stage wiring lives on the owning implementation pages.
 
 ```mermaid
 ---
@@ -274,25 +274,25 @@ flowchart LR
     accDescr: How a foreign frame admits, gates, lands, refreshes, and serves, with results and facts closing on the evidence apex.
     Foreign([foreign frame or bytes]) e1@-->|"admit: FrameAdmission"| Interop[interop · frame floor]
     Interop e2@-->|"gate: ContractClaim"| Contract[contract · admission gate]
-    Contract e3@-->|"land: LakeOp"| Lakehouse[(lakehouse residence)]
+    Contract e3@-->|"land: LakeOp"| Lakehouse[(lakehouse store)]
     Lakehouse e4@-->|"feed: LakeOp.ChangeFeed"| Materialize[materialize · CDC apex]
     Materialize e5@-->|"refresh: QuerySpec"| Query[query engine]
     Materialize e6@-->|"put: StoreOp"| Egress[egress · object store]
     Query e7@-->|"serve: Arrow"| Consumers([consumers])
     Lakehouse e8@-->|"results"| Cost[cost · evidence apex]
     Materialize e9@-->|"facts"| Journal[(journal · Ledger implementer)]
-    Contract f1@-.->|"veto: ContractClaim"| Fault[/BoundaryFault rail/]
+    Contract f1@-.->|"veto: ContractClaim"| Fault[/BoundaryFault/]
     Materialize f2@-.->|"refuse: unrowed change type"| Fault
 ```
 
 - Admission runs once at `interop` — every keyer imports the one whole-table `arrow_bytes` serialization, so no second preimage spelling exists.
 - `spatial` persists through `egress`'s `ObjectEgress` results — no spatial page opens a store lane of its own.
 - `gridded` decodes once — the ragged bridge crosses the interop carrier and `virtual` registers byte ranges, copying none.
-- `graph` and `impact` lift at the seam — results lower onto `GraphResult` frames and the EN 15804 carrier before any tabular hop.
+- `graph` and `impact` lift at the boundary — results lower onto `GraphResult` frames and the EN 15804 carrier before any tabular hop.
 
 ## [05]-[BOUNDARIES]
 
-- `data` owns host-free interchange and residence — admission, movement, query, and evidence over its own planes.
+- `data` owns host-free interchange and store — admission, movement, query, and evidence over its own planes.
 - Engine selection stays interior: `EngineProfile` meets compute's jit band at `FrameAdmission` alone, neither folder re-owning the peer's decoder.
 - Graph-analytic reduction splits by analytic family — data answers flow and payload analysis; mesh-feature analytics stay geometry's.
 - `trimesh` crosses as the mesh-exchange boundary value; geometry keeps its own registration and topology.

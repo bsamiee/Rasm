@@ -48,7 +48,7 @@
 |  [12]   | `onViewStateChange`                 | `(p) => ViewStateT\|null\|void`                  | camera-change interception (constrain/redirect) |
 |  [13]   | `onHover`/`onClick`/`onDrag*`       | `(info, event) => void`                          | one `PickingInfo`-carrying pointer family       |
 |  [14]   | `getTooltip` / `getCursor`          | `(info) => TooltipContent` / `(state) => string` | declarative HUD/cursor                          |
-|  [15]   | `onLoad` / `onError`                | lifecycle callbacks                              | boot gate + error rail                          |
+|  [15]   | `onLoad` / `onError`                | lifecycle callbacks                              | boot gate + error channel                       |
 |  [16]   | `onResize`                          | `({width,height}) => void`                       | viewport-resize hook                            |
 |  [17]   | `onBeforeRender` / `onAfterRender`  | frame callbacks                                  | per-frame hooks                                 |
 |  [18]   | `onDeviceInitialized`               | `(device: Device) => void`                       | device-ready hook                               |
@@ -59,8 +59,8 @@
 
 ## [02]-[LAYER_MODEL]
 
-[TYPE_SCOPE]: the `Layer`/`CompositeLayer`/`LayerExtension` lattice — every layer is `_XxxProps<DataT> & (Layer|Composite)Props`, generic over the row type, with one lifecycle, one accessor mechanism, one extension hook.
-- primitive `Layer` renders GPU models; `CompositeLayer` renders other layers via `renderLayers()` and bubbles picking through `getSubLayers()`/`getSubLayerProps()`; `LayerExtension` injects shaders/state/props into any layer — the capability-injection seam the viewer uses instead of subclassing.
+[TYPE_SCOPE]: the `Layer`/`CompositeLayer`/`LayerExtension` hierarchy — every layer is `_XxxProps<DataT> & (Layer|Composite)Props`, generic over the row type, with one lifecycle, one accessor mechanism, one extension hook.
+- primitive `Layer` renders GPU models; `CompositeLayer` renders other layers via `renderLayers()` and bubbles picking through `getSubLayers()`/`getSubLayerProps()`; `LayerExtension` injects shaders/state/props into any layer — the capability-injection point the viewer uses instead of subclassing.
 - lifecycle `initializeState`/`updateState`/`shouldUpdateState`/`finalizeState`/`draw`/`getPickingInfo`; `CompositeLayer` adds `renderLayers`/`getSubLayerProps`/`getSubLayerAccessor`/`getSubLayerClass`/`getSubLayerRow`, `LayerExtension` mirrors it with `getShaders`/`onNeedsRedraw`. Custom `getShaders` share deck's shader modules `project`/`project32`/`picking`/`color`/`gouraudMaterial`/`phongMaterial`/`shadow` + `getShaderAssembler` so GPU code inherits deck's projection and picking.
 
 | [INDEX] | [SYMBOL]                                      | [SIGNATURE]                              | [CONSUMER_BOUNDARY]                          |
@@ -92,12 +92,12 @@
 |  [09]   | `highlightedObjectIndex` / `highlightColor` | `number` / `Color`                        | forced highlight target + color             |
 |  [10]   | `transitions`                               | `Record<string,any>`                      | per-prop GPU interpolation on change        |
 |  [11]   | `extensions` / `loaders` / `loadOptions`    | `LayerExtension[]` / `Loader[]`           | capability injection + loaders.gl config    |
-|  [12]   | `onDataLoad` / `onError`                    | data callbacks                            | load-complete + error rail                  |
+|  [12]   | `onDataLoad` / `onError`                    | data callbacks                            | load-complete + error channel               |
 |  [13]   | `onHover` / `onClick` / `onDrag*`           | `(info, event) => void`                   | per-layer pointer family                    |
 
 ## [03]-[VIEW_AND_CAMERA]
 
-[TYPE_SCOPE]: `View`→`Viewport` projection + `Controller` interaction + interpolators — the camera the `viewer/geo/project` seam syncs.
+[TYPE_SCOPE]: `View`→`Viewport` projection + `Controller` interaction + interpolators — the camera the `viewer/geo/project` contract syncs.
 - `View` specs a viewport and controller declaratively and snapshots an immutable `Viewport` from a `viewState`; construct a new one to mutate. `WebMercatorViewport` is the geospatial transform whose `project`/`unproject`/`fitBounds` the overlay-mark and camera-sync rows call. Free-standing `Deck` drives the camera from atom state through `FlyToInterpolator`/`LinearInterpolator`; under `@deck.gl/mapbox` the map owns it.
 - `CommonViewProps` = `{id,x,y,width,height,padding,clear,controller,viewState}`; every `View` exposes `makeViewport({width,height,viewState})`/`clone`/`equals`. `MapViewState` = `{longitude,latitude,zoom,pitch,bearing,min/maxZoom,min/maxPitch,position,nearZ,farZ}`, `MapViewProps` adds `{repeat,orthographic,altitude,fovy,nearZMultiplier,farZMultiplier}`.
 - `Viewport` methods `project(xyz,{topLeft?})`/`unproject(xyz,{topLeft?,targetZ?})`/`projectFlat`/`unprojectFlat`/`getBounds`/`getFrustumPlanes`/`containsPixel`/`getDistanceScales`; `WebMercatorViewport` adds `fitBounds([[lng,lat],[lng,lat]],{padding,maxZoom,minExtent,offset})`/`addMetersToLngLat`/`panByPosition`/`panByPosition3D`. `ControllerProps` folds the interaction toggles `{scrollZoom,dragPan,dragRotate,doubleClickZoom,touchZoom,touchRotate,keyboard,dragMode,inertia,maxBounds}` with transition props; concrete controllers `MapController`/`OrbitController`/`OrthographicController`/`TerrainController`/`_GlobeController`/`FirstPersonController` extend `Controller`.
@@ -147,7 +147,7 @@
 
 [STACKING]:
 - `@effect-atom` + a `Scope`: `viewer` acquires the `Deck`/`MapboxOverlay` in an `acquireRelease` (`onAdd`→acquire, `finalize`→release), holds it in a ref, and subscribes an atom-derived `layers`/`viewState` fold to `setProps`; `updateTriggers` governs GPU attribute recompute while react-compiler compiles the surrounding tree — two orthogonal memoization planes.
-- `@deck.gl/mapbox` (`.api/deck.gl-mapbox.md`): `MapboxOverlay` reuses `DeckProps` minus the camera props (`viewState`/`initialViewState`/`controller`/`width`/`height`/`canvas`/`gl`) — the maplibre map owns the camera and syncs it into `Deck`, the `viewer/geo/project` seam; free-standing `Deck` instead drives `viewState` from atom state with `FlyToInterpolator`/`LinearInterpolator`.
+- `@deck.gl/mapbox` (`.api/deck.gl-mapbox.md`): `MapboxOverlay` reuses `DeckProps` minus the camera props (`viewState`/`initialViewState`/`controller`/`width`/`height`/`canvas`/`gl`) — the maplibre map owns the camera and syncs it into `Deck`, the `viewer/geo/project` contract; free-standing `Deck` instead drives `viewState` from atom state with `FlyToInterpolator`/`LinearInterpolator`.
 - `@deck.gl/layers` + `@deck.gl/geo-layers` (`.api/deck.gl-layers.md`, `.api/deck.gl-geo-layers.md`): those own the `Layer`/`CompositeLayer` vocabulary; core owns the base classes, accessor types, picking, effects, and the `Deck` they render into, and `data` accepts the `wire`-decoded value directly.
 - `@geoarrow/deck.gl-geoarrow` + `apache-arrow` (`.api/apache-arrow.md`): `LayerData<T>` admits the binary `{length, attributes}` columnar form, so a `wire`-decoded Arrow `Table` fans one GeoArrow layer per `RecordBatch` (each layer's `data` is one `RecordBatch`, the caller iterates `Table.batches`) with zero per-row JS objects.
 - picking→selection: `Deck.pickObjectsAsync` (marquee) / `onClick`→`PickingInfo.object` is the boundary where a rendered feature becomes a `mark/selection` `GlobalId`, the async pair the WebGPU-safe form.

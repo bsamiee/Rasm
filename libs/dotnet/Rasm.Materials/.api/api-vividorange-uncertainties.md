@@ -105,7 +105,7 @@
 [STACKING]:
 - `api-unitsnet.md`(`libs/dotnet/.api/api-unitsnet.md`): the quantity family wraps `UnitsNet` `IQuantity` on the same floor the section-property and material-grade rows use, so a measured `Pressure` and its `±` band are one type — `pressure.WithRelativeUncertainty` yields `UncertaintyQuantity<Pressure>` whose bounds are `Pressure`.
 - `api-vividorange-serialization.md`(`.api/api-vividorange-serialization.md`): the uncertainty types carry the `VividOrange.Taxonomy.Serialization` marker, distinct from the `VividOrange.Serialization` marker that catalog's `ToJson<T>`/`FromJson<T>` constrains; the serializer settings stack and the two-assembly marker split are owned there.
-- Materials `Properties/`: the shared `Published<T>` ingress wraps `IUncertainty<T>` through `.Quantities.Utility` for a quantity or `.Utility` for a raw scalar, lowering the provider model to the neutral `MeasureBand` seam at the one mint so a property crosses as value+band.
+- Materials `Properties/`: the shared `Published<T>` ingress wraps `IUncertainty<T>` through `.Quantities.Utility` for a quantity or `.Utility` for a raw scalar, lowering the provider model to the neutral `MeasureBand` contract at the one mint so a property crosses as value+band.
 - `Rasm.Compute`: multi-ply rule-of-mixtures, series-resistance, and layered-STC folds propagate bands through `UncertaintyQuantityOperators.Add` and `Multiply`, so an aggregated assembly property reports its propagated uncertainty.
 
 [LOCAL_ADMISSION]:

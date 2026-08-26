@@ -16,7 +16,7 @@ The servicer has no ring, byte cache, frame state machine, or second store. `Tes
 - Law: `BodyAdmission(SERVER)` in `ServerHost` validates every unary and streamed message once. Serve adds only aggregate artifact proof and never repeats descriptor validation or field rules.
 - Law: one `Resource.REQUEST` charge settles each handled route, including refusals. Decode-time contract refusals never reach a handler and therefore carry no handler charge.
 - Law: the caller deadline admitted by `ServerHost` rides the daemon kernel. Artifact helper contexts close on success, refusal, cancellation, and downstream stream termination.
-- Entry: generated overrides collapse runtime rails through `ServerHost.settle`; `mount` proves geometry graduation before registering either application.
+- Entry: generated overrides collapse runtime faults through `ServerHost.settle`; `mount` proves geometry graduation before registering either application.
 - Output: `_response` is the one `TessellationResult → TessellateResponse` projection, the generated reply carrying the daemon's result whole; serve mints no parallel fact family beside the daemon's own lines and the weave's span.
 - Packages: generated compute/artifact protocols, runtime `transport/artifact`, the daemon/graduation owners, and runtime host/journal custody.
 - Growth: a new artifact integrity rule lands in the contracts helper; a new generated RPC adds one override and route charge here. Neither change adds a local frame dialect or storage port.
@@ -35,10 +35,10 @@ from rasm.runtime.transport.artifact import ArtifactError, ArtifactRefusal, fetc
 
 from rasm.data.tabular.columnar import DatasetRef
 from rasm.data.tabular.journal import FactJournal
-from rasm.geometry.graduation import EvidenceScope, GeometryLeg, bench_seam, bench_subject, evidence_run, registered
+from rasm.geometry.graduation import EvidenceScope, GeometryLeg, bench_boundary, bench_subject, evidence_run, registered
 from rasm.geometry.mesh.daemon import TessellationDaemon, TessellationResult
 from rasm.runtime.admission import RuntimeContext, SecretBoundary
-from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.journal import Custody, Journal, Ledger, MeterFact, Resource
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.profiles import Benchmark
@@ -79,13 +79,13 @@ SERVE_ARTIFACT: Final[FaultRow[GeometryLeg]] = FaultRow(
 RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([SERVE_EMPTY, SERVE_ABSENT, SERVE_ARTIFACT]))
 
 
-async def _served[T](route: str, composition: ScopeKey, settled: RuntimeRail[T]) -> RuntimeRail[T]:
+async def _served[T](route: str, composition: ScopeKey, settled: RuntimeResult[T]) -> RuntimeResult[T]:
     return (await Journal.record(MeterFact(resource=Resource.REQUEST, quantity=1, surface=route), scope=composition)).bind(
         lambda _landed: settled
     )
 
 
-def _ledger(evidence: Option[tuple[DatasetRef, DatasetRef, SecretBoundary]]) -> RuntimeRail[Option[tuple[Ledger, Custody]]]:
+def _ledger(evidence: Option[tuple[DatasetRef, DatasetRef, SecretBoundary]]) -> RuntimeResult[Option[tuple[Ledger, Custody]]]:
     match evidence:
         case Option(tag="some", some=(facts, custody, boundary)):
             return FactJournal.of(facts, custody).map(
@@ -123,7 +123,7 @@ class GeometryServe(ComputeService, ArtifactService):
     def served(self) -> Block[Served[Any]]:
         return Block.of_seq([(ComputeServiceASGIApplication, self), (ArtifactServiceASGIApplication, self)])
 
-    def mount(self, host: ServerHost) -> RuntimeRail[int]:
+    def mount(self, host: ServerHost) -> RuntimeResult[int]:
         return registered(self._composition).bind(lambda _install: host.mount(self.served()))
 
     @override
@@ -170,7 +170,7 @@ class GeometryServe(ComputeService, ArtifactService):
     def companion(
         self,
         evidence: Option[tuple[DatasetRef, DatasetRef, SecretBoundary]] = Nothing,
-    ) -> RuntimeRail[App]:
+    ) -> RuntimeResult[App]:
         return _ledger(evidence).map(
             lambda bound: companion_app(self.served(), ledger=bound, composition=self._composition)
         )
@@ -179,8 +179,8 @@ class GeometryServe(ComputeService, ArtifactService):
         self,
         request: TessellateRequest,
         context: RuntimeContext,
-    ) -> RuntimeRail[TessellateResponse]:
-        rail = await evidence_run(
+    ) -> RuntimeResult[TessellateResponse]:
+        held = await evidence_run(
             EvidenceScope.MESH_SERVE,
             TESSELLATE_ROUTE,
             partial(self._daemon.tessellate, request, budget=context.budget),
@@ -189,14 +189,14 @@ class GeometryServe(ComputeService, ArtifactService):
         return await _served(
             TESSELLATE_ROUTE,
             self._composition,
-            rail.bind(
+            held.bind(
                 lambda results: results.try_head()
                 .map(lambda head: Ok(_response(head)))
                 .default_value(Error(SERVE_EMPTY.raised()))
             ),
         )
 
-    async def _put(self, request: AsyncIterator[PutRequest]) -> RuntimeRail[ArtifactRef]:
+    async def _put(self, request: AsyncIterator[PutRequest]) -> RuntimeResult[ArtifactRef]:
         try:
             async with receive(put_frames(request)) as sealed:
                 match sealed:
@@ -219,8 +219,8 @@ class GeometryServe(ComputeService, ArtifactService):
         *,
         rounds: int = 32,
         warmup: int = 4,
-    ) -> RuntimeRail[Benchmark]:
-        return bench_seam(
+    ) -> RuntimeResult[Benchmark]:
+        return bench_boundary(
             bench_subject(EvidenceScope.MESH_SERVE, TESSELLATE_ROUTE), partial(self._tessellate, request, context), rounds=rounds, warmup=warmup
         )
 

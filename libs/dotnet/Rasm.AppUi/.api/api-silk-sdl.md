@@ -153,9 +153,9 @@ Every surface is an unsafe instance method on the `Sdl.GetApi()` root; only the 
 [STACKING]:
 - `api-silk-input`(`.api/api-silk-input.md`): `Silk.NET.Input.Sdl`'s controller backend and this haptic root P/Invoke one shared SDL2 native bundle, so `InputFabric` binds a single `Sdl.GetApi()` handle per process across both packages, never two.
 - `api-hidsharp`(`.api/api-hidsharp.md`) + `api-drywetmidi`(`.api/api-drywetmidi.md`): SDL2 haptic and gamepad streams co-lift with the HidSharp SpaceMouse stream and the DryWetMidi device stream under one `InputFabric` edge into canonical input shapes.
-- `InputFabric`: folds haptic device open/close, effect upload/run, and rumble onto the input rail as one boundary capsule, lifting SDL's int-status through `GetErrorAsException()` and never crossing a raw negative status into domain code.
+- `InputFabric`: folds haptic device open/close, effect upload/run, and rumble onto the input path as one boundary capsule, lifting SDL's int-status through `GetErrorAsException()` and never crossing a raw negative status into domain code.
 
 [LOCAL_ADMISSION]:
 - Haptic devices, joysticks, and controllers open through their `XxxOpen` call and close through `HapticClose`/`JoystickClose`/`GameControllerClose` matched in a scoped fold; the native handles carry no `IDisposable`.
-- Native results carry SDL's int-status convention (`0` success, negative failure); the boundary capsule lifts a negative status through `GetErrorAsException()` or `GetErrorS()` into a typed input-rail failure, and `ClearError()` resets state before an attribution-sensitive sequence.
+- Native results carry SDL's int-status convention (`0` success, negative failure); the boundary capsule lifts a negative status through `GetErrorAsException()` or `GetErrorS()` into a typed input-path failure, and `ClearError()` resets state before an attribution-sensitive sequence.
 - Device identity persists as the `GUID` value, never the volatile device or instance index; reconnect matching resolves through `GetJoystickGUIDInfo` with `GameControllerMappingForGUID`.

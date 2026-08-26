@@ -47,7 +47,7 @@
 |  [01]   | `InvalidMaterialTypeException` | class         | illegal material type at construction           |
 |  [02]   | `InvalidProfileTypeException`  | class         | profile shape with no face-reinforcement layout |
 
-- Both are plain `Exception` subclasses thrown at the section-construction boundary, not a `Fin`/`Validation` rail; `InvalidProfileTypeException.ValidateProfileForFaceReinforcement(IProfile)` gates the profile.
+- Both are plain `Exception` subclasses thrown at the section-construction boundary, not a `Fin`/`Validation` result; `InvalidProfileTypeException.ValidateProfileForFaceReinforcement(IProfile)` gates the profile.
 - `Reinforcement.Utility` stays `internal`, owning the `GetPath`/`GetRebars` layout geometry; consumers call the public layer surfaces.
 
 ## [02]-[ENTRYPOINTS]
@@ -108,5 +108,5 @@
 - geometry floor: bar positions and layer paths live in the `VividOrange.Geometry` `ILocalPoint2d`/`ILocalPolyline2d` Y-Z section space the `SectionProperties` `Centroid`/`Extends` returns share.
 
 [LOCAL_ADMISSION]:
-- A reinforced section admits through the Materials boundary owning the RC section and the `Connection/reinforcement` seam: a `ConcreteSection` from an `IProfile` + `EnConcreteMaterial` + an `EnRebarMaterial`-backed `Rebar`/layer arrangement maps onto the canonical Materials `ConnectionItem` (`ConnectionFamily.Reinforcement`) at the edge. A diameter reads from `BarDiameter`, a minimum clear spacing from `MinimumReinforcementSpacing.GetMinimumReinforcementSpacing`.
-- A Materials boundary traps `InvalidMaterialTypeException`/`InvalidProfileTypeException` at the in-folder edge and lowers them onto the typed section error rail (`LanguageExt.Fin`); the throw never reaches an interior domain signature, and consumers never call the `internal` `Reinforcement.Utility`.
+- A reinforced section admits through the Materials boundary owning the RC section and the `Connection/reinforcement` boundary: a `ConcreteSection` from an `IProfile` + `EnConcreteMaterial` + an `EnRebarMaterial`-backed `Rebar`/layer arrangement maps onto the canonical Materials `ConnectionItem` (`ConnectionFamily.Reinforcement`) at the edge. A diameter reads from `BarDiameter`, a minimum clear spacing from `MinimumReinforcementSpacing.GetMinimumReinforcementSpacing`.
+- A Materials boundary traps `InvalidMaterialTypeException`/`InvalidProfileTypeException` at the in-folder edge and lowers them onto the typed section error channel (`LanguageExt.Fin`); the throw never reaches an interior domain signature, and consumers never call the `internal` `Reinforcement.Utility`.

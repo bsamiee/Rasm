@@ -1,6 +1,6 @@
 # [RASM_RHINO_MODELING_MESHING]
 
-`HostMeshes.Build` owns admitted mesh creation, transformation, projection, and egress. `MeshOp.QuadRemesh` remains the sole mesh-to-`SubDOp.FromMesh` seam.
+`HostMeshes.Build` owns admitted mesh creation, transformation, projection, and egress. `MeshOp.QuadRemesh` remains the sole mesh-to-`SubDOp.FromMesh` adapter.
 
 ## [01]-[INDEX]
 
@@ -8,15 +8,15 @@
 - [03]-[POLICY]: `QuadLaw`, `WrapLaw`, `ReduceLaw`, `ExtrudeLaw`, `SmoothLaw`, and mesh generation policies.
 - [04]-[ALGEBRA]: policy values shared by mutation and construction.
 - [05]-[MUTATION]: `MeshEditIntent` and the value-semantic edit policies it carries.
-- [06]-[OPERATION_RAIL]: `MeshOp` and `HostMeshes.Build` over the spine's `ModelRuntime`.
+- [06]-[OPERATION_PIPELINE]: `MeshOp` and `HostMeshes.Build` over the spine's `ModelRuntime`.
 
 ## [02]-[FIDELITY]
 
 - Owner: `MeshFidelity` is the sole fidelity discriminant; `MeshLaw` admits the complete custom parameter set; `MeshPreset` carries the live host factories; `MeshDensity` closes the normalized density pair; `MeshFidelityFeature` is the feature vocabulary `MeshLaw` reads.
 - Law: `Rig` mints one disposable `MeshingParameters` carrier inside the consuming arm and nowhere else, so the native's lifetime is a `using` inside one borrow window and no policy value holds a live host carrier.
-- Law: the six `MeshingParameters` bits are a `CapabilitySet` column, never six bools and never a `FrozenSet` — a frozen set held by a `[ComplexValueObject]` compares by REFERENCE, so two byte-identical fidelity laws read unequal, and the capability column carries `Admits`, rank-ordered `Wire`, and unrepresentable off-roster membership instead.
+- Law: the six `MeshingParameters` bits are a `CapabilitySet` column, never six bools and never a `FrozenSet` — a frozen set held by a `[ComplexValueObject]` compares by REFERENCE, so two byte-identical fidelity laws read unequal, and the capability column carries `Admits`, ordinal-key `Wire`, and unrepresentable off-roster membership instead.
 - Growth: a new preset is one `MeshPreset` row; a new host bit is one `MeshFidelityFeature` row read once in `Mint`.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters` and its factories, `MeshingParameterTextureRange`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/rails` (`ValidityClaim`, `Op`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`, `ToleranceLane`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters` and its factories, `MeshingParameterTextureRange`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/results` (`ValidityClaim`, `Op`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`, `ToleranceLane`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -171,13 +171,13 @@ public readonly partial struct MeshLaw : IValidityEvidence {
 ## [03]-[POLICY]
 
 - Owner: `MeshCount` admits every positive host count once; `QuadLaw`, `WrapLaw`, `ReduceLaw`, and `ExtrudeLaw` carry the four native configuration surfaces; `QuadFeature`, `WrapFeature`, and `ReduceFeature` are their capability vocabularies; `MeshExtrusionFrame` rows the extruder's correlated frame pair.
-- Law: a policy refuses at construction and answers the same fold at `IsValid`, so the generated factory and the outer operation seam share ONE authority and the rail never re-derives a bound. `MeshCount`'s hook was named `Validate`, which the value-object generator never calls — every zero and negative count reached the natives unrefused — and the admitted spelling is `ValidateFactoryArguments`; `ExtrudeLaw`'s hook read an `originalFaces` parameter no signature declared and did not compile.
+- Law: a policy refuses at construction and answers the same fold at `IsValid`, so the generated factory and the outer operation boundary share ONE authority and the pipeline never re-derives a bound. `MeshCount`'s hook was named `Validate`, which the value-object generator never calls — every zero and negative count reached the natives unrefused — and the admitted spelling is `ValidateFactoryArguments`; `ExtrudeLaw`'s hook read an `originalFaces` parameter no signature declared and did not compile.
 - Law: cancellation, progress, and the regime belong to `ModelRuntime` and never to an operation or a policy — `ReduceLaw.Rig` and the boolean options read the runtime handed to the arm, so no policy value stores a token and no arm mints one.
-- Law: `Rig` is a capability projection on the fault rail, NOT a `[Mapper]` transcription — the `CapabilitySet` collapse consumed the field-for-field mirroring a Mapperly seat owns, so every host slot a `Rig` writes reads `Admits(capability: …)` off a grant column, threads the runtime, and returns `Fin<T>` inside its `key.Catch` window. Mapperly maps a declared source property onto a same-shaped target property on a pure signature and expresses none of those three, so a mapper seated here carries a hand-written body per slot and maps nothing; the folder's `[Mapper]` seats stay on the pages transcribing a foreign record field-for-field.
+- Law: `Rig` is a capability projection on the fault channel, NOT a `[Mapper]` transcription — the `CapabilitySet` collapse consumed the field-for-field mirroring a Mapperly seat owns, so every host slot a `Rig` writes reads `Admits(capability: …)` off a grant column, threads the runtime, and returns `Fin<T>` inside its `key.Catch` window. Mapperly maps a declared source property onto a same-shaped target property on a pure signature and expresses none of those three, so a mapper seated here carries a hand-written body per slot and maps nothing; the folder's `[Mapper]` seats stay on the pages transcribing a foreign record field-for-field.
 - Law: a row vocabulary is earned, never reflexive — a `[SmartEnum]` stands where its rows carry a column beyond the bit (a writer, a native factory, or a correlated host tuple such as `MeshExtrusionFrame`, `MeshSplitPolicy`, and `MeshCountMode`), a set of INDEPENDENT host bits is a `CapabilitySet` because they reach the native as adjacent arguments a call site transposes in silence, and a two-state modality that is the whole fact travels as a named `bool` on its owning case.
 - Law: `SmoothLaw` is the shared owner — `Curve.Smooth` and `Mesh.Smooth` take the identical five knobs, so `Modeling/curves.md` composes this page's law instead of respelling it and the mesh-only pass count and vertex selection ride the mesh cases.
 - Growth: a new native surface is one policy value with its `Rig`; a new host bit is one row on the owning capability vocabulary.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `QuadRemeshParameters`, `ShrinkWrapParameters`, `ReduceMeshParameters`, `MeshExtruder`, `QuadRemeshSymmetryAxis`, `MeshExtruderParameterMode`, `MeshExtruderFaceDirectionMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/solids.md` (`ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `QuadRemeshParameters`, `ShrinkWrapParameters`, `ReduceMeshParameters`, `MeshExtruder`, `QuadRemeshSymmetryAxis`, `MeshExtruderParameterMode`, `MeshExtruderFaceDirectionMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/solids.md` (`ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -392,9 +392,9 @@ public readonly partial struct ExtrudeLaw : IValidityEvidence {
 
 Frozen capability sets carry fidelity, remesh, wrap, reduction, shut-line, smoothing, orientation, edge-matching, and rebuild behavior; native bit products never cross admission.
 
-- Law: struct policies share one owner-local predicate between generated factories and outer operation admission; factory creation rejects invalid values, and the outer seam rejects default ghosts without duplicating rules.
+- Law: struct policies share one owner-local predicate between generated factories and outer operation admission; factory creation rejects invalid values, and the outer boundary rejects default ghosts without duplicating rules.
 - Growth: a new policy surface is one value object beside the ones here; the mutation and operation sections read it with zero new surface.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -593,11 +593,11 @@ public readonly partial struct MeshMatchLaw : IValidityEvidence {
 ## [05]-[MUTATION]
 
 - Owner: `MeshEditIntent` is the sole value-semantic mutation algebra and owns its own `Apply` dispatch; `SmoothLaw`, `MeshOrientationLaw`, `MeshEdgeSoftenLaw`, `ShutLineProfile`, `DisplacementLaw`, and `ClosedPolyline` are the policy values its cases carry; `ShutLineFeature` is their remaining capability vocabulary.
-- Law: mutation is value-semantic — the rail duplicates the borrowed mesh, runs the in-place host member on the working copy, and owns the copy (or the member's returned mesh, disposing the copy); no verb mutates the geometry behind an input handle, and the failure path rolls the duplicate back.
-- Law: the edit algebra owns its own dispatch, so `MeshOp.Edit` hands the working copy to `MeshEditIntent.Apply` and holds no per-verb knowledge — a new verb lands as one case with its arm and the construction rail is untouched.
+- Law: mutation is value-semantic — the pipeline duplicates the borrowed mesh, runs the in-place host member on the working copy, and owns the copy (or the member's returned mesh, disposing the copy); no verb mutates the geometry behind an input handle, and the failure path rolls the duplicate back.
+- Law: the edit algebra owns its own dispatch, so `MeshOp.Edit` hands the working copy to `MeshEditIntent.Apply` and holds no per-verb knowledge — a new verb lands as one case with its arm and the construction pipeline is untouched.
 - Law: the entry family renames at the boundary — the kernel owns `MeshEdit` (`Rasm/Meshing/edit.md`, the single-writer SoA build arena), so this host mutation roster is `MeshEditIntent` under the branch rule that a boundary declaration whose simple name matches a kernel owner renames on the host side.
 - Growth: a new edit verb is one case with its arm; a new policy surface is one value object beside the ones here.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` weld, offset, heal, collapse, normal, shut-lining, and displacement members; `MeshDisplacementInfo`, `ShutLiningCurveInfo`, `Polyline`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` weld, offset, heal, collapse, normal, shut-lining, and displacement members; `MeshDisplacementInfo`, `ShutLiningCurveInfo`, `Polyline`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -915,18 +915,18 @@ public sealed partial class ClosedPolyline : IValidityEvidence {
 
 ```
 
-## [06]-[OPERATION_RAIL]
+## [06]-[OPERATION_PIPELINE]
 
 - Owner: `MeshOp` `[Union]` — the whole verified mesh-construction verb roster; `HostMeshes` — the one entry folding any operation spread into owned geometry handles over the spine's `ModelRuntime`.
 - Law: the entry family renames at the boundary — the kernel owns `Meshes` (`Rasm/Analysis/inspect.md`), so this host roster is `HostMeshes` beside `HostCurves` and `HostSurfaces` under the same branch rule.
 - Law: `HostMeshes.Build` materializes the operation span ahead of the runtime bind — a span cannot cross the `Eff.runtime<ModelRuntime>()` lambda — then runs the spine's `ModelGate.Entry`, so capture, the non-empty guard, accumulating admission, and the fold are the spine's while the apply lambda threads one `ModelRuntime` through every arm.
 - Law: admission NAMES its axis — `MeshOp.Admitted` dispatches through the generated total `Switch` into `ModelClaim.Admits`, so a request breaching several constraints reports all of them and a new case breaks the compile instead of falling through a catch-all.
-- Law: the async remesh is the one host family honouring both governance columns on a WHOLE mesh, so `QuadRemesh` executes through `Mesh.QuadRemeshAsync`, its face-block overload when the case carries `FaceBlocks`, and `Mesh.QuadRemeshBrepAsync` for a Brep source; the synchronous whole-mesh overloads accept neither progress nor cancellation and the synchronous face-block overload accepts both only by inventing a face grouping the caller never asked for, so `ModelRuntime.Await` is the ONE seam collapsing a host `Task<T>` back onto this page's synchronous rail under the runtime's own token.
+- Law: the async remesh is the one host family honouring both governance columns on a WHOLE mesh, so `QuadRemesh` executes through `Mesh.QuadRemeshAsync`, its face-block overload when the case carries `FaceBlocks`, and `Mesh.QuadRemeshBrepAsync` for a Brep source; the synchronous whole-mesh overloads accept neither progress nor cancellation and the synchronous face-block overload accepts both only by inventing a face grouping the caller never asked for, so `ModelRuntime.Await` is the ONE adapter collapsing a host `Task<T>` back onto this page's synchronous pipeline under the runtime's own token.
 - Law: the mesh boolean family runs through `MeshBooleanOptions`, confirms the native `Result`, owns the returned meshes, discards the unconsumed input map at the native call, and allocates no `TextLog`.
 - Law: the mesh crossing gate reads `ToleranceLane.MeshIntersection`, never a bare absolute tolerance and never a page-local coefficient — the host's own `MeshIntersectionsTolerancesCoefficient` composes once at the kernel lane.
-- Boundary: `MeshOp.QuadRemesh` remains the sole mesh-to-`SubDOp.FromMesh` seam; `Mesh.CreateContourCurves` and `Mesh.ComputeThickness` remain kernel analysis; `ProjectFaces`, `ProjectNakedEdges`, and `ProjectOutlines` keep every projection discriminant on this operation owner rather than on a projection sibling; polyline values become owned `PolylineCurve` products before egress.
+- Boundary: `MeshOp.QuadRemesh` remains the sole mesh-to-`SubDOp.FromMesh` adapter; `Mesh.CreateContourCurves` and `Mesh.ComputeThickness` remain kernel analysis; `ProjectFaces`, `ProjectNakedEdges`, and `ProjectOutlines` keep every projection discriminant on this operation owner rather than on a projection sibling; polyline values become owned `PolylineCurve` products before egress.
 - Growth: a new mesher or engine is one case with its arm; the spine and every consumer read it with zero new surface.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` construction, seed, remesh, wrap, boolean, split, partition, match, and projection rosters; `MeshBooleanOptions`, `MeshRefinements`, `MeshExtruder`, `TextLog`), kernel `Domain/rails` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `Fin`), kernel `Domain/validation` (`CapabilitySet`, `CapabilityLaw`), kernel `Domain/context` (`Context`, `ToleranceLane`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `CapEnd`), LanguageExt.Core (`Eff.runtime`, `Seq`), Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` construction, seed, remesh, wrap, boolean, split, partition, match, and projection rosters; `MeshBooleanOptions`, `MeshRefinements`, `MeshExtruder`, `TextLog`), kernel `Domain/results` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `Fin`), kernel `Domain/validation` (`CapabilitySet`, `CapabilityLaw`), kernel `Domain/context` (`Context`, `ToleranceLane`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `CapEnd`), LanguageExt.Core (`Eff.runtime`, `Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

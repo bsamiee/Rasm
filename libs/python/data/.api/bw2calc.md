@@ -19,13 +19,13 @@
 |  [09]   | `FastScoresOnlyMultiLCA`   | class         | chunked scores-only fast path                |
 |  [10]   | `MethodConfig`             | model         | `pydantic` LCIA tree validated pre-solve     |
 
-[PUBLIC_TYPE_SCOPE]: typed failure rail (`bw2calc.errors`)
+[PUBLIC_TYPE_SCOPE]: typed failure result (`bw2calc.errors`)
 
 [ERROR_ROOT]: `BW2CalcError` — the sole exported member and the root of the solver family; derives from `Exception` directly, so a solve fence names it beside the stdlib rows a demand key or method tuple raises through it (`KeyError`, `ValueError`).
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: staged LCA lifecycle, factorization-reuse rail, and result projection
+[ENTRYPOINT_SCOPE]: staged LCA lifecycle, factorization-reuse domain, and result projection
 - `LCA` and `MultiLCA` carry: `data_objs`, `remapping_dicts`, `log_config`, `seed_override`, `use_arrays`, `use_distributions`, `selective_use`
 
 | [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                            |
@@ -59,7 +59,7 @@
 - `openepd`(`.api/openepd.md`) / `epdx`(`.api/epdx.md`): characterized `score` recomputes and reconciles the impacts an openEPD/EPDx payload declares.
 - `olca-ipc`(`.api/olca-ipc.md`): remote peer running the equivalent solve on an openLCA server; `bw2calc` stays the in-process engine when the background lives in Brightway.
 - `premise`(`.api/premise.md`): emits prospective `bw2data` databases the identical `LCA`/`MultiLCA` surface solves for future-scenario impacts.
-- `numpy`(`.api/numpy.md`): matrices are `scipy` sparse and vectors `numpy`; read `supply_array`/`characterized_inventory` as arrays into the numerics rail, densifying only inside `DenseLCA`.
+- `numpy`(`.api/numpy.md`): matrices are `scipy` sparse and vectors `numpy`; read `supply_array`/`characterized_inventory` as arrays into the numerics domain, densifying only inside `DenseLCA`.
 - `pydantic`(`.api/pydantic.md`): `MethodConfig` is a `pydantic` v2 `BaseModel`; validate the LCIA tree and pass its `model_dump()` directly to the calculation.
 - `anyio`(`.api/anyio.md`): `lci()`/`lcia()` are CPU-bound synchronous `scipy`; run them under `anyio.to_thread.run_sync`, or a process pool for a Monte Carlo fan-out.
 - `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): `log_config` wires the logger; emit `score`/`method`/functional-unit as a structured event and span the solve.

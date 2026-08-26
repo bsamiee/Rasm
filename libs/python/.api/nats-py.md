@@ -149,7 +149,7 @@ Every lifecycle callback must be a coroutine function — a plain callable raise
 
 [LOCAL_ADMISSION]:
 - Every lifecycle callback is a coroutine function, since a plain callable refuses at connect.
-- Every composition BINDS `error_cb` onto the branch fault rail, because the package default converts a permanently lost message into one log line — a `SlowConsumerError` is the sole witness a delivery the server already made never reached a handler.
+- Every composition BINDS `error_cb` onto the branch fault channel, because the package default converts a permanently lost message into one log line — a `SlowConsumerError` is the sole witness a delivery the server already made never reached a handler.
 - Every subscription STATES `pending_msgs_limit` and `pending_bytes_limit` against the lane's own limiter, since an inherited ceiling sizes the shed threshold against nothing the branch measured.
 - `reconnect_time_wait`, `max_reconnect_attempts`, and `allow_reconnect` state their values at the dial. `reliability/resilience#RESILIENCE` holds every schedule the branch runs and `RetryClass.BROKER` routes its re-offer through a RESTART, so an inherited reconnect curve underneath that route makes effective attempts the product of two schedules — the fork the branch RULINGS foreclose for binding rows and that inheritance re-opens beneath them.
 - `drain_timeout` states its value against the lane's in-flight window, since expiry discards every queued delivery rather than extending the drain.

@@ -1,6 +1,6 @@
 # [RASM_ELEMENT]
 
-`Rasm.Element` owns the neutral thing-model: the canonical property-graph element model at the lowest AEC-DOMAIN seam. One authoritative `ElementGraph` folds header, neutral node-and-relationship vocabulary, and a built-once incidence index; the consumer element is a memoized `Bake` over the reachable subgraph, never a second stored record; and the typed payload vocabularies are the one currency every discipline's data lands in, so a new discipline, payload, or relationship lands as a case on the neutral vocabulary, never a provider type.
+`Rasm.Element` owns the neutral thing-model: the canonical property-graph element model at the lowest AEC-DOMAIN boundary. One authoritative `ElementGraph` folds header, neutral node-and-relationship vocabulary, and a built-once incidence index; the consumer element is a memoized `Bake` over the reachable subgraph, never a second stored record; and the typed payload vocabularies are the one currency every discipline's data lands in, so a new discipline, payload, or relationship lands as a case on the neutral vocabulary, never a provider type.
 
 Every AEC peer projects its foreign source through `IElementProjection`, and Persistence holds the system of record. Generated `NodeWire` exists only as semantic support beneath the cross-language `EntityEditWire` actor.
 
@@ -14,7 +14,7 @@ Every AEC peer projects its foreign source through `IElementProjection`, and Per
 - [05]-[WIRE_VALUE](.planning/Graph/wirevalue.md): Recursive value, measure, bag, and evidence-envelope transcription arms.
 - [06]-[WIRE_SUBSTANCE](.planning/Graph/wiresubstance.md): Material composition and engineering-property transcription arms.
 - [07]-[WIRE_EVIDENCE](.planning/Graph/wireevidence.md): Assessment and observation evidence transcription arms.
-- [08]-[WIRE_RASTER](.planning/Graph/wireraster.md): Coverage, lattice, and georeference transcription arms.
+- [08]-[WIRE_RASTER](.planning/Graph/wireraster.md): Coverage, grid, and georeference transcription arms.
 - [09]-[CORPUS](.planning/Graph/corpus.md): Deterministic synthetic models — `CorpusProfile` closes the graded roster benchmarks and parity share.
 - [10]-[TABLE](.planning/Graph/table.md): Columnar row family projection of the frozen snapshot and its `AnalyticsSchema` wire handoff.
 
@@ -47,7 +47,7 @@ Every AEC peer projects its foreign source through `IElementProjection`, and Per
 - [22]-[PROJECTION](.planning/Projection/projection.md): Cross-stratum projector and constraint floors under one `Assemble` composition apps wire.
 - [23]-[ADDRESS](.planning/Projection/address.md): `ContentAddress` codec, order-free graph addressing, and typed incremental/refold member steps.
 - [24]-[FAULTS](.planning/Projection/fault.md): `ElementFault` owns graph, address, and projection semantics over the kernel admission fold.
-- [25]-[OBSERVE](.planning/Projection/observe.md): `ElementHooks` tap firing typed graph facts onto the kernel rail and into `GraphInstrument`.
+- [25]-[OBSERVE](.planning/Projection/observe.md): `ElementHooks` tap firing typed graph facts onto the kernel hooks and into `GraphInstrument`.
 - [26]-[AUDIT](.planning/Projection/audit.md): `ModelAudit` completeness grade folding coverage ratios and integrity sweeps into one graded value.
 
 ## [02]-[DOMAIN_PACKAGES]
@@ -61,11 +61,10 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [CORE_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance` — `ArrayPoolBufferWriter<byte>`, the pooled encode sink the corpus hot path writes and releases.
 - `Generator.Equals` — Structural equality and member diff feeding the 3-way merge.
-- `JetBrains.Annotations`
 - `LanguageExt.Core`
 - `NodaTime` — Instant stamps on assessments, provenance, and headers.
 - `QuikGraph` — Built-once incidence and topology view over the graph.
-- `Riok.Mapperly` — Source-generated seam↔wire case transcription.
+- `Riok.Mapperly` — Source-generated contract↔wire case transcription.
 - `System.IO.Hashing` — Kernel seed-zero content-hash seed.
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json` — JSON boundary transcription for smart-enum and value-object types.
@@ -73,7 +72,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [WIRE_CODEGEN]:
 - `Celly.Protovalidate` — Validates generated `NodeWire` support messages from corpus-authored rules before domain projection.
-- `Google.Protobuf` — Generated node-edit support messages and the descriptor-driven `FieldMask` seam.
+- `Google.Protobuf` — Generated node-edit support messages and the descriptor-driven `FieldMask` boundary.
 - `NodaTime.Serialization.Protobuf` — Temporal values reachable through the generated node payload closure.
 
 [EVENT_TRANSPORT]:

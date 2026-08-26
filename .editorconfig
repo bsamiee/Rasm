@@ -8,11 +8,10 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-# BuildCheck severities (-check rides Directory.Build.rsp); BC0201/BC0202 cannot model the estate's deliberate cross-pass property reads.
+# BuildCheck (`dotnet build -check`): BC0201/BC0202 cannot model the deliberate props-to-targets property reads.
 [*.csproj]
 build_check.BC0201.severity = none
 build_check.BC0202.severity = none
-build_check.BC0102.severity = none                                            # MPXJ.Net's ikvm runtime image reaches every closure consumer twice — transitive copy-local plus the ikvm package targets' own copy — as byte-identical writes; BC0101 still guards true output conflicts.
 
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
@@ -147,6 +146,7 @@ dotnet_diagnostic.IDE0055.severity = error                                    # 
 # --- [QUALITY_ANALYZERS] -----------------------------------------------------
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are intentional for Thinktecture regular unions.
 dotnet_diagnostic.CA1720.severity = none                                      # Param SmartEnum variants are intentionally type-named (Integer, Boolean, etc.) — they map CLR types to GH adders.
+dotnet_diagnostic.MA0008.severity = none                                      # Auto layout is the runtime default for managed structs; restating it per type is noise.
 dotnet_diagnostic.MA0048.severity = none                                      # Allow intentionally consolidated domain/type modules.
 dotnet_diagnostic.MA0051.severity = none                                      # Allow dense expression-owned dispatch; repo standards police real bloat.
 dotnet_diagnostic.MA0176.severity = none                                      # Plugin GUIDs are one-shot identity literals; constant extraction adds no value.
@@ -367,8 +367,8 @@ dotnet_diagnostic.IDE1005.severity = error                                    # 
 dotnet_diagnostic.RMG001.severity = error                                     # A throwing conversion (LanguageExt explicit Option<T> cast) bound over a registered mapping is a landmine, never a warning.
 dotnet_diagnostic.RMG007.severity = error                                     # A null-rejecting protoc setter fed a nullable carrier throws at runtime; presence writes are hand-owned by law.
 dotnet_diagnostic.RMG012.severity = error                                     # An unmapped TARGET member is a silently absent wire column.
-dotnet_diagnostic.RMG013.severity = error                                     # No suitable constructor: a shape drift between seam and wire must break the build, not degrade.
-dotnet_diagnostic.RMG020.severity = error                                     # An unmapped SOURCE member is a silently dropped seam fact (reader-bearing mappings demote this to authored inventory — the ignore roster states why).
+dotnet_diagnostic.RMG013.severity = error                                     # No suitable constructor: a shape drift between contract and wire must break the build, not degrade.
+dotnet_diagnostic.RMG020.severity = error                                     # An unmapped SOURCE member is a silently dropped contract fact (reader-bearing mappings demote this to authored inventory — the ignore roster states why).
 dotnet_diagnostic.RMG036.severity = error                                     # [MapDerivedType] on a protobuf oneof envelope is refused; the generated Switch owns union dispatch.
 dotnet_diagnostic.RMG060.severity = error                                     # Duplicate user mappings make the selected codec ambient; one per (T, TWire) pair by law.
 dotnet_diagnostic.RMG093.severity = error                                     # A mapping silently ignoring its source value voids the transcription proof.
@@ -376,9 +376,9 @@ dotnet_diagnostic.RMG093.severity = error                                     # 
 # --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Prefer static lambdas in Switch/Map arms; thread captured state through the state parameter.
 
-# --- [ESTATE_SEVERITY_FLOOR] -------------------------------------------------
+# --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
 # Rule severity lives here alone; no NoWarn exists at any MSBuild surface and the RASM0002 shape guard refuses one in a project body.
-dotnet_diagnostic.CS1591.severity = none                                      # GenerateDocumentationFile ships the XML for tooling; member-level doc prose is not estate law.
+dotnet_diagnostic.CS1591.severity = none                                      # GenerateDocumentationFile ships the XML for tooling; member-level doc prose is not required.
 dotnet_diagnostic.CS9236.severity = none                                      # Roslyn lambda binding-cost telemetry, not a defect signal.
 dotnet_diagnostic.CA2225.severity = none                                      # LanguageExt/Thinktecture operator algebra is the canonical surface; named alternates would duplicate it.
 
@@ -396,10 +396,6 @@ dotnet_diagnostic.EXTOBS0001.severity = none                                  # 
 [tools/rhino-bridge/Contract/**.cs]
 dotnet_diagnostic.CA1819.severity = none                                      # Arrays are the wire DTO shape on this assembly alone.
 dotnet_diagnostic.StreamJsonRpc0008.severity = none                           # [GenerateShape]'s PolyType generator cannot construct Thinktecture-generated wire types (CS1729), and SystemTextJsonFormatter is the only formatter either end builds.
-
-[tools/cs-analyzer/**.cs]
-dotnet_diagnostic.CA1008.severity = none                                      # Closed vocabularies (CspScope, rule kinds) have no valid None row.
-dotnet_diagnostic.CA1812.severity = none                                      # Inactive rule-catalog shapes instantiate through the rule table, not direct construction.
 
 [tests/**/*.cs]
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.

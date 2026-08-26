@@ -58,7 +58,7 @@
 |  [03]   | `MeshMorphAnimationChannel` / `MeshAnimationAttachment` | sealed class   | vertex-morph tracks and morph targets        |
 |  [04]   | `ExportFormatDescription`                               | sealed class   | `FormatId`, `Description`, `FileExtension`   |
 |  [05]   | `ImporterDescription`                                   | sealed class   | name, extensions, `ImporterFeatureFlags`     |
-|  [06]   | `IOSystem` / `IOStream`                                 | abstract class | custom VFS byte-source seams                 |
+|  [06]   | `IOSystem` / `IOStream`                                 | abstract class | custom VFS byte-source boundaries            |
 |  [07]   | `LogStream` / `ConsoleLogStream`                        | class          | native-log capture via `LoggingCallback`     |
 |  [08]   | `DefaultLogStream`                                      | flags enum     | built-in `File`/`StdOut`/`StdErr`/`Debugger` |
 |  [09]   | `ExportDataBlob`                                        | sealed class   | in-memory `Data` (`byte[]`), `Name`, chain   |
@@ -112,10 +112,10 @@
 - A mesh world matrix is the product of `Node.Transform` up the `Parent` chain; `PreTransformVertices` flattens it only where per-instance node identity is unused downstream.
 
 [STACKING]:
-- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): an `ExportDataBlob.Data` payload folds through `XxHash128` for the `Exchange/export` snapshot content key, joining the same content-identity rail the glTF export keys on.
-- `Exchange/import`: an imported `Assimp.Mesh` (`Vertices`/`Normals`/`Faces`) maps at the boundary onto the kernel `Rasm` mesh carrier; `Assimp.*` types never cross the seam.
+- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): an `ExportDataBlob.Data` payload folds through `XxHash128` for the `Exchange/export` snapshot content key, joining the same content-identity path the glTF export keys on.
+- `Exchange/import`: an imported `Assimp.Mesh` (`Vertices`/`Normals`/`Faces`) maps at the boundary onto the kernel `Rasm` mesh carrier; `Assimp.*` types never cross the boundary.
 - `Exchange/export`: a canonical scene rebuilds into an `Assimp.Scene` emitted via `ExportToBlob(scene, "fbx")` for the FBX and Collada legs.
-- `Semantics/appearance` + `Rasm.Materials`: `Material.PBRMaterialProperties` slots project onto the host-neutral PBR record reconciled with the OpenPBR owner at the content-key seam.
+- `Semantics/appearance` + `Rasm.Materials`: `Material.PBRMaterialProperties` slots project onto the host-neutral PBR record reconciled with the OpenPBR owner at the content-key boundary.
 - `Exchange/format`: `Scene.Metadata`/`Node.Metadata` (`Entry.DataAs<T>()`) feed per-importer `FrameNormalization` unit and up-axis coercion; this context registers the FBX, `.dae`, and 3MF `Detect` rows, one row per extension.
 
 [LOCAL_ADMISSION]:

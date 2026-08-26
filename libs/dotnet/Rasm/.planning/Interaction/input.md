@@ -1,10 +1,10 @@
 # [RASM_INPUT]
 
-`Rasm.Interaction` owns the admitted input evidence and the one leased event estate over it. A host callback hands raw device state exactly once, at the seam, and what crosses into the interior is a finiteness-admitted fact carrying both coordinate frames it was measured in; a responder answers with a precedence verdict rather than a bare bool; and every host event source is a row whose attach returns its own detacher.
+`Rasm.Interaction` owns the admitted input evidence and the one leased event module over it. A host callback hands raw device state exactly once, at the boundary, and what crosses into the interior is a finiteness-admitted fact carrying both coordinate frames it was measured in; a responder answers with a precedence verdict rather than a bare bool; and every host event source is a row whose attach returns its own detacher.
 
 Both boundaries mounted their own event tables, their own pointer records, and their own verdict vocabularies. The evidence, the responder algebra, the source roster, and the bounded drain are one body here; what stays at each boundary is the genuinely host-shaped residue — the Rhino viewport callback with its veto semantics, and the Grasshopper canvas hit plane.
 
-The estate is GENERIC over the fact band it carries. `IUiFact` is the floor, `UiFact` is the Eto band this page instantiates, and each boundary declares its own closed union with a wrapping case over the kernel band — a canvas fact, a document fact, and a conduit fact ride the same subscription, drain, and total order the Eto facts do, because a union with a private root constructor cannot be extended and a host that cannot publish its own facts has to build the estate twice.
+The module is GENERIC over the fact band it carries. `IUiFact` is the floor, `UiFact` is the Eto band this page instantiates, and each boundary declares its own closed union with a wrapping case over the kernel band — a canvas fact, a document fact, and a conduit fact ride the same subscription, drain, and total order the Eto facts do, because a union with a private root constructor cannot be extended and a host that cannot publish its own facts has to build the module twice.
 
 ## [01]-[INDEX]
 
@@ -15,19 +15,19 @@ The estate is GENERIC over the fact band it carries. `IUiFact` is the floor, `Ui
 ## [02]-[POINTER]
 
 - Owner: `DisplayFacts` the per-screen geometry and density snapshot; `Displays` the query surface over the screen set; `PointerSnapshot` the captured pointer frame; `InputState` the live device reads; `CursorRow` the cursor vocabulary; `PointerFact` the admitted per-event evidence.
-- Cases: a display query is `Primary`, `All`, `At(point)`, or `Covering(rect)` — four shapes over one entry, so an absent screen REFUSES on the rail rather than dereferencing a null the host returns.
+- Cases: a display query is `Primary`, `All`, `At(point)`, or `Covering(rect)` — four shapes over one entry, so an absent screen REFUSES on the result rather than dereferencing a null the host returns.
 - Cases: `CursorRow` carries the platform's whole built-in roster — ten pointer shapes and the eight directional resize shapes — because the roster's provenance is the host's own closed cursor set and a partial mirror sends a boundary back to naming host handles by hand.
 - Entry: `Displays.Resolve(query, key)` reads the screen set; `Displays.Capture(bounds, key)` is the ONE member minting a host image resource, and it returns a `Lease`; `InputState.Snapshot` captures the frame, `Held` reads the live provider predicate, `Locked` answers only for keys the platform's own lock set admits, and `Observe` leases a modifier watch.
 - Auto: every density and geometry column is an admitted owner, so a screen's scale, its backing scale, its two dots-per-inch readings, and its colour depth cannot enter as raw primitives and the validity fold states only the claims the owners do not already hold. Both the logical and the REAL scale ride the snapshot, because a backing scale and a logical scale disagree on exactly the displays a hairline is drawn wrong on.
-- Auto: `PointerFact` carries BOTH frames it was measured in — the control-local point and the content point — because a consumer that re-derives one from the other must know the scroll offset and the density, and every consumer that guessed produced a hit test off by the scroll. Finiteness is admitted at the seam, so an interior consumer never re-checks.
+- Auto: `PointerFact` carries BOTH frames it was measured in — the control-local point and the content point — because a consumer that re-derives one from the other must know the scroll offset and the density, and every consumer that guessed produced a hit test off by the scroll. Finiteness is admitted at the boundary, so an interior consumer never re-checks.
 - Law: `PointerSnapshot` is a CAPTURED frame and `InputState.Held` is a LIVE read, and the two never substitute — a snapshot's button mask answers what was true when the frame was taken, and a gesture that reads it as "is the button down now" drops every release that happened since.
 - Law: `Locked` returns `Option<bool>` gated on the platform's supported-lock set: a platform that does not report caps-lock answers absence, never `false`, because `false` is a measurement and absence is not (`FORGED_ZERO`).
-- Law: pressure is a MEASURED column and a device that does not report it admits its own absent value at the seam — an interior default of one is a fabricated reading, and the host's own args seed exactly that constant, so the absence decision is the admission's and never the platform's.
-- Law: applying a cursor touches the control tree, so both cursor verbs cross `UiThread` and answer a rail; a `Unit`-returning setter would hide an off-marshal write behind a value that cannot report it.
+- Law: pressure is a MEASURED column and a device that does not report it admits its own absent value at the boundary — an interior default of one is a fabricated reading, and the host's own args seed exactly that constant, so the absence decision is the admission's and never the platform's.
+- Law: applying a cursor touches the control tree, so both cursor verbs cross `UiThread` and answer a result; a `Unit`-returning setter would hide an off-marshal write behind a value that cannot report it.
 - Output: `DisplayFacts` and `PointerFact` are their own evidence and carry `IValidityEvidence` folds.
 - Packages: Eto.Forms for `Screen`, `Mouse`, `Keyboard`, `Cursor`, and `Cursors` (rosters verified in `libs/dotnet/.api/api-eto-runtime.md`); Eto.Drawing for the geometry carriers (prelude-aliased); `Numerics/atoms` for the admitted scalars.
 - Growth: a new ambient fact is one column on `DisplayFacts`; a new cursor is one `CursorRow`.
-- Boundary: HOST-SPECIFIC-STAYS — the Rhino viewport pointer seam keeps its whole family, because `MouseCallbackEventArgs` carries a VETO the host reads back and `RhinoView`'s static event tables have no host-neutral form; the Grasshopper canvas keeps its hit plane for the same reason.
+- Boundary: HOST-SPECIFIC-STAYS — the Rhino viewport pointer adapter keeps its whole family, because `MouseCallbackEventArgs` carries a VETO the host reads back and `RhinoView`'s static event tables have no host-neutral form; the Grasshopper canvas keeps its hit plane for the same reason.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -75,12 +75,12 @@ public sealed partial class CursorRow {
 
     [UseDelegateFromConstructor] internal partial Cursor Resolve();
 
-    [BoundaryAdapter] public Fin<Unit> Apply(Control control, Op key);
-    [BoundaryAdapter] public Fin<Unit> Override(Op key);
+    public Fin<Unit> Apply(Control control, Op key);
+    public Fin<Unit> Override(Op key);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DisplayFacts(
     EtoRectangleF Bounds,
     EtoRectangleF WorkingArea,
@@ -97,16 +97,16 @@ public readonly record struct DisplayFacts(
         ValidityClaim.Positive(value: WorkingArea.Width), ValidityClaim.Positive(value: WorkingArea.Height));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PointerSnapshot(EtoPointF Position, MouseButtons Buttons, Keys Modifiers) {
     public bool Holds(MouseButtons buttons) => (Buttons & buttons) == buttons;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PointerFact(
     EtoPointF Local, EtoPointF Content, MouseButtons Buttons, Keys Modifiers,
     EtoSizeF Delta, Option<UnitInterval> Pressure) : IValidityEvidence {
-    [BoundaryAdapter] public static Fin<PointerFact> Of(MouseEventArgs args, Control source, Op key);
+    public static Fin<PointerFact> Of(MouseEventArgs args, Control source, Op key);
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(value: Local.X), ValidityClaim.Finite(value: Local.Y),
@@ -127,15 +127,15 @@ public static class UiClaim {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class Displays {
-    [BoundaryAdapter] public static Fin<Seq<DisplayFacts>> Resolve(DisplayQuery query, Op? key = null);
-    [BoundaryAdapter] public static Fin<Lease<EtoImage>> Capture(EtoRectangleF bounds, Op? key = null);
+    public static Fin<Seq<DisplayFacts>> Resolve(DisplayQuery query, Op? key = null);
+    public static Fin<Lease<EtoImage>> Capture(EtoRectangleF bounds, Op? key = null);
 }
 
 public static class InputState {
-    [BoundaryAdapter] public static Fin<PointerSnapshot> Snapshot(Op? key = null);
-    [BoundaryAdapter] public static Fin<bool> Held(MouseButtons buttons, Op? key = null);
-    [BoundaryAdapter] public static Option<bool> Locked(Keys key);
-    [BoundaryAdapter] public static Fin<Lease<IDisposable>> Observe(Action<Keys> publish, Op? key = null);
+    public static Fin<PointerSnapshot> Snapshot(Op? key = null);
+    public static Fin<bool> Held(MouseButtons buttons, Op? key = null);
+    public static Option<bool> Locked(Keys key);
+    public static Fin<Lease<IDisposable>> Observe(Action<Keys> publish, Op? key = null);
 }
 ```
 
@@ -325,7 +325,7 @@ public abstract partial record UiFact : IUiFact {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DragEvidence(PointerFact Origin, PointerFact Current, Tolerance Slop) : IValidityEvidence {
     public static DragEvidence Of(PointerFact origin, PointerFact current, Context context) =>
         new(Origin: origin, Current: current, Slop: context.For(lane: ToleranceLane.Hit));
@@ -338,7 +338,7 @@ public readonly record struct DragEvidence(PointerFact Origin, PointerFact Curre
         ValidityClaim.Evidence(evidence: Optional(Current)));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct GestureFact(PointerPhase Phase, PointerFact Fact, Option<DragEvidence> Drag) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Evidence(evidence: Optional(Fact)),
@@ -357,7 +357,7 @@ public sealed record ResponderSpec(
         Pointer.Count + Keys.Count > 0 || Text.IsSome);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact, MonotonicStamp Stamp, long Ordinal) : IValidityEvidence
     where TFact : IUiFact {
     public bool IsValid => ValidityClaim.All(
@@ -380,7 +380,7 @@ public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact
 - Law: writer completion is idempotent and keyed — `Complete` terminates the reader's loop exactly once no matter how many detach paths reach it, which is what a single-reader consumer needs to finish rather than block on a channel nothing will write again.
 - Law: every attach and detach marshals through `UiThread` — a subscription wired off the marshal races the host's own table.
 - Output: `UiSubscription` carries the rows it seated beside the rows it refused; `Shed` and `Refused` are the drain's own accounting. Neither is a return value.
-- Packages: Eto.Forms for the event surfaces (rosters verified in `libs/dotnet/.api/api-eto-forms.md` and `api-eto-runtime.md`); `System.Threading.Channels` for the bounded drain; `Parametric/projections` for the timeline that stamps; LanguageExt.Core for the leases and rails.
+- Packages: Eto.Forms for the event surfaces (rosters verified in `libs/dotnet/.api/api-eto-forms.md` and `api-eto-runtime.md`); `System.Threading.Channels` for the bounded drain; `Parametric/projections` for the timeline that stamps; LanguageExt.Core for the leases and types.
 - Growth: a new Eto source is one `UiSource` row carrying its own table; a source over an existing phase costs no new table at all; a new HOST source roster is one `IUiSource<TFact>` implementation at that boundary; a new pick axis is one `PickAxis` row.
 - Boundary: a host event table is named on a ROW and nowhere else — the phase rosters own every pointer, key, and drag pair, and this roster owns the rest — so a consumer subscribes by row and never by `+=`.
 
@@ -665,7 +665,6 @@ public sealed class UiSubscription<TFact> : IDisposable where TFact : IUiFact {
 public sealed class EvidenceDrain<TFact> : IDisposable where TFact : IUiFact {
     private readonly Atom<long> ordinal = Atom(0L);
 
-    [BoundaryAdapter]
     public static Fin<Lease<EvidenceDrain<TFact>>> Open(
         MonotonicTimeline clock,
         Option<DrainPolicy> policy = default,
@@ -678,14 +677,13 @@ public sealed class EvidenceDrain<TFact> : IDisposable where TFact : IUiFact {
 
     public Fin<UiEvent<TFact>> Publish(IUiSource<TFact> source, Func<Fin<TFact>> fact, Op key);
 
-    [BoundaryAdapter] public Fin<Unit> Complete(Op? key = null);
+    public Fin<Unit> Complete(Op? key = null);
 
     public void Dispose();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UiEvents {
-    [BoundaryAdapter]
     public static Fin<Lease<UiSubscription<TFact>>> Observe<TFact>(
         EventAnchor anchor,
         EvidenceDrain<TFact> drain,

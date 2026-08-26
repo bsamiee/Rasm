@@ -46,7 +46,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Resolved tokens reach consumers through RESOURCE RESOLUTION alone, the blind riding `Rematerialize` — `SetValue` seats a local no swap re-resolves.
 - Compiled-resource correspondence proves mints, defined, and claimed-or-excluded on a LIVE headless walk — `XamlClosure` hides every `x:Key`.
 - Per-variant colour columns on a role row are the deleted shape — light and high-contrast PROJECT through `VariantProjection` from one seed.
-- `InputDevice` admits a cross-platform SDK on the estate's own framework or nothing — a per-platform SDK has no shared decode.
+- `InputDevice` admits a cross-platform SDK on the repo's own framework or nothing — a per-platform SDK has no shared decode.
 - `DeviceDriver` cases addressing two legs by one ordinal address the space BOTH enumerate — SDL's joystick and haptic indices are independent.
 - Visuals SAMPLING pixels outside their own bounds drive invalidation or clamp under `SampleScope` — no dirty region ever widens for a reader.
 - Runtime-shader rosters admit no caller-supplied text and split on RESIDENCY — `ShaderAssetCache` carries backend variants and a VRAM ceiling.
@@ -62,7 +62,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `LatencyTier` derives from the operation's EXPECTED duration, never its surface — one latency ladder elects every rung from none to handoff.
 - Floating chrome takes the `MotionLane` of transform and opacity ALONE — animating extent re-enters layout for the plane beneath on every frame.
 - LAYERED capability ladders answer per row at the WEAKEST rung — a `DockableRow` override outranks every policy above, leaving dead configuration.
-- Frameworks deserializing their own graph rehydrate through the locator seam published — an unbound `ContextLocator` yields a context-less layout.
+- Frameworks deserializing their own graph rehydrate through the locator boundary published — an unbound `ContextLocator` yields a context-less layout.
 - Silent substrate DEGRADATION is measured, never inferred from an unwritten channel — the layout result reads each row's post-solve violation.
 - Per-surface admission matrices are a COLUMN on `ChromeSlot` — N rows re-deriving it are N chances to disagree, while a row predicate never widens.
 - Persisted carriers restore in the DEPENDENCY ORDER of their keys, `RegionProgram` first — each later carrier keys on a surface the earlier mints.
@@ -137,19 +137,19 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Decorations measured in LINE SPANS take geometry from the `DiffSurface` rendered, never a caller — a supplied span arrow is a second authority.
 - `MarkdownRendered` and every projection OPENING a host resource is an OWNER — a per-fence code pane holds a grammar install and a handler.
 - Multi-seat mounts like `DiffSeat` carry CUSTODY across their roster, re-seating before release — dispose-then-mount destroys on refusal.
-- Reads the interior performs BY CONSTRUCTION are proved at the MINT — a positional read faults outside every rail, and a narrowed magnitude WRAPS.
+- Reads the interior performs BY CONSTRUCTION are proved at the MINT — a positional read faults outside every bound, and a narrowed magnitude WRAPS.
 - `LayerStack.Passes` and every projection into a settled render or pass owner answer its EXECUTABLE form — a bare case hands a value nothing enters.
-- `TelemetryRow` binds its handle at the type the declared form names — a narrower write takes the type-mismatch verdict under a live rail.
+- `TelemetryRow` binds its handle at the type the declared form names — a narrower write takes the type-mismatch verdict under a live result.
 - Owners holding a LIVE mutable cell are sealed classes whose transitions ANSWER what they retired — a record copy shares the cell by reference.
 - COUNT instruments read what happened since the previous collection and LEVELS what stands now, so `ShaderAsset`'s count cell DRAINS when observed.
 - Bound surfaces publish their PRODUCT beside lifecycle through one `TileRender` union keyed by surface — a per-class callback drops the empty cases.
 - Totals re-read the BASIS `MetricRow` already carries and never invert a derived column — a ratio divided back out answers NaN on a legitimate zero.
 - `GraphBinding` latches guarding a WHOLE-STATE reconcile HAND the refused arrival to the holder — an arrival after the read names an unseen state.
 - `RedlineOrigin.Stroke` and every DEFERRED commit carry the frame their samples were taken under — the mounted camera displaces by whatever moved.
-- `MercatorFilter.Inverse` is admitted on its own DOMAIN — a cylindrical axis WRAPS because a pan past the seam names a place, an asymptote REFUSES.
+- `MercatorFilter.Inverse` is admitted on its own DOMAIN — a cylindrical axis WRAPS because a pan past the wrap names a place, an asymptote REFUSES.
 - Durable REMOVALS prove their target existed at the ONE `RedlineSurface` site the verb and every routed erase cross, or undo restores nothing.
 - Vocabularies a boot-frozen registry reads declare on a NON-GENERIC owner like `ConflictIntent` — the freeze precedes every operation result.
-- `ClimateFeed.Arc` is the turn less the WIDEST gap between sorted bearings — plain extremes over a corner set answer the COMPLEMENT across the seam.
+- `ClimateFeed.Arc` is the turn less the WIDEST gap between sorted bearings — plain extremes over a corner set answer the COMPLEMENT across the wrap.
 - Foreign named defaults bind from the container's registered accessor — `LineType.Continuous` mints a fresh unregistered entry on every read.
 - Composition timing reduces and bounds ONCE — `KeyFrameAnimation.Duration` validates the field it OVERWRITES, so a zero poisons every later write.
 - Wire absence spells the AppHost merge's omission on every family — a package-declared null regime forks a posture the emitted bytes never carried.
@@ -184,7 +184,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `LabelMark` fields on a dense plane are PLACED, never merely drawn — the fold admits each box against those placed and drops the least significant.
 - Tiled basemap appearance is its `BasemapSource` and never a post-effect — the raster draw path exposes no tint, blend, or colour-matrix hook.
 - Attribution is an ADMISSION, not chrome taste — a `BasemapSource` declaring no credit refuses at build, and the credit rides the row it credits.
-- Every `MapNav` entry answers the SAME rail — a sibling returning a bare effect swallows out-of-range arguments and forces caller branching.
+- Every `MapNav` entry answers the SAME result type — a sibling returning a bare effect swallows out-of-range arguments and forces caller branching.
 - `RedlineVerb` edits RECORD on the pass that commits them, the delta being the prior payload beside the new — a post-seal snapshot yields a no-op.
 - `TableColumnState` is written in the SHAPE the control's gesture produces and read back through the identity it leaves — a comparer leaves none.
 - Presentation state a control writes from its OWN gate is produced by satisfying that gate — `TableCommit` sees an internal setter the control owns.

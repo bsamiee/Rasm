@@ -2,12 +2,12 @@
 
 `step` owns ISO 10303 protocol admission and the provider's one STEP codec pair: `unsealed` lowers a call-owned file into kernel topology, `sealed` raises kernel topology back onto a call-owned file, and one schema roster decides which application protocol either side is reading. `sourced` is the forward leg's map-resolving entry — one lookup in the call's sha256-keyed path map ahead of `unsealed` — so both native B-rep bands reach source resolution here, one stratum down, and neither imports the fold apex for it. Artifact transport resolves `SealedStep.artifact` onto a path before this owner runs, so no member here opens a store, performs transport, or returns STEP octets.
 
-`exchange/identity#PINS` seats beneath this page and rules both the process statics and the canonical header this codec stamps; `faults#ROWS` supplies `STEP_READ`, `STEP_SCHEMA`, and `STEP_WRITE`, and every refusal is `Error(<ROW>.at(...))` on `CadRail`. `gated` is this page's export of the one `IFSelect_ReturnStatus` guard, and `exchange/assembly#DOCUMENT` composes it over the CAF readers instead of re-spelling the comparison.
+`exchange/identity#PINS` seats beneath this page and rules both the process statics and the canonical header this codec stamps; `faults#ROWS` supplies `STEP_READ`, `STEP_SCHEMA`, and `STEP_WRITE`, and every refusal is `Error(<ROW>.at(...))` on `CadResult`. `gated` is this page's export of the one `IFSelect_ReturnStatus` guard, and `exchange/assembly#DOCUMENT` composes it over the CAF readers instead of re-spelling the comparison.
 
 ## [01]-[INDEX]
 
 - [02]-[PROTOCOL]: One schema roster, its derived forward and inverse maps, and file-local application-protocol admission.
-- [03]-[CODEC]: `gated`, the `unsealed`/`sealed` pair composing every OCCT exchange status onto one rail, and `sourced` the map-resolving forward entry.
+- [03]-[CODEC]: `gated`, the `unsealed`/`sealed` pair composing every OCCT exchange status onto one result, and `sourced` the map-resolving forward entry.
 
 ## [02]-[PROTOCOL]
 
@@ -38,11 +38,11 @@ from OCP.TopoDS import TopoDS_Shape
 # Contracts are retired from this logic.
 
 from rasm.cad.exchange.identity import EMITTED, canonical
-from rasm.cad.faults import BREP_INPUT, STEP_READ, STEP_SCHEMA, STEP_WRITE, CadRail, FaultRow
+from rasm.cad.faults import BREP_INPUT, STEP_READ, STEP_SCHEMA, STEP_WRITE, CadResult, FaultRow
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type ExchangeArrow[A] = Callable[[A], CadRail[A]]
+type ExchangeArrow[A] = Callable[[A], CadResult[A]]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -78,11 +78,11 @@ def _token(identifier: str, /) -> str:
     return identifier.partition("{")[0].strip().removesuffix(".").rstrip()
 
 
-def _admitted(token: str, /) -> CadRail[StepProtocol]:
+def _admitted(token: str, /) -> CadResult[StepProtocol]:
     return Option.of_optional(_PROTOCOLS.get(token)).to_result_with(lambda: STEP_SCHEMA.at(f"file-schema:{token}"))
 
 
-def declared(model: StepData_StepModel, /) -> CadRail[StepProtocol]:
+def declared(model: StepData_StepModel, /) -> CadResult[StepProtocol]:
     header = APIHeaderSection_MakeHeader(model)
     return (
         Ok(header)
@@ -110,19 +110,19 @@ def declared(model: StepData_StepModel, /) -> CadRail[StepProtocol]:
 
 
 def gated[A](row: FaultRow, coordinate: str, call: Callable[[A], IFSelect_ReturnStatus], /) -> ExchangeArrow[A]:
-    def arrow(held: A, /) -> CadRail[A]:
+    def arrow(held: A, /) -> CadResult[A]:
         status = call(held)
         return Ok(held) if status == IFSelect_ReturnStatus.IFSelect_RetDone else Error(row.at(f"{coordinate}:{status}"))
 
     return arrow
 
 
-def _opened(path: Path, /) -> CadRail[STEPControl_Reader]:
+def _opened(path: Path, /) -> CadResult[STEPControl_Reader]:
     return gated(STEP_READ, "STEPControl_Reader.ReadFile", lambda held: held.ReadFile(str(path)))(STEPControl_Reader())
 
 
 def _matched(protocol: StepProtocol, /) -> ExchangeArrow[STEPControl_Reader]:
-    def arrow(reader: STEPControl_Reader, /) -> CadRail[STEPControl_Reader]:
+    def arrow(reader: STEPControl_Reader, /) -> CadResult[STEPControl_Reader]:
         return declared(reader.StepModel()).bind(
             lambda found: Ok(reader)
             if found == protocol
@@ -132,20 +132,20 @@ def _matched(protocol: StepProtocol, /) -> ExchangeArrow[STEPControl_Reader]:
     return arrow
 
 
-def _transferred(reader: STEPControl_Reader, /) -> CadRail[STEPControl_Reader]:
+def _transferred(reader: STEPControl_Reader, /) -> CadResult[STEPControl_Reader]:
     return Ok(reader) if reader.TransferRoots() else Error(STEP_READ.at("STEPControl_Reader.TransferRoots:0"))
 
 
-def _one(reader: STEPControl_Reader, /) -> CadRail[TopoDS_Shape]:
+def _one(reader: STEPControl_Reader, /) -> CadResult[TopoDS_Shape]:
     shape = reader.OneShape()
     return Error(STEP_READ.at("STEPControl_Reader.OneShape:null")) if shape.IsNull() else Ok(shape)
 
 
-def unsealed(value: SealedStep, path: Path, /) -> CadRail[TopoDS_Shape]:
+def unsealed(value: SealedStep, path: Path, /) -> CadResult[TopoDS_Shape]:
     return pipeline(_opened, _matched(value.protocol), _transferred, _one)(path)
 
 
-def sourced(value: SealedStep, sources: frozendict[bytes, Path], /) -> CadRail[TopoDS_Shape]:
+def sourced(value: SealedStep, sources: frozendict[bytes, Path], /) -> CadResult[TopoDS_Shape]:
     return (
         Option.of_optional(sources.get(value.artifact.sha256))
         .to_result_with(lambda: BREP_INPUT.at(f"source.absent:{value.artifact.sha256.hex()}"))
@@ -161,12 +161,12 @@ def _staged(shape: TopoDS_Shape, /) -> ExchangeArrow[STEPControl_Writer]:
     )
 
 
-def _stamped(writer: STEPControl_Writer, /) -> CadRail[STEPControl_Writer]:
+def _stamped(writer: STEPControl_Writer, /) -> CadResult[STEPControl_Writer]:
     return canonical(writer.Model()).map(lambda _model: writer)
 
 
-def _written(path: Path, /) -> Callable[[STEPControl_Writer], CadRail[Path]]:
-    def arrow(writer: STEPControl_Writer, /) -> CadRail[Path]:
+def _written(path: Path, /) -> Callable[[STEPControl_Writer], CadResult[Path]]:
+    def arrow(writer: STEPControl_Writer, /) -> CadResult[Path]:
         return gated(STEP_WRITE, "STEPControl_Writer.Write", lambda held: held.Write(str(path)))(writer).map(
             lambda _held: path
         )
@@ -174,7 +174,7 @@ def _written(path: Path, /) -> Callable[[STEPControl_Writer], CadRail[Path]]:
     return arrow
 
 
-def _probed(path: Path, /) -> CadRail[StepProtocol]:
+def _probed(path: Path, /) -> CadResult[StepProtocol]:
     return (
         gated(STEP_WRITE, "STEPControl_Reader.ReadFile", lambda held: held.ReadFile(str(path)))(STEPControl_Reader())
         .bind(lambda probe: declared(probe.StepModel()).map_error(lambda fault: STEP_WRITE.at(fault.coordinate)))
@@ -186,7 +186,7 @@ def _probed(path: Path, /) -> CadRail[StepProtocol]:
     )
 
 
-def sealed(shape: TopoDS_Shape, path: Path, /) -> CadRail[StepProtocol]:
+def sealed(shape: TopoDS_Shape, path: Path, /) -> CadResult[StepProtocol]:
     return pipeline(_staged(shape), _stamped, _written(path), _probed)(STEPControl_Writer())
 ```
 

@@ -104,7 +104,7 @@ Output members are `libpdalpython.Pipeline` attributes undefined before `execute
 - import: `import pdal` at boundary scope only; the `inject_pdal_drivers` side-effect binds the typed factories, so the import completes before any `Reader.las`/`Filter.range` reference.
 - construction: build the stage graph through the injected factories under `|` (`Reader.las(path) | Filter.range(limits="Z[0:100]") | Writer.las(out)`); `Filter` alone needs an explicit `type`, readers and writers infer it from `filename` — a path str or a FileSpec dict `{"path": str, ...}` for remote/authenticated sources — and `Pipeline(spec=...)` also admits a raw PDAL JSON string or a `Stage` sequence.
 - execution: `execute()` runs batch; `execute_streaming()`/`iterator()` are the streaming arms gated on `p.streamable`, a fold over `drivers.StreamableTypes`. Output members are read from the settled pipeline.
-- output: `arrays` is the canonical structured-`numpy` egress; `get_meshio` seams XYZ + `triangle` cells from mesh A/B/C (after `filters.poisson`/`filters.delaunay`) into a `meshio.Mesh`, and `get_dataframe`/`get_geodataframe` the tabular seams — a null `Mesh`/frame surfaces as `None`.
+- output: `arrays` is the canonical structured-`numpy` egress; `get_meshio` boundaries XYZ + `triangle` cells from mesh A/B/C (after `filters.poisson`/`filters.delaunay`) into a `meshio.Mesh`, and `get_dataframe`/`get_geodataframe` the tabular boundaries — a null `Mesh`/frame surfaces as `None`.
 - offload: `Pipeline` pickles through its JSON state, so a multi-second solve hands to the runtime offload lane by JSON.
 - evidence: the settled pipeline exposes output point count, schema dimension names, SRS WKT2, and stage tags; the metadata JSON carries per-stage diagnostics.
 

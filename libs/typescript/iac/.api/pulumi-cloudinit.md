@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_CLOUDINIT]
 
-`@pulumi/cloudinit` renders multi-part MIME cloud-init user-data as a typed graph value — the pre-SSH first-boot leg of the bootstrap rail. One part shape (`content`/`contentType`/`filename`/`mergeType`) feeds one render surface with a `Promise`/`Output` invoke mirror (`getConfig`/`getConfigOutput`); `rendered` is the product and `gzip`/`base64Encode`/`boundary` shape the wire encoding the consuming host API reads.
+`@pulumi/cloudinit` renders multi-part MIME cloud-init user-data as a typed graph value — the pre-SSH first-boot leg of the bootstrap axis. One part shape (`content`/`contentType`/`filename`/`mergeType`) feeds one render surface with a `Promise`/`Output` invoke mirror (`getConfig`/`getConfigOutput`); `rendered` is the product and `gzip`/`base64Encode`/`boundary` shape the wire encoding the consuming host API reads.
 
 ## [01]-[CONFIG_RENDER]
 

@@ -21,7 +21,7 @@
 - Activation is reference presence: the `PackageReference` lets `Microsoft.ML.Tokenizers` read the embedded `cl100k_base` resource offline, and `cl100k_base` serves the GPT-4 / GPT-3.5 / `davinci-002` / embedding model family the engine's prefix table routes here.
 
 [STACKING]:
-- `Microsoft.ML.Tokenizers`(`.api/api-ml-tokenizers.md`): the engine owns the model-prefix routing table and reads this resource on `CreateForEncoding("cl100k_base")` / `CreateForModel`, then prices the prompt through its `CountTokens` rail.
+- `Microsoft.ML.Tokenizers`(`.api/api-ml-tokenizers.md`): the engine owns the model-prefix routing table and reads this resource on `CreateForEncoding("cl100k_base")` / `CreateForModel`, then prices the prompt through its `CountTokens` API.
 - Rasm.AppHost cost broker: `CostModel.Variable` folds `CountTokens` into `CostUnit.ModelTokens` off one composition-time tokenizer, air-gapped.
 
 [LOCAL_ADMISSION]:

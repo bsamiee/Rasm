@@ -50,7 +50,7 @@ def socket_disabled(pytestconfig: pytest.Config) -> Iterator[None]: ...
 
 [STACKING]:
 - `runtime.py`(`../testkit/runtime.py`): `pytest_collection_modifyitems` auto-applies `pytest.mark.network` to any item whose `fixturenames` contains `socket_enabled`, so lifting the block always tags the test for the mutation-lane deselection.
-- `seams.py`(`../testkit/seams.py`): `loopback_server` binds a `127.0.0.1` capsule that rides the `network` marker.
+- `doubles.py`(`../testkit/doubles.py`): `loopback_server` binds a `127.0.0.1` capsule that rides the `network` marker.
 - `pyproject.toml`(`../../../pyproject.toml`): `addopts` pins `--disable-socket` and `--allow-unix-socket`; the `network` marker is declared and excluded from mutation lanes via `-m "not network"`.
 
 [LOCAL_ADMISSION]:

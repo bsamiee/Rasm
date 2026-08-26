@@ -1,6 +1,6 @@
 # [PY_DATA_API_XARRAY_SPATIAL]
 
-`xarray-spatial` mints the Numba-accelerated raster-analytics surface for the data terrain rail: a flat `xrspatial` namespace of pure-function operators consuming a 2D `xarray.DataArray`/`Dataset` elevation or band grid and returning a same-shaped grid or a zonal-reduction table. Numba dispatches every operator across NumPy, Dask, and CuPy element types on one grid carrier. Coverage raster IO — GeoTIFF read and writeback, reprojection, mosaic, and vector<->raster bridging — routes to the `rioxarray` and `rasterio` owners.
+`xarray-spatial` mints the Numba-accelerated raster-analytics surface for the data terrain domain: a flat `xrspatial` namespace of pure-function operators consuming a 2D `xarray.DataArray`/`Dataset` elevation or band grid and returning a same-shaped grid or a zonal-reduction table. Numba dispatches every operator across NumPy, Dask, and CuPy element types on one grid carrier. Coverage raster IO — GeoTIFF read and writeback, reprojection, mosaic, and vector<->raster bridging — routes to the `rioxarray` and `rasterio` owners.
 
 ## [01]-[PUBLIC_TYPES]
 

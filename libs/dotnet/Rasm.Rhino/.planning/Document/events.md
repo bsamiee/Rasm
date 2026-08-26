@@ -13,14 +13,14 @@
 
 ## [02]-[FAMILY]
 
-- Owner: `EventFamily` binds one symbolic host event key to its band, cadence, attach/detach pair, and callback-scope projection; `Cadence` carries the admission its rows refuse under as a typed rail; `DocumentFault` is the folder's document-stream refusal family on the kernel `FaultBand.HostDocument` row.
-- Entry: `EventFamily.In` derives band membership from generated `Items`, while `Bind` retains the exact attached delegate for release. `On` is ONE binder under two arities discriminated by the projection's return shape — a pure projection lifts inside the binder, a fallible one rides its own rail — so no `OnFallible` sibling name exists.
+- Owner: `EventFamily` binds one symbolic host event key to its band, cadence, attach/detach pair, and callback-scope projection; `Cadence` carries the admission its rows refuse under as a typed result; `DocumentFault` is the folder's document-stream refusal family on the kernel `FaultBand.HostDocument` row.
+- Entry: `EventFamily.In` derives band membership from generated `Items`, while `Bind` retains the exact attached delegate for release. `On` is ONE binder under two arities discriminated by the projection's return shape — a pure projection lifts inside the binder, a fallible one rides its own carrier — so no `OnFallible` sibling name exists.
 - Law: draw facts retain phase and viewport evidence without retaining `DisplayPipeline`, and per-object phases add the drawn or culled `RhinoObject` identity.
 - Law: a bracketed host pair is one family — `Transform` binds `BeforeTransformObjects` and `AfterTransformObjects` under one `CorrelationWindow` keyed on the host `TransformEventId` both sides publish, so the closing arm resolves the opening arm's `DocKey` and every scope that delivers a start delivers its matching end; the payload case, never the family, discriminates start from end.
 - Law: the correlation window rides an atom with snapshot-guarded steps and its verdict rides the transition — a contended retain answers `Contended` and the caller DELIVERS, because deduplication is an optimization and a correctness gate that dropped a fact under contention would trade a duplicate for a loss.
 - Law: table projections detach transition, index, and prior/current component evidence; later live resolution re-enters through document identity.
 - Law: callback projection faults and sink faults remain disjoint journal rows, and no verdict is silently lost — a projection fault rides `reject` into the journal as `CallbackFault`, a delivery fault posts at the emission's own arm as `SinkFault`, and the handler's terminal discard reads a verdict the journal already holds, because a host event handler returns `void` and the journal row is the only record that can leave it.
-- Law: `Cadence.Admits` answers the rail — `PerFrame` refuses a non-dropping delivery with `DocumentFault.Cadence` naming the family, so an admission failure carries which family demanded frame cadence rather than a bare boolean a caller re-rails.
+- Law: `Cadence.Admits` answers the result — `PerFrame` refuses a non-dropping delivery with `DocumentFault.Cadence` naming the family, so an admission failure carries which family demanded frame cadence rather than a bare boolean a caller re-wraps.
 - Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery; a new stream refusal is one `DocumentFault` case and one offset row inside the band's span.
 
 ```csharp
@@ -540,7 +540,7 @@ public sealed partial class EventFamily {
 - Owner: `EventPayload` owns detached callback evidence, while `DocEvent` adds source identity and the optional document key; `TransitionEvidence` is the capability vocabulary a component transition carries.
 - Law: every reference-like host member projects inside its callback into stable identity, value, transition, or component evidence.
 - Law: an absent active document remains a typed transition; `TransformStarted` and `TransformEnded` both carry the host `TransformEventId`, so a consumer joins the bracket on that id without retaining either callback's arrays.
-- Law: name-keyed transition vocabularies admit host enums generically and fail unknown host values on the typed rail.
+- Law: name-keyed transition vocabularies admit host enums generically and fail unknown host values on the typed result.
 - Law: a transition's evidence is a SET, not a bool pair — `Carries` names which of prior and current a transition publishes, the four corners are all real rows (`Added` carries current alone, `Deleted` prior alone, `Modified` both, `Sorted` neither), so the law is open and the projection reads set algebra rather than two parallel columns.
 - Law: component presence is a CASE, never a flag — `ComponentState.Present` and `Deleted` each carry the name column the host read for that state (`Name` against `DeletedName`), so the discriminant that chose the host member is the case a consumer matches; a view's kind is a `ViewKind` row for the same reason.
 - Law: `EventPayload.ObjectIds` defaults to no object contribution, and contributing cases override that projection; `DocEvent` delegates without an empty-arm dispatch ladder.
@@ -879,7 +879,6 @@ public abstract partial record StreamBody {
 // --- [STATE] ---------------------------------------------------------------------------
 [ValueObject<long>]
 public readonly partial struct WatchKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long value) =>
         validationError = value > 0 ? null : new ValidationError(message: "Watch identity is not positive.");
 }
@@ -913,7 +912,6 @@ public sealed partial class StreamPolicy {
         fileCapacity: OperationalValues.File,
         correlationCapacity: OperationalValues.Correlation);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int laneCapacity,
@@ -993,7 +991,7 @@ internal sealed class StreamJournal {
 - Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation; the reentrancy guard answers a VERDICT — absence is a suppressed recursive delivery — and the emission posts its own suppression and sink-fault evidence, so the guard stays journal-free.
 - Law: deferred delivery owns one idle pump per watch through `IdlePump<EventOrigin>` (`Document/lifetime.md`) — the pump's loss callback posts the watch's own overflow and cancellation rows, closing the watch cancels its pending roster as evidence, and the drain crosses the kernel deferred lane for its gauged budget.
 - Law: file callbacks fold into one resettable trailing-edge timer and one bounded batch before entering the same delivery spine as host facts.
-- Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime seams.
+- Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime boundaries.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1393,10 +1391,10 @@ public static class DocumentStream {
 
 - Owner: `RhinoPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`, realizing the kernel `IHookRoster<RhinoPoint>` so its rows ride the kernel modality capability set, its `HookId`, and its trace plane; `MountRegistry` owns name-addressed discovery, first-mount-wins custody, and multi-plugin arbitration OVER the kernel `HookMounts<RhinoPoint, PluginKey>` — a different concern than the kernel's composition-frozen point mount, so it carries its own name and composes the kernel seat table beneath; `PluginKey` is the plugin identity every process-global claim keys on.
 - Law: a point name resolves in one hop — a consumer binds `MountRegistry.Bind` on the point and receives the owning stream's own grant (a `Watch`, `PointerLease`, `WidgetHost`, `Subscription`, or `ContentStream`) through the kernel's TYPED bind, so no consumer learns a per-domain stream API, no second delivery path forms beside the owner's bounded lanes, and no `object`/`Type` cast survives on the resolve path.
-- Law: modality is host truth carried on the roster row's kernel capability set — a `Veto` row exists only where the host callback admits refusal, the veto-truth census citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger. Modality ADMISSION is the kernel's: the rail's own `Veto` and `Observe` gates read the modality columns, so the registry carries no second gate and a binding carries no modality to check.
+- Law: modality is host truth carried on the roster row's kernel capability set — a `Veto` row exists only where the host callback admits refusal, the veto-truth census citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger. Modality ADMISSION is the kernel's: the pipeline's own `Veto` and `Observe` gates read the modality columns, so the registry carries no second gate and a binding carries no modality to check.
 - Law: mount custody is one SEATED BINDING per point with keyed riders — the first mount seats the owning page's TYPED binding into the kernel seat table and registers its plugin as the first rider, every later plugin rides the same seat as a keyed subscriber, and the machinery beneath (the `ObjectsTelemetry` keyed-sink fan, the `HostTap` rider handoff, the per-plugin `Watch`) serves each rider its own grant at `Bind`. A DIVERGENT binding — a different ask or grant type against a live seat — faults `DocumentFault.SeatDiverged` because two machineries under one point fork discovery, a same-plugin duplicate rider faults `DocumentFault.RiderDuplicate`, each detacher retires exactly its own rider, and the seat frees when the last rider leaves; the type-token pair on the seat is arbitration DATA compared for divergence, never a dispatch a consumer casts through.
 - Law: seat custody rides the kernel cell vocabulary — the claim is `Cell.Claim` whose verdict rides the transition, a rider joins through a snapshot-guarded `Cell.Step`, and the surplus kernel mount a ceded claim staged releases on the losing arm; no stored verdict cell exists to go stale.
-- Law: `MountAll` releases an admitted prefix when any later row refuses, through the one `Rollback` rail — every disposer runs, reverse order, cleanup faults aggregating into the primary.
+- Law: `MountAll` releases an admitted prefix when any later row refuses, through the one `Rollback` fold — every disposer runs, reverse order, cleanup faults aggregating into the primary.
 - Law: telemetry is a tap — the `rasm.rhino.objects.fault` point binds onto the `ObjectsTelemetry` keyed-sink fan, and the `rasm.rhino.host.exception`/`rasm.rhino.host.log` points bind the `HostUtils.OnExceptionReport` and `HostUtils.OnSendLogMessageToCloud` statics onto the same fan through the `HostTap.Mount` seat, so observability subscribes to domain facts and no emit call rides inside domain code.
 - Law: process-global custody is a closed census — every collision surface carries its collision class and arbitration row below, and a new process-global surface is one census row with its arbitration named before any fence composes it.
 - Growth: a new fact stream is one `RhinoPoint` row with its typed `HookBinding` registration on its owning page; a new plugin-visible custody surface is one census row.
@@ -1466,7 +1464,6 @@ Process-global custody census — collision class, arbitration, and seat cardina
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>]
 public readonly partial struct PluginKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
         validationError = value == Guid.Empty ? new ValidationError(message: "Plugin identity is empty.") : null;
 
@@ -1645,7 +1642,7 @@ public static class DocumentHooks {
 ## [07]-[TELEMETRY_TAP]
 
 - Owner: `RhinoInstruments` — the boundary's contributed instrument rows in the kernel `InstrumentSpec` shape and the string-scoped `TelemetryContributorPort` mint under scope `Rasm.Rhino`.
-- Cases: stream-loss counts off the `StreamSlot.PacedLoss` journal posts by lane and loss kind; delivered document facts by band off each mounted watch; object callback and egress faults by site and code off `ObjectsTelemetry`; host exception and cloud-log observations off the two `HostTap.Mount` points; pointer submissions and rejections off the `PointerLease` counters; panel changes off `PanelHost.Facts`; content pulses and stream failures off `ContentStream`; marshal-seam durations off `MarshalLatency`; the document census levels off `DocumentCensus`; bench durations and allocations off `BenchEvidence`.
+- Cases: stream-loss counts off the `StreamSlot.PacedLoss` journal posts by lane and loss kind; delivered document facts by band off each mounted watch; object callback and egress faults by site and code off `ObjectsTelemetry`; host exception and cloud-log observations off the two `HostTap.Mount` points; pointer submissions and rejections off the `PointerLease` counters; panel changes off `PanelHost.Facts`; content pulses and stream failures off `ContentStream`; marshal-boundary durations off `MarshalLatency`; the document census levels off `DocumentCensus`; bench durations and allocations off `BenchEvidence`.
 - Entry: `RhinoInstruments.Telemetry(string version)` — the one contributor port an app composition merges by scope, its semconv coordinate the kernel `TelemetryIdentity.SchemaUrl` const the mint stamps; the plugin root materializes the rows over its own per-ALC factory meter through `InstrumentSet.Of`, and one custody per composition holds — either the port rides an app fan or the root materializes locally, never both.
 - Auto: writes ride observe taps composed at the plugin root — the loss counter's WRITER is the paced lane's shed arm (the `lost` callback posting `StreamSlot.PacedLoss`, which the tap folds by lane and loss dimension), the delivery sink feeds the band counter, and the host-tap points feed the two observation counters — so no stream, projection, or mount fence carries a meter call and the shed evidence is measured, never inferred; every other row's writer is likewise the producing owner's own hook fact or pulled level, dimensioned by the row's declared slots, so a row names only a dimension its source already carries.
 - Packages: `Rasm` (kernel signal capsule — `InstrumentSpec`, `TelemetryContributorPort`, and the `Sensitivity` taxonomy roster this port stamps whole), BCL inbox (`System.Diagnostics.Metrics`).

@@ -10,10 +10,10 @@ Rasm.AppUi dev loop is the Debug-profile working surface: hot-reload knob rows a
 
 ## [02]-[DEV_LOOP]
 
-- Owner: `DevLoopFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per development-loop failure; `HostSink` — the ONE host-edge rail collapse parking every refusal on the composition-minted kernel `FaultCell`; `DevLoop` — the loop verbs; `HudSample`, `HudOverlay`, `OverdrawRamp`, `FlameNode`, `ProfileSampleSource`, `PreCommitFact`, `SolveScrub`, `Repl` the user-facing debug owners.
-- Entry: `DispatcherLag` probes the UI boundary on a declared `Schedule` cadence — a starvation probe that fired once and never again measures nothing — marking and reading elapsed through the kernel `MonotonicTimeline` and refusing a starved marshal as `DevLoopFault.DispatcherTimeout`; `Hud` conflates the sample feed through a bounded latest-wins `Channel<HudSample>` and leases the overlay's native filter for the subscription's lifetime; `Reload` routes the three injected hot-reload effects; `Ingest` admits a canonical `RasmEvent<Extensions>` and appends it unchanged; `FlameNode.Of` folds every matching AppHost `ProfileSample` into the frame tree; `CollabPreCommit` binds the sync-owner pre-commit tap onto the AppUi fact rail and `CollabJson` names the readable op-window export.
+- Owner: `DevLoopFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per development-loop failure; `HostSink` — the ONE host-edge result collapse parking every refusal on the composition-minted kernel `FaultCell`; `DevLoop` — the loop verbs; `HudSample`, `HudOverlay`, `OverdrawRamp`, `FlameNode`, `ProfileSampleSource`, `PreCommitFact`, `SolveScrub`, `Repl` the user-facing debug owners.
+- Entry: `DispatcherLag` probes the UI boundary on a declared `Schedule` cadence — a starvation probe that fired once and never again measures nothing — marking and reading elapsed through the kernel `MonotonicTimeline` and refusing a starved marshal as `DevLoopFault.DispatcherTimeout`; `Hud` conflates the sample feed through a bounded latest-wins `Channel<HudSample>` and leases the overlay's native filter for the subscription's lifetime; `Reload` routes the three injected hot-reload effects; `Ingest` admits a canonical `RasmEvent<Extensions>` and appends it unchanged; `FlameNode.Of` folds every matching AppHost `ProfileSample` into the frame tree; `CollabPreCommit` binds the sync-owner pre-commit tap onto the AppUi fact stream and `CollabJson` names the readable op-window export.
 - Auto: the lag sink fires `AppUiFact.DispatcherLag` at `AppUiPoint.DispatcherLag`; the remote decode column binds the kernel CloudEvent admission at composition, so a companion node's events join the same stream; `Reload` binds the three injected operations at composition under the master gate, so the manual-reload intent is a command-table verb on Debug profiles and a structurally-absent route on Release closures; the HUD render delegate binds its own `SurfaceScheduler.Marshal` at composition, so thread affinity stays with the marshal owner and the pump stays one bounded reader.
-- Packages: HotAvalonia, Avalonia.Markup.Xaml.Loader (transitive floor, Debug pin), SkiaSharp, System.Reactive, LoroCs (companion, `VersionVector` in the JSON-export delegate signature only), Rasm.AppHost (project, seam types), Rasm (kernel `FaultBand`/`FaultCell`/`MonotonicTimeline`), LanguageExt.Core, NodaTime, BCL inbox (`System.Threading.Channels`)
+- Packages: HotAvalonia, Avalonia.Markup.Xaml.Loader (transitive floor, Debug pin), SkiaSharp, System.Reactive, LoroCs (companion, `VersionVector` in the JSON-export delegate signature only), Rasm.AppHost (project, boundary types), Rasm (kernel `FaultBand`/`FaultCell`/`MonotonicTimeline`), LanguageExt.Core, NodaTime, BCL inbox (`System.Threading.Channels`)
 - Growth: one knob row retunes the reload gate, one `ReloadIntent` case absorbs a new manual-reload verb, one `HudSample` field absorbs a new HUD metric, one `HudOverlay` case absorbs a new diagnostic overlay, a new eval outcome extends `DeckOutcome`, a new host-profile sample is one AppHost `ProfileSample` value under the profile subtree, and a new collab forensics verb is one member reading the sync owner; zero new surface.
 - Law: HotAvalonia is a Debug-gated build asset whose injected `UseHotReload`/`EnableHotReload`/`DisableHotReload`/`TriggerHotReload` extensions are the only callable surface — the Release strip rides `HotAvaloniaExcludeReferences` (default `HotAvalonia`, `HotAvalonia.Core`, `HotAvalonia.Fody`, plus `Avalonia.Markup.Xaml.Loader` when `HotAvaloniaIncludeXamlLoader` is false), `HotAvaloniaProcessReferences` (default false) governs only whether referenced PROJECTS join the weave scope, and the markup loader is the weaver's Debug-only re-patch dependency — a DevLoop-raised runtime `AvaloniaRuntimeXamlLoader` inflation is the rejected form whose structural fault is `Surfaces.RejectRuntimeInflation`.
 - Law: the HUD is the `HudSample` feed — every column is already sealed evidence, so re-sealing the sample would re-bill the same GPU duration at the usage fold; the overlay is the `HudOverlay` vocabulary on the same subscription, its `OverdrawRamp` bands `Theme/tokens.md` rows, and the filter mints ONCE per subscription and dies with it.
@@ -262,9 +262,9 @@ public static class DevLoop {
 
     public static IO<IDisposable> CollabPreCommit(
         Func<Func<PreCommitFact, IO<Unit>>, IDisposable> install,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         IO.lift(() => install(
-            fact => IO.lift(() => rail.Fire(
+            fact => IO.lift(() => hooks.Fire(
                 AppUiPoint.PreCommit,
                 new AppUiFact.PreCommit(fact.DocumentKey, fact.Lamport, fact.Ops, fact.Origin, fact.Message),
                 Op.Of(name: "appui.devloop.pre-commit")))
@@ -298,7 +298,7 @@ public static class DevLoop {
 - Auto: `DevToolsOptions` carries the default `F12` gesture, `LaunchView`, `HotKeys`, `ScreenshotHandler`, and `PropertyEditHandler` — one config row, every knob a field; `PropertyValueEditorService` owns live property commits so an edit lands through the service, never an ad-hoc reflection write; `VisualExtensions.RenderTo(Control, Stream, double)` is the control-snapshot lane `InspectorCapture` composes — its stream feeds the same capture encode fold `proof.md` owns, so an inspector screenshot is a `CaptureRow` sibling, never a second pixel path; `OnPropertyEdited(DevToolsPropertyEdit)` hands `InspectorEdits` the full edit record to the composition-bound settlement function.
 - Packages: ProDiagnostics (Debug-gated, `PrivateAssets="all"`), Avalonia, Rasm (kernel `FaultCell`), LanguageExt.Core
 - Growth: a new inspector knob is one `DevToolsOptions` field on the row; a new snapshot destination is one delivery delegate the capture row already carries; zero new surface.
-- Law: both handler seams collapse a typed rail at a host signature that carries none — `Take` returns a bare `Task` and `OnPropertyEdited` returns `void` — so each rides the ONE `HostSink` collapse, parking its refusal on the kernel `FaultCell` BEFORE the host value returns; a handler mapping its failure to a swallowed exception is the deleted form.
+- Law: both handler adapters collapse a typed result at a host signature that carries none — `Take` returns a bare `Task` and `OnPropertyEdited` returns `void` — so each rides the ONE `HostSink` collapse, parking its refusal on the kernel `FaultCell` BEFORE the host value returns; a handler mapping its failure to a swallowed exception is the deleted form.
 - Law: a property commit fires `AppUiFact.Edit` at `AppUiPoint.Edit`, so inspector mutations and deck-routed edits join the same timeline.
 - Boundary: ProDiagnostics is Debug-gated `PrivateAssets="all"` beside HotAvalonia and absent from the Release surface — a Release-profile attach is structurally unrepresentable; `Conventions.DefaultScreenshotHandler` is `internal`, so the package's file-picker default is unreachable by name and `InspectorCapture` is the only handler this folder can bind; the `ProDataGrid`/`ProCharts` siblings are NOT admitted; both first-party alternates failed the admission gate (`Avalonia.Diagnostics` feed-dead with no Avalonia-12 asset; the Accelerate DevTools pay-tiered, license-gate rejected) — the record stands, never re-proposed.
 
@@ -339,13 +339,13 @@ public static class Inspector {
 
 ## [04]-[LOOP_SURFACES]
 
-- Owner: `FlameSpan` with `FlameView` — the laid-out flame projection carrying lane grouping, the zoom-to-span re-root, and the hover hit; `ScrubTransport` — the solve scrub bound to the ONE transport grammar; `ReplBlock` `[Union]` with `BlockStream` — the typed, height-indexed, filterable block stream the REPL and the log share; `HudFact` — the ONE chip roster whose rows carry key AND read column; `DiagnosticsChrome` — the chip rows projected off that roster.
-- Cases: `ReplBlock` = Command | Log | Timeline — a typed line with its rail-carried outcome, a captured line burst, and a correlated evidence timeline, every case carrying the ordinal, the instant, and the one `Query` column the filter reads.
+- Owner: `FlameSpan` with `FlameView` — the laid-out flame projection carrying lane grouping, the zoom-to-span re-root, and the hover hit; `ScrubTransport` — the solve scrub bound to the ONE transport grammar; `ReplBlock` `[Union]` with `BlockStream` — the typed, height-indexed, filterable block stream the REPL and the log share; `HudFact` — the ONE chip roster whose rows carry key, chrome rank, AND read column; `DiagnosticsChrome` — the chip rows projected off that roster.
+- Cases: `ReplBlock` = Command | Log | Timeline — a typed line with its result-carried outcome, a captured line burst, and a correlated evidence timeline, every case carrying the ordinal, the instant, and the one `Query` column the filter reads.
 - Entry: `Spans` and `Hit(double fraction, int depth)` on `FlameView`; `ScrubTransport.Of(SolveScrub)` and `Raise(TransportVerb)`; `Index(double row)` on `BlockStream`; `DiagnosticsChrome.Rows()` and `Facts(HudSample, GovernorReadout)`.
-- Auto: the flame layout is the `Charts/custom#SKIA_KINDS` `CustomVisuals.WedgeSpans` parent-share nesting — the ONE fold the sunburst ring, the flame row, and this hit-test all read; zoom-to-span RE-ROOTS to the focused node while a stale focus path widens back to the node it reached; the lane a span carries is its depth-one ancestor's frame, so a profile subtree's thread lanes group naturally; the scrub folds the settled `Render/animation#TIMELINE_EDITOR` `TransportVerb` roster over the shared `TransportState`, so no verb is spelled here; the block stream declares each case's extent off the arity it already holds, so the height index is a running prefix and a filtered stream re-indexes without realizing a block; per-block copy and bookmark are command-table intent keys; the HUD chips are ordinary `Shell/navigation#SHELL_CHROME` `ChromeRow` rows on `ChromeSlot.Hud`, rank derived from the `HudFact` roster's own declaration order and one corner constant for the block.
+- Auto: the flame layout is the `Charts/custom#SKIA_KINDS` `CustomVisuals.WedgeSpans` parent-share nesting — the ONE fold the sunburst ring, the flame row, and this hit-test all read; zoom-to-span RE-ROOTS to the focused node while a stale focus path widens back to the node it reached; the lane a span carries is its depth-one ancestor's frame, so a profile subtree's thread lanes group naturally; the scrub folds the settled `Render/animation#TIMELINE_EDITOR` `TransportVerb` roster over the shared `TransportState`, so no verb is spelled here; the block stream declares each case's extent off the arity it already holds, so the height index is a running prefix and a filtered stream re-indexes without realizing a block; per-block copy and bookmark are command-table intent keys; the HUD chips are ordinary `Shell/navigation#SHELL_CHROME` `ChromeRow` rows on `ChromeSlot.Hud`, with display precedence carried explicitly by each `HudFact` row and one corner constant for the block.
 - Outcome: the surfaces project facts already held by their owners.
 - Packages: Avalonia, DynamicData, System.Reactive, SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new flame lane is one grouping level in the tree the fold already walks; a new transport verb is one `TransportVerb` row consumed here with zero edit; a new block family is one `ReplBlock` case carrying its own extent and render arms; a new HUD readout is one `HudFact` row — key, read column, and chip arrive together; zero new surface.
+- Growth: a new flame lane is one grouping level in the tree the fold already walks; a new transport verb is one `TransportVerb` row consumed here with zero edit; a new block family is one `ReplBlock` case carrying its own extent and render arms; a new HUD readout is one `HudFact` row — key, chrome rank, read column, and chip arrive together; zero new surface.
 - Law: these are PROJECTIONS and mint no instrument, no clock, and no second command path; the flame's DRAW rides the one custom-visual plane, while zoom, lane, and hover stay HERE because they are questions about the frame tree rather than about pixels; the REPL and the log are ONE stream — an operator's line and the rich view of what it answered belong under one another — and the stream binds the `Shell/virtualization#WINDOW_OWNER` fabric through `VirtualWindowSpec.Measured` with each case's declared extent as its seed.
 - Law: the filter reads each block's own `Query` column so no case is invisible to a search it should answer; bookmarks live on the STREAM keyed by ordinal, because a block is an immutable record and a bookmark is a reader's annotation over it.
 - Boundary: the roster IS both chip tables — a `Facts` list beside a `Chips` list was two authorities for one roster, and the row's read column is the derivation that deletes the mirror.
@@ -359,20 +359,21 @@ public readonly record struct FlameRow(string Frame, string Lane, Duration Self,
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class HudFact {
-    public static readonly HudFact Frame = new("devloop.frame", static (hud, _) => hud.FrameElapsed.ToString());
-    public static readonly HudFact Gpu = new("devloop.gpu", static (hud, _) => hud.GpuElapsed.ToString());
-    public static readonly HudFact Vram = new("devloop.vram", static (hud, _) => hud.VramBytes.ToString(CultureInfo.InvariantCulture));
-    public static readonly HudFact Triangles = new("devloop.triangles", static (hud, _) => hud.Triangles.ToString(CultureInfo.InvariantCulture));
-    public static readonly HudFact Solve = new("devloop.solve", static (hud, _) => hud.SolveElapsed.ToString());
-    public static readonly HudFact Tier = new(GovernorReadout.TierFact, static (_, quality) => quality.Tier.Key);
-    public static readonly HudFact Breach = new(GovernorReadout.BreachFact, static (_, quality) =>
+    public static readonly HudFact Frame = new("devloop.frame", 10, static (hud, _) => hud.FrameElapsed.ToString());
+    public static readonly HudFact Gpu = new("devloop.gpu", 20, static (hud, _) => hud.GpuElapsed.ToString());
+    public static readonly HudFact Vram = new("devloop.vram", 30, static (hud, _) => hud.VramBytes.ToString(CultureInfo.InvariantCulture));
+    public static readonly HudFact Triangles = new("devloop.triangles", 40, static (hud, _) => hud.Triangles.ToString(CultureInfo.InvariantCulture));
+    public static readonly HudFact Solve = new("devloop.solve", 50, static (hud, _) => hud.SolveElapsed.ToString());
+    public static readonly HudFact Tier = new(GovernorReadout.TierFact, 60, static (_, quality) => quality.Tier.Key);
+    public static readonly HudFact Breach = new(GovernorReadout.BreachFact, 70, static (_, quality) =>
         quality.Breach.Map(static axis => axis.Key)
             .IfNone(() => quality.Tightest.Map(static axis => axis.Key).IfNone("-")));
-    public static readonly HudFact Headroom = new(GovernorReadout.HeadroomFact, static (_, quality) =>
+    public static readonly HudFact Headroom = new(GovernorReadout.HeadroomFact, 80, static (_, quality) =>
         quality.Headroom.Map(static room => room.ToString("P0", CultureInfo.InvariantCulture)).IfNone("-"));
-    public static readonly HudFact History = new(GovernorReadout.HistoryFact, static (_, quality) =>
+    public static readonly HudFact History = new(GovernorReadout.HistoryFact, 90, static (_, quality) =>
         quality.Recent.Count.ToString(CultureInfo.InvariantCulture));
 
+    public int ChromeRank { get; }
     [UseDelegateFromConstructor] public partial string Read(HudSample hud, GovernorReadout quality);
 }
 
@@ -529,11 +530,11 @@ public static class DiagnosticsChrome {
     static readonly CornerPosition Corner = CornerPosition.TopRight;
 
     public static Seq<ChromeRow> Rows() =>
-        toSeq(HudFact.Items).Map((fact, index) => new ChromeRow(
+        toSeq(HudFact.Items).Map(fact => new ChromeRow(
             IntentKey: fact.Key,
             Slot: ChromeSlot.Hud,
             Path: DevLoopSurfaces.BlockKey,
-            Rank: index,
+            Rank: fact.ChromeRank,
             Visible: static _ => true,
             Content: new ChromeContent.Chip(Corner, fact.Key))).ToSeq().Strict();
 

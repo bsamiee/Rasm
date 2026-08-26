@@ -4,7 +4,7 @@
 
 ## [01]-[LIFETIME_AND_RUNTIME]
 
-[PUBLIC_TYPE_SCOPE]: the deterministic native-memory lifetime owner — the first law every rail composes
+[PUBLIC_TYPE_SCOPE]: the deterministic native-memory lifetime owner — the first law every pipeline composes
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]               | [CAPABILITY]                                              |
 | :-----: | :--------------------------------------- | :-------------------------- | :-------------------------------------------------------- |
@@ -24,7 +24,7 @@
 - [04]-[INFERENCEMODE]: `using var _ = torch.inference_mode(true);` brackets a no-grad forward region; `torch.no_grad()`/`torch.enable_grad(bool enabled = true)` toggle grad, and `torch.is_inference_mode_enabled()`/`torch.is_grad_enabled()` read state. Consumers never construct the returned `internal InferenceMode : IDisposable` guard; the public `torch.*` factory is the sole entry.
 - [05]-[DEVICE]: `new Device(DeviceType, int index)`/`Device("cpu")` (implicit `string`→`Device`); `torch.set_default_device(Device)` pins the floor.
 - [06]-[SCALARTYPE]: `Byte`/`Int8`/`Int16`/`Int32`/`Int64`/`Float16`/`Float32`(=6)/`Float64`(=7)/`ComplexFloat32`/`ComplexFloat64`/`Bool`/`QInt8`/`QUInt8`/`QInt32`/`BFloat16` — the dtype axis of every factory and `to_type`; estimator math uses `Float64` for IRLS/MLE stability.
-- [07]-[DEVICETYPE]: `CPU`=0, `CUDA`=1, `MKLDNN`, `OPENGL`, `OPENCL`, `IDEEP`, `HIP`, `FPGA`, `MSNPU`, `XLA`, … — the osx-arm64 rail is `CPU`-only.
+- [07]-[DEVICETYPE]: `CPU`=0, `CUDA`=1, `MKLDNN`, `OPENGL`, `OPENCL`, `IDEEP`, `HIP`, `FPGA`, `MSNPU`, `XLA`, … — the osx-arm64 target is `CPU`-only.
 - [08]-[HALF]: bridge to/from `System.Numerics.Tensors` and the ONNX `BFloat16`/`Float16` carriers at the wire.
 - [09]-[SCALAR]: `Scalar` folds a CLR primitive into a `Tensor` operand for mixed tensor-scalar ops without a 0-d tensor allocation.
 
@@ -42,11 +42,11 @@
 
 - [03]-[SEED]: `manual_seed` anchors `Sampling`/GMM-init/k-means++ determinism and returns a `Generator` for a scoped RNG.
 - [06]-[DEVICEPROBE]: `cuda_is_available()` is always `false` on the CPU floor; `InitializeDeviceType` is the explicit native device-type init.
-- [07]-[OPENER]: `NewDisposeScope()` opens the rail's standard `using var scope = torch.NewDisposeScope();`.
+- [07]-[OPENER]: `NewDisposeScope()` opens the pipeline's standard `using var scope = torch.NewDisposeScope();`.
 
 ## [02]-[TENSOR_AND_INGRESS]
 
-[PUBLIC_TYPE_SCOPE]: the `Tensor` value and the CLR↔tensor ingress/egress boundary — `from_array`/`ToTensor` ingress and `ReadCpu*`/`data<T>` egress form the `System.Numerics.Tensors` and gRPC residency seam
+[PUBLIC_TYPE_SCOPE]: the `Tensor` value and the CLR↔tensor ingress/egress boundary — `from_array`/`ToTensor` ingress and `ReadCpu*`/`data<T>` egress form the `System.Numerics.Tensors` and gRPC residency boundary
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]     | [CAPABILITY]                                    |
 | :-----: | :--------------------------------------- | :---------------- | :---------------------------------------------- |
@@ -85,7 +85,7 @@
 
 ## [03]-[LINEAR_ALGEBRA]
 
-[ENTRYPOINT_SCOPE]: `torch.linalg` — the native ATen factorization suite the dense-LA `Tensor/blas` substrate dispatches to; tuple returns such as `(Tensor U, Tensor S, Tensor Vh)` carry native handles the rail promotes or disposes, and `_ex` variants return status through `info` mapping non-zero to a typed `FactorFault`
+[ENTRYPOINT_SCOPE]: `torch.linalg` — the native ATen factorization suite the dense-LA `Tensor/blas` substrate dispatches to; tuple returns such as `(Tensor U, Tensor S, Tensor Vh)` carry native handles the scope promotes or disposes, and `_ex` variants return status through `info` mapping non-zero to a typed `FactorFault`
 
 | [INDEX] | [SURFACE]                                                    | [SHAPE] | [CAPABILITY]                    |
 | :-----: | :----------------------------------------------------------- | :------ | :------------------------------ |
@@ -193,7 +193,7 @@
 
 [STACKING]:
 - `Tensor/blas` dispatches osx-arm64 dense factor rows to `torch.linalg.*` and folds a torch loss under a `DisposeScope`, egressing surviving coefficient tensors through `ReadCpu*`/`ToArray()` into a typed `EstimatorModel` carrying route, iteration, final-loss, and `Statistics` evidence.
-- `System.Numerics.Tensors`(`libs/dotnet/.api/api-tensors.md`): `from_array`/`tensor` ingress and `data<T>`/`GetTensorDataAsSpan` egress form the CLR↔tensor residency seam.
+- `System.Numerics.Tensors`(`libs/dotnet/.api/api-tensors.md`): `from_array`/`tensor` ingress and `data<T>`/`GetTensorDataAsSpan` egress form the CLR↔tensor residency boundary.
 - `onnxruntime`(`api-onnxruntime.md`): `BFloat16`/`Float16` carriers bridge directly to the ONNX element types when an estimator feeds a downstream inference graph.
 - `MathNet.Numerics`(`libs/dotnet/.api/api-mathnet-numerics.md`) and `CSparse`(`libs/dotnet/.api/api-csparse.md`): `FactorKind` routes managed cold starts to MathNet and sparse factors to CSparse.
 - `HyperJet`(`api-hyperjet.md`): dual-number Jacobians feed the `LevenbergMarquardt` time-series fits.

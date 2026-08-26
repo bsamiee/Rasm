@@ -15,7 +15,7 @@
 - Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `AdmittedElement` owns the admitted carrier, ordered relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
 - Cases: `ElementGeometry` closes mesh, profile, and axis carriers; `FactValue` closes numeric, symbolic, and typed-property readings and preserves every `PropertyValue` case; `ElementAdmission` preserves singular and batch cardinality; `ElementEgress` selects `Component` · `Topology` · `Facts` · `CanonicalProperties`; `ElementProjection` returns the matching result or committed byte count.
 - Law: the complete identifier vocabulary is `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot`, COMPOSED here — the graph lookup is `representations.At(slot)` off that owner's own keyed map, so no arm re-spells an identifier string and a second declaration of the roster is the deleted form; Fabrication seats only the `ElementPart.Admitted` carrier column Element cannot hold, admitting its mesh, axis, box, and footprint carriers and explicitly refusing every opaque slot through the roster's generated total `Switch`, so a new Element row breaks this page rather than inheriting support.
-- Law: a fact PATH is a `PropertyName` minted under the seam's own `PropertyCategory.Fabrication` prefix — the key space `AdmittedComponent` reads — so a bare string key never reaches the component and a `PropertyName.Create` at a write site is the deleted form.
+- Law: a fact PATH is a `PropertyName` minted under the contract's own `PropertyCategory.Fabrication` prefix — the key space `AdmittedComponent` reads — so a bare string key never reaches the component and a `PropertyName.Create` at a write site is the deleted form.
 - Auto: generated `Switch` members keep every closed family total, so equivalence and rendering dispatch through the union rather than a tuple pattern that goes silently non-total on a new case; the derived quantity and property maps are HELD, so a fold reading both pays one build.
 - Result: `AdmittedElement` carries `AdmittedComponent`, the ordered `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many results.
 - Boundary: `ElementGraph` never crosses the result; `Relationship`, `PropertyValue`, `MaterialComposition`, `MaterialPropertySet`, and `MaterialUsage` remain their canonical generated owners; `NodeId` and provider types lower to strings or content keys only at fact egress; no connection line is synthesized, and a `Connect` row without a realizing element stays topology-only because `ComponentConnection` demands a realizing key; faults from `Rasm.Element` pass through unchanged and local ingress or egress conflicts mint `IngressTranslation`; canonical-property ordering and caller-buffer commit are the serialization-boundary statement kernels.
@@ -85,7 +85,6 @@ public sealed partial class ElementPayload {
         .Head
         .IfNone(Arr<Loop>());
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ElementPart> parts) {
         parts = toSeq(parts.OrderBy(static part => part.Slot.Key, StringComparer.Ordinal));
         validationError = Validation(parts);
@@ -113,7 +112,6 @@ public sealed partial class ElementSource {
     public Seq<ElementSubject> Subjects { get; }
     public Op Key { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ElementGraph graph,
@@ -176,7 +174,6 @@ public sealed partial class ElementFactSet {
         .Choose(static row => row.Value.Rendered.Map(value => (row.Path, Value: value)))
         .Fold(Map<PropertyName, string>(), static (index, row) => index.AddOrUpdate(row.Path, row.Value));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ElementFact> rows) {
         if (rows.Map(static row => row.Path).Distinct().Count != rows.Count)
             validationError = new ValidationError("element-facts:path-repeat");
@@ -194,7 +191,6 @@ public sealed partial class AdmittedElement {
     public ReadOnlyMemory<byte> CanonicalProperties { get; }
     public UInt128 Locus { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref AdmittedComponent component,
@@ -591,9 +587,9 @@ public readonly record struct CurveSample(double Axis, double Value);
 - Entry: `ElementImport.Admit(ElementSource)` bakes each subject once and returns `Fin<ElementAdmission>`; `ElementImport.Project(AdmittedElement, ElementEgress)` returns `Fin<ElementProjection>` without graph access.
 - Auto: arity alone selects the outcome case — the admitted source already proved the roster non-empty and identity-distinct, so a singular request can never arrive as a vacuous batch. `Validation<Error, _>` accumulates independent batch and duplicate-path faults; every generated owner crosses through the one `Admitted` bridge.
 - Result: one grouping serves both the conflict census and the coalesced store, and each conflict carries its own path-derived locus so an accumulated batch names every offending path instead of repeating one error.
-- Exemption: `CanonicalProperties` is a statement kernel — the ordered bag walk is the serialization boundary itself, and `CanonicalWriter` is mutable-fluent, so the loop IS the byte law; it opens through the RETAINING mint and closes on the rail, because the codec publishes no public constructor and only one of its two mints holds a buffer to hand back.
-- Packages: `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter<byte>` egress destination), `Rasm.Element` (`ElementGraph.Bake`, `CanonicalWriter.Retaining` and its `Fin`-answering `ToBytes` close, `PropertyCategory`); `Process/owner` `FabricationCanon.Ordered` for the two identity digests, LanguageExt.Core rails, `UnitsNet` at the layer-thickness projection.
-- Boundary: writer disposal stays with the caller; a buffer failure rails through the retained locus rather than escaping the `Fin` return.
+- Exemption: `CanonicalProperties` is a statement kernel — the ordered bag walk is the serialization boundary itself, and `CanonicalWriter` is mutable-fluent, so the loop IS the byte law; it opens through the RETAINING mint and closes on the result, because the codec publishes no public constructor and only one of its two mints holds a buffer to hand back.
+- Packages: `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter<byte>` egress destination), `Rasm.Element` (`ElementGraph.Bake`, `CanonicalWriter.Retaining` and its `Fin`-answering `ToBytes` close, `PropertyCategory`); `Process/owner` `FabricationCanon.Ordered` for the two identity digests, LanguageExt.Core result types, `UnitsNet` at the layer-thickness projection.
+- Boundary: writer disposal stays with the caller; a buffer failure fails through the retained locus rather than escaping the `Fin` return.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # [RASM_API_RHINO_UI]
 
-`Rhino.UI` carries the two host-UI seams every Rhino-hosted boundary crosses: the `EtoExtensions` bridge that binds an Eto window to a `RhinoDoc`, stamps native chrome onto a control, presents a semi-modal dialog, and persists a window's screen slot keyed by a caller `Type`; and the `Dialogs` native value-prompt fast lane that settles a string or a number without a full Eto dialog. The namespace spans two host assemblies. This branch catalogue owns the shared seams; each host-boundary folder registers it and tables only the subsystem its own boundary reaches.
+`Rhino.UI` carries the two host-UI bridges every Rhino-hosted boundary crosses: the `EtoExtensions` bridge that binds an Eto window to a `RhinoDoc`, stamps native chrome onto a control, presents a semi-modal dialog, and persists a window's screen slot keyed by a caller `Type`; and the `Dialogs` native value-prompt fast lane that settles a string or a number without a full Eto dialog. The namespace spans two host assemblies. This branch catalogue owns the shared bridges; each host-boundary folder registers it and tables only the subsystem its own boundary reaches.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -50,7 +50,7 @@ Each prompt settles a value through the Rhino-native fast lane, the accepted-ver
 
 [STACKING]:
 - `api-eto-forms`(`.api/api-eto-forms.md`): `Form`, `Dialog`, `Dialog<T>`, `Window`, and `Control` are the carriers every member here receives; this bridge supplies the document ownership, native styling, and semi-modal presentation the construction surface lacks.
-- `api-rhinocommon`(`.api/api-rhinocommon.md`) and the boundary `RhinoDoc` seam: the document handle a window binds to is the host's own, and a boundary reaches it through its own active-model owner rather than a second lookup here.
+- `api-rhinocommon`(`.api/api-rhinocommon.md`) and the boundary `RhinoDoc` handle: the document handle a window binds to is the host's own, and a boundary reaches it through its own active-model owner rather than a second lookup here.
 - `LanguageExt.Core`(`.api/api-languageext.md`): `UseRhinoStyle` and `Show` lower onto side-effecting `Eff` calls, `GetRhinoDoc` null-gates through `Optional(...)` into `Option<RhinoDoc>`, a `WindowsFromDocument<T>` roster carries as `Seq<T>`, `RestorePosition`'s `bool` folds to `Fin<Unit>`, and a prompt's `bool` return with its `out`/`ref` channel lifts to `Fin<string>`/`Fin<double>` where `false` maps to an invalid-result fault.
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): the caller `Type` a position keys on binds as a `[ValueObject]` slot identity so two windows never collide on a hand-spelled key.
 

@@ -1,11 +1,11 @@
 # [PY_GEOMETRY_API_KISS_MATCHER]
 
-`kiss_matcher` supplies the initialization-free global registration path for the scan-processing rail: `KISSMatcher` extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN and a GNC solver, and returns a `RegistrationSolution` rigid transform while exposing per-stage timing and inlier counts. Package owner composes `estimate` (or `match` then `prune_and_solve`) into the global-registration mode seeding fine `small_gicp` refinement; it never re-implements keypoint extraction, graph-theoretic outlier rejection, or the GNC pose solver.
+`kiss_matcher` supplies the initialization-free global registration path for the scan-processing domain: `KISSMatcher` extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN and a GNC solver, and returns a `RegistrationSolution` rigid transform while exposing per-stage timing and inlier counts. Package owner composes `estimate` (or `match` then `prune_and_solve`) into the global-registration mode seeding fine `small_gicp` refinement; it never re-implements keypoint extraction, graph-theoretic outlier rejection, or the GNC pose solver.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: estimator, config, and result family
-- rail: global-registration
+- concern: global-registration
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]       | [CAPABILITY]                                           |
 | :-----: | :--------------------- | :------------------ | :----------------------------------------------------- |
@@ -14,7 +14,7 @@
 |  [03]   | `RegistrationSolution` | registration result | `rotation`, `translation`, `valid` rigid transform     |
 
 [PUBLIC_TYPE_SCOPE]: `KISSMatcherConfig` fields
-- rail: global-registration
+- concern: global-registration
 
 Construct with `KISSMatcherConfig(voxel_size, *, use_voxel_sampling, use_quatro, thr_linearity, num_max_corr, normal_r_gain, fpfh_r_gain, robin_noise_bound_gain, solver_noise_bound_gain, enable_noise_bound_clamping)`; every field below is a read/write `def_readwrite` property, `normal_r_gain`/`fpfh_r_gain` scale by `voxel_size` into the absolute `normal_radius`/`fpfh_radius`, and `enable_noise_bound_clamping` is constructor-only with no accessor.
 
@@ -33,7 +33,7 @@ Construct with `KISSMatcherConfig(voxel_size, *, use_voxel_sampling, use_quatro,
 |  [11]   | `solver_noise_bound_gain` | gain scaling the solver noise bound               |
 
 [PUBLIC_TYPE_SCOPE]: `RegistrationSolution` fields
-- rail: global-registration
+- concern: global-registration
 
 Every field is a read/write `def_readwrite` property.
 
@@ -46,7 +46,7 @@ Every field is a read/write `def_readwrite` property.
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration (`KISSMatcher.estimate`)
-- rail: global-registration
+- concern: global-registration
 
 Construct from a voxel size or a `KISSMatcherConfig`, then call `estimate` for the full pipeline.
 
@@ -59,7 +59,7 @@ Construct from a voxel size or a `KISSMatcherConfig`, then call `estimate` for t
 |  [05]   | `clear() -> None` / `reset() -> None`        | lifecycle      | clear cached buffers between runs    |
 
 [ENTRYPOINT_SCOPE]: decomposed match and solve
-- rail: global-registration
+- concern: global-registration
 
 Pipeline decomposes into a `match` keypoint stage and a `prune_and_solve`/`solve` stage reusing the matched correspondences.
 
@@ -71,7 +71,7 @@ Pipeline decomposes into a `match` keypoint stage and a `prune_and_solve`/`solve
 |  [04]   | `reset_solver() -> None`                                            | lifecycle      | reset the solver state                     |
 
 [ENTRYPOINT_SCOPE]: stage keypoints, correspondences, diagnostics, and timings
-- rail: global-registration
+- concern: global-registration
 
 These accessors expose each intermediate registration stage; keypoint and cloud accessors ([01]-[03]) return `tuple[list[NDArray], list[NDArray]]` source/target.
 
@@ -101,4 +101,4 @@ These accessors expose each intermediate registration stage; keypoint and cloud 
 [STACKING]:
 - `laspy` chunked reader is the scan source: per-chunk `ScaleAwarePointRecord` metric `xyz` buffers feed `estimate`/`match` as `float32` `(3, 1)` sequences (transposed `float64` `(3, n)` for the array overloads); `kiss_matcher` consumes the numpy buffers, never opening a file.
 - `small_gicp` is the downstream fine arm: `RegistrationSolution.rotation`/`translation` compose the initial 4x4 pose `small_gicp` GICP/VGICP refines — the coarse arm of the two-stage registration union, never the fine/ICP role and never identity minting.
-- geometry kernel offload: a multi-second `estimate` over a large unposed scan pair is CPU-bound with no async mirror, handing to the `GEOMETRY_CPU_OFFLOAD`/`GEOMETRY_KERNEL_OFFLOAD_LANE` seam rather than blocking the boundary; `clear`/`reset`/`reset_solver` recycle the estimator between offloaded runs.
+- geometry kernel offload: a multi-second `estimate` over a large unposed scan pair is CPU-bound with no async mirror, handing to the `GEOMETRY_CPU_OFFLOAD`/`GEOMETRY_KERNEL_OFFLOAD_LANE` boundary rather than blocking the boundary; `clear`/`reset`/`reset_solver` recycle the estimator between offloaded runs.

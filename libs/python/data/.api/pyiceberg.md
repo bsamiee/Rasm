@@ -36,7 +36,7 @@
 [UNBOUND_PREDICATES]: `EqualTo` `NotEqualTo` `LessThan` `LessThanOrEqual` `GreaterThan` `GreaterThanOrEqual` `In` `NotIn` `IsNull` `NotNull` `IsNaN` `NotNaN` `StartsWith` `NotStartsWith`
 [COMBINATORS]: `And` `Or` `Not` `AlwaysTrue` `AlwaysFalse`
 
-[PUBLIC_TYPE_SCOPE]: typed failure rail (`pyiceberg.exceptions`)
+[PUBLIC_TYPE_SCOPE]: typed failure result (`pyiceberg.exceptions`)
 
 | [INDEX] | [SYMBOL]                                                                                     | [CAPABILITY]                  |
 | :-----: | :------------------------------------------------------------------------------------------- | :---------------------------- |
@@ -148,7 +148,7 @@
 - `duckdb`(`duckdb.md`): `DataScan.to_duckdb(table_name, connection)` registers the scan as a named relation in the supplied or new `DuckDBPyConnection` and returns that connection.
 - `daft`(`daft.md`): `Table.to_daft()` opens the whole table as a lazy Daft dataframe.
 - `pandas`(`pandas.md`): `TableScan.to_pandas()` materializes the filtered scan as a boundary `pd.DataFrame`.
-- within-lib: the data folder's lakehouse rail crosses Iceberg on the `LakeOp` axis; `load_catalog` is the sole catalog entry, `Transaction` the sole write unit, and `StaticTable.from_metadata` opens a read-only `Table` without a live catalog.
+- within-lib: the data folder's lakehouse domain crosses Iceberg on the `LakeOp` axis; `load_catalog` is the sole catalog entry, `Transaction` the sole write unit, and `StaticTable.from_metadata` opens a read-only `Table` without a live catalog.
 
 [LOCAL_ADMISSION]:
 - construct through `load_catalog`; batch writes through `Table.transaction()`, one-op writes through the autocommit shorthands.

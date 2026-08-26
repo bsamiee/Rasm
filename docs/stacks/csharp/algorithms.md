@@ -2,7 +2,7 @@
 
 Numeric work is admitted once and routed by shape: raw operands cross into a finite-checked owner at one boundary, the interior is total over admitted values, and the operand's structure — definite, square, overdetermined, symmetric, sparse-pattern, periodic-grid — selects the owning factorization, never the call site and never a knob riding beside the matrix. Every solve route — dense direct, sparse direct, iterative, every conditioning fallback — is one composed lifecycle admit → route → solve → witness → result written once; a per-module pipeline re-deriving the chain is the rejected form.
 
-MathNet owns dense factorization, the spectral decompositions, `Fourier`, and quadrature; CSparse owns sparse direct factorization, factor reuse, and fill-reducing ordering; the owned-build lane — low-discrepancy sampling, ODE tableaux, spectral multipliers, block eigeniteration, scattered reconstruction — has no library surface and is composed from the rails. A hand-rolled kernel is admitted only after a benchmark defeats both libraries.
+MathNet owns dense factorization, the spectral decompositions, `Fourier`, and quadrature; CSparse owns sparse direct factorization, factor reuse, and fill-reducing ordering; the owned-build lane — low-discrepancy sampling, ODE tableaux, spectral multipliers, block eigeniteration, scattered reconstruction — has no library surface and is composed from the primitives. A hand-rolled kernel is admitted only after a benchmark defeats both libraries.
 
 Every library refuses its own gates — no constructor checks finiteness, symmetry is tested by exact `!=`, singularity is never asserted, a zero-norm `QR` fills `NaN` while `IsFullRank` returns `true` — so admission re-imposes each refused gate as an explicit predicate. Every solve returns a domain value carrying its route variant, its scale-derived tolerance policy, and the recomputed true relative residual against the original operator — the one correctness signal surviving preconditioning, breakdown substitution, cancellation, and provider divergence — never a `Matrix<T>`, `Vector<T>`, or factorization instance. In-place numeric kernels — library in-place solve and multiply overloads writing into pre-sized scratch, and per-evaluation counters inside guarded integrands — are this page's named statement exemption.
 
@@ -187,7 +187,7 @@ public static class HeldRefinement
 - Boundary: drop assembly residue with a structural tolerance near `machineEps · ‖A‖_F`; `DropZeros()` defaults to `0.0` and removes only binary zeros, while `CoordinateStorage.At` skips exact-zero contributions so the post-assembly count is the nonzero count.
 
 [KIND_CAPABILITY]:
-- Law: the sparse kinds are the `[01]` `Route` items keyed `SparseCholesky`, `SparseLdl`, `SparseLu`, `SparseQr` — the SAME vocabulary the dense routes inhabit, carrying the SAME capability columns the `ISolver<T>` forward-solve seam hides: rank-1 edit, inertia, reentrancy, and transpose-solve are the `Route` `bool` columns the grid below populates, so a request needing edit plus transpose reads the column off the route, never a parallel `FactorKind` `[SmartEnum]` re-declaring the 4×4 grid beside the dense route and forfeiting the single result discriminant.
+- Law: the sparse kinds are the `[01]` `Route` items keyed `SparseCholesky`, `SparseLdl`, `SparseLu`, `SparseQr` — the SAME vocabulary the dense routes inhabit, carrying the SAME capability columns the `ISolver<T>` forward-solve interface hides: rank-1 edit, inertia, reentrancy, and transpose-solve are the `Route` `bool` columns the grid below populates, so a request needing edit plus transpose reads the column off the route, never a parallel `FactorKind` `[SmartEnum]` re-declaring the 4×4 grid beside the dense route and forfeiting the single result discriminant.
 - Law: the transpose-solve behavior binds to the concrete `Inner` instance, so the route carries only the `TransposeSolve` capability column while the operator value resolves the instance-bound `Action<double[], double[]>` gated on it through `(route.TransposeSolve, Inner) switch`; the singleton route item is instance-free and cannot close over a factor.
 - Reject: a bare `enum FactorKind` plus an external `switch` — it scatters the capability grid across call sites and forfeits the column the vocabulary owns; a typed-only catch at the factorization boundary, since SPD pivot loss and the zero-diagonal break throw bare `Exception`, not the numerical-breakdown type, so the boundary catches broadly and converts.
 - Boundary: an asymmetric input to a symmetric kind factors as its symmetrization and returns a correct answer to the wrong system — the post-solve true residual is the only structural signal.
@@ -352,13 +352,13 @@ public static class SchurDecode
 - Boundary: never assert eigenvalue equality tighter than the convergence band; the exceptional-shift escape bakes the literal `0.964` into the last bits.
 
 [EIGEN_RESIDUAL_AND_FILTER]:
-- Law: compute the block defect `(A.Multiply(V) - V.Multiply(D)).FrobeniusNorm()`; no built-in eigen residual exists, and it is the one signal both the managed throw rail and the native in-band info-code rail surface identically.
+- Law: compute the block defect `(A.Multiply(V) - V.Multiply(D)).FrobeniusNorm()`; no built-in eigen residual exists, and it is the one signal both the managed throw path and the native in-band info-code path surface identically.
 - Law: retain the full eigenvector matrix from the always-all-`n` dense solve as the cached basis; each filter then pays one `SubMatrix` allocation, never the O(n³) resolve.
 - Law: require matching `n` and `Symmetricity` for a basis cache hit.
 - Law: own the eigenbasis filter family as a closed weight vocabulary — the eigen-space analog of the Fourier symbol row — excluding the zero mode (`λ < ε_zero ? 0.0 : f(λ)`, excluded never clamped) and carrying the weight sum as evidence so a fully-excluded spectrum fails rather than reads as a zero signal.
 - Reject: the library `Determinant`, `Rank`, and `IsFullRank` in domain logic; `Determinant` short-circuits to `0.0` the moment any eigenvalue crosses the absolute zero test.
 - Boundary: pin the managed provider once before first provider touch and treat provider identity as a result discriminant; the slot is process-static with no per-call override.
-- Boundary: only `DenseMatrix` reaches the native `EigenDecomp`, the managed `Evd` kernels are serial regardless of degree, and sign, ordering, and last bits differ across the seam.
+- Boundary: only `DenseMatrix` reaches the native `EigenDecomp`, the managed `Evd` kernels are serial regardless of degree, and sign, ordering, and last bits differ across the boundary.
 
 ## [07]-[RESULT_EVIDENCE]
 

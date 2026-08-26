@@ -2,7 +2,7 @@
 
 `Celly.Protovalidate` evaluates corpus-authored `buf.validate` rules against generated `IMessage` values and returns structured violations.
 
-Admission owners project each violation onto their typed fault rail.
+Admission owners project each violation onto their typed fault carrier.
 
 ## [01]-[PUBLIC_TYPES]
 

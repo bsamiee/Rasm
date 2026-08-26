@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_SECTIONPROPERTIES]
 
-`sectionproperties` computes geometric, warping, plastic, and stress properties for an arbitrary 2D profile over a triangular FE mesh. It is the gated enrichment on the geometry ifc/structural rail, deriving the warping and plastic section properties the closed-form spine (`ifcopenshell` profile geometry over numpy section integrals) cannot; the spine never depends on it. Card `geometry [STRUCTURAL_SECTION_PROPS_GATED] [BLOCKED]` tracks the deferred consumer.
+`sectionproperties` computes geometric, warping, plastic, and stress properties for an arbitrary 2D profile over a triangular FE mesh. It is the gated enrichment on the geometry ifc/structural domain, deriving the warping and plastic section properties the closed-form spine (`ifcopenshell` profile geometry over numpy section integrals) cannot; the spine never depends on it. Card `geometry [STRUCTURAL_SECTION_PROPS_GATED] [BLOCKED]` tracks the deferred consumer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -84,4 +84,4 @@ Each `get_*` reads a scalar off `post.SectionProperties` after its owning calcul
 - geometry `structural.py`: the section-integral owner over `IfcProfileDef` composes `sectionproperties` for the warping, plastic, and shear FE closed-form numpy integrals cannot derive, staging `calculate_geometric_properties` then `calculate_warping_properties`/`calculate_plastic_properties` over the `create_mesh` triangulation.
 
 [LOCAL_ADMISSION]:
-- A meshed `Geometry`/`CompoundGeometry` profile enriches an IFC structural member's section result, admitted as a gated enrichment by rail policy; the closed-form spine stays independent of it.
+- A meshed `Geometry`/`CompoundGeometry` profile enriches an IFC structural member's section result, admitted as a gated enrichment by domain policy; the closed-form spine stays independent of it.

@@ -1,4 +1,4 @@
-"""Project-agnostic seam doubles, loopback capsules, fixture writers, and decode oracles."""
+"""Project-agnostic call doubles, loopback capsules, fixture writers, and decode oracles."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type SeamRecord = tuple[str, tuple[object, ...], dict[str, object]]
+type CallRecord = tuple[str, tuple[object, ...], dict[str, object]]
 type Recorder = Callable[[tuple[object, ...], dict[str, object]], None]
-type SeamLog = Callable[[str, tuple[object, ...], dict[str, object]], None]
+type CallLog = Callable[[str, tuple[object, ...], dict[str, object]], None]
 type Variant = bytes | object
 
 
@@ -41,12 +41,12 @@ def _noproject[A](_args: tuple[object, ...]) -> tuple[A, ...]:
 
 
 class Sync[R](msgspec.Struct, frozen=True, gc=False):
-    """Synchronous seam: ``(*args, **kwargs) -> value`` (the append-only sink uses ``Sync(None)``)."""
+    """Synchronous double: ``(*args, **kwargs) -> value`` (the append-only sink uses ``Sync(None)``)."""
 
     value: R
 
-    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
-        """Build the recording runner this seam installs."""
+    def bind(self, record: Recorder, log: CallLog) -> Callable[..., object]:
+        """Build the recording runner this double installs."""
         _ = log
 
         def run_sync(*args: object, **kwargs: object) -> R:
@@ -57,12 +57,12 @@ class Sync[R](msgspec.Struct, frozen=True, gc=False):
 
 
 class Async[R](msgspec.Struct, frozen=True, gc=False):
-    """Awaited seam: ``async (*args, **kwargs) -> value`` for a coroutine the SUT ``await``s."""
+    """Awaited double: ``async (*args, **kwargs) -> value`` for a coroutine the SUT ``await``s."""
 
     value: R
 
-    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
-        """Build the recording runner this seam installs."""
+    def bind(self, record: Recorder, log: CallLog) -> Callable[..., object]:
+        """Build the recording runner this double installs."""
         _ = log
 
         async def run_async(*args: object, **kwargs: object) -> R:  # ruff:ignore[unused-async]
@@ -73,12 +73,12 @@ class Async[R](msgspec.Struct, frozen=True, gc=False):
 
 
 class FanOut[R](msgspec.Struct, frozen=True, gc=False):
-    """Batch seam: ``(items, **kwargs) -> values`` recording the ``items`` tuple as the sole positional."""
+    """Batch double: ``(items, **kwargs) -> values`` recording the ``items`` tuple as the sole positional."""
 
     values: tuple[R, ...]
 
-    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
-        """Build the recording runner this seam installs."""
+    def bind(self, record: Recorder, log: CallLog) -> Callable[..., object]:
+        """Build the recording runner this double installs."""
         _ = log
 
         def run_fan(items: object, **kwargs: object) -> tuple[R, ...]:
@@ -89,13 +89,13 @@ class FanOut[R](msgspec.Struct, frozen=True, gc=False):
 
 
 class Factory[R](msgspec.Struct, frozen=True, gc=False):
-    """Curried seam: ``(bind...) -> (call...) -> value`` recording bind-layer then ``inner_label`` call-layer."""
+    """Curried double: ``(bind...) -> (call...) -> value`` recording bind-layer then ``inner_label`` call-layer."""
 
     value: R
     inner_label: str = "<factory>.run"
 
-    def bind(self, record: Recorder, log: SeamLog) -> Callable[..., object]:
-        """Build the recording runner this seam installs."""
+    def bind(self, record: Recorder, log: CallLog) -> Callable[..., object]:
+        """Build the recording runner this double installs."""
 
         def run_factory(*bind_args: object, **bind_kwargs: object) -> Callable[..., R]:
             record(bind_args, bind_kwargs)
@@ -112,11 +112,11 @@ class Factory[R](msgspec.Struct, frozen=True, gc=False):
 type Shape[R] = Sync[R] | Async[R] | FanOut[R] | Factory[R]
 
 
-class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
-    """Recording monkeypatch host for canned call-shape seams."""
+class CallProbe[A](msgspec.Struct, frozen=True, gc=False):
+    """Recording monkeypatch host for canned call-shape doubles."""
 
     project: Callable[[tuple[object, ...]], Iterable[A]] = _noproject
-    calls: list[SeamRecord] = msgspec.field(default_factory=list)
+    calls: list[CallRecord] = msgspec.field(default_factory=list)
     captured: list[A] = msgspec.field(default_factory=list)
 
     def install[R](self, mp: pytest.MonkeyPatch, owner: object, member: str, shape: Shape[R]) -> None:
@@ -131,7 +131,7 @@ class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
 
         mp.setattr(owner, member, shape.bind(record, log))
 
-    def projected[K](self, pick: Callable[[SeamRecord], Iterable[K]]) -> list[K]:
+    def projected[K](self, pick: Callable[[CallRecord], Iterable[K]]) -> list[K]:
         return [item for call in self.calls for item in pick(call)]
 
 
@@ -220,4 +220,4 @@ class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Async", "Factory", "FanOut", "Loopback", "NdjsonOracle", "SeamProbe", "SeamRecord", "Shape", "Sync", "Variant", "VariantWriter", "autojump_backend", "loopback_server"]
+__all__ = ["Async", "Factory", "FanOut", "Loopback", "NdjsonOracle", "CallProbe", "CallRecord", "Shape", "Sync", "Variant", "VariantWriter", "autojump_backend", "loopback_server"]

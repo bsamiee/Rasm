@@ -101,7 +101,7 @@ One operator vocabulary carries both engine suffixes: `*AsyncLinqToDB` forces th
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`(`.api/api-nts-ef.md`): geometry and NodaTime timestamp columns survive the COPY path because `GetMappingSchema` hands the EF model's own type mappings to the COPY writer instead of a second mapping.
 - `Sep`(`.api/api-sep.md`): `SepReaderExtensions.Enumerate(RowFunc<T>)`/`EnumerateAsync` produce the `IEnumerable<T>`/`IAsyncEnumerable<T>` source `BulkCopy`/`BulkCopyAsync` consume, streaming a CSV file straight into PostgreSQL COPY with no intermediate materialization.
 - `Npgsql.OpenTelemetry`(`libs/dotnet/.api/api-npgsql-opentelemetry.md`): bridged `DataConnection` activity flows through the core `linq2db` `ActivityService` onto the same span pipeline that observes the EF command interceptor.
-- query-lane composition: `ToLinqToDB` is the seam a window-function, CTE, or bulk-update query EF cannot translate crosses onto the LINQ To DB translator, re-materializing through `ToListAsyncLinqToDB`; `*AsyncEF` holds the EF translator for change-tracked reads on the same lifted queryable.
+- query-lane composition: `ToLinqToDB` is the adapter a window-function, CTE, or bulk-update query EF cannot translate crosses onto the LINQ To DB translator, re-materializing through `ToListAsyncLinqToDB`; `*AsyncEF` holds the EF translator for change-tracked reads on the same lifted queryable.
 
 [LOCAL_ADMISSION]:
 - Bridge surfaces operate on contexts admitted through the store-profile algebra.

@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_PYDANTIC]
 
-`pydantic` owns model-class validation and serialization, compiling a per-class core schema once at class creation and dispatching every validate/dump into the C-extension `pydantic-core`. It binds `BaseModel`/`RootModel` records, a `TypeAdapter` validating any annotated type with no model class, the four-mode validator/serializer algebra, callable-tag discriminated unions, alias routing, and a constrained/network/secret scalar catalogue. It is the validation rail's model owner — a cross-field-validated record mints as a `BaseModel`, a schemaless shape as a `TypeAdapter`.
+`pydantic` owns model-class validation and serialization, compiling a per-class core schema once at class creation and dispatching every validate/dump into the C-extension `pydantic-core`. It binds `BaseModel`/`RootModel` records, a `TypeAdapter` validating any annotated type with no model class, the four-mode validator/serializer algebra, callable-tag discriminated unions, alias routing, and a constrained/network/secret scalar catalogue. It is the validation layer's model owner — a cross-field-validated record mints as a `BaseModel`, a schemaless shape as a `TypeAdapter`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -141,7 +141,7 @@
 |  [09]   | `validate_call(func, /, *, config, validate_return)` | decorator | validate function arguments (and return)  |
 |  [10]   | `create_model(model_name, /, *, config, base, ...)`  | factory   | programmatic `BaseModel` subclass         |
 
-[ENTRYPOINT_SCOPE]: decorator hooks and active rails
+[ENTRYPOINT_SCOPE]: decorator hooks and active validators
 - serializers and `computed_field` carry: `return_type, when_used`; `computed_field` adds `alias, title, repr`; `field_validator` adds `check_fields`; `generate_arguments_schema` carries `schema_type, parameters_callback`
 - rows [06]-[08] live under `pydantic.experimental.{pipeline,missing_sentinel,arguments_schema}`
 
@@ -178,6 +178,6 @@
 - Domain models are `BaseModel` subclasses carrying an explicit `model_config = ConfigDict(...)`; `TypeAdapter` covers collection/union/`TypedDict` shapes not warranting a class, built once at module scope.
 - `Annotated[T, BeforeValidator/AfterValidator/...]` carries reusable cross-model validation/serialization; the `@field_validator`/`@model_validator` decorators carry invariants spanning multiple fields of one model.
 - Tagged wire variants model as `Annotated[A | B, Discriminator(...)]` + `Tag(...)` or `Field(discriminator='kind')` for a literal field tag; a discriminant resolves at construction, never a post-construction `match`.
-- Boundary intake catches `ValidationError` and maps `.errors()` to domain error rails before domain logic; `model_construct` re-hydrates only data validated upstream.
+- Boundary intake catches `ValidationError` and maps `.errors()` to domain error channels before domain logic; `model_construct` re-hydrates only data validated upstream.
 - Wire-to-domain field renaming routes through `AliasPath`/`AliasChoices`/`AliasGenerator`; internal code holds canonical field names and emits `by_alias=True` at egress alone.
 - `model_dump(mode='json')` yields JSON-safe primitives without per-field serializers; `SerializeAsAny` serializes a base-typed field via the runtime subclass schema.

@@ -95,7 +95,7 @@ public sealed partial class TableKind {
 - Law: an addressed row binds `RhinoView.MainViewport` — the viewport the address names — because `RhinoPageView.ActiveViewport` silently returns an active detail; only `ActiveCase` binds `ActiveViewport`, adopting the host's active semantics, and a detail row binds `DetailViewObject.Viewport` and carries its `DetailViewObject` so a detail commit or scale conversion reads the owning object without a second lookup.
 - Law: viewport rows resolve live per call inside the document callback and leave as detached addresses or one native viewport, never a retained handle; `ResolveViewport` composes `Resolve` and `Tables.One`, so the single-viewport consumers — `QuerySpec` viewport filtering, `NamedRestore`, and the annotation dimension-scale probe — share one fold and no call site re-spells the resolve-then-one triple.
 - Owner: `ResourceRef` is the corpus-wide COMPONENT address — id, name, index closed as one `[Union]` over a per-table `ResourceLens<TComponent>` — completing the addressing triad beside `TableKind` (which table) and `TableTarget` (which objects); `ResourceId`, `ResourceName`, and `ResourceIndex` admit the native address scalars once, and the `ResourceId` and `ResourceIndex` `Maybe`/`Admit` pairs are the sole `Guid.Empty` and negative-index sentinel projectors — `Maybe` where the host miss value spells a normal absence, `Admit` where it is a genuine refusal.
-- Law: each component table contributes exactly one lens — Annotation's style, linetype, hatch, and section rails and Blocks' definition rail each declare one `ResourceLens<T>` row — and no folder mints a second address family; resolution reads live per call inside the owning operation, because tables mutate under commands, so no resolved component is cached on a value.
+- Law: each component table contributes exactly one lens — Annotation's style, linetype, hatch, and section pipelines and Blocks' definition pipeline each declare one `ResourceLens<T>` row — and no folder mints a second address family; resolution reads live per call inside the owning operation, because tables mutate under commands, so no resolved component is cached on a value.
 - Entry: `QuerySpec.Of(...)`, `TableTarget.Of(params ReadOnlySpan<Guid>)`, and `Query(QuerySpec, params ReadOnlySpan<TablePredicate>)` are the only constructors. `Resolve` returns distinct ids; `Serials` reads native runtime serials for lifecycle operations. Deleted-object lifecycle composes a query whose admitted axes select deleted objects, so the host query remains the source of the serial required by `Undelete` and `Purge`.
 - Law: query settings are BUILT at execution from an admitted value, never copied from a caller's instance — the host settings object exists only inside `QuerySpec.Build`, so no caller retains a handle that can mutate an admitted target, and the viewport resolves from stable identity inside the document callback. Predicate evaluation accumulates independent object and predicate faults through `Validation<Error, T>` before lowering once to `Fin<T>`.
 - Law: a predicate distinguishes NON-MATCH from HOST FAULT — a missing tag is a non-match, a missing attribute set is a refusal, because folding both onto `false` silently drops an unreadable object out of every filtered query. Draw-colour comparison lands on the quantized ARGB quadruple of two `PerceptualColor` values: `System.Drawing.Color` equality compares NAME before value, so a named row and its identical literal compare unequal, which is the trap a colour filter walks into on the first system colour.
@@ -146,7 +146,6 @@ public sealed partial class ObjectKinds {
 
     public static ObjectKinds Any { get; } = Create(values: FrozenSet.ToFrozenSet([ObjectKind.AnyObject]));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FrozenSet<ObjectKind> values) =>
@@ -221,7 +220,6 @@ public sealed partial class QuerySpec {
     public ActiveSpaceUse Space { get; }
     public Option<ViewportTarget> Viewport { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CapabilitySet<QueryAxis> axes,
@@ -666,13 +664,13 @@ public abstract partial record ResourceRef : IDetachedDocumentResult {
 
 ## [04]-[RUN]
 
-- Owner: policy vocabularies close every provider-mode discriminant on rows. `SelectionAxis` is the selection-conduct vocabulary the host's own selection members read as ONE `CapabilitySet<SelectionAxis>`. `TableOp` `[Union]` carries admitted per-occurrence payloads; `TableTransaction` `[Union]` distinguishes recorded, immediate, and navigation programs by shape, and the `UndoTrait`/`OpTrait` sets derive required versus recorded undo behavior without plan booleans. The commit envelope — `UndoBracket`, `RedrawScope`, `DocumentCommit.Sealed`, and the `HostInteraction` axis — is `Document/commit.md`'s, and this rail composes it.
+- Owner: policy vocabularies close every provider-mode discriminant on rows. `SelectionAxis` is the selection-conduct vocabulary the host's own selection members read as ONE `CapabilitySet<SelectionAxis>`. `TableOp` `[Union]` carries admitted per-occurrence payloads; `TableTransaction` `[Union]` distinguishes recorded, immediate, and navigation programs by shape, and the `UndoTrait`/`OpTrait` sets derive required versus recorded undo behavior without plan booleans. The commit envelope — `UndoBracket`, `RedrawScope`, `DocumentCommit.Sealed`, and the `HostInteraction` axis — is `Document/commit.md`'s, and this pipeline composes it.
 - Entry: `TableOp` factories admit raw payloads once. `Add` and `Replace` seal heterogeneous geometry inside `GeometryIntake`; its later `Admit` stage applies the fresh kernel `Context`, `Requirement`, and `GeometryForm` lease without exposing the raw value again. `TableTransaction.Recorded`, `Immediate`, and `Navigate` admit program shape before `Tables.Commit(DocumentSession, TableTransaction)` enters the host boundary.
 - Law: `TransformPolicy.Relocate` moves the source; `Copy` and `History` preserve it. `ObjectState` skips rows already in the requested state, and selection validates the host's affected-count return directly.
 - Law: selection conduct is ONE set. `SelectionAxis.Baseline` carries the host's default selection posture, and every host argument reads `Admits` at its own call.
 - Law: an operation-factory key threads through every constructor as a trailing `Op? key = null`, so one caller-minted key spans a whole program and every refusal names the request that produced it; the three `params`-bearing factories carve out and mint at the entry, because an optional before `params` forecloses the positional spread. A host member reporting failure as `Guid.Empty` — `Add`, `AddOrderedPointCloud`, `Transform` — admits through `ResourceId.Admit`, the spine's one empty-guid projector.
 - Law: `TableOp.Traits` totally classifies every case onto one of four trait rows — `Sourced`, `Recorded`, `Immediate`, `Navigation` — each carrying its undo, navigation, and kernel-context demands as ONE `CapabilitySet<OpTrait>` column. A host effect that cannot be reversed by the document record enters only an immediate transaction, so a recorded program has no untracked side effect.
-- Law: `Amend` owns a duplicated `ObjectAttributes` lease, takes the admitted `AttributeChange` payload, commits the duplicate synchronously, and disposes it before the operation leaves the host boundary. `AttributeChange` is the SEAM type: this spine is S0 and the typed attribute program is S2, so the payload value seats here and the objects page's `AttributeProgram` composes it upward.
+- Law: `Amend` owns a duplicated `ObjectAttributes` lease, takes the admitted `AttributeChange` payload, commits the duplicate synchronously, and disposes it before the operation leaves the host boundary. `AttributeChange` is the BOUNDARY type: this spine is S0 and the typed attribute program is S2, so the payload value seats here and the objects page's `AttributeProgram` composes it upward.
 - Law: deleted-object operations require a query whose admitted axes select deleted rows. `TableTarget.Serials` reads the native runtime serials from that query inside the operation window, so `Revive` and `Expunge` never re-enter the active-id index.
 - Law: `GeometryIntake` is the staged boundary union: `Of` separates native borrowed geometry from value-form conversion, while `Admit` resolves `Kind` and applies `Requirement.ForKind` under the fresh document context. Native geometry remains borrowed; every value-form conversion composes `GeometryForm` and is disposed by `Lease.Use` after the host copies it.
 - Law: page import carries `DocumentPath` and re-proves `DocumentFile.ThreeDm` inside the callback. Named-view restore carries `ViewportTarget`, resolves exactly one viewport immediately before the host call, and never retains a live viewport handle in request data; direct, proportional, constant-speed, and constant-time host modalities close as `NamedRestore` cases with delay and speed entering as admitted values.
@@ -730,7 +728,6 @@ public sealed partial class SelectionAxis : ICapability<SelectionAxis> {
 public sealed partial class AttributeChange {
     public Func<ObjectAttributes, Fin<Unit>> Revise { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Func<ObjectAttributes, Fin<Unit>> revise) =>
@@ -1548,7 +1545,7 @@ public static class Tables {
 |  [13]   | space partition        | `ActiveSpaceUse`               | host-keyed rows              | `Get` / `Key`                         |
 |  [14]   | selection conduct      | `SelectionAxis`                | capability vocabulary        | `Baseline` / `Admits`                 |
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` + `api-rhinocommon-document-state.md` — the component-table surface: layers, groups, views, instance definitions, named states); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` query/selection/trait rows and `[ValueObject]` `ResourceName` with `[KeyMemberEqualityComparer]`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`/`HashMap` table projections); kernel `Domain/rails` + `Domain/validation` (`Op.Row` host-enum admission).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` + `api-rhinocommon-document-state.md` — the component-table surface: layers, groups, views, instance definitions, named states); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` query/selection/trait rows and `[ValueObject]` `ResourceName` with `[KeyMemberEqualityComparer]`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`/`HashMap` table projections); kernel `Domain/results` + `Domain/validation` (`Op.Row` host-enum admission).
 
 ## [06]-[RESEARCH]
 

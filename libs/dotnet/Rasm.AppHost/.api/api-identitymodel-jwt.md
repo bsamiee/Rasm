@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_IDENTITYMODEL_JWT]
 
-`Microsoft.IdentityModel.JsonWebTokens` owns the allocation-conscious JWT engine: `JsonWebTokenHandler` creates, signs, encrypts, and validates JWS/JWE compact tokens, and `JsonWebToken` parses one into typed, span-friendly header and payload accessors. That handler validates inbound tokens against the `Microsoft.IdentityModel.Tokens` validation contract and mints host-issued tokens from a `SecurityTokenDescriptor`, serving the AppHost auth rail its token-reading leg.
+`Microsoft.IdentityModel.JsonWebTokens` owns the allocation-conscious JWT engine: `JsonWebTokenHandler` creates, signs, encrypts, and validates JWS/JWE compact tokens, and `JsonWebToken` parses one into typed, span-friendly header and payload accessors. That handler validates inbound tokens against the `Microsoft.IdentityModel.Tokens` validation contract and mints host-issued tokens from a `SecurityTokenDescriptor`, serving the AppHost auth pipeline its token-reading leg.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -87,8 +87,8 @@
 
 [LOCAL_ADMISSION]:
 - Resolve one `JsonWebTokenHandler` per host; it is thread-safe and reusable across concurrent validations.
-- Validate through `ValidateTokenAsync`, branch on `TokenValidationResult.IsValid`, and only then project `Exception` onto the host failure rail and `ClaimsIdentity` into the `Microsoft.AspNetCore.Authorization` core.
+- Validate through `ValidateTokenAsync`, branch on `TokenValidationResult.IsValid`, and only then project `Exception` onto the host failure channel and `ClaimsIdentity` into the `Microsoft.AspNetCore.Authorization` core.
 - Set `MapInboundClaims = false` so authorization requirements match the raw JWT claim types the OIDC provider emits.
 - Read claims through `TryGetPayloadValue<T>` and the typed registered properties (`Subject`, `Audiences`, `ValidTo`).
-- Feed `TokenValidationParameters.ConfigurationManager` from the OIDC discovery rail so `IssuerSigningKeys` and decryption keys track JWKS rotation.
+- Feed `TokenValidationParameters.ConfigurationManager` from OIDC discovery so `IssuerSigningKeys` and decryption keys track JWKS rotation.
 - Mint host-issued tokens through `CreateToken(SecurityTokenDescriptor)` with `SigningCredentials` (and `EncryptingCredentials` for confidential payloads), supplying `Claims`/`Subject` and lifetime on the descriptor rather than hand-assembling a payload string.

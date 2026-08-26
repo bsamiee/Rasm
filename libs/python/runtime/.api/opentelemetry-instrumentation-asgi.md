@@ -77,6 +77,6 @@
 [LOCAL_ADMISSION]:
 - One wrap at the composition root around the application handed to `serve`; no second ASGI tracing layer binds the same app.
 - `server_request_hook` owns request-derived enrichment; attributes a handler computes ride the handler's own child span.
-- `exclude_spans=["receive", "send"]` is the standing posture on a streaming rail, where per-event children multiply span volume by message count.
+- `exclude_spans=["receive", "send"]` is the standing posture on a streaming domain, where per-event children multiply span volume by message count.
 - Header capture arrives through the constructor slots so the captured and sanitized sets stay declared and reviewable at the composition root.
 - `excluded_urls` patterns anchor on path segments, since the match runs against a url carrying scheme, host, and port.

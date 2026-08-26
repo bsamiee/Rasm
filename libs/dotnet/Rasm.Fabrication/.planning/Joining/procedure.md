@@ -20,7 +20,7 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 - Cases: `QualificationValue` distinguishes the four modal readings, context exclusion, and permitted nonessential omission; `QualificationRule` distinguishes the four modal ranges under one optional wrapper.
 - Law: the modality triple is TOTAL by construction. `QualificationRule.Verdict(QualificationValue)` is the one pairing over both families — a value whose modality the rule does not carry answers `None`, and admission has already proved modality and dimension agreement, so assessment carries no rule-shape fallback arm and no intermediate union between the two dispatches.
 - Law: `TestKind` carries what a test IS — whether it consumes the specimen — and the profile carries how many specimens the CODE demands, so a governing edition that raises the bend-specimen count is one profile row rather than a frozen column every other code then inherits.
-- Law: personal identity travels TYPED. `WelderId` is the one carrier and every property holding it declares `[PersonalData]` from `Process/telemetry#CLASSIFICATION`, so a welder identity redacts at every log and export seam while WPS/PQR artifacts keep their attested content and no untyped copy escapes the classification.
+- Law: personal identity travels TYPED. `WelderId` is the one carrier and every property holding it declares `[PersonalData]` from `Process/telemetry#CLASSIFICATION`, so a welder identity redacts at every log and export boundary while WPS/PQR artifacts keep their attested content and no untyped copy escapes the classification.
 - Law: a quantity variable carries its `QuantityInfo`, and admission proves demand, range low, and range high share it, so evaluation compares scalars that are already dimensionally paired.
 - Entry: `Procedure.Assess` accepts only `ProcedureRequest`; `Wps`, `WeldDemand`, assignments, inspection context, and assessment time enter through that generated aggregate gate, whose clauses accumulate through `AdmissionSlots` so a malformed request reports every structural defect it holds.
 - Packages: Thinktecture.Runtime.Extensions owns admitted values and closed dispatch; UnitsNet owns physical dimensions and registry identity; NodaTime owns validity; LanguageExt.Core owns accumulated assessment; Generator.Equals owns ordered result equality and member diffs; `Rasm.Domain` owns the `ICapability`/`CapabilitySet` floor the hold-point demand column instantiates.
@@ -74,7 +74,6 @@ public sealed partial class VariableModality {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct VariableKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -84,7 +83,6 @@ public readonly partial struct VariableKey {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct WelderId {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -94,7 +92,6 @@ public readonly partial struct WelderId {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct WpsId {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -104,7 +101,6 @@ public readonly partial struct WpsId {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct PqrId {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -164,7 +160,6 @@ public sealed partial class ApplicabilityLaw {
     public ApplicabilityMode Mode { get; }
     public Set<string> Tokens { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ApplicabilityMode mode,
@@ -186,7 +181,6 @@ public sealed partial class EssentialVariable {
     public VariableRequirement Requirement { get; }
     public Option<ApplicabilityLaw> Applicability { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref VariableKey key,
@@ -396,7 +390,6 @@ public sealed partial class QualificationProfile {
     public Map<TestKind, int> RequiredProcedureTests { get; }
     public Map<TestKind, int> RequiredPersonnelTests { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string code,
@@ -442,7 +435,6 @@ public sealed partial class PqrEvidence {
     public Instant QualifiedAt { get; }
     public Seq<QualificationTest> Tests { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PqrId id,
@@ -468,7 +460,6 @@ public sealed partial class Wps {
     public PqrEvidence Pqr { get; }
     public Map<VariableKey, QualificationRule> Rules { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WpsId id,
@@ -513,7 +504,6 @@ public sealed partial class WelderQualification {
     public Map<VariableKey, QualificationRule> Rules { get; }
     public Seq<QualificationTest> Tests { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WelderId welder,
@@ -550,7 +540,6 @@ public sealed partial class WelderQualification {
 public sealed partial class WelderRegistry {
     public Map<WelderId, WelderQualification> Qualifications { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Map<WelderId, WelderQualification> qualifications) {
@@ -569,7 +558,7 @@ public sealed partial class WelderRegistry {
 ## [03]-[INSPECTION_PLAN]
 
 - Owner: `InspectionFamily` owns the demand grain and its hydrogen-delay law; `NdtMethod` owns the performed grain and its own family correspondence; `SamplingKind` owns the one sampling axis both the extent and the rule key on; `InspectionExtent` owns the dimensional population; `InspectionRule` and `InspectionPolicy` own coverage derivation; `ComplianceTrait`, `HoldKind`, `WitnessParty`, `HoldPoint`, and `HoldRelease` own the hold-point family; `InspectionTestPlan` owns the admitted plan a traveler step releases against.
-- Law: family and method are ONE grain seam owned here. A requirement demands a FAMILY and admits the method set that discharges it — absent meaning any method of that family — so radiographic examination satisfies a volumetric demand and a documentation-plane reconciliation reads `InspectionRequirement.Satisfies(NdtMethod)` rather than re-deriving the correspondence from a second vocabulary at a higher stratum.
+- Law: family and method are ONE grain contract owned here. A requirement demands a FAMILY and admits the method set that discharges it — absent meaning any method of that family — so radiographic examination satisfies a volumetric demand and a documentation-plane reconciliation reads `InspectionRequirement.Satisfies(NdtMethod)` rather than re-deriving the correspondence from a second vocabulary at a higher stratum.
 - Law: hydrogen delay is a DURATION, not a flag. EN 1011-2 delays surface and volumetric examination of hardenable material by a measured interval after the last deposit, and a boolean cannot state it, so the family row carries the interval and a zero interval is the honest reading for a family that imposes none.
 - Law: sampling has ONE vocabulary. `SamplingKind` keys the population map and each `InspectionExtent` case declares the row it belongs to, so admission proves key and payload agree and no shadow enum restates the extent family under a second set of names.
 - Law: a hold point states its demand as a `CapabilitySet<ComplianceTrait>` — a hold demands `Advance` and `Attendance`, a witness point `Attendance` alone, a review point `Advance` and `Record`, and surveillance nothing — so the satisfaction law is ONE set comparison against what the release furnished rather than one predicate clause per axis, and a fourth demand is a vocabulary row no consumer recompiles for. `InspectionTestPlan.Unreleased` is that law and it publishes the open hold ROSTER, so `Released` is the roster's verdict through the kernel's typed `Require` door — which cannot refuse without handing over the MISSING rows — and `Documentation/traveler` gates its document on the same read it reports its open-hold count from.
@@ -697,7 +686,6 @@ public readonly partial struct InspectionBasis {
     public Length Thickness { get; }
     public Map<SamplingKind, InspectionExtent> Populations { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref JoinClass jointClass,
@@ -742,7 +730,6 @@ public readonly partial struct InspectionRule {
     public Option<HoldKind> Hold { get; }
     public Option<WitnessParty> Party { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string executionClass,
@@ -848,7 +835,6 @@ public sealed partial record InspectionTestPlan(Seq<InspectionRequirement> Requi
 public sealed partial class InspectionPolicy {
     public Seq<InspectionRule> Rules { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<InspectionRule> rules) {
@@ -901,7 +887,6 @@ public sealed partial class WeldDemand {
     public Set<string> Context { get; }
     public InspectionBasis Inspection { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int joint,
@@ -938,7 +923,6 @@ public sealed partial class ProcedureRequest {
     public InspectionPolicy Inspections { get; }
     public Instant At { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<WeldDemand> demands,

@@ -10,12 +10,12 @@
 - `@qualithm/arrow-flight-client` grades refusals on `Hops`, lane-bounded — its `FlightServerError.code` types `string` yet carries numbers.
 - `@effect/sql-clickhouse` answers no query cost — evidence reads `system.query_log`, and `withQueryId` scopes the ONE statement `KILL QUERY` takes.
 - Object engines admit on conditional put (`If-None-Match: *`) — the key IS the content, so a plain-put engine races writers into silent overwrite.
-- `@effect-aws/client-s3` is DECLINED — its effect peer ceiling trails the workspace rail pin, and the store already owns the lift the wrapper sells.
-- KTX2 work is a CLI seam — `object/asset` spawns the provisioned `ktx` binary's whole `_VERBS` roster, and no npm encoder matches it at parity.
+- `@effect-aws/client-s3` is DECLINED — its effect peer ceiling trails the workspace effect pin, and the store already owns the lift the wrapper sells.
+- KTX2 work is a CLI boundary — `object/asset` spawns the provisioned `ktx` binary's whole `_VERBS` roster, and no npm encoder matches it at parity.
 - `ktx-parse` composes READ-ONLY — its `write` rewrites `KTXwriter` and answers a different digest, silently re-keying an immutable object.
 - `ktx validate` settles Khronos conformance, `ktx-parse` DECLARATION AGREEMENT — the verdict reads the report's `valid` field, never exit status.
 - S3 Object Lock is refused whole — the key IS the content, so no version exists to lock; preservation rides the `legal_hold` ledger and `held` tag.
-- `DuckDBAppender` is refused as a residence fill — positional-only, node-only, and the volume path crosses no rows into JS.
+- `DuckDBAppender` is refused as a tier fill — positional-only, node-only, and the volume path crosses no rows into JS.
 
 ## [02]-[SHAPE]
 
@@ -27,7 +27,7 @@
 - Capability admission censuses independent checks in ONE refusal and stages dependent proofs — a sequenced census hides every sibling miss.
 - Capability corners ride `_RELATIONS` rows the demand gate reads or delete — a corner on a matrix row as prose is documentation, never law.
 - Analytics fills stamp `Convention.identity` on arrival as the journal's join key — a plane filled without it answers nothing until a rewrite.
-- `absorb` obligates `plant` at the same owner and `Olap.mount` creates both in one statement — a collector-planted residence carries neither.
+- `absorb` obligates `plant` at the same owner and `Olap.mount` creates both in one statement — a collector-planted tier carries neither.
 - `_POINTS` enumerates the OTLP point model, never the mount roster — `_KIND` maps a subset and the unreached relations still hold foreign rows.
 - `_POINTS` keys scalars per instrument KIND — a histogram relation holds no value column its sum sibling has, so one shared column empties tiles.
 - Lake metrics fold the emitting process's live registry into `_POINTS` on a tick — that snapshot IS the cold tail a metrics store cannot retain.
@@ -61,7 +61,7 @@
 - Both embedded DuckDB drivers mint ONE `Olap.Handle` family — a second read entry beside `Olap.read` leaves the worker taking unbounded statements.
 - `CacheLane.lease` owns the pool's ONE held-level series — a second row publishes the cache lane's lease under a name only its minter reads.
 - Driver divergence stays a ROW on `_DRIVERS` — result grain, bind vocabulary, and execution members ride columns, so no arm branches on a driver.
-- One re-runnable subject slice serves the resume rail — tus finalize and the preservation port take one landing, so no coordinate drifts.
+- One re-runnable subject slice serves the resume server — tus finalize and the preservation port take one landing, so no coordinate drifts.
 - `_GROOMS` seals journal relation literals; importing read-stratum `Query.Relation` into the journal would invert dependency direction.
 
 ## [04]-[STRUCTURE]

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PYTHON_FLINT]
 
-`python-flint` (module `flint`) binds the FLINT and Arb C libraries into one exact-and-certified numeric rail: GMP-backed integer and rational arithmetic, word and multiprecision modular and finite-field algebra, univariate and multivariate polynomial factorization and linear algebra, and arbitrary-precision `arb`/`acb` ball arithmetic carrying certified error bounds across the full Arb special-function catalogue. Every ball result is its own error certificate, and exact types round only at the boundary. Feeds the compute exact-arithmetic and ball-arithmetic rails.
+`python-flint` (module `flint`) binds the FLINT and Arb C libraries into one exact-and-certified numeric layer: GMP-backed integer and rational arithmetic, word and multiprecision modular and finite-field algebra, univariate and multivariate polynomial factorization and linear algebra, and arbitrary-precision `arb`/`acb` ball arithmetic carrying certified error bounds across the full Arb special-function catalogue. Every ball result is its own error certificate, and exact types round only at the boundary. Feeds the compute exact-arithmetic and ball-arithmetic domains.
 
 ## [01]-[PUBLIC_TYPES]
 

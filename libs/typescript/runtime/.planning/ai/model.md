@@ -5,7 +5,7 @@ The intelligence spine: five provider families fold onto one capability-asymmetr
 ## [01]-[INDEX]
 
 - [02]-[PROVIDER_ROWS]: the asymmetry table, client construction, the one transport requirement; `Providers`.
-- [03]-[LADDER]: tier routing and fault-gated failover over both rails on one plan; `Ladder`.
+- [03]-[LADDER]: tier routing and fault-gated failover over both modalities on one plan; `Ladder`.
 - [04]-[GATE]: the one guardrail — screen, admit, sweep (all three modalities), carrier, refusal, spend; `Guardrail`.
 - [05]-[TOKENS]: meter-relative budgets, truncation enforcement, the measured context weave; `Tokens`.
 
@@ -163,7 +163,7 @@ const Providers = {
 ## [03]-[LADDER]
 
 [LADDER]:
-- Owner: `_graded` grades the `AiError` union onto the branch fault lattice, and both ladder rungs read that grade.
+- Owner: `_graded` grades the `AiError` union onto the branch fault class table, and both ladder rungs read that grade.
 - Law: an unbranded provider failure grades `defect` by default, so an ungraded ladder retries nothing and fails over nowhere — the grade is what arms `while` and the tier schedule, and both take the same predicate so one call cannot retry under a policy the other refuses.
 - Law: `HttpResponseError` grades on STATUS, never on its tag — one tag covers a rate limit, a revoked key, and a malformed request, so a tag-level verdict either replays a caller error through every tier or strands a throttle on one attempt.
 - Law: `Ladder.after` reads the provider's own published wait off the refusal it already holds; a schedule ignoring it either hammers the window or over-waits it.
@@ -260,7 +260,7 @@ const Ladder = { drive: _tiered, yields: _yields, grade: _classOf, after: _after
 
 [GATE]:
 - Owner: `Guardrail.generate(policy, request, carrier?)` — one request-shape-discriminated entry over `Text`, `Object`, and `Stream` modalities. Every arm screens the prompt, validates forced tool choice against the admitted roster, spreads `toolChoice` and `disableToolCallResolution` into the provider request, detects provider refusal, and sweeps output; the request tag changes the modality and the carrier changes WHO executes it, never the guardrail surface.
-- Law: the carrier is a value, and its shape is the substrate's own — `Guardrail.Carrier` is `Pick<Chat.Service, "generateText" | "generateObject" | "streamText">`, so the persisted chat IS a carrier by construction and the free `LanguageModel` trio proves conformance at its `satisfies` seam. The default carrier is the free trio; handing a `Chat.Persisted` instead makes the same gated call append prompt and response to the conversation and write both to the backing store, so a session's history is generated, never assembled. A gated call beside a hand-written history append is the split this parameter deletes.
+- Law: the carrier is a value, and its shape is the substrate's own — `Guardrail.Carrier` is `Pick<Chat.Service, "generateText" | "generateObject" | "streamText">`, so the persisted chat IS a carrier by construction and the free `LanguageModel` trio proves conformance at its `satisfies` site. The default carrier is the free trio; handing a `Chat.Persisted` instead makes the same gated call append prompt and response to the conversation and write both to the backing store, so a session's history is generated, never assembled. A gated call beside a hand-written history append is the split this parameter deletes.
 - Law: the stream sweep retains withheld OUTPUT and its source id. Each text delta appends, sweeps the whole held window, and releases only the prefix older than `policy.window`; before every non-text part it sweeps and flushes the residual text first, preserving source order instead of allowing tool or metadata parts to overtake withheld text. `text-end` is the same boundary rule, and a match fails before any byte in the matched span emits.
 - Law: admission modes are policy rows — `Safety.admit` partitions the graded roster into executable `allowed` tools and visible-but-unresolved `held` tools, and the provider's `oneOf` receives their union while `disableToolCallResolution` prevents local execution whenever `held` is non-empty. An empty union compiles to `"none"`; mandatory choice compiles to `{ mode: "required", oneOf: visible }`; and a forced tool outside the visible union is a policy defect, never a silent escalation. This preserves held-call evidence for the agent approval loop without making the held tool executable.
 - Law: the provider's verdict reads the WHOLE finish roster through one table — `content-filter` and `error` are refusals, `pause` is unfinished work, and everything else settles — so a gate matching a single literal hands back a filtered, faulted, or truncated turn as a clean reply; that one table serves both buffered arms and the stream's finish part.

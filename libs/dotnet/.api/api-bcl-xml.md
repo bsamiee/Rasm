@@ -27,7 +27,7 @@
 
 [LINQ_XML_LEAF_NODE]: `XText` `XCData` `XComment` `XProcessingInstruction` `XDocumentType` `XDeclaration`
 
-[LINQ_XML_ENTRY_SCOPE]: construction, ingress and egress, mutation, the streaming bridge, and the annotation rail
+[LINQ_XML_ENTRY_SCOPE]: construction, ingress and egress, mutation, the streaming bridge, and the annotation surface
 
 `XElement` mirrors the whole `XDocument` `Load`/`LoadAsync`/`Parse`/`Save`/`SaveAsync` family rooted at a subtree.
 
@@ -91,7 +91,7 @@ Every axis takes an optional `XName?` filter and carries an `IEnumerable<T>` seq
 |  [03]   | `XmlParserContext`    | class         | namespace and DTD context on ingress  |
 |  [04]   | `XmlNameTable`        | class         | atomized-name store shared per parse  |
 |  [05]   | `XmlNamespaceManager` | class         | prefix scope stack for query binding  |
-|  [06]   | `XmlResolver`         | class         | external-entity resolution seam       |
+|  [06]   | `XmlResolver`         | class         | external-entity resolution hook       |
 |  [07]   | `XmlNodeType`         | enum          | positioned-node discriminant          |
 |  [08]   | `ConformanceLevel`    | enum          | fragment or document conformance      |
 |  [09]   | `DtdProcessing`       | enum          | DTD posture; `Prohibit` is the guard  |
@@ -190,7 +190,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 |  [02]   | `XPathDocument`     | class         | immutable navigator-optimized store |
 |  [03]   | `XPathExpression`   | class         | pre-compiled expression             |
 |  [04]   | `XPathNodeIterator` | class         | lazy node-set cursor                |
-|  [05]   | `IXPathNavigable`   | interface     | navigator-source seam               |
+|  [05]   | `IXPathNavigable`   | interface     | navigator-source interface          |
 |  [06]   | `XPathNodeType`     | enum          | navigator node discriminant         |
 |  [07]   | `XmlNodeOrder`      | enum          | relative-position verdict           |
 |  [08]   | `XPathException`    | class         | expression compile or eval fault    |
@@ -222,7 +222,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 ## [05]-[SCHEMA]
 
-[SCHEMA_TYPE_SCOPE]: XSD registration, compilation, and the validation-event rail
+[SCHEMA_TYPE_SCOPE]: XSD registration, compilation, and the validation-event channel
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                       |
 | :-----: | :----------------------------- | :------------ | :--------------------------------- |
@@ -308,7 +308,7 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 |  [05]   | `XmlDeserializationEvents`       | struct        | unknown-member callback set          |
 |  [06]   | `DataContractSerializer`         | class         | opt-in contract codec                |
 |  [07]   | `DataContractSerializerSettings` | class         | root, known types, graph caps        |
-|  [08]   | `DataContractResolver`           | class         | polymorphic type resolution seam     |
+|  [08]   | `DataContractResolver`           | class         | polymorphic type resolution hook     |
 |  [09]   | `XmlDictionaryWriter`            | class         | binary and text dictionary egress    |
 |  [10]   | `XmlDictionaryReader`            | class         | binary and text dictionary ingress   |
 |  [11]   | `XmlDictionaryReaderQuotas`      | class         | untrusted-input size caps            |
@@ -316,21 +316,21 @@ Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
 
 [SERIALIZATION_ENTRY_SCOPE]: serializer construction, the read and write pair, and the compact binary wire
 
-| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]             |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :----------------------- |
-|  [01]   | `new XmlSerializer(Type, XmlRootAttribute?)`                                                     | ctor     | root-overridden codec    |
-|  [02]   | `new XmlSerializer(Type, Type[]?)`                                                               | ctor     | admit polymorphic types  |
-|  [03]   | `XmlSerializer.Serialize(XmlWriter, object?, XmlSerializerNamespaces?)`                          | instance | write with prefixes      |
-|  [04]   | `XmlSerializer.Deserialize(XmlReader, XmlDeserializationEvents)`                                 | instance | read with callbacks      |
-|  [05]   | `XmlSerializer.CanDeserialize(XmlReader) -> bool`                                                | instance | probe the root           |
-|  [06]   | `new DataContractSerializer(Type, DataContractSerializerSettings?)`                              | ctor     | contract codec with caps |
-|  [07]   | `DataContractSerializer.WriteObject(XmlDictionaryWriter, object?, DataContractResolver?)`        | instance | write with resolution    |
-|  [08]   | `DataContractSerializer.ReadObject(XmlDictionaryReader, bool, DataContractResolver?)`            | instance | read with resolution     |
-|  [09]   | `DataContractSerializer.IsStartObject(XmlReader) -> bool`                                        | instance | probe the contract root  |
-|  [10]   | `XmlDictionaryWriter.CreateBinaryWriter(Stream, IXmlDictionary?, XmlBinaryWriterSession?, bool)` | static   | compact binary egress    |
-|  [11]   | `XmlDictionaryReader.CreateBinaryReader(Stream, IXmlDictionary?, XmlDictionaryReaderQuotas)`     | static   | compact binary ingress   |
-|  [12]   | `XmlDictionaryWriter.CreateTextWriter(Stream, Encoding, bool)`                                   | static   | text egress on the rail  |
-|  [13]   | `XmlDictionaryReader.CreateDictionaryReader(XmlReader)`                                          | static   | lift onto the rail       |
+| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `new XmlSerializer(Type, XmlRootAttribute?)`                                                     | ctor     | root-overridden codec     |
+|  [02]   | `new XmlSerializer(Type, Type[]?)`                                                               | ctor     | admit polymorphic types   |
+|  [03]   | `XmlSerializer.Serialize(XmlWriter, object?, XmlSerializerNamespaces?)`                          | instance | write with prefixes       |
+|  [04]   | `XmlSerializer.Deserialize(XmlReader, XmlDeserializationEvents)`                                 | instance | read with callbacks       |
+|  [05]   | `XmlSerializer.CanDeserialize(XmlReader) -> bool`                                                | instance | probe the root            |
+|  [06]   | `new DataContractSerializer(Type, DataContractSerializerSettings?)`                              | ctor     | contract codec with caps  |
+|  [07]   | `DataContractSerializer.WriteObject(XmlDictionaryWriter, object?, DataContractResolver?)`        | instance | write with resolution     |
+|  [08]   | `DataContractSerializer.ReadObject(XmlDictionaryReader, bool, DataContractResolver?)`            | instance | read with resolution      |
+|  [09]   | `DataContractSerializer.IsStartObject(XmlReader) -> bool`                                        | instance | probe the contract root   |
+|  [10]   | `XmlDictionaryWriter.CreateBinaryWriter(Stream, IXmlDictionary?, XmlBinaryWriterSession?, bool)` | static   | compact binary egress     |
+|  [11]   | `XmlDictionaryReader.CreateBinaryReader(Stream, IXmlDictionary?, XmlDictionaryReaderQuotas)`     | static   | compact binary ingress    |
+|  [12]   | `XmlDictionaryWriter.CreateTextWriter(Stream, Encoding, bool)`                                   | static   | text egress on the writer |
+|  [13]   | `XmlDictionaryReader.CreateDictionaryReader(XmlReader)`                                          | static   | lift onto the reader      |
 
 - `new XmlSerializer(Type)`: construction emits an assembly, so one instance caches per `Type`.
 

@@ -1,6 +1,6 @@
 # [PY_DATA_API_PYSTAC]
 
-`pystac` supplies the in-memory STAC object model for the data STAC-catalog rail: the `Catalog`/`Collection`/`Item`/`Asset` hierarchy over a `Link` graph, `Extent`/`Provider` metadata, the `MediaType`/`CatalogType`/`RelType`/`ProviderRole` vocabularies, pluggable `StacIO` read/write, schema migration on read, JSON-Schema validation, and the typed extension family reached through `obj.ext.<short>`. `pystac` owns STAC JSON serialization, the migration path, and the HREF-resolution link graph; the data owner composes the `STACObject` hierarchy and the module readers as its STAC in-memory owner.
+`pystac` supplies the in-memory STAC object model for the data STAC-catalog domain: the `Catalog`/`Collection`/`Item`/`Asset` hierarchy over a `Link` graph, `Extent`/`Provider` metadata, the `MediaType`/`CatalogType`/`RelType`/`ProviderRole` vocabularies, pluggable `StacIO` read/write, schema migration on read, JSON-Schema validation, and the typed extension family reached through `obj.ext.<short>`. `pystac` owns STAC JSON serialization, the migration path, and the HREF-resolution link graph; the data owner composes the `STACObject` hierarchy and the module readers as its STAC in-memory owner.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -32,7 +32,7 @@
 - [MEDIA_TYPE]: `COG` `GEOTIFF` `TIFF` `HDF` `HDF5` `JSON` `GEOJSON` `PNG` `JPEG` `JPEG2000` `NETCDF` `VND_APACHE_PARQUET` `VND_PMTILES` `VND_ZARR` `COPC` `FLATGEOBUF` `GEOPACKAGE` `KML` `PDF` `XML` `HTML` `TEXT`
 - [REL_TYPE]: `SELF` `ROOT` `PARENT` `CHILD` `ITEM` `ITEMS` `COLLECTION` `CANONICAL` `DERIVED_FROM` `ALTERNATE` `VIA` `PREVIEW` `LICENSE` `NEXT` `PREV`
 
-[PUBLIC_TYPE_SCOPE]: typed error rail
+[PUBLIC_TYPE_SCOPE]: typed error result
 
 `STACError` is the base of the STAC failure tree; the leaves are distinct so the data owner discriminates malformed JSON, missing required fields, and extension misuse without string matching. `TemplateError` sits outside that tree as a bare `Exception` for malformed layout templates.
 
@@ -48,7 +48,7 @@
 |  [08]   | `DuplicateObjectKeyError`     | duplicate key during JSON decode                                           |
 |  [09]   | `TemplateError`               | layout template string malformed (`generate_subcatalogs`/`LayoutTemplate`) |
 
-- `DeprecatedWarning` (a `FutureWarning`) is emitted, not raised, on deprecated-field access; catch it through `warnings`, never the error rail.
+- `DeprecatedWarning` (a `FutureWarning`) is emitted, not raised, on deprecated-field access; catch it through `warnings`, never the error channel.
 
 ## [02]-[ENTRYPOINTS]
 

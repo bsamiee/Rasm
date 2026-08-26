@@ -38,7 +38,7 @@
 - [03]-[CHAR_PRIMITIVES]: `Char`/`CIChar`/`String`/`CIString`/`OneOf`/`CIOneOf`/`AnyCharExcept`, the character classes (`Digit`, `Letter`, `LetterOrDigit`, `Lowercase`, `Uppercase`, `Punctuation`, `Symbol`, `Separator`, `Whitespace`/`Whitespaces`/`WhitespaceString`/`SkipWhitespaces`, `EndOfLine`), the numerics (`Num`/`DecimalNum`/`LongNum`/`OctalNum`/`HexNum`/`Real`, with `Int`/`UnsignedInt`/`Long`/`UnsignedLong` on an explicit base), and the `Enum<TEnum>`/`CIEnum<TEnum>` pair.
 - [03]-[CONTROL]: `Try` (backtracks a consumed failure), `Lookahead` (matches without consuming), `Not`, `Rec` in its three shapes (a `Func`, a self-referencing `Func`, or a `Lazy`) for a recursive grammar, `OneOf` over parsers, and `Map` in arities up to eight.
 - [04]-[PARSE_SHAPES]: `Parse`/`ParseOrThrow` bind `string`, `TextReader`, `IList<T>`, `IReadOnlyList<T>` (through the distinct `ParseReadOnlyList` name), `IEnumerable<T>`, `IEnumerator<T>`, `T[]`, `ReadOnlySpan<T>`, `Stream` (for `byte` tokens), `ITokenStream<T>`, and a `ref ParseState<T>`; each takes an optional `IConfiguration<TToken>`.
-- [05]-[RESULT_FOLD]: `Success`, `Value`, `Error`, `GetValueOrDefault` in three arities, `Match(success, failure)`, and the `Select`/`SelectMany`/`Or`/`Cast` projections — so a verdict folds onto a caller's own rail without an exception.
+- [05]-[RESULT_FOLD]: `Success`, `Value`, `Error`, `GetValueOrDefault` in three arities, `Match(success, failure)`, and the `Select`/`SelectMany`/`Or`/`Cast` projections — so a verdict folds onto a caller's own result without an exception.
 - [06]-[ERROR_DETAIL]: `EOF`, `Unexpected`, `Expected`, `ErrorOffset`/`ErrorOffsetLong`, `ErrorPos`/`ErrorPosDelta`, `Message`, and `RenderErrorMessage(SourcePos?)` — the whole diagnostic a refusing admission reports.
 
 ## [02]-[ENTRYPOINTS]
@@ -57,9 +57,9 @@
 |  [08]   | `from x in p1 from y in p2 select f(x, y)`                         | query    | `SelectMany` composition in LINQ syntax             |
 |  [09]   | `Operator.InfixL(op)` / `InfixR` / `InfixN` / `Prefix` / `Postfix` | static   | one precedence-table row per fixity                 |
 |  [10]   | `ExpressionParser.Build(term, table)`                              | static   | folds term and table into one expression parser     |
-|  [11]   | `parser.Parse(input[, configuration])`                             | instance | `Result<TToken, T>` — the admitted rail             |
+|  [11]   | `parser.Parse(input[, configuration])`                             | instance | `Result<TToken, T>` — the admitted result           |
 |  [12]   | `parser.ParseOrThrow(input[, configuration])`                      | instance | raises `ParseException<TToken>`                     |
-|  [13]   | `result.Match(success, failure)`                                   | instance | the fold onto a caller's own rail                   |
+|  [13]   | `result.Match(success, failure)`                                   | instance | the fold onto a caller's own result                 |
 |  [14]   | `error.RenderErrorMessage([initialSourcePos])`                     | instance | the diagnostic a refusing admission reports         |
 
 ## [03]-[IMPLEMENTATION_LAW]
@@ -68,9 +68,9 @@
 - Parsers are immutable VALUES, so a grammar builds once as `static readonly` fields and every evaluation reuses them; constructing a parser per input rebuilds the whole expression graph on every call.
 - `Or` does NOT backtrack a branch that already consumed input — a left branch that consumed and then failed fails the alternation. `Try` is the explicit backtrack, so a grammar whose alternatives share a prefix either factors the prefix out or wraps the branch.
 - `Rec` is the only way a grammar references itself, because a static-field grammar cannot reference a field whose initializer has not run; the `Func` and `Lazy` shapes both defer the read to first parse.
-- `Parse` returns a verdict and `ParseOrThrow` raises, so a boundary admitting untrusted text takes `Parse` and folds `Result.Match` onto its own rail; the throwing form serves text this estate itself rendered.
+- `Parse` returns a verdict and `ParseOrThrow` raises, so a boundary admitting untrusted text takes `Parse` and folds `Result.Match` onto its own result; the throwing form serves text this solution itself rendered.
 - `ExpressionParser.Build` folds a term parser and an ordered precedence table into one parser, so an operator grammar is a TABLE of rows rather than a hand-written recursive-descent ladder; `OperatorTableRow.And` merges rows at one precedence level and `Empty` seeds a fold.
-- `MapWithInput` and `Slice` take a `ReadOnlySpanFunc`, so a projection reads the matched input span directly and a grammar that needs the source text of a match never re-slices the input at its own seam.
+- `MapWithInput` and `Slice` take a `ReadOnlySpanFunc`, so a projection reads the matched input span directly and a grammar that needs the source text of a match never re-slices the input at its own boundary.
 - `ParseError` carries the offset, the source position, the unexpected token, and the expectation set, so a refusing admission reports WHERE and WHAT rather than a bare failure; `Labelled` is what makes the expectation set legible.
 - This package targets `net7.0` alone and ships no `net10.0` asset, so the reference binds that asset — pure IL with no native or analyzer surface, which is why the target gap costs nothing at compile or run time.
 

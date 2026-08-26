@@ -67,7 +67,7 @@ Land every fact at the lowest tier that owns it; hold the higher tier to the one
 
 - Corpus root: purpose, layer law, and entry routes by concern — never inventories of anything below.
 - Area index: area invariants, unit-grain topology and boundaries, and admission law — never a unit's member roster or file names.
-- Unit index: charter, fenced sub-structure, unit-grain seams, and owned registries — never wire byte-truth, signatures, or literals.
+- Unit index: charter, fenced sub-structure, unit-grain boundaries, and owned registries — never wire byte-truth, signatures, or literals.
 - Implementation page: mechanism, signatures, byte-truth, literals, and one owner's flow — never higher law restated or siblings re-taught.
 - Work item: scoped intent, integration points, and growth pressure — never design content or settled law.
 - In-code comment: one in-situ constraint the code cannot show — never anything else.
@@ -85,8 +85,8 @@ Engineer the lead, never accumulate it — first lines are the highest-value sig
 
 Select what an index-tier page carries for one reader: the agent editing the unit in isolation.
 
-- Carry closed signal bands, nothing else: the router, the registries the page owns, and the unit's boundary and refusal seams.
-- Collapse provider inventories to registry cards, cross-owner consequences to seam rows, implementation mechanics to the owning page.
+- Carry closed signal bands, nothing else: the router, the registries the page owns, and the unit's boundaries and refusals.
+- Collapse provider inventories to registry cards, cross-owner consequences to boundary rows, implementation mechanics to the owning page.
 - Test every candidate sentence once: an agent landing here with no other context changes what it edits, admits, or refuses — or the line dies.
 - Reject topology narration, sibling-role description, and provenance.
 - Hold consistency over local optimality: a deviating index misplaced its extra — the shape is the contract, the extra goes to its owner.
@@ -147,7 +147,7 @@ Run every pass touching an existing durable doc in this order:
 3. Classify every suspect passage against the defect catalog before any fix; an unclassifiable passage is legal voice or a new class worth naming.
 4. Author the new document from the exemplar's shape and the extracted payload; consult the source for payload completeness alone.
 5. Move mechanism above its tier to its owner before the copy dies; split a compound of charter facet and mechanism first, never cut it whole.
-6. Land both ends of every ripple in the same pass — seam counterpart, pointing consumer, registry row; re-scan every fold target for a minted twin.
+6. Land both ends of every ripple in the same pass — boundary counterpart, pointing consumer, registry row; re-scan every fold target for a minted twin.
 
 [GROUNDED_REPAIR] — Parse a line to the subject and verb it carries and resolve every named surface at its owning catalog, fence, or manifest before touching it: compression built from the words alone inherits whatever the reader mis-parsed and ships that as law. Read the system a line governs until its claim proves out, and correct what that system refutes. Separate the two targets first — description repairs against the system's live truth, higher-order law holds its obligation whole whether or not any system yet honours it, and drift between them convicts the system.
 

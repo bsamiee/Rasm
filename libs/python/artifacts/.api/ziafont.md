@@ -53,7 +53,7 @@
 |  [06]   | `Text.str_to_gids()`                    | instance | the shaped post-GSUB glyph-id sequence                 |
 |  [07]   | `Text(s, font, ...)`                    | ctor     | direct run construction; `s` accepts a gid sequence    |
 
-- `Text.drawon`: appends into a caller `ET.Element` at `(x, y)` — the seam a diagram owner uses to place outlined text into the tree it is already building.
+- `Text.drawon`: appends into a caller `ET.Element` at `(x, y)` — the boundary a diagram owner uses to place outlined text into the tree it is already building.
 
 [ENTRYPOINT_SCOPE]: the shared glyph interface — `SimpleGlyph`, `CompoundGlyph`, `EmptyGlyph`
 
@@ -97,14 +97,14 @@
 [STACKING]:
 - `visualization/diagram/draw#DRAW`: its `Annotation`/`Node`/`Swimlane`/`Edge` arms emit `drawsvg.Text`, a font-dependent `<text>`; a `FONT_OUTLINE` arm instead builds one `Font` and calls `Font(...).text(label, size=...).drawon(group, x, y)` to composite `<symbol>` defs and a `<g>` into the `GlyphStyle.layer` group's ET tree, so the label is outlined `<path>` inside the named SVG layer `export/layered#LAYERED` binds. `drawsvg` owns the mark shapes, `ziafont` the text-to-outline.
 - `visualization/diagram/glyphset#GLYPHSET`: its label text mark resolves to a `ziafont` outline through this catalog — the glyph vocabulary stays geometry and style, and `ziafont` is the draw-side outline engine the label folds into, never a new glyph case.
-- `typography/shape#SHAPE`: `SimpleGlyph.svgpath(x0, y0, scale_factor)` yields the per-glyph `<path>` positioned along a curve and `Text.drawon` yields the composited run — the path-only seam, composed exactly as `blackrenderer`'s path-only `saveImage`. `uharfbuzz` (`.api/uharfbuzz.md`) shapes the main full-Unicode/bidi/complex-script run; `ziafont` outlines the self-contained label or caption to a `<path>` with its own adequate GSUB/GPOS.
+- `typography/shape#SHAPE`: `SimpleGlyph.svgpath(x0, y0, scale_factor)` yields the per-glyph `<path>` positioned along a curve and `Text.drawon` yields the composited run — the path-only boundary, composed exactly as `blackrenderer`'s path-only `saveImage`. `uharfbuzz` (`.api/uharfbuzz.md`) shapes the main full-Unicode/bidi/complex-script run; `ziafont` outlines the self-contained label or caption to a `<path>` with its own adequate GSUB/GPOS.
 - `ziamath` (`.api/ziamath.md`): built on this `Font`/glyph surface for the non-math glyph runs inside an equation — a math annotation routes to `ziamath`, a plain label to `ziafont`, both sharing the `<path>`/`<svg>` egress so a diagram owner mixes them on one canvas.
 - `typography/font#FONT`: no shared model with `fonttools` — a `FREEZE`/`SUBSET` transform stays on `fonttools`, and the subset font file feeds `ziafont.Font(path)` for outlining; the two are sequential, never a shared `TTFont`.
-- boundary rails: `msgspec` (`libs/python/.api/msgspec.md`) frames the typed run/font policy struct and `beartype` (`libs/python/.api/beartype.md`) boundary-validates it; `find_font`/`system_fonts` and the `Font` parse ride the `expression` `Result` rail (`libs/python/.api/expression.md`), so a missing family or malformed sfnt surfaces as a typed failure. `ContentIdentity` (`libs/python/.api/xxhash.md`) content-keys the outlined bytes with `config.precision` fixed.
+- boundary domains: `msgspec` (`libs/python/.api/msgspec.md`) frames the typed run/font policy struct and `beartype` (`libs/python/.api/beartype.md`) boundary-validates it; `find_font`/`system_fonts` and the `Font` parse ride the `expression` `Result` (`libs/python/.api/expression.md`), so a missing family or malformed sfnt surfaces as a typed failure. `ContentIdentity` (`libs/python/.api/xxhash.md`) content-keys the outlined bytes with `config.precision` fixed.
 - notebook display: `Text`, `SimpleGlyph`, and `CompoundGlyph` carry `_repr_svg_` for inline `great-tables`/Jupyter cells.
 
 [LOCAL_ADMISSION]:
 - text-to-outline is `Font(...).text(s, ...).svg()`/`.svgxml()`/`.drawon(tree, x, y)`, or per-glyph `Font(...).glyph(ch).svgpath(x0, y0, scale_factor)`.
 - shaping is `Font.text`/`Font.advance` under `Font.language(script, language)`; the owned `gsub.Gsub`/`gpos.Gpos` engines apply the lookup-type dispatch.
 - run/font policy is a typed `msgspec.Struct` over `family`/`size`/`linespacing`/`halign`/`valign`/`color`/`rotation`/`script`/`language`; the render policy is `ziafont.config`, set once.
-- discovery binds the family through `system_fonts`/`find_font` and answers font-feature coverage through `inspect.DescribeFont`/`LookupDisplay`; the parse and discovery ride the `RuntimeRail` so a missing family or malformed sfnt is a typed failure.
+- discovery binds the family through `system_fonts`/`find_font` and answers font-feature coverage through `inspect.DescribeFont`/`LookupDisplay`; the parse and discovery ride the `RuntimeResult` so a missing family or malformed sfnt is a typed failure.

@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: distribution seams and the univariate roster under its constructor parameterization
+[PUBLIC_TYPE_SCOPE]: distribution interfaces and the univariate roster under its constructor parameterization
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                                       |
 | :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------- |
@@ -89,7 +89,7 @@
 |  [06]   | `SparseCompressedRowMatrixStorage<T>` | class         | the one native sparse form; every other layout ingests            |
 |  [07]   | `Iterator<T>`                         | sealed class  | stop-criteria fold carrying `IterationStatus`                     |
 |  [08]   | `IIterationStopCriterion<T>`          | interface     | one stop criterion the iterator composes                          |
-|  [09]   | `IIterativeSolver<T>`                 | interface     | Krylov solver seam writing into a caller result vector            |
+|  [09]   | `IIterativeSolver<T>`                 | interface     | Krylov solver interface writing into a caller result vector       |
 |  [10]   | `IPreconditioner<T>`                  | interface     | left preconditioner the solver applies per iteration              |
 |  [11]   | `DiagonalPreconditioner`              | sealed class  | Jacobi preconditioner for the Krylov lane                         |
 |  [12]   | `ILU0Preconditioner`                  | sealed class  | zero-fill incomplete LU; parameterless ctor, zero knobs           |
@@ -220,7 +220,7 @@
 |  [11]   | `Interpolate.LogLinear(points, values)`                                    | factory | log-linear spline                        |
 |  [12]   | `Interpolate.Step(points, values)`                                         | factory | piecewise constant                       |
 
-[INTERPOLATION_SEAM]: `Interpolate` `Differentiate` `Differentiate2` `Integrate` `SupportsDifferentiation` `SupportsIntegration`
+[INTERPOLATION_INTERFACE]: `Interpolate` `Differentiate` `Differentiate2` `Integrate` `SupportsDifferentiation` `SupportsIntegration`
 
 [ENTRYPOINT_SCOPE]: regression and curve fitting via `Fit`, every surface static over `double[]` samples
 
@@ -410,7 +410,7 @@
 - `OfCompressedSparseColumnFormat`: row INDICES precede column POINTERS — the argument-order trap CSR inverts; `OfIndexedEnumerable` carries a `Tuple<int, int, T>` twin beside the value-tuple form.
 - `SparseMatrix.OfIndexed` APPENDS duplicate `(row, column)` triplets — it sorts and emits without summing, silently corrupting an accumulated assembly; `SparseCompressedRowMatrixStorage<double>.NormalizeDuplicates()` is the one member that adds coincident entries, and zero-valued triplets DROP at admission so a cancelled diagonal goes structurally missing until `PopulateExplicitZerosOnDiagonal()` restores it.
 - `IIterativeSolver<T>.Solve` returns `void` and writes into the `result` vector, so the convergence verdict reads from `Iterator<T>.Status` alone; the solver, its preconditioner, and its stop criteria all bind at one precision, and a plane switch re-spells the whole triple.
-- `Solve` calls `preconditioner.Initialize(matrix)` ITSELF on every invocation — the factorization cannot amortize across right-hand sides through this seam, so a multi-RHS solve re-pays the incomplete factor per call; null `iterator`/`preconditioner` arguments substitute `new Iterator<double>()` / `new UnitPreconditioner<double>()`.
+- `Solve` calls `preconditioner.Initialize(matrix)` ITSELF on every invocation — the factorization cannot amortize across right-hand sides through this interface, so a multi-RHS solve re-pays the incomplete factor per call; null `iterator`/`preconditioner` arguments substitute `new Iterator<double>()` / `new UnitPreconditioner<double>()`.
 - `MILU0Preconditioner.Initialize` REQUIRES `matrix.Storage is SparseCompressedRowMatrixStorage<double>` — a dense matrix throws — and is the only ILU whose cost tracks nnz (the Saad MSR kernel over raw CSR buffers); `ILU0Preconditioner` runs an indexer triple-loop and materializes a dense row per `Approximate`, so the MODIFIED row is the production spelling on any real grid.
 - Production's canonical stop set (what the parameterless `Iterator<double>()` seeds, order semantic — `DetermineStatus` short-circuits on the first non-`Continue`): `FailureStopCriterion<double>()`, `DivergenceStopCriterion<double>()`, `IterationCountStopCriterion<double>(1000)`, `ResidualStopCriterion<double>(1e-12)`. `ResidualStopCriterion` tests `‖r‖∞ ≤ tolerance · ‖b‖∞` — infinity-norm RELATIVE, never absolute L2.
 
@@ -451,7 +451,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `IDistribution` to `IUnivariateDistribution` to `IContinuousDistribution` or `IDiscreteDistribution` is the seam ladder: `CumulativeDistribution` rides the univariate seam and `InverseCumulativeDistribution` stays a concrete-distribution member.
+- `IDistribution` to `IUnivariateDistribution` to `IContinuousDistribution` or `IDiscreteDistribution` is the interface ladder: `CumulativeDistribution` rides the univariate interface and `InverseCumulativeDistribution` stays a concrete-distribution member.
 - Every distribution mints a parallel static family keyed on its constructor tuple, so a one-shot evaluation allocates no instance; an alternate parameterization arrives as a `With*` factory rather than a second constructor.
 - Omitting `System.Random` binds `SystemRandomSource.Default`, and no sampling form allocates an internal store.
 - `Generate.*Map` fuses the projection into the axis walk and `Generate.*Sequence` yields it lazily, so neither materializes an intermediate array.
@@ -473,15 +473,15 @@
 
 [STACKING]:
 - The row-column 2D fold — 1D `Fourier.Forward`/`Inverse` per axis, the managed-total form the multidim provider gap forces — is OWNED at `Rasm/Numerics/transform#SPECTRAL` (`SpectralArena.Transform` over the `MatrixKernel` transform half); `Rasm.Materials` `Raster/filter#HEIGHT_FIELD` composes that kernel band for the Frankot-Chellappa integration and `Raster/tile#TILE_GATE` reads the power spectrum off the same owner, while `Raster/tile#TILE_SYNTH` reads `Distributions.Normal.InvCDF`/`CDF` for the variance-preserving rank blend; every `Forward*` carries an on-disk `Inverse*` mirror, so the round trip is the catalogued pair, never a hand-built adjoint.
-- `LanguageExt.Core`(`.api/api-languageext.md`): `Brent.TryFindRoot`'s `bool`/`out` pair and `NonlinearMinimizationResult.ReasonForExit` lift to `Fin<double>` and `Fin<Vector<double>>` at the seam, so non-convergence lands as a typed failure row instead of an exception crossing the result path.
+- `LanguageExt.Core`(`.api/api-languageext.md`): `Brent.TryFindRoot`'s `bool`/`out` pair and `NonlinearMinimizationResult.ReasonForExit` lift to `Fin<double>` and `Fin<Vector<double>>` at the boundary, so non-convergence lands as a typed failure row instead of an exception crossing the result path.
 - `CSparse`(`.api/api-csparse.md`): a residual Jacobian assembled as `CompressedColumnStorage<double>` factors on the direct sparse lane and steps through `ISolver<double>.Solve`, while this package keeps the model, the tolerances, and the exit condition; matrix density and factor reuse select between that direct lane and the Krylov solvers under an `Iterator<T>` stop-criteria control. The split is STRUCTURAL for SPD grids: MathNet ships NO sparse Cholesky (a `SparseMatrix.Cholesky()` densifies), so the direct SPD route is always the CSparse `CholeskySparse` peer, and this package's contribution above the direct ceiling is the PRECONDITIONED KRYLOV lane — `MILU0Preconditioner` under `BiCgStab.Solve` over the same CSR assembly, the composition the `Rasm.Materials` `Raster/filter#HEIGHT_FIELD` bounded Poisson arm rides at large extents.
 - `MathNet.Numerics.Providers.MKL` and `.Providers.OpenBLAS`(`Rasm.Compute/.api/api-mathnet-providers.md`): the two native adapter packages this assembly probes by type name, each carrying its own control class and native asset matrix and no algebra of its own; that catalogue also owns how `Rasm.Compute` folds this plane onto its solve result.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds the split `double[] real, double[] imaginary` spectral spans and the `Generate`/`Window` axes in place, so magnitude, phase, and taper application vectorize with no `Complex` marshalling.
 - `UnitsNet`(`.api/api-unitsnet.md`): a quantity-typed integrand or sample set enters through `IQuantity.As(Enum)` as a base-unit `double` and the returned scalar re-enters its quantity type, so dimensional identity rides the caller and never the kernel.
-- Numeric-rail fold: one `Generate.LinearSpaced` axis threads `Interpolate` fitting the sampled response, `IInterpolation.Differentiate` and `Differentiate` supplying the Jacobian column, `Integrate` reducing over the domain, and `Fourier` under a `Window` taper reading the spectrum.
+- Numeric-route fold: one `Generate.LinearSpaced` axis threads `Interpolate` fitting the sampled response, `IInterpolation.Differentiate` and `Differentiate` supplying the Jacobian column, `Integrate` reducing over the domain, and `Fourier` under a `Window` taper reading the spectrum.
 - `Rasm.Materials`: `acquisition#ACQUISITION` `SolveGgx` runs the thin-QR Gauss-Newton step `Δp = Matrix.Build.Dense(m, n, Jacobian).QR(QRMethod.Thin).Solve(−r)` (`n ∈ {3, 4}` — the conductor arm fits the alpha pair plus the grain azimuth, the dielectric adds η) over the log-residual, switches to `Svd(true).Solve` on a non-finite step, and witnesses `‖r‖/‖logMeasured‖` via `Vector.L2Norm` — the `bsdf#MICROFACET_KERNEL` GGX/Smith/Fresnel form stays the forward model, MathNet owning only the dense solve; the fitted `FitResidual` and the `Wacton.Unicolour` spectral-grounded scene-linear base colour pair on the acquisition result, never a fused colour-plus-numeric kernel, and MathNet is a direct Materials pin — the acyclic strata forbids a `Rasm.Compute` project reference to obtain it transitively.
 
 [LOCAL_ADMISSION]:
-- Every analytic kernel on the numeric rail enters through a `MathNet.Numerics` static owner; a parallel sampler owns one distribution instance and one `RandomSource` per worker.
+- Every analytic kernel on the numeric route enters through a `MathNet.Numerics` static owner; a parallel sampler owns one distribution instance and one `RandomSource` per worker.
 - Wavelet filter banks and analog-prototype IIR design bind through their own scaling tables outside this package.
 - `Matrix<double>`/`Vector<double>` compose directly — never a package-local matrix wrapper — a residual witness recomputes `‖A·x − b‖₂ / ‖b‖₂` against the original operator in working precision, never the reconstructed factors, and `Control.UseManaged()` selects once at composition: the native MKL/OpenBLAS/CUDA providers are separate x64-only companion packages, so osx-arm64 always rides `ManagedLinearAlgebraProvider.Instance` and a per-call-site `Control.TryUseNativeMKL()` is the named defect.

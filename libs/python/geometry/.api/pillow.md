@@ -39,13 +39,13 @@
 
 - `Image.open`: `formats` accepts a list or tuple of registry keys; an unmatched payload raises `UnidentifiedImageError` rather than returning a sentinel.
 - `img.__array_interface__`: `data` is a `bytes` copy the array's base holds, not a view onto the decoder buffer, so the array outlives the closed image.
-- `features.check_codec("webp")`: raises `ValueError` — WebP registers as a MODULE, not a codec, so the codec probe is the wrong seam.
+- `features.check_codec("webp")`: raises `ValueError` — WebP registers as a MODULE, not a codec, so the codec probe is the wrong boundary.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - import: `lazy from PIL import Image, UnidentifiedImageError` at module scope — a `lazy` statement inside a function body is a SyntaxError — behind the owner's `find_spec` floor gate, so an unprovisioned host refuses by module name ahead of the offload instead of dying as an import inside a worker.
-- open: one `Image.open(BytesIO(payload), formats=…)` per plane; the payload is already-resident octets, never a path, so no filesystem lifetime crosses the seam and the archive handle that produced them is closed before the decode runs.
+- open: one `Image.open(BytesIO(payload), formats=…)` per plane; the payload is already-resident octets, never a path, so no filesystem lifetime crosses the boundary and the archive handle that produced them is closed before the decode runs.
 - admission: `getbands()` proves the band count a consumer needs BEFORE the decode, because a lossless WebP written without alpha opens `RGB` and a fixed four-band read indexes past its last band; `convert` then narrows a wider source to the declared mode, so one canonical band regime crosses regardless of what the encoder wrote.
 - fault: `UnidentifiedImageError`, `DecompressionBombError`, and the bare `OSError` a truncated payload raises map to distinct closed cases at the incurring read, the `OSError` subclass reading before its base; a bare `except Exception` around a decode is the deleted form.
 - bomb: `open` raises `DecompressionBombError` off the DECLARED dimensions, before any pixel decodes and past twice `MAX_IMAGE_PIXELS`, and it descends from `Exception` rather than `OSError` — an except chain built on `OSError` alone lets a hostile header cross unconverted; between one and two times the ceiling `open` emits `DecompressionBombWarning` and returns normally, so only an escalating warning filter turns that band into a raise.
@@ -55,8 +55,8 @@
 
 [STACKING]:
 - `numpy`(`python/.api/numpy.md`): the decoded plane crosses as `np.asarray(image)` `(H, W, bands)` `uint8`, then `reshape(-1, bands)` gives the container's own `i = x + y * W` splat order directly; per-channel codebook lookup is one fancy index of the plane's `uint8` values into a `(256,)` `float32` table, so no per-pixel Python touches the decode.
-- `expression`(`python/.api/expression.md`): the archive's member map is a `Map[str, bytes]` and each plane read is a `try_find` whose absent case lands on the owner's typed `malformed` refusal, never a `KeyError` crossing the worker seam.
-- geometry scan owner: `scan/ingestion#INGESTION` `_plane` is the sole binding site — it opens the member octets, admits the band count, narrows the mode, and returns the array; `_rows` flattens it to the per-splat block the SOG channel fold consumes. Stdlib `zipfile` is the pairing that produces those octets: `ZipFile(BytesIO(raw))` reads every declared member inside one window into the member map, so no archive handle and no decoder buffer outlives its seam.
+- `expression`(`python/.api/expression.md`): the archive's member map is a `Map[str, bytes]` and each plane read is a `try_find` whose absent case lands on the owner's typed `malformed` refusal, never a `KeyError` crossing the worker boundary.
+- geometry scan owner: `scan/ingestion#INGESTION` `_plane` is the sole binding site — it opens the member octets, admits the band count, narrows the mode, and returns the array; `_rows` flattens it to the per-splat block the SOG channel fold consumes. Stdlib `zipfile` is the pairing that produces those octets: `ZipFile(BytesIO(raw))` reads every declared member inside one window into the member map, so no archive handle and no decoder buffer outlives its boundary.
 
 [LOCAL_ADMISSION]:
 - pillow enters geometry for WebP plane decode alone, because the SOG v2 container has no other reader and stdlib carries no WebP codec; raster processing, encode, drawing, text, colour management, and every other pillow surface belong to `artifacts` (`python/artifacts/.api/pillow.md`) and never cross into this branch.

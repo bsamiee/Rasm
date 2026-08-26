@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_VERIFY]
 
-`Verify.XunitV3` owns snapshot approval testing for xUnit v3: every `[Fact]`/`[Theory]` calls a `Verifier` static entry minting a `SettingsTask` whose awaited build compares against the committed `.verified.` file and writes `.received.` on mismatch. Scrubbers, named-value stabilization, uniqueness keys, and custom stream/string comparers carry from the transitive `Verify` core. On the AppUi proof rail it stacks onto the headless render lane: a `UseStreamComparer` byte snapshot proves a rendered dashboard, and `VerifyJson` of a settled layout or command outcome proves structure.
+`Verify.XunitV3` owns snapshot approval testing for xUnit v3: every `[Fact]`/`[Theory]` calls a `Verifier` static entry minting a `SettingsTask` whose awaited build compares against the committed `.verified.` file and writes `.received.` on mismatch. Scrubbers, named-value stabilization, uniqueness keys, and custom stream/string comparers carry from the transitive `Verify` core. In the AppUi proof suite it stacks onto the headless render lane: a `UseStreamComparer` byte snapshot proves a rendered dashboard, and `VerifyJson` of a settled layout or command outcome proves structure.
 
 ## [01]-[PUBLIC_TYPES]
 

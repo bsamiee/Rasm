@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_EF_SQLITE]
 
-`Microsoft.EntityFrameworkCore.Sqlite` admits the EF Core SQLite provider into the store-profile algebra: one `UseSqlite` call binds the provider, and every SQLite-scoped knob, model annotation, and LINQ→SQL translation attaches to the one options builder it hands back. This catalog also carries the base EF Core and relational runtime — pooled context, execution strategy, interception, transaction savepoints, raw-SQL reads, and the migration API — the folder's store rails compose through that binding.
+`Microsoft.EntityFrameworkCore.Sqlite` admits the EF Core SQLite provider into the store-profile algebra: one `UseSqlite` call binds the provider, and every SQLite-scoped knob, model annotation, and LINQ→SQL translation attaches to the one options builder it hands back. This catalog also carries the base EF Core and relational runtime — pooled context, execution strategy, interception, transaction savepoints, raw-SQL reads, and the migration API — the folder's store layers compose through that binding.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -54,12 +54,12 @@
 
 `SqliteMigrationsSqlGenerator` (`Microsoft.EntityFrameworkCore.Migrations`) and the `SqliteConventionSetBuilder` family (`Microsoft.EntityFrameworkCore.Metadata.Conventions`) are the two provider services declared outside an `Internal` namespace and open to subclassing.
 
-[BASE_EF_TYPES]: base and relational EF surface the store, query, and migration rails compose — `Microsoft.EntityFrameworkCore` / `.Relational`, bound through `UseSqlite` rather than declared by this provider.
+[BASE_EF_TYPES]: base and relational EF surface the store, query, and migration layers compose — `Microsoft.EntityFrameworkCore` / `.Relational`, bound through `UseSqlite` rather than declared by this provider.
 
 | [INDEX] | [SYMBOL]                           | [NAMESPACE]              | [CAPABILITY]                                                           |
 | :-----: | :--------------------------------- | :----------------------- | :--------------------------------------------------------------------- |
 |  [01]   | `PooledDbContextFactory<TContext>` | `…Infrastructure`        | `IDbContextFactory<TContext>` over a context pool                      |
-|  [02]   | `IExecutionStrategy`               | `…Storage`               | retry rail; `RetriesOnFailure`, `Execute`/`ExecuteAsync`               |
+|  [02]   | `IExecutionStrategy`               | `…Storage`               | retry policy; `RetriesOnFailure`, `Execute`/`ExecuteAsync`             |
 |  [03]   | `IDbContextTransaction`            | `…Storage`               | ambient transaction; `TransactionId`, `SupportsSavepoints`             |
 |  [04]   | `SaveChangesInterceptor`           | `…Diagnostics`           | `ISaveChangesInterceptor` base; save, failure, cancel hooks            |
 |  [05]   | `DbCommandInterceptor`             | `…Diagnostics` (rel)     | command reader/scalar/non-query execution hooks                        |
@@ -124,7 +124,7 @@
 |  [13]   | `EF.Functions.Substr(byte[], int[, int])`                  | byte-range slice inside SQL                       |
 |  [14]   | `EF.CompileQuery` / `EF.CompileAsyncQuery`                 | compiled projection delegate, to `TParam15`       |
 
-[ENTRYPOINT_SCOPE]: base EF runtime — the provider-agnostic execution, interception, transaction, read, model, and migration surfaces the store, query, and schema rails bind through this provider; every async member takes a trailing `CancellationToken`, elided below.
+[ENTRYPOINT_SCOPE]: base EF runtime — the provider-agnostic execution, interception, transaction, read, model, and migration surfaces the store, query, and schema layers bind through this provider; every async member takes a trailing `CancellationToken`, elided below.
 
 | [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                                         |
 | :-----: | :------------------------------------------------------------------- | :------- | :--------------------------------------------------- |
@@ -173,12 +173,12 @@
 - `api-sqlitepcl`(`.api/api-sqlitepcl.md`): both providers ride the one bundled `e_sqlite3` engine, so `SpatialiteLoader.Load` arms `mod_spatialite` only where the loader-enable db_config posture that catalog governs already permits it.
 - `api-thinktecture-ef`(`.api/api-thinktecture-ef.md`) / `api-ef-naming`(`.api/api-ef-naming.md`) / `api-ef-design`(`.api/api-ef-design.md`): value-object conversion, snake_case naming, and design-time migration and compiled-model emission stack onto this provider through the one `DbContextOptionsBuilder` chain.
 - `Store/provisioning#EMBEDDED_FLOOR`: `StoreProfile.Embedded` carries `builder.UseSqlite((SqliteConnection)connection)` as its `Ef` bind delegate over the connection the open ritual dialed, so provider variance stays one row on the closed engine axis.
-- `Element/identity#ELEMENT_IDENTITY`: `ConverterRail.Compose` mounts that provider row onto the one `IdentityContext`, and `UseAutoincrement`, `HasSrid`, and `UseSqlReturningClause` are the SQLite-side annotations the generated model carries.
+- `Element/identity#ELEMENT_IDENTITY`: `ConverterOptions.Compose` mounts that provider row onto the one `IdentityContext`, and `UseAutoincrement`, `HasSrid`, and `UseSqlReturningClause` are the SQLite-side annotations the generated model carries.
 - `Query/retrieval#FUSION_AND_REUSE`: `SqliteRegexMethodTranslator` projects `Regex.IsMatch` onto the `REGEXP` operator and the `EF.Functions` `Glob`/`Substr`/`Hex` family projects its SQLite scalars, so the lexical lane translates server-side instead of evaluating on the client.
 
 [LOCAL_ADMISSION]:
 - SQLite enters through the store-profile algebra: `UseSqlite` binds once on the profile row, and every provider knob stays row data rather than a public service family.
 - `SqliteValueGenerationStrategy.Autoincrement` and `UseSqlReturningClause` are the two SQLite-specific model knobs the schema layer sets; the fluent `TableBuilder` form is the design-time declaration and the `IConvention*` form the convention-tier override.
-- `SqliteEventId` is the provider diagnostic surface the EF logging path raises; the interceptor families register once on `DbContextOptionsBuilder` and span every provider, so the interception seam owns them.
+- `SqliteEventId` is the provider diagnostic surface the EF logging path raises; the interceptor families register once on `DbContextOptionsBuilder` and span every provider, so the interception boundary owns them.
 - `UseSeeding`/`UseAsyncSeeding` admit the seed delegate at pooled-factory build.
 - SQLite is one engine row whose capability columns (`vector:false`, `fullText:true`, `migrations:true`) gate which lanes a profile admits.

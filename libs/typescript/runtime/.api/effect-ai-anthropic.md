@@ -144,7 +144,7 @@
 |  [08]   | `CacheControlEphemeral` / `BetaCacheControlEphemeral` | class         | prompt-caching breakpoint; the Bedrock sibling's twin        |
 |  [09]   | `Client`                                              | interface     | the REST client — stable endpoints + `Beta*` mirrors         |
 |  [10]   | `make(HttpClient, options?) -> Client`                | factory       | build the low-level REST client                              |
-|  [11]   | `ErrorResponse` / `BetaErrorResponse`                 | class         | stable + beta fault payload behind the `ClientError` rail    |
+|  [11]   | `ErrorResponse` / `BetaErrorResponse`                 | class         | stable + beta fault payload behind the `ClientError` family  |
 
 - `Client`: endpoints span messages, message-batches, token-counting, models, files, and skills, each with its `Beta*` mirror; compose by `typeof X.Encoded` (wire) / `typeof X.Type` (decoded) and reach REST via `AnthropicClient.Service.client.<endpoint>`, the high-level methods posting the `Beta*` owners.
 - `Client`: stable endpoints fail `ClientError<"ErrorResponse">`, beta `ClientError<"BetaErrorResponse">`, both joined with `HttpClientError | ParseError`.
@@ -158,7 +158,7 @@
 
 [STACKING]:
 - `@effect/ai`(`.api/effect-ai.md`): `model`/`modelWithTokenizer` resolve `LanguageModel.LanguageModel` + `Tokenizer.Tokenizer`, `ProviderDefinedTools` returns `Tool.ProviderDefined`/`Tool.FailureMode`, `prepareTools` consumes `LanguageModel.ProviderOptions`, and the `declare module` slots augment `Prompt`/`Response`; no embedding or telemetry tag, `effect-ai.md` `[03]` rowing the asymmetry.
-- `@effect/ai-amazon-bedrock`(`.api/effect-ai-amazon-bedrock.md`): imports `AnthropicLanguageModel.prepareTools` + `Generated.BetaCacheControlEphemeral` to run Claude on Bedrock — this catalog is that seam's upstream, `AmazonBedrockTool`'s `Anthropic*` constructors reusing the same `cache_control` breakpoint.
+- `@effect/ai-amazon-bedrock`(`.api/effect-ai-amazon-bedrock.md`): imports `AnthropicLanguageModel.prepareTools` + `Generated.BetaCacheControlEphemeral` to run Claude on Bedrock — this catalog is that boundary's upstream, `AmazonBedrockTool`'s `Anthropic*` constructors reusing the same `cache_control` breakpoint.
 - `@effect/platform`(`.api/effect-platform.md`): every `layer`/`layerConfig` requires `HttpClient.HttpClient` from the `net/client` default-policy row, browser binding `FetchHttpClient.layer` and node `NodeHttpClient.layerUndici`; `streamRequest` consumes `HttpClientRequest.HttpClientRequest`.
 - `effect`(`.api/effect.md`): `Schema` decodes `Config`/tools/responses and every `Generated` owner, `Redacted` wraps `apiKey`/`organizationId`/`projectId`, `Config`/`ConfigError` back `layerConfig`, and `Match.discriminator("type")` dispatches `MessageStreamEvent` with its `delta` arms.
 - `ai/model.ts`: folds the Anthropic provider row into tier-routing and the guardrail gate, binds the `AnthropicTokenizer` budget owner through `modelWithTokenizer`, and sets prompt caching through the `Prompt` `cacheControl` slots.

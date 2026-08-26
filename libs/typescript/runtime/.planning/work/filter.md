@@ -14,7 +14,7 @@ Subscription filtering is ONE owner: the seven specification dialects compile in
 
 ## [02]-[DIALECT_ROSTER]
 
-- Owner: `Filter` — the seven dialect rows, the untagged wire declaration each subscription carries, and the compile-and-fold pair every delivery seam composes.
+- Owner: `Filter` — the seven dialect rows, the untagged wire declaration each subscription carries, and the compile-and-fold pair every delivery boundary composes.
 - Law: every dialect compiles into ONE predicate shape, so the delivery fold reads a verdict and never a dialect; a consumer branching on which dialect declared a filter re-derives the dispatch the compile already settled.
 - Law: `filters` is an AND-set — any false expression withholds delivery — so nesting is `all`/`any`/`not` rows rather than a combining dialect beside the roster, and a subscription carrying several filters needs no join grammar.
 - Law: the wire ships each case as a single-key object, so the discriminant attaches at the declaration through `Schema.attachPropertySignature` and the encoded side stays exactly what the specification publishes; a re-tagged provider shape reaching the union is the boundary defect this declaration forecloses.
@@ -166,7 +166,7 @@ const _Compile: {
 ## [03]-[VALUE_ALGEBRA]
 
 - Owner: `Cesql` — the three-type value family, the seven-reason fault vocabulary, the total reading pair, the 32-bit integer band, and the implicit-cast matrix every operator and function reads.
-- Law: evaluation is TOTAL — every arm answers a value beside an accumulated fault list — so an expression meeting several defects reports all of them and still settles; a rail aborting on the first refusal loses every later reason and turns a diagnosable filter into one opaque miss.
+- Law: evaluation is TOTAL — every arm answers a value beside an accumulated fault list — so an expression meeting several defects reports all of them and still settles; a fold aborting on the first refusal loses every later reason and turns a diagnosable filter into one opaque miss.
 - Law: Integer is 32-bit and SATURATES — a result past the band answers the nearest bound beside `math` rather than wrapping, which is why the negation of the floor answers the ceiling and never its own operand; division and remainder truncate toward zero and a zero divisor answers the type's zero beside `math`.
 - Law: the implicit-cast matrix is the whole three-by-three as data — an operand crossing into an operator's declared type reads one row, a refused crossing answers the target's zero beside `cast`, and no arm re-derives a conversion the table already answers.
 - Law: a string admits to Boolean on the two specification words alone and to Integer on a strict decimal alone, so `'1.5'` and `''` both refuse rather than rounding or reading as zero.
@@ -677,9 +677,9 @@ const _cesqlSlots = (row: Cesql.FunctionRow, arity: number): Option.Option<Reado
 - Law: declaration ORDER is the lexer's match order, so every keyword row precedes the identifier row and each two-glyph comparison spelling precedes its one-glyph prefix; a keyword prefixing a longer identifier loses to it through `longer_alt`, never through reordering.
 - Law: keywords, boolean literals, function names, and identifiers are case-INSENSITIVE while a string literal preserves its own case, so the keyword patterns carry the ignore-case flag and the literal rule carries none.
 - Law: one grammar instance serves every fiber because `compile` is synchronous end to end — the input binds, the rule runs, the errors read, and the instance resets with no suspension point between, so the library's carried mutable state cannot interleave two admissions.
-- Law: the lowering rides the visitor whose completeness `validateVisitor()` proves, so a rule added without its arm fails at construction, and no concrete-syntax node, token, or token type escapes that seam.
+- Law: the lowering rides the visitor whose completeness `validateVisitor()` proves, so a rule added without its arm fails at construction, and no concrete-syntax node, token, or token type escapes that visitor.
 - Law: `getBaseCstVisitorConstructor` returns a class the module extends once at initialization, so the visitor is built beside the grammar it validates against and never per admission.
-- Entry: `Cesql.compile` is the admission seam; `Filter.compile` composes it for the `sql` dialect alone and the six comparison dialects reach no parser.
+- Entry: `Cesql.compile` is the admission boundary; `Filter.compile` composes it for the `sql` dialect alone and the six comparison dialects reach no parser.
 - Growth: a terminal is one token row, a production is one rule, and the visitor's own proof demands the matching arm.
 - Packages: `chevrotain` (`createToken`, `CstParser`, `Lexer`, `CstChildrenDictionary`, `CstElement`, `CstNode`, `IToken`, `TokenType`); `effect` (`Array`, `Effect`, `Either`, `Option`, `Order`, `Predicate`, `Record`, `String`, `pipe`).
 

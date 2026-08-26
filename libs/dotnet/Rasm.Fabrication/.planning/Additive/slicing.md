@@ -128,7 +128,6 @@ public sealed partial class SliceRegion {
     public bool IsEmpty => Outers.IsEmpty;
     public Seq<Loop> Loops => Outers.Concat(Holes);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<Loop> outers,
@@ -326,7 +325,6 @@ public sealed partial class BeadGeometry {
 
     public Length HalfWidth => 0.5 * ExtrusionWidth;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length extrusionWidth,
@@ -357,7 +355,6 @@ public sealed partial class ShellPolicy {
     public SeamPlacement Seam { get; }
     public OpenSheetLaw OpenSheets { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int count,
@@ -396,7 +393,6 @@ public sealed partial class FeedPolicy {
     public Duration MinimumLayerTime { get; }
     public Ratio MinimumCoolingFactor { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Speed @default,
@@ -435,7 +431,6 @@ public sealed partial class DensityPolicy {
     public Ratio Minimum { get; }
     public Option<Func<Point3d, Ratio>> Field { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Ratio model,
@@ -495,7 +490,6 @@ public sealed partial class LineFamily {
 
     public int SpanMultiplier { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<Angle> bearings,
@@ -563,7 +557,6 @@ public sealed partial class CellPattern {
     public CellSites Sites { get; }
     public SitePolicy Policy { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CellSites sites,
@@ -620,7 +613,7 @@ public abstract partial record InfillPattern(InfillPatternKind PatternKind) {
 - Entry: `InfillPolicy.Of(DepositionSeed, …, Option<DepositionOverride>)` admits caller scalars through each owner's own `Validate`, so no boundary value reaches a throwing `Create`; `InfillPolicy.Admitted` gates the couplings no single owner proves.
 - Auto: `AdditivePolicy.Admit` is the one gate over every case's caller-owned egress delegate, so no downstream site re-checks it.
 - Packages: `Process/owner` (`FabricationPolicy.Additive`, `FabricationInput`, `FabricationResult.AdditiveResult`); `Process/faults` (`FabricationFault`, `Admission`); `Additive/support` (`SupportPlan`, `SupportPolicy`); `Additive/scanpath` (`ScanPolicy`); `Additive/production` (`AdditiveBuild`, `BuildJob`, `BuildOutcome`); `Additive/implicit` (`ImplicitOp`); `Rasm.Element` (`AdmissionSlots`); `Rasm.Meshing` (`LayerPlan`, `SlicePolicy`).
-- Boundary: a shell or cell failure flattened to empty geometry is the erased-rail defect; travel sequencing between deposition rows belongs to the egress consumer; result payloads carry owner atoms and content keys only.
+- Boundary: a shell or cell failure flattened to empty geometry is the erased-failure defect; travel sequencing between deposition rows belongs to the egress consumer; result payloads carry owner atoms and content keys only.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -977,8 +970,8 @@ public static partial class Slice {
             ? Fin.Succ((walls, SliceRegion.Empty))
             : walls.Fold(
                     Fin.Succ((Kept: Seq<ShellRun>(), Covered: SliceRegion.Empty, Dropped: SliceRegion.Empty)),
-                    (rail, wall) =>
-                        from state in rail
+                    (acc, wall) =>
+                        from state in acc
                         from band in Annulus(wall.Path, policy)
                         from overlap in band.Intersect(state.Covered)
                         from coveredArea in overlap.PhysicalArea()
@@ -1044,8 +1037,8 @@ public static partial class Slice {
             ? Fin.Succ(SliceRegion.Empty)
             : toSeq(Enumerable.Range(start, count))
                 .Map(index => regions[index])
-                .Fold(Fin.Succ(Option<SliceRegion>.None), static (rail, region) =>
-                    rail.Bind(prior => prior.Match(
+                .Fold(Fin.Succ(Option<SliceRegion>.None), static (acc, region) =>
+                    acc.Bind(prior => prior.Match(
                         None: () => Fin.Succ(Some(region)),
                         Some: held => held.Intersect(region).Map(Some))))
                 .Map(static held => held.IfNone(SliceRegion.Empty));
@@ -1085,8 +1078,8 @@ public static partial class Slice {
         toSeq(Enumerable.Range(0, Ceiling(region, policy.Bead.ExtrusionWidth)))
             .Fold(
                 Fin.Succ(new RingWalk(Seq<Loop>(), Length.Zero, region, Done: false)),
-                (rail, _) =>
-                    from walk in rail
+                (acc, _) =>
+                    from walk in acc
                     from next in walk.Done
                         ? Fin.Succ(walk)
                         : Stepped(region, walk, spacing, policy.Offset)
@@ -1270,8 +1263,8 @@ public static partial class Slice {
         Context tolerance) =>
         layers.Fold(
             Fin.Succ((Rows: Seq<DepositionPath>(), Previous: Option<Point3d>.None)),
-            (rail, layer) =>
-                from state in rail
+            (acc, layer) =>
+                from state in acc
                 let anchor = state.Previous.IfNone(layer.Region.Bound().Min)
                 from raw in Sources(layer)
                     .Traverse(row => row.Paths

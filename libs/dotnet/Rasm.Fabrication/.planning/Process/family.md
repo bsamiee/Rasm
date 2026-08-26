@@ -8,7 +8,7 @@
 
 `MachineCapacity.Facts` is the one operating envelope correspondence: each case folds its OWN axis-and-reader row table into quantity facts and robot joint-limit facts, and `Machine` holds that stream once so validity and every query read one build. `Machine.Capacity<TQuantity>` folds a chosen quantity axis through a `CapacityFold` row over `UnitMath`; `Machine.Capacity(MachineAxis)` returns the matching admitted joint limit. `ProcessKind.Demands` declares which `CapacityKind` a process requires, so equipment fitness is one equality rather than an enumerated physics table with per-process exceptions. A process names NO dialect: a controller is a property of the machine that runs the process, so the selection graph resolves the pairing through `PostDialect.Admits` and a pinned default would fabricate a correspondence the shop never declared.
 
-Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput` seam to the physics, toolpath, kinematics, posting, tooling, and fixturing kernels — never a browser or peer wire; no row sits between wire and rail.
+Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput` boundary to the physics, toolpath, kinematics, posting, tooling, and fixturing kernels — never a browser or peer wire; no row sits between wire and result.
 
 ## [01]-[INDEX]
 
@@ -424,7 +424,6 @@ public sealed partial class WcsRoster {
     public int Extended { get; }
     public int Total => Slots + Extended;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int slots,
@@ -645,7 +644,6 @@ public sealed partial class AxisLimit {
     public MachineAxis Axis { get; }
     public AxisTravel Travel { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MachineAxis axis,
@@ -847,7 +845,6 @@ public sealed partial class Machine {
         .Choose(fact => fact is CapacityFact.Joint { Value: { } limit } && limit.Axis == axis ? Some(limit) : None)
         .Head;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -876,7 +873,6 @@ public sealed partial class Machine {
         Validate(seed.Key, seed.Processes, seed.Holding, seed.Axes, seed.Topology, seed.Coolant, seed.Capacities,
             out Machine machine).Admitted(machine);
 
-    [BoundaryAdapter]
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out Machine? item) {
         item = Optional(value).Bind(key => Registry.Value.Find(key)).Match<Machine?>(static machine => machine, static () => null);
         return item is null ? new ValidationError("machine:unknown") : null;
@@ -1093,7 +1089,6 @@ public sealed partial class ProcessSelection {
     public string Strategy { get; }
     public string Dialect { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string process,

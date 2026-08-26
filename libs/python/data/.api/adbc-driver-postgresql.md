@@ -1,6 +1,6 @@
 # [PY_DATA_API_ADBC_DRIVER_POSTGRESQL]
 
-`adbc-driver-postgresql` supplies the native ADBC PostgreSQL driver for the data partition rail: a `connect` factory binding `libadbc_driver_postgresql.so` to a libpq URI as an `AdbcDatabase`, and two `enum.Enum` option vocabularies `ConnectionOptions`/`StatementOptions` keying `adbc.postgresql.*` settings. Its distinctive capability is `COPY`-path bulk ingest under `StatementOptions.USE_COPY`; partitioned execution refuses outright. `adbc_driver_manager` owns the DBAPI, ingest, partition, and metadata surface; this catalog adds the postgres option vocabulary and `COPY` law.
+`adbc-driver-postgresql` supplies the native ADBC PostgreSQL driver for the data partition domain: a `connect` factory binding `libadbc_driver_postgresql.so` to a libpq URI as an `AdbcDatabase`, and two `enum.Enum` option vocabularies `ConnectionOptions`/`StatementOptions` keying `adbc.postgresql.*` settings. Its distinctive capability is `COPY`-path bulk ingest under `StatementOptions.USE_COPY`; partitioned execution refuses outright. `adbc_driver_manager` owns the DBAPI, ingest, partition, and metadata surface; this catalog adds the postgres option vocabulary and `COPY` law.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -21,7 +21,7 @@
 |  [01]   | `connect(uri, db_kwargs=) -> AdbcDatabase`                                   | factory | low-level libpq database handle |
 |  [02]   | `dbapi.connect(uri, db_kwargs=, conn_kwargs=, *, autocommit=) -> Connection` | factory | DBAPI connection over libpq     |
 
-[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.POSTGRESQL` at `DriverKind.NATIVE` — the kind whose connect projection threads `uri`/`db_kwargs`/`conn_kwargs` — with `db.system.name` `postgresql` on its `DbapiSeam` row.
+[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.POSTGRESQL` at `DriverKind.NATIVE` — the kind whose connect projection threads `uri`/`db_kwargs`/`conn_kwargs` — with `db.system.name` `postgresql` on its `DbapiDriver` row.
 
 [ENTRYPOINT_SCOPE]: `ConnectionOptions` keys
 

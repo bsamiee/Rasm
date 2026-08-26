@@ -23,7 +23,7 @@
 - Result: `MachineSolution.Motion` preserves the frozen `Moves`, `Joints`, `Duration`, and `CellCode` wire. `MachineSolution.Stations` retains TCP pose, tool axis, axis margin, linear/rotary distance, entry/exit feed, and duration for fleet ranking and simulation without widening the frozen projection.
 - Packages: `MathNet.Numerics` owns `LevenbergMarquardtMinimizer.FindMinimum`, the analytic-derivative `ObjectiveFunction.NonlinearModel` overload, `Svd.Rank`/`ConditionNumber`, `CreateVector`, `CreateMatrix`, `Brent.TryFindRoot`, and `Distance.Manhattan`; `UnitsNet` owns angular-rate boundary conversion; `Thinktecture.Runtime.Extensions` owns closed cases and generated admission; `LanguageExt.Core` owns `Fin`, `Validation`, immutable collections, traversal, the `OrdArr<double>` joint-vector order, and the trajectory fold; RhinoCommon owns frames and transforms; `Rasm.Domain` owns `Context`, `ToleranceLane`, `IValidityEvidence`, and `ValidityClaim`; `Rasm` owns `VectorIntent`, `VectorCone`, and the `Dual<T>` forward-mode scalar the chain differentiates through.
 - Growth: a machine configuration is one `MachineChain` case payload or one additional joint row; a physical axis extends process-family `AxisLimit` through one `AxisMotion`; a new orientation modality is one `ToolAxisDemand` case carrying its `AxisAt` arm; a search budget or ranking weight is one `InversePolicy` column, and a new gate is one `ToleranceLane` read. Machine products never become solver branches.
-- Boundary: `MachineTool` rejects `KinematicClass.ArticulatedArm`, which remains `RobotProgram` property. `Toolpath/guard.md` owns swept collision, `Posting/program.md` owns controller AST lowering, and `Process/faults.md` owns fault payloads. `AxisSchedule.At` and every statement body beneath `MachineTool` are measured numeric or RhinoCommon mutation kernels; statements do not escape those seams. Provider exceptions terminate at the MathNet seam as typed `Fin` failures, and a non-converged fit fails on its own residual rather than returning the minimizer's last point. Serial fits keep the MathNet functor because joint travel is a HARD constraint on them — the kernel `Lm.Minimize` ladder carries no bound, scale, or fixed-parameter column, so re-seating the residual on `DualModel` trades the bounded solve for one free to leave the mechanism's own limits and degrades a reachable station to `machine-tool:unreachable`; the kernel contribution taken here is the `Dual<T>` scalar, and one forward chain in that scalar is the page's only forward kinematics, the differenced Jacobian and a second double-only chain both being the deleted forms.
+- Boundary: `MachineTool` rejects `KinematicClass.ArticulatedArm`, which remains `RobotProgram` property. `Toolpath/guard.md` owns swept collision, `Posting/program.md` owns controller AST lowering, and `Process/faults.md` owns fault payloads. `AxisSchedule.At` and every statement body beneath `MachineTool` are measured numeric or RhinoCommon mutation kernels; statements do not escape those boundaries. Provider exceptions terminate at the MathNet boundary as typed `Fin` failures, and a non-converged fit fails on its own residual rather than returning the minimizer's last point. Serial fits keep the MathNet functor because joint travel is a HARD constraint on them — the kernel `Lm.Minimize` ladder carries no bound, scale, or fixed-parameter column, so re-seating the residual on `DualModel` trades the bounded solve for one free to leave the mechanism's own limits and degrades a reachable station to `machine-tool:unreachable`; the kernel contribution taken here is the `Dual<T>` scalar, and one forward chain in that scalar is the page's only forward kinematics, the differenced Jacobian and a second double-only chain both being the deleted forms.
 
 ```csharp
 using LanguageExt;
@@ -106,7 +106,6 @@ public sealed partial class MotionDynamics {
         acceleration: 250.0, jerk: 2_500.0, rotaryAcceleration: 90.0, rotaryJerk: 900.0,
         cornerTolerance: 0.02, chordTolerance: 0.01, orientationToleranceRad: 0.0005, junctionDeviation: 0.015, lookaheadBlocks: 16);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double rapidFeed,
@@ -159,7 +158,6 @@ public sealed partial class AxisMotion {
         rotary: static row => (row.Minimum.Radians, row.Maximum.Radians, row.MaximumSpeed.RadiansPerSecond),
         linear: static row => (row.Minimum.Millimeters, row.Maximum.Millimeters, row.MaximumSpeed.MillimetersPerSecond));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref AxisLimit physical,
@@ -188,7 +186,6 @@ public sealed partial class RevoluteGeometry {
     public Point3d Pivot { get; }
     public JointMount Mount { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Vector3d direction,
@@ -205,7 +202,6 @@ public sealed partial class PrismaticGeometry {
     public Vector3d Direction { get; }
     public JointMount Mount { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Vector3d direction,
@@ -237,7 +233,6 @@ public sealed partial class TrajectoryStation {
     public int Index { get; }
     public int Count { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int index,
@@ -252,7 +247,6 @@ public sealed partial class AxisSchedule {
     public MachineJoint Joint { get; }
     public Arr<double> Stations { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MachineJoint joint,
@@ -278,7 +272,6 @@ public sealed partial class DeltaGeometry {
     public double RodLength { get; }
     public Arr<Point3d> EffectorJoints { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<Point3d> towers,
@@ -400,7 +393,6 @@ public sealed partial class InversePolicy {
             : Option<int>.None))
         .IsSome;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int rootIterations,
@@ -437,7 +429,6 @@ public sealed partial class MachineKinematics {
     public BoundingBox Workspace { get; }
     public Arr<BoundingBox> Keepouts { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Machine machine,
@@ -502,7 +493,7 @@ public static class MachineTool {
         from initial in Initial(admitted.Kinematics, admitted.Moves.Count)
         from state in admitted.Moves.Fold(
             Fin.Succ(initial),
-            (rail, move) => rail.Bind(current => Advance(admitted.Kinematics, current, move, admitted.Moves, admitted.Moves.Count)))
+            (result, move) => result.Bind(current => Advance(admitted.Kinematics, current, move, admitted.Moves, admitted.Moves.Count)))
         let realizedMoves = state.Stations.Map(static station => station.Move)
         let joints = state.Stations.Map(static station => station.Joints)
         let segmentDurations = state.Stations.Map(static station => NodaTime.Duration.FromSeconds(station.Duration))

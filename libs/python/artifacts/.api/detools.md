@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_DETOOLS]
 
-`detools` owns binary-delta for the artifacts DELTA_BUNDLE rail: `create_patch` diffs a from-image against a to-image into a compressed patch, `apply_patch` reconstructs the to-image, and `patch_info` peeks the self-describing header for per-kind metadata. Native `bsdiff`/`hdiffpatch`/`suffix_array` extensions own the diffing, in-place segmentation, and firmware data-format awareness; the patch-payload codecs are admitted siblings `detools` selects and frames, and `detools.Error` lifts to an `expression` `Result.Error` at the codec `async_boundary`.
+`detools` owns binary-delta for the artifacts DELTA_BUNDLE domain: `create_patch` diffs a from-image against a to-image into a compressed patch, `apply_patch` reconstructs the to-image, and `patch_info` peeks the self-describing header for per-kind metadata. Native `bsdiff`/`hdiffpatch`/`suffix_array` extensions own the diffing, in-place segmentation, and firmware data-format awareness; the patch-payload codecs are admitted siblings `detools` selects and frames, and `detools.Error` lifts to an `expression` `Result.Error` at the codec `async_boundary`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -71,8 +71,8 @@ Per-kind `patch_info` info tuple (`detools.info`), the second element of the `(k
 
 [STACKING]:
 - `lz4`/`zstandard`(`.api/lz4.md`, `.api/zstandard.md`): the delta `compression` axis selects the SAME codec cores the `package/codec#CODEC` single-blob arms own — `detools` frames the bytes through its `detools.compression.*` adapter, the codec library does the work.
-- `runtime` `xxhash` (`python:runtime [CONTENT_KEY]` seam): `DeltaKnobs.parent_key: ContentKey` is the from-image content key; the recovered to-image keys `f"from-{parent_key.hex}"`, decoded not re-minted.
-- firmware seam (`pyelftools`): for an ELF image, `data_format_from_files(option, elffile, binfile, offset)` reads the code/data ranges via `detools.data_format.elf.from_file` and feeds the `from_*`/`to_*` offsets into `create_patch(data_format=…)`; the dfpatch is self-describing in the sequential header, so apply re-supplies no offsets. Bind `data_format_from_files`, never the `add_data_format_args`/`data_format_args` CLI helpers.
+- `runtime` `xxhash` (`python:runtime [CONTENT_KEY]` boundary): `DeltaKnobs.parent_key: ContentKey` is the from-image content key; the recovered to-image keys `f"from-{parent_key.hex}"`, decoded not re-minted.
+- firmware boundary (`pyelftools`): for an ELF image, `data_format_from_files(option, elffile, binfile, offset)` reads the code/data ranges via `detools.data_format.elf.from_file` and feeds the `from_*`/`to_*` offsets into `create_patch(data_format=…)`; the dfpatch is self-describing in the sequential header, so apply re-supplies no offsets. Bind `data_format_from_files`, never the `add_data_format_args`/`data_format_args` CLI helpers.
 - within-lib (`msgspec`/`anyio`): `DeltaKnobs`/`InPlaceSegments`/`FirmwareLayout` are `msgspec.Struct(frozen=True)` bands whose `kwargs()` project dense `tuple[int, int]` ranges onto the flat `detools` kwarg names at the edge (closed axes are `Literal`), keeping the profile content-key-foldable; the CPU-bound native diff runs through `anyio.to_thread.run_sync` (optionally under a `CapacityLimiter`) off the event loop.
 - observability (`structlog`+`opentelemetry`): each delta pack binds `patch_type`, `algorithm`, `compression`, `frame_size`, and `verified = int(recovered == payload)` from `patch_info` to one span.
 

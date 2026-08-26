@@ -2,7 +2,7 @@
 
 One dense chunked N-D array store over one `TensorBackend` engine axis: `TensorStore` owns the `zarr` v3 array — chunk grid, three-slot codec pipeline, orthogonal region write — with `ZARR` the pure-Python sync engine and `TENSORSTORE` the async engine opening the IDENTICAL Zarr v3 chunk grid over a native `KvStore` backend. Out-of-core is not a backend but the `cubed` plan over either store, and the versioned and ragged dimensions live on their own `gridded/virtual` and `gridded/ragged` owners, never as backend tags here.
 
-Its backend is recovered from the store URL scheme through the `runtime/transport/roots#STORE`-owned `StoreBackend` row family — `OBJECT_STORE_SCHEMES` names the remote residence and the row's own `kvstore` column names the native driver the async engine opens under it, so config is a domain value carrying its `create`/`write`/`read` behaviour and this page holds no second scheme roster, driver map, or `engine=` flag set. BOTH engines address a cloud residence: the async one through its kvstore driver, the sync one through `zarr.storage.ObjectStore` over the branch `store_handle` fold, so residence names the preference and reach decides the engine rather than a floor marker on one distribution refusing the whole remote plane. Region writes return their `ContentKey`; `Materialization` carries the plan budget beside the peak its executor measured, absent where the executor measured none.
+Its backend is recovered from the store URL scheme through the `runtime/transport/roots#STORE`-owned `StoreBackend` row family — `OBJECT_STORE_SCHEMES` names the remote store and the row's own `kvstore` column names the native driver the async engine opens under it, so config is a domain value carrying its `create`/`write`/`read` behaviour and this page holds no second scheme roster, driver map, or `engine=` flag set. BOTH engines address a cloud store: the async one through its kvstore driver, the sync one through `zarr.storage.ObjectStore` over the branch `store_handle` fold, so the store names the preference and reach decides the engine rather than a floor marker on one distribution refusing the whole remote plane. Region writes return their `ContentKey`; `Materialization` carries the plan budget beside the peak its executor measured, absent where the executor measured none.
 
 ## [01]-[INDEX]
 
@@ -11,12 +11,12 @@ Its backend is recovered from the store URL scheme through the `runtime/transpor
 
 ## [02]-[STORE]
 
-- Owner: `TensorStore` — one frozen store; one `create`/`write_region`/`read_region` entrypoint family owns all modalities by the recovered backend and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal. Every I/O leg opens its `_TRACER` span — trace parity with the sibling spatial and egress I/O legs, the runtime fence marking a failed leg's span — off the faults-owned `scoped` stamp carrying the version and semconv triple, its `kind` reading residence off `TensorBackend.span_kind(ref)` so an object-store leg publishes the client boundary a distributed trace joins on and a local-path leg stays `INTERNAL` whichever engine serves it.
-- Law: `TensorBackend.reached` is the ONE gate `create` crosses and it proves TWO conditions in one read — `_UNREACHED`, the import-time `find_spec` row over `_ENGINE_MODULE`, so an engine the manifest holds below the interpreter floor answers `TENSOR_FLOOR` naming the absent module instead of raising `ModuleNotFoundError` from a lazy provider import mid-leg; then `_TS_DRIVER`, so a residence the async engine addresses no kvstore driver for answers `TENSOR_DRIVER` naming the missing driver by scheme instead of raising mid-leg from a spec builder. Both rows carry their own subject, so the `subject: str` the gate once threaded across three hops deletes. `for_ref` reads residence for the PREFERENCE and reach for the engine, so an unnamed remote ref lands on whichever engine this floor resolves while a caller-NAMED engine below the floor still refuses by module name — the verbatim-selection law holds exactly where a caller made a selection to honour. `write_region`/`read_region` ride the `self.backend` construction already proved, which is exactly what makes the driver read total below the gate.
+- Owner: `TensorStore` — one frozen store; one `create`/`write_region`/`read_region` entrypoint family owns all modalities by the recovered backend and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal. Every I/O leg opens its `_TRACER` span — trace parity with the sibling spatial and egress I/O legs, the runtime fence marking a failed leg's span — off the faults-owned `scoped` stamp carrying the version and semconv triple, its `kind` reading store off `TensorBackend.span_kind(ref)` so an object-store leg publishes the client boundary a distributed trace joins on and a local-path leg stays `INTERNAL` whichever engine serves it.
+- Law: `TensorBackend.reached` is the ONE gate `create` crosses and it proves TWO conditions in one read — `_UNREACHED`, the import-time `find_spec` row over `_ENGINE_MODULE`, so an engine the manifest holds below the interpreter floor answers `TENSOR_FLOOR` naming the absent module instead of raising `ModuleNotFoundError` from a lazy provider import mid-leg; then `_TS_DRIVER`, so a store the async engine addresses no kvstore driver for answers `TENSOR_DRIVER` naming the missing driver by scheme instead of raising mid-leg from a spec builder. Both rows carry their own subject, so the `subject: str` the gate once threaded across three hops deletes. `for_ref` reads store for the PREFERENCE and reach for the engine, so an unnamed remote ref lands on whichever engine this floor resolves while a caller-NAMED engine below the floor still refuses by module name — the verbatim-selection law holds exactly where a caller made a selection to honour. `write_region`/`read_region` ride the `self.backend` construction already proved, which is exactly what makes the driver read total below the gate.
 - Law: `write_region` crosses the owner's `ResourceGuard` before any region lands — one guard per opened store, composition-bound — so two same-process apps racing one array refuse typed at the guard as `concurrent-write` instead of interleaving regions mid-snapshot; the guard spans the whole staged write, nothing queues behind it, and cross-process coordination stays the chunk grid's own per-chunk atomicity, which the guard never substitutes for.
-- Law: both mutation legs land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and the read leg lands none — an operational `AuditFact` carries the coordinate that leg moved, and a `STORAGE` `MeterFact` carries bytes landed. Both legs are awaitable, so the facts mint from the settled outcome and the record rail binds into each verdict.
-- Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor, digest, or byte reordering is one `_BYTES` row and its `BytesStage` case, reachable at any position of any tail with no other edit; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.STORE` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
-- Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: a codec row spelling a knob its provider does not carry, which arms the store and then raises from inside the codec at the first chunk write while the same unreadable key already sits in the metadata document; a two-case `compress|raw` serializer, which spells compression or a digest and never both, and reaches only the two knobs its positional pair carries; an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud residence and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
+- Law: both mutation legs land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and the read leg lands none — an operational `AuditFact` carries the coordinate that leg moved, and a `STORAGE` `MeterFact` carries bytes landed. Both legs are awaitable, so the facts mint from the settled outcome and the record result binds into each verdict.
+- Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor, digest, or byte reordering is one `_BYTES` row and its `BytesStage` case, reachable at any position of any tail with no other edit; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from store with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.STORE` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
+- Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: a codec row spelling a knob its provider does not carry, which arms the store and then raises from inside the codec at the first chunk write while the same unreadable key already sits in the metadata document; a two-case `compress|raw` serializer, which spells compression or a digest and never both, and reaches only the two knobs its positional pair carries; an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud store and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
 ```python
 import functools
@@ -40,7 +40,7 @@ from zarr import codecs as zc
 lazy import tensorstore as ts
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered, scoped
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, async_boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -274,10 +274,10 @@ class TensorBackend(StrEnum):
         preferred = TensorBackend.TENSORSTORE if remote else TensorBackend.ZARR
         return TensorBackend.ZARR if remote and _UNREACHED.try_find(preferred).is_some() else preferred
 
-    def reached(self, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
+    def reached(self, ref: ResourceRef) -> "RuntimeResult[TensorBackend]":
         return _UNREACHED.try_find(self).map(lambda module: Error(TENSOR_FLOOR.raised(module))).default_value(self._driven(ref))
 
-    def _driven(self, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
+    def _driven(self, ref: ResourceRef) -> "RuntimeResult[TensorBackend]":
         return Ok(self) if self is TensorBackend.ZARR else _driver(ref).map(lambda _name: self)
 
     @staticmethod
@@ -322,7 +322,7 @@ class TensorStore(Struct, frozen=True):
         codec: TensorCodec = TensorCodec(),
         *,
         scope: ScopeKey = DEFAULT_SCOPE,
-    ) -> "RuntimeRail[TensorStore]":
+    ) -> "RuntimeResult[TensorStore]":
         backend = TensorBackend.for_ref(ref)
 
         async def _open() -> TensorStore:
@@ -343,7 +343,7 @@ class TensorStore(Struct, frozen=True):
                 case unreachable:
                     assert_never(unreachable)
 
-    async def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeRail[ContentKey]":
+    async def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeResult[ContentKey]":
         match writes:
             case (TensorRegion(), _) as lone:
                 staged: tuple[Write, ...] = (lone,)
@@ -375,7 +375,7 @@ class TensorStore(Struct, frozen=True):
                 case refused:
                     return Error(refused.error)
 
-    async def read_region(self, region: TensorRegion) -> "RuntimeRail[np.ndarray]":
+    async def read_region(self, region: TensorRegion) -> "RuntimeResult[np.ndarray]":
         with _TRACER.start_as_current_span(
             "tensor.read_region", kind=TensorBackend.span_kind(self.ref), attributes={"rasm.tensor.backend": self.backend.value}
         ):
@@ -439,7 +439,7 @@ _TS_DRIVER: "Final[Map[str, str]]" = Map.of_seq(
 )
 
 
-def _driver(ref: ResourceRef) -> "RuntimeRail[str]":
+def _driver(ref: ResourceRef) -> "RuntimeResult[str]":
     return _TS_DRIVER.try_find(ref.scheme).to_result_with(lambda: TENSOR_DRIVER.raised(ref.scheme))
 
 
@@ -542,15 +542,15 @@ config:
 ---
 flowchart LR
     accTitle: Tensor store engine flow
-    accDescr: ResourceRef scheme recovery into the backend delegates, codec pipeline lowering, the async rail, and content-keyed write settlement.
+    accDescr: ResourceRef scheme recovery into the backend delegates, codec pipeline lowering, the async path, and content-keyed write settlement.
     Ref["ResourceRef scheme"] --> Backend["TensorBackend.for_ref"]
     Backend -->|local| Zarr["zarr awaitable delegate filters/serializer/compressors"]
     Backend -->|cloud| TS["tensorstore.open zarr3 + KvStore + Transaction"]
     Codec["TensorCodec.pipeline / .metadata"] --> Zarr
     Codec --> TS
-    Zarr --> Rail["async_boundary on the caller's loop"]
-    TS --> Rail
-    Rail --> Key["ContentIdentity.of"]
+    Zarr --> Outcome["async_boundary on the caller's loop"]
+    TS --> Outcome
+    Outcome --> Key["ContentIdentity.of"]
 ```
 
 ## [03]-[PLAN]
@@ -572,7 +572,7 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
-from rasm.runtime.faults import FAULT_CONF, Catch, Posture, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, Catch, Posture, RuntimeResult, boundary
 
 if TYPE_CHECKING:
     import numpy as np
@@ -686,7 +686,7 @@ class Materialization(Struct, frozen=True):
         return columns | self.peak_mem.option().map(lambda peak: {"peak_mem": peak}).default_value({})
 
 @beartype(conf=FAULT_CONF)
-def plan(store: "TensorStore", work_dir: "ResourceRef", *, budget: PlanBudget = DEFAULT_BUDGET) -> "RuntimeRail[cubed.Array]":
+def plan(store: "TensorStore", work_dir: "ResourceRef", *, budget: PlanBudget = DEFAULT_BUDGET) -> "RuntimeResult[cubed.Array]":
     def _open() -> "cubed.Array":
         reserved = cubed.measure_reserved_mem(budget.executor) if budget.reserved_mem is None else budget.reserved_mem
         spec = cubed.Spec(str(work_dir.path), allowed_mem=budget.allowed_mem, reserved_mem=reserved, executor_name=budget.executor)
@@ -695,7 +695,7 @@ def plan(store: "TensorStore", work_dir: "ResourceRef", *, budget: PlanBudget = 
     return boundary(TENSOR_PLAN, _open, catch=_PLAN_RAISES)
 
 
-def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "RuntimeRail[Materialization]":
+def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "RuntimeResult[Materialization]":
     def _run() -> Materialization:
         result = op.apply(graph)
         outputs = result if isinstance(result, tuple) else (result,)

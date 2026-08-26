@@ -89,7 +89,7 @@ Casts compose at two layers: in-Cypher `expr::int|float|numeric|bool|vertex|edge
 ## [07]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Session-load obligation: `CREATE EXTENSION age` installs the `ag_catalog` SQL objects once per database, and the one-shot `CreateSql` cannot encode the per-connection load — a Cypher-running connection issues `LOAD 'age'` + `SET search_path = ag_catalog, "$user", public` at the connection seam before any `cypher`/`agtype` symbol resolves.
+- Session-load obligation: `CREATE EXTENSION age` installs the `ag_catalog` SQL objects once per database, and the one-shot `CreateSql` cannot encode the per-connection load — a Cypher-running connection issues `LOAD 'age'` + `SET search_path = ag_catalog, "$user", public` at the connection boundary before any `cypher`/`agtype` symbol resolves.
 - Install ownership guard: `CREATE EXTENSION age` refuses a pre-existing `ag_catalog` owned by a different role — ownership is compared exactly, even for a superuser — so a re-creating provisioning profile owns `ag_catalog` or drops it first, and the install row is idempotent only against an `ag_catalog` the installing role owns.
 - VLE cache coherence: the `age_invalidate_graph_cache()` trigger on each label's backing relation bumps the graph version on any SQL-level `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` that bypasses Cypher (a bulk loader), keeping direct backing-relation writes coherent with later `*`-range traversals.
 - Column-definition list: `cypher(…)`'s `RETURNS SETOF record` contract requires the caller's `AS (col agtype, …)` list — an anonymous-record call without it is the faulted spelling — and `agtype` columns extract to typed scalars through the registered SQL casts (`::int`/`::text`/`::jsonb`), never a hand-parsed text decode.

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_LETS_PLOT]
 
-`lets-plot` mints the host-free grammar-of-graphics chart surface for the artifacts visuals rail: `ggplot` + `aes` seed a `PlotSpec`, the `geom_*`/`stat_*`/`scale_*`/`position_*`/`coord_*`/`facet_*`/`theme*` grammar families `+`-compose onto it, and `PlotSpec.to_svg`/`to_png`/`to_pdf`/`to_html` + `lets_plot.export.ggsave` self-render to bytes or files in-process. It is a complete self-render engine — unlike `altair` (`.api/altair.md`), which builds a Vega-Lite spec for `vl-convert-python` (`.api/vl-convert-python.md`) to lower — rendering with no browser, Node, or Vega binary.
+`lets-plot` mints the host-free grammar-of-graphics chart surface for the artifacts visuals domain: `ggplot` + `aes` seed a `PlotSpec`, the `geom_*`/`stat_*`/`scale_*`/`position_*`/`coord_*`/`facet_*`/`theme*` grammar families `+`-compose onto it, and `PlotSpec.to_svg`/`to_png`/`to_pdf`/`to_html` + `lets_plot.export.ggsave` self-render to bytes or files in-process. It is a complete self-render engine — unlike `altair` (`.api/altair.md`), which builds a Vega-Lite spec for `vl-convert-python` (`.api/vl-convert-python.md`) to lower — rendering with no browser, Node, or Vega binary.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -167,7 +167,7 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 - `vl-convert-python`(`.api/vl-convert-python.md`): the JPEG lane rasterizes the lets-plot SVG through its resvg core, since lets-plot exposes no `to_jpeg`.
 - `anyio`(`.api/anyio.md`): the native render rides `to_thread` under one `CapacityLimiter`, GIL-releasing off the runtime event loop.
 - `structlog`(`.api/structlog.md`) + `opentelemetry`(`.api/opentelemetry-api.md`): each render binds engine, format, scale, theme, and byte length to one event and span.
-- `expression`(`.api/expression.md`): an export failure — a bad `path`, a raster format without `pillow`, a `geom_livemap` non-HTML request — folds onto the `Result` rail rather than raising into the producer.
+- `expression`(`.api/expression.md`): an export failure — a bad `path`, a raster format without `pillow`, a `geom_livemap` non-HTML request — folds onto the `Result` rather than raising into the producer.
 - `graphic/color/derive#DERIVE` + `visualization/chart/spec#CHART`: `DERIVE` `derived color coordinates` threads the `Palette` through `scale_color_manual`/`scale_fill_manual` (lazily imported by `visualization/chart/export#EXPORT`) and the shared `hex_ramp` RGB-to-hex projection on `CHART`.
 - within-lib: `visualization/chart/export#EXPORT` `LP_RENDER` maps `ExportFormat -> method-name` and keys the `to_*` serializers, and `ChartSpec.LetsPlot(plot, palette)` on `visualization/chart/spec#CHART` carries the raw `PlotSpec` to the worker lane, detected by `type(engine).__module__.startswith("lets_plot")`.
 

@@ -32,7 +32,7 @@
 |  [03]   | `FetchError`                                                    | class   | typed fetch failure mapped to `codec-absent`           |
 |  [04]   | `encode(data, Writer) -> Promise<ArrayBuffer>`                  | static  | inverse egress — a decoded table/mesh back to bytes    |
 |  [05]   | `encodeSync(data, Writer) -> ArrayBuffer`                       | static  | sync encode for small text writers                     |
-|  [06]   | `encodeTable(data, Writer) -> Promise<ArrayBuffer>`             | static  | columnar table encode for the Arrow egress seam        |
+|  [06]   | `encodeTable(data, Writer) -> Promise<ArrayBuffer>`             | static  | columnar table encode for the Arrow egress boundary    |
 |  [07]   | `encodeInBatches(data, Writer) -> AsyncIterable<ArrayBuffer>`   | static  | streaming egress feeding `makeStream` back to a stream |
 |  [08]   | `makeIterator(source) -> AsyncIterable<ArrayBuffer>`            | static  | wraps a `Response`/`ReadableStream`/`Blob` as chunks   |
 |  [09]   | `makeStream(iterator) -> ReadableStream`                        | static  | batch `AsyncIterable` back to a Web `ReadableStream`   |

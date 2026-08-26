@@ -1,6 +1,6 @@
 # [PY_DATA_API_H5PY]
 
-`h5py` maps the HDF5 container to Python: `File` owns the on-disk file, `Group` the hierarchical namespace, `Dataset` typed n-dimensional chunked storage, and `AttributeManager` per-object metadata, every dataset crossing the boundary as a `numpy` array. It is the single-file HDF5 store beneath the gridded field rail — a read sources the compute-rail array and a write is its durable sink; the low-level `h5*` C-API modules reach every property-list knob the wrappers do not, and the HDF5 codec and filter pipeline stays C-owned.
+`h5py` maps the HDF5 container to Python: `File` owns the on-disk file, `Group` the hierarchical namespace, `Dataset` typed n-dimensional chunked storage, and `AttributeManager` per-object metadata, every dataset crossing the boundary as a `numpy` array. It is the single-file HDF5 store beneath the gridded field domain — a read sources the compute-domain array and a write is its durable sink; the low-level `h5*` C-API modules reach every property-list knob the wrappers do not, and the HDF5 codec and filter pipeline stays C-owned.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -111,7 +111,7 @@
 - `numpy`(`.api/../numpy.md`): `Dataset[sel]` returns an `ndarray` and `Dataset[sel] = arr` writes one, and `read_direct`/`write_direct` move a block into a preallocated `ndarray` with no intermediate copy — read once into the array kernel, never scalar-iterate.
 - `h5netcdf`(`.api/h5netcdf.md`): this surface is the HDF5 store beneath the pure-h5py netCDF-4 engine, which reads and writes every group, dimension scale, and filter through it.
 - `icechunk`(`.api/icechunk.md`): a boundary, not a composition — h5py owns the single-file HDF5 container, icechunk and zarr own transactional object-store chunked arrays, and neither re-implements the other chunk index.
-- gridded field rail: `VirtualLayout`/`VirtualSource` with `create_virtual_dataset` assemble many per-file datasets into one lazily-read logical array, pairing `shuffle=True` with `compression='gzip'` and matching the chunk shape to the dominant read selection.
+- gridded field domain: `VirtualLayout`/`VirtualSource` with `create_virtual_dataset` assemble many per-file datasets into one lazily-read logical array, pairing `shuffle=True` with `compression='gzip'` and matching the chunk shape to the dominant read selection.
 
 [LOCAL_ADMISSION]:
 - `File` opens in a `with` block, `create_dataset` fixes chunk and compression policy at creation, IO crosses through NumPy-style slicing or `read_direct`/`write_direct`, special types come from the `*_dtype` factories, `VirtualLayout`/`VirtualSource` assemble logical arrays, `require_*` owns idempotent structure, and the `h5*` modules are the property-list escape hatch.

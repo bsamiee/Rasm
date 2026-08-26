@@ -1,6 +1,6 @@
 # [UI_TOKEN]
 
-Token holds the design-token authority as TWO exports: `Theme` computes OKLCH color in `colorjs.io` and owns the semantic tone vocabulary, its `Palette` resolution plane, the `Scale` dimension sub-plane, and the theme stamp seam; `cn` is the folder's one class rail, `extendTailwindMerge` taught every custom group over the `clsx` fold. Every token emits as Tailwind v4 `@theme` namespace rows through one CSS fold whose head is a policy row, so the base plane and its `data-theme` overrides derive from the same table. Module: `ui/src/system/token.ts`.
+Token holds the design-token authority as TWO exports: `Theme` computes OKLCH color in `colorjs.io` and owns the semantic tone vocabulary, its `Palette` resolution plane, the `Scale` dimension sub-plane, and the theme stamp boundary; `cn` is the folder's one class composer, `extendTailwindMerge` taught every custom group over the `clsx` fold. Every token emits as Tailwind v4 `@theme` namespace rows through one CSS fold whose head is a policy row, so the base plane and its `data-theme` overrides derive from the same table. Module: `ui/src/system/token.ts`.
 
 Semantic tone is one closed set here and a KEY everywhere else: `Theme.Tone` is the vocabulary, `Theme.Palette` resolves a tone into themed color through the same OKLCH authority, and a surface `_tone` table carries keys alone. One decoded color object feeds two sinks — the CSS custom-property plane here and the viewer render space through `Theme.linear` — so token color and rendered color are one color-space artifact. Theme and density both ride the `data-*` stamp the `@custom-variant` selectors read, and every surface reaches color, dimension, and class merging through these two exports.
 
@@ -8,9 +8,9 @@ Semantic tone is one closed set here and a KEY everywhere else: `Theme.Tone` is 
 
 - [02]-[COLOR_AUTHORITY]: `Theme.Color` brands the decode, with ramp/contrast algebra and the head-parameterized CSS fold; `Theme`.
 - [03]-[TONE_VOCABULARY]: `Theme.Seed` contracts appearance — closed tone set, slot ladder, plane projections — and `Theme.Palette` resolves tone to themed color; `Theme`.
-- [04]-[CLASS_RAIL]: `cn` composes every class — `extendTailwindMerge` over `clsx`, group table as data; `cn`.
+- [04]-[CLASS_MERGE]: `cn` composes every class — `extendTailwindMerge` over `clsx`, group table as data; `cn`.
 - [05]-[SCALE_TABLES]: `Theme.Scale` — spacing/text/radius/ease/shadow/z/breakpoint rows and emission; `Theme`.
-- [06]-[THEME_SWITCH]: `Theme` stamps `data-theme` — theme vocabulary, stamp seam, persisted-theme law; `Theme`.
+- [06]-[THEME_SWITCH]: `Theme` stamps `data-theme` — theme vocabulary, stamp boundary, persisted-theme law; `Theme`.
 
 ## [02]-[COLOR_AUTHORITY]
 
@@ -80,7 +80,7 @@ const _css = (rows: Record.ReadonlyRecord<string, string>, emit: Theme.Emit): st
 ## [03]-[TONE_VOCABULARY]
 
 [TONE_VOCABULARY]:
-- Owner: `Theme.Seed` — the appearance-seed contract both heads render one identity from: six pigments, four surface postures, and the three tone ladders with their cast chroma; `Theme.Palette` is the semantic plane expanding it over `[02]`'s decode — `_tones` the closed roster, `_TONES` each semantic's seed ANCHOR with its bounded hue shift, `_PROJECTIONS` the per-plane variant projection, `Theme.ramp(seed, plane, tone)` the rung generator over `steps`, `_SLOTS` each slot's rank, `_PAIRS` every readable pairing with its APCA floor, `_postured` the posture and scrim rows, and `Theme.Palette.css(seed, plane)` folding the whole tone × slot cross product and the posture plane into `--color-*` rows through `[02]`'s one emission on the parse rail.
+- Owner: `Theme.Seed` — the appearance-seed contract both heads render one identity from: six pigments, four surface postures, and the three tone ladders with their cast chroma; `Theme.Palette` is the semantic plane expanding it over `[02]`'s decode — `_tones` the closed roster, `_TONES` each semantic's seed ANCHOR with its bounded hue shift, `_PROJECTIONS` the per-plane variant projection, `Theme.ramp(seed, plane, tone)` the rung generator over `steps`, `_SLOTS` each slot's rank, `_PAIRS` every readable pairing with its APCA floor, `_postured` the posture and scrim rows, and `Theme.Palette.css(seed, plane)` folding the whole tone × slot cross product and the posture plane into `--color-*` rows through `[02]`'s one emission on the parse path.
 - Packages: `colorjs.io/fn` (`steps` over the registered `OKLCH` space — the perceptually-even generator; `to` reads a pigment's perceptual coordinates; `toGamutCSS` fits each rung; `serialize` renders the rung the pair schema re-admits); `effect` (`Array`, `Effect`, `Option`, `Record`, `Schema`); `@rasm/core` (`Shape.Record`).
 - Entry: `Theme.Palette.css(seed, plane)` per emission plane; `Theme.ramp(seed, plane, tone)` is the generator a probe or a contrast audit reads, and no other surface computes a color.
 - Law: the SEED is the whole authored identity and it crosses as COMPOSITION DATA, never as a wire family — the composing root hands this authority the same seed its desktop peer resolves, both heads expand it through their own perceptual machinery under their own contrast gate, and a re-seed re-tints both from one edit; `Theme.seed` is the shipped floor a standalone head runs on, so a composed seed always wins and a head attached to a host never renders its own identity. Parity is seed-level by construction: pinning resolved values couples two gamut and gate policies that legitimately land on different pixels.
@@ -290,18 +290,18 @@ const _paletteKeys: ReadonlyArray<string> = [
 ]
 ```
 
-## [04]-[CLASS_RAIL]
+## [04]-[CLASS_MERGE]
 
-[CLASS_RAIL]:
+[CLASS_MERGE]:
 - Owner: `cn` — the folder's ONE class composer: `clsx` folds conditional inputs, one `extendTailwindMerge` instance resolves last-wins conflicts, and the extension table teaches it every custom group — the project `@theme` color scale and the `tw-animate-css` motion groups (`fade`/`zoom`/`spin`/`blur`/`slide` setters, the `animation-duration`/`delay`/`repeat`/`direction`/`fill-mode` timing modifiers, and the play-state pair) — so a `cva` variant, a `tailwindcss-react-aria-components` state variant, and a caller override all collapse to the intended winner.
-- Packages: `tailwind-merge` (`extendTailwindMerge`, `validators`; `fromTheme` where a custom group references a whole scale); `clsx` (`ClassValue` — the shared input vocabulary of the whole styling rail); `class-variance-authority` composes downstream (its `cx` IS `clsx`, so a recipe module imports `cn` from here, never a second composer).
+- Packages: `tailwind-merge` (`extendTailwindMerge`, `validators`; `fromTheme` where a custom group references a whole scale); `clsx` (`ClassValue` — the shared input vocabulary of the whole styling stack); `class-variance-authority` composes downstream (its `cx` IS `clsx`, so a recipe module imports `cn` from here, never a second composer).
 - Law: the theme extension DERIVES from the emission — the `color` scale list is `[03]`'s `_paletteKeys`, the exact key set `Theme.Palette.css` writes, so every default color group (`bg-`/`text-`/`ring-`/`border-`/…) resolves precisely the variables the stylesheet carries and neither list can drift; a hand-listed hue teaches the merge instance a name no `@theme` row emits, and `fromTheme` inside a theme scale is circular — both are named defects.
 - Law: a tone-slot key rides the theme scale WHOLE, hyphen and all — registration splits each theme value on the class separator into a trie chain, so `danger-surface` seats as the `bg → danger → surface` descent and lookup walks the same separator to reach it; `bg-danger-surface` therefore lands in the default `bg-color` group with its slot suffix intact and no flattened key, per-slot group, or separator escape is bought. Every dead-end descent falls back to that node's validators against the REJOINED remainder rather than stranding, which is what keeps an arbitrary value valid beside the scale — but the default color group's fallback is the arbitrary-value pair alone, with no catch-all beneath it, so a key the derived list omits joins no group at all and merges as an unknown class: the derivation above is the whole guarantee, not a convenience.
 - Law: exactly one merge instance exists — a raw `twMerge` import or a per-component `extendTailwindMerge` silently mis-resolves custom utilities and is the named defect; `twJoin` is admitted only for provably conflict-free static token strings.
 - Law: ONE group owns every `animate-*` trigger — the `tw-animate-css` enter/exit pair, the Tailwind-core sustained animations `system/act#MOTION_ROWS` holds a surface in, and the `animate-none` guard together — because a trigger split across two groups leaves `motion-reduce:animate-none` unable to override its own animation; group membership is what makes the reduced-motion guard structural rather than incidental.
 - Law: the typography plugin's modifiers join the table as data — `prose-size` holds the five size modifiers and `prose-ramp` the five neutral ramps, while the seventeen link accents ride `prose-accent` as their own group because a ramp and an accent COMPOSE by the plugin's contract (neutrals write every register, accents rewrite the link register alone), so seating them together erases a lawful pairing; `prose`, `not-prose`, and `prose-invert` join no group — the first two are structural and conflict-free, and the invert remap is foreclosed because the `data-theme` plane already owns dark. `@plugin "@tailwindcss/typography"` loads beside the tailwind entry — stylesheet data like the `@custom-variant` declarations, never module code.
 - Law: the group table is data — a new custom utility family is one `classGroups` row over `validators.*` predicates or a `fromTheme` scale reference, never a parser change; `system/act` consumes these groups through its `Motion` row strings and never mints a sibling instance.
-- Law: `cn` is pure synchronous string work below the Effect boundary — it runs inside render, memoized by `tailwind-merge`'s LRU, and never lifts onto a rail.
+- Law: `cn` is pure synchronous string work below the Effect boundary — it runs inside render, memoized by `tailwind-merge`'s LRU, and never lifts into `Effect`.
 
 ```typescript
 import { type ClassValue, clsx } from "clsx"
@@ -391,7 +391,7 @@ const cn = (...inputs: ReadonlyArray<ClassValue>): string => _merge(clsx(inputs)
 - Law: density is the spacing multiplier's own two-value table — `_density` names the comfortable floor and the touch raise, `_spacing` derives the floor, and the touch override restates `--spacing` under the `data-density` selector as stylesheet data; a third scale or a per-component density knob never exists.
 - Law: motion timing stays `system/act`'s row data — the `Motion` rows carry their `animation-duration-*` modifiers as whole policy strings no second table re-derives, so a `--duration-*` namespace here is an axis with no consumer; it enters when a surface consumes a named step.
 - Law: emission is a fold over one namespace table, never a call per axis — `_EMITTED` keys each interior anchor by the Tailwind namespace it writes and `Theme.Scale.css` collects it through `[02]`'s `_css`, so the paired type row lands as one merged record rather than two emissions of one namespace.
-- Boundary: aspect namespaces join as rows here when a consumer earns them; the Vite integration (`@tailwindcss/vite`) is app build wiring; color namespaces are `[03]`'s and ride the gated rail.
+- Boundary: aspect namespaces join as rows here when a consumer earns them; the Vite integration (`@tailwindcss/vite`) is app build wiring; color namespaces are `[03]`'s and ride the gated decode.
 - Growth: a new axis is one interior anchor with one `_EMITTED` row — never a hand-written utility, a second emission call, or a component-local constant.
 
 ```typescript
@@ -466,12 +466,12 @@ const _Scale: {
 ## [06]-[THEME_SWITCH]
 
 [THEME_SWITCH]:
-- Owner: the theme vocabulary and its stamp seam riding `Theme`: `Theme.kinds` (the closed `as const` tuple — `light`, `dark`, `contrast`, `system`), `Theme.Kind` derived from it, and `Theme.stamp(kind)` — the one `documentElement.dataset` write, an `Effect.sync` boundary row resolving `system` through the host contrast and scheme queries at stamp time.
+- Owner: the theme vocabulary and its stamp boundary riding `Theme`: `Theme.kinds` (the closed `as const` tuple — `light`, `dark`, `contrast`, `system`), `Theme.Kind` derived from it, and `Theme.stamp(kind)` — the one `documentElement.dataset` write, an `Effect.sync` boundary row resolving `system` through the host contrast and scheme queries at stamp time.
 - Law: the elected kind resolves to an EMISSION PLANE, so the attribute a stamp writes is exactly the plane `[03]` generated rows under and a kind whose plane no `_HEADS` row serves is unspellable; the base plane clears the attribute rather than stamping a name no selector matches, because its rows live in the `@theme` block every override inherits from.
 - Law: theme is CSS-selected, never JS-branched — `@custom-variant dark (&:where([data-theme=dark] *))` and its contrast sibling in the token stylesheet read the stamped attribute; a component styles with those variants through `cn`, and a `kind === "dark"` conditional in render is the named defect.
 - Law: persistence rides the one binding — the theme atom is `Atom.kvs` with `Schema.Literal(...Theme.kinds)` as codec, its key minted through `system/atom#STORE_ROOT`'s one key member and its parcel sealed by generation, never hand-spelled, and a `useAtomSubscribe` on it runs `Theme.stamp` so the attribute tracks the store without re-render.
 - Law: density stamps beside theme — a coarse-pointer environment (the negation of `(hover: hover) and (pointer: fine)`) elects the touch multiplier, the same stamp writes `data-density` in the pass that writes `data-theme` (the comfortable floor clears the attribute exactly as the base plane does), and the `:root[data-density="touch"]` override restating `--spacing` from `Theme.Scale.density.touch` is stylesheet data; a JS pixel derivation or a second dimension table is the named defect.
-- Boundary: the media-query reads and the dataset writes are this page's platform-forced seam; the atom mechanics are `system/atom`'s; the `@custom-variant` declaration is stylesheet data beside `@plugin "tailwindcss-react-aria-components"`.
+- Boundary: the media-query reads and the dataset writes are this page's platform-forced boundary; the atom mechanics are `system/atom`'s; the `@custom-variant` declaration is stylesheet data beside `@plugin "tailwindcss-react-aria-components"`.
 
 ```typescript
 import { Effect } from "effect"

@@ -225,7 +225,7 @@
 
 [TOPOLOGY]:
 - `ndarray` is the universal container: every array function admits array-like input and returns `ndarray`.
-- ufuncs dispatch in C over `out`/`axis`/`keepdims`/`where`/`casting` and carry method rails `reduce`/`accumulate`/`reduceat`/`outer`/`at` — `at` scatters unbuffered in-place (`np.add.at(a, idx, vals)`) — the owners for fused reductions and indexed accumulation.
+- ufuncs dispatch in C over `out`/`axis`/`keepdims`/`where`/`casting` and carry method forms `reduce`/`accumulate`/`reduceat`/`outer`/`at` — `at` scatters unbuffered in-place (`np.add.at(a, idx, vals)`) — the owners for fused reductions and indexed accumulation.
 - `einsum` owns general contraction, subsuming `dot`/`matmul`/`inner`/`outer`/`tensordot`/`trace`/`diagonal` under one subscript algebra with `optimize=True` path search.
 - Broadcasting aligns shapes right-to-left, stretches size-1 axes, and raises `ValueError` on incompatible non-1 sizes; `broadcast_to`/`sliding_window_view`/`as_strided` yield no-copy strided views.
 - Integer, boolean-mask, fancy, and slice indexing yield views or copies by contiguity; boolean-mask assignment and `where` own branchless selection.
@@ -238,7 +238,7 @@
 - `msgspec`(`.api/msgspec.md`): `ndarray.tobytes()` (C-order copy sized from `ndarray.nbytes`) flattens a numeric block into a `bytes`/`Raw` `Struct` field, `frombuffer(buf, dtype).reshape(shape)` rebuilds the zero-copy view, and `ascontiguousarray` guarantees C-contiguity before re-encode — `numpy` owns the dtype, `msgspec` the envelope.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): scalar reductions (`mean`/`std`/`isfinite().sum()`) cast through `float(x)` feed `Histogram.record`/`Gauge.set`, whose attribute map rejects raw NumPy scalar types.
 - `meshio`(`.api/meshio.md`): `ascontiguousarray` + `ndarray.__array_interface__`/buffer protocol expose the raw pointer downstream C-extension mesh/geometry owners read without a copy.
-- within-lib: `asarray(dtype=float64)` conditions input for `linalg.solve`/`lstsq`/`pinv` and `isfinite(result).all()` gates the post-solve result onto a typed solver-failure rail; `einsum` + ufunc method rails + batched `linalg` compose fused numeric kernels with no Python-loop fallback.
+- within-lib: `asarray(dtype=float64)` conditions input for `linalg.solve`/`lstsq`/`pinv` and `isfinite(result).all()` gates the post-solve result onto a typed solver-failure channel; `einsum` + ufunc method forms + batched `linalg` compose fused numeric kernels with no Python-loop fallback.
 
 [LOCAL_ADMISSION]:
 - Array construction names `dtype` when precision matters; `float64` is the default and `asarray(x, dtype=...)` the no-copy-when-conforming intake.

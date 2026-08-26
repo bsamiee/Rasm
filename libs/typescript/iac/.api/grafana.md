@@ -1,6 +1,6 @@
 # [TS_IAC_API_GRAFANA]
 
-`grafana` is the board plane's server. This estate installs the chart for the RUNTIME alone — datasources, dashboards, folders, orgs, and alert rules all arrive afterwards through the Grafana provider against the running instance, so the chart's own provisioning surface stays unused and the values body is one credential row plus the placement the profile states.
+`grafana` is the board plane's server. This cluster installs the chart for the RUNTIME alone — datasources, dashboards, folders, orgs, and alert rules all arrive afterwards through the Grafana provider against the running instance, so the chart's own provisioning surface stays unused and the values body is one credential row plus the placement the profile states.
 
 ## [01]-[CHART_VALUES]
 
@@ -23,7 +23,7 @@
 [ENV_CARRIERS]: `env` `envValueFrom` `envFromSecret` `envRenderSecret` `envFromSecrets` `envFromConfigMaps`
 [FULLNAME]: the standard collapse scaffold. Neither override key appears in `values.yaml`, yet both are read by `grafana.fullname` and honored — a pin renders the Deployment, the Service, the ConfigMap, and the Secret under exactly the pinned name, verified by render.
 [SERVICE_NAME]: `<fullname>` UNSUFFIXED, ClusterIP, port 80 onto container 3000 with port name `service`. The address therefore carries no port, and `headlessService: true` adds `<fullname>-headless` for the gossip ring alone.
-[PROVISIONING_SPLIT]: the chart provisions datasources, dashboards, folders, and alert rules from values or from watched ConfigMaps; the estate declines all of it. Board content is code compiled through the Foundation SDK and applied by the Grafana provider against the running server, so a values-side dashboard would be a second content authority with its own drift.
+[PROVISIONING_SPLIT]: the chart provisions datasources, dashboards, folders, and alert rules from values or from watched ConfigMaps; the cluster declines all of it. Board content is code compiled through the Foundation SDK and applied by the Grafana provider against the running server, so a values-side dashboard would be a second content authority with its own drift.
 
 ## [02]-[IMPLEMENTATION_LAW]
 

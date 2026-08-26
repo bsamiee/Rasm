@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CHR_AVRO]
 
-`Chr.Avro` owns the abstract Avro schema-model core: the `Schema` algebra, the `LogicalType` decorators, the reflection-driven `SchemaBuilder` deriving a schema from a CLR `Type`, and the open expression-builder codec framework the binary and registry legs specialize. It ships no encoder and no JSON codec — `Chr.Avro.Binary` carries the binary codec and the first-party Confluent serde the registry frame — so schema derivation is its whole governance, and it supplies the evolution-safe interchange rail the `Arrow`/`Parquet`/`MessagePack`/`CBOR` set lacks.
+`Chr.Avro` owns the abstract Avro schema-model core: the `Schema` algebra, the `LogicalType` decorators, the reflection-driven `SchemaBuilder` deriving a schema from a CLR `Type`, and the open expression-builder codec framework the binary and registry legs specialize. It ships no encoder and no JSON codec — `Chr.Avro.Binary` carries the binary codec and the first-party Confluent serde the registry frame — so schema derivation is its whole governance, and it supplies the evolution-safe interchange format the `Arrow`/`Parquet`/`MessagePack`/`CBOR` set lacks.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -63,18 +63,18 @@ Construction faults `InvalidSchemaException`/`InvalidNameException`/`InvalidSymb
 
 [SERIALIZATION_FRAMEWORK_TYPES]: the open codec framework (namespace `Chr.Avro.Serialization`)
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]         | [CAPABILITY]                                |
-| :-----: | :-------------------------------------------------- | :-------------------- | :------------------------------------------ |
-|  [01]   | `ISerializerBuilder<TContext>`                      | serializer contract   | encoding-specific serializer-builder seam   |
-|  [02]   | `IDeserializerBuilder<TContext>`                    | deserializer contract | encoding-specific deserializer-builder seam |
-|  [03]   | `ISerializerBuilderCase<TContext, TResult>`         | case contract         | one schema-shape → write-expression rule    |
-|  [04]   | `IDeserializerBuilderCase<TContext, TResult>`       | case contract         | one schema-shape → read-expression rule     |
-|  [05]   | `ExpressionBuilder`                                 | expression base       | shared `Expression`-tree emission helpers   |
-|  [06]   | `SerializerBuilderCase` / `DeserializerBuilderCase` | abstract case         | per-schema-shape codec case bases           |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]         | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------------------- | :-------------------- | :----------------------------------------------- |
+|  [01]   | `ISerializerBuilder<TContext>`                      | serializer contract   | encoding-specific serializer-builder interface   |
+|  [02]   | `IDeserializerBuilder<TContext>`                    | deserializer contract | encoding-specific deserializer-builder interface |
+|  [03]   | `ISerializerBuilderCase<TContext, TResult>`         | case contract         | one schema-shape → write-expression rule         |
+|  [04]   | `IDeserializerBuilderCase<TContext, TResult>`       | case contract         | one schema-shape → read-expression rule          |
+|  [05]   | `ExpressionBuilder`                                 | expression base       | shared `Expression`-tree emission helpers        |
+|  [06]   | `SerializerBuilderCase` / `DeserializerBuilderCase` | abstract case         | per-schema-shape codec case bases                |
 
 [CODEC_SHAPE_CASES] the binary/JSON legs specialize (each `: SerializerBuilderCase`/`: DeserializerBuilderCase`): `Array` `Boolean` `Bytes` `Date` `Decimal` `Double` `Duration` `Enum` `Fixed` `Float` `Int` `Long` `Map` `Null` `Record` `String` `Time` `Timestamp` `Union`.
 
-[REPRESENTATION_TYPES]: the schema read/write seam (namespace `Chr.Avro.Representation`)
+[REPRESENTATION_TYPES]: the schema read/write boundary (namespace `Chr.Avro.Representation`)
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]  | [CAPABILITY]                                            |
 | :-----: | :-------------------------------------- | :------------- | :------------------------------------------------------ |
@@ -117,7 +117,7 @@ Construction faults `InvalidSchemaException`/`InvalidNameException`/`InvalidSymb
 - `SchemaBuilder.BuildSchema<T>` forwards to `BuildSchema(typeof(T))`, walking the type graph through the ordered `ISchemaBuilderCase` list where the first match yields a `SchemaBuilderCaseResult`; `SchemaBuilderContext` caches by type so recursive/cyclic records resolve once.
 - Three build policies drive evolution: `EnumBehavior` picks `Symbolic`/`Integral`/`Nominal`, `NullableReferenceTypeBehavior.Annotated` reads C# nullable-reference annotations to emit `[null, T]` unions vs `All`/`None`, `TemporalBehavior` picks ISO-8601 vs epoch micro/milli/nanosecond logical timestamps.
 - `SchemaBuilder`'s ctor defaults `nullableReferenceTypeBehavior` to `Annotated` while `CreateDefaultCaseBuilders` defaults it to `None`, so a factory-built custom case list loses annotation-aware nullability unless passed explicitly.
-- `RecordField.Default` (typed `DefaultValue`) back-fills a reader-schema field absent from the writer schema — the evolution back-compat seam.
+- `RecordField.Default` (typed `DefaultValue`) back-fills a reader-schema field absent from the writer schema — the evolution back-compat mechanism.
 
 [STACKING]:
 - Owning pages: `Element/codec` derives the Avro schema model and `api-chr-avro-binary` compiles the body codec. `Version/egress` may carry an independently supplied absolute `dataschema` URI, while `Confluent.SchemaRegistry.Serdes.Avro` owns registry subject/version and schema-id framing.

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_WEASYPRINT]
 
-`weasyprint` owns pure-Python HTML/CSS-to-PDF rendering for the artifacts pdf rail: one `HTML` source lays out through `pydyf` into a paged `Document`/`Page` tree, and one `write_pdf` `**options` policy selects every archival, tagged, forms, and font variant. Supplemental CSS Paged Media and GCPM own running heads/feet and cross-references, a per-render `FontConfiguration`/`CounterStyle` owns `@font-face` and `@counter-style`, and a `finisher(document, pydyf.PDF)` hook owns post-layout injection. It never re-parses PDF, forks a writer per variant, or draws page furniture from Python.
+`weasyprint` owns pure-Python HTML/CSS-to-PDF rendering for the artifacts pdf domain: one `HTML` source lays out through `pydyf` into a paged `Document`/`Page` tree, and one `write_pdf` `**options` policy selects every archival, tagged, forms, and font variant. Supplemental CSS Paged Media and GCPM own running heads/feet and cross-references, a per-render `FontConfiguration`/`CounterStyle` owns `@font-face` and `@counter-style`, and a `finisher(document, pydyf.PDF)` hook owns post-layout injection. It never re-parses PDF, forks a writer per variant, or draws page furniture from Python.
 
 ## [01]-[PUBLIC_TYPES]
 

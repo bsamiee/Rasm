@@ -2,7 +2,7 @@
 
 `QuadratureIntent` is the one numeric solver over three routes — 1-D quadrature, 1-D interpolation, and the weak-form finite-element `condense -> solve` fold — every route folding into the one `Solve`. Variation rides bounded policy values and one catalog row per concept: `QuadKind` keys the `_QUAD` integration-family catalog, `InterpKind` keys the `_INTERP` interpolant catalog, the shared `Readout` axis parameterizes output shape across both numeric routes, and one `QuadPolicy` struct carries every per-call knob. This FEM route owns only the `condense -> solve` half of an already-assembled system and never re-runs a `Basis`/`asm`.
 
-Reused `Readout` axis spans both numeric routes; the FEM route consumes the `AssembledSystem` `solvers/mesh#EXCHANGE` lowers, condenses it through `skfem.condense`, and solves the condensed system through the `solvers/linear#LINEAR` public `sparse_solve` under the caller's `SparseScheme`/`LinearPolicy` against the honest condensed-load residual; the element axis `ElementKind`/`FemForm`/`CTOR` stays `solvers/mesh#MESH_FIELD`-owned and never crosses — the `fem` case carries the lowered system alone. The lowering bridge is the folder's ONE seam where a compiled kernel meets a `Solve`, so it threads the compile's `EngineProfile` off `Jitted.evidence.profile` onto every integrate arm — the mount `solvers/solve#SOLVE` reserves, filled here rather than left absent on every solve. Each numeric floor climbs the JAX-native `quadax`/`interpax` companion — woven once through the frozen `QuadEngine`, floating the rail to float64 because the `epsabs=1e-10`/`epsrel=1e-8` tolerances sit below float32 eps — then the host `scipy` body, then the unconditional `numpy` floor. Module-level `_dispatch` crosses the process lane as spec data and operands, `_TRAIT` declares the gated `integrate`/`interpolate` routes `HOSTILE` and the scipy-bound FEM `RELEASING`, and every `Solve` stamps its `attributes` on the hub `evidence_run` span — span and fence the weave's — over the `solvers/solve#SOLVE` `status_of` residual floor every scipy/numpy path defers to with `result=None`. `graduates` is the sibling-shaped solver-axis crossing over the `_CEILING` family row, so the weak-form result reaches the hub on the one projection its linear, nonlinear, and differential peers cross on.
+Reused `Readout` axis spans both numeric routes; the FEM route consumes the `AssembledSystem` `solvers/mesh#EXCHANGE` lowers, condenses it through `skfem.condense`, and solves the condensed system through the `solvers/linear#LINEAR` public `sparse_solve` under the caller's `SparseScheme`/`LinearPolicy` against the honest condensed-load residual; the element axis `ElementKind`/`FemForm`/`CTOR` stays `solvers/mesh#MESH_FIELD`-owned and never crosses — the `fem` case carries the lowered system alone. The lowering bridge is the folder's ONE boundary where a compiled kernel meets a `Solve`, so it threads the compile's `EngineProfile` off `Jitted.evidence.profile` onto every integrate arm — the mount `solvers/solve#SOLVE` reserves, filled here rather than left absent on every solve. Each numeric floor climbs the JAX-native `quadax`/`interpax` companion — woven once through the frozen `QuadEngine`, floating the result to float64 because the `epsabs=1e-10`/`epsrel=1e-8` tolerances sit below float32 eps — then the host `scipy` body, then the unconditional `numpy` floor. Module-level `_dispatch` crosses the process lane as spec data and operands, `_TRAIT` declares the gated `integrate`/`interpolate` routes `HOSTILE` and the scipy-bound FEM `RELEASING`, and every `Solve` stamps its `attributes` on the hub `evidence_run` span — span and fence the weave's — over the `solvers/solve#SOLVE` `status_of` residual floor every scipy/numpy path defers to with `result=None`. `graduates` is the sibling-shaped solver-axis crossing over the `_CEILING` family row, so the weak-form result reaches the hub on the one projection its linear, nonlinear, and differential peers cross on.
 
 ## [01]-[INDEX]
 
@@ -36,7 +36,7 @@ from rasm.compute.numerics.jit import EngineProfile, LoweredSpec
 from rasm.compute.solvers.linear import LinearMap, LinearPolicy, MatrixStructure, SparseScheme, sparse_solve
 from rasm.compute.solvers.mesh import AssembledSystem
 from rasm.compute.solvers.solve import Provider, Solve, graduate
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -216,15 +216,15 @@ class QuadratureIntent:
     ) -> "QuadratureIntent":
         return QuadratureIntent(fem=(system, dirichlet, scheme, policy))
 
-    async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Solve[np.ndarray]]":
-        async def dispatch() -> "RuntimeRail[Solve[np.ndarray]]":
+    async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[Solve[np.ndarray]]":
+        async def dispatch() -> "RuntimeResult[Solve[np.ndarray]]":
             return await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, key)
 
         return await evidence_run(EvidenceScope.QUADRATURE, f"solve.{self.tag}", dispatch, facts={"route": self.tag}, composition=composition)
 
     def graduates(
         self, solve: "Solve[np.ndarray]", ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> "RuntimeRail[Graduation]":
+    ) -> "RuntimeResult[Graduation]":
         return graduate(
             EvidenceScope.QUADRATURE.value, f"solve.{self.tag}", solve.content_key, solve, ceiling or dict(_CEILING.items()),
             composition=composition,

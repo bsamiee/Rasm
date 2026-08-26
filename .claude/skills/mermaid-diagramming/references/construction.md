@@ -11,15 +11,15 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
 - Signal: the branch structure and its rejoin points — a strong flowchart lets the reader reconstruct every path without prose, so the discriminators and folds carry the value, never the boxes between them.
 - Method:
     1. Fix the relation semantic first.
-    2. Place the dominant rail from start to outcome.
+    2. Place the main path from start to outcome.
     3. Attach branches off discriminators only.
     4. Shape nodes by step kind.
     5. Label every non-obvious edge with the relation verb.
 - Master patterns:
-    - Declare the dominant rail contiguously first, branches after, so the rail reads as one unbroken line.
-    - Converge every fault onto one rail instead of per-stage dead ends; the convergence point states the recovery law once.
+    - Declare the main path contiguously first, branches after, so it reads as one unbroken line.
+    - Converge every fault onto one path instead of per-stage dead ends; the convergence point states the recovery law once.
     - Fan a discriminator with exhaustive labeled out-edges that re-merge at a single fold — an arm that never rejoins is a leaked exit.
-    - Keep annotation traffic on dashed traces so the solid control rail stays the loudest line on the canvas.
+    - Keep annotation traffic on dashed traces so the solid control path stays the loudest line on the canvas.
     - Broadcast with `A --> B & C` only for genuinely symmetric fan-out; asymmetric hops get their own labeled edges.
 - Failure modes:
     - god-flowchart absorbing lifecycle, sequence, or schema payloads.
@@ -100,8 +100,8 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
     4. Group by namespace when the ownership boundary is the point.
 - Master patterns:
     - Hold the two-relation ceiling; a third relation kind is a second diagram over the same class names.
-    - Spend `namespace` as the ownership boundary claim, mirroring the real module or package seam.
-    - Attach a lollipop `()--` only to the port a consumer actually binds; decorating every class with interfaces flattens the one seam that matters.
+    - Spend `namespace` as the ownership boundary claim, mirroring the real module or package boundary.
+    - Attach a lollipop `()--` only to the port a consumer actually binds; decorating every class with interfaces flattens the one boundary that matters.
     - Keep generics on the declaration and drop them at every reference — the engine collides two classes differing only by generic suffix.
     - Note the one non-obvious invariant with `note for`; every other comment belongs to the owning page.
 - Failure modes:
@@ -162,7 +162,7 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
 - Question: which deployable units run where and reach each other over what path.
 - Service: a deployable unit.
 - Edge: network reachability over a real port or protocol.
-- Signal: the group topology — which unit lives in which zone and which seams cross zone walls.
+- Signal: the group topology — which unit lives in which zone and which edges cross zone walls.
 - Method: group first, place services in flow order, port every edge (`L|R|T|B`) to match the reading direction, then `align row|column` every rank both ways — the aligned grid is what earns orthogonal edges.
 - Failure modes: logical components drawn as services.
 - Logic checks: every edge traces a real port or protocol path.
@@ -236,7 +236,7 @@ Each diagram type answers one question with a bounded mark vocabulary. Per type:
 [RAILROAD]:
 - Question: which strings a grammar admits, rule by rule.
 - Production: one named rule owning its expression, a reference naming another rule.
-- Signal: the rail alternatives — what a valid string may do at each junction.
+- Signal: the branch alternatives — what a valid string may do at each junction.
 - Method: one production per concern, referenced rules defined below their first use, terminals quoted and nonterminals bare so the two read as different marks.
 - Failure modes: a referenced rule never defined, or alternation flattened into prose that hides precedence.
 - Logic checks: every referenced nonterminal carries its own production.

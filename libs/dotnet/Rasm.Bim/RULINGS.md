@@ -13,12 +13,12 @@
 - Interchange budgets are kernel `Tolerance` values on ELECTED lanes — a bare epsilon names no band, dimension, or overridable lane.
 - `Rasm.Element` owns the codec mechanism name `WireCodec`; this folder's message-roster mapper is `EventCodec`, so one noun names one owner.
 - Ingested `IfcClass`/`PredefinedType` tokens admit BARE and prove at the `Emit` gate — ingress validation aborts an import on one unknown entity.
-- Bim composes the native seam predicate algebra directly; a generated predicate face, codec, or second algebra beside `BimLeaf` is the deleted form.
-- `ElementQuery` binds one `Selection<NodeId>` to its graph — that binding is what keeps `Bake` railed on a cyclic `Compose`.
-- Selection evidence rides `MatchVerdict` onto `ElementQuery.Faults`, never a rail — one malformed sub-term refuses no query.
-- Seam `UnitScheme.Coerce`/`Declare` is the ONE native-to-SI entry — a local axis record or a bare multiplier re-opens the call-site fan.
+- Bim composes the native shared predicate algebra directly; a generated predicate face, codec, or second algebra beside `BimLeaf` is the deleted form.
+- `ElementQuery` binds one `Selection<NodeId>` to its graph — that binding is what keeps `Bake` result-returning on a cyclic `Compose`.
+- Selection evidence rides `MatchVerdict` onto `ElementQuery.Faults`, never a fault — one malformed sub-term refuses no query.
+- Shared `UnitScheme.Coerce`/`Declare` is the ONE native-to-SI entry — a local axis record or a bare multiplier re-opens the call-site fan.
 - Each foreign edge declares ONE absence admission all columns cross — `PropertyLowering.Stated`, `BsddWire` — a `??` past that owner duplicates it.
-- Measure coercion keys the seam `DimensionAxis` regime off the row's own `Dimension` — angle rows sign `Dimensionless` and elect the `Angle` family.
+- Measure coercion keys the shared `DimensionAxis` regime off the row's own `Dimension` — angle rows sign `Dimensionless` and elect the `Angle` family.
 - Fidelity accumulates on a `Writer` carrier — `FidelityLog` is the monoid, so a mutable field beside a returned value gives one fact two owners.
 - Quantity election keys the `QuantityType` ingress stamped, never `Dimension` — four rows share the zero vector, so a dimension key fabricates one.
 - Derived base quantities mint via `OfSi(QuantityType, Dimension, double)` — an anonymous takeoff strips the QTO identity derived-wins supersedes.
@@ -27,7 +27,7 @@
 - Captured boundary cases own recovery posture; projector interfaces expose none, and unknown throws remain exact terminal errors.
 - Ports thread only transported governance — `TessellationCompanion.Cross` takes the rpc token, never an `IProgress<double>` the rpc cannot publish.
 - `TessellationRequest.Plan` is the ONE format door — past its constructor the value IS a proven IFC request, so no interior fence re-checks format.
-- `IfcRelKind` rows carry every `IfcRel*` name, direction, and inverse onto the neutral edge — a typed seam case leaks GeometryGym downward.
+- `IfcRelKind` rows carry every `IfcRel*` name, direction, and inverse onto the neutral edge — a typed shared case leaks GeometryGym downward.
 - `Relationship.Generic` wire names MINT from a roster row — an undeclared name is unconstructible at the producer, so the roster IS the vocabulary.
 - Forms this producer refuses are DECLARED rows carrying their diagnostic — an absent row reads as unknown encoding, so peers diverge in silence.
 - Publication gates the producer and admission the reader — one predicate over both either forfeits the legacy read or publishes the draft.
@@ -38,12 +38,12 @@
 - Scene-linear base colour enters `baseColorFactor` unencoded — its display `0xRRGGBBAA` column projects through `AppearanceProjection.Bytes` alone.
 - Metalness and roughness write on EVERY material — both glTF factor defaults are unity, so an unwritten material renders as rough metal.
 - Sub-unit opacity alone selects `AlphaMode.BLEND` and the `Transmissive` bit writes `KHR_materials_transmission`, never an alpha mode.
-- GDAL boundaries compose kernel `CellLattice` and `ChannelDtype` at the lattice mint — a lattice IS an admitted placement where a `Brep` never is.
-- Bulk geospatial projections PARTITION — a refused feature lands its ordinal, the import delivers what admitted; first-defect rails deliver neither.
+- GDAL boundaries compose kernel `CellLattice` and `ChannelDtype` at the grid mint — a grid IS an admitted placement where a `Brep` never is.
+- Bulk geospatial projections PARTITION — a refused feature lands its ordinal, the import delivers what admitted; first-defect returns deliver neither.
 - Probe outcomes ride the kernel `Evidence<T>`, REFUSED apart from UNMEASURED — an `Option` collapses a rejecting scan into one nobody ran.
 - Classifiers absorbing an unmapped token publish that they did — an evidence-free fallback reports full coverage over a taxonomy it never reached.
 - Classifier and ingest keys carry each secondary discriminant as an OPTIONAL axis — a mandatory axis multiplies every mapping by values it ignores.
-- Ring AREA rides the Newell fold over the seam `Vector3` algebra, never planar NTS — a vertical aperture ring projects to near-zero area there.
+- Ring AREA rides the Newell fold over the shared `Vector3` algebra, never planar NTS — a vertical aperture ring projects to near-zero area there.
 - Host-coupled constructors that solely author an entity confine to the `UnsafeAccessor` capsule as arguments — never a projector signature.
 - Model identity is SPAN-grade, never a metric dimension — models mint unbounded, so `rasm.bim.model` multiplies every instrument by model count.
 - Reading the kernel `RgbProfile.Srgb` transfer is no host crossing — the delegate spells no `Unicolour` type, and none reaches a signature here.
@@ -73,7 +73,7 @@
 
 ## [04]-[STRUCTURE]
 
-- Foreign-model projectors seat at the `Projection` stratum — an `IElementProjection` arm on an `Exchange` page inverts the seam's strata.
+- Foreign-model projectors seat at the `Projection` stratum — an `IElementProjection` arm on an `Exchange` page inverts the contract's strata.
 - Generated regions commit their marker pair and ONE exemplar row — a page carrying materialized output re-mints the generator's answer.
 - SAF interchange is ONE codec page authoring GeometryGym entities re-entering `SemanticProjector` — a SAF-side projector is the deleted form.
 - EN 1990 combination algebra is ONE owner — a psi, gamma, or combination expression outside it re-tabulates the package that ships Annex A1.

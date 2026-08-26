@@ -2,7 +2,7 @@
 
 `OpenTelemetry.Exporter.InMemory` captures a full-SDK telemetry pipeline into a caller-owned `ICollection<T>`: `AddInMemoryExporter` registers an `InMemoryExporter<T>` on a `TracerProviderBuilder`, `MeterProviderBuilder`, `LoggerProviderBuilder`, or `OpenTelemetryLoggerOptions`, and every `Activity`, `Metric`, or `LogRecord` the SDK emits — through its real resource, views, exemplars, and processors — lands in the collection for a spec to fold.
 
-Trace and log export assertions have no other in-process rail; the metrics lane complements `MetricCollector<T>` (`diagnostics-testing.md`), which reads one instrument's raw measurement stream without spinning up an SDK pipeline.
+Trace and log export assertions have no other in-process path; the metrics lane complements `MetricCollector<T>` (`diagnostics-testing.md`), which reads one instrument's raw measurement stream without spinning up an SDK pipeline.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -61,9 +61,9 @@ public class MetricSnapshot {
 [EVIDENCE]: proof reads the captured collection after `ForceFlush`, never the exporter's wiring — a trace obligation asserts on `Activity` display name, tags, and status; a metric obligation on `MetricPoint` values and dimensions; a log obligation on `LogRecord` state; message-substring scraping stays banned.
 
 [STACKING]:
-- `diagnostics-testing.md`: `MetricCollector<T>` reads one `Instrument<T>`'s raw measurement stream WITHOUT an SDK, so it proves what the instrument emits; this exporter proves the assembled pipeline — resource attributes, view renames and aggregation, exemplars, processors — where a view or exemplar obligation lives that `MetricCollector<T>` cannot see. Trace and log export have no `MetricCollector<T>` counterpart; `InMemoryExporter<T>` is the only in-process rail for either.
+- `diagnostics-testing.md`: `MetricCollector<T>` reads one `Instrument<T>`'s raw measurement stream WITHOUT an SDK, so it proves what the instrument emits; this exporter proves the assembled pipeline — resource attributes, view renames and aggregation, exemplars, processors — where a view or exemplar obligation lives that `MetricCollector<T>` cannot see. Trace and log export have no `MetricCollector<T>` counterpart; `InMemoryExporter<T>` is the only in-process path for either.
 - `MetricSnapshot` vs `Metric`: the live `Metric`/`MetricPoint` the SDK exports is reused and mutated across collection cycles, so a multi-cycle metric assertion binds `ICollection<MetricSnapshot>` for frozen values; a single-flush read binds `ICollection<Metric>`.
 - `xunit-v3.md`: plain construction and `Sdk.CreateTracerProviderBuilder()`/`Sdk.CreateMeterProviderBuilder()` inside `[Fact]` bodies; the logging overload wires through `OpenTelemetryLoggerOptions` on a host-built SUT.
 
 [LOCAL_ADMISSION]:
-- Suites proving full-SDK export obligations add this package as its own harness row beside its other suite-owned packages; the shared test stack never injects it estate-wide.
+- Suites proving full-SDK export obligations add this package as its own harness row beside its other suite-owned packages; the shared test stack never injects it repo-wide.

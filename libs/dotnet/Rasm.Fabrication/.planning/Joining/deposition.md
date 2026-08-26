@@ -4,7 +4,7 @@
 
 A welding standard is a RULE SET, never a scalar row. `WeldFactorTable.Shop` is the one named preset holding the landed defaults, so a code revision that re-rates 3G uphill or a double-sided groove moves rows rather than re-spelling a smart-enum column or a union arm, and a second shop supplies its own table whole.
 
-Physics and policy seat here; geometry and the clock do not. `WeldRuleSet` states limits, `WeldProcessLaw` states rates, and `Joining/weld` `[03]-[PASS]` is the only place either becomes a number. `ArcProgram` places moves on a `TorchFrame` and the `IWeldAccess`/`WeldDemandBinding` extension points read the `WeldPass` roster, both declared across that seam — so ownership cuts these two files, never stratum: deposition answers what the arc physically does and the joint-to-bead-to-plan spine answers what one admitted request derives.
+Physics and policy seat here; geometry and the clock do not. `WeldRuleSet` states limits, `WeldProcessLaw` states rates, and `Joining/weld` `[03]-[PASS]` is the only place either becomes a number. `ArcProgram` places moves on a `TorchFrame` and the `IWeldAccess`/`WeldDemandBinding` extension points read the `WeldPass` roster, both declared across that boundary — so ownership cuts these two files, never stratum: deposition answers what the arc physically does and the joint-to-bead-to-plan spine answers what one admitted request derives.
 
 `ArcFitPolicy` PRESENCE routes the circular-fit gate: an absent policy emits linear chains with no extra branch, and a present one arrives admitted, so `ArcFit.Of` measures rather than re-checking a caller assertion over transported frame ORIGINS, the whole input its circumcircle-and-residual kernel touches.
 
@@ -25,7 +25,7 @@ Physics and policy seat here; geometry and the clock do not. `WeldRuleSet` state
 - Auto: `BeadProgram.Resolve` generates role and oscillation from deposited fraction, and `BeadProgram.Lattice` seats each bead across the layer width `FillProfile.WidthAtHeight` resolves at `FillProfile.HeightAtFill`.
 - Entry: `WeldPolicy.Admit` validates a non-empty process roster, access-key uniqueness, and the procedure profile's `WeldDemandBinding` modality and field uniqueness once; the arc-fit policy, role-band coverage, the factor tables, and the pass ceiling prove at their own owners' admissions, so no clause is checked twice. Interior operations consume only the admitted owner.
 - Packages: Thinktecture.Runtime.Extensions supplies `[Union]`, `[ComplexValueObject]`, and `[ValidationError]`; LanguageExt.Core supplies `Fin`, `Validation`, `Option`, `Map`, `Set`, `Seq`, `Traverse`, `Apply`, and `Fold`; MathNet.Numerics supplies `Interpolate.Linear` for the piecewise waveform; UnitsNet and NodaTime supply typed boundary quantities; `Rasm.Element` supplies `AdmissionSlots`; `Rasm.Fabrication.Process` supplies `ProcessBudget.Joining`, `FabricationFault`, and `FabConcern.Joining`.
-- Boundary: `WeldPolicy` holds no geometry and no clock. `IWeldAccess.Check` and `WeldDemandBinding.Facts` read the `WeldPass` roster `Joining/weld` `[03]-[PASS]` emits, because both are evaluated AFTER pass generation over the passes they judge — the seam is named at both ends and neither owner reaches the other's behaviour.
+- Boundary: `WeldPolicy` holds no geometry and no clock. `IWeldAccess.Check` and `WeldDemandBinding.Facts` read the `WeldPass` roster `Joining/weld` `[03]-[PASS]` emits, because both are evaluated AFTER pass generation over the passes they judge — the boundary is named at both ends and neither owner reaches the other's behaviour.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -61,7 +61,6 @@ public sealed partial class WeldFactorTable {
     public Map<WeldPosition, PositionFactor> Positions { get; }
     public Map<PrepShape, ShapeFactor> Shapes { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Map<PassRole, RoleFactor> roles,
@@ -149,7 +148,6 @@ public sealed partial class WeldRuleSet {
     public double RelativeVolumeTolerance { get; }
     public WeldFactorTable Factors { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WeldCode code,
@@ -310,7 +308,6 @@ public sealed partial class TransferMode {
     public Set<WeldProgression> Progressions { get; }
     public Set<PassTechnique> Techniques { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double efficiency,
@@ -382,7 +379,6 @@ public sealed partial class WeldProcessLaw {
     public TransferModeKey DefaultMode { get; }
     public Map<TransferModeKey, TransferMode> Modes { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DepositionSource deposition,
@@ -451,7 +447,6 @@ public readonly partial struct WeavePattern {
 
     public int EdgeDwellMs => (int)Math.Round(EdgeDwellS * 1000.0);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Waveform shape,
@@ -521,7 +516,6 @@ public readonly partial struct RoleBand {
     public ArcProgram Arc { get; }
     public PassLineage Lineage { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double startFraction,
@@ -548,7 +542,6 @@ public sealed partial class BeadProgram {
     public double WidthFactor { get; }
     public double HeightFactor { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<RoleBand> bands,
@@ -611,7 +604,6 @@ internal sealed partial class WeldAccess : IWeldAccess {
     public string Key { get; }
     public Func<WeldJoint, Seq<WeldPass>, K<Validation<Error>, Unit>> Constraint { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -689,7 +681,6 @@ public sealed partial class WeldPolicy {
     public Seq<IWeldAccess> Access { get; }
     public Seq<WeldDemandBinding> DemandBindings { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WeldRuleSet rules,
@@ -736,7 +727,6 @@ public readonly partial struct ArcFitPolicy {
     public int MinimumFrames { get; }
     public double MinimumSweepRad { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double toleranceMm,
@@ -801,7 +791,6 @@ public readonly partial struct ArcProgram {
     public double CraterFillS { get; }
     public double RunOutMm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double runInMm,

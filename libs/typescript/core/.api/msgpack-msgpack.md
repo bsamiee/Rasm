@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the codec pair, its extension registry, and the context thread
-- rail: interchange/codec
+- concern: interchange/codec
 - `Decoder`/`Encoder` are configured-once instances; `ExtensionCodec` maps an ext type-byte to a decoder and `ExtData` is a raw undecoded ext. `context` adds a field every ext decoder receives — the kernel-identity thread, typed via internal `ContextOf`/`SplitUndefined`. `DecoderOptions`/`EncoderOptions` are flat `Readonly<Partial<...>>` policy records.
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                |
@@ -24,7 +24,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: single-frame decode, streaming decode, and egress
-- rail: interchange/codec
+- concern: interchange/codec
 - Sync `decode`/`decodeMulti` cover a buffered frame; async `decodeAsync`/`decodeArrayStream`/`decodeMultiStream` accept a `ReadableStreamLike` and yield an `AsyncGenerator` — the `effect` `Stream` source for the CRDT log. Every entry threads the same `DecoderOptions`.
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                              |
@@ -42,11 +42,11 @@
 
 [TOPOLOGY]:
 - `interchange/codec` registers one `ExtensionCodec` row `{ type, decode }` reading the contract 16-byte `Hlc` extension cell into the kernel `Hlc`; `OpLogEntry` decodes as the producer's explicit thirteen-slot primitive array, and its raw payload is handed to generated `CrdtOpWire` protobuf admission only after the family and content key are verified.
-- `context` threads the mint decode-once: `DecoderOptions.context` (`ContextOf<C>`) passes into every `ExtensionDecoderType` call, so the `value/identity` interner and the `Hlc` node-id table ride the decode as state, and the mint happens once inside the ext decoder at the seam.
+- `context` threads the mint decode-once: `DecoderOptions.context` (`ContextOf<C>`) passes into every `ExtensionDecoderType` call, so the `value/identity` interner and the `Hlc` node-id table ride the decode as state, and the mint happens once inside the ext decoder at the boundary.
 - `useBigInt64:true` decodes int64/uint64 tokens as `bigint`; compact positive tokens remain exact `number` values that the owner schema widens to `bigint` before domain use.
 - `decodeMultiStream` is backpressured but silently ends when EOF leaves an incomplete value; it is not a strict frame boundary.
 - `OpLog` ingress retains length-framed carry, rejects non-empty terminal residue, then supplies complete payloads to the decoder.
-- `Encoder.encode` copies out of the encoder's internal buffer while `encodeSharedRef` returns `bytes.subarray(0, pos)` — a view onto that REUSED buffer which the next `encodeSharedRef` on the same instance overwrites, and a re-entrant call clones the encoder rather than corrupting the outer frame. Transferring the view's `ArrayBuffer` detaches the encoder's own storage and poisons every later encode, so `encodeSharedRef` is a same-tick read and never a `Transferable` handoff; `interchange/codec` hands bytes across the codec seam that outlive the call and therefore takes `encode`.
+- `Encoder.encode` copies out of the encoder's internal buffer while `encodeSharedRef` returns `bytes.subarray(0, pos)` — a view onto that REUSED buffer which the next `encodeSharedRef` on the same instance overwrites, and a re-entrant call clones the encoder rather than corrupting the outer frame. Transferring the view's `ArrayBuffer` detaches the encoder's own storage and poisons every later encode, so `encodeSharedRef` is a same-tick read and never a `Transferable` handoff; `interchange/codec` hands bytes across the codec boundary that outlive the call and therefore takes `encode`.
 
 [STACKING]:
 - Stack with `interchange/codec`: one registry row selects MessagePack for the explicit op-log envelope, and generated protobuf owns the seventh position (`Payload`, index 6) only for CRDT; compression stays outside both codecs.

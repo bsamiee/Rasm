@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_OPENTELEMETRY_INSTRUMENTATION_ASYNCIO]
 
-`opentelemetry-instrumentation-asyncio` spans selected coroutines, futures, and `to_thread` callables on the event loop and carries the active context across their scheduling seams, emitting the `asyncio.process.duration` histogram and `asyncio.process.created` counter. Three environment variables own selection, so coverage tunes per deployment with zero code edit.
+`opentelemetry-instrumentation-asyncio` spans selected coroutines, futures, and `to_thread` callables on the event loop and carries the active context across their scheduling boundaries, emitting the `asyncio.process.duration` histogram and `asyncio.process.created` counter. Three environment variables own selection, so coverage tunes per deployment with zero code edit.
 
 ## [01]-[PUBLIC_TYPES]
 

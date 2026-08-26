@@ -15,7 +15,7 @@ Three exported folds stay stable across the solver plane: `status_of`, the one t
 - Law: `condition` is `float | None` on the `direct` and `eigen` cases and defaults absent on their factories, because only a dense route holds the singular spectrum a condition number reads — a sparse factorization, a `SuperLU` back-substitution, an ARPACK stall, and a lineax operator solve each measure no conditioning at all. The unmeasured slot leaves the `ledger` rather than floating, so the hub's key-coverage gate refuses a ceiling naming a quantity the route never took; a `float("nan")` in the slot is the deleted form — it enters the ledger as a value, then breaches the hub's own finiteness refinement on every sparse crossing.
 - Entry: the four `@classmethod` factories `Direct`/`Iterative`/`LeastSquares`/`Eigen` return `Self` — binding the subtype, not a forward-ref re-spelled four times — and terminate their payload through `status_of`, a route holding a backend `RESULTS` member passing its name (gated routes derive it through `verdict`), a numpy-floor route passing `None` to let the residual floor adjudicate. `status_of` is one total `match` over the `str | None` discriminant: `case str()` degrades an unmapped member to `OTHER` rather than crashing, the guarded `case None` returns `NONFINITE`, the bare `case None` returns `SUCCESS`/`STAGNATION` off the residual-vs-tolerance floor, and the trailing `assert_never` witnesses totality — backend status where it exists, the residual floor where it does not, never two parallel convergence notions. Method tolerances live in one frozen `_TOL` table keyed by tag.
 - Output: every factory closes through `_noted`, which writes the value's `attributes` onto the current span — method, key, `converged`, every numeric and vocabulary slot, and the `profile.`-namespaced engine band — so the route's `evidence_run` span carries the termination facts without a second emit surface, and a solve minted outside any span writes onto the no-op span and costs nothing. The profile band stays off the graduation `ledger`, so a profile extent can never masquerade as a residual a ceiling clears.
-- Packages: `expression` (`tagged_union`/`case`/`tag`, and `Map` for every dispatch table), `opentelemetry-api` (`trace.get_current_span`/`Span.set_attributes`), stdlib `enum.StrEnum`/`math.isfinite`/`types.ModuleType`, runtime (`ContentKey`, `RuntimeRail`, and the `ScopeKey`/`DEFAULT_SCOPE` composition key `graduate` forwards), the downward hub graduation import (`Graduation`/`HandoffAxis`), and the `numerics/jit` `EngineProfile` band import.
+- Packages: `expression` (`tagged_union`/`case`/`tag`, and `Map` for every dispatch table), `opentelemetry-api` (`trace.get_current_span`/`Span.set_attributes`), stdlib `enum.StrEnum`/`math.isfinite`/`types.ModuleType`, runtime (`ContentKey`, `RuntimeResult`, and the `ScopeKey`/`DEFAULT_SCOPE` composition key `graduate` forwards), the downward hub graduation import (`Graduation`/`HandoffAxis`), and the `numerics/jit` `EngineProfile` band import.
 - Growth: a new convergence shape is one `Solve` case, one `_TOL` row, one `_SLOTS` row leading with `key`, and one `_LEDGER` row, its attributes projecting with no `_noted` edit; a new graded quantity is one `_LEDGER` member, a new call-evidence slot one `_SLOTS` entry the ledger never sees; a new backend termination reason is one `_STATUS` row into the existing vocabulary, or one new `SolveStatus` member when a genuinely new termination class appears (`EVENT` being that path realized); a profiled solve is the same factory call carrying its `profile` row, and a new profile statistic lands on the jit `EngineProfile` with zero edits here; a new graduating solve family is one `graduate` call with its value, family ceiling row, and composition key — the status, verdict, fact, ledger, and graduation folds reused, never re-inlined.
 - Boundary: `SolveStatus` is the vocabulary the C# graduation gate reads, not the gate itself; the admit/reject verdict belongs to the `convex_program`/`solver` `HandoffAxis` cases, and the graduation crossing to the one `graduate` projection rather than a per-owner inline `HandoffAxis(solver=...)`. Family DEFAULT ceilings are policy rows on each family's own carrier beside its route table; the caller's tighter row overrides. Composition custody is the caller's — `graduate` forwards the key it is handed and defaults `DEFAULT_SCOPE`, so the root call shape stays scope-free and the registry partition is the hub owner's mechanic, never re-derived here.
 
@@ -32,7 +32,7 @@ from opentelemetry import trace
 
 from rasm.compute.graduation.handoff import Graduation, HandoffAxis
 from rasm.compute.numerics.jit import EngineProfile
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
@@ -133,7 +133,7 @@ def graduate[T](
     evidence: "Solve[T] | dict[str, float]",
     ceiling: dict[str, float],
     composition: ScopeKey = DEFAULT_SCOPE,
-) -> RuntimeRail[Graduation]:
+) -> RuntimeResult[Graduation]:
     ledger = evidence.ledger if isinstance(evidence, Solve) else evidence
     return Graduation.graduates(owner, HandoffAxis(solver=subject), key, ledger, ceiling, composition=composition)
 

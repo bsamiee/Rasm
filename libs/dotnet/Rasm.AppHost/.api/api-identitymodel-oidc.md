@@ -73,8 +73,8 @@
 - `Microsoft.IdentityModel.Protocols`(`.api/api-identitymodel-protocols.md`): `OpenIdConnectConfigurationRetriever` and `OpenIdConnectConfigurationValidator` specialize `IConfigurationRetriever<T>` and `IConfigurationValidator<T>` at `T = OpenIdConnectConfiguration`, minting the `ConfigurationManager<OpenIdConnectConfiguration>` that wraps a metadata address and `HttpDocumentRetriever` and caches through the inherited refresh/last-known-good knobs.
 - `Microsoft.IdentityModel.Tokens`(`.api/api-identitymodel-tokens.md`): that manager assigns to `TokenValidationParameters.ConfigurationManager`/`ValidationParameters.ConfigurationManager`, so the refreshed `JsonWebKeySet` becomes the rotating `IssuerSigningKeys` source; `OpenIdConnectConfiguration : BaseConfiguration`.
 - `Microsoft.IdentityModel.JsonWebTokens`(`.api/api-identitymodel-jwt.md`): `JsonWebTokenHandler` validation reads the discovery JWKS through that same `ConfigurationManager` slot.
-- `OpenIddict.Client`(`.api/api-openiddict-client.md`): the `OpenIdConnect*` name-constant sets name the parameters, scopes, and grant-types the acquisition rail builds; a hand-built `OpenIdConnectMessage` covers only hosts bypassing the client flow verbs.
-- AppHost OIDC rail: one `ConfigurationManager<OpenIdConnectConfiguration>` per provider drives discovery, and `ValidateAuthenticationResponse` runs after JWT validation to bind nonce/c_hash/at_hash/state.
+- `OpenIddict.Client`(`.api/api-openiddict-client.md`): the `OpenIdConnect*` name-constant sets name the parameters, scopes, and grant-types the acquisition flow builds; a hand-built `OpenIdConnectMessage` covers only hosts bypassing the client flow verbs.
+- AppHost OIDC composition: one `ConfigurationManager<OpenIdConnectConfiguration>` per provider drives discovery, and `ValidateAuthenticationResponse` runs after JWT validation to bind nonce/c_hash/at_hash/state.
 
 [LOCAL_ADMISSION]:
 - Build one `ConfigurationManager<OpenIdConnectConfiguration>` per provider and assign it to `TokenValidationParameters.ConfigurationManager`; leave `IssuerSigningKeys` unset so validators pull from the refreshed `JsonWebKeySet`.

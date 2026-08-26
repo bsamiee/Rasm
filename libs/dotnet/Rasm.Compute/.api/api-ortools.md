@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_ORTOOLS]
 
-`Google.OrTools` owns three exact-solver rails behind the `OptimizerKind` rows: the CP-SAT constraint-programming model and solver, the LinearSolver MIP/LP optimizer across pluggable backends, and the ConstraintSolver vehicle-routing engine, over per-RID native solver libraries. Its wire carriers (`CpModelProto`, `CpSolverResponse`, `MPModelProto`) are `api-protobuf` messages, so the proto vocabulary stacks onto the `Runtime/wire` remote lane; a solve fault lifts to `ComputeFault` at the boundary.
+`Google.OrTools` owns three exact-solver backends behind the `OptimizerKind` rows: the CP-SAT constraint-programming model and solver, the LinearSolver MIP/LP optimizer across pluggable backends, and the ConstraintSolver vehicle-routing engine, over per-RID native solver libraries. Its wire carriers (`CpModelProto`, `CpSolverResponse`, `MPModelProto`) are `api-protobuf` messages, so the proto vocabulary stacks onto the `Runtime/wire` remote lane; a solve fault lifts to `ComputeFault` at the boundary.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -271,7 +271,7 @@
 - reification: `Constraint.OnlyEnforceIf(ILiteral)` half-reifies any constraint, and the structural families refine `Constraint` with fluent builders (`ReservoirConstraint.AddEvent`, `CumulativeConstraint.AddDemand`, `NoOverlap2dConstraint.AddRectangle`, `AutomatonConstraint.AddTransition`), so a scheduling/packing model composes the builder rather than a parallel constraint type.
 - domain algebra: `Domain` is a closed set value (`FromValues`/`FromIntervals`/`Complement`/`IntersectionWith`/`UnionWith`/`Contains`/`IsIncludedIn`); a discretization expresses a variable's admissible set through the algebra, never an external bit-set beside it.
 - backend selection: `Solver.OptimizationProblemType` picks the native backend (`GLOP`/`CLP`/`PDLP`/`SCIP`/`CBC`/`BOP`/`SAT`, optional `GUROBI`/`CPLEX`/`XPRESS`/`GLPK`) or `CreateSolver(id)`; LP relaxations expose `ReducedCost`/`DualValue`/`Activity` over `Solver.BasisStatus`.
-- solve outcome: each rail classifies to its own status, never a generic success flag — CP-SAT `CpSolverStatus` (`Unknown`/`ModelInvalid`/`Feasible`/`Infeasible`/`Optimal`), LinearSolver `Solver.ResultStatus` (`OPTIMAL`/`FEASIBLE`/`INFEASIBLE`/`UNBOUNDED`/`ABNORMAL`/`MODEL_INVALID`/`NOT_SOLVED`), routing `RoutingSearchStatus.Types.Value`.
+- solve outcome: each backend classifies to its own status, never a generic success flag — CP-SAT `CpSolverStatus` (`Unknown`/`ModelInvalid`/`Feasible`/`Infeasible`/`Optimal`), LinearSolver `Solver.ResultStatus` (`OPTIMAL`/`FEASIBLE`/`INFEASIBLE`/`UNBOUNDED`/`ABNORMAL`/`MODEL_INVALID`/`NOT_SOLVED`), routing `RoutingSearchStatus.Types.Value`.
 - native binding: the managed wrapper is a SWIG/protobuf surface, and every `IDisposable` root (`CpSolver`, `Solver`, `RoutingModel`, `RoutingIndexManager`, `MPSolverParameters`, `Objective`, `Domain`) owns native handles released by `Dispose`.
 - proto carriers: `CpModel.Model` (`CpModelProto`), `CpSolver.Response` (`CpSolverResponse`), `Constraint.Proto` (`ConstraintProto`), and `MPModelProto`/`MPModelRequest` (`Google.OrTools.OperationsResearch`) are the `api-protobuf` wire model and response.
 
@@ -284,6 +284,6 @@
 - `Analysis/circulation`: `Google.OrTools.Graph.MaxFlow` composes exit capacity for the egress runner — occupant-load supplies map onto space nodes, door/corridor widths onto arc capacities of the `ElementGraph` space-adjacency subgraph, `Solve(source, sink)` returns the evacuation throughput, and saturated arcs (`Flow == Capacity`) name the min-cut; `MinCostFlow` distributes load at least travel cost. Path/topology algebra is `QuikGraph`'s and the planar side `NetTopologySuite`/`Clipper2`'s; the flow concern alone is this module's, zero new central pins.
 
 [LOCAL_ADMISSION]:
-- `OptimizerKind` rows select the rail — CP-SAT through `CpModel`/`CpSolver`, MIP/LP through `Solver`, routing through `RoutingModel`; one canonical solve discriminates on the row.
+- `OptimizerKind` rows select the backend — CP-SAT through `CpModel`/`CpSolver`, MIP/LP through `Solver`, routing through `RoutingModel`; one canonical solve discriminates on the row.
 - Variables, constraints, and objective remain solver-model inputs; the solve returns `OptimizationResult`, and status enums classify its outcome.
 - Native handles enter only through declared `IDisposable` roots and release deterministically; the SWIG `SWIGTYPE_p_*`/`*PINVOKE` interop types stay out of canonical owners.

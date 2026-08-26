@@ -78,5 +78,5 @@
 - `Semantics/vector#VECTOR_FOLD`: this fold composes GeoParquet as the managed columnar `GeoVectorSource` arm — `ReadAll`/`ReadColumns` over the `ObjectStore.Fetch` bytes yields a `DataTable`, each geo column WKB-decodes into a `GeoFeature`, and the write leg projects `Seq<GeoFeature>` back to a `DataTable`; `ReadColumns(filePath, names)` is the attribute push-down for a wide web dataset, the columnar analog of the FGB bbox row filter
 
 [LOCAL_ADMISSION]:
-- GeoParquet read/write enters through `GeoParquetReader`/`GeoParquetWriter` over a `DataTable`; the geo column WKB-bridges to the canonical `GeoFeature` at the seam and the `GISBlox.*` types stay inside the `GeoVector` fold per the boundary-mapping law
+- GeoParquet read/write enters through `GeoParquetReader`/`GeoParquetWriter` over a `DataTable`; the geo column WKB-bridges to the canonical `GeoFeature` at the contract and the `GISBlox.*` types stay inside the `GeoVector` fold per the boundary-mapping law
 - a known column subset enters through `ReadColumns` for server-side projection, dataset extent reads through `ReadGeoMetadata` before a windowed read, and the geometry algebra stays `NetTopologySuite`

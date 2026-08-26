@@ -6,7 +6,7 @@
 
 [ABI_SCOPE]: the parameterized bridged-resource shape every resource class instantiates
 
-`opts` on every constructor and `.get` is the universal `pulumi.CustomResourceOptions` seam (`provider`/`dependsOn`/`parent`/`protect`/`ignoreChanges`/`import`, `.api/pulumi-pulumi.md`); nested arg shapes live under `types.input.*`, every output prop is the `Output<T>` mirror of its `XArgs` field, and `XState` — the `.get` shape — is the all-optional `Output` mirror of `XArgs`.
+`opts` on every constructor and `.get` is the universal `pulumi.CustomResourceOptions` parameter (`provider`/`dependsOn`/`parent`/`protect`/`ignoreChanges`/`import`, `.api/pulumi-pulumi.md`); nested arg shapes live under `types.input.*`, every output prop is the `Output<T>` mirror of its `XArgs` field, and `XState` — the `.get` shape — is the all-optional `Output` mirror of `XArgs`.
 
 | [INDEX] | [MEMBER]                                                                | [SHAPE_BOUNDARY]                                         |
 | :-----: | :---------------------------------------------------------------------- | :------------------------------------------------------- |
@@ -70,7 +70,7 @@
 
 ## [03]-[PROVIDER]
 
-[PROVIDER_SCOPE]: the API credential — the cloudflare arm seam
+[PROVIDER_SCOPE]: the API credential — the cloudflare arm boundary
 
 One `Provider` per arm carries the credential and threads through `opts.provider`: `apiToken` is the canonical scoped credential, with `apiKey`+`email` and `apiUserServiceKey` as mutually-exclusive alternates.
 

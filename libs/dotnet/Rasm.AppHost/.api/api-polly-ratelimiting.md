@@ -108,7 +108,7 @@ Each options value carries its settable members, and `AutoReplenishment` default
 [TOPOLOGY]:
 - Rate limiting folds onto the resilience pipeline as one admission strategy binding `PermitLimit`, `QueueLimit`, and `QueueProcessingOrder` from policy; a lease spans the whole guarded call, so admission placed inside a retry loop converts retry storms into permit starvation.
 - `RateLimiterStrategyOptions.RateLimiter` left null makes the strategy construct a `ConcurrencyLimiter` over `DefaultRateLimiterOptions` and acquire ONE permit per execution; a non-null delegate binds any `System.Threading.RateLimiting` limiter and receives the executing `ResilienceContext` per lease request.
-- Denied leases raise `RateLimiterRejectedException` on the `Polly.Core` `ExecutionRejectedException` rail with `TelemetrySource` stamped at throw, so one exception type serves every limiter row and the refusing strategy resolves through that stamp rather than message text.
+- Denied leases raise `RateLimiterRejectedException` on the `Polly.Core` `ExecutionRejectedException` hierarchy with `TelemetrySource` stamped at throw, so one exception type serves every limiter row and the refusing strategy resolves through that stamp rather than message text.
 
 [LEASE_LAW]:
 - Rejection runs in a FIXED order — the strategy reports its `OnRateLimiterRejected` telemetry event at `ResilienceEventSeverity.Error`, then invokes `OnRejected`, then constructs and throws — so the meter records every refusal whether or not a callback is seated.

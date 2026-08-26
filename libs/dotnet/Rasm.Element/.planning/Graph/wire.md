@@ -1,6 +1,6 @@
 # [ELEMENT_WIRE]
 
-`ElementWire` lowers one admitted native `Node` onto generated `NodeWire` for the persistence edit seam. `NodeWire` is support closure beneath the manifest-root `EntityEditWire`; it is not a public graph snapshot, graph delta, or relationship protocol. Native `ElementGraph`, `GraphDelta`, and `Relationship` remain branch-interior owners.
+`ElementWire` lowers one admitted native `Node` onto generated `NodeWire` for the persistence edit boundary. `NodeWire` is support closure beneath the manifest-root `EntityEditWire`; it is not a public graph snapshot, graph delta, or relationship protocol. Native `ElementGraph`, `GraphDelta`, and `Relationship` remain branch-interior owners.
 
 The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-byte projections. Every nested value reuses its domain admission on decode, while Celly evaluates the generated corpus constraints before projection.
 
@@ -13,7 +13,7 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 
 - Cases: `NodeWire.payload` mirrors the eight `Node` cases. Nested generated oneofs mirror `PropertyValue`, `TemporalValue`, `MaterialComposition`, and `MaterialPropertySet` only because a node payload can reach them. `CoverageSample` stays branch-interior because no node seats it.
 - Law: `NodeWire` exists to make `Persistence/Version/merge#STRUCTURAL_DIFF` field-mask edits schema-aware. It does not make the enclosing graph, delta algebra, relationship algebra, headers, redaction policy, or event framing a cross-language contract.
-- Law: `WireCodec` is one `[Mapper]` partial family split by generated message family. `SeamConverters` is the public identity and semantic-value converter set composed by sibling packages; no protobuf-shaped DTO or alias is added.
+- Law: `WireCodec` is one `[Mapper]` partial family split by generated message family. `BoundaryConverters` is the public identity and semantic-value converter set composed by sibling packages; no protobuf-shaped DTO or alias is added.
 - Entry: `Encode(node, tolerance, key)` mints `content_address` under the caller's active graph tolerance and validates the generated result. `Decode(wire, key)` validates and re-admits every nested value, but does not claim address verification because tolerance belongs to the graph context at the persistence caller.
 - Output: the caller retains producer-carried `content_address` as the held-node OCC base. It never derives that value from ProtoJSON or treats `NodeWire` as a manifest actor.
 - Packages: Celly.Protovalidate validates corpus rules; Google.Protobuf owns generated messages and descriptors; Rasm owns `ContentHash.Wire`/`Admit`; Mapperly owns field transcription; Thinktecture owns total union dispatch; LanguageExt owns `Fin` and presence; NodaTime.Serialization.Protobuf owns temporal projections.
@@ -46,7 +46,7 @@ using Rasm.Element.Properties;
 using Riok.Mapperly.Abstractions;
 using static LanguageExt.Prelude;
 using static Rasm.Domain.AdmissionSlots;
-using static Rasm.Element.Graph.SeamConverters;
+using static Rasm.Element.Graph.BoundaryConverters;
 
 namespace Rasm.Element.Graph;
 
@@ -70,7 +70,7 @@ public sealed partial class CrossingFamily {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 // --- [SERVICES] ------------------------------------------------------------------------
-public static partial class SeamConverters {
+public static partial class BoundaryConverters {
  // --- [KEY_CODECS]
  [UserMapping] public static ByteString ToWire(NodeId id) =>
   ContentHash.Wire(UInt128.Parse(id.Value, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
@@ -202,7 +202,7 @@ public static partial class SeamConverters {
  EnabledConversions = MappingConversionType.Constructor | MappingConversionType.ImplicitCast |
   MappingConversionType.Enumerable | MappingConversionType.Dictionary,
  RequiredMappingStrategy = RequiredMappingStrategy.Both)]
-[UseStaticMapper(typeof(SeamConverters))]
+[UseStaticMapper(typeof(BoundaryConverters))]
 [UseStaticMapper(typeof(NodaTime.Serialization.Protobuf.NodaExtensions))]
 [UseStaticMapper(typeof(NodaTime.Serialization.Protobuf.ProtobufExtensions))]
 internal static partial class WireCodec {
@@ -268,7 +268,7 @@ public static class ElementWire {
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-- [KEY_VERBATIM_LAW]: `NodeId` and every `UInt128` key cross through `ContentHash.Wire` and re-admit through `ContentHash.Admit`; this seam owns no width or byte-order twin.
+- [KEY_VERBATIM_LAW]: `NodeId` and every `UInt128` key cross through `ContentHash.Wire` and re-admit through `ContentHash.Admit`; this contract owns no width or byte-order twin.
 - [NODE_OCC_ADDRESS]: `content_address` mints under the caller-supplied active tolerance and is retained by the EntityEdit consumer as its OCC coordinate.
 - [CODEC_DIVISION]: generated messages own structure, Celly owns corpus-authored validation, Mapperly owns field transcription, and Thinktecture/generated case enums own exhaustive dispatch.
 - [BOUNDARY_SCOPE]: native graphs, deltas, and relationships have no peer decoder, so no protobuf root, registry row, event announcement, redaction wrapper, or local replacement codec exists.

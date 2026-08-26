@@ -1,10 +1,10 @@
 # [RASM_APPUI_API_REACTIVEUI]
 
-`ReactiveUI` is the MVVM rail: `ReactiveObject` change-notification, `ReactiveCommand` async/cancellable command execution, `WhenAnyValue` property streams, `ObservableAsPropertyHelper` derived properties, `Interaction` request/response for dialogs, `RoutingState` navigation, `ViewModelActivator`/`WhenActivated` lifecycle, `SuspensionHost` state persistence, and a `Bind`/`OneWayBind`/`BindCommand`/`BindInteraction` view-binding expression compiler. It sits on `System.Reactive` (every member returns/consumes `IObservable<T>`) and surfaces collection deltas as DynamicData `IChangeSet`; the Avalonia bridge (view bases, `AvaloniaScheduler`, builder admission) lives in the sibling `ReactiveUI.Avalonia` catalog. `ReactiveProperty<T>` carries the package's ONE validation surface — per-property `INotifyDataErrorInfo` through `AddValidationError`/`HasErrors`/`ObserveHasErrors` — and there is no view-model-scoped aggregator: `IReactiveObject` moved to `ReactiveUI.Core` with no type forward, so the external aggregator package type-loads against nothing and a screen-scoped rule context is owner-built on this rail (`cs:Rasm.AppUi/Shell/screens#VALIDATION_UX`). This catalog documents the advanced surface and how it stacks those rails into one screen owner; `RegisterView<…>`, `RegisterStandardConverters`, and `WithExceptionHandler` are phantom builder methods this package never shipped — `RegisterViews(m => m.Map<TViewModel, TView>())` is the registration spelling.
+`ReactiveUI` is the MVVM layer: `ReactiveObject` change-notification, `ReactiveCommand` async/cancellable command execution, `WhenAnyValue` property streams, `ObservableAsPropertyHelper` derived properties, `Interaction` request/response for dialogs, `RoutingState` navigation, `ViewModelActivator`/`WhenActivated` lifecycle, `SuspensionHost` state persistence, and a `Bind`/`OneWayBind`/`BindCommand`/`BindInteraction` view-binding expression compiler. It sits on `System.Reactive` (every member returns/consumes `IObservable<T>`) and surfaces collection deltas as DynamicData `IChangeSet`; the Avalonia bridge (view bases, `AvaloniaScheduler`, builder admission) lives in the sibling `ReactiveUI.Avalonia` catalog. `ReactiveProperty<T>` carries the package's ONE validation surface — per-property `INotifyDataErrorInfo` through `AddValidationError`/`HasErrors`/`ObserveHasErrors` — and there is no view-model-scoped aggregator: `IReactiveObject` moved to `ReactiveUI.Core` with no type forward, so the external aggregator package type-loads against nothing and a screen-scoped rule context is owner-built on this layer (`cs:Rasm.AppUi/Shell/screens#VALIDATION_UX`). This catalog documents the advanced surface and how it stacks those layers into one screen owner; `RegisterView<…>`, `RegisterStandardConverters`, and `WithExceptionHandler` are phantom builder methods this package never shipped — `RegisterViews(m => m.Map<TViewModel, TView>())` is the registration spelling.
 
 ## [01]-[PUBLIC_TYPES]
 
-[VIEW_MODEL_TYPES]: reactive state, derived properties, and the validation-aware property — rail: reactive
+[VIEW_MODEL_TYPES]: reactive state, derived properties, and the validation-aware property — concern: reactive
 
 | [INDEX] | [SYMBOL]                                  | [KIND]                            |
 | :-----: | :---------------------------------------- | :-------------------------------- |
@@ -25,7 +25,7 @@
 - `ReactiveProperty<T>`: `class : ReactiveObject, IReactiveProperty<T>, IObservable<T?>, ICancelable, INotifyDataErrorInfo` exposing `Value`, `HasErrors`, `ObserveHasErrors`, `ObserveErrorChanged`, `AddValidationError(Func<IObservable<T?>,IObservable<IEnumerable?>>, bool ignoreInitialError = false)`, and static `Create`.
 - `IHandleObservableErrors`: `interface` exposing `ThrownExceptions`.
 
-[COMMAND_AND_INTERACTION_TYPES]: command execution and dialog request rails — rail: reactive
+[COMMAND_AND_INTERACTION_TYPES]: command execution and dialog request types — concern: reactive
 
 | [INDEX] | [SYMBOL]                                        | [KIND]              |
 | :-----: | :---------------------------------------------- | :------------------ |
@@ -46,7 +46,7 @@
 - `IInteractionContext<TInput,TOutput>`: `interface` exposing `Input`, `IsHandled`, and `SetOutput(TOutput)`.
 - `UnhandledInteractionException<TInput,TOutput>`: exception raised when no handler sets output.
 
-[ACTIVATION_AND_ROUTING_TYPES]: lifecycle and navigation contracts — rail: reactive
+[ACTIVATION_AND_ROUTING_TYPES]: lifecycle and navigation contracts — concern: reactive
 
 | [INDEX] | [SYMBOL]                | [KIND]                |
 | :-----: | :---------------------- | :-------------------- |
@@ -67,7 +67,7 @@
 - `IRoutableViewModel`: `interface` exposing `string? UrlPathSegment` and `IScreen HostScreen`.
 - `RoutingState`: `class : ReactiveObject` exposing `NavigationStack`, `Navigate`, `NavigateBack`, `NavigateAndReset`, `CurrentViewModel`, and `NavigationChanged`.
 
-[INFRASTRUCTURE_TYPES]: message bus, suspension, builder, view mapping — rail: reactive
+[INFRASTRUCTURE_TYPES]: message bus, suspension, builder, view mapping — concern: reactive
 
 | [INDEX] | [SYMBOL]                                   | [KIND]             |
 | :-----: | :----------------------------------------- | :----------------- |
@@ -93,7 +93,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [STATE_ENTRYPOINTS]: property mutation and derived-state streams
-- rail: reactive
+- concern: reactive
 
 | [INDEX] | [SURFACE]                                                  | [ROOT]                                   |
 | :-----: | :--------------------------------------------------------- | :--------------------------------------- |
@@ -115,7 +115,7 @@
 `ToProperty` accepts the source object, property expression, optional initial value factory, `deferSubscription`, and scheduler.
 
 [COMMAND_ENTRYPOINTS]: command construction and the observable→command bridge
-- rail: reactive
+- concern: reactive
 
 | [INDEX] | [SURFACE]                    | [ROOT]                   |
 | :-----: | :--------------------------- | :----------------------- |
@@ -141,7 +141,7 @@
 `CreateFromTask` with a `Func<…,CancellationToken,Task>` is the canonical async leg: its token cancels when a subsequent execution starts or the command is disposed, binding long-running Compute calls here. `WhenAnyValue` produces the `IObservable<bool>` `canExecute`; `InvokeCommand` bridges triggers while respecting `CanExecute` and disposing its subscription. `Execute` returns the observable command result, so chains stay reactive.
 
 [ACTIVATION_AND_ROUTING_ENTRYPOINTS]: lifecycle scope and navigation
-- rail: reactive
+- concern: reactive
 
 | [INDEX] | [SURFACE]                                         | [ROOT]               |
 | :-----: | :------------------------------------------------ | :------------------- |
@@ -163,7 +163,7 @@
 `WhenActivated(d => { … d(subscription); … })` registers subscriptions into a `CompositeDisposable` torn down on deactivation — every binding and `ToProperty` in a view is disposed here, and this is where a TextMate `Installation` or DynamicData subscription is scoped. `RoutingState.NavigationChanged` is a DynamicData `IChangeSet`, so a breadcrumb projection composes `.Bind(out var breadcrumbs)` directly. `Navigate.Execute(new SettingsViewModel(this))` is the push.
 
 [INTERACTION_ENTRYPOINTS]: dialog request/response
-- rail: reactive
+- concern: reactive
 
 | [INDEX] | [SURFACE]         | [ROOT]                        |
 | :-----: | :---------------- | :---------------------------- |
@@ -178,10 +178,10 @@
 - `SetOutput`: `void SetOutput(TOutput output)` exactly once.
 - `BindInteraction`: `IDisposable BindInteraction<…>(this TView, TViewModel?, Expression<Func<TViewModel,IInteraction<…>>>, Func<IInteractionContext<…>,Task> handler)`.
 
-`Interaction<TInput,TOutput>` is the dialog rail: the view-model exposes `Interaction<DialogIntent, object?> ShowDialog { get; } = new();` and `await ShowDialog.Handle(intent)`; the view registers the actual dialog in `WhenActivated` via `BindInteraction` or `RegisterHandler(async ctx => ctx.SetOutput(await dialog.Show(ctx.Input)))`. An unhandled `Handle` throws `UnhandledInteractionException`. `IsHandled` guards a multi-handler chain.
+`Interaction<TInput,TOutput>` is the dialog channel: the view-model exposes `Interaction<DialogIntent, object?> ShowDialog { get; } = new();` and `await ShowDialog.Handle(intent)`; the view registers the actual dialog in `WhenActivated` via `BindInteraction` or `RegisterHandler(async ctx => ctx.SetOutput(await dialog.Show(ctx.Input)))`. An unhandled `Handle` throws `UnhandledInteractionException`. `IsHandled` guards a multi-handler chain.
 
 [VIEW_BINDING_ENTRYPOINTS]: the expression-compiler binding surface (extension methods on `IViewFor` views; activated by `ReactiveUI.Avalonia`)
-- rail: reactive
+- concern: reactive
 
 | [INDEX] | [SURFACE]     | [ROOT]                              |
 | :-----: | :------------ | :---------------------------------- |
@@ -199,7 +199,7 @@
 These are the alternative to compiled-XAML bindings; they keep the view-model property names refactor-safe (expression trees) and route through the `IBindingTypeConverter` registry (the full string↔primitive converter set auto-registers via `PlatformRegistrations`). `BindCommand` maps a `ReactiveCommand` to a control and optionally a non-default event (`toEvent`).
 
 [BUILDER_AND_SUSPENSION_ENTRYPOINTS]: registration and state persistence
-- rail: reactive
+- concern: reactive
 
 | [INDEX] | [SURFACE]                                                            | [ROOT]                     |
 | :-----: | :------------------------------------------------------------------- | :------------------------- |

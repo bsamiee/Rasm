@@ -5,9 +5,9 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: task, cancellation, and run lifecycle
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                                                                       |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RESULT]                                                                                     |
 | :-----: | :-------------------- | :------------ | :------------------------------------------------------------------------------------------- |
 |  [01]   | `CancelScope`         | scope class   | scoped cancellation boundary (`shield=`)                                                     |
 |  [02]   | `TaskInfo`            | info record   | running task identity (`id`/`name`/`coro`)                                                   |
@@ -19,9 +19,9 @@
 |  [08]   | `RunFinishedError`    | exception     | portal/loop call after the event loop closed                                                 |
 
 [PUBLIC_TYPE_SCOPE]: synchronization primitives
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                                                                |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RESULT]                                                                              |
 | :-----: | :-------------------------- | :------------ | :------------------------------------------------------------------------------------ |
 |  [01]   | `Event`                     | event class   | set-once async notification                                                           |
 |  [02]   | `Lock`                      | lock class    | async mutual exclusion (`fast_acquire=`)                                              |
@@ -36,9 +36,9 @@
 |  [11]   | `CapacityLimiterStatistics` | stats record  | limiter borrower/waiter snapshot                                                      |
 
 [PUBLIC_TYPE_SCOPE]: networking and connectables
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]  | [RAIL]                                                |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]  | [RESULT]                                              |
 | :-----: | :---------------------------------------------------------- | :------------- | :---------------------------------------------------- |
 |  [01]   | `abc.SocketStream`                                          | byte stream    | connected TCP/UNIX bidirectional stream               |
 |  [02]   | `abc.SocketListener`                                        | listener       | single-socket accept loop                             |
@@ -54,9 +54,9 @@
 |  [12]   | `abc.ByteStreamConnectable` / `abc.ObjectStreamConnectable` | connectable    | reconnectable byte/object stream factory              |
 
 [PUBLIC_TYPE_SCOPE]: streams and stream wrappers
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]      | [RAIL]                                      |
+| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]      | [RESULT]                                    |
 | :-----: | :-------------------------------------------------------------------- | :----------------- | :------------------------------------------ |
 |  [01]   | `streams.memory.MemoryObjectSendStream` / `MemoryObjectReceiveStream` | object stream      | in-process fan-out/fan-in channel pair      |
 |  [02]   | `streams.memory.MemoryObjectStreamStatistics`                         | stats record       | buffered/waiting item snapshot              |
@@ -72,9 +72,9 @@
 |  [12]   | `abc.ByteStream` / `ByteReceiveStream` / `ByteSendStream`             | interface          | bidirectional/half byte stream contracts    |
 
 [PUBLIC_TYPE_SCOPE]: async filesystem and tempfiles
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [RAIL]                                              |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [RESULT]                                            |
 | :-----: | :--------------------- | :-------------- | :-------------------------------------------------- |
 |  [01]   | `AsyncFile`            | async file      | thread-offloaded file object                        |
 |  [02]   | `Path`                 | async path      | `pathlib.Path` mirror, all I/O offloaded to threads |
@@ -84,9 +84,9 @@
 |  [06]   | `SpooledTemporaryFile` | context manager | async in-memory-then-spill temp file                |
 
 [PUBLIC_TYPE_SCOPE]: thread / process / interpreter bridges
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]  | [RAIL]                                                 |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]  | [RESULT]                                               |
 | :-----: | :----------------------------------- | :------------- | :----------------------------------------------------- |
 |  [01]   | `abc.BlockingPortal`                 | interface      | call async code from a worker thread                   |
 |  [02]   | `from_thread.BlockingPortalProvider` | portal factory | one event loop shared by many threads                  |
@@ -95,9 +95,9 @@
 |  [05]   | `BrokenWorkerInterpreter`            | worker error   | `to_interpreter` PEP-734 subinterpreter raised or died |
 
 [PUBLIC_TYPE_SCOPE]: typed-attribute introspection and context mixins
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [RAIL]                                                       |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [RESULT]                                                     |
 | :-----: | :------------------------------------------------- | :------------ | :----------------------------------------------------------- |
 |  [01]   | `TypedAttributeProvider`                           | mixin         | base for streams exposing `extra(attr)`                      |
 |  [02]   | `TypedAttributeSet`                                | attr group    | declarative typed-attribute namespace                        |
@@ -106,9 +106,9 @@
 |  [05]   | `ContextManagerMixin` / `AsyncContextManagerMixin` | mixin         | author `__enter__`/`__aenter__` as a single generator method |
 
 [PUBLIC_TYPE_SCOPE]: error and stream-signal types
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                                         |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RESULT]                                       |
 | :-----: | :-------------------- | :------------- | :--------------------------------------------- |
 |  [01]   | `EndOfStream`         | stream signal  | stream exhausted (raised by `receive`)         |
 |  [02]   | `ClosedResourceError` | resource error | operation on a closed resource                 |
@@ -121,9 +121,9 @@
 |  [09]   | `NoEventLoopError`    | thread error   | no running event loop for the captured token   |
 
 [PUBLIC_TYPE_SCOPE]: backend and ABC contracts
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                              |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RESULT]                                            |
 | :-----: | :------------------ | :------------ | :-------------------------------------------------- |
 |  [01]   | `abc.TaskGroup`     | interface     | structured task group contract                      |
 |  [02]   | `abc.TaskStatus`    | interface     | `started(value)` readiness signal for `task_status` |
@@ -134,9 +134,9 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: event loop entry, tasks, and backend query
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]   | [RAIL]                                      |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]   | [RESULT]                                    |
 | :-----: | :---------------------------------------------------------- | :--------------- | :------------------------------------------ |
 |  [01]   | `run(func, *args, backend='asyncio', backend_options=None)` | event loop entry | run async main in chosen backend            |
 |  [02]   | `create_task_group()`                                       | task group       | structured concurrency scope (`async with`) |
@@ -147,9 +147,9 @@
 |  [07]   | `wait_all_tasks_blocked()`                                  | testing helper   | yield until all tasks are suspended         |
 
 [ENTRYPOINT_SCOPE]: cancel scopes and timing
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                                                 |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RESULT]                                               |
 | :-----: | :----------------------------------- | :------------- | :----------------------------------------------------- |
 |  [01]   | `fail_after(delay, shield=False)`    | cancel scope   | raise `TimeoutError` on deadline                       |
 |  [02]   | `move_on_after(delay, shield=False)` | cancel scope   | silently cancel on deadline (`scope.cancelled_caught`) |
@@ -160,10 +160,10 @@
 |  [07]   | `current_effective_deadline()`       | clock          | nearest active cancel deadline                         |
 
 [ENTRYPOINT_SCOPE]: synchronization primitives
-- rail: concurrency
+- concern: concurrency
 - Constructors carry a keyword-only tail past `*` — `fast_acquire=` on `Lock`/`Semaphore`, `max_value=` on `Semaphore`; each primitive publishes `statistics()` as its one contention probe.
 
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [RAIL]                                                          |
+| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [RESULT]                                                        |
 | :-----: | :------------------------------ | :------------- | :-------------------------------------------------------------- |
 |  [01]   | `Event()`                       | latch          | `set()`/`is_set()`/`wait()`; set once, never reset              |
 |  [02]   | `Lock()`                        | mutex          | `async with`/`acquire`/`acquire_nowait`/`release`/`locked`      |
@@ -173,9 +173,9 @@
 |  [06]   | `ResourceGuard(action="using")` | custody        | sync `with`; overlapping `__enter__` raises `BusyResourceError` |
 
 [ENTRYPOINT_SCOPE]: memory streams
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                       |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RESULT]                                     |
 | :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------- |
 |  [01]   | `create_memory_object_stream[T](max_buffer_size=0, item_type=None)` | factory        | paired `(send, receive)` channel pair        |
 |  [02]   | `MemoryObjectSendStream.send(item)` / `send_nowait(item)`           | producer       | suspending back-pressure send; no-wait send  |
@@ -185,10 +185,10 @@
 |  [06]   | `MemoryObjectReceiveStream.aclose()` / `statistics()`               | teardown       | async close; live buffer/waiter snapshot     |
 
 [ENTRYPOINT_SCOPE]: networking, TLS, and signals
-- rail: concurrency
+- concern: concurrency
 - Connect/listen/datagram factories carry a keyword-only tuning tail past `*`; the row shows the distinguishing head.
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RAIL]                                              |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RESULT]                                            |
 | :-----: | :----------------------------------------------------------- | :------------- | :-------------------------------------------------- |
 |  [01]   | `connect_tcp(host, port, *, tls=False, ...)`                 | connect        | TCP `SocketStream`/`TLSStream`, RFC 6555 dual-stack |
 |  [02]   | `connect_unix(path)`                                         | connect        | UNIX-domain `UNIXSocketStream`                      |
@@ -208,9 +208,9 @@
 |  [16]   | `aclose_forcefully(resource)`                                | teardown       | best-effort `aclose` inside a shielded scope        |
 
 [ENTRYPOINT_SCOPE]: file and process I/O
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                    |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RESULT]                                  |
 | :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------- |
 |  [01]   | `open_file(file, mode='r', ...)`                       | file open      | async file handle (`AsyncFile`)           |
 |  [02]   | `wrap_file(file)`                                      | file wrap      | wrap an open sync file object as async    |
@@ -220,9 +220,9 @@
 |  [06]   | `gettempdir()` / `gettempdirb()`                       | tempfile       | async temp-dir path mirrors               |
 
 [ENTRYPOINT_SCOPE]: thread / process / interpreter offload
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                       |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RESULT]                                     |
 | :-----: | :------------------------------------------------------------------- | :------------- | :------------------------------------------- |
 |  [01]   | `to_thread.run_sync(func, *args, abandon_on_cancel=False, ...)`      | thread         | run sync callable in a worker thread         |
 |  [02]   | `to_thread.current_default_thread_limiter()`                         | limiter        | per-loop default thread limiter (40 tokens)  |
@@ -235,9 +235,9 @@
 |  [09]   | `to_interpreter.current_default_interpreter_limiter()`               | limiter        | per-loop default subinterpreter limiter      |
 
 [ENTRYPOINT_SCOPE]: low-level checkpoints and run-locals
-- rail: concurrency
+- concern: concurrency
 
-| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RAIL]                                               |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RESULT]                                             |
 | :-----: | :-------------------------------------- | :------------- | :--------------------------------------------------- |
 |  [01]   | `lowlevel.checkpoint()`                 | checkpoint     | unconditional yield + cancellation check             |
 |  [02]   | `lowlevel.checkpoint_if_cancelled()`    | checkpoint     | raise only if cancel scope tripped                   |
@@ -256,7 +256,7 @@
 - `create_memory_object_stream[T](...)` is subscripted for the item type; `send_nowait`/`receive_nowait` raise `WouldBlock`, and a send onto a closed receive end raises `BrokenResourceError`.
 - Closing the LAST send end drains losslessly: every buffered item still delivers, `__aiter__` then stops and a direct `receive()` raises `EndOfStream`, so a graceful shutdown closes the send end and awaits the consumer instead of cancelling it. `clone()` opens an additional send end, and the receiver terminates only once every clone closes.
 - Cancelled `receive()` sheds nothing: `send_nowait` skips a receiver already carrying a pending cancellation and buffers instead, and a receiver whose item landed before the scope tripped returns that item before the cancellation surfaces at its next checkpoint, so a `move_on_after` window around `receive()` is a batching primitive rather than a drop.
-- `ResourceGuard(action=)` fences a single-consumer resource: the sync `with` raises `BusyResourceError` on an overlapping entry, detecting OVERLAP and not ownership, so a sequential hand-off between tasks passes and only a live second caller rails. It seats on the wrapping surface that delegates the pull, since a guard placed inside an async generator never fires at all — the interpreter rejects the frame re-entry first, raising an untyped `RuntimeError` that names the frame instead of the resource.
+- `ResourceGuard(action=)` fences a single-consumer resource: the sync `with` raises `BusyResourceError` on an overlapping entry, detecting OVERLAP and not ownership, so a sequential hand-off between tasks passes and only a live second caller faults. It seats on the wrapping surface that delegates the pull, since a guard placed inside an async generator never fires at all — the interpreter rejects the frame re-entry first, raising an untyped `RuntimeError` that names the frame instead of the resource.
 - TLS rides `connect_tcp(..., tls=True, tls_hostname=...)` inline or `streams.tls.TLSStream.wrap(...)` over any `ByteStream`; peer cert and ALPN read through `stream.extra(TLSAttribute.*)`.
 - Offload splits by cost: `to_thread.run_sync` bounds a `CapacityLimiter` thread pool (40 default), `to_process.run_sync` crosses a persistent subprocess by pickle, `to_interpreter.run_sync` dispatches a PEP-734 subinterpreter (own GIL, in-process) where only PEP-734-shareable values cross copy-free — a non-shareable payload still pickles on the hop, so serialization cost is a lane-selection input. Worker raises and deaths surface as `BrokenWorkerProcess`/`BrokenWorkerInterpreter`.
 - `from_thread.BlockingPortalProvider(backend, backend_options)` shares one loop across many threads; `portal.call`/`portal.start_task_soon`/`portal.wrap_async_context_manager` bridge sync callers in, raising `RunFinishedError` after the loop closes.

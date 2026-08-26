@@ -41,11 +41,11 @@ Both extension members constrain `T` with `ITaxonomySerializable` and fall back 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One generic pair constrained `where T: ITaxonomySerializable` is the single polymorphic round-trip rail for the whole taxonomy; no per-type serializer exists.
+- One generic pair constrained `where T: ITaxonomySerializable` is the single polymorphic round-trip API for the whole taxonomy; no per-type serializer exists.
 - `ITaxonomySerializable` is the empty marker declared in `VividOrange.ISerialization`; the floor declares the tag and this package owns the `ToJson`/`FromJson` behavior.
 - `TaxonomyJsonSerializer.Settings` binds the default wire: `StringEnumConverter`, `UnitsNetIQuantityJsonConverter`, `TypeNameHandling.Objects` emitting `$type` for concrete reconstruction, and `TypeNameAssemblyFormatHandling.Simple`; `ToJson` writes `Formatting.Indented`.
 - `TypeNameHandling.Objects` is a Newtonsoft.Json deserialization-gadget surface, so `FromJson<T>` consumes only trusted VividOrange `ToJson` output; custom settings retain it or polymorphic fields collapse to their declared interface.
-- `FromJson<T>` returns `T?`, so malformed JSON yields `null` rather than a typed error; the in-folder seam traps the `null` and any Newtonsoft `JsonException` onto the canonical typed wire-decode rail.
+- `FromJson<T>` returns `T?`, so malformed JSON yields `null` rather than a typed error; the in-folder boundary traps the `null` and any Newtonsoft `JsonException` onto the canonical typed wire-decode channel.
 - `AbbreviatedUnitsConverter` resolves the compact `"value unit"` form through a `UnitAbbreviationsCache` that defaults to `UnitAbbreviationsCache.Default` (culture-sensitive); the boundary injects an invariant cache through the three-arg ctor so one JSON byte parses identically across host culture and loaded `UnitsNet` satellites.
 
 [STACKING]:
@@ -55,5 +55,5 @@ Both extension members constrain `T` with `ITaxonomySerializable` and fall back 
 
 [LOCAL_ADMISSION]:
 - `ToJson`/`FromJson` persists or clones a VividOrange data object inside the C# layer; the Thinktecture System.Text.Json owner governs the cross-language wire, and the Newtonsoft `$type` shape never leaves the C# boundary.
-- Boundary code traps `FromJson<T>` `null` results and Newtonsoft exceptions, then lowers them onto the typed wire-decode rail.
+- Boundary code traps `FromJson<T>` `null` results and Newtonsoft exceptions, then lowers them onto the typed wire-decode channel.
 - A non-default wire passes a consumer-owned `JsonSerializerSettings` retaining `TypeNameHandling.Objects` and the UnitsNet converter, never reading or mutating the `internal` `TaxonomyJsonSerializer`.

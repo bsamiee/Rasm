@@ -1,6 +1,6 @@
 # [PY_DATA_MESH]
 
-Mesh-file exchange owner over a `MeshBackend` axis with the point-cloud interchange row and the produced-archive sink: `MeshExchange` admits one file once and folds mesh-file identity, cell-block topology, unit posture, named array arities, the FE time-series rail, and preview/format export onto one `MeshOp` union over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — `CloudExchange` is the LAS/LAZ/COPC row over `laspy` alone, and `ProductKind` is the peer axis over the produced byte payloads a geometry analysis hands down for durable landing. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, the geometry `pdal` filter-graph stays geometry-owned, and the product sink lands bytes a producer already minted rather than authoring any of them.
+Mesh-file exchange owner over a `MeshBackend` axis with the point-cloud interchange row and the produced-archive sink: `MeshExchange` admits one file once and folds mesh-file identity, cell-block topology, unit posture, named array arities, the FE time-series axis, and preview/format export onto one `MeshOp` union over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — `CloudExchange` is the LAS/LAZ/COPC row over `laspy` alone, and `ProductKind` is the peer axis over the produced byte payloads a geometry analysis hands down for durable landing. This is file exchange and identity: the IFC-to-GLB tessellation path belongs to the geometry package, never re-derived here, the geometry `pdal` filter-graph stays geometry-owned, and the product sink lands bytes a producer already minted rather than authoring any of them.
 
 Every payload keys by runtime `ContentIdentity` over the canonical `float64` point buffer, and named arrays egress as arity-banded Arrow tables. Source admission loads the provider engine exactly once and every op reads that one open, so no leg re-opens the file it was handed. Foreign facts a format may omit — a `.3dm` object name, a `Trimesh` unit hint, a LAS CRS VLR — cross as `Posture`, so declared, defaulted-from-a-named-source, and absent stay three states rather than one empty string. Network-bearing COPC reads route through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop elected by the source row rather than by which entrypoint a caller picked — the same retry/span/lift triplet the sibling spatial pages delegate to the runtime resilience owner.
 
@@ -38,7 +38,7 @@ from msgspec import Struct
 from opentelemetry import trace
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, TRANSIENT, Disposition, FaultRow, Posture, RuntimeRail, async_boundary, rostered, scoped, traversed
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Disposition, FaultRow, Posture, RuntimeResult, async_boundary, rostered, scoped, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.roots import ResourceRef
@@ -95,7 +95,7 @@ _POINT_BAND: Final[str] = "point"
 type Engine = meshio.Mesh | trimesh.Trimesh | rhino3dm.File3dm
 type Arrays = Mapping[str, np.ndarray]
 type Blocks = Mapping[str, Arrays]
-type Frames = Iterator[RuntimeRail[tuple[float, "MeshColumns"]]]
+type Frames = Iterator[RuntimeResult[tuple[float, "MeshColumns"]]]
 
 
 class _Node(Struct, frozen=True):
@@ -166,7 +166,7 @@ def _folded(pieces: Block[_Piece]) -> _Extract:
     )
 
 
-def _frame(extract: _Extract) -> RuntimeRail[MeshFrame]:
+def _frame(extract: _Extract) -> RuntimeResult[MeshFrame]:
     canonical = np.ascontiguousarray(extract.points, dtype="float64")
     return ContentIdentity.of("mesh", canonical.tobytes()).map(
         lambda points: MeshFrame(
@@ -319,7 +319,7 @@ class _Backend(Struct, frozen=True):
     def extract(self, engine: Engine) -> _Extract:
         return _folded(self.walk(engine))
 
-    def frame(self, engine: Engine) -> RuntimeRail[MeshFrame]:
+    def frame(self, engine: Engine) -> RuntimeResult[MeshFrame]:
         return _frame(self.extract(engine))
 
 
@@ -402,7 +402,7 @@ class MeshBackend:
     rhino3dm: str = case()
 
     @staticmethod
-    def of(ref: ResourceRef) -> "RuntimeRail[MeshBackend]":
+    def of(ref: ResourceRef) -> "RuntimeResult[MeshBackend]":
         suffix = ref.path.suffix.lower()
         return (
             _EXT.try_find(suffix)
@@ -428,8 +428,8 @@ class MeshColumns(Struct, frozen=True):
     bands: Map[str, pa.Table]
 
     @staticmethod
-    def of(points: Arrays, cells: Blocks, rows: Option[int]) -> "RuntimeRail[MeshColumns]":
-        def admit(band: str, arrays: Arrays, expected: Option[int]) -> "RuntimeRail[tuple[str, pa.Table]]":
+    def of(points: Arrays, cells: Blocks, rows: Option[int]) -> "RuntimeResult[MeshColumns]":
+        def admit(band: str, arrays: Arrays, expected: Option[int]) -> "RuntimeResult[tuple[str, pa.Table]]":
             census = frozenset(len(array) for array in arrays.values()) | frozenset(expected.to_list())
             return (
                 Error(MESH_ARITY.raised(band, ",".join(str(width) for width in sorted(census))))
@@ -502,7 +502,7 @@ class MeshExchange(Struct, frozen=True):
     engine: Engine
 
     @staticmethod
-    async def of(ref: ResourceRef) -> "RuntimeRail[MeshExchange]":
+    async def of(ref: ResourceRef) -> "RuntimeResult[MeshExchange]":
         match MeshBackend.of(ref):
             case Result(tag="ok", ok=backend):
                 row = backend.row
@@ -512,7 +512,7 @@ class MeshExchange(Struct, frozen=True):
             case Result(tag="error") as refused:
                 return refused
 
-    async def run(self, op: MeshOp) -> "RuntimeRail[MeshProduct]":
+    async def run(self, op: MeshOp) -> "RuntimeResult[MeshProduct]":
         subject = f"mesh.{op.tag}"
         marks = {"rasm.mesh.backend": self.backend.tag} | _format(op).map(lambda fmt: {"rasm.mesh.format": fmt}).default_value({})
         with _TRACER.start_as_current_span(subject, attributes=marks):
@@ -530,10 +530,10 @@ class MeshExchange(Struct, frozen=True):
                 case _ as unreachable:
                     assert_never(unreachable)
 
-    async def _banded(self, work: Callable[[], RuntimeRail[MeshProduct]]) -> "RuntimeRail[MeshProduct]":
-        return (await async_boundary(MESH_WORK, lambda: on_thread(work), catch=self.backend.row.fault)).bind(lambda rail: rail)
+    async def _banded(self, work: Callable[[], RuntimeResult[MeshProduct]]) -> "RuntimeResult[MeshProduct]":
+        return (await async_boundary(MESH_WORK, lambda: on_thread(work), catch=self.backend.row.fault)).bind(lambda held: held)
 
-    async def _streamed(self) -> "RuntimeRail[MeshProduct]":
+    async def _streamed(self) -> "RuntimeResult[MeshProduct]":
         row = self.backend.row
         match row.frames:
             case Option(tag="some", some=open_frames):
@@ -542,11 +542,11 @@ class MeshExchange(Struct, frozen=True):
             case _:
                 return Error(MESH_UNSTREAMED.raised(self.backend.tag))
 
-    def _payload(self) -> RuntimeRail[MeshProduct]:
+    def _payload(self) -> RuntimeResult[MeshProduct]:
         row = self.backend.row
         return row.frame(self.engine).map(lambda frame: MeshProduct(payload=MeshPayload.of(self.backend, frame, row.units(self.engine))))
 
-    def _columned(self) -> RuntimeRail[MeshProduct]:
+    def _columned(self) -> RuntimeResult[MeshProduct]:
         extract = self.backend.row.extract(self.engine)
         return _frame(extract).bind(
             lambda frame: MeshColumns.of(extract.point_data, extract.cell_data, Some(frame.point_count)).map(
@@ -554,7 +554,7 @@ class MeshExchange(Struct, frozen=True):
             )
         )
 
-    def _written(self, out: ResourceRef, fmt: str) -> RuntimeRail[MeshProduct]:
+    def _written(self, out: ResourceRef, fmt: str) -> RuntimeResult[MeshProduct]:
         self.backend.row.export(self.engine, out, fmt)
         return ContentIdentity.of("mesh.export", out.path.read_bytes()).map(lambda key: MeshProduct(written=key))
 ```
@@ -583,7 +583,7 @@ from opentelemetry.trace import SpanKind
 from upath import UPath
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import Posture, RuntimeRail, async_boundary
+from rasm.runtime.faults import Posture, RuntimeResult, async_boundary
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.resilience import RetryClass, guarded
 from rasm.runtime.roots import ResourceRef, origin
@@ -674,7 +674,7 @@ class CloudSource:
                 assert_never(unreachable)
 
     @property
-    def whole(self) -> "RuntimeRail[str | BinaryIO]":
+    def whole(self) -> "RuntimeResult[str | BinaryIO]":
         match self:
             case CloudSource(tag="remote", remote=url):
                 return Error(CLOUD_SOURCE.raised(url))
@@ -709,7 +709,7 @@ class PointRecordTable(Struct, frozen=True):
     content_key: ContentKey
 
     @classmethod
-    def of(cls, record: Record, crs: Posture[str]) -> "RuntimeRail[PointRecordTable]":
+    def of(cls, record: Record, crs: Posture[str]) -> "RuntimeResult[PointRecordTable]":
         coords = _coords(record)
         return ContentIdentity.of("pointcloud", coords.tobytes()).map(
             lambda key: cls(table=_to_arrow(record), point_count=len(coords), point_format=int(record.point_format.id), crs=crs, content_key=key)
@@ -762,13 +762,13 @@ class CloudExchange(Struct, frozen=True):
     source: CloudSource
     selection: Selection = Nothing
 
-    async def run(self, op: CloudOp) -> "RuntimeRail[CloudProduct]":
+    async def run(self, op: CloudOp) -> "RuntimeResult[CloudProduct]":
         subject = f"pointcloud.{op.tag}"
         row = self.source.row
         with _TRACER.start_as_current_span(subject, kind=row.span_kind, attributes={"rasm.pointcloud.source": self.source.tag}):
-            return (await self._enveloped(row, self._work(op))).bind(lambda rail: rail)
+            return (await self._enveloped(row, self._work(op))).bind(lambda held: held)
 
-    def _work(self, op: CloudOp) -> Callable[[], RuntimeRail[CloudProduct]]:
+    def _work(self, op: CloudOp) -> Callable[[], RuntimeResult[CloudProduct]]:
         match op:
             case CloudOp(tag="read"):
                 return self._cloud
@@ -781,28 +781,28 @@ class CloudExchange(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def _enveloped(self, row: _SourceRow, work: Callable[[], RuntimeRail[CloudProduct]]) -> "RuntimeRail[RuntimeRail[CloudProduct]]":
+    async def _enveloped(self, row: _SourceRow, work: Callable[[], RuntimeResult[CloudProduct]]) -> "RuntimeResult[RuntimeResult[CloudProduct]]":
         match row.retry:
             case Option(tag="some", some=cls):
                 return await guarded(cls, on_thread, work, abandon=True, at=POINTCLOUD_CLOUD, on=self.source.peer)
             case _:
                 return await async_boundary(POINTCLOUD_CLOUD, lambda: on_thread(work), catch=laspy.LaspyException)
 
-    def _cloud(self) -> RuntimeRail[CloudProduct]:
+    def _cloud(self) -> RuntimeResult[CloudProduct]:
         return self.source.whole.bind(lambda address: _headed(laspy.read(address, **_masked(self.selection))))
 
-    def _table(self) -> RuntimeRail[CloudProduct]:
+    def _table(self) -> RuntimeResult[CloudProduct]:
         return self.source.whole.bind(lambda address: _recorded(laspy.read(address, **_masked(self.selection))))
 
-    def _records(self, query: CopcQuery) -> RuntimeRail[CloudProduct]:
+    def _records(self, query: CopcQuery) -> RuntimeResult[CloudProduct]:
         reader = _open_copc(self.source, self.selection)
         return PointRecordTable.of(query.query(reader), _crs(reader.header)).map(lambda records: CloudProduct(records=records))
 
-    def _written(self, out: ResourceRef, mode: WriteMode) -> RuntimeRail[CloudProduct]:
+    def _written(self, out: ResourceRef, mode: WriteMode) -> RuntimeResult[CloudProduct]:
         return self.source.whole.bind(lambda address: _landed(laspy.read(address), out, mode))
 
 
-def _headed(data: "laspy.LasData") -> RuntimeRail[CloudProduct]:
+def _headed(data: "laspy.LasData") -> RuntimeResult[CloudProduct]:
     return ContentIdentity.of("pointcloud", _coords(data).tobytes()).map(
         lambda key: CloudProduct(
             cloud=PointCloud(
@@ -815,11 +815,11 @@ def _headed(data: "laspy.LasData") -> RuntimeRail[CloudProduct]:
     )
 
 
-def _recorded(data: "laspy.LasData") -> RuntimeRail[CloudProduct]:
+def _recorded(data: "laspy.LasData") -> RuntimeResult[CloudProduct]:
     return PointRecordTable.of(data, _crs(data.header)).map(lambda records: CloudProduct(records=records))
 
 
-def _landed(data: "laspy.LasData", out: ResourceRef, mode: WriteMode) -> RuntimeRail[CloudProduct]:
+def _landed(data: "laspy.LasData", out: ResourceRef, mode: WriteMode) -> RuntimeResult[CloudProduct]:
     _WRITE[mode](data, str(out.path))
     return ContentIdentity.of("pointcloud.write", out.path.read_bytes()).map(lambda key: CloudProduct(written=key))
 ```
@@ -842,7 +842,7 @@ from expression.collections import Map
 from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import RuntimeResult, boundary
 from rasm.runtime.roots import ResourceRef
 
 
@@ -868,18 +868,18 @@ _PRODUCT: Final[Map[ProductKind, _Product]] = Map.of_seq([
 ])
 
 
-def archived(kind: ProductKind, payload: bytes, out: ResourceRef) -> RuntimeRail[ContentKey]:
+def archived(kind: ProductKind, payload: bytes, out: ResourceRef) -> RuntimeResult[ContentKey]:
     row = kind.row
     if out.path.suffix.lower() != row.suffix:
         named = out.path.suffix.lower() or "none"
         return Error(PRODUCT_SUFFIX.raised(row.subject, row.suffix, named))
 
-    def run() -> RuntimeRail[ContentKey]:
+    def run() -> RuntimeResult[ContentKey]:
         out.path.write_bytes(payload)
         return ContentIdentity.of(f"product.{row.subject}", payload)
 
     with _TRACER.start_as_current_span(f"product.{row.subject}", attributes={"rasm.product.kind": kind.value}):
-        return boundary(PRODUCT_WRITE, run, catch=OSError).bind(lambda rail: rail)
+        return boundary(PRODUCT_WRITE, run, catch=OSError).bind(lambda held: held)
 ```
 
 ## [05]-[RESEARCH]

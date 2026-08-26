@@ -15,7 +15,7 @@
 |  [05]   | `OnSuccessPayload` | success payload   | wraps the final `HttpResponse` for `onSuccess`                 |
 |  [06]   | `DetailedError`    | protocol fault    | `originalRequest`/`originalResponse`/`causingError` classing   |
 
-[PUBLIC_TYPE_SCOPE]: request, chunk source, and transport seams
+[PUBLIC_TYPE_SCOPE]: request, chunk source, and transport interfaces
 
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]    | [CAPABILITY]                                        |
 | :-----: | :------------------------------------------ | :--------------- | :-------------------------------------------------- |

@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_FLOWTIDE_SUBSTRAIT]
 
-`FlowtideDotNet.Substrait` owns the portable Substrait query-plan IR: `Plan` over a relational-algebra DAG, its typed expression tree, the value lattice, and the standard function-extension catalogs. `SqlPlanBuilder` lowers SQL text into it and `SubstraitDeserializer` lifts a foreign wire or JSON plan into it, so every producer meets one vendor-neutral model. Visitor double-dispatch folds that model onto a concrete backend and `SubstraitToDifferentialCompute` re-uses it for the streaming engine — a query-plan owner, never a store or transport.
+`FlowtideDotNet.Substrait` owns the portable Substrait query-plan IR: `Plan` over a relational-algebra DAG, its typed expression tree, the type system, and the standard function-extension catalogs. `SqlPlanBuilder` lowers SQL text into it and `SubstraitDeserializer` lifts a foreign wire or JSON plan into it, so every producer meets one vendor-neutral model. Visitor double-dispatch folds that model onto a concrete backend and `SubstraitToDifferentialCompute` re-uses it for the streaming engine — a query-plan owner, never a store or transport.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -90,7 +90,7 @@
 [LITERALS]: `BoolLiteral` `NumericLiteral` `StringLiteral` `BinaryLiteral` `ArrayLiteral` `NullLiteral`
 [EXPRESSION_ENUMS]: `SortDirection` `WindowBoundType` `Literals.LiteralType`
 
-[TYPE_SYSTEM_TYPES]: `FlowtideDotNet.Substrait.Type` holds the value lattice, prefix hoisted. `SubstraitBaseType` roots it with a `SubstraitType Type` discriminant and a `Nullable` flag every leaf sets.
+[TYPE_SYSTEM_TYPES]: `FlowtideDotNet.Substrait.Type` holds the type system, prefix hoisted. `SubstraitBaseType` roots it with a `SubstraitType Type` discriminant and a `Nullable` flag every leaf sets.
 
 | [INDEX] | [SYMBOL]            | [CAPABILITY]                                       |
 | :-----: | :------------------ | :------------------------------------------------- |
@@ -106,7 +106,7 @@
 [SCALAR_LEAVES]: `BoolType` `Int32Type` `Int64Type` `Fp32Type` `Fp64Type` `StringType` `BinaryType` `DateType` `TimestampType` `AnyType` `NullType`
 [SUBSTRAIT_TYPE]: `String` `Int32` `Any` `Date` `Int64` `Fp32` `Fp64` `Bool` `Decimal` `Struct` `Map` `List` `Binary` `TimestampTz` `Null`
 
-[SQL_TYPES]: `FlowtideDotNet.Substrait.Sql` holds the SQL-text front-end and its extension seams, prefix hoisted.
+[SQL_TYPES]: `FlowtideDotNet.Substrait.Sql` holds the SQL-text front-end and its extension points, prefix hoisted.
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]  | [CAPABILITY]                                          |
 | :-----: | :--------------------------------------- | :------------- | :---------------------------------------------------- |
@@ -156,7 +156,7 @@
 |  [04]   | `AddPlanAsView(string, Plan)`              | instance | registers a prior plan as a named view      |
 |  [05]   | `Sql(string)`                              | instance | parses and lowers SQL into the plan         |
 |  [06]   | `GetPlan() -> Plan`                        | instance | binds references and returns the plan       |
-|  [07]   | `FunctionRegister -> ISqlFunctionRegister` | property | custom-function registration seam           |
+|  [07]   | `FunctionRegister -> ISqlFunctionRegister` | property | custom-function registration point          |
 
 - `SqlPlanBuilder.AddPlanAsView`: throws `InvalidOperationException` when the given plan carries no `RootRelation`.
 
@@ -171,7 +171,7 @@
 
 - `PlanModifier.Modify()`: throws `InvalidOperationException` when no root plan was added.
 
-[FUNCTION_SEAM]: `ISqlFunctionRegister` admits custom operator lowering, prefix hoisted; every row is an instance member taking the SQL name and its mapping delegate.
+[FUNCTION_REGISTER]: `ISqlFunctionRegister` admits custom operator lowering, prefix hoisted; every row is an instance member taking the SQL name and its mapping delegate.
 
 | [INDEX] | [SURFACE]                                                                      | [CAPABILITY]                   |
 | :-----: | :----------------------------------------------------------------------------- | :----------------------------- |
@@ -179,7 +179,7 @@
 |  [02]   | `RegisterAggregateFunction(string, Func<…, AggregateResponse>)`                | custom aggregate lowering      |
 |  [03]   | `RegisterTableFunction(string, Func<SqlTableFunctionArgument, TableFunction>)` | custom table-function lowering |
 
-[TABLE_SEAM]: `ITableProvider` resolves schema dynamically, prefix hoisted; each probe takes the dotted name as `IReadOnlyList<string>`.
+[TABLE_PROVIDER]: `ITableProvider` resolves schema dynamically, prefix hoisted; each probe takes the dotted name as `IReadOnlyList<string>`.
 
 | [INDEX] | [SURFACE]                                                                                                | [CAPABILITY]                |
 | :-----: | :------------------------------------------------------------------------------------------------------- | :-------------------------- |
@@ -230,13 +230,13 @@
 - `DuckDB.NET.Data.Full`(`.api/api-duckdb.md`): the `substrait` extension closes the loop both ways — `from_substrait(⟨blob⟩)` executes retained bytes, and `get_substrait(⟨sql⟩)` yields a plan `SubstraitDeserializer.Deserialize` lifts into this IR.
 - `ClickHouse.Driver`(`.api/api-clickhouse.md`): a `RelationVisitor` subclass lowers each `ReadRelation` subtree to SQL for `ClickHouseClient.ExecuteReaderAsync`, `ReadRelation.Filter` and `Relation.Emit` becoming the pushed predicate and projection.
 - `DeltaLake.Net`(`.api/api-deltalake.md`): the same visitor lowers a subtree to DataFusion SQL for `DeltaTable.QueryAsync(SelectQuery)`, which streams `RecordBatch`.
-- `Apache.Arrow`(`libs/dotnet/.api/api-arrow.md`): a backend `Schema` maps to `NamedStruct` for `SqlPlanBuilder.AddTableDefinition`, so one lattice types every registered table.
+- `Apache.Arrow`(`libs/dotnet/.api/api-arrow.md`): a backend `Schema` maps to `NamedStruct` for `SqlPlanBuilder.AddTableDefinition`, so one type system types every registered table.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `Substrait.Protobuf.Plan` is a generated `IMessage` — `MessageParser<Plan>.ParseFrom` decodes the wire form and `MessageExtensions.ToByteArray`/`WriteTo` re-emits the retained payload.
-- `libs/python/data/.api/substrait.md`: this consumer parses the URN-era schema, where the extension space moved to `extension_urns` at field 8 and each declaration's back-reference to `extension_urn_reference` at field 4. Neither retired field exists there, so proto3 files every field-1 row this producer writes into the unknown set: a plan minted here parses clean on the python end, reports an EMPTY extension-space list, and reads every declaration's reference as the 0 default. That consumer's gate refuses the signature on its own `RETIRED_EXTENSION_SCHEMA` row, so the skew fails loudly at one named seam instead of admitting vacuously and dropping every function-vocabulary lineage edge.
-- within-lib: the federation rail folds text ingress and foreign ingress into one `Plan`, fans each `ReadRelation` to its lane through a single `RelationVisitor` subclass, and hands that same plan to `SubstraitToDifferentialCompute.Convert` — one IR serving the one-shot query and the maintained view alike.
+- `libs/python/data/.api/substrait.md`: this consumer parses the URN-era schema, where the extension space moved to `extension_urns` at field 8 and each declaration's back-reference to `extension_urn_reference` at field 4. Neither retired field exists there, so proto3 files every field-1 row this producer writes into the unknown set: a plan minted here parses clean on the python end, reports an EMPTY extension-space list, and reads every declaration's reference as the 0 default. That consumer's gate refuses the signature on its own `RETIRED_EXTENSION_SCHEMA` row, so the skew fails loudly at one named boundary instead of admitting vacuously and dropping every function-vocabulary lineage edge.
+- within-lib: the federation layer folds text ingress and foreign ingress into one `Plan`, fans each `ReadRelation` to its lane through a single `RelationVisitor` subclass, and hands that same plan to `SubstraitToDifferentialCompute.Convert` — one IR serving the one-shot query and the maintained view alike.
 
 [LOCAL_ADMISSION]:
-- Substrait enters behind the federation rail as the cross-backend query-plan IR a lane dispatches to its backend.
+- Substrait enters behind the federation layer as the cross-backend query-plan IR a lane dispatches to its backend.
 - SQL text lowers through `SqlPlanBuilder` against tables `AddTableDefinition` registers or an `ITableProvider` resolves; that provider is the schema catalog.
 - Custom federation operators register through `ISqlFunctionRegister` and `ITableProvider`, keeping one plan vocabulary for every operator.
-- `SubstraitParseException` lifts at the `SqlPlanBuilder.Sql` edge onto the query failure rail, discriminated from a downstream backend execution fault.
+- `SubstraitParseException` lifts at the `SqlPlanBuilder.Sql` edge onto the query failure channel, discriminated from a downstream backend execution fault.

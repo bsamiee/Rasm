@@ -1,6 +1,6 @@
 # [RASM_API_GRPC_ASPNETCORE]
 
-`Grpc.AspNetCore.Server` owns the gRPC ASP.NET server rail: service registration, endpoint mapping, the global and per-service policy pair with its ordered interceptor pipeline, and the service-model seam that registers methods without a generated base. `Grpc.AspNetCore.Web` folds `application/grpc-web[-text]` traffic onto that rail, and `Grpc.AspNetCore.HealthChecks` projects the registered `Microsoft.Extensions.Diagnostics.HealthChecks` results onto `grpc.health.v1.Health`. This rail terminates calls and never dials them.
+`Grpc.AspNetCore.Server` owns the gRPC ASP.NET server surface: service registration, endpoint mapping, the global and per-service policy pair with its ordered interceptor pipeline, and the service-model hook that registers methods without a generated base. `Grpc.AspNetCore.Web` folds `application/grpc-web[-text]` traffic onto that surface, and `Grpc.AspNetCore.HealthChecks` projects the registered `Microsoft.Extensions.Diagnostics.HealthChecks` results onto `grpc.health.v1.Health`. This surface terminates calls and never dials them.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -58,19 +58,19 @@
 
 Every `MapGrpcService` overload returns `GrpcServiceEndpointConventionBuilder`; both generic arms constrain `TService : class`.
 
-| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------------------------ | :------- | :--------------------------------- |
-|  [01]   | `AddGrpc() -> IGrpcServerBuilder`                                   | static   | admit the rail on global defaults  |
-|  [02]   | `AddGrpc(Action<GrpcServiceOptions>) -> IGrpcServerBuilder`         | static   | admit it with configured policy    |
-|  [03]   | `AddServiceOptions<TService>(Action<GrpcServiceOptions<TService>>)` | static   | override policy for one service    |
-|  [04]   | `IGrpcServerBuilder.Services -> IServiceCollection`                 | property | reach the underlying collection    |
-|  [05]   | `MapGrpcService<TService>()`                                        | static   | map a generated service base       |
-|  [06]   | `MapGrpcService(ServerServiceDefinition)`                           | static   | map a pre-built definition         |
-|  [07]   | `MapGrpcService(Func<IServiceProvider, ServerServiceDefinition>)`   | static   | map a provider-resolved definition |
-|  [08]   | `GetHttpContext() -> HttpContext`                                   | static   | reach request state from a call    |
-|  [09]   | `IServerCallContextFeature.ServerCallContext`                       | property | read the call context off features |
-|  [10]   | `GrpcMethodMetadata.ServiceType -> Type`                            | property | the mapped service's CLR type      |
-|  [11]   | `GrpcMethodMetadata.Method -> IMethod`                              | property | the mapped method descriptor       |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------ | :------- | :---------------------------------- |
+|  [01]   | `AddGrpc() -> IGrpcServerBuilder`                                   | static   | admit the server on global defaults |
+|  [02]   | `AddGrpc(Action<GrpcServiceOptions>) -> IGrpcServerBuilder`         | static   | admit it with configured policy     |
+|  [03]   | `AddServiceOptions<TService>(Action<GrpcServiceOptions<TService>>)` | static   | override policy for one service     |
+|  [04]   | `IGrpcServerBuilder.Services -> IServiceCollection`                 | property | reach the underlying collection     |
+|  [05]   | `MapGrpcService<TService>()`                                        | static   | map a generated service base        |
+|  [06]   | `MapGrpcService(ServerServiceDefinition)`                           | static   | map a pre-built definition          |
+|  [07]   | `MapGrpcService(Func<IServiceProvider, ServerServiceDefinition>)`   | static   | map a provider-resolved definition  |
+|  [08]   | `GetHttpContext() -> HttpContext`                                   | static   | reach request state from a call     |
+|  [09]   | `IServerCallContextFeature.ServerCallContext`                       | property | read the call context off features  |
+|  [10]   | `GrpcMethodMetadata.ServiceType -> Type`                            | property | the mapped service's CLR type       |
+|  [11]   | `GrpcMethodMetadata.Method -> IMethod`                              | property | the mapped method descriptor        |
 
 [ENTRYPOINT_SCOPE]: server policy and the interceptor pipeline
 
@@ -168,7 +168,7 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One `AddGrpc()` registration owns the rail: `GrpcServiceOptions` carries global policy, `GrpcServiceOptions<TService>` overrides it per service, and `Interceptors` is the single per-call pipeline, executed in registration order.
+- One `AddGrpc()` registration owns the server: `GrpcServiceOptions` carries global policy, `GrpcServiceOptions<TService>` overrides it per service, and `Interceptors` is the single per-call pipeline, executed in registration order.
 - `ServerCallContext.GetHttpContext()` is the one bridge from a gRPC call to ASP.NET request state, and `IServerCallContextFeature` reads that same context back off the feature collection.
 - One `ICompressionProvider` row set registers on both `GrpcServiceOptions.CompressionProviders` and the client `GrpcChannelOptions.CompressionProviders`, so `grpc-encoding`/`grpc-accept-encoding` negotiates one axis end to end.
 - `UseGrpcWeb` resolves `IGrpcWebEnabledMetadata` off the matched endpoint, so it runs after routing and falls back to `GrpcWebOptions.DefaultEnabled` for an endpoint carrying none; a translated request enters the pipeline as HTTP/2 `application/grpc` and its response reframes on start.

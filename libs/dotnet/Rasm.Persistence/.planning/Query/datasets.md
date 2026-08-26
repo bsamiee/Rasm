@@ -2,25 +2,25 @@
 
 Rasm.Persistence declares the Series hypertable roster, the Fleet op-log row vocabulary, and the assessment-fact plane. Each dataset is one `AnalyticsSchema` value driving DDL, landing, reads, and cold-tail batches.
 
-Producer-handed DECLARATIONS cross elsewhere and stay elsewhere — `Rasm.Element` hands its catalogue datasets across the `[WIRE]: AnalyticsSchema` seam and `Rasm.Materials` hands its catalogue and texture generations across the `[WIRE]: MaterialsDataset` seam, two named wires over ONE admitted vocabulary `Query/residence#SEAM_ADMISSION` gates. Producer-handed ROWS are the other crossing and land on a dataset declared here, which is why this page declares no seam of its own: a custodian-owned dataset is admitted by construction and a producer that hands rows onto it hands data, never a declaration.
+Producer-handed DECLARATIONS cross elsewhere and stay elsewhere — `Rasm.Element` hands its catalogue datasets across the `[WIRE]: AnalyticsSchema` boundary and `Rasm.Materials` hands its catalogue and texture generations across the `[WIRE]: MaterialsDataset` boundary, two named wires over ONE admitted vocabulary `Query/backend#SCHEMA_ADMISSION` gates. Producer-handed ROWS are the other crossing and land on a dataset declared here, which is why this page declares no boundary of its own: a custodian-owned dataset is admitted by construction and a producer that hands rows onto it hands data, never a declaration.
 
 ## [01]-[INDEX]
 
 - [02]-[SERIES_ROSTER]: `SeriesKind` derives each hypertable family's whole provisioning set from one row, `SeriesPoint` is the ingest value, `SeriesSelector` names a stream by key or by facet, and `SeriesLane` is the family's landing arm beside its three reads.
-- [03]-[WAREHOUSE_OPLOG]: `WarehouseSchema` declares the Fleet op-log dataset and `WarehouseOpRow` is the row both ends of the egress seam read.
-- [04]-[ASSESSMENT_ROWS]: `AssessmentDataset` declares the analysis rail's typed fact plane and `AssessmentLane` derives its provisioning, lands its rows and its cold-tail batch, and serves the content-addressed read.
+- [03]-[WAREHOUSE_OPLOG]: `WarehouseSchema` declares the Fleet op-log dataset and `WarehouseOpRow` is the row both ends of the egress boundary read.
+- [04]-[ASSESSMENT_ROWS]: `AssessmentDataset` declares the analysis pipeline's typed fact plane and `AssessmentLane` derives its provisioning, lands its rows and its cold-tail batch, and serves the content-addressed read.
 - [05]-[RESEARCH]: open verification debts and their routes.
 
 ## [02]-[SERIES_ROSTER]
 
-- Owner: `SeriesKind` is the `[SmartEnum<string>]` hypertable family roster — one row per Series dataset carrying its relation name, the ordered text facets it keys by beyond the shared spine, and the `ResidencePolicy` its whole provisioning set derives from; `SeriesPoint` is the ingest value a producer hands; `SeriesSelector` closes how a caller names a stream; `SeriesLane` is the family's provisioning derivation, its landing arm, and its three reads; `SeriesWeight`, `SeriesBucket`, and `SeriesJobHealth` are the three read shapes.
+- Owner: `SeriesKind` is the `[SmartEnum<string>]` hypertable family roster — one row per Series dataset carrying its relation name, the ordered text facets it keys by beyond the shared spine, and the `BackendPolicy` its whole provisioning set derives from; `SeriesPoint` is the ingest value a producer hands; `SeriesSelector` closes how a caller names a stream; `SeriesLane` is the family's provisioning derivation, its landing arm, and its three reads; `SeriesWeight`, `SeriesBucket`, and `SeriesJobHealth` are the three read shapes.
 - Cases: `SeriesKind` carries assessment and sensor rows; `SeriesSelector` names a stream by content key or ordered facets.
-- Entry: `SeriesLane.Provision(SeriesKind)` derives the whole ordered step set through the one residence emitter; `Ingest(NpgsqlDataSource, SeriesKind, Seq<SeriesPoint>, ProjectionContext)` is the family's arm of the one relational landing; `Weighted(ResidenceReach, SeriesKind, SeriesSelector, ResidenceWindow, ProjectionContext)` reads the time-weighted mean off raw chunks and `Bucketed(…, double quantile, …)` reads the accessor projection off the materialised rollup, both through the one plan builder and the one query entry; `Jobs(NpgsqlDataSource, SeriesKind)` reads the Timescale bgworker run history.
-- Auto: a new series family is ONE row carrying its relation, its facets, and its policy — the hypertable, the columnstore, the retention window, and the continuous aggregate all derive from `SeriesKind.Schema` through `ResidenceDdl.Provision`, and a facet added to a row moves the schema projection, the ingest cell fold, and both reads' narrowings together. Both reads compose `ResidencePlan` builders and `ResidenceRead.Read`, so this page assembles no relation, spells no extension name, and writes no SQL; the raw-chunk fold and the rollup accessors answer ONE statistic because `SeriesResidence` materialises the summary the accessors read.
-- Packages: Npgsql (`NpgsqlDataSource.CreateCommand`/`NpgsqlCommand.ExecuteReaderAsync`/`NpgsqlDataReader`/`NpgsqlException`), timescaledb (`timescaledb_information.jobs`/`job_stats`), Rasm (`Domain/identity#CONTENT_KEY` `ContentHash.Hex` — the key text a narrowing carries, `Domain/stats#SCALAR_CARRIER` `QuantileRule`), Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnType`/`ColumnCell`, `#RESIDENCE_FAMILY` `Residence`/`ResidencePolicy`/`ResidenceFault`, `#PROVISIONING` `ResidenceDdl`/`SeriesResidence`, `Query/serving#READ_PLAN` `ResidencePlan`/`ResidenceFold`/`ResidenceScope`, `#SERVING_PLANE` `ResidenceRead`/`ResidenceLanding`/`ResidenceRow`, `Element/graph#PROJECTION_FRAME` `ProjectionContext`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Entry: `SeriesLane.Provision(SeriesKind)` derives the whole ordered step set through the one backend emitter; `Ingest(NpgsqlDataSource, SeriesKind, Seq<SeriesPoint>, ProjectionContext)` is the family's arm of the one relational landing; `Weighted(BackendReach, SeriesKind, SeriesSelector, BackendWindow, ProjectionContext)` reads the time-weighted mean off raw chunks and `Bucketed(…, double quantile, …)` reads the accessor projection off the materialised rollup, both through the one plan builder and the one query entry; `Jobs(NpgsqlDataSource, SeriesKind)` reads the Timescale bgworker run history.
+- Auto: a new series family is ONE row carrying its relation, its facets, and its policy — the hypertable, the columnstore, the retention window, and the continuous aggregate all derive from `SeriesKind.Schema` through `BackendDdl.Provision`, and a facet added to a row moves the schema projection, the ingest cell fold, and both reads' narrowings together. Both reads compose `BackendPlan` builders and `BackendRead.Read`, so this page assembles no relation, spells no extension name, and writes no SQL; the raw-chunk fold and the rollup accessors answer ONE statistic because `SeriesBackend` materialises the summary the accessors read.
+- Packages: Npgsql (`NpgsqlDataSource.CreateCommand`/`NpgsqlCommand.ExecuteReaderAsync`/`NpgsqlDataReader`/`NpgsqlException`), timescaledb (`timescaledb_information.jobs`/`job_stats`), Rasm (`Domain/identity#CONTENT_KEY` `ContentHash.Hex` — the key text a narrowing carries, `Domain/stats#SCALAR_CARRIER` `QuantileRule`), Rasm.Persistence (`Query/backend#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnType`/`ColumnCell`, `#BACKEND_FAMILY` `Backend`/`BackendPolicy`/`BackendFault`, `#PROVISIONING` `BackendDdl`/`SeriesBackend`, `Query/serving#READ_PLAN` `BackendPlan`/`BackendFold`/`BackendScope`, `#SERVING_PLANE` `BackendRead`/`BackendLanding`/`BackendRow`, `Element/graph#PROJECTION_FRAME` `ProjectionContext`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new family is one `SeriesKind` row; a new way to name a stream is one `SeriesSelector` case breaking both narrowing folds at compile time; a new read shape is one record beside the fold roster its plan names; zero new surface — a per-family provisioning path, a second importer body, a hand-written `SELECT`, a per-selector read entry, or a duration column beside the policy that already carries it is the deleted form.
 - Law: the spine travels as SCHEMA COLUMNS, never as statics a provisioning arm reaches for, which is what lets a producer-handed dataset with its own instant name provision through the identical emitter. Static field initializers run in DECLARATION order, so every facet and spine `Identifier` leads the rows — a row reading an identifier declared below it captures an uninitialized value and mounts a nameless column. Each read groups by series because a `time_weight` summary combines across DISJOINT windows alone: folding two live streams sharing a window is a mean no algebra defines, so a facet selection matching several streams answers one weighted mean EACH.
-- Boundary: tenancy is NOT a point column — the whole COPY batch lands under the ingesting frame's tenant and every read scopes by it, so equal series keys under distinct tenants never share rows. Absence stays absence across an empty window, where a collapsed `0d` reads as a measurement a board renders indistinguishably from a measured floor. `Jobs` is Timescale-ONLY and named for what it is — `ResidenceRead.Health` measures the expiry OUTCOME every residence answers, while this transcribes a bgworker run history only one engine publishes, over a catalog relation carrying no tenant column and no time spine, which is why it cannot ride the family entry and why its sibling residences carry no counterpart.
+- Boundary: tenancy is NOT a point column — the whole COPY batch lands under the ingesting frame's tenant and every read scopes by it, so equal series keys under distinct tenants never share rows. Absence stays absence across an empty window, where a collapsed `0d` reads as a measurement a board renders indistinguishably from a measured floor. `Jobs` is Timescale-ONLY and named for what it is — `BackendRead.Health` measures the expiry OUTCOME every backend answers, while this transcribes a bgworker run history only one engine publishes, over a catalog relation carrying no tenant column and no time spine, which is why it cannot ride the family entry and why its sibling backends carry no counterpart.
 
 ```csharp
 using Npgsql;
@@ -46,13 +46,13 @@ public sealed partial class SeriesKind {
         Tuned("sensor_series", Duration.FromDays(90), Duration.FromMinutes(15), Duration.FromDays(1), Duration.FromDays(3)),
         Seq<Identifier>());
     public string Table { get; }
-    public ResidencePolicy Policy { get; }
+    public BackendPolicy Policy { get; }
     public Seq<Identifier> Facets { get; }
 
-    private SeriesKind(string key, string table, ResidencePolicy policy, Seq<Identifier> facets) : this(key) =>
+    private SeriesKind(string key, string table, BackendPolicy policy, Seq<Identifier> facets) : this(key) =>
         (Table, Policy, Facets) = (table, policy, facets);
 
-    static ResidencePolicy Tuned(string table, Duration retain, Duration grain, Duration chunk, Duration backfill) =>
+    static BackendPolicy Tuned(string table, Duration retain, Duration grain, Duration chunk, Duration backfill) =>
         new(retain, grain, chunk, backfill, StorePath.Create(table));
 
     public AnalyticsSchema Schema => new(Table,
@@ -63,15 +63,15 @@ public sealed partial class SeriesKind {
                   new ColumnRow(ValueColumn, ColumnType.Float64, Nullable: false)),
         Time: AtColumn, Spine: TimeSpine.Event, Measure: Some(ValueColumn));
 
-    public AnalyticsSchema Rollup => new((string)SeriesResidence.Rollup(Schema),
+    public AnalyticsSchema Rollup => new((string)SeriesBackend.Rollup(Schema),
         Seq(SeriesColumn) + Facets,
         Seq(new ColumnRow(SeriesColumn, ColumnType.KeyHex, Nullable: false))
             + Facets.Map(static facet => new ColumnRow(facet, ColumnType.Utf8, Nullable: false))
-            + Seq(new ColumnRow(SeriesResidence.Bucket, ColumnType.Timestamp, Nullable: false),
-                  new ColumnRow(SeriesResidence.Low, ColumnType.Float64, Nullable: false),
-                  new ColumnRow(SeriesResidence.High, ColumnType.Float64, Nullable: false),
-                  new ColumnRow(SeriesResidence.Samples, ColumnType.Int64, Nullable: false)),
-        Time: SeriesResidence.Bucket, Spine: TimeSpine.Event, Measure: None);
+            + Seq(new ColumnRow(SeriesBackend.Bucket, ColumnType.Timestamp, Nullable: false),
+                  new ColumnRow(SeriesBackend.Low, ColumnType.Float64, Nullable: false),
+                  new ColumnRow(SeriesBackend.High, ColumnType.Float64, Nullable: false),
+                  new ColumnRow(SeriesBackend.Samples, ColumnType.Int64, Nullable: false)),
+        Time: SeriesBackend.Bucket, Spine: TimeSpine.Event, Measure: None);
 }
 
 public readonly record struct SeriesPoint(UInt128 Series, Instant At, double Value, Seq<string> Facets);
@@ -93,56 +93,56 @@ public readonly record struct SeriesJobHealth(string Hypertable, string Status, 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SeriesLane {
     public static Fin<Seq<ProvisionStep>> Provision(SeriesKind kind) =>
-        ResidenceDdl.Provision(Residence.Series, kind.Schema, kind.Policy);
+        BackendDdl.Provision(Backend.Series, kind.Schema, kind.Policy);
 
-    public static IO<Fin<ResidenceWrite>> Ingest(NpgsqlDataSource store, SeriesKind kind, Seq<SeriesPoint> points, ProjectionContext frame) =>
-        ResidenceLanding.Stage(store, kind.Schema, points.Map(Cells), frame);
+    public static IO<Fin<BackendWrite>> Ingest(NpgsqlDataSource store, SeriesKind kind, Seq<SeriesPoint> points, ProjectionContext frame) =>
+        BackendLanding.Stage(store, kind.Schema, points.Map(Cells), frame);
 
     static Seq<ColumnCell> Cells(SeriesPoint point) =>
         Seq<ColumnCell>(new ColumnCell.Key(point.Series))
         + point.Facets.Map(static facet => (ColumnCell)new ColumnCell.Text(facet))
         + Seq<ColumnCell>(new ColumnCell.Moment(point.At), new ColumnCell.Real(point.Value));
 
-    public static IO<Fin<ResidenceResult<SeriesWeight>>> Weighted(
-        ResidenceReach reach, SeriesKind kind, SeriesSelector selector, ResidenceWindow window, ProjectionContext frame) =>
-        Served(kind, kind.Schema, selector, window, frame, ResidenceProjection.Aggregate,
-            (schema, matches) => ResidencePlan.Aggregate(schema, schema.Table, matches,
+    public static IO<Fin<BackendResult<SeriesWeight>>> Weighted(
+        BackendReach reach, SeriesKind kind, SeriesSelector selector, BackendWindow window, ProjectionContext frame) =>
+        Served(kind, kind.Schema, selector, window, frame, BackendProjection.Aggregate,
+            (schema, matches) => BackendPlan.Aggregate(schema, schema.Table, matches,
                 Seq(SeriesKind.SeriesColumn),
-                Seq((WeightedColumn, (ResidenceFold)new ResidenceFold.Weighted(SeriesKind.ValueColumn)))),
-            reach, static (residence, row) =>
-                (row.Key(residence, 0).ToValidation<Error>(), row.Real(residence, 1).ToValidation<Error>())
+                Seq((WeightedColumn, (BackendFold)new BackendFold.Weighted(SeriesKind.ValueColumn)))),
+            reach, static (backend, row) =>
+                (row.Key(backend, 0).ToValidation<Error>(), row.Real(backend, 1).ToValidation<Error>())
                 .Apply(static (series, weighted) => new SeriesWeight(series, weighted)).As().ToFin());
 
-    public static IO<Fin<ResidenceResult<SeriesBucket>>> Bucketed(
-        ResidenceReach reach, SeriesKind kind, SeriesSelector selector, ResidenceWindow window,
+    public static IO<Fin<BackendResult<SeriesBucket>>> Bucketed(
+        BackendReach reach, SeriesKind kind, SeriesSelector selector, BackendWindow window,
         double quantile, QuantileRule rule, ProjectionContext frame) =>
-        Served(kind, kind.Rollup, selector, window, frame, ResidenceProjection.Quantile,
-            (schema, matches) => ResidencePlan.Project(schema, schema.Table, matches,
-                Seq((SeriesResidence.Bucket, (ResidenceFold)new ResidenceFold.Plain(SeriesResidence.Bucket)),
-                    (SeriesKind.SeriesColumn, new ResidenceFold.Plain(SeriesKind.SeriesColumn)),
-                    (SeriesResidence.Weight, new ResidenceFold.Mean()),
-                    (SeriesResidence.Sketch, new ResidenceFold.Tail(quantile, rule)),
-                    (SeriesResidence.Low, new ResidenceFold.Plain(SeriesResidence.Low)),
-                    (SeriesResidence.High, new ResidenceFold.Plain(SeriesResidence.High)),
-                    (SeriesResidence.Samples, new ResidenceFold.Plain(SeriesResidence.Samples))),
-                Seq(SeriesResidence.Bucket)),
-            reach, static (residence, row) =>
-                (row.At(residence, 0).ToValidation<Error>(), row.Key(residence, 1).ToValidation<Error>(),
-                 row.Real(residence, 2).ToValidation<Error>(), row.Real(residence, 3).ToValidation<Error>(),
-                 row.Real(residence, 4).ToValidation<Error>(), row.Real(residence, 5).ToValidation<Error>(),
-                 row.Whole(residence, 6).ToValidation<Error>())
+        Served(kind, kind.Rollup, selector, window, frame, BackendProjection.Quantile,
+            (schema, matches) => BackendPlan.Project(schema, schema.Table, matches,
+                Seq((SeriesBackend.Bucket, (BackendFold)new BackendFold.Plain(SeriesBackend.Bucket)),
+                    (SeriesKind.SeriesColumn, new BackendFold.Plain(SeriesKind.SeriesColumn)),
+                    (SeriesBackend.Weight, new BackendFold.Mean()),
+                    (SeriesBackend.Sketch, new BackendFold.Tail(quantile, rule)),
+                    (SeriesBackend.Low, new BackendFold.Plain(SeriesBackend.Low)),
+                    (SeriesBackend.High, new BackendFold.Plain(SeriesBackend.High)),
+                    (SeriesBackend.Samples, new BackendFold.Plain(SeriesBackend.Samples))),
+                Seq(SeriesBackend.Bucket)),
+            reach, static (backend, row) =>
+                (row.At(backend, 0).ToValidation<Error>(), row.Key(backend, 1).ToValidation<Error>(),
+                 row.Real(backend, 2).ToValidation<Error>(), row.Real(backend, 3).ToValidation<Error>(),
+                 row.Real(backend, 4).ToValidation<Error>(), row.Real(backend, 5).ToValidation<Error>(),
+                 row.Whole(backend, 6).ToValidation<Error>())
                 .Apply(static (bucket, series, mean, tail, low, high, samples) =>
                     new SeriesBucket(bucket, series, mean, tail, low, high, samples)).As().ToFin());
 
-    static IO<Fin<ResidenceResult<T>>> Served<T>(
-        SeriesKind kind, AnalyticsSchema schema, SeriesSelector selector, ResidenceWindow window, ProjectionContext frame,
-        ResidenceProjection projection, Func<AnalyticsSchema, Seq<(Identifier Column, string Value)>, Fin<Plan>> build,
-        ResidenceReach reach, Func<Residence, ResidenceRow, Fin<T>> shape) =>
+    static IO<Fin<BackendResult<T>>> Served<T>(
+        SeriesKind kind, AnalyticsSchema schema, SeriesSelector selector, BackendWindow window, ProjectionContext frame,
+        BackendProjection projection, Func<AnalyticsSchema, Seq<(Identifier Column, string Value)>, Fin<Plan>> build,
+        BackendReach reach, Func<Backend, BackendRow, Fin<T>> shape) =>
         Narrowings(kind, selector).Bind(matches => build(schema, matches)).Match(
-            Succ: plan => ResidenceRead.Read(reach, plan,
-                new ResidenceScope(Residence.Series, schema, window, frame), projection,
-                row => shape(Residence.Series, row)),
-            Fail: error => IO.pure(Fin<ResidenceResult<T>>.Fail(error)));
+            Succ: plan => BackendRead.Read(reach, plan,
+                new BackendScope(Backend.Series, schema, window, frame), projection,
+                row => shape(Backend.Series, row)),
+            Fail: error => IO.pure(Fin<BackendResult<T>>.Fail(error)));
 
     static Fin<Seq<(Identifier Column, string Value)>> Narrowings(SeriesKind kind, SeriesSelector selector) =>
         selector.Switch(
@@ -150,8 +150,8 @@ public static class SeriesLane {
             key:    static (_, row) => Fin.Succ(Seq((SeriesKind.SeriesColumn, ContentHash.Hex(row.Series)))),
             facets: static (family, row) => row.Values.Count == family.Facets.Count
                 ? Fin.Succ(family.Facets.Zip(row.Values).Map(static pair => (pair.Item1, pair.Item2)).Strict())
-                : Fin.Fail<Seq<(Identifier, string)>>(new ResidenceFault.ReadRefused(
-                    Residence.Series.Key, new EngineFault("<facet-arity>", family.Key))));
+                : Fin.Fail<Seq<(Identifier, string)>>(new BackendFault.ReadRefused(
+                    Backend.Series.Key, new EngineFault("<facet-arity>", family.Key))));
 
     public static IO<Fin<Seq<SeriesJobHealth>>> Jobs(NpgsqlDataSource store, SeriesKind kind) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async token => {
@@ -168,7 +168,7 @@ public static class SeriesLane {
                     reader.GetInt64(3)));
             }
             return Fin<Seq<SeriesJobHealth>>.Succ(toSeq(rows));
-        }).ConfigureAwait(false)).MapFail(Residence.Series.ReadRefused));
+        }).ConfigureAwait(false)).MapFail(Backend.Series.ReadRefused));
 
     public static readonly Identifier WeightedColumn = Identifier.Create("weighted");
 }
@@ -176,12 +176,12 @@ public static class SeriesLane {
 
 ## [03]-[WAREHOUSE_OPLOG]
 
-- Owner: `WarehouseSchema` declares the Fleet residence's op-log dataset as ONE `AnalyticsSchema` value; `WarehouseOpRow` is the typed row a fleet question composes over.
-- Entry: `WarehouseSchema.Dataset` is the declaration the residence DDL, the egress sink's insert column list, and every reader's ordinals derive from; `Shape(Residence, ResidenceRow)` is the reader over the one row surface every reach yields.
-- Auto: the sink lands EXACTLY these columns projected from `Egress.Envelope` — `id` the content key, `source`/`type`/`time` the message-envelope attributes, `partition_key`/`sequence` the partitioning extensions, `data` the redacted payload — so writer and reader cannot drift while naming one relation. Every column declares `Nullable: false`, so the seven reads compose as ONE applicative product and a residence answering an empty cell names every offending column at once.
-- Packages: Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnType`, `#RESIDENCE_FAMILY` `Residence`/`ResidenceFault`, `Query/serving#SERVING_PLANE` `ResidenceRow`), NodaTime, LanguageExt.Core, BCL inbox.
+- Owner: `WarehouseSchema` declares the Fleet backend's op-log dataset as ONE `AnalyticsSchema` value; `WarehouseOpRow` is the typed row a fleet question composes over.
+- Entry: `WarehouseSchema.Dataset` is the declaration the backend DDL, the egress sink's insert column list, and every reader's ordinals derive from; `Shape(Backend, BackendRow)` is the reader over the one row surface every reach yields.
+- Auto: the sink lands EXACTLY these columns projected from `Egress.Envelope` — `id` the content key, `source`/`type`/`time` the message-envelope attributes, `partition_key`/`sequence` the partitioning extensions, `data` the redacted payload — so writer and reader cannot drift while naming one relation. Every column declares `Nullable: false`, so the seven reads compose as ONE applicative product and a backend answering an empty cell names every offending column at once.
+- Packages: Rasm.Persistence (`Query/backend#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnType`, `#BACKEND_FAMILY` `Backend`/`BackendFault`, `Query/serving#SERVING_PLANE` `BackendRow`), NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new op-log column is one `ColumnRow` beside one reader ordinal moving together; zero new surface — a second row vocabulary, a hand-spelled insert column list, or a per-end declaration is the deleted form.
-- Law: op-log rows spell their instant `time`, not `at` — exactly why the residence spine travels as a schema column: this dataset provisions its MergeTree partition, sort key, and TTL through the same arm every `at`-spelled series relation rides, with no dialect arm branching on a column name.
+- Law: op-log rows spell their instant `time`, not `at` — exactly why the backend spine travels as a schema column: this dataset provisions its MergeTree partition, sort key, and TTL through the same arm every `at`-spelled series relation rides, with no dialect arm branching on a column name.
 - Boundary: the Fleet leg is READ-side only. `Version/egress`'s ClickHouse sink owns landing under `insert_deduplication_token` dedup, and the two ends meet at this declaration rather than at a table name two sites spell; ClickHouse carries no transaction, so every fleet read is a convergence-consistent view whose staleness the egress cursor bounds.
 
 ```csharp
@@ -206,11 +206,11 @@ public static class WarehouseSchema {
     public static string Table => (string)Dataset.Table;
     public static string Columns => string.Join(", ", Dataset.Columns.Map(static column => (string)column.Name));
 
-    public static Fin<WarehouseOpRow> Shape(Residence residence, ResidenceRow row) =>
-        (row.Text(residence, 0).ToValidation<Error>(), row.Text(residence, 1).ToValidation<Error>(),
-         row.Text(residence, 2).ToValidation<Error>(), row.At(residence, 3).ToValidation<Error>(),
-         row.Text(residence, 4).ToValidation<Error>(), row.Whole(residence, 5).ToValidation<Error>(),
-         row.Text(residence, 6).ToValidation<Error>())
+    public static Fin<WarehouseOpRow> Shape(Backend backend, BackendRow row) =>
+        (row.Text(backend, 0).ToValidation<Error>(), row.Text(backend, 1).ToValidation<Error>(),
+         row.Text(backend, 2).ToValidation<Error>(), row.At(backend, 3).ToValidation<Error>(),
+         row.Text(backend, 4).ToValidation<Error>(), row.Whole(backend, 5).ToValidation<Error>(),
+         row.Text(backend, 6).ToValidation<Error>())
         .Apply(static (id, source, type, time, partition, sequence, data) =>
             new WarehouseOpRow(id, source, type, time, partition, sequence, Encoding.UTF8.GetBytes(data))).As().ToFin();
 }
@@ -218,13 +218,13 @@ public static class WarehouseSchema {
 
 ## [04]-[ASSESSMENT_ROWS]
 
-- Owner: `AssessmentDataset` is the ONE `AnalyticsSchema` value the analysis rail's typed result stream lands on, beside the `ResidencePolicy` its whole provisioning set derives from and the column identifiers every derivation reads; `AssessmentLane` is that dataset's provisioning derivation, its two landing arms, its named plan, and its resident read, with `Cells` the ONE cell fold both landings share and `Shape` its reader inverse.
+- Owner: `AssessmentDataset` is the ONE `AnalyticsSchema` value the analysis pipeline's typed result stream lands on, beside the `BackendPolicy` its whole provisioning set derives from and the column identifiers every derivation reads; `AssessmentLane` is that dataset's provisioning derivation, its two landing arms, its named plan, and its resident read, with `Cells` the ONE cell fold both landings share and `Shape` its reader inverse.
 - Cases: the fourteen `PropertyValue` arms are ONE `kind` column carrying the union's own case token, and each arm answers the scalar face the `Face` projection seats — a `Measure` its SI magnitude and unit, a `Number` its magnitude, an `Integer` its magnitude when the double holds the value exactly, a `Boolean`/present `Logical` its flag, a `Bounded` its three SI bounds under the one unit its members share, a `Text`/`Enumerated` its canonical render, and the remaining arms the all-absent face the `value` column already carries whole.
-- Entry: `AssessmentLane.Provision()` derives the whole ordered statement set through the one residence emitter; `Ingest(NpgsqlDataSource, Seq<TRow>, Func<TRow, FactRow>, ProjectionContext)` is the relational arm of the one landing and `Batch(Seq<TRow>, Func<TRow, FactRow>, ProjectionContext, metadata)` its cold-tail record batch, both over the producer's OWN row type through one projection; `Scan(UInt128, Option<Discipline>)` is the named plan and `Resident(reach, scope, key, discipline, mint)` the durable read, handing each row's five coordinates to a mint the caller supplies.
-- Auto: a fact kind gaining a scalar face is ONE `ColumnRow` beside its slot in the `Face` projection, and a kind with no scalar face still lands whole because `value` carries the entire fact through the seam's own codec; the DDL, the COPY roster, the record batch, the plan's projected names, and the reader's ordinals all derive from `AssessmentDataset.Schema`, so a column insert moves every one of them together and no literal index or hand column list survives beside it. The dataset declares NO measure, so the Series arm provisions hypertable, columnstore, and retention and emits no continuous aggregate — a fact stream is not a scalar series, and the numeric rollup a discipline wants rides `SeriesKind.Assessment` through the producer's own temporal leg.
-- Packages: Npgsql (`NpgsqlDataSource`), Apache.Arrow (`RecordBatch`), Rasm (`Domain/identity#CONTENT_KEY` `ContentHash.Hex` — the key text a content-addressed narrowing carries, `Domain/rails#OPERATION_KEY` `Op` and its `AcceptValidated` admission), Rasm.Element (`Classification/classification#DISCIPLINE_AXIS` `Discipline`, `Properties/property#PROPERTY_VALUE` `PropertyName`/`PropertyValue`, `Properties/quantity#MEASURE_VALUE` `MeasureValue`, `Graph/wire#NODE_CODEC` `ElementWire` — the one public door onto the seam's `PropertyValue` codec), Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnRow`/`ColumnShape`/`ColumnType`/`ColumnCell`/`TimeSpine`/`ArrowLanding`, `#RESIDENCE_FAMILY` `Residence`/`ResidencePolicy`, `#SEAM_ADMISSION` `AnalyticsSeam.LandedColumn`, `#PROVISIONING` `ResidenceDdl`/`ProvisionStep`, `Query/serving#READ_PLAN` `ResidencePlan`/`ResidenceFold`/`ResidenceScope`, `#SERVING_PLANE` `ResidenceRead`/`ResidenceLanding`/`ResidenceRow`/`ResidenceReach`, `Element/graph#PROJECTION_FRAME` `ProjectionContext`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Entry: `AssessmentLane.Provision()` derives the whole ordered statement set through the one backend emitter; `Ingest(NpgsqlDataSource, Seq<TRow>, Func<TRow, FactRow>, ProjectionContext)` is the relational arm of the one landing and `Batch(Seq<TRow>, Func<TRow, FactRow>, ProjectionContext, metadata)` its cold-tail record batch, both over the producer's OWN row type through one projection; `Scan(UInt128, Option<Discipline>)` is the named plan and `Resident(reach, scope, key, discipline, mint)` the durable read, handing each row's five coordinates to a mint the caller supplies.
+- Auto: a fact kind gaining a scalar face is ONE `ColumnRow` beside its slot in the `Face` projection, and a kind with no scalar face still lands whole because `value` carries the entire fact through the wire's own codec; the DDL, the COPY roster, the record batch, the plan's projected names, and the reader's ordinals all derive from `AssessmentDataset.Schema`, so a column insert moves every one of them together and no literal index or hand column list survives beside it. The dataset declares NO measure, so the Series arm provisions hypertable, columnstore, and retention and emits no continuous aggregate — a fact stream is not a scalar series, and the numeric rollup a discipline wants rides `SeriesKind.Assessment` through the producer's own temporal leg.
+- Packages: Npgsql (`NpgsqlDataSource`), Apache.Arrow (`RecordBatch`), Rasm (`Domain/identity#CONTENT_KEY` `ContentHash.Hex` — the key text a content-addressed narrowing carries, `Domain/results#OPERATION_KEY` `Op` and its `AcceptValidated` admission), Rasm.Element (`Classification/classification#DISCIPLINE_AXIS` `Discipline`, `Properties/property#PROPERTY_VALUE` `PropertyName`/`PropertyValue`, `Properties/quantity#MEASURE_VALUE` `MeasureValue`, `Graph/wire#NODE_CODEC` `ElementWire` — the one public door onto the wire's `PropertyValue` codec), Rasm.Persistence (`Query/backend#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnRow`/`ColumnShape`/`ColumnType`/`ColumnCell`/`TimeSpine`/`ArrowLanding`, `#BACKEND_FAMILY` `Backend`/`BackendPolicy`, `#SCHEMA_ADMISSION` `AnalyticsGate.LandedColumn`, `#PROVISIONING` `BackendDdl`/`ProvisionStep`, `Query/serving#READ_PLAN` `BackendPlan`/`BackendFold`/`BackendScope`, `#SERVING_PLANE` `BackendRead`/`BackendLanding`/`BackendRow`/`BackendReach`, `Element/graph#PROJECTION_FRAME` `ProjectionContext`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new scalar face is one `ColumnRow` beside one `Face` slot; a new consumer of the plane is one `Resident` mint at that consumer; zero new surface — a per-discipline relation, a second cell fold, a hand `SELECT`, a literal reader ordinal, or a record mirroring the producer's row is the deleted form.
-- Law: facet arity is ROW DATA, never schema — a discipline's facet path rides the `ColumnShape.List` container the vocabulary already generates, so an energy row's `(measure, fuel, end-use)` triple and a daylight row's single sensor id land in one column and one relation. A per-discipline table would be a residence per producer, which is the custodian law this page exists to hold. The `value` column is the TRUTH and every scalar column its projection: the whole fact crosses through the seam's one canonical `PropertyValue` codec, so a case with no scalar face rehydrates losslessly and a scalar column is a query accelerator a read never inverts. Tenancy is ROUTING, not a column — the whole batch lands under the ingesting frame's tenant and every read scopes by it. The retention extent matches `SeriesKind.Assessment`'s, so a board resolving a temporal point to its typed rows never lands on rows already dropped.
+- Law: facet arity is ROW DATA, never schema — a discipline's facet path rides the `ColumnShape.List` container the vocabulary already generates, so an energy row's `(measure, fuel, end-use)` triple and a daylight row's single sensor id land in one column and one relation. A per-discipline table would be a backend per producer, which is the custodian law this page exists to hold. The `value` column is the TRUTH and every scalar column its projection: the whole fact crosses through the wire's one canonical `PropertyValue` codec, so a case with no scalar face rehydrates losslessly and a scalar column is a query accelerator a read never inverts. Tenancy is ROUTING, not a column — the whole batch lands under the ingesting frame's tenant and every read scopes by it. The retention extent matches `SeriesKind.Assessment`'s, so a board resolving a temporal point to its typed rows never lands on rows already dropped.
 - Boundary: `Rasm.Compute` sits ABOVE this custodian and references it, so the producer's `AssessmentRow` record is unnameable here and a mirror of it would be a strata inversion wearing a convenience — the arms take the producer's row type as a TYPE PARAMETER beside one projection onto the five coordinates a fact carries, every one of them `Rasm.Element` or BCL vocabulary this package already references, so neither end holds the other's record. Producer-handed rows LAND: this custodian derives nothing from the fact, re-measures nothing, and admits by construction, while a JSON-only row that no filter can narrow and a scalar-only row that silently drops a `Table`, a `Complex`, or a `Binary` payload are both the deleted form. An empty facet path is an EMPTY RUN, never absence — `ColumnRow.Admits` refuses an absent cell on a container by declaration, and a discipline emitting one unfaceted fact per assessment is the ordinary case.
 
 ```csharp
@@ -260,7 +260,7 @@ public static class AssessmentDataset {
     public static readonly Identifier TextColumn = Identifier.Create("text");
     public static readonly Identifier ValueColumn = Identifier.Create("value");
 
-    public static readonly ResidencePolicy Policy = new(
+    public static readonly BackendPolicy Policy = new(
         Retain: Duration.FromDays(365), Grain: Duration.FromDays(1), Chunk: Duration.FromDays(7),
         Backfill: Duration.FromDays(30), Root: StorePath.Create("assessment_rows"));
 
@@ -279,20 +279,20 @@ public static class AssessmentDataset {
             new ColumnRow(FlagColumn, ColumnType.Bool, Nullable: true),
             new ColumnRow(TextColumn, ColumnType.Utf8, Nullable: true),
             new ColumnRow(ValueColumn, ColumnType.Utf8, Nullable: false),
-            new ColumnRow(AnalyticsSeam.LandedColumn, ColumnType.Timestamp, Nullable: false)),
-        Time: AnalyticsSeam.LandedColumn, Spine: TimeSpine.Landing, Measure: None);
+            new ColumnRow(AnalyticsGate.LandedColumn, ColumnType.Timestamp, Nullable: false)),
+        Time: AnalyticsGate.LandedColumn, Spine: TimeSpine.Landing, Measure: None);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssessmentLane {
     public static Fin<Seq<ProvisionStep>> Provision() =>
-        ResidenceDdl.Provision(Residence.Series, AssessmentDataset.Schema, AssessmentDataset.Policy);
+        BackendDdl.Provision(Backend.Series, AssessmentDataset.Schema, AssessmentDataset.Policy);
 
-    public static IO<Fin<ResidenceWrite>> Ingest<TRow>(
+    public static IO<Fin<BackendWrite>> Ingest<TRow>(
         NpgsqlDataSource store, Seq<TRow> rows, Func<TRow, FactRow> fact, ProjectionContext frame) =>
         Staged(rows, fact).Match(
-            Succ: staged => ResidenceLanding.Stage(store, AssessmentDataset.Schema, staged, frame),
-            Fail: error => IO.pure(Fin<ResidenceWrite>.Fail(error)));
+            Succ: staged => BackendLanding.Stage(store, AssessmentDataset.Schema, staged, frame),
+            Fail: error => IO.pure(Fin<BackendWrite>.Fail(error)));
 
     public static Fin<RecordBatch> Batch<TRow>(
         Seq<TRow> rows, Func<TRow, FactRow> fact, ProjectionContext frame, Seq<(string Key, string Value)> metadata) {
@@ -302,16 +302,16 @@ public static class AssessmentLane {
     }
 
     public static Fin<Plan> Scan(UInt128 key, Option<Discipline> discipline) =>
-        ResidencePlan.Scan(AssessmentDataset.Schema,
+        BackendPlan.Scan(AssessmentDataset.Schema,
             Seq((AssessmentDataset.KeyColumn, ContentHash.Hex(key)))
             + discipline.Map(static row => (AssessmentDataset.DisciplineColumn, row.Key)).ToSeq());
 
-    public static IO<Fin<ResidenceResult<T>>> Resident<T>(
-        ResidenceReach reach, ResidenceScope scope, UInt128 key, Option<Discipline> discipline, Func<FactRow, T> mint) =>
+    public static IO<Fin<BackendResult<T>>> Resident<T>(
+        BackendReach reach, BackendScope scope, UInt128 key, Option<Discipline> discipline, Func<FactRow, T> mint) =>
         Scan(key, discipline).Match(
-            Succ: plan => ResidenceRead.Read(reach, plan, scope, ResidenceProjection.Point,
+            Succ: plan => BackendRead.Read(reach, plan, scope, BackendProjection.Point,
                 row => Shape(scope, row).Map(mint)),
-            Fail: error => IO.pure(Fin<ResidenceResult<T>>.Fail(error)));
+            Fail: error => IO.pure(Fin<BackendResult<T>>.Fail(error)));
 
     // --- [FACT_PROJECTION]
     public static Validation<Error, Seq<ColumnCell>> Cells(FactRow row) =>
@@ -367,16 +367,16 @@ public static class AssessmentLane {
             : None;
 
     // --- [FACT_INVERSE]
-    public static Fin<FactRow> Shape(ResidenceScope scope, ResidenceRow row) {
+    public static Fin<FactRow> Shape(BackendScope scope, BackendRow row) {
         AnalyticsSchema declaration = AssessmentDataset.Schema;
         Op key = Op.Of();
-        return (row.Key(scope.Residence, declaration.Ordinal(AssessmentDataset.KeyColumn)).ToValidation<Error>(),
-                row.Text(scope.Residence, declaration.Ordinal(AssessmentDataset.DisciplineColumn))
+        return (row.Key(scope.Backend, declaration.Ordinal(AssessmentDataset.KeyColumn)).ToValidation<Error>(),
+                row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.DisciplineColumn))
                     .Bind(token => Discipline.Parse(token, key)).ToValidation<Error>(),
-                row.Items(scope.Residence, declaration.Ordinal(AssessmentDataset.FacetsColumn)).ToValidation<Error>(),
-                row.Text(scope.Residence, declaration.Ordinal(AssessmentDataset.NameColumn))
+                row.Items(scope.Backend, declaration.Ordinal(AssessmentDataset.FacetsColumn)).ToValidation<Error>(),
+                row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.NameColumn))
                     .Bind(token => key.AcceptValidated<PropertyName>(token)).ToValidation<Error>(),
-                row.Text(scope.Residence, declaration.Ordinal(AssessmentDataset.ValueColumn))
+                row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.ValueColumn))
                     .Bind(json => ElementWire.Decode(json, key)).ToValidation<Error>())
             .Apply(static (content, discipline, facets, name, value) =>
                 (Key: content, Discipline: discipline, Facets: facets, Name: name, Value: value))
@@ -388,7 +388,7 @@ public static class AssessmentLane {
 | [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                         |
 | :-----: | :------------------ | :---------------------------------------- | :---------------------------------------------------------------- |
 |  [01]   | series provisioning | derived from the `SeriesKind` row         | one emitter, generation-carried, verdict-gated                    |
-|  [02]   | policy cadence      | each residence's own scheduler            | never AppHost-scheduled; `job_stats` is the Series proof row      |
+|  [02]   | policy cadence      | each backend's own scheduler              | never AppHost-scheduled; `job_stats` is the Series proof row      |
 |  [03]   | irregular timesteps | the `Weighted` fold off the plan builder  | a naive `avg` over-counts dense bursts                            |
 |  [04]   | rollup statistic    | materialised summary + read-time accessor | one statistic per caption; never `avg` accelerating `time_weight` |
 |  [05]   | series identity     | a `CanonicalWriter`-framed preimage       | length-framed fields; a concatenated key merges two streams       |
@@ -396,7 +396,7 @@ public static class AssessmentLane {
 |  [07]   | batch handoff       | `ArrowLanding.Build` over the declaration | metadata is required; never a schema built beside the dataset     |
 |  [08]   | fleet leg           | READ row over one declared op-log dataset | the egress sink owns landing; never a second SoR                  |
 |  [09]   | facet path          | one `List(Utf8)` column, position-bearing | arity is row data; never a relation per discipline                |
-|  [10]   | fact truth          | the whole value through the seam's codec  | scalars are the projection; never a second, lossy truth           |
+|  [10]   | fact truth          | the whole value through the wire codec    | scalars are the projection; never a second, lossy truth           |
 |  [11]   | producer row        | a type parameter beside one projection    | Compute sits above; never a record mirrored across the strata     |
 
 ## [05]-[RESEARCH]

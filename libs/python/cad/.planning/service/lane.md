@@ -1,20 +1,20 @@
 # [PY_CAD_LANE]
 
-`NATIVE_LANE` is the one crossing every OCCT fold makes into the isolated worker process, and `regime` the process-wide exchange configuration that fold runs behind. This owner admits one native call at a time, refuses a third caller with a measured retry window instead of queueing it behind two whole calls, converts a worker death into the rail, and declares every value the pickle seam carries in each direction.
+`NATIVE_LANE` is the one crossing every OCCT fold makes into the isolated worker process, and `regime` the process-wide exchange configuration that fold runs behind. This owner admits one native call at a time, refuses a third caller with a measured retry window instead of queueing it behind two whole calls, converts a worker death into the result, and declares every value the pickle boundary carries in each direction.
 
 `faults#ROWS` supplies `NATIVE_INIT`, `NATIVE_WORKER`, `LANE_SATURATED`, and `SOURCE_SHAPE`, and a `CadFault` minted inside the worker rides home as a VALUE because `msgspec.Struct` pickles by reference. `exchange/identity#PINS` rules which `Interface_Static` pins the artifact's byte-stability contract requires and why; this page applies that roster and re-argues none of it. `brep/operation#OPERATION` and `tessellation/mesh#MESH` run INSIDE the worker and never see the lane.
 
 ## [01]-[INDEX]
 
 - [02]-[REGIME]: Cached controller-and-pin fold configuring one process's OCCT exchange session.
-- [03]-[LANE]: One-slot cancellable process lane, its saturation admission, and every value the pickle seam carries.
+- [03]-[LANE]: One-slot cancellable process lane, its saturation admission, and every value the pickle boundary carries.
 
 ## [02]-[REGIME]
 
-- Owner: `regime` folds every exchange-controller start and every `Interface_Static` pin into one `CadRail[None]`, cached per process, and it is the only fence in the package that configures OCCT process state.
+- Owner: `regime` folds every exchange-controller start and every `Interface_Static` pin into one `CadResult[None]`, cached per process, and it is the only fence in the package that configures OCCT process state.
 - Law: `@cache` keys the empty argument tuple, so the fold runs ONCE PER PROCESS — the worker holds its own cache, and a respawned worker re-pins before its first fold without any parent-side coordination.
 - Law: a module-global `_configured = False` flag is the DELETED form, and its defect was residency rather than style: the ladder ran inside the `to_process` worker, so the parent's copy never flipped, every respawn silently re-ran a probe nothing read, and the one boolean any reader consulted lived in the process that never touched it.
-- Law: three bare `RuntimeError` raises are the other half of that deleted form — a refusal that cannot name its leg, cannot carry its Connect code, and cannot cross the pickle seam as a value is not a refusal, and `NATIVE_INIT` states all three from one row.
+- Law: three bare `RuntimeError` raises are the other half of that deleted form — a refusal that cannot name its leg, cannot carry its Connect code, and cannot cross the pickle boundary as a value is not a refusal, and `NATIVE_INIT` states all three from one row.
 - Law: every pin WRITES and then READS BACK, because OCCT accepts a set that never takes; a write-only probe certifies a unit the writer does not hold, which is exactly how a metre measurement silently becomes a millimetre one.
 - Cases: `Controller` rows start the STEP and IGES exchange controllers; `Pin` rows carry a coordinate, the value it must hold, and the typed `Interface_Static` write-and-read pair for that value's kind, so the string pins and the integer pin fold through one arm instead of two statement ladders differing only by which member they call.
 - Growth: a new process-wide OCCT setting is one `Pin` row, a new exchange controller one `Controller` row, and neither touches the fold.
@@ -39,7 +39,7 @@ from OCP.STEPControl import STEPControl_Controller
 
 from rasm.cad.brep.operation import execute as execute_brep
 from rasm.cad.exchange.identity import SCHEMA, UNIT
-from rasm.cad.faults import LANE_SATURATED, NATIVE_INIT, NATIVE_WORKER, SOURCE_SHAPE, CadRail
+from rasm.cad.faults import LANE_SATURATED, NATIVE_INIT, NATIVE_WORKER, SOURCE_SHAPE, CadResult
 from rasm.cad.tessellation.mesh import tessellate as tessellate_cad
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -79,11 +79,11 @@ _PINS: Final[Block[Pin[str] | Pin[int]]] = Block.of_seq((
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _started(controller: Controller, /) -> CadRail[str]:
+def _started(controller: Controller, /) -> CadResult[str]:
     return Ok(controller.coordinate) if controller.start() else Error(NATIVE_INIT.at(f"occt.init.{controller.coordinate}"))
 
 
-def _pinned[V](pin: Pin[V], /) -> CadRail[str]:
+def _pinned[V](pin: Pin[V], /) -> CadResult[str]:
     return (
         Ok(pin.coordinate)
         if pin.write(pin.coordinate, pin.wanted) and pin.read(pin.coordinate) == pin.wanted
@@ -92,7 +92,7 @@ def _pinned[V](pin: Pin[V], /) -> CadRail[str]:
 
 
 @cache
-def regime() -> CadRail[None]:
+def regime() -> CadResult[None]:
     return traverse(_started, _CONTROLLERS).bind(lambda _ready: traverse(_pinned, _PINS)).map(lambda _held: None)
 ```
 
@@ -100,18 +100,18 @@ def regime() -> CadRail[None]:
 
 - Owner: `native` is the package's ONE `to_process` call site, and the lane it holds is one slot deep because OCCT's mesher takes whole-process custody when its parallel switch is on.
 - Law: `cancellable=True` is the verified spelling on `to_process.run_sync`; `abandon_on_cancel=` is `to_thread.run_sync`'s rename alone and raises `TypeError` here, so the two offload arms never share a keyword.
-- Law: cancellation is NOT a refusal — `cancellable=True` terminates the worker and the cancelled exception re-raises past the narrow `BrokenWorkerProcess` arm untouched, so the scope that tripped keeps its structured-cancellation contract and nothing rails a cancellation into a value.
+- Law: cancellation is NOT a refusal — `cancellable=True` terminates the worker and the cancelled exception re-raises past the narrow `BrokenWorkerProcess` arm untouched, so the scope that tripped keeps its structured-cancellation contract and nothing faults a cancellation into a value.
 - Law: saturation is READ before the wait, off the limiter's own `statistics()` snapshot, and its window is the admitted `call_seconds` ceiling times the occupancy the caller queues behind — `LANE_SATURATED.windowed` therefore projects a measured worst case into the arm's own `RetryInfo` rather than a literal no measurement backs, and this is the one arm that makes `Recovery`'s third case reachable.
 - Law: the read races by one — a caller admitted between the snapshot and the acquire still serializes on the limiter, so the snapshot is an admission bound and never a lock, and the cost of losing the race is one extra waiter rather than a second concurrent native fold.
 - Law: `_LANE_DEPTH` admits exactly one waiter, so a caller arriving mid-fold queues and the caller after it is refused with a stated window instead of waiting behind two whole calls with nothing said about the delay.
-- Law: every value crossing the pickle seam parses and imports on BOTH sides of it, kernels cross by QUALIFIED NAME through `_regimed`, and a `CadFault` crosses home as a VALUE because `msgspec.Struct` pickles by reference — a custom exception transporting an inner fault across that seam is the rejected inversion.
-- Law: generated messages and artifact bodies never cross; the request crosses as BINARY, the measure and correspondence return as binary, and the output leaves through the call-owned path rather than through the seam.
+- Law: every value crossing the pickle boundary parses and imports on BOTH sides of it, kernels cross by QUALIFIED NAME through `_regimed`, and a `CadFault` crosses home as a VALUE because `msgspec.Struct` pickles by reference — a custom exception transporting an inner fault across that boundary is the rejected inversion.
+- Law: generated messages and artifact bodies never cross; the request crosses as BINARY, the measure and correspondence return as binary, and the output leaves through the call-owned path rather than through the boundary.
 - Law: `OneSource.of` resolves the single source path on the SERVE floor, where `references` already ran and body admission already passed, so the worker receives a path instead of a roster and an unguarded index into it — the double lookup `_path_rows(sources)[references(request)[0].sha256]` performed on the unvalidated side is the deleted form.
 - Law: an unpicklable argument raises out of `run_sync` and PROPAGATES as a defect, because a value this owner cannot marshal is a construction fault of the fence that built it, never a caller's refusal.
 - Cases: `Sources` is `OneSource` for the rpc admitting exactly one reference and `SourceRows` for the rpc admitting any admitted count including none; the arity discriminant is the source shape itself, so no kernel re-guards a count the serve floor already settled.
 - Output: `BrepMarshal` and `MeshMarshal` are each native leg's own non-artifact half of its reply, and they are instantiations of the spine's `E` parameter rather than branches inside it — `provider#PROVIDER` never names either.
 - Growth: a new native leg is one kernel and one marshal struct; a new marshalled field is one struct member.
-- Boundary: this page spells no outbound raise — the inbound `BrokenWorkerProcess` is the seam's only exception and one arm converts it, and the package's single outbound raise is `provider#PROVIDER`'s `ConnectError`.
+- Boundary: this page spells no outbound raise — the inbound `BrokenWorkerProcess` is the boundary's only exception and one arm converts it, and the package's single outbound raise is `provider#PROVIDER`'s `ConnectError`.
 
 ```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -127,7 +127,7 @@ class OneSource(Struct, frozen=True, gc=False):
     path: str
 
     @staticmethod
-    def of(rows: tuple[SourceRow, ...], /) -> CadRail["OneSource"]:
+    def of(rows: tuple[SourceRow, ...], /) -> CadResult["OneSource"]:
         match rows:
             case ((_digest, path),):
                 return Ok(OneSource(path=path))
@@ -139,7 +139,7 @@ class SourceRows(Struct, frozen=True):
     rows: tuple[SourceRow, ...]
 
     @staticmethod
-    def of(rows: tuple[SourceRow, ...], /) -> CadRail["SourceRows"]:
+    def of(rows: tuple[SourceRow, ...], /) -> CadResult["SourceRows"]:
         return Ok(SourceRows(rows=rows))
 
     def paths(self) -> dict[bytes, Path]:
@@ -171,7 +171,7 @@ class MeshMarshal(Struct, frozen=True, gc=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def brep_kernel(call: NativeCall[SourceRows], /) -> CadRail[BrepMarshal]:
+def brep_kernel(call: NativeCall[SourceRows], /) -> CadResult[BrepMarshal]:
     return execute_brep(
         ExecuteRequest.from_binary(call.payload), call.sources.paths(), Path(call.target), call.ceiling
     ).map(
@@ -183,7 +183,7 @@ def brep_kernel(call: NativeCall[SourceRows], /) -> CadRail[BrepMarshal]:
     )
 
 
-def mesh_kernel(call: NativeCall[OneSource], /) -> CadRail[MeshMarshal]:
+def mesh_kernel(call: NativeCall[OneSource], /) -> CadResult[MeshMarshal]:
     return tessellate_cad(
         TessellateRequest.from_binary(call.payload), Path(call.sources.path), Path(call.target), call.ceiling
     ).map(
@@ -195,17 +195,17 @@ def mesh_kernel(call: NativeCall[OneSource], /) -> CadRail[MeshMarshal]:
     )
 
 
-def _regimed[C: Sources, E](kernel: Callable[[NativeCall[C]], CadRail[E]], call: NativeCall[C], /) -> CadRail[E]:
+def _regimed[C: Sources, E](kernel: Callable[[NativeCall[C]], CadResult[E]], call: NativeCall[C], /) -> CadResult[E]:
     return regime().bind(lambda _pinned: kernel(call))
 
 
 async def native[C: Sources, E](
-    kernel: Callable[[NativeCall[C]], CadRail[E]],
+    kernel: Callable[[NativeCall[C]], CadResult[E]],
     call: NativeCall[C],
     /,
     *,
     saturation: float,
-) -> CadRail[E]:
+) -> CadResult[E]:
     held = NATIVE_LANE.statistics()
     queued = held.borrowed_tokens + held.tasks_waiting
     if queued > _LANE_DEPTH:

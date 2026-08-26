@@ -104,7 +104,7 @@
 - `IVisualLineTransformer`: `Transform(ITextRunConstructionContext, IList<VisualLineElement>)`
 - `KnownLayer`: `Background` `Selection` `Text` `Caret` — declaration order IS paint order, and `IBackgroundRenderer.Layer` returns one case
 - `LayerInsertionPosition`: `Below` `Replace` `Above`
-- `BackgroundGeometryBuilder`: `CornerRadius` `AlignToWholePixels` `BorderThickness` `ExtendToFullWidthAtLineEnd` `AddSegment(TextView, ISegment)` `AddRectangle(TextView, Rect)` `AddRectangle(double left, double top, double right, double bottom)` `CloseFigure` `CreateGeometry` — the four-double overload is the seam a non-segment visual (an indent guide, a column band) builds its own rects through
+- `BackgroundGeometryBuilder`: `CornerRadius` `AlignToWholePixels` `BorderThickness` `ExtendToFullWidthAtLineEnd` `AddSegment(TextView, ISegment)` `AddRectangle(TextView, Rect)` `AddRectangle(double left, double top, double right, double bottom)` `CloseFigure` `CreateGeometry` — the four-double overload is the hook a non-segment visual (an indent guide, a column band) builds its own rects through
 - `AbstractMargin`: `TextView` `Document` (`: Control, ITextViewConnect`; a custom margin derives here and reads `Document` after `TextView` binds)
 - `LineNumberMargin`: `MinWidthInDigits` `int` (default `2`)
 - `FoldingMargin`: `FoldingManager` and four `AttachedProperty<IBrush>` marker brushes
@@ -342,7 +342,7 @@
 
 - `StartOffset` IS the insertion contract: the window synthesizes the segment itself, calling `CompletionList.SelectedItem?.Complete(TextArea, new AnchorSegment(TextArea.Document, StartOffset, EndOffset - StartOffset), e)` on an insertion request, after `Hide()`. `CompletionWindowBase`'s ctor seeds both offsets from `TextArea.Caret.Offset`, so a popup mounted after the trigger prefix is typed replaces nothing unless the mount assigns `StartOffset` back to the trigger start; document edits then move `StartOffset` `BeforeInsertion` and `EndOffset` `AfterInsertion`, and `ExpectInsertionBeforeStart` flips one pending caret-position insert to `AfterInsertion` so a committed prefix keystroke widens the span instead of preceding it.
 - `IsFiltering` defaults `true` and is the built-in prefix narrowing over the mounted rows — a camel-case and substring match quality fold that re-selects the best row per keystroke — so per-keystroke re-population of `CompletionData` is the deleted form; `false` degrades it to starts-with selection.
-- `ICompletionData.Complete(TextArea, ISegment, EventArgs)`: mutates the `TextArea` over the synthesized trigger `ISegment` — insertion runs here, never direct document mutation. Implement one per suggestion, add rows to `CompletionList.CompletionData` (a mutable `IList<ICompletionData>`), then `Show()`; the shell command rail feeds the rows.
+- `ICompletionData.Complete(TextArea, ISegment, EventArgs)`: mutates the `TextArea` over the synthesized trigger `ISegment` — insertion runs here, never direct document mutation. Implement one per suggestion, add rows to `CompletionList.CompletionData` (a mutable `IList<ICompletionData>`), then `Show()`; the shell command deck feeds the rows.
 - `OverloadInsightWindow`: construct over `TextArea`, set `Provider`, then `Show()` for multi-signature insight. Its own `OnKeyDown` handles Up and Down through an internal `ChangeIndex(±1)` and only while `Provider != null && Provider.Count > 1`; every other index move is the consumer assigning `Provider.SelectedIndex`, because no member tracks the caret.
 
 [SEARCH_ENTRYPOINTS]: regex search/replace panel and strategy
@@ -363,7 +363,7 @@
 |  [12]   | `ISearchStrategy.FindNext(ITextSource, int, int)`                                 | instance | first hit at or after |
 
 - `SearchCommands.*`: `RoutedCommand` statics carry default `KeyGesture`s (`Ctrl+F`/`F3`/`Ctrl+H`) the shell command page binds; a programmatic count drives `ISearchStrategy.FindAll` directly.
-- `SearchStrategyFactory.Create(searchPattern, ignoreCase, matchWholeWords, mode)` is the strategy seam a programmatic search takes: the panel builds the identical value from its own knobs (`Create(SearchPattern, !MatchCase, WholeWords, UseRegex ? SearchMode.RegEx : SearchMode.Normal)`), so panel-driven and headless search share one engine and an invalid pattern throws `SearchPatternException` at the mint rather than at the scan.
+- `SearchStrategyFactory.Create(searchPattern, ignoreCase, matchWholeWords, mode)` is the strategy hook a programmatic search takes: the panel builds the identical value from its own knobs (`Create(SearchPattern, !MatchCase, WholeWords, UseRegex ? SearchMode.RegEx : SearchMode.Normal)`), so panel-driven and headless search share one engine and an invalid pattern throws `SearchPatternException` at the mint rather than at the scan.
 
 [SNIPPET_AND_INDENT_ENTRYPOINTS]: template insertion and auto-indent
 

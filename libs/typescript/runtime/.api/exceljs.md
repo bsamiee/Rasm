@@ -43,7 +43,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: `.xlsx` in-memory IO — every terminal an instance `Promise` on `workbook.xlsx`, wrapped in `Effect.tryPromise` onto the report-error rail.
+[ENTRYPOINT_SCOPE]: `.xlsx` in-memory IO — every terminal an instance `Promise` on `workbook.xlsx`, wrapped in `Effect.tryPromise` onto the report-error channel.
 
 | [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                |
 | :-----: | :-------------------------------------------- | :------- | :-------------------------- |
@@ -52,7 +52,7 @@
 |  [03]   | `load(buffer, options?) -> Promise<Workbook>` | instance | reopen stored xlsx to amend |
 |  [04]   | `readFile(path)` / `read(stream)`             | instance | template ingress            |
 
-- `workbook.xlsx.writeFile`: reaches `node:fs` directly and bypasses the platform rail; route egress through `writeBuffer` and the platform `FileSystem`.
+- `workbook.xlsx.writeFile`: reaches `node:fs` directly and bypasses the platform port; route egress through `writeBuffer` and the platform `FileSystem`.
 - `workbook.xlsx.read(stream)`: stays off `node:fs`, unlike `readFile`.
 
 [ENTRYPOINT_SCOPE]: constant-memory streaming, the durable-report default — `WorkbookWriter` commits per worksheet and row under `Effect.acquireRelease` (construct = acquire, `commit()` = release), `WorkbookReader` async-iterates the symmetric huge-input read.
@@ -88,7 +88,7 @@
 - Output is content-addressed: the produced `Buffer` hashes through the one `core/value/identity` `XxHash128` seed-zero mint for the artifact content key, and an equal `idempotencyKey` reuses the stored artifact.
 
 [STACKING]:
-- `effect` (`.api/effect.md`): `Effect.tryPromise` wraps each IO terminal onto a `Data.TaggedError` rail, `Effect.acquireRelease` scopes the streaming writer, `Stream.runForEach` drives row egress, and `Match` dispatches the `CellValue`/`ConditionalFormattingRule` unions in the projection.
+- `effect` (`.api/effect.md`): `Effect.tryPromise` wraps each IO terminal onto a `Data.TaggedError` channel, `Effect.acquireRelease` scopes the streaming writer, `Stream.runForEach` drives row egress, and `Match` dispatches the `CellValue`/`ConditionalFormattingRule` unions in the projection.
 - `@effect/platform` (`.api/effect-platform.md`): `writeBuffer()` output writes through the `FileSystem` Tag or an object-store upload, and the row source is a `@effect/sql` cursor or a `data/read/query` `Stream`.
 - `@effect/workflow` (`runtime/.api/effect-workflow.md`): a report is one `Activity.make({ name, execute: renderWorkbook })` — idempotent on the report request, retryable under `interruptRetryPolicy`, resumable past a crash without re-rendering.
 - `jspdf` + `papaparse` (`runtime/.api/jspdf.md`, `runtime/.api/papaparse.md`): the output-format peers over the same decoded rows, one policy row selecting PDF, XLSX, or CSV; `papaparse` owns standalone CSV, so `exceljs.csv` reserves for re-projecting an existing `Worksheet`.

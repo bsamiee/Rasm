@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: reader facades, configuration, and the notification/progress rail
+[PUBLIC_TYPE_SCOPE]: reader facades, configuration, and the notification/progress channel
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                                                 |
 | :-----: | :------------------------- | :------------ | :--------------------------------------------------------------------------- |

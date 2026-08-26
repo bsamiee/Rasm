@@ -13,7 +13,7 @@
 - Owner: `Converge.admit` is the one entry — it proves the served topology and constructs the tier from the application composition owner's final projection; IaC never merges, re-decodes, or re-hashes generated artifacts.
 - Cases: one already-merged `Backend.Projection` realizes directly; single- and multi-language applications differ only at the upstream composition owner and enter this deployment tier identically.
 - Law: `service` and `edge` are the topology values this tier serves out of the closed roster `program/spec.md` owns; an in-host, sidecar, companion, or cli composition carries no cluster to converge against and refuses at admission with `ConvergeRefused` naming the axis and the rejected value.
-- Law: deployment shape arrives as one caller-supplied row carrying `topology` beside the `objective` it declares, which `StackSpec.Profile` satisfies structurally off `program/spec`'s derived getter, so a composition root outside this estate supplies its own pair — this tier reads deployment shape and infers none.
+- Law: deployment shape arrives as one caller-supplied row carrying `topology` beside the `objective` it declares, which `StackSpec.Profile` satisfies structurally off `program/spec`'s derived getter, so a composition root outside this library supplies its own pair — this tier reads deployment shape and infers none.
 - Law: the generated document owns its contract coordinate; the publication name remains a Kubernetes pointer coordinate and never enters contract composition.
 - Law: one immutable ConfigMap carries `contract.json`, the generated backend message's official ProtoJSON document; validation remains descriptor-owned and no schema or conformance sidecar exists.
 - Law: caller-owned provider resources arrive as one readiness dependency and environment coordinates.
@@ -110,7 +110,7 @@ const _served = (profile: Converge.Profile): Effect.Effect<void, ConvergeRefused
 - Law: canonical journals, event stores, objects, or typed copy projections populate the target.
 - Law: runner reads realized catalogs and data frontiers, builds `Backend.Observation`, and exits only after `Backend.admit` grades it against the objective this fold supplies — the deploy plane owns the recovery target, so the runner measures a window and never sets the bar it is judged against.
 - Law: `backoffLimit: 0` and `activeDeadlineSeconds` preserve one terminal observation per deployment attempt.
-- Law: a runner pod carries `Tier.harden` like every other pod this estate declares — the phases hold the target's own libpq credentials and author every relation the application then binds, so the one pod family with DDL authority is the last that may run root-capable on a writable root filesystem; the anchor's scratch pair is what keeps the read-only root survivable for the runner's own temp writes.
+- Law: a runner pod carries `Tier.harden` like every other pod this cluster declares — the phases hold the target's own libpq credentials and author every relation the application then binds, so the one pod family with DDL authority is the last that may run root-capable on a writable root filesystem; the anchor's scratch pair is what keeps the read-only root survivable for the runner's own temp writes.
 - Auto: `Array.mapAccum` threads target readiness through `materialize → hydrate → prove`, mapping each phase to its `[phase, job]` pair, so the fold yields a phase-keyed record and no callback graph or parallel plan exists.
 - Packages: `@pulumi/kubernetes` typed `ConfigMap` and `Job`; `@pulumi/pulumi` resource dependency algebra.
 

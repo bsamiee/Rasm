@@ -1,6 +1,6 @@
 # [PY_DATA_API_PYARROW]
 
-`pyarrow` owns Arrow columnar memory in Python: typed `Array`/`ChunkedArray` columns, `RecordBatch`/`Table` tables, `Field`/`Schema` metadata, and the PyCapsule C-data/C-stream interface (`__arrow_c_array__`/`__arrow_c_stream__`/`__arrow_c_schema__`) that carries every frame zero-copy across the data plane. Constructor and dtype-factory families build these values; the `compute` vectorized kernels with their Python-UDF registry, the `acero` streaming execution engine, `substrait`/`flight` transport, and the columnar-file submodules fold over them as one interchange rail.
+`pyarrow` owns Arrow columnar memory in Python: typed `Array`/`ChunkedArray` columns, `RecordBatch`/`Table` tables, `Field`/`Schema` metadata, and the PyCapsule C-data/C-stream interface (`__arrow_c_array__`/`__arrow_c_stream__`/`__arrow_c_schema__`) that carries every frame zero-copy across the data plane. Constructor and dtype-factory families build these values; the `compute` vectorized kernels with their Python-UDF registry, the `acero` streaming execution engine, `substrait`/`flight` transport, and the columnar-file submodules fold over them as one interchange domain.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -163,7 +163,7 @@
 |  [21]   | `flight.connect` / `FlightClient` / `FlightServerBase`      | static  | Arrow Flight client/server for columnar RPC             |
 |  [22]   | `dataset.WrittenFile.path`/`.size`/`.metadata`              | field   | one written file's path, on-disk bytes, parquet footer  |
 
-[CONSUMER]: `tabular/query#QUERY` DECLINES `substrait` here as CONSUMER-ONLY: this roster mints no `Plan` — `serialize_expressions` emits an `ExtendedExpression` and `serialize_schema` a `SubstraitSchema`, neither carrying the relational plan a federation wire needs — so a bidirectional seam finds no outbound producer, and `run_query` resolves each `NamedTable` through a per-call `table_provider` callback rather than a registered catalog, validating nothing ahead of execution.
+[CONSUMER]: `tabular/query#QUERY` DECLINES `substrait` here as CONSUMER-ONLY: this roster mints no `Plan` — `serialize_expressions` emits an `ExtendedExpression` and `serialize_schema` a `SubstraitSchema`, neither carrying the relational plan a federation wire needs — so a bidirectional boundary finds no outbound producer, and `run_query` resolves each `NamedTable` through a per-call `table_provider` callback rather than a registered catalog, validating nothing ahead of execution.
 
 [CONSUMER]: `tabular/columnar#SCAN` `ColumnarEgress.Dataset` collects each `WrittenFile` through `file_visitor` and answers `Landed` off `path` beside `size`, the ONE surface reporting what a partitioned write landed. `size` measures the real on-disk byte count, where `metadata.row_group(i).total_byte_size` measures the UNCOMPRESSED column volume and reads identically under every codec — a byte fact folded from row-group sizes therefore never moves when the compression policy does.
 

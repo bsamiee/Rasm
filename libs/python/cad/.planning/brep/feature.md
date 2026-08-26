@@ -40,7 +40,7 @@ from protobuf.wkt import Empty
 # Contracts are retired from this logic.
 
 from rasm.cad.brep.placement import ShapeBuilder, built
-from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadFault, CadRail
+from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadFault, CadResult
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -51,11 +51,11 @@ def mapping(shape: TopoDS_Shape, /) -> TopTools_IndexedMapOfShape:
     return carrier
 
 
-def _within(extent: int, ordinal: int, /) -> CadRail[int]:
+def _within(extent: int, ordinal: int, /) -> CadResult[int]:
     return Ok(ordinal) if ordinal < extent else Error(BREP_INPUT.at(f"edge.ordinal:{ordinal}/{extent}"))
 
 
-def _ordinals(selection: EdgeSelection, extent: int, /) -> CadRail[Block[int]]:
+def _ordinals(selection: EdgeSelection, extent: int, /) -> CadResult[Block[int]]:
     match selection.selection:
         case Oneof(field="all", value=Empty()):
             return Ok(Block.of_seq(range(extent)))
@@ -65,7 +65,7 @@ def _ordinals(selection: EdgeSelection, extent: int, /) -> CadRail[Block[int]]:
             assert_never(unreachable)
 
 
-def selected(shape: TopoDS_Shape, selection: EdgeSelection, /) -> CadRail[Block[TopoDS_Edge]]:
+def selected(shape: TopoDS_Shape, selection: EdgeSelection, /) -> CadResult[Block[TopoDS_Edge]]:
     mapped = mapping(shape)
     return _ordinals(selection, mapped.Extent()).map(
         lambda kept: kept.map(lambda ordinal: TopoDS.Edge_s(mapped.FindKey(ordinal + 1)))
@@ -127,7 +127,7 @@ def _graded(diagnosed: Callable[[], str], fault: CadFault, /) -> CadFault:
     return BREP_INPUT.at(diagnosed()) if fault.row is BREP_KERNEL else fault
 
 
-def featured(field: str, shape: TopoDS_Shape, selection: EdgeSelection, magnitude: float, /) -> CadRail[TopoDS_Shape]:
+def featured(field: str, shape: TopoDS_Shape, selection: EdgeSelection, magnitude: float, /) -> CadResult[TopoDS_Shape]:
     builder, diagnosed = _FEATURES[field](shape)
     return selected(shape, selection).bind(
         lambda edges: built(_charged(builder, edges, magnitude), field).map_error(partial(_graded, diagnosed))

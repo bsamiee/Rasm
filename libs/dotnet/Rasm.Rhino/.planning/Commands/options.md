@@ -17,7 +17,7 @@
 - Law: the three policy axes a bound option carries — hidden registration, varying value, empty-text admission — are COMBINABLE membership over one vocabulary, not three two-row classes with one bool getter each. `OptionValue.Admissible` is the per-case legal set, so `AllowsEmpty` on a colour row and `Hidden` on a toggle refuse at the row rather than being written into a host call that ignores them.
 - Law: admission accumulates through `FactoryValidation`; a bad band and blank prompt produce one generated refusal naming both defects.
 - Law: identity is CANONICAL at intake. The host matches option names case-insensitively, so `OptionName.Key` is the one uppercase form the slot vocabulary, the roster distinctness test, and every lookup index read; a per-probe `StringComparer.OrdinalIgnoreCase` argument is the deleted form.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[MemberEqualityComparer<TAccessor, TMember>]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Map`, `Atom`, `Traverse`/`TraverseM`/`FoldM`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`, `[IgnoreEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`, `ValidityClaim`), `Numerics/atoms` (`PerceptualColor.OfArgb`); `Document/session` (`DraftFault`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:155-202` — `AddOption*`, `AddOptionEnum*`, `GetSelectedEnumValue*`, `SetOptionVaries`, `IsValidOptionName`/`IsValidOptionValueName`, the `CommandLineOption` reads, `ToggleValues`, `ListOptions`); `Rhino.UI.LocalizeStringPair` (`api-rhino-ui.md`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[MemberEqualityComparer<TAccessor, TMember>]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Map`, `Atom`, `Traverse`/`TraverseM`/`FoldM`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`, `[IgnoreEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op`, `Op.Side`, `ValidityClaim`), `Numerics/atoms` (`PerceptualColor.OfArgb`); `Document/session` (`DraftFault`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:155-202` — `AddOption*`, `AddOptionEnum*`, `GetSelectedEnumValue*`, `SetOptionVaries`, `IsValidOptionName`/`IsValidOptionValueName`, the `CommandLineOption` reads, `ToggleValues`, `ListOptions`); `Rhino.UI.LocalizeStringPair` (`api-rhino-ui.md`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -55,7 +55,6 @@ public sealed partial class OptionName {
 
     public Option<string> Local { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref NameGrammar grammar,
@@ -115,7 +114,6 @@ public readonly partial struct NumericBand<T> where T : struct, INumber<T> {
     public Option<T> Lower { get; }
     public Option<T> Upper { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Option<T> lower,
@@ -151,7 +149,6 @@ public readonly partial struct NumericBand<T> where T : struct, INumber<T> {
 public sealed partial class OptionChoices {
     public Seq<OptionName> Values { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<OptionName> values) {
         Op op = Op.Of();
         Seq<OptionName> rows = values;
@@ -484,7 +481,7 @@ public abstract partial record OptionValue {
 
 `OptionLease` exists before the first bind and receives each carrier as it is created. Any failed row releases the partial lease; success returns the same capsule to acquisition. One `OptionValue.Read` projection admits pointer-backed values for both the selected-option answer and the settled snapshot before detached evidence leaves the getter window; one `OptionMark` threads the shared native identity through the evidence.
 
-`Dispose` accumulates into `Faults` and returns. Acquisition consumes the lease under a `using` nested inside the getter's own, so a throwing cleanup unwinds past the acquisition result and replaces the in-flight answer with a release fault — the caller loses the value it obtained. `Release` remains the railed entry a caller reads when cleanup evidence matters.
+`Dispose` accumulates into `Faults` and returns. Acquisition consumes the lease under a `using` nested inside the getter's own, so a throwing cleanup unwinds past the acquisition result and replaces the in-flight answer with a release fault — the caller loses the value it obtained. `Release` remains the result-typed entry a caller reads when cleanup evidence matters.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------

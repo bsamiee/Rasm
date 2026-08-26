@@ -27,7 +27,7 @@
 [CONFIG_TEMPLATE]: `config` is the whole server document as a Go template rendered over `.Values.tempo`, which is why every key under `tempo.*` is a config coordinate rather than a chart abstraction — and why a raw directive lands by editing `config` rather than by inventing a values key.
 
 [FULLNAME]: the standard collapse scaffold with flat overrides; the pin renders the StatefulSet, the Service, the ConfigMap, and the ServiceAccount under exactly the pinned name, verified by render.
-[SERVICE_NAME]: `<fullname>` UNSUFFIXED. The query door is 3200 and the OTLP doors are 4317 and 4318 — every address this estate publishes reads the pinned name with the explicit port.
+[SERVICE_NAME]: `<fullname>` UNSUFFIXED. The query door is 3200 and the OTLP doors are 4317 and 4318 — every address this cluster publishes reads the pinned name with the explicit port.
 
 ## [02]-[IMPLEMENTATION_LAW]
 
@@ -40,7 +40,7 @@
 - `operate/observe#CHART_ROWS`: `_charts.tempo` supplies chart and repo, and the row states retention, the tenancy flag, the explicit OTLP receiver pair bound on all interfaces, the declined metrics generator, and an armed 20Gi persistence claim.
 - `opentelemetry-collector`(`.api/opentelemetry-collector.md`): the gateway's `otlp_http/traces` exporter dials the receiver this row declared, and its `span_metrics`/`service_graph` connectors are the declined generator's replacement.
 - `grafana`(`.api/grafana.md`): the `traces` datasource plane resolves to the 3200 query door through the provisioned `tempo` driver, and exemplar click-through from the metrics store lands here.
-- `clickhouse`(`.api/clickhouse.md`): the residence alternative for wide-event traces; both can hold the signal because the collector fans it, and the residence takes no cardinality ceiling where a TSDB must.
+- `clickhouse`(`.api/clickhouse.md`): the tier alternative for wide-event traces; both can hold the signal because the collector fans it, and the tier takes no cardinality ceiling where a TSDB must.
 
 [LOCAL_ADMISSION]:
 - Declare the OTLP receiver explicitly; chart defaults accept no traces and the failure is silence, not an error.

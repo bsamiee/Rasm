@@ -12,7 +12,7 @@
 - [05]-[MODULES](.planning/Runtime/modules.md): One composition root folding and freezing the service graph.
 - [06]-[CONFIG](.planning/Runtime/config.md): Ranked config-source chain with fail-closed source-gen binding.
 - [07]-[SECRETS](.planning/Runtime/secrets.md): Credential-material lifecycle — lease acquire/renew/zeroize, public DER wire, and KMS-unwrap port.
-- [08]-[PORTS](.planning/Runtime/ports.md): Inward port records — the cross-package seam every peer crosses.
+- [08]-[PORTS](.planning/Runtime/ports.md): Inward port records — the cross-package boundary every peer crosses.
 - [09]-[DETERMINISM](.planning/Runtime/determinism.md): Reproducibility kernel — pinned RNG/float-mode and the hash-chained command log.
 - [10]-[ORCHESTRATION](.planning/Runtime/orchestration.md): Crash-durable workflow and persistent-job owner over the command/event/schedule ports.
 - [11]-[LANEGUARD](.planning/Runtime/laneguard.md): Keyed Polly pipeline per work lane, resizable permits, and the shed verdict `Rasm.Compute` reads.
@@ -45,7 +45,7 @@
 - [30]-[HEALTH](.planning/Observability/health.md): Capability-health fold — backing probes onto one degradation ladder with its grading table.
 - [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture — trigger vocabulary, frozen window, one zip.
 - [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog written directly by the producing operations.
-- [33]-[HOOKS](.planning/Observability/hooks.md): Spine seams a rider governs or watches, each advertising the guard its mechanism runs.
+- [33]-[HOOKS](.planning/Observability/hooks.md): Spine extension points a rider governs or watches, each advertising the guard its mechanism runs.
 - [34]-[BENCHMARKS](.planning/Observability/benchmarks.md): Benchmark result, the corpus gate, and profile-linked capture rows.
 - [35]-[EGRESS](.planning/Observability/egress.md): Durable OTLP transport — blob queue, disposition ledger, mutual-auth mount, persistent handler.
 
@@ -102,11 +102,11 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `OpenTelemetry.Instrumentation.Runtime`
 - `OpenTelemetry.Exporter.OpenTelemetryProtocol` — Projects the OTLP exporter at the composition root.
 - `OpenTelemetry.PersistentStorage.FileSystem` — `FileBlobProvider` offline queue replaying failed OTLP batches on reconnect.
-- `OpenTelemetry.Resources.Container` — `container.id` resource detector at the identity seam.
-- `OpenTelemetry.Resources.Host` — `host.name`/`host.id`/`host.arch` resource detector at the identity seam.
-- `OpenTelemetry.Resources.OperatingSystem` — `os.*` resource detector at the identity seam.
+- `OpenTelemetry.Resources.Container` — `container.id` resource detector at the identity boundary.
+- `OpenTelemetry.Resources.Host` — `host.name`/`host.id`/`host.arch` resource detector at the identity boundary.
+- `OpenTelemetry.Resources.OperatingSystem` — `os.*` resource detector at the identity boundary.
 - `OpenTelemetry.Resources.Process` — `process.owner`/`process.pid`/`process.creation.time` resource detector.
-- `OpenTelemetry.Resources.ProcessRuntime` — `process.runtime.*` resource detector at the identity seam.
+- `OpenTelemetry.Resources.ProcessRuntime` — `process.runtime.*` resource detector at the identity boundary.
 - `Pyroscope` — Native continuous-profiler agent; `Profiler.Instance` singleton the span processor writes profile ids into.
 - `Pyroscope.OpenTelemetry`
 
@@ -142,7 +142,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.IdentityModel.JsonWebTokens`
 - `Microsoft.IdentityModel.Tokens`
 - `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- `Microsoft.IdentityModel.Protocols` — `ConfigurationManager<T>` refresh seam; transitive under the OpenIdConnect sibling, centrally pinned.
+- `Microsoft.IdentityModel.Protocols` — `ConfigurationManager<T>` refresh interface; transitive under the OpenIdConnect sibling, centrally pinned.
 - `Sigstore`
 - `NuGet.Versioning`
 - `Velopack`
@@ -162,12 +162,11 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [CORE_SUBSTRATE]:
 - `Generator.Equals` — `HostFingerprint` structural equality over its stamp map.
-- `JetBrains.Annotations`
 - `LanguageExt.Core`
 - `NodaTime`
 - `NodaTime.Serialization.SystemTextJson`
 - `QuikGraph` — Adjacency, reachability, and topological order under the determinism recompute graph.
-- `Riok.Mapperly` — Generator-only (`PrivateAssets`); one `[Mapper]` per wire seam owns every domain↔wire correspondence.
+- `Riok.Mapperly` — Generator-only (`PrivateAssets`); one `[Mapper]` per wire boundary owns every domain↔wire correspondence.
 - `System.IO.Hashing`
 - `System.Numerics.Tensors`
 - `Thinktecture.Runtime.Extensions`
@@ -187,7 +186,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Celly.Protovalidate` — Compiles generated constraints at bootstrap and admits every parsed or gRPC message once.
 - `Google.Protobuf` — Runtime under the generated contract and event-extension messages.
 - `Grpc.AspNetCore.Server`
-- `Grpc.Core.Api` — Control-rail binding seat.
+- `Grpc.Core.Api` — Control-channel binding seat.
 - `Grpc.Net.Client`
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - `NodaTime.Serialization.Protobuf` — Carries `Duration` and `Instant` across the control-verb wire.

@@ -30,7 +30,7 @@ Every rule proves through `test_match_code_rule` at omitted or `warning` severit
 - [04]-[TYPESCRIPT](assets/examples/enum-to-vocabulary-table.yml): Construct conversion — rewriters fold rows, guards refuse unfixable variants.
 - [05]-[CSHARP](assets/examples/deny-forward-referenced-vocabulary-row.yml): Ordering proof — capture unification across `has` and `precedes`.
 - [06]-[CSHARP](assets/examples/closed-family-switch-to-generated-switch.yml): Dispatch conversion — context/selector, derived slots, dual guards.
-- [07]-[PYTHON](assets/examples/no-raise-in-railed-function.yml): Signature-scoped ban — nearest-enclosing `stopBy` anchors on the return type.
+- [07]-[PYTHON](assets/examples/no-raise-in-result-function.yml): Signature-scoped ban — nearest-enclosing `stopBy` anchors on the return type.
 - [08]-[PYTHON](assets/examples/guard-ladder-to-conditional-chain.yml): Statement-to-expression fold — totality closure, parenthesized rungs.
 
 ## [02]-[OUTLINE]
@@ -39,17 +39,17 @@ Every rule proves through `test_match_code_rule` at omitted or `warning` severit
 
 Every outline task runs one sequence: resolve target paths from the task, search hits, or `git diff --name-only`; run the owning row; escalate the located symbol with `--match <symbol> --view expanded`; then Read only the printed line range.
 
-| [INDEX] | [TASK]                           | [COMMAND]                                                                     |
-| :-----: | :------------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | Map a directory surface          | `ast-grep outline <dir>` — grouped exported names; `--type <t1>,<t2>` narrows |
-|  [02]   | Understand a file before editing | `ast-grep outline <file>` — local structure with member digests               |
-|  [03]   | List a file's dependencies       | `ast-grep outline <file> --items imports`                                     |
-|  [04]   | Find importers of a module       | `ast-grep outline <dir> --items imports --match <module> --view signatures`   |
-|  [05]   | Enumerate public entry points    | `ast-grep outline <dir> --items exports --view signatures`                    |
-|  [06]   | Zoom into one symbol             | `ast-grep outline <file> --match <symbol> --type <type> --view expanded`      |
-|  [07]   | Map structure after edits        | `ast-grep outline $(git diff --name-only HEAD) --items exports`               |
-|  [08]   | Outline piped code               | `<producer> \| ast-grep outline --stdin -l <lang>`                            |
-|  [09]   | Post-process entries             | `ast-grep outline <path> --json=stream` — one file object per line, jq rails  |
+| [INDEX] | [TASK]                           | [COMMAND]                                                                        |
+| :-----: | :------------------------------- | :------------------------------------------------------------------------------- |
+|  [01]   | Map a directory surface          | `ast-grep outline <dir>` — grouped exported names; `--type <t1>,<t2>` narrows    |
+|  [02]   | Understand a file before editing | `ast-grep outline <file>` — local structure with member digests                  |
+|  [03]   | List a file's dependencies       | `ast-grep outline <file> --items imports`                                        |
+|  [04]   | Find importers of a module       | `ast-grep outline <dir> --items imports --match <module> --view signatures`      |
+|  [05]   | Enumerate public entry points    | `ast-grep outline <dir> --items exports --view signatures`                       |
+|  [06]   | Zoom into one symbol             | `ast-grep outline <file> --match <symbol> --type <type> --view expanded`         |
+|  [07]   | Map structure after edits        | `ast-grep outline $(git diff --name-only HEAD) --items exports`                  |
+|  [08]   | Outline piped code               | `<producer> \| ast-grep outline --stdin -l <lang>`                               |
+|  [09]   | Post-process entries             | `ast-grep outline <path> --json=stream` — one file object per line, jq pipelines |
 
 - `--items structure\|exports\|imports\|all` selects top-level entries; defaults key on input — file/stdin `structure`, any directory `exports`.
 - `--view names\|signatures\|digest\|expanded` sets detail ascending; defaults key on input — file/stdin `digest`, any directory `names`.
@@ -161,7 +161,7 @@ rule-tests/<rule-id>-test.yml    # binds by id, never filename; snapshots land b
 id: <rule-id>                    # imperative grammar: no-<construct> / require-<shape>
 language: <language>
 severity: error
-files: ['<scope-glob>']          # ignores: carves out sanctioned seams; both relative to sgconfig.yml, never ./-prefixed
+files: ['<scope-glob>']          # ignores: carves out sanctioned boundaries; both relative to sgconfig.yml, never ./-prefixed
 utils:
   <util-id>: { <family-shape> }
 rule: { <[03] rule> }
@@ -180,15 +180,15 @@ Every rule lands through one sequence:
 5. Land the rule in its owning folder; `ast-grep scan --inspect entity` proves registration, `--filter '<rule-id>'` iterates it alone.
 6. Gate with `ast-grep scan --no-ignore hidden --error=unused-suppression --error=no-suppress-all`; `test` rides the same gate.
 
-| [INDEX] | [RULE_CLASS]           | [MECHANISM]                                                                                        |
-| :-----: | :--------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | Banned construct       | construct kinds + `ignores:` on sanctioned seam globs, or `not: { inside: <marker-comment rule> }` |
-|  [02]   | Required shape         | owner kind + `not: { has: <required child, argument, or modifier> }`                               |
-|  [03]   | Entry-point discipline | declaration-name `regex` over modality-suffix and knob grammars; single-hop forwarders as patterns |
-|  [04]   | Layer boundary         | one rule per forbidden edge: import kind + path `regex`, `files:` scoping the consumer stratum     |
-|  [05]   | Policy literal         | literal kinds `inside` policy argument and initializer positions — named rows own the values       |
-|  [06]   | Dispatch shape         | dispatch kind `inside` a dispatch arm; catch-all arms beside closed-family arms                    |
-|  [07]   | Naming grammar         | name-position `regex`: word budget, banned generic suffixes, role-suffix bijection via `not: has`  |
+| [INDEX] | [RULE_CLASS]           | [MECHANISM]                                                                                            |
+| :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | Banned construct       | construct kinds + `ignores:` on sanctioned boundary globs, or `not: { inside: <marker-comment rule> }` |
+|  [02]   | Required shape         | owner kind + `not: { has: <required child, argument, or modifier> }`                                   |
+|  [03]   | Entry-point discipline | declaration-name `regex` over modality-suffix and knob grammars; single-hop forwarders as patterns     |
+|  [04]   | Layer boundary         | one rule per forbidden edge: import kind + path `regex`, `files:` scoping the consumer stratum         |
+|  [05]   | Policy literal         | literal kinds `inside` policy argument and initializer positions — named rows own the values           |
+|  [06]   | Dispatch shape         | dispatch kind `inside` a dispatch arm; catch-all arms beside closed-family arms                        |
+|  [07]   | Naming grammar         | name-position `regex`: word budget, banned generic suffixes, role-suffix bijection via `not: has`      |
 
 - One unparseable rule or duplicate id aborts the whole scan — inline `---` bundles tolerate both; a draft never sits under `ruleDirs`.
 - `sgconfig.yml` accepts unknown keys silently; scoping rides per-rule `files:`/`ignores:` only.

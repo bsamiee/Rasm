@@ -111,7 +111,7 @@ Reply and interaction axes are mutually exclusive; modifiers compose freely.
 
 `NSAppleEventSendOptions` adds one net-new flag, `NSAppleEventSendDontAnnotate` (`kAEDoNotAutomaticallyAddAnnotationsToEvent`), which suppresses the sandbox annotations the system otherwise stamps onto the event. `NSAppleEventSendDefaultOptions` composes `NSAppleEventSendWaitForReply | NSAppleEventSendCanInteract`, so a sender that names neither axis still blocks its run loop and still permits receiver UI.
 
-Reply parsing separates application errors from transport status. `AESendMessage` returns transport status as its own `OSStatus`; the reply event carries application-level failure through `keyErrorNumber`, `keyErrorString`, `keyErrorBriefMessage`, and an offending-object descriptor. A sender folds both rails into one typed error value before the result reaches calling code, because a transport success can still wrap an application failure.
+Reply parsing separates application errors from transport status. `AESendMessage` returns transport status as its own `OSStatus`; the reply event carries application-level failure through `keyErrorNumber`, `keyErrorString`, `keyErrorBriefMessage`, and an offending-object descriptor. A sender folds both channels into one typed error value before the result reaches calling code, because a transport success can still wrap an application failure.
 
 ## [05]-[SECURITY_PATTERNS]
 

@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_GRPC_CLIENT_WEB]
 
-`Grpc.Net.Client.Web` translates client gRPC calls into `application/grpc-web` or `application/grpc-web-text` transport for HTTP/1.1 and browser-constrained paths. `GrpcWebHandler` wraps the channel handler chain as a `DelegatingHandler`, carrying unary and server-streaming calls across a gRPC-Web frame while client-streaming, duplex, and the typed-fault rail stay on the HTTP/2 `Grpc.Net.Client` channel.
+`Grpc.Net.Client.Web` translates client gRPC calls into `application/grpc-web` or `application/grpc-web-text` transport for HTTP/1.1 and browser-constrained paths. `GrpcWebHandler` wraps the channel handler chain as a `DelegatingHandler`, carrying unary and server-streaming calls across a gRPC-Web frame while client-streaming, duplex, and the typed-fault path stay on the HTTP/2 `Grpc.Net.Client` channel.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -40,7 +40,7 @@
 - Under WebAssembly the handler renames `User-Agent` to `X-User-Agent` and flags the request for streaming responses.
 
 [STACKING]:
-- `Grpc.Core.Api`(`libs/dotnet/.api/api-grpc-core-api.md`): a translated call classifies its `RpcException` through the same status fold the HTTP/2 rail uses, so gRPC-Web rewrites the frame, never the typed-fault vocabulary.
+- `Grpc.Core.Api`(`libs/dotnet/.api/api-grpc-core-api.md`): a translated call classifies its `RpcException` through the same status fold the HTTP/2 channel uses, so gRPC-Web rewrites the frame, never the typed-fault vocabulary.
 - remote-client folder: `GrpcWebHandler(GrpcWebMode.GrpcWeb, inner)` wraps the BCL `SocketsHttpHandler` and enters `Grpc.Net.Client` through `GrpcChannelOptions.HttpHandler`; the channel-policy owner threads the `SocketsHttpHandler` keepalive and pooling members (`KeepAlivePingDelay`, `EnableMultipleHttp2Connections`, `PooledConnectionIdleTimeout`) and carries HTTP-version posture on `GrpcChannelOptions.HttpVersion`/`HttpVersionPolicy`, leaving the handler to rewrite the wire frame alone.
 
 [LOCAL_ADMISSION]:

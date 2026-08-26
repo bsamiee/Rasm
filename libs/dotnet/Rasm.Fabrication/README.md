@@ -13,7 +13,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [04]-[PHYSICS](.planning/Process/physics.md): State-dependent material laws, coolant-coupled cutting response, and energy budgets.
 - [05]-[FAULTS](.planning/Process/faults.md): Direct generated `FabricationFault` union partitioned by owning concern.
 - [06]-[DERIVATION](.planning/Process/derivation.md): Aggregate-admitted plan derivation with lot scheduling and critical-path evidence.
-- [07]-[TELEMETRY](.planning/Process/telemetry.md): Instruments, spans, hook rail, and descriptor pack.
+- [07]-[TELEMETRY](.planning/Process/telemetry.md): Instruments, spans, hook set, and descriptor pack.
 
 [TOOLING]:
 - [08]-[MAGAZINE](.planning/Tooling/magazine.md): Provider-detached `ToolAssembly` owner — typed-shortfall kitting, reserve-adjusted life schedule.
@@ -116,7 +116,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [KINEMATICS]:
 - `Robots` — Serial-chain robot kinematics: forward, inverse, and external axes.
-- `Rhino3dm` — `extern alias R3` boundary assembly the robot seam copies through; read-side only, document authoring stays host-side.
+- `Rhino3dm` — `extern alias R3` boundary assembly the robot boundary copies through; read-side only, document authoring stays host-side.
 
 [ADDITIVE]:
 - `PicoGK` — Implicit-voxel kernel for lattice infill and layer rasterization; companion-only.
@@ -130,7 +130,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json` — STJ converters for the generated value objects, smart enums, and unions on every egress.
-- `JetBrains.Annotations`
 - `System.IO.Hashing` — Reached only through the kernel content-hash mint every egress key seeds from.
 - `NodaTime` — Instant stamps on travelers, quality records, probing results, and tool-life schedules.
 - `NodaTime.Serialization.SystemTextJson` — STJ codec carrying those instants, intervals, and zones across the content-keyed wire.
@@ -151,14 +150,14 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `geometry3Sharp` — Line-sourced `BiArcFit2` biarc fit feeding `G2`/`G3` arc emit.
 
 [PLANAR_GEOSPATIAL]:
-- `Clipper2` — Line-space lanes behind the `FillOf` seam; offset, boolean, and morphology lower onto the `Rasm` kernel owners.
+- `Clipper2` — Line-space lanes behind the `FillOf` interface; offset, boolean, and morphology lower onto the `Rasm` kernel owners.
 
 [WIRE_CODEGEN]:
 - `Google.Protobuf` — Official protobuf binary emission of the generated feature-control message.
 - `Celly.Protovalidate` — Descriptor-compiled `buf.validate` evaluation at feature-control egress.
 
 [SERVICE_CONTRACTS]:
-- `Microsoft.Extensions.Caching.Hybrid` — Solver memo seat behind `HybridCache`; durable L2 federates at the Persistence cache seam.
+- `Microsoft.Extensions.Caching.Hybrid` — Solver memo seat behind `HybridCache`; durable L2 federates at the Persistence cache boundary.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Compliance.Redaction` — Classification attributes on protected evidence members; redactor binding stays at the app root.

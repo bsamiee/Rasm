@@ -1,6 +1,6 @@
 # [RASM_API_REDACTION]
 
-`Microsoft.Extensions.Compliance.Redaction` owns classification-keyed redactor resolution: a `DataClassificationSet` selects one `Redactor` at every egress seam, and a set no row claims falls to the erasing fallback. Redaction writes into a caller-sized span, so a classified value crosses the seam with no intermediate string on the sized path. `Microsoft.Extensions.Compliance.Abstractions` carries the taxonomy, the redactor base, and the provider and builder contracts, so a branch that annotates and reads pins it alone and never sees the registration fold.
+`Microsoft.Extensions.Compliance.Redaction` owns classification-keyed redactor resolution: a `DataClassificationSet` selects one `Redactor` at every egress boundary, and a set no row claims falls to the erasing fallback. Redaction writes into a caller-sized span, so a classified value crosses the boundary with no intermediate string on the sized path. `Microsoft.Extensions.Compliance.Abstractions` carries the taxonomy, the redactor base, and the provider and builder contracts, so a branch that annotates and reads pins it alone and never sees the registration fold.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -10,7 +10,7 @@
 | :-----: | :--------------------------------- | :------------- | :------------------------------------------------ |
 |  [01]   | `Redactor`                         | abstract class | span-write redaction base, two abstract overrides |
 |  [02]   | `IRedactorProvider`                | interface      | resolves one redactor per classification set      |
-|  [03]   | `IRedactionBuilder`                | interface      | classification-to-redactor mapping seam           |
+|  [03]   | `IRedactionBuilder`                | interface      | classification-to-redactor mapping registry       |
 |  [04]   | `NullRedactor`                     | sealed class   | copies through unchanged; `Instance` singleton    |
 |  [05]   | `NullRedactorProvider`             | sealed class   | pass-through provider; `Instance` singleton       |
 |  [06]   | `RedactionStringBuilderExtensions` | static class   | `StringBuilder` redaction egress                  |
@@ -107,16 +107,16 @@
 - Provider construction throws when the fallback type resolves to no registered instance, so a fallback row and its redactor registration land together.
 
 [STACKING]:
-- `Microsoft.Extensions.Telemetry`(`Rasm.AppHost/.api/api-telemetry.md`): `EnableRedaction` binds this provider onto the `ILogger` seam, and `LoggerRedactionOptions.ApplyDiscriminator` folds the tag name into the value before redaction, so one raw value yields a distinct token per tag name.
+- `Microsoft.Extensions.Telemetry`(`Rasm.AppHost/.api/api-telemetry.md`): `EnableRedaction` binds this provider onto the `ILogger` boundary, and `LoggerRedactionOptions.ApplyDiscriminator` folds the tag name into the value before redaction, so one raw value yields a distinct token per tag name.
 - `Microsoft.Extensions.Telemetry.Abstractions`(`api-telemetry-abstractions.md`): the classified-tag overloads on `ITagCollector` and `LoggerMessageState` carry the `DataClassificationSet` this package's `IRedactorProvider` resolves a `Redactor` from.
 - `Microsoft.Extensions.Logging.Abstractions`(`api-logging-abstractions.md`): `[LogProperties]` and `[TagProvider]` generated methods carry each expanded member's `DataClassificationSet` to the provider before a sink observes the tag.
 - `OpenTelemetry.Instrumentation.Http`(`api-otel-instrumentation-http.md`): the rosters partition at the value boundary — URL-query redaction rides that package's own environment row, annotated values ride this provider.
 - `Rasm.AppHost` `Observability/telemetry#REDACTION_TAXONOMY`: `RedactionRegistration.Bind` folds each taxonomy row's `RedactorKind` onto `SetHmacRedactor` or `SetRedactor<ErasingRedactor>` and closes on `SetFallbackRedactor<ErasingRedactor>()`; `DataClassification.Marker` mints the compliance key.
 - `Rasm.Persistence` `Element/codec#SNAPSHOT_SPINE`: a classification lands as a value field on the snapshot catalog row and the `Element/identity` ceiling, so retention policy ranks the stamp without resolving a redactor.
 - `Rasm.Fabrication`: consumes the contract assembly alone — `FabricationClassified` mints three `DataClassification` values as `(taxonomy, value)` string pairs (`"DataClassification"` with `personal`, `confidential`, `credential`), sealed `PersonalDataAttribute`/`ConfidentialDataAttribute`/`CredentialDataAttribute` rows annotate `AttestationPayload.Signer`, `TravelerAmendment.Actor`, `WelderQualification.Welder`, `HeatNumber`, and `AttestationPayload.Credential` at definition time, no page below the AppHost root resolves a `Redactor`, sealed canonical artifact bytes never redact — classification governs telemetry and log egress while the signed record keeps its attested content — and the `Process/telemetry#FACT_UNION` measures-only fact cases keep classified identity off every instrument tag and fact field.
-- `Rasm.Element` (`Graph/wire#EGRESS_REDACTION`): the contract assembly alone; no `Redactor` resolves at the seam. `DataClassificationSet.Union` containment selects `ClassifiedEffect` rows that clear valid scalars or prune complete generated cases.
+- `Rasm.Element` (`Graph/wire#EGRESS_REDACTION`): the contract assembly alone; no `Redactor` resolves at the boundary. `DataClassificationSet.Union` containment selects `ClassifiedEffect` rows that clear valid scalars or prune complete generated cases.
 
 [LOCAL_ADMISSION]:
-- `GetRedactor` is the read seam at every exporter and bundle egress; a classified value reaches a sink through the redactor it resolves.
+- `GetRedactor` is the read entry at every exporter and bundle egress; a classified value reaches a sink through the redactor it resolves.
 - Annotate-and-read branches pin `Microsoft.Extensions.Compliance.Abstractions` alone; the composition root pins `Microsoft.Extensions.Compliance.Redaction` and owns the one `AddRedaction` fold.
 - `DataClassificationTypeConverter` binds under `EXTEXP0002` acknowledged as a declared policy value at the owning project row.

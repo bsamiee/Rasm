@@ -1,24 +1,24 @@
 # [RESILIENCE]
 
-Transport resilience is one topology declared at the composition root. Every outbound hop owns exactly one pipeline, held as one registry row keyed by hop identity, and the callable domain code receives is already resilient — call sites carry zero resilience vocabulary, which is what makes a second owner a visible anomaly instead of a habit. Inside a pipeline, declaration order is the policy and every strategy knob is a validated property derived from the hop's allotment class, never a call-site literal; execution is outcome-first, folding every termination once at the seam into a typed rail value carrying its rejection evidence. HTTP seams compose the standard and hedging handlers as slot-editable options records selected by the hop row's idempotency columns; operator-forced darkness is one multi-breaker control per capability group; chaos is ordered policy below the strategies it tests. Domain-internal retry stays `Schedule` policy on effect rails and store transaction retry stays the store's execution strategy — never either beside a hop pipeline on one seam. Growth lands as rows: a new hop is one row, a new posture one options edit, a new fault mix one weighted generator row, never a new code surface.
+Transport resilience is one topology declared at the composition root. Every outbound hop owns exactly one pipeline, held as one registry row keyed by hop identity, and the callable domain code receives is already resilient — call sites carry zero resilience vocabulary, which is what makes a second owner a visible anomaly instead of a habit. Inside a pipeline, declaration order is the policy and every strategy knob is a validated property derived from the hop's allotment class, never a call-site literal; execution is outcome-first, folding every termination once at the boundary into a typed result value carrying its rejection evidence. HTTP boundaries compose the standard and hedging handlers as slot-editable options records selected by the hop row's idempotency columns; operator-forced darkness is one multi-breaker control per capability group; chaos is ordered policy below the strategies it tests. Domain-internal retry stays `Schedule` policy on effect carriers and store transaction retry stays the store's execution strategy — never either beside a hop pipeline on one boundary. Growth lands as rows: a new hop is one row, a new posture one options edit, a new fault mix one weighted generator row, never a new code surface.
 
 ## [01]-[RESILIENCE_CHOOSER]
 
 This table routes a resilience concern to its owning surface; the most specific row wins.
 
-| [INDEX] | [CONCERN]                | [OWNER]                                    | [REJECTED_FORM]                  |
-| :-----: | :----------------------- | :----------------------------------------- | :------------------------------- |
-|  [01]   | outbound hop protection  | hop row + root registry claim              | pipeline built inside the seam   |
-|  [02]   | strategy arrangement     | canonical declaration order                | order-blind strategy bag         |
-|  [03]   | transient classification | one predicate row per failure family       | per-site exception switch        |
-|  [04]   | seam execution           | `ExecuteOutcomeAsync` + one outcome fold   | thrown control flow above seam   |
-|  [05]   | HTTP seam posture        | `AddStandardResilienceHandler` slot record | hand-stacked delegating handlers |
-|  [06]   | concurrent duplication   | hedging on idempotent + replayable rows    | hedging as a failure remedy      |
-|  [07]   | per-target isolation     | `SelectPipelineByAuthority` instances      | per-target client registrations  |
-|  [08]   | domain-internal retry    | `Schedule` policy on rails                 | pipeline around domain logic     |
-|  [09]   | store transaction retry  | store execution strategy                   | pipeline around store calls      |
-|  [10]   | operator-forced dark     | one manual control per capability group    | restore-previous toggle          |
-|  [11]   | fault injection          | chaos block below tested strategies        | bolt-on test-only harness        |
+| [INDEX] | [CONCERN]                | [OWNER]                                    | [REJECTED_FORM]                    |
+| :-----: | :----------------------- | :----------------------------------------- | :--------------------------------- |
+|  [01]   | outbound hop protection  | hop row + root registry claim              | pipeline built inside the boundary |
+|  [02]   | strategy arrangement     | canonical declaration order                | order-blind strategy bag           |
+|  [03]   | transient classification | one predicate row per failure family       | per-site exception switch          |
+|  [04]   | boundary execution       | `ExecuteOutcomeAsync` + one outcome fold   | thrown control flow above boundary |
+|  [05]   | HTTP boundary posture    | `AddStandardResilienceHandler` slot record | hand-stacked delegating handlers   |
+|  [06]   | concurrent duplication   | hedging on idempotent + replayable rows    | hedging as a failure remedy        |
+|  [07]   | per-target isolation     | `SelectPipelineByAuthority` instances      | per-target client registrations    |
+|  [08]   | domain-internal retry    | `Schedule` policy on carriers              | pipeline around domain logic       |
+|  [09]   | store transaction retry  | store execution strategy                   | pipeline around store calls        |
+|  [10]   | operator-forced dark     | one manual control per capability group    | restore-previous toggle            |
+|  [11]   | fault injection          | chaos block below tested strategies        | bolt-on test-only harness          |
 
 ## [02]-[PIPELINE_LAW]
 
@@ -42,7 +42,7 @@ This table routes a resilience concern to its owning surface; the most specific 
 - Law: `TimeoutGenerator` decides per execution — a non-positive or infinite return disables the deadline for that execution only, making the deadline a per-call policy value.
 - Law: half-open is one probe — a handled failure re-opens for another break, a success closes and resets statistics — and escalating break length is a `BreakDurationGenerator` row, never a custom strategy.
 - Law: hedging `Delay` extremes are one policy value apart — zero launches all attempts as a parallel race, infinite is strictly sequential failover, a small positive value is tail-latency hedging.
-- Law: two strategies of one type need distinct `Name` values or their telemetry merges — `(pipeline.name, strategy.name)` is the deduplication key; builder `TimeProvider` drives every delay, deadline, and sampling window from one injection point, and `Randomizer` is the jitter determinism seam.
+- Law: two strategies of one type need distinct `Name` values or their telemetry merges — `(pipeline.name, strategy.name)` is the deduplication key; builder `TimeProvider` drives every delay, deadline, and sampling window from one injection point, and `Randomizer` is the jitter determinism port.
 - Use: `ConfigureTelemetry` once on the builder — the listener wraps the whole composite, every rejection carries `TelemetrySource` stamped at throw, and unconfigured telemetry skips event construction entirely.
 - Use: `SeverityProvider` to demote expected retry churn and promote breaker opens — severity `None` suppresses recording entirely — with `ResultFormatter`, `MeteringEnrichers`, and `TelemetryListeners` as observability projections that cannot mutate the outcome.
 
@@ -95,27 +95,24 @@ public static class HopPipeline {
 }
 ```
 
-## [03]-[SEAM_EXECUTION]
+## [03]-[BOUNDARY_EXECUTION]
 
 [OUTCOME_FOLD]:
-- Law: the seam executes outcome-first — `ExecuteOutcomeAsync` with typed state keeps the hot path closure-free, strategies see outcomes and never in-flight exceptions, and the capture kernel folds everything except process-fatal faults into the outcome.
+- Law: the boundary executes outcome-first — `ExecuteOutcomeAsync` with typed state keeps the hot path closure-free, strategies see outcomes and never in-flight exceptions, and the capture kernel folds everything except process-fatal faults into the outcome.
 - Law: the context lease is strict — `ResilienceContextPool.Shared.Get` at entry, `Return` on every exit, never retained — and `OperationKey` fixes at lease as the idempotency key's transport: it reaches every attempt and lands as `operation.key` on every telemetry event, so key, attempts, and evidence correlate by construction rather than by joins.
 - Law: `ContinueOnCapturedContext` rides the lease — one capture policy per execution, consumed by every strategy await — and a pre-cancelled lease short-circuits to a cancelled outcome before any strategy runs.
-- Law: the total-outcome fold happens exactly once, at the seam — every `Outcome<T>` folds to a success or one case of the closed `Rejection` `[Union]` deriving from `Fault`, so the seam's failure currency is the rail's own `Error` widening with no bridge, and a second fold at a caller re-opens the vocabulary the seam retired.
+- Law: the total-outcome fold happens exactly once, at the boundary — every `Outcome<T>` folds to a success or one case of the closed `Rejection` `[Union]` deriving from `Fault`, so the boundary's failure currency is the carrier's own `Error` widening with no bridge, and a second fold at a caller re-opens the vocabulary the boundary retired.
 - Law: the typed arms close the known rejection verbs while every exception-derived arm carries the exact captured error and `Rejection.Foreign(Error)` is the open-tail passthrough; `Rejection.Empty` alone is cause-free because the outcome supplied neither result nor exception, so the fold drops no fault and the provider taxonomy never leaks into the neutral owner.
 - Law: cancelled-versus-rejected is structural — a cancellation while the caller token fired is `Rejection.CallerLeft`, the caller's intent; a child deadline firing while the caller token did not converts to a cause-bearing `Rejection.Deadline` — so "the caller left" and "the attempt was too slow" are distinguishable by case, never by inspecting message text.
 - Law: the rejected arm is a closed taxonomy ordered child-before-parent — `IsolatedCircuitException` before its `BrokenCircuitException` base, so operator-forced darkness folds to `Rejection.ForcedDark` and never masquerades as the dependency `Rejection.Open` — and each case binds its evidence as a typed field: `Deadline.Span`, `Open.RetryAfter`, `Shed.RetryAfter`, `ForcedDark.Pipeline` read from `TelemetrySource.PipelineName`, so escalation pattern-matches the case and reads the field, never re-parses the detail string the `Fault` base renders for the wire alone.
 - Law: `ResilienceProperties` is the typed side channel between caller and strategies — `ResiliencePropertyKey<TValue>` rows, string-keyed at the wire, typed at every access point — and the idempotency window rides it as the allotment span, fixed before the pipeline runs.
 - Law: `ResiliencePipeline<T>` execution constrains `TResult : T` — one typed pipeline serves an entire result hierarchy, with subtype executions riding the same strategy state.
-- Exemption: the outcome-capture kernel and the lease `try`/`finally` are the platform-forced statement seam.
+- Exemption: the outcome-capture kernel and the lease `try`/`finally` are the platform-forced statement body.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Rejection : Fault {
     private Rejection(string detail) => Detail = detail;
-    // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
-    // `FaultBand.Hop` already belongs to the estate's hop family, and a second family on a live row is the
-    // deleted form the registry's disjointness proof exists to refuse.
     private static readonly FaultBand FamilyBand = FaultBand.Rejection;
 
     public string Detail { get; }
@@ -141,7 +138,7 @@ public abstract partial record Rejection : Fault {
     public sealed partial record Foreign(Error Cause) : Rejection(Cause.Message), ICausedFault;
 }
 
-public static class HopSeam {
+public static class HopBoundary {
     public static readonly ResiliencePropertyKey<TimeSpan> Window = new("<window>");
 
     public static async Task<Fin<Reply>> Send(
@@ -183,7 +180,7 @@ public static class HopSeam {
 ## [04]-[HOP_TOPOLOGY]
 
 [ONE_OWNER]:
-- Law: exactly one retry owner exists per outbound hop, held at the composition root as one registry row keyed by normalized hop identity — the law is outbound-only, inbound admission is never a hop — and a pipeline built directly inside a seam escapes the claim cell, the conflict detection, and the disposal fence at once.
+- Law: exactly one retry owner exists per outbound hop, held at the composition root as one registry row keyed by normalized hop identity — the law is outbound-only, inbound admission is never a hop — and a pipeline built directly inside a boundary escapes the claim cell, the conflict detection, and the disposal fence at once.
 - Law: claim identity is the hop, not the policy and not the instance — per-authority instances are one owner with N isolated states, never a second owner, and un-normalized identity splinters one hop into fragments that each look singly owned and under-detect conflicts.
 - Law: the hop row is one closed record and every law on this page is a column — key with two formatted axes, `nameof`-derived owner symbol, allotment class, two idempotency columns, policy reference, override group, routes — so a new hop is one row and a new resilience law is one column, never a new surface; the row set is the process's queryable resilience topology.
 - Law: `TryAddBuilder` returns the claim verdict synchronously — a false verdict degrades the loser to the incumbent pipeline, single pass through full protection and never reduced coverage, and projects one conflict fact carrying both declaration symbols and the discarded policy, the only place the losing policy survives for repair comparison.
@@ -191,28 +188,28 @@ public static class HopSeam {
 - Law: generic and non-generic pipelines are disjoint namespaces per result type — a hop registered generically and resolved non-generically misses silently — so the row fixes the result type at registration and resolution shape cannot drift.
 - Law: registry disposal is the composition fence — every materialized pipeline force-disposes, stale references throw, and a rebuilt root re-derives rows from configuration; `OnPipelineDisposed` is the reclaim hook declared beside the claim at the row, and breaker statistics and limiter queues are process-local by construction, intentionally unrecoverable.
 - Law: mid-life policy change is per-row reload — `AddReloadToken` rebuilds one hop's pipeline in place, in-flight executions finish on the old generation, and the discarded component disposes in the background after a bounded drain, so an execution outliving that bound races its own component's disposal.
-- Law: a throwing reload keeps the old component and emits a reload-failure succession fact — a configuration error degrades to the last good pipeline, never an unguarded seam — and reload versus root rebuild are distinguishable kind cases under a per-row generation counter, conflict and succession riding one kind-discriminated topology fact stream rather than parallel fact types.
+- Law: a throwing reload keeps the old component and emits a reload-failure succession fact — a configuration error degrades to the last good pipeline, never an unguarded boundary — and reload versus root rebuild are distinguishable kind cases under a per-row generation counter, conflict and succession riding one kind-discriminated topology fact stream rather than parallel fact types.
 - Law: one registry exists per key type per container — the key type partitions the resilience namespace, so a process standardizes on one key shape or its claims fragment across invisible registries.
 - Law: `AddResiliencePipeline` registers the keyed-service projection, the registry/provider pair, and container-wired telemetry at once, and `AddResiliencePipelines` defers key enumeration to startup so a configuration-derived hop set is one callback; a container `TimeProvider` flows into every registry pipeline while a base-builder `ContextPool` does not — pool policy re-applies where the typed builder is configured.
-- Exemption: the registry configure body — reload token, dispose reclaim, builder mutation — is the platform-forced statement seam.
+- Exemption: the registry configure body — reload token, dispose reclaim, builder mutation — is the platform-forced statement body.
 
 [LAYER_SPLIT]:
 
 The retry-owner table is a decision procedure; rows overlap and first match wins.
 
-| [INDEX] | [SEAM_FACT]                         | [RETRY_OWNER]                        |
-| :-----: | :---------------------------------- | :----------------------------------- |
-|  [01]   | callee owns transactional semantics | store execution strategy             |
-|  [02]   | call crosses a process seam         | hop pipeline at the root             |
-|  [03]   | typed fault on rails, in-process    | `Schedule` policy on the effect rail |
+| [INDEX] | [BOUNDARY_FACT]                     | [RETRY_OWNER]                           |
+| :-----: | :---------------------------------- | :-------------------------------------- |
+|  [01]   | callee owns transactional semantics | store execution strategy                |
+|  [02]   | call crosses a process boundary     | hop pipeline at the root                |
+|  [03]   | typed fault on carriers, in-process | `Schedule` policy on the effect carrier |
 
-- Law: the split is exclusive per seam — schedule m × pipeline n multiplies attempts invisibly and inflates the idempotency window by m, and each layer is locally correct, so only seam exclusivity catches the stack; ambiguity after both questions means the seam is mis-factored, never that the table needs a fourth row.
-- Law: pipeline predicates speak the wire's vocabulary — routing domain values through exceptions so a pipeline can retry them inverts the fault architecture; a pipeline around store work replays from the wrong boundary, the one misclassification that corrupts data, so the audit order is stores, then wire seams, then rails.
-- Law: a durable handoff has no retry owner — persisted intent is the resilience, and retry above it duplicates enqueued work; readiness polling is schedule-driven convergence, not retry; each fan-out leg keeps its own owner and the aggregate gets no umbrella loop; a capsule that crosses a wire internally owns the hop at its own seam — ownership follows the seam, never the call stack.
+- Law: the split is exclusive per boundary — schedule m × pipeline n multiplies attempts invisibly and inflates the idempotency window by m, and each layer is locally correct, so only boundary exclusivity catches the stack; ambiguity after both questions means the boundary is mis-factored, never that the table needs a fourth row.
+- Law: pipeline predicates speak the wire's vocabulary — routing domain values through exceptions so a pipeline can retry them inverts the fault architecture; a pipeline around store work replays from the wrong boundary, the one misclassification that corrupts data, so the audit order is stores, then wire boundaries, then carriers.
+- Law: a durable handoff has no retry owner — persisted intent is the resilience, and retry above it duplicates enqueued work; readiness polling is schedule-driven convergence, not retry; each fan-out leg keeps its own owner and the aggregate gets no umbrella loop; a capsule that crosses a wire internally owns the hop at its own boundary — ownership follows the boundary, never the call stack.
 - Law: ambient retry — interceptors, base-class hooks, middleware over all calls — has no hop identity and therefore no claim row; it is dismantled into one of the three layers before any other resilience work proceeds.
-- Law: a hop owns one allotment — total and attempt spans co-validated as a named class, the attempt deadline a linked child of the total, single-pass rows collapsing the class to one span — and allotments inherit through nested seams as the minimum of the child's class and the inherited remainder; a break consumes allotment while rejecting fast, never pausing it.
+- Law: a hop owns one allotment — total and attempt spans co-validated as a named class, the attempt deadline a linked child of the total, single-pass rows collapsing the class to one span — and allotments inherit through nested boundaries as the minimum of the child's class and the inherited remainder; a break consumes allotment while rejecting fast, never pausing it.
 - Law: the idempotency window equals the allotment — key lifetime derives from it and from no backoff parameter, the key mints above the owner and fixes in the context before the pipeline runs, because a key minted inside the retried callback changes per attempt and defeats itself; hedging widens the window to overlapping duplicates in flight.
-- Boundary: transport seams compose these pipelines into their handler chains; wire shapes and handler mechanics are transport law.
+- Boundary: transport boundaries compose these pipelines into their handler chains; wire shapes and handler mechanics are transport law.
 
 ```csharp
 public sealed record HopKey(string Hop, string Instance);
@@ -264,18 +261,18 @@ public sealed class HopTopology {
 }
 ```
 
-## [05]-[HTTP_SEAMS]
+## [05]-[HTTP_BOUNDARIES]
 
 [STANDARD_POSTURE]:
 - Law: `AddStandardResilienceHandler` composes exactly five strategies — rate limiter, total timeout, retry, circuit breaker, attempt timeout — from one `HttpStandardResilienceOptions` record bound to `"{clientName}-standard"`, reloadable and validated as a unit; configuration keys mirror the property names under strict binding, so the config schema is the options shape, never a parallel vocabulary.
-- Law: the handler deletes the client's own deadline — `HttpClient.Timeout` becomes infinite so the pipeline is the seam's only deadline owner; restoring a finite client timeout creates a second untyped deadline that surfaces as bare cancellation instead of typed rejection.
+- Law: the handler deletes the client's own deadline — `HttpClient.Timeout` becomes infinite so the pipeline is the boundary's only deadline owner; restoring a finite client timeout creates a second untyped deadline that surfaces as bare cancellation instead of typed rejection.
 - Law: cross-field coherence fails boot, not first request — attempt ≤ total, breaker sampling ≥ 2× attempt, the cumulative hedging plan inside its own budget — and per-name validation names the misconfigured client.
 - Law: hardening is per-slot — swap the retry predicate, retune the breaker, point the limiter at a shared instance — and the chain order itself is not an options value: a different order is a custom `AddResilienceHandler` declaration that must re-satisfy the same validators.
 - Law: the transient set is closed — 408, 429, status ≥ 500, `HttpRequestException`, `TimeoutRejectedException` — and a connect timeout classifies by structure, a core-runtime cancellation with an inner `TimeoutException` while the caller token has not fired; custom pipelines reuse `HttpClientResiliencePredicates.IsTransient`, one transient definition per process.
 - Law: `ShouldRetryAfterHeader` installs the retry-after delay generator; a custom `DelayGenerator` silently replaces it, so keeping both means composing the header parse inside the custom generator.
-- Law: handler-chain position decides per-attempt versus per-call — handlers registered after the resilience handler run once per attempt — and at most one resilience handler sits on one client seam, because two stack multiplicatively, `RemoveAllResilienceHandlers` then one declaration being the repair; the method filters `DisableForUnsafeHttpMethods` and `DisableFor` decorate the transient predicate under the one centrally pinned experimental acknowledgment.
+- Law: handler-chain position decides per-attempt versus per-call — handlers registered after the resilience handler run once per attempt — and at most one resilience handler sits on one client boundary, because two stack multiplicatively, `RemoveAllResilienceHandlers` then one declaration being the repair; the method filters `DisableForUnsafeHttpMethods` and `DisableFor` decorate the transient predicate under the one centrally pinned experimental acknowledgment.
 - Law: `Configure(IConfigurationSection)` binds with unknown-key errors and rejects an empty section as a wiring defect; the hedging family binds its options under the client name itself with no suffix, so section paths are not portable between the two handler families.
-- Law: the request and the context bridge bidirectionally under stable keys — `GetResilienceContext`/`SetResilienceContext` on the request, `GetRequestMessage`/`SetRequestMessage` on the context — and a pre-attached context is the sanctioned channel for threading caller properties through the seam and reading strategy-written properties afterward.
+- Law: the request and the context bridge bidirectionally under stable keys — `GetResilienceContext`/`SetResilienceContext` on the request, `GetRequestMessage`/`SetRequestMessage` on the context — and a pre-attached context is the sanctioned channel for threading caller properties through the boundary and reading strategy-written properties afterward.
 
 [SELECTION_AND_HEDGING]:
 - Law: `SelectPipelineByAuthority` keys one pipeline instance per scheme, host, and port — N isolated breaker, limiter, and deadline states from one declaration, materialized lazily per instance with zero added registrations; keys compare ordinally, the authority provider requires an absolute request URI, and selector output becomes the `pipeline.instance` telemetry dimension, so a selector never projects secrets or unbounded cardinality.
@@ -286,10 +283,10 @@ public sealed class HopTopology {
 - Law: the total deadline sits above hedging, so one budget expiry cancels every concurrent attempt at once and losers cancel when a winner lands; routing and snapshotting run outside the budget — route resolution and clone cost are setup, never allotment spend.
 - Law: the snapshot rejects stream bodies at construction and shares content across clones — hedged attempts must tolerate concurrent reads; route exhaustion stops hedging, ordered groups walk declaration order, weighted groups draw by weight, a tried group is never offered twice within one logical call, and route-table edits ride the options monitor onto new calls with no pipeline rebuild.
 - Law: `WeightedGroupSelectionMode.EveryAttempt` draws every group by weight while `InitialAttempt` draws only the first and walks the rest in declaration order — load-spread versus primary-with-failover from one enum value; the `ActionGenerator` slot is handler-owned and overwrites user assignment, so custom action generation is a custom handler declaration.
-- Exemption: the handler registration and options-mutation bodies are the platform-forced statement seam.
+- Exemption: the handler registration and options-mutation bodies are the platform-forced statement body.
 
 ```csharp
-public static class WireSeam {
+public static class WireBoundary {
     public static IServiceCollection Compose(IServiceCollection services, Seq<HopRow> topology) =>
         topology.Fold(services, static (svc, row) => row.Idempotent && row.Replayable ? Hedged(svc, row) : Standard(svc, row));
 
@@ -365,7 +362,7 @@ public static class GroupBinding {
 ## [07]-[CHAOS]
 
 [INJECTION_LAW]:
-- Law: four chaos strategies admit through the same builder grammar and partition the failure planes — fault injects the exception rail, outcome substitutes the result rail without invoking the callback, latency spends the time plane, behavior runs a side effect before the call — one concern per declaration, ordered like any strategy, with outcome injection a generic-builder surface because substitution needs the result type.
+- Law: four chaos strategies admit through the same builder grammar and partition the failure planes — fault injects the exception channel, outcome substitutes the result value without invoking the callback, latency spends the time plane, behavior runs a side effect before the call — one concern per declaration, ordered like any strategy, with outcome injection a generic-builder surface because substitution needs the result type.
 - Law: chaos sits below the strategies under test — injection above a breaker proves nothing because the breaker never observes it; the canonical arrangement is resilience chain, then chaos block, then the real callback.
 - Law: the injection gate is a per-execution conjunction — the enabled decision, then the rate draw against the `Randomizer` — and generator presence makes the scalar ignored, so targeting one tenant, one environment, or one fraction is a generator row, never a build-time fork.
 - Law: one process kill cell gates every chaos strategy and one posture record carries the rates — both stamped onto every chaos options row by one parameterized configurator — so the entire chaos posture is a runtime-operable dial that swaps as one value, never a deployment artifact.

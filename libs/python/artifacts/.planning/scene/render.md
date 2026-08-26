@@ -9,7 +9,7 @@ Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission e
 - Owner: `Scene3d` discriminates modality over the closed `SceneOp` family; every case carries its own typed payload — a `SceneGrid` admitted owner, never an erased `object` the worker discovers the shape of. Binary CSG and sampling ride the dedicated two-operand `Compose` modality because `FieldFilter.apply` has one fielded operand.
 - Cases: `Frames` is one arm the rotating-scene and chart-over-time sources share; its `rgb24` rasters cross to `media/container#CONTAINER` through `framed()` without a file round-trip, and a non-frames op refuses the egress at the boundary. `Image` is the raster fast path minting the `_sized` dims band; `Export` at the same `PNG` target rides the `ExportRow` law and threads dataset facts — one target, two evidence bands. `Ingest` re-admits an existing scene through the worker importer, applies `RenderSpec.viewed`, and re-serializes through `render_ingest`. `Compose` folds two grids through the worker's boolean-CSG or field-sample table under the terminal arm — the worker refuses a non-manifold operand, yet a watertight fold can still spin on coincident surfaces, so the kill budget bounds it where a cooperative cancel cannot.
 - Auto: `_canon` lowers each arm onto `scene/spec#SPEC`'s `framed`/`CANON` identity-preimage discipline — `SceneGrid.spans` shape-plus-buffer chunks beside one deterministic-msgpack spec chunk — so `_key` mints through the bare `ContentIdentity.key` and merkle-folds `parents` when present.
-- Boundary: `_emit` runs the arm under `async_boundary` anchored on the `SCENE_RENDER` row and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as that row's fault, never a custom exception re-crossed inward. The frames egress refuses a non-frames op by RETURNING `SCENE_EGRESS`, never by raising into a fence that would convert it back.
+- Boundary: `_emit` runs the arm under `async_boundary` anchored on the `SCENE_RENDER` row and flattens the boundary-faulted offload path exactly once, so the composed signature stays one `RuntimeResult` and a worker raise lands as that row's fault, never a custom exception re-crossed inward. The frames egress refuses a non-frames op by RETURNING `SCENE_EGRESS`, never by raising into a fence that would convert it back.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -20,7 +20,7 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct
 
-from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -89,7 +89,7 @@ class Scene3d(Struct, frozen=True):
     def emit(self, /) -> ArtifactWork[object]:
         return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=4.0)
 
-    async def framed(self) -> RuntimeRail[Frames]:
+    async def framed(self) -> RuntimeResult[Frames]:
         match self.op:
             case SceneOp(tag="frames", frames=(grid, orbit, spec)):
                 return await self._offload("render_frames", grid, orbit, spec, enforcement=Enforcement.TERMINAL)
@@ -101,12 +101,12 @@ class Scene3d(Struct, frozen=True):
         minted = ContentIdentity.key(f"scene-{self.op.tag}", _canon(self.op))
         return minted if not self.parents else ContentIdentity.key(f"scene-{self.op.tag}", (minted, *self.parents))
 
-    async def _offload[T](self, kernel: str, /, *args: object, enforcement: Enforcement = Enforcement.COOPERATIVE) -> RuntimeRail[T]:
+    async def _offload[T](self, kernel: str, /, *args: object, enforcement: Enforcement = Enforcement.COOPERATIVE) -> RuntimeResult[T]:
         return await self.lane.offload(Kernel.of((WORKER_MODULE, kernel), KernelTrait.HOSTILE, enforcement=enforcement, idempotent=True), *args)
 
-    async def _emit(self) -> RuntimeRail[object]:
-        railed = await async_boundary(SCENE_RENDER, self._rendered, catch=_RESIDUE)
-        match railed.bind(lambda rail: rail):
+    async def _emit(self) -> RuntimeResult[object]:
+        outcome = await async_boundary(SCENE_RENDER, self._rendered, catch=_RESIDUE)
+        match outcome.bind(lambda held: held):
             case Result(tag="ok", ok=product):
                 match self.op, product:
                     case SceneOp(tag="image" | "compose"), bytes() as data:
@@ -122,7 +122,7 @@ class Scene3d(Struct, frozen=True):
             case refused:
                 return Error(refused.error)
 
-    async def _rendered(self) -> RuntimeRail[object]:
+    async def _rendered(self) -> RuntimeResult[object]:
         match self.op:
             case SceneOp(tag="image", image=(grid, spec)):
                 return await self._offload("render_image", grid, spec)

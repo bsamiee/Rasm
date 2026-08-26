@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SCIPY]
 
-`scipy` owns the scientific numeric solver surface the compute numeric-intent rail routes onto. Each `NumericIntent` case binds one submodule callable and captures its tolerances and residuals as study evidence that graduates on the one rail, a consumer selecting its own substrate off the `Solve`.
+`scipy` owns the scientific numeric solver surface the compute numeric-intent domain routes onto. Each `NumericIntent` case binds one submodule callable and captures its tolerances and residuals as study evidence that graduates on the one result, a consumer selecting its own substrate off the `Solve`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -252,4 +252,4 @@
 - import: submodule imports at boundary scope only.
 - routing: `NumericIntent` dense-linear -> `scipy.linalg`; sparse-solve -> `scipy.sparse.linalg`; nonlinear-optimize -> `scipy.optimize`; integrate -> `scipy.integrate`; interpolate -> `scipy.interpolate`.
 - evidence: each solve records the route callable, tolerance inputs, and convergence/residual (`OptimizeResult` flags or solver residual) on `Solve`.
-- boundary: scipy results graduate as evidence on the one rail, and benchmark claims stay branch-local, grading no peer runtime.
+- boundary: scipy results graduate as evidence on the one result, and benchmark claims stay branch-local, grading no peer runtime.

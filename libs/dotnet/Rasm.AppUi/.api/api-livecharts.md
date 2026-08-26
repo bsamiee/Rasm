@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_LIVECHARTS]
 
-`LiveChartsCore.SkiaSharpView.Avalonia` binds LiveCharts2 to Avalonia: retained chart `UserControl`s, source-generated chart properties, and XAML axes, series, gauges, sections, and Skia paint markup extensions. Every `Xaml*` shell implements the `LiveChartsCore` contract it declares, so a chart projects one data-driven series model onto a Skia canvas the process-wide theme rail styles.
+`LiveChartsCore.SkiaSharpView.Avalonia` binds LiveCharts2 to Avalonia: retained chart `UserControl`s, source-generated chart properties, and XAML axes, series, gauges, sections, and Skia paint markup extensions. Every `Xaml*` shell implements the `LiveChartsCore` contract it declares, so a chart projects one data-driven series model onto a Skia canvas the process-wide theme registry styles.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -111,7 +111,7 @@
 |  [10]   | `GaugeOptions`              | enum          | `None` / `Solid` / `Angular`                     |
 |  [11]   | `PieChartExtensions`        | static        | `AsPieSeries` projections over any sequence      |
 
-[THEME_TYPES]: the process-wide theming and settings rail in `LiveChartsCore.{Kernel,Themes}` and `LiveChartsCore.SkiaSharpView`.
+[THEME_TYPES]: the process-wide theming and settings registry in `LiveChartsCore.{Kernel,Themes}` and `LiveChartsCore.SkiaSharpView`.
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                         |
 | :-----: | :-------------------------- | :------------ | :--------------------------------------------------- |
@@ -234,7 +234,7 @@
 |  [25]   | `VisualElementsPointerDown`                                   | event    | visual pointer-down                             |
 |  [26]   | `{UpdateStarted,DataPointerDown,HoveredPointsChanged}Command` | property | `ICommand` peers of the update and point events |
 |  [27]   | `{ChartPointPointerDown,VisualElementsPointerDown}Command`    | property | `ICommand` peers of the pointer events          |
-|  [28]   | `{PointerPressed,PointerMove,PointerReleased}Command`         | property | raw pointer `ICommand` rail                     |
+|  [28]   | `{PointerPressed,PointerMove,PointerReleased}Command`         | property | raw pointer `ICommand` hook                     |
 
 [CARTESIAN_ENTRYPOINTS]: additional members on `SourceGenCartesianChart`
 
@@ -530,7 +530,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Three assemblies stack behind one Avalonia surface: `LiveChartsCore` owns the chart math, the `ISeries`/`ICartesianAxis`/`IChartElement` model, the `Themes` rail, and the Skia draw kernel (`LiveChartsCore.Geo` carries `DrawnMap`/`MapProjection`/`IGeoMapView`); `LiveChartsCore.SkiaSharpView` owns the paint concretes, drawn visuals, `SKCharts`, and theme registration; this package owns the `UserControl` and XAML-markup layer over them.
+- Three assemblies stack behind one Avalonia surface: `LiveChartsCore` owns the chart math, the `ISeries`/`ICartesianAxis`/`IChartElement` model, the `Themes` registry, and the Skia draw kernel (`LiveChartsCore.Geo` carries `DrawnMap`/`MapProjection`/`IGeoMapView`); `LiveChartsCore.SkiaSharpView` owns the paint concretes, drawn visuals, `SKCharts`, and theme registration; this package owns the `UserControl` and XAML-markup layer over them.
 - Chart controls are source-generated: each `SourceGen*` base carries every chart property as an `AvaloniaProperty`, and each public chart derives from its base (`MotionCanvas` derives from `UserControl` directly); bind the public control and read the property off the generated base, never reimplement `IChartView`.
 - Every `Xaml*` shell implements the runtime contract it declares — `XamlLineSeries` is an `ISeries`, `BaseXamlAxis<T>` an `ICartesianAxis`, `XamlRectangularSection` an `IChartElement` — so the XAML element drops straight into `Series`, `XAxes`, or `Sections`; `WrappedSeries` stays protected, and code-behind reaching for the runtime type constructs a `LiveChartsCore.SkiaSharpView` series instead.
 - `LiveCharts.DefaultSettings` is one process-wide instance and `LiveChartsSettings.HasTheme` replaces the whole `Theme`, so a single `LiveCharts.Configure` call seeds the theme through one `Add{Default,Light,Dark}Theme` and chains every `HasRuleFor*` onto that instance; `SourceGenChart.ChartTheme` overrides one control against the process theme.

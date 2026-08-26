@@ -1,6 +1,6 @@
 # [PY_DATA_API_ICECHUNK]
 
-`icechunk` owns a transactional, versioned Zarr store — Git-like branch, tag, and snapshot history over any object-store backend. `Repository` owns lifecycle, branches, tags, ancestry, and garbage collection; `Session` owns read, write, commit, rebase, fork, and merge; `IcechunkStore`, reached through `session.store`, is the Zarr-compatible handle every array consumer binds. Module-level factories build storage descriptors and credentials, and the synchronous surface mirrors onto an async rail.
+`icechunk` owns a transactional, versioned Zarr store — Git-like branch, tag, and snapshot history over any object-store backend. `Repository` owns lifecycle, branches, tags, ancestry, and garbage collection; `Session` owns read, write, commit, rebase, fork, and merge; `IcechunkStore`, reached through `session.store`, is the Zarr-compatible handle every array consumer binds. Module-level factories build storage descriptors and credentials, and the synchronous surface mirrors onto an async path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -65,7 +65,7 @@
 |  [07]   | `CommitMethod`         | rewrite mode  | `Literal["new_commit", "amend"]`                        |
 |  [08]   | `SpecVersion`          | format ver    | `v1`, `v2`                                              |
 
-[PUBLIC_TYPE_SCOPE]: error rail
+[PUBLIC_TYPE_SCOPE]: error channel
 
 `IcechunkError` roots at bare `Exception`, so a consumer catch set NAMES it and never a builtin ancestor; `InvalidInputError` refines `ValueError` and the `NotFoundError` family refines `KeyError`, which is exactly why the root and not the builtins carries the set. `ConflictError` and its `RebaseFailedError` leaf carry the commit and rebase failures the data tier maps to its typed error, the leaf holding the unresolved `Conflict` list for solver-driven retry.
 

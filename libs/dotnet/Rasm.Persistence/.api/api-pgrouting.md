@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_PGROUTING]
 
-`pgrouting` owns in-database network routing over PostGIS: every `pgr_*` function takes its graph as a `text` inner query and returns paths, costs, spanning trees, tours, flows, or components as SQL rows. It ships no managed assembly — a `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` row installs it and the `Query/cypher#GRAPH_QUERY` cases drive it through raw `Npgsql` — so a shortest-path, catchment, or connectivity query folds inside the PostGIS residence over H3-cell node ids while `Query/topology` keeps the authoritative in-process graph.
+`pgrouting` owns in-database network routing over PostGIS: every `pgr_*` function takes its graph as a `text` inner query and returns paths, costs, spanning trees, tours, flows, or components as SQL rows. It ships no managed assembly — a `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` row installs it and the `Query/cypher#GRAPH_QUERY` cases drive it through raw `Npgsql` — so a shortest-path, catchment, or connectivity query folds inside the PostGIS store over H3-cell node ids while `Query/topology` keeps the authoritative in-process graph.
 
 ## [01]-[INNER_QUERIES]
 

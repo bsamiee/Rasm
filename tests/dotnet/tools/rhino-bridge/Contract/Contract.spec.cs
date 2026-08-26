@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Nerdbank.Streams;
 using PolyType;
 using Rasm.TestKit;
@@ -11,39 +12,40 @@ namespace Rasm.Bridge.Contract.Tests;
 // --- [MODELS] --------------------------------------------------------------------------
 
 internal static class WireGens {
-    public static readonly EventStamp Stamp = new(SessionId: Guid.Parse(input: "6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f"), Sequence: 17, AtUnixMs: 1_765_432_100_123, Scenario: "blocks.baseline");
-    public static readonly HostFingerprint Host = new(BundleVersion: "9.0.26153.12416", RhinoCommonVersion: "9.0.26153.12416", Grasshopper2Version: "2.0.0", RuntimeVersion: "10.0.2");
-    public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-test", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractGeneration: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
-    public static readonly Handshake Shell = new(
-        ContractGeneration: 1, SenderVersion: "1.0.0",
-        Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Detail: "2.25.25")],
-        Fingerprint: Host, Endpoint: Endpoint);
-    public static readonly Gen<string> PipeSuffix = Gen.Char[start: 'a', finish: 'z'].Array[0, 60].Select(selector: static chars => new string(value: chars));
-    public static readonly Gen<long> ClockSkew = Gen.Long[start: -5_000L, finish: 5_000L];
+    public static readonly EventStamp Stamp = new(Guid.Parse("6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f"), Sequence: 17, AtUnixMs: 1_765_432_100_123, Scenario: "blocks.baseline");
+    public static readonly HostFingerprint Host = new("9.0.26237.15344", "9.0.26237.15344", "2.0.0", "10.0.2");
+    public static readonly EndpointRecord.Live Endpoint = new("rbx-test", RhinoPid: 4242, RhinoStartedAtUnixMs: 1_765_432_000_000, RhinoVersion: "9.0.26237");
+    public static readonly ArtifactRef Artifact = new("captures/blocks.baseline/BASELINE.png", EvidenceRole.Capture, "image/png", Bytes: 4096, "ab".PadLeft(64, '0'), "blocks.baseline", OnFailure: false);
+    public static readonly Gen<long> ClockSkew = Gen.Long[-5_000L, 5_000L];
+    public static readonly Gen<PhaseStatus> Status = Gen.OneOfConst([.. PhaseStatus.Items]);
 
-    public static BridgeEvent Roundtrip(BridgeEvent evt) =>
-        JsonSerializer.Deserialize(json: JsonSerializer.Serialize(value: evt, jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent), jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent)!;
-    public static BridgeFault RoundtripFault(BridgeFault fault) =>
-        JsonSerializer.Deserialize(json: JsonSerializer.Serialize(value: fault, jsonTypeInfo: BridgeJsonContext.Default.BridgeFault), jsonTypeInfo: BridgeJsonContext.Default.BridgeFault)!;
+    public static T Roundtrip<T>(T value, JsonTypeInfo<T> contract) =>
+        JsonSerializer.Deserialize(JsonSerializer.Serialize(value, contract), contract)!;
+
+    public static void ByteIdentical<T>(T value, JsonTypeInfo<T> contract) {
+        byte[] raw = JsonSerializer.SerializeToUtf8Bytes(value, contract);
+        T decoded = JsonSerializer.Deserialize(raw, contract)!;
+        byte[] again = JsonSerializer.SerializeToUtf8Bytes(decoded, contract);
+        Spec.Holds(raw.AsSpan().SequenceEqual(again), $"wire bytes drift across a roundtrip for {typeof(T).Name}");
+    }
 }
 
 internal sealed class ShellStub : IBridgeShell {
-    public Task<Handshake> HelloAsync(Handshake supervisor, CancellationToken ct) =>
-        Task.FromResult(result: supervisor with { SenderVersion = "shell", Fingerprint = WireGens.Host, Endpoint = WireGens.Endpoint });
+    public Task<HostFingerprint> HelloAsync(int supervisorPid, CancellationToken ct) =>
+        Task.FromResult(WireGens.Host with { RuntimeVersion = supervisorPid.ToString(System.Globalization.CultureInfo.InvariantCulture) });
     public Task<LoadedCargo> LoadCargoAsync(CargoManifest manifest, CancellationToken ct) =>
-        Task.FromResult(result: new LoadedCargo(ContentHash: manifest.ContentHash, SwapMs: 412.3, Scenarios: [], Capabilities: []));
+        Task.FromResult(new LoadedCargo(manifest.ContentHash, LoadMs: 412.3, [], []));
     public Task<ScenarioOutcome[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
-        Task.FromResult<ScenarioOutcome[]>(result: [new ScenarioOutcome(
-            Scenario: selection.Switch(
+        Task.FromResult<ScenarioOutcome[]>([new ScenarioOutcome(
+            selection.Switch(
                 allCase: static _ => "all",
-                themesCase: static t => $"themes:{string.Join(separator: ',', value: t.Themes)}",
-                namesCase: static n => $"names:{string.Join(separator: ',', value: n.Names)}"),
-            Status: PhaseStatus.Ok, DurationMs: 1.0, Fault: null)]);
+                themesCase: static t => $"themes:{string.Join(',', t.Themes)}",
+                namesCase: static n => $"names:{string.Join(',', n.Names)}"),
+            PhaseStatus.Ok, DurationMs: 1.0, Fault: null)]);
     public Task<UnloadOutcome> UnloadCargoAsync(CancellationToken ct) =>
-        Task.FromResult(result: new UnloadOutcome(Confirmed: true, DebuggerAttached: false, GcRetries: 0, ElapsedMs: 2.5));
-    public Task<long> PingAsync(CancellationToken ct) => Task.FromResult(result: 42L);
+        Task.FromResult(new UnloadOutcome(ReleaseRequested: true, ElapsedMs: 2.5));
     public Task<QuitScrub> PrepareQuitAsync(CancellationToken ct) =>
-        Task.FromResult(result: new QuitScrub(Documents: 0, MarkedClean: 0, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []));
+        Task.FromResult(new QuitScrub(Documents: 1, MarkedClean: 1, ResidualDirty: 0, new Gh2Scrub.Scrubbed(Documents: 2, ModifiedBefore: 1, ModifiedAfter: 0), []));
 }
 
 [JsonRpcContract]
@@ -54,23 +56,22 @@ internal partial interface IFutureShell {
 
 internal static class RpcPair {
     public static async Task<T> WithClientAsync<T>(IBridgeShell target, Func<JsonRpc, Task<T>> law) {
-        ArgumentNullException.ThrowIfNull(argument: law);
         (Stream clientStream, Stream serverStream) = FullDuplexStream.CreatePair();
         using SystemTextJsonFormatter serverFormatter = Formatter();
-        using HeaderDelimitedMessageHandler serverHandler = new(duplexStream: serverStream, formatter: serverFormatter);
+        using HeaderDelimitedMessageHandler serverHandler = new(serverStream, serverFormatter);
         using JsonRpc server = new(serverHandler);
-        server.AddLocalRpcTarget(target: target);
+        server.AddLocalRpcTarget(target);
         server.StartListening();
         using SystemTextJsonFormatter clientFormatter = Formatter();
-        using HeaderDelimitedMessageHandler clientHandler = new(duplexStream: clientStream, formatter: clientFormatter);
+        using HeaderDelimitedMessageHandler clientHandler = new(clientStream, clientFormatter);
         using JsonRpc client = new(clientHandler);
         client.StartListening();
-        return await law(arg: client).ConfigureAwait(continueOnCapturedContext: false);
+        return await law(client).ConfigureAwait(false);
     }
 
     private static SystemTextJsonFormatter Formatter() {
         SystemTextJsonFormatter formatter = new();
-        formatter.JsonSerializerOptions.TypeInfoResolverChain.Insert(index: 0, item: BridgeJsonContext.Default);
+        formatter.JsonSerializerOptions.TypeInfoResolverChain.Insert(0, BridgeJsonContext.Default);
         return formatter;
     }
 }
@@ -80,338 +81,349 @@ internal static class RpcPair {
 public sealed class RpcProxyLaws {
     [Fact]
     public async Task ProxyIsSourceGeneratedNotDynamicAsync() =>
-        _ = await RpcPair.WithClientAsync(target: new ShellStub(), law: static client => {
+        _ = await RpcPair.WithClientAsync(new ShellStub(), static client => {
             IBridgeShell proxy = client.Attach<IBridgeShell>();
-            Assert.False(condition: proxy.GetType().Assembly.IsDynamic);
-            _ = Assert.IsAssignableFrom<ProxyBase>(@object: proxy);
-            Assert.Same(expected: typeof(IBridgeShell).Assembly, actual: proxy.GetType().Assembly);
-            return Task.FromResult(result: true);
-        }).ConfigureAwait(continueOnCapturedContext: true);
+            Assert.False(proxy.GetType().Assembly.IsDynamic);
+            _ = Assert.IsType<ProxyBase>(proxy, exactMatch: false);
+            Assert.Same(typeof(IBridgeShell).Assembly, proxy.GetType().Assembly);
+            return Task.FromResult(true);
+        }).ConfigureAwait(true);
 
     [Fact]
     public async Task VerbSurfaceRoundTripsAsync() =>
-        _ = await RpcPair.WithClientAsync(target: new ShellStub(), law: static async client => {
+        _ = await RpcPair.WithClientAsync(new ShellStub(), static async client => {
             IBridgeShell proxy = client.Attach<IBridgeShell>();
             CancellationToken ct = TestContext.Current.CancellationToken;
-            Handshake reply = await proxy.HelloAsync(supervisor: new Handshake(ContractGeneration: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-            Assert.Equal(expected: "shell", actual: reply.SenderVersion);
-            Assert.Equal(expected: WireGens.Endpoint, actual: reply.Endpoint);
-            Assert.Equal(expected: WireGens.Host, actual: reply.Fingerprint);
-            LoadedCargo cargo = await proxy.LoadCargoAsync(manifest: new CargoManifest(SessionId: WireGens.Stamp.SessionId, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage"), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-            Assert.Equal(expected: "xx64:abc", actual: cargo.ContentHash);
-            ScenarioOutcome[] outcomes = await proxy.RunAsync(selection: new ScenarioSelection.ThemesCase(Themes: ["blocks", "vectors"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-            Assert.Equal(expected: "themes:blocks,vectors", actual: outcomes[0].Scenario);
-            UnloadOutcome unload = await proxy.UnloadCargoAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-            Assert.True(condition: unload.Confirmed);
-            Assert.Equal(expected: 42L, actual: await proxy.PingAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false));
-            QuitScrub quit = await proxy.PrepareQuitAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-            Assert.Equal(expected: 0, actual: quit.Documents);
-            Assert.Equal(expected: 0, actual: quit.MarkedClean);
-            Assert.Equal(expected: 0, actual: quit.ResidualDirty);
-            Assert.Empty(collection: quit.SavedPaths);
+            HostFingerprint reply = await proxy.HelloAsync(777, ct).ConfigureAwait(true);
+            Assert.Equal("777", reply.RuntimeVersion);
+            Assert.Equal(WireGens.Host.BundleVersion, reply.BundleVersion);
+            LoadedCargo cargo = await proxy.LoadCargoAsync(new CargoManifest(WireGens.Stamp.SessionId, "report", "xx64:abc", "stage"), ct).ConfigureAwait(false);
+            Assert.Equal("xx64:abc", cargo.ContentHash);
+            ScenarioOutcome[] outcomes = await proxy.RunAsync(new ScenarioSelection.ThemesCase(["blocks", "vectors"]), ct).ConfigureAwait(false);
+            Assert.Equal("themes:blocks,vectors", outcomes[0].Scenario);
+            Assert.True((await proxy.UnloadCargoAsync(ct).ConfigureAwait(false)).ReleaseRequested);
+            QuitScrub quit = await proxy.PrepareQuitAsync(ct).ConfigureAwait(false);
+            Assert.True(quit.Scrubbed);
+            _ = Assert.IsType<Gh2Scrub.Scrubbed>(quit.Gh2);
             return true;
-        }).ConfigureAwait(continueOnCapturedContext: true);
+        }).ConfigureAwait(true);
+
+    [Fact]
+    public async Task MissingMethodSurfacesAsMethodNotFoundAsync() =>
+        _ = await RpcPair.WithClientAsync(new ShellStub(), static async client => {
+            IFutureShell future = client.Attach<IFutureShell>();
+            RemoteMethodNotFoundException missing = await Assert.ThrowsAsync<RemoteMethodNotFoundException>(async () =>
+                _ = await future.FutureProbeAsync(TestContext.Current.CancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+            Assert.Equal(JsonRpcErrorCode.MethodNotFound, missing.ErrorCode);
+            return true;
+        }).ConfigureAwait(true);
 }
 
 public sealed class UnionWireLaws {
     public static TheoryData<BridgeEvent> Events => [
-        new BridgeEvent.FactCase(Key: "cargo.swapMs", Value: JsonSerializer.SerializeToElement(value: 412.3, jsonTypeInfo: BridgeJsonContext.Default.Double)) { Stamp = WireGens.Stamp },
-        new BridgeEvent.CaptureCase(Path: ".artifacts/dotnet/rhino/verify/gh.canvas.png", Width: 1280, Height: 720, OnFailure: true) { Stamp = WireGens.Stamp },
-        new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed, DurationMs: 30_000.0, Fault: new BridgeFault.ExecuteDeadline(Scenario: "gh.canvas", ElapsedMs: 30_000.0)) { Stamp = WireGens.Stamp },
-        new BridgeEvent.ProgressCase(Done: 3, Total: 21) { Stamp = WireGens.Stamp },
-        new BridgeEvent.HostExceptionCase(Report: "System.InvalidOperationException at Rhino.Render") { Stamp = WireGens.Stamp },
+        new BridgeEvent.FactCase("cargo.swapMs", JsonSerializer.SerializeToElement(412.3, BridgeJsonContext.Default.Double)) { Stamp = WireGens.Stamp },
+        new BridgeEvent.CaptureCase(WireGens.Artifact, Width: 1280, Height: 720, "BASELINE", "Perspective") { Stamp = WireGens.Stamp },
+        new BridgeEvent.PhaseCase(SessionPhase.Execute, PhaseStatus.Failed, DurationMs: 30_000.0, new BridgeFault.ExecuteDeadline("gh.canvas", ElapsedMs: 30_000.0)) { Stamp = WireGens.Stamp },
     ];
 
     public static TheoryData<BridgeFault> Faults => [
-        new BridgeFault.LaunchFailed(Detail: "bundle missing"),
-        new BridgeFault.ConnectFailed(Detail: "no pipe", ElapsedMs: 90_000.0),
+        new BridgeFault.LaunchFailed("bundle missing"),
+        new BridgeFault.ConnectFailed("no pipe", ElapsedMs: 90_000.0),
         new BridgeFault.BusyHeld(HolderPid: 777, AgeSeconds: 12.0),
-        new BridgeFault.ShellSkew(ShellContract: 1, SupervisorContract: 2),
-        new BridgeFault.HostDrift(MissingMember: "RhinoDoc.Create", Running: WireGens.Host),
-        new BridgeFault.CargoUnloadLeak(GcdumpPath: "/tmp/rbx/leak.gcdump"),
-        new BridgeFault.RhinoCrash(Crash: new CrashFact(IpsPath: "/tmp/r.ips", CrashThread: "main", ExceptionType: "SIGABRT", Detail: "RhMacSignalHandler"), Scenario: "blocks.baseline"),
-        new BridgeFault.DialogSuspected(SilentForMs: 5_000.0),
-        new BridgeFault.UiWedged(SilentForMs: 8_000.0, Scenario: "gh.canvas"),
-        new BridgeFault.ExecuteDeadline(Scenario: "gh.canvas", ElapsedMs: 30_000.0),
-        new BridgeFault.NugetLockDrift(Detail: "NU1004 Rasm.Bridge.Contract"),
-        new BridgeFault.CapabilityAbsent(Capability: "gh2.dataflow", Detail: "headless solve unsupported"),
+        new BridgeFault.HostDrift("RhinoDoc.Create", WireGens.Host),
+        new BridgeFault.CargoRecycleRequired("xx64:active", "xx64:requested"),
+        new BridgeFault.RhinoCrash(new CrashFact("/tmp/r.ips", "main", "SIGABRT", "RhMacSignalHandler"), "blocks.baseline"),
+        new BridgeFault.ExecuteDeadline("gh.canvas", ElapsedMs: 30_000.0),
+        new BridgeFault.CapabilityAbsent("gh2.render", "editor unavailable"),
+    ];
+
+    public static TheoryData<EndpointRecord> Endpoints => [
+        WireGens.Endpoint,
+        new EndpointRecord.Poisoned(RhinoPid: 4242, RhinoStartedAtUnixMs: 1L, "9.0", "shell assembly absent"),
+    ];
+
+    public static TheoryData<Gh2Scrub> Scrubs => [
+        new Gh2Scrub.NotLoaded(),
+        new Gh2Scrub.Scrubbed(Documents: 3, ModifiedBefore: 2, ModifiedAfter: 0),
+        new Gh2Scrub.Failed("TypeLoadException"),
     ];
 
     [Theory]
-    [MemberData(memberName: nameof(Events))]
+    [MemberData(nameof(Events), DisableDiscoveryEnumeration = true)]
     public void EventCasesRoundTrip(BridgeEvent evt) {
-        ArgumentNullException.ThrowIfNull(argument: evt);
-        BridgeEvent back = WireGens.Roundtrip(evt: evt);
-        Assert.Equal(expected: evt.Stamp, actual: back.Stamp);
-        Assert.Same(expected: evt.GetType(), actual: back.GetType());
+        ArgumentNullException.ThrowIfNull(evt);
+        BridgeEvent back = WireGens.Roundtrip(evt, BridgeJsonContext.Default.BridgeEvent);
+        Assert.Equal(evt.Stamp, back.Stamp);
+        Assert.Same(evt.GetType(), back.GetType());
         _ = evt switch {
-            BridgeEvent.FactCase fact => AssertFact(expected: fact, actual: (BridgeEvent.FactCase)back),
-            _ => AssertEqual(expected: evt, actual: back),
+            BridgeEvent.FactCase fact => AssertFact(fact, (BridgeEvent.FactCase)back),
+            _ => AssertEqual(evt, back),
         };
+        WireGens.ByteIdentical(evt, BridgeJsonContext.Default.BridgeEvent);
     }
 
     [Theory]
-    [MemberData(memberName: nameof(Faults))]
+    [MemberData(nameof(Faults), DisableDiscoveryEnumeration = true)]
     public void FaultCasesRoundTrip(BridgeFault fault) {
-        ArgumentNullException.ThrowIfNull(argument: fault);
-        Assert.Equal(expected: fault, actual: WireGens.RoundtripFault(fault: fault));
+        Assert.Equal(fault, WireGens.Roundtrip(fault, BridgeJsonContext.Default.BridgeFault));
+        WireGens.ByteIdentical(fault, BridgeJsonContext.Default.BridgeFault);
+    }
+
+    [Theory]
+    [MemberData(nameof(Endpoints), DisableDiscoveryEnumeration = true)]
+    public void EndpointCasesRoundTrip(EndpointRecord endpoint) {
+        Assert.Equal(endpoint, WireGens.Roundtrip(endpoint, BridgeJsonContext.Default.EndpointRecord));
+        WireGens.ByteIdentical(endpoint, BridgeJsonContext.Default.EndpointRecord);
+    }
+
+    [Theory]
+    [MemberData(nameof(Scrubs), DisableDiscoveryEnumeration = true)]
+    public void Gh2ScrubCasesRoundTrip(Gh2Scrub scrub) {
+        QuitScrub quit = new(Documents: 1, MarkedClean: 0, ResidualDirty: 0, scrub, ["/tmp/a.3dm"]);
+        Assert.Equal(quit, WireGens.Roundtrip(quit, BridgeJsonContext.Default.QuitScrub) with { DirtyPaths = quit.DirtyPaths });
+        Assert.Equal(scrub, WireGens.Roundtrip(quit, BridgeJsonContext.Default.QuitScrub).Gh2);
+    }
+
+    [Fact]
+    public void StubPoisonDocumentDecodesAsThePoisonedCase() {
+        EndpointRecord.Poisoned poisoned = Assert.IsType<EndpointRecord.Poisoned>(JsonSerializer.Deserialize(
+            """{"$type":"poisoned","rhinoPid":9,"rhinoStartedAtUnixMs":5,"rhinoVersion":"9.0","fault":"shell assembly absent"}""",
+            BridgeJsonContext.Default.EndpointRecord));
+        Assert.Equal("shell assembly absent", poisoned.Fault);
+        Assert.Equal(9, poisoned.RhinoPid);
     }
 
     [Fact]
     public void DiscriminatorLeadsTheDocument() {
-        string json = JsonSerializer.Serialize(value: new BridgeEvent.ProgressCase(Done: 1, Total: 2) { Stamp = WireGens.Stamp }, jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent);
-        Assert.StartsWith(expectedStartString: "{\"$type\":\"progress\"", actualString: json, comparisonType: StringComparison.Ordinal);
-        Assert.Contains(expectedSubstring: "\"sessionId\":\"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f\"", actualString: json, comparisonType: StringComparison.Ordinal);
-        Assert.Contains(expectedSubstring: "\"scenario\":\"blocks.baseline\"", actualString: json, comparisonType: StringComparison.Ordinal);
+        string json = JsonSerializer.Serialize(Events.First().Data, BridgeJsonContext.Default.BridgeEvent);
+        Assert.StartsWith("{\"$type\":\"fact\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"sessionId\":\"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f\"", json, StringComparison.Ordinal);
+        Assert.StartsWith("{\"$type\":\"live\"", JsonSerializer.Serialize(WireGens.Endpoint, BridgeJsonContext.Default.EndpointRecord), StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void UnknownEventTypeFailsLoud() =>
-        _ = Assert.ThrowsAny<JsonException>(testCode: static () =>
-            JsonSerializer.Deserialize(json: """{"$type":"chaos-case","stamp":{"sessionId":"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f","sequence":1,"atUnixMs":1,"scenario":null}}""", jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent));
-
     [Theory]
+    [InlineData("chaos-case")]
+    [InlineData("host-exception")]
     [InlineData("evidence")]
-    [InlineData("artifact")]
-    [InlineData("certificate")]
-    public void RetiredEventDiscriminatorsStayRetired(string discriminator) =>
-        _ = Assert.ThrowsAny<JsonException>(testCode: () =>
+    public void UnknownEventDiscriminatorsFailLoud(string discriminator) =>
+        _ = Assert.ThrowsAny<JsonException>(() =>
             JsonSerializer.Deserialize(
-                json: """{"$type":"RETIRED","stamp":{"sessionId":"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f","sequence":1,"atUnixMs":1,"scenario":null}}"""
-                    .Replace(oldValue: "RETIRED", newValue: discriminator, comparisonType: StringComparison.Ordinal),
-                jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent));
-
-    [Fact]
-    public void UnknownFaultTypeFailsLoud() =>
-        _ = Assert.ThrowsAny<JsonException>(testCode: static () =>
-            JsonSerializer.Deserialize(json: """{"$type":"future-fault","detail":"x"}""", jsonTypeInfo: BridgeJsonContext.Default.BridgeFault));
+                $$$"""{"$type":"{{{discriminator}}}","stamp":{"sessionId":"6a8e6c1e-9f5a-4d2c-8b8e-2f1a3c4d5e6f","sequence":1,"atUnixMs":1,"scenario":null}}""",
+                BridgeJsonContext.Default.BridgeEvent));
 
     [Theory]
-    [MemberData(memberName: nameof(Faults))]
+    [InlineData("future-fault")]
+    [InlineData("nuget-lock-drift")]
+    [InlineData("ui-wedged")]
+    public void UnknownFaultDiscriminatorsFailLoud(string discriminator) =>
+        _ = Assert.ThrowsAny<JsonException>(() =>
+            JsonSerializer.Deserialize($$"""{"$type":"{{discriminator}}","detail":"x"}""", BridgeJsonContext.Default.BridgeFault));
+
+    [Theory]
+    [MemberData(nameof(Faults), DisableDiscoveryEnumeration = true)]
     public void StatusProjectionMatchesTaxonomy(BridgeFault fault) {
-        ArgumentNullException.ThrowIfNull(argument: fault);
+        ArgumentNullException.ThrowIfNull(fault);
         Assert.Same(
-            expected: fault switch {
+            fault switch {
                 BridgeFault.BusyHeld => PhaseStatus.Busy,
-                BridgeFault.ExecuteDeadline or BridgeFault.UiWedged => PhaseStatus.Timeout,
+                BridgeFault.ExecuteDeadline => PhaseStatus.Timeout,
                 BridgeFault.CapabilityAbsent => PhaseStatus.Unsupported,
                 _ => PhaseStatus.Failed,
             },
-            actual: fault.Status);
+            fault.Status);
+        Assert.False(string.IsNullOrWhiteSpace(fault.Prescription));
     }
 
-    [Theory]
-    [MemberData(memberName: nameof(Faults))]
-    public void PrescriptionIsAlwaysActionable(BridgeFault fault) {
-        ArgumentNullException.ThrowIfNull(argument: fault);
-        Assert.False(condition: string.IsNullOrWhiteSpace(value: fault.Prescription));
+    [Fact]
+    public void StampedRewritesOnlyTheStamp() {
+        EventStamp later = WireGens.Stamp with { Sequence = 99 };
+        Assert.All(Events.Select(static row => row.Data), evt => {
+            BridgeEvent stamped = evt.Stamped(later);
+            Assert.Equal(later, stamped.Stamp);
+            Assert.Equal(evt, stamped.Stamped(WireGens.Stamp));
+        });
     }
 
     private static bool AssertFact(BridgeEvent.FactCase expected, BridgeEvent.FactCase actual) {
-        Assert.Equal(expected: expected.Key, actual: actual.Key);
-        Assert.Equal(expected: expected.Value.GetRawText(), actual: actual.Value.GetRawText());
+        Assert.Equal(expected.Key, actual.Key);
+        Assert.Equal(expected.Value.GetRawText(), actual.Value.GetRawText());
         return true;
     }
 
     private static bool AssertEqual(BridgeEvent expected, BridgeEvent actual) {
-        Assert.Equal(expected: expected, actual: actual);
+        Assert.Equal(expected, actual);
         return true;
     }
 }
 
 public sealed class ConverterCompositionLaws {
     [Fact]
-    public void SmartEnumsSerializeAsKeyStrings() {
-        string json = JsonSerializer.Serialize(value: new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed, DurationMs: 1.0, Fault: null) { Stamp = WireGens.Stamp }, jsonTypeInfo: BridgeJsonContext.Default.BridgeEvent);
-        Assert.Contains(expectedSubstring: "\"phase\":\"execute\"", actualString: json, comparisonType: StringComparison.Ordinal);
-        Assert.Contains(expectedSubstring: "\"status\":\"failed\"", actualString: json, comparisonType: StringComparison.Ordinal);
+    public void EvidenceNamesCanonicalizeAndRejectBlankInput() {
+        Assert.Null(EvidenceName.Validate("  cleanup.rhino.objects.added  ", provider: null, out EvidenceName? name));
+        Assert.Equal("cleanup.rhino.objects.added", name!.Key);
+        Assert.NotNull(EvidenceName.Validate("  ", provider: null, out _));
+    }
+
+    [Fact]
+    public void EvidenceNamesRoundTripAsValidatedKeyStrings() {
+        EvidenceName expected = EvidenceName.Create("cleanup.gh2.documents.closed");
+        string json = JsonSerializer.Serialize(expected, BridgeJsonContext.Default.EvidenceName);
+        Assert.Equal("\"cleanup.gh2.documents.closed\"", json);
+        Assert.Equal(expected, JsonSerializer.Deserialize(json, BridgeJsonContext.Default.EvidenceName));
     }
 
     [Fact]
     public void SmartEnumKeysRoundTripToSingletons() {
-        BridgeEvent.PhaseCase back = (BridgeEvent.PhaseCase)WireGens.Roundtrip(evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.QuitAe, Status: PhaseStatus.Unsupported, DurationMs: 0.5, Fault: null) { Stamp = WireGens.Stamp });
-        Assert.Same(expected: SessionPhase.QuitAe, actual: back.Phase);
-        Assert.Same(expected: PhaseStatus.Unsupported, actual: back.Status);
+        BridgeEvent.PhaseCase back = (BridgeEvent.PhaseCase)WireGens.Roundtrip(
+            new BridgeEvent.PhaseCase(SessionPhase.QuitAe, PhaseStatus.Unsupported, DurationMs: 0.5, Fault: null) { Stamp = WireGens.Stamp },
+            BridgeJsonContext.Default.BridgeEvent);
+        Assert.Same(SessionPhase.QuitAe, back.Phase);
+        Assert.Same(PhaseStatus.Unsupported, back.Status);
+        Assert.Contains("\"phase\":\"quit.ae\"", JsonSerializer.Serialize(back, BridgeJsonContext.Default.BridgeEvent), StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void HandshakeWithEndpointRoundTrips() {
-        Handshake back = JsonSerializer.Deserialize(json: JsonSerializer.Serialize(value: WireGens.Shell, jsonTypeInfo: BridgeJsonContext.Default.Handshake), jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
-        Assert.Equal(expected: WireGens.Shell.ContractGeneration, actual: back.ContractGeneration);
-        Assert.Equal(expected: WireGens.Shell.Capabilities, actual: back.Capabilities);
-        Assert.Equal(expected: WireGens.Shell.Fingerprint, actual: back.Fingerprint);
-        Assert.Equal(expected: WireGens.Endpoint, actual: back.Endpoint);
-    }
-
-    [Fact]
-    public void EndpointAdmissionTakesPipePrefixOrEmptyPoison() {
-        Assert.Equal(expected: "rbx-", actual: EndpointRecord.PipePrefix);
-        Spec.ForAll(gen: WireGens.PipeSuffix, property: static suffix =>
-            Assert.Null(@object: EndpointRecord.Validate(pipeName: $"rbx-{suffix}", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
-        Assert.Null(@object: EndpointRecord.Validate(pipeName: "", rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "shell load failed", obj: out _));
-        Assert.All(collection: (string[])["rb-old-prefix", "RBX-upper", $"rbx-{new string(c: 'x', count: 61)}"], action: static name =>
-            Assert.NotNull(@object: EndpointRecord.Validate(pipeName: name, rhinoPid: 1, rhinoStartedAtUnixMs: 1L, contractGeneration: 1, shellVersion: "s", rhinoVersion: "r", fault: "", obj: out _)));
-    }
 
     [Fact]
     public void LivenessWindowIsOneSecondOfStartSkew() =>
-        Spec.ForAll(gen: WireGens.ClockSkew, property: static skew =>
+        Spec.ForAll(WireGens.ClockSkew, static skew =>
             Assert.Equal(
-                expected: Math.Abs(value: skew) <= 1_000L,
-                actual: WireGens.Endpoint.IsLiveFor(pid: WireGens.Endpoint.RhinoPid, startedAtUnixMs: WireGens.Endpoint.RhinoStartedAtUnixMs + skew)));
+                Math.Abs(skew) <= EndpointRecord.LivenessSkewMs,
+                WireGens.Endpoint.IsLiveFor(WireGens.Endpoint.RhinoPid, WireGens.Endpoint.RhinoStartedAtUnixMs + skew)));
 
     [Fact]
     public void LivenessRejectsForeignPid() =>
-        Assert.False(condition: WireGens.Endpoint.IsLiveFor(pid: WireGens.Endpoint.RhinoPid + 1, startedAtUnixMs: WireGens.Endpoint.RhinoStartedAtUnixMs));
-}
-
-public sealed class ToleranceLaws {
-    [Fact]
-    public void UnknownHandshakeFieldsAreSkipped() {
-        Handshake back = JsonSerializer.Deserialize(json: """{"contractGeneration":7,"senderVersion":"future","capabilities":[],"fingerprint":null,"endpoint":null,"futureField":{"nested":[1,2,3]}}""", jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
-        Assert.Equal(expected: 7, actual: back.ContractGeneration);
-        Assert.Equal(expected: "future", actual: back.SenderVersion);
-    }
-
-    [Fact]
-    public void UnknownEndpointFieldsAreSkipped() {
-        Handshake back = JsonSerializer.Deserialize(json: """{"contractGeneration":1,"senderVersion":"s","capabilities":[],"fingerprint":null,"endpoint":{"pipeName":"rbx-test","rhinoPid":4242,"rhinoStartedAtUnixMs":1765432000000,"contractGeneration":1,"shellVersion":"1.0.0","rhinoVersion":"9.0.26153","futureField":true}}""", jsonTypeInfo: BridgeJsonContext.Default.Handshake)!;
-        Assert.Equal(expected: WireGens.Endpoint, actual: back.Endpoint);
-    }
-
-    [Fact]
-    public async Task MissingMethodSurfacesAsMethodNotFoundAsync() =>
-        _ = await RpcPair.WithClientAsync(target: new ShellStub(), law: static async client => {
-            IFutureShell future = client.Attach<IFutureShell>();
-            RemoteMethodNotFoundException missing = await Assert.ThrowsAsync<RemoteMethodNotFoundException>(testCode: async () =>
-                _ = await future.FutureProbeAsync(ct: TestContext.Current.CancellationToken).ConfigureAwait(continueOnCapturedContext: false)).ConfigureAwait(continueOnCapturedContext: false);
-            Assert.Equal(expected: JsonRpcErrorCode.MethodNotFound, actual: missing.ErrorCode);
-            return true;
-        }).ConfigureAwait(continueOnCapturedContext: true);
+        Assert.False(WireGens.Endpoint.IsLiveFor(WireGens.Endpoint.RhinoPid + 1, WireGens.Endpoint.RhinoStartedAtUnixMs));
 }
 
 public sealed class WireVocabularyLaws {
     [Fact]
-    public void ReportLayoutStringsAreFrozen() {
-        Assert.Equal(expected: "bridge-certificate.json", actual: ReportLayout.CertificateFile);
-        Assert.Equal(expected: "captures", actual: ReportLayout.CapturesDirectory);
-        Assert.Equal(expected: "events", actual: ReportLayout.EventsDirectory);
-        Assert.Equal(expected: "gh2", actual: ReportLayout.Gh2Directory);
-        Assert.Equal(expected: "manifests", actual: ReportLayout.ManifestsDirectory);
-        Assert.Equal(expected: "scratch", actual: ReportLayout.ScratchDirectory);
-        Assert.Equal(expected: Path.Combine("r", "bridge-certificate.json"), actual: ReportLayout.Certificate(reportDir: "r"));
-        Assert.Equal(expected: Path.Combine("r", "events", "s.jsonl"), actual: ReportLayout.Spool(reportDir: "r", scenario: "s"));
+    public void ReportLayoutRoutesUnderTheReportDirectory() {
+        Assert.Equal(Path.Combine("r", "bridge-certificate.json"), ReportLayout.Certificate("r"));
+        Assert.Equal(Path.Combine("r", "events", "s.jsonl"), ReportLayout.Spool("r", "s"));
+        Assert.Equal(Path.Combine("r", "scratch", "s"), ReportLayout.Scratch("r", "s"));
     }
 
     [Theory]
     [InlineData("case.volume.status", "assertion")]
-    [InlineData("case.volume.start", "assertion")]
     [InlineData("manifest.object.blocks", "object-manifest")]
     [InlineData("manifest.geometry.blocks", "geometry-manifest")]
     [InlineData("manifest.viewport.blocks", "viewport-manifest")]
     [InlineData("manifest.gh2.blocks", "gh2-canvas-manifest")]
     [InlineData("artifact.capture", "artifact")]
-    [InlineData("cargo.swapped", "fact")]
+    [InlineData("cargo.loaded", "fact")]
     [InlineData("manifest.objects", "fact")]
     [InlineData("capture.frame", "fact")]
     public void FactKeysClassifyThroughTheTypedVocabulary(string key, string role) =>
-        Assert.Same(expected: EvidenceRole.Get(key: role), actual: EvidenceRole.OfFactKey(key: key));
+        Assert.Same(EvidenceRole.Get(role), EvidenceRole.OfFactKey(key));
+
+    [Fact]
+    public void ManifestLanesAreExactlyTheManifestPrefixedRoles() =>
+        Assert.Equal(
+            [.. EvidenceRole.Items.Where(static role => role.FactPrefix.StartsWith("manifest.", StringComparison.Ordinal))],
+            EvidenceRole.Items.Where(static role => role.IsManifest));
 
     [Fact]
     public void EmptyFactPrefixOwnsNoKey() =>
-        Assert.False(condition: EvidenceRole.Fact.OwnsFactKey(key: "anything"));
+        Assert.All(EvidenceRole.Items.Where(static role => role.FactPrefix.Length == 0), static role => Assert.False(role.OwnsFactKey("anything")));
 }
 
 public sealed class SelectionFilterLaws {
     private static readonly ScenarioEntry[] Corpus = [
-        new ScenarioEntry(Theme: "blocks", Name: "blocks.Baseline", Requires: [], BudgetMs: 0),
-        new ScenarioEntry(Theme: "blocks", Name: "blocks.Insert", Requires: [], BudgetMs: 0),
-        new ScenarioEntry(Theme: "vectors", Name: "vectors.CoreRail", Requires: [], BudgetMs: 0),
+        new("blocks", "blocks.Baseline", [], BudgetMs: 0),
+        new("blocks", "blocks.Insert", [], BudgetMs: 0),
+        new("vectors", "vectors.CoreCross", [], BudgetMs: 0),
     ];
 
     [Fact]
     public void AllSelectsTheWholeCorpus() =>
-        Assert.Equal(expected: Corpus, actual: new ScenarioSelection.AllCase().Filter(entries: Corpus));
+        Assert.Equal(Corpus, new ScenarioSelection.AllCase().Filter(Corpus));
 
     [Fact]
     public void ThemesMatchExactAndGlob() {
-        Assert.Equal(expected: 2, actual: new ScenarioSelection.ThemesCase(Themes: ["blocks"]).Filter(entries: Corpus).Length);
-        Assert.Equal(expected: 3, actual: new ScenarioSelection.ThemesCase(Themes: ["b*", "vec?ors"]).Filter(entries: Corpus).Length);
+        Assert.Equal(2, new ScenarioSelection.ThemesCase(["blocks"]).Filter(Corpus).Length);
+        Assert.Equal(3, new ScenarioSelection.ThemesCase(["b*", "vec?ors"]).Filter(Corpus).Length);
     }
 
     [Fact]
     public void NamesMatchExactGlobAndBareMethod() {
-        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.Baseline"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
-        Assert.Equal(expected: ["blocks.Baseline", "blocks.Insert"], actual: new ScenarioSelection.NamesCase(Names: ["blocks.*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
-        Assert.Equal(expected: ["vectors.CoreRail"], actual: new ScenarioSelection.NamesCase(Names: ["CoreRail"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
-        Assert.Equal(expected: ["blocks.Baseline"], actual: new ScenarioSelection.NamesCase(Names: ["Base*"]).Filter(entries: Corpus).Select(selector: static entry => entry.Name), comparer: StringComparer.Ordinal);
+        Assert.Equal(["blocks.Baseline"], Names(["blocks.Baseline"]));
+        Assert.Equal(["blocks.Baseline", "blocks.Insert"], Names(["blocks.*"]));
+        Assert.Equal(["vectors.CoreCross"], Names(["CoreCross"]));
+        Assert.Equal(["blocks.Baseline"], Names(["Base*"]));
     }
 
     [Fact]
     public void MatchingIsCaseSensitiveAndZeroMatchIsEmpty() {
-        Assert.Empty(collection: new ScenarioSelection.NamesCase(Names: ["BLOCKS.*"]).Filter(entries: Corpus));
-        Assert.Empty(collection: new ScenarioSelection.ThemesCase(Themes: ["chaos"]).Filter(entries: Corpus));
-        Assert.Empty(collection: new ScenarioSelection.NamesCase(Names: ["blocks.Base?"]).Filter(entries: Corpus));
+        Assert.Empty(Names(["BLOCKS.*"]));
+        Assert.Empty(new ScenarioSelection.ThemesCase(["chaos"]).Filter(Corpus));
+        Assert.Empty(Names(["blocks.Base?"]));
     }
+
+    [Fact]
+    public void SelectionDiscriminatorsAreFrozen() {
+        Assert.StartsWith("{\"$type\":\"all\"", JsonSerializer.Serialize(new ScenarioSelection.AllCase(), BridgeJsonContext.Default.ScenarioSelection), StringComparison.Ordinal);
+        Assert.StartsWith("{\"$type\":\"themes\"", JsonSerializer.Serialize(new ScenarioSelection.ThemesCase(["a"]), BridgeJsonContext.Default.ScenarioSelection), StringComparison.Ordinal);
+        Assert.StartsWith("{\"$type\":\"names\"", JsonSerializer.Serialize(new ScenarioSelection.NamesCase(["a"]), BridgeJsonContext.Default.ScenarioSelection), StringComparison.Ordinal);
+    }
+
+    private static string[] Names(string[] patterns) =>
+        [.. new ScenarioSelection.NamesCase(patterns).Filter(Corpus).Select(static entry => entry.Name)];
 }
 
 public sealed class EnvelopeWireLaws {
     [Fact]
     public void EnvelopeFieldNamesAreFrozen() {
         SessionEnvelope envelope = new(
-            RunId: "r", Verb: "verify", Status: PhaseStatus.Ok, DurationMs: 1.0, ReportDir: "d",
-            Host: WireGens.Host, Capabilities: [], Scenarios: [new ScenarioOutcome(Scenario: "s", Status: PhaseStatus.Ok, DurationMs: 1.0, Fault: null)],
-            Evidence: [], FirstFailure: "", FirstFaultPhase: null, Fault: null);
-        using JsonDocument document = JsonDocument.Parse(json: JsonSerializer.Serialize(value: envelope, jsonTypeInfo: BridgeJsonContext.Default.SessionEnvelope));
-        string[] fields = [.. document.RootElement.EnumerateObject().Select(selector: static property => property.Name)];
-        Assert.All(
-            collection: (string[])[
-                "runId", "verb", "status", "scenarioStatus", "sessionStatus", "durationMs", "reportDir",
-                "host", "capabilities", "scenarios", "evidence", "firstFailure", "firstScenarioFailure",
-                "firstSessionFault", "firstFaultPhase", "fault", "phases", "certificatePath",
-                "artifactRefs", "evidenceCounts", "scenarioCounts", "spool"],
-            action: field => Assert.Contains(expected: field, collection: fields, comparer: StringComparer.Ordinal));
-        string[] scenarioFields = [.. document.RootElement.GetProperty(propertyName: "scenarios")[0].EnumerateObject().Select(selector: static property => property.Name)];
-        Assert.All(
-            collection: (string[])["scenario", "status", "scenarioStatus", "durationMs", "fault", "referenceResults", "firstScenarioFailure"],
-            action: field => Assert.Contains(expected: field, collection: scenarioFields, comparer: StringComparer.Ordinal));
+            "r", "verify", new StatusBreakdown(PhaseStatus.Ok, PhaseStatus.Ok, PhaseStatus.Ok), DurationMs: 1.0, "d",
+            WireGens.Host, [], [new ScenarioOutcome("s", PhaseStatus.Ok, DurationMs: 1.0, Fault: null)], [],
+            [], [WireGens.Artifact], new EvidenceCounts(1, 0, 0, 1, 1), new SpoolSummary(1, 1, 1),
+            FirstFailure: "", FaultPhase: null, Fault: null);
+        using JsonDocument document = JsonDocument.Parse(JsonSerializer.Serialize(envelope, BridgeJsonContext.Default.SessionEnvelope));
+        string[] fields = [.. document.RootElement.EnumerateObject().Select(static property => property.Name)];
+        Assert.Equal(
+            ["runId", "verb", "status", "durationMs", "reportDir", "host", "capabilities", "scenarios", "phases",
+                "evidence", "artifacts", "counts", "spool", "firstFailure", "faultPhase", "fault", "exitCode"],
+            fields);
+        Assert.Equal(["scenario", "session", "overall"], document.RootElement.GetProperty("status").EnumerateObject().Select(static property => property.Name), StringComparer.Ordinal);
+        Assert.Equal(["scenario", "status", "durationMs", "fault"], document.RootElement.GetProperty("scenarios")[0].EnumerateObject().Select(static property => property.Name), StringComparer.Ordinal);
+        Assert.Equal(0, envelope.ExitCode);
     }
 
     [Fact]
-    public void SelectionDiscriminatorsAreFrozen() {
-        Assert.StartsWith(expectedStartString: "{\"$type\":\"all\"", actualString: JsonSerializer.Serialize(value: new ScenarioSelection.AllCase(), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
-        Assert.StartsWith(expectedStartString: "{\"$type\":\"themes\"", actualString: JsonSerializer.Serialize(value: new ScenarioSelection.ThemesCase(Themes: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
-        Assert.StartsWith(expectedStartString: "{\"$type\":\"names\"", actualString: JsonSerializer.Serialize(value: new ScenarioSelection.NamesCase(Names: ["a"]), jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection), comparisonType: StringComparison.Ordinal);
+    public void SpoolDivergenceIsDurableExceedingRelayed() {
+        Assert.True(new SpoolSummary(DurableEvents: 4, RelayedEvents: 2, LastSequence: 4).Diverged);
+        Assert.False(new SpoolSummary(DurableEvents: 2, RelayedEvents: 2, LastSequence: 2).Diverged);
+        Assert.False(new SpoolSummary(DurableEvents: 1, RelayedEvents: 2, LastSequence: 2).Diverged);
     }
 }
 
 public sealed class PhaseStatusAlgebraLaws {
     [Fact]
-    public void RanksFormTheAmendedTotalOrder() =>
+    public void RankIsDeclarationOrderAndExitCodesAreThePolicy() {
+        Assert.Equal(Enumerable.Range(0, PhaseStatus.Items.Count), PhaseStatus.Items.Select(static status => status.Rank));
         Assert.Equal(
-            expected: [("ok", 1, 0), ("skipped", 1, 0), ("degraded", 2, 2), ("unsupported", 3, 3), ("failed", 4, 1), ("timeout", 5, 5), ("busy", 6, 5)],
-            actual: PhaseStatus.Items.Select(selector: static status => (status.Key, status.Rank, status.ExitCode)));
-
-    [Fact]
-    public void WorstKeepsTheAccumulatorOnRankTies() {
-        Assert.Same(expected: PhaseStatus.Ok, actual: PhaseStatus.Ok.Worst(other: PhaseStatus.Skipped));
-        Assert.Same(expected: PhaseStatus.Skipped, actual: PhaseStatus.Skipped.Worst(other: PhaseStatus.Ok));
-        Assert.Same(expected: PhaseStatus.Timeout, actual: PhaseStatus.Failed.Worst(other: PhaseStatus.Timeout));
-        Assert.Same(expected: PhaseStatus.Busy, actual: PhaseStatus.Busy.Worst(other: PhaseStatus.Timeout));
+            [("ok", 0), ("skipped", 0), ("degraded", 2), ("unsupported", 3), ("failed", 1), ("timeout", 5), ("busy", 5)],
+            PhaseStatus.Items.Select(static status => (status.Key, status.ExitCode)));
     }
 
     [Fact]
-    public void WorstIsAnAssociativeIdempotentFold() =>
-        Assert.All(
-            collection: PhaseStatus.Items.SelectMany(collectionSelector: static _ => PhaseStatus.Items, resultSelector: static (a, b) => (a, b)).SelectMany(collectionSelector: static _ => PhaseStatus.Items, resultSelector: static (ab, c) => (ab.a, ab.b, c)),
-            action: static triple => {
-                Assert.Same(expected: triple.a.Worst(other: triple.b).Worst(other: triple.c), actual: triple.a.Worst(other: triple.b.Worst(other: triple.c)));
-                Assert.Same(expected: triple.a, actual: triple.a.Worst(other: triple.a));
-            });
+    public void WorstNeverPicksTheIndecisiveOperand() {
+        Assert.Same(PhaseStatus.Ok, PhaseStatus.Ok.Worst(PhaseStatus.Skipped));
+        Assert.Same(PhaseStatus.Skipped, PhaseStatus.Skipped.Worst(PhaseStatus.Ok));
+        Assert.Same(PhaseStatus.Timeout, PhaseStatus.Failed.Worst(PhaseStatus.Timeout));
+        Assert.Same(PhaseStatus.Busy, PhaseStatus.Busy.Worst(PhaseStatus.Timeout));
+        Assert.All(PhaseStatus.Items, static status => Assert.Same(status, status.Worst(PhaseStatus.Skipped)));
+    }
+
+    [Fact]
+    public void WorstIsAnAssociativeIdempotentFoldOverDecisiveStatuses() =>
+        Spec.ForAll(WireGens.Status.Select(WireGens.Status, WireGens.Status, static (a, b, c) => (a, b, c)), static triple => {
+            Assert.Same(triple.a.Worst(triple.b).Worst(triple.c), triple.a.Worst(triple.b.Worst(triple.c)));
+            Assert.Same(triple.a, triple.a.Worst(triple.a));
+            Assert.True(triple.a.Worst(triple.b).Rank >= triple.a.Rank);
+        });
 
     [Fact]
     public void OnlySkippedIsIndecisive() =>
-        Assert.Equal(
-            expected: [true, false, true, true, true, true, true],
-            actual: PhaseStatus.Items.Select(selector: static status => status.IsDecisive));
+        Assert.Equal([PhaseStatus.Skipped], PhaseStatus.Items.Where(static status => !status.IsDecisive));
 }

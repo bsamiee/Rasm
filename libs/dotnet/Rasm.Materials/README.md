@@ -1,8 +1,8 @@
 # [MATERIALS]
 
-`Rasm.Materials` owns architectural substance, appearance, and buildable component type: what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end, from BSDF lobes and OpenPBR lowering through spectral color science to Kubelka-Munk finishes, held at render grade.
+`Rasm.Materials` owns architectural substance, appearance, and buildable component type: what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity pipeline, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end, from BSDF lobes and OpenPBR lowering through spectral color science to Kubelka-Munk finishes, held at render grade.
 
-Component rows feed generated assemblies and fabrication physics, capacity verdicts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor, reaches the signal plane through the kernel capsule, and references `Rasm.AppHost` for the benchmark gate and the branch's neutral generated-message admission. It projects property catalogues, the component-family axis, section profiles, and section capacities onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
+Component rows feed generated assemblies and fabrication physics, capacity verdicts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor, reaches the signal plane through the kernel capsule, and references `Rasm.AppHost` for the benchmark gate and the branch's neutral generated-message admission. It projects property catalogues, the component-family axis, section profiles, and section capacities onto the `Rasm.Element` boundary through the one `ComponentProjector`, reminting no vector, color, unit, or contract type.
 
 ## [01]-[ROUTER]
 
@@ -26,7 +26,7 @@ Component rows feed generated assemblies and fabrication physics, capacity verdi
 - [17]-[PIPEWORK](.planning/Component/pipework.md): Pipework family over the published pressure-pipe system rosters.
 - [18]-[DUCTWORK](.planning/Component/ductwork.md): Ductwork family over the SMACNA pressure-class and gauge schedules.
 - [19]-[ELECTRICAL](.planning/Component/electrical.md): Electrical family over the conductor rosters and ampacity rating rows.
-- [20]-[CAPACITY](.planning/Component/capacity.md): One section-capacity resolution and check rail.
+- [20]-[CAPACITY](.planning/Component/capacity.md): One section-capacity resolution and check pipeline.
 
 [APPEARANCE]:
 - [21]-[BSDF](.planning/Appearance/bsdf.md): Closed BSDF lobe family and the microfacet kernel.
@@ -42,7 +42,7 @@ Component rows feed generated assemblies and fabrication physics, capacity verdi
 - [31]-[NEURAL](.planning/Appearance/neural.md): Photo-to-PBR model registry and the inference stage plan.
 
 [RASTER]:
-- [32]-[PLANE](.planning/Raster/plane.md): Typed-texel plane arena, the decoded row rails, and the mip chain with its sampler bridge.
+- [32]-[PLANE](.planning/Raster/plane.md): Typed-texel plane arena, the decoded row accessors, and the mip chain with its sampler bridge.
 - [33]-[CODEC](.planning/Raster/codec.md): Container roster, the band-2460 raster fault, and the KTX gate over its CLI floor.
 - [34]-[FILTER](.planning/Raster/filter.md): Plane-transform algebra, the stage scheduler, and the height-field correspondence.
 - [35]-[TILE](.planning/Raster/tile.md): Set-coherent tiling synthesizer and the deterministic tileability gate.
@@ -57,7 +57,7 @@ Component rows feed generated assemblies and fabrication physics, capacity verdi
 
 [PROJECTION]:
 - [42]-[COMPONENT](.planning/Projection/component.md): `ComponentProjector` fold minting Type Objects and material subgraphs.
-- [43]-[OBSERVABILITY](.planning/Projection/observability.md): Closed fact family over the folder hook rail with its instrument projection.
+- [43]-[OBSERVABILITY](.planning/Projection/observability.md): Closed fact family over the folder hook set with its instrument projection.
 - [44]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with benchmark gating.
 - [45]-[ANALYTICS](.planning/Projection/analytics.md): Analytics datasets declared as wire onto flat row streams for the columnar custodian.
 
@@ -100,7 +100,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
-- `JetBrains.Annotations`
 - `NodaTime` — `Duration` fact columns, `Instant`/`Interval` run stamps, and the `LocalDate` evidence expiry.
 - `QuikGraph` — Appearance-DAG topological sort and the Edmonds-Karp max-flow cut behind the tileability synthesizer.
 - `Riok.Mapperly` — Source-generated boundary transcription under the completeness gate.

@@ -52,7 +52,7 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 ## [03]-[IMPLEMENTATION_LAW]
 
 [STACKING]:
-- `effect` (`.api/effect.md`): the `Kafka` clients are `Effect.acquireRelease` acquisitions over `connect`/`disconnect`, every promise member converts through `Effect.tryPromise` at the engine seam, and the `run` handler loop lifts each delivery callback into the effect runtime.
+- `effect` (`.api/effect.md`): the `Kafka` clients are `Effect.acquireRelease` acquisitions over `connect`/`disconnect`, every promise member converts through `Effect.tryPromise` at the engine boundary, and the `run` handler loop lifts each delivery callback into the effect runtime.
 - `proc/config` `Setting`: bootstrap brokers, SASL/TLS posture, compression, and idempotence are config rows — no broker literal, credential, or `acks` knob lives in the engine.
 - `net/pubsub` `Fanout`: the Kafka engine row is one `Fanout` member set — `publish` over `Producer.send`, `consume` over the manual-commit `run` lane under the unpositioned `Window` anchor, exactly-once over the lane's transactional producer — carrying no `stash`/`haul` blob surface. `replay`, positional consume anchors, warm subscription, and the durable-consumer census answer `horizon`: the port's `Fanout.Anchor` is engine-neutral and carries no partition coordinate, and a consumer group is not a server-held consumer object, so the ordered-replay ledger column reads honestly empty rather than approximating a sequence the broker never held.
 
@@ -63,7 +63,7 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 - Spell `offset` per surface: `TopicPartitionOffset.offset` is a `string` on the KafkaJS-compatible promise surface and a `number` on the native `RdKafka` surface, so one coordinate crossing both carries an explicit conversion, never a shared alias.
 - Commit offsets after handler success — the at-least-once guarantee is ack-after-success, and an `autoCommit` before the handler completes silently drops on crash.
 - A rotating workload credential rides `sasl.oauthbearer` and nothing else: the provider is async, so it may resolve a live principal, and the client hands the answer to `setOAuthBearerToken` on the LIVE connection, so a rotation costs no reconnect. Arm the mechanism only where a token source exists — a `mechanism` set with no token refuses every handshake, where an absent `sasl` dials unauthenticated.
-- A rejected provider promise routes to `setOAuthBearerTokenFailure` and emits on `error`, which the supplied Logger carries; that Logger is the only seam the refusal reaches, exactly as every other async transport fault.
-- `setSaslCredentials` exists on the compat producer but is absent from the published types, so a fence naming it is coding against an unpublished member — the `oauthbearer` provider is the typed rotation rail.
+- A rejected provider promise routes to `setOAuthBearerTokenFailure` and emits on `error`, which the supplied Logger carries; that Logger is the only path the refusal reaches, exactly as every other async transport fault.
+- `setSaslCredentials` exists on the compat producer but is absent from the published types, so a fence naming it is coding against an unpublished member — the `oauthbearer` provider is the typed rotation path.
 - Exactly-once rides the `Transaction` from `producer.transaction()`: produced records and consumed offsets pass through it, `sendOffsets()` binds the offset handoff, and `commit()` publishes both atomically.
-- Envelope `value` is opaque transport octets the consumer's own `Schema` decodes at its seam; the engine never inspects or re-addresses it, and `ContentKey` stays the one addressing vocabulary.
+- Envelope `value` is opaque transport octets the consumer's own `Schema` decodes at its boundary; the engine never inspects or re-addresses it, and `ContentKey` stays the one addressing vocabulary.

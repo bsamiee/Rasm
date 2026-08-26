@@ -14,7 +14,7 @@
 - Entry: `public Constraint Compile(VariableEnv env)` — compiles a typed `LayoutConstraint` into a `Kiwi` `Constraint` over the resolved `Variable` handles at the row's `Strength`; the algebra composes through `Kiwi` operator overloads (`Variable * double` → `Term`, `Term + Term` → `Expression`), never hand-built tableau rows.
 - Auto: `LayoutVar` names a child's `Left`/`Top`/`Right`/`Bottom`/`Width`/`Height`/`CenterX`/`CenterY` plus the panel's own bounds, so a layout rule reads geometry by variable; `LayoutConstraint` binds a `LayoutExpr` to a `LayoutRelation` at a `LayoutStrength` mapping onto `Constraint.Equal`/`LessEqual`/`GreaterEqual` at `Strength.Required`/`Strong`/`Medium`/`Weak`; `Theme/tokens` `MetricFamily` rows supply spacing constants so a gap is a generated `TokenKey` resolved into the constraint, never a call-site literal; fixed structural rules use `required` and competing preferences use `strong`/`medium`/`weak` so the dual-simplex relaxes the lower-priority constraint instead of throwing.
 - Growth: a new layout variable is one `LayoutVar` kind; a new relation is structurally fixed at three; a new priority is structurally fixed at four; a new fault case is one `[FaultCase]` leaf; zero new surface — the algebra is the absorbing vocabulary.
-- Boundary: `LayoutStrength` closing at four rows is a CHOICE against `Strength.Create(a, b, c, w)`, whose lexicographic packing offers a continuum — a strength minted at a call site is a bare `double` no reader can rank against another panel's, and the ordered wire program would have to carry an opaque scalar where it now carries a locked literal the `@lume/kiwi` head re-packs identically; a fifth preference tier is one row added HERE; the constraint algebra is the one layout vocabulary — a parallel layout panel beside this is the `[04]-[BOUNDARIES]` parallel-control-framework rejected form; `LayoutEdge`'s key is the wire edge literal AND the `LayoutVar.Name` suffix, so the interior axis and the wire projection read one symbol source; `Constraint` identity is `Kiwi`-handle-based, so the solver alone owns equality INSIDE the tableau, while the AUTHORED `LayoutConstraint` row is the program-diff key `LayoutSolver.Load` retains beside each minted handle — two equalities on two types; boundary intake of constraint edits uses the `Kiwi` `Try*` family whole so `UnsatisfiableConstraintException` and the duplicate/unknown rails never cross the layout-update boundary as exceptions — they lift onto the `Fin` rail as `LayoutFault`; `VariableEnv` mints every handle through a composition-bound `Func<LayoutVar, Option<IVariableStore>>` column, so the `IVariableStore` observation seam is one composition value, the unbound arm taking `Kiwi`'s own in-memory store that `ValueOf` reads; the variable-introduction order derives from first appearance across the ordered constraint rows, so the program itself is the parity artifact and a stale environment snapshot can never desync the wire.
+- Boundary: `LayoutStrength` closing at four rows is a CHOICE against `Strength.Create(a, b, c, w)`, whose lexicographic packing offers a continuum — a strength minted at a call site is a bare `double` no reader can rank against another panel's, and the ordered wire program would have to carry an opaque scalar where it now carries a locked literal the `@lume/kiwi` head re-packs identically; a fifth preference tier is one row added HERE; the constraint algebra is the one layout vocabulary — a parallel layout panel beside this is the `[04]-[BOUNDARIES]` parallel-control-framework rejected form; `LayoutEdge`'s key is the wire edge literal AND the `LayoutVar.Name` suffix, so the interior axis and the wire projection read one symbol source; `Constraint` identity is `Kiwi`-handle-based, so the solver alone owns equality INSIDE the tableau, while the AUTHORED `LayoutConstraint` row is the program-diff key `LayoutSolver.Load` retains beside each minted handle — two equalities on two types; boundary intake of constraint edits uses the `Kiwi` `Try*` family whole so `UnsatisfiableConstraintException` and the duplicate/unknown faults never cross the layout-update boundary as exceptions — they lift onto `Fin` as `LayoutFault`; `VariableEnv` mints every handle through a composition-bound `Func<LayoutVar, Option<IVariableStore>>` column, so the `IVariableStore` observation port is one composition value, the unbound arm taking `Kiwi`'s own in-memory store that `ValueOf` reads; the variable-introduction order derives from first appearance across the ordered constraint rows, so the program itself is the parity artifact and a stale environment snapshot can never desync the wire.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -134,26 +134,25 @@ public sealed class VariableEnv(Func<LayoutVar, Option<IVariableStore>> stores) 
 
 ## [03]-[LAYOUT_PRESETS]
 
-- Owner: `LayoutPreset` the `[Union]` of flex/grid-track/auto-layout preset rows; `RailAnchor` and `CrossPin` the capability vocabularies whose rows carry their own rule derivations; `FlexDirection`, `FlexJustify`, and `FlexAlign` the policy rosters over those vocabularies; `WrapPolicy` the two-row partition axis carrying the line split as its own delegate; `GridAxis` the two-row axis vocabulary the grid fold runs once per row; `ChromeProgram` the shell-chrome preset catalogue; `LayoutPrograms` the one flow-and-grid generator; `ConstraintProgram` the ordered constraint sequence a preset expands into, carrying its panel key as a declared field.
+- Owner: `LayoutPreset` the `[Union]` of flex/grid-track/auto-layout preset rows; `MainAnchor` and `CrossPin` the capability vocabularies whose rows carry their own rule derivations; `FlexDirection`, `FlexJustify`, and `FlexAlign` the policy rosters over those vocabularies; `WrapPolicy` the two-row partition axis carrying the line split as its own delegate; `GridAxis` the two-row axis vocabulary the grid fold runs once per row; `ChromeProgram` the shell-chrome preset catalogue; `LayoutPrograms` the one flow-and-grid generator; `ConstraintProgram` the ordered constraint sequence a preset expands into, carrying its panel key as a declared field.
 - Cases: `LayoutPreset` = Flow(FlexDirection, WrapPolicy, FlexJustify, FlexAlign, TokenKey Gap) | Grid(Seq<TrackSize> Columns, Seq<TrackSize> Rows, TokenKey Gap) | Anchor(Seq<LayoutConstraint> Rules) under the locked kind literals — `Gap` is a `Theme/tokens` `MetricFamily.At` key resolved at expansion.
 - Entry: `public ConstraintProgram Expand(string panel, Seq<string> children, Func<string, double> extentOf, double available, Func<TokenKey, double> metric)` — folds a preset over its children into the ordered `ConstraintProgram`; `extentOf` supplies measured main extents and `available` the wrap width, both read only by the wrap partition; `metric` resolves the preset's `Gap` key against the resolved theme, bound at composition.
 - Law: a preset is SELECTED by the resolved responsive tier and never authored against a width — `BreakpointRow.Program` (`Shell/navigation#ADAPTIVE_LAYOUT`) carries the preset each tier expands, so a width literal inside a preset row, a per-preset breakpoint column, and a second responsive table beside the tier ladder are all unspellable.
-- Auto: `Stack` IS the degenerate auto-layout — one `LayoutPrograms.Flow` generator derives both, wrap `None` and `FlexJustify.Start` fixed, so a layout idiom is a parameter row over the generator, never a sibling program builder; `FlexJustify` rows distribute one shared per-rail spread variable — `Anchors` names which ends pin, and a `Some` spread IS the distributed posture, its `LeadShare`/`TrailShare` scaling the edge gaps (`SpaceAround` = half-gap edges, `SpaceEvenly` = full-gap edges), so six justify modes are one derivation over policy columns and a `distributed` flag the spread's presence already spells is unspellable; `FlexAlign` rows pin the cross axis through their `CapabilitySet<CrossPin>` column, `Stretch` being `{Lead, Trail}` and `Center` the exclusive pin the closed roster alone can mint; `Grid` expands fractional/fixed/auto track sizes into `Kiwi` proportional constraints (`fr` tracks share one unit variable via weighted `strong` rows, fixed tracks pin at `required`, auto tracks register `medium` edit rows the measure pass suggests content sizes onto), the column and row halves ONE fold over the two `GridAxis` rows; wrap partitions measured extents greedily into synthetic line owners whose extents bound their children — every rule linear, so the dual-simplex owns the whole layout; `Anchor` is the raw constraint preset for bespoke layouts, produced today only by the canonical wire case.
+- Auto: `Stack` IS the degenerate auto-layout — one `LayoutPrograms.Flow` generator derives both, wrap `None` and `FlexJustify.Start` fixed, so a layout idiom is a parameter row over the generator, never a sibling program builder; `FlexJustify` rows distribute one shared per-line spread variable — `Anchors` names which ends pin, and a `Some` spread IS the distributed posture, its `LeadShare`/`TrailShare` scaling the edge gaps (`SpaceAround` = half-gap edges, `SpaceEvenly` = full-gap edges), so six justify modes are one derivation over policy columns and a `distributed` flag the spread's presence already spells is unspellable; `FlexAlign` rows pin the cross axis through their `CapabilitySet<CrossPin>` column, `Stretch` being `{Lead, Trail}` and `Center` the exclusive pin the closed roster alone can mint; `Grid` expands fractional/fixed/auto track sizes into `Kiwi` proportional constraints (`fr` tracks share one unit variable via weighted `strong` rows, fixed tracks pin at `required`, auto tracks register `medium` edit rows the measure pass suggests content sizes onto), the column and row halves ONE fold over the two `GridAxis` rows; wrap partitions measured extents greedily into synthetic line owners whose extents bound their children — every rule linear, so the dual-simplex owns the whole layout; `Anchor` is the raw constraint preset for bespoke layouts, produced today only by the canonical wire case.
 - Packages: Kiwi, Rasm (kernel `CapabilitySet`/`ICapability`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new layout idiom is one `LayoutPreset` case parameterizing the generator; a new distribution mode is one `FlexJustify` row; a new cross pinning is one `CrossPin` row carrying its rule; a new track-size kind is one `TrackSize` case; a new chrome-slot geometry is one `ChromeProgram` row; zero new surface.
-- Boundary: presets are constraint-row generators over the one algebra — a flex panel, a grid panel, and a uniform-grid panel beside this are the rejected forms; a wrap flow re-expands only when the width suggestion crosses a line-break boundary of the greedy partition, and the re-expansion lands through `LayoutSolver.Load`, whose delta touches exactly the line-owner rows the new partition moved — a whole-tableau rebuild would recompile every child's geometry rows at pointer rate to change a handful; an empty `Grid` track roster CANONICALIZES at expansion to one `Auto` track — admission canonicalizes at intake so the fold reads one regime and the per-use `Math.Max` guards the empty roster forced are gone; track sizes map onto `Kiwi` coefficient and strength patterns so a `1fr 2fr` split is two `strong` proportional rows against one unit variable, never per-track arithmetic; the gap is a `Theme/tokens` `TokenKey` minted by `MetricFamily.At`, so a preset names a GENERATED metric rung and a composed lookup string is unspellable; the `ChromeProgram` rows this owner publishes are the shell chrome's whole layout vocabulary — `Shell/navigation#SHELL_CHROME` names a program key per slot and hands its resolved children to the one panel, so a rail, a three-zone footer, and a HUD are three `Flow` rows differing in direction, justify, and gap alone, and a chrome-local `StackPanel`, `DockPanel`, or `Grid` is the parallel-panel rejected form; the `ConstraintProgram` is ordered (derived introduction order plus edit-variable set plus suggested-value sequence) so the desktop tableau and the `@lume/kiwi` web tableau converge to identical positions.
+- Boundary: presets are constraint-row generators over the one algebra — a flex panel, a grid panel, and a uniform-grid panel beside this are the rejected forms; a wrap flow re-expands only when the width suggestion crosses a line-break boundary of the greedy partition, and the re-expansion lands through `LayoutSolver.Load`, whose delta touches exactly the line-owner rows the new partition moved — a whole-tableau rebuild would recompile every child's geometry rows at pointer rate to change a handful; an empty `Grid` track roster CANONICALIZES at expansion to one `Auto` track — admission canonicalizes at intake so the fold reads one regime and the per-use `Math.Max` guards the empty roster forced are gone; track sizes map onto `Kiwi` coefficient and strength patterns so a `1fr 2fr` split is two `strong` proportional rows against one unit variable, never per-track arithmetic; the gap is a `Theme/tokens` `TokenKey` minted by `MetricFamily.At`, so a preset names a GENERATED metric rung and a composed lookup string is unspellable; the `ChromeProgram` rows this owner publishes are the shell chrome's whole layout vocabulary — `Shell/navigation#SHELL_CHROME` names a program key per slot and hands its resolved children to the one panel, so a nav, a three-zone footer, and a HUD are three `Flow` rows differing in direction, justify, and gap alone, and a chrome-local `StackPanel`, `DockPanel`, or `Grid` is the parallel-panel rejected form; the `ConstraintProgram` is ordered (derived introduction order plus edit-variable set plus suggested-value sequence) so the desktop tableau and the `@lume/kiwi` web tableau converge to identical positions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RailAnchor : ICapability<RailAnchor> {
-    public static readonly RailAnchor Lead = new("lead",
+public sealed partial class MainAnchor : ICapability<MainAnchor> {
+    public static readonly MainAnchor Lead = new("lead",
         static (owner, first, last, axis, spread, share) => LayoutPrograms.Rule(
             LayoutExpr.Of(new(first, axis.MainLead)), LayoutRelation.Eq,
             LayoutExpr.Of(new(owner, axis.MainLead)).Plus(spread, share), LayoutStrength.Required));
-    public static readonly RailAnchor Trail = new("trail",
+    public static readonly MainAnchor Trail = new("trail",
         static (owner, first, last, axis, spread, share) => LayoutPrograms.Rule(
             LayoutExpr.Of(new(last, axis.MainTrail)), LayoutRelation.Eq,
             LayoutExpr.Of(new(owner, axis.MainTrail)).Plus(spread, -share), LayoutStrength.Required));
@@ -162,7 +161,6 @@ public sealed partial class RailAnchor : ICapability<RailAnchor> {
     public partial LayoutConstraint Pin(string owner, string first, string last, FlexDirection axis, LayoutVar spread, double share);
 }
 
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CrossPin : ICapability<CrossPin> {
@@ -194,21 +192,21 @@ public sealed partial class FlexDirection {
     public bool Reversed { get; }
 }
 
-public readonly record struct RailSpread(double LeadShare, double TrailShare);
+public readonly record struct MainSpread(double LeadShare, double TrailShare);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FlexJustify {
-    public static readonly FlexJustify Start = new("start", CapabilitySet<RailAnchor>.Of(RailAnchor.Lead), Option<RailSpread>.None);
-    public static readonly FlexJustify Center = new("center", CapabilitySet<RailAnchor>.None, Option<RailSpread>.None);
-    public static readonly FlexJustify End = new("end", CapabilitySet<RailAnchor>.Of(RailAnchor.Trail), Option<RailSpread>.None);
-    public static readonly FlexJustify SpaceBetween = new("space-between", CapabilitySet<RailAnchor>.All, Some(new RailSpread(0d, 0d)));
-    public static readonly FlexJustify SpaceAround = new("space-around", CapabilitySet<RailAnchor>.All, Some(new RailSpread(0.5d, 0.5d)));
-    public static readonly FlexJustify SpaceEvenly = new("space-evenly", CapabilitySet<RailAnchor>.All, Some(new RailSpread(1d, 1d)));
+    public static readonly FlexJustify Start = new("start", CapabilitySet<MainAnchor>.Of(MainAnchor.Lead), Option<MainSpread>.None);
+    public static readonly FlexJustify Center = new("center", CapabilitySet<MainAnchor>.None, Option<MainSpread>.None);
+    public static readonly FlexJustify End = new("end", CapabilitySet<MainAnchor>.Of(MainAnchor.Trail), Option<MainSpread>.None);
+    public static readonly FlexJustify SpaceBetween = new("space-between", CapabilitySet<MainAnchor>.All, Some(new MainSpread(0d, 0d)));
+    public static readonly FlexJustify SpaceAround = new("space-around", CapabilitySet<MainAnchor>.All, Some(new MainSpread(0.5d, 0.5d)));
+    public static readonly FlexJustify SpaceEvenly = new("space-evenly", CapabilitySet<MainAnchor>.All, Some(new MainSpread(1d, 1d)));
 
-    public CapabilitySet<RailAnchor> Anchors { get; }
-    public Option<RailSpread> Spread { get; }
+    public CapabilitySet<MainAnchor> Anchors { get; }
+    public Option<MainSpread> Spread { get; }
 }
 
 [SmartEnum<string>]
@@ -309,9 +307,9 @@ public sealed partial class ChromeProgram {
         new LayoutPreset.Flow(FlexDirection.Row, WrapPolicy.None, FlexJustify.Start, FlexAlign.Center, MetricFamily.Space.At(1)));
     public static readonly ChromeProgram Toolbar = new("toolbar",
         new LayoutPreset.Flow(FlexDirection.Row, WrapPolicy.None, FlexJustify.Start, FlexAlign.Center, MetricFamily.Space.At(2)));
-    public static readonly ChromeProgram RailExpanded = new("rail-expanded",
+    public static readonly ChromeProgram NavExpanded = new("nav-expanded",
         new LayoutPreset.Flow(FlexDirection.Column, WrapPolicy.None, FlexJustify.Start, FlexAlign.Stretch, MetricFamily.Space.At(2)));
-    public static readonly ChromeProgram RailCollapsed = new("rail-collapsed",
+    public static readonly ChromeProgram NavCollapsed = new("nav-collapsed",
         new LayoutPreset.Flow(FlexDirection.Column, WrapPolicy.None, FlexJustify.Start, FlexAlign.Center, MetricFamily.Space.At(1)));
     public static readonly ChromeProgram StatusBar = new("status-bar",
         new LayoutPreset.Flow(FlexDirection.Row, WrapPolicy.None, FlexJustify.SpaceBetween, FlexAlign.Center, MetricFamily.Space.At(2)));
@@ -348,7 +346,7 @@ public static class LayoutPrograms {
             + split.Match(
                 Some: _ => owners.Bind(Geometry) + Band(panel, owners, direction, gap),
                 None: () => Seq<LayoutConstraint>())
-            + lines.Zip(owners).Bind(pair => Rail(pair.Second, pair.First, direction, justify, align, gap));
+            + lines.Zip(owners).Bind(pair => Main(pair.Second, pair.First, direction, justify, align, gap));
         Seq<EditRow> edits = children.Bind(child => Seq(
             new EditRow(new LayoutVar(child, direction.MainExtent), LayoutStrength.Medium),
             new EditRow(new LayoutVar(child, direction.CrossExtent), LayoutStrength.Medium)));
@@ -367,7 +365,7 @@ public static class LayoutPrograms {
         return folded.Lines.Add(folded.Line).Filter(static line => !line.IsEmpty);
     }
 
-    private static Seq<LayoutConstraint> Rail(string owner, Seq<string> line, FlexDirection axis, FlexJustify justify, FlexAlign align, double gap) {
+    private static Seq<LayoutConstraint> Main(string owner, Seq<string> line, FlexDirection axis, FlexJustify justify, FlexAlign align, double gap) {
         LayoutVar spread = new($"{owner}.flow", axis.MainExtent);
         LayoutExpr After(string prior) => justify.Spread.Match(
             Some: _ => LayoutExpr.Of(new(prior, axis.MainTrail)).Plus(spread),
@@ -380,14 +378,14 @@ public static class LayoutPrograms {
                     Rule(LayoutExpr.Of(spread), LayoutRelation.Ge, LayoutExpr.Fixed(0d), LayoutStrength.Required)),
                 None: () => Seq<LayoutConstraint>())
             + line.Head.ToSeq().Bind(first => line.Last.ToSeq().Bind(last =>
-                toSeq(RailAnchor.Items).Filter(justify.Anchors.Admits)
+                toSeq(MainAnchor.Items).Filter(justify.Anchors.Admits)
                     .Map(anchor => anchor.Pin(owner, first, last, axis, spread, justify.Spread.Match(
-                        Some: shares => anchor == RailAnchor.Lead ? shares.LeadShare : shares.TrailShare,
+                        Some: shares => anchor == MainAnchor.Lead ? shares.LeadShare : shares.TrailShare,
                         None: () => 0d)))
-                + (justify.Anchors.Admits(RailAnchor.Trail)
+                + (justify.Anchors.Admits(MainAnchor.Trail)
                     ? Seq<LayoutConstraint>()
                     : Seq(Rule(LayoutExpr.Of(new(owner, axis.MainTrail)), LayoutRelation.Ge, LayoutExpr.Of(new(last, axis.MainTrail)), LayoutStrength.Medium)))
-                + (justify.Anchors == CapabilitySet<RailAnchor>.None
+                + (justify.Anchors == CapabilitySet<MainAnchor>.None
                     ? Seq(
                         Rule(LayoutExpr.Of(new(first, axis.MainLead)).Plus(new LayoutVar(last, axis.MainTrail)), LayoutRelation.Eq,
                             LayoutExpr.Of(new(owner, axis.MainLead)).Plus(new LayoutVar(owner, axis.MainTrail)), LayoutStrength.Strong),
@@ -420,7 +418,7 @@ public static class LayoutPrograms {
             (GridAxis.Columns, admittedColumns.Map((track, i) => (Owner: $"{panel}.col{i}", Track: track)).Strict()),
             (GridAxis.Rows, completedRows.Map((track, j) => (Owner: $"{panel}.row{j}", Track: track)).Strict()));
         int columnCount = admittedColumns.Length;
-        Seq<LayoutConstraint> railRows =
+        Seq<LayoutConstraint> mainRows =
             Geometry(panel) + children.Bind(Geometry)
             + axes.Bind(axis => Tracks(panel, axis.Tracks, axis.Axis, new LayoutVar($"{panel}.fr-{axis.Axis.Key}", axis.Axis.Extent), gap))
             + children.Bind((child, index) => axes.Bind(axis =>
@@ -437,7 +435,7 @@ public static class LayoutPrograms {
                 children.Bind((child, index) => axis.Axis.Slot(index, columnCount) == slot
                     ? Seq(new LayoutVar(child, axis.Axis.Extent))
                     : Seq<LayoutVar>()))))));
-        return new ConstraintProgram(panel, railRows, edits, Seq<ValueRow>(), measures);
+        return new ConstraintProgram(panel, mainRows, edits, Seq<ValueRow>(), measures);
     }
 
     private static Seq<LayoutConstraint> Tracks(string panel, Seq<(string Owner, TrackSize Track)> tracks, GridAxis axis, LayoutVar unit, double gap) =>
@@ -465,11 +463,11 @@ public static class LayoutPrograms {
 
 - Owner: `LayoutSolver` the one custom Avalonia `Panel` folding the `Kiwi` solve into measure/arrange; `TableauEdit` the closed four-verb delta vocabulary carrying its own inverse.
 - Entry: `public Fin<Unit> Load(ConstraintProgram next)` — the transactional delta over the live tableau; `protected override Size MeasureOverride(Size availableSize)` and `protected override Size ArrangeOverride(Size finalSize)` — the named boundary capsule where the panel's own bounds drive as edit variables suggested to `availableSize`/`finalSize`, `Solver.Solve` runs the dual-simplex (`Solve` itself calls `UpdateVariables`, flushing each solved row constant into its `Variable.Value`), and `VariableEnv.ValueOf` reads the solved positions into each child's arrange rectangle.
-- Auto: `Load` diffs the incoming `ConstraintProgram` against the live one and stages exactly the departed and arrived rows and edit variables as `TableauEdit` values, so the tableau is edited where Cassowary is incremental and rebuilt nowhere; `MeasureOverride` opens the pass (clearing the fault cell and capturing the `MonotonicTimeline` stamp), measures each child, suggests the available size to the panel's edit variables, then suggests every measured child extent onto its `Medium` edit row through `Measured` — retaining the folded probe values for the design-pinned projection — and reads the desired size from the solved panel extent; `ArrangeOverride` suggests the final size, runs `Solve`, arranges each child at its solved `(Left, Top, Width, Height)`, records the measured pass directly, and fires `AppUiFact.Layout` on the package hook rail; runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue` so the layout re-solves without touching constraint rows at all.
+- Auto: `Load` diffs the incoming `ConstraintProgram` against the live one and stages exactly the departed and arrived rows and edit variables as `TableauEdit` values, so the tableau is edited where Cassowary is incremental and rebuilt nowhere; `MeasureOverride` opens the pass (clearing the fault cell and capturing the `MonotonicTimeline` stamp), measures each child, suggests the available size to the panel's edit variables, then suggests every measured child extent onto its `Medium` edit row through `Measured` — retaining the folded probe values for the design-pinned projection — and reads the desired size from the solved panel extent; `ArrangeOverride` suggests the final size, runs `Solve`, arranges each child at its solved `(Left, Top, Width, Height)`, records the measured pass directly, and fires `AppUiFact.Layout` on the package hook dispatch; runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue` so the layout re-solves without touching constraint rows at all.
 - Evidence: `AppUiFact.Layout` carries the panel key, constraint count, measured elapsed span, and exact pass fault at `AppUiPoint.Layout`; the local violated-row count writes the `Relaxed` instrument directly, while `TelemetryRow` contributes the solve-duration, relaxed-constraint, and layout-fault rows inward through the AppHost `TelemetryContributorPort`.
 - Packages: Kiwi, Avalonia, Rasm (kernel `MonotonicTimeline`/`Custody`/`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: a new layout pass concern is one `LayoutSolver` policy value; a new tableau verb is one `TableauEdit` case whose `Inverse` and `Apply` arms break at compile time; one layout instrument is one `InstrumentSpec` row on `LayoutSolver.TelemetryRow`; zero new surface.
-- Boundary: `LayoutSolver` is the named boundary capsule for the measure/arrange statement carve-out — the `Solver` mutation, the `SuggestValue` edits, and the child-arrange loop carry the only statement bodies, folding into Avalonia's native `Layoutable` pass rather than a parallel layout engine; `Load` is transactional through kernel `Custody.Rollback` over the `TableauEdit` inverse — the applied stack replays backwards on the first refusal, so a rejected program leaves the live system exactly as it stood, while a superseded program's handles retire through `VariableEnv.Retain`; the pass degrades to the LAST SOLVED STATE and never to zero — `Read` stays on the `Fin` rail and `MeasureOverride` falls back to the panel's own prior `DesiredSize`; the fault cell ACCUMULATES first-wins and clears once at `MeasureOverride`, so a successful arrange can never erase a measure-pass fault; relaxation is measured, never inferred — `Kiwi` raises nothing when the dual-simplex leaves a soft row unmet, so the only honest reading is the post-solve scan of each live handle's own `Violated`, taken once after the arrange solve; solved positions read back through `VariableEnv.ValueOf` after `Solve` flushes the row constants, so the panel reads positions by direct value lookup and a per-frame poll is the rejected form; the `ControlFactory` `Panel`/`Dock` intents name their `ConstraintProgram`, hand it to this one panel through `MaterializeContext.Layout`, and stamp `ChildKeyProperty` from each child intent's `Key` in their `Mounted` fold before any child enters `Children` — the one admitted source of the solver's child identity, and the property is nullable so absence is `Option.None`, never an empty-string sentinel; child re-measurement reaches this panel through Avalonia's own desired-size edge — `Layoutable.Measure` notifies the visual parent exactly when the child's `DesiredSize` moved (`.api/api-avalonia.md` `[LAYOUT_PASS_OPERATIONS]`), so an out-of-band content-size change re-solves for free and a child-invalidation subscription beside it is the deleted form, while a solver-visible fact carrying no child-extent delta rides `Load` as a program delta; the panel's own measure stays Avalonia-native so a `LayoutSolver` nests inside ordinary Avalonia layout and an ordinary panel nests inside it.
+- Boundary: `LayoutSolver` is the named boundary capsule for the measure/arrange statement carve-out — the `Solver` mutation, the `SuggestValue` edits, and the child-arrange loop carry the only statement bodies, folding into Avalonia's native `Layoutable` pass rather than a parallel layout engine; `Load` is transactional through kernel `Custody.Rollback` over the `TableauEdit` inverse — the applied stack replays backwards on the first refusal, so a rejected program leaves the live system exactly as it stood, while a superseded program's handles retire through `VariableEnv.Retain`; the pass degrades to the LAST SOLVED STATE and never to zero — `Read` stays on `Fin` and `MeasureOverride` falls back to the panel's own prior `DesiredSize`; the fault cell ACCUMULATES first-wins and clears once at `MeasureOverride`, so a successful arrange can never erase a measure-pass fault; relaxation is measured, never inferred — `Kiwi` raises nothing when the dual-simplex leaves a soft row unmet, so the only honest reading is the post-solve scan of each live handle's own `Violated`, taken once after the arrange solve; solved positions read back through `VariableEnv.ValueOf` after `Solve` flushes the row constants, so the panel reads positions by direct value lookup and a per-frame poll is the rejected form; the `ControlFactory` `Panel`/`Dock` intents name their `ConstraintProgram`, hand it to this one panel through `MaterializeContext.Layout`, and stamp `ChildKeyProperty` from each child intent's `Key` in their `Mounted` fold before any child enters `Children` — the one admitted source of the solver's child identity, and the property is nullable so absence is `Option.None`, never an empty-string sentinel; child re-measurement reaches this panel through Avalonia's own desired-size edge — `Layoutable.Measure` notifies the visual parent exactly when the child's `DesiredSize` moved (`.api/api-avalonia.md` `[LAYOUT_PASS_OPERATIONS]`), so an out-of-band content-size change re-solves for free and a child-invalidation subscription beside it is the deleted form, while a solver-visible fact carrying no child-extent delta rides `Load` as a program delta; the panel's own measure stays Avalonia-native so a `LayoutSolver` nests inside ordinary Avalonia layout and an ordinary panel nests inside it.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -507,7 +505,7 @@ public abstract partial record TableauEdit {
 public sealed class LayoutSolver(
     MonotonicTimeline line,
     InstrumentSet signals,
-    HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+    HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
     Func<LayoutVar, Option<IVariableStore>> stores) : Panel {
     private static readonly Op Pass = Op.Of(name: "appui.layout.pass");
 
@@ -548,12 +546,12 @@ public sealed class LayoutSolver(
 
     private Fin<Unit> Stage(Seq<TableauEdit> plan) {
         var staged = plan.FoldWhile(
-            (Applied: Seq<TableauEdit>(), Rail: Fin.Succ(unit)),
+            (Applied: Seq<TableauEdit>(), Result: Fin.Succ(unit)),
             (state, edit) => edit.Apply(solver, env).Match(
-                Succ: _ => (state.Applied.Add(edit), state.Rail),
+                Succ: _ => (state.Applied.Add(edit), state.Result),
                 Fail: error => (state.Applied, Fin.Fail<Unit>(error))),
-            static step => step.Item1.Rail.Match(Succ: static _ => true, Fail: static _ => false));
-        return staged.Rail.Rollback(() =>
+            static step => step.Item1.Result.Match(Succ: static _ => true, Fail: static _ => false));
+        return staged.Result.Rollback(() =>
             staged.Applied.Rev().TraverseM(edit => edit.Inverse.Apply(solver, env)).As().Map(static _ => unit));
     }
 
@@ -597,7 +595,7 @@ public sealed class LayoutSolver(
                             (AppUiTelemetry.PanelSlot, program.Panel), (AppUiTelemetry.FaultSlot, code))),
                         None: () => signals.Write(Fault, 1d, tags)),
                     None: static () => Fin.Succ(unit)))
-                .Bind(_ => rail.Fire(
+                .Bind(_ => hooks.Fire(
                     AppUiPoint.Layout,
                     new AppUiFact.Layout(
                         program.Panel,
@@ -692,7 +690,7 @@ flowchart LR
     VariableEnv -->|ValueOf| ArrangeOverride
     ArrangeOverride --> Instruments
     ArrangeOverride --> AppUiFactLayout["AppUiFact.Layout"]
-    AppUiFactLayout --> HookRail
+    AppUiFactLayout --> HookSet
     ConstraintProgram -->|Wire| LayoutProgram
 ```
 

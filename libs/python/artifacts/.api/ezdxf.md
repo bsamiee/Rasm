@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_EZDXF]
 
-`ezdxf` owns DXF read/write/render for the artifacts cad-export rail: a `Drawing` document graph authored through one `GraphicsFactory.add_*` builder family, the `ezdxf.path.Path` command-segment algebra bridging DXF curves to the SVG path the figure owners speak, the `ezdxf.math` kernel the geometry seam reads, and the `addons.drawing` `Frontend`+backend family rasterizing any DXF to SVG/PDF/PNG/JSON in-process. It re-implements neither the DXF grammar, OCS/WCS transform, B-spline evaluator, nor DXF-to-SVG conversion it owns, and authors neither the IFC model (`dotnet:Rasm.Bim`) nor the placement the composition owners hold.
+`ezdxf` owns DXF read/write/render for the artifacts cad-export domain: a `Drawing` document graph authored through one `GraphicsFactory.add_*` builder family, the `ezdxf.path.Path` command-segment algebra bridging DXF curves to the SVG path the figure owners speak, the `ezdxf.math` kernel the geometry boundary reads, and the `addons.drawing` `Frontend`+backend family rasterizing any DXF to SVG/PDF/PNG/JSON in-process. It re-implements neither the DXF grammar, OCS/WCS transform, B-spline evaluator, nor DXF-to-SVG conversion it owns, and authors neither the IFC model (`dotnet:Rasm.Bim`) nor the placement the composition owners hold.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -56,7 +56,7 @@ Symbol tables carry the named resources entities reference; each `.add(name, dxf
 
 [PUBLIC_TYPE_SCOPE]: geometry kernel (`ezdxf.math`)
 
-Pure geometry value objects — the `Vec3`/`Matrix44` shapes the `geometry/*` and C# `Rasm` geometry seam exchange at the wire; `Vec3.list(...)`/`v.xyz` round-trips to plain tuples a `numpy` array or `msgspec` struct records, so no affine or B-spline evaluator is re-derived.
+Pure geometry value objects — the `Vec3`/`Matrix44` shapes the `geometry/*` and C# `Rasm` geometry boundary exchange at the wire; `Vec3.list(...)`/`v.xyz` round-trips to plain tuples a `numpy` array or `msgspec` struct records, so no affine or B-spline evaluator is re-derived.
 
 | [INDEX] | [TYPE]                                     | [KIND]       | [ROLE]                                                                  |
 | :-----: | :----------------------------------------- | :----------- | :---------------------------------------------------------------------- |

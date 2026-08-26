@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_QUEENBEE]
 
-`queenbee` mints the Pollination workflow-language schema graph the runtime recipe owner composes: every node is a `type`-discriminated `pydantic` v2 `BaseModel` carrying a free-form `annotations` dict, and every model round-trips disk YAML, a validated graph, and a wire dict through one serialization spine. It is the schema authority alone — the recipe/workflow vocabulary is admitted, its bundled click CLI and `urllib` transfer/repository-fetch helpers rejected, so `cyclopts` owns the parser and the `httpx`/`obstore` rails own byte movement.
+`queenbee` mints the Pollination workflow-language schema graph the runtime recipe owner composes: every node is a `type`-discriminated `pydantic` v2 `BaseModel` carrying a free-form `annotations` dict, and every model round-trips disk YAML, a validated graph, and a wire dict through one serialization spine. It is the schema authority alone — the recipe/workflow vocabulary is admitted, its bundled click CLI and `urllib` transfer/repository-fetch helpers rejected, so `cyclopts` owns the parser and the `httpx`/`obstore` layers own byte movement.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -106,7 +106,7 @@
 | :-----: | :------------------------------------------------------- | :------- | :--------------------------------------------------------------- |
 |  [01]   | `from_file(filepath) -> Self`                            | factory  | load: parse JSON/YAML by ext; raises `ValueError` on failure     |
 |  [02]   | `model_validate(obj)` / `model_validate_json(json_data)` | factory  | parse: pydantic v2 validation from a dict / JSON bytes           |
-|  [03]   | `to_dict(*, exclude_defaults, by_alias, exclude_none)`   | instance | encode: model → wire dict (the cross-rail projection)            |
+|  [03]   | `to_dict(*, exclude_defaults, by_alias, exclude_none)`   | instance | encode: model → wire dict (the cross-layer projection)           |
 |  [04]   | `to_json(filepath, ...)` / `to_yaml(filepath, ...)`      | instance | write: persist as JSON / YAML file                               |
 |  [05]   | `yaml(...)` / `model_dump_json(...)`                     | instance | encode: YAML / JSON string in memory                             |
 |  [06]   | `model_json_schema()`                                    | factory  | schema: pydantic v2 JSON-Schema generator (contract publication) |
@@ -147,7 +147,7 @@
 - IO-matrix law: an input/output is selected by tier (`DAG`/`Function`/`Step`/`Alias`) × `ItemType`, never a bespoke per-recipe class; `Step*` carries the runtime `value`/`source`, `*Alias` the `IOAliasHandler` post-processor.
 
 [STACKING]:
-- `pydantic`(`libs/python/.api/pydantic.md`): external recipe/plugin YAML/JSON decodes through `Recipe.from_file`/`BakedRecipe.from_recipe` into a validated `type`-discriminated graph; a `pydantic.ValidationError` (wrapped `ValueError` by `from_file`) folds into the runtime `Result`/boundary-fault rail, never raised through the daemon.
+- `pydantic`(`libs/python/.api/pydantic.md`): external recipe/plugin YAML/JSON decodes through `Recipe.from_file`/`BakedRecipe.from_recipe` into a validated `type`-discriminated graph; a `pydantic.ValidationError` (wrapped `ValueError` by `from_file`) folds into the runtime `Result`/boundary-fault channel, never raised through the daemon.
 - `obstore`(`libs/python/.api/obstore.md`) / `httpx`(`httpx.md`): a `Job` `S3`/`HTTP` artifact source's `(bucket, key, endpoint)`/`url` feeds an `obstore` `get` or an `httpx` stream; a `ProjectFolder` source feeds the `universal-pathlib`(`libs/python/.api/universal-pathlib.md`)/`fsspec` local root — queenbee declares the source, the runtime moves the bytes.
 - `stamina`(`stamina.md`): a remote `RepositoryIndex`/`PackageVersion` fetches over the `httpx` async client under a `stamina` retry policy, decodes by `RepositoryIndex.model_validate_json(resp.content)`, then `search`/`get_latest`/`package_by_tag` resolve the version.
 - `pollination-handlers`(`pollination-handlers.md`) / `lbt-recipes`(`lbt-recipes.md`): a `DAG<Type>InputAlias.handler` (`IOAliasHandler`) resolves to a `pollination-handlers` callable, and an `lbt-recipes` simulation recipe loads as a `BakedRecipe` and submits as a `Job` — the three-package cluster meets on the queenbee schema.
@@ -156,5 +156,5 @@
 
 [LOCAL_ADMISSION]:
 - recipe owner admits the queenbee schema graph alone; the `[cli]` click extra is rejected — `cyclopts` owns the CLI, recipe/job commands composing `Recipe.from_file`/`Job.validate_arguments`.
-- queenbee's bundled transfer/fetch helpers (`base.request.make_request`/`get_uri`/`resolve_local_source`, the `repository`/`config` urllib fetches) stay unused: repository index and package fetch route through the runtime `httpx` client, and `S3`/`HTTP`/`ProjectFolder` movement through the `transport/roots` transfer rails.
+- queenbee's bundled transfer/fetch helpers (`base.request.make_request`/`get_uri`/`resolve_local_source`, the `repository`/`config` urllib fetches) stay unused: repository index and package fetch route through the runtime `httpx` client, and `S3`/`HTTP`/`ProjectFolder` movement through the `transport/roots` transfer paths.
 - queenbee models stay at the recipe-definition boundary; crossing the C#↔Python companion wire projects through `to_dict(by_alias=True)`, never a second `msgspec`/protobuf mint of a queenbee schema.

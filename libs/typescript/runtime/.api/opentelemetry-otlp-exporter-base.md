@@ -46,7 +46,7 @@
 [STACKING]:
 - `opentelemetry-exporter-trace-otlp-http.md` / `-metrics-` / `-logs-` and their `-proto` twins: every constructor argument extends `OTLPExporterNodeConfigBase`, so one transport projection feeds all six classes.
 - `opentelemetry-sdk-trace-base.md` `BatchSpanProcessor` and `opentelemetry-sdk-logs.md` `BatchLogRecordProcessor`: `exportTimeoutMillis` bounds the processor's export call while `timeoutMillis` here bounds the transport's own request, so the two are distinct budgets and the processor's is the outer one.
-- `effect-opentelemetry.md` `Otlp.layer*`: the native lane carries none of this record — its option bag has no compression, timeout, or concurrency key — which is why an estate compression pin selects an SDK-bridge lane.
+- `effect-opentelemetry.md` `Otlp.layer*`: the native lane carries none of this record — its option bag has no compression, timeout, or concurrency key — which is why a repo compression pin selects an SDK-bridge lane.
 - `otel/emit` `[06]-[LANES]`: one `_transport` projection builds this record per signal from the export policy and one `_SENDER` row folds the node-only columns in, so no exporter construction spells a transport literal and no browser row carries a field its build drops.
 
 [LOCAL_ADMISSION]:

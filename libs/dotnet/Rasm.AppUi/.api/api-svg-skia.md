@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_SVG_SKIA]
 
-`Svg.Controls.Skia.Avalonia` mints Avalonia SVG and Android-VectorDrawable asset controls over the `Svg.Skia` `SKSvg` document engine, folding every source path onto one asset rail beside raster and generated evidence. `SKSvg` owns a retained element-addressable scene graph whose mutation API re-renders only the dirty region, and drives SMIL animation, interaction, the built-in viewer transform, text selection, and `SKPicture` output composited into Avalonia through the SkiaSharp draw-lease. Control types are the public surface; every render impl below the lease stays internal.
+`Svg.Controls.Skia.Avalonia` mints Avalonia SVG and Android-VectorDrawable asset controls over the `Svg.Skia` `SKSvg` document engine, folding every source path onto one asset pipeline beside raster and generated evidence. `SKSvg` owns a retained element-addressable scene graph whose mutation API re-renders only the dirty region, and drives SMIL animation, interaction, the built-in viewer transform, text selection, and `SKPicture` output composited into Avalonia through the SkiaSharp draw-lease. Control types are the public surface; every render impl below the lease stays internal.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -83,7 +83,7 @@
 
 - `SKSvg.Settings.TypefaceProviders?.Add(ITypefaceProvider)` admits the font-chain provider (`ITypefaceProvider`: `FromFamilyName`/`CreateTypeface`; `FontManagerTypefaceProvider.FontManager` is a settable `SKFontManager`); `Settings` carries color-managed working spaces.
 
-[ENTRYPOINT_SCOPE]: `SKSvg` retained scene graph and incremental mutation rail; the mutation-and-render pair returns `out SvgSceneMutationResult?`
+[ENTRYPOINT_SCOPE]: `SKSvg` retained scene graph and incremental mutation entry; the mutation-and-render pair returns `out SvgSceneMutationResult?`
 
 | [INDEX] | [SURFACE]                                                                                         | [SHAPE]  | [CAPABILITY]              |
 | :-----: | :------------------------------------------------------------------------------------------------ | :------- | :------------------------ |
@@ -173,12 +173,12 @@
 [STACKING]:
 - `api-avalonia-skia`(`.api/api-avalonia-skia.md`) / `api-skiasharp`(`.api/api-skiasharp.md`): `SvgCustomDrawOperation`/`SvgSourceCustomDrawOperation` implement `ICustomDrawOperation`; `Render(ImmediateDrawingContext)` resolves `ISkiaSharpApiLeaseFeature.Lease()`, reads `lease.SkCanvas`, and calls `SKSvg.Draw(canvas)`, compositing the SVG into Avalonia's Skia surface with no side bitmap; the internal `SvgCompositionVisualScene` acquires the same lease through `CompositionCustomVisualHandler.OnRender` when `AnimationBackend` selects the native composition layer.
 - `api-avalonia`(`.api/api-avalonia.md`): `SvgImage : IImage` binds an `Image.Source`/`ImageBrush` exactly as a `Bitmap` does, its `Size` (the `SKPicture.CullRect`) driving layout, and `SvgSource` is the `[Content]`/`TypeConverter` target so `{SvgImage Source=…}`/`Svg Path=…` XAML resolves a string or URI through `SvgSourceTypeConverter`.
-- `api-asyncimageloader`(`.api/api-asyncimageloader.md`): a URL `SvgSource.Load(path)` resolves remote SVG on the same asset rail as async-loaded raster through the engine's internal `HttpClient`, and the `IServiceProvider` `SvgSource` ctor resolves the Avalonia base URI and asset loader through `ServiceProviderExtensions`.
+- `api-asyncimageloader`(`.api/api-asyncimageloader.md`): a URL `SvgSource.Load(path)` resolves remote SVG on the same asset pipeline as async-loaded raster through the engine's internal `HttpClient`, and the `IServiceProvider` `SvgSource` ctor resolves the Avalonia base URI and asset loader through `ServiceProviderExtensions`.
 
 [LOCAL_ADMISSION]:
 - Consume the scene, animation, and interaction types as `Svg.Skia.*`: `SvgSceneDocument`/`SvgSceneNode`/`SvgSceneResource` ship in `Svg.SceneGraph`, `SvgAnimationController` in `Svg.Animation`, and `SvgInteractionDispatcher`/`SkiaSvgAssetLoader` in `Svg.Skia` itself.
 - Asset loading flows through `Svg.Model.ISvgAssetLoader` (referenced by `SvgSource` and `SKSvg` statics); no `ISvgAssetLoader` type exists under `Avalonia.Svg.Skia`.
 - `SvgCompositionVisualScene` (`CompositionCustomVisualHandler`) is the internal native composition layer, reached through `AnimationBackend`, never a public scene type.
-- Vector assets enter the shared asset rail retaining `SvgSource` (`Svg`/`Picture`/`Parameters`) and a live `SKSvg` engine, never an opaque blob.
+- Vector assets enter the shared asset pipeline retaining `SvgSource` (`Svg`/`Picture`/`Parameters`) and a live `SKSvg` engine, never an opaque blob.
 - Theme-driven recolor rides the declared surfaces: an `Svg` subtree takes one inherited `Svg.CurrentColor`/`Svg.Css` `Setter` at its highest common ancestor, and an `SvgImage` takes a `DynamicResource` on `Css`/`CurrentCss`/`CurrentColor`.
 - UI-thread path and URI loads take `SvgSource.LoadAsync` and live restyles take `ReLoadAsync`; the synchronous twins parse and record on the calling thread.

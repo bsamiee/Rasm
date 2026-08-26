@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_SKIA_HARFBUZZ]
 
-`SkiaSharp.HarfBuzz` owns HarfBuzz-backed text shaping for Skia: `SKShaper` shapes a run through `HarfBuzzSharp`, then `CanvasExtensions` builds an `SKTextBlob` and draws it through `SkiaSharp`. A managed-only bridge holding no glyph data of its own, it feeds the typography rail across every AppUi text surface.
+`SkiaSharp.HarfBuzz` owns HarfBuzz-backed text shaping for Skia: `SKShaper` shapes a run through `HarfBuzzSharp`, then `CanvasExtensions` builds an `SKTextBlob` and draws it through `SkiaSharp`. A managed-only bridge holding no glyph data of its own, it feeds the typography pipeline across every AppUi text surface.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -80,7 +80,7 @@
 - `SkiaSharp`(`api-skiasharp.md`): `SKShaper.Shape` feeds `Codepoints`+`Points` into `SKTextBlobBuilder.AllocateRawPositionedRun`, and the built `SKTextBlob` draws through `SKCanvas.DrawText`; `SKTypeface.OpenStream` and `SKFont` supply the shaper's face and scale.
 - `HarfBuzzSharp`(`api-harfbuzz-native.md`): `SKShaper` P/Invokes `libHarfBuzzSharp` through `HarfBuzzSharp.Font.Shape` over a `Buffer`; that catalog owns the native payload identity and RID fault.
 - `Avalonia.Skia`(`api-avalonia-skia.md`): a custom control draws the shaped `SKTextBlob` onto the leased live `SKCanvas`, sharing Avalonia's GPU context so shaping cost is paid once and the backend only rasterizes.
-- within-lib: `BlobExtensions.ToHarfBuzzBlob` is the ONE member `Theme/typography#FONT_ADMISSION` composes — the rest of the bridge is a lower-capability path the rail supersedes, because `SKShaper` guesses segment properties, passes an empty feature array, and fixes a 512 design scale where the itemizing rail pins direction, script, language, and cluster level per segment, intersects the role's feature intents with what each face proved, and scales through the face's own `UnitsPerEm`; `SKShaper` therefore admits for shaping-free diagnostics alone and a product text surface that reaches it is the deleted form.
+- within-lib: `BlobExtensions.ToHarfBuzzBlob` is the ONE member `Theme/typography#FONT_ADMISSION` composes — the rest of the bridge is a lower-capability path the pipeline supersedes, because `SKShaper` guesses segment properties, passes an empty feature array, and fixes a 512 design scale where the itemizing pipeline pins direction, script, language, and cluster level per segment, intersects the role's feature intents with what each face proved, and scales through the face's own `UnitsPerEm`; `SKShaper` therefore admits for shaping-free diagnostics alone and a product text surface that reaches it is the deleted form.
 
 [LOCAL_ADMISSION]:
 - `ToHarfBuzzBlob` is the single admitted path from an `SKStreamAsset` to HarfBuzz face bytes, binding blob release to the asset `Dispose`; `SKShaper` owns this internally, so a caller keeps the `SKStreamAsset` alive for the shaper's lifetime.

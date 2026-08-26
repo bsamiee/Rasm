@@ -2,7 +2,7 @@
 
 AEC computational and numerical geometry — one `@tagged_union` dispatch surface over `compas`: graph/network adjacency, structural form-finding (dynamic relaxation over `compas_dr`, thrust-network analysis over `compas_tna`), datastructure algebra over the `Mesh`/`VolMesh`/`Assembly`/`NurbsSurface` family, and a parameterized `NumericalOp` table folding best-fit/bbox/hull primitives AND the rigid/affine/similarity/projective transform rows into one keyed catalogue. No separate `graph/transform` owner exists: an affine map is a numerical op on a coordinate set, not a second concern. This owner excludes non-manifold topology (the `nonmanifold` sibling over `topologicpy`) and raw mesh-file exchange, which defers to data `MeshPayload`.
 
-Each case returns its canonical `ComputationalResult`, with solver residuals retained on its `Census`. `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_ALGEBRA` — runtime span and fault fencing in one composition, so a solve that raises is an `Error(BoundaryFault)` on the recorded rail, never a synthetic zero-handle result — the same wiring the `nonmanifold` sibling carries. Proxy bring-up, teardown, and every RPC wait cross as `RELEASING`-trait runtime `Kernel`s through `lane.offload`, bring-up under `RetryClass.RPC`: the runtime-owned thread band, zero geometry-minted limiters.
+Each case returns its canonical `ComputationalResult`, with solver residuals retained on its `Census`. `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_ALGEBRA` — runtime span and fault fencing in one composition, so a solve that raises is an `Error(BoundaryFault)` on the recorded result, never a synthetic zero-handle result — the same wiring the `nonmanifold` sibling carries. Proxy bring-up, teardown, and every RPC wait cross as `RELEASING`-trait runtime `Kernel`s through `lane.offload`, bring-up under `RetryClass.RPC`: the runtime-owned thread band, zero geometry-minted limiters.
 
 ## [01]-[INDEX]
 
@@ -11,12 +11,12 @@ Each case returns its canonical `ComputationalResult`, with solver residuals ret
 ## [02]-[ALGEBRA]
 
 - Owner: `ComputationalGeometry` discriminates by `AlgebraKind`, and `CASE` maps each kind to its `GeometrySubject`. `AlgebraResult` carries the provider handles, `Census`, subject, and convergence verdict directly. Every parameterized case's sub-op is a closed `StrEnum`, never a raw string in the payload.
-- Entry: `run` discriminates a single op or a batch, each returning through its own weave rail; `bridged` is the async mirror routing the SAME `_dispatch` through the `compas.rpc.Proxy`. `Proxy` reaches ONLY the scipy-backed heavy band — the `_dr`/`_tna` solvers and the `rpc`-routed `_numpy` primitives whose scipy cores must not block the companion in-process; the pure-Python transform rows carry `rpc=None`, so the proxy route is a per-row capability, never a blanket re-entry marshaling a matrix multiply across the process wall.
+- Entry: `run` discriminates a single op or a batch, each returning through its own weave path; `bridged` is the async mirror routing the SAME `_dispatch` through the `compas.rpc.Proxy`. `Proxy` reaches ONLY the scipy-backed heavy band — the `_dr`/`_tna` solvers and the `rpc`-routed `_numpy` primitives whose scipy cores must not block the companion in-process; the pure-Python transform rows carry `rpc=None`, so the proxy route is a per-row capability, never a blanket re-entry marshaling a matrix multiply across the process wall.
 - Law: `Proxy` lifecycle is in-page — `solver_proxy(lane)` is the one async-resource owner: bring-up crosses as a `RELEASING` kernel under `retry=Some(RetryClass.RPC)` (the resilience row exists for this cold-start), teardown crosses the same band inside the scope exit, and a `bridged` fan shares ONE reconnected worker through an enclosing `AsyncExitStack`. Localhost server is per-session material the first proxy spawns and the spawning proxy stops, so no `Supervisor` DAEMON charge is minted at the serve composition root; RPC waits block on the socket, exactly the `RELEASING` trait's syscall arm.
 - Output: `AlgebraResult` retains the provider handles, full scalar census, subject, and convergence verdict. `frame` projects the census one row wide with columns derived from the struct, while `_result` records the charter distribution once at the producing site.
-- Packages: `compas`, `compas_dr`, and `compas_tna` per the fence imports, beside the runtime lane/fault rails and the graduation spine.
+- Packages: `compas`, `compas_dr`, and `compas_tna` per the fence imports, beside the runtime lane/fault channel and the graduation spine.
 - Growth: a new algebra kind is one union case, one `match` arm, and one `CASE` row, its charter distribution and frame projection following from the row with no fold edit; a new numerical primitive or transform is one `NumericalOp` row and one `NUMERICAL` entry — its RPC route a row field, never a parallel map; a new datastructure verb is one `DATASTRUCTURE` entry; a new form-finding engine is one `FormEngine` row and one `_FORM` arm; a new `Census` column reaches the span, the charter source, and the frame at once; a new geometric constraint is one `NodeConstraint` row — `Constraint.get_constraint_cls` dispatches on the decoded COMPAS-JSON, never a new arm; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; `compas_cem` admits as a `FormEngine.CEM` row once it ships `compas>=2.0` support.
-- Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the graduation weave's fence and span, never a second hand-rolled rail.
+- Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the graduation weave's fence and span, never a second hand-rolled result.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -54,7 +54,7 @@ from rasm.geometry.graduation import (
     evidence_key,
     evidence_run,
 )
-from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
+from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeResult, traversed
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.resilience import RetryClass
@@ -152,7 +152,7 @@ class AlgebraResult(Struct, frozen=True):
     def spec(self) -> bytes:
         return b"|".join((self.kind.encode(), self.census.op.encode(), *(handle.encode() for handle in self.handles)))
 
-    def frame(self) -> "RuntimeRail[EvidenceFrame]":
+    def frame(self) -> "RuntimeResult[EvidenceFrame]":
         table: dict[str, list[object]] = {name: [value] for name, value in structs.asdict(self.census).items()} | {"converged": [self.converged]}
         return EvidenceFrame.of(self.graduation_subject, evidence_key(self.graduation_subject, self.spec), table)
 
@@ -339,7 +339,7 @@ async def solver_proxy(lane: LanePolicy) -> AsyncIterator[Proxy]:
 
 def run(
     op: ComputationalGeometry | Sequence[ComputationalGeometry], *, composition: ScopeKey = DEFAULT_SCOPE
-) -> RuntimeRail[AlgebraResult] | RuntimeRail[Block[AlgebraResult]]:
+) -> RuntimeResult[AlgebraResult] | RuntimeResult[Block[AlgebraResult]]:
     match op:
         case Sequence() as batch:
             return traversed(
@@ -362,7 +362,7 @@ def run(
             assert_never(unreachable)
 
 
-async def bridged(op: ComputationalGeometry, proxy: Proxy, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[AlgebraResult]:
+async def bridged(op: ComputationalGeometry, proxy: Proxy, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[AlgebraResult]:
     return await evidence_run(
         EvidenceScope.GRAPH_ALGEBRA,
         f"bridged.{op.tag}",

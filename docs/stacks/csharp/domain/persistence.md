@@ -1,6 +1,6 @@
 # [PERSISTENCE]
 
-A store is one declared profile and one operation rail. Engine, placement, and codec are orthogonal axes crossed by one profile row — provider admission, capability slots, write authority, naming policy, and converter admission are row columns — so a new deployment topology is rows with zero new store code. The context is a pooled unit-of-work capsule that never escapes its bracket, and every store interaction is a value in one closed op family whose arity is the input value's shape. Boot folds the observed generation digest and object census to one typed verdict — a store carrying objects the compiled model cannot describe refuses typed and names them, never a best-effort open — and a shape change mints one whole generation the deploy plane materializes into a fresh namespace and publishes by one rename transaction. Identity mints once at admission, every secondary key surface derives from one selector, and write mass self-emits its facts and its invalidation inside the statement that caused them. Growth lands as rows: a new engine is one profile row, a new operation one request case, a new aggregate one configuration block, a new hot query one compiled-delegate row.
+A store is one declared profile and one operation pipeline. Engine, placement, and codec are orthogonal axes crossed by one profile row — provider admission, capability slots, write authority, naming policy, and converter admission are row columns — so a new deployment topology is rows with zero new store code. The context is a pooled unit-of-work capsule that never escapes its bracket, and every store interaction is a value in one closed op family whose arity is the input value's shape. Boot folds the observed generation digest and object census to one typed verdict — a store carrying objects the compiled model cannot describe refuses typed and names them, never a best-effort open — and a shape change mints one whole generation the deploy plane materializes into a fresh namespace and publishes by one rename transaction. Identity mints once at admission, every secondary key surface derives from one selector, and write mass self-emits its facts and its invalidation inside the statement that caused them. Growth lands as rows: a new engine is one profile row, a new operation one request case, a new aggregate one configuration block, a new hot query one compiled-delegate row.
 
 ## [01]-[STORE_CHOOSER]
 
@@ -38,7 +38,7 @@ This table routes a persistence concern to its owning surface; the most specific
 - Law: tracking is the codec row's column, not a free knob — the read codec carries `QueryTrackingBehavior.NoTrackingWithIdentityResolution` as its model-wide default so projections that alias repeated entities resolve identities without the tracked path, the write codec carries `TrackAll`, and the per-query `AsNoTrackingWithIdentityResolution` operator is the single-statement override above either default; the tracked path exists only inside unit-of-work ops that end in a save.
 - Law: model acquisition is a three-route fold per row — compiled (`UseModel` plus the fingerprint gate), cached-built under the shared memory governor, per-discriminant compiled instances; below hundreds of entity types the regeneration obligation costs more than the first-operation latency it buys.
 - Law: three materialization arms read one compiled model — `GenerateCreateScript` renders the generation as a value the deploy plane carries, `IRelationalDatabaseCreator.CreateTables` builds it into the session's current namespace, and `Database.EnsureCreated` paired with `EnsureDeleted` serves the ephemeral row owning its whole store — and the placement row elects the arm, never a call site.
-- Exemption: the options-builder fold and the stamping body are the platform-forced statement seam.
+- Exemption: the options-builder fold and the stamping body are the platform-forced statement body.
 
 ```csharp
 [SmartEnum<string>]
@@ -109,9 +109,9 @@ public sealed record StoreProfile(EngineRow Engine, Placement Placement, Codec C
 - Law: `ComplexCollection` exists only in the JSON mapping and never table-splits; structs admit as complex types while struct collections do not, and an all-optional complex type is a model-validation rejection, so every complex type carries one required member.
 - Law: moving owned to complex is a model-shape change with an identical stored document when the column mapping holds — the set-based unlock is free.
 - Law: a generated-type member inside a document rides converter-then-document — the converter mints the primitive, the document writer places it — so max-length policy and `HasJsonPropertyName` compose from two owners onto one property, declared at one model-building site.
-- Law: `ConfigureConventions` is the model-wide admission seam for everything else — `Properties<T>()` conversions, `DefaultTypeMapping<TScalar>`, `ComplexProperties<TProperty>`, `IgnoreAny<T>` — and a per-property conversion declared outside it is the drift form: one type, one mapping, declared once.
+- Law: `ConfigureConventions` is the model-wide admission point for everything else — `Properties<T>()` conversions, `DefaultTypeMapping<TScalar>`, `ComplexProperties<TProperty>`, `IgnoreAny<T>` — and a per-property conversion declared outside it is the drift form: one type, one mapping, declared once.
 - Law: primitive collections and parameterized query collections share one translation-mode axis — multi-parameter expansion with cardinality padding, one JSON-array parameter, inlined constants — declared by `UseParameterizedCollectionMode` and overridden per site with `EF.Constant`/`EF.Parameter`; padding buys cardinality buckets, one plan for eight values, and inlined constants redact from logs by default.
-- Exemption: the configuration body is the model-declaration seam.
+- Exemption: the configuration body is the model-declaration site.
 
 ```csharp
 [ValueObject<string>]
@@ -153,7 +153,7 @@ public sealed class EntryShape : IEntityTypeConfiguration<Entry> {
 - Law: tracked-conflict policy is the built-in `IIdentityResolutionInterceptor` pair — ignoring or updating, selected as one row — never hand-rolled resolution.
 - Law: `IQueryExpressionInterceptor` output caches with the query — the rewrite is a pure function of expression shape, and a per-execution rewrite replays its first execution forever.
 - Law: set-based and bulk lanes bypass the unit-of-work altitude and surface only at the wire altitude — their fact emission is self-emitted by the op, never expected from the save spine.
-- Law: the spine is provider-invariant and engine variance is observable only at the wire altitude — cross-engine assertions live in command-interceptor rows carried as engine-row columns — and `ConfigureWarnings` is the escalation seam turning chosen runtime warnings into typed failures at the options row.
+- Law: the spine is provider-invariant and engine variance is observable only at the wire altitude — cross-engine assertions live in command-interceptor rows carried as engine-row columns — and `ConfigureWarnings` is the escalation point turning chosen runtime warnings into typed failures at the options row.
 
 ```csharp
 [SmartEnum<string>]
@@ -228,7 +228,7 @@ public static class SchemaGate {
 
     static Fin<SchemaVerdict> Materialized(StoreContext store) =>
         Op.Of().Catch(() => {
-            store.GetService<IRelationalDatabaseCreator>().CreateTables();   // the namespace this session's search_path pins, published by the deploy plane's rename
+            store.GetService<IRelationalDatabaseCreator>().CreateTables();
             return Fin.Succ<SchemaVerdict>(new SchemaVerdict.Serving());
         });
 }
@@ -255,7 +255,7 @@ public static class SchemaGate {
 - Law: identity mints exactly once at admission — `Guid.CreateVersion7()` in the owner factory with `ValueGeneratedNever` as the transcription — so keys insert in bulk lanes, reference before save, and survive retries; `CreateVersion7(DateTimeOffset)` is the deterministic-backfill overload minting historical surrogates from original timestamps so index locality matches history.
 - Law: ordering survives transcription only when the spelling preserves it — the canonical text form is lexically time-ordered, the default byte export is not — so `ToByteArray(bigEndian: true)` is the binary transcription law; without it a binary-keyed primary index degrades to random-insert fragmentation, the pathology the row exists to delete.
 - Law: content-hash identity is encoding identity — the canonical encoding is a declared policy, the digest is the boundaries.md `BYTE_IDENTITY` codec injected as the row's `Mint` arrow, never a second hashing path, and the collision posture is a declared column whose idempotent row is the natural partner of conflict-tolerant bulk ingestion; this injected-digest factory row is why the axis is a delegate-bearing `record` of static rows rather than a `[SmartEnum]` of fixed items — the content-hash row mints from a runtime codec a fixed singleton cannot close over, the lone owner-shape exemption on this page.
-- Law: natural keys ride the generated-converter seam on immutable owners — a mutable primary key is delete-insert wearing an update's clothes.
+- Law: natural keys ride the generated-converter boundary on immutable owners — a mutable primary key is delete-insert wearing an update's clothes.
 - Law: each aggregate declares one key selector once — `Expression<Func<TRow, TKey>>` — and every secondary surface derives mechanically: foreign keys, index orderings, changefeed keys, cache tags, pagination cursors; an identity-row change mints a new generation whose `Carried` relations re-mint every key through the deterministic mint inside the cutover projection, so foreign references, changefeed continuity, and cursor validity land already consistent in the published namespace.
 
 ```csharp
@@ -285,23 +285,23 @@ public sealed record IdentityRow(string Axis, Collision Collision, bool Ordered,
 }
 ```
 
-## [07]-[OPERATION_RAIL]
+## [07]-[OPERATION_PIPELINE]
 
 [BRACKET_LAW]:
-- Law: store operations form one closed request family dispatched by one rail — a repository per aggregate multiplies surfaces while every body repeats the same bracket; the bracket composes pool acquisition, execution strategy, transaction, tracking posture, provenance, and fault conversion as policy rows, so a new operation is a case plus an arm and a new cross-cutting concern is one bracket row touching zero ops.
+- Law: store operations form one closed request family dispatched by one pipeline — a repository per aggregate multiplies surfaces while every body repeats the same bracket; the bracket composes pool acquisition, execution strategy, transaction, tracking posture, provenance, and fault conversion as policy rows, so a new operation is a case plus an arm and a new cross-cutting concern is one bracket row touching zero ops.
 - Law: the strategy composes the bracket state-threaded — inputs travel as `TState` through static lambdas so a retry re-runs a closed value, never a captured closure — and a transaction opened outside the strategy callback poisons every retry: begin, ops, and commit live inside it, with `verifySucceeded` mandatory for non-idempotent tails because an ambiguous commit double-applies delta-shaped work.
 - Law: transaction posture is declared, never improvised — `AutoTransactionBehavior` selects when saves get implicit transactions, and `AutoSavepointsEnabled` nests a savepoint inside a caller-owned transaction so a failed save rolls back to the savepoint, never the whole bracket.
 - Law: the bracket converts provider exceptions to typed rejections at its boundary and interior op bodies never see them; caller cancellation passes through untyped, never converted to a store rejection.
-- Law: ops return value projections, never entities — entity egress couples consumers to the model and drags the tracker across the seam — and a stream arity folds inside the bracket or hands off through a lane, because a live enumerable returned after the context pools enumerates reclaimed state.
+- Law: ops return value projections, never entities — entity egress couples consumers to the model and drags the tracker across the boundary — and a stream arity folds inside the bracket or hands off through a lane, because a live enumerable returned after the context pools enumerates reclaimed state.
 - Law: every op stamps provenance from its own symbol through `TagWith` and parameterizes every value — one cached plan per op; `EF.Constant` is a declared per-op row for provably low-cardinality hot filters, and proven hot ops graduate to `EF.CompileAsyncQuery` delegate rows by measurement, paying in proportion to expression depth.
-- Law: the raw seam types by shape — `FromSql` parameterizes every interpolation hole, `FromSqlRaw` admits only sanitized fragments, `ExecuteSql` carries maintenance statements inside the same bracket — and `LeftJoin`/`RightJoin` are the outer-join spelling, deleting the `GroupJoin` scaffold.
+- Law: the raw-SQL surface types by shape — `FromSql` parameterizes every interpolation hole, `FromSqlRaw` admits only sanitized fragments, `ExecuteSql` carries maintenance statements inside the same bracket — and `LeftJoin`/`RightJoin` are the outer-join spelling, deleting the `GroupJoin` scaffold.
 - Law: read-through caching is one port row whose invalidation tag is the boundaries.md `MEMO_KEY` structural composite — the lane axis joined to the admitted owner key, a `(lane, key)` value the cache indexes by, so a write self-emits the exact tags its keys cut and a free-format string tag rejects at admission because it is uninvalidatable by construction; the content-key axis reuses that one canonical byte-codec verbatim, never a second hashing path, and logical tag-cut and physical delete are different lifetimes while the near-tier TTL is a per-lane staleness ceiling lanes that cannot tolerate bypass rather than shrink.
 
 [ARITY_AND_PAGE]:
 - Law: arity discriminates on the input value — a key resolves to an optional value, a key set to a batch, a predicate plus cursor to a page, a predicate alone to a stream — and pagination adds zero entrypoints because the page input is `Option<Cursor>`, absent meaning first page.
 - Law: the page op is keyset-only — offset cost grows with depth and concurrent writes shift boundaries into duplicates and gaps; the ordering tuple ends in the unique key-selector tiebreaker, the predicate is the lexicographic expansion because tuple row-value comparison does not translate, and cursor values bind as parameters so page depth never changes the SQL shape.
 - Law: the cursor is the projected ordering tuple of the last row, opaque to callers, expiring with the dual-key window as a typed stale-cursor rejection, never an empty page; descending lanes flip the ordering and every comparison together, and the ordering tuple is a contiguous index prefix — the page op and its covering index are one declaration reviewed together.
-- Exemption: the bracket body — pooled acquisition and the catch arm — is the platform-forced statement seam.
+- Exemption: the bracket body — pooled acquisition and the catch arm — is the platform-forced statement body.
 
 ```csharp
 public readonly record struct Cursor(int Rank, Guid Key);
@@ -316,7 +316,7 @@ public abstract partial record StoreOp {
 
 public readonly record struct FactView(Guid Key, int Rank);
 
-public static class FactRail {
+public static class FactResult {
     static readonly Func<StoreContext, int, CancellationToken, Task<int>> HotCount =
         EF.CompileAsyncQuery(static (StoreContext store, int floor, CancellationToken ct) =>
             store.Set<Fact>().Count(f => f.Rank > floor));
@@ -358,13 +358,13 @@ public static class FactRail {
 ## [08]-[BULK_LANE]
 
 [WRITE_MASS]:
-- Law: high-volume mutation is one lane with three intensities — set-based statement for predicate-shaped work, bulk copy for collection-shaped ingestion, merge for source-against-target reconciliation — all enlisted in the rail's ambient transaction and all self-emitting: the statement that mutates produces the facts and the tag-cut before commit, deleting change-data capture, polled outboxes, and triggers in one move.
-- Law: `LinqToDBForEFTools.Initialize()` once at composition activates the bridge, `ToLinqToDB()` deepens any rail queryable inside the same model and connection, the bridge connection enlists in `Database.CurrentTransaction` by default with `CreateLinqToDBConnectionDetached` as the explicit opt-out signature, and a bridged queryable materializes through the bare linq2db `ToListAsync`/`ToArrayAsync` while the unbridged EF queryable disambiguates through `ToListAsyncEF`/`ToArrayAsyncEF` — the `*EF` suffix names the EF lane where both surfaces import into one file; the bridge is a lane of the one rail, never a second public query surface.
+- Law: high-volume mutation is one lane with three intensities — set-based statement for predicate-shaped work, bulk copy for collection-shaped ingestion, merge for source-against-target reconciliation — all enlisted in the pipeline's ambient transaction and all self-emitting: the statement that mutates produces the facts and the tag-cut before commit, deleting change-data capture, polled outboxes, and triggers in one move.
+- Law: `LinqToDBForEFTools.Initialize()` once at composition activates the bridge, `ToLinqToDB()` deepens any pipeline queryable inside the same model and connection, the bridge connection enlists in `Database.CurrentTransaction` by default with `CreateLinqToDBConnectionDetached` as the explicit opt-out signature, and a bridged queryable materializes through the bare linq2db `ToListAsync`/`ToArrayAsync` while the unbridged EF queryable disambiguates through `ToListAsyncEF`/`ToArrayAsyncEF` — the `*EF` suffix names the EF lane where both surfaces import into one file; the bridge is a lane of the one pipeline, never a second public query surface.
 - Law: the setter builder is statement-bodied by API shape — a plain `if` adds a setter, deleting expression-tree surgery — setters reach inside document columns, and zero-affected where the predicate proved rows is a typed concurrency signal folded, never discarded.
 - Law: merge clauses evaluate in declaration order — order is semantics, and a delete declared before an update deletes what the update would have claimed; `Using` admits client batches without staging, the by-source rows close two-sided reconciliation in one statement, and `MergeWithOutput`/`MergeWithOutputInto` land the action discriminant plus before and after images from the statement that caused them, zero roundtrips.
 - Law: `BulkCopyAsync` returns `RowsCopied` with `Abort` as the mid-stream rollback lever; `KeepIdentity` is mandatory under the time-ordered identity row or the store re-mints and admission identity is lost, `ConflictAction.Ignore` is doubly gated — `MultipleRows` plus an engine that spells it — and pairs with rows-versus-source reconciliation or losses are invisible, and `MaxDegreeOfParallelism` consumes the suite budget, never an independent pool.
 - Law: every bulk composition renders without executing — `ToSqlQuery` returns the statement as the audit and dry-run value for gated destructive lanes.
-- Exemption: the transaction bracket and the bridge lease are the platform-forced statement seam.
+- Exemption: the transaction bracket and the bridge lease are the platform-forced statement body.
 
 ```csharp
 public readonly record struct ChangeRow(string Action, Guid Before, Guid After);

@@ -67,5 +67,5 @@
 - within-library: one options delegate owns the whole shaping pass — the filter drops a request ahead of enrichment, the request and response delegates bracket the call, and the exception pair splits caller-shaped tags from the semconv event; a named registration gives a co-resident root its own pass on one provider.
 
 [LOCAL_ADMISSION]:
-- `url.full` query values redact to `Redacted` behind no public property; the `OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION` environment row is the whole disable seam.
+- `url.full` query values redact to `Redacted` behind no public property; the `OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION` environment row is the whole disable switch.
 - Metric admission takes both meters whole behind no per-instrument selector, so an unwanted stream drops through an `AddView` row after registration.

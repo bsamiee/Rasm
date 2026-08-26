@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_HISHEL]
 
-`hishel` owns the RFC-9111 HTTP cache above the runtime's `httpx` transport: a transport-agnostic `AsyncCacheProxy` wraps as an `AsyncCacheTransport` mounted at the `httpx` transport seam, or as an `AsyncCacheClient` subclass. `SpecificationPolicy` drives freshness, revalidation, and every stored/served decision through an `AnyState`-tagged state machine over a persistent `AsyncSqliteStorage` keyed store. `httpx` owns the client beneath — its `Timeout`/`Limits`/`Auth` and OTel spans — while this catalog owns only the cache layer above the transport.
+`hishel` owns the RFC-9111 HTTP cache above the runtime's `httpx` transport: a transport-agnostic `AsyncCacheProxy` wraps as an `AsyncCacheTransport` mounted at the `httpx` transport boundary, or as an `AsyncCacheClient` subclass. `SpecificationPolicy` drives freshness, revalidation, and every stored/served decision through an `AnyState`-tagged state machine over a persistent `AsyncSqliteStorage` keyed store. `httpx` owns the client beneath — its `Timeout`/`Limits`/`Auth` and OTel spans — while this catalog owns only the cache layer above the transport.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -10,7 +10,7 @@
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                            |
 | :-----: | :-------------------- | :------------ | :---------------------------------------------------------------------- |
 |  [01]   | `AsyncCacheClient`    | client        | `httpx.AsyncClient` subclass popping `storage`/`policy`, else identical |
-|  [02]   | `AsyncCacheTransport` | transport     | wraps a `next_transport` with the cache proxy (the injection seam)      |
+|  [02]   | `AsyncCacheTransport` | transport     | wraps a `next_transport` with the cache proxy (the injection point)     |
 |  [03]   | `SyncCacheClient`     | client        | sync `httpx.Client` twin (boundary scripts only)                        |
 |  [04]   | `SyncCacheTransport`  | transport     | sync transport twin over `httpx.BaseTransport`                          |
 
@@ -74,15 +74,15 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: cache-transport injection (canonical runtime seam)
+[ENTRYPOINT_SCOPE]: cache-transport injection (canonical runtime boundary)
 - `AsyncCacheTransport` wraps the runtime's `AsyncHTTPTransport`; the long-lived `AsyncClient` keeps its `Timeout`/`Limits`/`Auth` and mounts it.
 
-| [INDEX] | [SURFACE]                                              | [SHAPE] | [CAPABILITY]                                           |
-| :-----: | :----------------------------------------------------- | :------ | :----------------------------------------------------- |
-|  [01]   | `AsyncCacheTransport(next_transport, storage, policy)` | build   | wrap a transport with the cache proxy (injection seam) |
-|  [02]   | `AsyncCacheTransport.handle_async_request(request)`    | send    | proxy a request through lookup/store/revalidate        |
-|  [03]   | `AsyncCacheTransport.aclose()`                         | drain   | close the wrapped transport and storage                |
-|  [04]   | `AsyncCacheClient(*args, storage=, policy=, **kwargs)` | build   | drop-in `AsyncClient` subclass carrying the cache      |
+| [INDEX] | [SURFACE]                                              | [SHAPE] | [CAPABILITY]                                            |
+| :-----: | :----------------------------------------------------- | :------ | :------------------------------------------------------ |
+|  [01]   | `AsyncCacheTransport(next_transport, storage, policy)` | build   | wrap a transport with the cache proxy (injection point) |
+|  [02]   | `AsyncCacheTransport.handle_async_request(request)`    | send    | proxy a request through lookup/store/revalidate         |
+|  [03]   | `AsyncCacheTransport.aclose()`                         | drain   | close the wrapped transport and storage                 |
+|  [04]   | `AsyncCacheClient(*args, storage=, policy=, **kwargs)` | build   | drop-in `AsyncClient` subclass carrying the cache       |
 
 [ENTRYPOINT_SCOPE]: storage construction and lifecycle
 - Methods are defined on `AsyncSqliteStorage`; the base protocol methods are the drain/inspection surface.
@@ -124,7 +124,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- injection law: the cache rides the `httpx` transport seam, never a swapped client class — the long-lived `AsyncClient` keeps its `Timeout`/`Limits`/`Auth`/`base_url` and mounts `transport=AsyncCacheTransport(next_transport=AsyncHTTPTransport(...))`. `AsyncCacheClient` serves only boundary scripts owning no pre-built transport.
+- injection law: the cache rides the `httpx` transport boundary, never a swapped client class — the long-lived `AsyncClient` keeps its `Timeout`/`Limits`/`Auth`/`base_url` and mounts `transport=AsyncCacheTransport(next_transport=AsyncHTTPTransport(...))`. `AsyncCacheClient` serves only boundary scripts owning no pre-built transport.
 - store law: `AsyncSqliteStorage` is the persistent local store; each app passes an owner-derived `database_path` from its cache root, and distinct instances isolate app cache rows. A multi-tenant app scopes the store per tenant through distinct `database_path` or `key_prefix`, and redis is the server-backed arm composed only where a redis host exists.
 - policy law: `SpecificationPolicy` (RFC-9111) is the default; freshness, conditional revalidation, and `304` refresh are owned by the state machine, never a hand-rolled `Cache-Control`/`ETag` parse. `CacheOptions(shared=)` selects shared vs private semantics and `allow_stale=` gates stale-on-error serving.
 - state law: cache decisions surface as the `AnyState` union interior to the proxy and as `ResponseMetadata` keys on the served `httpx.Response`; a consumer reads the extension keys for telemetry rather than inferring hit/miss from headers or subclassing the state machine to observe it.
@@ -134,7 +134,7 @@
 
 [STACKING]:
 - `AsyncCacheTransport(next_transport=AsyncHTTPTransport(...), storage=AsyncSqliteStorage(database_path=...), policy=SpecificationPolicy(CacheOptions(shared=...)))` mounts on the runtime `AsyncClient`: one transport stack, cache above transport above pool.
-- `httpx`(`.api/httpx.md`): the served `httpx.Response` is byte-identical to the origin's, so its `Response.json()` feeds the same `msgspec.convert`/pydantic wire-model decoder the `httpx` rail already owns — the cache adds no decode seam.
+- `httpx`(`.api/httpx.md`): the served `httpx.Response` is byte-identical to the origin's, so its `Response.json()` feeds the same `msgspec.convert`/pydantic wire-model decoder the `httpx` layer already owns — the cache adds no decode boundary.
 - `opentelemetry-instrumentation-httpx`(`.api/opentelemetry-instrumentation-httpx.md`): the httpx client span wraps the transport beneath the cache, so a `FromCache` served response carries no origin span, and the runtime reads its `AnyState` tag onto the transport outcome rather than a separate hit/miss counter.
 
 [LOCAL_ADMISSION]:

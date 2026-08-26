@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_GREAT_TABLES]
 
-`great_tables` mints the publication-quality table surface for the artifacts tables rail: one fluent `GT` builder folds locale-aware cell formatting, structural layout, value substitution, cell styling, data-driven colour, summary rows, and theme identity, then emits HTML, LaTeX, or a raster image. Its `loc` and `style` submodules supply the location selectors and cell-style value objects every targeted operation consumes; the top-level helpers configure plots, units, fonts, and footnote marks, and `vals.fmt_*` formats a series outside any `GT` chain.
+`great_tables` mints the publication-quality table surface for the artifacts tables domain: one fluent `GT` builder folds locale-aware cell formatting, structural layout, value substitution, cell styling, data-driven colour, summary rows, and theme identity, then emits HTML, LaTeX, or a raster image. Its `loc` and `style` submodules supply the location selectors and cell-style value objects every targeted operation consumes; the top-level helpers configure plots, units, fonts, and footnote marks, and `vals.fmt_*` formats a series outside any `GT` chain.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -181,7 +181,7 @@
 [STACKING]:
 - `polars`(`.api/polars.md`): `DataFrame.style` returns a real `great_tables.gt.GT`, so a polars pipeline ends `.style` then chains `fmt_*`/`tab_*` directly with no DataFrame-to-table marshalling.
 - `from_column(col, na_value, fn)` binds a `style.fill`/`style.text` colour or a format argument to a column's per-row values, so one `tab_style` is data-driven across rows without a Python loop; `data_color` is the higher-level value→colour scale with `autocolor_text` contrast.
-- `weasyprint`(`.api/weasyprint.md`): `as_raw_html(inline_css=True)` produces email/print-safe markup weasyprint prints to PDF; `jinja2`(`.api/jinja2.md`) embeds the same fragment via `{{ table_html }}` under an autoescape-off marker, and `pymupdf`(`.api/pymupdf.md`)/`pikepdf`(`.api/pikepdf.md`) stitch it into a document. `as_latex` feeds a Typst/LaTeX rail; `save` is the sole browser-dependent path, reserved for raster previews.
+- `weasyprint`(`.api/weasyprint.md`): `as_raw_html(inline_css=True)` produces email/print-safe markup weasyprint prints to PDF; `jinja2`(`.api/jinja2.md`) embeds the same fragment via `{{ table_html }}` under an autoescape-off marker, and `pymupdf`(`.api/pymupdf.md`)/`pikepdf`(`.api/pikepdf.md`) stitch it into a document. `as_latex` feeds a Typst/LaTeX domain; `save` is the sole browser-dependent path, reserved for raster previews.
 - `nanoplot_options()` returns the plain `dict[str, Any]` passed as `fmt_nanoplot(options=...)`, so plot styling is data, not a parallel object; `define_units` parses a units string once for reuse across `fmt_units`/`cols_label`.
 
 [LOCAL_ADMISSION]:

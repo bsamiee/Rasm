@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_TAGGED]
 
-PDF/UA (ISO 14289) structure, ISO 15930 PDF/X print production, and ISO 19005 archival conversion close over one document rail: `Access` authors the marked-content structure tree into an emitted PDF, audits its conformance, upgrades to the archival profile, and preflights the PDF/X claim through one closed `AccessOp` over `_ARM`. Validation combines explainable owner-local clauses with the independent MIT/Apache `pdf_oxide` oracle; archival conversion keeps the converter `success` verdict and the post-convert validation verdict as distinct `ArchiveCheck` clauses, so an empty error list never substitutes for either boolean.
+PDF/UA (ISO 14289) structure, ISO 15930 PDF/X print production, and ISO 19005 archival conversion close over one document domain: `Access` authors the marked-content structure tree into an emitted PDF, audits its conformance, upgrades to the archival profile, and preflights the PDF/X claim through one closed `AccessOp` over `_ARM`. Validation combines explainable owner-local clauses with the independent MIT/Apache `pdf_oxide` oracle; archival conversion keeps the converter `success` verdict and the post-convert validation verdict as distinct `ArchiveCheck` clauses, so an empty error list never substitutes for either boolean.
 
 Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the role family, and the `role_of`/`role_category`/`alt_of`/`children`/`standard_for` projections derive the `/S` algebra once from `StructEltKind`. A born-tagged emitter (`document/emit#DOCUMENT` UA arms) arrives with page-local MCIDs already marked in document order; an unmarked source gains them through `_stamped`'s explicit-proplist `BDC`/`EMC` pass per text block, and `_tag` then rejects any page whose marked MCID set differs from the structure leaves before binding `/StructParents` into `/ParentTree`. `StructureAudit.conformant` threads into the `exchange/conformance#CONFORMANCE` `SourceConformance.structural` half of `AuditSpec.source`.
 
@@ -56,7 +56,7 @@ from rasm.artifacts.document.model import (
     standard_for,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Journal, Party, Retain
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -337,7 +337,7 @@ class Access(Struct, frozen=True):
         crossed = await self.lane.offload(Kernel.of(self._stepped, KernelTrait.RELEASING))
         return crossed.default_with(lapsed)
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[AccessFact]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeResult[AccessFact]:
         match await async_boundary(ACCESS_AUTHOR, self._authored, catch=_AUTHOR_RAISES):
             case Result(tag="ok", ok=done):
                 assert done.fact is not None

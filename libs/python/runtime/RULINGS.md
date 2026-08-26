@@ -12,10 +12,10 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `pika` KEEP against its transitive `asyncio` — the eager adapter roster DEFINES a class and creates no loop, the ban governing module scope here.
 - `confluent_kafka.aio` refuses — dialing `get_running_loop` and answering `asyncio.Future` pins composition the sync client leaves free.
 - Capability discovery admits static semantics only from the pin document; generated live rows add availability and estimates before invocation.
-- `transport/body` `BodyAdmission` evaluates descriptor constraints at the Connect body boundary; bare `protovalidate` serves non-Connect seams.
-- `connect-python` and `protoc-gen-connect-python` refuse — `connectrpc`'s renamed predecessors ship no ASGI application; one dist owns the seam.
+- `transport/body` `BodyAdmission` evaluates descriptor constraints at the Connect body boundary; bare `protovalidate` serves non-Connect boundaries.
+- `connect-python` and `protoc-gen-connect-python` refuse — `connectrpc`'s renamed predecessors ship no ASGI application; one dist owns the boundary.
 - `hypercorn` KEEP by capability — the bidi `Sync` leg needs HTTP/2 on the ASGI host and h2c on plaintext, and `uvicorn` speaks HTTP/1.1 alone.
-- `grpcio` is a transitive alone — the OTLP gRPC exporter and GCP secret client dial it; a direct row re-opens the retired `grpc.aio` serve rail.
+- `grpcio` is a transitive alone — the OTLP gRPC exporter and GCP secret client dial it; a direct row re-opens the retired `grpc.aio` server.
 - `pyqwest` is `connectrpc`'s transitive and the one dial transport — `HTTPTransport.aclose` releases the sockets, so the composition owns it.
 - Client telemetry rides the `connectrpc` `MetadataInterceptor` — clients dial through `pyqwest`, so the httpx instrumentor reaches no Connect leg.
 - MessagePack carries the uncompressed positional op-log envelope, `crdt` alone decoding generated `CrdtOpWire`; compression changes no contract.
@@ -25,12 +25,12 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `CanonicalWriter` owns seed-zero peer framing; `memory` is little-endian hash input and `wire_bytes` is big-endian generated output.
 - `measured`'s free `scope` carries the branch telemetry grammar — a bare package-prefixed scope entering the exported weave forks one namespace.
 - `runtime` mints every branch bound; a sibling minting its own capacity, band, isolation, or probe constant forks the roster.
-- Object-store absence crosses as `StoreFault.missing` and streamed bodies stay behind `StoreStream.pull`; a consumer catch aliases it off the rail.
+- Object-store absence crosses as `StoreFault.missing` and streamed bodies stay behind `StoreStream.pull`; a consumer catch aliases it off the result.
 - `Hlc` samples this branch's clock and merges every inbound stamp before `tick` — the semilattice converges with no privileged physical authority.
-- Above-`int64` wire ints carry `ge=0` alone and rail the ceiling at decode — msgspec spells no such bound, while in-band `I63` rides `Meta(le=…)`.
+- Above-`int64` wire ints carry `ge=0` alone and result the ceiling at decode — msgspec spells no such bound, while in-band `I63` rides `Meta(le=…)`.
 - Producer `optional` scalars spell `T | None` while no-presence scalars keep their zero — that keyword discriminates, never felt nullability.
 - Telemetry install fails BEFORE publish — `_pipeline` completes construction before `_commit`, since every OTel global is set-once, never unset.
-- OTLP is the one log egress door and the console stays armed — its `ProcessorFormatter` is the only seam a foreign stdlib record reaches the wire.
+- OTLP is the one log egress door and the console stays armed — its `ProcessorFormatter` is the only boundary a foreign stdlib record reaches the wire.
 - Log posture FOLDS, never partitions — the stdlib root roster is process-global, so requests meet at the strictest floor and egress arms as a union.
 - Payload bounds ride a CHAIN row and wire-bound values coerce to shapes both renders keep — console and wire read one narrowed value.
 - Log egress arms by chain MEMBERSHIP, never per event — `shared_chain` rebuilds at configure, so an unarmed process allocates nothing per line.
@@ -51,12 +51,12 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Erasure destroys the key and `open` is TOTAL — a destroyed key folds to `Nothing`, `InvalidTag` stays a fault, sealed envelopes bind `SubjectKey`.
 - Every instrument row proves its `DOMAINS` segment at IMPORT over the whole table — filtering an unrostered row in the census defers the failure.
 - Tables keyed on a closed family prove TOTAL at the boot gate — a `try_find` absence or a defaulted status defers an unrostered member to first use.
-- Wire ABSENCE rides `Option` at the decode seam — an unstated case inside the interior vocabulary makes consumers match a state no value holds.
+- Wire ABSENCE rides `Option` at the decode boundary — an unstated case inside the interior vocabulary makes consumers match a state no value holds.
 - Wire-form legality is a DECLARED (form, release) row on the producer's token — narrowing the slot refuses the frame an additive release carries.
 - Optional dimensions spell absence by OMITTING the key at every arm — an empty-string value identifies a series a board groups on and nobody fills.
 - Supervision probes answer typed columns, WHICH ceiling tripped, and UNMEASURED — fences bind per COLUMN, so an all-refused reading actuates none.
 - One `CapacityLimiter` publishes ONE occupancy probe concurrent brackets REFCOUNT — `Metrics.occupied` sums live probes and retires by identity.
-- Caller payload validates HOST-side onto a typed rail before the crossing — a defect reaching the far floor raises where no fault lift can name it.
+- Caller payload validates HOST-side onto a typed result before the crossing — a defect reaching the far floor raises where no fault lift can name it.
 - Journal intake is TRI-STATE — an armed scope sends, retired custody refuses `config`, and an uninstalled one folds `Ok(0)` as a declaration.
 - `BoundaryFault.wire` constructs only with a real protocol or status code — a registry miss lands `config`, a decoded-material gap `boundary`.
 - `ServerHost` implements generated `Health.Check` alone and keys its serving map on slashless `WireService.path`; `Watch` stays support closure.
@@ -72,7 +72,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Every mount and dial reads one `WirePolicy` row per profile — `read_max_bytes` and the zstd-then-gzip roster; an unbounded mount is refused.
 - Outbound requests pre-encode under `SERVE_ENCODE` ahead of any retried call — the client maps an encode raise to UNAVAILABLE and re-drives it.
 - `MessageEnvelope.extensions` is the generated `event.Extensions`; `EXTENSION_ROWS` derives per `local_name` — a hand roster is the mirror.
-- `MessageEnvelope.payload` is the Rasm `Raw | protobuf.Message | None` seam over the generic SDK envelope — `None` is reference-only `dataref`.
+- `MessageEnvelope.payload` is the Rasm `Raw | protobuf.Message | None` boundary over the generic SDK envelope — `None` is reference-only `dataref`.
 - Modality-polymorphic entrypoints whose return shape varies with input carry one `@overload` per shape — an unoverloaded arm type-checks nowhere.
 - `HostRow` extends the descriptor with `lanes`/`recovery`/`scratch`/`document` and refuses `tenancy` — a host separates no tenant, the profile does.
 - `ProviderRow` extends with `supplies`, refusing `tenancy` and `isolation` — `ConsumptionProfile.admit` carries that crossing as axis evidence.
@@ -87,9 +87,9 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Generic `EventFormat.write`/`decode` re-mint through v1 URI admission; `encode`/`admit` add the Rasm profile.
 - `CloudEventUri`/`CloudEventUriRef` retain unknown Protobuf attribute arms without replacing the SDK envelope.
 - `Source` states domain/capability independently from `EventType`; Rasm composition proves domain agreement only, never capability/subject aliasing.
-- Message-envelope `subject` carries `WireKey`; generated `dataref` carries the external residence URI-reference.
-- Residence confines `dataref`, acquires through `ObjectStoreLane`, verifies `subject`, and compares dual data.
-- Dual residence becomes reference-only only with admitted `datarefprojection=reference` negotiation evidence.
+- Message-envelope `subject` carries `WireKey`; generated `dataref` carries the external store URI-reference.
+- Store confines `dataref`, acquires through `ObjectStoreLane`, verifies `subject`, and compares dual data.
+- dual carriage becomes reference-only only with admitted `datarefprojection=reference` negotiation evidence.
 - One BROKER retry class serves every binding — Kafka rides its `retriable()` verdict, taxonomy-only families matching their narrowest transient arm.
 - `Recovery` crosses every retry reader as a VALUE, lowering to `bool | float | timedelta` at stamina's `on=` alone — a bool reads `0.0` as refusal.
 - `Recovery` states WHETHER a refusal re-offers and `Reoffer` states HOW — a terminal satisfiable NARROWED lands a value, never prose.
@@ -114,7 +114,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - One CRDT field seats in one family; unseated or multiply seated maintenance refuses rather than guessing a family.
 - Presence retains stamped live/left cells with its maintenance horizon; a pre-horizon replay never resurrects.
 - PN sequence ties repeat both cumulative halves, and RGA identity reuse repeats predecessor and value identity or refuses.
-- Log-record exception semantics stay the SDK's — the emit seam takes the RAISED OBJECT, so the chain resolves `exc_info` to it before the renderer.
+- Log-record exception semantics stay the SDK's — the emit boundary takes the RAISED OBJECT, so the chain resolves `exc_info` to it before the renderer.
 - `BoundaryFault` grows by ingress class or case alone — a sibling fault type needing an adapter breaks the cross-tier `combine`/`aggregate` fold.
 - Instrumentor rows carry the driver they wrap and gate on presence before reifying — a contrib instrumentor imports its driver at module scope.
 - Conformance rows PROJECT off the deciding member and the key roster proves TOTAL at import — a dropped row emits as a branch legislating none.
@@ -125,16 +125,16 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Raised sibling refusal tokens cross as `BoundaryFault.domain` WHOLE — `Exception.__str__` renders EMPTY for a kwarg-only union and fuses its cases.
 - Fault egress and ingress are total TOGETHER — a peer's decoded conflict mints a typed token onto `domain`, never a concatenated subject string.
 - Retriability resolves in ONE predicate — a rostered raise answers its own `FaultRow` posture, every other fault deriving from its `FaultTag`.
-- Walk bounds ride ONE `Depth` at the fault root — walk-to-fixpoint is a NAMED case, and exhaustion rails a typed fault rather than truncating.
+- Walk bounds ride ONE `Depth` at the fault root — walk-to-fixpoint is a NAMED case, and exhaustion returns a typed fault rather than truncating.
 - Foreign-edge absence rides ONE `Posture` at the fault root — `defaulted` NAMES its source, so no sentinel fuses a read fact with a fabricated one.
-- Per-SEAM re-drive verdicts bind their own `stamina` caller off its class `POLICY` row — `guard` stays per-CLASS, its `@cache` admits no seam hook.
+- Per-BOUNDARY re-drive verdicts bind their own `stamina` caller off its class `POLICY` row — `guard` stays per-CLASS, its `@cache` admits no boundary hook.
 - Hook subscription answers the DETACHER and a scope releases WHOLE — a count retires nothing and an undrained table outlives its own composition.
 - Isolation emits behind its OWN fence and parks the verdict — an unfenced sink destroys what it isolates and a silent eviction reads as no loss.
 - Rostered raises seat in ONE fault census — a per-module `DETAILS` fold builds a map `retriability` and `facts` never read.
 - Producer-only facts are result columns whose lines write through `structlog` at the producing site — no spine stands beside result and span.
 - Fault span and log attribute keys roster at the fault root — a per-page literal forks the vocabulary the C# and TypeScript ends both publish.
 - Deadlines construct through ONE fold over a DECLARED unknown-budget floor — a per-site zero fuses an unmeasured bound with a real zero.
-- Typed band tokens cross a worker as DATA and re-mint parent-side — a kwarg-only `@tagged_union` reconstructs through no pickler, raised or railed.
+- Typed band tokens cross a worker as DATA and re-mint parent-side — a kwarg-only `@tagged_union` reconstructs through no pickler, raised or result-typed.
 
 ## [03]-[COLLAPSE]
 
@@ -166,14 +166,14 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `LogLimits` stays a page-owned policy shape — importing the SDK record-limit type reifies the cold `sdk._logs` tier in every composition root.
 - One instrumentation-scope triple homes at `reliability/faults#FAULT` — `identity`, `clock`, and `wire` open spans below every observability owner.
 - Scope handles mint once per module, never per call — the API caches none, and the pre-install proxy upgrades at install with no invalidation.
-- `workers` stays one module over crossing, pool, and supervision — a split forces the closed `WorkerKind`/`KernelTrait` vocabulary across a seam.
+- `workers` stays one module over crossing, pool, and supervision — a split forces the closed `WorkerKind`/`KernelTrait` vocabulary across a boundary.
 
 ## [05]-[PROCESS]
 
 - Blocking native waits ride the library's OWN timeout in the thread — a cancel scope bounds the await while the abandoned thread keeps its token.
 - Secret resolution stays ONE sync provider union crossed through `anyio.to_thread.run_sync` under its own probe band — `hvac` ships no `aio` twin.
 - Rebalance callbacks record a delta and start NO work — library work on the client's thread under its lock is the deadlock the portal forecloses.
-- `loky`'s tracker skew closes at `_use_simple_format` before pool construction — its child spawns across an exec seam no parent rebind crosses.
+- `loky`'s tracker skew closes at `_use_simple_format` before pool construction — its child spawns across an exec boundary no parent rebind crosses.
 - Drains FLUSH and never cancel — a cancelled in-flight window loses exactly the facts acceptance already promised against.
 - Every `Metrics.record` lands with its `INSTRUMENTS` row — `MEASURES` raises on an unregistered pair, so a dangling record kills its producer.
 - Structure proves first at every boot — vocabulary and layout gates seat ahead of any install claiming process custody, and read no installed state.

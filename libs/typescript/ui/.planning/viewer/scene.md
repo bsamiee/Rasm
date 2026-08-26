@@ -63,7 +63,7 @@ class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
 - Owner: `GlbFault` closes scene failure policy over `Fault.Class` and private eviction and plane columns.
 - Law: `_faultPolicy.at(reason)` reads the one axis the family does not carry — eviction; `_family.classOf(reason)` supplies the core class and `_family.legOf(reason)` the indicted arm, so the lifecycle guard and the raiser read one roster.
 - Law: seating accumulates on ONE carrier — `GlbFault.seating` is the family's own census, so a partially-bound set names every offending plane in a single refusal fact while every other lane refuses singly and keeps the plain carrier.
-- Law: the refusal census and its error-rail fold ride ONE declaration beside the family — the mount and the tracking operator are two reads of one row, and the census is the family's own published vocabulary rather than a tuple a call site assembled.
+- Law: the refusal census and its error-channel fold ride ONE declaration beside the family — the mount and the tracking operator are two reads of one row, and the census is the family's own published vocabulary rather than a tuple a call site assembled.
 
 ```typescript
 import { Convention, Fault, Shape } from "@rasm/core"

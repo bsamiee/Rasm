@@ -6,7 +6,7 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 
 ## [01]-[INDEX]
 
-- [02]-[ANCHOR_PLANE]: `Anchor` registers the coordinate spaces — posture vocabulary, durable re-entry, rail sweep, density clustering; `Anchor`.
+- [02]-[ANCHOR_PLANE]: `Anchor` registers the coordinate spaces — posture vocabulary, durable re-entry, margin sweep, density clustering; `Anchor`.
 - [03]-[ROSTER_FACES]: avatar stack and status tones over the core roster reads; `Face`.
 - [04]-[CURSOR_PLANE]: `Face` supplies cursors into the overlay cohort under the glide and departure laws; `Face`.
 - [05]-[THREAD_PLANE]: `Face.Thread` records comments — clamps, read marker, composer modes; `Face`.
@@ -14,7 +14,7 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 ## [02]-[ANCHOR_PLANE]
 
 [ANCHOR_PLANE]:
-- Owner: `Anchor` — the coordinate-space registry: `Anchor.space(row)` is the one lane constructor, closing a space's locator type inside a monomorphic `Anchor.Lane` (decode/encode through the row's own locator `Schema`, `locate` to an `Option` of viewport geometry, `track` folding the row's `carry` arm over its `epoch` stream), `Anchor.spaces(lanes)` the admission gate refusing duplicate surfaces with evidence, `Anchor.admit(lanes, anchored)` the durable re-entry that turns a persisted `{ space, locator }` back into a held locator or a named refusal, `Anchor.postures` the closed render vocabulary, `Anchor.swept` the margin-rail collision fold, and `Anchor.clustered` the density fold that collapses a crowded viewport into `+n` chips.
+- Owner: `Anchor` — the coordinate-space registry: `Anchor.space(row)` is the one lane constructor, closing a space's locator type inside a monomorphic `Anchor.Lane` (decode/encode through the row's own locator `Schema`, `locate` to an `Option` of viewport geometry, `track` folding the row's `carry` arm over its `epoch` stream), `Anchor.spaces(lanes)` the admission gate refusing duplicate surfaces with evidence, `Anchor.admit(lanes, anchored)` the durable re-entry that turns a persisted `{ space, locator }` back into a held locator or a named refusal, `Anchor.postures` the closed render vocabulary, `Anchor.swept` the margin collision fold, and `Anchor.clustered` the density fold that collapses a crowded viewport into `+n` chips.
 - Packages: `effect` (`Array`, `Data`, `Either`, `Option`, `Order`, `Record`, `Schema`, `Stream`); `@rasm/core` (`Fault.Class` behind the fault family); `system/act` (`Motion.useFollow` — the rendered transform rides motion values, never per-frame React state); `system/token` (the `z` ladder's `cursor` rank is the layer's one stacking coordinate).
 - Entry: `Anchor.space` per surface, exported from the OWNING page as a value; the composition root hands the assembled record to this plane at boot — the same admission pattern `Overlay.commands` runs, so a malformed registry refuses at composition, never mid-render.
 - Law: spaces arrive as VALUES, never imports — content, canvas, media, and the viewer each export their row from their own page and no `view/` sibling imports another; the registry is the meeting point and the composition root is the assembler, which is exactly how `Hook.Rows` and the port Tags already cross this folder.
@@ -24,8 +24,8 @@ Composed facts: `Presence.State`'s `caret` axis (ProseMirror `anchor`/`head` pos
 - Law: `resolve` answers `Option`, and `Option.none` is the PARKED posture — a collapsed branch, an unmounted surface, a position past the document's current extent all park their items rather than painting a stale pixel; parking is a render verdict, never a fault, and the item re-resolves on the space's next epoch emission.
 - Law: `carry` is the mutation-mapping arm and its burden seats at the owner — content's space carries ephemeral carets through ProseMirror step maps because raw positions go stale on every transaction; canvas, media, and the viewer key by stable identity (node id, fraction, `GlobalId`) and declare no arm; a space whose locators go stale under mutation and declares no `carry` ships the drift this column exists to close.
 - Law: the epoch is the space's OWN invalidation source — a ProseMirror transaction stream, the camera atom's change stream, a resize observation — and the overlay re-resolves exactly the lanes whose epoch fired; a global rAF re-resolve of every anchor spends the frame budget the per-space epoch exists to protect.
-- Law: the posture vocabulary is closed at three — `pin` renders at the resolved point, `float` mounts the landed anchored host on an `Overlay.virtual` of the resolved rect, `rail` books the item into the margin sweep — and a fourth presentation is a recipe on one of the three, never a new arm.
-- Law: the rail sweep is a pure two-pass fold — descending pass pushes each card below its predecessor's bottom edge, ascending pass pulls the tail back inside the viewport ceiling — both passes one `Array.mapAccum` over rows sorted by resolved top, so the sweep is deterministic data-in/data-out and every rail consumer — thread rails today, any margin board later — replays it identically.
+- Law: the posture vocabulary is closed at three — `pin` renders at the resolved point, `float` mounts the landed anchored host on an `Overlay.virtual` of the resolved rect, `margin` books the item into the margin sweep — and a fourth presentation is a recipe on one of the three, never a new arm.
+- Law: the margin sweep is a pure two-pass fold — descending pass pushes each card below its predecessor's bottom edge, ascending pass pulls the tail back inside the viewport ceiling — both passes one `Array.mapAccum` over rows sorted by resolved top, so the sweep is deterministic data-in/data-out and every margin consumer — comment threads today, any margin board later — replays it identically.
 - Law: density clusters structurally — past the viewport cap, pins collapse by quantized cell into one `+n` chip carrying its member keys (the avatar-stack overflow model applied to anchors), so ten thousand comments bound the overlay's node count by construction.
 - Boundary: the one overlay LAYER mounts at app composition — `FloatingPortal` at the `z-cursor` rank with `pointer-events: none` on non-interactive items — and this plane owns its rows, folds, and postures, never the mount; camera math stays the viewer's, ProseMirror position math stays content's.
 - Growth: a new surface class is one exported `Anchor.space` row; a new invalidation source is that row's `epoch`; a new presentation is a recipe over an existing posture — the registry, sweep, and cluster folds never fork.
@@ -77,7 +77,7 @@ declare namespace Anchor {
   }>
 }
 
-const _postures = ["pin", "float", "rail"] as const
+const _postures = ["pin", "float", "margin"] as const
 
 const _family = Fault.Class.family(["space-absent", "space-doubled", "locator-refused"] as const, {
   "space-absent": Fault.Class.row({
@@ -304,7 +304,7 @@ const _sighted = (
 
 [THREAD_PLANE]:
 - Owner: `Face.Thread` — the generic comment-thread record and its render folds: the `Thread` Schema owns identity, the durable `{ space, locator }` anchor, resolution, and the comment list; `Face.clamped` folds the show-more window, `Face.unread` pins the new-comment divider, `Face.watched` is the mark-as-read observation bracket, and `Face.Compose` is the closed three-mode composer vocabulary. `viewer/review` stays the BCF-specific instance of this concept — decoded wire topics with their own board — and neither page renders the other's records.
-- Packages: `effect` (`Array`, `Data`, `Option`, `Schema`, `Stream`); `@rasm/core` (`Clock.Hlc` stamps); `system/primitive` (`Primitive.sanitize` — every rendered body passes the gate; the announce rail carries non-toast arrival notes); `system/intl` (`Message` — every static string is a catalog key).
+- Packages: `effect` (`Array`, `Data`, `Option`, `Schema`, `Stream`); `@rasm/core` (`Clock.Hlc` stamps); `system/primitive` (`Primitive.sanitize` — every rendered body passes the gate; the announcer carries non-toast arrival notes); `system/intl` (`Message` — every static string is a catalog key).
 - Law: the durable anchor is DATA — `{ space, locator }` persisted whole, re-entering through the named lane's own codec at render; a text-anchored thread's locator is the content thread-mark identity, so ProseMirror's own mapping keeps it placed and this record never stores a raw position.
 - Law: authors are the app's principal spelling — a thread outlives every ephemeral presence actor, so the `author` field carries the app's principal string and the roster face join (worn profile for a live author) happens at render against the presence table; minting a presence-actor brand into this record couples a durable document to a session identity.
 - Law: the list semantics are structural — the thread container reads `role="feed"`, each comment `role="article"` with `aria-posinset`/`aria-setsize` from the LOGICAL comment count (clamped rendering never changes the announced size), and keyboard traversal is the feed pattern's.

@@ -1,6 +1,6 @@
 # [TS_SECURITY_API_JOSE]
 
-`jose` owns every JOSE operation the `crypt/sign` `Jwt` design composes, over WebCrypto with zero runtime dependencies. Its surface collapses on three axes — crypto op, token profile, serialization — so Compact, Flattened, and General render one sign/verify to three wire forms; `createRemoteJWKSet` is the key-rotation seam, and every failure is a `JOSEError` subclass discriminated by a stable `code`.
+`jose` owns every JOSE operation the `crypt/sign` `Jwt` design composes, over WebCrypto with zero runtime dependencies. Its surface collapses on three axes — crypto op, token profile, serialization — so Compact, Flattened, and General render one sign/verify to three wire forms; `createRemoteJWKSet` is the key-rotation entry, and every failure is a `JOSEError` subclass discriminated by a stable `code`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -48,7 +48,7 @@
 - [01]-[SIGN_JWT]: `setProtectedHeader({ alg })` → `setIssuedAt()` → `setIssuer` → `setAudience` → `setSubject` → `setNotBefore` → `setExpirationTime` → `setJti` → `.sign(key, SignOptions?)`.
 - [03]-[ENCRYPT_JWT]: `setProtectedHeader({ alg, enc })` → `setKeyManagementParameters` → `replicateIssuerAsHeader` → `.encrypt(key, EncryptOptions?)`.
 
-[ENTRYPOINT_SCOPE]: JWKS resolution and key rotation, the verification-key seam — consumer `sign/jwt` and `authn/workload`
+[ENTRYPOINT_SCOPE]: JWKS resolution and key rotation, the verification-key boundary — consumer `sign/jwt` and `authn/workload`
 
 | [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                    |
 | :-----: | :----------------------------------------------------- | :------- | :---------------------------------------------- |
@@ -77,7 +77,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every op returns a `Promise` and rejects with a `JOSEError` subclass; the stable `code` projects the whole family onto one tagged union folded at a single seam, never an instance-of ladder.
+- Every op returns a `Promise` and rejects with a `JOSEError` subclass; the stable `code` projects the whole family onto one tagged union folded at a single point, never an instance-of ladder.
 - JWT profile rides Compact JWS/JWE under the claim-set builder; a raw JWS/JWE family answers a non-JWT payload or a multi-recipient form alone, so no serialization mints a parallel owner.
 - `JWTClaimVerificationOptions` makes the library enforce every claim gate under `clockTolerance`, and `algorithms` pins the accepted set on verify, closing algorithm confusion at the option row.
 - `createRemoteJWKSet` owns rotation: it refetches on a `kid` miss throttled by `cooldownDuration`, refreshes to `cacheMaxAge`, and exposes its own state; `jwksCache` persists `{ jwks, uat }` across stateless invocations and `customFetch` routes the fetch through a resilient transport.
@@ -93,4 +93,4 @@
 [LOCAL_ADMISSION]:
 - Mint and verify the JWT profile through `SignJWT`/`jwtVerify` behind a pinned `algorithms` allow-list, delegating every claim gate to `JWTClaimVerificationOptions`; `UnsecuredJWT` stays test-only.
 - Hold one `createRemoteJWKSet` resolver behind a `Tag` under a `Schedule`-driven `reload` with `jwksCache` persistence, so a request reuses both the set and the imported key.
-- Wrap every op in `Effect.tryPromise` and fold the `JOSEError` family by `code` at that seam, so a jose rejection reaches domain logic as a tagged arm.
+- Wrap every op in `Effect.tryPromise` and fold the `JOSEError` family by `code` at that point, so a jose rejection reaches domain logic as a tagged arm.

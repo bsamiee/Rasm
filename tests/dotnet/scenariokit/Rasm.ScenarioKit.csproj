@@ -1,12 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <IsTestProject>false</IsTestProject>
-        <RasmHost>common</RasmHost>
+        <Description>Host-aware scenario SDK: the scenario attribute, document brackets, evidence sinks, and captures scenarios compose inside Rhino and Grasshopper 2.</Description>
+        <RasmHost>grasshopper;platform</RasmHost>
     </PropertyGroup>
-    <ItemGroup Label="Project References">
-        <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" />
+
+    <ItemGroup Label="Kit Packages">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
-    <ItemGroup Label="Assembly Visibility">
+
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" Private="false" />
         <InternalsVisibleTo Include="Rasm.Bridge.Cargo" />
     </ItemGroup>
 </Project>

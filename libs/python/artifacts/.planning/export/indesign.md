@@ -8,7 +8,7 @@
 
 - Owner: `Idml` binds `base: IdmlSource`, `steps: tuple[IdmlStep, ...]`, and `lane: LanePolicy`. `IdmlSource` carries bytes, prefix, destination `at`, and source selector `only`. `IdmlStep.facts` feeds one accumulating admission: `sources` carry template data and prefixes, `blobs` carry XML/PDF bodies, `batches` carry plural cardinality, `pages` carry positive page indices, `anchors` carry both XPath axes, and `identifiers` carry layer/story/content ids and tags — every axis scans whole and every casualty reduces through the associative `IdmlFault.combined` monoid, so one refusal names every offending index across all seven axes. `PdfCrop.value` is the verified `import_pdf(crop=)` token.
 - Cases: `IdmlStep` cases fold over the one held package — `insert` (`insert_idml` at a destination anchor), `add_pages` (the batch `add_pages_from_idml`), `import_xml` (honoring the source's content-control attributes), `place_pdf` (`import_pdf` carrying the `PdfCrop` mode and page), `set_attributes` (the verified `href` image-relink — an empty `href` removes the page item), `add_note`, `merge_layers`/`suffix_layers`/`remove_layer`/`remove_orphan_layers`/`remove_guides` (the designmap layer algebra), `remove_content` (the template-reset inverse of `insert`), `add_story` (`add_story_with_content`), `leaf_to_node` (a `Rectangle` leaf promoted to a `TextFrame` node so tagged content nests) — dispatched by one total `match`; the legacy monolithic `Compose`/`Combine`/`Import`/`Place` ops collapse into this step fold over one base.
-- Auto: `_mutate` runs the worker seam — it spills `base.data` to a path-backed temporary file, opens and prefixes it, and folds `Block.of_seq(plan.steps)` over one `ExitStack` that registers every spill and returned instance for close-on-exit. Each mutation returns a fresh path-backed instance, so the fold threads that successor into the next step. Nested `spill`, `resolved`, and `apply` kernels own the platform statements: file lifetime, live-tree XPath admission, and provider mutation dispatch never escape as module-level helpers. `_resolved` validates each XPath against the current `package.xml_structure` before its mutation; layer and story ids skip XPath admission because they key the design map and story files. `_mutate` drains bytes and structural inventory from the terminal instance.
+- Auto: `_mutate` runs the worker boundary — it spills `base.data` to a path-backed temporary file, opens and prefixes it, and folds `Block.of_seq(plan.steps)` over one `ExitStack` that registers every spill and returned instance for close-on-exit. Each mutation returns a fresh path-backed instance, so the fold threads that successor into the next step. Nested `spill`, `resolved`, and `apply` kernels own the platform statements: file lifetime, live-tree XPath admission, and provider mutation dispatch never escape as module-level helpers. `_resolved` validates each XPath against the current `package.xml_structure` before its mutation; layer and story ids skip XPath admission because they key the design map and story files. `_mutate` drains bytes and structural inventory from the terminal instance.
 - Output: `IdmlFact` is the picklable evidence carrier — the serialized `data` plus the `spreads`/`stories`/`pages`/`fonts`/`styles`/`layers`/`tags`/`nodes` structural inventory read off the final package and the applied-`steps` count.
 - Growth: a SimpleIDML mutation is one `IdmlStep` case plus one `apply` arm plus one `facts` arm over the verified algebra; a source attribute is one `IdmlSource` field; a structural fact is one required `IdmlFact` field; an admission cause is one `IdmlFault` case beside one casualty comprehension the monoid already reduces; an untrusted ingress is one `IndesignPayload` band line; a crop mode is one `PdfCrop` token. Another deliverable is one `ArtifactWork` node the `ArtifactPipeline` schedules.
 - Boundary: per-operation base reopen, parallel source lists, erased dictionaries, forwarding case constructors, crop dispatch tables, `BytesIO` package mutation, class-qualified offload, raise bridges, and parallel IDML outputs are rejected. `export_xml`/`export_as_tree` tagged-content egress stays `document/lens#LENS`.
@@ -33,7 +33,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 
 from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
@@ -240,7 +240,7 @@ class Idml(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(_KIND, _CANON.encode((self.base, self.steps)))
 
-    async def _emit(self) -> RuntimeRail[IdmlFact]:
+    async def _emit(self) -> RuntimeResult[IdmlFact]:
         crossed = await self.lane.offload(Kernel.of(_mutate, KernelTrait.HOSTILE), self)
         match crossed:
             case Result(tag="ok", ok=fact):

@@ -1,8 +1,8 @@
 # [RASM_ANALYSIS_MEASURE]
 
-`Measure`, `Bounds`, and `ConformanceMetric` own the metrology surface of the measured-query runtime — mass properties, enclosing bounds, and sampled conformance residuals over host geometry, each folding to one dispatch the `Analysis/query` seam forwards. Every mass answer is a `(MassKind, MassProperty)` coordinate, every bounding modality a union case, and every conformance a policy row over one sampling fold, so a new metrology answer lands as a row and never a sibling operation family. Each family union publishes its builders on ITSELF — the `Analyze` facade lives once on `Analysis/query` and this page adds no fragment to it.
+`Measure`, `Bounds`, and `ConformanceMetric` own the metrology surface of the measured-query runtime — mass properties, enclosing bounds, and sampled conformance residuals over host geometry, each folding to one dispatch the `Analysis/query` entry forwards. Every mass answer is a `(MassKind, MassProperty)` coordinate, every bounding modality a union case, and every conformance a policy row over one sampling fold, so a new metrology answer lands as a row and never a sibling operation family. Each family union publishes its builders on ITSELF — the `Analyze` facade lives once on `Analysis/query` and this page adds no fragment to it.
 
-Every native mass-properties handle leases through the `Domain/rails` `Lease<T>` discipline — computed, projected, disposed, never escaped — and the aggregate fold disposes every non-surviving handle after summing siblings through the host `Sum` mutator. Statistics compose `Domain/stats` on the `Scalar` carrier, conformance distances the `Spatial/support` projection over the `Processing/intent` `VectorIntent.Support` rail, exact curve deviation the `Analysis/relations` kernel, and two-operand admission the `Domain/validation` `RequirementContext.Pair` combinator; every carrier carries `IValidityEvidence` and admits through the folder's one acceptance gate.
+Every native mass-properties handle leases through the `Domain/results` `Lease<T>` discipline — computed, projected, disposed, never escaped — and the aggregate fold disposes every non-surviving handle after summing siblings through the host `Sum` mutator. Statistics compose `Domain/stats` on the `Scalar` carrier, conformance distances the `Spatial/support` projection over the `Processing/intent` `VectorIntent.Support` verb, exact curve deviation the `Analysis/relations` kernel, and two-operand admission the `Domain/validation` `RequirementContext.Pair` combinator; every carrier carries `IValidityEvidence` and admits through the folder's one acceptance gate.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ Every native mass-properties handle leases through the `Domain/rails` `Lease<T>`
 
 ## [02]-[MEASURE]
 
-- Owner: `MassKind` and `MassProperty` `[BoundaryAdapter]` `[SmartEnum<int>]` policy rows drive the `Measure` `[Union]` — a `MassKind` binds its `Requirement`, its compute and aggregate delegates, its moment escalation, and the three host-handle reads `CentroidOf`/`AxesOf`/`MomentsOf`; a `MassProperty` binds its `OutputBinding`, its base demand set, the escalation it serves, and one projection. `KindOf` resolves the solid-aware domain, `PrincipalFrameOf` recovers the centroid-anchored principal plane, and three `Measure` cases carry eleven factories minting `(MassKind, MassProperty)` coordinates. `MeasureBundle` is the kind-keyed multi-domain takeoff carrier beside the single-domain `GeometryMeasures` moment bundle — `MassKind` conforms `ICapability<MassKind>` so the demanded-domain set rides `CapabilitySet<MassKind>` as one value.
-- Entry: `Measure.Operation<TGeometry, TOut>()` builds the op the `Analysis/query` seam forwards; `MassProperty` always builds the AGGREGATE op, so a single geometry is the one-item degenerate case and per-item and batch answers ride one leased handle whose projections extract once. `GeometryMeasures.Of(GeometryBase, Context, Op?)` is the bundle entry the AEC import edge binds: `KindOf` resolves the solid-aware domain, one aggregate fold computes with every moment demand held, and every projection extracts from that one handle — a takeoff over a thousand elements pays one mass computation each, never eight. `MeasureBundle.Of(GeometryBase, CapabilitySet<MassKind>, Context, Op?)` measures every demanded kind through its own leased handle and `MeasureBundle.Of(Seq<(MassKind, double)>, Op?)` admits already-resolved magnitudes; `Magnitude(MassKind)` answers `Option<double>`, so an unheld domain is honest absence and never a zero.
+- Owner: `MassKind` and `MassProperty` `[SmartEnum<int>]` policy rows drive the `Measure` `[Union]` — a `MassKind` binds its `Requirement`, its compute and aggregate delegates, its moment escalation, and the three host-handle reads `CentroidOf`/`AxesOf`/`MomentsOf`; a `MassProperty` binds its `OutputBinding`, its base demand set, the escalation it serves, and one projection. `KindOf` resolves the solid-aware domain, `PrincipalFrameOf` recovers the centroid-anchored principal plane, and three `Measure` cases carry eleven factories minting `(MassKind, MassProperty)` coordinates. `MeasureBundle` is the kind-keyed multi-domain takeoff carrier beside the single-domain `GeometryMeasures` moment bundle — `MassKind` conforms `ICapability<MassKind>` so the demanded-domain set rides `CapabilitySet<MassKind>` as one value.
+- Entry: `Measure.Operation<TGeometry, TOut>()` builds the op the `Analysis/query` entry forwards; `MassProperty` always builds the AGGREGATE op, so a single geometry is the one-item degenerate case and per-item and batch answers ride one leased handle whose projections extract once. `GeometryMeasures.Of(GeometryBase, Context, Op?)` is the bundle entry the AEC import edge binds: `KindOf` resolves the solid-aware domain, one aggregate fold computes with every moment demand held, and every projection extracts from that one handle — a takeoff over a thousand elements pays one mass computation each, never eight. `MeasureBundle.Of(GeometryBase, CapabilitySet<MassKind>, Context, Op?)` measures every demanded kind through its own leased handle and `MeasureBundle.Of(Seq<(MassKind, double)>, Op?)` admits already-resolved magnitudes; `Magnitude(MassKind)` answers `Option<double>`, so an unheld domain is honest absence and never a zero.
 - Law: absence is `Option`, never a null-object row. `KindOf` answers `Option<MassKind>` and the census `MassKind.None` row — whose two delegates existed only to fail — DELETES; a geometry no mass domain admits has no kind to report and the refusal is the caller's `ToFin`, stated once.
 - Law: the three moment-demand bools are ONE `CapabilitySet<MomentDemand>` column, so a demand set travels as a value through `compute`, `aggregate`, and every host call instead of three positional bools six signatures re-spelled in order. NAMED LOSS: per-demand compile-time exhaustiveness; bought back by the row being the only mint site and every host bridge reading `Admits` at its own call.
 - Law: host-handle discrimination has ONE site, the `MassKind` row that mints the shape — `CentroidOf`, `AxesOf`, and `MomentsOf` are its columns, so no consumer spells a three-arm `LengthMassProperties`/`AreaMassProperties`/`VolumeMassProperties` switch and a fourth mass domain lands as one row.
@@ -107,7 +107,7 @@ public abstract partial record Measure {
     }
 }
 
-[BoundaryAdapter, SmartEnum<int>]
+[SmartEnum<int>]
 public sealed partial class MassKind : ICapability<MassKind> {
     public static readonly MassKind Length = new(key: 1, label: nameof(Length), requirement: Requirement.CurveLength,
         escalation: CapabilitySet<MomentDemand>.Of(MomentDemand.Second), compute: LengthMass, aggregate: LengthBatch,
@@ -272,7 +272,7 @@ public sealed partial class MassKind : ICapability<MassKind> {
             });
 }
 
-[BoundaryAdapter, SmartEnum<int>]
+[SmartEnum<int>]
 public sealed partial class MassProperty {
     public static readonly MassProperty Magnitude = new(key: 0, label: nameof(Magnitude), output: OutputBinding.Of<double>(),
         baseDemands: CapabilitySet<MomentDemand>.None, escalates: CapabilitySet<MomentDemand>.None,
@@ -316,7 +316,7 @@ public readonly record struct MassMoments(
     double Magnitude, double MagnitudeError, Point3d Centroid, Vector3d CentroidError,
     Vector3d Radii, Vector3d Inertia, Vector3d Products);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct GeometryMeasures(
     MassKind Kind, double Magnitude, double MagnitudeError, Point3d Centroid,
     Vector3d Radii, Vector3d Inertia, Vector3d InertiaProducts, Plane PrincipalFrame) : IValidityEvidence {
@@ -345,7 +345,7 @@ public readonly record struct GeometryMeasures(
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude)> Measures) : IValidityEvidence {
     public CapabilitySet<MassKind> Coverage => CapabilitySet<MassKind>.Of([.. Measures.Map(static row => row.Kind)]);
     public Option<double> Magnitude(MassKind kind) => Measures.Find(row => row.Kind.Equals(kind)).Map(static row => row.Magnitude);
@@ -617,7 +617,7 @@ public abstract partial record Bounds {
 
 ## [04]-[CONFORMANCE]
 
-- Owner: `ConformanceMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` policy rows drive one residual pipeline — each row binds its `OutputBinding`, one `CapabilitySet<ResidualTrait>` admission column, and its projection folding the residual stream; `ResidualSample` is the per-sample carrier declaring `IValidityEvidence` and carrying the admitted `Tolerance` it was measured against.
+- Owner: `ConformanceMetric` `[SmartEnum<int>]` policy rows drive one residual pipeline — each row binds its `OutputBinding`, one `CapabilitySet<ResidualTrait>` admission column, and its projection folding the residual stream; `ResidualSample` is the per-sample carrier declaring `IValidityEvidence` and carrying the admitted `Tolerance` it was measured against.
 - Cases: `Distance`, `Rms`, `WithinTolerance`, `Summary`, `Maximum`, `SignedResidual`, `Containment`, `Distribution`.
 - Entry: the `Analysis/query` `Conformance` case is one entry over two arities the INPUT SHAPE selects — `ConformanceMetric.Sampled<TGeometry, TTarget, TOut>(metric, count, percentiles, key)` for a `(geometry, target)` pair that samples its own residuals, `ConformanceMetric.Measured<TGeometry, TOut>(metric, percentiles, key)` for a consumer arriving with the residuals already measured; build-time gates reject a sampling budget the arity cannot consume, an inadmissible kind pair, and an output mismatch.
 - Law: the three former bool columns are ONE `CapabilitySet<ResidualTrait>` over `Signed`/`Containment`/`Exact`, and the legal corners are the roster's own closed data on this page: `Containment` never appears without `Signed`, because a containment residual is a signed one whose sign the enclosing solid decides. NAMED LOSS: per-trait compile-time exhaustiveness; the row set is the single mint site and `AcceptsTarget` the single reader.
@@ -625,7 +625,7 @@ public abstract partial record Bounds {
 - Law: `ResidualSample` is evidence-carrying and admitted through the acceptance gate; aggregate metrics re-emit `Stat<Scalar>`/`Distribution<Scalar>` constructed WITH `StatContext.Band`, so the band verdict rides the sample from birth and no consumer re-stamps a summary after the fold.
 - Packages: `Rasm.Spatial` support projection, `Rasm.Processing` `VectorIntent.Support`, `Rasm.Domain` `Scalar`/`Stat`/`Distribution`/`StatContext`/`Tolerance`/`RequirementContext`/`Evaluate`/`Capability` owners, RhinoCommon geometry payloads.
 - Growth: a new conformance metric is one row — key, output, trait set, one projection; a new target admission class is one `ResidualTrait` row `AcceptsTarget` reads; a new residual SOURCE is one arity on the same entry — zero pipeline edits.
-- Boundary: the residual pipeline is one fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` family, or a residual-stream entrypoint beside the pair one, are the deleted forms; distance routes through the `Spatial/support` projection gate exclusively, a local closest-point switch beside it the killed parallel proximity rail; every sample's `WithinBand` is DERIVED from the `Tolerance` it carries, so the evidence law makes an inconsistent sample unrepresentable past the oracle; the BAND is the stream's own, so a tranche measured against a probe band summarizes against that band and a tranche mixing bands refuses rather than folding two populations under one verdict; `Maximum` ranks on `|Distance|` because the band the sample carries is the same magnitude claim; percentiles reach only the `Distribution` row.
+- Boundary: the residual pipeline is one fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` family, or a residual-stream entrypoint beside the pair one, are the deleted forms; distance routes through the `Spatial/support` projection gate exclusively, a local closest-point switch beside it the killed parallel proximity path; every sample's `WithinBand` is DERIVED from the `Tolerance` it carries, so the evidence law makes an inconsistent sample unrepresentable past the oracle; the BAND is the stream's own, so a tranche measured against a probe band summarizes against that band and a tranche mixing bands refuses rather than folding two populations under one verdict; `Maximum` ranks on `|Distance|` because the band the sample carries is the same magnitude claim; percentiles reach only the `Distribution` row.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -651,7 +651,7 @@ public sealed partial class ResidualTrait : ICapability<ResidualTrait> {
     public int Rank { get; }
 }
 
-[BoundaryAdapter, SmartEnum<int>]
+[SmartEnum<int>]
 public sealed partial class ConformanceMetric {
     public static readonly ConformanceMetric Distance = new(key: 0, output: OutputBinding.Of<double>(), traits: CapabilitySet<ResidualTrait>.None,
         projection: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample.Distance)));
@@ -758,7 +758,7 @@ public sealed partial class ConformanceMetric {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, Tolerance Band) : IValidityEvidence {
     public ValidityClaim WithinBand => Math.Abs(Distance) <= Band.Value;
     public bool IsValid => ValidityClaim.All(

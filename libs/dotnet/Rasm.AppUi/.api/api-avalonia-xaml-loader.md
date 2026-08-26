@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA_XAML_LOADER]
 
-`AvaloniaRuntimeXamlLoader` inflates XAML strings, streams, and loader documents at runtime through the in-process `AvaloniaXamlIlRuntimeCompiler`, the one managed entry that skips build-time `.axaml` precompilation. It feeds the hot-reload rail, where `HotAvalonia.Core` re-parses changed views into their live instances.
+`AvaloniaRuntimeXamlLoader` inflates XAML strings, streams, and loader documents at runtime through the in-process `AvaloniaXamlIlRuntimeCompiler`, the one managed entry that skips build-time `.axaml` precompilation. It feeds the hot-reload path, where `HotAvalonia.Core` re-parses changed views into their live instances.
 
 ## [01]-[PUBLIC_TYPES]
 

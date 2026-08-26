@@ -1,8 +1,8 @@
 # [PY_RUNTIME_RECIPE]
 
-Local recipe execution — the one owner turning a queenbee-schema simulation workflow into a typed deliverable. `RecipeExecution.execute` is the single modality-polymorphic entry: it absorbs one `RecipeSpec` or a `Block[RecipeSpec]`, acquires remote assets through the `transport/roots#RESOURCE` rail, gates the external Radiance/OpenStudio/EnergyPlus engines through `reliability/resilience#RESILIENCE` `guarded_sync` BEFORE the subprocess spends minutes, executes `queenbee local run` off the event loop through the `execution/lanes#LANE` offload, and reads the typed deliverable back through `output_value_by_name` — the product is the handled output value set, never the raw project folder, and the parsed luigi evidence decides the rail, never the exit path alone. Each run is content-keyed over the recipe identity and the handled `inputs.json` bytes, so a parametric batch drains as `keyed` units and an identical simulation replays from the lane cache rather than re-running the engine.
+Local recipe execution — the one owner turning a queenbee-schema simulation workflow into a typed deliverable. `RecipeExecution.execute` is the single modality-polymorphic entry: it absorbs one `RecipeSpec` or a `Block[RecipeSpec]`, acquires remote assets through the `transport/roots#RESOURCE` layer, gates the external Radiance/OpenStudio/EnergyPlus engines through `reliability/resilience#RESILIENCE` `guarded_sync` BEFORE the subprocess spends minutes, executes `queenbee local run` off the event loop through the `execution/lanes#LANE` offload, and reads the typed deliverable back through `output_value_by_name` — the product is the handled output value set, never the raw project folder, and the parsed luigi evidence decides the result, never the exit path alone. Each run is content-keyed over the recipe identity and the handled `inputs.json` bytes, so a parametric batch drains as `keyed` units and an identical simulation replays from the lane cache rather than re-running the engine.
 
-Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipes`': this owner re-implements no luigi scheduler, no handler resolution, and no engine-version probe — it composes `Recipe`/`RecipeSettings`/`Recipe.run` and projects the contract through `RecipeInterface.from_recipe` for the submission-constructing consumer (geometry energy/simulate binds `Job`/`RecipeInterface` construction to this owner, the named `python:` consumer). One `RECIPES` seed table is the executable catalog — outputs, engine set, worker sizing as row data — so a new workflow is one row, never a per-recipe method or a sibling runner. `lbt-recipes`/`pollination-handlers` distributions and the `queenbee-local` luigi runner are AGPL-3.0 network copyleft: admissible only under the companion's process-boundary, non-distributed execution charter — engines run as external subprocesses, and nothing links into a distributed host binary. That charter bans the MODULE-SCOPE BINDING itself, not merely the import cost: a static license audit reads the import graph, so an lbt name bound at module scope marks every importer of this module AGPL-coupled, and the deferred-import dialect cannot serve the ban — a `lazy` statement is lexically module-scope by design, carrying the very graph edge whose load it defers. Every lbt binding therefore stays function-local at its boundary seam, confining the lexical coupling to the one function that crosses; annotations resolve through `if TYPE_CHECKING:`, which binds nothing at runtime, and `ENGINE_CHECK` carries probe NAMES its seam resolves by `getattr` because no module-scope `version` handle exists to hold. `queenbee` is MIT and carries no copyleft of its own, but every site reaching it here holds an lbt `Recipe` first, so it rides this one band law rather than a second posture.
+Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipes`': this owner re-implements no luigi scheduler, no handler resolution, and no engine-version probe — it composes `Recipe`/`RecipeSettings`/`Recipe.run` and projects the contract through `RecipeInterface.from_recipe` for the submission-constructing consumer (geometry energy/simulate binds `Job`/`RecipeInterface` construction to this owner, the named `python:` consumer). One `RECIPES` seed table is the executable catalog — outputs, engine set, worker sizing as row data — so a new workflow is one row, never a per-recipe method or a sibling runner. `lbt-recipes`/`pollination-handlers` distributions and the `queenbee-local` luigi runner are AGPL-3.0 network copyleft: admissible only under the companion's process-boundary, non-distributed execution charter — engines run as external subprocesses, and nothing links into a distributed host binary. That charter bans the MODULE-SCOPE BINDING itself, not merely the import cost: a static license audit reads the import graph, so an lbt name bound at module scope marks every importer of this module AGPL-coupled, and the deferred-import dialect cannot serve the ban — a `lazy` statement is lexically module-scope by design, carrying the very graph edge whose load it defers. Every lbt binding therefore stays function-local at its boundary, confining the lexical coupling to the one function that crosses; annotations resolve through `if TYPE_CHECKING:`, which binds nothing at runtime, and `ENGINE_CHECK` carries probe NAMES its boundary resolves by `getattr` because no module-scope `version` handle exists to hold. `queenbee` is MIT and carries no copyleft of its own, but every site reaching it here holds an lbt `Recipe` first, so it rides this one band law rather than a second posture.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@ Recipe VOCABULARY stays queenbee's and the execution machinery stays `lbt-recipe
 - Auto: span presence IS execution evidence — one `recipe.execute` span wraps the executed leg and one `recipe.executed` line off `RecipeRun.facts` closes it, the engine gate and coercion ride the `guarded` derivation span at staging, and a cache-elided replay opens no execute span and writes no line. Subprocess environment discipline stays `lbt_recipes`' own (`--env` PATH/RAYPATH, cleared `PYTHONHOME`) — this owner never re-derives the shell line. Deliverables are row-driven and typed: handler-parsed lists and `DataCollection` objects, never a path the caller must re-parse.
 - Law: every refusal resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.RECIPE` and derives its subject from that leg — the escaping destination, the luigi error summary, and the engine gate's own window all ride NAMED slots on their rows rather than free subject strings the resilience keys then read.
 - Growth: a new simulation workflow is one `RecipeName` member with one `RECIPES` row, its output roster riding the shared anchor the moment a second row declares the same set; a new engine one `Engine` member with one `ENGINE_CHECK` row; a new remote asset kind one `AssetFetch` on the spec; a new run-policy dimension one `RecipeRow` column or one `RecipeSpec` Option folded into the `RecipeSettings` default; the cloud-submission modality (a Pollination platform `Job` POST composing the queenbee shapes against `interface`) enters as one more execute arm with its own `@overload` over the same `RecipeSpec` when a consumer names it, never a parallel owner — an arm with no overload lands every caller on the runtime union.
-- Boundary: no luigi scheduling, no handler resolution or chain ordering, no engine probing beside `version.check_*`, and no recipe-schema re-mint — queenbee owns the vocabulary, and a `msgspec`/protobuf mirror of a queenbee model is a single-mint violation. queenbee's click CLI and urllib transfer stay rejected: `cyclopts` and the roots rail own those concerns. No durable run ledger — the session cache is lane-local, and durable reuse stays the C# `Rasm.Persistence` ledger consumed at the wire. Engines are external binaries; no simulation runs in-process.
+- Boundary: no luigi scheduling, no handler resolution or chain ordering, no engine probing beside `version.check_*`, and no recipe-schema re-mint — queenbee owns the vocabulary, and a `msgspec`/protobuf mirror of a queenbee model is a single-mint violation. queenbee's click CLI and urllib transfer stay rejected: `cyclopts` and the roots layer own those concerns. No durable run ledger — the session cache is lane-local, and durable reuse stays the C# `Rasm.Persistence` ledger consumed at the wire. Engines are external binaries; no simulation runs in-process.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -30,7 +30,7 @@ from expression.extra.result import traverse
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.runtime.faults import RECIPE_ASSET, RECIPE_ENGINE, RECIPE_ROOT, RECIPE_RUN, SCOPES, BoundaryFault, RuntimeRail, Scope, scoped
+from rasm.runtime.faults import RECIPE_ASSET, RECIPE_ENGINE, RECIPE_ROOT, RECIPE_RUN, SCOPES, BoundaryFault, RuntimeResult, Scope, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import Admit, LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -163,10 +163,10 @@ class RecipeExecution(Struct, frozen=True):
     @overload
     async def execute(self, spec: Block[RecipeSpec], cache: Map[ContentKey, RecipeProduct] = ...) -> "Drained[RecipeProduct]": ...
     @overload
-    async def execute(self, spec: RecipeSpec, cache: Map[ContentKey, RecipeProduct] = ...) -> "RuntimeRail[RecipeProduct]": ...
+    async def execute(self, spec: RecipeSpec, cache: Map[ContentKey, RecipeProduct] = ...) -> "RuntimeResult[RecipeProduct]": ...
     async def execute(
         self, spec: "RecipeSpec | Block[RecipeSpec]", cache: Map[ContentKey, RecipeProduct] = Map.empty()
-    ) -> "RuntimeRail[RecipeProduct] | Drained[RecipeProduct]":
+    ) -> "RuntimeResult[RecipeProduct] | Drained[RecipeProduct]":
         match spec:
             case Block() as many:
                 units: Block[Admit[RecipeProduct]] = Block.of_seq([await self._admitted(one) for one in many])
@@ -177,7 +177,7 @@ class RecipeExecution(Struct, frozen=True):
                     lambda ready: cache.try_find(ready.key).map(_elided).default_with(lambda: self._observed(ready))
                 ).default_with(_refused)
 
-    async def interface(self, spec: RecipeSpec) -> "RuntimeRail[RecipeInterface]":
+    async def interface(self, spec: RecipeSpec) -> "RuntimeResult[RecipeInterface]":
         return await self.lane.offload(Kernel.of(_interface, KernelTrait.RELEASING), spec)
 
     async def _admitted(self, spec: RecipeSpec) -> Admit[RecipeProduct]:
@@ -186,27 +186,27 @@ class RecipeExecution(Struct, frozen=True):
             lambda fault: Admit(bare=lambda: _refused(fault))
         )
 
-    async def _prepared(self, spec: RecipeSpec) -> "RuntimeRail[_Staged]":
+    async def _prepared(self, spec: RecipeSpec) -> "RuntimeResult[_Staged]":
         rooted = await self.lane.offload(Kernel.of(_rooted, KernelTrait.RELEASING), spec)
         if rooted.is_error():
             return Error(rooted.error)
         acquired = await self._acquired(spec.assets, Path(rooted.ok))
         if acquired.is_error():
             return Error(acquired.error)
-        return (await self.lane.offload(Kernel.of(_staged, KernelTrait.RELEASING), spec, rooted.ok)).bind(lambda rail: rail)
+        return (await self.lane.offload(Kernel.of(_staged, KernelTrait.RELEASING), spec, rooted.ok)).bind(lambda held: held)
 
-    async def _acquired(self, assets: Block[AssetFetch], root: Path) -> "RuntimeRail[int]":
+    async def _acquired(self, assets: Block[AssetFetch], root: Path) -> "RuntimeResult[int]":
         if assets.is_empty():
             return Ok(0)
         return await self.root.map(lambda live: self._fetched(live, assets, root)).default_with(
             lambda: _refused(RECIPE_ROOT.raised())
         )
 
-    async def _fetched(self, live: ResourceRoot, assets: Block[AssetFetch], root: Path) -> "RuntimeRail[int]":
+    async def _fetched(self, live: ResourceRoot, assets: Block[AssetFetch], root: Path) -> "RuntimeResult[int]":
         roster = traverse(lambda asset: _confined(root, asset.relative), assets)
         if roster.is_error():
             return Error(roster.error)
-        landed: RuntimeRail[int] = Ok(0)
+        landed: RuntimeResult[int] = Ok(0)
         for asset, destination in zip(assets, roster.ok, strict=True):
             match await live.child(asset.source).map(lambda ref: live.read(ref, Delivery.WHOLE)).default_with(_refused):
                 case Result(tag="error", error=fault):
@@ -218,19 +218,19 @@ class RecipeExecution(Struct, frozen=True):
                 return landed
         return landed
 
-    async def _observed(self, staged: _Staged) -> "RuntimeRail[RecipeProduct]":
+    async def _observed(self, staged: _Staged) -> "RuntimeResult[RecipeProduct]":
         with _TRACER.start_as_current_span("recipe.execute"):
-            return (await self.lane.offload(Kernel.of(_execute, KernelTrait.RELEASING), staged)).bind(lambda rail: rail).map(_logged)
+            return (await self.lane.offload(Kernel.of(_execute, KernelTrait.RELEASING), staged)).bind(lambda held: held).map(_logged)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def _elided(product: RecipeProduct) -> "RuntimeRail[RecipeProduct]":
+async def _elided(product: RecipeProduct) -> "RuntimeResult[RecipeProduct]":
     return Ok(product)
 
 
-async def _refused[T](fault: BoundaryFault) -> "RuntimeRail[T]":
+async def _refused[T](fault: BoundaryFault) -> "RuntimeResult[T]":
     return Error(fault)
 
 
@@ -249,7 +249,7 @@ def _rooted(spec: RecipeSpec) -> str:
     return str(root)
 
 
-def _confined(root: Path, relative: str) -> "RuntimeRail[Path]":
+def _confined(root: Path, relative: str) -> "RuntimeResult[Path]":
     candidate = Path(relative)
     resolved = (root / candidate).resolve()
     return (
@@ -272,7 +272,7 @@ def _declared(recipe: "Recipe") -> tuple[str, ...]:
     return tuple(out.name for out in RecipeInterface.from_recipe(BakedRecipe.from_folder(recipe.path)).outputs)
 
 
-def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
+def _staged(spec: RecipeSpec, root: str) -> "RuntimeResult[_Staged]":
     from lbt_recipes import version
     from lbt_recipes.recipe import Recipe
     from lbt_recipes.settings import RecipeSettings
@@ -297,7 +297,7 @@ def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
     return gate.map(lambda _verdicts: staged())
 
 
-def _execute(staged: _Staged) -> "RuntimeRail[RecipeProduct]":
+def _execute(staged: _Staged) -> "RuntimeResult[RecipeProduct]":
     folder = staged.recipe.run(settings=staged.settings, silent=True)
     failure = Option.of_optional(staged.recipe.failure_message(folder) or None)
     errors = failure.bind(lambda _: Option.of_optional(staged.recipe.error_summary(folder) or None))

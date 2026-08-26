@@ -1,23 +1,23 @@
 # [PY_ARTIFACTS_GRAPHIC_VECTOR_PATH]
 
-Vector parse, query, affine, point-relation, measure, and sample behavior lives in one `svgelements` substrate. `Path` normalizes `PathOp | Iterable[PathOp]` and traverses the closed family into `PathRail` — the offload's runtime rail flattened onto `PathFault | BoundaryFault`, the same union form region's `RegionRail` carries; composable functions expose the same geometry in-process. Every fallible arm returns `Result[..., PathFault]`, and every operation yields a typed `PathResult`.
+Vector parse, query, affine, point-relation, measure, and sample behavior lives in one `svgelements` substrate. `Path` normalizes `PathOp | Iterable[PathOp]` and traverses the closed family into `PathOutcome` — the offload's runtime result flattened onto `PathFault | BoundaryFault`, the same union form region's `RegionOutcome` carries; composable functions expose the same geometry in-process. Every fallible arm returns `Result[..., PathFault]`, and every operation yields a typed `PathResult`.
 
 `svgelements` parses SVG into a typed `Shape` tree, resolves `Shape.bbox`, applies `Matrix`, fits `Viewbox`, measures `SvgPath`, and flattens curves. `_parsed` memoizes `SVG.parse(reify=True, on_error="raise")` by source bytes. `point_at` derives metric positions and endpoint-safe unit tangents; `curvature` preserves signed bend; `decimate` applies Ramer-Douglas-Peucker; `centroid` folds signed contour areas. One `Tolerance` policy carries every density and error anchor. `Path.of` offloads the CPU batch through the caller's process lane; synchronous composables remain available to consumers that own their crossing.
 
 ## [01]-[INDEX]
 
-- [02]-[PATH]: the SVG parse/query/affine/measure/sample substrate over the closed `PathOp` family — the memoized `_parsed` core, the `Matrix` affine, the `Viewbox` fit, the metric arc-length kernels (`point_at`/`curvature`/`decimate`/`centroid` over one numpy sweep), and the `Length` unit egress — the composable surface region/pattern/compose/solar import one hop, on the `Path.over`/`of` modal rail over `Block[PathResult]`.
+- [02]-[PATH]: the SVG parse/query/affine/measure/sample substrate over the closed `PathOp` family — the memoized `_parsed` core, the `Matrix` affine, the `Viewbox` fit, the metric arc-length kernels (`point_at`/`curvature`/`decimate`/`centroid` over one numpy sweep), and the `Length` unit egress — the composable surface region/pattern/compose/solar import one hop, on the `Path.over`/`of` modal path over `Block[PathResult]`.
 
 ## [02]-[PATH]
 
-- Owner: `Path` the one parse/query/affine substrate owner holding `ops: tuple[PathOp, ...]` and discriminating over the closed `PathOp` `expression.tagged_union` whose every case carries its own typed payload, never a `StrEnum` keyed against a shared erased `dict`; projecting one closed `PathResult` family; and railing every provider raise into `PathFault`, never `None`-as-failure. This owner reads `bbox` over the `Shape`-narrowed `elements(conditional=)` sweep, folds the document shapes into one combined `SvgPath` for the measure/sample/metric/flatten/subpaths queries, and serializes geometry ONLY as `d` strings through the one `fragment` egress — document assembly is `graphic/vector/region#REGION`'s drawsvg surface, never an f-string here.
+- Owner: `Path` the one parse/query/affine substrate owner holding `ops: tuple[PathOp, ...]` and discriminating over the closed `PathOp` `expression.tagged_union` whose every case carries its own typed payload, never a `StrEnum` keyed against a shared erased `dict`; projecting one closed `PathResult` family; and folding every provider raise into `PathFault`, never `None`-as-failure. This owner reads `bbox` over the `Shape`-narrowed `elements(conditional=)` sweep, folds the document shapes into one combined `SvgPath` for the measure/sample/metric/flatten/subpaths queries, and serializes geometry ONLY as `d` strings through the one `fragment` egress — document assembly is `graphic/vector/region#REGION`'s drawsvg surface, never an f-string here.
 - Cases: `PathOp` splits by return shape across bounds, measure, `PointRelation` distance/angle, parametric sample, metric point/tangent, signed curvature, decimation, centroid, flatten, subpaths, projection, and fit. `BoundsKind`, `FlattenKind`, `ProjectKind`, and `ProjectDirection` replace boolean knobs; `ComposeStep` carries exact per-step payloads, so rotation has no dummy second scalar. `Decimate` and `Flatten` carry an admitted `Tolerance` directly. `PathFault.policy` captures invalid samples, density/error values, and target extents before provider calls. `PathResult` remains the closed extent, measure, sampled, oriented, curved, reduced, anchor, contours, fragment, and placed family.
 - Entry: `Path.over` normalizes `PathOp | Iterable[PathOp]` into the `ops` tuple by a structural `match` at the head, so a lone query is the one-element case and a mixed batch the multi-element case under the identical surface — never a `batch: bool`, never a per-op sibling.
-- Auto: `_parsed` is the one `@lru_cache` ingestion core keyed on the source `bytes`, `reify=True` resolving transforms so every `bbox()`/`SvgPath` read returns absolute coordinates, `on_error="raise"` surfacing the malformed-input raise the `except` arm rails (the provider default `"ignore"` admits a partial tree the fault vocabulary never sees), and the cache collapsing the repeated parse a multi-query consumer otherwise pays per op; `scene` narrows through `isinstance(element, Shape)` to exclude the non-drawable root and `Group`/`Use` containers (the root carries a `bbox` attribute, so an attribute post-filter admits it and then crashes every outline fold — the rejected form) and returns the railed immutable tuple, never a bare mutable list a consumer mistakes for a settled collection; `combined` folds every shape's segments into one outline; `_polyline` is the one metric kernel core (`npoint` over `tolerance.samples`, cumulative chord lengths via one `np.cumsum`) that `point_at`/`curvature`/`decimate`/`centroid` share, one vectorized sweep for four queries, each interpolating through `np.interp` over the monotone chord lengths; `in_units` converts through the catalogued `to_mm`/`to_cm`/`to_inch` rows and reads the returned `Length.amount`, so the numeric egress is a value read, never a rendered-string strip.
-- Law: `_dispatch` is `@beartype(conf=FAULT_CONF)`-woven, so a `BeartypeCallHintViolation` folds onto the `RuntimeRail` as `BoundaryFault.api` at the lane boundary.
+- Auto: `_parsed` is the one `@lru_cache` ingestion core keyed on the source `bytes`, `reify=True` resolving transforms so every `bbox()`/`SvgPath` read returns absolute coordinates, `on_error="raise"` surfacing the malformed-input raise the `except` arm returns (the provider default `"ignore"` admits a partial tree the fault vocabulary never sees), and the cache collapsing the repeated parse a multi-query consumer otherwise pays per op; `scene` narrows through `isinstance(element, Shape)` to exclude the non-drawable root and `Group`/`Use` containers (the root carries a `bbox` attribute, so an attribute post-filter admits it and then crashes every outline fold — the rejected form) and returns the outcome immutable tuple, never a bare mutable list a consumer mistakes for a settled collection; `combined` folds every shape's segments into one outline; `_polyline` is the one metric kernel core (`npoint` over `tolerance.samples`, cumulative chord lengths via one `np.cumsum`) that `point_at`/`curvature`/`decimate`/`centroid` share, one vectorized sweep for four queries, each interpolating through `np.interp` over the monotone chord lengths; `in_units` converts through the catalogued `to_mm`/`to_cm`/`to_inch` rows and reads the returned `Length.amount`, so the numeric egress is a value read, never a rendered-string strip.
+- Law: `_dispatch` is `@beartype(conf=FAULT_CONF)`-woven, so a `BeartypeCallHintViolation` folds onto the `RuntimeResult` as `BoundaryFault.api` at the lane boundary.
 - Growth: a geometry query adds one `PathOp` case and one composable over the existing kernel; flatten, projection, unit, tolerance, fault, and result families grow through their owning case or row. New parameter arity extends the payload-carrying owner instead of appending scalar slots.
 - Packages: `svgelements` (`SVG.parse(reify=True, on_error=)`/`elements(conditional=)`, `SvgPath.d`/`bbox(with_stroke=)`/`length`/`npoint`/`segments`/`as_subpaths`/`approximate_arcs_with_cubics`/`approximate_arcs_with_quads`/`approximate_bezier_with_circular_arcs`, `Matrix` factories + `pre_*`/`post_*` + `determinant`/`inverse` + `transform_point`/`transform_vector`, `Viewbox(...).transform(...)`, `Length.value`/`to_mm`/`to_cm`/`to_inch`/`amount`, `Point.distance_to`/`angle_to`/`polar_to`/`reflected_across`/`matrix_transform`); `numpy` (the `npoint` sweep, `cumsum`/`interp`/`linalg.norm` kernels); `expression` (`tagged_union`, `Result`, `Block`, `traverse`); `msgspec` (`Struct`); `beartype` (the `FAULT_CONF` weave); runtime `lanes`/`faults`.
-- Boundary: no boolean/offset/stroke/winding algebra and no `pathops` import (that is `graphic/vector/region#REGION`); no document assembly, `<svg>`/`<path>` emission, paint, or raster (region's drawsvg/resvg surface); no repeating fill geometry (`graphic/vector/pattern#PATTERN`); no identity minting; no folder-minted limiter or retry — the one native seam is the runtime lane's `offload`; no rail-collapsing convenience export — a consumer that wants the drawable set composes `scene` and holds the `Result`.
+- Boundary: no boolean/offset/stroke/winding algebra and no `pathops` import (that is `graphic/vector/region#REGION`); no document assembly, `<svg>`/`<path>` emission, paint, or raster (region's drawsvg/resvg surface); no repeating fill geometry (`graphic/vector/pattern#PATTERN`); no identity minting; no folder-minted limiter or retry — the one native boundary is the runtime lane's `offload`; no result-collapsing convenience export — a consumer that wants the drawable set composes `scene` and holds the `Result`.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -57,7 +57,7 @@ type PathOpTag = Literal[
 ]
 type PathResultTag = Literal["extent", "measure", "sampled", "oriented", "curved", "reduced", "anchor", "contours", "fragment", "placed"]
 type PathFaultTag = Literal["parse", "singular", "empty", "policy"]
-type PathRail = Result[Block[PathResult], PathFault | BoundaryFault]
+type PathOutcome = Result[Block[PathResult], PathFault | BoundaryFault]
 
 
 class FlattenKind(StrEnum):
@@ -531,9 +531,9 @@ class Path(Struct, frozen=True):
             case _:
                 return cls(ops=tuple(ops))
 
-    async def of(self, lane: LanePolicy, /) -> PathRail:
-        railed = await lane.offload(Kernel.of(_worked, KernelTrait.HOSTILE), self.ops)
-        return railed.bind(lambda inner: inner)
+    async def of(self, lane: LanePolicy, /) -> PathOutcome:
+        outcome = await lane.offload(Kernel.of(_worked, KernelTrait.HOSTILE), self.ops)
+        return outcome.bind(lambda inner: inner)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -548,7 +548,7 @@ __all__ = (
     "Path",
     "PathFault",
     "PathOp",
-    "PathRail",
+    "PathOutcome",
     "PathResult",
     "Point2",
     "PointRelation",
@@ -591,8 +591,8 @@ config:
 ---
 flowchart LR
     accTitle: Path operation dispatch and metric core
-    accDescr: One lane dispatch totally matching each path operation onto the bounds, measure, relation, sample, point-at, curvature, decimate, centroid, flatten, subpaths, project, and fit-matrix arms over one memoized ingest and one polyline metric core, every arm closing on the path result rail that folds to a block for the downstream consumers.
-    Over["Path.over (PathOp | Iterable)"] --> Of["Path.of(lane) -> offload PROCESS -> flatten to PathRail"]
+    accDescr: One lane dispatch totally matching each path operation onto the bounds, measure, relation, sample, point-at, curvature, decimate, centroid, flatten, subpaths, project, and fit-matrix arms over one memoized ingest and one polyline metric core, every arm closing on the path result type that folds to a block for the downstream consumers.
+    Over["Path.over (PathOp | Iterable)"] --> Of["Path.of(lane) -> offload PROCESS -> flatten to PathOutcome"]
     Of --> Disp["_dispatch (@beartype FAULT_CONF) match per op"]
     Disp -->|bounds| Bd["bounds(source, BoundsKind) -> extent"]
     Disp -->|measure| Ms["measure(source) -> SvgPath.length"]
@@ -625,7 +625,7 @@ flowchart LR
     Ft --> Result
     Result -->|traverse fold| Block["Block[PathResult]"]
     Policy["Tolerance.admitted + sample/target admission"] -.-> Result
-    Block -.->|awaited rail + composable one-hop imports| Consumers["region / pattern / compose / solar (+ glyphset carries fragment d-strings)"]
+    Block -.->|awaited result + composable one-hop imports| Consumers["region / pattern / compose / solar (+ glyphset carries fragment d-strings)"]
 ```
 
 ## [03]-[RESEARCH]

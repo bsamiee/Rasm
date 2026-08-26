@@ -13,7 +13,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: one logical export and its fresh-generation restore seam
+[ENTRYPOINT_SCOPE]: one logical export and its fresh-generation restore path
 
 | [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                                   |
 | :-----: | :-------------------------------------------------------- | :------- | :--------------------------------------------- |
@@ -33,7 +33,7 @@
 
 [STACKING]:
 - `@electric-sql/pglite`: `pgDump` consumes an admitted `PGlite`; `File.text()` feeds `PGlite.exec` only on a fresh candidate.
-- `PGlite.dumpDataDir` retains the distinct physical-export seam.
+- `PGlite.dumpDataDir` retains the distinct physical-export path.
 - `effect` (`.api/effect.md`): `PgliteRuntime.snapshot("logical")` wraps `pgDump` under the same one-permit semaphore as statements.
 - within-lib: `pgDump` snapshots and restores search path around WASM execution and `DEALLOCATE ALL`.
 - within-lib: output pruning removes `\restrict` and `\unrestrict`, then constructs the returned `File`.

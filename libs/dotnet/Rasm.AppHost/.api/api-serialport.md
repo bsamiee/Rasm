@@ -77,7 +77,7 @@
 [STACKING]:
 - `FluentModbus`(`.api/api-modbus.md`): `ModbusRtuClient` rides this serial line for Modbus-RTU, so the serial owner carries both the raw-line and RTU-carrier roles with no second serial surface.
 - `BACnet`(`api-bacnet.md`): the composition's own `IBacnetSerialTransport` line rides this same held port under that catalog's `[SERIAL_LINE_CONTRACT]` sentinel law — seated through `Wire/livewire#LANE_SUBSTRATE` `TransportSeat.Bacnet.Open`, which supplies the whole transport chain — so one line owner serves the raw `serial` row, the RTU carrier, and the MS/TP bus.
-- `TransportRow` adapter: the live-wire `serial` row binds `SerialPort` through one `Read`/`Write` seam, the leg taking `OutboundHop.CompanionSpawn` where the device sits behind a companion process or the port directly where the host owns the line.
+- `TransportRow` adapter: the live-wire `serial` row binds `SerialPort` through one `Read`/`Write` adapter, the leg taking `OutboundHop.CompanionSpawn` where the device sits behind a companion process or the port directly where the host owns the line.
 
 [LOCAL_ADMISSION]:
 - `BaudRate`/`Parity`/`DataBits`/`StopBits`/`Handshake` and the line grammar are binding-spec policy data; the per-row retry is the `OutboundHop` redial, never a serial reconnect loop or a call-site literal.

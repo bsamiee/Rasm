@@ -1,6 +1,6 @@
 # [RASM_API_THINKTECTURE_MESSAGEPACK]
 
-`Thinktecture.Runtime.Extensions.MessagePack` derives one MessagePack formatter per generated owner from that owner's conversion metadata and holds it in per-closed-generic static state. Its resolver reads the key type, validation-error type, and reference-or-value shape off the metadata, closes the matching formatter arm over that triple, and returns null for every type the metadata does not claim. Serialization projects the generated key through the composed options' own key formatter; deserialization runs the generated static validation rail before an owner materializes.
+`Thinktecture.Runtime.Extensions.MessagePack` derives one MessagePack formatter per generated owner from that owner's conversion metadata and holds it in per-closed-generic static state. Its resolver reads the key type, validation-error type, and reference-or-value shape off the metadata, closes the matching formatter arm over that triple, and returns null for every type the metadata does not claim. Serialization projects the generated key through the composed options' own key formatter; deserialization runs the generated static validation gate before an owner materializes.
 
 ## [01]-[PUBLIC_TYPES]
 

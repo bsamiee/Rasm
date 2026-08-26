@@ -1,6 +1,6 @@
 # [PY_DATA_API_BW2ANALYZER]
 
-`bw2analyzer` is the analysis leg of the Brightway rail: it reads an already-solved `bw2calc.LCA` or the `bw2data` graph and extracts what dominates a result — top contributing processes and emissions, cross-database activity comparison, tag-aggregated traversal, technosphere PageRank, and graph health. It computes nothing itself: every entry consumes a populated `characterized_inventory`/`supply_array` or the activity graph, so the solver, the store, and the datapackage substrate stay owned elsewhere.
+`bw2analyzer` is the analysis leg of the Brightway domain: it reads an already-solved `bw2calc.LCA` or the `bw2data` graph and extracts what dominates a result — top contributing processes and emissions, cross-database activity comparison, tag-aggregated traversal, technosphere PageRank, and graph health. It computes nothing itself: every entry consumes a populated `characterized_inventory`/`supply_array` or the activity graph, so the solver, the store, and the datapackage substrate stay owned elsewhere.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -42,7 +42,7 @@
 |  [16]   | `GTManipulator.unroll_graph(nodes, edges, score, cutoff=0.005)`   | static   | unroll a supply-chain graph to bounded links       |
 |  [17]   | `GTManipulator.simplify(nodes, edges, score, limit=0.005)`        | static   | prune below-threshold nodes from the graph         |
 
-- `annotated_top_*`: `names=False` keeps the integer matrix key; `names=True` calls `bw2data.get_activity`, the annotation seam.
+- `annotated_top_*`: `names=False` keeps the integer matrix key; `names=True` calls `bw2data.get_activity`, the annotation boundary.
 - `print_recursive_*`: stdout diagnostic surfaces, never composed into a normalization fold or a frame egress.
 - Comparison/traversal knobs: `mode`/`max_level`/`cutoff` tune leaf grouping depth, `rel_tol`/`abs_tol`/`locations` scope input diffs, `secondary_tags`/`fg_databases` scope the tag walk.
 

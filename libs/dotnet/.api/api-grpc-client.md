@@ -1,6 +1,6 @@
 # [RASM_API_GRPC_CLIENT]
 
-`Grpc.Net.Client` owns the client half of the gRPC wire — one long-lived `GrpcChannel` per endpoint over an HTTP/2 transport, the `CallInvoker` chain policy layers under, and the `ServiceConfig` data tree driving retry, hedging, resolution, and balancing without a call-site branch. Server hosting stops at this boundary, and every remote fault leaves as one `RpcException` carrying `Status` with trailers, so the typed fault rail folds at a single point.
+`Grpc.Net.Client` owns the client half of the gRPC wire — one long-lived `GrpcChannel` per endpoint over an HTTP/2 transport, the `CallInvoker` chain policy layers under, and the `ServiceConfig` data tree driving retry, hedging, resolution, and balancing without a call-site branch. Server hosting stops at this boundary, and every remote fault leaves as one `RpcException` carrying `Status` with trailers, so the typed fault carrier folds at a single point.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -189,7 +189,7 @@
 
 - `Interceptor`: every client override is generic on `<TRequest,TResponse>` with both constrained to `class`, takes `ClientInterceptorContext<TRequest,TResponse>`, and closes on the continuation delegate named by suffixing the member name with `Continuation<TRequest,TResponse>`.
 - `ClientInterceptorContext.Host`: null selects the channel's own address, and rewriting `Options` in a new context is how an override threads per-call policy.
-- `CallInvokerExtensions.Intercept`: mints an internal wrapping invoker, so a chain is reachable only through these extensions; `Interceptor` also carries server-side handler overrides that no client rail composes.
+- `CallInvokerExtensions.Intercept`: mints an internal wrapping invoker, so a chain is reachable only through these extensions; `Interceptor` also carries server-side handler overrides that no client surface composes.
 
 [ENTRYPOINT_SCOPE]: `CallOptions` per-call threading, every `With*` returning a fresh struct
 
@@ -242,10 +242,10 @@
 
 [TOPOLOGY]:
 - `GrpcChannel` is the one long-lived object: minted once per endpoint with its full `GrpcChannelOptions`, reused for every call, disposed once.
-- Every call shape resolves through `CreateCallInvoker`, so `CallInvokerExtensions.Intercept` is the single seam policy layers at and an interceptor never reaches into the channel.
+- Every call shape resolves through `CreateCallInvoker`, so `CallInvokerExtensions.Intercept` is the single point policy layers at and an interceptor never reaches into the channel.
 - `CallOptions` is an immutable struct: each `With*` returns a fresh copy, so per-call policy threads forward with no shared state.
 - `ServiceConfig` is data: retry, hedging, throttling, and balancing each resolve as a `ConfigObject` row the channel reads, never a call-site branch.
-- Every remote fault leaves as `RpcException` and enters `Op.Catch` before the one decoder reads it — `Rasm.AppHost` `FaultWire.Decode` through `RpcException.GetRpcStatus()` (`Grpc.StatusProto`), then `Rasm.Compute` `WireFault.StatusRail` on the residual code: exactly one recognized `fault.FaultDetail` becomes opaque `RemoteFault` evidence, zero recognized details use the caused local transport classifier, malformed or multiple recognized details retain the caught error on `Internal`.
+- Every remote fault leaves as `RpcException` and enters `Op.Catch` before the one decoder reads it — `Rasm.AppHost` `FaultWire.Decode` through `RpcException.GetRpcStatus()` (`Grpc.StatusProto`), then `Rasm.Compute` `WireFault.StatusFold` on the residual code: exactly one recognized `fault.FaultDetail` becomes opaque `RemoteFault` evidence, zero recognized details use the caused local transport classifier, malformed or multiple recognized details retain the caught error on `Internal`.
 
 [STACKING]:
 - `Grpc.Net.Common`(`Rasm.Compute/.api/api-grpc-common.md`): `ICompressionProvider` rows register on `GrpcChannelOptions.CompressionProviders`, the per-call `grpc-internal-encoding-request` metadata key selects one by `EncodingName`, `ConnectivityState` is the vocabulary `GrpcChannel.State` reports, and `IAsyncStreamReader<T>.ReadAllAsync` drains a server-streaming response.

@@ -18,7 +18,7 @@
 - Law: `StrokeDef.Apply` consumes an already admitted aggregate and mutates only a detached copy; live rows change through the grip's `Modify`, and the pattern-lock toggle the write needs is the grip's own bracket, not a save-and-restore inside the body.
 - Law: `StrokeDef.Read` is the inverse of `Apply` for the channels the host publishes back and REFUSES a native carrying embedded shapes or a taper, because neither channel has a getter that reconstructs its authored form; a style holding an embedded linetype composes this read rather than a table lookup it has no row for.
 - Law: admission ACCUMULATES — the aggregate's eleven columns report every violated clause at once, where one message for the widest gate in the namespace told a caller nothing about which column it had to fix.
-- Packages: `Rasm.Drawing` (`LineType`, `LineType.Rhythm`, `LineWidth`), `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `TagSurface`, `DraftBorrow`, `StyleOp.Lens`), `Document/session.md` (`DraftFault`), `Document/tables.md` (`ResourceName`, `ResourceRef`, `GeometryHandle`), `Domain/rails` (`Custody`); RhinoCommon `Linetype`/`LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
+- Packages: `Rasm.Drawing` (`LineType`, `LineType.Rhythm`, `LineWidth`), `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `TagSurface`, `DraftBorrow`, `StyleOp.Lens`), `Document/session.md` (`DraftFault`), `Document/tables.md` (`ResourceName`, `ResourceRef`, `GeometryHandle`), `Domain/results` (`Custody`); RhinoCommon `Linetype`/`LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a display axis is one owner and one `StrokeDef` column; a standard line type is already one `LineType` row on the kernel ladder.
 
 ```csharp
@@ -51,7 +51,6 @@ public sealed partial class SegmentRow {
     public double Length { get; }
     public DashRole Role { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double length, ref DashRole role) {
         double run = length;
         validationError = double.IsFinite(run) && run > 0.0
@@ -130,7 +129,6 @@ public sealed partial class TaperRow {
     public Option<Point2d> Mid { get; }
     public double EndWidth { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref double startWidth, ref Option<Point2d> mid, ref double endWidth) {
         (double start, Option<Point2d> waist, double end) = (startWidth, mid, endWidth);
@@ -193,7 +191,6 @@ public sealed partial class StrokeDef {
     public PatternLock Lock { get; }
     public HashMap<string, string> Tags { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref ResourceName name, ref Seq<SegmentRow> segments, ref Seq<ShapeRow> shapes,
         ref Option<TaperRow> taper, ref LinetypeCap cap, ref LinetypeJoin join, ref double width, ref ModelUnit widthUnits,
@@ -307,11 +304,11 @@ public static class StrokeStandard {
 - Owner: `LinetypeOp` is the linetype-table mutation program consumed by `Linetypes.Commit`: one `Table` case carrying the namespace's shared eight verbs over this table's grip, beside the six verbs this table alone has — pattern-string authoring, reference authoring, incremental segment revision, host undo of the last modify, host reset to stock, and the deleted-row revival and default roster load.
 - Law: authoring, amendment, renaming, retagging, deletion, current selection, and import are the SHARED `TableOp` over `Grip` — the duplicate-then-`Modify` law, the compensated import, the plural delete arity, and the tag algebra are the namespace owner's and this page re-spells none of them. The hand land-then-delete compensation authoring once carried is GONE with the provisional row it compensated: the shared verb mints a detached native, shapes it whole, and seats it in one terminal `Add`, so there is no half-authored row to roll back.
 - Law: the pattern-lock toggle is the grip's `Scoped` bracket — enter clears the lock and answers the exit that restores it, and the grip runs that exit on EVERY leg. The save-clear-restore this page once wrote inside the revise body short-circuited before its restore, so a refused segment edit left an unlocked duplicate on the way to `Modify`; a bracket the owner runs never skips.
-- Law: `Relist` is the incremental segment rail beside whole-aggregate amendment — `ListEdit<SegmentRow>` revises a native copy in place through the declared `ListSurface` and lands through the same `Modify`, so amending one segment of a long run never re-admits the rest. The list's floor is ONE, so a remove that empties the run refuses and `Clear` refuses outright, both from the same declaration.
+- Law: `Relist` is the incremental segment verb beside whole-aggregate amendment — `ListEdit<SegmentRow>` revises a native copy in place through the declared `ListSurface` and lands through the same `Modify`, so amending one segment of a long run never re-admits the rest. The list's floor is ONE, so a remove that empties the run refuses and `Clear` refuses outright, both from the same declaration.
 - Law: `Undelete` alone resolves through the deleted-inclusive id, name, and index lens; every active operation retains the active-only lens, and `WithPolicy` is the one row-driven factory both memoized lenses instantiate.
 - Law: the table publishes a `.lin` READER and no writer, so the grip states `Ingest` and leaves `Emit` absent — a `TableOp.Export` against this table refuses typed rather than compiling against a writer that does not exist.
 - Entry: `Linetypes.Commit` preserves the frozen wire and accepts `DraftPlan<LinetypeOp>` with shared redraw and undo policy.
-- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `DraftPlan`, `DraftSpine`, `DraftCount`), `Document/commit.md` (`HostInteraction`), `Document/tables.md` (`ResourceLens`, `ResourceRef`, `ResourceIndex`), `Domain/rails` (`Custody`); RhinoCommon `LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
+- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `DraftPlan`, `DraftSpine`, `DraftCount`), `Document/commit.md` (`HostInteraction`), `Document/tables.md` (`ResourceLens`, `ResourceRef`, `ResourceIndex`), `Domain/results` (`Custody`); RhinoCommon `LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a verb every component table shares lands on `TableOp`; a linetype-only verb is one case here.
 
 ```csharp

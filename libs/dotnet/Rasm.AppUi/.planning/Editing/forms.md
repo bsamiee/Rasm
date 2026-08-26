@@ -1,12 +1,12 @@
 # [APPUI_FORMS_SELECTION]
 
-A declarative forms-and-selection owner family delivers schema-driven forms with sectioned professional layout, dimensioned and expression-bearing entry, pending-commit posture, and multi-selection batch editing over the admitted `PropertyModels` infrastructure with zero new package. `FormSchema` is a sequence of typed field rows partitioned by section rows, materialized through the one `ControlFactory` and seated by `FormChrome` into the admitted `Form`/`FormGroup`/`FormItem` mechanism; validation rides the one LanguageExt `Validation<Error,T>` applicative; conditional visibility is schema data — each field declares its edges as `FieldRule` values, so the schema owns re-evaluation and no attribute machinery is claimed for it. Field identity is the kernel `FieldTag` and every stored value is a kernel `Interaction/control` `FieldValue` case inside a `FieldCell` carrying agreement, arity, authored source, and provenance — erased JSON exists only at the two wire edges, the `FormSchema.With` admission door and the `FieldJson.Lower` payload projection. Dimensioned entry resolves through `Theme/locale#MEASUREMENT_FORMAT` and expression entry rides the `Rasm.Compute` symbolic owner; `PendingForm` batches every marked write into one re-solve under one correlation; `Selection` is a model over the admitted `ICheckedList` whose one `Raise` fold carries the anchor, range, and toggle grammar, whose `SelectionBand` consumes the marquee, whose `SelectionFacet` capability set drives select-similar, and which folds batch-edit intents to one `DeckOutcome` through `CommandExecution.Combine`; `SelectionSet` is the durable named element set persisting through the `Editing/livedata#VIEW_STATE` `SnapshotPort`, and `SelectionChannel` is the one snapshot stream availability, footer, and screen state read. The PropertyModels `[ConditionTarget]`/`[PropertyVisibilityCondition]`/`[DependsOnProperty]` annotations stay the inspector's law and never govern this schema. The spine is `Irihi.Ursa`, `bodong.PropertyModels`, the `ControlIntent`/`ControlFactory` owner, the `CommandRow`/`CommandExecution` rail, UnitsNet, `Rasm.Compute` symbolic admission, QuikGraph, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+A declarative forms-and-selection owner family delivers schema-driven forms with sectioned professional layout, dimensioned and expression-bearing entry, pending-commit posture, and multi-selection batch editing over the admitted `PropertyModels` infrastructure with zero new package. `FormSchema` is a sequence of typed field rows partitioned by section rows, materialized through the one `ControlFactory` and seated by `FormChrome` into the admitted `Form`/`FormGroup`/`FormItem` mechanism; validation rides the one LanguageExt `Validation<Error,T>` applicative; conditional visibility is schema data — each field declares its edges as `FieldRule` values, so the schema owns re-evaluation and no attribute machinery is claimed for it. Field identity is the kernel `FieldTag` and every stored value is a kernel `Interaction/control` `FieldValue` case inside a `FieldCell` carrying agreement, arity, authored source, and provenance — erased JSON exists only at the two wire edges, the `FormSchema.With` admission door and the `FieldJson.Lower` payload projection. Dimensioned entry resolves through `Theme/locale#MEASUREMENT_FORMAT` and expression entry rides the `Rasm.Compute` symbolic owner; `PendingForm` batches every marked write into one re-solve under one correlation; `Selection` is a model over the admitted `ICheckedList` whose one `Raise` fold carries the anchor, range, and toggle grammar, whose `SelectionBand` consumes the marquee, whose `SelectionFacet` capability set drives select-similar, and which folds batch-edit intents to one `DeckOutcome` through `CommandExecution.Combine`; `SelectionSet` is the durable named element set persisting through the `Editing/livedata#VIEW_STATE` `SnapshotPort`, and `SelectionChannel` is the one snapshot stream availability, footer, and screen state read. The PropertyModels `[ConditionTarget]`/`[PropertyVisibilityCondition]`/`[DependsOnProperty]` annotations stay the inspector's law and never govern this schema. The spine is `Irihi.Ursa`, `bodong.PropertyModels`, the `ControlIntent`/`ControlFactory` owner, the `CommandRow`/`CommandExecution` deck, UnitsNet, `Rasm.Compute` symbolic admission, QuikGraph, Thinktecture.Runtime.Extensions, and LanguageExt result types.
 
 ## [01]-[INDEX]
 
 - [02]-[FORM_SCHEMA]: Typed field rows under section rows; unit, expression, state, and provenance columns; the plan projection.
-- [03]-[FORM_CHROME]: The form-mechanism capsule seating every plan row, its section furniture, rail, and operation column.
-- [04]-[WIZARD_FLOW]: Multi-step wizard over the one section roster; step gates ride the same validation rail.
+- [03]-[FORM_CHROME]: The form-mechanism capsule seating every plan row, its section furniture, nav, and operation column.
+- [04]-[WIZARD_FLOW]: Multi-step wizard over the one section roster; step gates ride the same validation path.
 - [05]-[SELECTION_MODEL]: Checked-list selection over the one admitted collection backing; the gesture, marquee, and similarity producers; durable named selection sets and the one snapshot stream.
 - [06]-[BATCH_EDIT]: Pending-commit posture, the parameter revert lane and value sets, and the N-item batch fold to one `DeckOutcome`.
 - [07]-[STUDY_FORM]: Revision-bearing study recipes compiled into the one schema grammar and submitted under one correlation.
@@ -22,7 +22,7 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 - Auto: a `FormField` carries its tag, label key, `ControlIntent`, entry row, declared dependency edges, `FieldRule` visibility and requiredness, typed fallback, help key, optional measure, commit posture, and state-level rule. `FormSchema.Create` rejects duplicate identities, unknown dependency references, a roster that is not a partition, an entry row its control refuses, and cyclic dependency graphs before a form exists — the graph materializes ONCE through `GraphExtensions.ToAdjacencyGraph` and both the acyclicity proof and the propagation index read it. A formula field derives its dependency edges from its expression's free symbols and a `FieldRule.WhenSet`/`Custom` row declares its reads, so the graph oracle sees every real edge — visibility edges included, which the opaque-predicate form hid.
 - Packages: Irihi.Ursa, UnitsNet, QuikGraph (shared tier), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (kernel `FieldTag`/`FieldValue`/`PerceptualColor`/fault floor), Rasm.Compute (project)
 - Growth: a new field type is one `FormField` row reusing the `ControlIntent` vocabulary; a new admission is one `FieldEntry` row with its predicate and typed constructor; a new fault case is one `[FaultCase]` leaf; a new rule shape is one `FieldRule` case declaring its edges; a new search facet is one `FilterFacet` row; zero new surface.
-- Boundary: a form is a validated `FormSchema` whose field controls materialize through `ControlFactory` and whose rows seat into the admitted form mechanism; a settings-dialog framework, form-builder, per-form control class, and second validation scheme are rejected. The interior is TYPED — `FormState` holds kernel `FieldValue` cases inside `FieldCell` rows, and JSON exists only at `With` (inbound, admitted once per entry row) and `FieldJson.Lower` (outbound, the `Shell/commands#INTENT_TABLE` `CommandPayload.Fields` crossing) — so heterogeneous storage never becomes untyped interior reads. Dimensioned admission parses against the FAMILY type `QuantityInfo.ValueType` carries and clamps on the scalar in the elected display unit; `UnitMath.Clamp` constrains to the closed family type an erased field never carries, so the boxed face cannot reach it and the `[BASEUNITS_PARTIALITY]` walk is never entered, the display unit arriving from the `MeasureRole` row rather than a unit system. Expression admission is the `Rasm.Compute` symbolic owner — `SymbolicBuild.Build` over the engine's non-throwing parse, free-symbol binding from sibling field values, `SymbolicExpr.Evaluate` to one real — so a local arithmetic parser, a string `eval`, and a second dimension proof are deleted; a typed spinner carries no expression because its text seam narrows through the package's own per-closed-generic parse. Form validation accumulates independent failures and submit rides the one `CommandRow` rail.
+- Boundary: a form is a validated `FormSchema` whose field controls materialize through `ControlFactory` and whose rows seat into the admitted form mechanism; a settings-dialog framework, form-builder, per-form control class, and second validation scheme are rejected. The interior is TYPED — `FormState` holds kernel `FieldValue` cases inside `FieldCell` rows, and JSON exists only at `With` (inbound, admitted once per entry row) and `FieldJson.Lower` (outbound, the `Shell/commands#INTENT_TABLE` `CommandPayload.Fields` crossing) — so heterogeneous storage never becomes untyped interior reads. Dimensioned admission parses against the FAMILY type `QuantityInfo.ValueType` carries and clamps on the scalar in the elected display unit; `UnitMath.Clamp` constrains to the closed family type an erased field never carries, so the boxed face cannot reach it and the `[BASEUNITS_PARTIALITY]` walk is never entered, the display unit arriving from the `MeasureRole` row rather than a unit system. Expression admission is the `Rasm.Compute` symbolic owner — `SymbolicBuild.Build` over the engine's non-throwing parse, free-symbol binding from sibling field values, `SymbolicExpr.Evaluate` to one real — so a local arithmetic parser, a string `eval`, and a second dimension proof are deleted; a typed spinner carries no expression because its text boundary narrows through the package's own per-closed-generic parse. Form validation accumulates independent failures and submit rides the one `CommandRow` entry.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -55,7 +55,6 @@ public abstract partial record FormFault : Fault {
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -573,11 +572,11 @@ public static class FormSurface {
 - Owner: `FormGeometry` the label-geometry value the mechanism's own properties take; `SectionChrome` the section-furniture row family carrying its own row and host columns; `FormOperations` the per-form verb arrows; `FormChrome` the materialization capsule seating every plan row.
 - Law: label geometry is set ONCE on the `Form` host and every row inherits it, so a per-row geometry write is the deleted form and the label column stays one value.
 - Law: label-for association and the required asterisk are the mechanism's own — the row hooks its label part's target to its content and themes its asterisk through its shipped key, so an authored association column and a `:required` selector are both second answers to questions the control already answers.
-- Entry: `FormChrome.Mount(FormSchema schema, Seq<SectionPlan> plan, FormOperations operations, MaterializeContext context, ResolvedLocale locale)` — the one capsule, returning the scroll region and its section rail as one control; `FormChrome.Editor` the per-field row seat; `FormChrome.Rail` the anchor scroll-spy; `FormChrome.Foot` the apply-and-cancel pair the pending posture raises.
-- Auto: every field control materializes through `ControlFactory.Materialize`, so the one control vocabulary, command bridge, skin resolution, and automation derivation hold inside the form exactly as on a screen body; the capsule stamps the mechanism's attached label, required, and no-label properties, writes the field's ink mark, seats the provenance badge and reset verb in the trailing operation cluster, and attaches the help key as the row hint. Section hosts enter as label-less rows so furniture spans the full row width. The rail marks each section host with its anchor id and re-measures after the plan changes.
+- Entry: `FormChrome.Mount(FormSchema schema, Seq<SectionPlan> plan, FormOperations operations, MaterializeContext context, ResolvedLocale locale)` — the one capsule, returning the scroll region and its section nav as one control; `FormChrome.Editor` the per-field row seat; `FormChrome.Nav` the anchor scroll-spy; `FormChrome.Foot` the apply-and-cancel pair the pending posture raises.
+- Auto: every field control materializes through `ControlFactory.Materialize`, so the one control vocabulary, command bridge, skin resolution, and automation derivation hold inside the form exactly as on a screen body; the capsule stamps the mechanism's attached label, required, and no-label properties, writes the field's ink mark, seats the provenance badge and reset verb in the trailing operation cluster, and attaches the help key as the row hint. Section hosts enter as label-less rows so furniture spans the full row width. The nav marks each section host with its anchor id and re-measures after the plan changes.
 - Packages: Irihi.Ursa, Avalonia, Xaml.Behaviors.Avalonia, LanguageExt.Core
 - Growth: a new section furniture is one `SectionChrome` row; a new row affordance is one construction inside `Editor`; zero new surface.
-- Boundary: `FormChrome` is the page's boundary capsule for form-mechanism construction — the mechanism owns geometry, the capsule owns seating, and every CONTROL comes from `ControlFactory`. The operation cluster's verbs bind through `BehaviorRail.Intent` over `MaterializeContext.Activate`, and their commands are the form's own arrows rather than deck rows, because the deck freezes at boot and a runtime-compiled schema cannot mint rows in it. The read-only description grid carries resolved TEXT and no editor. The form host is the mechanism's items control and never the constraint-solver panel — the solver carries no label-column algebra.
+- Boundary: `FormChrome` is the page's boundary capsule for form-mechanism construction — the mechanism owns geometry, the capsule owns seating, and every CONTROL comes from `ControlFactory`. The operation cluster's verbs bind through `BehaviorBridge.Intent` over `MaterializeContext.Activate`, and their commands are the form's own arrows rather than deck rows, because the deck freezes at boot and a runtime-compiled schema cannot mint rows in it. The read-only description grid carries resolved TEXT and no editor. The form host is the mechanism's items control and never the constraint-solver panel — the solver carries no label-column algebra.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -628,14 +627,14 @@ public static class FormChrome {
                     ItemsSource = hosts.ToArray(),
                 };
                 ScrollViewer region = new() { Content = host };
-                Control rail = Rail(plan, region, locale);
+                Control nav = Nav(plan, region, locale);
                 DockPanel frame = new();
                 Foot(operations, locale).Iter(foot => {
                     DockPanel.SetDock(foot, Avalonia.Controls.Dock.Bottom);
                     frame.Children.Add(foot);
                 });
-                DockPanel.SetDock(rail, Avalonia.Controls.Dock.Left);
-                frame.Children.Add(rail);
+                DockPanel.SetDock(nav, Avalonia.Controls.Dock.Left);
+                frame.Children.Add(nav);
                 frame.Children.Add(region);
                 return (Control)frame;
             });
@@ -707,17 +706,17 @@ public static class FormChrome {
         return Seated(band);
     }
 
-    // --- [RAIL_AND_FOOT]
+    // --- [NAV_AND_FOOT]
 
-    public static Control Rail(Seq<SectionPlan> plan, ScrollViewer region, ResolvedLocale locale) {
-        Anchor rail = new() {
+    public static Control Nav(Seq<SectionPlan> plan, ScrollViewer region, ResolvedLocale locale) {
+        Anchor nav = new() {
             TargetContainer = region,
             ItemsSource = plan
                 .Map(section => new AnchorItem { AnchorId = section.Section.Key, Header = locale.Label(section.Section.TitleKey) })
                 .ToArray(),
         };
-        rail.InvalidatePositions();
-        return rail;
+        nav.InvalidatePositions();
+        return nav;
     }
 
     static Fin<Control> Cluster(FieldPlan plan, FormOperations operations, MaterializeContext context, ResolvedLocale locale) =>
@@ -770,10 +769,10 @@ public static class FormChrome {
 
 - Owner: `WizardState` the step-cursor state; `WizardFold` the step-transition fold over the one section roster.
 - Entry: `public Fin<WizardState> Advance(WizardState cursor, FormState state)` — advances only when the current section's field rules validate through `AdmitStep`, sealing the accumulated failures as one `StepIncomplete` fault otherwise; `public WizardState Retreat(WizardState cursor, FormState state)` — steps back to the nearest earlier non-skipped section with no validation gate.
-- Auto: a wizard is the schema's own section roster walked one index at a time; `Advance` gates on `AdmitStep` — the form rail narrowed to the current section's visible fields, traversed applicatively so EVERY invalid field reports at once; the visible field set narrows through the cursor `FormSurface.Plan` already takes; cross-section dependencies ride the same edges through `FormSchema.Affected`.
+- Auto: a wizard is the schema's own section roster walked one index at a time; `Advance` gates on `AdmitStep` — the form `Validation` narrowed to the current section's visible fields, traversed applicatively so EVERY invalid field reports at once; the visible field set narrows through the cursor `FormSurface.Plan` already takes; cross-section dependencies ride the same edges through `FormSchema.Affected`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new wizard step is one `FormSection` row on the schema; zero new surface.
-- Boundary: a wizard is sections over the one `FormSchema` — a parallel wizard framework and a second step roster are rejected; the forward gate IS the `Validation` rail narrowed to the section's keys, `Skip` marks only the conditional section the flow bypasses, and the step cursor is a typed value the `ControlIntent.Tab`/`Accordion` wizard chrome reads.
+- Boundary: a wizard is sections over the one `FormSchema` — a parallel wizard framework and a second step roster are rejected; the forward gate IS the `Validation` narrowed to the section's keys, `Skip` marks only the conditional section the flow bypasses, and the step cursor is a typed value the `ControlIntent.Tab`/`Accordion` wizard chrome reads.
 
 ```csharp
 public sealed record WizardState(int Index, Seq<string> Visited) {
@@ -823,7 +822,7 @@ public static class WizardFold {
 - Packages: bodong.PropertyModels, Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (kernel `CapabilitySet`)
 - Growth: a new selection mode is one `PickMode` row; a new gesture is one `SelectionGesture` row with its fold and anchor column; a new similarity axis is one `SelectionFacet` row; a new set operation is one `SelectionAlgebra` row; zero new surface.
 - Boundary: selection rides the admitted `ICheckedList` — single mode applies `Select` for the exclusive check and `SetChecked(item, false)` for the clear so the range delegate stays TOTAL over its flag, multi mode applies `SetRangeChecked`, and `Count` reads `Items` because membership IS the selection. The modifier fold reads the platform primary from `Shell/input#HOTKEY_DERIVATION` `GesturePolicy.Primary`, so selection and shortcuts agree about the primary modifier on every desktop; the anchor is a COLUMN on the model and the range gesture alone preserves it. Set application, marquee replace, and a bare click are ONE exact projection — clear the roster, check the hits. Marquee DIRECTION is the selector: the `BandMode` row derives from the drag and carries the containment fold, the window-versus-crossing grammar every desktop modeler shares.
-- Boundary: SELECT-SIMILAR is a signature match over a `CapabilitySet<SelectionFacet>` — the set deduplicates and orders by declaration rank, so two callers naming one facet set produce one signature where a caller-ordered `Seq` produced two; a facet a seed does not carry refuses the query, because an absent layer treated as a wildcard selects the whole model, and the refusal accumulates per seed. Facet VALUES are Bim-owned element facts read through one composition-bound projection; this page models no element schema.
+- Boundary: SELECT-SIMILAR is a signature match over a `CapabilitySet<SelectionFacet>` — the set deduplicates and orders by ordinal key, so two callers naming one facet set produce one signature where a caller-ordered `Seq` produced two; a facet a seed does not carry refuses the query, because an absent layer treated as a wildcard selects the whole model, and the refusal accumulates per seed. Facet VALUES are Bim-owned element facts read through one composition-bound projection; this page models no element schema.
 - Boundary: every `SelectionSet` persists per document through the `Editing/livedata#VIEW_STATE` `SnapshotPort` instantiation bound at composition to the Persistence snapshot vocabulary — no store type enters these fences and a second port shape is the deleted form; composition refuses operands spanning two documents; the recall verbs are command-table intents gated by the availability algebra, so a set list, apply, rename, and drop mint no local command surface; element-set queries stay Bim-owned results and AppUi runs no query engine.
 
 ```csharp
@@ -881,7 +880,6 @@ public sealed partial class SelectionGesture {
     public partial Option<string> Reanchor(Option<string> current, Option<string> hit);
 }
 
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -964,7 +962,7 @@ public sealed record Selection<TItem>(
                 });
 
     Validation<Error, string> Signature(TItem item, CapabilitySet<SelectionFacet> facets) =>
-        toSeq(facets.Held).OrderBy(static row => row.Rank).AsIterable().ToSeq()
+        toSeq(facets.Held).OrderBy(static row => row.Key, StringComparer.Ordinal).AsIterable().ToSeq()
             .Traverse(facet => Facet(item, facet)
                 .ToFin(new FormFault.FieldInvalid("selection-similar", $"{Identity(item)}: {facet.Key} absent"))
                 .ToValidation())
@@ -1040,11 +1038,11 @@ public static class SelectionChannel {
 - Owner: `CommitPosture` the per-field write axis; `PendingForm` the deferred-commit cell with its `OutcomeCount` instrument pair; `ParameterLane` the parameter-scoped revert lane; `ParameterSet` the exportable value set; `BatchEdit<TItem>` the multi-item batch fold; `OutcomeCount` the applied-or-rejected instrument pair both outcome writers share.
 - Cases: `CommitPosture` = deferred | immediate, each row carrying the seat fold its half runs.
 - Law: an apply is ONE command execution under ONE correlation, and the marked keys cross ordinally sorted, so the payload digest is stable across two runs that marked the same fields in different orders.
-- Law: `BatchEdit.Landed` admits on the execution's own `CommandOutcome`, so a rejected, cancelled, rolled-back, or compensated run refuses on the typed rail instead of clearing marks, recording a revert step for a write nothing applied, and counting itself as applied.
+- Law: `BatchEdit.Landed` admits on the execution's own `CommandOutcome`, so a rejected, cancelled, rolled-back, or compensated run refuses on the typed result instead of clearing marks, recording a revert step for a write nothing applied, and counting itself as applied.
 - Entry: `PendingForm.Mark` admits one write through the schema and seats it by the field's posture; `PendingForm.Cancel` drops every mark; `PendingForm.Apply(CommandDeck deck, ParameterLane lane, CancellationToken cancel = default)` — validates the projected state, runs the commit intent once with the marked key set, records the whole batch as one composite revertible op, and returns the settled form and lane; `ParameterLane.Turn(RevertDirection direction)` walks parameter history; `ParameterSet.Export`/`Import` move a value set between forms; `BatchEdit.Execute(string verbIntent, CommandDeck deck)` is the N-item batch transaction.
 - Auto: a deferred field marks and renders under the pending ink row while an immediate field writes through, so the expensive-solve gate is a field column rather than a caller branch; `Projected` shadows committed values with marked ones, so validation, visibility, propagation, and the plan all see what the operator typed; cancel restores by dropping marks alone; the applied batch records as one `RevertDelta.Composite` whose children are per-field `Set` deltas, so one parameter undo restores the whole batch and partial-batch undo is structurally absent. A batch verb over N selected items materializes one child through `CommandExecution.Combine`; the batch availability gates on non-empty selection, and an unknown verb key aborts on `Fin`.
 - Result: the commit and batch return the deck's canonical `DeckOutcome`; successful form application returns the settled `PendingForm` and `ParameterLane`; `TelemetryRow` contributes the commit and batch instrument rows inward through the AppHost `TelemetryContributorPort`, each written by the one `OutcomeCount.Observe` projection composition binds at the outcome.
-- Packages: bodong.PropertyModels, ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (seam `Hlc`)
+- Packages: bodong.PropertyModels, ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (boundary `Hlc`)
 - Growth: a new commit posture is one `CommitPosture` row; a new batch verb is one `CommandRow` row the selection folds over; a new outcome instrument pair is one `OutcomeCount` row; zero new surface.
 - Boundary: the pending cell is the one deferred-commit owner — a per-screen dirty-field set, a second apply path, and a keystroke-driven re-solve are rejected. The parameter lane is an INSTANCE of the settled `Editing/history#REVERT_SCOPE` algebra: it carries its own recorder, `ClientLog`, content identity, actor, and cursor, binds that owner's `SessionWindow` so the durable half answers empty by construction, and reads the algebra's OWN head placement — a lane-local head read hands the newest recorded op to undo and redo alike. A value set re-admits every member through the target schema on import and reports each stale member individually. Batch editing folds through the one `CommandExecution.Combine` algebra with one intent key and one `CommandPayload.Many`; a per-macro registry and a batch payload case beside the closed `CommandPayload` union are rejected. Host-mutating batch edits route through the abstract `DocumentTransaction` surface-host port so the undo scope batches the N edits as one host transaction.
 

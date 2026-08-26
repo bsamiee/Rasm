@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SEP]
 
-`Sep` owns zero-allocation, SIMD-vectorized separated-value read and write over `ReadOnlySpan<char>` columns: typed `ISpanParsable<T>` parsing, ref-struct row/col projections scope-bound to the read, and a sync/async/parallel enumeration boundary that lifts them into domain records. It is the column codec for Persistence tabular interchange — schedule/cost import-export, the Arrow/DuckDB CSV bridge edge, and the `Query/lane` row-projection seam — feeding parsed spans into the NodaTime/Thinktecture wire converters and the linq2db bulk rails.
+`Sep` owns zero-allocation, SIMD-vectorized separated-value read and write over `ReadOnlySpan<char>` columns: typed `ISpanParsable<T>` parsing, ref-struct row/col projections scope-bound to the read, and a sync/async/parallel enumeration boundary that lifts them into domain records. It is the column codec for Persistence tabular interchange — schedule/cost import-export, the Arrow/DuckDB CSV bridge edge, and the `Query/lane` row-projection boundary — feeding parsed spans into the NodaTime/Thinktecture wire converters and the linq2db bulk-copy API.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -54,7 +54,7 @@
 
 [ENTRYPOINT_SCOPE]: option construction
 
-`Func<Options,Options>` configure is the canonical seam; the bare form with `with` is the fallback. `Sep.Auto` returns a `Sep?` of `null`, which `Reader(this Sep?)` reads as auto-detect from the first row.
+`Func<Options,Options>` configure is the canonical entry; the bare form with `with` is the fallback. `Sep.Auto` returns a `Sep?` of `null`, which `Reader(this Sep?)` reads as auto-detect from the first row.
 
 | [INDEX] | [SURFACE]                                     | [SHAPE]  | [CAPABILITY]                                        |
 | :-----: | :-------------------------------------------- | :------- | :-------------------------------------------------- |
@@ -126,7 +126,7 @@
 
 [ENTRYPOINT_SCOPE]: row enumeration projections — sync, async, parallel
 
-`Enumerate` is the materialization boundary: ref-struct rows out to a materialized `IEnumerable<T>`, the canonical seam into `Query/lane`.
+`Enumerate` is the materialization boundary: ref-struct rows out to a materialized `IEnumerable<T>`, the canonical boundary into `Query/lane`.
 
 | [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                          |
 | :-----: | :------------------------------------------------------------------------- | :------- | :------------------------------------ |
@@ -154,7 +154,7 @@
 
 [ENTRYPOINT_SCOPE]: reader->writer copy bridge
 
-`CopyTo`/`NewRow` copies a whole row or selectively re-emits columns — the transform-passthrough seam for redaction-pass and column-projection egress without materializing strings.
+`CopyTo`/`NewRow` copies a whole row or selectively re-emits columns — the transform-passthrough path for redaction-pass and column-projection egress without materializing strings.
 
 | [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                                |
 | :-----: | :------------------------------------------------ | :------- | :------------------------------------------ |
@@ -181,13 +181,13 @@
 
 [STACKING]:
 - `NodaTime`(`api-nodatime-stj`): a parsed `Col` span feeds the NodaTime STJ converters; a column typed `Instant`/`LocalDate` parses through `Col.Parse<T>` where `T : ISpanParsable<T>`, else its span hands to the converter read path.
-- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): `Col.Parse<T>`/`TryParse<T>` admit `[ValueObject]`/`[SmartEnum]` types implementing `ISpanParsable<T>`, folding parse failure onto the `Fin`/`Validation` rail at the row boundary.
+- `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): `Col.Parse<T>`/`TryParse<T>` admit `[ValueObject]`/`[SmartEnum]` types implementing `ISpanParsable<T>`, folding parse failure onto `Fin`/`Validation` at the row boundary.
 - `linq2db.EntityFrameworkCore`(`api-linq2db-ef`): `Enumerate(RowFunc<T>) -> IEnumerable<T>` and `EnumerateAsync -> IAsyncEnumerable<T>` source `LinqToDBForEFTools.BulkCopy<T>`/`BulkCopyAsync<T>`, streaming a CSV file into PostgreSQL binary COPY without buffering.
-- `Apache.Arrow`(`api-arrow`)/`DuckDB`(`api-duckdb`): Sep owns the text-CSV codec, Arrow/DuckDB the binary columnar path; `Enumerate` projects rows into the record shape the columnar rail materializes, and Sep never re-implements a columnar reader.
+- `Apache.Arrow`(`api-arrow`)/`DuckDB`(`api-duckdb`): Sep owns the text-CSV codec, Arrow/DuckDB the binary columnar path; `Enumerate` projects rows into the record shape the columnar path materializes, and Sep never re-implements a columnar reader.
 - `Microsoft.Extensions.Compliance.Redaction`(`api-redaction`): the reader->writer `CopyTo`/`NewRow` bridge applies redaction per column before `Col.Set`, streaming redacted CSV egress without string materialization.
-- within-lib: `Query/lane` consumes `Enumerate`/`ParallelEnumerate` as its row-projection seam; `Ingest/schedule` and `Ingest/tabular` drive schedule/cost CSV import-export through the profile.
+- within-lib: `Query/lane` consumes `Enumerate`/`ParallelEnumerate` as its row-projection boundary; `Ingest/schedule` and `Ingest/tabular` drive schedule/cost CSV import-export through the profile.
 
 [LOCAL_ADMISSION]:
 - Sep is the separated-value codec for tabular interchange profiles; profile options (`Sep`, culture, trim, unset policy, pool factory) are declared, never inlined ad hoc.
-- Typed parse rides `ISpanParsable<T>`; nullable optionality rides `TryParse<T>() -> T?` (struct-constrained), folded onto the `Fin`/`Validation` rail at the row boundary.
+- Typed parse rides `ISpanParsable<T>`; nullable optionality rides `TryParse<T>() -> T?` (struct-constrained), folded onto `Fin`/`Validation` at the row boundary.
 - `Cols.Parse<T>(Span<T>)`/`Header.IndicesOf(ReadOnlySpan<string>, Span<int>)` write into caller buffers on hot paths, keeping the row scope allocation-free.

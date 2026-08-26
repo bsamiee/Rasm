@@ -19,12 +19,12 @@ The beat composes the kernel timeline rather than re-minting temporal identity: 
 - Auto: the cursor advances through `Cell.Step` GUARDED on the seed the mint measured, so a tick that raced a `Stop` reads its transition case rather than assuming a swap, and the seed it hands `MonotonicTimeline.Beat` is `Origin` exactly once and `Previous` on every tick after. The compare-and-swap arm is the rejected placement: its body re-runs on every contended retry and re-installs a candidate derived from a predecessor the winner already replaced, so the seed-moved corner has to DECLINE rather than recompute. The timeline's own tail gate refuses a replayed predecessor, so a doubled host callback lands a typed refusal instead of a duplicate ordinal.
 - Law: the clock owns identity and the host owns the timer. `UiClock` advances the beat, derives the drift, counts the misses, and applies the posture; the boundary supplies the platform lease — a display link, a `UITimer`, an idle callback — and does nothing else. A boundary that computes a drift or a miss count is re-deriving what the beat already carries.
 - Law: the clock takes a `MonotonicTimeline`, never a bare `TimeProvider`. A provider is the timeline's own admission argument, and a clock holding one would mint a second timeline whose stamps no kernel span can order against the first. NAMED LOSS: a caller supplying a test provider now supplies `MonotonicTimeline.Of(provider, key)` instead. Witness: a fake-clock test seats `MonotonicTimeline.Of(new FakeTimeProvider(), key)` and passes the timeline.
-- Law: a failing tick NEVER silently stops, and the posture ROW decides which way. `Settle` parks the cause on the cell under both rows and answers the rail — `Continue` succeeds and the beat advances, `Halt` fails and the error is the terminal reading — so the tick fold names no posture and a third posture is one row. A clock that dies quietly is indistinguishable from a host that stopped scheduling it.
-- Law: the fault sink is the branch's `FaultCell` and never a raw `Action<Error>`. A `void` delegate licenses a silent discard and grows nothing a consumer can bound; the cell is a bounded ring whose parks, sheds, and declined parks all read as numbers, and it is the ARGUMENT `FaultRail.Isolate` demands — which is what makes the stated composition spellable and spelled at `Publish`.
-- Law: an observer raise never fails the tick that fed it — publication runs through `FaultRail.Isolate` on this clock's own cell, exactly as the dispatch observers do, because a beat observer that can fail the clock turns instrumentation into a liveness dependency.
+- Law: a failing tick NEVER silently stops, and the posture ROW decides which way. `Settle` parks the cause on the cell under both rows and answers the result — `Continue` succeeds and the beat advances, `Halt` fails and the error is the terminal reading — so the tick fold names no posture and a third posture is one row. A clock that dies quietly is indistinguishable from a host that stopped scheduling it.
+- Law: the fault sink is the branch's `FaultCell` and never a raw `Action<Error>`. A `void` delegate licenses a silent discard and grows nothing a consumer can bound; the cell is a bounded ring whose parks, sheds, and declined parks all read as numbers, and it is the ARGUMENT `FaultGate.Isolate` demands — which is what makes the stated composition spellable and spelled at `Publish`.
+- Law: an observer raise never fails the tick that fed it — publication runs through `FaultGate.Isolate` on this clock's own cell, exactly as the dispatch observers do, because a beat observer that can fail the clock turns instrumentation into a liveness dependency.
 - Law: the missed count is MEASURED from the beat ordinal, never assumed. `MonotonicBeat.Ordinal` counts CADENCE PERIODS (`Parametric/projections` `[05]`), so a host that coalesces ticks under load leaves a gap in the ordinal and the gap IS the miss count — a wall-clock interval divided at the consumer is the deleted form.
 - Output: `PulseBeat` per tick, `Failures` as the cell's bounded parked refusals beside `Shed`; neither is a return value, so a caller that only wants the beat pays nothing for the history.
-- Packages: Eto.Forms for the timer surface; LanguageExt.Core for the rails and the lease; `Parametric/projections` for `MonotonicTimeline`, `BeatSeed`, and `MonotonicBeat`; `Domain/hooks` for `FaultCell`, `IsolatedFault`, and `HookId`.
+- Packages: Eto.Forms for the timer surface; LanguageExt.Core for the types and the lease; `Parametric/projections` for `MonotonicTimeline`, `BeatSeed`, and `MonotonicBeat`; `Domain/hooks` for `FaultCell`, `IsolatedFault`, and `HookId`.
 - Growth: a new lifecycle verb is one member; a new posture is one row carrying its own settle arm, and no consumer edits.
 - Boundary: the platform timer's construction, its disposal, and its run-loop mode are the boundary's — `CADisplayLink` lifecycle, `UITimer` disposal, and idle-callback registration never enter this owner, and this owner never holds a live host timer past its lease.
 
@@ -55,7 +55,7 @@ internal sealed record ClockCursor(BeatSeed Seed, Option<PulseBeat> Last);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class UiClock : IDisposable {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.kernel.interaction.clock");
+    private static readonly HookId Point = HookId.Create(value: "rasm.kernel.interaction.clock");
 
     private readonly Atom<ClockCursor> cursor;
     private readonly Atom<Seq<Action<PulseBeat>>> observers = Atom(Seq<Action<PulseBeat>>());
@@ -65,7 +65,6 @@ public sealed class UiClock : IDisposable {
     private readonly Func<PulseBeat, Fin<Unit>> body;
     private readonly FaultCell faults;
 
-    [BoundaryAdapter]
     public static Fin<Lease<UiClock>> Of(
         PositiveMagnitude cadence,
         Func<PulseBeat, Fin<Unit>> beat,
@@ -90,10 +89,10 @@ public sealed class UiClock : IDisposable {
          from settled in body(arg: pulse)
          select settled).Match(
             Succ: static _ => Fin.Succ(unit),
-            Fail: cause => posture.Settle(faults: faults, point: Rail, cause: cause));
+            Fail: cause => posture.Settle(faults: faults, point: Point, cause: cause));
 
     private Unit Publish(PulseBeat pulse, Op key) => observers.Value.Fold(
-        unit, (_, observer) => FaultRail.Isolate(faults: faults, publish: () => observer(obj: pulse), key: key));
+        unit, (_, observer) => FaultGate.Isolate(faults: faults, publish: () => observer(obj: pulse), key: key));
 
     private Fin<PulseBeat> Advance(Op key) =>
         from held in Fin.Succ(cursor.Value)
@@ -138,7 +137,7 @@ using Rasm.Parametric;
 namespace Rasm.Interaction;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PulseBeat(MonotonicBeat Evidence, TimeSpan Interval, TimeSpan Drift, long Missed) : IValidityEvidence {
     public static PulseBeat Of(MonotonicBeat beat, Option<PulseBeat> prior, PositiveMagnitude cadence) => new(
         Evidence: beat,

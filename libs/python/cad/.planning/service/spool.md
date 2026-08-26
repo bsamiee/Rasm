@@ -1,6 +1,6 @@
 # [PY_CAD_SPOOL]
 
-`ProviderPolicy` is the admitted budget every served call reads, and this owner rules the custody each call's paths obey from admission to retirement. One `msgspec.convert` mints the budgets at the composition root, one derivation turns the caller's stated deadline into the scope the spine opens, one operation directory holds every input and output path a call touches, and one boundary converts the artifact helper's raises and rails into `CadFault`.
+`ProviderPolicy` is the admitted budget every served call reads, and this owner rules the custody each call's paths obey from admission to retirement. One `msgspec.convert` mints the budgets at the composition root, one derivation turns the caller's stated deadline into the scope the spine opens, one operation directory holds every input and output path a call touches, and one boundary converts the artifact helper's raises and results into `CadFault`.
 
 Runtime `transport/artifact` owns identity, extent, framing, and spool custody, and `ArtifactTransfer` reads the live `anyio.current_effective_deadline` for every dial, so no window is ever re-threaded through a signature. `faults#ROWS` supplies `POLICY_SHAPE`, `SOURCE_BUDGET`, `SOURCE_SHAPE`, `ARTIFACT_PROOF`, and `ARTIFACT_ADMISSION`; `lane#LANE` owns the source shapes these rows resolve into, and `provider#PROVIDER` opens the scope and the directory this page rules.
 
@@ -55,7 +55,7 @@ from rasm.runtime.transport.artifact import (
 )
 # Contracts are retired from this logic.
 
-from rasm.cad.faults import ARTIFACT_ADMISSION, ARTIFACT_PROOF, POLICY_SHAPE, SOURCE_BUDGET, SOURCE_SHAPE, CadFault, CadRail
+from rasm.cad.faults import ARTIFACT_ADMISSION, ARTIFACT_PROOF, POLICY_SHAPE, SOURCE_BUDGET, SOURCE_SHAPE, CadFault, CadResult
 from rasm.cad.service.lane import SourceRow
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -80,7 +80,7 @@ class ProviderPolicy(Struct, frozen=True, gc=False, kw_only=True):
     call_seconds: Annotated[float, Meta(gt=0.0, le=CALL_CEILING)]
 
     @staticmethod
-    def admitted(row: PolicyRow, /) -> CadRail["ProviderPolicy"]:
+    def admitted(row: PolicyRow, /) -> CadResult["ProviderPolicy"]:
         try:
             return Ok(convert(row, type=ProviderPolicy))
         except ValidationError as refused:
@@ -116,7 +116,7 @@ def budget(timeout_ms: float | None, ceiling: float, /) -> float:
 - Law: the port is declared HERE because the contracts helper's own client protocol is private, so a consumer either restates the generated members structurally or couples to a name it may not import; the structural port is the honest half of that choice and it admits the generated client and a test double alike.
 - Law: the provider owns every input and output path — `output(suffix=)` mints ONE operation directory per call and retires it under a shielded cancel scope on success, refusal, elapsed budget, and worker death alike, so no path outlives the call that made it.
 - Law: each fetched input enters the call's `AsyncExitStack`, so the inputs unwind in REVERSE before that directory retires, and an acquisition that refuses mid-build releases every earlier handle before it propagates.
-- Law: `references` answers a rail, so the traversal's foreign-extension and cycle refusals are the CALLER's own message shape and grade `INVALID_ARGUMENT` beside the source rows, never `INTERNAL` as a provider defect.
+- Law: `references` answers a result, so the traversal's foreign-extension and cycle refusals are the CALLER's own message shape and grade `INVALID_ARGUMENT` beside the source rows, never `INTERNAL` as a provider defect.
 - Law: `seal()` takes NO source, because the native kernel already wrote `sink.path` — the seal proves those octets in place and copies nothing, a refused seal leaves custody open, and only a proved seal consumes the single use.
 - Law: `ArtifactTransfer.publish` is the composed publish leg and it confirms the service echoed the same reference on both axes, so a reply's `ArtifactRef` names an artifact that is durable before the reply exists.
 - Law: the fetch fold is SEQUENTIAL because each fetch is an async context whose custody must outlive the step that opened it, which no task-group fan can own; this is the concurrency page's stated statement-bearing exemption, not an unfolded loop.
@@ -163,15 +163,15 @@ def _raised(refused: ArtifactError | AdmissionError | ConnectError, /) -> CadFau
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def bound[T, R](rail: CadRail[T], arrow: Callable[[T], Awaitable[CadRail[R]]], /) -> CadRail[R]:
-    match rail:
+async def bound[T, R](held: CadResult[T], arrow: Callable[[T], Awaitable[CadResult[R]]], /) -> CadResult[R]:
+    match held:
         case Result(tag="ok", ok=held):
             return await arrow(held)
         case Result(tag="error", error=refused):
             return Error(refused)
 
 
-def _budgeted(found: tuple[ArtifactRef, ...], policy: ProviderPolicy, /) -> CadRail[tuple[ArtifactRef, ...]]:
+def _budgeted(found: tuple[ArtifactRef, ...], policy: ProviderPolicy, /) -> CadResult[tuple[ArtifactRef, ...]]:
     extent = sum(artifact.artifact_bytes for artifact in found)
     return (
         Ok(found)
@@ -180,7 +180,7 @@ def _budgeted(found: tuple[ArtifactRef, ...], policy: ProviderPolicy, /) -> CadR
     )
 
 
-async def _fetched(artifact: ArtifactRef, artifacts: ArtifactTransfer, stack: AsyncExitStack, /) -> CadRail[OwnedArtifact]:
+async def _fetched(artifact: ArtifactRef, artifacts: ArtifactTransfer, stack: AsyncExitStack, /) -> CadResult[OwnedArtifact]:
     try:
         received = await stack.enter_async_context(artifacts.fetch(artifact))
     except _TRANSFER_RAISES as raised:
@@ -194,7 +194,7 @@ async def sources(
     stack: AsyncExitStack,
     policy: ProviderPolicy,
     /,
-) -> CadRail[tuple[SourceRow, ...]]:
+) -> CadResult[tuple[SourceRow, ...]]:
     match references(message).map_error(_refusal).bind(lambda found: _budgeted(found, policy)):
         case Result(tag="error", error=refused):
             return Error(refused)
@@ -208,7 +208,7 @@ async def sources(
             return Ok(tuple(rows))
 
 
-async def published(sink: ArtifactSink, artifacts: ArtifactTransfer, /) -> CadRail[ArtifactRef]:
+async def published(sink: ArtifactSink, artifacts: ArtifactTransfer, /) -> CadResult[ArtifactRef]:
     try:
         match await sink.seal():
             case Result(tag="ok", ok=owned):

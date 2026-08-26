@@ -1,6 +1,6 @@
 # [PY_DATA_API_LASZIP]
 
-`laszip` owns the native LASzip codec for the data point-cloud rail: a pybind11 binding (`laszip_core`, re-exported flat under `laszip.*`) that streams LAZ chunks through `LasUnZipper` decode and `LasZipper` encode over a Python file object, drives a `LasZipDll` per-point read/write path over `LasZipHeader`/`LasZipPoint` records, and masks decode fields through the `DECOMPRESS_SELECTIVE_*` constants. It decodes and encodes the LAZ arithmetic stream; `laspy` selects it as `LazBackend.Laszip` and holds all LAS/LAZ container framing, CRS, and array assembly.
+`laszip` owns the native LASzip codec for the data point-cloud domain: a pybind11 binding (`laszip_core`, re-exported flat under `laszip.*`) that streams LAZ chunks through `LasUnZipper` decode and `LasZipper` encode over a Python file object, drives a `LasZipDll` per-point read/write path over `LasZipHeader`/`LasZipPoint` records, and masks decode fields through the `DECOMPRESS_SELECTIVE_*` constants. It decodes and encodes the LAZ arithmetic stream; `laspy` selects it as `LazBackend.Laszip` and holds all LAS/LAZ container framing, CRS, and array assembly.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -91,13 +91,13 @@
 - one `LasUnZipper`/`LasZipper` pair owns LAZ stream decode/encode over a Python file object; `decompress_into(buffer)`/`compress(points_bytes)` are the streaming calls, `seek(index)` and `header` carry random access and metadata.
 - `decompression_selection` is one `int` mask folded from `DECOMPRESS_SELECTIVE_*` on the second-arity `LasUnZipper` constructor; field skipping is a mask value, never a per-field reader.
 - `LasZipDll` owns the per-point path: `header()`/`point()` return live `LasZipHeader`/`LasZipPoint` references mutated in place across `read_point`/`write_point`, driven for writing by `set_header`/`set_point_type_and_size`/`set_point`/`update_inventory` — one header/point record per engine, not per IO direction.
-- `LaszipError` is the single raised failure across stream open, chunk overflow, and malformed header, crossing the boundary into the data rail's typed error.
+- `LaszipError` is the single raised failure across stream open, chunk overflow, and malformed header, crossing the boundary into the data domain's typed error.
 - append is a full rewrite: the `LasZipDll` writer path recomputes the stream, never an in-place append over an existing LAZ file.
 - each codec run exposes point-data format, record length, point count, selective mask, `get_version()` build, and compressed/decompressed byte length as codec measurements.
 
 [STACKING]:
 - `laspy`(`.api/laspy.md`): `laspy` selects this codec as `LazBackend.Laszip`, feeds `DecompressionSelection.to_laszip() -> int` into the second-arity `LasUnZipper(source, selection)`, and drives `decompress_into(bytearray(n * point_size))` per chunk after asserting `header.point_data_format`/`point_data_record_length` against `LasHeader.point_format`; the writer seeds `LasZipper(dest, header_bytes)` from a `LasHeader.write_to` serialization, streams `compress(...)`, then `done()`, with EVLR-count fixups rewritten out-of-band.
-- data point-cloud rail: laszip composes only under the `laspy` `LazBackend.Laszip` selection, never a direct `laszip.*` call from domain code.
+- data point-cloud domain: laszip composes only under the `laspy` `LazBackend.Laszip` selection, never a direct `laszip.*` call from domain code.
 
 [LOCAL_ADMISSION]:
 - import `laszip` at boundary scope; every symbol resolves flat under `laszip.*` through the `laszip_core` re-export, with no submodule reach.

@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_OPENTELEMETRY_EXPORTER_OTLP_PROTO_HTTP]
 
-`opentelemetry-exporter-otlp-proto-http` owns the OTLP/HTTP transport tail of the observability rail: `OTLPSpanExporter`, `OTLPMetricExporter`, and `OTLPLogExporter` encode SDK span, metric, and log-record batches as OTLP protobuf and POST them to a collector over a pooled `requests.Session`. Each is the terminal sink of one signal pipeline, wired behind an SDK processor at the composition root, owning jittered-backoff retry, per-signal env resolution, and gzip/deflate compression.
+`opentelemetry-exporter-otlp-proto-http` owns the OTLP/HTTP transport tail of the observability pipeline: `OTLPSpanExporter`, `OTLPMetricExporter`, and `OTLPLogExporter` encode SDK span, metric, and log-record batches as OTLP protobuf and POST them to a collector over a pooled `requests.Session`. Each is the terminal sink of one signal pipeline, wired behind an SDK processor at the composition root, owning jittered-backoff retry, per-signal env resolution, and gzip/deflate compression.
 
 ## [01]-[PUBLIC_TYPES]
 

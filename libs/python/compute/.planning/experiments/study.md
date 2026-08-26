@@ -1,8 +1,8 @@
 # [PY_COMPUTE_STUDY]
 
-One study-spine owner spans design-of-experiments sampling, global sensitivity analysis, and surrogate fitting: `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union owns its `design`/`discrepancy`/`indices` folds, so `experiments/history#RUN_HISTORY` composes `study.method.design`/`indices` directly rather than importing a private across the package seam. SALib owns sensitivity analysis — the owner composes its sampler-and-analyzer pairs through `ProblemSpec` rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity. Classical polynomial and ensemble/kernel regression surrogates are in scope; a neural surrogate and an acquisition-driven active-learning loop are not.
+One study-spine owner spans design-of-experiments sampling, global sensitivity analysis, and surrogate fitting: `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union owns its `design`/`discrepancy`/`indices` folds, so `experiments/history#RUN_HISTORY` composes `study.method.design`/`indices` directly rather than importing a private across the package boundary. SALib owns sensitivity analysis — the owner composes its sampler-and-analyzer pairs through `ProblemSpec` rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity. Classical polynomial and ensemble/kernel regression surrogates are in scope; a neural surrogate and an acquisition-driven active-learning loop are not.
 
-Runs ride the `EvidenceScope.STUDY` weave — span, narrowed `boundary` fence, beartype guard, and the optional stage stream its own `StudyStage` roster names; `StudyRun` retains the sampled design, measured responses, derived indices, and production facts and stamps its `attributes` on that span at the mint. Seams: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate through published surfaces only; runtime `profiles` supplies the `Benchmark`/`BenchMode` bench fabric the run's `benched` projection feeds from held measurements; the objective crosses the process band as an argument of one `HOSTILE`-trait runtime `Kernel` — the module-level kernel ships `REFERENCE`, and a closure-bearing objective rides the pool's cloudpickle wire.
+Runs ride the `EvidenceScope.STUDY` weave — span, narrowed `boundary` fence, beartype guard, and the optional stage stream its own `StudyStage` roster names; `StudyRun` retains the sampled design, measured responses, derived indices, and production facts and stamps its `attributes` on that span at the mint. Boundaries: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate through published surfaces only; runtime `profiles` supplies the `Benchmark`/`BenchMode` bench fabric the run's `benched` projection feeds from held measurements; the objective crosses the process band as an argument of one `HOSTILE`-trait runtime `Kernel` — the module-level kernel ships `REFERENCE`, and a closure-bearing objective rides the pool's cloudpickle wire.
 
 ## [01]-[INDEX]
 
@@ -39,7 +39,7 @@ from rasm.compute.numerics.jit import JitBackend, LoweredSpec
 from rasm.data.tabular.contract import FrameAdmission
 from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.profiles import BenchMode, Benchmark
@@ -125,7 +125,7 @@ def _scorer_identity(fn: Callable[..., object]) -> tuple[str, str, bytes]:
     return (kernel.module, kernel.name, kernel.payload)
 
 
-def _study_kernel(study: "Study", objective: Objective, seed: int, mark: StageTap) -> "RuntimeRail[StudyRun]":
+def _study_kernel(study: "Study", objective: Objective, seed: int, mark: StageTap) -> "RuntimeResult[StudyRun]":
     return boundary(STUDY_EXECUTE, lambda: study._execute(objective, seed, mark), catch=_DESIGN_RAISES).bind(lambda run: run)
 
 
@@ -537,14 +537,14 @@ class Study(Struct, frozen=True):
 
     async def run(
         self, source: "Objective | object", lane: LanePolicy, /, *, seed: int = 0, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[StudyRun]:
+    ) -> RuntimeResult[StudyRun]:
         mark = StageTap.of(EvidenceScope.STUDY, lane.pulses.tap)
 
-        async def dispatch() -> RuntimeRail[StudyRun]:
+        async def dispatch() -> RuntimeResult[StudyRun]:
             match source:
                 case Objective() as objective:
                     kernel = Kernel.of(_study_kernel, KernelTrait.HOSTILE, idempotent=self.mode is MeasurementMode.RESULT)
-                    return (await lane.offload(kernel, self, objective, seed, mark)).bind(lambda rail: rail)
+                    return (await lane.offload(kernel, self, objective, seed, mark)).bind(lambda held: held)
                 case frame:
                     return self._admit_frame(frame).bind(
                         lambda decoded: boundary(
@@ -564,7 +564,7 @@ class Study(Struct, frozen=True):
             case refused:
                 return Error(refused.error)
 
-    def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
+    def _admit_frame(self, frame: object) -> "RuntimeResult[tuple[np.ndarray, np.ndarray]]":
         shapes = tuple(FieldShape(field=axis.name, logical_type="Float64", nullable=False) for axis in self.axes)
         response = FieldShape(field="response", logical_type="Float64", nullable=False)
         gate = FrameAdmission.of(FrameInterop.of(self.frame_backend), (*shapes, response))
@@ -585,7 +585,7 @@ class Study(Struct, frozen=True):
         *,
         responses: "Option[np.ndarray]" = Nothing,
         seed: int = 0,
-    ) -> "RuntimeRail[ContentKey]":
+    ) -> "RuntimeResult[ContentKey]":
         spec = objective.map(Objective.identity).default_value(())
         measured = responses.map(lambda held: (_SPEC.encode(held.shape), np.ascontiguousarray(held, dtype=np.float64).tobytes())).default_value(())
         parts = (
@@ -596,14 +596,14 @@ class Study(Struct, frozen=True):
         )
         return ContentIdentity.of("study", IdentitySource(parts=parts))
 
-    def _graded_frame(self, design: np.ndarray, responses: np.ndarray, seed: int) -> "RuntimeRail[StudyRun]":
+    def _graded_frame(self, design: np.ndarray, responses: np.ndarray, seed: int) -> "RuntimeResult[StudyRun]":
         measured = Measured(responses[:, None] if responses.ndim == 1 else responses, 0.0, Nothing)
         return self.spec_key(design, responses=Some(responses), seed=seed).map(
             lambda key: StudyRun.graded(self, design, measured, key, seed)
         )
 
     @beartype(conf=FAULT_CONF)
-    def _execute(self, objective: Objective, seed: int, mark: StageTap) -> "RuntimeRail[StudyRun]":
+    def _execute(self, objective: Objective, seed: int, mark: StageTap) -> "RuntimeResult[StudyRun]":
         design = self.method.design(self.axes, seed)
         cells = int(design.shape[0])
         staged = structs.replace(mark, total=Some(cells))

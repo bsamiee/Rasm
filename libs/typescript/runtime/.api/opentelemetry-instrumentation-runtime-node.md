@@ -31,7 +31,7 @@
 - Each collector registers one observable per series against the single bound `Meter`; the emitted set is the surface contract — delay gauges `nodejs.eventloop.delay.` `min` `max` `mean` `stddev` `p50` `p90` `p99`; `nodejs.eventloop.time` counter and `nodejs.eventloop.utilization` gauge; `v8js.gc.duration` histogram; heap series `v8js.memory.heap.` `used` `space.size` `space.available_size` `space.physical_size`; `v8js.resource.active` count.
 - Every heap series is per-space, so `v8js.heap.space.name` rides all four and no whole-heap scalar exists on this producer; a dashboard reading the V8 ceiling takes it from the deployment's own memory bound, and one reading pressure sums or slices the space series.
 - Series attributes `nodejs.eventloop.state` (`active`/`idle`), `v8js.gc.type`, `v8js.heap.space.name`, `v8js.resource.type` — the heap-space and gc-type dimensions are the high-cardinality fan the deny-list view guards.
-- Dotted `nodejs.*`/`v8js.*` names, the `@opentelemetry/semantic-conventions` vocabulary, ride the estate Prometheus translation unchanged; a rename breaks the downstream dashboard vocabulary.
+- Dotted `nodejs.*`/`v8js.*` names, the `@opentelemetry/semantic-conventions` vocabulary, ride the repo Prometheus translation unchanged; a rename breaks the downstream dashboard vocabulary.
 
 [STACKING]:
 - `otel/emit`: registers against the `Meter` whose `MeterProvider` the OTLP metric lane drains, so engine vitals inherit the same `service.name` resource as `HostMetrics` spans and logs.

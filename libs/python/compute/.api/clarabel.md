@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_CLARABEL]
 
-`clarabel` owns the Rust-native primal-dual interior-point solve of a quadratic-conic problem in standard form — sparse `P`/`q`/`A`/`b` with an ordered cone list — returning primal `x`, dual `z`, slack `s`, status, objective, and primal/dual residuals. `cvxpy` selects it as the default conic backend, and its dual `z` with the residual pair is the optimality certificate the compute convex-optimization rail reads. `compute` composes `DefaultSolver`, the cone constructors, `update`, and `solve`; the interior-point iteration stays Clarabel's.
+`clarabel` owns the Rust-native primal-dual interior-point solve of a quadratic-conic problem in standard form — sparse `P`/`q`/`A`/`b` with an ordered cone list — returning primal `x`, dual `z`, slack `s`, status, objective, and primal/dual residuals. `cvxpy` selects it as the default conic backend, and its dual `z` with the residual pair is the optimality certificate the compute convex-optimization domain reads. `compute` composes `DefaultSolver`, the cone constructors, `update`, and `solve`; the interior-point iteration stays Clarabel's.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -259,7 +259,7 @@ func runUserHandler(scriptURL: URL, handler: String, argument: String) async thr
 
 A caller configures `delegate`, `sendMode`, `timeout`, and `launchFlags` on the resulting `SBApplication`. `SBObject` and `SBElementArray` carry an object specifier lazily until `get()` forces evaluation — chained access composes references and only the terminal call produces a concrete Foundation value; `propertyWithCode:` and `sendEvent(_:id:parameters:)` are the four-character-code escape hatch for a shape the generated header loses.
 
-`OSACopyScriptingDefinitionFromURL(CFURLRef, SInt32 modeFlags, CFDataRef *sdef)` is the runtime dictionary rail a Command Line Tools-only host reaches without those executables: `modeFlags` is reserved as `kOSAModeNull`, the returned `CFData` is `.sdef` XML read from a local bundle or an `eppc:` remote target, and the call auto-synthesizes a dictionary from a legacy `'aete'` resource or a `scriptSuite`/`scriptTerminology` plist pair where no native `.sdef` exists, feeding the same `sdp -fh` header generation.
+`OSACopyScriptingDefinitionFromURL(CFURLRef, SInt32 modeFlags, CFDataRef *sdef)` is the runtime dictionary path a Command Line Tools-only host reaches without those executables: `modeFlags` is reserved as `kOSAModeNull`, the returned `CFData` is `.sdef` XML read from a local bundle or an `eppc:` remote target, and the call auto-synthesizes a dictionary from a legacy `'aete'` resource or a `scriptSuite`/`scriptTerminology` plist pair where no native `.sdef` exists, feeding the same `sdp -fh` header generation.
 
 ```objc
 @interface BridgeErrors : NSObject <SBApplicationDelegate>

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_BLACKJAX]
 
-`blackjax` is admitted ONLY as a `pymc` NUTS-backend string: the compute Bayesian-study rail never imports it, never touches its stateless MCMC/SMC/SG-MCMC/VI kernel algebra. `pm.sample(nuts_sampler="blackjax", nuts_sampler_kwargs=...)` is the sole crossing — PyMC compiles the model to JAX, drives window-adapted NUTS, and returns the `arviz.InferenceData` / `xarray.DataTree` the `pymc`/`arviz` catalogs own. Installed-never-imported is the admission's nature: transitive-optional install, the `SamplerBackend` union carries the string, PyMC owns the JAX handoff.
+`blackjax` is admitted ONLY as a `pymc` NUTS-backend string: the compute Bayesian-study domain never imports it, never touches its stateless MCMC/SMC/SG-MCMC/VI kernel algebra. `pm.sample(nuts_sampler="blackjax", nuts_sampler_kwargs=...)` is the sole crossing — PyMC compiles the model to JAX, drives window-adapted NUTS, and returns the `arviz.InferenceData` / `xarray.DataTree` the `pymc`/`arviz` catalogs own. Installed-never-imported is the admission's nature: transitive-optional install, the `SamplerBackend` union carries the string, PyMC owns the JAX handoff.
 
 ## [01]-[STRING_BACKEND_CONTRACT]
 
@@ -17,7 +17,7 @@
 ## [02]-[DECLINE]
 
 [SEALED_DECLINE]: PyMC owns the model→sampler compile; compute never drives a bare blackjax kernel, and catalog authorship never re-opens a declined surface.
-- Kernel builders (`hmc`/`nuts`/`mala`/`ghmc`/`barker`/`rmhmc`/`mclmc`/`rmh` + the `SamplingAlgorithm(init, step)` `lax.scan` loop), SMC (`adaptive_tempered_smc`/`tempered_smc`/`partial_posteriors_smc`/`persistent_sampling`, `smc.resampling.*`), SG-MCMC (`sgld`/`sghmc`/`sgnht`/`csgld`), VI (`meanfield_vi`/`fullrank_vi`/`svgd`/`pathfinder`/`multipathfinder`): the study rail is NUTS-via-PyMC, not a bare kernel, tempering ladder, or VI/SG-MCMC algorithm.
+- Kernel builders (`hmc`/`nuts`/`mala`/`ghmc`/`barker`/`rmhmc`/`mclmc`/`rmh` + the `SamplingAlgorithm(init, step)` `lax.scan` loop), SMC (`adaptive_tempered_smc`/`tempered_smc`/`partial_posteriors_smc`/`persistent_sampling`, `smc.resampling.*`), SG-MCMC (`sgld`/`sghmc`/`sgnht`/`csgld`), VI (`meanfield_vi`/`fullrank_vi`/`svgd`/`pathfinder`/`multipathfinder`): the study domain is NUTS-via-PyMC, not a bare kernel, tempering ladder, or VI/SG-MCMC algorithm.
 - Adaptation, diagnostics, utility (`window_adaptation`/`chees_adaptation`/`meads_adaptation`, `diagnostics.*`, `util.run_inference_algorithm`/`psis_weights`): PyMC's blackjax path applies its own window adaptation, `arviz` owns diagnostics.
 - Reopening requires a live compute fence importing `blackjax` under a named consumer, never catalog preference.
 

@@ -374,7 +374,7 @@ public static class PlanProfile {
 
 - Owner: `StoreUsage` derives and persists one `UsageRow` shape over tenant, artifact kind, retention class, storage tier, byte count, object count, delivery count, and observation instant.
 - Entry: `StoreUsage.Fold` derives rows from the content catalog and settled egress outcomes; `Dataset`, `Cells`, `Shape`, `Batch`, `Land`, and `Resident` carry the same row through analytical storage and reads.
-- Auto: catalog rows group under `(tenant, kind, class, tier)` and settlements contribute delivered counts to the tenant's stream row. The residence columns preserve the class and tier breakdown that capped meter dimensions omit.
+- Auto: catalog rows group under `(tenant, kind, class, tier)` and settlements contribute delivered counts to the tenant's stream row. The backend columns preserve the class and tier breakdown that capped meter dimensions omit.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a usage axis extends `UsageRow`, `Dataset`, `Cells`, and `Shape` together.
 - Boundary: tenant enters as `TenantId`, becomes `TenantContext` once, and remains the RLS partition. `UsageRow` is derived query state rebuilt from the content catalog and durable egress settlements.
@@ -421,18 +421,18 @@ public static class StoreUsage {
             new ColumnRow(AtColumn, ColumnType.Timestamp, Nullable: false)),
         Time: AtColumn, Spine: TimeSpine.Event, Measure: None);
 
-    public static Fin<UsageRow> Shape(ResidenceScope scope, ResidenceRow row) =>
-        (row.Text(scope.Residence, 0), row.Text(scope.Residence, 1), row.Text(scope.Residence, 2),
-            row.Whole(scope.Residence, 3), row.Whole(scope.Residence, 4), row.Whole(scope.Residence, 5),
-            row.At(scope.Residence, 6))
+    public static Fin<UsageRow> Shape(BackendScope scope, BackendRow row) =>
+        (row.Text(scope.Backend, 0), row.Text(scope.Backend, 1), row.Text(scope.Backend, 2),
+            row.Whole(scope.Backend, 3), row.Whole(scope.Backend, 4), row.Whole(scope.Backend, 5),
+            row.At(scope.Backend, 6))
         .Apply((kind, retention, tier, bytes, objects, deliveries, at) =>
             new UsageRow(scope.Frame.Tenant, kind, retention, tier, bytes, objects, deliveries, at)).As();
 
-    public static IO<Fin<ResidenceResult<UsageRow>>> Resident(
-        ResidenceReach reach, ResidenceScope scope, Seq<(Identifier Column, string Value)> narrow) =>
-        ResidencePlan.Scan(Dataset, narrow).Match(
-            Succ: plan => ResidenceRead.Read(reach, plan, scope, ResidenceProjection.Aggregate, row => Shape(scope, row)),
-            Fail: error => IO.pure(Fin<ResidenceResult<UsageRow>>.Fail(error)));
+    public static IO<Fin<BackendResult<UsageRow>>> Resident(
+        BackendReach reach, BackendScope scope, Seq<(Identifier Column, string Value)> narrow) =>
+        BackendPlan.Scan(Dataset, narrow).Match(
+            Succ: plan => BackendRead.Read(reach, plan, scope, BackendProjection.Aggregate, row => Shape(scope, row)),
+            Fail: error => IO.pure(Fin<BackendResult<UsageRow>>.Fail(error)));
 
     public static Seq<ColumnCell> Cells(UsageRow row) =>
         Seq<ColumnCell>(
@@ -449,17 +449,17 @@ public static class StoreUsage {
             ("correlation", frame.Correlation.ToString()),
             ("rows", rows.Count.ToString(CultureInfo.InvariantCulture))));
 
-    public static IO<Fin<ResidenceWrite>> Land(NpgsqlDataSource store, Seq<UsageRow> rows, ProjectionContext frame) =>
+    public static IO<Fin<BackendWrite>> Land(NpgsqlDataSource store, Seq<UsageRow> rows, ProjectionContext frame) =>
         rows.Exists(row => row.Tenant.Entry != frame.Tenant.Entry)
-            ? IO.pure(Fin<ResidenceWrite>.Fail(new ResidenceFault.IngestRefused("<tenant-scope>", Dataset.Dataset)))
-            : ResidenceLanding.Stage(store, Dataset, rows.Map(Cells), frame);
+            ? IO.pure(Fin<BackendWrite>.Fail(new BackendFault.IngestRefused("<tenant-scope>", Dataset.Dataset)))
+            : BackendLanding.Stage(store, Dataset, rows.Map(Cells), frame);
 }
 ```
 
 ## [07]-[STORE_INSTRUMENTS]
 
 - Owner: `StoreInstruments` carries the Persistence `InstrumentSpec` roster and the `TelemetryContributorPort` mint.
-- Cases: the kernel instrument kinds carry the roster — advised distributions for statement duration, profiled analytical time across its wall, cpu, and blocked phases, drain duration, the residence read's duration beside the rows its engine scanned, and dead-letter attempt depth whose own observation count IS the dead-letter stream; a plain distribution for profiled row counts (base2-exponential by default); counters for the embedded step tells, the pg buffer-pressure events, the egress settlement stream, the plan-capture stream, the rows a residence dataset landing stages, and object-plane facts keyed by the producing operation; scalar levels for the pg I/O and embedded cache hit ratios; keyed levels for the embedded memory regions and for the tenant usage byte, object, and delivery census, whose root group reports the same three figures untagged on the same three instruments.
+- Cases: the kernel instrument kinds carry the roster — advised distributions for statement duration, profiled analytical time across its wall, cpu, and blocked phases, drain duration, the backend read's duration beside the rows its engine scanned, and dead-letter attempt depth whose own observation count IS the dead-letter stream; a plain distribution for profiled row counts (base2-exponential by default); counters for the embedded step tells, the pg buffer-pressure events, the egress settlement stream, the plan-capture stream, the rows a backend dataset landing stages, and object-plane facts keyed by the producing operation; scalar levels for the pg I/O and embedded cache hit ratios; keyed levels for the embedded memory regions and for the tenant usage byte, object, and delivery census, whose root group reports the same three figures untagged on the same three instruments.
 - Law: a per-tenant chargeback figure is a LEVEL and a per-asset-class footprint census is a DATASET — the meter carries the cardinality a board polls and the lake carries the product a query groups. Fanning a bounded vocabulary across a keyed level multiplies two bounded axes into a series count neither declared, so the asset-class breakdown rides `#USAGE_PROJECTION`'s landed fact table where no cardinality ceiling exists by law and an operator asks "which asset class costs what" as a GROUP BY, while the meter keeps the tenant-only figure. Bounded × bounded is still a product; the fault, sweep, and object-plane rows carry their bounded dimensions because their instruments are COUNTERS whose series are the tag product alone, never a keyed level family whose cardinality is already the tenant count.
 - Entry: `StoreInstruments.Telemetry(string version)` contributes the roster and `StoreDescriptors.Pack` under `TelemetrySource.Persistence`; operation owners write through `ProjectionContext.Instruments` from their canonical result values.
 - Auto: rows are pure declarations, and `Rows` reads through the generated `Items` accessor after static initialization.
@@ -483,7 +483,7 @@ public sealed partial class StoreInstruments {
     public const string RegionSlot = Head + "region";
     public const string PhaseSlot = Head + "phase";
     public const string EventSlot = Head + "event";
-    public const string ResidenceSlot = Head + "residence";
+    public const string BackendSlot = Head + "backend";
     public const string DatasetSlot = Head + "dataset";
     public const string ProviderSlot = Head + "provider";
     public const string KindSlot = Head + "kind";
@@ -555,15 +555,15 @@ public sealed partial class StoreInstruments {
         InstrumentKind.Count, MeasureForm.Whole, "{capture}",
         "plan-shape captures by engine and compare verdict", Seq(EngineSlot, RuleSlot), None, None, None);
 
-    public static readonly StoreInstruments ResidenceReadDuration = Row(Head + "residence.read.duration",
+    public static readonly StoreInstruments BackendReadDuration = Row(Head + "backend.read.duration",
         InstrumentKind.Distribution, MeasureForm.Real, "s",
-        "wall duration per residence read by residence", Seq(ResidenceSlot), Some(Buckets.ProfileSeconds), None, None);
-    public static readonly StoreInstruments ResidenceScanned = Row(Head + "residence.scanned",
+        "wall duration per backend read by backend", Seq(BackendSlot), Some(Buckets.ProfileSeconds), None, None);
+    public static readonly StoreInstruments BackendScanned = Row(Head + "backend.scanned",
         InstrumentKind.Distribution, MeasureForm.Whole, "{row}",
-        "rows the engine scanned per residence read by residence", Seq(ResidenceSlot), Some(Buckets.IterationCounts), None, None);
-    public static readonly StoreInstruments ResidenceIngested = Row(Head + "residence.staged",
+        "rows the engine scanned per backend read by backend", Seq(BackendSlot), Some(Buckets.IterationCounts), None, None);
+    public static readonly StoreInstruments BackendIngested = Row(Head + "backend.staged",
         InstrumentKind.Count, MeasureForm.Whole, "{row}",
-        "rows staged per residence dataset landing", Seq(DatasetSlot), None, None, None);
+        "rows staged per backend dataset landing", Seq(DatasetSlot), None, None, None);
     public static readonly StoreInstruments BlobFacts = Row(Head + "blob.facts",
         InstrumentKind.Count, MeasureForm.Whole, "{fact}",
         "object-plane facts by provider and fact kind", Seq(ProviderSlot, KindSlot), None, None, None);
@@ -599,9 +599,9 @@ public sealed partial class StoreInstruments {
 ## [08]-[STORE_BOARD]
 
 - Owner: `StoreDescriptors` — the package's one kernel `BoardPack` value binding the panel rows and reliability objectives over the `#STORE_INSTRUMENTS` roster.
-- Cases: indicators over four shapes — a settlement share partitioning the egress stream on its own outcome dimension, a plan-stability share partitioning the capture stream on the `PlanRule` column, buffer-headroom saturations reading a hit ratio against a floor, and latency ceilings over the egress drain and the residence read.
-- Entry: `StoreDescriptors.Pack` is the whole descriptor surface the AppHost alert rail and the deploy-plane board compile decode — `Panels` and `Objectives` are its columns, `Alerts` derives one `AlertSpec` per objective per burn row through the kernel fold, and `Pack.Admit(roster)` proves every panel instrument, every break key, every widget resolution, every indicator series, and objective-name distinctness against the declaring port's own roster; the pack rides `#STORE_INSTRUMENTS`'s contributor port outward, so the mounting root runs that proof and this folder exposes no second admission entry.
-- Auto: a panel naming an instrument alone reads the kernel widget projection for that row's measurement shape, so only a deliberate reading spells a `PanelKind`; every descriptor names an instrument on the roster and every break key one of that row's declared dimensions, so a renamed instrument or a dropped dimension refuses at composition rather than rendering an empty panel; every objective omits its window, so kernel admission canonicalizes the one estate compliance default and no calendar literal lands here; burn windows, factors, severities, hold, tone, and the budget share derive from the kernel table, so no threshold is spelled here.
+- Cases: indicators over four shapes — a settlement share partitioning the egress stream on its own outcome dimension, a plan-stability share partitioning the capture stream on the `PlanRule` column, buffer-headroom saturations reading a hit ratio against a floor, and latency ceilings over the egress drain and the backend read.
+- Entry: `StoreDescriptors.Pack` is the whole descriptor surface the AppHost alert pipeline and the deploy-plane board compile decode — `Panels` and `Objectives` are its columns, `Alerts` derives one `AlertSpec` per objective per burn row through the kernel fold, and `Pack.Admit(roster)` proves every panel instrument, every break key, every widget resolution, every indicator series, and objective-name distinctness against the declaring port's own roster; the pack rides `#STORE_INSTRUMENTS`'s contributor port outward, so the mounting root runs that proof and this folder exposes no second admission entry.
+- Auto: a panel naming an instrument alone reads the kernel widget projection for that row's measurement shape, so only a deliberate reading spells a `PanelKind`; every descriptor names an instrument on the roster and every break key one of that row's declared dimensions, so a renamed instrument or a dropped dimension refuses at composition rather than rendering an empty panel; every objective omits its window, so kernel admission canonicalizes the one solution compliance default and no calendar literal lands here; burn windows, factors, severities, hold, tone, and the budget share derive from the kernel table, so no threshold is spelled here.
 - Packages: Rasm, LanguageExt.Core, NodaTime.
 - Growth: a new board panel is one `PanelSpec` on the pack; a new reliability policy is one `Objective` row over an existing indicator shape, and a share over an already-fanned population needs no roster edit at all; a new indicator shape is a kernel `Sli` case breaking every compile leg at once.
 - Boundary: dashboards, alert provisioning, query dialects, the panel descriptor row, and the burn algebra are the kernel's and the deploy plane's — this page carries pack DATA behind the same `rasm.persistence.*` names the instruments carry and never a descriptor type, query string, board JSON, or provider type; a success share is a partition over the ONE counter its outcome dimension already fans, so the settlement share reads all four settlement rows the arm writes and `Ratio` stays reserved for genuinely independent counters; both headroom indicators are `Saturation` over a scalar level with `LevelBreach.Floor`, because a cache hit ratio breaches BELOW its bound and a counter pair no level reading can form is the one alternative shape; the top-N statement duration carries a PANEL and no objective — the harvest selects the slowest statements by total execution time, so an objective over that sample targets a population chosen for breaching and reports a fixed rate no tuning moves; the tenant usage families carry panels alone, because a chargeback census is a figure against no ceiling and a storage population has no reliability target, and their three `TenantContext.TenantSlot` break keys render on EVERY deployment now that the root group publishes untagged — an unpartitioned host draws one unbroken series under that key rather than the empty panel a partition-only write left it; the plan-stability good set derives from the `PlanRule` stability column rather than a value literal, so a fourth compare rule joins the share where the vocabulary owns it; the pack's own `Wire` column spells `persistence.census`, the provenance key that plane's closed tuple admits this projection under.
@@ -636,9 +636,9 @@ public static class StoreDescriptors {
                 StoreInstruments.EngineSlot, StoreInstruments.RuleSlot),
             PanelSpec.Of("Object-plane facts", StoreInstruments.BlobFacts.Key, PanelKind.Table,
                 StoreInstruments.ProviderSlot, StoreInstruments.KindSlot),
-            PanelSpec.Of("Residence read duration", StoreInstruments.ResidenceReadDuration.Key, StoreInstruments.ResidenceSlot),
-            PanelSpec.Of("Residence rows scanned", StoreInstruments.ResidenceScanned.Key, StoreInstruments.ResidenceSlot),
-            PanelSpec.Of("Residence rows staged", StoreInstruments.ResidenceIngested.Key, StoreInstruments.DatasetSlot),
+            PanelSpec.Of("Backend read duration", StoreInstruments.BackendReadDuration.Key, StoreInstruments.BackendSlot),
+            PanelSpec.Of("Backend rows scanned", StoreInstruments.BackendScanned.Key, StoreInstruments.BackendSlot),
+            PanelSpec.Of("Backend rows staged", StoreInstruments.BackendIngested.Key, StoreInstruments.DatasetSlot),
             PanelSpec.Of("Durable bytes by tenant", StoreInstruments.UsageSize.Key, TenantContext.TenantSlot),
             PanelSpec.Of("Durable objects by tenant", StoreInstruments.UsageObjects.Key, TenantContext.TenantSlot),
             PanelSpec.Of("Egress deliveries by tenant", StoreInstruments.UsageDeliveries.Key, TenantContext.TenantSlot)),
@@ -665,8 +665,8 @@ public static class StoreDescriptors {
                 target: 0.99d,
                 window: default),
             Objective.Create(
-                name: "persistence.residence.latency",
-                sli: new Sli.Latency(Metric: StoreInstruments.ResidenceReadDuration.Key, Ceiling: Duration.FromSeconds(2), Quantile: 0.95d),
+                name: "persistence.backend.latency",
+                sli: new Sli.Latency(Metric: StoreInstruments.BackendReadDuration.Key, Ceiling: Duration.FromSeconds(2), Quantile: 0.95d),
                 target: 0.99d,
                 window: default),
             Objective.Create(

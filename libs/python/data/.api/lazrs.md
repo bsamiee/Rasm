@@ -1,6 +1,6 @@
 # [PY_DATA_API_LAZRS]
 
-`lazrs` owns the Rust-backed LAZ/COPC point-record codec for the data point-cloud rail: PyO3 bindings over the `laz-rs` crate that decompress and compress LASzip chunked point data with no C++ `laszip` linkage. Sequential and Rayon-parallel decompressor, compressor, and appender families stream chunked codecs over VLR-keyed buffers and file-like sources, and block functions codec raw record-data buffers one-shot. `laspy` selects it as the `LazBackend.Lazrs`/`LazrsParallel` codec backend; it never re-implements the arithmetic range coding `laz-rs` owns.
+`lazrs` owns the Rust-backed LAZ/COPC point-record codec for the data point-cloud domain: PyO3 bindings over the `laz-rs` crate that decompress and compress LASzip chunked point data with no C++ `laszip` linkage. Sequential and Rayon-parallel decompressor, compressor, and appender families stream chunked codecs over VLR-keyed buffers and file-like sources, and block functions codec raw record-data buffers one-shot. `laspy` selects it as the `LazBackend.Lazrs`/`LazrsParallel` codec backend; it never re-implements the arithmetic range coding `laz-rs` owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -85,7 +85,7 @@ Each reader, writer, and appender carries its chunked members; `decompress_many`
 
 [STACKING]:
 - `laspy`(`.api/laspy.md`): `lazrs` binds as the `LazBackend.Lazrs`/`LazrsParallel` codec backend that `laspy.open`/`read`/`CopcReader.open` select; `laspy` owns LAS container, header, dimensions, and CRS while `lazrs` decodes the compressed record stream, and `laspy.DecompressionSelection.to_laszip()` lowers to the `int` mask this surface wraps.
-- point-cloud owner: a COPC reader composes one dense rail — `laspy` exposes the octree hierarchy and per-node chunk byte ranges, `read_chunk_table_only` reads the table once, consumer dimensions become a `DecompressionSelection` OR of `SELECTIVE_DECOMPRESS_*`, and `decompress_points_with_chunk_table(..., selection=)` decodes only the requested nodes' fields into the NumPy record buffer; spatial-window filter, field narrowing, and Rayon parallelism are one pipeline.
+- point-cloud owner: a COPC reader composes one dense domain — `laspy` exposes the octree hierarchy and per-node chunk byte ranges, `read_chunk_table_only` reads the table once, consumer dimensions become a `DecompressionSelection` OR of `SELECTIVE_DECOMPRESS_*`, and `decompress_points_with_chunk_table(..., selection=)` decodes only the requested nodes' fields into the NumPy record buffer; spatial-window filter, field narrowing, and Rayon parallelism are one pipeline.
 
 [LOCAL_ADMISSION]:
-- Reach `lazrs` only through `laspy`'s `LazBackend` selector at boundary scope; block functions codec raw buffers, the streaming classes codec file-like sources, and a raised `LazrsError` maps to the data rail's typed failure at the boundary.
+- Reach `lazrs` only through `laspy`'s `LazBackend` selector at boundary scope; block functions codec raw buffers, the streaming classes codec file-like sources, and a raised `LazrsError` maps to the data domain's typed failure at the boundary.

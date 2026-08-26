@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_GH2_CANVAS]
 
-`Canvas` is the Grasshopper2 document host — a sealed `FlexControl` that paints the node graph, resolves picks off an offscreen id buffer, and gates every canvas edit. It owns the paint pipeline, wire-route geometry, snapping and alignment, skin interpolation, and sparkle overlays; projection, navigation, redraw scheduling, and animation cross the `IFlexControl` seam that `api-gh2-flex.md` owns and this surface composes, never re-derives.
+`Canvas` is the Grasshopper2 document host — a sealed `FlexControl` that paints the node graph, resolves picks off an offscreen id buffer, and gates every canvas edit. It owns the paint pipeline, wire-route geometry, snapping and alignment, skin interpolation, and sparkle overlays; projection, navigation, redraw scheduling, and animation cross the `IFlexControl` interface that `api-gh2-flex.md` owns and this surface composes, never re-derives.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -50,7 +50,7 @@
 |  [06]   | `Eto.Drawing.SlabVertex` / `SlabArc` | enum          | the named vertex and arc a slab answers          |
 |  [07]   | `Eto.Drawing.ArcF` / `CircleF`       | struct        | the arc and circle the slab and grips project    |
 
-[PUBLIC_TYPE_SCOPE]: composed flex seam (`Grasshopper2.UI.Flex`, owned by `api-gh2-flex.md`)
+[PUBLIC_TYPE_SCOPE]: composed flex interface (`Grasshopper2.UI.Flex`, owned by `api-gh2-flex.md`)
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [CAPABILITY]                                 |
 | :-----: | :------------- | :------------ | :------------------------------------------- |
@@ -174,11 +174,11 @@
 - Capsule is the object silhouette every attributes draw folds: `Capsule.CreateFromOuter(Skin.Shape, Bounds)` mints it per frame, `SlabF` carries the rounded geometry and answers `Contains` exactly, and the `Parts` flag set selects which of the five ordered legs run
 
 [STACKING]:
-- `api-gh2-flex.md`(`.api/api-gh2-flex.md`): the `IFlexControl` seam owns projection (`Map`), navigation (`Navigate`), window-select (`BeginWindowSelect`/`EndWindowSelect`), responsive registration, redraw scheduling (`ScheduleRedraw`), and `Animate`; the canvas composes it and holds no parallel viewport transform
+- `api-gh2-flex.md`(`.api/api-gh2-flex.md`): the `IFlexControl` interface owns projection (`Map`), navigation (`Navigate`), window-select (`BeginWindowSelect`/`EndWindowSelect`), responsive registration, redraw scheduling (`ScheduleRedraw`), and `Animate`; the canvas composes it and holds no parallel viewport transform
 - `api-languageext.md`(`.api/api-languageext.md`): `ResolvePick` lands as `Option<Pick>`, paint hooks and pick reads ride `Eff`/`Fin`, and snap candidates fold as a `Seq<SnappingAction>` reduced through `SmallerMagnitude`
 - `api-thinktecture-runtime-extensions.md`(`.api/api-thinktecture-runtime-extensions.md`): `WireShape.ShapeType` and the sparkle set lower onto a `SmartEnum`/`Union`, and `CanvasActions` is a `ValueObject` policy record
 - `api-unicolour.md`(`.api/api-unicolour.md`): `Skin.Interpolate` and `WireSkin.ResolveColours` blend in a perceptual space, crossing the `Eto.Drawing.Color` pen boundary at the edge
 
 [LOCAL_ADMISSION]:
-- canvas surface enters only through the host `Canvas`/`Flex` seam; a paint hook attaches to the eight `Canvas` events
+- canvas surface enters only through the host `Canvas`/`Flex` interface; a paint hook attaches to the eight `Canvas` events
 - `WireShape`/`Skin`/`Sparkle` compose as host types; perceptual blending and easing math compose the Rasm kernel motion/colour owner

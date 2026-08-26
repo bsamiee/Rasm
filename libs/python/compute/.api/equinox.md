@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_EQUINOX]
 
-`equinox` owns the pytree-carrier layer of the JAX rail, representing any parametrized object as a `Module` dataclass whose array fields are pytree leaves and whose `static` fields fold into the `PyTreeDef`. Its filtered transforms generalize the `jax` transforms over one array/static partition, so a `Module` mixing arrays and Python config flows through `jax.jit`/`jax.grad` with no manual `static_argnums`. It is the carrier the `optax`/`optimistix`/`diffrax` rail threads state against and the type `interpax` interpolants subclass.
+`equinox` owns the pytree-carrier layer of the JAX domain, representing any parametrized object as a `Module` dataclass whose array fields are pytree leaves and whose `static` fields fold into the `PyTreeDef`. Its filtered transforms generalize the `jax` transforms over one array/static partition, so a `Module` mixing arrays and Python config flows through `jax.jit`/`jax.grad` with no manual `static_argnums`. It is the carrier the `optax`/`optimistix`/`diffrax` layer threads state against and the type `interpax` interpolants subclass.
 
 ## [01]-[PUBLIC_TYPES]
 

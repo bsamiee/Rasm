@@ -2,7 +2,7 @@
 
 `Conduits.Mount` owns filtered display-pipeline participation as a leased phase program with balanced render state and a bounded, observable callback-fault cell. Retained overlays and registered analysis remain distinct lifetime shapes under the same host boundary, and both draw through the ONE `Marks.Paint` dispatch — a private draw path beside it is the deleted form.
 
-`ConduitFrame` is the draw seam `Marks.Paint`'s pipeline canvas consumes. Viewport identity and pass facts detach immediately through the one generated projection, while the raw `DisplayPipeline` remains scoped to the host callback that supplied it.
+`ConduitFrame` is the draw boundary `Marks.Paint`'s pipeline canvas consumes. Viewport identity and pass facts detach immediately through the one generated projection, while the raw `DisplayPipeline` remains scoped to the host callback that supplied it.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@
 
 ## [02]-[PROGRAM]
 
-- Owner: `ConduitPhase` is the package-wide draw-seam vocabulary — each row carries ONE `CapabilitySet<PhaseCapability>` and the `PhaseHost` case naming who hands out the live pipeline; `ConduitStep` closes the phase program at four cases with `DrawProjector` folding the two draw arities into one case; `ConduitProgram` admits the program and partitions its steps into typed lanes ONCE.
+- Owner: `ConduitPhase` is the package-wide draw-boundary vocabulary — each row carries ONE `CapabilitySet<PhaseCapability>` and the `PhaseHost` case naming who hands out the live pipeline; `ConduitStep` closes the phase program at four cases with `DrawProjector` folding the two draw arities into one case; `ConduitProgram` admits the program and partitions its steps into typed lanes ONCE.
 - Cases: `PhaseCapability` is `Draws`, `PerObject`, and `WorldSpace` — the 44 four-bool row literals collapse onto eleven set literals; `PhaseHost` is `Conduit` (a `DisplayConduit` override phase — the only host a program MOUNTS), `Engine` (a realtime framebuffer or middleground event), or `Widget` (a registered widget's `OnDraw`) — the `Mounts` bool was this union flattened, and a producer stamping a phase states which host handed it the pipeline rather than a flag consumers re-derive.
 - Law: the legal capability corners DERIVE from the roster — `ConduitPhase.Law` is the distinct set of row sets behind an accessor-backed lazy, so a twelfth phase lands as one row and the law re-materializes; a hand-kept corner list beside the rows is two models of one fact.
 - Law: veto is host truth — `Cull` can only widen the incoming `CullObjectEventArgs.CullObject` and `Suppress` can only narrow the incoming `DrawObjectEventArgs.DrawObject`, the only two suppression flags the display contract admits; a prior host veto remains set, each decide answers per object per frame, and any deciding step voting to suppress wins.
@@ -21,7 +21,7 @@
 - Law: steps PARTITION at `ConduitProgram.Of` into typed lanes — the cull lane, the suppress lane, and the per-phase bounds and draw maps — so the host callbacks read a frozen lane instead of re-running `Choose` and `Filter` over the whole step roster per object per frame.
 - Law: `ConduitCriterion` turns every host filter axis into one case-unique row inside the mount request; case runtime type is the uniqueness key, and `Cases.Unique` is the ONE shared admission fold — criteria here and the mode policies and appearance concerns on `Display/modes.md` all admit through it.
 - Law: `FrameContext` detaches through the generated `FrameMap` — the six per-frame host reads are one `[Mapper]` projection, its three posture bools ride ONE `CapabilitySet<FramePosture>`, and its density is an admitted `PositiveMagnitude`.
-- Boundary: callback failures park on the lease's bounded fault cell; a host callback never discards a failed rail.
+- Boundary: callback failures park on the lease's bounded fault cell; a host callback never discards a failed result.
 - Growth: a pipeline phase is one row; a render state one `RenderAspect` case and one total adapter arm; a filter axis one criterion case.
 
 ```csharp
@@ -399,7 +399,7 @@ internal static class Cases {
 - Law: every parked fault also publishes through `ObjectsTelemetry` under `FaultSite.Conduit` — the cell is the lease's readable fault roster, the publish the process egress, and a second logger sink beside them is the fork.
 - Law: a draw lane's REFUSAL rows park too — `Marks.Paint` accounts a capability-illegal mark as a typed refusal on its `DrawTally`, and the adapter parks each cause, so a projector emitting a mark its canvas cannot draw is observable rather than silent.
 - Law: release composes kernel `Custody.Release` — disable, `UnbindAll`, sprite disposal, every step running even when an earlier one refuses, failures aggregating through `Error.Many` — and the lease's one-shot is a stepped transition whose failed release re-arms while its verdict parks on the cell.
-- Boundary: the adapter is the only `DisplayConduit` subclass and the only statement-shaped host callback seam.
+- Boundary: the adapter is the only `DisplayConduit` subclass and the only statement-shaped host callback boundary.
 
 ```csharp
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -414,7 +414,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
     private readonly FaultCell faults;
     private readonly SpriteSheet sprites = new();
     private readonly Op key;
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.conduit");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.conduit");
 
     internal ConduitAdapter(ConduitProgram program, FaultCell faults, Op key) =>
         (this.program, this.faults, this.key) = (program, faults, key);
@@ -472,7 +472,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
     private Fin<Unit> Render(ConduitFrame frame, Seq<RenderAspect> state, Fin<Seq<DisplayMark>> projected) =>
         PipelineScope.With(frame.Pipeline, state, () => projected
             .Bind(marks => Marks.Paint(new Canvas.Pipeline(frame, sprites), marks, key))
-            .Map(tally => tally.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: Rail, cause: cause)))), key);
+            .Map(tally => tally.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: HookPoint, cause: cause)))), key);
 
     private Fin<Unit> Project(DrawObjectEventArgs e, ConduitStep.Draw step) {
         ConduitFrame frame = ConduitFrame.Of(e.Display, e.Viewport, step.Phase);
@@ -486,7 +486,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
 
     private void Observe<T>(Fin<T> outcome) =>
         outcome.IfFail(error => ignore((
-            faults.Park(point: Rail, cause: error),
+            faults.Park(point: HookPoint, cause: error),
             ObjectsTelemetry.Publish(site: FaultSite.Conduit, error: error))));
 
     internal Fin<Unit> Release() => Custody.Release(
@@ -595,12 +595,12 @@ public static class ConduitHooks {
 
 ## [04]-[OVERLAYS]
 
-- Owner: `AnalysisMode` is the implement seam for registered false-colour overlays; `AnalysisLaw` and `AnalysisScale` carry the one parameterized overlay policy and `AnalysisOverlay` is the mode that runs it; `MeshComponent` closes the two addressable mesh component rows; `RetainedOverlay` is the owned `CustomDisplay` capsule drawing through `Marks.Paint`.
+- Owner: `AnalysisMode` is the implementation base for registered false-colour overlays; `AnalysisLaw` and `AnalysisScale` carry the one parameterized overlay policy and `AnalysisOverlay` is the mode that runs it; `MeshComponent` closes the two addressable mesh component rows; `RetainedOverlay` is the owned `CustomDisplay` capsule drawing through `Marks.Paint`.
 - Entry: `AnalysisMode.Register<TMode>` and `Activate` close registration and object participation — participation is a `ModeParticipation` row, not a bare bool; `AnalysisOverlay.Bind` SEATS the law on the host-owned singleton through `Cell.Seat`, so the first binder wins, a second reads `Ceded` as a typed refusal, and no seat verdict is discarded; `RetainedOverlay.Apply` closes retained requests.
 - Law: registered analysis, retained accumulation, and per-frame conduits keep distinct lifecycle owners.
 - Law: false-colour overlays COMPOSE `Rasm.Analysis` and compute nothing — `AnalysisLaw` names an `AnalysisQuery` and the fold runs it through `Analyze.In(context:).Run(...)`, so a page-local curvature, defect, or quality measurement beside the kernel query rows is the deleted form. One law value spans the whole overlay space: a new analysis is a `Query` row, a new palette a `BlendPath` and two endpoint colours, and a new banding an `AnalysisScale` case — never a mode class per analysis.
 - Law: the sample's component address dispatches through `MeshComponent` — the two addressable rows carry their own paint delegates and admission rides `Op.Row` over the host ordinal, so the `_ =>` catch-all over `ComponentIndexType` is closed and an unrostered component refuses by name.
-- Law: every overlay fault cell is the kernel `FaultCell` under `DisplayFaults.Cap` — a process-lifetime mode faulting per frame sheds into a bounded ring whose losses read as numbers; the Render rail's retention ledger is a deleted twin of this cell, not a composition target.
+- Law: every overlay fault cell is the kernel `FaultCell` under `DisplayFaults.Cap` — a process-lifetime mode faulting per frame sheds into a bounded ring whose losses read as numbers; the Render pipeline's retention ledger is a deleted twin of this cell, not a composition target.
 - Law: `Register` hands back a HOST-OWNED singleton — `VisualAnalysisMode.Register(Type)` constructs the instance itself, so the mode admits no constructor policy and the seated law arrives through `Bind`; an unbound mode refuses its callbacks with context evidence rather than painting a default nobody declared.
 - Law: normalization states its own source — `AnalysisScale.Declared` fixes the band so two objects under one mode compare, and `Measured` autoscales to the observed span; a degenerate span resolves to the ramp's cold end, because a zero-width band admits no position and a fabricated midpoint reads as measured contrast.
 - Law: `Add` is transactional — the capsule journals every retained mark, the batch draws through `Marks.Paint(Canvas.Retained)`, and a refusal row OR a host fault clears the native display and replays the pre-request journal, so the overlay never holds a half-applied batch; the mark count derives from the journal.
@@ -702,7 +702,7 @@ internal sealed class AnalysisOverlay : AnalysisMode {
     private readonly Atom<Option<AnalysisLaw>> law = Atom(Option<AnalysisLaw>.None);
     private readonly FaultCell faults = DisplayFaults.Cell();
     private readonly Op key = Op.Of(nameof(AnalysisOverlay));
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.analysis");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.analysis");
 
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
@@ -751,7 +751,7 @@ internal sealed class AnalysisOverlay : AnalysisMode {
         from painted in key.Catch(() => component.Paint(mesh: mesh, index: sample.Source.Index, ink: ink, op: key))
         select painted;
 
-    protected override Unit OnFault(Error error) => ignore(faults.Park(point: Rail, cause: error));
+    protected override Unit OnFault(Error error) => ignore(faults.Park(point: HookPoint, cause: error));
 }
 
 [SmartEnum<bool>]
@@ -782,7 +782,7 @@ public sealed class RetainedOverlay : IDisposable {
     private readonly Lock lifecycle = new();
     private readonly FaultCell faults = DisplayFaults.Cell();
     private readonly Op key;
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.retained");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.retained");
     private Seq<WorldMark> journal = Seq<WorldMark>();
     private bool released;
 
@@ -855,14 +855,14 @@ public sealed class RetainedOverlay : IDisposable {
                     key: key)
                 .IfFail(cause => {
                     released = false;
-                    _ = faults.Park(point: Rail, cause: cause);
+                    _ = faults.Park(point: HookPoint, cause: cause);
                 });
         }
     }
 }
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — `DisplayConduit` phase overrides, `DrawEventArgs`, channel constants); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` phase/lane rows, the `PhaseHost` `[Union]`); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the conduit-state `[Mapper]`); kernel `Domain/rails` + `Domain/validation` (`PhaseCapability` rows over `CapabilityLaw`).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — `DisplayConduit` phase overrides, `DrawEventArgs`, channel constants); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` phase/lane rows, the `PhaseHost` `[Union]`); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the conduit-state `[Mapper]`); kernel `Domain/results` + `Domain/validation` (`PhaseCapability` rows over `CapabilityLaw`).
 
 ## [05]-[RESEARCH]
 

@@ -117,7 +117,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Two namespaces carry the surface — `Azure.Security.KeyVault.Keys` for management, `.Cryptography` for operations — and the whole client rides `Azure.Core`: `Response<T>`/`Pageable<T>`/`AsyncPageable<T>` carriers, `TokenCredential`, and `RequestFailedException` converted to the page error rail once at the boundary, never inside the keyring delegates.
+- Two namespaces carry the surface — `Azure.Security.KeyVault.Keys` for management, `.Cryptography` for operations — and the whole client rides `Azure.Core`: `Response<T>`/`Pageable<T>`/`AsyncPageable<T>` carriers, `TokenCredential`, and `RequestFailedException` converted to the page error channel once at the boundary, never inside the keyring delegates.
 - `KeyClient` binds one vault `Uri` with a `TokenCredential`; `CryptographyClient` binds one key-identifier `Uri` (remote, vault round-trips) or one `JsonWebKey` (local, no service call), the same `IKeyEncryptionKey` surface gated by which constructor built it, and `KeyResolver` resolves a key URI to a bound `CryptographyClient` on demand.
 - `KeyWrapAlgorithm`/`EncryptionAlgorithm`/`SignatureAlgorithm` are extensible `readonly struct` values with string-based equality and implicit string conversion, so a new algorithm is a wire string.
 - Sync members carry async twins (`WrapKeyAsync`, `CreateKeyAsync`); delete and recover are long-running `DeleteKeyOperation`/`RecoverDeletedKeyOperation` pollers.

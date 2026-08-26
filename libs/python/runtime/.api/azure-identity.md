@@ -17,13 +17,13 @@
 |  [07]   | `ClientAuthenticationError` (`azure.core.exceptions`)               | exception | material present, authentication refused               |
 |  [08]   | `close()`                                                           | release   | retires each constructed leg's transport session       |
 |  [09]   | `__enter__` / `__exit__`                                            | bracket   | `__enter__` yields the inner `ChainedTokenCredential`  |
-|  [10]   | `aio` twin `__aenter__` / `await close()`                           | bracket   | async-chain release seam                               |
+|  [10]   | `aio` twin `__aenter__` / `await close()`                           | bracket   | async-chain release point                              |
 
 ## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `TokenCredential` IS the injection value both legs take: a data-plane client (`SecretClient(vault_url, credential)`) and the pydantic-settings `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)` each accept the credential and never a pre-built client, so the credential is the one seam the two legs share.
-- `DefaultAzureCredential` resolves its chain lazily at the first `get_token`, and an exhausted chain raises `CredentialUnavailableError` (a `ClientAuthenticationError` subclass), so one `except ClientAuthenticationError` arm covers both the no-material and the refused-material states at the fault seam; neither subclasses `OSError` — the retry row that rides the resolve names the Azure transport transients (`ServiceRequestError`/`ServiceResponseError` families) by dotted spelling.
+- `TokenCredential` IS the injection value both legs take: a data-plane client (`SecretClient(vault_url, credential)`) and the pydantic-settings `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)` each accept the credential and never a pre-built client, so the credential is the one boundary the two legs share.
+- `DefaultAzureCredential` resolves its chain lazily at the first `get_token`, and an exhausted chain raises `CredentialUnavailableError` (a `ClientAuthenticationError` subclass), so one `except ClientAuthenticationError` arm covers both the no-material and the refused-material states at the fault boundary; neither subclasses `OSError` — the retry row that rides the resolve names the Azure transport transients (`ServiceRequestError`/`ServiceResponseError` families) by dotted spelling.
 - credential state binds per composition, never process-global — `libs/python/.planning/RULINGS.md` `[05]-[PROCESS]` — so the ladder constructs the credential beside the client per read arm and memoizes neither.
 - release law: `DefaultAzureCredential` carries `close()` and the context-manager pair, so per-resolve construction brackets BOTH handles under one `with` — a credential constructed inline as the client's argument has no name to close, and every managed-identity and CLI leg it built keeps its own transport session alive past the read that needed it.
 

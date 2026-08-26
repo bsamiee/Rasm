@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_PG_SEARCH]
 
-`pg_search` mints the `bm25` index access method and the `pdb` query schema over a PostgreSQL table: a Tantivy-backed BM25 engine whose builders, bare operators, and cast modifiers lower to server SQL, and whose score, snippet, and aggregate projections anchor on the index `key_field`. Every surface is server-side SQL carrying no managed assembly. It is the branch's lexical-relevance owner — the search-provisioning rail emits its index DDL and the hybrid-fusion CTE ranks its BM25 branch beside the pgvector dense branch.
+`pg_search` mints the `bm25` index access method and the `pdb` query schema over a PostgreSQL table: a Tantivy-backed BM25 engine whose builders, bare operators, and cast modifiers lower to server SQL, and whose score, snippet, and aggregate projections anchor on the index `key_field`. Every surface is server-side SQL carrying no managed assembly. It is the branch's lexical-relevance owner — the search-provisioning arm emits its index DDL and the hybrid-fusion CTE ranks its BM25 branch beside the pgvector dense branch.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -72,9 +72,9 @@
 [STACKING]:
 - `api-pgvector-ef`(`.api/api-pgvector-ef.md`): the BM25 branch orders by `pdb.score(<key_col>)` while the dense branch orders by `VectorDbFunctionsExtensions.CosineDistance`; one reciprocal-rank-fusion CTE sums `1.0 / (k + rank)` across both, fusing lexical relevance and vector similarity into one top-k with no learned reranker.
 - `api-pgvectorscale`(`.api/api-pgvectorscale.md`): `diskann` and `bm25` are peer access methods over the same rows, and the `key_field` value is the identity both branches project, so the fusion re-queries the row store once instead of materializing two candidate payloads.
-- `api-npgsql-ef`(`.api/api-npgsql-ef.md`): index DDL lands as raw SQL on the migration rail and every `pdb` projection rides `RelationalDatabaseFacadeExtensions.SqlQuery<T>(FormattableString)`, so the lexical lane reaches the caller as a composable `IQueryable<T>`.
+- `api-npgsql-ef`(`.api/api-npgsql-ef.md`): index DDL lands as raw SQL on the migration path and every `pdb` projection rides `RelationalDatabaseFacadeExtensions.SqlQuery<T>(FormattableString)`, so the lexical lane reaches the caller as a composable `IQueryable<T>`.
 - `api-timescaledb`(`.api/api-timescaledb.md`): `pg_search` rides one `shared_preload_libraries` row beside the other preload-gated extensions, never a self-provisioned `CREATE EXTENSION` annotation.
-- Within-lib: the search-lane owner closes this whole surface as one union whose `Sql(column)` switch emits the exact expression — a new builder, operator, or cast is one case, and the tokenizer and modifier axes compose inside the case rather than as sibling methods; identifiers admit through the `Identifier` trust gate and every free-text payload crosses the one quote-doubling literal seam.
+- Within-lib: the search-lane owner closes this whole surface as one union whose `Sql(column)` switch emits the exact expression — a new builder, operator, or cast is one case, and the tokenizer and modifier axes compose inside the case rather than as sibling methods; identifiers admit through the `Identifier` trust gate and every free-text payload crosses the one quote-doubling literal boundary.
 
 [LOCAL_ADMISSION]:
 - `pg_search` runs in-process inside the PostgreSQL server tier, so the AGPL boundary stops at the database deployment and the folder composes the extension as server SQL alone.

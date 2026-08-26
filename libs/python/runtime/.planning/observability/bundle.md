@@ -11,12 +11,12 @@ Capture starts nothing. Heap analysis reads only an already-tracing `tracemalloc
 ## [02]-[BUNDLE]
 
 - Owner: `Collector` is one capture row — name, availability gate, collect — and `COLLECTORS` the closed roster every capture folds; `Bundle` carries the archive body beside its `ContentKey` and the collected/skipped rosters, and `facts` projects key, byte length, and roster counts onto the one `bundle.captured` line while the body stays bytes — the key correlates two captures on a log line, the archive itself never rides one.
-- Cases: a gate-closed row (the heap row with no tracer running) skips silently into the roster; a raising collector converts through the `boundary` fence into one `bundle.collect` warning naming the row and joins `skipped`; a collected row lands its redacted facts under its name in the one document. Archive finalization — deterministic encode, `zstd` compress, key mint — runs under its own `bundle.archive` fence, so `capture` returns `RuntimeRail[Bundle]` and a finalization fault lands as one warning beside the rail's refusal. The captured line writes AFTER the archive is built, so a wedged sink — the condition a bundle gets pulled under — never costs the archive.
+- Cases: a gate-closed row (the heap row with no tracer running) skips silently into the roster; a raising collector converts through the `boundary` fence into one `bundle.collect` warning naming the row and joins `skipped`; a collected row lands its redacted facts under its name in the one document. Archive finalization — deterministic encode, `zstd` compress, key mint — runs under its own `bundle.archive` fence, so `capture` returns `RuntimeResult[Bundle]` and a finalization fault lands as one warning beside the result's refusal. The captured line writes AFTER the archive is built, so a wedged sink — the condition a bundle gets pulled under — never costs the archive.
 - Entry: `capture(subject, *, selected, redaction)` is the one fold — an empty selection runs every row and a named selection bounds the roster. `Subject` carries the admitted-context render, verdict thunk, and scope as one value, so replay and emitted evidence stay inside the calling composition while the static table remains closed.
 - Auto: the document encodes through the observe-owned deterministic `ENCODE`, so key order is stable and the `ContentKey` replays across captures of identical state; `zstd.compress` bounds the archive body; redaction applies per collector BEFORE encoding and classifies by key name at EVERY depth, so the caller-supplied context, the verdict facts, and the nested `_installs` maps and `_replay` hook rings all scrub in place even under a permissive sink; the capture writes its `Bundle` facts as one line, so every pull leaves a line beside the built archive.
 - Law: every fence resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.BUNDLE`; the collector name stays on the warning line where an operator reads it, so a per-collector fence subject bought a coordinate the line already carries. The collector fence keeps a catch-all and states why — a collector body is the plane a capsule gets pulled UNDER, so it may never raise past `capture`.
 - Growth: a new evidence source is one `Collector` row; a new capture input is one `Subject` field; a new redaction transform stays the observe owner's `Scrub` growth.
-- Boundary: collection never starts an agent, thread, tracer, or sampling loop — the profilers stay the admitted owners, the heap gate reads, never arms, `tracemalloc`, and the readings row reads, never mounts, the diagnostic reader whose arming is the composition's `SignalProfile` value. `memray` is DECLINED on that same law — its allocation profiler arms a tracker the capture then owns, the exact agent this row forecloses — so the heap artifact stays the read-only `tracemalloc` ranking and the continuous rail stays `pyroscope-io`.
+- Boundary: collection never starts an agent, thread, tracer, or sampling loop — the profilers stay the admitted owners, the heap gate reads, never arms, `tracemalloc`, and the readings row reads, never mounts, the diagnostic reader whose arming is the composition's `SignalProfile` value. `memray` is DECLINED on that same law — its allocation profiler arms a tracker the capture then owns, the exact agent this row forecloses — so the heap artifact stays the read-only `tracemalloc` ranking and the continuous profiler stays `pyroscope-io`.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -32,7 +32,7 @@ from expression import Result
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
-from rasm.runtime.faults import BUNDLE_ARCHIVE, BUNDLE_COLLECT, RuntimeRail, boundary
+from rasm.runtime.faults import BUNDLE_ARCHIVE, BUNDLE_COLLECT, RuntimeResult, boundary
 from rasm.runtime.hooks import Hooks
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.logging import LogPipeline
@@ -161,7 +161,7 @@ COLLECTORS: Final[Block[Collector]] = Block.of_seq([
 
 class SupportBundle:
     @staticmethod
-    def capture(subject: Subject, *, selected: tuple[str, ...] = (), redaction: Redaction = OPEN) -> RuntimeRail[Bundle]:
+    def capture(subject: Subject, *, selected: tuple[str, ...] = (), redaction: Redaction = OPEN) -> RuntimeResult[Bundle]:
         known = frozenset(row.name for row in COLLECTORS)
         roster = COLLECTORS if not selected else COLLECTORS.filter(lambda row: row.name in selected)
         absent = Block.of_seq(name for name in selected if name not in known)

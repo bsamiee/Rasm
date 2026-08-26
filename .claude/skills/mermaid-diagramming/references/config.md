@@ -90,7 +90,7 @@ ELK tuning nests under `elk:`:
 
 ELK engine facts, each carrying its authoring rule:
 
-- `mergeEdges: true` fuses edges sharing a routing corridor into a common trunk — merged edges lose their own `--x`/`--o` end markers, so only a mono-rail diagram may declare it.
+- `mergeEdges: true` fuses edges sharing a routing corridor into a common trunk — merged edges lose their own `--x`/`--o` end markers, so only a single-path diagram may declare it.
 - `nodeSpacing` and `rankSpacing` are inert under ELK — density tunes through `nodePlacementStrategy` and the split move, never those keys.
 - An edge may target a subgraph id, landing its arrowhead on the cluster boundary — the grammar reference owns the fan-to-foundation recipe built on it.
 - A cluster-target skip edge can make ELK's cycle breaking re-rank the top stratum to the bottom, and `cycleBreakingStrategy: MODEL_ORDER` never rescues a cluster-edge cycle — the repair is declaration order and an invisible `~~~` rank pin between a top-stratum member and a lower-stratum member.
@@ -157,4 +157,3 @@ A fully offline deterministic render pins every input: the toolchain pins the CL
 - SVG output carries labels in `foreignObject` HTML that downstream SVG consumers drop — PNG is the portable export.
 - Repeated runs are not byte-identical, so render comparison keys on raster output, never SVG hashes; `deterministicIds` stabilizes internal SVG ids, and ids are diagram-prefixed, so CSS targeting exact ids moves to suffix or semantic selectors.
 - Markdown-mode fence detection misses a fence whose info string carries irregular whitespace.
-

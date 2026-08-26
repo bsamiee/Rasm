@@ -86,5 +86,5 @@
 
 [LOCAL_ADMISSION]:
 - imported only inside `runtime:node` subpaths.
-- `BunContext.layer` is the aggregate binding; individual `BunFileSystem`/`BunPath`/`BunCommandExecutor` merges serve only a rail needing a single service.
+- `BunContext.layer` is the aggregate binding; individual `BunFileSystem`/`BunPath`/`BunCommandExecutor` merges serve only a caller needing a single service.
 - cluster runners require the `@effect/cluster`/`@effect/sql` peers; admit them only in `work` with the data driver satisfying `MessageStorage`.

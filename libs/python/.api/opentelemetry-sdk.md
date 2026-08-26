@@ -168,7 +168,7 @@
 |  [03]   | `LoggerProvider.force_flush(timeout_millis=30000) -> bool`      | instance | flush all log processors                   |
 |  [04]   | `LoggerProvider.shutdown()`                                     | instance | flush + shut down all log processors       |
 |  [05]   | `BatchLogRecordProcessor(exporter, ...)`                        | ctor     | batching log-record processor              |
-|  [06]   | `SimpleLogRecordProcessor(exporter, *, meter_provider=None)`    | ctor     | synchronous processor for the test rail    |
+|  [06]   | `SimpleLogRecordProcessor(exporter, *, meter_provider=None)`    | ctor     | synchronous processor for the test suite   |
 |  [07]   | `InMemoryLogRecordExporter()`                                   | ctor     | zero-argument capture exporter for tests   |
 |  [08]   | `LogRecordLimits(...)`                                          | ctor     | log-record attribute count/length caps     |
 |  [09]   | `LoggingHandler(level=NOTSET, logger_provider=None)`            | ctor     | DEPRECATED stdlib `logging.Handler` bridge |
@@ -223,7 +223,7 @@
 - `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): its `OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` are the terminal sink wired into `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`; SDK processors own batching/sampling/resource, the exporter owns transport, and the wire temporality and aggregation preferences ride the METRIC EXPORTER constructor — `PeriodicExportingMetricReader` accepts neither, so a composition passing them to the reader raises `TypeError` at construction.
 - `psutil`(`.api/psutil.md`): a process-health gauge or observable counter fed by `psutil.Process(...).memory_info()`/`cpu_percent()` registers through the API `Meter` and takes shape from an SDK `View`; SDK aggregation is the only place a raw psutil reading becomes a temporality-correct metric point.
 - `rasm.runtime` diagnostic read: `InMemoryMetricReader` mounts BESIDE the exporting reader on one `MeterProvider` — each reader owns independent aggregation storage, so the diagnostic one drains nothing the exporting one owes — and `get_metrics_data()` answers `MetricsData | None`, whose `to_json(indent=None)` is the shipped projection a support archive decodes back to a mapping so redaction reaches every depth.
-- within-lib test rail: `InMemorySpanExporter`/`InMemoryMetricReader`/`InMemoryLogRecordExporter` capture `ReadableSpan`/`MetricsData`/`ReadableLogRecord` for assertion without a live collector; the log exporter reaches an already-registered `LoggerProvider` through `add_log_record_processor(SimpleLogRecordProcessor(...))`, so a spec captures without minting a second provider against the set-once global.
+- within-lib test suite: `InMemorySpanExporter`/`InMemoryMetricReader`/`InMemoryLogRecordExporter` capture `ReadableSpan`/`MetricsData`/`ReadableLogRecord` for assertion without a live collector; the log exporter reaches an already-registered `LoggerProvider` through `add_log_record_processor(SimpleLogRecordProcessor(...))`, so a spec captures without minting a second provider against the set-once global.
 
 [LOCAL_ADMISSION]:
 - SDK providers construct at the composition root only; instrumentation and library code bind the no-op API surface and never import `opentelemetry.sdk`.

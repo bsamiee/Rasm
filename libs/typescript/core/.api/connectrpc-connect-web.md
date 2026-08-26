@@ -11,7 +11,7 @@
 |  [01]   | `ConnectTransportOptions`           | transport policy | connect arm — `useBinaryFormat` default JSON, `useHttpGet`          |
 |  [02]   | `GrpcWebTransportOptions`           | transport policy | grpc-web arm — `useBinaryFormat` default binary                     |
 |  [03]   | `.baseUrl`                          | endpoint         | route root `<baseUrl>/<pkg>.<Service>/<Method>`; from `proc/config` |
-|  [04]   | `.fetch?: typeof globalThis.fetch`  | transport seam   | instrumented-fetch override — net policy, OTel headers, credentials |
+|  [04]   | `.fetch?: typeof globalThis.fetch`  | transport port   | instrumented-fetch override — net policy, OTel headers, credentials |
 |  [05]   | `.interceptors?: Interceptor[]`     | onion            | the `connect` `Interceptor` chain — trace propagation, auth, retry  |
 |  [06]   | `.useBinaryFormat?`                 | codec select     | binary vs JSON select; binary content-stable, JSON debuggable       |
 |  [07]   | `.binaryOptions?` / `.jsonOptions?` | codec options    | `@bufbuild/protobuf` read-write options for the selected format     |
@@ -26,7 +26,7 @@
 | :-----: | :-------------------------------- | :------------- | :----------------------------------------------------------------- |
 |  [01]   | `createConnectTransport`          | connect arm    | `protocol:"connect"` — JSON-default, `useHttpGet`-capable          |
 |  [02]   | `createGrpcWebTransport`          | grpc-web arm   | `protocol:"grpc-web"` — binary-default, gRPC gateway compat        |
-|  [03]   | `{ fetch: instrumentedFetch }`    | fetch seam     | `net/client` policy + `@effect/opentelemetry` `traceparent` egress |
+|  [03]   | `{ fetch: instrumentedFetch }`    | fetch port     | `net/client` policy + `@effect/opentelemetry` `traceparent` egress |
 |  [04]   | `{ interceptors: [trace, auth] }` | onion          | the shared `connect` `Interceptor` chain applied to every call     |
 
 ## [03]-[IMPLEMENTATION_LAW]

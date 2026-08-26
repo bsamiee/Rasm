@@ -37,7 +37,7 @@
 
 [STACKING]:
 - `tailwind-merge` + `clsx` (`.api/tailwind-merge.md`, `.api/clsx.md`): the selector output flows into `cn = twMerge(clsx(...))` — `cva` selects, `clsx` folds, `twMerge` de-conflicts last; `extendTailwindMerge`/`fromTheme` teaches custom token groups to the resolver.
-- `VariantProps` → `.api/react.md` + `effect` `Schema`: `VariantProps<typeof selector>` types a component's variant props, and a `Schema.Struct` of `Schema.Literal` axis fields (`Schema.Boolean` where `StringToBoolean` lifts a `{ true, false }` axis) decodes `wire`/config selections into `Props<T>`, the `wire`→`ui` styling seam carrying decoded values.
+- `VariantProps` → `.api/react.md` + `effect` `Schema`: `VariantProps<typeof selector>` types a component's variant props, and a `Schema.Struct` of `Schema.Literal` axis fields (`Schema.Boolean` where `StringToBoolean` lifts a `{ true, false }` axis) decodes `wire`/config selections into `Props<T>`, the `wire`→`ui` styling boundary carrying decoded values.
 - `@radix-ui/react-slot` (`.api/radix-ui-react-slot.md`): apply `cn(variants(props))` to a `Slot` under `asChild`, sharing one variant table across every concrete tag the wrapper styles.
 - `effect` `Match`: a residual `ClassValue` beyond the `compoundVariants` table computes through `Match.value(props).pipe(Match.when(...), Match.exhaustive)` folded through `cx`, reached only for cross-field logic the declarative table cannot express.
 

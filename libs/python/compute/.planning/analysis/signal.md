@@ -1,6 +1,6 @@
 # [PY_COMPUTE_SIGNAL]
 
-`SignalOp` folds SciPy filtering, spectral estimation, resampling, and peak detection beside PyWavelets decomposition, denoising, additive bands, CWT, and packet analysis through `apply`, returning each provider product directly. `WaveformExchange` writes the admitted two-axis float corpus through the native HDF5 seam the C# signal lane consumes.
+`SignalOp` folds SciPy filtering, spectral estimation, resampling, and peak detection beside PyWavelets decomposition, denoising, additive bands, CWT, and packet analysis through `apply`, returning each provider product directly. `WaveformExchange` writes the admitted two-axis float corpus through the native HDF5 boundary the C# signal lane consumes.
 
 Operands admit through `numerics/array#PAYLOAD` for the finite gate. Every operation returns the provider product it computes: filtered or resampled samples, spectral axes and densities, peak indices and properties, wavelet coefficients and reconstruction, additive bands, CWT coefficients and frequencies, or the packet tree. Both paths ride one numpy floor — `scipy.signal` entrypoints stay out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime thread band under the `RELEASING` trait.
 
@@ -31,7 +31,7 @@ from expression.collections import Block, Map
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.roots import ResourceRef
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -170,7 +170,7 @@ def _mad_threshold(detail_finest: np.ndarray, n: int) -> float:
 
 def _signal_kernel(
     samples: object, fs: float, op: SignalOp
-) -> "RuntimeRail[np.ndarray | tuple[np.ndarray | tuple[np.ndarray, ...] | dict[str, np.ndarray], ...] | WaveletPacket]":
+) -> "RuntimeResult[np.ndarray | tuple[np.ndarray | tuple[np.ndarray, ...] | dict[str, np.ndarray], ...] | WaveletPacket]":
     return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
         lambda _: boundary(
             SIGNAL_APPLY,
@@ -182,9 +182,9 @@ def _signal_kernel(
 
 async def apply(
     samples: object, fs: float, op: SignalOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE
-) -> "RuntimeRail[np.ndarray | tuple[np.ndarray | tuple[np.ndarray, ...] | dict[str, np.ndarray], ...] | WaveletPacket]":
-    async def dispatch() -> "RuntimeRail[np.ndarray | tuple[np.ndarray | tuple[np.ndarray, ...] | dict[str, np.ndarray], ...] | WaveletPacket]":
-        return (await lane.offload(Kernel.of(_signal_kernel, KernelTrait.RELEASING), samples, fs, op)).bind(lambda rail: rail)
+) -> "RuntimeResult[np.ndarray | tuple[np.ndarray | tuple[np.ndarray, ...] | dict[str, np.ndarray], ...] | WaveletPacket]":
+    async def dispatch() -> "RuntimeResult[np.ndarray | tuple[np.ndarray | tuple[np.ndarray, ...] | dict[str, np.ndarray], ...] | WaveletPacket]":
+        return (await lane.offload(Kernel.of(_signal_kernel, KernelTrait.RELEASING), samples, fs, op)).bind(lambda held: held)
 
     return await evidence_run(EvidenceScope.SIGNAL, f"signal.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs}, composition=composition)
 
@@ -245,7 +245,7 @@ class WaveformExchange:
     """The native `[samples, channels]` HDF5 publisher consumed by C# `ImportWaveforms`."""
 
     @staticmethod
-    def write(ref: ResourceRef, samples: object, sample_rate: float) -> "RuntimeRail[int]":
+    def write(ref: ResourceRef, samples: object, sample_rate: float) -> "RuntimeResult[int]":
         def landed(payload: ArrayPayload) -> int:
             values = np.asarray(samples)
             if len(payload.shape) != 2 or any(extent <= 0 for extent in payload.shape):

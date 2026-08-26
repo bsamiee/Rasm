@@ -4,7 +4,7 @@ SSH-first deployment for Dockerized applications on a Hostinger VPS: SSH and Doc
 
 ## [01]-[INPUTS_AND_ACCESS]
 
-Deployment inputs are `HOSTINGER_API_TOKEN`, the VM id, `SSH_USER@SSH_HOST`, the key path, and the remote app directory. On this estate SSH rides the universal key in `~/.ssh/config`, so a configured host alias replaces explicit `-i` flags. Key provisioning for a new box is API work: register the public key, attach it to the VM, then verify with `ssh <host> "echo SSH_OK && hostname"`.
+Deployment inputs are `HOSTINGER_API_TOKEN`, the VM id, `SSH_USER@SSH_HOST`, the key path, and the remote app directory. On this repo SSH rides the universal key in `~/.ssh/config`, so a configured host alias replaces explicit `-i` flags. Key provisioning for a new box is API work: register the public key, attach it to the VM, then verify with `ssh <host> "echo SSH_OK && hostname"`.
 
 ## [02]-[BASELINE]
 

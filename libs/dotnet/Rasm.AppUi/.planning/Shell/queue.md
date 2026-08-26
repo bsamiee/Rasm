@@ -5,7 +5,7 @@ Rasm.AppUi's run queue is the job/run/step surface over the settled screen kerne
 ## [01]-[INDEX]
 
 - [02]-[WORK_AXES]: Status, verb, direction, and redrive vocabularies — one row per fact, derived columns deleted.
-- [03]-[QUEUE_MODELS]: Cards, steps, outputs, origins, and the bound seam arrows.
+- [03]-[QUEUE_MODELS]: Cards, steps, outputs, origins, and the bound port arrows.
 - [04]-[QUEUE_REPORT]: The severity-first evidence report and its count chips.
 - [05]-[QUEUE_SURFACE]: The body fold, the seated program with its bounded drill-down, and the queue instruments.
 
@@ -76,11 +76,11 @@ public readonly record struct RedriveMark(int Attempt, int Bound);
 
 ## [03]-[QUEUE_MODELS]
 
-- Owner: `FanOut` the counter triple; `StateStrip` the appended fact strip; `OutputState` with `OutputRow` the sealed-artifact row; `StepRow` and `RunCard` the two row shapes; `RunOrigin` the join-key union; `RunQueueSeams` the bound arrows; `QueueKey` and `QueueEntry` the windowed ordinal space; `RunReportRow` and `ReportChip` the report rows.
+- Owner: `FanOut` the counter triple; `StateStrip` the appended fact strip; `OutputState` with `OutputRow` the sealed-artifact row; `StepRow` and `RunCard` the two row shapes; `RunOrigin` the join-key union; `RunQueuePorts` the bound arrows; `QueueKey` and `QueueEntry` the windowed ordinal space; `RunReportRow` and `ReportChip` the report rows.
 - Entry: `public IO<Fin<Option<EvidenceTimeline>>> Timeline(EvidenceSource source)` on `RunOrigin` — the one drill-down read both arms answer.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, DynamicData, System.Reactive, Rasm (kernel `Retriability`, `Expected`), BCL inbox
 - Growth: a new queueing route is one `RunOrigin` arm answering the drill-down read; a new card fact is one `StateStrip`; a new artifact disposition is one `OutputState` case; zero new surface.
-- Boundary: state arrives as APPENDED strips so a card never changes size class mid-run — a card that grows on its first warning re-flows every card beneath it and moves the button the operator was reaching for. `OutputState` makes the illegal artifact composite unspellable: a draft carries no adoption verb slot at all, so "unsealed but adoptable" cannot be constructed and the old `(bool Sealed, Option Adopt)` pair's refused corner is gone. `RunCard.Fault` carries the run's own typed refusal so the retry gate reads the `Retriability` the fault PUBLISHED, and `Redrive` carries the producer's attempt-of-bound. The report READS the correlation join and mints no evidence — both origin arms carry the run-creation `ActivityTraceId` and pass it directly to `EvidenceJoin.Run`, while `CorrelationId` remains the queue's DynamicData identity. The live `RunQueueSeams.Evidence` binding is `SurfaceRuntime.Evidence`; a resident binding keeps the same `EvidenceSource` fold and changes only the app-root arrow. The tile union carries NO list case and this screen is the owner — a board tile renders one aggregate; the queue's aggregates go the other way, as stat tiles the board folds from this surface's own instruments.
+- Boundary: state arrives as APPENDED strips so a card never changes size class mid-run — a card that grows on its first warning re-flows every card beneath it and moves the button the operator was reaching for. `OutputState` makes the illegal artifact composite unspellable: a draft carries no adoption verb slot at all, so "unsealed but adoptable" cannot be constructed and the old `(bool Sealed, Option Adopt)` pair's refused corner is gone. `RunCard.Fault` carries the run's own typed refusal so the retry gate reads the `Retriability` the fault PUBLISHED, and `Redrive` carries the producer's attempt-of-bound. The report READS the correlation join and mints no evidence — both origin arms carry the run-creation `ActivityTraceId` and pass it directly to `EvidenceJoin.Run`, while `CorrelationId` remains the queue's DynamicData identity. The live `RunQueuePorts.Evidence` binding is `SurfaceRuntime.Evidence`; a resident binding keeps the same `EvidenceSource` fold and changes only the app-root arrow. The tile union carries NO list case and this screen is the owner — a board tile renders one aggregate; the queue's aggregates go the other way, as stat tiles the board folds from this surface's own instruments.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -144,7 +144,7 @@ public sealed record RunCard(
     public CorrelationId Correlation => Origin.Correlation;
 }
 
-public sealed record RunQueueSeams(
+public sealed record RunQueuePorts(
     Func<IObservable<IChangeSet<RunCard, CorrelationId>>> Cards,
     Func<CorrelationId, IObservable<double>> Progress,
     Func<EvidenceSource> Evidence,
@@ -354,8 +354,8 @@ config:
 flowchart LR
     accTitle: Run-queue card, report, and output handoff
     accDescr: The card change set realizing through the virtual window into the tree body, the run origin narrowing an evidence source into one timeline that folds a severity-first report behind count chips, and a sealed output raising the layer adoption verb.
-    RunQueueSeams --> VirtualWindow
-    RunQueueSeams --> EvidenceSource
+    RunQueuePorts --> VirtualWindow
+    RunQueuePorts --> EvidenceSource
     VirtualWindow --> Body
     RunCard --> RunOrigin
     RunOrigin -->|trace| JoinRun["EvidenceJoin.Run"]

@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCPATCH]
 
-`ifcpatch` owns named-recipe IFC model transformation over the `ifcopenshell` model: `execute(args)` routes an `ArgumentsDict` by its `recipe` key into the `recipes` namespace where each recipe is a `BasePatcher` subclass running `patch()` -> `get_output()`, and one polymorphic `write` serializes the recipe-determined output — a patched `ifcopenshell.file` or a non-IFC `str`/path. It feeds the geometry ifc-analysis transformation rail, so the lifecycle owner composes `ifcpatch.execute(...)`/`write(...)` rather than an ad-hoc `file.create_entity`/`add`/`remove` mutation loop.
+`ifcpatch` owns named-recipe IFC model transformation over the `ifcopenshell` model: `execute(args)` routes an `ArgumentsDict` by its `recipe` key into the `recipes` namespace where each recipe is a `BasePatcher` subclass running `patch()` -> `get_output()`, and one polymorphic `write` serializes the recipe-determined output — a patched `ifcopenshell.file` or a non-IFC `str`/path. It feeds the geometry ifc-analysis transformation domain, so the lifecycle owner composes `ifcpatch.execute(...)`/`write(...)` rather than an ad-hoc `file.create_entity`/`add`/`remove` mutation loop.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_NPGSQL_EF_NODATIME]
 
-`Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` maps NodaTime CLR values onto PostgreSQL temporal, range, and multirange store types for the EF Core Npgsql provider, and translates NodaTime method, member, and aggregate calls to SQL that never client-evaluates. Every value enters through one `UseNodaTime()` call on the provider options builder, feeding the store-provider rail.
+`Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` maps NodaTime CLR values onto PostgreSQL temporal, range, and multirange store types for the EF Core Npgsql provider, and translates NodaTime method, member, and aggregate calls to SQL that never client-evaluates. Every value enters through one `UseNodaTime()` call on the provider options builder, feeding the store-provider mapping.
 
 ## [01]-[PUBLIC_TYPES]
 

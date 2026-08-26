@@ -475,7 +475,7 @@ Each `Value` factory is static and returns a `Value` over one named case; `ForLi
 |  [19]   | `JsonParser.Settings.WithTypeRegistry(TypeRegistry)`       | instance | resolve `Any` payload types      |
 
 - `JsonFormatter.Settings.WithIndentation`: inserts `Environment.NewLine` breaks on a non-null indentation, so a writer already emitting `\r\n` doubles them; `null` disables indentation and keeps the projection single-line.
-- `JsonFormatter.Default`: elides default-valued fields and throws `InvalidOperationException` on any `Any` whose type the empty registry cannot resolve; `JsonParser.Default` refuses unknown JSON members — the estate's one configured pair (`WithTypeRegistry` over every `<F>Reflection.Descriptor`, `WithIgnoreUnknownFields(true)`) lives at `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`, and `.Default` is the deleted form.
+- `JsonFormatter.Default`: elides default-valued fields and throws `InvalidOperationException` on any `Any` whose type the empty registry cannot resolve; `JsonParser.Default` refuses unknown JSON members — the solution's one configured pair (`WithTypeRegistry` over every `<F>Reflection.Descriptor`, `WithIgnoreUnknownFields(true)`) lives at `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`, and `.Default` is the deleted form.
 
 [ENTRYPOINT_SCOPE]: coded-stream limits, determinism, and size costing
 
@@ -517,8 +517,8 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 - `UnsafeByteOperations.UnsafeWrap` and `UnsafeCollectionOperations.AsSpan` alias caller storage rather than copying it, so the caller holds that storage unchanged for the message's read window.
 - `FieldCodec<T>` is the one read, write, and size unit behind every generated accessor, and `RepeatedField<T>` and `MapField<TKey, TValue>` consume it for bulk wire flow.
 - Extension state threads as `ref ExtensionSet<TTarget>`, so an unextended message stores no set, and `UnknownFieldSet` preserves every field the current descriptor does not claim.
-- Descriptor identity folds on `DescriptorBase.FullName` with `Index`, and `FileDescriptor.SerializedData` with `ToProto()` returns the payload a descriptor-set export carries — no estate gate diffs it, since every peer regenerates from the one live shape.
-- `InvalidProtocolBufferException` and `InvalidJsonException` both derive from `IOException`, so one catch shape covers both decode rails.
+- Descriptor identity folds on `DescriptorBase.FullName` with `Index`, and `FileDescriptor.SerializedData` with `ToProto()` returns the payload a descriptor-set export carries — no repo gate diffs it, since every peer regenerates from the one live shape.
+- `InvalidProtocolBufferException` and `InvalidJsonException` both derive from `IOException`, so one catch shape covers both decode paths.
 
 [STACKING]:
 - `Microsoft.IO.RecyclableMemoryStream`(`Rasm.Compute/.api/api-recyclable-stream.md`): a rented stream is the `IBufferWriter<byte>` that `WriteTo(IBufferWriter<byte>)` stages an unprefixed body into, and the same stream is the `Stream` that `CodedInputStream.CreateWithLimits` bounds on the read leg, so a frame stages and decodes with no contiguous copy and no length prefix.
@@ -528,12 +528,12 @@ Each `CodedOutputStream.Compute<Kind>Size(value) -> int` costs one wire value, `
 - `Grpc.StatusProto`(`.api/api-grpc-statusproto.md`): `Google.Rpc.Status.ToRpcException()` and `RpcException.GetRpcStatus()` carry that status on the `grpc-status-details-bin` trailer, so no consumer spells the trailer or parses `Status` by hand.
 - `Google.Api.CommonProtos`(`.api/api-commonprotos.md`): `Google.Rpc.Status`, `RetryInfo`, `BadRequest.FieldViolation`, `DebugInfo`, and the `google.type` calendar scalars the element and host families declare are generated messages over this runtime.
 - `Grpc.AspNetCore.Server`(`.api/api-grpc-aspnetcore.md`): the same generated contracts are the server-edge request and response payloads.
-- `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Timestamp` and `Duration` fields project through its paired inverses, so the wire clock and interior NodaTime values share one vocabulary and this package's operator algebra stays on the wire side of that seam.
+- `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Timestamp` and `Duration` fields project through its paired inverses, so the wire clock and interior NodaTime values share one vocabulary and this package's operator algebra stays on the wire side of that boundary.
 - `Riok.Mapperly`(`.api/api-mapperly.md`): generated mappers transcribe message fields to domain shapes, filling get-only `RepeatedField<T>` and `MapField<TKey, TValue>` members through an existing-target mapping method.
 - Within-library: one message crosses as one pooled pass — `CalculateSize()` sizes the frame, `WriteTo(IBufferWriter<byte>)` stages the body into the rented stream, the digest reads that span, and the receiving leg parses `ParseFrom(CodedInputStream.CreateWithLimits(stream, size, depth))` under the consumer's declared ceiling; the one length-prefixed form is the `WriteDelimitedTo(Stream)`/`ParseDelimitedFrom(Stream)` pair on a stream of consecutive messages; a partial update rides `FieldMask.Union().Normalize()` then `IsValid` then `Merge` under `MergeOptions`, and `UnknownFieldSet` retention is where a retired peer field lands under the compatibility law.
 
 [LOCAL_ADMISSION]:
 - Remote Compute contracts enter through generated `IMessage<T>` surfaces, and this codec stack owns their binary payloads end to end.
-- JSON crossings are ProtoJSON of a generated message through the ONE configured `JsonFormatter`/`JsonParser` pair carrying the estate `TypeRegistry` (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`); the parser tolerates unknown members so binary and JSON intake share one admission posture.
+- JSON crossings are ProtoJSON of a generated message through the ONE configured `JsonFormatter`/`JsonParser` pair carrying the solution `TypeRegistry` (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`); the parser tolerates unknown members so binary and JSON intake share one admission posture.
 - Reflection descriptors serve diagnostics, `Any`/`FieldMask` admission, the contract generation read off `FileDescriptor.Package`, and read-only runtime dispatch — never a runtime compatibility diff.
 - Proto2 extensions and unknown fields enter through the extension and unknown-field surfaces, keeping forward-compatible payloads intact across a re-emit.

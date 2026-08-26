@@ -10,7 +10,7 @@
 - Cases: each `ExportTarget` is a `LayerEngine` row with its editability ruling — `SVG` uses named `drawsvg` layer groups, `PDF` uses `pymupdf` OCG placement plus `pikepdf` `/OCProperties`, `ORA` uses `pyvips`/`lxml`/`stream-zip`, `PSD`/`PSB` use `psd-tools` native channel stacks — the one owner authoring the document and re-proving the finished bytes — and `TIFF` uses `psdtags`/`tifffile`. `_PSB_FLOOR` refuses a target on the wrong side of the PSD dimension bound, `PSDImage.new` derives the container version off that same bound, and one record-tier save tail serves both containers, so the target needs no version knob and no second save path. Illustrator consumes the named-layer `SVG`; renamed OCG PDF does not create Illustrator layer-panel structure.
 - Output: `LayerFact` is the closed bytes-plus-evidence family every arm returns; each case carries only its mode's required payload, with no null or default ghost fields.
 - Growth: a new editable-export target is one `ExportTarget` member, one `LayerEngine` row, and one arm over the engine algebra. A new layer attribute is one `Layer` field threaded into each projection. A compositing mode extends `graphic/color/derive#DERIVE`, and each lowering derives the provider member by value or name; Photoshop-only modes remain outside the CSS contract. Codec, OCG usage, lane, save, admission, and untrusted-payload growth extend their existing closed owners.
-- Boundary: a per-producer export class family, parallel name/source/flag lists, hand-emitted SVG groups, hand-written PDF OCG streams, local `BlendMode` twins, per-format blend tables, lossy flattening, class-qualified offload, inline native work, unbracketed document handles, duplicate names, and module batch entrypoints are rejected. `psd-tools` alone authors PSD/PSB and re-proves its own output; no second native writer rides the interpreter. The PSD/PSB arms author the display-referred 8-bit RGBA family — `PixelLayer.frompil` admits pixels only across the PIL seam, which carries no multichannel plane past 8 bits — so bit depth follows the plane's referent and every deep plane stays with the TIFF/ORA/EXR owners. `psdtags`/`tifffile` own TIFF. Rasterization stays graphic-owned, placement stays composition-owned, and PDF/A/PAdES/flat egress stay their close owners.
+- Boundary: a per-producer export class family, parallel name/source/flag lists, hand-emitted SVG groups, hand-written PDF OCG streams, local `BlendMode` twins, per-format blend tables, lossy flattening, class-qualified offload, inline native work, unbracketed document handles, duplicate names, and module batch entrypoints are rejected. `psd-tools` alone authors PSD/PSB and re-proves its own output; no second native writer rides the interpreter. The PSD/PSB arms author the display-referred 8-bit RGBA family — `PixelLayer.frompil` admits pixels only across the PIL boundary, which carries no multichannel plane past 8 bits — so bit depth follows the plane's referent and every deep plane stays with the TIFF/ORA/EXR owners. `psdtags`/`tifffile` own TIFF. Rasterization stays graphic-owned, placement stays composition-owned, and PDF/A/PAdES/flat egress stay their close owners.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -32,7 +32,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 
 from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
@@ -307,7 +307,7 @@ class LayeredExport(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"export-{self.target}", _CANON.encode((self.target, self.layers, self.base, self.policy)))
 
-    async def _emit(self) -> RuntimeRail[LayerFact]:
+    async def _emit(self) -> RuntimeResult[LayerFact]:
         engine = ENGINES[self.target]
         crossed = await self.lane.offload(Kernel.of(engine.arm, engine.trait), self)
         match crossed:

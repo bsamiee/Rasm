@@ -45,7 +45,7 @@
 
 - `SystemdLifetime.WaitForStartAsync`: arms the `ApplicationStarted`/`ApplicationStopping` registrations that write the notifications; `StopAsync` completes without notifying, since STOPPING fires from the stopping token.
 - `ServiceState(string)` reaches the whole protocol. Two statics carry names; that ctor UTF-8-encodes any assertion, so `WATCHDOG=1`, `RELOADING=1` with its `MONOTONIC_USEC=` correlation stamp, `STATUS=<text>`, `EXTEND_TIMEOUT_USEC=`, and `ERRNO=` all mint through it. Multi-line payloads newline-separate inside one call, since `Notify` sends one datagram per call.
-- `ISystemdNotifier.IsEnabled` answers only whether `NOTIFY_SOCKET` was exported at process start; it never proves the manager is still listening, so a `Notify` on a torn-down socket throws and every emission belongs on a typed rail.
+- `ISystemdNotifier.IsEnabled` answers only whether `NOTIFY_SOCKET` was exported at process start; it never proves the manager is still listening, so a `Notify` on a torn-down socket throws and every emission belongs on a typed result.
 
 [ENTRYPOINT_SCOPE]: environment reads (the complete set)
 
@@ -68,7 +68,7 @@
 
 [STACKING]:
 - `api-hosting.md`(`Microsoft.Extensions.Hosting`): `UseSystemd` extends `IHostBuilder` and `AddSystemd` extends `IServiceCollection`; `SystemdLifetime` implements `IHostLifetime`, replacing the console lifetime and driving both notifications off `IHostApplicationLifetime` tokens.
-- `Profiles`/`Modules` composition root: the Linux-server host-variance profile binds `AddSystemd` as its lifetime adapter, folded into the frozen service graph; `ProfileBoot` mints the protocol assertions the package does not name — `WATCHDOG=1`, the `RELOADING=1`/`STATUS=`/`READY=1` reload window — through the `ServiceState(string)` ctor and emits each on a typed rail, and it derives the watchdog period from `WATCHDOG_USEC` itself, since the package exposes no reader.
+- `Profiles`/`Modules` composition root: the Linux-server host-variance profile binds `AddSystemd` as its lifetime adapter, folded into the frozen service graph; `ProfileBoot` mints the protocol assertions the package does not name — `WATCHDOG=1`, the `RELOADING=1`/`STATUS=`/`READY=1` reload window — through the `ServiceState(string)` ctor and emits each on a typed result, and it derives the watchdog period from `WATCHDOG_USEC` itself, since the package exposes no reader.
 
 [LOCAL_ADMISSION]:
 - Linux-server host profile alone selects the systemd lifetime at composition; every other host row omits it.

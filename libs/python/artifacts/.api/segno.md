@@ -69,7 +69,7 @@ Each `make_*` returns an encoded `QRCode`; the codec always takes the `make_*_da
 |  [05]   | `matrix_iter`         | `matrix_iter(scale=1, border=None, verbose=False)` | module iterator; `verbose=True` -> per-module `TYPE_*`    |
 |  [06]   | `symbol_size`         | `symbol_size(scale=1, border=None) -> tuple`       | rendered `(w, h)`; `SYMBOL_SIZE` `190x190` @ scale-10     |
 |  [07]   | `terminal`            | `terminal(out=None, border=None, compact=False)`   | ANSI/TTY render; `ans` `save` is the file-sink twin       |
-|  [08]   | `show`                | `show(delete_after=20, scale=10, …) -> None`       | open in default image viewer; dev/diagnostic, off-rail    |
+|  [08]   | `show`                | `show(delete_after=20, scale=10, …) -> None`       | open in default image viewer; dev/diagnostic, off-path    |
 |  [09]   | `matrix`              | attribute -> `tuple[bytearray, ...]`               | boolean module matrix; feeds a custom renderer            |
 |  [10]   | `version`             | property -> `int \| str`                           | resolved version (`1`-`40`/`'M1'`-`'M4'`); `VERSION` fact |
 |  [11]   | `error`               | property -> `str`                                  | resolved level (`'L'`/`'M'`/`'Q'`/`'H'`); `ERROR` fact    |
@@ -116,7 +116,7 @@ Per-kind `save` options:
 - fault axis: `DataOverflowError` maps onto `MarkFault.overflow` carrying the `Symbology`, an out-of-range `version`/`mask`/`mode`/`error` `ValueError` onto `MarkFault.parameter`, a serializer `ValueError` (rejected `SvgStyle`, e.g. `omitsize` with `unit`) onto `MarkFault.render`, and a `segno.helpers` payload-format `ValueError`/`TypeError` onto `MarkFault.content` — each named exactly at the segno arm.
 
 [STACKING]:
-- `svgelements`(`.api/svgelements.md`): the dependency-free SVG markup parses through `SVG.parse(BytesIO(svg), reify=True).bbox()` for scale-to-fit / n-up / `bbox()` query before document egress (the `Mark.layered` `_mark_bbox` projection, a parse failure railed onto `MarkFault.geometry`), landing a QR in the same figure-composition rail as a python-barcode SVG, a `great-tables` table SVG, and a `vl-convert` chart SVG.
+- `svgelements`(`.api/svgelements.md`): the dependency-free SVG markup parses through `SVG.parse(BytesIO(svg), reify=True).bbox()` for scale-to-fit / n-up / `bbox()` query before document egress (the `Mark.layered` `_mark_bbox` projection, a parse failure carried onto `MarkFault.geometry`), landing a QR in the same figure-composition domain as a python-barcode SVG, a `great-tables` table SVG, and a `vl-convert` chart SVG.
 - `stream-zip`(`.api/stream-zip.md`): the `save(BytesIO(), kind="svg")` stream feeds a `MemberFile` data iterable, so a batch of QR symbols streams into a ZIP label bundle without buffering whole files; `png_data_uri()` / `svg_data_uri()` produce inline `data:` URIs for a single self-contained document tree, avoiding a separate asset write.
 - within-lib: `segno.helpers.make_*_data` returns formatted `str` the `Content` family carries typed once at ingress, so the QR encoding is a pure transform; the encode-correctness round-trip segno cannot express is a `zxingcpp.read_barcodes` decode pass on the rendered raster, owned by the zxing-cpp `matrix` arm (`graphic/marks/decode#DECODE`), the `Mark` owner providing it across arms.
 

@@ -1,25 +1,25 @@
 # [RASM_API_THINKTECTURE_JSON]
 
-`Thinktecture.Runtime.Extensions.Json` owns System.Text.Json codec selection for Thinktecture-generated owners: one options-level `JsonConverterFactory` reads the generated conversion metadata and routes each owner to its keyed, string, or span-parsable converter. Every decode terminates in the generated static `Validate` rail, so a payload never mints an owner past its invariant.
+`Thinktecture.Runtime.Extensions.Json` owns System.Text.Json codec selection for Thinktecture-generated owners: one options-level `JsonConverterFactory` reads the generated conversion metadata and routes each owner to its keyed, string, or span-parsable converter. Every decode terminates in the generated static `Validate` gate, so a payload never mints an owner past its invariant.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: converters and factories under `Thinktecture.Text.Json.Serialization`, `Utf8JsonReaderExtensions` under `Thinktecture`, the decode seam under `Thinktecture.Internal`
+[PUBLIC_TYPE_SCOPE]: converters and factories under `Thinktecture.Text.Json.Serialization`, `Utf8JsonReaderExtensions` under `Thinktecture`, the decode adapter under `Thinktecture.Internal`
 
-| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY] | [CAPABILITY]                                   |
-| :-----: | :------------------------------------------------------------------ | :------------ | :--------------------------------------------- |
-|  [01]   | `ThinktectureJsonConverterFactory`                                  | class         | selects converters from generated metadata     |
-|  [02]   | `ThinktectureJsonConverterFactory<T, TKey, TValidationError>`       | class         | binds one keyed owner to its converter         |
-|  [03]   | `ThinktectureJsonConverterFactory<T, TValidationError>`             | class         | binds one string-keyed owner to its converter  |
-|  [04]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | class         | binds one span-parsable owner to its converter |
-|  [05]   | `ThinktectureJsonConverter<T, TKey, TValidationError>`              | class         | keyed codec over the resolved key converter    |
-|  [06]   | `ThinktectureJsonConverter<T, TValidationError>`                    | class         | string codec carrying the property-name pair   |
-|  [07]   | `ThinktectureSpanParsableJsonConverter<T, TValidationError>`        | class         | zero-allocation UTF-8 codec                    |
-|  [08]   | `Utf8JsonReaderExtensions`                                          | static class  | numeric read and write under number handling   |
-|  [09]   | `Utf8JsonReaderHelper`                                              | static class  | pooled UTF-8 decode into a `char` span         |
-|  [10]   | `IUtf8JsonFactory<T, TValidationError>`                             | interface     | caller-supplied span validation seam           |
-|  [11]   | `ObjectFactoryAdapter<T, TValidationError>`                         | struct        | default span seam over the generated factory   |
-|  [12]   | `JsonSerializerOptionsExtensions`                                   | static class  | numeric key converter resolution               |
+| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY] | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------ | :------------ | :---------------------------------------------- |
+|  [01]   | `ThinktectureJsonConverterFactory`                                  | class         | selects converters from generated metadata      |
+|  [02]   | `ThinktectureJsonConverterFactory<T, TKey, TValidationError>`       | class         | binds one keyed owner to its converter          |
+|  [03]   | `ThinktectureJsonConverterFactory<T, TValidationError>`             | class         | binds one string-keyed owner to its converter   |
+|  [04]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | class         | binds one span-parsable owner to its converter  |
+|  [05]   | `ThinktectureJsonConverter<T, TKey, TValidationError>`              | class         | keyed codec over the resolved key converter     |
+|  [06]   | `ThinktectureJsonConverter<T, TValidationError>`                    | class         | string codec carrying the property-name pair    |
+|  [07]   | `ThinktectureSpanParsableJsonConverter<T, TValidationError>`        | class         | zero-allocation UTF-8 codec                     |
+|  [08]   | `Utf8JsonReaderExtensions`                                          | static class  | numeric read and write under number handling    |
+|  [09]   | `Utf8JsonReaderHelper`                                              | static class  | pooled UTF-8 decode into a `char` span          |
+|  [10]   | `IUtf8JsonFactory<T, TValidationError>`                             | interface     | caller-supplied span validation interface       |
+|  [11]   | `ObjectFactoryAdapter<T, TValidationError>`                         | struct        | default span adapter over the generated factory |
+|  [12]   | `JsonSerializerOptionsExtensions`                                   | static class  | numeric key converter resolution                |
 
 ## [02]-[ENTRYPOINTS]
 
@@ -33,7 +33,7 @@
 |  [04]   | `ThinktectureJsonConverterFactory.CanConvert(Type)`                             | instance | tests metadata and attribute policy        |
 |  [05]   | `ThinktectureJsonConverterFactory.CreateConverter(Type, JsonSerializerOptions)` | instance | binds the keyed, string, or span converter |
 
-[ENTRYPOINT_SCOPE]: converter overrides on every `Thinktecture*JsonConverter`, and the UTF-8 validation seam
+[ENTRYPOINT_SCOPE]: converter overrides on every `Thinktecture*JsonConverter`, and the UTF-8 validation interface
 
 | [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                            |
 | :-----: | :------------------------------------------------------------------------------- | :------- | :-------------------------------------- |
@@ -44,7 +44,7 @@
 |  [05]   | `WriteAsPropertyName(Utf8JsonWriter, T, JsonSerializerOptions)`                  | instance | writes a dictionary key                 |
 |  [06]   | `Utf8JsonReaderHelper.ValidateFromUtf8<T, TValidationError>`                     | static   | validates a span on the default adapter |
 |  [07]   | `Utf8JsonReaderHelper.ValidateFromUtf8<T, TValidationError, TFactory>(TFactory)` | static   | decodes through a caller struct factory |
-|  [08]   | `IUtf8JsonFactory<T, TValidationError>.Validate(ReadOnlySpan<char>, out T?)`     | instance | the implementable span seam             |
+|  [08]   | `IUtf8JsonFactory<T, TValidationError>.Validate(ReadOnlySpan<char>, out T?)`     | instance | the implementable span member           |
 |  [09]   | `JsonSerializerOptionsExtensions.GetCustomMemberConverter(Type)`                 | static   | resolves the numeric key converter      |
 
 - `ReadAsPropertyName` and `WriteAsPropertyName`: overridden on the string and span-parsable converters alone, so a dictionary keyed on a non-string owner carries no property-name path.
@@ -63,17 +63,17 @@
 - `IDisallowDefaultValue` owners throw on a null token or null key where every other owner decodes to `default(T)`, and `CanConvert` declines `Nullable<T>` so the framework wrapper keeps that arm.
 
 [STACKING]:
-- `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `MetadataLookup.FindMetadataForConversion` filtered on `SerializationFrameworks.SystemTextJson` yields the `ConversionMetadata` this factory dispatches on, `SmartEnumAttribute<TKey>.DisableSpanBasedJsonConversion` is the declaration-side opt-out dropping a string-keyed owner off the span path, and `IObjectFactory<T, TValue, TValidationError>.Validate` is the rail every converter read terminates in.
+- `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `MetadataLookup.FindMetadataForConversion` filtered on `SerializationFrameworks.SystemTextJson` yields the `ConversionMetadata` this factory dispatches on, `SmartEnumAttribute<TKey>.DisableSpanBasedJsonConversion` is the declaration-side opt-out dropping a string-keyed owner off the span path, and `IObjectFactory<T, TValue, TValidationError>.Validate` is the gate every converter read terminates in.
 - `NodaTime.Serialization.SystemTextJson`(`.api/api-nodatime-stj.md`): both append to one `JsonSerializerOptions.Converters` list under first-claim-wins order, the factory ahead of the per-type converters; their type spaces are disjoint, so order never contests.
-- `Thinktecture.Runtime.Extensions.MessagePack`(`.api/api-thinktecture-messagepack.md`) and `.EntityFrameworkCore10`(`Rasm.Persistence/.api/api-thinktecture-ef.md`): three rails read one generated contract set — `IObjectFactory<T, TKey, TValidationError>`, `IConvertible<TKey>`, `IValidationError<…>` — and the owner's `SerializationFrameworks` value selects which rails its factory serves, so one declaration carries both wires and the stored key column with no hand-written converter, formatter, or `HasConversion` beside it.
-- `Rasm.Persistence`: `Element/codec#CODEC_AXIS` composes both wire rails off one declaration — `ElementJson.Options` carries `new ThinktectureJsonConverterFactory()` beside the GeoJSON factory, so a generated owner and a `Geometry` cross one options graph.
+- `Thinktecture.Runtime.Extensions.MessagePack`(`.api/api-thinktecture-messagepack.md`) and `.EntityFrameworkCore10`(`Rasm.Persistence/.api/api-thinktecture-ef.md`): three packages read one generated contract set — `IObjectFactory<T, TKey, TValidationError>`, `IConvertible<TKey>`, `IValidationError<…>` — and the owner's `SerializationFrameworks` value selects which packages its factory serves, so one declaration carries both wires and the stored key column with no hand-written converter, formatter, or `HasConversion` beside it.
+- `Rasm.Persistence`: `Element/codec#CODEC_AXIS` composes both wire codecs off one declaration — `ElementJson.Options` carries `new ThinktectureJsonConverterFactory()` beside the GeoJSON factory, so a generated owner and a `Geometry` cross one options graph.
 - Within the branch, one app-root `SuiteContracts.Wire` expression registers `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` once, so an attribute-wired owner keeps its own converter and every other generated owner rides the options-level factory.
 - Span-parsable owners reaching that registration decode through `Utf8JsonReaderHelper`'s stack-allocated 128-char window with an `ArrayPool<char>` spill above it; a caller supplying a `readonly struct` `IUtf8JsonFactory<T, TValidationError>` to the three-argument `ValidateFromUtf8` gets devirtualized dispatch on the same pooled path.
 - Under source generation the factory rides the `JsonSerializerOptions.TypeInfoResolverChain` merge: a package's partial `JsonSerializerContext` appends after the Thinktecture key-scalar resolver, so every `[SmartEnum]`/`[ValueObject]` result field round-trips as its key scalar; `UnmappedMemberHandling.Disallow` rejects a drifted field at the consuming edge. A `[Union]` itself gains NO generated JSON support — the generator emits no converter attribute and no `[JsonDerivedType]` roster, and the factory's `CanConvert` declines union types — so every `[Union]` crossing a JSON wire carries its own hand-declared `[JsonPolymorphic]`/`[JsonDerivedType]` roster with locked kind literals on the union declaration, which the merged context then serves; a union on a wire with no such roster throws at first serialize. Bare `Seq<A>` members likewise fail READS on any options graph (`Seq` exposes no serializer-visible population hook) while writes succeed — the member-level `[JsonConverter]` binding a hand converter is the decode path.
-- `Rasm.Bim`: `Rasm.Bim/Semantics/properties#PROPERTY_TEMPLATES` `PropertyKey` `[SmartEnum<string>]` and the `MeasureValue`/`PropertyValue` `[Union]` carriers serialize through these converters with their generated `Validate` rail intact; serializer-edge `JsonException` enters `Op.Catch` and remains the original exceptional `Error` unless a documented codec verdict maps it to an `ICausedFault` owner case.
+- `Rasm.Bim`: `Rasm.Bim/Semantics/properties#PROPERTY_TEMPLATES` `PropertyKey` `[SmartEnum<string>]` and the `MeasureValue`/`PropertyValue` `[Union]` carriers serialize through these converters with their generated `Validate` gate intact; serializer-edge `JsonException` enters `Op.Catch` and remains the original exceptional `Error` unless a documented codec verdict maps it to an `ICausedFault` owner case.
 
 [LOCAL_ADMISSION]:
 - The generator stamps `[JsonConverter]` directly onto `[SmartEnum<TKey>]`, `[ValueObject<T>]`, and `[ComplexValueObject]` declarations when the Json package is referenced, so those owners round-trip on a bare options graph and the options-level `ThinktectureJsonConverterFactory` registration serves only owners the stamp does not reach; a registration expected to carry stamped owners is a no-op — `CanConvert` declines them under the attribute.
-- Key conversion lives inside the converter, so the generated `Validate` rail sees every inbound key.
+- Key conversion lives inside the converter, so the generated `Validate` gate sees every inbound key.
 - Hot string-keyed wires keep the span path, opted out at the declaration through `DisableSpanBasedJsonConversion` or at the registration through the factory's `Func<Type, bool>?` callback.
 - Numeric key converters stay internal singletons; `JsonSerializerOptionsExtensions.GetCustomMemberConverter(options, memberType)` is the one public resolution entry to a member's key-type converter.

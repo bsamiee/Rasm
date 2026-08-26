@@ -1,6 +1,6 @@
 # [DOTNET_TESTING_API_COVERLET_MTP]
 
-`coverlet.MTP` is the Microsoft.Testing.Platform flavor of coverlet: a builder-hook extension that IL-rewrites system-under-test assemblies ahead of load (Mono.Cecil, sequence-point hit recording) and reports on process exit. It is configured exclusively through MTP command-line options and config files — the `coverlet.msbuild` `Coverlet*` MSBuild property family is inert under this flavor. Estate activation runs through the `RasmCoverage=true` gate in `Directory.Build.targets`, which splices the `--coverlet` tail into `TestingPlatformCommandLineArguments` per test executable.
+`coverlet.MTP` is the Microsoft.Testing.Platform flavor of coverlet: a builder-hook extension that IL-rewrites system-under-test assemblies ahead of load (Mono.Cecil, sequence-point hit recording) and reports on process exit. It is configured exclusively through MTP command-line options — the `coverlet.msbuild` `Coverlet*` MSBuild property family is inert under this flavor. Activation is one CLI switch on any run: `dotnet test --coverlet --coverlet-output-format cobertura`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -27,18 +27,14 @@
 |  [08]   | `--coverlet-does-not-return-attribute`          | CLI    | unreachable-branch attribute markers                                    |
 |  [09]   | `--coverlet-exclude-assemblies-without-sources` | CLI    | sourceless-assembly policy                                              |
 |  [10]   | `--coverlet-file-prefix`                        | CLI    | report filename prefix in the results directory                         |
-|  [11]   | `--coverlet-include-test-assembly`              | CLI    | accepted but non-functional; the controller cannot self-instrument      |
-|  [12]   | `--coverlet-single-hit`                         | CLI    | record first hit only, mirrors the core knob                            |
-|  [13]   | `--coverlet-skip-auto-props`                    | CLI    | skip auto-property instrumentation                                      |
-|  [14]   | `testconfig.json` `platformOptions.Coverlet`    | config | file-borne config, camelCase keys; precedence per `[PRECEDENCE]` below  |
-
-- [14]-[PRECEDENCE]: CLI over `[app].testconfig.json` over `testconfig.json` over `coverlet.mtp.appsettings.json` over defaults.
+|  [11]   | `--coverlet-single-hit`                         | CLI    | record first hit only, mirrors the core knob                            |
+|  [12]   | `--coverlet-skip-auto-props`                    | CLI    | skip auto-property instrumentation                                      |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-[ACTIVATION]: `Directory.Build.targets` owns the one activation seam — `RasmCoverage=true` on any `IsTestProject` splices `--coverlet --coverlet-output-format $(RasmCoverageFormat) --coverlet-include "[Rasm*]*,[Csp.*]*" --coverlet-exclude "[*Tests]*,[*TestKit]*" --coverlet-file-prefix $(MSBuildProjectName)` into `TestingPlatformCommandLineArguments`; `RasmCoverageFormat` defaults to `cobertura`, and the report lands beside the run's `--results-directory` as `<prefix>.coverage.<format>.<stamp>.<ext>`.
+[ACTIVATION]: each suite csproj declares the extension and it stays idle until a run passes `--coverlet`; the report lands in the run's results directory as `coverage.<format>` (or `<prefix>.coverage.<format>` under `--coverlet-file-prefix`), so the `--results-directory` splice already routes it under `.artifacts/dotnet/test-results/<suite>/`.
 
-[DEAD_KNOBS]: the shipped build assets read no `Coverlet*` MSBuild property — `CoverletOutputFormat`, `CoverletInclude`, `CoverletExclude`, `CoverletOutput`, and the rest of the `coverlet.msbuild` family configure nothing here. There is no output-directory option; only the filename prefix and the results directory route placement. In CLI-only mode default excludes (`[coverlet.*]*`, `[xunit.*]*`, `[Microsoft.Testing.*]*`, test-host families) and default exclude-attributes auto-merge; a config file switches to authoritative mode where no defaults inject.
+[DEAD_KNOBS]: the shipped build assets read no `Coverlet*` MSBuild property — `CoverletOutputFormat`, `CoverletInclude`, `CoverletExclude`, `CoverletOutput`, and the rest of the `coverlet.msbuild` family configure nothing here. There is no output-directory option; only the filename prefix and the results directory route placement. In CLI-only mode default excludes (`[coverlet.*]*`, `[xunit.*]*`, `[Microsoft.Testing.*]*`, test-host families) and default exclude-attributes auto-merge.
 
 [ARCHITECTURE]: two processes — the controller instruments target assemblies on disk before test-host start and reads hits after exit; the test host flushes coverage data through the in-process session handler. Threshold validation and runtime report merging are not part of this flavor; merging routes through external report tooling.
 
@@ -47,5 +43,5 @@
 - `xunit.v3.mtp-v2` (`xunit-v3.md`): supplies the test host the extension instruments; both compose under one MTP entry point per test executable.
 
 [LOCAL_ADMISSION]:
-- Coverage activates through the `RasmCoverage` gate only; default test runs stay uninstrumented.
-- `Coverlet*` MSBuild property rows anywhere in the estate are dead configuration and are deleted on sight.
+- Coverage is a per-run CLI decision; no MSBuild gate, property, or wrapper script splices the coverlet flags.
+- `Coverlet*` MSBuild property rows anywhere in the repo are dead configuration and are deleted on sight.

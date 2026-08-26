@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_HIDSHARP]
 
-`HidSharp` owns the AppUi raw-HID surface: driver-free cross-platform device enumeration, duplex `HidStream` open over the win/linux/macos backend, raw input/output/feature report I/O, and the `HidSharp.Reports` descriptor parser that decodes a report into typed `DataValue` fields. `Hid` folds onto the single `InputFabric` edge every device rail shares, decoding a 6-DOF HID device through `DeviceItemInputParser`.
+`HidSharp` owns the AppUi raw-HID surface: driver-free cross-platform device enumeration, duplex `HidStream` open over the win/linux/macos backend, raw input/output/feature report I/O, and the `HidSharp.Reports` descriptor parser that decodes a report into typed `DataValue` fields. `Hid` folds onto the single `InputFabric` edge every device path shares, decoding a 6-DOF HID device through `DeviceItemInputParser`.
 
 ## [01]-[PUBLIC_TYPES]
 

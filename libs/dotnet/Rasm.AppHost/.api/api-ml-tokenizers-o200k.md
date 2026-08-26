@@ -33,4 +33,4 @@
 [LOCAL_ADMISSION]:
 - admit this package only as a `PackageReference` companion to `Microsoft.ML.Tokenizers`; AppHost imports no namespace and names no type from it.
 - admit it alongside `api-ml-tokenizers-cl100k.md` so the broker prices both the o-series (`o200k_base`) and GPT-4/3.5/embedding-3 (`cl100k_base`) families offline, since a model draw targets either encoding.
-- AppHost touches this package only at composition, through `CreateForEncoding("o200k_base")` or `CreateForModel("gpt-4o")`; the engine's `CountTokens` rail owns everything past it.
+- AppHost touches this package only at composition, through `CreateForEncoding("o200k_base")` or `CreateForModel("gpt-4o")`; the engine's `CountTokens` API owns everything past it.

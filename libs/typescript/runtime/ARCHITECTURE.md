@@ -1,6 +1,6 @@
 # [TS_RUNTIME_ARCHITECTURE]
 
-`runtime` owns the branch's execution substrate across the server and browser process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers, the interface and deploy planes, and peer branches by seam contract, never a cross-package reference.
+`runtime` owns the branch's execution substrate across the server and browser process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers, the interface and deploy planes, and peer branches by interface contract, never a cross-package reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -23,15 +23,15 @@ runtime/
     │   ├── server.ts          # AsyncLocalStorage manager seat; the node _rows roster and the _egress/_authority exclusion pair
     │   ├── instrument.ts      # Zone manager seat; the document _rows roster and one anchored RegExp per self-egress origin
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
-    │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, rail deltas, log floor, tenant views
+    │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, bus deltas, log floor, tenant views
     │   ├── profile.ts         # Pyroscope pprof lifecycle bracket, sample labels, and the effectful long-lived-region arm
-    │   └── vital.ts           # Estate-wide CWV custody: web-vitals capture, graded facts, the render-report intake
+    │   └── vital.ts           # Repo-wide CWV custody: web-vitals capture, graded facts, the render-report intake
     ├── serve/                 # One public front door
     │   ├── api.ts             # HttpApiGroup and RpcGroup contribution contract with derived OpenAPI and client surfaces
     │   ├── route.ts           # HttpLayerRouter fold: Mount port, tus dispatchers, health trio, raw webhook intake
     │   ├── live.ts            # Feed-value endpoints over the channel-rule table; replayable reconnect held exact
     │   ├── problem.ts         # Problem — the RFC 9457 owner rendering itself as a self-describing response
-    │   └── cli.ts             # Verb.main run rail and the Command.withSubcommands fold seat
+    │   └── cli.ts             # Verb.main run entry and the Command.withSubcommands fold seat
     ├── work/                  # Durable work: actors, workflows, queues, schedules, delivery, filtering, documents
     │   ├── entity.ts          # Durable-actor plane: the WorkClass service-class table over tiered mailboxes
     │   ├── flow.ts            # Workflow suspend-and-replay: minted steps, two-tier deadlines, one durable pause timer
@@ -58,7 +58,7 @@ runtime/
 Strata rank the runtime interior; seating rows carry only the law the fence cannot show.
 
 - S0 `net` egress floor — `client` lanes and `channel` frames mint outbound transport and import no runtime sibling.
-- S1 `proc` merge — `exec`, `life`, and `worker` mint their rails floor-free; only `config` and `flag` reach the net floor.
+- S1 `proc` merge — `exec`, `life`, and `worker` mint their layers floor-free; only `config` and `flag` reach the net floor.
 - S1 `worker.main.ts` hands `Report.worker` in as composition-root code, never a stratum import.
 - S2 lateral — every lateral edge points at `otel`, and `otel` reads no S2 sibling back, so the shared rank closes no cycle.
 - S2 `otel` merge — condition nodes are registration seats the exports map resolves; `emit` owns egress and the native conformance diagnostic.
@@ -114,7 +114,7 @@ flowchart TB
 
 `ai` composes no runtime sibling; its edges run outward to core, data, and security alone, so the fence seats no ai node.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -125,7 +125,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Runtime domain-peer seam registry
+    accTitle: Runtime domain-peer boundary registry
     accDescr: Runtime owners exchanging flag, budget, convention, identity, custody, and tap shapes with the core, security, and data peers.
     subgraph runtime[RUNTIME]
         Proc[Proc substrate]
@@ -149,13 +149,13 @@ flowchart LR
     Security e7@-->|"[PORT]: BearerGuard"| Serve
     Security e8@-->|"[BOUNDARY]: Intake"| Serve
     Security e13@-->|"[PORT]: FlagGate"| Proc
-    Data e9@-->|"[BOUNDARY]: Rail"| Serve
+    Data e9@-->|"[BOUNDARY]: Ingest"| Serve
     Data e10@-->|"[SHAPE]: Live.changes"| Serve
     Work e11@<-->|"[BOUNDARY]: Journal.claimBatch/complete"| Data
     Ai e12@-->|"[PORT]: Embedder"| Data
     Data e15@-->|"[PORT]: Journal.census"| Otel
     Security e16@-->|"[SHAPE]: TenantScope.metered"| Serve
-    Core e17@-->|"[SHAPE]: Tap.Rail"| Otel
+    Core e17@-->|"[SHAPE]: Tap.Bus"| Otel
     Data e18@-->|"[SHAPE]: Tap.Registry"| Otel
     Data e20@-->|"[SHAPE]: Journal.Deliverable.envelope"| Work
     Core e21@-->|"[SHAPE]: Carrier.Context"| Otel
@@ -180,7 +180,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Runtime platform and cross-runtime seam registry
+    accTitle: Runtime platform and cross-runtime boundary registry
     accDescr: Runtime owners exchanging settings, stack outputs, subscribable planes, and OTLP telemetry with iac, ui, and the Rasm.AppHost host.
     subgraph runtime[RUNTIME]
         Otel[Otel wire]
@@ -234,7 +234,7 @@ flowchart LR
     Delivery e7@-->|"emit: transport"| Egress
 ```
 
-One front-door law rules serving: packages export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. Every capture seam inherits the one ambient redaction scrub, every outbound call inherits its lane's compiled pulse and circuit row, every durable surface prices against the one `WorkClass` table, and the browser condition boots the same package once per document. Exact per-stage wiring lives on the owning implementation pages.
+One front-door law rules serving: packages export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. Every capture boundary inherits the one ambient redaction scrub, every outbound call inherits its lane's compiled pulse and circuit row, every durable surface prices against the one `WorkClass` table, and the browser condition boots the same package once per document. Exact per-stage wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 

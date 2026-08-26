@@ -61,7 +61,7 @@ from rasm.artifacts.document.model import (
     lapsed,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -944,7 +944,7 @@ class ReportPlan(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"report-{self.kind.value}", _KEY_ENCODER.encode((self.kind, self.spec)))
 
-    async def _emit(self) -> RuntimeRail[ReportFact]:
+    async def _emit(self) -> RuntimeResult[ReportFact]:
         match await async_boundary(REPORT_COMPOSE, self._composed, catch=_compose_raises()):
             case Result(tag="ok", ok=done):
                 assert done.fact is not None

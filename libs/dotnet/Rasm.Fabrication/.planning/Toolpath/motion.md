@@ -19,7 +19,7 @@ CAM motion closes the admitted `(ProcessModality, CutStrategy)` cross-product un
 - Entry: every sub-owner exposes `Admit` returning `Fin`, so a caller composes them once and `EngagementPolicy.Admit` never re-proves an axis its sub-owner already closed.
 - Law: a sub-owner's axes are INDEPENDENT, so its hook accumulates through `AdmissionSlots.Gate` slots and a caller learns every bad axis at once; the refusal locus is `<owner>:<axis>`, so no reader decodes which of six columns a single `contour-law` token meant. A dependent chain — `MotionRun.Of`, where the scallop verdict feeds the chord that feeds the schedule — stays on `Fin` and aborts, because a later step reads an earlier one's value.
 - Law: the stability recommendation is `Tooling/cuttingdata#STABILITY` `StabilityLobes.Recommend`'s own `Option<StablePoint>` seated on the axial law — the chatter-free depth is an AXIAL fact, so it rides the schedule it constrains. `MotionRun.Of` clamps the resolved step-down to the recommended depth and records the adopted spindle point as a `RunWarning`; an absent recommendation leaves the requested schedule untouched.
-- Law: every DIMENSIONED sub-owner column rides its `UnitsNet` quantity under the package ruling that quantities seat on each policy head no preimage digests — the four axial depths, the finish allowance and its engagement angle, the raster direction with its per-layer advance, the thread pitch, and the five hole lengths beside the countersink included angle. Each suffix stated its unit where no compiler read it, so an inch-basis caller admitted its magnitude unchanged and an angle column sat interchangeable with a length one; the quantity states the unit at construction, closes that cross-dimension mix, and leaves the millimetre a projection at the numeric seam. `AxialPass` is the ONE bare-millimetre row left: `Cam.AtDepth` writes each pass depth into a `FabricationCanon.Ordered` preimage, so the folder ruling that a digested scalar keeps its raw spelling holds it, and `AxialLaw.Schedule` is the derivation site the projection sits at. Feed, retract, spot, deep-step, and ream fractions stay bare — no unit names them, and `Ratio` leaves all five mutually substitutable while buying a conversion at every scale site.
+- Law: every DIMENSIONED sub-owner column rides its `UnitsNet` quantity under the package ruling that quantities seat on each policy head no preimage digests — the four axial depths, the finish allowance and its engagement angle, the raster direction with its per-layer advance, the thread pitch, and the five hole lengths beside the countersink included angle. Each suffix stated its unit where no compiler read it, so an inch-basis caller admitted its magnitude unchanged and an angle column sat interchangeable with a length one; the quantity states the unit at construction, closes that cross-dimension mix, and leaves the millimetre a projection at the numeric boundary. `AxialPass` is the ONE bare-millimetre row left: `Cam.AtDepth` writes each pass depth into a `FabricationCanon.Ordered` preimage, so the folder ruling that a digested scalar keeps its raw spelling holds it, and `AxialLaw.Schedule` is the derivation site the projection sits at. Feed, retract, spot, deep-step, and ream fractions stay bare — no unit names them, and `Ratio` leaves all five mutually substitutable while buying a conversion at every scale site.
 - Auto: `EngagementPolicy.Resolve` folds the budget case to ONE `BudgetDraw` row — the modality the case requires, its refusal locus, and the feed/compensation/step-down triple it can answer — so the eleven arms carry no repeated gate and one admission decides them all. `AxialLaw.Schedule` derives axial-pass rows from total depth, step ceiling, finish step-down, and allowances. `MotionRun.Of` resolves scallop chord and IT-grade allowance once.
 - Output: `MotionRun` carries the admitted carrier every emitter reads; `Schedule` is derived, never stored, so a policy edit cannot leave a stale roster behind it.
 - Packages: `Process/owner.md` atoms and `FabricationCanon`, `Process/family.md`, `Process/physics.md`, `Process/faults.md`, `Tooling/cuttingdata.md`, `Spec/tolerance.md` (`ToleranceSpec.Apply`), `Toolpath/bevel.md`, `Toolpath/guard.md`, `Toolpath/link.md`, `Toolpath/surface.md`, `Toolpath/wire.md`, `Fixturing/workholding.md`, `Kinematics/machine.md`, kernel `Rasm.Domain` (`Tolerance`, `ToleranceLane`), `Rasm.Element` (`AdmissionSlots`, `CanonicalWriter`), `UnitsNet` (`Length` and `Angle` over every dimensioned sub-owner column, and the quantity algebra that folds the raster heading), `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `Riok.Mapperly`, `RhinoCommon`, BCL inbox.
@@ -63,7 +63,6 @@ public sealed partial class AxialLaw {
 
     public Option<StablePoint> Stability { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length maxAxialDepth,
@@ -113,7 +112,6 @@ public sealed partial class FinishLaw {
     public RaTarget Roughness { get; }
     public ItGrade Grade { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Angle targetAngle,
@@ -145,7 +143,6 @@ public sealed partial class ContourLaw {
     public Point3d SeamReference { get; }
     public OffsetPolicy PlanarOffset { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ContourCompensation compensation,
@@ -184,7 +181,6 @@ public sealed partial class InfillLaw {
     public Angle Advance { get; }
     public Length ThreadPitch { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PartitionStrategy partition,
@@ -218,7 +214,6 @@ public sealed partial class SurfaceLaw {
     public HashMap<CutStrategy, SurfaceLayoutKey> LayoutKeys { get; }
     public Option<Func<MeshSpace, SurfaceLayoutKind, double, Fin<Seq<SurfaceDrive>>>> Layout { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SurfaceSampling sampling,
@@ -266,7 +261,6 @@ public sealed partial class RouteLaw {
     public Point3d Home { get; }
     public string WorkOffset { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref GuardPolicy guard,
@@ -323,7 +317,6 @@ public sealed partial class MotionStock {
     public Option<ResidualStock> Residual { get; }
     public Seq<StockSnapshot> Snapshots { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MotionMounts mounts,
@@ -366,7 +359,6 @@ public sealed partial class EngagementPolicy {
 
     public HashMap<CutStrategy, Func<MotionRun, Fin<Seq<CutElement>>>> Generators { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ProcessBudget budget,
@@ -700,7 +692,6 @@ public sealed partial class HoleLaw {
     public Length SinkDepth(Length diameter) =>
         (CounterDiameter - diameter) * (0.5 / Math.Tan((IncludedAngle / 2.0).Radians));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length depth,
@@ -753,7 +744,6 @@ public sealed partial class LathePolicy {
     public TurnPolicy Motion { get; }
     public HashMap<CutStrategy, Seq<TurnStep>> Programs { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref TurnStock stock,
@@ -783,7 +773,7 @@ public sealed record CamStrategy(CutStrategy Strategy, bool DemandsClosed, Func<
 
 ## [04]-[CAM_FOLD]
 
-- Owner: `Cam` owns `Solve`, `Generate`, every strategy emitter, and the workholding-guard-solve commit; `ToolpathRowMap` is the package's ONE specialized-row transcription seam, declared here and extended by a partial per lane — lathe directives, link transitions, wire blocks, and bevel blocks and inspections each generate their own rows against it.
+- Owner: `Cam` owns `Solve`, `Generate`, every strategy emitter, and the workholding-guard-solve commit; `ToolpathRowMap` is the package's ONE specialized-row transcription extension point, declared here and extended by a partial per lane — lathe directives, link transitions, wire blocks, and bevel blocks and inspections each generate their own rows against it.
 - Entry: `Solve(FabricationPolicy.Cam, FabricationInput)` is the owner-side fold. `Generate(MotionRun)` derives its `(ProcessModality, CutStrategy)` discriminant from the admitted carrier and reads the strategy row. Both return `Fin`; independent open-profile defects accumulate at the closed-boundary gate, and dependent generation aborts.
 - Law: the SAME hazard fold `Commit` runs is submitted to the link beam, so a transition the guard refuses never enters the beam and one verdict governs both legs.
 - Auto: `ElementVariant.Of` derives every element's rotation, thermal exposure, and pierce count off its own emitted motion, so the link objective sums one measurement across stations and transitions. `Turn` lowers each executable `LatheDirective` onto the S0 `MotionDirective` carrier and each evidence directive onto a `SpecializedToolpathRow` through the generated mapper, then folds one admitted `SpecializedToolpathEnvelope` — no parallel command family and no typed refusal for a dwell, oriented stop, or spindle synchronization the atom now carries.

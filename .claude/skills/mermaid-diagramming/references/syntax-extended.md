@@ -27,7 +27,7 @@ Pick a type by intent, then its section for the minimal fence and traps; rows ru
 |  [17]   | `kanban`             | workflow-stage board     |
 |  [18]   | `treeView-beta`      | file-tree hierarchy      |
 |  [19]   | `cynefin-beta`       | decision-domain sort     |
-|  [20]   | `railroad-*-beta`    | grammar syntax rails     |
+|  [20]   | `railroad-*-beta`    | grammar syntax diagrams  |
 |  [21]   | `swimlane-beta`      | laned process flow       |
 |  [22]   | `eventmodeling`      | command-event timeline   |
 |  [23]   | `venn-beta`          | set-overlap regions      |
@@ -498,7 +498,7 @@ gitGraph LR:
   commit id: "tokens"
   branch develop
   checkout develop
-  commit id: "rails"
+  commit id: "types"
   branch feature
   checkout feature
   commit id: "elk"

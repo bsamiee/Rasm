@@ -29,7 +29,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: client construction, root admission, and the consume seam; every verb closes on the `TKey,TValue` closure
+[ENTRYPOINT_SCOPE]: client construction, root admission, and the consume boundary; every verb closes on the `TKey,TValue` closure
 
 | [INDEX] | [SURFACE]                                                                                | [SHAPE]  | [CAPABILITY]                     |
 | :-----: | :--------------------------------------------------------------------------------------- | :------- | :------------------------------- |
@@ -60,9 +60,9 @@
 - `System.Diagnostics.DiagnosticSource`(`api-diagnostics-activity.md`): the process span carries the extracted producer context as an `ActivityLink`, so each leg keeps its own trace id, and a handler fault stamps `Activity.SetStatus(ActivityStatusCode.Error, …)` with an `error.type` tag before the throw resumes.
 - `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): the duration histogram ships its own `InstrumentAdvice<double>` boundary hint, so a provider `AddView` row re-buckets only where a backend rejects the advised shape.
 - within-lib: one closure pair composes ctor -> `Build()` -> `ConsumeAndProcessMessageAsync`, the handler's `Activity` parameter carrying the process span the caller enriches and the `ConsumeResult` return driving the commit; a loop owning its own span joins through `TryExtractPropagationContext`.
-- `Rasm.Persistence`: `Version/egress#EGRESS_SINK` the `kafka` binding row builds its producer through `AsInstrumentedProducerBuilder` under `ConfluentKafkaInstrumentedProducerBuilderOptions` (`EnableTraces`/`EnableMetrics` explicit — the flags default off outside DI), the one instrumented-builder seam at the `SinkBinding.Leg` composition; `AddKafkaProducerInstrumentation` registers on the tracer and meter builders at the AppHost root for the egress leg's key/value closure — the sink page owns builder construction, never provider registration — and the consumer twins bind at the `Version/ingress` CDC consume leg.
+- `Rasm.Persistence`: `Version/egress#EGRESS_SINK` the `kafka` binding row builds its producer through `AsInstrumentedProducerBuilder` under `ConfluentKafkaInstrumentedProducerBuilderOptions` (`EnableTraces`/`EnableMetrics` explicit — the flags default off outside DI), the one instrumented-builder site at the `SinkBinding.Leg` composition; `AddKafkaProducerInstrumentation` registers on the tracer and meter builders at the AppHost root for the egress leg's key/value closure — the sink page owns builder construction, never provider registration — and the consumer twins bind at the `Version/ingress` CDC consume leg.
 
 [LOCAL_ADMISSION]:
-- One instrumented builder replaces the plain builder at a sink seam; a second plain producer beside it forks the telemetry surface.
+- One instrumented builder replaces the plain builder at a sink boundary; a second plain producer beside it forks the telemetry surface.
 - Composition-root-only, at the AppHost wire root that owns Kafka clients; one closure pair registers per message shape across both providers.
 - librdkafka `StatisticsHandler` JSON stays the broker-ops lane on the Confluent config rows; these client instruments carry the app-side leg on the OTel providers.

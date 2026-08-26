@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Grasshopper2 host boundary for Rasm: component authoring (spec, ports, Garden data transfer, attributes, native object catalog), document graph (lifecycle, connectivity, undo history, solution control), canvas (paint, wires, interaction, layout, motion), editor shell and chrome, Eto native UI construction and runtime, and the platform-gated macOS seam. References the Rasm kernel only.</Description>
-        <CspScope>Boundary</CspScope>
+        <Description>Grasshopper2 host boundary for Rasm: component authoring (spec, ports, Garden data transfer, attributes, native object catalog), document graph (lifecycle, connectivity, undo history, solution control), canvas (paint, wires, interaction, layout, motion), editor shell and chrome, Eto native UI construction and runtime, and the platform-gated macOS layer. References the Rasm kernel only.</Description>
         <RasmHost>grasshopper;platform</RasmHost>
         <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     </PropertyGroup>
@@ -11,9 +10,12 @@
     </ItemGroup>
 
     <ItemGroup Label="Host Substrate">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper Usings">

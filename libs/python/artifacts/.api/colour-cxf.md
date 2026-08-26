@@ -1,11 +1,11 @@
 # [PY_ARTIFACTS_API_COLOUR_CXF]
 
-`colour_cxf` owns the CxF3 (Color Exchange Format v3) document wire for the artifacts color/print plane: an `xsdata`-generated dataclass binding of the `CxF3-core` XSD whose `cxf3.CxF` root models the spot/spectral/device interchange graph, round-tripped against UTF-8 XML bytes through `read_cxf`/`read_cxf_from_file`/`write_cxf`. It is the exchange skin only: it decodes a partner's `.cxf` and encodes a derived palette, carrying no colorimetric math. Parsed spectra feed the `colour-science` `sd_to_XYZ` rail and device CMYK/spot rows feed the `graphic/color/managed` separations egress.
+`colour_cxf` owns the CxF3 (Color Exchange Format v3) document wire for the artifacts color/print plane: an `xsdata`-generated dataclass binding of the `CxF3-core` XSD whose `cxf3.CxF` root models the spot/spectral/device interchange graph, round-tripped against UTF-8 XML bytes through `read_cxf`/`read_cxf_from_file`/`write_cxf`. It is the exchange skin only: it decodes a partner's `.cxf` and encodes a derived palette, carrying no colorimetric math. Parsed spectra feed the `colour-science` `sd_to_XYZ` layer and device CMYK/spot rows feed the `graphic/color/managed` separations egress.
 
 ## [01]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: document read/write rail (`colour_cxf` top-level)
-- rail: color
+[ENTRYPOINT_SCOPE]: document read/write domain (`colour_cxf` top-level)
+- concern: color
 
 Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cxf`/`read_cxf_from_file` parse through an internal `XmlContext()` + `XmlParser`, `write_cxf` renders via `XmlSerializer` and encodes UTF-8. One parse, one render — no streaming, partial-tree, or validating variant.
 
@@ -16,7 +16,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 |  [03]   | `write_cxf`          | `write_cxf(cxf: cxf3.CxF)` -> `bytes`               | serialize a `CxF` graph to UTF-8 CxF3 XML bytes           |
 
 [ENTRYPOINT_SCOPE]: re-exported `xsdata` bind/serialize runtime (`colour_cxf` top-level)
-- rail: color
+- concern: color
 
 `colour_cxf` re-exports the three `xsdata` runtime objects its functions use, so a consumer needing custom parse/serialize config (pretty-print via `SerializerConfig`, a shared `XmlContext` cache across many documents, strict/lenient fail modes) reaches them through this import rather than importing `xsdata` separately. Provenance is `xsdata.formats.dataclass.` except `PathLike` (`os`).
 
@@ -30,7 +30,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 ## [02]-[DOCUMENT_GRAPH]
 
 [MODEL_SCOPE]: document spine — `cxf3.CxF` root and resource collections
-- rail: color
+- concern: color
 
 `cxf3.CxF` is the parse/render root both `read_cxf` and `write_cxf` bind; every node namespaces to `http://colorexchangeformat.com/CxF3-core`. Each type exposes both its CapWords class (`ColorCielab`) and a snake_case module alias (`color_cielab`) — the CapWords class is the public symbol.
 
@@ -45,7 +45,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 |  [07]   | `CustomResources`              | open `xsd:any` wildcard for vendor extensions                                     |
 
 [MODEL_SCOPE]: color object and measurement specification
-- rail: color
+- concern: color
 
 `Object` is the CxF spot/sample unit — a GUID-keyed entry carrying its measured `ColorValues`, `DeviceColorValues`, color-difference values, and physical attributes, each leaf color row bound to a `ColorSpecification` through the `color_specification` IDREF.
 
@@ -62,7 +62,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 |  [09]   | `Profile`            | an ICC profile reference/embed with a transform `direction`                              |
 
 [MODEL_SCOPE]: colorimetric + spectral color values — `ColorValues` union members
-- rail: color
+- concern: color
 
 `Object.color_values` is a `ColorValues` whose `choice: list[...]` is the closed `xsd:choice` over every spectral and colorimetric encoding — the half that crosses into `colour-science` for SPD/XYZ resolution. Each spectrum carries samples as `value: list[float]` with a `@start_wl` attribute; `CustomSpectrum`/`PrivateSpectrum`/`PrivateColorValues`/`CustomColorSpace` are the vendor escape hatches outside the closed set.
 
@@ -81,7 +81,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 |  [11]   | `ColorDensity`                | ISO 5-3 optical density — `(density*, status*, filter*, base_offset)`                     |
 
 [MODEL_SCOPE]: device + spot color values — `DeviceColorValues` union members
-- rail: color
+- concern: color
 
 `Object.device_color_values` is a `DeviceColorValues` whose `choice: list[...]` is the device/separations half feeding `graphic/color/managed`. `ColorCmykplusN` is the headline spot node — process CMYK with a list of named `SpotColorType` channels at percentage coverage; `ColorRecipe` carries the ink-mixing formula (substrate, process, weighted `Colorant` list).
 
@@ -99,7 +99,7 @@ Three functions span the whole I/O surface over `cxf3.CxF` <-> `bytes`: `read_cx
 ## [03]-[VOCABULARIES]
 
 [ENUM_SCOPE]: closed measurement + sample vocabularies (`cxf3`, exact CxF3-core cardinality)
-- rail: color
+- concern: color
 
 These closed `StrEnum` vocabularies the measurement/physical nodes select from are the registry-key set a consuming page maps onto the `colour-science` registries (`SDS_ILLUMINANTS`, `MSDS_CMFS`), read as the exact key set, never an approximation.
 
@@ -119,7 +119,7 @@ These closed `StrEnum` vocabularies the measurement/physical nodes select from a
 `ColorDensity.status` selects `EdensityStatusType` and `.filter` selects `EdensityFilterType`.
 
 [MODEL_SCOPE]: measurement geometry choice — sphere / single-angle / multi-angle
-- rail: color
+- concern: color
 
 `MeasurementSpec.geometry_choice` is a `GeometryChoice` whose `choice` discriminates the geometry — emissive mode, sphere, a fixed single illumination/measurement angle pair, or a multi-angle BRDF set — the context deciding whether a spot's spectrum is flat or angle-dependent (effect pigment).
 
@@ -142,11 +142,11 @@ These closed `StrEnum` vocabularies the measurement/physical nodes select from a
 - custom escape: `CustomResources` (`xsd:any` + `any_attributes`), `CustomSpectrum`, `PrivateSpectrum`, `PrivateColorValues`, `CustomColorSpace`, and `ColorCustom` carry vendor extensions — a reader tolerates them, an authoring path emits only closed CxF3-core nodes unless a partner requires a private block.
 
 [STACKING]:
-- `colour-science`(`.api/colour-science.md`): the wavelength axis is the seam — a parsed `ReflectanceSpectrum`/`TransmittanceSpectrum`/`EmissiveSpectrum` (`value` + the referenced `WavelengthRange.start_wl`/`increment`) constructs a `colour.SpectralDistribution` over a `colour.SpectralShape(start, end, interval)`, which `colour.sd_to_XYZ(sd, cmfs=MSDS_CMFS[observer], illuminant=SDS_ILLUMINANTS[illuminant])` resolves to XYZ; the CxF `Observer`/`Illuminant`/`Method` enums key the `colour` registries and ASTM E308 method. `colour_cxf` owns the exchange shape, `colour-science` the colorimetry — neither re-implements the other.
+- `colour-science`(`.api/colour-science.md`): the wavelength axis is the boundary — a parsed `ReflectanceSpectrum`/`TransmittanceSpectrum`/`EmissiveSpectrum` (`value` + the referenced `WavelengthRange.start_wl`/`increment`) constructs a `colour.SpectralDistribution` over a `colour.SpectralShape(start, end, interval)`, which `colour.sd_to_XYZ(sd, cmfs=MSDS_CMFS[observer], illuminant=SDS_ILLUMINANTS[illuminant])` resolves to XYZ; the CxF `Observer`/`Illuminant`/`Method` enums key the `colour` registries and ASTM E308 method. `colour_cxf` owns the exchange shape, `colour-science` the colorimetry — neither re-implements the other.
 - `coloraide`(`.api/coloraide.md`): a CxF `ColorCielab`/`ColorCiexyz` decodes into `Color(('lab', [l, a, b]))` (D50; `'lab-d65'` when the CxF illuminant is D65) / `Color(('xyz-d65', [x, y, z]))` for gamut-mapped CSS egress, via the `colour-science` XYZ bridge.
 - `graphic/color/derive#DERIVE` (palette source): inbound, a partner's `.cxf` spot library decodes into the `Colorimetry` palette source, each `Object`'s spectral/Lab values resolving through `colour-science` into derived coordinates and provenance facts; outbound, a `derive`-resolved spot palette serializes back through `write_cxf`. `derive` stays the palette owner, `colour_cxf` its CxF wire.
 - `graphic/color/managed#MANAGED` (ICC/separations egress): a `ColorCmykplusN` (CMYK + N `SpotColorType` channels) carries the N-color separations intent the `ColorManaged` egress applies and an ink `ColorRecipe`/`Colorant` set informs the separations plane; `colour_cxf` declares the spot/separation, `managed` runs the pixel transform.
-- universal rail (`libs/python/.api`): a parsed `Object`/`ColorSpecification` projects onto a `msgspec.Struct` wire model at `data/tabular`; bounded admissions (`@start_wl`, coverage, recipe `value`) refine through a `beartype.vale.Is` contract; a malformed `read_cxf` crosses the `runtime/reliability/faults` `async_boundary` as a typed fault, not a bare `xsdata` `ParserError`; a `structlog`/OTel span records each parse; a batch decode runs the `anyio` `CapacityLimiter` over `to_thread` slots.
+- universal domains (`libs/python/.api`): a parsed `Object`/`ColorSpecification` projects onto a `msgspec.Struct` wire model at `data/tabular`; bounded admissions (`@start_wl`, coverage, recipe `value`) refine through a `beartype.vale.Is` contract; a malformed `read_cxf` crosses the `runtime/reliability/faults` `async_boundary` as a typed fault, not a bare `xsdata` `ParserError`; a `structlog`/OTel span records each parse; a batch decode runs the `anyio` `CapacityLimiter` over `to_thread` slots.
 
 [LOCAL_ADMISSION]:
 - `read_cxf`/`read_cxf_from_file` ingest every CxF document and `write_cxf` emits it; the typed `cxf3` graph is the only intermediate — never `lxml`/`ElementTree` parsing nor string templating.

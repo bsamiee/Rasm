@@ -7,12 +7,7 @@
 
     <ItemGroup Label="Analyzer Tooling">
         <PackageVersion Include="Meziantou.Analyzer"                                      Version="3.0.138" />
-        <PackageVersion Include="MinVer"                                                  Version="7.0.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"                        Version="5.6.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"                           Version="5.6.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"                Version="5.6.0" />
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers"              Version="18.7.23" />
-        <PackageVersion Include="PolySharp"                                               Version="1.16.0" />
     </ItemGroup>
 
     <ItemGroup Label="Host Compile Surface">
@@ -22,7 +17,6 @@
     <ItemGroup Label="Core Substrate">
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />
         <PackageVersion Include="Generator.Equals"                                        Version="4.0.2" />
-        <PackageVersion Include="JetBrains.Annotations"                                   Version="2026.2.0" />
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-77" />
         <PackageVersion Include="NodaTime"                                                Version="3.3.3" />
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />
@@ -449,12 +443,9 @@
     <ItemGroup Label="Test Stack">
         <PackageVersion Include="coverlet.MTP"                                            Version="10.0.1" />
         <PackageVersion Include="CsCheck"                                                 Version="4.8.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing"          Version="1.1.4" />
         <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing"               Version="10.8.0" />
         <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump"                  Version="2.3.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"                   Version="2.3.3" />
-        <PackageVersion Include="Microsoft.Testing.Extensions.Retry"                      Version="2.3.3" />
-        <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport"                  Version="2.3.3" />
         <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.0" />
         <PackageVersion Include="xunit.v3.common"                                         Version="4.0.0" />
         <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.0" />

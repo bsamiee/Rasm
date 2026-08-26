@@ -13,7 +13,7 @@ Content keys derive from operation bytes through one `ContentIdentity.of`, schem
 - Owner: `ObjectEgress` — the one object-store egress façade, holding one `ObjectStoreLane` and one composition scope and nothing else. It mints no store handle, no route table, no reach matrix, and no span: those are the runtime lane's, so a new cloud backend is one `StoreBackend` row at the runtime owner and zero edits here. Never a `put_object`/`get_object`/`list_objects` method family, never an async method twin, never a parallel `S3Egress`/`AsyncObjectEgress`.
 - Cases: the operation axis and its provider decisions are the lane's `StoreOp`; what this tier decides per op is the quantity it reports — `list`'s `read` counts the Arrow listing under `EgressUnit.OBJECTS`, `head` reports `OBJECT_SIZE`, `sign` reports `PATHS`, `delete`/`copy`/`rename`/`reader`/`writer` report `NONE`, and only payload-bearing rows report `BYTES`. One `_UNIT` row per op tag carries that judgment, so a new operation lands its unit beside the lane's own row and no result reads a quantity whose meaning it cannot name.
 - Entry: `ObjectEgress.of` builds the lane once over the three transport carries, the credential riding `ref.credentials` rather than a fourth parameter this owner would only forward; `run` and `run_async` are one expression each — hand the op and the per-call gate to the lane, then fold the returned `StoreOutcome` into the result. `prior` is the caller's own by-reference evidence supplied per call, never an owner-held ledger, because a stateless owner cannot know which of many compositions last wrote this path; it rides the call rather than the op so the transport tier carries no data-tier result type.
-- Auto: `_gate` is the whole pre-flight policy as one value the lane's prologue fires after reach — the registered mutation point vetoes first and a subscriber rejection returns on that rail, then an admitted put alone consults the short-circuit, so a settled skip never claims a write a governance tap refused. `_reuse` settles a put to a by-reference no-op only against an IDENTICAL write contract: the prior result names the `put` operation and THIS destination, its `contract` renders the same attributes and tags this put carries, its `RemoteIdentity` is the `acknowledged` case so that upload really landed, and the payload's `ContentKey` — derived from the payload `bytes`, never the path — equals its key; a conditional `mode` refuses the skip outright, because `create` and every `UpdateVersion` carry a remote precondition only the provider answers. The settled outcome keeps the payload on its `source` slot, so the result it folds mints exactly the key the upload would have, and a digest fault rides the same rail rather than falling through into an upload. Remote drift SINCE that egress is the caller's to detect by handing a fresher prior — a `Head` round-trip per put spends exactly the traffic the short-circuit removes.
+- Auto: `_gate` is the whole pre-flight policy as one value the lane's prologue fires after reach — the registered mutation point vetoes first and a subscriber rejection returns on that path, then an admitted put alone consults the short-circuit, so a settled skip never claims a write a governance tap refused. `_reuse` settles a put to a by-reference no-op only against an IDENTICAL write contract: the prior result names the `put` operation and THIS destination, its `contract` renders the same attributes and tags this put carries, its `RemoteIdentity` is the `acknowledged` case so that upload really landed, and the payload's `ContentKey` — derived from the payload `bytes`, never the path — equals its key; a conditional `mode` refuses the skip outright, because `create` and every `UpdateVersion` carry a remote precondition only the provider answers. The settled outcome keeps the payload on its `source` slot, so the result it folds mints exactly the key the upload would have, and a digest fault rides the same path rather than falling through into an upload. Remote drift SINCE that egress is the caller's to detect by handing a fresher prior — a `Head` round-trip per put spends exactly the traffic the short-circuit removes.
 - Law: transport-band compression arrives AS the payload — a scan-scale frame crossing to object storage rides the `tabular/interop#CARRIER` `wire_bytes` fold and its `WireCodec`, so the put moves compressed bytes while the frame's canonical identity stays the caller's uncompressed `arrow_bytes` key on its bundle; this owner keys the operation bytes it actually moved, and no codec knob lands here because the codec is the interop transport parameter, never an egress column.
 - Packages: none directly — `obstore` is the runtime lane's sole provider and this tier names no provider member, no provider exception, and no provider config beyond forwarding the three typed carries into `ObjectStoreLane.of`. `beartype(conf=FAULT_CONF)` is the public admission contract on `of` the sibling `interop`/`store`/`ragged` factories share.
 - Growth: a new store operation is one `StoreOp` case and one `_ROUTE` row at the runtime lane plus one `_UNIT` row here; a new remote-identity posture is one `RemoteIdentity` case owning its `facts` arm; a new cloud backend is one `StoreBackend` row at the runtime lane and nothing here; a second by-reference short-circuit is one `_reuse` arm over that op's own prior evidence, the `reused` and `contract` result slots already carrying it; a newly output-affecting write knob is one `_contract` term beside its `StoreOp` slot; a new governance concern is one subscriber the app root attaches; a new mutation point is one `_VETO` row; a newly audited operation is one `_AUDIT` row naming its retention class, the verb deriving off the tag.
@@ -31,7 +31,7 @@ from msgspec import Struct
 from rasm.data.tabular.interop import DataHook
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, RuntimeResult
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Cleared, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -185,7 +185,7 @@ def _contract(op: StoreOp) -> str:
     return repr((sorted((str(key), str(value)) for key, value in dict(attributes).items()), sorted(tags.items())))
 
 
-def _vetoed(op: StoreOp, target: str, scope: ScopeKey) -> "RuntimeRail[StoreOp]":
+def _vetoed(op: StoreOp, target: str, scope: ScopeKey) -> "RuntimeResult[StoreOp]":
     return (
         _VETO.try_find(op.tag)
         .map(
@@ -199,7 +199,7 @@ def _vetoed(op: StoreOp, target: str, scope: ScopeKey) -> "RuntimeRail[StoreOp]"
     )
 
 
-def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressResult | None") -> "RuntimeRail[StoreAdmission]":
+def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressResult | None") -> "RuntimeResult[StoreAdmission]":
     if (
         prior is None
         or prior.content_key is None
@@ -270,10 +270,10 @@ class ObjectEgress(Struct, frozen=True):
             scope=scope,
         )
 
-    def run(self, op: StoreOp, path: str = "", prior: "EgressResult | None" = None) -> "RuntimeRail[EgressResult]":
+    def run(self, op: StoreOp, path: str = "", prior: "EgressResult | None" = None) -> "RuntimeResult[EgressResult]":
         return self.lane.run(op, path, gate=self._gated(prior)).bind(lambda outcome: self._result(op, outcome))
 
-    async def run_async(self, op: StoreOp, path: str = "", prior: "EgressResult | None" = None) -> "RuntimeRail[EgressResult]":
+    async def run_async(self, op: StoreOp, path: str = "", prior: "EgressResult | None" = None) -> "RuntimeResult[EgressResult]":
         settled = (await self.lane.run_async(op, path, gate=self._gated(prior))).bind(lambda outcome: self._result(op, outcome))
         match settled:
             case Result(tag="ok", ok=result):
@@ -284,7 +284,7 @@ class ObjectEgress(Struct, frozen=True):
     def _gated(self, prior: "EgressResult | None") -> StoreGate:
         return _gate(self.scope, self.lane.ref.scheme, prior)
 
-    def _result(self, op: StoreOp, outcome: StoreOutcome) -> "RuntimeRail[EgressResult]":
+    def _result(self, op: StoreOp, outcome: StoreOutcome) -> "RuntimeResult[EgressResult]":
         unit = EgressUnit.NONE if outcome.settled else _UNIT[outcome.operation]
 
         def completed(key: ContentKey | None) -> EgressResult:

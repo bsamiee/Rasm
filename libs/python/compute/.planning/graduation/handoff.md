@@ -1,8 +1,8 @@
 # [PY_COMPUTE_HANDOFF]
 
-Compute graduation is the tier-0 hub every compute evidence producer composes. It sends admitted evidence outward to the C# managed owner. Geometry retains its canonical results and observes them through its own runtime seam; this hub imports no `rasm.geometry` symbol and authors no geometry vocabulary. `Graduation` names the Python wire axis, while the graduation task confirms its concrete .NET consumer.
+Compute graduation is the tier-0 hub every compute evidence producer composes. It sends admitted evidence outward to the C# managed owner. Geometry retains its canonical results and observes them through its own runtime boundary; this hub imports no `rasm.geometry` symbol and authors no geometry vocabulary. `Graduation` names the Python wire axis, while the graduation task confirms its concrete .NET consumer.
 
-`Graduation.graduates` is the one admission gate: the sibling rejection clauses every evidence owner declares collapse to one residual-over-ceiling fold parameterized by the axis owner's ledger, never inlined per-site comparisons. `evidence_run` is this hub's binding of the runtime `measured` weave — the compute `EvidenceScope` vocabulary applied once — so span, fault fence, rail flatten, and status close stay the `runtime/observability/observe#OBSERVE` owner's mechanics and compute authors no second instrumentation shape.
+`Graduation.graduates` is the one admission gate: the sibling rejection clauses every evidence owner declares collapse to one residual-over-ceiling fold parameterized by the axis owner's ledger, never inlined per-site comparisons. `evidence_run` is this hub's binding of the runtime `measured` weave — the compute `EvidenceScope` vocabulary applied once — so span, fault fence, result flatten, and status close stay the `runtime/observability/observe#OBSERVE` owner's mechanics and compute authors no second instrumentation shape.
 
 ## [01]-[INDEX]
 
@@ -14,8 +14,8 @@ Compute graduation is the tier-0 hub every compute evidence producer composes. I
 
 - Owner: `Graduation` carries source package, axis, evidence key, and residual ledger. `ComputeLeg` and `RAISES` sit here because every compute producer imports this hub downward. Moving either roster to a producer inverts the folder strata. Its axis case supplies the subject, so no parallel `subject: str` field can race the discriminant. Rejection returns `Error`; admission alone mints the value.
 - Cases: the `HandoffAxis` roster extends by sibling campaign, never by silent admit; the `convex_program` case carries the dual-certificate optimality proof distinct from the `solver` case's first-order convergence verdict; the `unit_law`/`uncertainty_law` cases cross as policy evidence only.
-- Producers: one self-wired `graduates()` producer per live case, each importing this hub downward — a case with no producer is dead vocabulary wearing a rail. `solver`: the `solvers/solve#SOLVE` `graduate` projection every solve owner feeds with its `Solve` or prepared ledger, its family ceiling row, and its key; `convex_program`: `optimization/convex#CONVEX`; `symbolic`: `analysis/symbolic#DERIVATION` under its own stability law; `array_layout`: `numerics/array#PAYLOAD` over the cross-backend bit-identity proof; `unit_law`: `numerics/quantity#QUANTITY`; `uncertainty_law`: `experiments/inference#BAYESIAN`; `model_asset`: `experiments/model#ASSET`; `artifact`: the artifacts graduating producer (sibling-owned). `numerics/statistics#STATISTICS` stays deliberately graduation-free by its own charter and `solvers/sensitivity#SENSITIVITY` stays disjoint from study DGSM — preserved boundaries, never gaps; composing the evidence weave is an observability import that breaches neither.
-- Law: every graduation admission reaches the `python:runtime/observability/journal#LEDGER` plane, and `graduates_async` is its ONE seat — the awaitable twin this pure fold mints over the band hop, since recording suspends and `graduates` opens no loop. BOTH verdicts record through one `_evidence` fold: `REGULATORY` at the admitted tee, because a cleared crossing is the record a C# consumer acts on years later, and `OPERATIONAL` at the refused tee, because a bar that held is incident-window evidence and never a seven-year hold. Recording both verdicts distinguishes absence from refusal. Admitted and refused rails differ by arm: admission BINDS, while refusal rides BESIDE the fault so a journal failure cannot hide the domain verdict. Subjects stay empty — an evidence key names a computation, never a data subject — and no meter rides the leg, the crossing's cpu being the resource band's one charge. `EVIDENCE_DOMAIN` derives off this page's own scope spelling and is the one domain segment every compute audit verb carries.
+- Producers: one self-wired `graduates()` producer per live case, each importing this hub downward — a case with no producer is dead vocabulary wearing a result. `solver`: the `solvers/solve#SOLVE` `graduate` projection every solve owner feeds with its `Solve` or prepared ledger, its family ceiling row, and its key; `convex_program`: `optimization/convex#CONVEX`; `symbolic`: `analysis/symbolic#DERIVATION` under its own stability law; `array_layout`: `numerics/array#PAYLOAD` over the cross-backend bit-identity proof; `unit_law`: `numerics/quantity#QUANTITY`; `uncertainty_law`: `experiments/inference#BAYESIAN`; `model_asset`: `experiments/model#ASSET`; `artifact`: the artifacts graduating producer (sibling-owned). `numerics/statistics#STATISTICS` stays deliberately graduation-free by its own charter and `solvers/sensitivity#SENSITIVITY` stays disjoint from study DGSM — preserved boundaries, never gaps; composing the evidence weave is an observability import that breaches neither.
+- Law: every graduation admission reaches the `python:runtime/observability/journal#LEDGER` plane, and `graduates_async` is its ONE seat — the awaitable twin this pure fold mints over the band hop, since recording suspends and `graduates` opens no loop. BOTH verdicts record through one `_evidence` fold: `REGULATORY` at the admitted tee, because a cleared crossing is the record a C# consumer acts on years later, and `OPERATIONAL` at the refused tee, because a bar that held is incident-window evidence and never a seven-year hold. Recording both verdicts distinguishes absence from refusal. Admitted and refused results differ by arm: admission BINDS, while refusal rides BESIDE the fault so a journal failure cannot hide the domain verdict. Subjects stay empty — an evidence key names a computation, never a data subject — and no meter rides the leg, the crossing's cpu being the resource band's one charge. `EVIDENCE_DOMAIN` derives off this page's own scope spelling and is the one domain segment every compute audit verb carries.
 - Auto: every graduating family's DEFAULT ceiling is a governed policy row on that family's own carrier beside its route table, the hub's caller-supplied tighter row the override — an ad-hoc ceiling literal at a `graduates()` call site has no owner. Three failure concerns stay distinct on three fences: a refinement breach is an exception the `_admit` fence converts, a ceiling rejection is a pure domain `Error` and never a raise, and an emit-time raise is the weave's emit fence to convert.
 - Output: an admitted handoff is a `planned` wire proposal, never an emitted product; `_witnessed` stamps the admitting span with the value's `attributes` and the residual ledger namespaced under `residual.`, so a ledger metric can never shadow the `axis`/`subject`/`evidence_key`/`residual_count` floor a board filters on, and the evidence key renders through the canonical `ContentKey.hex` form the C# `InterchangeIdentity.Key` contract reads.
 - Growth: a new handoff kind is one `HandoffAxis` case, one `_subject` match arm, and its sibling-campaign producer, its audit verb deriving with it; a new compute module is one `ComputeLeg` member beside its `EvidenceScope` row; a new refusal is one `FaultRow` anchor in `RAISES`, its coordinates its declared `slots`; a newly instrumented long fold is one producer-owned stage roster and the optional `evidence_run` slot, never a weave edit; a newly audited admission column is one `_evidence` `Change` row; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row; a new embedded composition is one `ScopeKey` the caller threads, never a sibling registry.
@@ -37,7 +37,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, BoundaryFault, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, BoundaryFault, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Cleared, Fact, Journal, Party, Retain
 from rasm.runtime.lanes import PulseFact, pulsed
@@ -172,8 +172,8 @@ class Graduation(Struct, frozen=True):
     def graduates(
         source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float],
         composition: ScopeKey = DEFAULT_SCOPE,
-    ) -> RuntimeRail[Graduation]:
-        def rail() -> RuntimeRail[Graduation]:
+    ) -> RuntimeResult[Graduation]:
+        def held() -> RuntimeResult[Graduation]:
             return (
                 boundary(ADMIT_LEDGER, lambda: Graduation._admit(measured, ceiling), catch=BeartypeCallHintViolation)
                 .bind(lambda validated: Graduation._clear(source_package, axis, evidence_key, validated))
@@ -182,13 +182,13 @@ class Graduation(Struct, frozen=True):
             )
 
         floor: SpanFacts = {"axis": axis.tag, "evidence_key": evidence_key.hex, "residual_count": len(measured)}
-        return evidence_run(EvidenceScope.HANDOFF, f"graduate.{axis.tag}", rail, facts=floor, composition=composition)
+        return evidence_run(EvidenceScope.HANDOFF, f"graduate.{axis.tag}", held, facts=floor, composition=composition)
 
     @staticmethod
     async def graduates_async(
         source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float],
         composition: ScopeKey = DEFAULT_SCOPE,
-    ) -> RuntimeRail[Graduation]:
+    ) -> RuntimeResult[Graduation]:
         match Graduation.graduates(source_package, axis, evidence_key, measured, ceiling, composition):
             case Result(tag="ok") as cleared:
                 return (await Journal.record(_evidence(source_package, axis, cleared), scope=composition)).bind(lambda _landed: cleared)
@@ -216,7 +216,7 @@ class Graduation(Struct, frozen=True):
         return (measured, ceiling)
 
     @staticmethod
-    def _clear(source_package: str, axis: HandoffAxis, evidence_key: ContentKey, validated: tuple[Ledger, Ceiling]) -> RuntimeRail[Graduation]:
+    def _clear(source_package: str, axis: HandoffAxis, evidence_key: ContentKey, validated: tuple[Ledger, Ceiling]) -> RuntimeResult[Graduation]:
         measured, ceiling = validated
         cleared = measured.keys() >= ceiling.keys() and all(measured[k] <= cap for k, cap in ceiling.items())
         return (
@@ -257,7 +257,7 @@ class Graduation(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _evidence(source_package: str, axis: HandoffAxis, settled: RuntimeRail[Graduation]) -> Block[Fact]:
+def _evidence(source_package: str, axis: HandoffAxis, settled: RuntimeResult[Graduation]) -> Block[Fact]:
     match settled:
         case Result(tag="ok", ok=cleared):
             row: tuple[Retain, str, tuple[Change, ...]] = (
@@ -291,7 +291,7 @@ def _detail(fault: BoundaryFault) -> str:
 def evidence_run[T](
     scope: EvidenceScope, subject: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]], facts: SpanFacts = Map.empty(),
     composition: ScopeKey = DEFAULT_SCOPE, stage: Option[StageTap] = Nothing,
-) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
+) -> RuntimeResult[T] | Awaitable[RuntimeResult[T]]:
     return measured(
         scope.value, subject, ledgered(scope, subject, dispatch, composition=composition, stage=stage),
         {**facts, **stage.map(StageTap.facts).default_value({})},
@@ -300,12 +300,12 @@ def evidence_run[T](
 
 ## [03]-[EVIDENCE_WEAVE]
 
-- Owner: `evidence_run` binds the runtime `measured` weave to compute policy — the `EvidenceScope` seed table names the span scope — and every producer composes this binding, so a page-local tracer mint or an inline span open beside it has no owner. Span, fence, rail flatten, and the two-sided status close are the `runtime/observability/observe#OBSERVE` owner's mechanics, composed here, never re-authored; a producer's RESULT facts land on that same span through the result type's own `attributes` stamp at its factory, so the trace filters on what the value carries.
-- Spelling: every member's value is `rasm.compute.<leaf>` and the member NAME is the only handle a producer spells, so a scope reaches a producer as `EvidenceScope.<X>` and its value only where the weave stamps the tracer or the `Graduation.source_package`. Reverse `EvidenceScope(f"...{tag}")` lookup reconstructs a spelling the enum already owns and re-breaks on the next root change, so a tag-keyed consumer carries a `Map[str, EvidenceScope]` row instead. Estate rooting keeps every compute span in the namespace shared by sibling branches, observability points, and instruments.
+- Owner: `evidence_run` binds the runtime `measured` weave to compute policy — the `EvidenceScope` seed table names the span scope — and every producer composes this binding, so a page-local tracer mint or an inline span open beside it has no owner. Span, fence, result flatten, and the two-sided status close are the `runtime/observability/observe#OBSERVE` owner's mechanics, composed here, never re-authored; a producer's RESULT facts land on that same span through the result type's own `attributes` stamp at its factory, so the trace filters on what the value carries.
+- Spelling: every member's value is `rasm.compute.<leaf>` and the member NAME is the only handle a producer spells, so a scope reaches a producer as `EvidenceScope.<X>` and its value only where the weave stamps the tracer or the `Graduation.source_package`. Reverse `EvidenceScope(f"...{tag}")` lookup reconstructs a spelling the enum already owns and re-breaks on the next root change, so a tag-keyed consumer carries a `Map[str, EvidenceScope]` row instead. Repo rooting keeps every compute span in the namespace shared by sibling branches, observability points, and instruments.
 - Cases: every `EvidenceScope` member holds at least one composed consumer — a span emitter through this weave, a `source_package` spelling through `.value`, or both; a member with neither is deleted, so the seed table can never carry dead vocabulary.
-- Entry: one entry discriminating modality on the dispatch shape, never an `evidence_run_async` sibling; `facts` threads each producer's call-time discriminants — problem size, route, backend, precision — onto the recording span at open, and the result's `attributes` land on it at the mint, so a trace filters on the same evidence the value carries; the dispatch fence at the runtime owner is the no-escape guarantee the hub's admission rail demands, granted to every producer. That guarantee survives the narrowed interior `catch=` sets exactly because it lives HERE: the weave fence is the outermost catch-all a producer plane may hold, and every seam beneath it names the provider classes it reaches.
+- Entry: one entry discriminating modality on the dispatch shape, never an `evidence_run_async` sibling; `facts` threads each producer's call-time discriminants — problem size, route, backend, precision — onto the recording span at open, and the result's `attributes` land on it at the mint, so a trace filters on the same evidence the value carries; the dispatch fence at the runtime owner is the no-escape guarantee the hub's admission path demands, granted to every producer. That guarantee survives the narrowed interior `catch=` sets exactly because it lives HERE: the weave fence is the outermost catch-all a producer plane may hold, and every boundary beneath it names the provider classes it reaches.
 - Stage: `StageTap` is the optional mid-operation slot, and the mark carrier is the hook registry's composed `StageMark`; a compute clone duplicates one conduit payload. Each long fold owns its closed milestone `StrEnum`, erased at the conduit so every fold shares one point payload type. `Option` carries the census, letting an indeterminate extent remain absent instead of publishing a false zero.
-- Ledger: the binding weaves the `graduation/observability.md` `ledgered` leg around every dispatch — enter fact, resource band off the runtime `Cost` bracket, exit fact on both the settled and raised arms — so the point rail and the resource ledger reach every producer through the one binding; point rows, payload family, measure mapping, and taps are that page's, composed here, never re-authored. `composition` threads from the caller through this binding into `ledgered` and through `graduates` into both admission fires, so an embedded second composition's lifecycle and admission facts reach the points IT registered; the key defaults `DEFAULT_SCOPE`, so the root call shape stays scope-free.
+- Ledger: the binding weaves the `graduation/observability.md` `ledgered` leg around every dispatch — enter fact, resource band off the runtime `Cost` bracket, exit fact on both the settled and raised arms — so the point result and the resource ledger reach every producer through the one binding; point rows, payload family, measure mapping, and taps are that page's, composed here, never re-authored. `composition` threads from the caller through this binding into `ledgered` and through `graduates` into both admission fires, so an embedded second composition's lifecycle and admission facts reach the points IT registered; the key defaults `DEFAULT_SCOPE`, so the root call shape stays scope-free.
 
 ## [04]-[CROSS_OWNER]
 

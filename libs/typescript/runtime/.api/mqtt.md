@@ -65,6 +65,6 @@
 - Pair a withheld acknowledgement with `clean: false` and a `sessionExpiryInterval`: a refused message re-offers on SESSION RESUME and never inside the live connection, and a clean session discards it outright.
 - Declare `properties.receiveMaximum` — unset, the broker decides how many QoS>0 publications ride unacknowledged toward this client.
 - Bound the release: `end(false)` parks on `outgoingEmpty` with NO deadline, so an unresponsive broker holds a closing scope forever; run the graceful arm under a window and fall through to `end(true)`. Neither arm drains the offline queue holding QoS-0 publishes and control packets.
-- Every dial rebuilds the CONNECT packet from `client.options`, so that record is the credential rotation rail; `reconnect()` replaces both packet stores and discards queued QoS>0 state, so a rotation supervisor trades freshness for publish loss.
+- Every dial rebuilds the CONNECT packet from `client.options`, so that record is the credential rotation path; `reconnect()` replaces both packet stores and discards queued QoS>0 state, so a rotation supervisor trades freshness for publish loss.
 - Keep every incoming/outgoing `Store` private to its client; QoS 1 and 2 delivery state never crosses clients.
-- Treat subscription grant `128` as refusal and map it through the typed fault rail.
+- Treat subscription grant `128` as refusal and map it through the typed fault channel.

@@ -20,7 +20,7 @@ from expression import Error, Nothing, Ok, Option, Some, identity
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.runtime.faults import CORPUS_DOUBLED, CORPUS_FMT, Disposition, RuntimeRail, traversed
+from rasm.runtime.faults import CORPUS_DOUBLED, CORPUS_FMT, Disposition, RuntimeResult, traversed
 from rasm.runtime.identity import KEY_FMT, ContentIdentity, ContentKey, KeyRender
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -130,7 +130,7 @@ _CORPUS: Final[Block[CorpusFixture]] = Block.of_seq((
         name="glb-by-key",
         kind="domain",
         state="design_pin",
-        source="dotnet:Rasm.Bim/Exchange/export#EXPORT_RAIL",
+        source="dotnet:Rasm.Bim/Exchange/export#EXPORT_PIPELINE",
         fmt="glb",
         carried=Nothing,
     ),
@@ -165,7 +165,7 @@ def _extent(payload: FixturePayload) -> Option[int]:
             assert_never(unreachable)
 
 
-def _related(fixture: CorpusFixture, payload: FixturePayload) -> RuntimeRail[Block[Parity]]:
+def _related(fixture: CorpusFixture, payload: FixturePayload) -> RuntimeResult[Block[Parity]]:
     def judged(key: ContentKey) -> Block[Parity]:
         return Block.of_seq((
             Parity.judged(
@@ -183,21 +183,21 @@ def _related(fixture: CorpusFixture, payload: FixturePayload) -> RuntimeRail[Blo
 class SeedReproduction(Struct, frozen=True):
     corpus: Block[CorpusFixture] = _CORPUS
 
-    def claimed(self) -> RuntimeRail[Map[str, str]]:
-        rails = self.corpus.map(
+    def claimed(self) -> RuntimeResult[Map[str, str]]:
+        results = self.corpus.map(
             lambda fixture: Ok((fixture.fmt, fixture.source))
             if KEY_FMT.fullmatch(fixture.fmt) is not None
             else Error(CORPUS_FMT.raised(fixture.name, fixture.fmt, KEY_FMT.pattern))
         )
-        return traversed(rails, by=Disposition.ACCUMULATE).bind(
+        return traversed(results, by=Disposition.ACCUMULATE).bind(
             lambda pairs: Ok(census)
             if len(census := Map.of_seq(pairs)) == len(pairs)
             else Error(CORPUS_DOUBLED.raised())
         )
 
-    def grade(self) -> RuntimeRail[Block[Parity]]:
-        rails = self.corpus.choose(lambda fixture: fixture.carried.map(lambda payload: _related(fixture, payload)))
-        return self.claimed().bind(lambda _tags: traversed(rails, by=Disposition.ACCUMULATE).map(lambda graded: graded.collect(identity)))
+    def grade(self) -> RuntimeResult[Block[Parity]]:
+        results = self.corpus.choose(lambda fixture: fixture.carried.map(lambda payload: _related(fixture, payload)))
+        return self.claimed().bind(lambda _tags: traversed(results, by=Disposition.ACCUMULATE).map(lambda graded: graded.collect(identity)))
 
     def pending(self) -> Block[CorpusFixture]:
         return self.corpus.filter(lambda fixture: fixture.carried.is_none())

@@ -2,7 +2,7 @@
 
 `mitata` mints the benchmark measurement shape — the `stats` percentile ladder, the optional `gc`/`heap` timing bands, and the addon-gated CPU hardware-counter block `measure` returns per run — and the state-free `measure` kernel a caller reaches for one raw sample.
 
-`bench`/`group`/`run` and the plot wrappers mutate a module-global registration list and render a report. The split is the branch's admission line: the measurement SHAPE derives off `measure` and lands in the interchange claim family, while the global registration surface is fenced to the bench lane the runtime and proof estates own.
+`bench`/`group`/`run` and the plot wrappers mutate a module-global registration list and render a report. The split is the branch's admission line: the measurement SHAPE derives off `measure` and lands in the interchange claim family, while the global registration surface is fenced to the bench lane the runtime and proof suites own.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -59,7 +59,7 @@
 - `interchange/codec`(`core/.planning/interchange/codec.md`, the benchmark claim family): `run({ format: { json: { samples: true } } })` feeds the codec, which folds each `stats` rung into the claim band's measured-rung map and pairs the document with the host fingerprint so a claim compares within one host print; the package computes neither `p95` nor a standard deviation, so those two rungs stay unmeasured on every mitata-minted claim while a .NET-side sweep fills them.
 - `observe/board`(bench pack): trends landed claims through a percentile-ladder panel per alias, a GC-timing panel where `gc` is present, and an IPC/cache/branch panel over the counter block; claim-shaped rows ride the shared pack dispatch.
 - `observe/board`(regression fold): a pure fold grades a candidate against the `baseline`-flagged claim on the one rung its tolerance names, yielding a gate-read verdict; a cross-fingerprint pair and an unmeasured rung each yield the refusal verdict.
-- `runtime/proc/exec`(`runtime/.planning/proc/exec.md`, the trial owner): routes a caller's effect through the deep kernel's zero-arity overload, declares the whole `k_options` bag off the exported `k_*` anchors, supplies the heap reader and the addon handle the enrichment bands need, and folds the returned `stats` through the claim owner's own mitata seam — the state-free half of the split, with registration and render left to the bench lane.
+- `runtime/proc/exec`(`runtime/.planning/proc/exec.md`, the trial owner): routes a caller's effect through the deep kernel's zero-arity overload, declares the whole `k_options` bag off the exported `k_*` anchors, supplies the heap reader and the addon handle the enrichment bands need, and folds the returned `stats` through the claim owner's own mitata adapter — the state-free half of the split, with registration and render left to the bench lane.
 
 [LOCAL_ADMISSION]:
 - A domain folder reaches `measure` through the deep `src/lib.mjs` specifier and derives every shape off its own signature; the root specifier loads the registration list, so importing it into domain code is what breaks the fence, not merely using the surface behind it.

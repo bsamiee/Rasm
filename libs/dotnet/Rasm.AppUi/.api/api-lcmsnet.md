@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_LCMSNET]
 
-`lcmsNET` owns ICC-managed device color for the print and export deliverable: the `Profile` handle, the compiled `Transform` pipeline, the `Intent` and `CmsFlags` policy vocabularies, and the `Cms` pixel-format hub, all under one root namespace binding Little CMS 2 through P/Invoke. It owns profiled device-color egress where `Wacton.Unicolour` owns screen-perceptual UI color — the screen-versus-ICC-device seam the two never cross. Native `lcms2` provisioning stays at the app-host distribution layer, never bundled with this assembly.
+`lcmsNET` owns ICC-managed device color for the print and export deliverable: the `Profile` handle, the compiled `Transform` pipeline, the `Intent` and `CmsFlags` policy vocabularies, and the `Cms` pixel-format hub, all under one root namespace binding Little CMS 2 through P/Invoke. It owns profiled device-color egress where `Wacton.Unicolour` owns screen-perceptual UI color — the screen-versus-ICC-device boundary the two never cross. Native `lcms2` provisioning stays at the app-host distribution layer, never bundled with this assembly.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -168,4 +168,4 @@
 - within-lib: the drafting/export path composes `Profile.Open` operands, one `Transform.Create` keyed to the output profile, and `DoTransform` over the render raster.
 
 [LOCAL_ADMISSION]:
-- Native `lcms2` (`liblcms2`) provisions at the app-host distribution layer as the `FFmpeg`/`libmpv` natives do; this assembly binds it through P/Invoke and ships no native binary. `Cms.SetErrorHandler` and the `LcmsNETException` rail surface a missing runtime, never a silent null transform.
+- Native `lcms2` (`liblcms2`) provisions at the app-host distribution layer as the `FFmpeg`/`libmpv` natives do; this assembly binds it through P/Invoke and ships no native binary. `Cms.SetErrorHandler` and the `LcmsNETException` type surface a missing runtime, never a silent null transform.

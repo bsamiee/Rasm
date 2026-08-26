@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_NPGSQL_EF]
 
-`Npgsql.EntityFrameworkCore.PostgreSQL` admits the EF Core PostgreSQL provider into the store-profile algebra: `UseNpgsql` binds the provider and every PostgreSQL-specific configuration surface attaches to the one options builder. This catalog also carries the provider-agnostic base EF Core `DbContext`, interception, and migration runtime the folder's store rails compose.
+`Npgsql.EntityFrameworkCore.PostgreSQL` admits the EF Core PostgreSQL provider into the store-profile algebra: `UseNpgsql` binds the provider and every PostgreSQL-specific configuration surface attaches to the one options builder. This catalog also carries the provider-agnostic base EF Core `DbContext`, interception, and migration runtime the folder's store owners compose.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -42,7 +42,7 @@
 |  [04]   | `PostgresRange`                 | class         | declares range type    |
 |  [05]   | `NpgsqlHistoryRepository`       | class         | owns migration history |
 
-[EF_CORE_BASE_TYPES]: provider-agnostic base EF Core / Relational runtime the provider composes — `Microsoft.EntityFrameworkCore`, `.Relational`; owned at the `DbContext`/interception/migration seam, not `Npgsql*` types.
+[EF_CORE_BASE_TYPES]: provider-agnostic base EF Core / Relational runtime the provider composes — `Microsoft.EntityFrameworkCore`, `.Relational`; owned at the `DbContext`/interception/migration boundary, not `Npgsql*` types.
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [CAPABILITY]                                                            |
 | :-----: | :-------------------------------------- | :------------ | :---------------------------------------------------------------------- |
@@ -51,7 +51,7 @@
 |  [03]   | `IDbContextFactory<TContext>`           | interface     | `CreateDbContext()` / `CreateDbContextAsync(CancellationToken)`         |
 |  [04]   | `PooledDbContextFactory<TContext>`      | class         | `Infrastructure`; the pooled `IDbContextFactory<TContext>` impl         |
 |  [05]   | `DatabaseFacade`                        | class         | `Infrastructure`; `context.Database` — strategy, transaction, raw query |
-|  [06]   | `IExecutionStrategy`                    | interface     | `Storage`; `RetriesOnFailure`, `ExecuteAsync` retry rail                |
+|  [06]   | `IExecutionStrategy`                    | interface     | `Storage`; `RetriesOnFailure`, `ExecuteAsync` retry strategy            |
 |  [07]   | `ExecutionStrategyExtensions`           | class         | `ExecuteAsync` no-context convenience overloads                         |
 |  [08]   | `IDbContextTransaction`                 | interface     | `Storage`; commit/rollback plus the savepoint family                    |
 |  [09]   | `ModelConfigurationBuilder`             | class         | `Properties`/`DefaultTypeMapping`/`IgnoreAny`/`Conventions` config      |

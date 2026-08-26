@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_URSA]
 
-`Irihi.Ursa` is the extended-control suite (assembly `Ursa.dll`, xmlns `https://irihi.tech/ursa`) filling the control families the curated Avalonia roster lacks. Control visuals live in the sibling `Irihi.Ursa.Themes.Semi` (`UrsaSemiTheme : Styles`) under the `Semi.Avalonia` token system, and `Irihi.Ursa.ReactiveUIExtension` binds the Ursa view bases onto the admitted ReactiveUI rail. Every overlay — dialog, drawer, message box — is raised vm-first through a static dispatcher against a registered host id, the in-canvas counterpart to `DialogHost.Avalonia`.
+`Irihi.Ursa` is the extended-control suite (assembly `Ursa.dll`, xmlns `https://irihi.tech/ursa`) filling the control families the curated Avalonia roster lacks. Control visuals live in the sibling `Irihi.Ursa.Themes.Semi` (`UrsaSemiTheme : Styles`) under the `Semi.Avalonia` token system, and `Irihi.Ursa.ReactiveUIExtension` binds the Ursa view bases onto the admitted ReactiveUI layer. Every overlay — dialog, drawer, message box — is raised vm-first through a static dispatcher against a registered host id, the in-canvas counterpart to `DialogHost.Avalonia`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -498,8 +498,8 @@
 [STACKING]:
 - `api-semi.md`: `UrsaSemiTheme` extends the `Semi.Avalonia` token system under the shared `https://irihi.tech/semi` (`semi:`) xmlns; the chain is `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins -> `<semi:UrsaSemiTheme/>`, every Ursa entry below `SemiTheme` so its `SemiColor*` slots resolve, and `UrsaSemiTheme.OverrideLocaleResources` mirrors `SemiTheme.OverrideLocaleResources` so a culture swap drives both locale dictionaries.
 - `api-dialoghost.md`: `OverlayDialog`/`Drawer`/`MessageBox` mirror `DialogHost.Avalonia` in-canvas, sharing its vm-first-against-a-host-id dispatch shape.
-- `api-reactiveui-avalonia.md`: `ReactiveUrsaWindow<TViewModel>`/`ReactiveUrsaView<TViewModel>` bind `UrsaWindow`/`UrsaView` onto the `ReactiveUI.Avalonia` rail as the admitted MVVM view bases, each exposing `ViewModel` as a styled property under `IViewFor<T>`.
-- within-lib: the awaited `ShowModal`/`ShowCustomModal<TResult>`/`ShowStandardAsync` overloads return `Task<DialogResult>`/`Task<TResult?>` and bind into a LanguageExt `Eff`/`OptionT` rail at the boundary with the supplied `CancellationToken` threaded; the product intent vocabulary maps onto `NotificationType` at the manager call, and `OnClose(MessageCloseReason)` drives dismissal-cause follow-up.
+- `api-reactiveui-avalonia.md`: `ReactiveUrsaWindow<TViewModel>`/`ReactiveUrsaView<TViewModel>` bind `UrsaWindow`/`UrsaView` onto the `ReactiveUI.Avalonia` layer as the admitted MVVM view bases, each exposing `ViewModel` as a styled property under `IViewFor<T>`.
+- within-lib: the awaited `ShowModal`/`ShowCustomModal<TResult>`/`ShowStandardAsync` overloads return `Task<DialogResult>`/`Task<TResult?>` and bind into a LanguageExt `Eff`/`OptionT` at the boundary with the supplied `CancellationToken` threaded; the product intent vocabulary maps onto `NotificationType` at the manager call, and `OnClose(MessageCloseReason)` drives dismissal-cause follow-up.
 
 [LOCAL_ADMISSION]:
 - `Shell/Controls` composes Ursa for the families the curated Avalonia + `bodong.PropertyGrid` + `Dock` + `DataGrid` roster lacks, reusing `Ursa.Common` placement (`Position`/`ItemAlignment`/`CornerPosition`) and the per-control enums as policy vocabulary; the typed `Numeric<T>UpDown` matching the bound CLR type carries numeric entry, and shell views derive from the `ReactiveUrsa` bases.

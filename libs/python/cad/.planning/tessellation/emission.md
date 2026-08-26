@@ -2,7 +2,7 @@
 
 `emitted` is the provider's one glTF writer and the byte gate standing behind it: it drives `RWGltf_CafWriter.Perform` over an already-meshed XCAF document onto a call-owned path, then re-reads that path's extent and admits it against the call's artifact ceiling. Emission returns the admitted extent and nothing else — the GLB body never crosses the `anyio.to_process` pipe, and the parent that owns the path is the only holder of the bytes.
 
-Byte admission here is EVIDENCE, never preemption. OCCT's bound filename writer exposes no bounded output callback and no incremental stream seam, so a runaway document is already fully written by the time `stat()` reads it; confining that write is the app root's job through the worker's own filesystem and memory quotas, which `service/spool#SPOOL` composes as the call-owned path lifetime. `tessellation/mesh#MESH` sequences this owner between preflight and census, and `metrology/census#CENSUS` re-opens exactly the bytes written here.
+Byte admission here is EVIDENCE, never preemption. OCCT's bound filename writer exposes no bounded output callback and no incremental stream boundary, so a runaway document is already fully written by the time `stat()` reads it; confining that write is the app root's job through the worker's own filesystem and memory quotas, which `service/spool#SPOOL` composes as the call-owned path lifetime. `tessellation/mesh#MESH` sequences this owner between preflight and census, and `metrology/census#CENSUS` re-opens exactly the bytes written here.
 
 ## [01]-[INDEX]
 
@@ -32,18 +32,18 @@ from OCP.TCollection import TCollection_AsciiString
 from OCP.TDocStd import TDocStd_Document
 from expression import Error, Ok
 
-from rasm.cad.faults import EMIT_EXTENT, EMIT_WRITE, CadRail
+from rasm.cad.faults import EMIT_EXTENT, EMIT_WRITE, CadResult
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _written(document: TDocStd_Document, glb_path: Path, /) -> CadRail[Path]:
+def _written(document: TDocStd_Document, glb_path: Path, /) -> CadResult[Path]:
     writer = RWGltf_CafWriter(TCollection_AsciiString(str(glb_path)), True)
     performed = writer.Perform(document, TColStd_IndexedDataMapOfStringString(), Message_ProgressRange())
     return Ok(glb_path) if performed else Error(EMIT_WRITE.at("RWGltf_CafWriter.Perform"))
 
 
-def _extent(glb_path: Path, ceiling: int, /) -> CadRail[int]:
+def _extent(glb_path: Path, ceiling: int, /) -> CadResult[int]:
     try:
         artifact_bytes = glb_path.stat().st_size
     except OSError as cause:
@@ -57,7 +57,7 @@ def _extent(glb_path: Path, ceiling: int, /) -> CadRail[int]:
     )
 
 
-def emitted(document: TDocStd_Document, glb_path: Path, ceiling: int, /) -> CadRail[int]:
+def emitted(document: TDocStd_Document, glb_path: Path, ceiling: int, /) -> CadResult[int]:
     return _written(document, glb_path).bind(lambda written: _extent(written, ceiling))
 ```
 

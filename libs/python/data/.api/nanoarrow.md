@@ -1,6 +1,6 @@
 # [PY_DATA_API_NANOARROW]
 
-`nanoarrow` binds the Apache Arrow C Data Interface into Python: high-level `Array`/`ArrayStream`/`Schema` wrappers, a schema-factory vocabulary, and raw-buffer `CArray` construction, every object crossing the Arrow PyCapsule interface (`__arrow_c_array__`/`__arrow_c_stream__`/`__arrow_c_schema__`) so any compatible producer or consumer interoperates without buffer copies. It is the data rail's zero-copy capsule spine — the cheapest producer and consumer of the interchange the dataframe and IPC owners compose.
+`nanoarrow` binds the Apache Arrow C Data Interface into Python: high-level `Array`/`ArrayStream`/`Schema` wrappers, a schema-factory vocabulary, and raw-buffer `CArray` construction, every object crossing the Arrow PyCapsule interface (`__arrow_c_array__`/`__arrow_c_stream__`/`__arrow_c_schema__`) so any compatible producer or consumer interoperates without buffer copies. It is the data domain's zero-copy capsule spine — the cheapest producer and consumer of the interchange the dataframe and IPC owners compose.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -27,7 +27,7 @@
 
 - [06]-[DEVICE]: `nanoarrow.device` mints device arrays via `c_device_array(obj, schema=None)` and carries `Device`, `DeviceType`, `DEVICE_CPU`, `cpu`, `resolve`; device access is array-level, with no device-array-stream constructor.
 
-[PUBLIC_TYPE_SCOPE]: failure rail — no top-level exception namespace exists; the one package class lives in the Cython utility submodule.
+[PUBLIC_TYPE_SCOPE]: failure channel — no top-level exception namespace exists; the one package class lives in the Cython utility submodule.
 
 | [INDEX] | [SYMBOL]             | [MODULE]           | [TYPE_FAMILY] | [CAPABILITY]                                       |
 | :-----: | :------------------- | :----------------- | :------------ | :------------------------------------------------- |

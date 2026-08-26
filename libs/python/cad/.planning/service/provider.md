@@ -2,7 +2,7 @@
 
 `CadProvider` implements the generated `CadService` protocol over the isolated OCCT process: two idempotent unary rpcs that admit a request, resolve its artifact references onto call-owned paths, drive one native fold on the cancellable process lane, publish the sealed output, and answer a reference-only body. One spine serves both, and one policy row per rpc carries every axis they differ by, so a third rpc is one row beside its generated override.
 
-`faults#ROWS` supplies every refusal and `faults#PROJECTION` the one detail fold, so this page holds the package's single outbound raise: one `ConnectError(code, message, details=[...])` built from `refused(fault, stamp)`. `spool#POLICY` owns the admitted budgets and the compression roster, `spool#BUDGET` the single deadline read, `spool#SPOOL` the source and output custody, and `lane#LANE` the pickle-seam call with its marshalled evidence. `BodyAdmission(SERVER)` owns every field rule.
+`faults#ROWS` supplies every refusal and `faults#PROJECTION` the one detail fold, so this page holds the package's single outbound raise: one `ConnectError(code, message, details=[...])` built from `refused(fault, stamp)`. `spool#POLICY` owns the admitted budgets and the compression roster, `spool#BUDGET` the single deadline read, `spool#SPOOL` the source and output custody, and `lane#LANE` the pickle-boundary call with its marshalled evidence. `BodyAdmission(SERVER)` owns every field rule.
 
 ## [01]-[INDEX]
 
@@ -13,10 +13,10 @@
 
 - Owner: `CadProvider.execute` and `CadProvider.tessellate` are the two generated overrides satisfying `CadService`; `_served` is their one spine and `_EXECUTE` and `_TESSELLATE` are the two rows every difference between the rpcs now lives in.
 - Law: `execute` and `tessellate` were ONE method written twice — twenty-two of thirty-two lines identical, including all sixteen lines of an eight-arm `except` cascade, varying only by native fold, one extra argument, reply class, and one coordinate literal; the collapse tables those five axes as `Rpc` columns and leaves each override two lines long.
-- Cases: `Rpc` carries the refusal coordinate, the sink suffix, the source-arity resolver, the native kernel, and the reply builder — the extra-argument axis is gone because BOTH kernels now take one `NativeCall` and both enforce its admitted output `ceiling` at their write seam, which also closes the unbounded STEP write the asymmetry hid.
+- Cases: `Rpc` carries the refusal coordinate, the sink suffix, the source-arity resolver, the native kernel, and the reply builder — the extra-argument axis is gone because BOTH kernels now take one `NativeCall` and both enforce its admitted output `ceiling` at their write boundary, which also closes the unbounded STEP write the asymmetry hid.
 - Law: `execute` takes `ExecuteRequest` and answers `ExecuteResponse`, `tessellate` takes `TessellateRequest` and answers `TessellateResponse`, and both are `(request, ctx, /)` POSITIONAL-ONLY under `@override` against the generated protocol, so a renamed parameter cannot silently diverge from the interface Connect dispatches through.
 - Law: `ctx.timeout_ms` is read ONCE per call, in the override, and nowhere else — it is a property recomputing time REMAINING off a monotonic deadline and it goes negative past that deadline with no clamp, so a second read inside one method is a different number by construction.
-- Law: `except Exception` over an owned family has NO seat — the rail carries every domain refusal, each foreign raise is converted at the seam that owns it, and an unclassified raise propagates as a defect rather than being flattened into `INTERNAL` beside a coordinate that names nothing.
+- Law: `except Exception` over an owned family has NO seat — the result carries every domain refusal, each foreign raise is converted at the boundary that owns it, and an unclassified raise propagates as a defect rather than being flattened into `INTERNAL` beside a coordinate that names nothing.
 - Law: `TimeoutError` from `fail_after` is the ONE raise this spine catches, and it converts to `CALL_DEADLINE` after the sink context has already retired its operation directory under the shield `spool#SPOOL` states.
 - Law: the collapse is ONE `ConnectError` built from `refused(fault, stamp)`, and a refused stamp crosses DETAIL-LESS under its own row's code rather than borrowing another call's correlation, because absence is answerable on ingress and a forged verdict is not.
 - Law: `request.to_binary()` re-encodes a body Connect already decoded and body admission already passed, so the proto-plane encode fence — which guards a HAND-BUILT message against a wrong-typed slot — has no seat on this path.
@@ -41,7 +41,7 @@ from protobuf import Message
 from rasm.runtime.transport.artifact import ArtifactSink, ArtifactTransfer, output
 # Contracts are retired from this logic.
 
-from rasm.cad.faults import CALL_DEADLINE, CadFault, CadRail, FaultStamp, refused
+from rasm.cad.faults import CALL_DEADLINE, CadFault, CadResult, FaultStamp, refused
 from rasm.cad.service.lane import (
     BrepMarshal,
     MeshMarshal,
@@ -62,8 +62,8 @@ from rasm.cad.service.spool import COMPRESSIONS, ArtifactPort, ProviderPolicy, b
 class Rpc[Q: Message, S: Message, E, C: Sources](Struct, frozen=True, kw_only=True):
     coordinate: str
     suffix: str
-    resolve: Callable[[tuple[SourceRow, ...]], CadRail[C]]
-    kernel: Callable[[NativeCall[C]], CadRail[E]]
+    resolve: Callable[[tuple[SourceRow, ...]], CadResult[C]]
+    kernel: Callable[[NativeCall[C]], CadResult[E]]
     reply: Callable[[E, ArtifactRef], S]
 
 
@@ -103,7 +103,7 @@ class CadProvider(CadService):
         self,
         policy: ProviderPolicy,
         artifacts: ArtifactPort,
-        stamp: Callable[[], CadRail[FaultStamp]],
+        stamp: Callable[[], CadResult[FaultStamp]],
         /,
     ) -> None:
         self._policy = policy
@@ -134,7 +134,7 @@ class CadProvider(CadService):
         request: Q,
         timeout_ms: float | None,
         /,
-    ) -> CadRail[S]:
+    ) -> CadResult[S]:
         try:
             with fail_after(budget(timeout_ms, self._policy.call_seconds)):
                 async with AsyncExitStack() as stack, output(suffix=row.suffix) as sink:
@@ -149,7 +149,7 @@ class CadProvider(CadService):
         stack: AsyncExitStack,
         sink: ArtifactSink,
         /,
-    ) -> CadRail[S]:
+    ) -> CadResult[S]:
         prepared = (await sources(request, self._artifacts, stack, self._policy)).bind(row.resolve).map(
             lambda shape: NativeCall(
                 payload=request.to_binary(),
@@ -167,11 +167,11 @@ class CadProvider(CadService):
         evidence: E,
         sink: ArtifactSink,
         /,
-    ) -> CadRail[S]:
+    ) -> CadResult[S]:
         return (await published(sink, self._artifacts)).map(lambda artifact: row.reply(evidence, artifact))
 
-    def _settled[S](self, rail: CadRail[S], /) -> S:
-        match rail:
+    def _settled[S](self, held: CadResult[S], /) -> S:
+        match held:
             case Result(tag="ok", ok=reply):
                 return reply
             case Result(tag="error", error=fault):
@@ -207,7 +207,7 @@ class CadProvider(CadService):
 def application(
     policy: ProviderPolicy,
     artifacts: ArtifactPort,
-    stamp: Callable[[], CadRail[FaultStamp]],
+    stamp: Callable[[], CadResult[FaultStamp]],
     /,
     *,
     interceptors: tuple[Interceptor, ...] = (),

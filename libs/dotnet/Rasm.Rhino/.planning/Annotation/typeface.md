@@ -2,14 +2,14 @@
 
 `FaceDecoration` and `FaceTrait` are the namespace's typeface capability rosters, `FaceQuery` the one face admission, and `FaceInfo` the detached descriptor every census and document bind compares.
 
-`SectionField` instantiates the drafting-schema mechanism over `SectionStyle`, so every section write rides one railed row fold; `TypefaceOp` and `SectionOp` share `DraftPlan<T>`, `DraftSpine`, and the `TableGrip` revision law.
+`SectionField` instantiates the drafting-schema mechanism over `SectionStyle`, so every section write rides one result-typed row fold; `TypefaceOp` and `SectionOp` share `DraftPlan<T>`, `DraftSpine`, and the `TableGrip` revision law.
 
 ## [01]-[INDEX]
 
 - [02]-[FACE_MODEL]: explicit host axes, the quartet roster, the decoration and trait capability sets, query admission, and detached evidence.
-- [03]-[TYPEFACE_RAIL]: polymorphic census, resolution with substitute evidence, and the document face bind.
+- [03]-[TYPEFACE_PIPELINE]: polymorphic census, resolution with substitute evidence, and the document face bind.
 - [04]-[SECTION_MODEL]: `SectionField` row schema, its host-default snapshot, and closed fill, boundary, and hatch composition.
-- [05]-[SECTION_RAIL]: sourced authoring, `.secstyles` import reconciliation, usage evidence, and read projection.
+- [05]-[SECTION_PIPELINE]: sourced authoring, `.secstyles` import reconciliation, usage evidence, and read projection.
 - [06]-[SURFACE_LEDGER]: owner table over every surface above.
 - [07]-[RESEARCH]: open questions.
 
@@ -20,7 +20,7 @@
 - Law: `FaceDecoration` carries THREE host columns because the host answers one decoration through three different members — `Held` reads a resolved `Font`, `Sweep` probes a whole annotation run, and `Mark` writes one. `Strikeout` publishes only the font read, so its other two columns are ABSENT rather than faked, and `Across`/`RunFormat` reach the rows that answer them instead of a page re-spelling the roster.
 - Law: `QuartetFace` keeps `UsesBold`/`UsesItalic` as a bool PAIR — all four corners are legal, no law bars one, and both values are `Font.FromQuartetProperties` arguments — so the pair is the host call's own argument shape, not a capability set wearing two flags.
 - Law: `FaceDecoration.AxisLaw` bars `Bold` and `Italic` from an AXES query: the `Font(family, weight, style, stretch, underlined, strikethrough)` constructor spells those two as `FaceWeight`/`FaceSlant`, so admitting them twice lets one query carry two authorities over one host argument.
-- Law: `FaceQuery.Of` admits every `FaceForm` case through one fold and `Mint` constructs an immutable `Font` through one union rail; the quartet arm gates on the family's own `CapabilitySet<QuartetFace>` before resolution, so a missing corner refuses before the host call rather than answering a substituted face.
+- Law: `FaceQuery.Of` admits every `FaceForm` case through one fold and `Mint` constructs an immutable `Font` through one union switch; the quartet arm gates on the family's own `CapabilitySet<QuartetFace>` before resolution, so a missing corner refuses before the host call rather than answering a substituted face.
 - Law: `FaceResolution` carries substitute evidence when the face's `Traits` omit `Installed`; no consumer renders against a silently substituted face.
 - Packages: RhinoCommon `Font`/`FontQuartet` per `.api/api-rhinocommon-drafting-resources.md` `[FONT_RESOLUTION]`/`[FONT_NAMES]`/`[FONT_METRICS]`/`[FONT_QUARTET]`, `AnnotationBase` decoration members per `.api/api-rhinocommon-annotation.md` `[03]`/`[04]`; `Domain/validation` (`CapabilitySet<T>`, `CapabilityLaw<T>`, `ICapability<T>`, `Op.Row`, `Op.AcceptValidated`); `Document/tables.md` (`ResourceName`); `Document/session.md` (`DraftFault`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: a host decoration member joins as one column on the row that already names its concept; a new specialty reading is one `FaceTrait` row every census and descriptor gains without another column.
@@ -255,13 +255,13 @@ public abstract partial record FaceCensusAnswer {
 }
 ```
 
-## [03]-[TYPEFACE_RAIL]
+## [03]-[TYPEFACE_PIPELINE]
 
 - Owner: `Typefaces.Resolve` answers immutable face resolution with substitute evidence, `Typefaces.Census` answers machine-state discovery, and `TypefaceOp.Bind` is the sole document mutation.
 - Law: `Bind` compares the whole `FaceInfo` projection and stops at the first seated match, projecting a candidate style only until one answers — the table read is LIVE per call, because a memo of document rows answers a style the running command has since modified.
 - Law: `FaceInfo` equality is the bind's identity: the descriptor carries two `CapabilitySet` columns whose generated unordered equality makes `==` a value comparison, so no arm re-spells a member-by-member probe.
 - Law: `FaceCensus.Names` is a PUBLIC request row and owes no in-package caller — the branch ruling seats altitude proof for public entries at the `apps/<app>/` plugin-shell command that composes them.
-- Packages: RhinoCommon `Font` statics and `DimStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[FONT_RESOLUTION]`; `Document/tables.md` (`ResourceRef`, `ResourceIndex`); `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op` receivers).
+- Packages: RhinoCommon `Font` statics and `DimStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[FONT_RESOLUTION]`; `Document/tables.md` (`ResourceRef`, `ResourceIndex`); `Domain/results` (`Lease<T>.Acquire`/`Use`, `Op` receivers).
 - Growth: a second face mutation is one `TypefaceOp` case beside the bind; the census gains a request row and its answer row together.
 
 ```csharp
@@ -352,7 +352,7 @@ public static class Typefaces {
 ## [04]-[SECTION_MODEL]
 
 - Owner: `SectionAxis` and `SectionField` are the section drafting schema — one row per proven `SectionStyle` property, each binding a `FieldSeat<SectionStyle>` off the shared `FieldTable` mechanism; `SectionEdit` is the admitted field/payload pair; `SectionDefaults` the host-default snapshot; `SectionFillMode` the fill-mode row; `SectionFill`, `SectionBoundary`, `SectionStroke`, and `SectionHatch` encode only realizable host states; `SectionSpec` composes them with the fill rule and admitted name.
-- Law: the write path is RAILED end to end — every section property write is one `SectionField.Write`, whose payload projection is a `Fin`, so a colour leaving through the gamut boundary refuses AT the field. Statement blocks inside `Op.Catch` cannot see that refusal and land a default-constructed colour beside it.
+- Law: the write path is RESULT-TYPED end to end — every section property write is one `SectionField.Write`, whose payload projection is a `Fin`, so a colour leaving through the gamut boundary refuses AT the field. Statement blocks inside `Op.Catch` cannot see that refusal and land a default-constructed colour beside it.
 - Law: `SectionStyle` publishes no field-override enum, so `SectionField` keys on its OWN ordinals and the mechanism's host-enum parameter carries the schema's one keyed host vocabulary, `ObjectSectionFillRule`; the second host enum this page reads admits through the kernel `Op.Row` arm the mechanism itself forwards to.
 - Law: `SectionField` carries the SIX adapters `SectionStyle` proves — real, whole, pick, flag, script, and tint — and none it cannot back; a declared adapter no row reaches is decorative schema.
 - Law: `SectionDefaults` reads every row off ONE leased native at first touch and releases it there, so the snapshot is VALUES; the retained native this page held for the process was one live host resource per section write it never needed.
@@ -362,7 +362,7 @@ public static class Typefaces {
 - Law: absent fill, hidden boundary, and absent hatch carry no dead colours, scales, rotations, weights, or resource addresses.
 - Law: resource addresses resolve inside the document grant before any table index is written; every numeric host input composes the namespace's `DraftScale`/`DraftAngle` owners and the folder's `PrintPen` plot-weight ingress onto the kernel ISO 128-24 ladder, the same owners the hatch and linetype pages write these host properties through.
 - Boundary: `SectionSpec` states no cross-column invariant because every column is an admitted owner — the generated null guard IS the whole admission, and a hand-written re-check restates what construction already proved.
-- Packages: `Annotation/style.md` (`FieldTable<TOwner, THostEnum>`, `FieldSeat<TOwner>`, `StyleValue`, `DraftScale`, `DraftAngle`); `Annotation/linetype.md` (`StrokeDef`, `LinetypeOp.Lens`); `Annotation/hatch.md` (`HatchSpec.Lens`); `Document/layers.md` (`PrintPen`); `Domain/rails` (`Custody`); `Numerics/atoms` (`PerceptualColor`); RhinoCommon `SectionStyle` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_STYLE]`/`[SECTION_FILL]`/`[SECTION_BOUNDARY]`/`[SECTION_HATCH]`/`[SECTION_STATE]`.
+- Packages: `Annotation/style.md` (`FieldTable<TOwner, THostEnum>`, `FieldSeat<TOwner>`, `StyleValue`, `DraftScale`, `DraftAngle`); `Annotation/linetype.md` (`StrokeDef`, `LinetypeOp.Lens`); `Annotation/hatch.md` (`HatchSpec.Lens`); `Document/layers.md` (`PrintPen`); `Domain/results` (`Custody`); `Numerics/atoms` (`PerceptualColor`); RhinoCommon `SectionStyle` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_STYLE]`/`[SECTION_FILL]`/`[SECTION_BOUNDARY]`/`[SECTION_HATCH]`/`[SECTION_STATE]`.
 - Growth: a catalog-proven `SectionStyle` property is one `SectionField` row through its adapter; the defaults snapshot, every restore, and every write gain it without another surface.
 
 ```csharp
@@ -636,7 +636,7 @@ public sealed partial class SectionSpec {
 }
 ```
 
-## [05]-[SECTION_RAIL]
+## [05]-[SECTION_PIPELINE]
 
 - Owner: `SectionSource` carries local versus reference seating; `SectionOp` carries one `Table` case over the namespace's shared verbs beside the two this table alone has — source-discriminated authoring and `.secstyles` import reconciliation; `ImportLanding` carries one landed row beside its own reversal; `SectionUsage` and `SectionSnapshot` carry the read projection.
 - Law: amendment, renaming, retagging, plural delete, and current election are the SHARED `TableOp` over `SectionOp.Grip` — the duplicate-then-`Modify` law, the plural delete arity, and the tag algebra are the namespace owner's and this page re-spells none of them. Re-spelling any of those verbs as a page-local arm executes the deleted form.
@@ -650,7 +650,7 @@ public sealed partial class SectionSpec {
 - Law: import owns every native it reads or retains — both `ReadFromFile` out-arrays and each copy-retained pre-existing style — and drains all three sets through kernel `Custody` on success and on every refusal leg.
 - Law: `SectionUsage` is the ONE usage authority — the snapshot carries it rather than a second host `InUse` read whose verdict can disagree with the census beside it.
 - Boundary: the projection reads host properties directly instead of routing through the schema's `Read` column, because it must reshape into the closed fill, boundary, and hatch cases and every row unwraps twice on that route; the schema's read column serves the defaults snapshot, which needs no reshaping.
-- Packages: `Annotation/style.md` (`TableGrip<T, TDef>`, `TableOp<T, TDef>`, `TagSurface`, `DraftScale`, `DraftAngle`); `Annotation/hatch.md` (`PatternDef`); `Annotation/linetype.md` (`StrokeDef`); `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`); RhinoCommon `SectionStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_TABLE]`.
+- Packages: `Annotation/style.md` (`TableGrip<T, TDef>`, `TableOp<T, TDef>`, `TagSurface`, `DraftScale`, `DraftAngle`); `Annotation/hatch.md` (`PatternDef`); `Annotation/linetype.md` (`StrokeDef`); `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/results` (`Custody`); RhinoCommon `SectionStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_TABLE]`.
 - Growth: a section-only verb is one `SectionOp` case with its arm; a verb every component table shares is one `TableOp` case; a new landing kind is one `ImportLanding` mint carrying its reversal.
 
 ```csharp
@@ -884,7 +884,6 @@ public sealed partial class SectionUsage {
     public int Layers { get; }
     public bool Bound => HostBound || Definitions > 0 || Objects > 0 || Layers > 0;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref bool hostBound, ref int definitions, ref int objects, ref int layers) {

@@ -1,32 +1,32 @@
 # [RUNTIME_ROUTE]
 
-This serving assembly: routes are Layers under `HttpLayerRouter` — the app-assembled `HttpApi` mounts through `addHttpApi` beside raw routes, foreign realtime protocols mount through the `Mount` port fold, the resumable-upload rail mounts its tus dispatchers, the health trio serves the probe anchor, the webhook intake holds raw octets for signature verification, and the auth ceremonies lift the security wave's redirect and passkey round-trips into HTTP. One global seam owns mark, ambient provision, trace continuation, general credential admission, tenancy, upload bounds, priced admission, shield headers, route attribution, and the respondable net; the webhook's protocol-mandated query token composes the same auth owner at its matched route. Host and header dispatch across several apps is a `HttpMultiplex` catch-all route; static assets serve under an address-first immutable cache selector, list-aware revalidation, traversal refusal, and the weak `Etag.Generator` that row mounts for itself. This engine is never named here — `HttpLayerRouter.serve` demands the `HttpServer` the boot module provides from `proc/exec#RUNTIME_ROWS`, so a runtime change is a row selection at the root and the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same route Layers. This module ships on the `./server` exports subpath as `runtime/src/serve/route.ts`.
+This serving assembly: routes are Layers under `HttpLayerRouter` — the app-assembled `HttpApi` mounts through `addHttpApi` beside raw routes, foreign realtime protocols mount through the `Mount` port fold, the resumable-upload server mounts its tus dispatchers, the health trio serves the probe anchor, the webhook intake holds raw octets for signature verification, and the auth ceremonies lift the security wave's redirect and passkey round-trips into HTTP. One global edge owns mark, ambient provision, trace continuation, general credential admission, tenancy, upload bounds, priced admission, shield headers, route attribution, and the respondable net; the webhook's protocol-mandated query token composes the same auth owner at its matched route. Host and header dispatch across several apps is a `HttpMultiplex` catch-all route; static assets serve under an address-first immutable cache selector, list-aware revalidation, traversal refusal, and the weak `Etag.Generator` that row mounts for itself. This engine is never named here — `HttpLayerRouter.serve` demands the `HttpServer` the boot module provides from `proc/exec#RUNTIME_ROWS`, so a runtime change is a row selection at the root and the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same route Layers. This module ships on the `./server` exports subpath as `runtime/src/serve/route.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[SEAM_ROWS]: `Seam` — mark, ambient, trace, admission, upload bound, priced admission, derived shield, route stamp, and net rows.
+- [02]-[EDGE_ROWS]: `Edge` — mark, ambient, trace, admission, upload bound, priced admission, derived shield, route stamp, and net rows.
 - [03]-[LAYER_ROUTES]: api/docs/health/tus/mount route Layers, the bounded webhook intake row; `Router`, `Inbound`.
 - [04]-[CEREMONY_ROWS]: oauth redirect pair, webauthn enroll/assert, refresh/logout, cookie application; `Ceremony`.
 - [05]-[ASSET_ROWS]: `Router.assets` — address-first cache selector, list-aware revalidation, traversal refusal.
 - [06]-[SERVE_FOLD]: multiplex rows, the serve Layer, the web-handler twin; `Router`.
 
-## [02]-[SEAM_ROWS]
+## [02]-[EDGE_ROWS]
 
-[SEAM_ROWS]:
-- Owner: `Seam` — the one cross-cutting composition over one `Seam.Policy` value: `Seam.guard(policy)(app)` mints the request mark (id, instant, negotiated locale from the `accept-language` header against the ambient fallback), provides the `Current` rows in one scoped provision, continues the W3C trace through `Current.traced` over the request headers, bounds every multipart read through the policy's `uploads` row as fiber-ref policy, folds every escaping cause through `Problem.net` — self-rendering first, total ladder as the floor — and stamps the derived shield headers on every response; the served app's error channel is `never` by construction. `Seam.admission(identity)` is its credential companion, `Seam.routed` the route-attribution row, and `Seam.priced`/`Seam.Priced` the priced-admission pair, so the whole cross-cutting stack composes once at the serve fold and nothing per-handler restates it.
-- Law: pricing REFUSES at this edge — a burst caller leaves as a Problem-rendered 429 rather than as a held socket, because a delayed request occupies the connection the in-flight cap is separately defending; `work/queue#THROTTLE` takes the DELAYING posture over the same store and the same four columns (`window`, `limit`, `key`, `cost`), so the branch spends one quota vocabulary across two postures and a row's `scope` names which side it sits on. `api#ADMISSION_ROWS`'s one `Gate.fenced` price is the refusal — the limiter's `"Exceeded"` arm re-spelled as a `rate` `GateFault` carrying its own measured `after` — so this page mints no refusal, and the seam's net renders the class the governed record already grades with a truthful `retry-after`.
-- Law: a quota row states its FAN AXIS and this seam derives both projections — `principal` prices a holder's whole traffic, `route` prices that holder on the matched pattern, and every row costs the pattern's own declared weight, so a row carries scope, algorithm, window, limit, and one word. Buckets join the row's `scope` to its projection because the limiter store takes `key` verbatim and namespaces nothing — the identical join the work plane folds, without which two rows fanning on different axes spend one another's tokens the moment their values coincide.
-- Law: the priced coordinates first exist INSIDE the match, so pricing rides the same two seats route attribution does — `Seam.priced(policy)` for a raw row and the `Seam.Priced` api middleware for every `addHttpApi` endpoint — because `RouteContext` carries the pattern only after a match and `Current.Admitted` carries the credential the admission row already lifted. Patterns the policy's weight record never names spend nothing at all, so the probe trio, the asset tree, and the mounted foreign protocols stay unpriced by omission rather than through a second exempt roster kept in step by hand.
+[EDGE_ROWS]:
+- Owner: `Edge` — the one cross-cutting composition over one `Edge.Policy` value: `Edge.guard(policy)(app)` mints the request mark (id, instant, negotiated locale from the `accept-language` header against the ambient fallback), provides the `Current` rows in one scoped provision, continues the W3C trace through `Current.traced` over the request headers, bounds every multipart read through the policy's `uploads` row as fiber-ref policy, folds every escaping cause through `Problem.net` — self-rendering first, total ladder as the floor — and stamps the derived shield headers on every response; the served app's error channel is `never` by construction. `Edge.admission(identity)` is its credential companion, `Edge.routed` the route-attribution row, and `Edge.priced`/`Edge.Priced` the priced-admission pair, so the whole cross-cutting stack composes once at the serve fold and nothing per-handler restates it.
+- Law: pricing REFUSES at this edge — a burst caller leaves as a Problem-rendered 429 rather than as a held socket, because a delayed request occupies the connection the in-flight cap is separately defending; `work/queue#THROTTLE` takes the DELAYING posture over the same store and the same four columns (`window`, `limit`, `key`, `cost`), so the branch spends one quota vocabulary across two postures and a row's `scope` names which side it sits on. `api#ADMISSION_ROWS`'s one `Gate.fenced` price is the refusal — the limiter's `"Exceeded"` arm re-spelled as a `rate` `GateFault` carrying its own measured `after` — so this page mints no refusal, and the edge's net renders the class the governed record already grades with a truthful `retry-after`.
+- Law: a quota row states its FAN AXIS and this edge derives both projections — `principal` prices a holder's whole traffic, `route` prices that holder on the matched pattern, and every row costs the pattern's own declared weight, so a row carries scope, algorithm, window, limit, and one word. Buckets join the row's `scope` to its projection because the limiter store takes `key` verbatim and namespaces nothing — the identical join the work plane folds, without which two rows fanning on different axes spend one another's tokens the moment their values coincide.
+- Law: the priced coordinates first exist INSIDE the match, so pricing rides the same two seats route attribution does — `Edge.priced(policy)` for a raw row and the `Edge.Priced` api middleware for every `addHttpApi` endpoint — because `RouteContext` carries the pattern only after a match and `Current.Admitted` carries the credential the admission row already lifted. Patterns the policy's weight record never names spend nothing at all, so the probe trio, the asset tree, and the mounted foreign protocols stay unpriced by omission rather than through a second exempt roster kept in step by hand.
 - Law: the holder is the credential where one exists and the caller address everywhere else, which is what makes `fronted` load-bearing a second time — an unfronted origin honoring `x-forwarded-for` hands one caller a fresh bucket per request and prices nobody, so the row deciding dispatch and audit coordinates decides whose bucket an anonymous request spends; exempting anonymous traffic instead exempts exactly the callers the table exists to bound.
 - Law: the limiter store is a PORT this page never backs — the edge rows and the work plane's rows resolve the one `Fleet.RateLimiter` Tag the composition root binds (`layerStoreMemory` on a single node, a shared store-backed Layer across a fleet), so a fleet-wide bucket is a root selection and no concrete store sits below it, and that Tag rides every route Layer's requirement channel because a per-route seat cannot be conditional on a weight the record may not carry, which is the same unconditional shape `Mount.Lift` and `Life` already take here.
-- Law: the shield splits by what a header IS — the four transport-fixed rows (`strict-transport-security`, `x-content-type-options`, `x-frame-options`, `referrer-policy`) are literals, and the CSP DERIVES from the export policy through `Seam.shield(shield)`: `default-src 'self'` and `frame-ancestors 'none'` fix the frame, `script-src` grants `'wasm-unsafe-eval'` because CSP3 demands it for the `WebAssembly.instantiate` the served decoder leaves run, `connect-src` assembles the collector origin beside the cross-origin API roster the deployment already declares, and `worker-src`/`img-src` join the asset origin wherever the multiplex row places assets on a second host. Moving a collector or adding an API origin therefore edits no header, and the standing clause — a handler hand-setting a shield header is the drift defect — becomes enforceable instead of aspirational.
-- Law: the shield row derives, never restates — `Seam.shieldOf(policy, origins)` reads the collector ORIGIN off `otel/emit#POLICY`'s own `collector.baseUrl`, so the estate spells the collector once; the `propagate` roster stays anchored `RegExp` patterns for the SDK's `urlMatches` compare and cannot serve a CSP source list, so the cross-origin API origins arrive as the explicit `connect` roster the same app root assembles both from.
-- Law: `Seam.admission` is the tenancy binder every sibling folder names as "the edge" — it composes `Gate.Authn.admit(identity, request.headers)` ONCE per request, provides the result through `Current.Admitted` so the api's scheme arms project rather than re-verify, and wraps the whole downstream in `TenantScope.bind` under `TenantScope.metered` on the admitted arm; an anonymous request binds nothing and the unscoped default answers, because refusal belongs to the endpoint that declares a scheme, never to this seam.
-- Law: the cookie presentation pays its double-submit proof HERE and nowhere else — an admitted `via` of `"cookie"` on a method outside `GET`/`HEAD`/`OPTIONS` runs `Cookie.verify` over the one `CookieSpec.csrf` row (the cookie by `name`, the echo by `header`) before the downstream binds, and an absent or mismatched pair refuses `unauthorized` through `Gate.refuse` so the seam's own refusal series counts it; a bearer or api-key presentation carries a header no cross-site form can replay and pays nothing, and the ceremony rows' `_csrfed` fold gates the round-trips that run before any admission exists over that same one `Cookie.verify` owner.
-- Law: `Seam.routed` is what makes `http.route` producible — `@opentelemetry/instrumentation-http` installs the `RPCMetadata` record under `RPCType.HTTP` and reads `route` off it at response end to build BOTH the span attribute and the duration histogram's own dimension, and no published hook fills that field: `startIncomingSpanHook` fires before any route matches, `requestHook`/`responseHook` see the node message alone, and `applyCustomAttributesOnSpan` runs PAST the metric-attribute build, so an attribute set there decorates the span while the RED plane still ships route-less. This row therefore writes the matched pattern onto the record under the same `RPCType.HTTP` discriminant the reader compares, attaching per route because `RouteContext` exists only after a match, and covering `addHttpApi`'s endpoints through the api-level `Seam.Routed` Tag.
+- Law: the shield splits by what a header IS — the four transport-fixed rows (`strict-transport-security`, `x-content-type-options`, `x-frame-options`, `referrer-policy`) are literals, and the CSP DERIVES from the export policy through `Edge.shield(shield)`: `default-src 'self'` and `frame-ancestors 'none'` fix the frame, `script-src` grants `'wasm-unsafe-eval'` because CSP3 demands it for the `WebAssembly.instantiate` the served decoder leaves run, `connect-src` assembles the collector origin beside the cross-origin API roster the deployment already declares, and `worker-src`/`img-src` join the asset origin wherever the multiplex row places assets on a second host. Moving a collector or adding an API origin therefore edits no header, and the standing clause — a handler hand-setting a shield header is the drift defect — becomes enforceable instead of aspirational.
+- Law: the shield row derives, never restates — `Edge.shieldOf(policy, origins)` reads the collector ORIGIN off `otel/emit#POLICY`'s own `collector.baseUrl`, so the repo spells the collector once; the `propagate` roster stays anchored `RegExp` patterns for the SDK's `urlMatches` compare and cannot serve a CSP source list, so the cross-origin API origins arrive as the explicit `connect` roster the same app root assembles both from.
+- Law: `Edge.admission` is the tenancy binder every sibling folder names as "the edge" — it composes `Gate.Authn.admit(identity, request.headers)` ONCE per request, provides the result through `Current.Admitted` so the api's scheme arms project rather than re-verify, and wraps the whole downstream in `TenantScope.bind` under `TenantScope.metered` on the admitted arm; an anonymous request binds nothing and the unscoped default answers, because refusal belongs to the endpoint that declares a scheme, never to this edge.
+- Law: the cookie presentation pays its double-submit proof HERE and nowhere else — an admitted `via` of `"cookie"` on a method outside `GET`/`HEAD`/`OPTIONS` runs `Cookie.verify` over the one `CookieSpec.csrf` row (the cookie by `name`, the echo by `header`) before the downstream binds, and an absent or mismatched pair refuses `unauthorized` through `Gate.refuse` so the edge's own refusal series counts it; a bearer or api-key presentation carries a header no cross-site form can replay and pays nothing, and the ceremony rows' `_csrfed` fold gates the round-trips that run before any admission exists over that same one `Cookie.verify` owner.
+- Law: `Edge.routed` is what makes `http.route` producible — `@opentelemetry/instrumentation-http` installs the `RPCMetadata` record under `RPCType.HTTP` and reads `route` off it at response end to build BOTH the span attribute and the duration histogram's own dimension, and no published hook fills that field: `startIncomingSpanHook` fires before any route matches, `requestHook`/`responseHook` see the node message alone, and `applyCustomAttributesOnSpan` runs PAST the metric-attribute build, so an attribute set there decorates the span while the RED plane still ships route-less. This row therefore writes the matched pattern onto the record under the same `RPCType.HTTP` discriminant the reader compares, attaching per route because `RouteContext` exists only after a match, and covering `addHttpApi`'s endpoints through the api-level `Edge.Routed` Tag.
 - Law: forwarded-header trust is a policy ROW, never a default — `fronted` selects `HttpMiddleware.xForwardedHeaders`, which rewrites `host` from `x-forwarded-host` and the caller address from the first `x-forwarded-for` hop, so a proxied deployment dispatches and audits on the PUBLIC coordinates while an unfronted origin refuses the rewrite outright. Both header names stay caller-writable: a default-on row hands any caller its own virtual host, and a default-off row collapses every multiplex predicate onto the ingress hostname behind a load balancer.
-- Law: CORS is delegated, never re-implemented — the assembly composes `HttpLayerRouter.cors()` (or `HttpApiBuilder.middlewareCors(options)` on the api mount) with the options row as its one policy value; no `Seam` member renames it, because a forwarding member is the one-hop wrapper the platform surface already owns.
-- Growth: a new cross-cutting response concern is one line in `Seam.guard`, inherited by every route Layer at once; a new CSP directive is one `_directives` row; a new priced axis is one `_AXES` entry and the `_QUOTA` row spreading it.
+- Law: CORS is delegated, never re-implemented — the assembly composes `HttpLayerRouter.cors()` (or `HttpApiBuilder.middlewareCors(options)` on the api mount) with the options row as its one policy value; no `Edge` member renames it, because a forwarding member is the one-hop wrapper the platform surface already owns.
+- Growth: a new cross-cutting response concern is one line in `Edge.guard`, inherited by every route Layer at once; a new CSP directive is one `_directives` row; a new priced axis is one `_AXES` entry and the `_QUOTA` row spreading it.
 - Packages: `@effect/platform` (`HttpServerRequest`, `HttpServerResponse`, `HttpApiMiddleware`, `HttpMiddleware`, `HttpLayerRouter`, `Multipart`); `@effect/experimental` (`RateLimiter` — the store Tag the priced rows resolve); `@opentelemetry/core` (`getRPCMetadata`, `RPCType`); `@opentelemetry/api` (`context`); `effect` (`DateTime`, `Duration`, `Effect`, `Option`, `Array`, `identity`, `pipe`); `@rasm/security` (`Cookie`, `CookieSpec`, `TenantScope`); `./api.ts` (`Current`, `Gate`, `GateFault`); `../otel/emit.ts` (`Export`).
 
 ```typescript
@@ -46,7 +46,7 @@ import {
 } from "effect"
 import { Carrier, Event, Format, type Identity } from "@rasm/core"
 import { Claim, Cookie, CookieSpec, Departed, Jwt, type MacKey, OAuth, TenantScope, Token, type Verified, Verify, WebAuthn } from "@rasm/security"
-import { Dataref, Journal, Rail } from "@rasm/data"
+import { Dataref, Ingest, Journal } from "@rasm/data"
 import { Avro } from "../net/channel.ts"
 import { WebhookOrigin } from "../net/client.ts"
 import { InboundHeaders } from "../proc/exec.ts"
@@ -65,7 +65,7 @@ const _FIXED = {
   "referrer-policy": "strict-origin-when-cross-origin",
 } as const satisfies Record<string, string>
 
-declare namespace Seam {
+declare namespace Edge {
   type Shield = {
     readonly collector: string
     readonly connect: ReadonlyArray<string>
@@ -95,7 +95,7 @@ declare namespace Seam {
   }
 }
 
-const _directives = (shield: Seam.Shield): ReadonlyArray<readonly [string, ReadonlyArray<string>]> => [
+const _directives = (shield: Edge.Shield): ReadonlyArray<readonly [string, ReadonlyArray<string>]> => [
   ["default-src", ["'self'"]],
   ["frame-ancestors", ["'none'"]],
   ["script-src", ["'self'", "'wasm-unsafe-eval'", ...Option.toArray(shield.assets)]],
@@ -104,7 +104,7 @@ const _directives = (shield: Seam.Shield): ReadonlyArray<readonly [string, Reado
   ["img-src", ["'self'", "data:", "blob:", ...Option.toArray(shield.assets)]],
 ]
 
-const _shield = (shield: Seam.Shield): Record<string, string> => ({
+const _shield = (shield: Edge.Shield): Record<string, string> => ({
   ..._FIXED,
   "content-security-policy": pipe(
     _directives(shield),
@@ -116,13 +116,13 @@ const _shield = (shield: Seam.Shield): Record<string, string> => ({
 const _shieldOf = (
   policy: Export.Policy,
   origins: { readonly connect: ReadonlyArray<string>; readonly assets: Option.Option<string> },
-): Seam.Shield => ({
+): Edge.Shield => ({
   collector: new URL(policy.collector.baseUrl).origin,
   connect: origins.connect,
   assets: origins.assets,
 })
 
-const _guard = (policy: Seam.Policy) => {
+const _guard = (policy: Edge.Policy) => {
   const stamped = _shield(policy.shield)
   const forwarded = policy.fronted ? HttpMiddleware.xForwardedHeaders : identity
   return <E, R>(
@@ -215,11 +215,11 @@ class Routed extends HttpApiMiddleware.Tag<Routed>()("runtime/serve/Routed") {
 }
 
 const _AXES = {
-  principal: (subject: Seam.Subject): string => subject.holder,
-  route: (subject: Seam.Subject): string => `${subject.holder}:${subject.route}`,
+  principal: (subject: Edge.Subject): string => subject.holder,
+  route: (subject: Edge.Subject): string => `${subject.holder}:${subject.route}`,
 } as const
 
-const _keyed = (axis: keyof typeof _AXES): Pick<Seam.Quota, "cost" | "key"> => ({
+const _keyed = (axis: keyof typeof _AXES): Pick<Edge.Quota, "cost" | "key"> => ({
   cost: (subject) => subject.weight,
   key: _AXES[axis],
 })
@@ -227,12 +227,12 @@ const _keyed = (axis: keyof typeof _AXES): Pick<Seam.Quota, "cost" | "key"> => (
 const _QUOTA = {
   principal: { scope: "edge-principal", algorithm: "token-bucket", window: Duration.minutes(1), limit: () => 600, ..._keyed("principal") },
   route: { scope: "edge-route", algorithm: "fixed-window", window: Duration.minutes(1), limit: () => 120, ..._keyed("route") },
-} as const satisfies Record<string, Seam.Quota>
+} as const satisfies Record<string, Edge.Quota>
 
-const _perMinute = (row: Seam.Quota, subject: Seam.Subject): number =>
+const _perMinute = (row: Edge.Quota, subject: Edge.Subject): number =>
   Math.max(1, Math.floor(row.limit(subject) / Math.max(1, row.cost(subject)) / Math.max(Duration.toMinutes(row.window), 1 / 60)))
 
-const _granted = (policy: Seam.Policy, route: string): string =>
+const _granted = (policy: Edge.Policy, route: string): string =>
   Option.match(Option.fromNullable(policy.quota.weight[route]), {
     onNone: () => "*",
     onSome: (weight) =>
@@ -242,7 +242,7 @@ const _granted = (policy: Seam.Policy, route: string): string =>
       }),
   })
 
-const _bucket = (row: Seam.Quota, subject: Seam.Subject): string => `${row.scope}:${row.key(subject)}`
+const _bucket = (row: Edge.Quota, subject: Edge.Subject): string => `${row.scope}:${row.key(subject)}`
 
 type _Admitted = Effect.Effect.Success<typeof Current.Admitted>
 
@@ -252,7 +252,7 @@ const _holder = (request: HttpServerRequest.HttpServerRequest, admitted: _Admitt
     onSome: (held) => `sub:${held.principal.subject}`,
   })
 
-const _quota = (policy: Seam.Policy) =>
+const _quota = (policy: Edge.Policy) =>
 <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<
   A,
   E | GateFault,
@@ -266,7 +266,7 @@ const _quota = (policy: Seam.Policy) =>
           Effect.gen(function* () {
             const request = yield* HttpServerRequest.HttpServerRequest
             const admitted = yield* Current.Admitted
-            const subject: Seam.Subject = { holder: _holder(request, admitted), route, weight }
+            const subject: Edge.Subject = { holder: _holder(request, admitted), route, weight }
             return yield* Array.reduce(policy.quota.rows, self, (held, row) =>
               Gate.fenced(held, {
                 algorithm: row.algorithm,
@@ -279,10 +279,10 @@ const _quota = (policy: Seam.Policy) =>
       })))
 
 class Priced extends HttpApiMiddleware.Tag<Priced>()("runtime/serve/Priced", { failure: GateFault }) {
-  static readonly live = (policy: Seam.Policy): Layer.Layer<Priced> => Layer.succeed(Priced, _quota(policy)(Effect.void))
+  static readonly live = (policy: Edge.Policy): Layer.Layer<Priced> => Layer.succeed(Priced, _quota(policy)(Effect.void))
 }
 
-const Seam = {
+const Edge = {
   Priced,
   Routed,
   admission: _admission,
@@ -300,24 +300,24 @@ const Seam = {
 
 [LAYER_ROUTES]:
 - Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api, docs)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` and selects its reference UI through `api#EMIT`'s `_uis` roster, so the derived document and the UI ride the same router and the docs choice lives at one owner; `Router.rpc(group, mount)` mounts a contributed RPC group beside the raw routes through the fused `RpcServer.layerHttpRouter` owner — the package's own composition of the server Layer with whichever router-native protocol row the mount elects — so one router serves api, RPC, and raw rows without a second server and `api#CONTRIBUTION`'s protocol roster keeps only the rows that ARE their own listener; `Router.health` mounts the probe trio from `proc/life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts every provided foreign-protocol row at its prefix under the `"*"` catch-all method literal — presence-as-data, an unwired port serves nothing and never crashes.
-- Law: every raw route on this page mounts through `Seam.routed`, never `HttpLayerRouter.add` directly, so the matched pattern reaches the RED plane's route dimension from the one place that knows it; a bare `add` is the drift defect this constructor forecloses. Its api half is the assembly's one `HttpApi.middleware(Seam.Routed)` declaration against the Layer `Router.api` already merges, so every endpoint stamps its own pattern without a per-endpoint hook the platform does not publish; `HttpApi.middleware(Seam.Priced)` is that same seat spent a second time for the quota, and it declares beside the stamp because both read the one coordinate a match produces — the difference is that pricing carries a policy, so its Layer merges at the root rather than inside `Router.api`.
-- Law: the tus rail mounts as dispatchers, never re-frames — `Router.rail(spec)` builds the data rail (`Rail.of(spec)`) and delegates its value to `Router.RailMount`, the port whose selected runtime row routes every method under the spec's route prefix into the rail's own dispatchers and schedules `rail.groom` through the lifecycle plane; the node lift is NOT this port's, it is `live#MOUNT_PORT`'s one `Mount.node` member, so a fetch engine drives `rail.web(request)` through `HttpApp.fromWebHandler` or `BunHttpServerRequest.toRequest` while the node engine composes that one adapter, and offset semantics, staging custody, and finalize stay the data rail's while this module names no binding.
+- Law: every raw route on this page mounts through `Edge.routed`, never `HttpLayerRouter.add` directly, so the matched pattern reaches the RED plane's route dimension from the one place that knows it; a bare `add` is the drift defect this constructor forecloses. Its api half is the assembly's one `HttpApi.middleware(Edge.Routed)` declaration against the Layer `Router.api` already merges, so every endpoint stamps its own pattern without a per-endpoint hook the platform does not publish; `HttpApi.middleware(Edge.Priced)` is that same seat spent a second time for the quota, and it declares beside the stamp because both read the one coordinate a match produces — the difference is that pricing carries a policy, so its Layer merges at the root rather than inside `Router.api`.
+- Law: the tus server mounts as dispatchers, never re-frames — `Router.ingest(spec)` builds the data ingest (`Ingest.of(spec)`) and delegates its value to `Router.IngestMount`, the port whose selected runtime row routes every method under the spec's route prefix into the ingest's own dispatchers and schedules `ingest.groom` through the lifecycle plane; the node lift is NOT this port's, it is `live#MOUNT_PORT`'s one `Mount.node` member, so a fetch engine drives `ingest.web(request)` through `HttpApp.fromWebHandler` or `BunHttpServerRequest.toRequest` while the node engine composes that one adapter, and offset semantics, staging custody, and finalize stay the data ingest's while this module names no binding.
 - Law: `Inbound` is the held-octet webhook row — `Gate.Authn.webhook` first admits either the bearer header or `access_token` query carriage through the one credential owner, then the raw body reads once through the platform's byte accessor. The selected signature dialect verifies those exact octets before `settle`; authorization and signature remain independent proofs.
 - Law: the spec's `ceiling` gates BEFORE and DURING the read — `HttpIncomingMessage.withMaxBodySize` scopes the platform collector itself and refuses an actual-byte overrun before an unbounded `arrayBuffer` can materialize. `Content-Length` is neither trusted nor required: chunked delivery remains legal and a lying declaration cannot bypass the bound. The platform read fault re-spells as the governed `malformed` class and answers 400; no local 413 override forks `problem#STATUS_RECORD`. The multipart ceiling every other route inherits is `[02]`'s `uploads` policy row.
 - Law: detection precedes decode and reads the FRAME, never a trial parse — `Format.event.framed` recovers the core format owner's row-derived `Single | Batch` frame from one exact parsed media-type identity and the binding's own `ce-specversion` header names a binary frame whose `content-type` belongs to the data, so a frame naming neither refuses before any body is parsed. No route-owned `{ format, batch: boolean }` mirror exists; the package's `isEvent` pair runs a full deserialize inside `try`/`catch`, so a detect-then-decode pair parses every arrival twice.
 - Law: binary and structured evidence are exclusive. A request carrying both refuses typed before decode; an unrecognized structured media type exits through `Problem.media` as 415 rather than malformed 400.
 - Law: structured routing is explicit — JSON and Protobuf consume the admitted codecs under `Event.format`, while Avro consumes its bound singular codec; HTTP accepts only the optional batches those owners publish.
-- Law: the header band is SANITIZED at the seam, never handed platform `Headers` — that abstraction has already lowercased names and comma-joined repeated field lines, so an array check over `request.headers` is dead code and cannot defend signature, origin, or CloudEvents attributes. `InboundHeaders` is the runtime row's duplicate-preserving capability: `_sanitized` refuses every value array whose cardinality is not exactly one and every case-fold collision before any binding read. Node supplies `IncomingMessage.headersDistinct`; Bun's Fetch source cannot recover the lost identity and fails this strict route closed rather than splitting commas that may belong to one legal value.
+- Law: the header band is SANITIZED at the boundary, never handed platform `Headers` — that abstraction has already lowercased names and comma-joined repeated field lines, so an array check over `request.headers` is dead code and cannot defend signature, origin, or CloudEvents attributes. `InboundHeaders` is the runtime row's duplicate-preserving capability: `_sanitized` refuses every value array whose cardinality is not exactly one and every case-fold collision before any binding read. Node supplies `IncomingMessage.headersDistinct`; Bun's Fetch source cannot recover the lost identity and fails this strict route closed rather than splitting commas that may belong to one legal value.
 - Law: intake mints NOTHING — every structured codec crosses strict admission inside `Event.format`, binary binding results cross `Event.admit`, and `Event.rasm.Fact` plus `Event.rasm.read` supply the profile without a second model.
 - Law: tenancy admits through the authenticated inverse, never inherits — the admitted webhook token supplies the scope, `Journal.carrier` re-proves the announcement's tenant claim against it, and the route seats that same `Admitted` value and `TenantScope` for downstream settlement regardless of token carriage.
 - Law: authenticated identity does not prove event origin. Every `Inbound.Spec` supplies a `trust(principal, fact)` row that must admit the exact `(source,type)` claim before propagation or settlement; an app cannot omit source custody and a signature cannot authorize a producer namespace.
 - Law: the application also supplies a nonempty classification roster. Missing or disallowed generated `dataclassification` refuses before source trust, propagation, or settlement.
-- Law: webhook intake consumes the data plane's `Dataref` port before profile admission or application settlement. The port accepts only its configured HTTPS residence, verifies the resolved bytes against `subject`, and compares an inline twin byte-for-byte; a reference-only event is materialized through `Event.clone`, while a proved dual event retains its original carriage. No arbitrary URL fetch or route-local object client exists.
-- Law: this route is the ONE ingress receiving W3C context as first-class ATTRIBUTES, so it runs `Carrier.extract("cloudevents", …)` over each admitted message envelope and hands the extraction WHOLE — parse census included — to `otel/emit#CONTINUATION`'s one ingress transformer, which continues that CREATION-time trace and spends the census once; the transport hop's own context already crossed at `Seam.guard`, and the two-trace law keeps both rather than folding either onto the other.
+- Law: webhook intake consumes the data plane's `Dataref` port before profile admission or application settlement. The port accepts only its configured HTTPS root, verifies the resolved bytes against `subject`, and compares an inline twin byte-for-byte; a reference-only event is materialized through `Event.clone`, while a proved dual event retains its original carriage. No arbitrary URL fetch or route-local object client exists.
+- Law: this route is the ONE ingress receiving W3C context as first-class ATTRIBUTES, so it runs `Carrier.extract("cloudevents", …)` over each admitted message envelope and hands the extraction WHOLE — parse census included — to `otel/emit#CONTINUATION`'s one ingress transformer, which continues that CREATION-time trace and spends the census once; the transport hop's own context already crossed at `Edge.guard`, and the two-trace law keeps both rather than folding either onto the other.
 - Law: a batch settles per event — each admitted member first enters `Gate.Idempotency` under core `Event.address`, the one injective length-framed digest of `(source,id)`. A fresh address executes `Inbound.Spec.settle`; a replay bypasses it and answers `duplicate`. The 202 response carries one `Inbound.Settlement` per member, so accepted and duplicate members remain distinct, and a valid empty JSON batch answers an empty roster without inventing a refusal.
 - Tests: HTTP admits JSON and generated Protobuf as single and batch, including an empty JSON batch; admits the exact Avro asset as single only; rejects Avro batch; re-admits every SDK/Avro result strictly; and compares cross-format event semantics rather than encoded bytes.
 - Law: this route opts into the Webhook specification's abuse-protection handshake through its application-owned DNS-origin roster, and the granted RATE derives from `[02]`'s quota rows rather than standing as a field beside them — a promise about pacing is worth exactly what the edge enforces, so the same rows that refuse a burst caller state the ceiling a sender paces to, and an unpriced pattern grants `*` because it truthfully spends nothing. Origin is required and DNS-admitted on validation and delivery; a grant always carries allowed origin and rate together. Delivery supports both mandated bearer-token methods, refuses simultaneous or repeated token carriages, and stamps `Cache-Control: private` on a successful query-token response. Every delivery also carries a non-empty payload and `Content-Type`.
-- Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; `InboundHeaders` is the selected `proc/exec#RUNTIME_ROWS` capability; the rail spec's cut policy and staging band are `data`'s; the attribute grammar, extension roster, and mint entry are `core:interchange/carrier#EVENT_ENVELOPE`'s.
+- Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; `InboundHeaders` is the selected `proc/exec#RUNTIME_ROWS` capability; the ingest spec's cut policy and staging band are `data`'s; the attribute grammar, extension roster, and mint entry are `core:interchange/carrier#EVENT_ENVELOPE`'s.
 - Growth: a new served surface is one route-Layer member composing an owning-page value; a second foreign protocol is a second `Mount` Layer at a different prefix, zero edits here.
 - Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/core` (`Carrier`, `Event`, `Format`), `@rasm/data`, `@rasm/security`, and `../net/channel.ts` (`Avro` — the lane-owned Avro codec).
 
@@ -548,8 +548,8 @@ const _resolved = (
       const subject = yield* Predicate.isString(envelope.subject)
         ? Schema.decode(Event.rasm.subject)(envelope.subject).pipe(Effect.mapError((issue) => _eventProblem(issue.message)))
         : Effect.fail(_eventProblem("<dataref-subject-required>"))
-      const residence = yield* Dataref
-      const held = yield* residence.resolve({
+      const dataref = yield* Dataref
+      const held = yield* dataref.resolve({
         source: envelope.source,
         id: envelope.id,
         subject,
@@ -649,7 +649,7 @@ const _origin = (
 const _inbound = (
   identity: Identity.App,
   spec: Inbound.Spec,
-  policy: Seam.Policy,
+  policy: Edge.Policy,
 ): Layer.Layer<never, never, Claim | Jwt | Verify | Dataref | _Idempotency | InboundHeaders | HttpLayerRouter.HttpRouter> =>
   Layer.merge(
     _routed("OPTIONS", spec.route, () =>
@@ -720,9 +720,9 @@ const Inbound = {
 - Law: every mutating ceremony passes the CSRF gate BEFORE any state changes — the `_csrfed` fold reads the `CookieSpec.csrf` pair and runs `Cookie.verify`'s constant-time double-submit compare, so the webauthn finish pair, `refresh`, and `logout` are unreachable from ambient cookies alone; the oauth `callback` is exempt because its `state` round-trip is that flow's own anti-forgery evidence.
 - Law: BOTH halves of the double-submit pair read one `CookieSpec.csrf` row — `name` for the cookie, `header` for the echo — so this gate and `browser/route#SESSION_PLANE`'s stamp cannot spell different fields; a route literal here, or the cookie name reused as the header name there, forks the pair into a mismatch that fails closed on every mutation with no type breaking.
 - Law: cookie application is one fold — `_cookied(response, framed)` reduces the security wave's `Cookies.Cookie` set through `HttpServerResponse.setCookie(name, value, options)`, so the security attribute policy table decides every attribute and no route names `httpOnly`, `sameSite`, or a path.
-- Law: ceremonies own HTTP shape only — redirect codes, query decode, body admission, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), while `Ceremony.identity` projects the authenticated `Principal` from the application's chosen raw-route credential lift and `Ceremony.resolveSubject` handles only providers without OIDC subject evidence. Each handler is a decode, one security call, and one egress fold, and a security fault renders itself through the seam's net at its own class status. This `:provider` segment admits through the security vocabulary itself — `_Provider` decodes the param record against `Departed.fields.kind`, so `OAuth.authorize`/`callback` receive a proven `Provider.Kind` and an unrostered provider dies at the seam as a decode refusal, never inside the ceremony.
+- Law: ceremonies own HTTP shape only — redirect codes, query decode, body admission, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), while `Ceremony.identity` projects the authenticated `Principal` from the application's chosen raw-route credential lift and `Ceremony.resolveSubject` handles only providers without OIDC subject evidence. Each handler is a decode, one security call, and one egress fold, and a security fault renders itself through the edge's net at its own class status. This `:provider` segment admits through the security vocabulary itself — `_Provider` decodes the param record against `Departed.fields.kind`, so `OAuth.authorize`/`callback` receive a proven `Provider.Kind` and an unrostered provider dies at the boundary as a decode refusal, never inside the ceremony.
 - Law: the oauth callback carries TWO channels onto one `_landOAuth` fold — the GET redirect reads the response off the query and the POST arm reads a `response_mode=form_post` body once into the URL search (Apple with a requested scope), so a form-post provider yields the same verified subject and cookie landing as a query provider and the exchange never re-reads a spent body; both stay CSRF-exempt because the single-use `state` round-trip is that flow's own anti-forgery evidence.
-- Law: the passkey finish bodies admit through one Schema pair mirroring the verified `@simplewebauthn/server` wire shapes — `_Enroll` decodes the POSTed registration response (`id`, `rawId`, the attestation `response` block, optional attachment, extension outputs, `type: "public-key"`) into the `RegistrationResponseJSON` parameter `WebAuthn.enrollFinish` takes, `_Assert` the assertion twin for `assertFinish` — raw JSON crosses the decode seam exactly once and the browser collection half stays the ui wave's.
+- Law: the passkey finish bodies admit through one Schema pair mirroring the verified `@simplewebauthn/server` wire shapes — `_Enroll` decodes the POSTed registration response (`id`, `rawId`, the attestation `response` block, optional attachment, extension outputs, `type: "public-key"`) into the `RegistrationResponseJSON` parameter `WebAuthn.enrollFinish` takes, `_Assert` the assertion twin for `assertFinish` — raw JSON crosses the decode boundary exactly once and the browser collection half stays the ui wave's.
 - Growth: a new ceremony (an OTP pair, a device-code flow) is one route pair under `_AUTH` composing its security owner; a new response-mode provider is one more channel onto `_landOAuth`; a new cookie role reframes through the same fold with zero route edits.
 - Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest.schemaBodyUrlParams`/`toURL`, `HttpServerResponse`, `Cookies`); `@rasm/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `CookieSpec`, `Departed` — the provider-kind decode anchor); `effect` (`Context`, `Schema`, `Option`, `Redacted`).
 
@@ -914,7 +914,7 @@ const _ceremony = () =>
 [ASSET_ROWS]:
 - Owner: `Router.assets` — the SPA/static row as one request fold: resolve the request path under the asset root through the `Path` capability, serve the file when it exists, fall back to the SPA entry for every path-shaped miss (client-rendered routes hydrate from one entry), and stamp the cache row the fingerprint predicate selects.
 - Law: `_cached` selects by ADDRESS first, filename second — a leaf resolving under the content-addressed `assets/` prefix is immutable by its address (the digest is a DIRECTORY segment and its leaves are plain names a fingerprint pattern never matches), a `name-<hash>.ext` bundle leaf is immutable by its filename, and everything else including the entry document is `no-cache` because it is the mutable pointer INTO immutable content — one selector, total over every asset, ordered so the addressed tree can never fall to the pointer row.
-- Law: the immutable value is TRANSCRIBED from `iac/program/source.md` `_CACHE_POSTURE`, the estate's one served-header roster — the unfronted origin and the fronting edge must answer identically on the same address, and no import crosses iac and runtime to enforce it, so the two ends carry one value and a divergence is a two-ended edit.
+- Law: the immutable value is TRANSCRIBED from `iac/program/source.md` `_CACHE_POSTURE`, the repo's one served-header roster — the unfronted origin and the fronting edge must answer identically on the same address, and no import crosses iac and runtime to enforce it, so the two ends carry one value and a divergence is a two-ended edit.
 - Law: the row SELECTS `Etag.layerWeak` and mounts it itself — both engine server Layers export that generator while the `HttpPlatform` merged beside them mints from `Etag.layer`, and both fold the identical `<size>-<mtime>` pair, so validator STRENGTH is their whole difference: size and modification time carry no byte-identity evidence, and byte identity is the claim a strong validator makes. Mounting the weak row here drops `Etag.Generator` from the requirement channel, so strength becomes this row's decision rather than an app root's, and the served validator, the `304` hit, and the `_matched` compare read one mint.
 - Law: revalidation reads the header RFC 9110 defines — `_matched` splits `if-none-match` on commas, trims, admits `*`, and compares with the weak prefix stripped from both sides, so a browser revalidating a weak validator and a client holding two variants both answer `304`; both the hit and the body response carry the same `etag` and cache row.
 - Law: traversal is structurally refused — the request path resolves under the root and the fold asserts the resolved target still carries the root as its prefix, so an encoded, normalized, or absolute escape lands outside the prefix and serves the SPA entry, never a distinct error that maps the filesystem for a probe.
@@ -982,12 +982,12 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
 ## [06]-[SERVE_FOLD]
 
 [SERVE_FOLD]:
-- Owner: the serve law — the app root merges its route Layers (`Router.api`, `Router.health`, ceremonies, intake rows, rail mounts, the asset route, `Router.mounts`), attaches `Seam.guard(policy)` and `Seam.admission(identity)` through `HttpLayerRouter.middleware` once as global rows, merges `Seam.Priced.live(policy)` beside them for the api mount's quota seat, and launches `HttpLayerRouter.serve` — a Layer whose `HttpServer` requirement the boot module satisfies from `proc/exec#RUNTIME_ROWS`'s `serve` member, so node-versus-bun is a row selection, the listener residency is that row's `Runtime.Bind` case, and this module names no binding; the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same merged Layers, which demands no `HttpServer` and therefore selects no runtime row at all — the residency that reaches an edge host owning no listener socket — and a process whose whole life is the server parks through `proc/life#PHASE_SPINE`'s boot law.
-- Law: the two global rows compose in one order and only one — `Seam.guard` outermost so its net renders a `RouteNotFound` no matched route ever sees, `Seam.admission` beneath it so the credential lift and its tenancy binding wrap every dispatch; the route-attribution row is per-route by construction and rides `Seam.routed` and `Seam.Routed` instead.
-- Law: pricing is no third global row — it reads a coordinate a global row runs too early to see, so it rides `Seam.priced` and `Seam.Priced` exactly as attribution does, and the root's whole remaining quota obligation is the PORT: `Fleet.RateLimiter` binds once (`layerStoreMemory` on a single node, a shared store-backed Layer across a fleet), because every route Layer carries that Tag whether its own pattern is priced or not.
+- Owner: the serve law — the app root merges its route Layers (`Router.api`, `Router.health`, ceremonies, intake rows, ingest mounts, the asset route, `Router.mounts`), attaches `Edge.guard(policy)` and `Edge.admission(identity)` through `HttpLayerRouter.middleware` once as global rows, merges `Edge.Priced.live(policy)` beside them for the api mount's quota seat, and launches `HttpLayerRouter.serve` — a Layer whose `HttpServer` requirement the boot module satisfies from `proc/exec#RUNTIME_ROWS`'s `serve` member, so node-versus-bun is a row selection, the listener residency is that row's `Runtime.Bind` case, and this module names no binding; the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same merged Layers, which demands no `HttpServer` and therefore selects no runtime row at all — the residency that reaches an edge host owning no listener socket — and a process whose whole life is the server parks through `proc/life#PHASE_SPINE`'s boot law.
+- Law: the two global rows compose in one order and only one — `Edge.guard` outermost so its net renders a `RouteNotFound` no matched route ever sees, `Edge.admission` beneath it so the credential lift and its tenancy binding wrap every dispatch; the route-attribution row is per-route by construction and rides `Edge.routed` and `Edge.Routed` instead.
+- Law: pricing is no third global row — it reads a coordinate a global row runs too early to see, so it rides `Edge.priced` and `Edge.Priced` exactly as attribution does, and the root's whole remaining quota obligation is the PORT: `Fleet.RateLimiter` binds once (`layerStoreMemory` on a single node, a shared store-backed Layer across a fleet), because every route Layer carries that Tag whether its own pattern is priced or not.
 - Law: the guard row declares `handles: GateFault` because the admission row RAISES one — a credential store the lift cannot reach refuses `shed` rather than reading as an anonymous request, and `HttpLayerRouter.middleware` carries that refusal outward as a `GlobalError` requirement only a declaring row discharges; the net's total cause fold already answers it, so the one door renders the 503 and no middleware grows a recovery arm of its own.
 - Law: multiplex rows dispatch across whole apps — `Router.hosts` takes an ORDERED roster of `Router.HostRow` values, each an already-applied platform predicate across the two axes and four match forms the package publishes (`hostExact`/`hostRegex`/`hostStartsWith`/`hostEndsWith` and the `header*` quartet beside them), and lands the multiplex as the catch-all route Layer so dispatch reaches the one front door; a predicate is a row, dispatch is the platform's, and both a hand-rolled host `if` chain and a fixed two-key app record that no third origin can join are the deleted spellings.
-- Law: a host row `fits` an origin whose whole app differs and `admit`s on its own predicate against the request's post-forwarding host or header; `lifetime` is the request, ended by the matched app. It DECIDES no `tenancy` — the credential lift at `Seam.admission` is the branch's one tenancy binder, so a subdomain row selects an app and never a tenant, and reading identity off the hostname here forks that owner. Its `degrade` is ordering: the multiplex answers the FIRST matching row, so two overlapping predicates resolve by declaration order and no row learns it was shadowed.
+- Law: a host row `fits` an origin whose whole app differs and `admit`s on its own predicate against the request's post-forwarding host or header; `lifetime` is the request, ended by the matched app. It DECIDES no `tenancy` — the credential lift at `Edge.admission` is the branch's one tenancy binder, so a subdomain row selects an app and never a tenant, and reading identity off the hostname here forks that owner. Its `degrade` is ordering: the multiplex answers the FIRST matching row, so two overlapping predicates resolve by declaration order and no row learns it was shadowed.
 - Law: readiness gates intake — the serving edge stops accepting by `life.phase`: the drain fold flips the phase before finalizers run, the ready report fails by fold, and the load balancer routes away while in-flight requests finish under the drain bands; no connection-draining code exists here because the phase spine and the runtime row already own the choreography.
 - Boundary: the `node:http`/`Bun.serve` construction is `proc/exec#RUNTIME_ROWS`'s row interior; TLS and unix-socket residency are `Runtime.Bind` cases the selected row's own `residency` column admits or refuses, so this fold reads that column and never assumes a port; `iac` mirrors the drain budget and the probe paths from their owners, never from here.
 - Growth: a new virtual host is one multiplex row; a new engine is one runtime-row edit with zero serve-fold changes.
@@ -1003,18 +1003,18 @@ declare namespace Router {
   type HostRow<E, R> = (self: HttpMultiplex.HttpMultiplex<E, R>) => HttpMultiplex.HttpMultiplex<E, R>
 }
 
-type _Rail = Effect.Effect.Success<ReturnType<typeof Rail.of>>
+type _Ingest = Effect.Effect.Success<ReturnType<typeof Ingest.of>>
 
-class _RailMount extends Context.Tag("runtime/serve/Router/RailMount")<_RailMount, {
-  readonly layer: (spec: Rail.Spec, rail: _Rail) => Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Life>
+class _IngestMount extends Context.Tag("runtime/serve/Router/IngestMount")<_IngestMount, {
+  readonly layer: (spec: Ingest.Spec, ingest: _Ingest) => Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Life>
 }>() {}
 
-const _rail = (spec: Rail.Spec) =>
+const _ingest = (spec: Ingest.Spec) =>
   Layer.unwrapEffect(
     Effect.gen(function* () {
-      const mount = yield* _RailMount
-      const rail = yield* Rail.of(spec)
-      return mount.layer(spec, rail)
+      const mount = yield* _IngestMount
+      const ingest = yield* Ingest.of(spec)
+      return mount.layer(spec, ingest)
     }),
   )
 
@@ -1029,21 +1029,21 @@ const Router = {
     Layer.mergeAll(
       HttpLayerRouter.addHttpApi(api, { openapiPath: docs.openapiPath }),
       Emit.docs({ api, path: docs.path, ui: docs.ui ?? "scalarRouter" }),
-      Seam.Routed.live,
+      Edge.Routed.live,
     ),
   assets: _assets,
   health: _health,
   hosts: _hosts,
+  ingest: _ingest,
+  IngestMount: _IngestMount,
   mounts: _mounts,
-  rail: _rail,
-  RailMount: _RailMount,
   rpc: <G extends RpcGroup.RpcGroup.Any>(group: G, mount: Router.RpcMount) =>
     RpcServer.layerHttpRouter({ group, path: mount.path, protocol: mount.protocol, concurrency: mount.concurrency }),
 } as const
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Ceremony, Inbound, Router, Seam }
+export { Ceremony, Edge, Inbound, Router }
 ```
 
 ## [07]-[RESEARCH]

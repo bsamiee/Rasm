@@ -19,7 +19,7 @@ Generated envelope messages share the simple name `CloudEvent` with the core env
 |  [07]   | `V1.CloudeventsReflection`/`ProtoSchemaReflection` | static class  | the generated file descriptors                |
 
 - [01]-[FORMATTER_CTORS]: `ProtobufEventFormatter()` uses the `DefaultTypeUrlPrefix` constant, and `ProtobufEventFormatter(string typeUrlPrefix)` gates its argument through `Validation.CheckNotNull`; the resolved value reads back on the `TypeUrlPrefix` property.
-- [01]-[FORMATTER_CONSTANT]: `DefaultTypeUrlPrefix` is `"type.googleapis.com"` — the prefix Protobuf libraries themselves use when packing an `Any`, so a peer resolves a packed message's type without knowing the producing estate.
+- [01]-[FORMATTER_CONSTANT]: `DefaultTypeUrlPrefix` is `"type.googleapis.com"` — the prefix Protobuf libraries themselves use when packing an `Any`, so a peer resolves a packed message's type without knowing the producing service.
 - [01]-[FORMATTER_OVERRIDES]: every abstract member of the base and the `Stream` decode virtuals — `EncodeStructuredModeMessage`, `EncodeBatchModeMessage`, both `DecodeStructuredModeMessage` arities, both `DecodeBatchModeMessage` arities, `EncodeBinaryModeEventData`, `DecodeBinaryModeEventData`.
 - [01]-[FORMATTER_CROSSINGS]: `ConvertToProto(CloudEvent)` and `ConvertFromProto(V1.CloudEvent, IEnumerable<CloudEventAttribute>?)` are public and carry the message-level crossing a registry-framed leg composes instead of re-encoding a body the formatter already holds.
 - [01]-[FORMATTER_HOOKS]: `protected virtual EncodeStructuredModeData(CloudEvent, V1.CloudEvent)` and `protected virtual DecodeStructuredModeData(V1.CloudEvent, CloudEvent)` are the specialization seats — one to unwrap `ProtoData` into generated code, one to pack a caller's own message shape.
@@ -30,18 +30,18 @@ Generated envelope messages share the simple name `CloudEvent` with the core env
 
 [ENTRYPOINT_SCOPE]: `ProtobufEventFormatter` codec and message crossings
 
-| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                   |
-| :-----: | :---------------------------------------------------- | :------- | :--------------------------------------------- |
-|  [01]   | `new ProtobufEventFormatter([typeUrlPrefix])`         | ctor     | default or estate-pinned `Any` type-URL prefix |
-|  [02]   | `TypeUrlPrefix`                                       | property | the resolved prefix, never null                |
-|  [03]   | `EncodeStructuredModeMessage(ce, out ContentType)`    | instance | `application/cloudevents+protobuf` body        |
-|  [04]   | `EncodeBatchModeMessage(ces, out ContentType)`        | instance | `application/cloudevents-batch+protobuf` body  |
-|  [05]   | `DecodeStructuredModeMessage(body\|stream, ct, exts)` | instance | envelope message → `CloudEvent`                |
-|  [06]   | `DecodeBatchModeMessage(body\|stream, ct, exts)`      | instance | batch message → `IReadOnlyList<CloudEvent>`    |
-|  [07]   | `EncodeBinaryModeEventData(ce)`                       | instance | `byte[]` or `text/*` string data ONLY          |
-|  [08]   | `DecodeBinaryModeEventData(body, ce)`                 | instance | `text/*` → string, otherwise a byte array      |
-|  [09]   | `ConvertToProto(ce)`                                  | instance | `CloudEvent` → `V1.CloudEvent`                 |
-|  [10]   | `ConvertFromProto(V1.CloudEvent, exts)`               | instance | `V1.CloudEvent` → `CloudEvent`                 |
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :---------------------------------------------------- | :------- | :-------------------------------------------- |
+|  [01]   | `new ProtobufEventFormatter([typeUrlPrefix])`         | ctor     | default or repo-pinned `Any` type-URL prefix  |
+|  [02]   | `TypeUrlPrefix`                                       | property | the resolved prefix, never null               |
+|  [03]   | `EncodeStructuredModeMessage(ce, out ContentType)`    | instance | `application/cloudevents+protobuf` body       |
+|  [04]   | `EncodeBatchModeMessage(ces, out ContentType)`        | instance | `application/cloudevents-batch+protobuf` body |
+|  [05]   | `DecodeStructuredModeMessage(body\|stream, ct, exts)` | instance | envelope message → `CloudEvent`               |
+|  [06]   | `DecodeBatchModeMessage(body\|stream, ct, exts)`      | instance | batch message → `IReadOnlyList<CloudEvent>`   |
+|  [07]   | `EncodeBinaryModeEventData(ce)`                       | instance | `byte[]` or `text/*` string data ONLY         |
+|  [08]   | `DecodeBinaryModeEventData(body, ce)`                 | instance | `text/*` → string, otherwise a byte array     |
+|  [09]   | `ConvertToProto(ce)`                                  | instance | `CloudEvent` → `V1.CloudEvent`                |
+|  [10]   | `ConvertFromProto(V1.CloudEvent, exts)`               | instance | `V1.CloudEvent` → `CloudEvent`                |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

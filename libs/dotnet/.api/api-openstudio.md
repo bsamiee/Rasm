@@ -80,7 +80,7 @@ Every `*Vector` element is typed to its family base (`Material`, `ConstructionBa
 |  [07]   | `StandardOpaqueMaterial.conductivity()` / `density()` / `specificHeat()` / `thickness()`        | `double`         |
 |  [08]   | `ConstructionBase.uFactor()`                                                                    | `OptionalDouble` |
 
-[PUBLIC_TYPE_SCOPE]: model build — constructed from the seam graph
+[PUBLIC_TYPE_SCOPE]: model build — constructed from the element graph
 
 Model-object construction reads the `Rasm.Element` `ElementGraph`; each object is `new`-ed against its owning `Model` and lives by the model's lifetime, so only the top-level `Model`, translator, and file/optional/vector handles are bracketed.
 
@@ -94,8 +94,8 @@ Model-object construction reads the `Rasm.Element` `ElementGraph`; each object i
 |  [06]   | `WeatherFile` / `SimulationControl` / `RunPeriod` | class         | site context, annual run period, control flags   |
 
 - `Space`: `: PlanarSurfaceGroup`; each spatial Object node folds into one, assigned to a `ThermalZone : HVACComponent`.
-- `Construction`: `: LayeredConstruction`; `setLayers(MaterialVector)` orders the stack the seam `MaterialComposition.LayerSet` lowers to.
-- `StandardOpaqueMaterial`: `: OpaqueMaterial`; the ctor's thermal args feed the same seam properties the `Analysis/aggregator` ISO 6946 U-value fold reads.
+- `Construction`: `: LayeredConstruction`; `setLayers(MaterialVector)` orders the stack the shared `MaterialComposition.LayerSet` lowers to.
+- `StandardOpaqueMaterial`: `: OpaqueMaterial`; the ctor's thermal args feed the same shared properties the `Analysis/aggregator` ISO 6946 U-value fold reads.
 
 [PUBLIC_TYPE_SCOPE]: translators — the exchange matrix
 
@@ -163,7 +163,7 @@ Only these types are true CLR enums; most OpenStudio "enumerations" are SWIG `*E
 |  [03]   | `GbXMLReverseTranslator().loadModel(Path)` → `OptionalModel`        | instance | gbXML → OSM, the BIM/IFC bridge        |
 |  [04]   | `SqlFile(Path)` with typed getters                                  | ctor     | read the EnergyPlus results SQLite     |
 
-[ENTRYPOINT_SCOPE]: build the model from the seam graph
+[ENTRYPOINT_SCOPE]: build the model from the element graph
 
 | [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                                      |
 | :-----: | :---------------------------------------------------- | :------- | :------------------------------------------------ |
@@ -173,7 +173,7 @@ Only these types are true CLR enums; most OpenStudio "enumerations" are SWIG `*E
 |  [04]   | `new Surface(Point3dVector, Model)`                   | ctor     | a bounding surface from Object-node face vertices |
 |  [05]   | `new Construction(Model)`                             | ctor     | the layered-construction owner                    |
 |  [06]   | `Construction.setLayers(MaterialVector) -> bool`      | instance | order the layered-material stack                  |
-|  [07]   | `new StandardOpaqueMaterial(Model, string, double×4)` | ctor     | an opaque layer from seam thermal properties      |
+|  [07]   | `new StandardOpaqueMaterial(Model, string, double×4)` | ctor     | an opaque layer from shared thermal properties    |
 
 - `new StandardOpaqueMaterial`: orders args `roughness, thickness, conductivity, density, specificHeat`; shorter overloads default the trailing scalars.
 
@@ -205,19 +205,19 @@ EnergyPlus runs as the `EnergyToolchain`-resolved subprocess (`energyplus -w <ep
 - Every managed type is a thin wrapper around a native handle (`HandleRef swigCPtr` with a `cMemoryOwn` flag) under `IDisposable`; drive the public `OpenStudio.*` wrappers, never the `OpenStudio*PINVOKE` DllImport classes. `build/OpenStudio.targets` stages the native dylibs next to consumer output, RID-locked to `osx-arm64`.
 - Bracket the `Model`, each translator, `Workspace`, `SqlFile`, `EpwFile`, and every `Optional*`/`*Vector` result under `using` or `Dispose()`; a dropped handle leaks memory the GC cannot reclaim deterministically. A model-object (`Space`/`Surface`/`ThermalZone`/`Construction`/material) lives by its owning `Model` and is never disposed independently.
 - Model mutation is not thread-safe: the native SDK admits one logical owner per `Model`, translators run sequentially, and a translation or model build offloads as one unit of work over this single-threaded native boundary.
-- Any load or get that can miss returns an `Optional<T>`/`OptionalDouble`; the law is `is_initialized()` (or `!isNull()`) then `get()`, else `value_or(default)`, and a bare `get()` on an empty optional faults in native code. Lower the SWIG optional onto `Fin<T>`/`Option<T>` at the consuming boundary — the Bim Exchange edge, or the Compute runner railing a missing required output onto `ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, …)`.
+- Any load or get that can miss returns an `Optional<T>`/`OptionalDouble`; the law is `is_initialized()` (or `!isNull()`) then `get()`, else `value_or(default)`, and a bare `get()` on an empty optional faults in native code. Lower the SWIG optional onto `Fin<T>`/`Option<T>` at the consuming boundary — the Bim Exchange edge, or the Compute runner folding a missing required output onto `ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, …)`.
 - Every file API takes a `Path` built with `OpenStudioUtilitiesCore.toPath(string)` and read back with `toString(Path)`; a raw `string` does not compile against the file overloads.
-- OpenStudio builds the model and reads the results; the EnergyPlus binary is a parameterized subprocess resolved through `Analysis/energy` `EnergyToolchain.Resolve` (`ENERGYPLUS_EXE` → `OPENSTUDIO_ENERGYPLUSDIR` → configured path → the package's bundled-runtime fallback), and an unresolved binary rails `ComputeFault.ToolchainUnresolved` with the probe trail.
+- OpenStudio builds the model and reads the results; the EnergyPlus binary is a parameterized subprocess resolved through `Analysis/energy` `EnergyToolchain.Resolve` (`ENERGYPLUS_EXE` → `OPENSTUDIO_ENERGYPLUSDIR` → configured path → the package's bundled-runtime fallback), and an unresolved binary returns `ComputeFault.ToolchainUnresolved` with the probe trail.
 - EnergyPlus must match the OpenStudio SWIG version: the SWIG-generated IDF schema tracks that version, so a version-matched EnergyPlus consumes the forward-translated IDF and a resolved-binary mismatch folds into the provider diagnostics.
 
 [STACKING]:
 - `HoneybeeSchema`(`Rasm.Bim/.api/api-honeybee-schema.md`): the HBJSON authored model meets this OSM/IDF runtime at gbXML — `GbXMLReverseTranslator.loadModel` ingests the shared gbXML — and at the canonical Bim energy model; the full HBJSON→OSM path runs the external `honeybee-openstudio` Python step.
 - `GeometryGymIFC`(`Rasm.Bim/.api/api-geometrygym-ifc.md`): an IFC building exports gbXML, `GbXMLReverseTranslator.loadModel` folds it into a `Model`, and IFC spaces and zones become OSM spaces and thermal zones at the Exchange/import boundary.
-- `SharpGLTF.Ext.3DTiles`(`api-sharpgltf-3dtiles.md`): `GltfForwardTranslator` and `ThreeJSForwardTranslator` emit a model's geometry onto the Exchange/export delivery rail the glTF and 3D-Tiles legs share.
-- `System.IO.Hashing`(`api-hashing.md`): a saved `.osm`/IDF UTF-8 string feeds `XxHash3` for the in-process fingerprint and `XxHash128` for the persisted content key into the `Rasm.Persistence` artifact index — the saved IDF/SQL artifacts ride the same content-identity rail as every other Compute artifact.
-- Bim consumer anchor: the Energy Exchange lowers each `Optional<Model>` onto `Fin<Model>`, retains translator `errors()`/`warnings()` on the translation result, and offloads a translation as one unit of work; this leg owns OSM load/save/version-upgrade and the gbXML/SDD semantic bridges, and never builds from the seam graph.
-- Compute consumer anchor: `Analysis/energy` builds the `Model` from the `Rasm.Element` `ElementGraph` — spatial Object nodes become `Space`/`ThermalZone`, faces become `Surface(Point3dVector, Model)`, and `MaterialComposition.LayerSet` becomes `Construction.setLayers(MaterialVector)` over `StandardOpaqueMaterial`/`StandardGlazing` carrying the seam `MaterialPropertySet.Thermal` conductivity and thickness — the graph already lowered from IFC by Bim's projector. The `Analysis/aggregator` ISO 6946 series-U fold reads the same seam thermal properties, so the EnergyPlus U-value and the closed-form value agree by construction; the `SqlFile` annual outputs become an `AssessmentResult` fact stream written back as a content-keyed `Node.Assessment` `GraphDelta`, keyed via `Runtime/codecs` content addressing so a re-run on an unchanged graph reuses the prior result.
+- `SharpGLTF.Ext.3DTiles`(`api-sharpgltf-3dtiles.md`): `GltfForwardTranslator` and `ThreeJSForwardTranslator` emit a model's geometry onto the Exchange/export delivery path the glTF and 3D-Tiles legs share.
+- `System.IO.Hashing`(`api-hashing.md`): a saved `.osm`/IDF UTF-8 string feeds `XxHash3` for the in-process fingerprint and `XxHash128` for the persisted content key into the `Rasm.Persistence` artifact index — the saved IDF/SQL artifacts ride the same content-identity path as every other Compute artifact.
+- Bim consumer anchor: the Energy Exchange lowers each `Optional<Model>` onto `Fin<Model>`, retains translator `errors()`/`warnings()` on the translation result, and offloads a translation as one unit of work; this leg owns OSM load/save/version-upgrade and the gbXML/SDD semantic bridges, and never builds from the element graph.
+- Compute consumer anchor: `Analysis/energy` builds the `Model` from the `Rasm.Element` `ElementGraph` — spatial Object nodes become `Space`/`ThermalZone`, faces become `Surface(Point3dVector, Model)`, and `MaterialComposition.LayerSet` becomes `Construction.setLayers(MaterialVector)` over `StandardOpaqueMaterial`/`StandardGlazing` carrying the shared `MaterialPropertySet.Thermal` conductivity and thickness — the graph already lowered from IFC by Bim's projector. The `Analysis/aggregator` ISO 6946 series-U fold reads the same shared thermal properties, so the EnergyPlus U-value and the closed-form value agree by construction; the `SqlFile` annual outputs become an `AssessmentResult` fact stream written back as a content-keyed `Node.Assessment` `GraphDelta`, keyed via `Runtime/codecs` content addressing so a re-run on an unchanged graph reuses the prior result.
 
 [LOCAL_ADMISSION]:
 - `Rasm.Bim` exchange leg: model read enters through `VersionTranslator.loadModel(path)` returning an `OptionalModel` lowered to `Fin<Model>`; model write enters through `model.save(path, overwrite)`; translation enters through the matching `*Translator` under a `using`, retaining `errors()`/`warnings()` on the result.
-- `Rasm.Compute` simulation leg: `Analysis/energy` builds the energy model in-process from the seam `ElementGraph` (`new Model()` with the `new Space`/`Surface`/`Construction`/`StandardOpaqueMaterial` folds), forward-translates through `new EnergyPlusForwardTranslator().translateModel`, runs the `EnergyToolchain`-resolved subprocess, and reads back through `new SqlFile(toPath(path))`.
+- `Rasm.Compute` simulation leg: `Analysis/energy` builds the energy model in-process from the shared `ElementGraph` (`new Model()` with the `new Space`/`Surface`/`Construction`/`StandardOpaqueMaterial` folds), forward-translates through `new EnergyPlusForwardTranslator().translateModel`, runs the `EnergyToolchain`-resolved subprocess, and reads back through `new SqlFile(toPath(path))`.

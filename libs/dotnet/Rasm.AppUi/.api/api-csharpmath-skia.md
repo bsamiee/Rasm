@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_CSHARPMATH_SKIA]
 
-`CSharpMath.SkiaSharp` renders TeX-subset math and mixed math-text runs onto an `SKCanvas` through `MathPainter` (a `MathList`) and `TextPainter` (a `TextAtom` run), each a `SKCanvas`/`SKColor` binding of the backend-agnostic `Painter<TCanvas,TContent,TColor>` base that owns the knob surface, the typed `Result` parse rail, and the measure/draw contract. A Math typography arm sets `LaTeX`, reads `Measure`, and draws into a leased `SKCanvas`; a parse failure lands in `ErrorMessage` instead of throwing, and the same painter encodes headless to an image `Stream` for capture.
+`CSharpMath.SkiaSharp` renders TeX-subset math and mixed math-text runs onto an `SKCanvas` through `MathPainter` (a `MathList`) and `TextPainter` (a `TextAtom` run), each a `SKCanvas`/`SKColor` binding of the backend-agnostic `Painter<TCanvas,TContent,TColor>` base that owns the knob surface, the typed `Result` parse path, and the measure/draw contract. A Math typography arm sets `LaTeX`, reads `Measure`, and draws into a leased `SKCanvas`; a parse failure lands in `ErrorMessage` instead of throwing, and the same painter encodes headless to an image `Stream` for capture.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -32,18 +32,18 @@
 |  [12]   | `Typography.OpenFont.Typeface`       | class         | vendored parsed face the painter chain holds        |
 |  [13]   | `Typography.OpenFont.OpenFontReader` | class         | vendored face loader over a managed stream          |
 
-[CORE_PARSE_TYPES]: LaTeX parse, layout style, and the typed result rail — `CSharpMath.Atom` and `CSharpMath.Structures`.
+[CORE_PARSE_TYPES]: LaTeX parse, layout style, and the typed result type — `CSharpMath.Atom` and `CSharpMath.Structures`.
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]   | [CAPABILITY]                                               |
 | :-----: | :-------------- | :-------------- | :--------------------------------------------------------- |
 |  [01]   | `LaTeXParser`   | class           | LaTeX string ↔ `Result<MathList>`                          |
 |  [02]   | `LaTeXSettings` | static class    | command dictionary, placeholder, font policy, `ParseColor` |
 |  [03]   | `LineStyle`     | enum            | `Display`, `Text`, `Script`, `ScriptScript`                |
-|  [04]   | `Result<T>`     | readonly struct | `Error`-carrying success/failure rail with `Match`/`Bind`  |
+|  [04]   | `Result<T>`     | readonly struct | `Error`-carrying success/failure type with `Match`/`Bind`  |
 
 [ALIGNMENT_VALUES]: `TextAlignment` is a `[Flags] byte` packing vertical (`Top` 2, `Bottom` 1, `Center` 0) in the low two bits and horizontal (`Left` 8, `Right` 4) in bits 2-3; the four corners OR the two (`TopLeft` 10, `TopRight` 6, `BottomLeft` 9, `BottomRight` 5).
 
-[RESULT_RAIL_SURFACE]: `Result<T>` carries a nullable `Error` string, constructs through implicit conversions from `T` or `string`, is consumed by `Deconstruct(out T, out string?)` and `Match(Func<T,R>, Func<string,R>)`, and chains through `Bind` — a parse consumer never catches an exception.
+[RESULT_SURFACE]: `Result<T>` carries a nullable `Error` string, constructs through implicit conversions from `T` or `string`, is consumed by `Deconstruct(out T, out string?)` and `Match(Func<T,R>, Func<string,R>)`, and chains through `Bind` — a parse consumer never catches an exception.
 
 ## [02]-[ENTRYPOINTS]
 
@@ -110,7 +110,7 @@
 
 [TOPOLOGY]:
 - Painters render through the base `ICanvas` contract, `SkiaCanvas` binding it to `SKCanvas`/`SKPaint`; no math-render path reaches `SKPaint`/`SKFont` directly.
-- LaTeX parse is a typed rail: `LaTeXParser.MathListFromLaTeX` returns `Result<MathList>`, and setting `Painter.LaTeX` routes a parse failure into `ErrorMessage` under `ErrorColor`/`ErrorFontSize`/`DisplayErrorInline`, never a throw; a null `Display` beside a non-null `ErrorMessage` is the failure signal.
+- LaTeX parse is result-typed: `LaTeXParser.MathListFromLaTeX` returns `Result<MathList>`, and setting `Painter.LaTeX` routes a parse failure into `ErrorMessage` under `ErrorColor`/`ErrorFontSize`/`DisplayErrorInline`, never a throw; a null `Display` beside a non-null `ErrorMessage` is the failure signal.
 
 [STACKING]:
 - `api-skiasharp`(`.api/api-skiasharp.md`): painters draw through `SKCanvas`/`SKPaint`/`SKPath`/`SKPoint`/`SKColor` and `Extensions.ToNative`/`FromNative` bridge `SKColor`↔`Color`; `DrawAsStream(width, SKEncodedImageFormat.Png, quality)` encodes a painter headless on the same `SKEncodedImageFormat` surface the raster-capture owner shares, so math rasterizes without a live host.

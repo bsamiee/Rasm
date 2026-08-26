@@ -1,6 +1,6 @@
 # [APPHOST_COMPOSITION_AND_MODULES]
 
-One composition root per process folds a frozen module table into the service graph, arms every seam the corpus declares must bind, and freezes it. Composition owns four axes: the `ModuleContribution` row — assembly, scan, slot-keyed descriptor carrier, registrar, and decoration columns — the one-pass composition fold whose single ordinal pass over `DescriptorSlot.Items` carries every admission and apply, admission-boundary activation carrying availability probing, async-scope ownership, keyed decoration introspection, and validator discovery, and the MUST-BIND ledger whose module folds and root seams are every declared owner's one call site. One descriptor algebra serves every seam: `DescriptorSlot` rows name the admitting member and the admission their descriptors cross first. The package spine is `Microsoft.Extensions.DependencyInjection` with `Scrutor` scanning and decoration, `FluentValidation.DependencyInjectionExtensions` validator discovery at the root, and `System.CommandLine` as the app-root verb boundary.
+One composition root per process folds a frozen module table into the service graph, arms every contract the corpus declares must bind, and freezes it. Composition owns four axes: the `ModuleContribution` row — assembly, scan, slot-keyed descriptor carrier, registrar, and decoration columns — the one-pass composition fold whose single ordinal pass over `DescriptorSlot.Items` carries every admission and apply, admission-boundary activation carrying availability probing, async-scope ownership, keyed decoration introspection, and validator discovery, and the MUST-BIND ledger whose module folds and root bindings are every declared owner's one call site. One descriptor algebra serves every contribution: `DescriptorSlot` rows name the admitting member and the admission their descriptors cross first. The package spine is `Microsoft.Extensions.DependencyInjection` with `Scrutor` scanning and decoration, `FluentValidation.DependencyInjectionExtensions` validator discovery at the root, and `System.CommandLine` as the app-root verb boundary.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@ One composition root per process folds a frozen module table into the service gr
 - [03]-[SCAN_AND_DECORATE]: One-pass scan, slot fold, decoration, and freeze.
 - [04]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
 - [05]-[COMMAND_SURFACE]: `System.CommandLine` verb table — seed DATA projecting `ParseResult` onto existing owners.
-- [06]-[MODULE_LEDGER]: Module folds, the must-bind seam roster, and the two-altitude fold that is every row's one call site.
+- [06]-[MODULE_LEDGER]: Module folds, the must-bind contract roster, and the two-altitude fold that is every row's one call site.
 
 ## [02]-[MODULE_TABLE]
 
@@ -83,18 +83,18 @@ Module keys are `nameof`-derived assembly symbols, never free literals.
 ## [03]-[SCAN_AND_DECORATE]
 
 - Owner: `CompositionSurface` — one fold composes scan, the ordinal slot pass carrying every descriptor admission, decoration, and freeze in one pass over the table.
-- Entry: `Fin<Unit> Compose(params ReadOnlySpan<ModuleContribution> modules)` — `Fin` aborts on the first rejected module with module provenance in the failure, whether the rejection was thrown by the scan or railed by an admission.
+- Entry: `Fin<Unit> Compose(params ReadOnlySpan<ModuleContribution> modules)` — `Fin` aborts on the first rejected module with module provenance in the failure, whether the rejection was thrown by the scan or returned by an admission.
 - Auto: `MakeReadOnly` freezes the collection after the fold; `BuildServiceProvider` under `ServiceProviderOptions` with `ValidateOnBuild` and `ValidateScopes` proves the frozen graph on the test row.
 - Packages: Scrutor, Microsoft.Extensions.DependencyInjection
 - Growth: one scan filter row or one registrar row per cross-cutting concern; zero new surface — the fold absorbs it.
-- Boundary: `Applied` is the composition-root boundary capsule — `Scrutor` scan, descriptor admission, and registrar application are host-owned statement seams, and the statement carve-out names this fence; the `Runtime/ports#PORT_RECORDS` eighth-port refusal EXECUTES through the `Contributor` row's `Admits` column and nowhere else, so a contributor descriptor naming no cardinality row refuses while the collection is still editable rather than surfacing later as a leaked inward dependency.
+- Boundary: `Applied` is the composition-root boundary capsule — `Scrutor` scan, descriptor admission, and registrar application are host-owned statement boundaries, and the statement carve-out names this fence; the `Runtime/ports#PORT_RECORDS` eighth-port refusal EXECUTES through the `Contributor` row's `Admits` column and nowhere else, so a contributor descriptor naming no cardinality row refuses while the collection is still editable rather than surfacing later as a leaked inward dependency.
 
 Pass law:
 - Scan sources are `FromAssemblies` over the row's explicit `Assembly`. `FromApplicationDependencies` and `FromDependencyContext` walk the default dependency closure and are the deleted sources: plugin load contexts never appear in that closure, so closure-walking scans silently miss every plugin assembly.
 - Selection composes `AddClasses`, then `AssignableTo`, `WithAttribute`, and `InNamespaces` filters, then mapping: `UsingAttributes` maps `ServiceDescriptorAttribute`-annotated classes, `AsImplementedInterfaces` and `AsSelfWithInterfaces` map the rest, and `WithLifetime` and `WithServiceKey` bind lifetime and key inside the same pass.
-- Duplicate registrations resolve under `UsingRegistrationStrategy(RegistrationStrategy.Throw)` bound inside the same `Scan` pass; the thrown rejection captures into the rail as conflict evidence carrying the module key — never a silent append, never a silent replace. `RegistrationStrategy.Replace` survives only as an explicit row-level policy on a row that names the contract it overrides.
+- Duplicate registrations resolve under `UsingRegistrationStrategy(RegistrationStrategy.Throw)` bound inside the same `Scan` pass; the thrown rejection captures onto `Fin` as conflict evidence carrying the module key — never a silent append, never a silent replace. `RegistrationStrategy.Replace` survives only as an explicit row-level policy on a row that names the contract it overrides.
 - Descriptors apply through ONE ordinal pass over `DescriptorSlot.Items`: each slot accumulates its own `Admits` over its rows and then hands them to the member its `Admit` column names, so the whole descriptor stage is one expression whatever the roster holds. The pass ACCUMULATES within a slot and across the roster alike, so a module adding three foreign contributor ports beside a mis-slotted keyed row names all four on one boot rather than one per attempt.
-- The `Decorations` column applies before registrars through `BoundaryActivation.Decorate`; `Conditional` selects `TryDecorate`, while a required target that remains undecorated refuses on the rail.
+- The `Decorations` column applies before registrars through `BoundaryActivation.Decorate`; `Conditional` selects `TryDecorate`, while a required target that remains undecorated refuses on `Fin`.
 - Registration is bootstrap-only: after `MakeReadOnly`, descriptor mutation throws, so every late registration attempt surfaces at the root instead of drifting into runtime state.
 
 ```csharp
@@ -161,7 +161,7 @@ Activation law:
 - Supplied arity routes through the `ActivatorUtilities.CreateFactory(Type, Type[])` plan cached per boundary type — the returned `ObjectFactory` delegate invokes as `(IServiceProvider, object?[]?) -> object`; the plan's argument vector derives from the first admission, so a boundary-constructed type owns exactly one explicit-dependency shape, and a second shape for the same type is a row on a new type, never an overload. A boundary type carrying more than one constructor pins the activation constructor with `[ActivatorUtilitiesConstructor]` so the factory plan binds the intended signature deterministically rather than the greediest-resolvable one; a boundary type with one constructor needs no marker.
 - `Available` answers admission questions before construction: `IServiceProviderIsService.IsService` for unkeyed contracts and `IServiceProviderIsKeyedService.IsKeyedService` for smart-enum-keyed ports, so an optional host contract admits through one probe instead of a resolve-then-rescue pair; the probe never resolves, so it is legal in admission flow where a resolve is not.
 - `Scoped` owns the async drain-scope shape: `CreateAsyncScope` returns the `AsyncServiceScope` whose `ServiceProvider` resolves the boundary graph and whose `DisposeAsync` runs under the supplied conductor token, so scoped disposables flush inside the drain band instead of on a finalizer thread.
-- Every activation failure converts at this seam: the capture funnel projects construction rejections into the rail with the target type name, and no raw activation exception crosses inward.
+- Every activation failure converts at this boundary: the capture funnel projects construction rejections onto `Fin` with the target type name, and no raw activation exception crosses inward.
 - `AddValidatorsFromAssemblies` discovers validators with an explicit `ServiceLifetime` and a deterministic `AssemblyScanner.AssemblyScanResult` filter; `includeInternalTypes` stays `false`, so public validators are the admitted set. The produced delegate enters the module table as one `Registrars` row — validator discovery owns no second registration path.
 
 Decoration pass-law:
@@ -223,7 +223,7 @@ public static class BoundaryActivation {
 - Entry: `Mount(string description, Seq<VerbRow> rows)` returns `RootCommand` — the table mounts once at the app root; each row's `Command.SetAction(Func<ParseResult, CancellationToken, Task<int>>)` binds the projection; `ParseResult.GetValue<T>(Option<T>)`/`GetValue<T>(Argument<T>)` are the only argument reads.
 - Packages: System.CommandLine, LanguageExt.Core, BCL inbox
 - Growth: a new operator verb is one `VerbRow` in the table projecting onto an existing owner; a verb whose owner does not exist yet is a missing case on the owning page, never a CLI-local body; zero new surface.
-- Boundary: the verb table is a BOUNDARY ADAPTER — every row's body is one projection into a composed owner (`CommandDispatch.Run`, the determinism port, the capture trigger) and a verb carrying domain logic of its own is the deleted form; `AppRootVerbs.Mount` is the named boundary capsule for the statement carve-out (the `RootCommand` mutation seam); a rejected parse never reaches a row's action because a non-empty `ParseResult.Errors` blocks invocation by the package's own contract, so parse failure is DATA the host entry projects to an exit code and a thrown parse has no spelling here; `Exit` is the ONE exit projection every row leaves through and the status it answers is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, so a banded fault code CANNOT be one: `FaultBand.Config.Code(offset: 0)` is 4100, `4100 & 0xFF` is 4 — a number naming no verdict — and any code ≡ 0 mod 256 reports SUCCESS outright to every shell, supervisor, and CI gate that reads it, which is why `(int)error.Code` as a status is the deleted form — the STATUS carries the verdict (0 admitted, 1 refused); the STREAM renders a typed fault's band code and message, an uncoded foreign error's message, or the located refusal columns; these remain local CLI projections and do not imply a ControlService RPC.
+- Boundary: the verb table is a BOUNDARY ADAPTER — every row's body is one projection into a composed owner (`CommandDispatch.Run`, the determinism port, the capture trigger) and a verb carrying domain logic of its own is the deleted form; `AppRootVerbs.Mount` is the named boundary capsule for the statement carve-out (the `RootCommand` mutation boundary); a rejected parse never reaches a row's action because a non-empty `ParseResult.Errors` blocks invocation by the package's own contract, so parse failure is DATA the host entry projects to an exit code and a thrown parse has no spelling here; `Exit` is the ONE exit projection every row leaves through and the status it answers is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, so a banded fault code CANNOT be one: `FaultBand.Config.Code(offset: 0)` is 4100, `4100 & 0xFF` is 4 — a number naming no verdict — and any code ≡ 0 mod 256 reports SUCCESS outright to every shell, supervisor, and CI gate that reads it, which is why `(int)error.Code` as a status is the deleted form — the STATUS carries the verdict (0 admitted, 1 refused); the STREAM renders a typed fault's band code and message, an uncoded foreign error's message, or the located refusal columns; these remain local CLI projections and do not imply a ControlService RPC.
 
 ```csharp
 public sealed record VerbRow(Command Command, Func<ParseResult, CancellationToken, Task<int>> Project);
@@ -310,38 +310,38 @@ public static class AppRootVerbs {
 
 ## [06]-[MODULE_LEDGER]
 
-- Owner: `RootBinding` `[Union]` the two-altitude seam row; `RootInputs` the composed values every row reads, with `CoordinationArrows`, `ControlSeed`, `ObservabilitySeed`, `WireSeed`, `AgentSeed`, and `SandboxSeed` the deploy-declared seeds beside it; `CompositionRoot` the static ledger, the measured `CapsulePins` load-context roster, the `Metered` pre-`Arm` instrument mount carrying the declaring-package contributor roster, and the one fold that is each row's call site.
+- Owner: `RootBinding` `[Union]` the two-altitude binding row; `RootInputs` the composed values every row reads, with `CoordinationArrows`, `ControlSeed`, `ObservabilitySeed`, `WireSeed`, `AgentSeed`, and `SandboxSeed` the deploy-declared seeds beside it; `CompositionRoot` the static ledger, the measured `CapsulePins` load-context roster, the `Metered` pre-`Arm` instrument mount carrying the declaring-package contributor roster, and the one fold that is each row's call site.
 - Cases: `Seated` binds while the collection is still editable; `Proven` runs against the BUILT provider because the fact it needs — a materialized pipeline, a loaded plugin, an issued token — does not exist before the build.
 - Entry: `Arm(ServiceCollection services, RootInputs inputs, ServiceProviderOptions options, params ReadOnlySpan<ModuleContribution> modules)` returns `Fin<IServiceProvider>` after seating, composing, freezing, building, and proving every ledger row.
-- Auto: the ledger is DATA, so a page declaring a new must-bind seam adds one row and no fold body changes; declaration order IS dependency order — `hooks-mount` runs first because every later fold reads the rail it seats, and a fold needing a value an earlier fold produced resolves it inside a factory lambda the fold never runs, so no row reads a graph still being written and no dependency graph is computed to recover an order the roster already states; the root's own seams seat AHEAD of the module table so a module row decorating a platform contract finds it already registered, and `Compose`'s `MakeReadOnly` stays the one freeze — a ledger row after it throws at the append rather than registers; both folds accumulate per row on the rail, so one boot names every unbound seam instead of one per attempt.
+- Auto: the ledger is DATA, so a page declaring a new must-bind contract adds one row and no fold body changes; declaration order IS dependency order — `hooks-mount` runs first because every later fold reads the dispatcher it seats, and a fold needing a value an earlier fold produced resolves it inside a factory lambda the fold never runs, so no row reads a graph still being written and no dependency graph is computed to recover an order the roster already states; the root's own bindings seat AHEAD of the module table so a module row decorating a platform contract finds it already registered, and `Compose`'s `MakeReadOnly` stays the one freeze — a ledger row after it throws at the append rather than registers; both folds accumulate per row onto `Fin`, so one boot names every unbound contract instead of one per attempt.
 - Packages: Microsoft.Extensions.DependencyInjection, Polly.Extensions, NuGet.Versioning, LanguageExt.Core, BCL inbox
-- Growth: a new must-bind seam is one `RootBinding` row at its altitude; a new module is one `<module>-seat`/`<module>-boot` pair; a new composed value the rows read is one `RootInputs` column, and a value whose halves belong to other owners is one seed record beside it, so an owner's law reaches this fold as a filled column rather than a re-implementation; a package that declares an instrument family is one `Metered` contributor argument; a member measured to pin a collectible load context is one `CapsulePins` row the unload proof already folds; zero new surface.
-- Boundary: this ledger is the ONE composition-scoped call site for every seam a page declares and no ordinary consumer reaches, so a declared-and-unbound seam is a missing row rather than a sentence a reader audits against the corpus — the class the ledger exists to close is a `Bind`, `Register`, `Mount`, or `Of` member with a page-long law behind it and zero callers. Runtime-scoped PRODUCERS never appear here and the two altitudes never trade: an instrument write, a dispatched tool, a continued trace binds at its own producing arm, because hoisting one into this fold fires it once at boot where the law wants it per event, and sinking a composition binding into a producing arm re-registers on a frozen collection; the `DescriptorSlot.Contributor` admission stays inside `SCAN_AND_DECORATE`'s per-module fold for the same reason — the module row is the thing that can violate the port invariant, so the admission belongs at the row and not at the root; a row's delegate composes an owner and never re-implements one, so the ledger holds no logic of its own and a body doing work past its composed calls is the deleted form; the `ILatencyContext` factory is the composition's single mint — `DrainConductor.Drain`, `OutboundSurface.Run`, and `SupportCapture.Capture` each take the context as a parameter, so a fold minting its own context, or timing a phase off a `Stopwatch`, is the deleted form; `LatencySpine.Register` owns the NAME table alone while this ledger owns the provider registration, so the option that gates the issuer sets once at this seat; capsule unload is a MEMBERSHIP proof and never a sweep — the roster carries only members a live collectible host measured as pinning, so a blanket dispose-everything row claims a guarantee the runtime does not give while a type proven not to pin (an undisposed `ActivitySource`, an instrument-free `Meter`) buys an unload nothing.
+- Growth: a new must-bind contract is one `RootBinding` row at its altitude; a new module is one `<module>-seat`/`<module>-boot` pair; a new composed value the rows read is one `RootInputs` column, and a value whose halves belong to other owners is one seed record beside it, so an owner's law reaches this fold as a filled column rather than a re-implementation; a package that declares an instrument family is one `Metered` contributor argument; a member measured to pin a collectible load context is one `CapsulePins` row the unload proof already folds; zero new surface.
+- Boundary: this ledger is the ONE composition-scoped call site for every contract a page declares and no ordinary consumer reaches, so a declared-and-unbound contract is a missing row rather than a sentence a reader audits against the corpus — the class the ledger exists to close is a `Bind`, `Register`, `Mount`, or `Of` member with a page-long law behind it and zero callers. Runtime-scoped PRODUCERS never appear here and the two altitudes never trade: an instrument write, a dispatched tool, a continued trace binds at its own producing arm, because hoisting one into this fold fires it once at boot where the law wants it per event, and sinking a composition binding into a producing arm re-registers on a frozen collection; the `DescriptorSlot.Contributor` admission stays inside `SCAN_AND_DECORATE`'s per-module fold for the same reason — the module row is the thing that can violate the port invariant, so the admission belongs at the row and not at the root; a row's delegate composes an owner and never re-implements one, so the ledger holds no logic of its own and a body doing work past its composed calls is the deleted form; the `ILatencyContext` factory is the composition's single mint — `DrainConductor.Drain`, `OutboundSurface.Run`, and `SupportCapture.Capture` each take the context as a parameter, so a fold minting its own context, or timing a phase off a `Stopwatch`, is the deleted form; `LatencySpine.Register` owns the NAME table alone while this ledger owns the provider registration, so the option that gates the issuer sets once at this seat; capsule unload is a MEMBERSHIP proof and never a sweep — the roster carries only members a live collectible host measured as pinning, so a blanket dispose-everything row claims a guarantee the runtime does not give while a type proven not to pin (an undisposed `ActivitySource`, an instrument-free `Meter`) buys an unload nothing.
 
 Seat law:
-- `hooks-mount` freezes the point census and seats the precomposed rail; `HookRail.Of` has already admitted every gate and tap before the service graph freezes.
+- `hooks-mount` freezes the point census and seats the precomposed dispatcher; `HookSet.Of` has already admitted every gate and tap before the service graph freezes.
 - `redaction-and-sampling` reaches the log chain through `SignalGovernance.GovernLogs`, whose `RedactionRegistration.Bind` carries every redactor row — sealing the chain without it leaves the erasing fallback as the ONLY resolution and every classified tag erases, including the operational dimensions the pass rows exist to spare.
 - `latency-context` seats the pooled provider, issuer, and the ONE `Func<ILatencyContext>` factory the three threading folds read; `latency-names` folds this root's roster with every contributed `LatencyRoster` into the single registration under `ThrowOnUnregisteredNames`, because an unregistered name resolves to a positionless token whose writes drop with nothing raised.
 - `drain-thread` seats the `Func<DrainThread>` MINT rather than an opaque input: each drain opens its own context and token through `LatencySpine.Open` beside the mounted instrument set and the ledger exporter the terminal `Seal` feeds, so every drain-gated rollover receives the conductor's whole telemetry tail from the one root and an unbound tail refuses at boot instead of compiling on a trailing default. The cooperative and forced budgets are NOT on it — the conductor reads its own `DeadlineClass` rows, so a budget travelling beside the fold that owns it is a second value to disagree.
 - `drain-rows` seats the late-registration cell: a bus subscription and an epoch lease both open after the build and both must drain, so the conductor folds this cell beside the contributed port fan and a participant that exists only at runtime is still a drain row rather than an orphan.
-- `lifecycle` constructs the phase capsule over the composed rail WHOLE — the capsule fires `AppHostPoint.Phase` itself and owns the `DegradationTap` the composition seats — so the one shielded fan-out exists before the capsule that fires it and an observer seating real I/O can never unwind past the transition rail.
-- `verdict-fallback` binds `FlagVerdict.Inert` as the whole verdict function so an absent features rail and an unready provider answer ONE shape at every consumer.
+- `lifecycle` constructs the phase capsule over the composed dispatcher WHOLE — the capsule fires `AppHostPoint.Phase` itself and owns the `DegradationTap` the composition seats — so the one shielded fan-out exists before the capsule that fires it and an observer seating real I/O can never unwind past the transition dispatch.
+- `verdict-fallback` binds `FlagVerdict.Inert` as the whole verdict function so an absent features API and an unready provider answer ONE shape at every consumer.
 - `membership` seats the cluster view over the resolver, the per-authority `UriHealthCheck`, and the three decoded membership arrows; `peer-roster` seats the local attach set whose `contribute` closure is the two-tier edge `Wire/companion` and `Wire/coordination` both declare — the two rows reference each other only inside lambdas the fold never runs, so the mutual read resolves after both are registered, and the peer endpoint projects from the manifest's own `SocketPath` through `UnixDomainSocketEndPoint` so the UDS contract carries one address rather than two encodings obliged to agree.
 - `coordination-seat` constructs the ONE `LeaseElection.Runtime` off the coordination seed's four decoded lease arrows, because those decoded arrows are its only producer and no fold below this one reaches them; the same row FORCES `LeasePolicy.Outlasts`, since this is where the reclamation window meets the drain bounds it must outlast and a proof no reader forces guarantees nothing.
 - `control-inbound` completes `ControlRuntime` with the drain arrow over the degradation, support, source, and wire values in `ControlSeed`.
 - `design-regime` is the seat-law row this doctrine binds on any PRODUCT root that composes `Rasm.Bim` — it lives on that root's own ledger, never here, because this package references the kernel alone and a Bim type cannot appear in this fence, exactly as the `BrickBinding` class election rides the composing root. The root elects the project's national design regime ONCE: `StageLabels.Nation` (the typed `Option<ICountry>` off the compiled `IGovernance.Country` pin, `Rasm.Bim/Planning/schedule#SCHEDULE`) feeds `AnnexRegime.Of(ICountry)` (`Rasm.Bim/Model/eurocode#EUROCODE_ALGEBRA` — the ISO-keyed nation→annex bridge whose row KEY is the SAF `ExcelNationalCode`) into the `EurocodePolicy` the root constructs, and the SAME `Option<AnnexRegime>` threads to `SafEmit.Export` (`Rasm.Bim/Exchange/export#SAF_EMIT`). Both parameters are REQUIRED and undefaulted at their Bim owners, so an unelected root breaks loudly at compile rather than silently designing under `Recommended` or writing no design code cell; a second election beside the export call, or a free country string standing in for the typed nation, forks the national annex the eurocode tables and the SAF workbook must share.
 - `bim-compute-tessellation` is likewise a PRODUCT-root module row, never an AppHost project reference: the root that references both packages binds Bim's `ITessellationCompanion` directly to one `BimComputeCompanion`. The outer app call supplies its existing `CorrelationId` to `TessellationRequest.Resolve`; the adapter passes it to the Compute-owned singleton `CallSpineFactory`, which mints one spine for source put, tessellation, and output fetch. The adapter frames and puts the IFC source, projects the admitted `ArtifactRef` through `TessellationWire.Project`, drives `CompanionEdge`, and passes the returned `CompanionArtifact.Response` and GLB to `TessellationWire.Admit`. `ClockPolicy`, `WireServices`, and `StreamPool` remain composition singletons. `ValidateOnBuild` and `ValidateScopes` prove the constructor graph.
 - `AgentSeed.Leases` is the ONE bearer holder both the `membership` probe and the `wire-seat` HTTP lane dereference, each at its own moment — per probe and per send — so a lease that `agent-boot` armed and its own occurrence later renewed reaches every hop with no re-registration at either seat and no held copy anywhere to go stale; `WireSeed.Credentials` is what tells them WHICH registration answers for a dialed authority, and an authority carrying no row is anonymous by declaration.
-- Every `<module>-seat` row registers what its owners declare while the collection is editable; every `<module>-boot` row runs the gates whose facts exist only after the build. A gate whose refusal must stop the process rails there, so a refused trust anchor, an unhosted solver, an unrebuilt member set, or a peer surface the registry never took names itself at boot rather than at first call.
+- Every `<module>-seat` row registers what its owners declare while the collection is editable; every `<module>-boot` row runs the gates whose facts exist only after the build. A gate whose refusal must stop the process lands there, so a refused trust anchor, an unhosted solver, an unrebuilt member set, or a peer surface the registry never took names itself at boot rather than at first call.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RootBinding {
     private RootBinding() { }
 
-    public sealed record Seated(string Seam, Func<IServiceCollection, RootInputs, Fin<IServiceCollection>> Apply) : RootBinding;
+    public sealed record Seated(string Name, Func<IServiceCollection, RootInputs, Fin<IServiceCollection>> Apply) : RootBinding;
 
-    public sealed record Proven(string Seam, Func<IServiceProvider, RootInputs, Fin<Unit>> Apply) : RootBinding;
+    public sealed record Proven(string Name, Func<IServiceProvider, RootInputs, Fin<Unit>> Apply) : RootBinding;
 }
 
 public sealed record RootInputs(
@@ -364,7 +364,7 @@ public sealed record RootInputs(
     WireSeed Wire,
     AgentSeed Agent,
     SandboxSeed Sandbox,
-    HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail);
+    HookSet<AppHostPoint, AppHostFact, TelemetrySource> Hooks);
 
 public sealed record CoordinationArrows(
     Func<string, string, Duration, Fin<Unit>> MemberUpsert,
@@ -441,11 +441,11 @@ public static class CompositionRoot {
     public static readonly Seq<RootBinding> Ledger =
     [
         new RootBinding.Seated("hooks-mount", static (services, inputs) =>
-            HookRegistry.Mount([.. inputs.Rail.Points]).Map(census => services
+            HookRegistry.Mount([.. inputs.Hooks.Points]).Map(census => services
                 .Add(ServiceDescriptor.Describe(
-                    typeof(HookRail<AppHostPoint, AppHostFact, TelemetrySource>), _ => inputs.Rail, ServiceLifetime.Singleton))
+                    typeof(HookSet<AppHostPoint, AppHostFact, TelemetrySource>), _ => inputs.Hooks, ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(HookRegistry), _ => census, ServiceLifetime.Singleton))
-                .Add(ServiceDescriptor.Describe(typeof(FaultCell), _ => inputs.Rail.Faults, ServiceLifetime.Singleton)))),
+                .Add(ServiceDescriptor.Describe(typeof(FaultCell), _ => inputs.Hooks.Faults, ServiceLifetime.Singleton)))),
 
         new RootBinding.Seated("redaction-and-sampling", static (services, inputs) =>
             Fin.Succ(services.AddLogging(logging => ignore(SignalGovernance.GovernLogs(logging, inputs.Telemetry))))),
@@ -491,7 +491,7 @@ public static class CompositionRoot {
         new RootBinding.Seated("lifecycle", static (services, inputs) =>
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(Lifecycle),
-                _ => new Lifecycle(inputs.Profile, inputs.Clocks, inputs.Correlation, inputs.Rail, inputs.Key),
+                _ => new Lifecycle(inputs.Profile, inputs.Clocks, inputs.Correlation, inputs.Hooks, inputs.Key),
                 ServiceLifetime.Singleton)))),
 
         new RootBinding.Seated("verdict-fallback", static (services, _) =>
@@ -581,14 +581,14 @@ public static class CompositionRoot {
                     typeof(DegradationCell),
                     provider => new DegradationCell(
                         DegradationPolicy.Canonical, inputs.Clocks.Clock, inputs.Correlation,
-                        provider.GetRequiredService<HookRail<AppHostPoint, AppHostFact, TelemetrySource>>(), inputs.Key),
+                        provider.GetRequiredService<HookSet<AppHostPoint, AppHostFact, TelemetrySource>>(), inputs.Key),
                     ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(
                     typeof(BenchmarkRun.Session),
                     provider => new BenchmarkRun.Session(
                         Source: inputs.Control.Source,
                         Instruments: inputs.Telemetry.Signals,
-                        Rail: inputs.Rail,
+                        Hooks: inputs.Hooks,
                         Signals: ProfileTracking.Canonical,
                         Capture: ProfileCapturePolicy.Canonical,
                         Symbols: inputs.Observability.Symbols,
@@ -620,7 +620,7 @@ public static class CompositionRoot {
                     typeof(OrchestrationRuntime),
                     provider => new OrchestrationRuntime(
                         Dispatch: provider.GetRequiredService<DispatchRuntime>(),
-                        Store: provider.GetRequiredService<StepStateSeam>(),
+                        Store: provider.GetRequiredService<StepStatePort>(),
                         Assess: provider.GetRequiredService<Func<CommandResult, Option<StepDisposition>>>(),
                         Redrive: Orchestrator.StepRedrive,
                         Lease: provider.GetRequiredService<LeaseElection.Runtime>(),
@@ -748,7 +748,7 @@ public static class CompositionRoot {
                             Context: inputs.Telemetry.Determinism,
                             Changefeed: inputs.Changefeed,
                             Instruments: inputs.Telemetry.Signals,
-                            Rail: inputs.Rail,
+                            Hooks: inputs.Hooks,
                             Key: inputs.Key),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
@@ -793,11 +793,11 @@ public static class CompositionRoot {
                             Spine: provider.GetRequiredService<Lifecycle>().Spine),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
-                        typeof(UpdateRail),
-                        provider => new UpdateRail(
+                        typeof(UpdateMachine),
+                        provider => new UpdateMachine(
                             feed, provider.GetRequiredService<Lifecycle>(),
                             gate,
-                            provider.GetRequiredService<IMeterFactory>().Create(nameof(UpdateRail))),
+                            provider.GetRequiredService<IMeterFactory>().Create(nameof(UpdateMachine))),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(typeof(FleetRuntime), _ => inputs.Sandbox.Fleet, ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
@@ -825,7 +825,7 @@ public static class CompositionRoot {
             Scheduled(provider,
                 Cadence("alert-sweep", DegradationPolicy.Canonical.PublishPeriod, DeadlineClass.HealthProbe, () =>
                     AlertEngine.Sweep(
-                            new AlertEngine.Runtime(Rail: inputs.Rail, Key: inputs.Key),
+                            new AlertEngine.Runtime(Hooks: inputs.Hooks, Key: inputs.Key),
                             provider.GetRequiredService<AlertCell>(),
                             provider.GetRequiredService<DegradationCell>().Read(),
                             inputs.Clocks.Now)
@@ -1059,9 +1059,9 @@ public static class CompositionRoot {
             : unit;
 
     static Fin<Unit> Resumed(IServiceProvider provider) =>
-        provider.GetRequiredService<UpdateRail>() is var rail
-            ? rail.Pending.Match(
-                Some: asset => rail.Rollover(asset, provider.GetRequiredService<Func<DrainThread>>()()).Run().Map(static _ => unit),
+        provider.GetRequiredService<UpdateMachine>() is var machine
+            ? machine.Pending.Match(
+                Some: asset => machine.Rollover(asset, provider.GetRequiredService<Func<DrainThread>>()()).Run().Map(static _ => unit),
                 None: static () => Fin.Succ(unit))
             : Fin.Succ(unit);
 

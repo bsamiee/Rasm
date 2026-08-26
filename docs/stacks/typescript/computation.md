@@ -1,8 +1,8 @@
 # [TYPESCRIPT_COMPUTATION]
 
-Every working body between the decode seam and the rail is one expression over already-admitted values: a single-pass fold into a typed seed, a lazy `Iterable` pipeline materialized once at its tail, an index-free window and sieve algebra, a `mapAccum` Mealy step, a structural recursion destructured over its closed family, or a measured kernel that detaches an immutable result. The value crossed its boundary upstream, so the interior is total over it and never re-validates; the result composes combinators at the depth the collection modules already reach — never a `for` loop pushing into an array, an index counter the value's own structure already answers, a second pass over a sequence one seeded pass closes, or a branch ladder — a ternary or `if`/`else` arm that opens a further decision collapses into the form that owns the variation: a vocabulary row for keyed correspondence, a `Match` arm for tag and structural dispatch, `Array.partitionMap` for the verdict split — because vertical nesting in a body is the statement pyramid in expression clothing. This page owns the pure, in-process computation algebra: the shape a working body takes after its values are admitted and before its outcome rides a rail.
+Every working body between the decode boundary and the carrier is one expression over already-admitted values: a single-pass fold into a typed seed, a lazy `Iterable` pipeline materialized once at its tail, an index-free window and sieve algebra, a `mapAccum` Mealy step, a structural recursion destructured over its closed family, or a measured kernel that detaches an immutable result. The value crossed its boundary upstream, so the interior is total over it and never re-validates; the result composes combinators at the depth the collection modules already reach — never a `for` loop pushing into an array, an index counter the value's own structure already answers, a second pass over a sequence one seeded pass closes, or a branch ladder — a ternary or `if`/`else` arm that opens a further decision collapses into the form that owns the variation: a vocabulary row for keyed correspondence, a `Match` arm for tag and structural dispatch, `Array.partitionMap` for the verdict split — because vertical nesting in a body is the statement pyramid in expression clothing. This page owns the pure, in-process computation algebra: the shape a working body takes after its values are admitted and before its outcome rides a carrier.
 
-Six siblings own material this algebra composes as settled: a fold whose accumulator is a carrier and the abort-versus-accumulate disposition are `rails-and-effects.md`'s; the carrier discriminant and the `Stream.mapAccum` lift of the step written here are `streams.md`'s; containers, algebra instances, and the merge tables are `values.md`'s; `Match` terminals and overload surfaces are `surfaces-and-dispatch.md`'s; cross-fiber cells are `concurrency.md`'s; the kernel mark's legality and its cast algebra are `language.md`'s — this page owns when a kernel is earned and which algorithmic forms it takes. What remains is the computation algebra, and its one collapse is uniform: a multi-pass scatter folds into one seeded pass, a materialized intermediate dissolves into a lazy combinator, a hand-indexed window becomes a window operator, a two-pass verdict split becomes one partitioned sieve, a cell beside a traversal becomes a `mapAccum` step, an unbounded native recursion becomes a frontier kernel, and a hand memo map becomes a tabulation fold.
+Six siblings own material this algebra composes as settled: a fold whose accumulator is a carrier and the abort-versus-accumulate disposition are `results-and-effects.md`'s; the carrier discriminant and the `Stream.mapAccum` lift of the step written here are `streams.md`'s; containers, algebra instances, and the merge tables are `values.md`'s; `Match` terminals and overload surfaces are `surfaces-and-dispatch.md`'s; cross-fiber cells are `concurrency.md`'s; the kernel mark's legality and its cast algebra are `language.md`'s — this page owns when a kernel is earned and which algorithmic forms it takes. What remains is the computation algebra, and its one collapse is uniform: a multi-pass scatter folds into one seeded pass, a materialized intermediate dissolves into a lazy combinator, a hand-indexed window becomes a window operator, a two-pass verdict split becomes one partitioned sieve, a cell beside a traversal becomes a `mapAccum` step, an unbounded native recursion becomes a frontier kernel, and a hand memo map becomes a tabulation fold.
 
 ## [01]-[COMPUTATION_CHOOSER]
 
@@ -21,7 +21,7 @@ A computational shape selects the form that owns it; the most specific shape win
 |  [09]   | closed transition system                | vocabulary rows carry `(next, emit)`        | a `switch` advancing a mutable phase  |
 |  [10]   | stateful actor behind a request surface | `Machine.makeSerializable` procedure rows   | class of mutable fields, methods      |
 |  [11]   | bounded recursion over a closed family  | `(leaf, join)` algebra, one traversal       | a recursive function per reduction    |
-|  [12]   | input-scaled recursion depth            | frontier kernel; `Effect.iterate` rail      | native recursion past stack ceiling   |
+|  [12]   | input-scaled recursion depth            | frontier kernel; `Effect.iterate` loop      | native recursion past stack ceiling   |
 |  [13]   | graph-shaped traversal or path cost     | `Graph.dfs` and peers                       | a hand frontier over adjacency state  |
 |  [14]   | overlapping subproblems                 | tabulation fold; `Effect.cachedFunction`    | a hand memo `Map` beside the function |
 |  [15]   | measured hot path                       | `MutableHashMap`/`TypedArray` draft         | ambient mutation in domain flow       |
@@ -47,7 +47,7 @@ A body that needs several quantities from one sequence folds them in one pass in
 
 [SCAN_TRACE]:
 - Law: `Array.scan(values, SEED, step)` shares the fold's exact `(step, SEED)` pair and keeps every intermediate seed the fold discards — the return is `NonEmptyArray` with the seed first, so the origin's presence is a type fact, and a consumer that must not see it drops it at the read, never by patching the step; `Array.scanRight` threads the suffix trace from the right.
-- Boundary: a fold whose accumulator is `Option`/`Either` or whose faults must accumulate is `rails-and-effects.md`'s carrier algebra, and the same trace over a live feed is `Stream.scan`, `streams.md`'s — this seed is a pure value, total over admitted elements.
+- Boundary: a fold whose accumulator is `Option`/`Either` or whose faults must accumulate is `results-and-effects.md`'s carrier algebra, and the same trace over a live feed is `Stream.scan`, `streams.md`'s — this seed is a pure value, total over admitted elements.
 
 ```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup";
@@ -104,7 +104,7 @@ A multi-stage transform selects eager or lazy by materialization cost, and its w
 
 [LAZY_PIPELINE]:
 - Law: laziness guarantees bounded memory — `Iterable.map`/`filter`/`filterMap`/`take`/`takeWhile`/`drop`/`flatMap`/`flatten`/`dedupeAdjacent` compose without materializing and hold bounded memory over an unbounded source, `Iterable.scan` keeps the running trace lazy, and `Iterable.filterMapWhile` fuses filter, transform, and stop into one operator; the tail materializes once — `Array.fromIterable` for a collection, `Iterable.reduce` for a value — and a fully built array mid-chain re-buys the allocation laziness deleted.
-- Law: production is an anamorphism — `Iterable.unfold(seed, step)` generates from a seed with `Option` termination, and `Iterable.range`/`Iterable.makeBy` name the arithmetic sources — so a `function*` generator in domain flow is a statement seam smuggled in as production.
+- Law: production is an anamorphism — `Iterable.unfold(seed, step)` generates from a seed with `Option` termination, and `Iterable.range`/`Iterable.makeBy` name the arithmetic sources — so a `function*` generator in domain flow is a statement body smuggled in as production.
 - Reject: a `[...feed]` spread or intermediate array between stages; a hand `while` loop growing an array where `unfold` states the production; laziness over a small bounded collection already in hand — the eager combinators read shorter and allocate once.
 
 [WINDOW_ALGEBRA]:
@@ -211,7 +211,7 @@ State that threads element-to-element is a Mealy step — one `(state, element) 
 [TRANSITION_LADDER]:
 - Law: a closed transition system is a vocabulary table, not control flow — one `as const` anchor keyed by state whose rows carry `(next, emit)` per input kind, driven by one `mapAccum` reading rows — so a new phase or input is a row, never a branch; the anchor's derivation and guard mechanics are `derivation.md`'s.
 - Law: scale is table composition, never state explosion — a hierarchical phase nests as a row whose payload anchors a sub-table driven by the same fold, parallel regions are independent fields of one state record each advanced by the signals it reads, and a guard is a predicate column the step consults before the row fires; the cross-product table enumerating every region combination is the rejected form.
-- Law: the ladder tops at the actor, declared as procedure rows over one state — in-process, `Machine.makeWith<State, Input>()` with `Machine.procedures.make(initial)` grown by `Machine.procedures.add<Req>()(tag, handler)` on `Request.TaggedClass` rows; across a process edge, `Machine.makeSerializable({ state, input }, initialize)` with `Machine.serializable.make`/`Machine.serializable.add` on `Schema.TaggedRequest` rows — each handler `({ request, state })` returns `[reply, state]` on the rail, the initialize arrow returns its list bare because a procedure list is its own `Effect`, and `Machine.boot` yields the scoped `Actor` whose `send` serializes every request against one state on one fiber.
+- Law: the ladder tops at the actor, declared as procedure rows over one state — in-process, `Machine.makeWith<State, Input>()` with `Machine.procedures.make(initial)` grown by `Machine.procedures.add<Req>()(tag, handler)` on `Request.TaggedClass` rows; across a process edge, `Machine.makeSerializable({ state, input }, initialize)` with `Machine.serializable.make`/`Machine.serializable.add` on `Schema.TaggedRequest` rows — each handler `({ request, state })` returns `[reply, state]` on the carrier, the initialize arrow returns its list bare because a procedure list is its own `Effect`, and `Machine.boot` yields the scoped `Actor` whose `send` serializes every request against one state on one fiber.
 - Law: background work forks through the handler context, never a bare `Effect.fork` — `fork` runs an unkeyed child, `forkOne(effect, id)` starts only while no live fiber holds the id, `forkReplace(effect, id)` interrupts the incumbent and re-arms — every child dies with the actor's scope, and a forked defect is a machine defect the `Machine.retry` `Schedule` policy value re-initializes through.
 - Law: recovery and durability are definition facts — retry re-entry and `boot`'s `previousState` resume through the same initialize slot carrying the last live state, the serializable actor adds `sendUnknown` for encoded ingress, and `Machine.snapshot` emits the schema-encoded `[input, state]` pair `Machine.restore` boots a successor from.
 - Boundary: the actor exists because its state outlives one traversal and answers a request surface — state shared across arbitrary fibers with no request surface is `concurrency.md`'s cell selection.
@@ -319,13 +319,13 @@ export { Transit };
 
 ## [05]-[STRUCTURAL_RECURSION]
 
-A computation over a recursive structure is one algebra applied by one traversal: a `(leaf, join)` pair serves every reduction over the closed family, and depth selects the execution form — native recursion to data depth, the frontier kernel or the rail past it — never the algebra. When the structure is a graph rather than a tree, the traversal itself is owned: the walker families delete the hand frontier.
+A computation over a recursive structure is one algebra applied by one traversal: a `(leaf, join)` pair serves every reduction over the closed family, and depth selects the execution form — native recursion to data depth, the frontier kernel or the carrier past it — never the algebra. When the structure is a graph rather than a tree, the traversal itself is owned: the walker families delete the hand frontier.
 
 [CATAMORPHISM]:
 - Law: one `(leaf, join)` algebra value serves every reduction — sum, depth, flatten, render are algebra rows, never a recursive function per reduction — and the traversal threads children through the same public surface; the fold rides tag refinement because the record dispatch's carrier reduction strands the bare `R` its arms return, the `Unify` mechanics `surfaces-and-dispatch.md` owns.
 - Law: native recursion is legal only to data depth — a structure admitted at bounded fan-in and height reads freely, and input-scaled or adversarial depth forfeits the form, because the JS call stack is a fixed platform ceiling no flag, option, or worker size raises.
-- Exemption: the frontier kernel is this page's statement-bearing seam, licensed by that fixed ceiling — an immutable `List` work stack rebound each turn, `expand` frames sliding a `combine` marker beneath a branch's children and a second immutable stack carrying results until the marker joins them — so the traversal is iterative exactly where native recursion overflows; the mark's legality is `language.md`'s.
-- Law: an effectful step at depth rides the rail's own trampoline — `Effect.iterate(initial, { while, body })` advances a state heap-bound, `Effect.loop` collects per step, and `Effect.suspend` defers a recursive definition so constructing the effect does not itself recurse.
+- Exemption: the frontier kernel is this page's statement-bearing body, licensed by that fixed ceiling — an immutable `List` work stack rebound each turn, `expand` frames sliding a `combine` marker beneath a branch's children and a second immutable stack carrying results until the marker joins them — so the traversal is iterative exactly where native recursion overflows; the mark's legality is `language.md`'s.
+- Law: an effectful step at depth rides the carrier's own trampoline — `Effect.iterate(initial, { while, body })` advances a state heap-bound, `Effect.loop` collects per step, and `Effect.suspend` defers a recursive definition so constructing the effect does not itself recurse.
 - Reject: a recursion or `Match` pipeline re-authored per reduction over a family one algebra value already serves; a depth flag threaded through signatures; a result array mutated by a recursive helper; a raised stack budget standing where the frontier folds.
 
 ```typescript
@@ -347,7 +347,7 @@ const Limb = {
         // the bare-parameter fold rides tag refinement: one (leaf, join) value serves every reduction
         limb._tag === "tip" ? algebra.tip(limb.load) : algebra.fork(Array.map(limb.limbs, (child) => Limb.fold(child, algebra))),
     fathom: <R>(root: Limb, algebra: Limb.Algebra<R>): R => {
-        // BOUNDARY ADAPTER: frontier kernel — the fixed JS call-stack ceiling licenses this statement seam; the rebound Lists never escape
+        // BOUNDARY ADAPTER: frontier kernel — the fixed JS call-stack ceiling licenses this statement body; the rebound Lists never escape
         let frames: List.List<_Frame> = List.of<_Frame>({ _tag: "expand", limb: root });
         let results: List.List<R> = List.empty<R>();
         while (List.isCons(frames)) {
@@ -379,7 +379,7 @@ const Limb = {
 const chased = <S, E, R>(seed: S, advance: (state: S) => Effect.Effect<Option.Option<S>, E, R>): Effect.Effect<S, E, R> =>
     Effect.map(
         Effect.iterate<Either.Either<S, S>, R, E>(Either.right(seed), {
-            // the rail is the trampoline and the carrier is the loop flag: Right advances heap-bound, Left is the settled state — no hand cursor record, no boolean
+            // the effect is the trampoline and the carrier is the loop flag: Right advances heap-bound, Left is the settled state — no hand cursor record, no boolean
             while: Either.isRight,
             body: (cursor) =>
                 Effect.map(

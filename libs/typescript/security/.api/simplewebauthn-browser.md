@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: call options, the coded fault rail, and the response-union alias; `@simplewebauthn/server` (`.api/simplewebauthn-server.md`) owns the JSON wire vocabulary both halves share, decoded by one `Schema.Struct` per shape at the fetch boundary.
+[PUBLIC_TYPE_SCOPE]: call options, the coded fault type, and the response-union alias; `@simplewebauthn/server` (`.api/simplewebauthn-server.md`) owns the JSON wire vocabulary both halves share, decoded by one `Schema.Struct` per shape at the fetch boundary.
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                      |
 | :-----: | :------------------------ | :------------ | :---------------------------------------------------------------- |
@@ -43,7 +43,7 @@
 
 [STACKING]:
 - `effect`(`.api/effect.md`): `Effect.tryPromise({ try, catch })` lifts each ceremony and the `catch` narrows the pre-coded `WebAuthnError` into one `Data.TaggedError`; `Match.value(err.code)` closed on `Match.exhaustive` folds recovery, and `browserSupportsWebAuthn()` gates the whole `Effect` so an unsupported browser short-circuits to a typed capability fault.
-- `@simplewebauthn/server`(`.api/simplewebauthn-server.md`): `generateRegistrationOptions` output enters `startRegistration`, and the returned `RegistrationResponseJSON` feeds `verifyRegistrationResponse`; one `Schema.Struct` per JSON shape owns both crossings of the fetch seam.
+- `@simplewebauthn/server`(`.api/simplewebauthn-server.md`): `generateRegistrationOptions` output enters `startRegistration`, and the returned `RegistrationResponseJSON` feeds `verifyRegistrationResponse`; one `Schema.Struct` per JSON shape owns both crossings of the fetch boundary.
 - `@effect/platform-browser`(`.api/effect-platform-browser.md`): the ceremony runs inside the `BrowserRuntime.runMain` boot, the response POST rides `BrowserHttpClient.layerXMLHttpRequest` under the shared `net/client` retry policy, and a `BrowserStream.fromEventListenerDocument` visibility row defers the conditional-UI prompt on a backgrounded tab.
 - `@oslojs/encoding`(`.api/oslojs-encoding.md`): `bufferToBase64URLString`/`base64URLStringToBuffer` cover the browser-side `Base64URLString` fields, leaving `encodeBase64url`/`decodeBase64url` the `sign/` owner for credential material at rest — one alphabet, two runtimes, no cross-import.
 - `authn/webauthn`: its browser subpath composes probe → ceremony → POST as one `Effect` pipeline, binding the abort service to the client router's navigation stream.

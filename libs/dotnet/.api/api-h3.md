@@ -46,7 +46,7 @@
 [LATLNG_BRIDGE]: `LatLng.FromPoint` `LatLng.FromCoordinate` `LatLng.ToPoint` `LatLng.ToCoordinate` `LatitudeDegrees` `LongitudeDegrees` `implicit operator LatLng((double, double))`
 
 [LATLNG_METRIC]: `GetGreatCircleDistanceInRadians` `GetGreatCircleDistanceInKm` `GetGreatCircleDistanceInMeters` `GetAzimuthInRadians` `ForAzimuthDistanceInRadians` `GetTriangleArea` `GetLoopAreaInRadiansSquared` `LineHexEstimate` `AlmostEquals` `AlmostEqualsThreshold`
-- `LatLng.GetLoopAreaInRadiansSquared(IReadOnlyList<LatLng>)` / `GetTriangleArea(LatLng, LatLng, LatLng)`: static spherical loop / triangle area, the geometry-free area rail beside the cell `CellArea*` metrics.
+- `LatLng.GetLoopAreaInRadiansSquared(IReadOnlyList<LatLng>)` / `GetTriangleArea(LatLng, LatLng, LatLng)`: static spherical loop / triangle area, the geometry-free area entry beside the cell `CellArea*` metrics.
 
 [TRAVERSAL_ENTRY_SCOPE]: hierarchy, adjacency, disk, path, and the origin-local IJ frame, every surface extending `H3Index`
 
@@ -150,5 +150,5 @@
 - Bim consumer anchor: the `Semantics/model#GEO_MODEL` DGGS keyer arm — `GeoFeature.Cell` mints `H3Index.FromPoint` over the Wgs84 centroid, `GeoModel.Bucket` keys the coarse `(ulong)` DGGS join beside the `STRtree` bounding-envelope broad-phase, and `GeoModel.Cover` lowers a probe region `Geometry.Fill` → `GridDiskDistances` → `CompactCells` into the `FrozenSet<ulong>` region key a regional query tests, never a per-feature scan.
 
 [LOCAL_ADMISSION]:
-- Cell computation enters at `Rasm.Persistence` `Ingest/geospatial` and `Element/identity`, and at the `Rasm.Bim` geospatial-seam DGGS keyer arm; a spatial predicate lowers to a cell set ahead of any geometry test, and the persisted column carries the `H3Cell` ulong the identity Key axis owns.
+- Cell computation enters at `Rasm.Persistence` `Ingest/geospatial` and `Element/identity`, and at the `Rasm.Bim` geospatial-boundary DGGS keyer arm; a spatial predicate lowers to a cell set ahead of any geometry test, and the persisted column carries the `H3Cell` ulong the identity Key axis owns.
 - A site-context or stored cell enters the repo as the `(ulong)` durable id, never a live `H3Index` instance.

@@ -1,6 +1,6 @@
 # [RASM_API_RHINO]
 
-This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Rasm` composes above the branch value substrate — the single-precision mesh carriers, the analytic primitive solids, the curve and mesh reference geometry with its typed topology, the native remesh and unwrap seam, the `Intersection` parametric lattice the `Analysis` layer folds, and the `RTree` point-neighborhood index. Kernel code authors discrete predicate-exact crossing and broad-phase acceleration itself, so host parametric intersection and kernel crossing meet at no interior.
+This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Rasm` composes above the branch value substrate — the single-precision mesh carriers, the analytic primitive solids, the curve and mesh reference geometry with its typed topology, the native remesh and unwrap interface, the `Intersection` parametric table the `Analysis` layer folds, and the `RTree` point-neighborhood index. Kernel code authors discrete predicate-exact crossing and broad-phase acceleration itself, so host parametric intersection and kernel crossing meet at no interior.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -39,7 +39,7 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 - `Brep`: `Faces` `Edges` — the parametric solid the `Analysis` layer intersects.
 - `CurveEvaluationSide`: `Default = 0` `Below = -1` `Above = 1` — the closed three-arm branch selector a derivative read takes where a kink leaves the derivative two-valued.
 
-[PUBLIC_TYPE_SCOPE]: mesh restructure and unwrap types (the `Processing/segment` host-restructure seam)
+[PUBLIC_TYPE_SCOPE]: mesh restructure and unwrap types (the `Processing/segment` host-restructure interface)
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]            | [CAPABILITY]              |
 | :-----: | :----------------------- | :----------------------- | :------------------------ |
@@ -116,7 +116,7 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 [MESH_FACTORY]: `Mesh.CreateFromBox` `CreateFromSphere` `CreateFromCone` `CreateFromClosedPolyline` `CreateFromTessellation` — the primitive-to-mesh family meshing pages seed from.
 [MESH_BOOLEANS]: `Mesh.CreateBooleanUnion` `CreateBooleanDifference` `CreateBooleanIntersection` → `Mesh[]` with an `out Result`; the kernel predicate-exact arrangement does not use this host CSG path.
 
-[ENTRYPOINT_SCOPE]: native remesh, reduce, and unwrap calls (the `Processing/segment` seam)
+[ENTRYPOINT_SCOPE]: native remesh, reduce, and unwrap calls (the `Processing/segment` interface)
 
 Instance forms return a new `Mesh`, null on failure — the kernel `Fin`-routes the null and disposes the orphan; `Reduce` mutates in place returning success `bool`; cooperative overloads thread `IProgress<int>`+`CancellationToken`.
 
@@ -166,10 +166,10 @@ Instance forms return a new `Mesh`, null on failure — the kernel `Fin`-routes 
 - `Spatial/index` SAH-BVH: the substrate `BoundingBox.Empty` seeds and `Union` accumulates the broad-phase AABB the `NodeStore` holds.
 - `Meshing/intersect` narrow phase: `MeshFace` triangle-soup indices and `Mesh.TopologyVertices` welded adjacency back the Guigue-Devillers predicate-exact straddle, and `Polyline` re-emits the crossing chains.
 - `Spatial/neighbors` `NeighborIndex`: composes host `RTree` construction, callback search, and the hay-by-needle batches inside its callback capsule.
-- `Analysis/Intersect` lattice: folds `Intersection` parametric primitive-pair crossings and disposes each `CurveIntersections` under a lease.
+- `Analysis/Intersect` table: folds `Intersection` parametric primitive-pair crossings and disposes each `CurveIntersections` under a lease.
 - `Supercluster.KDTree`(`.api/api-kdtree.md`): the flat kd-tree owns exact k-NN leaf queries while host `RTree` serves the `NeighborIndex` point-neighborhood tier — neither reimplements the kernel SAH-BVH broad-phase.
 
 [LOCAL_ADMISSION]:
-- Reference geometry is the kernel's disposable native-handle owner, released at the seam.
-- Geometry values cross the seam as `Rasm.Numerics` carriers, the robust core re-emitting `Polyline`/`Point3d`/`Mesh` at the boundary.
+- Reference geometry is the kernel's disposable native-handle owner, released at the boundary.
+- Geometry values cross the boundary as `Rasm.Numerics` carriers, the robust core re-emitting `Polyline`/`Point3d`/`Mesh` at the boundary.
 - Substrate carriers read their members from the branch catalogue, and a row for one lands there rather than here, so the kernel and both host boundaries meet one spelling.

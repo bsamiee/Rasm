@@ -36,7 +36,7 @@
 |  [02]   | `TableOptimizer` | class         | `compact`/`z_order` file maintenance     |
 |  [03]   | `TableAlterer`   | class         | additive schema and metadata evolution   |
 
-[PUBLIC_TYPE_SCOPE]: typed failure rail (`deltalake.exceptions`)
+[PUBLIC_TYPE_SCOPE]: typed failure result (`deltalake.exceptions`)
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                  |
 | :-----: | :-------------------- | :------------ | :---------------------------- |
@@ -189,7 +189,7 @@
 - `pyarrow`(`pyarrow.md`), `datafusion`(`datafusion.md`), `duckdb`(`duckdb.md`): `to_pyarrow_dataset()` is a pushdown-capable `pa.dataset.Dataset` a `SessionContext.register_table` or `con.register` adopts directly, so a Delta table joins Parquet and object-store sources under one engine's SQL with pruning pushed into the Delta scan, never an eager `to_pyarrow_table` copy.
 - `polars`(`polars.md`): `write_deltalake`/`merge` take any Arrow-exportable, so a `LazyFrame.collect()`, a `datafusion` `DataFrame.to_arrow_table()`, or a `duckdb` `to_arrow_reader()` writes straight into a commit.
 - `substrait`(`substrait.md`): `QueryBuilder` runs embedded DataFusion SQL in-process, while cross-engine plan exchange registers the Delta dataset into the `datafusion`/`duckdb-substrait` spine, so SQL stays local while plans cross engines.
-- within-lib: the data folder's tabular lakehouse rail owns Delta as its ACID table format; `DeltaTable` is the sole lifecycle owner and `write_deltalake` the single write entry, and `CommitProperties.app_transactions` carries an idempotent `Transaction` app-id under a `stamina` `retry_context` keyed by `max_commit_retries`.
+- within-lib: the data folder's tabular lakehouse domain owns Delta as its ACID table format; `DeltaTable` is the sole lifecycle owner and `write_deltalake` the single write entry, and `CommitProperties.app_transactions` carries an idempotent `Transaction` app-id under a `stamina` `retry_context` keyed by `max_commit_retries`.
 
 [LOCAL_ADMISSION]:
 - open through `DeltaTable(table_uri, ...)`, write through `write_deltalake`, mutate through `merge(...).execute()` clause chains; the egress frame is a call argument, never a per-frame wrapper.

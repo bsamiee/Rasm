@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_HTTPX]
 
-`httpx` owns outbound HTTP transport for the Python branch: one pooled `AsyncClient`/`Client` negotiating HTTP/1.1 and HTTP/2, a generator-based `Auth` signing protocol, request and response streaming, per-phase `Timeout` and pool `Limits`, `event_hooks`, transport and proxy injection, the `codes` status vocabulary, and the full request/transport error taxonomy. It is the branch's sole HTTP client; responses feed the wire-model decode rail and transient faults the resilience rail.
+`httpx` owns outbound HTTP transport for the Python branch: one pooled `AsyncClient`/`Client` negotiating HTTP/1.1 and HTTP/2, a generator-based `Auth` signing protocol, request and response streaming, per-phase `Timeout` and pool `Limits`, `event_hooks`, transport and proxy injection, the `codes` status vocabulary, and the full request/transport error taxonomy. It is the branch's sole HTTP client; responses feed the wire-model decode path and transient faults the resilience layer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -112,11 +112,11 @@
 - `aclose`/`close` drains the pool under the host drain choreography.
 
 [STACKING]:
-- `msgspec`(`.api/msgspec.md`) / `pydantic`(`.api/pydantic.md`): `Response.json()` yields the `dict`/`list` that `msgspec.convert(obj, type)` or a pydantic discriminated union decodes to a typed model — one rail, no intermediate re-parse.
+- `msgspec`(`.api/msgspec.md`) / `pydantic`(`.api/pydantic.md`): `Response.json()` yields the `dict`/`list` that `msgspec.convert(obj, type)` or a pydantic discriminated union decodes to a typed model — one result, no intermediate re-parse.
 - `stamina`(`.api/stamina.md`): `stamina.retry_context`/`AsyncRetryingCaller` wraps `AsyncClient.send` for transient `TransportError`/`TimeoutException`/`PoolTimeout`, while `AsyncHTTPTransport(retries=)` covers only connection-establishment retries; `HTTPStatusError` is non-transient and surfaces as `Error(BoundaryFault(...))`.
 - `hishel`(`.api/hishel.md`): `AsyncCacheTransport(next_transport=AsyncHTTPTransport(...))` mounts as the client `transport`, caching above the pool while `Timeout`/`Limits`/`Auth` stay owned here.
 - `pydantic-settings`(`.api/pydantic-settings.md`): a `BaseSettings` model mints the `BasicAuth`/custom-`Auth` instance once at construction; credentials never appear inline.
-- `opentelemetry-instrumentation-httpx`(`.api/opentelemetry-instrumentation-httpx.md`): `HTTPXClientInstrumentor().instrument()` patches both client classes at the composition root, and pooled clients built earlier re-enter through `instrument_client`, so spans ride the transport seam.
+- `opentelemetry-instrumentation-httpx`(`.api/opentelemetry-instrumentation-httpx.md`): `HTTPXClientInstrumentor().instrument()` patches both client classes at the composition root, and pooled clients built earlier re-enter through `instrument_client`, so spans ride the transport boundary.
 - within-lib: the `transport/roots` and `serve` owners build and reuse the pooled clients; the `anyio` deadline scope wraps each call so cancellation propagates into `httpcore`, and `aclose` joins the anyio drain lane.
 
 [LOCAL_ADMISSION]:

@@ -19,7 +19,7 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 - Law: a provider correspondence is a COLUMN on the row it targets, indexed once from `Items`. A parallel table keyed by the provider vocabulary has to restate every row, silently defaults the one it forgot, and materializes eagerly whether or not a decode ever runs; the column cannot forget a row and its index materializes on first read.
 - Law: an unmapped provider ordinal resolves to `None` and refuses as `ToolAssetInadmissible` naming the axis. A domain row standing in for an ordinal the shop's controller emits is fabricated evidence a scheduler prices work on.
 - Cases: `MetricDimension` rows carry unit admission and canonical restoration delegates; `ToolAvailability` names the atoms-floor `ToolState` it collapses onto; `ArmSwing` names how much of the layout's swing a change pays; `ToolSelection` names the life direction a crib is searched in, seat preference riding the behaviour set beside the swing it already derives; `ShortfallReason` names why a demand went unkitted.
-- Law: `MagazineBehavior` realizes the kernel `ICapability` floor, so a controller's declared behaviours are one `CapabilitySet` value carrying membership, the required-set seam, and its missing-row evidence. A page-local set beside that column re-spells an algebra the kernel already owns and hands a refusing consumer no evidence of what was absent.
+- Law: `MagazineBehavior` realizes the kernel `ICapability` floor, so a controller's declared behaviours are one `CapabilitySet` value carrying membership, the required-set contract, and its missing-row evidence. A page-local set beside that column re-spells an algebra the kernel already owns and hands a refusing consumer no evidence of what was absent.
 - Auto: every `Of` reader folds one `Lazy<FrozenDictionary>` derived from `Items`, so a new row is one declaration and the index follows it.
 - Growth: a provider measurement is one `ToolMeasure` row carrying its measurement type; a lifecycle correspondence is one `ToolAvailability` row carrying its status set and its `ToolState` column; a physical dimension is one `MetricDimension` row carrying its own admission and restoration; a placement is one `SlotKind` row carrying its location set; a controller capability is one `MagazineBehavior` row; a scheduling preference is one `ToolSelection` row.
 - Boundary: provider enums reach no consumer — they terminate on these columns.
@@ -51,7 +51,6 @@ namespace Rasm.Fabrication.Tooling;
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 public sealed partial class ToolKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = Witness.Keyed(value) ? null : Validation("tool-key");
@@ -67,7 +66,6 @@ public sealed partial class ToolKey {
 
 [ValueObject<string>]
 public sealed partial class ToolEdgeKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = Witness.Keyed(value) ? null : ToolKey.Validation("tool-edge-key");
@@ -274,12 +272,12 @@ public sealed partial class ShortfallReason {
 ## [03]-[TOOL_ASSEMBLY]
 
 - Owner: `ToolKey` carries stable physical identity; `ToolSnapshot` carries mutable truth and owns metric and remaining-life lookup; `ToolAssemblyIngress` carries the admission columns and `ToolAssembly` composes them with `Tool` and the controller offset registers; `MagazineLayout` carries admitted capacity, the pot's operating envelope, index timing, and clearance; `SlotMap` owns total placement state and its reservation index; `MagazinePolicy` carries reserve, retract, controller behavior, and the selection row.
-- Law: every boundary value enters through `Validate`/`Admit`, never a throwing `Create`. A generated `Create` treated as nullable made the whole decode rail escape as EXCEPTIONS past a `Fin`-declaring entry, so a malformed provider asset surfaced as a throw rather than a typed refusal.
+- Law: every boundary value enters through `Validate`/`Admit`, never a throwing `Create`. A generated `Create` treated as nullable made the whole decode pipeline escape as EXCEPTIONS past a `Fin`-declaring entry, so a malformed provider asset surfaced as a throw rather than a typed refusal.
 - Law: the reservation sweep runs ONCE at admission and its index is HELD. Reserve spans define intervals on a magazine's own position axis, so a sorted single pass proves the whole map and a single load or reservation checks the ONE changed slot against its neighbours in the index — the prior full cross product ran inside every rebuild a load or reservation triggered.
 - Law: `ToolMetric` carries its RESOLVED canonical magnitude as an admitted member. Deriving it per read re-parsed the unit on every lookup and had to answer an absence its own admission had already refused, which it did with a sentinel every downstream fold then propagated.
 - Cases: `ToolTarget` distinguishes body and edge budgets; `SlotState` distinguishes empty, loaded, reserved, quarantined, and manual staging.
 - Auto: generated factories reject blank identity, invalid ranges, duplicate edge keys, duplicate metric kinds, non-positive geometry, partial slot maps, duplicate physical tools, and inconsistent lifecycle evidence. Snapshot content excludes observation instants and validity windows while those fields remain on evidence.
-- Result: `SlotMap.Load` and `.Reserve` return the rail, so a refused placement names the conflicting slot and its occupant rather than returning the map unchanged.
+- Result: `SlotMap.Load` and `.Reserve` return the result, so a refused placement names the conflicting slot and its occupant rather than returning the map unchanged.
 - Packages: `UnitsNet` dynamic quantity admission, `NodaTime` evidence windows and durations, `FrozenDictionary` reservation index, LanguageExt.Core, Thinktecture.Runtime.Extensions, and RhinoCommon compose directly.
 - Growth: a slot topology is one `Magazine` row with admitted `MagazineLayout` data.
 - Boundary: provider hashes as identity, dimension-per-case metric siblings, mutable snapshot identity, parallel wear state, single-basis scheduling, absent life budgets read as exhausted, tool groups substituting for geometric interchangeability, and invented infinite capacity are deleted forms.
@@ -292,7 +290,6 @@ public readonly partial struct SlotAddress {
     public string MagazineId { get; }
     public int Position { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SlotKind kind,
         ref string magazineId, ref int position) {
         magazineId = magazineId.Trim();
@@ -327,7 +324,6 @@ public readonly partial struct LifeBudget {
     public double Remaining => Math.Max(0.0, Limit - Used);
     public double FractionRemaining => Limit <= 0.0 ? 0.0 : Math.Clamp(Remaining / Limit, 0.0, 1.0);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolTarget target,
         ref ToolLifeBasis basis, ref double used, ref double warning, ref double limit, ref Instant observedAt,
         ref Option<Interval> validity) =>
@@ -350,7 +346,6 @@ public readonly partial struct MetricBand {
     public string Unit { get; }
     public int SignificantDigits { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value,
         ref Option<double> minimum, ref Option<double> maximum, ref Option<double> nominal,
         ref string unit, ref int significantDigits) {
@@ -378,7 +373,6 @@ public sealed partial class ToolMetric {
 
     public IQuantity Quantity => Kind.Dimension.Restore(Canonical);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolMeasure kind,
         ref MetricBand source, ref double canonical) =>
         validationError = double.IsFinite(canonical) ? null : ToolKey.Validation("tool-metric");
@@ -403,7 +397,6 @@ public sealed partial class ToolEdge {
     public bool Spent => Status.Exists(static state => state.Terminal)
         || (!Life.IsEmpty && Life.Exists(static budget => budget.Remaining <= 0.0));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolEdgeKey key,
         ref Option<string> grade, ref Option<string> locus, ref Option<string> programToolGroup,
         ref Seq<string> manufacturers, ref Seq<ToolAvailability> status,
@@ -452,7 +445,6 @@ public sealed partial class ToolSnapshot {
                 .Map(static row => row.Remaining).OrderBy(static value => value))
             .Head;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ToolAvailability> status,
         ref Seq<LifeBudget> life, ref Arr<ToolEdge> edges, ref Seq<ToolMetric> metrics, ref ProcessRange feed,
         ref ProcessRange spindle, ref int reconditionCount, ref Option<int> reconditionLimit,
@@ -527,7 +519,6 @@ public sealed partial class ToolAssembly {
     public double RadiusOffset => Snapshot.Metric(ToolMeasure.CuttingDiameter)
         .OrElse(Snapshot.Metric(ToolMeasure.MaximumCuttingDiameter)).Map(static row => row * 0.5).IfNone(0.0);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolKey key,
         ref string serialNumber, ref string archetype, ref string definitionFormat, ref string definition,
         ref Tool tool, ref Loop holder, ref double gaugeLength, ref double stickout, ref double shankDiameter,
@@ -600,7 +591,6 @@ public sealed partial class MagazineLayout {
         && assembly.Snapshot.Metric(ToolMeasure.OverallLength).ForAll(row => row <= SlotLength.Millimeters)
         && assembly.Snapshot.Metric(ToolMeasure.Weight).ForAll(row => row <= SlotMass.Grams);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Magazine kind,
         ref string id, ref Seq<SlotAddress> slots, ref Length engageClearance, ref int preselectDistance,
         ref Duration indexStep, ref Duration armSwing, ref int park, ref Length slotDiameter, ref Length slotLength,
@@ -736,7 +726,6 @@ public sealed partial class LifeDemand {
     public HashMap<ToolLifeBasis, double> Required { get; }
     public Ratio Reserve { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref HashMap<ToolLifeBasis, double> required, ref Ratio reserve) =>
         validationError = required.IsEmpty
@@ -772,7 +761,6 @@ public sealed partial class WorkItem {
     public CutterForm Required { get; }
     public Ratio FormDiameterBand { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Operation op,
         ref ToolAssembly assembly, ref LifeDemand demand, ref CutterForm form, ref CutterForm required,
         ref Ratio formDiameterBand) =>
@@ -798,7 +786,6 @@ public sealed partial class MagazinePolicy {
             && mounted.Exists(row => row.Identity == candidate.Identity) ? 0 : 1,
         Selection.Rank(spare));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref CapabilitySet<MagazineBehavior> behaviors, ref ToolSelection selection, ref Ratio reserveFloor,
         ref Length safeRetract) =>
@@ -1171,7 +1158,7 @@ public static class ToolCatalog {
 - Entry: `ToolMagazine.Kit(SlotMap, Seq<WorkItem>, MagazinePolicy)`, `.Schedule(SlotMap, Seq<WorkItem>, MagazinePolicy)`, and `.HolderEnvelope(ToolAssembly)` are one entry per distinct result consumer. Layout and magazine kind derive from `SlotMap`; holder allowance derives from `ToolAssembly`.
 - Auto: kitting classifies each demand through ONE declared resolver run folded until the first candidate answers, so a new sourcing route is a row rather than another nesting level; every requested life basis resolves on the candidate or that candidate is not selectable; reserve is committed with demand; preselection resolves against the next change's slot within `PreselectDistance`.
 - Result: `KitOutcome` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, its `ToolChangeEvidence`, limiting-life evidence, and the next slot to preselect.
-- Packages: `PolygonAlgebra` offsets the holder profile; LanguageExt.Core owns the folds and rails.
+- Packages: `PolygonAlgebra` offsets the holder profile; LanguageExt.Core owns the folds and result types.
 - Growth: a sourcing route is one `Resolvers` row.
 - Boundary: the magazine swap schedule is a PAGING problem over caller-supplied placement — an assignment solver over a cost matrix models a placement decision this page does not own and is a declared refusal, not an omission. Preselection naming its own slot, reserve that is checked but not committed, and shortfall rows without a reason are deleted forms.
 

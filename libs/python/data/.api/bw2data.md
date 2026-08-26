@@ -21,7 +21,7 @@
 |  [11]   | `config`/`preferences`/`labels`                     | settings      | `pydantic-settings` config; exchange-kind + field labels     |
 |  [12]   | `calculation_setups`/`dynamic_calculation_setups`   | registry      | named `{'inv', 'ia'}` batch specs `MultiLCA` consumes        |
 
-[PUBLIC_TYPE_SCOPE]: typed failure rail (`bw2data.errors`)
+[PUBLIC_TYPE_SCOPE]: typed failure result (`bw2data.errors`)
 
 [ERROR_ROOT]: `BW2Exception` roots the store family — `ValidityError` (invalid node or edge), `PickleError`, `WebUIError` all derive from it — so one row covers the whole family at a fence.
 [ERROR_STDLIB]: the store raises `KeyError` for a project or database name the registry never held and `OSError` for the on-disk SQLite path, neither under the `BW2Exception` root.
@@ -57,7 +57,7 @@
 - group + eval: `add_to_group(group, activity)` `add_exchanges_to_group(group, activity)` `recalculate(signal=True)` `remove_from_group(group, activity, restore_amounts=True)` `remove_exchanges_from_group(group, activity, restore_original=True)`
 - rename: `rename_project_parameter(parameter, new_name, update_dependencies=False)` and the `_database_`/`_activity_` peers
 
-[BRIDGE]: the `bw2calc` seam and node lookups
+[BRIDGE]: the `bw2calc` boundary and node lookups
 - `prepare_lca_inputs(demand=None, method=None, weighting=None, normalization=None, demands=None, remapping=True, demand_database_last=True) -> (functional_unit, data_objs, remapping_dicts)`
 - `get_multilca_data_objs(functional_units, method_config) -> list[DatapackageBase]` — builds the `MultiLCA` datapackage inputs keyed by a `bw2calc.MethodConfig`-shaped dict
 - lookup: `get_node(**kwargs)` `get_activity(key=None, **kwargs)` `get_id(key)` — discriminate by `database`/`code`/`name`/`id` kwargs or a `(database, code)` key
@@ -71,7 +71,7 @@
 - Project is the unit of isolation: `projects.set_current(name)` switches the active SQLite database, datapackage directory, parameters, and registries; every store reads the current project, so switch first then act.
 - `Database` is a factory polymorphic on `backend` returning a backend instance, never a class; `db.write({...})` bulk-persists the graph and `db.process()` serializes it to the `bw_processing` datapackage `bw2calc` reads, mutating bulk via `write` or per-node via `new_node(...).save()`.
 - `get_node`/`get_activity`/`get_id` discriminate by kwargs as one polymorphic lookup; `Node`/`Edge` are dict proxies over `peewee` rows — mutate keys then `.save()`, and `.technosphere()`/`.biosphere()`/`.production()` filter exchanges by the `labels` kind vocabulary.
-- `process()` is the serialization seam: a `ProcessedDataStore` writes its COO contribution into a `bw_processing` `Datapackage` via `add_persistent_vector`.
+- `process()` is the serialization boundary: a `ProcessedDataStore` writes its COO contribution into a `bw_processing` `Datapackage` via `add_persistent_vector`.
 - Parameters are a `bw2parameters` formula graph: set project/database/activity parameters then `parameters.recalculate()` propagates the dependent exchange amounts; lifecycle hooks fire through `blinker` signals under `signal=True`.
 
 [STACKING]:
@@ -81,7 +81,7 @@
 - `premise`(`.api/premise.md`): reads a `bw2data` background (`source_type='brightway'`) and writes prospective-scenario databases via `write_db_to_brightway`; `premise[bw25]` binds this store.
 - `openepd`(`.api/openepd.md`)/`epdx`(`.api/epdx.md`): EPD declarations ingest as `bw2data` activities or reconcile against `bw2calc` results over this graph.
 - `olca-ipc`(`.api/olca-ipc.md`): the remote openLCA store+engine alternative when the inventory lives on an openLCA server.
-- substrate rails (`libs/python/.api/`): `bd.config` IS a `pydantic-settings` BaseSettings — read/override through the settings rail; `nodes_to_dataframe`/`edges_to_dataframe` hand the graph to the `narwhals`/`polars` columnar rail; project dirs and datapackages resolve `fsspec`-backed via `platformdirs`/`universal-pathlib`; a `write`/`process` wraps in a `structlog`/`opentelemetry` span; a `msgspec.Struct` types the node payload at the ingestion boundary before `Database.write`.
+- substrate domains (`libs/python/.api/`): `bd.config` IS a `pydantic-settings` BaseSettings — read/override through the settings layer; `nodes_to_dataframe`/`edges_to_dataframe` hand the graph to the `narwhals`/`polars` columnar layer; project dirs and datapackages resolve `fsspec`-backed via `platformdirs`/`universal-pathlib`; a `write`/`process` wraps in a `structlog`/`opentelemetry` span; a `msgspec.Struct` types the node payload at the ingestion boundary before `Database.write`.
 
 [LOCAL_ADMISSION]:
 - Admitted unpinned as the `impact` cluster's system of record; the project graph is the sole authoring surface and `bw2calc` the only compute consumer of its `process()` emission.

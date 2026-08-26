@@ -46,7 +46,7 @@
 - Capability sets name their `CapabilityLaw` corner table or state that the host documents no implication — `ScentForm` bars the empty corner.
 - Persistence reads and mutations stay TWO families, `PresetQuery` against `PresetOperation` — a merge pays an `InvalidInput` arm per refusal.
 - `CPlaneGrid.Read`/`CPlanePalette.Read` are the ONE host `ConstructionPlane` projection — no page re-folds the visibility bits or grid inks.
-- `Rig` projects capability onto fault rails, not `[Mapper]`; `Admits`, runtime threading, and `Fin<T>` stay outside Mapperly.
+- `Rig` projects capability onto fault channels, not `[Mapper]`; `Admits`, runtime threading, and `Fin<T>` stay outside Mapperly.
 - `FieldOverride<T>` at `Document/geometry` owns GATED fields alone — an ungated field spells absence `Option<T>`, `Clear` writing `Set(default)`.
 - Factory families collapse to one member per host RETURN CURRENCY — `bool` against `WriteFileResult` is an axis, and a shorter mint a shell.
 - `IArchiveCodec` at `Persistence/userdata` roots the archive codec as an INTERFACE — `TypedUserData<TSelf>` derives the host `UserData` base.
@@ -54,8 +54,8 @@
 - `SettingStore` names the store here — `Settings` spells none, and `SettingsBridge` and `ArchiveReach` carry bridge and reach concepts instead.
 - Host-enum rosters stay `[SmartEnum<int>]` on default `ValidationError` so `Op.Row` type-checks; `[ValidationError]` binds value types.
 - Capability axes a host seats declare ONE static `HostAxis` each — the column IS legality; `RefusalsFor` proves and `Seat` writes the same field.
-- `FormatDial.Admit` refuses seat and axis demands at the entry gate; `Mint` stays TOTAL, a rail on a body that cannot fail being ceremony.
-- Vocabulary rank is the kernel's derived declaration-order member — a hand-kept `rank:` column restating it is the deleted second authority.
+- `FormatDial.Admit` refuses seat and axis demands at the entry gate; `Mint` stays TOTAL, a `Fin` on a body that cannot fail being ceremony.
+- Capability wire order is the kernel's ordinal key projection — domain precedence and host flag masks remain explicit at their owning rows.
 - `FormatDial` closes on its private root constructor and carries no `[Union]` — a generated dispatch surface nothing reads is decoration.
 - Kernel motion crosses as `MotionDrive` alone — `SpringShape`, `DecayShape`, and `SpringState` ride `MotionScript`/`MotionSample` cases.
 
@@ -76,7 +76,7 @@
 - `Rasm.Rhino.Modeling` holds DETACHED geometry alone — `ParentRhinoObject()` is unreachable here, and the attached counterpart seats at `Document/`.
 - `ContentValue`, `FieldValue`, and `FormulaValue` split the payload word across Render, Interaction, and Annotation — no `global::` qualification.
 - `<Surface>Faults` is the boundary's ledger DECLARATION, never a fault family — each named surface bounds exactly one `Ring<Error>`.
-- Package rows cite a member's DECLARING page — `Lease<T>` is kernel `Domain/rails` and `Placement.Build` kernel `Numerics/atoms`.
+- Package rows cite a member's DECLARING page — `Lease<T>` is kernel `Domain/results` and `Placement.Build` kernel `Numerics/atoms`.
 - `Placement` is twice-carried — the kernel builds transforms, `Blocks/model` unions block instances, and every citation qualifies which.
 - Kernel `Dimension` spells `Rasm.Numerics.Dimension` in full at every site — host `Rhino.Geometry.Dimension` reads bare, no alias electing a winner.
 

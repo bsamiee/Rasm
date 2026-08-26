@@ -1,6 +1,6 @@
 # [PY_DATA_LAKEHOUSE]
 
-Table-format interchange crosses one `LakeOp` operation axis with one `TableFormat` provider axis on one `Lakehouse` owner over Delta, Iceberg, Lance, DuckLake, and the non-transactional Parquet tree. `Lakehouse.run` folds the ensure/write/read/delete/update/merge/evolve/optimize/vacuum/changefeed/index/restore/reference lifecycle through the `LakeOp` tagged union and dispatches one `(TableFormat, tag)` arm to a `RuntimeRail[LakeResult]` — the operation axis format-agnostic, the format binding a separate discriminant, so a new format is one `TableFormat` row and its arms, never a parallel Iceberg or Lance owner, and formats reaching fewer operations state that as `_REFUSAL` rows. `Lakehouse` commits and reads snapshots over the provider surface; it holds no durable store.
+Table-format interchange crosses one `LakeOp` operation axis with one `TableFormat` provider axis on one `Lakehouse` owner over Delta, Iceberg, Lance, DuckLake, and the non-transactional Parquet tree. `Lakehouse.run` folds the ensure/write/read/delete/update/merge/evolve/optimize/vacuum/changefeed/index/restore/reference lifecycle through the `LakeOp` tagged union and dispatches one `(TableFormat, tag)` arm to a `RuntimeResult[LakeResult]` — the operation axis format-agnostic, the format binding a separate discriminant, so a new format is one `TableFormat` row and its arms, never a parallel Iceberg or Lance owner, and formats reaching fewer operations state that as `_REFUSAL` rows. `Lakehouse` commits and reads snapshots over the provider surface; it holds no durable store.
 
 Time travel is one vocabulary both directions of the axis read: `Read`/`Restore` consume a generation, instant, or named ref, and `Reference` authors names. `Ancestry` projects provider history into `Generation` rows, while change feeds leave on `LakeResult.payload` for materialization. Mutations ride the `RetryClass.LAKE_COMMIT` envelope, project file churn through `Metrics`, and record durable audit and storage facts through `Journal` on the caller plane.
 
@@ -11,8 +11,8 @@ Time travel is one vocabulary both directions of the axis read: `Read`/`Restore`
 ## [02]-[LAKEHOUSE]
 
 - Owner: `Lakehouse` over the `LakeOp` operation axis (a `tagged_union` matched by `match (self.table_format, op)`) and the `TableFormat` `StrEnum` provider axis, dispatched one `(format, tag)` arm — two orthogonal discriminants, so a new operation is one `LakeOp` case and a new format one `TableFormat` row, never a `read_delta`/`write_delta`/`delete_delta` method family and never a parallel `IcebergLakehouse`/`LanceLakehouse` pair. Writer tuning rides one `WriteTuning` policy `Struct` carried on `Write`, never a parallel `WriteTuned` op or a knob tail; the merge delete-on-no-match rides one `delete_unmatched` discriminant selecting the third `when_not_matched_by_source_delete` clause, never a `MergeDelete` op.
-- Owner: `TableLayout` states the authored table spec as DATA — schema, `PartitionTransform`-keyed partition pairs, sort order, properties — and each format arm projects that one declaration onto its own grammar (`bucket[16]` tokens at the iceberg catalog, `bucket(16, col)` SQL at ducklake, bare columns at delta), so a second residence arms through the same row shape and a transform a format cannot spell refuses by name rather than vanishing.
-- Entry: `open` admits the dataset and provider coordinates. `run` and `run_async` share the reach, fence, hook, retry, and provider dispatch rails, returning the exact provider measurements on `LakeResult`.
+- Owner: `TableLayout` states the authored table spec as DATA — schema, `PartitionTransform`-keyed partition pairs, sort order, properties — and each format arm projects that one declaration onto its own grammar (`bucket[16]` tokens at the iceberg catalog, `bucket(16, col)` SQL at ducklake, bare columns at delta), so a second store arms through the same row shape and a transform a format cannot spell refuses by name rather than vanishing.
+- Entry: `open` admits the dataset and provider coordinates. `run` and `run_async` share the reach, fence, hook, retry, and provider dispatch paths, returning the exact provider measurements on `LakeResult`.
 - Result: `_snapshot` reads the provider handle already opened by the operation. `_result` combines its version, file churn, byte volume, quantity, unit, matched count, payload, and content key, then projects commit churn to `Metrics`.
 - Law: caller-plane commits with file churn record `AuditFact` and `MeterFact` through `Journal`; ledger-plane commits do not recurse into their own journal.
 - Law: `quantity` stays result-only, its `LakeUnit` varying per arm, so one descriptor never carries four magnitudes.
@@ -85,7 +85,7 @@ from rasm.runtime.faults import (
     Disposition,
     FaultRow,
     Posture,
-    RuntimeRail,
+    RuntimeResult,
     async_boundary,
     boundary,
     rostered,
@@ -462,7 +462,7 @@ class Lakehouse(Struct, frozen=True):
         scope: ScopeKey = DEFAULT_SCOPE,
         plane: LakePlane = LakePlane.CALLER,
         fence: "Option[Fence]" = Nothing,
-    ) -> "RuntimeRail[Lakehouse]":
+    ) -> "RuntimeResult[Lakehouse]":
         row = _ADMIT[table_format]
         coordinates = {"catalog": catalog, "identifier": identifier, "dsn": dsn}
         missing = tuple(name for name in row.needs if coordinates[name] is None)
@@ -487,7 +487,7 @@ class Lakehouse(Struct, frozen=True):
         )
 
     @beartype(conf=FAULT_CONF)
-    def run(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeRail[LakeResult]":
+    def run(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeResult[LakeResult]":
         subject = self._subject(op)
         with _TRACER.start_as_current_span(subject, attributes=self._dimensions(op)):
             return self._gated(op, data).bind(
@@ -495,17 +495,17 @@ class Lakehouse(Struct, frozen=True):
                     self._exclusive(lambda: guarded_sync(RetryClass.LAKE_COMMIT, self._apply, admitted, data, at=LAKE_COMMIT), LAKE_COMMIT)
                     if admitted.committing
                     else boundary(LAKE_READ, lambda: self._apply(admitted, data), catch=_commit_raises())
-                ).bind(lambda rail: rail)
+                ).bind(lambda held: held)
             )
 
-    def _exclusive[T](self, commit: "Callable[[], RuntimeRail[T]]", at: "FaultRow[DataLeg]") -> "RuntimeRail[T]":
+    def _exclusive[T](self, commit: "Callable[[], RuntimeResult[T]]", at: "FaultRow[DataLeg]") -> "RuntimeResult[T]":
         try:
             with self.guard:
                 return commit()
         except BusyResourceError:
             return Error(LAKE_CONTENDED.raised(at.point))
 
-    async def _exclusive_async[T](self, commit: "Callable[[], Awaitable[RuntimeRail[T]]]", at: "FaultRow[DataLeg]") -> "RuntimeRail[T]":
+    async def _exclusive_async[T](self, commit: "Callable[[], Awaitable[RuntimeResult[T]]]", at: "FaultRow[DataLeg]") -> "RuntimeResult[T]":
         try:
             with self.guard:
                 return await commit()
@@ -513,7 +513,7 @@ class Lakehouse(Struct, frozen=True):
             return Error(LAKE_CONTENDED.raised(at.point))
 
     @beartype(conf=FAULT_CONF)
-    async def run_async(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeRail[LakeResult]":
+    async def run_async(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeResult[LakeResult]":
         subject = self._subject(op)
         with _TRACER.start_as_current_span(subject, attributes=self._dimensions(op)):
             match self._gated(op, data):
@@ -527,7 +527,7 @@ class Lakehouse(Struct, frozen=True):
                         if admitted.committing
                         else await async_boundary(LAKE_READ, lambda: on_thread(self._apply, admitted, data), catch=_commit_raises())
                     )
-                    match fenced.bind(lambda rail: rail):
+                    match fenced.bind(lambda held: held):
                         case Result(tag="ok", ok=result):
                             return (await Journal.record(_evidence(result, self.plane), scope=self.scope)).map(lambda _landed: result)
                         case refused:
@@ -535,7 +535,7 @@ class Lakehouse(Struct, frozen=True):
                 case unreachable:
                     assert_never(unreachable)
 
-    def _gated(self, op: LakeOp, data: pa.Table | None) -> "RuntimeRail[LakeOp]":
+    def _gated(self, op: LakeOp, data: pa.Table | None) -> "RuntimeResult[LakeOp]":
         if op.feeding and data is None:
             return Error(LAKE_PAYLOAD.raised(op.tag))
         return self._reach(op).bind(self._fenced).bind(
@@ -548,7 +548,7 @@ class Lakehouse(Struct, frozen=True):
             else Ok(admitted)
         )
 
-    def _fenced(self, op: LakeOp) -> "RuntimeRail[LakeOp]":
+    def _fenced(self, op: LakeOp) -> "RuntimeResult[LakeOp]":
         return self.fence.bind(
             lambda held: held.stale(_transaction_version(self.table_uri, held.app_id)).map(Error)
         ).default_value(Ok(op)) if op.committing else Ok(op)
@@ -560,17 +560,17 @@ class Lakehouse(Struct, frozen=True):
         return {"rasm.lake.format": self.table_format.value, "rasm.lake.op": op.tag}
 
     @beartype(conf=FAULT_CONF)
-    def demand(self, capabilities: "Block[Capability]") -> "RuntimeRail[Block[Capability]]":
+    def demand(self, capabilities: "Block[Capability]") -> "RuntimeResult[Block[Capability]]":
         return traversed(capabilities.map(self._served), by=Disposition.ACCUMULATE).map(lambda _held: capabilities)
 
-    def _served(self, capability: Capability) -> "RuntimeRail[Capability]":
+    def _served(self, capability: Capability) -> "RuntimeResult[Capability]":
         return (
             _REFUSAL.try_find((self.table_format, capability.value))
             .map(lambda refusal: Error(LAKE_REFUSED.raised(capability.value, refusal.value)))
             .default_value(Ok(capability))
         )
 
-    def _reach(self, op: LakeOp) -> "RuntimeRail[LakeOp]":
+    def _reach(self, op: LakeOp) -> "RuntimeResult[LakeOp]":
         return (
             _REFUSAL.try_find((self.table_format, op.tag))
             .or_else_with(lambda: _conditional(self.table_format, op))
@@ -578,7 +578,7 @@ class Lakehouse(Struct, frozen=True):
             .default_value(Ok(op))
         )
 
-    def _apply(self, op: LakeOp, data: pa.Table | None) -> "RuntimeRail[LakeResult]":
+    def _apply(self, op: LakeOp, data: pa.Table | None) -> "RuntimeResult[LakeResult]":
         match self.table_format, op:
             case TableFormat.DELTA, LakeOp(tag="write", write=("ignore", _partition_by, _evolve, _tuning)) if DeltaTable.is_deltatable(self.table_uri):
                 return self._result(op, added=Posture(declared=0), removed=Posture(declared=0), byte_length=Posture(declared=0))
@@ -941,7 +941,7 @@ class Lakehouse(Struct, frozen=True):
     def _iceberg(self) -> "Table":
         return load_catalog(self.catalog).load_table(self.identifier)
 
-    def _generations(self, bound: Depth) -> "RuntimeRail[Block[Generation]]":
+    def _generations(self, bound: Depth) -> "RuntimeResult[Block[Generation]]":
         return boundary(LAKE_READ, lambda: self._history(bound), catch=_commit_raises())
 
     def _history(self, bound: Depth) -> "Block[Generation]":
@@ -1034,7 +1034,7 @@ class Lakehouse(Struct, frozen=True):
         pinned: "Posture[int]" = Posture(absent=None),
         payload: pa.Table | None = None,
         handle: Any | None = None,
-    ) -> "RuntimeRail[LakeResult]":
+    ) -> "RuntimeResult[LakeResult]":
         snapshot, churn_added, churn_removed, churn_bytes = self._snapshot(op, handle)
         version = pinned.option().or_else(snapshot.option())
         keyed = f"{self.table_uri}@{version.map(str).default_value('unarmed')}"

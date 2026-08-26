@@ -67,10 +67,10 @@
 - Vendor predicates `is_<backend>_array`/`is_<backend>_namespace` narrow by library with `TypeIs`; `is_lazy_array`/`is_writeable_array` narrow by execution model — graph-traced versus eager-mutable — the fork every backend-agnostic branch reads.
 
 [STACKING]:
-- `array-api-extra`(`.api/array-api-extra.md`): `xp = array_namespace(*arrays)` resolves once, then `array_api_extra.<op>(..., xp=xp)` threads it into every standard and extension call — one rail, no re-resolution, no vendor import.
+- `array-api-extra`(`.api/array-api-extra.md`): `xp = array_namespace(*arrays)` resolves once, then `array_api_extra.<op>(..., xp=xp)` threads it into every standard and extension call — one result, no re-resolution, no vendor import.
 - `is_writeable_array(x)` gates `array_api_extra.at(x, idx).set(v, copy=False)`: a writeable NumPy buffer mutates, a read-only JAX array copies.
-- `is_lazy_array(x)` routes JAX-traced and Dask arrays to `array_api_extra.lazy_apply` and eager arrays to the direct `xp` op — the same lazy/eager fork the `diffrax`/`equinox`/`optimistix` JAX rails consume.
-- `device(x)`/`to_device(x, dev, stream=)` carry the device context the JAX and Torch sibling rails thread alongside `xp`, resolved once at boundary.
+- `is_lazy_array(x)` routes JAX-traced and Dask arrays to `array_api_extra.lazy_apply` and eager arrays to the direct `xp` op — the same lazy/eager fork the `diffrax`/`equinox`/`optimistix` JAX layers consume.
+- `device(x)`/`to_device(x, dev, stream=)` carry the device context the JAX and Torch sibling layers thread alongside `xp`, resolved once at boundary.
 
 [LOCAL_ADMISSION]:
 - Compute owners resolve `xp = array_namespace(*arrays)` once at operation entry and route every array op through `xp.<op>`.

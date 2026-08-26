@@ -2,7 +2,7 @@
 
 `System.Formats.Cbor` is the first-party BCL codec for RFC 8949 CBOR: a hand-driven `CborWriter`/`CborReader` token pair over one `ReadOnlyMemory<byte>` buffer, carrying no schema, attributes, or reflection. `Canonical` conformance makes an encoding byte-deterministic — shortest-form integers, length-sorted map keys, definite lengths — so its `Encode()` bytes feed `XxHash128` for a stable `ContentKey`.
 
-CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the schemaless wire and Avro the schema-governed leg. Blob encoding runs under `Canonical`: the rail hashes the bytes and re-reads peer blobs under a depth-bounded `PeekState()` loop that refuses untrusted indefinite-length frames.
+CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the schemaless wire and Avro the schema-governed leg. Blob encoding runs under `Canonical`: the codec hashes the bytes and re-reads peer blobs under a depth-bounded `PeekState()` loop that refuses untrusted indefinite-length frames.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -106,10 +106,10 @@ CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the 
 - Zero-copy reads (`ReadDefiniteLengthByteString`, `ReadDefiniteLengthTextStringBytes`, `ReadEncodedValue`) return `ReadOnlyMemory<byte>` over the source buffer; `TryRead*(Span, out int)` targets a caller span with no allocation.
 
 [STACKING]:
-- `api-hashing`: `Canonical` `Encode()` bytes feed `XxHash128.HashToUInt128` through the seed-zero `ContentHash.Of` entry, keying the `ContentKey` — canonical mode is the seam holding the key stable across map-insertion order.
+- `api-hashing`: `Canonical` `Encode()` bytes feed `XxHash128.HashToUInt128` through the seed-zero `ContentHash.Of` entry, keying the `ContentKey` — canonical mode is the invariant holding the key stable across map-insertion order.
 - `api-messagepack` / `api-chr-avro`: codec-selection peers — CBOR owns the self-describing schema-free blob, `MessagePack` the schemaless wire, and Avro the schema-governed evolving-payload leg.
 - `api-cloudevents`: `WriteEncodedValue` splices a nested pre-encoded CBOR item verbatim and `ReadEncodedValue` re-extracts it, the outer codec never re-parsing the inner body; `WriteTag(CborTag.SelfDescribeCbor)` marks a self-describing top-level frame for content-type-free detection.
-- within-lib: the blob rail composes `new CborWriter(Canonical)` -> `Encode()` -> hash -> `ContentKey`, and reads untrusted ingestion under a `Strict`/`Ctap2Canonical` `CborReader` whose `PeekState()` loop bounds `CurrentDepth` against a profile cap and refuses indefinite-length frames before allocating, faulting a depth-bomb as `CborContentException` — the BCL caps no decompressed size, so the depth/length guard is the rail's.
+- within-lib: the blob codec composes `new CborWriter(Canonical)` -> `Encode()` -> hash -> `ContentKey`, and reads untrusted ingestion under a `Strict`/`Ctap2Canonical` `CborReader` whose `PeekState()` loop bounds `CurrentDepth` against a profile cap and refuses indefinite-length frames before allocating, faulting a depth-bomb as `CborContentException` — the BCL caps no decompressed size, so the depth/length guard is the codec's.
 
 [LOCAL_ADMISSION]:
 - CBOR is a codec inside blob/snapshot profiles, never public Persistence vocabulary; conformance mode and tag usage are profile data.

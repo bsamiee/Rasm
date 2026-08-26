@@ -8,7 +8,7 @@ Wire posture is host-local: `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorF
 
 - [02]-[FIELD_PROGRAM]: `FieldKey`, `VoxelSample`, `FieldExpression`, `FieldKind`, `FieldDefinition`, `TpmsForm`, `ImplicitCell`, `CalibrationPolicy`, `CalibrationStats`, `FieldThreshold`.
 - [03]-[SPECTRAL_ALGEBRA]: `SpectralShape`, `SpectralMetric`, `SpectralExpression`, `SpectralSymbol`.
-- [04]-[MORPHOLOGY]: `VoxelMorphologyStep`, `VoxelBoolean`, the one `Apply` rail, `SpectralMorphology`, `FilteredField`.
+- [04]-[MORPHOLOGY]: `VoxelMorphologyStep`, `VoxelBoolean`, the one `Apply` entrypoint, `SpectralMorphology`, `FilteredField`.
 - [05]-[PROVIDER_VOCABULARY]: `SliceRender`, `SliceAxis`, `MaskSampling`, `CliFormat`, `ContourWinding`, `RasterFrame`.
 - [06]-[OPERATION_SET]: `VdbSource`, `CliMode`, `ImplicitPolicy`, `VoxelWire`, `VoxelOperationKind`, `ImplicitOp`.
 - [07]-[VOXEL_LEASE]: `VoxelRuntime`, `VoxelMetrics`, `VoxelScope`, `Rasterized`, `Sdf.Voxelize` and its build fold.
@@ -58,7 +58,6 @@ namespace Rasm.Fabrication.Additive;
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct FieldKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -258,7 +257,6 @@ public sealed partial class CalibrationPolicy {
     public Ratio DensityFloor { get; }
     public double GradientFloorPerMillimeter { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int minimumSamples,
@@ -299,7 +297,6 @@ public sealed partial class ImplicitCell {
     public Option<Func<Fin<VectorField>>> AxisField { get; }
     public Option<Func<Fin<ScalarField>>> ScaleField { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length periodX,
@@ -453,11 +450,11 @@ public sealed partial class SpectralSymbol {
 
 ## [04]-[MORPHOLOGY]
 
-- Owner: `VoxelMorphologyStep` owns the transform vocabulary and the ONE `Apply` rail both its capsule classes answer on; `VoxelBoolean` owns the set operations over a rasterized set; `SpectralMorphology` owns the kernel-numeric boundary; `FilteredField` owns the reconstruction the filtered spectrum re-enters through.
+- Owner: `VoxelMorphologyStep` owns the transform vocabulary and the ONE `Apply` entrypoint both its capsule classes answer on; `VoxelBoolean` owns the set operations over a rasterized set; `SpectralMorphology` owns the kernel-numeric boundary; `FilteredField` owns the reconstruction the filtered spectrum re-enters through.
 - Cases: nine PicoGK rows are provider statement capsules; the `Spectral` row is a kernel-numeric-floor capsule that reaches no provider entry point.
 - Law: `Spectral` crosses the boundary as SAMPLES on the budget lattice and returns as an `IImplicit` the provider rasterizes over the same bounds, so its failures are typed numeric refusals and never a native status. A spectral row lowered onto a PicoGK morphology call, or a page-local transform, window, frequency axis, or separability rule beside the kernel arena, is the deleted form.
 - Exemption: `Apply`'s provider bodies, `SpectralMorphology.Rasterize`, and `FilteredField.fSignedDistance` are statement capsules — a native handle mutates or is replaced in place, and the reconstruction is a per-query lattice fold with no expression form.
-- Entry: `VoxelMorphologyStep.Apply(Voxels, ImplicitPolicy)` is the one rail, so the morphology fold never learns which capsule class a step belongs to.
+- Entry: `VoxelMorphologyStep.Apply(Voxels, ImplicitPolicy)` is the one entrypoint, so the morphology fold never learns which capsule class a step belongs to.
 - Auto: the provider bracket releases the held handle on the failure arm, so a mid-chain native throw never strands a lease; the reconstruction interpolates TRILINEARLY over the eight surrounding cell centres, so the filtered field is continuous and the smoothness the spectral law spends a transform pair to obtain survives its return.
 - Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `Spectrum`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket), LanguageExt.Core.
 - Growth: a native transform is one `VoxelMorphologyStep` case; a frequency-domain transform is one `SpectralSymbol` row under the single `Spectral` case.
@@ -694,7 +691,7 @@ public readonly record struct RasterFrame(float VoxelSizeMm, Point3d Origin, int
 - Owner: `ImplicitOp` owns the operation vocabulary and every column shared across it; `ImplicitPolicy` owns budget, layer height, egress mode, calibration, and the commit sink; `VoxelWire` owns the content-addressed round trip; `VdbSource` owns an external field's identity and metadata contract.
 - Law: the columns EVERY case reads — policy, morphology, commit sink, nested inputs, and kind — ride the union ROOT, so `Policy`, `Morphology`, `Subject`, `Commit`, and `Expanded` are base reads rather than five parallel arm tables restating one correspondence per case.
 - Cases: the commit sink is `Some` where the case owns a wire and `None` where the policy sink answers, so one expression closes every commit; `Nested` is empty on every leaf, so the compatibility walk needs no arm.
-- Law: layer egress is REQUESTED rather than universal, so `ImplicitPolicy.Cli` carries `Option<CliMode>` and a voxelizing caller that posts no layer stack supplies nothing — the same absence carrier the run spine's own memo and progress columns take. A mode defaulted onto a caller that never asked for one is the deleted form, and the CLI rail reads presence rather than a sentinel encoding.
+- Law: layer egress is REQUESTED rather than universal, so `ImplicitPolicy.Cli` carries `Option<CliMode>` and a voxelizing caller that posts no layer stack supplies nothing — the same absence carrier the run spine's own memo and progress columns take. A mode defaulted onto a caller that never asked for one is the deleted form, and the CLI pipeline reads presence rather than a sentinel encoding.
 - Entry: `ImplicitPolicy.Admit` proves budget, layer height, and any requested egress mode ONCE, so the operation admission never re-checks a policy invariant and the budget's own cell ceiling is not re-tested downstream.
 - Auto: `VoxelOperationKind` supplies the fault subject key, so a refusal names the operation through owned vocabulary rather than a member name captured at a call site.
 - Packages: `PicoGK`, `Rasm.Fabrication.Process` (`VoxelBudget`, `ContentKey`, `EgressKind`, `FaultSubject`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
@@ -738,7 +735,6 @@ public sealed partial class VdbSource {
     public FieldKey Field { get; }
     public HashMap<string, string> RequiredMetadata { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ContentKey key,
@@ -763,7 +759,6 @@ public sealed partial class ImplicitPolicy {
 
     public Option<CliMode> Cli { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref VoxelBudget budget,
@@ -839,10 +834,10 @@ public abstract partial record ImplicitOp(
 
 ## [07]-[VOXEL_LEASE]
 
-- Owner: `VoxelRuntime` owns PicoGK ambient lifetime; `VoxelScope` owns metrics, mesh, ray, and VDB projection inside one lease; `Sdf.Voxelize` owns the materializing rail and the build fold under it.
+- Owner: `VoxelRuntime` owns PicoGK ambient lifetime; `VoxelScope` owns metrics, mesh, ray, and VDB projection inside one lease; `Sdf.Voxelize` owns the materializing entrypoint and the build fold under it.
 - Law: `VoxelRuntime.Use` serializes one `Library.GlobalInstance` per compatible operation set, so sequential sets may select distinct voxel sizes. A returned native handle is invalid egress; every handle allocated in the fold is consumed inside the callback and released on both arms.
 - Exemption: `VoxelRuntime.Use`, `Combine`, `LatticeVoxels`, `Subtract`, `Measure`, and `Sealed` are lifetime and provider statement capsules — each guards its own native acquire or aggregate, which has no expression form. `Consume` holds no exemption: its rasters arrive already acquired and never transfer custody, so the both-arms release rides kernel `Custody.Bracket`.
-- Entry: `Sdf.Voxelize<T>(Seq<ImplicitOp>, Func<Arr<VoxelScope>, Fin<T>>)` is the single materializing rail for one or many compatible fields.
+- Entry: `Sdf.Voxelize<T>(Seq<ImplicitOp>, Func<Arr<VoxelScope>, Fin<T>>)` is the single materializing entrypoint for one or many compatible fields.
 - Auto: admission accumulates every operation fault before native allocation. `Raster` intersects the field operation's own `Envelope` occupancy through `voxIntersectImplicit` rather than rasterizing the whole budget box, because a full-bounds construction allocates the entire budget before discarding almost all of it. `Occupied` rejects an empty rasterization before it posts an empty program. Lattice scaffolds read the ONE `SupportTopology` `support#SUPPORT_TOPOLOGY` publishes, so the support edge set is never reconstructed and a missing parent is impossible by the owner's own admission.
 - Result: `VoxelMetrics` carries physical volume, queried bounds, native memory, committed field identity, and the `CalibrationStats` the quantile pass measured.
 - Packages: `PicoGK` (implicit rasterization and intersection, lattice beams and nodes, metrics, ray-cast, mesh extraction, VDB read and write with field metadata), QuikGraph (`SEquatableEdge` endpoints off the published topology), kernel `Rasm.Domain` (`Custody.Rollback` the failure-arm release every acquire-chain fold composes, `Custody.Bracket` the both-arms release under `Consume` — disposer faults appended onto the primary), LanguageExt.Core.
@@ -949,8 +944,8 @@ public static partial class Sdf {
     private static Fin<Seq<Rasterized>> Build(Seq<ImplicitOp> operations) =>
         operations.Fold(
             Fin.Succ(Seq<Rasterized>()),
-            static (rail, operation) =>
-                from held in rail
+            static (result, operation) =>
+                from held in result
                 from next in Build(operation).Rollback(held.Map(static row => (IDisposable?)row.Voxels).ToArray())
                 select held.Add(next));
 
@@ -1128,7 +1123,7 @@ public static partial class Sdf {
                 : Fin.Fail<Unit>(new KernelFault.InvalidValue("implicit", "implicit-vdb:identity")));
 
     private static Fin<Voxels> Morph(Voxels voxels, Seq<VoxelMorphologyStep> steps, ImplicitPolicy policy) =>
-        steps.Fold(Fin.Succ(voxels), (rail, step) => rail.Bind(held => step.Apply(held, policy)));
+        steps.Fold(Fin.Succ(voxels), (result, step) => result.Bind(held => step.Apply(held, policy)));
 
     private static Fin<Option<T>> Acquire<T>(Option<Func<Fin<T>>> source) where T : class, IDisposable =>
         Op.Of(name: "implicit-driver").Catch(() => source.Match(
@@ -1388,10 +1383,10 @@ file sealed class FieldCalibration : IDisposable {
 
 ## [08]-[LAYER_EGRESS]
 
-- Owner: `Sdf.Cli` owns the single layer-stack rail and the three egress lanes under it; `CliStack` owns the settled layer result; `CliImport` owns the reader result a round trip produces.
+- Owner: `Sdf.Cli` owns the single layer-stack entrypoint and the three egress lanes under it; `CliStack` owns the settled layer result; `CliImport` owns the reader result a round trip produces.
 - Law: the sink enters as the runtime's own `Option<IProgress<double>>` carrier, absent by default so a headless caller spells nothing, and reaches the provider's trailing parameter directly on all three egress entry points — a page-local reporter, a percentage tally, or a polling thread beside the native call is the deleted form. Vectorize and write are two reported phases of ONE egress and take the SAME sink, so a caller never sees the file phase stall silently.
 - Exemption: `Vector`, `Grayscale`, and `Direct` are provider statement capsules — the grayscale loop in particular owns its statement form because PicoGK writes every slice into one mutable `ref ImageGrayScale` buffer.
-- Entry: `Sdf.Cli(ImplicitOp, Option<IProgress<double>>)` is the one layer-stack rail; `slicing#DEPOSITION` threads its implicit arm into this signature.
+- Entry: `Sdf.Cli(ImplicitOp, Option<IProgress<double>>)` is the one layer-stack entrypoint; `slicing#DEPOSITION` threads its implicit arm into this signature.
 - Auto: the mask loop reads its elevation law and its slice fetch off ONE admitted `MaskSampling` row, so the lane branches nowhere; header date, unit scale, and reader warnings ride `CliImport`, because discarding them loses the only evidence that a round-tripped program degraded.
 - Result: `CliStack` carries layers, canonical `.cli` identity, mask identities, committed field identities, optional `VoxelMetrics`, and the optional reader result.
 - Packages: `PicoGK` (`oVectorize`, `CliIo`, `Vdb2Cli`, grayscale slice reads), LanguageExt.Core.

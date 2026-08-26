@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA_GPU_INTEROP]
 
-`Avalonia`'s compositor owns the render-thread scene: `ICompositionGpuInterop` imports an externally-rendered GPU texture and its fence so a wgpu, D3D, Vulkan, or Metal backend composites without a second swapchain, `ElementComposition` attaches the surface visual to a control on the visuals rail, and the animation surface drives a visual's transform, opacity, and color off the UI thread through key-frame, expression, and implicit animations.
+`Avalonia`'s compositor owns the render-thread scene: `ICompositionGpuInterop` imports an externally-rendered GPU texture and its fence so a wgpu, D3D, Vulkan, or Metal backend composites without a second swapchain, `ElementComposition` attaches the surface visual to a control on the visuals pipeline, and the animation surface drives a visual's transform, opacity, and color off the UI thread through key-frame, expression, and implicit animations.
 
 ## [01]-[PUBLIC_TYPES]
 

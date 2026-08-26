@@ -18,7 +18,7 @@ Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, d
 - Law: no raw host discriminant reaches a `LinkSubject` column — `UpdateStyle` re-closes the document update policy with its `Updates` column and `SourceHealth` (model.md) is the branch's one archive-status vocabulary, so `Conditions` reads row behaviour rather than re-spelling an `is-not-one-row` comparison a new host ordinal silently joins.
 - Law: source AVAILABILITY is a condition, not a failure — an eager row over a broken source resolves to the stale-keep arm before the sweep, and `SourceHealth` names no row for `NotALinkedInstanceDefinition`, so an unlinked definition carries `Option<SourceHealth>.None` — absence, not a row meaning "not applicable".
 - Law: `SkipNestedLinkedDefinitions` is settable on the live definition, so a nested-load posture is a subject column the refresh writes once at admission, never re-derived per version sweep.
-- Packages: Thinktecture.Runtime.Extensions for the rosters and generated admission; NodaTime for the debounce carrier (`libs/dotnet/.api/api-nodatime.md`); LanguageExt.Core for the rails; `Domain/validation` for `ICapability`/`CapabilitySet`/`CapabilityLaw` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`, `api-languageext.md`).
+- Packages: Thinktecture.Runtime.Extensions for the rosters and generated admission; NodaTime for the debounce carrier (`libs/dotnet/.api/api-nodatime.md`); LanguageExt.Core for the carriers; `Domain/validation` for `ICapability`/`CapabilitySet`/`CapabilityLaw` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`, `api-languageext.md`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -73,7 +73,6 @@ public sealed partial class LinkSubject {
     public Option<SourceHealth> Health { get; }
     public bool SkipNested { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SourceMode mode,
@@ -111,7 +110,6 @@ public sealed partial class LinkWatchPolicy {
     public Duration Debounce { get; }
     public StreamPolicy Policy { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Duration debounce,
@@ -265,9 +263,9 @@ public sealed class PreviewGrant : IDisposable {
 
 - Law: enrolment is idempotent and every vault ingress walks it, so a document holding entries always holds the observation that evicts them — eviction is a consequence of leasing, never a second call. Enrolment is `Cell.Claim` over the keyed enrolment cell: first claim wins, and the LOSING claim's already-minted `Watch` closes on the `Ceded` arm — the mint ran once outside the CAS, so the surplus is this caller's to close and a dropped watch (a live host subscription no owner can reach) is unrepresentable.
 - Law: every vault transition is `Cell.Commit` reading its product off `Transition.Current.LastOutcome` — the committed state IS this caller's, so concurrent transitions never overwrite one another's product and the former ticket registry, outcome map, and second cleanup swap delete whole. A refused or contended commit reads its case; the one total-append cell (the grant's cleanup roster) stays a plain swap under the S9 carve-out.
-- Law: `WatchLinked` accepts one admitted observation policy, projects its NodaTime debounce to the host span at the ONE observation seam, and commits one typed `Refresh` transaction per settled change; the clock resolves at the entry (`TimeProvider.System` absent a caller's), never off a value-object column.
+- Law: `WatchLinked` accepts one admitted observation policy, projects its NodaTime debounce to the host span at the ONE observation boundary, and commits one typed `Refresh` transaction per settled change; the clock resolves at the entry (`TimeProvider.System` absent a caller's), never off a value-object column.
 - Law: `ReleaseAll` delegates to kernel `Custody.Release`; a page spelling its own release loop beside it is the deleted form, and `Lowered` aggregates an already-collected fault roster.
-- Packages: `Document/lifetime.md` for `LifecycleGate`, `Watch`/`SubscriptionRelease`; kernel `Domain/rails` for `Custody`; `Document/events.md` for `DocumentStream`/`Observation`/`EventFamily`/`Delivery`/`StreamPolicy`; `Domain/rails` for `Cell`/`Transition`/`Lease` (`libs/dotnet/.api/api-languageext.md`); NodaTime for `Duration`.
+- Packages: `Document/lifetime.md` for `LifecycleGate`, `Watch`/`SubscriptionRelease`; kernel `Domain/results` for `Custody`; `Document/events.md` for `DocumentStream`/`Observation`/`EventFamily`/`Delivery`/`StreamPolicy`; `Domain/results` for `Cell`/`Transition`/`Lease` (`libs/dotnet/.api/api-languageext.md`); NodaTime for `Duration`.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------

@@ -2,12 +2,12 @@
 
 `@connectrpc/connect` owns the protocol-neutral RPC invocation surface `interchange/invoke` binds the emitted capability SDK onto: `createClient(service, transport)` projects a `@bufbuild/protobuf` `DescService` into a typed `Client<T>` the type system derives, over a `Transport` any protocol supplies.
 
-`ConnectError`/`Code` is the `interchange/codec` fold source and the `Interceptor` onion the cross-cutting seam. Protocol construction stays with the public web and Node adapter packages.
+`ConnectError`/`Code` is the `interchange/codec` fold source and the `Interceptor` onion the cross-cutting layer. Protocol construction stays with the public web and Node adapter packages.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the transport, the descriptor-derived client, and per-call options
-- rail: interchange/invoke
+- concern: interchange/invoke
 - `Client<Desc>` method shapes derive from the descriptor — unary `Promise`, streaming `AsyncIterable<MessageShape<...>>` bridging directly to `effect` `Stream`; `CallOptions` threads `signal`/`timeoutMs`/`contextValues` per call and carries NO retry knob, so re-drive stays the caller's schedule.
 - Requests carry `service`/`method`/`requestMethod`/`url`/`signal`/`header`/`contextValues`; RESPONSES carry `service`/`header`/`trailer` alone — an interceptor reading `signal` or `contextValues` off a response finds neither, and `trailer` fills only once the response iterable is fully drained.
 
@@ -24,7 +24,7 @@
 |  [09]   | `Registry` (peer) on `findDetails`                | detail registry  | the generated file registry an incoming detail decodes against  |
 
 [PUBLIC_TYPE_SCOPE]: the fault algebra `interchange/codec` folds
-- rail: interchange/codec
+- concern: interchange/codec
 - `ConnectError` (`code`/`metadata`/`details`/`rawMessage`/`cause`) is the one transport fault; `Code` is the closed 16-value gRPC-aligned enum `interchange/codec`'s `Wire.Hops` keys its ONE row table on, and `details` are `Any`-wrapped messages `findDetails(registry)` decodes against `interchange/format`'s registry.
 
 | [INDEX] | [SYMBOL]                                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                               |
@@ -37,8 +37,8 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: constructing the client and the invocation seam
-- rail: interchange/invoke
+[ENTRYPOINT_SCOPE]: constructing the client and the invocation boundary
+- concern: interchange/invoke
 - `createClient(service, transport)` is the one client factory — always the codegen `DescService` over a selected public adapter `Transport`, never a hand-written method map.
 - `createUnaryFn` and `createServerStreamingFn` are internal helpers absent from the root barrel and package export map.
 
@@ -67,7 +67,7 @@
 - `createClient` derives every method signature from the emitted `DescService`, so the SDK is one descriptor and a hand-authored client method is the drift defect.
 - Core binds typed calls through public `createClient`; internal client-function factories are neither imports nor transcription sources.
 - `ConnectError` carries the fault: a failed call rejects with `code`/`metadata`/`details`, which `interchange/invoke` folds to one of three outcomes by trailer shape — `Remote` off the generated `FaultDetail`, `Transport` off the `Wire.Hops` row for the code, `MalformedDetail` — the wire fault altitude, distinct from any local `Data.TaggedError`.
-- interception is the cross-cutting seam: an `Interceptor` onion attaches trace propagation, auth, and per-call `ContextValues`, never the call site.
+- interception is the cross-cutting layer: an `Interceptor` onion attaches trace propagation, auth, and per-call `ContextValues`, never the call site.
 
 [STACKING]:
 - `@bufbuild/protobuf` (`../../.api/bufbuild-protobuf.md`): Connect consumes generated descriptors and delegates message codecs to the shared runtime.

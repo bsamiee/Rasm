@@ -300,7 +300,7 @@ class _Reading(msgspec.Struct, frozen=True):
 
 
 def test_close_dispatches_every_data_shape_and_names_the_diverging_path() -> None:
-    """One tolerance policy owns numbers, arrays, quantities, structs, rails, mappings, and sequences; the breach names its structural path."""
+    """One tolerance policy owns numbers, arrays, quantities, structs, results, mappings, and sequences; the breach names its structural path."""
     assert_close(1.0, 1.0 + 1e-12)
     assert_close(float("nan"), float("nan"))
     assert_close(float("inf"), float("inf"))
@@ -327,8 +327,8 @@ def test_close_dispatches_every_data_shape_and_names_the_diverging_path() -> Non
         assert_close(flag, 1)
 
 
-def test_close_recurses_rails_and_blocks_and_names_the_diverging_arm() -> None:
-    """Rail carriers and ``Block`` collections compare payload-recursively; a tag mismatch names the rail, a payload drift names its path."""
+def test_close_recurses_results_and_blocks_and_names_the_diverging_arm() -> None:
+    """Result carriers and ``Block`` collections compare payload-recursively; a tag mismatch names the carrier, a payload drift names its path."""
     assert_close(Ok(_Reading(label="a", values=(0.1,))), Ok(_Reading(label="a", values=(0.1 + 1e-12,))))
     assert_close(Error((1.0, 2.0)), Error((1.0, 2.0 + 1e-12)))
     assert_close(Some(1.0), Some(1.0 + 1e-12))
@@ -337,9 +337,9 @@ def test_close_recurses_rails_and_blocks_and_names_the_diverging_arm() -> None:
 
     with pytest.raises(AssertionError, match=r"\$\.ok\.values\[0\]"):
         assert_close(Ok(_Reading(label="a", values=(0.1,))), Ok(_Reading(label="a", values=(0.9,))))
-    with pytest.raises(AssertionError, match="rail tags differ"):
+    with pytest.raises(AssertionError, match="result tags differ"):
         assert_close(Ok(1.0), Error(1.0))
-    with pytest.raises(AssertionError, match="rail tags differ"):
+    with pytest.raises(AssertionError, match="result tags differ"):
         assert_close(Some(1.0), Nothing)
     with pytest.raises(AssertionError, match=r"\$\[1\]"):
         assert_close(Block.of_seq([1.0, 2.0]), Block.of_seq([1.0, 9.0]))
@@ -359,8 +359,8 @@ def test_close_policy_rides_the_algebraic_oracles_and_refutes() -> None:
 # --- [ROP_ORACLES]
 
 
-def test_rail_asserts_unwrap_surface_and_refuse() -> None:
-    """Rail asserts unwrap the matching case, run ``then`` callbacks, and name the mismatched case."""
+def test_result_asserts_unwrap_surface_and_refuse() -> None:
+    """Result asserts unwrap the matching case, run ``then`` callbacks, and name the mismatched case."""
     seen: list[int] = []
     assert assert_ok(Ok(3)) == 3
     assert_ok(Ok(4), then=seen.append)

@@ -1,6 +1,6 @@
 # [RASM_FITTING_FIT]
 
-`Fit` recovers the best-fit analytic primitive from a noisy `Point3d` cloud: one `FitOp` runs an efficient-RANSAC sampler under a truncated-cost robust consensus, then refines the winner to its orthogonal-distance minimum. Kind is DATA — `Kinds` arity alone separates a pinned single fit from a multi-kind competition under one shared cost threshold — and a cloud carrying no requested primitive routes the `GeometryFault` rail, never a fabricated best-fit.
+`Fit` recovers the best-fit analytic primitive from a noisy `Point3d` cloud: one `FitOp` runs an efficient-RANSAC sampler under a truncated-cost robust consensus, then refines the winner to its orthogonal-distance minimum. Kind is DATA — `Kinds` arity alone separates a pinned single fit from a multi-kind competition under one shared cost threshold — and a cloud carrying no requested primitive routes the `GeometryFault` channel, never a fabricated best-fit.
 
 Refinement INSTANTIATES the `Solving/solver` `Lm.Minimize` functor through a `FitModel : ILmModel` supplying the analytic-`Gradient` model alone; the λ-ladder stays the functor's. Sampling composes the `Spatial/neighbors` kd-tree lane, `CloudKernel.CovarianceOf` the one cloud-PCA fold, and the `Numerics/matrix` owners every minimal solve under the caller's `Op` key; a `NeedsNormals` kind seeds off the `Rasm.Spatial` `VectorCloudMetric.OrientedNormals` field computed UPSTREAM of the boundary, and `Fitted`/`FitPrimitive` ARE the identities `Spatial/reconciliation` `Encode` content-addresses.
 
@@ -689,7 +689,6 @@ sealed class FitModel(FitPrimitive template, Point3d[] cloud, Arr<int> inliers) 
 }
 
 public static class Fit {
-    [BoundaryAdapter]
     public static Fin<Fitted> Apply(FitOp op, Context tolerance, Op? key = null) {
         Op ok = key.OrDefault();
         return ok.Catch(() => {
@@ -955,9 +954,9 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RAIL]` cell names one return rail: `Fin` over `GeometryFault` where a post-condition can fail, pure carriers for the projections.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RESULT]` cell names one return type: `Fin` over `GeometryFault` where a post-condition can fail, pure carriers for the projections.
 
-| [INDEX] | [AXIS_CONCERN]    | [OWNER]          | [RAIL]                                    |
+| [INDEX] | [AXIS_CONCERN]    | [OWNER]          | [RESULT]                                  |
 | :-----: | :---------------- | :--------------- | :---------------------------------------- |
 |  [01]   | Primitive fit     | `Fit` + `FitOp`  | `Fit.Apply → Fin<Fitted>`                 |
 |  [02]   | Fit kind          | `FitKind`        | `FitKind.Minimal → Fin<FitPrimitive>`     |

@@ -27,10 +27,10 @@
 [STACKING]:
 - `libs/dotnet/.api/api-eto-runtime.md`: the registered singleton algebra; this boundary composes it and re-tables none of it.
 - `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md`: dialog presentation and control invalidation are the construction-side consumers that marshal through the registered application singleton.
-- `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md`: the Rhino host marshal owner is the outer seam — an Eto-level thread-affinity test never replaces it, and a document-touching callback marshals there first.
-- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a dispatch wraps into `Eff<A>`/`IO<A>` and folds to `Fin<A>`, `Option<A>` lifts every nullable transfer read gated by the presence probe, and the clock and tray acquire and release through the `use` rail so neither leaks past its owning scope.
+- `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md`: the Rhino host marshal owner is the outer boundary — an Eto-level thread-affinity test never replaces it, and a document-touching callback marshals there first.
+- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a dispatch wraps into `Eff<A>`/`IO<A>` and folds to `Fin<A>`, `Option<A>` lifts every nullable transfer read gated by the presence probe, and the clock and tray acquire and release through the `use` bracket so neither leaks past its owning scope.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the cursor roster, drag effects, and button masks bind as `[SmartEnum]` and flag owners routed by generated dispatch, and a MIME type binds as `[ValueObject<string>]` so transfer access is keyed by a validated owner.
 
 [LOCAL_ADMISSION]:
-- Runtime state is host-provided and never re-declared; this boundary internalizes a dispatch, transfer, timer, or tray concern behind one canonical rail so downstream code composes a marshalled effect or a keyed payload.
+- Runtime state is host-provided and never re-declared; this boundary internalizes a dispatch, transfer, timer, or tray concern behind one canonical owner so downstream code composes a marshalled effect or a keyed payload.
 - The application singleton and a stringy MIME key never cross into a domain signature.

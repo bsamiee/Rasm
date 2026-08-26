@@ -63,14 +63,14 @@ Bundled typings declare themselves incomplete: they cover the node entry alone, 
 [STACKING]:
 - `core/interchange/format`(`core/.planning/interchange/format.md`): the Avro row owns the media identity; `net/channel.md`'s `Avro` binds the generated `CloudEventsAvro` publisher asset through `Format.event.avro` once for MQTT and HTTP intake, and no second `Type` is constructed anywhere.
 - `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): supplies the attribute record the `attribute` map carries and the extension roster whose value types the map's union admits.
-- `effect` `Schema`(`.api/effect.md`): `fromBuffer` yields an untyped tree; `Schema.decodeUnknown` lands it once into owned vocabulary and lifts a `ParseError` onto the rail, and `Either.try` converts the encode and decode throws at that one seam.
+- `effect` `Schema`(`.api/effect.md`): `fromBuffer` yields an untyped tree; `Schema.decodeUnknown` lands it once into owned vocabulary and lifts a `ParseError` onto the error channel, and `Either.try` converts the encode and decode throws at that one boundary.
 - `@confluentinc/schemaregistry`(`runtime/.api/confluentinc-schemaregistry.md`): carries its own transitive `avsc` for Kafka PAYLOAD serdes under the registry framing; this catalogue's use encodes the message envelope and the two never share a `Type`.
 - `core/value/schema`(`core/.planning/value/schema.md`): `Shape.Ingress` bounds the admitted octets before the decoder sees them, exactly as the core binary arms bound theirs.
 
 [LOCAL_ADMISSION]:
 - Mint one module-scope `Type` through `Type.forSchema` with `wrapUnions` stated explicitly, and never re-mint per call.
 - Bind the frozen `io.cloudevents.AvroCloudEvent` schema value; `Type.forValue`, `parse`, and `readSchema` infer a shape the contract already fixes.
-- Cross `Buffer` and `Uint8Array` at this seam alone, and let no `Buffer` type reach a domain surface or a core signature.
+- Cross `Buffer` and `Uint8Array` at this boundary alone, and let no `Buffer` type reach a domain surface or a core signature.
 - Land every `fromBuffer` result through a `Schema` owner; the declared return is `any` and the interior never reads one.
 - Convert the throw at the arm through `Either.try`, since `toBuffer` and `fromBuffer` signal by throwing and carry no result channel.
 - Read schema identity from `fingerprint`, never from a hand-spelled subject-and-version literal beside it.

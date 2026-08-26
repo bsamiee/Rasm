@@ -25,7 +25,7 @@ Every entry re-exports one core; the engine is cost-laddered by entry. `animateV
 |  [05]   | `useScroll({ container?, target?, offset? })`            | scroll link  | `scrollX/Y` + `scrollX/YProgress` scroll-linked values   |
 |  [06]   | `useVelocity(value)` / `useTime()`                       | derive/clock | velocity tracking, elapsed-time value                    |
 |  [07]   | `useAnimationFrame(cb)`                                  | clock        | per-frame callback                                       |
-|  [08]   | `useMotionValueEvent(value, event, cb)`                  | event seam   | `change`/`animationStart`/`animationComplete` events     |
+|  [08]   | `useMotionValueEvent(value, event, cb)`                  | event bind   | `change`/`animationStart`/`animationComplete` events     |
 
 [TRANSITION]: `Transition.type: "spring"|"tween"|"keyframes"|"inertia"|"decay"` `duration` `visualDuration` `stiffness` `damping` `mass` `bounce` `velocity` `restSpeed` `restDelta` `ease`; the vanilla `transform`/`mix`/`wrap` mappers and the `spring`/`frame` generators ride the `[01]-[ROOT]` entry.
 
@@ -59,7 +59,7 @@ Interruption queues by default (`"wait"`); `"immediate"` preempts — the policy
 [STACKING]:
 - `system/act` (within-lib): the act charter owns the discrete/continuous split, the `matchMedia` reduced-motion law `MotionConfig`/`useReducedMotion` mirror, and `useScroll`/`useTransform` as the one scroll-animation engine — raw `ScrollTimeline` and polyfills never enter.
 - `react`(`.api/react.md`): three view-transition tiers fire one per surface — `Transition.run`'s native `startViewTransition` for capability-gated swaps, `animateView` for spring-timed per-subject swaps, the canary `<ViewTransition>` element for React-tree per-element transitions inside `startTransition`/`Suspense`.
-- `effect-atom-atom-react`(`.api/effect-atom-atom-react.md`): domain state lives in the atom, the component derives an animation TARGET from the atom value, and `useMotionValueEvent` is the read seam when a threshold crossing must become atom state through `useAtomSet`.
+- `effect-atom-atom-react`(`.api/effect-atom-atom-react.md`): domain state lives in the atom, the component derives an animation TARGET from the atom value, and `useMotionValueEvent` is the read hook when a threshold crossing must become atom state through `useAtomSet`.
 - `react-aria-components`(`.api/react-aria-components.md`): `useDragAndDrop` owns reordering inside a RAC collection through its `DropIndicator` rows and keyboard path, so `Reorder.Group`/`Reorder.Item` binds only a list RAC models no widget for, and the two never wrap one collection.
 - `use-gesture-react`(`.api/use-gesture-react.md`) + `vaul`(`.api/vaul.md`): `@use-gesture` owns raw recognition and vaul owns sheet drag; motion `drag`/`whileTap` bind only on engine-animated elements, and a use-gesture binding and motion `drag` on one node is the double-bind defect.
 - `tw-animate-css`(`.api/tw-animate-css.md`): a RAC overlay animating through a `Motion` class row never also mounts `AnimatePresence` on the same element.

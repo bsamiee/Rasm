@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-- Registers the `Rhino.UI` host-bridge seams (`libs/dotnet/.api/api-rhino-ui.md`): `EtoExtensions.UseRhinoStyle`, `Show`/`GetRhinoDoc` document binding, `ShowSemiModal`, `SavePosition`/`RestorePosition`/`LocalizeAndRestore`, `WindowsFromDocument<T>`, and the `Dialogs` edit and number prompts carry their algebra there; the rows below are the conversion and pick members this boundary adds beyond it.
+- Registers the `Rhino.UI` host-bridge entries (`libs/dotnet/.api/api-rhino-ui.md`): `EtoExtensions.UseRhinoStyle`, `Show`/`GetRhinoDoc` document binding, `ShowSemiModal`, `SavePosition`/`RestorePosition`/`LocalizeAndRestore`, `WindowsFromDocument<T>`, and the `Dialogs` edit and number prompts carry their algebra there; the rows below are the conversion and pick members this boundary adds beyond it.
 
 [PUBLIC_TYPE_SCOPE]: the static extension surface
 
@@ -51,7 +51,7 @@ Members carry `System.Drawing` GDI and Rhino `Color4f`/`Font` carriers into `Eto
 - Conversion is the one bridge for GDI and Rhino colour, font, and image carriers into `Eto.Drawing`, and `Bitmap.ToEto` is the exact path the GH1 interop icon boundary composes; a hand-rolled channel or point remap beside these members is the deleted form.
 - Screen-space conversions take the `Screen` argument, so a point or rectangle crossing between GDI and Eto resolves against the display it belongs to rather than the primary.
 - Pick attachment is per host surface: a panel and a window each take the attachment for their own chrome and the handler fires from the host's own pick lifecycle.
-- Native styling from the registered bridge and folder-owned cosmetics are two non-overlapping seams: a Rhino-styled surface routes through the folder style case, a folder style row scopes cosmetics by tag, and a window wears both when a Rhino-styled surface also joins a folder style scope.
+- Native styling from the registered bridge and folder-owned cosmetics are two non-overlapping paths: a Rhino-styled surface routes through the folder style case, a folder style row scopes cosmetics by tag, and a window wears both when a Rhino-styled surface also joins a folder style scope.
 
 [STACKING]:
 - `api-rhino-ui`(`libs/dotnet/.api/api-rhino-ui.md`): the registered host bridge — native styling, document window binding, semi-modal presentation, position persistence, and the native value prompts.

@@ -1,6 +1,6 @@
 # [RASM_WORKSPACE]
 
-Rasm is a polyglot monorepo whose `libs/` branches hold independently adoptable C#, Python, and TypeScript capability, and whose apps, plugins, and services compose those estates exactly as they take an external package.
+Rasm is a polyglot monorepo whose `libs/` branches hold independently adoptable C#, Python, and TypeScript capability, and whose apps, plugins, and services compose those repos exactly as they take an external package.
 
 ## [01]-[MAP]
 
@@ -14,10 +14,9 @@ Rasm is a polyglot monorepo whose `libs/` branches hold independently adoptable 
 
 ## [02]-[TOOL_OWNERS]
 
-| [INDEX] | [TOOL]               | [ROLE]                                                                        |
-| :-----: | :------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `tools/rhino-bridge` | Live Rhino owner: host lifecycle, scenario execution, cargo, spool, evidence. |
-|  [02]   | `tools/cs-analyzer`  | Local Roslyn diagnostics carrying repeated C# source-shape laws.              |
-|  [03]   | `tools/biome`        | Promoted GritQL lint rules the root `biome.json` registers at error.          |
-|  [04]   | `tools/yak`          | Tracked Yak package manifests, one per package slug.                          |
-|  [05]   | `Parametric_Forge`   | Sibling repo owning machine composition, executables, and credential policy.  |
+| [INDEX] | [TOOL]               | [ROLE]                                                                       |
+| :-----: | :------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `tools/rhino-bridge` | Live Rhino owner: host lifecycle, scenario execution, cargo, spool, evidence |
+|  [02]   | `tools/biome`        | Promoted GritQL lint rules the root `biome.json` registers at error          |
+|  [03]   | `tools/yak`          | Tracked Yak package manifests, one per package slug                          |
+|  [04]   | `Parametric_Forge`   | Sibling repo owning machine composition, executables, and credential policy  |

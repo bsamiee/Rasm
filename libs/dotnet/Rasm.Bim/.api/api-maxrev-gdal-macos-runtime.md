@@ -1,10 +1,10 @@
 # [RASM_BIM_API_MAXREV_GDAL_MACOS_RUNTIME]
 
-`MaxRev.Gdal.MacosRuntime.Minimal.arm64` ships the osx-arm64 native GDAL dylib closure backing `MaxRev.Gdal.Core` on Apple Silicon. Its managed assembly is an empty `<Module>` carrier; the payload is `runtimes/osx-arm64/native/` — `libgdal`, the SWIG `*_wrap` P/Invoke targets, native GEOS and PROJ, and the raster/vector format and compression tree. Presence on the publish RID is the precondition for every `OSGeo.GDAL`/`OGR`/`OSR` call to bind, and the bundled native GEOS and PROJ are the ABI substrate the `MaxRev.Gdal.Core` seam decisions escalate to.
+`MaxRev.Gdal.MacosRuntime.Minimal.arm64` ships the osx-arm64 native GDAL dylib closure backing `MaxRev.Gdal.Core` on Apple Silicon. Its managed assembly is an empty `<Module>` carrier; the payload is `runtimes/osx-arm64/native/` — `libgdal`, the SWIG `*_wrap` P/Invoke targets, native GEOS and PROJ, and the raster/vector format and compression tree. Presence on the publish RID is the precondition for every `OSGeo.GDAL`/`OGR`/`OSR` call to bind, and the bundled native GEOS and PROJ are the ABI substrate the `MaxRev.Gdal.Core` contract decisions escalate to.
 
 ## [01]-[NATIVE_PAYLOAD]
 
-Every dylib lands under `runtimes/osx-arm64/native/` on the geometry rail; `GdalBase.ConfigureAll()` reads `maxrev.gdal.core.libshared` to discover and load the set.
+Every dylib lands under `runtimes/osx-arm64/native/` on the geometry path; `GdalBase.ConfigureAll()` reads `maxrev.gdal.core.libshared` to discover and load the set.
 
 [CORE_AND_SWIG_BRIDGES]:
 
@@ -72,9 +72,9 @@ Restoring the package for the `osx-arm64` RID stages its native assets into the 
 - A RID-agnostic publish (no `-r osx-arm64`, no `RuntimeIdentifier`) does not stage the natives and faults at the first `OSGeo.*` call; the Apple-Silicon publish binds `osx-arm64` (or self-contained) for the dylibs to land.
 
 [STACKING]:
-- `MaxRev.Gdal.Core`(`.api/api-maxrev-gdal.md`): this closure is the native half its AnyCPU bindings P/Invoke — `libgdal_wrap`/`libogr_wrap`/`libosr_wrap` are the exact `*PINVOKE` targets, and bundled native GEOS/PROJ are the ABI substrate under the `[OGR_VS_NTS_GEOS]`/`[OSR_VS_PROJNET]` seam decisions the sibling owns.
+- `MaxRev.Gdal.Core`(`.api/api-maxrev-gdal.md`): this closure is the native half its AnyCPU bindings P/Invoke — `libgdal_wrap`/`libogr_wrap`/`libosr_wrap` are the exact `*PINVOKE` targets, and bundled native GEOS/PROJ are the ABI substrate under the `[OGR_VS_NTS_GEOS]`/`[OSR_VS_PROJNET]` contract decisions the sibling owns.
 - within-lib: SWIG `*_wrap` dylibs are generated against a specific `libgdal` ABI and the managed `*PINVOKE` classes against the same SWIG interface, so bindings and runtime bind as one unit and a version skew between them faults at load.
-- `Rasm.Persistence` Arrow rail: bundled `libarrow`/`libparquet` are the ABI basis for `OLCFastGetArrowStream` — a GeoParquet source streams Arrow batches through `libarrow` without per-feature marshalling.
+- `Rasm.Persistence` Arrow path: bundled `libarrow`/`libparquet` are the ABI basis for `OLCFastGetArrowStream` — a GeoParquet source streams Arrow batches through `libarrow` without per-feature marshalling.
 
 [LOCAL_ADMISSION]:
 - Admitted as the transitive native prerequisite of `MaxRev.Gdal.Core` on osx-arm64, never referenced or called directly by `Rasm.Bim`.

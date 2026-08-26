@@ -7,7 +7,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the transporter, the message, and the send result
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]   | [CONSUMER]                                                                   |
 | :-----: | :----------------------------------- | :-------------- | :--------------------------------------------------------------------------- |
@@ -15,14 +15,14 @@
 |  [02]   | `Mail.Options` (= `SendMailOptions`) | message shape   | one message contract; parts in `[TOPOLOGY]`                                  |
 |  [03]   | `Mail.Address`                       | address value   | `{ name?, address }` recipient; escapes `Name <email>`                       |
 |  [04]   | `Mail.Attachment`                    | attachment      | a `report`/jszip byte artifact attaches here                                 |
-|  [05]   | `Mail.ListHeaders` / `Mail.Headers`  | header shape    | `list` builds `List-Unsubscribe`; suppression seam                           |
+|  [05]   | `Mail.ListHeaders` / `Mail.Headers`  | header shape    | `list` builds `List-Unsubscribe`; suppression hook                           |
 |  [06]   | `SentMessageInfo`                    | send result     | top-level export is `any`; `SMTPTransport.SentMessageInfo` carries the shape |
 |  [07]   | `Transport<T, D>`                    | plugin contract | `{ name, version, send, verify?, close? }` backend                           |
 
 - `SentMessageInfo`: nodemailer erases this root export to `any`, so a consumer declares its own widened band over `SMTPTransport.SentMessageInfo` rather than importing the erased name.
 
 [PUBLIC_TYPE_SCOPE]: connection, authentication, and signing policy
-- rail: system-apis
+- concern: system-apis
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]     | [CONSUMER]                                         |
 | :-----: | :----------------------------------------------- | :---------------- | :------------------------------------------------- |
@@ -45,7 +45,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a transport, send, and verify
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CONSUMER]                                            |
 | :-----: | :---------------------------------------------------- | :------------- | :---------------------------------------------------- |
@@ -59,7 +59,7 @@
 |  [08]   | `transporter.on("idle"\|"error"\|"token", cb)`        | events         | events → `Queue`/`SubscriptionRef`                    |
 
 [ENTRYPOINT_SCOPE]: provider resolution, OAuth2, and test sinks
-- rail: system-apis
+- concern: system-apis
 
 | [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                           |
 | :-----: | :----------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
@@ -77,7 +77,7 @@
 
 [TOPOLOGY]:
 - `createTransport` is one polymorphic factory: the option shape selects the transport — `pool: true` → pooled SMTP, `SES: {...}` → SESv2, `streamTransport`/`jsonTransport` → inspect sinks, `sendmail: true` → local binary, else plain SMTP from a URL string or `Options`. One transport policy row per environment replaces a factory per backend.
-- `Mail.Options` is one shape decoded once, carrying every part — bodies, alternatives, attachments, headers, `list`, `dkim`, `envelope`. One outbound `Schema` decodes the caller payload at ingress and encodes to `Options` at the send seam, so `to`/`from`/`subject` never assemble untyped.
+- `Mail.Options` is one shape decoded once, carrying every part — bodies, alternatives, attachments, headers, `list`, `dkim`, `envelope`. One outbound `Schema` decodes the caller payload at ingress and encodes to `Options` at the send boundary, so `to`/`from`/`subject` never assemble untyped.
 - Authentication is a discriminated union with `Redacted` secrets end to end: `LOGIN` (`user`/`pass`), `OAUTH2` (`XOAuth2` refresh flow), and `CUSTOM` are `_tag`-style arms. `pass`, `clientSecret`, `refreshToken`, and the DKIM `privateKey` flow from `Config.redacted`, unwrapped with `Redacted.value` only at the `createTransport`/`sign` call.
 - `SentMessageInfo` is delivery evidence, splitting `accepted`/`rejected`/`rejectedErrors`/`pending` with `messageId` and timing. Partial rejection is a domain outcome the durable job records and reconciles, never a thrown failure.
 - Retry classifies on `SMTPError.code`: `EAUTH` is terminal, a `4xx` `responseCode` retries under a `Schedule`, a `5xx` is a permanent bounce. `Data.taggedEnum` maps the code and drives `Effect.retry`/`catchTag` off the tag.

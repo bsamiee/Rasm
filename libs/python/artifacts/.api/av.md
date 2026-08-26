@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_AV]
 
-`av` (PyAV) binds the FFmpeg media surface for the artifacts MEDIA rail: `av.open` selects a read `InputContainer` or write `OutputContainer`, `add_stream` mints the typed `VideoStream`/`AudioStream` owners, and one `from_ndarray`/`encode`/`mux` loop drives a frame sequence into MP4/WebM/GIF while the inverse `demux`/`decode`/`to_ndarray` loop reads it back. One polymorphic `MediaOp` folds encode, decode, transcode, remux, and filter through the bundled FFmpeg libraries, so the branch never shells out to a system `ffmpeg` binary nor re-implements the container, filter, or codec layer.
+`av` (PyAV) binds the FFmpeg media surface for the artifacts MEDIA domain: `av.open` selects a read `InputContainer` or write `OutputContainer`, `add_stream` mints the typed `VideoStream`/`AudioStream` owners, and one `from_ndarray`/`encode`/`mux` loop drives a frame sequence into MP4/WebM/GIF while the inverse `demux`/`decode`/`to_ndarray` loop reads it back. One polymorphic `MediaOp` folds encode, decode, transcode, remux, and filter through the bundled FFmpeg libraries, so the branch never shells out to a system `ffmpeg` binary nor re-implements the container, filter, or codec layer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -200,7 +200,7 @@ Each row is set after `add_stream` and before the first `encode`, reading the sh
 - `FFmpegError` is a typed `tag`/`errno` tree whose lookup, decode, and protocol faults are distinct exception classes, never raw return codes.
 
 [STACKING]:
-- `numpy`(`.api/numpy.md`): the frame seam is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out over a `uint8`/`float32` RGB24/RGBA/GRAY or 10-bit `yuv420p10le` buffer, `from_numpy_buffer` the zero-copy contiguous variant, `from_dlpack` the device edge a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip.
+- `numpy`(`.api/numpy.md`): the frame boundary is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out over a `uint8`/`float32` RGB24/RGBA/GRAY or 10-bit `yuv420p10le` buffer, `from_numpy_buffer` the zero-copy contiguous variant, `from_dlpack` the device edge a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip.
 - `anyio`(`.api/anyio.md`): the synchronous `demux`/`decode`/`encode`/`mux` loop drives one container per `anyio.to_thread.run_sync` worker under a `CapacityLimiter` fan, only the finished bytes crossing back to the async caller.
 - `expression`(`.api/expression.md`): the `FFmpegError` subtree maps at the boundary to `Result[Produced, MediaFault]` — `EncoderNotFoundError`/`MuxerNotFoundError` select the codec fault, `InvalidDataError` selects the malformed-input fault, and a completed mux returns bytes with `MediaEvidence`.
 - `structlog`(`.api/structlog.md`)/`opentelemetry`(`.api/opentelemetry-api.md`): each media operation binds its `MediaEvidence` fields to one event and span; the startup span binds `av.library_versions` once.

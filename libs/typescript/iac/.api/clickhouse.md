@@ -1,6 +1,6 @@
 # [TS_IAC_API_CLICKHOUSE]
 
-`clickhouse` is the analytics residence the deploy plane installs as one Helm chart. This chart renders no workload itself — it emits a `ClickHouseInstallation` custom resource the Altinity operator reconciles, so chart values decide the CR and the OPERATOR decides every rendered object name. That split is the whole contract: a values key pins the installation, and its rendered Service name is the operator's own decoration over it.
+`clickhouse` is the analytics tier the deploy plane installs as one Helm chart. This chart renders no workload itself — it emits a `ClickHouseInstallation` custom resource the Altinity operator reconciles, so chart values decide the CR and the OPERATOR decides every rendered object name. That split is the whole contract: a values key pins the installation, and its rendered Service name is the operator's own decoration over it.
 
 ## [01]-[CHART_VALUES]
 
@@ -35,7 +35,7 @@
 
 ## [02]-[QUERY_CONTRACT]
 
-Grafana reads this residence through `grafana-clickhouse-datasource`, a third-party plugin the Foundation SDK never bundles. Its query record and its config record are the two wire shapes a board fence transcribes; both are plugin-owned TypeScript, not an npm dependency, so the plugin release is the pin and every field below reads off it.
+Grafana reads this tier through `grafana-clickhouse-datasource`, a third-party plugin the Foundation SDK never bundles. Its query record and its config record are the two wire shapes a board fence transcribes; both are plugin-owned TypeScript, not an npm dependency, so the plugin release is the pin and every field below reads off it.
 
 [DATASOURCE_TYPE]: `grafana-clickhouse-datasource` — the `type` an `oss.DataSource` row carries and the `DataSourceRef.type` a panel binds.
 
@@ -63,15 +63,15 @@ Grafana reads this residence through `grafana-clickhouse-datasource`, a third-pa
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One residence per stack owns wide-event evidence under a branch-owned schema. Its writing exporter runs `create_schema: false`, so DDL lands before the first INSERT — this chart's init-script hook is the one place that ordering holds without minting a job the estate then owns and reconciles.
+- One tier per stack owns wide-event evidence under a branch-owned schema. Its writing exporter runs `create_schema: false`, so DDL lands before the first INSERT — this chart's init-script hook is the one place that ordering holds without minting a job the cluster then owns and reconciles.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders the CR and the operator's own objects as parented children; the DDL rides a `k8s.core.v1.ConfigMap` the tier mints and `initScripts.configMapName` names, and the credential rides the tier's existing `Secret` through `defaultUser.password_secret_name` rather than a values literal that renders into a ConfigMap.
-- `opentelemetry-collector`(`.api/opentelemetry-collector.md`): the `clickhouse` exporter is the residence's one writer — its `logs_table_name` and `traces_table_name` address tables this chart's init scripts created, and its `ttl` and the DDL's `TTL` clause read one anchor so the two cannot disagree.
-- `operate/observe#CHART_ROWS`: `_charts.clickhouse` supplies chart and repo, `Lgtm.Versions.clickhouse` the pin, `_RESIDENCE` the capability row, and `_ddl` the planted schema; `_urls` reads the row's `service` projection because the operator, not the chart, names what resolves.
-- `operate/observe#BOARD_APPLY`: `_COLUMNAR.plugin` pins the type id, release, and editor discriminant; `_ResidenceQuery` transcribes `[QUERY_RECORD]` as a `cog.Builder<cog.Dataquery>`; the `_SOURCES` row answers `[CONFIG_RECORD]` through `jsonDataEncoded` and `secureJsonDataEncoded` precisely because `[CONFIG_TRAPS]` rules the datasource `url` inert for this driver.
+- `opentelemetry-collector`(`.api/opentelemetry-collector.md`): the `clickhouse` exporter is the tier's one writer — its `logs_table_name` and `traces_table_name` address tables this chart's init scripts created, and its `ttl` and the DDL's `TTL` clause read one anchor so the two cannot disagree.
+- `operate/observe#CHART_ROWS`: `_charts.clickhouse` supplies chart and repo, `Lgtm.Versions.clickhouse` the pin, `_TIER` the capability row, and `_ddl` the planted schema; `_urls` reads the row's `service` projection because the operator, not the chart, names what resolves.
+- `operate/observe#BOARD_APPLY`: `_COLUMNAR.plugin` pins the type id, release, and editor discriminant; `_TierQuery` transcribes `[QUERY_RECORD]` as a `cog.Builder<cog.Dataquery>`; the `_SOURCES` row answers `[CONFIG_RECORD]` through `jsonDataEncoded` and `secureJsonDataEncoded` precisely because `[CONFIG_TRAPS]` rules the datasource `url` inert for this driver.
 - `@grafana/grafana-foundation-sdk`(`.api/grafana-grafana-foundation-sdk.md`): that pin ships no `./clickhouse` module at any dist-tag, and its `[TARGET_CONTRACT]` is what admits the branch-owned builder onto `withTarget` beside every bundled dataquery.
 
 [LOCAL_ADMISSION]:
-- Only the k8s arm admits these keys: `operate/observe#DEV_ROW` runs one all-in-one image with no residence at all, so the dev loop's analytics posture is absence, stated on the row rather than discovered on an empty query.
+- Only the k8s arm admits these keys: `operate/observe#DEV_ROW` runs one all-in-one image with no tier at all, so the dev loop's analytics posture is absence, stated on the row rather than discovered on an empty query.
 - Chart versions arrive as `Lgtm.Versions` args rather than a workspace-manifest row, because a Helm chart is a deploy-time reference and not a build dependency.

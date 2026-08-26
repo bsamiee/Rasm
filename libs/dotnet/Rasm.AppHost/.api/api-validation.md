@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_VALIDATION]
 
-`FluentValidation` owns boundary input and options validation: one rule graph folds over a policy or request record and accumulates every field failure into a `ValidationResult` before any runtime state changes. Consumers compose the `IValidator<T>` contract, so the authoring base is a registration detail; the boundary is the composition edge — a policy record validates once at bootstrap, a request record at ingress — and the accumulated result folds onto the typed rail, never an exception on the domain path.
+`FluentValidation` owns boundary input and options validation: one rule graph folds over a policy or request record and accumulates every field failure into a `ValidationResult` before any runtime state changes. Consumers compose the `IValidator<T>` contract, so the authoring base is a registration detail; the boundary is the composition edge — a policy record validates once at bootstrap, a request record at ingress — and the accumulated result folds onto the typed result, never an exception on the domain path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -135,7 +135,7 @@
 - Rule sets and `When`/`Unless` conditions are explicit boundary variants a `ValidationStrategy` selects, never hidden control flow.
 
 [STACKING]:
-- `api-languageext.md`(`libs/dotnet/.api/api-languageext.md`): each `ValidationResult.Errors` failure maps to a LanguageExt `Error` accumulated as `Validation<Error, T>`, egressed through `.ToFin()` onto the `Fin<T>` rail every AppHost boundary op returns.
+- `api-languageext.md`(`libs/dotnet/.api/api-languageext.md`): each `ValidationResult.Errors` failure maps to a LanguageExt `Error` accumulated as `Validation<Error, T>`, egressed through `.ToFin()` onto the `Fin<T>` every AppHost boundary op returns.
 - `api-validation-di.md`(`.api/api-validation-di.md`): validator implementations register as `IValidator<T>` through the DI scanner, resolved at the composition root the boundary op reads.
 - within-lib: the composed surface is `IValidator<T>` alone. `Runtime/config.md` `OptionsAdmission.Refine` injects the contract, drives `ValidationContext<T>.CreateWithOptions(policy, options => options.IncludeRuleSets(…))` — the `ValidationStrategy<T>` selector realized under its factory spelling — for a ruleset subset per config-boundary variant, and reads `ValidationFailure.CustomState` for a `WithState`-carried typed fault before falling back to `ErrorCode`, mapping the result onto `Validation<Error, T>`; `ValidationResult.ToDictionary` is the deleted re-derivation. AUTHORING stays deliberately unbound here — no page names `AbstractValidator<T>`, because structural validation belongs to the source-generated `[OptionsValidator]` graph and this package covers the cross-field invariants that graph cannot express, so whatever the registration scanner resolves satisfies the contract.
 
@@ -143,4 +143,4 @@
 - Boundary validators accumulate every input failure before runtime state changes.
 - Async validators stay off hot runtime paths unless the boundary owns I/O.
 - Rule sets stay explicit boundary variants, never hidden conditional branches.
-- Custom state and severity map onto typed rail `Error` codes.
+- Custom state and severity map onto typed `Error` codes.

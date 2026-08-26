@@ -1,6 +1,6 @@
 # [PY_DATA_API_GEOARROW_RUST_IO]
 
-`geoarrow-rust-io` owns the GDAL-free geospatial file rail: native Rust readers and writers move FlatGeobuf, GeoParquet, GeoJSON, CSV, and live PostGIS between file bytes and GeoArrow-native Arrow `Table` memory, `ObjectStore` fronts S3/GCS/Azure for a local-copy-free read, and the `Parquet*` handles push bbox and row-group predicates into a scan. Every reader yields the `GeometryArray` memory `geoarrow-rust-core` owns and `geoarrow-rust-compute` consumes, so a file crosses the rail once as an Arrow capsule, never round-tripping through a Shapely scalar or a GDAL `OGR` layer.
+`geoarrow-rust-io` owns the GDAL-free geospatial file domain: native Rust readers and writers move FlatGeobuf, GeoParquet, GeoJSON, CSV, and live PostGIS between file bytes and GeoArrow-native Arrow `Table` memory, `ObjectStore` fronts S3/GCS/Azure for a local-copy-free read, and the `Parquet*` handles push bbox and row-group predicates into a scan. Every reader yields the `GeometryArray` memory `geoarrow-rust-core` owns and `geoarrow-rust-compute` consumes, so a file crosses the result once as an Arrow capsule, never round-tripping through a Shapely scalar or a GDAL `OGR` layer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -78,15 +78,15 @@ Each writer lowers a GeoArrow-native `Table` back to its format in one call; `wr
 - `ObjectStore` is the sole remote-source handle, threaded as `fs`; the `_async` reader variants own the awaitable cloud path against a synchronous blocking read.
 - `ParquetFile`/`ParquetDataset` push `bbox`/`bbox_paths`, `limit`, and `offset` into the scan and plan on `row_group_bounds`/`row_groups_bounds`, so a spatial subset reads only the intersecting row groups.
 - `GeoParquetEncoding` fixes the geometry column encoding at write time against a post-write re-encode; `ParquetWriter` streams frames larger than memory under an explicit `close`.
-- evidence: each call exposes operation, format, source kind (local or `ObjectStore`), selected `batch_size`/`bbox`/encoding, and row and row-group counts at the ingress seam.
+- evidence: each call exposes operation, format, source kind (local or `ObjectStore`), selected `batch_size`/`bbox`/encoding, and row and row-group counts at the ingress boundary.
 
 [STACKING]:
 - `arro3-core`(`.api/arro3-core.md`): every reader returns an `arro3.core.Table`; `ParquetWriter(file, schema)` binds an `arro3.core.Schema` and `write_batch`/`write_table` append `arro3.core` RecordBatch/Table/RecordBatchReader.
 - `geoarrow-rust-core`(`.api/geoarrow-rust-core.md`): writers take the GeoArrow-native `Table` these carriers own, `row_groups_bounds` returns a `GeometryArray`, and an external GeoPandas source crosses through `geoarrow.rust.core.from_geopandas` before a writer call.
 - `geoarrow-rust-compute`(`.api/geoarrow-rust-compute.md`): reader output feeds the compute kernels zero-copy and writer input is their post-kernel geometry.
 - `pyproj`(`.api/pyproj.md`): `ParquetFile.crs`/`ParquetDataset.crs` return a `pyproj.CRS`.
-- within-lib: the rail folds reader to GeoArrow `Table` to compute kernel to writer as one capsule crossing, `ObjectStore` supplying every cloud source and the `Parquet*` handles pushing the spatial predicate so a subset never full-scans.
+- within-lib: the result folds reader to GeoArrow `Table` to compute kernel to writer as one capsule crossing, `ObjectStore` supplying every cloud source and the `Parquet*` handles pushing the spatial predicate so a subset never full-scans.
 
 [LOCAL_ADMISSION]:
 - import at boundary scope only (`from geoarrow.rust import io`); module-level import is banned by the manifest import policy.
-- this package is the sole GDAL-free format-IO owner on the geospatial-ingress rail; a format it parses natively admits no `pyogrio`/GDAL fallthrough.
+- this package is the sole GDAL-free format-IO owner on the geospatial-ingress domain; a format it parses natively admits no `pyogrio`/GDAL fallthrough.

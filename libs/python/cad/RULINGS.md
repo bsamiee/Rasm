@@ -44,13 +44,13 @@
 - `faults` stays one page — leg, case, code, and recovery read from ONE declaration, so splitting roster from projection forks the correspondence.
 - `metrology` seats below both native owners — measurement above either leg forces the import edge that made exchange compose brep.
 - `brep/regime` seats at S1 — tolerance vocabulary and the custody grant are read by S3 and S4 alike, so an S3 seat forces an upward import.
-- `brep/healing` seats beside `feature` at S3 — a repair is a rewrite of one decoded source exactly as a feature is, under the same admission rail.
+- `brep/healing` seats beside `feature` at S3 — a repair is a rewrite of one decoded source exactly as a feature is, under the same admission path.
 - `exchange/iges` seats beside `step` at S2 — `step` owns the format-dispatched `sourced`, so the surface codec imports nothing above it.
-- Builder admission seats at `brep/placement` — the fold apex imports every arm, so a rail seated there closes an import cycle.
+- Builder admission seats at `brep/placement` — the fold apex imports every arm, so a result seated there closes an import cycle.
 - `sourced` seats at `exchange/step` beside its codec — resolving a `SealedBody` IS the forward correspondence; an apex seat forces arm back-imports.
 - `service/lane#REGIME` alone executes `Interface_Static` from `exchange/identity#PINS`; a second table forks the process regime.
 - Shape validity probes once per leg by design — `metrology` sits below `brep` and reads its own, so each grades under its own row.
-- GLB is the one discrete carrier — a native triangulation wire beside it mints a second tessellation producer the estate forbids.
+- GLB is the one discrete carrier — a native triangulation wire beside it mints a second tessellation producer the repo forbids.
 - Folder `.api/` carries only what no higher tier owns — `anyio`, `expression`, `msgspec`, `connectrpc`, and `protobuf-py` register instead.
 
 ## [05]-[PROCESS]

@@ -51,9 +51,9 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 
 Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
-- `expression` — `CadRail` carrier, `Block` traversal, and the `pipeline` fold every owner sequences through.
-- `msgspec` — Frozen fault rows and evidence records pickling by reference across the worker seam.
+[TYPING_RESULTS]:
+- `expression` — `CadResult` carrier, `Block` traversal, and the `pipeline` fold every owner sequences through.
+- `msgspec` — Frozen fault rows and evidence records pickling by reference across the worker boundary.
 
 [CONCURRENCY]:
 - `anyio` — One-slot cancellable process lane and the request-deadline scope around each native fold.

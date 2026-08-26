@@ -1,10 +1,10 @@
 # [CSHARP_LANGUAGE]
 
-C# 14 on `net10.0` is the active language surface, and language-form law binds here: which declaration, member, pattern, construction, conversion, and literal form carries a concept before any generated owner, rail, or boundary. Value lifecycle sheds by kind — generated-owner shape to `shapes.md`, dispatch and arity to `surfaces-and-dispatch.md`, the result rail to `rails-and-effects.md`, foreign admission to `boundaries.md`, BCL API replacement to `system-apis.md`.
+C# 14 on `net10.0` is the active language surface, and language-form law binds here: which declaration, member, pattern, construction, conversion, and literal form carries a concept before any generated owner, carrier, or boundary. Value lifecycle sheds by kind — generated-owner shape to `shapes.md`, dispatch and arity to `surfaces-and-dispatch.md`, the result carrier to `results-and-effects.md`, foreign admission to `boundaries.md`, BCL API replacement to `system-apis.md`.
 
 Every language-form snippet composes those owners as settled material and demonstrates only the syntactic shape preceding them.
 
-`Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, `ImplicitUsings`, and `CheckForOverflowUnderflow`; this page names those facts only where they change the form a source file may assume.
+`Directory.Build.props` owns `TargetFramework`, `Nullable`, `ImplicitUsings`, and `CheckForOverflowUnderflow` (a `netstandard2.0` analyzer manifest alone pins `LangVersion`); this page names those facts only where they change the form a source file may assume.
 
 ## [01]-[ACTIVE_SURFACE]
 
@@ -74,7 +74,7 @@ Each table routes a concept to the C# 14 form that owns it; the most specific ro
 
 ## [03]-[LANGUAGE_FORMS]
 
-Each entry fixes the placement rule the chooser row cannot state. Language-form snippets compose the finalized owners — generated shapes, rails, dispatch surfaces — as supporting material; the spotlight is the language form itself, and each entry closes on the one boundary that hands the value off to its owning page.
+Each entry fixes the placement rule the chooser row cannot state. Language-form snippets compose the finalized owners — generated shapes, carriers, dispatch surfaces — as supporting material; the spotlight is the language form itself, and each entry closes on the one boundary that hands the value off to its owning page.
 
 [EXTENSION_SURFACE_SITE]:
 - Use when: behavior belongs to a receiver the declaring assembly does not own, or a forwarding wrapper type merely decorates an existing receiver.
@@ -82,7 +82,7 @@ Each entry fixes the placement rule the chooser row cannot state. Language-form 
 - Reject: a static helper class with a receiver-first `this`-parameter method, a wrapper type that renames receiver behavior, an extension conversion operator (`implicit`/`explicit` is forbidden in an extension block, `CS9282`), a span-typed `extension` operator returning a stack-allocated `ReadOnlySpan<T>`/`Span<T>` collection expression (`CS9203` — the result escapes the receiver scope), and a member whose body admits, validates, or dispatches domain state — that graduates to the owning generated shape.
 - Boundary: the block adds receiver-local computation over an already-admitted value; closed-family dispatch, admission, and the operator algebra over a domain key live on the `shapes.md` owner the block composes, never inside the block.
 
-Form spotlight: one instance-member `extension<T>(ReadOnlySpan<T> source)` block and one operator-only `extension<T>(ReadOnlySpan<T>)` block attach a probe-and-compose surface to a `ref struct` the assembly cannot edit — each member a list or slice pattern over the receiver, the `|` operator rail-lifting the longer span's head into one `Option<T>` — deleting the `SpanExtensions.First<T>(this ReadOnlySpan<T>, ...)` helper class and the free `Longer(a, b)[0]` length-branch-then-index pair.
+Form spotlight: one instance-member `extension<T>(ReadOnlySpan<T> source)` block and one operator-only `extension<T>(ReadOnlySpan<T>)` block attach a probe-and-compose surface to a `ref struct` the assembly cannot edit — each member a list or slice pattern over the receiver, the `|` operator lifting the longer span's head into one `Option<T>` — deleting the `SpanExtensions.First<T>(this ReadOnlySpan<T>, ...)` helper class and the free `Longer(a, b)[0]` length-branch-then-index pair.
 
 Each span operator returns a value — a `[.. head, .. tail]` result cannot escape the receiver's stack scope — and the family grows by one member inside the existing block, never a new static method beside it.
 
@@ -208,11 +208,11 @@ public static class BoardOps {
 ```
 
 [STACK_KERNEL_SITE]:
-- Use when: a measured algorithm needs stack-only values, by-reference state, or span traversal that a rail combinator cannot carry without allocation, and the kernel returns ordinary values or rails at its public edge.
+- Use when: a measured algorithm needs stack-only values, by-reference state, or span traversal that a carrier combinator cannot carry without allocation, and the kernel returns ordinary values or carriers at its public edge.
 - Accept: a `ref struct` owner with a primary constructor; a `ref` field with a `scoped` lifetime; the C# 14 instance `void operator +=` that mutates that `ref` field in place, so accumulation is one member call, not a static binary operator returning a fresh value; an `allows ref struct` type parameter so one fold body admits a stack-only step; a `ref struct` implementing an interface so the bound applies without boxing; `ref` and `unsafe` inside an iterator or `async` body; statement loops confined to the kernel body.
 - Reject: boxing a stack-only value through an interface conversion, carrying a `ref struct` across `await` or `yield`, a pointer carrier where a `ref` field expresses the lifetime, and a kernel-style statement leaking into domain flow.
-- Reject: a `ref struct` operand, receiver, or method group handed to any lambda or delegate seam — an invoke helper, a `Bind`/`Map` arm, a rail lift, a `Func`-shaped builder — because closure capture is the same escape as the box; a span-backed result copies element-wise into owned storage before any delegate-taking consumer, and the fence rebuilds statement-shaped at a named seam.
-- Reject: a `ref struct` riding any generic carrier — a `ValueTuple`, `Fin`, `Option`, `Seq`, or delegate return containing a span-shaped value is CS0306 — so a pairing that must yield both a span view and a rail value exits the span through an `out` parameter or a statement seam while the rail carries the admissible half.
+- Reject: a `ref struct` operand, receiver, or method group handed to any lambda or delegate boundary — an invoke helper, a `Bind`/`Map` arm, a carrier lift, a `Func`-shaped builder — because closure capture is the same escape as the box; a span-backed result copies element-wise into owned storage before any delegate-taking consumer, and the fence rebuilds statement-shaped at a named boundary.
+- Reject: a `ref struct` riding any generic carrier — a `ValueTuple`, `Fin`, `Option`, `Seq`, or delegate return containing a span-shaped value is CS0306 — so a pairing that must yield both a span view and a result value exits the span through an `out` parameter or a statement body while the result carries the admissible half.
 - Boundary: this is the named statement exemption for the language type-system layer; the numeric route that consumes the kernel and the foreign memory the span borrows are `algorithms.md`'s and `boundaries.md`'s, never re-derived here.
 
 Form spotlight: a `ref struct PeakStep` implements `IStep<double>` so the interface bound applies with no box, its C# 14 instance `operator +=` folds each value into the `ref double` field in place where a static `operator +` returns a fresh value the loop discards, and `Frame.Fold` admits the step through an `allows ref struct` type parameter so one stack-only fold body runs without heap traffic — the `foreach` loop and the operator's two-statement body are the named statement exemption, confined to the kernel and never reached by domain flow, which receives the kernel's ordinary return value.
@@ -293,4 +293,4 @@ Run each test before keeping a local construct beside the language form that sub
 [KERNEL_REPAIR]:
 - Smell: a measured loop boxes a stack-only value through an interface conversion, threads a heap `Func<,>` accumulator, or duplicates a span path into a boxed one because the type parameter forbids a `ref struct`.
 - Collapse: bind the interface with a `ref struct` implementation, admit the step through an `allows ref struct` type parameter, and carry running state in a `scoped ref` field so the fold runs allocation-free.
-- Done when: the kernel allocates nothing per element, the `foreach` is confined to the kernel body, and the public edge returns an ordinary value or rail with no `ref struct` crossing `await` or `yield`.
+- Done when: the kernel allocates nothing per element, the `foreach` is confined to the kernel body, and the public edge returns an ordinary value or result with no `ref struct` crossing `await` or `yield`.

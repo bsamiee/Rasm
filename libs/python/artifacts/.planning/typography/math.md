@@ -2,7 +2,7 @@
 
 `Formula` owns mathematical typesetting through one closed `FormulaSpec` family. `MathMLSpec`, `LatexSpec`, and `MixedSpec` carry only the source and style axes their ziamath renderer consumes, so grammar-inapplicable combinations are absent by construction. `ziamath.Math`, `Latex`, and `Text` render against an OpenType MATH face and emit standalone SVG; explicit equation labels, upright operators, math variants, mixed alignment, rotation, line spacing, and the SVG profile stay on their owning case.
 
-`laid()` is the synchronous composition fold, `render()` its offloaded form, and `emit()` the standalone artifact entry. The provider rail carries `Fragment` unchanged through the producing fold. A reentrant lock brackets ziamath's process-global operator registry and `config.svg2`, restores the SVG profile on every exit, and makes direct `laid()` composition obey the same global-state law as the offloaded form. `MathConstants` derives every `hb.OTMathConstant` member into one frozen map and exposes common consumer names as projections; connector overlap derives for every writing direction.
+`laid()` is the synchronous composition fold, `render()` its offloaded form, and `emit()` the standalone artifact entry. The provider result carries `Fragment` unchanged through the producing fold. A reentrant lock brackets ziamath's process-global operator registry and `config.svg2`, restores the SVG profile on every exit, and makes direct `laid()` composition obey the same global-state law as the offloaded form. `MathConstants` derives every `hb.OTMathConstant` member into one frozen map and exposes common consumer names as projections; connector overlap derives for every writing direction.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@
 - Output: `Fragment` is a closed `math`/`mixed` family over shared SVG, extent, and baseline values; only `math` carries the MathML intermediate. `MathConstants.values` covers the complete provider enum, normalizes percentage rows, scales dimensional rows, and derives named projections without a parallel value roster.
 - Growth: a new source grammar is one `FormulaSpec` case and one dispatch arm; a style axis lands on its existing case payload; a new MATH constant requires no owner edit because the enum fold absorbs it; operator vocabulary grows inside `Formula.operators`.
 - Exemption: `_laid` is the provider boundary for process-global config, operator registration, parsing, and layout; its lock, `try`/`finally`, and exact exception arms own that forced mutable kernel.
-- Boundary: no plain-text shaping or outlining (`typography/shape#SHAPE`), no font engineering (`typography/font#FONT` — faces arrive engineered), no rasterization (resvg/vl-convert over the SVG at the consuming plane), no equation semantics (formulas arrive authored; CAS is the compute track), no bidi (math layout is its own directional law). A consumer importing `ziamath` directly, a per-consumer math renderer, and a hand-measured baseline offset are rejected against the one kernel and `seat()`; a nested `RuntimeRail[Result[...]]` return and a raised provider exception crossing the async edge are rejected against the one-carrier boundary migration.
+- Boundary: no plain-text shaping or outlining (`typography/shape#SHAPE`), no font engineering (`typography/font#FONT` — faces arrive engineered), no rasterization (resvg/vl-convert over the SVG at the consuming plane), no equation semantics (formulas arrive authored; CAS is the compute track), no bidi (math layout is its own directional law). A consumer importing `ziamath` directly, a per-consumer math renderer, and a hand-measured baseline offset are rejected against the one kernel and `seat()`; a nested `RuntimeResult[Result[...]]` return and a raised provider exception crossing the async edge are rejected against the one-carrier boundary migration.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -32,7 +32,7 @@ from msgspec import Struct, msgpack
 
 from rasm.artifacts.core.hooks import ArtifactsLeg, BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -227,7 +227,7 @@ class Formula(Struct, frozen=True):
         key = ContentIdentity.key("formula", _CANON.encode((self.spec, self.font, tuple(sorted(self.operators)))))
         return ArtifactWork(key=key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=0.5)
 
-    async def _emit(self, /) -> RuntimeRail[Fragment]:
+    async def _emit(self, /) -> RuntimeResult[Fragment]:
         laid = await self.render()
         settled = laid.map_error(lambda fault: BoundaryFault(domain=(MATH_RENDER.subject, fault)))
         match settled:

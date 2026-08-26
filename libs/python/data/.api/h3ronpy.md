@@ -1,6 +1,6 @@
 # [PY_DATA_API_H3RONPY]
 
-`h3ronpy` supplies the vectorized H3 discrete-global-grid surface for the data `GRID_DGGS` rail: a Rust-backed function family operating on whole Arrow arrays of `u64` cell indexes — resolution change, traversal, area, parse/format, compaction — with geometry (`h3ronpy.vector`), raster (`h3ronpy.raster`), and polars `.h3` (`h3ronpy.polars`) bridges. `data` composes these into the `GRID_DGGS` index path, cells flowing zero-copy as `arro3.core.Array`/`RecordBatch` through the Arrow/polars pipeline, the Rust `h3o` kernel owning H3 indexing.
+`h3ronpy` supplies the vectorized H3 discrete-global-grid surface for the data `GRID_DGGS` layer: a Rust-backed function family operating on whole Arrow arrays of `u64` cell indexes — resolution change, traversal, area, parse/format, compaction — with geometry (`h3ronpy.vector`), raster (`h3ronpy.raster`), and polars `.h3` (`h3ronpy.polars`) bridges. `data` composes these into the `GRID_DGGS` index path, cells flowing zero-copy as `arro3.core.Array`/`RecordBatch` through the Arrow/polars pipeline, the Rust `h3o` kernel owning H3 indexing.
 
 ## [01]-[PUBLIC_TYPES]
 

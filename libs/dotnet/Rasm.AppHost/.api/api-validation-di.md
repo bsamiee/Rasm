@@ -32,7 +32,7 @@
 [STACKING]:
 - `api-validation`(`.api/api-validation.md`): `AssemblyScanner` discovers every `AbstractValidator<T>` subtype, and each `AssemblyScanResult` carries the `InterfaceType`/`ValidatorType` pair this surface registers.
 - `api-di`(`.api/api-di.md`): each registration mints a `ServiceDescriptor` onto the `IServiceCollection` under `TryAddEnumerable`/`TryAdd` idempotency, resolved through `GetRequiredService<IValidator<T>>`.
-- within-lib: AppHost scans its boundary assembly once at composition, resolves `IValidator<T>` per policy or request record, and folds the accumulated `ValidationResult` onto the typed rail.
+- within-lib: AppHost scans its boundary assembly once at composition, resolves `IValidator<T>` per policy or request record, and folds the accumulated `ValidationResult` onto the typed result.
 
 [LOCAL_ADMISSION]:
 - AppHost scans its boundary assembly at the composition root under a `filter` admitting only boundary validators; runtime code never registers validators.

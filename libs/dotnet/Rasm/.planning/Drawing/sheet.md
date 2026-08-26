@@ -1,8 +1,8 @@
 # [RASM_SHEET]
 
-`Rasm.Drawing` owns the branch's ONE drawing-standards estate: the publishing bodies as a keyed vocabulary, the sheet series whose extents DERIVE from each standard's own formula, the frame a standard draws around a sheet — binding margin, zone module, title-block rectangle and field roster — the preferred scale ladders and the ratio value they publish, the sheet-identity and layer-name grammars of the naming standards with their host projections, the line-width, line-type, and plot-style tables, the lettering ladder and the annotation proportions that derive from it, the units-and-precision rule a scale implies, and the plot policy that binds those values into one issued sheet. Every one of those facts was hand-rolled or hardcoded per consumer — the census (`.claude/scratch/dotnet-estate/census/sheet/*.md`) counted a duplicated fifteen-row extent roster, eight authorities over one plot weight, seven bare lettering literals, four unowned grammars, and a `1:50` that existed only in a comment — and this owner is where each becomes one row, one formula, or one grammar with its consumers untouched or loudly broken.
+`Rasm.Drawing` owns the branch's ONE drawing-standards catalog: the publishing bodies as a keyed vocabulary, the sheet series whose extents DERIVE from each standard's own formula, the frame a standard draws around a sheet — binding margin, zone module, title-block rectangle and field roster — the preferred scale ladders and the ratio value they publish, the sheet-identity and layer-name grammars of the naming standards with their host projections, the line-width, line-type, and plot-style tables, the lettering ladder and the annotation proportions that derive from it, the units-and-precision rule a scale implies, and the plot policy that binds those values into one issued sheet. Every one of those facts was hand-rolled or hardcoded per consumer — the census (`.claude/scratch/dotnet-solution/census/sheet/*.md`) counted a duplicated fifteen-row extent roster, eight authorities over one plot weight, seven bare lettering literals, four unowned grammars, and a `1:50` that existed only in a comment — and this owner is where each becomes one row, one formula, or one grammar with its consumers untouched or loudly broken.
 
-Composition is downward: `ModelUnit`/`UnitSystem` from `Domain/context` carry every unit projection, `Dimension`/`PositiveMagnitude`/`UnitInterval`/`VectorAngle`/`EpsilonPolicy` from `Numerics/atoms` carry every count, magnitude, fraction, bearing, and floor, `PerceptualColor` from `Numerics/atoms` carries every plot colour, `Op`/`Fault`/`Fin`/`Validation` from `Domain/rails` carry every admission, and UnitsNet `Length` carries every extent and width INSIDE the owner — kernel measures still LEAVE as bare `double` through `In(ModelUnit)` per the branch ruling. Every literal on this page names the standard clause it transcribes; a value the standard derives is a formula row here and never a table.
+Composition is downward: `ModelUnit`/`UnitSystem` from `Domain/context` carry every unit projection, `Dimension`/`PositiveMagnitude`/`UnitInterval`/`VectorAngle`/`EpsilonPolicy` from `Numerics/atoms` carry every count, magnitude, fraction, bearing, and floor, `PerceptualColor` from `Numerics/atoms` carries every plot colour, `Op`/`Fault`/`Fin`/`Validation` from `Domain/results` carry every admission, and UnitsNet `Length` carries every extent and width INSIDE the owner — kernel measures still LEAVE as bare `double` through `In(ModelUnit)` per the branch ruling. Every literal on this page names the standard clause it transcribes; a value the standard derives is a formula row here and never a table.
 
 ## [01]-[INDEX]
 
@@ -92,8 +92,8 @@ internal static class RungLadder {
 - Entry: `SheetSize.Of` is ONE entrypoint discriminating on input SHAPE — `Of(series, index, key)` mints a rostered size (an index outside the series range refuses), `Of(width, height, standard, key)` admits a caller extent under the standard it is issued against (both extents positive, finite), and `Of(width, height, unit, standard, key)` admits a host triple through the millimetre base; `SheetSize.Validate(string)` / the generated `IParsable` `Parse` — the `[ObjectFactory<string>]` admission — read a wire key; `size.In(unit, key)` projects the portrait pair into any admitted regime; `orientation.Extent(size)` reads the pair oriented; `SheetFrame.For(size.Standard).Margin(size)` reads the standard's own frame margins (`[04]`) so a `PageFrame` composes them rather than re-authoring an inset.
 - Auto: `Halved(index)` derives every ISO and JIS extent — `(w, h)` at index n is `(floor(h_{n−1} / 2), w_{n−1})` off the root — so A4 = 210 × 297 and B5 = 176 × 250 are computed, never stored, and a new index is nothing; the ISO 216 rounding is DOWN to the whole millimetre for every halving (A1's 594.5 → 594) while the ROOT rounds to the NEAREST millimetre (A0's 840.9 → 841), which is why the root is data and the halving is the formula.
 - Law: `Key` is the ONE wire spelling — series prefix followed by index for the halving series (`a3`, `b1`, `c4`, `jis-b4`), series prefix followed by its own suffix for the declared series (`ansi-b`, `arch-d`); a `Custom` extent spells `custom-{standard}-{width}x{height}mm` at round-trip precision, so two customs differing at any bit key apart and the standard survives the wire, and it never collides with a rostered key because no series prefix begins with `custom`.
-- Law: `In` refuses typed rather than scaling silently — an unadmitted unit regime fails at `ModelUnit`, so a sheet extent never crosses a seam carrying a scale nobody admitted; the projection composes `ModelUnit.ScaleTo` off the millimetre base, and printer points (`UnitSystem.PrinterPoints`) are one more admitted regime, never a `72/25.4` constant at a consumer.
-- Packages: UnitsNet (`Length.FromMillimeters`/`FromInches`, `Millimeters`, `Inches`, `operator *(Length, double)`, `operator <=`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ObjectFactory<string>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Seq.Choose`, `Range`), System.Collections.Frozen (`FrozenDictionary`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Domain/rails` (`Op`, `Fault`, `ValidityClaim`).
+- Law: `In` refuses typed rather than scaling silently — an unadmitted unit regime fails at `ModelUnit`, so a sheet extent never crosses a boundary carrying a scale nobody admitted; the projection composes `ModelUnit.ScaleTo` off the millimetre base, and printer points (`UnitSystem.PrinterPoints`) are one more admitted regime, never a `72/25.4` constant at a consumer.
+- Packages: UnitsNet (`Length.FromMillimeters`/`FromInches`, `Millimeters`, `Inches`, `operator *(Length, double)`, `operator <=`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ObjectFactory<string>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Seq.Choose`, `Range`), System.Collections.Frozen (`FrozenDictionary`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Domain/results` (`Op`, `Fault`, `ValidityClaim`).
 - Growth: a new halving series is one row naming its root; a new declared series is one row naming its table; a new size on a declared series is one row on that table; a new unit regime is nothing.
 - Boundary: the AppUi twin roster (`Rasm.AppUi/.planning/Render/drafting.md:45-60`, fifteen rows character-identical), the Rhino free struct (`Rasm.Rhino/.planning/Exchange/sheets.md:929` `SheetSize(LengthUnit, double, double)`), the AppUi points constant (`drafting.md:71-75`), the AppUi free-token page roster (`Document/export.md:1248`), and the AppUi centimetre report pair (`export.md:217`) all DELETE and read this owner — `Custom` is the one caller-override arm the Rhino struct needed. NAMED LOSS: the fifteen per-size static members (`SheetSize.A3`) — a consumer spells `SheetSize.Of(SheetSeries.IsoA, 3)` or parses `a3`; the sizes a series admits are its `Range` and never a hand roster.
 
@@ -180,17 +180,14 @@ public abstract partial record SheetSize : IValidityEvidence {
         public SheetStandard Standard { get; }
     }
 
-    [BoundaryAdapter]
     public static Fin<SheetSize> Of(SheetSeries series, int index, Op? key = null) =>
         index >= series.Bounds.Floor && index <= series.Bounds.Ceiling
             ? Fin.Succ<SheetSize>(new Rostered(series: series, index: index))
             : Fin.Fail<SheetSize>(key.OrDefault().InvalidInput());
-    [BoundaryAdapter]
     public static Fin<SheetSize> Of(Length width, Length height, SheetStandard standard, Op? key = null) =>
         width > Length.Zero && height > Length.Zero && double.IsFinite(width.Millimeters) && double.IsFinite(height.Millimeters)
             ? Fin.Succ<SheetSize>(new Custom(width: width, height: height, standard: standard))
             : Fin.Fail<SheetSize>(key.OrDefault().InvalidInput());
-    [BoundaryAdapter]
     public static Fin<SheetSize> Of(double width, double height, ModelUnit unit, SheetStandard standard, Op? key = null) {
         Op op = key.OrDefault();
         return from scale in MillimetreScale(unit: unit, key: op)
@@ -247,7 +244,6 @@ public abstract partial record SheetSize : IValidityEvidence {
         custom: static row => string.Create(CultureInfo.InvariantCulture, $"custom-{row.Standard.Key}-{row.Width.Millimeters:R}x{row.Height.Millimeters:R}mm"));
     public bool IsValid => ValidityClaim.All(Width > Length.Zero, Height > Length.Zero);
 
-    [BoundaryAdapter]
     public Fin<(double Width, double Height)> In(ModelUnit unit, Op? key = null) =>
         MillimetreScale(unit: unit, key: key.OrDefault()).Map(scale => (Width.Millimeters * scale.Into, Height.Millimeters * scale.Into));
 }
@@ -266,7 +262,6 @@ public sealed partial class SheetMargin {
             ? null
             : new ValidationError(message: "SheetMargin requires finite non-negative insets.");
 
-    [BoundaryAdapter]
     public Fin<(double Left, double Top, double Right, double Bottom)> In(ModelUnit unit, Op? key = null) =>
         SheetSize.MillimetreScale(unit: unit, key: key.OrDefault())
             .Map(scale => (Left.Millimeters * scale.Into, Top.Millimeters * scale.Into, Right.Millimeters * scale.Into, Bottom.Millimeters * scale.Into));
@@ -405,7 +400,6 @@ public sealed partial class Revision {
         description = description.Trim();
         validationError = description.Length > 0 ? null : new ValidationError(message: "Revision requires a description.");
     }
-    [BoundaryAdapter]
     public static Fin<Revision> Of(RevisionIndex index, LocalDate date, string description, Op? key = null) =>
         key.OrDefault().AcceptValidated<Revision>(Validate(index, date, description, out Revision? revision), revision);
 }
@@ -436,7 +430,6 @@ public sealed record TitleBlock : IValidityEvidence {
     public int SheetCount { get; }
     public bool IsValid => ValidityClaim.All(Sheet >= 1, SheetCount >= Sheet, Owner.Length > 0, Title.Length > 0);
 
-    [BoundaryAdapter]
     public static Fin<TitleBlock> Of(string owner, string project, string client, string title, Option<string> supplement,
         SheetNumber number, DisciplineDesignator discipline, DrawingScale scale, DrawingUnits units,
         LocalDate date, Option<Revision> revision, string drawn, Option<string> checkedBy, Option<string> approvedBy,
@@ -556,13 +549,11 @@ public sealed partial class DrawingScale {
         int divisor = (int)System.Numerics.BigInteger.GreatestCommonDivisor(paper, model);
         (paper, model) = (paper / divisor, model / divisor);
     }
-    [BoundaryAdapter]
     public static Fin<DrawingScale> Of(int paper, int model, Op? key = null) =>
         key.OrDefault().AcceptValidated<DrawingScale>(Validate(paper, model, out DrawingScale? scale), scale);
     public double Ratio => (double)Paper / Model;
     public bool IsReduction => Paper < Model;
     public string Render(ScaleNotation notation) => notation.Render(this);
-    [BoundaryAdapter]
     public static Fin<(DrawingScale Scale, ScaleNotation Notation)> Admit(string text, Op? key = null) =>
         Admitted(text).ToFin(key.OrDefault().InvalidInput());
     private static Option<(DrawingScale Scale, ScaleNotation Notation)> Admitted(string? value) =>
@@ -673,7 +664,7 @@ public sealed partial class ScaleLadder {
 
 ## [06]-[IDENTITY]
 
-- Owner: `ContainerType` `[SmartEnum<string>]` and `ContainerRole` `[SmartEnum<string>]` — the BS EN ISO 19650-2 UK annex information-type and role vocabularies the container identifier's two-letter fields draw from; `NamingStandard` `[SmartEnum<string>]` — the sheet-identity grammars: `Ncs` (US NCS Uniform Drawing System Module 01: `{Discipline}-{SheetType}{Sequence}`, e.g. `A-101`), `Iso19650` (BS EN ISO 19650-2 UK national annex container identifier: `{Project}-{Originator}-{Volume}-{Level}-{Type}-{Role}-{Number}`, e.g. `PRJ-ORG-Z1-01-DR-A-0001`), `Simple` (the estate's own `{Prefix}{Sequence}` for sets no client standard governs); `NamingField` `[SmartEnum<string>]` — the field vocabulary the grammars sequence; `DisciplineDesignator` `[SmartEnum<string>]` — the NCS/AIA discipline letters with their titles; `SheetType` `[SmartEnum<int>]` — the NCS sheet-type digits 0-9; `SheetNumber` `[ComplexValueObject]` — the admitted identity: a standard with its ordered field values, rendered by the standard's own `Format` and parsed by its own `Parse`.
+- Owner: `ContainerType` `[SmartEnum<string>]` and `ContainerRole` `[SmartEnum<string>]` — the BS EN ISO 19650-2 UK annex information-type and role vocabularies the container identifier's two-letter fields draw from; `NamingStandard` `[SmartEnum<string>]` — the sheet-identity grammars: `Ncs` (US NCS Uniform Drawing System Module 01: `{Discipline}-{SheetType}{Sequence}`, e.g. `A-101`), `Iso19650` (BS EN ISO 19650-2 UK national annex container identifier: `{Project}-{Originator}-{Volume}-{Level}-{Type}-{Role}-{Number}`, e.g. `PRJ-ORG-Z1-01-DR-A-0001`), `Simple` (the solution's own `{Prefix}{Sequence}` for sets no client standard governs); `NamingField` `[SmartEnum<string>]` — the field vocabulary the grammars sequence; `DisciplineDesignator` `[SmartEnum<string>]` — the NCS/AIA discipline letters with their titles; `SheetType` `[SmartEnum<int>]` — the NCS sheet-type digits 0-9; `SheetNumber` `[ComplexValueObject]` — the admitted identity: a standard with its ordered field values, rendered by the standard's own `Format` and parsed by its own `Parse`.
 - Cases: `DisciplineDesignator` keys the NCS UDS Module 01 Table 1 discipline letter and carries its published `Title` · `SheetType` keys the Module 01 §4.2 designator digit 0-9 and carries its published `Title`, digits 7 and 8 being the standard's own user-defined slots · `ContainerType` keys the UK annex information-type code (`DR`, `M3`, `SP`, `CR`…) and `ContainerRole` its role letter (`A`, `S`, `M`…), so the two length-2 fields of a container identifier stop being positionally interchangeable strings; the fence spells all four rosters.
 - Entry: `SheetNumber.Of(standard, fields, key)` admits the field values against the standard's grammar through `Validation` (every field checked, every refusal reported, and an ABSENT field refusing apart from a present-but-invalid one); `SheetNumber.Parse(standard, text, key)`; `number.Text` renders through the standard's own sequence, delimiter, and fused seats; `SheetNumber.Ncs(discipline, type, sequence)` and `Iso19650(project, originator, volume, level, type, role, number)` are the typed mints over the two published grammars.
 - Law: `Delimiter` and `Fused` are the whole rendering vocabulary — one shared `Render` joins the standard's own sequence and runs the seats a standard fuses (NCS runs its sheet-type digit into the sequence number), so a format body spelling `"-"` beside a declared delimiter is the deleted form; `CaseRule` applies ONCE at admission, mirroring `LayerName`.
@@ -883,13 +874,11 @@ public sealed partial class SheetNumber {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref NamingStandard standard, ref Seq<(NamingField Field, string Value)> fields) =>
         validationError = fields.Map(static pair => pair.Field).Equals(standard.Sequence) ? null : new ValidationError(message: "SheetNumber fields must follow the standard's own sequence.");
 
-    [BoundaryAdapter]
     public static Fin<SheetNumber> Of(NamingStandard standard, Seq<(NamingField Field, string Value)> fields, Op? key = null) {
         Op op = key.OrDefault();
         Seq<(NamingField Field, string Value)> cased = fields.Map(pair => (pair.Field, standard.CaseRule(pair.Value)));
         return standard.Admit(cased, op).ToFin().Bind(admitted => op.AcceptValidated<SheetNumber>(Validate(standard, admitted, out SheetNumber? number), number));
     }
-    [BoundaryAdapter]
     public static Fin<SheetNumber> Parse(NamingStandard standard, string text, Op? key = null) =>
         standard.Parse(text).ToFin(key.OrDefault().InvalidInput()).Bind(fields => Of(standard: standard, fields: fields, key: key));
     public static Fin<SheetNumber> Ncs(DisciplineDesignator discipline, SheetType type, int sequence, Op? key = null) =>
@@ -902,10 +891,10 @@ public sealed partial class SheetNumber {
 
 ## [07]-[LAYER]
 
-- Owner: `LayerStandard` `[SmartEnum<string>]` — the layer-naming grammars as rows, each carrying its field sequence, delimiter, case rule, `Parse`, and `Format`: `Ncs` (US NCS / AIA CAD Layer Guidelines: `{Discipline}-{Major}[-{Minor}[-{Minor}]][-{Status}]`, hyphen, uppercase, discipline 1-2 letters, major and minor four letters, status one letter), `Iso13567` (ISO 13567-2: fixed-position fields — agent 2, element 6, presentation 2, status 1, sector 4, phase 1, projection 1, scale 1, work package 2, user-definable — hyphens as fillers, no delimiter), `Bs1192` (BS 1192:2007 §… `{Role}-{Classification}-{Presentation}-{Description}`, hyphen), `Estate` (the branch's own `draft-{style}[-part-{n}]` scheme absorbed as ONE row); `LayerField` `[SmartEnum<string>]` — the field vocabulary; `LayerName` `[ComplexValueObject]` — the admitted name, standard + ordered field values, `Text` rendered by the standard; `HostLayerScheme` `[SmartEnum<string>]` — the host projections: `RhinoPath` (the standard's fields become `::`-nested segments — discipline over major over minor — never a flat name with a foreign delimiter), `AutoCadFlat` (the standard's own formatted text, since DWG layer names ARE the standard's grammar), `IfcPresentation` (`IfcPresentationLayerAssignment.Name` = the formatted text), `Pdf` (an optional-content-group name).
+- Owner: `LayerStandard` `[SmartEnum<string>]` — the layer-naming grammars as rows, each carrying its field sequence, delimiter, case rule, `Parse`, and `Format`: `Ncs` (US NCS / AIA CAD Layer Guidelines: `{Discipline}-{Major}[-{Minor}[-{Minor}]][-{Status}]`, hyphen, uppercase, discipline 1-2 letters, major and minor four letters, status one letter), `Iso13567` (ISO 13567-2: fixed-position fields — agent 2, element 6, presentation 2, status 1, sector 4, phase 1, projection 1, scale 1, work package 2, user-definable — hyphens as fillers, no delimiter), `Bs1192` (BS 1192:2007 §… `{Role}-{Classification}-{Presentation}-{Description}`, hyphen), `House` (the branch's own `draft-{style}[-part-{n}]` scheme absorbed as ONE row); `LayerField` `[SmartEnum<string>]` — the field vocabulary; `LayerName` `[ComplexValueObject]` — the admitted name, standard + ordered field values, `Text` rendered by the standard; `HostLayerScheme` `[SmartEnum<string>]` — the host projections: `RhinoPath` (the standard's fields become `::`-nested segments — discipline over major over minor — never a flat name with a foreign delimiter), `AutoCadFlat` (the standard's own formatted text, since DWG layer names ARE the standard's grammar), `IfcPresentation` (`IfcPresentationLayerAssignment.Name` = the formatted text), `Pdf` (an optional-content-group name).
 - Entry: `LayerName.Of(standard, fields, key)` (Validation over every field); `LayerName.Parse(standard, text, key)`; `name.Text`; `HostLayerScheme.X.Project(name)`; `LayerStandard.Ncs.Status` rows (N new, E existing, D demolish, F future, T temporary, M to be moved, X abandoned).
 - Law: parsing takes the standard EXPLICITLY (a hyphenated raw string is ambiguous across NCS and BS 1192 — the same reason `SheetNumber` carries none), and the Rhino `::` path is a PROJECTION of the fields, never the storage form; a consumer that stored `Parent::Child` re-parses through `RhinoPath.Unproject`.
-- Law: the estate's `draft-{style}` scheme is a `LayerStandard` row and never a string interpolation at a consumer; its part ordinal is a FIELD (`Part`) rather than a `-part-{n}` suffix an interpolation cannot parse back.
+- Law: the solution's `draft-{style}` scheme is a `LayerStandard` row and never a string interpolation at a consumer; its part ordinal is a FIELD (`Part`) rather than a `-part-{n}` suffix an interpolation cannot parse back.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Validation`), Rasm.Domain.
 - Growth: a naming standard is one row naming its sequence and, where fixed-position, its slot widths; a field is one row; a host projection is one row.
 - Boundary: the four unrelated senses of "layer" — CAD layer (this owner), per-element visibility override (AppUi `VisibilityOverride`), analysis result layer (AppUi `ResultLayer`), IFC material ply (`Rasm.Element` `MaterialLayer`) — are NOT one concept and this owner names none of the other three; Rhino `LayerName`/`LayerPath` (`Document/layers.md:38-93`), Rhino `DwgWriteCase.FullLayerPath`/`ColorMethod` decisions, AppUi `Role(style)`/`-part-{p}`/`"draft-annotation"` all compose this owner and delete their grammar; the layer-state facet store and per-view overrides stay at Rhino.
@@ -1006,7 +995,7 @@ public sealed partial class LayerStandard {
         parse: static text => text.Split('-', 4) is { Length: >= 3 } parts
             ? Some(toSeq(Seq(LayerField.Role, LayerField.Classification, LayerField.Presentation, LayerField.Description).Take(parts.Length)).Zip(toSeq(parts)).Map(static pair => (pair.Item1, pair.Item2)))
             : None);
-    public static readonly LayerStandard Estate = new(key: "estate", body: PublishingBody.Iso, delimiter: "-", caseRule: static text => text.ToLowerInvariant(),
+    public static readonly LayerStandard House = new(key: "house", body: PublishingBody.Iso, delimiter: "-", caseRule: static text => text.ToLowerInvariant(),
         sequence: Seq(LayerField.Prefix, LayerField.Style, LayerField.Part),
         required: Seq(LayerField.Prefix, LayerField.Style), slots: Seq<(LayerField, int)>(),
         admit: static (fields, key) => Fields(fields, key,
@@ -1061,13 +1050,11 @@ public sealed partial class LayerName {
             : new ValidationError(message: "LayerName requires every required field of its standard, in its sequence, and no field outside it.");
         fields = ordered;
     }
-    [BoundaryAdapter]
     public static Fin<LayerName> Of(LayerStandard standard, Seq<(LayerField Field, string Value)> fields, Op? key = null) {
         Op op = key.OrDefault();
         Seq<(LayerField Field, string Value)> cased = fields.Map(pair => (pair.Field, standard.CaseRule(pair.Value)));
         return standard.Admit(cased, op).ToFin().Bind(admitted => op.AcceptValidated<LayerName>(Validate(standard, admitted, out LayerName? name), name));
     }
-    [BoundaryAdapter]
     public static Fin<LayerName> Parse(LayerStandard standard, string text, Op? key = null) =>
         standard.Parse(text).ToFin(key.OrDefault().InvalidInput()).Bind(fields => Of(standard: standard, fields: fields, key: key));
     public string Text => Standard.Render(Fields);
@@ -1249,9 +1236,7 @@ public abstract partial record PlotStyleKey {
     private PlotStyleKey() { }
     public sealed record Indexed : PlotStyleKey { internal Indexed(AciIndex index) => Index = index; public AciIndex Index { get; } }
     public sealed record Named : PlotStyleKey { internal Named(StyleName name) => Name = name; public StyleName Name { get; } }
-    [BoundaryAdapter]
     public static Fin<PlotStyleKey> Of(int index, Op? key = null) => AciIndex.Of(value: index, key: key).Map(static seat => (PlotStyleKey)new Indexed(index: seat));
-    [BoundaryAdapter]
     public static Fin<PlotStyleKey> Of(string name, Op? key = null) => StyleName.Of(value: name, key: key).Map(static seat => (PlotStyleKey)new Named(name: seat));
     public string Text => Switch(indexed: static row => row.Index.Value.ToString(CultureInfo.InvariantCulture), named: static row => row.Name.Value);
 }
@@ -1263,7 +1248,6 @@ public sealed partial class PlotStyle {
     public LineWidth Width { get; }
     public PerceptualColor Colour { get; }
     public UnitInterval Screening { get; }
-    [BoundaryAdapter]
     public static Fin<PlotStyle> Of(PlotStyleKey key, LineWidth width, UnitInterval screening, Option<PerceptualColor> colour = default, Op? op = null) =>
         op.OrDefault().AcceptValidated<PlotStyle>(Validate(key, width, colour.IfNone(width.Pen.Ink), screening, out PlotStyle? style), style);
 }
@@ -1292,11 +1276,11 @@ public abstract partial record PlotStyleTable {
 
 - Owner: `TextHeight` `[SmartEnum<string>]` — the ISO 3098-1 lettering-height ladder (1.8, 2.5, 3.5, 5, 7, 10, 14, 20 mm — the √2 series from 1.8 rounded to R20 preferred numbers, ISO 3098-1 §5), with `For(size)` folding the standard's own minimum-height rungs (ISO 3098-1 §5.2 / ASME Y14.2 §4: 2.5 mm minimum to A2, 3.5 mm above; 0.12 in on ANSI A-C, 0.16 in on D-E) and `For(Length)` snapping a free height through the shared rung ladder; `LetteringForm` `[SmartEnum<string>]` — Type A (line width h/14) and Type B (h/10), vertical or 15° italic, each carrying its own pitch and lower-case ratios (ISO 3098-1 §4, Table 1); `DraftingMetrics` — every proportion ISO 3098-1 Table 1 and the annotation standards derive from h and d, lettering and annotation being ONE member set under two subsection labels; `Terminator` `[SmartEnum<string>]` — the ISO 129-1 dimension terminators (closed/open arrowhead at 15° or 30°, oblique stroke, dot, origin circle) sized as multiples of d; `DatumRegime` `[SmartEnum<string>]` and `ZoneModifier` `[SmartEnum<string>]` — the tri-valued datum dependence each characteristic carries and the diameter and material-condition glyphs its tolerance-zone compartment takes.
 - Entry: `TextHeight.For(size, key)`, `TextHeight.For(height, key)`; `form.Metrics(height)` → `DraftingMetrics` with `CentreMark(diameter)`; `Terminator.X.Size(width)`; `DatumDesignator.Of(primary, secondary, key)` / `Validate("A-B")`; `SymbolSet.For(standard)` with `Admits(characteristic)` and `Rows`; `ZoneModifier.Items` for the compartment glyphs.
-- Law: a bare lettering millimetre literal reads a `TextHeight` row — the seven AppUi literals (`3d` × 5, `2.5d`, `6d`) and the Rhino `StyleField.TextHeight` schema row without a value are what this closes; the GD&T frame height is `2h` DERIVED, never `6d` beside `3d`; every proportion names the clause it transcribes or states the estate convention it is, and a proportion whose standard sizes it off another feature takes that feature as an ARGUMENT rather than dropping the axis.
+- Law: a bare lettering millimetre literal reads a `TextHeight` row — the seven AppUi literals (`3d` × 5, `2.5d`, `6d`) and the Rhino `StyleField.TextHeight` schema row without a value are what this closes; the GD&T frame height is `2h` DERIVED, never `6d` beside `3d`; every proportion names the clause it transcribes or states the solution convention it is, and a proportion whose standard sizes it off another feature takes that feature as an ARGUMENT rather than dropping the axis.
 - Law: datum dependence is TRI-valued — a form tolerance takes no datum, an orientation or location tolerance requires one, and a profile tolerance is legally either — so `DatumRegime` rows carry the admission and a `bool` stranding the third case is the deleted form.
 - Packages: UnitsNet (`Length`), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`, `Option`), System.Collections.Frozen (`FrozenDictionary`), `Numerics/atoms` (`VectorAngle` — radian value object; degree literals enter through `double.DegreesToRadians`).
 - Growth: a height is one row; a form is one row carrying its own ratios; a proportion is one derived member; a datum regime, a characteristic, or a zone modifier is one row carrying its consequence.
-- Boundary: the drafting FACE (the letterform family a host installs) resolves at the host — Rhino `FaceQuery` and AppUi's shaping rail — under a `LetteringForm` row; this page names the standard's form and never a font file; the OS UI roster (`TypeRole`) is not a drafting face and a plotted sheet never reads it.
+- Boundary: the drafting FACE (the letterform family a host installs) resolves at the host — Rhino `FaceQuery` and AppUi's shaping owner — under a `LetteringForm` row; this page names the standard's form and never a font file; the OS UI roster (`TypeRole`) is not a drafting face and a plotted sheet never reads it.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -1400,7 +1384,6 @@ public sealed partial class DatumDesignator {
             ? null
             : new ValidationError(message: "DatumDesignator admits one ISO 5459 letter or a common-datum pair (A-B); I, O, Q excluded.");
     private static bool Letter(char glyph) => glyph is (>= 'A' and <= 'Z') and not 'I' and not 'O' and not 'Q';
-    [BoundaryAdapter]
     public static Fin<DatumDesignator> Of(char primary, Option<char> secondary = default, Op? key = null) =>
         key.OrDefault().AcceptValidated<DatumDesignator>(Validate(primary, secondary, out DatumDesignator? datum), datum);
     public bool IsCommon => Secondary.IsSome;
@@ -1650,7 +1633,6 @@ public sealed record PlotPolicy : IValidityEvidence {
     public CapabilitySet<PdfTrait> Conformance { get; }
     public bool IsValid => Size.IsValid;
 
-    [BoundaryAdapter]
     public static Fin<PlotPolicy> Of(SheetSize size, SheetOrientation orientation, DrawingScale scale, PlotPosture posture,
         PlotResolution resolution, LayerEmission emission, CapabilitySet<PdfTrait> conformance,
         Option<PlotStyleTable> styles = default, Op? key = null) {
@@ -1671,7 +1653,6 @@ public sealed record PlotPolicy : IValidityEvidence {
                 styles: styles, posture: posture, resolution: resolution, emission: emission, conformance: traits))
             .As().ToFin();
     }
-    [BoundaryAdapter]
     public static Fin<PlotPolicy> Issue(SheetSize size, Op? key = null) {
         IssuePosture convention = IssuePosture.For(size.Standard);
         return Of(size: size, orientation: convention.Orientation, scale: ScaleLadder.For(size.Standard).Nearest(convention.Scale),

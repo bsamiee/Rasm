@@ -6,20 +6,20 @@
 
 [PUBLIC_TYPE_SCOPE]: transport, client, and message family
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                                           |
-| :-----: | :---------------------------------------------- | :------------ | :--------------------------------------------------------------------- |
-|  [01]   | `HTTPTransport`                                 | final class   | async reqwest transport; TLS, mTLS, proxy, pool, version ctor knobs    |
-|  [02]   | `Transport`                                     | protocol      | `execute(request) -> Awaitable[Response]`, the seam a middleware wraps |
-|  [03]   | `Client`                                        | class         | async request issuer over one `Transport`; `connectrpc` injects it     |
-|  [04]   | `Request` / `Response` / `FullResponse`         | class         | method, url, `Headers`, streamed or buffered content, `trailers`       |
-|  [05]   | `Headers`                                       | multimap      | case-insensitive mutable headers; `add` / `getall` keep repeats        |
-|  [06]   | `HTTPVersion`                                   | value         | ordered HTTP version the transport pins or ALPN negotiates             |
-|  [07]   | `Proxy`                                         | class         | proxy `url` with `auth`, `headers`, and routing rules                  |
-|  [08]   | `SyncHTTPTransport` / `SyncClient`              | class         | the sync twins behind `ConnectClientSync`; `close` releases            |
-|  [09]   | `ReadError` / `WriteError` / `TooManyRedirects` | exception     | transport-leg refusals the client lifts into `ConnectError` codes      |
-|  [10]   | `middleware.retry.RetryTransport`               | class         | SECOND retry schedule wrapping a `Transport`; refused, see the law     |
-|  [11]   | `middleware.retry.SyncRetryTransport`           | class         | its `SyncTransport` twin over the same schedule                        |
-|  [12]   | `middleware.retry.RetryMode`                    | `Enum`        | `BUFFERED` / `UNBUFFERED` — whether a streamed body survives a re-send |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                                         |
+| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `HTTPTransport`                                 | final class   | async reqwest transport; TLS, mTLS, proxy, pool, version ctor knobs  |
+|  [02]   | `Transport`                                     | protocol      | `execute(request) -> Awaitable[Response]`, the middleware boundary   |
+|  [03]   | `Client`                                        | class         | async request issuer over one `Transport`; `connectrpc` injects it   |
+|  [04]   | `Request` / `Response` / `FullResponse`         | class         | method, url, `Headers`, streamed or buffered content, `trailers`     |
+|  [05]   | `Headers`                                       | multimap      | case-insensitive mutable headers; `add` / `getall` keep repeats      |
+|  [06]   | `HTTPVersion`                                   | value         | ordered HTTP version the transport pins or ALPN negotiates           |
+|  [07]   | `Proxy`                                         | class         | proxy `url` with `auth`, `headers`, and routing rules                |
+|  [08]   | `SyncHTTPTransport` / `SyncClient`              | class         | the sync twins behind `ConnectClientSync`; `close` releases          |
+|  [09]   | `ReadError` / `WriteError` / `TooManyRedirects` | exception     | transport-leg refusals the client lifts into `ConnectError` codes    |
+|  [10]   | `middleware.retry.RetryTransport`               | class         | SECOND retry schedule wrapping a `Transport`; refused, see the law   |
+|  [11]   | `middleware.retry.SyncRetryTransport`           | class         | its `SyncTransport` twin over the same schedule                      |
+|  [12]   | `middleware.retry.RetryMode`                    | `Enum`        | `BUFFERED` / `UNBUFFERED` — whether a streamed body survives re-send |
 
 `pyqwest.middleware` exports `retry` alone, whose `RetryTransport(transport, initial_interval=0.5, randomization_factor=0.5, multiplier=1.5, max_interval=60.0, max_retries=4)` carries a complete jittered-exponential curve, a `Retry-After` reader over both the seconds and HTTP-date forms, and a transient predicate re-driving `ConnectionError`, `429`, and `5xx` other than `501` on `GET`/`HEAD`/`PUT`/`DELETE` alone.
 
@@ -53,9 +53,9 @@
 
 [TOPOLOGY]:
 - `HTTPTransport` owns sockets and pools; `Client` and `ConnectClient` hold no resource of their own, so whoever constructs the transport owns its `aclose`.
-- `Transport` is a protocol, so a middleware or test double wraps `execute` and the client never learns it; `pyqwest.testing` and `pyqwest.middleware` ride that seam.
+- `Transport` is a protocol, so a middleware or test double wraps `execute` and the client never learns it; `pyqwest.testing` and `pyqwest.middleware` ride that boundary.
 - transport-leg raises (`ReadError`, `WriteError`, `TooManyRedirects`, a connect timeout) surface through the `connectrpc` client as `ConnectError`, never bare past the dial.
-- `middleware.retry` is a SECOND retry owner on exactly the seam `connectrpc` dials through: `RetryTransport` wraps a `Transport` and re-drives beneath the client, so a schedule stacked there multiplies the enclosing `RetryClass` attempt count and widens the idempotency window every re-drive already opened. Its `RetryMode` names what a stream costs — `BUFFERED` holds the whole request body in memory to make a re-send possible, `UNBUFFERED` re-drives connection errors alone — and its `Retry-After` reader duplicates the throttle window the resilience owner's own probe already lifts onto a `throttled` verdict.
+- `middleware.retry` is a SECOND retry owner on exactly the boundary `connectrpc` dials through: `RetryTransport` wraps a `Transport` and re-drives beneath the client, so a schedule stacked there multiplies the enclosing `RetryClass` attempt count and widens the idempotency window every re-drive already opened. Its `RetryMode` names what a stream costs — `BUFFERED` holds the whole request body in memory to make a re-send possible, `UNBUFFERED` re-drives connection errors alone — and its `Retry-After` reader duplicates the throttle window the resilience owner's own probe already lifts onto a `throttled` verdict.
 - Retry deadlines do NOT bound an in-flight read: `stamina`'s `timeout` lowers to a `stop_after_delay` STOP condition evaluated BETWEEN attempts, so a hung read under an unset `read_timeout` outlives every `RetryClass` budget — the transport row carries the one wire deadline, and a retry schedule substitutes for it nowhere.
 
 [STACKING]:

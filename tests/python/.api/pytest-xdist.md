@@ -1,6 +1,6 @@
 # [PY_TESTS_API_PYTEST_XDIST]
 
-`pytest-xdist` shards one pytest session across worker subprocesses, each a full interpreter running an assigned slice of the collected tests. It drives the estate's parallel lane deliberately out of the default run: `-n` never enters `addopts` because pytest-benchmark measurement and parallel execution stay in separate sessions, so a parallel run is an explicit opt-in that carries its own scheduling and worker-restart policy.
+`pytest-xdist` shards one pytest session across worker subprocesses, each a full interpreter running an assigned slice of the collected tests. It drives the repo's parallel lane deliberately out of the default run: `-n` never enters `addopts` because pytest-benchmark measurement and parallel execution stay in separate sessions, so a parallel run is an explicit opt-in that carries its own scheduling and worker-restart policy.
 
 ## [01]-[PUBLIC_TYPES]
 

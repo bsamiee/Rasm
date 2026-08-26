@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-- Registers the `Eto.Drawing` paint algebra (`libs/dotnet/.api/api-eto-drawing.md`): `Graphics` with its transform and clip stacks, `GraphicsPath`/`IGraphicsPath`, the brush, pen, and dash family, `Color` and its space projections, `Font`/`FormattedText` layout, `Matrix` composition, `Bitmap`/`BitmapData`/`Image`, and the `Drawable` paint seam carry their algebra there and this boundary draws through that spelling; the rows below are the carriers this partition adds beyond it.
+- Registers the `Eto.Drawing` paint algebra (`libs/dotnet/.api/api-eto-drawing.md`): `Graphics` with its transform and clip stacks, `GraphicsPath`/`IGraphicsPath`, the brush, pen, and dash family, `Color` and its space projections, `Font`/`FormattedText` layout, `Matrix` composition, `Bitmap`/`BitmapData`/`Image`, and the `Drawable` paint hook carry their algebra there and this boundary draws through that spelling; the rows below are the carriers this partition adds beyond it.
 
 [PUBLIC_TYPE_SCOPE]: composite clip and palette-indexed raster
 
@@ -34,7 +34,7 @@
 - `ColorStyles` governs hex egress only — a swatch value reads from the branch colour surface or `SystemColors`, never from a hex round trip.
 
 [STACKING]:
-- `api-eto-drawing`(`libs/dotnet/.api/api-eto-drawing.md`): the paint algebra every row here decorates — a `Region` enters the branch clip stack, and an `IndexedBitmap` projects to the branch raster at the blit edge; the `Icon`/`IconFrame` projection pair carries its rows there, composed through the kernel asset estate rather than this boundary.
+- `api-eto-drawing`(`libs/dotnet/.api/api-eto-drawing.md`): the paint algebra every row here decorates — a `Region` enters the branch clip stack, and an `IndexedBitmap` projects to the branch raster at the blit edge; the `Icon`/`IconFrame` projection pair carries its rows there, composed through the kernel asset module rather than this boundary.
 - `api-eto-forms`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-forms.md`): the control lifecycle raises the paint event whose `Graphics` this boundary draws through.
 - `api-eto-platform`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-platform.md`): the managed paint objects back onto CoreGraphics through the `Eto.Mac.Drawing` handler set; a curved-stroke or text-state operation the managed path leaves ambiguous resolves on the `api-macos-native` `CGPath`/`CATextLayer` branch under platform gate.
 - `api-thinktecture-runtime-extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): `ColorStyles` and `SystemFont` map onto `[SmartEnum]` and flag owners so an egress policy or a semantic font role carries behaviour rather than a bare host enum switch.

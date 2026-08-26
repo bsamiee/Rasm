@@ -191,7 +191,7 @@ def main() -> int:
             return 0
         command, cwd = str(payload["tool_input"]["command"]), str(payload["cwd"])
         reason = _refusal(command, cwd)
-    except Exception as failure:  # ruff:ignore[blind-except] -- a gate fail-closed seam must be total, never a tuple
+    except Exception as failure:  # ruff:ignore[blind-except] -- a gate fail-closed boundary must be total, never a tuple
         reason = "" if command and not _GIT_WORD.search(command) else f"the payload or command cannot be parsed ({failure})"
     if reason:
         sys.stderr.write(f"git-guard: {_CTRL.sub(' ', reason)}. {_ADVICE}\n")

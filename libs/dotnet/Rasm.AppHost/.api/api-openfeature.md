@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_OPENFEATURE]
 
-`OpenFeature` owns config-backed flag evaluation for the AppHost features rail: a process-singleton `Api` binds one `InMemoryProvider` per domain, and each `Flag<T>` folds a variant map and a context evaluator for sticky bucketing into typed results. Provider failures surface as `ErrorType` on the result, never as thrown exceptions across the client boundary.
+`OpenFeature` owns config-backed flag evaluation for the AppHost features subsystem: a process-singleton `Api` binds one `InMemoryProvider` per domain, and each `Flag<T>` folds a variant map and a context evaluator for sticky bucketing into typed results. Provider failures surface as `ErrorType` on the result, never as thrown exceptions across the client boundary.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -128,7 +128,7 @@
 
 [STACKING]:
 - `Microsoft.Extensions.Configuration`(`.api/api-config.md`): the config source chain binds each `Flag<T>` variant row and the targeting-rule order, so a flag edit is one config transition rather than a parallel store.
-- `Runtime/features.md` `FlagCompilation`: folds every config `FlagDefinition` into one `Flag<Value>` carrying the `XxHash3` bucketing `Func<EvaluationContext, string>`, registers one `InMemoryProvider` per domain through `SetProviderAsync`, and projects each `Get<Type>DetailsAsync` result onto the canonical `FlagVerdict` seam.
+- `Runtime/features.md` `FlagCompilation`: folds every config `FlagDefinition` into one `Flag<Value>` carrying the `XxHash3` bucketing `Func<EvaluationContext, string>`, registers one `InMemoryProvider` per domain through `SetProviderAsync`, and projects each `Get<Type>DetailsAsync` result onto the canonical `FlagVerdict` shape.
 
 [LOCAL_ADMISSION]:
 - One `InMemoryProvider` per domain registers at AppHost composition through `SetProviderAsync`, sourced from configuration-defined `Flag<T>` rows.

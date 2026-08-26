@@ -8,15 +8,15 @@
 
 [PUBLIC_TYPE_SCOPE]: the document, its root, and the IO shapes
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]  | [CAPABILITY]                                |
-| :-----: | :-------------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `Document`                        | graph owner    | the whole asset; every property mints here  |
-|  [02]   | `Root`                            | property index | lists every property family in the asset    |
-|  [03]   | `JSONDocument`                    | IO record      | `{ json, resources }` — glTF plus its files |
-|  [04]   | `PlatformIO`                      | abstract IO    | read/write over an injected host            |
-|  [05]   | `NodeIO` / `WebIO` / `DenoIO`     | IO hosts       | fs, fetch, and Deno bindings                |
-|  [06]   | `Transform` / `TransformContext`  | fold shape     | `(doc, context?) => void`                   |
-|  [07]   | `Extension` / `ExtensionProperty` | extension seam | the base every extension package extends    |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]   | [CAPABILITY]                                |
+| :-----: | :-------------------------------- | :-------------- | :------------------------------------------ |
+|  [01]   | `Document`                        | graph owner     | the whole asset; every property mints here  |
+|  [02]   | `Root`                            | property index  | lists every property family in the asset    |
+|  [03]   | `JSONDocument`                    | IO record       | `{ json, resources }` — glTF plus its files |
+|  [04]   | `PlatformIO`                      | abstract IO     | read/write over an injected host            |
+|  [05]   | `NodeIO` / `WebIO` / `DenoIO`     | IO hosts        | fs, fetch, and Deno bindings                |
+|  [06]   | `Transform` / `TransformContext`  | fold shape      | `(doc, context?) => void`                   |
+|  [07]   | `Extension` / `ExtensionProperty` | extension point | the base every extension package extends    |
 
 [PUBLIC_TYPE_SCOPE]: the property families the graph holds
 

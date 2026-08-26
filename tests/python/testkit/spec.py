@@ -1,4 +1,4 @@
-"""Pure assertion oracles for algebraic, matrix, rail, and stateful laws."""
+"""Pure assertion oracles for algebraic, matrix, Result, and stateful laws."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
@@ -105,8 +105,8 @@ def _num_close(a: _Numeric, b: _Numeric, rel_tol: float, abs_tol: float) -> bool
     return abs(fa - fb) <= max(rel_tol * max(abs(fa), abs(fb)), abs_tol)
 
 
-def _rail_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
-    """Compare two rail carriers: matching tags recurse into the payload slot; tag drift reports the arm."""
+def _result_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
+    """Compare two Result/Option carriers: matching tags recurse into the payload slot; tag drift reports the arm."""
     match (a, b):
         case (Result(tag="ok", ok=left), Result(tag="ok", ok=right)):
             return _diverge(left, right, rel_tol, abs_tol, f"{path}.ok")
@@ -117,7 +117,7 @@ def _rail_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: st
         case (Option(tag="none"), Option(tag="none")):
             return None
         case _:
-            return f"{path}: rail tags differ: {a!r} != {b!r}"
+            return f"{path}: result tags differ: {a!r} != {b!r}"
 
 
 def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
@@ -141,7 +141,7 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
                 return f"{path}: units {qty_a.units!r} != {qty_b.units!r}"
             return _diverge(qty_a.magnitude, qty_b.magnitude, rel_tol, abs_tol, f"{path}.magnitude")
         case (Result(), Result()) | (Option(), Option()):
-            return _rail_diverge(a, b, rel_tol, abs_tol, path)
+            return _result_diverge(a, b, rel_tol, abs_tol, path)
         case (Block(), Block()):
             return _diverge(tuple(a), tuple(b), rel_tol, abs_tol, path)
         case (msgspec.Struct(), msgspec.Struct()) if type(a) is type(b):
@@ -168,7 +168,7 @@ def close(*, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> Callable[[object, o
     """Mint a tolerance equality policy for the ``eq`` slot of any algebraic oracle.
 
     One structural dispatch owns every data shape: numbers (NaN pairs and matching infinities close), arrays, quantity
-    values, structs, dataclasses, ``Result``/``Option`` rails, ``Block`` collections, mappings, and sequences.
+    values, structs, dataclasses, ``Result``/``Option`` values, ``Block`` collections, mappings, and sequences.
     """
     return lambda a, b: _diverge(a, b, rel_tol, abs_tol, "$") is None
 

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_ZSTANDARD]
 
-`zstandard` owns the Zstandard codec on the artifacts compression rail: the `ZstdCompressor`/`ZstdDecompressor` roots, `ZstdCompressionDict` COVER dictionaries, `ZstdCompressionParameters` advanced tuning, a `FrameParameters` header view, and the zero-copy batch carriers over native libzstd. It is the archival default: the `package/codec#CODEC` `ZSTD` arm routes high-ratio single-blob and COVER-dictionary small-payload classes here, every other class routing to its own codec on the shared `CompressionAlgo` discriminant.
+`zstandard` owns the Zstandard codec on the artifacts compression domain: the `ZstdCompressor`/`ZstdDecompressor` roots, `ZstdCompressionDict` COVER dictionaries, `ZstdCompressionParameters` advanced tuning, a `FrameParameters` header view, and the zero-copy batch carriers over native libzstd. It is the archival default: the `package/codec#CODEC` `ZSTD` arm routes high-ratio single-blob and COVER-dictionary small-payload classes here, every other class routing to its own codec on the shared `CompressionAlgo` discriminant.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -100,13 +100,13 @@
 - dictionary: `ZstdCompressionDict(data, dict_type=)` from `train_dictionary` (COVER; `k`/`d`/`steps`/`accel` tune) is the small-payload win, passed `dict_data=` on either root; `precompute_compress` caches compression-side state for a hot repeated-compress loop; a worker-subprocess lane crosses the dict as `as_bytes()` and rehydrates at codec scope, never the unpicklable native handle.
 - parameter: `ZstdCompressionParameters.from_level(level, *, source_size, dict_size, **overrides)` derives a full set and overrides any field, passed `compression_params=` and never beside `level=` on one `ZstdCompressor` (mutually exclusive). Zero-valued log/length overrides replace the level-derived value and resolve as context default against `compression_level=3`, compressing worse than the level alone, so a knob whose `0` means "level-derived" is withheld, never forwarded.
 - frame: `get_frame_parameters`/`frame_content_size`/`frame_header_size` inspect a header without decode; `frame_content_size` returns `-1` for an undeclared size and raises `ZstdError` on a malformed header, so the guard compares `-1`/the caller ceiling, never the `CONTENTSIZE_*` constants; `FORMAT_ZSTD1_MAGICLESS` strips the 4-byte magic and must match on both roots; `decompressobj(read_across_frames=False)` with `unused_data` walks concatenated self-delimiting frames.
-- abi: `backend` is `'cext'` or `'cffi'`; the batch-buffer carriers and `multi_*_to_buffer` bind only when `backend_features` advertises them under `cext`, while the streaming/one-shot/incremental/chunked rails are present under both.
+- abi: `backend` is `'cext'` or `'cffi'`; the batch-buffer carriers and `multi_*_to_buffer` bind only when `backend_features` advertises them under `cext`, while the streaming/one-shot/incremental/chunked forms are present under both.
 - bomb: every recovery is bounded by the declared-size guard (`frame_content_size` against the owner ceiling), `decompress(max_output_size=)`, and the decompressor `max_window_size`, never a post-hoc size check on unbounded output.
 
 [STACKING]:
 - `msgspec`(`.api/msgspec.md`): the boundary encodes the canonical payload via `msgspec.msgpack.encode`, then a `level`/`threads`-tuned `ZstdCompressor` compresses the buffer.
 - `anyio`(`.api/anyio.md`): the GIL-releasing codec body runs off the event loop through `anyio.to_thread.run_sync` under a shared `CapacityLimiter`, never inline on the loop.
-- `expression`(`.api/expression.md`): the `stamina`-retried producing call lifts onto `expression.Result[bytes, ArtifactError]`, a `ZstdError` becoming an `Error` case at the seam rather than a raised exception crossing the owner.
+- `expression`(`.api/expression.md`): the `stamina`-retried producing call lifts onto `expression.Result[bytes, ArtifactError]`, a `ZstdError` becoming an `Error` case at the boundary rather than a raised exception crossing the owner.
 - `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each call stamps an event and span carrying `level`, `dict_id`, `frame_content_size`, the `threads`/`format`/`write_checksum` flags, byte lengths, and the `frame_progression()` produced count.
 
 [LOCAL_ADMISSION]:

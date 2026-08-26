@@ -49,9 +49,9 @@
 - `openepd`(`.api/openepd.md`): epdx parses ILCD+EPD while openepd models OpenEPD/EC3 — the impact owner normalizes both external formats onto one EN 15804 carrier, epdx covering the ECO Platform / Ökobau / soda4LCA ILCD side.
 - `bw2io`(`.api/bw2io.md`) / `olca-ipc`(`.api/olca-ipc.md`): ILCD is openLCA's native exchange, so a parsed indicator set maps onto a Brightway database through a `bw2io` strategy or an openLCA process through `olca-ipc`.
 - `bw2calc`(`.api/bw2calc.md`): a parsed `gwp` reconciles against a `bw2calc`-characterized `score` — the engine recomputes what the EPD asserts.
-- `pydantic`(`../../.api/pydantic.md`): the `EPD`/`ImpactCategory` models drop onto the data-contract rail for boundary validation; coerce the decoded `dict` straight to the typed `EPD` result.
+- `pydantic`(`../../.api/pydantic.md`): the `EPD`/`ImpactCategory` models drop onto the data-contract domain for boundary validation; coerce the decoded `dict` straight to the typed `EPD` result.
 - `msgspec`(`../../.api/msgspec.md`): re-encode the decoded `dict` at the wire when a non-Pydantic carrier is wanted.
-- impact owner (within-lib): `EPD(**json.loads(convert_ilcd(doc)))` is the typed ingest the material-impact owner reasons over; flatten the indicator × stage matrix into a `pandas`/`polars` frame for the profile rail and cross-EPD comparison, and key a parsed `EPD` by the runtime `ContentIdentity` over `id` + `published_date` + `version` for reuse-ledger dedup.
+- impact owner (within-lib): `EPD(**json.loads(convert_ilcd(doc)))` is the typed ingest the material-impact owner reasons over; flatten the indicator × stage matrix into a `pandas`/`polars` frame for the profile domain and cross-EPD comparison, and key a parsed `EPD` by the runtime `ContentIdentity` over `id` + `published_date` + `version` for reuse-ledger dedup.
 
 [LOCAL_ADMISSION]:
-- `epdx` is the sole ILCD+EPD document normalizer on the impact rail; a folder composing it registers `epdx` in the branch manifest and this catalog.
+- `epdx` is the sole ILCD+EPD document normalizer on the impact domain; a folder composing it registers `epdx` in the branch manifest and this catalog.

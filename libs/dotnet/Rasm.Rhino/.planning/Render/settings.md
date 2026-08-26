@@ -5,19 +5,19 @@
 - [02]-[SOURCE]: `SettingsSource` — the origin union with its `Use` read and `Mutate` undo-bracketed borrow folds.
 - [03]-[STATE_RECORDS]: the `SubOwners` custody window, the capability vocabularies, the writable sub-owner states, derived evidence, and `RenderConfig`.
 - [04]-[SUN_ASTRONOMY]: `SunProblem`/`SunSolution`/`SunSolver` over the host statics, beside the `SolarFrame`/`SunDerivation`/`SceneSun` descriptor band.
-- [05]-[EDIT_RAIL]: `SettingsBody`, `RenderState`, and the `Settings.Run` request/result rail.
+- [05]-[EDIT_PIPELINE]: `SettingsBody`, `RenderState`, and the `Settings.Run` request/result pipeline.
 - [06]-[AMBIENT_WATCH]: `AmbientPulse` and the `Changed`-broadcast fold over a bounded ring.
 - [07]-[SURFACE_LEDGER]: page owner table.
 
 ## [02]-[SOURCE]
 
 - Owner: `SettingsSource` `[Union]` — `Live` resolves `RhinoDoc.RenderSettings` inside a `Demand` window, `Archived` resolves the archive-bound `File3dm.Settings.RenderSettings`, and `Free` mints one owned free-floating `RenderSettings` retained until source disposal; `Use` borrows the selected aggregate for exactly one read callback, and `Mutate` borrows it for exactly one mutation callback — the live arm demanding `Mutate`+`Undo` and opening one named `UndoBracket`.
-- Law: the origin is the discriminant a consumer carries — the same `GroundPlane` type is document-bound, archive-attached, or free-floating by the host's internal pointer resolution, so no parallel type pair exists on this side of the seam and no live sub-owner leaves the borrow.
+- Law: the origin is the discriminant a consumer carries — the same `GroundPlane` type is document-bound, archive-attached, or free-floating by the host's internal pointer resolution, so no parallel type pair exists on this side of the boundary and no live sub-owner leaves the borrow.
 - Law: writes are in-place — a bound sub-owner commits through its native pointer, inert `BeginChange`/`EndChange` never appear, and cross-source copy replays one detached total state.
 - Law: only the document owns an undo record — archive and detached mutations apply without one; archive persistence occurs at `File3dm.Write`, while detached values remain locally owned.
 - Law: `RhinoDoc.RenderSettings` answers a FRESH document-bound wrapper on every read, so the aggregate enters the borrow once and threads — two reads of one property are two wrappers over one native and two instants the `Changed` broadcast can move between.
-- Boundary: the document and archive accessors are the document and file-IO catalogs' seam; this union names them once and every settings verb enters through it.
-- Packages: `api-rhinocommon-rendersettings.md` (`RenderSettings`, `DocumentOrFreeFloatingBase`, `RhinoDoc.RenderSettings`); `api-rhinocommon-fileio.md` (`File3dm.Settings.RenderSettings`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Lease<T>.Acquire`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `RedrawPolicy`, `IDetachedDocumentResult`), `Document/commit.md` (`DocumentCommit.Sealed`); LanguageExt.Core (`Fin`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Boundary: the document and archive accessors are the document and file-IO catalogs' boundary; this union names them once and every settings verb enters through it.
+- Packages: `api-rhinocommon-rendersettings.md` (`RenderSettings`, `DocumentOrFreeFloatingBase`, `RhinoDoc.RenderSettings`); `api-rhinocommon-fileio.md` (`File3dm.Settings.RenderSettings`); kernel `Domain/results` (`Op`, `Op.Catch`, `Op.Need`, `Lease<T>.Acquire`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `RedrawPolicy`, `IDetachedDocumentResult`), `Document/commit.md` (`DocumentCommit.Sealed`); LanguageExt.Core (`Fin`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -130,7 +130,7 @@ public abstract partial record SettingsSource : IDisposable {
 - Law: `EnvironmentRole` and `EnvironmentView` close the usage-purpose product; `RenderConfig` writes one binding per role and `EnvironmentBindingState.Resolve` reads both purposes without leaking host enums.
 - Law: a host-identity roster keys on its OWN host ordinal — `SunAccuracy`, `DitherMethod`, `EnvironmentRole`, and `EnvironmentView` are one-to-one renamings of a host enum, so the ordinal IS the key, `Native` derives from it, and the read is the kernel host-enum row arm. A string key beside a stored native column was two authorities for one value and the read it forced has no landed arity.
 - Growth: a new host switch is one vocabulary row; a new sub-owner property is one record field read and asserted in the same pass; a new sub-owner is one state record, one `SettingsBody` case, and one `RenderState` column.
-- Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane`, `Skylight`, `Sun`, `Sun.Accuracies`, `Sun.SetPosition`, `Sun.SetDateTime`/`GetDateTime`, `Sun.Light`/`Vector`/`Hash`, `LinearWorkflow`, `Dithering`, `Dithering.Methods`, `SafeFrame`, `RenderChannels`, `RenderChannels.Modes`, `RenderSettings.EnvironmentUsage`/`EnvironmentPurpose`/`RenderingSources`, `RenderEnvironmentId`/`SetRenderEnvironmentId`/`RenderEnvironmentOverride`/`SetRenderEnvironmentOverride`, `BackgroundStyle`, `AntialiasLevel`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/rails` (`Op.Row`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `ValidityClaim`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/context` (`ModelUnit`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`, `Size2i`); `Document/tables.md` (`ResourceId`), kernel `Domain/rails` (`Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane`, `Skylight`, `Sun`, `Sun.Accuracies`, `Sun.SetPosition`, `Sun.SetDateTime`/`GetDateTime`, `Sun.Light`/`Vector`/`Hash`, `LinearWorkflow`, `Dithering`, `Dithering.Methods`, `SafeFrame`, `RenderChannels`, `RenderChannels.Modes`, `RenderSettings.EnvironmentUsage`/`EnvironmentPurpose`/`RenderingSources`, `RenderEnvironmentId`/`SetRenderEnvironmentId`/`RenderEnvironmentOverride`/`SetRenderEnvironmentOverride`, `BackgroundStyle`, `AntialiasLevel`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/results` (`Op.Row`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `ValidityClaim`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/context` (`ModelUnit`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`, `Size2i`); `Document/tables.md` (`ResourceId`), kernel `Domain/results` (`Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -493,7 +493,6 @@ public sealed partial class SunState : IDetachedDocumentResult {
     public double North { get; }
     public SunPlacement Placement { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref bool enabled,
@@ -556,7 +555,6 @@ public sealed partial class PostGamma {
     public GammaMode Mode { get; }
     public float Gamma { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref GammaMode mode,
@@ -781,7 +779,6 @@ public abstract partial record RenderOutput {
 
 [ValueObject<int>]
 public readonly partial struct BackgroundMode {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         validationError = Enum.IsDefined((BackgroundStyle)value)
             ? validationError
@@ -795,7 +792,6 @@ public readonly partial struct BackgroundMode {
 
 [ValueObject<int>]
 public readonly partial struct AntialiasPolicy {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         validationError = Enum.IsDefined((AntialiasLevel)value)
             ? validationError
@@ -920,15 +916,15 @@ public sealed record RenderConfig(
 ## [04]-[SUN_ASTRONOMY]
 
 - Owner: `SunProblem` closes the HOST astronomy questions — direction, altitude, Julian day, twilight, tint, and machine location; `SunCapability` is the grant a machine-facts read presents; `SunSolution` closes vector, scalar, colour, and optional-location egress; `SunSolver.Solve` is the sole entry. `SolarFrame`, `SunDerivation`, and `SceneSun` are the daylighting descriptor's sun band, projected out of `SunState` and never read back in.
-- Law: each host problem dispatches directly to its verified host static and provider failure or invalid admission stays on the `Fin<SunSolution>` rail.
+- Law: each host problem dispatches directly to its verified host static and provider failure or invalid admission stays on the `Fin<SunSolution>` carrier.
 - Law: every problem but `Here` is pure over its supplied arguments — `Here` reads the machine's own geolocation service, so it carries the `SunCapability.MachineLocation` grant and admission refuses the case without it; a machine-facts read reached implicitly through a coordinate solve is the deleted form.
 - Law: host astronomy and wire astronomy answer two questions and stay two-formed — `Sun.SunDirection`/`AltitudeFromValues` report what the HOST believes and drive host-facing reads, while the descriptor's angles are the kernel `SolarPosition.At` almanac a peer reproduces. The SOLVE is the kernel's, so `SceneSun.Derive` composes it in ONE hop; routing it back through a host-problem case wrapped a total effect-free fold in a request union, a solution union, and a partial projection off both.
 - Law: `SolarFrame` narrows the georeference to what an annual engine run admits — time zone `[-12, 14]` hours and elevation `[-300, 8900)` metres — so a document outside those bounds refuses at the producer instead of writing a site an engine rejects, and `SolarSite`'s own wider gate stays the kernel's.
 - Law: `Sited` and `Authored` are the whole discriminant — a manually controlled sun has no site derivation, so it carries angles alone and an annual run refuses it by name rather than back-solving coordinates from two numbers.
 - Law: `Sun.Vector` points sun-toward-scene in the document world frame and `Sun.North` bears compass north counter-clockwise off `+X` — `90`, the host default, seating north on `+Y` — so `ManualVector` negates, unitizes, projects onto that bearing's east and north axes in the host `Vector3d` the almanac takes, and re-reads through the kernel `SunPosition.OfDirection`; `Authored` therefore carries the same east-of-North pair `Sited` does, the host frame stops at this projection, and a ray that cannot unitize refuses instead of crossing as the due-south horizon reading the host substitutes for it.
-- Boundary: the georeference invariant — `Sun.North`/`Latitude`/`Longitude` re-encoded from `EarthAnchorPoint` after an anchor write — is the Exchange rail's earth-sync owner; this page never writes the anchor, `Here` only reads the machine, and `elevationMetres` arrives as the caller's `EarthAnchorPoint.EarthBasepointElevation` read.
+- Boundary: the georeference invariant — `Sun.North`/`Latitude`/`Longitude` re-encoded from `EarthAnchorPoint` after an anchor write — is the Exchange pipeline's earth-sync owner; this page never writes the anchor, `Here` only reads the machine, and `elevationMetres` arrives as the caller's `EarthAnchorPoint.EarthBasepointElevation` read.
 - Boundary: sky irradiance is the consuming weather owner's — `SunState.Intensity` is a dimensionless render multiplier, so this band carries no `W/m2` column and a manufactured one fabricates radiation the document never held.
-- Packages: `api-rhinocommon-rendersettings.md` (`Sun.SunDirection`, `Sun.AltitudeFromValues`, `Sun.JulianDay`, `Sun.TwilightZone`, `Sun.ColorFromAltitude`, `Sun.Here`); kernel `Numerics/calculus` (`SolarSite`, `SolarPosition.At`, `SunPosition`, `SunPosition.OfDirection`), `Numerics/atoms` (`PerceptualColor.OfHost`), `Domain/rails` (`Op.Catch`, `Op.AcceptValidated`, `ValidityClaim`); NodaTime (`Instant`, `Instant.FromDateTimeUtc`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
+- Packages: `api-rhinocommon-rendersettings.md` (`Sun.SunDirection`, `Sun.AltitudeFromValues`, `Sun.JulianDay`, `Sun.TwilightZone`, `Sun.ColorFromAltitude`, `Sun.Here`); kernel `Numerics/calculus` (`SolarSite`, `SolarPosition.At`, `SunPosition`, `SunPosition.OfDirection`), `Numerics/atoms` (`PerceptualColor.OfHost`), `Domain/results` (`Op.Catch`, `Op.AcceptValidated`, `ValidityClaim`); NodaTime (`Instant`, `Instant.FromDateTimeUtc`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1003,7 +999,6 @@ public sealed partial class SolarFrame {
     public int DaylightSavingMinutes { get; }
     public Instant Moment { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SolarSite site,
@@ -1116,9 +1111,9 @@ public static class SunSolver {
 }
 ```
 
-## [05]-[EDIT_RAIL]
+## [05]-[EDIT_PIPELINE]
 
-- Owner: `SettingsBody` closes the writable sub-owner family; `RenderState` carries the complete detached state with derived evidence; `SettingsRequest`/`SettingsResult` correlate the rail and `Settings.Run` is the sole entry over every `SettingsSource` origin.
+- Owner: `SettingsBody` closes the writable sub-owner family; `RenderState` carries the complete detached state with derived evidence; `SettingsRequest`/`SettingsResult` correlate the pipeline and `Settings.Run` is the sole entry over every `SettingsSource` origin.
 - Entry: `Settings.Run` reads the canonical state, applies one `SettingsBody`, or copies one complete `RenderState`.
 - Law: the result carries every writable sub-owner as its existing typed state. Copy and compensation apply that state directly; no slot roster, body-kind mirror, accumulator, or projection stands between the producer and caller.
 - Law: derived evidence remains read-only. `SunEvidence`, `WorkflowEvidence`, and environment resolution are host projections a replay must never assert, so `RenderState.Apply` touches only the writable state columns.
@@ -1126,7 +1121,7 @@ public static class SunSolver {
 - Law: a failed mutation restores the pre-borrow `RenderState` before the fault leaves, with the live bracket's undo rollback layered above it; a restore failure appends onto the primary fault, never replaces it.
 - Boundary: `RenderSettings.PostEffects : PostEffectCollection` is a separate host sub-owner whose configuration rows belong to the Display render page.
 - Growth: a new writable axis is one `SettingsBody` case and one typed `RenderState` column with its capture and apply paths.
-- Packages: kernel `Domain/rails` (`Custody.Settled`, `Op`, `Op.Side`); LanguageExt.Core (`Fin`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: kernel `Domain/results` (`Custody.Settled`, `Op`, `Op.Side`); LanguageExt.Core (`Fin`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1305,12 +1300,12 @@ public static class Settings {
 - Owner: `AmbientPulse` `[SmartEnum<int>]` carries each catalogued static `Changed` broadcast as one bind row; `AmbientFact` detaches the pulse, optional document key, and host property context; `AmbientWatch` owns transactional attach, symmetric release, and one bounded ring of delivery failures.
 - Law: a broadcast row is a PULSE, never a mutation axis; `Render/registry.md`'s `ContentPulse` is the same regime under the same name.
 - Law: `LinearWorkflow` and `Dithering` carry no `Changed` event, so their staleness is polled through `Settings.Run(SettingsRequest.Read)`.
-- Law: the failure journal IS the kernel bounded ring. A cap, oldest-first eviction, and a drop counter were a page-local retention policy and ledger pair; `Ring<AmbientFailure>` is that shape once for the estate, its `Park` verdict is COUNTED rather than discarded, and a declined park reads as `Lost` where the prior ledger conflated a shed row with a contended write. NAMED LOSS: the accumulated `Error` over every dropped failure; that accumulator grew without bound beside a capped roster, so the cap now bounds what it claimed to.
-- Law: `RenderPropertyChangedEvent.Document`, `Context`, `DocKey` projection, sink delivery, and failure retention share one guarded callback rail. `Context` remains the host's opaque integer discriminant, a missing document yields `None`, and projection failure parks a pulse-keyed fallback fact.
+- Law: the failure journal IS the kernel bounded ring. A cap, oldest-first eviction, and a drop counter were a page-local retention policy and ledger pair; `Ring<AmbientFailure>` is that shape once for the solution, its `Park` verdict is COUNTED rather than discarded, and a declined park reads as `Lost` where the prior ledger conflated a shed row with a contended write. NAMED LOSS: the accumulated `Error` over every dropped failure; that accumulator grew without bound beside a capped roster, so the cap now bounds what it claimed to.
+- Law: `RenderPropertyChangedEvent.Document`, `Context`, `DocKey` projection, sink delivery, and failure retention share one guarded callback pipeline. `Context` remains the host's opaque integer discriminant, a missing document yields `None`, and projection failure parks a pulse-keyed fallback fact.
 - Law: `AmbientWatch.Of` takes the caller's `Op`, because a key minted inside the owner names the owner at every refusal and erases which composition attached the watch.
 - Boundary: the parked rows and the shed count read at the plug-in load root (`Plugin/lifecycle.md`'s `OnLoad`), which OWES the census wire-up; until it lands the ring bounds memory and nothing reads its evidence.
 - Growth: a new host broadcast is one `AmbientPulse` row with its bind column.
-- Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane.Changed`, `Skylight.Changed`, `Sun.Changed`, `SafeFrame.Changed`, `RenderChannels.Changed`, `RenderPropertyChangedEvent.Document`/`Context`); kernel `Domain/hooks` (`Ring<T>`, `Transition`), `Domain/rails` (`Op`, `Op.Catch`, `Cell`); `Document/lifetime.md` (`Subscription.Attach`/`AttachAll`), `Document/session.md` (`DocKey`, `IDetachedDocumentResult`); `Numerics/atoms` (`Dimension`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane.Changed`, `Skylight.Changed`, `Sun.Changed`, `SafeFrame.Changed`, `RenderChannels.Changed`, `RenderPropertyChangedEvent.Document`/`Context`); kernel `Domain/hooks` (`Ring<T>`, `Transition`), `Domain/results` (`Op`, `Op.Catch`, `Cell`); `Document/lifetime.md` (`Subscription.Attach`/`AttachAll`), `Document/session.md` (`DocKey`, `IDetachedDocumentResult`); `Numerics/atoms` (`Dimension`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1411,7 +1406,7 @@ public sealed class AmbientWatch : IDisposable {
 |  [09]   | dither vocabulary | `DitherMethod`                       | the one `Dithering.Methods` owner  | `Of(native, key)`     |
 |  [10]   | host astronomy    | `SunProblem` / `SunSolution`         | closed request/result              | `SunSolver.Solve`     |
 |  [11]   | machine location  | `SunCapability`                      | grant the `Here` case names        | `SunSolver.Solve`     |
-|  [12]   | settings rail     | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`        |
+|  [12]   | settings pipeline | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`        |
 |  [13]   | broadcasts        | `AmbientPulse` / `AmbientFailure`    | bound ring over verified pulses    | `AmbientWatch.Of`     |
 |  [14]   | engine-bound site | `SolarFrame`                         | annual-run georeference gate       | `SolarFrame.Validate` |
 |  [15]   | descriptor sun    | `SunDerivation` / `SceneSun`         | sited-or-authored wire band        | `SceneSun.Of`         |

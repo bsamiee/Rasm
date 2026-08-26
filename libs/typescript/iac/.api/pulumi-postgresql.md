@@ -2,7 +2,7 @@
 
 `@pulumi/postgresql` is the Terraform-bridged Pulumi provider SDK for PostgreSQL's logical surface; every managed object is one generated resource quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`), so the package is ONE pattern over a roster.
 
-In the `iac` plane it is the `kube/data` egress — finalizing per-app databases, roles, and extensions against the CNPG cluster `@pulumi/kubernetes` exposes, the declarative half of the `lane/capability` seam the data branch proves at startup.
+In the `iac` plane it is the `kube/data` egress — finalizing per-app databases, roles, and extensions against the CNPG cluster `@pulumi/kubernetes` exposes, the declarative half of the `lane/capability` contract the data branch proves at startup.
 
 [EXPORTS]: `Provider`
 [EXPORTS]: `Database` `Schema` `Role` `Grant` `GrantRole` `Extension` `Function` `DefaultPrivileges` `DefaultPrivileg` `Publication` `Subscription` `ReplicationSlot` `PhysicalReplicationSlot` `SecurityLabel` `UserMapping` `Server`
@@ -13,7 +13,7 @@ In the `iac` plane it is the `kube/data` egress — finalizing per-app databases
 ### [01.1]-[RESOURCE_QUADRUPLE]
 
 [PUBLIC_TYPE_SCOPE]: the shared Terraform-bridge codegen shape
-- rail: iac / data-provisioning
+- concern: iac / data-provisioning
 
 Every resource fills this quadruple; the roster in [02.2] is the data fed to it, not sixteen bespoke APIs.
 
@@ -31,7 +31,7 @@ Every resource fills this quadruple; the roster in [02.2] is the data fed to it,
 ### [01.2]-[RESOURCE_ROSTER]
 
 [PUBLIC_TYPE_SCOPE]: managed objects
-- rail: iac / data-provisioning
+- concern: iac / data-provisioning
 
 | [INDEX] | [RESOURCE]                | [PROVISIONS]                   | [ARGS_SPINE]                                                |
 | :-----: | :------------------------ | :----------------------------- | :---------------------------------------------------------- |
@@ -55,7 +55,7 @@ Every resource fills this quadruple; the roster in [02.2] is the data fed to it,
 ### [01.3]-[DATA_SOURCES]
 
 [PUBLIC_TYPE_SCOPE]: drift-read data sources
-- rail: iac / drift-read
+- concern: iac / drift-read
 
 Each source ships a dual — an eager `get*(args, opts?): Promise<Result>` and a lifted `get*Output(args, opts?): pulumi.Output<Result>`; use `*Output` inside the Automation program, the `Promise` form for pre-graph inspection.
 
@@ -71,7 +71,7 @@ Each source ships a dual — an eager `get*(args, opts?): Promise<Result>` and a
 ### [01.4]-[PROVIDER]
 
 [PUBLIC_TYPE_SCOPE]: the connection boundary
-- rail: iac / data-provisioning
+- concern: iac / data-provisioning
 
 Explicit `Provider` carries the DSN and binds every resource in the arm to the CNPG cluster, reaching each through `opts.provider` rather than ambient package `config`. Auth is polymorphic — one shape, mode chosen by which fields are set.
 

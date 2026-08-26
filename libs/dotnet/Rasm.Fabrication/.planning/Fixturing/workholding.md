@@ -2,7 +2,7 @@
 
 `Workholding` owns fixture admission, datum establishment, support, clamping, stage lifecycle, tool access, keep-out conditioning, and restraint evidence. Aggregate admission proves the locating scheme, contact laws, actuation order, stock compatibility, and operation windows once; every interior operation consumes the admitted `Fixture`.
 
-`WorkholdingKind` is the ONE holding-mechanism row table: role, holding class, cardinalities, the `CapabilitySet<FixtureDemand>` a form must match exactly, keep-out source, preload rule, and required metric roster are COLUMNS, so a locating pin, a soft-jaw vise, and a vacuum bed are one `FixtureElement` shape apart and every fold over elements has one body. `ExclusionZone`, `Fixture`, `FixtureSet`, and `RestraintProof` remain the in-process seam vocabulary; `Workholding.Apply` admits every operation through one `WorkholdingOp` family and emits one `WorkholdingResult` family. Planar containment, open-path clipping, and region union ride `Geometry2D/algebra` `PolygonOp`; the restraint distribution rides the kernel `Rasm.Numerics` rectangular sparse route; every preimage frames and closes at `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`, so every projected fixture artifact addresses through the keyed close and its refusal rides the caller's rail. `FixturingWitness` is this folder's evidence vocabulary for the `Process/faults` offset-54 `FixtureInadmissible` case, which is declared there and never re-declared here.
+`WorkholdingKind` is the ONE holding-mechanism row table: role, holding class, cardinalities, the `CapabilitySet<FixtureDemand>` a form must match exactly, keep-out source, preload rule, and required metric roster are COLUMNS, so a locating pin, a soft-jaw vise, and a vacuum bed are one `FixtureElement` shape apart and every fold over elements has one body. `ExclusionZone`, `Fixture`, `FixtureSet`, and `RestraintProof` remain the in-process contract vocabulary; `Workholding.Apply` admits every operation through one `WorkholdingOp` family and emits one `WorkholdingResult` family. Planar containment, open-path clipping, and region union ride `Geometry2D/algebra` `PolygonOp`; the restraint distribution rides the kernel `Rasm.Numerics` rectangular sparse route; every preimage frames and closes at `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`, so every projected fixture artifact addresses through the keyed close and its refusal rides the caller's error channel. `FixturingWitness` is this folder's evidence vocabulary for the `Process/faults` offset-54 `FixtureInadmissible` case, which is declared there and never re-declared here.
 
 ## [01]-[INDEX]
 
@@ -302,7 +302,6 @@ public readonly partial struct ContactLaw {
     public Length DeflectionLimit { get; }
     public Force PullOff { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Ratio friction,
@@ -413,7 +412,6 @@ public sealed partial class FixtureElement {
     public double HeightMm => Form.Of(FixtureMetric.Height);
     public bool HeldOnLoss => Actuator.Match(Some: static drive => drive.HeldOnLoss, None: static () => true);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int element,
@@ -556,7 +554,6 @@ public readonly partial struct FixtureObjective {
     public double Simplicity { get; }
     public double Total => Holding + Access + Simplicity;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double holding,
@@ -586,7 +583,7 @@ public sealed record FixtureCandidate(
 - Law: each `FixtureStep` activates and releases elements against one `FixtureState`; cutting states require settled location, support, and clamp custody, and a clamp whose actuator releases on loss of energy fails that custody.
 - Law: `ConstraintCensus` preserves both closure ranks and redundancy — `Rank` over the friction-cone wrench set, `Frictionless` over normals alone — so underconstraint, overconstraint, and the form-versus-force closure distinction stay separable from holding-force sufficiency.
 - Exemption: `ConstraintRank` is the bounded six-column contact-wrench kernel; its Gram-Schmidt span loop is the measured numeric exemption.
-- Entry: `Fixture.Admit` is the sole construction; element, topology, lifecycle, datum, geometry, contact, and six-degree constraint failures accumulate before the `Fin<Fixture>` rail resumes.
+- Entry: `Fixture.Admit` is the sole construction; element, topology, lifecycle, datum, geometry, contact, and six-degree constraint failures accumulate before the `Fin<Fixture>` result resumes.
 - Result: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget; `DatumTransfer` folds the `Joining/sequence` `DistortionField` into a per-setup datum budget, so a distortion the weld plane measured narrows the repeatability a later setup may claim instead of being re-estimated here.
 - Boundary: `FixturingWitness` closes the admission rejection reasons and lowers through the `Process/faults` offset-54 `FabricationFault.FixtureInadmissible` case; degenerate geometry stays on `GeometryFault.DegenerateInput`.
 
@@ -594,7 +591,6 @@ public sealed record FixtureCandidate(
 // --- [FIXTURE] -------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct FixtureStage {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
             validationError = new ValidationError("fixture-stage");
@@ -790,7 +786,6 @@ public sealed partial class Fixture {
     public int Operation => Spec.Operation;
     public Point3d InitialCursor => Spec.InitialCursor;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FixtureSpec spec,
@@ -834,7 +829,6 @@ public sealed partial class Fixture {
 public sealed partial class FixtureSet {
     public Seq<Fixture> Fixtures { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Fixture> fixtures) {
         if (fixtures.IsEmpty || fixtures.Map(static fixture => fixture.Operation).Distinct().Count != fixtures.Count)
             validationError = new ValidationError("fixture-set");
@@ -860,7 +854,7 @@ public sealed partial class FixtureSet {
 - Law: `ClampTemplate` generates boundary layouts, evaluates every candidate through the same restraint and corridor algebra, ranks the survivors, and derives soft-jaw negatives from the part silhouette. `Programs` enumerates only the admitted cardinalities under `SynthesisBudget.CandidateBudget`, so template-roster growth never costs a powerset.
 - Exemption: statements stay inside the bounded kernels alone — `ConstraintRank` spans the six-column wrench basis, `Utilization` assembles the normalized triplet stream, `ArcSegments` chords one arc, and `Slab` clips one segment against one height band.
 - Entry: `Workholding.Apply` is the sole public operation surface; each case carries every discriminant and parameter its arm consumes.
-- Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Keyed` dispatches on that family and frames through `FabricationCanon` over the one `CanonicalWriter`, closing on the retaining mint's own rail so a projection never addresses under bytes no writer held.
+- Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Keyed` dispatches on that family and frames through `FabricationCanon` over the one `CanonicalWriter`, closing on the retaining mint's own result so a projection never addresses under bytes no writer held.
 - Law: keep-out admission ACCUMULATES across elements — `Zones` traverses into `Validation`, so a spec with three degenerate offsets reports three, not the first. Inside one zone the band ordering needs no gate because `FixtureMetric.Height` carries `MetricBound.Positive` and the band reads a min and a max of the same vertex set, and activation coverage needs none because `GateLifecycle` already proves every element is activated by some step; a guard restating either is the vacuous form.
 - Packages: `Rasm.Numerics` (`SparseMatrix.FromTriplets`, `SolveLeastSquaresDetailed`, `LinearSolution`, `Dimension`, `EpsilonPolicy`), `Geometry2D/algebra` (`PolygonOp.ClipOpen`, `.Boolean`, `PolygonTrace.Regioned`/`.Runs`, `RegionTopology`), `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`), `UnitsNet`, LanguageExt.Core.
 - Boundary: geometry, aggregate, and stability failures remain typed; no failure becomes an empty fixture, a clear path, or a passing margin.
@@ -881,7 +875,6 @@ public readonly partial struct ForceVector {
     public Force Magnitude { get; }
     public Vector3d Vector => Direction / Direction.Length * Magnitude.As(ForceUnit.Newton);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Vector3d direction, ref Force magnitude) {
         if (!(Fixtures.Finite(direction) && direction.Length > EpsilonPolicy.ZeroTolerance && Fixtures.Nonnegative(magnitude)))
             validationError = new ValidationError("force-vector");
@@ -894,7 +887,6 @@ public readonly partial struct MomentVector {
     public Torque Magnitude { get; }
     public Vector3d Vector => Axis / Axis.Length * Magnitude.As(TorqueUnit.NewtonMeter);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Vector3d axis, ref Torque magnitude) {
         if (!(Fixtures.Finite(axis) && axis.Length > EpsilonPolicy.ZeroTolerance && Fixtures.Nonnegative(magnitude)))
             validationError = new ValidationError("moment-vector");
@@ -1328,7 +1320,7 @@ internal static class Fixtures {
             ? moves
                 .Fold(
                     Fin.Succ((Cursor: fixture.InitialCursor, Path: Seq<Edge3>())),
-                    (rail, move) => rail.Bind(current => Segments(current.Cursor, move, fixture.Spec.ArcChordError.As(LengthUnit.Millimeter))
+                    (result, move) => result.Bind(current => Segments(current.Cursor, move, fixture.Spec.ArcChordError.As(LengthUnit.Millimeter))
                         .Map(path => (move.Target, current.Path + path))))
                 .Bind(current => Blocked(fixture.Zones, current.Path, state).Bind(hit => hit.Match(
                     Some: zone => zone.Collision.Bind(volume =>
@@ -1343,14 +1335,14 @@ internal static class Fixtures {
             ? corridor.Stations.Zip(corridor.Stations.Tail)
                 .Map(pair => (Axis: new Edge3(pair.First.Point, pair.Second.Point),
                     Radius: Math.Max(corridor.Kind.RadiusMm(pair.First), corridor.Kind.RadiusMm(pair.Second))))
-                .Fold(Fin.Succ(Option<ExclusionZone>.None), (rail, leg) => rail.Bind(found => found.IsSome
+                .Fold(Fin.Succ(Option<ExclusionZone>.None), (result, leg) => result.Bind(found => found.IsSome
                     ? Fin.Succ(found)
                     : Inflated(fixture.Zones, leg.Radius).Bind(grown => Blocked(grown, Seq(leg.Axis), state))))
             : Fin.Fail<Option<ExclusionZone>>(FabricationFault.Fixture(
                 new FixturingWitness.Corridor(corridor.Kind, corridor.Stations.Count)));
 
     private static Fin<Option<ExclusionZone>> Blocked(Seq<ExclusionZone> zones, Seq<Edge3> path, FixtureState state) =>
-        zones.Fold(Fin.Succ(Option<ExclusionZone>.None), (rail, zone) => rail.Bind(found => found.IsSome
+        zones.Fold(Fin.Succ(Option<ExclusionZone>.None), (result, zone) => result.Bind(found => found.IsSome
             ? Fin.Succ(found)
             : path.Choose(segment => zone.Banded(segment, state)) is { IsEmpty: false } banded
                 ? Clipped(banded.Map(static segment => Seq(segment)), zone.Keepouts)

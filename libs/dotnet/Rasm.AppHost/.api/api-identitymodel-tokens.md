@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_IDENTITYMODEL_TOKENS]
 
-`Microsoft.IdentityModel.Tokens` owns the cryptographic and validation substrate under the IdentityModel stack: the security-key hierarchy, signing/encrypting/key-wrap credentials, the crypto-provider factory and cache, and two parallel token-validation contracts — a throwing delegate rail and a result-based ROP rail with typed `Validated*` outcomes. `Microsoft.IdentityModel.JsonWebTokens` validates against these parameters and keys, and the `BaseConfigurationManager` slot binds the rotating signing keys `Microsoft.IdentityModel.Protocols.OpenIdConnect` discovery feeds.
+`Microsoft.IdentityModel.Tokens` owns the cryptographic and validation substrate under the IdentityModel stack: the security-key hierarchy, signing/encrypting/key-wrap credentials, the crypto-provider factory and cache, and two parallel token-validation contracts — a throwing delegate path and a result-returning path with typed `Validated*` outcomes. `Microsoft.IdentityModel.JsonWebTokens` validates against these parameters and keys, and the `BaseConfigurationManager` slot binds the rotating signing keys `Microsoft.IdentityModel.Protocols.OpenIdConnect` discovery feeds.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -51,13 +51,13 @@
 |  [20]   | `BaseConfiguration`               | discovery model     | issuer and JWKS        |
 |  [21]   | `BaseConfigurationManager`        | discovery slot      | configuration refresh  |
 
-[PUBLIC_TYPE_SCOPE]: validation exceptions (throwing rail)
+[PUBLIC_TYPE_SCOPE]: validation exceptions (throwing path)
 
 Throwing `Validators.Validate*` overloads and `JsonWebTokenHandler.ValidateTokenAsync` surface these on `TokenValidationResult.Exception`; a consumer pattern-matches the concrete subtype, never a bare `Exception`. `SecurityTokenValidationException` roots every concrete validation exception under `SecurityTokenException`.
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]  | [CAPABILITY]       |
 | :-----: | :--------------------------------------- | :------------- | :----------------- |
-|  [01]   | `SecurityTokenException`                 | exception base | throwing rail      |
+|  [01]   | `SecurityTokenException`                 | exception base | throwing path      |
 |  [02]   | `SecurityTokenValidationException`       | exception base | validation         |
 |  [03]   | `SecurityTokenExpiredException`          | exception      | `nbf` or `exp`     |
 |  [04]   | `SecurityTokenInvalidSignatureException` | exception      | signature rejected |
@@ -117,24 +117,24 @@ Throwing `Validators.Validate*` overloads trail `TokenValidationParameters` and 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- two rails: `TokenValidationParameters` (wide knob bag with per-facet delegate slots) folds into `TokenValidationResult`; `ValidationParameters` (per-facet `*Delegate` slots, lazy `SigningKeys`/`DecryptionKeys`, `CryptoProviderFactory`, `ConfigurationManager`) folds into `ValidationResult<T, ValidationError>` and the typed `ValidatedToken`
+- two paths: `TokenValidationParameters` (wide knob bag with per-facet delegate slots) folds into `TokenValidationResult`; `ValidationParameters` (per-facet `*Delegate` slots, lazy `SigningKeys`/`DecryptionKeys`, `CryptoProviderFactory`, `ConfigurationManager`) folds into `ValidationResult<T, ValidationError>` and the typed `ValidatedToken`
 - result versus throw: result-based `Validators.Validate*` return `ValidationResult<T, ValidationError>` and never throw — the canonical ROP shape; the same-named throwing overloads raise `SecurityToken*Exception` and bind `TokenValidationParameters` consumers
-- error rail: `ValidationError` is the non-throwing failure carrying `FailureType`, `Message`, `InnerException`, `StackFrames`, and `GetException()`; `ValidationFailureType` is the abstract discriminator, and one `*ValidationError` facet classifies each validator
-- validated outcome: `ValidatedToken` aggregates the per-facet `Validated*` structs, `ValidatedAudience`/`ValidatedAlgorithm`, `Claims`, and `ClaimsIdentity` as the result rail's success payload
+- error channel: `ValidationError` is the non-throwing failure carrying `FailureType`, `Message`, `InnerException`, `StackFrames`, and `GetException()`; `ValidationFailureType` is the abstract discriminator, and one `*ValidationError` facet classifies each validator
+- validated outcome: `ValidatedToken` aggregates the per-facet `Validated*` structs, `ValidatedAudience`/`ValidatedAlgorithm`, `Claims`, and `ClaimsIdentity` as the result path's success payload
 - key hierarchy: `SecurityKey` (`KeyId`, `KeySize`, `CryptoProviderFactory`, `ComputeJwkThumbprint`) roots `SymmetricSecurityKey`, the `AsymmetricSecurityKey` subtree (`RsaSecurityKey`, `ECDsaSecurityKey`, `X509SecurityKey`, `MlDsaSecurityKey`), and `JsonWebKey`; `MlDsaSecurityKey` wraps the net10 BCL `MLDsa` for FIPS-204 post-quantum signing and is `IDisposable`
-- crypto cache: `CryptoProviderFactory.Default` and `CryptoProviderCache` memoize signature providers across the validate loop — the throughput seam under high-volume validation
+- crypto cache: `CryptoProviderFactory.Default` and `CryptoProviderCache` memoize signature providers across the validate loop — the throughput boundary under high-volume validation
 - discovery slot: `BaseConfigurationManager` is the abstract refresh contract assigned to both `ConfigurationManager` slots, owning `MetadataAddress`, `AutomaticRefreshInterval`, `RefreshInterval`, `LastKnownGoodConfiguration`, `LastKnownGoodLifetime`, and `UseLastKnownGoodConfiguration`; `ValidateWithLKG` and `RefreshBeforeValidation` drive last-known-good fallback and forced refresh on signature-key-not-found
 
 [STACKING]:
 - `Microsoft.IdentityModel.Protocols`(`.api/api-identitymodel-protocols.md`): its concrete `ConfigurationManager<OpenIdConnectConfiguration>` is the `BaseConfigurationManager` assigned to `TokenValidationParameters.ConfigurationManager`/`ValidationParameters.ConfigurationManager`, and its refreshed `JsonWebKeySet` supplies the rotating `IssuerSigningKeys` these validators pull when `IssuerSigningKeys` is left unset
 - `Microsoft.IdentityModel.JsonWebTokens`(`.api/api-identitymodel-jwt.md`): `JsonWebTokenHandler.ValidateTokenAsync` reads against `TokenValidationParameters`/`ValidationParameters` and this assembly's keys, landing failures on `TokenValidationResult.Exception`; `DecryptTokenWithConfigurationAsync` resolves decryption keys through the `BaseConfigurationManager` slot
 - `Microsoft.IdentityModel.Protocols.OpenIdConnect`(`.api/api-identitymodel-oidc.md`): `OpenIdConnectConfiguration.JsonWebKeySet` is the discovery-fed signing-key source consumed through the manager slot after `OpenIdConnectConfigurationValidator` asserts JWKS sufficiency
-- within-lib: the AppHost auth composition constructs one `ValidationParameters` per security context, branches every `Validators.Validate*` on `ValidationResult.Succeeded`, projects `ValidationError.GetException()` onto the host failure rail only at the boundary, and shares one cached `CryptoProviderFactory` across the validate loop
+- within-lib: the AppHost auth composition constructs one `ValidationParameters` per security context, branches every `Validators.Validate*` on `ValidationResult.Succeeded`, projects `ValidationError.GetException()` onto the host failure channel only at the boundary, and shares one cached `CryptoProviderFactory` across the validate loop
 
 [LOCAL_ADMISSION]:
-- Construct one `ValidationParameters` (result rail) per security context, override a `*Delegate` slot only to replace the default `Validators` function, and branch on `ValidationResult.Succeeded`; project `ValidationError` through `GetException()` at the boundary, never as control flow
+- Construct one `ValidationParameters` (result path) per security context, override a `*Delegate` slot only to replace the default `Validators` function, and branch on `ValidationResult.Succeeded`; project `ValidationError` through `GetException()` at the boundary, never as control flow
 - Use `TokenValidationParameters` only where a `JsonWebTokenHandler.ValidateTokenAsync(token, TVP)` consumer requires it; populate `ValidIssuer(s)`/`ValidAudience(s)`, set `ClockSkew` deliberately, and `Clone()` for per-request mutation over a shared mutated instance
-- Assign `ConfigurationManager` from the OIDC discovery rail, leave `IssuerSigningKeys` unset for rotating providers, and set `ValidateWithLKG = true` so a transient JWKS-fetch failure falls back to last-known-good
+- Assign `ConfigurationManager` from OIDC discovery, leave `IssuerSigningKeys` unset for rotating providers, and set `ValidateWithLKG = true` so a transient JWKS-fetch failure falls back to last-known-good
 - Build keys from typed constructors (`SymmetricSecurityKey`, `RsaSecurityKey`, `X509SecurityKey`, `MlDsaSecurityKey`) and credentials from `SigningCredentials(key, algorithm)`; identify keys by `ComputeJwkThumbprint`/`KeyId`, never by index
 - Reuse `CryptoProviderFactory.Default` (or one instance with `CacheSignatureProviders = true`) across the validate loop; never mint a provider per token
 - Take `MlDsaSecurityKey` as the post-quantum signing path on net10, dispose it, and gate its use on `CryptoProviderFactory.IsSupportedAlgorithm(alg, key)`

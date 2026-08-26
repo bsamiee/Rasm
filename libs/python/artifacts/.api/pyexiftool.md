@@ -17,7 +17,7 @@
 
 [PUBLIC_TYPE_SCOPE]: the typed exception hierarchy (`exiftool.exceptions`)
 
-Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.CalledProcessError`; the execute-family errors mirror its `.returncode`/`.cmd`/`.stdout`/`.stderr`, so the boundary adapter maps the tree to `RuntimeRail` by class, never by scraping stderr.
+Every failure is a typed `ExifToolException` subclass, never a bare `subprocess.CalledProcessError`; the execute-family errors mirror its `.returncode`/`.cmd`/`.stdout`/`.stderr`, so the boundary adapter maps the tree to `RuntimeResult` by class, never by scraping stderr.
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
 | :-----: | :------------------------- | :------------ | :-------------------------------------------------------------------------------- |
@@ -115,9 +115,9 @@ The binary parses both CICP carriers a deep-pixel container declares its colour 
 
 [STACKING]:
 - `anyio`(`.api/anyio.md`): every `get_tags`/`set_tags` blocks on a synchronous subprocess pipe, so the boundary crosses `LanePolicy.offload(Kernel.of(..., KernelTrait.HOSTILE), ...)` — the `CarrierPolicy(reader, writer, trait)` row the RASTER arm carries, never the per-loop default.
-- `expression`(`.api/expression.md`): `LanePolicy.offload` lifts the `ExifToolException` subtree into `RuntimeRail` at the PROCESS boundary; carrier functions raise the provider faults unchanged, with no local `try`.
+- `expression`(`.api/expression.md`): `LanePolicy.offload` lifts the `ExifToolException` subtree into `RuntimeResult` at the PROCESS boundary; carrier functions raise the provider faults unchanged, with no local `try`.
 - `msgspec`(`.api/msgspec.md`): the `list[dict]` JSON folds through `MetaFacts.from_logical` (`msgspec.convert(strict=False)` per facet); `set_json_loads(msgspec.json.decode)` swaps the built-in decoder on the `execute_json` path.
-- `structlog`/`opentelemetry`: `LanePolicy.offload` supplies the structured event/span and `RuntimeRail` message envelope; `ExifToolHelper(logger=...)` accepts a `logging.Logger`-shaped sink for command traces.
+- `structlog`/`opentelemetry`: `LanePolicy.offload` supplies the structured event/span and `RuntimeResult` message envelope; `ExifToolHelper(logger=...)` accepts a `logging.Logger`-shaped sink for command traces.
 - `stamina`(`runtime/.api/stamina.md`): `@stamina.retry(on=(RuntimeError, ExifToolVersionError))` wraps helper acquisition and recovers a transient `-stay_open` spawn failure; a deterministic `ExifToolExecuteError` stays non-retriable.
 - `exchange/metadata#METADATA`: binds `PyExifTool` as `_CARRIER[MetaCarrier.RASTER]` → `KernelTrait.HOSTILE`; `_exiftool_read`/`_exiftool_write` own the `get_tags`/`set_tags`/`execute` calls, and the one subprocess covers maker notes, video/PDF, ICC, and IPTC/XMP as the cross-format superset the page folds first.
 - `graphic/texture/plane#CODEC`: binds it as the COLOUR-DECLARATION reader alone — `_declared_colour` requests the two group-qualified CICP tags off an AVIF container or off the ICC profile `pyvips` `jxlload` synthesizes from a JPEG XL codestream, and lowers the numeric codes onto that page's own transfer and chromaticity rosters. That page holds its OWN process-static helper rather than reaching the metadata plane's: `graphic/texture` imports the floor, the runtime shapes, and its own siblings alone, so the acyclic import law prices one subprocess per composing page per worker. No facet is folded and no tag is written on that leg; a silent read resolves to the row's declared tag rather than a fault, because an unreadable declaration says nothing about the pixels.

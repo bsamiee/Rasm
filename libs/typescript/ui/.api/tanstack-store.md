@@ -1,6 +1,6 @@
 # [TS_UI_API_TANSTACK_STORE]
 
-`@tanstack/store` owns the reactive cell TanStack's own packages speak: an atom holds a value, `get` links whoever reads it, `set` propagates to every dependent, and a computed atom re-derives lazily on the next read. Zero-dependency, DOM-free, and framework-agnostic, it reaches `ui` only as the vocabulary `@tanstack/react-table`'s `options.atoms` ownership rail demands — `view/table`'s `Grid.edge` mints an atom-shaped adapter over the one `@effect-atom` fold, and nothing here owns state.
+`@tanstack/store` owns the reactive cell TanStack's own packages speak: an atom holds a value, `get` links whoever reads it, `set` propagates to every dependent, and a computed atom re-derives lazily on the next read. Zero-dependency, DOM-free, and framework-agnostic, it reaches `ui` only as the vocabulary `@tanstack/react-table`'s `options.atoms` ownership model demands — `view/table`'s `Grid.edge` mints an atom-shaped adapter over the one `@effect-atom` fold, and nothing here owns state.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -31,7 +31,7 @@
 
 - [01]-[OBSERVER]: every handler is optional, so an adapter implementing `subscribe` calls `observer.next?.(value)` rather than assuming a handler exists.
 - [02]-[TEARDOWN]: `subscribe` returns `{ unsubscribe }` and nothing else — no `closed` flag, no chaining.
-- [03]-[SUBSCRIBE_SHAPE]: `Subscribable.subscribe` is an intersection of two signatures — `(observer)` and `(next, error?, complete?)`; `InteropSubscribable` keeps only the observer arm, the TC39/rxjs-shaped seam.
+- [03]-[SUBSCRIBE_SHAPE]: `Subscribable.subscribe` is an intersection of two signatures — `(observer)` and `(next, error?, complete?)`; `InteropSubscribable` keeps only the observer arm, the TC39/rxjs-shaped interface.
 - [04]-[READABLE]: `Readable<T>` adds the `get(): T` snapshot; `Selection<TSelected>` is its alias for a projected read.
 
 [PUBLIC_TYPE_SCOPE]: the store — a class wrapper over one atom, with an optional action surface
@@ -97,7 +97,7 @@
 - `@tanstack/react-store` (installed transitively under `@tanstack/react-table`): the React adapter — `useStore`/`useSelector`/`useAtom` over `use-sync-external-store`, re-exporting this package whole. `ui` reads table state through `table.state` and `table.Subscribe`, which already ride those hooks, so the adapter is never imported directly.
 
 [LOCAL_ADMISSION]:
-- Compose this package ONLY as the `Grid.edge` adapter seam that hands one `@effect-atom` fold slice to `options.atoms` (`view/table` `#STATE_FOLD`); a store-native state owner minted beside the atom registry is the rejected shape and a second writer over the same fact.
+- Compose this package ONLY as the `Grid.edge` adapter boundary that hands one `@effect-atom` fold slice to `options.atoms` (`view/table` `#STATE_FOLD`); a store-native state owner minted beside the atom registry is the rejected shape and a second writer over the same fact.
 - Implement the adapter against the published interface — the intersected `set` takes one `Updater`-typed parameter, and `subscribe` must dispatch on the `Observer | next` union and return `{ unsubscribe }`; never reach for `_snapshot`, `_update`, or the `ReactiveNode` link fields.
 - Read the fold through the registry inside `get`, never a cached snapshot field: the table calls `get()` on every derivation, and a stale mirror is a torn read no comparator can catch.
 - Let `@effect-atom` own batching and equality for anything the fold holds; reach for `batch`/`flush`/`compare`/`shallow` only inside an adapter whose peer is a genuine `@tanstack/store` cell.

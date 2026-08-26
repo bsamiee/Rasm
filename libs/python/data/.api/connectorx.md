@@ -1,6 +1,6 @@
 # [PY_DATA_API_CONNECTORX]
 
-`connectorx` is the parallel, zero-copy database-to-dataframe reader on the data query rail: `read_sql` executes one SQL query across range partitions in a Rust thread pool and reconstructs the wire stream directly into Pandas, Polars, Arrow (table or `RecordBatchReader`), Modin, or Dask with no Python-object roundtrip. `partition_sql` exposes the planner, `get_meta` probes the result schema, `ConnectionUrl` builds the typed per-backend connection string, and a `dict` connection federates multiple sources behind one query.
+`connectorx` is the parallel, zero-copy database-to-dataframe reader on the data query domain: `read_sql` executes one SQL query across range partitions in a Rust thread pool and reconstructs the wire stream directly into Pandas, Polars, Arrow (table or `RecordBatchReader`), Modin, or Dask with no Python-object roundtrip. `partition_sql` exposes the planner, `get_meta` probes the result schema, `ConnectionUrl` builds the typed per-backend connection string, and a `dict` connection federates multiple sources behind one query.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -30,7 +30,7 @@
 - `ConnectionUrl` server form carries `username`, `password`, `server`, `port`, `database`, `database_options`; the file/path form carries `db_path`.
 - `read_sql`: `query` accepts one SQL string (planner-partitioned) or a `list[str]` of explicit per-partition queries (planner bypassed); `conn` accepts a string, a `ConnectionUrl`, or a `dict` federating source-name to DSN.
 - `read_sql(return_type='arrow_stream')` yields a `pa.RecordBatchReader` for incremental consumption; every other return type materializes a full frame.
-- `read_sql_pandas(sql, con, ...)` is the SQLAlchemy-shaped positional alias over `read_sql`, not a distinct capability; `reconstruct_arrow`/`reconstruct_arrow_rb`/`reconstruct_pandas` are internal FFI reassembly the `return_type` rail dispatches into, not a direct call surface.
+- `read_sql_pandas(sql, con, ...)` is the SQLAlchemy-shaped positional alias over `read_sql`, not a distinct capability; `reconstruct_arrow`/`reconstruct_arrow_rb`/`reconstruct_pandas` are internal FFI reassembly the `return_type` layer dispatches into, not a direct call surface.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -42,7 +42,7 @@
 
 [STACKING]:
 - `arro3-core`(`arro3-core.md`), `pyarrow`(`pyarrow.md`): `return_type='arrow'` reconstructs straight into a `pa.Table`; `'arrow_stream'` yields a `pa.RecordBatchReader` feeding the columnar interop owner with no Python-row hop.
-- `polars`(`polars.md`): `return_type='polars'` lands the read in the eager columnar owner over the same Arrow buffers; the lazy `pl.scan_*` rail carries no live SQL source, so `connectorx` is the parallel database-to-Polars front door.
+- `polars`(`polars.md`): `return_type='polars'` lands the read in the eager columnar owner over the same Arrow buffers; the lazy `pl.scan_*` path carries no live SQL source, so `connectorx` is the parallel database-to-Polars front door.
 - `dataframely`(`dataframely.md`): the `polars` frame flows into a `Schema.validate`/`filter` gate; `get_meta` pre-checks column dtypes against `Schema.to_polars_schema` before a full fetch.
 - `duckdb`(`duckdb.md`), `datafusion`(`datafusion.md`): the `arrow_stream` `RecordBatchReader` registers via `con.register`/`SessionContext.register_record_batches` for a federated join with no intermediate file.
 - `daft`(`daft.md`): `daft.read_sql(partition_col, num_partitions)` owns the lazy out-of-core distributed scan; `connectorx` owns the eager in-process parallel pull — narrow materializable result sets here, lakehouse-scale SQL to daft.

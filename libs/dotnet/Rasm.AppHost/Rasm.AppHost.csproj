@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Runtime spine package setup and neutral composition doctrine for Rasm app packages.</Description>
-        <CspScope>Composition</CspScope>
     </PropertyGroup>
 
     <ItemGroup Label="Project References">
@@ -116,12 +115,15 @@
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 

@@ -1,6 +1,6 @@
 # [PY_DATA_API_FLOX]
 
-`flox` owns vectorized, parallelized grouped reductions and grouped cumulative scans over NumPy and dask arrays, lowering `xarray` groupby, binned, and resample reductions onto the numpy-groupies kernel and the map-reduce/blockwise/cohorts dask strategies. It never re-implements the labelled-array container `xarray` owns; `xarray` dispatches to it automatically when installed, so `flox` is the vectorized lowering beneath the `field-dataset` selection rail's grouped, binned, resampled, and scanned arms.
+`flox` owns vectorized, parallelized grouped reductions and grouped cumulative scans over NumPy and dask arrays, lowering `xarray` groupby, binned, and resample reductions onto the numpy-groupies kernel and the map-reduce/blockwise/cohorts dask strategies. It never re-implements the labelled-array container `xarray` owns; `xarray` dispatches to it automatically when installed, so `flox` is the vectorized lowering beneath the `field-dataset` selection domain's grouped, binned, resampled, and scanned arms.
 
 ## [01]-[PUBLIC_TYPES]
 

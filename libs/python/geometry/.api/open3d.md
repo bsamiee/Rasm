@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_OPEN3D]
 
-`open3d` owns the point-cloud and 3D-scan processing surface for the geometry scan rail: `geometry.PointCloud`/`geometry.TriangleMesh` values, `io` read/write, and the `pipelines.registration` module. Scan owners compose `io.read_point_cloud`, `PointCloud.voxel_down_sample`, and `registration.registration_icp`, never re-implementing the ICP, FPFH, or Poisson kernels open3d owns.
+`open3d` owns the point-cloud and 3D-scan processing surface for the geometry scan domain: `geometry.PointCloud`/`geometry.TriangleMesh` values, `io` read/write, and the `pipelines.registration` module. Scan owners compose `io.read_point_cloud`, `PointCloud.voxel_down_sample`, and `registration.registration_icp`, never re-implementing the ICP, FPFH, or Poisson kernels open3d owns.
 
 Its `registration_fgr_based_on_feature_matching` and `registration_ransac_based_on_feature_matching` paths are the coarse global-registration arm of the point-cloud registration union, each emitting a rigid transform that seeds the fine `small_gicp` refinement.
 
@@ -144,7 +144,7 @@ Array-bridge accessors cross the open3d boundary into numpy: legacy `geometry` b
 - `small-gicp`(`.api/small-gicp.md`): `registration_fgr_based_on_feature_matching`/`registration_ransac_based_on_feature_matching` yield a `RegistrationResult.transformation` seeding `small_gicp.align(target, source, init_T_target_source=T)` for fine GICP/VGICP refinement.
 - `kiss-matcher`(`.api/kiss-matcher.md`): open3d is the coarse global-registration arm when `kiss_matcher` carries no wheel; both emit a rigid transform seeding the fine `small_gicp` refinement.
 - `probreg`(`.api/probreg.md`): `compute_fpfh_feature`/`Feature` feeds `probreg.FPFH(...)` and `registration_filterreg(feature_fn=...)`, lifting the GMM correspondence into open3d FPFH space over an open3d `PointCloud`.
-- `trimesh`(`.api/trimesh.md`): triangle-mesh exchange crosses through `io.read_triangle_mesh`/`io.write_triangle_mesh`, and the estimated 4x4 transform applies through `trimesh.apply_transform` as the registration matrix the whole rail shares.
+- `trimesh`(`.api/trimesh.md`): triangle-mesh exchange crosses through `io.read_triangle_mesh`/`io.write_triangle_mesh`, and the estimated 4x4 transform applies through `trimesh.apply_transform` as the registration matrix the whole result shares.
 - `meshio`(`libs/python/.api/meshio.md`): a reconstructed `TriangleMesh` crosses as vertex/face arrays into a `meshio.Mesh` for FEM-format and solver-deck export.
 - `pye57`(`.api/pye57.md`): a conditioned `read_scan` XYZ block enters as `PointCloud` points for registration and reconstruction.
 - within-lib: the coarse-to-fine spine chains `io.read_point_cloud` -> `voxel_down_sample` -> `estimate_normals` -> `compute_fpfh_feature` -> `registration_ransac_based_on_feature_matching` -> `registration_icp` -> `create_from_point_cloud_poisson`; the `open3d.t` tensor backend mirrors it for batched device work, `to_legacy()` bridging to the multiway and FGR arms it does not own.

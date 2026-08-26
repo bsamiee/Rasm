@@ -222,7 +222,7 @@ Arming members set on the object initializer before `Subscription.AddItem` and `
 - `DataChangeFilter.Validate()` answers `ServiceResult.Good` on admission — never null, unlike `WriteValue.Validate` — and refuses an unrostered deadband type or trigger, a negative `DeadbandValue`, and a percent band past `100`.
 - `MonitoredItemStatus.DiscardOldest` initializes `true`; every other granted column starts at its type default until the server answers.
 
-[ENTRYPOINT_SCOPE]: node write and its refusal rail
+[ENTRYPOINT_SCOPE]: node write and its refusal path
 
 `Write` declares on `Opc.Ua.ISessionClientMethods`, NOT on `ISessionClient`, and `Opc.Ua.SessionClient` implements it `virtual`. `Opc.Ua.Client.Session` declares no `Write` member of its own — it inherits through `SessionClientBatched : SessionClient`, which overrides `WriteAsync` to split by `OperationLimits.MaxNodesPerWrite` and concatenate each batch's `Results`, `DiagnosticInfos`, and `StringTable`.
 
@@ -381,7 +381,7 @@ Arming members set on the object initializer before `Subscription.AddItem` and `
 |  [25]   | `Field.TargetAttribute -> uint`                              | property | subscriber-side target attribute               |
 |  [26]   | `Field.FieldMetaData -> FieldMetaData`                       | property | internal setter, declared field shape          |
 
-[ENTRYPOINT_SCOPE]: `UaPubSubConfigurator` mutation rail
+[ENTRYPOINT_SCOPE]: `UaPubSubConfigurator` mutation API
 
 Every mutator answers `StatusCode` and throws nothing, so a configuration change reports its refusal as a returned value.
 
@@ -415,7 +415,7 @@ Every mutator answers `StatusCode` and throws nothing, so a configuration change
 - Part 4 sets the `Overflow` InfoBit on the first `DataValue` a client receives after such a discard, and `StatusCode.Overflow` reads it only where `HasDataValueInfo` (`0x400`) is set, so the getter already gates its own precondition.
 - TRAP: `MonitoredItem.Filter`'s SETTER runs `ValidateFilter(NodeClass, value)`, which THROWS `ServiceResultException` for a node class admitting no filter (`Object`, `Method`, `ObjectType`, and the type-node classes) and silently REWRITES `State.NodeClass` when the filter kind disagrees with it; `MonitoredItemOptions.NodeClass` initializes to `Variable`, where a `DataChangeFilter` admits and neither branch fires.
 - TRAP: `Subscription.CreateAsync` runs `CreateItemsAsync` internally, and that member lands each per-item refusal on `MonitoredItem.Status.Error` through `SetCreateResult` and THROWS NOTHING — only a service-level fault raises — so an item the server declined leaves a created subscription that will never notify.
-- TRAP: `ServiceResult`'s statics are NULL-TOLERANT with asymmetric defaults — `IsGood(null)` is true, `IsBad(null)` false, `IsNotBad(null)` true, `IsUncertain(null)` false — so an unassigned result reads as good on the good rail and as not-bad on the bad rail.
+- TRAP: `ServiceResult`'s statics are NULL-TOLERANT with asymmetric defaults — `IsGood(null)` is true, `IsBad(null)` false, `IsNotBad(null)` true, `IsUncertain(null)` false — so an unassigned result reads as good on the good check and as not-bad on the bad check.
 - TRAP: `ServiceResult.ToLongString` DOES NOT EXIST at this pin; `ToString()` is the only formatted read, and a fence spelling the long form fails to compile.
 - TRAP: `UaDataSetMessage.DataSet` is null wherever decode failed — the UADP decoder logs and answers null — and a DELTA frame yields a full-length `Fields` array whose untransmitted entries carry a null `Value` beside live `FieldMetaData`. Both nulls guard before a field projects into a value.
 - Certificate stores are directory (PEM/DER), Windows X.509, and `CertificateIdentifierCollectionStore`.

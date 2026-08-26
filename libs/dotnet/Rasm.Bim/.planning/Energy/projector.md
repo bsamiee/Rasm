@@ -10,17 +10,17 @@ Wire posture is HOST-LOCAL, foreign types decode-confined: `Model.FromJson` gate
 
 ## [01]-[INDEX]
 
-- [02]-[ENERGY_PROJECTOR]: `EnergyProjector : IElementProjection` — five format arms onto one raise fold landing the Compute-readable seam shape from the `EnergyClassRows` correspondence table.
+- [02]-[ENERGY_PROJECTOR]: `EnergyProjector : IElementProjection` — five format arms onto one raise fold landing the Compute-readable shared shape from the `EnergyClassRows` correspondence table.
 
 ## [02]-[ENERGY_PROJECTOR]
 
-- Owner: `EnergyProjector : IElementProjection` the energy-model raise (the raw `EnergyDoc` captured internally, the seam contract carrying only `Node`/`Relationship`/`GraphDelta`); `EnergyClassRows` the ONE FaceType↔`IfcClass` correspondence table both directions derive from — the raise map, the OSM `Surface.surfaceType()` string leg, the OSM `SubSurface.subSurfaceType()` opening leg, and the lower-side `ToFace` inverse; the frozen `Arms` format→raise index the `Serves` capability predicate and dispatch share; `RaiseState` the whole threaded accumulation (delta, footprint blobs, landing tallies, degrade rows) with `EnergySlot` its landing vocabulary and `Resolved` the composition answer that carries its own degrade rows.
+- Owner: `EnergyProjector : IElementProjection` the energy-model raise (the raw `EnergyDoc` captured internally, the contract carrying only `Node`/`Relationship`/`GraphDelta`); `EnergyClassRows` the ONE FaceType↔`IfcClass` correspondence table both directions derive from — the raise map, the OSM `Surface.surfaceType()` string leg, the OSM `SubSurface.subSurfaceType()` opening leg, and the lower-side `ToFace` inverse; the frozen `Arms` format→raise index the `Serves` capability predicate and dispatch share; `RaiseState` the whole threaded accumulation (delta, footprint blobs, landing tallies, degrade rows) with `EnergySlot` its landing vocabulary and `Resolved` the composition answer that carries its own degrade rows.
 - Entry: `EnergyProjector.Project(ProjectionContext ctx)` → `Fin<GraphDelta>` — the frozen `Arms` index dispatches the captured document's format onto its arm, `Hbjson`/`Dfjson` decoding through `Op.Catch` and the named JSON boundaries and `Osm`/`GbXml`/`Idf` through the bracketed SWIG decode trio converging on ONE `RaiseOsm` fold; an unmapped format faults `energy-form-miss`.
 - Auto: openings mint `IfcWindow`/`IfcDoor` on EVERY arm, honeybee `Aperture`/`Door` and OSM `Surface.subSurfaces()` alike, never only the managed formats; the dragonfly massing arm lands each `Room2D` floor-to-ceiling height as a `Qto_SpaceBaseQuantities` `Height` quantity, stamps `Story.Multiplier > 1` as `Pset_EnergyModel` evidence, and routes `Building.Room3ds` through the same honeybee room fold.
 - Output: `RaiseState` threads `Spaces`/`Surfaces`/`Openings`/`Constructions` and the typed `Energy/exchange#ENERGY_EXCHANGE` `EnergyNote` degrade rows through the fold, and the run edge commits it to the boundary cell in ONE swap the `Energy/exchange#ENERGY_EXCHANGE` `EnergyCensus` and the footprint side-channel both read — instance counters a `Fin`-returning arm bumped on the side survived a failed fold and named no subject. Managed decodes reject inside `FromJson`, so the raise notes degrade rows only — `Validate()` annotations belong to the lower legs authoring models locally.
 - Packages: HoneybeeSchema, DragonflySchema, NREL.OpenStudio.macOS-arm64, Rasm.Element, Rasm (the kernel `Op.Catch` funnel and cause-preserving `BimBoundary` fault posture), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions
-- Growth: a new face/class correspondence is one `EnergyClassRows` row (both directions derive); a new OSM opening token is one `ByOpeningType` row; a new energy form is one `Arms` row carrying its raise arm; a dragonfly parameter (window ratios, shading, skylights) deepens the massing arm as row folds over the `Room2D` `AnyOf` unions; a NoMass/Vegetation material arm is one typed-layer row the moment the seam carries an R-value-only thermal case; the FULL (non-abridged) `OpaqueConstruction`/`WindowConstruction` store rows — inline material OBJECTS, not id references, so a different resolve shape — are one `Library` projection widening with one inline-material arm the moment full-form documents ship, a full-form construction id resolving in neither abridged list faulting `Refused/BimReason.DanglingReference` before that (the declared abridged-only restraint, never a silent partial read); honeybee `Shade`/`ShadeMesh` context geometry raises as one arm row the moment an `IfcShadingDevice` roster row is exercised by a consumer read.
-- Boundary: projector dispatch publishes no recovery policy. Every native region crosses ONE kernel `Op.Catch` funnel; the documented energy boundaries become `BoundaryFailed` with their original `Error` and immutable posture, while returned typed errors and unknown foreign errors pass through unchanged. `EnergyMaterial` density has NO seam thermal column and a fabricated `OfMechanical` stiffness is the rejected form — density is DROPPED at the raise (systematic, never a per-material warning), the OSM rebuild's 1000 kg/m³ fallback carrying the consequence. Every physics literal is a NAMED policy value on this owner: `VapourOpen` is μ = 1 still air (the vapour-open end of the seam's own `>= 1` admission) because no energy schema declares the factor, and `LayerConductance` is the EN ISO 6946 λ/d unit conductance the seam `Thermal` case stores per `MaterialId` — film-free by construction, since surface resistances belong to the ASSEMBLY U-value its own owner computes and folding them into a ply attributes an assembly property to one layer. Structural-graph legality (endpoints, ids) is the seam's `ElementFault`, IFC-semantic legality the composed `IfcLegality` → `BimFault.Refused` with `BimReason.Rejected`, and this projector re-checks neither; the rooted `NodeId` is LOCAL per raise (Guid-v7), the schema identifier riding `ExternalId` for correlation.
+- Growth: a new face/class correspondence is one `EnergyClassRows` row (both directions derive); a new OSM opening token is one `ByOpeningType` row; a new energy form is one `Arms` row carrying its raise arm; a dragonfly parameter (window ratios, shading, skylights) deepens the massing arm as row folds over the `Room2D` `AnyOf` unions; a NoMass/Vegetation material arm is one typed-layer row the moment the contract carries an R-value-only thermal case; the FULL (non-abridged) `OpaqueConstruction`/`WindowConstruction` store rows — inline material OBJECTS, not id references, so a different resolve shape — are one `Library` projection widening with one inline-material arm the moment full-form documents ship, a full-form construction id resolving in neither abridged list faulting `Refused/BimReason.DanglingReference` before that (the declared abridged-only restraint, never a silent partial read); honeybee `Shade`/`ShadeMesh` context geometry raises as one arm row the moment an `IfcShadingDevice` roster row is exercised by a consumer read.
+- Boundary: projector dispatch publishes no recovery policy. Every native region crosses ONE kernel `Op.Catch` funnel; the documented energy boundaries become `BoundaryFailed` with their original `Error` and immutable posture, while returned typed errors and unknown foreign errors pass through unchanged. `EnergyMaterial` density has NO shared thermal column and a fabricated `OfMechanical` stiffness is the rejected form — density is DROPPED at the raise (systematic, never a per-material warning), the OSM rebuild's 1000 kg/m³ fallback carrying the consequence. Every physics literal is a NAMED policy value on this owner: `VapourOpen` is μ = 1 still air (the vapour-open end of the contract's own `>= 1` admission) because no energy schema declares the factor, and `LayerConductance` is the EN ISO 6946 λ/d unit conductance the shared `Thermal` case stores per `MaterialId` — film-free by construction, since surface resistances belong to the ASSEMBLY U-value its own owner computes and folding them into a ply attributes an assembly property to one layer. Structural-graph legality (endpoints, ids) is the contract's `ElementFault`, IFC-semantic legality the composed `IfcLegality` → `BimFault.Refused` with `BimReason.Rejected`, and this projector re-checks neither; the rooted `NodeId` is LOCAL per raise (Guid-v7), the schema identifier riding `ExternalId` for correlation.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -255,10 +255,10 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         Optional(construction).Match(
             None: () => Fin.Succ(Resolved.Absent),
             Some: id => library.Constructions.Find(oc => oc.Identifier == id).Match(
-                Some: oc => Resolve(id, toSeq(oc.Materials), mid => SeamMaterial(library, mid, ctx), ctx),
+                Some: oc => Resolve(id, toSeq(oc.Materials), mid => NodeMaterial(library, mid, ctx), ctx),
                 None: () => library.WindowConstructions.Find(wc => wc.Identifier == id)
                     .ToFin(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.DanglingReference, string.Join(':', new object?[] { "energy-construction-absent", id })))
-                    .Bind(wc => Resolve(id, toSeq(wc.Materials), mid => SeamGlazing(library, mid, ctx), ctx))));
+                    .Bind(wc => Resolve(id, toSeq(wc.Materials), mid => NodeGlazing(library, mid, ctx), ctx))));
 
     Fin<Resolved> Resolve(
         string id, Seq<string> materialIds,
@@ -276,7 +276,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             .Filter(static pair => pair.Item2.IsNone)
             .Map(static pair => new EnergyNote(EnergyReason.LayerUnresolved, pair.Item1, 1));
 
-    Validation<Error, Option<(Node.Material Node, MaterialLayer Layer)>> SeamMaterial(EnergyLibrary library, string materialId, ProjectionContext ctx) =>
+    Validation<Error, Option<(Node.Material Node, MaterialLayer Layer)>> NodeMaterial(EnergyLibrary library, string materialId, ProjectionContext ctx) =>
         library.Materials
             .Find(m => m.Identifier == materialId)
             .Match(
@@ -289,7 +289,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                         Mint(m.Identifier, MaterialComposition.OfSingle(MaterialId.Create(m.Identifier)), Seq(pair.thermal), ctx.Header.Tolerance),
                         new MaterialLayer(MaterialId.Create(m.Identifier), pair.thickness, m.Identifier)))));
 
-    Validation<Error, Option<(Node.Material Node, MaterialLayer Layer)>> SeamGlazing(EnergyLibrary library, string materialId, ProjectionContext ctx) =>
+    Validation<Error, Option<(Node.Material Node, MaterialLayer Layer)>> NodeGlazing(EnergyLibrary library, string materialId, ProjectionContext ctx) =>
         library.Glazings
             .Find(g => g.Identifier == materialId)
             .Match(
@@ -592,10 +592,10 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 }));
 
     // --- [SHARED_MINTS]
-    internal static readonly PropertyName BoundaryCondition = PropertyCategory.Seam.Row("BoundaryCondition");
-    internal static readonly PropertyName StoryMultiplier = PropertyCategory.Seam.Row("StoryMultiplier");
-    internal static readonly PropertyName UFactor = PropertyCategory.Seam.Row("UFactor");
-    internal static readonly PropertyName ConstructionName = PropertyCategory.Seam.Row("ConstructionName");
+    internal static readonly PropertyName BoundaryCondition = PropertyCategory.Neutral.Row("BoundaryCondition");
+    internal static readonly PropertyName StoryMultiplier = PropertyCategory.Neutral.Row("StoryMultiplier");
+    internal static readonly PropertyName UFactor = PropertyCategory.Neutral.Row("UFactor");
+    internal static readonly PropertyName ConstructionName = PropertyCategory.Neutral.Row("ConstructionName");
 
     internal const string EnergyModelSet = "Pset_EnergyModel";
 

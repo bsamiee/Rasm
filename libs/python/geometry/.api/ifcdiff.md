@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCDIFF]
 
-`ifcdiff` owns two-model IFC revision comparison over the `ifcopenshell` model: an `old`/`new` file pair diffs across the closed `RELATIONSHIP_TYPE` axis, folding numeric-tolerant `deepdiff.DeepDiff` over each survivor's attributes, tessellated shape, and property-set map into a GlobalId-keyed `change_register` and disjoint `added_elements`/`deleted_elements` GUID sets. It feeds the geometry ifc-analysis model-diff rail, scoping the compared element set through the shared `IfcSelector` gate.
+`ifcdiff` owns two-model IFC revision comparison over the `ifcopenshell` model: an `old`/`new` file pair diffs across the closed `RELATIONSHIP_TYPE` axis, folding numeric-tolerant `deepdiff.DeepDiff` over each survivor's attributes, tessellated shape, and property-set map into a GlobalId-keyed `change_register` and disjoint `added_elements`/`deleted_elements` GUID sets. It feeds the geometry ifc-analysis model-diff domain, scoping the compared element set through the shared `IfcSelector` gate.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -45,4 +45,4 @@
 - `ifc/selector.md`: `filter_elements` binds the validated `SelectorQuery.filter_string` — `IfcSelector.parse` → `filter_string` → `IfcDiff(..., filter_elements=validated)` re-serializes to the exact grammar `util.selector.filter_elements` consumes, scoping a revision diff to a discipline subset without a second selection engine.
 
 [LOCAL_ADMISSION]:
-- `geometry` ifc-analysis model-diff owner composes `IfcDiff(...).diff()`/`change_register` directly; quantity, cost, and transformation phases compose their own siblings on the shared lifecycle rail.
+- `geometry` ifc-analysis model-diff owner composes `IfcDiff(...).diff()`/`change_register` directly; quantity, cost, and transformation phases compose their own siblings on the shared lifecycle fault.

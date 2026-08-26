@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_DI]
 
-`Microsoft.Extensions.DependencyInjection` owns the AppHost composition rail: every registration mints one `ServiceDescriptor` onto an `IServiceCollection`, `BuildServiceProvider` freezes that graph into a validated `ServiceProvider`, and resolution runs through lifetime-scoped and keyed lookup. Its boundary is composition — descriptors land only at composition roots, and `ActivatorUtilities` constructs boundary objects the container never registered.
+`Microsoft.Extensions.DependencyInjection` owns the AppHost composition container: every registration mints one `ServiceDescriptor` onto an `IServiceCollection`, `BuildServiceProvider` freezes that graph into a validated `ServiceProvider`, and resolution runs through lifetime-scoped and keyed lookup. Its boundary is composition — descriptors land only at composition roots, and `ActivatorUtilities` constructs boundary objects the container never registered.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -89,7 +89,7 @@
 
 [STACKING]:
 - `api-hosting`(`.api/api-hosting.md`): `HostApplicationBuilder.Services` is the `IServiceCollection` this surface populates, `UseServiceProviderFactory`/`ConfigureContainer` bind an `IServiceProviderFactory<TBuilder>`, and `Build` runs `BuildServiceProvider` under the `ServiceProviderOptions` from `UseDefaultServiceProvider`.
-- `api-scrutor`(`.api/api-scrutor.md`): `Scan` emits `ServiceDescriptor` rows onto the `IServiceCollection` under a `RegistrationStrategy`, and `Decorate` rewrites a descriptor to wrap the resolved service — assembly scanning resolves to descriptor registration on this rail.
+- `api-scrutor`(`.api/api-scrutor.md`): `Scan` emits `ServiceDescriptor` rows onto the `IServiceCollection` under a `RegistrationStrategy`, and `Decorate` rewrites a descriptor to wrap the resolved service — assembly scanning resolves to descriptor registration in this container.
 - `api-options`(`.api/api-options.md`): `AddOptions`/`Configure`/`PostConfigure` register `IConfigureOptions`/`IPostConfigureOptions`/`IValidateOptions` through `TryAddEnumerable` idempotency, and `IOptions`/`IOptionsSnapshot`/`IOptionsMonitor` resolve as singleton, scoped, and singleton services.
 - `api-validation-di`(`.api/api-validation-di.md`): `AddValidatorsFromAssemblies` registers each discovered `IValidator<T>` as a `ServiceDescriptor` at an explicit `ServiceLifetime`, resolved through `GetRequiredService`.
 - within-lib: AppHost's one composition root folds every port record onto the `IServiceCollection`, models bounded policy variants as keyed registrations, then `MakeReadOnly` freezes the collection before `BuildServiceProvider` proves the graph under `ValidateOnBuild` and `ValidateScopes`.

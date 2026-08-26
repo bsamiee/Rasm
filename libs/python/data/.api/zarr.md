@@ -1,12 +1,12 @@
 # [PY_DATA_API_ZARR]
 
-`zarr` owns the chunked, compressed, N-dimensional array store: a Zarr v2/v3 dual-format metadata layer, an explicit serialization-plus-compression codec pipeline, and pluggable `zarr.storage` backends over a sync-facade-over-async rail. `Array`/`Group` are synchronous facades over the public `AsyncArray`/`AsyncGroup`, and every top-level factory mirrors an `async def` in `zarr.api.asynchronous`. Pure-Python with no native extension and no subprocess seam, it resolves native compression through `numcodecs`/`blosc`/`zstd`.
+`zarr` owns the chunked, compressed, N-dimensional array store: a Zarr v2/v3 dual-format metadata layer, an explicit serialization-plus-compression codec pipeline, and pluggable `zarr.storage` backends over a sync-facade-over-async path. `Array`/`Group` are synchronous facades over the public `AsyncArray`/`AsyncGroup`, and every top-level factory mirrors an `async def` in `zarr.api.asynchronous`. Pure-Python with no native extension and no subprocess boundary, it resolves native compression through `numcodecs`/`blosc`/`zstd`.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core container types (`zarr`)
 
-`Array`/`Group` are synchronous facades; the `AsyncArray`/`AsyncGroup` they wrap are public and drive the async rail directly through `Array._async_array`.
+`Array`/`Group` are synchronous facades; the `AsyncArray`/`AsyncGroup` they wrap are public and drive the async path directly through `Array._async_array`.
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]  | [CAPABILITY]                                             |
 | :-----: | :----------- | :------------- | :------------------------------------------------------- |
@@ -61,7 +61,7 @@ Every concrete `zarr.codecs.*`/`numcodecs` codec subclasses one role base; the p
 |  [02]   | `ArrayBytesCodec` | array->bytes serializer | base for the single chain serializer (`BytesCodec`/`ShardingCodec`/`VLen*Codec`) |
 |  [03]   | `BytesBytesCodec` | bytes->bytes compressor | base for byte compressors and checksums (`BloscCodec`/`ZstdCodec`/`Crc32cCodec`) |
 
-[PUBLIC_TYPE_SCOPE]: error rail (`zarr.errors`)
+[PUBLIC_TYPE_SCOPE]: error channel (`zarr.errors`)
 
 `zarr.errors` splits across THREE builtin ancestors a consumer's catch set must carry: `BaseZarrError` refines `ValueError` and roots the metadata, node, codec, and containment refusals; `DataTypeValidationError` refines bare `ValueError` OUTSIDE that root; the selection family refines `IndexError`. `NodeNotFoundError` also refines `FileNotFoundError`, so an `except FileNotFoundError` arm catches an absent node.
 
@@ -184,7 +184,7 @@ Every synchronous factory wraps an `async def` of the same name in `zarr.api.asy
 - `virtualizarr`(`.api/virtualizarr.md`): `ManifestArray` chunk-reference manifests over existing files write to an `IcechunkStore` or kerchunk reference store, and the virtual `xarray.Dataset` reads through the same zarr store protocol without copying source bytes.
 - `cubed`(`.api/cubed.md`)/`xarray`(`libs/python/.api/xarray.md`): `xarray.open_zarr`/`Dataset.to_zarr` and `cubed.Array.to_zarr` target a zarr store, so the labelled-cube and bounded-memory chunked-compute layers persist through this owner.
 - `numcodecs`(`.api/numcodecs.md`): the filter and alternate-compressor roster binds through `zarr.codecs.numcodecs.<Codec>`, re-exported at `zarr.codecs.<Codec>` and taking `**codec_config` where a native row takes named keywords; the base family fixes the slot — `ArrayArrayCodec` into `filters=`, `ArrayBytesCodec` as `serializer=`, `BytesBytesCodec` into `compressors=`; admit a numcodecs-backed codec only where the native `zarr.codecs` roster lacks the equivalent.
-- `obstore`(`libs/python/.api/obstore.md`): `zarr.storage.ObjectStore(store, *, read_only=False)` wraps an `obstore` store (`S3Store`/`GCSStore`/`AzureStore`, or any `from_url` handle), credentials and zero-copy `Bytes` staying in the obstore owner while zarr sees only a `StoreLike` — so the sync engine reaches a cloud residence with no second async runtime, and a consumer's own retry-and-credential envelope rides the handle it hands in. Its API moves without a deprecation cycle, so a consumer binds it at ONE construction rather than per call site; `FsspecStore.from_url` is the alternate fsspec-backed remote path.
+- `obstore`(`libs/python/.api/obstore.md`): `zarr.storage.ObjectStore(store, *, read_only=False)` wraps an `obstore` store (`S3Store`/`GCSStore`/`AzureStore`, or any `from_url` handle), credentials and zero-copy `Bytes` staying in the obstore owner while zarr sees only a `StoreLike` — so the sync engine reaches a cloud store with no second async runtime, and a consumer's own retry-and-credential envelope rides the handle it hands in. Its API moves without a deprecation cycle, so a consumer binds it at ONE construction rather than per call site; `FsspecStore.from_url` is the alternate fsspec-backed remote path.
 - within-lib: one `StoreLike` resolved once threads through every array and group factory, decorated via `WrapperStore`/`LoggingStore`, while the explicit three-slot codec chain and the `oindex`/`vindex`/`blocks` accessors compose against that single store without a per-backend or per-mode factory family.
 
 [LOCAL_ADMISSION]:

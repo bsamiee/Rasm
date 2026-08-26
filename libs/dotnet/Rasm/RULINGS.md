@@ -16,8 +16,8 @@ Every reopen predicate rides the license gate.
 
 ## [02]-[SHAPE]
 
-- `Domain/hooks` mints the ONE hook capsule type and `HookRail` its one mechanism — an effect-rail caller lifts `Fire` at its own seam.
-- `SignalRail` governs EMISSION alone — `SignalFact` holds evidence, so a gate guarding an action declares its own `HookPoint<TFact>`.
+- `Domain/hooks` mints the ONE hook capsule type and `HookSet` its one mechanism — an effect-typed caller lifts `Fire` at its own boundary.
+- `SignalHooks` governs EMISSION alone — `SignalFact` holds evidence, so a gate guarding an action declares its own `HookPoint<TFact>`.
 - `SpanEdge` is the ONE bracket carriage — kind, adopted parent, and fan-in links ride one value, so a new coordinate is one column, never a knob.
 - `FaultId.Case` is the generator's `nameof` — span tag and log field alone, `[JsonIgnore]` and declared equality keeping it off key and wire column.
 - `Retriability.Key` is the ONE posture spelling — a consumer `Switch` returning the three literals forks one vocabulary per emitter.
@@ -68,7 +68,6 @@ Every reopen predicate rides the license gate.
 - `RoundTripWitness.Root` names the digest root — `Apply` roots Source and `Of` roots Payload, so a dedup or lake consumer reads it before comparing.
 - `Band` rows are the ONE range guard — a `ValidateFactoryArguments` body spelling its own bounds forks the guard from its readers.
 - `SymmetricMatrix.FlatIndex` is the ONE packed-upper index mint — `SampleMoment` and `Lm` delegate to it rather than mirroring the arithmetic.
-- `[BoundaryAdapter]` entries alone spell an optional key `Op? key = null` with `OrDefault()`; every other optional rides `Option<T> = default`.
 - `MatrixKernel` is `partial` across `Numerics/matrix` and `Numerics/transform`, so the one-funnel ruling binds the TYPE and never a file.
 - `Interpolant<TCap>` is the ONE interpolation capability owner — `TCap` carries differentiation and integration, so unsupported calls never compile.
 - `PerceptualColor` host egress REFUSES an out-of-display colour where the byte leg CLIPS — a silent clip hands a painter an unattributable colour.
@@ -76,7 +75,7 @@ Every reopen predicate rides the license gate.
 - `MountCustody` is the ONE release latch on host chrome — teardown runs recursive and mint-reverse behind the machine's own published transitions.
 - `UiLease` is the ONE accruing one-shot release base — a mount derives it and accrues teardown arms at mint; a hand latch beside it is deleted.
 - `UiFault.Absent` names a missing host MEMBER, `Unavailable` a missing platform FEATURE, a live-member raise `HostRejected` — never conflated.
-- `DataScope.Assign` is the ONE ambient-model seam and `StoreRail.Mount` the ONE store gate — per-control source wiring is the deleted form.
+- `DataScope.Assign` is the ONE ambient-model boundary and `StoreGate.Mount` the ONE store gate — per-control source wiring is the deleted form.
 - `Field` is the ONE harvest-tagging site and `FieldReport.Value(tag)` the ONE read — a half-filled report is unrepresentable by construction.
 - `Displays.Capture` is the ONE host-image mint and answers a `Lease`; drag slop derives from a `ToleranceLane` row, never a caller magnitude.
 - `Surface` is HOST-AFFINE end to end and `PaintColor` the ONE `PerceptualColor` ↔ host-colour correspondence — `HitTest` alone crosses free.
@@ -84,25 +83,26 @@ Every reopen predicate rides the license gate.
 - `PayloadSlot.Box` is the ONE erased mint and refuses a disposable — a native handle rides `Resourced` with its lease, never `Bytes`.
 - Interaction clocks take a `MonotonicTimeline`, never a bare `TimeProvider`; a failing tick never silently stops — the posture ROW decides.
 - `AssetOrigin.Resolve` answers the asked extent in the asked product shape; the filter CHAIN is the operation — empty IS unfiltered, order is law.
-- `HookRail` takes the folder's `<Package>Point` roster as a TYPE PARAMETER — an untyped registry loses the closed-roster compile break.
+- `HookSet` takes the folder's `<Package>Point` roster as a TYPE PARAMETER — an untyped registry loses the closed-roster compile break.
 - `Fire` is the ONE raise and `Ring<T>` the ONE bounded fault cell — a second raise path skips veto admission and bounded fault custody.
 - Hook fact unions declare their own seating — `IHookFact.Seats` derives from the fact→point map and `Fire` gates entry and veto-product on it.
 - `CanonicalWriter` reads zero tolerance as no-snap identity — `EpsilonPolicy.ZeroTolerance` stays the content quantum, `Bits` the bit framing.
-- `ContentHash.Wire`/`Admit(bytes)` are the ONE 16-byte big-endian key crossing — a seam spelling `WriteUInt128BigEndian` forks the byte order.
+- `ContentHash.Wire`/`Admit(bytes)` are the ONE 16-byte big-endian key crossing — a boundary spelling `WriteUInt128BigEndian` forks the byte order.
 - `ArtifactContent` is the ONE native stored-payload coordinate: SHA-256 with positive extent; `ArtifactRef` rides the wire, XXH never substituting.
 - `EventGrammar` is the ONE profile admission — hyphenated lowercase-alphanumeric words and a positive major; `EventSource` axes ignore `EventType`.
 - `LevelCells.Reader<T>` is the ONE pulled projection — a sibling pull surface forks the level read from its owner's lifetime binding.
-- `AlertSeverity` is the one routing vocabulary contact rows key on — a second severity ladder forks alert routing at the sink seam.
+- `AlertSeverity` is the one routing vocabulary contact rows key on — a second severity ladder forks alert routing at the sink boundary.
 - `PanelSpec`'s constructor is the ONE board-descriptor spelling — a hand-built descriptor bypasses the vocabulary the board compile validates.
 - `SheetSize.Key` is the ONE wire spelling, series prefix with index or suffix — a free-text key forks host re-entry by exact name.
 - `RungLadder` is the ONE Renard-series snap — a page-local rounding table drifts from the published ladder.
 - `WindowTaper` is the ONE taper roster and `SpectralArena` the ONE transform carrier — a framing is a COLUMN on the row, never a second roster.
 - `Op.Row` decoupled arms carry every cross-typed column resolve — column equality rides the `match` argument, never a re-keyed roster or index.
-- `ICapability.Rank` derives from declaration order through the vocabulary's index — a domain rank overrides at its owner, never a hand ordinal.
-- Capability-read failure posture is the consumer seam's — `Require` refuses with `Missing` evidence, the law row settling emptiness at construction.
+- Public host-boundary entries alone spell an optional key `Op? key = null` read once through `OrDefault()`; every other optional rides `Option<T> = default`.
+- `CapabilitySet.Wire` derives from ordinal key order — a semantic rank lives explicitly on its owning vocabulary and never on the generic capability floor.
+- Capability-read failure posture is the consumer boundary's — `Require` refuses with `Missing` evidence, the law row settling emptiness at construction.
 - `Evidence<T>` is the ONE probe verdict — `Measured(T)`/`Refused(Error)`/`Absent` — `Quality` grades trust on a PRESENT reading, never occurrence.
 - `Hlc.Stamp` is the ONE causal stamp and `RasmEventEnvelope.Publish` the ONE door a durable kernel fact crosses — a sink or fan beside them forks.
-- Kernel hook facts are `SignalFact.Fault` and `SignalFact.Cost` alone — a result returns on the rail with its `IValidityEvidence`, never as a fact.
+- Kernel hook facts are `SignalFact.Fault` and `SignalFact.Cost` alone — a result returns typed with its `IValidityEvidence`, never as a fact.
 - Semantic `IClock` and `MonotonicTimeline` never fuse — no joint invariant binds a wall instant to a monotonic mark, so a crossing takes both.
 - QuikGraph results leave as frozen SoA columns — a graph-typed member re-couples consumers to mutable topology; views project from columns on read.
 - `QuadratureRule` prism and conical rows derive order from the WEAKER leg — a wedge or pyramid rung is earned only by raising that leg.

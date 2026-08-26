@@ -3,7 +3,7 @@ id: <rule-id> # imperative grammar: no-<construct> / require-<shape>; defaults t
 language: <language>
 severity: error
 files: ['<scope-glob>'] # relative to sgconfig.yml, never ./-prefixed; string glob or {glob, caseInsensitive}
-ignores: ['<seam-glob>'] # tested before files; the ONLY exclusion channel — a !-negated glob inside files: is inert
+ignores: ['<boundary-glob>'] # tested before files; the ONLY exclusion channel — a !-negated glob inside files: is inert
 utils:
     <util-id>:
         any:

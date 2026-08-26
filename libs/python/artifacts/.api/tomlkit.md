@@ -1,11 +1,11 @@
 # [PY_ARTIFACTS_API_TOMLKIT]
 
-`tomlkit` owns the style-preserving TOML surface of the artifacts structured-documents rail across two axes the design pages compose. Egress lowers a `msgspec`-flattened structure to deterministic bytes through `dumps(to_builtins(node), sort_keys=True)`; ingress reads source to a `TOMLDocument` and projects a plain `dict`/`list`/scalar map through `parse(payload).unwrap()`. Styled-item factories and the `register_encoder` hook hold the comment-preserving round-trip depth a config-rewrite rail mutates in place; TOML routes here, XML to `lxml`, YAML to `ruamel-yaml`.
+`tomlkit` owns the style-preserving TOML surface of the artifacts structured-documents domain across two axes the design pages compose. Egress lowers a `msgspec`-flattened structure to deterministic bytes through `dumps(to_builtins(node), sort_keys=True)`; ingress reads source to a `TOMLDocument` and projects a plain `dict`/`list`/scalar map through `parse(payload).unwrap()`. Styled-item factories and the `register_encoder` hook hold the comment-preserving round-trip depth a config-rewrite domain mutates in place; TOML routes here, XML to `lxml`, YAML to `ruamel-yaml`.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, container, and styled-item types
-- rail: structured documents
+- concern: structured documents
 
 Every styled value descends from `items.Item` and a programmatic edit mutates it in place so trivia survives. `Container` is the dict-like body shared by `TOMLDocument`, `Table`, and `InlineTable`; `Container.item(key)` returns an `OutOfOrderTableProxy` for a source-split table (`[a]` … `[a.c]`), which `unwrap()` flattens to one `dict`.
 
@@ -28,7 +28,7 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 |  [15]   | `items.CUSTOM_ENCODERS`              | encoder registry | `list` of value encoders `item()` consults; `Encoder` `(value, /) -> Item`   |
 
 [PUBLIC_TYPE_SCOPE]: faults
-- rail: structured documents — `tomlkit.exceptions`
+- concern: structured documents — `tomlkit.exceptions`
 
 `except TOMLKitError` catches every fault; `except ParseError` catches only grammar faults and gives positional `line`/`col`.
 
@@ -57,7 +57,7 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse, dump, and document build
-- rail: structured documents
+- concern: structured documents
 
 `dumps` accepts any `Mapping`, so a plain `dict` from `msgspec.to_builtins` serializes directly without a pre-built styled tree, and `sort_keys` is the deterministic-bytes lever for a content-addressed pipeline. `register_encoder`/`unregister_encoder` install/remove a custom value encoder appended to the module-level `CUSTOM_ENCODERS` list that `item(value)` consults.
 
@@ -75,7 +75,7 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 - `dumps`: annotated `Mapping`, yet a bare non-`Mapping` tomlkit wrapper (an `Item`/`AoT`/`Array`) is accepted too, lowering through its `as_string()`.
 
 [ENTRYPOINT_SCOPE]: item factories
-- rail: structured documents
+- concern: structured documents
 
 `item(value)` is the polymorphic wrap discriminating on the Python value shape through a fixed precedence (`Item` passthrough -> `bool` -> `int` -> `float` -> `dict` -> `list`/`tuple` -> `date`/`time`/`datetime` -> registered `CUSTOM_ENCODERS`), so a `dict` becomes `Table` (or `InlineTable` under an array/inline parent), a `list` of all-`dict` under a table/no parent becomes `AoT` else `Array`, and `_sort_keys=True` sorts nested keys during the wrap. Bare factories below are the explicit constructors for a styled edit needing a specific item kind.
 
@@ -102,7 +102,7 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 - `key`: returns a bare `SingleKey` for a single-element iterable (`key(['a'])`), not a one-segment `DottedKey`; a multi-element iterable builds a `DottedKey`, a `str` a `SingleKey`.
 
 [ENTRYPOINT_SCOPE]: container edit and round-trip
-- rail: structured documents — `Container` / `TOMLDocument` / styled-item methods
+- concern: structured documents — `Container` / `TOMLDocument` / styled-item methods
 
 `as_string()` re-emits the styled source; `unwrap()` projects to plain Python values (lossy — drops trivia, flattens `OutOfOrderTableProxy`, keeps `datetime`/`date`/`time` as stdlib temporals).
 
@@ -130,18 +130,18 @@ Every styled value descends from `items.Item` and a programmatic edit mutates it
 - item axis (styled depth): the container/scalar/key/trivia factories are the styled-build set that `item(value)` dispatches into by shape; a styled edit composes them so comments/whitespace/quoting survive, while plain emission lets `dumps` consume builtins directly — the styled path is used only when trivia must be authored or preserved.
 - style-control axis: style lives on the item or the enum, never in string-munging emitted text — `Array.multiline(True)`/`add_line(...)` control multiline arrays, `Table.is_super_table()`/`indent(n)` control table style, and `String.from_raw(value, type_, escape)` with the `StringType.{SLB,SLL,MLB,MLL}` enum forces quoting.
 - encoder axis: `register_encoder`/`unregister_encoder` append/remove a custom value-encoder on the runtime `items.CUSTOM_ENCODERS` list that `item(value)` consults; the encoder conforms to the `TYPE_CHECKING`-only `Encoder` protocol (`(value, /) -> Item`) and raises `ConvertError` for an unhandled value. `to_builtins(enc_hook=...)` flattens a domain type to primitives upstream as the first path; `register_encoder` is the styled-path fallback when the value must reach `dumps`/`item` as itself.
-- fault axis: every failure descends from `exceptions.TOMLKitError`; the structured-documents fault rail catches `TOMLKitError` for the root and `ParseError` for malformed input, lifting each to a typed `expression.Error` arm at the boundary capsule.
+- fault axis: every failure descends from `exceptions.TOMLKitError`; the structured-documents fault channel catches `TOMLKitError` for the root and `ParseError` for malformed input, lifting each to a typed `expression.Error` arm at the boundary capsule.
 - evidence: `EmitFact.data` carries the deterministic bytes; the operation span binds table, key, array-of-tables, and byte counts.
 - boundary: tomlkit owns TOML round-trip; the read-only stdlib `tomllib` path is unused where styled round-trip or the unified parser is admitted; XML routes to `lxml`, YAML to `ruamel-yaml`; live UI stays outside this package.
 
 [STACKING]:
-- structured-text triad: `tomlkit` (TOML) joins `lxml` (XML, `libs/python/artifacts/.api/lxml.md`) and `ruamel-yaml` (YAML, `libs/python/artifacts/.api/ruamel-yaml.md`) as the structured-documents rail's three fidelity parsers — each preserves source structure so a rewrite edits the loaded tree in place; route by format, never cross-parse. Detect (`exchange/detect#DETECT`) maps `application/toml` -> `MediaClass.DATA` -> the tomlkit reader.
-- format-delegate seam (`document/emit#DOCUMENT` `DocumentPlan.bound`): `DocumentPlan.bound` fans `DocumentMode.TOML` -> `(DocumentMode.TOML, _bare_spec)` through the emit owner's `produced` entrypoint, so the same bound `DocumentNode` tree a spec-sheet renders to DOCX/PDF/HTML also egresses as TOML — one owner bound many ways, the producer held inside the emit owner.
-- recover seam (`document/lens#LENS`): the `LensOp.TOML_READ` -> `(_toml_arm, LensProvider.TOMLKIT)` core row recovers a `DocumentNode` via `tomlkit.parse(payload).unwrap()` then the shared `_value_node` recursion (mapping -> keyed `BlockNode`, sequence -> `ListNode(ORDERED)`, scalar -> `RunNode`), the exact inverse of the emit lowering over one node algebra; `unwrap()`'s proxy flattening guarantees `_value_node` never meets a split-table proxy.
-- both-tier rails: `msgspec.to_builtins`/`from_builtins` (`libs/python/.api/msgspec.md`) bridges structure<->builtins, `expression.Result[T, E]` (`libs/python/.api/expression.md`) lifts `ParseError`/`ConvertError`, and `@beartype` guards signatures.
+- structured-text triad: `tomlkit` (TOML) joins `lxml` (XML, `libs/python/artifacts/.api/lxml.md`) and `ruamel-yaml` (YAML, `libs/python/artifacts/.api/ruamel-yaml.md`) as the structured-documents domain's three fidelity parsers — each preserves source structure so a rewrite edits the loaded tree in place; route by format, never cross-parse. Detect (`exchange/detect#DETECT`) maps `application/toml` -> `MediaClass.DATA` -> the tomlkit reader.
+- format-delegate boundary (`document/emit#DOCUMENT` `DocumentPlan.bound`): `DocumentPlan.bound` fans `DocumentMode.TOML` -> `(DocumentMode.TOML, _bare_spec)` through the emit owner's `produced` entrypoint, so the same bound `DocumentNode` tree a spec-sheet renders to DOCX/PDF/HTML also egresses as TOML — one owner bound many ways, the producer held inside the emit owner.
+- recover boundary (`document/lens#LENS`): the `LensOp.TOML_READ` -> `(_toml_arm, LensProvider.TOMLKIT)` core row recovers a `DocumentNode` via `tomlkit.parse(payload).unwrap()` then the shared `_value_node` recursion (mapping -> keyed `BlockNode`, sequence -> `ListNode(ORDERED)`, scalar -> `RunNode`), the exact inverse of the emit lowering over one node algebra; `unwrap()`'s proxy flattening guarantees `_value_node` never meets a split-table proxy.
+- both-tier domains: `msgspec.to_builtins`/`from_builtins` (`libs/python/.api/msgspec.md`) bridges structure<->builtins, `expression.Result[T, E]` (`libs/python/.api/expression.md`) lifts `ParseError`/`ConvertError`, and `@beartype` guards signatures.
 - diagnostics: `ParseError.line`/`.col` feeds a positional config diagnostic into `structlog` (`libs/python/.api/structlog.md`).
 - retry: a network-fetched config source wraps `stamina.retry` (`libs/python/runtime/.api/stamina.md`) at the fetch boundary; the parse itself stays pure.
-- validate-then-mutate rail (styled depth): `tomlkit.parse(src)` -> `msgspec`/`pydantic` decode of `doc.unwrap()` or a per-key read -> validate -> mutate the styled `TOMLDocument` in place via the factories -> `as_string()` is the comment-and-order-preserving config-rewrite path (`libs/python/.api/pydantic.md`), keeping the commented tree as the durable artifact while typed models own validation — the styled depth for a config tool, distinct from the lossy `unwrap()` egress the lens uses.
+- validate-then-mutate domain (styled depth): `tomlkit.parse(src)` -> `msgspec`/`pydantic` decode of `doc.unwrap()` or a per-key read -> validate -> mutate the styled `TOMLDocument` in place via the factories -> `as_string()` is the comment-and-order-preserving config-rewrite path (`libs/python/.api/pydantic.md`), keeping the commented tree as the durable artifact while typed models own validation — the styled depth for a config tool, distinct from the lossy `unwrap()` egress the lens uses.
 
 [LOCAL_ADMISSION]:
 - style-preserving TOML processing feeding the structured-documents owner; a parse/edit/dump cycle that must keep comments, order, or quoting admits here, never the read-only stdlib `tomllib`.

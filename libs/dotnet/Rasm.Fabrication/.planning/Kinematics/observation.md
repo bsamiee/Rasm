@@ -6,14 +6,14 @@ Machine telemetry enters through the AppHost decode lane; this page admits provi
 
 ## [01]-[INDEX]
 
-- [02]-[MACHINE_OBSERVATION]: `MachineObservation` decoded-telemetry union, `ExecutionState` and `ConditionSeverity` federated vocabularies, the one `Admit` decode seam, and the `MachineObservations` window with its `LoadWindow` ceiling evidence.
+- [02]-[MACHINE_OBSERVATION]: `MachineObservation` decoded-telemetry union, `ExecutionState` and `ConditionSeverity` federated vocabularies, the one `Admit` decode boundary, and the `MachineObservations` window with its `LoadWindow` ceiling evidence.
 
 ## [02]-[MACHINE_OBSERVATION]
 
 - Owner: `MachineObservation` — the closed decoded-telemetry union with the observation instant threaded through the base; `ExecutionState` and `ConditionSeverity` — the federated controller-state and condition-level vocabularies; `MachineObservations` — the window scoped to one `MachineInstanceKey`; `LoadWindow` — the measured-load evidence the engagement fold consumes.
 - Law: the window keys on the S0 `MachineInstanceKey` the fleet registry, `PlannedStep.Instance`, and the schedule all key on. Telemetry answers about a physical STATION, so a bare identifier here forks the one key space every consumer joins on.
 - Cases: spindle-load · spindle-speed · path-feed · temperature · execution · alarm · tool-in-spindle — one case per decoded stream the shop consumers read; a stream without a consumer stays wire-only by omission, never a speculative case.
-- Entry: `MachineObservation.Admit(MachineObservationIngress source)` — the one package admission: unavailable and unsupported rows project `None`, admitted scalar rows validate their units and ranges, and malformed values fail typed — no provider type or sentinel survives the seam.
+- Entry: `MachineObservation.Admit(MachineObservationIngress source)` — the one package admission: unavailable and unsupported rows project `None`, admitted scalar rows validate their units and ranges, and malformed values fail typed — no provider type or sentinel survives the boundary.
 - Auto: `MachineObservations` orders rows at admission and derives `Span`, `LatestLoad`, `MeanLoad`, `ActiveFraction`, `FaultEpisodes`, `ToolNumber`, and `LoadCeiling` as pure folds over the one row sequence — a consumer re-scanning rows for a derivable projection is the deleted form.
 - Law: every scalar predicate is a `ValidityClaim` row and this page owns only the refusal SHAPE — one `Held` guard turns a claim into the typed `PolicyInadmissible` naming the decoded stream, where the kernel guard raises its own scalar-range fault. Hand `Finite`/`Nonnegative`/`Fraction` rows also spelled finiteness as `double.IsFinite`, admitting the host unset sentinel the kernel arm screens; `Text` survives because it PRODUCES a trimmed value no claim row answers over.
 - Result: `LoadWindow` carries observed fraction, target fraction, reference radial depth, observation instant, and expiry; it declares `IValidityEvidence` over `ValidityClaim.All`, so its coherence is a fold the acceptance oracle reads and `Ceiling` states only what a fold cannot — whether the read instant falls inside the sampled span. `Kinematics/fleet.md` `MachinePerformance.Of` folds the same window into refreshed OEE, reliability, and observed-power rows under `FleetPolicy.PerformanceHorizon`, and `Tooling/wear.md` `ConditionSignal.Of` lowers the thermal case into the wear channel family.
@@ -203,7 +203,6 @@ public sealed partial class MachineObservations {
                 .Filter(window => window.Ceiling(at).IsSome)
             : None;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MachineInstanceKey instance,

@@ -1,6 +1,6 @@
 # [APPUI_ANALYSIS_COMPARE]
 
-The compare grid is the analysis plane's side-by-side surface: a lattice of synced scenes, each cell bound to one `(option, analysis, instant)` triple, sharing camera, probe, legend domain, and capture so the only thing that differs between two cells is the coordinate that names them. `CompareAxis` is the closed vocabulary a cell coordinate spans; `CompareGrid` declares which two axes the lattice walks and pins every axis it does not, because a two-dimensional lattice fixes whatever it leaves unwalked and a grid that left them free would describe a volume nobody can read; `CompareLink` is the closed capability vocabulary of what a grid SHARES, each row carrying the fold that merges the cells into one channel rather than each cell owning its own; `CompareBoard` is the placement fold, the track preset, the seated screen, and the contact-sheet bake.
+The compare grid is the analysis plane's side-by-side surface: a matrix of synced scenes, each cell bound to one `(option, analysis, instant)` triple, sharing camera, probe, legend domain, and capture so the only thing that differs between two cells is the coordinate that names them. `CompareAxis` is the closed vocabulary a cell coordinate spans; `CompareGrid` declares which two axes the matrix walks and pins every axis it does not, because a two-dimensional matrix fixes whatever it leaves unwalked and a grid that left them free would describe a volume nobody can read; `CompareLink` is the closed capability vocabulary of what a grid SHARES, each row carrying the fold that merges the cells into one channel rather than each cell owning its own; `CompareBoard` is the placement fold, the track preset, the seated screen, and the contact-sheet bake.
 
 A cell is a `LayerStack` under a coordinate — a compare surface mounts the same layer machinery the single scene does and owns no second layer family. `ResultLayer`, `LayerStack`, `ResultDomain`, `ProbeChannel`, `ProbeReading`, and `BakeContext` arrive settled from `layers`; `OptionKey` and `OptionSet` from `Editing/livedata#OPTION_SETS`; `AnalysisContext` and its instant from `context#TEMPORAL_AXIS`; `PlacementGrid`, `PlacementFlow`, and `SpanPolicy` from `Charts/boards#PLACEMENT_FOLD` and `TilePlacement` from `Charts/tiles#TILE_SPINE`; `LayoutPreset`, `TrackSize`, and `ConstraintProgram` from `Shell/solver#LAYOUT_PRESETS`; `LegendSpec` and `LegendDomain` from `Charts/grammar#LEGEND_VOCABULARY`; `ViewCamera` and `Viewpoint` from `Render/viewpoint#VIEWPOINT_CODEC`; `ReportBlock` and `ReportSetup` from `Document/export#FLOW_REPORT`. Kernel `Stat<Scalar>`, `CapabilitySet`, `Op`, and `Fault` arrive whole from `Rasm.Domain`.
 
@@ -12,19 +12,19 @@ A cell is a `LayerStack` under a coordinate — a compare surface mounts the sam
 
 ## [02]-[COMPARE_CELL]
 
-- Owner: `CompareFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per comparison failure; `GridKey` — the admitted grid identity; `CompareAxis` `[SmartEnum<string>]` — the axes a coordinate spans, each carrying its member projection and its seat; `CompareCoord` — the whole coordinate every cell carries; `CompareCell` — one coordinate over an optional stack; `CompareGrid` — the declaration with its two walked axes, its pinned coordinate, its cap, its link grant set, and its checkpoint codec; `CompareGridWire` with `CompareGridMap` — the durable declaration projection; `CompareWalk` and `CompareLattice` — the walk product and the resolved lattice; `CompareCells` — the instruments, the resolve, and the one walk.
+- Owner: `CompareFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per comparison failure; `GridKey` — the admitted grid identity; `CompareAxis` `[SmartEnum<string>]` — the axes a coordinate spans, each carrying its member projection and its seat; `CompareCoord` — the whole coordinate every cell carries; `CompareCell` — one coordinate over an optional stack; `CompareGrid` — the declaration with its two walked axes, its pinned coordinate, its cap, its link grant set, and its checkpoint codec; `CompareGridWire` with `CompareGridMap` — the durable declaration projection; `CompareWalk` and `CompareMatrix` — the walk product and the resolved matrix; `CompareCells` — the instruments, the resolve, and the one walk.
 - Cases: `CompareAxis` = option · analysis · time; `CompareFault` = GridRejected | AxisConflict | MemberAbsent | LinkRejected | BakeRejected.
-- Entry: `public static Fin<CompareGrid> Admit(CompareGrid candidate)` — five named gates refused together, the pinned set deriving from the walk; `public Seq<CompareAxis> Held` on `CompareGrid` — the derived pinned roster the header states; `public CompareWalk Coords()` on `CompareGrid` — the capped cartesian walk in declared member order beside the members it refused; `public Fin<string> Encode()` and `public static Fin<CompareGrid> Decode(string blob)` — the checkpoint round trip; `public static CompareCell Resolve(CompareCoord at, Func<CompareCoord, Option<LayerStack>> bound)` — the coordinate-to-cell resolve; `public static Fin<CompareLattice> Walk(CompareGrid grid, Func<CompareCoord, Option<LayerStack>> bound)` — the whole grid in one fold.
+- Entry: `public static Fin<CompareGrid> Admit(CompareGrid candidate)` — five named gates refused together, the pinned set deriving from the walk; `public Seq<CompareAxis> Held` on `CompareGrid` — the derived pinned roster the header states; `public CompareWalk Coords()` on `CompareGrid` — the capped cartesian walk in declared member order beside the members it refused; `public Fin<string> Encode()` and `public static Fin<CompareGrid> Decode(string blob)` — the checkpoint round trip; `public static CompareCell Resolve(CompareCoord at, Func<CompareCoord, Option<LayerStack>> bound)` — the coordinate-to-cell resolve; `public static Fin<CompareMatrix> Walk(CompareGrid grid, Func<CompareCoord, Option<LayerStack>> bound)` — the whole grid in one fold.
 - Auto: the coordinate carries every axis value whether a grid walks it or pins it, so a cell's caption, its capture key, and its report row all read one record; members hold DECLARED order rather than a collation, because an option roster, an analysis roster, and a month sequence each carry meaning in their own order that a sort destroys; the cap TRUNCATES each walked axis and publishes the held-back count on `Overflow`; a member the axis cannot seat rides `CompareWalk.Refused` to the header rather than vanishing.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Riok.Mapperly, NodaTime, Rasm (project — `FaultBand`, `Op`, `CapabilitySet`), BCL inbox
 - Growth: a new comparison axis is one `CompareAxis` row carrying its member projection and its seat, beside the `CompareCoord` column that row reads and writes and the two `CompareGridWire` columns the checkpoint carries — after which the walk, the pin derivation, the caption, the capture key, and the sheet table absorb it untouched; a new cell fact is one `CompareCell` field; zero new surface.
 - Boundary:
-  - A grid walks TWO axes and pins every axis it does not. A free third axis describes a volume, not a lattice, so a grid declaring two identical walks refuses at admission rather than rendering an arbitrary projection of one; the pinned coordinate rides the grid itself so a caption states which axes are held and the operator reads the comparison as the comparison it is.
+  - A grid walks TWO axes and pins every axis it does not. A free third axis describes a volume, not a matrix, so a grid declaring two identical walks refuses at admission rather than rendering an arbitrary projection of one; the pinned coordinate rides the grid itself so a caption states which axes are held and the operator reads the comparison as the comparison it is.
   - A cell is a `LayerStack` — the same owner the single scene mounts — so every layer verb, every probe read, and every bake works identically inside a cell and a compare-only layer family is unspellable. Absence is the stack's own `Option`: an unbound coordinate carries NO stack rather than an empty one, so the empty-stack sentinel and the `Bound` flag that had to travel beside it both leave, and a cell that could not answer the probe is unrepresentable rather than guarded.
   - Cells are BOUND, never re-solved: a coordinate names an option, a study, and an instant, and the sealed result under that triple either exists or the cell renders its absent state. Launching a solve to fill an empty cell is the deleted form — a grid that quietly queued twelve solves is a compute bill an operator never agreed to.
   - The cap TRUNCATES and states its truncation, which is where this surface parts from the facet cap it otherwise mirrors. A facet's residual member unions N partitions' ROWS into one chart, so the residual cell renders something real; a compare cell is a SCENE under one coordinate, and the union of twelve options is not a scene any renderer could draw. So the walk stops at the cap and `Overflow` carries the held-back count for the header.
-  - A grant set is what makes a lattice a comparison, so an empty one refuses at admission: a grid sharing no channel is a wall of unrelated pictures, and the prose that said so while the fence admitted it was the contradiction this gate closes.
-  - Admission refuses ALL of its defects at once. A first-defect ladder answered "axes, members, or cap" to an operator who had to fix one column, resubmit, and meet the next refusal — the accumulating rail names every column in one pass and each gate carries the fault case its own column earns.
+  - A grant set is what makes a matrix a comparison, so an empty one refuses at admission: a grid sharing no channel is a wall of unrelated pictures, and the prose that said so while the fence admitted it was the contradiction this gate closes.
+  - Admission refuses ALL of its defects at once. A first-defect ladder answered "axes, members, or cap" to an operator who had to fix one column, resubmit, and meet the next refusal — the accumulating `Validation` names every column in one pass and each gate carries the fault case its own column earns.
   - `CompareFault` carries each refusal through a direct generated union case.
 
 ```csharp
@@ -179,7 +179,7 @@ public sealed record CompareGrid(
                 .Bind(CompareGridMap.Seated);
 }
 
-public sealed record CompareLattice(CompareGrid Grid, Seq<CompareCell> Cells, Seq<Error> Refused) {
+public sealed record CompareMatrix(CompareGrid Grid, Seq<CompareCell> Cells, Seq<Error> Refused) {
     public Seq<(CompareCell Cell, LayerStack Stack)> Bound =>
         Cells.Choose(static cell => cell.Stack.Map(stack => (Cell: cell, Stack: stack)));
 }
@@ -250,17 +250,17 @@ public static class CompareCells {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Cells, Bound);
 
-    public static Fin<Unit> Observe(InstrumentSet set, CompareLattice lattice) =>
-        from _ in set.Level(Cells, lattice.Cells.Count)
-        from bound in set.Write(Bound, lattice.Bound.Count, InstrumentSet.Tags((AppUiTelemetry.SourceSlot, lattice.Grid.Key.Value)))
+    public static Fin<Unit> Observe(InstrumentSet set, CompareMatrix matrix) =>
+        from _ in set.Level(Cells, matrix.Cells.Count)
+        from bound in set.Write(Bound, matrix.Bound.Count, InstrumentSet.Tags((AppUiTelemetry.SourceSlot, matrix.Grid.Key.Value)))
         select unit;
 
     public static CompareCell Resolve(CompareCoord at, Func<CompareCoord, Option<LayerStack>> bound) =>
         new(at, bound(at));
 
-    public static Fin<CompareLattice> Walk(CompareGrid grid, Func<CompareCoord, Option<LayerStack>> bound) =>
+    public static Fin<CompareMatrix> Walk(CompareGrid grid, Func<CompareCoord, Option<LayerStack>> bound) =>
         CompareGrid.Admit(grid).Map(admitted => admitted.Coords() switch {
-            var walk => new CompareLattice(
+            var walk => new CompareMatrix(
                 admitted, walk.Walked.Map(at => Resolve(at, bound)), walk.Refused),
         });
 }
@@ -283,14 +283,13 @@ public static class CompareCells {
 - Boundary:
   - Each link's merge rides its ROW, so the granted set folds through one monadic fold and a fold that read the link keys back through a predicate ladder — one branch per channel, re-read at every call site that composes two of them — is the deleted form. A row that carries NO per-frame fold says so with `None` rather than with an identity delegate: `capture` is the contact sheet's own admission, and paying a `Bind` per frame to answer the held state unchanged was a fold pretending to be one.
   - The LEGEND DOMAIN is the link that makes a grid a comparison rather than a gallery. Each cell's layers carry their own measured extent, so an unlinked grid would paint each cell against its own scale and an option that scored twenty percent lower would look identical to the one beside it. The union is over every bound cell's own span, so the widest reading sets the scale for all of them and a visible difference is a real difference.
-  - The union is a kernel `Stat<Scalar>` SUMMARY rather than a sentinel-seeded pair. A two-accumulator fold seeded at the infinities produced an inverted span on an empty roster and then re-validated it afterwards; the summary admits each reading on the rail, carries its own ordering and finiteness evidence, and states the extremum pair as one value the re-seat reads.
+  - The union is a kernel `Stat<Scalar>` SUMMARY rather than a sentinel-seeded pair. A two-accumulator fold seeded at the infinities produced an inverted span on an empty roster and then re-validated it afterwards; the summary admits each reading on the result, carries its own ordering and finiteness evidence, and states the extremum pair as one value the re-seat reads.
   - A cell whose layers declare INCOMPATIBLE domain arms cannot share a scale: a continuous field and a coded classification have no common ramp, so the union refuses by name rather than rendering a gradient over class codes. Arm identity is a short-circuiting comparison against the sample the re-seat already elected, never a full distinct-materialize over every layer to answer a same-ness question.
   - The capture link is a CONTACT SHEET rather than N unrelated files: one bake, one sheet, one coordinate table, so a deliverable carries the comparison and not a folder a reader must reassemble — and the sheet REFUSES on a grid that never granted the channel, because pictures of cells that shared no camera, no coordinate, and no scale are a folder wearing a comparison's name.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -397,17 +396,17 @@ internal static class CompareChannels {
 ## [04]-[GRID_PROGRAM]
 
 - Owner: `CompareSheet` — the contact-sheet product; `CompareBoard` — the placement fold, the constraint preset, the surface body, the seated screen, and the bake.
-- Entry: `public static Seq<TilePlacement> Place(CompareGrid grid, BreakpointRow at, Seq<CompareCoord> coords)` — placement through the board's own fold, one call per lattice row; `public static LayoutPreset Preset(CompareGrid grid)` — the track geometry the panel solves; `public static ControlIntent Body(CompareLattice lattice, CompareSync sync, VirtualWindowSpec window)` — the surface; `public static ScreenProgram Program(ScreenComposition composition)` — the seated screen; `public static IO<Fin<CompareSheet>> Sheet(CompareLattice lattice, BakeContext context, ReportSetup setup, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)` — the contact sheet and its settled fact firing.
-- Auto: placement is the SAME `PlacementFlow.Flow` fold a board runs, called ONCE PER LATTICE ROW over the tier's own `PlacementGrid`, so a compare lattice reflows inside a narrowing pane exactly as tiles reflow inside a narrowing board and a compare-local column arithmetic is unspellable; the track geometry is one `LayoutPreset.Grid` of equal fractional tracks, so cells stay square-ish at every width without a size literal anywhere; each cell's caption is its coordinate's two walked members alone, because the pinned members are stated once on the grid header and repeating them in every cell wastes the space the scene needs.
+- Entry: `public static Seq<TilePlacement> Place(CompareGrid grid, BreakpointRow at, Seq<CompareCoord> coords)` — placement through the board's own fold, one call per matrix row; `public static LayoutPreset Preset(CompareGrid grid)` — the track geometry the panel solves; `public static ControlIntent Body(CompareMatrix matrix, CompareSync sync, VirtualWindowSpec window)` — the surface; `public static ScreenProgram Program(ScreenComposition composition)` — the seated screen; `public static IO<Fin<CompareSheet>> Sheet(CompareMatrix matrix, BakeContext context, ReportSetup setup, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` — the contact sheet and its settled fact firing.
+- Auto: placement is the SAME `PlacementFlow.Flow` fold a board runs, called ONCE PER MATRIX ROW over the tier's own `PlacementGrid`, so a compare matrix reflows inside a narrowing pane exactly as tiles reflow inside a narrowing board and a compare-local column arithmetic is unspellable; the track geometry is one `LayoutPreset.Grid` of equal fractional tracks, so cells stay square-ish at every width without a size literal anywhere; each cell's caption is its coordinate's two walked members alone, because the pinned members are stated once on the grid header and repeating them in every cell wastes the space the scene needs.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, SkiaSharp
 - Growth: a new grid chrome row is one `ControlIntent` child in the body fold; a new sheet block is one `ReportBlock` row; a new header notice is one `Notices` row; zero new surface.
 - Boundary:
   - A compare surface mints NO layout engine, no panel, and no grid control — placement is the board's fold, geometry is a `LayoutPreset.Grid` the one `LayoutSolver` panel solves, and the cells are ordinary control intents the one factory materializes. A cell's SCENE is not a control at all: the cell panel names the constraint program that reserves its region and the host mounts a viewport into it, so this page declares where a scene sits and never what draws in it.
-  - A compare lattice wraps at the columns it WALKED because each lattice row is its own `Flow` call, not because this page ever states a column count: the placement grid is the tier's, mintable only through its own frozen roster, and `SpanPolicy.Equal` splits that tier's width across the row's own members. Where the tier is too narrow to hold one column per member the fold wraps at a single column, which is the board's own declared degradation and the honest one here — a lattice that insisted on its walked width inside a compact pane would clip the scenes it exists to show.
-  - The sheet bake composes each cell's own frame through the settled bake context, so a contact sheet is N settled captures beside one coordinate table rather than a second capture path; a cell that is unbound contributes its coordinate row and no figure, so the sheet states what was not run instead of leaving a gap a reader interprets. Both refusals — an ungranted capture channel and a page with no declared extent — land on the pure rail AHEAD of the first capture, because spending N renders and refusing afterwards is a bill nobody agreed to.
+  - A compare matrix wraps at the columns it WALKED because each matrix row is its own `Flow` call, not because this page ever states a column count: the placement grid is the tier's, mintable only through its own frozen roster, and `SpanPolicy.Equal` splits that tier's width across the row's own members. Where the tier is too narrow to hold one column per member the fold wraps at a single column, which is the board's own declared degradation and the honest one here — a matrix that insisted on its walked width inside a compact pane would clip the scenes it exists to show.
+  - The sheet bake composes each cell's own frame through the settled bake context, so a contact sheet is N settled captures beside one coordinate table rather than a second capture path; a cell that is unbound contributes its coordinate row and no figure, so the sheet states what was not run instead of leaving a gap a reader interprets. Both refusals — an ungranted capture channel and a page with no declared extent — land on the pure result AHEAD of the first capture, because spending N renders and refusing afterwards is a bill nobody agreed to.
   - The figure width DIVIDES the report setup's own text extent, so this page carries no page constant: the extent is the kernel sheet the `ReportSetup` policy names, and a free centimetre pair beside it is the form the export owner already retired for round-tripping to nothing.
   - Grid verbs — swap the walked pair, pin an axis, bake the sheet — are `Shell/commands#INTENT_TABLE` rows raised by key AND affordances the body actually carries, so every one is reachable from the surface, from the palette, and from a remote call.
-  - The grid DECLARATION is the screen state worth checkpointing, and it now travels as its own encoded payload rather than as a slot a restore read back untouched: the walked pair, the pinned coordinate, the cap, and the grant set are what an operator arranged, a restore re-admits them through the same five gates a live declaration crosses, and a blob that no longer admits drops rather than seating a lattice the grid owner would have refused. The cells are not state — they resolve from the sealed set through the bound arrow, so a restore re-resolves rather than rehydrating a picture of a run.
+  - The grid DECLARATION is the screen state worth checkpointing, and it now travels as its own encoded payload rather than as a slot a restore read back untouched: the walked pair, the pinned coordinate, the cap, and the grant set are what an operator arranged, a restore re-admits them through the same five gates a live declaration crosses, and a blob that no longer admits drops rather than seating a matrix the grid owner would have refused. The cells are not state — they resolve from the sealed set through the bound arrow, so a restore re-resolves rather than rehydrating a picture of a run.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -430,7 +429,7 @@ public static class CompareBoard {
 
     public static ScreenProgram Program(ScreenComposition composition) =>
         ScreenProgram.Of(Key, screen => composition.Compare(screen.Surface) switch {
-            var seated => Body(seated.Lattice, seated.Sync, composition.Window),
+            var seated => Body(seated.Matrix, seated.Sync, composition.Window),
         })
         with {
             State = new StateLens(
@@ -445,16 +444,16 @@ public static class CompareBoard {
                     return screen.Write(Picked, merged.Selection);
                 }),
             Alive = screen => key => screen.Composition
-                .Compare(screen.Surface).Lattice.Cells
+                .Compare(screen.Surface).Matrix.Cells
                 .Exists(cell => cell.At.Key == key),
         };
 
     public static Seq<TilePlacement> Place(CompareGrid grid, BreakpointRow at, Seq<CompareCoord> coords) =>
         toSeq(coords.GroupBy(coord => grid.Rows.Member(coord)))
-            .Fold((Placed: Seq<TilePlacement>(), Row: 0), (held, lattice) =>
+            .Fold((Placed: Seq<TilePlacement>(), Row: 0), (held, matrix) =>
                 PlacementFlow.Flow(
                     PlacementGrid.For(at),
-                    toSeq(lattice).Map(static coord => coord.Key),
+                    toSeq(matrix).Map(static coord => coord.Key),
                     new SpanPolicy.Equal(), rowSpan: 1, from: held.Row) switch {
                     var laid => (held.Placed + laid.Placements, laid.Next),
                 }).Placed;
@@ -465,33 +464,33 @@ public static class CompareBoard {
             Rows: grid.WalkedRows.Map(static _ => (TrackSize)new TrackSize.Fr(1d)),
             Gap: MetricFamily.Space.At(2));
 
-    public static ControlIntent Body(CompareLattice lattice, CompareSync sync, VirtualWindowSpec window) =>
+    public static ControlIntent Body(CompareMatrix matrix, CompareSync sync, VirtualWindowSpec window) =>
         new ControlIntent.Panel(
             Key,
             Seq<ControlIntent>(
-                    Verbs(lattice.Grid),
+                    Verbs(matrix.Grid),
                     new ControlIntent.Label(
                         $"{Key}.held", $"{Key}.held", TypographyRole.Caption,
                         IntentBinding.Of(PaintRole.TextMuted) with { ValueKey = Some($"{Key}.held") }))
-                + Notices(lattice)
+                + Notices(matrix)
                 + Seq<ControlIntent>(new ControlIntent.Panel(
                     CellsKey,
-                    lattice.Cells.Map(cell => Cell(lattice.Grid, cell)),
+                    matrix.Cells.Map(cell => Cell(matrix.Grid, cell)),
                     ConstraintProgram: CellsKey,
                     IntentBinding.Of(PaintRole.Surface)))
                 + sync.Legend.Map(spec => (ControlIntent)new ControlIntent.Label(
                     $"{Key}.legend", spec.Key, TypographyRole.Caption,
                     IntentBinding.Of(PaintRole.TextMuted))).ToSeq()
-                + (lattice.Grid.Sync.Admits(CompareLink.Probe)
+                + (matrix.Grid.Sync.Admits(CompareLink.Probe)
                     ? sync.Readings.Map(reading => ProbeChannel.Table(reading, window))
                     : Seq<ControlIntent>()),
             ConstraintProgram: Key,
             IntentBinding.Of(PaintRole.Surface));
 
-    static Seq<ControlIntent> Notices(CompareLattice lattice) =>
+    static Seq<ControlIntent> Notices(CompareMatrix matrix) =>
         Seq((Stem: CompareGrid.OverflowStem, Slot: "overflow",
-             Count: lattice.Grid.Overflow.Rows + lattice.Grid.Overflow.Columns),
-            (Stem: CompareGrid.RefusedStem, Slot: "refused", Count: lattice.Refused.Count))
+             Count: matrix.Grid.Overflow.Rows + matrix.Grid.Overflow.Columns),
+            (Stem: CompareGrid.RefusedStem, Slot: "refused", Count: matrix.Refused.Count))
             .Filter(static row => row.Count > 0)
             .Map(static row => (ControlIntent)new ControlIntent.Label(
                 $"{Key}.{row.Slot}", row.Stem, TypographyRole.Caption,
@@ -541,59 +540,59 @@ public static class CompareBoard {
         $"{grid.Rows.Member(at)} / {grid.Columns.Member(at)}";
 
     public static IO<Fin<CompareSheet>> Sheet(
-        CompareLattice lattice,
+        CompareMatrix matrix,
         BakeContext context,
         ReportSetup setup,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
-        (from page in FinT.lift<IO, (double Width, Seq<(CompareCell Cell, LayerStack Stack)> Bound)>(Admitted(lattice, setup))
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
+        (from page in FinT.lift<IO, (double Width, Seq<(CompareCell Cell, LayerStack Stack)> Bound)>(Admitted(matrix, setup))
          from shots in page.Bound.TraverseM(row =>
                  FinT.liftIO<IO, (VisualArtifact Artifact, SKImage Tile)>(context.Grab(row.Stack))
                      .Map(shot => (row.Cell, shot.Artifact, shot.Tile)))
              .As()
          let sheet = new CompareSheet(
-             lattice.Grid,
-             Blocks(lattice, shots.Map(static shot => (shot.Cell, shot.Tile)), page.Width, context.Locale),
+             matrix.Grid,
+             Blocks(matrix, shots.Map(static shot => (shot.Cell, shot.Tile)), page.Width, context.Locale),
              shots.Map(static shot => shot.Artifact))
-         from settled in FinT.lift<IO, CompareSheet>(rail.Fire(
+         from settled in FinT.lift<IO, CompareSheet>(hooks.Fire(
              at: AppUiPoint.Effect,
              fact: new AppUiFact.Effect(
                  CompareCells.Plane,
-                 lattice.Grid.Key.Value,
-                 $"{lattice.Grid.Rows.Key}x{lattice.Grid.Columns.Key}/{string.Join('+', lattice.Grid.Held.Map(static axis => axis.Key))}",
-                 lattice.Grid.Sync.Admits(CompareLink.Legend),
+                 matrix.Grid.Key.Value,
+                 $"{matrix.Grid.Rows.Key}x{matrix.Grid.Columns.Key}/{string.Join('+', matrix.Grid.Held.Map(static axis => axis.Key))}",
+                 matrix.Grid.Sync.Admits(CompareLink.Legend),
                  checked((uint)sheet.Artifacts.Count),
                  new EffectMeasure.Extent(
-                     checked((uint)lattice.Grid.WalkedRows.Count),
-                     checked((uint)lattice.Grid.WalkedColumns.Count))),
+                     checked((uint)matrix.Grid.WalkedRows.Count),
+                     checked((uint)matrix.Grid.WalkedColumns.Count))),
              key: Op.Of(name: SheetIntent),
              body: _ => Fin.Succ(sheet)))
          select settled).runFin.As();
 
     static Fin<(double Width, Seq<(CompareCell Cell, LayerStack Stack)> Bound)> Admitted(
-        CompareLattice lattice, ReportSetup setup) =>
-        from _ in guard(lattice.Grid.Sync.Admits(CompareLink.Capture),
-            (Error)new CompareFault.BakeRejected($"{lattice.Grid.Key}: capture is not a granted channel"))
+        CompareMatrix matrix, ReportSetup setup) =>
+        from _ in guard(matrix.Grid.Sync.Admits(CompareLink.Capture),
+            (Error)new CompareFault.BakeRejected($"{matrix.Grid.Key}: capture is not a granted channel"))
         from page in setup.Page.ToFin(
-            new CompareFault.BakeRejected($"{lattice.Grid.Key}: a contact sheet divides a declared page extent"))
+            new CompareFault.BakeRejected($"{matrix.Grid.Key}: a contact sheet divides a declared page extent"))
         let extent = setup.Landscape ? page.Height.Centimeters : page.Width.Centimeters
-        select ((extent - (2d * setup.MarginCm.IfNone(0d))) / lattice.Grid.WalkedColumns.Count, lattice.Bound);
+        select ((extent - (2d * setup.MarginCm.IfNone(0d))) / matrix.Grid.WalkedColumns.Count, matrix.Bound);
 
     static Seq<ReportBlock> Blocks(
-        CompareLattice lattice, Seq<(CompareCell Cell, SKImage Tile)> shots, double width, ResolvedLocale locale) =>
+        CompareMatrix matrix, Seq<(CompareCell Cell, SKImage Tile)> shots, double width, ResolvedLocale locale) =>
         Seq<ReportBlock>(
-            new ReportBlock.Heading(2, lattice.Grid.Key.Value),
+            new ReportBlock.Heading(2, matrix.Grid.Key.Value),
             new ReportBlock.Table(
                 Seq(Seq(
-                        locale.Label($"{Key}.axis.{lattice.Grid.Rows.Key}"),
-                        locale.Label($"{Key}.axis.{lattice.Grid.Columns.Key}"),
+                        locale.Label($"{Key}.axis.{matrix.Grid.Rows.Key}"),
+                        locale.Label($"{Key}.axis.{matrix.Grid.Columns.Key}"),
                         locale.Label($"{Key}.bound")))
-                    + lattice.Cells.Map(cell => Seq(
-                        lattice.Grid.Rows.Member(cell.At),
-                        lattice.Grid.Columns.Member(cell.At),
+                    + matrix.Cells.Map(cell => Seq(
+                        matrix.Grid.Rows.Member(cell.At),
+                        matrix.Grid.Columns.Member(cell.At),
                         locale.Label($"{Key}.{(cell.Stack.IsSome ? "bound" : "unbound")}"))),
                 Header: true))
         + shots.Map(shot => (ReportBlock)new ReportBlock.Figure(
-            shot.Tile, width, Caption(lattice.Grid, shot.Cell.At), Some(shot.Cell.At.Key)));
+            shot.Tile, width, Caption(matrix.Grid, shot.Cell.At), Some(shot.Cell.At.Key)));
 }
 ```
 
@@ -607,19 +606,19 @@ config:
 ---
 flowchart LR
     accTitle: Compare grid coordinate walk and shared channels
-    accDescr: A grid declaring two walked axes over a pinned coordinate, walking the capped cartesian product into coordinates that resolve to a lattice of bound cells beside the members the walk refused, with each granted link folding its own merge over one frame to seat one camera, one probe reading set, and one unioned legend domain, before placement runs one board flow per lattice row and the capture grant admits the contact sheet and fires its settled fact.
+    accDescr: A grid declaring two walked axes over a pinned coordinate, walking the capped cartesian product into coordinates that resolve to a matrix of bound cells beside the members the walk refused, with each granted link folding its own merge over one frame to seat one camera, one probe reading set, and one unioned legend domain, before placement runs one board flow per matrix row and the capture grant admits the contact sheet and fires its settled fact.
     CompareGrid -->|WalkedRows x WalkedColumns| CompareWalk
     CompareWalk --> CompareCoord
     CompareCoord -->|Resolve| CompareCell
-    CompareCell --> CompareLattice
-    CompareLattice --> CompareFrame
+    CompareCell --> CompareMatrix
+    CompareMatrix --> CompareFrame
     CompareGrid -->|Encode| CompareGridWire
     CompareGrid -->|Sync.Admits| CompareLink
     CompareLink -->|Merge| CompareSync
     CompareFrame --> CompareSync
     CompareSync -->|Unioned| LegendSpec
     CompareSync -->|Read| ProbeReading
-    CompareLattice -->|Flow| TilePlacement
+    CompareMatrix -->|Flow| TilePlacement
     TilePlacement --> ConstraintProgram
     CompareLink -->|capture| CompareSheet
     CompareSheet -->|Grab| ReportBlock

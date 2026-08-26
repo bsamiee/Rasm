@@ -18,7 +18,7 @@
 - `EditorProps` render keys: `nodeViews`, `markViews`, `decorations`, `editable`, `attributes`, `scrollThreshold`, `scrollMargin`.
 - Every handler returning `true` claims the event; `false` or `undefined` passes it to the next contributor by plugin order, the direct props winning first.
 
-[PUBLIC_TYPE_SCOPE]: the node-view seam — a caller-owned object owning one node's DOM.
+[PUBLIC_TYPE_SCOPE]: the node-view interface — a caller-owned object owning one node's DOM.
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                                                |
 | :-----: | :-------------------- | :------------ | :------------------------------------------------------------------------------------------ |

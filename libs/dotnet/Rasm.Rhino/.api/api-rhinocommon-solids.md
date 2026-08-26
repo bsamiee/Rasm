@@ -1,11 +1,11 @@
 # [RASM_RHINO_API_RHINOCOMMON_SOLIDS]
 
-`Rhino.Geometry` `Brep`, `Extrusion`, and `DevelopableSrf` construction P/Invokes `rhcommon_c`, so every static returns geometry bit-compatible with Rhino's own kernel commands and this catalog stands at the host boundary, not the kernel. Host-neutral robust construction, booleans, and offsets live in the `Rasm` kernel and compose by altitude; brep intersection, mass/area measure, contour/iso extraction, and native custody stay with their own catalogs. Every native `bool`/`out`-param/array outcome projects onto the `LanguageExt` rails.
+`Rhino.Geometry` `Brep`, `Extrusion`, and `DevelopableSrf` construction P/Invokes `rhcommon_c`, so every static returns geometry bit-compatible with Rhino's own kernel commands and this catalog stands at the host boundary, not the kernel. Host-neutral robust construction, booleans, and offsets live in the `Rasm` kernel and compose by altitude; brep intersection, mass/area measure, contour/iso extraction, and native custody stay with their own catalogs. Every native `bool`/`out`-param/array outcome projects onto the `LanguageExt` carriers.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: construction owners
-- rail: solid-construction
+- concern: solid-construction
 
 | [INDEX] | [SYMBOL]         | [KIND]          | [CAPABILITY]                                                                 |
 | :-----: | :--------------- | :-------------- | :--------------------------------------------------------------------------- |
@@ -14,7 +14,7 @@
 |  [03]   | `DevelopableSrf` | ruling helper   | developable-loft ruling extraction between two rails                         |
 
 [PUBLIC_TYPE_SCOPE]: configuration carriers
-- rail: solid-construction
+- concern: solid-construction
 
 | [INDEX] | [SYMBOL]                        | [KIND]         | [CAPABILITY]                                                     |
 | :-----: | :------------------------------ | :------------- | :--------------------------------------------------------------- |
@@ -140,10 +140,10 @@
 
 [STACKING]:
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`BoundingBox`/`Interval` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
-- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a nullable single construction lifts to `Option<Brep>`/`Option<Extrusion>`, a possibly-null-or-empty `Brep[]` lands as `Seq<Brep>`, a `bool`-with-`out` result folds into a `Fin` keyed to the payload, and the boolean diagnostic point arrays and join/split index maps fold into one typed build-fact stream on the failure branch; `IProgress<double>`/`CancellationToken` patch builds project onto the effect rail.
+- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a nullable single construction lifts to `Option<Brep>`/`Option<Extrusion>`, a possibly-null-or-empty `Brep[]` lands as `Seq<Brep>`, a `bool`-with-`out` result folds into a `Fin` keyed to the payload, and the boolean diagnostic point arrays and join/split index maps fold into one typed build-fact stream on the failure branch; `IProgress<double>`/`CancellationToken` patch builds project onto the effect carrier.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the closed construction vocabularies — `LoftType`, `BlendType`, `BlendContinuity`, `RailType`, `PipeCapMode`, `ExtrudeCornerType`, `FilletSurfaceSplitType`, and the `SweepFrame`/`SweepBlend`/`SweepMiter`/`SweepRebuild` axes — wrap as `[SmartEnum<TKey>]` owners, and the construction op models as a `[Union]` over the boolean, fillet, offset, sweep, loft, patch, primitive, and join/split arms with per-arm parameter carriers.
 - `Rasm` kernel: host-neutral robust booleans, offsets, and lofts stand at the kernel altitude and the boundary re-derives none of them; tolerances, radii, angles, and station parameters compose the kernel numeric and unit owners before the native call.
 
 [LOCAL_ADMISSION]:
-- construction enters through the op union: each arm binds its native static, projects the `Brep[]`/`Brep`/`bool`+`out` outcome onto the rail, and pairs parallel-array inputs (edge indices with radii, rail parameters with radii, geometry with attributes) into one row sequence proving equal cardinality before the native call.
+- construction enters through the op union: each arm binds its native static, projects the `Brep[]`/`Brep`/`bool`+`out` outcome onto the carrier, and pairs parallel-array inputs (edge indices with radii, rail parameters with radii, geometry with attributes) into one row sequence proving equal cardinality before the native call.
 - native `Brep`, `Extrusion`, and configuration carriers stay inside the construction grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed build facts, or an explicitly owned geometry lease, and `FilletSurfaceResults`/`VariationalPatchResult` project into detached result records.

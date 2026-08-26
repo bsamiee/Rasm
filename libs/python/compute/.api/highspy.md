@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_HIGHSPY]
 
-`highspy` supplies the HiGHS linear, mixed-integer, and convex-quadratic solver for the compute mathematical-programming rail: one stateful `Highs` owning model assembly, the dual-simplex/IPX/PDLP, branch-and-bound, and active-set engines, and the `HighsSolution`/`HighsModelStatus`/`HighsInfo` result. HiGHS owns the LP/MIP/QP regime — simplex-exact bases, integrality, sensitivity ranging — where the `clarabel`/`scs` conic arms own the cones, and cvxpy selects it as the `cp.HIGHS` backend of the one convex family. Package owner composes `Highs`, the `highs_var`/`highs_linear_expression` surface, and the solve/warm-mutation rail, never re-implementing the simplex or branch-and-bound search HiGHS owns.
+`highspy` supplies the HiGHS linear, mixed-integer, and convex-quadratic solver for the compute mathematical-programming domain: one stateful `Highs` owning model assembly, the dual-simplex/IPX/PDLP, branch-and-bound, and active-set engines, and the `HighsSolution`/`HighsModelStatus`/`HighsInfo` result. HiGHS owns the LP/MIP/QP regime — simplex-exact bases, integrality, sensitivity ranging — where the `clarabel`/`scs` conic arms own the cones, and cvxpy selects it as the `cp.HIGHS` backend of the one convex family. Package owner composes `Highs`, the `highs_var`/`highs_linear_expression` surface, and the solve/warm-mutation domain, never re-implementing the simplex or branch-and-bound search HiGHS owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -112,7 +112,7 @@ Every verdict is a closed enum whose `k`-prefixed members are the emitted wire n
 - callback axis: each `HighsCallback` owns `subscribe(callback, user_data)`/`unsubscribe(callback)` for its typed event; the first subscription starts the event, the last removal stops it.
 - evidence axis: each solve captures the `HighsModelStatus` verdict, the `HighsSolution` primal `col_value`/dual `col_dual`, and the `HighsInfo` objective with the iteration and `mip_node_count`/`mip_gap` counts as the `Optimum.Program` evidence; the dual `col_dual` reduced costs are the LP optimality certificate, `getRanging()` bounds its stability, and `getDualRay()`/`getPrimalRay()` certify `kInfeasible`/`kUnbounded`.
 - infeasibility axis: a `kInfeasible` model resolves through `getIis()` for the irreducible conflict set or `feasibilityRelaxation()` for the minimal-violation solution.
-- boundary: HiGHS owns the LP/MIP/QP solve, the simplex basis, and the primal/dual certificate; cvxpy owns disciplined-convex modeling above it; the graduation rail hands the offline solution across the wire.
+- boundary: HiGHS owns the LP/MIP/QP solve, the simplex basis, and the primal/dual certificate; cvxpy owns disciplined-convex modeling above it; the graduation path hands the offline solution across the wire.
 
 [STACKING]:
 - `cvxpy`(`.api/cvxpy.md`): `cp.Problem.solve(solver=cp.HIGHS)` routes a disciplined-convex LP, MILP, or convex-QP to HiGHS, and admitting `highspy` lights the `cp.HIGHS` backend beside `cp.CLARABEL`/`cp.SCS` — HiGHS the LP/MIP/QP arm, Clarabel/SCS the conic arms of the one convex family; `get_problem_data(cp.HIGHS)` yields the sparse standard form for a direct `passModel` drive without the modeling layer in the hot loop.

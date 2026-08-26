@@ -1,27 +1,27 @@
 # [RASM_TELEMETRY]
 
-`Rasm.Domain` owns the branch's one OTel-free signal fabric: the kernel sub-domain roster every span source and hook-point id derives from, the causal-edge vocabulary a bracket carries, the span band that conforms to the hook rail's own bracket floor, the per-operation cost evidence, the one emission entry that publishes a fact and meters it, and the contributor port a stratum hands a composing root. One home holds the fabric TYPE; a stratum above composes an INSTANCE against its own fact union, its own instrument roster, and its own objectives.
+`Rasm.Domain` owns the branch's one OTel-free signal fabric: the kernel sub-domain roster every span source and hook-point id derives from, the causal-edge vocabulary a bracket carries, the span band that conforms to the hook bus's own bracket floor, the per-operation cost evidence, the one emission entry that publishes a fact and meters it, and the contributor port a stratum hands a composing root. One home holds the fabric TYPE; a stratum above composes an INSTANCE against its own fact union, its own instrument roster, and its own objectives.
 
-Every owner is instance-owned and composition-entered — evidence cell, meter, rail, and band arrive from the composing app, so two compositions never contend for one slot. Dependency split draws the boundary: this page carries `System.Diagnostics`, `System.Diagnostics.Metrics`, LanguageExt, and Thinktecture, while OTel-SDK wiring, exporters, sampling, resource identity, foreign-source rows, and the OTel baggage store stay at the app platform. Fire is synchronous from any stratum, and every owner this page composes downward — the hook capsule, the causal frame, the measurement plane, the reliability algebra — is declared on its own page and re-spelled here nowhere.
+Every owner is instance-owned and composition-entered — evidence cell, meter, bus, and band arrive from the composing app, so two compositions never contend for one slot. Dependency split draws the boundary: this page carries `System.Diagnostics`, `System.Diagnostics.Metrics`, LanguageExt, and Thinktecture, while OTel-SDK wiring, exporters, sampling, resource identity, foreign-source rows, and the OTel baggage store stay at the app platform. Fire is synchronous from any stratum, and every owner this page composes downward — the hook capsule, the causal frame, the measurement plane, the reliability algebra — is declared on its own page and re-spelled here nowhere.
 
 ## [01]-[INDEX]
 
 - [02]-[CAPSULE]: `KernelDomain`, `TraceCarrier`, `SpanEdge`, `SpanBand` — the sub-domain roster, the causal-edge vocabulary, and the span band that conforms to `IHookSpan`.
 - [03]-[COST]: `Outcome`, `OpCost`, `CostMark` — the settled-verdict row and the per-operation billing capture, declared ahead of the tap that meters them.
-- [04]-[TAP]: `FaultObservation`, `PointFacet`, `KernelPoint`, `SignalFact`, `SignalRail`, `KernelInstrument`, `TelemetrySink` — structured fault projection, hook roster, fact vocabulary, emission rail, instruments, and the ONE emission entry.
+- [04]-[TAP]: `FaultObservation`, `PointFacet`, `KernelPoint`, `SignalFact`, `SignalHooks`, `KernelInstrument`, `TelemetrySink` — structured fault projection, hook roster, fact vocabulary, emission bus, instruments, and the ONE emission entry.
 - [05]-[CONTRIBUTE]: `ClassifiedValue`, `Sensitivity`, `TelemetryContributorPort` — the sensitivity vocabulary and the one downward contribution fact a stratum hands a composing root.
 
 ## [02]-[CAPSULE]
 
-- Owner: `KernelDomain` rows derive both `SourceName` and the prefix `KernelPoint` seats its ids on off one row key — span source and hook-point prefix are ONE derivation, never two spellings — and the scope projects through an `Items`-derived frozen index so a hot bracket pays a lookup rather than a re-parse; `TraceBaggage` is the admitted W3C baggage value and `TraceCarrier` is the one causal-edge owner, capturing the W3C `traceparent`/`tracestate`/`baggage` triplet where a producing span is live and projecting its parsed parent back as an ingress parent or batch link; `SpanEdge` is the one bracket carriage binding span kind, that parent, and that edge set; `SpanBand` owns every admitted scope's `ActivitySource` and conforms to the hook rail's bracket floor.
-- Cases: three span shapes off one carriage — a descendant bracket taking the carriage default, an ingress bracket adopting one inbound parent under a consumer or server kind, and a fan-in bracket carrying one link per upstream operation. Two rail shapes: a synchronous `Fin` arm brackets with `using`, an effectful `IO` arm brackets through `IO`, and both resolve the same admitted-scope table and the same carriage.
-- Entry: `TraceCarrier.Of(Activity?)` delegates capture of all three W3C fields to the in-box propagator, `Admit(traceParent, traceState, baggage)` delegates foreign-field parsing to that same codec, `Parent` reconstructs the admitted context, and `Link(facts)` projects a fan-in edge over that parse; `SpanEdge.Under(carrier, kind)` and `SpanEdge.FanIn(links, kind)` fold either into the trailing carriage both `Traced` rail shapes take; `SpanBand.Of(version, plane, external)` mints the band and `Names` projects the scope names a tracer provider registers.
+- Owner: `KernelDomain` rows derive both `SourceName` and the prefix `KernelPoint` seats its ids on off one row key — span source and hook-point prefix are ONE derivation, never two spellings — and the scope projects through an `Items`-derived frozen index so a hot bracket pays a lookup rather than a re-parse; `TraceBaggage` is the admitted W3C baggage value and `TraceCarrier` is the one causal-edge owner, capturing the W3C `traceparent`/`tracestate`/`baggage` triplet where a producing span is live and projecting its parsed parent back as an ingress parent or batch link; `SpanEdge` is the one bracket carriage binding span kind, that parent, and that edge set; `SpanBand` owns every admitted scope's `ActivitySource` and conforms to the hook bus's bracket floor.
+- Cases: three span shapes off one carriage — a descendant bracket taking the carriage default, an ingress bracket adopting one inbound parent under a consumer or server kind, and a fan-in bracket carrying one link per upstream operation. Two result shapes: a synchronous `Fin` arm brackets with `using`, an effectful `IO` arm brackets through `IO`, and both resolve the same admitted-scope table and the same carriage.
+- Entry: `TraceCarrier.Of(Activity?)` delegates capture of all three W3C fields to the in-box propagator, `Admit(traceParent, traceState, baggage)` delegates foreign-field parsing to that same codec, `Parent` reconstructs the admitted context, and `Link(facts)` projects a fan-in edge over that parse; `SpanEdge.Under(carrier, kind)` and `SpanEdge.FanIn(links, kind)` fold either into the trailing carriage both `Traced` result shapes take; `SpanBand.Of(version, plane, external)` mints the band and `Names` projects the scope names a tracer provider registers.
 - Law: `KernelDomain` is a hand-kept MIRROR of the kernel's own sub-domain folder set — the roster and `ARCHITECTURE` `[01]` move as one edit, and a new sub-domain lands in both places or the span source it needs does not exist. `KernelDomain` states that mirror rather than deriving it, because a folder set is a repository fact no type can read.
-- Law: `SpanBand` conforms to `IHookSpan` by taking the PLANE as an argument, so one band serves every roster plane a composition mounts and the rail hands the point's own `Plane` at the fire site; a hook rail therefore composes tracing through the bracket floor `Domain/hooks` declares and never through this type — the dependency points downward and the plane binds at band composition, because the floor's `Traced` carries a key and a body and no scope.
-- Law: every capture funnels through `Op.Catch` on both rail shapes, so a throwing body inside a bracket parks as a typed refusal with its cancellation identity intact rather than escaping past the `using` that owns the span.
+- Law: `SpanBand` conforms to `IHookSpan` by taking the PLANE as an argument, so one band serves every roster plane a composition mounts and the bus hands the point's own `Plane` at the fire site; a hook bus therefore composes tracing through the bracket floor `Domain/hooks` declares and never through this type — the dependency points downward and the plane binds at band composition, because the floor's `Traced` carries a key and a body and no scope.
+- Law: every capture funnels through `Op.Catch` on both result shapes, so a throwing body inside a bracket parks as a typed refusal with its cancellation identity intact rather than escaping past the `using` that owns the span.
 - Law: `DistributedContextPropagator.CreateW3CPropagator()` is the ONE grammar and budget owner for the carrier. `TraceBaggage` is constructed only from its extracted members, the carrier exposes no arbitrary header dictionary, and event producers project its admitted wire value rather than re-parsing or re-formatting baggage locally.
-- Exemption: `Dispose` sweeps the frozen source set with a statement loop — the table is disposed once at composition teardown and every source is disposed even though the sweep carries no rail.
-- Law: a failing rail lands `SetStatus(ActivityStatusCode.Error, message)` — the typed verdict, never a boolean error tag — and stamps the generated `FaultId` as the `rasm.fault.code`/`rasm.fault.case` pair a trace query groups on, behind `IsAllDataRequested` so an unsampled span pays the status alone; `HasListeners` gates every bracket, so an unlistened span costs one null test, and an expected `Fault` never fabricates an exception event to carry a tag.
+- Exemption: `Dispose` sweeps the frozen source set with a statement loop — the table is disposed once at composition teardown and every source is disposed even though the sweep carries no result.
+- Law: a failing result lands `SetStatus(ActivityStatusCode.Error, message)` — the typed verdict, never a boolean error tag — and stamps the generated `FaultId` as the `rasm.fault.code`/`rasm.fault.case` pair a trace query groups on, behind `IsAllDataRequested` so an unsampled span pays the status alone; `HasListeners` gates every bracket, so an unlistened span costs one null test, and an expected `Fault` never fabricates an exception event to carry a tag.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`, `System.Diagnostics` including `DistributedContextPropagator`, `System.Threading`).
 - Growth: a new sub-domain is one `KernelDomain` row, span source and point prefix deriving; a package trace plane is one `TraceScope` row admitted when the composition mints its band; a new bracket coordinate is one `SpanEdge` column every bracket already threads.
 - Boundary: edge shape follows producer arity, and `SpanEdge` is where that choice lands — a batch relaying N durable rows descends from no single producer, so a parent edge to any one of them fabricates a causal chain the batch never had while the link set states exactly what caused it; a single-producer hop is the inverse, an ingress adopting one carrier through `Under` continuing the producing trace id where a link roots an orphan trace no query joins to its cause. Kind rides that same carriage because a remote-parented bracket declaring the internal default misreports the topology every backend derives from the kind column. Edges ride the START call because the sampler votes once at creation, and a producer whose span was unlistened carries the absent carrier; absence never fabricates trace context or baggage.
@@ -68,7 +68,7 @@ public sealed record TraceBaggage {
     public Seq<KeyValuePair<string, string?>> Entries { get; }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct TraceCarrier {
     static readonly DistributedContextPropagator W3C = DistributedContextPropagator.CreateW3CPropagator();
 
@@ -138,7 +138,7 @@ file sealed class TraceFields(string? traceParent = null, string? traceState = n
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SpanEdge(ActivityKind Kind, Option<ActivityContext> Parent, Seq<ActivityLink> Links) {
     public static SpanEdge Under(TraceCarrier carrier, ActivityKind kind = ActivityKind.Consumer) =>
         new(kind, carrier.Parent, Seq<ActivityLink>());
@@ -238,7 +238,7 @@ public sealed partial class Outcome {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct OpCost(
     Op Key, KernelDomain Domain, TimeSpan Elapsed, long AllocatedBytes, int Items, Outcome Outcome)
     : IValidityEvidence {
@@ -248,7 +248,7 @@ public readonly record struct OpCost(
         ValidityClaim.CountAtLeast(count: Items, floor: 0));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CostMark(long Timestamp, long Allocated) {
     public static CostMark Start() =>
         new(Timestamp: Stopwatch.GetTimestamp(), Allocated: GC.GetAllocatedBytesForCurrentThread());
@@ -263,22 +263,22 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 
 ## [04]-[TAP]
 
-- Owner: `FaultObservation` is the bounded structured projection of an `Error`, carrying the generated `FaultId` WHOLE so code and case token stay one member with one authority; `PointFacet` closes what a signal fact IS; `KernelPoint` is the kernel's own `IHookRoster` realization over the sub-domain and facet coordinates; `SignalFact`'s abstract `At` projects each case's own stored ROSTER ROW, so identity moves `with`-safe and no fact carries a spelling; `SignalRail` is the emission capsule over `Domain/hooks`'s one mechanism; `KernelInstrument` is the kernel's own instrument roster, each row CARRYING its declaration; `TelemetrySink` is the composition capsule an app stratum threads.
-- Cases: `FaultCase` and `CostCase`, one per `PointFacet` row; each factory resolves its seat through `KernelPoint.Of(domain, facet)` and none renders an id. A produced result is no hook fact — it returns on the rail, and its validity is the `IValidityEvidence` fold its caller reads.
-- Entry: `FaultObservation.Of(error)` projects the generated `FaultId` — transported code beside local case token — typed recovery, and bounded exact cause stamps without rendering `Message`; `KernelPoint.Of(domain, facet)` is the ONE seat mint, `SignalRail.Of` mounts the rail over the composition's evidence cell, `Publish` is the unary fire, and `TelemetrySink.Tap` is the ONE emission entry.
+- Owner: `FaultObservation` is the bounded structured projection of an `Error`, carrying the generated `FaultId` WHOLE so code and case token stay one member with one authority; `PointFacet` closes what a signal fact IS; `KernelPoint` is the kernel's own `IHookRoster` realization over the sub-domain and facet coordinates; `SignalFact`'s abstract `At` projects each case's own stored ROSTER ROW, so identity moves `with`-safe and no fact carries a spelling; `SignalHooks` is the emission capsule over `Domain/hooks`'s one mechanism; `KernelInstrument` is the kernel's own instrument roster, each row CARRYING its declaration; `TelemetrySink` is the composition capsule an app stratum threads.
+- Cases: `FaultCase` and `CostCase`, one per `PointFacet` row; each factory resolves its seat through `KernelPoint.Of(domain, facet)` and none renders an id. A produced result is no hook fact — it returns in the result, and its validity is the `IValidityEvidence` fold its caller reads.
+- Entry: `FaultObservation.Of(error)` projects the generated `FaultId` — transported code beside local case token — typed recovery, and bounded exact cause stamps without rendering `Message`; `KernelPoint.Of(domain, facet)` is the ONE seat mint, `SignalHooks.Of` mounts the bus over the composition's evidence cell, `Publish` is the unary fire, and `TelemetrySink.Tap` is the ONE emission entry.
 - Auto: the tap is TWO total projections and ONE fold. `Charged` answers the rows a case bills and their measurements, `Stamped` answers the dimensions it carries, and the gate, the tag mint, and the write fold run once for every case — the prior form spelled gate, mint, and write three times, so a fourth case meant a fourth body rather than two rows.
 - Auto: `KernelInstrument` rows carry their own `InstrumentSpec` and `Rows` derives from `Items`, so the const-name roster and the hand-listed sequence that mirrored it are one declaration; construction proves the row's name against its key, because a mirror that cannot derive states its invariant at both owners and moves as one.
 - Law: the roster is DERIVED, never listed — `KernelPoint.Items` materializes the whole sub-domain by facet product at type init, so a tenth sub-domain lands three seats with no edit here and a folder minting an inline `HookId.Create` literal does not compile (branch RULINGS `[02]`). The declare-or-resolve transition a runtime id space needed has no spelling left: a point outside the roster is unrepresentable rather than merely undeclared.
-- Law: `SignalRail` governs EMISSION alone — it publishes the unary fire and the mechanism it holds, and never the guarded `Fire<T>` arity, so a gate guarding geometry, a lease, or a handle declares its own roster and its own closed fact union rather than borrowing the signal plane's (`Rasm` RULINGS `[02]`).
-- Law: publication LEADS the write, and the instruments measure the PUBLISHED fact — the rail is a hook plane whose subscribers veto and transform, so a write ahead of it meters a fact a veto then withheld and meters the pre-admission shape of one a subscriber revised.
-- Law: instrument refusals ACCUMULATE and settle the returned rail beside the already-published fact — every charged row is attempted, so a mount defect on one row never silences the two beside it and never silences the hook plane.
+- Law: `SignalHooks` governs EMISSION alone — it publishes the unary fire and the mechanism it holds, and never the guarded `Fire<T>` arity, so a gate guarding geometry, a lease, or a handle declares its own roster and its own closed fact union rather than borrowing the signal plane's (`Rasm` RULINGS `[02]`).
+- Law: publication LEADS the write, and the instruments measure the PUBLISHED fact — the bus is a hook plane whose subscribers veto and transform, so a write ahead of it meters a fact a veto then withheld and meters the pre-admission shape of one a subscriber revised.
+- Law: instrument refusals ACCUMULATE and settle the returned result beside the already-published fact — every charged row is attempted, so a mount defect on one row never silences the two beside it and never silences the hook plane.
 - Law: fault observation traverses aggregate MEMBERSHIP and causal `Inner` separately under one fixed ceiling; each retained cause carries the generated `FaultId` or the exact exception `Type` and `HResult`, and `Truncated` states when more evidence existed. Message text, category, owner, and a wire discriminant never enter the projection.
-- Law: `KernelInstrument` owns the whole `rasm.fault.*` key family and each key states where it may be read — `OwnerSlot` and `PostureSlot` are the bounded pair the kernel counter mounts, `CodeSlot` an owner-specific opt-in metric dimension, `CaseSlot` a span tag and log field alone. A metric mounting the case token buys code-cardinality series for a spelling the code already keys, and a lowering copying it forks one identity into two a peer then joins on; an emitter prefixing its own estate segment onto a fault axis forks one estate-wide dimension into a per-package pair no board can group, which is the fork this one roster forecloses. The posture VALUE is `Domain/rails`'s `Retriability.Key`, so the key and the word it carries each have one owner.
-- Exemption: the write fold is a statement seam because a `TagList` cannot cross a lambda; the listener gate precedes it, so a process with no exporter and no armed tally pays the key render, the boxed columns, and the tag fold on no operation.
+- Law: `KernelInstrument` owns the whole `rasm.fault.*` key family and each key states where it may be read — `OwnerSlot` and `PostureSlot` are the bounded pair the kernel counter mounts, `CodeSlot` an owner-specific opt-in metric dimension, `CaseSlot` a span tag and log field alone. A metric mounting the case token buys code-cardinality series for a spelling the code already keys, and a lowering copying it forks one identity into two a peer then joins on; an emitter prefixing its own project segment onto a fault axis forks one solution-wide dimension into a per-package pair no board can group, which is the fork this one roster forecloses. The posture VALUE is `Domain/results`'s `Retriability.Key`, so the key and the word it carries each have one owner.
+- Exemption: the write fold is a statement form because a `TagList` cannot cross a lambda; the listener gate precedes it, so a process with no exporter and no armed tally pays the key render, the boxed columns, and the tag fold on no operation.
 - Law: fact payloads are evidence, never live resources — `FaultCase` carries the already-lowered `Error` (both the substrate `Fault` union and the band-relative geometry faults arrive as `Error`, so one case serves both) and `CostCase` the settled `OpCost`; no case retains geometry, leases, or handles, and both fault families land in ONE dimension-discriminated counter, never two.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`, `System.Collections.Immutable`, `System.Diagnostics`, `System.Diagnostics.Metrics`, `System.Threading`).
 - Growth: a new fact kind is one `PointFacet` row, one `SignalFact` case, and one arm in each of the two projections, both broken loudly by the generated `Switch` while the roster grows a seat per sub-domain unedited; a new kernel instrument is one `KernelInstrument` row and one entry in `Charged`.
-- Boundary: `SignalFact` holds evidence over live resources, so a fact retains no geometry, lease, or handle and a subscriber reading one holds nothing the emitter must keep alive. `TelemetrySink` is composition-entered: an app stratum mints one per composition and threads it, and a kernel page never constructs, caches, or reaches an ambient sink. Quiet-path cost is structural — a subscriber-empty point folds an empty veto sequence and iterates an empty tap sequence, so a publish costs one keyed lookup and allocates nothing past its rail.
+- Boundary: `SignalFact` holds evidence over live resources, so a fact retains no geometry, lease, or handle and a subscriber reading one holds nothing the emitter must keep alive. `TelemetrySink` is composition-entered: an app stratum mints one per composition and threads it, and a kernel page never constructs, caches, or reaches an ambient sink. Quiet-path cost is structural — a subscriber-empty point folds an empty veto sequence and iterates an empty tap sequence, so a publish costs one keyed lookup and allocates nothing past its result.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -432,20 +432,20 @@ public abstract partial record SignalFact {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class SignalRail {
-    private SignalRail(HookRail<KernelPoint, SignalFact, TelemetrySource> mounted) => Hooks = mounted;
+public sealed class SignalHooks {
+    private SignalHooks(HookSet<KernelPoint, SignalFact, TelemetrySource> mounted) => Hooks = mounted;
 
-    public HookRail<KernelPoint, SignalFact, TelemetrySource> Hooks { get; }
+    public HookSet<KernelPoint, SignalFact, TelemetrySource> Hooks { get; }
 
-    public static Fin<SignalRail> Of(
+    public static Fin<SignalHooks> Of(
         FaultCell faults,
         Op key,
         Seq<HookGate<KernelPoint, SignalFact, TelemetrySource>> gates = default,
         Seq<HookTap<KernelPoint, SignalFact, TelemetrySource>> taps = default,
         Option<IHookSpan> span = default) =>
-        HookRail<KernelPoint, SignalFact, TelemetrySource>.Of(
+        HookSet<KernelPoint, SignalFact, TelemetrySource>.Of(
                 key: key, gates: gates, taps: taps, span: span, cell: Some(faults))
-            .Map(static mounted => new SignalRail(mounted: mounted));
+            .Map(static mounted => new SignalHooks(mounted: mounted));
 
     public Fin<SignalFact> Publish(SignalFact fact, Op key) => Hooks.Fire(at: fact.At, fact: fact, key: key);
 }
@@ -454,19 +454,19 @@ public sealed class SignalRail {
 public sealed class TelemetrySink {
     private readonly InstrumentSet set;
 
-    private TelemetrySink(SignalRail rail, InstrumentSet mounted) => (Rail, set) = (rail, mounted);
+    private TelemetrySink(SignalHooks hooks, InstrumentSet mounted) => (Signals, set) = (hooks, mounted);
 
-    public SignalRail Rail { get; }
+    public SignalHooks Signals { get; }
 
     public static Fin<TelemetrySink> Of(IMeterFactory factory, string version, FaultCell faults, Op key) =>
-        from rail in SignalRail.Of(faults: faults, key: key)
+        from hooks in SignalHooks.Of(faults: faults, key: key)
         from mounted in InstrumentSet.Of(
             new LevelCells(),
             (TelemetryIdentity.Metered(factory, TelemetrySource.Kernel, version), KernelInstrument.Rows))
-        select new TelemetrySink(rail: rail, mounted: mounted);
+        select new TelemetrySink(hooks: hooks, mounted: mounted);
 
     public Fin<SignalFact> Tap(SignalFact fact, Op key) {
-        Fin<SignalFact> published = Rail.Publish(fact: fact, key: key);
+        Fin<SignalFact> published = Hooks.Publish(fact: fact, key: key);
         Seq<(InstrumentSpec Row, double Value)> charged = Charged(fact: fact);
         if (published.IsFail || !set.Enabled(charged.Map(static row => row.Row))) { return published; }
         TagList tags = Stamped(fact: fact);

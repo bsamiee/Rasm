@@ -39,9 +39,9 @@
 - Endpoint, transport, and compression are config, never a fork: node/browser transport resolves at the platform export condition and gzip/none at `compression`, so a collector change is a `url`/`headers` edit at the composition root.
 
 [STACKING]:
-- `.api/opentelemetry-sdk-logs.md` (wrapping seam): `new OTLPLogExporter(cfg)` rides `new BatchLogRecordProcessor({ exporter })` as an options field; the processor owns batching and `forceFlush` drain, this exporter only the `LogRecordExporter` serialization.
+- `.api/opentelemetry-sdk-logs.md` (wrapping adapter): `new OTLPLogExporter(cfg)` rides `new BatchLogRecordProcessor({ exporter })` as an options field; the processor owns batching and `forceFlush` drain, this exporter only the `LogRecordExporter` serialization.
 - `.api/opentelemetry-api-logs.md`: serialized records carry `SeverityNumber`, `LogBody`, `LogAttributes`, `AnyValue`; API -> SDK processor -> this exporter is the pipeline order.
-- `.api/effect-opentelemetry.md` `NodeSdk`/`WebSdk` (facade seam): the wrapped processor rides `Configuration.logRecordProcessor` beside the one `AppIdentity`-derived `Resource`; the facade owns the resource mint, this exporter only serializes what each `ReadableLogRecord` carries.
+- `.api/effect-opentelemetry.md` `NodeSdk`/`WebSdk` (facade adapter): the wrapped processor rides `Configuration.logRecordProcessor` beside the one `AppIdentity`-derived `Resource`; the facade owns the resource mint, this exporter only serializes what each `ReadableLogRecord` carries.
 - `.api/opentelemetry-core.md`: `export()` reports through `ExportResult`/`ExportResultCode`, and the outbound HTTP context is `suppressTracing`-fenced so log egress is never self-traced.
 - `.api/effect-platform.md` (divergence to record): this exporter carries its own `http`/fetch transport, not the `net/client` `HttpClient` retry/proxy policy the native `OtlpLogger` lane inherits — the gap that routes `otel/emit` to the native lane and marks this row `[OTEL_PIN_BLOCK]`.
 

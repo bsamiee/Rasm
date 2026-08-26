@@ -30,7 +30,7 @@
 |  [04]   | composite | `d.struct({...})` `d.arrayOf(T, n)` `d.atomic(d.u32\|d.i32)`                  | host-shareable buffer shapes      |
 |  [05]   | loose     | `d.disarrayOf` `d.unstruct`                                                   | packed non-host-shareable layout  |
 |  [06]   | attribute | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate` | explicit layout and IO decoration |
-|  [07]   | inference | `d.Infer<T>`                                                                  | schema-to-TS typing seam          |
+|  [07]   | inference | `d.Infer<T>`                                                                  | schema-to-TS typing bridge        |
 
 ## [02]-[ENTRYPOINTS]
 
@@ -106,7 +106,7 @@
 [STACKING]:
 - `webgpu-types`(`.api/webgpu-types.md`): the `.d.ts` binds `GPUDevice`/`GPUBuffer`/`GPUFeatureName` as ambient globals `@webgpu/types` resolves, and `root.enabledFeatures` reads the same `GPUSupportedFeatures` set the viewer tsconfig `types` entry already admits for `three/webgpu`.
 - `three`(`.api/three.md`): scene-resident compute is `three/tsl` — `Fn(...)().compute(count)` dispatched via `renderer.compute`/`computeAsync` over the TSL vocabulary (`instancedArray`, `instanceIndex`, `storage`, `textureStore`, `uniform`, `uniformArray`, `deltaTime`, `time`, `Loop`, `If`, `workgroupBarrier`, `workgroupArray`, `subgroupAdd`, `atomicAdd`); a shared device joins at `tgpu.initFromDevice({device})` and `root.unwrap(buffer)` exposes the raw `GPUBuffer`, one memory space with zero readback round-trips.
-- `effect-atom-atom-react`(`.api/effect-atom-atom-react.md`): `tgpu.init()` and `root.destroy()` bracket a `Scope`-owned adapter, `buffer.read()`'s promise crosses the async seam, and kernel results land in atoms, so a component never touches a `GPUBuffer` and a missing feature is a typed refusal at the adapter.
+- `effect-atom-atom-react`(`.api/effect-atom-atom-react.md`): `tgpu.init()` and `root.destroy()` bracket a `Scope`-owned adapter, `buffer.read()`'s promise crosses the async boundary, and kernel results land in atoms, so a component never touches a `GPUBuffer` and a missing feature is a typed refusal at the adapter.
 - `deck.gl-core`(`.api/deck.gl-core.md`): deck.gl and three own render while typegpu owns compute-without-a-scene; a typegpu kernel prepares buffers a deck.gl layer or three geometry consumes, never growing a render pass.
 - within-lib: the `ui` viewer folds root acquisition, capability probing, and kernel dispatch behind one boundary adapter, so a component consumes atom-delivered results rather than a raw device or buffer.
 

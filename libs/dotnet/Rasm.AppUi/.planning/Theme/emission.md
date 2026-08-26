@@ -5,16 +5,16 @@ Rasm.AppUi turns the resolved token generation into the live application surface
 ## [01]-[INDEX]
 
 - [02]-[SWAP_VOCABULARY]: Swap request, trigger, persisted policy section, and re-materialization roster.
-- [03]-[EMISSION]: The one dictionary producer and its guarded merge rail.
+- [03]-[EMISSION]: The one dictionary producer and its guarded merge fold.
 - [04]-[SWAP_CAPSULE]: The apply-then-publish capsule, its settings registration, and the one synchronous crossing.
-- [05]-[STYLES_RAIL]: The Styles admission boundary, derived accessibility candidates, and the code-side dynamic read.
+- [05]-[STYLES_GATE]: The Styles admission boundary, derived accessibility candidates, and the code-side dynamic read.
 - [06]-[SKIN_TABLE]: Control themes as `SkinRow` data and the authoring capsule.
 
 ## [02]-[SWAP_VOCABULARY]
 
 - Owner: `ThemeTrigger` the swap-cause vocabulary the request carries; `ThemeRequest` the one swap request value; `ThemePolicy` the persisted per-profile settings section; `Rematerialize` the re-materialization roster.
 - Cases: `ThemeTrigger` = boot | user-switch | host-probe | policy-reload; `Rematerialize` rows name every object a dictionary edit CANNOT reach, each beside its reason — the roster is the complete carve-out, and a surface not on it that holds a resolved value is a defect rather than an accepted exception.
-- Evidence: the committed variant, density, trigger, and changed-key count fire as `AppUiFact.Theme` at `AppUiPoint.Theme` on the composition `HookRail`; the CloudEvent envelope's HLC is the sole evidence time authority, and ordering among swaps is the commit order of the one atom. `ThemePolicy` reloads land their `ReloadOutcome` on the options-monitor reload stream, the same class the locale section rides.
+- Evidence: the committed variant, density, trigger, and changed-key count fire as `AppUiFact.Theme` at `AppUiPoint.Theme` on the composition `HookSet`; the CloudEvent envelope's HLC is the sole evidence time authority, and ordering among swaps is the commit order of the one atom. `ThemePolicy` reloads land their `ReloadOutcome` on the options-monitor reload stream, the same class the locale section rides.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one trigger constant, one policy value, or one `Rematerialize` row with its reason; zero new surface.
 - Boundary: `Rematerialize` rows are DISPATCHED, never merely listed — the swap capsule takes one bound rebuild action PER ROW and its mount proof refuses a roster row nothing rebuilds, so a row that rebuilds nothing cannot sit indistinguishable beside one that does.
@@ -61,7 +61,7 @@ public sealed partial class Rematerialize {
 ## [03]-[EMISSION]
 
 - Owner: `ThemeEmission` — the one dictionary producer.
-- Law: EMISSION is the whole re-tint mechanism — every token key lands in `Application.Resources.MergedDictionaries[0]`, partitioned by `ThemeVariant` under `ResourceDictionary.ThemeDictionaries`, and every consumer binds `{DynamicResource}` in XAML or `GetResourceObservable` in code; a `SetValue` write of a resolved paint onto a control is the deleted form, because it seats a LocalValue no dictionary edit can ever re-resolve. Every partition folds on ONE guarded merge rail: `ResourceDictionary.Add` throws on a duplicate key and the emission merges INDEPENDENTLY authored slot rosters, so a key two rosters claim — which neither roster's own conformance can see — surfaces as a typed `ThemeFault.PaletteRejected` instead of a throw escaping the boot mount, and the posture partition rides the same rail rather than a second unguarded fold beside it.
+- Law: EMISSION is the whole re-tint mechanism — every token key lands in `Application.Resources.MergedDictionaries[0]`, partitioned by `ThemeVariant` under `ResourceDictionary.ThemeDictionaries`, and every consumer binds `{DynamicResource}` in XAML or `GetResourceObservable` in code; a `SetValue` write of a resolved paint onto a control is the deleted form, because it seats a LocalValue no dictionary edit can ever re-resolve. Every partition folds on ONE guarded merge fold: `ResourceDictionary.Add` throws on a duplicate key and the emission merges INDEPENDENTLY authored slot rosters, so a key two rosters claim — which neither roster's own conformance can see — surfaces as a typed `ThemeFault.PaletteRejected` instead of a throw escaping the boot mount, and the posture partition rides the same fold rather than a second unguarded fold beside it.
 - Entry: `Emit(AppearanceSeed seed, DensityRow density, FontChain chain, PreferenceCell preferences) : Fin<ResourceDictionary>` — the one producer over every emitted variant and posture partition.
 - Auto: a paint emits TWICE — the brush under the bare key and the `Color` under the `Color`-suffixed twin, exactly as the shipped palette does, because a template binding a Color to a brush slot fails at parse and a converter per binding is the deleted form; the Semi closure and the node-editor `GraphSkin` closure fold into ONE emission, so a second dictionary merged at mount cannot give the canvas a variant the shell already swapped away from.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -141,7 +141,7 @@ public static class ThemeEmission {
 - Owner: `ThemeCell` — the apply-then-publish swap capsule with its one `Ran` synchronous crossing and its settings registration.
 - Law: `Swap` orders resolve → apply → commit → rebuild → observe: the CANDIDATE seed feeds the resolve and neither atom commits until the retained application succeeded, so a refused generation or a failed apply leaves `Current` AND `Seed` at the committed predecessor — the prior spelling swapped the seed ahead of resolution, leaving a rejected accent live for the next unrelated swap.
 - Entry: `Swap(ThemeRequest, PreferenceCell) : IO<Fin<ResolvedTheme>>`; `Rebuilt() ` — the per-row dispatch over the bound re-materialization actions; `Covered(HashMap<Rematerialize, IO<Unit>> bound) : Fin<Unit>` — the mount proof that every roster row carries a rebuild; `Settings(scopes, preferences)` — the settings-registry row whose picker extent DERIVES from the resolved extent scale; `For(profile, mount, preferences)` — the per-surface resolve over the election and the override column; `Preview(simulate)` — the operator CVD lens over `ThemeCatalog.Simulated`; `Track(preferences, observe)` — the host preference-change terminal edge; `Republish(policy, preferences)` — the options-monitor bridge.
-- Auto: every successful swap returns the committed `ResolvedTheme` and fires its transition facts through the composition-bound `HookRail`; `Diff` gates the no-op on the record's generated equality — an identical regeneration answers `previous.Equals(next)` and reports zero changed keys — while `Changed` counts the exact keys that moved.
+- Auto: every successful swap returns the committed `ResolvedTheme` and fires its transition facts through the composition-bound `HookSet`; `Diff` gates the no-op on the record's generated equality — an identical regeneration answers `previous.Equals(next)` and reports zero changed keys — while `Changed` counts the exact keys that moved.
 - Packages: Avalonia, Rasm.AppHost (project — `ReloadOutcome`, `ConfigError`, `SettingsRow`, `SettingScope`), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one bound rebuild action per new `Rematerialize` row — the mount proof breaks the composition that forgot it; one settings field per new policy value.
 - Boundary: `ThemePolicy` is the persisted per-profile theme section — `Republish` admits the variant and density keys through the generated `TryGet` lookups and the accent hex through `Color.TryParse`, a rejected write keeps prior values live as `ReloadOutcome.Rejected` on the reload stream, and cross-process propagation rides the op-log cursor exactly as the locale section does; variant and density are CLOSED rosters, so both settings fields pick from their own generated rows and a hand roster naming a retired variant is unspellable; the accent surface projection reads the LIVE seed accent — a persisted explicit accent equal to the default re-admits identically, so the projection carries no override bookkeeping.
@@ -154,7 +154,7 @@ public sealed class ThemeCell(
     Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> surfaceOverride,
     Func<ResolvedTheme, IO<Fin<Unit>>> apply,
     HashMap<Rematerialize, IO<Unit>> rebuild,
-    HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) {
+    HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) {
     public Atom<ResolvedTheme> Current { get; } = current;
 
     public Atom<AppearanceSeed> Seed { get; } = seed;
@@ -165,7 +165,7 @@ public sealed class ThemeCell(
 
     public Func<ResolvedTheme, IO<Fin<Unit>>> Apply { get; } = apply;
 
-    public HookRail<AppUiPoint, AppUiFact, TelemetrySource> Rail { get; } = rail;
+    public HookSet<AppUiPoint, AppUiFact, TelemetrySource> Hooks { get; } = hooks;
 
     public static Fin<Unit> Covered(HashMap<Rematerialize, IO<Unit>> bound) =>
         toSeq(Rematerialize.Items).Filter(row => bound.Find(row).IsNone) switch {
@@ -191,7 +191,7 @@ public sealed class ThemeCell(
                         ignore(Seed.Swap(_ => step.Candidate));
                         return Current.Swap(_ => next);
                     })
-                    .Bind(committed => Rebuilt().Bind(_ => IO.lift(() => Rail.Fire(
+                    .Bind(committed => Rebuilt().Bind(_ => IO.lift(() => Hooks.Fire(
                         AppUiPoint.Theme,
                         new AppUiFact.Theme(committed.Variant.Key, committed.Density.Key, request.Trigger.Key, Diff(step.Previous, committed)),
                         Op.Of(name: "appui.theme.swap"),
@@ -301,18 +301,18 @@ public sealed class ThemeCell(
 }
 ```
 
-## [05]-[STYLES_RAIL]
+## [05]-[STYLES_GATE]
 
-- Owner: `ThemeRail` — the one `Application.Styles` admission boundary, the derived accessibility candidate rosters, the `SkinChain` order roster, and the code-side dynamic read.
+- Owner: `ThemeGate` — the one `Application.Styles` admission boundary, the derived accessibility candidate rosters, the `SkinChain` order roster, and the code-side dynamic read.
 - Law: the one `Application.Styles` chain is ordered `FluentTheme` floor → `SemiTheme` → the per-control `Semi.Avalonia.*` skins → `UrsaSemiTheme`, every skin strictly below `SemiTheme` so its tokens resolve — the order is a RANKED roster the admission folds, never a prose sentence beside a hand list; `SemiTheme`, `DockSemiTheme`, and `UrsaSemiTheme` each resolve `zh-CN` for an unset locale, so all three take the composed culture at construction.
 - Entry: `Admit(FluentTheme floor, CultureInfo locale)` — the chain built off the `SkinChain` roster; `Mount(application, chain, floor, emitted, resolved) : IO<Fin<Unit>>` — the boot collapse, its `SemiMints` proof ordered BEFORE the first retained write so a refused generation leaves no partial Styles chain; `ApplyTo(application, floor, emit) : Func<ResolvedTheme, IO<Fin<Unit>>>` — the typed apply column the swap capsule binds, its emit ordered before its writes for the same reason; `Bind<T>(target, property, key)` — the one code-side dynamic read.
 - Auto: `ContrastCandidates` and `CvdCandidates` are DERIVED from the generated ladder beside the emission rather than hand-listed, so a new role reaches the accessibility sweep with no roster edit; the pair class is the kernel `ContrastFloor` ROW the rung was solved for; a CVD candidate carries its `Cvd` lens alone — the gate simulates the full deficiency, and a severity column that read 1.0 on every row was a knob the value already reconstructed.
 - Packages: Avalonia, Avalonia.Themes.Fluent, Semi.Avalonia, Semi.Avalonia.{DataGrid,ColorPicker,Dock,AvaloniaEdit}, Irihi.Ursa.Themes.Semi, Rasm (project — `ContrastFloor`, `Cvd`, `PerceptualColor`), LanguageExt.Core
 - Growth: a new skin is one `SkinChain` row carrying its rank and its locale posture; a new candidate family is one derivation fold.
-- Boundary: resolved `Spans` reach no Semi slot — `SemiPopupAnimations` carries its durations as inline literals and publishes no named duration resource, so popup and flyout motion rides the `motion#MOTION_APPLICATION` plan rows and mounting `SemiPopupAnimations` is the deleted form; the Fluent-templated `bodong.PropertyGrid`/`DialogHost` keep the Fluent base and are never displaced by the Semi skins; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the `Apply` delegate re-themes every retained surface tree including the docked panels from the one resolve.
+- Boundary: resolved `Spans` reach no Semi slot — `SemiPopupAnimations` carries its durations as inline literals and publishes no named duration resource, so popup and flyout motion rides the `motion#MOTION_APPLICATION` plan rows and mounting `SemiPopupAnimations` is the deleted form; the Fluent-templated `bodong.PropertyGrid`/`DialogHost` keep the Fluent base and are never displaced by the Semi skins; selector styles and `ControlTheme` rows enter only through this gate and pseudo-class states bind token keys, never literal paints; the `Apply` delegate re-themes every retained surface tree including the docked panels from the one resolve.
 
 ```csharp
-public static class ThemeRail {
+public static class ThemeGate {
     public static Seq<(TokenKey Foreground, TokenKey Background, ContrastFloor Class)> ContrastCandidates =>
         Seq(PaintRole.Text, PaintRole.TextMuted, PaintRole.TextFaint)
             .Bind(ink => Seq(PaintRole.Surface, PaintRole.Panel, PaintRole.Raised, PaintRole.Well, PaintRole.Overlay)
@@ -379,7 +379,7 @@ public static class ThemeRail {
 - Owner: `SkinBasis` `[Union]` the five ways a product control theme comes to exist; `ArmBinding` and `AuthoredArm` the authored interaction arms with their token-slot bindings; `SkinRow` `[SmartEnum<string>]` — every product control theme as ONE executable row carrying its basis, its pseudo-class roster, its token keys, and its authored arms; `PartCustody`, `AuthoredPart`, `AuthoredSpec`, and `AuthoredControl<TSelf>` the templated-control authoring capsule.
 - Law: a product control theme derives through `ControlTheme.BasedOn` against a SHIPPED theme only where that theme carries the interaction arm it needs — deriving from an arm the shipped theme never defines silently produces a control with no state feedback — so a row's `Arms` column names each gap WITH the token slots that fill it, and a row inheriting every arm from its base carries none; every `Keys` entry is a MINTED `TokenKey` off a generated rung, so a skin naming a key the generation never emits is unspellable, which is the provenance proof the two markdown tables this roster replaces could never run.
 - Cases: `SkinBasis` = Shipped — `BasedOn` a shipped theme; Overridden — re-tinted through the semi slot-override families with no template of its own; Capsule — an `AuthoredControl` spec plus template; Replaced — a full template replacement where the shipped surface pins local values a style setter never wins against (the inspector category expander); Generated — a brush grid generated from the role ladder (the `ButtonGroup` variant × intent × state × slot product), never authored as a hundred rows.
-- Entry: `SkinRow.Items` — the roster the registration rail folds; `AuthoredControl<TSelf>.OnApplyTemplate` — the one template-part resolution.
+- Entry: `SkinRow.Items` — the roster the registration fold walks; `AuthoredControl<TSelf>.OnApplyTemplate` — the one template-part resolution.
 - Packages: Avalonia, Semi.Avalonia, Irihi.Ursa, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new product control theme is one `SkinRow` row; a new authored arm is one `AuthoredArm` on its row; a new template part is one `AuthoredPart` with its custody row.
 - Boundary: the banner's PLACEMENT is a pair of style classes the control fold stamps and never a pseudo-class, because the framework sets pseudo-classes and a placement the product chose cannot be one — the banner row's state roster therefore carries the four shipped severities alone; `BorderlessButton` carries `:disabled` alone, `SolidButton` drops the size arms, `OutlineButton` carries the five intent arms alone, and `HyperlinkButton` owns its own trailing link glyph — each fact is the `Shipped` basis payload of its row; the pseudo-class roster is DECLARED on the spec and mirrored by the metadata attribute the theme tooling reads, so a state a template styles against but the control never sets is a spec omission rather than a selector that silently never matches.
@@ -426,7 +426,7 @@ public sealed partial class SkinRow {
         Seq(":pointerover", ":pressed", ":disabled"), Seq(PaintRole.Link.At(0), PaintRole.Link.At(1), PaintRole.Focus.At(0)),
         Seq(new AuthoredArm("pointerover", Seq(new ArmBinding("ink", PaintRole.Link.At(1)), new ArmBinding("rule", MetricFamily.Stroke.At(0)))),
             new AuthoredArm("press", Seq(new ArmBinding("ring", PaintRole.Focus.At(0))))));
-    public static readonly SkinRow RailButton = new("rail-button", new SkinBasis.Shipped("IconButton"),
+    public static readonly SkinRow NavButton = new("nav-button", new SkinBasis.Shipped("IconButton"),
         Seq(":selected", ":pointerover", ":collapsed"), Seq(PaintRole.Panel.At(0), PaintRole.Raised.At(1), PaintRole.Accent.At(0), MetricFamily.Icon.At(2)), []);
     public static readonly SkinRow SegmentedItem = new("segmented-item", new SkinBasis.Capsule(),
         Seq(":selected", ":first", ":last"), Seq(PaintRole.Well.At(0), PaintRole.Raised.At(1), PaintRole.Accent.At(0), MetricFamily.Space.At(2)), []);
@@ -568,7 +568,7 @@ config:
 ---
 flowchart LR
     accTitle: Token generation and emission ownership
-    accDescr: One appearance seed and one density policy enter the catalog under a variant projection, the catalog generates the resolved theme, and the emission partitions it by variant into the application resources while the cell fires the committed theme fact through the hook rail.
+    accDescr: One appearance seed and one density policy enter the catalog under a variant projection, the catalog generates the resolved theme, and the emission partitions it by variant into the application resources while the cell fires the committed theme fact through the hook dispatch.
     AppearanceSeed --> ThemeCatalog
     DensityRow --> ThemeCatalog
     PreferenceCell --> ThemeVariantRow
@@ -576,10 +576,10 @@ flowchart LR
     ThemeCatalog --> ResolvedTheme
     ResolvedTheme --> ThemeEmission
     ResolvedTheme --> SemiCorrespondence
-    ThemeEmission --> ThemeRail
+    ThemeEmission --> ThemeGate
     ResolvedTheme --> ThemeCell
     ThemeCell --> ThemeFact["AppUiFact.Theme"]
-    ThemeFact --> HookRail
+    ThemeFact --> HookSet
     ThemeCell --> Rematerialize
 ```
 

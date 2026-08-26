@@ -1,6 +1,6 @@
 # [TS_UI_API_COLORJS_IO]
 
-`colorjs.io` owns the perceptual color algebra: CSS Color 4 parse/serialize, named-space conversion via `to(space)`, perceptual interpolation, gamut mapping, max-in-gamut chroma, and the parameterized `contrast`/`deltaE` rails, zero runtime dependency.
+`colorjs.io` owns the perceptual color algebra: CSS Color 4 parse/serialize, named-space conversion via `to(space)`, perceptual interpolation, gamut mapping, max-in-gamut chroma, and the parameterized `contrast`/`deltaE` entries, zero runtime dependency.
 
 Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColorObject`, then fan to the `tailwindcss` `@theme --color-*` plane via `serialize` and the `three` render space via `to("srgb"/"srgb-linear")` — one artifact for CSS and render.
 
@@ -36,7 +36,7 @@ Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColor
 | :-----: | :---------------------------------------------------------------------- | :------ | :--------------------------------------------- |
 |  [01]   | `new Color(...)` · `parse` · `getColor`                                 | ctor    | CSS string or object ingress                   |
 |  [02]   | `Color.try(input)` · `tryColor(input)`                                  | static  | safe ingress; feeds `Schema.transformOrFail`   |
-|  [03]   | `to(color, space, opts?)`                                               | fn      | any registered space — the conversion rail     |
+|  [03]   | `to(color, space, opts?)`                                               | fn      | any registered space — the conversion path     |
 |  [04]   | `serialize(color, opts?)` · `display`                                   | fn      | CSS string; `display` carries `.color`         |
 |  [05]   | `get` · `set` · `getAll` · `setAll`                                     | fn      | channel r/w by `Ref`; `set` takes an updater   |
 |  [06]   | `inGamut` · `toGamut` · `toGamutCSS` · `toGamutRayTrace`                | fn      | fit test + map; CSS Color 4 + ray-trace        |
@@ -67,7 +67,7 @@ Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColor
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One input union, one conversion rail: every operation accepts `ColorTypes` and converts through named spaces via `to(space)`; per-space accessors (`color.oklch.l`) and per-method functions are conveniences over the parameterized entries.
+- One input union, one conversion path: every operation accepts `ColorTypes` and converts through named spaces via `to(space)`; per-space accessors (`color.oklch.l`) and per-method functions are conveniences over the parameterized entries.
 - Two lanes, one algebra: the `Color` class chains and mutates (`set` returns the color), the `./fn` functions are pure and return `PlainColorObject`, output identical.
 - Gamut is explicit: `inGamut` tests, `toGamut`/`toGamutCSS`/`toGamutRayTrace` map by ΔE-bounded chroma reduction or clip, `serialize({ inGamut: true })` clamps at emit, and `display` returns the environment-rendered form on `.color`.
 - Pure and synchronous: no `Effect`, no async, no DOM; composes inside a `derive` selector or build step, wrapped in `Effect.sync` only inside an effectful pipeline.
@@ -79,8 +79,8 @@ Tokens author in OKLCH, decode once through `effect` `Schema` into a `PlainColor
 - `@effect-atom`(`.api/effect-atom-atom.md`): the theme atom holds decoded `PlainColorObject` tokens, and `derive` selectors project them purely to both sinks, never a write per frame.
 - `tailwindcss`(`.api/tailwindcss.md`): `serialize({ format: "oklch", inGamut: true })` emits into the `@theme --color-*` namespace tailwind compiles to `--color-*` with its `bg-`/`text-`/`ring-` utilities; `display` emits the environment-rendered serialization on `.color`.
 - `three` `ColorManagement`(`.api/three.md`, `scope:viewer`): `to("srgb"/"srgb-linear", { inGamut: true })` — colorjs.io's `srgb`/`srgb-linear` ids equal three's `SRGBColorSpace`/`LinearSRGBColorSpace` constants — feeds `coords` `[r,g,b]` to `three.Color.setRGB(r, g, b, space)`; `CAM16_JMh`/`HCT` + `deltaEHCT`/`deltaEITP` carry appearance/HDR tokens beyond the sRGB path.
-- `react-aria`/`react-stately`(`.api/react-aria.md`, `.api/react-stately.md`): `useColorArea`/`useColorWheel`/`ColorPickerState` edit `parseColor` channels in `HSL`/`HSV`/`HWB`/`sRGB`, then hand off at the display boundary — `to(space)`, `inGamut`/`toGamut`, `serialize` — sharing this one conversion rail.
-- Extension seam: a new space is `ColorSpace.register(new ColorSpace(SpaceOptions))`, a new method is `Color.defineFunction`/`extend`, and interception is `hooks.add(name, cb)`; the registry and hook surface absorb new capability.
+- `react-aria`/`react-stately`(`.api/react-aria.md`, `.api/react-stately.md`): `useColorArea`/`useColorWheel`/`ColorPickerState` edit `parseColor` channels in `HSL`/`HSV`/`HWB`/`sRGB`, then hand off at the display boundary — `to(space)`, `inGamut`/`toGamut`, `serialize` — sharing this one conversion path.
+- Extension point: a new space is `ColorSpace.register(new ColorSpace(SpaceOptions))`, a new method is `Color.defineFunction`/`extend`, and interception is `hooks.add(name, cb)`; the registry and hook surface absorb new capability.
 
 [LOCAL_ADMISSION]:
 - Color algebra only: token vocabulary and CSS-variable emission live in `token/theme`/`token/scale`, the render-space handoff is `to("srgb"/"srgb-linear")` → `three` in `scope:viewer`, the decode boundary is `effect` `Schema`, and state is `@effect-atom`.

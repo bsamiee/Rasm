@@ -5,7 +5,7 @@
 ## [01]-[RESOURCE_ABI]
 
 [ABI_SCOPE]: the parameterized resource shape every class instantiates
-- One shape owns every resource; a new one is a row on this pattern, never a new mechanism. Construction is `new X(name, XArgs, opts?)` where `opts` is the universal `pulumi.CustomResourceOptions` seam (`provider`/`dependsOn`/`parent`/`protect`/`ignoreChanges`/`import`, `.api/pulumi-pulumi.md`); adoption is `static get` and every output prop is an `Output<T>` mirror of its arg.
+- One shape owns every resource; a new one is a row on this pattern, never a new mechanism. Construction is `new X(name, XArgs, opts?)` where `opts` is the universal `pulumi.CustomResourceOptions` parameter (`provider`/`dependsOn`/`parent`/`protect`/`ignoreChanges`/`import`, `.api/pulumi-pulumi.md`); adoption is `static get` and every output prop is an `Output<T>` mirror of its arg.
 
 | [INDEX] | [MEMBER]                          | [SHAPE_BOUNDARY]                                                     |
 | :-----: | :-------------------------------- | :------------------------------------------------------------------- |
@@ -66,7 +66,7 @@
 
 ## [04]-[PROVIDER]
 
-[PROVIDER_SCOPE]: the daemon connection — the selfhosted-docker credential seam
+[PROVIDER_SCOPE]: the daemon connection — the selfhosted-docker credential boundary
 - Each `selfhosted-docker` arm constructs one `Provider` and passes it to every resource via `opts.provider`. `host` selects the daemon — a local socket, `tcp://host:2376` with `caMaterial`/`certMaterial`/`keyMaterial`, or `ssh://user@vps` with `sshOpts`; `registryAuth` authenticates pushes and `config.*` mirrors these as ambient vars.
 
 | [INDEX] | [FIELD]                                       | [TYPE]                             | [MEANING]                                         |

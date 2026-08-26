@@ -2,7 +2,7 @@
 
 `Manufacturability` owns evidence-backed producibility from admitted component geometry and supplied domain observations through parameterized rule evaluation, remediation, process-requirement ranking, assembly precheck, and one settled `DfmReport`. Missing, insufficient-confidence, or incomparable evidence remains an explicit gate state; no absent lane reads as conforming.
 
-`Analyze`, `Offsetting`, and `Spatial` remain geometry-kernel owners and `MeshSpace` the mesh subject every kernel query takes — its memoized normal column, its spatial index, and its native duplicate are the kernel's, so this page holds no mesh scratch of its own. `Capability.Achievable` owns process-history projection through the qualifying row's own `ItGrade` and effective sample size, `ToleranceSpec.Apply(ToleranceRequest.Effective)` owns material-condition departure and virtual condition, `ToleranceChain.Evaluate` owns the stackup algebra this page composes rather than forks, `ProcedureAssessment.Qualified` owns weld-procedure compliance, `ModalityPhysics` owns process physics, and `Kinematics/fleet` owns machine matching. `DfmReport.Routing` crosses the derivation seam as ranked `ProcessKind` evidence.
+`Analyze`, `Offsetting`, and `Spatial` remain geometry-kernel owners and `MeshSpace` the mesh subject every kernel query takes — its memoized normal column, its spatial index, and its native duplicate are the kernel's, so this page holds no mesh scratch of its own. `Capability.Achievable` owns process-history projection through the qualifying row's own `ItGrade` and effective sample size, `ToleranceSpec.Apply(ToleranceRequest.Effective)` owns material-condition departure and virtual condition, `ToleranceChain.Evaluate` owns the stackup algebra this page composes rather than forks, `ProcedureAssessment.Qualified` owns weld-procedure compliance, `ModalityPhysics` owns process physics, and `Kinematics/fleet` owns machine matching. `DfmReport.Routing` crosses the derivation boundary as ranked `ProcessKind` evidence.
 
 A settled assessment addresses under `EgressKind.QualityRecord` over the REQUEST it read — the DfM verdict IS the quality record for a produced component, and `Verify/audit` `Audit.Preflight` is the family's other producer over an additive slice stack. Two arms, one egress family, one keying law: `FabricationCanon.Keyed` frames the admitted request so two assessments of one request are recognized as the same check.
 
@@ -236,7 +236,7 @@ public sealed partial class RouteObjective {
 - Law: `RouteCandidate` admission UNITIZES its approach directions, so every consumer reads a unit direction by construction and no probe re-derives one or guards a sentinel the derivation could return.
 - Law: a sidecar package result states the RESOLUTION it measured at — a voxel edge, a cutter-contact step — so the confidence its observations earn is the sidecar's own discretization rather than a constant this page assigns to the word package.
 - Auto: `DfmPolicy` proves every required concern has a generic or process-specific gating rule and every rule reaches at least one candidate; `DfmCriterion.Evaluate` compares unit-bearing, count, ratio, and flag measures; `RouteCandidate.Encloses` derives the `DfmConcern.Envelope` verdict from the candidate's own work volume, so a mesh-only part is never blocked for want of supplied operating envelope evidence.
-- Packages: `Loop.Apply` composes CavalierContours arc-native measurement and sampling; `PolygonAlgebra.Apply` composes Clipper2 topology; `DfmPackageEvidence.Cutter` carries OpenCAMLib cutter-contact evidence against canonical `ToolEvidence`; `DfmPackageEvidence.Voxel` carries PicoGK morphology, membership, ray, and solid-property evidence; UnitsNet owns every physical comparison; Thinktecture and LanguageExt own generated values and the accumulated rail.
+- Packages: `Loop.Apply` composes CavalierContours arc-native measurement and sampling; `PolygonAlgebra.Apply` composes Clipper2 topology; `DfmPackageEvidence.Cutter` carries OpenCAMLib cutter-contact evidence against canonical `ToolEvidence`; `DfmPackageEvidence.Voxel` carries PicoGK morphology, membership, ray, and solid-property evidence; UnitsNet owns every physical comparison; Thinktecture and LanguageExt own generated values and the accumulated `Validation`.
 - Growth: a policy variation is one `DfmRule` row; a process candidate is one `RouteCandidate` row; a sidecar family is one `DfmPackageEvidence` case carrying its own resolution column.
 - Boundary: sidecar OpenCAMLib and PicoGK owners lower native handles into `DfmPackageEvidence` before this host-local owner consumes them; every owner refuses onto `FabricationFault` under `FabConcern.Spec`.
 
@@ -385,7 +385,6 @@ public sealed partial class DfmRule {
         && Process.ForAll(selected => selected == candidate.Process)
         && Features.Exists(candidate.Features.Contains);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DfmConcern concern,
@@ -426,7 +425,6 @@ public sealed partial class DfmObservation {
     public DfmEvidenceKey Evidence => new(Provenance, Concern, Process);
     public double Confidence => Resolution.Confidence;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DfmConcern concern,
@@ -462,7 +460,6 @@ public sealed partial class RouteWeight {
 
     public double RiskReference { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double quality,
@@ -510,7 +507,6 @@ public sealed partial class RouteCandidate {
     public bool Encloses(BoundingBox part) =>
         part.IsValid && WorkEnvelope.Contains(part.Min) && WorkEnvelope.Contains(part.Max);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ProcessKind process,
@@ -567,7 +563,6 @@ public sealed partial class ToleranceDemand {
     public Length Departure { get; }
     public DfmLocus Locus { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FeatureControl frame,
@@ -586,7 +581,6 @@ public sealed partial class AssemblyAllowance {
     public Length Negative { get; }
     public Length Positive { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string term,
@@ -615,7 +609,6 @@ public sealed partial class DfmPolicy {
     public Option<ToleranceChain> AssemblyChain { get; }
     public Instant At { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<DfmRule> rules,
@@ -654,7 +647,6 @@ public sealed partial class DfmRequest {
     public Seq<ProcedureAssessment> Procedures { get; }
     public Seq<AssemblyAllowance> Allowances { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref AdmittedComponent component,
@@ -733,12 +725,12 @@ public abstract partial record DfmPackageEvidence : IValidityEvidence {
 - Law: resting faces derive from the SAME normal rows the draft census reads, so the excluded set and the measured set share one index space — a face selection recovered from a second decomposition indexes a different topology and silently excludes the wrong faces.
 - Law: every gate refusal carries its OWN discriminant. The kernel `InvalidInput`/`InvalidResult` mints take no detail slot, so gates lowering onto them are refusals a caller cannot tell apart; each answers on the fabrication band under a declared locus.
 - Law: validity is the KERNEL's vocabulary. Every union on this page implements `IValidityEvidence` and spells its fold as `ValidityClaim.All(...)` over the claim rows the kernel states once — `Finite`, `Positive`, `Nonnegative`, `UnitInterval`, `Ordered`, `CountAtLeast`, `Direction`, `WhenPresent` — so a predicate is never re-derived here and the acceptance oracle reaches each carrier with no oracle edit.
-- Law: a degenerate profile, an unresolvable medial axis, or absent history contributes no observation rather than failing the report, so producibility gaps stay report rows and only kernel faults leave the rail.
+- Law: a degenerate profile, an unresolvable medial axis, or absent history contributes no observation rather than failing the report, so producibility gaps stay report rows and only kernel faults leave the error channel.
 - Law: the settled result addresses the request, never its own conclusions. `FabricationCanon.Keyed(EgressKind.QualityRecord, …)` frames the admitted component key, every policy column a verdict turns on, and every supplied evidence row, quantized at the policy's own arc tolerance — the step every sampled reading already grades against — so two assessments of one request mint one key and a re-run under a changed rule mints another. `DfmReport.Producible` answers conformance directly.
 - Exemption: `Manufacturability.CornerEvidence` and `Manufacturability.ToPolyline` are statement kernels — one index walk and one sampling loop; every other body on this cluster is expression-shaped.
 - Entry: `Manufacturability.Assess(DfmRequest)` is the sole cross-modality fold. Geometry, capability, supplied evidence, and assembly allowances join applicatively; kernel failures remain typed `Fin` failures, while producibility failures remain report rows.
 - Result: `DfmVerdict` preserves process, confidence outcome, observation, criterion, locus, and remedy; `RoutingRow` preserves blockers, requirements, and the `RouteScore` column set whose `Worst` names the dominant burden; `StackupPrecheck` preserves the settled chain result beside the allowance census; `DfmReport` preserves the request key and full decision basis.
-- Packages: `Process/owner` (`FabricationCanon.Keyed`, `EgressKind.QualityRecord`, `ContentKey`); `Rasm.Domain` (`IValidityEvidence`, `ValidityClaim`, `Op`); `Rasm.Meshing` (`MeshSpace.FaceNormals`, `.Index`, `.DuplicateNative`); `Rasm.Spatial`; `Rasm.Analysis`; LanguageExt.Core for the accumulated rail.
+- Packages: `Process/owner` (`FabricationCanon.Keyed`, `EgressKind.QualityRecord`, `ContentKey`); `Rasm.Domain` (`IValidityEvidence`, `ValidityClaim`, `Op`); `Rasm.Meshing` (`MeshSpace.FaceNormals`, `.Index`, `.DuplicateNative`); `Rasm.Spatial`; `Rasm.Analysis`; LanguageExt.Core for the accumulated `Validation`.
 - Boundary: routing ranks process requirements and evidence, while fleet matching, tool selection, support generation, unfolding, joining sequence, correlated stackup simulation, rendering, and persistence remain downstream owners.
 
 ```csharp

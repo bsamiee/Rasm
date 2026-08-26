@@ -2,7 +2,7 @@
 
 Geospatial CLAIMS plane — one third of the spatial triptych, beside the `spatial/query#SPATIAL` in-DB engine and the `spatial/grid#GRID` DGG plane. `VectorGeoClaim` carries CRS/units/axis-order/geometry-family/precision over geopandas/shapely/pyogrio with pyproj backing the axis-order-aware `reproject` prelude and one `VectorOp` in-frame vector-algebra axis; `RasterGeoClaim` carries coverage/band/resampling/nodata/CRS with one `RasterOp` coverage axis spanning the in-memory and streaming/remote/VRT/sample/COG-write rows; `EgressFormat` is one `StrEnum` whose member value IS the OGR driver and whose `write` it carries. STAC claims live on `spatial/catalog#CATALOG` — `StacGeoClaim`/`StacTableOp` are re-homed to the STAC-table owner, so this page holds no catalog import.
 
-`RasterGeoClaim.transform` is the provenance affine the `spatial/catalog#ASSETS` `AssetFold` constructs from `proj:transform`, or the typed ABSENCE it carries where the asset declares none. `GEOARROW` egress is the NATIVE buffer path — `to_arrow(geometry_encoding="geoarrow")` exports zero-copy extension arrays serialized as Arrow IPC, never a parquet byte-roundtrip — and `geoarrow_wire` is the `geoarrow-rust-compute` hand-off sharing the `dotnet:Rasm.Compute` GLB wire layout. The GDAL split predicate is format coverage: a format the `geoarrow-rust-io` readers spell natively rides the `[04]-[NATIVE]` band and its `EgressFormat` writer arm, and pyogrio keeps the OGR long tail — shapefile, GPKG, and every driver the rust surface does not parse — so the native family is a fast path beside the GDAL owner, never a second format owner. In-frame kernels split on the same law: a verb GEOS spells vectorized stays a shapely arm, and only the ellipsoidal metric family the rust surface alone vectorizes rides the geoarrow export leg. Every network-bearing read routes its blocking provider call through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop, elected by the dispatch row the op's OWN value resolves rather than by which entrypoint a caller picked. geopandas/shapely/rasterio ride the Forge scientific source build band and bind in-process, never across a subprocess seam: each declares ONE module-scope `lazy import`/`lazy from` line and reifies on the first operation that dereferences it, so the eager module-level form the manifest bans never appears and an unearned function-local one is the same deleted form. The `[03]-[COVERAGE]` `_registered` seam is the page's ONE survivor — importing `rioxarray` IS the `.rio` accessor registration, a module-body side effect a lazy binding no leg touches would never fire.
+`RasterGeoClaim.transform` is the provenance affine the `spatial/catalog#ASSETS` `AssetFold` constructs from `proj:transform`, or the typed ABSENCE it carries where the asset declares none. `GEOARROW` egress is the NATIVE buffer path — `to_arrow(geometry_encoding="geoarrow")` exports zero-copy extension arrays serialized as Arrow IPC, never a parquet byte-roundtrip — and `geoarrow_wire` is the `geoarrow-rust-compute` hand-off sharing the `dotnet:Rasm.Compute` GLB wire layout. The GDAL split predicate is format coverage: a format the `geoarrow-rust-io` readers spell natively rides the `[04]-[NATIVE]` band and its `EgressFormat` writer arm, and pyogrio keeps the OGR long tail — shapefile, GPKG, and every driver the rust surface does not parse — so the native family is a fast path beside the GDAL owner, never a second format owner. In-frame kernels split on the same law: a verb GEOS spells vectorized stays a shapely arm, and only the ellipsoidal metric family the rust surface alone vectorizes rides the geoarrow export leg. Every network-bearing read routes its blocking provider call through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop, elected by the dispatch row the op's OWN value resolves rather than by which entrypoint a caller picked. geopandas/shapely/rasterio ride the Forge scientific source build band and bind in-process, never across a subprocess boundary: each declares ONE module-scope `lazy import`/`lazy from` line and reifies on the first operation that dereferences it, so the eager module-level form the manifest bans never appears and an unearned function-local one is the same deleted form. The `[03]-[COVERAGE]` `_registered` boundary is the page's ONE survivor — importing `rioxarray` IS the `.rio` accessor registration, a module-body side effect a lazy binding no leg touches would never fire.
 
 ## [01]-[INDEX]
 
@@ -13,11 +13,11 @@ Geospatial CLAIMS plane — one third of the spatial triptych, beside the `spati
 ## [02]-[GEO]
 
 - Owner: `resampling` is the claim-level default an op overrides through `resampling or self.resampling`, never a per-op factory literal. `nodata` is DECLARED absence and `_fill` is its ONE authority: a claim whose asset declared none carries `Nothing`, and every rasterio call then elects that provider's own absent form by OMITTING the keyword its `NodataSlot` member names, because a float standing in for an undeclared sentinel — `0.0` above all — masks every genuine pixel equal to it across the window, stream, VRT, remote, mosaic, mask, reproject, and COG-creation reads at once.
-- Cases: `VectorOp.Predicate` rails because `dwithin` is the one accessor carrying a radius — presence and predicate must agree or no servable request exists, so the arm below reads the bound unwrapped and never substitutes a zero for an unbounded one. `Stream` folds each `block_windows` tile straight into one pre-allocated destination slice through `read(out=)`, so peak memory is the decimated destination plus one block — the one measured streaming-IO kernel where the `for` over tiles is the platform-forced boundary exemption. `VectorIngress`'s bare-`.dbf` attribute reads route through the same ESRI Shapefile driver, closing the struck-`csvkit` foreign-decode gap.
+- Cases: `VectorOp.Predicate` layers because `dwithin` is the one accessor carrying a radius — presence and predicate must agree or no servable request exists, so the arm below reads the bound unwrapped and never substitutes a zero for an unbounded one. `Stream` folds each `block_windows` tile straight into one pre-allocated destination slice through `read(out=)`, so peak memory is the decimated destination plus one block — the one measured streaming-IO kernel where the `for` over tiles is the platform-forced boundary exemption. `VectorIngress`'s bare-`.dbf` attribute reads route through the same ESRI Shapefile driver, closing the struck-`csvkit` foreign-decode gap.
 - Entry: `RasterGeoClaim.apply` is the ONE raster entry over the whole `RasterOp` union, and `_RASTER_ROW` — read off the op's OWN value through `_row`, never off which method a caller reached for — elects everything the crossing decides: a `Crossing.REMOTE` row rides `guarded(RetryClass.HTTP, on_thread, ...)` under a CLIENT span and may abandon its band slot on a tripped deadline, a `Crossing.LOCAL` row rides the plain banded hop under an INTERNAL one. That same row answers whether the arm opens its OWN dataset off the op value, so an arm that reads a caller handle and was handed none refuses BEFORE the band hop instead of dying inside the worker. Every op is an OTel span around a `boundary` fence binding its real provider-fault root (`RasterioError`/`ShapelyError`/`CRSError`/`DataSourceError`), never an un-narrowed `Exception`; the `reproject` prelude normalizes every binary operand onto one CRS with a no-op short-circuit, `to_crs` when the transform has an inverse and `set_crs` for a metadata-only label. Self-opening raster rows enter their own dataset inside one `ExitStack`, so the GDAL handle closes on the boundary exit before the result leaves it.
-- Law: `GeoreferenceFact` is the model-minted CRS source on the `reproject` prelude — the geometry sibling's IFC georeference band crosses map conversion, projected CRS, and true north as ONE decoded wire fact, and a fact-bearing reproject lifts site-local engineering coordinates through the helmert similarity onto the model's own projected CRS, so site claims reach map frames off model truth instead of a caller-supplied CRS guess. Every one of the eight fields is REQUIRED on the wire and the prelude takes the fact as `Option`, because the producer already answers an ungeoreferenced model with typed absence: a defaulted abscissa, ordinate, or scale here collapses a fact declaring NO map conversion onto one declaring the identity, and `to_map` then publishes site-local engineering coordinates as map coordinates. Two coefficients the similarity cannot invert — a zero-length direction and a zero scale — refuse together at `decoded`, the one admission seam, so the transform divides by a norm already proven rather than by a fabricated fallback. A dataset's own file CRS stays the claim-carried origin this fact never overrides; `true_north` rides the fact as declared evidence and never enters the map transform, because the map conversion already orients the eastings axis.
-- Growth: a new vector operation is one `VectorOp` case; a new raster operation is one `RasterOp` case and one `_RASTER_ROW` row naming its crossing, handle demand, and abandon posture; a new transport class is one `Crossing` member whose retry envelope and span kind DERIVE on the member; a new nodata-bearing provider call is one `NodataSlot` member spelling that provider's own keyword; a new linear or geodesic verb one `LinearKind`/`GeodesicKind` row; a new constructive op one `ConstructKind` row plus its `_CONSTRUCT` behavior row; a new binary predicate one `JoinPredicate` row; a new resampling mode one `Resampling` literal arm mapped at the edge; a new VSI scheme one `VsiScheme` row; a new egress format one `EgressFormat` member, its writer riding the native arm when `geoarrow-rust-io` spells it and the OGR driver value otherwise; a new CRS source is one field on `GeoreferenceFact` landed at BOTH ends of the seam in the same pass; zero new surface; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.GEOSPATIAL` in this module's one `RAISES` table, which every section anchors on.
-- Boundary: no host mutation, no durable store; no STAC claim or NDJSON-interchange arm on this page — the catalog owner homes them, and the STAC-interchange providers bind only inside it; `WarpedVRT` is GDAL-native streamed reproject, never a second byte-window transport beside the `tabular/egress` `obstore` rail.
+- Law: `GeoreferenceFact` is the model-minted CRS source on the `reproject` prelude — the geometry sibling's IFC georeference band crosses map conversion, projected CRS, and true north as ONE decoded wire fact, and a fact-bearing reproject lifts site-local engineering coordinates through the helmert similarity onto the model's own projected CRS, so site claims reach map frames off model truth instead of a caller-supplied CRS guess. Every one of the eight fields is REQUIRED on the wire and the prelude takes the fact as `Option`, because the producer already answers an ungeoreferenced model with typed absence: a defaulted abscissa, ordinate, or scale here collapses a fact declaring NO map conversion onto one declaring the identity, and `to_map` then publishes site-local engineering coordinates as map coordinates. Two coefficients the similarity cannot invert — a zero-length direction and a zero scale — refuse together at `decoded`, the one admission boundary, so the transform divides by a norm already proven rather than by a fabricated fallback. A dataset's own file CRS stays the claim-carried origin this fact never overrides; `true_north` rides the fact as declared evidence and never enters the map transform, because the map conversion already orients the eastings axis.
+- Growth: a new vector operation is one `VectorOp` case; a new raster operation is one `RasterOp` case and one `_RASTER_ROW` row naming its crossing, handle demand, and abandon posture; a new transport class is one `Crossing` member whose retry envelope and span kind DERIVE on the member; a new nodata-bearing provider call is one `NodataSlot` member spelling that provider's own keyword; a new linear or geodesic verb one `LinearKind`/`GeodesicKind` row; a new constructive op one `ConstructKind` row plus its `_CONSTRUCT` behavior row; a new binary predicate one `JoinPredicate` row; a new resampling mode one `Resampling` literal arm mapped at the edge; a new VSI scheme one `VsiScheme` row; a new egress format one `EgressFormat` member, its writer riding the native arm when `geoarrow-rust-io` spells it and the OGR driver value otherwise; a new CRS source is one field on `GeoreferenceFact` landed at BOTH ends of the boundary in the same pass; zero new surface; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.GEOSPATIAL` in this module's one `RAISES` table, which every section anchors on.
+- Boundary: no host mutation, no durable store; no STAC claim or NDJSON-interchange arm on this page — the catalog owner homes them, and the STAC-interchange providers bind only inside it; `WarpedVRT` is GDAL-native streamed reproject, never a second byte-window transport beside the `tabular/egress` `obstore` layer.
 
 ```python
 from contextlib import ExitStack
@@ -56,7 +56,7 @@ lazy from rasterio.vrt import WarpedVRT
 lazy from shapely.errors import ShapelyError
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, TRANSIENT, FaultRow, RuntimeRail, async_boundary, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, TRANSIENT, FaultRow, RuntimeResult, async_boundary, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.roots import origin
@@ -222,7 +222,7 @@ class EgressFormat(StrEnum):
     GEOARROW = "GeoArrow"
     FLATGEOBUF = "FlatGeobuf"
 
-    def write(self, frame: GeoDataFrame, path: str) -> RuntimeRail[ContentKey]:
+    def write(self, frame: GeoDataFrame, path: str) -> RuntimeResult[ContentKey]:
         def emit() -> bytes:
             match self:
                 case EgressFormat.GEOARROW:
@@ -279,7 +279,7 @@ class VectorOp:
         return VectorOp(construct=(kind, param))
 
     @staticmethod
-    def Predicate(name: JoinPredicate, other: "GeoDataFrame", distance: Option[float] = Nothing) -> "RuntimeRail[VectorOp]":
+    def Predicate(name: JoinPredicate, other: "GeoDataFrame", distance: Option[float] = Nothing) -> "RuntimeResult[VectorOp]":
         if (name is JoinPredicate.DWITHIN) != distance.is_some():
             return Error(GEO_UNBOUNDED.raised(name.value))
         return Ok(VectorOp(predicate=(name, other, distance)))
@@ -493,13 +493,13 @@ class GeoreferenceFact(Struct, frozen=True):
     true_north: float | None
 
     @staticmethod
-    def decoded(raw: bytes) -> "RuntimeRail[GeoreferenceFact]":
+    def decoded(raw: bytes) -> "RuntimeResult[GeoreferenceFact]":
         return boundary(
             GEO_DECODE, lambda: _GEOREF_DECODER.decode(raw), catch=(msgspec.ValidationError, msgspec.DecodeError)
         ).bind(GeoreferenceFact._invertible)
 
     @staticmethod
-    def _invertible(fact: "GeoreferenceFact") -> "RuntimeRail[GeoreferenceFact]":
+    def _invertible(fact: "GeoreferenceFact") -> "RuntimeResult[GeoreferenceFact]":
         degenerate = (
             *(("direction:zero-length",) if float(np.hypot(fact.x_axis_abscissa, fact.x_axis_ordinate)) == 0.0 else ()),
             *(("scale:zero",) if fact.scale == 0.0 else ()),
@@ -523,7 +523,7 @@ class VectorGeoClaim(Struct, frozen=True):
     family: GeometryFamily
     precision: int
 
-    async def apply(self, op: VectorOp, frame: "GeoDataFrame") -> "RuntimeRail[GeoDataFrame]":
+    async def apply(self, op: VectorOp, frame: "GeoDataFrame") -> "RuntimeResult[GeoDataFrame]":
         with _TRACER.start_as_current_span(f"geo.vector.{op.tag}", attributes={"rasm.geo.crs": self.crs, "rasm.geo.op": op.tag}):
             return await async_boundary(
                 GEO_VECTOR, lambda: on_thread(self._vector, op, frame), catch=(ShapelyError, CRSError, KeyError, ValueError)
@@ -606,7 +606,7 @@ class RasterGeoClaim(Struct, frozen=True):
     nodata: Option[float]
     transform: Option[tuple[float, ...]] = Nothing
 
-    async def apply(self, op: RasterOp, source: "DatasetReader | None" = None) -> "RuntimeRail[CoverageResult]":
+    async def apply(self, op: RasterOp, source: "DatasetReader | None" = None) -> "RuntimeResult[CoverageResult]":
         row, subject = _row(op), f"geo.raster.{op.tag}"
         if not row.opens and source is None:
             return Error(GEO_HANDLE.raised())
@@ -780,7 +780,7 @@ class VectorIngress(Struct, frozen=True):
     use_arrow: bool = True
 
 
-def read_vector(spec: VectorIngress) -> "RuntimeRail[GeoDataFrame]":
+def read_vector(spec: VectorIngress) -> "RuntimeResult[GeoDataFrame]":
     def emit() -> "GeoDataFrame":
         return pyogrio.read_dataframe(
             spec.path,
@@ -797,7 +797,7 @@ def read_vector(spec: VectorIngress) -> "RuntimeRail[GeoDataFrame]":
         return boundary(GEO_INGRESS, emit, catch=(DataSourceError, OSError, ValueError))
 
 
-def geoarrow_wire(frame: "GeoDataFrame") -> "RuntimeRail[tuple[pa.Table, Bounds]]":
+def geoarrow_wire(frame: "GeoDataFrame") -> "RuntimeResult[tuple[pa.Table, Bounds]]":
     def emit() -> "tuple[pa.Table, Bounds]":
         table = pa.table(frame.to_arrow(geometry_encoding="geoarrow"))
         return table, tuple(gac.total_bounds(table.column("geometry").combine_chunks()))
@@ -823,14 +823,14 @@ def _registered() -> "ModuleType":
 class CoverageCf(Struct, frozen=True):
     crs: str
 
-    def open(self, path: str, *, masked: bool = True, chunks: dict[str, int] | None = None) -> "RuntimeRail[object]":
+    def open(self, path: str, *, masked: bool = True, chunks: dict[str, int] | None = None) -> "RuntimeResult[object]":
         def emit() -> object:
             return _registered().open_rasterio(path, masked=masked, chunks=chunks)
 
         with _TRACER.start_as_current_span("geo.coverage.open", attributes={"rasm.geo.op": "coverage.open"}):
             return boundary(COVERAGE_OPEN, emit, catch=(OSError, ValueError))
 
-    def lift(self, result: CoverageResult, dims: tuple[str, ...] = ("band", "y", "x")) -> "RuntimeRail[object]":
+    def lift(self, result: CoverageResult, dims: tuple[str, ...] = ("band", "y", "x")) -> "RuntimeResult[object]":
         def emit() -> object:
             _registered()
             cube = xr.DataArray(result.array, dims=dims[-result.array.ndim :])
@@ -840,7 +840,7 @@ class CoverageCf(Struct, frozen=True):
         with _TRACER.start_as_current_span("geo.coverage.lift", attributes={"rasm.geo.op": "coverage.lift", "rasm.geo.crs": self.crs}):
             return boundary(COVERAGE_LIFT, emit, catch=(ValueError, KeyError))
 
-    def write_cog(self, cube: object, path: str) -> "RuntimeRail[ContentKey]":
+    def write_cog(self, cube: object, path: str) -> "RuntimeResult[ContentKey]":
         def emit() -> bytes:
             _registered()
             cube.rio.to_raster(path, driver="COG")
@@ -852,7 +852,7 @@ class CoverageCf(Struct, frozen=True):
 
 ## [04]-[NATIVE]
 
-- Owner: `NativeIngress` — the GDAL-free ingress row over `geoarrow-rust-io`: rust-spelled formats parse straight into GeoArrow extension memory lifted zero-copy into pyarrow, `NativeFormat`'s member value IS the reader name resolved at the call seam, and `query_postgis` is the live-PostGIS spatial-SQL row on the same band. `_NATIVE_ROW` is the declared capability set, one row per format whose every column is read straight off that reader's own `geoarrow-rust-io` catalog call shape, and the row PROJECTS its own call arguments so no arm re-derives what its reader spells.
+- Owner: `NativeIngress` — the GDAL-free ingress row over `geoarrow-rust-io`: rust-spelled formats parse straight into GeoArrow extension memory lifted zero-copy into pyarrow, `NativeFormat`'s member value IS the reader name resolved at the call boundary, and `query_postgis` is the live-PostGIS spatial-SQL row on the same band. `_NATIVE_ROW` is the declared capability set, one row per format whose every column is read straight off that reader's own `geoarrow-rust-io` catalog call shape, and the row PROJECTS its own call arguments so no arm re-derives what its reader spells.
 - Law: `read_native` output is the typed pyarrow table — geometry rides a registered `geoarrow.*` extension column decoded by name, never a WKB `binary` column re-parsed downstream; `register_extension_types` is the idempotent process latch every native entry crosses first. Spatial pushdown lands in the scan: `bbox` pushes into the FlatGeobuf packed R-tree on any source and into the GeoParquet row-group scan over an `ObjectStore` handle. Unservable corners are unrepresentable rather than refused mid-fold: `NativeIngress.of` demands the request through `_NATIVE_ROW` BEFORE the latch fires and before any file opens, naming every capability the request outran at once, so `read_native` holds no refusal arm and a `bbox` never degrades to a silent full scan.
 - Boundary: the claims plane crosses to frames only where a `VectorOp` needs GeoSeries semantics — `geoarrow.pyarrow.to_geopandas` is that sole lowering; a format outside `NativeFormat` stays a `VectorIngress` pyogrio row, the OGR long-tail half of the split predicate.
 - Growth: a new rust-spelled format is one `NativeFormat` member and one `_NATIVE_ROW` row citing its catalog call shape; a new pushdown mechanism is one `BboxPush` member with one `arguments` arm; a new remote source is the `store` handle row threaded from the runtime store lane; zero new surface.
@@ -914,7 +914,7 @@ class NativeIngress(Struct, frozen=True):
         bbox: Bounds | None = None,
         geometry_column: str | None = None,
         store: object | None = None,
-    ) -> "RuntimeRail[NativeIngress]":
+    ) -> "RuntimeResult[NativeIngress]":
         row = _NATIVE_ROW[format]
         unserved = (
             *((f"bbox:{row.bbox.value}",) if bbox is not None and row.bbox is BboxPush.NONE else ()),
@@ -930,7 +930,7 @@ class NativeIngress(Struct, frozen=True):
         )
 
 
-def read_native(spec: NativeIngress) -> "RuntimeRail[pa.Table]":
+def read_native(spec: NativeIngress) -> "RuntimeResult[pa.Table]":
     def emit() -> "pa.Table":
         ga.register_extension_types()
         row = _NATIVE_ROW[spec.format]
@@ -946,7 +946,7 @@ def read_native(spec: NativeIngress) -> "RuntimeRail[pa.Table]":
         return boundary(NATIVE_READ, emit, catch=(OSError, ValueError))
 
 
-async def query_postgis(connection_url: str, sql: str) -> "RuntimeRail[pa.Table]":
+async def query_postgis(connection_url: str, sql: str) -> "RuntimeResult[pa.Table]":
     def emit() -> "pa.Table":
         ga.register_extension_types()
         return pa.table(gio.read_postgis(connection_url, sql))

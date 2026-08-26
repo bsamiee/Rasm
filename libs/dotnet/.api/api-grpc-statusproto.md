@@ -44,10 +44,10 @@
 - `ToRpcDebugInfo` is the ONE projection of a CLR exception the wire admits; a hand-rendered stack string beside it is the deleted form.
 
 [STACKING]:
-- `Google.Api.CommonProtos`(`.api/api-commonprotos.md`): `Google.Rpc.Status` is the message this package serializes; `Status.GetDetail<T>()` and `UnpackDetailMessages(TypeRegistry)` read the details the estate packs.
+- `Google.Api.CommonProtos`(`.api/api-commonprotos.md`): `Google.Rpc.Status` is the message this package serializes; `Status.GetDetail<T>()` and `UnpackDetailMessages(TypeRegistry)` read the details the solution packs.
 - `Grpc.Core.Api`(`.api/api-grpc-core-api.md`): `Metadata`, `RpcException`, `Status`, and `StatusCode` are the carriers; `Metadata.BinaryHeaderSuffix` is why the key ends in `-bin`.
 - `Rasm.AppHost` (`Runtime/ports#WIRE_LAW`): `FaultWire.Raise` folds a `Fault` into `Google.Rpc.Status{Code, Message, Details = {Any.Pack(FaultDetail)[, Any.Pack(detail.Recovery.RetryAfter)]}}.ToRpcException()` at every failing handler arm, the advice seat packing the detail's own throttled arm rather than a second mint; `FaultWire.Decode` reads `RpcException.GetRpcStatus()` under `Op.Catch`, so a malformed trailer lands typed on `WireBoundary.RemoteStatus` and an absent one answers `None`.
-- `Rasm.Compute` (`Runtime/wire#FAULT_PROJECTION`): the client transport rail composes `FaultWire.Decode` before `StatusRail` classifies a residual status.
+- `Rasm.Compute` (`Runtime/wire#FAULT_PROJECTION`): the client transport path composes `FaultWire.Decode` before `StatusFold` classifies a residual status.
 - `Rasm.Persistence` (`Query/federation#FLIGHT_RESULT_PLANE`): Flight verb refusals raise through `FaultWire.Raise`, never a local `new RpcException(new Status(code, message))`.
 
 [LOCAL_ADMISSION]:

@@ -90,7 +90,7 @@
 
 [STACKING]:
 - `Avalonia`(`.api/api-avalonia.md`): `UsePlatformDetect` chains off `AppBuilder.Configure<App>()` and returns the builder for the classic-desktop lifetime tail.
-- `Avalonia.Skia`(`.api/api-avalonia-skia.md`): the internal `UseSkia` admits `ISkiaSharpApiLeaseFeature`, so desktop boot and the custom-visual rail's leased `SKCanvas` share one renderer and leased draws present in-airspace.
+- `Avalonia.Skia`(`.api/api-avalonia-skia.md`): the internal `UseSkia` admits `ISkiaSharpApiLeaseFeature`, so desktop boot and the custom-visual path's leased `SKCanvas` share one renderer and leased draws present in-airspace.
 - `SkiaSharp.NativeAssets.*`(`.api/api-skia-native.md`): the `libSkiaSharp` payload the selected backend loads keeps the macOS-native and headless-Linux render paths self-contained.
 - `Avalonia.Headless`(`.api/api-headless.md`): server, container, and CI proof swap `UsePlatformDetect` for `UseHeadless` with `Avalonia.Skia`'s raster path; the host-neutral `SurfaceMount` axis serves both branches and only the boot tail differs.
 - Rhino panel and GH2 companion modalities mount the same `App` through the host's own Avalonia-in-host embedding, never `UsePlatformDetect`.

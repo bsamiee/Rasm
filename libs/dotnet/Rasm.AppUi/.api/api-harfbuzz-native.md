@@ -41,7 +41,7 @@
 - Full-framework consumers (`net462`/`net48`) copy the native through the `_NativeHarfBuzzSharpFile` glob gated on `ShouldIncludeNativeHarfBuzzSharp`; `net10.0` resolves the same payload through the SDK RID-asset graph, so the matching `buildTransitive/net10.0-*`/`net9.0-*` targets stay empty.
 
 [STACKING]:
-- `api-skia-harfbuzz.md`: `SKShaper`/`HarfBuzzSharp.Font.Shape` P/Invoke the `libHarfBuzzSharp` these packages place; one resolved native serves both the retained Avalonia text stack and the shaped-draw rail, and the first shaped draw folds its version, path, and RID into the typography evidence stream beside the `libSkiaSharp` identity.
+- `api-skia-harfbuzz.md`: `SKShaper`/`HarfBuzzSharp.Font.Shape` P/Invoke the `libHarfBuzzSharp` these packages place; one resolved native serves both the retained Avalonia text stack and the shaped-draw path, and the first shaped draw folds its version, path, and RID into the typography evidence stream beside the `libSkiaSharp` identity.
 - `api-skia-native.md`: `libSkiaSharp` rides the same RID graph from the parallel Skia native-asset pair, so one RID-correct output tree carries both text natives for a profile.
 
 [LOCAL_ADMISSION]:

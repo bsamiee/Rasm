@@ -4,7 +4,7 @@
 
 ## [01]-[BOUNDARY_REACH]
 
-- Registers the `Eto.Drawing` paint algebra (`libs/dotnet/.api/api-eto-drawing.md`): `Graphics` with its transform and clip stacks, `GraphicsPath`/`IGraphicsPath`, the brush, pen, and dash family, `Color` and its sRGB projections, `Font`/`FormattedText` layout, `Matrix` composition, `Bitmap`/`BitmapData`/`Image`, and the `Drawable` paint seam carry their algebra there. This partition adds no carrier of its own and states the boundary's composition law over the registered surface.
+- Registers the `Eto.Drawing` paint algebra (`libs/dotnet/.api/api-eto-drawing.md`): `Graphics` with its transform and clip stacks, `GraphicsPath`/`IGraphicsPath`, the brush, pen, and dash family, `Color` and its sRGB projections, `Font`/`FormattedText` layout, `Matrix` composition, `Bitmap`/`BitmapData`/`Image`, and the `Drawable` paint callback carry their algebra there. This partition adds no carrier of its own and states the boundary's composition law over the registered surface.
 
 | [INDEX] | [BOUNDARY_CONCERN]         | [REGISTERED_MEMBERS]                                                                               |
 | :-----: | :------------------------- | :------------------------------------------------------------------------------------------------- |
@@ -24,7 +24,7 @@
 [STACKING]:
 - `libs/dotnet/.api/api-eto-drawing.md`: the registered algebra every paint body composes; this boundary adds no drawing carrier and re-tables none.
 - `Wacton.Unicolour`(`libs/dotnet/.api/api-unicolour.md`): owns the perceptual colour model — perceptual blending, delta-E distance, gamut-mapped fills, and theme ramps route through `Unicolour`, and the registered sRGB colour survives only at the paint edge feeding a `Brush` or `Pen`.
-- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a pixel lock rides an `Eff<A>`/`use` resource scope, `Fin<A>` rails an encode or decode, and `Seq<PointF>` is the vertex carrier a polyline or curve folds over.
+- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a pixel lock rides an `Eff<A>`/`use` resource scope, `Fin<A>` carries an encode or decode, and `Seq<PointF>` is the vertex carrier a polyline or curve folds over.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): a `[ValueObject]` owns a validated stroke-style, dash-preset, or gradient-stop value; a `[SmartEnum]` owns the closed brush-kind and system-font-role vocabularies a generator-shaped paint layer folds to rows.
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-display.md`: viewport drawing through the Rhino display pipeline is the separate in-model surface; a `Drawable` paint never substitutes for a conduit and a conduit never substitutes for panel chrome.
 - Kernel unification: easing, spring, and interpolation math positioning or animating a paint composes the `Rasm` kernel, never a second in-boundary derivation.

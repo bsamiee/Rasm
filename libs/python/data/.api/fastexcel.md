@@ -1,6 +1,6 @@
 # [PY_DATA_API_FASTEXCEL]
 
-`fastexcel` binds the Rust `calamine` decoder to an Arrow boundary for the data ingestion rail. One `read_excel` factory opens a workbook into an `ExcelReader`; one polymorphic `load_sheet`/`load_table` surface materializes any sheet or named table to a lazy Arrow PyCapsule (`ExcelSheet`/`ExcelTable`) or an eager `pyarrow.RecordBatch`. Windowing, dtype, and column-selection ride as call rows, and the lazy block exports zero-copy through `__arrow_c_array__` with no mandatory `pyarrow` dependency.
+`fastexcel` binds the Rust `calamine` decoder to an Arrow boundary for the data ingestion domain. One `read_excel` factory opens a workbook into an `ExcelReader`; one polymorphic `load_sheet`/`load_table` surface materializes any sheet or named table to a lazy Arrow PyCapsule (`ExcelSheet`/`ExcelTable`) or an eager `pyarrow.RecordBatch`. Windowing, dtype, and column-selection ride as call rows, and the lazy block exports zero-copy through `__arrow_c_array__` with no mandatory `pyarrow` dependency.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -29,7 +29,7 @@
 |  [04]   | `DTypeFrom`      | type alias    | `Literal["provided_for_all","provided_by_index","provided_by_name","guessed"]` dtype provenance |
 |  [05]   | `SheetVisible`   | type alias    | `Literal["visible","hidden","veryhidden"]` visibility, not in `__all__`                         |
 
-[PUBLIC_TYPE_SCOPE]: failure rail — every row derives from `FastExcelError` and maps to the data error rail
+[PUBLIC_TYPE_SCOPE]: failure channel — every row derives from `FastExcelError` and maps to the data error channel
 
 | [INDEX] | [SYMBOL]                                | [CAPABILITY]                                 |
 | :-----: | :-------------------------------------- | :------------------------------------------- |
@@ -107,7 +107,7 @@ A lazy `ExcelSheet`/`ExcelTable` exports through the Arrow PyCapsule dunders, so
 
 [STACKING]:
 - `polars`(`polars.md`): the lazy sheet's PyCapsule lands in the eager columnar owner through `pl.DataFrame(sheet)` zero-copy on the `polars` extra alone.
-- `pyarrow`(`pyarrow.md`): `pa.record_batch(sheet)` or `eager=True` materializes the same capsule into a `RecordBatch` for the Arrow-native rail.
+- `pyarrow`(`pyarrow.md`): `pa.record_batch(sheet)` or `eager=True` materializes the same capsule into a `RecordBatch` for the Arrow-native domain.
 - `narwhals`(`narwhals.md`): the PyCapsule sheet is a native producer the backend-agnostic interop carrier wraps with no pyarrow floor.
 - `duckdb`(`duckdb.md`): the request-scoped `DuckDbSession` scan ingests the Arrow capsule directly for relational egress.
 - within-lib: calamine decode is the single ingress edge, and the `data/tabular` interop and columnar owners pick the downstream frame/dataset materialization off the one capsule, never re-decoding.

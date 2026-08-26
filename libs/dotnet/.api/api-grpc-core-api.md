@@ -1,6 +1,6 @@
 # [RASM_API_GRPC_CORE_API]
 
-`Grpc.Core.Api` owns the host-neutral gRPC call surface both server rails bind: the `Marshaller` codec pairs, `Method<TReq,TResp>` descriptors keyed by `FullName`, and the `ServerServiceDefinition` handler registry on the definition side, and `ServerCallContext`, the stream writers, and `Metadata` on the per-call side. Transport, hosting, and channel construction stay with the managed `Grpc.Net.Client` and `Grpc.AspNetCore.Server` hosts, and the status, fault, and call-policy carriers this package also ships are catalogued once at the client rail.
+`Grpc.Core.Api` owns the host-neutral gRPC call surface both server packages bind: the `Marshaller` codec pairs, `Method<TReq,TResp>` descriptors keyed by `FullName`, and the `ServerServiceDefinition` handler registry on the definition side, and `ServerCallContext`, the stream writers, and `Metadata` on the per-call side. Transport, hosting, and channel construction stay with the managed `Grpc.Net.Client` and `Grpc.AspNetCore.Server` hosts, and the status, fault, and call-policy carriers this package also ships are catalogued once at the client package.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -30,7 +30,7 @@
 |  [10]   | `AsyncDuplexStreamingCall<TReq,TResp>` | class         | bidi call: both streams, status, trailers |
 
 - `WriteFlags`: `BufferHint` (1) `NoCompress` (2)
-- Registers the fault and call-policy carriers(`.api/api-grpc-client.md`): `Status`, `StatusCode`, `RpcException`, and `CallOptions` ship in this assembly and carry their construction, roster, read-back, and `With*` threading at the client rail, which both server rails type against; the rows above are the carriers this catalogue adds beyond them.
+- Registers the fault and call-policy carriers(`.api/api-grpc-client.md`): `Status`, `StatusCode`, `RpcException`, and `CallOptions` ship in this assembly and carry their construction, roster, read-back, and `With*` threading at the client package, which both server packages type against; the rows above are the carriers this catalogue adds beyond them.
 
 ## [02]-[ENTRYPOINTS]
 
@@ -112,8 +112,8 @@
 - Registered handlers fold every failure onto the fault carriers, so `Status.Detail` with trailing `Metadata` is the only peer-visible fault channel this package produces.
 
 [STACKING]:
-- `Grpc.Net.Client`(`.api/api-grpc-client.md`): the fault and call-policy half of one rail — a handler's `Status`/`RpcException` mint and the `CallOptions.With*` threading a propagated outbound call takes both read their members there.
-- `Grpc.StatusProto`(`.api/api-grpc-statusproto.md`): the producer edge raises `FaultWire.Raise` — `google.rpc.Status{Code, Message, Details = {Any.Pack(FaultDetail)}}.ToRpcException()` at `Rasm.AppHost/Runtime/ports#WIRE_LAW` — from every failing handler arm, and the client admits `RpcException.GetRpcStatus()` as opaque `RemoteFault` evidence under `Rasm.Compute`'s `WireFault` transport rail; `ServerCallContext.ResponseTrailers` is never written by hand.
+- `Grpc.Net.Client`(`.api/api-grpc-client.md`): the fault and call-policy half of one surface — a handler's `Status`/`RpcException` mint and the `CallOptions.With*` threading a propagated outbound call takes both read their members there.
+- `Grpc.StatusProto`(`.api/api-grpc-statusproto.md`): the producer edge raises `FaultWire.Raise` — `google.rpc.Status{Code, Message, Details = {Any.Pack(FaultDetail)}}.ToRpcException()` at `Rasm.AppHost/Runtime/ports#WIRE_LAW` — from every failing handler arm, and the client admits `RpcException.GetRpcStatus()` as opaque `RemoteFault` evidence under `Rasm.Compute`'s `WireFault` transport carrier; `ServerCallContext.ResponseTrailers` is never written by hand.
 - `Grpc.AspNetCore.Server`(`.api/api-grpc-aspnetcore.md`): a hosted service method takes `ServerCallContext` and `IServerStreamWriter<T>` from this surface, and a registered interceptor reads `Metadata` off the same call.
 - `Grpc.Net.Common`(`Rasm.Compute/.api/api-grpc-common.md`): the compression-provider contracts and the `ConnectivityState` vocabulary are that catalogue's, and `IAsyncStreamReader<T>.ReadAllAsync` there is the client-side drain pairing with `IServerStreamWriter<T>.WriteAsync` here.
 - `Rasm.AppHost`: `ControlServiceImpl` derives the generated `ControlService.ControlServiceBase`, reads `ServerCallContext` per surviving verb, and leaves every failure through `FaultWire.Raise`.

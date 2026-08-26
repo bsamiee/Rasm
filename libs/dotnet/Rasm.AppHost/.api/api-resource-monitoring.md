@@ -53,7 +53,7 @@
 - `AddResourceMonitoring`: returns the same collection after `AddMetrics()` on a host outside Windows and Linux, so a null-free return proves nothing about whether an instrument exists.
 - `ResourceQuota`: every ceiling is a settable property on a resolved instance, so a reader copies the values it grades against rather than holding the provider's object.
 
-[ENTRYPOINT_SCOPE]: option policy — each row a `ResourceMonitoringOptions` property bound through the standard options rail
+[ENTRYPOINT_SCOPE]: option policy — each row a `ResourceMonitoringOptions` property bound through the standard options pattern
 
 | [INDEX] | [SURFACE]                          | [GATE]       | [DEFAULT] | [CAPABILITY]                                           |
 | :-----: | :--------------------------------- | :----------- | :-------- | :----------------------------------------------------- |

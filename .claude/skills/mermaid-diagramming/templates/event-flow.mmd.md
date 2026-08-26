@@ -6,7 +6,7 @@ Draw which commands produce which events and which read models consume them, in 
 eventmodeling
   tf 01 ui PlanBoard `json`{ "card": "RS-203" }
   tf 02 cmd RealizeCard
-  tf 03 evt CardRealized `json`{ "fence": "cache-rail" }
+  tf 03 evt CardRealized `json`{ "fence": "cache-path" }
   tf 04 rmo BoardView
   tf 05 ui GateConsole
   tf 06 cmd RunGate

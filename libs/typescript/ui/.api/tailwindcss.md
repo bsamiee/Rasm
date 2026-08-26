@@ -32,7 +32,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the CSS-first directive and function surface `@tailwindcss/vite` resolves at build — the primary authoring rail; `@theme` blocks tokens, the `--*()` functions read them inline.
+[ENTRYPOINT_SCOPE]: the CSS-first directive and function surface `@tailwindcss/vite` resolves at build — the primary authoring surface; `@theme` blocks tokens, the `--*()` functions read them inline.
 
 [ENGINE]: `@import "tailwindcss"`
 [DEFINE]: `@theme` (`inline` substitutes, `static` emits every variable, `reference` imports without emit)
@@ -71,4 +71,4 @@
 - Author every color, size, radius, easing, and animation as one `@theme` line and consume its generated variable and utilities.
 - Reserve `tailwindcss/plugin` for an algorithmic utility family over a computed value set (`matchUtilities`); `@utility` and `@theme` own every static utility.
 - Bind interaction and theme state through `@custom-variant` and the react-aria-components plugin, expressed as data-attribute variants.
-- Compose every conflict-prone class string through the `cva`/`clsx`/`twMerge` rail and wire the build through `@tailwindcss/vite`.
+- Compose every conflict-prone class string through the `cva`/`clsx`/`twMerge` fold and wire the build through `@tailwindcss/vite`.

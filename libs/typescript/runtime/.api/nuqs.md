@@ -38,7 +38,7 @@
 |  [01]   | `parseAsStringEnum(values) -> SingleParserBuilder<E>`         | factory  | closed enum vocabulary                  |
 |  [02]   | `parseAsStringLiteral(readonly values)`                       | factory  | closed string-literal set               |
 |  [03]   | `parseAsNumberLiteral(readonly values)`                       | factory  | closed number-literal set               |
-|  [04]   | `parseAsJson(validator \| StandardSchemaV1<T>)`               | factory  | validated JSON — the Schema seam        |
+|  [04]   | `parseAsJson(validator \| StandardSchemaV1<T>)`               | factory  | validated JSON — the Schema hook        |
 |  [05]   | `parseAsArrayOf(itemParser, separator?)`                      | factory  | delimited list over an item parser      |
 |  [06]   | `parseAsNativeArrayOf(itemParser)`                            | factory  | repeated-key (`?k=a&k=b`) multi         |
 |  [07]   | `createParser(SingleParser) -> SingleParserBuilder`           | factory  | own any state `T` beyond the atoms      |

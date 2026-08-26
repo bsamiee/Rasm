@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_DRAWPYO]
 
-`drawpyo` owns the editable draw.io (`.drawio`) egress and ingest concern for the artifacts diagram rail: a pure-Python `File` -> `Page` -> `XMLBase` spine whose `File.write` serializes native mxGraph XML, a closed `Object`/`Edge`/`Group`/`Point`/`TextFormat` vocabulary with TOML-bounded style axes, the `object_from_library` shape factory and Edit-Style round-trip, the `dict`-folding `TreeDiagram`/`BarChart` auto-layout builders, and the inverse `load_diagram` parser to a typed `ParsedDiagram`. It owns the editable-`.drawio` wire alone: rasterization routes to `resvg-py`/`vl-convert`/`pyvips`, graph routing to `rustworkx`/`pyelk`/`fast-sugiyama` (`TreeDiagram` is the built-in hierarchical fallback, never the routing engine), and content identity to `rasm.runtime.identity#ContentIdentity`.
+`drawpyo` owns the editable draw.io (`.drawio`) egress and ingest concern for the artifacts diagram domain: a pure-Python `File` -> `Page` -> `XMLBase` spine whose `File.write` serializes native mxGraph XML, a closed `Object`/`Edge`/`Group`/`Point`/`TextFormat` vocabulary with TOML-bounded style axes, the `object_from_library` shape factory and Edit-Style round-trip, the `dict`-folding `TreeDiagram`/`BarChart` auto-layout builders, and the inverse `load_diagram` parser to a typed `ParsedDiagram`. It owns the editable-`.drawio` wire alone: rasterization routes to `resvg-py`/`vl-convert`/`pyvips`, graph routing to `rustworkx`/`pyelk`/`fast-sugiyama` (`TreeDiagram` is the built-in hierarchical fallback, never the routing engine), and content identity to `rasm.runtime.identity#ContentIdentity`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -168,11 +168,11 @@
 - page: `PageSize` is a `(width, height)` tuple-Enum (ISO A/B-series × orientation, US sizes, aspect presets); pass `Page(size_preset=PageSize.A3LANDSCAPE)` so the extent comes from the vocabulary, never a hand-typed width/height pair.
 
 [STACKING]:
-- `expression`(`.api/expression.md`): `File.write` runs inside the owning page's `RuntimeRail`/`async_boundary`, so a write fault — bad `file_path`, an `overwrite=False` collision, an off-domain style `ValueError` — lands as a typed `Result` failure, never a raw exception crossing the domain.
+- `expression`(`.api/expression.md`): `File.write` runs inside the owning page's `RuntimeResult`/`async_boundary`, so a write fault — bad `file_path`, an `overwrite=False` collision, an off-domain style `ValueError` — lands as a typed `Result` failure, never a raw exception crossing the domain.
 - `rasm.runtime.identity#ContentIdentity`: its owning page mints the node key pre-run over a length-framed canonical glyph⊕palette seed, so keyed elision probes the warm seed before serialization; drawpyo mints no identity.
 - `anyio`(`.api/anyio.md`): drawpyo is pure-Python and synchronous, so the owning page offloads `File.write`/`File.xml` serialization through `lane.offload(Kernel.of(..., KernelTrait.RELEASING))` off the event loop, the shared-address-space thread arm the `drawsvg` `_render` sibling takes.
-- `glyphset` seam: the design lowers the `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph`/`GlyphStyle`/`MarkerKind` grammar — the same grammar `visualization/diagram/draw#DRAW` consumes — onto the `Object`/`Edge`/`Group` vocabulary, so one glyph grammar drives both the `.drawio` and the SVG egress with no per-arm special-casing.
-- round-trip seam: `load_diagram` parses an existing `.drawio` template back into the typed rows the same grammar describes, so a title-block AEC sheet round-trips (read, mutate by `get_by_id`, re-emit) through one owner without a second parser.
+- `glyphset` boundary: the design lowers the `visualization/diagram/glyphset#GLYPHSET` `DiagramGlyph`/`GlyphStyle`/`MarkerKind` grammar — the same grammar `visualization/diagram/draw#DRAW` consumes — onto the `Object`/`Edge`/`Group` vocabulary, so one glyph grammar drives both the `.drawio` and the SVG egress with no per-arm special-casing.
+- round-trip boundary: `load_diagram` parses an existing `.drawio` template back into the typed rows the same grammar describes, so a title-block AEC sheet round-trips (read, mutate by `get_by_id`, re-emit) through one owner without a second parser.
 
 [LOCAL_ADMISSION]:
-- Admit `drawpyo` as the sole editable-`.drawio` author/serialize/ingest owner on the diagram rail; a second `.drawio` emitter or XML parser is rejected.
+- Admit `drawpyo` as the sole editable-`.drawio` author/serialize/ingest owner on the diagram domain; a second `.drawio` emitter or XML parser is rejected.

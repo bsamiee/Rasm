@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: detector instance + contract
-- rail: observability/resource/detect
+- concern: observability/resource/detect
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CAPABILITY]                                    |
 | :-----: | :------------------------------------------------ | :---------------- | :---------------------------------------------- |
@@ -16,7 +16,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: detector composition
-- rail: observability/resource/detect
+- concern: observability/resource/detect
 
 | [INDEX] | [SURFACE]           | [SHAPE]  | [CAPABILITY]                                  |
 | :-----: | :------------------ | :------- | :-------------------------------------------- |

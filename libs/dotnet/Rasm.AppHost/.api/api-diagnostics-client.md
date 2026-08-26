@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_DIAGNOSTICS_CLIENT]
 
-`Microsoft.Diagnostics.NETCore.Client` (dotnet/diagnostics) owns managed access to the .NET runtime diagnostics IPC endpoint: a pid-bound `DiagnosticsClient` captures a process dump and opens the EventPipe runtime-event stream. It is the sole owner of process-dump capture and the EventPipe stream, feeding the support-bundle capture fan on the observability rail and bounded to the host and companion process tree the AppHost owns.
+`Microsoft.Diagnostics.NETCore.Client` (dotnet/diagnostics) owns managed access to the .NET runtime diagnostics IPC endpoint: a pid-bound `DiagnosticsClient` captures a process dump and opens the EventPipe runtime-event stream. It is the sole owner of process-dump capture and the EventPipe stream, feeding the support-bundle capture fan on the observability path and bounded to the host and companion process tree the AppHost owns.
 
 ## [01]-[PUBLIC_TYPES]
 

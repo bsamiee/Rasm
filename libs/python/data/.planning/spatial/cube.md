@@ -14,7 +14,7 @@ Egress is the shared field family: a cube's geometry coordinate WKB-encodes thro
 - Law: the claim owns the CRS law — `of` lifts the zone coordinate under the CLAIM's CRS, and every predicate or point operand crosses `claim.reproject` on a one-row frame before touching the `GeometryIndex`, so a mis-referenced operand lands in the cube's frame by the same prelude every vector operand crosses; a bare `set_crs`-style override on the index is the re-derived CRS law this composition deletes.
 - Law: `frame` is the ONE bridge onto the claims plane — the long-form `GeoDataFrame` keyed by zone geometry — so a cube variable reaches vector claims as a column join at the claims plane, and no zone-id correspondence table exists anywhere: the geometry IS the key on both ends.
 - Entry: `ZoneCube.of(cube, coord, claim)` lifts the named coordinate through `set_geom_indexes` under the claim CRS; `apply(op)` answers the operation family; `write(target)` WKB-encodes the geometry coordinate through `encode_wkb`, lands one Zarr store, and returns the `ContentKey` minted from its `zarr.json` root-metadata bytes.
-- Packages: `xvec` (`set_geom_indexes`, `query(coord, geometry, predicate=, distance=)`, `extract_points`, `to_geodataframe(geometry=, long=True)`, `encode_wkb` — the `.xvec` accessor surface), `shapely` (the geometry operands), `xarray` (the cube substrate), `msgspec` (the frozen owner), runtime (`RuntimeRail`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`), `spatial/geospatial#GEO` (`VectorGeoClaim`, the composed CRS law).
+- Packages: `xvec` (`set_geom_indexes`, `query(coord, geometry, predicate=, distance=)`, `extract_points`, `to_geodataframe(geometry=, long=True)`, `encode_wkb` — the `.xvec` accessor surface), `shapely` (the geometry operands), `xarray` (the cube substrate), `msgspec` (the frozen owner), runtime (`RuntimeResult`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`), `spatial/geospatial#GEO` (`VectorGeoClaim`, the composed CRS law).
 - Growth: a new spatial verb is one `CubeOp` case plus one arm over the accessor member that spells it (`zonal_stats` lands this way when a raster-backed consumer names it); a new predicate is the accessor's own `predicate=` vocabulary, no arm edit; zero new surface.
 - Boundary: no raster coverage (the `rioxarray` bridge is `spatial/geospatial#COVERAGE`'s), no CF engine axis (cube leaves arrive as datasets the field owner opened), no second labelled-array store, no DGG cell algebra (`spatial/grid#GRID` owns cells); the accessor's plotting surface is out of scope — artifacts owns rendering.
 
@@ -33,7 +33,7 @@ lazy import geopandas as gpd
 
 from rasm.data.spatial.geospatial import VectorGeoClaim
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.roots import ResourceRef
 
@@ -74,12 +74,12 @@ class ZoneCube(Struct, frozen=True):
     claim: VectorGeoClaim
 
     @classmethod
-    def of(cls, cube: "xr.Dataset", coord: str, claim: VectorGeoClaim) -> "RuntimeRail[ZoneCube]":
+    def of(cls, cube: "xr.Dataset", coord: str, claim: VectorGeoClaim) -> "RuntimeResult[ZoneCube]":
         return boundary(
             CUBE_LIFT, lambda: cls(cube=cube.xvec.set_geom_indexes(coord, crs=claim.crs), coord=coord, claim=claim), catch=_XVEC_RAISES
         )
 
-    def apply(self, op: CubeOp) -> "RuntimeRail[Any]":
+    def apply(self, op: CubeOp) -> "RuntimeResult[Any]":
         with _TRACER.start_as_current_span(f"cube.{op.tag}", attributes={"rasm.geo.crs": self.claim.crs, "rasm.geo.op": op.tag}):
             return boundary(CUBE_APPLY, lambda: self._apply(op), catch=_XVEC_RAISES)
 
@@ -100,15 +100,15 @@ class ZoneCube(Struct, frozen=True):
     def _aligned(self, geometry: Any) -> Any:
         return self.claim.reproject(gpd.GeoDataFrame(geometry=gpd.GeoSeries([geometry]))).geometry.iloc[0]
 
-    def write(self, target: ResourceRef) -> "RuntimeRail[ContentKey]":
-        def emit() -> "RuntimeRail[ContentKey]":
+    def write(self, target: ResourceRef) -> "RuntimeResult[ContentKey]":
+        def emit() -> "RuntimeResult[ContentKey]":
             encoded = self.cube.xvec.encode_wkb()
             encoded.to_zarr(str(target.path))
             source = (target.path / "zarr.json").read_bytes()
             return ContentIdentity.of("field", source)
 
         with _TRACER.start_as_current_span("cube.write", attributes={"rasm.geo.op": "cube.write"}):
-            return boundary(CUBE_WRITE, emit, catch=_ZARR_RAISES).bind(lambda rail: rail)
+            return boundary(CUBE_WRITE, emit, catch=_ZARR_RAISES).bind(lambda held: held)
 ```
 
 ## [03]-[RESEARCH]

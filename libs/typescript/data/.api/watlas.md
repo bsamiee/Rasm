@@ -2,7 +2,7 @@
 
 `watlas` is the xatlas UV-atlas kernel compiled to wasm: `Atlas` ingests indexed mesh declarations, segments them into charts, and packs the charts into one or more atlas pages, answering per-vertex `uv`, per-vertex `xref` back-references into the source vertex stream, and per-chart provenance. It generates texture coordinates and nothing else — no raster byte, no container, no GPU handle leaves it.
 
-Its one consumer seam on this branch is injection: `@gltf-transform/functions` `unwrap({ watlas, ... })` takes the whole initialized module as its engine instance, exactly as `meshoptimizer` instances inject into the transform rows.
+Its one consumer boundary on this branch is injection: `@gltf-transform/functions` `unwrap({ watlas, ... })` takes the whole initialized module as its engine instance, exactly as `meshoptimizer` instances inject into the transform rows.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -19,7 +19,7 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 |  [07]   | `Chart`        | result view        | `getFaceArray`, `faceCount`, `atlasIndex`, `type`, `material`    |
 |  [08]   | `ChartType`    | numeric vocabulary | `Planar \| Ortho \| LSCM \| Piecewise \| Invalid`                |
 
-- `Vertex.xref` indexes the ORIGINAL vertex stream — atlasing splits vertices along chart seams, so the output vertex count exceeds the input's and every output attribute rebuilds by `xref` gather, never by positional copy.
+- `Vertex.xref` indexes the ORIGINAL vertex stream — atlasing splits vertices along chart boundaries, so the output vertex count exceeds the input's and every output attribute rebuilds by `xref` gather, never by positional copy.
 - `MeshDecl` strides are BYTE strides (`vertexPositionStride` for a tight `Float32Array` position stream is 12), and `indexData` admits `Uint32Array | Uint16Array`.
 - `ChartType.Invalid` marks a chart the segmenter could not parameterize; a result carrying one is evidence, not a throw.
 - `Atlas` is declared with a `new(): Atlas` INSTANCE member beside its implicit zero-argument constructor — a hand-typing artifact of the manual declarations, not a factory; construction is `new Atlas()` and the member is never called.
@@ -59,4 +59,4 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 [LOCAL_ADMISSION]:
 - UV generation only — the atlas extent (`width`/`height`) sizes a bake TARGET; the raster plane mints the bytes, and `watlas` never touches a texel.
 - One readiness proof per process: `Initialize()` races safely but the branch proves it once at engine construction beside the meshopt `ready` awaits, never per transform call.
-- The result's split-vertex census (`vertexCount` growth) rides the result; a consumer assuming input-count parity mis-gathers every attribute after the first seam split.
+- The result's split-vertex census (`vertexCount` growth) rides the result; a consumer assuming input-count parity mis-gathers every attribute after the first chart split.

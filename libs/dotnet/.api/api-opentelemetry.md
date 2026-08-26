@@ -227,7 +227,7 @@ Extension verbs list the arguments past their receiver.
 - `ResourceBuilder` declares `AddDetector`, `Clear()`, and `Build()` alone, `AddDetector` carrying a `Func<IServiceProvider, IResourceDetector>` twin that resolves its detector from services; `AddService`, both `AddAttributes` forms, `AddTelemetrySdk`, and `AddEnvironmentVariableDetector` are `OpenTelemetry.Resources.ResourceBuilderExtensions` verbs.
 - `AddAttributes`'s trailing-`schemaUrl` overload is the one seat by which a minted identity states its own semconv coordinate: the bare form lands schema-less and adopts whatever the detector chain stamps, which `api-otel-resources.md` `[TOPOLOGY]` shows annihilating the coordinate on the first disagreement.
 - `ForceFlush(int)` and `Shutdown(int)`: all three providers carry both, and `TracerProvider` and `LoggerProvider` add `AddProcessor`.
-- `MetricReader.Collect` is the one pull seat — a test rail and a scrape exporter drive it, and a periodic reader drives the same call on its interval.
+- `MetricReader.Collect` is the one pull seat — a test harness and a scrape exporter drive it, and a periodic reader drives the same call on its interval.
 
 [SPAN_API_ENTRY]: the contract-assembly span shim
 

@@ -72,8 +72,8 @@ Module `__all__` exports exactly `runtime` (the singleton `VegaFusionRuntime` *i
 [STACKING]:
 - `altair`(`altair.md`): `altair.Chart.to_dict()` yields the Vega-Lite spec the pre-pass consumes; `VegaTransform.apply` (`visualization/chart/export#PREPASS`) folds `runtime.pre_transform_spec(spec)` (the `Inline` arm) or `runtime.new_chart_state(spec).get_transformed_spec()` (the `State` arm).
 - `vl-convert-python`(`vl-convert-python.md`): renders the ONE reduced self-contained spec to static bytes; the no-external-feed constraint that forces the in-spec reduction is owned there.
-- `anyio`(`../../.api/anyio.md`): the gated native pre-pass crosses the subprocess seam via `to_process.run_sync` under one `CapacityLimiter` (GIL-releasing DataFusion core).
-- universal rails: one `structlog` event and OpenTelemetry span bind `PrePassEvidence`; malformed specs and `_import_inline_datasets` `ValueError` values fold onto the `expression.Result` rail.
+- `anyio`(`../../.api/anyio.md`): the gated native pre-pass crosses the subprocess boundary via `to_process.run_sync` under one `CapacityLimiter` (GIL-releasing DataFusion core).
+- universal domains: one `structlog` event and OpenTelemetry span bind `PrePassEvidence`; malformed specs and `_import_inline_datasets` `ValueError` values fold onto the `expression.Result` layer.
 - within-lib: a polars/pandas frame the `data` tier produces enters `inline_datasets` directly as a `DataFrameLike` (narwhals resolves interchange, the owner never branches on source library); `get_column_usage(spec)` drives pre-flight pruning before `pre_transform_extract(extracted_format='arrow-ipc')` hands `bytes` to the columnar owner.
 
 [LOCAL_ADMISSION]:

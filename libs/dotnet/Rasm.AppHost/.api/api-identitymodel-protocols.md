@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_IDENTITYMODEL_PROTOCOLS]
 
-`Microsoft.IdentityModel.Protocols` owns the protocol-agnostic configuration-refresh substrate: `ConfigurationManager<T>` caches a discovery document, refreshes it on interval or demand, and falls back to last-known-good. `BaseConfigurationManager` and the OIDC vocabulary are sibling-owned; this assembly holds the concrete manager and retrievers. `ConfigurationManager<OpenIdConnectConfiguration>` assigned to `TokenValidationParameters.ConfigurationManager` feeds the JWT validation rail its refreshed `JsonWebKeySet` for rotating signing keys.
+`Microsoft.IdentityModel.Protocols` owns the protocol-agnostic configuration-refresh substrate: `ConfigurationManager<T>` caches a discovery document, refreshes it on interval or demand, and falls back to last-known-good. `BaseConfigurationManager` and the OIDC vocabulary are sibling-owned; this assembly holds the concrete manager and retrievers. `ConfigurationManager<OpenIdConnectConfiguration>` assigned to `TokenValidationParameters.ConfigurationManager` feeds JWT validation its refreshed `JsonWebKeySet` for rotating signing keys.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -72,7 +72,7 @@ Every constructor takes `(string metadataAddress, IConfigurationRetriever<T>, �
 
 [TOPOLOGY]:
 - `ConfigurationManager<T> : BaseConfigurationManager, IConfigurationManager<T>` serves the cached configuration through `GetConfigurationAsync`, re-fetches past `AutomaticRefreshInterval`, and exposes `GetBaseConfigurationAsync` as the `BaseConfiguration`-typed validation source; `RequestRefresh` flags a refetch throttled by `RefreshInterval`.
-- `UseLastKnownGoodConfiguration` (default `true`) falls a transient retrieval failure back to `LastKnownGoodConfiguration` for `LastKnownGoodLifetime` rather than failing validation — the resilience seam under JWKS rotation, the LKG behavior the Tokens validators drive.
+- `UseLastKnownGoodConfiguration` (default `true`) falls a transient retrieval failure back to `LastKnownGoodConfiguration` for `LastKnownGoodLifetime` rather than failing validation — the resilience boundary under JWKS rotation, the LKG behavior the Tokens validators drive.
 - `IConfigurationRetriever<T>.GetConfigurationAsync` parses the fetched text `IDocumentRetriever.GetDocumentAsync` returns, `HttpDocumentRetriever` the `HttpClient`-backed default rejecting non-HTTPS under `RequireHttps`; `IConfigurationValidator<T>.Validate` returns `ConfigurationValidationResult`, gating a document on signing-key sufficiency before trust.
 - `StaticConfigurationManager<T>` is the non-refreshing pinned form (`RequestRefresh` a no-op) for fixed in-memory or offline metadata; `FileDocumentRetriever` fetches local-file metadata.
 - `Microsoft.IdentityModel.Tokens` declares the `BaseConfigurationManager` base contract and its inherited refresh/LKG knobs; this assembly owns the concrete manager and retrievers.

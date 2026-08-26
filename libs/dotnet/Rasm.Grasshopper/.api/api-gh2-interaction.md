@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_GH2_INTERACTION]
 
-`Grasshopper2` canvas interaction drives object dragging, alignment and gap snapping, numeric-space snapping, stretch layout distribution, and interactive edge resize over a live `Document`, reporting geometry in `Eto.Drawing` coordinates. Canvas-rectangle snapping against document objects (`SnappingConstraints`) stays distinct from abstract numeric-lattice snapping (`SnapSpace`). Every interaction registers as an `IResponsive` on the `api-gh2-flex` `IFlexControl` seam, which owns the responsive dispatch spine this surface enters through.
+`Grasshopper2` canvas interaction drives object dragging, alignment and gap snapping, numeric-space snapping, stretch layout distribution, and interactive edge resize over a live `Document`, reporting geometry in `Eto.Drawing` coordinates. Canvas-rectangle snapping against document objects (`SnappingConstraints`) stays distinct from abstract numeric-grid snapping (`SnapSpace`). Every interaction registers as an `IResponsive` on the `api-gh2-flex` `IFlexControl` interface, which owns the responsive dispatch spine this surface enters through.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -12,7 +12,7 @@
 |  [02]   | `SnappingConstraints`   | class         | per-document snap target set — feedback boxes, rectangle and wire snapping       |
 |  [03]   | `SnappingSettings`      | class         | active snap rule, feedback, gap, and radius policy the solver reads              |
 |  [04]   | `SnappingAction`        | class         | one resolved snap adjustment                                                     |
-|  [05]   | `SnapSpace`             | class         | numeric snap lattice over `ISnapElement`s — orthogonal grids, merge, snap        |
+|  [05]   | `SnapSpace`             | class         | numeric snap grid over `ISnapElement`s — orthogonal grids, merge, snap           |
 |  [06]   | `StretchLayoutSolver`   | class         | min/ideal/max stretch solver distributing a total across segments                |
 |  [07]   | `ResizingFrame`         | class         | interactive resize of a bounded rectangle — per-edge state and cursor hit-test   |
 
@@ -37,7 +37,7 @@ Drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a ne
 
 | [INDEX] | [SURFACE]                                     | [SHAPE]                    | [CAPABILITY]                 |
 | :-----: | :-------------------------------------------- | :------------------------- | :--------------------------- |
-|  [01]   | `SnapSpace.Create` / `CreateOrthogonal`       | element or grid            | build a numeric lattice      |
+|  [01]   | `SnapSpace.Create` / `CreateOrthogonal`       | element or grid            | build a numeric snap grid    |
 |  [02]   | `SnapSpace.Merge` / `Empty`                   | monoid                     | composition and identity     |
 |  [03]   | `SnapSpace.Snap`                              | pair + cutoff, out ×2      | snapped pair and rule        |
 |  [04]   | `StretchLayoutSolver.Add` / `Solve` / `Round` | min/ideal/max → residual   | segment, distribute, round   |
@@ -48,9 +48,9 @@ Drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a ne
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `ObjectDragInteraction` runs a live drag over a `Document` from an anchor; a handler registered on the `api-gh2-flex` `IFlexControl` seam snaps at content coordinates and paints at control coordinates.
+- `ObjectDragInteraction` runs a live drag over a `Document` from an anchor; a handler registered on the `api-gh2-flex` `IFlexControl` interface snaps at content coordinates and paints at control coordinates.
 - `SnappingConstraints.CreateFromDocument` builds the drag snap set excluding the dragged ids; `SnapRectangle` yields X and Y `SnappingAction` out-parameters and `SnapWires` returns one `SnappingAction`, both under a `SnappingSettings` rule/feedback/gap/radius policy.
-- Numeric snapping is `SnapSpace`, distinct from canvas `SnappingConstraints`: `SnapSpace` snaps abstract coordinate pairs against a lattice while constraints snap canvas rectangles against document objects.
+- Numeric snapping is `SnapSpace`, distinct from canvas `SnappingConstraints`: `SnapSpace` snaps abstract coordinate pairs against a grid while constraints snap canvas rectangles against document objects.
 - Layout splits two owners — `StretchLayoutSolver` distributes one length across min/ideal/max segments, and `ResizingFrame` holds per-edge resize state bounded by size limits and the same snapping surface.
 
 [STACKING]:
@@ -60,5 +60,5 @@ Drag exposes `Control`, `Document`, `Count`, `FirstPoint`, and `Responder` (a ne
 
 [LOCAL_ADMISSION]:
 - Canvas interaction is the Rasm.Grasshopper folder's own domain, composing the Rasm kernel for host-agnostic geometry and referencing no sibling Rasm package.
-- Interaction enters as an `IResponsive` registered on the `api-gh2-flex` `IFlexControl` seam; a handler painting or mutating outside the flex `Response`/`RedrawRequired` contract is not admitted.
+- Interaction enters as an `IResponsive` registered on the `api-gh2-flex` `IFlexControl` interface; a handler painting or mutating outside the flex `Response`/`RedrawRequired` contract is not admitted.
 - Snapping enters through `SnappingConstraints` for canvas rectangles or `SnapSpace` for numeric pairs; a hand-rolled alignment or grid solve is the deleted form.

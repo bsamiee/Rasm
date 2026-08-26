@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_OPENTELEMETRY_INSTRUMENTATION_DBAPI]
 
-`opentelemetry-instrumentation-dbapi` owns the generic PEP-249 tracing seam every driver-specific DBAPI instrumentor delegates to: patching a connect callable so each cursor execution emits a db-semconv client span and records the two db-client metric histograms — operation-duration and returned-rows. It carries no `BaseInstrumentor` — a driver without a dedicated contrib instrumentor rides `wrap_connect`/`instrument_connection` directly.
+`opentelemetry-instrumentation-dbapi` owns the generic PEP-249 tracing boundary every driver-specific DBAPI instrumentor delegates to: patching a connect callable so each cursor execution emits a db-semconv client span and records the two db-client metric histograms — operation-duration and returned-rows. It carries no `BaseInstrumentor` — a driver without a dedicated contrib instrumentor rides `wrap_connect`/`instrument_connection` directly.
 
 ## [01]-[PUBLIC_TYPES]
 

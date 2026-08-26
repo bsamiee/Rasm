@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_SERILOG]
 
-`Serilog` owns structured log projection: every runtime signal folds into one `LogEvent` that the `WriteTo` and `AuditTo` sink rails emit outward on the telemetry rail. Enrichers, filters, destructuring policies, and level switches shape each event at configuration time, while `LogContext` threads scoped properties into enrichment. This core owns the event model and its configuration rails; concrete sinks and host integration bind downstream.
+`Serilog` owns structured log projection: every runtime signal folds into one `LogEvent` that the `WriteTo` and `AuditTo` sinks emit outward on the telemetry pipeline. Enrichers, filters, destructuring policies, and level switches shape each event at configuration time, while `LogContext` threads scoped properties into enrichment. This core owns the event model and its configuration builders; concrete sinks and host integration bind downstream.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -99,16 +99,16 @@
 
 [TOPOLOGY]:
 - Every event folds into one `LogEvent` — message template, typed properties, level, timestamp, exception, and trace/span ids — so a formatter renders identity from the template and properties, never from a pre-rendered string.
-- `LoggerConfiguration` threads one fluent fold through its `MinimumLevel`, `Enrich`, `Destructure`, `Filter`, `WriteTo`, and `AuditTo` properties; each rail returns the builder so a whole config reads as one chain.
+- `LoggerConfiguration` threads one fluent fold through its `MinimumLevel`, `Enrich`, `Destructure`, `Filter`, `WriteTo`, and `AuditTo` properties; each property returns the builder so a whole config reads as one chain.
 - `WriteTo` composes sinks by wrapping: `Sink` registers one, `Logger` nests a sub-pipeline, `Conditional` gates on a `LogEvent` predicate, `FallbackChain` orders alternates, and `Fallible` wraps the chain in failure observation.
 - Level control resolves at three grains: a fixed floor, a per-source `MinimumLevel.Override`, and a runtime `LoggingLevelSwitch` that `ControlledBy` rebinds live.
 - `LogContext` pushes scoped properties through ambient context, so an enricher reads request-scoped state without a domain handle.
 - `SelfLog` and `ILoggingFailureListener` route sink failures to diagnostics; text, display, and JSON formatters render the emitted event.
 
 [STACKING]:
-- `Serilog.Sinks.Console` / `Serilog.Sinks.File`(`api-serilog-sinks.md`): both extend this package's `LoggerSinkConfiguration` with `WriteTo.Console`/`WriteTo.File` overloads, folding concrete sinks onto the rail this catalog owns.
+- `Serilog.Sinks.Console` / `Serilog.Sinks.File`(`api-serilog-sinks.md`): both extend this package's `LoggerSinkConfiguration` with `WriteTo.Console`/`WriteTo.File` overloads, folding concrete sinks onto the configuration this catalog owns.
 - `Serilog.Extensions.Hosting`(`api-serilog-hosting.md`): `UseSerilog`/`AddSerilog` bind the constructed `ILogger` into `IHostBuilder`, and `CreateBootstrapLogger` returns a `ReloadableLogger` this pipeline reconfigures in place after services resolve.
-- AppHost bootstrap: the composition root builds one `LoggerConfiguration`, folds every enrichment, destructuring, filter, and sink rail through it, and hands lower runtime logic an `ILogger` alone.
+- AppHost bootstrap: the composition root builds one `LoggerConfiguration`, folds every enrichment, destructuring, filter, and sink stage through it, and hands lower runtime logic an `ILogger` alone.
 
 [LOCAL_ADMISSION]:
 - Destructuring policy preserves redaction and bounded payload shape.

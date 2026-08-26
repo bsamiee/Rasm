@@ -1,6 +1,6 @@
 # [PY_DATA_API_ADBC_DRIVER_MANAGER]
 
-`adbc_driver_manager` owns ADBC driver loading and the PEP 249 DBAPI front end for the query rail: `dbapi.connect` opens a `Connection` that mints `Cursor` objects returning Arrow tables and record-batch readers over the low-level `AdbcDatabase`/`AdbcConnection`/`AdbcStatement` handle layer bound to the ADBC C Data Interface.
+`adbc_driver_manager` owns ADBC driver loading and the PEP 249 DBAPI front end for the query domain: `dbapi.connect` opens a `Connection` that mints `Cursor` objects returning Arrow tables and record-batch readers over the low-level `AdbcDatabase`/`AdbcConnection`/`AdbcStatement` handle layer bound to the ADBC C Data Interface.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -150,7 +150,7 @@
 - `arro3-core`(`.api/arro3-core.md`): `Cursor.fetch_record_batch()` yields a `pyarrow.RecordBatchReader` whose `__arrow_c_stream__` feeds `arro3.core.RecordBatchReader.from_stream` zero-copy, and `Cursor.fetch_arrow_table()` round-trips through `arro3.core.Table.from_arrow`.
 - `polars`(`.api/polars.md`): `Cursor.fetch_polars()` is the native escape, and `polars.from_arrow(cursor.fetch_record_batch())` consumes the capsule for a lazy frame.
 - partition spine: `adbc_execute_partitions` returns opaque partition descriptors; `adbc_read_partition` RETURNS `None` and rebinds the calling cursor onto that partition, so the rows drain off `fetch_arrow_table`/`fetch_record_batch` and never off the call. Each call clears the previous result first, so one cursor drains partitions strictly in sequence and a distributed driver fans endpoints across workers only by giving each worker its own cursor.
-- retry rail: wrapping `execute`/`adbc_ingest` retries a `status_code in {TIMEOUT, IO}` under the runtime backoff while `IntegrityError`/`ProgrammingError` fail fast.
+- retry domain: wrapping `execute`/`adbc_ingest` retries a `status_code in {TIMEOUT, IO}` under the runtime backoff while `IntegrityError`/`ProgrammingError` fail fast.
 
 [LOCAL_ADMISSION]:
 - Open connections through `dbapi.connect`, `db_kwargs`/`conn_kwargs` carrying driver option keys from `DatabaseOptions`/`ConnectionOptions`.

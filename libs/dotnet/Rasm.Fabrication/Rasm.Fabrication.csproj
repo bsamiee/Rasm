@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Portable production fabrication — design-to-fabrication derivation, subtractive CAM (3-axis surface finishing, 5-axis rotary and serial-chain robot-cell kinematics), additive slicing/implicit/3MF, sheet forming and tube bending, weld engineering with WPS compliance, in-process verification and metrology, GD&amp;T specs and process capability, 2D true-shape nesting with offcut lifecycle, exact hidden-line projection, shop documentation, and multi-dialect cut-program posting, composed atop the Rasm geometry kernel.</Description>
-        <CspScope>Domain</CspScope>
     </PropertyGroup>
 
     <ItemGroup Label="Project References">
@@ -35,11 +34,14 @@
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 

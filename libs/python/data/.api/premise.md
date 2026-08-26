@@ -55,9 +55,9 @@
 - `bw2calc`(`.api/bw2calc.md`): the consumer — score the prospective database with `LCA`/`MultiLCA`; the superstructure form feeds a scenario-difference `MultiLCA`
 - `bw2io`(`.api/bw2io.md`): imports `additional_inventories` and normalizes units before transformation through `bw2io` strategies
 - `bw-processing`(`.api/bw-processing.md`): `write_datapackage`/`write_db_to_matrices` emit `bw_processing` datapackages, and the scenario overlay rides `merge_datapackages_with_mask` splicing future coefficients onto the baseline background
-- `pyarrow`(`.api/pyarrow.md`): the datapackage/superstructure export rides Arrow — route it through the data owner's Arrow rail for downstream tabular consumption
+- `pyarrow`(`.api/pyarrow.md`): the datapackage/superstructure export rides Arrow — route it through the data owner's Arrow path for downstream tabular consumption
 - `olca-ipc`(`.api/olca-ipc.md`): `write_db_to_olca` targets openLCA processes and flows
-- `openepd` / `epdx`(`.api/openepd.md`, `.api/epdx.md`): foreground/background seam — the material-impact owner combines a current `Epd` (as-declared foreground) with a premise-shifted background for a forward-looking product footprint
+- `openepd` / `epdx`(`.api/openepd.md`, `.api/epdx.md`): foreground/background boundary — the material-impact owner combines a current `Epd` (as-declared foreground) with a premise-shifted background for a forward-looking product footprint
 - persistence reuse ledger: key a built database by `(model, pathway, year, ecoinvent version, system_model)` to dedup an identical scenario build; the decrypted-inventory cache is premise-internal and orthogonal to that ledger
 
 [LOCAL_ADMISSION]:

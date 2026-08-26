@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SCIKIT_FEM]
 
-`scikit-fem` owns finite-element mesh management, element spaces, threaded form assembly, conditioning, and linear/eigen solve for the compute FEM structural and field-analysis rail. Assembly emits a `scipy.sparse` matrix that crosses to scipy for sparse solve, and the assembled system is offline study evidence, never a production substrate.
+`scikit-fem` owns finite-element mesh management, element spaces, threaded form assembly, conditioning, and linear/eigen solve for the compute FEM structural and field-analysis domain. Assembly emits a `scipy.sparse` matrix that crosses to scipy for sparse solve, and the assembled system is offline study evidence, never a production substrate.
 
 ## [01]-[PUBLIC_TYPES]
 

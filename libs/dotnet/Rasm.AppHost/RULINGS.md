@@ -15,7 +15,7 @@
 - Durable OTLP egress owns the TRANSPORT alone — the exporter's persistence handler is `internal`, so arming both double-owns a batch.
 - Durable OTLP handlers override BOTH `Send` and `SendAsync` — the export client calls the sync leg, so an async-only handler drops out unseen.
 - `PersistentOtlpHandler` stores the BODY alone and replays headers off the live request — no credential reaches disk and rotation applies tail-wide.
-- OTLP queue residence reads the deploy-declared volume, never `LocalStore` — that capability answers document residence, false where export runs.
+- OTLP queue storage reads the deploy-declared volume, never `LocalStore` — that capability answers document storage, false where export runs.
 - Propagated tenant baggage is trust-graded through `TenantAdoption`; authenticated webhook authority comes from the roster-resolved `Principal`.
 - `ThrowOnUnregisteredNames` and `KeyedLane.Proven` close their rosters at composition — an unregistered name drops writes on a positionless token.
 - `GovernanceRuntime` carries `IServiceProvider`, not `IServiceCollection` — request-time capability, so a self-registering pipeline forks it.
@@ -26,7 +26,7 @@
 - `InHost` capsules open no keyed `HybridCache`, framing entries `CacheLane.Capsuled` — an L2 row outlives the serializer its own unload disposed.
 - Dispatch seats name a `WorkLane` and take the class `LaneClass` derives from its `Rank` — a supplied `DeadlineClass` contradicts its work lane.
 - `SupportManifest.Entry` keys the FINAL written bytes and clears to absent on an empty arm — an earlier key names bytes no reader can extract.
-- Support evidence is process-local — `SupportManifest` owns archive residence; no support-evidence protobuf or peer locator exists.
+- Support evidence is process-local — `SupportManifest` owns archive storage; no support-evidence protobuf or peer locator exists.
 - Every external edge is one `TransportRow` over `ExternalTransport` — a per-protocol adapter forks read shape, hop, and echo class into rosters.
 - Closed consumption axes seat once and pages compose them — `DeploymentTopology` and `Isolation` are those seats, and re-spelling either forks it.
 - Open-axis rows answer `Fits`/`Tenancy`/`Lifetime` with `admit` on the family lead — a row answering elsewhere forks the cross-family coordinate.
@@ -71,7 +71,7 @@
 - Metric views collapse to ONE `AddView` predicate over the roster — every match mints a stream, so a named row beside a wildcard double-exports.
 - `AlertEngine` and the kernel SLO algebra evaluate disjoint evidence — the engine folds `DegradationReading`, burn compiles from an `Objective`.
 - `Idempotency` and `HopIdempotency` stay two owners on KEY REGIME — the op roster carries a `KeyRegime` column the hop roster has no reader for.
-- Store-side and port-side fault unions stay TWO-FORMED across the decode seam — each keys its own band, and neither strata references the other.
+- Store-side and port-side fault unions stay TWO-FORMED across the decode boundary — each keys its own band, and neither strata references the other.
 - Ambient scope is the kernel `AmbientSlot` alone — a page-local `AsyncLocal` beside a hand restore scope forks the bound, restore, and refusal.
 - One policy cut serving a count, a content key, and a payload is ONE projection — three `Min` spellings describe three slices, each reading right.
 - Chaos arms through ONE `ChaosArming` gate as a runtime value — a build-time fork makes pipelines no operator can arm and seats the ambient draw.
@@ -79,13 +79,13 @@
 - Dependency capsules carry a `Func<>` column only where the provider is a PER-CALL effect — a pure projection is a member, a handle a typed port.
 - Two capsules sharing over half their columns COLLAPSE, the survivor naming its discriminant — composition-time weave against per-call drive is one.
 - Solver contracts ride `SolverKind` row columns, `Progress` and `Rank` included — a parallel contract record re-splits one roster's join.
-- Hook points consume the producer's typed fact directly; a parallel generic result stream duplicates the rail.
+- Hook points consume the producer's typed fact directly; a parallel generic result stream duplicates the fact stream.
 - `AppHostPoint` is the folder's ONE hook roster, `AppHostFact` its closed fact union — a page folds its family onto one point via its signal union.
 
 ## [04]-[STRUCTURE]
 
 - `AddApplicationLogEnricher` does NOT re-enter — its unqualified `service.name` and `deployment.environment` break record-to-series joins.
-- MCP serves the stateless revision — every session-rail capability is `[Obsolete]` at the installed SDK, so sampling and frame replay delete whole.
+- MCP serves the stateless revision — every session-scoped capability is `[Obsolete]` at the installed SDK, so sampling and frame replay delete whole.
 - Router rows stay noun-led fragments — the row-grammar test reads CAD-host boundary, which a gRPC mount and an ASP.NET pipeline never cross.
 
 ## [05]-[PROCESS]

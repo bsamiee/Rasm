@@ -120,8 +120,8 @@ Every other generated API group folds the same pattern; each kind exposes its `*
 
 [STACKING]:
 - `pulumi-command`(`.api/pulumi-command.md`): `remote.Command` bootstraps the cluster and its stdout `Output` is the kubeconfig fed to `Provider.kubeconfig`.
-- `pulumi-postgresql`(`.api/pulumi-postgresql.md`): the CNPG `Cluster` `-rw` Service host `Output` feeds `postgresql.Provider` — the `kube/data` seam.
-- `pulumi-tls`/`pulumi-random`(`.api/pulumi-tls.md`): generated cert and key land in a `core.v1.Secret` (`type: "kubernetes.io/tls"`) that `networking.v1.Ingress.spec.tls[].secretName` references — the `kube/traffic` seam.
+- `pulumi-postgresql`(`.api/pulumi-postgresql.md`): the CNPG `Cluster` `-rw` Service host `Output` feeds `postgresql.Provider` — the `kube/data` boundary.
+- `pulumi-tls`/`pulumi-random`(`.api/pulumi-tls.md`): generated cert and key land in a `core.v1.Secret` (`type: "kubernetes.io/tls"`) that `networking.v1.Ingress.spec.tls[].secretName` references — the `kube/traffic` boundary.
 - `pulumiverse-grafana`(`.api/pulumiverse-grafana.md`): applies `telemetry/board` dashboards onto the Grafana a `helm.v4.Chart` renders.
 - `pulumi-policy`(`.api/pulumi-policy.md`): `validateResourceOfType(kubernetes.apps.v1.Deployment, …)` narrows against the resource classes exported here.
 - within-lib: the arm runs under `program/automation` `LocalWorkspace.createOrSelectStack`, and realized workload `Output`s (service host, ingress hostname) project through the `StackOutputs` record — the `iac`→`work` crossing (`ShardingConfig`).

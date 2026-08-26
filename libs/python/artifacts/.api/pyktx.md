@@ -1,13 +1,13 @@
 # [PY_ARTIFACTS_API_PYKTX]
 
-`pyktx` owns the IN-PROCESS KTX2 container — the GPU-texture file the estate's texture egress ships to a web or desktop consumer. It authors a `KtxTexture2` from a create-info record, fills each mip level, array layer, and cubemap face from raw bytes, encodes the payload to UASTC or ETC1S through Basis Universal, supercompresses with Zstd (`deflate_zstd` is the ONE deflate member — `ZLIB` exists only as a readable `KtxSupercmpScheme` row on ingest), transcodes a Basis payload down to BC1/BC3/BC4/BC5/BC7, ETC2, ASTC, PVRTC, or an uncompressed row, and writes to a file or to `bytes`. It is a `cffi` binding over the SAME `libktx` the provisioned `ktx` CLI ships, so the two legs agree byte-for-byte on the container.
+`pyktx` owns the IN-PROCESS KTX2 container — the GPU-texture file the repo's texture egress ships to a web or desktop consumer. It authors a `KtxTexture2` from a create-info record, fills each mip level, array layer, and cubemap face from raw bytes, encodes the payload to UASTC or ETC1S through Basis Universal, supercompresses with Zstd (`deflate_zstd` is the ONE deflate member — `ZLIB` exists only as a readable `KtxSupercmpScheme` row on ingest), transcodes a Basis payload down to BC1/BC3/BC4/BC5/BC7, ETC2, ASTC, PVRTC, or an uncompressed row, and writes to a file or to `bytes`. It is a `cffi` binding over the SAME `libktx` the provisioned `ktx` CLI ships, so the two legs agree byte-for-byte on the container.
 
 CLI encode is the FLOOR and this binding the acceleration row: a plane that must be encoded where no toolchain is provisioned refuses at the tool probe, while a plane encoded here saves the process spawn and the intermediate file. Neither leg reads or writes pixel FORMATS — a plane arrives as raw bytes already at its declared `VkFormat`, produced by `imagecodecs` or `pyvips`, and block-decode read-back for verification is the `imagecodecs` `bcn_decode`/`dds_decode` pair.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the texture roots and their parameter records
-- rail: raster
+- concern: raster
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [CAPABILITY]                                             |
 | :-----: | :------------------------ | :------------- | :------------------------------------------------------- |
@@ -21,7 +21,7 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 |  [08]   | `KtxVersionMismatchError` | fault          | declared; no import-time `libktx` version check runs     |
 
 [PUBLIC_TYPE_SCOPE]: the closed policy vocabularies
-- rail: raster
+- concern: raster
 
 | [INDEX] | [ENUM]                      | [ROWS]                                                                                     |
 | :-----: | :-------------------------- | :----------------------------------------------------------------------------------------- |
@@ -41,7 +41,7 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: container lifecycle
-- rail: raster
+- concern: raster
 - [SHAPE]: instance (`KtxTexture2`; `create` and `create_from_named_file` are its statics)
 
 | [INDEX] | [SURFACE]                                                        | [CAPABILITY]                                               |
@@ -59,7 +59,7 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 - `num_layers` does NOT exist as a read-back member — it is a `KtxTextureCreateInfo` field alone, and an attribute read raises `AttributeError`.
 
 [ENTRYPOINT_SCOPE]: encode, supercompress, and transcode
-- rail: raster
+- concern: raster
 - [SHAPE]: instance (`KtxTexture2`, mutating in place)
 
 | [INDEX] | [SURFACE]                                           | [CAPABILITY]                                                  |
@@ -73,7 +73,7 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 |  [07]   | `vk_format`, `element_size`, `oetf`                 | format, texel size, and transfer-function tag                 |
 
 [ENTRYPOINT_SCOPE]: geometry and metadata
-- rail: raster
+- concern: raster
 - [SHAPE]: instance (`KtxTexture2` properties)
 
 | [INDEX] | [SURFACE]                                                   | [CAPABILITY]                                                  |
@@ -96,9 +96,9 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 - `compress_basis`, `compress_astc`, `deflate_zstd`, and `transcode_basis` MUTATE the texture in place and return `None`; each is a one-way state move, and a second encode over an encoded payload is not a re-encode.
 - BLOCK ENCODE IS 8-BIT-INPUT-ONLY (measured, both legs): `compress_basis` raises `KtxError(INVALID_OPERATION)` and `compress_astc` raises `KtxError(UNSUPPORTED_FEATURE)` — `ktxTexture2_compressAstcEx returned with 17` — on a u16/f16/f32 store, and `KtxPackAstcEncoderMode.HDR` is accepted-and-inert at 8-bit input, so the enum member proves a parameter and never a code path. The store depth is the gate, not the block dimension or the quality level: a caller resolves the payload class from the depth BEFORE the encode, because every one of the 24 block shapes refuses the same deep texture.
 - THE DEEP ROUTE IS THE UNCOMPRESSED `VkFormat` UNDER `deflate_zstd`, and it is settled rather than a stand-in for a float block encoder that does not exist. Proven on the FILE BYTES: an `R16G16B16A16_SFLOAT` texture created with `ALLOC`, filled by `set_image_from_memory`, deflated at level 9 and written writes a header reading `vkFormat` 97 and `supercompressionScheme` 2 (`KtxSupercmpScheme.ZSTD`); `ktx validate` passes; and `create_from_named_file` recovers the float16 payload EXACTLY. Zstd supercompression therefore carries the deep store where block compression carries the 8-bit one, and the two are not alternatives at one depth. The reloaded texture reads `supercompression_scheme` back at `NONE` because the load INFLATES — the in-memory property answers the live state, the header answers what the file holds, and only the header is the container's claim.
-- BC6H IS NOT AN ESCAPE from the deep route: no BCn encoder ships here or at the read-back leg, where `imagecodecs` declares `bcn_encode` and raises `NotImplementedError` from it. A float block payload is unreachable across the whole estate, so the uncompressed deep store is the only HDR container either leg writes.
+- BC6H IS NOT AN ESCAPE from the deep route: no BCn encoder ships here or at the read-back leg, where `imagecodecs` declares `bcn_encode` and raises `NotImplementedError` from it. A float block payload is unreachable across the whole repo, so the uncompressed deep store is the only HDR container either leg writes.
 - Encode policy is a RECORD, never call arguments: `KtxBasisParams` carries 24 fields and `KtxAstcParams` eight, so a per-channel quality policy is a stored parameter row selected by channel role — `normal_map=True` with RDO disabled for vector channels, the default quality for color. Bare `int` is accepted in place of either record and is the untyped form.
-- Every fault is `KtxError` carrying the failing `libktx` entry point and a `KtxErrorCode`; the boundary adapter maps that one family onto the estate's typed fault. `KtxVersionMismatchError` exists but never fires — `LIBKTX_VERSION` is consumed at BUILD time and no import-time version check runs, so the linked library version is proven from the store path, never from the module.
+- Every fault is `KtxError` carrying the failing `libktx` entry point and a `KtxErrorCode`; the boundary adapter maps that one family onto the repo's typed fault. `KtxVersionMismatchError` exists but never fires — `LIBKTX_VERSION` is consumed at BUILD time and no import-time version check runs, so the linked library version is proven from the store path, never from the module.
 - This extension links `libktx` by ABSOLUTE store path, so the `forge-scientific-env` wrapper is a build-time input alone; a runtime process needs neither the wrapper nor the `LIBKTX_*` variables in its environment.
 
 [STACKING]:
@@ -113,4 +113,4 @@ CLI encode is the FLOOR and this binding the acceleration row: a plane that must
 
 [LOCAL_ADMISSION]:
 - `import pyktx` at boundary scope only, behind the `lazy import` proxy the native container owners use.
-- `KtxTexture1` and `GlInternalformat` are the legacy GL-keyed container; the estate authors KTX2 alone, and a KTX1 file admits only for ingest.
+- `KtxTexture1` and `GlInternalformat` are the legacy GL-keyed container; the repo authors KTX2 alone, and a KTX1 file admits only for ingest.

@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_PDFSHARP]
 
-`PDFsharp` owns the structured vector-PDF page model: `PdfDocument` holds the page tree, `XGraphics` draws the device-independent mark algebra over a page, image, or form, and `PdfReader` opens existing PDFs for read-modify-merge, with sibling namespaces adding encryption, digital signing, AcroForm fields, annotations, and tagged-PDF accessibility. `PDFsharp-MigraDoc` renders an auto-paginated flow-report DOM (`Document`/`Section`/`Paragraph`/`Table`/`Chart`) onto a `PdfDocument` through `PdfDocumentRenderer`. Together they own the branch vector-PDF rail: precise sheets draw through `XGraphics`, flow reports author a MigraDoc `Document`, and platform-neutral rendering stays on the headless path.
+`PDFsharp` owns the structured vector-PDF page model: `PdfDocument` holds the page tree, `XGraphics` draws the device-independent mark algebra over a page, image, or form, and `PdfReader` opens existing PDFs for read-modify-merge, with sibling namespaces adding encryption, digital signing, AcroForm fields, annotations, and tagged-PDF accessibility. `PDFsharp-MigraDoc` renders an auto-paginated flow-report DOM (`Document`/`Section`/`Paragraph`/`Table`/`Chart`) onto a `PdfDocument` through `PdfDocumentRenderer`. Together they own the branch vector-PDF path: precise sheets draw through `XGraphics`, flow reports author a MigraDoc `Document`, and platform-neutral rendering stays on the headless path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -219,7 +219,7 @@
 - MigraDoc `Document` is the auto-paginated flow DOM; `PdfDocumentRenderer.RenderDocument()` renders it onto a `PdfDocument`, and `.PdfDocument` re-exposes that document for signing and encryption post-processing through the same PDFsharp surface.
 
 [STACKING]:
-- `api-nodeeditor`(`.api/api-nodeeditor.md`): `ExportRenderer.RenderPdf(Control, Size, Stream, dpi)` targets the vector-PDF deliverable, converging with this surface on the shared vector-export rail.
+- `api-nodeeditor`(`.api/api-nodeeditor.md`): `ExportRenderer.RenderPdf(Control, Size, Stream, dpi)` targets the vector-PDF deliverable, converging with this surface on the shared vector-export path.
 - `api-drafting-export`(`.api/api-drafting-export.md`): boundary split — `ACadSharp` and `DocumentFormat.OpenXml` own DWG/DXF/OOXML emit, this pair owns vector PDF; a PDF deliverable never routes through the CAD or OOXML writers.
 - `api-headless`(`.api/api-headless.md`): PDFsharp is platform-neutral, so PDF authoring and MigraDoc rendering run on the windowless headless render path beside `Avalonia.Headless`.
 - Within-lib: signing composes at the boundary — `IDigitalSigner` (or the ready `PdfSharpDefaultSigner`) receives key material from the AppHost secrets lease under acquire/renew/zeroize, never AppUi-held key bytes; MigraDoc reports post-process through `.PdfDocument` for `DigitalSignatureHandler.ForDocument` and `SetEncryptionToV5`.

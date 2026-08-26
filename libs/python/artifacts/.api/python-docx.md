@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYTHON_DOCX]
 
-`python-docx` owns read+write `.docx` word-processing for the artifacts office rail: one polymorphic `Document` factory, the `add_*` content family, the block/style/review/metadata owners, and the `Font`/`ParagraphFormat` direct-formatting surface over full OOXML fidelity. It never re-implements the Office Open XML part graph or the lxml serialization it already owns. It is the `document/emit#DOCUMENT` `DocumentMode.DOCX` lowering arm and the `document/lens#LENS` `.docx` extraction inverse over one `DocumentNode` algebra.
+`python-docx` owns read+write `.docx` word-processing for the artifacts office domain: one polymorphic `Document` factory, the `add_*` content family, the block/style/review/metadata owners, and the `Font`/`ParagraphFormat` direct-formatting surface over full OOXML fidelity. It never re-implements the Office Open XML part graph or the lxml serialization it already owns. It is the `document/emit#DOCUMENT` `DocumentMode.DOCX` lowering arm and the `document/lens#LENS` `.docx` extraction inverse over one `DocumentNode` algebra.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -143,7 +143,7 @@
 - `lxml`(`.api/lxml.md`): owns the element serialization and relationship/content-type part graph every `add_*` writes through.
 - `pillow`(`.api/pillow.md`)/`numpy`(`.api/numpy.md`): an RGBA overlay/QR/chart raster arrives as a numpy array -> PNG and anchors through `add_picture`, Pillow sizing the image part.
 - `msgspec`(`.api/msgspec.md`)/`pydantic`(`.api/pydantic.md`): `EmitFact` carries the saved bytes and measured document counts; `TypeAdapter` admits its input model.
-- rail: the lowering op is `@beartype`-guarded, emits one `structlog` event inside an `opentelemetry` span, retries transient save I/O under `stamina`(`libs/python/runtime/.api/stamina.md`), and a provider raise converts to the `expression`(`.api/expression.md`) `Result` rail; Excel routes to `openpyxl`, PowerPoint to `python-pptx`, ODF to `odfpy`, PDF render to `pymupdf`/`weasyprint`.
+- concern: the lowering op is `@beartype`-guarded, emits one `structlog` event inside an `opentelemetry` span, retries transient save I/O under `stamina`(`libs/python/runtime/.api/stamina.md`), and a provider raise converts to the `expression`(`.api/expression.md`) `Result`; Excel routes to `openpyxl`, PowerPoint to `python-pptx`, ODF to `odfpy`, PDF render to `pymupdf`/`weasyprint`.
 
 [LOCAL_ADMISSION]:
 - Import at boundary scope (`import docx`); the distribution is `python-docx`, the import name `docx`.

@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_EFFECT_PRINTER_ANSI]
 
-`@effect/printer-ansi` instantiates the `@effect/printer` annotation parameter to `Ansi`, a monoid of terminal directives that `Doc.annotate` attaches and `AnsiDoc.render` lowers to escape codes. It owns the concrete-markup edge of the render rail: the terminal string is produced here and nowhere else.
+`@effect/printer-ansi` instantiates the `@effect/printer` annotation parameter to `Ansi`, a monoid of terminal directives that `Doc.annotate` attaches and `AnsiDoc.render` lowers to escape codes. It owns the concrete-markup edge of the render pipeline: the terminal string is produced here and nowhere else.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -77,7 +77,7 @@
 
 [STACKING]:
 - `@effect/printer`(`.api/effect-printer.md`): this package IS the `A = Ansi` instantiation of that algebra — every `Doc` combinator (`hsep`/`group`/`align`/`encloseSep`/`reflow`) yields `AnsiDoc` directly, `Doc.reAnnotate` retargets `Ansi => OtherAnsi` for theme remapping, and `Doc.unAnnotate` strips to `Doc<never>` for non-TTY output.
-- `@effect/cli`(`.api/effect-cli.md`): `cli/render` folds structured verb output to `AnsiDoc` and terminates with `AnsiDoc.render`; `HelpDoc.toAnsiDoc` is an `AnsiDoc`, so parse-error help and app output share this one render rail.
+- `@effect/cli`(`.api/effect-cli.md`): `cli/render` folds structured verb output to `AnsiDoc` and terminates with `AnsiDoc.render`; `HelpDoc.toAnsiDoc` is an `AnsiDoc`, so parse-error help and app output share this one render pipeline.
 - `effect`(`.api/effect.md`): `Color` refines through `Match.type<Color>()`, `Ansi` accumulates through `Monoid.combineAll`, and `AnsiDoc.render` runs inside `Effect.sync` or writes to `Console` at the effectful edge, a `Match` on `process.stdout.isTTY` gating styled versus plain.
 
 [LOCAL_ADMISSION]:

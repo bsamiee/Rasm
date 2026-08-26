@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_ARCHITECTURE]
 
-`Rasm.Compute` maps APP-PLATFORM measured execution over `{Rasm, Rasm.Element}`: one intent rail admits work once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and each producing lane returns its own result while the dispatch spine closes on `ComputeOutput`. Each folder maps to exactly one namespace, and producer-site instruments observe results without a parallel fact family.
+`Rasm.Compute` maps APP-PLATFORM measured execution over `{Rasm, Rasm.Element}`: one intent pipeline admits work once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and each producing lane returns its own result while the dispatch spine closes on `ComputeOutput`. Each folder maps to exactly one namespace, and producer-site instruments observe results without a parallel fact family.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -10,7 +10,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Vocabulary.cs      # Tensor<T> the only tensor owner, TensorDtype the CLR/ONNX map, TensorOpFamily the equivalence-keyed table
 │   ├── Layout.cs          # LayoutForm named shapes, Contiguity over stride facts, AxisPermutation proving each bijection
 │   ├── Dispatch.cs        # Each op-family row binds one arity kernel, claim-gated partition route, equivalence proof, and device lowering
-│   ├── Residency.cs       # OrtResidency lattice; TensorBridge ingress/egress, DeviceMemory allocation, BoundFlow steady-state binding
+│   ├── Residency.cs       # OrtResidency matrix; TensorBridge ingress/egress, DeviceMemory allocation, BoundFlow steady-state binding
 │   ├── Memory.cs          # AllocationClass staging granted once against the intent-declared payload bound; AllocationEvidence manager events
 │   ├── Blas.cs            # Operand shape routes every dense solve — definite, square, overdetermined, symmetric — never the call site
 │   ├── Factor.cs          # SparseFormat ingestion over CSR reality; FactoredOp recovers capability from the factor kind
@@ -20,7 +20,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Expression.cs      # SymbolicExpr [ComplexValueObject] whose identity is the simplified normal-form content key ALONE
 │   ├── Dimensional.cs     # DimensionMonomial as one Seq<ERational> of exponents; DimensionProof accumulates every compound mismatch
 │   ├── Lowering.cs        # One IL-compiling lower per simplified expression; analytic-Jacobian arm, Enclosure interval pre-gate
-│   └── Units.cs           # Frozen QuantityFamily rows admit unit-bearing input once and emit the seam conversion result
+│   └── Units.cs           # Frozen QuantityFamily rows admit unit-bearing input once and emit the contract conversion result
 ├── Model/                 # ONNX model identity, sessions, inference, and generative runs
 │   ├── Identity.cs        # ModelIdentity checksum, SlotShape trees, and provenance; ModelSource folds the acquisition arms
 │   ├── Sessions.cs        # One InferenceSession per policy-complete ResidentKey; capped shape buckets carry measured warm evidence
@@ -40,7 +40,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Route.cs           # RouteRequest is the carrier every body takes; RecoveryAction rungs are delegate columns, SolveArchive, CoupledLane
 │   ├── Constitutive.cs    # ConstitutiveModel stress-update [Union] and ContactConstraint regularized normal enforcement
 │   ├── Optimizer.cs       # One Optimize entry dispatches by OptimizerKind row to a kernel owning its own budget and adaptation
-│   ├── Exact.cs           # ExactLane — CP-SAT/MILP/vehicle-routing rails, shadow prices, bound streams
+│   ├── Exact.cs           # ExactLane — CP-SAT/MILP/vehicle-routing backends, shadow prices, bound streams
 │   ├── Sweep.cs           # SweepGrid DOE orchestration emitting a queryable ParetoFront with the sensitivity tornado
 │   ├── Clash.cs           # ClashScale narrow-phase confirmation over the geometry-owned broad-phase wire; DigitalTwin scores live signals
 │   ├── Uncertainty.cs     # UncertaintyMethod axis with a keyless UqStrategy driver and its own draw lane
@@ -61,23 +61,23 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Observation.cs     # ObservationLane accumulates and flushes per binding; SensorBinding custody, SensorQuality flags, ObservationSink ports
 │   ├── Codecs.cs          # DeltaCodec owns FastCDC chunking and the Quantization bit budget; CanonicalForm/InterchangeIdentity, ArrowBatch
 │   ├── Archive.cs         # HdfArchive/HdfHandle/HdfWriter bracket the session, HdfArchivePolicy seats DeflateGrade/FilterStage, ChunkGrid inverts
-│   ├── Field.cs           # FieldPack encodes the 64-byte header; FieldResidence/Compression/FieldElement gate wire codes; InterchangeIo dispatches
+│   ├── Field.cs           # FieldPack encodes the 64-byte header; FieldStorage/Compression/FieldElement gate wire codes; InterchangeIo dispatches
 │   ├── Tiles.cs           # Tessellation companion client, 3D-Tiles octree, tileset manifest
 │   └── Payload.cs         # Four encode arms on one ResidencyKind axis; cone-cullable clusters and level-clamped quantization
-└── Analysis/              # C#-first discipline-assessment rail over the ElementGraph
+└── Analysis/              # C#-first discipline-assessment pipeline over the ElementGraph
     ├── Assessment.cs      # Route/request/fact algebra, commissioning, AnalysisReads planar owner
     ├── Dispatch.cs        # RerunPolicy carries the stale read; AssessmentSink three legs, AssessmentRow the neutral row, AssessmentPayload
-    ├── Aggregator.cs      # AssemblyAggregator folds a seam composition into layered-construction physics; analysis, never authoring
+    ├── Aggregator.cs      # AssemblyAggregator folds a contract composition into layered-construction physics; analysis, never authoring
     ├── Frame.cs           # FrameModel folds member axes, SectionProperties, and projected edges; Solve bounds one signed MemberResponse per member
     ├── Capacity.cs        # (DesignCode, LimitState) capacity table with generator-built cells; the response-spectrum seismic route
     ├── Physics.cs         # One BuildingPhysics kernel collapses the thermal, acoustic, and fire arms as closed-form ISO/EN folds
     ├── Energy.cs          # In-process OpenStudio Model build from the graph; local and cloud runs converge on the one SqlFile fold
-    ├── Lifecycle.cs       # EN 15978 embodied-carbon takeoff and cost rollup folding the aggregator over seam compositions
+    ├── Lifecycle.cs       # EN 15978 embodied-carbon takeoff and cost rollup folding the aggregator over contract compositions
     ├── Circulation.cs     # Exit-rooted Dijkstra over a discarded adjacency view governs travel, dead-end, common-path, and RSET
     └── Daylight.cs        # PerezBand carries the published six-coefficient table; SkyState per hour, WeatherSource ingress, DaylightPolicy cadence
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type: `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Fault` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
+Implementation collapses to one owner per axis and one entrypoint family per pipeline: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Result is named in the return type: `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Fault` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
 
 `ComputeFault` projects through AppHost `FaultWire.Raise` onto one `FaultDetail` at the wire edge; results stamp NodaTime `Instant` off the threaded `IClock` and `Duration` off kernel `MonotonicTimeline`, both built at the app root where `ClockPolicy` stays.
 
@@ -91,7 +91,7 @@ Strata rank the interior; `Runtime` seats lowest as the vocabulary mint, its dis
 - S2 law — `Model` guards its rank at the `GraduationEnvelope` gate, so an offline-learned artifact enters as content-keyed evidence, not an import.
 - S2 co-seat — `Stats` and `Model` share the rank with no edge between them, each reaching down alone.
 - S3 law — the solve spine composes surrogates, symbols, and samplers as values on its own request rows, so no lower stratum names a solver type.
-- S4 law — nothing composes `Analysis`; the rail reads the concrete `ElementGraph` above the seam and writes content-keyed deltas back.
+- S4 law — nothing composes `Analysis`; the pipeline reads the concrete `ElementGraph` above the contract and writes content-keyed deltas back.
 
 ```mermaid
 ---
@@ -103,7 +103,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Compute interior strata
-    accDescr: How the assessment rail composes the solver, model, numeric, and substrate ranks with no upward import.
+    accDescr: How the assessment pipeline composes the solver, model, numeric, and substrate ranks with no upward import.
     subgraph S4["S4 ANALYSIS"]
         Assessment[AssessmentRoute]
         Daylight[DaylightAnalysis]
@@ -136,7 +136,7 @@ flowchart TB
     Sweep e9@-->|"[IMPORT]: LaneProfiles"| Lane
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -147,14 +147,14 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Compute AEC-domain and storage seams
+    accTitle: Compute AEC-domain and storage interfaces
     accDescr: Which kinded contract shapes cross between Compute's owners, the kernel, the AEC peers, and the persistence store.
     subgraph compute[RASM.COMPUTE]
         Model[Model runtime]
         Tensor[Tensor core]
         Solver[Solve spine]
         Symbolic[Symbolic CAS]
-        Analysis[Analysis rail]
+        Analysis[Analysis pipeline]
         Runtime[Runtime plane]
     end
     Rasm{{Rasm}}
@@ -217,7 +217,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Compute platform and cross-runtime seams
+    accTitle: Compute platform and cross-runtime interfaces
     accDescr: Compute owners exchanging port, result, projection, wire, content-key, and graduation contracts with platform and cross-runtime peers.
     subgraph compute[RASM.COMPUTE]
         Model[Model runtime]
@@ -306,13 +306,13 @@ Every discipline runner returns `AssessmentResult`; write-back persists the corr
 
 ## [06]-[BOUNDARIES]
 
-Seam graph carries which owner exchanges which shape; the load-bearing cross-boundary invariants each Compute owner holds are:
-- `Substrate.DeviceWgpu` binds the AppUi-owned wgpu device and holds compute-only resources; no second device or residency lattice.
+Interface graph carries which owner exchanges which shape; the load-bearing cross-boundary invariants each Compute owner holds are:
+- `Substrate.DeviceWgpu` binds the AppUi-owned wgpu device and holds compute-only resources; no second device or residency matrix.
 - `Tensor/residency` consumes the host-neutral `EncodedGeometry` whole as `EncodedTensor` for the model lane.
 - `Runtime/codecs` reads the same `EncodedGeometry` carrier for the lake landing.
 - Geometry consumers compose the kernel's dtype-dispatched channel readers rather than re-slicing its arena.
 - Host geometry folds at the kernel and AppHost capsules; no host type reaches an interior `Tensor`/`Solve`/`Estimator` signature.
-- Compute owns the channel and companion-rpc orchestration; `Rasm.Bim` owns every semantic read, and neither crosses the seam.
+- Compute owns the channel and companion-rpc orchestration; `Rasm.Bim` owns every semantic read, and neither crosses the boundary.
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
 - `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
 - C# owns inference and classical fit; Python compute owns offline-learned models exchanged by content key over graduation evidence.
@@ -322,7 +322,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Strata forbid a reference in either direction; admitting a model at the specifying end moves no Compute surface.
 - `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle; no hardcoded path or token column enters the policy.
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
-- Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
+- Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay contract-owned, composed here.
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
 - `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` payload.
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
@@ -332,5 +332,5 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Archive artifacts egress content-keyed through `ArtifactIndexRow.Admit`; the Persistence retention owner classes them by `ArtifactKind`.
 - `Runtime/codecs` builds every columnar `RecordBatch` Compute produces over the kernel encode.
 - Persistence `api-arrow` overlay carries IPC, LZ4/Zstd, ADBC, and Flight-SQL; `Query/lakehouse#FLAT_TABLE_EGRESS` `Land` redeems the batch.
-- Row-major lake arms COMPOSE Persistence `Query/residence#COLUMN_VOCABULARY` `ArrowLanding.Build`; geometry alone borrows the kernel arena verbatim.
+- Row-major lake arms COMPOSE Persistence `Query/backend#COLUMN_VOCABULARY` `ArrowLanding.Build`; geometry alone borrows the kernel arena verbatim.
 - Compute holds one core `Apache.Arrow` reference and opens no Flight listener.

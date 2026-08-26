@@ -2,21 +2,21 @@
 
 The columnar spatial-query engine: one `SpatialQuery` tagged-union axis over DuckDB's `spatial`-extension `GEOMETRY` type, split out of the geospatial claims plane so the codemap charters one engine owner. The one capability this engine adds over the generic `tabular/query#QUERY` relational dispatch is the `ST_GeomFromWKB` geometry-view admission — it owns exactly the in-DB plane, never a second generic SQL surface and never a parallel index owner.
 
-The engine composes the `tabular/columnar#SCAN` `DuckDbSession` rail downward — `DuckDbExtension.SPATIAL` the unconditional prelude row, `DuckDbExtension.H3` the community-repository supplement the `H3Bin` case adds — and emits plain `pyarrow.Table`. The two-H3-substrate boundary is law: in-DB binning lives here, in-frame vectorized cell algebra on `spatial/grid#GRID`, and `grid`'s `engine_bin` composes this engine downward for an already-columnar input — one binning law, two substrates, each owned once.
+The engine composes the `tabular/columnar#SCAN` `DuckDbSession` layer downward — `DuckDbExtension.SPATIAL` the unconditional prelude row, `DuckDbExtension.H3` the community-repository supplement the `H3Bin` case adds — and emits plain `pyarrow.Table`. The two-H3-substrate boundary is law: in-DB binning lives here, in-frame vectorized cell algebra on `spatial/grid#GRID`, and `grid`'s `engine_bin` composes this engine downward for an already-columnar input — one binning law, two substrates, each owned once.
 
 ## [01]-[INDEX]
 
-- [02]-[SPATIAL]: the DuckDB join/transform/H3 spatial engine — one total `QueryPlan` projection per `SpatialQuery` case over the shared session rail.
+- [02]-[SPATIAL]: the DuckDB join/transform/H3 spatial engine — one total `QueryPlan` projection per `SpatialQuery` case over the shared session surface.
 
 ## [02]-[SPATIAL]
 
 - Owner: `SpatialQuery` — one tagged-union axis whose every case projects through the one `QueryPlan` fold carrying SQL, bound parameters, extension supplement, and predicate count in a single traversal, never three parallel folds over the same family. The join rides the optimizer's bbox-cached `SPATIAL_JOIN` automatic prefilter, never an STRtree/`sjoin` Python loop or a hand-built R-tree.
-- Cases: the distance corner is a BICONDITIONAL the `Join` factory proves before a query exists — `ST_DWithin` is the only predicate whose SQL carries a placeholder, so a distanceless `ST_DWithin` and a distance handed to a geometry-only predicate are both refused on the typed `config` rail at construction, the second being the corner that binds a parameter the statement has no slot for and dies inside duckdb. `PointInPolygon` fixes its own corner at the call and stays total.
-- Entry: `plan()` is TOTAL — every corner it once refused is unrepresentable by the time a `SpatialQuery` exists, so the projection reads the union and never re-decides legality; `run` folds plan, span, and boundary in one pass with the duckdb raise surface named at the seam.
+- Cases: the distance corner is a BICONDITIONAL the `Join` factory proves before a query exists — `ST_DWithin` is the only predicate whose SQL carries a placeholder, so a distanceless `ST_DWithin` and a distance handed to a geometry-only predicate are both refused on the typed `config` result at construction, the second being the corner that binds a parameter the statement has no slot for and dies inside duckdb. `PointInPolygon` fixes its own corner at the call and stays total.
+- Entry: `plan()` is TOTAL — every corner it once refused is unrepresentable by the time a `SpatialQuery` exists, so the projection reads the union and never re-decides legality; `run` folds plan, span, and boundary in one pass with the duckdb raise surface named at the boundary.
 - Auto: geometry crosses as WKB (`GeoDataFrame.to_wkb`/`GeoExpr.st.to_wkb`) so the columnar input stays pyarrow-native at the wire and the engine decodes once; the join's distance rides `Option[float]`, whose own lowering IS the parameter tuple and whose presence IS the placeholder, so the SQL text and the bound values cannot drift apart; CRS normalization rides either `spatial/geospatial#GEO` `VectorGeoClaim.reproject` on the host frame or the `Transform` case's in-engine `ST_Transform` for an already-columnar input, so join operands share one CRS without a second transport.
 - Packages: `duckdb`, `sqlglot`, `pyarrow`, `expression`, `opentelemetry-api` per the fence imports; `geopandas`/`polars-st` are the upstream WKB producers and `pyproj` the host-frame CRS engine — none crosses into this fence.
 - Growth: a new geometry-only spatial predicate is one `SpatialPredicate` literal the `Join` gate admits free; a predicate carrying its own operand is one `SpatialQuery` case, never a second optional slot on the join payload; a new spatial intent is one `SpatialQuery` case projected by the one `QueryPlan` fold; a new loadable extension is one `DuckDbExtension` row on the shared `columnar` table, never a local enum; a new refusal law is one `FaultRow` row under `DataLeg.SPATIAL_QUERY`; the H3 hierarchy (`h3_cell_to_parent`, `h3_grid_disk`) composes on the existing `H3Bin` SQL; zero new surface.
-- Boundary: the session rail owns connect-install-load, so this page carries no `duckdb.connect()`/`install_extension` site; no GIS host coupling, no lonboard/GeoArrow visualization (`artifacts` owns it), no durable store — the claims plane is `spatial/geospatial#GEO`, the in-frame DGG plane `spatial/grid#GRID`.
+- Boundary: the session surface owns connect-install-load, so this page carries no `duckdb.connect()`/`install_extension` site; no GIS host coupling, no lonboard/GeoArrow visualization (`artifacts` owns it), no durable store — the claims plane is `spatial/geospatial#GEO`, the in-frame DGG plane `spatial/grid#GRID`.
 
 ```python
 from collections.abc import Mapping
@@ -32,7 +32,7 @@ from sqlglot import exp
 
 from rasm.data.tabular.columnar import DuckDbExtension, DuckDbSession
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.query")
 
@@ -68,7 +68,7 @@ class SpatialQuery:
     h3_bin: tuple[str, int] = case()
 
     @staticmethod
-    def Join(predicate: SpatialPredicate, left: str, right: str, distance: Option[float] = Nothing) -> "RuntimeRail[SpatialQuery]":
+    def Join(predicate: SpatialPredicate, left: str, right: str, distance: Option[float] = Nothing) -> "RuntimeResult[SpatialQuery]":
         if (predicate == "ST_DWithin") != distance.is_some():
             return Error(QUERY_DISTANCE.raised(predicate))
         return Ok(SpatialQuery(join=(predicate, left, right, distance)))
@@ -120,7 +120,7 @@ class SpatialEngine(Struct, frozen=True):
     def of(cls, inputs: Mapping[str, pa.Table]) -> "SpatialEngine":
         return cls(inputs=Map.of_seq(inputs.items()))
 
-    def run(self, query: SpatialQuery) -> "RuntimeRail[pa.Table]":
+    def run(self, query: SpatialQuery) -> "RuntimeResult[pa.Table]":
         plan = query.plan()
         with _TRACER.start_as_current_span(
             f"spatial.query.{query.tag}", attributes={"rasm.geo.op": query.tag, "rasm.geo.predicates": plan.predicate_count}

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PYMC]
 
-`pymc` owns PyTensor-backed probabilistic programming for the compute Bayesian-study rail: a declarative `Model` context where named random variables become symbolic PyTensor nodes, ~60 distribution families, gradient-based and gradient-free step methods, variational families, SMC, and posterior/prior-predictive sampling. `pm.sample` compiles the joint log-probability, dispatches NUTS to a pluggable backend, and returns an `xarray.DataTree` the `arviz` catalog reads; it never re-implements a distribution, sampler, or PyTensor graph operation the package owns.
+`pymc` owns PyTensor-backed probabilistic programming for the compute Bayesian-study domain: a declarative `Model` context where named random variables become symbolic PyTensor nodes, ~60 distribution families, gradient-based and gradient-free step methods, variational families, SMC, and posterior/prior-predictive sampling. `pm.sample` compiles the joint log-probability, dispatches NUTS to a pluggable backend, and returns an `xarray.DataTree` the `arviz` catalog reads; it never re-implements a distribution, sampler, or PyTensor graph operation the package owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -151,4 +151,4 @@
 - within-lib: `do`/`observe` chain graph surgery for causal interventions; `CompoundStep` assigns a distinct step method per variable block; `Minibatch` drives stochastic VI through `fit`; `logp`/`logcdf` expose the symbolic densities `Potential` folds back into the joint.
 
 [LOCAL_ADMISSION]:
-- pymc is study-time inference reading into an `xarray.DataTree`: define a model inside `pm.Model()` with named sample sites, sample through `pm.sample`/`sample_smc`/`fit`, and graduate the returned `DataTree` through `arviz` diagnostics before any posterior claim. `Rasm.Compute` consumes that `DataTree` on its C# model rail; no production runtime imports pymc.
+- pymc is study-time inference reading into an `xarray.DataTree`: define a model inside `pm.Model()` with named sample sites, sample through `pm.sample`/`sample_smc`/`fit`, and graduate the returned `DataTree` through `arviz` diagnostics before any posterior claim. `Rasm.Compute` consumes that `DataTree` on its C# model domain; no production runtime imports pymc.

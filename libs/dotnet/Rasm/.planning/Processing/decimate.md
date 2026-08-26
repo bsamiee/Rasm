@@ -2,7 +2,7 @@
 
 `SimplifyOp` owns predicate-gated mesh decimation and LOD: one `[Union]` folds every modality through one quadric-error collapse queue admitting a fold only on an exact `Orient3D` sign against the pre-collapse supporting plane, so a flipped face is refused by construction and the boundary link condition decimates open-mesh rims. This owner mints the exact-plane gate, the directed Hausdorff budget, and the reversible vertex-split stream `Mesh.Reduce` lacks, and that host reduce keeps the fast face-count lane.
 
-Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Numerics/predicates` exact `Orient3D` floor as collapse gate, the `Spatial/index` `Spatial.Apply` entry for the directed bound, the `Meshing/reconstruct` iso lane for the `VoxelRemesh` resample, the `Numerics/matrix` Cholesky for the optimal-position solve, the `Domain/identity` `Deterministic` draw for every sampled distance, and the kernel curvature and feature signals for the weight rows. Every failure routes the `GeometryFault` union on `Fin`, and the result carriers content-address through the `Spatial/reconciliation` `Encode` seam.
+Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Numerics/predicates` exact `Orient3D` floor as collapse gate, the `Spatial/index` `Spatial.Apply` entry for the directed bound, the `Meshing/reconstruct` iso lane for the `VoxelRemesh` resample, the `Numerics/matrix` Cholesky for the optimal-position solve, the `Domain/identity` `Deterministic` draw for every sampled distance, and the kernel curvature and feature signals for the weight rows. Every failure routes the `GeometryFault` union on `Fin`, and the result carriers content-address through the `Spatial/reconciliation` `Encode` boundary.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Nu
 
 - Owner: `Simplify` mints the one static `Apply` fold and owns modality dispatch; `SimplifyKind` carries each kind's `Weigh` weight law and its guarantee set on the vocabulary; `SimplifyBudget` is the one target carrier; `PositionRoute` names which arm the quadric solve took; `VertexSplit` is the reversible-collapse inverse a continuous-LOD consumer replays.
 - Cases: every modality shares one quadric accumulation, one exact-plane-gated collapse loop, one Hausdorff bound, and one vsplit recorder.
-- Entry: `Simplify.Apply(SimplifyOp, Op?)` is the one decimation entrypoint, discriminating by `SimplifyOp` case and total over `Fin<DecimationResult>`, and reaches the kernel consumer rail as `VectorIntent.Decimate` whose `SimplifyCase` arm projects through `DecimationResult.Project<TOut>`; `SimplifyPolicy.Of` is the one construction path so no entry re-tests it, and a budget no manifold-preserving collapse reaches faults typed.
+- Entry: `Simplify.Apply(SimplifyOp, Op?)` is the one decimation entrypoint, discriminating by `SimplifyOp` case and total over `Fin<DecimationResult>`, and reaches the kernel consumer API as `VectorIntent.Decimate` whose `SimplifyCase` arm projects through `DecimationResult.Project<TOut>`; `SimplifyPolicy.Of` is the one construction path so no entry re-tests it, and a budget no manifold-preserving collapse reaches faults typed.
 - Law: the target is ONE `SimplifyBudget` case, never a fraction-and-count knob pair a `> 0` sentinel selects between — the two spellings are one decision and the union names which was made. Ceilings that admit every bound read `None`, never a positive-infinity literal.
 - Law: the collapse fixpoint is `Cell.Converge` over one `Atom<bool>` under `CollapsePasses`; its transition state is read, and a stalled queue or exhausted budget lowers `DecimationFault` instead of becoming success-shaped termination.
 - Law: the directed Hausdorff bound is MEASURED or absent — a run that sampled nothing lowers typed instead of publishing 0.0, and a nearest-query miss writes no distance and names its sample ordinals, so `TensorPrimitives.Max` folds only values the index answered.
@@ -129,7 +129,6 @@ public sealed record SimplifyPolicy {
         voxelResolution: Dimension.Create(value: 128), hausdorffSamplesPerFace: Dimension.Create(value: 1),
         collapsePasses: Dimension.Create(value: 16), seed: 0x5EED);
 
-    [BoundaryAdapter]
     public static Fin<SimplifyPolicy> Of(
         Option<SimplifyBudget> budget = default, Option<double> hausdorffCeiling = default,
         Option<double> boundaryPenalty = default, Option<double> featurePinWeight = default,
@@ -324,7 +323,6 @@ public static class Simplify {
         ReferenceLane: "scalar Math.Max fold over the same pooled plane",
         SpeedupFloor: 1.0);
 
-    [BoundaryAdapter]
     public static Fin<DecimationResult> Apply(SimplifyOp op, Op? key = null) {
         Op token = key.OrDefault();
         Context context = op.Mesh.Tolerance;
@@ -691,7 +689,7 @@ flowchart LR
     Simplified -->|Spatial.Apply Build+Nearest| SpatialIndex
     SpatialIndex -->|lane-keyed Deterministic draw + TensorPrimitives.Max| DecimationResult
     Splits --> DecimationResult
-    DecimationResult -.->|Compute tile-pyramid / coarse-seed / meshlet residency| Seam
+    DecimationResult -.->|Compute tile-pyramid / coarse-seed / meshlet residency| Boundary
 ```
 
 ## [03]-[RESEARCH]

@@ -446,8 +446,8 @@ public static partial class Support {
     private static Fin<Seq<SupportLayer>> Planar(SupportContext context, Option<Ratio> share = default) =>
         toSeq(Range(0, context.Stack.LayerCount).Reverse()).Fold(
             Fin.Succ((Falling: SliceRegion.Empty, Rows: Seq<SupportLayer>())),
-            (rail, layer) =>
-                from state in rail
+            (result, layer) =>
+                from state in result
                 let active = context.Demand.Filter(demand => demand.Layer > layer)
                 from injected in context.Demand.Filter(demand => demand.Layer == layer + 1)
                     .Map(static demand => demand.Region)
@@ -912,7 +912,7 @@ internal static class SupportSites {
 
 - Owner: `SupportTopology` is the ONE support-edge owner in this folder — the parent-to-child graph, the identity index, and the site broad phase over the settled node positions. `Additive/implicit` tree edges and `Additive/production` support beams read `Topology.Graph.Edges` and `Topology.ById`; neither rebuilds an edge set, and a third reconstruction anywhere is the deleted form.
 - Exemption: `SupportTopology` is a sealed CLASS holding a mutable QuikGraph container, so it carries reference identity and never structural equality. A record here would compare graph references under a value contract and would make `SupportPlan` equality depend on a container the plan's own `ContentKey` already identifies. The container is admitted once from an immutable node set and never mutated after, which is what makes the held view sound.
-- Law: identity admits BEFORE construction — contiguous ordinals, resolved parents, no repeated parent — and acyclicity rails a typed refusal before any sort runs, so no algorithm here throws its own precondition.
+- Law: identity admits BEFORE construction — contiguous ordinals, resolved parents, no repeated parent — and acyclicity fails a typed refusal before any sort runs, so no algorithm here throws its own precondition.
 - Law: the critical load path is `DagShortestPathAlgorithm` under `DistanceRelaxers.CriticalDistance`, whose relaxer inverts the comparison and seeds `double.MinValue`, so the fold IS the longest path and no weight is negated to fake one. A sink still holding the relaxer's initial distance was never reached from that root — the reading is ABSENT rather than zero, and the unreached census is its own result column.
 - Law: a support forest is a DAG, not a rooted tree — `SupportNode.Parents` is a sequence and `TreeRole.Junction` names exactly the multi-parent case — so `OfflineLeastCommonAncestor`, which admits rooted trees only, has no standing here. Merge ambiguity is the closure ANTICHAIN measure: one pass over the transitive closure counts, per ancestor, how many sinks it reaches, and a shared ancestor is one reaching more than one. An all-pairs sink intersection restates that in quadratic time and sums it into a number naming no node.
 - Result: every algorithm output publishes as a NAMED column — roots, sinks, components, closure and reduced edge counts, shared ancestors, the widest merge fan, reachable nodes, unreached routes, and the critical path with the node count that carried it. No graph container leaves this cluster except the one `SupportTopology` publishes by charter.

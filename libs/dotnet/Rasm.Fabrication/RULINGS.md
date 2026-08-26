@@ -26,12 +26,12 @@ Challengers displace an admitted package only by owning the full concern under t
 - `HoldKind` demands one `CapabilitySet<ComplianceTrait>` — parallel bools grow satisfaction clauses and a refusal without `Missing` names no repair.
 - `ProcedureAssessment` stays whole so a WPS audit reads its generated revision paths directly.
 - `ArcFitPolicy` is ADMITTED or ABSENT — `Option` presence routes the gate, and a disabled row publishes three zero columns no reader may trust.
-- `Joining/deposition` owns weld physics and `WeldPolicy`, `Joining/weld` joint, pass, and plan — the seam runs both ways and names at both ends.
+- `Joining/deposition` owns weld physics and `WeldPolicy`, `Joining/weld` joint, pass, and plan — the boundary runs both ways and names at both ends.
 - Distortion fields carry every load family MOVING the part — one solve spans shrinkage, preload, and release, or spring-back names an unfreed part.
 - Dominance compares the LOAD each row placed in the OPERATOR's own units — a per-case magnitude ranks newtons against millimetres.
 - Cut lanes ride `EngagementPolicy` as one `Option<TPolicy>` whose PRESENCE routes — a per-run demand flag makes two facts answer one question.
 - `Toolpath/surface` holds NO layout algorithm — the generator is injected, so a `SurfacePath` topology column fits one layout alone.
-- Generated `FeatureControl` publishes frame-box facts ALONE — datum targets and basic dimensions need a view transform the tolerance seam lacks.
+- Generated `FeatureControl` publishes frame-box facts ALONE — datum targets and basic dimensions need a view transform the tolerance boundary lacks.
 - `IToleranceEncoder` stays OPEN with one landed implementation per egress — a five-arm closed union crosses four arms no drawing consumer decodes.
 - Datum labels admit the ISO 5459 class alone — `I`, `O`, and `Q` read as digits, and a producer-widened class crosses as a consumer refusal.
 - Serial inverse runs TWO LM funnels — `Lm.Minimize` carries no bound column for a HARD joint-travel box, so MathNet iterates the `Dual<T>` chain.
@@ -61,7 +61,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - `Toolpath/link` keeps its own beam search and exchange — QuikGraph `TSP` holds no precedence and reads `PositiveInfinity` until a tour closes.
 - Tour refinement exchanges a station pair and never reverses a span — reversal assumes a corridor symmetry directed keepout routes lack.
 - `AssemblyPolicy` stays a plane-kernel policy — the plane is reached through `Derive`, so a `FabricationPolicy` case mints a second entry.
-- Port results carry no error list — every port answers on the `Fin` rail, and a success carrying failures mints a second refusal channel.
+- Port results carry no error list — every port answers on the `Fin` result, and a success carrying failures mints a second refusal channel.
 
 ## [03]-[COLLAPSE]
 
@@ -85,7 +85,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - Digested scalar columns stay bare doubles — a typed quantity moves the preimage and re-keys every plan, so conversion sits at the derivation site.
 - `UnitsNet` quantities seat on every policy head no preimage digests — a unit-suffixed identifier states an axis no compiler reads.
 - Each quantity dimension carries its own `QuantityArrow` — an arrowless dimension leaves its columns no text lane.
-- Cross-section algebra composes the `Rasm.Element` `SectionProperties` seam — a folder-local section record forks the columns a design check reads.
+- Cross-section algebra composes the `Rasm.Element` `SectionProperties` contract — a folder-local section record forks the columns a design check reads.
 - `DfmReport` owns its request key, evaluation instant, and decision basis.
 - Content-addressed values ADMIT their key as a column — a property re-folding the preimage per read pays that fold at every identity comparison.
 - `LayerMetric`, `LayerMeasure`, and `RecoaterLikelihood` seat at `Additive/slicing` — the measuring plane owns slice facts; `Verify/audit` composes.

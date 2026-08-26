@@ -12,14 +12,14 @@
 
 ## [02]-[KIND_AND_REASON]
 
-- Owner: `ContentKind` rows own kind-specific table behavior, `ContentStyle` is the capability vocabulary the native style mask decodes onto, `ProxyKind` classifies proxy topology, `ChangeReason` translates change context, and `ChangeScope` closes every direct mutation bracket. Sibling mutation rails commit through the Document spine's `DocumentCommit.Sealed` (which owns the suppress/restore/flush bracket), and `Seam` carries the two folder-wide projections — `Row` (a host column onto its vocabulary row) and `Minted` (a null-answering host mint into owned custody).
-- Entry: `ContentKind.Attach`/`Detach` are the railed table writes; `ContentKind.Table` is the ONE table change window, and `Roster` the kind's live census.
+- Owner: `ContentKind` rows own kind-specific table behavior, `ContentStyle` is the capability vocabulary the native style mask decodes onto, `ProxyKind` classifies proxy topology, `ChangeReason` translates change context, and `ChangeScope` closes every direct mutation bracket. Sibling mutation pipelines commit through the Document spine's `DocumentCommit.Sealed` (which owns the suppress/restore/flush bracket), and `Bridge` carries the two folder-wide projections — `Row` (a host column onto its vocabulary row) and `Minted` (a null-answering host mint into owned custody).
+- Entry: `ContentKind.Attach`/`Detach` are the result-typed table writes; `ContentKind.Table` is the ONE table change window, and `Roster` the kind's live census.
 - Law: kind is derived, never asked — each `ContentKind` row carries a `Holds` predicate over the live subtype, `ContentKind.Of(RenderContent, Op)` derives from `Items`, and `ContentKind.Of(RenderContentKind, Op)` admits the native discriminant through the kernel host-enum row read, so an undefined ordinal refuses before the roster is scanned. Null ingress is invalid input; an unmatched live subtype is an invalid host result.
 - Law: every direct field, parameter, parameter-binding, texture, rename, or child-slot write rides `ChangeScope.Write` with a named `ChangeReason`; host-owned table, assignment, replacement, grouping, and export verbs retain their own change semantics.
 - Law: host begin/end windows are CUSTODY, never a `finally` — `ChangeScope` and `TableScope` are `IDisposable` windows carried on `Lease<T>`, so the kernel `Use` fold aggregates an `EndChange`/`EndChange` refusal INTO the body's own fault. Wrapping the same pair in `try/finally` silently replaces the body's fault with the release's, which is the deleted form.
 - Law: `ContentKind` columns are the only site naming `RenderMaterials`/`RenderEnvironments`/`RenderTextures`; every content operation reaches a table through its kind row.
 - Growth: a new change context is one `ChangeReason` row; a new content kind is one `ContentKind` row whose columns close its table behavior.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/results` (`Op`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -179,7 +179,7 @@ internal sealed class TableScope : IDisposable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class Seam {
+internal static class Bridge {
     internal static Fin<TRow> Row<TRow, TNative>(this Op key, IEnumerable<TRow> rows, TNative native, Func<TRow, TNative> project)
         where TRow : class where TNative : notnull =>
         Optional(rows.FirstOrDefault(row => EqualityComparer<TNative>.Default.Equals(project(row), native)))
@@ -198,7 +198,7 @@ internal static class Seam {
 - Law: resolution reads live per call — the content graph mutates under UI edits, undo, and linked events, so no resolved handle is cached on a value; a consumer holding a `ContentRef` re-resolves at each use inside the owning operation.
 - Law: every public factory threads the caller's `Op` — a key minted inside the owner names the owner instead of the operation that asked, so the fault loses the call site it came from.
 - Boundary: `Resolve` is the only site naming `RenderContent.FromId` and `FindChild`; every sibling page addresses through this union.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/rails` (`Op.OrDefault`, `Op.AcceptText`, `Op.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/results` (`Op.OrDefault`, `Op.AcceptText`, `Op.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -408,7 +408,7 @@ public sealed record ContentSnapshot(
 - Law: `Lease<RenderContent>` disposes every untransferred mint; successful table attachment transfers custody to the document.
 - Law: XML and archive cases preserve the host's two serialized ingress routes; XML/file egress and embedded-file evidence belong to registry programs because those operations start from addressed live content.
 - Boundary: factory-registry minting (`RenderContent.Create` by type id) is the registry page's; this union owns only the serialized-form ingress.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/rails` (`Lease<T>.Owned`, `Op.AcceptText`, `Op.OrDefault`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/results` (`Lease<T>.Owned`, `Op.AcceptText`, `Op.OrDefault`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -428,9 +428,9 @@ public abstract partial record ContentIo {
         Switch(
             state: (Document: document, Op: key),
             xmlCase: static (ctx, source) =>
-                Seam.Minted(mint: () => RenderContent.FromXml(xml: source.Value, doc: ctx.Document), key: ctx.Op),
+                Bridge.Minted(mint: () => RenderContent.FromXml(xml: source.Value, doc: ctx.Document), key: ctx.Op),
             archiveCase: static (ctx, source) =>
-                Seam.Minted(mint: () => RenderContent.LoadFromFile(filename: source.Path), key: ctx.Op));
+                Bridge.Minted(mint: () => RenderContent.LoadFromFile(filename: source.Path), key: ctx.Op));
 }
 ```
 
@@ -442,7 +442,7 @@ public abstract partial record ContentIo {
 |  [02]   | change vocabulary  | `ChangeReason`    | rows carrying the native `ChangeContexts` value           | `Of(native, key)` / `Native`  |
 |  [03]   | style capabilities | `ContentStyle`    | `ICapability` rows carrying the native mask bit           | `Of(native, key)`             |
 |  [04]   | write bracket      | `ChangeScope`     | host window on `Lease` custody, release aggregated        | `Write(content, reason, ...)` |
-|  [05]   | shared projections | `Seam`            | column row read and null-answering mint custody           | `Row` / `Minted`              |
+|  [05]   | shared projections | `Bridge`          | column row read and null-answering mint custody           | `Row` / `Minted`              |
 |  [06]   | content address    | `ContentRef`      | one union: id, slot path                                  | `Of` / `Resolve`              |
 |  [07]   | content state      | `ContentTrait`    | `ICapability` rows over the host state predicates         | `Of(content)`                 |
 |  [08]   | content snapshot   | `ContentSnapshot` | one-pass identity and topology read                       | `Of(content, key)`            |

@@ -20,7 +20,7 @@ config:
 ---
 flowchart LR
     accTitle: Flowchart metadata demo
-    accDescr: A row store extracted, normalized inside the transform stage, scored with a fault rail converging on quarantine, exercising shape metadata, markdown labels, KaTeX, fan-out, and an animated edge id.
+    accDescr: A row store extracted, normalized inside the transform stage, scored with a fault path converging on quarantine, exercising shape metadata, markdown labels, KaTeX, fan-out, and an animated edge id.
     Store@{ shape: cyl, label: "Row store" } --> Extract@{ shape: lean-r, label: "Extract" }
     subgraph stage[TRANSFORM STAGE]
         direction LR

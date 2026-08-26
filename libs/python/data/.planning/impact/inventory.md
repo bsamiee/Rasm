@@ -16,7 +16,7 @@ The pipeline returns `IngestResult` with `statistics()`'s `(nodes, edges, unlink
 - Law: `bootstrap` runs `bw2io.bw2setup()` once per project — biosphere3, bundled LCIA packs, core migrations — idempotent on an existing biosphere, so ingest never guards on a remembered out-of-band setup; the network one-shot imports ride the HTTP retry class on the banded thread hop because a release download is a transient-faulting remote leg.
 - Law: the residual unlinked set resolves by POLICY — `Resolution.matched(db, fields)` links against a sibling database, `Resolution.promoted(biosphere)` admits unlinked flows as new biosphere records, `Resolution.strict()` refuses with the unlinked count on the fault — and `drop_unlinked(i_am_reckless=True)` never appears: silently erasing exchanges is the data-loss arm the policy vocabulary forecloses. A custom project linker is one `list[dict] -> list[dict]` strategy handed to `apply_strategy`, never an importer subclass.
 - Law: `IngestResult` carries the `statistics()` quadruple as four `Option` slots, the written database name, and the source `ContentKey` over file bytes or the release coordinate. Only the file pipeline runs `statistics()`, so a release import leaves those slots absent; zero remains a measured empty value rather than standing in for an unmeasured source.
-- Packages: `bw2data` (`projects.set_current`/`projects.create_project`, `databases`, the durable `Database` store, `errors.BW2Exception` the store family's root), `bw2io` (the importer classes, `bw2setup`, `apply_strategies`/`apply_strategy`/`statistics`/`match_database`/`add_unlinked_flows_to_biosphere_database`/`write_database`, `import_ecoinvent_release`/`useeio20`/`exiobase_monetary`, `errors.StrategyError`/`MultiprocessingError`), `bw_processing` (`errors.BrightwayProcessingError`), runtime (`RuntimeRail`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`/`RetryClass`/`guarded`/`on_thread`). Every provider binds `lazy`, so each raise set resolves at its call rather than as a module-scope tuple that would import the whole project stack to name an exception.
+- Packages: `bw2data` (`projects.set_current`/`projects.create_project`, `databases`, the durable `Database` store, `errors.BW2Exception` the store family's root), `bw2io` (the importer classes, `bw2setup`, `apply_strategies`/`apply_strategy`/`statistics`/`match_database`/`add_unlinked_flows_to_biosphere_database`/`write_database`, `import_ecoinvent_release`/`useeio20`/`exiobase_monetary`, `errors.StrategyError`/`MultiprocessingError`), `bw_processing` (`errors.BrightwayProcessingError`), runtime (`RuntimeResult`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`/`RetryClass`/`guarded`/`on_thread`). Every provider binds `lazy`, so each raise set resolves at its call rather than as a module-scope tuple that would import the whole project stack to name an exception.
 - Growth: a new source format is one `IngestSource` case naming its importer; a new linking move is one `Resolution` case; a new caller-required ingest measurement is one `IngestResult` field, `Option`-shaped wherever a source leg can leave it unmeasured; a new refusal law is one `FaultRow` row on this module's `RAISES` table; a project-specific remap is one strategy function, zero page edits.
 - Boundary: no matrix assembly, no solve, no prospective build (`impact/scenario#SCENARIO` owns premise), no EPD parsing (the carrier's declaration arms own wires); backup/restore (`backup_project_directory`) is composition-root operations, not an owner surface; `imp.data` never leaks — the pipeline's interior `list[dict]` stays inside the boundary leg.
 
@@ -35,7 +35,7 @@ lazy import bw2io
 lazy import bw_processing as bp
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
 from rasm.runtime.resilience import RetryClass, guarded
@@ -134,7 +134,7 @@ class Inventory(Struct, frozen=True):
     project: str
     database: str
 
-    def bootstrap(self) -> "RuntimeRail[None]":
+    def bootstrap(self) -> "RuntimeResult[None]":
         def run() -> None:
             bd.projects.set_current(self.project)
             bw2io.bw2setup()
@@ -144,8 +144,8 @@ class Inventory(Struct, frozen=True):
 
     async def ingest(
         self, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]" = ()
-    ) -> "RuntimeRail[IngestResult]":
-        def run() -> "RuntimeRail[IngestResult]":
+    ) -> "RuntimeResult[IngestResult]":
+        def run() -> "RuntimeResult[IngestResult]":
             bd.projects.set_current(self.project)
             match source:
                 case IngestSource(tag="ecoinvent_release", ecoinvent_release=(version, system_model)):
@@ -163,14 +163,14 @@ class Inventory(Struct, frozen=True):
         remote = source.tag in {"ecoinvent_release", "useeio", "exiobase"}
         with _TRACER.start_as_current_span(f"inventory.ingest.{source.tag}", attributes={"rasm.impact.project": self.project}):
             if remote:
-                railed = await guarded(RetryClass.HTTP, on_thread, run, at=INVENTORY_RELEASE, on=Some(source.tag))
-                return railed.bind(lambda rail: rail)
+                outcome = await guarded(RetryClass.HTTP, on_thread, run, at=INVENTORY_RELEASE, on=Some(source.tag))
+                return outcome.bind(lambda held: held)
             fenced = await on_thread(lambda: boundary(INVENTORY_PIPELINE, run, catch=_ingest_raises()))
             return fenced.bind(lambda fence: fence).bind(lambda body: body)
 
     def _pipeline(
         self, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]"
-    ) -> "RuntimeRail[IngestResult]":
+    ) -> "RuntimeResult[IngestResult]":
         path = getattr(source, source.tag)
         imp = getattr(bw2io, source.importer)(path, self.database)
         imp.apply_strategies(verbose=False)
@@ -220,7 +220,7 @@ class Matrix(StrEnum):
 class MatrixPackage(Struct, frozen=True):
     name: str
 
-    def written(self, matrix: Matrix, indices: object, data: object, flip: Option[object] = Nothing) -> "RuntimeRail[object]":
+    def written(self, matrix: Matrix, indices: object, data: object, flip: Option[object] = Nothing) -> "RuntimeResult[object]":
         def build() -> object:
             package = bp.create_datapackage(name=self.name)
             package.add_persistent_vector(
@@ -232,7 +232,7 @@ class MatrixPackage(Struct, frozen=True):
             return boundary(PACKAGE_WRITE, build, catch=_package_raises())
 
     @staticmethod
-    def loaded(fs: object) -> "RuntimeRail[object]":
+    def loaded(fs: object) -> "RuntimeResult[object]":
         def read() -> object:
             return bp.load_datapackage(fs)
 

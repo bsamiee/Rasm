@@ -1,13 +1,13 @@
 # [APPUI_SCREENS_ACTIVATION]
 
-Rasm.AppUi screens are catalog rows over one program-driven model: a frozen `ScreenCatalog` table is the single derivation source for dockables, window titles, automation names, route keys, and headless proof lanes, while `ProductScreen` owns activation scopes, suspend/resume, the one screen fault fold, paced derived state, the owned admission rail lifting `Validation<Error,T>` onto slot rows behind the inbox error-info bridge, and per-surface state snapshots. The page owns the catalog axis and its product roster, the activation capsule, the derived-state and admission rails, the snapshot law, the materialize-context seam, and the product surfaces the roster seats — settings over the persisted-policy registry and the first-run/landing/coach/report family — composing the kernel `MonotonicTimeline` and fault floor, AppHost `RuntimePhase`, `UiSchedulerPort`, `DrainParticipantPort`, `TelemetryContributorPort`, and `DrainBand` over ReactiveUI, System.Reactive, LanguageExt rails, and NodaTime instants. The run-queue surface is the sibling owner (`Shell/queue.md`).
+Rasm.AppUi screens are catalog rows over one program-driven model: a frozen `ScreenCatalog` table is the single derivation source for dockables, window titles, automation names, route keys, and headless proof lanes, while `ProductScreen` owns activation scopes, suspend/resume, the one screen fault fold, paced derived state, the owned admission path lifting `Validation<Error,T>` onto slot rows behind the inbox error-info bridge, and per-surface state snapshots. The page owns the catalog axis and its product roster, the activation capsule, the derived-state and admission paths, the snapshot law, the materialize-context port, and the product surfaces the roster seats — settings over the persisted-policy registry and the first-run/landing/coach/report family — composing the kernel `MonotonicTimeline` and fault floor, AppHost `RuntimePhase`, `UiSchedulerPort`, `DrainParticipantPort`, `TelemetryContributorPort`, and `DrainBand` over ReactiveUI, System.Reactive, LanguageExt result types, and NodaTime instants. The run-queue surface is the sibling owner (`Shell/queue.md`).
 
 ## [01]-[INDEX]
 
 - [02]-[SCREEN_CATALOG]: One frozen row table with its product roster; every screen derivation folds over it.
 - [03]-[ACTIVATION_SCOPES]: One activatable model; scoped disposal, suspend/resume, drain row.
 - [04]-[DERIVED_STATE]: The screen fault family on the kernel `Fault` floor; OAPH derivations; one fault fold.
-- [05]-[VALIDATION_UX]: The owned admission rail — slot rows over the typed rail behind one error-info bridge.
+- [05]-[VALIDATION_UX]: The owned admission path — slot rows over the typed result behind one error-info bridge.
 - [06]-[SCREEN_STATE]: Per-surface snapshots; restore-on-activate merge; checkpoint law.
 - [07]-[CONTROL_STREAM]: A screen body is a control-intent stream materialized through `ControlFactory`, not a XAML literal.
 - [08]-[SETTINGS_SURFACE]: Every persisted policy projected from one registry through the form-schema engine.
@@ -86,10 +86,10 @@ public sealed record ScreenComposition(
     Func<SurfaceKey, PresenterStrip> Tour,
     Func<SurfaceKey, LayerStack> Layers,
     Func<SurfaceKey, ProbeReading> Probe,
-    Func<SurfaceKey, (CompareLattice Lattice, CompareSync Sync)> Compare,
+    Func<SurfaceKey, (CompareMatrix Matrix, CompareSync Sync)> Compare,
     Func<SurfaceKey, DiffSurface> Diff,
-    ProductSeams Product,
-    RunQueueSeams Queue);
+    ProductPorts Product,
+    RunQueuePorts Queue);
 
 public sealed record StateLens(
     Func<ProductScreen, ScreenState> Snapshot,
@@ -237,7 +237,7 @@ public static class ScreenRoster {
 ## [03]-[ACTIVATION_SCOPES]
 
 - Owner: `ScreenRuntime` policy record over the kernel `MonotonicTimeline`; `ProductScreen`'s activation members; `ScreenLifetimes` the per-control lifetime table the materialize context's ownership columns read.
-- Entry: `public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler)` — visibility edges and phase transitions fold into one activate/suspend rail; `public IO<Unit> Suspend(string trigger)` — the one suspension verb, its trigger naming the source on both the fault fold and the suspension count.
+- Entry: `public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler)` — visibility edges and phase transitions fold into one activate/suspend path; `public IO<Unit> Suspend(string trigger)` — the one suspension verb, its trigger naming the source on both the fault fold and the suspension count.
 - Auto: `WhenActivated` composes rehydration, the program `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining transition suspends every bound screen through the same `Suspend` path.
 - Evidence: `ScreenRuntime.Disposed` carries the row key, measured active span, and disposable count into the composition-bound evidence stream; an unmeasurable span faults the runner and emits nothing.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime, Rasm (kernel timeline), Rasm.AppHost (project)
@@ -402,11 +402,11 @@ public static partial class ScreenOps {
 ## [05]-[VALIDATION_UX]
 
 - Owner: `AdmissionSlot` the rule target; `AdmissionRow` the per-slot verdict and its text; `ProductScreen`'s own admission cell with its `INotifyDataErrorInfo` bridge; `ScreenOps` admission extensions.
-- Entry: `public Fin<IDisposable> Admit<TValue>(Expression<Func<ProductScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions)` — the one admission seam from the typed rail onto a slot row, its `Fin` sealing a non-member expression or a slot another rule already holds; `AdmitCross<TValue>` lands the same rail on the cross slot for invariants spanning properties; both return the rule's LIFETIME, so retirement is disposal.
+- Entry: `public Fin<IDisposable> Admit<TValue>(Expression<Func<ProductScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions)` — the one admission entry from the typed result onto a slot row, its `Fin` sealing a non-member expression or a slot another rule already holds; `AdmitCross<TValue>` lands the same result on the cross slot for invariants spanning properties; both return the rule's LIFETIME, so retirement is disposal.
 - Auto: `Gate` projects all-rows-valid into the availability delegate column the command table consumes; `FieldErrors` projects one slot's text into the field-adorner stream; `GetErrors`/`ErrorsChanged` answer the platform's own error-info contract, so `DataValidationErrors` paints every bound control with no per-control wiring.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, BCL inbox
 - Growth: one rule row per validated property and one cross row per invariant; zero new surface.
-- Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched (the external view-model aggregator type-loads against nothing — RULINGS `[01]` — so the inbox `INotifyDataErrorInfo` contract is the one adorner channel). A slot is claimed exactly once through a GUARDED transition — a second claim answers `Refused` and seals `SlotClaimed` rather than shadowing the first — and a rule's registration is a subscription with a lifetime, so a mode shift disposes and re-registers. Text crosses as the WHOLE accumulated failure sequence, because rendering the head alone costs the operator a round trip per rule. The cross slot carries the empty property name the error-info contract reserves for entity-level errors, so a cross-field invariant reaches the platform's own entity adorner and `Gate` reads every row including it. `FieldErrors` and `GetErrors` are ONE read at two altitudes — the observable for a screen-composed adorner stream and the synchronous contract for the framework's binding plugin.
+- Boundary: the lift is the single validation vocabulary — a second rule carrier beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed result untouched (the external view-model aggregator type-loads against nothing — RULINGS `[01]` — so the inbox `INotifyDataErrorInfo` contract is the one adorner channel). A slot is claimed exactly once through a GUARDED transition — a second claim answers `Refused` and seals `SlotClaimed` rather than shadowing the first — and a rule's registration is a subscription with a lifetime, so a mode shift disposes and re-registers. Text crosses as the WHOLE accumulated failure sequence, because rendering the head alone costs the operator a round trip per rule. The cross slot carries the empty property name the error-info contract reserves for entity-level errors, so a cross-field invariant reaches the platform's own entity adorner and `Gate` reads every row including it. `FieldErrors` and `GetErrors` are ONE read at two altitudes — the observable for a screen-composed adorner stream and the synchronous contract for the framework's binding plugin.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -499,7 +499,7 @@ public static partial class ScreenOps {
 - State: the `ScreenState` snapshot carries its `Instant` and supplies the support-bundle screen-state contribution.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `ScreenState` field row per new state axis under one `Generation` bump on the seal; zero new surface.
-- Boundary: persistence crosses only through `ScreenStatePolicy` delegates bound at composition to the Persistence snapshot vocabulary — no store type enters the fences, and both legs carry the SEALED BLOB so the port moves bytes under a partition key while the shape question stays whole at the seal. Rehydrate raises NO refusal: an oversize, unreadable, foreign-generation, or unadmitted parcel seeds the live snapshot and the screen opens on what it already is, which is the first-run answer reached without a second arm — so a screen-state refusal case has no producer and no spelling. Composition binds `Admit` as the seal's admission arrow, accumulating inside the delegate and landing as one `Error.Many` the seal reads as a refusal. Encoding is the half that answers a rail, and its refusal lands on the incident cell every other screen failure reaches. Surface identity is the `Shell/navigation` `SurfaceKey` VALUE and never text a screen composed; the restore ORDER is the navigation page's law and this carrier is third in it, after the dock graph materializes the surfaces and after float rectangles clamp; `Merge` keeps live rows authoritative for existence while persisted filter, scroll, expansion, and selection survive the `alive` prune; a second suspension driver beside the checkpoint law is the rejected form. Structural equality nothing compares is not declared: no consumer compares two snapshots, so a `[Equatable]` member algebra here would be decorative and is refused by name.
+- Boundary: persistence crosses only through `ScreenStatePolicy` delegates bound at composition to the Persistence snapshot vocabulary — no store type enters the fences, and both legs carry the SEALED BLOB so the port moves bytes under a partition key while the shape question stays whole at the seal. Rehydrate raises NO refusal: an oversize, unreadable, foreign-generation, or unadmitted parcel seeds the live snapshot and the screen opens on what it already is, which is the first-run answer reached without a second arm — so a screen-state refusal case has no producer and no spelling. Composition binds `Admit` as the seal's admission arrow, accumulating inside the delegate and landing as one `Error.Many` the seal reads as a refusal. Encoding is the half that answers a result, and its refusal lands on the incident cell every other screen failure reaches. Surface identity is the `Shell/navigation` `SurfaceKey` VALUE and never text a screen composed; the restore ORDER is the navigation page's law and this carrier is third in it, after the dock graph materializes the surfaces and after float rectangles clamp; `Merge` keeps live rows authoritative for existence while persisted filter, scroll, expansion, and selection survive the `alive` prune; a second suspension driver beside the checkpoint law is the rejected form. Structural equality nothing compares is not declared: no consumer compares two snapshots, so a `[Equatable]` member algebra here would be decorative and is refused by name.
 
 ```csharp
 public sealed record ScreenStatePolicy(
@@ -571,12 +571,12 @@ flowchart LR
 
 ## [07]-[CONTROL_STREAM]
 
-- Owner: `ValueSlot` the named two-way cell; `ScreenBody` the materialized root the activation scope mounts; `ScreenSeams` the sibling-owner arrow set the materialize context takes; `ScreenOps` wire extensions.
-- Entry: `public IObservable<ControlIntent> Wire(IScheduler scheduler)` — the mount emission fires at subscription and every screen property edge re-projects the body, paced through the runtime throttle; `public MaterializeContext Context(ScreenSeams seams)` — the fold assembling the materialize context from the bound sibling arrows plus the four columns the screen alone can answer; `public Fin<ScreenBody> Compose(ControlIntent intent, MaterializeContext context, RecycleScope recycle)` — materializes the current intent tree through `ControlFactory` into the mounted root paired with the pool that owns its recycled children. `Shell/navigation`'s dock factory is the mount composer: it resolves the model, wires, contexts, and composes through these three members when it materializes a dockable (`ARCHITECTURE.md [04]` mount spine).
+- Owner: `ValueSlot` the named two-way cell; `ScreenBody` the materialized root the activation scope mounts; `ScreenPorts` the sibling-owner arrow set the materialize context takes; `ScreenOps` wire extensions.
+- Entry: `public IObservable<ControlIntent> Wire(IScheduler scheduler)` — the mount emission fires at subscription and every screen property edge re-projects the body, paced through the runtime throttle; `public MaterializeContext Context(ScreenPorts ports)` — the fold assembling the materialize context from the bound sibling arrows plus the four columns the screen alone can answer; `public Fin<ScreenBody> Compose(ControlIntent intent, MaterializeContext context, RecycleScope recycle)` — materializes the current intent tree through `ControlFactory` into the mounted root paired with the pool that owns its recycled children. `Shell/navigation`'s dock factory is the mount composer: it resolves the model, wires, contexts, and composes through these three members when it materializes a dockable (`ARCHITECTURE.md [04]` mount spine).
 - Auto: `ProductScreen.Body` projects the screen's model onto one `ControlIntent` tree (`Shell/controls`); the intent stream re-emits on `ReactiveObject.Changed` property edges, throttled so a burst of edges collapses to one re-materialize; the materialized root mounts at the surface root where `AccessOps.Identify` applies the catalog automation identity.
 - Packages: ReactiveUI, System.Reactive, Avalonia, LanguageExt.Core
 - Growth: a screen is one `ScreenProgram` row whose `Body` names its control-intent tree; a new control on a screen is one intent in that tree, never a XAML edit; a new value channel is one slot the program writes; zero new surface.
-- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenSeams` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the value channel over its own named slots plus the two ownership columns off `ScreenLifetimes`; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on the `Fin` rail, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
+- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenPorts` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the value channel over its own named slots plus the two ownership columns off `ScreenLifetimes`; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on `Fin`, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorBridge.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -587,7 +587,7 @@ public sealed record ScreenBody(Control Root, RecycleScope Recycle);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public sealed record ScreenSeams(
+public sealed record ScreenPorts(
     Func<string, Option<ICommand>> Command,
     Func<ControlSkin, Option<ControlTheme>> Skin,
     Func<string, string> Label,
@@ -611,11 +611,11 @@ public static partial class ScreenOps {
                 .StartWith(unit)
                 .Select(_ => screen.Body());
 
-        public MaterializeContext Context(ScreenSeams seams) =>
-            new(seams.Command, seams.Skin, seams.Label, seams.Icon, seams.Options, seams.Window,
-                seams.Overview, seams.Layout, seams.Gesture,
+        public MaterializeContext Context(ScreenPorts ports) =>
+            new(ports.Command, ports.Skin, ports.Label, ports.Icon, ports.Options, ports.Window,
+                ports.Overview, ports.Layout, ports.Gesture,
                 Value: screen.Channel,
-                Activate: seams.Activate,
+                Activate: ports.Activate,
                 Own: screen.Lifetimes.Own,
                 Release: screen.Lifetimes.Release);
 
@@ -638,10 +638,10 @@ public static partial class ScreenOps {
 - Cases: `SettingScope` = default | user | workspace | machine.
 - Entry: `public static Fin<SettingsRegistry> Freeze(params ReadOnlySpan<SettingsRow> rows)` — the refusal names EVERY duplicated section in one fault; `public static SettingsQuery Parse(string raw)` — one parse for typed queries and chip clicks alike; `public static Seq<SettingsPlan> Plan(SettingsRegistry registry, SettingsQuery query, ResolvedLocale locale)` — the narrowed per-section projection; `public static Validation<Error, FormState> Reset(SettingsRow row, Seq<string> fields, ResolvedLocale locale)` — one accumulating fold serving the per-row and per-section verbs; `public static IO<ReloadOutcome> Commit(SettingsRow row, Validation<Error, FormState> candidate)` — the owner-capsule handoff; `public static ScreenProgram Program(ScreenComposition composition)` — the seated program.
 - Auto: every persisted policy owner registers ONE row carrying its section key, its field schema, a read of the live policy, a per-field scope map, its defaults, and its own swap capsule — a policy added anywhere in the corpus appears in settings with zero edit here; search paces on the runtime throttle and parses into one value whose form filter, section term, and scope term each cut a different axis; reset re-seats a field's default through the schema's own admission and hands the result to the same swap capsule an edit takes.
-- Registration: each persisted-policy owner supplies its own `Settings` member — `ThemeCell.Settings`, `LocaleRuntime.Settings`, `ShortcutEditor.Settings` — each returning its row on the `Validation` rail because a malformed section is a boot fact, and composition traverses the three into one `Freeze`.
+- Registration: each persisted-policy owner supplies its own `Settings` member — `ThemeCell.Settings`, `LocaleRuntime.Settings`, `ShortcutEditor.Settings` — each returning its row on `Validation` because a malformed section is a boot fact, and composition traverses the three into one `Freeze`.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Irihi.Ursa, Avalonia, BCL inbox
 - Growth: a new settings section is one `SettingsRow` at its own policy owner; a new provenance scope is one `SettingScope` row; a new query axis is one `SettingsQuery` column with its term const; zero new surface.
-- Boundary: this surface RENDERS and never writes — every mutation goes back through the registering owner's own swap capsule, so the outcome is the owners' own `ReloadOutcome` and a rejected write keeps prior values live. The registry is a projection of the schema engine and mints NO form machinery: sections are `FormSection` rows, fields `FormField` rows, planning `FormSurface.Plan`, bodies `FormSurface.Panel` — a settings-only control path or validation rail is unspellable here. The rail is DESKTOP CHROME rather than a body member: `Body` emits the sections alone, and the desktop capsule seats `FormChrome.Rail` beside them over the same scroll region. PROVENANCE is a scope, never an origin: the form's own `ValueOrigin` answers whether a value was authored; the scope answers WHICH writer set it — the fact a reset verb needs — and rides the row's own live read because a field's scope moves when an administrator lands a policy. SEARCH narrows on three axes because a substring can express none of the other two: the section term cuts before the field projection, the scope term after it (scope is a live read), and the modified term is the form filter's own facet. RESET routes through `FormSchema.Seat`, so a default the policy's own admission now refuses — a variant key the theme stopped shipping — refuses at reset exactly as at edit; a field whose defaults carry no value accumulates its own refusal rather than silently succeeding at nothing.
+- Boundary: this surface RENDERS and never writes — every mutation goes back through the registering owner's own swap capsule, so the outcome is the owners' own `ReloadOutcome` and a rejected write keeps prior values live. The registry is a projection of the schema engine and mints NO form machinery: sections are `FormSection` rows, fields `FormField` rows, planning `FormSurface.Plan`, bodies `FormSurface.Panel` — a settings-only control path or validation carrier is unspellable here. The nav is DESKTOP CHROME rather than a body member: `Body` emits the sections alone, and the desktop capsule seats `FormChrome.Nav` beside them over the same scroll region. PROVENANCE is a scope, never an origin: the form's own `ValueOrigin` answers whether a value was authored; the scope answers WHICH writer set it — the fact a reset verb needs — and rides the row's own live read because a field's scope moves when an administrator lands a policy. SEARCH narrows on three axes because a substring can express none of the other two: the section term cuts before the field projection, the scope term after it (scope is a live read), and the modified term is the form filter's own facet. RESET routes through `FormSchema.Seat`, so a default the policy's own admission now refuses — a variant key the theme stopped shipping — refuses at reset exactly as at edit; a field whose defaults carry no value accumulates its own refusal rather than silently succeeding at nothing.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -718,7 +718,7 @@ public sealed record SettingsPlan(SettingsRow Row, Seq<SectionPlan> Sections, Ha
 
 public static class SettingsSurface {
     public static readonly SlotKey<string> Search = new("settings.search");
-    public const string RailKey = "settings.rail";
+    public const string NavKey = "settings.nav";
     public const string ResetRowVerb = "settings.reset.row";
     public const string ResetSectionVerb = "settings.reset.section";
 
@@ -787,14 +787,14 @@ public static class SettingsSurface {
                     static (screen, merged) => screen.Write(Search, merged.Filter.IfNone(string.Empty))),
             };
 
-    public static Control Rail(Seq<SettingsPlan> plan, ScrollViewer region, ResolvedLocale locale) =>
-        FormChrome.Rail(plan.Bind(static seated => seated.Sections), region, locale);
+    public static Control Nav(Seq<SettingsPlan> plan, ScrollViewer region, ResolvedLocale locale) =>
+        FormChrome.Nav(plan.Bind(static seated => seated.Sections), region, locale);
 }
 ```
 
 ## [09]-[PRODUCT_SCREENS]
 
-- Owner: `ProductSeams` the bound product fact arrows; `SaveState` the recents honesty union; `RecentRow` the MRU row; `CoachRow` the anchored discovery row with the `CoachMarks` roster and projection; `ReportMember` the consent row over one support artifact; `FaultReport` the consent and offer folds; `ProductPrograms` the three seated programs.
+- Owner: `ProductPorts` the bound product fact arrows; `SaveState` the recents honesty union; `RecentRow` the MRU row; `CoachRow` the anchored discovery row with the `CoachMarks` roster and projection; `ReportMember` the consent row over one support artifact; `FaultReport` the consent and offer folds; `ProductPrograms` the three seated programs.
 - Cases: `SaveState` = Clean | Dirty | Autosaved(Instant) | Recoverable(blob).
 - Entry: `public ControlIntent Body()` on each screen; `public static Seq<CoachRow> Due(Seq<CoachRow> rows, CoachFacts facts, Set<string> dismissed, Func<string, bool> mounted)` — the predicate-completed projection the landing body renders; `public static Seq<ReportMember> Members(Seq<SupportContributorPort> contributors)` — the consent roster over the declared artifacts; `public static IO<Fin<ReadOnlyMemory<byte>>> Submit(Seq<ReportMember> members, Func<Seq<SupportArtifact>, IO<Fin<ReadOnlyMemory<byte>>>> capture)` — the consented capture.
 - Auto: first run is the EMPTY-RESTORE fact off the layout ledger rather than a flag; the recents roster is persisted MRU rows on the Persistence snapshot vocabulary, each row's save state minted ONCE at the boundary from the dirty flag, the autosave stamp, and the recovery blob; coach rows anchor to catalog keys the shell already derives and retire on their own completion predicate; the report pairs the crash-recovery offer with the support roster and submits only the members the operator consented to.
@@ -847,7 +847,7 @@ public abstract partial record SaveState {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record ProductSeams(
+public sealed record ProductPorts(
     Func<Seq<RouteRestoreFact>> Restored,
     Func<Seq<SampleRow>> Samples,
     Func<Seq<RecentRow>> Recents,

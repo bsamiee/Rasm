@@ -2,7 +2,7 @@
 
 `Flatten` solves UV parameterization from its variational energy: one `ParamOp` union folded by one `Flatten.Apply` lowers a disk-topology chart into the plane over the `Rasm.Meshing` discrete-exterior-calculus substrate. Every pinned solve eliminates the boundary rows, so the interior operator factors as an SPD system with exact constraints; a penalty or diagonal-shift formulation is the refused failure class.
 
-Rebuild work composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC handle for the cotangent `D0`/`Star1` operators, `CholeskySparse` and `SparseMatrix` for every direct and eigen solve, `Orient2D` the UV-flip floor, `FeatureEdge` the seam classifier, QuikGraph `WeaklyConnectedComponents` the island labeler, and `CapabilitySet<ParamTrait>` the guarantee vocabulary each energy carries onto its atlas. `ChartAtlas` is the structural carrier the reconciliation `Encode` content-addresses.
+Rebuild work composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC handle for the cotangent `D0`/`Star1` operators, `CholeskySparse` and `SparseMatrix` for every direct and eigen solve, `Orient2D` the UV-flip floor, `FeatureEdge` the cut classifier, QuikGraph `WeaklyConnectedComponents` the island labeler, and `CapabilitySet<ParamTrait>` the guarantee vocabulary each energy carries onto its atlas. `ChartAtlas` is the structural carrier the reconciliation `Encode` content-addresses.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ Rebuild work composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC ha
 
 - Owner: `Flatten` mints the static parameterization surface, `ParamTrait` the guarantee vocabulary every energy declares, and `ChartId` the one chart identity every island carries — island labels alone, so a fault raised before islanding rides the `ParameterizationFault`'s `Option<ChartId>` rather than a negative sentinel every reader decodes.
 - Cases: each `ParamOp` case carries its chart, its constraint payload, and its policy row, so `Apply` discriminates on the value alone.
-- Entry: `Flatten.Apply(ParamOp, Op?)` rides the `Fin<ChartAtlas>` rail and reaches the kernel consumer rail as `VectorIntent.Parameterize`, whose `ParameterizeCase` dispatch arm projects through `ChartAtlas.Project<TOut>` — the host LSCM lane stays its own `FlattenHostCase`, so a caller names which formulation ran; the admitted `MeshSpace` is not re-validated, every genuine gate faults typed, and `ChartAtlas.ToMesh`/`ToTextureMesh` re-emit the chart with UV coordinates or the islands as 2D geometry. `UvIsland.Boundary(Context, Op?)` projects the island's oriented boundary loops onto the `Meshing/intersect` `Chain` carrier — outer CCW, holes CW off face winding — so every downstream nesting or development consumer reads one walker instead of re-deriving the cycle walk.
+- Entry: `Flatten.Apply(ParamOp, Op?)` rides the `Fin<ChartAtlas>` result and reaches the kernel consumer API as `VectorIntent.Parameterize`, whose `ParameterizeCase` dispatch arm projects through `ChartAtlas.Project<TOut>` — the host LSCM lane stays its own `FlattenHostCase`, so a caller names which formulation ran; the admitted `MeshSpace` is not re-validated, every genuine gate faults typed, and `ChartAtlas.ToMesh`/`ToTextureMesh` re-emit the chart with UV coordinates or the islands as 2D geometry. `UvIsland.Boundary(Context, Op?)` projects the island's oriented boundary loops onto the `Meshing/intersect` `Chain` carrier — outer CCW, holes CW off face winding — so every downstream nesting or development consumer reads one walker instead of re-deriving the cycle walk.
 - Auto: modality dispatch is the union's total generated `Switch`, and every arm lowers the same `MeshDec.Of` DEC composition, differing only in the energy. `Assemble` scores distortion in one partition-disjoint parallel per-face pass, folds the distortion through `TensorPrimitives`, labels islands through QuikGraph over the face-dual, and refuses any flip typed.
 - Law: `ParamKind` declares ONE `CapabilitySet<ParamTrait>` column — conformality, area preservation, boundary freedom, and iterativeness are the four guarantees a downstream strain gate discriminates on, they co-occur in legal corners the roster fixes, and four bool columns are four authorities. `ChartAtlas.Traits` republishes the solved kind's set, so a consumer reads what the atlas carries rather than re-deriving it from the op case.
 - Law: the flip verdict has ONE authority — `Assemble` reads the first flipped face slot and hands it to `Fold`, so `Distortion.FlipFreeBijective` and the refusal cannot disagree.
@@ -22,9 +22,9 @@ Rebuild work composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC ha
 - Law: boundary cycles have ONE walker — `Cycles.Of` over a functional successor map, shared by `UvIsland.Boundary` and `MeshDec.BoundaryLoops`, with one open-chain refusal instead of two divergent ones. It REFUSES QuikGraph's `StronglyConnectedComponents`, which answers the component set where this owner's whole product is the cyclic order the winding, the pin ring, and `IntegrateBoundary` read.
 - Exemption: `ChartStore` is pooled single-writer scratch, and the `MeshDec`/`UvIsland` boundary tables are `Dictionary`/`HashSet` rebuilt inside one fold and dropped — none is a startup-admitted table, so none freezes. `ReducedSystem` memoizes ONE pin set on the `MeshDec` capsule and the memo rides `Option`, never a nullable tuple.
 - Output: `Distortion` carries the conformal, area, and quasi-conformal distortion, the iteration count, and the exact-`Orient2D` bijectivity verdict — the evidence the `Rasm.Fabrication` nesting strain gate reads. `Residual`, `FactorNonZeros`, and `SpectralGap` are `Option` because the arms measure different subsets: a direct back-solve takes no residual, the eigen arm holds no Cholesky factor, and only the eigen arm has a gap — λ₃ of the conformal operator, which used to ride the residual column in a different unit from every other arm's.
-- Packages: `Rasm.Meshing` (`MeshSpace`, `MeshAdjointSnapshot.Of` the DEC handle, `MeshEdit` soup + freeze), `Rasm.Domain` (`Context`/`ToleranceLane` the two degeneracy bands, `Cell.Converge` the ARAP driver), `Rasm.Processing` (`FeatureEdge`/`MeshFeatureKind` seam source), `Rasm.Numerics` (`SparseMatrix`/`CholeskySparse` solve owners, `Predicate.Orient2D` flip floor, `EpsilonPolicy` the residual anchor, `AtomProjection`/`ProjectionRow` the atlas egress), `Rhino.Geometry`, QuikGraph (face-dual `WeaklyConnectedComponents`), System.Numerics.Tensors (`TensorPrimitives` distortion folds), CommunityToolkit.HighPerformance (`MemoryOwner`/`ParallelHelper`), Rasm.Domain, Thinktecture.Runtime.Extensions, LanguageExt.Core (`Atom`/`Fin`).
-- Growth: a new modality is one `ParamKind` row with its trait set, one `ParamOp` case, and one generated-`Switch` arm lowering the same substrate; a new distortion measure is one pooled plane and one `Distortion` field; a new constraint mode is one `ParamPolicy` column with its default on `Canonical` and its optional at `Of`, or one op-case payload; a new seam source is one `MeshFeatureKind` row; a new guarantee is one `ParamTrait` row.
-- Boundary: the parameterization is the one polymorphic `ParamOp` union, never a sibling flattener-class family; every solve composes the `matrix.md` owners, never a raw `CSparse` or MathNet factorization; the DEC substrate is reached only through the public `MeshAdjointSnapshot.Of` handle, never a Geometry-side re-assembly or the internal `LaplacianCache`; the UV-flip verdict is the exact `Orient2D` sign, never a float signed-area band; a seam cut splits a chart into islands rather than discarding a region.
+- Packages: `Rasm.Meshing` (`MeshSpace`, `MeshAdjointSnapshot.Of` the DEC handle, `MeshEdit` soup + freeze), `Rasm.Domain` (`Context`/`ToleranceLane` the two degeneracy bands, `Cell.Converge` the ARAP driver), `Rasm.Processing` (`FeatureEdge`/`MeshFeatureKind` cut source), `Rasm.Numerics` (`SparseMatrix`/`CholeskySparse` solve owners, `Predicate.Orient2D` flip floor, `EpsilonPolicy` the residual anchor, `AtomProjection`/`ProjectionRow` the atlas egress), `Rhino.Geometry`, QuikGraph (face-dual `WeaklyConnectedComponents`), System.Numerics.Tensors (`TensorPrimitives` distortion folds), CommunityToolkit.HighPerformance (`MemoryOwner`/`ParallelHelper`), Rasm.Domain, Thinktecture.Runtime.Extensions, LanguageExt.Core (`Atom`/`Fin`).
+- Growth: a new modality is one `ParamKind` row with its trait set, one `ParamOp` case, and one generated-`Switch` arm lowering the same substrate; a new distortion measure is one pooled plane and one `Distortion` field; a new constraint mode is one `ParamPolicy` column with its default on `Canonical` and its optional at `Of`, or one op-case payload; a new cut source is one `MeshFeatureKind` row; a new guarantee is one `ParamTrait` row.
+- Boundary: the parameterization is the one polymorphic `ParamOp` union, never a sibling flattener-class family; every solve composes the `matrix.md` owners, never a raw `CSparse` or MathNet factorization; the DEC substrate is reached only through the public `MeshAdjointSnapshot.Of` handle, never a Geometry-side re-assembly or the internal `LaplacianCache`; the UV-flip verdict is the exact `Orient2D` sign, never a float signed-area band; a cut splits a chart into islands rather than discarding a region.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -95,7 +95,6 @@ public sealed record ParamPolicy {
         iterations: Dimension.Create(value: 64), eigen: Dimension.Create(value: 200),
         crease: VectorAngle.Create(value: CreaseDihedralRadians), parallelFloor: Dimension.Create(value: 4_096));
 
-    [BoundaryAdapter]
     public static Fin<ParamPolicy> Of(
         Option<double> residualTolerance = default, Option<double> creaseDihedral = default,
         Option<Dimension> maxIterations = default, Option<Dimension> eigenBudget = default,
@@ -147,7 +146,6 @@ public sealed class ChartStore : IDisposable {
 }
 
 public sealed record UvIsland(ChartId Chart, Arr<int> Vertices, Arr<(int A, int B, int C)> Faces, Arr<Point2d> Uv) {
-    [BoundaryAdapter]
     public Fin<Seq<Chain>> Boundary(Context context, Op? key = null) {
         Op op = key.OrDefault();
         double weld = context.For(ToleranceLane.Weld).Value;
@@ -197,17 +195,16 @@ public sealed record Distortion(
     Option<double> SpectralGap,
     bool FlipFreeBijective);
 
-public sealed record ChartAtlas(MeshSpace Source, CapabilitySet<ParamTrait> Traits, Seq<UvIsland> Islands, Seq<FeatureEdge> Seams, Distortion Distortion) {
+public sealed record ChartAtlas(MeshSpace Source, CapabilitySet<ParamTrait> Traits, Seq<UvIsland> Islands, Seq<FeatureEdge> Cuts, Distortion Distortion) {
     internal Fin<TOut> Project<TOut>(Op key) {
         ChartAtlas self = this;
         return AtomProjection.Rows<ChartAtlas, TOut>(self: self, key: key,
             ProjectionRow.Of<Seq<UvIsland>>(() => Fin.Succ(self.Islands)),
-            ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Seams)),
+            ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Cuts)),
             ProjectionRow.Of<Distortion>(() => Fin.Succ(self.Distortion)),
             ProjectionRow.Of<MeshSpace>(() => self.ToMesh(key)));
     }
 
-    [BoundaryAdapter]
     public Fin<MeshSpace> ToMesh(Op? key = null) {
         MeshEdit edit = MeshEdit.Of(Source);
         try {
@@ -228,7 +225,6 @@ public sealed record ChartAtlas(MeshSpace Source, CapabilitySet<ParamTrait> Trai
     private static (int, int, int) Cyclic((int A, int B, int C) t) =>
         t.A <= t.B && t.A <= t.C ? (t.A, t.B, t.C) : t.B <= t.C ? (t.B, t.C, t.A) : (t.C, t.A, t.B);
 
-    [BoundaryAdapter]
     public Fin<MeshSpace> ToTextureMesh(Op? key = null) {
         List<Point3d> vertices = new();
         List<(int A, int B, int C)> faces = new();
@@ -281,7 +277,6 @@ public static class Flatten {
         ReferenceLane: "scalar element loops over the same planes",
         SpeedupFloor: 1.0);
 
-    [BoundaryAdapter]
     public static Fin<ChartAtlas> Apply(ParamOp op, Op? key = null) {
         Op token = key.OrDefault();
         return MeshDec.Of(op.Chart, op.Policy, token).Bind(dec =>
@@ -397,7 +392,7 @@ public static class Flatten {
         int flipped = store.Flip.Span.IndexOf(true);
         Distortion distortion = Fold(store, dec, solved, flipped);
         return flipped < 0
-            ? Fin.Succ(new ChartAtlas(op.Chart, op.Kind.Traits, islands, dec.Seams, distortion))
+            ? Fin.Succ(new ChartAtlas(op.Chart, op.Kind.Traits, islands, dec.Cuts, distortion))
             : Fin.Fail<ChartAtlas>(new GeometryFault.ParameterizationFault(Some(ChartId.Create(store.Chart[flipped])), distortion.MaxConformal));
     }
 
@@ -439,7 +434,7 @@ public static class Flatten {
         AdjacencyGraph<int, SEdge<int>> dual = new(allowParallelEdges: false);
         dual.AddVertexRange(Enumerable.Range(0, dec.FaceCount));
         foreach (((int u, int v), int faceA, int faceB) in dec.InteriorEdges()) {
-            if (!dec.IsSeamEdge(u, v)) dual.AddEdge(new SEdge<int>(faceA, faceB));
+            if (!dec.IsCutEdge(u, v)) dual.AddEdge(new SEdge<int>(faceA, faceB));
         }
         Dictionary<int, int> label = new(dec.FaceCount);
         int count = dual.WeaklyConnectedComponents(label);
@@ -553,13 +548,13 @@ file sealed class MeshDec {
     public readonly int FaceCount;
     public readonly Context Tolerance;
     public readonly int[][] Loops;
-    public readonly Seq<FeatureEdge> Seams;
+    public readonly Seq<FeatureEdge> Cuts;
     readonly Mesh native;
-    readonly EdgeKeySet seamEdges;
+    readonly EdgeKeySet cutEdges;
     Option<(int[] Pins, ReducedSystem System)> reduced = None;
 
-    MeshDec(DiscreteCalculus calculus, Mesh native, Context tolerance, int[][] loops, Seq<FeatureEdge> seams, EdgeKeySet seamEdges) {
-        (Calculus, this.native, Tolerance, Loops, Seams, this.seamEdges) = (calculus, native, tolerance, loops, seams, seamEdges);
+    MeshDec(DiscreteCalculus calculus, Mesh native, Context tolerance, int[][] loops, Seq<FeatureEdge> cuts, EdgeKeySet cutEdges) {
+        (Calculus, this.native, Tolerance, Loops, Cuts, this.cutEdges) = (calculus, native, tolerance, loops, cuts, cutEdges);
         (VertexCount, FaceCount) = (native.Vertices.Count, native.Faces.Count);
     }
 
@@ -573,10 +568,10 @@ file sealed class MeshDec {
         from intent in VectorIntent.Features(chart, featurePolicy, key)
         from features in intent.Project<FeatureEdges>(chart.Tolerance, key)
         let native = chart.DuplicateNative()
-        let seams = features.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary))
-        let seamEdges = seams.Map(static e => Order(e.A, e.B)).ToHashSet()
+        let cuts = features.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary))
+        let cutEdges = cuts.Map(static e => Order(e.A, e.B)).ToHashSet()
         from loops in BoundaryLoops(native, key)
-        select new MeshDec(snapshot.Calculus, native, chart.Tolerance, loops, seams, seamEdges);
+        select new MeshDec(snapshot.Calculus, native, chart.Tolerance, loops, cuts, cutEdges);
 
     public int Anchor => Loops.Length > 0 ? Loops[0][0] : 0;
 
@@ -682,7 +677,7 @@ file sealed class MeshDec {
         }
     }
 
-    public bool IsSeamEdge(int u, int v) => seamEdges.Contains(Order(u, v));
+    public bool IsCutEdge(int u, int v) => cutEdges.Contains(Order(u, v));
 
     public Point2d[] IntegrateBoundary(int[] loop, Arr<double> turning) {
         Point2d[] curve = new Point2d[loop.Length];
@@ -793,7 +788,7 @@ flowchart LR
     Chart["MeshSpace chart"] -->|MeshAdjointSnapshot.Of| DEC["DiscreteCalculus D0/Star1"]
     DEC -->|eliminate pinned rows| Reduced["ReducedSystem (SPD, no shift)"]
     Reduced -->|CholeskySparse.Of once per pin set| Factor
-    Chart -->|FeatureEdge Crease/Boundary| Seams
+    Chart -->|FeatureEdge Crease/Boundary| Cuts
     ParamOp -->|total generated Switch| Apply
     Apply -->|Harmonic / Bff back-solve| Factor
     Apply -->|Lscm sparse L_C smallest eigenpair| Lobpcg["SparseMatrix.SmallestEigenpairsDetailed"]
@@ -801,7 +796,7 @@ flowchart LR
     Apply -->|parallel per-face pass| Distortion["conformal/area/quasi planes + flip bits"]
     Distortion -->|TensorPrimitives Max/Sum/MaxMagnitude| Measures["Distortion"]
     Distortion -->|exact Orient2D flip| Predicate
-    Seams -->|face-dual, non-seam arcs| QuikGraph["WeaklyConnectedComponents"]
+    Cuts -->|face-dual, non-cut arcs| QuikGraph["WeaklyConnectedComponents"]
     QuikGraph -->|per-face island labels| Islands["UvIsland (Arr, structural)"]
     Islands --> ChartAtlas
     ParamKind -->|CapabilitySet ParamTrait| ChartAtlas

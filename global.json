@@ -2,8 +2,7 @@
     "sdk": {
         "version": "10.0.400",
         "rollForward": "disable",
-        "allowPrerelease": false,
-        "errorMessage": "Pinned .NET SDK 10.0.400 not found. Install it, or re-stamp deliberately: bump sdk.version here, run dotnet restore --force-evaluate, and commit every regenerated packages.lock.json in the same change."
+        "allowPrerelease": false
     },
     "test": {
         "runner": "Microsoft.Testing.Platform"

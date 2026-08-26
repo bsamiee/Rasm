@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_QUADAX]
 
-`quadax` owns JAX-native adaptive numerical quadrature for the compute integration rail: globally-adaptive Gauss-Kronrod, Clenshaw-Curtis, and tanh-sinh integrators over Romberg, fixed-order, and sampled-data rules, each callable-integrand result paired with its `QuadratureInfo`. Every callable-integrand integration stays JIT-compatible and differentiable through the integrand and interval bounds under forward and reverse mode.
+`quadax` owns JAX-native adaptive numerical quadrature for the compute integration domain: globally-adaptive Gauss-Kronrod, Clenshaw-Curtis, and tanh-sinh integrators over Romberg, fixed-order, and sampled-data rules, each callable-integrand result paired with its `QuadratureInfo`. Every callable-integrand integration stays JIT-compatible and differentiable through the integrand and interval bounds under forward and reverse mode.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -26,7 +26,7 @@
 [ENTRYPOINT_SCOPE]: adaptive quadrature
 - adaptive integrators share `(fun, interval, args=(), full_output=False, epsabs=None, epsrel=None, max_ninter=50, norm=inf)` -> `(value, QuadratureInfo)`; `adaptive_quadrature` prepends `rule` and adds `**kwargs`, `romberg`/`rombergts` swap `max_ninter` for `divmax=20`
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]              | [RAIL]                                                  |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]              | [RESULT]                                                |
 | :-----: | :---------------------------------------------- | :-------------------------- | :------------------------------------------------------ |
 |  [01]   | `adaptive_quadrature(rule, fun, interval, ...)` | polymorphic adaptive driver | rule-parameterized globally-adaptive quadrature         |
 |  [02]   | `quadgk(order=21)`                              | Gauss-Kronrod adaptive      | finite/infinite interval; `order ∈ {15,21,31,41,51,61}` |
@@ -38,16 +38,16 @@
 [ENTRYPOINT_SCOPE]: fixed-order non-adaptive quadrature
 - each takes `(fun, a, b, args=(), norm=inf, n=...)` -> `(value, QuadratureInfo)` over scalar bounds `a, b`, applying one rule at a fixed node count with no panel subdivision for a constant-cost, `vmap`-friendly integral
 
-| [INDEX] | [SURFACE]            | [ENTRY_FAMILY]        | [RAIL]                                      |
+| [INDEX] | [SURFACE]            | [ENTRY_FAMILY]        | [RESULT]                                    |
 | :-----: | :------------------- | :-------------------- | :------------------------------------------ |
 |  [01]   | `fixed_quadgk(n=21)` | Gauss-Kronrod fixed   | fixed-order Gauss-Kronrod, no subdivision   |
 |  [02]   | `fixed_quadcc(n=32)` | Clenshaw-Curtis fixed | fixed-order Clenshaw-Curtis, no subdivision |
 |  [03]   | `fixed_quadts(n=61)` | tanh-sinh fixed       | fixed-order tanh-sinh, no subdivision       |
 
 [ENTRYPOINT_SCOPE]: sampled-data integration
-- each takes `(y, *, x=None, dx=1.0, axis=-1)` -> `jax.Array` (cumulative forms add `initial=None`); these integrate already-sampled non-callable data over its abscissae and return a bare array with no `QuadratureInfo`, the rail for discretized field samples rather than a traceable integrand
+- each takes `(y, *, x=None, dx=1.0, axis=-1)` -> `jax.Array` (cumulative forms add `initial=None`); these integrate already-sampled non-callable data over its abscissae and return a bare array with no `QuadratureInfo`, the result for discretized field samples rather than a traceable integrand
 
-| [INDEX] | [SURFACE]              | [ENTRY_FAMILY]                 | [RAIL]                                               |
+| [INDEX] | [SURFACE]              | [ENTRY_FAMILY]                 | [RESULT]                                             |
 | :-----: | :--------------------- | :----------------------------- | :--------------------------------------------------- |
 |  [01]   | `trapezoid`            | sampled trapezoidal            | composite trapezoidal integral of `y` over `x`/`dx`  |
 |  [02]   | `cumulative_trapezoid` | sampled cumulative trapezoidal | running trapezoidal integral (`initial` seeds total) |

@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_GH2_IO]
 
-`GrasshopperIO` is the host-document persistence archive: `IWriter` and `IReader` are the symmetric typed-primitive write and read seams over every BCL scalar, array, and nested sub-object, `IStorable` is the round-trip contract a domain value implements, and `IoIdAttribute` stamps the IO identity the component-registration gate keys on. `DataType` discriminates the stored primitive, and the `Has*` probe family gates a read before its scalar accessor runs.
+`GrasshopperIO` is the host-document persistence archive: `IWriter` and `IReader` are the symmetric typed-primitive write and read interfaces over every BCL scalar, array, and nested sub-object, `IStorable` is the round-trip contract a domain value implements, and `IoIdAttribute` stamps the IO identity the component-registration gate keys on. `DataType` discriminates the stored primitive, and the `Has*` probe family gates a read before its scalar accessor runs.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -60,7 +60,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `IWriter` and `IReader` are symmetric write and read seams over one archive; every access keys on a `Name`, and a nested sub-object descends through `CreateWriter`/`FindReader`.
+- `IWriter` and `IReader` are symmetric write and read interfaces over one archive; every access keys on a `Name`, and a nested sub-object descends through `CreateWriter`/`FindReader`.
 - Domain value crosses the archive only as an `IStorable`: `Store(IWriter)` writes it and `IReader.Storable<T>` reconstructs it.
 - `IoIdAttribute` is the component-type IO identity, read through `Attribute.IsDefined(type, typeof(IoIdAttribute))`; a type without the stamp fails registration.
 - `DataType` discriminates the stored primitive, and the `Has*` probe family gates a read against a missing or wrong-typed item before the scalar accessor runs.

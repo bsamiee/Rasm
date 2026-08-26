@@ -7,5 +7,5 @@ or {
     $hit <: not within `Effect.tryPromise($_)` ,
     $hit <: not within `Effect.promise($_)` ,
     $hit <: not within `Effect.tryMapPromise($_)` ,
-    register_diagnostic(span=$hit, message="Raw fetch in domain flow. HTTP is HttpClient material on the requirement channel — typed faults, Schedule retry, traced spans; a platform fetch survives only inside an Effect.tryPromise admission at its owning FFI seam.", severity="error")
+    register_diagnostic(span=$hit, message="Raw fetch in domain flow. HTTP is HttpClient material on the requirement channel — typed faults, Schedule retry, traced spans; a platform fetch survives only inside an Effect.tryPromise admission at its owning FFI boundary.", severity="error")
 }

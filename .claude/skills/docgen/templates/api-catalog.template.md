@@ -1,6 +1,6 @@
 # [<TIER>_API_<PACKAGE>]
 
-<catalog-charter-1-2-lines: the external surface's owned capability, boundary, and rail — at most two single-line paragraphs, 500 characters total; never a roster recap, install note, or realization stamp.>
+<catalog-charter-1-2-lines: the external surface's owned capability, boundary, and result type — at most two single-line paragraphs, 500 characters total; never a roster recap, install note, or realization stamp.>
 
 <!-- source-only: `.api` CATALOG SCHEMA — an external-library capability INDEX letting a design-page fence author call this surface with zero external lookups; abbreviated signatures only, never transcription fences.
 
@@ -18,7 +18,7 @@ COLUMNS — a closed set, never renamed per file:
   `[01]` resources   = `[INDEX] [SYMBOL] [RESOURCE_FAMILY] [KEY_ARGS] [KEY_OUTPUTS]`  (mode [C] only; [RESOURCE_FAMILY] the grouping service namespace, [KEY_ARGS]/[KEY_OUTPUTS] the load-bearing required inputs and resolved outputs)
   `[02]` entrypoints = `[INDEX] [SURFACE] [SHAPE] [CAPABILITY]`                       ([SHAPE]: static / instance / factory / ctor / property / operator / fold)
     [SHAPE] resolves on the DECLARING type, never the call site: an extension, module-level, or free function reads `static` whatever fluent chain it joins, and `instance` claims the receiver type declares the member. Spell the row `Receiver.verb(args)` either way, and name the declaring static class beside its namespace wherever a caller needs the import.
-  `[CONSUMER]` rides as an optional column ONLY where the binding consumer is load-bearing and varies per row; no per-row `[RAIL]` column.
+  `[CONSUMER]` rides as an optional column ONLY where the binding consumer is load-bearing and varies per row; no per-row `[CARRIER]` column.
 
 MEMBERS — table rows or one inline token line (`[<TYPE>]: `a` `b` `c``); never a run-on `- Members: a, b, c` bullet or a `[SLUG]: - Members:` card cluster; a row that will not fit relieves its cells or splits into sibling scopes — a table is never torn into prose. Rows are unbounded; the 150-column width cap is the only size law.
 
@@ -51,10 +51,10 @@ CURRENCY — only the library's live current surface: an obsolete, deprecated, o
 - <the invariant law every op on this surface folds through>
 
 [STACKING]:
-- `<sibling-package>`(`.api/<path>`): <exact member-level seam — what this surface's outputs become on the sibling's rail>
+- `<sibling-package>`(`.api/<path>`): <exact member-level boundary — what this surface's outputs become in the sibling's types>
 - <within-lib-owner>: <how the owning folder or kernel composes this surface to its richest depth>
 
 [LOCAL_ADMISSION]:
 - <accept-in-repo rule>
 
-<!-- source-only: `[IMPLEMENTATION_LAW]` is the sole terminal section, owners ordered `[TOPOLOGY]` `[STACKING]` `[LOCAL_ADMISSION]`; `[STACKING]` is required, an optional owner with no current law omits without `(none)`. Integration belongs to `[STACKING]`; a distinct concern becomes a corpus-wide owner here before any instance uses it. `[STACKING]` evolves whenever verified package or substrate surfaces expose a stronger composition and carries BOTH axes at operator depth — one bullet per composing sibling `.api` naming the exact member-level seam (this surface's output into the sibling's named member, both ends verified against the substrate tier and the named sibling catalog) and one within-library bullet; a bare package-name row with no member on both ends is the shallow-stacking defect. -->
+<!-- source-only: `[IMPLEMENTATION_LAW]` is the sole terminal section, owners ordered `[TOPOLOGY]` `[STACKING]` `[LOCAL_ADMISSION]`; `[STACKING]` is required, an optional owner with no current law omits without `(none)`. Integration belongs to `[STACKING]`; a distinct concern becomes a corpus-wide owner here before any instance uses it. `[STACKING]` evolves whenever verified package or substrate surfaces expose a stronger composition and carries BOTH axes at operator depth — one bullet per composing sibling `.api` naming the exact member-level boundary (this surface's output into the sibling's named member, both ends verified against the substrate tier and the named sibling catalog) and one within-library bullet; a bare package-name row with no member on both ends is the shallow-stacking defect. -->

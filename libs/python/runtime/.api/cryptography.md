@@ -8,7 +8,7 @@
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                                              |
 | :-----: | :----------------- | :------------ | :------------------------------------------------------------------------ |
-|  [01]   | `AESGCM`           | class         | nonce-per-message AEAD; the estate's envelope and key-wrap construction   |
+|  [01]   | `AESGCM`           | class         | nonce-per-message AEAD; the repo's envelope and key-wrap construction     |
 |  [02]   | `AESGCMSIV`        | class         | nonce-misuse-resistant GCM; a repeated nonce leaks equality alone         |
 |  [03]   | `AESSIV`           | class         | deterministic AEAD taking no nonce; ciphertext repeats on equal plaintext |
 |  [04]   | `AESCCM`           | class         | counter-with-CBC-MAC AEAD for constrained peers                           |
@@ -68,4 +68,4 @@
 
 [STACKING]:
 - `msgspec`(`libs/python/.api/msgspec.md`): ciphertext, nonce, and wrapped key ride `bytes` fields on frozen `Struct` rows, so a sealed envelope encodes and persists through the same codec every other wire shape crosses and no ciphertext is re-framed as text.
-- stdlib `secrets`: `token_bytes` supplies every nonce and salt this rail consumes, because a `random` draw is predictable and reuses state across a fork.
+- stdlib `secrets`: `token_bytes` supplies every nonce and salt this result consumes, because a `random` draw is predictable and reuses state across a fork.

@@ -79,7 +79,7 @@
 
 [STACKING]:
 - `pydantic-settings`(`.api/pydantic-settings.md` PUBLIC_TYPES [12]): `AzureKeyVaultSettingsSource(settings_cls, url=, credential=)` is the declared-field fence — the `TokenCredential` crosses as `credential=` (probed live: the source takes the credential, not a built client), the source folds into `settings_customise_sources`; the per-service ladder read stays `CloudVault.read`'s.
-- resilience leg: the cloud-tier probe rides the `reliability/resilience` `guarded(RetryClass.SECRET, ...)` retried-traced-railed envelope as the GCP and Vault tiers do, the sync `SecretClient` offloaded through `anyio.to_thread.run_sync` because its blocking `azure-core` pipeline must never stall the loop; the `aio.SecretClient` twin is the native-async alternative.
+- resilience leg: the cloud-tier probe rides the `reliability/resilience` `guarded(RetryClass.SECRET, ...)` retried-traced-result envelope as the GCP and Vault tiers do, the sync `SecretClient` offloaded through `anyio.to_thread.run_sync` because its blocking `azure-core` pipeline must never stall the loop; the `aio.SecretClient` twin is the native-async alternative.
 - transport leg: the client's own `azure-core` HTTP pipeline is internal, distinct from the `.api/httpx.md` transport the runtime owns — the runtime never reaches into it.
 
 [LOCAL_ADMISSION]:

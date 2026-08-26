@@ -11,8 +11,8 @@
 ## [02]-[DESIGN]
 
 - Owner: `DesignProblem` — the provenance of the objective is the discriminant and the optimizer is one surface; `carried` folds the case to its `Objective` total over `match`/`assert_never`, so a new provenance breaks the extractor rather than spawning a parallel dispatch arm.
-- Cases: `Objective` owns TWO shape-keyed projections of one `fn` because the solver and the `Optimum` consume different reductions — `target` feeds `least_squares` the raw residual VECTOR (a pre-reduced `½‖r‖²` scalar collapses the LM Jacobian to a degenerate 1-element solve) while `cost` folds the `(reduced, reported)` pair as the value-and-grad aux, never a re-traced second pass; `Descent.admits` gates an engine override — `Levenberg` requires the `RESIDUAL` route, the scalar minimisers require `SCALAR` — as a typed `Error(BoundaryFault)` on the rail before the wrong solve entry; the `FirstOrder` chain leads `optax.zero_nans()` before `clip_by_global_norm` because a NaN gradient from a diverged inner solve is not boundable by a clip.
-- Law: the `program` case carries a stability band and a certificate size the retained-solver backend alone fills and the facade leaves absent — the settled per-case optional-slot precedent, where the `xla` case alone carries its `TraceEvidence` band — so a backend's extra evidence lands as slots on the one shared `Optimum` rather than a second owner beside it. Absence is the honest state and the ledger drops it: an unmeasured slot never floats, so the hub's key-coverage gate refuses a crossing whose ceiling names a quantity that backend never measured. The `program` objective and violation follow the same rule on a refusal, while a `design` solve's non-finite objective is a MEASURED non-finite value and still rails at the hub's finiteness admission — a measurement that came out non-finite and a measurement nobody took are two states, and only the second spells absence.
+- Cases: `Objective` owns TWO shape-keyed projections of one `fn` because the solver and the `Optimum` consume different reductions — `target` feeds `least_squares` the raw residual VECTOR (a pre-reduced `½‖r‖²` scalar collapses the LM Jacobian to a degenerate 1-element solve) while `cost` folds the `(reduced, reported)` pair as the value-and-grad aux, never a re-traced second pass; `Descent.admits` gates an engine override — `Levenberg` requires the `RESIDUAL` route, the scalar minimisers require `SCALAR` — as a typed `Error(BoundaryFault)` on the result before the wrong solve entry; the `FirstOrder` chain leads `optax.zero_nans()` before `clip_by_global_norm` because a NaN gradient from a diverged inner solve is not boundable by a clip.
+- Law: the `program` case carries a stability band and a certificate size the retained-solver backend alone fills and the facade leaves absent — the settled per-case optional-slot precedent, where the `xla` case alone carries its `TraceEvidence` band — so a backend's extra evidence lands as slots on the one shared `Optimum` rather than a second owner beside it. Absence is the honest state and the ledger drops it: an unmeasured slot never floats, so the hub's key-coverage gate refuses a crossing whose ceiling names a quantity that backend never measured. The `program` objective and violation follow the same rule on a refusal, while a `design` solve's non-finite objective is a MEASURED non-finite value and still faults at the hub's finiteness admission — a measurement that came out non-finite and a measurement nobody took are two states, and only the second spells absence.
 - Entry: the solve runs `throw=False` so a non-`successful` `Solution.result` reaches the `Optimum` as its mapped `SolveStatus` rather than raising; `_design_key` folds each leaf's ordinal and shape with the iterate-determining `descent`/`restarts`/`seed` policy, so structurally distinct PyTrees or a re-solve under a different engine never collide on the boundary-erasing flatten; the x64-gated descent declares the HOSTILE trait because `DesignEngine.gated()` mutates process-global x64 state, with the module-level `_solve_kernel` crossing by reference, a closure shipping by value at the crossing owner.
 - Output: `Optimum` retains the optimized design pytree or program decision beside its measured facts; `.facts` skips that typed product and feeds telemetry and graduation scalars only. Both factories close through `_noted`, and `graduates` clears the measured numeric facts against the case's `_OUTCOME_CEILING` row.
 - Packages: `RESULTS.promote` is deliberately unused — it widens a member across `Enumeration` classes and raises on a same-class member, so the multi-start reduction is the `jnp.max` code fold; the numpy floor runs over real arrays only, never a JAX PyTree, and its one-hot perturbation never materializes a dense `np.eye(x0.size)` basis a realistic SIMP density field cannot afford; the quadrature weak-form assembly enters transitively through `solvers/mesh`, never as a direct dependency here.
@@ -36,7 +36,7 @@ from opentelemetry import trace
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, evidence_run
 from rasm.compute.solvers.solve import Provider, SolveStatus, graduate, status_of, verdict
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -190,7 +190,7 @@ class Optimum:
         trace.get_current_span().set_attributes(self.attributes)
         return self
 
-    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Graduation]":
+    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[Graduation]":
         facts = self.facts
         ledger = {name: float(value) for name, value in facts.items() if isinstance(value, (int, float))}
         bar = ceiling if ceiling is not None else _OUTCOME_CEILING[self.tag]
@@ -305,12 +305,12 @@ async def solve(
     restarts: int = 1,
     seed: int = _SEED,
     composition: ScopeKey = DEFAULT_SCOPE,
-) -> "RuntimeRail[Optimum]":
+) -> "RuntimeResult[Optimum]":
     chosen = descent if descent is not None else _DEFAULT_DESCENT[problem.tag]
 
-    async def dispatch() -> "RuntimeRail[Optimum]":
+    async def dispatch() -> "RuntimeResult[Optimum]":
         return (await lane.offload(Kernel.of(_solve_kernel, KernelTrait.HOSTILE), problem, chosen, restarts, seed)).bind(
-            lambda rail: rail
+            lambda held: held
         )
 
     facts = {"problem": problem.tag, "descent": chosen.tag, "restarts": restarts}
@@ -327,7 +327,7 @@ DESIGN_SHAPE: Final[FaultRow[ComputeLeg]] = FaultRow(
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([DESIGN_SOLVE, DESIGN_SHAPE]))
 
 
-def _solve_kernel(problem: "DesignProblem", chosen: "Descent", restarts: int, seed: int) -> "RuntimeRail[Optimum]":
+def _solve_kernel(problem: "DesignProblem", chosen: "Descent", restarts: int, seed: int) -> "RuntimeResult[Optimum]":
     return boundary(
         DESIGN_SOLVE,
         lambda: _backend(problem, chosen, restarts, seed) if chosen.admits(problem.carried.shape) else _mismatch(problem, chosen),
@@ -335,14 +335,14 @@ def _solve_kernel(problem: "DesignProblem", chosen: "Descent", restarts: int, se
     ).bind(lambda r: r)
 
 
-def _mismatch(problem: "DesignProblem", descent: "Descent") -> "RuntimeRail[Optimum]":
+def _mismatch(problem: "DesignProblem", descent: "Descent") -> "RuntimeResult[Optimum]":
     return Error(DESIGN_SHAPE.raised(descent.tag, problem.tag, str(problem.carried.shape)))
 
 
-def _backend(problem: "DesignProblem", descent: "Descent", restarts: int, seed: int) -> "RuntimeRail[Optimum]":
+def _backend(problem: "DesignProblem", descent: "Descent", restarts: int, seed: int) -> "RuntimeResult[Optimum]":
     objective = problem.carried
-    railed = _backend_outcome(problem.tag, objective, descent, restarts, seed)
-    return _design_key(problem.tag, objective.params, descent, restarts, seed).map(railed)
+    landed = _backend_outcome(problem.tag, objective, descent, restarts, seed)
+    return _design_key(problem.tag, objective.params, descent, restarts, seed).map(landed)
 
 
 def _backend_outcome(tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int) -> "Callable[[ContentKey], Optimum]":
@@ -439,7 +439,7 @@ def _ravel(params: "PyTree") -> "tuple[np.ndarray, Callable[[np.ndarray], PyTree
     return np.concatenate([leaf.ravel() for leaf in leaves]) if leaves else np.zeros(0), unravel
 
 
-def _design_key(tag: str, params: "PyTree", descent: "Descent", restarts: int, seed: int) -> "RuntimeRail[ContentKey]":
+def _design_key(tag: str, params: "PyTree", descent: "Descent", restarts: int, seed: int) -> "RuntimeResult[ContentKey]":
     leaves = [np.asarray(leaf, dtype=float) for leaf in ((params,) if not isinstance(params, (tuple, list)) else params)]
     shape_tag = "".join(f".{i}:{leaf.ndim}x{'x'.join(map(str, leaf.shape))}" for i, leaf in enumerate(leaves))
     policy_tag = f".{descent.tag}.r{restarts}" + (f".s{seed}" if restarts > 1 else "")

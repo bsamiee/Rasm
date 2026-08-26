@@ -120,7 +120,7 @@ Horizontal solvers carry `alpha, kmax=100` and return `tuple[FormDiagram, ForceD
 
 [STACKING]:
 - `compas`(`.api/compas.md`): diagrams and envelopes are `compas.data.Data`/`Mesh` subclasses serialized through `compas.json_dumps`; `_numpy` solvers cross through `compas.rpc.Proxy.function("compas_tna.equilibrium.horizontal_numpy")` and return `(form, force)` directly.
-- `graph/algebra.md` selects TNA through the `FormEngine` sub-enum on the one form-finding case, reads `vertices_attributes("xy"/"xyz")` for the numeric rails, and drives `LoadUpdater` for selfweight through one per-vertex loop.
+- `graph/algebra.md` selects TNA through the `FormEngine` sub-enum on the one form-finding case, reads `vertices_attributes("xy"/"xyz")` for the numeric layers, and drives `LoadUpdater` for selfweight through one per-vertex loop.
 - `compas_fd.fd_numpy` takes the boundary-relaxation force-density solve that `relax_boundary_openings` delegates.
 
 [LOCAL_ADMISSION]:

@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCCLASH]
 
-`ifcclash` owns IFC geometry clash detection for the geometry ifc-analysis rail: it loads IFC models into the OpenCASCADE spatial index through `ifcopenshell.geom.tree`, runs intersection, collision, and clearance tests across `ClashSet` pairs selected by `ClashSource`, and emits `ClashResult` records that `smart_group_clashes` clusters spatially and `export` writes as JSON or a BCF archive. `ifcopenshell` owns the overlap tree as its OCC geometry, and `ifc/analysis.md` composes the engine into its `CLASH` and `BCF` verbs.
+`ifcclash` owns IFC geometry clash detection for the geometry ifc-analysis domain: it loads IFC models into the OpenCASCADE spatial index through `ifcopenshell.geom.tree`, runs intersection, collision, and clearance tests across `ClashSet` pairs selected by `ClashSource`, and emits `ClashResult` records that `smart_group_clashes` clusters spatially and `export` writes as JSON or a BCF archive. `ifcopenshell` owns the overlap tree as its OCC geometry, and `ifc/analysis.md` composes the engine into its `CLASH` and `BCF` verbs.
 
 ## [01]-[PUBLIC_TYPES]
 

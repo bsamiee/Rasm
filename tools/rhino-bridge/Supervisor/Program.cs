@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using Rasm.Bridge.Contract;
 
 namespace Rasm.Bridge.Supervisor;
@@ -30,142 +29,135 @@ internal abstract partial record SupervisorVerb {
 // --- [MODELS] --------------------------------------------------------------------------
 
 internal sealed record SupervisorRuntime(
-    Atom<Option<LeaseToken>> Lease, Atom<Option<int>> LiveHostPid, TimeProvider Clock, SessionPolicy Policy,
-    string ArtifactRoot, string CargoSourceRoot, string LeasePath, string JournalPath, BundleInfo Bundle, CancellationToken Root);
+    Atom<Option<Lease.Token>> Held, Atom<Option<int>> LiveHostPid, TimeProvider Clock, SessionPolicy Policy,
+    string ArtifactRoot, string PayloadRoot, string LeasePath, string JournalPath,
+    string AutosaveDirectory, string DiagnosticReportsDirectory, Seq<string> CrashBaseline, BundleInfo Bundle, CancellationToken Root);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class Verbs {
     internal const int UsageExitCode = 2;
 
-    internal static string Help() {
-        JsonObject document = new() {
+    internal static string Help() =>
+        new JsonObject {
             ["tool"] = "rasm-bridge-supervisor",
             ["stdout"] = "one SessionEnvelope JSON document",
-            ["verbs"] = new JsonArray([.. Cases().Select(selector: static @case => VerbNode(@case: @case))]),
-            ["exitCodes"] = new JsonObject(properties: PhaseStatus.Items
-                .Select(selector: static status => KeyValuePair.Create<string, JsonNode?>(key: status.Key, value: status.ExitCode))
-                .Append(element: KeyValuePair.Create<string, JsonNode?>(key: "usage", value: UsageExitCode))),
-        };
-        return document.ToJsonString();
-    }
+            ["verbs"] = new JsonArray(
+                new JsonObject { ["verb"] = "verify", ["args"] = new JsonArray(new JsonObject { ["name"] = "selection", ["shape"] = "json union: $type in [all|themes|names]" }) },
+                new JsonObject { ["verb"] = "status", ["args"] = new JsonArray() },
+                new JsonObject { ["verb"] = "quit", ["args"] = new JsonArray() }),
+            ["exitCodes"] = new JsonObject(PhaseStatus.Items
+                .Select(static status => KeyValuePair.Create<string, JsonNode?>(status.Key, status.ExitCode))
+                .Append(KeyValuePair.Create<string, JsonNode?>("usage", UsageExitCode))),
+        }.ToJsonString();
 
     internal static Fin<SupervisorVerb> Parse(string[] argv) {
-        ArgumentNullException.ThrowIfNull(argument: argv);
+        ArgumentNullException.ThrowIfNull(argv);
         return argv switch {
-            ["verify", { } selection] => Selection(raw: selection)
-                .Map(f: SupervisorVerb (admitted) => new SupervisorVerb.Verify(Selection: admitted)),
-            ["status"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Status()),
-            ["quit"] => Fin.Succ<SupervisorVerb>(value: new SupervisorVerb.Quit()),
-            _ => Fin.Fail<SupervisorVerb>(error: Error.New(message: "unrecognized invocation: verify <selection-json> | status | quit")),
+            ["verify", { } selection] => Selection(selection).Map(SupervisorVerb (admitted) => new SupervisorVerb.Verify(admitted)),
+            ["status"] => new SupervisorVerb.Status(),
+            ["quit"] => new SupervisorVerb.Quit(),
+            _ => Error.New("unrecognized invocation: verify <selection-json> | status | quit"),
         };
     }
-
-    private static IEnumerable<Type> Cases() =>
-        typeof(SupervisorVerb).GetNestedTypes(bindingAttr: BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(predicate: static candidate => candidate.IsSealed && candidate.IsSubclassOf(c: typeof(SupervisorVerb)));
 
     private static Fin<ScenarioSelection> Selection(string raw) {
         try {
-            return JsonSerializer.Deserialize(json: raw, jsonTypeInfo: BridgeJsonContext.Default.ScenarioSelection) is { } admitted
-                ? Fin.Succ(value: admitted)
-                : Fin.Fail<ScenarioSelection>(error: Error.New(message: "selection decoded to null"));
+            return Optional(JsonSerializer.Deserialize(raw, BridgeJsonContext.Default.ScenarioSelection)).ToFin(Error.New("selection decoded to null"));
         } catch (JsonException decode) {
-            return Fin.Fail<ScenarioSelection>(error: Error.New(message: $"selection is not a ScenarioSelection union document: {decode.Message}"));
+            return Error.New($"selection is not a ScenarioSelection union document: {decode.Message}");
         }
     }
-
-    private static string Shape(Type parameter) =>
-        parameter.GetCustomAttributes<JsonDerivedTypeAttribute>().Select(selector: static derived => derived.TypeDiscriminator?.ToString()).ToArray() is { Length: > 0 } discriminants
-            ? $"json union: $type in [{string.Join(separator: '|', value: discriminants)}]"
-            : parameter == typeof(string) ? "string" : SmartEnumShape(parameter: parameter) ?? parameter.Name;
-
-    private static string? SmartEnumShape(Type parameter) =>
-        parameter.GetProperty(name: "Items", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null) is System.Collections.IEnumerable items
-            ? $"key in [{string.Join(separator: '|', values: items.Cast<object>().Select(selector: static item => item.ToString() ?? string.Empty))}]"
-            : null;
-
-    private static JsonObject ParameterNode(ParameterInfo parameter) => new() {
-        ["name"] = JsonNamingPolicy.CamelCase.ConvertName(name: parameter.Name ?? string.Empty),
-        ["shape"] = Shape(parameter: parameter.ParameterType),
-    };
-
-    private static JsonObject VerbNode(Type @case) => new() {
-        ["verb"] = JsonNamingPolicy.CamelCase.ConvertName(name: @case.Name),
-        ["args"] = new JsonArray([.. @case.GetConstructors()[0].GetParameters().Select(selector: static parameter => (JsonNode)ParameterNode(parameter: parameter))]),
-    };
 }
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
 internal static class Program {
+    private const string ReportsRootMetadata = "RasmBridgeReportsRoot";
+    private const string PayloadDirectory = "payload";
+
     internal static async Task<int> Main(string[] args) {
         if (args.Length == 0 || args[0] is "--help" or "-h" or "help") {
-            await Console.Out.WriteLineAsync(value: Verbs.Help()).ConfigureAwait(false);
+            await Console.Out.WriteLineAsync(Verbs.Help()).ConfigureAwait(false);
             return 0;
         }
-        Fin<SupervisorVerb> parsed = Verbs.Parse(argv: args);
+        Fin<SupervisorVerb> parsed = Verbs.Parse(args);
         if (parsed is not Fin<SupervisorVerb>.Succ(SupervisorVerb verb)) {
-            Diagnose(@event: "argv.rejected", detail: parsed is Fin<SupervisorVerb>.Fail(Error rejection) ? rejection : null);
-            await Console.Out.WriteLineAsync(value: Verbs.Help()).ConfigureAwait(false);
+            Diagnose("argv.rejected", parsed.Match(static _ => string.Empty, static error => error.Message));
+            await Console.Out.WriteLineAsync(Verbs.Help()).ConfigureAwait(false);
             return Verbs.UsageExitCode;
         }
         using CancellationTokenSource interrupt = new();
-        SupervisorRuntime runtime = Compose(root: interrupt.Token);
-        using PosixSignalRegistration sigterm = PosixSignalRegistration.Create(signal: PosixSignal.SIGTERM, handler: ctx => Quench(ctx: ctx, interrupt: interrupt, runtime: runtime));
-        using PosixSignalRegistration sigint = PosixSignalRegistration.Create(signal: PosixSignal.SIGINT, handler: ctx => Quench(ctx: ctx, interrupt: interrupt, runtime: runtime));
-        void OnExit(object? sender, EventArgs args) => _ = Shutdown.Drive(runtime: runtime, reason: "process-exit");
-        EventHandler onExit = OnExit;
-        AppDomain.CurrentDomain.ProcessExit += onExit;
+        string reportsRoot = ReportsRoot();
+        Fin<BundleInfo> discovery = BundleInfo.Discover(SessionPolicy.Default.ToolDeadline);
+        if (discovery is not Fin<BundleInfo>.Succ(BundleInfo bundle)) {
+            return await CompleteAsync(Rejected(verb, discovery.Match(static _ => string.Empty, static error => error.Message), reportsRoot)).ConfigureAwait(false);
+        }
+        SupervisorRuntime runtime = Compose(reportsRoot, bundle, interrupt.Token);
+        using PosixSignalRegistration sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, ctx => Quench(ctx, interrupt, runtime));
+        using PosixSignalRegistration sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, ctx => Quench(ctx, interrupt, runtime));
+        void OnExit(object? sender, EventArgs args) => _ = Shutdown.Drive(runtime, "process-exit");
+        AppDomain.CurrentDomain.ProcessExit += OnExit;
         SessionEnvelope envelope;
         try {
-            envelope = await SessionKernel.RunAsync(verb: verb, runtime: runtime).ConfigureAwait(false);
+            envelope = await new SessionRun(verb, runtime).RunAsync().ConfigureAwait(false);
         } catch (Exception failure) when (failure is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            envelope = SessionFold.Run(
-                runId: Guid.NewGuid().ToString(format: "n"), verb: verb,
-                final: new SessionState.Faulted(
-                    Fault: new BridgeFault.LaunchFailed(Detail: $"{failure.GetType().Name}: {failure.Message}"),
-                    At: verb.EntryPhase, Done: Seq<ScenarioOutcome>()),
-                stream: Seq<BridgeEvent>(), spoolTail: (0L, 0L), reportDir: runtime.ArtifactRoot);
+            envelope = Rejected(verb, $"{failure.GetType().Name}: {failure.Message}", runtime.ArtifactRoot);
         }
-        AppDomain.CurrentDomain.ProcessExit -= onExit;
-        await Console.Out.WriteLineAsync(value: JsonSerializer.Serialize(value: envelope, jsonTypeInfo: BridgeJsonContext.Default.SessionEnvelope)).ConfigureAwait(false);
-        Diagnose(@event: "session.terminal", detail: null, envelope: envelope);
-        return envelope.Status.ExitCode;
+        AppDomain.CurrentDomain.ProcessExit -= OnExit;
+        return await CompleteAsync(envelope).ConfigureAwait(false);
     }
+
+    private static SessionEnvelope Rejected(SupervisorVerb verb, string detail, string reportDir) =>
+        SessionFold.Run(
+            Guid.NewGuid().ToString("n"), verb,
+            new SessionState.Faulted(new BridgeFault.LaunchFailed(detail), verb.EntryPhase, Seq<ScenarioOutcome>()),
+            Seq<BridgeEvent>(), (0L, 0L), reportDir);
 
     private static void Quench(PosixSignalContext ctx, CancellationTokenSource interrupt, SupervisorRuntime runtime) {
-        ArgumentNullException.ThrowIfNull(argument: ctx);
-        _ = Shutdown.Drive(runtime: runtime, reason: ctx.Signal.ToString());
-        if (!interrupt.IsCancellationRequested)
+        _ = Shutdown.Drive(runtime, ctx.Signal.ToString());
+        if (!interrupt.IsCancellationRequested) {
             interrupt.Cancel();
+        }
     }
 
-    private static SupervisorRuntime Compose(CancellationToken root) {
-        string appPath = Environment.GetEnvironmentVariable(variable: "RHINO_WIP_APP_PATH") ?? "/Applications/RhinoWIP.app";
-        string stem = Path.GetFileNameWithoutExtension(path: appPath);
-        BundleInfo bundle = BundleInfo.Discover(toolDeadline: SessionPolicy.Default.ToolDeadline) is Fin<BundleInfo>.Succ(BundleInfo discovered)
-            ? discovered
-            : new BundleInfo(AppPath: appPath, CFBundleName: stem, CFBundleExecutable: stem, CFBundleVersion: string.Empty);
+    private static SupervisorRuntime Compose(string reportsRoot, BundleInfo bundle, CancellationToken root) {
+        string diagnosticReports = Path.Combine(BundleInfo.UserLibraryDirectory, "Logs", "DiagnosticReports");
         return new SupervisorRuntime(
-            Lease: Atom(value: Option<LeaseToken>.None),
-            LiveHostPid: Atom(value: Option<int>.None),
+            Held: Atom(Option<Lease.Token>.None),
+            LiveHostPid: Atom(Option<int>.None),
             Clock: TimeProvider.System,
-            Root: root,
             Policy: SessionPolicy.Default,
-            ArtifactRoot: Path.Combine(Environment.CurrentDirectory, ".artifacts", "dotnet", "bridge"),
-            CargoSourceRoot: AppContext.BaseDirectory,
+            ArtifactRoot: reportsRoot,
+            PayloadRoot: Path.Combine(AppContext.BaseDirectory, PayloadDirectory),
             LeasePath: Lease.CanonicalPath,
             JournalPath: QuitJournal.CanonicalPath,
-            Bundle: bundle);
+            AutosaveDirectory: Path.Combine(BundleInfo.UserLibraryDirectory, "Autosave Information"),
+            DiagnosticReportsDirectory: diagnosticReports,
+            CrashBaseline: Reconcile.Reports(diagnosticReports, bundle.CrashReportPattern),
+            Bundle: bundle,
+            Root: root);
     }
 
-    private static void Diagnose(string @event, Error? detail, SessionEnvelope? envelope = null) =>
-        Console.Error.WriteLine(value: new JsonObject {
+    private static string ReportsRoot() =>
+        typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(static metadata => string.Equals(metadata.Key, ReportsRootMetadata, StringComparison.Ordinal))
+            .Value is { Length: > 0 } configured
+                ? configured
+                : throw new InvalidOperationException($"assembly metadata '{ReportsRootMetadata}' has no path");
+
+    private static async Task<int> CompleteAsync(SessionEnvelope envelope) {
+        await Console.Out.WriteLineAsync(JsonSerializer.Serialize(envelope, BridgeJsonContext.Default.SessionEnvelope)).ConfigureAwait(false);
+        Diagnose("session.terminal", detail: null, envelope);
+        return envelope.ExitCode;
+    }
+
+    private static void Diagnose(string @event, string? detail, SessionEnvelope? envelope = null) =>
+        Console.Error.WriteLine(new JsonObject {
             ["event"] = @event,
-            ["detail"] = detail?.Message,
+            ["detail"] = detail,
             ["runId"] = envelope?.RunId,
-            ["status"] = envelope?.Status.Key,
-            ["exit"] = envelope?.Status.ExitCode,
+            ["status"] = envelope?.Status.Overall.Key,
+            ["exit"] = envelope?.ExitCode,
         }.ToJsonString());
 }

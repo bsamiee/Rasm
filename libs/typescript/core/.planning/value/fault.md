@@ -9,7 +9,7 @@
 - Each row renders its own detail, so no raise carries a free-string `detail` field and no class hand-writes a `message` template.
 - `Fault.Class.family(…).census` mints the accumulating-admission carrier from that same roster.
 - A family value IS its own vocabulary, so a word-counting instrument takes the family and no consumer restates the roster.
-- `Fault.Class.spent` is the estate's one bound-exhaustion family — `Shape.Bound` units ARE its reasons, so no owner mints a private spent row.
+- `Fault.Class.spent` is the repo's one bound-exhaustion family — `Shape.Bound` units ARE its reasons, so no owner mints a private spent row.
 - Re-declaring `{ issues, class, message }` at a folder forks one taxonomy into two.
 - Law: one stated window rides THREE altitudes under three words — wire `retry_after`, class band `throttled`, value `after` — and none renames.
 - Each altitude answers a different producer, lifetime, and reader, so one shared spelling claims a single authority where three answer.
@@ -431,7 +431,7 @@ const _degrade = {
 
 ## [05]-[DROP_LEDGER]
 
-`Fault.Drop` closes the estate's bounded-loss vocabulary; `Fault.Ledger` folds those facts into one per-reason census.
+`Fault.Drop` closes the repo's bounded-loss vocabulary; `Fault.Ledger` folds those facts into one per-reason census.
 
 - A drop is a MEASURED loss, never a refusal — the fact rides the same band as the survivors, so one stream carries both.
 - A silent `filter`, `take`, or empty return fuses "the peer sent nothing" with "this fold discarded what it sent".

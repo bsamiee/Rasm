@@ -54,7 +54,7 @@ Columns carry one identical value down every row, restating a universal fact per
 - Detection: Flag a column whose cells all hold one identical value.
 - Rejected:
     ```markdown
-    | [INDEX] | [SYMBOL] | [RAIL]        |
+    | [INDEX] | [SYMBOL] | [CARRIER]     |
     | :-----: | :------- | :------------ |
     |  [01]   | `Alpha`  | serialization |
     |  [02]   | `Beta`   | serialization |
@@ -63,7 +63,7 @@ Columns carry one identical value down every row, restating a universal fact per
 - Accepted:
 
     ```markdown
-    - [RAIL]: serialization
+    - [CARRIER]: serialization
 
     | [INDEX] | [SYMBOL] |
     | :-----: | :------- |

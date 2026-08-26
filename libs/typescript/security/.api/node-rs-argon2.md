@@ -18,7 +18,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: mint and check on an async rail and its blocking mirror; `Options` is optional on every member, and each async member takes a trailing optional `AbortSignal`
+[ENTRYPOINT_SCOPE]: mint and check on an async API and its blocking mirror; `Options` is optional on every member, and each async member takes a trailing optional `AbortSignal`
 
 | [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                               |
 | :-----: | :---------------------------------------------------------------------------- | :------ | :----------------------------------------- |

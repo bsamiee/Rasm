@@ -44,7 +44,7 @@ Prose describes the artifact's own job, its siblings, the doc-set contract, or a
 
 ## [05]-[TWIN_TRUTH]
 
-One fact carried at more than one tier or in more than one wording — a seam restated across tiers, a sibling's mechanics re-taught at the consumer, a legal prohibition recited as liturgy on every page of a folder. Each copy is independently mutable; the truth forks on first edit.
+One fact carried at more than one tier or in more than one wording — a boundary restated across tiers, a sibling's mechanics re-taught at the consumer, a legal prohibition recited as liturgy on every page of a folder. Each copy is independently mutable; the truth forks on first edit.
 
 - Detection: Flag a key term with a second prose owner, even in agreement; a doctrine on every page of a folder is this class, not diligence.
 - [REJECTED]: The same "a second store is the named defect" clause closing forty pages.

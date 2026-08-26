@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_PYE57]
 
-`pye57` owns E57 (`.e57`) point-cloud file IO over the libe57 (`xerces-c`) C++ core: an `E57` handle for multi-scan read/write and `numpy` field-buffer allocation, a `ScanHeader` typed view over each scan node (pose, bounds, acquisition times, count, fields), the `COORDINATE_SYSTEMS` enum carrying the Cartesian/spherical field-name maps, and a `convert_spherical_to_cartesian` projection. Geometry's scan owner folds `E57.read_scan` into one global-frame field-keyed `numpy` dict for the downstream registration and mesh rails, never hand-rolling E57 binary or raw libe57 node parsing.
+`pye57` owns E57 (`.e57`) point-cloud file IO over the libe57 (`xerces-c`) C++ core: an `E57` handle for multi-scan read/write and `numpy` field-buffer allocation, a `ScanHeader` typed view over each scan node (pose, bounds, acquisition times, count, fields), the `COORDINATE_SYSTEMS` enum carrying the Cartesian/spherical field-name maps, and a `convert_spherical_to_cartesian` projection. Geometry's scan owner folds `E57.read_scan` into one global-frame field-keyed `numpy` dict for the downstream registration and mesh stages, never hand-rolling E57 binary or raw libe57 node parsing.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -105,7 +105,7 @@ Each `SUPPORTED_*_POINT_FIELDS` is a `dict[str, str]` field-name -> `numpy` dtyp
 - `small-gicp`(`.api/small-gicp.md`): the `(N,3)` `cartesianX`/`cartesianY`/`cartesianZ` array is direct `align(target_points, source_points)` / `preprocess_points(points, ...)` numpy intake, no re-pack.
 - `pdal`(`.api/pdal.md`): the field-keyed dict becomes a structured `numpy` array threaded through `stage.pipeline(*arrays)`; pdal's native `Reader.e57` is the on-disk alternative when the block is not already resident.
 - `laspy`(`python/data/.api/laspy.md`): the XYZ-plus-attribute dict lands on `LasData.xyz` and the point-format dims for LAS/LAZ egress via `laspy.open(path, 'w')`.
-- geometry scan owner: `E57.read_scan(index, transform=True)` folds to the one global-frame field dict every downstream registration and mesh rail consumes.
+- geometry scan owner: `E57.read_scan(index, transform=True)` folds to the one global-frame field dict every downstream registration and mesh domain consumes.
 
 [LOCAL_ADMISSION]:
-- pye57 is the sole E57 (`.e57`) intake/egress owner on the geometry scan rail; raw libe57 node trees stay at the boundary and never cross into domain code.
+- pye57 is the sole E57 (`.e57`) intake/egress owner on the geometry scan domain; raw libe57 node trees stay at the boundary and never cross into domain code.

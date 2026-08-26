@@ -12,7 +12,7 @@ Drawing STANDARDS are the kernel's whole: margins come from `SheetFrame`, model 
 - [03]-[SPEC_AXES]: admitted extents, origins, resolution, subject, area, scale, media layout, and the `CaptureFeature` capability table with its per-surface rosters.
 - [04]-[ARTIFACT_ROWS]: the transparent and depth request specifications, the depth projection/payload pair, and the one `CaptureArtifact` family with its coverage carriage.
 - [05]-[FRAME_SEQUENCE]: document-custodied animation capture — sequence kinds, the `SunWindow` calendar family, output rows, the generated host transcription, and the sequence outcome.
-- [06]-[RUN_RAIL]: sink-free plans, the modality union with its own demand and identity, the nested preparation bracket, and the one measured execution fold.
+- [06]-[RUN_PIPELINE]: sink-free plans, the modality union with its own demand and identity, the nested preparation bracket, and the one measured execution fold.
 
 ## [02]-[FAULT]
 
@@ -22,7 +22,7 @@ Drawing STANDARDS are the kernel's whole: margins come from `SheetFrame`, model 
 - Law: the generated fault-case identity supplies the numeric code, while this root's total `Message` switch supplies presentation.
 - Law: measurement decorates a successful artifact; failure preserves the original cause without minting a viewport wrapper.
 - Law: no category or string identity is stored or wired; telemetry projects the numeric identity only for domain faults.
-- Packages: `Domain/rails` for `FaultBand` and the rail; Thinktecture.Runtime.Extensions for generated unions and values; `Modeling/solids` for `BenchEvidence`.
+- Packages: `Domain/results` for `FaultBand` and the result carrier; Thinktecture.Runtime.Extensions for generated unions and values; `Modeling/solids` for `BenchEvidence`.
 - Growth: a new refusal class is one case, one offset row, and one message row inside the band's span; the band's own span guard throws at type init when the span is spent.
 - Boundary: `ViewportFault` is the Viewport family alone — Exchange, Render, Plugin, and Persistence each mint their own on their own band row, and the kernel `UiFault` stays the one UI refusal family.
 
@@ -84,7 +84,6 @@ public readonly partial struct Size2i : IDisallowDefaultValue {
     public int Width { get; }
     public int Height { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int width, ref int height) =>
         validationError = ValidityClaim.All(width > 0, height > 0, (long)width * height <= int.MaxValue)
             ? validationError
@@ -103,7 +102,6 @@ public readonly partial struct Offset2i {
     public int X { get; }
     public int Y { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int x, ref int y) =>
         validationError = ValidityClaim.All(x >= 0, y >= 0)
             ? validationError
@@ -118,7 +116,6 @@ public readonly partial struct Offset2i {
 [ValueObject<double>]
 [ValidationError]
 public readonly partial struct CaptureDpi : IDisallowDefaultValue {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = ValidityClaim.All(ValidityClaim.Finite(value), value > 0.0)
             ? validationError
@@ -313,7 +310,6 @@ public sealed partial class CaptureCrop {
     public Offset2i Origin { get; }
     public Size2i Extent { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Size2i media,
@@ -337,7 +333,6 @@ public sealed partial class CaptureOffset {
     public double X { get; }
     public double Y { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ModelUnit units,
@@ -361,7 +356,6 @@ public sealed partial class CaptureBanner {
     public string Header { get; }
     public string Footer { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string header,
@@ -650,7 +644,7 @@ public sealed partial class CaptureDecor {
 }
 ```
 
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ValueObject]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); UnitsNet (`Length.As(LengthUnit)`, `LengthUnit.DtpPoint`, `Length.Millimeters`); `Rasm/Drawing/sheet` (`SheetSize`, `SheetMargin`, `SheetFrame`, `DrawingScale`, `LineGroup`, `LineWidth`, `Terminator`, `TextHeight`, `PlotResolution`); `Rasm/Domain/validation` (`ICapability`, `CapabilitySet`, `Require`); `Rasm/Domain/rails` (`Op`, `Lease<T>`, `ValidityClaim`, `FaultBand`); `Rasm.Rhino/.api/api-rhinocommon-display.md` (`ViewCaptureSettings`, `ViewCapture`, `ZBufferCapture`); `Rasm.Rhino/.api/api-rhinocommon-document.md` (`AnimationProperties`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ValueObject]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); UnitsNet (`Length.As(LengthUnit)`, `LengthUnit.DtpPoint`, `Length.Millimeters`); `Rasm/Drawing/sheet` (`SheetSize`, `SheetMargin`, `SheetFrame`, `DrawingScale`, `LineGroup`, `LineWidth`, `Terminator`, `TextHeight`, `PlotResolution`); `Rasm/Domain/validation` (`ICapability`, `CapabilitySet`, `Require`); `Rasm/Domain/results` (`Op`, `Lease<T>`, `ValidityClaim`, `FaultBand`); `Rasm.Rhino/.api/api-rhinocommon-display.md` (`ViewCaptureSettings`, `ViewCapture`, `ZBufferCapture`); `Rasm.Rhino/.api/api-rhinocommon-document.md` (`AnimationProperties`).
 - Growth: a new host toggle is one `CaptureFeature` row declaring the surfaces it writes; a new projection surface is one `CaptureSurface` row and one `Apply` column argument; a new media frame is one `MediaLayout` case.
 
 ## [04]-[ARTIFACT_ROWS]
@@ -658,8 +652,8 @@ public sealed partial class CaptureDecor {
 - Owner: `TransparentCaptureSpec` and `DepthCaptureSpec` are the two facade requests this page drives; `DepthProjection` is the depth REQUEST vocabulary and `DepthPayload` the RESULT it produces, one shape per side of the same three questions; `DepthField` joins the payload to the buffer census; `CaptureArtifact` is the one result family, and `RunOutcome` its neutral shell projection.
 - Entry: `TransparentCaptureSpec.Of` and `DepthCaptureSpec.Of` admit their address through `TargetReach` and their feature set through `CaptureSurface`; `CaptureArtifact.Raster(mint, extent, coverage, key)` takes custody of a host raster at the moment it is minted.
 - Law: the depth PROJECTION and the depth PAYLOAD are two vocabularies over three questions, not one declared twice — `DepthProjection.SamplesCase` carries the pixels a caller asked about and `DepthPayload.SamplesCase` the samples the buffer answered. Each site names which side it is on: one family carries a request column absent from every result beside a result column absent from every request, so the two vocabularies stay two.
-- Law: depth configuration precedes projection — `SetDisplayMode` and every `Show*` write invalidate the native grayscale cache, so the depth rail applies mode and channels once, then projects. `MinZ`/`MaxZ`/`ZValueAt` return `float` host precision carried unwidened; `WorldPointAt` is the per-pixel screen-to-world unprojection a single-distance camera read cannot answer; `GrayscaleDib` returns the capture-cached bitmap, which SURVIVES capsule disposal, so the grayscale row is its ONE caller and hands it straight into a lease — a sampling arm reaching it for pixel bounds pays a full grayscale render and leaks that bitmap, so sample bounds read the bound viewport's own `Size` instead.
-- Law: a raster leaves under kernel custody with its coverage carriage DECLARED. `RasterCase` carries `Lease<System.Drawing.Bitmap>` and the `AlphaLayout` its request implies — `Straight` where the transparent facade was asked for an alpha background, `Opaque` where the settings rail draws none, because transparency exists only on the instance facade — so a consumer reads pixels through `PixelLease`'s GDI arities against a carriage it was handed rather than one it guessed. The `owned = null` try/finally the prior page spelled at two sites has no successor: the extent is the REQUEST's own, so nothing between acquisition and construction can fail.
+- Law: depth configuration precedes projection — `SetDisplayMode` and every `Show*` write invalidate the native grayscale cache, so the depth pipeline applies mode and channels once, then projects. `MinZ`/`MaxZ`/`ZValueAt` return `float` host precision carried unwidened; `WorldPointAt` is the per-pixel screen-to-world unprojection a single-distance camera read cannot answer; `GrayscaleDib` returns the capture-cached bitmap, which SURVIVES capsule disposal, so the grayscale row is its ONE caller and hands it straight into a lease — a sampling arm reaching it for pixel bounds pays a full grayscale render and leaks that bitmap, so sample bounds read the bound viewport's own `Size` instead.
+- Law: a raster leaves under kernel custody with its coverage carriage DECLARED. `RasterCase` carries `Lease<System.Drawing.Bitmap>` and the `AlphaLayout` its request implies — `Straight` where the transparent facade was asked for an alpha background, `Opaque` where the settings pipeline draws none, because transparency exists only on the instance facade — so a consumer reads pixels through `PixelLease`'s GDI arities against a carriage it was handed rather than one it guessed. The `owned = null` try/finally the prior page spelled at two sites has no successor: the extent is the REQUEST's own, so nothing between acquisition and construction can fail.
 - Law: vector egress is exactly the formats the host writes — `ViewCaptureWriter` is not a delivery row, on the catalogued unreachability (`api-rhinocommon-runtime.md` `[ENTRYPOINT_SCOPE]`): its one drive entry is `Draw(nint constPtrPrintInfo, RhinoDoc)`, `ViewCaptureSettings.ConstPointer()` is `internal`, and no public `ViewCapture` member accepts a writer, so a subclass compiles and never receives a frame. The refusal is host-shaped, not permanent, and the catalog row is where a bundle publishing a public frame source surfaces.
 - Boundary: DELIVERY is not here. `Exchange/publish` owns the `Landing` union whose raster, vector, and printer arms consume `Captures.Stage`'s prepared batch and mint the matching `CaptureArtifact` cases; this page publishes the sink-free preparation and the artifact vocabulary, so Viewport (S3) never names Exchange (S4) and the forbidden upward edge cannot exist.
 - Boundary: `CaptureArtifact.Summary` is the neutral run projection the shell's completion-notice row consumes; the artifact family itself never reaches a notification surface, because every announce operand beyond the outcome — the localized label, the observer that receives the reply, the timeline that stamps it — belongs to the caller, and a scripted or bridge-run capture must reach no notification surface at all.
@@ -798,7 +792,7 @@ public sealed record DepthCaptureSpec(
 }
 ```
 
-- Packages: `Rasm/Domain/rails` (`Lease<T>`, `Op`); `Rasm/Interaction/paint` (`AlphaLayout`, `PixelLease` GDI arities); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/HostUi/shell` (`RunOutcome`, `HostText`); `Rasm.Rhino/Modeling/solids` (`BenchEvidence`); BCL `System.Xml` (`XmlDocument`), `System.Drawing` (`Bitmap`).
+- Packages: `Rasm/Domain/results` (`Lease<T>`, `Op`); `Rasm/Interaction/paint` (`AlphaLayout`, `PixelLease` GDI arities); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/HostUi/shell` (`RunOutcome`, `HostText`); `Rasm.Rhino/Modeling/solids` (`BenchEvidence`); BCL `System.Xml` (`XmlDocument`), `System.Drawing` (`Bitmap`).
 - Growth: a new artifact modality is one `CaptureArtifact` case with every `Summary` arm loudly broken; a new depth question is one `DepthProjection` case and one `DepthPayload` case landing together.
 
 ## [05]-[FRAME_SEQUENCE]
@@ -1161,19 +1155,19 @@ internal static partial class SequenceMap {
 }
 ```
 
-- Packages: NodaTime (`LocalDate`, `LocalTime`, `Duration`, `Period`); Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MappingTarget]`, `[UserMapping]`, `RequiredMappingStrategy.Source`); Thinktecture.Runtime.Extensions; LanguageExt.Core (`Validation`, `.Apply`, `Traverse`); `Rasm/Numerics/calculus` (`SolarSite`); `Rasm/Drawing/sheet` (`NorthPosture`); `Rasm/Domain/rails` (`Op`); `Rasm.Rhino/.api/api-rhinocommon-document.md` (`AnimationProperties`).
+- Packages: NodaTime (`LocalDate`, `LocalTime`, `Duration`, `Period`); Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MappingTarget]`, `[UserMapping]`, `RequiredMappingStrategy.Source`); Thinktecture.Runtime.Extensions; LanguageExt.Core (`Validation`, `.Apply`, `Traverse`); `Rasm/Numerics/calculus` (`SolarSite`); `Rasm/Drawing/sheet` (`NorthPosture`); `Rasm/Domain/results` (`Op`); `Rasm.Rhino/.api/api-rhinocommon-document.md` (`AnimationProperties`).
 - Growth: a new motion study is one `SequenceKind` case and one `SequenceMode` row on the host ordinal; a new calendar window is one `SunWindow` case; a new output column is one member with its `[MapProperty]` row.
 
-## [06]-[RUN_RAIL]
+## [06]-[RUN_PIPELINE]
 
-- Owner: `CapturePlan` is the sink-free preparation value the whole estate shares; `CaptureRequest` closes the three modalities this page executes and answers its OWN session demand and bench identity; `PrepareGate` and `PreparedCapture` are the prepared-program window; `Captures` is the one run rail.
-- Entry: `Captures.Run(DocumentSession, MonotonicTimeline, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution rail; `CaptureRequest.Transparent`/`Depth`/`Sequence` admit each modality; internal `Captures.Stage(session, plans, consume, key)` shares settings acquisition with the Exchange landing without exposing `ViewCaptureSettings`.
+- Owner: `CapturePlan` is the sink-free preparation value the whole module shares; `CaptureRequest` closes the three modalities this page executes and answers its OWN session demand and bench identity; `PrepareGate` and `PreparedCapture` are the prepared-program window; `Captures` is the one run pipeline.
+- Entry: `Captures.Run(DocumentSession, MonotonicTimeline, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution entry; `CaptureRequest.Transparent`/`Depth`/`Sequence` admit each modality; internal `Captures.Stage(session, plans, consume, key)` shares settings acquisition with the Exchange landing without exposing `ViewCaptureSettings`.
 - Auto: the crossing DERIVES from the request — `Needs` answers the session demand, `Identity` the bench operation and input scale — so `Run` is one marshal, one measurement, and one three-armed dispatch, where the prior page carried four near-identical `*Run` helpers differing only in those two columns.
 - Law: preparation is a NEST, not a fold with hand compensation. Each plan's native settings enter under `Lease<ViewCaptureSettings>` and the next plan prepares INSIDE that lease's `Use`, so a refusal partway through unwinds the frames already entered, each releasing its own row through the kernel's ruled aggregation — a cleanup fault ALWAYS appends to the primary and never rides a discard. Reverse release order and partial-batch compensation are consequences of the nesting, so neither a `Rev()` nor a merge fold survives on this page.
 - Law: the prepared window is a CLOSED state, not a boolean. `PrepareGate` steps `Live → Released` through `Cell.Step` when the nest unwinds, so a `Use` after release reads a typed `InvalidContext` and a second release is a declined step rather than a repeated teardown.
 - Law: preparation applies viewport → area → layout → scale → decoration exactly once, then derives a preview from that completed basis when requested. Viewport binding precedes window projection, aspect matching, and fit scaling, and the bound viewport is the resolved row's own — a page address resolves to `RhinoPageView.MainViewport` and a detail address to `DetailViewObject.Viewport` at the target resolution, so no capture-side re-addressing exists. A settings handle never appears on a public signature.
 - Law: bench identity spells the REQUEST factory (`nameof(CaptureRequest.<verb>)`), never the private staging helper that happens to share the verb's name — an unqualified `nameof` binds the helper and re-keys every recorded row the moment that helper is renamed.
-- Law: run-rail timing stamps `CaptureArtifact.Bench` on success; failure keeps the original cause, and no second measurement fault exists.
+- Law: run-pipeline timing stamps `CaptureArtifact.Bench` on success; failure keeps the original cause, and no second measurement fault exists.
 - Boundary: every entry crosses the kernel dispatch on the immediate lane and proves its own `SessionNeed` set inside the same window — `UiThread.Run(new UiDispatch<T>.Blocking(() => session.Demand(…)), DispatchLane.Immediate, key)` — so the crossing asserts the thread and the demand serializes the host call, and neither authority is re-derived at a call site. Target resolution, host work, and release stay inside that scope.
 
 ```csharp
@@ -1432,7 +1426,7 @@ public static class Captures {
 }
 ```
 
-- Packages: `Rasm/Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Immediate`); `Rasm/Domain/rails` (`Lease<T>`, `Cell.Step`, `Transition<T>`, `Op`); `Rasm/Parametric/projections` (`MonotonicTimeline`); `Rasm.Rhino/Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Rasm.Rhino/Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); `Rasm.Rhino/Document/tables` (`ViewportTarget`, `ViewportRef`); `Rasm.Rhino/Modeling/solids` (`BenchBand.Measured`, `BenchEvidence`); LanguageExt.Core (`Atom`, `Fold`, `guard`).
+- Packages: `Rasm/Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Immediate`); `Rasm/Domain/results` (`Lease<T>`, `Cell.Step`, `Transition<T>`, `Op`); `Rasm/Parametric/projections` (`MonotonicTimeline`); `Rasm.Rhino/Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Rasm.Rhino/Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); `Rasm.Rhino/Document/tables` (`ViewportTarget`, `ViewportRef`); `Rasm.Rhino/Modeling/solids` (`BenchBand.Measured`, `BenchEvidence`); LanguageExt.Core (`Atom`, `Fold`, `guard`).
 - Growth: a new capture modality is one `CaptureRequest` case answering its own `Needs` and `Identity`, and one `Run` arm — the marshal, the demand window, and the measurement are untouched.
 
 Question: how does each admitted `Run` request reach one `CaptureArtifact` while every native handle stays leased?

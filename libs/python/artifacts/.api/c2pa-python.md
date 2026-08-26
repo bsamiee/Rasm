@@ -1,13 +1,13 @@
 # [PY_ARTIFACTS_API_C2PA_PYTHON]
 
-`c2pa-python` owns the C2PA content-credentials rail for `artifacts` provenance: a `Builder` embeds a signed manifest from a JSON definition into an asset, a `Reader` extracts and validates a manifest store, and a `Signer` family mints the COSE signer across the ES/PS/ED25519 algorithms. Native core `libc2pa_c` owns JUMBF/COSE encoding and validation-state computation; asset bytes cross as streams or paths supplied by the imaging and document owners, and certificate material comes from the campaign signer config, never minted here.
+`c2pa-python` owns the C2PA content-credentials domain for `artifacts` provenance: a `Builder` embeds a signed manifest from a JSON definition into an asset, a `Reader` extracts and validates a manifest store, and a `Signer` family mints the COSE signer across the ES/PS/ED25519 algorithms. Native core `libc2pa_c` owns JUMBF/COSE encoding and validation-state computation; asset bytes cross as streams or paths supplied by the imaging and document owners, and certificate material comes from the campaign signer config, never minted here.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: builder, reader, signer, and configuration roots
-- rail: provenance
+- concern: provenance
 
-`Builder`, `Reader`, `Signer`, `Settings`, and `Context` are context managers with a `close()`/`is_valid` handle lifecycle; `Builder` closes after its single `sign`, and a `Signer` is consumed when attached to a `Context`. `C2paError` is the base of the typed subclass family, so one `except C2paError` rail traps every fault and per-subclass arms discriminate codec, signature, verify, and not-found failures.
+`Builder`, `Reader`, `Signer`, `Settings`, and `Context` are context managers with a `close()`/`is_valid` handle lifecycle; `Builder` closes after its single `sign`, and a `Signer` is consumed when attached to a `Context`. `C2paError` is the base of the typed subclass family, so one `except C2paError` layer traps every fault and per-subclass arms discriminate codec, signature, verify, and not-found failures.
 
 [C2PA_ERROR_SUBCLASSES]: `Assertion` `AssertionNotFound` `Decoding` `Encoding` `FileNotFound` `Io` `Json` `Manifest` `ManifestNotFound` `NotSupported` `Other` `RemoteManifest` `ResourceNotFound` `Signature` `Verify`
 
@@ -39,7 +39,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Builder` author and sign
-- rail: provenance
+- concern: provenance
 
 `Builder` constructs from a JSON manifest definition (string or dict); `from_json` names the factory and `from_archive` rehydrates from a written archive stream. `sign` discriminates on its first argument — a `Signer` signs explicitly, a format `str` signs with the `Context` signer — is single-use, closes the builder, and buffers into an in-memory `BytesIO` when `dest` is omitted. Members carry `str | dict` for the `*_json` args, `Optional[ContextProvider]` for `context`, and file-like `source`/`stream`/`dest`.
 
@@ -64,7 +64,7 @@
 |  [17]   | `get_supported_mime_types() -> list[str]`                     | static   | native signable MIME types                 |
 
 [ENTRYPOINT_SCOPE]: `Reader` extract and validate
-- rail: provenance
+- concern: provenance
 
 `Reader(format_or_path)` opens a manifest store keyed by argument shape: a sole path resolves the MIME type and opens the file, a `(format, stream)` pair reads an open stream, a `(format, path)` pair reads a named path. `try_create` returns `None` instead of raising `ManifestNotFound` when an asset carries no Content Credentials. Both `Reader` and `try_create` carry `(format_or_path, stream=None, manifest_data=None, context=None)`.
 
@@ -86,7 +86,7 @@
 |  [14]   | `get_supported_mime_types() -> list[str]`                  | static   | native readable MIME types                  |
 
 [ENTRYPOINT_SCOPE]: signer, settings, and module functions
-- rail: provenance
+- concern: provenance
 
 `Signer.from_info` builds a COSE signer from a populated `C2paSignerInfo`; `Signer.from_callback` builds one from an external signing callback with its algorithm and PEM cert chain. `Settings`/`Context` carry per-instance configuration into `Builder`/`Reader`, and `load_settings` sets process-wide thread-local defaults. `format_embeddable` rewraps a detached manifest into embeddable wire form; `ed25519_sign` is the in-process Ed25519 raw-signature primitive a `from_callback` digest-signer composes.
 
@@ -118,18 +118,18 @@
 - `Builder.sign` is the one signing surface keyed by first-argument shape (a `Signer` signs explicitly, a format `str` signs with the `Context` signer); `sign_file` is the path-to-path row.
 - `Reader(format_or_path)` is the one extraction surface keyed by argument shape; `try_create` maps `ManifestNotFound` to `None`; `json`/`detailed_json`/`crjson` are projection rows over the same store, never parallel reader types.
 - `validation_state` and `validation_results` are fields read off the parsed store, never a locally recomputed verdict.
-- `Signer.from_info`/`from_callback` are the two signer seams; the algorithm is a `C2paSigningAlg` row across ES/PS/ED25519, never a per-algorithm signer type.
+- `Signer.from_info`/`from_callback` are the two signer boundaries; the algorithm is a `C2paSigningAlg` row across ES/PS/ED25519, never a per-algorithm signer type.
 - evidence: `CredentialEvidence` carries `sdk_version`, signer, embedded/remote disposition, manifest identity, `validation_state`, and validation-code partitions.
 
 [STACKING]:
 - `expression`(`libs/python/.api/expression.md`): `Reader.try_create`'s `Optional[Reader]` and `Reader.with_fragment`'s raised `ManifestNotFound` fold onto one `Option[Reader]` (`Option.of_optional` for the `None`, an `except C2paError.ManifestNotFound: Nothing` arm for the raise), so a credential-free asset or fragment projects `CredentialEvidence.unsigned` symmetrically; `Reader.get_remote_url()`'s `Optional[str]` projects through `Option.of_optional(...).default_value("")`. `Provenance` is the closed `@tagged_union(frozen=True)` whose `Sign`/`Read`/`ReadFragment`/`Embed`/`ArchiveIngredient` cases close under `assert_never`.
 - `msgspec`(`libs/python/.api/msgspec.md`): `Reader.json()` decodes once through a module-level `json.Decoder(type=_Store)` into a typed `_Store`/`_Manifest`/`_ValidationResults` tree with `rename=` mapping the camelCase store keys; the heterogeneous per-assertion `data` holds opaque as `msgspec.Raw`, decoded to `_ActionData` only for the `c2pa.actions` label. This collapses the `get_active_manifest`/`get_validation_state`/`get_validation_results`/`get_manifest` accessor family into one typed read.
-- `beartype`(`libs/python/.api/beartype.md`): the `SignerSpec._cose(policy)` projector over the `Signer.from_info`/`from_callback` seam carries `@beartype(conf=FAULT_CONF)`, so a malformed signer field faults at the boundary instead of inside ctypes.
+- `beartype`(`libs/python/.api/beartype.md`): the `SignerSpec._cose(policy)` projector over the `Signer.from_info`/`from_callback` boundary carries `@beartype(conf=FAULT_CONF)`, so a malformed signer field faults at the boundary instead of inside ctypes.
 - `stamina`(`libs/python/runtime/.api/stamina.md`): `@stamina.retry(on=(C2paError.RemoteManifest, C2paError.Io), attempts=3)` weaves `_run` so only remote-manifest and I/O transients re-attempt; the typed subclass family makes `C2paError.Decoding`/`Signature`/`NotSupported` surface immediately, where `except C2paError` over-traps.
-- `anyio`(`libs/python/.api/anyio.md`): the native `libc2pa_c` core is GIL-releasing and the `ta_url`/remote transport is blocking I/O, so `Builder.sign`/`Reader.json`/`with_fragment` cross the `LanePolicy.offload(Kernel.of(..., KernelTrait.RELEASING))` seam that owns the band, boundary, and rail; the in-process ctypes binding needs no `HOSTILE` process crossing.
+- `anyio`(`libs/python/.api/anyio.md`): the native `libc2pa_c` core is GIL-releasing and the `ta_url`/remote transport is blocking I/O, so `Builder.sign`/`Reader.json`/`with_fragment` cross the `LanePolicy.offload(Kernel.of(..., KernelTrait.RELEASING))` boundary that owns the band, boundary, and result; the in-process ctypes binding needs no `HOSTILE` process crossing.
 - `xxhash`(`libs/python/.api/xxhash.md`) via runtime `content_identity`: `ContentIdentity.key("credential.<tag>", asset_bytes)` mints the `ContentKey` after the thread returns, its canonical preimage the complete signed-asset octets `Builder.sign` returns and the identical octets handed to `Reader`, so every producer (the `dotnet:Rasm.Persistence` `XxHash128` re-derivation included) hashes one byte sequence and the keys collide by construction.
-- within-lib `Signer.from_callback` seam: the external callback returns raw COSE signature bytes for a digest, so private-key material stays in the `cryptography` keyring or an HSM and `c2pa` never holds it; `C2paSigningAlg` and the PEM `certs` chain are the only crypto config crossing the seam.
-- within-lib AI-provenance seam: a generated asset sets `Builder.set_intent(C2paBuilderIntent.CREATE, C2paDigitalSourceType.TRAINED_ALGORITHMIC_MEDIA)`, so the digital-source type is the table-driven AI-origin signal the verifier reads rather than a free-text manifest field.
+- within-lib `Signer.from_callback` boundary: the external callback returns raw COSE signature bytes for a digest, so private-key material stays in the `cryptography` keyring or an HSM and `c2pa` never holds it; `C2paSigningAlg` and the PEM `certs` chain are the only crypto config crossing the boundary.
+- within-lib AI-provenance boundary: a generated asset sets `Builder.set_intent(C2paBuilderIntent.CREATE, C2paDigitalSourceType.TRAINED_ALGORITHMIC_MEDIA)`, so the digital-source type is the table-driven AI-origin signal the verifier reads rather than a free-text manifest field.
 
 [LOCAL_ADMISSION]:
-- Sole C2PA Content-Credentials owner for `artifacts`. `Reader`'s readable MIME set exceeds the `Builder` signable set by PDF and the raw-camera `arw`/`nef` formats, read-only here, so a PDF or raw-camera asset routes to the `pyhanko` PAdES rail (`exchange/conformance`) and never `Builder.sign`. C2PA and PAdES are orthogonal rails the provenance owner selects per asset class by the signable-MIME set; a PDF carries a C2PA manifest this SDK reads but never writes.
+- Sole C2PA Content-Credentials owner for `artifacts`. `Reader`'s readable MIME set exceeds the `Builder` signable set by PDF and the raw-camera `arw`/`nef` formats, read-only here, so a PDF or raw-camera asset routes to the `pyhanko` PAdES domain (`exchange/conformance`) and never `Builder.sign`. C2PA and PAdES are orthogonal concerns the provenance owner selects per asset class by the signable-MIME set; a PDF carries a C2PA manifest this SDK reads but never writes.

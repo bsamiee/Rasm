@@ -1,6 +1,6 @@
 # [PY_DATA_API_RUSTWORKX]
 
-`rustworkx` owns the Rust-core graph surface for the data graph rail: `PyGraph`/`PyDiGraph`/`PyDAG` containers over stable, never-recycled integer indices, with a polymorphic bare-name algorithm suite dispatching on graph type beside the `graph_*`/`digraph_*` type-bound forms. Data graph callers route through the bare name, consume the typed result carrier (`PathMapping`/`CentralityMapping`/`NodeMap`/`Pos2DMapping`) directly, drive event-stepped search through the `visit.*` visitor base classes, and fold the Rust-core traversal over re-walking a BFS/DFS/Dijkstra loop in Python.
+`rustworkx` owns the Rust-core graph surface for the data graph domain: `PyGraph`/`PyDiGraph`/`PyDAG` containers over stable, never-recycled integer indices, with a polymorphic bare-name algorithm suite dispatching on graph type beside the `graph_*`/`digraph_*` type-bound forms. Data graph callers route through the bare name, consume the typed result carrier (`PathMapping`/`CentralityMapping`/`NodeMap`/`Pos2DMapping`) directly, drive event-stepped search through the `visit.*` visitor base classes, and fold the Rust-core traversal over re-walking a BFS/DFS/Dijkstra loop in Python.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -226,7 +226,7 @@
 [STACKING]:
 - `networkx`(`.api/networkx.md`): `networkx_converter` is the one-way NetworkX-to-rustworkx bridge; the `networkx` side stays the read-side interop surface and rustworkx owns the hot algorithm path.
 - `igraph`(`.api/igraph.md`): route `GRAPH_COMMUNITY` to `igraph` Leiden/Louvain/Infomap detection rustworkx lacks, keeping `GRAPH_PATH`/`GRAPH_CENTRALITY`/`GRAPH_STRUCTURE` on rustworkx.
-- `pyarrow`(`.api/pyarrow.md`): `floyd_warshall_numpy`/`distance_matrix`/`adjacency_matrix` emit dense NumPy matrices folding into the tensor carriers, and a `CentralityMapping` keyed by stable node index lowers into the `node`-keyed Arrow frame the tabular plane left-outer-joins a node-attribute table against, so a centrality run is a left-join enrichment; `node_link_json`/GraphML/Matrix-Market IO are the content-keyed serialization seam.
+- `pyarrow`(`.api/pyarrow.md`): `floyd_warshall_numpy`/`distance_matrix`/`adjacency_matrix` emit dense NumPy matrices folding into the tensor carriers, and a `CentralityMapping` keyed by stable node index lowers into the `node`-keyed Arrow frame the tabular plane left-outer-joins a node-attribute table against, so a centrality run is a left-join enrichment; `node_link_json`/GraphML/Matrix-Market IO are the content-keyed serialization boundary.
 - data graph owner: build from the interop frame, run the bare-name algorithm, and fold the typed carrier onto the downstream frame in one pass with no Python re-walk of the Rust-core result.
 
 [LOCAL_ADMISSION]:

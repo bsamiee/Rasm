@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [DOCUMENT_AND_CONTAINERS]: the document root and its six container kinds
-- rail: collaboration
+- concern: collaboration
 - every container is `class Loro* : ILoro*, IDisposable`; bind to the interface, hold the handle, dispose on detach. `LoroDoc.Get<Kind>(ContainerIdLike)` creates a container (attach-or-create), and a parent nests one through `Insert*Container`/`GetOrCreate*Container`/`EnsureMergeable*`.
 
 | [INDEX] | [SYMBOL]                                          | [ROLE]             |
@@ -29,8 +29,8 @@
 - [08]-[UNKNOWN]: `LoroUnknown` round-trips a container kind newer than the binding opaquely.
 
 [VALUE_AND_DIFF_UNIONS]: the closed `record`-hierarchy discriminated unions (pattern-match the leaf)
-- rail: collaboration
-- these are sealed-by-construction `abstract record` roots with one leaf `record` per case — the dispatch surface the editing/diff rails fold over, never a parallel enum
+- concern: collaboration
+- these are sealed-by-construction `abstract record` roots with one leaf `record` per case — the dispatch surface the editing/diff pipelines fold over, never a parallel enum
 
 | [INDEX] | [UNION]            | [CONSUMER]             |
 | :-----: | :----------------- | :--------------------- |
@@ -57,7 +57,7 @@
 - [10]-[TREE_EXTERNAL_DIFF]: `Create(TreeParentId, uint, string)`, `Move(...)`, and `Delete(TreeParentId, uint)` form tree-change operations inside `TreeDiff`.
 
 [VALUE_CARRIERS_AND_HELPERS]: the version/identity/option value records and the collaboration helpers
-- rail: collaboration
+- concern: collaboration
 - `ValueOrContainer` wraps a Rust pointer, so a resolve frees the wrapper the instant its narrowed handle is taken and the handle outlives it under its own scope.
 
 | [INDEX] | [SYMBOL]                                              | [ROLE]          |
@@ -87,7 +87,7 @@
 - [11]-[RECORD_CARRIERS]: `ChangeMeta(uint Lamport, Id Id, long Timestamp, string? Message, Frontiers Deps, uint Len)`, `CommitOptions(string? Origin, bool ImmediateRenew, long? Timestamp, string? CommitMsg)`, `UpdateOptions`, `ImportStatus(Dictionary<ulong, CounterSpan> Success, Dictionary<ulong, CounterSpan>? Pending)`, `PosQueryResult(Cursor? Update, AbsolutePosition Current)`, `AwarenessPeerUpdate(ulong[] Updated, ulong[] Added)`, `StyleConfig`, `IdSpan`, `TreeId`, `CounterSpan`, and `AbsolutePosition(uint Pos, Side Side)` carry commit, import, update, query, identifier, and span data; `ChangeMeta`, `PosQueryResult`, and `DiffBatch` are themselves `IDisposable` and a payload's own `Dispose` frees the carriers it holds, so a callback reads its primitives before the frame closes.
 
 [ENUMS]: the bounded vocabularies
-- rail: collaboration
+- concern: collaboration
 
 | [INDEX] | [SYMBOL]                | [CASES]                           |
 | :-----: | :---------------------- | :-------------------------------- |
@@ -110,7 +110,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [DOC_LIFECYCLE]: import / export / commit / time-travel on `LoroDoc`
-- rail: collaboration
+- concern: collaboration
 
 | [INDEX] | [SURFACE]                                                                              | [ROLE]          |
 | :-----: | :------------------------------------------------------------------------------------- | :-------------- |
@@ -141,7 +141,7 @@
 - [10]-[SHALLOW]: `ExportShallowSnapshot` drops operations before a cut, `IsShallow` identifies the trimmed form, and `ShallowSinceVv` returns its base.
 
 [CONTAINER_ACCESS]: the polymorphic container accessors on `LoroDoc`
-- rail: collaboration
+- concern: collaboration
 - one semantic per kind, two arities: `Get<Kind>(ContainerIdLike)` attaches-or-creates (throws on type mismatch); `TryGet<Kind>(ContainerIdLike)` returns null when absent/mismatched. `ContainerIdLike` accepts a root name string or a `ContainerId`.
 
 | [INDEX] | [SURFACE]                                                 | [RESULT]           |
@@ -161,7 +161,7 @@
 - [06]-[SNAPSHOT]: `GetValue`, `GetDeepValue`, and `GetDeepValueWithId` snapshot the document tree as `LoroValue`.
 
 [SUBSCRIPTIONS]: the diff and commit event streams on `LoroDoc`
-- rail: collaboration
+- concern: collaboration
 - every `Subscribe*` returns a `Subscription` (`IDisposable`); the callback delegate receives the typed event. Hold the subscription for its lifetime, dispose to detach.
 
 | [INDEX] | [SURFACE]                                                   | [FIRES_ON]         |
@@ -179,8 +179,8 @@
 - `FirstCommitFromPeerCallback` is `void OnFirstCommitFromPeer(FirstCommitFromPeerPayload)` and the payload is `FirstCommitFromPeerPayload(ulong Peer)` — the peer identity ALONE, so a join handoff names the peer the document observed and carries no commit body.
 - `JsonPathSubscriber` is `void OnJsonpathChanged()` — a bare change edge with NO payload, so a consumer re-reads `Jsonpath(path) : ValueOrContainer[]`; the container-scoped `Subscribe(ContainerId, Subscriber)` is the typed-diff alternative for a scope resolvable to a container.
 
-[CONTAINER_OPS]: the per-kind editing surface (the dense vocabularies the editing rail composes)
-- rail: collaboration
+[CONTAINER_OPS]: the per-kind editing surface (the dense vocabularies the editing pipeline composes)
+- concern: collaboration
 
 | [INDEX] | [CONTAINER]       | [EDIT_MODEL]       |
 | :-----: | :---------------- | :----------------- |
@@ -224,7 +224,7 @@
 - Value: `Increment(double)`, `Decrement(double)`, and `GetValue()` own the counter.
 
 [COLLABORATION_HELPERS]: undo, presence, and ephemeral state
-- rail: collaboration
+- concern: collaboration
 
 | [INDEX] | [HELPER]         | [ROLE]            |
 | :-----: | :--------------- | :---------------- |
@@ -249,8 +249,8 @@
 ## [03]-[ERROR_TAXONOMY]
 
 [BOUNDARY_FAULTS]: the `LoroException` hierarchy lifted at the collaboration edge
-- rail: collaboration
-- all throw types derive from `LoroException` (with `LoroEncodeException`, `CannotFindRelativePosition`, `ChangeTravelException`, `JsonPathException`, `UpdateTimeoutException` as intermediate roots); the boundary folds them to the editing rail's typed failures.
+- concern: collaboration
+- all throw types derive from `LoroException` (with `LoroEncodeException`, `CannotFindRelativePosition`, `ChangeTravelException`, `JsonPathException`, `UpdateTimeoutException` as intermediate roots); the boundary folds them to the editing pipeline's typed failures.
 
 | [INDEX] | [FAULT]     | [CAUSE]                |
 | :-----: | :---------- | :--------------------- |

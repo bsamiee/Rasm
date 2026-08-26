@@ -66,7 +66,7 @@
 - `getMeta` returns `any` and is untyped by construction; the key is a string, a `Plugin`, or a `PluginKey`, and only a `PluginKey` keeps the channel collision-free.
 - `isGeneric` is true only while no non-`addToHistory` metadata rides the transaction — the history plugin's grouping test.
 
-[ENTRYPOINT_SCOPE]: selection classes — three registered kinds and the extension seam.
+[ENTRYPOINT_SCOPE]: selection classes — three registered kinds and the extension point.
 
 | [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                                  |
 | :-----: | :---------------------------------------------------------------------------- | :------- | :-------------------------------------------- |

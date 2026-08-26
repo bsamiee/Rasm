@@ -18,7 +18,7 @@
 |  [10]   | `ruler.enabled`                               | `boolean` — in-store rule evaluation; burn rules escalate off the board              |
 |  [11]   | `ruler.{extraVolumes,extraVolumeMounts}`      | the local rule mount; `local` reads `<directory>/<tenant>/`                          |
 |  [12]   | `gateway.enabled`                             | `boolean` DEFAULT TRUE — the reverse proxy every read and write address goes through |
-|  [13]   | `minio.enabled`                               | `boolean` DEFAULT TRUE — a bundled object store beside the estate's own              |
+|  [13]   | `minio.enabled`                               | `boolean` DEFAULT TRUE — a bundled object store beside the cluster's own             |
 |  [14]   | `nameOverride` `fullnameOverride`             | `string` \| `null` — FLAT top-level                                                  |
 
 [COMPONENTS]: `distributor` `ingester` `querier` `queryFrontend` `queryScheduler` `store_gateway` `compactor` `alertmanager` `overrides_exporter` `rollout_operator` `kafka`
@@ -34,18 +34,18 @@
 
 [TOPOLOGY]:
 - This row is EARNED, never default: the reference single-store row answers until the ingest or query ceiling is real, and this one costs a multi-component memory footprint stated on its own `degrade` column.
-- Tenancy here is `org` rather than `label`, so the whole estate's isolation posture flips with the selection — the collector stamps a scope header on every exporter whose backend reads it, and Loki, Tempo, and Pyroscope arm their own tenancy alongside.
+- Tenancy here is `org` rather than `label`, so the whole cluster's isolation posture flips with the selection — the collector stamps a scope header on every exporter whose backend reads it, and Loki, Tempo, and Pyroscope arm their own tenancy alongside.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders every component as a stack child under Pulumi diff; the rule ConfigMap is a `core.v1.ConfigMap` the ruler mounts through `extraVolumes`.
 - `operate/observe#STORE_ROWS`: `_stores.mimir` supplies chart and repo, projects both addresses off the gateway, and states the storage binding, the ruler mount, the translation triple, the histogram pair, and the disabled bundled object store.
-- `minio`(`.api/minio.md`) / `rook-ceph-cluster`(`.api/rook-ceph-cluster.md`): the estate's object plane supplies the endpoint and bucket that bind `common.storage`, which is why the chart's own bundled store is disarmed.
+- `minio`(`.api/minio.md`) / `rook-ceph-cluster`(`.api/rook-ceph-cluster.md`): the cluster's object plane supplies the endpoint and bucket that bind `common.storage`, which is why the chart's own bundled store is disarmed.
 - `opentelemetry-collector`(`.api/opentelemetry-collector.md`): the gateway's `otlp_http/metrics` exporter dials the `/otlp` write path with the scope header this row's tenancy demands.
 - `prometheus`(`.api/prometheus.md`): the reference row this one escalates from — same `plugin` column, same board queries, different ceiling and different tenancy grain.
 
 [LOCAL_ADMISSION]:
 - Address the reverse proxy as `<fullname>-gateway`; `nginx` names no rendered object on this pin.
-- Bind `common.storage` to the estate's object plane and disarm the bundled MinIO — one object store, not two.
+- Bind `common.storage` to the cluster's object plane and disarm the bundled MinIO — one object store, not two.
 - State the translation triple together; two of three is a distributor panic.
 - Pair `native_histograms_ingestion_enabled` with `frontend.query_result_response_format: protobuf`, because native histograms do not survive query sharding under JSON.
 - Keep `ruler_storage` on the `local` backend with a ConfigMap-mounted group set under `<directory>/<tenant>/`; an s3 rule store is API-mutable and forks the content-is-code law.

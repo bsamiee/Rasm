@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SCS]
 
-`scs` owns the first-order operator-splitting solve of a quadratic-plus-conic problem — a sparse `data` dict (`P`/`A`/`b`/`c`) and an ordered `cone` dict — running Douglas-Rachford ADMM on the homogeneous self-dual embedding and returning primal `x`, dual `y`, slack `s`, and an `info` residual dict. `cvxpy` selects it as the first-order conic backend, and the dual `y` with the residual pair is the optimality certificate the compute convex-optimization rail reads. `compute` composes `SCS`, the `cone` dict, `solve`, and `update`; the splitting iteration stays SCS's.
+`scs` owns the first-order operator-splitting solve of a quadratic-plus-conic problem — a sparse `data` dict (`P`/`A`/`b`/`c`) and an ordered `cone` dict — running Douglas-Rachford ADMM on the homogeneous self-dual embedding and returning primal `x`, dual `y`, slack `s`, and an `info` residual dict. `cvxpy` selects it as the first-order conic backend, and the dual `y` with the residual pair is the optimality certificate the compute convex-optimization domain reads. `compute` composes `SCS`, the `cone` dict, `solve`, and `update`; the splitting iteration stays SCS's.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -12,8 +12,8 @@ Security-and-navigation finishing closes over an emitted PDF or Office container
 - Entry: `of` admits untrusted material exactly once through the `EgressPayload` `TypedDict`, its `extra_items=str` band folding the format-discriminated Office credential axis into `Extras.credentials`, and rejects an under-supplied step through `_PREREQ` into `EgressFault.incomplete` before the fold runs — the interior is total over admitted owners and never re-validates; material the selected footing's arm cannot express (a needle-bearing REDACT, an active-content SANITIZE demand, an ENCRYPT request at all under `PERMISSIVE`) refuses through the `_LANE_GAPS` predicate table as `EgressFault.lane`, never a silent drop or a weakened seal. One polymorphic entry owns both the singular step and the chain: the `EgressStep | tuple[EgressStep, ...]` discriminant threads finished bytes step-to-step through one `reduce`, never a caller-orchestrated re-entry or a `mode` knob.
 - Auto: each arm returns a `FinishFact` merged through `FinishFact.combined`; terminal bytes and page count ride the newest fact, single-owner scalars survive by right-or-left, and additive counters sum. `pypdf` owns the structural OUTLINE/IMPOSE/NAVIGATE/FORMS arms and the gated SANITIZE/OPTIMIZE second passes; qpdf owns every encryption strength through one `pikepdf.Encryption` leg. Native packages bind as module-scope `lazy import` reified on first arm use.
 - Output: `_emit` returns the settled `FinishFact`; `Metrics.record` records byte volume and `Journal.record` persists the regulatory changes held by `_diff`.
-- Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive REDACT/SANITIZE arms and the STRIP running-content removal no other step owns, never an ENCRYPT arm; `msoffcrypto` the bidirectional Office confidentiality rail.
-- Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm; a new policy concern is one `Finishing` field carrying its own value object; a new measured fact is one `FinishFact` field with its `combined` column; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the rail already folds.
+- Packages: `pikepdf` (MPL) owns the qpdf object model, encryption, composition, and save strategy; `pypdf` (BSD) the pure-Python structural arms and the `ObjectDeletionFlag` object pruner; `pymupdf` (AGPL) the richest REDACT burn-in with `search_for` needle match, flagged for supersession on the permissive lane; `pdf_oxide` (MIT/Apache) the permissive REDACT/SANITIZE arms and the STRIP running-content removal no other step owns, never an ENCRYPT arm; `msoffcrypto` the bidirectional Office confidentiality path.
+- Growth: a new finishing step is one `EgressStep` row, one `Finisher` row, and one `_PREREQ` row when it needs material; a commercial-safe alternative is one `Finisher.permissive` arm; a new policy concern is one `Finishing` field carrying its own value object; a new measured fact is one `FinishFact` field with its `combined` column; an encryption strength is one `Strength` row with its `_STRENGTHS` cell; a document-wide strip class is one `PruneClass` member with one `_PRUNE` row; a deeper chain is one more step in the sequence the result already folds.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -36,7 +36,7 @@ from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactKind, Artifac
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.document.model import AnnotKind, AnnotationNode, DocumentNode, Lapse, SectionNode, lapsed, node_digest, walk
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Cleared, Journal, Party, Retain
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -513,7 +513,7 @@ class DocumentEgress(Struct, frozen=True):
         crossed = await self.lane.offload(Kernel.of(self.finished, KernelTrait.RELEASING))
         return crossed.default_with(lapsed)
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[FinishFact]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeResult[FinishFact]:
         match await async_boundary(EGRESS_FINISH, self._finished, catch=_FINISH_RAISES):
             case Result(tag="ok", ok=live):
                 fact = live._fact

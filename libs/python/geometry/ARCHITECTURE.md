@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_ARCHITECTURE]
 
-`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and `graduation` owns their shared raise legs, observation scopes, metric charter, frames, progress points, and benchmark corpus. Alignment travels through the `ComputeService`/`ArtifactService` contract and the content-keyed GLB tessellation rail, never a shared reference.
+`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and `graduation` owns their shared raise legs, observation scopes, metric charter, frames, progress points, and benchmark corpus. Alignment travels through the `ComputeService`/`ArtifactService` contract and the content-keyed GLB tessellation path, never a shared reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -18,8 +18,8 @@ geometry/
 │   ├── selector.py       # lark EBNF grammar, the frozen SelectorQuery/Facet family, and the band-wide IfcFault floor
 │   ├── authoring.py      # AuthorCarry left-fold under @transactional/@stamped, hop-keyed footprint merge; apply_async twin
 │   └── structural.py     # MOMENT_KERNELS and the EnrichmentTier policy over IfcProfileDef sections
-├── mesh/                 # Tessellation-and-mesh band: exact kernels behind one content-keyed GLB rail
-│   ├── daemon.py         # Generated tessellation request; cross-runtime canonical key and per-element mesh rail
+├── mesh/                 # Tessellation-and-mesh band: exact kernels behind one content-keyed GLB path
+│   ├── daemon.py         # Generated tessellation request; cross-runtime canonical key and per-element mesh path
 │   ├── serve.py          # Tessellation servicer registered at the runtime serve entry
 │   ├── cad.py            # Generated CadService tessellation client and streamed GLB admission
 │   ├── repair.py         # MeshRepairOp, ManifoldTier, and the to_manifold build the graders compose
@@ -83,7 +83,7 @@ flowchart TB
 - S1 `energy/district` explodes onto `model`'s one assignment fold, minting no second energy model.
 - S2 `scan` — sole cross-producer consumer whose one drawn edge collapses the `QualityMetrics`, artifact-path, and `MeshSpatial` reads it composes.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 `graph` projects only onto the home `graduation` spine, so it carries no cross-boundary edge.
 
@@ -96,7 +96,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Geometry cross-runtime .NET peer seams
+    accTitle: Geometry cross-runtime .NET peer boundaries
     accDescr: Which kinded contracts cross between the geometry owners and the .NET peers.
     subgraph geometry[GEOMETRY]
         Mesh[Mesh tessellation]
@@ -125,7 +125,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Geometry Python sibling seams
+    accTitle: Geometry Python sibling boundaries
     accDescr: Geometry sub-domain owners exchanging results, payloads, ports, and kernel crossings with the Python siblings.
     subgraph geometry[GEOMETRY]
         Graduation[Graduation spine]
@@ -163,11 +163,11 @@ flowchart LR
     Runtime e24@-->|"[BOUNDARY]: ArtifactSink"| Mesh
 ```
 
-Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: generated ArtifactService custody, the IFC projection, and the payload shapes fold into the one labeled rail, with per-contract wiring on the owning implementation pages.
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: generated ArtifactService custody, the IFC projection, and the payload shapes fold into the one labeled result, with per-contract wiring on the owning implementation pages.
 
 `GlbContentHash` spells from its Rasm.Element owner and `RepresentationContentHash` from its Rasm.Bim owner, while geometry interior pages spell only the semantic `ContentKey` mint beneath both. Scene shading crosses one-way as an `ArtifactRef`, and `energy/simulate` resolves and proves its SHA-256 body onto a helper-owned path for the decode scope.
 
-`GeoreferenceFact` crosses one-way from the IFC band to the data geospatial plane, whose `reproject(frame, source=)` helmert prelude composes it. That band decodes off the single `util.geolocation` transform seam collapsing every coordinate-operation subtype, the write side riding the `AuthorVerb` vocabulary as ordinary rows. Ungeoreferenced models cross as typed absence, an identity transform reading as map coordinates the moment the prelude composes it. This producer declares the georeference roster and the data decoder mirrors it arm-for-arm.
+`GeoreferenceFact` crosses one-way from the IFC band to the data geospatial plane, whose `reproject(frame, source=)` helmert prelude composes it. That band decodes off the single `util.geolocation` transform boundary collapsing every coordinate-operation subtype, the write side riding the `AuthorVerb` vocabulary as ordinary rows. Ungeoreferenced models cross as typed absence, an identity transform reading as map coordinates the moment the prelude composes it. This producer declares the georeference roster and the data decoder mirrors it arm-for-arm.
 
 Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the energy `ResultFrame` are the geometry-side columnar carriers, each crossing as its declared column roster beside its sealed arrays, admitted by the data `tabular/columnar` `arrow_columns` entry and serialized through the `tabular/interop` `arrow_bytes` fold it feeds, so the data tier holds one admitting entry and one canonical byte fold and no geometry frame type crosses as a foreign shape.
 
@@ -197,21 +197,21 @@ flowchart LR
     Floor e3@-->|"worker lane: HOSTILE kernel"| Kernel[[compiled band]]
     Kernel e4@-->|"sealed evidence"| Fold
     Fold e5@-->|"domain result"| Weave[evidence_run]
-    Weave e6@-->|"RuntimeRail[T]"| Out([caller])
+    Weave e6@-->|"RuntimeResult[T]"| Out([caller])
     Kernel f1@-.->|"fault: BoundaryFault"| Weave
 ```
 
 - Runtime lane carries the pure-Python spine; worker lanes carry compiled enrichment rows and long native IFC phases, never the IFC core whole.
-- Compiled bands cross worker seams as `KernelTrait.HOSTILE` kernels on the warm pool, and a live native handle never meets the pickle seam.
+- Compiled bands cross worker boundaries as `KernelTrait.HOSTILE` kernels on the warm pool, and a live native handle never meets the pickle boundary.
 - Sealed evidence crosses instead: shapes as STEP octets, clouds as the scan `Cloud` carrier, models as document bytes.
 - Each compiled band binds one module-scope `lazy` import behind its floor gate; eager natives and unearned function-local binds are deleted forms.
 - Native kernels enter with `LaneGrant.width`, thread-count APIs binding it exactly; Boolean-only OCCT parallelism runs under whole-lane custody.
 
-AGPL Ladybug Tools bands (`ladybug-*`, `honeybee-*` with its standards backends, `dragonfly-*`) ride the `energy/` owners with function-local boundary imports, and evidence exchanges at the process boundary: HBJSON, dfjson, EPW document bytes, and result frames cross the wire, never a distributed link. Simulation engines stay external process-boundary services: Radiance, OpenStudio, and EnergyPlus behind the runtime recipe rail; URBANopt, Modelica, RNM, and REopt behind the district translation rows.
+AGPL Ladybug Tools bands (`ladybug-*`, `honeybee-*` with its standards backends, `dragonfly-*`) ride the `energy/` owners with function-local boundary imports, and evidence exchanges at the process boundary: HBJSON, dfjson, EPW document bytes, and result frames cross the wire, never a distributed link. Simulation engines stay external process-boundary services: Radiance, OpenStudio, and EnergyPlus behind the runtime recipe pipeline; URBANopt, Modelica, RNM, and REopt behind the district translation rows.
 
 ## [05]-[BOUNDARIES]
 
 - `geometry` owns host-free geometry and IFC/BIM evidence production — a peer producer, never a Rasm consumer.
-- `CORPUS` rosters graded seams and hands them to `Bench.graded` — no window or verdict mints here.
+- `CORPUS` rosters graded boundaries and hands them to `Bench.graded` — no window or verdict mints here.
 - Store handles, credentials, key custody, and retention windows arrive root-bound; no geometry page mints one.
 - Unstructured mesh generation stays compute's — this folder consumes generated meshes and mints no meshing kernel.

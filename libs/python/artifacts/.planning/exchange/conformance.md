@@ -73,7 +73,7 @@ from pyhanko_certvalidator.registry import SimpleCertificateStore
 
 from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, RuntimeResult
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -665,11 +665,11 @@ class Conformance:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def close(self, lane: LanePolicy, /) -> RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]:
-        railed = await lane.offload(Kernel.of(self._run, KernelTrait.RELEASING))
-        return railed.map(lambda pair: (ContentIdentity.key(f"conformance.{self.tag}", pair[0]), pair[0], pair[1]))
+    async def close(self, lane: LanePolicy, /) -> RuntimeResult[tuple[ContentKey, bytes, ConformanceVerdict]]:
+        outcome = await lane.offload(Kernel.of(self._run, KernelTrait.RELEASING))
+        return outcome.map(lambda pair: (ContentIdentity.key(f"conformance.{self.tag}", pair[0]), pair[0], pair[1]))
 
-    async def _emit(self, lane: LanePolicy, /) -> RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]:
+    async def _emit(self, lane: LanePolicy, /) -> RuntimeResult[tuple[ContentKey, bytes, ConformanceVerdict]]:
         settled = await self.close(lane)
         match settled:
             case Result(tag="ok", ok=(key, payload, verdict)):

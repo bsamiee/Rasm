@@ -4,7 +4,7 @@ Transactional-outbox and dead-letter ownership for the runtime spine: Persistenc
 
 Decoupled domain events therefore gain at-least-once dispatch with idempotent-key dedupe and exactly-once-effective delivery.
 
-Persistence holds the committed event stream AS the outbox under `ONE_OUTBOX_EGRESS_SPINE`, and the workflow step-state row commits under the same tenant-scoped transaction (`SEAM_OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`); this page names the seam and the relay, atomicity stays Persistence, and no table is asked for here.
+Persistence holds the committed event stream AS the outbox under `ONE_OUTBOX_EGRESS_SPINE`, and the workflow step-state row commits under the same tenant-scoped transaction (`OUTBOX_AND_WORKFLOW_PERSISTENCE_TABLE`); this page names the boundary and the relay, atomicity stays Persistence, and no table is asked for here.
 
 In-folder composition: `SchedulePort.Missed`, `ScheduleEntry.Spread`, and `ClockPolicy` from `Runtime/time`; `LeaseKey` from `Wire/coordination#ROLE_ELECTION`.
 
@@ -18,7 +18,7 @@ Owned surfaces: the relay vocabulary, the `OutboxOrdinal` sign boundary, the dia
 ## [02]-[OUTBOX_FABRIC]
 
 - Owner: `RelayState` `[Union]` the in-process relay lifecycle carrying its own stamp, ordinal, and terminal fault; `OutboxOrdinal` `[ValueObject<ulong>]` the ONE admission of the op-log sign boundary; `BindingTrust` `[SmartEnum<string>]` the reach set the dialled binding is composed at, the binding-owned half the kernel handling policy delegates; `RelayEntry` the operational carrier retaining the Persistence envelope by identity beside its admitted `DataGrade`; `OutboxFault` `[Union]` fault family riding the kernel `[FaultCase]`/`Fault` floor. Persistence owns the envelope mint and poison row.
-- Cases: `RelayState` = `Pending` | `Deferred(At, Attempt)` | `DeadLettered(At, Attempt, Cause)`; `BindingTrust` = `estate` | `foreign`, their reach sets `{every, trusted}` and `{every}`; `OutboxFault` = `RelayRejected` | `Exhausted` | `WatermarkStale` | `EnvelopeRejected` | `ClassificationBarred`.
+- Cases: `RelayState` = `Pending` | `Deferred(At, Attempt)` | `DeadLettered(At, Attempt, Cause)`; `BindingTrust` = `deployment` | `foreign`, their reach sets `{every, trusted}` and `{every}`; `OutboxFault` = `RelayRejected` | `Exhausted` | `WatermarkStale` | `EnvelopeRejected` | `ClassificationBarred`.
 - Entry: `RelayEntry.Admit` admits the whole generated extension message and its persisted active relay state, then reads sequence, handling grade, and trace beside envelope time; `BindingTrust.Admits(grade)` answers the reach question every dial crosses; `RelayEntry.Settled` lowers the kernel re-drive verdict. No inverse DomainEvent projection exists.
 - Auto: the outbox row writes same-transaction with the producing write, then Persistence `Egress.Envelope` mints once for the actual subscription binding. The relay retains that CloudEvent whole, dedupes by its operation identity `(source, id)`, sends the same object through the configured binding hop, and advances the per-sink watermark. A spent row routes to the Persistence-owned dead-letter lane with monotone attempts and the exact terminal fault.
 - Law: envelope identity is conserved end to end — `id` remains `OpLogEntry.Id.Wire`, `subject` remains the rendered content key, data/content type/schema/dataref remain the payload frame's, and routing remains the subscription binding's metadata. AppHost never treats subject as a topic and never reconstructs generic bytes or dataref as JSON.
@@ -75,7 +75,7 @@ public sealed partial class OutboxOrdinal {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BindingTrust {
-    public static readonly BindingTrust Estate = new("estate", Seq(BrokerReach.Every, BrokerReach.Trusted));
+    public static readonly BindingTrust Deployment = new("deployment", Seq(BrokerReach.Every, BrokerReach.Trusted));
     public static readonly BindingTrust Foreign = new("foreign", Seq(BrokerReach.Every));
 
     public Seq<BrokerReach> Reaches { get; }

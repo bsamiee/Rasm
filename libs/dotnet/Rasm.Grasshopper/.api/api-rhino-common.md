@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_RHINO_COMMON]
 
-`RhinoCommon` carries the Rhino-side seams the Grasshopper host composes: `RhinoDoc` is the active-model handoff the editor getter arbitrates, and `Rhino.Geometry` mints the value structs and `GeometryBase` reference carriers the component ports and `GardenData` transfer type against.
+`RhinoCommon` carries the Rhino-side boundaries the Grasshopper host composes: `RhinoDoc` is the active-model handoff the editor getter arbitrates, and `Rhino.Geometry` mints the value structs and `GeometryBase` reference carriers the component ports and `GardenData` transfer type against.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -46,15 +46,15 @@
 |  [08]   | `RhinoDoc.ActiveSpace -> ActiveSpace`    | property        | model or layout space           |
 |  [09]   | `RhinoDoc.IsHeadless -> bool`            | property        | headless-document flag          |
 
-- Registers the `Rhino.UI` host-bridge seams (`libs/dotnet/.api/api-rhino-ui.md`): the `Dialogs.ShowEditBox` and `Dialogs.ShowNumberBox` native value prompts carry their algebra there and this boundary calls them by that spelling; the rows above are the `RhinoDoc` handoff this partition adds beyond it.
+- Registers the `Rhino.UI` host-bridge entries (`libs/dotnet/.api/api-rhino-ui.md`): the `Dialogs.ShowEditBox` and `Dialogs.ShowNumberBox` native value prompts carry their algebra there and this boundary calls them by that spelling; the rows above are the `RhinoDoc` handoff this partition adds beyond it.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `RhinoDoc` crosses one seam — `Editor.BeginRhinoGetter(RhinoDoc)` on `Shell/editor.md`'s `GetterCase` — and a getter-arbitration consumer reads `ActiveDoc` as the default target when the case carries `None`; a direct `RhinoDoc` getter beside the editor is the deleted form
+- `RhinoDoc` crosses one boundary — `Editor.BeginRhinoGetter(RhinoDoc)` on `Shell/editor.md`'s `GetterCase` — and a getter-arbitration consumer reads `ActiveDoc` as the default target when the case carries `None`; a direct `RhinoDoc` getter beside the editor is the deleted form
 - geometry carriers enter as `typeof(Rhino.Geometry.T)` in `Components/ports.md`'s `PortRow` vocabulary and as record payloads in `Components/data.md`'s shape unions, transported by value or reference and never mutated
 - value structs and `GeometryBase` classes split the carrier roster: a struct carrier copies through the port pin, a reference carrier pins the live host object
-- Registered value prompts are the Rhino-styled fast lane behind the kernel `Rasm/Interaction` chrome estate's `PickerSpec` edit/number cases (the folder's Eto windows twin is deleted), settling a value where a full Eto dialog is unwarranted
+- Registered value prompts are the Rhino-styled fast lane behind the kernel `Rasm/Interaction` chrome module's `PickerSpec` edit/number cases (the folder's Eto windows twin is deleted), settling a value where a full Eto dialog is unwarranted
 
 [STACKING]:
 - `api-languageext`(`libs/dotnet/.api/api-languageext.md`): `RhinoDoc.ActiveDoc` null-gates through `Optional(...)` into `Option<RhinoDoc>`; a carrier's `IsValid` gate folds to `Validation<Error, T>` before the port admits it

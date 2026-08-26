@@ -2,7 +2,7 @@
 
 Produced-raster behavior and shared raster vocabulary live here. `Transform` names the operation sub-axis; `TransformNeeds` states payload timing; `TransformPolicy` carries closed per-family parameters, its generic conversion pair keyed on the canonical `graphic/color/derive#DERIVE` `ColorModel` and lowered through `_SKIMAGE_SPACE`; `TransformInput` admits image, reference, mask, or source payloads without absent-field ghosts; `TransformArm` binds provider member, policy, disposition, field law, and acceptor; `FieldLaw`, `FieldSpec`, `RasterFact`, `ConvertFormat`, and `Frame` complete the substrate. `io → measure → process` remains the raster import direction. pillow carries the working families, and scikit-image carries denoising, restoration, color, exposure, segmentation, graph, morphology, thresholding, geometry, filtering, and measurement behind its manifest interpreter marker.
 
-Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(ValueError, OSError, KeyError)` rail, `lane.offload` crossing, and uint8 admission. Source cases bypass decode and carry only `Transform` with `TransformPolicy`; image, reference, and mask cases carry the admitted `Frame` with exactly their required operand.
+Each acceptor is a pure NumPy/PIL transform. `graphic/raster/io#IO` owns its `(ValueError, OSError, KeyError)` catch, `lane.offload` crossing, and uint8 admission. Source cases bypass decode and carry only `Transform` with `TransformPolicy`; image, reference, and mask cases carry the admitted `Frame` with exactly their required operand.
 
 ## [01]-[INDEX]
 
@@ -1079,8 +1079,8 @@ config:
 ---
 flowchart LR
     accTitle: Raster transform flow
-    accDescr: The io transform arm crossing the worker seam, row acceptance under policy and the needs gate, TransformInput dispatch across the pillow and scikit-image acceptors, the field-law split at the array save, and the canonical RasterFact egress.
-    Tx["graphic/raster/io: transform arm (worker seam via lane.offload, HOSTILE trait)"] --> Table["row accepts policy (colorspace pair proved against _SKIMAGE_SPACE) + needs gate"]
+    accDescr: The io transform arm crossing the worker boundary, row acceptance under policy and the needs gate, TransformInput dispatch across the pillow and scikit-image acceptors, the field-law split at the array save, and the canonical RasterFact egress.
+    Tx["graphic/raster/io: transform arm (worker boundary via lane.offload, HOSTILE trait)"] --> Table["row accepts policy (colorspace pair proved against _SKIMAGE_SPACE) + needs gate"]
     Table --> Input["TransformInput: image | reference | mask | source"]
     Input --> Pil["5 pillow acceptors: _chops / _math / _enhance / _grade / _source (+ ImageStat facts via _save_pillow)"]
     Input --> Ski["10 scikit-image acceptors: _denoise / _restore / _color / _expose / _segment / _graph / _morphology / _threshold / _geometric / _filter"]
@@ -1091,7 +1091,7 @@ flowchart LR
     Law -->|"QUANTITATIVE"| Field["FieldSpec: pre-rescale contiguous octets + shape + dtype"]
     Field --> Fact
     SaveP --> Fact["canonical RasterFact + native float|str score band"]
-    Fact --> Rail["graphic/raster/io: RuntimeRail[RasterFact]"]
+    Fact --> Outcome["graphic/raster/io: RuntimeResult[RasterFact]"]
 ```
 
 ## [03]-[RESEARCH]

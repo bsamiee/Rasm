@@ -13,7 +13,7 @@ Index-doc leads open on anything but the unit's own charter — the doc-set, the
     ```
 - Accepted:
     ```markdown
-    `<unit>` owns host-free geometry: evidence graduation, scan processing, and the tessellation rail that serves every cross-boundary consumer.
+    `<unit>` owns host-free geometry: evidence graduation, scan processing, and the tessellation path that serves every cross-boundary consumer.
     ```
 - Reason: Charter sentences state what the unit owns and the one boundary it holds; routing and sibling roles belong to the router surface, never the lead.
 - Reframe: Open with the unit's owned capability and one boundary consequence; delete every sentence about siblings or the doc-set.
@@ -74,11 +74,11 @@ Leads cram a member inventory, a sub-domain roster, or wire mechanism behind sem
 - Rejected:
     ```markdown
     This package carries the domain map (ingestion, registration, deviation, reconstruction, analysis, costing), and the daemon streams checksum-framed
-    rows keyed by the content hash over the sync rail.
+    rows keyed by the content hash over the sync path.
     ```
 - Accepted:
     ```markdown
-    `<unit>` owns host-free geometry capability and the rail that serves every cross-boundary consumer.
+    `<unit>` owns host-free geometry capability and the path that serves every cross-boundary consumer.
     ```
 - Reason: Leads carrying a roster and a wire mechanism hold a lower tier's payload; the sub-domain list lives in the fenced tree and the framing lives at its owner.
 - Reframe: Collapse the lead to one charter sentence; demote the inventory to the tree and the mechanism to its owning page.

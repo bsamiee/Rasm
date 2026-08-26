@@ -1,6 +1,6 @@
 # [PY_DATA_API_NUMCODECS]
 
-`numcodecs` mints the buffer-codec registry and `Codec` contract zarr binds for chunk filters, compressors, and the extra-compressor family beyond zarr's built-ins. Every codec subclasses `Codec` with one `encode`/`decode` pair and a JSON-round-trippable `get_config`/`from_config` identity keyed by `codec_id`, selected polymorphically through `get_codec`. It owns only the per-chunk byte transform over contiguous `numpy` buffers; `zarr`/`icechunk` own chunk indexing and IO, and the artifacts-rail codecs own transport payloads.
+`numcodecs` mints the buffer-codec registry and `Codec` contract zarr binds for chunk filters, compressors, and the extra-compressor family beyond zarr's built-ins. Every codec subclasses `Codec` with one `encode`/`decode` pair and a JSON-round-trippable `get_config`/`from_config` identity keyed by `codec_id`, selected polymorphically through `get_codec`. It owns only the per-chunk byte transform over contiguous `numpy` buffers; `zarr`/`icechunk` own chunk indexing and IO, and the artifacts-domain codecs own transport payloads.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -148,10 +148,10 @@ Pass these in a zarr array's `filters=`/`serializer=`/`compressors=` slots.
 - `zarr`(`.api/zarr.md`): a codec binds to a zarr array through `zarr.codecs.numcodecs.<Codec>`; the base family fixes the slot — `ArrayArrayCodec` into `filters=`, `ArrayBytesCodec` as `serializer=`, `BytesBytesCodec` into `compressors=` — and zarr applies `filters -> serializer -> compressors` on write, inverting on read.
 - `icechunk`(`.api/icechunk.md`): supplies the per-chunk byte transform for chunks the versioned store persists; icechunk owns chunk indexing and IO, numcodecs owns only the transform.
 - `msgspec`(`libs/python/.api/msgspec.md`)/`pydantic`(`libs/python/.api/pydantic.md`): decode a codec config dict into a discriminated `Codec`-config struct tagged on the `'id'` field, then round-trip the struct back to `get_codec` to instantiate.
-- `beartype`(`libs/python/.api/beartype.md`): annotate the chunk-codec rail with `numcodecs.compat.NDArrayLike` so a non-buffer input is rejected at the contract, not deep in the C extension.
+- `beartype`(`libs/python/.api/beartype.md`): annotate the chunk-codec domain with `numcodecs.compat.NDArrayLike` so a non-buffer input is rejected at the contract, not deep in the C extension.
 - `structlog`(`libs/python/.api/structlog.md`)+`opentelemetry-api`(`libs/python/.api/opentelemetry-api.md`): observe `codec_id`, the lossy parameter, input/output byte lengths, and compression ratio on the array-write span; `numcodecs.blosc.cbuffer_complib(buf)` recovers a stored frame's inner compressor.
 - `anyio`(`libs/python/.api/anyio.md`): fan a many-chunk encode/decode batch across `anyio.to_thread.run_sync`, sizing the outer pool against `numcodecs.blosc.get_nthreads()` since c-blosc threads internally.
-- `brotli`(`libs/python/artifacts/.api/brotli.md`)/`zstandard`(`libs/python/artifacts/.api/zstandard.md`): the artifacts-rail codecs own transport and container payloads; array chunks route through numcodecs, file and transport payloads through the artifacts codecs.
+- `brotli`(`libs/python/artifacts/.api/brotli.md`)/`zstandard`(`libs/python/artifacts/.api/zstandard.md`): the artifacts-domain codecs own transport and container payloads; array chunks route through numcodecs, file and transport payloads through the artifacts codecs.
 - within-lib: `Blosc` fuses the byte-shuffle and inner codec — `cname` selects the inner codec and `typesize`+`shuffle` drive the SIMD shuffle, so `Blosc(cname='zstd', shuffle=Blosc.BITSHUFFLE, typesize=4)` is one fused shuffle+zstd pass in place of a separate `Shuffle` + `Zstd` chain.
 
 [LOCAL_ADMISSION]:

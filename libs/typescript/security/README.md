@@ -19,7 +19,7 @@
 [ACCESS]:
 - [09]-[CLAIM](.planning/access/claim.md): Entitlement vocabulary and the RBAC-union-ReBAC fold resolved once per request into a tagged verdict.
 - [10]-[TENANT](.planning/access/tenant.md): Ambient `TenantScope` reference, the session-GUC RLS contract, and the tenant metric-tag aspect.
-- [11]-[AUDIT](.planning/access/audit.md): Fact rail — loud arms publish through `Witness` into the `AuditJournal` port; egress pseudonymized.
+- [11]-[AUDIT](.planning/access/audit.md): Fact journal — loud arms publish through `Witness` into the `AuditJournal` port; egress pseudonymized.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -45,7 +45,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_CORE]:
 - `effect`
 
 [PLATFORM]:

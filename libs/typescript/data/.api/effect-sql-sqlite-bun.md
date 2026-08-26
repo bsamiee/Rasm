@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `SqliteClient` service and its sqlite-native additions
-- `SqliteClient extends SqlClient`; `layer` binds both Tags, so a `lane/sqlite` row yields the neutral `SqlClient` and only `export`/`loadExtension` reach the concrete `SqliteClient`. This lane carries no `backup` (the node lane's `better-sqlite3` addition); `updateValues: never` is the degradation seam, not an omission.
+- `SqliteClient extends SqlClient`; `layer` binds both Tags, so a `lane/sqlite` row yields the neutral `SqlClient` and only `export`/`loadExtension` reach the concrete `SqliteClient`. This lane carries no `backup` (the node lane's `better-sqlite3` addition); `updateValues: never` is the degradation anchor, not an omission.
 
 | [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
 | :-----: | :----------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
@@ -42,7 +42,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [SQLITE_LANE_TOPOLOGY]:
-- `SqliteClient` IS a `SqlClient`: `layer*` binds `SqliteClient | SqlClient`, so `lane/sqlite` rows compose the neutral Tag and share the PG spine's journal/projection statements. `sql.onDialect({ pg, sqlite })` is the seam — one statement, two dialect fragments, selected at compile of the fragment.
+- `SqliteClient` IS a `SqlClient`: `layer*` binds `SqliteClient | SqlClient`, so `lane/sqlite` rows compose the neutral Tag and share the PG spine's journal/projection statements. `sql.onDialect({ pg, sqlite })` is the branch — one statement, two dialect fragments, selected at compile of the fragment.
 - `updateValues: never` is the degradation anchor, the one `SqlClient` member SQLite cannot express; `onDialect` routes bulk updates to a chunked-insert path, and the `lane/sqlite` degradation table owns every remaining PG-vs-sqlite divergence as data.
 - Single synchronous handle, no addon: `bun:sqlite` is one connection with no pool and no native build; WAL admits concurrent readers under one writer, `reserve` serializes a pinned unit of work, and `db.query()` caches statements internally — no prepare-cache knob, where the `@effect/sql-sqlite-node` peer binds `better-sqlite3` with an explicit cache. Tenancy is `filename`-per-app, not a connection fork.
 - `SqlError.cause` is `bun:sqlite`'s bare `Error` carrying `code` (the extended result-code NAME, `SQLITE_CONSTRAINT_UNIQUE` and its siblings), a numeric `errno` (the extended code), and `byteOffset`; its `message` is the engine sentence unprefixed, so `journal/append`'s classifier resolves this profile on the same name lookup the node profile takes.

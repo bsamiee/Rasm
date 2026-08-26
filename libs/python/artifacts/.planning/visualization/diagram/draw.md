@@ -53,7 +53,7 @@ from rasm.artifacts.visualization.diagram.glyphset import (
     TextAnchor,
     TextRun,
 )
-from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -189,7 +189,7 @@ class DiagramDraw(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"diagram-{self.target}", IdentitySource(parts=self._seed))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[DrawArtifact]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeResult[DrawArtifact]:
         crossed = await self.lane.offload(Kernel.of(self._rendered, KernelTrait.RELEASING))
         match crossed.bind(lambda inner: inner.map_error(self._fault)):
             case Result(tag="ok", ok=artifact):
@@ -205,7 +205,7 @@ class DiagramDraw(Struct, frozen=True):
             case refused:
                 return Error(refused.error)
 
-    async def layered(self) -> RuntimeRail[LayerPlan]:
+    async def layered(self) -> RuntimeResult[LayerPlan]:
         crossed = await self.lane.offload(Kernel.of(self._rendered, KernelTrait.RELEASING))
         return crossed.bind(
             lambda inner: inner.bind(

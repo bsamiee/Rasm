@@ -29,7 +29,7 @@ This table routes a visual concern to its owning surface; the most specific row 
 - Law: cost is computable before pixels — `ApproximateOperationCount` and `ApproximateBytesUsed` are `SKPicture` metrics read after `EndRecording`, and `GetApproximateOperationCount(includeNested: true)` folds sub-pictures into the count — so a scene over the op ceiling fails a structural gate without ever allocating a surface, and the cost-probe target carries `Option` absence in the hash slot, never a sentinel string.
 - Law: `SaveLayer` is earned only by group compositing — group alpha, blend, or image filter over a subtree — and always carries computed bounds, because the unbounded overload allocates clip-sized layers and per-shape alpha rides the paint; `QuickReject` culls expensive subtrees against device clip and total matrix before any draw.
 - Reject: per-draw `new SKPaint()` — token-resolved long-lived and pooled-scratch `Reset()` are the two legal paint lifetimes; `UniqueId` as cache identity — it is process-local, never content identity; snapshot-then-keep-drawing — `Snapshot()` is copy-on-write, so the capsule orders snapshot last; and `Clear`-versus-`DrawColor` confusion — `Clear` replaces pixels including alpha while `DrawColor` composites, differing exactly on translucent fills over reused surfaces, the ghost-frame defect.
-- Exemption: the capsule's using-scoped recorder, surface, and pixmap bodies are the platform-forced statement seam.
+- Exemption: the capsule's using-scoped recorder, surface, and pixmap bodies are the platform-forced statement body.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -88,14 +88,14 @@ public static class RenderCapsule {
 - Law: effect slots — `Shader`, `ColorFilter`, `ImageFilter`, `MaskFilter`, `PathEffect`, `BlendMode` — hold immutable reference-counted natives constructed once at token resolve and shared across paints; per-frame effect construction is the allocation defect, and stroke styling is path-effect data, never pre-deformed geometry.
 - Law: every image draw declares `SKSamplingOptions(SKFilterMode, SKMipmapMode)` — the implicit default is nearest-neighbor and silently degrades scaled output — and `SetColor(SKColorF, SKColorSpace)` is the only color-managed paint entry: the byte `SKColor` path assumes sRGB and quantizes before any conversion, so wide gamut is float end-to-end or it is fiction.
 - Law: color-space identity is `SKColorSpace.Equal`, never reference equality; a null color space means passthrough — fast and exactly wrong for evidence — and composite-heavy pipelines declare a linear working surface (`CreateSrgbLinear`) converting to sRGB once at the final projection, one boundary conversion instead of wrong blend math everywhere.
-- Law: glyph state lives on `SKFont` — every text property on the paint is the obsolete rail — and custom raster math enters as `SKRuntimeEffect.CreateShader(sksl, out errors)` compiled once, the `errors` out-channel its rejection seam, never a per-pixel managed loop.
+- Law: glyph state lives on `SKFont` — every text property on the paint is the obsolete path — and custom raster math enters as `SKRuntimeEffect.CreateShader(sksl, out errors)` compiled once, the `errors` out-channel its rejection path, never a per-pixel managed loop.
 
 [EVIDENCE_IDENTITY]:
 - Law: frame identity hashes the pinned pixel projection, never encoder output — encoded bytes couple identity to compression internals — and the evidence info declares all four fields, because `SKImageInfo.PlatformColorType` swaps byte order across hosts and premul is the native format pinned for a baseline's lifetime.
 - Law: evidence renders on raster surfaces only — GPU output varies by driver, MSAA resolve, and backend, so the GPU path is throughput, never identity — and the result is composite: content hash, declared info, and the `(SKColorType, SKAlphaType)` native row the host resolved, so a hash divergence decomposes into a content change versus a `PlatformColorType` byte-order swap from the result alone instead of staying mysterious.
 - Law: baselines are content-addressed by the result — two proofs rendering one scene under one policy share one baseline, and a policy edit re-keys every dependent baseline at once, so churn is proportional to policy change, not proof count; a stochastic effect carries its seed in its token row or it is a per-frame hash break by design.
 - Law: deterministic encoding rides the knob-pinned `SKPixmap.Encode` rows (`SKPngEncoderOptions`), never the image convenience overloads; `SKImage.FromEncodedData` defers decode and retains `EncodedData` for pass-through re-export — correct for draw-once and forward-the-bytes lanes only, because lazy images re-decode under cache pressure with floating defaults.
-- Boundary: the frame content hash is the in-process content-key choice the system-API identity owner fixes — `XxHash3.HashToUInt64` over the pinned pixel span, reused verbatim — never a second hashing path minted here; a persisted or signed artifact key is the durable byte-identity owner's canonical codec, composed at the export seam.
+- Boundary: the frame content hash is the in-process content-key choice the system-API identity owner fixes — `XxHash3.HashToUInt64` over the pinned pixel span, reused verbatim — never a second hashing path minted here; a persisted or signed artifact key is the durable byte-identity owner's canonical codec, composed at the export boundary.
 
 [DOCUMENT_EXPORT]:
 - Law: a document is a forward-only page fold — `BeginPage` returns a canvas valid only until `EndPage`, `Close()` finalizes, `Abort()` discards — and the failure arm aborts explicitly: a capsule that merely disposes has neither committed nor failed loudly, the silent-loss defect; `SKDocument.CreateXps` shares the page protocol, so format is one row whose only divergence is the metadata argument's presence.
@@ -159,7 +159,7 @@ public static class DocumentExport {
 - Law: positions project by `Size / 512f` with `YOffset` negated — shaping space is y-up, the canvas y-down — and the shaped run is the single measurement authority: advance-sum width reserves layout, ink bounds size invalidation, two queries never interchanged.
 - Law: `ClusterLevel` is a typography-role decision riding the run-spec row, because hit-testing and selection cannot be retrofitted onto a stream shaped at the wrong level; wrapping folds over cluster boundaries with `GlyphFlags.UnsafeToBreak` bounding re-shape work to flagged break sites, and truncation picks the last fitting cluster boundary, never a char index.
 - Law: one font file admits once and feeds both shaping and raster — `OpenStream(out ttcIndex)` into the zero-copy blob bridge, the `ttcIndex` load-bearing for collection files — and `SerializeGlyphs` is the shaping-evidence channel that catches shaping regressions without pixel comparison.
-- Exemption: the span-backed run fill is the measured-kernel statement seam.
+- Exemption: the span-backed run fill is the measured-kernel statement body.
 
 ```csharp
 public sealed class FontHandle : IDisposable {
@@ -199,7 +199,7 @@ public static class ShapeBoundary {
         Span<SKPoint> points = run.Positions;
         ImmutableArray<int>.Builder clusters = ImmutableArray.CreateBuilder<int>(infos.Length);
         float cursor = 0f;
-        for (int i = 0; i < infos.Length; i++) {                          // Exemption: zero-alloc shaped-run fill — GlyphInfos/GlyphPositions array properties recopy, the span accessors do not
+        for (int i = 0; i < infos.Length; i++) {
             glyphs[i] = (ushort)infos[i].Codepoint;
             points[i] = new SKPoint(cursor + (positions[i].XOffset * scale), -positions[i].YOffset * scale);
             clusters.Add((int)infos[i].Cluster);
@@ -225,11 +225,11 @@ public static class ShapeBoundary {
 ## [04]-[ASSET_LAW]
 
 [VECTOR_DOCUMENTS]:
-- Law: a vector asset admits once into one document owner — null from `Load`/`FromSvg` is the parse-failure sentinel projected to the rail at admission — and the retained `Picture` is the canonical artifact for every target row, its `CullRect` the recorded intrinsic bounds projected to `Option` for layout instead of rasterized measurements.
+- Law: a vector asset admits once into one document owner — null from `Load`/`FromSvg` is the parse-failure sentinel projected to the result at admission — and the retained `Picture` is the canonical artifact for every target row, its `CullRect` the recorded intrinsic bounds projected to `Option` for layout instead of rasterized measurements.
 - Law: theming is `SvgParameters` (CSS, entities) resolved at admission, never a post-draw color filter — `ReLoad` re-renders from the retained source, building the variant matrix keyed (asset, variant, catalog generation); `SKSvg.CacheOriginalStream` is process-wide pipeline policy declared once, never a call-site write, and with the source cache off the matrix silently degrades to single-variant.
 - Law: the cost split is declared per row — picture-only for icons and illustrations, retained scene graph only for hit-testable or animated documents — and evidence-class rows prove provider-resolved text (`Settings.TypefaceProviders`) and script-free source at catalog freeze, with animated documents sampling pinned timestamps, so zero draw-time SVG failure modes survive and render code treats assets as total.
 - Law: thumbnail ladders rasterize from vector source at target scale — the `Save` scale pair — never by resampling a master raster.
-- Exemption: the dispose-on-failure ownership transfer in the admission body is the platform-forced statement seam.
+- Exemption: the dispose-on-failure ownership transfer in the admission body is the platform-forced statement body.
 
 ```csharp
 public readonly record struct VariantKey(string Asset, string Variant, int Generation);
@@ -270,7 +270,7 @@ public static class VectorAssets {
 - Law: icon identity is the (`Symbol`, `IconVariant`) pair end-to-end — a closed glyph enum crossed with an orthogonal variant axis — and the domain catalog derives role-to-pair rows from it; string-keyed registries, path-drawn copies of vocabulary glyphs, and ad-hoc glyph bitmaps are the three rejected forms.
 - Law: font-backed icons delete the raster ladder — scale is font size, color is the foreground slot, both token-resolved — and inherit the text determinism axes, so evidence surfaces bearing icons pin exactly what typography pins; the `Color` variant is payload-bearing and ignores tinting by design, so catalog rows mixing it with tint-driven theming mark it.
 - Law: raster assets admit through `SKCodec.Create(stream, out SKCodecResult)` — a full taxonomy where `IncompleteInput` is partial success with rows-decoded evidence, never a boolean failure — with `Info` gating shape before allocation, decode landing directly in the pinned working format, and `EncodedOrigin` baked into the artifact so no consumer ever sees pre-rotation pixels.
-- Law: asset identity is two keys on one load result — the locator names the slot, the content hash names the value — so staleness is hash inequality, derived rasters key on (source hash, derivation row), and a baseline mismatch decomposes into asset drift versus render drift from results alone; identity computes at admission, and a pipeline hashing per frame has misplaced the seam.
+- Law: asset identity is two keys on one load result — the locator names the slot, the content hash names the value — so staleness is hash inequality, derived rasters key on (source hash, derivation row), and a baseline mismatch decomposes into asset drift versus render drift from results alone; identity computes at admission, and a pipeline hashing per frame has misplaced the boundary.
 - Law: animated rasters are codec rows — `FrameCount`, `GetFrameInfo`, `RepetitionCount`, dependency-explicit `SKCodecOptions.FrameIndex`/`PriorFrame` — and the codec never owns a timer: the motion pump schedules the frame table, so animated rasters ride the same reduced-motion and frame-ceiling policy as every moving surface.
 - Reject: eager whole-image `SKBitmap.Decode`; loader-local retry loops — the outbound hop already has one retry owner; tier clearing as invalidation — invalidation is an identity comparison, clearing an operational action.
 

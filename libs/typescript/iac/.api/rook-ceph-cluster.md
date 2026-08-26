@@ -10,7 +10,7 @@
 |  [02]   | `cephClusterSpec`                               | mon count, dashboard, network, placement, resources, health checks                   |
 |  [03]   | `cephClusterSpec.storage`                       | capacity is CLAIMED DEVICES, never a size string                                     |
 |  [04]   | `cephObjectStores[]`                            | the S3 object stores and their bucket StorageClass                                   |
-|  [05]   | `cephBlockPools[]` `cephFileSystems[]`          | the RBD and CephFS estates with their own StorageClasses                             |
+|  [05]   | `cephBlockPools[]` `cephFileSystems[]`          | the RBD and CephFS pools with their own StorageClasses                               |
 |  [06]   | `cephImage` `cephClusterMetadata` `clusterName` | the Ceph distribution, its metadata, and the cluster identity                        |
 |  [07]   | `toolbox`                                       | `{ enabled, image, resources, … }` — the debug shell; off by default                 |
 |  [08]   | `monitoring`                                    | ServiceMonitor and PrometheusRule registration                                       |
@@ -18,7 +18,7 @@
 |  [10]   | `csiDriverNamePrefix`                           | `string` — the CSI driver prefix the operator's own install fixed                    |
 |  [11]   | `ingress` `route`                               | dashboard reach                                                                      |
 
-[SNAPSHOT_CLASSES]: `cephFileSystemVolumeSnapshotClass` and `cephBlockPoolsVolumeSnapshotClass`, one per estate
+[SNAPSHOT_CLASSES]: `cephFileSystemVolumeSnapshotClass` and `cephBlockPoolsVolumeSnapshotClass`, one per pool
 [cephObjectStores[].spec]: `metadataPool` and `dataPool` are `PoolSpec`s — replication is `replicated.size` and erasure coding is `erasureCoded.{dataChunks,codingChunks}`, and the default data pool is ERASURE CODED 2+1. A bare `size` beside `dataPool` is not a `PoolSpec` field: it is accepted by the values merge, read by nothing, and leaves the erasure-coded default standing. `gateway.{port,instances,resources,securePort,sslCertificateRef}` shapes the RGW, and `preservePoolsOnDelete` decides whether pool data survives the CR.
 [cephObjectStores[].storageClass]: `enabled` `name` `reclaimPolicy` `volumeBindingMode` `parameters.region` — `objectStoreName` and `objectStoreNamespace` are set BY the chart and never by a caller.
 
@@ -43,4 +43,4 @@
 - Derive the RGW address from the object-store CR name, never from the release name.
 - Spell replication as `dataPool.replicated.size`; a bare `size` is inert and leaves the erasure-coded default in place.
 - Declare capacity as devices under `cephClusterSpec.storage`, and route the profile's storage coordinate to the arm that has a seat for it.
-- Take the credential from the operator-minted `rook-ceph-object-user-<store>-<user>` Secret with its `AccessKey`/`SecretKey` spellings; the estate's own key names belong to the other arm.
+- Take the credential from the operator-minted `rook-ceph-object-user-<store>-<user>` Secret with its `AccessKey`/`SecretKey` spellings; the cluster's own key names belong to the other arm.

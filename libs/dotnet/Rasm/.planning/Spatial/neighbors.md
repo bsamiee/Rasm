@@ -6,14 +6,14 @@ Tolerances arrive from `Domain/context` lanes rather than page literals: the eig
 
 ## [01]-[INDEX]
 
-- [02]-[NEIGHBOR_INDEX]: `NeighborIndex` admits every index species and `Query` dispatches the whole algebra onto one answer rail.
+- [02]-[NEIGHBOR_INDEX]: `NeighborIndex` admits every index species and `Query` dispatches the whole algebra onto one answer type.
 - [03]-[NEIGHBORHOOD_FOLDS]: `NeighborKernel` folds PCA, oriented normals, and principal curvature over one batch graph spine.
 - [04]-[BISHOP_CHAIN]: `BishopChain` generates every point-chain rotation-minimizing frame.
 
 ## [02]-[NEIGHBOR_INDEX]
 
 - Owner: `NeighborIndex` owns every index species as a case; its `Static` kd-tree tier serves exact repeated kNN over a frozen cloud, the `register.md` correspondence backend; the distance metric rides the QUERY as a `NeighborMetric` row, and the `Static` case holds ONE frozen tree per row — built at admission, never mutated, so two concurrent queries under different metrics cannot race a shared `Tree.Metric` field — with each row carrying its own search-radius transform as a delegate column rather than a flag the reader re-interprets.
-- Entry: `Of` admits every source and `Query` is the one dispatch; `SearchProbe` admits box and sphere validity at the build seam, ahead of execution.
+- Entry: `Of` admits every source and `Query` is the one dispatch; `SearchProbe` admits box and sphere validity at the build gate, ahead of execution.
 - Auto: `SearchCapsule` owns every native search and sorts hits and pairs before emission, keeping a result deterministic regardless of tree traversal order.
 - Exemption: `SearchCapsule`'s `List<TItem>` is the named native-callback buffer — the RTree callbacks append during the platform's own sweep and no persistent carrier can receive them mid-callback; it freezes to `Seq` before it leaves.
 - Packages: RhinoCommon (`RTree`), Supercluster.KDTree.Net (`KDTree`, `DistanceMetrics`), LanguageExt.Core, Thinktecture.Runtime.Extensions (`[ValueObject<T>]`/`[ComplexValueObject]` admission, `[SmartEnum]`/`[Union]` vocabularies), BCL inbox (`FrozenDictionary`).
@@ -99,7 +99,7 @@ public sealed partial class NeighborPair {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborhoodCensus(
     int InputCount, int QueryCount, int RequestedNeighborCount, NeighborSearchBackend SearchBackend,
     Option<double> Radius, Option<int> SelfNeighborCount,
@@ -255,7 +255,7 @@ public abstract partial record NeighborIndex {
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborhoodPolicy(Dimension NeighborCount, Option<PositiveMagnitude> Radius, PositiveMagnitude EigenGapTolerance, PositiveMagnitude FitResidualTolerance, UnitInterval SphereLikenessBand) {
     internal static Fin<NeighborhoodPolicy> Of(Context context, Op key, Option<Dimension> neighbors = default, Option<PositiveMagnitude> radius = default) =>
         from count in neighbors.Match(Some: Fin.Succ, None: () => key.AcceptValidated<Dimension>(candidate: 10))
@@ -269,7 +269,7 @@ public readonly record struct NeighborhoodPolicy(Dimension NeighborCount, Option
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborhoodPcaSample(
     int Index, Point3d Point, int NeighborCount, SymmetricMatrix Covariance, Vector3d Normal,
     Arr<double> RawEigenvalues, Arr<double> ClampedEigenvalues, int Rank, int EigenClampCount) : IValidityEvidence {
@@ -283,7 +283,7 @@ public readonly record struct NeighborhoodPcaSample(
         ClampedEigenvalues.ForAll(static v => ValidityClaim.Positive(v).Holds));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PcaCensus(
     int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount,
     int RankClampCount, int EigenClampCount, double EigenClampFloor, NeighborhoodCensus Neighborhood) : IValidityEvidence {
@@ -313,7 +313,7 @@ public sealed partial class CurvatureRangeKind {
         Items.First(row => row.Admits(sample: sample, band: band));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureSample(
     int Index, Point3d Point, double K1, double K2, Direction E1, Direction E2, double Residual, int NeighborCount) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -339,7 +339,7 @@ public sealed partial class CurvatureAxis {
     [UseDelegateFromConstructor] internal partial double Project(CurvatureSample sample);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureCensus(
     int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount,
     int RankRejectedCount, int ResidualRejectedCount, int SolveRejectedCount, Option<Stat<Scalar>> Residuals,
@@ -360,12 +360,12 @@ public readonly record struct CurvatureCensus(
         ValidityClaim.CountExactly(count: Range.AcceptedSampleCount, expected: AcceptedSampleCount));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureBand(CurvatureAxis Axis, Stat<Scalar> Spread) : IValidityEvidence {
     public bool IsValid => ValidityClaim.Evidence(Some(Spread));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureRange(
     int AcceptedSampleCount, CurvatureRangeKind Kind, int PlaneLikeCount, int SphereLikeCount,
     int SaddleLikeCount, int MixedCount, Option<Arr<CurvatureBand>> Bands, double Tolerance) : IValidityEvidence {

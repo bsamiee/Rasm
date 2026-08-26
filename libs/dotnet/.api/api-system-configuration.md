@@ -1,6 +1,6 @@
 # [RASM_API_SYSTEM_CONFIGURATION]
 
-`System.Configuration.ConfigurationManager` owns the XML configuration document model end to end: one `Configuration` opened per file map and user level, the section, element, and property algebra its bodies declare, the settings-provider persistence rail, and the protected write-back that closes it. `Microsoft.Extensions.Configuration` owns runtime host configuration, so this surface enters only where a caller reads or writes an XML configuration document.
+`System.Configuration.ConfigurationManager` owns the XML configuration document model end to end: one `Configuration` opened per file map and user level, the section, element, and property algebra its bodies declare, the settings-provider persistence path, and the protected write-back that closes it. `Microsoft.Extensions.Configuration` owns runtime host configuration, so this surface enters only where a caller reads or writes an XML configuration document.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -9,7 +9,7 @@
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                      |
 | :-----: | :----------------------------- | :------------ | :------------------------------------------------ |
 |  [01]   | `ConfigurationManager`         | class         | static entry opening every configuration document |
-|  [02]   | `Configuration`                | class         | one opened configuration file and its save rail   |
+|  [02]   | `Configuration`                | class         | one opened configuration file and its save path   |
 |  [03]   | `ConfigurationSection`         | class         | typed section body a consumer subclasses          |
 |  [04]   | `ConfigurationSectionGroup`    | class         | named group holding sections and child groups     |
 |  [05]   | `SectionInformation`           | class         | per-section policy, lock, and protection state    |
@@ -18,7 +18,7 @@
 |  [08]   | `ExeConfigurationFileMap`      | class         | exe, roaming-user, and local-user file-name input |
 |  [09]   | `ConfigurationUserLevel`       | enum          | open level selecting the per-user files           |
 |  [10]   | `ConfigurationSaveMode`        | enum          | modified, minimal, or full write policy           |
-|  [11]   | `ConfigurationErrorsException` | class         | failure rail carrying file name and line number   |
+|  [11]   | `ConfigurationErrorsException` | class         | failure type carrying file name and line number   |
 
 [DOCUMENT_INDEX]: `ConfigurationSectionCollection` `ConfigurationSectionGroupCollection` `ConfigurationLocation` `ConfigurationLocationCollection` `ExeContext`
 [SECTION_POLICY]: `ConfigurationAllowDefinition` `ConfigurationAllowExeDefinition` `OverrideMode`
@@ -55,7 +55,7 @@
 
 [SECTION_BODY]: `ProtectedConfigurationSection` `IgnoreSection` `DefaultSection` `NameValueConfigurationCollection` `NameValueConfigurationElement` `ProviderSettingsCollection` `SettingElement` `SettingElementCollection` `SettingValueElement` `CommaDelimitedStringCollection`
 
-[PUBLIC_TYPE_SCOPE]: settings-provider persistence rail
+[PUBLIC_TYPE_SCOPE]: settings-provider persistence path
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                         |
 | :-----: | :----------------------------- | :------------ | :--------------------------------------------------- |

@@ -1,6 +1,6 @@
 # [DIAGNOSTICS]
 
-Telemetry is one spine declared at process roots and joined across the suite by one identity carrier. Emission is a compile-checked surface — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss and skew are kind cases on the one fact stream — never parallel cells — and the shed verdict folds in from its rate-limit owner, so every operational view is a projection over one `Atom<Seq<FactRecord>>`. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row and one redactor row, a new transport one carrier adapter.
+Telemetry is one spine declared at process roots and joined across the suite by one identity carrier. Emission is a compile-checked surface — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction stage before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss and skew are kind cases on the one fact stream — never parallel cells — and the shed verdict folds in from its rate-limit owner, so every operational view is a projection over one `Atom<Seq<FactRecord>>`. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row and one redactor row, a new transport one carrier adapter.
 
 ## [01]-[SIGNAL_CHOOSER]
 
@@ -31,8 +31,8 @@ This table routes a telemetry concern to its owning surface; the most specific r
 - Use: `[TagProvider(type, method)]` as the projection row for foreign types that cannot carry annotations; `[TagName]` renames at the declaration so a vocabulary edit breaks loudly at rebuild.
 - Reject: interpolated log calls and the boxing severity-extension family in production emission; string-named categories outside boundary material.
 
-[SEAM_AND_VOLUME]:
-- Law: emission rides `ILogger<T>` category identity and providers attach behind the seam, each with a disjoint delivery mandate — one wire exporter, one operator-local projection; the same record arriving twice with two shapes is the split-mandate defect.
+[BOUNDARY_AND_VOLUME]:
+- Law: emission rides `ILogger<T>` category identity and providers attach behind the boundary, each with a disjoint delivery mandate — one wire exporter, one operator-local projection; the same record arriving twice with two shapes is the split-mandate defect.
 - Law: a composition that may run logger-less takes `NullLogger<T>.Instance`, never a nullable logger.
 - Law: volume is head-of-pipeline policy — `AddTraceBasedSampler` slaves log volume to the trace verdict so logs and spans rise and fall as one population; rule-row samplers select by maximum level, thinning the chatty floor and never the error ceiling.
 - Law: the global buffer inverts severity economics — `AddGlobalBuffer` rules hold the verbose tiers and `GlobalLogBuffer.Flush` replays them when an incident makes them valuable; the volume ladder is delete before defer before coalesce, and an oversize record bypasses the buffer and emits live.
@@ -68,7 +68,7 @@ public static partial class StepLog {
 ## [03]-[PROJECTION]
 
 [POLICY_TABLE]:
-- Law: one `LoggerConfiguration` per process composes the six rails — minimum level, enrichment, destructuring, filters, sinks, audit sinks — and `CreateLogger()` freezes them; a second configuration below the root forks level governance, failure listening, and flush ownership.
+- Law: one `LoggerConfiguration` per process composes the six stages — minimum level, enrichment, destructuring, filters, sinks, audit sinks — and `CreateLogger()` freezes them; a second configuration below the root forks level governance, failure listening, and flush ownership.
 - Law: severity floors are held `LoggingLevelSwitch` rows — a raw level literal forecloses live control; `MinimumLevel.Override` keys per-source floors on `SourceContext`, matches only events carrying it, and is root-pipeline law unsupported in sub-loggers.
 - Law: routing is identity-keyed `Matching` predicates on `Conditional` and sub-logger rows, never call-site flags; sub-pipelines derive — parent filters constrain, parent enrichers stamp, and a branch only narrows.
 - Law: destructuring caps are admission against payload bombs — depth defaults to 10 while string and collection caps default unbounded, so both pin at the root of any pipeline accepting foreign graphs.
@@ -76,12 +76,12 @@ public static partial class StepLog {
 - Law: the boot window logs through `CreateBootstrapLogger()` — a reloadable pipeline capturing pre-host faults, frozen into the host-built configuration when `AddSerilog` registers the provider — so no startup fault predates the pipeline and host shutdown owns the drain.
 
 [DELIVERY_AND_LOSS]:
-- Law: the two delivery classes fix failure behavior — `WriteTo` swallows sink failure into the typed rail, `AuditTo` propagates it to the logging caller — and batched sinks are structurally incompatible with audit guarantees.
+- Law: the two delivery classes fix failure behavior — `WriteTo` swallows sink failure into the typed result, `AuditTo` propagates it to the logging caller — and batched sinks are structurally incompatible with audit guarantees.
 - Law: the `BatchingOptions` square is one declared latency/throughput budget — `EagerlyEmitFirstEvent` and `BufferingTimeLimit` bound worst-case visibility, `BatchSizeLimit` and `QueueLimit` bound throughput cost — tuned together or not at all.
-- Law: batch implementers let exceptions propagate — the batching infrastructure owns retry and failure reporting, and a `try`/`catch` inside `EmitBatchAsync` amputates the rail silently; `OnEmptyBatchAsync` is the sanctioned heartbeat hook.
-- Law: `WriteTo.Fallible` wires the suite's listener onto its sinks; `LoggingFailureKind` with the retry ceiling, queue overflow, and oversize bypass forms the complete loss taxonomy, and the listener projects each failure into one `FactRecord` loss case on the shared fact stream `rails-and-effects.md` owns — a private `Atom<Seq<SinkLoss>>` beside it is the parallel-cell defect, and `WriteTo` without a listener is unobserved best-effort.
+- Law: batch implementers let exceptions propagate — the batching infrastructure owns retry and failure reporting, and a `try`/`catch` inside `EmitBatchAsync` amputates the failure channel silently; `OnEmptyBatchAsync` is the sanctioned heartbeat hook.
+- Law: `WriteTo.Fallible` wires the suite's listener onto its sinks; `LoggingFailureKind` with the retry ceiling, queue overflow, and oversize bypass forms the complete loss taxonomy, and the listener projects each failure into one `FactRecord` loss case on the shared fact stream `results-and-effects.md` owns — a private `Atom<Seq<SinkLoss>>` beside it is the parallel-cell defect, and `WriteTo` without a listener is unobserved best-effort.
 - Law: fallback is declared topology — `WriteTo.FallbackChain` reroutes to the next sink on synchronous throw or listener-reported failure, and a fire-and-forget sink that neither throws nor reports defeats the chain silently, so fallback eligibility is a per-sink failure-surface audit.
-- Law: `SelfLog` is the floor beneath the rail — a bounded never-throwing writer, never a pipeline sink, because it runs exactly when the pipeline is the casualty.
+- Law: `SelfLog` is the floor beneath the listener — a bounded never-throwing writer, never a pipeline sink, because it runs exactly when the pipeline is the casualty.
 
 ```csharp
 [Union]
@@ -140,7 +140,7 @@ public static class Projection {
 - Law: `ActivityKind` declares boundary semantics and `SetStatus` is the typed verdict — error facts in tags are invisible to every backend error filter; span events die with the sampling verdict while log records survive it, so a fact that must outlive an unsampled trace is a log record, and one exception class has exactly one owning channel.
 - Law: admission evidence enters at creation — `StartActivity` tags and links participate in the sampling verdict while post-start mutation does not, and `HasListeners()` gates expensive tag computation ahead of the call.
 - Law: domain results project to span attributes through their own formatting surfaces — the projection adapts per result type, while a generic telemetry interface erases the route and status evidence worth exporting.
-- Exemption: the signal root's builder-mutation body is the platform-forced statement seam.
+- Exemption: the signal root's builder-mutation body is the platform-forced statement body.
 
 [VOLUME_AND_SHAPE]:
 - Law: the sampler matrix is one root row — `ParentBasedSampler` over the deterministic `TraceIdRatioBasedSampler`, same verdict at every hop for the same trace — and the recorded bit derives log sampling and `TraceBased` exemplars: declare once, derive thrice; independent per-signal probabilities destroy joinability.
@@ -210,8 +210,8 @@ public static class SignalRoot {
 [ENRICHMENT_ROWS]:
 - Law: enrichment splits by cost class — `IStaticLogEnricher` once per provider for process constants, `ILogEnricher` per record for request-scoped dimensions, `EnableEnrichment` activating both; a constant in a per-record row is waste, a per-request value in a static row is a bug.
 - Law: an enricher is a pure projection to bounded tags sharing the record's flat namespace with generated tags — one registry owns the prefixes, and a dimension that needs I/O is a design error at the row; per-record byte cost times kept-record rate is the declared telemetry weight.
-- Law: one fact has one enrichment seat per signal kind — logs through the row system, spans through options-bound enrich delegates at the instrumented seam, metrics never per-point — so "add it everywhere" is three declared rows, never one helper that scatters.
-- Law: exception detail is one enrichment decision on `EnableEnrichment` — `CaptureStackTraces` trades the per-fault stack cost for the frame, `UseFileInfoForStackTraces` adds the leak-bearing file and line, and `IncludeExceptionMessage` admits the message body — so a captured stack is a prevention row reviewed against the taxonomy, never raw text appended outside the redaction seam.
+- Law: one fact has one enrichment seat per signal kind — logs through the row system, spans through options-bound enrich delegates at the instrumented boundary, metrics never per-point — so "add it everywhere" is three declared rows, never one helper that scatters.
+- Law: exception detail is one enrichment decision on `EnableEnrichment` — `CaptureStackTraces` trades the per-fault stack cost for the frame, `UseFileInfoForStackTraces` adds the leak-bearing file and line, and `IncludeExceptionMessage` admits the message body — so a captured stack is a prevention row reviewed against the taxonomy, never raw text appended outside the redaction stage.
 - Law: the latency context is the explicit in-flight ledger — vocabulary registered at composition, recorded through resolved tokens, cheaper than child spans and free of sampling coupling — joining the suite through its registered root tag; durations never derive from stamp differences.
 
 [STAMP_ALGEBRA]:
@@ -272,20 +272,20 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
 - Law: the bound derives from the skew cases on that stream — worst observed offset raised by the margin — a measured, revisable policy value; the per-peer fold over those cases, not the raw stream, is what health consumes.
 - Law: span clocks carry duration truth and stamps carry order truth — a cross-process waterfall may show negative gaps up to the bound by design, and ordering is producer-stamped evidence, never consumer inference.
 
-## [06]-[ENVELOPE_SEAM]
+## [06]-[ENVELOPE_BOUNDARY]
 
 [ENVELOPE_SCHEMA]:
-- Law: cross-process context is one versioned carrier — declared baggage keys, each with an owner, a classification verdict of identifiers-only, and a byte budget — and the seam owner holds the keys behind typed verbs; an ad-hoc baggage write bypasses classification review and erodes the budget invisibly.
-- Law: baggage broadcasts to every downstream hop and instrumented client — identifiers only, never payload, never classified material; the stamp rides baggage rather than `tracestate`, because evidence seams are not always trace-aware.
+- Law: cross-process context is one versioned carrier — declared baggage keys, each with an owner, a classification verdict of identifiers-only, and a byte budget — and the boundary owner holds the keys behind typed verbs; an ad-hoc baggage write bypasses classification review and erodes the budget invisibly.
+- Law: baggage broadcasts to every downstream hop and instrumented client — identifiers only, never payload, never classified material; the stamp rides baggage rather than `tracestate`, because evidence boundaries are not always trace-aware.
 - Law: two baggage stores live in one process and never synchronize — `Baggage.Current` is the SDK store and the one write surface, `Activity.Baggage` is read-only foreign material — and `Baggage` is an immutable value, so a discarded `SetBaggage` return changes nothing and compiles cleanly.
-- Law: the platform and SDK propagator seams agree by boot assertion — before SDK initialization the SDK seam is a no-op that injects nothing, silently; `TraceStateString` mutation is read-modify-write by law, because overwrite clobbers foreign vendors.
+- Law: the platform and SDK propagator adapters agree by boot assertion — before SDK initialization the SDK adapter is a no-op that injects nothing, silently; `TraceStateString` mutation is read-modify-write by law, because overwrite clobbers foreign vendors.
 - Law: a new transport writes one getter/setter adapter pair and delegates to the propagator — hand-rolled headers are the rejected form; a relay clears propagator-owned `Fields` before re-injecting or extraction becomes carrier-order-dependent.
 
 [ADMISSION_VERDICTS]:
-- Law: the receive-advance executes once at the transport admission seam where extraction already happens, never per handler; departure stamps the post-advance value, so the wire never carries stale time forward.
-- Law: arrival resolves across the `Fin<Arrival>` rail — refusal where context is required rides the fail side, the success side joins a present trace context or adopts a context-less frame as a countable foreign root, and quarantine is a consumer policy layered above the seam — so a child started from the zero trace id never mints, because a plausible-looking tree from a zero id corrupts every downstream join.
+- Law: the receive-advance executes once at the transport admission boundary where extraction already happens, never per handler; departure stamps the post-advance value, so the wire never carries stale time forward.
+- Law: arrival resolves across the `Fin<Arrival>` result — refusal where context is required rides the fail side, the success side joins a present trace context or adopts a context-less frame as a countable foreign root, and quarantine is a consumer policy layered above the boundary — so a child started from the zero trace id never mints, because a plausible-looking tree from a zero id corrupts every downstream join.
 - Law: the carrier version key turns mixed-fleet schema drift into a typed fault at extract, never a renamed key misread as absence; the version is numeric and compared as a number, because ordinal text comparison inverts past one digit.
-- Exemption: the propagator's carrier inject body is the platform-forced statement seam.
+- Exemption: the propagator's carrier inject body is the platform-forced statement body.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -295,7 +295,7 @@ public abstract partial record Arrival {
     public sealed record ForeignRoot(Stamp Stamp) : Arrival;
 }
 
-public static class EnvelopeSeam {
+public static class EnvelopeBoundary {
     private const string OriginKey = "ctx.origin";
     private const string StampKey = "ctx.stamp";
 
@@ -327,23 +327,23 @@ public static class EnvelopeSeam {
 }
 ```
 
-## [07]-[REDACTION_SEAM]
+## [07]-[REDACTION_STAGE]
 
 [TAXONOMY]:
 - Law: one taxonomy per suite — sealed attribute rows each binding one `(taxonomy, value)` pair; classes partition by disclosure consequence, not data type, and the count stays single-digit because every class is a redactor row and an audit row.
-- Law: `None` is an affirmative reviewed-public verdict and `Unknown` is never-reviewed — unannotated data is `Unknown`-shaped and falls to the erasing fallback; a default that maps absence to `None` is the seam's most dangerous misconfiguration.
+- Law: `None` is an affirmative reviewed-public verdict and `Unknown` is never-reviewed — unannotated data is `Unknown`-shaped and falls to the erasing fallback; a default that maps absence to `None` is the stage's most dangerous misconfiguration.
 - Law: classification sets are the redaction key under exact-set match — `{A, B}` does not resolve `{A}`'s row — so every producible union is a declared row, and a missing one is silent erasure: an availability bug with a compliance-shaped cause, caught by the reachable-set diff at the commit that creates it.
 - Law: a generic carrier classified at its type parameter propagates sensitivity to every payload that flows through it; secrets are not a classification — credential material is barred from the emission grammar entirely, because a redacted secret still transited the pipeline buffers.
 
 [ENFORCEMENT]:
-- Law: enforcement has exactly one seam — annotations on classified types, the generator separating classified tags at compile time, `EnableRedaction` activating before any provider observes a record; everything downstream receives post-redaction data and never re-redacts — stores verify classification admission as a typed rejection, and a second masking pass anywhere is the named defect.
+- Law: enforcement has exactly one stage — annotations on classified types, the generator separating classified tags at compile time, `EnableRedaction` activating before any provider observes a record; everything downstream receives post-redaction data and never re-redacts — stores verify classification admission as a typed rejection, and a second masking pass anywhere is the named defect.
 - Law: redaction applies only where classification metadata exists — a payload bypassing the generated path carries no classification and therefore no redaction, which is the structural argument for the generated-emission monopoly; foreign-process data arrives unclassified regardless of origin posture and re-classifies onto the local taxonomy before re-emission.
-- Law: redaction precedes every volume policy by construction — buffered records hold redacted values, and the exporter serializes post-seam arrays, so no codec or transport choice can weaken the posture.
+- Law: redaction precedes every volume policy by construction — buffered records hold redacted values, and the exporter serializes post-stage arrays, so no codec or transport choice can weaken the posture.
 - Law: three shipped rows partition disclosure — erase what nobody joins on, HMAC what operations must correlate, pass what review cleared — and the fallback stays erasure; HMAC keys bind from configuration sections, `KeyId` epochs partition pseudonym spaces, and rotation cadence is the declared joinability horizon.
 - Law: `ApplyDiscriminator` folds the tag name into the token so cross-tag correlation is opt-in, and flipping it mid-retention is a key-rotation event, never a toggle.
-- Law: the seam covers the log path only — spans, instrument tags, latency tags, and baggage are prevention rows reviewed at their declared roots, and an enforcement design stopping at the log seam governs a fraction of the exfiltration surface.
+- Law: the stage covers the log path only — spans, instrument tags, latency tags, and baggage are prevention rows reviewed at their declared roots, and an enforcement design stopping at the log stage governs a fraction of the exfiltration surface.
 - Law: the posture folds to taxonomy rows, the per-process redactor map, the rotation registry, and the prevention inventory — proven both ways at boot: a canary value per row asserted redacted in export, store admission rejecting unclassified payloads.
-- Exemption: the redaction root's builder-mutation body is the platform-forced statement seam.
+- Exemption: the redaction root's builder-mutation body is the platform-forced statement body.
 
 ```csharp
 public static class Sensitivity {
@@ -370,7 +370,7 @@ public static class RedactionRoot {
             .SetHmacRedactor(hmacKeys, Sensitivity.Identifier)
             .SetRedactor<ErasingRedactor>(Sensitivity.Payload, new DataClassificationSet(Sensitivity.Identifier, Sensitivity.Payload))
             .SetFallbackRedactor<ErasingRedactor>());
-        return logging.EnableRedaction(static seam => seam.ApplyDiscriminator = true);
+        return logging.EnableRedaction(static options => options.ApplyDiscriminator = true);
     }
 }
 ```

@@ -12,7 +12,7 @@
 
 - Owner: `Symbol` holds `marks`, the `Palette`, the `SymbolTarget` egress policy (the DXF arm seeds a default `Standard.of()` document, the SVG arm needs no profile), and the `lane: LanePolicy` execution policy; it discriminates over the closed `SymbolKind` union whose every case carries its typed geometry plus one `SymbolStyle` — never a per-marker `SectionMarker`/`GridBubble` family, never a `StrEnum` over an erased `dict[str, object]`. `SymbolStyle` is the ONE drawing-plane mark-style `Struct`, the ISO-grounded peer of `visualization/diagram/glyphset#GLYPHSET`'s `GlyphStyle`, whose `LayerName` binds both the named `drawsvg.Group` and the `ezdxf` `GfxAttribs`. `SymbolTarget` keys the `_ENGINES` dual-lowering table straight to its engine callable so a new egress is one row, never a per-target subtype.
 - Cases: the twelve marker cases, each carrying its typed geometry, one `SymbolStyle`, and (for the bubble/pointer/grid/match/tag marks) a named `self.anchors` terminal — `cut`/`point`/`leader`/`attach`/`match`/`north`/`level` — a `drawing/detail#DETAIL`/`drawing/annotate` leader binds; matched by one total `_element` fold closed by `assert_never`, never a per-marker special case. `ScaleBar` is the standalone twin of the `composition/sheet#SHEET` `Scale.bar` geometry; `KeyPlan` is the reference figure `sheet`'s `KeyPlan.figure` cell consumes; `IdTag` generates the identity-tag family over `TagShape`, its `bool(sublabel)` joining the block signature because a bisected and a plain tag are distinct geometry.
-- Entry: `Symbol.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `SymbolKind | Iterable[SymbolKind]` into `marks`; `emit`, `layered`, and `glyph` ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`. `_svg_engine` fixes `use('svg')`, outlined text, and coordinate precision before solving grid runs and bucketing self-contained marks by `SymbolStyle.layer`. `_dxf_engine` applies the same grid solve, guards one `doc.blocks.new` per `_signature`, places `add_blockref` references with `Standard.graphics(layer)`, fills ATTRIBs through `add_auto_attribs`, and adds directional geometry through `_dxf_extras`. `glyph` maps `RegionFault` into the rail `BoundaryFault` without nesting `Result`.
+- Entry: `Symbol.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `SymbolKind | Iterable[SymbolKind]` into `marks`; `emit`, `layered`, and `glyph` ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`. `_svg_engine` fixes `use('svg')`, outlined text, and coordinate precision before solving grid runs and bucketing self-contained marks by `SymbolStyle.layer`. `_dxf_engine` applies the same grid solve, guards one `doc.blocks.new` per `_signature`, places `add_blockref` references with `Standard.graphics(layer)`, fills ATTRIBs through `add_auto_attribs`, and adds directional geometry through `_dxf_extras`. `glyph` maps `RegionFault` into the result `BoundaryFault` without nesting `Result`.
 - Auto: `SymbolStyle.fill`/`stroke` index the `hex_ramp` ramp resolved once per render, so a recolor is a palette swap; `Standard.graphics(layer)` projects the same `LayerName` into the `ezdxf` `GfxAttribs` so the SVG group and the DXF layer carry one discipline pen. `North`'s south-half and the `Revision`/`MatchLine`/`Datum` captions are all DRAWN geometry, never a promised-but-dropped part; the DXF block marks mirror the SVG fills through `add_hatch().set_solid_fill()` over a closed boundary path at cross-egress parity, and the block name is the deterministic authoring-order `SYM_<tag>_<index>` — never a process-random hash forking the content key. Each collinear grid run threads its OWN `kiwisolver.Solver` — endpoints `required`, given positions `weak`, an even gap at `medium`, min-separation `strong`, the `strength` bands ranking the hard endpoint snap above the clearance floor above aesthetic spacing — and `_grid_runs` partitions a two-axis structural grid into independent X/Y runs so both axes never collapse onto one diagonal; `updateVariables()` writes each solved `value()` back into the re-keyed anchor before `_element` reads it.
 - Packages: `schemdraw` owns `ElementCompound`, `Segment*`, named anchors, and outlined SVG text; `drawsvg` owns the named-layer `Group`; `ezdxf` owns blocks, references, ATTRIBs, and solid hatches; `kiwisolver` owns grid-run alignment; `graphic/vector/region#REGION` owns `applied(RegionOp.Rasterize(...))`; `drawing/regime#REGIME` and `drawing/standard#STANDARD` own ISO vocabulary and DXF lowering; `graphic/color/derive#DERIVE` owns `Palette` and `hex_ramp`.
 - Growth: a new AEC marker is one `SymbolKind` case plus one `_element` arm, one `_dxf_block` arm, and one `_signature` arm — the five compound primitives cover the geometry; a new identity-tag kind is one `TagShape` member, zero new cases; a new egress one `SymbolTarget` member plus one `_ENGINES` row; a new visual axis one `SymbolStyle` field; a new named terminal one `self.anchors` key; a new alignment axis one `_grid_runs` band plus one `kiwisolver` constraint at its `strength` band; a new line-end one `drawing/regime#REGIME` `Terminator` member plus its one lowering row there, and one arm on each backend that draws it.
@@ -37,7 +37,7 @@ from msgspec import Struct
 from msgspec.msgpack import Encoder
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -199,7 +199,7 @@ class Symbol(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"drawing-symbol-{self.target}", _CANON.encode((self.marks, hex_ramp(self.palette), self.target)))
 
-    async def _emit(self) -> RuntimeRail[tuple[LayerNode, ...]]:
+    async def _emit(self) -> RuntimeResult[tuple[LayerNode, ...]]:
         settled = await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)
         match settled:
             case Result(tag="ok", ok=layers):
@@ -209,12 +209,12 @@ class Symbol(Struct, frozen=True):
             case refused:
                 return Error(refused.error)
 
-    async def layered(self) -> RuntimeRail[LayerPlan]:
+    async def layered(self) -> RuntimeResult[LayerPlan]:
         return (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(
             lambda layers: LayerPlan(schema=LayerSchema.ISO13567, roots=layers)
         )
 
-    async def glyph(self, mark: SymbolKind, /) -> RuntimeRail[bytes]:
+    async def glyph(self, mark: SymbolKind, /) -> RuntimeResult[bytes]:
         outcome = await self.lane.offload(Kernel.of(_raster, KernelTrait.RELEASING), mark, self.palette)
         return outcome.bind(lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SYMBOL_GLYPH.subject, fault))))
 

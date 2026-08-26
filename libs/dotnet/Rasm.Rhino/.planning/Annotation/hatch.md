@@ -8,7 +8,7 @@
 
 - [02]-[PATTERN]: generated pattern owners, line generators, tags, and native projection.
 - [03]-[PLACEMENT]: the gradient owner, invariant-carrying placement, and the closed hatch construction family.
-- [04]-[MUTATION]: the shared table verbs over the pattern grip, the generator list seam, and the placement, gradient, and scale operations this table alone carries.
+- [04]-[MUTATION]: the shared table verbs over the pattern grip, the generator list interface, and the placement, gradient, and scale operations this table alone carries.
 - [05]-[PROJECTION]: complete pattern and placed state, previews, loops, display geometry, regions, and pieces.
 
 ## [02]-[PATTERN]
@@ -16,9 +16,9 @@
 - Owner: `FillKind`, `PatternDistance`, `LineDef`, and `PatternDef` admit the complete detached pattern definition once.
 - Law: `PatternDef` couples fill kind with line generators and preserves the pattern user-string bag in every read-modify-write cycle.
 - Law: equality is GENERATED, never hand-written — the name comparison is `ResourceName`'s own declared ordinal-ignore-case policy, the generator run and the tag bag are structural by their carriers' own equality, and `==` is therefore the whole probe. A hand `Equivalent` beside a `[ComplexValueObject]` is a second authority over a fact the owner already answers, and it drifts the moment a column lands.
-- Law: admission ACCUMULATES — a definition refused on its fill/generator agreement and on its tag bag alike reports both clauses, and every `is not null` re-check of an already-admitted owner is the interior re-validating what the seam decided.
+- Law: admission ACCUMULATES — a definition refused on its fill/generator agreement and on its tag bag alike reports both clauses, and every `is not null` re-check of an already-admitted owner is the interior re-validating what the boundary decided.
 - Boundary: `PatternDef.Mint` shapes a fresh native and `Apply` shapes an existing duplicate through the same fold, so authoring and amendment cannot disagree on what a definition means; both verify `SetHatchLines` against the admitted generator count and treat every refused user-string write as failure.
-- Packages: `Annotation/style.md` (`DraftAngle`, `TagEdit`, `TagSurface`, `TableGrip`, `TableOp`, `ListEdit`, `ListSurface`), `Document/session.md` (`DraftFault`), `Document/tables.md` (`ResourceName`, `ResourceIndex`, `TagOp.Snapshot`), `Domain/rails` (`Custody`); RhinoCommon `HatchPattern`/`HatchLine` per `.api/api-rhinocommon-drafting-resources.md`; `Rasm.Drawing` `Hatching.Apply` for exact fill synthesis.
+- Packages: `Annotation/style.md` (`DraftAngle`, `TagEdit`, `TagSurface`, `TableGrip`, `TableOp`, `ListEdit`, `ListSurface`), `Document/session.md` (`DraftFault`), `Document/tables.md` (`ResourceName`, `ResourceIndex`, `TagOp.Snapshot`), `Domain/results` (`Custody`); RhinoCommon `HatchPattern`/`HatchLine` per `.api/api-rhinocommon-drafting-resources.md`; `Rasm.Drawing` `Hatching.Apply` for exact fill synthesis.
 - Growth: a pattern attribute lands in `PatternDef`, its validation gate, `Apply`, and `Read`; no mutation case carries a partial parallel definition.
 
 ```csharp
@@ -57,7 +57,6 @@ public sealed partial class LineDef {
     public Vector2d Offset { get; }
     public Seq<SegmentRow> Dashes { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref DraftAngle angle, ref Point2d @base, ref Vector2d offset, ref Seq<SegmentRow> dashes) {
         (Point2d origin, Vector2d step) = (@base, offset);
@@ -88,7 +87,6 @@ public sealed partial class PatternDef {
     public Seq<LineDef> Lines { get; }
     public HashMap<string, string> Tags { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref ResourceName name, ref Option<string> description, ref FillKind fill,
         ref ModelUnit units, ref PatternDistance distances, ref Seq<LineDef> lines, ref HashMap<string, string> tags) {
@@ -167,9 +165,9 @@ public sealed partial class PatternDef {
 - Owner: `GradientForm`, `GradientStop`, and `FillGradient` own the host gradient whole — form row, `PerceptualColor` stop pairs, repeat factor, and segment — so `GetGradientFill`/`SetGradientFill` are the only places a raw `ColorGradient` exists and no host gradient crosses this page's surface in either direction.
 - Owner: `FillPlacement` carries the resolved pattern address with the shared `DraftAngle` rotation and `DraftScale` scale; the section page reads the SAME host properties through the same owners.
 - Owner: `HatchSpec` closes explicit loops, host-resolved nested loops, and planar-face construction under one plural product.
-- Law: colour crosses the boundary through the kernel's ONE correspondence — `PerceptualColor.OfHost` inbound and `ToDrawing` outbound — so a gamut-refused stop lands on the rail rather than inside a statement block, and this folder declares no colour round trip of its own.
+- Law: colour crosses the boundary through the kernel's ONE correspondence — `PerceptualColor.OfHost` inbound and `ToDrawing` outbound — so a gamut-refused stop lands on the carrier rather than inside a statement block, and this folder declares no colour round trip of its own.
 - Law: the host-resolved arm's tolerance is a `Tolerance` on the `Closure` lane — the gap a boundary run may carry and still close into a loop — so the band decides admissibility once at its own gate instead of a positivity guard re-deciding at each construction.
-- Boundary: `HatchSpec.Lens` remains the frozen pattern lookup seam and refuses id lookup because `HatchPatternTable` exposes only name and index resolution.
+- Boundary: `HatchSpec.Lens` remains the frozen pattern lookup interface and refuses id lookup because `HatchPatternTable` exposes only name and index resolution.
 - Boundary: every boundary curve and source brep enters as a `GeometryHandle` and its native is read inside one `DraftBorrow` scope that also runs the arm's admission, so the loops crossing in name the same custody the loops crossing out do.
 - Law: a drawing gradient form demands at least two stops and a non-degenerate segment; a held form keeps its stored rows so suppressing a gradient never destroys it.
 - Law: curve construction accumulates `Requirement.AreaMass` failures before host dispatch and returns `Seq<Hatch>` because nested loops may partition into multiple fills.
@@ -196,7 +194,6 @@ public sealed partial class GradientStop {
     public PerceptualColor Color { get; }
     public double Position { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref PerceptualColor color, ref double position) {
         double at = position;
@@ -219,7 +216,6 @@ public sealed partial class FillGradient {
     public Point3d End { get; }
     public Seq<GradientStop> Stops { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref GradientForm form, ref double repeat,
         ref Point3d start, ref Point3d end, ref Seq<GradientStop> stops) {
@@ -350,15 +346,15 @@ public abstract partial record HatchSpec {
 
 - Owner: `HatchProgram` is the pattern-table and placed-hatch mutation program consumed by `Hatches.Commit`: one `Table` case carrying the namespace's shared eight verbs over this table's grip, beside the five verbs this table alone has — stock-roster authoring, incremental generator revision, placement, gradient regrade, and pattern rescale.
 - Law: authoring, amendment, renaming, retagging, deletion, current selection, and file interchange are the SHARED `TableOp` over `Grip` — the duplicate-then-`Modify` law, the compensated import, the plural delete arity, and the tag algebra are the namespace owner's and this page re-spells none of them. A page-local `Author`/`Amend`/`Rename`/`Retag`/`Delete`/`Import`/`Export` arm executes the deleted form.
-- Law: amendment revises a DUPLICATE through `PatternDef.Apply` and lands through `Modify`, the same law every other component table walks — the whole-aggregate mint-and-replace this rail once carried reached the same state by a second route, so the two disagreed on custody and only one of them released its native.
-- Law: `Relist` is the incremental generator rail beside that whole-aggregate replacement, mirroring the linetype page's segment rail — `ListEdit<LineDef>` revises a native `HatchPattern` copy in place through the declared `ListSurface` and lands through the same `Modify`, so amending one generator of a thirty-line pattern never re-admits the twenty-nine it left alone and a legacy row whose angle or offset `LineDef` refuses stays editable.
-- Law: the generator list publishes no in-place setter, so its surface leaves `Write` absent and the shared vocabulary spells a replace as a bounded remove-then-append ONCE; the list's floor is zero, so `Clear` is legal here and refuses on the linetype rail with the same declaration.
+- Law: amendment revises a DUPLICATE through `PatternDef.Apply` and lands through `Modify`, the same law every other component table walks — the whole-aggregate mint-and-replace this program once carried reached the same state by a second route, so the two disagreed on custody and only one of them released its native.
+- Law: `Relist` is the incremental generator verb beside that whole-aggregate replacement, mirroring the linetype page's segment verb — `ListEdit<LineDef>` revises a native `HatchPattern` copy in place through the declared `ListSurface` and lands through the same `Modify`, so amending one generator of a thirty-line pattern never re-admits the twenty-nine it left alone and a legacy row whose angle or offset `LineDef` refuses stays editable.
+- Law: the generator list publishes no in-place setter, so its surface leaves `Write` absent and the shared vocabulary spells a replace as a bounded remove-then-append ONCE; the list's floor is zero, so `Clear` is legal here and refuses on the linetype list with the same declaration.
 - Law: an empty generator set under `FillKind.Lines` refuses at the next `PatternDef.Read`, so a `Relist` batch proves a non-empty result before `Modify`.
 - Boundary: default and imported host patterns cross `PatternDef.Read` and `Mint`, so one canonical detached shape reaches every table addition; each host-minted roster — the `GetDefaultHatchPatterns` array and the `ReadFromFile` batch alike — releases through kernel `Custody` the moment its canonical copy exists, and the grip's file row carries that drain so the shared import arm never sees a raw native.
 - Boundary: placement rollback deletes landed objects while the release policy settles every minted native on both outcomes; placed-hatch rework retains original and revised clones through compensation, and a custody refusal after commit restores the originals.
 - Law: absence never crosses as `null` — an optional attribute set and the unused history slot project through the kernel's one host-slot spelling.
 - Entry: `Hatches.Commit` preserves the frozen wire and accepts `DraftPlan<HatchProgram>` with shared redraw and undo policy.
-- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagSurface`, `DraftPlan`, `DraftSpine`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); RhinoCommon `HatchPatternTable`/`HatchPattern.ReadFromFile`/`WriteToFile`.
+- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagSurface`, `DraftPlan`, `DraftSpine`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Domain/results` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); RhinoCommon `HatchPatternTable`/`HatchPattern.ReadFromFile`/`WriteToFile`.
 - Growth: a verb every component table shares lands on `TableOp`; a hatch-only verb is one case here.
 
 ```csharp
@@ -523,13 +519,13 @@ public static class Hatches {
 ## [05]-[PROJECTION]
 
 - Owner: `PatternSnapshot` and `HatchState` preserve the complete detached definition and every mutable placed-hatch parameter; `HatchDisplay` carries the bound run, the pattern lines, and the optional solid region as three TYPED columns.
-- Law: `LoopKind` and `LoopFrame` replace independent boolean switches with named perimeter and coordinate-frame values, and the FRAME row carries its own host reader — the ternary that once selected between `Get3dCurves` and `Get2dCurves` names the boolean-driven branch a behaviour column deletes, exactly as the dimension rail's length channel does. The loops they classify are shape-compatible ingress for the kernel's `HatchOp.Regions` — exact fill synthesized over host-authored boundaries.
+- Law: `LoopKind` and `LoopFrame` replace independent boolean switches with named perimeter and coordinate-frame values, and the FRAME row carries its own host reader — the ternary that once selected between `Get3dCurves` and `Get2dCurves` names the boolean-driven branch a behaviour column deletes, exactly as the dimension family's length channel does. The loops they classify are shape-compatible ingress for the kernel's `HatchOp.Regions` — exact fill synthesized over host-authored boundaries.
 - Law: a preview names its extent through the namespace's shared `PreviewSpec`, so the ceiling, the overflow-safe pixel product, and the positivity of both edges are the kernel `AssetExtent`'s and no arm re-guards them.
 - Law: `CreateDisplayGeometry` returns `void` with three `out` slots and no verdict, so the read funnels through ONE `Fin<(Seq<Curve>, Seq<Line>, Option<Brep>)>` where presence IS the evidence: an absent bound array reads as the empty run it is, an absent brep is `None`, and neither degrades to a null-coalesced `[]` a consumer reads as "the host answered nothing".
 - Boundary: loops, display bounds, solid regions, and exploded pieces cross through `DraftCrossing.Crossed`, the namespace's one detach fold, which releases accepted handles on crossing refusal and raw products on every exit; the display read crosses its bounds and its solid as TWO batches so the solid handle is recovered by NAME, never by ordinal into a fused run, and a refusal on the second batch releases the first.
-- Boundary: custody release rides the RAIL — `HatchAnswer.Release` returns `Fin<Unit>` and the accumulated release fault reaches the caller typed, where a `void` disposer swallows it.
+- Boundary: custody release rides the RESULT — `HatchAnswer.Release` returns `Fin<Unit>` and the accumulated release fault reaches the caller typed, where a `void` disposer swallows it.
 - Law: default-pattern projection returns full `PatternDef` rows rather than a name census, so built-in capability remains authorable without a second lookup grammar.
-- Packages: `Annotation/style.md` (`PreviewSpec`, `PreviewSurface`, `DraftCrossing`, `DraftScale`, `DraftAngle`), `Interaction/asset.md` (`AssetExtent`), `Document/tables.md` (`GeometryHandle`), `Domain/rails` (`Custody`); RhinoCommon `Hatch.Get3dCurves`/`Get2dCurves`/`ToBrep`/`Explode`/`CreateDisplayGeometry` and `HatchPattern.CreatePreviewGeometry`.
+- Packages: `Annotation/style.md` (`PreviewSpec`, `PreviewSurface`, `DraftCrossing`, `DraftScale`, `DraftAngle`), `Interaction/asset.md` (`AssetExtent`), `Document/tables.md` (`GeometryHandle`), `Domain/results` (`Custody`); RhinoCommon `Hatch.Get3dCurves`/`Get2dCurves`/`ToBrep`/`Explode`/`CreateDisplayGeometry` and `HatchPattern.CreatePreviewGeometry`.
 - Growth: a read is one `HatchAsk` case with its `HatchAnswer` twin; a loop axis is one row carrying its own host reader.
 
 ```csharp

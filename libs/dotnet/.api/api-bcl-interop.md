@@ -1,10 +1,10 @@
 # [RASM_API_BCL_INTEROP]
 
-`System.Runtime.InteropServices` is the shared-framework inbox for every managed-to-native boundary the branch crosses: portable POSIX signal registration, vendored native-module resolution, source-generated P/Invoke marshalling, native handle custody, and zero-copy reinterpretation of managed storage. One owner holds each concern — the registration object, the resolver delegate, the `SafeHandle` subclass, the marshal projector — so a native seam binds, frees, and re-types through this surface instead of its own kernel.
+`System.Runtime.InteropServices` is the shared-framework inbox for every managed-to-native boundary the branch crosses: portable POSIX signal registration, vendored native-module resolution, source-generated P/Invoke marshalling, native handle custody, and zero-copy reinterpretation of managed storage. One owner holds each concern — the registration object, the resolver delegate, the `SafeHandle` subclass, the marshal projector — so a native boundary binds, frees, and re-types through this surface instead of its own kernel.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: portable POSIX signal seam
+[PUBLIC_TYPE_SCOPE]: portable POSIX signal surface
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]     | [CAPABILITY]                        |
 | :-----: | :------------------------ | :---------------- | :---------------------------------- |
@@ -130,7 +130,7 @@
 - `api-hosting-lifetimes`(`Rasm.AppHost/.api/api-hosting-lifetimes.md`): `SystemdLifetime` owns sd_notify state and the watchdog keep-alive, so this surface carries the signal trap alone.
 - `api-silk-webgpu`(`.api/api-silk-webgpu.md`): `ShaderModuleWGSLDescriptor.Code` and `ProgrammableStageDescriptor.EntryPoint` bind a native UTF-8 `byte*`, so `Marshal.StringToCoTaskMemUTF8` mints the shader source and entry-point block and `Marshal.FreeCoTaskMem` retires both in the compile fold's `finally`; one interop owner marshals both directions across that boundary, `Marshal.PtrToStringUTF8` draining the error-scope message the same way.
 - `Rasm.AppHost` `Runtime/lifecycle`: the trap set is one `Create` per trapped signal folded into a LIFO detacher composite whose `Dispose` unwinds at drain, and the delivered `PosixSignal` rides the fault union's signalled case onto the wire.
-- within-lib: one resolver folds the whole native seam — `SetDllImportResolver` intercepts every `LibraryImport` stub in the assembly, `TryLoad` under an explicit `DllImportSearchPath` resolves the vendored module, `TryGetExport` binds each entry point, and the returned `nint` enters a `SafeHandleZeroOrMinusOneIsInvalid` subclass whose `ReleaseHandle` calls `NativeLibrary.Free`.
+- within-lib: one resolver folds the whole native boundary — `SetDllImportResolver` intercepts every `LibraryImport` stub in the assembly, `TryLoad` under an explicit `DllImportSearchPath` resolves the vendored module, `TryGetExport` binds each entry point, and the returned `nint` enters a `SafeHandleZeroOrMinusOneIsInvalid` subclass whose `ReleaseHandle` calls `NativeLibrary.Free`.
 
 [LOCAL_ADMISSION]:
 - Target-framework resolution alone admits every member here; the branch owns no manifest row for this surface.

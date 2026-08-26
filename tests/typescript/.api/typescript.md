@@ -14,7 +14,7 @@ Workspace consumes this package on the GATE lane only: `tsc --build tsconfig.jso
 |  [04]   | `unstable/ast`                          | types + enums + guards          | `Node`, `SyntaxKind`, `ScriptTarget`, `Node.forEachChild`    |
 |  [05]   | `unstable/ast/is`                       | `(node) => node is <T>`         | `isImportDeclaration`, `isStringLiteral`, `isCallExpression` |
 |  [06]   | `unstable/ast/scanner` / `ast/factory`  | lexer / node constructors       | token stream and synthetic-node minting, parse-free          |
-|  [07]   | `unstable/fs` / `unstable/proto`        | host fs seam / wire types       | server transport contracts                                   |
+|  [07]   | `unstable/fs` / `unstable/proto`        | host fs boundary / wire types   | server transport contracts                                   |
 
 ```ts
 class API<FromLSP extends boolean = false> {

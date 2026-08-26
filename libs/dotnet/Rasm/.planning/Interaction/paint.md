@@ -4,7 +4,7 @@
 
 Both host boundaries carried the whole algebra and each held half. Rhino held the two-band mark split with its kernel-lowered path run, the dual-projection stroke rows, the `SystemFonts` role roster, the memoized glyph block, the `Drawable` mount with its quality bracket, its invalidation family, its off-event degrade, its IME verbs, and the locked pixel window; Grasshopper held the ten-case path vocabulary, the gradient and texture fill family with its wrap and warp columns, the pose algebra, the spec-to-resource stock with reverse-creation release, the cull tally, and the paint tally. This owner is their union at every axis. Host residue stays where its host types live: Rhino keeps `WorldMark` and its twenty `DisplayPipeline` cases, the `.Rhino()` stroke projection column, `StrokePattern`, `ShadedMaterial`, `IsoBanding`, the `BlendUse` pair, and the `DisplayBitmap` half of its sprite cache; Grasshopper keeps `PaintPhase`, `PaintScene`, `PaintHook`, `PaintAnchor`, the four Grasshopper2-typed mark cases, and the CoreAnimation projection of its overlay.
 
-Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `Atom`, `Cell`/`Transition`, `Validation`, `ValidityClaim`, `Deterministic`, and `ContentHash`/`CanonicalWriter` from `Domain`; `FaultCell` from `Domain/hooks`; `TelemetrySource` from `Domain/frame`; `PerceptualColor`, `GamutPolicy`, `BlendPath`, `UnitInterval`, `PositiveMagnitude`, `VectorAngle`, and `Dimension` from `Numerics/atoms`; `MonotonicTimeline`, `MonotonicStamp`, and `GaugedSpan<TLane>` from `Parametric/projections`; `TextHeight` from `Drawing/sheet`; `UiFault`, `RejectReason`, `FaultRail`, `DispatchLane`, `UiDispatch<T>`, and `UiThread` from `Interaction/dispatch`; `FieldTag` from `Interaction/control`. `Eto.Drawing` never enters as a manifest using — its `Matrix` collides with `Rasm.Numerics.Matrix` and its `Point` with the globally imported `Rhino.Geometry.Point` — so every fence here aliases the host types it names.
+Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `Atom`, `Cell`/`Transition`, `Validation`, `ValidityClaim`, `Deterministic`, and `ContentHash`/`CanonicalWriter` from `Domain`; `FaultCell` from `Domain/hooks`; `TelemetrySource` from `Domain/frame`; `PerceptualColor`, `GamutPolicy`, `BlendPath`, `UnitInterval`, `PositiveMagnitude`, `VectorAngle`, and `Dimension` from `Numerics/atoms`; `MonotonicTimeline`, `MonotonicStamp`, and `GaugedSpan<TLane>` from `Parametric/projections`; `TextHeight` from `Drawing/sheet`; `UiFault`, `RejectReason`, `FaultGate`, `DispatchLane`, `UiDispatch<T>`, and `UiThread` from `Interaction/dispatch`; `FieldTag` from `Interaction/control`. `Eto.Drawing` never enters as a manifest using — its `Matrix` collides with `Rasm.Numerics.Matrix` and its `Point` with the globally imported `Rhino.Geometry.Point` — so every fence here aliases the host types it names.
 
 ## [01]-[INDEX]
 
@@ -27,11 +27,11 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Law: a paint-pass resource dies with the pass, so `Platform.Cache<TKey,TValue>` is REFUSED here and named in the fence — its lifetime is the platform's, and a pen cached across a plugin's life outlives every surface that asked for it. The one shared half is a `TypeRole` face, which is already process-cached by `SystemFonts` and therefore leases `Borrowed`.
 - Law: the pass is gauged by `MonotonicTimeline.Gauged<T, DispatchLane>` and `PaintTally` carries its `GaugedSpan`. The Grasshopper tally stored an entered stamp, a settled stamp, and a latency span — a mark-and-elapsed pair below the app root, which is the deleted form the kernel timeline closes. NAMED LOSS: a consumer ordering two passes reads the timeline's own `Order` over captured stamps rather than two stamps stored on the tally.
 - Law: a shaped run is measured ONCE. `TextCase` is the immediate run a pass measures through its own stock; `GlyphCase` carries a `GlyphBlock` whose memo survives frames. The discriminant is payload TIMING and it is named here: a pointer move hit-tests every mark in a frame, so a per-probe re-shape pays host text layout per mouse pixel.
-- Law: text shaping is UI-affine — no Eto backend declares its platform text stack safe off the marshal — so `GlyphBlock.Measure` crosses `UiThread` and answers a rail; a layout pass computing extents on a compute lane is exactly the caller this forecloses.
+- Law: text shaping is UI-affine — no Eto backend declares its platform text stack safe off the marshal — so `GlyphBlock.Measure` crosses `UiThread` and answers a result; a layout pass computing extents on a compute lane is exactly the caller this forecloses.
 - Law: a `Group` carrying both a pose and a clip becomes a `PoseCase` wrapping a `ClipCase`. NAMED LOSS: the one-value group; witness `Rasm.Rhino/.planning/Display/draw.md:775 Group(Option<Pose>, Option<ScreenPath>, Seq<ScreenMark>)` rebuilt as the two-level nest, which is also what makes each case's apply and unapply total.
 - Exemption: the composite path arms lower through `Rasm.Parametric` at admission on the Rhino boundary and that lowering STAYS there — the kernel `CompositeCase` carries the authored figures and the host path builder consumes them, because `IGraphicsPath` already owns round-rect and cardinal-curve construction and a second tessellator beside it is the deleted form (`api-eto-drawing.md:169`, `:172`).
 - Output: `PaintTally` accounts every mark as drawn or culled and carries the gauged span; the accountability fold is what makes a silent cull visible.
-- Packages: Eto.Drawing for the paint algebra (prelude-aliased); LanguageExt.Core for the rails, `Seq`, `Atom`, and `Lease`; Thinktecture.Runtime.Extensions for the unions, rows, and the family-name value object; Generator.Equals for the spec cache identity; `Numerics/atoms` for the bounded tension and the three measured angles.
+- Packages: Eto.Drawing for the paint algebra (prelude-aliased); LanguageExt.Core for the types, `Seq`, `Atom`, and `Lease`; Thinktecture.Runtime.Extensions for the unions, rows, and the family-name value object; Generator.Equals for the spec cache identity; `Numerics/atoms` for the bounded tension and the three measured angles.
 - Growth: a new drawable is one `Mark` case breaking every replay arm loudly; a new figure is one `PathSpec` case; a new fill is one `FillSource` case; a new dash pattern is one `Dash` case.
 - Boundary: HOST-SPECIFIC-STAYS — Rhino's `WorldMark`, its `Stroke.Rhino()` projection column, `StrokePattern`, `ShadedMaterial`, `IsoBanding`, the `BlendUse` source-and-destination pair, and the `DisplayBitmap` sprite cache; Grasshopper's `IconCase`, `CapsuleCase`, `WireGhostCase`, and the `EdgeDescription` stroke column. The `DisplayPen` eight-entry dash cap is the Rhino projection's own admission and never bounds this vocabulary.
 
@@ -218,11 +218,11 @@ public sealed class GlyphBlock {
     public TypeFace Face { get; }
     public BlockSpec Block { get; }
     public Option<PerceptualColor> Ink { get; }
-    [BoundaryAdapter] public Fin<EtoSizeF> Measure(Op? key = null);
+    public Fin<EtoSizeF> Measure(Op? key = null);
     internal Fin<Unit> Draw(Graphics target, EtoPointF at, PaintStock stock, Op key);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintTally(
     Op Operation,
     Dimension Marks,
@@ -249,7 +249,6 @@ public sealed record PaintProgram {
 
     public Fin<Seq<int>> Hit(EtoPointF at, PaintStock stock, PositiveMagnitude density, Op? key = null);
 
-    [BoundaryAdapter]
     public Fin<PaintTally> Replay(
         Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock, DispatchLane lane, Op? key = null);
 
@@ -305,8 +304,8 @@ public static class Tween {
 - Law: a stride is NOT a width. Both stacks publish a padded row pitch — `ScanWidth` and `Stride` — and both can present rows bottom-up, which `BitmapData.Flipped` names on the toolkit stack and a negative `Stride` on the GDI one; `Bytes` repacks against both, which is the whole distance between the declared layout and the platform's.
 - Law: the lock's FORMAT is the host's own asymmetry, named rather than hidden. `Bitmap.Lock()` admits no format, so the toolkit window hands its read carriage beside itself and the caller reads what the representation holds; `LockBits` admits one, so the GDI window is ASKED for a carriage and GDI+ converts on the way in. `Sample`, `Write`, and `WriteLocked` ask for neither, because `GetPixel` and `SetPixel` route every pixel through the handler's own translate pair and therefore speak straight colour on both stacks already.
 - Law: `Clone` hands back a leased bitmap, because a clone is a fresh host raster under caller custody and a bare return is the leak the page's own lease law forecloses.
-- Law: IME composition rides the host verbs and a text-editing overlay ignoring composition state is the named defect; `CancelComposition` and `CommitComposition` are that seam.
-- Output: `Replay` answers the `PaintTally` and the surface parks its paint faults on the spec's `FaultCell` through `FaultRail.Isolate`; a paint that refuses never throws through the host callback, and the cell bounds what a repainting storm can accumulate where a `void` reporter bounded nothing.
+- Law: IME composition rides the host verbs and a text-editing overlay ignoring composition state is the named defect; `CancelComposition` and `CommitComposition` are that pair.
+- Output: `Replay` answers the `PaintTally` and the surface parks its paint faults on the spec's `FaultCell` through `FaultGate.Isolate`; a paint that refuses never throws through the host callback, and the cell bounds what a repainting storm can accumulate where a `void` reporter bounded nothing.
 - Packages: Eto.Forms for `Drawable` and the marshal; Eto.Drawing for `Graphics`, `Bitmap`, and the pixel window; `System.Drawing.Common` for the GDI bitmap, its locked window, its pixel-format roster, and its encoder (all prelude-aliased); LanguageExt.Core for `Atom`, `Lease`, and the packed `Arr<byte>` rows; `Domain/hooks` for the bounded `FaultCell` a surface parks its paint faults on.
 - Growth: a new invalidation modality is one `Redraw` case; a new quality tier is one `ScenePolicy` row; a new coverage carriage is one `AlphaLayout` row carrying the GDI format that demands it, breaking every normalize arm loudly; a new pixel egress is one `PixelLease` member per stack, both landing together because a shape one stack answers and the other refuses is a hole a consumer discovers at its own boundary.
 - Boundary: frame pacing, display-link cadence, and animation clocks belong to `Parametric/projections` and `Interaction/clock` — this surface exposes swap-and-invalidate and nothing temporal. HOST-SPECIFIC-STAYS: Grasshopper paints into the Grasshopper2 canvas through its own `PaintPhase` hooks and hands a `Graphics` to `PaintProgram.Replay` rather than mounting a surface at all.
@@ -406,22 +405,22 @@ public sealed record SurfaceSpec(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Surface : IDisposable {
-    [BoundaryAdapter] public static Fin<Lease<Surface>> Mount(SurfaceSpec spec, Op? key = null);
+    public static Fin<Lease<Surface>> Mount(SurfaceSpec spec, Op? key = null);
 
     public static Option<Surface> Of(Drawable host);
 
     public Drawable Host { get; }
     public PaintProgram Program { get; }
 
-    [BoundaryAdapter] public Fin<Unit> Swap(Func<PaintProgram, PaintProgram> next, Redraw redraw, Op? key = null);
+    public Fin<Unit> Swap(Func<PaintProgram, PaintProgram> next, Redraw redraw, Op? key = null);
 
     public Fin<Seq<int>> HitTest(EtoPointF at, Op? key = null);
 
-    [BoundaryAdapter] public Fin<OffscreenDraw<TResult>> Acquire<TResult>(
+    public Fin<OffscreenDraw<TResult>> Acquire<TResult>(
         Func<Lease<Graphics>, Fin<TResult>> draw, Redraw fallback, Op? key = null);
 
-    [BoundaryAdapter] public Fin<Unit> CancelComposition(Op? key = null);
-    [BoundaryAdapter] public Fin<Unit> CommitComposition(Op? key = null);
+    public Fin<Unit> CancelComposition(Op? key = null);
+    public Fin<Unit> CommitComposition(Op? key = null);
 
     public void Dispose();
 }
@@ -431,29 +430,29 @@ public static class PixelLease {
     public delegate TResult PixelRead<out TResult>(scoped in EtoPixels window, AlphaLayout layout);
     public delegate TResult GdiRead<out TResult>(scoped in GdiPixels window);
 
-    [BoundaryAdapter] public static Fin<TResult> Locked<TResult>(EtoBitmap bitmap, PixelRead<TResult> read, Op? key = null)
+    public static Fin<TResult> Locked<TResult>(EtoBitmap bitmap, PixelRead<TResult> read, Op? key = null)
         where TResult : struct;
 
-    [BoundaryAdapter] public static Fin<TResult> Locked<TResult>(GdiBitmap bitmap, AlphaLayout layout, GdiRead<TResult> read, Op? key = null)
+    public static Fin<TResult> Locked<TResult>(GdiBitmap bitmap, AlphaLayout layout, GdiRead<TResult> read, Op? key = null)
         where TResult : struct;
 
-    [BoundaryAdapter] public static Fin<PerceptualColor> Sample(EtoBitmap bitmap, EtoPoint at, Op? key = null);
-    [BoundaryAdapter] public static Fin<PerceptualColor> Sample(GdiBitmap bitmap, GdiPoint at, Op? key = null);
+    public static Fin<PerceptualColor> Sample(EtoBitmap bitmap, EtoPoint at, Op? key = null);
+    public static Fin<PerceptualColor> Sample(GdiBitmap bitmap, GdiPoint at, Op? key = null);
 
-    [BoundaryAdapter] public static Fin<Unit> Write(EtoBitmap bitmap, EtoPoint at, PerceptualColor colour, Op? key = null);
-    [BoundaryAdapter] public static Fin<Unit> Write(GdiBitmap bitmap, GdiPoint at, PerceptualColor colour, Op? key = null);
+    public static Fin<Unit> Write(EtoBitmap bitmap, EtoPoint at, PerceptualColor colour, Op? key = null);
+    public static Fin<Unit> Write(GdiBitmap bitmap, GdiPoint at, PerceptualColor colour, Op? key = null);
 
-    [BoundaryAdapter] public static Fin<Unit> WriteLocked(EtoBitmap bitmap, Seq<(EtoPoint At, PerceptualColor Colour)> pixels, Op? key = null);
-    [BoundaryAdapter] public static Fin<Unit> WriteLocked(GdiBitmap bitmap, Seq<(GdiPoint At, PerceptualColor Colour)> pixels, Op? key = null);
+    public static Fin<Unit> WriteLocked(EtoBitmap bitmap, Seq<(EtoPoint At, PerceptualColor Colour)> pixels, Op? key = null);
+    public static Fin<Unit> WriteLocked(GdiBitmap bitmap, Seq<(GdiPoint At, PerceptualColor Colour)> pixels, Op? key = null);
 
-    [BoundaryAdapter] public static Fin<Arr<byte>> Bytes(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
-    [BoundaryAdapter] public static Fin<Arr<byte>> Bytes(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
+    public static Fin<Arr<byte>> Bytes(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
+    public static Fin<Arr<byte>> Bytes(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
 
-    [BoundaryAdapter] public static Fin<ReadOnlyMemory<byte>> Encode(EtoBitmap bitmap, ImageFormat format, Op? key = null);
-    [BoundaryAdapter] public static Fin<ReadOnlyMemory<byte>> Encode(GdiBitmap bitmap, GdiFormat format, Op? key = null);
+    public static Fin<ReadOnlyMemory<byte>> Encode(EtoBitmap bitmap, ImageFormat format, Op? key = null);
+    public static Fin<ReadOnlyMemory<byte>> Encode(GdiBitmap bitmap, GdiFormat format, Op? key = null);
 
-    [BoundaryAdapter] public static Fin<Lease<EtoBitmap>> Clone(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
-    [BoundaryAdapter] public static Fin<Lease<GdiBitmap>> Clone(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
+    public static Fin<Lease<EtoBitmap>> Clone(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
+    public static Fin<Lease<GdiBitmap>> Clone(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
 }
 ```
 
@@ -496,7 +495,6 @@ public sealed partial class ChromeRole {
     [UseDelegateFromConstructor]
     internal partial EtoColor Read();
 
-    [BoundaryAdapter]
     public Fin<PerceptualColor> Sample(Op? key = null) => PerceptualColor.OfHost(host: Read(), key: key);
 }
 
@@ -513,7 +511,7 @@ public static class PaintColor {
 
 - Owner: `ThemeVariant`, `PaletteRole`, `SpaceRole`, and `TypeSlot` the four vocabularies, the last three ranked so every frozen axis reads by index; `ContrastFloor` the published readability floors and `ContrastRule` one role pair against one floor; `ThemeProgram` the generator over the whole cross-product; `ThemeSnapshot` the published immutable grid; `ThemeShift` the transition family; `ThemeChange` the settled transition; `ThemeGrid` the frozen state every consumer reads.
 - Cases: `ThemeVariant` carries light, dark, and high-contrast; `PaletteRole` twelve semantic paint roles carrying no colour; `ThemeShift` is `Generated` — select a variant off the frozen grid — or `Hosted` — merge live host swatches over that variant's row, which is how a generated palette and an OS theme meet in one owner.
-- Entry: `ThemeGrid.Freeze` admits the generator, the initial variant, and every contrast rule through one applicative fold so every absence reports together; `Swap` rails a shift; `Current` publishes the snapshot.
+- Entry: `ThemeGrid.Freeze` admits the generator, the initial variant, and every contrast rule through one applicative fold so every absence reports together; `Swap` lands a shift; `Current` publishes the snapshot.
 - Auto: the generator derives EVERY cell from the cross-product of the generated roster items, so a missing-cell fallback cannot exist and a new role is a compile break at the generator rather than a runtime default.
 - Auto: a `Hosted` merge re-enters the same contrast gate `Freeze` runs, so an ingested swatch breaching a floor rejects without touching the grid — the refusal is the caller's answer alone and never becomes state a later reader inherits.
 - Law: the grid has THREE axes, not one. Colour, spacing, and typography are the three scales a chrome surface reads together, and a boundary carrying a colour grid beside hand-picked pixel insets and hand-picked font sizes is exactly how the same nominal theme rendered at two spacings in two panels. Each axis is keyed by variant because a contrast variant legitimately widens a hairline and enlarges a caption.
@@ -523,9 +521,9 @@ public static class PaintColor {
 - Law: a content-identical shift emits an EMPTY changed set and holds the generation, so a rebroadcast triggered by an unchanged theme costs no relayout — `ThemeChange` is the discriminant, not a caller-side comparison.
 - Law: the generation is a `MonotonicStamp` off the grid's own timeline, never a hand-kept counter. A rebroadcast and the paint pass it triggers then order against ONE clock through `MonotonicTimeline.Order`, where two counters below the app root are exactly the pair the kernel timeline exists to delete.
 - Law: every frozen axis is `Rank`-INDEXED and its fill is proved once at `Freeze`, so a snapshot read is total by construction. A hash-map indexer raises out of a value this page calls frozen the first time a generator misses a row, which is exception-style control flow inside the one owner that publishes immutability.
-- Law: this owner publishes and NEVER registers. Style registration, control tracking, and rebroadcast are the injection seam on `Interaction/platform#[04]-[PLATFORM]`, because they are host-registry state and this is a frozen value.
+- Law: this owner publishes and NEVER registers. Style registration, control tracking, and rebroadcast are the injection point on `Interaction/platform#[04]-[PLATFORM]`, because they are host-registry state and this is a frozen value.
 - Output: `ThemeChange` carries the accepted generation, the variant, the changed-role set, and the rebroadcast failures; its evidence fold is the empty failure set.
-- Packages: LanguageExt.Core for `Arr`, `HashMap`, `Validation`, and the rails; Thinktecture.Runtime.Extensions for the rows and the shift union; `Numerics/atoms` for the colour and magnitude owners; `Drawing/sheet` for the `TextHeight` ladder the type slots stand on; `Parametric/projections` for the timeline the generation is stamped by.
+- Packages: LanguageExt.Core for `Arr`, `HashMap`, `Validation`, and the types; Thinktecture.Runtime.Extensions for the rows and the shift union; `Numerics/atoms` for the colour and magnitude owners; `Drawing/sheet` for the `TextHeight` ladder the type slots stand on; `Parametric/projections` for the timeline the generation is stamped by.
 - Growth: a new role is one row plus the generator arm the compile break demands; a new spacing step is one row carrying its multiple and a new type slot one row carrying its rung, neither touching the generator; a new published floor is one `ContrastFloor` row; another transition modality is one `ThemeShift` case with every consumer's dispatch loudly broken.
 - Boundary: the shift arrives INJECTED — variant polarity and any live host swatches are read at the boundary that owns the OS theme, and this owner never reads a host theme global.
 
@@ -653,7 +651,7 @@ public sealed record ThemeSnapshot(
     public TypeFace this[TypeSlot slot] => Faces[slot.Rank];
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ThemeChange(
     MonotonicStamp Generation,
     ThemeVariant Variant,
@@ -672,7 +670,7 @@ public sealed class ThemeGrid {
 
     public ThemeSnapshot Current { get; }
 
-    [BoundaryAdapter] public Fin<ThemeChange> Swap(ThemeShift shift, Op? key = null);
+    public Fin<ThemeChange> Swap(ThemeShift shift, Op? key = null);
 }
 ```
 

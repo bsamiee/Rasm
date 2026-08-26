@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFC4D]
 
-`ifc4d` owns the IFC 4D construction-scheduling round-trip for the geometry ifc-analysis rail: one `<Format>2Ifc` parser class per external scheduling format populates an `IfcWorkSchedule`/`IfcTask`/`IfcRelSequence` task tree over the `ifcopenshell` model, and the symmetric `Ifc2<Format>` writer exports a schedule back out. `IfcLifecycle` consumes it at its `SCHEDULE` phase, keyed by the `ScheduleFormat` parser vocabulary.
+`ifc4d` owns the IFC 4D construction-scheduling round-trip for the geometry ifc-analysis domain: one `<Format>2Ifc` parser class per external scheduling format populates an `IfcWorkSchedule`/`IfcTask`/`IfcRelSequence` task tree over the `ifcopenshell` model, and the symmetric `Ifc2<Format>` writer exports a schedule back out. `IfcLifecycle` consumes it at its `SCHEDULE` phase, keyed by the `ScheduleFormat` parser vocabulary.
 
 ## [01]-[PUBLIC_TYPES]
 

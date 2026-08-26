@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_XARRAY]
 
-`xarray` owns the CF-conventioned labelled n-dimensional field cube over `numpy` buffers: named dimensions, coordinate indexes, CF-aware selection, grouped and windowed and weighted reductions, interpolation and coordinate calculus, hierarchical `DataTree`, and the netCDF/Zarr/Icechunk IO plane feeding the `field-dataset` rail. Every `FieldDataset` body binds it function-local, so the cube never widens the module import graph.
+`xarray` owns the CF-conventioned labelled n-dimensional field cube over `numpy` buffers: named dimensions, coordinate indexes, CF-aware selection, grouped and windowed and weighted reductions, interpolation and coordinate calculus, hierarchical `DataTree`, and the netCDF/Zarr/Icechunk IO plane feeding the `field-dataset` layer. Every `FieldDataset` body binds it function-local, so the cube never widens the module import graph.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -111,7 +111,7 @@
 - `flox`(`libs/python/data/.api/flox.md`): `flox` lowers `groupby`/`groupby_bins`/`resample` onto the vectorized numpy-groupies map-reduce kernel; `flox.xarray.xarray_reduce` is the direct entry for cohorts and blockwise strategies and custom `Aggregation` escapes.
 - `netcdf4`(`libs/python/data/.api/netcdf4.md`): `open_dataset(engine='netcdf4')` and `engine='h5netcdf'` route CF decode through the C-extension owner; reach `netcdf4` directly for low-level group/dimension/variable authoring, MPI-collective write, or `memory=`/`diskless=` round-trips, and `cftime` owns the `CFTimeIndex` calendar.
 - `zarr`(`libs/python/data/.api/zarr.md`): `open_zarr` and `to_zarr(store=...)` target any `StoreLike`, `to_zarr(region=, append_dim=)` does partial and append writes, and an `IcechunkStore` from `repo.writable_session(branch).store` gives the transactional versioned cube.
-- `rioxarray`(`libs/python/data/.api/rioxarray.md`): importing `rioxarray` registers the `.rio` accessor — CRS, transform, nodata, `reproject`, `clip`, `to_raster` — and the `engine='rasterio'` backend, and the raster coverage rail and `odc-stac` lazy cubes ride that accessor.
+- `rioxarray`(`libs/python/data/.api/rioxarray.md`): importing `rioxarray` registers the `.rio` accessor — CRS, transform, nodata, `reproject`, `clip`, `to_raster` — and the `engine='rasterio'` backend, and the raster coverage domain and `odc-stac` lazy cubes ride that accessor.
 - `virtualizarr`(`libs/python/data/.api/virtualizarr.md`): `open_virtual_dataset` returns a `ManifestArray`-backed `Dataset` referencing existing files without copy, and `ds.vz.to_icechunk`/`to_kerchunk` persists the reference manifest.
 - `cubed`(`libs/python/data/.api/cubed.md`): `chunk(chunked_array_type="cubed")` caps per-task memory for out-of-core cubes, where `dask`(`libs/python/compute/.api/dask.md`) backs the default chunked graph.
 - within-lib: `numerics/array` extracts `.data` with coords into `NamedAxis` rows through its `ArraySource.Labelled` arm, `FieldSelection` folds `sel`/`isel`/`groupby`/`resample`/`rolling` into one discriminated dispatch, and `FieldDataset` egress shares the content-keyed `pyarrow`/Zarr surface.

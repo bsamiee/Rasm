@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_ODFPY]
 
-`odfpy` owns the pure-Python OpenDocument read+write DOM on the artifacts office rail: the `OpenDocument*` factories mint typed OASIS trees, the camelCase `Element` write API authors the namespaced graph against a per-module `allowed_attributes` grammar, and `load` parses any `.ods`/`.odt`/`.odp` container back into the same tree the traversal API walks. `odfpy` keeps the whole OASIS parse-and-serialize in-package with no LibreOffice/UNO bridge, feeding the `document/emit#DOCUMENT` `DocumentMode.ODT`/`ODS` authoring arm and the `document/lens#LENS` `ODS_READ`/`ODT_READ` recovery arm.
+`odfpy` owns the pure-Python OpenDocument read+write DOM on the artifacts office domain: the `OpenDocument*` factories mint typed OASIS trees, the camelCase `Element` write API authors the namespaced graph against a per-module `allowed_attributes` grammar, and `load` parses any `.ods`/`.odt`/`.odp` container back into the same tree the traversal API walks. `odfpy` keeps the whole OASIS parse-and-serialize in-package with no LibreOffice/UNO bridge, feeding the `document/emit#DOCUMENT` `DocumentMode.ODT`/`ODS` authoring arm and the `document/lens#LENS` `ODS_READ`/`ODT_READ` recovery arm.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -19,9 +19,9 @@
 |  [07]   | `OpenDocumentImage`        | factory       | `.odi` image-document root                                                             |
 |  [08]   | `OpenDocumentTextMaster`   | factory       | `.odm` master-document root                                                            |
 
-[PUBLIC_TYPE_SCOPE]: DOM node API and grammar reject rail
+[PUBLIC_TYPE_SCOPE]: DOM node API and grammar reject domain
 
-Every node is one `odf.element.Element`; the element factories (`Table`, `P`, `Style`) are qname-keyed namespaced constructors, not parallel node classes, and grammar rejection is a closed `IllegalChild`/`IllegalText` rail.
+Every node is one `odf.element.Element`; the element factories (`Table`, `P`, `Style`) are qname-keyed namespaced constructors, not parallel node classes, and grammar rejection is a closed `IllegalChild`/`IllegalText` layer.
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [CAPABILITY]                                                                             |
 | :-----: | :------------------------ | :-------------- | :--------------------------------------------------------------------------------------- |
@@ -147,6 +147,6 @@ Each ODF module exposes the element factories for one namespace; the factory is 
 [STACKING]:
 - `document/lens#LENS` (READ): the `LensProvider.ODFPY` recover-to inverse. `ODS_READ` folds `load` → `getElementsByType(Table|TableRow|TableCell)` → per-cell `extractText` with `numbercolumnsrepeated` run-length expansion into a `TableNode`. `ODT_READ` folds `load(BytesIO)` then a document-order `body.childNodes` walk dispatching `isInstanceOf(text.H)` → `SectionNode` at `outlinelevel` and `isInstanceOf(text.P)` → `BlockNode`, content-flattened through `extractText`; OOXML/binary formats outside the OASIS parser route to `python-calamine`(`XLSX_READ`)/`python-docx`(`DOCX_READ`).
 - `exchange/detect#DETECT`: `_MEDIA_CLASS` longest-prefix-folds the `...opendocument...` compound MIME to the document branch and `Container.ZIP`, so a detected ODF buffer reaches `load` with the flavor resolved and odfpy mints no second sniff.
-- universal tier (`libs/python/.api`): `anyio.to_thread.run_sync(limiter=_OFFLOAD)` carries the sync author/`write`/`load` off-loop; `expression` `Result`/`RuntimeRail` owns the typed-error fold and `tagged_union` discriminant; `msgspec` `Struct`/`convert` materializes the `EmitSpec`/`LensSpec` payload; `rasm.runtime.faults.async_boundary` wraps each op, inheriting the `structlog`/OpenTelemetry span and converting an `IllegalChild`/`IllegalText`/`zipfile`/`defusedxml` raise to `BoundaryFault`.
+- universal tier (`libs/python/.api`): `anyio.to_thread.run_sync(limiter=_OFFLOAD)` carries the sync author/`write`/`load` off-loop; `expression` `Result`/`RuntimeResult` owns the typed-error fold and `tagged_union` discriminant; `msgspec` `Struct`/`convert` materializes the `EmitSpec`/`LensSpec` payload; `rasm.runtime.faults.async_boundary` wraps each op, inheriting the `structlog`/OpenTelemetry span and converting an `IllegalChild`/`IllegalText`/`zipfile`/`defusedxml` raise to `BoundaryFault`.
 
 [LOCAL_ADMISSION]:

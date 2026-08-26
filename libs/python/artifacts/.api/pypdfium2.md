@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYPDFIUM2]
 
-`pypdfium2` binds Google's PDFium through ctypes helpers and owns the BSD, Pillow-free PDF render and inspection surface for the artifacts pdf rail: page rasterization to bitmap/PIL/NumPy, layout-faithful text extraction and search with per-char geometry, native outline harvest, page-object/image/font authoring, the `PdfMatrix` affine algebra, and interactive-form access. It never re-implements the PDFium render pipeline, the affine algebra, the headless font-substitution shim, or the `pypdfium2.raw` ctypes bindings the native core already binds.
+`pypdfium2` binds Google's PDFium through ctypes helpers and owns the BSD, Pillow-free PDF render and inspection surface for the artifacts pdf domain: page rasterization to bitmap/PIL/NumPy, layout-faithful text extraction and search with per-char geometry, native outline harvest, page-object/image/font authoring, the `PdfMatrix` affine algebra, and interactive-form access. It never re-implements the PDFium render pipeline, the affine algebra, the headless font-substitution shim, or the `pypdfium2.raw` ctypes bindings the native core already binds.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -113,7 +113,7 @@ Process-singleton handlers installed once at boundary setup so a missing embedde
 |  [04]   | `PdfSysfontBase().setup(reusable=False)`                           | instance | install deterministic missing-font fallback          |
 |  [05]   | `PdfUnspHandler().setup(add_default=True)`                         | instance | install unsupported-feature callback                 |
 
-- `PdfBookmark.get_color()` returns the outline entry's `(r, g, b)` floats in `0..1` or `None` when unset; it binds a recent PDFium (`FPDFBookmark_GetColor`), so a lagging conda/system-search build falls back to the `raw` seam.
+- `PdfBookmark.get_color()` returns the outline entry's `(r, g, b)` floats in `0..1` or `None` when unset; it binds a recent PDFium (`FPDFBookmark_GetColor`), so a lagging conda/system-search build falls back to the `raw` boundary.
 - [06]-[MATRIX_BUILDERS]: `scale(x, y)` `rotate(angle, ccw=False, rad=False)` `translate(x, y)` `skew(x_angle, y_angle, rad=False)` `mirror(invert_x, invert_y)` `multiply(other)` compose the affine, each returning the composed `PdfMatrix`; `on_point(x, y)` `on_rect(left, bottom, right, top)` `get()` `to_raw()` apply it and bridge outbound.
 
 ## [03]-[IMPLEMENTATION_LAW]
@@ -131,13 +131,13 @@ Process-singleton handlers installed once at boundary setup so a missing embedde
 
 [STACKING]:
 - `expression`(`libs/python/.api/expression.md`): `PdfiumError` converts to `BoundaryFault` at `async_boundary`; `PdfiumWarning` binds to the operation span, and `errors="ignore"` text remains data.
-- `numpy`(`libs/python/.api/numpy.md`): `PdfBitmap.to_numpy()` returns a `(height, width, channels)` `uint8` view over the live buffer (layout per `.format`, order per `.rev_byteorder`); the rail copies before the page closes and stacks per-page arrays into one frame stack the `graphic/raster/io` owner consumes without re-decoding.
+- `numpy`(`libs/python/.api/numpy.md`): `PdfBitmap.to_numpy()` returns a `(height, width, channels)` `uint8` view over the live buffer (layout per `.format`, order per `.rev_byteorder`); the result copies before the page closes and stacks per-page arrays into one frame stack the `graphic/raster/io` owner consumes without re-decoding.
 - `anyio`(`libs/python/.api/anyio.md`): render and extract are GIL-bound C work fanned across `anyio.to_thread.run_sync` under the shared `CapacityLimiter`; one `PdfDocument`'s page work stays serialized within a worker, and parallelism runs across distinct documents.
-- `structlog`(`libs/python/.api/structlog.md`) / `opentelemetry`(`libs/python/.api/opentelemetry-api.md`): each op rides the boundary span carrying page index, scale, and dimensions, and a `PdfiumWarning` is a structured span event; PDFium exposes no Python-side logger, so the boundary is the sole observability seam.
+- `structlog`(`libs/python/.api/structlog.md`) / `opentelemetry`(`libs/python/.api/opentelemetry-api.md`): each op rides the boundary span carrying page index, scale, and dimensions, and a `PdfiumWarning` is a structured span event; PDFium exposes no Python-side logger, so the boundary is the sole observability boundary.
 - `msgspec`(`libs/python/.api/msgspec.md`) / `pydantic`(`libs/python/.api/pydantic.md`): `get_charbox`/`get_rect` geometry tuples and outline triples admit at the boundary into the discriminated node models once; a live `PdfTextPage`/`PdfBookmark` handle never crosses into the interior, and `@beartype` on the boundary catches a wrong-shaped `crop`/`color_scheme`/`PdfMatrix` before ctypes.
 - `pillow`(`.api/pillow.md`): `to_pil()`/`from_pil(img)` bridge to the `graphic/raster/io` owner for ICC or format-convert work on the WORKER band only; the CORE-band raster path stays `to_numpy` to keep it Pillow-free.
 - within-lib: `document/emit` `PDF_RASTER` folds render-to-`to_numpy` and the outline harvest, `document/lens` folds char-geometry extraction into `RunNode`, and `document/egress` folds object-and-matrix edits and page-as-XObject stamping.
-- pdf-rail: the rail meets `pypdf`/`pdf_oxide` (assemble), `pdfplumber` (ruled tables, itself rasterizing through pypdfium2), `ocrmypdf` (OCR layer, itself depending on pypdfium2), and `pikepdf` (AES-256-R6) at PDF bytes or an in-memory `PdfBitmap`/array.
+- pdf domain: the result meets `pypdf`/`pdf_oxide` (assemble), `pdfplumber` (ruled tables, itself rasterizing through pypdfium2), `ocrmypdf` (OCR layer, itself depending on pypdfium2), and `pikepdf` (AES-256-R6) at PDF bytes or an in-memory `PdfBitmap`/array.
 
 [LOCAL_ADMISSION]:
-- `import pypdfium2` at boundary scope only; module-level import is banned by the manifest import policy. PDFium is a process-global library and the `PdfDocument`/`PdfPage`/`PdfTextPage` tree owns a strict parent-to-child close order, so the rail holds each handle inside one `async_boundary` capsule and closes leaf-first for deterministic buffer lifetime.
+- `import pypdfium2` at boundary scope only; module-level import is banned by the manifest import policy. PDFium is a process-global library and the `PdfDocument`/`PdfPage`/`PdfTextPage` tree owns a strict parent-to-child close order, so the result holds each handle inside one `async_boundary` capsule and closes leaf-first for deterministic buffer lifetime.

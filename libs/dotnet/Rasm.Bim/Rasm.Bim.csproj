@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Host-neutral BIM object model and universal exchange semantics: the IFC semantic graph, element-set algebra, classification, host-neutral assembly, and the IFC/glTF/STEP import-export codec over GeometryGym and SharpGLTF, consuming the Rasm kernel geometry and the Compute content-identity and tessellation rail at the seam.</Description>
-        <CspScope>Domain</CspScope>
+        <Description>Host-neutral BIM object model and universal exchange semantics: the IFC semantic graph, element-set algebra, classification, host-neutral assembly, and the IFC/glTF/STEP import-export codec over GeometryGym and SharpGLTF, consuming the Rasm kernel geometry and the Compute content-identity and tessellation path at the boundary.</Description>
     </PropertyGroup>
 
     <!-- Design-time vocabulary regeneration; Debug/Release output stays the library. -->
@@ -75,9 +74,12 @@
 
     <ItemGroup Label="Core Substrate">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
@@ -106,7 +108,7 @@
         <PackageReference Include="pocketken.H3" />
     </ItemGroup>
 
-    <ItemGroup Label="Wire Seam">
+    <ItemGroup Label="Wire Boundary">
         <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="Google.Protobuf" />

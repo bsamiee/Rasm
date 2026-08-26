@@ -34,7 +34,7 @@ from msgspec import Struct
 from numpy.lib.stride_tricks import sliding_window_view
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -205,9 +205,9 @@ class Analysis(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"media.analysis-{self.op.tag}", CANON.encode(self.op))
 
-    async def _emit(self) -> RuntimeRail[AnalysisProduct]:
-        railed = await async_boundary(ANALYSIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
-        settled = railed.bind(
+    async def _emit(self) -> RuntimeResult[AnalysisProduct]:
+        held = await async_boundary(ANALYSIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
+        settled = held.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(ANALYSIS_FOLD.subject, fault)))
         )
         match settled:

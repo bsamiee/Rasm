@@ -1,4 +1,4 @@
-"""Seam-substrate falsification laws: call-shape recording, virtual time, fixture writers, decode oracles."""
+"""Test-double falsification laws: call-shape recording, virtual time, fixture writers, decode oracles."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
@@ -10,7 +10,7 @@ import anyio
 import msgspec
 import pytest
 
-from tests.python.testkit.seams import Async, autojump_backend, Factory, FanOut, NdjsonOracle, SeamProbe, Sync, VariantWriter
+from tests.python.testkit.doubles import Async, autojump_backend, Factory, FanOut, NdjsonOracle, CallProbe, Sync, VariantWriter
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -22,9 +22,9 @@ if TYPE_CHECKING:
 
 
 def test_sync_shape_records_args_projects_and_returns(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Sync seam returns its canned value, records the exact call, and feeds the projection."""
+    """The Sync double returns its canned value, records the exact call, and feeds the projection."""
     owner = SimpleNamespace(op=None)
-    probe: SeamProbe[int] = SeamProbe(project=lambda args: [item for item in args if isinstance(item, int)])
+    probe: CallProbe[int] = CallProbe(project=lambda args: [item for item in args if isinstance(item, int)])
     probe.install(monkeypatch, owner, "op", Sync(7))
     assert owner.op(3, key="v") == 7
     assert probe.calls == [("op", (3,), {"key": "v"})]
@@ -33,9 +33,9 @@ def test_sync_shape_records_args_projects_and_returns(monkeypatch: pytest.Monkey
 
 @pytest.mark.anyio
 async def test_async_shape_is_awaitable_and_records(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Async seam yields its value only through await and records the call."""
+    """The Async double yields its value only through await and records the call."""
     owner = SimpleNamespace(op=None)
-    probe: SeamProbe[object] = SeamProbe()
+    probe: CallProbe[object] = CallProbe()
     probe.install(monkeypatch, owner, "op", Async("done"))
     assert await owner.op(1) == "done"
     assert probe.calls == [("op", (1,), {})]
@@ -54,18 +54,18 @@ async def test_autojump_backend_collapses_virtual_time() -> None:
 
 
 def test_fanout_shape_records_items_as_sole_positional(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The FanOut seam returns the canned batch and records the items collection as one positional."""
+    """The FanOut double returns the canned batch and records the items collection as one positional."""
     owner = SimpleNamespace(op=None)
-    probe: SeamProbe[object] = SeamProbe()
+    probe: CallProbe[object] = CallProbe()
     probe.install(monkeypatch, owner, "op", FanOut((10, 20)))
     assert owner.op(["a", "b"], flag=True) == (10, 20)
     assert probe.calls == [("op", (["a", "b"],), {"flag": True})]
 
 
 def test_factory_shape_records_bind_layer_then_logs_inner_calls(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Factory seam records the bind call once, then logs every inner call under its label."""
+    """The Factory double records the bind call once, then logs every inner call under its label."""
     owner = SimpleNamespace(op=None)
-    probe: SeamProbe[object] = SeamProbe()
+    probe: CallProbe[object] = CallProbe()
     probe.install(monkeypatch, owner, "op", Factory(9, inner_label="<f>.run"))
     runner = owner.op("cfg", mode="m")
     assert (runner(5), runner(6)) == (9, 9)

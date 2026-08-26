@@ -42,7 +42,7 @@
 - Decode admits emitted bytes untouched under `process=False`, so a census counts what was written rather than what conditioning produced.
 - Placement count collapses each `from_gltf_primitive` child onto its parent, because one mesh split across material primitives is one placement.
 - Triangle count sums face-array lengths once across unique geometries, so an instanced geometry counts once however many nodes place it.
-- Closure and volume read the FLATTENED scene: placements apply first, then welding removes the bit-identical seams glTF float32 promotion introduces.
+- Closure and volume read the FLATTENED scene: placements apply first, then welding removes the bit-identical boundaries glTF float32 promotion introduces.
 - Welding passes explicit texture, normal, and vertex-digit arguments rather than inheriting the mutable `tol.merge` default.
 - Component split is engine-backed and never pure-Python, so the engine is declared runtime closure rather than an optional extra.
 - Per-body volume sums absolute component volumes, so an inverted component contributes magnitude instead of cancelling a sibling into a forged zero.

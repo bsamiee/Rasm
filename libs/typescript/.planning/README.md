@@ -4,7 +4,7 @@ One `pnpm-workspace.yaml` catalog pins versions; test infrastructure lives under
 
 ## [01]-[ROUTER]
 
-Folder roots in stratum order; each root `README.md` carries the folder identity, its sub-domain router, and its own package registry, each `ARCHITECTURE.md` the folder sub-domain map and seams.
+Folder roots in stratum order; each root `README.md` carries the folder identity, its sub-domain router, and its own package registry, each `ARCHITECTURE.md` the folder sub-domain map and boundaries.
 
 - [01]-[CORE](../core/README.md) — branch law every folder composes.
 - [02]-[SECURITY](../security/README.md) — identity and custody, stateless behind ports.
@@ -19,8 +19,8 @@ Cross-folder substrate; a consuming folder names its substrate set in its README
 
 [CONTRACT_BINDINGS]:
 
-[TYPING_RAILS]:
-- `effect` — Carries the rail, schema, and layer substrate every folder composes.
+[TYPING_CORE]:
+- `effect` — Carries the effect, schema, and layer substrate every folder composes.
 
 [PLATFORM]:
 - `@effect/platform` — Platform service contracts each binding realizes.

@@ -1,11 +1,11 @@
 # [PY_ARTIFACTS_API_PAPERMILL]
 
-`papermill` owns parameterized notebook execution for the artifacts notebook rail: it injects a typed parameters cell, translates it to the target kernel language, runs the notebook end-to-end through a registered engine, and routes notebook I/O across local and cloud path schemes through a scheme-dispatched handler registry. It drives the run over the `nbclient` kernel loop rather than owning the kernel protocol, sitting above `nbclient` and beside `jupytext`/`nbconvert` on the reports chain.
+`papermill` owns parameterized notebook execution for the artifacts notebook domain: it injects a typed parameters cell, translates it to the target kernel language, runs the notebook end-to-end through a registered engine, and routes notebook I/O across local and cloud path schemes through a scheme-dispatched handler registry. It drives the run over the `nbclient` kernel loop rather than owning the kernel protocol, sitting above `nbclient` and beside `jupytext`/`nbconvert` on the reports chain.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: execution and engine family
-- rail: notebook — `papermill.engines`
+- concern: notebook — `papermill.engines`
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [CAPABILITY]                                                                            |
 | :-----: | :------------------------- | :---------------- | :-------------------------------------------------------------------------------------- |
@@ -15,7 +15,7 @@
 |  [04]   | `NotebookExecutionManager` | execution tracker | callbacks, tqdm pbar, autosave, timing; states `PENDING`/`RUNNING`/`COMPLETED`/`FAILED` |
 
 [PUBLIC_TYPE_SCOPE]: I/O handler family
-- rail: notebook — `papermill.iorw`
+- concern: notebook — `papermill.iorw`
 
 Every handler implements the four-method contract `read(path)`/`write(buf, path)`/`listdir(path)`/`pretty_path(path)`; `PapermillIO` dispatches by scheme prefix.
 
@@ -35,7 +35,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 |  [12]   | `NoIOHandler`         | null I/O      | discard-output handler for execute-only-no-write runs      |
 
 [PUBLIC_TYPE_SCOPE]: parameter translator family
-- rail: notebook — `papermill.translators`
+- concern: notebook — `papermill.translators`
 
 `Translator.codify(parameters, comment)` folds the parameter dict into a kernel-language parameters cell through `translate`/`assign`/`comment` and the per-type `translate_*` rows; `inspect` reads declared parameters back. Each translator registers under its language key.
 
@@ -54,7 +54,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 |  [11]   | `PowershellTranslator` | .NET PowerShell     | registry key `.net-powershell`                                                        |
 
 [PUBLIC_TYPE_SCOPE]: exception family
-- rail: notebook — `papermill.exceptions`
+- concern: notebook — `papermill.exceptions`
 
 `PapermillExecutionError` carries `(cell_index, exec_count, source, ename, evalue, traceback)` from the failing cell, with the error output already embedded in the written notebook.
 
@@ -70,7 +70,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 |  [08]   | `PapermillParameterOverwriteWarning`   | param warning       | a passed parameter overwrites a built-in/declared default             |
 
 [PUBLIC_TYPE_SCOPE]: model family
-- rail: notebook — `papermill.models`
+- concern: notebook — `papermill.models`
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [CAPABILITY]                                                           |
 | :-----: | :---------- | :------------ | :--------------------------------------------------------------------- |
@@ -79,7 +79,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: notebook execution and inspection
-- rail: notebook — `papermill`
+- concern: notebook — `papermill`
 
 `execute_notebook`/`inspect_notebook` export at top-level `papermill`; `parameterize_notebook`/`add_builtin_parameters` live in `papermill.parameterize` and `translate_parameters` in `papermill.translators`.
 
@@ -92,7 +92,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 |  [05]   | `translate_parameters(kernel_name, language, parameters, comment)`     | serialize parameter dict to kernel-specific code |
 
 [ENTRYPOINT_SCOPE]: I/O operations
-- rail: notebook — `papermill.iorw`
+- concern: notebook — `papermill.iorw`
 
 | [INDEX] | [SURFACE]                                   | [CAPABILITY]                                  |
 | :-----: | :------------------------------------------ | :-------------------------------------------- |
@@ -108,7 +108,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 |  [10]   | `PapermillIO.reset()`                       | clear and re-seed the default handler table   |
 
 [ENTRYPOINT_SCOPE]: execution manager lifecycle
-- rail: notebook — `papermill.engines.NotebookExecutionManager`
+- concern: notebook — `papermill.engines.NotebookExecutionManager`
 
 | [INDEX] | [SURFACE]                                    | [CAPABILITY]                                   |
 | :-----: | :------------------------------------------- | :--------------------------------------------- |
@@ -134,7 +134,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 - `nbclient`(`.api/nbclient`): `NBClientEngine` runs the parameterized node over `PapermillNotebookClient` (a `nbclient.NotebookClient` subclass) — papermill drives the run and nbclient owns the kernel loop, so `**engine_kwargs` (`timeout`/`start_timeout`/`kernel_name`) pass through to the client and every cell/timeout/kernel fault surfaces as an `nbclient` exception the boundary folds.
 - `jupytext`(`.api/jupytext`): `parameterize_notebook` injects the parameters cell into the `jupytext.reads` source `NotebookNode` before execution; the executed node archives via `jupytext.writes(executed, "ipynb")`.
 - `nbconvert`(`.api/nbconvert`): the executed node lowers downstream through `nbconvert.get_exporter(...).from_notebook_node(executed)`.
-- `expression`(`libs/python/.api/expression.md`): the `document/report#REPORT` owner folds `PapermillExecutionError`/`PapermillRateLimitException`/`PapermillMissingParameterException` through the `runtime/reliability/faults#FAULT` boundary onto `RuntimeRail = Result[T, BoundaryFault]`; papermill's `tenacity` cloud-retry sits inside that boundary.
+- `expression`(`libs/python/.api/expression.md`): the `document/report#REPORT` owner folds `PapermillExecutionError`/`PapermillRateLimitException`/`PapermillMissingParameterException` through the `runtime/reliability/faults#FAULT` boundary onto `RuntimeResult = Result[T, BoundaryFault]`; papermill's `tenacity` cloud-retry sits inside that boundary.
 - within-lib (`document/report`): `NotebookEngine.client_kwargs()` projects the frozen reproducibility struct to `execute_notebook`/engine traits, and `_notebook_arm` composes `parameterize_notebook` -> `NBClientEngine` -> `nbconvert` as one arm.
 
 [LOCAL_ADMISSION]:

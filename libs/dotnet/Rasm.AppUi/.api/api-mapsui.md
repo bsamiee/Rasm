@@ -2,7 +2,7 @@
 
 `Mapsui.Avalonia12` binds the Mapsui slippy-map engine to Avalonia: one `MapControl` drives one `Map` — an ordered `LayerCollection` under a `Navigator` camera — onto the shared Skia surface.
 
-This catalog owns the control binding, the `Mapsui` core model, layer, style, thematic, widget, and projection stack, and the `Mapsui.Tiling` tile rail; `.api/api-mapsui-nts.md` owns NTS geometry, providers, and the editing session.
+This catalog owns the control binding, the `Mapsui` core model, layer, style, thematic, widget, and projection stack, and the `Mapsui.Tiling` tile pipeline; `.api/api-mapsui-nts.md` owns NTS geometry, providers, and the editing session.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -164,7 +164,7 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 |  [07]   | `IRenderFetchStrategy`       | interface     | draw-set selection contract  |
 |  [08]   | `RenderFetchStrategy`        | class         | cached-tile draw set         |
 |  [09]   | `MinimalRenderFetchStrategy` | class         | current-level draw set       |
-|  [10]   | `TilingRenderFetchStrategy`  | class         | seam-free tile draw set      |
+|  [10]   | `TilingRenderFetchStrategy`  | class         | gap-free tile draw set       |
 |  [11]   | `TileFetchPlanner`           | class         | fetch job scheduling         |
 |  [12]   | `TileFetchStatus`            | enum          | per-tile fetch state         |
 |  [13]   | `HttpClientTools`            | static class  | default user-agent string    |
@@ -329,7 +329,7 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 - `OpenStreetMap.DefaultCache` writes before the first `CreateTileLayer` call — the source captures the field value at construction.
 - `WritableLayer` carries `Add(IFeature)`, `AddRange(IEnumerable<IFeature>)`, `Find(IFeature) -> IFeature?`, `TryRemove(IFeature, Func<IFeature,IFeature,bool>?)`, `Clear()`, and `GetFeatures()` — the shape `Mapsui.Nts` `EditManager` authors onto.
 - `Layer(string layerName)` is the primary ctor forwarding to `BaseLayer(layerName)`; the parameterless arity chains it with the literal `"Layer"`, leaving the settable `BaseLayer.Name` as the only other naming path.
-- `TileLayer` and `RasterizingTileLayer` accept `IDataFetchStrategy` and `IRenderFetchStrategy` overrides — `MinimalDataFetchStrategy` fetches the current level alone, `TilingRenderFetchStrategy` fills seams from coarser cached levels.
+- `TileLayer` and `RasterizingTileLayer` accept `IDataFetchStrategy` and `IRenderFetchStrategy` overrides — `MinimalDataFetchStrategy` fetches the current level alone, `TilingRenderFetchStrategy` fills gaps from coarser cached levels.
 
 [STYLE_ENTRY_SCOPE]: style, theme, and projection construction
 
@@ -409,9 +409,9 @@ This catalog owns the control binding, the `Mapsui` core model, layer, style, th
 - `api-avalonia-skia.md`/`api-skiasharp.md`: `Mapsui.Rendering.Skia` draws the map on the shared `SkiaSharp` `SKCanvas` `Avalonia.Skia` owns; theme colour tokens flow into `Mapsui.Styles.Color`/`Pen`/`Brush`, the same paints `api-svg-skia.md`/`api-livecharts.md` consume, never a hand-built second `SKPaint` path.
 - `api-silk-webgpu-wgpu`(`libs/dotnet/.api/api-silk-webgpu-wgpu.md`): `Mapsui` renders the 2D georeferenced overlay on the same Avalonia compositor beside the `Silk.NET.WebGPU` 3D viewport, owning the 2D geo plane only.
 - `Mapsui.Nts`(`.api/api-mapsui-nts.md`): the NTS half of one map — `GeometryFeature` sets mount on this catalog's `Layer.DataSource` or `WritableLayer`, `GetMapInfo` supplies the `MapInfo` every `EditManager` hit test takes, `EditingWidget` rides `Map.Widgets` as an ordinary `BaseWidget`, and `SphericalMercator` reprojects the coordinates those geometries carry.
-- Bim geodesy seam: features arrive carrying the Bim-owned `GeoReference` from `GeoReferenceProjector` lowering `IfcMapConversion` and `IfcProjectedCRS`; `GeoFeature.Reproject` owns geodesy at that Bim seam, and AppUi reprojects only presentation WGS-84 input through `SphericalMercator.FromLonLat` (or `ProjectionDefaults.Projection` for non-mercator) into the EPSG:3857 `Map.CRS` at the layer-build edge — the internal model carries one CRS, the boundary owns the transform.
-- capture rail: `MapControl.GetSnapshot(layers, RenderFormat.Png, quality)` yields the `byte[]` image the export owner (PDF/OOXML embed) consumes, the geo analogue of the 3D viewport capture.
-- command rail: `MapControl.Info`/`MapTapped` + `GetMapInfo(screenPos, layers)` hit-test a click to the feature the Shell/Editing inspector binds.
+- Bim geodesy boundary: features arrive carrying the Bim-owned `GeoReference` from `GeoReferenceProjector` lowering `IfcMapConversion` and `IfcProjectedCRS`; `GeoFeature.Reproject` owns geodesy at that Bim boundary, and AppUi reprojects only presentation WGS-84 input through `SphericalMercator.FromLonLat` (or `ProjectionDefaults.Projection` for non-mercator) into the EPSG:3857 `Map.CRS` at the layer-build edge — the internal model carries one CRS, the boundary owns the transform.
+- capture path: `MapControl.GetSnapshot(layers, RenderFormat.Png, quality)` yields the `byte[]` image the export owner (PDF/OOXML embed) consumes, the geo analogue of the 3D viewport capture.
+- command path: `MapControl.Info`/`MapTapped` + `GetMapInfo(screenPos, layers)` hit-test a click to the feature the Shell/Editing inspector binds.
 - within-lib: a Bim-owned or GDAL/OGR-decoded geometry becomes a `Mapsui.Nts` feature on a `Layer` or `WritableLayer`, drawn above an OSM `TileLayer`; screen-anchored widgets live on `Map.Widgets` through `Mapsui.Extensions.ConcurrentQueueExtensions.Add`, never entering the world-space feature and CRS pipeline.
 
 [LOCAL_ADMISSION]:

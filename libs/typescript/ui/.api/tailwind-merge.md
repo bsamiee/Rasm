@@ -38,7 +38,7 @@
 - last-conflicting-wins over parsed class groups: `twMerge` splits each class into `(modifiers, group, value)` and keeps the last occurrence within a group; modifiers (`hover:`, `md:`, tw-rac variants like `selected:`) scope the conflict, so `hover:px-2 hover:px-4` resolves while `px-2 hover:px-4` do not. Results LRU-memoize on `cacheSize` (`0` disables).
 - Group definitions encode Tailwind's default-theme scales; a `@theme` extension leaves the new utility unknown and it survives merge un-deduplicated — one `extendTailwindMerge` instance teaching the custom groups via `fromTheme`/`validators` is the only correct form.
 - Registration SPLITS a theme or class-group value on the class separator into a trie chain, one node per segment, so a hyphenated scale entry (`danger-surface`) seats as the descent `bg → danger → surface` rather than as one opaque key. Lookup splits the incoming class the same way and walks node by node, so `bg-danger-surface` resolves into the default `bg-color` group with its suffix intact and a multi-segment theme key never strands or needs a per-suffix group. Lookup dead-ends into that node's validators, which receive the REJOINED remainder with its hyphens restored — that fallback is a validator list, though, not a catch-all: the color groups end in arbitrary-value predicates alone, so a utility whose value is absent from the registered scale joins no group and merges undeduplicated. Deriving the theme list from the same table the stylesheet emits closes that gap.
-- pure synchronous string→string below the Effect boundary — no promise, no throw, no rail lift; it runs inside render and never reaches domain code.
+- pure synchronous string→string below the Effect boundary — no promise, no throw, no `Effect` lift; it runs inside render and never reaches domain code.
 
 [STACKING]:
 - `clsx` (`.api/clsx.md`): `clsx` folds conditional inputs into a flat string `twMerge` resolves — the ONE composer `cn(...i) = twMerge(clsx(i))`; neither runs alone on a composed override.
@@ -46,10 +46,10 @@
 - `tailwindcss` (`.api/tailwindcss.md`): the merge groups mirror the theme; a customized `@theme` teaches ONE `extendTailwindMerge` via `fromTheme`, and the Tailwind `prefix` sets `Config.prefix` so prefixed utilities parse.
 - `tailwindcss-react-aria-components` (`.api/tailwindcss-react-aria-components.md`): tw-rac state variants (`selected:`, `pressed:`, `placement-bottom:`) are modifiers `twMerge` preserves as scope prefixes with no config change; only an order-sensitive interaction needs `orderSensitiveModifiers`.
 - `tw-animate-css` (`.api/tw-animate-css.md`): its `animate-*`/`fade-*`/`slide-*` utilities dedupe as ordinary class groups; the extended-theme instance covers custom motion scales.
-- `token`/`view` plane: the styling plane builds ONE shared `extendTailwindMerge` instance and every styled `view` row emits `className` through the `cn` rail.
+- `token`/`view` plane: the styling plane builds ONE shared `extendTailwindMerge` instance and every styled `view` row emits `className` through the `cn` fold.
 
 [LOCAL_ADMISSION]:
-- Compose every conflict-prone `className` through the ONE `cn`/`twMerge` rail.
+- Compose every conflict-prone `className` through the ONE `cn`/`twMerge` fold.
 - Build ONE `extendTailwindMerge` instance for the customized `@theme` (via `fromTheme` + `validators`), shared folder-wide; bare `twMerge` on custom utilities mis-resolves.
 - Reserve `twJoin` for provably-non-conflicting fixed token strings; every collidable input takes `twMerge`.
 - Route `cva` output through `twMerge` so caller overrides win.

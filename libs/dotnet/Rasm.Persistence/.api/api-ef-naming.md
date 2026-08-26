@@ -48,7 +48,7 @@
 - `api-ef-sqlite`(`.api/api-ef-sqlite.md`): the same one call binds the `UseSqlite` profile, so both store profiles carry one casing policy rather than a per-provider patch.
 - `api-thinktecture-ef`(`.api/api-thinktecture-ef.md`): `UseThinktectureValueConverters` and `Use*NamingConvention` mount as peer options extensions on one builder — generated converters decide column types, this convention decides column names, and neither orders the other.
 - `api-ef-design`(`.api/api-ef-design.md`): `OperationExecutor` scaffolds migrations and compiles models over already-rewritten names, so emitted DDL and the `Optimize` compiled model need no naming fixup.
-- within-lib: `Element/identity` chains `UseSnakeCaseNamingConvention()` into `ConverterRail.Compose` on the one `IdentityContext`, leaving `IdentityShape`/`NodeCellShape` to carry only what conventions cannot derive.
+- within-lib: `Element/identity` chains `UseSnakeCaseNamingConvention()` into `ConverterOptions.Compose` on the one `IdentityContext`, leaving `IdentityShape`/`NodeCellShape` to carry only what conventions cannot derive.
 
 [LOCAL_ADMISSION]:
 - Store profiles share one policy, and a profile that diverges declares the override at its own options composition.

@@ -1,13 +1,13 @@
 # [RASM_APPUI_API_KIWI]
 
-`Kiwi` is the managed C# port of the Cassowary incremental linear-arithmetic constraint solver: `Variable` values feed `Term`/`Expression` linear forms, a `Constraint` binds an expression to a `RelationalOperator` at a `Strength`, and `Solver` keeps the constraint system satisfied incrementally — `AddConstraint`/`RemoveConstraint` edit the system, `AddEditVariable`/`SuggestValue` drive runtime values through the dual-simplex, and `UpdateVariables` writes solved values into each variable's `IVariableStore`. Its pure-managed Apache-2.0 surface serves the AppUi Shell/Layout rail with no native dependency.
+`Kiwi` is the managed C# port of the Cassowary incremental linear-arithmetic constraint solver: `Variable` values feed `Term`/`Expression` linear forms, a `Constraint` binds an expression to a `RelationalOperator` at a `Strength`, and `Solver` keeps the constraint system satisfied incrementally — `AddConstraint`/`RemoveConstraint` edit the system, `AddEditVariable`/`SuggestValue` drive runtime values through the dual-simplex, and `UpdateVariables` writes solved values into each variable's `IVariableStore`. Its pure-managed Apache-2.0 surface serves the AppUi Shell/Layout owner with no native dependency.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver and constraint owners
-- rail: layout
+- concern: layout
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]         | [RAIL]                            |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]         | [CAPABILITY]                      |
 | :-----: | :------------------- | :-------------------- | :-------------------------------- |
 |  [01]   | `Solver`             | sealed class          | incremental constraint system     |
 |  [02]   | `Constraint`         | handle-equality class | expression-operator-strength bind |
@@ -15,9 +15,9 @@
 |  [04]   | `RelationalOperator` | enum                  | equality/inequality selector      |
 
 [PUBLIC_TYPE_SCOPE]: linear expression carriers
-- rail: layout
+- concern: layout
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]          | [RAIL]                          |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]          | [CAPABILITY]                    |
 | :-----: | :--------------- | :--------------------- | :------------------------------ |
 |  [01]   | `Variable`       | sealed class           | solved unknown, operator source |
 |  [02]   | `Term`           | readonly record struct | variable times coefficient      |
@@ -26,18 +26,18 @@
 |  [05]   | `VariableStore`  | sealed class           | default in-memory value store   |
 
 [PUBLIC_TYPE_SCOPE]: operator cases
-- rail: layout
+- concern: layout
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [RAIL]                      |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [CAPABILITY]                |
 | :-----: | :-------------------------------------- | :------------ | :-------------------------- |
 |  [01]   | `RelationalOperator.Equal`              | enum case     | both sides equal            |
 |  [02]   | `RelationalOperator.LessThanOrEqual`    | enum case     | left bounded above by right |
 |  [03]   | `RelationalOperator.GreaterThanOrEqual` | enum case     | left bounded below by right |
 
-[PUBLIC_TYPE_SCOPE]: solver failure rails
-- rail: layout
+[PUBLIC_TYPE_SCOPE]: solver failure types
+- concern: layout
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [RAIL]                            |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [CAPABILITY]                      |
 | :-----: | :--------------------------------- | :------------ | :-------------------------------- |
 |  [01]   | `DuplicateConstraintException`     | exception     | constraint already added          |
 |  [02]   | `UnknownConstraintException`       | exception     | remove of an unadded constraint   |
@@ -50,9 +50,9 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solver constraint and edit-variable operations
-- rail: layout
+- concern: layout
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]   | [RAIL]                          |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]   | [CAPABILITY]                    |
 | :-----: | :------------------------------------------- | :--------------- | :------------------------------ |
 |  [01]   | `AddConstraint(Constraint)`                  | throwing mutate  | add constraint to system        |
 |  [02]   | `TryAddConstraint(Constraint)`               | guarded mutate   | non-throwing add, `bool` result |
@@ -68,17 +68,17 @@
 |  [12]   | `TrySuggestValue(Variable, double)`          | guarded suggest  | non-throwing suggest            |
 
 [ENTRYPOINT_SCOPE]: solver evaluation
-- rail: layout
+- concern: layout
 
-| [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [RAIL]                                       |
+| [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [CAPABILITY]                                 |
 | :-----: | :------------------ | :------------- | :------------------------------------------- |
 |  [01]   | `Solve()`           | solve          | dual-optimize then write variable values     |
 |  [02]   | `UpdateVariables()` | flush          | write solved row constants into each `Store` |
 
 [ENTRYPOINT_SCOPE]: constraint construction
-- rail: layout
+- concern: layout
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                            |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CAPABILITY]                      |
 | :-----: | :----------------------------------------------------------------- | :------------- | :-------------------------------- |
 |  [01]   | `new Constraint(Expression, RelationalOperator, double? strength)` | constructor    | expression-operator-strength bind |
 |  [02]   | `new Constraint(Constraint other, double? strength)`               | constructor    | clone with restrengthened copy    |
@@ -89,11 +89,11 @@
 |  [07]   | `Constraint.Expression` / `Operator` / `Strength` / `Violated`     | property       | constraint inspection             |
 
 [ENTRYPOINT_SCOPE]: expression assembly
-- rail: layout
+- concern: layout
 
 `Term.Coefficient` defaults to `1.0`, and `Expression.Constant` defaults to `0.0`.
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]      | [RAIL]                     |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]      | [CAPABILITY]               |
 | :-----: | :----------------------------------------------------------------- | :------------------ | :------------------------- |
 |  [01]   | `new Variable(string? name)`                                       | constructor         | default in-memory store    |
 |  [02]   | `new Variable(IVariableStore, string?)`                            | constructor         | injected value store       |
@@ -137,10 +137,10 @@
 - Layout geometry edges (panel left/top/width/height) are `Variable` values; layout rules compose as `Expression` operator algebra and bind through `Constraint.Equal`/`LessEqual`/`GreaterEqual` at the matching `Strength`, never through hand-built tableau rows.
 - Fixed structural rules use `Strength.Required`; competing preferences use `Strong`/`Medium`/`Weak` so the dual-simplex relaxes the lower-priority constraint instead of throwing.
 - Runtime drag, resize, and content-size changes flow through `AddEditVariable` and `SuggestValue`; the layout pass calls `Solve` once and reads solved positions from each `Variable.Value` (or a custom `IVariableStore` bound to the visual node).
-- Boundary intake of constraint edits uses the `Try*` family (`TryAddConstraint`, `TryRemoveEditVariable`, `TrySuggestValue`); `UnsatisfiableConstraintException` and the duplicate/unknown rails never cross the layout-update boundary as exceptions.
+- Boundary intake of constraint edits uses the `Try*` family (`TryAddConstraint`, `TryRemoveEditVariable`, `TrySuggestValue`); `UnsatisfiableConstraintException` and the duplicate/unknown faults never cross the layout-update boundary as exceptions.
 
 [STACKING]:
-- Live drive from the data rail projects `DynamicData` drag and resize deltas from `SourceCache.Edit` through `Transform` into `(Variable, double)` pairs; the subscription calls `Solver.TrySuggestValue` per delta and `Solver.Solve` once per frame.
-- One `Connect().Bind(...)` observable drives both the visual collection and `Solve()` pass, so each edit re-flows both and constraint solving remains the live-data rail's sole mutation sink.
-- Custom `IVariableStore` as the observation seam: implement `IVariableStore` over an Avalonia visual node's geometry (or a `ReactiveUI` property) so `UpdateVariables` writes solved row constants straight into the bound property on `Solve`, eliminating the post-solve polling loop; the layout owner reads positions from the node, not from a side dictionary.
-- Strength-priority composition mirrors UI intent ranking: required structural invariants (`Strength.Required`), then theme/preference rules (`Strong`/`Medium`/`Weak`) so the dual-simplex relaxes a soft preference rather than throwing — the `Strength.Create(a,b,c,w)` lexicographic packing lets a screen express a continuum of competing constraints that map onto the same priority order a token/theme rail already defines.
+- Live drive from the data pipeline projects `DynamicData` drag and resize deltas from `SourceCache.Edit` through `Transform` into `(Variable, double)` pairs; the subscription calls `Solver.TrySuggestValue` per delta and `Solver.Solve` once per frame.
+- One `Connect().Bind(...)` observable drives both the visual collection and `Solve()` pass, so each edit re-flows both and constraint solving remains the live-data pipeline's sole mutation sink.
+- Custom `IVariableStore` as the observation port: implement `IVariableStore` over an Avalonia visual node's geometry (or a `ReactiveUI` property) so `UpdateVariables` writes solved row constants straight into the bound property on `Solve`, eliminating the post-solve polling loop; the layout owner reads positions from the node, not from a side dictionary.
+- Strength-priority composition mirrors UI intent ranking: required structural invariants (`Strength.Required`), then theme/preference rules (`Strong`/`Medium`/`Weak`) so the dual-simplex relaxes a soft preference rather than throwing — the `Strength.Create(a,b,c,w)` lexicographic packing lets a screen express a continuum of competing constraints that map onto the same priority order a token/theme resolve already defines.

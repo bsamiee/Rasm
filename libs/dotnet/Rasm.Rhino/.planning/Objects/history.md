@@ -8,7 +8,7 @@
 - [03]-[SCRIPT]: `ReplaceSurvival`, `HistorySource`, `HistoryScript` — the single-use record mint and its threading law.
 - [04]-[REPLAY_READS]: `SlotValue.Recover` — read dispatch on the write-family case.
 - [05]-[REGROWN]: `Regrown` — generated update dispatch over the `UpdateTo*` family.
-- [06]-[REPLAY_PROGRAM]: `ReplayProgram` — the compiled delegate and the strict-`bool` seam.
+- [06]-[REPLAY_PROGRAM]: `ReplayProgram` — the compiled delegate and the strict-`bool` boundary.
 - [07]-[CHRONICLE]: `BondOp`, `WebAsk`, `WebBudget`, `HistoryConduct`, and the linkage entry.
 - [08]-[SURFACE_LEDGER]: the page's owner table.
 
@@ -22,7 +22,7 @@
 - Law: `HistoryScript.Mint` answers a `Lease<HistoryRecord>` the host copies out of, `ReplayProgram` mutates host-owned `ReplayHistoryData` inside its callback, and `Chronicle.Bind` alone rides `ObjectSpine.Commit` because linkage mutates document state.
 - Law: payload bools are HOST SLOTS, not policy. `Toggle` and `Toggles` transcribe `SetBool`/`SetBools`, whose two states are the datum a caller stores, so no vocabulary stands between them and the record — while every bool this page authored about its own conduct carries a named row instead.
 - Growth: a new payload kind is one `SlotValue` case whose write and read arms are compiler-coupled; write-only cases return typed unreadable failure.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Unsupported`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/results` (`Op.Catch`, `Op.Confirm`, `Op.Unsupported`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -47,7 +47,6 @@ namespace Rasm.Rhino.Objects;
 [ValueObject<int>]
 [ValidationError]
 public readonly partial struct SlotKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0
             ? validationError
@@ -228,7 +227,7 @@ public abstract partial record SlotValue {
 - Law: the version is the compatibility key — `ReplayProgram` folds a mismatched `HistoryVersion` to graceful non-replay, so bumping the script version retires stale records without faulting old documents.
 - Law: replace survival is its OWN two-state row. `CopyOnReplaceObject` decides whether the record follows a replaced object, which is neither enablement nor a signal, so `ReplaceSurvival.Copies`/`Drops` names the posture and `ObjectSignal` — which spells ENABLED and DISABLED — never stands in for it.
 - Boundary: the record keys on the seat's identity, so a script replays only under the command that authored it; the command page's adapter is the only `ReplayHistory` override site and the only producer of a `HistoryOwner`.
-- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[SmartEnum<bool>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/rails` (`Lease<T>.Owned`, `Lease<T>.Dispose`, `Op.Catch`); RhinoCommon objects (`HistoryRecord.CopyOnReplaceObject`, `ObjRef`); `Commands/command.md` (`HistoryOwner.Mint`); `Document/session.md` (`DraftFault`).
+- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[SmartEnum<bool>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/results` (`Lease<T>.Owned`, `Lease<T>.Dispose`, `Op.Catch`); RhinoCommon objects (`HistoryRecord.CopyOnReplaceObject`, `ObjRef`); `Commands/command.md` (`HistoryOwner.Mint`); `Document/session.md` (`DraftFault`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -247,7 +246,6 @@ public sealed partial class HistorySource : IDetachedDocumentResult {
     public Guid Id { get; }
     public ComponentIndex Component { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Guid id,
@@ -320,7 +318,7 @@ public sealed class HistoryScript {
 - Owner: `SlotValue.Recover` dispatches from the same generated case that wrote the slot; no parallel type roster can drift from the setter family.
 - Law: host-readable cases call their matching `TryGet*` member; the nine write-only cases refuse through `Unsupported(ReplayHistoryData -> <case>)`, which is the capability answer their arms owe — an invalid-input refusal blamed the caller for a payload kind the host never publishes a reader for. A false host result remains missing-or-mistyped evidence.
 - Law: source recovery projects `GetRhinoObjRef` into `HistorySource` and disposes the live handle inside the callback; source geometry re-enters only through `ReplayFrame.Use`.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `toSeq`); RhinoCommon objects (`ReplayHistoryData.TryGetBool`/`TryGetInt`/`TryGetDouble`/`TryGetPoint3d`/`TryGetVector3d`/`TryGetTransform`/`TryGetColor`/`TryGetGuid`/`TryGetString`/`TryGetInts`/`TryGetDoubles`/`TryGetGuids`/`TryGetPoint3dOnObject`/`GetRhinoObjRef`); kernel `Domain/rails` (`Op.Unsupported`, `Op.MissingContext`).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `toSeq`); RhinoCommon objects (`ReplayHistoryData.TryGetBool`/`TryGetInt`/`TryGetDouble`/`TryGetPoint3d`/`TryGetVector3d`/`TryGetTransform`/`TryGetColor`/`TryGetGuid`/`TryGetString`/`TryGetInts`/`TryGetDoubles`/`TryGetGuids`/`TryGetPoint3dOnObject`/`GetRhinoObjRef`); kernel `Domain/results` (`Op.Unsupported`, `Op.MissingContext`).
 
 ## [05]-[REGROWN]
 
@@ -330,7 +328,7 @@ public sealed class HistoryScript {
 - Law: clipping-plane arity collapses onto the plural overload. One viewport is a one-element sequence, and empty viewport rosters are refused at admission.
 - Law: raw-text emphasis is a SET. Bold and italic are independently held, their product is open, and a third emphasis axis lands as one row — so the pair rides `CapabilitySet<TextEmphasis>` and the host's two boolean arguments read their rows at the one call that takes them.
 - Growth: a host overload adds one `Regrown` case and the generator forces both admission and application arms; a new emphasis axis is one `TextEmphasis` row.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/rails` (`Op.AcceptInput`, `Op.AcceptText`, `Op.Positive`, `Op.Confirm`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/results` (`Op.AcceptInput`, `Op.AcceptText`, `Op.Positive`, `Op.Confirm`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -379,57 +377,57 @@ public abstract partial record Regrown {
         Op op = key.OrDefault();
         return Switch(
             op,
-            point: static (rail, value) => rail.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            dot: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            line: static (rail, value) =>
-                from start in rail.AcceptInput(value.Value.From)
-                from end in rail.AcceptInput(value.Value.To)
-                from _ in guard(start != end, rail.InvalidInput()).ToFin()
+            point: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
+            dot: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            line: static (gate, value) =>
+                from start in gate.AcceptInput(value.Value.From)
+                from end in gate.AcceptInput(value.Value.To)
+                from _ in guard(start != end, gate.InvalidInput()).ToFin()
                 select (Regrown)new Line(new LineGrowth(start, end)),
-            polyline: static (rail, value) => guard(value.Values.Count >= 2, rail.InvalidInput()).ToFin()
-                .Bind(_ => AdmitPoints(value.Values, rail))
+            polyline: static (gate, value) => guard(value.Values.Count >= 2, gate.InvalidInput()).ToFin()
+                .Bind(_ => AdmitPoints(value.Values, gate))
                 .Map(points => (Regrown)new Polyline(points)),
-            arc: static (rail, value) => rail.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            circle: static (rail, value) => rail.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            ellipse: static (rail, value) => rail.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            sphere: static (rail, value) => rail.AcceptInput(value.Value).Map(_ => (Regrown)value),
-            curve: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            surface: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            extrusion: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            mesh: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            subD: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            brep: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            pointCloud: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            pointCloudPoints: static (rail, value) => guard(!value.Values.IsEmpty, rail.InvalidInput()).ToFin()
-                .Bind(_ => AdmitPoints(value.Values, rail))
+            arc: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
+            circle: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
+            ellipse: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
+            sphere: static (gate, value) => gate.AcceptInput(value.Value).Map(_ => (Regrown)value),
+            curve: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            surface: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            extrusion: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            mesh: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            subD: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            brep: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            pointCloud: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            pointCloudPoints: static (gate, value) => guard(!value.Values.IsEmpty, gate.InvalidInput()).ToFin()
+                .Bind(_ => AdmitPoints(value.Values, gate))
                 .Map(points => (Regrown)new PointCloudPoints(points)),
-            clippingPlane: static (rail, value) =>
-                from frame in rail.AcceptInput(value.Value.Frame)
+            clippingPlane: static (gate, value) =>
+                from frame in gate.AcceptInput(value.Value.Frame)
                 from _ in guard(
                     double.IsFinite(value.Value.U) && value.Value.U > 0.0
                     && double.IsFinite(value.Value.V) && value.Value.V > 0.0
                     && !value.Value.Viewports.IsEmpty,
-                    rail.InvalidInput()).ToFin()
+                    gate.InvalidInput()).ToFin()
                 from ids in value.Value.Viewports.TraverseM(id => id != Guid.Empty
                     ? Fin.Succ(id)
-                    : Fin.Fail<Guid>(rail.InvalidInput())).As()
+                    : Fin.Fail<Guid>(gate.InvalidInput())).As()
                 select (Regrown)new ClippingPlane(value.Value with { Frame = frame, Viewports = ids.Distinct() }),
-            linearDimension: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            radialDimension: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            angularDimension: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            leader: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            hatch: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            text: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value),
-            rawText: static (rail, value) =>
-                from text in rail.AcceptText(value.Value.Text)
-                from frame in rail.AcceptInput(value.Value.Frame)
-                from height in rail.Positive(value.Value.Height)
-                from font in rail.AcceptText(value.Value.Font)
-                from emphasis in rail.Need(value.Value.Emphasis)
+            linearDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            radialDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            angularDimension: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            leader: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            hatch: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            text: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value),
+            rawText: static (gate, value) =>
+                from text in gate.AcceptText(value.Value.Text)
+                from frame in gate.AcceptInput(value.Value.Frame)
+                from height in gate.Positive(value.Value.Height)
+                from font in gate.AcceptText(value.Value.Font)
+                from emphasis in gate.Need(value.Value.Emphasis)
                 select (Regrown)new RawText(value.Value with {
                     Text = text, Frame = frame, Height = height, Font = font, Emphasis = emphasis,
                 }),
-            instance: static (rail, value) => AdmitGeometry(value.Value, rail).Map(_ => (Regrown)value));
+            instance: static (gate, value) => AdmitGeometry(value.Value, gate).Map(_ => (Regrown)value));
     }
 
     internal Fin<Unit> Apply(ReplayHistoryResult result, Option<ObjectAttributes> attributes, Op op) {
@@ -491,11 +489,11 @@ public abstract partial record Regrown {
 ## [06]-[REPLAY_PROGRAM]
 
 - Owner: `ReplayRoster` `[Union]` closes preserve, append, and indexed-retain preparation; `ReplayFrame` is a stack-only read facade over `ReplayHistoryData`; `ReplayStep` returns one `Regrown` value without receiving a native result; `ReplayProgram` owns version, roster, and step.
-- Law: the seam contract is strict `bool`. `true` means every prepared result updated; version mismatch or any fault returns `false`, and the authoring page's `ObjectsTelemetry` preserves the typed `Error` under the `FaultSite.Replay` site of its one callback-fault event.
+- Law: the boundary contract is strict `bool`. `true` means every prepared result updated; version mismatch or any fault returns `false`, and the authoring page's `ObjectsTelemetry` preserves the typed `Error` under the `FaultSite.Replay` site of its one callback-fault event.
 - Law: the program lands on the policy row — `CommandPolicy.Replay` carries `program.Delegate`, so the command page's sealed `ReplayHistory` override routes here with zero adapter code and a replay-free command keeps the absent row.
 - Law: the plan admits every regrow value before any result setter runs, settles the roster with complete prior-array compensation, then emits setters. Native replay commits only a successful strict-`bool` callback, so any setter refusal keeps existing geometry and drops the failed history link; appended results carry absent attributes.
 - Boundary: `ReplayFrame` is `readonly ref struct` and enters `ReplayStep` as `scoped ref readonly`; only the sealed adapter delegate receives `ReplayHistoryData`, and no consumer callback receives `ReplayHistoryResult`.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `BindFail`); RhinoCommon objects (`ReplayHistoryData.Results`/`AppendHistoryResult`/`UpdateResultArray`/`HistoryVersion`/`RecordId`/`Document`, `ReplayHistoryResult.ExistingObject`); `Commands/command.md` (`ReplayHook`, `CommandPolicy.Replay`); `Objects/authoring.md` (`ObjectsTelemetry.Publish`, `FaultSite.Replay`); kernel `Domain/rails` (`Op.Catch`, `Error` monoid).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `BindFail`); RhinoCommon objects (`ReplayHistoryData.Results`/`AppendHistoryResult`/`UpdateResultArray`/`HistoryVersion`/`RecordId`/`Document`, `ReplayHistoryResult.ExistingObject`); `Commands/command.md` (`ReplayHook`, `CommandPolicy.Replay`); `Objects/authoring.md` (`ObjectsTelemetry.Publish`, `FaultSite.Replay`); kernel `Domain/results` (`Op.Catch`, `Error` monoid).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -645,7 +643,7 @@ public sealed class ReplayProgram {
 ## [07]-[CHRONICLE]
 
 - Owner: `BondOp` `[Union]` closes attach, detach, and replace-survival linkage; `WebAsk` separates document census from a targeted `HistoryWeb` row under a `WebBudget`; `HistoryWeb` owns adjacency, order, cycles, transitive closure/reduction, and condensation projections; `HistoryConduct` `[SmartEnum<int>]` owns process switches behind one process gate.
-- Law: targeted topology expands the reachable parent/child graph once. Edges orient parent to dependent; Blocks' `GraphFold` and `GraphProjection<TVertex>` own the order, cycle, closure, reduction, and condensation projections over this rail's own `Guid` vertex, and Chronicle composes them without re-deriving a fold.
+- Law: targeted topology expands the reachable parent/child graph once. Edges orient parent to dependent; Blocks' `GraphFold` and `GraphProjection<TVertex>` own the order, cycle, closure, reduction, and condensation projections over this pipeline's own `Guid` vertex, and Chronicle composes them without re-deriving a fold.
 - Law: conduct is process state, not document state — the rows drive `Rhino.ApplicationSettings.HistorySettings` statics (`RecordingEnabled`, `RecordNextCommand`, `UpdateEnabled`, `ObjectLockingEnabled`, `BrokenRecordWarningEnabled`), demand no session, and answer the post-write value as `ObjectSignal`, the folder's own two-state vocabulary, so no host boolean crosses `Conduct` or `Under`; `RecordNextCommand` arms one command only, and `ObjectLockingEnabled` makes history-bearing outputs edit only through their inputs. The accessors carry NO managed thread affinity — each is a bare `UnsafeNativeMethods.CRhinoHistoryManager_GetBool`/`SetBool` P/Invoke over a process-global manager — so the process-wide recursive `Lock` `HistoryConduct` owns IS the whole exclusion the managed surface admits, and no marshal crossing is owed.
 - Law: process state takes a process gate and the gate never spans a foreign body — `HistoryConduct` owns one recursive lock over the read, the write, and the restore, so two scopes cannot interleave their priors and a nested `Under` reads the outer's written value as its own; the caller's body runs OUTSIDE the lock, because a body holding a process-global monitor while it opens a document grant, marshals to the command thread, or takes any second lock deadlocks against the sibling holding those and waiting here.
 - Law: every topology answer is BUDGETED, one-hop and transitive alike — `WebBudget` bounds nodes and edges, the adjacency arms refuse a roster or an edge total over the ceiling, `Woven` drives one frontier value to its own fixpoint under the same bound, and an exhausted bound is a typed refusal naming the ceiling it spent; a budget an arm accepts and ignores is a bound no caller can rely on.
@@ -686,7 +684,6 @@ public sealed partial class WebBudget {
     public int MaxNodes { get; }
     public long MaxEdges { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int maxNodes,
@@ -806,9 +803,9 @@ public static class Chronicle {
                    session: session,
                    name: nameof(Chronicle),
                    redraw: RedrawPolicy.None,
-                   run: (document, rail) => Objects.Resolve(document: document, target: target, key: rail)
+                   run: (document, gate) => Objects.Resolve(document: document, target: target, key: gate)
                        .Bind(natives => natives.TraverseM(native => active.Apply(
-                           document: document, native: native, op: rail)).As()
+                           document: document, native: native, op: gate)).As()
                            .Map(static _ => unit)),
                    op: op)
                select unit;

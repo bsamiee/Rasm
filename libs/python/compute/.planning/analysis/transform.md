@@ -30,7 +30,7 @@ from expression.collections import Block, Map
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -124,7 +124,7 @@ def _fourier_routes() -> Map[FourierBasis, FourierRoute]:
 
 def _transform_kernel(
     samples: object, fs: float, op: TransformOp, workers: int
-) -> "RuntimeRail[Array | tuple[Array, Array] | tuple[Array, Array, Array]]":
+) -> "RuntimeResult[Array | tuple[Array, Array] | tuple[Array, Array, Array]]":
     return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
         lambda _: boundary(
             TRANSFORM_APPLY,
@@ -136,15 +136,15 @@ def _transform_kernel(
 
 async def apply(
     samples: object, fs: float, op: TransformOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE
-) -> "RuntimeRail[Array | tuple[Array, Array] | tuple[Array, Array, Array]]":
-    async def dispatch() -> "RuntimeRail[Array | tuple[Array, Array] | tuple[Array, Array, Array]]":
+) -> "RuntimeResult[Array | tuple[Array, Array] | tuple[Array, Array, Array]]":
+    async def dispatch() -> "RuntimeResult[Array | tuple[Array, Array] | tuple[Array, Array, Array]]":
         return (
             await lane.whole(
                 lambda grant: lane.offload(
                     Kernel.of(_transform_kernel, KernelTrait.RELEASING), samples, fs, op, grant.width
                 )
             )
-        ).bind(lambda rail: rail)
+        ).bind(lambda held: held)
 
     return await evidence_run(EvidenceScope.TRANSFORM, f"transform.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs}, composition=composition)
 

@@ -1,11 +1,10 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using System.IO.Enumeration;
-using System.Reflection;
-using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Thinktecture;
 
 namespace Rasm.Bridge.Contract;
 
@@ -16,20 +15,24 @@ namespace Rasm.Bridge.Contract;
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<PhaseStatus, ValidationError>))]
 public sealed partial class PhaseStatus {
-    public static readonly PhaseStatus Ok = new(key: "ok", rank: 1, exitCode: 0);
-    public static readonly PhaseStatus Skipped = new(key: "skipped", rank: 1, exitCode: 0);
-    public static readonly PhaseStatus Degraded = new(key: "degraded", rank: 2, exitCode: 2);
-    public static readonly PhaseStatus Unsupported = new(key: "unsupported", rank: 3, exitCode: 3);
-    public static readonly PhaseStatus Failed = new(key: "failed", rank: 4, exitCode: 1);
-    public static readonly PhaseStatus Timeout = new(key: "timeout", rank: 5, exitCode: 5);
-    public static readonly PhaseStatus Busy = new(key: "busy", rank: 6, exitCode: 5);
+    public static readonly PhaseStatus Ok = new("ok", exitCode: 0);
+    public static readonly PhaseStatus Skipped = new("skipped", exitCode: 0);
+    public static readonly PhaseStatus Degraded = new("degraded", exitCode: 2);
+    public static readonly PhaseStatus Unsupported = new("unsupported", exitCode: 3);
+    public static readonly PhaseStatus Failed = new("failed", exitCode: 1);
+    public static readonly PhaseStatus Timeout = new("timeout", exitCode: 5);
+    public static readonly PhaseStatus Busy = new("busy", exitCode: 5);
 
-    public int Rank { get; }
+    private static readonly Lazy<FrozenDictionary<PhaseStatus, int>> Severity = new(() =>
+        Items.Select((status, rank) => KeyValuePair.Create(status, rank)).ToFrozenDictionary());
+
     public int ExitCode { get; }
+    public int Rank => Severity.Value[this];
     public bool IsDecisive => this != Skipped;
+
     public PhaseStatus Worst(PhaseStatus other) {
-        ArgumentNullException.ThrowIfNull(argument: other);
-        return other.Rank > Rank ? other : this;
+        ArgumentNullException.ThrowIfNull(other);
+        return other.IsDecisive && other.Rank > Rank ? other : this;
     }
 }
 
@@ -38,30 +41,19 @@ public sealed partial class PhaseStatus {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<SessionPhase, ValidationError>))]
 public sealed partial class SessionPhase {
-    public static readonly SessionPhase Reconcile = new(key: "reconcile");
-    public static readonly SessionPhase Launch = new(key: "launch");
-    public static readonly SessionPhase Connect = new(key: "connect");
-    public static readonly SessionPhase Hello = new(key: "hello");
-    public static readonly SessionPhase Stage = new(key: "stage");
-    public static readonly SessionPhase Load = new(key: "load");
-    public static readonly SessionPhase Probe = new(key: "probe");
-    public static readonly SessionPhase Execute = new(key: "execute");
-    public static readonly SessionPhase Unload = new(key: "unload");
-    public static readonly SessionPhase QuitAe = new(key: "quit.ae");
-    public static readonly SessionPhase QuitForce = new(key: "quit.force");
-    public static readonly SessionPhase QuitKill = new(key: "quit.kill");
-    public static readonly SessionPhase Status = new(key: "status");
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<EvidenceClass, ValidationError>))]
-public sealed partial class EvidenceClass {
-    public static readonly EvidenceClass Smoke = new(key: "smoke");
-    public static readonly EvidenceClass Semantic = new(key: "semantic");
-    public static readonly EvidenceClass Geometry = new(key: "geometry");
-    public static readonly EvidenceClass Visual = new(key: "visual");
+    public static readonly SessionPhase Reconcile = new("reconcile");
+    public static readonly SessionPhase Launch = new("launch");
+    public static readonly SessionPhase Connect = new("connect");
+    public static readonly SessionPhase Hello = new("hello");
+    public static readonly SessionPhase Stage = new("stage");
+    public static readonly SessionPhase Load = new("load");
+    public static readonly SessionPhase Probe = new("probe");
+    public static readonly SessionPhase Execute = new("execute");
+    public static readonly SessionPhase Unload = new("unload");
+    public static readonly SessionPhase QuitAe = new("quit.ae");
+    public static readonly SessionPhase QuitForce = new("quit.force");
+    public static readonly SessionPhase QuitKill = new("quit.kill");
+    public static readonly SessionPhase Status = new("status");
 }
 
 [SmartEnum<string>]
@@ -69,41 +61,27 @@ public sealed partial class EvidenceClass {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<EvidenceRole, ValidationError>))]
 public sealed partial class EvidenceRole {
-    public static readonly EvidenceRole Fact = new(key: "fact", factPrefix: "");
-    public static readonly EvidenceRole Assertion = new(key: "assertion", factPrefix: "case.");
-    public static readonly EvidenceRole ObjectManifest = new(key: "object-manifest", factPrefix: "manifest.object.");
-    public static readonly EvidenceRole GeometryManifest = new(key: "geometry-manifest", factPrefix: "manifest.geometry.");
-    public static readonly EvidenceRole ViewportManifest = new(key: "viewport-manifest", factPrefix: "manifest.viewport.");
-    public static readonly EvidenceRole Gh2CanvasManifest = new(key: "gh2-canvas-manifest", factPrefix: "manifest.gh2.");
-    public static readonly EvidenceRole Capture = new(key: "capture", factPrefix: "");
-    public static readonly EvidenceRole Artifact = new(key: "artifact", factPrefix: "artifact.");
-    public static readonly EvidenceRole Scratch = new(key: "scratch", factPrefix: "");
-    public static readonly EvidenceRole Certificate = new(key: "certificate", factPrefix: "");
-    public static readonly EvidenceRole Forensic = new(key: "forensic", factPrefix: "");
-    public static readonly EvidenceRole Spool = new(key: "spool", factPrefix: "");
+    public static readonly EvidenceRole Fact = new("fact", factPrefix: "");
+    public static readonly EvidenceRole Assertion = new("assertion", factPrefix: "case.");
+    public static readonly EvidenceRole ObjectManifest = new("object-manifest", factPrefix: "manifest.object.");
+    public static readonly EvidenceRole GeometryManifest = new("geometry-manifest", factPrefix: "manifest.geometry.");
+    public static readonly EvidenceRole ViewportManifest = new("viewport-manifest", factPrefix: "manifest.viewport.");
+    public static readonly EvidenceRole Gh2CanvasManifest = new("gh2-canvas-manifest", factPrefix: "manifest.gh2.");
+    public static readonly EvidenceRole Artifact = new("artifact", factPrefix: "artifact.");
+    public static readonly EvidenceRole Capture = new("capture", factPrefix: "");
+    public static readonly EvidenceRole Scratch = new("scratch", factPrefix: "");
+    public static readonly EvidenceRole Spool = new("spool", factPrefix: "");
 
     public string FactPrefix { get; }
+    public bool IsManifest => FactPrefix.StartsWith("manifest.", StringComparison.Ordinal);
 
     public static EvidenceRole OfFactKey(string key) =>
-        Items.FirstOrDefault(predicate: role => role.OwnsFactKey(key: key)) ?? Fact;
+        Items.FirstOrDefault(role => role.OwnsFactKey(key)) ?? Fact;
 
     public bool OwnsFactKey(string key) {
-        ArgumentNullException.ThrowIfNull(argument: key);
-        return FactPrefix.Length > 0 && key.StartsWith(value: FactPrefix, comparisonType: StringComparison.Ordinal);
+        ArgumentNullException.ThrowIfNull(key);
+        return FactPrefix.Length > 0 && key.StartsWith(FactPrefix, StringComparison.Ordinal);
     }
-
-    public string FactArgument(string key) => OwnsFactKey(key: key) ? key[FactPrefix.Length..] : key;
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureSpanParsableJsonConverterFactory<ArtifactRetentionClass, ValidationError>))]
-public sealed partial class ArtifactRetentionClass {
-    public static readonly ArtifactRetentionClass Evidence = new(key: "evidence");
-    public static readonly ArtifactRetentionClass Forensic = new(key: "forensic");
-    public static readonly ArtifactRetentionClass Scratch = new(key: "scratch");
-    public static readonly ArtifactRetentionClass Transient = new(key: "transient");
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -111,58 +89,44 @@ public sealed partial class ArtifactRetentionClass {
 [JsonDerivedType(typeof(LaunchFailed), "launch-failed")]
 [JsonDerivedType(typeof(ConnectFailed), "connect-failed")]
 [JsonDerivedType(typeof(BusyHeld), "busy-held")]
-[JsonDerivedType(typeof(ShellSkew), "shell-skew")]
 [JsonDerivedType(typeof(HostDrift), "host-drift")]
-[JsonDerivedType(typeof(CargoUnloadLeak), "cargo-unload-leak")]
+[JsonDerivedType(typeof(CargoRecycleRequired), "cargo-recycle-required")]
 [JsonDerivedType(typeof(RhinoCrash), "rhino-crash")]
-[JsonDerivedType(typeof(DialogSuspected), "dialog-suspected")]
-[JsonDerivedType(typeof(UiWedged), "ui-wedged")]
 [JsonDerivedType(typeof(ExecuteDeadline), "execute-deadline")]
-[JsonDerivedType(typeof(NugetLockDrift), "nuget-lock-drift")]
 [JsonDerivedType(typeof(CapabilityAbsent), "capability-absent")]
 [Union]
 public abstract partial record BridgeFault {
+    public const int RpcErrorCode = -32050;
+
     private BridgeFault() { }
     public sealed record LaunchFailed(string Detail) : BridgeFault;
     public sealed record ConnectFailed(string Detail, double ElapsedMs) : BridgeFault;
     public sealed record BusyHeld(int HolderPid, double AgeSeconds) : BridgeFault;
-    public sealed record ShellSkew(int ShellContract, int SupervisorContract) : BridgeFault;
     public sealed record HostDrift(string MissingMember, HostFingerprint Running) : BridgeFault;
-    public sealed record CargoUnloadLeak(string GcdumpPath) : BridgeFault;
+    public sealed record CargoRecycleRequired(string ActiveContentHash, string RequestedContentHash) : BridgeFault;
     public sealed record RhinoCrash(CrashFact Crash, string Scenario) : BridgeFault;
-    public sealed record DialogSuspected(double SilentForMs) : BridgeFault;
-    public sealed record UiWedged(double SilentForMs, string Scenario) : BridgeFault;
     public sealed record ExecuteDeadline(string Scenario, double ElapsedMs) : BridgeFault;
-    public sealed record NugetLockDrift(string Detail) : BridgeFault;
     public sealed record CapabilityAbsent(string Capability, string Detail) : BridgeFault;
 
     public PhaseStatus Status => Switch(
         busyHeld: static _ => PhaseStatus.Busy,
         executeDeadline: static _ => PhaseStatus.Timeout,
-        uiWedged: static _ => PhaseStatus.Timeout,
         capabilityAbsent: static _ => PhaseStatus.Unsupported,
         launchFailed: static _ => PhaseStatus.Failed,
         connectFailed: static _ => PhaseStatus.Failed,
-        shellSkew: static _ => PhaseStatus.Failed,
         hostDrift: static _ => PhaseStatus.Failed,
-        cargoUnloadLeak: static _ => PhaseStatus.Failed,
-        rhinoCrash: static _ => PhaseStatus.Failed,
-        dialogSuspected: static _ => PhaseStatus.Failed,
-        nugetLockDrift: static _ => PhaseStatus.Failed);
+        cargoRecycleRequired: static _ => PhaseStatus.Failed,
+        rhinoCrash: static _ => PhaseStatus.Failed);
 
     public string Prescription => Switch(
-        shellSkew: static f => string.Create(provider: CultureInfo.InvariantCulture, $"shell contract v{f.ShellContract} < supervisor v{f.SupervisorContract}: install the current bridge package"),
-        nugetLockDrift: static f => $"lock drift ({f.Detail}): run dotnet restore --force-evaluate via the static rail; the bridge never mutates lockfiles",
-        busyHeld: static f => string.Create(provider: CultureInfo.InvariantCulture, $"session lease held by pid {f.HolderPid} for {f.AgeSeconds:F0}s: wait or quit that session"),
-        capabilityAbsent: static f => $"capability '{f.Capability}' unavailable on this host: {f.Detail}",
         launchFailed: static f => f.Detail,
         connectFailed: static f => f.Detail,
-        hostDrift: static f => $"host capability unavailable ({f.MissingMember}): rebuild before verifying again",
-        cargoUnloadLeak: static f => $"cargo ALC leaked; gcdump at {f.GcdumpPath}; session fell back to host recycle",
+        busyHeld: static f => string.Create(CultureInfo.InvariantCulture, $"session lease held by pid {f.HolderPid} for {f.AgeSeconds:F0}s: wait or quit that session"),
+        hostDrift: static f => $"host capability unavailable ({f.MissingMember}): rebuild against the running Rhino bundle",
+        cargoRecycleRequired: static f => $"cargo '{f.ActiveContentHash}' is active while '{f.RequestedContentHash}' was requested: recycle the host before loading changed cargo",
         rhinoCrash: static f => $"host crashed in '{f.Scenario}': {f.Crash.ExceptionType} on {f.Crash.CrashThread}",
-        dialogSuspected: static f => string.Create(provider: CultureInfo.InvariantCulture, $"host alive but silent {f.SilentForMs:F0}ms after launch: modal dialog suspected"),
-        uiWedged: static f => string.Create(provider: CultureInfo.InvariantCulture, $"UI thread silent {f.SilentForMs:F0}ms inside '{f.Scenario}'"),
-        executeDeadline: static f => string.Create(provider: CultureInfo.InvariantCulture, $"'{f.Scenario}' exceeded the session deadline at {f.ElapsedMs:F0}ms"));
+        executeDeadline: static f => string.Create(CultureInfo.InvariantCulture, $"'{f.Scenario}' exceeded its deadline at {f.ElapsedMs:F0}ms"),
+        capabilityAbsent: static f => $"capability '{f.Capability}' unavailable on this host: {f.Detail}");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -172,220 +136,147 @@ public readonly record struct EventStamp(Guid SessionId, long Sequence, long AtU
 [JsonDerivedType(typeof(FactCase), "fact")]
 [JsonDerivedType(typeof(CaptureCase), "capture")]
 [JsonDerivedType(typeof(PhaseCase), "phase")]
-[JsonDerivedType(typeof(ProgressCase), "progress")]
-[JsonDerivedType(typeof(HostExceptionCase), "host-exception")]
 [Union]
 public abstract partial record BridgeEvent {
     private BridgeEvent() { }
     public required EventStamp Stamp { get; init; }
 
     public sealed record FactCase(string Key, JsonElement Value) : BridgeEvent;
-    public sealed record CaptureCase(string Path, int Width, int Height, bool OnFailure) : BridgeEvent {
-        public ArtifactRef? Artifact { get; init; }
-        public CaptureArtifact? Capture { get; init; }
-        public EvidenceClass Class { get; init; } = EvidenceClass.Visual;
-    }
+    public sealed record CaptureCase(ArtifactRef Artifact, int Width, int Height, string Label, string Camera) : BridgeEvent;
     public sealed record PhaseCase(SessionPhase Phase, PhaseStatus Status, double DurationMs, BridgeFault? Fault) : BridgeEvent;
-    public sealed record ProgressCase(int Done, int Total) : BridgeEvent;
-    public sealed record HostExceptionCase(string Report) : BridgeEvent;
+
+    public bool IsEvidence => this is FactCase or CaptureCase;
+
+    public BridgeEvent Stamped(EventStamp stamp) => Switch<EventStamp, BridgeEvent>(
+        state: stamp,
+        factCase: static (at, row) => row with { Stamp = at },
+        captureCase: static (at, row) => row with { Stamp = at },
+        phaseCase: static (at, row) => row with { Stamp = at });
 
     public static FactCase Fact(string key, JsonElement value, EventStamp stamp = default) =>
-        new(Key: key, Value: value) { Stamp = stamp };
+        new(key, value) { Stamp = stamp };
 
     public static FactCase Fact(string key, string value, EventStamp stamp = default) =>
-        new(Key: key, Value: JsonSerializer.SerializeToElement(value: value, jsonTypeInfo: BridgeJsonContext.Default.String)) { Stamp = stamp };
+        new(key, JsonSerializer.SerializeToElement(value, BridgeJsonContext.Default.String)) { Stamp = stamp };
 
     public static FactCase Fact(string key, JsonNode payload, EventStamp stamp = default) {
-        ArgumentNullException.ThrowIfNull(argument: payload);
-        using JsonDocument value = JsonDocument.Parse(json: payload.ToJsonString());
-        return new FactCase(Key: key, Value: value.RootElement.Clone()) { Stamp = stamp };
+        ArgumentNullException.ThrowIfNull(payload);
+        return new FactCase(key, JsonSerializer.SerializeToElement(payload, BridgeJsonContext.Default.JsonNode)) { Stamp = stamp };
     }
 }
 
 public static class RasmHome {
-    public static string Directory =>
-        Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
-
-    public static string Resolve(string name) => Path.Combine(path1: Directory, path2: name);
+    public static string Directory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".rasm");
+    public static string Resolve(string name) => Path.Combine(Directory, name);
 }
 
 public static class ReportLayout {
+    public const string ProbeSlot = "probe";
     public const string CertificateFile = "bridge-certificate.json";
     public const string CapturesDirectory = "captures";
     public const string EventsDirectory = "events";
     public const string Gh2Directory = "gh2";
-    public const string ManifestsDirectory = "manifests";
     public const string ScratchDirectory = "scratch";
+    public const string StageDirectory = "stage";
 
-    public static string Certificate(string reportDir) => Path.Combine(path1: reportDir, path2: CertificateFile);
-
-    public static string Spool(string reportDir, string scenario) =>
-        Path.Combine(path1: reportDir, path2: EventsDirectory, path3: scenario + ".jsonl");
+    public static string Certificate(string reportDir) => Path.Combine(reportDir, CertificateFile);
+    public static string Spool(string reportDir, string scenario) => Path.Combine(reportDir, EventsDirectory, scenario + ".jsonl");
+    public static string Scratch(string reportDir, string scenario) => Path.Combine(reportDir, ScratchDirectory, scenario);
 }
 
-public static class HostReflection {
-    public static IEnumerable<Type> LoadableTypes(Assembly assembly, Action<Exception>? onLoaderFault = null) {
-        ArgumentNullException.ThrowIfNull(argument: assembly);
-        try {
-            return assembly.GetTypes();
-        } catch (ReflectionTypeLoadException partial) {
-            foreach (Exception? error in partial.LoaderExceptions) {
-                if (error is not null)
-                    onLoaderFault?.Invoke(obj: error);
-            }
-            return partial.Types.Where(predicate: static type => type is not null)!;
-        }
-    }
-}
-
-[ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
-[JsonConverter(typeof(Converter))]
-public sealed partial class EndpointRecord {
-    public const string EndpointFileName = "rhino-bridge-rbx.json";
+[JsonDerivedType(typeof(Live), "live")]
+[JsonDerivedType(typeof(Poisoned), "poisoned")]
+[Union]
+public abstract partial record EndpointRecord {
+    public const string FileName = "rhino-bridge-rbx.json";
     public const string PipePrefix = "rbx-";
-    public static string EndpointDirectory => RasmHome.Directory;
-    public static string EndpointPath => RasmHome.Resolve(name: EndpointFileName);
+    public const long LivenessSkewMs = 1_000;
+    public static string FilePath => RasmHome.Resolve(FileName);
 
-    public string PipeName { get; }
-    public int RhinoPid { get; }
-    public long RhinoStartedAtUnixMs { get; }
-    public int ContractGeneration { get; }
-    public string ShellVersion { get; }
-    public string RhinoVersion { get; }
-    public string Fault { get; }
-
-    static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError, ref string pipeName, ref int rhinoPid,
-        ref long rhinoStartedAtUnixMs, ref int contractGeneration, ref string shellVersion,
-        ref string rhinoVersion, ref string fault) =>
-        validationError = pipeName switch {
-            { Length: 0 } => null,
-            { Length: <= 64 } when pipeName.StartsWith(value: PipePrefix, comparisonType: StringComparison.Ordinal) => null,
-            _ => new ValidationError(message: $"endpoint pipe name must be '{PipePrefix}'-prefixed and <= 64 chars, or empty for a poisoned record"),
-        };
-
-    public bool IsLiveFor(int pid, long startedAtUnixMs) =>
-        RhinoPid == pid && Math.Abs(value: RhinoStartedAtUnixMs - startedAtUnixMs) <= 1_000;
-
-    public sealed class Converter : JsonConverter<EndpointRecord> {
-        public override EndpointRecord? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-            ArgumentNullException.ThrowIfNull(argument: options);
-            if (reader.TokenType == JsonTokenType.Null)
-                return null;
-            if (reader.TokenType != JsonTokenType.StartObject)
-                throw new JsonException(message: $"unexpected token '{reader.TokenType}' deserializing EndpointRecord");
-            StringComparer comparer = options.PropertyNameCaseInsensitive ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
-            string pipeName = string.Empty;
-            int rhinoPid = 0;
-            long rhinoStartedAtUnixMs = 0L;
-            int contractGeneration = 0;
-            string shellVersion = string.Empty;
-            string rhinoVersion = string.Empty;
-            string fault = string.Empty;
-            while (reader.Read() && reader.TokenType != JsonTokenType.EndObject) {
-                string property = reader.GetString() ?? string.Empty;
-                if (!reader.Read())
-                    throw new JsonException(message: $"unexpected end of JSON reading '{property}' on EndpointRecord");
-                if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(PipeName))))
-                    pipeName = reader.GetString() ?? string.Empty;
-                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(RhinoPid))))
-                    rhinoPid = reader.GetInt32();
-                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(RhinoStartedAtUnixMs))))
-                    rhinoStartedAtUnixMs = reader.GetInt64();
-                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(ContractGeneration))))
-                    contractGeneration = reader.GetInt32();
-                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(ShellVersion))))
-                    shellVersion = reader.GetString() ?? string.Empty;
-                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(RhinoVersion))))
-                    rhinoVersion = reader.GetString() ?? string.Empty;
-                else if (comparer.Equals(x: property, y: WireName(options: options, name: nameof(Fault))))
-                    fault = reader.GetString() ?? string.Empty;
-                else
-                    reader.Skip();
-            }
-            ValidationError? validationError = Validate(
-                pipeName: pipeName, rhinoPid: rhinoPid, rhinoStartedAtUnixMs: rhinoStartedAtUnixMs,
-                contractGeneration: contractGeneration, shellVersion: shellVersion, rhinoVersion: rhinoVersion, fault: fault, obj: out EndpointRecord? record);
-            return validationError is null && record is not null
-                ? record
-                : throw new JsonException(message: validationError?.ToString() ?? "unable to deserialize EndpointRecord");
-        }
-
-        public override void Write(Utf8JsonWriter writer, EndpointRecord value, JsonSerializerOptions options) {
-            ArgumentNullException.ThrowIfNull(argument: writer);
-            ArgumentNullException.ThrowIfNull(argument: value);
-            ArgumentNullException.ThrowIfNull(argument: options);
-            writer.WriteStartObject();
-            writer.WriteString(propertyName: WireName(options: options, name: nameof(PipeName)), value: value.PipeName);
-            writer.WriteNumber(propertyName: WireName(options: options, name: nameof(RhinoPid)), value: value.RhinoPid);
-            writer.WriteNumber(propertyName: WireName(options: options, name: nameof(RhinoStartedAtUnixMs)), value: value.RhinoStartedAtUnixMs);
-            writer.WriteNumber(propertyName: WireName(options: options, name: nameof(ContractGeneration)), value: value.ContractGeneration);
-            writer.WriteString(propertyName: WireName(options: options, name: nameof(ShellVersion)), value: value.ShellVersion);
-            writer.WriteString(propertyName: WireName(options: options, name: nameof(RhinoVersion)), value: value.RhinoVersion);
-            writer.WriteString(propertyName: WireName(options: options, name: nameof(Fault)), value: value.Fault);
-            writer.WriteEndObject();
-        }
-
-        private static string WireName(JsonSerializerOptions options, string name) =>
-            options.PropertyNamingPolicy?.ConvertName(name: name) ?? name;
+    private EndpointRecord() { }
+    public sealed record Live(string PipeName, int RhinoPid, long RhinoStartedAtUnixMs, string RhinoVersion) : EndpointRecord {
+        public bool IsLiveFor(int pid, long startedAtUnixMs) =>
+            RhinoPid == pid && Math.Abs(RhinoStartedAtUnixMs - startedAtUnixMs) <= LivenessSkewMs;
     }
+    public sealed record Poisoned(int RhinoPid, long RhinoStartedAtUnixMs, string RhinoVersion, string Fault) : EndpointRecord;
 }
 
 public readonly record struct HostFingerprint(string BundleVersion, string RhinoCommonVersion, string Grasshopper2Version, string RuntimeVersion);
 public readonly record struct CapabilityEntry(string Key, PhaseStatus Outcome, string Detail);
-public readonly record struct ScenarioEntry(string Theme, string Name, string[] Requires, int BudgetMs);
-public readonly record struct EvidenceName(string Key);
-public readonly record struct ArtifactHash(string Algorithm, string Value);
-public sealed record ArtifactRef(
-    string Id, EvidenceRole Role, string RelativePath, string MediaType, long Bytes,
-    ArtifactHash Hash, ArtifactRetentionClass Retention, string Scenario, bool OnFailure);
-public sealed record CaptureArtifact(
-    ArtifactRef Artifact, int Width, int Height, bool OnFailure, string Label,
-    string Frame, string Camera, bool NonBlank);
-public sealed record ObjectManifest(string Scenario, int Count, JsonElement[] Objects);
-public sealed record GeometryManifest(string Scenario, int Count, JsonElement[] Geometry);
-public sealed record ViewportManifest(string Scenario, string ActiveView, JsonElement[] Viewports);
-public sealed record Gh2CanvasManifest(string Scenario, int ObjectCount, int WireCount, JsonElement[] Objects, JsonElement[] Wires);
-public sealed record ScratchManifest(string Scenario, string Root, string[] Files, ArtifactRef[] Artifacts);
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct EvidenceCounts(
-    int Facts, int Assertions, int Captures, int Artifacts, int ObjectManifests, int GeometryManifests,
-    int ViewportManifests, int Gh2CanvasManifests, int ScratchManifests);
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct ScenarioCounts(int Total, int Ok, int Failed, int Skipped, int Unsupported, int Timeout, int Busy, int Degraded);
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct StatusBreakdown(PhaseStatus ScenarioStatus, PhaseStatus SessionStatus, PhaseStatus OverallStatus);
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PhaseOutcome(SessionPhase Phase, PhaseStatus Status, double DurationMs, BridgeFault? Fault);
-public sealed record FaultSummary(SessionPhase? Phase, BridgeFault? Fault, string Message);
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct SpoolSummary(long DurableEvents, long RelayedEvents, long LastSequence, bool Diverged, int Failures);
-public sealed record EvidenceCertificate(
-    string RunId, string Scenario, StatusBreakdown Status, EvidenceClass[] Classes,
-    EvidenceCounts Counts, ArtifactRef[] Artifacts,
-    ObjectManifest[] ObjectManifests, GeometryManifest[] GeometryManifests,
-    ViewportManifest[] ViewportManifests, Gh2CanvasManifest[] Gh2CanvasManifests,
-    ScratchManifest[] ScratchManifests, PhaseOutcome[] Phases, FaultSummary? FirstFault);
-public readonly record struct ScenarioOutcome(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault) {
-    public PhaseStatus ScenarioStatus { get; init; } = Status;
-    public string FirstScenarioFailure { get; init; } = string.Empty;
+public sealed record ScenarioEntry(string Theme, string Name, string[] Requires, int BudgetMs);
+
+[ValueObject<string>(
+    KeyMemberName = nameof(Key),
+    KeyMemberAccessModifier = AccessModifier.Public,
+    ConversionFromKeyMemberType = ConversionOperatorsGeneration.None,
+    ConversionToKeyMemberType = ConversionOperatorsGeneration.Explicit)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[JsonConverter(typeof(Thinktecture.Text.Json.Serialization.ThinktectureJsonConverterFactory<EvidenceName, string, ValidationError>))]
+public sealed partial class EvidenceName {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string key) {
+        key = key.Trim();
+        if (key.Length == 0) {
+            validationError = ValidationError.Create("Evidence name must not be blank.");
+        }
+    }
 }
+
+public sealed record ArtifactRef(string Path, EvidenceRole Role, string MediaType, long Bytes, string Sha256, string Scenario, bool OnFailure) {
+    public static ArtifactRef Index(string reportDir, string path, EvidenceRole role, string scenario, bool onFailure) {
+        FileInfo info = new(path);
+        string relative = System.IO.Path.GetRelativePath(reportDir, path).Replace(System.IO.Path.DirectorySeparatorChar, '/');
+        string media = System.IO.Path.GetExtension(path).ToUpperInvariant() switch {
+            ".PNG" => "image/png",
+            ".JSON" => "application/json",
+            ".JSONL" => "application/x-ndjson",
+            _ => "application/octet-stream",
+        };
+        return new ArtifactRef(relative, role, media, info.Exists ? info.Length : 0L, Digest(path), scenario, onFailure);
+    }
+
+    private static string Digest(string path) {
+        try {
+            return Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+            return string.Empty;
+        }
+    }
+}
+public readonly record struct EvidenceCounts(int Facts, int Assertions, int Manifests, int Captures, int Artifacts);
+public readonly record struct StatusBreakdown(PhaseStatus Scenario, PhaseStatus Session, PhaseStatus Overall);
+public readonly record struct SpoolSummary(long DurableEvents, long RelayedEvents, long LastSequence) {
+    public bool Diverged => DurableEvents > RelayedEvents;
+}
+public readonly record struct ScenarioOutcome(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault);
 public readonly record struct CrashFact(string IpsPath, string CrashThread, string ExceptionType, string Detail);
-public readonly record struct UnloadOutcome(bool Confirmed, bool DebuggerAttached, int GcRetries, double ElapsedMs);
+public readonly record struct UnloadOutcome(bool ReleaseRequested, double ElapsedMs);
 
-public readonly record struct QuitScrub(int Documents, int MarkedClean, int ResidualDirty, string Gh2, string[] SavedPaths) {
-    public bool Scrubbed => ResidualDirty == 0;
+[JsonDerivedType(typeof(NotLoaded), "not-loaded")]
+[JsonDerivedType(typeof(Scrubbed), "scrubbed")]
+[JsonDerivedType(typeof(Failed), "failed")]
+[Union]
+public abstract partial record Gh2Scrub {
+    private Gh2Scrub() { }
+    public sealed record NotLoaded : Gh2Scrub;
+    public sealed record Scrubbed(int Documents, int ModifiedBefore, int ModifiedAfter) : Gh2Scrub;
+    public sealed record Failed(string Detail) : Gh2Scrub;
+
+    public bool IsClean => Switch(
+        notLoaded: static _ => true,
+        scrubbed: static s => s.ModifiedAfter == 0,
+        failed: static _ => false);
 }
 
-public sealed record CargoManifest(Guid SessionId, string ReportDir, string ContentHash, string StagePath);
-public sealed record LoadedCargo(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
-
-public sealed record Handshake(
-    int ContractGeneration, string SenderVersion,
-    CapabilityEntry[] Capabilities, HostFingerprint? Fingerprint, EndpointRecord? Endpoint) {
-    public const int Generation = 1;
-    public const string ShellContentCapability = "shell.content.sha256";
+public sealed record QuitScrub(int Documents, int MarkedClean, int ResidualDirty, Gh2Scrub Gh2, string[] DirtyPaths) {
+    public bool Scrubbed => ResidualDirty == 0 && Gh2.IsClean;
 }
+
+public sealed record CargoManifest(Guid SessionId, string ReportDir, string ContentHash, string StagePath) {
+    public const string AssemblyFile = "Rasm.Bridge.Cargo.dll";
+    public const string ScenariosDirectory = "scenarios";
+}
+public sealed record LoadedCargo(string ContentHash, double LoadMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
 [JsonDerivedType(typeof(AllCase), "all")]
 [JsonDerivedType(typeof(ThemesCase), "themes")]
@@ -398,36 +289,23 @@ public abstract partial record ScenarioSelection {
     public sealed record NamesCase(string[] Names) : ScenarioSelection;
 
     public ScenarioEntry[] Filter(ScenarioEntry[] entries) {
-        ArgumentNullException.ThrowIfNull(argument: entries);
+        ArgumentNullException.ThrowIfNull(entries);
         return Switch(
             state: entries,
             allCase: static (all, _) => all,
-            themesCase: static (all, themes) => [.. all.Where(entry => themes.Themes.Any(pattern => Matches(pattern: pattern, candidate: entry.Theme)))],
+            themesCase: static (all, themes) => [.. all.Where(entry => themes.Themes.Any(pattern => Matches(pattern, entry.Theme)))],
             namesCase: static (all, names) => [.. all.Where(entry => names.Names.Any(pattern =>
-                Matches(pattern: pattern, candidate: entry.Name) || Matches(pattern: pattern, candidate: MethodOf(name: entry.Name))))]);
+                Matches(pattern, entry.Name) || Matches(pattern, entry.Name[(entry.Theme.Length + 1)..])))]);
     }
 
     private static bool Matches(string pattern, string candidate) =>
-        FileSystemName.MatchesSimpleExpression(expression: pattern, name: candidate, ignoreCase: false);
-
-    private static string MethodOf(string name) {
-        int split = name.IndexOf(value: '.', comparisonType: StringComparison.Ordinal);
-        return split > 0 && split < name.Length - 1 ? name[(split + 1)..] : name;
-    }
+        FileSystemName.MatchesSimpleExpression(pattern, candidate, ignoreCase: false);
 }
 
 public sealed record SessionEnvelope(
-    string RunId, string Verb, PhaseStatus Status, double DurationMs, string ReportDir,
-    HostFingerprint Host, CapabilityEntry[] Capabilities, ScenarioOutcome[] Scenarios,
-    BridgeEvent[] Evidence, string FirstFailure, SessionPhase? FirstFaultPhase, BridgeFault? Fault) {
-    public PhaseStatus ScenarioStatus { get; init; } = Status;
-    public PhaseStatus SessionStatus { get; init; } = Status;
-    public PhaseOutcome[] Phases { get; init; } = [];
-    public string FirstScenarioFailure { get; init; } = string.Empty;
-    public string FirstSessionFault { get; init; } = string.Empty;
-    public string CertificatePath { get; init; } = string.Empty;
-    public ArtifactRef[] ArtifactRefs { get; init; } = [];
-    public EvidenceCounts EvidenceCounts { get; init; }
-    public ScenarioCounts ScenarioCounts { get; init; }
-    public SpoolSummary Spool { get; init; }
+    string RunId, string Verb, StatusBreakdown Status, double DurationMs, string ReportDir,
+    HostFingerprint Host, CapabilityEntry[] Capabilities, ScenarioOutcome[] Scenarios, BridgeEvent.PhaseCase[] Phases,
+    BridgeEvent[] Evidence, ArtifactRef[] Artifacts, EvidenceCounts Counts, SpoolSummary Spool,
+    string FirstFailure, SessionPhase? FaultPhase, BridgeFault? Fault) {
+    public int ExitCode => Status.Overall.ExitCode;
 }

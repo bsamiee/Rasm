@@ -54,20 +54,20 @@
 - `SigstoreBundle`: `MediaType` is `v0.3+json`.
 - `InTotoStatement`: `Type`, `PredicateType`, `Subject` (`IReadOnlyList<InTotoSubject>`), and `Predicate` (`JsonElement?`), surfaced through `VerificationResult.Statement`.
 
-[PUBLIC_TYPE_SCOPE]: trust-root providers and validation seams
+[PUBLIC_TYPE_SCOPE]: trust-root providers and validation interfaces
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                        |
-| :-----: | :----------------------------- | :------------ | :---------------------------------- |
-|  [01]   | `ITrustRootProvider`           | interface     | trust-anchor seam                   |
-|  [02]   | `TufTrustRootProvider`         | class         | TUF-backed live or offline anchor   |
-|  [03]   | `TufTrustRootProviderOptions`  | class         | custom-root and cache config        |
-|  [04]   | `FileTrustRootProvider`        | class         | pinned `trusted_root.json` anchor   |
-|  [05]   | `InMemoryTrustRootProvider`    | class         | embedded and test anchor            |
-|  [06]   | `TrustedRoot`                  | class         | decoded trust bundle                |
-|  [07]   | `ISigningCertificateValidator` | interface     | optional cert-validation seam       |
-|  [08]   | `IFulcioClient`                | interface     | keyless-sign cert-request seam      |
-|  [09]   | `IRekorClient`                 | interface     | keyless-sign log upload/lookup seam |
-|  [10]   | `ITimestampAuthority`          | interface     | keyless-sign RFC 3161 stamp seam    |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                          |
+| :-----: | :----------------------------- | :------------ | :------------------------------------ |
+|  [01]   | `ITrustRootProvider`           | interface     | trust-anchor provider                 |
+|  [02]   | `TufTrustRootProvider`         | class         | TUF-backed live or offline anchor     |
+|  [03]   | `TufTrustRootProviderOptions`  | class         | custom-root and cache config          |
+|  [04]   | `FileTrustRootProvider`        | class         | pinned `trusted_root.json` anchor     |
+|  [05]   | `InMemoryTrustRootProvider`    | class         | embedded and test anchor              |
+|  [06]   | `TrustedRoot`                  | class         | decoded trust bundle                  |
+|  [07]   | `ISigningCertificateValidator` | interface     | optional cert-validation hook         |
+|  [08]   | `IFulcioClient`                | interface     | keyless-sign cert-request client      |
+|  [09]   | `IRekorClient`                 | interface     | keyless-sign log upload/lookup client |
+|  [10]   | `ITimestampAuthority`          | interface     | keyless-sign RFC 3161 stamp client    |
 
 - `ITrustRootProvider`: owns `GetTrustRootAsync(ct) -> Task<TrustedRoot>`, bound by every verifier ctor; `TrustedRoot` carries the Fulcio CA chains, Rekor and CT log keys, and timestamp-authority chains.
 - `TufTrustRootProvider`: sealed, `IDisposable`; static `ProductionUrl`/`StagingUrl` `Uri` values, ctor `(Uri, TufTrustRootProviderOptions?)`; `TufTrustRootProviderOptions.CustomTrustedRoot` (`byte[]?`) with `Cache` (`ITufCache?`) forms the air-gapped root.
@@ -121,8 +121,8 @@ Every verify member is `async Task`, trailing `(…, SigstoreBundle bundle, Veri
 - `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): hash the artifact once with `XxHash3` for the content-key, then pass the SHA-256/384 digest straight to `VerifyDigestAsync(digest, HashAlgorithmType.Sha256, …)` so verify reuses the digest instead of rereading the stream.
 - `api-velopack`(`.api/api-velopack.md`): `Sandbox/provisioning` post-fetch admission runs this gate over a downloaded artifact bundle before `Velopack` applies it, a failed verify aborting the install and gating both the `Sandbox/isolation` plugin loader and the `Velopack` apply.
 - `api-polly-core`(`.api/api-polly-core.md`), `api-resilience`(`.api/api-resilience.md`): the network-bound `TufTrustRootProvider.GetTrustRootAsync` is an outbound call eligible for the resilience pipeline; `FileTrustRootProvider` removes the dependency for a hermetic gate.
-- `api-telemetry`(`.api/api-telemetry.md`): wrap the verify in a telemetry span emitting `VerificationResult.FailureReason` and `SignerIdentity.SubjectAlternativeName` as span attributes, so a rejected admission is observable on the four-signal rail.
-- within-lib: `Sandbox/admission`'s `SupplyChainGate.Admit` folds this signature leg with the version leg applicatively, reporting both faults on a forged out-of-contract subject and folding `VerificationException` to `SupplyChainFault` on the typed rail.
+- `api-telemetry`(`.api/api-telemetry.md`): wrap the verify in a telemetry span emitting `VerificationResult.FailureReason` and `SignerIdentity.SubjectAlternativeName` as span attributes, so a rejected admission is observable on the four-signal pipeline.
+- within-lib: `Sandbox/admission`'s `SupplyChainGate.Admit` folds this signature leg with the version leg applicatively, reporting both faults on a forged out-of-contract subject and folding `VerificationException` to `SupplyChainFault` on the typed result.
 
 [LOCAL_ADMISSION]:
 - Supply-chain verification enters through `SigstoreVerifier.TryVerify*Async`; the injected `ITrustRootProvider` (file, TUF, or in-memory) selects the trust anchor once at composition, bundle loading through `SigstoreBundle.LoadAsync`/`Deserialize`, and identity expectation through `CertificateIdentity.ForGitHubActions` or a literal `CertificateIdentity`.

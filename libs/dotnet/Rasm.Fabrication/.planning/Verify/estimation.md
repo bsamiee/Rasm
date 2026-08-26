@@ -194,7 +194,6 @@ public sealed partial class LocusFamily {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct Locus {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -287,7 +286,6 @@ public sealed partial class StockConsumption {
             * UnitsNet.Length.FromMillimeters(thicknessMm)
             * UnitsNet.Density.FromKilogramsPerCubicMeter(densityKgM3)).Kilograms;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref NestYield yield,
@@ -315,7 +313,6 @@ public sealed partial class OperationTime {
     public Duration Labor { get; }
     public Duration Setup { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Locus locus,
@@ -337,7 +334,6 @@ public sealed partial class CapacityQuote {
     public double LoadFactor { get; }
     public int Units { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Interval promise,
@@ -362,7 +358,6 @@ public sealed partial class LogisticsActivity {
     public double TonneKilometers { get; }
     public int Lots { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref double tonneKilometers, ref int lots) {
         if (!(double.IsFinite(tonneKilometers) && tonneKilometers >= 0.0 && lots > 0))
@@ -591,7 +586,7 @@ internal sealed record EvidenceIndex(
 - Cases: `Priced` closes on `Unit` and `Lot`; `EstimateRequest` mirrors them, so the modality is the input case rather than a flag.
 - Exemption: `EvidenceIndex.Of` folds with a statement body where the accumulation threads more than one column; every other member on this cluster is expression-shaped.
 - Auto: `LoadingTable` and `UncertaintyTable` answer any unstated cell from their neutral preset, so a shop states the rows it actually charges and a fourteenth cost kind or a fifth commercial load lands with no table re-spelling. Zero is the fold identity for both: a load at zero rate mints no row, and a kind at zero variation contributes no risk.
-- Output: `QuoteLedger.ExpectedTotal`, `RiskTotal`, and `QuotedTotal` remain disjoint projections over one ledger, and `ByKind` reconciles per source dimension on both sides of every lot transformation. `CostEstimate.MachineTime` remains the traveler actual-versus-estimated reconciliation seam. `CostEstimate.Attribution` partitions the priced cycle across the specialized lanes and the magazine.
+- Output: `QuoteLedger.ExpectedTotal`, `RiskTotal`, and `QuotedTotal` remain disjoint projections over one ledger, and `ByKind` reconciles per source dimension on both sides of every lot transformation. `CostEstimate.MachineTime` remains the traveler actual-versus-estimated reconciliation boundary. `CostEstimate.Attribution` partitions the priced cycle across the specialized lanes and the magazine.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, `Rasm.Element` (`Currency`), `Verify/simulate` (`DelayKind`, `DelayTally`), BCL generic math (`INumberBase<T>`).
 - Growth: a commercial transformation is one `CommercialLoad` row; an estimate column is one member over the rows already carried; a per-change charge that is NOT time — handling, magazine service — is one `CostKind` row that prices on both clock sources, because no clock ever contained it.
 - Boundary: THE CLOCK-SOURCE DISCRIMINANT — `ClockSource` alone decides whether evidence PRODUCES a time row or merely ATTRIBUTES one, and both partitions read it. A simulation-backed clock already contains every `SpecializedToolpathEnvelope` and every tool change, because `Verify/simulate` charges each as its own ledger slice inside `SimulationLedger.Cycle`, so an evidence case that also priced those hours would charge the shop twice for one second of spindle time; the census then names where the priced clock went and mints nothing. A declared clock contains neither, so the same evidence is the genuine producer and prices normally. Attribution reads the ledger's own tallies rather than re-folding the evidence, so the ledger stays the one clock owner. The `SpecializedToolpathEnvelope` was admitted once at its S0 atom and the tool-change census once at `Tooling/magazine`, so nothing here re-walks rows or re-tests a payload.
@@ -650,7 +645,6 @@ public sealed partial class LoadingTable {
 
     public double Rate(CommercialLoad load, CostKind kind) => Overrides.Find((load, kind)).IfNone(0.0);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Map<(CommercialLoad Load, CostKind Kind), double> overrides) {
         if (!overrides.ForAll(static row => double.IsFinite(row.Value) && row.Key.Load.Admits(row.Value)))
@@ -676,7 +670,6 @@ public sealed partial class UncertaintyTable {
         ? 1.0
         : Correlation.Find((first, second)).IfNone(() => Correlation.Find((second, first)).IfNone(0.0));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Map<CostKind, double> variation,
@@ -733,7 +726,6 @@ public sealed partial class QuotePolicy {
 
     public int Batches => (int)Math.Ceiling((double)Quantity.Value / BatchCapacity.Value);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Dimension quantity,
@@ -801,10 +793,10 @@ internal sealed record EstimateDemand(
 - Owner: `Estimate` owns the run entry, the per-result demand fold, the clock spine, the allocation and commercial ladder, the correlated risk fan, and the reconciliation.
 - Entry: `Estimate.Run(EstimateRequest request, Option<InstrumentSet> set = default)` admits unit and lot modalities by input case, verifies result-to-subject identity, then evaluates one total `FabricationResult.Switch` into an `EstimateDemand` whose required evidence kinds gate the fold.
 - Law: risk combines contributors through the full correlated quadratic form over the declared coefficients, so the independence sum is the special case its own table selects rather than an assumption baked into the fold, and each row's risk share is its correlated contribution. `Spec/capability` owns the tolerance-domain stackup and its Monte-Carlo trials; this page does not borrow that owner because its contributors are money variance over cost kinds rather than dimensional contributors over a feature chain, and it forks no second algebra because the quadratic form here IS the general shape whose correlated shares that ruling names.
-- Exemption: `Risk` folds with statement bodies where the variance thread carries the per-row deviation beside the total; `Priced` and `Quoted` stay expression-shaped on the `Fin` rail.
+- Exemption: `Risk` folds with statement bodies where the variance thread carries the per-row deviation beside the total; `Priced` and `Quoted` stay expression-shaped on the `Fin` result.
 - Auto: the settled `Priced` writes money, carbon, and clock onto `FabricationInstruments.EstimateMoney`, `EstimateCarbon`, and `EstimateClock` at the site (`Process/telemetry#OBSERVE`) under its `Unit`/`Lot` scope, currency, and clock-source dimensions — money and carbon stay parallel dimensions on parallel instruments, never one converted series, and the `backed` dimension reads the clock's own source row so the estimate's provenance is truthful rather than defaulted. The set defaults absent for a headless caller.
 - Law: `Reconcile` is one fold over generic math, so a money ledger keyed by `CostKind` and a carbon ledger keyed by `CarbonKind` share one monoid rather than two hand-spelled totals.
-- Packages: LanguageExt.Core rails, `MathNet.Numerics.Distributions` (`Normal.InvCDF`), `Process/telemetry` (`FabricationInstruments`), BCL generic math.
+- Packages: LanguageExt.Core result types, `MathNet.Numerics.Distributions` (`Normal.InvCDF`), `Process/telemetry` (`FabricationInstruments`), BCL generic math.
 - Boundary: pricing is DELIBERATELY off the run spine. `FabricationPolicy` declares no estimate case and `Fabrication.Run` never reaches `Estimate.Run`, because a price is a terminal fold over results the spine already settled — an estimate arm would have to name its own `EgressKind`, produce a keyed artifact, and re-enter the provenance walk to say what a caller already holds. The APPLICATION ROOT is the caller: it gathers the settled `FabricationResult` and the evidence corpus correlated to one of its keys, admits an `EstimateBasis`, and hands both to `Estimate.Run`. Nothing on this page claims a spine producer; the caller supplies the optional mounted instruments.
 - Boundary: this page takes NO `SpanBand`. A traced lane earns its bracket from a solver fold counting internal steps, and `FabricationEngine` carries no estimation row because pricing is a fold over settled results with no step census of its own; adding one is a `Process/telemetry` decision, not a folder mint.
 

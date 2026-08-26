@@ -16,7 +16,7 @@ A registered transform and optional deformation field from `scan/registration` a
 - Law: the reference is decoded, watertight-proved, and indexed EXACTLY once per evaluation — that is what content-keying the reference buys, so a model-wide pass over N elements pays one GLB decode, one closure fold, and one amortized surface index where a per-element build pays N of each; the surface projection itself is `mesh/spatial#SPATIAL`'s single owner, and a local `ProximityQuery` re-spelled here would fork the index vocabulary and forfeit the batch crossing the capsule already owns.
 - Auto: `segment_plane` returns the `[a,b,c,d]` model and the inlier set, `select_by_index(inliers, invert=True)` peels the remainder for the next `Block.unfold` step, and the unit normal's dominant axis resolves `PrimitiveClass` by table lookup, never a per-class extraction method. `SpatialResult.Proximity` carries the signed field and the on-surface triangle ids in one payload, so the attributed overlay reads the third and fourth slots of the SAME pass rather than paying a second query. `noncompliant_fraction` measures against the tighter `working_tolerance`, independent of the worst-point `tolerance` ceiling, so the bulk-surface gate and the max-distance gate stay separate. The split explains at most what was measured at each point — `minimum(field, |signed|)` — because an unclipped subtraction lets a warp larger than the deviation manufacture a residual with the sign inverted, and the residual keeps the ORIGINAL sign so over-build and under-build survive the partition the overlay reads them by. `compliant` then reads the CONSTRUCTION band: the rigid residual where a field partitioned it, the whole band where none did, so a deflecting slab within its structural allowance stops failing a construction tolerance that never described it, and the deformation extremum answers its own gate against the working band — a field inside that band is indistinguishable from the residual the band already admits.
 - Output: The result's `compliant` verdict reads the same construction band and policy thresholds that produced its measurements. That subject keys to the IFC GlobalId so the per-element deviation reaches the .NET owner system and the TS viewer as a colored overlay. The result keeps the ELEMENT CENSUS — verdict, folded band, split summary, segments — and `frame` carries the ROWS at the finest grain the stage produced: one row per `Segment` with its class, inliers, plane, normal, own sub-band, and own rigid/deformation partition where segmentation ran, one element row otherwise on a roster that is a strict prefix of the segmented one. The per-segment split is the grain the monitoring answer lives at — an element-wide share averages one deflected span into its rigid neighbours and reports a facade as uniformly marginal. That split is what keeps the result from growing with the segment count, and it lands the per-segment bands that a class-count census flattens away — the evidence a facade or slab verdict is actually read on.
-- Packages: `open3d` (the `PointCloud.segment_plane`/`select_by_index` RANSAC peel, one module-scope `lazy import` so the marked distribution stays cold until the peel runs), `trimesh` (path-based GLB decode at reference admission), runtime `transport/artifact` (`ArtifactTransfer.fetch` and its verified helper-owned path), `numpy`, `beartype`, `expression`, `msgspec`, the geometry graduation/mesh/scan owners named by the fence, and runtime rails.
+- Packages: `open3d` (the `PointCloud.segment_plane`/`select_by_index` RANSAC peel, one module-scope `lazy import` so the marked distribution stays cold until the peel runs), `trimesh` (path-based GLB decode at reference admission), runtime `transport/artifact` (`ArtifactTransfer.fetch` and its verified helper-owned path), `numpy`, `beartype`, `expression`, `msgspec`, the geometry graduation/mesh/scan owners named by the fence, and runtime results.
 - Growth: a new primitive class is one `PrimitiveClass` member and one classification row; a new band statistic is one `DeviationBand` field inside the one fold and reaches the rigid half free, since the split folds through that same band; a new deformation statistic is one `DeformationSplit` field; a stricter verdict is a `DeviationPolicy` value; a per-storey or per-zone grouping is one segmentation post-fold; a new geometric probe against the reference is one `SpatialQuery` case at `mesh/spatial#SPATIAL`, already batched by the shared capsule.
 - Boundary: the registered pose and deformation field are `scan/registration#REGISTRATION`'s; this owner partitions a field it is handed and never solves a warp. The generated `ArtifactRef` identifies the reference body through SHA-256 and extent; `ArtifactTransfer` proves and owns the fetched path, while the surface index is `mesh/spatial#SPATIAL`'s and watertight truth `mesh/quality.closure_fold`'s. No IFC parse, durable-store implementation, raw GLB body, or Rhino/GH mutation enters here.
 
@@ -50,7 +50,7 @@ from rasm.runtime.transport.artifact import ArtifactTransfer
 from rasm.geometry.mesh.quality import closure_fold
 from rasm.geometry.mesh.spatial import MeshSpatial, SpatialQuery, SpatialResult
 from rasm.geometry.scan.ingestion import Cloud
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -298,7 +298,7 @@ class DeviationResult(Struct, frozen=True):
         spec = f"{stage.value}|{element.element}|{reference_sha256.hex()}|{scanned.hex}|".encode() + policy.spec
         return DeviationResult(stage, element.element, reference_sha256, spec, band, segments, triangle_ids, deformation, compliant)
 
-    def frame(self) -> "RuntimeRail[EvidenceFrame]":
+    def frame(self) -> "RuntimeResult[EvidenceFrame]":
         common: dict[str, list[object]] = {"element": [self.element], "stage": [self.stage.value], "compliant": [self.compliant]}
         rows = Block.of_seq(self.segments)
         split = self.deformation.map(lambda held: held.facts()).default_value({})
@@ -324,7 +324,7 @@ class DeviationResult(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _aligned(elements: Block[Element]) -> "RuntimeRail[Block[Element]]":
+def _aligned(elements: Block[Element]) -> "RuntimeResult[Block[Element]]":
     def prove() -> Block[Element]:
         casualties = tuple(
             (row.element, len(row.cloud.positions), int(row.deformation.size))
@@ -338,7 +338,7 @@ def _aligned(elements: Block[Element]) -> "RuntimeRail[Block[Element]]":
     return boundary(DEV_ELEMENTS, prove, catch=DeviationFault)
 
 
-def _admitted(reference: Path, sha256: bytes, lane: LanePolicy, composition: ScopeKey) -> "RuntimeRail[MeshSpatial]":
+def _admitted(reference: Path, sha256: bytes, lane: LanePolicy, composition: ScopeKey) -> "RuntimeResult[MeshSpatial]":
     def build() -> MeshSpatial:
         mesh = trimesh.load_mesh(reference, file_type="glb")
         if not closure_fold(mesh).watertight:
@@ -413,26 +413,26 @@ class ScanDeviation(Struct, frozen=True):
     @overload
     async def evaluate(
         self, reference: ArtifactRef, element: Element, stage: DeviationStage
-    ) -> "RuntimeRail[DeviationResult]": ...
+    ) -> "RuntimeResult[DeviationResult]": ...
     @overload
     async def evaluate(
         self, reference: ArtifactRef, element: Sequence[Element], stage: DeviationStage
-    ) -> "RuntimeRail[Block[DeviationResult]]": ...
+    ) -> "RuntimeResult[Block[DeviationResult]]": ...
     @custody(DEV_INTEGRITY)
     @admitted(DEV_ADMISSION)
     async def evaluate(
         self, reference: ArtifactRef, element: Element | Sequence[Element], stage: DeviationStage
-    ) -> "RuntimeRail[DeviationResult] | RuntimeRail[Block[DeviationResult]]":
+    ) -> "RuntimeResult[DeviationResult] | RuntimeResult[Block[DeviationResult]]":
         lone = isinstance(element, Element)
         elements = Block.singleton(element) if lone else Block.of_seq(element)
         async with self.artifacts.fetch(reference) as owned:
-            railed = await evidence_run(
+            outcome = await evidence_run(
                 EvidenceScope.SCAN_DEVIATION,
                 f"evaluate.{stage}",
                 partial(self._folded, reference.sha256, owned.path, elements, stage),
                 composition=self.composition,
             )
-            return railed.map(lambda kept: kept.head()) if lone else railed
+            return outcome.map(lambda kept: kept.head()) if lone else outcome
 
     async def _folded(
         self,
@@ -440,7 +440,7 @@ class ScanDeviation(Struct, frozen=True):
         reference: Path,
         elements: Block[Element],
         stage: DeviationStage,
-    ) -> "RuntimeRail[Block[DeviationResult]]":
+    ) -> "RuntimeResult[Block[DeviationResult]]":
         match _aligned(elements).bind(lambda _kept: _admitted(reference, reference_sha256, self.lane, self.composition)):
             case Result(tag="ok", ok=spatial):
                 return (await self._banded(spatial, reference_sha256, elements, stage)).map(
@@ -451,7 +451,7 @@ class ScanDeviation(Struct, frozen=True):
 
     async def _banded(
         self, spatial: MeshSpatial, reference_sha256: bytes, elements: Block[Element], stage: DeviationStage
-    ) -> "RuntimeRail[Block[DeviationResult]]":
+    ) -> "RuntimeResult[Block[DeviationResult]]":
         segmented = await self._segments(elements) if stage is not DeviationStage.DEVIATE else Ok(elements.map(lambda _e: ()))
         if stage is DeviationStage.SEGMENT:
             return segmented.map(
@@ -469,9 +469,9 @@ class ScanDeviation(Struct, frozen=True):
             ),
         )
 
-    async def _segments(self, elements: Block[Element]) -> "RuntimeRail[Block[tuple[Segment, ...]]]":
-        railed = await self.lane.offload(Kernel.of(_segment_kernel, KernelTrait.HOSTILE), tuple(elements), self.policy)
-        return railed.map(Block.of_seq)
+    async def _segments(self, elements: Block[Element]) -> "RuntimeResult[Block[tuple[Segment, ...]]]":
+        outcome = await self.lane.offload(Kernel.of(_segment_kernel, KernelTrait.HOSTILE), tuple(elements), self.policy)
+        return outcome.map(Block.of_seq)
 ```
 
 ## [03]-[RESEARCH]

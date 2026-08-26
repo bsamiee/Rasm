@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Rhino;
 
 namespace Rasm.Bridge.Shell;
@@ -15,18 +16,34 @@ internal sealed class IdlePump : IDisposable {
         RhinoApp.Idle += pulse;
     }
 
-    private sealed record IdleJob(Action Run, Action Abandon);
+    private sealed class IdleJob(Action run, Action abandon) {
+        private int pending = 1;
 
-    internal Task<T> OnUiThreadAsync<T>(Func<T> job, CancellationToken ct) {
-        ObjectDisposedException.ThrowIf(condition: disposed, instance: this);
-        if (RhinoApp.IsOnMainThread) {
-            return InlineAsync(job: job);
+        internal void Run() {
+            if (Interlocked.Exchange(ref pending, 0) == 1) {
+                run();
+            }
         }
-        TaskCompletionSource<T> completion = new(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
-        jobs.Enqueue(item: new IdleJob(
-            Run: () => Invoke(job: job, completion: completion),
-            Abandon: () => _ = completion.TrySetCanceled()));
-        return completion.Task.WaitAsync(cancellationToken: ct);
+
+        internal void Abandon() {
+            if (Interlocked.Exchange(ref pending, 0) == 1) {
+                abandon();
+            }
+        }
+    }
+
+    internal async Task<T> OnUiThreadAsync<T>(Func<T> job, CancellationToken ct) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        if (RhinoApp.IsOnMainThread) {
+            return await InlineAsync(job).ConfigureAwait(false);
+        }
+        TaskCompletionSource<T> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        IdleJob queued = new(
+            run: () => Invoke(job, completion),
+            abandon: () => _ = completion.TrySetCanceled(ct));
+        jobs.Enqueue(queued);
+        await using ConfiguredAsyncDisposable cancellation = ct.Register(queued.Abandon).ConfigureAwait(false);
+        return await completion.Task.ConfigureAwait(false);
     }
 
     public void Dispose() {
@@ -34,31 +51,31 @@ internal sealed class IdlePump : IDisposable {
         disposed = true;
         if (!alreadyDisposed) {
             RhinoApp.Idle -= pulse;
-            while (jobs.TryDequeue(result: out IdleJob? job)) {
+            while (jobs.TryDequeue(out IdleJob? job)) {
                 job.Abandon();
             }
         }
     }
 
     private void DrainOne() {
-        if (!disposed && jobs.TryDequeue(result: out IdleJob? job)) {
+        if (!disposed && jobs.TryDequeue(out IdleJob? job)) {
             job.Run();
         }
     }
 
     private static Task<T> InlineAsync<T>(Func<T> job) {
         try {
-            return Task.FromResult(result: job());
-        } catch (Exception error) when (NonFatal(error: error)) {
-            return Task.FromException<T>(exception: error);
+            return Task.FromResult(job());
+        } catch (Exception error) when (NonFatal(error)) {
+            return Task.FromException<T>(error);
         }
     }
 
     private static void Invoke<T>(Func<T> job, TaskCompletionSource<T> completion) {
         try {
-            _ = completion.TrySetResult(result: job());
-        } catch (Exception error) when (NonFatal(error: error)) {
-            _ = completion.TrySetException(exception: error);
+            _ = completion.TrySetResult(job());
+        } catch (Exception error) when (NonFatal(error)) {
+            _ = completion.TrySetException(error);
         }
     }
 

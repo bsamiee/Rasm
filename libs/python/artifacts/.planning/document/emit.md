@@ -2,7 +2,7 @@
 
 `DocumentPlan` owns the document-emission axis over the single `DocumentNode` semantic tree. `DocumentMode` discriminates over the `BACKENDS` policy table, and every arm folds FROM `document/model#NODE` — PDF authoring, archival HTML-CSS, tagged PDF/UA, Typst typesetting, raster, assembly, repair, OOXML and OpenDocument office, structured text, and Markdown/LaTeX manuscript egress — never an opaque payload. Emission lowers FROM the tree and `document/lens#LENS` recovers TO it, so production and extraction are inverses over one node algebra.
 
-Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker split is a row column rather than a second dispatch surface: a `CORE`-band arm crosses as a `KernelTrait.RELEASING` kernel, a `WORKER`-band arm as `KernelTrait.HOSTILE` onto the warm process pool under its trait-row worker-death retry, and both hand the same `_dispatched` row-resolver to the caller-threaded `lane: LanePolicy` offload seam the runtime owns. `EmitSpec` admits exactly once at `DocumentPlan.of` through the closed `EmitPayload` `TypedDict` under the per-mode `_REQUIRED` precondition and `_SCOPE` admissibility set; `_key` hashes only the mode-scoped spec slice. `exchange/detect#DETECT` format-identifies a `template` payload before any engine trusts its extension.
+Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker split is a row column rather than a second dispatch surface: a `CORE`-band arm crosses as a `KernelTrait.RELEASING` kernel, a `WORKER`-band arm as `KernelTrait.HOSTILE` onto the warm process pool under its trait-row worker-death retry, and both hand the same `_dispatched` row-resolver to the caller-threaded `lane: LanePolicy` offload boundary the runtime owns. `EmitSpec` admits exactly once at `DocumentPlan.of` through the closed `EmitPayload` `TypedDict` under the per-mode `_REQUIRED` precondition and `_SCOPE` admissibility set; `_key` hashes only the mode-scoped spec slice. `exchange/detect#DETECT` format-identifies a `template` payload before any engine trusts its extension.
 
 ## [01]-[INDEX]
 
@@ -37,7 +37,7 @@ from msgspec import Struct, field, to_builtins
 from pydantic import Field, TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Journal, Party, Retain
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -564,7 +564,7 @@ class DocumentPlan(Struct, frozen=True):
     def _scoped(self) -> EmitSpec:
         return EmitSpec(**{name: getattr(self.spec, name) for name in _admissible(self.mode)})
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[EmitFact]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeResult[EmitFact]:
         match await async_boundary(EMIT_STEP, self._stepped, catch=_STEP_RAISES):
             case Result(tag="ok", ok=live):
                 assert live.fact is not None
@@ -601,7 +601,7 @@ class DocumentPlan(Struct, frozen=True):
         )
 
     async def _stepped(self, /) -> Self:
-        gate: RuntimeRail[Self] = (
+        gate: RuntimeResult[Self] = (
             (await Detect(lane=self.lane).of(Source.File(Path(self.spec.template))))
             .bind(
                 lambda identity: Ok(self)

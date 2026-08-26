@@ -2,7 +2,7 @@
 
 `Rasm.Bim` owns the EN 1990 action-classification and combination algebra the structural reader resolves its factor and combination rows under: `AnnexRegime` the national design regime this layer alone bridges a project nation onto, `EurocodePolicy` the regime VALUE a composition elects, `EurocodeAction` the psi mint per action nature, `ActionRow` the two-tier classification the `Model/structural#STRUCTURAL_PROJECTION` load leg stamps, and `Eurocode` the fold that lowers an `IfcStructuralLoadGroup` onto the package-generated combination roster. The `VividOrange.Countries` nation taxonomy and the `NationalAnnex` dispatch key share no compiled member and meet at this design layer, so `AnnexRegime` holds the correspondence keyed on the ISO alpha-2 code, carrying the SAF design code as its own row key. Every gamma, psi, and combination expression is the `VividOrange.*` train's own — this owner elects and composes, and a second clause algebra beside the package that ships Annex A1 diverges on the first national deviation.
 
-The reader supplies the entity reach and the ONE magnitude admission: components enter as the `Model/structural#STRUCTURAL_PROJECTION` `LoadFamily` row's own projection, cross that page's `Admit`, and re-enter it as factored design actions under the IDENTITY unit regime. Faults rail `Model/faults#FAULT_BAND` `BimFault` through `BimFault.Refused` with `BimReason.Capability`, the ONE seam where the package's uncovered-annex throws cross.
+The reader supplies the entity reach and the ONE magnitude admission: components enter as the `Model/structural#STRUCTURAL_PROJECTION` `LoadFamily` row's own projection, cross that page's `Admit`, and re-enter it as factored design actions under the IDENTITY unit regime. Faults return `Model/faults#FAULT_BAND` `BimFault` through `BimFault.Refused` with `BimReason.Capability`, the ONE contract where the package's uncovered-annex throws cross.
 
 ## [01]-[INDEX]
 
@@ -18,7 +18,7 @@ The reader supplies the entity reach and the ONE magnitude admission: components
 - Output: the factor rows land as dimensionless `Measure` values beside `Coefficient` on the load-group or activity bag, so one consumer read covers every factor; the combination roster lands as the paired `Combinations` and `FactoredActions` lists, so a consumer reads the k-th definition against the actions it produced.
 - Packages: VividOrange.Cases, VividOrange.Countries, VividOrange.Loads, VividOrange.Standards.Eurocode, GeometryGymIFC_Core, UnitsNet, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new Eurocode action is one `EurocodeAction` row carrying its factory mint; a new action-source classification is one `CaseSources` row, the nature tier already totalizing the residue; a new ULS set is one `CombinationSet` row carrying its own assembly, never a branch inside `Elect`; a new national deviation is an `AnnexRegime` row carrying its nation code, its `NationalAnnex`, and its SAF key together, never a per-country arm and never a second annex-to-code table; a new hand-assembled roster is one `SweepKind` row; a new partial factor the contract publishes is one `GammaRow` carrying its own reader.
-- Boundary: the policy is REQUIRED at the reader's entry so every caller states its regime — a defaulted parameter letting every landed caller elect nothing left the whole `VividOrange.Loads`/`Cases` composition unreachable — and an ABSENT policy emits no factor row at all rather than a fabricated `NationalAnnex.RecommendedValues` factor; the nation-to-annex bridge is `AnnexRegime.Of(ICountry)` over the ISO alpha-2 `CountryCode` and a hand country-code switch, a `Country`-to-`NationalAnnex` map minted beside this roster, and a match on `ICountry.Name` are each the deleted form — the name equality the catalogues describe the bridge by misses `BosniaAndHerzegovinia` and `NorthMacedonia` and needs a space strip on every multiword nation, so it seeded the roster and never resolves it — while a nation with no annex lands `AnnexRegime.Recommended` rather than faulting, because `NationalAnnex.RecommendedValues` IS the regime a non-CEN nation designs under; the SAF design code is the `AnnexRegime` row's own KEY and a second annex-to-code correspondence at the wire boundary is the deleted form, `NationalAnnexUtility.GetAbbreviation` being both internal and unsound as a stem (`Ткп`/`БДС`/`ΕΛΟΤ` are non-Latin, `ILNAS` is not `LU`, and Singapore and Sweden collide on `SS`); the typed carrier is the payload the algebra folds `ILoad.Factor(Ratio)` across, so a hand-multiplied partial or combination factor beside it is the deleted form; carrier components mint FROM already-coerced SI magnitudes and read back through the typed SI accessors, so the lane reaches neither `ToUnit(UnitSystem.SI)` — which throws for every quantity whose SI unit-info walk is empty — nor `QuantityTypeConverter`, whose culture-formatted abbreviation wire is incommensurable with the seam's canonical byte run; the factored actions re-admit under `UnitScheme.Si` because the ingest already coerced them, and threading the model's regime there prices every design action by its length factor a second time; the psi mint and the combination mint are the TWO throwing seams and both cross as `BimFault.Refused` with `BimReason.Capability` through `BimFault.Refused` with `BimReason.Capability`, never propagating into the fold; EN 1998 spectra and behaviour factors have no producer in the package train and stay authored upstream of the load roster the seismic mint receives.
+- Boundary: the policy is REQUIRED at the reader's entry so every caller states its regime — a defaulted parameter letting every landed caller elect nothing left the whole `VividOrange.Loads`/`Cases` composition unreachable — and an ABSENT policy emits no factor row at all rather than a fabricated `NationalAnnex.RecommendedValues` factor; the nation-to-annex bridge is `AnnexRegime.Of(ICountry)` over the ISO alpha-2 `CountryCode` and a hand country-code switch, a `Country`-to-`NationalAnnex` map minted beside this roster, and a match on `ICountry.Name` are each the deleted form — the name equality the catalogues describe the bridge by misses `BosniaAndHerzegovinia` and `NorthMacedonia` and needs a space strip on every multiword nation, so it seeded the roster and never resolves it — while a nation with no annex lands `AnnexRegime.Recommended` rather than faulting, because `NationalAnnex.RecommendedValues` IS the regime a non-CEN nation designs under; the SAF design code is the `AnnexRegime` row's own KEY and a second annex-to-code correspondence at the wire boundary is the deleted form, `NationalAnnexUtility.GetAbbreviation` being both internal and unsound as a stem (`Ткп`/`БДС`/`ΕΛΟΤ` are non-Latin, `ILNAS` is not `LU`, and Singapore and Sweden collide on `SS`); the typed carrier is the payload the algebra folds `ILoad.Factor(Ratio)` across, so a hand-multiplied partial or combination factor beside it is the deleted form; carrier components mint FROM already-coerced SI magnitudes and read back through the typed SI accessors, so the lane reaches neither `ToUnit(UnitSystem.SI)` — which throws for every quantity whose SI unit-info walk is empty — nor `QuantityTypeConverter`, whose culture-formatted abbreviation wire is incommensurable with the contract's canonical byte run; the factored actions re-admit under `UnitScheme.Si` because the ingest already coerced them, and threading the model's regime there prices every design action by its length factor a second time; the psi mint and the combination mint are the TWO throwing boundaries and both cross as `BimFault.Refused` with `BimReason.Capability` through `BimFault.Refused` with `BimReason.Capability`, never propagating into the fold; EN 1998 spectra and behaviour factors have no producer in the package train and stay authored upstream of the load roster the seismic mint receives.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -181,7 +181,7 @@ internal sealed partial class PsiRow {
     [UseDelegateFromConstructor]
     internal partial Ratio Read(IVariableCase variable);
 
-    internal PropertyName Name => PropertyCategory.Seam.Row(Key);
+    internal PropertyName Name => PropertyCategory.Neutral.Row(Key);
 }
 
 [SmartEnum<string>]
@@ -199,7 +199,7 @@ internal sealed partial class GammaRow {
     [UseDelegateFromConstructor]
     internal partial Option<double> Read(IDesignSituation situation);
 
-    internal PropertyName Name => PropertyCategory.Seam.Row(Key);
+    internal PropertyName Name => PropertyCategory.Neutral.Row(Key);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -216,9 +216,9 @@ internal readonly record struct ActionRow(
 internal static class Eurocode {
     internal const string ComboPrefix = "CO";
 
-    private static readonly PropertyName Situation = PropertyCategory.Seam.Row("DesignSituation");
-    private static readonly PropertyName Combinations = PropertyCategory.Seam.Row("Combinations");
-    private static readonly PropertyName FactoredActions = PropertyCategory.Seam.Row("FactoredActions");
+    private static readonly PropertyName Situation = PropertyCategory.Neutral.Row("DesignSituation");
+    private static readonly PropertyName Combinations = PropertyCategory.Neutral.Row("Combinations");
+    private static readonly PropertyName FactoredActions = PropertyCategory.Neutral.Row("FactoredActions");
 
     private static readonly Seq<string> SituationKinds = toSeq(Enum.GetNames<DesignSituationClass>());
 

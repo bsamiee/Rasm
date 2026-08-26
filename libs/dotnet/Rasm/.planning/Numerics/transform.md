@@ -1,8 +1,8 @@
 # [RASM_NUMERICS_TRANSFORM]
 
-`Rasm.Numerics` owns the transform band beside the solve kernel: the taper roster a spectral caller windows with, the capability-typed interpolant every one-dimensional fit mints into, and the spectral plane — one arena union over the four MathNet buffer layouts, one transform entry, one `Spectrum`, and BOTH routes of the one convolution correspondence, the pointwise spectral product and the sample-domain tap fold. It is `Numerics/matrix`'s own surface split at the transform seam: zero edges into the solve core, its own consumer population (`Rasm.Materials` raster planes, `Rasm.Fabrication` implicit lattices, `Rasm.Compute` signal spectra), and one `partial` half of `MatrixKernel` so the one-funnel ruling binds the TYPE and no consumer reaches a raw MathNet transform member on either side of the file cut.
+`Rasm.Numerics` owns the transform band beside the solve kernel: the taper roster a spectral caller windows with, the capability-typed interpolant every one-dimensional fit mints into, and the spectral plane — one arena union over the four MathNet buffer layouts, one transform entry, one `Spectrum`, and BOTH routes of the one convolution correspondence, the pointwise spectral product and the sample-domain tap fold. It is `Numerics/matrix`'s own surface split at the transform boundary: zero edges into the solve core, its own consumer population (`Rasm.Materials` raster planes, `Rasm.Fabrication` implicit lattices, `Rasm.Compute` signal spectra), and one `partial` half of `MatrixKernel` so the one-funnel ruling binds the TYPE and no consumer reaches a raw MathNet transform member on either side of the file cut.
 
-Rebuilds compose the `Rasm.Domain` rails as the validity floor and `Numerics/atoms` as the addressing floor: `CellLattice` is the ONE linearization a lattice-backed plane addresses through, `Dimension`/`PositiveMagnitude`/`UnitInterval`/`SignedAxis` carry every extent, rate, fraction, and axis, `EpsilonPolicy` anchors the two floors this band reads, and `Op` keys every entry under the `[BoundaryAdapter]` optional-key spelling. MathNet's managed provider is the pinned realization — the multidim entrypoints are unservable by construction and the separable row-column fold IS the platform-total N-dimensional transform.
+Rebuilds compose the `Rasm.Domain` types as the validity floor and `Numerics/atoms` as the addressing floor: `CellLattice` is the ONE linearization a lattice-backed plane addresses through, `Dimension`/`PositiveMagnitude`/`UnitInterval`/`SignedAxis` carry every extent, rate, fraction, and axis, `EpsilonPolicy` anchors the two floors this band reads, and `Op` keys every entry under the optional-key spelling. MathNet's managed provider is the pinned realization — the multidim entrypoints are unservable by construction and the separable row-column fold IS the platform-total N-dimensional transform.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Rebuilds compose the `Rasm.Domain` rails as the validity floor and `Numerics/ato
 
 - Owner: `WindowTaper` is the ONE taper roster — seventeen `[SmartEnum<string>]` rows keyed on the wire spelling every peer already speaks, thirteen binding a package factory as a column and two carrying a branch-owned design for the responses the package omits; `TaperFraming` the filter-design-versus-FFT-framing axis and `TaperShape` the shaped rows' parameter, each case carrying exactly the admission its factory consumes.
 - Entry: `taper.Of(width, framing, shape, key)` samples one taper; a row asked for a framing it does not serve, or a shape it does not consume, refuses typed rather than substituting the form it happens to have.
-- Law: the roster's package provenance is the decompile-verified `Window` surface — fifteen tapers with the four `*Periodic` twins, and no `Kaiser` or `Bohman` on it — so a package-served taper is one row binding one factory and never a hand-authored coefficient loop; the two responses the package omits are estate ceilings the BAND carries rather than N consumers each forking one `I0` fold, each stating its publication at its row and composing `SpecialFunctions.BesselI0` where a series would otherwise be hand-authored.
+- Law: the roster's package provenance is the decompile-verified `Window` surface — fifteen tapers with the four `*Periodic` twins, and no `Kaiser` or `Bohman` on it — so a package-served taper is one row binding one factory and never a hand-authored coefficient loop; the two responses the package omits are solution ceilings the BAND carries rather than N consumers each forking one `I0` fold, each stating its publication at its row and composing `SpecialFunctions.BesselI0` where a series would otherwise be hand-authored.
 - Packages: MathNet.Numerics (the `Window` roster, `SpecialFunctions.BesselI0` the Kaiser leg's own evaluation), `Numerics/atoms` (`Dimension`, `PositiveMagnitude`, `UnitInterval`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a taper is one row; its FFT-framing twin a column on that row; a shaped taper one `TaperShape` case and the accessor its row hands `Shaped`, so a new parameter never mints a kernel twin.
 - Boundary: framing is a COLUMN on the row and never a second roster — only four of the seventeen rows carry the periodic twin, and the shaped rows carry filter-design alone; `Rasm.Compute` `Stats/signal` `WindowKind` was the strata twin this roster absorbed — its `rectangular` spelling reads `Dirichlet` here and its default sigma and fraction stay Compute policy values handed in as `TaperShape`, never roster defaults.
@@ -74,7 +74,6 @@ public sealed partial class WindowTaper {
     public static readonly WindowTaper Bohman = new(key: "bohman", sample: Fixed(BohmanDesign, None));
 
     internal TaperKernel Sample { get; }
-    [BoundaryAdapter]
     public Fin<Arr<double>> Of(Dimension width, TaperFraming framing, Option<TaperShape> shape = default, Op? key = null) =>
         Optional(framing).ToFin(key.OrDefault().InvalidInput()).Bind(row => Sample(width.Value, shape, row, key.OrDefault()));
 
@@ -105,9 +104,9 @@ public sealed partial class WindowTaper {
 ## [03]-[INTERPOLATE]
 
 - Owner: `Interpolant<TCap>` is the ONE interpolation capability owner — the fitted-curve capsule whose type parameter lifts the package's two runtime support flags into a compile-time capability, so an unsupported `Slope`, `Curvature`, or `Area` call is unspellable rather than a throw; `IInterpolantCapability` with `IDifferentiable`/`IIntegrable` is the marker family and `Smooth`/`Differentiable`/`Sampled` the three inhabited tiers; the `Interpolant` static owner carries one typed factory per package scheme and the two mints the factory roster omits.
-- Cases: the tier lattice mirrors the two flags as an ORTHOGONAL pair — `Smooth` (both: natural, Akima, PCHIP, and Hermite cubic, linear, quadratic-segment, step), `Differentiable` (derivative alone: Neville polynomial, log-linear), `Sampled` (neither: Floater-Hormann and Bulirsch-Stoer rational, equidistant barycentric polynomial, transformed fit) — the tiers are DECOMPILE-VERIFIED per class, and no shipped scheme integrates without differentiating, so the fourth corner is uninhabited and mints no marker.
+- Cases: the tier matrix mirrors the two flags as an ORTHOGONAL pair — `Smooth` (both: natural, Akima, PCHIP, and Hermite cubic, linear, quadratic-segment, step), `Differentiable` (derivative alone: Neville polynomial, log-linear), `Sampled` (neither: Floater-Hormann and Bulirsch-Stoer rational, equidistant barycentric polynomial, transformed fit) — the tiers are DECOMPILE-VERIFIED per class, and no shipped scheme integrates without differentiating, so the fourth corner is uninhabited and mints no marker.
 - Entry: `Interpolant.CubicSpline`/`CubicSplineRobust`/`CubicSplineMonotone`/`Hermite`/`Linear`/`Step` mint `Smooth`; `Polynomial`/`LogLinear` mint `Differentiable`; `Common`/`RationalWithoutPoles`/`RationalWithPoles`/`PolynomialEquidistant` mint `Sampled`; `OfSegments` admits per-segment quadratic coefficients through the package constructor and `OfTransformed` composes a domain transform with its inverse around the fit — the two schemes the factory roster omits, reached at their own owners; `Value(t)` reads on every tier and the capability extension blocks reach the rest, `Area(to, from)` carrying the definite integral's lower limit as an `Option` rather than an arity twin whose two spellings meant two different integrals.
-- Auto: one `Build` rail ACCUMULATES every misaligned, non-finite, or unordered-sample claim through `Admit.Claims`, so a caller handed a short values column and an unordered abscissa learns both, and captures the throwing package factory through `Op.Catch`; every read is finite-gated on the `Fin` rail with the operation key, because the step scheme returns `NaN` at a sample point and the rational schemes return `NaN` below ULP, so an ungated read poisons a gradient silently.
+- Auto: one `Build` fold ACCUMULATES every misaligned, non-finite, or unordered-sample claim through `Admit.Claims`, so a caller handed a short values column and an unordered abscissa learns both, and captures the throwing package factory through `Op.Catch`; every read is finite-gated on `Fin` with the operation key, because the step scheme returns `NaN` at a sample point and the rational schemes return `NaN` below ULP, so an ungated read poisons a gradient silently.
 - Law: `Rasm.Compute` `Tensor/sampling` is the richest consumer and this owner adopts its capability form whole; the former keyed `InterpolationRoute` roster is DELETED — its rows became the typed factories, because a keyed row cannot return a per-row capability type. NAMED LOSS: selecting a scheme by wire key at runtime; no consumer selects one, and a peer that does maps its key onto the factory at its own edge. WITNESS: `InterpolationRoute.CubicSpline.Fit(points, values)` rebuilt as `Interpolant.CubicSpline(points, values)`, the result now typed `Interpolant<Smooth>` whose `Area` compiles.
 - Packages: MathNet.Numerics (`Interpolate` roster, `IInterpolation`, `QuadraticSpline`, `TransformedInterpolation`), System.Numerics.Tensors (`TensorPrimitives.IsFiniteAll`), `Numerics/atoms`, Rasm.Domain (`Op`, `Admit.Claims`), LanguageExt.Core, BCL inbox.
 - Growth: a scheme is one typed factory returning its tier; a capability is one marker interface with one extension block; a per-scheme class family or a runtime capability boolean is the deleted form.
@@ -141,42 +140,40 @@ public sealed class Interpolant<TCap> where TCap : IInterpolantCapability {
     internal Interpolant(IInterpolation curve) => Curve = curve;
     internal IInterpolation Curve { get; }
 
-    [BoundaryAdapter]
     public Fin<double> Value(double t, Op? key = null) => Interpolant.Finite(value: Curve.Interpolate(t: t), key: key.OrDefault());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Interpolant {
-    [BoundaryAdapter] public static Fin<Interpolant<Smooth>> CubicSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Smooth>> CubicSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.CubicSpline(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Smooth>> CubicSplineRobust(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Smooth>> CubicSplineRobust(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.CubicSplineRobust(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Smooth>> CubicSplineMonotone(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Smooth>> CubicSplineMonotone(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.CubicSplineMonotone(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Smooth>> Hermite(Arr<double> points, Arr<double> values, Arr<double> slopes, Op? key = null) {
+    public static Fin<Interpolant<Smooth>> Hermite(Arr<double> points, Arr<double> values, Arr<double> slopes, Op? key = null) {
         Op op = key.OrDefault();
         return slopes.Count == points.Count && TensorPrimitives.IsFiniteAll<double>(slopes.AsSpan())
             ? Build<Smooth>(points, values, op, (p, v) => Interpolate.CubicSplineWithDerivatives(p, v, slopes.AsIterable()))
             : Fin.Fail<Interpolant<Smooth>>(op.InvalidInput());
     }
-    [BoundaryAdapter] public static Fin<Interpolant<Smooth>> Linear(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Smooth>> Linear(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.Linear(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Smooth>> Step(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Smooth>> Step(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.Step(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Differentiable>> Polynomial(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Differentiable>> Polynomial(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Differentiable>(points, values, key.OrDefault(), static (p, v) => Interpolate.Polynomial(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Differentiable>> LogLinear(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Differentiable>> LogLinear(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Differentiable>(points, values, key.OrDefault(), static (p, v) => Interpolate.LogLinear(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Sampled>> Common(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Sampled>> Common(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Sampled>(points, values, key.OrDefault(), static (p, v) => Interpolate.Common(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Sampled>> RationalWithoutPoles(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Sampled>> RationalWithoutPoles(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Sampled>(points, values, key.OrDefault(), static (p, v) => Interpolate.RationalWithoutPoles(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Sampled>> RationalWithPoles(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Sampled>> RationalWithPoles(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Sampled>(points, values, key.OrDefault(), static (p, v) => Interpolate.RationalWithPoles(p, v));
-    [BoundaryAdapter] public static Fin<Interpolant<Sampled>> PolynomialEquidistant(Arr<double> points, Arr<double> values, Op? key = null) =>
+    public static Fin<Interpolant<Sampled>> PolynomialEquidistant(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Sampled>(points, values, key.OrDefault(), static (p, v) => Interpolate.PolynomialEquidistant(p, v));
 
-    [BoundaryAdapter]
     public static Fin<Interpolant<Smooth>> OfSegments(Arr<double> knots, Arr<double> constant, Arr<double> linear, Arr<double> quadratic, Op? key = null) {
         Op op = key.OrDefault();
         return Admit.Claims(op,
@@ -192,7 +189,6 @@ public static class Interpolant {
             .Bind(_ => op.Catch(() => Fin.Succ(new Interpolant<Smooth>(new QuadraticSpline(
                 x: [.. knots.AsIterable()], c0: [.. constant.AsIterable()], c1: [.. linear.AsIterable()], c2: [.. quadratic.AsIterable()])))));
     }
-    [BoundaryAdapter]
     public static Fin<Interpolant<Sampled>> OfTransformed(Func<double, double> transform, Func<double, double> inverse, Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Sampled>(points, values, key.OrDefault(), (p, v) => TransformedInterpolation.Interpolate(transform: transform, transformInverse: inverse, x: p, y: v));
 
@@ -211,11 +207,11 @@ public static class Interpolant {
         double.IsFinite(value) ? key.AcceptValue(value: value) : Fin.Fail<double>(key.InvalidResult());
 
     extension<TCap>(Interpolant<TCap> self) where TCap : IDifferentiable {
-        [BoundaryAdapter] public Fin<double> Slope(double t, Op? key = null) => Finite(value: self.Curve.Differentiate(t: t), key: key.OrDefault());
-        [BoundaryAdapter] public Fin<double> Curvature(double t, Op? key = null) => Finite(value: self.Curve.Differentiate2(t: t), key: key.OrDefault());
+        public Fin<double> Slope(double t, Op? key = null) => Finite(value: self.Curve.Differentiate(t: t), key: key.OrDefault());
+        public Fin<double> Curvature(double t, Op? key = null) => Finite(value: self.Curve.Differentiate2(t: t), key: key.OrDefault());
     }
     extension<TCap>(Interpolant<TCap> self) where TCap : IIntegrable {
-        [BoundaryAdapter] public Fin<double> Area(double to, Option<double> from = default, Op? key = null) =>
+        public Fin<double> Area(double to, Option<double> from = default, Op? key = null) =>
             Finite(value: from.Match(Some: a => self.Curve.Integrate(a: a, b: to), None: () => self.Curve.Integrate(t: to)), key: key.OrDefault());
     }
 }
@@ -229,7 +225,7 @@ public static class Interpolant {
 - Law: `SpectralScaling` publishes both convention columns so a package binding MathNet's transform entrypoints directly reads the declared row instead of re-spelling a second `FourierOptions` vocabulary; `Rasm.Compute` `Stats/signal` composes it and its eight raw `FourierOptions` sites are the deleted form.
 - Packages: MathNet.Numerics (`Fourier` interleaved, split, and packed pairs, `FrequencyScale`, `Hartley.NaiveForward`/`NaiveInverse`, `FourierOptions`/`HartleyOptions`), System.Numerics.Tensors (`TensorPrimitives.Multiply`/`MultiplyAdd`/`Sum`/`IsFiniteAll`), CommunityToolkit.HighPerformance (`MemoryOwner<T>.Allocate` — the lattice staging pair, the squaring buffer, and the Hartley reflection copy; the separable line stays an exact-extent array because the package entrypoint transforms its whole length), `Numerics/atoms` (`CellLattice` with its per-axis `Extent`/`Stride`/`Spacing`, `Dimension`, `PositiveMagnitude`, `SignedAxis`, `EpsilonPolicy`), Rasm.Domain (`Op`, `Admit.Claims`, `Admit.FiniteComplexSpan`, `ValidityClaim`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL (`System.Numerics.Complex`, `MemoryMarshal.Cast`).
 - Growth: a border law is one `TapBorder` row every tap fold reads with no kernel edit; a scaling convention is one `SpectralScaling` row governing both owners at once; a buffer layout is one `SpectralArena` case whose arms break every fold at compile time.
-- Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the managed-provider pin makes them unservable by construction. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and `Spectrum` names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` — so this band owns BOTH routes of the one convolution correspondence itself: the pointwise spectral product between the transform legs (`Spectrum.Modulate`) and the sample-domain tap fold (`TapSeries.Convolve`); a consumer composes one of the two and spells no fold of its own, while its tap GENERATION stays the consumer's domain policy. Zero-sum series are DIFFERENCE stencils and refuse at the mint: `Numerics/calculus#NABLA` owns those, so the two owners partition on the tap sum rather than overlapping. `CellLattice` is the addressing carrier for a lattice-backed plane and owns the per-axis `Extent`/`Stride`/`Spacing` read every separable walk takes, so the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law. Named statement-kernel exemption covers the separable axis gather-scatter and the tap-fold record walk — measured strided-line hot paths.
+- Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider interface whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the managed-provider pin makes them unservable by construction. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and `Spectrum` names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` — so this band owns BOTH routes of the one convolution correspondence itself: the pointwise spectral product between the transform legs (`Spectrum.Modulate`) and the sample-domain tap fold (`TapSeries.Convolve`); a consumer composes one of the two and spells no fold of its own, while its tap GENERATION stays the consumer's domain policy. Zero-sum series are DIFFERENCE stencils and refuse at the mint: `Numerics/calculus#NABLA` owns those, so the two owners partition on the tap sum rather than overlapping. `CellLattice` is the addressing carrier for a lattice-backed plane and owns the per-axis `Extent`/`Stride`/`Spacing` read every separable walk takes, so the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross `Fin`, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law. Named statement-kernel exemption covers the separable axis gather-scatter and the tap-fold record walk — measured strided-line hot paths.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -301,7 +297,6 @@ public readonly record struct TapWindow : IValidityEvidence {
     public int Run { get; }
     public int Stride { get; }
 
-    [BoundaryAdapter]
     public static Fin<TapWindow> Of(Dimension extent, Dimension stride, int origin, int from, Dimension run, Op? key = null) {
         Op op = key.OrDefault();
         return Admit.Claims(op,
@@ -324,21 +319,18 @@ public readonly record struct TapSeries : IValidityEvidence {
     public int Radius => Taps.Count / 2;
     public bool IsValid => ValidityClaim.All(Taps.Count >= 1);
 
-    [BoundaryAdapter]
     public static Fin<TapSeries> Of(Arr<double> taps, Op? key = null) =>
         taps.Count >= 1 && int.IsOddInteger(taps.Count) && TensorPrimitives.IsFiniteAll<double>(taps.AsSpan())
             && Math.Abs(value: TensorPrimitives.Sum<double>(taps.AsSpan())) > EpsilonPolicy.ZeroTolerance
             ? Fin.Succ(new TapSeries(taps: taps))
             : Fin.Fail<TapSeries>(error: key.OrDefault().InvalidInput());
 
-    [BoundaryAdapter]
     public Fin<Unit> Convolve(ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op? key = null) =>
         MatrixKernel.TapFold(series: this, source: source, folded: folded, window: window, border: border, key: key.OrDefault());
 }
 
 public static class LatticeConvolution {
     extension(CellLattice lattice) {
-        [BoundaryAdapter]
         public Fin<Unit> Convolve(Span<double> values, Arr<TapSeries> axes, TapBorder border, Op? key = null) =>
             MatrixKernel.TapFoldLattice(values: values, lattice: lattice, axes: axes, border: border, key: key.OrDefault());
     }
@@ -352,7 +344,6 @@ public abstract partial record SpectralArena : IValidityEvidence {
     public sealed record HalfSpectrum(double[] Values, Dimension Samples, PositiveMagnitude Rate) : SpectralArena;
     public sealed record RealValued(Arr<double> Samples, PositiveMagnitude Rate) : SpectralArena;
 
-    [BoundaryAdapter]
     public Fin<Spectrum> Transform(SpectralSense sense, SpectralScaling scaling, Op? key = null) =>
         MatrixKernel.SpectralTransform(arena: this, sense: sense, scaling: scaling, key: key.OrDefault());
     public bool IsValid => ValidityClaim.All(Switch(
@@ -387,9 +378,9 @@ public readonly record struct Spectrum(SpectralArena Arena, SpectralSense Sense,
         ValidityClaim.Finite(Energy),
         ValidityClaim.Nonnegative(value: Energy),
         Cells >= 1L && Rank >= 1);
-    [BoundaryAdapter] public Fin<Arr<double>> Power(Op? key = null) => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
-    [BoundaryAdapter] public Fin<Arr<double>> Axis(SignedAxis axis, Op? key = null) => MatrixKernel.SpectralAxis(arena: Arena, axis: axis, key: key.OrDefault());
-    [BoundaryAdapter] public Fin<Spectrum> Modulate(ReadOnlySpan<Complex> symbol, Op? key = null) =>
+    public Fin<Arr<double>> Power(Op? key = null) => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
+    public Fin<Arr<double>> Axis(SignedAxis axis, Op? key = null) => MatrixKernel.SpectralAxis(arena: Arena, axis: axis, key: key.OrDefault());
+    public Fin<Spectrum> Modulate(ReadOnlySpan<Complex> symbol, Op? key = null) =>
         MatrixKernel.SpectralModulate(spectrum: this, symbol: symbol, key: key.OrDefault());
 }
 

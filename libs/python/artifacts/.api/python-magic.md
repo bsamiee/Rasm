@@ -1,12 +1,12 @@
 # [PY_ARTIFACTS_API_PYTHON_MAGIC]
 
-`python-magic` binds the host `libmagic` library through a `ctypes` cookie, cooking bytes, a path, or a descriptor into a MIME type, description, charset, or extension list under a `MAGIC_*` bitmask. libmagic sits off the runtime loader path, so `exchange/detect` reifies every detection across the `anyio.to_process` `WORKER_BAND` subprocess seam and folds the cookie into its `DetectIdentity`/`MediaClass`/`Container`/`Trust` verdict. It is the broad-leaf-signature fallback behind the default `puremagic` sniffer, retained where its compiled database recognizes a signature `puremagic` lacks.
+`python-magic` binds the host `libmagic` library through a `ctypes` cookie, cooking bytes, a path, or a descriptor into a MIME type, description, charset, or extension list under a `MAGIC_*` bitmask. libmagic sits off the runtime loader path, so `exchange/detect` reifies every detection across the `anyio.to_process` `WORKER_BAND` subprocess boundary and folds the cookie into its `DetectIdentity`/`MediaClass`/`Container`/`Trust` verdict. It is the broad-leaf-signature fallback behind the default `puremagic` sniffer, retained where its compiled database recognizes a signature `puremagic` lacks.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cookie and fault
 
-`Magic` carries a `threading.Lock` so one cookie is reusable across calls under the worker's GIL; `_handle509Bug` returns `application/octet-stream` for the libmagic 5.09 null-MIME quirk rather than raising. `MagicException` is synthesized by the two `ctypes` errcheck hooks on a NULL or `-1` C return and lifts to the file-control fault rail at the boundary, never escaping as a bare exception into domain logic.
+`Magic` carries a `threading.Lock` so one cookie is reusable across calls under the worker's GIL; `_handle509Bug` returns `application/octet-stream` for the libmagic 5.09 null-MIME quirk rather than raising. `MagicException` is synthesized by the two `ctypes` errcheck hooks on a NULL or `-1` C return and lifts to the file-control fault channel at the boundary, never escaping as a bare exception into domain logic.
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                      |
 | :-----: | :--------------- | :------------ | :---------------------------------------------------------------- |
@@ -71,18 +71,18 @@ Constructor booleans set the `MAGIC_*` bitmask; `MAGIC_PARAM_*` ordinals address
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `import magic` at boundary scope only, reified inside the `to_process` worker, so every detection crosses the `anyio.to_process.run_sync(..., limiter=WORKER_BAND)` subprocess seam because libmagic is off the loader path, never the in-process call the `puremagic` peer rides; an import-time `ImportError` is a Forge-provisioning fault, a transient `BrokenWorkerProcess` death recovers under a bounded `stamina` retry, and a deterministic magic-bomb crash rails through `async_boundary` unretried behind the `MAGIC_PARAM_*` caps.
+- `import magic` at boundary scope only, reified inside the `to_process` worker, so every detection crosses the `anyio.to_process.run_sync(..., limiter=WORKER_BAND)` subprocess boundary because libmagic is off the loader path, never the in-process call the `puremagic` peer rides; an import-time `ImportError` is a Forge-provisioning fault, a transient `BrokenWorkerProcess` death recovers under a bounded `stamina` retry, and a deterministic magic-bomb crash faults through `async_boundary` unretried behind the `MAGIC_PARAM_*` caps.
 - One `Magic` cookie per `MagicFacet` owns the flags, the `threading.Lock`, and the loaded database, `functools.cache`-memoised so the compiled database loads once per config per worker; the module rows are the stateless `mime`-only path over the `_instances` default cookie.
-- Source is one axis: `Source.Buffer`→`Magic.from_buffer` and `Source.File`→`Magic.from_file` on one cookie surface, matched by one `match` in `_cooked`; the file row reads on the worker side so the parent never pickles the payload, and the descriptor row is excluded because a parent-process fd does not cross the seam.
+- Source is one axis: `Source.Buffer`→`Magic.from_buffer` and `Source.File`→`Magic.from_file` on one cookie surface, matched by one `match` in `_cooked`; the file row reads on the worker side so the parent never pickles the payload, and the descriptor row is excluded because a parent-process fd does not cross the boundary.
 - Output is one axis: `mime`/`mime_encoding`/`extension` are flag selections pinned one-per-facet, so a full identity holds four cookies in one crossing and folds the four cooked strings into `DetectIdentity`; the strongest match is `raw.split("\n- ", 1)[0]` cutting the `MAGIC_CONTINUE` separator.
 - Fault is one axis: a failed call raises `MagicException`, and `_handle509Bug` returns `application/octet-stream` for the 5.09 null quirk classified `MediaClass.UNKNOWN`; a broken-database `MagicException` lands at the `async_boundary` `CLASSIFY` catch, lifted once at the boundary.
 
 [STACKING]:
 - `exchange/detect#DETECT`: composes this as its WORKER-BAND libmagic arm; its `DetectPolicy` folds the `DetectFlag` set, the `MagicParam` caps, and the custom `.mgc` `magic_file` onto every facet cookie, `DetectProfile` selects the `MagicFacet` tuple via `_PROFILE_FACETS`, and `_FACET_FLAG` maps facet→boolean; the cooked strings fold through `MediaClass.of`/`Container.of` and the `extension`/`keep_going` splits into the `Trust` verdict (`IDENTIFIED`/`AMBIGUOUS`/`MISMATCH`/`UNKNOWN`).
-- `anyio`(`.api/anyio.md`): `to_process.run_sync(..., limiter=WORKER_BAND)` over the shared `WORKER_BAND` `CapacityLimiter` from `rasm.runtime.lanes` — the universal native-arm seam `exchange/metadata#METADATA` (`pyexiftool`) and `graphic/raster/io#IO` (`pyvips`) also cross.
+- `anyio`(`.api/anyio.md`): `to_process.run_sync(..., limiter=WORKER_BAND)` over the shared `WORKER_BAND` `CapacityLimiter` from `rasm.runtime.lanes` — the universal native-arm boundary `exchange/metadata#METADATA` (`pyexiftool`) and `graphic/raster/io#IO` (`pyvips`) also cross.
 - `stamina`(`runtime/.api/stamina.md`): `AsyncRetryingCaller(attempts=3, timeout=30.0).on(BrokenWorkerProcess)` → a `BoundAsyncRetryingCaller` recovering a transient worker death; a deterministic crash stays non-retriable.
-- `msgspec`(`.api/msgspec.md`): the cooked strings fold into the frozen `DetectIdentity` `Struct` (`frozen=True, gc=False`) pickled back across the seam; `to_builtins(identity, str_keys=True)` projects it to OpenTelemetry span attributes.
-- `expression`(`.api/expression.md`): `tagged_union` owns the two-source `Source` (`Buffer`/`File`) discriminant the `from_buffer`/`from_file` rows dispatch under; `Result`/`RuntimeRail` carries the railed verdict and `Block` the batch `traversed(..., by=Disposition)` fold.
+- `msgspec`(`.api/msgspec.md`): the cooked strings fold into the frozen `DetectIdentity` `Struct` (`frozen=True, gc=False`) pickled back across the boundary; `to_builtins(identity, str_keys=True)` projects it to OpenTelemetry span attributes.
+- `expression`(`.api/expression.md`): `tagged_union` owns the two-source `Source` (`Buffer`/`File`) discriminant the `from_buffer`/`from_file` rows dispatch under; `Result`/`RuntimeResult` carries the typed verdict and `Block` the batch `traversed(..., by=Disposition)` fold.
 - `beartype`(`.api/beartype.md`): validates the `bytes`/`PathLike` ingress shapes at the boundary.
 
 [LOCAL_ADMISSION]:

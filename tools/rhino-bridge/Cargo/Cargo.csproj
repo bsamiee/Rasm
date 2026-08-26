@@ -5,10 +5,15 @@
         <RootNamespace>Rasm.Bridge.Cargo</RootNamespace>
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <RasmHost>grasshopper;platform</RasmHost>
-        <InformationalVersion>0.1.0-cargo</InformationalVersion>
     </PropertyGroup>
+
+    <ItemGroup Label="Cargo Packages">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
     <ItemGroup Label="Project References">
-        <ProjectReference Include="../Contract/Contract.csproj" />
+        <ProjectReference Include="../Contract/Contract.csproj" Private="false" />
         <ProjectReference Include="../../../tests/dotnet/scenariokit/Rasm.ScenarioKit.csproj" />
     </ItemGroup>
 </Project>

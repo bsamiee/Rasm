@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA_FONTS]
 
-`Avalonia.Fonts.Inter` embeds the six Inter TTF faces as `avares://` resources and mints one `AppBuilder.WithInterFont()` that registers `InterFontCollection` — a sealed `EmbeddedFontCollection` — under the `fonts:Inter` family key. Every font-collection type it composes against lives in `Avalonia.Base`; this catalog marks that seam so the Theme typography owner stacks onto the Avalonia font registry rather than re-deriving an asset loader.
+`Avalonia.Fonts.Inter` embeds the six Inter TTF faces as `avares://` resources and mints one `AppBuilder.WithInterFont()` that registers `InterFontCollection` — a sealed `EmbeddedFontCollection` — under the `fonts:Inter` family key. Every font-collection type it composes against lives in `Avalonia.Base`; this catalog marks that boundary so the Theme typography owner stacks onto the Avalonia font registry rather than re-deriving an asset loader.
 
 ## [01]-[PUBLIC_TYPES]
 

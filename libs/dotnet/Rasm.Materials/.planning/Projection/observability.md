@@ -1,17 +1,17 @@
 # [MATERIALS_OBSERVABILITY]
 
-MATERIALS signal evidence starts with the closed `MaterialsFact` family. `MaterialsPoint` closes the point roster over the kernel `IHookRoster` floor and `MaterialsHooks.Live` mints the ONE kernel `HookRail<MaterialsPoint, MaterialsFact, TelemetrySource>` this folder composes.
+MATERIALS signal evidence starts with the closed `MaterialsFact` family. `MaterialsPoint` closes the point roster over the kernel `IHookRoster` floor and `MaterialsHooks.Live` mints the ONE kernel `HookSet<MaterialsPoint, MaterialsFact, TelemetrySource>` this folder composes.
 
-`MaterialsInstrument` closes the `rasm.materials.<domain>.<measure>` roster with each row CARRYING its kernel `InstrumentSpec`, and `MaterialsTap` projects the fact stream onto it as a rail subscriber. `MaterialsLog` carries the fixed-severity fault projection beside the `LatencyPhase`/`LatencyMeasure` vocabularies `MaterialsLatency` contributes, and `MaterialsDescriptors` binds the board pack over the same roster.
+`MaterialsInstrument` closes the `rasm.materials.<domain>.<measure>` roster with each row CARRYING its kernel `InstrumentSpec`, and `MaterialsTap` projects the fact stream onto it as a hook subscriber. `MaterialsLog` carries the fixed-severity fault projection beside the `LatencyPhase`/`LatencyMeasure` vocabularies `MaterialsLatency` contributes, and `MaterialsDescriptors` binds the board pack over the same roster.
 
-Settled composition draws every mechanism from the kernel signal capsule — hook rail with its seats, veto folding, replay retention, detach custody, and bounded `FaultCell`; instrument set with its bucket advice, tag projection, and level cells; package-identity band; tenancy frame; SLO algebra.
+Settled composition draws every mechanism from the kernel signal capsule — hook set with its seats, veto folding, replay retention, detach custody, and bounded `FaultCell`; instrument set with its bucket advice, tag projection, and level cells; package-identity band; tenancy frame; SLO algebra.
 
-Fact payloads compose Component, Appearance, Properties, and seam results. Instrument names run dotted `rasm.materials.<domain>.<measure>` with UCUM units under the `TelemetrySource.Materials` scope the composing app admits by name, every work row carrying the kernel `rasm.tenant` partition.
+Fact payloads compose Component, Appearance, Properties, and contract results. Instrument names run dotted `rasm.materials.<domain>.<measure>` with UCUM units under the `TelemetrySource.Materials` scope the composing app admits by name, every work row carrying the kernel `rasm.tenant` partition.
 
 ## [01]-[INDEX]
 
 - [02]-[FACT_FAMILY]: `MaterialsFact` closes the evidence union and projects each case's own `MaterialsPoint` row.
-- [03]-[HOOK_RAIL]: `MaterialsPoint` realizes the kernel roster floor on a `CapabilitySet<HookModality>` column and `MaterialsHooks` mints the kernel rail over it.
+- [03]-[HOOKS]: `MaterialsPoint` realizes the kernel roster floor on a `CapabilitySet<HookModality>` column and `MaterialsHooks` mints the kernel hook set over it.
 - [04]-[INSTRUMENT_TAP]: `MaterialsInstrument` closes the roster, and `MaterialsTap` binds the level probes and projects the fact stream.
 - [05]-[EVIDENCE_RECORDS]: `MaterialsLog` carries the fixed-severity projection, `LatencyPhase` and `LatencyMeasure` close the bracket and quantity vocabularies over their `LatencyWrite` laws, and `MaterialsLatency` derives the contributed three-axis roster from them.
 - [06]-[BOARD_PACK]: `MaterialsDescriptors` binds the kernel pack over that roster.
@@ -20,7 +20,7 @@ Fact payloads compose Component, Appearance, Properties, and seam results. Instr
 
 - Owner: `MaterialsFact` — the closed evidence union every tap fires and every projection folds, its `At` column projecting the `[03]` roster row that owns each case.
 - Cases: `CatalogueAdmit` (the row a veto gate transforms or refuses pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityLift`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `CaptureProvenance`, wall duration), `WireMint` (material, `WireProvenance`), `ProjectionGate` (the `GraphDelta` a veto refuses or admits pre-merge), `TexturePress` (the lifted `PressRun` and the material it baked for), `TileSynth` (strategy, guide channel, and the lifted `TileRun` — the guide rides beside the run for the reason `StageInfer` carries its request: an unmeasured run still names the channel it ran against), `TileGrade` (strategy, the `Evidence<TileProof>` probe outcome the gate's `Fin` lifts through `Evidence.Of`, wall duration — its own case because a grade runs without synthesis and an ingested set earns its proof having passed no synthesizer), `PyramidBuild` (channel, mip policy, level count, texel census, fold duration — the one texture construction every press, ingest, and decode pays per channel), `SetIngest` (the claimed-stem census, the typed refusal rows, and the resolved convention), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest` and the lifted `StageResult` — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
-- Entry: each composition-root decorator fires one case through `rail.Fire(fact.At, fact, key)`; veto cases fire before catalogue freeze or graph merge.
+- Entry: each composition-root decorator fires one case through `hooks.Fire(fact.At, fact, key)`; veto cases fire before catalogue freeze or graph merge.
 - Auto: `At` is the PRIMARY CORRESPONDENCE between this union and the `[03]` roster — the generated total `Map` breaks at compile time on a case with no row or a row with no case, so no call site names a point and the pairing cannot drift. Elapsed columns derive from one injected clock at the decorator boundary.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new evidence shape is one `MaterialsFact` case, one `MaterialsPoint` row with its `At` arm, and one projection arm at `[04]`.
@@ -85,15 +85,15 @@ public abstract partial record MaterialsFact : IHookFact<MaterialsPoint> {
 }
 ```
 
-## [03]-[HOOK_RAIL]
+## [03]-[HOOKS]
 
-- Owner: `MaterialsPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.materials.<domain>.<point>`, realizing the kernel `IHookRoster<MaterialsPoint>` floor with a `CapabilitySet<HookModality>` column; `MaterialsHooks` the composition entry minting the ONE kernel `HookRail<MaterialsPoint, MaterialsFact, TelemetrySource>`. The folder mints ZERO rail mechanism — seats, veto folding, bounded replay, fork-shielded isolation, detach custody, owner-scoped release, and the bounded `FaultCell` all ride the kernel rail.
+- Owner: `MaterialsPoint` the `[SmartEnum<string>]` point vocabulary keyed `rasm.materials.<domain>.<point>`, realizing the kernel `IHookRoster<MaterialsPoint>` floor with a `CapabilitySet<HookModality>` column; `MaterialsHooks` the composition entry minting the ONE kernel `HookSet<MaterialsPoint, MaterialsFact, TelemetrySource>`. The folder mints ZERO hook mechanism — seats, veto folding, bounded replay, fork-shielded isolation, detach custody, owner-scoped release, and the bounded `FaultCell` all ride the kernel hook set.
 - Cases: `rasm.materials.catalogue.admit` veto, `rasm.materials.section.solve`, `rasm.materials.capacity.check`, `rasm.materials.graph.compile`, `rasm.materials.acquisition.fit` replay, `rasm.materials.wire.mint`, `rasm.materials.projection.project` veto, `rasm.materials.texture.press`, `rasm.materials.texture.tile`, `rasm.materials.texture.grade`, `rasm.materials.texture.pyramid`, `rasm.materials.texture.ingest`, `rasm.materials.texture.codec`, `rasm.materials.neural.infer` replay, `rasm.materials.environment.prefilter`. The two replay rows settle a costly external computation whose evidence a later run re-reads rather than re-earns.
-- Entry: `MaterialsHooks.Live(key, gates, taps, cell)` mints the rail once at composition, seating one kernel point per `MaterialsPoint` row from `Items` alone; `rail.Fire(fact.At, fact, key)` is the emitter entry and `rail.Points` the census a `HookRegistry` freezes at the app root; `HookMounts<MaterialsPoint, TelemetrySource>` carries any rider custody a host composition claims over these seats.
-- Auto: every point admits `HookModality.Observe` beside whatever else it holds, because the `[04]` projection is ONE unscoped tap over a total `Switch` and a veto-only or replay-only set refuses it; the roster's `Id` and the rail's seats both derive from the row key, so a `Live` seat cannot re-spell either.
+- Entry: `MaterialsHooks.Live(key, gates, taps, cell)` mints the hook set once at composition, seating one kernel point per `MaterialsPoint` row from `Items` alone; `hooks.Fire(fact.At, fact, key)` is the emitter entry and `hooks.Points` the census a `HookRegistry` freezes at the app root; `HookMounts<MaterialsPoint, TelemetrySource>` carries any rider custody a host composition claims over these seats.
+- Auto: every point admits `HookModality.Observe` beside whatever else it holds, because the `[04]` projection is ONE unscoped tap over a total `Switch` and a veto-only or replay-only set refuses it; the roster's `Id` and the hook set's seats both derive from the row key, so a `Live` seat cannot re-spell either.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new point is one `MaterialsPoint` row, one `MaterialsFact` case, and one `At` arm; delivery semantics are the kernel modality rows.
-- Law: NAMED LOSS from composing the kernel rail — the per-point FACT TYPE. A subscriber to a named `HookPoint<MaterialsFact.TilePress>` field took no codec fact; under one rail every point shares `MaterialsFact` and subscribers discriminate on the case. What survives is stronger: `At` fixes the case-to-row pairing at compile time, so the guarantee moved from a field's declaration onto a generated total map. WITNESS — the fifteen `HookPoint<MaterialsFact.*>` columns, the fifteen-line `Live()`, the fifteen-entry `Points` census, and the private `Seat<TFact>` mint all delete onto `MaterialsRail.Of`.
+- Law: NAMED LOSS from composing the kernel hook set — the per-point FACT TYPE. A subscriber to a named `HookPoint<MaterialsFact.TilePress>` field took no codec fact; under one hook set every point shares `MaterialsFact` and subscribers discriminate on the case. What survives is stronger: `At` fixes the case-to-row pairing at compile time, so the guarantee moved from a field's declaration onto a generated total map. WITNESS — the fifteen `HookPoint<MaterialsFact.*>` columns, the fifteen-line `Live()`, the fifteen-entry `Points` census, and the private `Seat<TFact>` mint all delete onto `MaterialsHooks.Of`.
 - Boundary: ids and modalities live on the roster rows alone, so a Materials point joins any app-tier registry census unrenamed; a subscriber fault parks as `IsolatedFault` on the composition's own bounded cell and the emitter is untouched, the ring shedding oldest-first rather than growing for process lifetime. Veto points carry observe subscribers legally and the capsule dispatches them from the admitted fact alone, so a `[04]` arm on a veto point counts admitted rows and refusal volume rides the cell. Spans are absent by design: this folder's eager constructions carry the `[05]` checkpoint ledger instead, so `Plane` is `None` on every row, no `TraceScope` derives off these ids, and `Live` binds no `IHookSpan`.
 
 ```csharp
@@ -107,7 +107,7 @@ using static LanguageExt.Prelude;
 
 using MaterialsGate = Rasm.Domain.HookGate<Rasm.Materials.Projection.MaterialsPoint, Rasm.Materials.Projection.MaterialsFact, Rasm.Domain.TelemetrySource>;
 using MaterialsObserver = Rasm.Domain.HookTap<Rasm.Materials.Projection.MaterialsPoint, Rasm.Materials.Projection.MaterialsFact, Rasm.Domain.TelemetrySource>;
-using MaterialsRail = Rasm.Domain.HookRail<Rasm.Materials.Projection.MaterialsPoint, Rasm.Materials.Projection.MaterialsFact, Rasm.Domain.TelemetrySource>;
+using MaterialsHooks = Rasm.Domain.HookSet<Rasm.Materials.Projection.MaterialsPoint, Rasm.Materials.Projection.MaterialsFact, Rasm.Domain.TelemetrySource>;
 
 namespace Rasm.Materials.Projection;
 
@@ -145,26 +145,26 @@ public sealed partial class MaterialsPoint : IHookRoster<MaterialsPoint> {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class MaterialsHooks {
-    public static Fin<MaterialsRail> Live(
+    public static Fin<MaterialsHooks> Live(
         Op key, Seq<MaterialsGate> gates = default, Seq<MaterialsObserver> taps = default,
         Option<FaultCell> cell = default) =>
-        MaterialsRail.Of(key, gates, taps, Option<IHookSpan>.None, cell);
+        MaterialsHooks.Of(key, gates, taps, Option<IHookSpan>.None, cell);
 }
 ```
 
 ## [04]-[INSTRUMENT_TAP]
 
 - Owner: `MaterialsInstrument` — the closed `rasm.materials.*` roster, a `[SmartEnum<string>]` whose every row CARRIES its kernel `InstrumentSpec` (kind, measurement form, UCUM unit, kernel `Buckets` advice, the closed dimension set) beside the one dotted slot and outcome-value block both the metric writes and the `[05]` pivots spell; `MaterialsTap` — the fact-to-write projection and the level-probe binder over the `InstrumentSet` the composing root materializes.
-- Cases: the roster below IS the case list, and restating each row's dimensions here publishes a second roster that drifts on the first column edit. Rows split three ways by what produces them: PUSHED rows the `[02]` fact arms write on every occurrence; the two composition-supplied POPULATION levels a frozen catalogue and its material library answer; and the three RAIL-ANSWERED rows the evidence cell probes, since a shielded subscriber failure fires no fact and so has no write site at all.
-- Entry: `MaterialsInstrument.Telemetry(version)` — the one contributor port, carrying the `[06]` board pack beside these rows so board and reliability policy travel downward with the roster they name; `MaterialsTap.Tap(set)` returns the ONE unscoped `MaterialsObserver` the composing root hands `MaterialsHooks.Live`; `MaterialsTap.Levels(set, rail, key, supplied)` binds every pulled row — the rail's own probes from `RailLevels` and the composition's catalogue and library readers from the span — and returns the scopes that retire them.
+- Cases: the roster below IS the case list, and restating each row's dimensions here publishes a second roster that drifts on the first column edit. Rows split three ways by what produces them: PUSHED rows the `[02]` fact arms write on every occurrence; the two composition-supplied POPULATION levels a frozen catalogue and its material library answer; and the three HOOK-ANSWERED rows the evidence cell probes, since a shielded subscriber failure fires no fact and so has no write site at all.
+- Entry: `MaterialsInstrument.Telemetry(version)` — the one contributor port, carrying the `[06]` board pack beside these rows so board and reliability policy travel downward with the roster they name; `MaterialsTap.Tap(set)` returns the ONE unscoped `MaterialsObserver` the composing root hands `MaterialsHooks.Live`; `MaterialsTap.Levels(set, hooks, key, supplied)` binds every pulled row — the hook set's own probes from `HookLevels` and the composition's catalogue and library readers from the span — and returns the scopes that retire them.
 - Auto: `Rows` DERIVES from `Items` and construction proves each row's name against its key, so the const-name roster and the hand-listed sequence that mirrored it are ONE declaration; every write addresses the row (`InstrumentSet.Write(row.Row, …)`, the kernel's own write law) rather than a name, so an unmounted row and a form mismatch surface as typed refusals; every histogram row binds its named kernel `Buckets` row as explicit-bucket advice under the base2-exponential wire default, so no bound array is spelled here; every write materializes its tag set through `InstrumentSet.Tags`, which returns the stack-allocated `TagList` the kernel's `in TagList` overload consumes and folds the ambient `TenantContext` partition in beside the arm's own slots — an arm widening a shared set does it by COPY-THEN-ADD through the page's one `Keyed` widening, never by materializing a heap `KeyValuePair<string, object?>[]`; a multi-write arm reads `Enabled` ahead of its tag mint and ahead of any per-channel walk, and an unmounted name reads enabled so the gate never absorbs the refusal a write owes; each share indicator's outcome verdict rides the same write that counts the occurrence, so a good half can never miss an occurrence its denominator recorded.
 - Packages: Rasm, LanguageExt.Core, BCL inbox (`System.Diagnostics.Metrics`).
-- Growth: a histogram policy change is one kernel `Buckets` row reference; a new instrument is one `MaterialsInstrument` row carrying its own UCUM unit — `{texel}`, `By`, `{partition}`, `{inference}`, `{tile}`, `{stem}`, `{channel}` — and one write in the owning `Switch` arm, a new fact case breaking the tap at compile time; a new tileability signal is one `ScoreComponents` row and no arm edit; a new rail-answered level is one `RailLevels` row and a new supplied level one `Level` row with its reader at the call site, never a signature edit.
+- Growth: a histogram policy change is one kernel `Buckets` row reference; a new instrument is one `MaterialsInstrument` row carrying its own UCUM unit — `{texel}`, `By`, `{partition}`, `{inference}`, `{tile}`, `{stem}`, `{channel}` — and one write in the owning `Switch` arm, a new fact case breaking the tap at compile time; a new tileability signal is one `ScoreComponents` row and no arm edit; a new hook-answered level is one `HookLevels` row and a new supplied level one `Level` row with its reader at the call site, never a signature edit.
 - Law: throughput rides MONOTONE COUNTERS in UCUM units and latency rides the histograms — a bake spans four orders of magnitude between a preview and a production plane, so a bucket ladder over texel or byte volume grades nothing while the counter's own derivative is exactly the rate a board reads.
 - Law: a REFUSAL is counted and never measured — an unmeasured run enters its counter's own verdict partition while every histogram gates on the evidence that proves a measurement was taken, because a sentinel admitted into a distribution reads to a board as the best value in it.
-- Law: `Levels` proves the supply a BIJECTION against the roster's own pulled column minus the rail-answered rows — a name outside that set refuses, a pulled row with no reader refuses, and a name supplied twice refuses before its second bind shadows the first. NAMED LOSS from composing the kernel probe: `InstrumentSet.Bind` takes `Func<double>` and the mounted row saturates each reading into its declared carrier at collection, so the folder's own whole-number domain gate deletes and a starved reader publishes a saturated value rather than refusing at bind.
-- Law: NAMED LOSS on the fault series — the kernel `FaultCell` is a bounded ring publishing `Parked`, `Shed`, and `Lost` and raising no change event, so the monotone count the rail's evidence once pushed has no producer. One level probes total parked Materials-owned depth beside two monotone ring tallies, and the ever-parked total reads as depth summed with shed rather than as a counter nothing writes.
-- Boundary: `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on typed results, never on a metric series. Tenancy is the kernel `TenantContext` projection every work-row write folds, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled POPULATION rows stay untenanted on ownership alone: a frozen catalogue and its material library are process-scoped reference data no tenant owns, so a tenant column there declares a key no reader can emit. Every projection arm returns the kernel write rail and subscribes through the rail's shielded tap, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists. Instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter.
+- Law: `Levels` proves the supply a BIJECTION against the roster's own pulled column minus the hook-answered rows — a name outside that set refuses, a pulled row with no reader refuses, and a name supplied twice refuses before its second bind shadows the first. NAMED LOSS from composing the kernel probe: `InstrumentSet.Bind` takes `Func<double>` and the mounted row saturates each reading into its declared carrier at collection, so the folder's own whole-number domain gate deletes and a starved reader publishes a saturated value rather than refusing at bind.
+- Law: NAMED LOSS on the fault series — the kernel `FaultCell` is a bounded ring publishing `Parked`, `Shed`, and `Lost` and raising no change event, so the monotone count the hook set's evidence once pushed has no producer. One level probes total parked Materials-owned depth beside two monotone ring tallies, and the ever-parked total reads as depth summed with shed rather than as a counter nothing writes.
+- Boundary: `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on typed results, never on a metric series. Tenancy is the kernel `TenantContext` projection every work-row write folds, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled POPULATION rows stay untenanted on ownership alone: a frozen catalogue and its material library are process-scoped reference data no tenant owns, so a tenant column there declares a key no reader can emit. Every projection arm returns the kernel write result and subscribes through the hook set's shielded tap, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists. Instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -176,7 +176,7 @@ using Rasm.Materials.Raster;
 using static LanguageExt.Prelude;
 
 using MaterialsObserver = Rasm.Domain.HookTap<Rasm.Materials.Projection.MaterialsPoint, Rasm.Materials.Projection.MaterialsFact, Rasm.Domain.TelemetrySource>;
-using MaterialsRail = Rasm.Domain.HookRail<Rasm.Materials.Projection.MaterialsPoint, Rasm.Materials.Projection.MaterialsFact, Rasm.Domain.TelemetrySource>;
+using MaterialsHooks = Rasm.Domain.HookSet<Rasm.Materials.Projection.MaterialsPoint, Rasm.Materials.Projection.MaterialsFact, Rasm.Domain.TelemetrySource>;
 
 namespace Rasm.Materials.Projection;
 
@@ -423,7 +423,7 @@ public sealed partial class MaterialsInstrument {
     public static readonly MaterialsInstrument Faults = new(
         "rasm.materials.faults",
         InstrumentSpec.Create("rasm.materials.faults", InstrumentKind.Levels, MeasureForm.Whole, "{fault}",
-            "parked Materials tap and veto faults held on the rail's evidence cell",
+            "parked Materials tap and veto faults held on the hook set's evidence cell",
             Seq<string>(), None, None, None));
 
     public static readonly MaterialsInstrument FaultsShed = new(
@@ -455,23 +455,23 @@ public static class MaterialsTap {
     public static MaterialsObserver Tap(InstrumentSet set) =>
         new(Op.Of(name: "rasm.materials.instruments"), fact => Project(set, fact));
 
-    static readonly Seq<(MaterialsInstrument Row, Func<MaterialsRail, Seq<(Option<string> Partition, Func<double> Read)>> Probe)> RailLevels =
-        Seq<(MaterialsInstrument, Func<MaterialsRail, Seq<(Option<string>, Func<double>)>>)>(
-            (MaterialsInstrument.Faults, static rail => Seq<(Option<string>, Func<double>)>(
-                (Option<string>.None, () => rail.Faults.Parked.Count(fault =>
+    static readonly Seq<(MaterialsInstrument Row, Func<MaterialsHooks, Seq<(Option<string> Partition, Func<double> Read)>> Probe)> HookLevels =
+        Seq<(MaterialsInstrument, Func<MaterialsHooks, Seq<(Option<string>, Func<double>)>>)>(
+            (MaterialsInstrument.Faults, static hooks => Seq<(Option<string>, Func<double>)>(
+                (Option<string>.None, () => hooks.Faults.Parked.Count(fault =>
                     fault.Cause is Fault typed
                     && FaultBand.OwnerOf(BandKind.Fault, typed.Code).Exists(static band => band.Owner == TelemetrySource.Materials))))),
-            (MaterialsInstrument.FaultsShed, static rail => Seq<(Option<string>, Func<double>)>(
-                (Option<string>.None, () => rail.Faults.Shed))),
-            (MaterialsInstrument.FaultsLost, static rail => Seq<(Option<string>, Func<double>)>(
-                (Option<string>.None, () => rail.Faults.Lost))));
+            (MaterialsInstrument.FaultsShed, static hooks => Seq<(Option<string>, Func<double>)>(
+                (Option<string>.None, () => hooks.Faults.Shed))),
+            (MaterialsInstrument.FaultsLost, static hooks => Seq<(Option<string>, Func<double>)>(
+                (Option<string>.None, () => hooks.Faults.Lost))));
 
     public static Fin<Seq<IDisposable>> Levels(
-        InstrumentSet set, MaterialsRail rail, Op key,
+        InstrumentSet set, MaterialsHooks hooks, Op key,
         params ReadOnlySpan<(MaterialsInstrument Row, Func<double> Read)> supplied) {
         Seq<(MaterialsInstrument Row, Func<double> Read)> offered = toSeq(supplied.ToArray());
         Seq<MaterialsInstrument> owed = toSeq(MaterialsInstrument.Items)
-            .Filter(static row => row.Row.Kind.Pulled && !RailLevels.Exists(probe => probe.Row.Equals(row)))
+            .Filter(static row => row.Row.Kind.Pulled && !HookLevels.Exists(probe => probe.Row.Equals(row)))
             .Strict();
         return offered.Map(static row => row.Row).Collisions(static row => row) is { IsEmpty: false } twice
             ? Fin.Fail<Seq<IDisposable>>(new KernelFault.InvalidValue(
@@ -481,7 +481,7 @@ public static class MaterialsTap {
                 ? Fin.Fail<Seq<IDisposable>>(new KernelFault.InvalidValue(
                     Label: TelemetrySource.Materials.Key,
                     Requirement: "exactly one supplied reader for every composition-owned pulled roster row"))
-                : (RailLevels.Bind(probe => probe.Probe(rail).Map(fan => (probe.Row, fan.Partition, fan.Read)))
+                : (HookLevels.Bind(probe => probe.Probe(hooks).Map(fan => (probe.Row, fan.Partition, fan.Read)))
                     + offered.Map(static row => (row.Row, Partition: Option<string>.None, row.Read)))
                     .TraverseM(entry => set.Bind(entry.Row.Row, entry.Read, key, Partitioned(entry.Row, entry.Partition)))
                     .As();
@@ -653,9 +653,9 @@ public static class MaterialsTap {
 
 ## [05]-[EVIDENCE_RECORDS]
 
-- Owner: `MaterialsLog` — the fixed-severity generated emission grammar over the folder's banded faults and the rail's isolated evidence; `LatencyPhase` — the bracketed-construction vocabulary, each row owning BOTH of its checkpoint names; `LatencyMeasure` — the accumulated-quantity vocabulary, each row owning its accumulation law; `LatencyWrite` — the two accumulation laws those rows carry; `PhaseBracket`/`MeasureSlot` — the resolved token carriers the ledger entries accept; `MaterialsLatency` — the folder's contributed three-axis name roster and the entries that write under it.
+- Owner: `MaterialsLog` — the fixed-severity generated emission grammar over the folder's banded faults and the hook set's isolated evidence; `LatencyPhase` — the bracketed-construction vocabulary, each row owning BOTH of its checkpoint names; `LatencyMeasure` — the accumulated-quantity vocabulary, each row owning its accumulation law; `LatencyWrite` — the two accumulation laws those rows carry; `PhaseBracket`/`MeasureSlot` — the resolved token carriers the ledger entries accept; `MaterialsLatency` — the folder's contributed three-axis name roster and the entries that write under it.
 - Cases: `LatencyWrite.Accrue` sums a quantity one request reaches many times — texels across every channel of one press, bytes across every encoded plane; `LatencyWrite.Pin` states a quantity measured once — the landed plane census a fold reports at its close. `LatencyPhase` rows are the folder's three bracketed constructions and `LatencyMeasure` rows its three quantities, each binding its own law.
-- Entry: `MaterialsLog.Logged` rides `MapFail` on any Materials rail so a refusal logs once at the seam that produced it; `MaterialsLog.Drain(ILogger, Seq<IsolatedFault>)` projects a snapshot of the rail's parked evidence; `LatencyPhase.Resolve` and `LatencyMeasure.Resolve` are the ONE token-resolution pair a composition runs at boot; `MaterialsLatency.Measured(ILatencyContext, in PhaseBracket, Func<Fin<T>>)` brackets one eager construction; `Measure(ILatencyContext, in MeasureSlot, long)` folds one quantity under the slot's own law; `Attributed(ILatencyContext, TagToken, string)` stamps one pivot last-write-wins; `Sealed(ILatencyContext)` freezes the ledger and hands back its `LatencyData`.
+- Entry: `MaterialsLog.Logged` rides `MapFail` on any Materials result so a refusal logs once at the boundary that produced it; `MaterialsLog.Drain(ILogger, Seq<IsolatedFault>)` projects a snapshot of the hook set's parked evidence; `LatencyPhase.Resolve` and `LatencyMeasure.Resolve` are the ONE token-resolution pair a composition runs at boot; `MaterialsLatency.Measured(ILatencyContext, in PhaseBracket, Func<Fin<T>>)` brackets one eager construction; `Measure(ILatencyContext, in MeasureSlot, long)` folds one quantity under the slot's own law; `Attributed(ILatencyContext, TagToken, string)` stamps one pivot last-write-wins; `Sealed(ILatencyContext)` freezes the ledger and hands back its `LatencyData`.
 - Auto: severity is declaration data on the attribute, so no call site chooses a level and no runtime switch over named severity verbs exists; `EventId` allocates from `FaultBand.MaterialsLogBase`, the const the kernel ledger publishes beside its own `BandKind.Event` row, and the type initializer PROVES that const against `FaultBand.MaterialsLog.Code(offset)` at load, so the two owners the dual-owner law names move as one edit or throw; the generated `IsEnabled` gate precedes payload construction; `Checkpoints` and `Measures` DERIVE from the two row families rather than restating them.
 - Packages: Microsoft.Extensions.Logging.Abstractions, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new bracketed construction is one `LatencyPhase` row and its two names derive from the stem; a new accumulated quantity is one `LatencyMeasure` row naming its law; a new accumulation law is one `LatencyWrite` row; a new pivot is one entry in `Tags`; a new event family is one partial in this band with its offset added to the type-init proof.
@@ -780,10 +780,10 @@ public static class MaterialsLatency {
 
 - Owner: `MaterialsDescriptors` — the folder's one kernel `BoardPack` value binding the panel rows and reliability objectives over the `[04]` roster.
 - Entry: `MaterialsDescriptors.Pack` is the whole descriptor surface the IaC compile leg decodes under `materials.catalogue`, the provenance key the pack carries as its own first column — `Wire`, `Panels`, and `Objectives` are its columns, `Alerts` derives one `AlertSpec` per objective per burn row through the kernel fold, and `Pack.Admit(roster)` proves every panel instrument, every break key, every widget resolution, and every indicator series against the declaring port's own roster before a board compiles; the pack rides `[04]`'s contributor port outward, so the mounting root runs that proof and this folder exposes no second admission entry.
-- Auto: panel and objective rows name instruments through the `[04]` roster's own rows rather than through a parallel const block, so a renamed instrument breaks this pack at compile time instead of at admission; a panel naming an instrument alone reads the kernel widget projection for that row's measurement shape, so only a deliberate reading spells a `PanelKind`; burn windows, factors, severities, and the budget share derive from the kernel table, and every objective omits its compliance window so kernel admission canonicalizes the one estate default.
+- Auto: panel and objective rows name instruments through the `[04]` roster's own rows rather than through a parallel const block, so a renamed instrument breaks this pack at compile time instead of at admission; a panel naming an instrument alone reads the kernel widget projection for that row's measurement shape, so only a deliberate reading spells a `PanelKind`; burn windows, factors, severities, and the budget share derive from the kernel table, and every objective omits its compliance window so kernel admission canonicalizes the one repo default.
 - Packages: Rasm, LanguageExt.Core, NodaTime.
 - Growth: a new board panel is one `PanelSpec` on the pack; a new reliability policy is one `Objective` row over an existing indicator shape, and a share over an already-fanned population needs no roster edit; a new indicator shape is a kernel `Sli` case breaking every compile leg at once.
-- Boundary: dashboards, alert provisioning, tenancy, query dialects, the panel descriptor row, and the burn algebra are the kernel's and the IaC plane's — this page carries pack DATA behind the same `rasm.materials.*` names the instruments carry and never a descriptor type, query string, board JSON, or provider type. An objective binds only measures the observe rail writes on every occurrence, so a veto-refused admission stays fault-cell evidence and never a denominator; a success share is a partition over the ONE counter its verdict dimension already fans, because a good-half twin doubles the mounted series and strands its denominator on the next arm edit, and `Ratio` stays reserved for genuinely independent counters. The catalogue and library populations override to `Stat` and carry no objective, because a frozen row count reads as a figure against no ceiling; the three fault rows carry none for the same reason.
+- Boundary: dashboards, alert provisioning, tenancy, query dialects, the panel descriptor row, and the burn algebra are the kernel's and the IaC plane's — this page carries pack DATA behind the same `rasm.materials.*` names the instruments carry and never a descriptor type, query string, board JSON, or provider type. An objective binds only measures the observe hook set writes on every occurrence, so a veto-refused admission stays fault-cell evidence and never a denominator; a success share is a partition over the ONE counter its verdict dimension already fans, because a good-half twin doubles the mounted series and strands its denominator on the next arm edit, and `Ratio` stays reserved for genuinely independent counters. The catalogue and library populations override to `Stat` and carry no objective, because a frozen row count reads as a figure against no ceiling; the three fault rows carry none for the same reason.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------

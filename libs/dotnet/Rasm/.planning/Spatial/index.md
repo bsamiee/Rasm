@@ -1,6 +1,6 @@
 # [RASM_SPATIAL_INDEX]
 
-`Spatial.Apply` folds every broad-phase modality onto one `Fin<SpatialAnswer>` rail over a `SpatialIndex` `[Union]` whose kernels differ only in build partition strategy and share one frozen `NodeStore`, so query, refit, and wire read that store kernel-agnostically. This owner serves predicate-exact primitive-bounds broad phase alone.
+`Spatial.Apply` folds every broad-phase modality onto one `Fin<SpatialAnswer>` result over a `SpatialIndex` `[Union]` whose kernels differ only in build partition strategy and share one frozen `NodeStore`, so query, refit, and wire read that store kernel-agnostically. This owner serves predicate-exact primitive-bounds broad phase alone.
 
 `SpatialIndex` computes on raw primitive coordinates, never a unit-bearing quantity type. `NodeWalk` is this page's ONE hierarchy traversal owner and every query composes it: the monotone arm projects the child links onto a QuikGraph delegate graph and reads one breadth-first walk, while the state-threading arm is the named span kernel the four walks whose graph is not fixed per walk share. `NodeVerdict` is the one pruning vocabulary both arms read. `BuildPolicy` and every scalar it carries admit through the `Numerics/atoms` `Band` rows, so an inadmissible policy is unrepresentable and no consumer re-gates one. `Wire` is the one cross-package egress and carries raw arrays alone, so `Rasm.Compute` decodes with no Compute type entering this owner; `Rasm.Persistence` content-addresses the frozen `NodeStore` itself, and this owner mints no second store.
 
@@ -135,7 +135,6 @@ public sealed record BuildPolicy {
     public Dimension ParallelFloor { get; }
     public double RefitDegradationLimit => 1.0 + RefitGrowth.Value;
 
-    [BoundaryAdapter]
     public static Fin<BuildPolicy> Of(int leafSize, int maxDepth, int sahBuckets, double refitGrowth, int parallelFloor, Op? key = null) {
         Op op = key.OrDefault();
         return from leaf in op.AcceptValidated<Dimension>(candidate: leafSize)
@@ -856,7 +855,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class Spatial {
-    [BoundaryAdapter]
     public static Fin<SpatialAnswer> Apply(SpatialOp op, Op? key = null) {
         Op minted = key.OrDefault();
         return op.Switch(

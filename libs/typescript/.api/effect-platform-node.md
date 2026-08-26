@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: process entry, aggregate context, and HTTP-client dispatch
-- rail: system-apis
+- concern: system-apis
 - `NodeContext.layer` aggregates `FileSystem`/`Path`/`CommandExecutor`/`Terminal`/`Worker`; `NodeHttpClient` surfaces the undici `Dispatcher`/`HttpAgent` pool Tags behind the abstract `HttpClient`.
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]  | [CAPABILITY]                                          |
@@ -18,7 +18,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process runtime and aggregate context
-- rail: system-apis
+- concern: system-apis
 - Single `Node*` bindings serve a folder needing one contract without the `NodeContext` aggregate; the aggregate resolves fs/path/command/terminal/worker in one Layer.
 
 | [INDEX] | [SURFACE]                                                 | [SHAPE]        | [CAPABILITY]                                         |
@@ -29,7 +29,7 @@
 |  [04]   | `NodeCommandExecutor.layer` / `NodeTerminal.layer`        | exec / tty     | `proc/exec` subprocess; `serve/cli` terminal         |
 
 [ENTRYPOINT_SCOPE]: HTTP client and server bindings
-- rail: boundaries
+- concern: boundaries
 - `NodeHttpServer.layer` yields `HttpPlatform` + `Etag.Generator` + `NodeContext` beside `HttpServer`; `layerConfig` reads host/port from `Config`, `NodeHttpPlatform.layer` binds file-serving alone, and `NodeMultipart` parses an inbound multipart body into a field stream or persisted files.
 
 | [INDEX] | [SURFACE]                                                        | [SHAPE]        | [CAPABILITY]                                     |
@@ -42,7 +42,7 @@
 |  [06]   | `NodeHttpServerRequest.toIncomingMessage` / `.toServerResponse`  | node interop   | `serve/route` — raw `node:http` (stream/upgrade) |
 
 [ENTRYPOINT_SCOPE]: sockets, workers, and stream bridges
-- rail: system-apis
+- concern: system-apis
 - `NodeSocket`/`NodeSocketServer` bind `ws`-backed WebSocket behind `Socket`/`SocketServer`; `NodeStream`/`NodeSink` bridge Node `Readable`/`Duplex`/`Writable` ⇄ Effect `Stream` and process stdio; `NodeWorker.layer(spawn)` backs `Worker.makePoolSerialized`.
 
 | [INDEX] | [SURFACE]                                                        | [SHAPE]       | [CAPABILITY]                                         |
@@ -57,7 +57,7 @@
 |  [08]   | `NodeKeyValueStore.layerFileSystem(dir)`                         | kv layer      | `data/lane` — filesystem `KeyValueStore` on node     |
 
 [ENTRYPOINT_SCOPE]: cluster transports and runner discovery
-- rail: system-apis
+- concern: system-apis
 - `NodeClusterHttp`/`NodeClusterSocket` carry `@effect/cluster` entity messages over HTTP/socket transport; `NodeClusterSocket.layerK8sHttpClient` discovers runner pods, discovery only.
 
 | [INDEX] | [SURFACE]                                         | [SHAPE]        | [CAPABILITY]                                         |
@@ -73,7 +73,7 @@
 - `NodeRuntime.runMain` is the one execution edge: it forks the root `Effect`, installs `SIGINT`/`SIGTERM` interruption so `acquireRelease`/`Layer.scoped` finalizers run, and reports failures through the `Cause` pretty-printer.
 - HTTP client is undici, not `node:http`: `layerUndici` binds `HttpClient` to a pooled undici `Dispatcher` (keep-alive, HTTP/2), and `net/client` layers timeout/retry/proxy on top through `HttpClient.retryTransient`/`.mapRequest`.
 - Server binding is `Config`-driven: `layerConfig` reads host/port from the `ConfigProvider`, the served `HttpApi` value stays runtime-agnostic, and `serve/route` selects Node versus Bun versus `toWebHandler` as a row.
-- `NodeStream`/`NodeSink` are the sole Node-stream admission point: `fromReadable` lifts a `Readable` into a backpressured `Stream`, `fromWritable` drains a `Stream` into a `Writable`, and downstream stays on the `Stream`/`Channel` rail.
+- `NodeStream`/`NodeSink` are the sole Node-stream admission point: `fromReadable` lifts a `Readable` into a backpressured `Stream`, `fromWritable` drains a `Stream` into a `Writable`, and downstream stays on `Stream`/`Channel`.
 - Cluster transport is Node-only: `NodeClusterHttp`/`NodeClusterSocket` carry `@effect/cluster` entity messages, `layerK8sHttpClient` discovers runner pods via the Kubernetes API, and `work/entity` composes them behind the `MessageStorage`/`Sharding` Tags.
 
 [STACKING]:
@@ -81,7 +81,7 @@
 - `effect`(`.api/effect.md`): `NodeRuntime.runMain` is the `Effect.runFork` edge, the Layers plug into the `Layer` graph, and `layerConfig` reads `Config` through the `ConfigProvider`.
 - `@effect/platform-bun`(`.api/effect-platform-bun.md`): the peer runtime — `BunContext.layer`/`BunHttpServer.layer`/`BunRuntime.runMain` satisfy the same Tags, so a Bun swap touches only the app root.
 - `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): `NodeSdk.layer` (SDK-bridge, `sdk-trace-node`) rides beside `NodeContext.layer` to bind `Tracer.OtelTracer`/metrics; the native `Otlp.layer` over the undici `HttpClient` is the default lane, `otel/emit` owns the row.
-- `@effect/cluster`(`runtime/.api/effect-cluster.md`) + `@effect/sql`(`data/.api/effect-sql.md`): `NodeClusterHttp`/`NodeClusterSocket` transport cluster messages, and a `data` `@effect/sql` driver Layer satisfies the `MessageStorage` Tag at the app root — the work/data seam meets here.
+- `@effect/cluster`(`runtime/.api/effect-cluster.md`) + `@effect/sql`(`data/.api/effect-sql.md`): `NodeClusterHttp`/`NodeClusterSocket` transport cluster messages, and a `data` `@effect/sql` driver Layer satisfies the `MessageStorage` Tag at the app root — the work/data boundary meets here.
 
 [LOCAL_ADMISSION]:
 - `Node*` Layers are admitted only at the app composition root; domain modules import the abstract `@effect/platform` Tag.

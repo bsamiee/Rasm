@@ -1,4 +1,4 @@
--- Pattern : A dispatch rail whose load-bearing verbs are chevron literals. Each row carries both a
+-- Pattern : A dispatch table whose load-bearing verbs are chevron literals. Each row carries both a
 --           raw-code send against a runtime-chosen target and the term send the dictionary compiled,
 --           a probe elects one per verb, and an osadecompile census detects terminology drift.
 -- Run     : osascript chevron-dispatch.applescript [bundle-id]
@@ -6,7 +6,7 @@ use AppleScript version "2.8"
 use scripting additions
 
 -- A retired term still sends its compiled code and the target answers -1708 (event not handled) before any
--- work happens; object and coercion faults are domain failures owned by the rail that raised them.
+-- work happens; object and coercion faults are domain failures owned by the path that raised them.
 property absentTerminology : {-1708}
 property defaultBundleID : "com.apple.finder"
 
@@ -53,21 +53,21 @@ on verbRows(bundleID)
 	return {WindowCount, FirstDiskName, FrameFrontWindow}
 end verbRows
 
--- Terminology presence is a runtime property of the installed target, so the probe asks the term rail first
--- and elects the code rail on an absence fault alone. Any other fault is the domain's and stays attributed
--- to the rail that raised it, which keeps one verb's failure off the other rows.
+-- Terminology presence is a runtime property of the installed target, so the probe asks the term path first
+-- and elects the code path on an absence fault alone. Any other fault is the domain's and stays attributed
+-- to the path that raised it, which keeps one verb's failure off the other rows.
 on dispatch(row)
 	try
-		return {verb:row's verb, rail:"term", value:(row's viaTerm())}
+		return {verb:row's verb, path:"term", value:(row's viaTerm())}
 	on error message number n partial result partial from source to target
 		if absentTerminology does not contain n then error message number n partial result partial from source to target
 	end try
-	return {verb:row's verb, rail:"chevron", value:(row's viaCode())}
+	return {verb:row's verb, path:"chevron", value:(row's viaCode())}
 end dispatch
 
 -- A chevron the compiler resolves decompiles back to its term, so the codes surviving a compile-decompile
 -- round trip are exactly the ones no installed terminology defines. The count changes when a dictionary
--- retires a term this rail sends, while the raw-code rail keeps working.
+-- retires a term this path sends, while the raw-code path keeps working.
 
 on run argv
 	set bundleID to defaultBundleID
@@ -79,7 +79,7 @@ on run argv
 	set sourcePath to POSIX path of (path to me)
 	set workDir to do shell script "/usr/bin/mktemp -d /tmp/chevron.XXXXXX"
 	try
-		set compiledPath to workDir & "/rail.scpt"
+		set compiledPath to workDir & "/probe.scpt"
 		do shell script "/usr/bin/osacompile -o " & quoted form of compiledPath & " " & quoted form of sourcePath
 		set unresolved to (do shell script ¬
 			"/usr/bin/osadecompile " & quoted form of compiledPath & " | /usr/bin/grep -c '«' || true") as integer

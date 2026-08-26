@@ -101,7 +101,6 @@ public readonly partial struct Hardness {
     public HardnessScale Scale { get; }
     public double Value { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref HardnessScale scale,
         ref double value) =>
         validationError = ValidityClaim.Positive(value) ? null : ToolKey.Validation("hardness");
@@ -116,7 +115,6 @@ public readonly partial struct ScalarBand {
     public double Nominal { get; }
     public double Maximum { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double minimum,
         ref double nominal, ref double maximum) =>
         validationError = !Seq(minimum, nominal, maximum).ForAll(double.IsFinite)
@@ -143,7 +141,6 @@ public sealed partial class MaterialCutSpec {
     public double ThermalFactor { get; }
     public double AbrasionFactor { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Material material,
         ref IsoClass @class, ref int subgroup, ref MaterialState condition, ref Hardness hardness,
         ref Pressure ultimateStrength, ref Pressure kc11, ref double mc, ref double thermalFactor,
@@ -183,7 +180,6 @@ public sealed partial class OperationTrait {
     public Seq<CoolantDelivery> Coolant { get; }
     public CutDirection Direction { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Operation operation,
         ref FeedBasis basis, ref ScalarBand surfaceSpeed, ref ScalarBand feed, ref ScalarBand axialDepth,
         ref ScalarBand radialDepth, ref ScalarBand engagement, ref ScalarBand spindle, ref double feedForceRatio,
@@ -214,7 +210,6 @@ public sealed partial class CutRegime {
     public double SurfaceSpeed => SurfaceSpeedBand.Nominal;
     public double Feed => FeedBand.Nominal;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ScalarBand surfaceSpeedBand,
         ref ScalarBand feedBand, ref FeedBasis basis, ref ScalarBand axialDepthBand, ref ScalarBand radialDepthBand,
         ref ScalarBand engagementBand, ref ScalarBand spindleBand, ref Seq<CoolantDelivery> coolant,
@@ -238,7 +233,6 @@ public sealed partial class CorrectionInputs {
     public Length Runout { get; }
     public Length ChipThickness { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Angle rake,
         ref Angle referenceRake, ref Coating coating, ref CoolantDelivery coolant, ref Ratio flankConsumed,
         ref Length runout, ref Length chipThickness) =>
@@ -283,7 +277,6 @@ public readonly partial struct KienzleCorrection {
             None: () => Admit(1.0, 1.0, 1.0, material.Condition.ForceFactor,
                 material.ThermalFactor, material.AbrasionFactor, 1.0, 1.0));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double toolGeometry,
         ref double coating, ref double coolant, ref double materialState, ref double thermal,
         ref double abrasiveness, ref double wear, ref double runout) =>
@@ -302,7 +295,6 @@ public sealed partial class CuttingKey {
     public CutterFamily Form { get; }
     public Operation Operation { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref MaterialCutSpec material, ref CutterFamily form, ref Operation operation) { }
 
@@ -352,7 +344,6 @@ public sealed partial class CuttingRow {
     public double PassiveForceRatio { get; }
     public CuttingEvidence Evidence { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CuttingKey key,
         ref Pressure kc11, ref double mc, ref CutRegime regime, ref KienzleCorrection correction,
         ref double feedForceRatio, ref double passiveForceRatio, ref CuttingEvidence evidence) =>
@@ -372,7 +363,6 @@ public sealed partial class CalibrationPoint {
     public Hardness Hardness { get; }
     public Pressure Kc11 { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Hardness hardness,
         ref Pressure kc11) =>
         validationError = kc11 <= Pressure.Zero ? ToolKey.Validation("calibration-point") : null;
@@ -387,7 +377,6 @@ public sealed partial class CalibrationCurve {
     public int Subgroup { get; }
     public Seq<CalibrationPoint> Points { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref IsoClass @class,
         ref int subgroup, ref Seq<CalibrationPoint> points) =>
         validationError = subgroup is < 1 or > 99 || points.Count < LinearFit.MinimumSamples
@@ -425,7 +414,6 @@ public sealed partial class CuttingTable {
     [IgnoreMember]
     private FrozenDictionary<(IsoClass Class, int Subgroup), CalibrationCurve>? curves;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref Seq<MaterialCutSpec> materials, ref Seq<OperationTrait> operations,
         ref HashMap<CuttingKey, CuttingRow> exact, ref Seq<CalibrationCurve> curves) =>
@@ -491,7 +479,6 @@ public readonly partial struct CutIntent {
 
     public double ActiveEdges => Math.Max(1.0, Teeth * Engagement.DecimalFractions);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Length chipThickness,
         ref Length chipWidth, ref Length axialDepth, ref Length radialDepth, ref Length diameter,
         ref int teeth, ref RotationalSpeed spindle, ref Speed feed) =>
@@ -564,7 +551,6 @@ public sealed partial class CuttingData {
     public double Feed => Regime.Feed;
     public FeedBasis FeedBasis => Regime.Basis;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Pressure kc11,
         ref double mc, ref CutRegime regime, ref KienzleCorrection correction, ref CuttingEvidence evidence,
         ref double feedForceRatio, ref double passiveForceRatio) =>
@@ -773,7 +759,6 @@ public sealed partial class CalibrationRequest {
     public double MaximumResidual { get; }
     public double MinimumRSquared { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref Seq<(Length ChipThickness, Pressure SpecificForce)> samples, ref int minimumSamples,
         ref Length minimumThicknessSpan, ref double maximumResidual, ref double minimumRSquared) =>
@@ -806,7 +791,6 @@ public sealed partial class KienzleModel {
     public double RSquared => Fit.RSquared;
     public int Samples => Fit.Samples;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Pressure kc11,
         ref double mc, ref Regression fit, ref Length thicknessMinimum, ref Length thicknessMaximum,
         ref Pressure forceMean, ref Pressure forceStandardDeviation) =>
@@ -862,7 +846,6 @@ public sealed partial class CutterFormPolicy {
     public Length ZeroLength { get; }
     public Option<CutterFamily> DeclaredFamily { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Angle taperFloor,
         ref Length radiusTolerance, ref Length zeroLength, ref Option<CutterFamily> declaredFamily) =>
         validationError = taperFloor < Angle.Zero || radiusTolerance <= Length.Zero || zeroLength < Length.Zero
@@ -965,7 +948,6 @@ public sealed partial class ModalMode {
     public double DirectionalFactor { get; }
     public ModalEvidence Evidence { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double naturalFrequencyHz,
         ref double dampingRatio, ref double stiffnessNewtonsPerMeter, ref double directionalFactor,
         ref ModalEvidence evidence) =>
@@ -984,7 +966,6 @@ public sealed partial class ModalResponse {
     public Seq<ModalMode> Modes { get; }
     public ModalEvidence MachineEvidence { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ModalMode> modes,
         ref ModalEvidence machineEvidence) =>
         validationError = modes.IsEmpty
@@ -1006,7 +987,6 @@ public sealed partial class StabilityPolicy {
     public int RootIterations { get; }
     public double MarginalFraction { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int lobes,
         ref int samplesPerLobe, ref ScalarBand spindleSearch, ref ScalarBand frequencyRatioSearch,
         ref double rootAccuracy, ref int rootIterations, ref double marginalFraction) =>
@@ -1030,7 +1010,6 @@ public sealed partial class StabilityRequest {
     public Length ChipThickness { get; }
     public Length TargetDepth { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CuttingData cutting,
         ref ModalResponse modal, ref StabilityPolicy policy, ref int teeth, ref Length chipThickness,
         ref Length targetDepth) =>

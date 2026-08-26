@@ -1,42 +1,42 @@
 # [TS_DATA_ARCHITECTURE]
 
-`data` owns the branch's durable-persistence surface: the `lane`, `journal`, `object`, and `read` sub-domains meet through the one journal write owner, the one capability rail, the one content identity, and the one tenancy contract. Backends land as semantic-guarantee rows on their owning lane, never sibling shapes; sub-domains align with the core, security, runtime, and iac peers by contract, never by reference.
+`data` owns the branch's durable-persistence surface: the `lane`, `journal`, `object`, and `read` sub-domains meet through the one journal write owner, the one capability gate, the one content identity, and the one tenancy contract. Backends land as semantic-guarantee rows on their owning lane, never sibling shapes; sub-domains align with the core, security, runtime, and iac peers by contract, never by reference.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text
 data/
 └── src/
-    ├── lane/             # Guarantee-lane matrix: engines as rows under sealed capability vocabularies
-    │   ├── cache.ts      # Latency lane: single-flight, dedup, restart-surviving cache rows
-    │   ├── capability.ts # Fail-closed capability rail probed at Layer construction
-    │   ├── olap.ts       # Analytical lane over DuckDB, ClickHouse, Flight, residence rows, and the Arrow-Parquet wire
-    │   ├── postgres.ts   # SqlClient driver Layers, the ruled extension matrix, and one derived capability union
-    │   ├── sqlite.ts     # Embedded lane degrading one relational contract across its profile rows
-    │   └── tenant.ts     # Tenancy write path pinning the session-coordinate GUCs across RLS, schema, and database cases
-    ├── journal/          # Record of truth: atomic writes, evolution, facts, lawful aging
-    │   ├── append.ts     # One atomic write owner and the outbox relay claim seam
-    │   ├── evolve.ts     # Evolution re-mints the whole log under a custody row and projects snapshots
-    │   ├── fact.ts       # AuditFact and MeterFact rows draining into one stream-discriminated table
-    │   ├── generation.ts # Floor mint: payload coordinate, generation identity, custody ledger, transaction guard
-    │   └── retain.ts     # Retention classes, crypto-shredding, and DSAR portability folds
-    ├── object/           # Content-addressed object plane over one Digest.Key
-    │   ├── asset.ts      # Category-blind spine, entry pair, and products; the GPU glTF/KTX2 family is the first row set
-    │   ├── file.ts       # Digest.Key intake gate and the derivative emit legs sharing one content identity
-    │   ├── remote.ts     # Remote-origin plane: scheme-dispatched non-local sources
-    │   ├── store.ts      # S3-conditional content-addressed object store
-    │   └── stream.ts     # Resumable rail: BYOB ingress, checkpointed identity fold, tus server
-    └── read/             # Read side: typed queries, batching, projections, reactivity, retrieval
-        ├── batch.ts      # Request-batching engine: structural dedup and windowed resolvers
-        ├── fold.ts       # Fold.Plan binding seat: inline publish slot, LISTEN/NOTIFY drain actor, operator rebuild
-        ├── live.ts       # Reactivity-keyed reads: invalidation keys stamped at publish, read at query
-        ├── query.ts      # Model codec pairs and the arity combinator every relation read folds through
-        └── search.ts     # Retrieval lanes fused by reciprocal rank inside the database
+    ├── lane/               # Guarantee-lane matrix: engines as rows under sealed capability vocabularies
+    │   ├── cache.ts        # Latency lane: single-flight, dedup, restart-surviving cache rows
+    │   ├── capability.ts   # Fail-closed capability gate probed at Layer construction
+    │   ├── olap.ts         # Analytical lane over DuckDB, ClickHouse, Flight, tier rows, and the Arrow-Parquet wire
+    │   ├── postgres.ts     # SqlClient driver Layers, the ruled extension matrix, and one derived capability union
+    │   ├── sqlite.ts       # Embedded lane degrading one relational contract across its profile rows
+    │   └── tenant.ts       # Tenancy write path pinning the session-coordinate GUCs across RLS, schema, and database cases
+    ├── journal/            # Record of truth: atomic writes, evolution, facts, lawful aging
+    │   ├── append.ts       # One atomic write owner and the outbox relay claim boundary
+    │   ├── evolve.ts       # Evolution re-mints the whole log under a custody row and projects snapshots
+    │   ├── fact.ts         # AuditFact and MeterFact rows draining into one stream-discriminated table
+    │   ├── generation.ts   # Floor mint: payload coordinate, generation identity, custody ledger, transaction guard
+    │   └── retain.ts       # Retention classes, crypto-shredding, and DSAR portability folds
+    ├── object/             # Content-addressed object plane over one Digest.Key
+    │   ├── asset.ts        # Category-blind spine, entry pair, and products; the GPU glTF/KTX2 family is the first row set
+    │   ├── file.ts         # Digest.Key intake gate and the derivative emit legs sharing one content identity
+    │   ├── remote.ts       # Remote-origin plane: scheme-dispatched non-local sources
+    │   ├── store.ts        # S3-conditional content-addressed object store
+    │   └── stream.ts       # Resumable pipeline: BYOB ingress, checkpointed identity fold, tus server
+    └── read/               # Read side: typed queries, batching, projections, reactivity, retrieval
+        ├── batch.ts        # Request-batching engine: structural dedup and windowed resolvers
+        ├── fold.ts         # Fold.Plan binding seat: inline publish slot, LISTEN/NOTIFY drain actor, operator rebuild
+        ├── live.ts         # Reactivity-keyed reads: invalidation keys stamped at publish, read at query
+        ├── query.ts        # Model codec pairs and the arity combinator every relation read folds through
+        └── search.ts       # Retrieval lanes fused by reciprocal rank inside the database
 ```
 
 ## [02]-[STRATA]
 
-- S0 floor — independent mints, none importing a data sibling; `capability` is the fail-closed rail fed by argument, never import.
+- S0 floor — independent mints, none importing a data sibling; `capability` is the fail-closed gate fed by argument, never import.
 - S0 split — `journal/generation`, `read/live`, and `lane/cache` seat on the floor apart from their folders: each is a mint no sibling feeds.
 - S1 `lane/tenant` — pins the tenancy write path, mints the maintenance-plane posture, and projects its scope key into `Live`'s coordinate alphabet.
 - S1 `lane/sqlite` — degrades the `Pg` contract through the grant-key type read, harvesting query evidence into `Pg.Profile` — its one value read.
@@ -104,7 +104,7 @@ flowchart TB
     Postgres f1@-->|"forbidden: upward import"| S4
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -115,7 +115,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Data package seam registry
+    accTitle: Data package boundary registry
     accDescr: Data exchanges custody, tenancy, hook, backend, and Board.Query contracts with branch peers and Rasm.Persistence, and folds the organization wire Rasm.Rhino produces.
     subgraph data[DATA]
         Fold[Projection fold]
@@ -148,7 +148,7 @@ flowchart LR
     Security e6@-->|"[SHAPE]: SealedEnvelope"| Retain
     Append e7@<-->|"[BOUNDARY]: Journal.claimBatch/complete"| Runtime
     Live e8@-->|"[SHAPE]: Live.changes"| Runtime
-    Stream e9@-->|"[BOUNDARY]: Rail"| Runtime
+    Stream e9@-->|"[BOUNDARY]: Ingest"| Runtime
     Runtime e10@-->|"[PORT]: Embedder"| Search
     Postgres e11@-->|"[SHAPE]: Pg.rows"| Iac
     Tenant e12@-->|"[BOUNDARY]: Tenancy.rls"| Iac
@@ -168,11 +168,11 @@ flowchart LR
     Capability e26@-->|"[PROJECTION]: Backend.Projection"| Iac
     Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
     Fact e29@-->|"[PORT]: AuditJournal"| Security
-    Core e30@-->|"[SHAPE]: Board.Query.Residence"| Olap
+    Core e30@-->|"[SHAPE]: Board.Query.Tier"| Olap
     Core e31@-->|"[SHAPE]: Hops"| Olap
     Olap e32@-->|"[SHAPE]: Board.Query.Target"| Core
     Core e33@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Olap
-    Iac e34@-->|"[PORT]: analytics residence"| Olap
+    Iac e34@-->|"[PORT]: analytics tier"| Olap
     Core e35@-->|"[SHAPE]: Convention"| Asset
     Core e36@-->|"[SHAPE]: Wire.Set"| Asset
     Core e37@-->|"[SHAPE]: Wire.Organization"| Fold
@@ -196,19 +196,19 @@ config:
 ---
 flowchart LR
     accTitle: Data custody spine
-    accDescr: Ingress commits to the journal, anchors object custody, folds reads, and materializes analytics residence.
+    accDescr: Ingress commits to the journal, anchors object custody, folds reads, and materializes analytics tiers.
     Ingress([admitted events + octets])
     Journal[(journal · record of truth)]
     Object[(object · content plane)]
     Read[read · projection folds]
-    Residence[(lane/olap · analytics residence)]
+    Tier[(lane/olap · analytics tier)]
     Query([Board.Query.Target])
     Ingress e10->|"commit: event + appended"| Journal
     Journal e2@-->|"anchor: content custody"| Object
     Journal e3@-->|"replay: event"| Read
     Object e4@-->|"resolve: Digest.Key"| Read
-    Read e5@-->|"materialize: derived rows"| Residence
-    Residence e6@-->|"serve: query target"| Query
+    Read e5@-->|"materialize: derived rows"| Tier
+    Tier e6@-->|"serve: query target"| Query
 ```
 
 `lane` prices guarantees, never durability tiers: `postgres` is the spine, the embedded, analytical, and latency lanes sit beside it, `capability` refuses to boot an engine that cannot prove its rows, and `tenant` is the single write path pinning the tenancy GUC. `journal` is the record of truth: `append` commits journal, outbox, and idempotency together so a replay returns the stored append, and one generation per log keeps every reader on one shape. `object` binds every byte plane to the one content identity through a single admission fold.

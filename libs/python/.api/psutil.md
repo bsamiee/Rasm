@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_PSUTIL]
 
-`psutil` owns cross-platform process and system telemetry: per-process metrics and lifecycle control through `Process`, system-wide CPU, memory, disk, network, and sensor counters through module functions, and live-process iteration through `process_iter`/`wait_procs`. Every reading is a named tuple read by field name; `Process.oneshot()` batches the shared syscalls so a cluster of reads on one process costs one collection. It is the observability rail's metric source — the SDK edge owns temporality, aggregation, and export.
+`psutil` owns cross-platform process and system telemetry: per-process metrics and lifecycle control through `Process`, system-wide CPU, memory, disk, network, and sensor counters through module functions, and live-process iteration through `process_iter`/`wait_procs`. Every reading is a named tuple read by field name; `Process.oneshot()` batches the shared syscalls so a cluster of reads on one process costs one collection. It is the observability pipeline's metric source — the SDK edge owns temporality, aggregation, and export.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -10,7 +10,7 @@
 
 ## [02]-[EXPORT]
 
-- Owner: `SceneTarget` composes downward from `scene/spec#SPEC`. `ROW` is the one `Final[frozendict[SceneTarget, ExportRow]]` correspondence; each `ExportRow` case carries only its strategy's payload, its `capture` projection derives through one total match, and the file suffix reads off the `SceneTarget` value. `plotted`, `authored`, and `captured` are the worker seam's strategy folds.
+- Owner: `SceneTarget` composes downward from `scene/spec#SPEC`. `ROW` is the one `Final[frozendict[SceneTarget, ExportRow]]` correspondence; each `ExportRow` case carries only its strategy's payload, its `capture` projection derives through one total match, and the file suffix reads off the `SceneTarget` value. `plotted`, `authored`, and `captured` are the worker boundary's strategy folds.
 - Cases: plotter rows route through `plotted`, whose `try`/`finally` closes the live render window after the row's `write` closure runs. `PNG` selects `screenshot`; `SVG`/`PDF`/`EPS`/`PS`/`TEX` select the direct `vtkGL2PSExporter` write over `Plotter.render_window` — BSP depth sort, uncompressed output — because a painter-sorted raster hybrid loses the linework; `GLTF`/`VRML`/`OBJ`/`HTML` select their verified exporter. `Prepass.SURFACE` makes the `GLTF` row's `prepared` projection append `FieldFilter.Surface()`, and `Capture.BUNDLE` makes the `OBJ` row capture the `.obj`/`.mtl` pair. USD rows route through `authored`, which always authors one root group containing the dressed geometry plus every `PrimKind.Sun`; `ExportRow.usdz_package` then selects `PackageOp.Package` and `PackageOp.Verify` with its own `UsdzProfile`.
 - Entry: consumers read `ROW[kind]` and match `ExportRow` directly — no wrapper narrows the correspondence. An ingest round-trip refuses a USD target with `<unsupported-target>` because an imported render window carries no admitted mesh graph. `captured` matches `Capture.SINGLE` or `Capture.BUNDLE`; returned `bytes` key once through the `SceneTarget` format tag.
 - Auto: `ExportRow.prepared` folds `Prepass.SURFACE` into `RenderSpec.staged`. `Capture.BUNDLE` streams each sorted member through bounded chunks into one `stream_zip` at fixed timestamp and compression policy; `Capture.SINGLE` reads the one output. `USD`/`USDZ` author the surface buffers through the numpy stage path without a render window.
@@ -220,7 +220,7 @@ def authored(surface: Surface, row: ExportRow, spec: RenderSpec, out: Path, /) -
 
 def _closed(*ops: PackageOp) -> PackageFacts:
     folded = reduce(
-        lambda railed, op: railed.bind(lambda held: packaged(op).map(lambda measured: PackageFacts.combined(held, measured))),
+        lambda held, op: held.bind(lambda held: packaged(op).map(lambda measured: PackageFacts.combined(held, measured))),
         ops,
         Ok(PackageFacts()),
     )

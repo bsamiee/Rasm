@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_PROTOBUF_PY]
 
-`protobuf-py` owns the estate wire message runtime: every generated `_pb.py` class subclasses `Message` and carries its own binary and ProtoJSON codecs, each generated module hands back a `desc()` file descriptor, and one `Registry` resolves type names for `Any`, JSON `@type`, and extensions. Generator and runtime pin as one pair, and `protobuf.plugin` mints an estate generator against those same descriptors.
+`protobuf-py` owns the repo wire message runtime: every generated `_pb.py` class subclasses `Message` and carries its own binary and ProtoJSON codecs, each generated module hands back a `desc()` file descriptor, and one `Registry` resolves type names for `Any`, JSON `@type`, and extensions. Generator and runtime pin as one pair, and `protobuf.plugin` mints a repo generator against those same descriptors.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -181,8 +181,8 @@
 - `connectrpc`(`.api/connectrpc.md`): generated `Message` classes are the `MethodInfo.input` / `output` types, `codec.proto_binary_codec()` / `codec.proto_json_codec(registry)` drive `to_binary` / `from_binary` / `to_json` / `from_json` beneath the protocol, and `ErrorDetail.value(registry)` unpacks a `ConnectError.details` member through a `Registry` seated from the generated `desc()` files.
 - `msgspec`(`.api/msgspec.md`): `message_to_json_value` hands a ProtoJSON mapping to `msgspec.convert` at a boundary admitting a domain `Struct` from the wire, `to_builtins` inverts it into `message_from_json_value`, and `wkt.Struct.from_python` / `to_python` carry the dynamic body a struct holds as opaque JSON.
 - `anyio`(`.api/anyio.md`): codec calls are CPU-bound and synchronous, so a bulk `from_binary` or `to_binary` over a large frame rides `to_thread.run_sync` off the event loop.
-- `cloudpickle`(`.api/cloudpickle.md`): a message crossing the worker seam pickles as its `to_binary()` bytes through `__getstate__`, so a kernel argument or result that is a generated class costs one encode and one decode per crossing and never a deep copy of the slot store.
-- `protobuf`(`.api/protobuf.md`): the two runtimes meet on descriptor bytes alone — a `google.protobuf` `FileDescriptorSet.SerializeToString()` feeds `wkt.FileDescriptorSet.from_binary(...).to_registry()`, handing the foreign Substrait and ONNX schemas a `DescMessage` view on the estate wire rail.
+- `cloudpickle`(`.api/cloudpickle.md`): a message crossing the worker boundary pickles as its `to_binary()` bytes through `__getstate__`, so a kernel argument or result that is a generated class costs one encode and one decode per crossing and never a deep copy of the slot store.
+- `protobuf`(`.api/protobuf.md`): the two runtimes meet on descriptor bytes alone — a `google.protobuf` `FileDescriptorSet.SerializeToString()` feeds `wkt.FileDescriptorSet.from_binary(...).to_registry()`, handing the foreign Substrait and ONNX schemas a `DescMessage` view on the repo wire path.
 - within the branch, the generated `contracts` bindings are the sole producer of `Message` subclasses; a runtime-resolved schema builds its `Registry` from a `FileDescriptorSet` and reads fields through `DescMessage` and `message[desc_field]`, never through a hand-built class.
 - `cloudevents`(`.api/cloudevents.md`): protobuf structured mode packs the sealed generated-`Message` payload arm into the publisher `Any`, preserving `type_url`; its `ce_integer` oneof remains signed 32-bit even when the source descriptor scalar is wider.
 

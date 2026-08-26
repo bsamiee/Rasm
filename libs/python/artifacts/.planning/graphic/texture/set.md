@@ -1,15 +1,15 @@
 # [PY_ARTIFACTS_GRAPHIC_TEXTURE_SET]
 
-`set` is the texture PRODUCER: it takes a `SetSpec` — a slot-keyed map of sources and derive chains with their storage targets — and emits one `ArtifactWork[PublishedMap]` per SLOT, each crossing the caller-threaded runtime process lane exactly as the eight-bit raster farm does, then folds the drained products into the generated `Set` behind a merkle set key. It owns the egress grammar, the KTX2 tool seam and its refusal, and the set-level admission gates the plane vocabulary cannot state alone.
+`set` is the texture PRODUCER: it takes a `SetSpec` — a slot-keyed map of sources and derive chains with their storage targets — and emits one `ArtifactWork[PublishedMap]` per SLOT, each crossing the caller-threaded runtime process lane exactly as the eight-bit raster farm does, then folds the drained products into the generated `Set` behind a merkle set key. It owns the egress grammar, the KTX2 tool boundary and its refusal, and the set-level admission gates the plane vocabulary cannot state alone.
 
 ## [01]-[INDEX]
 
-- [02]-[TEXTURE_SET]: `SetSpec`/`MapSpec` shape the request family, derive the per-slot storage default, run the set-level admission gates, fan one `ArtifactWork[PublishedMap]` per slot with plan-time operand resolution, and cross the worker and publication seams.
-- [03]-[EGRESS]: leaf names freeze under one grammar, the merkle set key folds over the plane digests, the KTX2 tool seam carries its deterministic floor, and the generated `Set` assembles.
+- [02]-[TEXTURE_SET]: `SetSpec`/`MapSpec` shape the request family, derive the per-slot storage default, run the set-level admission gates, fan one `ArtifactWork[PublishedMap]` per slot with plan-time operand resolution, and cross the worker and publication boundaries.
+- [03]-[EGRESS]: leaf names freeze under one grammar, the merkle set key folds over the plane digests, the KTX2 tool boundary carries its deterministic floor, and the generated `Set` assembles.
 
 ## [02]-[TEXTURE_SET]
 
-- Owner: `TextureSet` is the one producer surface, carrying a `SetSpec` and the caller-threaded `lane: LanePolicy` — the same seam field `graphic/raster/io#IO`, `exchange/detect#DETECT`, and `graphic/color/derive#DERIVE` carry. `imagecodecs`, `openexr`, `pyktx`, and `pyvips` are host-native packages off the runtime loader path, so every map crosses `lane.offload(Kernel.of(_worker_texture, KernelTrait.HOSTILE), request)` onto the shared runtime process band — never a folder-minted `CapacityLimiter` oversubscribing the host, never the unbounded default, never a class-qualified `LanePolicy.offload` with no bound instance.
+- Owner: `TextureSet` is the one producer surface, carrying a `SetSpec` and the caller-threaded `lane: LanePolicy` — the same boundary field `graphic/raster/io#IO`, `exchange/detect#DETECT`, and `graphic/color/derive#DERIVE` carry. `imagecodecs`, `openexr`, `pyktx`, and `pyvips` are host-native packages off the runtime loader path, so every map crosses `lane.offload(Kernel.of(_worker_texture, KernelTrait.HOSTILE), request)` onto the shared runtime process band — never a folder-minted `CapacityLimiter` oversubscribing the host, never the unbounded default, never a class-qualified `LanePolicy.offload` with no bound instance.
 - Cases: `MapSource` splits four ways — `payload` carries source bytes and the chain the worker runs over them after the decode; `encoded` carries bytes ALREADY in their final container with the producer's own declared transfer, probed and digested and passed through untouched; `derived` carries a producing `DeriveChain` over named sibling maps; `neutral` carries no bytes at all and materializes the slot's constant at the set extent. `neutral` is what makes a partial set complete — a consumer binding an absent `occlusion` reads the neutral plane rather than branching on absence — and `encoded` is what lets an ingest publish a directory verbatim and lets `ibl#IBL` hand over products it already computed, neither paying a decode-then-re-encode round trip that a lossy row also degrades. The chain on `payload` is what carries an ingest candidate's own gloss inversion and green flip: the classifier resolves both and this is the only surface that can construct them.
 - Law: the FAN UNIT is `(slot, variant)`. `MapSpec.sources` keys one `MapSource` per `<variant>`, so a UDIM sheet, a per-level EXR ladder, and a cube-face layer set are the same shape — N sources, N nodes, N leaves — and the frozen grammar's single infix slot has exactly one producer-side spelling. A scalar source field made the axis unreachable: the fan emitted one node per slot, so a forty-tile set rendered one tile behind a manifest naming forty, and a six-level pyramid collapsed to whichever level a dict comprehension wrote last.
 - Law: `TextureSet` emits ONE `ArtifactWork` per fan unit and NO assembly node — channel, environment product, and pack alike, because a pack carries its own `slot_law` row, its own egress leaf, and its own produced bytes. Each node keys on its own pre-run input digest, so a re-issued set re-renders only the units whose spec changed, and one corrupt source faults its own node while the siblings complete under the plan's front drain. Assembly folds PURELY over the drained `PublishedMap` values. A per-level LADDER rides the `core/plan#PLAN` `Fed` leg: the base node folds the chain ONCE and stages the folded pyramid, every level node takes it and encodes its own pre-sliced level, and a level whose stage is absent (the base elided on a warm replay) runs the self-sufficient full fold — byte-identical output, the O(N) per-level re-fold deleted from the scheduled cost.
@@ -20,8 +20,8 @@
 - Law: `MipPolicy.ROUGHNESS_VARIANCE` is a TWO-OPERAND fold and the roster's own policy for five roughness roles, so the paired normal channel is a staged operand and a plan edge, not a lookup. Sets carrying no normal map degrade that role to `BOX` — the declared quality floor — rather than failing a complete set on a channel its author never wrote.
 - Law: a set-level admission proves what no single plane can: every map agrees on extent within a tile, the power-of-two demand when `pot` is set, one normal convention across both normal channels, no `pq`/`hlg` transfer on any channel plane, a `heightScale` present exactly when a `height` map is, no role appearing both standalone and inside a pack, and AT MOST ONE `<variant>` axis across the whole set.
 - Law: `pq` and `hlg` REFUSE on a channel plane. `plane#PLANE` admits them because an environment capture is display-referred; a bake target is scene-referred and a display-referred bake forks the shading value from the stored value. That refusal lands here, at the set, because the plane cannot know which product it belongs to — and it reads `MapSpec.space`, the spec's own DECLARED stored transfer, because the role tables carry `linear`, `srgb`, and `raw` alone and a refusal testing only their projection can never fire.
-- Law: `tiled` is a PROVED property or false. `TiledClaim` seats the classifier verdict or caller declaration before the wire's bool reads true; `tile_score` measures seam agreement over the roles that carry it and remains absent where no seam-bearing role reached the probe.
-- Law: an ATLAS is a PLANE-level sharing fact — N sets referencing one blob by content address — never a set-level merge behind one key. Two materials sharing one packed sheet each carry their own manifest and their own key, and the shared plane appears in both under the same digest and therefore the same residence path; a set-key alias would duplicate that path once per manifest and defeat the sharing the digest states. Merging the documents into one set forks every consumer that binds one material.
+- Law: `tiled` is a PROVED property or false. `TiledClaim` seats the classifier verdict or caller declaration before the wire's bool reads true; `tile_score` measures edge agreement over the roles that carry it and remains absent where no boundary-bearing role reached the probe.
+- Law: an ATLAS is a PLANE-level sharing fact — N sets referencing one blob by content address — never a set-level merge behind one key. Two materials sharing one packed sheet each carry their own manifest and their own key, and the shared plane appears in both under the same digest and therefore the same store path; a set-key alias would duplicate that path once per manifest and defeat the sharing the digest states. Merging the documents into one set forks every consumer that binds one material.
 - Entry: `TextureSet.emit` ADMITS then schedules — it returns `Result`, so an inadmissible spec refuses before a single node burns rather than after the whole fan drains — and `TextureSet.assembled` folds. Arity is a value property of `SetSpec.maps`, never a `batch` knob; a one-slot set and a forty-slot set take the same call and differ only in the node count the plan receives.
 - Auto: `SetSpec.admitted` runs every set-level gate before a single node is scheduled, so the worker interior is total over admitted requests and no arm re-proves an extent. `MapSpec.admitted` proves the storage triple against the SAME `plane#PLANE` row the encode runs through — the slot's component count against `DeepCodecRow.widths`, the depth against `depths`, the transfer against `spaces` under the depth-conditional resolution — so a per-container arm restating one row's shape law never exists here.
 - Auto: `default_spec` DERIVES a slot's storage target from its own law row — a color channel takes the 16-bit lossless container, an unbounded, signed, or solver-grade channel the float one, a pack the four-component integer row — so an ingest bridge hands in overrides alone and a classified slot no caller table anticipated still produces. The `bounded` column is what routes an index of refraction, a nanometre film thickness, a millimetre scattering radius, and an absolute `cd/m²` luminance away from an integer container: `quantized` clips to `[0, 1]`, so each of them wrote a plane of pure white with no error anywhere. `_mip_policy` is the ONE effective-policy resolution both the variant-axis gate and the worker's fold read.
@@ -49,7 +49,7 @@ from msgspec import Struct
 from protovalidate import CompilationError, EvaluationError, ValidationError as ContractValidationError, validate
 from protobuf import Oneof
 
-from rasm.runtime.faults import FAULT_CONF, TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import FAULT_CONF, TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy, Work
 from rasm.runtime.metrics import Metrics
@@ -101,7 +101,7 @@ class CompanionPolicy(StrEnum):
 class LicenseClass(StrEnum):
     PERMISSIVE = "permissive"
     COPYLEFT = "copyleft"
-    OPEN_RAIL = "open_rail"
+    OPEN_RESULT = "open_result"
     RESEARCH = "research"
     BLOCKED = "blocked"
 
@@ -266,7 +266,7 @@ class SetSpec(Struct, frozen=True):
         if display and self.kind is SetKind.PBR_SET:
             return Error(TextureFault(space=(display[0][1].format, _stored_space(display[0][0], display[0][1].depth, display[0][1].space))))
         return Block.of_seq(tuple(self.maps.items())).fold(
-            lambda railed, item: railed.bind(lambda spec: item[1].admitted(item[0]).map(lambda _ok: spec)), Ok(self)
+            lambda held, item: held.bind(lambda spec: item[1].admitted(item[0]).map(lambda _ok: spec)), Ok(self)
         )
 
 
@@ -387,10 +387,10 @@ class PublishedMap(Struct, frozen=True):
 
 
 async def _published(
-    produced: RuntimeRail[Result[tuple[MapFact, Product | None], TextureFault]],
+    produced: RuntimeResult[Result[tuple[MapFact, Product | None], TextureFault]],
     sink: ProductSink[TextureFault],
     /,
-) -> RuntimeRail[tuple[PublishedMap, Product | None]]:
+) -> RuntimeResult[tuple[PublishedMap, Product | None]]:
     match produced:
         case Error(fault):
             return Error(fault)
@@ -461,7 +461,7 @@ class TextureSet(Struct, frozen=True):
         )
 
     @staticmethod
-    async def _map(request: MapRequest, lane: LanePolicy, sink: ProductSink[TextureFault], /) -> RuntimeRail[PublishedMap]:
+    async def _map(request: MapRequest, lane: LanePolicy, sink: ProductSink[TextureFault], /) -> RuntimeResult[PublishedMap]:
         produced = await lane.offload(Kernel.of(_worker_texture, KernelTrait.HOSTILE), request)
         settled = (await _published(produced, sink)).map(lambda pair: pair[0])
         match settled:
@@ -488,7 +488,7 @@ class TextureSet(Struct, frozen=True):
             )
         )
 
-        async def run() -> "RuntimeRail[tuple[PublishedMap, Product | None]]":
+        async def run() -> "RuntimeResult[tuple[PublishedMap, Product | None]]":
             produced = await lane.offload(Kernel.of(_worker_texture, KernelTrait.HOSTILE), executed)
             settled = await _published(produced, sink)
             match settled:
@@ -519,7 +519,7 @@ def _worker_texture(request: MapRequest) -> Result[tuple[MapFact, DeepPlane | No
             case _:
                 companion = None if request.companion is None else _leveled_leg(request.companion, request)
                 sourced = Block.of_seq(request.legs).fold(
-                    lambda railed, leg: railed.bind(lambda planes: _staged_plane(leg, request).map(lambda plane: (*planes, plane))), Ok(())
+                    lambda held, leg: held.bind(lambda planes: _staged_plane(leg, request).map(lambda plane: (*planes, plane))), Ok(())
                 ).bind(
                     lambda planes: _faced(planes, request.faces) if request.faces > 1 else _chained_over(planes, request.chain)
                 )
@@ -751,7 +751,7 @@ def _core_version(fmt: DeepFormat, /) -> str:
 
 ## [03]-[EGRESS]
 
-- Owner: the leaf-name grammar, the merkle set key, the KTX2 tool seam, and the generated `Set` assembly. Every name a consumer joins to an address is built here, once.
+- Owner: the leaf-name grammar, the merkle set key, the KTX2 tool boundary, and the generated `Set` assembly. Every name a consumer joins to an address is built here, once.
 - Law: the egress grammar is FROZEN as `materials/texture/<plane-digest>/<channel>[.<variant>].<ext>`, with `<channel>` a canonical role name or a pack name, `<variant>` at most ONE optional infix — a four-digit UDIM tile at 1001 or above, or a two-digit zero-padded mip or layer index — and `<ext>` from the container roster. Each address keys on its own `PlaneRef.artifact.sha256`; the set key orders the document and never impersonates the stored plane. Sets declaring two variant axes refuse at admission, because the two collide in the one slot.
 - Law: every KTX2 file HOLDS its own pyramid, so a `ktx2` channel NEVER carries a mip variant. Per-mip EXR pyramids spell `<channel>.00.exr`, `<channel>.01.exr` ascending; per-channel FILES are the canonical cross-branch EXR form and multipart or named-AOV EXR is branch-local optimization no parity fixture depends on.
 - Law: artifact addresses use `ArtifactRef.sha256.hex()` — the canonical 64-lowercase-hex SHA-256 projection. The internal 128-bit `ContentKey` is freshly domain-separated over the ordered 32-byte SHA-256 coordinates and never reinterprets one coordinate as another identity type; neither `ContentKey.project("wire")` nor its `:<fmt>`-tailed `.hex` form enters an artifact path. The TS `assets/<digest>/<file>` join consumes the same generated SHA-256 coordinate with no case move, formatting alias, or second digest convention.
@@ -759,7 +759,7 @@ def _core_version(fmt: DeepFormat, /) -> str:
 - Law: the `ktx` CLI is the ENCODE FLOOR in all three branches and `pyktx` the in-process acceleration row; both bind the SAME `libktx` and agree on the container, the storage texel, the transfer tag, and the payload class. They DO NOT agree byte-for-byte — two entry points run two encoder configurations — so `MapFact.tool_version` carries the producing leg and a set mixing hosts re-keys. They also do not agree on CHROMATICITY, and the shared admission is what keeps that from forking silently: the binding exposes no primaries member at all, so a plane declaring one is refused the in-process leg rather than written twice with two different colour fields. `ktx_leg` reads presence — never a caller flag — and a host carrying neither leg faults `tool_absent`, refusing the whole set rather than silently degrading a `ktx2` map to a `png16` one.
 - Law: BOTH KTX2 LEGS ARE `plane#CODEC`'s and this page names no argv. The codec owner dispatches both legs behind one entry; this page owns conformance over the produced artifact, `MapFact.tool_version`, and the egress grammar.
 - Law: COLOR ASSIGNMENT states the PLANE's own declared facts. A create relabels without touching a texel, so it spells the transfer the bytes already carry and the chromaticity the carrier DECLARES, and `--fail-on-color-conversions` turns any remaining implicit conversion into a tool refusal rather than a silently re-tagged plane. The chromaticity is a `PlanePrimaries` datum on the plane, never a value derived from its transfer tag — a table keyed on the five-row transfer roster asserted a dependency that does not exist and then asserted AP1 for every scene-linear plane, so a base-colour plane decoded from an sRGB source shipped labelled with foreign chromaticity and the conversion guard could not catch a relabel. `--convert-primaries` exists on this leg and is REFUSED: the in-process binding carries no counterpart, so a converting spawn beside a non-converting binding is two codecs wearing one name. A gamut MOVE is `graphic/color/managed#MANAGED`'s, composed by the caller before the set runs.
-- Law: `ktx validate --format mini-json` is the Khronos CONFORMANCE OWNER this producer runs on its own product, and the verdict rides the report's `valid` FIELD — never the process status, which reads success on a failed file. `--gltf-basisu` spells EXACTLY where the effective payload transcodes: the glTF KHR profile check fails an RGBSDA deep container with `error-6301` by design, so the flag reads the payload class and never rides unconditionally — the same conditional the C# gate spells. Level arithmetic, `typeSize`, DFD sample layout, and BasisLZ global data are the validator's to settle; a branch re-deriving them forks the specification against the binary the estate encodes with. Both KTX2 legs cross the proof, because it spawns the provisioned floor binary wherever it stands.
+- Law: `ktx validate --format mini-json` is the Khronos CONFORMANCE OWNER this producer runs on its own product, and the verdict rides the report's `valid` FIELD — never the process status, which reads success on a failed file. `--gltf-basisu` spells EXACTLY where the effective payload transcodes: the glTF KHR profile check fails an RGBSDA deep container with `error-6301` by design, so the flag reads the payload class and never rides unconditionally — the same conditional the C# gate spells. Level arithmetic, `typeSize`, DFD sample layout, and BasisLZ global data are the validator's to settle; a branch re-deriving them forks the specification against the binary the repo encodes with. Both KTX2 legs cross the proof, because it spawns the provisioned floor binary wherever it stands.
 - Law: LEG ADMISSION is SHARED. The in-process leg rides `encode`'s row gates and the spawned leg would bypass them, so `_ktx_stored` proves depth, transfer, and component width against the ONE `plane#PLANE` KTX2 row before dispatching either leg — two legs with leg-dependent refusals are two codecs wearing one name.
 - Law: the DETERMINISTIC FLOOR is DERIVED from the CODEC ROSTER ITSELF — a row is on the floor when its own `DeepCodecRow.default` round-trips byte-exact and its `binary` column is false. This page keeps NO policy table to derive over: the nine option tuples are codec facts with one owner, and a sibling copy here is how one default drifted to two values across two pages while both spellings still parsed. Sets whose maps stay inside the floor produce byte-identically on any host with no provisioned binary; a set reaching for `ktx2` declares a host requirement the caller reads.
 - Law: `tool` and `license_class` are BOUNDED vocabularies, not free strings. `ProducerTool` transcribes the `[05.1]` `[15]` roster and `LicenseClass` the `[07.1]` `[03]` one in snake_case; a free string published a `passthrough` tool and a raw leg value into columns whose rosters admit neither, and it let `blocked` — the one class carrying no grant to use — ride a manifest as a word every consumer ignores.
@@ -768,11 +768,11 @@ def _core_version(fmt: DeepFormat, /) -> str:
 - Output: `assembled` folds drained `PublishedMap` values into one generated `Set` and returns it with its `ContentKey`. A container the corpus `Container` roster does not spell, or a three-lane plane no `PlaneFormat` member names, refuses at assembly by its own token rather than publishing a neighbour's.
 - Law: the `ibl` leg fills from `SetSpec.ibl` and the drained entries TOGETHER. The harmonics, the roughness ladder, and the read-side intensity and rotation are facts `ibl#IBL` computes, the dome basis being the corpus's +Z so a spec under another up axis refuses at assembly; the per-product files and digests exist only after the fan drains. Neither half can build the entry alone, which is why the spec carries the facts and the fold joins them — a leg pinned to None published every `hdri` and `ibl` set with its harmonics, its ladder, and its up axis silently dropped.
 - Law: THE ROLE-TO-SLOT LOWERING IS ONE FOLD OVER ONE TARGET. `lowered` takes a `BindTarget` and returns `(foreign slot, egress path, output port, transfer token)` quadruples; the port derives from the entry's own channel count and the transfer from its own recorded tag, so no roster carries a second column to drift, and the per-role selection reads the target's container admission so a sampled consumer binds the twin the companion fan produced. Both folds are TOTAL and LOSSY BY DECLARATION — a role the consumer's roster has no counterpart for gets no row and is simply absent from the binding, never mapped onto its nearest neighbour, which would author the wrong material. The one structural difference between them is the consumer's, not the producer's: the packed sheet is ONE slot on the render path and three separate inputs on the preview surface.
-- Law: A TRANSFER TOKEN RIDES EVERY BOUND SLOT. Left unset, each renderer's own file sniff decides — and for a `raw` normal plane inside an integer container that decision is the silent sRGB decode the whole transfer roster exists to prevent. The render consumer goes further and REFUSES a mismatched pair outright, binding nothing and leaving a surface untextured with no fault to read, so stating the plane's own declared transfer is the only form under which either binding is provable at the seam.
+- Law: A TRANSFER TOKEN RIDES EVERY BOUND SLOT. Left unset, each renderer's own file sniff decides — and for a `raw` normal plane inside an integer container that decision is the silent sRGB decode the whole transfer roster exists to prevent. The render consumer goes further and REFUSES a mismatched pair outright, binding nothing and leaving a surface untextured with no fault to read, so stating the plane's own declared transfer is the only form under which either binding is provable at the boundary.
 - Law: A CONSUMER'S BINDING LAW IS ONE VALUE, NEVER THE IDENTITY OF THE TABLE IT WAS HANDED. `BindTarget` carries the slot roster AND whether that reader opens the sampled container set, so `lowered` reads the admission off the value instead of comparing the handed table against a module constant with `is` — an object-identity dispatch under which an equal roster built anywhere else silently took the other consumer's admission. A third consumer is one `BindTarget`, and the companion fan reads the same owner.
 - Law: THE SAMPLED COMPANION IS A PRODUCED FILE, SO IT IS A NODE. A set declaring `CompanionPolicy.RENDER` publishes, for every role that destination binds whose primary stores a container its reader will not open, a SAMPLED TWIN with its own plan node, leaf, `PublishedMap`, and `Plane` row. The twin DERIVES from the primary's storage depth and remains single-level because the primary owns the pyramid. `lowered` binds the twin, and the manifest groups by role and container.
-- Law: THE BIND REFUSES WHERE NO ADMITTED ENTRY EXISTS. A set that never declared the policy still names the offending container at the projection, because the alternative is a bind that falls through the consumer's own unadmitted decoder and raises INSIDE its capsule — one process away from the caller that composed the set, where no fault reaches the rail.
-- Law: A DECLARED GUARANTEE AND A MEASURED ERROR ARE DIFFERENT FACTS. `MapError` is the four-state case — exact, declared, measured, unmeasured — because a nullable score spelled two of them and forged the other two: a caller-declared bound rode as `PlaneFidelity(psnr=inf, mse=0.0, nrmse=0.0, delta_e=0.0)`, a flawless round trip nobody ran, on the exact rows admitted BECAUSE they trade fidelity for size, with the bound smuggled into `data_range` under a name meaning the span the signal metrics were scored against; and a re-decode that failed was indistinguishable from a lossless row's silence. `DeepCodecRow.bound` routes: `unbounded` alone pays the round trip, a bounded case rides as the declaration with its own KIND, and the band spells the state through the keys it emits. The KTX2 row reads the policy its leg actually ran, so the heaviest lossy step the estate takes stopped being the one container publishing no error at all.
+- Law: THE BIND REFUSES WHERE NO ADMITTED ENTRY EXISTS. A set that never declared the policy still names the offending container at the projection, because the alternative is a bind that falls through the consumer's own unadmitted decoder and raises INSIDE its capsule — one process away from the caller that composed the set, where no fault reaches the result.
+- Law: A DECLARED GUARANTEE AND A MEASURED ERROR ARE DIFFERENT FACTS. `MapError` is the four-state case — exact, declared, measured, unmeasured — because a nullable score spelled two of them and forged the other two: a caller-declared bound rode as `PlaneFidelity(psnr=inf, mse=0.0, nrmse=0.0, delta_e=0.0)`, a flawless round trip nobody ran, on the exact rows admitted BECAUSE they trade fidelity for size, with the bound smuggled into `data_range` under a name meaning the span the signal metrics were scored against; and a re-decode that failed was indistinguishable from a lossless row's silence. `DeepCodecRow.bound` routes: `unbounded` alone pays the round trip, a bounded case rides as the declaration with its own KIND, and the band spells the state through the keys it emits. The KTX2 row reads the policy its leg actually ran, so the heaviest lossy step the repo takes stopped being the one container publishing no error at all.
 - Growth: a new set kind is one `SetKind` row with its manifest `kind` value; a new egress slot is one `ingest#INGEST` vocabulary row, which `_ROSTER` and its two derived indexes all pick up with no edit here; a new consumer of the produced roster is one `BindTarget`, and a consumer wanting companions adds one `CompanionPolicy` member and one `_COMPANION_TARGET` row with the fan, the fold, the grouping, and the band all unedited; a new sampled floor container is one `_SAMPLED_DEPTH` row whose membership `_SAMPLED_FLOOR` already proves; a new variant claimant is one `_AXIS_PRESENT` row; a new variant axis beyond that is refused by construction until the frozen grammar widens.
 - Boundary: the manifest names blobs; it does not store them. Object-store put, presign, lifecycle, and CDN posture stay at the app root and in the peer branches, and the branch strata carry no artifacts-to-egress edge.
 
@@ -970,11 +970,11 @@ def _chosen(manifest: set_wire.Set, target: BindTarget, /) -> tuple[tuple[MapSlo
 def _periodicity(plane: DeepPlane, /) -> float:
     field = plane.base
     return min(
-        1.0 if seam <= interior else min(1.0, interior / seam)
+        1.0 if boundary <= interior else min(1.0, interior / boundary)
         for axis in (0, 1)
         for lag in _TILE_LAG
         if (step := np.abs(field - np.roll(field, lag, axis=axis)).mean(axis=tuple(k for k in range(3) if k != axis))) is not None
-        for seam in (float(step[:lag].mean()),)
+        for boundary in (float(step[:lag].mean()),)
         for interior in (float(step[lag:].mean()),)
     )
 
@@ -1023,7 +1023,7 @@ def _leg(spec: SetSpec, slot: MapSlot, variant: Variant, /) -> Result[OperandLeg
 def _requested(spec: SetSpec, slot: MapSlot, variant: Variant, map_spec: MapSpec, parents: tuple[ContentKey, ...], /) -> Result[MapRequest, TextureFault]:
     if map_spec.faces:
         return Block.of_seq(tuple(sorted(map_spec.sources))).fold(
-            lambda railed, face: railed.bind(lambda built: _leg(spec, slot, face).map(lambda leg: (*built, leg))), Ok(())
+            lambda held, face: held.bind(lambda built: _leg(spec, slot, face).map(lambda leg: (*built, leg))), Ok(())
         ).map(
             lambda staged: MapRequest(
                 slot=slot, spec=map_spec, kind=spec.kind, extent=spec.extent, variant=None, legs=staged,
@@ -1034,7 +1034,7 @@ def _requested(spec: SetSpec, slot: MapSlot, variant: Variant, map_spec: MapSpec
     source = spec.maps[slot].sources.get(variant, MapSource(neutral=None))
     legs = (
         Block.of_seq(source.derived[0]).fold(
-            lambda railed, operand: railed.bind(lambda built: _leg(spec, operand, variant).map(lambda leg: (*built, leg))), Ok(())
+            lambda held, operand: held.bind(lambda built: _leg(spec, operand, variant).map(lambda leg: (*built, leg))), Ok(())
         )
         if source.tag == "derived"
         else _leg(spec, slot, variant).map(lambda leg: (leg,))
@@ -1044,7 +1044,7 @@ def _requested(spec: SetSpec, slot: MapSlot, variant: Variant, map_spec: MapSpec
     return legs.bind(
         lambda staged: (
             Block.of_seq(tuple(companion.to_list())).fold(
-                lambda railed, paired: railed.bind(lambda built: _leg(spec, paired, variant).map(lambda leg: (*built, leg))), Ok(())
+                lambda held, paired: held.bind(lambda built: _leg(spec, paired, variant).map(lambda leg: (*built, leg))), Ok(())
             ).map(
                 lambda paired_legs: MapRequest(
                     slot=slot,
@@ -1537,7 +1537,7 @@ config:
 ---
 flowchart LR
     accTitle: Texture set production flow
-    accDescr: A classification derives its SetSpec per slot law, passes the set-level admission gates, fans one ArtifactWork per slot and variant across the worker seam, publishes produced bytes through the caller sink, and folds PublishedMap values into the merkle-keyed Set.
+    accDescr: A classification derives its SetSpec per slot law, passes the set-level admission gates, fans one ArtifactWork per slot and variant across the worker boundary, publishes produced bytes through the caller sink, and folds PublishedMap values into the merkle-keyed Set.
     Cls["ingest#INGEST Classification + caller payloads + heightScale"] --> Spec["SetSpec.of_classification -> _sourced_spec: one source per TILE, gloss and dx chains constructed"]
     Spec --> Admit["SetSpec.admitted: extent / pot / pack-collision / variant-axis agreement / convention / heightScale / pq-hlg"]
     Admit -->|"gate fails"| F["TextureFault"]

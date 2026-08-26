@@ -107,7 +107,7 @@ MSBuild knobs default in `HotAvalonia.targets`; runtime options land in `runtime
 - Reference stripping: `HotAvaloniaProcessReferences` defaults false (preserve), `HotAvaloniaExcludeReferences` always lists `HotAvalonia;HotAvalonia.Core;HotAvalonia.Fody` and adds `Avalonia.Markup.Xaml.Loader` only under `HotAvaloniaIncludeXamlLoader == false`; Release turns the gate off and strips every dev-loop assembly, so no hot-reload code ships.
 
 [STACKING]:
-- `api-avalonia`(`.api/api-avalonia.md`), `api-avalonia-desktop`(`.api/api-avalonia-desktop.md`): the injected `UseHotReload` chains onto the `AppBuilder` from `AppBuilder.Configure<App>()`, composing with the desktop lifetime, Fluent theme, and GPU/Skia render seam with no hand-written bootstrap; `HotAvaloniaAutoEnable` weaves the call in on an exe.
+- `api-avalonia`(`.api/api-avalonia.md`), `api-avalonia-desktop`(`.api/api-avalonia-desktop.md`): the injected `UseHotReload` chains onto the `AppBuilder` from `AppBuilder.Configure<App>()`, composing with the desktop lifetime, Fluent theme, and GPU/Skia render boundary with no hand-written bootstrap; `HotAvaloniaAutoEnable` weaves the call in on an exe.
 - `api-avalonia-xaml-loader`(`.api/api-avalonia-xaml-loader.md`): `Avalonia.Markup.Xaml.Loader` is the runtime XAML-compile dependency `HotAvalonia.Core` drives to re-parse changed `.axaml`.
 
 [LOCAL_ADMISSION]:

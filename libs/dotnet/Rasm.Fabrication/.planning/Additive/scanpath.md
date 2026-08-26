@@ -117,7 +117,6 @@ public sealed record ExposureScaling(FrozenDictionary<ExposureClass, ExposureSca
 
 [ValueObject<int>]
 public readonly partial struct LaserId {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
             validationError = new ValidationError("laser-id");
@@ -136,7 +135,6 @@ public sealed partial class LaserSource {
     public Ratio Drift { get; }
     public ContentKey Calibration { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref LaserId id,
@@ -198,7 +196,6 @@ public sealed partial class ExposureProfile {
         ? Ratio.FromDecimalFractions(1.0)
         : Ratio.FromDecimalFractions(PulseOn.Seconds / (PulseOn + PulseOff).Seconds);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Power power,
@@ -461,11 +458,11 @@ public sealed record CandidateVector(int Layer, Length Elevation, ExposureClass 
 ## [05]-[SOURCE_FIELDS]
 
 - Owner: `LaserSource` owns one calibrated field; `SourcePolicy` owns the multi-source law; `FieldCell` owns one source's tessellated territory; `SourcePartition` owns election and stitching.
-- Law: a vector no calibrated field admits leaves `Elect` as source `-1` and converts on the rail; no election throws and no unadmitted vector reaches an emission arm.
+- Law: a vector no calibrated field admits leaves `Elect` as source `-1` and converts on the error channel; no election throws and no unadmitted vector reaches an emission arm.
 - Law: exclusive vectors stay inside one source field; overlap vectors stitch under one policy and retain both adjacent source identities, so a stitched seam is addressable evidence rather than an inferred boundary.
 - Auto: `SourcePartition.Build` issues one `PolygonOp.Cells` request per PLAN because calibrated source fields are invariant across layers; `SiteCell.Site` addresses the calibrated source directly and `CellDiagram.Adjacency` carries overlap, so no nearest-site probe and no page-local tessellator stands between them. This is the one legitimate point-site diagram on the page — laser fields are physically sited, unlike the hatch lattice, which is regular by definition.
 - Auto: `MemoryOwner<double>` stages the vector-to-source score plane and `Elect` walks it as one pooled span kernel; `TensorPrimitives.MultiplyAdd` and `IndexOfMin` derive the load-balanced election.
-- Exemption: `Elect` carries a running load cell between elections, so it stays a span loop inside one kernel, and the `Span<double>` score plane encodes an unreachable source as infinite cost because a span of doubles carries no `Option` — the absence the DOMAIN reads is the `-1` source discriminant, which converts on the rail.
+- Exemption: `Elect` carries a running load cell between elections, so it stays a span loop inside one kernel, and the `Span<double>` score plane encodes an unreachable source as infinite cost because a span of doubles carries no `Option` — the absence the DOMAIN reads is the `-1` source discriminant, which converts on the error channel.
 - Packages: `Rasm.Fabrication.Geometry2D` (`PolygonAlgebra`/`PolygonOp.Cells`/`SitePolicy`/`CellDiagram`), CommunityToolkit.HighPerformance, `System.Numerics.Tensors`.
 - Growth: a source is one `LaserSource` value on the policy; the cell census gate proves the tessellation answered one cell per source.
 - Boundary: field scoring is a plain Euclidean distance between two points; a tensor call at length three allocates two arrays per cell to compute what the point atom computes with none, so the atom's own member is the entry.

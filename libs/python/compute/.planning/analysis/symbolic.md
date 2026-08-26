@@ -29,7 +29,7 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 - `Calculus`: unevaluated `Derivative`/`Integral`/`Sum` nodes force through `.doit()`, and `series` trims its `Order` term in the same row, never a second method.
 - `Substitute`: map keys and values are spellings resolved against the live `SymbolSpec`, never raw strings escaping the boundary.
 - `Refine`: assumptions are derivation inputs the `SymbolSpec` declares, never a post-hoc filter.
-- `LinAlg`: `GroundDomain.FLINT` accelerates only the `_FLINT_MATRIX_ROUTES` exact-over-rationals subset, and `MINPOLY` is FLINT-only — sympy `Matrix` owns no minimal-polynomial kernel, so the sympy ground rails a fenced typed fault.
+- `LinAlg`: `GroundDomain.FLINT` accelerates only the `_FLINT_MATRIX_ROUTES` exact-over-rationals subset, and `MINPOLY` is FLINT-only — sympy `Matrix` owns no minimal-polynomial kernel, so the sympy ground returns a fenced typed fault.
 - `NumberTheory`: GCD/LCM read a polynomial with its derivative; constant inputs refuse because the unary request carries no second operand.
 - `Evaluate`: `CERTIFIED` returns a `python-flint` `arb` ball whose `rad()` supplies the stability bound; `HEURISTIC` returns SymPy's native numeric value and clears no certified ceiling.
 - `Codegen`: a new target is one `CodeTarget` value and one `_CODE_PRINTER` row, never a parallel emitter.
@@ -39,7 +39,7 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 `SymbolicDerivation` threads an assumption-carrying `SymbolSpec` over an `ExprForm` and left-folds a `Block[SymbolicOp]` pipeline to the terminal provider product from one shared `cse` lowering.
 
 - Cases: `ExprForm` is the polymorphic input — a `str` spelling, a `MatrixForm` of cell spellings, or a constructed `Expr` — discriminated by one `derive` entry rather than `derive`/`derive_matrix`/`derive_expr` siblings.
-- Entry: `derive(form, spec, *ops)` is the one railed entrypoint riding the hub weave as `evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=...)`; the span carries terminal, op-count, and symbol discriminants.
+- Entry: `derive(form, spec, *ops)` is the one result-typed entrypoint riding the hub weave as `evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", held, facts=...)`; the span carries terminal, op-count, and symbol discriminants.
 - Auto: the runtime content owner mints the derivation key over the canonical `SymbolicPayload`, never a hand-rolled canonical encode; two derivations differing in assumption context, op pipeline, or terminal route key distinctly.
 - Output: `derive` retains the exact terminal provider value beside its content key; `graduates` reads certification from the actual `arb` product.
 - Growth: a new calculus transform is one `CalculusKind` row and one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row and one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row and one `_CODE_PRINTER` entry.
@@ -57,7 +57,7 @@ from msgspec import Struct
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.compute.numerics.jit import JitBackend, LoweredSpec
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 lazy import flint
@@ -584,10 +584,10 @@ class SymbolicDerivation:
     @staticmethod
     def derive(
         form: ExprForm, spec: SymbolSpec, *ops: SymbolicOp, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> "RuntimeRail[tuple[AlgebraValue, ContentKey]]":
+    ) -> "RuntimeResult[tuple[AlgebraValue, ContentKey]]":
         terminal = ops[-1].tag if ops else "noop"
 
-        def rail() -> "RuntimeRail[tuple[AlgebraValue, ContentKey]]":
+        def held() -> "RuntimeResult[tuple[AlgebraValue, ContentKey]]":
             return ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops)).bind(
                 lambda key: boundary(
                     SYMBOLIC_DERIVE,
@@ -597,12 +597,12 @@ class SymbolicDerivation:
             )
 
         facts = {"terminal": terminal, "op_count": len(ops), "symbols": ",".join(spec.names)}
-        return evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=facts, composition=composition)
+        return evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", held, facts=facts, composition=composition)
 
 
 def graduates(
     terminal: SymbolicOp, result: tuple[AlgebraValue, ContentKey], *, composition: ScopeKey = DEFAULT_SCOPE
-) -> "RuntimeRail[Graduation]":
+) -> "RuntimeResult[Graduation]":
     value, key = result
     match terminal:
         case SymbolicOp(tag="evaluate", evaluate=(_digits, Precision.CERTIFIED)):

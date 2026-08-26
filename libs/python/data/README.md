@@ -6,7 +6,7 @@
 
 [TABULAR]:
 - [01]-[INTEROP](.planning/tabular/interop.md): Frame translation over any backend, the Arrow C Data carrier, the `DataLeg`/`DataHook` rosters.
-- [02]-[COLUMNAR](.planning/tabular/columnar.md): Dataset-ref owner and the one request-scoped `DuckDbSession` scan rail behind columnar egress.
+- [02]-[COLUMNAR](.planning/tabular/columnar.md): Dataset-ref owner and the one request-scoped `DuckDbSession` scan layer behind columnar egress.
 - [03]-[LAKEHOUSE](.planning/tabular/lakehouse.md): Transactional lakehouse over one `LakeOp` axis; capability demand, fence, `Generation` roster.
 - [04]-[QUERY](.planning/tabular/query.md): Relational engine folding every `QuerySpec` frontend to uniform Arrow with column-provenance lineage.
 - [05]-[MATERIALIZE](.planning/tabular/materialize.md): Incremental CDC materialization composing lakehouse, query, and columnar downward.
@@ -18,7 +18,7 @@
 
 [SPATIAL]:
 - [11]-[GEOSPATIAL](.planning/spatial/geospatial.md): Vector and raster geo claims over the `VectorOp`/`RasterOp` axes with native-GeoArrow egress.
-- [12]-[QUERY](.planning/spatial/query.md): DuckDB-spatial join, transform, and H3-SQL engine on the shared `DuckDbSession` rail.
+- [12]-[QUERY](.planning/spatial/query.md): DuckDB-spatial join, transform, and H3-SQL engine on the shared `DuckDbSession` layer.
 - [13]-[GRID](.planning/spatial/grid.md): Discrete-global-grid plane over `h3ronpy` vectorized cell algebra with the raster-cell bridge.
 - [14]-[CATALOG](.planning/spatial/catalog.md): Cloud-native STAC discovery over `pystac-client` folding asset hrefs into object-store egress.
 - [15]-[MESH](.planning/spatial/mesh.md): Mesh-file identity and topology owner with the LAS/LAZ/COPC point-cloud interchange row.
@@ -79,7 +79,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `adbc-driver-sqlite`
 - `obspec-utils` — Multi-store object-store routing.
 
-[DUCKDB_EXTENSIONS]: Loadable extensions backing the plan and table-format rows without a pip dependency, riding the one `DuckDbSession` rail and provisioned through the Forge DuckDB-extensions catalog.
+[DUCKDB_EXTENSIONS]: Loadable extensions backing the plan and table-format rows without a pip dependency, riding the one `DuckDbSession` layer and provisioned through the Forge DuckDB-extensions catalog.
 - `substrait`
 - `ducklake`
 - `iceberg`
@@ -89,7 +89,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `aws` — `credential_chain` provider over the s3, gcs, and r2 secret types `httpfs` registers.
 - `azure` — Azure blob protocol carrying its own `credential_chain` secret type.
 - `postgres_scanner` — Operational-store attach joining evidence rows against live PostgreSQL in one statement.
-- `delta` — `delta_scan` transaction-log reader binding the analytics evidence residence to the interactive query arm.
+- `delta` — `delta_scan` transaction-log reader binding the analytics evidence store to the interactive query arm.
 
 [GEOSPATIAL]:
 - `geopandas`
@@ -115,7 +115,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `zarr`
 - `numcodecs` — zarr v3 chunk filter/compressor codec registry.
 - `cubed`
-- `tensorstore` — FLOOR-GATED; `gridded/store#STORE` refuses a NAMED `TensorBackend.TENSORSTORE`; unnamed residences ride `zarr.storage.ObjectStore`.
+- `tensorstore` — FLOOR-GATED; `gridded/store#STORE` refuses a NAMED `TensorBackend.TENSORSTORE`; unnamed stores ride `zarr.storage.ObjectStore`.
 - `awkward`
 - `flox`
 - `icechunk`
@@ -148,7 +148,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 
 Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_RESULTS]:
 - `expression`
 - `msgspec`
 - `beartype`

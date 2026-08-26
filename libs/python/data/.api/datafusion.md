@@ -1,6 +1,6 @@
 # [PY_DATA_API_DATAFUSION]
 
-`datafusion` owns the embedded Arrow-native query and federation engine for the data rail: a `SessionContext` registering heterogeneous sources (files, batches, foreign frames, object stores, catalogs), a lazy `DataFrame` algebra compiling to `LogicalPlan`/`ExecutionPlan`, a sync/async `RecordBatchStream` interface, and a `substrait` namespace serializing SQL or a `LogicalPlan` into a portable `Plan`. `datafusion` owns `Plan` interchange for the SUBSTRAIT_PORTABILITY rail, re-implementing neither the Arrow kernels, the SQL planner, nor the Substrait codec.
+`datafusion` owns the embedded Arrow-native query and federation engine for the data domain: a `SessionContext` registering heterogeneous sources (files, batches, foreign frames, object stores, catalogs), a lazy `DataFrame` algebra compiling to `LogicalPlan`/`ExecutionPlan`, a sync/async `RecordBatchStream` interface, and a `substrait` namespace serializing SQL or a `LogicalPlan` into a portable `Plan`. `datafusion` owns `Plan` interchange for the SUBSTRAIT_PORTABILITY domain, re-implementing neither the Arrow kernels, the SQL planner, nor the Substrait codec.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -196,11 +196,11 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 - `execute_stream` and `SessionContext.execute` yield a sync/async iterable `RecordBatchStream` under backpressured `RecordBatch` pull; `execute_stream_partitioned` fans one stream per output partition.
 - `col`/`column` and `lit` mint `Expr` nodes; predicates and projections are `Expr` trees or `parse_sql_expr` fragments over untrusted SQL text.
 - `udf`/`udaf`/`udwf` are the three UDF factories over `Accumulator`/`WindowEvaluator` and a volatility policy, routing to `register_udf`/`register_udaf`/`register_udwf`/`register_udtf`; the `functions` namespace composes built-in `Expr` trees ahead of any Python UDF.
-- `substrait` owns the portable `Plan`: `Serde` serializes SQL, `Producer`/`Consumer` bridge a `LogicalPlan`, and `Plan.encode`/`to_json`/`from_json` carry the protobuf/JSON wire for the SUBSTRAIT_PORTABILITY rail.
+- `substrait` owns the portable `Plan`: `Serde` serializes SQL, `Producer`/`Consumer` bridge a `LogicalPlan`, and `Plan.encode`/`to_json`/`from_json` carry the protobuf/JSON wire for the SUBSTRAIT_PORTABILITY domain.
 - `to_arrow_table`/`to_pandas`/`to_polars`/`to_pylist`/`to_pydict` are zero-copy or near-zero-copy Arrow exports over the shared C-data capsule.
 - `SessionContext` extends the engine over FFI: `add_physical_optimizer_rule` appends a compiled physical-optimizer rule, `with_logical_extension_codec`/`with_physical_extension_codec` plug plan-serialization codecs, `enable_spark_functions` overrides built-ins with Spark semantics, and `with_python_udf_inlining(enabled=False)` disables UDF inlining and hardens `Expr.from_bytes` deserialization.
 - Each execution observes session id, plan stage, partition count, and Substrait `Plan` byte length, with per-operator runtime measurements read post-execution through `ExecutionPlan.metrics`/`collect_metrics` as a typed `MetricsSet` walked outer-to-leaf.
-- `pyarrow` owns the `RecordBatch`/`Schema` wire types at the seam; downstream owners consume `pa.RecordBatch`/`pa.Table` or a portable `Plan`, never the `_internal` Rust handles.
+- `pyarrow` owns the `RecordBatch`/`Schema` wire types at the boundary; downstream owners consume `pa.RecordBatch`/`pa.Table` or a portable `Plan`, never the `_internal` Rust handles.
 
 [STACKING]:
 - `duckdb`(`.api/duckdb.md`) / `substrait`(`.api/substrait.md`): `substrait.Producer.to_substrait_plan` emits the wire `Plan` DuckDB re-binds through `con.execute("CALL from_substrait(?)", [plan.encode()])`, and the BLOB a DuckDB `con.execute("CALL get_substrait(?)", [sql]).fetchone()[0]` returns re-binds through `substrait.Consumer.from_substrait_plan`; one portable `Plan` and its JSON twin cross both engines. DuckDB's half is the extension's SQL table functions alone — the connection binds no substrait method, per `.api/duckdb-extensions.md` `[03]`.

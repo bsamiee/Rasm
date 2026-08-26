@@ -1,13 +1,13 @@
 # [RASM_APPUI_API_SILK_OPENXR_FB]
 
-`Silk.NET.OpenXR.Extensions.FB` layers Meta vendor entrypoints over canonical `Silk.NET.OpenXR`: generated `FB*` function-table roots return `Result` while pointer-passing descriptors, handles, flags, and purpose enums remain core declarations. Instance creation enables each extension against the same `XR.GetApi()` root and host OpenXR loader, so passthrough, spatial anchors, scene understanding, tracking, foveation, color, refresh, render-model, mesh, and composition surfaces share one `Session`/`Swapchain` with the `Wgpu` `GpuBackend` presentation rail.
+`Silk.NET.OpenXR.Extensions.FB` layers Meta vendor entrypoints over canonical `Silk.NET.OpenXR`: generated `FB*` function-table roots return `Result` while pointer-passing descriptors, handles, flags, and purpose enums remain core declarations. Instance creation enables each extension against the same `XR.GetApi()` root and host OpenXR loader, so passthrough, spatial anchors, scene understanding, tracking, foveation, color, refresh, render-model, mesh, and composition surfaces share one `Session`/`Swapchain` with the `Wgpu` `GpuBackend` presentation path.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension function-table roots — every member is an instance method returning `Result`; each root has a paired `*Overloads` static-extension class and a private `_B` slot table
-- rail: viewport
+- concern: viewport
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]      | [RAIL]                                          |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]      | [CAPABILITY]                                    |
 | :-----: | :---------------------------- | :----------------- | :---------------------------------------------- |
 |  [01]   | `FBPassthrough`               | extension API root | `XR_FB_passthrough` + geometry-instance project |
 |  [02]   | `FBSpatialEntity`             | extension API root | `XR_FB_spatial_entity` anchor create/component  |
@@ -34,9 +34,9 @@
 |  [23]   | `FBPassthroughKeyboardHands`  | extension API root | hand-masked passthrough over keyboard           |
 
 [PUBLIC_TYPE_SCOPE]: passthrough native handles, descriptor carriers, flags — all declared in `Silk.NET.OpenXR` core, pointer-passed into the `FBPassthrough` root
-- rail: viewport
+- concern: viewport
 
-| [INDEX] | [SYMBOL]                        | [KIND]        | [RAIL]                                         |
+| [INDEX] | [SYMBOL]                        | [KIND]        | [CAPABILITY]                                   |
 | :-----: | :------------------------------ | :------------ | :--------------------------------------------- |
 |  [01]   | `PassthroughFB`                 | native handle | passthrough feature handle                     |
 |  [02]   | `PassthroughLayerFB`            | native handle | passthrough composition layer                  |
@@ -51,7 +51,7 @@
 |  [11]   | `PassthroughLayerPurposeFB`     | enum          | `ReconstructionFB` / `ProjectedFB`             |
 
 [PUBLIC_TYPE_SCOPE]: async-completion event carriers — every `FB` verb answering with a `ulong` request id retires through one of these on the core `PollEvent` drain
-- rail: viewport
+- concern: viewport
 
 | [INDEX] | [SYMBOL]                                 | [KIND] | [PAYLOAD]                                                                  |
 | :-----: | :--------------------------------------- | :----- | :------------------------------------------------------------------------- |
@@ -67,9 +67,9 @@
 |  [10]   | `SpaceQueryResultFB`                     | struct | `Space` + `UuidEXT` row the retrieve call fills                            |
 
 [PUBLIC_TYPE_SCOPE]: spatial-entity + scene carriers — core-declared, the anchor/scene-understanding surface the on-site review reads
-- rail: viewport
+- concern: viewport
 
-| [INDEX] | [SYMBOL]                                            | [KIND]        | [RAIL]                                                           |
+| [INDEX] | [SYMBOL]                                            | [KIND]        | [CAPABILITY]                                                     |
 | :-----: | :-------------------------------------------------- | :------------ | :--------------------------------------------------------------- |
 |  [01]   | `SpatialAnchorCreateInfoFB`                         | descriptor    | anchor create at a `Posef` in a space                            |
 |  [02]   | `SpaceComponentTypeFB`                              | enum          | locatable/storable/sharable component                            |
@@ -88,9 +88,9 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: passthrough lifecycle, layer transport, style, and geometry-instance projection — every surface returns `Result`; Silk.NET ships 4 ptr/ref overloads of each pointer arg
-- rail: viewport
+- concern: viewport
 
-| [INDEX] | [SURFACE]                                                                                      | [SURFACE_ROOT]  | [RAIL]              |
+| [INDEX] | [SURFACE]                                                                                      | [SURFACE_ROOT]  | [CAPABILITY]        |
 | :-----: | :--------------------------------------------------------------------------------------------- | :-------------- | :------------------ |
 |  [01]   | `Result CreatePassthroughFB(Session, PassthroughCreateInfoFB*, PassthroughFB*)`                | `FBPassthrough` | passthrough create  |
 |  [02]   | `Result CreatePassthroughLayerFB(Session, PassthroughLayerCreateInfoFB*, PassthroughLayerFB*)` | `FBPassthrough` | layer create        |
@@ -102,7 +102,7 @@
 |  [08]   | `Result DestroyPassthroughFB / DestroyPassthroughLayerFB / DestroyGeometryInstanceFB(handle)`  | `FBPassthrough` | native release      |
 
 [ENTRYPOINT_SCOPE]: spatial-entity anchors and scene understanding — the persistent world-lock and real-world geometry the BIM on-site review consumes
-- rail: viewport
+- concern: viewport
 
 | [INDEX] | [SURFACE]                             | [SURFACE_ROOT]           | [OPERATION]                 |
 | :-----: | :------------------------------------ | :----------------------- | :-------------------------- |
@@ -135,7 +135,7 @@
 - `RequestSceneCaptureFB`: `Result RequestSceneCaptureFB(Session, SceneCaptureRequestInfoFB*, ulong* requestId)`
 
 [ENTRYPOINT_SCOPE]: render-comfort and device surfaces — refresh rate, foveation, color space, render models, hand/body tracking
-- rail: viewport
+- concern: viewport
 
 | [INDEX] | [SURFACE]                        | [SURFACE_ROOT]           | [OPERATION]                |
 | :-----: | :------------------------------- | :----------------------- | :------------------------- |
@@ -186,7 +186,7 @@
 - Anchor operations return a `ulong` request identifier mapped from `XrAsyncRequestIdFB` and NOTHING else, so the core `api-silk-openxr.md` `PollEvent` drain is the only place an outcome exists: the matching `EventDataSpace*CompleteFB` event carries `RequestId` then `Result` then its own payload, and a consumer with no drain mints requests that never complete. `EventDataSpaceQueryResultsAvailableFB` is the one exception — it carries `RequestId` alone, signals that `RetrieveSpaceQueryResultsFB` has `SpaceQueryResultFB` rows to read, and does NOT retire the request; the paired `EventDataSpaceQueryCompleteFB` does.
 - A request identifier is unique per verb call and the completion set is closed, so one pending-request table keyed on the id retires every verb through one lookup on the event's `StructureType`; a per-verb completion path forks the async contract seven ways.
 - Scene understanding (`FBScene`) reads the runtime's guardian/room model: `GetSpaceRoomLayoutFB` yields the floor/ceiling/wall anchor set, `GetSpaceSemanticLabelsFB` the per-surface label, and `GetSpaceBoundingBox3Dfb`/`GetSpaceBoundary2Dfb` the real-world geometry the renderer occludes the virtual model against and the navigation tool clamps the user to — `RequestSceneCaptureFB` triggers a fresh room scan when none exists.
-- `FBSpatialEntitySharing` + `FBSpatialEntityUser` is the co-review seam: a shared anchor uuid lets a second headset on the same site load the identical world-lock, so two reviewers see the model in one registered position.
+- `FBSpatialEntitySharing` + `FBSpatialEntityUser` is the co-review boundary: a shared anchor uuid lets a second headset on the same site load the identical world-lock, so two reviewers see the model in one registered position.
 
 [FB_COMFORT_TOPOLOGY]:
 - `CreateFoveationProfileFB` mints a profile and applies NOTHING: the profile takes effect only where `UpdateSwapchainFB` writes a `SwapchainStateFoveationFB` onto each eye swapchain, so a create-only path leaves the render at full-resolution periphery while reading as a landed comfort lever.

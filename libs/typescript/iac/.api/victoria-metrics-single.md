@@ -32,7 +32,7 @@
 
 [TOPOLOGY]:
 - This row is the footprint escape, and its degradation is stated rather than discovered: no native histograms, no exemplar storage, no type or unit suffixes, and no in-store rule evaluator — so click-through degrades to trace search, series carry the bare dotted name, and every burn numerator renders inline per alert evaluation rather than resolving against a recorded series.
-- Tenancy on this row is a LABEL, never an isolation boundary, exactly as on the reference row — an estate needing org isolation escalates to the distributed store instead.
+- Tenancy on this row is a LABEL, never an isolation boundary, exactly as on the reference row — a deployment needing org isolation escalates to the distributed store instead.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders the binary as a stack child under Pulumi diff.

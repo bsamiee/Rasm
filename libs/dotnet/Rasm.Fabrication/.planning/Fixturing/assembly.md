@@ -2,7 +2,7 @@
 
 `AssemblyPlan` owns member admission, join admission, fit-up, precedence, access, load-path stability, temporary support, tolerance closure, joining resources, robot-cell placement, inspection, release, handling, and disassembly evidence. `AssemblyPolicy` admits every component instance, connection specification, datum, fixture, resource, execution policy, and clearance once; the planner consumes typed joints and graph facts only.
 
-`JoinMethod` is the ONE joining-mechanism row table: join class, phase shape, acting phase, and the trait, text, and metric ROSTERS are columns, so seventeen mechanisms share one `JoinProcess` shape and every projection over a process is one expression rather than a parallel twelve-arm fold. `AssemblyJoint.Index` remains the connection-census identity shared with joining plans, `AssemblyPlan.Apply` closes admission, planning, replanning, disassembly, and projection over `AssemblyOp`, and the plan key mints through the `Process/owner#RUN_DISPATCH` `FabricationCanon.Keyed` close, so its refusal rides the same rail the plan does. Scalar admission is `workholding#EVALUATION` `Fixtures`, cyclic component evidence is `setups#SCHEDULE` `Setups.Components`, the tolerance chain consumes the ONE `Joining/sequence` `DistortionField` through `workholding#FIXTURE` `DatumTransfer`, and every preimage frames through `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`.
+`JoinMethod` is the ONE joining-mechanism row table: join class, phase shape, acting phase, and the trait, text, and metric ROSTERS are columns, so seventeen mechanisms share one `JoinProcess` shape and every projection over a process is one expression rather than a parallel twelve-arm fold. `AssemblyJoint.Index` remains the connection-census identity shared with joining plans, `AssemblyPlan.Apply` closes admission, planning, replanning, disassembly, and projection over `AssemblyOp`, and the plan key mints through the `Process/owner#RUN_DISPATCH` `FabricationCanon.Keyed` close, so its refusal rides the same channel the plan does. Scalar admission is `workholding#EVALUATION` `Fixtures`, cyclic component evidence is `setups#SCHEDULE` `Setups.Components`, the tolerance chain consumes the ONE `Joining/sequence` `DistortionField` through `workholding#FIXTURE` `DatumTransfer`, and every preimage frames through `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`.
 
 ## [01]-[INDEX]
 
@@ -256,7 +256,6 @@ public sealed partial class AssemblyExecution {
     public bool Parallel => MaxParallel > 1;
     public int Lanes(int demand) => Math.Min(MaxParallel, Math.Max(1, demand));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref InspectionCadence cadence,
@@ -280,7 +279,6 @@ public readonly partial struct FitRequirement {
     public Temperature TemperatureMin { get; }
     public Temperature TemperatureMax { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length gapMin,
@@ -334,7 +332,6 @@ public readonly partial struct AssemblyMemberKey {
     public UInt128 Representation { get; }
     public int Instance { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref UInt128 representation,
@@ -365,7 +362,6 @@ public sealed partial class JoinProcess {
 
     public Seq<JoinPhase> RequiredPhases(JoinProgram program) => Method.Maximal(program);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref JoinMethod method,
@@ -449,7 +445,7 @@ public sealed record AssemblyJoint(
 - Law: transitive reduction takes NO edge factory and returns the ORIGINAL edges, so the surviving node pairs read once into a set and the typed reason edges filter against it in one pass.
 - Result: a cyclic precedence graph publishes its strongly-connected COMPONENT MEMBERS on `FabricationFault.AssemblyPrecedenceCyclic`, through the ONE `setups#SCHEDULE` `Setups.Components` grouping both Fixturing precedence graphs read — a vertex-and-edge count names nothing a caller can break.
 - Exemption: `Occludes` is the analytic corridor kernel, `Schedule` the bounded lane fold, and `Physical` the connectivity labelling; mutation stays inside admitted graph and fold containers.
-- Packages: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection. Every graph question is a shipped `AlgorithmExtensions` call and no walk is hand-rolled: `IsDirectedAcyclicGraph` rails ahead of the two sorts that throw on cyclic input, `SourceFirstBidirectionalTopologicalSort` answers both directions, `ComputeTransitiveReduction` reduces, `InEdges` reads predecessors inside the lane fold, `ConnectedComponents` labels physical subassemblies, and the cyclic witness composes the ONE `Setups.Components` grouping.
+- Packages: `BidirectionalGraph<JoinNode, AssemblyEdge>` carries reason payloads directly, while the component `UndirectedGraph` remains the disjoint physical-connectivity projection. Every graph question is a shipped `AlgorithmExtensions` call and no walk is hand-rolled: `IsDirectedAcyclicGraph` fails ahead of the two sorts that throw on cyclic input, `SourceFirstBidirectionalTopologicalSort` answers both directions, `ComputeTransitiveReduction` reduces, `InEdges` reads predecessors inside the lane fold, `ConnectedComponents` labels physical subassemblies, and the cyclic witness composes the ONE `Setups.Components` grouping.
 - Boundary: precedence and physical connectivity remain distinct; geometry failure, missing specification, unstable release, and blocked access remain typed failures carrying a `JoinRejection` reason rather than one opaque code.
 
 ```csharp
@@ -901,7 +897,7 @@ internal static partial class Assemblies {
         order.Fold(
             Fin.Succ((Steps: Seq<JoinStep>(), Active: Map<string, double>(), Finished: Map<JoinNode, double>(),
                 Lanes: toSeq(Enumerable.Repeat(0.0, policy.Execution.Lanes(order.Count))).ToArr())),
-            (rail, node) => rail.Bind(state => Seated(index, results, components, node.Joint).Map(seat => {
+            (acc, node) => acc.Bind(state => Seated(index, results, components, node.Joint).Map(seat => {
                 int lane = toSeq(Enumerable.Range(0, state.Lanes.Count)).Fold(0,
                     (best, slot) => state.Lanes[slot] < state.Lanes[best] ? slot : best);
                 double predecessor = toSeq(graph.InEdges(node))
@@ -929,7 +925,7 @@ internal static partial class Assemblies {
         AssemblyExecution execution) =>
         backward.Map(static node => node.Joint).Distinct().Fold(
             Fin.Succ((Steps: Seq<JoinStep>(), Elapsed: Duration.Zero)),
-            (rail, joint) => rail.Bind(state => Seated(index, results, components, joint).Map(seat =>
+            (acc, joint) => acc.Bind(state => Seated(index, results, components, joint).Map(seat =>
                 index.ServicePhases(joint, execution).Fold(state, (held, phase) => {
                     Duration finish = held.Elapsed + seat.Joint.Specification.DurationOf(JoinProgram.Service, phase);
                     return (held.Steps.Add(new JoinStep(held.Steps.Count, joint, phase, seat.Subassembly,

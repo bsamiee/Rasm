@@ -15,7 +15,7 @@ Rasm.AppUi motion is one `MotionToken` vocabulary: each row carries one `MotionT
 
 - Owner: `MotionFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per motion failure; `SpringValue` — the (response, damping-fraction) authoring projection over the kernel `SpringShape` mint, carrying the two declared `SettleBand` values; `MotionTiming` — the closed tween-or-spring modality; `MotionToken` — the grade vocabulary; `MotionEasing` — the one Avalonia easing adapter.
 - Cases: `MotionToken` = instant | fast | standard | emphasized | ambient | spring-snappy | spring-gentle | spring-tracking; `MotionFault` = SpringOutOfDomain | PhaseUnmapped | OrdinalOutOfDomain | AxisRefused | TravelOutOfDomain | HandoffRefused.
-- Law: a timing knows whether it OVERSHOOTS and whether it RETARGETS, because both facts gate admission elsewhere — the effects axes refuse an overshooting token and only a retargetable modality carries velocity across an interruption. Overshoot is PAYLOAD-derived, never a modality constant: the spring arm answers analytically from its damping fraction and the tween arm from a lattice read of its own curve, so an imported easing family classifies itself; retargetability alone is the modality fact the generated total `Switch` answers.
+- Law: a timing knows whether it OVERSHOOTS and whether it RETARGETS, because both facts gate admission elsewhere — the effects axes refuse an overshooting token and only a retargetable modality carries velocity across an interruption. Overshoot is PAYLOAD-derived, never a modality constant: the spring arm answers analytically from its damping fraction and the tween arm from a sampled read of its own curve, so an imported easing family classifies itself; retargetability alone is the modality fact the generated total `Switch` answers.
 - Entry: `MotionToken.Reduced()` — the `[UseDelegateFromConstructor]` reduced-pair column, total by construction; `SpringValue.Advance(SpringState origin, double target, Duration elapsed)` and `SpringValue.Settling(SpringState origin, double target, SettleBand band)` — the interactive spring reads every gesture handoff composes, each one kernel `Evaluate`/`Settle` call at the landed arity.
 - Auto: timing rows double as throttle, debounce, and dwell pacing values consumed by live-data streams, behavior intervals, and screen runtime rows; `SpringValue` admission DELEGATES to the kernel `SpringShape.OfResponse` gate — one admission rule, package-typed onto `MotionFault.SpringOutOfDomain` — so the spring algebra has exactly one owner and a package-local stiffness, damping, decay, or settling derivation is the deleted form.
 - Packages: Rasm (project — `SpringShape`/`SpringState`/`SettleBand` the spring algebra, `FaultBand`/`[FaultCase]`/`Fault` the fault floor, `Easing` the easing vocabulary, `UnitInterval` the progress admission, `Op` the operation key every kernel read carries), Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
@@ -50,11 +50,11 @@ public abstract partial record MotionTiming(Duration Duration, Func<double, doub
 
     static bool Leaves(KernelEase ease) {
         Func<double, double> curve = Eased(ease);
-        return toSeq(Enumerable.Range(0, LatticeSamples)).Exists(step =>
-            curve((double)step / (LatticeSamples - 1)) switch { var value => value < 0d || value > 1d });
+        return toSeq(Enumerable.Range(0, SampleSteps)).Exists(step =>
+            curve((double)step / (SampleSteps - 1)) switch { var value => value < 0d || value > 1d });
     }
 
-    const int LatticeSamples = 33;
+    const int SampleSteps = 33;
 
     static Func<double, double> SpringProgress(Fin<SpringShape> admitted, float response) =>
         admitted.Match<Func<double, double>>(
@@ -168,7 +168,7 @@ public sealed partial class MotionToken {
 - Cases: `MotionKind` = spatial | effects; `MotionLane` = retained | composed | redrawn; `MotionAxis` = opacity | colour | brush | shadow | corner | effect | transform | extent | inset; `LatencyTier` = instant | feedback | skeleton | deliberate | handoff; `RouteDirection` = forward | back.
 - Law: the SPATIAL/EFFECTS split governs damping. Position, size, and transform may ride an under-damped spring because overshooting a coordinate reads as weight; colour, opacity, brush, shadow, and corner are always critically damped because those channels CLAMP at their domain edges and a clamped overshoot renders as a rendering fault. The admission is structural: an effects axis refuses an overshooting token at the bind.
 - Law: the duration ladder is a token ladder. Travel distance and element extent select a ROW, never a computed millisecond value, so two surfaces whose travels differ slightly cannot differ in duration at all.
-- Entry: `MotionAxis.Bind(AvaloniaProperty property, MotionToken token)` — one transition mint with reduction folded in; `MotionAxis.Seat(Animatable target, Seq<(MotionAxis, AvaloniaProperty, MotionToken)> rows)` — the one `Transitions` write, on the `IO` rail because it mutates retained host state; `MotionTravel.Of(double travel, double extent)` — the ladder, accumulating both admission defects; `LatencyTier.Select(Duration expected)` — the feedback-form fold; `RouteCarrier.Bind(TransitioningContentControl host, MotionPlan plan, RouteDirection direction)` — the route carrier, deriving the slide axis from the plan's own origin.
+- Entry: `MotionAxis.Bind(AvaloniaProperty property, MotionToken token)` — one transition mint with reduction folded in; `MotionAxis.Seat(Animatable target, Seq<(MotionAxis, AvaloniaProperty, MotionToken)> rows)` — the one `Transitions` write, on the `IO` effect because it mutates retained host state; `MotionTravel.Of(double travel, double extent)` — the ladder, accumulating both admission defects; `LatencyTier.Select(Duration expected)` — the feedback-form fold; `RouteCarrier.Bind(TransitioningContentControl host, MotionPlan plan, RouteDirection direction)` — the route carrier, deriving the slide axis from the plan's own origin.
 - Auto: an axis row carries its own transition constructor, so a surface names the axis and the styled property and never the transition type; the seat rebuilds the whole `Transitions` list from the row set, so a re-seat under a new density or a new plan cannot leave a stale entry behind; a resolved `Instant` token mounts NO transition at all — the value assignment IS the motion.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new animated axis is one `MotionAxis` row carrying its transition constructor, its kind, and its lane; a new feedback form is one `LatencyTier` row carrying its ceiling and its plan; zero new surface.
@@ -775,7 +775,7 @@ public static class GestureBlend {
 ## [06]-[PHASE_MAPPING]
 
 - Owner: `PhaseMotion` frozen mapping table and its `Covered` totality assertion.
-- Entry: `PhaseMotion.Resolve(ProgressPhase phase)` — typed totality over the map, with degrade applied inside and an unmapped future case returned as `MotionFault.PhaseUnmapped`; `PhaseMotion.Covered()` — the same rail over the whole vocabulary.
+- Entry: `PhaseMotion.Resolve(ProgressPhase phase)` — typed totality over the map, with degrade applied inside and an unmapped future case returned as `MotionFault.PhaseUnmapped`; `PhaseMotion.Covered()` — the same check over the whole vocabulary.
 - Auto: this owner is the ONE phase-motion authority; the progress surfaces owing its binding — the dialog progress ladder, run-queue cards, stat tiles, and chart progress series — compose `Resolve` at their own pages, and the headless conformance sweep reads `Covered`.
 - Packages: Rasm.Compute (project), LanguageExt.Core, BCL inbox
 - Growth: a new phase lands as one map row beside its Compute case; zero new surface.
@@ -837,7 +837,7 @@ flowchart LR
 
 - Owner: `ReducedMotion` — the one degrade switch AND the Avalonia producer of the kernel `MotionPosture`.
 - Law: reduced motion is a HOST PREFERENCE, not a motion-local fact. The switch reads `PreferenceRow.ReducedMotion` through the one `PreferenceCell` every preference consumer binds, so a host flip re-derives motion, variant, translucency, and text scale in one resolve and a second probe path for motion alone cannot exist to disagree with it.
-- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Posture(PaceBand pace)` — the kernel `MotionPosture` producer for any consumer stepping kernel drives, filling `CapabilitySet<MotionConcession>` from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace; `ReducedMotion.Conformance(HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail, Op key)` — the headless sweep firing each resolved token through the AppUi motion point.
+- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Posture(PaceBand pace)` — the kernel `MotionPosture` producer for any consumer stepping kernel drives, filling `CapabilitySet<MotionConcession>` from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace; `ReducedMotion.Conformance(HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks, Op key)` — the headless sweep firing each resolved token through the AppUi motion point.
 - Auto: the cell's own `Track` subscription carries a host reduced-motion flip to the same swap that re-resolves the token catalogue, so every subsequent `Select` resolves the reduced pair globally with no per-animation re-check; a proof lane fixes the state through `PreferenceCell.Pin(PreferenceRow.ReducedMotion, new PreferenceValue.Flag(true))`, whose disposal restores the host read.
 - Packages: Rasm (project — `MotionPosture`/`MotionConcession`/`PaceBand`/`CapabilitySet`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new host reduced-motion source is one column on the preference family at `tokens#VARIANT_AXIS`; a new concession correspondence is one row in the `Concessions` table below; this page grows nothing else.
@@ -872,11 +872,11 @@ public static class ReducedMotion {
     }
 
     public static Fin<Unit> Conformance(
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
         Op key) =>
         toSeq(MotionToken.Items)
             .TraverseM(token => Select(token) switch {
-                var resolved => rail.Fire(
+                var resolved => hooks.Fire(
                     at: AppUiPoint.Motion,
                     fact: new AppUiFact.Motion(token.Key, resolved.Key, Active),
                     key: key),

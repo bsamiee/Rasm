@@ -1,10 +1,10 @@
 # [ELEMENT_WIRE_RASTER]
 
-`WireCodec`'s coverage plane: the `CoverageGrid` codec rebuilding the base-as-level-0 run from the wire's flat base columns and the overview list (the wire keeps its frozen face; the seam maps at the edge), the `CoverageBand` codec re-admitting through the band's own railed `Of` with the palette crossing through the ONE `ToRgb` quantizer the content key shares, the `CellLattice` placement re-admitting through the kernel's own gate, and the `GeoReference` codec re-entering the compound `Admit` (the flattened vertical pair riding the frozen `vertical_datum`/`vertical_epsg` columns).
+`WireCodec`'s coverage plane: the `CoverageGrid` codec rebuilding the base-as-level-0 run from the wire's flat base columns and the overview list (the wire keeps its frozen face; the contract maps at the edge), the `CoverageBand` codec re-admitting through the band's own result-returning `Of` with the palette crossing through the ONE `ToRgb` quantizer the content key shares, the `CellLattice` placement re-admitting through the kernel's own gate, and the `GeoReference` codec re-entering the compound `Admit` (the flattened vertical pair riding the frozen `vertical_datum`/`vertical_epsg` columns).
 
 ## [01]-[INDEX]
 
-- [02]-[RASTER_CODEC]: coverage, band, lattice, and georeference codecs.
+- [02]-[RASTER_CODEC]: coverage, band, grid, and georeference codecs.
 
 ## [02]-[RASTER_CODEC]
 
@@ -26,7 +26,7 @@ using Rasm.Element.Geospatial;
 using Rasm.Element.Projection;
 using Riok.Mapperly.Abstractions;
 using static LanguageExt.Prelude;
-using static Rasm.Element.Graph.SeamConverters;
+using static Rasm.Element.Graph.BoundaryConverters;
 using CellLattice = Rasm.Numerics.CellLattice;
 using LatticeAxis = Rasm.Numerics.Dimension;
 using PerceptualColor = Rasm.Numerics.PerceptualColor;
@@ -67,9 +67,9 @@ internal static partial class WireCodec {
   return w;
  }
 
- [UserMapping] internal static CellLatticeWire ToWire(CellLattice lattice) {
-  CellLatticeWire w = new() { Columns = lattice.Columns.Value, Rows = lattice.Rows.Value, Layers = lattice.Layers.Value, Ceiling = lattice.Ceiling };
-  w.Affine.AddRange(lattice.Affine); return w;
+ [UserMapping] internal static CellLatticeWire ToWire(CellLattice grid) {
+  CellLatticeWire w = new() { Columns = grid.Columns.Value, Rows = grid.Rows.Value, Layers = grid.Layers.Value, Ceiling = grid.Ceiling };
+  w.Affine.AddRange(grid.Affine); return w;
  }
 
  static Fin<CoverageGrid> ToCoverage(CoverageWire w, Op key) =>
@@ -79,9 +79,9 @@ internal static partial class WireCodec {
   from bands in toSeq(w.Bands).TraverseM(band => ToBand(band, key)).As()
   from grid in ToLattice(w.Grid, key)
   from overviews in toSeq(w.Overviews).TraverseM(overview =>
-   from lattice in ToLattice(overview.Grid, key)
+   from grid in ToLattice(overview.Grid, key)
    from raster in ToArtifactContent(overview.RasterArtifact, "coverage.overview.raster_artifact", key)
-   select new OverviewLevel(lattice, raster, Blocked(overview.BlockX, overview.BlockY))).As()
+   select new OverviewLevel(grid, raster, Blocked(overview.BlockX, overview.BlockY))).As()
   from raster in ToArtifactContent(w.RasterArtifact, "coverage.raster_artifact", key)
   from coverage in CoverageGrid.Of(
    kind,
@@ -96,9 +96,9 @@ internal static partial class WireCodec {
    ? from columns in key.AcceptValidated<LatticeAxis>(candidate: wire.Columns)
      from rows in key.AcceptValidated<LatticeAxis>(candidate: wire.Rows)
      from layers in key.AcceptValidated<LatticeAxis>(candidate: wire.Layers)
-     from lattice in CellLattice.Of([.. wire.Affine], columns, rows, layers, wire.Ceiling, key)
-     select lattice
-   : new KernelFault.InvalidValue("element-wire.lattice.affine", $"carry 12 coefficients; actual={w?.Affine.Count ?? 0}", Some(key));
+     from grid in CellLattice.Of([.. wire.Affine], columns, rows, layers, wire.Ceiling, key)
+     select grid
+   : new KernelFault.InvalidValue("element-wire.grid.affine", $"carry 12 coefficients; actual={w?.Affine.Count ?? 0}", Some(key));
 
  static Fin<CoverageBand> ToBand(CoverageBandWire w, Op key) =>
   (key.Row<int, ChannelDtype>(w.SampleType),

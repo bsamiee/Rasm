@@ -73,4 +73,4 @@ Its `PerformanceTimingNames` enum keys Resource-Timing phases and `utils` folds 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` admits only inside `scope:runtime` (edge-ledger ban); no folder outside `telemetry` imports `sdk-trace-web`, and instrumentation emits through Effect's native signals against the facade-driven provider.
 - design code reaches the `WebSdk` layer for the browser provider and the RUM `utils` for URL-bearing span enrichment; `register()` serves a pure-SDK non-Effect path alone.
-- native `Otlp` export stays the standing rail; `.api/effect-opentelemetry.md` owns the `[OTEL_PIN_BLOCK]` collapse roster this browser SDK leg joins.
+- native `Otlp` export stays the standing default; `.api/effect-opentelemetry.md` owns the `[OTEL_PIN_BLOCK]` collapse roster this browser SDK leg joins.

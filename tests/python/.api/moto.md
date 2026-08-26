@@ -1,6 +1,6 @@
 # [PY_TESTS_API_MOTO]
 
-`moto` intercepts AWS SDK traffic and answers it from process-local backend state, so a spec exercises S3 semantics with no network and no credentials. `moto[server]` adds `ThreadedMotoServer`, a Werkzeug server projecting those backends over a real HTTP endpoint — the exact surface the `testkit` `ObjectStore` double binds so `s3fs` speaks to genuine S3-native egress (e-tags, presigned GET) that an in-memory `MemoryFileSystem` cannot forge. S3 is the one service the estate drives; the mock covers the wider AWS surface as latent capability, never a differentiated entry.
+`moto` intercepts AWS SDK traffic and answers it from process-local backend state, so a spec exercises S3 semantics with no network and no credentials. `moto[server]` adds `ThreadedMotoServer`, a Werkzeug server projecting those backends over a real HTTP endpoint — the exact surface the `testkit` `ObjectStore` double binds so `s3fs` speaks to genuine S3-native egress (e-tags, presigned GET) that an in-memory `MemoryFileSystem` cannot forge. S3 is the one service the repo drives; the mock covers the wider AWS surface as latent capability, never a differentiated entry.
 
 ## [01]-[PUBLIC_TYPES]
 

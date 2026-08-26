@@ -1,27 +1,27 @@
 # [RASM_PROJECTION_VIEW]
 
-`Rasm.Drawing` owns exact analytic visibility on the projection fault band: Appel quantitative-invisibility resolved through exact sign arithmetic, so the missed-occluder count is zero by construction rather than by a tuning knob. One `ViewOp` `[Union]` folds every view modality through one `View.Apply` over a PART ROSTER — one QI solve over the offset union soup, so occlusion BETWEEN parts rides the same walk that resolves occlusion within one, and a per-part solve loop is the named wrong form an assembly drawing cannot survive. `DrawingProjection` is the sole seam the host-free sheet layer reads — the RhinoCommon `Point3d`/`Polyline` drawing surface reaches that layer only through that carrier, every segment carrying its part and source-face provenance.
+`Rasm.Drawing` owns exact analytic visibility on the projection fault band: Appel quantitative-invisibility resolved through exact sign arithmetic, so the missed-occluder count is zero by construction rather than by a tuning knob. One `ViewOp` `[Union]` folds every view modality through one `View.Apply` over a PART ROSTER — one QI solve over the offset union soup, so occlusion BETWEEN parts rides the same walk that resolves occlusion within one, and a per-part solve loop is the named wrong form an assembly drawing cannot survive. `DrawingProjection` is the sole carrier the host-free sheet layer reads — the RhinoCommon `Point3d`/`Polyline` drawing surface reaches that layer only through that carrier, every segment carrying its part and source-face provenance.
 
-This page founds nothing: every silhouette, crossing, seed, section, crease, fill, and inter-part kernel composes a landed sibling seam, so a rebuild reuses the intersect, spatial, feature, arrangement, and graph owners rather than re-deriving them. Faults ride the locked two-family seam — the `Op` admission channel and `GeometryFault` family geometry, neither absorbing the other. Exact-arithmetic visibility here stands beside the host `Silhouette.Compute` capture tier in `Analysis/select` under the capture law, consumers selecting by altitude.
+This page founds nothing: every silhouette, crossing, seed, section, crease, fill, and inter-part kernel composes a landed sibling owner, so a rebuild reuses the intersect, spatial, feature, arrangement, and graph owners rather than re-deriving them. Faults ride the locked two-family split — the `Op` admission channel and `GeometryFault` family geometry, neither absorbing the other. Exact-arithmetic visibility here stands beside the host `Silhouette.Compute` capture tier in `Analysis/select` under the capture law, consumers selecting by altitude.
 
 ## [01]-[INDEX]
 
-- [02]-[PROJECTION]: `ViewOp` `[Union]` over the `ViewSubject` part roster folded by one `View.Apply`; the exact `Orient3D` silhouette locus; the pairwise inter-part contact pass; the Appel quantitative-invisibility solve over the `Spatial.Apply`/`Intersection.Apply` crossing lattice with exact ±1 deltas and two-stage seeding; the `Section` cut through `IntersectOp.PlaneMesh` per part; `DrawingProjection` the successor-linked visible/hidden carrier with part provenance and the interference roster; the `ViewConvention` drafting catalog deriving `ViewPose` poses.
-- [03]-[DENSITY_BAR]: per-axis owner, rail, and case partition this page holds.
+- [02]-[PROJECTION]: `ViewOp` `[Union]` over the `ViewSubject` part roster folded by one `View.Apply`; the exact `Orient3D` silhouette locus; the pairwise inter-part contact pass; the Appel quantitative-invisibility solve over the `Spatial.Apply`/`Intersection.Apply` crossing table with exact ±1 deltas and two-stage seeding; the `Section` cut through `IntersectOp.PlaneMesh` per part; `DrawingProjection` the successor-linked visible/hidden carrier with part provenance and the interference roster; the `ViewConvention` drafting catalog deriving `ViewPose` poses.
+- [03]-[DENSITY_BAR]: per-axis owner, result, and case partition this page holds.
 
 ## [02]-[PROJECTION]
 
 - Owner: `ViewKind` `[SmartEnum<string>]` discriminates the four operations, binding the shipped `ComparerAccessors.StringOrdinal` comparer and carrying ONE `CapabilitySet<ViewTrait>` column over the `Resolves`/`Retains` vocabulary; `ViewSubject` pairs one `MeshSpace` with its optional rigid `Pose` behind a fallible `Of`, so a default slot is unrepresentable and exploded views and positioned instances stay roster DATA applied once at admission; `PartSpan` is the union-soup offset row making face-to-part an O(1) read; `Camera` owns `Project`/`Depth`/`SideOf`/`ScreenBasis`, and `SideOf` IS the exact `Predicate.Orient3D` of the eye against a face; `EdgeKind` classifies silhouette/crease/boundary/intersection, `Visibility` derives the visible/hidden verdict from the invisibility count, `PartRole` and `ContactPosture` are the occlusion-mask and contact vocabularies `ViewPolicy` binds beside the lane-derived crease dihedral, winding β², run `Context`, and composed `Narrow`/`Broad` policies; `ContactKind`/`PartContact` carry the interference roster, `ProjectedSegment`/`DrawingProjection`/`EdgeHistogram` complete the emission and result surface over `SuccessorChain`, the ONE chain walk both Drawing carriers read; `ViewOp` owns the shared roster/pose/policy payload once while `Section` alone adds its cut plane, and `View` owns the ONE `Apply`; `ViewProjectionIntent`/`ViewConvention`/`ViewPose` are the drafting-convention catalog folding bounds-relative placement through ONE derived `Pose` body, whose `ToCamera` lowers the SAME pose onto this page's exact `Camera` and is that camera's ONLY mint.
-- Cases: `outline` is the visible slice of the SAME silhouette walk and QI solve (visible silhouette + boundary, no hidden set), never a parallel outliner; the four kinds differ ONLY in which slice of the shared solve they project and in `Section`'s cut delegation — one walk, one lattice, one solve, over one union soup whatever the roster count.
+- Cases: `outline` is the visible slice of the SAME silhouette walk and QI solve (visible silhouette + boundary, no hidden set), never a parallel outliner; the four kinds differ ONLY in which slice of the shared solve they project and in `Section`'s cut delegation — one walk, one table, one solve, over one union soup whatever the roster count.
 - Entry: `public static Fin<DrawingProjection> View.Apply(ViewOp op, Op? key = null)` — the ONE entrypoint discriminating by op case through the generated total `Switch`, no `ExtractSilhouette`/`RemoveHiddenLines`/`SectionCut`/`ProjectOutline` sibling family and no assembly sibling: one part is a roster of one (`ViewSubject.Of`). Admission refusals ride the `Op` channel (`key.InvalidInput()` on a degenerate camera or an out-of-roster mask key), geometry defects ride `GeometryFault` family (`DegenerateInput` naming the part ordinal on a default, empty, or non-finite part; the same case naming the pair under `ContactPosture.Refuse`), an empty locus or non-chain section routes `ProjectionFault`, and a composed sibling fault surfaces unchanged — the fold never re-labels a sibling's typed fault.
-- Auto: `Admit` traverses the roster one fallible `Seat` per part (`Kernels.Apply(MeshEdit.Of(space), pose)` frozen through `ToSpace`, which reads the arena's OWN bound context; identity poses pass the space through) and `Freeze` welds the lifts into the offset union soup in one pass, projecting `PartSpan`, `FaceOwner`, and the two mask-role columns together — per-part vertex/face offsets make cross-part welds unrepresentable in the edge-incidence fold, emptiness and finiteness gate per part, and the mask table folds ONCE for every reader; `Contacts` runs the pairwise inter-part pass, ONE `SpatialQuery.Overlap` of the memoized `MeshSpace.Bounds` index against itself pruning the pairs on the mesh-intersection lane, `IntersectOp.MeshMesh` resolving each survivor, the lattice's transversal `Segments` classifying `Penetrating` and its `Coplanar` rows `Tangent`; penetrating chains append as `EdgeKind.Intersection` locus edges (candidate-only, `Apex = -1`) with their synthetic vertices where the kind's traits admit `Seams`, so inter-part seams draw, the section cut pays no seam materialization, and the QI solve stays untouched; `Silhouettes` walks the edge-incidence fold once over the union — a boundary edge is always a silhouette, a two-face edge a silhouette exactly where `FacesOppose` reads opposite nonzero `SideOf` signs, and a crease above the dihedral threshold lifts `EdgeKind.Crease` from the per-part `FeatureEdges` classification with the lift failure propagating — every locus edge tagged with its part and classifying face; `Resolve` owns the QI solve — QuikGraph-component labeling, the exact `SegmentSegment` crossing lattice, exact ±1 deltas off the eye–silhouette plane, and two-stage seeding (a batched `Winding` CULLS components the field places strictly outside, the exact `SegmentTriangle` battery counting every one it keeps) — reading only occlusion-eligible faces and occluder edges under the mask table; `Emit` splits each edge at its crossings, threads the running count, rounds coordinates ONCE, links same-visibility successors, retains hidden runs under `ViewTrait.Retains`, skips `OccludingNotDrawn` parts, and folds the flat and per-part histograms in one pass; `Section` partitions the per-part `PlaneMesh` chains closed/open, emitting an open chain as a typed row, never silently closed.
+- Auto: `Admit` traverses the roster one fallible `Seat` per part (`Kernels.Apply(MeshEdit.Of(space), pose)` frozen through `ToSpace`, which reads the arena's OWN bound context; identity poses pass the space through) and `Freeze` welds the lifts into the offset union soup in one pass, projecting `PartSpan`, `FaceOwner`, and the two mask-role columns together — per-part vertex/face offsets make cross-part welds unrepresentable in the edge-incidence fold, emptiness and finiteness gate per part, and the mask table folds ONCE for every reader; `Contacts` runs the pairwise inter-part pass, ONE `SpatialQuery.Overlap` of the memoized `MeshSpace.Bounds` index against itself pruning the pairs on the mesh-intersection lane, `IntersectOp.MeshMesh` resolving each survivor, the lattice's transversal `Segments` classifying `Penetrating` and its `Coplanar` rows `Tangent`; penetrating chains append as `EdgeKind.Intersection` locus edges (candidate-only, `Apex = -1`) with their synthetic vertices where the kind's traits admit `Contacts`, so inter-part contacts draw, the section cut pays no contact materialization, and the QI solve stays untouched; `Silhouettes` walks the edge-incidence fold once over the union — a boundary edge is always a silhouette, a two-face edge a silhouette exactly where `FacesOppose` reads opposite nonzero `SideOf` signs, and a crease above the dihedral threshold lifts `EdgeKind.Crease` from the per-part `FeatureEdges` classification with the lift failure propagating — every locus edge tagged with its part and classifying face; `Resolve` owns the QI solve — QuikGraph-component labeling, the exact `SegmentSegment` crossing table, exact ±1 deltas off the eye–silhouette plane, and two-stage seeding (a batched `Winding` CULLS components the field places strictly outside, the exact `SegmentTriangle` battery counting every one it keeps) — reading only occlusion-eligible faces and occluder edges under the mask table; `Emit` splits each edge at its crossings, threads the running count, rounds coordinates ONCE, links same-visibility successors, retains hidden runs under `ViewTrait.Retains`, skips `OccludingNotDrawn` parts, and folds the flat and per-part histograms in one pass; `Section` partitions the per-part `PlaneMesh` chains closed/open, emitting an open chain as a typed row, never silently closed.
 - Output: `DrawingProjection` (visible/hidden `Seq<ProjectedSegment>` + `EdgeHistogram` + per-part `Parts` tallies + the `Contacts` interference roster) IS the typed result — each segment carries its exact `Invisibility`, `EdgeKind`, per-endpoint `Depth` cue, `Part` ordinal, and `SourceFace` (the classifying union-soup face, ABSENT on inter-part and section segments), so a dashed-hidden render, per-part layer assignment, depth-weighted line weight, or face-grain attribution reads the full set from one carrier; `PartContact` rows surface the pairwise pass as clash evidence — penetrating versus tangent per pair with the chain census — from work the locus already paid for; this owner mints no second identity, content-addressing through the `Polyline`/`Line` projection.
 - Packages: `Rasm.Meshing` (`MeshEdit.Of` soup adapter, `Kernels.Apply` the pose transform, `Intersection.Apply` for `PlaneMesh`/`SegmentSegment`/`SegmentTriangle`/`MeshMesh`, `Arrangement.Apply`/`ArrangementOp.PlanarOverlay` fill), `Rasm.Processing` (the `FeatureEdges` dihedral vocabulary through `VectorIntent.Features`), `Rasm.Spatial` (`Spatial.Apply` — `Build`/`Overlap`/`Range`/`Winding`), `Rasm.Numerics` (`Predicate.Orient3D`, `Sign`, `Axis`, `VectorAngle`, `PositiveMagnitude`, `GeometryFault` family), `Rasm.Domain` (`Op`, `Kind`, `Context`, `ICapability`/`CapabilitySet`/`CapabilityLaw`), QuikGraph (`ConnectedComponents` component walk), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new view modality is one `ViewKind` row and one `ViewOp` case reading the SAME walk and solve — `outline` is this leaf's executed precedent, and the case set is closed by the generated `Switch`, so the fifth case breaks `Apply` at one site; a new edge classification is one `EdgeKind` row and one `Silhouettes` arm reading the `FeatureEdges` lift; a new solve trait is one `ViewTrait` row with its legal corners on `ViewTrait.Law`; a new camera projection is one column on `Camera`; a new per-segment render cue is one field on `ProjectedSegment` beside `Depth` — `Part` and `SourceFace` are the executed precedent; a new part role is one `PartRole` row read by the same mask table; a new contact posture is one `ContactPosture` row on the same admission gate; a fifth view kind enters only by charter amendment; zero new surface.
 - Law: `ProjectionLaws` is the tier-2 law matrix over this owner — `FacesOppose` agrees with a rational eye-vs-plane determinant oracle, the silhouette set is rigid-transform invariant and closed on a closed manifold, the emitted visibility agrees with a brute-force per-face occlusion oracle OVER THE WHOLE ROSTER (the union-occlusion law: solving parts separately and merging is the enumerated wrong form, since it cannot count one part's faces against another's edges) and is permutation-deterministic, `Part`/`SourceFace` agree with the `PartSpan` lookup on every emitted segment, a partially-occluded edge yields both runs with the hidden run retained, the section curve lies on both the cutting plane and its part's mesh, and `ScreenBasis` agrees with `Project` on the parallel path — the transformed point's first two coordinates equal the projected `(u, v)`.
-- Law: `ViewTrait.Law` states the corner a boolean triple cannot: retaining hidden runs REQUIRES the QI solve, because a hidden run has no classification without an invisibility count, so `Retains` without `Resolves` is unrepresentable. `Seams` is orthogonal — the section cut reads the contact roster and never a seam edge — which leaves six legal corners and makes the seam demand a row on `ViewKind` rather than a caller-supplied flag.
+- Law: `ViewTrait.Law` states the corner a boolean triple cannot: retaining hidden runs REQUIRES the QI solve, because a hidden run has no classification without an invisibility count, so `Retains` without `Resolves` is unrepresentable. `Contacts` is orthogonal — the section cut reads the contact roster and never a boundary edge — which leaves six legal corners and makes the contact demand a row on `ViewKind` rather than a caller-supplied flag.
 - Law: `ViewConvention` rows are AUTHORED studio drafting conventions, not a published standard, so each column states its own derivation where one exists — the axonometric elevation is `atan(1/√2)`, the plan and reflected-ceiling elevations are ±90°, the axonometric azimuth 45°, every remaining bearing a named degree measure — and the remaining values are declared data with no upstream to cite. `ViewProjectionIntent.Rectify` carries the screen-basis correction each intent owes; the two-point vertical rectification is a function of the camera basis, not a constant, so that row states its absence rather than fabricating one. `Elevation` and `Azimuth` stay signed radians because a spherical coordinate is not the two-vector measurement `VectorAngle` admits; `DistanceFactor`, `Lens`, `CreaseDihedral`, and `Beta` carry their band owners.
-- Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` folded by one `Apply`, and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family is the named density defect — as is a per-part solve loop at any consumer, which the roster payload exists to foreclose. Visibility is EXACT ANALYTIC: the silhouette locus composes `Predicate.Orient3D` (an epsilon-tolerant float dot test is the non-determinism defect), every crossing/delta/seed is an exact sign through the intersect and predicate owners, candidate-component labeling composes QuikGraph `ConnectedComponents` (a page-local union-find is deleted), the `Section` cut composes `IntersectOp.PlaneMesh` (an inline plane-mesh test or a host `Make2D` round-trip is deleted), the inter-part seam composes `IntersectOp.MeshMesh` (a page-local mesh-mesh march is deleted), the crease composes the `FeatureEdges` dihedral (a local re-derivation is the deleted double owner), region fill composes `ArrangementOp.PlanarOverlay` (a local filler is deleted), the soup is `MeshEdit.Of` with poses applied through `Kernels.Apply` (a page-local `Soup`/`BuildNative` pair is the deleted third carrier), and `ToPolylines` walks successor links per visibility set (a `GroupBy(kind)` concat merging visible with hidden is the deleted lie). Coplanar face-to-face contact between parts is where `Orient3D` reads `Sign.Zero` and QI deltas silently stop transitioning, so contact takes an admission POSTURE rather than per-predicate guards: `Weld` accepts the joint — coincident surfaces change no visibility, the contact records on the projection, and the parts' own locus edges draw the seam — while `Refuse` faults typed naming the pair; an unstated posture is the foreclosed silent form. Occlusion masks are a `HashMap<int, PartRole>` KEYED on the part ordinal resolved ONCE into the assembly's `Occludes`/`Draws` columns, so one part cannot carry two contradicting rows and no default-minted slot can ghost a role — a ghosted-context boolean per call site is the killed knob pair and the ordered row array the killed ambiguity. `Apply` is total over the `Fin` rail — a thrown exception on a degenerate camera or empty locus is forbidden, admission refusals ride the `Op` channel and geometry defects ride `GeometryFault` family, neither family absorbing the other. Screen coordinates operate on raw `double` only inside the projection kernels; a bare `double` crossing the public surface outside `Point3d`/`Plane`/`Polyline`/`Line`/`Transform` is the seam violation. Hidden runs classify and RETAIN under `ViewTrait.Retains`, never discarded to satisfy a budget; the emission keys its run sets and head maps on `Visibility`, so a third visibility class is one row rather than a fourth pair of parallel structures. `ViewConvention` seats at THIS drawing tier as drafting-presentation policy — a geometry-rail seat or a host-folder recipe catalog with inline multipliers is the killed form; the host viewport rail consumes `ViewPose` while this page's exact drawing consumes `ToCamera`, and annotation seams (GD&T datum targets, basic dimensions) consume `Camera.ScreenBasis` rather than re-deriving a basis.
+- Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` folded by one `Apply`, and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family is the named density defect — as is a per-part solve loop at any consumer, which the roster payload exists to foreclose. Visibility is EXACT ANALYTIC: the silhouette locus composes `Predicate.Orient3D` (an epsilon-tolerant float dot test is the non-determinism defect), every crossing/delta/seed is an exact sign through the intersect and predicate owners, candidate-component labeling composes QuikGraph `ConnectedComponents` (a page-local union-find is deleted), the `Section` cut composes `IntersectOp.PlaneMesh` (an inline plane-mesh test or a host `Make2D` round-trip is deleted), the inter-part contact composes `IntersectOp.MeshMesh` (a page-local mesh-mesh march is deleted), the crease composes the `FeatureEdges` dihedral (a local re-derivation is the deleted double owner), region fill composes `ArrangementOp.PlanarOverlay` (a local filler is deleted), the soup is `MeshEdit.Of` with poses applied through `Kernels.Apply` (a page-local `Soup`/`BuildNative` pair is the deleted third carrier), and `ToPolylines` walks successor links per visibility set (a `GroupBy(kind)` concat merging visible with hidden is the deleted lie). Coplanar face-to-face contact between parts is where `Orient3D` reads `Sign.Zero` and QI deltas silently stop transitioning, so contact takes an admission POSTURE rather than per-predicate guards: `Weld` accepts the joint — coincident surfaces change no visibility, the contact records on the projection, and the parts' own locus edges draw the contact — while `Refuse` faults typed naming the pair; an unstated posture is the foreclosed silent form. Occlusion masks are a `HashMap<int, PartRole>` KEYED on the part ordinal resolved ONCE into the assembly's `Occludes`/`Draws` columns, so one part cannot carry two contradicting rows and no default-minted slot can ghost a role — a ghosted-context boolean per call site is the killed knob pair and the ordered row array the killed ambiguity. `Apply` is total over `Fin` — a thrown exception on a degenerate camera or empty locus is forbidden, admission refusals ride the `Op` channel and geometry defects ride `GeometryFault` family, neither family absorbing the other. Screen coordinates operate on raw `double` only inside the projection kernels; a bare `double` crossing the public surface outside `Point3d`/`Plane`/`Polyline`/`Line`/`Transform` is the boundary violation. Hidden runs classify and RETAIN under `ViewTrait.Retains`, never discarded to satisfy a budget; the emission keys its run sets and head maps on `Visibility`, so a third visibility class is one row rather than a fourth pair of parallel structures. `ViewConvention` seats at THIS drawing tier as drafting-presentation policy — a geometry-band seat or a host-folder recipe catalog with inline multipliers is the killed form; the host viewport owner consumes `ViewPose` while this page's exact drawing consumes `ToCamera`, and annotation owners (GD&T datum targets, basic dimensions) consume `Camera.ScreenBasis` rather than re-deriving a basis.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -48,15 +48,15 @@ namespace Rasm.Drawing;
 public sealed partial class ViewTrait : ICapability<ViewTrait> {
     public static readonly ViewTrait Resolves = new("resolves", rank: 0);
     public static readonly ViewTrait Retains  = new("retains", rank: 1);
-    public static readonly ViewTrait Seams    = new("seams", rank: 2);
+    public static readonly ViewTrait Contacts = new("contacts", rank: 2);
 
     public int Rank { get; }
 
     public static readonly CapabilityLaw<ViewTrait> Law = new(Legal: Seq(
         CapabilitySet<ViewTrait>.None,
-        CapabilitySet<ViewTrait>.Of(Seams),
+        CapabilitySet<ViewTrait>.Of(Contacts),
         CapabilitySet<ViewTrait>.Of(Resolves),
-        CapabilitySet<ViewTrait>.Of(Resolves).With(Seams),
+        CapabilitySet<ViewTrait>.Of(Resolves).With(Contacts),
         CapabilitySet<ViewTrait>.Of(Resolves).With(Retains),
         CapabilitySet<ViewTrait>.All));
 }
@@ -65,10 +65,10 @@ public sealed partial class ViewTrait : ICapability<ViewTrait> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ViewKind {
-    public static readonly ViewKind Silhouette = new("silhouette", traits: CapabilitySet<ViewTrait>.Of(ViewTrait.Seams));
+    public static readonly ViewKind Silhouette = new("silhouette", traits: CapabilitySet<ViewTrait>.Of(ViewTrait.Contacts));
     public static readonly ViewKind HiddenLine = new("hidden-line", traits: CapabilitySet<ViewTrait>.All);
     public static readonly ViewKind Section    = new("section", traits: CapabilitySet<ViewTrait>.None);
-    public static readonly ViewKind Outline    = new("outline", traits: CapabilitySet<ViewTrait>.Of(ViewTrait.Resolves).With(ViewTrait.Seams));
+    public static readonly ViewKind Outline    = new("outline", traits: CapabilitySet<ViewTrait>.Of(ViewTrait.Resolves).With(ViewTrait.Contacts));
 
     public CapabilitySet<ViewTrait> Traits { get; }
 }
@@ -169,7 +169,6 @@ public readonly record struct ViewSubject {
     public MeshSpace Mesh { get; }
     public Option<Transform> Pose { get; }
 
-    [BoundaryAdapter]
     public static Fin<ViewSubject> Of(MeshSpace mesh, Option<Transform> pose = default, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(mesh).Bind(seated => op.Need(seated.Native)).Map(_ => new ViewSubject(mesh, pose));
@@ -183,7 +182,6 @@ public readonly record struct PartSpan(int VertexStart, int VertexCount, int Fac
 public sealed record PartContact(int A, int B, ContactKind Kind, int Chains);
 
 public readonly record struct ViewPose(VectorFrame Frame, Point3d Eye, Point3d Target, BoundingBox Subject, ViewProjectionIntent Projection, PositiveMagnitude Lens) {
-    [BoundaryAdapter]
     public Fin<Camera> ToCamera(Context tolerance, Op? key = null) {
         Op op = key.OrDefault();
         ViewPose self = this;
@@ -230,7 +228,6 @@ public sealed record Camera {
 
     public Sign SideOf(Point3d a, Point3d b, Point3d c) => Predicate.Orient3D(a, b, c, Eye);
 
-    [BoundaryAdapter]
     public Fin<Transform> ScreenBasis(Op? key = null) =>
         Perspective
             ? Fin.Fail<Transform>(key.OrDefault().InvalidInput())
@@ -263,7 +260,6 @@ public sealed record DrawingProjection(Seq<ProjectedSegment> Visible, Seq<Projec
 
     public Seq<Line> ToSegments() => (Visible + Hidden).Map(static s => new Line(s.ScreenA, s.ScreenB));
 
-    [BoundaryAdapter]
     public Fin<ArrangementResult> Fill(ArrangementPolicy policy, Op? key = null) =>
         Arrangement.Apply(new ArrangementOp.PlanarOverlay(
             A: Chains(Visible).Filter(static loop => loop.IsClosed), B: Seq<Polyline>(), Op: BooleanOp.Union, Plane: Axis.Z, Policy: policy), key);
@@ -296,7 +292,6 @@ public sealed record ViewPolicy(
     VectorAngle CreaseDihedral, PositiveMagnitude Beta, IntersectPolicy Narrow, BuildPolicy Broad,
     ContactPosture Contact, HashMap<int, PartRole> Masks, Context Tolerance) {
 
-    [BoundaryAdapter]
     public static Fin<ViewPolicy> Of(
         Context context, Option<VectorAngle> creaseDihedral = default, Option<PositiveMagnitude> beta = default,
         Option<IntersectPolicy> narrow = default, Option<BuildPolicy> broad = default,
@@ -349,7 +344,6 @@ public abstract partial record ViewOp {
 }
 
 public static class View {
-    [BoundaryAdapter]
     public static Fin<DrawingProjection> Apply(ViewOp op, Op? key = null) {
         Op k = key.OrDefault();
         if (op.Parts.IsEmpty || op.Policy.Masks.Keys.Exists(part => part < 0 || part >= op.Parts.Count)) {
@@ -366,10 +360,10 @@ public static class View {
     }
 
     static Fin<DrawingProjection> Trace(Assembly assembly, ContactSet contact, ViewOp op, Camera camera, Op key) =>
-        Silhouettes(assembly, contact.SeamEdges, camera, op.Policy, key).Bind(locus =>
+        Silhouettes(assembly, contact.ContactEdges, camera, op.Policy, key).Bind(locus =>
             op.Kind.Traits.Admits(ViewTrait.Resolves)
                 ? Resolve(assembly, locus, contact.Roster, camera, op.Policy, op.Kind.Traits, key)
-                : Fin.Succ(Emit(assembly, locus.Edges, EmptyLattice(locus.Edges.Count), new int[locus.Edges.Count],
+                : Fin.Succ(Emit(assembly, locus.Edges, EmptyTable(locus.Edges.Count), new int[locus.Edges.Count],
                     contact.Roster, camera, CapabilitySet<ViewTrait>.None, locus.V)));
 
     // --- [ADMISSION]
@@ -439,7 +433,7 @@ public static class View {
     }
 
     // --- [CONTACT]
-    internal readonly record struct ContactSet(Seq<PartContact> Roster, Seq<(Point3d A, Point3d B, int Part)> SeamEdges);
+    internal readonly record struct ContactSet(Seq<PartContact> Roster, Seq<(Point3d A, Point3d B, int Part)> ContactEdges);
 
     static Fin<ContactSet> Contacts(Assembly assembly, ViewPolicy policy, CapabilitySet<ViewTrait> traits, Op key) {
         if (assembly.Spans.Length < 2) return Fin.Succ(new ContactSet(Seq<PartContact>(), Seq<(Point3d, Point3d, int)>()));
@@ -465,19 +459,19 @@ public static class View {
             return Fin.Fail<Option<(PartContact, Seq<(Point3d, Point3d, int)>)>>(
                 new GeometryFault.DegenerateInput(Kind.Mesh, b, $"coplanar contact with part {a}"));
         int carried = draws[int.Min(a, b)] ? int.Min(a, b) : int.Max(a, b);
-        Seq<(Point3d, Point3d, int)> seams = penetrating && traits.Admits(ViewTrait.Seams)
+        Seq<(Point3d, Point3d, int)> contacts = penetrating && traits.Admits(ViewTrait.Contacts)
             ? chains.Walked.Bind(chain => toSeq(Enumerable.Range(0, chain.Points.Count - 1)
                 .Select(i => (chain.Points[i], chain.Points[i + 1], carried))))
             : Seq<(Point3d, Point3d, int)>();
         return Fin.Succ(Some((
             new PartContact(a, b, penetrating ? ContactKind.Penetrating : ContactKind.Tangent, chains.Walked.Count),
-            seams)));
+            contacts)));
     }
 
     // --- [SILHOUETTE]
     readonly record struct Locus(Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> Edges, Sign[] Side, Point3d[] V);
 
-    static Fin<Locus> Silhouettes(Assembly assembly, Seq<(Point3d A, Point3d B, int Part)> seams, Camera camera, ViewPolicy policy, Op key) =>
+    static Fin<Locus> Silhouettes(Assembly assembly, Seq<(Point3d A, Point3d B, int Part)> contacts, Camera camera, ViewPolicy policy, Op key) =>
         CreaseEdges(assembly, camera, policy, key).Bind(creases => {
             (Point3d[] V, (int A, int B, int C)[] F) soup = (assembly.V, assembly.F);
             Sign[] side = new Sign[soup.F.Length];
@@ -505,9 +499,9 @@ public static class View {
                 }
             }
             Point3d[] grown = soup.V;
-            if (!seams.IsEmpty) {
+            if (!contacts.IsEmpty) {
                 List<Point3d> extended = [.. soup.V];
-                foreach ((Point3d a, Point3d b, int part) in seams) {
+                foreach ((Point3d a, Point3d b, int part) in contacts) {
                     edges.Add((extended.Count, extended.Count + 1, EdgeKind.Intersection, -1, part, -1));
                     extended.Add(a);
                     extended.Add(b);
@@ -548,14 +542,14 @@ public static class View {
     static int ThirdVertex((int A, int B, int C) face, int u, int v) =>
         face.A != u && face.A != v ? face.A : face.B != u && face.B != v ? face.B : face.C;
 
-    // --- [QI_LATTICE]
+    // --- [QI_SOLVE]
     static Fin<DrawingProjection> Resolve(Assembly assembly, Locus locus, Seq<PartContact> contacts, Camera camera, ViewPolicy policy, CapabilitySet<ViewTrait> traits, Op key) {
         int[] component = Components(locus.Edges);
         (BoundingBox[] boxes, Point3d[] triangles, int[] worldFace) = Occluders(assembly);
         return Broad(boxes, policy.Broad, key).Bind(world =>
-            Crossings(assembly, locus, camera, policy, key).Bind(lattice =>
+            Crossings(assembly, locus, camera, policy, key).Bind(table =>
                 Seeds(assembly, locus, component, camera, world, worldFace, triangles, policy, key).Map(seeds =>
-                    Emit(assembly, locus.Edges, lattice, PropagateSeeds(component, locus.Edges, seeds), contacts, camera, traits, locus.V))));
+                    Emit(assembly, locus.Edges, table, PropagateSeeds(component, locus.Edges, seeds), contacts, camera, traits, locus.V))));
     }
 
     static Fin<Seq<(double T, int Delta)>[]> Crossings(Assembly assembly, Locus locus, Camera camera, ViewPolicy policy, Op key) {
@@ -617,7 +611,7 @@ public static class View {
                 .As()
                 .Map(static counts => counts.Fold(0, static (total, count) => total + count)));
 
-    static DrawingProjection Emit(Assembly assembly, Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> edges, Seq<(double T, int Delta)>[] lattice, int[] edgeSeed, Seq<PartContact> contacts, Camera camera, CapabilitySet<ViewTrait> traits, Point3d[] vertices) {
+    static DrawingProjection Emit(Assembly assembly, Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> edges, Seq<(double T, int Delta)>[] table, int[] edgeSeed, Seq<PartContact> contacts, Camera camera, CapabilitySet<ViewTrait> traits, Point3d[] vertices) {
         bool retains = traits.Admits(ViewTrait.Retains);
         Dictionary<Visibility, List<ProjectedSegment>> sets = Visibility.Items.ToDictionary(static row => row, static _ => new List<ProjectedSegment>());
         Dictionary<(Visibility Set, int Vertex), int> heads = [];
@@ -632,7 +626,7 @@ public static class View {
             Point3d pb = camera.Project(vertices[b]);
             (double da, double db) = (camera.Depth(vertices[a]), camera.Depth(vertices[b]));
             (double prevT, int count, Option<int> prevRun, Visibility prevSet) = (0.0, edgeSeed[e], Option<int>.None, Visibility.Visible);
-            foreach ((double t, int delta) in lattice[e].Append((T: 1.0, Delta: 0))) {
+            foreach ((double t, int delta) in table[e].Append((T: 1.0, Delta: 0))) {
                 double at = Math.Clamp(t, 0.0, 1.0);
                 if (at > prevT) {
                     Visibility state = count > 0 ? Visibility.Hidden : Visibility.Visible;
@@ -798,7 +792,7 @@ public static class View {
         return [.. buckets.Select(static bucket => toSeq(bucket.OrderBy(static row => row.T)))];
     }
 
-    static Seq<(double T, int Delta)>[] EmptyLattice(int edgeCount) =>
+    static Seq<(double T, int Delta)>[] EmptyTable(int edgeCount) =>
         [.. Enumerable.Repeat(Seq<(double T, int Delta)>(), edgeCount)];
 }
 ```
@@ -815,28 +809,28 @@ flowchart LR
     accTitle: Drawing view projection flow
     accDescr: View.Apply folds ViewOp cases over the part roster through the union silhouette walk, inter-part contact pass, and QI solve into DrawingProjection segments with part provenance, composing arrangement fill, plane-mesh and mesh-mesh intersection, and the spatial broad phase.
     ViewOp -->|"ViewSubject roster — Kernels.Apply poses, MeshEdit.Of the ONE soup adapter"| Soup["offset union soup + PartSpan rows"]
-    Soup -->|"part-bounds Overlap → IntersectOp.MeshMesh"| Contact["PartContact roster + inter-part seam edges"]
-    Soup -->|exact eye-side Orient3D| Locus["silhouette / boundary / crease / seam locus — Part + Face tagged"]
+    Soup -->|"part-bounds Overlap → IntersectOp.MeshMesh"| Contact["PartContact roster + inter-part contact edges"]
+    Soup -->|exact eye-side Orient3D| Locus["silhouette / boundary / crease / contact locus — Part + Face tagged"]
     Locus -->|"per-part FeatureEdges dihedral lift"| Crease["VectorIntent.Features"]
     Locus -->|"screen boxes → Spatial.Apply Overlap"| Pairs["crossing candidate pairs"]
-    Pairs -->|"IntersectOp.SegmentSegment (Axis.Z) exact"| Lattice["crossing rows (T, ±1 delta)"]
+    Pairs -->|"IntersectOp.SegmentSegment (Axis.Z) exact"| Table["crossing rows (T, ±1 delta)"]
     Locus -->|"batched SpatialQuery.Winding over occluding faces"| Cull["buried-component cull"]
     Cull -->|"unresolved seeds: Range + SegmentTriangle"| Seeds["exact absolute QI"]
-    Lattice -->|"seed + Σdelta, split at crossings, masks applied"| Emit["successor-linked runs + per-part tallies"]
+    Table -->|"seed + Σdelta, split at crossings, masks applied"| Emit["successor-linked runs + per-part tallies"]
     Emit -->|"visible / hidden retained per ViewTrait.Retains"| DrawingProjection
     ViewOp -->|"Section: ONE IntersectOp.PlaneMesh per drawn part"| DrawingProjection
     Contact --> DrawingProjection
-    DrawingProjection -->|"ToPolylines / ToSegments / Fill(PlanarOverlay)"| Seam["Fabrication Documentation/projection"]
+    DrawingProjection -->|"ToPolylines / ToSegments / Fill(PlanarOverlay)"| Boundary["Fabrication Documentation/projection"]
     DrawingProjection -->|"Fill loops → HatchOp.Projection"| Hatch["hatch.md pattern synthesis"]
-    Seam -->|"HiddenLineResult — Part → layers, SourceFace → attribution"| AppUi["AppUi drafting"]
+    Boundary -->|"HiddenLineResult — Part → layers, SourceFace → attribution"| AppUi["AppUi drafting"]
     ViewOp -.->|"DegenerateInput / InvalidInput / ProjectionFault"| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]
 
-`[RAIL]` cells name each owner's return rail — `Fin`/`GeometryFault` where the locus, contact pass, lattice, seeding, or section cut can fail its post-condition, pure carriers elsewhere; the per-axis collapse kind rides the indexed notes below.
+`[RESULT]` cells name each owner's return type — `Fin`/`GeometryFault` where the locus, contact pass, table, seeding, or section cut can fail its post-condition, pure carriers elsewhere; the per-axis collapse kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]      | [OWNER]                     | [RAIL]                                     | [CASES] |
+| [INDEX] | [AXIS_CONCERN]      | [OWNER]                     | [RESULT]                                   | [CASES] |
 | :-----: | :------------------ | :-------------------------- | :----------------------------------------- | :-----: |
 |  [01]   | Projection          | `ViewOp`                    | `View.Apply → Fin<DrawingProjection>`      |    4    |
 |  [02]   | Operation kind      | `ViewKind`                  | discriminant (pure)                        |    4    |
@@ -854,19 +848,19 @@ flowchart LR
 
 - [01]-[PROJECTION]: `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) over the `ViewSubject` roster folded by ONE `Apply` through the generated total `Switch`.
 - [02]-[OPERATION_KIND]: `[SmartEnum<string>]` four rows carrying ONE `CapabilitySet<ViewTrait>` column — the bool pair the set replaces spells an illegal corner.
-- [03]-[SOLVE_TRAITS]: `ICapability` vocabulary (`Resolves`/`Retains`/`Seams`) with `CapabilityLaw` refusing `Retains` alone and leaving `Seams` free of both.
-- [04]-[EDGE_CLASSIFICATION]: `[SmartEnum<int>]` silhouette/crease/boundary/intersection — the fault payload vocabulary; inter-part seams ride the intersection row.
+- [03]-[SOLVE_TRAITS]: `ICapability` vocabulary (`Resolves`/`Retains`/`Contacts`) with `CapabilityLaw` refusing `Retains` alone and leaving `Contacts` free of both.
+- [04]-[EDGE_CLASSIFICATION]: `[SmartEnum<int>]` silhouette/crease/boundary/intersection — the fault payload vocabulary; inter-part contacts ride the intersection row.
 - [05]-[SEGMENT_VISIBILITY]: `[SmartEnum<int>]` visible/hidden DERIVED from the Appel count.
 - [06]-[SOLVE_POLICY]: lane-derived `VectorAngle` crease dihedral · `PositiveMagnitude` winding β² · composed `IntersectPolicy`/`BuildPolicy` rows · contact posture · the part-keyed `HashMap<int, PartRole>` mask table · the run `Context` every gate reads.
 - [07]-[RESULT_CARRIER]: successor-linked visible/hidden sets + flat and per-part histograms + `Contacts` interference roster + `ToPolylines`/`ToSegments`/`Fill` projections; the `Fill` loops seed `Drawing/hatch` pattern synthesis through `HatchOp.Projection`.
-- [08]-[VIEW_CONVENTIONS]: `[SmartEnum<int>]` six drafting rows, placement as column data, one derived `Pose` body, `ViewPose.ToCamera` the exact-drawing lowering, `Camera.ScreenBasis` the annotation-seam consumable.
+- [08]-[VIEW_CONVENTIONS]: `[SmartEnum<int>]` six drafting rows, placement as column data, one derived `Pose` body, `ViewPose.ToCamera` the exact-drawing lowering, `Camera.ScreenBasis` the annotation-side consumable.
 - [09]-[PROJECTION_INTENT]: `[SmartEnum<int>]` host-agnostic projection rows with the `Perspective` camera-derivation and `Option<Transform> Rectify` screen-basis columns.
 - [10]-[PART_ROLES]: `[SmartEnum<int>]` two exception rows over the drawn-and-occluding default, read through a total row `Switch` off the keyed mask table.
 - [11]-[CONTACT_POSTURE]: `[SmartEnum<int>]` weld/refuse — the admission-time answer to `Sign.Zero` at coplanar joints.
 - [12]-[CONTACT_KIND]: `[SmartEnum<int>]` penetrating/tangent off the MeshMesh lattice's own `Segments`/`Coplanar` split — clash evidence from paid-for work.
 - [13]-[CHAIN_WALK]: unlinked-head then leftover-ring passes over an `Option<int>` successor, cursor riding `List.unfold`; both carriers read it.
 
-Every cluster — `[ADMISSION]`, `[CONTACT]`, `[SILHOUETTE]`, `[QI_LATTICE]`, `[SECTION]`, and `[PRIMITIVES]` — composes only landed public seams, no member depending on a host spelling beyond the stable `Plane`/`Line`/`Polyline`/`BoundingBox`/`Transform` surface the siblings pin.
+Every cluster — `[ADMISSION]`, `[CONTACT]`, `[SILHOUETTE]`, `[QI_SOLVE]`, `[SECTION]`, and `[PRIMITIVES]` — composes only landed public entries, no member depending on a host spelling beyond the stable `Plane`/`Line`/`Polyline`/`BoundingBox`/`Transform` surface the siblings pin.
 
 ## [04]-[RESEARCH]
 

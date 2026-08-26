@@ -1,12 +1,12 @@
 # [CORE_EVIDENCE]
 
-`Evidence` owns the command lifecycle outcome, admitted progress state, and tenant-partitioned availability lattices.
+`Evidence` owns the command lifecycle outcome, admitted progress state, and tenant-partitioned availability levels.
 
 ## [01]-[INDEX]
 
 - [02]-[OUTCOME]: closed command lifecycle union and its settlement read; `Outcome`.
 - [03]-[PROGRESS_FOLD]: tally reading, state product, read-time verdicts, roll-up; `Tally`, `Progress`.
-- [04]-[AVAILABILITY_LATTICE]: enum-keyed level rows, verdict family, the `CommandAvailability` crossing, worst-wins merge, the gate read; `Availability`.
+- [04]-[AVAILABILITY_LEVELS]: enum-keyed level rows, verdict family, the `CommandAvailability` crossing, worst-wins merge, the gate read; `Availability`.
 
 ## [02]-[OUTCOME]
 
@@ -230,9 +230,9 @@ const _Progress: Progress.Shape = {
 }
 ```
 
-## [04]-[AVAILABILITY_LATTICE]
+## [04]-[AVAILABILITY_LEVELS]
 
-[AVAILABILITY_LATTICE]:
+[AVAILABILITY_LEVELS]:
 
 ```typescript
 type _Level = Exclude<control.DegradationLevel, UnknownEnum | typeof control.DegradationLevel.UNSPECIFIED>

@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_OPENTELEMETRY_API]
 
-`opentelemetry-api` owns the branch observability contracts: tracer, meter, and logger provider surfaces as abstract classes with no-op implementations, context propagation, baggage, and the `TextMapPropagator` carrier codec every service seam binds. Real telemetry stays with `opentelemetry-sdk` — library code resolves the global providers and emits no-ops until the SDK installs real ones at the composition root.
+`opentelemetry-api` owns the branch observability contracts: tracer, meter, and logger provider surfaces as abstract classes with no-op implementations, context propagation, baggage, and the `TextMapPropagator` carrier codec every service boundary binds. Real telemetry stays with `opentelemetry-sdk` — library code resolves the global providers and emits no-ops until the SDK installs real ones at the composition root.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -173,7 +173,7 @@
 - `msgspec`(`.api/msgspec.md`): `to_builtins(struct, str_keys=True)` yields exactly the primitive `str | bool | int | float | Sequence[...]` mapping `Span.set_attributes` accepts, annotating a span from a decoded wire struct with no manual flattening
 - `structlog`(`.api/structlog.md`): `get_current_span().get_span_context()` yields the `trace_id`/`span_id` that `format_trace_id`/`format_span_id` render as the hex fields a `structlog` processor binds for trace-log correlation
 - `opentelemetry-sdk`(`.api/opentelemetry-sdk.md`): this surface emits no-op providers until the SDK installs real ones via `set_*_provider` at the composition root; library code calls `get_tracer`/`get_meter`/`get_logger` and never imports the SDK. That SDK re-exports a same-named class per instrument family — including its own `_Gauge` — that DERIVES from the abstract here, and its temporality and aggregation preference maps admit those SDK classes alone, raising on every class from this surface
-- retry rail (`stamina`): a `retry_context` loop wraps each attempt in a child span; a final `RpcError.code()` maps to `Status(StatusCode.ERROR)` via `Span.set_status` + `Span.record_exception`
+- retry policy (`stamina`): a `retry_context` loop wraps each attempt in a child span; a final `RpcError.code()` maps to `Status(StatusCode.ERROR)` via `Span.set_status` + `Span.record_exception`
 
 [LOCAL_ADMISSION]:
 - library code imports only from `opentelemetry-api`; SDK imports belong to the composition root

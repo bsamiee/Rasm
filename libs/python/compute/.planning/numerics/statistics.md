@@ -13,7 +13,7 @@ One in-memory classical-statistics owner producing hypothesis-test and distribut
 - Owner: `TestIntent` — `Goodness` is the strictly narrower Anderson-Darling reference set because `scipy.stats.anderson` rejects any distribution outside its published set, so a reference the route raises on is unspellable on the AD intent — two bounded vocabularies for two admissible domains, never one over-wide enum; `Decision` owns both reject regimes as a policy value carrying its own `reject` algebra, so `criterion` is one typed yardstick per route, never a field overload where a p-value column smuggles `alpha` for the critical-value route.
 - Cases: the three `(statistic, pvalue)` routes share the one `_significance` body keyed by `_SIGNIFICANCE_CALLS` because their bodies differed only in the bound entrypoint and one keyword; `anderson` and `fit` read divergent result shapes and keep dedicated readers — only truly-identical bodies collapse to the table.
 - Law: the report `ContentKey` resolves ahead of the route and IS the replay seed a drawing route takes, so one derivation over the sample bytes serves both the report identity and the reference draw. A second entropy source over those same bytes is the deleted form on both axes — it can fork from the identity it mirrors, and its own cost is quadratic in the sample where the bounded digest is flat.
-- Packages: the scipy result carriers are typed through local `TYPE_CHECKING` `Protocol`s because the catalogue documents the `.statistic`/`.pvalue` shape rather than a public result-type name, and the gated package never imports at runtime; entrypoints stay boundary-scoped per the manifest import policy. This page opens NO fence of its own — the hub `evidence_run` weave is its one fault seam, so a `scipy.stats` raise and the gated `ImportError` both classify there and a rail already in hand returns rather than re-raising into it.
+- Packages: the scipy result carriers are typed through local `TYPE_CHECKING` `Protocol`s because the catalogue documents the `.statistic`/`.pvalue` shape rather than a public result-type name, and the gated package never imports at runtime; entrypoints stay boundary-scoped per the manifest import policy. This page opens NO fence of its own — the hub `evidence_run` weave is its one fault boundary, so a `scipy.stats` raise and the gated `ImportError` both classify there and a result already in hand returns rather than re-raising into it.
 - Growth: a new `(statistic, pvalue)` test is one `Tag` literal, one `TestIntent` case, one `_SIGNIFICANCE_CALLS` row, and one `_STAT_ROUTES` row; a divergent-shape test adds one dedicated reader instead; a new fittable distribution is one `Distribution` row; a new Anderson-Darling reference is one `Goodness` row only when `scipy.stats.anderson` documents it; a new reject regime is one `Decision` row carrying its own `reject` rule.
 
 ```python
@@ -32,7 +32,7 @@ from opentelemetry import trace
 
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, RuntimeResult
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 lazy from scipy import stats
@@ -200,21 +200,21 @@ class StatRoute(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[StatReport]":
+def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[StatReport]":
     facts = {"test": intent.tag, "alpha": alpha}
     return evidence_run(EvidenceScope.STATISTICS, f"stat.{intent.tag}", lambda: _stat_report(intent, alpha, fit_sample), facts=facts, composition=composition)
 
 
 
 @beartype(conf=FAULT_CONF)
-def _stat_report(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail[StatReport]":
+def _stat_report(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeResult[StatReport]":
     route = _STAT_ROUTES[intent.tag]
     return _stat_key(intent, alpha, fit_sample).map(
         lambda key: StatReport.graded(intent.tag, route.decision, route.run(intent, alpha, fit_sample, key), alpha, key)
     )
 
 
-def _stat_key(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail[ContentKey]":
+def _stat_key(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeResult[ContentKey]":
     return ContentIdentity.of(f"stat.{intent.tag}", intent.identity_source(alpha, fit_sample))
 
 

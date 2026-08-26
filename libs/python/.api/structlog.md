@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_STRUCTLOG]
 
-`structlog` owns the structured-logging pipeline: a left-to-right processor chain folds a mutable event dict from bind-time context through injectors and an exception transformer to a terminal renderer. `FilteringBoundLogger` compiles sub-threshold levels to no-ops at method resolution, `contextvars` carry ambient context across async boundaries, and `stdlib.ProcessorFormatter` routes structlog and foreign `logging` records through one chain. It owns the observability rail's log output — `ConsoleRenderer` for dev, `JSONRenderer`/`KeyValueRenderer`/`LogfmtRenderer` for production.
+`structlog` owns the structured-logging pipeline: a left-to-right processor chain folds a mutable event dict from bind-time context through injectors and an exception transformer to a terminal renderer. `FilteringBoundLogger` compiles sub-threshold levels to no-ops at method resolution, `contextvars` carry ambient context across async boundaries, and `stdlib.ProcessorFormatter` routes structlog and foreign `logging` records through one chain. It owns the observability pipeline's log output — `ConsoleRenderer` for dev, `JSONRenderer`/`KeyValueRenderer`/`LogfmtRenderer` for production.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -20,15 +20,15 @@
 - Capability and route selection derive from probes and membership tables — a caller-visible flag enters content identity and forks the key.
 - Substitute resolution walks a fidelity ladder — native filter, in-process composite, then numpy, the closest arm preserving the admitted payload.
 - Admission modality derives from what the emission IS — content-determined input admits `keyed`, a secret-consuming act `bare`, transient `retried`.
-- Producer heads take one `@beartype` conf per rail — `_FAULTS` takes `INGRESS` off `drawing/regime#REGIME`, a classify rail imported `FAULT_CONF`.
+- Producer heads take one `@beartype` conf per path — `_FAULTS` takes `INGRESS` off `drawing/regime#REGIME`, a classify path imported `FAULT_CONF`.
 - ISO 129-1 line ends carry ONE lowering row at the regime floor — block name and tick size, the DIMTSZ-versus-block pick staying per consumer.
-- XML rails split on trust origin — untrusted packets admit through the ONE hardened `lxml` fold, self-generated fragments using the in-page builder.
+- XML paths split on trust origin — untrusted packets admit through the ONE hardened `lxml` fold, self-generated fragments using the in-page builder.
 - Collections reaching a content-key preimage or an output byte stream order deterministically — hash-order iteration forks the key per hash seed.
 - Measurements derive from the delivered output by re-probing the muxed bytes — an echoed request knob attests the input, never the artifact.
 - Batch admission accumulates every casualty through an associative fault monoid — first-failure abort hides the sibling casualties the refusal owes.
 - Producer heads split on ORIGIN — a typed-union normalizer raises through the folder conf, an untrusted admitter returning `Result[Self, Fault]`.
 - Fences spell ONE raise subject and ride the request infix on a slot or the crossing token — a per-op subject leaves the coordinates unenumerable.
-- Folds offloading caller-programmable input rail the builder's `ValueError` as `invalid` — a raise from a public case payload is caller data.
+- Folds offloading caller-programmable input fault the builder's `ValueError` as `invalid` — a raise from a public case payload is caller data.
 - Worker offload rides the producer's own `lane: LanePolicy` field through `self.lane.offload` — a class-qualified call carries no bound instance.
 - Codec capability rides ONE row per container with a writer column per engine — mode and frame-clock facts are CLOSED vocabularies, never booleans.
 - Capability probes read the LINKED build, never a REGISTRY — registration proves a name is offered, so a delegating writer trial-calls once.
@@ -49,7 +49,7 @@
 - libavfilter drains catch the `av.error` LEAVES — each subclasses `FFmpegError`, so an outer capture reads a leaked drain sentinel as a codec fault.
 - Container colour declarations read through the admitted metadata surface that parses them — the declared row tag is the floor on readback silence.
 - Deep-store KTX2 ships UNCOMPRESSED at its `_KTX_VK` row under Zstd supercompression — block encode takes an 8-bit store on BOTH toolchain legs.
-- Plane residence keys on `PlaneRef.digest` — the set key orders the document and never aliases blobs already written under their own content keys.
+- Plane storage keys on `PlaneRef.digest` — the set key orders the document and never aliases blobs already written under their own content keys.
 - Completed appearance documents validate from their generated descriptor, and refusals retain the generated violations message alone.
 - `Ibl.luminance_cdf` follows generated presence — unguided environments omit the guide from assembly, address walks, and byte census.
 
@@ -65,7 +65,7 @@
 
 - Worker-body homing splits on floor-legality — a legal provider keeps workers in-page under lazy import, a floor-illegal native earns a module.
 - Durable records never seat in a worker-process callback — no custody binds there, so evidence returns as data and records at the async fold.
-- Wire announcements SUBSCRIBE to a fired fact — a producer calling a wire owner off-rail inverts the direction and hand-rolls registry isolation.
+- Wire announcements SUBSCRIBE to a fired fact — a producer calling a wire owner off-path inverts the direction and hand-rolls registry isolation.
 - Facts fire at the fold holding settled evidence — a per-kind fire in a roster-generic projection announces a case narrower than its producer holds.
 - Hook custody keys on the COMPOSITION, a per-call id riding as a payload field — a correlation id as scope key mints a point table per call.
 

@@ -57,7 +57,7 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
-using FabricationRail = Rasm.Domain.HookRail<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
+using FabricationHooks = Rasm.Domain.HookSet<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
 
 namespace Rasm.Fabrication.Process;
 
@@ -115,7 +115,6 @@ public sealed partial class EgressRequest {
     public Set<EgressKind> Kinds { get; }
     public DeliveryTarget Target { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Set<EgressKind> kinds,
@@ -387,11 +386,11 @@ public sealed record RunLineage(
 
 ## [05]-[RUN_FOLD]
 
-- Owner: `FabricationInput` owns the columns EVERY policy reads — geometry, markings, edge-preparation demand, routing axes, ancestry, and the egress request; `RunStage` owns the declared governance boundaries; `FabricationRuntime` owns clock, cancellation, progress, the mounted instrument set, the span band, the kernel hook rail, and the memo tier.
+- Owner: `FabricationInput` owns the columns EVERY policy reads — geometry, markings, edge-preparation demand, routing axes, ancestry, and the egress request; `RunStage` owns the declared governance boundaries; `FabricationRuntime` owns clock, cancellation, progress, the mounted instrument set, the span band, the kernel hook set, and the memo tier.
 - Entry: `FabricationInput.Admit` accumulates its seven independent gates applicatively, so a caller reads every violated invariant at once rather than the first.
 - Auto: run governance is one read per `RunStage` boundary; a requested cancellation lowers `Errors.Cancelled`, while a live run publishes that row's declared fraction.
 - Output: `Run`'s terminal fold writes the sealed run onto `FabricationInstruments.RunDuration`, `RunArtifacts`, and `RunWarnings` through `runtime.Instruments` (`Process/telemetry#OBSERVE`) with elapsed read from `Clock`, so the run's own measures leave from the site that sealed them.
-- Boundary: `Run` fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points from the canonical domain value, and the delivery hand-off after evidence through the kernel `HookRail` carried by the runtime. Domain kernels fire nothing; durable announcements belong to the app root's observe subscription. `FabricationRuntime.Admit` binds the default rail on the rail rather than collapsing it with `??`, because seating every point is itself a refusable composition.
+- Boundary: `Run` fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points from the canonical domain value, and the delivery hand-off after evidence through the kernel `HookSet` carried by the runtime. Domain kernels fire nothing; durable announcements belong to the app root's observe subscription. `FabricationRuntime.Admit` binds the default hook set on the result rather than collapsing it with `??`, because seating every point is itself a refusable composition.
 
 ```csharp
 // --- [RUN_FOLD]
@@ -415,7 +414,6 @@ public sealed partial class FabricationInput {
 
     public Map<string, Arr<ProfileMarking>> Tags => ProfileImport.TagsOf(Markings);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FabricationPolicy policy,
@@ -480,7 +478,7 @@ public sealed partial class FabricationRuntime {
     public IClock Clock { get; }
     public CancellationToken Cancel { get; }
 
-    public FabricationRail Hooks { get; }
+    public FabricationHooks Hooks { get; }
 
     public Option<InstrumentSet> Instruments { get; }
 
@@ -494,13 +492,13 @@ public sealed partial class FabricationRuntime {
         IClock clock,
         CancellationToken cancel,
         Op key,
-        FabricationRail? hooks = null,
+        FabricationHooks? hooks = null,
         Option<IProgress<double>> progress = default,
         Option<HybridCache> memo = default,
         Option<InstrumentSet> instruments = default,
         Option<SpanBand> band = default) =>
         Optional(hooks).Match(Some: Fin.Succ, None: () => FabricationHooks.Live(key))
-            .Bind(rail => Validate(clock, cancel, rail, instruments, band, progress, memo,
+            .Bind(hooks => Validate(clock, cancel, hooks, instruments, band, progress, memo,
                 out FabricationRuntime runtime).Admitted(runtime));
 
     internal Unit Reached(RunStage stage) {
@@ -514,13 +512,13 @@ public sealed partial class FabricationRuntime {
 
 - Owner: `FabricationCanon` owns the ONE facade over `CanonicalWriter` every fabrication preimage composes — its framing family and its two closes alike; `QuantityArrow` owns the one dimension-text entry a plane outside `Process` reaches; `Fabrication` owns the run spine, the provenance fold, and the lineage projection.
 - Law: `CanonicalWriter` is mutable-fluent — every primitive mutates the bound buffer and returns the SAME writer — so a call site chains or discards the return interchangeably and no fold copies a writer. `Discriminant` writes a generated owner's own key length-framed, so a preimage never carries a provider enum ordinal that a library reorder silently re-keys, and `Rows` writes the count before its rows so the layout stays self-delimiting.
-- Law: the writer's constructor is PRIVATE and its two mints answer two different closes, so the facade owns both — `Keyed` opens `Retaining` and closes on the `Fin` rail, `Ordered` opens `Streaming` and closes on the digest. A lane spelling either mint itself carries the close's refusal as its own concern, and a lane spelling `new CanonicalWriter(...)` names no member at all.
+- Law: the writer's constructor is PRIVATE and its two mints answer two different closes, so the facade owns both — `Keyed` opens `Retaining` and closes on the `Fin` result, `Ordered` opens `Streaming` and closes on the digest. A lane spelling either mint itself carries the close's refusal as its own concern, and a lane spelling `new CanonicalWriter(...)` names no member at all.
 - Entry: `QuantityArrow(axis, raised, locus).Admit(text)` routes to `ProcessPhysics.Admit`, the one textual boundary, and re-raises on the CALLER's plane — a `PhysicsQuantity.<axis>.Admit` at a consuming page is a second text boundary answering on a foreign plane and is the deleted form.
-- Auto: provenance rails ITS OWN acyclicity before any traversal. A content-addressed key covers its own descendants, so a cycle in child-to-parent lineage is a FORGED key rather than a modelling mistake, and the gate answers `PolicyInadmissible` at the forgery rather than letting a sort throw.
+- Auto: provenance fails ITS OWN acyclicity before any traversal. A content-addressed key covers its own descendants, so a cycle in child-to-parent lineage is a FORGED key rather than a modelling mistake, and the gate answers `PolicyInadmissible` at the forgery rather than letting a sort throw.
 - Output: the walk's outputs land as NAMED columns — `RunProvenance.Roots` and `RunProvenance.Generation` — and the graph container never leaves the fold.
 - Boundary: only the nest arm is genuinely asynchronous, so `Sync` is the one lift the other nine arms take and no arm hand-spells a completed task. `Fired` dispatches through the generated total `Switch`, so a new result case cannot silently lose its hook point, and each fired result is folded rather than discarded.
 - Law: `Raised` is the ONE refusal-only raise and carries four of the five points, proving the admitted fact equals the fired one — an egress-mint gate rewriting a content key forges an identity nothing produced, exactly as a lineage cycle does, and an observe or replay point holds no gate to move it. `Admission` alone takes the kernel's guarded arity, because rewriting the request is what an admission veto exists for; no site spells a point, since `At` is the fact's own column.
-- Packages: `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `Sinks`, `BreadthFirstSearchAlgorithm`, `VertexDistanceRecorderObserver`), `Rasm.Element` `CanonicalWriter`, `System.IO.Hashing` (`XxHash128` at the streaming close), LanguageExt.Core rails.
+- Packages: `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `Sinks`, `BreadthFirstSearchAlgorithm`, `VertexDistanceRecorderObserver`), `Rasm.Element` `CanonicalWriter`, `System.IO.Hashing` (`XxHash128` at the streaming close), LanguageExt.Core result types.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -697,24 +695,24 @@ public static class Fabrication {
     private static Seq<ContentKey> Consumed(FabricationInput input) =>
         input.Policy.Consumed + input.ParentRuns + input.Sources + input.MaterialCertificate.ToSeq();
 
-    private static Fin<Unit> Fired(FabricationRail rail, FabricationResult result, Op key) => result.Switch(
-        state: (Rail: rail, Key: key),
+    private static Fin<Unit> Fired(FabricationHooks hooks, FabricationResult result, Op key) => result.Switch(
+        state: (Hooks: hooks, Key: key),
         hiddenLineResult: static (_, _) => Fin.Succ(unit),
         motion: static (_, _) => Fin.Succ(unit),
         placement: static (_, _) => Fin.Succ(unit),
         additiveResult: static (_, _) => Fin.Succ(unit),
         verificationResult: static (spine, verification) =>
-            Raised(spine.Rail, new FabricationHookFact.VerifyVerdict(verification), spine.Key),
+            Raised(spine.Hooks, new FabricationHookFact.VerifyVerdict(verification), spine.Key),
         inspectionResult: static (_, _) => Fin.Succ(unit),
         postedProgram: static (_, _) => Fin.Succ(unit),
         travelerDocument: static (_, _) => Fin.Succ(unit),
         fabricationPlan: static (spine, plan) => plan.Steps
-            .TraverseM(step => Raised(spine.Rail, new FabricationHookFact.StageAdvance(step), spine.Key)).As().Map(static _ => unit),
+            .TraverseM(step => Raised(spine.Hooks, new FabricationHookFact.StageAdvance(step), spine.Key)).As().Map(static _ => unit),
         formedResult: static (_, _) => Fin.Succ(unit),
         tubeFormed: static (_, _) => Fin.Succ(unit));
 
-    private static Fin<Unit> Raised(FabricationRail rail, FabricationHookFact fact, Op key) =>
-        rail.Fire(fact.At, fact, key).Bind(admitted => admitted == fact
+    private static Fin<Unit> Raised(FabricationHooks hooks, FabricationHookFact fact, Op key) =>
+        hooks.Fire(fact.At, fact, key).Bind(admitted => admitted == fact
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("owner", $"hook-rewrite:{fact.At.Key}")));
 }

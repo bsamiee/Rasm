@@ -4,9 +4,9 @@ Raster IO, conversion, and working-surface behavior live on the closed-payload `
 
 One `RasterPolicy` carries the three egress axes every producing arm reads — the `CodecPolicy` quality/effort coordinates each row spells in its own encoder dialect, the `IccTransform` bundle imported from `graphic/color/managed#MANAGED`, and the `Resample` light space a reduce runs in — threaded beside `lane` and folded into the pre-run content key, so a re-managed or re-encoded product never collides with its predecessor on one slot and no arm binds a module literal no caller reaches. Colour vocabularies are the color sub-domain's: `BlendMode` and `PorterDuff` arrive from `graphic/color/derive#DERIVE` and lower to the single libvips nickname inside `_composite`, and the ICC coordinates arrive on the `IccTransform` bundle and resolve once per egress — `_vips_managed` for the libvips pipeline, `_managed` over `imagecodecs.cms_transform` for every pillow and array leg — so identical input lands the same destination profile on either engine.
 
-pillow, scikit-image, and pyvips are host-native worker packages off the runtime loader path, so `Raster` carries the caller-threaded `lane: LanePolicy` — the same seam field `exchange/detect#DETECT` and `graphic/color/derive#DERIVE` carry — and every worker arm crosses `lane.offload(Kernel.of(_worker_raster, KernelTrait.HOSTILE), op)` onto the shared runtime process band, never a folder-minted `CapacityLimiter` that oversubscribes the host against libvips's own thread pool, never the unbounded default, never a class-qualified `LanePolicy.offload` with no bound instance. `Detect` is the one arm off that seam: `puremagic` is pure-Python with a bundled `magic_data.json`, so `_emit` delegates it lane-threaded to `exchange/detect#DETECT` in-process (the `PUREMAGIC` engine's `RELEASING` thread kernel) with no process crossing, no retry, no payload pickle. `_worker_raster` is `@beartype(conf=FAULT_CONF)`-woven, so a contract violation raises the one `BeartypeCallHintViolation` the runtime `CLASSIFY` table folds onto the `RuntimeRail` as `BoundaryFault.api`, and an exhausted worker death terminates through the lane's `guard`/`async_boundary` conversion — neither is a `RasterFault` case, because the runtime owns both vocabularies and a parallel local case is a second carrier for one fact.
+pillow, scikit-image, and pyvips are host-native worker packages off the runtime loader path, so `Raster` carries the caller-threaded `lane: LanePolicy` — the same boundary field `exchange/detect#DETECT` and `graphic/color/derive#DERIVE` carry — and every worker arm crosses `lane.offload(Kernel.of(_worker_raster, KernelTrait.HOSTILE), op)` onto the shared runtime process band, never a folder-minted `CapacityLimiter` that oversubscribes the host against libvips's own thread pool, never the unbounded default, never a class-qualified `LanePolicy.offload` with no bound instance. `Detect` is the one arm off that boundary: `puremagic` is pure-Python with a bundled `magic_data.json`, so `_emit` delegates it lane-threaded to `exchange/detect#DETECT` in-process (the `PUREMAGIC` engine's `RELEASING` thread kernel) with no process crossing, no retry, no payload pickle. `_worker_raster` is `@beartype(conf=FAULT_CONF)`-woven, so a contract violation raises the one `BeartypeCallHintViolation` the runtime `CLASSIFY` table folds onto the `RuntimeResult` as `BoundaryFault.api`, and an exhausted worker death terminates through the lane's `guard`/`async_boundary` conversion — neither is a `RasterFault` case, because the runtime owns both vocabularies and a parallel local case is a second carrier for one fact.
 
-`RasterFact` is canonical on `graphic/raster/process#PROCESS`; this page, `graphic/marks/encode#MARK`, and `graphic/raster/measure#MEASURE` import the one declaration. Array-to-PNG egress is `graphic/raster/process#PROCESS`'s `_save_array`; this page exports no raster composable beside the rail.
+`RasterFact` is canonical on `graphic/raster/process#PROCESS`; this page, `graphic/marks/encode#MARK`, and `graphic/raster/measure#MEASURE` import the one declaration. Array-to-PNG egress is `graphic/raster/process#PROCESS`'s `_save_array`; this page exports no raster composable beside the result.
 
 ## [01]-[INDEX]
 
@@ -39,7 +39,7 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct
 
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -431,8 +431,8 @@ class Raster(Struct, frozen=True):
         )
 
     @staticmethod
-    async def _emit(op: RasterOp, lane: LanePolicy, policy: RasterPolicy, /) -> "RuntimeRail[RasterFact | DetectIdentity]":
-        settled: "RuntimeRail[RasterFact | DetectIdentity]"
+    async def _emit(op: RasterOp, lane: LanePolicy, policy: RasterPolicy, /) -> "RuntimeResult[RasterFact | DetectIdentity]":
+        settled: "RuntimeResult[RasterFact | DetectIdentity]"
         match op.admitted(policy):
             case Result(tag="error", error=fault):
                 return Error(BoundaryFault(domain=(RASTER_ADMIT.subject, fault)))
@@ -1352,13 +1352,13 @@ flowchart LR
     Proc --> Fact
     Meas --> Fact
     Egress --> Fact
-    Codec --> Rail
-    Prof --> Rail
-    Blend --> Rail
-    Prov --> Rail
-    Runtime --> Rail
-    Det --> Rail
-    Fact --> Rail["per-member RuntimeRail[RasterFact | DetectIdentity]"]
+    Codec --> Outcome
+    Prof --> Outcome
+    Blend --> Outcome
+    Prov --> Outcome
+    Runtime --> Outcome
+    Det --> Outcome
+    Fact --> Outcome["per-member RuntimeResult[RasterFact | DetectIdentity]"]
 ```
 
 ## [03]-[RESEARCH]

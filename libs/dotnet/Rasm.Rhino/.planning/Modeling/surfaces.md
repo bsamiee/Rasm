@@ -2,18 +2,18 @@
 
 `HostSurfaces.Build` owns freeform surface construction. One `FreeformOp` union carries network fitting, rail revolve, point-grid interpolation, ruled and corner surfaces, curve-on-surface fitting, subd-friendly rebuilds, analytic seeding, compatibility reparameterization, iso-edge matching, extrusion, periodic closure, soft editing, rolling-ball fillets, tween sampling, sum surfaces, bounded planes, and value-semantic fit/rebuild. Input shape selects each overload family. Kernel NURBS evaluation, division, tessellation, and analysis stay kernel-owned; `Context` supplies every tolerance.
 
-Kernel `Rasm.Parametric` owns the bare names `Surfaces` and `SurfaceOp`, so this boundary spells `HostSurfaces` and `FreeformOp` exactly as the curve rail spells `HostCurves`. `ModelGate` comes from `Modeling/solids.md`; `ModelClaim` and `PairPosture` come from `Modeling/curves.md`.
+Kernel `Rasm.Parametric` owns the bare names `Surfaces` and `SurfaceOp`, so this boundary spells `HostSurfaces` and `FreeformOp` exactly as the curve pipeline spells `HostCurves`. `ModelGate` comes from `Modeling/solids.md`; `ModelClaim` and `PairPosture` come from `Modeling/curves.md`.
 
 ## [01]-[INDEX]
 
 - [02]-[FIT_POLICY]: `NetContinuity`, `ParametricAxis`, `SurfaceForm`, the construction-discriminant unions, and the four admitted law carriers.
-- [03]-[OPERATION_RAIL]: `FreeformOp` and the `HostSurfaces.Build` entry.
+- [03]-[OPERATION_PIPELINE]: `FreeformOp` and the `HostSurfaces.Build` entry.
 
 ## [02]-[FIT_POLICY]
 
 - Owner: `NetContinuity` and `ParametricAxis` — the native continuity and parametric-direction vocabularies; `SurfaceForm` — the analytic constructor rows; `NetworkLaw`, `GridFit`, `CornerSeed`, `SurfaceFitLaw`, `ExtrudeTerminal`, `RollingSeed`, `AnalyticSeed`, `PlaneFrame`, `RevolveProfile`, and `SumExtent` — the construction discriminants; `SurfaceDegrees` and `SurfaceGrid` — the host-bounded degree pair and the point-count grid built on it; `MatchEdgeLaw`, `SoftEditLaw`, and `VariableOffsetLaw` — the three multi-scalar policies admitted at construction.
 - Law: the continuity code never travels bare — `NetContinuity` keys the native integer so a network arm reads `(int)row`, and an out-of-vocabulary code is unconstructible.
-- Law: `ParametricAxis` carries its own `Native` column and every host direction argument reads it — `Surface.CreatePeriodicSurface`, `Surface.RebuildOneDirection`, and the solid rail's `Brep.ChangeSeam` all take the host's declared `0 = U, 1 = V` encoding off the row, so a key renumber can never silently mis-drive a native and the encoding is declared once instead of riding an ordinal cast at three call sites.
+- Law: `ParametricAxis` carries its own `Native` column and every host direction argument reads it — `Surface.CreatePeriodicSurface`, `Surface.RebuildOneDirection`, and the solid pipeline's `Brep.ChangeSeam` all take the host's declared `0 = U, 1 = V` encoding off the row, so a key renumber can never silently mis-drive a native and the encoding is declared once instead of riding an ordinal cast at three call sites.
 - Law: a closed-axis choice is a `CapabilitySet`, so membership needs no probe — a `[SmartEnum]` value is one of its own declared rows by construction, which made every `Items.Contains` gate on this page a guard answering true on every reachable input, while a raw `FrozenSet` column compares by REFERENCE under record equality. `CapabilitySet` closes both: the roster IS the type and the held set compares by value.
 - Law: the degree band is an admitted value, not a pair of free ints — RhinoCommon clamps each degree to `Math.Min(degree, 11)` inside `CreateFromPoints` and `CreateThroughPoints`, so `SurfaceDegrees` admits at the host's own ceiling and refuses what the host otherwise clamps in silence; `SurfaceGrid` carries the point counts beside the degrees they must exceed, so the grid, the plane grid, and the grid rebuild read ONE owner and no arm re-derives the count-versus-degree relation.
 - Law: one analytic vocabulary serves two representations — `AnalyticSeed.Build` dispatches the primitive once, while each `SurfaceForm` row supplies the four constructor delegates through `[UseDelegateFromConstructor]`; neither axis reconstructs the other.
@@ -21,7 +21,7 @@ Kernel `Rasm.Parametric` owns the bare names `Surfaces` and `SurfaceOp`, so this
 - Law: finiteness is not non-degeneracy — a direction that is finite can still be the zero vector, so every direction axis reads the kernel's `ValidityClaim.Direction` row and no owner re-spells `IsValid && !IsZero`.
 - Law: every owner answers ONE admission fold through `IValidityEvidence` — the generated factory hook and `IsValid` read the same static `Admits`, so an invalid law is unconstructible and `FreeformOp.Admitted` proves presence rather than re-testing content.
 - Growth: a new construction discriminant is one union case with its claim; a new scalar policy is one column on its owning law with the claim beside it.
-- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the nurbs-surface build roster `:63-80` incl. `CreateNetworkSurface`, `CreateFromPoints`, `CreateThroughPoints`, `CreateFromCorners`, `CreateRuledSurface`, `CreateSubDFriendly`, `CreateRailRevolvedSurface`, `MakeCompatible`, `MatchToCurve`, `CreateCurveOnSurface`, `CreateFromPlane`, `CreateFromCone`/`Cylinder`/`Sphere`/`Torus`; the surface build roster `:82-103` incl. `CreateExtrusion`, `CreateExtrusionToPoint`, `CreatePeriodicSurface`, `CreateSoftEditSurface`, `CreateRollingBallFillet`, `CreateTweenSurfacesWithSampling`, `Fit`, `Rebuild`, `RebuildOneDirection`, `VariableOffset`, `RevSurface.Create`, `SumSurface.Create`, `PlaneSurface.CreateThroughBox`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Modeling/curves.md` (`PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the nurbs-surface build roster `:63-80` incl. `CreateNetworkSurface`, `CreateFromPoints`, `CreateThroughPoints`, `CreateFromCorners`, `CreateRuledSurface`, `CreateSubDFriendly`, `CreateRailRevolvedSurface`, `MakeCompatible`, `MatchToCurve`, `CreateCurveOnSurface`, `CreateFromPlane`, `CreateFromCone`/`Cylinder`/`Sphere`/`Torus`; the surface build roster `:82-103` incl. `CreateExtrusion`, `CreateExtrusionToPoint`, `CreatePeriodicSurface`, `CreateSoftEditSurface`, `CreateRollingBallFillet`, `CreateTweenSurfacesWithSampling`, `Fit`, `Rebuild`, `RebuildOneDirection`, `VariableOffset`, `RevSurface.Create`, `SumSurface.Create`, `PlaneSurface.CreateThroughBox`), kernel `Domain/results` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Modeling/curves.md` (`PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -378,10 +378,10 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
 }
 ```
 
-## [03]-[OPERATION_RAIL]
+## [03]-[OPERATION_PIPELINE]
 
 - Owner: `FreeformOp` `[Union]` `[GenerateUnionOps]` — the whole verified freeform-construction verb roster, each case carrying its own generated `SelfOp`; `HostSurfaces` — the one entry folding any operation spread into one owned geometry sequence.
-- Law: the entry class holds the entry ALONE — the degree ceiling, the degree predicate, the grid-shape predicate, and the roster-membership probe that once sat beside `Build` are now the `SurfaceDegrees`/`SurfaceGrid` admission and the `CapabilitySet` type, so this page's static class matches every sibling rail's one-member shape.
+- Law: the entry class holds the entry ALONE — the degree ceiling, the degree predicate, the grid-shape predicate, and the roster-membership probe that once sat beside `Build` are now the `SurfaceDegrees`/`SurfaceGrid` admission and the `CapabilitySet` type, so this page's static class matches every sibling pipeline's one-member shape.
 - Law: `NetworkLaw.Build` captures both native topologies and refuses a null product or a nonzero error code before ownership.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis, and a new case breaks the compile instead of falling through a catch-all to a silent refusal.
 - Law: `HostSurfaces.Build` is `ModelGate.Entry` — the folder spine owns capture, the non-empty guard, accumulating admission, and the product fold.
@@ -392,7 +392,7 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
 - Law: variable offsetting is corner-driven construction — the four corner distances and the optional interior rows are one admitted law, the row spread selects the host overload, and the offset tolerance derives from the domain absolute tolerance, never a payload literal.
 - Law: solitary independent bits stay bools — `ScaleHeight`, `Periodic`, and `Smooth` each carry one axis with no legal-corner law and no host projection column, so a capability set over them buys a wire name and loses the compile-time reading.
 - Growth: a new freeform constructor is one `FreeformOp` case with its arm.
-- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — nurbs-surface build `:63-80`, surface build `:82-103`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), `Modeling/solids.md` (`ModelGate`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — nurbs-surface build `:63-80`, surface build `:82-103`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), `Modeling/solids.md` (`ModelGate`), kernel `Domain/results` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]

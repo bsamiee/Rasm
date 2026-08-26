@@ -53,7 +53,7 @@ Admission is a roster on the IO: `registerExtensions` states which extensions th
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: admission, attachment, and the codec dependency seam
+[ENTRYPOINT_SCOPE]: admission, attachment, and the codec dependency registry
 
 | [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                         |
 | :-----: | :---------------------------------------------------- | :------- | :----------------------------------- |

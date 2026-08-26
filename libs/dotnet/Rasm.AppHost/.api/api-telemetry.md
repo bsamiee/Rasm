@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_TELEMETRY]
 
-`Microsoft.Extensions.Telemetry` governs log volume, buffering, enrichment, and redaction activation over the one `ILogger` seam, and mints the pooled latency ledger that times in-flight phases without a child span. Every verb it ships extends `ILoggingBuilder` or `IServiceCollection` and binds one policy row, so no governance decision rides a log call site. Its contract half — the emission grammar, the enricher, buffer, and sampler contracts, and the latency tokens an instrumented library binds — ships in `Microsoft.Extensions.Telemetry.Abstractions` and homes at the branch tier.
+`Microsoft.Extensions.Telemetry` governs log volume, buffering, enrichment, and redaction activation over the one `ILogger` boundary, and mints the pooled latency ledger that times in-flight phases without a child span. Every verb it ships extends `ILoggingBuilder` or `IServiceCollection` and binds one policy row, so no governance decision rides a log call site. Its contract half — the emission grammar, the enricher, buffer, and sampler contracts, and the latency tokens an instrumented library binds — ships in `Microsoft.Extensions.Telemetry.Abstractions` and homes at the branch tier.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -55,7 +55,7 @@ Every options-bearing verb carries a parameterless overload, an `Action<TOptions
 |  [08]   | `AddGlobalBuffer(Action<GlobalLogBufferingOptions>)`                       | static  | rule rows, size caps, flush window     |
 |  [09]   | `AddGlobalBuffer(IConfiguration)`                                          | static  | the buffer policy bound from config    |
 |  [10]   | `EnableEnrichment(Action<LoggerEnrichmentOptions>)`                        | static  | activates both enricher cost classes   |
-|  [11]   | `EnableRedaction(Action<LoggerRedactionOptions>)`                          | static  | activates the redactor seam            |
+|  [11]   | `EnableRedaction(Action<LoggerRedactionOptions>)`                          | static  | activates the redactor hook            |
 
 - `AddGlobalBuffer` passes three record classes through live — one over `MaxLogRecordSizeInBytes`, one matching no rule, and one inside the `AutoFlushDuration` window after a flush.
 
@@ -83,7 +83,7 @@ Every options-bearing verb carries a parameterless overload, an `Action<TOptions
 - `Microsoft.Extensions.Telemetry.Abstractions`(`libs/dotnet/.api/api-telemetry-abstractions.md`): every verb here realizes a contract declared there — a registration supplies the `LoggingSampler`, `ILogEnricher`, or `LogBuffer` the record crosses, and `LatencyContextOptions` gates the `ILatencyContextTokenIssuer` lookup.
 - `Microsoft.Extensions.Compliance.Redaction`(`libs/dotnet/.api/api-redaction.md`): `EnableRedaction` binds the `IRedactorProvider` that package registers, and `LoggerMessageState.ClassifiedTag` carries the `DataClassificationSet` selecting each generated tag's redactor; `ApplyDiscriminator` appends the tag name to the value before redaction, so one raw value redacts to a distinct token per tag and correlation holds inside a tag name alone.
 - `Microsoft.Extensions.Logging.Abstractions`(`libs/dotnet/.api/api-logging-abstractions.md`): every verb extends `ILoggingBuilder` and folds ahead of `ILogger.Log<TState>` on the shared delegate cache; a buffered record replays through `IBufferedLogger`.
-- `OpenTelemetry`(`libs/dotnet/.api/api-opentelemetry.md`): governance runs ahead of every provider on the shared builder, so the records `AddOpenTelemetry` bridges onto the OTLP rail arrive sampled, buffered, enriched, and redacted.
+- `OpenTelemetry`(`libs/dotnet/.api/api-opentelemetry.md`): governance runs ahead of every provider on the shared builder, so the records `AddOpenTelemetry` bridges onto the OTLP exporters arrive sampled, buffered, enriched, and redacted.
 - `Rasm.AppHost` `Observability/telemetry#SIGNAL_GOVERNANCE`: one chain seats sampler, redaction, enrichment, and buffer on `ILoggingBuilder`, then the enricher and latency rows on `IServiceCollection`; `LatencySpine` threads one `ILatencyContext` through the drain, outbound, and support folds and freezes it at the export band.
 
 [LOCAL_ADMISSION]:

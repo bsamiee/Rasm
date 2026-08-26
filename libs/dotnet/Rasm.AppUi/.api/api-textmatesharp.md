@@ -13,7 +13,7 @@
 |  [03]   | `Registry`         | class         | standalone tokenizer engine      |
 |  [04]   | `ThemeName`        | enum          | bundled theme key                |
 
-`IRegistryOptions` is the entire seam a host answers, and it is exactly four members: `GetTheme(string scopeName)`, `GetGrammar(string scopeName) -> IRawGrammar`, `GetInjections(string scopeName) -> ICollection<string>`, and `GetDefaultTheme()`.
+`IRegistryOptions` is the entire interface a host answers, and it is exactly four members: `GetTheme(string scopeName)`, `GetGrammar(string scopeName) -> IRawGrammar`, `GetInjections(string scopeName) -> ICollection<string>`, and `GetDefaultTheme()`.
 
 - `RegistryOptions` implements those four over the embedded corpus; a Rasm-DSL host composes over one and answers `GetGrammar` from its own rows for its `source.rasm` scopes, delegating the rest.
 - Corpus-only members — `GetScopeByExtension`, `GetScopeByLanguageId`, `GetLanguageByExtension`, `GetAvailableLanguages`, `LoadTheme`, the local loaders — live on the concrete class, so a composing locator holds that instance rather than a bare interface.
@@ -129,7 +129,7 @@ Both lookups return an empty or null string for an unknown token, so a scope res
 |  [08]   | `GetColorMap() -> ICollection<string>`                         | instance | theme state                  |
 |  [09]   | `GetLocator() -> IRegistryOptions`                             | instance | locator state                |
 
-`new Registry(registryOptions).LoadGrammar("source.cs").TokenizeLine(line)` is the complete non-editor tokenization rail — scope-tagged `IToken` runs over a string with no editor control. `GrammarForScopeName` carries an overload taking `initialLanguage` and an embedded-language map for grammar embedding. Virtualized log and inspector surfaces resolve `IToken.Scopes` through `GetTheme().Match(scopes)` against one id-keyed brush cache seeded from `GetColorMap`, reusing the editor palette.
+`new Registry(registryOptions).LoadGrammar("source.cs").TokenizeLine(line)` is the complete non-editor tokenization path — scope-tagged `IToken` runs over a string with no editor control. `GrammarForScopeName` carries an overload taking `initialLanguage` and an embedded-language map for grammar embedding. Virtualized log and inspector surfaces resolve `IToken.Scopes` through `GetTheme().Match(scopes)` against one id-keyed brush cache seeded from `GetColorMap`, reusing the editor palette.
 
 [GRAMMAR_TOKENIZE_ENTRY_SCOPE]: `IGrammar` line tokenization and state carry-forward
 
@@ -202,8 +202,8 @@ Registering a listener, `SetGrammar`, then reading `GetLineTokens` as `ModelToke
 [STACKING]:
 - `api-avaloniaedit`(`.api/api-avaloniaedit.md`): `AvaloniaEdit.TextMate.InstallTextMate(IRegistryOptions)` consumes this catalog's `IRegistryOptions`, scope strings, and `IRawTheme` handles unchanged; `RegistryOptions`/`GetScopeByExtension`/`LoadTheme`/`ThemeName` are `TextMateSharp` types the adapter only forwards, and its `TextEditorModel`/`DocumentSnapshot` adapt `TMModel` over the editor `TextDocument`.
 - `api-avaloniaedit`(`.api/api-avaloniaedit.md`): `TextMate.Installation.TryGetThemeColor(key, out hex)` is the adapter's whole view of `Theme.GetGuiColorDictionary()`, refreshed on each `SetTheme`; a `true` return parses to a brush the consumer writes onto `TextView.CurrentLineBackground`, `TextArea.SelectionBrush`, `TextEditor.LineNumbersForeground`, and the rest of that styled-property set, because `TextMateColoringTransformer` paints token spans alone.
-- editor rail: an editable pane feeds one locator to `editor.InstallTextMate(registryOptions)` → `SetGrammar(GetScopeByExtension(ext))` → `SetTheme(LoadTheme(ThemeName.DarkPlus))`; the installation owns its `TMModel`, so the host supplies only the `IRegistryOptions` and answers `AppliedTheme` by rewriting the chrome property set from `TryGetThemeColor`.
-- standalone rail: a read-only surface (virtualized log, inspector preview) drives `new Registry(registryOptions).LoadGrammar(scope).TokenizeLine(line)` per line carrying `RuleStack` forward, or a `TMModel` over its own `IModelLines` for an incremental large source, resolving `IToken.Scopes` through `GetTheme().Match(scopes)` against one id-keyed brush cache and folding the `FontStyle` flags onto the same palette.
+- editor path: an editable pane feeds one locator to `editor.InstallTextMate(registryOptions)` → `SetGrammar(GetScopeByExtension(ext))` → `SetTheme(LoadTheme(ThemeName.DarkPlus))`; the installation owns its `TMModel`, so the host supplies only the `IRegistryOptions` and answers `AppliedTheme` by rewriting the chrome property set from `TryGetThemeColor`.
+- standalone path: a read-only surface (virtualized log, inspector preview) drives `new Registry(registryOptions).LoadGrammar(scope).TokenizeLine(line)` per line carrying `RuleStack` forward, or a `TMModel` over its own `IModelLines` for an incremental large source, resolving `IToken.Scopes` through `GetTheme().Match(scopes)` against one id-keyed brush cache and folding the `FontStyle` flags onto the same palette.
 
 [LOCAL_ADMISSION]:
 - Custom scopes (`source.rasm`, `source.rasm-expression`) register on the same locator the app installs: implement the four `IRegistryOptions` members, or `LoadFromLocalFile` a file-backed grammar extension.

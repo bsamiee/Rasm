@@ -1,6 +1,6 @@
 # [PY_DATA_API_CUBED]
 
-`cubed` mints lazy Array-API n-dimensional arrays whose every operation appends to a deferred task graph that runs only when `compute`/`store`/`to_zarr` fires a pluggable executor. Each `Array` backs onto Zarr storage under a `Spec` declaring the work directory, a hard per-task memory budget (`allowed_mem`), and the executor, so out-of-core and distributed workloads run at provable peak memory. It owns the chunked-compute rail the data owner folds `Array` + `Spec` + one graph-boundary `compute` into.
+`cubed` mints lazy Array-API n-dimensional arrays whose every operation appends to a deferred task graph that runs only when `compute`/`store`/`to_zarr` fires a pluggable executor. Each `Array` backs onto Zarr storage under a `Spec` declaring the work directory, a hard per-task memory budget (`allowed_mem`), and the executor, so out-of-core and distributed workloads run at provable peak memory. It owns the chunked-compute domain the data owner folds `Array` + `Spec` + one graph-boundary `compute` into.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -15,7 +15,7 @@
 |  [05]   | `cubed.Callback`     | event observer   | base for compute/operation/task callbacks                                          |
 |  [06]   | `cubed.TaskEndEvent` | event payload    | per-task completion event carrying timing and peak-memory fields                   |
 
-[exceptions] `cubed` mints NO exception class: the `allowed_mem` budget refusal, the unknown-dimension and source-arity refusals, and the plan lookups all raise `ValueError`, while a chunk pattern the primitive does not lower raises `NotImplementedError`. A consumer catch set names those two builtins plus whatever the Zarr scratch store and its residence reach.
+[exceptions] `cubed` mints NO exception class: the `allowed_mem` budget refusal, the unknown-dimension and source-arity refusals, and the plan lookups all raise `ValueError`, while a chunk pattern the primitive does not lower raises `NotImplementedError`. A consumer catch set names those two builtins plus whatever the Zarr scratch store and its store reach.
 
 [PUBLIC_TYPE_SCOPE]: `cubed.Array` members
 

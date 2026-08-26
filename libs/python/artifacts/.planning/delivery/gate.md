@@ -35,7 +35,7 @@ from rasm.artifacts.document.lens import TableAudit
 from rasm.artifacts.document.tagged import ArchiveAudit, ArchiveCheck, PreflightAudit, PreflightCheck, StructureAudit, UaCheck
 from rasm.artifacts.exchange.conformance import ConformanceVerdict
 from rasm.artifacts.graphic.raster.process import RasterFact
-from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -286,7 +286,7 @@ if _UNGOVERNED:
 ## [04]-[GATE]
 
 - Owner: `QualityGate` carries the artifact's `kind`, its `subject` content key, and the admitted `Block[GateEvidence]`; `graded()` is its total terminal. `of` shape-dispatches the closed `GateSource` union once, projecting `RasterFact` and `ConformanceVerdict` while admitting each document audit whole.
-- Entry: `of(kind, subject, *sources)` returns `RuntimeRail[Self]` under the accumulating disposition. A repeated family refuses because `QualityGate` is per-artifact — two raster bands for one subject name two artifacts, and folding them hides whichever graded better.
+- Entry: `of(kind, subject, *sources)` returns `RuntimeResult[Self]` under the accumulating disposition. A repeated family refuses because `QualityGate` is per-artifact — two raster bands for one subject name two artifacts, and folding them hides whichever graded better.
 - Auto: `_measured` is the ONE normalized projection, a total `match` answering `frozendict[str, float]` per family. `_numeric` reads every native numeric field off `structs.asdict` — booleans coerce, so a verdict flag is thresholdable with no per-field arm — and drops the non-numeric fields (`level`, `failures`, `pdf_version`, `pdfa_claim`) that carry no bar. `_clauses` projects the producer's WHOLE clause vocabulary, `0.0` passing and `1.0` failing, so a clean audit never reads `UNMEASURED` on a clause it actually ran. A raster band's string-valued scores (the `shift` tuple render) drop: a non-numeric score is unthresholdable, and a barred axis missing from the band grades `UNMEASURED`.
 - Auto: `graded` folds in two passes and one reduce. Each `policy.bars` row mints one coordinate off its family's supplied projection; each family the policy DEMANDS and no evidence supplied mints one bar-less coordinate under the family's own name, so the `_DEFAULT` row carrying zero bars still publishes absence rather than an empty pass. The grade is `_worst` reduced from `Grade.PASS` over every coordinate — the monoid identity, so an artifact with no coordinates at all grades `PASS` only where its row demanded nothing, and `ships` compares that grade's severity against the row's own floor.
 - Growth: a new verdict family is one `GateFamily` member, one `GateEvidence` case, one `_admitted` arm, one `_measured` arm, one `_AXES` row, and its bars — the two load gates and the `assert_never` tails break at import until every piece exists. A new governed kind is one `_POLICY` row; a new bar one tuple entry; a new grade one member and one `_SEVERITY` row. Zero new surface: the gate grows by member, case, and row, never by method.
@@ -302,7 +302,7 @@ class QualityGate(Struct, frozen=True, gc=False):
     evidence: Block[GateEvidence] = Block.empty()
 
     @classmethod
-    def of(cls, kind: ArtifactKind, subject: ContentKey, /, *sources: GateSource) -> RuntimeRail[Self]:
+    def of(cls, kind: ArtifactKind, subject: ContentKey, /, *sources: GateSource) -> RuntimeResult[Self]:
         admitted = Block.of_seq(sources).map(_admitted)
         held = admitted.choose(lambda outcome: outcome.to_option())
         repeated = frozenset(family for family, count in Counter(evidence.tag for evidence in held).items() if count > 1)
@@ -351,7 +351,7 @@ def _grade(bar: Option[Bar], measured: Option[float], /) -> Grade:
             return Grade.UNMEASURED
 
 
-def _admitted(source: GateSource, /) -> RuntimeRail[GateEvidence]:
+def _admitted(source: GateSource, /) -> RuntimeResult[GateEvidence]:
     match source:
         case RasterFact(score=scores):
             return Ok(GateEvidence(raster=scores))

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_H5PY]
 
-`h5py` maps the HDF5 container to Python. Compute composes it as the exchange-container surface alone — sparse-operator archives, graduation drift envelopes, and waveform corpora — never as a field store: the gridded field rail and its full h5py surface belong to `libs/python/data/.api/h5py.md`, and this folder's admission covers only the group/dataset/attribute members its exchange fences spell.
+`h5py` maps the HDF5 container to Python. Compute composes it as the exchange-container surface alone — sparse-operator archives, graduation drift envelopes, and waveform corpora — never as a field store: the gridded field domain and its full h5py surface belong to `libs/python/data/.api/h5py.md`, and this folder's admission covers only the group/dataset/attribute members its exchange fences spell.
 
 ## [01]-[PUBLIC_TYPES]
 

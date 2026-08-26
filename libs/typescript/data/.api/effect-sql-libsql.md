@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the `LibsqlClient` service and its config
-- rail: data/lane
+- concern: data/lane
 - `LibsqlClient` extends `SqlClient`, adding `[TypeId]` and a resolved `config`; every lane row yields the neutral Tag and only construction reaches the concrete one. `LibsqlClientConfig` splits `Full` (driver-owned connection) from `Live` (an app-owned `Libsql.Client` adopted as a value) over a shared `Base` carrying the `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms.
 
 | [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                     |
@@ -23,7 +23,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer on the `./server` subpath
-- rail: data/lane
+- concern: data/lane
 - `layer` yields `Layer<LibsqlClient \| SqlClient>` infallibly; `layerConfig` adds only `ConfigError`; `make` returns `Effect<LibsqlClient, never, Scope \| Reactivity>` for construction inside a larger acquire graph.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |

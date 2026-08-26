@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: declarative HTTP-API — the contribution family `serve/api` assembles
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]    | [CAPABILITY]                                |
 | :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------ |
@@ -18,7 +18,7 @@
 |  [07]   | `HttpApiClient` (derived) / `OpenApi.OpenAPISpec`      | client / spec    | `serve/api` — typed SDK, OpenAPI doc        |
 
 [PUBLIC_TYPE_SCOPE]: client, server, and routing
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]      | [CAPABILITY]                              |
 | :-----: | :----------------------------------------------------- | :----------------- | :---------------------------------------- |
@@ -31,7 +31,7 @@
 |  [07]   | `HttpServerError.RouteNotFound` / `HttpMiddleware`     | server fault / mw  | `serve/problem` — RFC 9457 mapping        |
 
 [PUBLIC_TYPE_SCOPE]: system-API contracts — abstract Tags a runtime `Layer` satisfies
-- rail: system-apis
+- concern: system-apis
 - `FileSystem` mints scoped temp paths whose deletion ties to the `Scope`; `Command`'s `Process` exposes `stdin` as a `Sink`, `stdout`/`stderr` as `Stream`, `exitCode` as an `Effect`; `Worker.WorkerManager`/`Worker.Spawner`/`WorkerRunner.PlatformRunner`/`Socket.WebSocketConstructor` are the runtime-provided Tags the bindings satisfy.
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                             |
@@ -43,14 +43,14 @@
 |  [05]   | `Terminal.Terminal`                             | tty Tag       | `serve/cli` — line/key input, display    |
 |  [06]   | `Socket.Socket` / `SocketServer`                | socket        | `net/channel`, `core/interchange/frame`  |
 |  [07]   | `Worker.WorkerPool` / `WorkerRunner`            | worker        | `proc/worker`, `browser/fetch` pools     |
-|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one rail      |
+|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one channel   |
 |  [09]   | `HttpIncomingMessage.withMaxBodySize`           | body policy   | `serve/route`, `net/client` — byte bound |
 
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: declaring, handling, serving, and consuming an `HttpApi`
-- rail: boundaries
-- consumer: `serve/api` unless the cell names another rail
+- concern: boundaries
+- consumer: `serve/api` unless the cell names another.
 - `HttpApiEndpoint.get`/`.post`/`.del`: `.setPath` `.setPayload(schema)` `.addSuccess` `.addError`. `HttpApiGroup.make`: `.add(endpoint)` `.addError` `.prefix` `.middleware(tag)`. `HttpApi.make`: `.add(group)` `.addError` `.annotate` `.middleware`. `HttpApiBuilder.group(api, name, h => h.handle(name, handler))`, `.api(api)`, `.serve(middleware?)`, `toWebHandler(api, options)`, `.middlewareCors(options)`, `.middlewareOpenApi()`, `.securityDecode`. `HttpApiClient.make(api, { baseUrl, transformClient })`; `OpenApi.fromApi(api)`, `HttpApiScalar.layer()`, `HttpApiSwagger.layer()`.
 
 | [INDEX] | [SURFACE]                                              | [SHAPE]          | [CAPABILITY]                                               |
@@ -65,7 +65,7 @@
 |  [08]   | `OpenApi.fromApi` / `HttpApiScalar` / `HttpApiSwagger` | docs             | spec document + reference UI                               |
 
 [ENTRYPOINT_SCOPE]: `HttpClient` — request policy and typed responses
-- rail: system-apis
+- concern: system-apis
 - `HttpClientRequest.get`/`.post`: `.setBody` `.bodyJson` `.bearerToken` `.setUrlParams`. `HttpClient.execute(request): Effect<HttpClientResponse, HttpClientError, Scope>`; policy `.retryTransient({ schedule })` `.filterStatusOk` `.followRedirects` `.mapRequest`; observability `.withTracerPropagation` `.withTracerDisabledWhen` `.tapRequest`. `HttpClientResponse.schemaJson(schema)` `.matchStatus({...})` `.stream` decode the body.
 
 | [INDEX] | [SURFACE]                                                    | [SHAPE]       | [CAPABILITY]                           |
@@ -78,7 +78,7 @@
 |  [06]   | `FetchHttpClient.layer` / `HttpClient.layerMergedContext`    | provide       | `net` — `fetch` `Layer`, undici swap   |
 
 [ENTRYPOINT_SCOPE]: server, router, and middleware
-- rail: boundaries
+- concern: boundaries
 - `HttpRouter`: `.empty` `.get(path, handler)` `.mountApp(prefix, app)` `.use(middleware)`. `HttpServerResponse`: `.json(data)` `.schemaJson(schema)(value)` `.text` `.stream` `.file` `.setCookie` `.setHeaders`. `HttpServerRequest`: `.schemaBodyJson(schema)` `.schemaHeaders` `.schemaSearchParams` `.upgrade`; `HttpIncomingMessage.withMaxBodySize(Option<SizeInput>)` scopes the actual-byte ceiling the body collector reads. `HttpMiddleware`: `.cors(options)` `.logger` `.xForwardedHeaders` `.searchParamsParser`.
 - `HttpLayerRouter`: `.use` `.add(method, path, handler)` `.addAll` `.addHttpApi(api, { openapiPath? })` `.middleware` `.cors()` `.disableLogger` `.serve` `.toWebHandler` `.params` `.schemaJson` `.schemaPathParams`. `HttpMultiplex`: `.make` `.empty` `.add(predicate, app)` `.headerExact` `.headerRegex` `.headerStartsWith` `.hostExact` `.hostRegex`. `HttpServerRespondable`: `.symbol` `.toResponse` `.toResponseOrElse` `.isRespondable`. `ChannelSchema`: `.encode` `.encodeUnknown` `.decode` `.decodeUnknown` `.duplex` `.duplexUnknown({ inputSchema, outputSchema })` — no `make` exists; the duplex pair IS the constructor surface.
 - `HttpApiScalar.layer({ path? })` `.layerCdn` `.layerHttpLayerRouter({ api, path, scalar? })` `.layerHttpLayerRouterCdn({ api, path, version?, scalar? })` and `HttpApiSwagger.layer({ path })` / `.layerHttpLayerRouter({ api, path })` mount the docs UI — the router-native forms require `api`. `HttpApiError` prebuilt status faults: `.HttpApiDecodeError` `.BadRequest` `.Unauthorized` `.Forbidden` `.NotFound` `.Conflict` `.InternalServerError` `.ServiceUnavailable`.
@@ -101,12 +101,12 @@
 |  [14]   | `HttpMethod`                                | literal union  | the method literals every router keys on                            |
 |  [15]   | `WorkerError`                               | fault family   | the tagged worker fault `isWorkerError` narrows                     |
 
-- Rows [12]-[15] carry verified members no fence composes yet; each enters at its consuming seam rather than through a wrapper.
+- Rows [12]-[15] carry verified members no fence composes yet; each enters at its consuming boundary rather than through a wrapper.
 
 [ENTRYPOINT_SCOPE]: system-API contracts and frame codecs
-- rail: system-apis
+- concern: system-apis
 - `Command`: `.make(cmd, ...args)` `.pipeTo(next)` `.stream` `.string` `.exitCode` `.env`. `KeyValueStore`: `.layerFileSystem(dir)` `.layerMemory` `.layerSchema(schema)` `.prefix(k)`. `Worker`: `.makePool` `.makePoolLayer` (`Layer` form over a `Spawner`) `.makePoolSerialized({ size })` with `WorkerRunner.layerSerialized(handlers)`. `Socket`: `.toChannel(socket)` `.makeWebSocket(url)` `.layerWebSocket`.
-- `CommandExecutor.CommandExecutor` is the Tag a spawning rail requires (`Command.string`/`.exitCode` demand it in `R`); `FileSystem` members a byte plane composes: `.makeTempDirectoryScoped()` (deletion rides the `Scope`), `.writeFile(path, bytes)`, `.readFile(path)`; `Path.Path` members: `.join(...segments)`; the fault module imports as `Error` (`import { type Error as Platform } from "@effect/platform"`) and every `PlatformError` carries `.message` for a seam re-tag.
+- `CommandExecutor.CommandExecutor` is the Tag a spawning caller requires (`Command.string`/`.exitCode` demand it in `R`); `FileSystem` members a byte plane composes: `.makeTempDirectoryScoped()` (deletion rides the `Scope`), `.writeFile(path, bytes)`, `.readFile(path)`; `Path.Path` members: `.join(...segments)`; the fault module imports as `Error` (`import { type Error as Platform } from "@effect/platform"`) and every `PlatformError` carries `.message` for a boundary re-tag.
 - `MsgPack.duplexSchema({ inputSchema, outputSchema })` `.pack` and `Ndjson.duplexSchema` `.duplex` `.duplexString` frame `Schema`-typed messages over a byte `Channel`. `Multipart`: `.toPersisted(parts)` `.schemaPersisted(schema)` `.withLimits(opts)` `.withLimitsStream(parts, opts)`. `Transferable.schema(schema)`, `Template.make\`…\``, `HttpBody.json`/`.formData`.
 - `withLimits.Options` carries five axes — `Option`-shaped `maxParts`/`maxFileSize`/`maxTotalSize`, bare `maxFieldSize`, and `fieldMimeTypes: ReadonlyArray<string>`. `maxTotalSize` writes `HttpIncomingMessage.MaxBodySize`, whose `Option.none` default — shared by `MaxParts` and `MaxFileSize` — leaves an unset request body UNBOUNDED; `MaxFieldSize` defaults 10 MiB and `FieldMimeTypes` defaults `Chunk.make("application/json")`.
 
@@ -121,7 +121,7 @@
 |  [07]   | `Transferable` / `Template` / `HttpBody` | payload        | `browser/fetch` transfer, `serve` templating, request/response bodies  |
 
 [ENTRYPOINT_SCOPE]: config, logging, and process lifecycle boundary
-- rail: system-apis
+- concern: system-apis
 - `PlatformConfigProvider`: `.fromDotEnv(path)` `.layerDotEnv` `.fromFileTree` `.layerFileTree`. `PlatformLogger.toFile(path, { batchWindow })`; `Runtime`: `.makeRunMain(f)` `.RunMain` `.defaultTeardown`. `Headers.empty`/`.redact(headers, keys)`, `Cookies.toCookieHeader`, `UrlParams.schemaStruct(schema)`. `HttpTraceContext`: `.toHeaders(span)` `.fromHeaders(headers)` `.b3` `.xb3` `.w3c`. `Etag`: `.Generator` `.layer` `.layerWeak` with `HttpServerResponse.setBody(HttpBody.fileWeb(file))`.
 
 | [INDEX] | [SURFACE]                           | [SHAPE]       | [CAPABILITY]                                                                   |
@@ -138,7 +138,7 @@
 Shipped declarations for the platform members whose call shape and behavioral contract a roster cell cannot carry — owning module, generic parameters, parameter lists, return types.
 
 [SIGNATURE_SCOPE]: `Cookies` — construction, collection, and header rendering
-- rail: boundaries
+- concern: boundaries
 
 [COOKIE]: `Cookie.name: string` `Cookie.value: string` `Cookie.valueEncoded: string` `Cookie.options: {…}`
 [COOKIE_OPTIONS]: `domain` `expires` `maxAge` `path` `priority` `httpOnly` `secure` `partitioned` `sameSite`
@@ -149,7 +149,7 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - `toSetCookieHeaders` is plural, one `Set-Cookie` per cookie; `toCookieHeader` is the request-side single-header join. `Cookies` owns `Set-Cookie` serialization.
 
 [SIGNATURE_SCOPE]: `Headers` — the empty frame and the log-path mask
-- rail: boundaries
+- concern: boundaries
 
 [HEADERS]: `Headers extends Redactable { readonly [HeadersTypeId]: HeadersTypeId; readonly [key: string]: string }`
 [EMPTY]: `empty: Headers`
@@ -161,7 +161,7 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - `Headers` satisfies `Redactable` by folding `redact` over `currentRedactedNames`, so a logged `Headers` VALUE already masks the credential quartet — the explicit fold is for a bag copied OUT of that shape, which keeps the key spelling and loses the protocol; `runtime/otel/emit#REDACTION` seals the same names on the OTel side for exactly those copies.
 
 [SIGNATURE_SCOPE]: `HttpTraceContext` — the span-context header codec
-- rail: boundaries
+- concern: boundaries
 
 [DECODER]: `FromHeaders: (headers: Headers.Headers) => Option.Option<Tracer.ExternalSpan>`
 [SURFACES]: `toHeaders(span:Tracer.Span) -> Headers.Headers` `fromHeaders(headers:Headers.Headers) -> Option.Option<Tracer.ExternalSpan>` `b3: FromHeaders` `xb3: FromHeaders` `w3c: FromHeaders`
@@ -171,8 +171,8 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - `fromHeaders` folds `w3c`, then `b3`, then `xb3`, returning the first hit; each decoder stays separately callable under `FromHeaders` for single-dialect ingress.
 - `w3c` admits version `00` alone and refuses a `traceId`/`spanId` failing its 32/16 hex-digit test; `b3` and `xb3` default `sampled` to true when the sampling field is absent.
 
-[SIGNATURE_SCOPE]: `HttpApiSecurity.bearer` / `HttpApiMiddleware.Tag` / `HttpApiBuilder.securityDecode` — the declarative guard seam
-- rail: services-and-layers
+[SIGNATURE_SCOPE]: `HttpApiSecurity.bearer` / `HttpApiMiddleware.Tag` / `HttpApiBuilder.securityDecode` — the declarative guard boundary
+- concern: services-and-layers
 
 [BEARER]: `Bearer._tag: "Bearer"`
 [TAG_OPTIONS]: `optional` `failure` `provides` `security`
@@ -188,19 +188,19 @@ Shipped declarations for the platform members whose call shape and behavioral co
 - HTTP-API family runs declaration-then-implementation: `HttpApiEndpoint`/`HttpApiGroup`/`HttpApi` are pure data carrying `Schema` request/success/error shapes; `HttpApiBuilder.group` binds each endpoint to an `Effect` handler, exhaustively checked against the declaration. One `HttpApi` value derives the server (`HttpApiBuilder.serve`), the typed client (`HttpApiClient.make`), and the OpenAPI document (`OpenApi.fromApi`) from one source, so spec, docs, client, and server never drift.
 - Client and server are `Schema`-symmetric: `HttpClientRequest`/`HttpServerRequest` decode inbound through `schemaBodyJson`, `HttpClientResponse`/`HttpServerResponse` encode outbound through `schemaJson`, and both fail into a tagged error family (`HttpClientError`, `HttpServerError`, `HttpApiDecodeError`) that flows the `Effect` error channel to the `serve/problem` RFC 9457 mapping.
 - `HttpLayerRouter` is the `Layer`-composable server: routes and middleware are `Layer`s, `addHttpApi` mounts a full declarative api beside raw routes, and the whole server is one `Layer` the app root binds — the model `serve/route` uses when an app mixes an `HttpApi`, an EventLog sync `HttpApp`, and static assets under one server.
-- Frame codecs (`MsgPack`, `Ndjson`) and `Socket` compose as Effect `Channel`s: `Socket.toChannel` turns a duplex connection into a byte channel, and `MsgPack.duplexSchema`/`Ndjson.duplexSchema` layer a `Schema`-typed message channel over it — the framed transport rail is decode-typed end to end with backpressure, never a raw event emitter.
+- Frame codecs (`MsgPack`, `Ndjson`) and `Socket` compose as Effect `Channel`s: `Socket.toChannel` turns a duplex connection into a byte channel, and `MsgPack.duplexSchema`/`Ndjson.duplexSchema` layer a `Schema`-typed message channel over it — the framed transport is decode-typed end to end with backpressure, never a raw event emitter.
 - `Worker`/`WorkerRunner` are `Schema`-serialized RPC over a thread/process boundary: the pool sends a decoded request and awaits a decoded response, so `browser/fetch` moves content-key verification off-thread and `proc/worker` runs CPU-heavy work in a pool with the same typed contract as an in-process call.
 
 [STACKING]:
-- `effect`(`.api/effect.md`): every contract is an `Effect`-returning service keyed by `Context.Tag`; endpoint payloads, request/response bodies are `Schema`; middleware and client policy are effect transformers. Platform tier adds no new rail — `effect` applied to the boundary.
+- `effect`(`.api/effect.md`): every contract is an `Effect`-returning service keyed by `Context.Tag`; endpoint payloads, request/response bodies are `Schema`; middleware and client policy are effect transformers. Platform tier adds no new carrier — `effect` applied to the boundary.
 - `@effect/platform-node`(`.api/effect-platform-node.md`): `NodeContext.layer` satisfies `FileSystem`/`Path`/`CommandExecutor`/`Terminal`/`Worker` in one Layer, `NodeHttpServer.layer` binds `HttpServer`, `NodeHttpClient.layerUndici` binds `HttpClient`. `@effect/platform-bun`(`.api/effect-platform-bun.md`) and `-browser`(`.api/effect-platform-browser.md`) are peer swaps behind the same Tags.
-- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): `HttpClient.withTracerPropagation` and `HttpMiddleware` inject the W3C `traceparent`, `HttpTraceContext.toHeaders` seeds that frame by hand where egress leaves the client (an RPC hop), `HttpTraceContext.fromHeaders` recovers the inbound `ExternalSpan` for `Tracer.makeExternalSpan`/`withSpanContext` to continue into an Effect parent span, and `Otlp.layer` under the graph exports every server and client-egress span over the shared `HttpClient` with no handler change; `otel/emit` owns the extract-and-continue seam.
-- `security`(`security/.api/jose.md`, `openid-client.md`, `node-rs-argon2.md`): `HttpApiSecurity.bearer`/`.apiKey` declares the endpoint scheme, `HttpApiBuilder.securityDecode` decodes the credential from `HttpServerRequest`, and the `security` middleware verifies it (`jose` JWKS validation, `@node-rs/argon2` API-key digest) inside the `Effect` rail.
+- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): `HttpClient.withTracerPropagation` and `HttpMiddleware` inject the W3C `traceparent`, `HttpTraceContext.toHeaders` seeds that frame by hand where egress leaves the client (an RPC hop), `HttpTraceContext.fromHeaders` recovers the inbound `ExternalSpan` for `Tracer.makeExternalSpan`/`withSpanContext` to continue into an Effect parent span, and `Otlp.layer` under the graph exports every server and client-egress span over the shared `HttpClient` with no handler change; `otel/emit` owns the extract-and-continue boundary.
+- `security`(`security/.api/jose.md`, `openid-client.md`, `node-rs-argon2.md`): `HttpApiSecurity.bearer`/`.apiKey` declares the endpoint scheme, `HttpApiBuilder.securityDecode` decodes the credential from `HttpServerRequest`, and the `security` middleware verifies it (`jose` JWKS validation, `@node-rs/argon2` API-key digest) inside the `Effect`.
 - `@effect/rpc`(`runtime/.api/effect-rpc.md`): `RpcGroup`/`RpcServer` is the second `serve` contribution family beside `HttpApiGroup`, served over a `Protocol` Layer built on `HttpRouter`/`HttpApp`/`Socket`/`Worker`. `@effect/cli`(`runtime/.api/effect-cli.md`): a `Command` value composes the `Terminal`/`FileSystem`/`Path` `Environment`, `Command.run` the argv boundary — one assembly law across HTTP, RPC, and CLI surfaces.
 - `@effect/sql`(`data/.api/effect-sql.md`) and `@effect/cluster`(`runtime/.api/effect-cluster.md`) build on these contracts (`Socket`, `FileSystem`) and expose `SqlClient`/`MessageStorage` Tags the app root satisfies with a `store` driver `Layer`; `SqlMessageStorage.layer` binds the cluster message store onto the SQL spine.
 
 [LOCAL_ADMISSION]:
-- Domain code yields the abstract Tag (`FileSystem.FileSystem`, `HttpClient.HttpClient`, `Command.Command`, `Worker`); the runtime binding stays at the app root, preserving portability, tracing, and the error rail.
+- Domain code yields the abstract Tag (`FileSystem.FileSystem`, `HttpClient.HttpClient`, `Command.Command`, `Worker`); the runtime binding stays at the app root, preserving portability, tracing, and the error channel.
 - HTTP surfaces declare `HttpApiEndpoint`/`HttpApiGroup`/`HttpApi` with `HttpApiBuilder` handlers for the free typed client and OpenAPI; raw `HttpRouter`/`HttpLayerRouter` serves only non-API mounts (static assets, sync server).
 - `HttpClient.retryTransient`/`.filterStatusOk`/`.mapRequest` compose as policy on the shared `net/client` client.
 - `Schema` gates every edge — `schemaBodyJson`/`schemaHeaders`/`schemaSearchParams` on ingress, `schemaJson` on egress.

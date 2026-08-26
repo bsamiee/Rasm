@@ -1,6 +1,6 @@
 # [RASM_BIM_API_NTS_ESRI_SHAPEFILE]
 
-`NetTopologySuite.IO.Esri.Shapefile` owns the pure-managed Esri shapefile codec: it reads and writes the `.shp`/`.shx`/`.dbf`/`.prj` quartet directly to and from `NetTopologySuite` `Feature`/`Geometry`, streaming forward-only under an MBR push-down filter over a typed dBASE attribute schema. It holds the managed shapefile leg of the geospatial exchange seam, materializing the canonical NTS feature shape with no native `libgdal` dependency; the geometry algebra, the datum transform, and the raster and non-shapefile vector formats stay with their own owners.
+`NetTopologySuite.IO.Esri.Shapefile` owns the pure-managed Esri shapefile codec: it reads and writes the `.shp`/`.shx`/`.dbf`/`.prj` quartet directly to and from `NetTopologySuite` `Feature`/`Geometry`, streaming forward-only under an MBR push-down filter over a typed dBASE attribute schema. It holds the managed shapefile leg of the geospatial exchange boundary, materializing the canonical NTS feature shape with no native `libgdal` dependency; the geometry algebra, the datum transform, and the raster and non-shapefile vector formats stay with their own owners.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -89,8 +89,8 @@
 - `ShapefileWriterOptions` declares the writer schema up front — `params DbfField[]` ctor, the fluent `Add*Field` builders, or the copy-from-`ShapefileReader` ctor; dBASE caps field names at 10 chars, character fields at 254, one shape type per file.
 
 [STACKING]:
-- `api-nettopologysuite` NTS seam: the codec consumes and produces `Geometry` and `Feature`, so a decoded feature flows into the planar predicate/overlay/index algebra (`STRtree.Insert(feature.Geometry.EnvelopeInternal, feature)`) and a `BimElement` footprint flows out through `Shapefile.WriteAllFeatures`.
-- `api-projnet` / `api-maxrev-gdal` reproject seam: `.prj` WKT reads into `ShapefileReader.Projection` and writes from `ShapefileWriterOptions.Projection`; `ProjNET` `CoordinateSystemWktReader` or OSR `ImportFromESRI`/`ImportFromWkt` parses it, and the `MathTransform`/`CoordinateTransformation` reprojects the ordinates to the project CRS before features enter the model.
+- `api-nettopologysuite` NTS boundary: the codec consumes and produces `Geometry` and `Feature`, so a decoded feature flows into the planar predicate/overlay/index algebra (`STRtree.Insert(feature.Geometry.EnvelopeInternal, feature)`) and a `BimElement` footprint flows out through `Shapefile.WriteAllFeatures`.
+- `api-projnet` / `api-maxrev-gdal` reproject boundary: `.prj` WKT reads into `ShapefileReader.Projection` and writes from `ShapefileWriterOptions.Projection`; `ProjNET` `CoordinateSystemWktReader` or OSR `ImportFromESRI`/`ImportFromWkt` parses it, and the `MathTransform`/`CoordinateTransformation` reprojects the ordinates to the project CRS before features enter the model.
 - `Exchange/format#FORMAT_AXIS`: shapefile read/write is one `Detect` row — `.shp` ingest routes to `Shapefile.OpenRead` under the MBR filter, export to `Shapefile.OpenWrite` under the schema-from-`PropertySet` projection.
 
 [LOCAL_ADMISSION]:

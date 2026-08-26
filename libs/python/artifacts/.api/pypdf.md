@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYPDF]
 
-`pypdf` owns the pure-Python PDF read/write surface for the artifacts pdf rail: `PdfReader`/`PdfWriter` roots, `PageObject`, the `pypdf.generic` object model, and a fluent `Transformation` algebra driving merge, overlay/transform, text and image extraction, AcroForm fill, outline/annotation/attachment authoring, `ObjectDeletionFlag` pruning, and RC4/AES encryption — no native runtime. BSD-3-Clause with no native link, it is the permissive structural editor admissible where AGPL `pymupdf` is barred; rendering routes to `pymupdf`/`pypdfium2`, AES-256-R6 to `pikepdf`, OCR-to-PDF/A to `ocrmypdf`.
+`pypdf` owns the pure-Python PDF read/write surface for the artifacts pdf domain: `PdfReader`/`PdfWriter` roots, `PageObject`, the `pypdf.generic` object model, and a fluent `Transformation` algebra driving merge, overlay/transform, text and image extraction, AcroForm fill, outline/annotation/attachment authoring, `ObjectDeletionFlag` pruning, and RC4/AES encryption — no native runtime. BSD-3-Clause with no native link, it is the permissive structural editor admissible where AGPL `pymupdf` is barred; rendering routes to `pymupdf`/`pypdfium2`, AES-256-R6 to `pikepdf`, OCR-to-PDF/A to `ocrmypdf`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -140,7 +140,7 @@
 - `numpy`(`libs/python/.api/numpy.md`)/`msgspec`(`libs/python/.api/msgspec.md`): the `visitor_text(text, cm, tm, font_dict, font_size)` and `visitor_operand_before/after` callbacks on `extract_text(extraction_mode="layout")` append `(text, x, y, font, size)` to a buffer the owner folds into a `numpy` coordinate array or `msgspec.Struct` run — one streaming visitor, never a regex over raw operators.
 - `anyio`(`libs/python/.api/anyio.md`): a per-page read op (`extract_text`/`images`/`merge_page`/`remove_objects_from_page`) over a large `reader.pages` fans across `anyio.to_thread.run_sync` under a `CapacityLimiter`; `PdfWriter` mutation stays single-owner, only read-side page work parallelizes.
 - `pillow`(`.api/pillow.md`): `PageObject.images` yields `ImageFile` whose `.image` is a `PIL.Image` and `.data` the codec bytes, handed to the pillow owner or `av.VideoFrame.from_image`, never a hand-decoded XObject stream.
-- document-rail: `pypdf.append`/`merge` assembles the multi-source document, `vl_convert`/`typst`/`reportlab`/`weasyprint` PDFs enter as appended source files, `pymupdf`/`pypdfium2` render a page to raster, `pikepdf` re-encrypts at AES-256-R6 and linearizes, `ocrmypdf` adds the OCR layer, and `pyhanko` PAdES-signs the finished bytes.
+- document domain: `pypdf.append`/`merge` assembles the multi-source document, `vl_convert`/`typst`/`reportlab`/`weasyprint` PDFs enter as appended source files, `pymupdf`/`pypdfium2` render a page to raster, `pikepdf` re-encrypts at AES-256-R6 and linearizes, `ocrmypdf` adds the OCR layer, and `pyhanko` PAdES-signs the finished bytes.
 - within-lib: `document/pdf` composes `PdfReader`/`PdfWriter`/`PageObject`/`Transformation`/`generic` into the pdf owner; the extraction visitor feeds the document text model and the `merge_*` family the overlay/watermark op.
 
 [LOCAL_ADMISSION]:

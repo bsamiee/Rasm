@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_GH2_FLEX]
 
-`Grasshopper2.UI.Flex` and `Grasshopper2.UI.Animation` own the canvas motion substrate. `IFlexControl` is the typed host seam for coordinate mapping, viewport navigation, focus and redraw scheduling, event dispatch, and `Animated<T>` consumption; `MotionEquations.Blend` is the sole easing evaluator every animation routes through, and `Responses` folds each mouse, key, text, and rotation event to a `Response` verdict. Pacing rides `MotionEquations.Blend` and `Animated<T>`, repaint rides `IFlexControl.ScheduleRedraw`; no host pacer, spring, or subscription carrier exists.
+`Grasshopper2.UI.Flex` and `Grasshopper2.UI.Animation` own the canvas motion substrate. `IFlexControl` is the typed host interface for coordinate mapping, viewport navigation, focus and redraw scheduling, event dispatch, and `Animated<T>` consumption; `MotionEquations.Blend` is the sole easing evaluator every animation routes through, and `Responses` folds each mouse, key, text, and rotation event to a `Response` verdict. Pacing rides `MotionEquations.Blend` and `Animated<T>`, repaint rides `IFlexControl.ScheduleRedraw`; no host pacer, spring, or subscription carrier exists.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -21,7 +21,7 @@
 
 - `Duration.Ĝlāçïāľ`: ships with its diacritics; spell the member exactly.
 
-[PUBLIC_TYPE_SCOPE]: the IFlexControl seam
+[PUBLIC_TYPE_SCOPE]: the IFlexControl interface
 - namespace: `Grasshopper2.UI.Flex`, `Grasshopper2.UI`
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                     |
@@ -86,7 +86,7 @@
 |  [04]   | `AddGap` / `AddLine` / `AddCircle` / `AddArc`                      | instance | append a stroke                                  |
 |  [05]   | `AnimatedPath.Draw`                                                | instance | time-parameterized draw over key or t0–t1 window |
 
-[ENTRYPOINT_SCOPE]: IFlexControl coordinate, navigation, and redraw seam
+[ENTRYPOINT_SCOPE]: IFlexControl coordinate, navigation, and redraw interface
 - namespace: `Grasshopper2.UI.Flex`
 
 | [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                            |
@@ -140,12 +140,12 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- two namespaces meet at one seam: `Grasshopper2.UI.Animation` owns generic value interpolation, `Grasshopper2.UI.Flex` owns control projection and dispatch, joined where `IFlexControl.Animate` consumes an `Animated<T>`
+- two namespaces meet at one boundary: `Grasshopper2.UI.Animation` owns generic value interpolation, `Grasshopper2.UI.Flex` owns control projection and dispatch, joined where `IFlexControl.Animate` consumes an `Animated<T>`
 - `Animated<T>` is a two-state curve: `CreateUnfinished` animates, `CreateFinished` holds a settled value, `Evaluate(DateTime)` samples, `State` reports `Pending`/`Busy`/`Finished`, and `Chain` or `operator +` appends the next leg
 - `MotionEquations.Blend(Motion, double)` is the single easing evaluator every `Animated<T>` and `Animators` factory routes through; `Motion` names the base and delayed easing kinds and `Duration` the alphabetical spans whose enum value equals the millisecond count
 - response dispatch is a folded verdict: each `Responses` handler returns a `Response` under `Ignored` < `Release` < `Handled` < `Capture` precedence, and `HadEffect` returning `false` downgrades that responder's `Release` to `Ignored` so a no-drag right click still reaches context-menu population
 - `Responses` carries TWO member families over one event set and the override is the primary one: each `*Hook` event fires only where the virtual member's own logic returns `Ignored`, because every base body is exactly `Invoke*Relay(hook, e)` and an override reaching `base.Member(e)` is what re-enters that relay; the relay walks the invocation list in subscription order and the first non-`Ignored` result wins, so a subscriber cannot pre-empt an override and an override that never calls base silences every subscriber on that event. `MouseOverHook`/`MouseLeaveHook` are the two exceptions — `Action`-shaped, no verdict, invoked unconditionally after the member's own logic
-- Family split is the extension seam: a responder the boundary constructs owns behavior by override, while an attribute subclass extends a host responder it cannot subclass (`ComponentAttributes` and `ResizableAttributes<T>` both expose theirs as a private sealed nested class behind `public Responses Responder`) by subscribing hooks, which fire exactly where that host responder declines
+- Family split is the extension point: a responder the boundary constructs owns behavior by override, while an attribute subclass extends a host responder it cannot subclass (`ComponentAttributes` and `ResizableAttributes<T>` both expose theirs as a private sealed nested class behind `public Responses Responder`) by subscribing hooks, which fire exactly where that host responder declines
 - `IFlexControl` is the coordinate authority: `Map` converts between `Content` and `Control` frames, `Navigate` animates the viewport to a `ContentPosition`, point, or rect over a `Duration`, and `FlexControl`'s focus stack (`PushFocus`/`PopFocus`) routes capture
 - `AnimatedPath` models a named feedback-stroke set with time-parameterized `Draw` — the notice glyph the canvas and chrome compose
 

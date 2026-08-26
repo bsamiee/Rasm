@@ -12,10 +12,10 @@ Message-envelope algebra, format contract, protocol lowering, and delivery all s
 
 - Owner: `TransmittalNotice` couples `TRANSMITTAL_POINT` to the typed issue projector consumed by the runtime emitter.
 - Cases: event type, source, operation identity, content identity, and extensions derive from `TransmittalIssued`.
-- Law: `subject` carries the PAYLOAD's content key, minted here over the encoded fact bytes through `evidence/identity#IDENTITY` and rendered at this mint through that owner's own `project("wire")` — the estate's ONE lowering site — into the `WireKey` slot the wire carries. Seating the pre-run aggregate key there instead collapses operation identity onto content identity, which is the one distinction `(source, id)` exists to hold.
+- Law: `subject` carries the PAYLOAD's content key, minted here over the encoded fact bytes through `evidence/identity#IDENTITY` and rendered at this mint through that owner's own `project("wire")` — the repo's ONE lowering site — into the `WireKey` slot the wire carries. Seating the pre-run aggregate key there instead collapses operation identity onto content identity, which is the one distinction `(source, id)` exists to hold.
 - Law: the encoded `TransmittalIssued` fact is the payload; the authoritative register remains content-keyed.
 - Law: `dataschema` stays absent because this producer publishes no absolute URI identifying a schema document for the msgspec body. A registry subject, package coordinate, generated type name, or event-type major is not substituted for that URI; registry and contract generations stay composition configuration outside the envelope.
-- Law: `dataref` stays absent at this projection. `transport/binding#BINDING` alone externalizes an oversized payload through its bound residence and writes the answered `ResourceRef.path` into that generated URI-reference column, under the selected binding's `Retain` row. `expirytime` also stays absent: this legal announcement has no producer validity cutoff, and broker retention or resource aging is custody policy rather than event semantics.
+- Law: `dataref` stays absent at this projection. `transport/binding#BINDING` alone externalizes an oversized payload through its bound store and writes the answered `ResourceRef.path` into that generated URI-reference column, under the selected binding's `Retain` row. `expirytime` also stays absent: this legal announcement has no producer validity cutoff, and broker retention or resource aging is custody policy rather than event semantics.
 - Law: `_CLASSIFIED` admits the ISO 19650 confidentiality spelling before it enters the generated extension field.
 - Law: the creation-time W3C trace injects here and the transport hop's carrier stays the binding's. Artifacts taps run synchronously inside the fire, so `context.get_current()` at this projection is still the producing fold's context and the injected carrier fills the roster's own W3C slots through `TRACE_SLOTS` rather than three spelled names.
 - Entry: `projections()` exposes the issued point and `announce()` projects its typed fact.
@@ -45,7 +45,7 @@ from rasm.runtime.event import (
     OperationId,
     Source,
 )
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, rostered
 from rasm.runtime.identity import ContentIdentity
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -82,7 +82,7 @@ class TransmittalNotice(Struct, frozen=True, gc=False):
     def projections(self) -> Block[Projection]:
         return Block.singleton(Projection.of(TRANSMITTAL_POINT, self.announce))
 
-    def announce(self, fact: TransmittalIssued, /) -> RuntimeRail[MessageEnvelope]:
+    def announce(self, fact: TransmittalIssued, /) -> RuntimeResult[MessageEnvelope]:
         body = json.encode(fact)
         carrier: dict[str, str] = {}
         propagate.inject(carrier, otel_context.get_current())
@@ -110,7 +110,7 @@ class TransmittalNotice(Struct, frozen=True, gc=False):
         )
 
 
-def _classification(raw: str, /) -> RuntimeRail[Classification]:
+def _classification(raw: str, /) -> RuntimeResult[Classification]:
     normalized = raw.casefold().strip()
     return _CLASSIFIED.try_find(normalized).to_result_with(
         lambda: NOTICE_CONFIDENTIALITY.raised(normalized or "<absent>")

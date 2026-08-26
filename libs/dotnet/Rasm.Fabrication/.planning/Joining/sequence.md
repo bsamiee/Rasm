@@ -109,7 +109,6 @@ public readonly partial struct CandidateLaw {
     public bool PreserveSideBarriers { get; }
     public int Ceiling { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<Length> segmentBands,
@@ -177,7 +176,6 @@ public readonly partial struct ThermalLaw {
     public NodaTime.Duration ReheatAfter { get; }
     public NodaTime.Duration ReheatDuration { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Temperature ambient,
@@ -209,7 +207,6 @@ public readonly partial struct TackBand {
     public Length MinimumLength { get; }
     public Energy MinimumEnergy { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length maximumThickness,
@@ -234,7 +231,6 @@ public readonly partial struct ActionDurations {
     public NodaTime.Duration PostWeldHeatTreatRamp { get; }
     public NodaTime.Duration Inspect { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref NodaTime.Duration prepareGroove,
@@ -270,7 +266,6 @@ public readonly partial struct DistortionObjective {
     public double Time { get; }
     public double Thermal { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double sweep,
@@ -302,7 +297,6 @@ public sealed partial class InherentStrainLaw {
     public Force ReferencePreload { get; }
     public Length ReleaseAtReference { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Energy referenceHeat,
@@ -339,7 +333,6 @@ public readonly partial struct SequenceLimits {
     public Length LinearDistortion { get; }
     public Angle AngularDistortion { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int consecutiveDeposits,
@@ -362,7 +355,6 @@ public sealed partial class SequencePolicy {
     public SequenceLimits Limits { get; }
     public DistortionObjective Objective { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CandidateLaw candidates,
@@ -400,7 +392,6 @@ public sealed partial class MotionTiming {
     public Map<MotionKey, NodaTime.Duration> Cycles { get; }
     public Seq<RunWarning> Warnings { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Map<(int Joint, int Pass, int Segment), NodaTime.Duration> segments,
@@ -457,7 +448,6 @@ public sealed partial class SequenceRequest {
     public Seq<ClampPreload> Clamps { get; }
     public Option<MotionTiming> Motion { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WeldPlan plan,

@@ -1,11 +1,11 @@
 # [APPUI_CODEPANE_EDITING]
 
-Grammar-scoped code editing over AvaloniaEdit and TextMate: `EditorInk` is the one chrome correspondence feeding both the live styled-property bind set and the projected gui-color block, `EditorOptionsRow` the capability-set enablement policy, `RasmRegistry` the one product grammar locator, `LanguagePlan` the compiled behavior projection its `[Mapper]` seam lands, and `CodePane` the boundary capsule mounting grammar, chrome, folding, behavior, and search as one custody chain — with the table-driven completion and overload projections beside it.
+Grammar-scoped code editing over AvaloniaEdit and TextMate: `EditorInk` is the one chrome correspondence feeding both the live styled-property bind set and the projected gui-color block, `EditorOptionsRow` the capability-set enablement policy, `RasmRegistry` the one product grammar locator, `LanguagePlan` the compiled behavior projection its `[Mapper]` lands, and `CodePane` the boundary capsule mounting grammar, chrome, folding, behavior, and search as one custody chain — with the table-driven completion and overload projections beside it.
 
 ## [01]-[INDEX]
 
 - [02]-[EDITOR_CHROME]: The ink correspondence table, the gui-color decorator, the affordance and whitespace capability sets, and the owned indent-guide renderer.
-- [03]-[GRAMMAR_BEHAVIOR]: The product registry over the bundled corpus, the grammar-scope rows, the compiled behavior plan with its generated seam, and the indentation strategy.
+- [03]-[GRAMMAR_BEHAVIOR]: The product registry over the bundled corpus, the grammar-scope rows, the compiled behavior plan with its generated mapper, and the indentation strategy.
 - [04]-[CODE_PANE]: The pane capsule, the session custody chain, the whole-set fold resync, and the overview lane source.
 - [05]-[ASSIST]: The completion-family axis, the weight policy, the one `ICompletionData` projection, and the overload provider over the same rows.
 
@@ -18,12 +18,11 @@ Grammar-scoped code editing over AvaloniaEdit and TextMate: `EditorInk` is the o
 - Law: three chrome members take a PEN where the emission carries brushes and metrics, so each folds its ink and stroke width from two dynamic reads: `TextArea.SelectionBorder` is the concrete `Pen` (an `ImmutablePen` does not assign), `TextView.ColumnRulerPenProperty` registers under the Avalonia name `"ColumnRulerBrush"` while its CLR accessor reads `ColumnRulerPen`, and `TextEditor.SearchResultsBrush` forwards to the installed `SearchPanel` — a write before the panel mounts is DROPPED, which is why `Open` orders `SearchPanel.Install` ahead of the ink set.
 - Packages: Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate, TextMateSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one chrome pixel is one `EditorInk` row; one enablement axis is one `EditorAffordance` or `WhitespaceMark` row read at both the options fold and the row gate.
-- Boundary: `TokenRawTheme` takes a VALUE theme because the tokenizer compiles its colour trie once — a re-materialization, not a dynamic consumer — and rides `Theme/tokens#CONTROL_THEMES` `Rematerialize.GrammarTheme`, whose rebuild re-emits the block and calls `SetTheme` on every mounted installation; inside a pane the rows bind styled properties through `ThemeRail.Bind`, so a variant flip re-tints with nothing rebuilt. `WhitespaceMark` restores a capability the retired single bool erased: spaces, tabs, and line-ends are three package knobs one flag drove as one. Indent guides ship in no AvaloniaEdit type — the row's own `Attach` mounts the owned renderer on `TextView.BackgroundRenderers` (`InsertLayer` throws for anything but `Above` against `KnownLayer.Background`, and an `Above` layer paints over the text).
+- Boundary: `TokenRawTheme` takes a VALUE theme because the tokenizer compiles its colour trie once — a re-materialization, not a dynamic consumer — and rides `Theme/tokens#CONTROL_THEMES` `Rematerialize.GrammarTheme`, whose rebuild re-emits the block and calls `SetTheme` on every mounted installation; inside a pane the rows bind styled properties through `ThemeGate.Bind`, so a variant flip re-tints with nothing rebuilt. `WhitespaceMark` restores a capability the retired single bool erased: spaces, tabs, and line-ends are three package knobs one flag drove as one. Indent guides ship in no AvaloniaEdit type — the row's own `Attach` mounts the owned renderer on `TextView.BackgroundRenderers` (`InsertLayer` throws for anything but `Above` against `KnownLayer.Background`, and an `Above` layer paints over the text).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EditorAffordance : ICapability<EditorAffordance> {
@@ -35,7 +34,6 @@ public sealed partial class EditorAffordance : ICapability<EditorAffordance> {
     public static readonly EditorAffordance SpacesForTabs = new(key: "spaces-for-tabs");
 }
 
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WhitespaceMark : ICapability<WhitespaceMark> {
@@ -49,49 +47,49 @@ public sealed partial class WhitespaceMark : ICapability<WhitespaceMark> {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EditorInk {
     public static readonly EditorInk Surface = new("editor.background", PaintRole.Well, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor, TemplatedControl.BackgroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TemplatedControl.BackgroundProperty, key),
         lit: static _ => true);
     public static readonly EditorInk Ink = new("editor.foreground", PaintRole.Text, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor, TemplatedControl.ForegroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TemplatedControl.ForegroundProperty, key),
         lit: static _ => true);
     public static readonly EditorInk CurrentLine = new("editor.lineHighlightBackground", PaintRole.Surface, rung: 1,
-        attach: static (editor, key) => ThemeRail.Bind(editor.TextArea.TextView, TextView.CurrentLineBackgroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.CurrentLineBackgroundProperty, key),
         lit: static options => options.Affordances.Admits(EditorAffordance.CurrentLine));
     public static readonly EditorInk CurrentLineEdge = new("editor.lineHighlightBorder", PaintRole.Border, rung: 0,
         attach: static (editor, key) => Stroked(editor.TextArea.TextView, TextView.CurrentLineBorderProperty, key, static pen => (IPen)pen),
         lit: static options => options.Affordances.Admits(EditorAffordance.CurrentLine));
     public static readonly EditorInk Selection = new("editor.selectionBackground", PaintRole.Selection, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor.TextArea, TextArea.SelectionBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.SelectionBrushProperty, key),
         lit: static _ => true);
     public static readonly EditorInk SelectionInk = new("editor.selectionForeground", PaintRole.SelectionText, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor.TextArea, TextArea.SelectionForegroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.SelectionForegroundProperty, key),
         lit: static _ => true);
     public static readonly EditorInk SelectionEdge = new("editor.selectionHighlightBorder", PaintRole.Focus, rung: 0,
         attach: static (editor, key) => Stroked(editor.TextArea, TextArea.SelectionBorderProperty, key, static pen => pen),
         lit: static _ => true);
     public static readonly EditorInk Caret = new("editorCursor.foreground", PaintRole.Text, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor.TextArea, TextArea.CaretBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea, TextArea.CaretBrushProperty, key),
         lit: static _ => true);
     public static readonly EditorInk LineNumbers = new("editorLineNumber.foreground", PaintRole.TextFaint, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor, TextEditor.LineNumbersForegroundProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TextEditor.LineNumbersForegroundProperty, key),
         lit: static _ => true);
     public static readonly EditorInk Ruler = new("editorRuler.foreground", PaintRole.Separator, rung: 0,
         attach: static (editor, key) => Stroked(editor.TextArea.TextView, TextView.ColumnRulerPenProperty, key, static pen => (IPen)pen),
         lit: static options => options.Affordances.Admits(EditorAffordance.Rulers));
     public static readonly EditorInk Whitespace = new("editorWhitespace.foreground", PaintRole.TextFaint, rung: 1,
-        attach: static (editor, key) => ThemeRail.Bind(editor.TextArea.TextView, TextView.NonPrintableCharacterBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.NonPrintableCharacterBrushProperty, key),
         lit: static options => toSeq(WhitespaceMark.Items).Exists(options.Marks.Admits));
     public static readonly EditorInk Link = new("textLink.foreground", PaintRole.Link, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor.TextArea.TextView, TextView.LinkTextForegroundBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor.TextArea.TextView, TextView.LinkTextForegroundBrushProperty, key),
         lit: static options => options.Affordances.Admits(EditorAffordance.Hyperlinks));
     public static readonly EditorInk Match = new("editor.findMatchHighlightBackground", PaintRole.Highlight, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor, TextEditor.SearchResultsBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, TextEditor.SearchResultsBrushProperty, key),
         lit: static _ => true);
     public static readonly EditorInk FoldMarker = new("editorGutter.foldingControlForeground", PaintRole.TextMuted, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor, FoldingMargin.FoldingMarkerBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, FoldingMargin.FoldingMarkerBrushProperty, key),
         lit: static _ => true);
     public static readonly EditorInk FoldMarkerFill = new("editorGutter.background", PaintRole.Panel, rung: 0,
-        attach: static (editor, key) => ThemeRail.Bind(editor, FoldingMargin.FoldingMarkerBackgroundBrushProperty, key),
+        attach: static (editor, key) => ThemeGate.Bind(editor, FoldingMargin.FoldingMarkerBackgroundBrushProperty, key),
         lit: static _ => true);
     public static readonly EditorInk IndentGuide = new("editorIndentGuide.background", PaintRole.Separator, rung: 0,
         attach: static (editor, _) => IndentGuides.Mount(editor.TextArea.TextView),
@@ -218,14 +216,14 @@ public sealed class IndentGuides : IBackgroundRenderer, IDisposable {
 
 ## [03]-[GRAMMAR_BEHAVIOR]
 
-- Owner: `RasmRegistry` the one product `IRegistryOptions`; `CodeGrammar` the product grammar-scope rows; `LanguagePlan` the compiled behavior projection; `LanguageMap` its generated seam; `EnterPlan`/`IndentPlan` the compiled rule rows; `PlanIndentation` the indentation strategy.
+- Owner: `RasmRegistry` the one product `IRegistryOptions`; `CodeGrammar` the product grammar-scope rows; `LanguagePlan` the compiled behavior projection; `LanguageMap` its generated mapper; `EnterPlan`/`IndentPlan` the compiled rule rows; `PlanIndentation` the indentation strategy.
 - Cases: `CodeGrammar` = source.rasm | source.rasm-expression | source.json — registered through `RasmRegistry.GetGrammar` while every other language resolves through the corpus's extension and language-id lookup.
 - Entry: `RasmRegistry.Scope(string languageOrExtension)` — product rows, then `GetScopeByLanguageId`, then `GetScopeByExtension`, refusing by NAME rather than returning a scope no grammar answers; `RasmRegistry.Configuration(string)` — the parsed `LanguageConfiguration` the corpus already hangs off each language row; `LanguageMap.ToPlan(LanguageConfiguration)` — the generated projection compiling every behaviour pattern ONCE, so no `Regex` mints per keystroke; `Install(directory)`/`Install(grammarName, packageJson)` — the file-backed growth path.
-- Law: `GetInjections` is the injection seam and embedded languages declare IN the grammar JSON, so a DSL inside a string or a fenced language inside markdown tokenizes without a second installation; the standalone rail reaches the same capability through `Registry.GrammarForScopeName(scope, initialLanguage, embeddedLanguages)`.
+- Law: `GetInjections` is the injection hook and embedded languages declare IN the grammar JSON, so a DSL inside a string or a fenced language inside markdown tokenizes without a second installation; the standalone path reaches the same capability through `Registry.GrammarForScopeName(scope, initialLanguage, embeddedLanguages)`.
 - Law: behaviour comes from `LanguageConfiguration` — comment markers, bracket pairs, auto-closing pairs with `NotIn` exclusions, surrounding pairs, fold markers, indentation patterns, on-enter rules; re-parsing that JSON at the pane is the deleted form, and so is a pattern compiled at match time.
 - Packages: Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate, TextMateSharp, TextMateSharp.Grammars, Riok.Mapperly, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one grammar scope row on `CodeGrammar` or one file-backed extension on the registry; a new behaviour column is one `LanguagePlan` member and its `LanguageMap` row.
-- Boundary: `LanguageMap` is the `LanguageConfiguration → LanguagePlan` seam at the Mapperly nested-path rung — `[MapProperty]` nested paths carry the direct columns and per-TYPE `[UserMapping]` converters the `Option`/`Seq` lifts; the three members needing whole-source readers (`AutoPairs` merges two source rosters; `FoldMarkers` and `Indent` compile from nested optionals) ride `[MapPropertyFromSource]` with the RMG020 cost declared HERE: source-side completeness on this mapping proves only by the target roster, which `RequiredMappingStrategy.Target` enforces. The retired `Unindent` pattern column was projected and read by nothing — a knob deleted, its pattern re-admittable as one `IndentPlan` column when a consumer lands.
+- Boundary: `LanguageMap` is the `LanguageConfiguration → LanguagePlan` mapper at the Mapperly nested-path rung — `[MapProperty]` nested paths carry the direct columns and per-TYPE `[UserMapping]` converters the `Option`/`Seq` lifts; the three members needing whole-source readers (`AutoPairs` merges two source rosters; `FoldMarkers` and `Indent` compile from nested optionals) ride `[MapPropertyFromSource]` with the RMG020 cost declared HERE: source-side completeness on this mapping proves only by the target roster, which `RequiredMappingStrategy.Target` enforces. The retired `Unindent` pattern column was projected and read by nothing — a knob deleted, its pattern re-admittable as one `IndentPlan` column when a consumer lands.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -429,7 +427,7 @@ public sealed class PlanIndentation(LanguagePlan plan, TextEditorOptions options
 
 - Owner: `LaneSource` the one per-lane mark lookup delegate (the conflict mount and every pane producer publish it; the overview strip consumes it); `PaneAffordance` the pane capability vocabulary; `CodeSession` the session value holding the custody chain; `CodePane` the boundary capsule; `FoldRegion` with `CodePane.Fold` the whole-set resync.
 - Entry: `Open(TextEditor editor, RasmRegistry registry, string language, ResolvedTheme resolved, LaneSource segments)` — `Fin<CodeSession>`: scope admission, then grammar, search, folding, behavior, and chrome acquired as ONE chain whose failure arm releases LIFO through `Custody.Rollback` and whose success value owns every handle through the session's one composite; `Frames(CodeSession session, IObservable<Unit> ticks)` publishes the overview strip's content-space feed under `SourceKey`; `Fold(FoldingManager manager, TextDocument document, Seq<FoldRegion> regions, Option<int> firstError = default)` — the whole-set resync over regions the caller already computed.
-- Law: UNDO ownership splits by PLANE and neither stack wraps the other — the editor's `UndoStack` owns in-pane text history (a keystroke is a rope edit with no revertible-op payload), the `Editing/history` recorder owns property-cell history, and a pane whose text is a durable document routes its COMMITTED text through the `EditGate` rail at commit; every multi-edit pane operation folds through one `DeclareChangeBlock` scope so it undoes as one step.
+- Law: UNDO ownership splits by PLANE and neither stack wraps the other — the editor's `UndoStack` owns in-pane text history (a keystroke is a rope edit with no revertible-op payload), the `Editing/history` recorder owns property-cell history, and a pane whose text is a durable document routes its COMMITTED text through the `EditGate` entry at commit; every multi-edit pane operation folds through one `DeclareChangeBlock` scope so it undoes as one step.
 - Law: `UpdateFoldings` is the diff — it reuses the section whose `StartOffset` repeats, resizing and re-titling in place so `IsFolded` survives a re-parse; `CreateFolding` appends unconditionally, so a per-region mint doubles the margin and orphans every region the user opened. Regions arrive sorted ascending (the manager throws otherwise), degenerate spans drop before the call, and `firstError` bounds the trusted range — `None` collapses to the package's whole-document `-1` at the one call; `DefaultClosed` binds only on the manager's first update.
 - Result: the pane publishes its overview frame under `SourceKey`; the strip's own intent is one `ControlIntent.Overview(StripKey, OverviewAxis.Vertical, SourceKey, JumpVerb, binding)` the HOSTING surface constructs — `Editing/history.md` `TimelineSurface.Body` is the witness form, so a pane-side intent factory nothing called is gone and the keys stay the contract.
 - Packages: Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -441,7 +439,6 @@ public sealed class PlanIndentation(LanguagePlan plan, TextEditorOptions options
 
 public delegate Seq<TextSegment> LaneSource(OverviewLane lane);
 
-[NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PaneAffordance : ICapability<PaneAffordance> {
@@ -596,7 +593,7 @@ public sealed record CodePane(
 ## [05]-[ASSIST]
 
 - Owner: `CompletionKind` the completion-family axis with `CompletionPolicy` its weight rows; `CompletionRow` the one `ICompletionData` projection; `OverloadRows` the one `IOverloadProvider` over the same row set.
-- Cases: `CompletionKind` = section | member | quantity | intent | snippet — declaration order ascending `Rank`, `Insert` the row delegate column; the plain arm replaces the trigger span, the snippet arm removes it first because `Snippet.Insert` drives its own placeholder session.
+- Cases: `CompletionKind` = section | member | quantity | intent | snippet — explicit `Rank` carries family precedence, `Insert` the row delegate column; the plain arm replaces the trigger span, the snippet arm removes it first because `Snippet.Insert` drives its own placeholder session.
 - Law: rank is STRUCTURAL (the family ordering) and the numeric weight is a POLICY value the projection applies, so a re-weighting is one policy edit and never fourteen literals; `Priority` is a `double` on the package contract, so an `int` tier scale cannot express a tie-break.
 - Packages: Avalonia.AvaloniaEdit, bodong.PropertyModels, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one completion family is one `CompletionKind` row carrying key, rank, and insertion column; the families are the page's own symbol vocabulary — options section keys, nameof-derived policy member names, `Quantity.Infos` unit abbreviations, resolution intent keys.

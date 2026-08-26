@@ -1,6 +1,6 @@
 # [RUNTIME]
 
-A process is one composed value. A closed modality row resolves boot, lifetime, signal, and drain variance through one fold; one sealed composition root folds module-contributed descriptor rows and makes post-seal drift a throw, not a review item; configuration admits once through derived keys into a validated frozen policy cell that consumers read as a value; lifecycle, drain, and degradation are total state machines over single cells whose every consumer is a projection; caches and pools bound rebuild cost under explicit validity and reset predicates and are never systems of record; and every temporal behavior derives from one clock seam and one schedule catalog. Growth lands as rows — a new process shape, module, policy record, drain band, rank, retention lane, or schedule is one declaration inside an existing owner, never new scaffolding beside it.
+A process is one composed value. A closed modality row resolves boot, lifetime, signal, and drain variance through one fold; one sealed composition root folds module-contributed descriptor rows and makes post-seal drift a throw, not a review item; configuration admits once through derived keys into a validated frozen policy cell that consumers read as a value; lifecycle, drain, and degradation are total state machines over single cells whose every consumer is a projection; caches and pools bound rebuild cost under explicit validity and reset predicates and are never systems of record; and every temporal behavior derives from one clock port and one schedule catalog. Growth lands as rows — a new process shape, module, policy record, drain band, rank, retention lane, or schedule is one declaration inside an existing owner, never new scaffolding beside it.
 
 ## [01]-[RUNTIME_CHOOSER]
 
@@ -14,7 +14,7 @@ This table routes a runtime concern to its owning surface; the most specific row
 |  [04]   | lifecycle and shutdown    | one phase cell + banded drain ledger         | parallel token reads, flat stop |
 |  [05]   | capability state          | health rank fold                             | per-component degraded flags    |
 |  [06]   | rebuild-cost bounding     | cache and pool retention rows                | hand-rolled caches and limiters |
-|  [07]   | time and cadence          | one clock seam + schedule catalog            | ambient now, per-job timers     |
+|  [07]   | time and cadence          | one clock port + schedule catalog            | ambient now, per-job timers     |
 
 ## [02]-[MODALITY_AXIS]
 
@@ -28,7 +28,7 @@ This table routes a runtime concern to its owning surface; the most specific row
 - Law: force `ValidateOnBuild` and `ValidateScopes` in every posture through one `ServiceProviderOptions` on the registered factory — both default to the development predicate, so production roots silently skip validation unless forced and singleton-over-scoped capture surfaces at traffic instead of boot; the fold owns the one host build, so the options are declared once here and never re-stated by a second provider construction.
 - Boundary: the fold owns modality plus the single build and yields `Fin<IHost>`; the descriptor algebra it builds over arrives as one `Action<IServiceCollection>` contribution and `BuildFact` records the build outcome, both `[03]`'s, so this section never enumerates a descriptor row nor mints that fact.
 - Boundary: CLI rows parse before boot — the `SetAction` action is the only site that composes and runs the host, args flow into `Args`, the action's cancellation token is the run token, and boot failure maps to an exit code only here, so help, version, completion, and parse faults never construct the runtime.
-- Exemption: the boot fold's builder-mutation body is the platform-forced statement seam.
+- Exemption: the boot fold's builder-mutation body is the platform-forced statement body.
 
 ```csharp
 public sealed class HandedLifetime : IHostLifetime {
@@ -85,11 +85,11 @@ public static class Boot {
 - Law: the root provider owns singleton state and retains every disposable transient it materializes until process death; unit-of-work resolution rides `CreateAsyncScope`, whose `await using` disposal is chosen at creation because synchronous scope disposal throws on an async-only disposable.
 - Law: the host `Build()` is the one provider construction — it is one-shot, applies the `[02]` `ValidateOnBuild`/`ValidateScopes` options through the registered factory, and calls `MakeReadOnly()` itself, so this section contributes descriptors and reads the outcome but never builds a second provider; `ValidateOnBuild` aggregates every defective row into one `AggregateException` inventory yet skips open-generic rows, so closed-generic smoke resolutions are that family's only build-time proof, and a standalone `BuildServiceProvider` beside the host build is the rejected duplicate the host build silently discards.
 - Law: a scan is data folded under `RegistrationStrategy.Throw` — a collision with an explicit row is a boot failure, never shadowing; `Decorate` moves each original to a generated keyed slot, inherits its lifetime and position, stacks last-call-outermost, and throws on zero matches, and scan rows fold before any decoration pass runs; decoration mutates the collection, so it rides the pre-build contribution, never a second pass after the seal.
-- Law: sealing folds the contribution table and the single build's outcome into one closed fact family — the accepted case carries per-lifetime descriptor counts, dormant inventory, and decoration depth read off the `out DecoratedService<TService>` handle `TryDecorate` mints (the `Try` form keeps a zero-match decoration on the typed rail where the throwing `Decorate` bypasses the fact), the rejected case carries the host build's `ValidateOnBuild` `AggregateException` inner list verbatim — so boot emits exactly one `[Union]` fact, the new failure cause lands as one case, and a record carrying only the accepted half is the rejected shape because it cannot name the build that failed.
-- Reject: `Replace`/`RemoveAll` in module code, runtime `GetService` null-probes where `IServiceProviderIsService` answers at composition, and decorating enumerable marker families — the backwards walk wraps every matching row, so only single-service seams decorate.
-- Boundary: `Decorate` matches a descriptor only where its `ServiceKey` equals the request's, so the non-keyed pass sees only `ServiceKey == null` rows and silently skips the `KeyedService.AnyKey` factory and every keyed family — a keyed seam takes its wrapper by folding it into the factory through the key vocabulary, never `Decorate`.
+- Law: sealing folds the contribution table and the single build's outcome into one closed fact family — the accepted case carries per-lifetime descriptor counts, dormant inventory, and decoration depth read off the `out DecoratedService<TService>` handle `TryDecorate` mints (the `Try` form keeps a zero-match decoration on the typed result where the throwing `Decorate` bypasses the fact), the rejected case carries the host build's `ValidateOnBuild` `AggregateException` inner list verbatim — so boot emits exactly one `[Union]` fact, the new failure cause lands as one case, and a record carrying only the accepted half is the rejected shape because it cannot name the build that failed.
+- Reject: `Replace`/`RemoveAll` in module code, runtime `GetService` null-probes where `IServiceProviderIsService` answers at composition, and decorating enumerable marker families — the backwards walk wraps every matching row, so only single-service registrations decorate.
+- Boundary: `Decorate` matches a descriptor only where its `ServiceKey` equals the request's, so the non-keyed pass sees only `ServiceKey == null` rows and silently skips the `KeyedService.AnyKey` factory and every keyed family — a keyed registration takes its wrapper by folding it into the factory through the key vocabulary, never `Decorate`.
 - Boundary: this section owns the descriptor algebra and `BuildFact`; the modality fold and the one host build that consumes the contribution are `[02]`'s, so the contribution crosses as one `Action<IServiceCollection>` into that build and the build's `Fin<IHost>` outcome crosses back into the fact, the decoration count carried over the callback edge on one boundary cell.
-- Exemption: the contribution's collection-mutation body is the platform-forced statement seam.
+- Exemption: the contribution's collection-mutation body is the platform-forced statement body.
 
 ```csharp
 public interface IPort { int Probe(); }
@@ -148,7 +148,7 @@ public static class Root {
 - Law: precedence is per-key last-source-wins, never per-file — absence is an explicit off-value in the record because upstream key deletion is impossible; complete the rank before the first typed read, since `ConfigurationManager` materializes each source at `Add`.
 - Law: every section key derives from the policy type — `nameof`-rooted, member keys the property names the binder already matches — and external spellings map to canonical keys only on source rows (`SwitchMappings`, environment prefixes), so the inward key space holds zero application-authored literals and audits as an absence.
 - Law: the trim-safe stack is generator-on-generator — `EnableConfigurationBindingGenerator` intercepts the bind into a constructor-bound immutable record, `[OptionsValidator]` emits shape law from annotations with `[ValidateObjectMembers]` recursion (without it nested members silently skip), hand `Validate` rows own relational law, and `ValidateOnStart` proves the chain before any service starts.
-- Law: one record owns one `OptionsBuilder` chain in one residence; a bounded variant family is named registrations of one type, never sibling option types.
+- Law: one record owns one `OptionsBuilder` chain in one place; a bounded variant family is named registrations of one type, never sibling option types.
 - Law: `ErrorOnUnknownConfiguration` and the startup sweep close complementary drift — stale keys survive without the throw, invalid values survive without the sweep; sweep failures aggregate into one typed inventory, while a configure-delegate throw escapes immediately as a composition defect.
 
 [FROZEN_PUBLISH]:
@@ -198,7 +198,7 @@ public static class PolicyCell {
 - Law: pre/post hooks are phase barriers across all lifecycle services, never per-service wrappers — start runs in registration order, stop in reverse, so declaring participations in dependency order yields the drain order with zero extra mechanism.
 - Law: `BackgroundService.StartAsync` queues the loop and returns complete — fail-fast checks live in the validation sweep or `StartingAsync`, never `ExecuteAsync` — and a faulted loop folds through `BackgroundServiceExceptionBehavior` without rethrowing on the run path, so exit evidence requires its own fold into the faulted phase.
 - Law: one cancellation spine, two segments — start is caller, stopping edge, and a startup timeout spanning lifetime wait, validation sweep, and all three start phases, so per-service budgets are fractions of it; stop is caller and shutdown timeout — no component creates a root source, and a private deadline is a linked child so the spine always wins.
-- Exemption: the hosted hook bodies and the band walk are the platform-forced Task seam.
+- Exemption: the hosted hook bodies and the band walk are the platform-forced Task body.
 
 [BANDED_DRAIN]:
 - Law: drain is ordered bands — fence admission, settle in-flight, flush durable effects, emit facts — each a cooperative await under a `Share` of `HostOptions.ShutdownTimeout` with a forced linked token at the band edge; stop never aborts early, so a hung band cancels its stragglers and the next band still runs, and the fact flush pins to the last band by construction.
@@ -365,23 +365,23 @@ public static class Lanes {
 
 ## [08]-[TIME_CADENCE]
 
-[CLOCK_SEAM]:
-- Law: two authorities, one frozen seam record — `TimeProvider` owns elapsed time, timers, and timestamps; `IClock` owns the current instant — registered once at the root with the home zone, every temporal capability a derivation; an ambient now-read is the universal defect, and derivation purity audits as an absence.
+[CLOCK_PORT]:
+- Law: two authorities, one frozen port record — `TimeProvider` owns elapsed time, timers, and timestamps; `IClock` owns the current instant — registered once at the root with the home zone, every temporal capability a derivation; an ambient now-read is the universal defect, and derivation purity audits as an absence.
 - Law: the calendar vocabulary is type-per-meaning — instants for recorded facts, zoned values for display, offset values for export, local-plus-zone-id for policy values; persisted text rides invariant pattern singletons (`InstantPattern.ExtendedIso`, `OffsetDateTimePattern.Rfc3339`) and temporal text admission rides `ParseResult<T>`, never exceptions.
-- Law: zone ids persist as strings and rehydrate through the tzdb provider, whose id inventory makes zone validation a boot set-membership check — a stale or renamed id folds to the degradation rail at boot, never a first-firing surprise; the nullable lookup is the admission verb, the throwing indexer post-admission only.
+- Law: zone ids persist as strings and rehydrate through the tzdb provider, whose id inventory makes zone validation a boot set-membership check — a stale or renamed id folds to the degradation path at boot, never a first-firing surprise; the nullable lookup is the admission verb, the throwing indexer post-admission only.
 - Law: local-to-instant is a three-outcome `MapLocal` fold — gap, unique, overlap — so treating it as infallible is the canonical DST bug and is unrepresentable when the mapping value is the API; duration arithmetic is exact and zone-free, while period arithmetic runs in local space and re-maps.
 
 [CADENCE_FOLD]:
-- Law: a schedule entry is data — expression text parsed non-throwing at composition, jitter seed, zone id, misfire policy, drain band — and the catalog is a frozen-publish surface; one driver folds N rows by minimum next occurrence on one seam timer, so zone-rule changes and catalog swaps land at the next boundary with no per-job timers and no stale-timer cancellation choreography.
+- Law: a schedule entry is data — expression text parsed non-throwing at composition, jitter seed, zone id, misfire policy, drain band — and the catalog is a frozen-publish surface; one driver folds N rows by minimum next occurrence on one shared timer, so zone-rule changes and catalog swaps land at the next boundary with no per-job timers and no stale-timer cancellation choreography.
 - Boundary: the zone admits once through the tzdb provider into the row's `DateTimeZone`, and the BCL `TimeZoneInfo` the occurrence engine consumes is a derived value off the admitted zone's `Id` at that one foreign-engine boundary, never a second zone vocabulary the catalog stores unadmitted.
 - Law: the only durable state is the last-fire stamp — the occurrence window between stamp and now is the misfire inventory, one policy row absorbs suspension, clock jumps, and drain alike, and firing facts carry planned-versus-actual skew as evidence, never error.
 - Law: hash-jitter `H` fields parse only with an explicit `jitterSeed` — derive it from the schedule key for fleet-identical fires or from a node key for deliberate spread, and the `DailyWithJitter`-style seeded templates cover every macro cadence without literal expressions.
 - Law: DST behavior follows expression shape — interval forms fire in both repeated hours, point forms once, and gap occurrences shift to the first valid post-transition moment — so choosing the form fixes the behavior.
 - Law: calendar recurrence is vocabulary, never cadence — annual dates and period-stepped repeats resolve through calendar arithmetic in local space, and a cron row encoding them surrenders the leap and month-length semantics the calendar types own.
-- Boundary: cadence owns when — a max-concurrent knob on a row is the trespass signature, because throughput belongs to concurrency; in-operation backoff is effect-rail `Schedule` policy, and a cron expression inside a retry loop is the inverse trespass.
+- Boundary: cadence owns when — a max-concurrent knob on a row is the trespass signature, because throughput belongs to concurrency; in-operation backoff is effect-carrier `Schedule` policy, and a cron expression inside a retry loop is the inverse trespass.
 
 ```csharp
-public sealed record ClockSeam(TimeProvider Timer, IClock Calendar, DateTimeZone Home) {
+public sealed record ClockPort(TimeProvider Timer, IClock Calendar, DateTimeZone Home) {
     public ZonedClock Zoned => Calendar.InZone(Home);
     public string Stamp() => InstantPattern.ExtendedIso.Format(Calendar.GetCurrentInstant());
     public Option<Instant> Unique(LocalDateTime at) =>
@@ -412,8 +412,8 @@ public static class Cadence {
             ({ } zone, { IsSome: true, Case: CronExpression parsed }) => new ScheduleRow(key, parsed, zone, policy, band),
             _ => None,
         };
-    public static Option<(ScheduleRow Row, DateTimeOffset At)> Next(Seq<ScheduleRow> catalog, ClockSeam seam) =>
-        catalog.Choose(row => Optional(row.Cron.GetNextOccurrence(seam.Timer.GetUtcNow(), row.Bcl)).Map(at => (Row: row, At: at)))
+    public static Option<(ScheduleRow Row, DateTimeOffset At)> Next(Seq<ScheduleRow> catalog, ClockPort clock) =>
+        catalog.Choose(row => Optional(row.Cron.GetNextOccurrence(clock.Timer.GetUtcNow(), row.Bcl)).Map(at => (Row: row, At: at)))
             .Fold(Option<(ScheduleRow Row, DateTimeOffset At)>.None, static (best, hit) => Some(best.Filter(held => held.At <= hit.At).IfNone(hit)));
 }
 ```

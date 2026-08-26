@@ -15,7 +15,7 @@
 |  [05]   | `ParquetOptions`        | class         | codec, encoding, pooling, and type-mapping policy           |
 |  [06]   | `CompressionMethod`     | enum          | `None` `Snappy` `Gzip` `Lzo` `Brotli` `LZ4` `Zstd` `Lz4Raw` |
 |  [07]   | `EncodingHint`          | enum          | per-column encoding steer over `ColumnEncodingHints`        |
-|  [08]   | `ParquetException`      | exception     | the codec's own fault rail                                  |
+|  [08]   | `ParquetException`      | exception     | the codec's own fault channel                               |
 
 [PUBLIC_TYPE_SCOPE]: schema model
 
@@ -98,11 +98,11 @@
 - Reads and writes take caller-owned `Memory<T>`/`ReadOnlyMemory<T>` buffers over a `DataField`, so column traffic is buffer-grain and a row-shaped consumer transposes on its own side.
 
 [STACKING]:
-- `Ara3D.BimOpenSchema[.IO]`(`api-ara3d-bimopenschema.md`): the only composed consumer — `WriteToParquetZip`/`ReadBimDataFromParquetZip` drive this codec at Brotli over an `IDataSet`, and the central pin exists so the estate versions that codec rather than inheriting whatever the IO package resolves.
+- `Ara3D.BimOpenSchema[.IO]`(`api-ara3d-bimopenschema.md`): the only composed consumer — `WriteToParquetZip`/`ReadBimDataFromParquetZip` drive this codec at Brotli over an `IDataSet`, and the central pin exists so the solution versions that codec rather than inheriting whatever the IO package resolves.
 - `ParquetSharp`(`api-parquetsharp.md`): the folder's own Parquet lane, native and Arrow-bridged, reading and writing the SAME file format with a disjoint object model — a file crosses between them, never a type.
 - `api-arrow`: absent by construction here; this codec exposes no `RecordBatch` and no C-Data bridge, which is exactly why the folder's record-batch lane rides `ParquetSharp.Arrow` instead.
 
 [LOCAL_ADMISSION]:
-- Transitive reach is the design: `CentralPackageTransitivePinningEnabled` surfaces the `Ara3D.BimOpenSchema.IO` dependency as a central row so the estate governs the version, and a direct `PackageReference` mints a second Parquet runtime beside `ParquetSharp` in one folder.
+- Transitive reach is the design: `CentralPackageTransitivePinningEnabled` surfaces the `Ara3D.BimOpenSchema.IO` dependency as a central row so the solution governs the version, and a direct `PackageReference` mints a second Parquet runtime beside `ParquetSharp` in one folder.
 - Folder fences writing Parquet compose `ParquetSharp.Arrow`; this surface enters only where the payload is already a BimOpenSchema `IDataSet` crossing the Parquet-zip leg.
 - Encryption is unreachable here — this codec ships no Parquet Modular Encryption, so a sensitive extract writes through the `ParquetSharp` PME lane, never this one.

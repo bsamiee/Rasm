@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_COLOUR_SCIENCE]
 
-`colour` owns the artifacts colour rail's colorimetric truth: spectral-distribution representation, colour-model conversion across XYZ/RGB/Lab/CAM appearance spaces through one `convert` gateway, chromatic adaptation, CCTF and broadcast transfer functions, LUT and image IO, colour-difference and colour-quality metrics, and the CMFS/illuminant/light-source dataset registries. It resolves a measured SPD or appearance coordinate to the numeric XYZ/`xy` vector every downstream engine consumes, never re-implementing a conversion or interpolation it owns.
+`colour` owns the artifacts colour domain's colorimetric truth: spectral-distribution representation, colour-model conversion across XYZ/RGB/Lab/CAM appearance spaces through one `convert` gateway, chromatic adaptation, CCTF and broadcast transfer functions, LUT and image IO, colour-difference and colour-quality metrics, and the CMFS/illuminant/light-source dataset registries. It resolves a measured SPD or appearance coordinate to the numeric XYZ/`xy` vector every downstream engine consumes, never re-implementing a conversion or interpolation it owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -144,7 +144,7 @@ CCT rows share `(coords, method)`; `dominant_wavelength`/`complementary_waveleng
 - SPD construction uses `SpectralDistribution(data, domain)` with an explicit `SpectralShape`; raw dict intake is the data-ingestion-boundary fallback.
 
 [STACKING]:
-- `coloraide`(`.api/coloraide.md`): the numeric XYZ/`xy` vector is the seam — a measured XYZ from `sd_to_XYZ` or an appearance coordinate enters `coloraide` as `Color(('xyz-d65', coords))` for the per-color gamut/CSS/CVD/palette legs `coloraide` owns; `colour` never parses CSS strings, `coloraide` never runs spectral sd→XYZ integration.
+- `coloraide`(`.api/coloraide.md`): the numeric XYZ/`xy` vector is the boundary — a measured XYZ from `sd_to_XYZ` or an appearance coordinate enters `coloraide` as `Color(('xyz-d65', coords))` for the per-color gamut/CSS/CVD/palette legs `coloraide` owns; `colour` never parses CSS strings, `coloraide` never runs spectral sd→XYZ integration.
 - imaging codec: `read_image`/`write_image` route to Imageio/OpenImageIO float buffers; the multi-bit-depth pixel array feeds the imaging owner, the colour transform running on the array before encode, never on a serialized blob.
-- figures owner: chromaticity (`XYZ_to_xy`), spectral locus (`wavelength_to_XYZ`), and CCT (`CCT_to_xy`) coordinates feed the plot owner as numeric arrays; `plot_*` stays Matplotlib-gated at the figures owner, never invoked in the colour rail.
-- universal rail (`libs/python/.api`): numeric XYZ/`xy`/Lab ndarrays project into one `graphic/color/derive#DERIVE` `ColorModel`/`Derivation` case; `numpy` materializes the coordinate arrays and the typing rail refines their rank, dtype, and finiteness.
+- figures owner: chromaticity (`XYZ_to_xy`), spectral locus (`wavelength_to_XYZ`), and CCT (`CCT_to_xy`) coordinates feed the plot owner as numeric arrays; `plot_*` stays Matplotlib-gated at the figures owner, never invoked in the colour domain.
+- universal domains (`libs/python/.api`): numeric XYZ/`xy`/Lab ndarrays project into one `graphic/color/derive#DERIVE` `ColorModel`/`Derivation` case; `numpy` materializes the coordinate arrays and the typing domain refines their rank, dtype, and finiteness.

@@ -18,7 +18,7 @@
 |  [08]   | `IMatrix`    | interface     | affine transform carrier for graphics and path transforms                    |
 |  [09]   | `Matrix`     | static        | affine factory over the `IMatrix` carrier                                    |
 
-[PUBLIC_TYPE_SCOPE]: the immediate command stream and its paint seam
+[PUBLIC_TYPE_SCOPE]: the immediate command stream and its paint surface
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]       | [CAPABILITY]                                                         |
 | :-----: | :--------------- | :------------------ | :------------------------------------------------------------------- |
@@ -195,7 +195,7 @@ A `Pen` strokes and a `Brush` fills; each primitive carries both forms and the a
 
 [ENTRYPOINT_SCOPE]: colour construction and projection
 
-`Color` computes in sRGB; perceptual blend, delta-E, and gamut mapping leave this type at the `Unicolour` seam.
+`Color` computes in sRGB; perceptual blend, delta-E, and gamut mapping leave this type at the `Unicolour` boundary.
 
 | [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                 |
 | :-----: | :--------------------------------------------------------- | :------- | :--------------------------- |
@@ -230,7 +230,7 @@ A `Pen` strokes and a `Brush` fills; each primitive carries both forms and the a
 
 - `BitmapData` publishes its own layout and the layout is per LOCK, never per backend: `PremultipliedAlpha` is set at construction from the live representation — the macOS handler passes `alpha && !BitmapFormat.HasFlag(NSBitmapFormat.AlphaNonpremultiplied)` — and `TranslateArgbToData`/`TranslateDataToArgb` multiply and divide coverage on exactly that flag while reordering channels, so `GetPixel`/`SetPixel` speak STRAIGHT `Color` on every backend and `TranslateDataToArgb` is the only channel-order-canonical read a caller has. `ScanWidth` is the representation's own row pitch rather than `Width * BytesPerPixel`, and `Flipped` names bottom-up rows (false on macOS), so a row egress repacks both. `Bitmap.Lock()` admits no format, so a wanted carriage is normalized after the lock, unlike the GDI `LockBits(Rectangle, ImageLockMode, PixelFormat)` leg which converts inside the lock.
 
-[ENTRYPOINT_SCOPE]: `Drawable` — the paint seam
+[ENTRYPOINT_SCOPE]: `Drawable` — the paint surface
 
 | [INDEX] | [SURFACE]                               | [SHAPE]  | [CAPABILITY]                          |
 | :-----: | :-------------------------------------- | :------- | :------------------------------------ |
@@ -268,4 +268,4 @@ A `Pen` strokes and a `Brush` fills; each primitive carries both forms and the a
 [LOCAL_ADMISSION]:
 - A `Graphics` handle comes from a `Drawable` paint event or a boundary-owned off-event acquisition; a painter draws through the admitted `Graphics`/`GraphicsPath`/`Brush`/`Pen` surface, never a local wrapper renaming or partially re-exporting an Eto member.
 - A new fill, stroke, or geometry is a brush value, a pen value, or a `GraphicsPath` figure, never a hand-rolled tessellator beside the path.
-- Paint code holds canonical geometry and perceptual colour internally and projects to these primitives at the render edge; boundary faults ride the LanguageExt rail with no exception-style control flow beside it.
+- Paint code holds canonical geometry and perceptual colour internally and projects to these primitives at the render edge; boundary faults ride the LanguageExt carrier with no exception-style control flow beside it.

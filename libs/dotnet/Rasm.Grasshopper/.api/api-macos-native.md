@@ -173,10 +173,10 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 - `api-macos-native`(`libs/dotnet/.api/api-macos-native.md`): the registered pacing core — the anchor chain, display link, run loop, accessibility gates, observation tokens, and handle bridge every subsystem here runs against.
 - `api-eto-platform`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-platform.md`): `GetContainerView` and `IMacControlHandler.ContainerControl` yield the Eto-backed `NSView` every layer mount and recognizer attach binds to, and the conversion owners carry values across the boundary.
 - `api-thinktecture-runtime-extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the installed `NSEventType`, `NSEventPhase`, `SCStreamOutputType`, `SCContentFilterOption`, `NSVisualEffectMaterial`, and `CVReturn` enums map at the folder boundary onto `[SmartEnum]` owners, so an event or capture branch is exhaustive dispatch rather than a string compare.
-- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): the runtime-nullable native results — `CIFilter.FromName`, `CMSampleBuffer.GetImageBuffer`, `SCWindow.OwningApplication` — lower onto `Option<T>`/`Fin<T>` at the boundary, and throwing conversions stay caught boundaries on the same rail.
-- Within-folder: the seam gate admits the boundary, the compositor mounts the layer graph with Display-P3 colour, the capture owner leases the stream into stamped frame rings, and motion pacing consumes the registered display link through one shared step fold.
+- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): the runtime-nullable native results — `CIFilter.FromName`, `CMSampleBuffer.GetImageBuffer`, `SCWindow.OwningApplication` — lower onto `Option<T>`/`Fin<T>` at the boundary, and throwing conversions stay caught boundaries on the same path.
+- Within-folder: the layer gate admits the boundary, the compositor mounts the layer graph with Display-P3 colour, the capture owner leases the stream into stamped frame rings, and motion pacing consumes the registered display link through one shared step fold.
 
 [LOCAL_ADMISSION]:
-- Seam admits only after the macOS process check and a valid active `Eto.Mac.Platform`; installed AppKit types carry no application-level admission themselves.
+- The layer admits only after the macOS process check and a valid active `Eto.Mac.Platform`; installed AppKit types carry no application-level admission themselves.
 - Layer, recognizer, monitor, and capture work binds to the extracted container view; canvas extraction stays the explicit control-object branch and never a widened cast.
 - Value crossings take the `Eto.Mac` conversion owners; a local conversion beside them is the deleted form.

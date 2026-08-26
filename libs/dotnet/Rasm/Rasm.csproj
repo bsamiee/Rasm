@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon- and Eto-aware geometry foundation, analysis algebra, and interaction plane.</Description>
-        <CspScope>Domain</CspScope>
         <!-- Eto-portable interaction plane: no native platform handlers, so the token set stops at ui. -->
         <RasmHost>common;ui</RasmHost>
         <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
@@ -28,10 +27,13 @@
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />
         <PackageReference Include="Wacton.Unicolour" />

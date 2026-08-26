@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_DELTALAKE]
 
-`DeltaLake.Net` owns a managed Delta Lake client over the Rust `delta-rs`/`delta-kernel` FFI: `DeltaEngine` mints and loads `DeltaTable` handles carrying the full Delta protocol — DataFusion-SQL Arrow reads, writes, MERGE/UPDATE/DELETE, time-travel, and maintenance. Its distinguishing seam is the metadata-only `AddAction` commit rail publishing externally-written Parquet transactionally without a data rewrite; it binds `Apache.Arrow` on both edges and enters as an external Delta-warehouse backend beside the DuckLake catalog and `Apache.Arrow.Adbc` drivers.
+`DeltaLake.Net` owns a managed Delta Lake client over the Rust `delta-rs`/`delta-kernel` FFI: `DeltaEngine` mints and loads `DeltaTable` handles carrying the full Delta protocol — DataFusion-SQL Arrow reads, writes, MERGE/UPDATE/DELETE, time-travel, and maintenance. Its distinguishing capability is the metadata-only `AddAction` commit path publishing externally-written Parquet transactionally without a data rewrite; it binds `Apache.Arrow` on both edges and enters as an external Delta-warehouse backend beside the DuckLake catalog and `Apache.Arrow.Adbc` drivers.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -9,7 +9,7 @@
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]   | [CAPABILITY]                                              |
 | :-----: | :------------ | :-------------- | :-------------------------------------------------------- |
 |  [01]   | `DeltaEngine` | engine root     | native runtime owner; `CreateTableAsync`/`LoadTableAsync` |
-|  [02]   | `IEngine`     | engine contract | engine DI seam                                            |
+|  [02]   | `IEngine`     | engine contract | engine DI port                                            |
 |  [03]   | `DeltaTable`  | table owner     | full Delta protocol read/write/maintenance/time-travel    |
 |  [04]   | `ITable`      | table contract  | the documented operation set                              |
 
@@ -120,8 +120,8 @@
 - `ParquetSharp`(`.api/api-parquetsharp.md`): a partition file written out-of-band computes its `AddAction` (`Path`/`Size`/`PartitionValues`/`NumRecords`), and `CreateWriteTransactionAsync` registers it in the Delta log — the Parquet codec and the Delta catalog meet at the `AddAction`, never a re-serialization.
 - `Apache.Arrow`(`libs/dotnet/.api/api-arrow.md`): an analytical extract from DuckDB or ClickHouse (`.api/api-duckdb.md`, `.api/api-clickhouse.md`) lands as a `RecordBatch` and `InsertAsync` appends it — one Arrow model spans read backend and Delta sink.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): a `[ValueObject]`/`[SmartEnum]` owner projects through its generated `IConvertible<TKey>.ToValue()` into the Arrow `RecordBatch` field `InsertAsync` commits, and the read column decodes back through the generated static `Validate` — no hand-rolled mapping and no codec between.
-- object store(`.api/api-objectstore.md`): delta-rs reaches the AWS/Azure/GCS/Minio residence natively, the same object-store the managed SDK rows serve.
-- within-lib: `HistoryAsync`/`LoadVersionAsync`/`LoadDateTimeAsync` back the `Version/timetravel` rail for an external Delta table, and `DeltaRuntimeException`/`DeltaConfigurationException` lift at the table edge discriminated on the native `ErrorCode` onto the store-profile failure rail.
+- object store(`.api/api-objectstore.md`): delta-rs reaches the AWS/Azure/GCS/Minio stores natively, the same object-store the managed SDK rows serve.
+- within-lib: `HistoryAsync`/`LoadVersionAsync`/`LoadDateTimeAsync` back the `Version/timetravel` surface for an external Delta table, and `DeltaRuntimeException`/`DeltaConfigurationException` lift at the table edge discriminated on the native `ErrorCode` onto the store-profile failure channel.
 
 [LOCAL_ADMISSION]:
 - DeltaLake enters behind the `Store/provisioning` store-profile vocabulary as a distinct external-warehouse backend class, orthogonal to the self-hosted DuckLake catalog and the `Apache.Arrow.Adbc` drivers.

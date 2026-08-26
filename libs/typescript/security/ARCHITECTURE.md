@@ -82,7 +82,7 @@ flowchart TB
 - S3 ceremonies and claims — `authn` and `access` stay peers; `workload` reaches the sign and verify owners, never session.
 - S3 merge — only `webauthn` reaches `Witness` inside the ceremony node, so the merged `[IMPORT]: Witness` edge carries one member's read.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -93,7 +93,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Security package seam registry
+    accTitle: Security package boundary registry
     accDescr: Security owners exchanging identity, custody, tenancy, and telemetry contracts with the core, data, runtime, and iac peers, and admitting the AppHost credential wire.
     subgraph security[SECURITY]
         Crypt[Crypt authority]
@@ -160,9 +160,9 @@ flowchart LR
 
 Mint-once rules the crypt crossing: signing keys, webhook secrets, and the argon2 pepper enter as `Material.Source.Held` at construction, and every secret stays `Redacted` from first decode into the primitive call.
 
-Ceremonies lift at the session seam: each two-leg port instantiates `SingleUse`, so replay, cross-ceremony completion, and out-of-order finish stay unspellable, and a verified principal crosses as one carried value.
+Ceremonies lift at the session boundary: each two-leg port instantiates `SingleUse`, so replay, cross-ceremony completion, and out-of-order finish stay unspellable, and a verified principal crosses as one carried value.
 
-Evidence has one plane: every decision and custody fact lands typed at the audit rail, and boards, alerts, and analytics stay projections of it. Exact per-arm wiring lives on the owning implementation pages.
+Evidence has one plane: every decision and custody fact lands typed at the audit journal, and boards, alerts, and analytics stay projections of it. Exact per-arm wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 

@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Measured execution package setup and lane doctrine for vector, tensor, model, and remote compute work.</Description>
-        <CspScope>Application</CspScope>
         <!-- Microsoft.ML.OnnxRuntime.Extensions ships version-specific OSX RID assets; the full RID graph is the resolution regime that actually finds them. -->
         <UseRidGraph>true</UseRidGraph>
     </PropertyGroup>
@@ -48,11 +47,14 @@
 
     <ItemGroup Label="Core Substrate">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>

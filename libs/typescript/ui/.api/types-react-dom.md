@@ -47,7 +47,7 @@ Both mounts run at app-boot.
 |  [01]   | `createRoot(container: Container, options?: RootOptions): Root`                        | CSR mount      | mounts the `ui` tree |
 |  [02]   | `hydrateRoot(container, initialChildren: ReactNode, options?: HydrationOptions): Root` | SSR hydrate    | attach server HTML   |
 
-[ENTRYPOINT_SCOPE]: the in-tree DOM operations — portal, commit, resource hints, form status — `createPortal` roots overlays outside the subtree, `flushSync` forces a synchronous commit, the resource hints are one parameterized preload space, and `useFormStatus`/`requestFormReset` are the form-action DOM seam.
+[ENTRYPOINT_SCOPE]: the in-tree DOM operations — portal, commit, resource hints, form status — `createPortal` roots overlays outside the subtree, `flushSync` forces a synchronous commit, the resource hints are one parameterized preload space, and `useFormStatus`/`requestFormReset` are the form-action DOM surface.
 
 Resource hints are one preload space discriminated by `as`; `flushSync` forces the commit `FocusScope` restore and View-Transition capture depend on.
 
@@ -64,12 +64,12 @@ Resource hints are one preload space discriminated by `as`; `flushSync` forces t
 
 Every row is consumed at app-ssr (edge for the Web shell); `renderToPipeableStream` pairs the `@effect/platform` `HttpServer` response.
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [CONSUMER]                        |
-| :-----: | :---------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `renderToPipeableStream(children, options?): PipeableStream`                        | Node SSR       | streaming Node shell              |
-|  [02]   | `renderToReadableStream(children, options?): Promise<ReactDOMServerReadableStream>` | Web SSR        | `ReadableStream` edge shell       |
-|  [03]   | `renderToString` / `renderToStaticMarkup`                                           | sync SSR       | non-streaming string render       |
-|  [04]   | `prerender` / `prerenderToNodeStream` / `resume` / `resumeAndPrerender`             | prerender      | `PostponedState` resume; PPR seam |
+| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [CONSUMER]                  |
+| :-----: | :---------------------------------------------------------------------------------- | :------------- | :-------------------------- |
+|  [01]   | `renderToPipeableStream(children, options?): PipeableStream`                        | Node SSR       | streaming Node shell        |
+|  [02]   | `renderToReadableStream(children, options?): Promise<ReactDOMServerReadableStream>` | Web SSR        | `ReadableStream` edge shell |
+|  [03]   | `renderToString` / `renderToStaticMarkup`                                           | sync SSR       | non-streaming string render |
+|  [04]   | `prerender` / `prerenderToNodeStream` / `resume` / `resumeAndPrerender`             | prerender      | `PostponedState`; PPR entry |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -78,7 +78,7 @@ Every row is consumed at app-ssr (edge for the Web shell); `renderToPipeableStre
 - `preload`/`preinit`/`preloadModule`/`preinitModule` share ONE preload option shape discriminated by `as` (`PreloadAs`/`PreinitAs`), with `prefetchDNS`/`preconnect` the origin-hint arm; a new asset hint is a call with a different `as`, never a new function family.
 - `renderToPipeableStream` (Node) and `renderToReadableStream` (Web) are ONE render space over different stream primitives, `prerender*`/`resume*` the resumable arm, and the subpath picks the runtime target.
 - `createRoot`/`hydrateRoot` are the only mounts — `ReactDOM.render`/`hydrate`/`unmountComponentAtNode` are removed; error handling is root-level, `onUncaughtError`/`onCaughtError`/`onRecoverableError` on `RootOptions`/`HydrationOptions` the app-wide net while `react-error-boundary` (sibling `system/primitive`) owns in-tree recovery.
-- `react-dom` owns the ambient DOM facts of a submission — `useFormStatus` for the enclosing form's pending state, `requestFormReset` for its reset — while `react` owns the action's own value through `useActionState` (`.api/types-react.md`), so the form seam splits by what each side reads; auto-batching makes `unstable_batchedUpdates` interop-only.
+- `react-dom` owns the ambient DOM facts of a submission — `useFormStatus` for the enclosing form's pending state, `requestFormReset` for its reset — while `react` owns the action's own value through `useActionState` (`.api/types-react.md`), so the form boundary splits by what each side reads; auto-batching makes `unstable_batchedUpdates` interop-only.
 - `./canary` adds `browser()` answering a `BrowserUsable`, registered into `react`'s `RendererUsable` so `use(browser())` suspends render until the client environment is live — the renderer's own arm on the one `use` input, gated behind the canary reference like every other pre-stable row.
 - `preload`/`preinit` warm assets and React hoists `<title>`/`<meta>`/`<link>` rendered anywhere in the tree, so the viewer's tile/font/model assets are hinted declaratively rather than through a head-manager library.
 

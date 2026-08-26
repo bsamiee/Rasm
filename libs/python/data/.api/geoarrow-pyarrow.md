@@ -1,6 +1,6 @@
 # [PY_DATA_API_GEOARROW_PYARROW]
 
-`geoarrow-pyarrow` registers GeoArrow geometry as a first-class pyarrow `ExtensionType`/`ExtensionArray`, so every pyarrow-native rail — Parquet, DuckDB, Delta/Lance, the pandas/GeoPandas boundary — carries geometry as a typed column decoded by extension name, never re-parsed from a WKB `binary` column. It is the pyarrow-registration face of the GeoArrow family, binding the WKB/WKT codecs and coordinate kernels the shared `geoarrow-c`/`geoarrow-types` core owns rather than re-implementing them.
+`geoarrow-pyarrow` registers GeoArrow geometry as a first-class pyarrow `ExtensionType`/`ExtensionArray`, so every pyarrow-native domain — Parquet, DuckDB, Delta/Lance, the pandas/GeoPandas boundary — carries geometry as a typed column decoded by extension name, never re-parsed from a WKB `binary` column. It is the pyarrow-registration face of the GeoArrow family, binding the WKB/WKT codecs and coordinate kernels the shared `geoarrow-c`/`geoarrow-types` core owns rather than re-implementing them.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -86,18 +86,18 @@ Metadata setters (`with_crs`, `with_edge_type`) replace field attribution withou
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `register_extension_types` runs once at a process boundary so pyarrow round-trips geometry by extension name across Parquet, IPC, and the C Data Interface; a rail registers before its first `array` call and never re-registers per operation.
+- `register_extension_types` runs once at a process boundary so pyarrow round-trips geometry by extension name across Parquet, IPC, and the C Data Interface; a result registers before its first `array` call and never re-registers per operation.
 - `GeometryExtensionType`/`GeometryExtensionArray` are pyarrow-native subclasses, so a geometry column is a typed pyarrow `Array`/`Field` any consumer reads directly, never a WKB `binary` column re-parsed downstream.
 - `array`/`as_geoarrow` own input entry and `as_wkb`/`as_wkt` own serialized re-encoding; one polymorphic `array` entry discriminates on input, and `coord_type` selects `INTERLEAVED` versus `SEPARATED` at construction, never a post-construction re-pack.
 - Zero-argument geometry-type constructors carry unspecified CRS; `with_crs(obj, OGC_CRS84)` or an explicit pyproj CRS writes field attribution, and CRS is never derived from coordinates.
 - `geoarrow-c`/`geoarrow-types` own the WKB/WKT codecs, coordinate kernels, and type specs; this package binds them to pyarrow and re-implements no codec or layout.
-- Each call exposes operation name, input encoding, selected `CoordType`, geometry type, CRS presence, and chunk count at the ingress observation seam.
+- Each call exposes operation name, input encoding, selected `CoordType`, geometry type, CRS presence, and chunk count at the ingress observation boundary.
 
 [STACKING]:
 - `geoarrow-rust-core`(`.api/geoarrow-rust-core.md`): a geometry crosses to the immutable Rust `GeometryArray`/`ChunkedGeometryArray` carriers over the shared Arrow C Data Interface PyCapsule hand-off — one on-wire GeoArrow layout, no intermediate Shapely scalar.
 - `geoarrow-rust-compute`(`.api/geoarrow-rust-compute.md`): the compute kernels consume that same capsule layout, so registration here and compute there share one memory model.
 - `pyarrow`(`.api/pyarrow.md`): `GeometryExtensionType` is a native pyarrow `DataType`, so a geometry column rides every pyarrow reader — Parquet, DuckDB, Delta/Lance — by extension name.
-- data folder: geometry stays a typed extension column across the Parquet, DuckDB, and Delta/Lance planes of the geospatial-ingress rail, decoded by name and never re-parsed.
+- data folder: geometry stays a typed extension column across the Parquet, DuckDB, and Delta/Lance planes of the geospatial-ingress domain, decoded by name and never re-parsed.
 
 [LOCAL_ADMISSION]:
 - `to_pandas_dtype` and `to_geopandas` are the sole pandas/GeoPandas crossings, admitted only where a consumer requires those objects; a pyarrow-typed geometry column otherwise stays pyarrow-native through the interchange planes.

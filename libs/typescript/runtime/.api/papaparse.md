@@ -2,7 +2,7 @@
 
 `papaparse` owns RFC 4180 CSV: one polymorphic `parse` picks sync-`string`, async-callback, Node-`Duplex`, or Web-Worker decode by input shape, and `unparse` serializes with formula-injection defense; bad rows accumulate in `result.errors`, never throw.
 
-`work/report.ts` internalizes it once as the output-format policy's CSV arm — `parse` feeds `Schema.decodeUnknown` per row, the `NODE_STREAM_INPUT` `Duplex` bridges to an Effect `Stream`, and encoded bytes ride the shared `deliver` rail.
+`work/report.ts` internalizes it once as the output-format policy's CSV arm — `parse` feeds `Schema.decodeUnknown` per row, the `NODE_STREAM_INPUT` `Duplex` bridges to an Effect `Stream`, and encoded bytes ride the shared `deliver` path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -56,7 +56,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `parse` is one polymorphic entry: the first argument's shape selects the modality — a `string` returns a `ParseResult` synchronously, a `File`/URL drives async callbacks and returns `void`, the `NODE_STREAM_INPUT` symbol returns a `Duplex`, and `worker: true` forks a Web Worker — one `decodeCsv` seam discriminates internally, so downstream never picks a per-source function.
+- `parse` is one polymorphic entry: the first argument's shape selects the modality — a `string` returns a `ParseResult` synchronously, a `File`/URL drives async callbacks and returns `void`, the `NODE_STREAM_INPUT` symbol returns a `Duplex`, and `worker: true` forks a Web Worker — one `decodeCsv` entry discriminates internally, so downstream never picks a per-source function.
 - Errors are data: a malformed row populates `result.errors: ParseError[]` while parsing continues, so the owner reads `errors` after the sync call and lifts a non-empty set onto the `Effect` error channel; there is no `try`/`catch` because `parse` does not throw on bad CSV.
 - `dynamicTyping` is refused: `parse` yields `string` cells (or header-keyed `string` records under `header: true`) and the one `Schema` performs every decode, brand, and coercion; `dynamicTyping` forks typing authority off `Schema` and silently drops precision above `2^53`.
 - `escapeFormulae` is the egress control: any exported cell opening `=`/`+`/`-`/`@` is prefixed so a spreadsheet consumer cannot execute it, and the owner sets it on every `unparse` because CSV egress is untrusted-sink output.
@@ -71,7 +71,7 @@
 - `work/report` (within-library): folds every report through the output-format policy, running `parse` -> `Schema.decodeUnknown` on ingress and `unparse` on egress, and pinning the `NODE_STREAM_INPUT` `Duplex` for any unbounded export so the CSV arm is a policy row, never a bespoke pipeline.
 
 [LOCAL_ADMISSION]:
-- One `parse` seam discriminates on input shape, then `Schema.decodeUnknown` types each row; `dynamicTyping` and per-source parse functions are refused.
+- One `parse` entry discriminates on input shape, then `Schema.decodeUnknown` types each row; `dynamicTyping` and per-source parse functions are refused.
 - String ingest runs `Effect.sync` + `result.errors` inspection before `result.data`; streaming ingest runs `NodeStream.fromReadable` over the `Duplex`.
 - `unparse` carries `escapeFormulae: true` on every egress to an untrusted spreadsheet sink.
 - `NODE_STREAM_INPUT` carries any export whose row count is unbounded, never a whole result set buffered into one `unparse` string.

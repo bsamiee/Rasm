@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_SURFACING]
 
-This catalog owns the host-fidelity freeform surface and curve construction boundary: the `NurbsSurface` build set, the `Surface`/`RevSurface`/`SumSurface`/`PlaneSurface` generation family, and the `Curve` host-op family — offset, refine, extend/trim/split, pull/project, and blend/fillet/tween/fit construction over `Curve` and `NurbsCurve`. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives the kernel-altitude host-neutral NURBS algebra owning evaluation, division, curvature, and tessellation, and routes intersection, iso/contour extraction, and native custody to their own catalogs. Native `bool`+`out` and nullable-or-array outcomes project onto the `LanguageExt` rails.
+This catalog owns the host-fidelity freeform surface and curve construction boundary: the `NurbsSurface` build set, the `Surface`/`RevSurface`/`SumSurface`/`PlaneSurface` generation family, and the `Curve` host-op family — offset, refine, extend/trim/split, pull/project, and blend/fillet/tween/fit construction over `Curve` and `NurbsCurve`. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's commands; the boundary never re-derives the kernel-altitude host-neutral NURBS algebra owning evaluation, division, curvature, and tessellation, and routes intersection, iso/contour extraction, and native custody to their own catalogs. Native `bool`+`out` and nullable-or-array outcomes project onto the `LanguageExt` carriers.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -223,5 +223,5 @@ Members dot off `Curve`.
 - `Rasm` kernel: host-neutral NURBS evaluation, division, curvature, and tessellation stand at the kernel altitude and the boundary re-derives none of them; degrees, tolerances, angles, and station parameters compose the kernel numeric owners before the native call.
 
 [LOCAL_ADMISSION]:
-- construction enters through the surface or curve op union: each arm binds its native member, projects the outcome onto the rail, and pairs parameter/distance or curve/brep parallel arrays into equal-cardinality rows before the native call; the caller-owned fillet output lists for `FilletSurfaceToRail` drain into detached brep records.
+- construction enters through the surface or curve op union: each arm binds its native member, projects the outcome onto the carrier, and pairs parameter/distance or curve/brep parallel arrays into equal-cardinality rows before the native call; the caller-owned fillet output lists for `FilletSurfaceToRail` drain into detached brep records.
 - native `Surface`, `NurbsSurface`, `Curve`, and `NurbsCurve` values stay inside the construction grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed build facts, or an explicitly owned geometry lease.

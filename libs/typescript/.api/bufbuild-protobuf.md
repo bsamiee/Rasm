@@ -126,9 +126,9 @@
 |  [14]   | `parseTextFormatEnumValue(DescEnum, string): number`              | static  | parse one text-format enum literal            |
 
 - `sizeDelimitedPeek`: returns `{ size, offset, eof:false }` for a complete varint header, `{ size:null, offset:null, eof:true }` when the varint is incomplete.
-- `sizeDelimitedDecodeStream`: `readMaxBytes` (default 64 MiB) caps one stream message and raises a bare `Error` before the frame buffers; `interchange/format`'s `framed` folds `sizeDelimitedPeek` on the rail instead so the overrun refuses TYPED with its measured size under `Shape.Ingress.floor.bytes`, and the stream decoder stays unmined for that one reason.
+- `sizeDelimitedDecodeStream`: `readMaxBytes` (default 64 MiB) caps one stream message and raises a bare `Error` before the frame buffers; `interchange/format`'s `framed` folds `sizeDelimitedPeek` in the decoder instead so the overrun refuses TYPED with its measured size under `Shape.Ingress.floor.bytes`, and the stream decoder stays unmined for that one reason.
 
-[ENTRYPOINT_SCOPE]: JSON codec — the debug/text mirror of the binary rail
+[ENTRYPOINT_SCOPE]: JSON codec — the debug/text mirror of the binary codec
 
 | [INDEX] | [SURFACE]                                               | [SHAPE] | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------ | :------ | :---------------------------------------------------- |
@@ -152,7 +152,7 @@
 |  [03]   | `mergeFromText<Desc>(schema, target, text, options?)`        | static  | fold a text payload into an existing message |
 
 [ENTRYPOINT_SCOPE]: registry + reflection — the descriptor-driven path with no generated code
-- `createFileRegistry(FileDescriptorSet)` turns a compiled descriptor set into runtime descriptors, and `reflect` reads fields by descriptor alone; the generated `file_*` consts already carry every estate descriptor, so a decoded set enters only where a peer ships one.
+- `createFileRegistry(FileDescriptorSet)` turns a compiled descriptor set into runtime descriptors, and `reflect` reads fields by descriptor alone; the generated `file_*` consts already carry every repo descriptor, so a decoded set enters only where a peer ships one.
 
 | [INDEX] | [SURFACE]                                                     | [SHAPE] | [CAPABILITY]                                      |
 | :-----: | :------------------------------------------------------------ | :------ | :------------------------------------------------ |

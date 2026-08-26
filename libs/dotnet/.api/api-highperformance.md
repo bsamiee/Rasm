@@ -1,6 +1,6 @@
 # [RASM_API_HIGHPERFORMANCE]
 
-`CommunityToolkit.HighPerformance` owns the staging rail's payload substrate: pooled rentals released deterministically, dense plane views over contiguous storage, and struct-action partitioning that keeps a parallel kernel allocation-free. Every shape it mints stops at the staging boundary — codec, cache, and IO rails consume its buffers, and domain vocabulary names its own value types.
+`CommunityToolkit.HighPerformance` owns the staging layer's payload substrate: pooled rentals released deterministically, dense plane views over contiguous storage, and struct-action partitioning that keeps a parallel kernel allocation-free. Every shape it mints stops at the staging boundary — codec, cache, and IO layers consume its buffers, and domain vocabulary names its own value types.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -223,21 +223,21 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 - `RefEnumerable<T>` is the one strided carrier: a plane column, a padded row, and a caller-minted `DangerousCreate` window share one gather-and-scatter family, so a transposed copy never materializes an intermediate buffer.
 - `struct TAction` carries the parallel kernel and its captured state rides the `in` overload, so partitioning allocates nothing and the invoker inlines.
 - Each `BitHelper` operation binds one machine width per call site, so a flag axis picks `uint` or `ulong` once and its accumulators stay that width.
-- Reinterpreting projections — `AsBytes`, `Cast`, `DangerousGetReferenceAt` — admit unmanaged elements and hand endianness ownership to the calling rail.
+- Reinterpreting projections — `AsBytes`, `Cast`, `DangerousGetReferenceAt` — admit unmanaged elements and hand endianness ownership to the call site.
 
 [STACKING]:
-- `Rasm.Materials` `Raster/plane#TEXTURE_PLANE` is the texture estate's arena consumer: `MemoryOwner<T>.Allocate` + `Memory<T>.AsMemory2D(rows, width)` seat every typed-texel plane, `Span2D<T>.GetRowSpan(int)` is the row rail, `Memory2D<T>.Slice` the layer window, and `SpanOwner<T>.Allocate` every per-row lane scratch — the reciprocal edge of the four texture catalogs naming this package their arena owner.
+- `Rasm.Materials` `Raster/plane#TEXTURE_PLANE` is the texture module's arena consumer: `MemoryOwner<T>.Allocate` + `Memory<T>.AsMemory2D(rows, width)` seat every typed-texel plane, `Span2D<T>.GetRowSpan(int)` is the row accessor, `Memory2D<T>.Slice` the layer window, and `SpanOwner<T>.Allocate` every per-row lane scratch — the reciprocal edge of the four texture catalogs naming this package their arena owner.
 - `ParallelHelper.For2D<TAction>(int, int, int, int)` orders its bounds `(top, bottom, left, right)`, never `(x, y, w, h)`; a transposed call partitions a rotated plane and no gate raises.
 - `Span2D<T>` constructs over `(ref T, height, width, pitch)`: the padded-pitch form is what un-pads a WebGPU 256-byte-aligned `BytesPerRow` readback without a repack.
 - `Microsoft.Extensions.Caching.Hybrid`(`.api/api-hybrid-cache.md`): `ArrayPoolBufferWriter<byte>` is the `IHybridCacheSerializer<T>` serialize target, and its `WrittenMemory` feeds the paired deserialize read, so an L2 payload never materializes an intermediate array.
 - `Google.Protobuf`(`.api/api-protobuf.md`): `MemoryOwner<byte>.DangerousGetArray` hands its rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap`, and the owner disposes after the send it backs.
 - `System.IO.Hashing`(`.api/api-hashing.md`): `XxHash128.HashToUInt128(writer.WrittenSpan)` fingerprints a committed payload straight off the pooled writer.
 - `Rasm.Compute` `Model/tiling`: the tiled-mosaic fold rents one `MemoryOwner<float>` per role — accumulation plane, weight plane, tile staging, and the per-row weight scratch — with `AllocationMode.Clear` on the two the overlap-add reads back, and the mosaic capsule transfers the accumulation rental outward so its `Dispose` is the release point rather than the fold's exit.
-- Staging rail: one `MemoryOwner<T>` rental backs a `Memory2D<T>` plane, `ParallelHelper.ForEach` partitions that plane over a state-carrying `IRefAction<T>`, and the same rental emits through `ArrayPoolBufferWriter<byte>` into the codec, so one allocation spans compute and emit.
+- Staging layer: one `MemoryOwner<T>` rental backs a `Memory2D<T>` plane, `ParallelHelper.ForEach` partitions that plane over a state-carrying `IRefAction<T>`, and the same rental emits through `ArrayPoolBufferWriter<byte>` into the codec, so one allocation spans compute and emit.
 
 [LOCAL_ADMISSION]:
 - Compute staging binds these memory shapes before minting a package-local payload owner.
 - Ref carriers and plane views are implementation material inside a staging owner; domain types carry their own value vocabulary.
 - Parallel entrypoints become a default execution path only when the benchmark report admits them.
 - Pooled text is a staging value; a domain value carries its own string.
-- Byte projections declare codec and endianness ownership at the calling rail.
+- Byte projections declare codec and endianness ownership at the call site.

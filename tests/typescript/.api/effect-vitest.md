@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the test-method families
-- rail: plane:dev
+- plane: dev
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]     | [CONSUMER]                                                               |
 | :-----: | :----------------------------------- | :---------------- | :----------------------------------------------------------------------- |
@@ -16,7 +16,7 @@
 |  [05]   | `Vitest.Arbitraries`                 | generator spec    | `Array`/record of `Schema.Schema.Any \| FC.Arbitrary<any>` for `it.prop` |
 
 [PUBLIC_TYPE_SCOPE]: the `Vitest` runner contract — full signatures (canonical owner; the folder overlays reference this block)
-- rail: plane:dev
+- plane: dev
 - `Vitest` namespace and root API — the exhaustive tree the tables above index. `Vitest.Methods` is the type of `it`; `Vitest.MethodsNonLive` is what `layer(...)` hands its callback (no `live`/`scopedLive` — a shared memoized `Layer` is incompatible with per-test real-clock fibers). `ExcludeTestServices extends true` drops the `TestServices` requirement when the shared layer already supplies real services.
 
 ```ts
@@ -124,7 +124,7 @@ const describeWrapped: (name: string, f: (it: Vitest.Methods) => void) => V.Suit
 ```
 
 [PUBLIC_TYPE_SCOPE]: `@effect/vitest/utils` — Effect-data assertion signatures (canonical owner)
-- rail: plane:dev / assertion
+- plane: dev / assertion
 - Every two-value assertion takes a trailing `..._: Array<never>` rest — a compile-time guard forbidding extra positional arguments. `assertNone`/`assertSome`/`assertLeft`/`assertRight`/`assertFailure`/`assertSuccess` are TypeScript assertion functions (`asserts x is …`), so post-assertion code reaches `Some.value`/`Right.right`/`Success` payloads without a second guard; `deepStrictEqual`/`assertEquals` compare via the `Equal.equals` trait.
 
 ```ts
@@ -157,7 +157,7 @@ function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<nev
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: effect test collectors and their service context — every collector takes `(name, (ctx) => Effect<A, E, R>, timeout?)` and discriminates by the service context `R` it provides.
-- rail: plane:dev
+- plane: dev
 
 | [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [CONSUMER]                                                    |
 | :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------------------------ |
@@ -169,7 +169,7 @@ function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<nev
 |  [06]   | `./utils` assertions                                 | assert         | structural asserts over `Option`/`Either`/`Exit`              |
 
 [ENTRYPOINT_SCOPE]: layer-sharing, property testing, and flake control — `layer`/`it.layer` take `(…)(name?, (it) => …)`, and `it.prop`/`it.effect.prop` take `(name, arbitraries, (values, ctx) => body, opts?)`.
-- rail: plane:dev
+- plane: dev
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]       | [CONSUMER]                                               |
 | :-----: | :----------------------------------------------------- | :------------------- | :------------------------------------------------------- |
@@ -184,7 +184,7 @@ function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<nev
 |  [09]   | `expect`/`describe`/`vi`/`beforeEach`/`afterAll`       | vitest surface       | lifecycle, mocking, assertion entry — one spec import    |
 
 [ENTRYPOINT_SCOPE]: Effect-data assertions — the `./utils` subpath
-- rail: plane:dev
+- plane: dev
 
 | [INDEX] | [SURFACE]                                     | [ASSERT_FAMILY] | [CONSUMER]                                                       |
 | :-----: | :-------------------------------------------- | :-------------- | :--------------------------------------------------------------- |

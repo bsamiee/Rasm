@@ -1,6 +1,5 @@
 /// <reference types="vitest/config" />
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { defineConfig, type ViteUserConfig } from 'vitest/config';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -9,12 +8,12 @@ type ProjectTest = NonNullable<ViteUserConfig['test']>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Root = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = import.meta.dirname;
 const _CI = process.env['CI'] === 'true';
 const _ARTIFACTS = {
-    bench: path.resolve(Root, '.artifacts/typescript/bench'),
-    coverage: path.resolve(Root, '.artifacts/typescript/coverage'),
-    results: path.resolve(Root, '.artifacts/typescript/test-results'),
+    bench: path.resolve(rootDir, '.artifacts/typescript/bench'),
+    coverage: path.resolve(rootDir, '.artifacts/typescript/coverage'),
+    results: path.resolve(rootDir, '.artifacts/typescript/test-results'),
 } as const;
 const _CONFIG = {
     cacheDir: '.cache/vitest',
@@ -62,7 +61,7 @@ const _CONFIG = {
             ? (['dot', 'json', 'junit', 'github-actions', 'blob'] as const)
             : (['tree'] as const),
     },
-    setupFiles: [path.resolve(Root, 'tests/typescript/testkit/setup.ts')],
+    setupFiles: [path.resolve(rootDir, 'tests/typescript/testkit/setup.ts')],
     snapshot: { format: { printBasicPrototype: false } },
     timeouts: { hook: 10_000, slow: 5_000, test: 10_000 },
     workers: { max: '50%' },

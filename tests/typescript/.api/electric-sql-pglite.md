@@ -118,7 +118,7 @@ Each returns `{ initialResults, unsubscribe, refresh }` and accepts an options o
 
 ## [04]-[INTEGRATION]
 
-[STACK: `PGlite` + `effect/Layer` + `@effect/vitest`] — the unit lane is a shared Layer, not a per-spec construct. `Layer.scoped(Tag, Effect.acquireRelease(Effect.promise(() => PGlite.create({ relaxedDurability: true })), db => Effect.promise(() => db.close())))` builds the handle once; the standalone `layer(PgLiteTest)("suite", (it) => …)` combinator (from `@effect/vitest`, see `fast-check.md` [05]) shares it across the block, and `Effect.tryPromise` wraps each `db.query`/`db.exec` into the folder's typed error rail. Seed DDL runs once in the Layer's acquire via `db.exec(schemaSql)`.
+[STACK: `PGlite` + `effect/Layer` + `@effect/vitest`] — the unit lane is a shared Layer, not a per-spec construct. `Layer.scoped(Tag, Effect.acquireRelease(Effect.promise(() => PGlite.create({ relaxedDurability: true })), db => Effect.promise(() => db.close())))` builds the handle once; the standalone `layer(PgLiteTest)("suite", (it) => …)` combinator (from `@effect/vitest`, see `fast-check.md` [05]) shares it across the block, and `Effect.tryPromise` wraps each `db.query`/`db.exec` into the folder's typed error channel. Seed DDL runs once in the Layer's acquire via `db.exec(schemaSql)`.
 
 [STACK CONSTRAINT: no migrator] — no spec lane imports `@effect/sql/Migrator` or `@effect/sql-pg/PgMigrator`. There is no `@effect/sql-pglite` dialect; the unit lane does NOT bridge PGlite through `@effect/sql-pg` (that binds the real `pg` driver). Schema for a PGlite spec is raw `exec(ddl)` or a `dumpDataDir` fixture reload via `loadDataDir`.
 

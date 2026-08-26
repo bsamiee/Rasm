@@ -68,12 +68,12 @@
 - tracing: `BigQueryConnection : TracingConnection`, an `ActivitySource` integration
 
 [STACKING]:
-- `api-arrow-egress.md`: `BigQueryDriver` IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction — the federation rail selects it by backend, opens it with a parameter map, and reads results through the base `QueryResult.Stream` `IArrowArrayStream`, the same egress shape as the Spark/Hive/Impala drivers (`api-adbc-apache.md`) and distinct from in-process DuckDB (`api-duckdb.md`)
+- `api-arrow-egress.md`: `BigQueryDriver` IS the concrete `AdbcDriver` for the `Apache.Arrow.Adbc` abstraction — the federation layer selects it by backend, opens it with a parameter map, and reads results through the base `QueryResult.Stream` `IArrowArrayStream`, the same egress shape as the Spark/Hive/Impala drivers (`api-adbc-apache.md`) and distinct from in-process DuckDB (`api-duckdb.md`)
 - `libs/dotnet/.api/api-arrow.md`: BigQuery results arrive as Arrow `RecordBatch` over the Storage Read API, so a warehouse result and an in-process batch are one `Apache.Arrow` type — directly writable to Parquet (`api-parquetsharp.md`) or a Delta table (`api-deltalake.md`) with zero re-materialization
 - `api-aws-kms.md`/`api-azure-keyvault.md`/`api-google-kms.md` + `api-redaction.md`: the auth parameter set (`JsonCredential`, `ClientSecret`, `RefreshToken`) and the `UpdateToken` refresh callback draw credentials from the secret store into the parameter map and refresh hook, never inline literals and never a log sink
 - `api-npgsql-opentelemetry.md`: `BigQueryConnection : TracingConnection` emits `ActivitySource` spans, so a federated BigQuery query nests under the same OpenTelemetry trace the in-PG path opens
 
 [LOCAL_ADMISSION]:
 - this driver admits ONLY through the Persistence Query-federation boundary that owns parameter-map construction; its `adbc.bigquery.*` key strings and credential material never leak into an interior signature
-- `UpdateToken` is the credential-refresh seam, set at the boundary to the redacted-credential source, so a token rotation never re-opens the connection and never logs the token
+- `UpdateToken` is the credential-refresh hook, set at the boundary to the redacted-credential source, so a token rotation never re-opens the connection and never logs the token
 - result `RecordBatch` streams consume through the base `IArrowArrayStream` and project to the canonical Arrow owner — the driver is a SOURCE adapter, never a data model

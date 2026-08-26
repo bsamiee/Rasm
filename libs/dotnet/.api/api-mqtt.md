@@ -2,7 +2,7 @@
 
 `MQTTnet` owns legacy and v5 broker-client transport in BOTH directions across three consuming folders: `MqttClientFactory` mints one `IMqttClient` per leg, builder-composed options carry session and channel policy, `PublishAsync` folds its PUBACK to a reason-code result, and `SubscribeAsync` beside `ApplicationMessageReceivedAsync` carries every delivery. `MqttProtocolVersion.V500` opens the `UserProperties` plane the W3C `traceparent`/`tracestate` pair rides, so a publish joins the producing trace and a delivery hands its parent to the consuming bracket.
 
-Rails: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.Persistence` the `mqtt` binding-row deliver leg, and `Rasm.Compute` the CloudEvents-decoded sensor-ingest pump.
+Consumers: `Rasm.AppHost` binds the outbound live-wire `mqtt` transport row, `Rasm.Persistence` the `mqtt` binding-row deliver leg, and `Rasm.Compute` the CloudEvents-decoded sensor-ingest pump.
 
 ## [01]-[PUBLIC_TYPES]
 

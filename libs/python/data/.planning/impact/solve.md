@@ -13,11 +13,11 @@ Demand vocabulary is the open project's: functional units arrive as resolved `(a
 
 - Owner: `LcaBatch` — one frozen batch per project: named functional units (`dict[str, dict[int, float]]`, the provider's own demand shape), the impact-category tuple set, and the Monte Carlo iteration count; ONE `MultiLCA` construction serves every `(unit, category)` cell, which is the whole point — N×M scores at one factorization instead of N×M solves.
 - Law: `method_config` spells `{"impact_categories": [...]}` — the provider's own config key, spelled once here — and `data_objs` mounts through `bd.get_multilca_data_objs(functional_units, method_config)`, so the mounted set derives from the SAME two inputs the solve reads and a hand-assembled datapackage list cannot drift from the demand it serves.
-- Law: the batch lowers to a self-describing score frame — `unit`/`category`/`amount` columns keyed by the batch `ContentKey` — through the folder's canonical Arrow fold at the caller's columnar seam; a per-cell `MaterialImpact` mint is the rejected form, because a sweep row is analytics evidence, not a material declaration, and the carrier stays the one EN 15804 matrix owner.
+- Law: the batch lowers to a self-describing score frame — `unit`/`category`/`amount` columns keyed by the batch `ContentKey` — through the folder's canonical Arrow fold at the caller's columnar boundary; a per-cell `MaterialImpact` mint is the rejected form, because a sweep row is analytics evidence, not a material declaration, and the carrier stays the one EN 15804 matrix owner.
 - Law: `solved` returns the score frame beside its `ContentKey`; identity folds the sorted functional-unit and category rosters through the deterministic encoder, so an identical sweep keys identically and a widened one re-keys. Unit count, category count, and iterations remain on the request that produced the frame.
-- Packages: `bw2calc` (`MultiLCA(demands, method_config, data_objs, use_distributions)`, `.lci()`/`.lcia()`/`.scores`, `keep_first_iteration`), `bw2data` (`projects.set_current`, `get_multilca_data_objs`), `pyarrow` (the score-frame lowering) — every one bound at module scope through its own `lazy import`, so the compiled solver and Arrow loads fall on first use with no function-local import, and each raise set resolves at its call for the same reason — runtime (`RuntimeRail`/`boundary`/`Catch`/`Depth`/`FaultRow`/`ContentIdentity`/`scoped`/`Metrics`/`on_thread`), `impact/impact#IMPACT` (`ContributionRow`, the carrier's own mined-driver row this page composes and never re-declares).
+- Packages: `bw2calc` (`MultiLCA(demands, method_config, data_objs, use_distributions)`, `.lci()`/`.lcia()`/`.scores`, `keep_first_iteration`), `bw2data` (`projects.set_current`, `get_multilca_data_objs`), `pyarrow` (the score-frame lowering) — every one bound at module scope through its own `lazy import`, so the compiled solver and Arrow loads fall on first use with no function-local import, and each raise set resolves at its call for the same reason — runtime (`RuntimeResult`/`boundary`/`Catch`/`Depth`/`FaultRow`/`ContentIdentity`/`scoped`/`Metrics`/`on_thread`), `impact/impact#IMPACT` (`ContributionRow`, the carrier's own mined-driver row this page composes and never re-declares).
 - Growth: a new sweep axis is more rows in the two admitted rosters; a distribution summary beyond the mean is another score-frame column; zero new solver.
-- Boundary: no matrix assembly (`impact/inventory#PACKAGES` custodies datapackages), no per-material carrier mint (the carrier's `brightway` arm owns it), no method authoring — categories name methods the project already holds, and an absent method surfaces as the provider's own raise railed at the fence.
+- Boundary: no matrix assembly (`impact/inventory#PACKAGES` custodies datapackages), no per-material carrier mint (the carrier's `brightway` arm owns it), no method authoring — categories name methods the project already holds, and an absent method surfaces as the provider's own raise carried at the fence.
 
 ```python
 from typing import TYPE_CHECKING, Final, Literal
@@ -32,7 +32,7 @@ lazy import bw2data as bd
 lazy import pyarrow as pa
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
 
@@ -72,7 +72,7 @@ class LcaBatch(Struct, frozen=True):
     categories: tuple[tuple[str, ...], ...]
     iterations: int = 0
 
-    async def solved(self) -> "RuntimeRail[tuple[pa.Table, ContentKey]]":
+    async def solved(self) -> "RuntimeResult[tuple[pa.Table, ContentKey]]":
         def run() -> "tuple[pa.Table, ContentKey]":
             bd.projects.set_current(self.project)
             config = {"impact_categories": [tuple(category) for category in self.categories]}
@@ -95,13 +95,13 @@ class LcaBatch(Struct, frozen=True):
         with _TRACER.start_as_current_span(
             "solve.batch", attributes={"rasm.impact.units": len(self.functional_units), "rasm.impact.categories": len(self.categories)}
         ):
-            railed = await on_thread(lambda: boundary(SOLVE_BATCH, run, catch=_solve_raises()))
-            return railed.bind(lambda rail: rail)
+            outcome = await on_thread(lambda: boundary(SOLVE_BATCH, run, catch=_solve_raises()))
+            return outcome.bind(lambda held: held)
 ```
 
 ## [03]-[CONTRIBUTION]
 
-- Owner: `Contribution` — the driver-mining axis over one solved `LCA`: `processes` and `emissions` the annotated top-N tables (`bw2analyzer.ContributionAnalysis`), `recursive` the depth-bounded supply-chain walk (`print_recursive_calculation` captured off its own `file_obj` seam, never a stdout scrape). The annotated arms COMPOSE the carrier's `ContributionRow` — score, supply, activity — so a mined driver joins the carrier's contribution slot with zero new row family, and `Mined` keeps the walk's indented text in its own case rather than forging a zero score and supply onto a row shape that promises measurements.
+- Owner: `Contribution` — the driver-mining axis over one solved `LCA`: `processes` and `emissions` the annotated top-N tables (`bw2analyzer.ContributionAnalysis`), `recursive` the depth-bounded supply-chain walk (`print_recursive_calculation` captured off its own `file_obj` boundary, never a stdout scrape). The annotated arms COMPOSE the carrier's `ContributionRow` — score, supply, activity — so a mined driver joins the carrier's contribution slot with zero new row family, and `Mined` keeps the walk's indented text in its own case rather than forging a zero score and supply onto a row shape that promises measurements.
 - Law: mining consumes a SOLVED `lca` the caller threads in — the carrier's `_from_score` arm or the batch above both hold one — so a mine never re-solves; the activity, the walk bound, and the cutoff are case payload, never owner fields, because two mines over one solve legitimately carry two bounds and only the walking arm takes an activity at all. The bound is the runtime `Depth`, and the provider spells no convergence walk, so a `fixpoint` request refuses by name instead of being lowered to a level the provider would truncate at.
 - Growth: a new contribution kind is one `Contribution` case plus one arm (`compare_activities_by_grouped_leaves` lands this way when a comparison consumer names it), landing on the `Mined` case its evidence kind already names; a new refusal law is one `FaultRow` row on this module's `RAISES` table; zero new surface.
 - Boundary: no solve, no carrier mint, no plotting — the analysis surface's chart members are artifacts-plane concerns this owner never touches.
@@ -132,8 +132,8 @@ class Contribution:
     emissions: int = case()
     recursive: "tuple[object, tuple[str, ...], Depth, float]" = case()
 
-    def mined(self, lca: object) -> "RuntimeRail[Mined]":
-        def run() -> "RuntimeRail[Mined]":
+    def mined(self, lca: object) -> "RuntimeResult[Mined]":
+        def run() -> "RuntimeResult[Mined]":
             match self:
                 case Contribution(tag="processes", processes=limit):
                     mined = ContributionAnalysis().annotated_top_processes(lca, limit=limit)
@@ -155,7 +155,7 @@ class Contribution:
                     assert_never(unreachable)
 
         with _TRACER.start_as_current_span(f"solve.contribution.{self.tag}"):
-            return boundary(SOLVE_MINE, run, catch=_mine_raises()).bind(lambda railed: railed)
+            return boundary(SOLVE_MINE, run, catch=_mine_raises()).bind(lambda inner: inner)
 
 
 def _rows(mined: "Iterable[tuple[float, float, object]]") -> "tuple[ContributionRow, ...]":

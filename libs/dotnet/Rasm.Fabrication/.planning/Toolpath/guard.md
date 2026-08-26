@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_GUARD]
 
-`Guard` owns fail-closed motion admission from one aggregate request through arc-true planar sweep, protected-surface gouge, fixture and stock collision, medial-clearance, voxel-field, and robot-cell probes. `GuardVerdict` retains every hazard, its overlap severity, the probe scope it executed, and every provider warning, while provider errors terminate on the typed failure rail; no probe hides a prior contact or degrades a geometric failure into an empty result.
+`Guard` owns fail-closed motion admission from one aggregate request through arc-true planar sweep, protected-surface gouge, fixture and stock collision, medial-clearance, voxel-field, and robot-cell probes. `GuardVerdict` retains every hazard, its overlap severity, the probe scope it executed, and every provider warning, while provider errors terminate on the typed failure channel; no probe hides a prior contact or degrades a geometric failure into an empty result.
 
 `Guard.Check` consumes one admitted `GuardRequest`. `GuardScope` separates a probed verdict from one elided by the clearance plane, so `GuardVerdict.Proven` distinguishes tested-and-clear from untested where `Clear` alone cannot. `HolderState` makes mounted and certified holder evidence mutually exclusive, `HolderCertificate.Admit` binds omission evidence to the exact `ToolAssembly.Identity`, cutter, operation, scope, and `ConservativeEnvelope` holder footprint, and native `Voxels` custody terminates inside the probe capsule.
 
@@ -15,7 +15,7 @@
 - Law: every owner on this plane accumulates its INDEPENDENT axes through the `AdmissionSlots.Gate` deferred-mint arity and refuses on `<owner>:<axis>`, so a caller learns each bad column and a refusal token names the one that failed; the gate threads `FabConcern.Toolpath` and the locus into `FabricationFault.Inadmissible` on the failing arm alone, so a passing gate allocates nothing and a plane-local `Of(admitted, locus)` wrapper closing over the one concern has no job left. Dimensioned columns ride the kernel lane that names their gate — `ToleranceLane.Gouge` for the swept-face allowance, `ToleranceLane.Chord` for arc densification — so `Band` owns each range and no validator re-tests finiteness. The gouge allowance is `Option` because zero shrink is a real posture that `Band.Length` opens above; the clearance plane, the channel margin, and the probe pitch stay bare measures, being a work-coordinate ordinate, an additive standoff, and a sampling pitch respectively, none of which any lane derives.
 - Cases: `FabricationBenchClaims` rosters the five kernel `BenchClaim` rows — NFP placement, ICP probe fit, skeleton offset, bend search, parallel clearance. `AcceptedBenchmarkClaim` binds one accepted result to the host digest its pass was stamped over, and `ProbeRoute.Measured` admits only the `ClearanceParallel` case, so unrelated solver evidence cannot authorize parallel clearance.
 - Law: every roster row pairs with the measuring case beside its lane owner — `NestBench` at `Nesting/nfp`, `ProbeBench` at `Verify/probing`, `SkeletonBench` at `Toolpath/skeleton`, `BrakeBench` at `Forming/brake`, `ClearanceBench` here — each a workload admission plus the measured fold in folder types; measurement columns and the benchmark projection stay the bench edge's under the `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` Fabrication row, and `ClearanceBench.Reference` is the same-run cost the field map's reference-evidence law carries for the one lane-pair claim.
-- Law: `AcceptedBenchmarkClaim.Admit` takes judgment as a `Func<string, UInt128, bool>` seam over the claim key and the `Benchmark.ClaimKey` digest, the exact pair `BenchmarkGate.Judge` at `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` resolves when it stamps `BenchmarkVerdict.Pass` — the Fabrication row keys `{Suite}/{Case}` under that page's own field map. This package supplies the bench roster and the host digest, never a verdict, and never persists one.
+- Law: `AcceptedBenchmarkClaim.Admit` takes judgment as a `Func<string, UInt128, bool>` interface over the claim key and the `Benchmark.ClaimKey` digest, the exact pair `BenchmarkGate.Judge` at `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` resolves when it stamps `BenchmarkVerdict.Pass` — the Fabrication row keys `{Suite}/{Case}` under that page's own field map. This package supplies the bench roster and the host digest, never a verdict, and never persists one.
 - Entry: `Guard.Check(GuardRequest)` preserves the frozen `Check` operation name and accumulates independent contacts through `Traverse`, `As`, and `Bind`.
 - Auto: planar straight and circular moves lower once to an arc-true trajectory, round-ended offset sweeps retain cutter and holder separation, one `Surfaces` row set traverses every planar obstacle class against the shared cutter-and-holder `Faces` table, feed moves drop the cutter face against stock while the holder face always tests, and channel pinch uses the larger swept radius with the admitted margin.
 - Output: `HolderEvidence` carries mounted or certified payload without a boolean cross-product; `ContactWitness` carries the contact point and its overlap area so `Hazard.Severity` ranks contacts rather than leaving them unordered; `ClearanceEvidence` retains minimum medial clearance, the optional skeleton witness, the requested route, and whether the parallel substrate executed; `VoxelContact` retains obstacle, membership, overlap volume, ray witness, and native memory; `RobotContact` retains provider target, meshes, duration, target census, and warnings, and PRESENCE of one is the collision — `RobotCollisionEvidence.Hit` and `RobotCollisionAdmission.Accepted.Contact` are both `Option`, so no reader pairs a flag with columns meaningful only under it.
@@ -77,7 +77,6 @@ public sealed record AcceptedBenchmarkClaim {
 
     public string Key => FormattableString.Invariant($"{(string)Bench.Claim}/{Host:x32}");
 
-    [BoundaryAdapter]
     public static Fin<AcceptedBenchmarkClaim> Admit(
         BenchClaim bench,
         UInt128 host,
@@ -124,7 +123,6 @@ public sealed partial class CellCollisionRequest {
     public Seq<Arr<double>> Joints => Motion.Joints;
     public Seq<TimeDuration> Segments => Motion.SegmentDurations;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MotionEvidence motion,
@@ -200,7 +198,6 @@ public sealed partial class VoxelRay {
     public Point3d Search { get; }
     public Vector3d Direction { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Point3d search,
@@ -254,7 +251,6 @@ public sealed partial class HolderCertificate {
     public BoundingBox Scope { get; }
     public Loop ConservativeEnvelope { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref UInt128 assemblyIdentity,
@@ -304,7 +300,6 @@ public sealed partial class GuardPolicy {
 
     public ProbeRoute Route { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length clearancePlane,
@@ -377,7 +372,6 @@ public sealed partial class GuardPart {
     public Point3d Cursor { get; }
     public Seq<Loop> Protected { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Point3d cursor,
@@ -417,7 +411,6 @@ public sealed partial class GuardStock {
             .Map(static snapshot => snapshot.Machined.ToSeq())
             .IfNone(RawBlank);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<Loop> rawBlank,
@@ -488,7 +481,6 @@ public sealed partial class GuardRequest {
     public Seq<GuardProbe> Probes { get; }
     public Point3d Target => Move.Target;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Move move,

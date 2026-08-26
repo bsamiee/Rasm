@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_UNIVERSAL_PATHLIB]
 
-`universal-pathlib` owns `UPath`, the `pathlib`-shaped path face over the `fsspec` filesystem surface on the `pathlib_abc` protocol stack. Protocol and `storage_options` resolve at construction, so one arithmetic/traversal/byte-access API serves every fsspec root from local through cloud, and the runtime resources rail composes it as its reference type.
+`universal-pathlib` owns `UPath`, the `pathlib`-shaped path face over the `fsspec` filesystem surface on the `pathlib_abc` protocol stack. Protocol and `storage_options` resolve at construction, so one arithmetic/traversal/byte-access API serves every fsspec root from local through cloud, and the runtime resources domain composes it as its reference type.
 
 ## [01]-[PUBLIC_TYPES]
 

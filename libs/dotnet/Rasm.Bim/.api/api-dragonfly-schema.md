@@ -1,6 +1,6 @@
 # [RASM_BIM_API_DRAGONFLY_SCHEMA]
 
-`DragonflySchema` binds the Ladybug Tools Dragonfly urban building-energy schema and its DFJSON Newtonsoft codec — a `Model` → `Building` → `Story` → `Room2D` hierarchy of extruded footprint polygons whose parameter slots are `AnyOf<…>` unions and whose detailed physics is referenced by abridged identifier. Every type derives from `OpenAPIGenBaseModel`, so one generated round-trip, validation, duplication, and equality surface spans the schema. It fronts the energy-model rail with the massing wire and footprint geometry, composing the Honeybee physics vocabulary rather than re-declaring it.
+`DragonflySchema` binds the Ladybug Tools Dragonfly urban building-energy schema and its DFJSON Newtonsoft codec — a `Model` → `Building` → `Story` → `Room2D` hierarchy of extruded footprint polygons whose parameter slots are `AnyOf<…>` unions and whose detailed physics is referenced by abridged identifier. Every type derives from `OpenAPIGenBaseModel`, so one generated round-trip, validation, duplication, and equality surface spans the schema. It fronts the energy-model path with the massing wire and footprint geometry, composing the Honeybee physics vocabulary rather than re-declaring it.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -78,7 +78,7 @@
 |  [02]   | `node.ToJson(bool) -> string`                      | instance | serialize any node to DFJSON (Newtonsoft fork) |
 |  [03]   | `node.IsValid(bool) -> bool`                       | instance | DataAnnotations range/required gate            |
 |  [04]   | `node.Validate() -> IEnumerable<ValidationResult>` | instance | the validation-result enumeration              |
-|  [05]   | `node.Duplicate() -> OpenAPIGenBaseModel`          | instance | deep structural copy (immutable-edit seam)     |
+|  [05]   | `node.Duplicate() -> OpenAPIGenBaseModel`          | instance | deep structural copy (immutable-edit boundary) |
 |  [06]   | `node.Equals(OpenAPIGenBaseModel) -> bool`         | operator | structural value equality (model diffing)      |
 
 ## [03]-[IMPLEMENTATION_LAW]
@@ -91,12 +91,12 @@
 
 [STACKING]:
 - `HoneybeeSchema`(`.api/api-honeybee-schema`): the detailed-physics vocabulary — `AnyOf<…>`, `Autocalculate`, the geometry primitives (`Point3D`/`Face3D`/`Mesh3D`/`LineSegment3D`), `Building.Room3ds` (`HoneybeeSchema.Room`), the boundary conditions, and the energy library (`OpaqueConstruction`/`WindowConstruction`/`EnergyMaterial…`/the `IHvac` templates/`ScheduleRuleset…`/`ProgramType…`). `ModelEnergyProperties.Constructions`/`Materials`/`Hvacs`/`Schedules`/`ProgramTypes` are `List<AnyOf<…HoneybeeSchema…>>` keyed by identifier; translation to a Honeybee `Model` is the room-level explosion of the 2D plates.
-- `NREL.OpenStudio.macOS-arm64`(`libs/dotnet/.api/api-openstudio.md`): the energy-model rail — Dragonfly massing feeds the Honeybee room model, `OpenStudio` translates it to the IDF/OSM for EnergyPlus, and simulation results read back against the Dragonfly `Identifier`s.
+- `NREL.OpenStudio.macOS-arm64`(`libs/dotnet/.api/api-openstudio.md`): the energy-model path — Dragonfly massing feeds the Honeybee room model, `OpenStudio` translates it to the IDF/OSM for EnergyPlus, and simulation results read back against the Dragonfly `Identifier`s.
 - `GeometryGymIFC`(`.api/api-geometrygym-ifc`): the IFC model is the geometry source — `IfcSpace`/`IfcBuildingStorey` footprints and storey heights map onto `Room2D`/`Story` at the `Exchange` boundary; `DragonflySchema.*` types stay at the energy-exchange edge.
 - `Xbim.Properties`(`.api/api-xbim-properties`): IFC Psets supply the construction and program assignments that select the abridged Honeybee library entries.
 - `NetTopologySuite`(`libs/dotnet/.api/api-nettopologysuite.md`): `Room2D.FloorBoundary` polygon rings project onto the NTS planar algebra for footprint area, overlap, and adjacency on the canonical Bim site frame.
 - `UnitsNet`(`libs/dotnet/.api/api-unitsnet.md`): `Units` drives cross-model quantity reconciliation so a metric Dragonfly model and an imperial source agree on one canonical unit before translation.
-- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): a `Model.ToJson()` UTF-8 string feeds the energy-model snapshot content key, joining the IFC/glTF exports on one content-identity rail; the `Comparison` extension properties carry the structured model-diff alongside the hash.
+- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): a `Model.ToJson()` UTF-8 string feeds the energy-model snapshot content key, joining the IFC/glTF exports on one content-identity path; the `Comparison` extension properties carry the structured model-diff alongside the hash.
 - within-lib: the Bim energy Exchange resolves each `AnyOf<…>` slot by `"type"` at the boundary and maps the massing hierarchy and Honeybee-referenced properties onto canonical Bim/energy carriers.
 
 [LOCAL_ADMISSION]:

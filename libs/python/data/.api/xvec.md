@@ -82,7 +82,7 @@
 - `shapely`(`libs/python/data/.api/shapely.md`): geometry values are a `GeometryArray` and `query`/`mask` lower to `STRtree.query` under a GEOS binary predicate (`intersects`/`within`/`contains`/`dwithin`).
 - `pyproj`(`libs/python/data/.api/pyproj.md`): `crs` holds one `pyproj.CRS` and `to_crs` drives the `Transformer`, the `ProjIndexMixin` exposing the projection to `xproj`.
 - `geopandas`(`libs/python/data/.api/geopandas.md`): `to_geodataframe`/`to_geopandas` lower the cube to a `GeoDataFrame` at the `GeometryArray`, and a `GeoSeries` reconstructs the coordinate on return.
-- field-dataset rail: the geometry-indexed cube is a `FieldDataset`, so every field engine and direct content-keyed egress applies without a parallel container.
+- field-dataset domain: the geometry-indexed cube is a `FieldDataset`, so every field engine and direct content-keyed egress applies without a parallel container.
 
 [LOCAL_ADMISSION]:
 - `xvec` is admitted where a labelled field cube is queried, reprojected, or reduced by vector geometry; a `shapely`-plus-`xarray` hand-join carrying no `GeometryIndex` is the rejected form.

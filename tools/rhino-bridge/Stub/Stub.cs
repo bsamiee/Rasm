@@ -9,68 +9,58 @@ namespace Rasm.Bridge.Stub;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-file sealed class ShellLoadContext(string shellAssemblyPath) : AssemblyLoadContext(name: "Rasm.Bridge.Shell", isCollectible: false) {
-    private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: shellAssemblyPath);
+file sealed class ShellLoadContext(string shellAssemblyPath) : AssemblyLoadContext("Rasm.Bridge.Shell", isCollectible: false) {
+    private readonly AssemblyDependencyResolver resolver = new(shellAssemblyPath);
 
     protected override Assembly? Load(AssemblyName assemblyName) =>
-        resolver.ResolveAssemblyToPath(assemblyName: assemblyName) is { } path ? LoadFromAssemblyPath(assemblyPath: path) : null;
+        resolver.ResolveAssemblyToPath(assemblyName) is { } path ? LoadFromAssemblyPath(path) : null;
 
     protected override nint LoadUnmanagedDll(string unmanagedDllName) =>
-        resolver.ResolveUnmanagedDllToPath(unmanagedDllName: unmanagedDllName) is { } path ? LoadUnmanagedDllFromPath(unmanagedDllPath: path) : nint.Zero;
+        resolver.ResolveUnmanagedDllToPath(unmanagedDllName) is { } path ? LoadUnmanagedDllFromPath(path) : nint.Zero;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 file static class ShellSeam {
-    private const string EndpointHomeName = ".rasm";
-    private const string EndpointFileName = "rhino-bridge-rbx.json";
     private const string ShellAssemblyFile = "Rasm.Bridge.Shell.dll";
-    private const string ShellEntryMethod = "Start";
     private const string ShellEntryType = "Rasm.Bridge.Shell.ShellHost";
+    private const string ShellEntryMethod = "Start";
 
     internal static object? Activate() {
-        string deployDir = Path.GetDirectoryName(path: typeof(ShellLoadContext).Assembly.Location) ?? string.Empty;
-        string shellPath = Path.Combine(path1: deployDir, path2: ShellAssemblyFile);
+        string deployDir = Path.GetDirectoryName(typeof(ShellLoadContext).Assembly.Location) ?? string.Empty;
+        string shellPath = Path.Combine(deployDir, ShellAssemblyFile);
         try {
-            return File.Exists(path: shellPath)
-                ? Start(deployDir: deployDir, shellPath: shellPath)
-                : Poison(fault: $"shell assembly absent at '{shellPath}'");
+            return File.Exists(shellPath) ? Start(shellPath) : Poison($"shell assembly absent at '{shellPath}'");
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException
             or ArgumentException or BadImageFormatException or ReflectionTypeLoadException or TypeLoadException
             or MissingMemberException or TargetInvocationException or NotSupportedException) {
-            return Poison(fault: error.GetBaseException().Message);
+            return Poison(error.GetBaseException().Message);
         }
     }
 
-    private static object? Start(string deployDir, string shellPath) {
-        ShellLoadContext context = new(shellAssemblyPath: shellPath);
-        Assembly shell = context.LoadFromAssemblyPath(assemblyPath: shellPath);
-        Type entry = shell.GetType(name: ShellEntryType, throwOnError: true)!;
-        MethodInfo start = entry.GetMethod(name: ShellEntryMethod, bindingAttr: BindingFlags.Public | BindingFlags.Static)
-            ?? throw new MissingMethodException(className: ShellEntryType, methodName: ShellEntryMethod);
-        return start.Invoke(obj: null, parameters: [deployDir, Environment.ProcessId]);
+    private static object? Start(string shellPath) {
+        Assembly shell = new ShellLoadContext(shellPath).LoadFromAssemblyPath(shellPath);
+        MethodInfo start = shell.GetType(ShellEntryType, throwOnError: true)!.GetMethod(ShellEntryMethod, BindingFlags.Public | BindingFlags.Static)
+            ?? throw new MissingMethodException(ShellEntryType, ShellEntryMethod);
+        return start.Invoke(null, [Environment.ProcessId]);
     }
 
     private static object? Poison(string fault) {
         try {
-            string directory = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: EndpointHomeName);
-            _ = Directory.CreateDirectory(path: directory);
+            string home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".rasm");
+            _ = Directory.CreateDirectory(home);
             using Process host = Process.GetCurrentProcess();
-            using FileStream stream = new(
-                path: Path.Combine(path1: directory, path2: EndpointFileName),
-                mode: FileMode.Create, access: FileAccess.Write, share: FileShare.Read);
-            using Utf8JsonWriter writer = new(utf8Json: stream);
+            using FileStream stream = new(Path.Combine(home, "rhino-bridge-rbx.json"), FileMode.Create, FileAccess.Write, FileShare.Read);
+            using Utf8JsonWriter writer = new(stream);
             writer.WriteStartObject();
-            writer.WriteString(propertyName: "pipeName", value: string.Empty);
-            writer.WriteNumber(propertyName: "rhinoPid", value: Environment.ProcessId);
-            writer.WriteNumber(propertyName: "rhinoStartedAtUnixMs", value: new DateTimeOffset(dateTime: host.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds());
-            writer.WriteNumber(propertyName: "contractGeneration", value: 0);
-            writer.WriteString(propertyName: "shellVersion", value: string.Empty);
-            writer.WriteString(propertyName: "rhinoVersion", value: RhinoApp.Version.ToString());
-            writer.WriteString(propertyName: "fault", value: fault);
+            writer.WriteString("$type", "poisoned");
+            writer.WriteNumber("rhinoPid", Environment.ProcessId);
+            writer.WriteNumber("rhinoStartedAtUnixMs", new DateTimeOffset(host.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds());
+            writer.WriteString("rhinoVersion", RhinoApp.Version.ToString());
+            writer.WriteString("fault", fault);
             writer.WriteEndObject();
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
-            RhinoApp.WriteLine(message: $"[rasm-bridge] poisoned endpoint write failed: {error.Message}; fault was: {fault}");
+            RhinoApp.WriteLine($"[rasm-bridge] poisoned endpoint write failed: {error.Message}; fault was: {fault}");
         }
         return null;
     }

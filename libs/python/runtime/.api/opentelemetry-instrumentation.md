@@ -109,5 +109,5 @@
 [LOCAL_ADMISSION]:
 - Composition roots call each train row's `instrument()` once and hold the singleton; a library module activating an instrumentor imposes a process-wide patch its own caller never asked for.
 - Instrumentors install with the gate ARMED and the raising arm selected, so a version drift refuses with typed evidence instead of returning a silently unpatched process.
-- `opentelemetry-instrument` and `bootstrap` stay out of the estate: the branch composes its providers explicitly, and an auto-loader picking rows off installed distributions re-mints the roster the composition root declares.
+- `opentelemetry-instrument` and `bootstrap` stay out of the repo: the branch composes its providers explicitly, and an auto-loader picking rows off installed distributions re-mints the roster the composition root declares.
 - Response propagation stays off unless a server surface exposes the header deliberately, since `TraceResponsePropagator` publishes trace identity to the client.

@@ -1,6 +1,6 @@
 # [RASM_MATERIALS_API_TEXTURECOMPRESSOR]
 
-`TextureCompressor` is the pure-managed GPU texture-format engine: a `TextureFormat` value record describes any block or packed layout, a `TextureCoderManager` registry maps each format to an `ITextureCoder`, and every coder encodes and decodes generically over `IPixel<TSelf>` so a float HDR plane reaches BC6H and an 8-bit plane reaches BC7 through the one member. Its `TextureConverter` facade sits above that rail and is 8-bit-bound, so a texture-grade path binds the coder registry directly.
+`TextureCompressor` is the pure-managed GPU texture-format engine: a `TextureFormat` value record describes any block or packed layout, a `TextureCoderManager` registry maps each format to an `ITextureCoder`, and every coder encodes and decodes generically over `IPixel<TSelf>` so a float HDR plane reaches BC6H and an 8-bit plane reaches BC7 through the one member. Its `TextureConverter` facade sits above that surface and is 8-bit-bound, so a texture-grade path binds the coder registry directly.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -123,7 +123,7 @@
 |  [09]   | `TextureFormatCatalog.TryGet(string, out TextureFormat) -> bool`                 | static          | name-keyed lookup           |
 |  [10]   | `TextureFormatCatalog.GetFieldName(TextureFormat) -> string`                     | static          | the declaring field's name  |
 
-[ENTRYPOINT_SCOPE]: the generic coding rail — `ITextureCoder` / `TextureCoderManager`
+[ENTRYPOINT_SCOPE]: the generic coding surface — `ITextureCoder` / `TextureCoderManager`
 
 | [INDEX] | [SURFACE]                                                                   | [SHAPE]         | [CAPABILITY]                         |
 | :-----: | :-------------------------------------------------------------------------- | :-------------- | :----------------------------------- |
@@ -177,7 +177,7 @@
 |  [12]   | `TextureFileFormatManager.WriteImage<TPixel>(IBitmap<TPixel>, Stream, string, …)`        | instance        | flat-image encode          |
 |  [13]   | `TextureFileFormatManager.TryGetTextureFormat(string, out ITextureFileFormat) -> bool`   | instance        | container lookup           |
 
-- `EncodeTexture`/`DecodeTexture` are `Rgba8UNorm`-bound at the SIGNATURE, so a float or 16-bit plane routed through the facade quantizes to 8 bits before the coder ever sees it; the generic `ITextureCoder.Encode<TPixel>` rail is the only non-quantizing path.
+- `EncodeTexture`/`DecodeTexture` are `Rgba8UNorm`-bound at the SIGNATURE, so a float or 16-bit plane routed through the facade quantizes to 8 bits before the coder ever sees it; the generic `ITextureCoder.Encode<TPixel>` surface is the only non-quantizing path.
 
 [ENTRYPOINT_SCOPE]: texture pyramid navigation — `TextureImage`
 
@@ -203,13 +203,13 @@
 
 [TOPOLOGY]:
 - `TextureFormat` is a VALUE, not an enum: name, kind, components, value kind, per-channel bit counts, block extent, and bits-per-block fully describe a layout, so a format the standing catalogue omits is a `BlockCompressed`/`Uncompressed`/`Paletted` construction rather than a library change, and `GetByteCount`/`GetRowByteCount` size any payload from that description alone.
-- Coding is a two-level rail: `TextureCoderManager` maps a `TextureFormat` to an `ITextureCoder`, and the coder encodes and decodes generically over `IPixel<TSelf>`. Pixel type belongs to the caller, not the coder — `Rgba32Float` in for BC6H, `Rgba8UNorm` in for BC7, one member either way.
-- Registration is scoped and lazy: `TryGetCoder` on a fresh manager creates each standard coder on demand, and an options-bearing coder registers through the family constructor + `Register`, whose `IDisposable` retires it — so a bake never loads the whole coder estate to write one channel.
+- Coding is a two-level dispatch: `TextureCoderManager` maps a `TextureFormat` to an `ITextureCoder`, and the coder encodes and decodes generically over `IPixel<TSelf>`. Pixel type belongs to the caller, not the coder — `Rgba32Float` in for BC6H, `Rgba8UNorm` in for BC7, one member either way.
+- Registration is scoped and lazy: `TryGetCoder` on a fresh manager creates each standard coder on demand, and an options-bearing coder registers through the family constructor + `Register`, whose `IDisposable` retires it — so a bake never loads every coder to write one channel.
 - `BitmapView<TPixel>` is the coding boundary. Every coder takes and returns a borrowed span plane, so the arena belongs to the caller and `ArrayBitmap<TPixel>` is a convenience owner rather than a required one.
 - `TextureImage` carries the whole pyramid — mip levels, array layers, cube faces — as an ordered `TextureSubresource` list, and `GetSubresource(mip, face, layer)` is the one navigator; `IsCubeMap` reads `FaceCount == 6`. Each slot states its OWN `Width`/`Height`/`Depth`, so a level's extent reads off the subresource rather than halving the base — and `Payload` is a bare `byte[]`, which the coder's `ReadOnlySpan<byte>` parameter takes directly; a `.Span` projection on it does not compile.
 - Mip generation is deliberately minimal: `MipmapFilter` offers `Box` and `Triangle` alone, and `MipmapColorSpace`/`MipmapAlphaMode` decide whether the fold decodes sRGB and un-premultiplies first. Any wider mip law — windowed-sinc, normal renormalization, roughness-variance coupling — is the composing folder's fold over `BitmapView` rows, never a knob here.
 - `TextureCompressionLevel` (`Fast`/`Normal`/`High`/`Exhaustive`) is the sole quality dial and it reaches the block encoders through `TextureCompressionOptions.CompressionMode`; per-block RDO and error-metric selection are not exposed.
-- `TextureFileFormatManager` splits the way the coder rail does: `IImageFileFormat` reads and writes a FLAT pixel image generically over `IPixel`, `ITextureFileFormat` reads and writes a `TextureImage` container. Container packages register one row each on this manager.
+- `TextureFileFormatManager` splits the way the coder surface does: `IImageFileFormat` reads and writes a FLAT pixel image generically over `IPixel`, `ITextureFileFormat` reads and writes a `TextureImage` container. Container packages register one row each on this manager.
 
 [STACKING]:
 - `TextureCompressor.FileFormats.Ktx`(`.api/api-texturecompressor-fileformats-ktx.md`): the container leg — `KtxFileFormatRegistration.RegisterKtxFileFormat(this TextureFileFormatManager)` seats the KTX row, and a `TextureImage` this engine's coders filled with `RGBA_BASIS_UASTC_LDR_4X4_*` or `RGBA_BASIS_ETC1S_*` blocks writes through `KtxFileFormat.WriteTexture` under `KtxEncodingOptions`.
@@ -217,7 +217,7 @@
 - `SixLabors.ImageSharp`(`.api/api-imagesharp.md`): the container split — that surface owns PNG, TIFF, WebP, QOI, and JPEG files and this one owns GPU block payloads; a plane crosses as raw bytes through `Image<TPixel>.CopyPixelDataTo(Span<byte>)` into an `ArrayBitmap<TPixel>.PixelSpan` reinterpretation, so one pooled arena serves both and no `Image` instance enters a coder.
 - `CommunityToolkit.HighPerformance`(`libs/dotnet/.api/api-highperformance.md`): `MemoryOwner<T>.Allocate(width * height)` rents the texel arena and `MemoryOwner<T>.Span` is exactly the `Span<TPixel>` `new BitmapView<TPixel>(span, width, height)` binds, while `ArrayPoolBufferWriter<byte>` receives the `GetEncodedByteCount`-sized payload; `Span2D<T>.GetRowSpan` and `BitmapView<TPixel>.GetRowSpan` window the same rows, so a neighbourhood fold and a block encode read one plane.
 - `Silk.NET.WebGPU`(`libs/dotnet/.api/api-silk-webgpu.md`): a `TextureFormat` row and a wgpu `TextureFormat` enum row are two spellings of one layout — `GetRowByteCount(width)` computes the `TextureDataLayout.BytesPerRow` `QueueWriteTexture` demands (padded to the 256-byte copy alignment), so a block payload uploads as a compressed GPU texture wherever the device declares the matching `FeatureName` row.
-- within-lib: the codec fold owns one `TextureCoderManager` per bake rather than `Global`, resolving standard coders through the instance's own lazy creation and registering options-bearing family coders per channel format, disposing each scope with the bake, so a long-lived process never accumulates the whole coder estate.
+- within-lib: the codec fold owns one `TextureCoderManager` per bake rather than `Global`, resolving standard coders through the instance's own lazy creation and registering options-bearing family coders per channel format, disposing each scope with the bake, so a long-lived process never accumulates every coder.
 
 [LOCAL_ADMISSION]:
 - `TextureConverter` is admitted for container-to-container transcode alone (`Convert`, `TranscodeTexture`); `EncodeTexture` and `DecodeTexture` are `Rgba8UNorm`-bound and never touch a texture channel plane.

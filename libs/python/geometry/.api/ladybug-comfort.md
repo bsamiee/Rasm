@@ -97,7 +97,7 @@ A `ComfortCollection` takes aligned collections (or an `EPW` via `from_epw`) wit
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Comfort computes over `ladybug-core` `DataCollection`s and drives no in-process simulation: a `ComfortCollection` maps the pointwise model function element-wise across aligned collections and exposes each result as a `DataCollection` with the right `Header`. SolarCal MRT feeds the `rad_temperature` of the thermal models; every categorical output (`thermal_condition`, `pet_category`) carries a `ladybug.datatype` registry `data_type`, sharing the climate visualization rail.
+- Comfort computes over `ladybug-core` `DataCollection`s and drives no in-process simulation: a `ComfortCollection` maps the pointwise model function element-wise across aligned collections and exposes each result as a `DataCollection` with the right `Header`. SolarCal MRT feeds the `rad_temperature` of the thermal models; every categorical output (`thermal_condition`, `pet_category`) carries a `ladybug.datatype` registry `data_type`, sharing the climate visualization domain.
 - Owner aligns inputs with `are_collections_aligned` before construction and lifts misalignment to a typed precondition.
 
 [STACKING]:

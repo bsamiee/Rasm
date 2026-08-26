@@ -66,11 +66,11 @@
 [STACKING]:
 - `universal-pathlib`(`libs/python/.api/universal-pathlib.md`): `UPath.fs` caches the `url_to_fs`/`filesystem`-resolved `AbstractFileSystem` per protocol, root, and options; runtime resource roots and compute model-asset reads compose that one cached handle for path resolution, never a backend-specific file client.
 - `obstore`(`libs/python/.api/obstore.md`): object-store roots use `obstore` directly and bridge through `obstore.fsspec` only when a downstream library requires a filesystem handle.
-- data scan seam: the resolved `UPath.fs` is the whole backend `DuckDBPyConnection.register_filesystem(fs)` receives; every read slice stays downstream of that handle and read caching stays with DuckDB `httpfs`, object-store caching, or the owning chunked-array backend.
+- data scan boundary: the resolved `UPath.fs` is the whole backend `DuckDBPyConnection.register_filesystem(fs)` receives; every read slice stays downstream of that handle and read caching stays with DuckDB `httpfs`, object-store caching, or the owning chunked-array backend.
 
 [LOCAL_ADMISSION]:
 - Accept `UPath(...).fs`, `url_to_fs`, and `filesystem` as the branch construction and registration surfaces.
-- Accept `fs.open`, `cat_file`, `cat_ranges`, `info`, and async mirrors where the owning page names a byte/read-range rail.
+- Accept `fs.open`, `cat_file`, `cat_ranges`, `info`, and async mirrors where the owning page names a byte/read-range domain.
 - Accept `FSMap`, transactions, `open_files`/`open_local`, and generic transfer only behind an owner declaring mutable mapping, atomic write, multi-file staging, or bulk sync — each is a SYNC single-use context whose internal fan runs on the backend's own concurrency, outside whatever bound the calling owner accounts for, so an owner holding a concurrency budget composes its own fan over the single-path surface instead.
 - Data declines these at its boundary: egress atomicity is `obstore` conditional write or a table-format commit, chunk-range reads ride `obstore.get_range`/`get_ranges` or a native reader, mutable chunk stores are `zarr`/`tensorstore`/`icechunk`, and bulk movement is content-keyed `obstore` put.
 - Reject per-scheme `os`/cloud-client branching, inline credentials, direct construction of cloud extra drivers in folder code, blocking reads on an event loop, and wrapper-renames of filesystem operations.

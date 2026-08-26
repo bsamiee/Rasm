@@ -16,7 +16,7 @@ Prospective-background build owner — the producer half of the carrier's `premi
 - Law: the build self-parallelizes over scenarios and sectors — the entry adds NO outer process pool (the catalog's own contention law) and rides one `on_thread` band hop so a composition's loop never hosts the multi-hour transform; `update(sectors)` runs the named sector subset and the change report stays a provider surface the composition reads out of band.
 - Cases: `BuildKind.database` is the canonical build→score path (one database per scenario); `superstructure` folds every scenario into one scenario-difference database for a `MultiLCA` sweep; `increment` stacks sector transforms step-by-step (`IncrementalDatabase.update(sectors)` then `write_increment_db_to_brightway`) for step sensitivity; `pathways` spans a year grid (`PathwaysDataPackage.create_datapackage`) for the time-series tool; `datapackage` emits the shareable `bw_processing` superstructure.
 - Law: one `ScenarioResult` per write-back carries the registered names, scenario tuples, build kind, and deterministic content key over `(scenarios, source, system_model, kind)`, so an identical build keys identically and any coordinate change re-keys. Cache hygiene remains the provider's own `clear_inventory_cache` operation after an inventory or ecoinvent change.
-- Packages: `premise` (`NewDatabase(scenarios, source_type='brightway', source_db=, key=, system_model=).update(sectors).write_db_to_brightway(name)`, `write_superstructure_db_to_brightway`, `write_datapackage`, `IncrementalDatabase.update`/`write_increment_db_to_brightway`, `PathwaysDataPackage(scenarios, years=, ...).create_datapackage(name)` — catalog-verified members behind the floor gate), `bw2data` (`databases.list`/`databases.version`, the registry the result and the carrier both read, `errors.BW2Exception` the family root the build fence names), runtime (`RuntimeRail`/`boundary`/`Catch`/`FaultRow`/`scoped`/`on_thread`).
+- Packages: `premise` (`NewDatabase(scenarios, source_type='brightway', source_db=, key=, system_model=).update(sectors).write_db_to_brightway(name)`, `write_superstructure_db_to_brightway`, `write_datapackage`, `IncrementalDatabase.update`/`write_increment_db_to_brightway`, `PathwaysDataPackage(scenarios, years=, ...).create_datapackage(name)` — catalog-verified members behind the floor gate), `bw2data` (`databases.list`/`databases.version`, the registry the result and the carrier both read, `errors.BW2Exception` the family root the build fence names), runtime (`RuntimeResult`/`boundary`/`Catch`/`FaultRow`/`scoped`/`on_thread`).
 - Growth: a new IAM model or pathway is one `Scenario` row; a new write-back form is one `BuildKind` case plus one arm; a new sector is one `Sector` member mirroring the provider's transformer roster; a new refusal law is one `FaultRow` row on this module's `RAISES` table, and premise's own raise classes join `_build_raises` the pass the floor gate lifts; zero new surface.
 - Boundary: no LCIA (the carrier's solve arms score the written background), no ingestion (`impact/inventory#INVENTORY` fills the source project), no license custody — the decryption `key` arrives as a caller-supplied credential from the composition's secret plane, never a stored field this page persists; the carrier's `_from_prospective` refusal stays the read-side gate and this producer never weakens it.
 
@@ -35,7 +35,7 @@ lazy import bw2data as bd
 lazy import premise
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
 
@@ -106,11 +106,11 @@ class ScenarioBuild(Struct, frozen=True):
     system_model: Literal["cutoff", "consequential"] = "cutoff"
     sectors: tuple[Sector, ...] = ()
 
-    async def build(self, kind: BuildKind, key: str) -> "RuntimeRail[ScenarioResult]":
+    async def build(self, kind: BuildKind, key: str) -> "RuntimeResult[ScenarioResult]":
         if find_spec("premise") is None:
             return Error(SCENARIO_GATED.raised("numba below cp315"))
 
-        def run() -> "RuntimeRail[ScenarioResult]":
+        def run() -> "RuntimeResult[ScenarioResult]":
             rows = [scenario.row() for scenario in self.scenarios]
             sectors = [sector.value for sector in self.sectors] or None
             match kind:

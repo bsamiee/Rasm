@@ -1,13 +1,13 @@
 # [PY_RUNTIME_PROFILES]
 
-`Profiles` pushes continuous CPU profiles beside the OTLP rails and links them to traces: the pyroscope push agent streams samples to the profile store, and `PyroscopeSpanProcessor` stamps every root span with `pyroscope.profile.id` so a trace click-through lands on its flame graph. This page also owns the whole benchmark tier — the macro-latency and throughput evidence the request-duration histogram cannot carry, the threshold and verdict grading over it, and the estate's one external-tool provision roster the host floor of a graded subject resolves through — plus the offline-job envelope draining a short-lived process before it exits. Measurement and grading seat together because every stratum reaches this tier and none reaches a peer's, so a grader anywhere else is unreachable by the folders that measure.
+`Profiles` pushes continuous CPU profiles beside the OTLP exporters and links them to traces: the pyroscope push agent streams samples to the profile store, and `PyroscopeSpanProcessor` stamps every root span with `pyroscope.profile.id` so a trace click-through lands on its flame graph. This page also owns the whole benchmark tier — the macro-latency and throughput evidence the request-duration histogram cannot carry, the threshold and verdict grading over it, and the repo's one external-tool provision roster the host floor of a graded subject resolves through — plus the offline-job envelope draining a short-lived process before it exits. Measurement and grading seat together because every stratum reaches this tier and none reaches a peer's, so a grader anywhere else is unreachable by the folders that measure.
 
 Install custody is two-tier — per-composition `ProfilesInstall`s key by the observe-owned `ScopeKey` (a same-scope re-install returns `REENTRANT`, a later composition `ADOPTED`) while the imported `latched` guards the one process push agent, `pyroscope.configure` being process-global — and rides the `execution/admission#CONTEXT` `emit_otel` gate, sequenced after `observability/telemetry#TELEMETRY` so the span processor attaches to the registered SDK provider. `SignalProfile` and the flush-then-shutdown drain arrive settled from the telemetry owner, `SCHEMA_URL` from the `reliability/faults#FAULT` scope coordinate one tier below it; `LogShip`/`LogPipeline.configure` from `observability/logging#PIPELINE`; `Metrics.record` from `observability/metrics#METRIC`; `ScopeKey` from `observability/observe#OBSERVE`. Job identity is hand-built, no detector carrying job semantics; delta temporality arrives from the telemetry owner's exporter pin, so the job lane sets no launcher variable of its own.
 
 ## [01]-[INDEX]
 
 - [02]-[PROFILES]: scope-keyed, profile-gated pyroscope push install beside the span-profile link.
-- [03]-[BENCH]: the `Benchmark` measurement, the threshold/verdict grading half over the estate tool roster, and their instrument projections.
+- [03]-[BENCH]: the `Benchmark` measurement, the threshold/verdict grading half over the repo tool roster, and their instrument projections.
 - [04]-[JOB]: offline-job envelope — hand-built resource, one `ship` value arming both halves of the log egress, high-interval safety net, and the flush-then-shutdown boundary.
 
 ## [02]-[PROFILES]
@@ -60,7 +60,7 @@ from rasm.runtime.faults import (
     SCOPES,
     BoundaryFault,
     Disposition,
-    RuntimeRail,
+    RuntimeResult,
     Scope,
     boundary,
     latched,
@@ -161,15 +161,15 @@ class Profiles:
 ## [03]-[BENCH]
 
 - Owner: `Benchmark` is the macro measurement — subject, mode, rounds, warmup, the latency quartet, throughput, and the refusal that closed the window — and `Bench.run` is the one runner: warmup rounds discarded, measured rounds folded into per-round wall samples, quantiles derived at read, never fold state, and the duration and throughput measures recorded onto `Metrics.record` under `domain="bench"` beside one `bench` line off `Benchmark.facts` at the run site, so the measurement stays truth and the instruments stay its projections. `Bench.graded` closes the other half at the SAME tier: `BenchSubject` rows carry the bar and the host floor, `BenchVerdict.graded` is the one grade projection, and `_verdicted` the one `rasm.bench.verdicts` write. Measurement and grading seat together because every stratum reaches this tier and none reaches a peer's — a grader seated at any producer folder is unreachable by the three folders that measure, so they benched and could never grade.
-- Owner: `TOOLS` is the estate's one external-tool roster behind `resolved`, its single discovery entry — settings override, then the row's own probe body — so a host is provisioned or not by one answer rather than by an inline lookup here, a name-to-body map there, and an env-to-constant ladder elsewhere. It seats at this tier for the same reachability reason the grader does: a producer plane can compose it, where a conductor-owned roster it could only reach upward through.
+- Owner: `TOOLS` is the repo's one external-tool roster behind `resolved`, its single discovery entry — settings override, then the row's own probe body — so a host is provisioned or not by one answer rather than by an inline lookup here, a name-to-body map there, and an env-to-constant ladder elsewhere. It seats at this tier for the same reachability reason the grader does: a producer plane can compose it, where a conductor-owned roster it could only reach upward through.
 - Entry: `Bench.graded(roster, kernels)` takes ALREADY-BOUND kernels — the `BenchKernel` shape `run` already accepts — which is the whole parameterization: a folder resolves its own deterministic-input edge to a thunk before the call, so its feed, plane, and signal vocabularies never leave its stratum and `BenchSubject` carries no input edge at all. Four refusals close before any counter writes — a doubled subject id, a floor naming a tool no `TOOLS` row keys, a provisioned subject no kernel covers, and a host on which not one subject is provisioned — and the graded verdicts fold under `Disposition.ACCUMULATE` so every subject reports even when one refuses.
-- Law: a regression is a VERDICT, never a fault — a slow subject is evidence a board trends, and railing it would let one regression hide every other subject's grade. Refusal is reserved for a roster or host defect: a doubled id, an unrostered tool, an uncovered subject, a wholly unprovisioned host.
+- Law: a regression is a VERDICT, never a fault — a slow subject is evidence a board trends, and refusing it would let one regression hide every other subject's grade. Refusal is reserved for a roster or host defect: a doubled id, an unrostered tool, an uncovered subject, a wholly unprovisioned host.
 - Law: every anchor a threshold rests on rides the verdict — the INPUT through the feed the calling folder bound, and the HOST through the resolved `floor` paths, since a different binary behind one tool id is a different subject graded on the first one's bar and nothing about the id says so.
 - Law: `BenchMode` rides the measurement and selects which bar a consumer grades, one uniform sample stream serving both.
 - Law: one measured window yields latency and throughput together, so a mode value alters no fact already present in the samples.
 - Law: each round runs behind its own `boundary` fence, so a raising round CLOSES the window and every prior sample survives on the measurement.
 - Law: the fold stops at the first refusal, so a broken op pays one round rather than the whole declared window.
-- Law: `run` rails only where the window measured nothing, quantiles needing at least one sample.
+- Law: `run` layers only where the window measured nothing, quantiles needing at least one sample.
 - Law: the four roster refusals and the three window refusals each resolve their OWN `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.PROFILES` — four distinct census LAWS keep four rows rather than one subject spelling four sentences — and the benched subject rides a NAMED slot where the fault names it. Both timing fences keep the plane's catch-all, since the graded body is a caller kernel no runtime can roster.
 - Growth: a new benchmark statistic is one `Benchmark` field derived from the held samples, reaching every verdict through `graded` with no roster edit; a new bench instrument is one measure name here and one `InstrumentSpec` row on the metrics owner; a new run outcome is one `BenchOutcome` member reaching the counter through the single `_verdicted` site; a new external tool is one `TOOLS` row a `floor` names, and a tool whose presence is not a bare PATH lookup grows its own probe body on that row while its deployment override needs no settings edit; a benching folder gains grading by supplying one roster and one kernel map, zero edits here.
 - Packages: `pydantic-settings` (the one `RASM_TOOL_PATHS` deployment override, admitted once), the builtin `frozendict` (that override projected immutable), stdlib `shutil.which` (the default `ToolRow` probe body — it answers the resolved path, and an absolute override resolves through it only when executable, never a spawn the roster pays for).
@@ -297,7 +297,7 @@ def _verdicted(subject: str, outcome: BenchOutcome, /) -> None:
 
 class Bench:
     @staticmethod
-    def graded(roster: Block[BenchSubject], kernels: Map[str, BenchKernel], /) -> RuntimeRail[Block[BenchVerdict]]:
+    def graded(roster: Block[BenchSubject], kernels: Map[str, BenchKernel], /) -> RuntimeResult[Block[BenchVerdict]]:
         collided = Block.of_seq(subject for subject, count in _tally(roster).items() if count > 1)
         unrostered = frozenset(roster.collect(lambda row: Block.of_seq(row.floor)).filter(lambda tool: tool not in TOOLS))
         probed = roster.map(lambda row: (row, _provisioned(row)))
@@ -305,7 +305,7 @@ class Bench:
         quiet = probed.choose(lambda pair: Nothing if pair[1].is_some() else Some(pair[0]))
         uncovered = live.map(lambda pair: pair[0].subject).filter(lambda subject: kernels.try_find(subject).is_none())
 
-        def one(row: BenchSubject, floor: tuple[str, ...], /) -> RuntimeRail[BenchVerdict]:
+        def one(row: BenchSubject, floor: tuple[str, ...], /) -> RuntimeResult[BenchVerdict]:
             def scored(measured: Benchmark, /) -> BenchVerdict:
                 verdict = BenchVerdict.graded(row, measured, floor)
                 _verdicted(row.subject, "passed" if verdict.passed else "regressed")
@@ -328,7 +328,7 @@ class Bench:
     @staticmethod
     def run(
         subject: str, op: BenchKernel, *, mode: BenchMode = BenchMode.LATENCY, rounds: int = 32, warmup: int = 4
-    ) -> RuntimeRail[Benchmark]:
+    ) -> RuntimeResult[Benchmark]:
         def timed() -> float:
             start = perf_counter()
             op()
@@ -353,7 +353,7 @@ def _tally(roster: Block[BenchSubject]) -> Map[str, int]:
 
 def _windowed(
     subject: str, mode: BenchMode, warmup: int, window: tuple[Block[float], BoundaryFault | None]
-) -> RuntimeRail[Benchmark]:
+) -> RuntimeResult[Benchmark]:
     samples, refused = window
     return (
         Ok(Benchmark.of(subject, mode, warmup, tuple(samples), refused))
@@ -372,7 +372,7 @@ def _recorded(measured: Benchmark) -> Benchmark:
 
 - Owner: `JobRun.bounded` is the offline-job envelope — arm the log chain, install with the hand-built job resource and the high-interval `JOB_SIGNAL_PROFILE`, enroll `Metrics` against that provider, run the body under the `boundary` fence, then drive the telemetry drain so every buffered signal exports before exit. One `ship` value reaches both halves of the log egress, so the envelope never stands up a `LoggerProvider` no chain row projects onto and a failed job's lines reach the wire beside its spans. Its drain is the settled telemetry flush-then-shutdown accumulate fold; a body fault outranks a drain fault, and a drain fault surfaces on a clean body.
 - Auto: `job_resource` hand-builds identity — `service.name` off `SCOPES[Scope.SERVICE]`, a per-run `service.instance.id`, `job.id`/`run.id` as the job axes — because no auto-detector carries job semantics, and two runs of one job binary must key distinct instances. `JOB_SIGNAL_PROFILE` sets a high export interval so the periodic timer is the safety net and the boundary flush is the egress.
-- Cases: delta temporality arrives from the telemetry owner's `WIRE_TEMPORALITY` pin at the exporter, which the reader applies by instrument family and which supersedes `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` for every family the estate rules — so this envelope sets no launcher variable, each flush self-contains, and a knob here re-decides what the branch already pinned. Both non-monotonic sum families stay cumulative under that same ruling and orphan their last window at exit, which is what makes the boundary flush the egress and the periodic timer the safety net.
+- Cases: delta temporality arrives from the telemetry owner's `WIRE_TEMPORALITY` pin at the exporter, which the reader applies by instrument family and which supersedes `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` for every family the repo rules — so this envelope sets no launcher variable, each flush self-contains, and a knob here re-decides what the branch already pinned. Both non-monotonic sum families stay cumulative under that same ruling and orphan their last window at exit, which is what makes the boundary flush the egress and the periodic timer the safety net.
 - Growth: a new job axis is one attribute in `job_resource`; a new lane geometry is one `JOB_SIGNAL_PROFILE` field value; a new egress arm is the `ship` value the caller threads, reaching chain and provider from that one argument.
 - Boundary: the envelope threads one admitted `RuntimeContext` into `Telemetry.install`/`shutdown` beside `LogPipeline.configure` and `Metrics.install` and constructs no provider, processor, or chain row of its own, so the job lane gates emission on the axis value every daemon path reads; long-lived daemons keep the profile-keyed `SIGNAL_PROFILE` rows and never ride this envelope.
 
@@ -393,7 +393,7 @@ class JobRun:
     @staticmethod
     def bounded[T](
         ctx: RuntimeContext, endpoint: str, job_id: str, run_id: str, body: Callable[[], T], *, ship: LogShip = LogShip.OTLP_CONSOLE
-    ) -> RuntimeRail[T]:
+    ) -> RuntimeResult[T]:
         LogPipeline.configure(ship=ship)
         installed = Telemetry.install(ctx, endpoint, resource=job_resource(job_id, run_id), signal_profile=JOB_SIGNAL_PROFILE, ship=ship)
         Metrics.install(budget=installed.signal_profile.cardinality_budget)

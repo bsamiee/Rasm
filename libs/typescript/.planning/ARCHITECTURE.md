@@ -24,7 +24,7 @@ libs/typescript/
 - S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the ports it declares and the atom-bridge bindings.
 - S4 `iac` — composes core, data, and runtime as reads and decodes `security`'s `LeaseSpec` as data, plane-distinct outside the runtime graph.
 
-Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root, with `security` ports filling from `data` and `ui`'s `GlbViewport` filling from runtime's browser depot arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-residence door `data` binds, and `data` hands the core board renderer a `Board.Query.Target` minted off the core-owned type.
+Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root, with `security` ports filling from `data` and `ui`'s `GlbViewport` filling from runtime's browser depot arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-tier door `data` binds, and `data` hands the core board renderer a `Board.Query.Target` minted off the core-owned type.
 
 ```mermaid
 ---
@@ -62,7 +62,7 @@ flowchart TB
     Iac e6@-->|"[IMPORT]: Consumption.topologies"| Runtime
     Iac e7@-.->|"[BOUNDARY]: LeaseSpec"| Security
     Iac e8@-.->|"[COUNTER]: StackOutputs.sharding"| Runtime
-    Iac e9@-.->|"[PORT]: analytics residence"| Data
+    Iac e9@-.->|"[PORT]: analytics tier"| Data
     Runtime e10@-->|"[IMPORT]: Fault.Budget"| Core
     Runtime e11@-->|"[IMPORT]: CookieSpec"| Security
     Runtime e12@-->|"[IMPORT]: Embedder + Dataref"| Data
@@ -73,7 +73,7 @@ flowchart TB
     Core f1@-->|"forbidden: upward import"| S4
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -84,7 +84,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: TypeScript external seam registry
+    accTitle: TypeScript external contract registry
     accDescr: TypeScript exchanges kinded wires and the backend contract with .NET packages and the neutral Python artifact producer.
     subgraph ts[LIBS/TYPESCRIPT]
         Core[core]
@@ -119,7 +119,7 @@ flowchart LR
 
 Every contract family decodes once at the core interchange codec registry: `core` edges freeze the wire spelling from the owning endpoint file, and `ui` and `data` edges name decoded shapes landed there. Backend is the composition exception: every persistence branch mints one generated contribution, then the data composition owner decodes foreign peers and merges the deployment generation.
 
-Contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
+Contract families beyond the diagrammed set fold to the folder `[03]-[CONTRACTS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder boundary row, never a branch edge.
 
 ## [04]-[INTERNAL]
 
@@ -151,7 +151,7 @@ flowchart LR
 
 One crossing law rules the spine: `core` mints `Digest.Key`, `Clock`, `Quantity`, and `Identity.App` exactly once, and every keying or stamping site delegates to that one mint. Wire octets enter at one boundary, the core interchange registry, each family landing whole into an owned vocabulary or a wire-owned decoded shape, so nothing downstream re-decodes. One fold algebra serves two altitudes, in-memory through the core state plane and durable through the data read lane, with wire-decoded and app-authored families as instances of one op vocabulary.
 
-Order crosses on `Clock.Hlc` with one `Fold.AsOf` replay coordinate; tenancy crosses as `Identity.Tenant.scope`, pinned by the single tenant write path and carried under `Convention.rasm.tenant`. Fault altitudes stay three: interchange reconstructs peer detail, folders raise local rails, and runtime alone projects outward. Exact per-stage wiring lives on the owning pages.
+Order crosses on `Clock.Hlc` with one `Fold.AsOf` replay coordinate; tenancy crosses as `Identity.Tenant.scope`, pinned by the single tenant write path and carried under `Convention.rasm.tenant`. Fault altitudes stay three: interchange reconstructs peer detail, folders raise local faults, and runtime alone projects outward. Exact per-stage wiring lives on the owning pages.
 
 ```mermaid
 ---
@@ -163,7 +163,7 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript branch observability spine
-    accDescr: Effect outcomes and explicit domain events remain truth; runtime projects OTel signals, and data residence supplies Board.Query targets.
+    accDescr: Effect outcomes and explicit domain events remain truth; runtime projects OTel signals, and the data tier supplies Board.Query targets.
     Operations[branch operations · Effect success/error]
     Settlement[terminal fold · Exit]
     Events[domain owners · explicit events]
@@ -174,7 +174,7 @@ flowchart LR
     Egress[runtime otel · OTLP egress]
     Deploy[iac/operate/observe · Lgtm + Boards + Dev]
     Fact[(data journal fact · settlement truth)]
-    Residence[(StackOutputs.analytics · residence rows)]
+    Tier[(StackOutputs.analytics · tier rows)]
     Operations e8@-->|"settle: Effect.onExit"| Settlement
     Operations e9@-->|"publish: domain event"| Events
     Events e10@-->|"observe: local extension"| Tap
@@ -185,16 +185,16 @@ flowchart LR
     Egress e3@-->|"TRANSPORT: OtelExport"| Deploy
     Events e13@-->|"append: audit + meter"| Fact
     Fact e4@-->|"project: spend + usage"| Deploy
-    Deploy e5@-->|"[PORT]: StackOutputs.analytics"| Residence
-    Fact e6@-.->|"rebuild: derived plane"| Residence
-    Residence e7@-->|"[SHAPE]: Board.Query.Target"| Board
+    Deploy e5@-->|"[PORT]: StackOutputs.analytics"| Tier
+    Fact e6@-.->|"rebuild: derived plane"| Tier
+    Tier e7@-->|"[SHAPE]: Board.Query.Target"| Board
 ```
 
-Operations return their canonical value or typed fault on `Effect`; `Effect.onExit` observes the settled `Exit` once at the instrumentation seam. Command lifecycles publish `Evidence.Outcome` as CloudEvent data, state machines publish `Transition.Macro`, and `Tap` carries in-process extension observation. `runtime/otel` alone owns egress, and each folder mints instruments against core conventions.
+Operations return their canonical value or typed fault on `Effect`; `Effect.onExit` observes the settled `Exit` once at the instrumentation boundary. Command lifecycles publish `Evidence.Outcome` as CloudEvent data, state machines publish `Transition.Macro`, and `Tap` carries in-process extension observation. `runtime/otel` alone owns egress, and each folder mints instruments against core conventions.
 
 One folder owns each signal concept two folders both spell, whichever holds the platform surface producing it, and publishes the event its peer observes. Domain results and journal facts retain whatever OTel leaves unmeasured.
 
-`Lgtm`, `Boards`, and `Dev` realize collector, store, and board topology at `iac/operate/observe`; the data journal fact stream settles spend and usage, and OTel series remain its lossy health projection keyed by the same identity. `StackOutputs.analytics` binds the residence `data` custodies, derived and rebuildable from the journal, and the one core `Query` owner renders it under a target parameter.
+`Lgtm`, `Boards`, and `Dev` realize collector, store, and board topology at `iac/operate/observe`; the data journal fact stream settles spend and usage, and OTel series remain its lossy health projection keyed by the same identity. `StackOutputs.analytics` binds the tier `data` custodies, derived and rebuildable from the journal, and the one core `Query` owner renders it under a target parameter.
 
 ## [05]-[ROUTING]
 
@@ -214,7 +214,7 @@ One folder owns each signal concept two folders both spell, whichever holds the 
 |  [12]   | metric or instrument  | owning folder mint site + `core/observe/convention` | one instrument row under one convention name              |
 |  [13]   | dashboard pack        | `core/observe/board` pack rows                      | one pack row realized by `iac/operate/observe`            |
 |  [14]   | hook point            | `core/observe/tap` rows + owning registry           | one name row + one registry row; a modality widens a row  |
-|  [15]   | analytics residence   | `data/lane/olap` residence rows + `iac` spec axis   | one row answering the estate residence floor              |
+|  [15]   | analytics tier        | `data/lane/olap` tier rows + `iac` spec axis        | one row answering the data tier floor                     |
 |  [16]   | query render target   | `core/observe/board` `Board.Query.Target` arms      | one target arm; the algebra never forks                   |
 |  [17]   | columnar query end    | `data/lane/olap` Flight SQL rows                    | one row on the one Flight plane                           |
 |  [18]   | reliability indicator | `core/observe/slo` `Reliability` families           | one indicator, burn, severity, or panel row               |

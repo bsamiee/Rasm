@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_LXML]
 
-`lxml` owns the libxml2/libxslt-backed XML and HTML surface for the artifacts structured-documents rail: tunable parsing, tree building and mutation, compiled XPath and XSLT with Python extensions, schema/RelaxNG/Schematron/DTD validation, C14N canonicalization, and incremental event/pull parsing over the native core it never re-implements. It is the XML third of the structured-text triad — `ruamel.yaml` owns YAML, `tomlkit` owns TOML — consumed by the OOXML/ODF Office owners and SimpleIDML for document-part parsing.
+`lxml` owns the libxml2/libxslt-backed XML and HTML surface for the artifacts structured-documents domain: tunable parsing, tree building and mutation, compiled XPath and XSLT with Python extensions, schema/RelaxNG/Schematron/DTD validation, C14N canonicalization, and incremental event/pull parsing over the native core it never re-implements. It is the XML third of the structured-text triad — `ruamel.yaml` owns YAML, `tomlkit` owns TOML — consumed by the OOXML/ODF Office owners and SimpleIDML for document-part parsing.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -155,7 +155,7 @@ Tag filters accept `*`, a tag name, a `{ns}local` Clark name, or an `etree.Eleme
 - validate-then-decode: `etree.fromstring(src, parser=hardened)` -> `XMLSchema(schema).assertValid(tree)` (or `isoschematron.Schematron(...).validate`) gates the document, then a namespaced `tree.xpath(qname, namespaces=ns)` fold projects the typed fields into a `msgspec.Struct`/`pydantic` boundary model (`libs/python/.api/msgspec.md`, `libs/python/.api/pydantic.md`) — the `_Element` tree never crosses the owner boundary.
 - namespaced build/emit: `etree.Element(f"{{{ns}}}RDF", nsmap={...})` + `etree.SubElement(parent, f"{{{ns}}}local").text = value` (Clark-notation) then `etree.tostring(root, xml_declaration=True, encoding="utf-8")` feeds `pyvips` `Image.set("xmp-data", ...)` or a `stream-zip` `MemberFile` iterable directly — the XMP-packet and OpenRaster `stack.xml` path in `exchange/metadata` and `export/layered`, never a temp file.
 - anchor-resolution: `_Element.xpath(selector)` over SimpleIDML's `IDMLPackage.xml_structure` (`export/indesign`) is the pre-mutation existence gate — an empty result is the missing-anchor signal raised as a typed `KeyError`/`BoundaryFault` before the worker mutates.
-- rail-and-effects: parse/validate/transform compose under the `expression` `Result[T, E]` rail (`libs/python/.api/expression.md`); `@beartype` (`libs/python/.api/beartype.md`) guards boundary signatures.
+- results-and-effects: parse/validate/transform compose under the `expression` `Result[T, E]` layer (`libs/python/.api/expression.md`); `@beartype` (`libs/python/.api/beartype.md`) guards boundary signatures.
 - diagnostics: `EmitFact.errors` carries the `error_log` count; `etree.PyErrorLog` routes libxml2 diagnostics into `structlog` (`libs/python/.api/structlog.md`).
 - retry: a network-touching parse (DTD/XInclude over a URL) wraps `stamina.retry` (`libs/python/runtime/.api/stamina.md`).
 - incremental scale: `etree.iterparse(source, tag=qname)` with per-element `.clear()` is the bounded-memory ingest of a large OOXML/IDML part and `etree.xmlfile(out)` the emit — both over the `anyio` streaming lanes (`libs/python/.api/anyio.md`).

@@ -104,18 +104,18 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Surface presence is macOS-only: a pacing owner selects the display-link path under the macOS host gate and the `UITimer` path otherwise — one polymorphic pace rail discriminated by host, never a compile-time fork bleeding macOS types into portable code.
+- Surface presence is macOS-only: a pacing owner selects the display-link path under the macOS host gate and the `UITimer` path otherwise — one polymorphic pace surface discriminated by host, never a compile-time fork bleeding macOS types into portable code.
 - A display link is built from the display it drives, the view reaching its screen through `NSView.Window`; its `PreferredFrameRateRange` requests a rate the screen's `MaximumFramesPerSecond`/`MaximumRefreshInterval` bound, and the callback advances against `TargetTimestamp`, never wall-clock.
 - Link lifecycle is create, `AddToRunLoop(NSRunLoop.Main, mode)`, `Paused` toggle, then `RemoveFromRunLoop` and `Invalidate`; every retained native object carries its exact inverse and disposal order.
 - Motion is accessibility-gated: `AccessibilityDisplayShouldReduceMotion` and its four siblings are read before an animation starts, so a reduce-motion preference collapses a paced transition to its end state instead of running the link.
 - `ObserveDidChangeScreenParameters` fires when a display is added, removed, or re-rated; the pace owner re-reads the refresh ceiling and rebinds the link's target screen on that signal.
 
 [STACKING]:
-- `LanguageExt.Core`(`.api/api-languageext.md`): the create, attach, and invalidate lifecycle is resource-scoped through the `use` rail so a link never outlives its scope, and the per-frame callback composes as an `IO<A>`/`Eff<A>` step advancing off `TargetTimestamp`; `Fin<A>` carries every platform-gated call so an off-macOS or unavailable-screen path is a typed rail rather than an exception; `Option<A>` lifts the nullable `NSView.Window` to `NSScreen` resolution and every `Runtime` handle read.
+- `LanguageExt.Core`(`.api/api-languageext.md`): the create, attach, and invalidate lifecycle is resource-scoped through the `use` bracket so a link never outlives its scope, and the per-frame callback composes as an `IO<A>`/`Eff<A>` step advancing off `TargetTimestamp`; `Fin<A>` carries every platform-gated call so an off-macOS or unavailable-screen path is a typed result rather than an exception; `Option<A>` lifts the nullable `NSView.Window` to `NSScreen` resolution and every `Runtime` handle read.
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): `NSRunLoopMode` binds as a `[SmartEnum<string>]` over the known mode identities so an attachment is keyed by a validated owner rather than a raw constant, and a `CAFrameRateRange` policy binds as a `[ComplexValueObject]` so the minimum, maximum, and preferred triple is one validated owner routed by generated equality.
 - `api-eto-runtime`(`.api/api-eto-runtime.md`): `UITimer` and `Screen.LogicalPixelSize` are the host-neutral pace and density surface this core supersedes on macOS and falls back to elsewhere.
 - `api-eto-platform`(`.api/api-eto-platform.md`): the managed-tree native host resolves the Eto-backed `NSView` every call, layer mount, and pace here runs inside, so a native op executes only within that view's valid host lifetime.
 
 [LOCAL_ADMISSION]:
-- The seam admits only after the macOS process check and a valid active platform; installed AppKit types carry no application-level admission themselves.
-- A boundary internalizes the display-link, accessibility-gate, and screen-observation concern behind one canonical pace rail, so portable code holds a paced effect and an accessibility verdict, never an `NSScreen`, a raw `CADisplayLink`, or an `nint` handle.
+- The boundary admits only after the macOS process check and a valid active platform; installed AppKit types carry no application-level admission themselves.
+- A boundary internalizes the display-link, accessibility-gate, and screen-observation concern behind one canonical pace surface, so portable code holds a paced effect and an accessibility verdict, never an `NSScreen`, a raw `CADisplayLink`, or an `nint` handle.

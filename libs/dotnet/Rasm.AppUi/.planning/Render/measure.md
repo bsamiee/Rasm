@@ -352,7 +352,7 @@ public static partial class MeasureExpression {
         toSeq(Tokens.Matches(source))
             .Fold(
                 Fin.Succ((At: 0, Tokens: Seq<string>())),
-                (rail, match) => rail.Bind(walk => source.AsSpan(walk.At, match.Index - walk.At).IsWhiteSpace()
+                (acc, match) => acc.Bind(walk => source.AsSpan(walk.At, match.Index - walk.At).IsWhiteSpace()
                     ? Fin.Succ((At: match.Index + match.Length, Tokens: walk.Tokens.Add(match.Value)))
                     : Fin.Fail<(int At, Seq<string> Tokens)>(new ViewportFault.ContextUnavailable(
                         $"measure/token:{source[walk.At..match.Index].Trim()}"))))
@@ -361,7 +361,7 @@ public static partial class MeasureExpression {
                 : Fin.Succ(walk.Tokens));
 
     private static Fin<Seq<MeasureTerm>> Tokenized(Seq<string> tokens) =>
-        tokens.Fold(Fin.Succ(Seq<MeasureTerm>()), (rail, token) => rail.Bind(terms => token switch {
+        tokens.Fold(Fin.Succ(Seq<MeasureTerm>()), (acc, token) => acc.Bind(terms => token switch {
             ['('] => Fin.Succ(terms.Add(new MeasureTerm.Open())),
             [')'] => Fin.Succ(terms.Add(new MeasureTerm.Close())),
             [var symbol] when Precedence.ContainsKey(symbol) => Fin.Succ(terms.Add(new MeasureTerm.Operator(symbol))),
@@ -420,7 +420,7 @@ public static partial class MeasureExpression {
     }
 
     private static Fin<IQuantity> Reduced(Seq<MeasureTerm> postfix, Enum elected) =>
-        postfix.Fold(Fin.Succ(Seq<MeasureTerm>()), (rail, term) => rail.Bind(stack => (term, stack) switch {
+        postfix.Fold(Fin.Succ(Seq<MeasureTerm>()), (acc, term) => acc.Bind(stack => (term, stack) switch {
             (MeasureTerm.Operator op, [.. var rest, var left, var right]) =>
                 Applied(op.Symbol, left, right).Map(result => rest.Add(result)),
             (MeasureTerm.Operator, _) => Fin.Fail<Seq<MeasureTerm>>(new ViewportFault.ContextUnavailable("measure/arity")),

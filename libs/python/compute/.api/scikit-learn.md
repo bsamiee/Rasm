@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SCIKIT_LEARN]
 
-`scikit-learn` owns classical-ML fitting for the compute model-asset rail: a `Pipeline`/`ColumnTransformer` of transformers and a final estimator, tuned through `model_selection`, scored through `metrics`, fit offline, and exported to ONNX (`.api/skl2onnx.md`) as the graduation candidate. Every estimator obeys one `fit`/`predict`/`transform`/`score` protocol the mixin discriminates, so a new task is a mixin, never a per-task method family.
+`scikit-learn` owns classical-ML fitting for the compute model-asset domain: a `Pipeline`/`ColumnTransformer` of transformers and a final estimator, tuned through `model_selection`, scored through `metrics`, fit offline, and exported to ONNX (`.api/skl2onnx.md`) as the graduation candidate. Every estimator obeys one `fit`/`predict`/`transform`/`score` protocol the mixin discriminates, so a new task is a mixin, never a per-task method family.
 
 ## [01]-[PUBLIC_TYPES]
 

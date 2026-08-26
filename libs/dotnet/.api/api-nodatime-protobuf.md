@@ -45,8 +45,8 @@
 - `Google.Protobuf`(`.api/api-protobuf.md`): outward projections mint the well-known messages that `MessageParser<T>` and the `IBufferWriter<byte>` write path then carry as ordinary contract fields.
 - `NodaTime`(`.api/api-nodatime.md`): a clock read or pattern parse mints the outward argument, and the inward leg returns to that same value family.
 - `Grpc.Net.Client`(`.api/api-grpc-client.md`): converted messages ride request and response fields, while `CallOptions.Deadline` takes BCL `DateTime?` and draws its budget from `Instant.ToDateTimeUtc`.
-- remote-contracts seam: one bidirectional stamp owner pairs each outward projection with its inverse over the same message type, so a contract field's read and write legs share one conversion row.
+- remote-contracts boundary: one bidirectional stamp owner pairs each outward projection with its inverse over the same message type, so a contract field's read and write legs share one conversion row.
 
 [LOCAL_ADMISSION]:
-- Temporal values cross remote contracts as protobuf messages and convert once at the seam, so interior owners hold NodaTime values alone.
-- Seam call sites project each conversion throw onto the typed rail.
+- Temporal values cross remote contracts as protobuf messages and convert once at the boundary, so interior owners hold NodaTime values alone.
+- Boundary call sites project each conversion throw onto the typed carrier.

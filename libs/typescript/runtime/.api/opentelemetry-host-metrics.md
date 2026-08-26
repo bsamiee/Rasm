@@ -31,7 +31,7 @@
 [TOPOLOGY]:
 - Every metric is one observable registered against the single bound `Meter`; `start()` samples the whole roster on one cadence, so a second collector on the same meter double-counts.
 - `metricGroups` gates registration by the closed group vocabulary `system.cpu`, `system.memory`, `system.network`, `process.cpu`, `process.memory`; an omitted `metricGroups` registers every group. Typing is `string[]` and each group tests `includes` against it, so an unrostered spelling REFUSES nothing — it silently leaves that family unregistered while every other entry still applies, which is why a consumer closes the roster on its own policy row rather than handing free strings through.
-- Instrument names are the `@opentelemetry/semantic-conventions` `system.*`/`process.*` rows the estate Prometheus translation reads verbatim; a rename breaks the downstream dashboard vocabulary.
+- Instrument names are the `@opentelemetry/semantic-conventions` `system.*`/`process.*` rows the repo Prometheus translation reads verbatim; a rename breaks the downstream dashboard vocabulary.
 
 [STACKING]:
 - `@opentelemetry/sdk-metrics`(`.api/opentelemetry-sdk-metrics.md`): the observables register on a `Meter` from a `MeterProvider` carrying the `AppIdentity`-derived `Resource`, so host vitals inherit the same `service.name` as spans and logs.

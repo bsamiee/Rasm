@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_BCF_CLIENT]
 
-`bcf-client` owns BCF (BIM Collaboration Format) v2/v3 file authoring, reading, and the v3 REST client for the IFC-analysis rail's coordination-issue exchange leg. A version-detecting `bcf.bcfxml.load` returns the matching versioned document root that owns the topic, comment, and viewpoint lifecycle; viewpoint authoring resolves `ifcopenshell` element selection and visibility into BCF GlobalId lists. `xsdata` owns the BCF-XML round-trip and this package owns the BCF zip contract, so the analysis owner composes the surface directly.
+`bcf-client` owns BCF (BIM Collaboration Format) v2/v3 file authoring, reading, and the v3 REST client for the IFC-analysis domain's coordination-issue exchange leg. A version-detecting `bcf.bcfxml.load` returns the matching versioned document root that owns the topic, comment, and viewpoint lifecycle; viewpoint authoring resolves `ifcopenshell` element selection and visibility into BCF GlobalId lists. `xsdata` owns the BCF-XML round-trip and this package owns the BCF zip contract, so the analysis owner composes the surface directly.
 
 ## [01]-[PUBLIC_TYPES]
 

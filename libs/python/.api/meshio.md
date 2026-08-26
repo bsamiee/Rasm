@@ -66,11 +66,11 @@
 - `extension_to_filetypes` selects candidate formats by suffix; an ambiguous extension such as `.msh` needs explicit `file_format`.
 
 [STACKING]:
-- `numpy`(`.api/numpy.md`): `Mesh.points` is an `(n, 3)` / `(n, 2)` float `ndarray` and each `CellBlock.data` an `ndarray`, read zero-copy by the numeric rail through `ascontiguousarray` and the buffer protocol before FEM assembly or field-solver hand-off.
+- `numpy`(`.api/numpy.md`): `Mesh.points` is an `(n, 3)` / `(n, 2)` float `ndarray` and each `CellBlock.data` an `ndarray`, read zero-copy by the numeric layer through `ascontiguousarray` and the buffer protocol before FEM assembly or field-solver hand-off.
 - data mesh-IO boundary: `read` / `write` over one `Mesh` cross solver, CAD-adjacent, and visualization formats through a single shape.
-- `scikit-fem` FEM seam: `MeshTri` / `MeshTet` `from_meshio` and `save` interconvert with a `Mesh`; physical groups ride `cell_sets` or integer `cell_data` into basis and boundary-condition selection.
-- `Trimesh` geometry seam: a watertight mesh crosses as vertex/face arrays and enters as a triangle `Mesh` for FEM-format or visualization-format export.
-- field seam: solved field values attach as `point_data` and export through `.vtu` or `.xdmf` for ParaView inspection.
+- `scikit-fem` FEM boundary: `MeshTri` / `MeshTet` `from_meshio` and `save` interconvert with a `Mesh`; physical groups ride `cell_sets` or integer `cell_data` into basis and boundary-condition selection.
+- `Trimesh` geometry boundary: a watertight mesh crosses as vertex/face arrays and enters as a triangle `Mesh` for FEM-format or visualization-format export.
+- field boundary: solved field values attach as `point_data` and export through `.vtu` or `.xdmf` for ParaView inspection.
 
 [LOCAL_ADMISSION]:
 - `meshio` is the sole mesh-file exchange owner; a new format enters through `register_format`, never a bespoke parser or per-format container.

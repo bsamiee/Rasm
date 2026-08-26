@@ -23,7 +23,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the `DataStore` members `@tus/server` drives, with the finalize and groom reads the rail owns
+[ENTRYPOINT_SCOPE]: the `DataStore` members `@tus/server` drives, with the finalize and groom reads the resume server owns
 
 | [INDEX] | [SURFACE]                                              | [SHAPE]  | [CAPABILITY]                                           |
 | :-----: | :----------------------------------------------------- | :------- | :----------------------------------------------------- |
@@ -49,7 +49,7 @@
 - `@tus/server`(`.api/tus-server.md`): the store fills the `datastore` slot, and `onUploadFinish` fires after `CompleteMultipartUpload` settles, so the finalize fold reads a whole durable object.
 - `@aws-sdk/client-s3`(`.api/aws-sdk-client-s3.md`): `s3ClientConfig` is the object plane's provider vocabulary verbatim — one endpoint and credential set serves content client, presigner, and this store.
 - `@aws-sdk/lib-storage`(`.api/aws-sdk-lib-storage.md`): `read(id)` feeds the finalize fold — chunk, digest fold, conditional re-put — and `remove(id)` closes staging once the 200-or-412 lands.
-- `effect`: construction sits inside the owning service scope, `read`'s `Readable` lifts at the seam, and expiry sweeps run as scheduled effects, so the store's promises never cross into domain code.
+- `effect`: construction sits inside the owning service scope, `read`'s `Readable` lifts at the boundary, and expiry sweeps run as scheduled effects, so the store's promises never cross into domain code.
 
 [LOCAL_ADMISSION]:
 - staging binds the object plane's provider `Config`, one endpoint and credential vocabulary shared with the content client.

@@ -4,7 +4,7 @@
 
 Both host boundaries carried a construction union and neither carried the other's cases. Rhino held the per-node identity, state, tooltip, style, and binding axis, the recursive structural band with its painted, embedded, inspector, and collection escapes, the typed grid plan with its tree budgets, and the themed notice; Grasshopper held the role rows collapsing modality, the policy records carrying knob sets as data, the tagged capture algebra, the dispatch-free grow, and the live-view verb gate. This owner is their union at every axis, and each boundary keeps only what its host types genuinely bind: Rhino's `Rhino.UI` widget cases and section leaves become `Custom` and `Embedded` instances, Grasshopper's canvas objects and attributes stay at its canvas.
 
-Composition is downward and sideways within the sub-domain: `Op`, `Lease<T>`, `Validation`, `ValidityClaim`, `CapabilitySet<TCapability>`, and `ICapability<TSelf>` from `Domain`; `PerceptualColor` and `UnitInterval` from `Numerics/atoms`; `UiFault`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`; `IBindingPlan`, `BindLink`, and `BindLedger` from `Interaction/binding`; `StyleKey`, `ThemeSeam`, and `NativeMount` from `Interaction/platform`; `SurfaceSpec` and `TypeFace` from `Interaction/paint`; `IntentKey` and `IntentTable` from `Interaction/chrome`.
+Composition is downward and sideways within the sub-domain: `Op`, `Lease<T>`, `Validation`, `ValidityClaim`, `CapabilitySet<TCapability>`, and `ICapability<TSelf>` from `Domain`; `PerceptualColor` and `UnitInterval` from `Numerics/atoms`; `UiFault`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`; `IBindingPlan`, `BindLink`, and `BindLedger` from `Interaction/binding`; `StyleKey`, `ThemePort`, and `NativeMount` from `Interaction/platform`; `SurfaceSpec` and `TypeFace` from `Interaction/paint`; `IntentKey` and `IntentTable` from `Interaction/chrome`.
 
 ## [01]-[INDEX]
 
@@ -131,7 +131,7 @@ public sealed record ElementSpec(
         new(Key: key, State: ElementState.Active, ToolTip: None, Style: None, Bindings: Seq<IBindingPlan>());
 }
 
-public sealed record ElementRuntime(ThemeSeam Themes, IntentTable Intents);
+public sealed record ElementRuntime(ThemePort Themes, IntentTable Intents);
 ```
 
 ## [03]-[ROLES]
@@ -139,7 +139,7 @@ public sealed record ElementRuntime(ThemeSeam Themes, IntentTable Intents);
 - Owner: `TextRole`, `ChoiceRole`, `FlagRole`, `ButtonRole`, `ProgressRole`, `MomentRole`, `CellKind` the seven modality rosters, each carrying its host construction and its read-back as delegate columns; `EditTrait`, `ScrollAxis`, `ColumnTrait`, `GridTrait` the four capability vocabularies; `TextPolicy`, `NumberPolicy`, `SliderPolicy`, `CellPolicy` the knob records; `CellKind` and `CellSpec` the cell family; `ColumnPlan<TRow>`, `RowBudget`, `GridRows<TRow>`, `GridPlan<TRow>` the typed data-view plan; `TabPlan`, `DocumentPlan`, `StackChild`, `TableSlot`, `Stretch`, `LayoutPlan` the placement vocabulary; `AlphaMode`, `InspectorMode`, and `Stretch` the three shape rows that seat their own host member.
 - Cases: `CellSpec` is `Bound` over a declarative kind row, `Custom` carrying a consumer's cell factory, and `Drawn` carrying a paint callback. `GridRows<TRow>` is `Flat` or `Tree`, the tree carrying child projection, expansion predicate, node budget, path-depth budget, and identity equality. `LayoutPlan` is `Flow`, `Rows`, `Table`, `Stack`, and `Absolute` — five host placement strategies, not one with a mode knob.
 - Auto: a row's construction column composes only members the row's own widget carries, so the grow fold never probes a control type — the ROW is the dispatch. A new presentation of an existing semantic is one row; a new semantic is one `ControlSpec` case.
-- Auto: the two budgets on the tree case are one value type read on two axes — a node budget caps what the whole expansion admits and a depth budget caps how far one path descends, and a linear chain inside the node budget still overflows the runtime stack, which is the one failure no rail catches.
+- Auto: the two budgets on the tree case are one value type read on two axes — a node budget caps what the whole expansion admits and a depth budget caps how far one path descends, and a linear chain inside the node budget still overflows the runtime stack, which is the one failure no result catches.
 - Law: a knob set with two or more independent presence bits rides a `CapabilitySet<TCapability>` over a named vocabulary, never a bool blob. `EditTrait` (editable, wrapping, spelling, return, tab) replaces Grasshopper's five text bools AND Rhino's two two-row access and wrap rosters; `ScrollAxis` replaces the expand-width and expand-height pair; `ColumnTrait` replaces Grasshopper's five column bools and absorbs Rhino's column feature set; `GridTrait` replaces Grasshopper's three grid bools and Rhino's chrome and selection rosters together. Every corner of all four is legal, and each vocabulary DECLARES that as a `CapabilityLaw` its owner admits through — `TextPolicy`, `ColumnPlan`, `GridPlan`, and the `Scroll` case each gate their held set at construction, so a later closed law binds at one site and every holder starts refusing with no reader edited. A prose claim beside a roster no gate reads is the form this replaces.
 - Law: NAMED LOSS on `GridTrait` — Rhino's four named selection corners lose their names, and a reader of a plan reads a set rather than `MultipleOptional`. Bought back by the vocabulary's wire text and by growth: a fifth grid posture is one vocabulary row rather than a doubled roster. Witness: `Rhino Eto/elements.md:821 GridSelection` (four rows over two bool columns) becomes `CapabilitySet<GridTrait>.Of(GridTrait.Multiple, GridTrait.Empty)`.
 - Law: the tri-state seed crosses as `Op.ToHostNullable`, the one place a `null` is a legal spelling — a host slot the domain never reads back; a hand-spelled `Match` onto `null` puts that projection at every row instead of at its one owner.
@@ -645,7 +645,7 @@ public sealed class GridPlan<TRow>(
 - Law: colour captures as `PerceptualColor` and typeface as the paint owner's `TypeFace`, so a captured value carries the kernel's own colour and type identity rather than a host struct a consumer must convert.
 - Law: a pick never raises — every pick closure runs under the operation's catch inside the harvest, so a released or host-rejected read lands as a typed refusal rather than an exception crossing the event pump.
 - Output: `FieldReport` carries the raising operation beside the tag-keyed values; the accumulated refusal is the failure arm, never a partial report.
-- Packages: LanguageExt.Core for `Validation`, `Fin`, `HashMap`, `Seq`; `Domain/rails` for `ValidityClaim` and `IValidityEvidence`.
+- Packages: LanguageExt.Core for `Validation`, `Fin`, `HashMap`, `Seq`; `Domain/results` for `ValidityClaim` and `IValidityEvidence`.
 - Growth: a new capture shape is one `FieldValue` case with the pick arm on the owning role row or case; the guard, port, and report shapes never widen.
 - Boundary: Rhino carried NO capture algebra — values left only through bindings, so a modal that never bound could not read its own fields. Both boundaries gain this owner whole.
 
@@ -709,12 +709,12 @@ public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Val
 - Auto: construction brackets its own unwind. Leaves raising after minting host objects release them and the child mints it had already made, a child roster that fails mid-fold releases the mounts it already gathered in reverse order, and a binding roster that fails releases the links it already rigged — so a partial realization leaks no native handle.
 - Law: teardown is reverse-order and ALL-ATTEMPTED — bindings, then child mounts, then the mint's own child mints, then resources, then the host if this mount owns it, every step running even when an earlier one refuses, and every refusal accumulating on the mount's own ledger. Teardown faults never ride the unwinding stack, because disposal fires from a `finally` where a raise REPLACES the primary exception.
 - Law: a leaf's BESIDE-minted controls are child MINTS, never anonymous resources. Widget families building one control per row inside its own layout — an image button per button row, a per-item editor inside a collection — hands each back as a `ControlMint` carrying its own resources and its own intrinsic pick, and the mount drains those children in reverse mint order before releasing the leaf that contains them. Erasing them into `Resources` as `Lease<IDisposable>` loses each child's pick and inverts nothing about the order, which is exactly how a boundary widget row lost both its capture and its teardown reach. NAMED LOSS: none — a child mint with no pick and no resources is the resource entry it replaces.
-- Law: host ownership is a `Lease` CASE, not a flag. A painted node borrows the control its surface owns and an embedded node borrows the control its mount owns, while every minted leaf owns its own; the two custody rosters both boundaries carried collapse into the one resource rail.
+- Law: host ownership is a `Lease` CASE, not a flag. A painted node borrows the control its surface owns and an embedded node borrows the control its mount owns, while every minted leaf owns its own; the two custody rosters both boundaries carried collapse into the one resource lease.
 - Law: realization threads its own key derived from the node identity, so a binding fault is keyed to the element that produced it rather than to the realize call that spanned the whole tree.
 - Law: the grow fold is dispatch-free and the view verbs alone marshal themselves, so construction, presentation, and capture share ONE marshal window at the presenter and a spec row never crosses on its own.
 - Output: `ElementMount` exposes the host control, the port roster, and the accumulated release faults; `Harvest` answers the sealed report and `Drive` answers a view echo.
-- Packages: Eto.Forms for the construction surface; LanguageExt.Core for `Fin`, `Validation`, `Lease`, `Seq`; `Interaction/dispatch` for the probe, the crossing, and the `FaultRail` every host raise on this page funnels through — this owner mints no second isolation seam.
-- Growth: a new spec case is one grow arm breaking loudly; a new custody shape is a resource-rail case, not a mount column.
+- Packages: Eto.Forms for the construction surface; LanguageExt.Core for `Fin`, `Validation`, `Lease`, `Seq`; `Interaction/dispatch` for the probe, the crossing, and the `FaultGate` every host raise on this page funnels through — this owner mints no second isolation gate.
+- Growth: a new spec case is one grow arm breaking loudly; a new custody shape is a resource-lease case, not a mount column.
 - Boundary: NAMED LOSS — Grasshopper's dispatch-free realize and Rhino's affinity-refusing realize become ONE owner with two members rather than two entries with two contracts. Neither guarantee is erased: the core still marshals nothing and the gate still refuses off-thread. Witness: `GH Eto/controls.md:301` (the dispatch-free law) against `Rhino Eto/elements.md:596` (the off-thread refusal).
 
 ```csharp
@@ -771,12 +771,11 @@ public sealed class ElementMount : UiLease {
 
     public Fin<FieldReport> Harvest(Op key);
 
-    [BoundaryAdapter] public Fin<ViewEcho> Drive(Grid view, ViewVerb verb, Op? key = null);
+    public Fin<ViewEcho> Drive(Grid view, ViewVerb verb, Op? key = null);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ControlForge {
-    [BoundaryAdapter]
     public static Fin<Lease<ElementMount>> Realize(ControlSpec spec, ElementRuntime runtime, Op? key = null);
 
     public static Fin<ElementMount> Grow(ControlSpec spec, ElementRuntime runtime, Op key);
@@ -794,8 +793,8 @@ public static class ControlForge {
 - Law: a tree-only verb refuses TYPED on a flat view rather than downcasting, so a reload or a probe against a plain grid answers a refusal a caller can read instead of raising.
 - Law: a choice's standing is a ROW, never a bool pair. Ordinary, default, and abort are three states of one axis and the pair spelled a fourth corner — default-and-abort — that every reader guarded and no dialog can present. NAMED LOSS: none; the illegal corner is the only shape the pair carried that the row does not. Witness: `new NoticeChoice("Cancel", 2, Default: false, Abort: true)` becomes `new NoticeChoice("Cancel", 2, NoticeRole.Abort)`.
 - Law: a notice requires at least one choice and admits at most one default row, and the reply is `Option`-shaped — dismissal without a choice is absence, never a sentinel result. Grasshopper projected the same modal through an untyped message-box verdict, so a caller read an enum it then had to map back to its own outcome.
-- Law: the reply carries the CALLER's own outcome. A raw ordinal made the caller hold a mapping back to its own vocabulary and made every integer a legal choice value, so no reserved number could spell dismissal; the parameter reaches the choice, the notice, and the mount and stops there, riding no closed family. Witness: `mount.Reply` answers `Option<TResult>` where the picker family's `Typed.Present` already answers `Fin<Option<TResult>>` over the same seam.
-- Law: the dialog carries its result on the instance, so the mount is the one reply seam and no consumer reads the host dialog after release.
+- Law: the reply carries the CALLER's own outcome. A raw ordinal made the caller hold a mapping back to its own vocabulary and made every integer a legal choice value, so no reserved number could spell dismissal; the parameter reaches the choice, the notice, and the mount and stops there, riding no closed family. Witness: `mount.Reply` answers `Option<TResult>` where the picker family's `Typed.Present` already answers `Fin<Option<TResult>>` over the same boundary.
+- Law: the dialog carries its result on the instance, so the mount is the one reply owner and no consumer reads the host dialog after release.
 - Output: `ViewEcho` per verb; `NoticeMount.Reply` per dismissal, both settled facts rather than live reads.
 - Packages: Eto.Forms for the grid and tree verb surface and for the themed control family (registered at `libs/dotnet/.api/api-eto-forms.md`); `Interaction/dispatch` for the crossing.
 - Growth: a new verb is one case with one drive arm; a new echo rides its verb's case; a new choice outcome is the caller's own type and costs this family nothing.
@@ -850,7 +849,7 @@ public sealed record NoticeChoice<TResult>(string Caption, TResult Result, Notic
 
 public sealed record ThemedNotice<TResult>(
     string Text, TextAlignment Alignment, Option<Lease<EtoImage>> Badge, Seq<NoticeChoice<TResult>> Choices) {
-    [BoundaryAdapter] public Fin<Lease<NoticeMount<TResult>>> Mint(Op? key = null);
+    public Fin<Lease<NoticeMount<TResult>>> Mint(Op? key = null);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

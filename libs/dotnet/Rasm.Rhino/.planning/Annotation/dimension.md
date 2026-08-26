@@ -113,7 +113,6 @@ public sealed partial class DimFrame {
     public Option<Vector3d> Horizontal { get; }
     public Tolerance Tolerance { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Plane plane,
@@ -220,7 +219,7 @@ public abstract partial record DimensionSpec {
 - Owner: `DimAdjust` refits each measuring kind through its native geometry contract and rejects a mismatched target before mutation, carrying the same point products the construction family names.
 - Owner: `DimPose` carries dimension-only text placement, measurement scale, and detail binding through one generated aggregate gate whose six columns accumulate.
 - Law: `DimAdjust.Linear` is the one arm carrying its own roster — the host refits a linear dimension from PLANE-space `Point2d` triples where every other family takes world points — and the divergence is the host member's, named here rather than smoothed over.
-- Law: a pose gate reports every violated column, so a caller correcting a non-finite rotation is not then told its scale is non-positive; the two `is not null` re-checks the gate once carried are the seam's job and the seam already did it.
+- Law: a pose gate reports every violated column, so a caller correcting a non-finite rotation is not then told its scale is non-positive; the two `is not null` re-checks the gate once carried are the boundary's job and the boundary already did it.
 - Boundary: refit and pose act on the duplicate supplied by `TextOp.Reworked`, so a rejected native edit never mutates document-owned geometry.
 - Packages: `Domain/validation` (`Op.Accept`, `Op.AcceptValidated`), `Document/session.md` (`DraftFault`); RhinoCommon `AdjustFromPoints`/`SetLocations` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a refit form is one `DimAdjust` case reading one point product; a pose column is one member and one clause.
@@ -315,7 +314,6 @@ public sealed partial class DimPose {
     public Option<DraftScale> DistanceScale { get; }
     public Option<DetailEdit> Detail { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Option<Point2d> textPosition, ref Option<double> textRotation,
         ref Option<TextPointMode> textPoint, ref Option<string> plainUserText, ref Option<DraftScale> distanceScale,
@@ -353,11 +351,11 @@ public sealed partial class DimPose {
 ## [04]-[MUTATION]
 
 - Owner: `DimOp` is the complete dimension mutation program consumed by `Dimensions.Commit`.
-- Law: per-annotation style changes ride the namespace's shared `AnnotationStyleOp` — overlay a `StylePatch` or clear every property override — so the dimension and text rails carry one case each over one owner rather than two byte-identical pairs; dimension-specific state remains inside `DimPose`.
+- Law: per-annotation style changes ride the namespace's shared `AnnotationStyleOp` — overlay a `StylePatch` or clear every property override — so the dimension and text families carry one case each over one owner rather than two byte-identical pairs; dimension-specific state remains inside `DimPose`.
 - Law: `LengthChannel` couples length-display selection with the matching zero-suppression reset as a row column — the page's rung-3 exemplar: the channel IS the behaviour, so no arm re-tests which of the two host members to call.
-- Law: absence never crosses as `null` — an optional attribute set and the unused history slot both project through the kernel's one host-slot spelling, so the seam states which argument the host reads as "use the document's own".
+- Law: absence never crosses as `null` — an optional attribute set and the unused history slot both project through the kernel's one host-slot spelling, so the boundary states which argument the host reads as "use the document's own".
 - Entry: `Dimensions.Commit` preserves the frozen wire and accepts the shared `DraftPlan<DimOp>` policy owner.
-- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `DraftPlan`, `DraftSpine`), `Document/tables.md` (`TableTarget`, `ResourceRef`), `Domain/rails` (`Op.ToHostSlot`, `Lease<T>`); RhinoCommon `ObjectTable.Add` per `.api/api-rhinocommon-document.md`.
+- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `DraftPlan`, `DraftSpine`), `Document/tables.md` (`TableTarget`, `ResourceRef`), `Domain/results` (`Op.ToHostSlot`, `Lease<T>`); RhinoCommon `ObjectTable.Add` per `.api/api-rhinocommon-document.md`.
 - Growth: a dimension verb is one case with its arm; the spine and every consumer read it unchanged.
 
 ```csharp
@@ -447,8 +445,8 @@ public static class Dimensions {
 - Law: a state read proves `AnnotationKind.Measures` before resolving a family, so a non-measuring annotation refuses at the kind rather than at a probe scan that reads like a missing implementation.
 - Law: the read side names the text-point axis with the SAME row the write side does — an asymmetric raw `bool` on one half of one concept is the discarded discriminant, not a simpler shape.
 - Boundary: exploded geometry crosses through `DraftCrossing.Crossed`, the namespace's one detach fold, and `DimAnswer.Pieces` owns the detached handles until the caller folds `Release`.
-- Boundary: custody release rides the RAIL, not a disposer. A `void Dispose` swallows its cleanup fault or replaces a primary exception mid-unwind, so `DimAnswer.Release` returns `Fin<Unit>` and the accumulated release fault reaches the caller typed. NAMED LOSS: `using`-scopability of the answer — bought back by a fault a consumer reads, where the cell it used to park on had no reader anywhere; witness — the `pieces` arm folds kernel `Custody.Dispose` and every other case answers success.
-- Packages: `Annotation/style.md` (`DraftCrossing`, `DraftScale`, `StyleField`, `StyleSetting`, `StyleValue`), `Domain/rails` (`Custody`, `Op.Catch`, `Op.Unsupported`); RhinoCommon `Get3dPoints`/`GetDisplayLines`/`GetTextRectangle`/`GetAngleDisplayText`/`GetDistanceDisplayText`/`GetTextTransform`/`Explode` per `.api/api-rhinocommon-annotation.md`.
+- Boundary: custody release rides the RESULT, not a disposer. A `void Dispose` swallows its cleanup fault or replaces a primary exception mid-unwind, so `DimAnswer.Release` returns `Fin<Unit>` and the accumulated release fault reaches the caller typed. NAMED LOSS: `using`-scopability of the answer — bought back by a fault a consumer reads, where the cell it used to park on had no reader anywhere; witness — the `pieces` arm folds kernel `Custody.Dispose` and every other case answers success.
+- Packages: `Annotation/style.md` (`DraftCrossing`, `DraftScale`, `StyleField`, `StyleSetting`, `StyleValue`), `Domain/results` (`Custody`, `Op.Catch`, `Op.Unsupported`); RhinoCommon `Get3dPoints`/`GetDisplayLines`/`GetTextRectangle`/`GetAngleDisplayText`/`GetDistanceDisplayText`/`GetTextTransform`/`Explode` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a measuring family is one `DimFamily` row answering every column; a read is one `DimAsk` case with its `DimAnswer` twin.
 
 ```csharp

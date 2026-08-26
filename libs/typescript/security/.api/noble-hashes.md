@@ -39,14 +39,14 @@
 [TOPOLOGY]:
 - Hashes cross as values — `hmac(sha256, key, body)` and `sha256(bytes)` take the algorithm as the `CHash` itself, so a new digest is a row on the standing `_HASHES` fold, never a `hmacSha256` name fork.
 - `hmac.create` streams a signed prefix ahead of a held body without a joined copy, the byte-identical replacement for a one-shot over a concatenated buffer.
-- `randomBytes` reads WebCrypto internally, but `sign/crypto` draws entropy through its own `Entropy` port (a `{ read(bytes) }` seam) so a deterministic reader replaces the one seam under test — the port owns injection, not this package.
+- `randomBytes` reads WebCrypto internally, but `sign/crypto` draws entropy through its own `Entropy` port (a `{ read(bytes) }` port) so a deterministic reader replaces the one port under test — the port owns injection, not this package.
 - This package carries NO asymmetric surface: ECDSA and RSA verification are WebCrypto `subtle.verify` at `crypt/verify`, and no member here decodes or verifies a public-key signature.
 
 [STACKING]:
 - `@oslojs/encoding`(`.api/oslojs-encoding.md`): digest and MAC bytes cross to `encodeHexLowerCase` for storage and wire and return through `decodeHex` before the folder compare — the paired byte-to-string boundary this package's `Uint8Array` output feeds.
 - `otplib`(`.api/otplib.md`): `hmac(_HASHES[alg], key, data)` satisfies the `CryptoPlugin.hmac` member, so OTP HMAC rides the primitive `sign/crypto` owns and the bundled `NobleCryptoPlugin` path is bypassed for one folder HMAC owner.
 - `effect`(`.api/effect.md`): every member is synchronous — `Effect.try` lifts the total ops, keys stay `Redacted<Uint8Array>` unwrapped only inside the sync boundary.
-- `sign/crypto` (in-folder owner): one seam folds the HMAC webhook row, the `session/token` compare, and the `authn/apikey`/`authn/otp` mints; the constant-time compare `_sameBytes`, the unbiased alphabet sampler `_sample`, and the `Entropy` port are folder-owned beside these primitives because no member here supplies a timing-safe equality or a bounded-alphabet mint.
+- `sign/crypto` (in-folder owner): one owner folds the HMAC webhook row, the `session/token` compare, and the `authn/apikey`/`authn/otp` mints; the constant-time compare `_sameBytes`, the unbiased alphabet sampler `_sample`, and the `Entropy` port are folder-owned beside these primitives because no member here supplies a timing-safe equality or a bounded-alphabet mint.
 
 [LOCAL_ADMISSION]:
 - `crypt/sign` imports this package alone.

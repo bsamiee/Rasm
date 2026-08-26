@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_OPTIONS]
 
-`Microsoft.Extensions.Options` binds every runtime policy record to a named, validated value resolved through DI, folding configure, post-configure, and validation stages behind one `OptionsBuilder` pipeline that runs once per `(type, name)` and caches. Its boundary is composition: policy enters as bounded named options at the composition root and reaches runtime as an immutable typed value or an explicit `IOptionsMonitor` change transition, feeding the options rail every AppHost policy consumer binds.
+`Microsoft.Extensions.Options` binds every runtime policy record to a named, validated value resolved through DI, folding configure, post-configure, and validation stages behind one `OptionsBuilder` pipeline that runs once per `(type, name)` and caches. Its boundary is composition: policy enters as bounded named options at the composition root and reaches runtime as an immutable typed value or an explicit `IOptionsMonitor` change transition, feeding the options pipeline every AppHost policy consumer binds.
 
 ## [01]-[PUBLIC_TYPES]
 

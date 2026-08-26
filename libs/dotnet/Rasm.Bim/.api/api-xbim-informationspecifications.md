@@ -1,6 +1,6 @@
 # [RASM_BIM_API_XBIM_INFORMATIONSPECIFICATIONS]
 
-`Xbim.InformationSpecifications` owns the buildingSMART IDS specification document model: the in-memory `Xids` graph that parses, authors, and round-trips IDS XML and native JSON, holding `SpecificationsGroup`s of `Specification`s that each pair an applicability and a requirement `FacetGroup` under an IDS `ICardinality`. Each facet is `: FacetBase, IFacet`, deciding a candidate value through the `ValueConstraint` engine. It carries no IFC entity graph, only the specification that validates one, and feeds the `validation#IDS_FACETS` rail; an IDS parse fault lifts to `BimFault`.
+`Xbim.InformationSpecifications` owns the buildingSMART IDS specification document model: the in-memory `Xids` graph that parses, authors, and round-trips IDS XML and native JSON, holding `SpecificationsGroup`s of `Specification`s that each pair an applicability and a requirement `FacetGroup` under an IDS `ICardinality`. Each facet is `: FacetBase, IFacet`, deciding a candidate value through the `ValueConstraint` engine. It carries no IFC entity graph, only the specification that validates one, and feeds the `validation#IDS_FACETS` path; an IDS parse fault lifts to `BimFault`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -133,11 +133,11 @@
 - `Review/validation#IDS_FACETS`: composes `Xids.LoadBuildingSmartIDS` as its ONE ingress and `PrepareSpecification`+`ExportBuildingSmartIDS` as egress, lowering each `FacetBase` facet's `ValueConstraint` onto its closed `IdsFacet` `[Union]` (interior never sees an `Xbim` type) and raising it back for publish; each arm lowers to a `Model/query#ELEMENT_SET` `BimTerm`, so the `ValueConstraint` match over a candidate IFC value IS the predicate the set query reads.
 - `ids-lib`(`.api/api-ids-lib`): `IdsLib.Audit` audits the IDS FILE (spec validity itself) while `Xids` authors/parses the spec MODEL; `IfcSchemaVersionHelper` converts the schema axis between the two — model + file-validator, never a duplicated IDS reader, the two audits orthogonal.
 - `Semantics/classification#CLASSIFICATION_AXIS` + `Semantics/properties#PROPERTY_TEMPLATES`: `IfcType`/`IfcClassification`/`IfcProperty` facet fields resolve against the classification axis and keyed property store; `ValueConstraint` `DataType`/`NetTypeName` coercion reads the IFC measure metadata (`Helpers.Measures`) reconciled with the `UnitsNet` SI coercion the property store owns, never a re-derived measure table.
-- within-lib: every match/parse takes an optional `Microsoft.Extensions.Logging.ILogger`; the validation fold threads its rail logger so a parse diagnostic rides the structured log, `Op.Catch` preserves thrown parser failures exactly, and an explicit empty IDS load mints `BimFault.Refused` under the review/rejected axes.
+- within-lib: every match/parse takes an optional `Microsoft.Extensions.Logging.ILogger`; the validation fold threads its result logger so a parse diagnostic rides the structured log, `Op.Catch` preserves thrown parser failures exactly, and an explicit empty IDS load mints `BimFault.Refused` under the review/rejected axes.
 
 [LOCAL_ADMISSION]:
 - `Xids` is the one IDS document owner; the `validation#IDS_FACETS` page composes its load/author/facet/constraint surface rather than re-minting an IDS parser over BCL XML.
-- `Parse` lowers the facets and `ValueConstraint` components ONCE onto the seam `Model/query#ELEMENT_SET` `ValueMatch` family (`TryGetNetType`/`ParseValue` coerce range literals at that boundary); the typed `ValueMatch` is the only in-process matcher.
+- `Parse` lowers the facets and `ValueConstraint` components ONCE onto the shared `Model/query#ELEMENT_SET` `ValueMatch` family (`TryGetNetType`/`ParseValue` coerce range literals at that boundary); the typed `ValueMatch` is the only in-process matcher.
 - `IfcSchemaVersion` is the schema axis, bridged to `ids-lib` through `IfcSchemaVersionHelper`; a second schema-version enum beside the bridge is the rejected form.
 - `api-ids-lib` `IdsLib.Audit` owns the IDS-FILE audit; the `validation#IDS_FACETS` fold over the query algebra owns the MODEL audit (elements vs the spec) — orthogonal, neither re-implements the other.
-- this package carries no IFC entity graph — the model under test is the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` the `Projection/semantic#SEMANTIC_PROJECTOR` assembles.
+- this package carries no IFC entity graph — the model under test is the shared `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` the `Projection/semantic#SEMANTIC_PROJECTOR` assembles.

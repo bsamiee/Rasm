@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the wasm client extension, its two configs, and the OPFS worker
-- rail: boundaries
+- concern: boundaries
 - `SqliteClient` supersets the neutral `SqlClient`; this catalog documents only the wasm-driver additions over `.api/effect-sql.md`. `SqliteClientConfig` carries `worker: Effect<Worker \| SharedWorker \| MessagePort, never, Scope>`, `OpfsWorkerConfig` is `{ port, dbName }`, and both client configs also take `installReactivityHooks?`, `spanAttributes?`, `transformResultNames?`, `transformQueryNames?`.
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                              |
@@ -21,7 +21,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the browser lane and its OPFS worker
-- rail: rails-and-effects
+- concern: results-and-effects
 - `layer`/`layerConfig`/`layerMemory`/`layerMemoryConfig` wire `Reactivity` internally and return `Layer<SqliteClient \| SqlClient, ConfigError \| SqlError>`; `make`/`makeMemory` return `Effect<SqliteClient, SqlError, Scope \| Reactivity>`; `OpfsWorker.run` returns `Effect<void, SqlError>`.
 
 | [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                     |

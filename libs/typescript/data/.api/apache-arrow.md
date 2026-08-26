@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the columnar containers the lane seams exchange
+[PUBLIC_TYPE_SCOPE]: the columnar containers the lane boundaries exchange
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY] | [CAPABILITY]                                              |
 | :-----: | :---------------------------------------- | :------------ | :-------------------------------------------------------- |
@@ -41,14 +41,14 @@
 |  [13]   | `makeTable(input)` / `tableFromArrays(input)`          | factory  | a whole `Table` from a typed-array or JS-array column map       |
 
 - `Builder` is the streaming form and `vectorFromArray` the whole-array form of one construction — a bank of builders fed row by row is what lets a row-shaped producer land N columns in one pass, where the array form re-materializes each column first.
-- TRAP: every `Timestamp` builder takes a JS millisecond NUMBER whatever unit its `DataType` declares, and a `bigint` throws `Cannot mix BigInt and other types` at `append`; a nanosecond-declared column therefore crosses this construction seam at millisecond grain, so a producer holding nanos states that loss where it converts rather than at each call site.
+- TRAP: every `Timestamp` builder takes a JS millisecond NUMBER whatever unit its `DataType` declares, and a `bigint` throws `Cannot mix BigInt and other types` at `append`; a nanosecond-declared column therefore crosses this construction boundary at millisecond grain, so a producer holding nanos states that loss where it converts rather than at each call site.
 - TRAP: `MapBuilder` declares its input as the read-side `MapRow` proxy this side never constructs, while its runtime accepts the JS `Map` a producer holds — so the declared type and the accepted value disagree and the crossing is stated as a boundary adapter at the one bank, never as a per-column cast.
 - `Uint64`/`Int64` builders take `bigint`, `Utf8` takes `string`, `Bool` takes `boolean`, `Float64` takes `number`, and `List` takes the JS array of its child cells; each `Vector` seals through `finish().toVector()` and the record of sealed vectors is what `new Table(schema, columns)` binds.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every engine row joins the analytical lane by emitting or accepting Arrow IPC; the `Table` is the one columnar value crossing every seam, never a per-engine row shape.
+- Every engine row joins the analytical lane by emitting or accepting Arrow IPC; the `Table` is the one columnar value crossing every boundary, never a per-engine row shape.
 
 [STACKING]:
 - `@duckdb/duckdb-wasm`(`.api/duckdb-duckdb-wasm.md`): `query()` returns an `arrow.Table`; ingest discriminates on `isArrowTable` — a live `Table` rides `insertArrowTable`, IPC bytes ride `insertArrowFromIPCStream`.
@@ -62,4 +62,4 @@
 
 [LOCAL_ADMISSION]:
 - Large interchange rides `RecordBatchReader` batch iteration; `tableFromIPC` whole-frame decode admits only where the frame is provably bounded.
-- Row-shaped egress exists only at the final consumer projection, never between engine seams.
+- Row-shaped egress exists only at the final consumer projection, never between engine boundaries.

@@ -2,7 +2,7 @@
 
 `Hooks` is the one scoped hook registry at Python grain: a hook point is a registered row with a package-qualified id drawn from its own package's roster, a closed msgspec payload type, and one modality arm, and a fire is an evidence event the emitter never re-narrates. Telemetry is a tap — log lines, metrics, and span attributes project FROM hook facts through registered subscribers — so domain code fires facts and observability subscribes, never the reverse. Apps add subscribers at composition; the registry wires no exporter, provider, or transport.
 
-A hook point is the finer-grained fact seam a lifecycle surface fires mid-operation, beside the span its operation opens through the `observability/observe#OBSERVE` weave. `Ring`, `ScopeKey`, and the scope-bound `logger` arrive settled from that owner; `Metrics.record` from `observability/metrics#METRIC`; the fault fences from `reliability/faults#FAULT`. Point ids carry the same uniqueness law the `SCOPES` vocabulary holds for instrumentation scopes — a colliding registration refuses at composition, so shadowing dies structurally.
+A hook point is the finer-grained fact boundary a lifecycle surface fires mid-operation, beside the span its operation opens through the `observability/observe#OBSERVE` weave. `Ring`, `ScopeKey`, and the scope-bound `logger` arrive settled from that owner; `Metrics.record` from `observability/metrics#METRIC`; the fault fences from `reliability/faults#FAULT`. Point ids carry the same uniqueness law the `SCOPES` vocabulary holds for instrumentation scopes — a colliding registration refuses at composition, so shadowing dies structurally.
 
 ## [01]-[INDEX]
 
@@ -11,20 +11,20 @@ A hook point is the finer-grained fact seam a lifecycle surface fires mid-operat
 ## [02]-[HOOKS]
 
 - Owner: `HookPoint[P]` is the registered row — id, payload type, and one modality arm carrying whatever depth that arm admits — and `Hooks` the registry service holding the point table, subscriber table, bounded replay windows, install ledger, and per-composition isolated-fault window as immutable maps behind one `RLock`, each keyed first by the observe-owned `ScopeKey` so two compositions embedding the runtime in one process partition point custody, subscriber fan-out, replay windows, and fault accounting structurally while the `DEFAULT_SCOPE` keyword default preserves the bare call shape. `register` is the one polymorphic claim over a point or a whole roster, refusing a duplicate id, a malformed id, and a retaining row declaring a window that holds nothing, all at composition through the `boundary` fence, so every live point spells `rasm.<pkg>.<domain>.<point>` and owns its id alone within its scope.
-- Cases: `Modality` is the closed delivery family — `veto` runs subscribers as a sequential sync transform-or-reject fold whose rail returns to the emitter; `observe` runs each subscriber as a fenced sync or async tap whose fault lands on the fault window and the log line while the emitter's value passes through untouched; `replay` admits sync taps alone and retains the last `replay` payloads so attach drains the window before forward observation. Retained DEPTH rides the retaining arm alone and stays a point fact, so a non-retaining row cannot spell a window bound and the branch's live replay rows keep their three distinct depths. Callable instances and sync-declared callables returning awaitables follow the returned value's modality rather than their declaration shape, and each arm admits its own return contract at the fence — a veto answering anything but the payload rail and an observe tap answering an awaitable a sync delivery cannot drive each refuse there rather than escaping the fold that consumes them. Every delivery carries the fired point id beside the payload, so one tap fanned across a roster names which point it is reading.
-- Cases: `HookId` is the vocabulary SHAPE the mechanism owns while every package owns its members — a point id is a member of its own folder's `StrEnum` roster, so a bare string literal constructs no row, a fire seam re-spells no id, and the grammar gate still proves each member's value against the package-qualified pattern no enum membership can decide.
+- Cases: `Modality` is the closed delivery family — `veto` runs subscribers as a sequential sync transform-or-reject fold whose result returns to the emitter; `observe` runs each subscriber as a fenced sync or async tap whose fault lands on the fault window and the log line while the emitter's value passes through untouched; `replay` admits sync taps alone and retains the last `replay` payloads so attach drains the window before forward observation. Retained DEPTH rides the retaining arm alone and stays a point fact, so a non-retaining row cannot spell a window bound and the branch's live replay rows keep their three distinct depths. Callable instances and sync-declared callables returning awaitables follow the returned value's modality rather than their declaration shape, and each arm admits its own return contract at the fence — a veto answering anything but the payload result and an observe tap answering an awaitable a sync delivery cannot drive each refuse there rather than escaping the fold that consumes them. Every delivery carries the fired point id beside the payload, so one tap fanned across a roster names which point it is reading.
+- Cases: `HookId` is the vocabulary SHAPE the mechanism owns while every package owns its members — a point id is a member of its own folder's `StrEnum` roster, so a bare string literal constructs no row, a fire boundary re-spells no id, and the grammar gate still proves each member's value against the package-qualified pattern no enum membership can decide.
 - Law: `installed(owner, install, scope=...)` is the producer-install ledger and `installs(scope=...)` its total read; `points(scope=...)` is the membership probe over the point side, so a mounted roster carrying no install row names the leg that ran half.
 - Law: a producer's composition leg deposits its own install record here, runtime importing no producer folder to type one.
 - Law: an empty roster IS the diagnosis — no producer leg ran, so every `fired` call took the unregistered-id path.
 - Law: a producer claims its whole point table in ONE gated transition — the roster arm swaps the table only past its last admitted row and reports every breach together, so a refusal leaves custody exactly as it stood and no retire verb is owed against a half-mount the claim cannot produce.
 - Law: custody RETIRES whole — `release(scope=...)` drops one composition's points, taps, replay windows, install rows, and fault window in one gated swap and answers the `Released` verdict carrying both accounting windows, so an embedded runtime that shut down owns no id its re-admission then collides with and its counted losses leave with the value rather than dying with the tables.
 - Law: every lossy path COUNTS AND RECORDS — the replay trim and the isolated-fault window both park through the observe-owned `Ring`, and one `_counted` fold reads that ring's own MOVEMENT onto `rasm.runtime.hook.shed`/`.lost`, so an evicted fact and a fault the log line never carried are a number a capsule subtracts AND a series a board trends, exactly as the lane conduit already counts its authorized pulse drops. The record is a DELTA and lands outside the gate: a running total re-adds the window's whole history at every fire, and holding the registry lock across a metric write serializes every fire in the process behind one export-side write.
-- Law: `StageMark` is the ONE long-fold mark carrier every pulse point in the estate registers as its payload — position, units closed, units expected — so a producing lane declares no mark shape of its own and one tap reads every lane's progress. `stage` is ERASED at the point and CLOSED at the producer, each lane declaring its own `<Lane>Stage(StrEnum)` and passing `.value`, which keeps ONE payload type per registered point while the roster stays a producer-side type fact and no cross-lane phase ladder forms. `total` rides `Option` because a fold over a stream or an unbounded search knows no total, and a zero default publishes exactly the "no work" reading such a producer never took.
-- Entry: `register(points, scope=...)` and `subscribe(points, tap, scope=...)` fold arity off the request shape — one `HookPoint` or one point id serves that point, a `Block` serves the roster whole — so a producer claims and taps its point table at one grain and the roster-to-subscribe fold lives here rather than at every caller. Subscription answers the DETACHER: one `Attachment` per attached member, or a `Block` of them for a roster, each holding the member attach actually used so a bracket or an `AsyncExitStack` retires exactly what it opened. Registration swaps one gated table; subscription unwinds instead, closing every attachment it opened on the first refusal, because a replay row's retained drain runs outside the registry gate and no swap can cover it. `fire(point_id, payload)` is one polymorphic emitter surface — `_delivery` admits the payload, parks into any replay window, and snapshots taps once before the registered modality selects the sync arm; the async mirror `fire_async` consumes the same delivery result and awaits awaitable taps. An unregistered id is a fault on the rail, never a silent drop.
-- Auto: each registry read-modify-write and snapshot runs under the free-threading gate; tap execution never runs under it — fire-path delivery runs after release, and replay attach snapshots its window under the gate then drains it outside through a tap-local replay/forward barrier that queues concurrent forward payloads and flushes them after the retained window, so no forward payload overtakes retained facts. Replay attach is transactional: a drain fault — a raising tap or the sync contract breached by a returned awaitable — detaches the tap before the fence rails the refusal, so a half-drained subscriber never stays attached. Subscriber isolation is the `boundary`/`async_boundary` fence per tap — async delivery awaits any awaitable result, sync delivery closes a closeable awaitable before railing its modality fault, a veto answering anything but a rail refuses on that same fence so the fold never carries a value without rail members into the next member's `bind`, and a raising observe tap becomes a `BoundaryFault` parked as evidence and written as one `hook.isolated` line under the point id and original `ScopeKey`. That line rides its OWN fence: a refusing processor raising there would propagate out of the tap walk and out of `fire`, destroying the emitter value the isolation exists to protect, so a refused sink parks the same evidence and counts it instead. The emitter's rail stays `Ok`, and only a `veto` subscriber can reject. A fire runs under whatever span is active, so span correlation rides the emitter's `measured` weave and no hook opens a span of its own.
+- Law: `StageMark` is the ONE long-fold mark carrier every pulse point in the repo registers as its payload — position, units closed, units expected — so a producing lane declares no mark shape of its own and one tap reads every lane's progress. `stage` is ERASED at the point and CLOSED at the producer, each lane declaring its own `<Lane>Stage(StrEnum)` and passing `.value`, which keeps ONE payload type per registered point while the roster stays a producer-side type fact and no cross-lane phase ladder forms. `total` rides `Option` because a fold over a stream or an unbounded search knows no total, and a zero default publishes exactly the "no work" reading such a producer never took.
+- Entry: `register(points, scope=...)` and `subscribe(points, tap, scope=...)` fold arity off the request shape — one `HookPoint` or one point id serves that point, a `Block` serves the roster whole — so a producer claims and taps its point table at one grain and the roster-to-subscribe fold lives here rather than at every caller. Subscription answers the DETACHER: one `Attachment` per attached member, or a `Block` of them for a roster, each holding the member attach actually used so a bracket or an `AsyncExitStack` retires exactly what it opened. Registration swaps one gated table; subscription unwinds instead, closing every attachment it opened on the first refusal, because a replay row's retained drain runs outside the registry gate and no swap can cover it. `fire(point_id, payload)` is one polymorphic emitter surface — `_delivery` admits the payload, parks into any replay window, and snapshots taps once before the registered modality selects the sync arm; the async mirror `fire_async` consumes the same delivery result and awaits awaitable taps. An unregistered id is a fault on the result, never a silent drop.
+- Auto: each registry read-modify-write and snapshot runs under the free-threading gate; tap execution never runs under it — fire-path delivery runs after release, and replay attach snapshots its window under the gate then drains it outside through a tap-local replay/forward barrier that queues concurrent forward payloads and flushes them after the retained window, so no forward payload overtakes retained facts. Replay attach is transactional: a drain fault — a raising tap or the sync contract breached by a returned awaitable — detaches the tap before the fence returns the refusal, so a half-drained subscriber never stays attached. Subscriber isolation is the `boundary`/`async_boundary` fence per tap — async delivery awaits any awaitable result, sync delivery closes a closeable awaitable before refusing its modality fault, a veto answering anything but a result refuses on that same fence so the fold never carries a value without result members into the next member's `bind`, and a raising observe tap becomes a `BoundaryFault` parked as evidence and written as one `hook.isolated` line under the point id and original `ScopeKey`. That line rides its OWN fence: a refusing processor raising there would propagate out of the tap walk and out of `fire`, destroying the emitter value the isolation exists to protect, so a refused sink parks the same evidence and counts it instead. The emitter's result stays `Ok`, and only a `veto` subscriber can reject. A fire runs under whatever span is active, so span correlation rides the emitter's `measured` weave and no hook opens a span of its own.
 - Output: `TapRow` is the built-in tap family through the one subscribe door — the `log` case writes each payload as one scope-bound line under the point id, the `metrics` case projects the payload's numeric measures onto the `Metrics.record` mapping arm — so metrics and log lines are projections of the same fired fact under the SAME composition key the subscription carries, where two independent scope arguments could partition one fact's evidence planes across compositions. Each case binds a named member the returned `Attachment` detaches by identity, so no built-in reaches the registry as a lambda nothing holds. `replayed` projects every retaining point, including an empty window, as bounded data for the bundle capsule beside what its trim shed, and `faults` projects this composition's isolation window the same way.
-- Packages: `msgspec` (payload rows, `structs.asdict`), `expression` (`Block`/`Map`/`Option`, `@tagged_union`, the rail), runtime (the rostered `HOOKS_*` fence rows beside `boundary`/`async_boundary`/`BoundaryFault`, `Ring`/`logger`, `Metrics`), stdlib (`re`, `StrEnum`, `RLock`).
-- Growth: a new long fold reporting progress is one `<Lane>Stage(StrEnum)` at its own producer and one `HookPoint(id=…, payload=StageMark, modality=Modality(observe=None))` row — the carrier, the tap, and the capsule projection are untouched; a new hook point is one `HookPoint` row registered at composition and a producer's whole table is one `Block` through the same entry, tapped through the same shape; a new point id is one member on its package's own roster, never a literal at a fire seam; a new payload field is one `Struct` field every tap reads through the same `asdict` projection; a new modality is one `Modality` case with one arm on each `fire` surface, the standing `assert_never` arm breaking every surface that lacks it; a new built-in tap is one `TapRow` case with its own `bound` arm; a new producer install is one `installed` deposit inside its own leg; a new composition is one `ScopeKey` value threaded through the `scope` keyword and retired through one `release`, never a sibling registry.
+- Packages: `msgspec` (payload rows, `structs.asdict`), `expression` (`Block`/`Map`/`Option`, `@tagged_union`, the result), runtime (the rostered `HOOKS_*` fence rows beside `boundary`/`async_boundary`/`BoundaryFault`, `Ring`/`logger`, `Metrics`), stdlib (`re`, `StrEnum`, `RLock`).
+- Growth: a new long fold reporting progress is one `<Lane>Stage(StrEnum)` at its own producer and one `HookPoint(id=…, payload=StageMark, modality=Modality(observe=None))` row — the carrier, the tap, and the capsule projection are untouched; a new hook point is one `HookPoint` row registered at composition and a producer's whole table is one `Block` through the same entry, tapped through the same shape; a new point id is one member on its package's own roster, never a literal at a fire boundary; a new payload field is one `Struct` field every tap reads through the same `asdict` projection; a new modality is one `Modality` case with one arm on each `fire` surface, the standing `assert_never` arm breaking every surface that lacks it; a new built-in tap is one `TapRow` case with its own `bound` arm; a new producer install is one `installed` deposit inside its own leg; a new composition is one `ScopeKey` value threaded through the `scope` keyword and retired through one `release`, never a sibling registry.
 - Law: every fence resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.HOOKS` — register, release, subscribe, payload admission, the tap walk, and the isolation sink — and the tap, subscribe, and isolation fences keep the plane's catch-all with the reason stated — a subscriber is caller code whose raise surface no registry can roster, and a leak destroys the emitter value the isolation exists to protect. The FIRED point leaves the fault subject and rides the isolated line's `point` field, which is where a reader already collects it.
 - Boundary: the registry composes the observe and metrics owners and adds no second egress — a subscriber that needs OTLP reaches it through the taps, and a library registers points while only the app root registers subscribers.
 
@@ -49,7 +49,7 @@ from rasm.runtime.faults import (
     HOOKS_SUBSCRIBE,
     HOOKS_TAP,
     BoundaryFault,
-    RuntimeRail,
+    RuntimeResult,
     async_boundary,
     boundary,
 )
@@ -61,7 +61,7 @@ from rasm.runtime.observe import DEFAULT_SCOPE, Ring, ScopeKey, logger
 type HookId = StrEnum
 
 type Tap[P: Struct] = Callable[[HookId, P], object | Awaitable[object]]
-type Veto[P: Struct] = Callable[[HookId, P], RuntimeRail[P]]
+type Veto[P: Struct] = Callable[[HookId, P], RuntimeResult[P]]
 
 
 @tagged_union(frozen=True)
@@ -187,15 +187,15 @@ class Hooks:
 
     @overload
     @classmethod
-    def register(cls, points: HookPoint[Struct], *, scope: ScopeKey = ...) -> RuntimeRail[HookPoint[Struct]]: ...
+    def register(cls, points: HookPoint[Struct], *, scope: ScopeKey = ...) -> RuntimeResult[HookPoint[Struct]]: ...
     @overload
     @classmethod
-    def register(cls, points: Block[HookPoint[Struct]], *, scope: ScopeKey = ...) -> RuntimeRail[Block[HookPoint[Struct]]]: ...
+    def register(cls, points: Block[HookPoint[Struct]], *, scope: ScopeKey = ...) -> RuntimeResult[Block[HookPoint[Struct]]]: ...
 
     @classmethod
     def register(
         cls, points: HookPoint[Struct] | Block[HookPoint[Struct]], *, scope: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[HookPoint[Struct] | Block[HookPoint[Struct]]]:
+    ) -> RuntimeResult[HookPoint[Struct] | Block[HookPoint[Struct]]]:
         def admitted() -> HookPoint[Struct] | Block[HookPoint[Struct]]:
             roster = points if isinstance(points, Block) else Block.singleton(points)
             with cls._gate:
@@ -233,7 +233,7 @@ class Hooks:
             return cls._scoped(cls._installs, scope)
 
     @classmethod
-    def release(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Released]:
+    def release(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[Released]:
         def retired() -> Released:
             with cls._gate:
                 points, installs = cls._scoped(cls._points, scope), cls._scoped(cls._installs, scope)
@@ -268,17 +268,17 @@ class Hooks:
 
     @overload
     @classmethod
-    def subscribe[P: Struct](cls, points: HookId, tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = ...) -> RuntimeRail[Attachment]: ...
+    def subscribe[P: Struct](cls, points: HookId, tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = ...) -> RuntimeResult[Attachment]: ...
     @overload
     @classmethod
     def subscribe[P: Struct](
         cls, points: Block[HookPoint[Struct]], tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = ...
-    ) -> RuntimeRail[Block[Attachment]]: ...
+    ) -> RuntimeResult[Block[Attachment]]: ...
 
     @classmethod
     def subscribe[P: Struct](
         cls, points: HookId | Block[HookPoint[Struct]], tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[Attachment] | RuntimeRail[Block[Attachment]]:
+    ) -> RuntimeResult[Attachment] | RuntimeResult[Block[Attachment]]:
         member: Tap[Struct] | Veto[Struct] = tap.bound(scope) if isinstance(tap, TapRow) else tap
         match points:
             case StrEnum() as point_id:
@@ -296,7 +296,7 @@ class Hooks:
                 return Ok(held)
 
     @classmethod
-    def _subscribed(cls, point_id: HookId, member: Tap[Struct] | Veto[Struct], scope: ScopeKey) -> RuntimeRail[Attachment]:
+    def _subscribed(cls, point_id: HookId, member: Tap[Struct] | Veto[Struct], scope: ScopeKey) -> RuntimeResult[Attachment]:
         def attached() -> Attachment:
             with cls._gate:
                 row = cls._scoped(cls._points, scope)[point_id]
@@ -329,7 +329,7 @@ class Hooks:
             Metrics.record(measures, domain=DOMAIN, kind=point_id.value, scope=scope)
 
     @classmethod
-    def _point[P: Struct](cls, point_id: HookId, payload: P, scope: ScopeKey) -> RuntimeRail[HookPoint[Struct]]:
+    def _point[P: Struct](cls, point_id: HookId, payload: P, scope: ScopeKey) -> RuntimeResult[HookPoint[Struct]]:
         def checked() -> HookPoint[Struct]:
             with cls._gate:
                 row = cls._scoped(cls._points, scope)[point_id]
@@ -342,7 +342,7 @@ class Hooks:
     @classmethod
     def _delivery[P: Struct](
         cls, point_id: HookId, payload: P, scope: ScopeKey
-    ) -> RuntimeRail[tuple[HookPoint[Struct], Block[Tap[Struct] | Veto[Struct]]]]:
+    ) -> RuntimeResult[tuple[HookPoint[Struct], Block[Tap[Struct] | Veto[Struct]]]]:
         match cls._point(point_id, payload, scope):
             case Result(tag="error") as refused:
                 return refused
@@ -360,21 +360,21 @@ class Hooks:
                 return Ok((row, taps))
 
     @staticmethod
-    def _veto_tap(veto: Tap[Struct] | Veto[Struct], point_id: HookId, payload: Struct) -> RuntimeRail[Struct]:
+    def _veto_tap(veto: Tap[Struct] | Veto[Struct], point_id: HookId, payload: Struct) -> RuntimeResult[Struct]:
         returned = veto(point_id, payload)
         if isinstance(returned, Result):
             return returned
-        raise TypeError(f"veto hook {point_id!r} must return the payload rail")
+        raise TypeError(f"veto hook {point_id!r} must return the payload result")
 
     @classmethod
-    def _vetoed[P: Struct](cls, point_id: HookId, payload: P, taps: Block[Tap[Struct] | Veto[Struct]]) -> RuntimeRail[P]:
+    def _vetoed[P: Struct](cls, point_id: HookId, payload: P, taps: Block[Tap[Struct] | Veto[Struct]]) -> RuntimeResult[P]:
         return taps.fold(
-            lambda rail, veto: rail.bind(lambda live: boundary(HOOKS_TAP, lambda: cls._veto_tap(veto, point_id, live), catch=Exception).bind(lambda r: r)),
+            lambda held, veto: held.bind(lambda live: boundary(HOOKS_TAP, lambda: cls._veto_tap(veto, point_id, live), catch=Exception).bind(lambda r: r)),
             Ok(payload),
         )
 
     @classmethod
-    def fire[P: Struct](cls, point_id: HookId, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[P]:
+    def fire[P: Struct](cls, point_id: HookId, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[P]:
         match cls._delivery(point_id, payload, scope):
             case Result(tag="error") as refused:
                 return refused
@@ -388,7 +388,7 @@ class Hooks:
                 assert_never(unreachable)
 
     @classmethod
-    async def fire_async[P: Struct](cls, point_id: HookId, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[P]:
+    async def fire_async[P: Struct](cls, point_id: HookId, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[P]:
         match cls._delivery(point_id, payload, scope):
             case Result(tag="error") as refused:
                 return refused

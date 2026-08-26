@@ -10,8 +10,8 @@
 | :-----: | :--------------------------- | :------------ | :------------------------------------------ |
 |  [01]   | `BinarySerializerBuilder`    | class         | `Schema` → compiled `BinarySerializer<T>`   |
 |  [02]   | `BinaryDeserializerBuilder`  | class         | `Schema` → compiled `BinaryDeserializer<T>` |
-|  [03]   | `IBinarySerializerBuilder`   | interface     | `BuildDelegateExpression<T>(Schema)` seam   |
-|  [04]   | `IBinaryDeserializerBuilder` | interface     | `BuildDelegateExpression<T>(Schema)` seam   |
+|  [03]   | `IBinarySerializerBuilder`   | interface     | `BuildDelegateExpression<T>(Schema)` entry  |
+|  [04]   | `IBinaryDeserializerBuilder` | interface     | `BuildDelegateExpression<T>(Schema)` entry  |
 |  [05]   | `BinarySerializer<T>`        | delegate      | `void (T, BinaryWriter)`                    |
 |  [06]   | `BinaryDeserializer<T>`      | delegate      | `T (ref BinaryReader)`                      |
 

@@ -2,7 +2,7 @@
 
 `Removal.Verify` owns post-program stock truth: one admitted `VerifyPolicy` materializes stock and target through the shared voxel runtime, folds setup-framed cutter sweeps and non-cutting body membership over actual stock, and projects residual stock, snapshots, signed surface deviation, and tolerance evidence onto `FabricationResult.VerificationResult` before writing its mounted instruments.
 
-`FabricationPolicy.Verify`, `VoxelWire`, `ToolMagazine.HolderEnvelope`, `StockSnapshot`, `ContentKey.Of`, and the mounted removal instrument rows remain frozen seams. Arc geometry reads the S0 atom's own admitted `SweepRadians` and `Radius`, loop identity reads `Loop.CanonicalBytes`, byte framing reads `FabricationCanon`, and native handles terminate inside one exception-capture and disposal capsule; only process atoms leave the Verify plane.
+`FabricationPolicy.Verify`, `VoxelWire`, `ToolMagazine.HolderEnvelope`, `StockSnapshot`, `ContentKey.Of`, and the mounted removal instrument rows remain frozen contracts. Arc geometry reads the S0 atom's own admitted `SweepRadians` and `Radius`, loop identity reads `Loop.CanonicalBytes`, byte framing reads `FabricationCanon`, and native handles terminate inside one exception-capture and disposal capsule; only process atoms leave the Verify plane.
 
 ## [01]-[INDEX]
 
@@ -115,7 +115,6 @@ public sealed partial class SetupWindow {
     public int Count { get; }
     public Plane Frame { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int setup,
@@ -162,7 +161,6 @@ public sealed partial class VerifyPolicy {
 
     public double SilhouetteMm => VoxelSize.Millimeters * 0.5;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FabricationResult.Motion motion,
@@ -716,7 +714,7 @@ public static class Removal {
 - Law: identity reads the S0 owners whole. `Loop.CanonicalBytes` is THE loop preimage — rotation-canonical and tolerance-quantized — and `FabricationCanon` is THE framing family and both of its closes, so this page declares no rotation rule, no coordinate writer, no presence tag, no hex render inside a preimage, and no writer mint of its own. Residual loops order by their own canonical origin and area under a stable sort, so a re-rooted section cannot fork one snapshot key.
 - Auto: barycentric draws come from `Deterministic.UnitInterval` on the face centroid over two streams, so the field reproduces bit-identically and the pair stays uncorrelated; Boolean volume deltas remain the independent conservation check and neither scalar path substitutes for the other.
 - Exemption: `Surface` folds the cumulative-area prefix and `ResidualLoops` welds extracted native vertices — the two native statement kernels here. Both walk `PicoGK.Mesh.GetTriangle`, an out-parameter call per triangle with no batched or spanned form, so the prefix scan and the vertex weld are statement bodies for the ABI's sake and not for the arithmetic's; the sample draw over that prefix is an ordinary sequence fold.
-- Law: every setup snapshot key closes through `FabricationCanon.Keyed` — the ONE retaining mint over the `Rasm.Element` codec, answering on the `Fin` rail — framing stock lineage, motion, setup and tool frames, tool assembly identity, cutter policy, the acceptance bands, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two. The circular arm writes `SweepRadians`, so a full-turn arc and its zero-sweep twin keep distinct keys.
+- Law: every setup snapshot key closes through `FabricationCanon.Keyed` — the ONE retaining mint over the `Rasm.Element` codec, answering on the `Fin` result — framing stock lineage, motion, setup and tool frames, tool assembly identity, cutter policy, the acceptance bands, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two. The circular arm writes `SweepRadians`, so a full-turn arc and its zero-sweep twin keep distinct keys.
 - Boundary: `ResidualLoops` reuses one Rhino vertex index per extracted native vertex before plane intersection; provider geometry terminates here.
 
 ```csharp
@@ -890,8 +888,8 @@ public static partial class Removal {
 
 ## [05]-[VERDICT]
 
-- Owner: `Project` adjudicates the finding set against the admitted tolerance, mints the residual stock, and closes on `FabricationResult.VerificationResult`; `Fired` is the one emission seam.
-- Law: a verified program that missed its band is a RESULT with `Clean` false, not a failed rail — the atom carries the volumes, the ratio, and the gouge witnesses precisely so the consumer reads the verdict. Only a physical strike, an out-of-band gouge, or surface evidence too sparse to support any claim invalidates the run, and the volume tolerance floors at the one voxel the field can resolve.
+- Owner: `Project` adjudicates the finding set against the admitted tolerance, mints the residual stock, and closes on `FabricationResult.VerificationResult`; `Fired` is the one emission port.
+- Law: a verified program that missed its band is a RESULT with `Clean` false, not a failure — the atom carries the volumes, the ratio, and the gouge witnesses precisely so the consumer reads the verdict. Only a physical strike, an out-of-band gouge, or surface evidence too sparse to support any claim invalidates the run, and the volume tolerance floors at the one voxel the field can resolve.
 - Entry: `Removal.Verify` returns the concrete `FabricationResult.VerificationResult`, so the run spine's synchronous lift binds it directly and the instrument writes read its typed columns without a downcast.
 - Auto: the settled `VerificationResult` writes its gouge verdict, gouge count, uncut and overcut volume, and air-cut ratio onto `FabricationInstruments.RemovalVerifications`, `RemovalDefects`, `RemovalResidual`, and `RemovalAirCut` at the site (`Process/telemetry#OBSERVE`); the set defaults absent, so a headless verification pays no branch.
 - Output: `FabricationResult.VerificationResult` carries residual stock, per-setup snapshots, gouge witnesses, both residue volumes, the air-cut ratio, and the voxel-derived volume tolerance its own `Clean` verdict reads.

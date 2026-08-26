@@ -101,7 +101,7 @@ const Transport: {
 - Law: `tenancy` carries no column on any Dial family because NEITHER decides it — a profile selects the row and tenancy realizes through `Carrier.promote`, so a cell here states by guess what a live owner already answers.
 - Law: one discriminated adapter family closes supported pairs at construction — `web` admits Connect and gRPC-Web, `node` admits Connect, gRPC-Web, and gRPC; `web + grpc` has no schema arm, no type, and no runtime guard.
 - Law: adapters expose the package's public `Transport` factories behind one typed capability; `web` binds `@connectrpc/connect-web`, while runtime supplies the scoped `node` capability built with `@connectrpc/connect-node` and its HTTP/2 manager.
-- Law: a lane naming an adapter the seam did not hand in refuses at `Dial` construction as `drift` on the `adapter` arm — a capability refusal naming the axis, never a guarded path a lane falls through at first dial.
+- Law: a lane naming an adapter the adapter set did not hand in refuses at `Dial` construction as `drift` on the `adapter` arm — a capability refusal naming the axis, never a guarded path a lane falls through at first dial.
 - Law: every adapter, protocol, and hop grades through `Wire.Hops` — the retry gate reads `Fault.Class.retryable` off that one row, so a `Code.Unauthenticated` spends no attempt and a second grading beside it is unspellable.
 - Law: a lane names the `value/fault#RETRY_BUDGET` row it recovers on, so recovery geometry has one owner and the ladder spends that row's compiled schedule and attempt ceiling.
 - Law: Deadlines end a call at the attempt bound and the plan at the total bound; a stream ends with the scope its caller opened.
@@ -174,7 +174,7 @@ declare namespace Dial {
     readonly factories: Factories<K>
   }
   type Config = Schema.Schema.Type<typeof _DialConfig>
-  type Seam = {
+  type Adapters = {
     readonly web: Option.Option<Adapter<"web">>
     readonly node: Option.Option<Adapter<"node">>
     readonly interceptors: ReadonlyArray<Interceptor>
@@ -267,10 +267,10 @@ const _retries: Predicate.Predicate<unknown> = (fault) =>
   (fault instanceof Wire.Remote && fault.retryable)
   || (fault instanceof Wire.Transport && Fault.Class.retryable(fault.class))
 
-const _policy = (config: Dial.Config, seam: Dial.Seam): Dial.Policy => ({
+const _policy = (config: Dial.Config, adapters: Dial.Adapters): Dial.Policy => ({
   baseUrl: config.baseUrl,
   useBinaryFormat: config.useBinaryFormat,
-  interceptors: seam.interceptors,
+  interceptors: adapters.interceptors,
   defaultTimeoutMs: Duration.toMillis(config.transport.attempt),
   readMaxBytes: Shape.Ingress.floor.bytes,
   writeMaxBytes: Shape.Ingress.floor.bytes,
@@ -278,22 +278,22 @@ const _policy = (config: Dial.Config, seam: Dial.Seam): Dial.Policy => ({
 
 const _selected = (
   policy: Dial.Policy,
-  seam: Dial.Seam,
+  adapters: Dial.Adapters,
   lane: Dial.Lane,
 ): Option.Option<ConnectTransport> =>
   Match.value(lane).pipe(
     Match.discriminatorsExhaustive("adapter")({
-      web: (selected) => Option.map(seam.web, (adapter) => adapter.factories[selected.protocol](policy)),
-      node: (selected) => Option.map(seam.node, (adapter) => adapter.factories[selected.protocol](policy)),
+      web: (selected) => Option.map(adapters.web, (adapter) => adapter.factories[selected.protocol](policy)),
+      node: (selected) => Option.map(adapters.node, (adapter) => adapter.factories[selected.protocol](policy)),
     }),
   )
 
 class Dial extends Effect.Service<Dial>()("@rasm/core/Dial", {
-  effect: (config: Dial.Config, seam: Dial.Seam) =>
+  effect: (config: Dial.Config, adapters: Dial.Adapters) =>
     Effect.gen(function* () {
-      const policy = _policy(config, seam)
+      const policy = _policy(config, adapters)
       const resolved = yield* Effect.forEach(config.lanes, (row) =>
-        Option.match(_selected(policy, seam, row), {
+        Option.match(_selected(policy, adapters, row), {
           onNone: () => Effect.fail(_unserved(row)),
           onSome: (transport) => Effect.succeed([row, transport] as const),
         }))
@@ -329,7 +329,7 @@ type _DialAdapter<K extends _DialAdapterKind> = Dial.Adapter<K>
 type _DialConfig = Dial.Config
 type _DialLane = Dial.Lane
 type _DialPolicy = Dial.Policy
-type _DialSeam = Dial.Seam
+type _DialAdapters = Dial.Adapters
 ```
 
 ## [04]-[CAPABILITY_BIND]
@@ -583,7 +583,7 @@ abstract class Capability {
 - Owner: `Gateway.make` compiles one command table into value, JSON-byte, MessagePack-socket, and NDJSON-socket adapters.
 - Law: each row binds one payload schema, output schema, and handler; the row table derives both closed wire unions.
 - Law: every adapter decodes an invocation, delegates to `dispatch`, and encodes the full `Granted | Refused` outcome.
-- Law: command bodies are the generated `CommandInvocation` — the corpus's five-arm `CommandPayloadWire` and nothing beside it; tenant and clock context remain on the carrier and interceptor rails.
+- Law: command bodies are the generated `CommandInvocation` — the corpus's five-arm `CommandPayloadWire` and nothing beside it; tenant and clock context remain on the carrier and interceptor paths.
 - Boundary: `Invoke.AvailabilityGate` supplies verdicts, and the runtime supplies socket acquisition and serving lifetime.
 
 ```typescript
@@ -773,7 +773,7 @@ const Gateway: {
 - Law: this owner is the whole client fence of the corpus `compute-rpc` `watch-request` and `watch-response` cases; the serving half is the Compute stream and no second reader of that stream exists here.
 - Law: `Evidence.Tally` at `state/evidence#PROGRESS_FOLD` counts done units against a total over an operation tree and shares NO column with this frame — phase, fraction, and segment count are this stream's axes alone.
 - Law: the phase correspondence is derived from the generated enum, never paired by hand — rows key on every defined member lowered and each cell carries that member's own ordinal, so a tenth corpus member and a mis-paired cell both break at the table's contract.
-- Law: an arriving ordinal no row names refuses on the parse rail naming the value; `defined_only` and `not_in: [0]` already refuse it at the peer, so this arm answers the type's remainder rather than gating a second time.
+- Law: an arriving ordinal no row names refuses on the parse path naming the value; `defined_only` and `not_in: [0]` already refuse it at the peer, so this arm answers the type's remainder rather than gating a second time.
 - Law: `fraction` and `segments` lift the generated presence posture — protoc-gen-es v2 emits `fraction?: number | undefined` and `segments?: bigint | undefined` — through `Option.fromNullable` at ONE seat, so a zero stays the measurement the producer sent.
 - Law: the `[0, 1]` fraction bound and the sixteen-byte correlation width are corpus rules proved at `Format.proto.message`; a branch filter restating either is the deleted form.
 - Law: `correlation` lands as the same unbranded sixteen-byte carrier `Wire.RemoteDetail.correlation` and the `EvidenceTimelineWire` landing carry, so the request argument and the mark column read one spelling.
@@ -905,7 +905,7 @@ declare namespace Invoke {
     type Config = _DialConfig
     type Lane = _DialLane
     type Policy = _DialPolicy
-    type Seam = _DialSeam
+    type Adapters = _DialAdapters
   }
   namespace Progress {
     type Mark = _ProgressMark

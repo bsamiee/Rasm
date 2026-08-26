@@ -43,7 +43,7 @@
 ## [05]-[WALK]
 
 - Law: each connected component walks independently, so the binding limit is component-local and one narrow channel never collapses engagement across the whole part.
-- Law: the component descent is ONE `DepthFirstSearchAlgorithm` run — `OutEdgesFilter` carries the deterministic child order, `EdgeRecorderObserver` records the tree edges in discovery order, and `VertexPredecessorRecorderObserver` records the parent map the return legs ascend, both attached over the disposable scope the observer seam returns. The emitted guide is the Euler walk of that tree, so consecutive guide vertices stay adjacent and a hand recursive descent with its unbounded depth is the deleted form.
+- Law: the component descent is ONE `DepthFirstSearchAlgorithm` run — `OutEdgesFilter` carries the deterministic child order, `EdgeRecorderObserver` records the tree edges in discovery order, and `VertexPredecessorRecorderObserver` records the parent map the return legs ascend, both attached over the disposable scope the observer port returns. The emitted guide is the Euler walk of that tree, so consecutive guide vertices stay adjacent and a hand recursive descent with its unbounded depth is the deleted form.
 - Law: `ElementVariant.Of` derives the walk's rotation penalty, thermal exposure, and pierce count off emitted motion at the link owner, so a placeholder and a page-local re-derivation are both deleted forms; `CutElement.Identify` mints the key from the component, its origin edges, and the run ordinal.
 - Entry: `Skeleton.Walk(SkeletonDemand)` is the only operation.
 - Entry: `SkeletonBench.Workload` builds the `skeleton-offset` measured demand from literal ordinals — a multi-component chain graph with per-channel clearance bands over an injected cutter and engagement — and `SkeletonBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.SkeletonOffset`; measurement and benchmark projection stay the bench edge's under the AppHost claim-field map.
@@ -258,7 +258,6 @@ public sealed partial class SkeletonDemand {
         Validate(stock, graph, cutter, engagement, sense, strategy, modality, SkeletonTopology.Of(graph), measuredLoad,
             out SkeletonDemand demand).Admitted(demand);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ArcForest stock,

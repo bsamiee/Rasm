@@ -5,7 +5,7 @@
 ```text
 libs/python/
 ├── runtime/    # Host-free execution foundation four siblings compose
-├── compute/    # Offline scientific evidence that graduates through one rail
+├── compute/    # Offline scientific evidence that graduates through one result
 ├── data/       # Portable data interchange: tabular, spatial, gridded, graph
 ├── geometry/   # Host-free geometry + IFC/BIM production and cross-boundary owner
 ├── artifacts/  # Publication and print-production engine
@@ -16,7 +16,7 @@ libs/python/
 
 Cross-package coupling is a published boundary import or a content-keyed wire; no package imports another's interior.
 
-- S0 `runtime` — imports no sibling and mints every shared rail exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
+- S0 `runtime` — imports no sibling and mints every shared result exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
 - S1 `cad` — plane-distinct exact-modeling provider over the import root and runtime's `transport/artifact` alone; no sibling imports its owners.
 - S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
 - S2 `compute` + `geometry` — peers over runtime and data; each retains canonical results and composes runtime observation.
@@ -70,7 +70,7 @@ flowchart TB
     Cad e16@-.->|"[WIRE]: CadService"| Geometry
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation descriptor payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`; its serving-population reference crosses separately as `GraduationEnvelope`.
 
@@ -83,7 +83,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Python branch C# seam registry
+    accTitle: Python branch C# interface registry
     accDescr: Python packages exchanging kinded contract shapes with their C# counterparts; every edge carries kind plus shape.
     subgraph python[LIBS/PYTHON]
         Geometry[geometry]
@@ -123,7 +123,7 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-Compute evidence crosses outward through compute's graduation owner, where `HandoffAxis` carries admitted output to the egress and reverse `EvidenceBundle` data decodes. Geometry results remain on their producing domain types and use geometry's runtime observation seam.
+Compute evidence crosses outward through compute's graduation owner, where `HandoffAxis` carries admitted output to the egress and reverse `EvidenceBundle` data decodes. Geometry results remain on their producing domain types and use geometry's runtime observation boundary.
 
 ```mermaid
 ---
@@ -142,9 +142,9 @@ flowchart LR
     Egress e5@-.->|"EvidenceBundle"| Hub
 ```
 
-Telemetry converges on runtime's observability owner: `Hooks` registers package-owned typed facts, one `INSTRUMENTS` table owns every instrument as a row, `Journal` owns the append-only evidence plane behind the `Ledger` port, and `Telemetry` alone installs OTLP egress. Each operation keeps its canonical result, and its owning instrumentation seam projects hook payloads and signal values from that result. `Journal` records durable chronological facts at the nearest async producer fold.
+Telemetry converges on runtime's observability owner: `Hooks` registers package-owned typed facts, one `INSTRUMENTS` table owns every instrument as a row, `Journal` owns the append-only evidence plane behind the `Ledger` port, and `Telemetry` alone installs OTLP egress. Each operation keeps its canonical result, and its owning instrumentation boundary projects hook payloads and signal values from that result. `Journal` records durable chronological facts at the nearest async producer fold.
 
-`data` alone custodies the analytics residences that outlive a series window: it implements the `Ledger` port over its own commit and scan owners for the S4 root to bind and rows each durable journal plane on that matrix.
+`data` alone custodies the analytics stores that outlive a series window: it implements the `Ledger` port over its own commit and scan owners for the S4 root to bind and rows each durable journal plane on that matrix.
 
 ```mermaid
 ---
@@ -165,13 +165,13 @@ flowchart LR
         Telemetry[Telemetry install]
     end
     Ledger[(data tabular · Ledger impl)]
-    Residence[(data tabular · analytics residence)]
+    Store[(data tabular · analytics store)]
     Egress([OTLP transport])
     Results e1@-->|"project: typed fact"| Hooks
     Results e7@-->|"record: durable fact"| Journal
     Hooks e3@-->|"taps"| Instruments
     Journal e8@-->|"[PORT]: Ledger"| Ledger
-    Ledger e9@-->|"land: journal rows"| Residence
+    Ledger e9@-->|"land: journal rows"| Store
     Instruments e5@-->|"metered series"| Telemetry
     Telemetry e6@-->|"OTLP"| Egress
 ```
@@ -188,10 +188,10 @@ flowchart LR
 |  [06]   | a durable evidence fact             | `runtime/observability/journal.py`  | one `Fact` case beside its `Retain` class        |
 |  [07]   | a metered resource                  | `runtime/observability/journal.py`  | one `Resource` row in both branch spellings      |
 |  [08]   | a retention class                   | `runtime/observability/journal.py`  | one `Retain` member with its window row          |
-|  [09]   | an analytics residence              | `data/tabular/lakehouse.py`         | one row answering the estate residence floor     |
+|  [09]   | an analytics store                  | `data/tabular/lakehouse.py`         | one row answering the repo store floor           |
 |  [10]   | a remote columnar query end         | `data/tabular/query.py`             | one `RemoteDriver` row on the one Flight plane   |
 |  [11]   | a graded benchmark subject          | `runtime/observability/profiles.py` | one roster row at the owning folder              |
-|  [12]   | a store-reaching residence consumer | `runtime/transport/roots.py`        | one `store_handle` call carrying config+provider |
+|  [12]   | a store-reaching store consumer     | `runtime/transport/roots.py`        | one `store_handle` call carrying config+provider |
 
 ## [06]-[ADMISSION_POLICY]
 

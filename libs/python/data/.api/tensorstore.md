@@ -1,10 +1,10 @@
 # [PY_DATA_API_TENSORSTORE]
 
-`tensorstore` owns the asynchronous zarr-v3 array backend for the data rail: one `open` factory resolves a JSON/`Spec` driver configuration into a `Future[TensorStore]`, and `read`/`write` return awaitable `Future`/`WriteFutures` the data owner consumes with `await`. It holds chunked codec, sharding, and cache-coherence behind the `KvStore` backend abstraction, so backend selection is a `Spec` row and the owner never re-implements the array-store rail.
+`tensorstore` owns the asynchronous zarr-v3 array backend for the data domain: one `open` factory resolves a JSON/`Spec` driver configuration into a `Future[TensorStore]`, and `read`/`write` return awaitable `Future`/`WriteFutures` the data owner consumes with `await`. It holds chunked codec, sharding, and cache-coherence behind the `KvStore` backend abstraction, so backend selection is a `Spec` row and the owner never re-implements the array-store domain.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: array handle, spec, index space, and async rail
+[PUBLIC_TYPE_SCOPE]: array handle, spec, index space, and async path
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                      |
 | :-----: | :--------------- | :------------ | :---------------------------------------------------------------- |
@@ -27,10 +27,10 @@
 |  [17]   | `newaxis`        | index space   | alias for `None` adding a singleton dimension in indexing         |
 |  [18]   | `Unit`           | metadata      | physical quantity/unit for a dimension                            |
 |  [19]   | `dtype`          | data type     | TensorStore data type bridging the NumPy dtype                    |
-|  [20]   | `Future`         | async rail    | awaitable handle for an asynchronous result                       |
-|  [21]   | `WriteFutures`   | async rail    | write handle bundling `copy` and `commit` futures                 |
-|  [22]   | `Promise`        | async rail    | producer side of a `Future`                                       |
-|  [23]   | `FutureLike`     | async rail    | generic possibly-asynchronous-result type for callbacks           |
+|  [20]   | `Future`         | async path    | awaitable handle for an asynchronous result                       |
+|  [21]   | `WriteFutures`   | async path    | write handle bundling `copy` and `commit` futures                 |
+|  [22]   | `Promise`        | async path    | producer side of a `Future`                                       |
+|  [23]   | `FutureLike`     | async path    | generic possibly-asynchronous-result type for callbacks           |
 
 ## [02]-[ENTRYPOINTS]
 
@@ -53,7 +53,7 @@
 
 [ENTRYPOINT_SCOPE]: `TensorStore` async I/O and views
 
-`read`/`write` are the await-native async rail (`data = await store.read()`; `await store.write(array)`); `resolve`/`resize`/`storage_statistics` return a `Future`, and the indexing, label, transpose, translate, and transaction-binding methods return a synchronous virtual `TensorStore` view.
+`read`/`write` are the await-native async path (`data = await store.read()`; `await store.write(array)`); `resolve`/`resize`/`storage_statistics` return a `Future`, and the indexing, label, transpose, translate, and transaction-binding methods return a synchronous virtual `TensorStore` view.
 
 | [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                |
 | :-----: | :------------------------------------------------------------------ | :------------------------------------------ |
@@ -96,7 +96,7 @@ Each property reads the resolved schema after `open`; `origin`/`shape`/`size`, `
 |  [12]   | `transaction`                    | `Transaction \| None`                         | bound transaction                            |
 |  [13]   | `readable` / `writable` / `mode` | `bool` / `bool` / `str`                       | read/write capability flags and mode string  |
 
-[ENTRYPOINT_SCOPE]: async rail and storage
+[ENTRYPOINT_SCOPE]: async path and storage
 
 `await future` returns the value or raises the captured error; `WriteFutures` forwards the `Future` interface to its `commit` future. `KvStore` is the byte-keyed surface the `zarr3` driver reads and writes through; `Transaction` stages modifications for an atomic commit.
 
@@ -135,10 +135,10 @@ Each property reads the resolved schema after `open`; `origin`/`shape`/`size`, `
 - `zarr`(`.api/zarr.md`): the `zarr3` driver opens the identical on-disk chunk/codec layout `zarr` writes, so a zarr-written store is a tensorstore-readable store with no conversion.
 - `icechunk`(`.api/icechunk.md`): the `zarr3` driver reads the same zarr-v3 format icechunk commits for high-throughput async access over a committed snapshot.
 - `virtualizarr`(`.api/virtualizarr.md`): a `zarr3` store over an `ocdbt` `KvStore` is the durable substrate a `ManifestStore` references without copy — the two meet at the zarr-v3 wire, never a bridging adapter.
-- within-lib: the data store plane composes tensorstore as one `TensorBackend`, threading one shared `Context` across opens and consuming the `Future`/`WriteFutures` rail with `await` rather than re-implementing chunked codec, sharding, or cache-coherence.
+- within-lib: the data store plane composes tensorstore as one `TensorBackend`, threading one shared `Context` across opens and consuming the `Future`/`WriteFutures` layer with `await` rather than re-implementing chunked codec, sharding, or cache-coherence.
 
 [LOCAL_ADMISSION]:
 - Import `tensorstore as ts` at boundary scope only; the manifest bans the module-level import.
 - Drive the driver, backend, mode, and schema as rows on one JSON `Spec`; never a parallel store type per backend or a per-driver factory family.
-- Consume `read`/`write` with `await`; a blocking `result()` inside the async rail is rejected.
+- Consume `read`/`write` with `await`; a blocking `result()` inside the async path is rejected.
 - Share one `Context` across opens so cache pools, concurrency, and credentials pool rather than re-mint per store.

@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [02]-[WIRE_REGISTRY]: ordered family vocabulary and exact row contract; `Wire`.
-- [03]-[FAULT_RAIL]: fault policy, quarantine intake, replay, and divert; `Wire.Fault`, `Wire.Quarantine`.
+- [03]-[FAULT_POLICY]: fault policy, quarantine intake, replay, and divert; `Wire.Fault`, `Wire.Quarantine`.
 - [04]-[PARITY_VERIFY]: content-key verification and semantic roundtrip; `Wire.Parity`.
 - [05]-[LANDING_EVIDENCE]: evidence, identity, version, CRDT, and oplog landings; `Wire`.
 - [06]-[LANDING_WIRE]: wire-owned decoded shapes for later-wave consumers; landing classes on `Wire`.
@@ -61,7 +61,7 @@ const _faultArms = {
 } as const satisfies { readonly [K in Exclude<Wire.FaultFamily, Wire.Family>]: Format.Arm }
 ```
 
-## [03]-[FAULT_RAIL]
+## [03]-[FAULT_POLICY]
 
 - Owner: `Wire.Fault` classifies failures, and `Wire.Quarantine` owns bounded held-frame intake and replay.
 - Law: `Fault.Class.order` supplies dominance; wire policy adds only retention and replay posture.
@@ -353,7 +353,7 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/core/Quarantine", {
 ## [04]-[PARITY_VERIFY]
 
 - Owner: `Wire.Parity` verifies content identity, semantic round trips, and byte-exact re-encoding of the frame's own octets.
-- Law: the octet rail is an involution proof — decode then encode must reproduce the received octets, so no stored artifact is ever consulted.
+- Law: the octet path is an involution proof — decode then encode must reproduce the received octets, so no stored artifact is ever consulted.
 - Law: protobuf parity is semantic, because its emission is not canonical; byte equality is claimed only on an arm whose encoder is.
 
 ```typescript
@@ -509,7 +509,7 @@ const CrdtOp = _CrdtOp.pipe(Schema.filter(_orderedCrdt, { message: () => "<crdt-
 - Law: generated families land once at their real reader — the live-wire trio, control surface, evidence timeline, BCF pair, model diff, benchmark claim, credential, flag verdict, availability, entity edit, appearance set, and material — and the corpus's rules validate each descriptor before the consumer lifts absence or enums.
 - Law: `Hops` is ONE table keyed on the closed `Code` enum the transport ships — reason, class, transport kind, and the peer's re-send and failover verdicts — and every code question in the branch reads that row; a second grading beside it is the deleted form.
 - Law: `RemoteDetail` carries the D6 roster — `domain` the producing family, `case` its closed ordinal, never a transport code — and a remote fault's class elects off the producer's typed recovery arm; the domain case reaches no retry band.
-- Law: that recovery arm IS `google.rpc.RetryInfo`, so the estate detail and the standard `Status.details` seat carry ONE message; `_Advice` is the branch's single crossing between it and a `Duration`, and an arm stating no `retryDelay` refuses at admission instead of reaching the interior as absence.
+- Law: that recovery arm IS `google.rpc.RetryInfo`, so the Rasm detail and the standard `Status.details` seat carry ONE message; `_Advice` is the branch's single crossing between it and a `Duration`, and an arm stating no `retryDelay` refuses at admission instead of reaching the interior as absence.
 - Law: the three invocation outcomes elect by trailer SHAPE — one decodable detail is remote, undecodable or plural is malformed, absent is transport.
 - Law: well-known stamps type against the package's own `TimestampSchema`/`DurationSchema`, range-refined above them, and cross to the branch clock through `timestampMs`/`durationMs`; the HLC message lands as `Clock.Hlc` with no scaling.
 - Law: the producer's `NodeId` and its `ContentAddress` — the C# bare-digest brand this branch spells `ContentKey`, never C#'s own composite of that name — land as distinct brands off sixteen-byte keys, and `Node` retains the producer-carried authoritative content address.

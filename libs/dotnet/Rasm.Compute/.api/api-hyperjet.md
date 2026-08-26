@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_HYPERJET]
 
-`HyperJet` owns forward-mode hyper-dual automatic differentiation: a smooth scalar function written once in generic math carries its own exact first and second derivatives on the value, so one evaluation yields `f`, `∂f`, and `∂²f` with no finite-difference stencil. Three models span the size and allocation axis — compile-time `DDScalar1<T>`..`DDScalar15<T>` structs, the zero-alloc ref-struct `DDScalarSpan`, and the dynamic-heap `DDScalar` — each reading out a plain `T[]` gradient and `T[,]` Hessian for the branch `Sensitivity`/`Chain` autodiff rail.
+`HyperJet` owns forward-mode hyper-dual automatic differentiation: a smooth scalar function written once in generic math carries its own exact first and second derivatives on the value, so one evaluation yields `f`, `∂f`, and `∂²f` with no finite-difference stencil. Three models span the size and allocation axis — compile-time `DDScalar1<T>`..`DDScalar15<T>` structs, the zero-alloc ref-struct `DDScalarSpan`, and the dynamic-heap `DDScalar` — each reading out a plain `T[]` gradient and `T[,]` Hessian for the branch `Sensitivity`/`Chain` autodiff pipeline.
 
 ## [01]-[PUBLIC_TYPES]
 

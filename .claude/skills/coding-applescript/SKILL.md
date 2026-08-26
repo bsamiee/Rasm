@@ -29,7 +29,7 @@ Application automation through object specifiers and Foundation bridge calls sta
 - [02]-[RUNTIME](references/runtime.md): `osascript` execution, compilation, and packaging, with AppleScript and JXA as language rows.
 - [03]-[EMBEDDING](references/embedding.md): `OSAKit` embedded in a Cocoa host, bound directly to the Apple Event ABI.
 - [04]-[EVENTS](references/events.md): Apple Event wire ABI — descriptor construction, addressing, and the send surface.
-- [05]-[DISTRIBUTION](references/distribution.md): packaging and the observation rails that carry an artifact into production.
+- [05]-[DISTRIBUTION](references/distribution.md): packaging and the observability channels that carry an artifact into production.
 
 [TEMPLATES]:
 - [01]-[RUNNER](templates/osascript-runner.sh): `osascript` dispatch shell — argv marshalling and one exit contract.
@@ -41,7 +41,7 @@ Application automation through object specifiers and Foundation bridge calls sta
 - [07]-[SCRIPTABLE_SDEF](templates/scriptable-app.sdef): dictionary spine of a scriptable app, one suite's terminology bound to cocoa keys.
 
 [EXAMPLES]:
-- [01]-[CHEVRON_DISPATCH](examples/chevron-dispatch.applescript): chevron-literal dispatch rail electing raw send or dictionary term per verb.
+- [01]-[CHEVRON_DISPATCH](examples/chevron-dispatch.applescript): chevron-literal dispatch table electing raw send or dictionary term per verb.
 - [02]-[COCOA_SCRIPTING_SERVER](examples/cocoa-scripting-server.swift): server-side specifier resolution served from the receiver's own index.
 - [03]-[OBJC_FFI_BRIDGE](examples/objc-ffi-bridge.js): JXA-to-C FFI boundary at composed scale over one declared ABI table.
 - [04]-[OSAKIT_REENTRANCY](examples/osakit-reentrancy.swift): suspend-rebind-resume path for an event that re-enters its own host.
@@ -83,7 +83,7 @@ enum ScriptArtifact: String, CaseIterable {
 
 ## [03]-[EXPORT_AND_PACKAGE_SHAPE]
 
-`UTExportedTypeDeclarations` binds only a tool minting a new script-adjacent document type; a runner, editor, or workflow action consuming the existing spine declares `CFBundleDocumentTypes` and `LSItemContentTypes` against the system-owned identifiers, never a parallel exported UTI. `.scptd` is the polymorphic artifact for embedded resources, script libraries, localized dictionaries, and bundle metadata — a flat `.scpt` earns deploy-target status only when the script owns no resource lookup, embedded library, or localized asset. A release rail stores `.applescript` as the source form.
+`UTExportedTypeDeclarations` binds only a tool minting a new script-adjacent document type; a runner, editor, or workflow action consuming the existing spine declares `CFBundleDocumentTypes` and `LSItemContentTypes` against the system-owned identifiers, never a parallel exported UTI. `.scptd` is the polymorphic artifact for embedded resources, script libraries, localized dictionaries, and bundle metadata — a flat `.scpt` earns deploy-target status only when the script owns no resource lookup, embedded library, or localized asset. A release pipeline stores `.applescript` as the source form.
 
 ## [04]-[OSA_HOST_DISPATCH]
 
@@ -106,7 +106,7 @@ end open
 
 ## [05]-[BUNDLE_AND_LIBRARY_OWNERSHIP]
 
-A script bundle places executable OSA code at `Contents/Resources/Scripts/main.scpt`; resource lookup uses bundle-relative locations, and path construction inside the bundle never assumes a Finder-visible package layout. Script Editor's bundle contents pane authors bundle metadata, while a build rail mutates the same values through `Info.plist` and bundle files directly and reopens Script Editor only for event-log and dictionary inspection.
+A script bundle places executable OSA code at `Contents/Resources/Scripts/main.scpt`; resource lookup uses bundle-relative locations, and path construction inside the bundle never assumes a Finder-visible package layout. Script Editor's bundle contents pane authors bundle metadata, while a build step mutates the same values through `Info.plist` and bundle files directly and reopens Script Editor only for event-log and dictionary inspection.
 
 A script library loads from `~/Library/Script Libraries/`, `/Library/Script Libraries/`, or the `Resources` folder inside the calling script or app bundle — an applet depending on a private library vendors it inside its own bundle and resolves it by name from the resource domain. A cross-language library exposes stable handler names and restricts payloads to OSA-coercible values.
 
@@ -137,7 +137,7 @@ External Shortcuts automation enters through the `shortcuts` CLI or the `Shortcu
 |  [03]   | `view` | opens the editor         | none                                           |
 |  [04]   | `sign` | signs for distribution   | `--mode` `-i` `-o`                             |
 
-`shortcuts sign --mode anyone` submits the shortcut to Apple's network-bound signing service, which validates it against tampering for open sharing — a rail distinct from Developer ID notarization — and `--mode people-who-know-me` signs with the sender's iCloud identity for contact-gated import; a hardened install imports a signed `.shortcut` alone.
+`shortcuts sign --mode anyone` submits the shortcut to Apple's network-bound signing service, which validates it against tampering for open sharing — a path distinct from Developer ID notarization — and `--mode people-who-know-me` signs with the sender's iCloud identity for contact-gated import; a hardened install imports a signed `.shortcut` alone.
 
 ```applescript
 tell application "Shortcuts Events"
@@ -154,7 +154,7 @@ shortcuts sign --mode people-who-know-me -i Intake.shortcut -o Intake-signed.sho
 
 App Intents is the sanctioned automation successor, reached only through an enclosing Shortcut — no CLI verb invokes an App Intent directly, and no AppleScript-to-intent bridge exists. An app shipping App Intents contributes Shortcuts actions that also run from Siri and Spotlight as first-class results; the Apple Intelligence `Use Model` action reasons over app-exposed entities inside the same Shortcut.
 
-A shortcut composes `Run AppleScript` alongside App-Intent actions in one flow, so an AppleScript rail reaches App Intents by running that enclosing shortcut through `Shortcuts Events` or `shortcuts run`, never an intent as a standalone target.
+A shortcut composes `Run AppleScript` alongside App-Intent actions in one flow, so an AppleScript path reaches App Intents by running that enclosing shortcut through `Shortcuts Events` or `shortcuts run`, never an intent as a standalone target.
 
 Personal automations add folder-change, external-drive, Wi-Fi, display, and app-launch triggers on the Mac, replacing Folder Actions and stay-open pollers wherever the trigger is a first-class Shortcuts event; OSA hosts remain the owning surface for scriptable-app control whose dictionary outreaches the app's App Intents surface, for triggers Shortcuts does not model, and for latency-sensitive in-process work.
 

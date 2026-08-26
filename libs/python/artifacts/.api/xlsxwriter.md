@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_XLSXWRITER]
 
-`xlsxwriter` mints the constant-memory streaming XLSX/XLSM writer for the artifacts spreadsheet rail: one `Workbook` root opens a path or stream, mints `Worksheet`/`Format`/`Chart`/`Chartsheet` objects, emits Office Open XML row-major, and packages a zip64-capable container at `close`. Under `constant_memory` each completed row flushes to a temp file while only the active row stays resident, so the writer holds O(1) row memory and never re-implements the OOXML/zip64 packaging it owns; it writes only, and reading or editing an existing workbook routes to the ingest owners.
+`xlsxwriter` mints the constant-memory streaming XLSX/XLSM writer for the artifacts spreadsheet domain: one `Workbook` root opens a path or stream, mints `Worksheet`/`Format`/`Chart`/`Chartsheet` objects, emits Office Open XML row-major, and packages a zip64-capable container at `close`. Under `constant_memory` each completed row flushes to a temp file while only the active row stays resident, so the writer holds O(1) row memory and never re-implements the OOXML/zip64 packaging it owns; it writes only, and reading or editing an existing workbook routes to the ingest owners.
 
 ## [01]-[PUBLIC_TYPES]
 

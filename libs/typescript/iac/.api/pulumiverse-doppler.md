@@ -61,11 +61,11 @@ Every sync arg carries `config` + `integration` + `project`. `GithubActions` [06
 
 ## [03]-[INTEGRATION]
 
-Doppler is the canonical store in the generate → store → inject rail; `effect` owns the bootstrap token, provider `Layer`, and config decode.
+Doppler is the canonical store in the generate → store → inject path; `effect` owns the bootstrap token, provider `Layer`, and config decode.
 
-[RAIL]: `doppler → effect + sibling providers`
+[FLOW]: `doppler → effect + sibling providers`
 
-| [INDEX] | [DOPPLER_SEAM]               | [STACKS_WITH]                           | [COMPOSED_RAIL]                                               |
+| [INDEX] | [DOPPLER_SURFACE]            | [STACKS_WITH]                           | [COMPOSED_PATH]                                               |
 | :-----: | :--------------------------- | :-------------------------------------- | :------------------------------------------------------------ |
 |  [01]   | `Secret.value` (secret)      | `@pulumi/random` / `@pulumi/tls`        | `pulumi.secret(`.result`/`.privateKeyPem`)` → canonical store |
 |  [02]   | bootstrap + `Provider`       | `Config.redacted` + `Layer.effect`      | `DOPPLER_TOKEN` via `Config`; provider as a `Layer`           |
@@ -74,9 +74,9 @@ Doppler is the canonical store in the generate → store → inject rail; `effec
 |  [05]   | `secretssync.<Target>`       | external stores (AWS/CI/Fly)            | mirror the canonical config outward; one pair per target      |
 |  [06]   | `Secret.computed` (`${ref}`) | `interpolate` / `Output` graph          | referenced/composed secrets resolve server-side               |
 
-[SEAM]: provider-credential fan-in — ONE Doppler read feeds every sibling `Provider` auth `Input<string>`
+[CONSUMERS]: provider-credential fan-in — ONE Doppler read feeds every sibling `Provider` auth `Input<string>`
 
-Doppler is the source both ends of the seam each sibling catalog names inbound; one parameterized read binds them all, consumers as rows, never per-provider read paths. `getSecretsOutput({project, config})` returns `Output<GetSecretsResult>` whose `.map` is `{[k]: string}` — a single-key pluck is the sole difference from the whole-config `Schema` decode, and a new consuming provider is a row here.
+Doppler is the source both ends of the boundary each sibling catalog names inbound; one parameterized read binds them all, consumers as rows, never per-provider read paths. `getSecretsOutput({project, config})` returns `Output<GetSecretsResult>` whose `.map` is `{[k]: string}` — a single-key pluck is the sole difference from the whole-config `Schema` decode, and a new consuming provider is a row here.
 
 | [INDEX] | [CONSUMER]                                     | [CATALOG]                     | [INJECTION_MODE]                        |
 | :-----: | :--------------------------------------------- | :---------------------------- | :-------------------------------------- |

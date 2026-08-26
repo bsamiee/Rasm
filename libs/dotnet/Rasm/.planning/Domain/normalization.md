@@ -1,6 +1,6 @@
 # [RASM_DOMAIN_NORMALIZATION]
 
-`Normalization` owns the Rhino-kind taxonomy and the receiver-local coercion surface every polymorphic geometry ingress crosses before an operation runs — resolving nominal and analytic identity, converting any admitted kernel value into an ownership-bearing `Lease<GeometryBase>`, deriving bounds, and projecting the typed coercion lattice. It is the kernel's one erased-geometry conversion owner, so no consumer enumerates that space locally; type-level admission, value validity, and readiness answer to their own owners.
+`Normalization` owns the Rhino-kind taxonomy and the receiver-local coercion surface every polymorphic geometry ingress crosses before an operation runs — resolving nominal and analytic identity, converting any admitted kernel value into an ownership-bearing `Lease<GeometryBase>`, deriving bounds, and projecting the typed coercion table. It is the kernel's one erased-geometry conversion owner, so no consumer enumerates that space locally; type-level admission, value validity, and readiness answer to their own owners.
 
 `TopologyProjection` folds disposable component-provenance geometry — typed projection, ownership severing, transfer detection, and batch disposal — behind one `IValidityEvidence`-registered carrier. `Kind` is the exemplar instantiation of `Domain/validation`'s `CapabilitySet<TCapability>` column: one declared membership set per row, every type roster and every capability predicate derived from it. `GeometryRequest` stays the `Analysis/query` request algebra; readiness composes `Requirement`, evaluation the form leases, and host consumers `GeometryForm`.
 
@@ -135,7 +135,6 @@ public sealed partial class Kind {
         || (CurvePrimitives.Value.Contains(target) && Type == typeof(Curve))
         || (SurfacePrimitives.Value.Contains(target) && (Type == typeof(Brep) || Type == typeof(Surface)))
         || (target == typeof(Brep) && Capabilities.Admits(Capability.BrepForm));
-    [BoundaryAdapter]
     public static Option<Kind> Of(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
         return type == typeof(RhinoPoint)
@@ -216,14 +215,14 @@ public partial record CurveForm(bool IsClosed) {
 ## [03]-[COERCION]
 
 - Owner: `AnalyticForm` is the ONE analytic correspondence — each row binds a `Kind` to its forward `Lower` (primitive to its lane-canonical native) and its inverse `Raise` (native back to the primitive under a tolerance). Declaration order IS the inference order, so recovery, classification, and kind inference read one roster and a new analytic primitive is one row.
-- Owner: `Normalization` is the internal coercion owner consumed across the friend-assembly seam; its `extension(object? geometry)` block resolves kind, leases the geometry vocabulary as `Lease<GeometryBase>`, derives bounds, and projects typed coercions. `CurveForm`, `SurfaceForm`, and `BrepForm` are the three lane entries — each borrows its own native, lowers its lane's analytic rows, and adds only the host members its lane alone publishes. `TopologyProjection` owns component provenance, typed projection, ownership severing, transfer detection, and disposal.
+- Owner: `Normalization` is the internal coercion owner consumed across the friend-assembly boundary; its `extension(object? geometry)` block resolves kind, leases the geometry vocabulary as `Lease<GeometryBase>`, derives bounds, and projects typed coercions. `CurveForm`, `SurfaceForm`, and `BrepForm` are the three lane entries — each borrows its own native, lowers its lane's analytic rows, and adds only the host members its lane alone publishes. `TopologyProjection` owns component provenance, typed projection, ownership severing, transfer detection, and disposal.
 - Entry: `geometry.KindOf`, `geometry.GeometryForm`, `geometry.BoundsOf`, and `geometry.CoerceTo<TTarget>` form the receiver-local ingress; every refusal stays `Fin`-typed as `InvalidInput` or `Unsupported`.
 - Auto: `KindOf` resolves analytic identity before native and declared identity; `GeometryForm` reconstructs topology from the source type and reads the stratum's own recovery row, so callers supply no kind, context, ownership, or conversion-mode knob. Kind resolution runs FIRST and the topology rows carry natives and value primitives alike, so no stratum declares a refusal a shape test above it already answered; an unrostered type fails as `Unsupported` before the validity oracle relabels it unless it is native, both admitted paths pass `OpAcceptance` before conversion, native reference geometry stays borrowed, and every admitted value primitive becomes owned through its form recovery. `BoundsOf` reads the `Kind` row's own bounds answer, so the twelve-arm shape ladder and its unreachable tail are gone. `CoerceTo<TTarget>` type-checks recovered primitives, `BrepForm` derives ownership from reference identity, and `TopologyProjection` ties its face bridge to carrier disposal.
 - Law: every `TopologyProjection` factory validates — a component-provenance carrier that can mint itself invalid beside an `IValidityEvidence` conformance is the deleted form, so the whole family returns `Fin<TopologyProjection>` and `IsValid` is proved once at construction.
 - Law: `Project` releases inside the exception funnel — the projection runs through `Op.Catch`, so a throwing projector still reaches the release fold and the non-transferred duplicates never leak.
 - Exemption: RhinoCommon publishes no shared to-brep member across its value structs, so `BrepForm`'s per-shape table is the named host-limit exemption; the analytic half of it composes `AnalyticForm.Box` rather than re-spelling the conversion.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]` rows with `[UseDelegateFromConstructor]` columns), Generator.Equals (`[Equatable]`/`[IgnoreEquality]` on the projection carrier), RhinoCommon geometry members, LanguageExt.Core rails.
-- Growth: a geometry kind lands in `Kind` and the relevant form lattice, an analytic primitive as one `AnalyticForm` row carrying both directions, a projection source in `TopologyProjection` with its validity law.
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]` rows with `[UseDelegateFromConstructor]` columns), Generator.Equals (`[Equatable]`/`[IgnoreEquality]` on the projection carrier), RhinoCommon geometry members, LanguageExt.Core types.
+- Growth: a geometry kind lands in `Kind` and the relevant form table, an analytic primitive as one `AnalyticForm` row carrying both directions, a projection source in `TopologyProjection` with its validity law.
 - Boundary: `GeometryRequest` stays in `Analysis/query`, evaluation and sampling in `Domain/evaluation`, and readiness in `Domain/validation`.
 
 ```csharp
@@ -313,7 +312,6 @@ internal sealed partial class AnalyticForm {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter]
 [Equatable]
 public sealed partial record TopologyProjection : IValidityEvidence, IDisposable {
     private static readonly Op Key = Op.Of(name: nameof(TopologyProjection));
@@ -427,7 +425,6 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 internal static class Normalization {
     extension(object? geometry) {
         public Fin<Kind> KindOf(Context context) {
@@ -560,11 +557,11 @@ config:
 ---
 flowchart LR
     accTitle: GeometryForm normalization dispatch
-    accDescr: One admitted geometry value resolves its Kind row first, then dispatches through the topology row's own recovery into borrowed or owned form leases, while invalid and unrostered non-native inputs converge on the typed fault rail.
+    accDescr: One admitted geometry value resolves its Kind row first, then dispatches through the topology row's own recovery into borrowed or owned form leases, while invalid and unrostered non-native inputs converge on the typed fault result.
     Raw(["object? geometry"]) --> Classify{"Kind row for the runtime type?"}
     Classify -->|resolved| KindAdmit[AcceptInput]
     Classify -->|unrostered native| NativeAdmit[AcceptInput]
-    Classify -.->|unrostered value| Fault[/Fault rail/]
+    Classify -.->|unrostered value| Fault[/Fault result/]
     NativeAdmit -.->|InvalidInput| Fault
     NativeAdmit --> Borrowed[Borrowed native]
     KindAdmit -.->|InvalidInput| Fault
@@ -587,7 +584,7 @@ flowchart LR
 
 One owner per axis; capability is a row, case, or set member, never a sibling surface or a bool column.
 
-| [INDEX] | [OWNER]              | [SHAPE]                                    | [RAIL]                                 |
+| [INDEX] | [OWNER]              | [SHAPE]                                    | [RESULT]                               |
 | :-----: | :------------------- | :----------------------------------------- | :------------------------------------- |
 |  [01]   | `Topology`           | `[SmartEnum<int>]` + recovery row          | `Fin<Lease<GeometryBase>>`             |
 |  [02]   | `Kind`               | `[SmartEnum<int>]` + capability set column | `Kind.Of → Option<Kind>`               |

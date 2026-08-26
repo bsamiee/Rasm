@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_ROBOTS]
 
-`Robots` (visose) owns host-neutral managed serial-chain robot kinematics and motion-program emission: per-mechanism forward/inverse kinematics, joint-limit, singularity, and reach validation, multi-mechanism and external-axis cells, per-vendor post-processors, a look-ahead-planned `Program`, and a remote upload channel. Its entire geometry vocabulary is `Rhino3dm`'s `Rhino.Geometry.*`, binary-distinct from RhinoCommon, so `plan-cs` boundary-maps at the kinematics seam and never passes a RhinoCommon instance into a `Robots` parameter. Fabrication admits it as the sole robot-kinematics owner.
+`Robots` (visose) owns host-neutral managed serial-chain robot kinematics and motion-program emission: per-mechanism forward/inverse kinematics, joint-limit, singularity, and reach validation, multi-mechanism and external-axis cells, per-vendor post-processors, a look-ahead-planned `Program`, and a remote upload channel. Its entire geometry vocabulary is `Rhino3dm`'s `Rhino.Geometry.*`, binary-distinct from RhinoCommon, so `plan-cs` boundary-maps at the kinematics boundary and never passes a RhinoCommon instance into a `Robots` parameter. Fabrication admits it as the sole robot-kinematics owner.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -122,7 +122,7 @@
 |  [13]   | `Program.CurrentSimulationPose`                                      | property | `SimulationPose` at the last `Animate` time  |
 
 - `Program`: its ctor takes optional `IReadOnlyList<int>? multiFileIndices` and `double stepSize`, silently repairing an out-of-range `multiFileIndices` rather than faulting, so a consumer wanting a typed partition fault proves the range before construction.
-- `Program.CheckCollisions`: under the `Rhino3dm` substrate this estate builds against, every `Collision` member and its constructor throw `NotSupportedException`, so cell collision evidence states the absence rather than calling through.
+- `Program.CheckCollisions`: under the `Rhino3dm` substrate this solution builds against, every `Collision` member and its constructor throw `NotSupportedException`, so cell collision evidence states the absence rather than calling through.
 - `Program.CurrentSimulationPose`: THROWS `InvalidOperationException("This program cannot be animated.")` whenever the ctor produced no simulation, so every read gates on `Program.HasSimulation` first; the property is not `Option`-shaped and no `TryGet` sibling exists.
 - `Program.Animate`: `isNormalized: true` reads `time` over `[0,1]`, `false` over `[0, Duration]` seconds; it advances the cursor `CurrentSimulationPose` then reports, so animate-then-read is one imperative pair, never two independent calls.
 
@@ -175,7 +175,7 @@
 - `RobotSystem.Kinematics(targets, prevJoints) -> List<KinematicSolution>` is the public batch solve; the `FileIO`-loaded concrete cell selects the analytic, numerical, external-axis, or group solver internally, so no solver type is a public surface — the public lever is the cell with the `RobotConfigurations` branch hint on `CartesianTarget`.
 - A `CartesianTarget` runs IK from a TCP `Plane` to joints; a `JointTarget` runs FK from joints to chain planes; `prevJoints` threads the prior solution forward, holding a continuous trajectory across wrist-flip and redundant-axis multiplicity.
 - Joint values are radians; the `Interval Range` on each `Joint` is the radian limit the solver validates against, and `DegreeToRadian`/`RadianToDegree` convert at the boundary.
-- No typed solve exception exists: feasibility, joint-limit, singularity, and reach faults populate `KinematicSolution.Errors` and `Program.Errors`/`Warnings`, and the Fabrication rail folds a non-empty `Errors` into `FabricationFault` rather than catching.
+- No typed solve exception exists: feasibility, joint-limit, singularity, and reach faults populate `KinematicSolution.Errors` and `Program.Errors`/`Warnings`, and the Fabrication pipeline folds a non-empty `Errors` into `FabricationFault` rather than catching.
 - The simulation cursor is the ONE between-waypoint read: `Program.Targets` reports the planner's own waypoints while `Animate` plus `CurrentSimulationPose` resolves the cell at an arbitrary instant, and `Program.Duration` is the horizon a sampler divides. `HasSimulation` is the only non-throwing probe of cursor existence, so the gate precedes every cursor read and a program the ctor could not simulate refuses typed instead of surfacing an `InvalidOperationException`.
 
 [STACKING]:
@@ -184,5 +184,5 @@
 - `SSH.NET` + `BouncyCastle.Cryptography`: the `IRemote` SFTP upload path (`RemoteUR`/`RemoteFranka`); a headless solve or post that never calls `IRemote.Upload` exercises neither.
 
 [LOCAL_ADMISSION]:
-- `plan-cs` boundary-maps at the kinematics seam: a RhinoCommon geometry instance never enters a `Robots` parameter, and a `Robots` or `Rhino3dm` instance never escapes into a RhinoCommon-typed sibling signature.
+- `plan-cs` boundary-maps at the kinematics boundary: a RhinoCommon geometry instance never enters a `Robots` parameter, and a `Robots` or `Rhino3dm` instance never escapes into a RhinoCommon-typed sibling signature.
 - Consumers drive the cell through `FileIO.LoadRobotSystem`/`ParseRobotSystem`, pick a `CartesianTarget` or `JointTarget` per waypoint, and read `Joints`/`Planes`/`Errors`/`Configuration` from the `KinematicSolution`.

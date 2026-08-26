@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PYWAVELETS]
 
-`pywavelets` (import `pywt`) owns the discrete and continuous wavelet-transform surface for the compute signal rail — single/multilevel 1D/2D/nD DWT and inverse, stationary and wavelet-packet decompositions, additive MRA, the fully-separable transform, and the CWT over a `Wavelet`/`ContinuousWavelet` catalogue. `compute`'s signal owner composes it beside `scipy.signal`, which holds Fourier/FIR-IIR spectral analysis; the cascade filter-bank convolution stays PyWavelets', never re-implemented.
+`pywavelets` (import `pywt`) owns the discrete and continuous wavelet-transform surface for the compute signal domain — single/multilevel 1D/2D/nD DWT and inverse, stationary and wavelet-packet decompositions, additive MRA, the fully-separable transform, and the CWT over a `Wavelet`/`ContinuousWavelet` catalogue. `compute`'s signal owner composes it beside `scipy.signal`, which holds Fourier/FIR-IIR spectral analysis; the cascade filter-bank convolution stays PyWavelets', never re-implemented.
 
 ## [01]-[PUBLIC_TYPES]
 

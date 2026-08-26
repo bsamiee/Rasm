@@ -2,7 +2,7 @@
 
 Inspection owns the measured-query runtime's topology-scalar and mesh-quality diagnostics: `Topologies` `[Union]` closes structural interrogation over both Brep and Mesh, and `Meshes` `[Union]` closes mesh census, per-polygon metrics, and boundary extraction. Brep/mesh polymorphism collapses into one `OnGeometry` gate lowering brep-coercible inputs through the leased brep form, so every scalar, orientation, containment, and component fold is written once and a per-operation geometry switch is the deleted repetition. Both unions publish their operation builders on THEMSELVES — the `Analyze` facade lives once on `Analysis/query` and this page adds no fragment to it.
 
-Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/cloud` law projected through `Processing/intent` `VectorIntent`, the streaming moment fold is `Domain/stats` law on the `Scalar` carrier, and the `Kind` web, the `BrepForm`/`SurfaceForm` leases, and the `TopologyProjection` carrier are `Domain/normalization` law. Every carrier declares `IValidityEvidence`, admitted through the one `Domain/validation` acceptance oracle `Analysis/query` owns, and each family union exposes `internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>()` as that dispatch seam.
+Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/cloud` law projected through `Processing/intent` `VectorIntent`, the streaming moment fold is `Domain/stats` law on the `Scalar` carrier, and the `Kind` web, the `BrepForm`/`SurfaceForm` leases, and the `TopologyProjection` carrier are `Domain/normalization` law. Every carrier declares `IValidityEvidence`, admitted through the one `Domain/validation` acceptance oracle `Analysis/query` owns, and each family union exposes `internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>()` as that dispatch entry.
 
 ## [01]-[INDEX]
 
@@ -12,14 +12,14 @@ Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/c
 
 ## [02]-[TOPOLOGY]
 
-- Owner: `Topologies` `[Union]` closes structural interrogation over any admitted geometry — classification, interval domains, solid orientation, connected components, point containment, and the scalar family; `TopologyScalar` `[BoundaryAdapter]` `[SmartEnum<int>]` binds each scalar to an `OutputBinding` column, an accessor-derived `Op`, and an `Extract` delegate folding through the one `OnGeometry` gate, the count rows sharing one `CountOf` projection over mesh or brep. `MeasuredValue` `[Union]` is the measurement carrier both rosters answer on — flag, count, or statistic — so no row publishes an `object`.
+- Owner: `Topologies` `[Union]` closes structural interrogation over any admitted geometry — classification, interval domains, solid orientation, connected components, point containment, and the scalar family; `TopologyScalar` `[SmartEnum<int>]` binds each scalar to an `OutputBinding` column, an accessor-derived `Op`, and an `Extract` delegate folding through the one `OnGeometry` gate, the count rows sharing one `CountOf` projection over mesh or brep. `MeasuredValue` `[Union]` is the measurement carrier both rosters answer on — flag, count, or statistic — so no row publishes an `object`.
 - Cases: the structural-interrogation cases with `Scalar` carrying a `TopologyScalar` row; the flat scalar factories collapse onto `ScalarCase`, the fence declaring both closed sets.
-- Entry: `Topologies.Operation<TGeometry, TOut>()` is the family seam every arm gates at build — `Capability.EvaluateTopology` admits scalar, orientation, and containment; curve-or-surface form admits domains; output type is checked per arm. Context is demanded only where read: classification and containment declare it, the scalar, domain, orientation, and component rows run scope-less, and an operation demanding context it never reads is the deleted over-requirement.
+- Entry: `Topologies.Operation<TGeometry, TOut>()` is the family entry every arm gates at build — `Capability.EvaluateTopology` admits scalar, orientation, and containment; curve-or-surface form admits domains; output type is checked per arm. Context is demanded only where read: classification and containment declare it, the scalar, domain, orientation, and component rows run scope-less, and an operation demanding context it never reads is the deleted over-requirement.
 - Auto: `OnGeometry` is the one mesh/brep gate — `Mesh` and `Brep` dispatch directly, brep-coercible natives lower through `Capability.BrepForm`, everything else rejects — so brep-like admission is written once and every scalar, orientation, containment, and component fold routes through it; its third arity takes ONE `GeometryBase` delegate for folds polymorphic over the lowered geometry, collapsing `HoleCountOf` and `GenusOf` to a single body each. Derived scalars fold the primitive Euler, boundary-loop, and component counts through one applicative `Apply` gated on `OrientableOf`, and `PieceCount` brackets the disposal of every piece it counts.
 - Output: scalars project onto scalar, interval, kind, orientation, and geometry values through the acceptance oracle; `Components` re-emits owned `GeometryBase` pieces.
-- Packages: RhinoCommon (`Mesh`/`Brep` topology, loop, and orientation surface), `Rasm.Domain` (`Kind` capability web, `BrepForm`/`SurfaceForm` leases, `Requirement.SolidTopology`, `Op`/`Fault` rail), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon (`Mesh`/`Brep` topology, loop, and orientation surface), `Rasm.Domain` (`Kind` capability web, `BrepForm`/`SurfaceForm` leases, `Requirement.SolidTopology`, `Op`/`Fault` types), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new topology scalar is one `TopologyScalar` row — key, output, and extract delegate over the same `OnGeometry` fold; a new structural interrogation is one `Topologies` case; a new geometry family entering the gate is one `OnGeometry` arm serving every row at once.
-- Boundary: brep/mesh polymorphism lives in one gate — a per-operation `is Mesh`/`is Brep` switch is the deleted repetition, and a fold identical on both families takes the `onAny` arity rather than two drifting delegates; release brackets the ACQUISITION at both piece folds, so a throw mid-projection frees what a failure-rail `BindFail` never reaches; the genus, hole, and Euler family is derived from three primitive rows and a stored genus beside the formula is the killed form; `Capability.EvaluateTopology` is the single topology-evaluation admission row, containment escalating through `Requirement.SolidTopology`; `SolidOrientationOf` maps the mesh orientation int onto `BrepSolidOrientation` so both families answer in one enum, never a mesh-specific parallel vocabulary; component extraction owns its disposal — a piece failing the typed projection is disposed before the fault leaves.
+- Boundary: brep/mesh polymorphism lives in one gate — a per-operation `is Mesh`/`is Brep` switch is the deleted repetition, and a fold identical on both families takes the `onAny` arity rather than two drifting delegates; release brackets the ACQUISITION at both piece folds, so a throw mid-projection frees what a failure-path `BindFail` never reaches; the genus, hole, and Euler family is derived from three primitive rows and a stored genus beside the formula is the killed form; `Capability.EvaluateTopology` is the single topology-evaluation admission row, containment escalating through `Requirement.SolidTopology`; `SolidOrientationOf` maps the mesh orientation int onto `BrepSolidOrientation` so both families answer in one enum, never a mesh-specific parallel vocabulary; component extraction owns its disposal — a piece failing the typed projection is disposed before the fault leaves.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -219,7 +219,7 @@ public abstract partial record MeasuredValue {
         statisticCase: static row => ValidityClaim.Finite(row.Value));
 }
 
-[BoundaryAdapter, SmartEnum<int>]
+[SmartEnum<int>]
 public sealed partial class TopologyScalar {
     public static readonly TopologyScalar Manifold = new(key: 0, label: nameof(Manifold), output: OutputBinding.Of<bool>(), extract: static (g, op) => Topologies.ManifoldOf(geometry: g, op: op).Map(MeasuredValue.Flag));
     public static readonly TopologyScalar Euler = new(key: 1, label: nameof(Euler), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.EulerOf(geometry: g, op: op).Map(MeasuredValue.Count));
@@ -240,15 +240,15 @@ public sealed partial class TopologyScalar {
 
 ## [03]-[MESH]
 
-- Owner: `MeshSampleGroup` `[BoundaryAdapter]` `[SmartEnum<int>]` bands the sample census, carries the `Decade` column its rows key against, and names one `CensusSource` row deciding where the band's `MeshCheckParameters` come from; band membership rides an accessor-backed `Lazy` index, never a per-census rescan. `MeshSampleKind` `[SmartEnum<int>]` derives its band off the key decade and binds each row to a `Sample(Mesh, MeshCheckParameters, Op)` delegate across validity flags, census counts (the topology rows reusing the `TopologyScalar` extractors), defect counters reading the threaded capture, and valence-quality folds. `MeshMetric` `[BoundaryAdapter]` `[SmartEnum<int>]` binds each face metric to a measure delegate over one visible polygon and publishes ONE `Measure` builder whose `OutputBinding` pair picks the terminal fold. `Meshes` `[Union]` closes sample groups, face quality and shape, visible-polygon addressing and count, naked edges, and plane outlines.
+- Owner: `MeshSampleGroup` `[SmartEnum<int>]` bands the sample census, carries the `Decade` column its rows key against, and names one `CensusSource` row deciding where the band's `MeshCheckParameters` come from; band membership rides an accessor-backed `Lazy` index, never a per-census rescan. `MeshSampleKind` `[SmartEnum<int>]` derives its band off the key decade and binds each row to a `Sample(Mesh, MeshCheckParameters, Op)` delegate across validity flags, census counts (the topology rows reusing the `TopologyScalar` extractors), defect counters reading the threaded capture, and valence-quality folds. `MeshMetric` `[SmartEnum<int>]` binds each face metric to a measure delegate over one visible polygon and publishes ONE `Measure` builder whose `OutputBinding` pair picks the terminal fold. `Meshes` `[Union]` closes sample groups, face quality and shape, visible-polygon addressing and count, naked edges, and plane outlines.
 - Cases: the mesh-inspection cases with `Samples` carrying a `MeshSampleGroup` and `FaceQuality` a `MeshMetric`; the fence declares the band rows and metric rows.
 - Entry: `Meshes.Operation<TGeometry, TOut>()` lifts every arm through `Lift` — the mesh specialization applying a typed `Operation<Mesh, TValue>` to any geometry that is a mesh and rejecting the rest — so the family accepts `object`-typed pipelines and stays mesh-strict at evaluation.
 - Law: absence is `Option`, never a null-object row. `Meshes.FaceQuality(Option<MeshMetric>)` defaults through `IfNone(MeshMetric.EdgeAspect)`, so the census `MeshMetric.None`, `MeshSampleGroup.None`, and `MeshSampleKind.None` rows — each existing only to be rejected — DELETE with the `Equals(None)` guards that read them.
 - Auto: `CensusSource` decides the capture with one row column — `Native` answers the host defaults and `Checked` runs `Requirement.MeshReport` once per census — so the standalone check operation and its nested `Apply` hop delete and every band row reads one capture. Visible-polygon resolution maps an ngon-or-face onto the canonical `ComponentIndex` (`MeshNgon` for ngon members, `MeshFace` otherwise) and extracts its boundary ring, so every per-polygon metric addresses one component vocabulary. Metric measurement short-circuits host fast paths where they exist and folds the `Spatial/cloud` ring metric everywhere else; ngon area sums constituent faces, ngon normals area-weight constituent normals, and the dihedral fold walks ngon-external adjacency for the maximum inter-polygon angle at `ToleranceLane.Angle`. Every per-polygon fold reads the runtime cancellation token between polygons, returning `Errors.Cancelled` mid-census rather than finishing a stale sweep; `Requirement.MeshCheck` gates every metric operation so no defective mesh reaches a measurement.
-- Output: `MeshSample`, `MeshMetricSample`, and `MeshFaceShape` carry the sample, the addressed measurement, and the addressed `Spatial/cloud` shape classification; each declares `IValidityEvidence` through the `Domain/rails` `ValidityClaim` fold.
-- Packages: RhinoCommon (`Mesh.Check`/`MeshCheckParameters`, `MeshNgon` census, face and ngon accessors, outlines, `ComponentIndex`), `Rasm.Spatial` (`VectorCloud` ring metrics), `Rasm.Processing` (`VectorIntent`), `Rasm.Domain` (`Requirement.MeshCheck`/`MeshReport`, `Scalar`/`Stat`, `Tolerance`, `TopologyProjection`, `Op`/`Fault` rail), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Output: `MeshSample`, `MeshMetricSample`, and `MeshFaceShape` carry the sample, the addressed measurement, and the addressed `Spatial/cloud` shape classification; each declares `IValidityEvidence` through the `Domain/results` `ValidityClaim` fold.
+- Packages: RhinoCommon (`Mesh.Check`/`MeshCheckParameters`, `MeshNgon` census, face and ngon accessors, outlines, `ComponentIndex`), `Rasm.Spatial` (`VectorCloud` ring metrics), `Rasm.Processing` (`VectorIntent`), `Rasm.Domain` (`Requirement.MeshCheck`/`MeshReport`, `Scalar`/`Stat`, `Tolerance`, `TopologyProjection`, `Op`/`Fault` types), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new mesh sample is one `MeshSampleKind` row in its band, the census and sample machinery untouched; a new face metric is one `MeshMetric` row binding a measure delegate over the same polygon resolution, and a new metric OUTPUT is one `OutputBinding` arm on `Measure` over the same census; a new capture source is one `CensusSource` row; a new polygon-level extraction is one `Meshes` case lifted through `Lift`.
-- Boundary: a row's band derives from its key decade — the `group:` column beside it was a second authority one edit could contradict, and the index is read through its accessor so the generator has filled `Items` first; defect rows read the one threaded `MeshCheckParameters` capture and a per-row `Mesh.Check` re-run is the killed N-fold host cost; face metrics measure visible polygons through the canonical `ComponentIndex` addressing, never a triangle-level parallel family; ring measurement routes through the `Spatial/cloud` metric surface exclusively, never a local perimeter/skewness/area loop; `AtVisiblePolygon` re-emits the `Domain/normalization` `TopologyProjection` carrier on its `Fin` rail so downstream extraction shares the corpus transfer/disposal protocol.
+- Boundary: a row's band derives from its key decade — the `group:` column beside it was a second authority one edit could contradict, and the index is read through its accessor so the generator has filled `Items` first; defect rows read the one threaded `MeshCheckParameters` capture and a per-row `Mesh.Check` re-run is the killed N-fold host cost; face metrics measure visible polygons through the canonical `ComponentIndex` addressing, never a triangle-level parallel family; ring measurement routes through the `Spatial/cloud` metric surface exclusively, never a local perimeter/skewness/area loop; `AtVisiblePolygon` re-emits the `Domain/normalization` `TopologyProjection` carrier on its `Fin` result so downstream extraction shares the corpus transfer/disposal protocol.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -345,7 +345,7 @@ public abstract partial record Meshes {
             : Analysis.Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput());
 }
 
-[BoundaryAdapter, SmartEnum<int>]
+[SmartEnum<int>]
 public sealed partial class MeshSampleGroup {
     public static readonly MeshSampleGroup Validity = new(key: 1, decade: 0, label: nameof(Validity), source: CensusSource.Native);
     public static readonly MeshSampleGroup Count = new(key: 2, decade: 1, label: nameof(Count), source: CensusSource.Native);
@@ -426,7 +426,7 @@ internal readonly record struct PolygonProbe(Mesh Mesh, ComponentIndex Source, O
     internal PolygonProbe AtFace(int face) => this with { Source = new ComponentIndex(ComponentIndexType.MeshFace, face), Vertices = None };
 }
 
-[BoundaryAdapter, SmartEnum<int>]
+[SmartEnum<int>]
 public sealed partial class MeshMetric {
     public static readonly MeshMetric EdgeAspect = new(key: 0, measure: EdgeAspectOf);
     public static readonly MeshMetric Area = new(key: 1, measure: AreaOf);
@@ -545,19 +545,19 @@ public sealed partial class MeshMetric {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshSample(MeshSampleKind Kind, MeasuredValue Value) : IValidityEvidence {
     public bool IsValid => Value is MeasuredValue measured && measured.Admissible;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshMetricSample(ComponentIndex Source, double Value) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Source is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 },
         ValidityClaim.Nonnegative(Value));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFaceShape(ComponentIndex Source, VectorCloudShape Shape) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Source is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 });
 }
@@ -589,7 +589,7 @@ flowchart LR
 
 One owner per axis; a new scalar, sample, or metric is a row, never a sibling surface.
 
-| [INDEX] | [CONCERN]          | [OWNER]               | [KIND]                                      | [RAIL]                            | [CASES] |
+| [INDEX] | [CONCERN]          | [OWNER]               | [KIND]                                      | [RESULT]                          | [CASES] |
 | :-----: | :----------------- | :-------------------- | :------------------------------------------ | :-------------------------------- | :-----: |
 |  [01]   | Structural queries | `Topologies`          | `[Union]` structural-query algebra          | `Operation → Eff<Env, Seq<TOut>>` |    6    |
 |  [02]   | Topology scalars   | `TopologyScalar`      | `[SmartEnum<int>]` delegate extract rows    | `Fin<MeasuredValue>` at op gate   |    8    |
@@ -597,7 +597,7 @@ One owner per axis; a new scalar, sample, or metric is a row, never a sibling su
 |  [04]   | Census capture     | `CensusSource`        | `[SmartEnum<string>]` capture delegate      | `Fin<MeshCheckParameters>`        |    2    |
 |  [05]   | Sample census      | `MeshSampleKind`      | `[SmartEnum<int>]` — 4 bands, delegate rows | `Fin<MeasuredValue>` per row      |   31    |
 |  [06]   | Face metrics       | `MeshMetric`          | `[SmartEnum<int>]` ngon measure delegates   | `Measure → Operation<TG, TOut>`   |    5    |
-|  [07]   | Measured value     | `MeasuredValue`       | `[Union]` flag/count/statistic carrier      | total `Switch` + one boxed seam   |    3    |
+|  [07]   | Measured value     | `MeasuredValue`       | `[Union]` flag/count/statistic carrier      | total `Switch` + one boxed exit   |    3    |
 |  [08]   | Samples            | `MeshSample` carriers | evidence `readonly record struct`           | `IValidityEvidence` carrier       |    —    |
 
 ## [05]-[RESEARCH]

@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_SILK_OPENXR]
 
-`Silk.NET.OpenXR` binds the managed immersive-session lifecycle over the host-installed OpenXR loader — instance/session creation, the runtime-driven session-state event queue, stereo swapchain allocation, pose location, the runtime-paced frame loop, and the action-set input model — as pointer-passing calls on the `XR.GetApi()` function-table root. One `Wgpu` graphics-binding device backs both surfaces, and an absent loader folds the immersive session to the flat viewport, so the VR/AR review rail degrades to desktop rather than faults.
+`Silk.NET.OpenXR` binds the managed immersive-session lifecycle over the host-installed OpenXR loader — instance/session creation, the runtime-driven session-state event queue, stereo swapchain allocation, pose location, the runtime-paced frame loop, and the action-set input model — as pointer-passing calls on the `XR.GetApi()` function-table root. One `Wgpu` graphics-binding device backs both surfaces, and an absent loader folds the immersive session to the flat viewport, so the VR/AR review path degrades to desktop rather than faults.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -149,7 +149,7 @@ Every surface is an `unsafe Result` instance method on the `XR.GetApi()` functio
 - Extension command sets load through `TryGetInstanceExtension<T>` once their `ExtensionName` is named in `InstanceCreateInfo.EnabledExtensionNames`; depth compositing chains as the `CompositionLayerDepthInfoKHR` struct, not a wrapped class.
 
 [STACKING]:
-- `api-silk-webgpu`(`libs/dotnet/.api/api-silk-webgpu.md`): the core `Device`/`Queue` is the physical device and queue family the Vulkan `GraphicsBindingVulkanKHR` binds into `SessionCreateInfo.next`, so the swapchain images present from the one wgpu device — a second immersive-path device is the cross-adapter copy penalty this seam avoids.
+- `api-silk-webgpu`(`libs/dotnet/.api/api-silk-webgpu.md`): the core `Device`/`Queue` is the physical device and queue family the Vulkan `GraphicsBindingVulkanKHR` binds into `SessionCreateInfo.next`, so the swapchain images present from the one wgpu device — a second immersive-path device is the cross-adapter copy penalty this boundary avoids.
 - `api-silk-webgpu-wgpu`(`libs/dotnet/.api/api-silk-webgpu-wgpu.md`): `Wgpu.InstanceEnumerateAdapters` supplies the adapter identity the OpenXR runtime LUID-matches, pinning session and compositor to one physical adapter.
 - `api-silk-openxr-fb`(`.api/api-silk-openxr-fb.md`): the `FB*` passthrough and anchor roots load against this catalog's `XR.GetApi()` instance and composite their layer on the same `Session`/`Swapchain` the scene renders to; this catalog's `PollEvent` drain is the ONE point at which the FB `ulong` async request ledger retires, so the anchor and scene surfaces cannot land without the session-state machine above them.
 - viewport boundary capsule: each native handle pairs its `Create`/`Destroy` in a scoped fold, the per-frame event drain publishes the session state the frame loop gates on, and the session-create probe folds to the flat desktop viewport when the loader is absent.

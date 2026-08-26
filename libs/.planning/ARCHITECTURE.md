@@ -1,8 +1,8 @@
 # [MONOREPO_ARCHITECTURE]
 
-Rasm carries a platform tier and a product tier: `libs/` holds independently adoptable library estates, and every app, plugin, and service composes them exactly as it takes an external package. Capability lands in the platform first, parameterized for consumers that do not yet exist; a product shell declares intent, binds host edges, and emits output.
+Rasm carries a platform tier and a product tier: `libs/` holds independently adoptable library repos, and every app, plugin, and service composes them exactly as it takes an external package. Capability lands in the platform first, parameterized for consumers that do not yet exist; a product shell declares intent, binds host edges, and emits output.
 
-Estates couple through defined contracts alone: no estate imports a peer, and none is a prerequisite, producer, or build-order edge for another. Tier-0 owns the law no branch or package can own and names languages alone; each branch and folder owns its own package roster, charters, and reference direction.
+Repos couple through defined contracts alone: no repo imports a peer, and none is a prerequisite, producer, or build-order edge for another. Tier-0 owns the law no branch or package can own and names languages alone; each branch and folder owns its own package roster, charters, and reference direction.
 
 ## [01]-[STRATA]
 
@@ -10,11 +10,11 @@ Stratification is the law every branch answers: ranks run `S0` upward, the depen
 
 - Dependency edges stay abstract — project reference, module import, composed layer, or root-bound port — and the upward law binds every spelling.
 - Cross-package coupling reaches a published boundary or a content-keyed wire, never a peer's interior.
-- Peers at one rank never reference each other; alignment travels seam contracts and the content-keyed wire, so each package stays usable alone.
+- Peers at one rank never reference each other; alignment travels boundary contracts and the content-keyed wire, so each package stays usable alone.
 - Counter-edges carry a value the lower stratum consumes, never an owner it imports, and member-seating rows state that qualifier.
 - Plane-distinct members seat at a rank yet stay outside the runtime graph, carrying the same upward law.
 - Composition roots take host binding, port satisfaction, and cross-branch composition as the leaf, nowhere below.
-- Product shells compose a branch's top strata as consumers of the estate, never as a stratum of it.
+- Product shells compose a branch's top strata as consumers of the repo, never as a stratum of it.
 
 ## [02]-[DEPENDENCY_DIRECTION]
 
@@ -30,7 +30,7 @@ Direction inside a branch is the branch's own `[02]-[STRATA]` to state per owner
 Geometry, meshing, and semantic exchange each carry exactly one owner per runtime; the runtimes meet only at the contract. No concern is owned twice within a runtime, and no runtime re-implements a peer's kernel.
 
 - Each runtime carries one geometry owner, one meshing owner, and one semantic-exchange implementation; a second is the duplication defect.
-- Decoders at the tessellation and appearance rails compose the payload rather than re-deriving it.
+- Decoders at the tessellation and appearance paths compose the payload rather than re-deriving it.
 - Independent peer producers stay independent: a host-free geometry owner produces for its own domain rather than consuming a peer's kernel.
 
 ## [04]-[PLANNING_LIFECYCLE]
@@ -45,8 +45,8 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 
 ## [05]-[PER_LANGUAGE_ROLES]
 
-- Each row names the domain its estate carries; rank and dependency sit outside the row.
-- C# carries the host-bound AEC domain: the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries.
+- Each row names the domain its repo carries; rank and dependency sit outside the row.
+- C# carries the host-bound AEC domain: the geometry kernel, the element boundary and its AEC peers, the app platform, and the host boundaries.
 - Python carries the host-free science, compute, data, geometry, exchange, and artifact domain.
 - TypeScript carries the host-free web, edge, runtime, persistence, security, UI, and deployment domain.
 - Each branch composes, mints, verifies, and deploys its own schema state — schema, generation, recovery, evidence — with no peer branch present.
@@ -69,9 +69,9 @@ Four-signal telemetry (metrics, logs, traces, profiles) correlates across the ru
 - Domain rows stay branch-declared at each conformance minter; a Tier-0 instance roster re-anchors the vocabulary to one day's segment set.
 - Each row carries its segment beside the admitted subject.
 - Emitter rosters stay branch-local, earned where a branch's own module declaration closes them against drift.
-- Carve: estate identity dimensions are the one unsegmented spelling the grammar admits.
+- Carve: repo identity dimensions are the one unsegmented spelling the grammar admits.
 - Carve: package-keyed hook-point ids beside a runtime's own module namespace sit outside the grammar whole.
-- Carve: transport coordinates beside residence relation and session-setting names share the prefix and answer to their own owners.
+- Carve: transport coordinates beside the store relation and session-setting names share the prefix and answer to their own owners.
 - Gate: every signal name a branch mints — instrument, dimension, resource, span, log, and event alike — carries a segment the roster resolves.
 - Unresolved segments refuse at their declaration owner rather than reaching an exporter.
 - Grammar-derived routing facts state their derivation at each emission owner, never the census owner alone; a foreign prefix forks knowingly.
@@ -103,9 +103,9 @@ Four-signal telemetry (metrics, logs, traces, profiles) correlates across the ru
 
 [TENANT_COST_JOIN]: Per-tenant cost attribution is one three-pin join: the C# grant-spend instrument family off the broker's cost vectors, the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the deploy plane's cost read against the selected store row. Past a store row's tenant series cap, attribution rides exemplar-sampled traces as trace-scoped spend evidence, never a second metering pipeline.
 
-[EVIDENCE_RESIDENCE]: Telemetry is an analytics subject in every branch: signal evidence lands in a durable columnar residence through the branch's own analytics custodian: `dotnet:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the residence family at `typescript:iac/operate/observe` (a cold-tail default, an interactive escalation, or a declared evidence loss), so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
+[EVIDENCE_STORE]: Telemetry is an analytics subject in every branch: signal evidence lands in a durable columnar store through the branch's own analytics custodian: `dotnet:Rasm.Persistence`, `python:data/tabular` beside the `python:runtime/observability/journal` plane, and `typescript:data`. `spec.profile.observe.analytics` arms the store family at `typescript:iac/operate/observe` (a cold-tail default, an interactive escalation, or a declared evidence loss), so evidence outliving a store's series window is a spec flip, never a per-branch pipeline.
 
-[FLEET_ESCALATION]: Every escalation row (scale-out store, broker-buffered leg, tail-sampling gateway, per-app agent topology) is off at estate scale by ruling; each arms as one spec value against `typescript:iac/operate/observe`, whose rows own the coordinates, so re-arming is a named flip, never a re-design.
+[FLEET_ESCALATION]: Every escalation row (scale-out store, broker-buffered leg, tail-sampling gateway, per-app agent topology) is off at repo scale by ruling; each arms as one spec value against `typescript:iac/operate/observe`, whose rows own the coordinates, so re-arming is a named flip, never a re-design.
 
 [PROFILE_SWAP]: Profiles move from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the SDK trains; span-profile correlation processors, the profile store row, and every dashboard survive the swap unchanged. Swap-point owners `dotnet:Rasm.AppHost/Observability/telemetry`, `python:runtime/observability/profiles`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe` each carry their own push row and its OTLP replacement.
 
@@ -170,13 +170,13 @@ Every `libs/` package is an independently versioned library an unrelated applica
 
 ## [09]-[DESIGN_LANGUAGE]
 
-One design language makes disparate estates read as one system: a consumer crossing packages, branches, or hosts meets the same shapes under different spellings, so capability composes without per-package relearning. Each row states the invariant, and `docs/stacks/<language>/` owns its spelling.
+One design language makes disparate repos read as one system: a consumer crossing packages, branches, or hosts meets the same shapes under different spellings, so capability composes without per-package relearning. Each row states the invariant, and `docs/stacks/<language>/` owns its spelling.
 
 | [INDEX] | [INVARIANT]           | [LAW]                                                                                               |
 | :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------- |
 |  [01]   | one concept, one name | One semantic name per bounded concept, spelled in the branch's casing law.                          |
 |  [02]   | one polymorphic entry | One entry folds modality, arity, tenancy, topology, and provider off the request shape.             |
-|  [03]   | failure is a value    | Domain logic returns typed error rails; exception flow stays at the boundary.                       |
+|  [03]   | failure is a value    | Domain logic returns typed results; exception flow stays at the boundary.                           |
 |  [04]   | results carry facts   | Route, status, sampling, solver, and host facts only the producer knows ride columns on its result. |
 |  [05]   | variation is data     | Rows, cases, tables, and policy values own variation; a bounded vocabulary dispatches.              |
 |  [06]   | refusal at admission  | Unservable axis values refuse with typed evidence naming the axis, once at the admission owner.     |
@@ -210,14 +210,14 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 
 ## [11]-[EVENT_FABRIC]
 
-Domain facts cross the runtimes as CloudEvents message envelopes under the official attribute grammar, the publisher formats, and the generated estate extension vocabulary. Message envelopes announce a fact and never gain authority over it: the producing result stays the truth and the announcement projects it, so a consumer routes on attributes without opening the payload.
+Domain facts cross the runtimes as CloudEvents message envelopes under the official attribute grammar, the publisher formats, and the generated repo extension vocabulary. Message envelopes announce a fact and never gain authority over it: the producing result stays the truth and the announcement projects it, so a consumer routes on attributes without opening the payload.
 
 [AUTHORITY]: Specification is the semantic owner and an SDK is an admitted acceleration. Libraries expose a generic, strict CloudEvents capability first; the Rasm type grammar, content-key subject, classification, and generated extension message compose as one profile rather than narrowing the generic envelope. Bindings, formats, and filters delegate to SDK members where available and stay branch-owned where absent.
 
-[KERNEL_BOUNDARY]: Generic message envelope, strict admission, Rasm profile, and format contract reach S0. Bindings, filters, and subscriptions seat at their consuming owners under `[10]-[ADMISSION]`, carry no seam constraint, and consume that capability.
+[KERNEL_BOUNDARY]: Generic message envelope, strict admission, Rasm profile, and format contract reach S0. Bindings, filters, and subscriptions seat at their consuming owners under `[10]-[ADMISSION]`, carry no boundary constraint, and consume that capability.
 
 [SEATING]:
-- C# seats the message-envelope algebra inside `Rasm`'s `Domain` sub-domain beside its identity, rails, and telemetry owners.
+- C# seats the message-envelope algebra inside `Rasm`'s `Domain` sub-domain beside its identity, results, and telemetry owners.
 - TypeScript lands the message envelope as rows on the `core/interchange` owners it already carries, and mints no page beside them.
 - Python lands the message envelope and every binding under `runtime/transport`, and mints no eventing sub-domain.
 - Sub-domains minted for the message envelope fail the `[10]-[ADMISSION]` earn-test — their nouns are the identity, event, and wire nouns S0 holds.
@@ -252,18 +252,18 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 
 [VARIATION]: Format, binding, filter, and content mode are rows on their owners, never types a consumer switches on; growth is one row, arm, or case, and every consumer stands untouched.
 
-[DATAREF]: One policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `ref` is the URI-reference the bound residence returns and the subscribed receiver can acquire through its resolver, with any access credential supplied outside the event. `subject` remains the independent content-key integrity join.
+[DATAREF]: One policy row per binding and never a global constant, because a threshold fixed repo-wide either strands the smallest transport or wastes the largest. `ref` is the URI-reference the bound store returns and the subscribed receiver can acquire through its resolver, with any access credential supplied outside the event. `subject` remains the independent content-key integrity join.
 
 | [INDEX] | [COLUMN]    | [ANSWERS]                               |
 | :-----: | :---------- | :-------------------------------------- |
 |  [01]   | `threshold` | the binding's own negotiated limit      |
-|  [02]   | `residence` | the content-keyed store bound as a port |
+|  [02]   | `store`     | the content-keyed store bound as a port |
 |  [03]   | `ref`       | the receiver-resolvable URI-reference   |
 |  [04]   | `retain`    | the declared retention class            |
 |  [05]   | `dual`      | whether the reference ships alone       |
 
-- `residence` binds at the composition root as a port.
-- Unbound residence refuses before a producer ships a reference no receiver resolver can acquire.
+- `store` binds at the composition root as a port.
+- An unbound store refuses before a producer ships a reference no receiver resolver can acquire.
 - `data` and the value acquired through `dataref` carry identical information when both exist; neither duplicates the content key in `subject`.
 - `retain` declares a class and never a window, ledger, or groom, so the producing folder's standing obligation reaches the wire unchanged.
 - `dual` gates reference-alone shipping on the subscription's `protocolsettings`, since the specification carries no capability negotiation.

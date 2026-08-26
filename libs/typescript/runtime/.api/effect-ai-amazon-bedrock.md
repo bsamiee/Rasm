@@ -11,8 +11,8 @@
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                   |
 | :-----: | :-------------------- | :------------ | :------------------------------------------------------------- |
 |  [01]   | `AmazonBedrockClient` | class         | `Context.TagClass` service tag wrapping the low-level `Client` |
-|  [02]   | `Service`             | interface     | curated Converse methods on the `AiError` rail                 |
-|  [03]   | `Client`              | interface     | raw `converse` on the `HttpClientError \| ParseError` rail     |
+|  [02]   | `Service`             | interface     | curated Converse methods on the `AiError` channel              |
+|  [03]   | `Client`              | interface     | raw `converse` on the `HttpClientError \| ParseError` channel  |
 
 [CLIENT_ENTRY_SCOPE]: construct the client and call Converse
 
@@ -126,7 +126,7 @@
 
 [TOPOLOGY]:
 - `AmazonBedrockLanguageModel.model(id)` resolves the same `LanguageModel` tag every sibling resolves, so provider choice is one `Layer` swap.
-- `Service` methods map the low-level `HttpClientError | ParseError` rail onto `AiError`; the raw `Client.converse` alone surfaces the untranslated rail.
+- `Service` methods map the low-level `HttpClientError | ParseError` channel onto `AiError`; the raw `Client.converse` alone surfaces the untranslated channel.
 - Credentials ride `Redacted`; `layerConfig` wraps each in `Config` and adds `ConfigError`.
 - Native guardrails are a per-call `Config.guardrailConfig` switch, and the assessment tree surfaces on `FinishPartMetadata.bedrock.trace`.
 - The stop-reason map covers six wire values and routes both a content filter and a guardrail intervention to `"content-filter"`. It has NO suspend entry, so an Anthropic-on-Bedrock turn halted mid-tool falls through to `"unknown"` and reads as an ordinary unremarkable finish — the same wire condition the Anthropic package surfaces as `"pause"`.

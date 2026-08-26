@@ -9,7 +9,7 @@ Both host boundaries reach this owner directly and neither adapts it: the Rhino 
 - [02]-[MODALITY]: `UiDispatch<T>`, `ISyncCrossing<T>`, `IAsyncCrossing<T>`, `DispatchLane` — the five crossing cases, the two return-shape markers, and the gauge lane roster that budgets them.
 - [03]-[THREAD]: `UiThread` — the two marshal arities, the affinity probe, the gauge tune, and the observer taps.
 - [04]-[PULSE]: `StallPolicy`, `DispatchPulse`, `DispatchEcho` — the seated pace, the gauged crossing evidence, and the queued-crossing echo.
-- [05]-[FAULT]: `RejectReason`, `UiFault`, `FaultRail` — the refusal-clause vocabulary, the closed refusal family on the kernel `FaultBand.Interaction` row, and the two host-raise projections every surface on this sub-domain routes through.
+- [05]-[FAULT]: `RejectReason`, `UiFault`, `FaultGate` — the refusal-clause vocabulary, the closed refusal family on the kernel `FaultBand.Interaction` row, and the two host-raise projections every surface on this sub-domain routes through.
 
 ## [02]-[MODALITY]
 
@@ -20,7 +20,7 @@ Both host boundaries reach this owner directly and neither adapts it: the Rhino 
 - Auto: the lane's `Bound` derives as `Pace.Period × Frames × Stretch`, so the frame period has ONE owner — the seated `PaceBand` — and a host widening one lane states a dimensionless multiple rather than a second millisecond table. The two hand-written millisecond tables both boundaries carry today have no place to reappear.
 - Law: a marker interface is implemented by union cases alone and its `Crossing` member is answered ONCE on the root — the projection is the same identity at every case, so a case declares its arity and no body. The root constructor is private, so no foreign implementor can produce a value the total `Switch` does not already own, and the arity split costs no openness.
 - Law: `Queued` returns the same shape every other asynchronous case returns. NAMED LOSS: the Grasshopper form returned queue-ADMISSION alone, so a caller could not distinguish "accepted for later" from "ran and succeeded". That distinction survives as the `DispatchEcho` tap rather than as a different return type, because a return shape that differs per case is exactly what makes the modality unrecoverable from the value.
-- Law: a `ref struct` never crosses a case body — a span-shaped result copies into owned storage before the crossing, because a case body is a delegate seam and closure capture is the same escape as a box.
+- Law: a `ref struct` never crosses a case body — a span-shaped result copies into owned storage before the crossing, because a case body is a delegate boundary and closure capture is the same escape as a box.
 - Law: NAMED LOSS — the census `DispatchLane.Marshal` column does not land. The crossing CASE is the marshal choice; a lane naming a marshal shape beside a case naming another is two authorities over one crossing, and the disagreement is unresolvable at the call site. Witness: a lane-selected marshal reads as `UiThread.Run(new UiDispatch<T>.Blocking(body), DispatchLane.Immediate, key)`, where the lane budgets and the case marshals.
 - Growth: a new crossing modality is one case, one marker, and one arm at every dispatch site, breaking loudly; a new budget lane is one row the seated pace already budgets.
 - Boundary: Rhino's command-thread affinity (`HostThread`/`HostWork<T>`) is a DIFFERENT axis over the Rhino command queue and stays plural at that boundary; what re-points here are its marshal lane and its latency gauge, which were this owner's shape all along.
@@ -78,11 +78,11 @@ public sealed partial class DispatchLane : IGaugeLane<DispatchLane> {
 - Entry: `Run` dispatches the crossing case, brackets the body in the lane's gauged span, and lands the arity the case's marker declares; `OnMarshal` is the PUBLISHED affinity probe so no consumer inlines `Application.Instance.IsUIThread` and no consumer reads an absent instance as "not on the thread"; `Tune` seats the pace and the gauge clock; `Watch` and `Tap` lease the pulse and echo observers.
 - Auto: every entry admits the application through `Optional(Application.Instance).ToFin(key.MissingContext())`, so a headless process — a test host, a compute node, a CLI — refuses TYPED at the entry rather than blocking on a marshal that will never run. That refusal is the reason the probe is published: an affinity test that answers `false` in a headless process is indistinguishable from one that answers `false` on a worker thread, and only one of them is recoverable.
 - Auto: the gauged bracket is `MonotonicTimeline.Gauged<T, DispatchLane>`, which takes NO bound — the lane row owns it — and answers `(Fin<T> Value, GaugedSpan<DispatchLane> Span)`, so the span lands on a refused body too and the pulse publishes from every crossing rather than from the settled ones alone.
-- Law: the marshal is the only site that names an Eto application, and it carries `[BoundaryAdapter]` — every interior owner on this sub-domain takes admitted values and returns rails, so the host surface is one page wide.
+- Law: the marshal is the only site that names an Eto application — every interior owner on this sub-domain takes admitted values and returns results, so the host surface is one page wide.
 - Law: a crossing never swallows: a body's `Fin` failure rides out unchanged, and only the CROSSING itself — a dead context, a refused post, a headless entry — becomes a `UiFault`.
-- Law: an observer raise never fails the crossing it observed. Publication runs through `FaultRail.Isolate`, which parks the subscriber's refusal on the sub-domain fault cell and settles the crossing, because a tap that can fail a marshal turns instrumentation into a liveness dependency.
+- Law: an observer raise never fails the crossing it observed. Publication runs through `FaultGate.Isolate`, which parks the subscriber's refusal on the sub-domain fault cell and settles the crossing, because a tap that can fail a marshal turns instrumentation into a liveness dependency.
 - Output: `DispatchPulse` per crossing and `DispatchEcho` per queued settle, both published to leased observers rather than returned, so a caller that wants only the value pays nothing.
-- Packages: Eto.Forms for `Application` (registered at `libs/dotnet/.api/api-eto-runtime.md`); LanguageExt.Core for the rails and the `Lease`; `Parametric/projections` for the timeline and the gauge lane floor.
+- Packages: Eto.Forms for `Application` (registered at `libs/dotnet/.api/api-eto-runtime.md`); LanguageExt.Core for the types and the `Lease`; `Parametric/projections` for the timeline and the gauge lane floor.
 - Growth: a new observer is one lease; a new lane is one row the seated pace already budgets.
 - Boundary: `Application.Instance` is read at the entry and never stored — a captured instance outlives a host restart and marshals onto a dead context that never re-posts.
 
@@ -96,15 +96,15 @@ namespace Rasm.Interaction;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class UiThread {
-    [BoundaryAdapter] public static Fin<T> Run<T>(ISyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
-    [BoundaryAdapter] public static ValueTask<Fin<T>> Run<T>(IAsyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
+    public static Fin<T> Run<T>(ISyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
+    public static ValueTask<Fin<T>> Run<T>(IAsyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
 
-    [BoundaryAdapter] public static Fin<bool> OnMarshal(Op? key = null);
+    public static Fin<bool> OnMarshal(Op? key = null);
 
-    [BoundaryAdapter] public static Fin<Unit> Tune(StallPolicy policy, Option<MonotonicTimeline> clock = default, Op? key = null);
+    public static Fin<Unit> Tune(StallPolicy policy, Option<MonotonicTimeline> clock = default, Op? key = null);
 
-    [BoundaryAdapter] public static Fin<Lease<IDisposable>> Watch(Action<DispatchPulse> observer, Op? key = null);
-    [BoundaryAdapter] public static Fin<Lease<IDisposable>> Tap(Action<DispatchEcho> observer, Op? key = null);
+    public static Fin<Lease<IDisposable>> Watch(Action<DispatchPulse> observer, Op? key = null);
+    public static Fin<Lease<IDisposable>> Tap(Action<DispatchEcho> observer, Op? key = null);
 
     public static Option<DispatchPulse> LastPulse { get; }
     public static Option<DispatchPulse> LastStall { get; }
@@ -146,7 +146,7 @@ public sealed record StallPolicy(PaceBand Pace, HashMap<DispatchLane, double> St
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DispatchPulse(GaugedSpan<DispatchLane> Span) : IValidityEvidence {
     public Op Operation => Span.Work;
     public DispatchLane Lane => Span.Lane;
@@ -155,13 +155,13 @@ public readonly record struct DispatchPulse(GaugedSpan<DispatchLane> Span) : IVa
     public bool IsValid => Span.IsValid;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DispatchEcho(Op Operation, Fin<Unit> Outcome);
 ```
 
 ## [05]-[FAULT]
 
-- Owner: `UiFault` — the closed refusal family for every interaction crossing, deriving `Fault` and coded off the kernel `FaultBand.Interaction` row; `RejectReason` — the sub-domain's one refusal-clause vocabulary; `FaultRail` — the two projections a host raise crosses, one failing the operation and one isolating an observer.
+- Owner: `UiFault` — the closed refusal family for every interaction crossing, deriving `Fault` and coded off the kernel `FaultBand.Interaction` row; `RejectReason` — the sub-domain's one refusal-clause vocabulary; `FaultGate` — the two projections a host raise crosses, one failing the operation and one isolating an observer.
 - Cases: `Dismissed` (the user closed the surface), `Cancelled` (the caller withdrew), `Unavailable` (the host lacks a rostered `PlatformCapability`), `OffThread` (a `Current` crossing ran off the marshal), `Rejected` (a `FieldTag` refused under a `RejectReason` row), `AbsentPayload` (a transfer read found nothing of the wanted format), `HostRejected` (the platform refused the operation), `Released` (the surface was torn down mid-crossing), `Headless` (no application instance exists).
 - Auto: each `[FaultCase]` ordinal generates the cached numeric identity against the root's one `FamilyBand`; `Message` is the family-owned total presentation fold.
 - Law: the root derives `Fault` directly. Numeric identity is generated, while the case payload and total message projection remain authored here.
@@ -170,9 +170,9 @@ public readonly record struct DispatchEcho(Op Operation, Fin<Unit> Outcome);
 - Law: recovery reads the case and immutable posture, never rendered text. A generic wire may project numeric code and recovery only; no category or case-name mirror crosses with it. Every payload identity column is admitted — `Unavailable` names a `PlatformCapability` row and `Rejected` a `FieldTag` beside a `RejectReason` row.
 - Law: a refusal clause is a `RejectReason` ROW and its sentence rides that row's `Requirement`. A joined-sentence reason column is the deleted form: a caller filtering on which clause fired had to parse prose, and a surface rendering it had no clause to name. A refusal violating several clauses lowers one fault per row through `Error.Many`, so the whole violated set survives.
 - Boundary: `FieldTag` (`Interaction/control`) and `PlatformCapability` (`Interaction/platform`) are IDENTITY value objects on this sub-domain's own assembly, carrying no behaviour this family could invert onto. The fault family reading them is one namespace resolving one vocabulary, never a stratum reaching upward.
-- Law: an observer fault and an operation fault are different postures and `FaultRail` states both. `Host` lifts a platform raise onto the rail as `HostRejected`; `Isolate` parks a subscriber's raise on the `FaultCell` and settles, so a tap storm sheds into a bounded ring rather than failing the surface that published.
+- Law: an observer fault and an operation fault are different postures and `FaultGate` states both. `Host` lifts a platform raise onto the result as `HostRejected`; `Isolate` parks a subscriber's raise on the `FaultCell` and settles, so a tap storm sheds into a bounded ring rather than failing the surface that published.
 - Growth: a new refusal is one case, one message arm, declaration-order ordinal compaction, and the matching `FaultBand.Interaction.Span` edit; a new refusal CLAUSE is one `RejectReason` row and no case edit.
-- Boundary: a documented platform raise funnels through `FaultRail.Host` and lands as `HostRejected` carrying the exact captured `Error` cause; a returned failed rail passes through unchanged.
+- Boundary: a documented platform raise funnels through `FaultGate.Host` and lands as `HostRejected` carrying the exact captured `Error` cause; a returned failed result passes through unchanged.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -192,7 +192,7 @@ public sealed partial class RejectReason {
     public static readonly RejectReason CommitFlow = new(key: "commit-flow", requirement: "commit timing requires a flow relaying into the source");
     public static readonly RejectReason ManualTiming = new(key: "manual-timing", requirement: "manual flow admits edit timing alone");
 
-    // --- [SEAM]
+    // --- [BOUNDARY]
     public static readonly RejectReason NoChildPath = new(key: "no-child-path", requirement: "a source shape carrying a live child path");
     public static readonly RejectReason ControlType = new(key: "control-type", requirement: "a control of the type the plan selects its binding on");
     public static readonly RejectReason EmptyLatch = new(key: "empty-latch", requirement: "a latch holding a pending write");
@@ -241,8 +241,8 @@ public abstract partial record UiFault : Fault {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class FaultRail {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.kernel.interaction.dispatch");
+public static class FaultGate {
+    private static readonly HookId Point = HookId.Create(value: "rasm.kernel.interaction.dispatch");
 
     public static Fin<T> Host<T>(Func<Fin<T>> body, Op key) =>
         key.Catch<T, UiFault.HostRejected>(
@@ -250,7 +250,7 @@ public static class FaultRail {
             provider: cause => Some(new UiFault.HostRejected(Key: key, Cause: cause)));
 
     public static Unit Isolate(FaultCell faults, Action publish, Op key) =>
-        key.Catch(publish).Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Rail, cause: cause)));
+        key.Catch(publish).Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
 }
 ```
 

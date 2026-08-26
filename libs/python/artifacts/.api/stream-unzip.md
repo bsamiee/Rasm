@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_STREAM_UNZIP]
 
-`stream-unzip` owns bounded-memory streaming ZIP extraction on the bundle rail: `stream_unzip` yields `(name, size, chunks)` triples from a container's chunked `bytes` over a lazy inner `bytes` generator, decoding each member as it arrives — no central-directory seek, no whole-archive buffer. `allowed_encryption_mechanisms` bounds which ZipCrypto and WinZip-AES records decode under a `bytes` `password`. It streams the inverse of `stream-zip`, owning its ZipCrypto keystream while delegating deflate64 to `stream-inflate`, AES to `pycryptodome`, and bzip2/deflate to stdlib.
+`stream-unzip` owns bounded-memory streaming ZIP extraction on the bundle domain: `stream_unzip` yields `(name, size, chunks)` triples from a container's chunked `bytes` over a lazy inner `bytes` generator, decoding each member as it arrives — no central-directory seek, no whole-archive buffer. `allowed_encryption_mechanisms` bounds which ZipCrypto and WinZip-AES records decode under a `bytes` `password`. It streams the inverse of `stream-zip`, owning its ZipCrypto keystream while delegating deflate64 to `stream-inflate`, AES to `pycryptodome`, and bzip2/deflate to stdlib.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -86,7 +86,7 @@ Both yield `(name, size, chunks)` triples over the shared carry set. `async_stre
 [STACKING]:
 - `stream-zip`(`.api/stream-zip.md`): `stream_unzip` is the exact streamed inverse, closing the round-trip `_zip_members`/`stream_zip` opens; a download or response body yields `Iterable[bytes]` straight into `stream_unzip`, which `package/archive` `Archive`'s `_zip_drain` re-emits as `(name, size, chunks)` for the `CompressionAlgo.ZIP_STREAM` unpack arm, and `allowed_encryption_mechanisms` derives from the one `ZipStreamKnobs.password` discriminant through `_zip_trust` — `None` admits `{NO_ENCRYPTION}`, a set password admits `{AE_2, AES_256}` — so the allow-list can never reject the archive its own pack leg wrote.
 - within-lib: each member's `chunks` streams into its downstream consumer with no temp file — a recovered PDF into `document/lens`, structured text into `ruamel-yaml`/`tomlkit`, a `msgspec.msgpack.decode` over the member bytes.
-- `anyio`(`.api/../anyio.md`): `async_stream_unzip` consumes a `universal-pathlib`/`httpx` async byte stream so a remote bundle extracts on the shared structured-concurrency rail, its own asyncio-versus-trio detection carrying the `anyio` backend choice transparently and mirroring the `async_stream_zip` pack side.
+- `anyio`(`.api/../anyio.md`): `async_stream_unzip` consumes a `universal-pathlib`/`httpx` async byte stream so a remote bundle extracts on the shared structured-concurrency domain, its own asyncio-versus-trio detection carrying the `anyio` backend choice transparently and mirroring the `async_stream_zip` pack side.
 
 [LOCAL_ADMISSION]:
 - Import `stream_unzip`, `async_stream_unzip`, and the mechanism and error symbols at boundary scope only, per the manifest import policy, and `password` is the `str.encode()` `bytes` of the profile password; this unpack arm recovers the member roster and never re-authors the container.

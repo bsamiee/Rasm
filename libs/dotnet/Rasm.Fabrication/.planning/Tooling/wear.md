@@ -318,7 +318,6 @@ public sealed partial class WearSample {
     public HashMap<ToolLifeBasis, double> Exposure { get; }
     public Seq<ConditionSignal> Signals { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolTarget target,
         ref ProcessKind process, ref Instant at, ref HashMap<ToolLifeBasis, double> exposure,
         ref Seq<ConditionSignal> signals) =>
@@ -343,7 +342,6 @@ public sealed partial class ConsumableSpec {
     public int MaximumReconditions { get; }
     public string Evidence { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ConsumableKey key,
         ref ConsumableKind kind, ref ToolLifeBasis basis, ref double warning, ref double limit,
         ref bool reconditionable, ref int maximumReconditions, ref string evidence) {
@@ -391,7 +389,6 @@ public sealed partial class WearRegistry {
     [IgnoreMember]
     private FrozenDictionary<ProcessKind, WearApplicability>? index;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ProcessWear> rows) =>
         validationError = rows.Map(static row => row.Process).Distinct().Count != rows.Count
             || toSeq(ProcessKind.Items).Exists(process => !rows.Exists(row => row.Process == process))
@@ -434,7 +431,6 @@ public sealed partial class TaylorModel {
     public double DepthExponent { get; }
     public double LoadExponent { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolLifeBasis basis,
         ref double constant, ref double speedExponent, ref double feedExponent, ref double depthExponent,
         ref double loadExponent) =>
@@ -460,7 +456,6 @@ public sealed partial class PhaseSchedule {
     public double Accelerated { get; }
     public double CurvatureBand { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double breakIn,
         ref double accelerated, ref double curvatureBand) =>
         validationError = !Seq(breakIn, accelerated, curvatureBand).ForAll(double.IsFinite)
@@ -492,7 +487,6 @@ public sealed partial class WearPolicy {
     public double InspectionFraction { get; }
     public Option<TaylorModel> Taylor { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int minimumSamples,
         ref Interval window, ref Duration maximumGap, ref double outlierSigma, ref double minimumRSquared,
         ref double confidenceMultiplier, ref PhaseSchedule phases, ref double inspectionFraction,
@@ -613,7 +607,6 @@ public sealed partial class TaylorCondition {
     public double Current { get; }
     public double RelativeUncertainty { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolTarget target,
         ref ToolLifeBasis basis, ref WearChannel channel, ref double consumed, ref Speed speed,
         ref Speed feed, ref Length depth, ref Force load, ref double current, ref double relativeUncertainty) =>
@@ -643,7 +636,6 @@ public sealed partial class WearAssessment {
     public WearPolicy Policy { get; }
     public Instant AssessedAt { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ProcessKind process,
         ref ToolAssembly assembly, ref Seq<WearSample> samples, ref Seq<ConsumableReading> consumables,
         ref Option<TaylorCondition> taylor, ref WearRegistry registry, ref WearPolicy policy,
@@ -674,7 +666,6 @@ public sealed partial class TaylorSample {
     public Force Load { get; }
     public double Life { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Speed speed,
         ref Speed feed, ref Length depth, ref Force load, ref double life) =>
         validationError = speed.MetersPerSecond <= 0.0 || feed.MetersPerSecond <= 0.0
@@ -696,7 +687,6 @@ public sealed partial class TaylorCalibration {
     public double MinimumRSquared { get; }
     public Speed MinimumSpeedSpan { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<TaylorSample> samples,
         ref ToolLifeBasis basis, ref double feedExponent, ref double depthExponent, ref double loadExponent,
         ref int minimumSamples, ref double maximumResidual, ref double minimumRSquared, ref Speed minimumSpeedSpan) =>
@@ -728,7 +718,6 @@ public sealed partial class TaylorLaw {
     public Speed SpeedMinimum { get; }
     public Speed SpeedMaximum { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref TaylorModel model,
         ref Regression fit, ref Speed speedMinimum, ref Speed speedMaximum) =>
         validationError = speedMinimum.MetersPerSecond <= 0.0

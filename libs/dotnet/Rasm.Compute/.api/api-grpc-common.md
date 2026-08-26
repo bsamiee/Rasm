@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_GRPC_COMMON]
 
-`Grpc.Net.Common` owns the shared gRPC compression-provider contracts, the channel-connectivity vocabulary, and the client-side stream-reader drain. Compression registers at channel and service composition, never the call site, and the surface feeds the remote-wire rail under the managed `Grpc.Net.Client` and `Grpc.AspNetCore.Server` hosts that own transport and channel construction.
+`Grpc.Net.Common` owns the shared gRPC compression-provider contracts, the channel-connectivity vocabulary, and the client-side stream-reader drain. Compression registers at channel and service composition, never the call site, and the surface feeds the remote-wire channel under the managed `Grpc.Net.Client` and `Grpc.AspNetCore.Server` hosts that own transport and channel construction.
 
 ## [01]-[PUBLIC_TYPES]
 

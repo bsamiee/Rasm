@@ -2,12 +2,12 @@
 
 `Probe.Inspect` owns post-cycle metrology truth: one admitted `InspectPolicy` generates feature-complete contact targets, correlates exact controller cycles with repeat observations, compensates calibrated stylus behavior in the probe's own frame, reconciles datum registration with its anisotropic uncertainty, and projects transformed residuals onto `FabricationResult.InspectionResult`.
 
-`FabricationPolicy.Inspect`, `GCommand`, `DatumLineage`, `Fitted`, `Capability.Assess`, and `InspectionFeature` remain frozen seams. Contact generation composes the kernel `Deterministic` equidistribution owner, robust aggregation composes `MathNet.Numerics.Statistics`, primitive fitting composes the kernel `FitKind` roster, and residual statistics compose `AnalysisQuery.Conformance`; this page mints no draw sequence, no summary statistic, and no fit primitive of its own. Decoded measurement rows enter as typed data; controller transport and work-offset mutation remain outside the Verify plane.
+`FabricationPolicy.Inspect`, `GCommand`, `DatumLineage`, `Fitted`, `Capability.Assess`, and `InspectionFeature` remain frozen contracts. Contact generation composes the kernel `Deterministic` equidistribution owner, robust aggregation composes `MathNet.Numerics.Statistics`, primitive fitting composes the kernel `FitKind` roster, and residual statistics compose `AnalysisQuery.Conformance`; this page mints no draw sequence, no summary statistic, and no fit primitive of its own. Decoded measurement rows enter as typed data; controller transport and work-offset mutation remain outside the Verify plane.
 
 ## [01]-[INDEX]
 
 - [02]-[FEATURE_SPACE]: nominal feature geometry, the chart-and-sampler contact algebra every analytic case declares, the fit correspondence per case, and the inspection demand.
-- [03]-[OBSERVATION_RAIL]: exact cycle-addressed ingress, temporal containment, per-contact outcome evidence, and probe-frame calibration compensation.
+- [03]-[OBSERVATION_PORT]: exact cycle-addressed ingress, temporal containment, per-contact outcome evidence, and probe-frame calibration compensation.
 - [04]-[DATUM_AND_RESULT]: registration before residuals, lever-arm uncertainty propagation, order-declared primitive fitting, capability projection, and atoms-safe egress.
 
 ## [02]-[FEATURE_SPACE]
@@ -380,7 +380,6 @@ public sealed partial class ProbeTargetKey {
 
     public string Text => $"{Cycle.Key}:{Feature}:{Sample}";
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ProbeCycle cycle,
@@ -399,7 +398,6 @@ public sealed partial class ProbeAddress {
     public ProbeTargetKey Target { get; }
     public int Attempt { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ProbeTargetKey target,
@@ -425,7 +423,6 @@ public sealed partial class ProbePlan {
     public PositiveMagnitude TravelLimitMm { get; }
     public Tolerance Approach { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Dimension key,
@@ -464,7 +461,7 @@ public sealed partial class ProbePlan {
 }
 ```
 
-## [03]-[OBSERVATION_RAIL]
+## [03]-[OBSERVATION_PORT]
 
 - Owner: `MeasurementSource` is ONE admitted value carrying its `MeasurementKind` row beside the `Interval`, evidence key, and observation sequence every lane shares; a new ingress modality is one row and no consumer changes, because nothing downstream branches on the lane. `StylusCalibration` owns the calibrated stylus behavior and the probe frame its lobing map is measured in; `RepeatBands` is the repeat regime as a named column block of the inspection demand.
 - Law: a scalar band is DERIVED off the model context, never anchored. The lobing map's planar floor and the repeat set's acceptance floor both read `ToleranceLane.Neglect` through `Context.For`, because an anchor is what a lane derives FROM and reading one directly prices a micron probe and a bridge girder against the same number. `ProbeTargetKey` and `ProbeAddress` keep their own admission: observations arrive addressed by them, so their gates are the boundary's and not ceremony over an ordinal the fold already produced.
@@ -484,7 +481,6 @@ public sealed partial class ProbeObservation {
     public double TemperatureC { get; }
     public UInt128 EvidenceKey { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ProbeAddress address,
@@ -516,7 +512,6 @@ public sealed partial class MeasurementSource {
     public Seq<ProbeObservation> Rows { get; }
     public UInt128 EvidenceKey { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MeasurementKind kind,
@@ -550,7 +545,6 @@ public sealed partial class StylusCalibration {
     public Interval Validity { get; }
     public Seq<ProbeLobe> Lobes { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref UInt128 key,
@@ -677,7 +671,7 @@ file sealed record UnregisteredFeature(
 - Entry: `ProbeBench.Workload` admits the `icp-probe-fit` measured workload — a best-fit datum lane over the feature-census floor — and `ProbeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.IcpProbeFit`; measurement and benchmark projection stay the bench edge's under the AppHost claim-field map.
 - Law: the fit memo lane is one content key and one cache ride on the standing owner pattern — `ProbeMemo.Key` folds every fit-shifting input through `FabricationCanon.Ordered`, the S0 streaming close, the cache key spells the `icp:` prefix the Persistence solver-memo band dispatches on through the branch `HybridCache` L2, a hit re-enters as `DatumPolicy.Replay` with the memoized transform, residual, and radius, and a miss solves `BestFit` then publishes `(Transform, FinalDelta, RadiusMm)`; the lane composes at the cache-owning boundary, so `Probe.Inspect` and the statement kernel stay memo-free and synchronous.
 - Law: the memo preimage frames the alignment policy's LANE KEYS and its Procrustes closing row, not the scalars a context resolves those lanes to. A project override moves the number a fit converges against without re-keying every memoized registration, and the scale decision reads off the `PoseFit` row the policy chose rather than a separate flag stating the same fact twice.
-- Exemption: the two-cloud registration region is a statement kernel — resource release is not expressible on the `Fin` rail, and one region releasing both clouds on every exit path replaces a compensating dispose inside a failure lambda, which is a second custody path that leaks the moment a third resource joins.
+- Exemption: the two-cloud registration region is a statement kernel — resource release is not expressible on the `Fin` result, and one region releasing both clouds on every exit path replaces a compensating dispose inside a failure lambda, which is a second custody path that leaks the moment a third resource joins.
 - Auto: `AlignKind.AlignDetailed` projects a transform only through `Alignment.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `Fitted` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
 - Output: `ProbeReport` closes the pre-egress evidence fold — cycles, datum, fitted features, the kernel residual spread and its worst sample, and the capability study — while the frozen `InspectionResult` projects only `InspectionFeature` atoms. `Probe.Inspect` writes conformance counts and the worst deviation through `FabricationInstruments.ProbeFeatures` and `ProbeDeviation` from that file-scoped report. The worst deviation reads the census's own ranked sample, so the instrument, the result, and the kernel ranking are ONE quantity and no seeded fold stands beside them. The whole fold runs inside the `FabricationEngine.Probe` bracket the run spine's `SpanBand` opens, with `EnginePhase.DatumRegistered` and `EnginePhase.FeaturesFitted` as its span marks; the settled datum alignment writes the ICP iteration count through `FabricationInstruments.Steps`.
 - Packages: `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Conformance`, `ConformanceMetric`, `ResidualSample`, `Distribution`), `Rasm.Solving` (`Fit.Apply`, `FitKind`, `FitOp`, `FitPolicy`, `Fitted.Inliers`), `Rasm.Processing` (`AlignKind.AlignDetailed`, `Alignment`), `Rasm.Spatial` (`VectorCloud.Cluster`), `Rasm.Domain` (`ToleranceLane.Neglect` through `Context.For`, `ValidityClaim`, `FabricationCanon.Ordered`), `Rasm.Numerics` (`Dimension`, `PositiveMagnitude`).
@@ -733,7 +727,6 @@ public sealed partial class InspectPolicy {
     public Option<CapabilityTolerance> Capability { get; }
     public IClock Clock { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<ProbePlan> plans,

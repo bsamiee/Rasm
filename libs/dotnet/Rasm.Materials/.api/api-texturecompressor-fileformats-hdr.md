@@ -1,6 +1,6 @@
 # [RASM_MATERIALS_API_TEXTURECOMPRESSOR_FILEFORMATS_HDR]
 
-`TextureCompressor.FileFormats.Hdr` is the managed Radiance `.hdr` leg: `HdrCodec` decodes the RGBE scanline format straight into an `ArrayBitmap<Rgba32Float>` and encodes any `IPixel` plane back out under run-length encoding. It closes the one HDR-environment container the raster estate otherwise cannot read, and its float output is the exact texel type BC6H encodes from.
+`TextureCompressor.FileFormats.Hdr` is the managed Radiance `.hdr` leg: `HdrCodec` decodes the RGBE scanline format straight into an `ArrayBitmap<Rgba32Float>` and encodes any `IPixel` plane back out under run-length encoding. It closes the one HDR-environment container the raster module otherwise cannot read, and its float output is the exact texel type BC6H encodes from.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -56,13 +56,13 @@
 - Radiance is flat and single-level: no mips, no tiles, no layers, no alpha, no named channels. Pyramids, cube face sets, and prefiltered specular chains are different containers, and this codec contributes the base level alone.
 - `Decode` without a pixel argument lands `Rgba32Float`, which is the correct default because that is the only depth the RGBE expansion fills without loss; `DecodeRgba8` clamps and quantizes and serves a preview alone.
 - Encode is generic over `IPixel<TSelf>` and RLE-on by default, so a float environment plane round-trips out as a compact `.hdr` with no depth argument.
-- Its `IImageFileFormat` row reads and writes a FLAT plane, unlike the KTX `ITextureFileFormat` peer that carries a whole `TextureImage`; registering both on one manager gives extension routing across the image and container halves of the estate.
+- Its `IImageFileFormat` row reads and writes a FLAT plane, unlike the KTX `ITextureFileFormat` peer that carries a whole `TextureImage`; registering both on one manager gives extension routing across the image and container halves of the module.
 
 [STACKING]:
 - `TextureCompressor`(`.api/api-texturecompressor.md`): `HdrCodec.Decode(stream) -> ArrayBitmap<Rgba32Float>` yields exactly the texel type `BptcTextureCoder`'s BC6H arm encodes from, so an ingested environment reaches `TextureFormats.Bc6HUFloat` blocks with no intermediate conversion, and `ArrayBitmap<Rgba32Float>.AsView()` is the `BitmapView<TPixel>` `ITextureCoder.Encode<TPixel>` takes.
-- `TextureCompressor.FileFormats.Ktx`(`.api/api-texturecompressor-fileformats-ktx.md`): the ingest-to-wire path — a decoded `.hdr` plane block-encodes and writes as a KTX2 container under `KtxEncodingOptions { Version = KtxVersion.Version2, TextureFormat = TextureFormats.Bc6HUFloat }`, so the environment estate produces one GPU-ready file from one Radiance source.
+- `TextureCompressor.FileFormats.Ktx`(`.api/api-texturecompressor-fileformats-ktx.md`): the ingest-to-wire path — a decoded `.hdr` plane block-encodes and writes as a KTX2 container under `KtxEncodingOptions { Version = KtxVersion.Version2, TextureFormat = TextureFormats.Bc6HUFloat }`, so the environment module produces one GPU-ready file from one Radiance source.
 - `TinyEXR.NET`(`.api/api-tinyexr.md`): the two HDR containers split by precision — this surface owns the low-precision RGBE ingest form and that peer owns every half and float EXR egress form, so an ingested `.hdr` decodes once and re-emits through `ExrFile.SaveToStream(image, stream, Compression.ZIP)` for any downstream needing real float precision, crossing as raw texels in one pooled arena.
-- `Wacton.Unicolour`(`libs/dotnet/.api/api-unicolour.md`): a decoded `Rgba32Float` texel is scene-linear with no declared primaries, so any working-space or white-point reconciliation runs on the `Unicolour` owner before the plane admits to the appearance rail; this codec declares no color management of its own.
+- `Wacton.Unicolour`(`libs/dotnet/.api/api-unicolour.md`): a decoded `Rgba32Float` texel is scene-linear with no declared primaries, so any working-space or white-point reconciliation runs on the `Unicolour` owner before the plane admits to the appearance pipeline; this codec declares no color management of its own.
 - within-lib: the environment ingest fold registers this row on the bake-scoped `TextureFileFormatManager` beside the KTX row, decodes to `Rgba32Float`, and admits the plane only after the 2:1 equirect extent gate — the codec reports extent, never validates it.
 
 [LOCAL_ADMISSION]:

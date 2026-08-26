@@ -1,6 +1,6 @@
 # [RASM_RHINO_ARCHITECTURE]
 
-`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon surfaces, the `Rhino.UI` shell, and the kernel `Rasm.Interaction` band, composing the `Rasm` kernel for every host-neutral and Eto-shaped concern, so the boundary declares no Eto twin. Each sub-domain folder maps to one namespace, and project references terminate at the kernel. Host owners compose same-assembly owners at their own or lower stratum. Seam map names only boundary-crossing contracts, each a frozen-name value type consumed down from the kernel, while host-internal wiring stays on the mutation spine.
+`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon surfaces, the `Rhino.UI` shell, and the kernel `Rasm.Interaction` band, composing the `Rasm` kernel for every host-neutral and Eto-shaped concern, so the boundary declares no Eto twin. Each sub-domain folder maps to one namespace, and project references terminate at the kernel. Host owners compose same-assembly owners at their own or lower stratum. Contract map names only boundary-crossing contracts, each a frozen-name value type consumed down from the kernel, while host-internal wiring stays on the mutation spine.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -12,17 +12,17 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Tables.cs       # TableKind/TableTarget vocabulary and sealed mutation programs
 │   ├── Events.cs       # Event observation, the transactional DocumentStream, and the hook-point registry
 │   ├── Layers.cs       # Managed layer tree with persistent visibility variants; the drafting-standards lowering seat
-│   ├── Commit.cs       # One host-mutation commit envelope; every folder commit rail enters here and none seals its own
+│   ├── Commit.cs       # One host-mutation commit envelope; every folder commit pipeline enters here and none seals its own
 │   └── Lifetime.cs     # Package-wide lifetime primitives: claims capsule, symmetric subscription rollback, failure-release fold
 ├── Persistence/        # Typed serialization, settings custody, attached data, user text, saved-state presets
 │   ├── Dictionary.cs   # ArchiveValue one boxed-host-value carrier; every KV payload admits through one gate
-│   ├── Settings.cs     # Settings custody scopes, typed value rail, guards, and the change ledger
+│   ├── Settings.cs     # Settings custody scopes, typed value channel, guards, and the change ledger
 │   ├── AppSettings.cs  # AppSettingsFamily rows with capture, default, apply, and reset delegates; AppState snapshots
 │   ├── UserData.cs     # ArchiveIo spine, TypedUserData template, roster census, custody transfer
 │   ├── UserText.cs     # TextMutationBatch writes and TextQuery detached reads
 │   ├── Presets.cs      # Sub-domain admission-refusal family mint; the construction-plane vocabulary presets and viewport share
 │   └── Snapshots.cs    # Scripted snapshot ops and the SnapShotsClient participant
-├── Objects/            # Live document-object domain over the table rail
+├── Objects/            # Live document-object domain over the table pipeline
 │   ├── State.cs        # StateAsk closed read family, Touch selection mutation, TableAddress composition
 │   ├── Attributes.cs   # AttributeEdit closing every writable ObjectAttributes family with verified payload carriers
 │   ├── Materials.cs    # MaterialScope overload discriminant; MaterialAsk<TAnswer> self-typed reads fix their own answers
@@ -38,13 +38,13 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Model.cs        # Live block address, LinkState carrier, closed mutation and preview policy values
 │   ├── Graph.cs        # Definition-graph topology, queries, and archive closure
 │   ├── Lifecycle.cs    # Preview bitmap custody, versioned grants, document-scoped invalidation, deterministic disposal
-│   └── Operations.cs   # Block operation and query rail with geometry intake
-├── Modeling/           # Host-fidelity native construction compute over the custody seam
+│   └── Operations.cs   # Block operation and query pipeline with geometry intake
+├── Modeling/           # Host-fidelity native construction compute over the custody boundary
 │   ├── Solids.cs       # SolidOp family and the Extrusion lifecycle through Solids.Build over leased ModelGate borrows
 │   ├── Lofting.cs      # LoftOp admission through the spine's ModelClaim fold; rails, profiles, constraints, developable products
 │   ├── Surfaces.cs     # FreeformOp union through HostSurfaces.Build: network fits, rail revolves, grid interpolation
 │   ├── Curves.cs       # CurveOp union through one build entry; pulls, projections, booleans, blend construction cases
-│   ├── Meshing.cs      # HostMeshes.Build admitted creation and egress; MeshOp.QuadRemesh the sole mesh-to-SubD seam
+│   ├── Meshing.cs      # HostMeshes.Build admitted creation and egress; MeshOp.QuadRemesh the sole mesh-to-SubD adapter
 │   ├── SubD.cs         # SubDOp raw-handle admission through ModelClaim; value-semantic edits, crease topology, Brep egress
 │   ├── Deform.cs       # DeformOp driver admission through ModelClaim; generated policies own every native knob
 │   └── Projection.cs   # ProjectionOp union through Projections.Build; ProjectionFrame admits the value frame once
@@ -55,10 +55,10 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Hatch.cs        # PatternDef detached round trip, HatchSpec boundary-family construction, Hatches.Commit fold
 │   ├── Linetype.cs     # StrokeDef authorable aggregate over SegmentRow atoms; Linetypes.Commit on the drafting spine
 │   └── Typeface.cs     # FaceDecoration/FaceTrait capability rosters, FaceQuery one admission, FaceInfo detached descriptor
-├── Viewport/           # Camera model, operation rail, capture spec, and motion pacing
+├── Viewport/           # Camera model, operation pipeline, capture spec, and motion pacing
 │   ├── Camera.cs       # CameraPose kernel-vector composition; session-scoped borrows over the ViewportTarget address
 │   ├── Operations.cs   # Camera-operation union applied behind the viewport lease
-│   ├── Capture.cs      # Capture plan, request cardinality, leased delivery, and run-rail bench timing
+│   ├── Capture.cs      # Capture plan, request cardinality, leased delivery, and run-pipeline bench timing
 │   └── Motion.cs       # MotionPump host lease over the kernel sampling algebra it re-declares nothing of
 ├── Display/            # Display-pipeline participation and renderer boundary
 │   ├── Conduit.cs      # Conduit-pipeline algebra, display-mode participation, and the cull/draw veto hook mounts
@@ -71,25 +71,25 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Kinds.cs        # Material bridge, texture configuration, and environment bake
 │   ├── Fields.cs       # One polymorphic field-value owner, declaration, binding, parameter routes
 │   ├── Registry.cs     # ContentUuidCatalog seed data, ContentSerializer read transfer, Registry.Run registration close
-│   ├── Settings.cs     # Render-settings duality, sub-owner states, sun astronomy, edit rail
+│   ├── Settings.cs     # Render-settings duality, sub-owner states, sun astronomy, edit pipeline
 │   └── Mapping.cs      # MappingSpec construction with recoverable primitive evidence; Mappings.Run one request family
 ├── Exchange/           # Document interchange and publication surface
 │   ├── Formats.cs      # File-codec matrix: detection, filters, and dispatch
 │   ├── Options.cs      # FormatDial per-codec policy; Admit proves codec-phase correspondence once, Dials.Resolve applies
 │   ├── Archive.cs      # Archives.Apply File3dm admission and bounded materialization; one lease holds every handle
-│   ├── Operations.cs   # Exchange-operation rail and headless convert sessions
+│   ├── Operations.cs   # Exchange-operation pipeline and headless convert sessions
 │   ├── Sheets.cs       # Sheet plans, live selectors, and declarative detail state
 │   └── Publish.cs      # Page-target dispatch and atomic content-keyed file landing
 ├── HostUi/             # Rhino.UI shell composed over the kernel Interaction band
 │   ├── Shell.cs        # Host-thread session marshal, status, prompt, progress, runtime hosting, and notices
 │   ├── Panels.cs       # Panel fact stream, placement, RUI state fold, and Rhino control rows
 │   ├── Pages.cs        # HostPage realization from PagePlan rows; host base classes stay behind internal leaves
-│   └── Dialogs.cs      # Capability-gated inquiry rail and preview projection
+│   └── Dialogs.cs      # Capability-gated inquiry pipeline and preview projection
 └── Plugin/             # Host plug-in binding, registry census, entitlement, and document participation
     ├── Lifecycle.cs    # RasmPlugIn the one PlugIn derivation and load root; quarantined host subclassing, fault ledger
     ├── Census.cs       # PluginCensus.Ask one polymorphic registry read; identity, descriptors, protection, installed roll
     ├── Licensing.cs    # Licenses.Ask entitlement union; RasmPlugIn.Entitlement the acquisition arm, typed verdicts
-    └── Document.cs     # Participation.Cross write/read callback carrier; PluginSettings.Commit the settings-rail bridge
+    └── Document.cs     # Participation.Cross write/read callback carrier; PluginSettings.Commit the settings-pipeline bridge
 ```
 
 ## [02]-[STRATA]
@@ -97,18 +97,18 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 Five strata order the sub-domain folders; a folder composes its own owners and lower strata only, `Rasm` kernel namespaces underlie the whole boundary as the host-neutral floor, and two ruled counter-edges stand: Document's configured-open source takes Persistence's `ArchiveMap` as its typed open-options payload, minted before any session exists, and Modeling's projection frame takes Viewport's `CameraSnapshot`/`CameraPose` value shapes, value-only with no lease or borrow crossing. Every other consumption edge points down, so a new folder seats one stratum above its highest composed owner.
 
 - S0 `Document` — spine under everything: `DocumentSession` demand, `Tables.Commit`, `Layers.Commit`, and the transactional `DocumentStream`.
-- S1 single-seam — every S1 folder composes the spine ALONE, so any one deletes without moving a sibling; the single seam is the rank's test.
+- S1 single-edge — every S1 folder composes the spine ALONE, so any one deletes without moving a sibling; the single edge is the rank's test.
 - S1 map — fence node to folder: `PickCapture` Commands, `GraphFold` Blocks, `ArchiveMap` Persistence, `ModelGate` Modeling, `ContentRef` Render.
 - S1 absent edge — `Annotation` composes the spine with no discriminating import, so the fence draws it nowhere.
 - S1 law — `Modeling` reaches only the geometry-custody capsule; its camera read is the ruled counter-edge, never a lease.
 - S1 law — kernel `Rasm.Interaction` (`UiThread`, `ControlForge`, `IntentTable`, `Surface`) floors every shell surface, adapted by nothing here.
 - S2 composite — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands, Blocks' `GraphProjection`, and Annotation's `LinetypeSource`.
 - S2 composite — `HostUi` (`HostThread`, `PanelHost`, `HostPage`) composes the kernel `Rasm.Interaction` band directly.
-- S2 composite — Plugin (`RasmPlugIn`, `PluginCensus`, `Licenses`, `Participation`) composes Persistence's settings rail and `PluginKey` identity.
+- S2 composite — Plugin (`RasmPlugIn`, `PluginCensus`, `Licenses`, `Participation`) composes Persistence's settings pipeline and `PluginKey` identity.
 - S2 law — Plugin routes page-collection callbacks onto HostUi's `PageBasket`/`PageMount.Land`, a same-stratum peer edge, and mints no page owner.
 - S3 `Viewport` — the lease-custody rank: every camera read and capture crosses the leased pair, and no lower folder holds a lease.
-- S3 law — every borrow crosses the `HostThread` session rail, `HostThread.Run(HostWork<T>.Session(...))`, under a `SessionNeed`.
-- S3 law — the capture run rail takes Modeling's `BenchEvidence`/`BenchBand` value shapes — value-only, no lease or borrow crossing.
+- S3 law — every borrow crosses the `HostThread` session pipeline, `HostThread.Run(HostWork<T>.Session(...))`, under a `SessionNeed`.
+- S3 law — the capture run pipeline takes Modeling's `BenchEvidence`/`BenchBand` value shapes — value-only, no lease or borrow crossing.
 - S3 law — `Viewport/camera` reads Persistence's `CPlaneGrid`/`CPlanePalette` value shapes downward — value-only, one seat.
 - S4 law — Display draws through the kernel `Interaction/paint` surface and publishes conduit faults through Objects' `ObjectsTelemetry` egress.
 - S4 law — Display composes Render's `EnvironmentRole`, dither owner, and `FailureLedger`/`RetentionPolicy` downward; nothing composes S4.
@@ -138,7 +138,7 @@ flowchart TB
         HostThread[HostThread]
         Plugin[RasmPlugIn]
     end
-    subgraph S1["S1 SINGLE-SEAM"]
+    subgraph S1["S1 SINGLE-EDGE"]
         Picks[PickCapture]
         Blocks[GraphFold]
         Archive[ArchiveMap]
@@ -167,7 +167,7 @@ flowchart TB
     Session f1@-->|"forbidden: spine upward"| S4
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -178,17 +178,17 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Rasm.Rhino kernel-boundary seams
+    accTitle: Rasm.Rhino kernel-boundary contracts
     accDescr: Which kernel owner hands which frozen-name contracts to each Rhino sub-domain, and which wires the boundary emits to peers.
     subgraph rhino[RASM.RHINO]
         Document[Document substrate]
         Persistence[Persistence custody]
-        Objects[Object rails]
+        Objects[Object pipelines]
         Commands[Command lifecycle]
         Blocks[Block domain]
         Modeling[Modeling gate]
         Annotation[Drafting annotation]
-        Viewport[Viewport rail]
+        Viewport[Viewport pipeline]
         Display[Display composers]
         Render[Render content]
         Exchange[Exchange surface]
@@ -199,9 +199,9 @@ flowchart LR
         Domain([Domain floor])
         Numerics([Numerics floor])
         Spatial([Spatial fields])
-        Meshing([Mesh lattice])
+        Meshing([Mesh topology])
         Parametric([Parametric producers])
-        Processing([Processing rail])
+        Processing([Processing pipeline])
         Drawing([Drawing producers])
         Analysis([Analysis entry])
         Interaction([Interaction plane])
@@ -213,7 +213,7 @@ flowchart LR
     Domain e2@-->|"[PORT]: InstrumentSpec"| Document
     Domain e3@-->|"[BOUNDARY]: Lease"| Persistence
     Domain e4@-->|"[BOUNDARY]: ContentHash + Context + Lease + ModelUnit"| Objects
-    Domain e5@-->|"[BOUNDARY]: HookRail + Lease + ModelUnit"| Commands
+    Domain e5@-->|"[BOUNDARY]: HookSet + Lease + ModelUnit"| Commands
     Domain e6@-->|"[BOUNDARY]: ContentHash + Context + Lease + ModelUnit"| Blocks
     Domain e7@-->|"[BOUNDARY]: Context + Lease"| Modeling
     Domain e8@-->|"[BOUNDARY]: Context + Lease + ModelUnit + Requirement"| Annotation
@@ -266,12 +266,12 @@ Every kernel contract is a frozen-name value type the host binds and never re-mi
 
 Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically. Kernel-end edges fold this fence per owner, boundary, and kind, so a member added or retired here moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row.
 
-- `Op` is the rail key every fence takes and rides no seam edge, as on every other kernel seam; `Lease<T>` and `HookRail` cross as declared shapes.
+- `Op` is the result key every fence takes and rides no boundary edge, as on every other kernel boundary; `Lease<T>` and `HookSet` cross as declared shapes.
 - `Dimension` here is `Rasm.Numerics.Dimension` spelled in full; the bare host `Rhino.Geometry.Dimension` on the Annotation pages is no crossing.
-- Seam `Placement` names the kernel transform builder reached through `Placement.Build`; `Blocks/model` owns its separate block-instance union.
+- Boundary `Placement` names the kernel transform builder reached through `Placement.Build`; `Blocks/model` owns its separate block-instance union.
 - `InstrumentSpec` rides `[PORT]` because the boundary DECLARES rows the app root mounts; every other kernel member crosses as a bound value.
-- `AnalysisQuery` rides the Document, Commands, and Display rails — `AnalysisOverlay` drives false-colour off `Analyze.In(...).Run`.
-- `PerceptualColor` is the one colour crossing on every rail carrying it — `System.Drawing.Color` admits through `OfRgb` and leaves through `ToRgb`.
+- `AnalysisQuery` rides the Document, Commands, and Display pipelines — `AnalysisOverlay` drives false-colour off `Analyze.In(...).Run`.
+- `PerceptualColor` is the one colour crossing on every edge carrying it — `System.Drawing.Color` admits through `OfRgb` and leaves through `ToRgb`.
 - `Document/layers#ORGANIZATION_PROJECTION` emits the recursive `organization.Organization` forest folded by Python and TypeScript data peers.
 - Wire names state the host-free organizational concept and the layer vocabulary translates at the projection — no host `Guid` or path crosses.
 - One emitter owns the whole descriptor — Objects composes the `Render/settings#SUN_ASTRONOMY` band downward, so nothing mints half a capture.
@@ -279,9 +279,9 @@ Fence law is census, never roster: one edge per kernel owner, consuming sub-doma
 
 ## [04]-[INTERNAL]
 
-Every host mutation walks one path: no sub-domain opens the document directly, the one carve being the worksession attach/detach rail, compensating through its declared per-verb inverse since Rhino's undo stack does not record it.
+Every host mutation walks one path: no sub-domain opens the document directly, the one carve being the worksession attach/detach pipeline, compensating through its declared per-verb inverse since Rhino's undo stack does not record it.
 
-Document-session demand gates capability, `DocumentCommit.Sealed` frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed result with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket.
+Document-session demand gates capability, `DocumentCommit.Sealed` frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed result with redraw compensation; a denied demand and every mid-stage fault converge on the one path that still releases the bracket.
 
 ```mermaid
 ---
@@ -293,7 +293,7 @@ config:
 ---
 flowchart LR
     accTitle: Rasm.Rhino host-mutation spine
-    accDescr: Which gate, bracket, and sealing owners one host mutation crosses, and the one releasing rail every fault converges on.
+    accDescr: Which gate, bracket, and sealing owners one host mutation crosses, and the one releasing path every fault converges on.
     Request([Host request]) e1@--> Session[[DocumentSession demand]]
     Session e2@--> Ready{Capability held?}
     Ready e3@-->|"capability held"| Bracket[[UndoBracket]]
@@ -302,7 +302,7 @@ flowchart LR
     Commit e6@--> Redraw[Redraw compensation]
     Redraw e7@--> Result[(Typed result)]
     Result e8@--> Settle([Settle])
-    Ready f1@-.->|"demand denied"| Fault[/Fault rail/]
+    Ready f1@-.->|"demand denied"| Fault[/Fault path/]
     Session f2@-.->|"demand fault"| Fault
     Executor f3@-.->|"op fault"| Fault
     Commit f4@-.->|"commit fault"| Fault
@@ -314,7 +314,7 @@ flowchart LR
 - `Rasm.Rhino` owns the Rhino 9 host-boundary surface whole and re-owns no kernel concern; project references terminate at `Rasm`.
 - Live host handles, native carriers, and `System.Drawing` screen structs stay inside the leasing sub-domain; kernel-neutral values alone cross.
 - App roots alone compose the plug-in shell: `RasmPlugIn` is the load root, and no page binds hosting, DI, or telemetry providers beneath it.
-- Peer packages consume this boundary's host-free value shapes through the seam registry; no peer references `Rasm.Rhino` and it references none.
+- Peer packages consume this boundary's host-free value shapes through the contract registry; no peer references `Rasm.Rhino` and it references none.
 
 ## [06]-[NAMESPACES]
 

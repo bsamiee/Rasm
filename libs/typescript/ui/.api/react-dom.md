@@ -11,16 +11,16 @@
 
 [ENTRYPOINT_SCOPE]: the `.` view plane a `ui` row composes — portal, flush, resource hints, form status
 
-| [INDEX] | [SURFACE]                                              | [CAPABILITY]    | [CONSUMER]                                                    |
-| :-----: | :----------------------------------------------------- | :-------------- | :------------------------------------------------------------ |
-|  [01]   | `createPortal(children, container, key?): ReactPortal` | portal          | roots the `react-aria` `Overlay`/`UNSAFE_PortalProvider` seam |
-|  [02]   | `flushSync<R>(fn: () => R): R`                         | sync commit     | `FocusScope` restore, before `startViewTransition`            |
-|  [03]   | `preload(href, options)` / `preinit(href, options)`    | resource hint   | prefetch/eval meshopt wasm, GLB, tiles, fonts pre-render      |
-|  [04]   | `preloadModule` / `preinitModule`                      | module hint     | ESM `preload`/`preinit` variants, `(href, options)`           |
-|  [05]   | `preconnect(href, options?)` / `prefetchDNS(href)`     | connection hint | warm a `viewer` geo/tile origin before first fetch            |
-|  [06]   | `useFormStatus(): FormStatus`                          | form status     | submit button pending/data without prop-threading             |
-|  [07]   | `requestFormReset(form: HTMLFormElement)`              | form reset      | imperative uncontrolled-form reset after success              |
-|  [08]   | `unstable_batchedUpdates(cb, a)` / `version`           | interop         | non-React-event batching; renderer version string             |
+| [INDEX] | [SURFACE]                                              | [CAPABILITY]  | [CONSUMER]                                                    |
+| :-----: | :----------------------------------------------------- | :------------ | :------------------------------------------------------------ |
+|  [01]   | `createPortal(children, container, key?): ReactPortal` | portal        | roots `react-aria` `Overlay`/`UNSAFE_PortalProvider` boundary |
+|  [02]   | `flushSync<R>(fn: () => R): R`                         | sync commit   | `FocusScope` restore, before `startViewTransition`            |
+|  [03]   | `preload(href, options)` / `preinit(href, options)`    | resource hint | prefetch/eval meshopt wasm, GLB, tiles, fonts pre-render      |
+|  [04]   | `preloadModule` / `preinitModule`                      | module hint   | ESM `preload`/`preinit` variants, `(href, options)`           |
+|  [05]   | `preconnect(href, options?)` / `prefetchDNS(href)`     | connect hint  | warm a `viewer` geo/tile origin before first fetch            |
+|  [06]   | `useFormStatus(): FormStatus`                          | form status   | submit button pending/data without prop-threading             |
+|  [07]   | `requestFormReset(form: HTMLFormElement)`              | form reset    | imperative uncontrolled-form reset after success              |
+|  [08]   | `unstable_batchedUpdates(cb, a)` / `version`           | interop       | non-React-event batching; renderer version string             |
 
 [ENTRYPOINT_SCOPE]: boot + SSR lanes — `browser`/`edge` owned; a `ui` row never imports them, and `createRoot`/`hydrateRoot` return `Root`
 
@@ -37,7 +37,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `react-dom` is the imperative edge: nothing renders until a `Root` mounts, and `flushSync` is the sole seam forcing a synchronous commit before an Effect-driven imperative action (focus, scroll, transition capture) reads layout.
+- `react-dom` is the imperative edge: nothing renders until a `Root` mounts, and `flushSync` is the sole API forcing a synchronous commit before an Effect-driven imperative action (focus, scroll, transition capture) reads layout.
 
 [STACKING]:
 - `react-aria`(`.api/react-aria.md`): `Overlay`/`UNSAFE_PortalProvider` root through `createPortal` so popovers, modals, and toasts escape the triggering subtree; `flushSync` gives `FocusScope` the synchronous DOM to move focus deterministically after an overlay toggles.

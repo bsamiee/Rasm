@@ -26,21 +26,21 @@
 - Member patches are binary — `FieldMask` diff over `NodeWire`, `IsValid` gate, `Merge` apply; ProtoJSON renders `PatchOp` leaves, never a target.
 - `EntityEdit` lowers onto `Element.EntityEditWire` through `EditWire` — key and base cross as 16-byte addresses, one `PatchOp` per mask path.
 - `SnapshotHeader` is the native 88-byte artifact trust frame — fixed offsets, pre-parser CRC, and digests through `ContentHash.Wire`/`Admit`.
-- Residence literals render through the declared `ColumnType` — a stringified operand kills pruning, coerces on PostgreSQL, raises on ClickHouse.
-- Read SCOPE parts from SHAPE at the residence entry — tenant rides the frame and window `ResidenceWindow`, so no plan expresses a cross-tenant scan.
+- Backend literals render through the declared `ColumnType` — a stringified operand kills pruning, coerces on PostgreSQL, raises on ClickHouse.
+- Read SCOPE parts from SHAPE at the backend entry — tenant rides the frame and window `BackendWindow`, so no plan expresses a cross-tenant scan.
 - Rollups materialize SUMMARY STATE and readers name the accessor — a stored `avg` over an irregular series ships a mean the tile never claimed.
 - Columnstore segment lists carry BOUNDED keys alone — segmenting a `KeyHex` content key mints one batch per row and deletes the compression itself.
-- Residence relations resolve through one lower-cased `AnalyticsSchema.Table` DDL and read both quote — PostgreSQL case-folds, ClickHouse does not.
+- Backend relations resolve through one lower-cased `AnalyticsSchema.Table` DDL and read both quote — PostgreSQL case-folds, ClickHouse does not.
 - `ColumnShape` GENERATES containers over `ColumnType` — `List`, `Map`, and `Dictionary` are cases, so a flat `map-string-string` row forks it.
-- `ColumnType` and `ColumnShape` stay BRANCH-LOCAL — no contract manifest names one, so a peer planting a relation reaches `ResidenceDdl`.
-- No metrics store enters the `Residence` roster — a TSDB's per-series cardinality ceiling is the one column this family refuses to grow.
-- Residence health measures OUTCOME — `ResidenceRead.Health` compares resident extent to horizon, so one engine's catalog answers for one tier.
-- Every `ResidenceFault` pairs its residence with one neutral `EngineFault` — a per-backend case carries a column only one engine fills.
-- Arity proves against `ResidenceLanding.Supplied`, never `Payload` — the custodian's tenant and landing instant are cells a producer cannot send.
+- `ColumnType` and `ColumnShape` stay BRANCH-LOCAL — no contract manifest names one, so a peer planting a relation reaches `BackendDdl`.
+- No metrics store enters the `Backend` roster — a TSDB's per-series cardinality ceiling is the one column this family refuses to grow.
+- Backend health measures OUTCOME — `BackendRead.Health` compares resident extent to horizon, so one engine's catalog answers for one tier.
+- Every `BackendFault` pairs its backend with one neutral `EngineFault` — a per-backend case carries a column only one engine fills.
+- Arity proves against `BackendLanding.Supplied`, never `Payload` — the custodian's tenant and landing instant are cells a producer cannot send.
 - `ArrowLanding.Build` derives batches from the DECLARED schema, reading `ColumnType`'s own Arrow type and builder — a positional list forks it.
-- Producer admission at a residence seam ACCUMULATES every offending column — a producer refused on the first never sees the second.
+- Producer admission at a backend boundary ACCUMULATES every offending column — a producer refused on the first never sees the second.
 - Compute's `AssessmentRow` crosses IN as producer-handed row data — a Persistence-declared result-row twin re-mints vocabulary its owner closes.
-- CRDT payload equality rides `CrdtBytes` on `ReadOnlyMemory<byte>` — an `ImmutableArray<byte>` swap re-types the `CrdtWire.Decode` zero-copy seam.
+- CRDT payload equality rides `CrdtBytes` on `ReadOnlyMemory<byte>` — an `ImmutableArray<byte>` swap re-types the `CrdtWire.Decode` zero-copy boundary.
 - `Crdt.Apply` takes the entry `OperationId` beside the generated op — MV-register context never substitutes for the outer dot.
 - OR tombstones key by element; RGA routes retain predecessor and value identity without retired bytes.
 - Presence retains stamped live/left cells and the monotone liveness horizon; family mismatch or unseated maintenance refuses.
@@ -75,7 +75,7 @@
 - Vector all-or-nothing takes the batch `SAVEPOINT`, never the caller's transaction — a refusal undoes the unit and leaves the caller's work its own.
 - `CacheProfile` closes the execution-profile roster — an unrostered name throws at FIRST execute rather than falling back to the cluster default.
 - Consistency evidence publishes the bound profile row's DECLARED level — `AppliedInfo` and `IPage` discard the `RowSet` the achieved level rode.
-- `StoreProfile.Admits` gates the cache lane — Marten backs both residences, so a single-process store realizes neither.
+- `StoreProfile.Admits` gates the cache lane — Marten backs both backends, so a single-process store realizes neither.
 - `CacheFault.Foreign` retains the provider `Error` — mapping it to `Unavailable` fabricates a consistency level and replica counts.
 - Dead-letter rows carry generated `FaultObservation`; `EgressWire` alone projects generated host dead-letter and replay messages.
 - Model identity is the PROFILE row — `UseModel` bypasses the model cache, so a cache-key factory forecloses the compiled model for nothing.
@@ -92,13 +92,13 @@
 - Cold-rung state is a closed `ThawState` — `Option` cannot separate readable-now from must-ask from already-asked.
 - `ObjectVerb` rides every `Bound` crossing — `Transport` names the op a re-drive repeats, `ColdRefuses` reads one code per verb, no per-leg catch.
 - `Retriability` names WHETHER a re-offer is admitted, a band overriding it, and `RetryShape` WHERE — a bool spanning both drops two routes.
-- `StoreVerdict` is the currency the re-drive seam crosses on — naming a pipeline type inverts the strata `StoreRedrivePort` holds.
+- `StoreVerdict` is the currency the re-drive boundary crosses on — naming a pipeline type inverts the strata `StoreRedrivePort` holds.
 - `ReconcileAxis` owns every manifest axis token beside `RestartClass` — a bare literal forks one axis into two a deploy plane then diffs as two.
 - `OutboxCursor` owns one optional `OutboxDeferred` per sink; the committed op-log never stores delivery state.
 - First-terminal handling is one atomic `QuarantineAndAdvance`; separate letter and cursor writes are forbidden.
 - Cursor sequence and CloudEvents `D20` ordinal are store-local drain positions, never HLC or portable order.
 - `LeaseGuard` is advisory DETECTION — read as a gate it re-mints the frozen-guard scar each guarded write's own `fence <= @token` predicate closes.
-- Residence floors spell `Fits`/`Admit`/`Tenancy`/`Lifetime`/`Degrade` — `Ingest` names one entry kind and `Retain` asks no owner to end a row.
+- Backend floors spell `Fits`/`Admit`/`Tenancy`/`Lifetime`/`Degrade` — `Ingest` names one entry kind and `Retain` asks no owner to end a row.
 - `Lifetime` states the extent AND the owner ending it — a window stated without its scheduler promises an expiry no owner runs.
 - Recovery grades ONE verdict on two proofs whose halves absorb absence oppositely — an unmeasured RPO refuses, an absent RTO passes.
 - `OpLogEntry.Sequence` resumes a drain and orders NOTHING — two stores mint sequence 41, so the dot is the only portable coordinate.
@@ -123,7 +123,7 @@
 - CESQL evaluation is TOTAL — a value beside accumulated faults, so a runtime error withholds one event and never darkens a subscription.
 - CESQL grammars build ONCE as static parser values — a parser constructed per evaluation rebuilds the expression graph per event.
 - `StoreRedrivePort.Carry` is a generic METHOD, not a delegate column — an attempt's value crosses per pass and C# forbids a generic field.
-- `Coordinate.Verified` is this rail's `verifySucceeded` probe — an unverified re-drive mints a second lease generation and double-decrements.
+- `Coordinate.Verified` is this port's `verifySucceeded` probe — an unverified re-drive mints a second lease generation and double-decrements.
 - `CoordinationFault.Lift` seats at the OUTER strategy edge — a strategy composed beneath it receives a `Fin` value and has nothing left to classify.
 - Generated `SyncService` owns cross-store sync: `SyncEndpoint` serves, `SyncWire` dials through AppHost, and `bytes` carries op-log frames.
 - `assessment_rows` carries facet arity in one `List(Utf8)` column; its `value` column owns the fact projected by scalar columns.
@@ -137,11 +137,11 @@
 - `RetentionSweep.Execute` evicts SET-SHAPED through one arrow — a per-key arrow degrades retention lanes to round trips and strands `EraseMany`.
 - `BudgetCredit` IS the seed — its `ON CONFLICT` establishes an absent unit, so a seeding case beside it is the deleted twin of one write.
 - Merkle, chain, and subtree digests fold on `ContentHash.Of`/`CanonicalWriter.Streaming` — no raw `XxHash128` append site survives in this folder.
-- Analytics residence, lakehouse landing, serving, and dataset rosters stay SEPARATE owners — one page holding all hides what an ordinal binds.
+- Analytics backend, lakehouse landing, serving, and dataset rosters stay SEPARATE owners — one page holding all hides what an ordinal binds.
 
 ## [04]-[STRUCTURE]
 
-- Per-provider variance rides ONE leg carrier — a residence axis widens `BlobHandle`, never fourteen delegate arities.
+- Per-provider variance rides ONE leg carrier — a placement axis widens `BlobHandle`, never fourteen delegate arities.
 - Page and object bounds are ROW columns — `EraseBatch` and `ObjectCeiling` state limits no SDK enforces client-side.
 
 ## [05]-[PROCESS]

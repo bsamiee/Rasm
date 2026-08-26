@@ -28,14 +28,14 @@ Rasm.Grasshopper/       # Refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 │   └── Runtime.cs      # Platform-timer lease and pace producer; the timer cannot rise with its kernel-floor consumers
 ├── Platform/           # Composition root, CoreAnimation compositor, capture recorder, and the AppKit admission gate
 │   ├── Capture.cs      # Leased ScreenCaptureKit recording — kernel-drain frames, one-shot still, paint proof
-│   ├── Composition.cs  # One in-package composition seam nothing deeper composes; identity, time, FaultCell, broker registry
+│   ├── Composition.cs  # One in-package composition boundary nothing deeper composes; identity, time, FaultCell, broker registry
 │   ├── Layers.cs       # CoreAnimation graph custody; every layer write rides the transaction fence, Display-P3 colour
 │   └── Native.cs       # MacGate platform admission precondition; managed-to-AppKit extraction, input monitors
 └── Shell/              # Session spine, UI event algebra, editor shell, chrome intent, vector icons
     ├── Chrome.cs       # Apply(ChromeIntent, Op?) outcome against Toolbar.Bar and InputPanel hosts; leased traverse
     ├── Editor.cs       # Editor shell — chrome-pane slots, toggles, state projection, Rhino getter
     ├── Events.cs       # UI fact/event evidence, anchor/source rows, transactional subscription, bounded drain
-    ├── Hooks.cs        # Scoped veto/observe/replay hook rail with subscriber-fault isolation and taps
+    ├── Hooks.cs        # Scoped veto/observe/replay hook dispatch with subscriber-fault isolation and taps
     ├── Icons.cs        # Vector-icon owner — host origins, a pose machine, filter chain, and catalog
     ├── Journal.cs      # Analytics egress folding UiEvent<GhFact> envelopes into bounded partitions
     ├── Session.cs      # Live-scope acquisition, apply/run gates, and gauged command acknowledgement
@@ -57,7 +57,7 @@ Strata order the sub-domains; the UI-thread floor is the kernel's `UiThread` mar
 - S2 `Canvas` — live host-surface owners seat at plugin load off the composition mount roster, so no canvas owner self-mounts.
 - S2 reach — canvas owners compose session scope, the kernel marshal, undo seal, and the display-link drive.
 
-`Components` stands beside the strata as an island, pure host-plus-kernel authoring with no interior edge either direction, so the fence draws it nowhere, and the kernel `MotionDrive` value arrives on the seam, never as an interior node.
+`Components` stands beside the strata as an island, pure host-plus-kernel authoring with no interior edge either direction, so the fence draws it nowhere, and the kernel `MotionDrive` value arrives on the boundary, never as an interior node.
 
 ```mermaid
 ---
@@ -98,15 +98,15 @@ flowchart TB
     Dispatch f1@-->|"forbidden: floor upward"| S2
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
-Timing owners admit the kernel's `MonotonicTimeline`; colour owners admit `PerceptualColor`. `Interaction` crosses on the same rails: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, `ControlSpec` seats every chrome pane, and `AssetOrigin` names every icon. Host operations return their canonical values, and instrument writes project at the producing site.
+Timing owners admit the kernel's `MonotonicTimeline`; colour owners admit `PerceptualColor`. `Interaction` crosses on the same edges: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, `ControlSpec` seats every chrome pane, and `AssetOrigin` names every icon. Host operations return their canonical values, and instrument writes project at the producing site.
 
-Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically; kernel-end edges fold it per owner, boundary, and kind, so a member moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row. `Op` is the rail key every fence takes and rides no seam edge; `InstrumentSpec` rides `[PORT]` because `GhInstruments` DECLARES rows the app root mounts, while every other member crosses as a bound value.
+Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically; kernel-end edges fold it per owner, boundary, and kind, so a member moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row. `Op` is the correlation key every fence takes and rides no boundary edge; `InstrumentSpec` rides `[PORT]` because `GhInstruments` DECLARES rows the app root mounts, while every other member crosses as a bound value.
 
 `GhTelemetry` admits the app root's `IMeterFactory` and `ILoggerFactory` the same way: capability in, `rasm.grasshopper.*` instrument writes out, zero provider reference inside the boundary.
 
-Projection seams generate through Riok.Mapperly, one `[Mapper]` per seam: `CanvasMap` (`Canvas/canvas.md` state/pulse/pick projections), `InputMap` (`Canvas/interaction.md` host-args admission), `SolutionMap` (`Document/solution.md` pulse/audit evidence), `TrimMap` (`Components/ports.md` pin-trim writes), `ObjectMap` (`Components/objects.md` native-object writes and colour crossings), `NativeMap` (`Platform/native.md` NSEvent projection), `CaptureMap` (`Platform/capture.md` survey facts). Hand projection survives only under a NAMED host demand, stated at its arm.
+Projection mappers generate through Riok.Mapperly, one `[Mapper]` per boundary: `CanvasMap` (`Canvas/canvas.md` state/pulse/pick projections), `InputMap` (`Canvas/interaction.md` host-args admission), `SolutionMap` (`Document/solution.md` pulse/audit evidence), `TrimMap` (`Components/ports.md` pin-trim writes), `ObjectMap` (`Components/objects.md` native-object writes and colour crossings), `NativeMap` (`Platform/native.md` NSEvent projection), `CaptureMap` (`Platform/capture.md` survey facts). Hand projection survives only under a NAMED host demand, stated at its arm.
 
 ```mermaid
 ---
@@ -117,7 +117,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Grasshopper host-boundary kernel seams
+    accTitle: Grasshopper host-boundary kernel edges
     accDescr: Which kernel owner hands which frozen-name contracts to each Grasshopper sub-domain, one edge per owner, sub-domain, and kind.
     subgraph grasshopper[RASM.GRASSHOPPER]
         Canvas[Canvas boundary]
@@ -133,12 +133,12 @@ flowchart LR
         Parametric([Parametric producers])
         Interaction([Interaction plane])
     end
-    Domain e1@-->|"[BOUNDARY]: Context + HookRail + Lease"| Canvas
+    Domain e1@-->|"[BOUNDARY]: Context + HookSet + Lease"| Canvas
     Domain e2@-->|"[BOUNDARY]: Context + Lease"| Components
-    Domain e3@-->|"[BOUNDARY]: HookRail + Lease"| Document
+    Domain e3@-->|"[BOUNDARY]: HookSet + Lease"| Document
     Domain e4@-->|"[BOUNDARY]: Lease"| Eto
     Domain e5@-->|"[BOUNDARY]: Lease"| Platform
-    Domain e6@-->|"[BOUNDARY]: HookRail + Lease"| Shell
+    Domain e6@-->|"[BOUNDARY]: HookSet + Lease"| Shell
     Domain e7@-->|"[PORT]: InstrumentSpec"| Shell
     Numerics e8@-->|"[BOUNDARY]: Dimension + PerceptualColor + UnitInterval"| Canvas
     Numerics e9@-->|"[BOUNDARY]: PerceptualColor"| Components
@@ -184,7 +184,7 @@ flowchart LR
     Composition[[Layer compositor]]
     Capture[[Session capture]]
     Telemetry[[Telemetry fan]]
-    Hooks[[Hook rail]]
+    Hooks[[Hook dispatch]]
     Journal[[Session journal]]
     Runtime e1@-->|"[BOUNDARY]: UiDispatch"| Session
     Runtime e2@-->|"[BOUNDARY]: UiDispatch"| Native
@@ -214,7 +214,7 @@ flowchart LR
 - `Rasm.Grasshopper` owns the GH2 host-boundary surface whole and re-owns no kernel concern; project references terminate at `Rasm`.
 - Live host handles and native carriers stay inside the gated owners: `GhSession`, the kernel `UiThread`, and `MacGate` bound every live touch.
 - App roots alone walk the mount roster through `PlatformRoot.Hold`, the one minter of identity, time, fault custody, and registries.
-- Peer packages consume this boundary's host-free value shapes through the seam registry; no peer references this folder and it references none.
+- Peer packages consume this boundary's host-free value shapes through the boundary registry; no peer references this folder and it references none.
 
 ## [06]-[NAMESPACES]
 

@@ -1,10 +1,10 @@
 # [RASM_APPUI_API_WHISPER_NET]
 
-`Whisper.net` owns offline speech-to-text for the live-caption rail — `Document/media` owns capture and `Theme/locale#SPEECH_POLICY` `CaptionPolicy` states language and translate election: managed bindings over the native `whisper.cpp` ggml engine that load a model into a reusable `WhisperFactory`, configure one `WhisperProcessor` through a single polymorphic `With*` builder, and stream `SegmentData` as an `IAsyncEnumerable` for live emission. One in-model task translates recognition to English, and a separate Silero-VAD pipeline gates audio to speech spans before transcription.
+`Whisper.net` owns offline speech-to-text for the live-caption pipeline — `Document/media` owns capture and `Theme/locale#SPEECH_POLICY` `CaptionPolicy` states language and translate election: managed bindings over the native `whisper.cpp` ggml engine that load a model into a reusable `WhisperFactory`, configure one `WhisperProcessor` through a single polymorphic `With*` builder, and stream `SegmentData` as an `IAsyncEnumerable` for live emission. One in-model task translates recognition to English, and a separate Silero-VAD pipeline gates audio to speech spans before transcription.
 
 ## [01]-[PUBLIC_TYPES]
 
-[TRANSCRIPTION_CORE]: model handle, build fold, streaming processor, and typed failure rails.
+[TRANSCRIPTION_CORE]: model handle, build fold, streaming processor, and typed failure results.
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                             |
 | :-----: | :--------------------------- | :------------ | :--------------------------------------- |
@@ -12,10 +12,10 @@
 |  [02]   | `WhisperFactoryOptions`      | struct        | GPU, DTW, and alignment load options     |
 |  [03]   | `WhisperProcessorBuilder`    | class         | the polymorphic `With*` build fold       |
 |  [04]   | `WhisperProcessor`           | sealed class  | streaming handle (`IAsyncDisposable`)    |
-|  [05]   | `WhisperSpeechToTextClient`  | sealed class  | `ISpeechToTextClient` caption seam       |
-|  [06]   | `WhisperModelLoadException`  | exception     | model-load failure rail                  |
-|  [07]   | `WhisperProcessingException` | exception     | processing failure rail                  |
-|  [08]   | `IStringPool`                | interface     | native-string pooling seam               |
+|  [05]   | `WhisperSpeechToTextClient`  | sealed class  | `ISpeechToTextClient` caption adapter    |
+|  [06]   | `WhisperModelLoadException`  | exception     | model-load failure                       |
+|  [07]   | `WhisperProcessingException` | exception     | processing failure                       |
+|  [08]   | `IStringPool`                | interface     | native-string pooling port               |
 
 [SEGMENT_MODEL]: emitted caption rows, event delegates, and DTW alignment types.
 
@@ -97,21 +97,21 @@
 
 [VAD_AND_ASSETS]: `WhisperVadProcessor.DetectSpeech*` returns `IReadOnlyList<VadSegmentData>` over the same `audio` union and every async surface carries a trailing `CancellationToken`; the `NoReset` variants keep detector state across calls, and `WhisperGgmlDownloader.Default` fetches every model from HuggingFace.
 
-| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                         |
-| :-----: | :------------------------------------------------------------------------------ | :------- | :----------------------------------- |
-|  [01]   | `WhisperVadFactory.FromPath(string, WhisperFactoryOptions?)`                    | factory  | load Silero-VAD model                |
-|  [02]   | `WhisperVadFactory.CreateBuilder()`                                             | instance | open the VAD tuning fold             |
-|  [03]   | `WhisperVadProcessor.DetectSpeech(audio)`                                       | instance | speech spans, resets state           |
-|  [04]   | `WhisperVadProcessor.DetectSpeechNoReset(audio)`                                | instance | speech spans, keeps state            |
-|  [05]   | `WhisperVadProcessor.DetectSpeechAsync(audio)`                                  | instance | async speech spans                   |
-|  [06]   | `WhisperVadProcessor.ResetState()`                                              | instance | clear detector state                 |
-|  [07]   | `WhisperGgmlDownloader.GetGgmlModelAsync(GgmlType, QuantizationType)`           | instance | fetch ggml weights                   |
-|  [08]   | `WhisperGgmlDownloader.GetGgmlSileroVadModelAsync(SileroVadType)`               | instance | fetch Silero-VAD model               |
-|  [09]   | `WhisperGgmlDownloader.GetEncoderCoreMLModelAsync(GgmlType)`                    | instance | fetch CoreML encoder                 |
-|  [10]   | `WhisperGgmlDownloader.GetEncoderOpenVinoModelAsync(GgmlType)`                  | instance | fetch OpenVINO encoder               |
-|  [11]   | `RuntimeOptions.RuntimeLibraryOrder`                                            | property | native-backend fallback order        |
-|  [12]   | `LogProvider.AddLogger(Action<WhisperLogLevel, string?>)`                       | static   | subscribe native logs                |
-|  [13]   | `WhisperSpeechToTextClient.GetStreamingTextAsync(Stream, SpeechToTextOptions?)` | instance | streaming `ISpeechToTextClient` seam |
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :------------------------------------ |
+|  [01]   | `WhisperVadFactory.FromPath(string, WhisperFactoryOptions?)`                    | factory  | load Silero-VAD model                 |
+|  [02]   | `WhisperVadFactory.CreateBuilder()`                                             | instance | open the VAD tuning fold              |
+|  [03]   | `WhisperVadProcessor.DetectSpeech(audio)`                                       | instance | speech spans, resets state            |
+|  [04]   | `WhisperVadProcessor.DetectSpeechNoReset(audio)`                                | instance | speech spans, keeps state             |
+|  [05]   | `WhisperVadProcessor.DetectSpeechAsync(audio)`                                  | instance | async speech spans                    |
+|  [06]   | `WhisperVadProcessor.ResetState()`                                              | instance | clear detector state                  |
+|  [07]   | `WhisperGgmlDownloader.GetGgmlModelAsync(GgmlType, QuantizationType)`           | instance | fetch ggml weights                    |
+|  [08]   | `WhisperGgmlDownloader.GetGgmlSileroVadModelAsync(SileroVadType)`               | instance | fetch Silero-VAD model                |
+|  [09]   | `WhisperGgmlDownloader.GetEncoderCoreMLModelAsync(GgmlType)`                    | instance | fetch CoreML encoder                  |
+|  [10]   | `WhisperGgmlDownloader.GetEncoderOpenVinoModelAsync(GgmlType)`                  | instance | fetch OpenVINO encoder                |
+|  [11]   | `RuntimeOptions.RuntimeLibraryOrder`                                            | property | native-backend fallback order         |
+|  [12]   | `LogProvider.AddLogger(Action<WhisperLogLevel, string?>)`                       | static   | subscribe native logs                 |
+|  [13]   | `WhisperSpeechToTextClient.GetStreamingTextAsync(Stream, SpeechToTextOptions?)` | instance | streaming `ISpeechToTextClient` entry |
 
 [VAD_KNOBS]: `WithThreshold` `WithMinSpeechDuration` `WithMinSilenceDuration` `WithMaxSpeechDuration` `WithSpeechPadding` `WithSamplesOverlap` `WithThreads` `WithUseGpu` `WithGpuDevice` `Build()`
 
@@ -126,9 +126,9 @@
 - Every caption folds through one loaded `WhisperFactory`: `CreateBuilder()` configures one `WhisperProcessor` on the single `With*` builder, `ProcessAsync` streams `SegmentData` off one native context that `IDisposable`/`IAsyncDisposable` teardown frees, and optional Silero VAD gates audio to speech spans before the processor reads it.
 
 [STACKING]:
-- `api-messageformat`(`.api/api-messageformat.md`): `WithTranslate` emits English caption text while `MessageFormat` owns the CLDR plural/select formatting of the surrounding UI chrome — recognition and translation versus message formatting is the seam.
+- `api-messageformat`(`.api/api-messageformat.md`): `WithTranslate` emits English caption text while `MessageFormat` owns the CLDR plural/select formatting of the surrounding UI chrome — recognition and translation versus message formatting is the boundary.
 - `api-libmpv`(`.api/api-libmpv.md`), `api-ffmpeg-autogen`(`.api/api-ffmpeg-autogen.md`): `libmpv` decodes the media audio track, `Whisper.net` transcribes it, `FFmpeg.AutoGen` encodes the deliverable — decode, transcribe, and encode are three owners over the media spine.
 - `WaveParser` converts a 16 kHz PCM `Stream` to the `float[]` samples `ProcessAsync` and `DetectSpeech` consume, and each `SegmentData` projects a counted caption-quality fact when `NoSpeechProbability` and `Probability` identify low confidence.
 
 [LOCAL_ADMISSION]:
-- Offline speech-to-text intent loads one `WhisperFactory` per session and streams through `ProcessAsync`; the native `whisper.cpp` runtime rides a separate `Whisper.net.Runtime*` package selected by `RuntimeOptions.RuntimeLibraryOrder` (`CoreML` on Apple silicon), and the ggml weights and the Silero-VAD model download once through `WhisperGgmlDownloader.Default` and cache on disk. A missing runtime or model surfaces through `WhisperModelLoadException` and the `LogProvider` rail.
+- Offline speech-to-text intent loads one `WhisperFactory` per session and streams through `ProcessAsync`; the native `whisper.cpp` runtime rides a separate `Whisper.net.Runtime*` package selected by `RuntimeOptions.RuntimeLibraryOrder` (`CoreML` on Apple silicon), and the ggml weights and the Silero-VAD model download once through `WhisperGgmlDownloader.Default` and cache on disk. A missing runtime or model surfaces through `WhisperModelLoadException` and the `LogProvider` channel.

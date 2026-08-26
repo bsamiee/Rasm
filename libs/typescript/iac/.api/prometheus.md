@@ -35,19 +35,19 @@
 ## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One store per stack answers health and alerting; the residence answers evidence and history. This row is the reference posture on that axis — single server, exemplars on, tenant as a LABEL rather than an isolation boundary, and that degradation stated on the row rather than discovered on an empty query.
+- One store per stack answers health and alerting; the tier answers evidence and history. This row is the reference posture on that axis — single server, exemplars on, tenant as a LABEL rather than an isolation boundary, and that degradation stated on the row rather than discovered on an empty query.
 - The receiver decides the histogram representation, not the exporter: leaving `convert_histograms_to_nhcb` off keeps an OTLP exponential histogram as one native series, and arming it lands the `le`-bearing buckets the classic quantile arm renders against.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders the server; the recording-rule content arrives as a values row rather than a mounted ConfigMap because the chart already owns the mount path.
 - `operate/observe#STORE_ROWS`: `_stores.prometheus` supplies the chart and repo, `write` projects `http://<pinned>.<ns>.svc/api/v1/otlp` and `read` the bare origin — no port on either, because the Service answers 80 — and the row's `translation`, `histogram`, `exemplars`, `rules`, and `tenancy` columns are what every board query and every burn rule read.
-- `opentelemetry-collector`(`.api/opentelemetry-collector.md`): the gateway's `otlp_http/metrics` exporter dials the `write` path, so this server's OTLP receiver is the estate's one metrics ingest door and no workload learns the address.
+- `opentelemetry-collector`(`.api/opentelemetry-collector.md`): the gateway's `otlp_http/metrics` exporter dials the `write` path, so this server's OTLP receiver is the cluster's one metrics ingest door and no workload learns the address.
 - `opencost`(`.api/opencost.md`): the pricing row aims its upstream at this row's `read` URL, so a store swap re-points cost series with no opencost edit.
 - `operate/observe#BOARD_APPLY`: the `plugin` column names the stock `prometheus` datasource, and the exemplar column is what makes the trace click-through plane real rather than a degraded trace search.
 
 [LOCAL_ADMISSION]:
 - Pin the name at `server.fullnameOverride`; the top-level key is accepted and inert, and every address derived from it resolves to a Service the chart never rendered.
-- Disable all four subcharts explicitly: none was declared by this estate, node and object state arrive through the collector's own enrichment, nothing pushes, and the alertmanager row additionally injects an `alerting` block that wires a delivery path beside the one the board plane owns.
+- Disable all four subcharts explicitly: none was declared by this cluster, node and object state arrive through the collector's own enrichment, nothing pushes, and the alertmanager row additionally injects an `alerting` block that wires a delivery path beside the one the board plane owns.
 - Spell feature flags in `server.extraFlags` WITHOUT leading dashes, and never spell `native-histograms` there.
 - Write OTLP settings at `server.otlp` alone. Spelling `otlp` under `serverFiles` too emits duplicate keys in one document; the same trap holds for `global`, `scrape_configs`, `alerting`, `remote_*`, and `storage`.
 - Size the exemplar ring at `server.exemplars.max_exemplars` whenever the flag is armed — an empty seat renders no block and the decisive capability then rides a server default. Its `storage` sibling under `serverFiles` is the duplicate-key trap, never the alternative.

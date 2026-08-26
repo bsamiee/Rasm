@@ -36,7 +36,7 @@ from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_
 from rasm.compute.optimization.design import Optimum
 from rasm.compute.solvers.solve import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
@@ -304,14 +304,14 @@ class ProgramRoute(Struct, frozen=True):
 
 async def solve(
     intent: ProgramIntent, lane: LanePolicy, *, seed: int = _SEED, composition: ScopeKey = DEFAULT_SCOPE
-) -> "RuntimeRail[Optimum]":
-    async def dispatch() -> "RuntimeRail[Optimum]":
+) -> "RuntimeResult[Optimum]":
+    async def dispatch() -> "RuntimeResult[Optimum]":
         kernel = Kernel.of(
             _program_kernel,
             KernelTrait.RELEASING,
             enforcement=Enforcement.TERMINAL if intent.tag == "stochastic" else Enforcement.COOPERATIVE,
         )
-        return (await lane.offload(kernel, intent, seed)).bind(lambda rail: rail)
+        return (await lane.offload(kernel, intent, seed)).bind(lambda held: held)
 
     facts = {"program": intent.tag, "seed": seed, "backend": "direct" if _warmed(intent) is not None else "facade"}
     return await evidence_run(EvidenceScope.PROGRAM, f"program.{intent.tag}", dispatch, facts=facts, composition=composition)
@@ -323,13 +323,13 @@ PROGRAM_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([PROGRAM_SOLVE]))
 
 
-def _program_kernel(intent: ProgramIntent, seed: int) -> "RuntimeRail[Optimum]":
+def _program_kernel(intent: ProgramIntent, seed: int) -> "RuntimeResult[Optimum]":
     return boundary(
         PROGRAM_SOLVE, lambda: _program_optimum(intent, seed), catch=(np.linalg.LinAlgError, ValueError, TypeError)
     ).bind(lambda r: r)
 
 
-def _program_optimum(intent: ProgramIntent, seed: int) -> "RuntimeRail[Optimum]":
+def _program_optimum(intent: ProgramIntent, seed: int) -> "RuntimeResult[Optimum]":
     route = _PROGRAM_ROUTES[intent.tag]
     fields = _project(intent)
     warm = _warmed(intent)
@@ -375,7 +375,7 @@ _CERTIFICATE: Map[str, Callable[["Warm"], int | None]] = Map.of_seq([
 ])
 
 
-def _program_key(intent: ProgramIntent, fields: Carried, seed: int | None) -> "RuntimeRail[ContentKey]":
+def _program_key(intent: ProgramIntent, fields: Carried, seed: int | None) -> "RuntimeResult[ContentKey]":
     slots = [(i, f) for i, f in enumerate(fields) if isinstance(f, np.ndarray) and f.size]
     buffer = b"".join(np.ascontiguousarray(field).tobytes() for _, field in slots)
     shape_tag = "".join(f".{i}:{f.ndim}x{'x'.join(map(str, f.shape))}" for i, f in slots)

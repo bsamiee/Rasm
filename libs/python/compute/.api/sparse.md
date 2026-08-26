@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SPARSE]
 
-`sparse` owns n-dimensional sparse arrays for the compute array rail: `COO`, `GCXS`, and `DOK` classes under a `SparseArray` base implementing the Python Array API, with creation, conversion, linear-algebra, element-wise, shape, reduction, and `.npz` IO over arbitrary rank. `format=`/`asformat` discriminates one polymorphic value across the three formats and `fill_value` fixes the implicit dense value carried through every operation; `sparse` complements `scipy.sparse` by owning the >2-D `tensordot`/`einsum`/broadcast algebra 2-D CSR/CSC cannot express, and keeps every intermediate sparse.
+`sparse` owns n-dimensional sparse arrays for the compute array domain: `COO`, `GCXS`, and `DOK` classes under a `SparseArray` base implementing the Python Array API, with creation, conversion, linear-algebra, element-wise, shape, reduction, and `.npz` IO over arbitrary rank. `format=`/`asformat` discriminates one polymorphic value across the three formats and `fill_value` fixes the implicit dense value carried through every operation; `sparse` complements `scipy.sparse` by owning the >2-D `tensordot`/`einsum`/broadcast algebra 2-D CSR/CSC cannot express, and keeps every intermediate sparse.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -103,9 +103,9 @@
 - `scipy`(`.api/scipy.md`): `from_scipy_sparse`/`COO.from_scipy_sparse` lift a 2-D `scipy.sparse` matrix in, and `GCXS.to_scipy_sparse`/`COO.to_scipy_sparse` hand a 2-D result back for `scipy.sparse.linalg` (`spsolve`, `cg`, `gmres`, `eigsh`); `sparse` keeps the >2-D `tensordot`/`einsum`/broadcast algebra scipy.sparse cannot express.
 - `array-api-compat`(`.api/array-api-compat.md`) / `array-api-extra`(`.api/array-api-extra.md`): a `sparse` array satisfies the Array-API namespace, so `array_namespace(x)` dispatch folds it beside `numpy`/`jax`/`dask` with no format branch.
 - `numba`(`.api/numba.md`): `sparse.numba_backend` re-exports the class and operation set under Numba JIT for a hot CPU-bound loop.
-- `numerics/array.md`: `ArrayPayload` admits a `sparse` array as one namespace-dispatched backend, so a sparse payload folds the compute array rail unchanged.
+- `numerics/array.md`: `ArrayPayload` admits a `sparse` array as one namespace-dispatched backend, so a sparse payload folds the compute array domain unchanged.
 
 [LOCAL_ADMISSION]:
 - entry: a sparse payload enters through `asarray(..., format=...)` or `from_scipy_sparse`, `asformat`-discriminated, never a parallel per-format entrypoint.
-- evidence: a sparse-array fold captures format, `nnz`/`density`, and `fill_value` as the array claim, and `maybe_densify` gates densification so a memory blow rails as a typed boundary, not an OOM.
+- evidence: a sparse-array fold captures format, `nnz`/`density`, and `fill_value` as the array claim, and `maybe_densify` gates densification so a memory blow faults as a typed boundary, not an OOM.
 - boundary: results stay sparse across the pipeline, and `todense`/`asnumpy` materialise only at a declared dense-consumer edge.

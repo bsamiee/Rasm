@@ -23,7 +23,7 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 
 [LABEL_SCHEMAS]: `StringLabelSchema` `ParamLabelSchema` `AnyLabelSchema` `ParamLabelField` `MatrixName` — the typed shapes for parameterized-array labels and the matrix-name vocabulary.
 
-[PUBLIC_TYPE_SCOPE]: typed failure rail (`bw_processing.errors`)
+[PUBLIC_TYPE_SCOPE]: typed failure result (`bw_processing.errors`)
 
 [ERROR_ROOT]: `BrightwayProcessingError` roots the datapackage family with `FileIntegrityError` under it; both derive from `Exception`, and a mis-shaped `INDICES_DTYPE`/`UNCERTAINTY_DTYPE` vector answers the numpy `TypeError`/`ValueError` outside that root.
 
@@ -94,7 +94,7 @@ A `Datapackage` is a set of named resource *groups*, each group the arrays for o
 - `bw2data`(`.api/bw2data.md`): `Database.process()`/`Method.process()` emit the datapackage via `add_persistent_vector`, and `reindex` rebuilds ids against the `bw2data` mapping store; author `data_objs` through `prepare_lca_inputs`.
 - `bw2calc`(`.api/bw2calc.md`): `LCA(data_objs=[...])` consumes these packages, and `matrix_utils.MappedMatrix` maps each group's `INDICES_DTYPE` triples into the `scipy` technosphere/biosphere/characterization matrices.
 - `premise`(`.api/premise.md`): prospective-scenario workflows overlay future coefficients onto a baseline background datapackage through `merge_datapackages_with_mask`.
-- `pandas` -> `narwhals`/`polars`(`.api/pandas.md`, `.api/narwhals.md`): build the `add_csv_metadata(dataframe=...)` table through the tabular rail and hand the frame across.
+- `pandas` -> `narwhals`/`polars`(`.api/pandas.md`, `.api/narwhals.md`): build the `add_csv_metadata(dataframe=...)` table through the tabular domain and hand the frame across.
 
 [LOCAL_ADMISSION]:
 - `bw2data.process()` emits every datapackage and `bw2calc` consumes it; the data owner never hand-authors one, so `bw_processing` stays the id-keyed COO serialization contract between the two.

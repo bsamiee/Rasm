@@ -7,22 +7,22 @@
 ```text
 Rasm/                      # Kernel below the .NET app strata: exact-arithmetic floor, operational geometry, interaction machinery
 ├── Domain/                # Kernel substrate floor every sibling composes
-│   ├── Rails.cs           # Fault, Op, Retriability, Transition, and Lease<T>; every fallible surface compiles against this floor
+│   ├── Results.cs         # Fault, Op, Retriability, Transition, and Lease<T>; every fallible surface compiles against this floor
 │   ├── Context.cs         # ToleranceLane rows bind Band and BaseDimensions; Context.For(lane) is the one read every gate threads
 │   ├── Identity.cs        # CanonicalWriter, XXH ContentHash, SHA-256 ArtifactContent, and deterministic derivation
 │   ├── Validation.cs      # OpAcceptance.ValidityOf single validity oracle; CapabilitySet<TCapability> the one capability column
-│   ├── Normalization.cs   # Erased-geometry conversion owner: Lease<GeometryBase> admission and the typed coercion lattice
+│   ├── Normalization.cs   # Erased-geometry conversion owner: Lease<GeometryBase> admission and the typed coercion table
 │   ├── Evaluation.cs      # ClosestHit over Rhino.Geometry values alone; document or view reach is the boundary violation
 │   ├── Stats.cs           # One Welford four-moment recurrence and one order-statistic reader serve every measured carrier
-│   ├── Hooks.cs           # HookRail capsule generic over each folder's <Package>Point roster; veto, observe, replay, and release law
+│   ├── Hooks.cs           # HookSet capsule generic over each folder's <Package>Point roster; veto, observe, replay, and release law
 │   ├── Frame.cs           # TelemetrySource, CorrelationId, TenantContext, the Hlc stamp cell and CausalStamp, session-GUC namespace
 │   ├── Instrument.cs      # Declaration rows bind meters at mount; the backend-free tally answers a doctor verb with no exporter or store
 │   ├── Objective.cs       # Sli family, burn rows, AlertSeverity ladder, PanelSpec, BoardPack, and BenchClaim as policy data
 │   ├── Telemetry.cs       # FaultObservation, SignalFact, SpanBand, OpCost, and TelemetryContributorPort; wire-neutral evidence, no messages
 │   └── Event.cs           # Branch's one message-envelope algebra every stratum composes; announcements gain no authority over facts
 ├── Numerics/              # Exact-predicate floor and host-neutral-shaped numerics
-│   ├── Predicates.cs      # Sign total over explicit and constructed points; defining-point carriage rounds once at the emission seam
-│   ├── Faults.cs          # GeometryFault [Union] with compact generated FaultCase identities on the LanguageExt rail
+│   ├── Predicates.cs      # Sign total over explicit and constructed points; defining-point carriage rounds once at the emission boundary
+│   ├── Faults.cs          # GeometryFault [Union] with compact generated FaultCase identities on the LanguageExt base
 │   ├── Atoms.cs           # Guard Bands, PerceptualColor, AtomProjection rows with the identity fallthrough, primitive vector types
 │   ├── Matrix.cs          # MatrixKernel partial with transform; solutions carry route, stop, residual — no raw Matrix<double> crosses
 │   ├── Transform.cs       # WindowTaper roster, Interpolant<TCap>, SpectralArena over the four MathNet layouts, both convolution routes
@@ -38,7 +38,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Neighbors.cs       # NeighborIndex and NeighborKernel serve bare-point neighborhoods; broad phase stays with the spatial index
 │   ├── Transport.cs       # One log-domain Sinkhorn iteration; balanced, unbalanced, and debiased marginals are policy columns, not bodies
 │   └── Fields.cs          # ScalarField, VectorField, and TensorField closed unions whose case payloads are their admission structure
-├── Parametric/            # Vendored NURBS engine and host-neutral op rail
+├── Parametric/            # Vendored NURBS engine and host-neutral op API
 │   ├── Nurbs.cs           # Nurbs.Of one polymorphic admission; homogeneous control nets on Point3d/Vector3d/Plane carriers
 │   ├── Curve.cs           # Parametric.Apply folds ops over NurbsForm.Curve and the frame-local PlanarPrimitive run
 │   ├── Surface.cs         # Tessellate mints UvTessellation, the frozen per-vertex (u, v) column consumers admit by type
@@ -48,7 +48,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Patternmap.cs      # Wallpaper symmetry closed by theorem as data; the emitted InstanceStream is the Generation plane's exact input
 │   ├── Projections.cs     # Selectors drain one Project<TOut> into AtomProjection.Raw; clock values stay branded to the injected timeline
 │   └── Locate.cs          # Operation<TGeometry, TOut> under Eff<Env, Seq<TOut>>; AnalysisQuery.Location is the sole public route in
-├── Meshing/               # Mesh substrate and construction lattice
+├── Meshing/               # Mesh substrate and construction ops
 │   ├── Delaunay.cs        # Tessellation.Build over one SimplexStore arena; Implicit carriage keeps exact signs to ToMesh
 │   ├── Arrangement.cs     # ArrangementOp over subdivide, classify, keep, weld; four booleans are four data rows, manifoldc the companion
 │   ├── Intersect.cs       # CrossKey interns adjacent-face crossings by integer equality; chains walk that adjacency into oriented loops
@@ -66,8 +66,8 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Remesh.cs          # One projected-convexity exact flip gate over a single MeshEdit arena; first-principles rewrite, no host echo
 │   ├── Flatten.cs         # Pinned solves eliminate boundary rows so the interior factors SPD; penalty forms are the refused class
 │   ├── Intent.cs          # One Project<TOut>(Context, Op?) egress, the frozen signature Rasm.Rhino Camera binds while owners re-derive
-│   ├── Sample.cs          # PowerCcvtPolicy.Preset mints tuning on the Op rail; every threshold reads its own tolerance row at the run
-│   ├── Extract.cs         # ContourPolicy routes each domain to its named owner: host adapters, crossing lattice, or the marching lane
+│   ├── Sample.cs          # PowerCcvtPolicy.Preset mints tuning on the Op channel; every threshold reads its own tolerance row at the run
+│   ├── Extract.cs         # ContourPolicy routes each domain to its named owner: host adapters, crossing table, or the marching lane
 │   ├── Flow.cs            # Termination union decides every stop; MorseAtlas.Of folds the tracer into a frozen-column MorseGraph
 │   ├── Register.cs        # Two VectorCloud clusters in, one gated Transform out; the Procrustes lane adds scale under the policy record
 │   ├── Geodesics.cs       # Every solver runs against the shared LaplacianCache; fields case names delegate their bodies here
@@ -85,8 +85,8 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Measure.cs         # Every mass answer is a (MassKind, MassProperty) coordinate; MeasureBundle the kind-keyed multi-domain takeoff
 │   ├── Inspect.cs         # One OnGeometry gate lowers brep-coercible inputs through the leased brep form
 │   ├── Select.cs          # EdgeDescriptor data drives edge selection; TopologyProjection crosses under a leak-free transfer fold
-│   └── Relations.cs       # Type-pair lattice rows bind admission predicate, result shape, and host compute delegate over the query Env
-└── Interaction/           # Eto-shaped control, paint, transfer, and platform owners under the [BoundaryAdapter] carve
+│   └── Relations.cs       # Type-pair table rows bind admission predicate, result shape, and host compute delegate over the query Env
+└── Interaction/           # Eto-shaped control, paint, transfer, and platform owners
     ├── Dispatch.cs        # Crossing modality is the union case; every crossing gauges its lane's declared budget and never swallows a Fin
     ├── Clock.cs           # One leased clock over a host timer; the failure-posture row decides whether a failing tick halts or runs on
     ├── Transfer.cs        # Payload slots are a closed family with total one-shot release; drag is a CASE, a write to a host-carried bundle
@@ -96,7 +96,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
     ├── Paint.cs           # One ordered mark run bounds, hit-tests, and replays onto live and printed surfaces without re-description
     ├── Platform.cs        # Rows answer every platform question, never a scattered IsMac; seats capture and re-register prior factories
     ├── Asset.cs           # Origin is WHERE bytes come from; pose and filter are orthogonal axes, so a rotated tinted glyph is data
-    └── Input.cs           # Raw device state crosses once at the seam as finiteness-admitted facts carrying both coordinate frames
+    └── Input.cs           # Raw device state crosses once at the boundary as finiteness-admitted facts carrying both coordinate frames
 ```
 
 ## [02]-[STRATA]
@@ -105,7 +105,7 @@ Strata rank the kernel interior; seating rows carry only the law the fence canno
 
 - S0 co-seat — `Domain` and `Numerics` compose mutually at file grain: `Integrate` reads `Op`, `Evaluation` reads `AtomProjection`, no module cycle.
 - S0 law — no floor file names an upper type; every upper stratum threads the exact-predicate ladder and the `Context` tolerance read.
-- S1 interior — `Intersect` reads the spatial index and `Reconciliation` the mesh store inside the rank, so the lattice stays one stratum.
+- S1 interior — `Intersect` reads the spatial index and `Reconciliation` the mesh store inside the rank, so the layering stays one stratum.
 - S2 interior — the ICP registration optimizer instantiates the `Lm` functor inside the rank, so optimization mints no third stratum.
 - S3 interior — `Drawing` reads `Parametric`'s wallpaper fold and `Interaction` the `Drawing` sheet vocabulary; every interior edge stays in-rank.
 - S3 law — no lower stratum composes a terminal producer; the fence draws downward discriminating imports alone, and `f1` forbids the inversion.
@@ -130,11 +130,11 @@ flowchart TB
         Drawing[Drawing]
         Interaction[Interaction]
     end
-    subgraph S2["S2 ALGORITHM RAILS"]
+    subgraph S2["S2 ALGORITHMS"]
         Solving[Solving]
         Processing[Processing]
     end
-    subgraph S1["S1 LATTICE"]
+    subgraph S1["S1 SUBSTRATE"]
         Meshing[Meshing]
         Spatial[Spatial]
     end
@@ -166,7 +166,7 @@ flowchart TB
     Domain f1@-->|"forbidden: floor upward"| S3
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -177,15 +177,15 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Kernel content-key and compute-plane seams
+    accTitle: Kernel content-key and compute-plane boundaries
     accDescr: Which content keys, shapes, ports, wires, and projections the kernel owners hand same-branch and cross-runtime peers.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
         Spatial[Spatial fields]
-        Meshing[Mesh lattice]
+        Meshing[Mesh substrate]
         Parametric[Parametric producers]
-        Processing[Processing rail]
+        Processing[Processing pipeline]
         Solving[Solving owners]
         Drawing[Drawing producers]
         Analysis[Analysis entry]
@@ -252,15 +252,15 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Kernel fabrication seams
+    accTitle: Kernel fabrication boundaries
     accDescr: Kernel owners projecting substrate, algorithm, and drawing shapes to the fabrication peer and reading its posted toolpath pack back.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Spatial[Spatial fields]
         Numerics[Numerics floor]
-        Meshing[Mesh lattice]
+        Meshing[Mesh substrate]
         Parametric[Parametric producers]
-        Processing[Processing rail]
+        Processing[Processing pipeline]
         Solving[Solving owners]
         Drawing[Drawing producers]
     end
@@ -288,24 +288,24 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Kernel host-UI boundary seams
+    accTitle: Kernel host-UI boundary crossings
     accDescr: Which boundary shapes, ports, wires, and keys the kernel hands one-way down to the Rhino and Grasshopper host packages.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
         Spatial[Spatial fields]
-        Meshing[Mesh lattice]
+        Meshing[Mesh substrate]
         Parametric[Parametric producers]
-        Processing[Processing rail]
+        Processing[Processing pipeline]
         Drawing[Drawing producers]
         Analysis[Analysis entry]
         Interaction[Interaction plane]
     end
     Rhino([Rasm.Rhino])
     Grasshopper([Rasm.Grasshopper])
-    Domain e1@-->|"[BOUNDARY]: ContentHash + Context + HookRail + Lease + ModelUnit + Requirement"| Rhino
+    Domain e1@-->|"[BOUNDARY]: ContentHash + Context + HookSet + Lease + ModelUnit + Requirement"| Rhino
     Domain e2@-->|"[PORT]: InstrumentSpec"| Rhino
-    Domain e3@-->|"[BOUNDARY]: Context + HookRail + Lease"| Grasshopper
+    Domain e3@-->|"[BOUNDARY]: Context + HookSet + Lease"| Grasshopper
     Domain e4@-->|"[PORT]: InstrumentSpec"| Grasshopper
     Numerics e5@-->|"[BOUNDARY]: Dimension + EpsilonPolicy + PerceptualColor + Placement + UnitInterval + VectorCone + VectorFrame"| Rhino
     Numerics e6@-->|"[BOUNDARY]: Dimension + PerceptualColor + UnitInterval"| Grasshopper
@@ -321,7 +321,7 @@ flowchart LR
     Interaction e16@-->|"[BOUNDARY]: AssetOrigin + ControlSpec + IntentTable + Mark + PaintProgram + UiDispatch"| Grasshopper
 ```
 
-Host-boundary edges fold each boundary's own seam census: one edge per kernel owner, boundary, and kind, its members the alphabetical join of every sub-domain edge that boundary draws, so a member moves one edge at each end.
+Host-boundary edges fold each boundary's own crossing census: one edge per kernel owner, boundary, and kind, its members the alphabetical join of every sub-domain edge that boundary draws, so a member moves one edge at each end.
 
 Semantic content-key edges federate kernel `ContentHash` while stored payloads take kernel `ArtifactContent` SHA-256 with extent, and neither identity substitutes for the other.
 
@@ -352,4 +352,4 @@ Namespace mirrors folder path under `.editorconfig` `dotnet_style_namespace_matc
 
 Kernel compiles as ONE assembly, the single `Rasm.csproj`, so internal members cross the sub-domain namespaces with no build edge; recorded exceptions to strata direction ride that law as the `[02]-[STRATA]` cross-stratum rows.
 
-`Rasm.Domain.Fault` and the `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision: kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.
+`Rasm.Domain.Fault` and the `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision: kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Results.cs` each state the boundary, and neither absorbs the other.

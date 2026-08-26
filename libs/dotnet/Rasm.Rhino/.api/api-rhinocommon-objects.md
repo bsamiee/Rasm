@@ -58,7 +58,7 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 [OBJECT_SUBCLASSES]:
 - concrete kind classes each carry a live-cast accessor and a detached copy: `BrepObject.BrepGeometry -> Brep` / `DuplicateBrepGeometry() -> Brep`, `CurveObject.CurveGeometry -> Curve` / `DuplicateCurveGeometry() -> Curve`, `MeshObject.MeshGeometry -> Mesh` / `DuplicateMeshGeometry() -> Mesh`, `PointObject.PointGeometry -> Point` / `DuplicatePointGeometry() -> Point`, `SurfaceObject.SurfaceGeometry -> Surface` / `DuplicateSurfaceGeometry() -> Surface`, `ExtrusionObject.ExtrusionGeometry -> Extrusion` / `DuplicateExtrusionGeometry() -> Extrusion`, `PointCloudObject.PointCloudGeometry -> PointCloud` / `DuplicatePointCloudGeometry() -> PointCloud`.
 - `Rhino.DocObjects.SubDObject` carries no typed geometry accessor — SubD reads go through the base `Geometry` member.
-- `Rhino.DocObjects.InstanceObject` — `InstanceXform -> Transform` / `InsertionPoint -> Point3d` / `InstanceDefinition -> InstanceDefinition` / `UsesDefinition(int definitionIndex, out int nestingLevel) -> bool` / `SubObjectFromComponentIndex(ComponentIndex ci) -> RhinoObject`; the `Explode` overloads live in the blocks catalog's operation rail.
+- `Rhino.DocObjects.InstanceObject` — `InstanceXform -> Transform` / `InsertionPoint -> Point3d` / `InstanceDefinition -> InstanceDefinition` / `UsesDefinition(int definitionIndex, out int nestingLevel) -> bool` / `SubObjectFromComponentIndex(ComponentIndex ci) -> RhinoObject`; the `Explode` overloads live in the blocks catalog's operation surface.
 
 [LIGHT_OBJECT]:
 - `Rhino.DocObjects.LightObject : RhinoObject` — light-table component object; `ComponentType -> ModelComponentType` answers `ModelComponentType.RenderLight`.
@@ -77,7 +77,7 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 - `Rhino.DocObjects.RhinoObject.GetSubObjects() -> RhinoObject[]` — explodes the object into detached member objects the caller owns; the members are not live document state, and landing them is the caller's table add.
 - `Rhino.DocObjects.RhinoObject.Select`/`IsSelected` grade contract — `0` unselected, `1` selected, `2` selected persistently; locked or hidden objects (and objects on locked or hidden layers) cannot select.
 
-[GRIP_ENABLE_SEAM]:
+[GRIP_ENABLEMENT]:
 - `Rhino.DocObjects.RhinoObject.GripsOn -> bool` (get/set) / `GripsSelected -> bool` — grip-editing enablement and selection state.
 - `Rhino.DocObjects.RhinoObject.GetGrips() -> GripObject[]` — enabled grips; the grip edit surface lives in the custom-objects catalog.
 - `Rhino.DocObjects.RhinoObject.EnableCustomGrips(CustomObjectGrips customGrips) -> bool` — installs a custom grip set authored in the custom-objects catalog.
@@ -120,7 +120,7 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 [VISUAL_ANALYSIS]:
 - `Rhino.DocObjects.RhinoObject.EnableVisualAnalysisMode(VisualAnalysisMode mode, bool enable) -> bool` — toggles an analysis mode registered through the display catalog on this object.
 - `Rhino.DocObjects.RhinoObject.InVisualAnalysisMode() -> bool` / `InVisualAnalysisMode(VisualAnalysisMode mode) -> bool` / `GetActiveVisualAnalysisModes() -> VisualAnalysisMode[]` — active-mode queries.
-- `Rhino.DocObjects.RhinoObject.AnalysisModeChanged -> EventHandler<RhinoObjectAnalysisModeChangedEventArgs>` (static event) — the notification seam paired with `EnableVisualAnalysisMode`.
+- `Rhino.DocObjects.RhinoObject.AnalysisModeChanged -> EventHandler<RhinoObjectAnalysisModeChangedEventArgs>` (static event) — the notification hook paired with `EnableVisualAnalysisMode`.
 
 [OBJECT_FRAME_SECTIONS]:
 - `Rhino.DocObjects.RhinoObject.ObjectFrame() -> Plane` / `ObjectFrame(ObjectFrameFlags flags) -> Plane` — object-frame reads; frame writes route to `ObjectAttributes.SetObjectFrame`.

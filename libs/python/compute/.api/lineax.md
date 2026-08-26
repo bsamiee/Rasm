@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_LINEAX]
 
-`lineax` owns JAX-native linear operators, tag-dispatched direct and iterative solvers, and lazy operator algebra for the differentiable-linear-algebra rail. Every solve compiles under `jax.jit`, batches under `vmap`, and differentiates through the implicit-function-theorem adjoint, so it nests inside an `optimistix` root-find or a `diffrax` implicit step without re-deriving its gradient.
+`lineax` owns JAX-native linear operators, tag-dispatched direct and iterative solvers, and lazy operator algebra for the differentiable-linear-algebra domain. Every solve compiles under `jax.jit`, batches under `vmap`, and differentiates through the implicit-function-theorem adjoint, so it nests inside an `optimistix` root-find or a `diffrax` implicit step without re-deriving its gradient.
 
 ## [01]-[PUBLIC_TYPES]
 

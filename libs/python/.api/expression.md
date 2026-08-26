@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_EXPRESSION]
 
-`Expression` mints the Python functional core: `Result`/`Option`/`Try` monads, `@tagged_union` discriminated unions, `pipe`/`compose` point-free composition, trampolined tail recursion, generator-driven effect builders, and persistent `Block`/`Map`/`Seq` collections. Every bounded-variant, absent-value, and error path in the branch folds through its rails instead of parallel flags, `None` sentinels, or try/except. It is the branch's sole monadic-rail owner; a second result library or a hand-rolled monad is refused.
+`Expression` mints the Python functional core: `Result`/`Option`/`Try` monads, `@tagged_union` discriminated unions, `pipe`/`compose` point-free composition, trampolined tail recursion, generator-driven effect builders, and persistent `Block`/`Map`/`Seq` collections. Every bounded-variant, absent-value, and error path in the branch folds through its results instead of parallel flags, `None` sentinels, or try/except. It is the branch's sole monadic-result owner; a second result library or a hand-rolled monad is refused.
 
 ## [01]-[PUBLIC_TYPES]
 

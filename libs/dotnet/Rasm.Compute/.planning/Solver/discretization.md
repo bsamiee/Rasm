@@ -421,10 +421,10 @@ public static class DelaunayCore {
         Aabb box = boundary.Bounds;
         float edge = (float)policy.Seed.Spacing(policy.TargetEdgeLength, policy.GradingRatio);
         Seq<Vector3> surface = toSeq(Enumerable.Range(0, boundary.VertexCount)).Map(boundary.Vertex);
-        return surface + toSeq(Lattice(box, edge, offset: edge)).Filter(index.Encloses);
+        return surface + toSeq(Grid(box, edge, offset: edge)).Filter(index.Encloses);
     }
 
-    static IEnumerable<Vector3> Lattice(Aabb box, float edge, float offset) {
+    static IEnumerable<Vector3> Grid(Aabb box, float edge, float offset) {
         for (float z = box.Lo.Z + offset; z < box.Hi.Z; z += edge)
             for (float y = box.Lo.Y + offset; y < box.Hi.Y; y += edge)
                 for (float x = box.Lo.X + offset; x < box.Hi.X; x += edge) { yield return new(x, y, z); }
@@ -438,7 +438,7 @@ public static class DelaunayCore {
             .Map(boundary.Vertex)
             .Filter(vertex => index.Encloses(new(vertex.X, vertex.Y, z)) || Math.Abs(vertex.Z - z) <= edge)
             .Map(static vertex => new Vector2(vertex.X, vertex.Y));
-        Seq<Vector2> interior = toSeq(Lattice(box, edge, offset: edge * 0.5f))
+        Seq<Vector2> interior = toSeq(Grid(box, edge, offset: edge * 0.5f))
             .Filter(point => index.Encloses(new(point.X, point.Y, z)))
             .Map(static point => new Vector2(point.X, point.Y));
         Seq<Vector2> points = rim + interior;

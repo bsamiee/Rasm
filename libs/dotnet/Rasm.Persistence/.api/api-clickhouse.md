@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CLICKHOUSE]
 
-`ClickHouse.Driver` owns the distributed columnar OLAP backend over the ClickHouse HTTP interface: the thread-safe connection-pooled `ClickHouseClient`, the full ADO.NET provider mirror, the parallel RowBinary bulk-ingest rail, the `QueryStats` throughput summary, and an `ActivitySource` diagnostics surface emitting `db.*`/`db.clickhouse.*` OpenTelemetry tags. It is the billion-row scale-out backend class beyond the in-PG TimescaleDB hypertable tier and the embedded DuckDB analytical floor, admitted through the `Store/provisioning` store-profile algebra as a non-transactional append sink.
+`ClickHouse.Driver` owns the distributed columnar OLAP backend over the ClickHouse HTTP interface: the thread-safe connection-pooled `ClickHouseClient`, the full ADO.NET provider mirror, the parallel RowBinary bulk-ingest path, the `QueryStats` throughput summary, and an `ActivitySource` diagnostics surface emitting `db.*`/`db.clickhouse.*` OpenTelemetry tags. It is the billion-row scale-out backend class beyond the in-PG TimescaleDB hypertable tier and the embedded DuckDB analytical floor, admitted through the `Store/provisioning` store-profile algebra as a non-transactional append sink.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -9,7 +9,7 @@
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]    | [CAPABILITY]                                       |
 | :-----: | :------------------------------- | :--------------- | :------------------------------------------------- |
 |  [01]   | `ClickHouseClient`               | primary client   | thread-safe pooled query + bulk-ingest owner       |
-|  [02]   | `IClickHouseClient`              | client contract  | DI seam                                            |
+|  [02]   | `IClickHouseClient`              | client contract  | DI interface                                       |
 |  [03]   | `ClickHouseClientSettings`       | settings record  | strongly-typed connection + ingest policy          |
 |  [04]   | `QueryOptions`                   | per-query policy | query id, database, roles, custom settings, bearer |
 |  [05]   | `InsertOptions`                  | ingest policy    | `QueryOptions` + batch, parallelism, format, types |
@@ -97,7 +97,7 @@
 [TOPOLOGY]:
 - transport is the HTTP interface only; `HttpClient` and `HttpClientFactory` are mutually exclusive at `Validate()`, and the client owns a default pooled factory, an injected `IHttpClientFactory`, or a caller-supplied `HttpClient`.
 - `ClickHouseClient` is thread-safe and reusable, one instance per cluster; the ADO `ClickHouseConnection` is the per-scope handle minted from it.
-- `ClickHouseConnection.BeginDbTransaction` throws `NotSupportedException`; durability is per-insert-block, and the store-profile transaction rail treats this backend as a non-transactional sink.
+- `ClickHouseConnection.BeginDbTransaction` throws `NotSupportedException`; durability is per-insert-block, and the store-profile transaction policy treats this backend as a non-transactional sink.
 - fault reporting is THROW-ONLY, proven structurally: `ClickHouseConnection` declares zero events, the whole assembly declares exactly one (`ClickHouse.Driver.Copy.ClickHouseBulkCopy.BatchSent`), and the inherited `DbConnection.StateChange` never raises because the private `volatile ConnectionState state` field takes a bare assignment on open and on close while `DbConnection.OnStateChange` is invoked nowhere in the assembly.
 - no connection-pool type exists across the twenty namespaces: `ClickHouseConnectionFactory : DbProviderFactory` (with its `static Instance`) is a provider factory and `ClickHouseDataSource : DbDataSource` is a connection factory, so neither publishes pooled-health state at all, and `ClickHouseConnection.State` echoes only an explicit `Open`/`Close` the caller already made.
 - liveness therefore reads through an ACTIVE probe — `ClickHouseClient.PingAsync(QueryOptions?, CancellationToken) -> Task<bool>` over `GET /ping`, declared on `ClickHouseClient` and absent from `ClickHouseConnection` — and a consumer needing an out-of-band fault signal polls that probe rather than subscribing anything.
@@ -114,12 +114,12 @@
 - columnar interchange: a `ParquetSharp` (`api-parquetsharp`) Parquet file or an `api-arrow` batch ingests through `InsertRawStreamAsync(table, stream, "Parquet"/"ArrowStream", ...)` — ClickHouse decodes the format server-side, and the managed side streams the pre-framed body.
 - telemetry: `ClickHouseDiagnosticsOptions` publishes those three static members alone — `ActivitySourceName` (`"ClickHouse.Driver"`) names the source the AppHost tracer subscribes on the `telemetry` port, and `IncludeSqlInActivityTags`/`StatementMaxLength` (default 300) gate SQL capture once at composition; each query and insert opens an `ActivityKind.Client` span tagged `db.system=clickhouse` with `QueryStats` projected as `db.clickhouse.*`.
 - diagnostics: `ClickHouse.Driver.Diagnostic.TraceHelper` publishes `Activate(ILoggerFactory)`/`Deactivate()` alone, routing `System.Net` event-source traffic to a `Trace`-level logger; both surfaces configure telemetry, so neither reports a delivery or connection fault a delivery leg can fold.
-- fault rail: `ClickHouseServerException : DbException` lifts at the client edge discriminated on its numeric `ErrorCode` and carries the offending `Query`, joining the store-profile failure rail.
-- residence read: `Query/serving#SERVING_PLANE`'s Fleet arm reaches the ADO mirror rather than the pooled client's own reader entry, because `QueryStats` is a post-execution property on `ClickHouseCommand` and `DbConnection.CreateCommand` takes no text — `new ClickHouseCommand(connection) { CommandText = … }` binds the lowered plan and `QueryStats.ReadRows` is the only honest scanned figure, the returned row count saying nothing about the granules the leading tenant sort key pruned.
-- residence DDL: the branch owns every `CREATE TABLE … ENGINE = MergeTree` through `ExecuteNonQueryAsync`, so the collector's `clickhouseexporter` runs `create_schema: false` — a default exporter schema leaves attributes in an unsorted `Map` and a single-tenant filter then scans granules holding every other tenant.
+- fault channel: `ClickHouseServerException : DbException` lifts at the client edge discriminated on its numeric `ErrorCode` and carries the offending `Query`, joining the store-profile failure family.
+- backend read: `Query/serving#SERVING_PLANE`'s Fleet arm reaches the ADO mirror rather than the pooled client's own reader entry, because `QueryStats` is a post-execution property on `ClickHouseCommand` and `DbConnection.CreateCommand` takes no text — `new ClickHouseCommand(connection) { CommandText = … }` binds the lowered plan and `QueryStats.ReadRows` is the only honest scanned figure, the returned row count saying nothing about the granules the leading tenant sort key pruned.
+- backend DDL: the branch owns every `CREATE TABLE … ENGINE = MergeTree` through `ExecuteNonQueryAsync`, so the collector's `clickhouseexporter` runs `create_schema: false` — a default exporter schema leaves attributes in an unsorted `Map` and a single-tenant filter then scans granules holding every other tenant.
 
 [LOCAL_ADMISSION]:
 - ClickHouse enters behind the `Store/provisioning` store-profile vocabulary as a distinct scale-out columnar backend class, orthogonal to in-PG TimescaleDB and embedded DuckDB.
-- `ClickHouseClient.InsertBinaryAsync` over POCO or `object[]` is the bulk-ingest rail; batch size and parallelism are profile policy.
+- `ClickHouseClient.InsertBinaryAsync` over POCO or `object[]` is the bulk-ingest path; batch size and parallelism are profile policy.
 - inserts record as idempotent append blocks keyed by `InsertOptions.QueryId`, never under a transaction scope.
 - `ClickHouse.Driver.Types` column type-system stays internal; the profile declares column types in DDL or `[ClickHouseColumn(Type=...)]`, never a CLR type instance.

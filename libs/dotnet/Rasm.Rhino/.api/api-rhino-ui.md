@@ -21,7 +21,7 @@
 |  [11]   | `EtoCollapsibleSectionHolder`   | section host    | properties/options section stack      |
 |  [12]   | `LocalizeStringPair`            | localized label | English/localized caption pair        |
 
-- Registers the `Rhino.UI` host-bridge seams (`libs/dotnet/.api/api-rhino-ui.md`): `EtoExtensions.UseRhinoStyle`, `Show`/`GetRhinoDoc` document binding, `ShowSemiModal`, `SavePosition`/`RestorePosition`/`LocalizeAndRestore`, `WindowsFromDocument<T>`, and the `Dialogs` edit and number value prompts carry their algebra there; `RhinoEtoApp` supplies the window ownership those members present against, and the rows here are the subsystem this boundary adds beyond the bridge.
+- Registers the `Rhino.UI` host-bridge adapters (`libs/dotnet/.api/api-rhino-ui.md`): `EtoExtensions.UseRhinoStyle`, `Show`/`GetRhinoDoc` document binding, `ShowSemiModal`, `SavePosition`/`RestorePosition`/`LocalizeAndRestore`, `WindowsFromDocument<T>`, and the `Dialogs` edit and number value prompts carry their algebra there; `RhinoEtoApp` supplies the window ownership those members present against, and the rows here are the subsystem this boundary adds beyond the bridge.
 
 [PUBLIC_TYPE_SCOPE]: dialogs, gumball, and mouse interaction
 
@@ -49,7 +49,7 @@
 | :-----: | :------------------------------ | :----------- | :--------------------------- |
 |  [01]   | `CommandPromptChangedEventArgs` | prompt state | prompt, default, and options |
 
-- Registers the in-viewport UI object family (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-custom-objects.md`): `UserInterfaceObjectBase` with its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` all carry their members there, beside the custom-object authoring surface sharing their derivation contract. This boundary supplies only the namespace and the pipeline seam.
+- Registers the in-viewport UI object family (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-custom-objects.md`): `UserInterfaceObjectBase` with its grip, direction, rotation, text-dot, control, and slider derivations, `MouseState`, and `ViewUserInterfaceTable` all carry their members there, beside the custom-object authoring surface sharing their derivation contract. This boundary supplies only the namespace and the pipeline boundary.
 
 [PUBLIC_TYPE_SCOPE]: status, toolbar, and resources
 
@@ -221,7 +221,7 @@
 
 - The `Dialogs` single-value prompts — `ShowEditBox` and both `ShowNumberBox` overloads — are the registered branch fast lane (`libs/dotnet/.api/api-rhino-ui.md`); the rows above are the multi-value, document-scoped, and resource-scoped dialogs this boundary alone reaches.
 - `MouseCallback.Enabled` is the sole arming member and it REFLECTS over the subclass to subscribe only the `RhinoView` static events whose overrides the subclass declares, so a hook that declares no override arms nothing; a `false` write detaches all ten unconditionally, and every callback runs on the host UI thread.
-- `MouseCallbackEventArgs` derives `System.ComponentModel.CancelEventArgs`, so the pointer seam IS veto-capable: a begin-phase override setting `Cancel = true` suppresses Rhino's own default handling of that event, and the matching `OnEnd*` override reads `Cancel` to learn whether the default ran. The read is the evidence, the write the veto — a page claiming the mouse seam is observe-only contradicts the type's own base.
+- `MouseCallbackEventArgs` derives `System.ComponentModel.CancelEventArgs`, so the pointer callback IS veto-capable: a begin-phase override setting `Cancel = true` suppresses Rhino's own default handling of that event, and the matching `OnEnd*` override reads `Cancel` to learn whether the default ran. The read is the evidence, the write the veto — a page claiming the mouse callback is observe-only contradicts the type's own base.
 - `GumballObject` and `GumballDisplayConduit` are both `IDisposable` with public constructors, and both `SetFrom*` and `UpdateGumball*` answer `bool`; `GumballAppearanceSettings` carries the whole look as plain settables behind a public parameterless constructor — per-axis translate, rotate, and scale toggles, `FreeTranslate`, axis colors, `Radius`, arrowhead and grip sizing, `AxisThickness`/`ArcThickness`, menu placement — so appearance is one value the seat call takes, never a mutation sequence.
 - The conduit's `BaseGumball`, `Gumball`, and `PickResult` are lazily minted conduit-owned projections, not caller-owned handles: reading one binds it to the conduit for the conduit's lifetime, so a lease disposes the conduit and never those.
 - `Rhino.UI.OpenFileDialog` and `SaveFileDialog` are plain `public class` with a public parameterless constructor and NO disposer — they hold a private managed `FileDialogBase` and free the native dialog inside the show call. Their Eto siblings bracket because `Eto.Forms.CommonDialog : Widget : IDisposable`; these two never do, and a `using` over either is the wrong shape rather than a missing one. `SaveFileDialog` carries no multi-select axis at all: `MultiSelect`/`FileNames` are `OpenFileDialog`-only, and a save run reads `FileName` back off the instance.
@@ -317,7 +317,7 @@
 [TOPOLOGY]:
 - Native chrome registers once per plug-in in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the host resolves instances through `GetPanel`/`GetPanels<T>`; a second registration of the same type is the collapsed form.
 - Every Eto surface reaches a Rhino window through one path: `RhinoEtoApp` resolves the document-owned parent and the registered bridge applies native styling and presents the surface against a document; the control tree is authored through the folder Eto catalogs, never re-implemented here.
-- Interaction runs three tiers with disjoint owners: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs and a per-event veto, a gumball is the dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster — and the registered in-viewport widget family is `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-custom-objects.md`'s, reached here only as the namespace and pipeline seam it draws through.
+- Interaction runs three tiers with disjoint owners: `MouseCallback` is the document-wide viewport mouse hook with begin/end phase pairs and a per-event veto, a gumball is the dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster — and the registered in-viewport widget family is `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-custom-objects.md`'s, reached here only as the namespace and pipeline boundary it draws through.
 - Every host callback runs on the UI thread: work touching document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread`.
 
 [STACKING]:

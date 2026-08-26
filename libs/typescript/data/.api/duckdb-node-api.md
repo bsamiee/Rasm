@@ -8,27 +8,27 @@
 
 `run` returns `DuckDBMaterializedResult`, `stream` a lazy `DuckDBResult`; the `*AndRead*` family returns `DuckDBResultReader`, `prepare` a `DuckDBPreparedStatement`.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `DuckDBInstance`               | class         | one database file or `:memory:`; single-writer ACID WAL |
-|  [02]   | `DuckDBConnection`             | class         | leased session running statements                       |
-|  [03]   | `DuckDBResult`                 | class         | lazy stream; `yieldRowObjects()` async batch iterator   |
-|  [04]   | `DuckDBResultReader`           | class         | materialized `getRows`/`getColumns`/`getRowObjects`     |
-|  [05]   | `DuckDBPreparedStatement`      | class         | `bind(values, types?)` then run/stream mirrors          |
-|  [06]   | `DuckDBValue`                  | union         | typed bind/result cell crossing the kernel cast-free    |
-|  [07]   | `DuckDBScalarFunction`         | class         | per-row UDF over an input chunk into one output vector  |
-|  [08]   | `DuckDBTableFunction`          | class         | scan-producing UDF answering a chunk per call           |
-|  [09]   | `DuckDBScalarFunctionBindInfo` | class         | scalar bind seam: client context, bind data, refusal    |
-|  [10]   | `DuckDBScalarFunctionInfo`     | class         | scalar call seam: bind data, extra info, refusal        |
-|  [11]   | `DuckDBTableFunctionBindInfo`  | class         | result columns, parameters, cardinality, bind data      |
-|  [12]   | `DuckDBTableFunctionInfo`      | class         | scan call seam: bind, init, and per-thread local init   |
-|  [13]   | `DuckDBTableFunctionInitInfo`  | class         | projection roster, thread cap, init data                |
-|  [14]   | `DuckDBDataChunk`              | class         | the vector-width write surface a scan fills per call    |
-|  [15]   | `DuckDBAppender`               | class         | typed row append into an existing relation              |
-|  [16]   | `DuckDBType`                   | union         | the engine's own logical type; `DuckDBTypeId` its tag   |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                               |
+| :-----: | :----------------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `DuckDBInstance`               | class         | one database file or `:memory:`; single-writer ACID WAL    |
+|  [02]   | `DuckDBConnection`             | class         | leased session running statements                          |
+|  [03]   | `DuckDBResult`                 | class         | lazy stream; `yieldRowObjects()` async batch iterator      |
+|  [04]   | `DuckDBResultReader`           | class         | materialized `getRows`/`getColumns`/`getRowObjects`        |
+|  [05]   | `DuckDBPreparedStatement`      | class         | `bind(values, types?)` then run/stream mirrors             |
+|  [06]   | `DuckDBValue`                  | union         | typed bind/result cell crossing the kernel cast-free       |
+|  [07]   | `DuckDBScalarFunction`         | class         | per-row UDF over an input chunk into one output vector     |
+|  [08]   | `DuckDBTableFunction`          | class         | scan-producing UDF answering a chunk per call              |
+|  [09]   | `DuckDBScalarFunctionBindInfo` | class         | scalar bind interface: client context, bind data, refusal  |
+|  [10]   | `DuckDBScalarFunctionInfo`     | class         | scalar call interface: bind data, extra info, refusal      |
+|  [11]   | `DuckDBTableFunctionBindInfo`  | class         | result columns, parameters, cardinality, bind data         |
+|  [12]   | `DuckDBTableFunctionInfo`      | class         | scan call interface: bind, init, and per-thread local init |
+|  [13]   | `DuckDBTableFunctionInitInfo`  | class         | projection roster, thread cap, init data                   |
+|  [14]   | `DuckDBDataChunk`              | class         | the vector-width write surface a scan fills per call       |
+|  [15]   | `DuckDBAppender`               | class         | typed row append into an existing relation                 |
+|  [16]   | `DuckDBType`                   | union         | the engine's own logical type; `DuckDBTypeId` its tag      |
 
 - `DuckDBType` closes over one `BaseDuckDBType<DuckDBTypeId>` subclass per engine type, each scalar published as a module constant (`BOOLEAN`, `UTINYINT`, `UINTEGER`, `UBIGINT`, `DOUBLE`, `VARCHAR`, `TIMESTAMP_NS`, `BLOB`, `UUID`, and the remaining width and temporal rows) and each parameterized one as a factory — `LIST(value)`, `MAP(key, value)`, `ARRAY(value, length)`, `STRUCT(entries)`, `UNION(members)`, `DECIMAL(width, scale)`, `ENUM(values)`.
-- `DuckDBType.toString()` renders the type's own SQL spelling — `VARCHAR`, `MAP(VARCHAR, VARCHAR)`, `TIMESTAMP_NS[]`, `DOUBLE[]` — so DDL text derives from the same value the bind seam declares and no hand-spelled type string stands beside the type a scan binds; `typeForValue(value)` answers the type of a held cell, and `toLogicalType()` crosses to the native handle.
+- `DuckDBType.toString()` renders the type's own SQL spelling — `VARCHAR`, `MAP(VARCHAR, VARCHAR)`, `TIMESTAMP_NS[]`, `DOUBLE[]` — so DDL text derives from the same value the bind function declares and no hand-spelled type string stands beside the type a scan binds; `typeForValue(value)` answers the type of a held cell, and `toLogicalType()` crosses to the native handle.
 - `DuckDBValue` opens on `null | boolean | number | bigint | string` beside the wrapper classes — `DuckDBArrayValue`, `DuckDBBitValue`, `DuckDBBlobValue`, `DuckDBDateValue`, `DuckDBDecimalValue`, `DuckDBGeometryValue`, `DuckDBIntervalValue`, `DuckDBListValue`, `DuckDBMapValue`, `DuckDBStructValue`, the four `DuckDBTimestamp*Value` widths beside `DuckDBTimestampTZValue`, `DuckDBTime*Value`, `DuckDBUnionValue`, `DuckDBUUIDValue`, `DuckDBVariantValue` — so a `VARCHAR` column reads as a JS `string` and a wrapper class carries every type JS holds no primitive for.
 - `getRowObjects(): Record<string, DuckDBValue>[]` keys each row by column name; `convertRowObjects<T>(converter)`, `getRowObjectsJS()`, and `getRowObjectsJson()` are the converted twins, and `getRows`/`getColumns`/`getColumnsObject` carry the same four-way conversion family.
 - `EXPLAIN ANALYZE` under `PRAGMA enable_profiling='json'` answers exactly ONE row of two `VARCHAR` columns — `explain_key` reading `analyzed_plan` and `explain_value` carrying the profile JSON — so a harvest reads the second cell as a string and parses it.
@@ -68,29 +68,29 @@
 - `readValue`: covers the two places the engine hands back a value rather than a vector — table-function parameters and `duckdb_get_table_names` — and costs roughly a microsecond per scalar, so a per-row path reads its vector instead.
 - `registerTableFunction` and `registerScalarFunction` are SYNCHRONOUS and return `void`, so both lift through `Effect.try`; `createAppender` alone answers a promise, and it resolves an attached catalog through its third argument where a bare table name resolves against `main` and refuses.
 - `DuckDBDataChunk.setColumns(columns)` takes column-major `DuckDBValue` arrays, so a container cell arrives as its own carrier — `listValue(items)` for every `LIST` column, `mapValue(entries)` for every `MAP`, `timestampNanosValue(nanos)` for `TIMESTAMP_NS` — and a bare JS array or object reaches the value converter as an unrepresentable cell.
-- Column declaration rides `addResultColumn(name, type)` at the bind seam, arity rides `setCardinality(count, isExact)` (a `number`, never a `bigint`), and parameters read through `getParameter(index)` beside `getNamedParameter(name)`, which answers `null` for an unsupplied name and refuses an undeclared one at the binder; the bind function fires TWICE per statement, so it declares and never advances.
+- Column declaration rides `addResultColumn(name, type)` in the bind function, arity rides `setCardinality(count, isExact)` (a `number`, never a `bigint`), and parameters read through `getParameter(index)` beside `getNamedParameter(name)`, which answers `null` for an unsupplied name and refuses an undeclared one at the binder; the bind function fires TWICE per statement, so it declares and never advances.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every promise lifts through `Effect.tryPromise` into a typed lane fault; instance and connection ride `Effect.acquireRelease` under `Scope`; readers lift to `Stream` at the lane seam.
+- Every promise lifts through `Effect.tryPromise` into a typed lane fault; instance and connection ride `Effect.acquireRelease` under `Scope`; readers lift to `Stream` at the lane boundary.
 - Single-file ACID, one concurrent writer, out-of-core spill is the embedded ceiling; past it the workload moves to the ClickHouse row, never a second embedded instance fleet.
 - Registration is INSTANCE-scoped: the entry lands in the `system.main` catalog, every sibling connection reads it, it survives the registering connection's close, and nothing drops it — a catalog error refuses the attempt — so a name is minted once per source and a per-lease name leaks a permanent entry.
 - Re-registering a live name is a SILENT no-op that keeps the FIRST registration's bind data serving, so a function resolving content from a closure serves whatever the first mint captured; a name-keyed lookup the bind function performs is the only shape a re-pump can refresh.
 - `DuckDBTableMainFunction` sets `outputDataChunk.rowCount` before writing that many rows to each column vector, and a row count of zero is the scan's ONLY termination signal — a main function that never writes zero never terminates.
 - That terminator is OVERLOADED — it spells exhausted and nothing-yet alike — so a scan is admissible only over content resident before the bind: an async main returns a promise the engine never awaits and the scan ends empty, a busy-spin deadlocks the loop that delivers the rows, and `Atomics.wait` against a worker-fed `SharedArrayBuffer` is the one proven in-scan block at the cost of every fiber sharing the thread.
 - `main` is marshalled onto the node MAIN THREAD and re-entered strictly serially — `localInitFunction` fires once even under `SET threads=4` — and `connection.interrupt()` reaches a running scan, so an abandoned unit stops at the engine like any other statement.
-- `setBindData` on the bind seam is what `getBindData` answers on every later call, `setInitData` likewise per scan and `localInitFunction` per scanning thread, so per-scan state rides those slots rather than a closure the engine re-enters concurrently.
-- Every UDF reports failure through `setError(string)` on whichever info seam it holds: a thrown JS error folds to the SAME `Invalid Input Error: <text>` on the outer promise, so the slot is the declared arm for attribution rather than for reach, and a mid-scan refusal fails the whole statement rather than truncating it.
+- `setBindData` in the bind function is what `getBindData` answers on every later call, `setInitData` likewise per scan and `localInitFunction` per scanning thread, so per-scan state rides those slots rather than a closure the engine re-enters concurrently.
+- Every UDF reports failure through `setError(string)` on whichever info object it holds: a thrown JS error folds to the SAME `Invalid Input Error: <text>` on the outer promise, so the slot is the declared arm for attribution rather than for reach, and a mid-scan refusal fails the whole statement rather than truncating it.
 - `supportsProjectionPushdown` is mandatory for any scan writing the projected roster: `DuckDBTableFunctionInitInfo.columnCount` and `getColumnIndexes()` answer the projected set either way, but only the opt-in NARROWS the output chunk, so a roster-width write without it refuses inside the value converter. That roster carries the PLAN's order rather than the SELECT list's, and `count(*)` still requests one column.
-- Predicate pushdown is ABSENT — no filter member reaches the init seam, so a `WHERE` clause scans every row the function emits while `LIMIT` does terminate early; `setCardinality(count, true)` is exact and free for a resident source and is the one planner advantage the route carries.
+- Predicate pushdown is ABSENT — no filter member reaches the init function, so a `WHERE` clause scans every row the function emits while `LIMIT` does terminate early; `setCardinality(count, true)` is exact and free for a resident source and is the one planner advantage the route carries.
 
 [STACKING]:
-- `apache-arrow`(`.api/apache-arrow.md`): result IPC egress folds through `tableFromIPC`/`Olap.wire.decode`, outbound through `tableToIPC`/`Olap.wire.encode`; every engine seam meets on Arrow IPC, never row-materialized re-encoding.
+- `apache-arrow`(`.api/apache-arrow.md`): result IPC egress folds through `tableFromIPC`/`Olap.wire.decode`, outbound through `tableToIPC`/`Olap.wire.encode`; every engine boundary meets on Arrow IPC, never row-materialized re-encoding.
 - `@duckdb/duckdb-wasm`(`.api/duckdb-duckdb-wasm.md`): the browser peer of this node row, sharing the Arrow wire and the `INSTALL`/`LOAD` extension model.
 - `@effect/sql-clickhouse`(`.api/effect-sql-clickhouse.md`): the at-scale OLAP row this engine hands off to past the embedded ceiling, joined on the same Arrow IPC wire.
-- `lane/olap`: its kernel wraps `create`/`connect` in `Effect.acquireRelease` and lifts every `run`/`stream`/`prepare` call through `Effect.tryPromise`, the boundary rail this raw promise API never carries.
-- `lane/olap`: `registerTableFunction` projects a PRE-PUMPED lane source into SQL as a scan — `addResultColumn(name, type)` declares the columns at the bind seam, the main function fills chunks off a residency the handle holds by name, and `setError` folds a source refusal into the query's own fault instead of a materialize-then-load hop.
+- `lane/olap`: its kernel wraps `create`/`connect` in `Effect.acquireRelease` and lifts every `run`/`stream`/`prepare` call through `Effect.tryPromise`, the typed boundary this raw promise API never carries.
+- `lane/olap`: `registerTableFunction` projects a PRE-PUMPED lane source into SQL as a scan — `addResultColumn(name, type)` declares the columns in the bind function, the main function fills chunks off a residency the handle holds by name, and `setError` folds a source refusal into the query's own fault instead of a materialize-then-load hop.
 - `lane/olap`: `_COLUMN` keys one row per column token carrying its `DuckDBType`, so `String(type)` renders every plant statement's DDL spelling and the same value declares the scan's bound column — one type per token, read twice, never a spelling asserted beside the type it names.
 
 [LOCAL_ADMISSION]:

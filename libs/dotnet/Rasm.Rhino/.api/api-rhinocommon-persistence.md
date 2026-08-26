@@ -15,7 +15,7 @@
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CAPABILITY]                                                        |
 | :-----: | :----------------- | :------------- | :------------------------------------------------------------------ |
-|  [01]   | `UserData`         | abstract class | attach-to-object custody base with serialize and duplicate seams    |
+|  [01]   | `UserData`         | abstract class | attach-to-object custody base with serialize and duplicate hooks    |
 |  [02]   | `UserDictionary`   | class          | `UserData` carrying one attached `ArchivableDictionary`             |
 |  [03]   | `UserDataList`     | class          | per-object user-data collection; add, find by type, purge           |
 |  [04]   | `UnknownUserData`  | class          | opaque carrier for user data of unrecognized origin                 |
@@ -88,7 +88,7 @@
 - `GetSettingType(string) -> Type` / `TryGetSettingType(string, out Type)` — the stored value's runtime type.
 - `GetSettingIsReadOnly(string) -> bool` / `TryGetSettingIsReadOnly(string, out bool)` — the read-only flag.
 - `HideSettingFromUserInterface(string)` / `GetSettingIsHiddenFromUserInterface(string) -> bool` / `TryGetSettingIsHiddenFromUserInterface(string, out bool)` — visibility flag; both readers carry a `legacyKeyList` sibling.
-- `RegisterSettingsValidator<T>(string, EventHandler<PersistentSettingsEventArgs<T>>)` / `GetValidator<T>(string)` — the per-key typed validator seam; registration OVERWRITES an existing validator unconditionally, `GetValidator<T>` returns null when none is installed and throws `InvalidCastException` when `T` mismatches the registered specialization, and a registered validator fires on every typed set AND every default stamp, its args carrying settable `Cancel` and `CurrentValue`.
+- `RegisterSettingsValidator<T>(string, EventHandler<PersistentSettingsEventArgs<T>>)` / `GetValidator<T>(string)` — the per-key typed validator hook; registration OVERWRITES an existing validator unconditionally, `GetValidator<T>` returns null when none is installed and throws `InvalidCastException` when `T` mismatches the registered specialization, and a registered validator fires on every typed set AND every default stamp, its args carrying settable `Cancel` and `CurrentValue`.
 - `ContainsChangedValues() -> bool` / `ClearChangedFlag()` / `ContainsModifiedValues(PersistentSettings)` — change tracking against the persisted baseline; change notification is the validator handler and `PlugIn.SettingsSaved`, never a per-change event.
 - `StringListRootKey -> string` — a sentinel list ELEMENT: placed inside a `SetStringList` array it splices the all-users ProgramData list at that position on `GetStringList`.
 - `[Serializable] : ISerializable` — `GetObjectData` delegates to the live tree, and the protected deserialization constructor has an empty body (a hollow instance).
@@ -98,7 +98,7 @@
 - `UserData.Transform -> Transform` — accumulated object transform, read from native per call and set through the protected setter; an `OnTransform` override that skips the base call leaves it stale.
 - `UserData.Dispose()` — releases the native handle; the finalizer mirrors it.
 - `UserData.Copy(CommonObject, CommonObject)` (static) / `MoveUserDataFrom(CommonObject) -> Guid` (static, `Guid.Empty` when nothing moved) / `MoveUserDataTo(CommonObject, Guid, bool append)` (static, no-op on `Guid.Empty`) — cross-object custody transfer.
-- `UserData.Write(BinaryArchiveWriter)` / `Read(BinaryArchiveReader)` / `OnTransform(Transform)` / `OnDuplicate(UserData)` / `Dispose(bool)` — the protected override seams a derived class implements.
+- `UserData.Write(BinaryArchiveWriter)` / `Read(BinaryArchiveReader)` / `OnTransform(Transform)` / `OnDuplicate(UserData)` / `Dispose(bool)` — the protected override points a derived class implements.
 - `Rhino.DocObjects.Custom.ClassIdAttribute` — `ctor(string)` + `Id -> Guid`; pins a stable class id onto a `UserData` subclass so archives written under a prior class name keep resolving it.
 - `UserDictionary : UserData` — `Dictionary -> ArchivableDictionary` lazily parented to the user data; `Description` is `"RhinoCommon UserDictionary"`, `ShouldWrite` returns true only when `Dictionary.Count > 0`, `Read` is `archive.ReadDictionary()` and `Write` is `archive.WriteDictionary(Dictionary)`.
 - `Rhino.Runtime.CommonObject.UserData -> UserDataList` — lazy list accessor allocating the roster on first read; `CommonObject.UserDictionary -> ArchivableDictionary` — lazy MUTATING accessor: finds the internal `SharedUserDictionary`, constructs and attaches one through `UserData.Add` when absent, and returns null when that `Add` fails.

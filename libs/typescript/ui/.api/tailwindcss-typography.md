@@ -91,7 +91,7 @@ Each spells `prose-<name>:<utility>` and compiles to `& :is(:where(<selector>):n
 
 [LOCAL_ADMISSION]:
 - Load the plugin through `@plugin` in the theme entry; nothing imports it from TypeScript.
-- Assign the `--tw-prose-*` registers from the estate palette at the `prose` element and leave the shipped ramps unreferenced.
+- Assign the `--tw-prose-*` registers from the package palette at the `prose` element and leave the shipped ramps unreferenced.
 - Reach for an element modifier before authoring a descendant selector; the variant composes with every other Tailwind variant and the raw selector does not.
 - Mark every embedded component, widget, or rendered fence `not-prose` rather than unwinding the plane's rules on it.
 - Keep `target: 'modern'`; the legacy selectors carry real specificity and re-open the override fight the plane exists to end.

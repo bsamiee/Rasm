@@ -41,7 +41,7 @@
 [GRADUATION]:
 - [25]-[HANDOFF](.planning/graduation/handoff.md): `HandoffAxis` owning outward egress, geometry decode, and the `ComputeLeg` roster.
 - [26]-[CODEGEN](.planning/graduation/codegen.md): `StubCodegen` decoding the C# evidence bundle into typed stubs and schema under the drift gate.
-- [27]-[OBSERVABILITY](.planning/graduation/observability.md): `ComputePoint` hook roster over the stage rail and the `ResourceUsage` ledger.
+- [27]-[OBSERVABILITY](.planning/graduation/observability.md): `ComputePoint` hook roster over the stage path and the `ResourceUsage` ledger.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -105,7 +105,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 
 Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_RESULTS]:
 - `expression`
 - `msgspec`
 - `beartype`

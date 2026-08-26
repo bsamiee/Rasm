@@ -48,8 +48,8 @@
 - `ParserError` and `UnknownTimezoneWarning` belong to `parser`, so a catch set naming `ParserError` alone lets every malformed ISO string escape the boundary.
 
 [STACKING]:
-- `cloudevents`(`.api/cloudevents.md`): the one `time` reader across every binding — `core.bindings.common.decode_header_value`, `core.formats.json.JSONFormat.read`, and the `amqp`, `http`, `kafka`, and `rabbitmq` header decoders each hand the raw attribute to `isoparse` and catch nothing, so its `ValueError` crosses the binding whole and reaches the branch seam untyped.
-- `transport/event`(`runtime/.planning/transport/event.md`): `_FORMAT_RAISES` carries `ValueError`, so `boundary` folds that escaping raise onto the `EVENT_DECODE` rail; branch-minted extension timestamps read through `datetime.fromisoformat` on the same page, keeping the stdlib `timezone.utc` singleton on every value the branch itself mints.
+- `cloudevents`(`.api/cloudevents.md`): the one `time` reader across every binding — `core.bindings.common.decode_header_value`, `core.formats.json.JSONFormat.read`, and the `amqp`, `http`, `kafka`, and `rabbitmq` header decoders each hand the raw attribute to `isoparse` and catch nothing, so its `ValueError` crosses the binding whole and reaches the branch boundary untyped.
+- `transport/event`(`runtime/.planning/transport/event.md`): `_FORMAT_RAISES` carries `ValueError`, so `boundary` folds that escaping raise onto the `EVENT_DECODE` layer; branch-minted extension timestamps read through `datetime.fromisoformat` on the same page, keeping the stdlib `timezone.utc` singleton on every value the branch itself mints.
 
 [LOCAL_ADMISSION]:
 - `isoparse` serves the vendor bindings' `time` decode alone; every branch-minted timestamp reads through `datetime.fromisoformat`, which refuses the truncated forms and returns the `timezone.utc` singleton.

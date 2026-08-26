@@ -187,8 +187,8 @@
 - `segno`(`.api/segno.md`) / `python-barcode`(`.api/python-barcode.md`) / `resvg-py`(`.api/resvg-py.md`): a sibling-drawn barcode SVG rasterizes through `resvg-py` when the built-in `graphics.barcode` symbology set does not carry the code.
 - `great-tables`(`.api/great-tables.md`): standalone styled tables come from `great-tables`; reportlab's `Table` owns tables that must paginate inside a larger PDF.
 - `weasyprint`(`.api/weasyprint.md`) / `typst`(`.api/typst.md`): HTML/CSS-to-PDF and markup-typeset PDF route by source shape; reportlab owns data-driven programmatic reports from Python objects.
-- `expression`(`libs/python/.api/expression.md`): `getpdfdata()` lands as the success arm of the artifacts `Result` rail, synthesis faults mapped at the boundary.
-- within-lib: `artifacts` composes `platypus` for pagination and a `Canvas` `onPage` callback for fixed decoration on the same page, `multiBuild` + `notify('TOCEntry', ...)` for TOC/index, and a `BytesIO` target for the in-memory rail.
+- `expression`(`libs/python/.api/expression.md`): `getpdfdata()` lands as the success arm of the artifacts `Result`, synthesis faults mapped at the boundary.
+- within-lib: `artifacts` composes `platypus` for pagination and a `Canvas` `onPage` callback for fixed decoration on the same page, `multiBuild` + `notify('TOCEntry', ...)` for TOC/index, and a `BytesIO` target for the in-memory domain.
 
 [LOCAL_ADMISSION]:
 - Paginating content builds through `platypus` (`SimpleDocTemplate`/`BaseDocTemplate` + flowables); `Canvas` serves fixed-coordinate overlays, interactive forms, and per-page decoration via `onPage`.

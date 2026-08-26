@@ -8,7 +8,7 @@
 
 | [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]        | [CAPABILITY]                                        |
 | :-----: | :---------------------------------------------------------- | :------------------- | :-------------------------------------------------- |
-|  [01]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension    | admits plugin via provider-options seam             |
+|  [01]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension    | admits plugin via provider-options API              |
 |  [02]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`         | service extension    | admits plugin services                              |
 |  [03]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`               | function surface     | projects PostGIS functions on `EF.Functions`        |
 |  [04]   | `NpgsqlNetTopologySuiteOptionsExtension`                    | options extension    | `IDbContextOptionsExtension`; carries plugin policy |
@@ -38,12 +38,12 @@
 
 [ENTRYPOINT_SCOPE]: EF plugin admission
 
-`UseNetTopologySuite` on the EF `NpgsqlDbContextOptionsBuilder` carries the four optional policy parameters (`CoordinateSequenceFactory?`, `PrecisionModel?`, `Ordinates handleOrdinates = None`, `bool geographyAsDefault = false`); the ADO data-source seam of the same name is `api-npgsql-nts.md`, and admission binds both.
+`UseNetTopologySuite` on the EF `NpgsqlDbContextOptionsBuilder` carries the four optional policy parameters (`CoordinateSequenceFactory?`, `PrecisionModel?`, `Ordinates handleOrdinates = None`, `bool geographyAsDefault = false`); the ADO data-source overload of the same name is `api-npgsql-nts.md`, and admission binds both.
 
-| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | `UseNetTopologySuite(…)` on `NpgsqlDbContextOptionsBuilder`         | EF provider-option seam; precision/ordinate policy |
-|  [02]   | `AddEntityFrameworkNpgsqlNetTopologySuite(this IServiceCollection)` | service-extension seam; registers plugin services  |
+| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                        |
+| :-----: | :------------------------------------------------------------------ | :-------------------------------------------------- |
+|  [01]   | `UseNetTopologySuite(…)` on `NpgsqlDbContextOptionsBuilder`         | EF provider-option API; precision/ordinate policy   |
+|  [02]   | `AddEntityFrameworkNpgsqlNetTopologySuite(this IServiceCollection)` | service-extension method; registers plugin services |
 
 [ENTRYPOINT_SCOPE]: PostGIS SQL function projections (`EF.Functions` extensions)
 
@@ -65,7 +65,7 @@
 - `NpgsqlNetTopologySuiteExtensionAddingConvention` finalizes `CREATE EXTENSION postgis` on the model.
 
 [STACKING]:
-- `Npgsql.NetTopologySuite`(`.api/api-npgsql-nts.md`): the ADO wire seam — this plugin's `UseNetTopologySuite` registers the column mapping and translators while the data-source codec moves the bytes, and `NetTopologySuiteDataSourceConfigurationPlugin` auto-applies so the provider's pooled data source carries the binary codec.
+- `Npgsql.NetTopologySuite`(`.api/api-npgsql-nts.md`): the ADO wire layer — this plugin's `UseNetTopologySuite` registers the column mapping and translators while the data-source codec moves the bytes, and `NetTopologySuiteDataSourceConfigurationPlugin` auto-applies so the provider's pooled data source carries the binary codec.
 - `NetTopologySuite`(`libs/dotnet/.api/api-nettopologysuite.md`): the geometry model this plugin maps — `GeometryFactory`-constructed `Geometry` and the DE-9IM algebra the translators project to PostGIS SQL.
 - `NetTopologySuite.IO.GeoJSON4STJ`(`libs/dotnet/.api/api-nts-geojson4stj.md`): a `geometry` column persists as PostGIS binary, but the same `Geometry` serializes to GeoJSON at the web egress boundary through the GeoJSON4STJ converters on the shared `JsonSerializerOptions`.
 - `linq2db`(`.api/api-linq2db-ef.md`): geometry columns survive `BulkCopy` with `BulkCopyType.ProviderSpecific` because the bridge reuses this EF model's geometry mapping and the Npgsql binary COPY writer emits the codec's wire form.

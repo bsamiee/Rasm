@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER]
 
-`Rasm.Grasshopper` is the single Grasshopper 2 host boundary: the GH2, Eto, Rhino UI, and macOS native surface captured as typed, leased capability. Every sub-domain folds through one owner, with `GhSession`, the kernel `UiThread`, and `MacGate` bounding live host access and `Lease<T>` carrying every retained resource and its inverse lifecycle. Its bar is native-fidelity product capability: components, canvas interaction, and motion land at the grade of GH2's own built-in surfaces, vsync-paced, undo-sealed, wide-color-aware, composed as typed rails rather than raw host calls.
+`Rasm.Grasshopper` is the single Grasshopper 2 host boundary: the GH2, Eto, Rhino UI, and macOS native surface captured as typed, leased capability. Every sub-domain folds through one owner, with `GhSession`, the kernel `UiThread`, and `MacGate` bounding live host access and `Lease<T>` carrying every retained resource and its inverse lifecycle. Its bar is native-fidelity product capability: components, canvas interaction, and motion land at the grade of GH2's own built-in surfaces, vsync-paced, undo-sealed, wide-color-aware, composed as typed results rather than raw host calls.
 
 ## [01]-[ROUTER]
 
@@ -38,7 +38,7 @@
 - [21]-[CHROME](.planning/Shell/chrome.md): `Chrome` applies toolbar, input-panel, tooltip, and button intent onto GH2 hosts; `Mount` seats chrome.
 - [22]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots and swings toggle capabilities, returning `ShellFacts`.
 - [23]-[EVENTS](.planning/Shell/events.md): `GhFact` closes the folder fact band; GH2 source rows ride kernel `UiEvents` subscription and drains.
-- [24]-[HOOKS](.planning/Shell/hooks.md): `GrasshopperPoint` realizes the kernel `HookRail` roster, every row naming its live fire site.
+- [24]-[HOOKS](.planning/Shell/hooks.md): `GrasshopperPoint` realizes the kernel `HookSet` roster, every row naming its live fire site.
 - [25]-[ICONS](.planning/Shell/icons.md): `IconOwner.Mint` materializes kernel asset origins into `IIcon` values; `IconCatalog` is the inventory.
 - [26]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts into stamped per-document partitions with export.
 - [27]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and gauges command acknowledgement over the injected session clock.
@@ -67,8 +67,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Generator.Equals`
-- `JetBrains.Annotations`
-- `Riok.Mapperly` — Compile-time generation of every projection seam this folder mints.
+- `Riok.Mapperly` — Compile-time generation of every projection mapper this folder mints.
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions` — App-neutral logger admission for the `GhTelemetry` capsule; the metric surface ships BCL in-box.

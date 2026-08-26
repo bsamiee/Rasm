@@ -19,7 +19,7 @@
 |  [09]   | `Status`                | lifecycle     | the `status()` discriminated union `pulse` folds; five of eleven mean a loss          |
 
 - [06]-[CONNECTIONOPTIONS]: `servers`, `name`, `authenticator`, `reconnect`, `maxReconnectAttempts`, `ignoreAuthErrorAbort`, `token`/`user`/`pass`, `tls`, `pingInterval`, `maxPingOut`.
-- [07]-[AUTHENTICATOR]: every factory takes a value OR a thunk — the thunk form is the rotation rail, since the client re-invokes the authenticator on each handshake.
+- [07]-[AUTHENTICATOR]: every factory takes a value OR a thunk — the thunk form is the rotation hook, since the client re-invokes the authenticator on each handshake.
 
 ## [02]-[ENTRYPOINTS]
 
@@ -34,7 +34,7 @@
 |  [05]   | `nc.subscribe(subject, opts?)`                | core subscribe | ephemeral delivery; absent listeners miss, JetStream owns replay       |
 |  [06]   | `nc.request(subject, payload?, opts?)`        | request-reply  | RPC-shaped exchange over the same connection                           |
 |  [07]   | `nc.status(): AsyncIterable<Status>`          | lifecycle      | the out-of-band evidence no publish or consume await reaches           |
-|  [08]   | `nc.reconnect(): Promise<void>`               | lifecycle      | forced re-dial — the ONE rail a rotated credential reaches the wire on |
+|  [08]   | `nc.reconnect(): Promise<void>`               | lifecycle      | forced re-dial — the ONE path a rotated credential reaches the wire on |
 
 [ENTRYPOINT_SCOPE]: credential authenticators, each writing its own connect-record keys
 

@@ -1,6 +1,6 @@
 # [RASM_BIM_API_DRAKO]
 
-`Openize.Drako` owns managed Draco 3D geometry compression: the `Draco` facade encodes and decodes `DracoMesh` (triangulated) and `DracoPointCloud` (unstructured points) over typed per-vertex `PointAttribute` channels, per-attribute quantization bit controls, and optional geometry metadata. It feeds the Compute glTF export rail as the `KHR_draco_mesh_compression` codec leg.
+`Openize.Drako` owns managed Draco 3D geometry compression: the `Draco` facade encodes and decodes `DracoMesh` (triangulated) and `DracoPointCloud` (unstructured points) over typed per-vertex `PointAttribute` channels, per-attribute quantization bit controls, and optional geometry metadata. It feeds the Compute glTF export path as the `KHR_draco_mesh_compression` codec leg.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -109,7 +109,7 @@
 [STACKING]:
 - `SharpGLTF.Core`(`libs/dotnet/.api/api-sharpgltf.md`): `Draco.Encode(mesh, opts) -> byte[]` is the bufferView payload SharpGLTF references under the `KHR_draco_mesh_compression` extension.
 - `Alimer.Bindings.MeshOptimizer`(`libs/dotnet/.api/api-alimer-meshoptimizer.md`): the sibling `EXT_meshopt_compression` leg; one export-codec dispatch row selects Draco vs meshopt by extension policy, both emitting `byte[]`/`Span<byte>` the same glTF buffer writer absorbs.
-- within-lib: project the canonical triangle-soup (positions/normals/UVs + index buffer) through `PointAttribute.Wrap(AttributeType.Position, Span<Vector3>)` / `Wrap(AttributeType.TexCoord, Span<Vector2>)` and `DracoMesh.AddFace(int[])`, feeding Draco intake from the same buffers meshopt consumes; a Compute codec rail wraps `Draco.Encode`/`Draco.Decode` in the `Fin`/`Eff` rail, maps `DrakoException` to a typed codec fault, and carries the pre/post byte-count compression ratio on its result.
+- within-lib: project the canonical triangle-soup (positions/normals/UVs + index buffer) through `PointAttribute.Wrap(AttributeType.Position, Span<Vector3>)` / `Wrap(AttributeType.TexCoord, Span<Vector2>)` and `DracoMesh.AddFace(int[])`, feeding Draco intake from the same buffers meshopt consumes; a Compute codec path wraps `Draco.Encode`/`Draco.Decode` in the `Fin`/`Eff` result, maps `DrakoException` to a typed codec fault, and carries the pre/post byte-count compression ratio on its result.
 
 [LOCAL_ADMISSION]:
 - Encode: populate `DracoMesh`/`DracoPointCloud` through `PointAttribute.Wrap` factories, then `Draco.Encode` with explicit `DracoEncodeOptions`.

@@ -295,12 +295,12 @@ POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#(?![A-Z][A-Z0-9
 # Hyphen lookarounds spare compound terms — `least-recently-touched` names an eviction policy, not freshness.
 FRESHNESS_DEICTIC = re.compile(r"(?<!-)\b(?:currently|recently|nowadays|at\s+present|these\s+days|going\s+forward|modern)\b(?!-)", re.IGNORECASE)
 WEAK_VERB = re.compile(r"(?<![\w-])(?:supports|provides|offers|allows|enables)\b", re.IGNORECASE)
-# Soft-preference and discourse hedges warn: `prefer` names a legitimate default across the estate, so review adjudicates each.
+# Soft-preference and discourse hedges warn: `prefer` names a legitimate default across the repo, so review adjudicates each.
 # `etc` holds case: the discourse hedge is lowercase, while all-caps spells a domain acronym (the ETC texture-compression family).
 SOFT_HEDGE = re.compile(r"\b(?:however|prefer(?:s|red|ably)?|(?-i:etc|Etc))\b", re.IGNORECASE)
 # Grade and intensity words fail: each grades a fact the fact already carries, and deleting one costs no law. Roster admits
 # only the unambiguous — a domain term the corpus owns (`robust` predicates, `optimal` collapse, `ideal` in the algebraic
-# sense, `perfect` forwarding/hashing), estate vocabulary (`first-class`, `rich`, `advanced`), and a contrastive `merely`
+# sense, `perfect` forwarding/hashing), filler vocabulary (`first-class`, `rich`, `advanced`), and a contrastive `merely`
 # all stay legal, as does `rather` whose corpus mass is the contrastive `rather than`.
 NO_OP_WORD = re.compile(
     r"\b(?:simply|very|really|quite|basically|essentially|seamless(?:ly)?|effortless(?:ly)?|cutting-edge"
@@ -314,7 +314,7 @@ NO_OP_WORD = re.compile(
 # join states real consequence law and is the corpus's canonical connector, so only the lead-in form answers here.
 SENTENCE_SO = re.compile(r"(?:^|[.!?]\s+)So\b")
 # AI-prose lexemes fail: puffery, significance theater, transition filler, summary tails, and abstract nouns carry zero
-# domain load; each hit is delete-or-reframe. Estate terms `leverage`, `overall`, `therefore`, `thus`, `likewise`, and
+# domain load; each hit is delete-or-reframe. Filler terms `leverage`, `overall`, `therefore`, `thus`, `likewise`, and
 # `backbone` retain concrete stacking, grading, ordering, or spine semantics, so the roster excludes them.
 AI_LEXICON = re.compile(
     r"\b(?:delv(?:e|es|ed|ing)|tapestry|testament|pivotal|meticulous(?:ly)?|showcas(?:e|es|ed|ing)|multifaceted"

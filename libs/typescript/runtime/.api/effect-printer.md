@@ -101,7 +101,7 @@
 |  [07]   | `Doc.reflow(s, char?)` / `Doc.words(s, char?)` | prose     | split on `char` → `fillSep` layout / to doc list |
 
 [ENTRYPOINT_SCOPE]: annotation transforms (`Doc`)
-- Bind or retarget the phantom `A`: `annotate` attaches one, `reAnnotate` maps `A => B` uniformly, `alterAnnotations` maps one annotation to zero-or-many, `unAnnotate` erases to `Doc<never>`. This is the seam where a concrete renderer resolves `A`.
+- Bind or retarget the phantom `A`: `annotate` attaches one, `reAnnotate` maps `A => B` uniformly, `alterAnnotations` maps one annotation to zero-or-many, `unAnnotate` erases to `Doc<never>`. This is the point where a concrete renderer resolves `A`.
 
 | [INDEX] | [SURFACE]                        | [SHAPE]    | [CAPABILITY]                                           |
 | :-----: | :------------------------------- | :--------- | :----------------------------------------------------- |

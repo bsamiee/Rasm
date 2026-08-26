@@ -2,12 +2,12 @@
 
 `Link.Route` admits cut occurrences, keepout volumes, sequencing constraints, machine clearance, and a weighted objective before selecting orientation, order, and transition posture, then refines the closed tour under the same precedence it was built against. `Linked` preserves every cutting and transition move, and `LinkTour` explains the winning full route beside the solver evidence that produced it.
 
-`Link.Route`, `Linked`, and `LinkTour` are the linking seam. `Linked.SpecializedDirective` projects transition metrics into the admitted `SpecializedToolpathEnvelope`, while cutting directives remain on source segments. `ArcAlgebra.Apply` owns planar clearance inflation, `QuikGraph` owns precedence in-degrees, reachability, and routed transitions, and supplied `Guard` verifies collision admission without importing host state. Tool and work-offset identity remain objective terms.
+`Link.Route`, `Linked`, and `LinkTour` are the linking contract. `Linked.SpecializedDirective` projects transition metrics into the admitted `SpecializedToolpathEnvelope`, while cutting directives remain on source segments. `ArcAlgebra.Apply` owns planar clearance inflation, `QuikGraph` owns precedence in-degrees, reachability, and routed transitions, and supplied `Guard` verifies collision admission without importing host state. Tool and work-offset identity remain objective terms.
 
 ## [01]-[INDEX]
 
 - [02]-[ADMISSION]: `LinkDemand` materializes delegates once; generated owners admit coupled elements, keepouts, precedence, policy, and objective; `CutSignature` declares the shared element-key columns and `LinkStationKey` closes what a station key can name.
-- [03]-[ROUTING]: `Link.Route` jointly selects a precedence-safe tour and occurrence orientation against realized transition costs, refines it by precedence-safe exchange, and lowers each transition through one rail.
+- [03]-[ROUTING]: `Link.Route` jointly selects a precedence-safe tour and occurrence orientation against realized transition costs, refines it by precedence-safe exchange, and lowers each transition through one result.
 - [04]-[EGRESS]: `Linked` projects through a caller-supplied arrow while retaining route, objective, reachability, solver, and guard evidence.
 
 ## [02]-[ADMISSION]
@@ -26,7 +26,7 @@
 
 ## [03]-[ROUTING]
 
-`Link.Route` chooses among direct, ramped, skim, lifted, visibility-routed, and controlled-descent transitions. Each posture is a case over one geometric transition; no nullable move family or sentinel cost crosses the rail.
+`Link.Route` chooses among direct, ramped, skim, lifted, visibility-routed, and controlled-descent transitions. Each posture is a case over one geometric transition; no nullable move family or sentinel cost crosses the boundary.
 
 - Exemption: corridor construction, index-pruned arc intersection, and graph search are measured kernel statement boundaries.
 - Entry: `Route<TOut>` parameterizes raw ingress, transition lowering, collision guard, and egress projection.
@@ -145,7 +145,6 @@ public sealed partial class LinkObjective {
         + metric.ToolChanges * ToolChangeWeight
         + metric.SetupChanges * SetupChangeWeight;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double distanceWeight,
@@ -374,7 +373,6 @@ public sealed partial class CutElement {
             .Double(row.Sense)
             .Double(row.Sweep));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -465,7 +463,6 @@ public sealed partial class Keepout {
         from admitted in Validate(key, geometry, extent, marginMm, out Keepout keepout).Admitted(keepout)
         select admitted;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -556,7 +553,6 @@ public sealed partial class LinkPolicy {
         int refinementPairs) =>
         Validate(clearance, rate, changeover, beamWidth, refinementPairs, out LinkPolicy policy).Admitted(policy);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref LinkClearance clearance,
@@ -608,7 +604,6 @@ public sealed partial class LinkJob {
     internal static Fin<T> Invoke<T>(Func<Fin<T>> callback) =>
         Op.Of(name: "link:callback").Catch(callback);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Point3d start,

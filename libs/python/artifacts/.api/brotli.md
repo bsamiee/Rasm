@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_BROTLI]
 
-`brotli` owns the Brotli codec on the artifacts compression rail: the `compress`/`decompress` one-shot pair, the `Compressor`/`Decompressor` incremental roots, and `mode`/`quality`/`lgwin`/`lgblock` tuning against native libbrotli. `MODE_TEXT` drives the HTTP `Content-Encoding: br` transport path and `MODE_FONT` the WOFF2 per-table entropy stream, paired with `fontTools.ttLib.woff2` owning the WOFF2 container and glyph-transform layer; the `package/bundle#BUNDLE` `CompressionAlgo` discriminant routes one payload class here.
+`brotli` owns the Brotli codec on the artifacts compression domain: the `compress`/`decompress` one-shot pair, the `Compressor`/`Decompressor` incremental roots, and `mode`/`quality`/`lgwin`/`lgblock` tuning against native libbrotli. `MODE_TEXT` drives the HTTP `Content-Encoding: br` transport path and `MODE_FONT` the WOFF2 per-table entropy stream, paired with `fontTools.ttLib.woff2` owning the WOFF2 container and glyph-transform layer; the `package/bundle#BUNDLE` `CompressionAlgo` discriminant routes one payload class here.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -52,7 +52,7 @@
 [STACKING]:
 - `fonttools`(`.api/fonttools.md`): `MODE_FONT` compresses the WOFF2 per-table entropy stream while `fontTools.ttLib.woff2` owns the container and glyph-transform layer.
 - `msgspec`(`.api/msgspec.md`): the boundary encodes canonical payload `bytes` via `msgspec.msgpack.encode`, then brotli compresses the encoded buffer.
-- `expression`(`.api/expression.md`): the producing boundary call runs `stamina`-retried and its result lifts onto the `expression.Result[bytes, ArtifactError]` rail, a `brotli.error` becoming an `Error` case at the seam rather than a raised exception crossing the owner.
+- `expression`(`.api/expression.md`): the producing boundary call runs `stamina`-retried and its result lifts onto the `expression.Result[bytes, ArtifactError]` layer, a `brotli.error` becoming an `Error` case at the boundary rather than a raised exception crossing the owner.
 - `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each call binds `mode`, `quality`, window and block logs, byte lengths, output cap, and drain count to one event and span.
 
 [LOCAL_ADMISSION]:

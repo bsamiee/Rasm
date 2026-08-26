@@ -37,13 +37,13 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- app law: the companion surface is one `App` whose subcommands register through `@app.command`; a new private command is one decorated method folding its railed outcome to the exit code, never a parallel parser or a `get`/`run`/`exec` family.
+- app law: the companion surface is one `App` whose subcommands register through `@app.command`; a new private command is one decorated method folding its carried outcome to the exit code, never a parallel parser or a `get`/`run`/`exec` family.
 - annotation law: arguments are `Annotated[T, Parameter(...)]` and cyclopts derives the parser from the signature — no `add_argument` wiring; `env_var` rides the `Parameter`, and an iterable env value decomposes through `env_var_split`, inert for the scalar grace bound.
-- result-action law: command return values map to the process exit through `App.result_action` (`'return_int_as_exit_code_else_zero'` or a `ResultAction` member) — a railed `Ok` folds to exit `0`, an `Error(BoundaryFault)` to non-zero, a `CycloptsError` to stderr, and the traceback never escapes; `resolve_returncode` is the standalone resolver.
+- result-action law: command return values map to the process exit through `App.result_action` (`'return_int_as_exit_code_else_zero'` or a `ResultAction` member) — a carried `Ok` folds to exit `0`, an `Error(BoundaryFault)` to non-zero, a `CycloptsError` to stderr, and the traceback never escapes; `resolve_returncode` is the standalone resolver.
 
 [STACKING]:
 - `pydantic-settings`(`runtime/.api/pydantic-settings.md`): the companion `App` binds one env scalar per argument through `Parameter(env_var=...)`; layered file/env settings flow from the `BaseSettings` model the daemon admits, never a `cyclopts.config` chain.
 - `anyio`(`libs/python/.api/anyio.md`): `App.run_async(backend='asyncio')` dispatches the `async def` commands inside the anyio structured-concurrency group `_supervised` opens, so command dispatch and the supervised worker lane share one cancellation scope.
-- `Entrypoint`/`companion_app` (`serve.md`): `companion_app(routes, drains, charges)` builds `App(name, help, result_action='return_int_as_exit_code_else_zero')`, registers each `@app.command` method — `serve` binding `Annotated[NonNegativeFloat, Parameter(env_var='RASM_COMPANION_GRACE')]` — and folds the `ServerHost.serve` `Ok`/`Error` outcome to the exit, one entry rail with no manual argv parsing and no scattered `sys.exit`.
+- `Entrypoint`/`companion_app` (`serve.md`): `companion_app(routes, drains, charges)` builds `App(name, help, result_action='return_int_as_exit_code_else_zero')`, registers each `@app.command` method — `serve` binding `Annotated[NonNegativeFloat, Parameter(env_var='RASM_COMPANION_GRACE')]` — and folds the `ServerHost.serve` `Ok`/`Error` outcome to the exit, one entry domain with no manual argv parsing and no scattered `sys.exit`.
 
 [LOCAL_ADMISSION]:

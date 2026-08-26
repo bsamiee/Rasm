@@ -12,7 +12,7 @@ description: >-
 
 `op` owns permanent local and session custody. Doppler owns project configuration and explicit process delivery.
 
-Topology — projects, environments, configs, service tokens, directory scopes — lives as IaC rows in `Parametric_Forge/services/topology.ts`, materialized by `estate.ts` and applied by `driver.ts` over the Pulumi Automation API. `doppler` reads and writes secret values against declared configs; `doppler run` and owner-specific downloads inject values at the consuming process; `~/.doppler` holds CLI scope and authentication state.
+Topology — projects, environments, configs, service tokens, directory scopes — lives as IaC rows in `Parametric_Forge/services/topology.ts`, materialized by `repo.ts` and applied by `driver.ts` over the Pulumi Automation API. `doppler` reads and writes secret values against declared configs; `doppler run` and owner-specific downloads inject values at the consuming process; `~/.doppler` holds CLI scope and authentication state.
 
 ## [01]-[ROUTING]
 
@@ -21,7 +21,7 @@ Topology — projects, environments, configs, service tokens, directory scopes �
 ## [02]-[RESOLUTION]
 
 - `~/.doppler` is the CLI config dir; scopes ride `~/.doppler/.doppler.yaml`, written by `doppler configure set` through the driver's `scopes apply`.
-- A repo-local `doppler.yaml` is vendor setup guidance, not the estate scope owner; the estate carries none.
+- A repo-local `doppler.yaml` is vendor setup guidance, not the repo scope owner; the repo carries none.
 - Precedence, highest first: a service token's embedded project/config, runtime flags, env vars, config-file scope.
 - Config-file scope resolves an exact directory match before the nearest ancestor.
 - Scope env vars: `DOPPLER_TOKEN`, `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, `DOPPLER_CONFIG_DIR`, `DOPPLER_PASSPHRASE`.
@@ -73,7 +73,7 @@ Topology — projects, environments, configs, service tokens, directory scopes �
 
 ## [06]-[CUSTODY]
 
-Local custody is `op`, never the OS keychain: every service, IaC, and MCP token and the SSH key live in a `Tokens` or `Personal` vault item. A personal `doppler login` is the one credential Doppler keeps in the keychain, used for the operator's ad-hoc interactive work alone — no rail depends on it.
+Local custody is `op`, never the OS keychain: every service, IaC, and MCP token and the SSH key live in a `Tokens` or `Personal` vault item. A personal `doppler login` is the one credential Doppler keeps in the keychain, used for the operator's ad-hoc interactive work alone — no pipeline depends on it.
 
 | [INDEX] | [CLASS]                          | [CUSTODY]                                     | [USE]                           |
 | :-----: | :------------------------------- | :-------------------------------------------- | :------------------------------ |

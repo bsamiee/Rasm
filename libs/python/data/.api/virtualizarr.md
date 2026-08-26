@@ -1,6 +1,6 @@
 # [PY_DATA_API_VIRTUALIZARR]
 
-`virtualizarr` mints virtual Zarr datasets over remote archival files for the data virtual-dataset rail: a per-format `Parser` reads a URL through an `ObjectStoreRegistry` into a `ManifestStore` — a zarr-v3 read store of `ManifestArray` chunk-reference views — that `to_virtual_dataset` lifts into an xarray `Dataset` with no bytes copied, then the `vz` accessor exports to Icechunk or Kerchunk. `virtualizarr` owns the manifest reference model, parser dispatch, and reference serialization; byte fetch is the registry-resolved object store's, the `Dataset`/`DataTree` algebra xarray's.
+`virtualizarr` mints virtual Zarr datasets over remote archival files for the data virtual-dataset domain: a per-format `Parser` reads a URL through an `ObjectStoreRegistry` into a `ManifestStore` — a zarr-v3 read store of `ManifestArray` chunk-reference views — that `to_virtual_dataset` lifts into an xarray `Dataset` with no bytes copied, then the `vz` accessor exports to Icechunk or Kerchunk. `virtualizarr` owns the manifest reference model, parser dispatch, and reference serialization; byte fetch is the registry-resolved object store's, the `Dataset`/`DataTree` algebra xarray's.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -122,7 +122,7 @@ Each `Parser` is a runtime-checkable `Protocol` — `__call__(url, registry) -> 
 - `icechunk`(`.api/icechunk.md`): `ds.vz.to_icechunk(IcechunkStore, *, mode)` writes the virtual chunk references into an icechunk session store, and `parsers.IcechunkParser` reads a branch/tag/snapshot back into a `ManifestStore`.
 - `zarr`(`.api/zarr.md`): `ManifestStore` is a zarr-v3 `Store` and `ManifestArray.metadata` a zarr `ArrayV3Metadata`, so a `codecs`-bridged virtual store composes into every zarr array consumer.
 - `obspec-utils`(`.api/obspec-utils.md`): one `ObjectStoreRegistry` resolves each object URL against a registered store-root prefix, preserving a non-empty relative object key for the default `BlockStoreReader`.
-- `xarray`(`libs/python/.api/xarray.md`): `to_virtual_dataset`/`to_virtual_datatree` lift a `ManifestStore` into an `xarray.Dataset`/`DataTree` whose virtual variables carry `ManifestArray` data, joining the lazy xarray rail.
+- `xarray`(`libs/python/.api/xarray.md`): `to_virtual_dataset`/`to_virtual_datatree` lift a `ManifestStore` into an `xarray.Dataset`/`DataTree` whose virtual variables carry `ManifestArray` data, joining the lazy xarray domain.
 - within-lib: `open_virtual_mfdataset` composes a `Parser`, one shared `ObjectStoreRegistry`, and `get_executor`-selected parallelism into a combined virtual `Dataset` the `vz` accessor then exports; sharing one registry across opens reuses credentials and connection pools.
 
 [LOCAL_ADMISSION]:

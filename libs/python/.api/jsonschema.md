@@ -100,7 +100,7 @@ Built-in checkers, the twelve reachable with no extra installed: `date`, `date-t
 [LOCAL_ADMISSION]:
 - Validators construct ONCE per schema document at admission and the bound value is what every payload crosses; a per-payload `validate(instance, schema)` re-runs `check_schema` and re-compiles the keyword table on every record.
 - `check_schema` runs at admission on every foreign document, so a malformed schema refuses where it was fetched rather than on the first payload that happens to reach it.
-- `iter_errors` is the admitted surface and its breaches accumulate onto the branch rail, since a first-error raise discards every other repair a producer owes.
+- `iter_errors` is the admitted surface and its breaches accumulate onto the branch domain, since a first-error raise discards every other repair a producer owes.
 - Each class's own `FORMAT_CHECKER` binds explicitly wherever a document declares `format`, and the branch states the twelve built-in checkers as its whole vocabulary rather than reading an unregistered format's `True` as conformance.
 - `registry` is the one resolution surface; `RefResolver` and the `resolver` slot are refused.
 - `referencing.Unresolvable` is caught by NAME beside `ValidationError` and `SchemaError`, since neither root reaches it, and `FormatError` likewise.

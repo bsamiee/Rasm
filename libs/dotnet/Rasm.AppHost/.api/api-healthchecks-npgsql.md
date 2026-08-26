@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_HEALTHCHECKS_NPGSQL]
 
-`AspNetCore.HealthChecks.NpgSql` (Xabaril) mints one concrete `NpgSqlHealthCheck : IHealthCheck` proving PostgreSQL reachability through a scalar query over an admitted `Npgsql` connection or the SAME pooled `NpgsqlDataSource` the Persistence store owns. It enters the AppHost capability-health fold as one `Store`-tagged contributor, so a faulted database degrades the host through the health rail rather than a thrown exception.
+`AspNetCore.HealthChecks.NpgSql` (Xabaril) mints one concrete `NpgSqlHealthCheck : IHealthCheck` proving PostgreSQL reachability through a scalar query over an admitted `Npgsql` connection or the SAME pooled `NpgsqlDataSource` the Persistence store owns. It enters the AppHost capability-health fold as one `Store`-tagged contributor, so a faulted database degrades the host through the health report rather than a thrown exception.
 
 ## [01]-[PUBLIC_TYPES]
 

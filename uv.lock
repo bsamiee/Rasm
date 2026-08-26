@@ -48,7 +48,7 @@ dev = [
     { name = "types-shapely" },
     { name = "validate-pyproject", extras = ["all"] },
 ]
-estate = [
+workspace = [
     { name = "adbc-driver-flightsql" },
     { name = "adbc-driver-manager" },
     { name = "adbc-driver-postgresql" },

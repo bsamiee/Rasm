@@ -68,7 +68,7 @@ Aggregation rides the response — `FinishPartMetadata.openrouter` carries resol
 
 ## [03]-[GENERATED]
 
-[GENERATED_TYPE_SCOPE]: the machine-generated OpenRouter REST corpus — wire schemas, enums, the `Client` interface, and the per-status `ClientError` rail
+[GENERATED_TYPE_SCOPE]: the machine-generated OpenRouter REST corpus — wire schemas, enums, the `Client` interface, and the per-status `ClientError` family
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY] | [CAPABILITY]                                                      |
 | :-----: | :---------------------------------------- | :------------ | :---------------------------------------------------------------- |

@@ -13,7 +13,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 
 ## [02]-[SURVEY]
 
-- Owner: `CaptureScout` — the shareable-content survey: `Survey(Op?)` → `Task<Fin<CaptureInventory>>` gates through `MacGate.Demand`, awaits `SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true)`, and projects detached `DisplayFact` and `WindowFact` rows through the GENERATED `CaptureMap` Mapperly seam — three partial maps (display fact, window fact, `CGRect` frame) whose renames break mapping rows, never bodies — — display id, frame, pixel extent; window id, frame, title, owning application name, bundle identifier, process id, on-screen and active state — so a consumer selects the GH canvas window by typed evidence, never by holding a live `SCWindow`.
+- Owner: `CaptureScout` — the shareable-content survey: `Survey(Op?)` → `Task<Fin<CaptureInventory>>` gates through `MacGate.Demand`, awaits `SCShareableContent.GetShareableContentAsync(excludeDesktopWindows: true, onScreenWindowsOnly: true)`, and projects detached `DisplayFact` and `WindowFact` rows through the GENERATED `CaptureMap` Mapperly mapper — three partial maps (display fact, window fact, `CGRect` frame) whose renames break mapping rows, never bodies — — display id, frame, pixel extent; window id, frame, title, owning application name, bundle identifier, process id, on-screen and active state — so a consumer selects the GH canvas window by typed evidence, never by holding a live `SCWindow`.
 - Law: survey results are evidence values — `SCDisplay`, `SCWindow`, and `SCRunningApplication` never escape the survey; the id a fact carries re-resolves against fresh shareable content inside the open gate, so a stale fact can only produce a typed refusal, never a dangling native reference.
 - Law: capture consent is host state — a process without screen-recording permission receives an empty or truncated inventory from the OS, so an expected-but-absent window is the consent diagnostic and the page never probes a permission API the binding does not carry.
 - Packages: Microsoft.macOS (`SCShareableContent.GetShareableContentAsync`, `SCDisplay.DisplayId`/`Frame`/`Width`/`Height`, `SCWindow.WindowId`/`Frame`/`Title`/`OnScreen`/`Active`/`OwningApplication`, `SCRunningApplication.ApplicationName`/`BundleIdentifier`/`ProcessId`), LanguageExt.Core, `Rasm.Domain` (`Op`).
@@ -33,7 +33,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 - Owner: `RasterPane` is the ONE pixel-geometry-plus-raster carrier every capture shape composes; `CaptureFrame : IUiFact` — journal-grade `MonotonicStamp` and `Option<RasterPane>` where `Bearing` derives as pane presence, so a non-bearing frame carries no zero-filled geometry slots, and the SEQUENCE is the drain envelope's own ordinal, never a session counter. `CaptureStill` — the one-shot pane from `SCScreenshotManager.CaptureSampleBufferAsync`, always pixel-bearing by its own validity claim. `CaptureExport` `[Equatable]` — the drained, ordered frame envelopes with the drain's published and shed counts and the capture stamp, minted by the exporting consumer from its own `Reader` fold.
 - Entry: `Open(CaptureSubject subject, CapturePlan plan, EvidenceDrain<CaptureFrame> drain, FaultCell faults, HookId faultPoint, MonotonicTimeline timeline, Op? key = null)` → `Task<Fin<Lease<SessionCapture>>>`; `Snapshot` is the single-frame modality over the same gate, filter, and raster kernel.
 - Law: the frame callback is contained — delivery projects the sample inside `Op.Catch`, stamps from the injected timeline, and PUBLISHES into the drain (bound shedding is the drain's own counted loss); a projection fault parks on the session's `FaultCell` and emits once through `CaptureLog.FrameFault`; the callback never touches the UI thread, never re-enters the host, and never retains the `CMSampleBuffer` past the projection.
-- Law: the raster kernel is the page's named statement seam — `GetImageBuffer()` pattern-matched to `CVPixelBuffer`, `Lock(CVPixelBufferLock.ReadOnly)` checked against `CVReturn.Success`, one `Marshal.Copy` from `BaseAddress` over `BytesPerRow * Height`, and `Unlock` in `finally`; the detached bytes are the only pixels that outlive the callback.
+- Law: the raster kernel is the page's named statement boundary — `GetImageBuffer()` pattern-matched to `CVPixelBuffer`, `Lock(CVPixelBufferLock.ReadOnly)` checked against `CVReturn.Success`, one `Marshal.Copy` from `BaseAddress` over `BytesPerRow * Height`, and `Unlock` in `finally`; the detached bytes are the only pixels that outlive the callback.
 - Law: release is one inverse chain on the session's own custody — close callback admission, await stop completion, drain every delivery admitted before closure, remove the stream output, complete the drain (idempotent), then attempt every native disposal in reverse-acquisition order, parking the aggregated refusal on the cell and emitting once through `CaptureLog.ReleaseFault`; synchronous `Dispose` starts that task without blocking, `DisposeAsync` awaits the same task, and a mid-`Open` refusal runs the same release before the primary fault returns.
 - Law: a stream the OS stops lands as evidence — `DidStop` preserves its native exception and `UserDidStop` parks `Errors.Cancelled`; neither becomes a silent frame drought.
 - Law: the async provider crossing is the kernel's — every awaited ScreenCaptureKit call funnels through `Op.Catch`'s async arm, preserving exact exceptions; cancellation is classified only when that crossing supplies its execution token.
@@ -47,7 +47,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 - Owner: `PaintProof` — the regression and correlation projections over already-minted evidence. `Judge(UiEvent<CaptureFrame> frame, PaintPass pass, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Option<CaptureBreach>>` — a pass claiming `Drawn > 0` whose `Settled` stamp precedes the frame within two pace periods expects a bearing frame; a non-bearing frame there is the breach, carrying the frame ordinal, the pass operation, the drawn claim, and the measured lag AGAINST its bound as one `GaugedSpan<CaptureLane>` — the kernel's own measured-span carrier (`Lane`, `Work`, `Elapsed`, `Bound`, with `Breached`/`Overrun` DERIVED), the same shape `Canvas/motion.md`'s `BudgetGate` answers, so no local lag/bound field pair survives and the recorded bound is the pace-derived window in force at judgment.
 - Owner: `CaptureTie` — one journal-to-frame pairing: the journal row sequence, the frame sequence, and the draw-to-frame lag. `Correlate(CaptureExport capture, JournalExport journal, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Seq<CaptureTie>>` pairs every journal row whose envelope carries `GhFact.CanvasCase` with `CanvasSignal.Draw` to the first exported frame at or after that envelope's `Stamp` inside the window.
 - Law: one timeline is the correlation precondition — `Judge` and `Correlate` compare stamps through `timeline.Elapsed`, so the capture session, the paint mounts it audits, the host draw events the drain stamps, and the judgment share the injected timeline; correlation reads the kernel envelope's own `Stamp`, minted at publication inside the host event.
-- Law: judgment reads, never samples — the proof owns no clock, no host reach, and no mutation; the span carries its producing bound beside its measurement, so the estate benchmark rail consumes capture regressions as typed claims without re-measuring and without re-deriving a threshold from capture policy it never sees.
+- Law: judgment reads, never samples — the proof owns no clock, no host reach, and no mutation; the span carries its producing bound beside its measurement, so the repo benchmark suite consumes capture regressions as typed claims without re-measuring and without re-deriving a threshold from capture policy it never sees.
 - Law: breaches WIRE to telemetry — the judging site (the composition root's capture-proof row) writes each `Some(breach)` through `GhInstruments.Proofed` (roster row `capture.breach`, declared on `Shell/telemetry.md`), so a visual regression is a counted, attributed stream, never a return value only a test harness reads.
 - Packages: LanguageExt.Core, `Rasm.Domain` (`Op`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Canvas/paint.md` (`PaintPass` — inert evidence), `Shell/events.md` (`GhFact`, `CanvasSignal`), `Shell/journal.md` (`JournalExport`), `Shell/telemetry.md` (`GhInstruments`).
 - Growth: a new visual claim is one judgment arm over existing evidence; a new correlation family is one fact-pattern filter over the same export pair.
@@ -99,12 +99,12 @@ public sealed record CapturePlan(
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DisplayFact(uint DisplayId, RectangleF Frame, int Width, int Height) : IValidityEvidence {
     public bool IsValid => Width > 0 && Height > 0;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct WindowFact(
     uint WindowId, RectangleF Frame, Option<string> Title, Option<string> Application,
     Option<string> BundleIdentifier, Option<int> ProcessId, bool OnScreen, bool Active);
@@ -117,7 +117,7 @@ public readonly record struct RasterPane(int Width, int Height, int RowBytes, Op
         ValidityClaim.WhenPresent(facet: Raster, claim: bytes => bytes.Length == (long)RowBytes * Height));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CaptureFrame(MonotonicStamp Stamp, Option<RasterPane> Pane) : IUiFact, IValidityEvidence {
     public bool Bearing => Pane.IsSome;
     public bool IsValid => ValidityClaim.All(
@@ -143,7 +143,7 @@ public sealed partial class CaptureLane : IGaugeLane<CaptureLane> {
     public static readonly CaptureLane Frame = new(key: 0);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CaptureBreach(long FrameSequence, Op Operation, int Drawn, GaugedSpan<CaptureLane> Span) : IValidityEvidence {
     public TimeSpan Overrun => Span.Elapsed - Span.Bound;
 
@@ -152,7 +152,7 @@ public readonly record struct CaptureBreach(long FrameSequence, Op Operation, in
         Span.IsValid);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CaptureTie(long Row, long Frame, TimeSpan Lag);
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -523,7 +523,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class CaptureScout {
     public static async Task<Fin<CaptureInventory>> Survey(Op? key = null) {
         Op op = key.OrDefault();
@@ -564,7 +563,6 @@ internal static partial class CaptureMap {
     private static Option<int> ProcessOf(SCWindow window) => Optional(window.OwningApplication).Map(static owner => owner.ProcessId);
 }
 
-[BoundaryAdapter]
 public static class PaintProof {
     public static Fin<Option<CaptureBreach>> Judge(
         UiEvent<CaptureFrame> frame, PaintPass pass, MonotonicTimeline timeline, CapturePace pace, Op? key = null) {
@@ -631,21 +629,21 @@ flowchart LR
     Ring -->|"CaptureExport"| Proof
     Ring -->|"CaptureExport"| Tie["PaintProof.Correlate"]
     Journal["SessionJournal export"] -->|"canvas draw rows"| Tie
-    Proof -->|"CaptureBreach evidence"| Regression["estate benchmark rail"]
+    Proof -->|"CaptureBreach evidence"| Regression["repo benchmark suite"]
     Proof -->|"GhInstruments.Proofed"| Meter[("capture.breach")]
     Tie -->|"CaptureTie pairs"| Replay["journal-correlated replay"]
 ```
 
 ## [06]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                          | [RAIL]                                     | [CASES] |
+| [INDEX] | [CONCERN]           | [OWNER]                          | [RESULT]                                   | [CASES] |
 | :-----: | :------------------ | :------------------------------- | :----------------------------------------- | :-----: |
 |  [01]   | shareable survey    | `CaptureScout`                   | `Survey → Task<Fin<CaptureInventory>>`     |    1    |
 |  [02]   | target and policy   | `CaptureSubject` + `CapturePlan` | closed union + one policy value            |    2    |
 |  [03]   | leased recording    | `SessionCapture`                 | `Open → Task<Fin<Lease<SessionCapture>>>`  |    1    |
 |  [04]   | one-shot raster     | `SessionCapture.Snapshot`        | `Snapshot → Task<Fin<CaptureStill>>`       |    1    |
 |  [05]   | export projection   | `CaptureExport` `[Equatable]`    | consumer fold over the drain `Reader`      |    1    |
-|  [06]   | regression seam     | `PaintProof` + `CaptureBreach`   | `Judge → Fin<Option<CaptureBreach>>`       |    1    |
+|  [06]   | regression boundary | `PaintProof` + `CaptureBreach`   | `Judge → Fin<Option<CaptureBreach>>`       |    1    |
 |  [07]   | journal correlation | `PaintProof.Correlate`           | `Correlate → Fin<Seq<CaptureTie>>`         |    1    |
 |  [08]   | fault emission      | `CaptureLog`                     | three generated `[LoggerMessage]` partials |    3    |
 

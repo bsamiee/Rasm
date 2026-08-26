@@ -8,7 +8,7 @@
 
 - [02]-[VECTOR_CLOUD]: `VectorCloud` folds every cloud case under tolerance-dedup admission with the lazy cluster index and closest-vertex probe.
 - [03]-[CLOUD_METRICS]: `VectorCloudMetric` projects every measurement through one `Project<TOut>` over the kernel folds.
-- [04]-[HULL]: `CloudHullKind` rails native convex, faceted, planar, and Delaunay-filtered concave hulls into typed outcomes.
+- [04]-[HULL]: `CloudHullKind` folds native convex, faceted, planar, and Delaunay-filtered concave hulls into typed outcomes.
 - [05]-[VORONOI_COMPLEX]: `CloudVoronoiCell` decomposes a cluster cloud into its 3D dual cells, skeleton, and bound census.
 
 ## [02]-[VECTOR_CLOUD]
@@ -18,7 +18,7 @@
 - Auto: cluster admission is the ONE dedup-and-renormalize fold, emitting `OriginalToUnique` — the input-index→unique-index map every external per-point array re-indexes through to survive deduplication.
 - Packages: RhinoCommon (native point cloud, polyline closure, self-intersection), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new cloud modality is one union case, one factory, and its metric-adapter arms; a new admission rule is one policy column; a new dedup posture is one `CloudDedup` row.
-- Boundary: admission runs ONCE at the factory, so every kernel fold below consumes admitted vertices without re-validating and re-admission runs under `CloudDedup.Preserve` to keep vertices index-stable; native `PointCloud` and `PolylineCurve` reads are the platform seam, held inside their lease windows under `key.Catch`; `Dispose` releases one shared cluster extent, so copies stay safe while a rehydrated cloud owns its own.
+- Boundary: admission runs ONCE at the factory, so every kernel fold below consumes admitted vertices without re-validating and re-admission runs under `CloudDedup.Preserve` to keep vertices index-stable; native `PointCloud` and `PolylineCurve` reads are the platform boundary, held inside their lease windows under `key.Catch`; `Dispose` releases one shared cluster extent, so copies stay safe while a rehydrated cloud owns its own.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -124,7 +124,7 @@ public abstract partial record VectorCloud : IDisposable {
         from ringClosed in guard(native.IsValid && native.IsClosedWithinTolerance(closure) && native.SegmentCount >= 3, admitted.Key.InvalidInput())
         from simple in Optional(native.ToPolylineCurve()).ToFin(admitted.Key.InvalidResult())
             .Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(state: (admitted.Context, admitted.Key),
-                project: static (s, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: s.Context.For(lane: ToleranceLane.Seam).Value))
+                project: static (s, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: s.Context.For(lane: ToleranceLane.Join).Value))
                     .ToFin(s.Key.InvalidResult())
                     .Bind(events => events.Count == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(s.Key.InvalidInput()))))
         select (VectorCloud)new RingCase(Vertices: vertices, Native: native, Tolerance: admitted.Context);
@@ -156,7 +156,6 @@ public abstract partial record VectorCloud : IDisposable {
                 admission: Some(policy with { Dedup = CloudDedup.Preserve }), mass: cluster.Mass, key: op)
             select readmitted);
 
-    [BoundaryAdapter]
     public void Dispose() => Switch(
         ringCase: static _ => { },
         polylineCase: static _ => { },
@@ -172,7 +171,7 @@ public abstract partial record VectorCloud : IDisposable {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmissionPolicy(
     CloudDedup Dedup, Option<PositiveMagnitude> Tolerance, PositiveMagnitude ConservationTolerance) {
     internal static Fin<CloudAdmissionPolicy> Of(Context context, Op key, Option<PositiveMagnitude> tolerance = default) =>
@@ -188,7 +187,7 @@ public readonly record struct CloudAdmissionPolicy(
     internal bool Equivalent(Point3d left, Point3d right) => Dedup.Equivalent(left: left, right: right, tolerance: Tolerance);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmission(
     int InputCount, int OutputCount, int InputDuplicateCoordinateCount, int MergedCoordinateCount,
     Option<PositiveMagnitude> Tolerance, PositiveMagnitude ConservationTolerance, CloudDedup Dedup, Arr<int> OriginalToUnique,
@@ -286,7 +285,7 @@ public sealed partial class VectorCloudMetric {
         };
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudMetricPolicy(NeighborhoodPolicy Neighborhood) {
     internal static Fin<CloudMetricPolicy> AdmitOrDefault(Option<CloudMetricPolicy> policy, Context context, Op key) =>
         policy.Match(Some: p => p.Neighborhood.Admit(key: key).Map(static n => new CloudMetricPolicy(Neighborhood: n)),
@@ -294,7 +293,7 @@ public readonly record struct CloudMetricPolicy(NeighborhoodPolicy Neighborhood)
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorCloudShape(
     Point3d Centroid, Plane PrincipalFrame, Seq<(double Moment, Vector3d Axis)> PrincipalAxes,
     Option<Vector3d> Normal, Option<double> SignedArea, Option<double> Area, Option<double> Perimeter,
@@ -382,14 +381,14 @@ internal static partial class CloudKernel {
 
 ## [04]-[HULL]
 
-- Owner: `CloudHullKind` names the hull species, `FootprintWrapper` the 2D fallback a rejected 3D hull degrades to; concave columns `Alpha` and `Lambda` derive from the cluster's mean spacing when the caller supplies neither. `CloudFoldStatus` is the returned-status outcome this hull rail publishes, and `CloudHullRejection` keys its typed refusal off the MIConvexHull ordinals.
+- Owner: `CloudHullKind` names the hull species, `FootprintWrapper` the 2D fallback a rejected 3D hull degrades to; concave columns `Alpha` and `Lambda` derive from the cluster's mean spacing when the caller supplies neither. `CloudFoldStatus` is the returned-status outcome this hull owner publishes, and `CloudHullRejection` keys its typed refusal off the MIConvexHull ordinals.
 - Cases: `HullRoute` rows are the route evidence the outcome carries as a `CapabilitySet` — `Coplanar` says the 3D preflight refused the input, `Native` that a host route answered, `Fallback` that the 2D wrapper stood in. They combine under a legal-corner law (a coplanar rejection always rides beside a fallback), which is why they are one set rather than three independent flags open to inconsistent pairing.
 - Entry: `ComputeHullDetailed` is cluster-only, and every declared kind computes, so `CloudFoldStatus` discriminates outcome alone.
 - Auto: `Convex3D` routes native through `Mesh.CreateConvexHull3D` behind a coplanar preflight, duplicating the mesh out of its `using` window; `ConvexFootprint2D` and `FootprintWrapper` fit the PCA plane, run `PolylineCurve.CreateConvexHull2d`, verify containment within tolerance, and mesh via `Mesh.CreateFromClosedPolyline`. `AlphaShape` keeps every triangle whose circumradius stays within `Alpha`; `ConcaveOutline` erodes the longest boundary edge while it exceeds `Lambda` and removal preserves regularity, abandoning no vertex and leaving the boundary a single simple cycle. `Faceted3D` and `IndexedFootprint2D` are the index-preserving twins of the two host routes — the host `Mesh` and `PolylineCurve` answer geometry and drop which cluster vertex each output came from, so the typed rows keep facet adjacency, per-facet outward normals, and the cluster index every downstream census and dual keys on.
 - Packages: RhinoCommon (native convex hull, plane fitting, polyline meshing), MIConvexHull (`Triangulation.CreateDelaunay<CloudVertex, CloudCell>`, `ConvexHull.Create<CloudVertex, CloudFace>` with `ConvexHull.Faces`/`ConvexFace.Adjacency`/`.Normal`, `ConvexHull.Create2D<CloudPlanarVertex>`, `ConvexHullCreationResult.Outcome`/`.Result` — the index-carrying `IVertex`/`IVertex2D` and circumsphere-carrying `TriangulationCell` generics, tolerance threaded from the admitted policy), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Law: `CloudHullPolicy` is the AUTHORITY for every threshold the fold ran under and `CloudHullResult.Tolerance`/`AngleTolerance` are its published copy, carried so a consumer reading a stored result need not hold the policy that produced it; `Rejection` and `Status` mirror each other by the same rule, and the claim fold states that pairing rather than leaving two readers to agree by convention.
 - Growth: a new hull species is one kind row and one arm in the hull fold, or one filter predicate over the shared Delaunay fold; a new concave criterion is one policy column; a new rejection cause is one `CloudHullRejection` row keyed off its package ordinal; a new route fact is one `HullRoute` row.
-- Boundary: both concave kinds share ONE Delaunay fold over `MIConvexHull`'s complex, the filter predicate their only difference; `Triangulation.CreateDelaunay` is the foreign-exception seam on this rail and `key.Catch` preserves its exact exceptional `Error`. `ConvexHull.*` instead returns a typed outcome, so `Faceted3D` and `IndexedFootprint2D` gate `Outcome` ahead of `Result` and publish `CloudHullRejection` without a capture. This rail owns the native-first host, index-preserving, and concave hull kinds; the predicate-exact hull fold homes at `Meshing/delaunay` `LowerHull`, and `SolidOf` is the one volume-and-centroid producer both this rail and `[05]` read.
+- Boundary: both concave kinds share ONE Delaunay fold over `MIConvexHull`'s complex, the filter predicate their only difference; `Triangulation.CreateDelaunay` is the foreign-exception boundary on this owner and `key.Catch` preserves its exact exceptional `Error`. `ConvexHull.*` instead returns a typed outcome, so `Faceted3D` and `IndexedFootprint2D` gate `Outcome` ahead of `Result` and publish `CloudHullRejection` without a capture. This family owns the native-first host, index-preserving, and concave hull kinds; the predicate-exact hull fold homes at `Meshing/delaunay` `LowerHull`, and `SolidOf` is the one volume-and-centroid producer both this family and `[05]` read.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -439,7 +438,7 @@ public sealed partial class CloudHullRejection {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudHullPolicy(
     PositiveMagnitude Tolerance, VectorAngle AngleTolerance,
     Option<PositiveMagnitude> Alpha, Option<PositiveMagnitude> Lambda) {
@@ -459,7 +458,7 @@ public readonly record struct CloudHullPolicy(
             None: static () => Fin.Succ(Option<PositiveMagnitude>.None));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudFacet(Arr<int> Vertices, Arr<int> Adjacency, Vector3d Normal) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Vertices.Count, floor: 3),
@@ -469,7 +468,7 @@ public readonly record struct CloudFacet(Arr<int> Vertices, Arr<int> Adjacency, 
         ValidityClaim.Finite(Normal));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudSolid(double Volume, Point3d Centroid, Seq<CloudFacet> Facets) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(Volume),
@@ -478,7 +477,7 @@ public readonly record struct CloudSolid(double Volume, Point3d Centroid, Seq<Cl
         Facets.ForAll(static f => f.IsValid));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudHullResult(
     Option<Mesh> Mesh, Option<CloudSolid> Solid,
     CloudHullKind Kind, CloudFoldStatus Status, PositiveMagnitude Tolerance, VectorAngle AngleTolerance,
@@ -587,7 +586,7 @@ internal static partial class CloudKernel {
 - Law: `CloudVoronoiCensus` carries the tolerance and input count beside the completed census; `BoundedVolumeTotal` never exceeds `HullVolume`, and that ordering is the census's own conservation claim.
 - Packages: MIConvexHull (`VoronoiMesh.Create<CloudVertex, CloudCell, CloudVoronoiEdge>`, `VoronoiMesh.Vertices`/`.Edges`, `VoronoiEdge.Source`/`.Target`, `ConvexHull.Create<CloudVertex, CloudFace>` through `SolidOf`), RhinoCommon, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new per-cell measure is one `Option` column on `CloudVoronoiCell` with its arm in the bounded fold; a new bound species is one `CloudCellBound` row; a new census tally is one column on `CloudVoronoiCensus`; a new interpolant over one site set is one member on `NaturalNeighborField`, sharing the base dual it already holds.
-- Boundary: this band owns the 3D cell decomposition alone — 2D border-clipped point-site Voronoi homes at `Meshing/delaunay` `Tessellation.VoronoiDual`, whose bounded-cell overload is the predicate-exact planar peer, and `Meshing/offset` reads that owner for the medial locus. `VoronoiMesh.Create` returns the bare complex and throws on degenerate input, so `Op.Catch` keeps that exact exceptional `Error` on the failure rail; the `ConvexHull.*` APIs instead return a typed outcome and alone publish `CloudHullRejection`. Natural-neighbour interpolation reads `Volume` from here and fits nothing; the admitting minter is `Meshing/reconstruct`.
+- Boundary: this band owns the 3D cell decomposition alone — 2D border-clipped point-site Voronoi homes at `Meshing/delaunay` `Tessellation.VoronoiDual`, whose bounded-cell overload is the predicate-exact planar peer, and `Meshing/offset` reads that owner for the medial locus. `VoronoiMesh.Create` returns the bare complex and throws on degenerate input, so `Op.Catch` keeps that exact exceptional `Error` on the failure result; the `ConvexHull.*` APIs instead return a typed outcome and alone publish `CloudHullRejection`. Natural-neighbour interpolation reads `Volume` from here and fits nothing; the admitting minter is `Meshing/reconstruct`.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -601,7 +600,7 @@ public sealed partial class CloudCellBound {
 internal sealed class CloudVoronoiEdge : VoronoiEdge<CloudVertex, CloudCell>;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudVoronoiCell(
     int Site, Point3d Seed, CloudCellBound Bound, Arr<int> Vertices, Arr<int> Neighbors,
     Option<double> Volume, Option<Point3d> Centroid, Option<double> Extent) : IValidityEvidence {
@@ -618,7 +617,7 @@ public readonly record struct CloudVoronoiCell(
             : Volume.IsNone && Centroid.IsNone && Extent.IsNone);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudVoronoiCensus(
     PositiveMagnitude PlaneDistanceTolerance, int InputCount, int DualVertexCount, int UnmeasuredVertexCount, int DualEdgeCount, int SkeletonEdgeCount,
     int BoundedCellCount, int UnboundedCellCount, int DegenerateCellCount,
@@ -637,7 +636,7 @@ public readonly record struct CloudVoronoiCensus(
         });
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudVoronoiResult(
     Seq<CloudVoronoiCell> Cells, Arr<Point3d> Vertices, Arr<(int Tail, int Head)> Skeleton, CloudVoronoiCensus Census) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(

@@ -76,7 +76,6 @@ public sealed partial class TravelerRelation {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct TravelerId {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value) || value.Any(char.IsWhiteSpace))
@@ -88,7 +87,6 @@ public readonly partial struct TravelerId {
 
 [ValueObject<string>]
 public readonly partial struct TravelerName {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -100,7 +98,6 @@ public readonly partial struct TravelerName {
 
 [ValueObject<string>]
 public readonly partial struct TravelerNote {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -113,7 +110,6 @@ public readonly partial struct TravelerNote {
 [ValueObject<string>]
 [PersonalData]
 public readonly partial struct TravelerActor {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -125,7 +121,6 @@ public readonly partial struct TravelerActor {
 
 [ValueObject<int>]
 public readonly partial struct TravelerQuantity {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 1)
             validationError = Traveler.Validation("quantity");
@@ -136,7 +131,6 @@ public readonly partial struct TravelerQuantity {
 
 [ValueObject<int>]
 public readonly partial struct TravelerStep {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
             validationError = Traveler.Validation("step");
@@ -147,7 +141,6 @@ public readonly partial struct TravelerStep {
 
 [ValueObject<int>]
 public readonly partial struct TravelerOperation {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
             validationError = Traveler.Validation("operation");
@@ -158,7 +151,6 @@ public readonly partial struct TravelerOperation {
 
 [ValueObject<int>]
 public readonly partial struct TravelerSetup {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         if (value < 0)
             validationError = Traveler.Validation("setup");
@@ -236,7 +228,6 @@ public sealed partial class TravelerIdentity {
     public Option<TravelerId> HeatLot { get; }
     public Seq<TravelerId> Serials { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref TravelerId workOrder,
@@ -330,7 +321,6 @@ public sealed partial class TravelerCorpus {
 
     public Seq<HoldPoint> UnreleasedHolds => Procedures.Bind(result => result.Plan.Unreleased(Releases));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref TravelerIdentity identity,
@@ -614,7 +604,7 @@ public sealed record TravelerArtifact(
 ## [04]-[TRAVELER_ASSEMBLY]
 
 - Owner: `TravelerPreimage` owns identity bytes; `TravelerCanonicalCodec` owns the transport rendering; `Traveler` owns the route DAG, the key harvest, amendment sealing, and `Assemble`.
-- Law: identity rides `FabricationCanon.Keyed` — the ONE keyed mint, which opens the retaining writer, closes on the typed rail, and frames `EgressKind` ahead of the payload — never a serializer's bytes and never a hand-opened writer — the same law `Documentation/report` and `Joining/weld` key under, so one document keyed here and the same document keyed through any sibling addresses identically. The JSON rendering stays the TRANSPORT the display and persistence seams read, and its `[JsonPolymorphic]` rosters are what make both codec arms round-trip without a runtime type argument.
+- Law: identity rides `FabricationCanon.Keyed` — the ONE keyed mint, which opens the retaining writer, closes on the typed result, and frames `EgressKind` ahead of the payload — never a serializer's bytes and never a hand-opened writer — the same law `Documentation/report` and `Joining/weld` key under, so one document keyed here and the same document keyed through any sibling addresses identically. The JSON rendering stays the TRANSPORT the display and persistence ports read, and its `[JsonPolymorphic]` rosters are what make both codec arms round-trip without a runtime type argument.
 - Law: a COMPOSED result enters the preimage by the key census it contributes and by the discriminating ordinals it authored — a result's own owner keys its full shape, and re-transcribing that shape here forks the two keys the day either page grows a column. The traveler's OWN authored rows — identity, controls, marks, amendment payloads, and the route witness — enter in full.
 - Law: the planned route is a DAG. `IsDirectedAcyclicGraph` gates BEFORE `SourceFirstBidirectionalTopologicalSort`, so a forged precedence answers a typed fault instead of throwing inside a sort, and `Roots`/`Sinks` are the release frontier a shop reads.
 - Law: dangling controls, amendments, inspection links, release programs, and unreleased blocking holds are INDEPENDENT faults that accumulate: a planner correcting one route must see the other four in the same verdict, and their counts ride `RouteWitness` so a passing document still reports the frontier it proved. The hold gate reads `Joining/procedure` `HoldPoint`/`HoldRelease` evidence, so a traveler advances against a party's attested release and never against a hold point it merely printed.

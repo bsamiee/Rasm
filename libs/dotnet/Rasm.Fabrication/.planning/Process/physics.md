@@ -12,7 +12,7 @@
 
 `UnitsNet` admits quantities and duration once and composes power-duration energy. Interior numerics use canonical machining units.
 
-Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in-process seams to the fabrication generators.
+Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in-process boundaries to the fabrication generators.
 
 ## [01]-[INDEX]
 
@@ -208,7 +208,6 @@ public readonly partial struct ProcessRange {
 
     public double Resolve(double derived) => Current.IfNone(() => Nominal.IfNone(derived));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Option<double> minimum,
@@ -281,7 +280,6 @@ public sealed partial class ConstitutiveState {
     public double MoistureFraction { get; }
     public double GrainSizeUm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double temperatureC,
@@ -314,7 +312,6 @@ public sealed partial class ResponseCurve {
     public bool Saturates(ConstitutiveState state) =>
         Axis.Select(state) < Inputs[0] || Axis.Select(state) > Inputs[^1];
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ResponseAxis axis,
@@ -342,7 +339,6 @@ public sealed partial class ConstitutiveLaw {
     public Seq<ResponseAxis> Saturated(ConstitutiveState state) =>
         toSeq(Responses).Filter(response => response.Saturates(state)).Map(static response => response.Axis);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double reference,
@@ -536,7 +532,6 @@ public sealed partial class MechanicalDatum {
 
     public double LimitStrain => ElongationRatio * (1.0 + PlasticStrainRatio) * 0.5;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double elasticModulusMpa,
@@ -578,7 +573,6 @@ public sealed partial class ThermalDatum {
 
     public double VolumetricHeatCapacityJMm3K => DensityKgM3 * SpecificHeatJKgK / 1e9;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double densityKgM3,
@@ -605,7 +599,6 @@ public sealed partial class GradeIdentity {
     public Option<string> LotNumber { get; }
     public Option<ContentKey> CertificateKey { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string grade,
@@ -630,7 +623,6 @@ public sealed partial class MaterialBaseline {
         Validate(family, toMap(laws.Map(static law => (law.Kind, law))), out MaterialBaseline baseline)
             .Admitted(baseline);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Material family,
@@ -669,7 +661,6 @@ public sealed partial class MaterialSpec {
                 gradeOverrides.AsIterable().Fold(baseline.Physics, static (state, row) => state.AddOrUpdate(row.Key, row.Value)),
                 out MaterialSpec admitted).Admitted(admitted));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Material family,
@@ -861,7 +852,6 @@ public sealed partial class BudgetEvidence {
 
     public Arr<EquipmentWitness> Clamped => Ranges.Bind(static range => range.Clamped);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ConstitutiveState state,
@@ -931,7 +921,7 @@ public abstract partial record ProcessBudget {
 
 - Owner: `PhysicsQuantity` owns the quantity axes and their parse; `PhysicsIngress` owns the raw text shape; `PhysicsAdmission` owns the admitted result.
 - Entry: `ProcessPhysics.Admit(PhysicsIngress)` is the ONE textual boundary in the package. A plane outside `Process` reaches it through `Process/owner#RUN_DISPATCH` `QuantityArrow`, which re-raises on the caller's own plane; a `PhysicsQuantity.<axis>.Admit` call at a consuming page is a second boundary answering on a foreign plane and is the deleted form.
-- Auto: `Canonical` projects the admitted quantity onto the `Fin<double>` rail one place, so the arrow never re-walks the union.
+- Auto: `Canonical` projects the admitted quantity onto the `Fin<double>` result one place, so the arrow never re-walks the union.
 - Boundary: every parse runs under the invariant culture, so a shop locale never re-reads a stored dimension differently.
 
 ```csharp

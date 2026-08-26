@@ -174,6 +174,6 @@ Every duration and lag carries its `TimeUnit`; a bare magnitude has no meaning w
 
 [LOCAL_ADMISSION]:
 - Ingress is `ReadAll`; a single-project file yields a one-element list, so arity reads off the yield.
-- `ProjectFile` maps once onto the canonical rows, and the proxy types and their `JavaObject` handle stop at that seam.
+- `ProjectFile` maps once onto the canonical rows, and the proxy types and their `JavaObject` handle stop at that boundary.
 - Durations and lags read through their `TimeUnit`, and working-day arithmetic runs on `ProjectCalendar`.
 - Every consuming project inherits the `IKVM.Maven.Sdk` build chain; `Directory.Build.targets` owns the design-time guard that keeps it off Roslyn loads, and `Directory.Build.props` owns the promotion carve for the closure's `IKVM0100`/`IKVM0101`/`IKVM0109` warnings, which the packed POM alone can change.

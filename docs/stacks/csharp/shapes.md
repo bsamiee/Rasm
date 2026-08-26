@@ -20,7 +20,7 @@ When a concept matches several signatures, the most specific row wins.
 |  [08]   | combinable capability set                       | vocabulary items in a frozen set   | key             |
 |  [09]   | runtime-sourced vocabulary                      | keyed owner plus frozen registry   | key             |
 |  [10]   | cross-product or externally sourced policy key  | frozen table                       | composite key   |
-|  [11]   | foreign wire enum, ABI bits, or kernel ordinal  | language enum at the seam only     | ordinal         |
+|  [11]   | foreign wire enum, ABI bits, or kernel ordinal  | language enum at the boundary only | ordinal         |
 |  [12]   | foreign code must add cases                     | manual interface or hierarchy      | declared        |
 |  [13]   | property-graph relation over a foreign taxonomy | neutral verb `[Union]` + `Generic` | case            |
 |  [14]   | property-graph node over an entity family       | keyed `[Union]` over the entities  | case then key   |
@@ -28,7 +28,7 @@ When a concept matches several signatures, the most specific row wins.
 ## [02]-[DECISION_LAW]
 
 [OWNER_SELECTION]:
-- `SelectOwner(concept)`: choose by singleton-versus-instance, field coverage, relatedness, invariant, admission boundary, reads-of-evidence per write, payload timing, and openness; high-churn intermediate values stay plain until the seam where evidence becomes domain material.
+- `SelectOwner(concept)`: choose by singleton-versus-instance, field coverage, relatedness, invariant, admission boundary, reads-of-evidence per write, payload timing, and openness; high-churn intermediate values stay plain until the boundary where evidence becomes domain material.
 - `NameOwner(type)`: a type named for its shape or constraint rather than its concept, or two adjacent types a reader cannot tell apart by name, is the deleted form — the cost of a type is confusability, never its line count.
 - `UseSmartEnum(vocabulary)`: fixed named instances, identity dispatch, behavior columns, key lookup, and declared growth absorption.
 - `UseUnion(family)`: per-occurrence payload, case dispatch, stored call modality, transport carrier under `SwitchMapMethodsGeneration.None`, and ad-hoc members meaningful outside the family.
@@ -38,14 +38,14 @@ When a concept matches several signatures, the most specific row wins.
 - `CollapseFamily(family)`: keep generated closure only when the owner absorbs admission, identity, dispatch, policy, boundary projection, or stored modality; delete sibling regrowth, nullable payload bags, enum-dictionary pairs, protocol shadows, owner wrappers, and overload-only modality.
 - `MergeSamePayload(cases)`: collapse passive, non-generic, non-fault cases with identical semantics, and byte-identical siblings whose name-only distinction an op trait row already derives — one case, the discriminant read from the trait row; preserve marker, behavior, fault, and genuinely named-semantic cases.
 - `ReplaceFlags(capability)`: model combinable capability as vocabulary items in a frozen set; keep behavior in columns, membership as set algebra, and policy as a fold. Two or more `bool` columns on one generated row are that flag set spelled positionally — the deleted form — because the row then admits every corner of a product its domain never legalizes and no consumer can state which corners exist; the set rides ONE rank-ordered owner whose rank fixes a canonical wire text, and the legal corners ride a declared law the construction admits against, so an illegal corner is unrepresentable rather than guarded at each use. Genuinely independent axes with no legal-corner law stay bool columns and say so at the owner.
-- `UseLanguageEnum(seam)`: permit only foreign wire enum, ABI bit layout, measured-kernel ordinal, or an alias-bearing host roster whose distinct names share one ordinal — a 1:1 owned wrapper cannot preserve the alias identity the host defines as truth, so host mapping members answer that correspondence; re-close at seam conversion.
+- `UseLanguageEnum(boundary)`: permit only foreign wire enum, ABI bit layout, measured-kernel ordinal, or an alias-bearing host roster whose distinct names share one ordinal — a 1:1 owned wrapper cannot preserve the alias identity the host defines as truth, so host mapping members answer that correspondence; re-close at boundary conversion.
 
 [BEHAVIOR_FUNCTIONS]:
 - `PlaceBehavior(selector)`: use generated `Switch` for call-site variation, behavior columns or case members for family-owned policy, `Items`-derived frozen indexes for single-axis lookup, and generated-owner tables only for cross-products, startup-admitted external policy, or outside-family keys.
 - `RejectExternalDictionary(key)`: collapse item-keyed dictionaries, sibling lookup helpers, and repeated full-coverage `Switch` arms to behavior columns, generated dispatch, or one `Items`-derived frozen index; cross-product tables survive only with generated-owner keys and startup totality against the `Items` product.
 
 [CHANGE_FUNCTIONS]:
-- `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key moves to conversion and wire seams.
+- `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key moves to conversion and wire boundaries.
 - `TuneGrowthAbsorption(owner)`: let columns under `SwitchMapMethodsGeneration.None` absorb item growth; let generated `Switch` push additions to consumers.
 - `TightenInvariant(owner)`: treat narrower factories as a data rebuild with tests because compile signal is zero.
 
@@ -121,7 +121,7 @@ public static class ShapeOps {
 [VALUE_TRAIT_AXES]:
 - Law: the LanguageExt `LanguageExt.Traits.Domain` value traits are the algebraic axis layer over generated admission, each a static-abstract self-constrained interface granting a fixed BCL operator-interface set the axis selects — `VectorSpace<TSelf,TScalar>` grants `IAdditionOperators<TSelf,TSelf,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TSelf>`, scalar `IMultiplyOperators<TSelf,TScalar,TSelf>`/`IDivisionOperators<TSelf,TScalar,TSelf>`, and `IUnaryNegationOperators<TSelf,TSelf>`; `Amount<TSelf,TScalar>` adds `IComparable<TSelf>` and `IComparisonOperators<TSelf,TSelf,bool>` ordering to that fragment; `Locus<TSelf,TDist,TScalarDist>` is affine position over `where TDist : Amount<TDist,TScalarDist>`, granting `IAdditionOperators<TSelf,TDist,TSelf>`, `ISubtractionOperators<TSelf,TSelf,TDist>`, `IAdditiveIdentity<TSelf,TSelf>`, and negation but never `TSelf+TSelf`.
 - Law: every axis inherits the arity-ONE marker `DomainType<TSelf>` alone, so an owner declares `DomainType<TSelf,TRepr>` BESIDE its axis or the admission and egress members are not in scope — `Amount<TSelf,TScalar>`, `VectorSpace<TSelf,TScalar>`, and `Locus<TSelf,TDist,TScalarDist>` all inherit `DomainType<TSelf>`, and the representation arity carries `static abstract Fin<TSelf> From(TRepr)` and instance `TRepr To()`, the trait's own admission and egress members — the generator emits neither (Thinktecture carries no LanguageExt reference), so the bridge is one expression each: `From` re-anchors the generated `Validate` so the trait's admission and the canonical `Validate` are one rule, not two, and `To()` returns the key the owner already holds; the inherited `static virtual FromUnsafe` rides `From().ThrowIfFail()` untouched. Re-validating inside `From` rather than delegating to `Validate` is the rejected second construction path.
-- Law: `From` routes the default `Thinktecture.ValidationError` through the one acceptance bridge the admission seam owns — that error is no LanguageExt `Error`, so `Fin.Fail` refuses it outright; a `[ValidationError<TFault>]` grant is earned by an irreducible owner refusal alone, and a family implementing that interface to satisfy the generator has minted a second error plane.
+- Law: `From` routes the default `Thinktecture.ValidationError` through the one acceptance bridge the admission boundary owns — that error is no LanguageExt `Error`, so `Fin.Fail` refuses it outright; a `[ValidationError<TFault>]` grant is earned by an irreducible owner refusal alone, and a family implementing that interface to satisfy the generator has minted a second error plane.
 - Law: position safety is two structural denials, not a guard — the `Locus` interface declares no `IAdditionOperators<TSelf,TSelf,TSelf>`, so `position + position` resolves no operator, and the owner's `OperatorsGeneration.None` and explicit `ConversionToKeyMemberType` deny the implicit key egress that otherwise folds two positions to scalar key arithmetic and re-admits; both denials are compile failures, neither a runtime check.
 - Law: an algorithm binds the weakest axis it consumes — a `VectorSpace` routine rejects a `Locus` position at the constraint because position is not in the vector-space fragment, ordered and affine reach are the cost of widening to `Amount` and `Locus`, and the unconsumed axis stays unreachable from the signature.
 
@@ -160,8 +160,8 @@ public static class AxisAlgebra {
 
 [ABSENCE_AND_DEFAULT]:
 - Law: null-yield modes turn blank input into success-with-null; only `EmptyStringInFactoryMethodsYieldsNull` removes `NotNullWhen`, so bridges audit generated attributes and project `Option<T>`.
-- Law: struct owners reject `default`, but arrays, unconstrained generic `default`, and field zero-init still mint ghosts; one outer storage seam reads the key member and rejects them.
-- Law: an owner-typed `= default` optional parameter is a ghost-minting seam, never absence — a class owner has no constant to default to, and a struct owner under `AllowDefaultStructs` defaults to the admission-bypassing zero, so absence enters as `Option<T>` or an overload, the canonical instance is named when a real zero exists, and `= default` never spells the absent owner.
+- Law: struct owners reject `default`, but arrays, unconstrained generic `default`, and field zero-init still mint ghosts; one outer storage boundary reads the key member and rejects them.
+- Law: an owner-typed `= default` optional parameter is a ghost-minting site, never absence — a class owner has no constant to default to, and a struct owner under `AllowDefaultStructs` defaults to the admission-bypassing zero, so absence enters as `Option<T>` or an overload, the canonical instance is named when a real zero exists, and `= default` never spells the absent owner.
 - Boundary: default-hostility is transitive, `IDisallowDefaultValue` overrides `AllowDefaultStructs`, legitimate struct defaults are named canonical instances, and class-vs-struct choice selects named null policy versus layout poison.
 
 [INGRESS_AND_EGRESS]:
@@ -183,8 +183,8 @@ public static class AxisAlgebra {
 - Law: validity belongs to keys, never instances; no invalid item is constructible, callers choose `Get`, `TryGet`, or `Validate`, and exception catching is the wrong verb.
 - Law: startup probes force the `LazyThreadSafetyMode.ExecutionAndPublication` lazy, assign indices, build the frozen lookup, fail-fast duplicate keys, and cache one poisoning across metadata consumers walking `Items`.
 - Law: derived indexes project from `Items` through accessors, never eager static initializers; the accessor read supplies the materialization edge, and string-keyed vocabularies use the zero-allocation span alternate lookup.
-- Law: a value a BASE-CONSTRUCTOR argument demands rides a `Lazy<Fin<T>>` accessor — the lazy defers admission to first use, the rail holds the verdict, and the fault surfaces on the host failure channel at the read; an eager `static readonly` field running the admission inside the loader's type-init frame is the forbidden form this clause names the alternative for.
-- Boundary: items are static per load context and generic instantiation; each closed type argument has its own materialization and poisoning, and values cross isolation seams as keys re-admitted on the far side.
+- Law: a value a BASE-CONSTRUCTOR argument demands rides a `Lazy<Fin<T>>` accessor — the lazy defers admission to first use, the result holds the verdict, and the fault surfaces on the host failure channel at the read; an eager `static readonly` field running the admission inside the loader's type-init frame is the forbidden form this clause names the alternative for.
+- Boundary: items are static per load context and generic instantiation; each closed type argument has its own materialization and poisoning, and values cross isolation boundaries as keys re-admitted on the far side.
 
 [DISPATCH_AND_ROWS]:
 - Law: `Switch` is the total dispatch surface: integer jump table, write-once index cell, one hot-path field read, state-threaded forms with span-shaped state and results, and `static` lambdas.
@@ -232,18 +232,18 @@ public static class VariantOps {
 [FAMILY_SELECTION]:
 - Law: the root declaration kind is family-global; record roots buy structural equality, cross-case comparison constant-false, and flatness, while class roots buy depth, intermediate cases, nested dispatch, and stop-at boundaries while surrendering generated equality.
 - Law: closure is constructor reachability; private owner constructors, sealed or private-constructed cases, and class-kind recursion define discovery, while struct and interface intermediates become invisible phantom cases that fall to the default arm.
-- Law: generic roots carry phantom typestate; cases close over root parameters, dispatch stays phase-total, and storage or transport pays invariance through erasing projections.
+- Law: generic roots carry phantom typrepo; cases close over root parameters, dispatch stays phase-total, and storage or transport pays invariance through erasing projections.
 - Law: span alternatives are concrete only; `ref struct` type parameters are rejected, while a `ref struct` union keeps dispatch and stack-only state or results but surrenders generated equality.
-- Law: cases admit their own payloads; the root carries no validation partial unless `[ObjectFactory<TValue>]` makes `Validate` the discriminating admission seam.
+- Law: cases admit their own payloads; the root carries no validation partial unless `[ObjectFactory<TValue>]` makes `Validate` the discriminating admission gate.
 - Law: a universal column threads through a base positional parameter every case constructor passes, never a base member computed over same-named case payloads — a base member sharing a case positional parameter's name suppresses that case's property synthesis (CS8907), silently discards the constructor argument, and a base projection dispatching onto the missing property recurses at first read.
 - Use: root-level dispatch stance; total `SwitchMethods` and `MapMethods` by default, sparse handling through `DefaultWithPartialOverloads`, and transport-only carriers through `SwitchMapMethodsGeneration.None` with arm-style consumption inexpressible.
-- Reject: success-or-failure ad-hoc unions because rails own outcome transport; accept duplicate ad-hoc member types only when named slots model distinct ingress and equality discriminates slot before payload.
+- Reject: success-or-failure ad-hoc unions because carriers own outcome transport; accept duplicate ad-hoc member types only when named slots model distinct ingress and equality discriminates slot before payload.
 
 [DISPATCH_AND_GROWTH]:
 - Law: `Map` evaluates every arm before dispatch; keep it to preallocated verdict tables and cold carriers, and move allocating or task-shaped arms to func-form `Switch`.
 - Law: dispatch signatures own case lists; case addition is a binary break across consumers, lockstep across assembly boundaries, free inside one build graph.
 - Law: blast radius partitions by axis; case rename breaks named arguments and embedded type names, while same-name payload changes break only arms touching the member.
-- Law: `StopAt` overloads and intermediate `[Union]` receivers are growth-axis declarations: root consumers couple to sibling growth, branch consumers couple to within-branch growth, and the stopped handler is the fold re-entry seam.
+- Law: `StopAt` overloads and intermediate `[Union]` receivers are growth-axis declarations: root consumers couple to sibling growth, branch consumers couple to within-branch growth, and the stopped handler is the fold re-entry point.
 - Law: operation families attach as extension members with total dispatch; conversions stay generated, ordering stays absent, and rank projects through `Map` to preallocated ordinals.
 - Law: recursive owners declare recursion placement; case-owned recursion absorbs growth locally, dispatch-route recursion breaks call sites, and partial dispatch is rejected for routing or `K<F,B>` folds; new cases silently route to `@default` across every carrier specialization.
 
@@ -283,7 +283,7 @@ public static class FieldValueOps {
 - Law: a recursive family is the class-kind `[Union]` whose cases nest the root — an `abstract partial record` root with self-nesting sealed cases declares recursion as a shape property, and class-kind reachability is what makes the nested case discoverable where a struct or interface intermediate falls to the default arm as a phantom case.
 - Law: recursion placement is the shape decision this card owns — case-owned recursion (a case field typed as the root) absorbs depth growth locally and keeps every consumer's dispatch total, while dispatch-route recursion couples each call site to the recursion and is the rejected placement; the choice is fixed at declaration, never at the fold.
 - Boundary: the generated `Switch` is depth-honest recursion bounded by the runtime stack, so hostile or unbounded depth is a different shape — an explicit-stack kernel admitted at the boundary, never the generated traversal pushed past its depth budget.
-- Boundary: the carrier-polymorphic catamorphism the snippet composes — the `K<F,B>` child folds combined under the carrier's own `Apply` so one fold specializes across every applicative carrier — is the surface and rail pages' mechanics, supporting material here; this card decides only that the family is a recursive class-`[Union]` and where the recursion lives.
+- Boundary: the carrier-polymorphic catamorphism the snippet composes — the `K<F,B>` child folds combined under the carrier's own `Apply` so one fold specializes across every applicative carrier — is the surface and carrier pages' mechanics, supporting material here; this card decides only that the family is a recursive class-`[Union]` and where the recursion lives.
 
 ```csharp
 [Union]
@@ -357,15 +357,15 @@ public static class GraphOps {
 
 ## [06]-[ADMISSION_SHAPES]
 
-Every owner's admission surface is itself a closed family decision: the fault is a `[Union]`, the bridge an extension over the generated factory, the composite an admission-ordered nest of leaf owners, and the wire grammar an owner-local row set. Each card fixes the shape; the rail algebra that consumes it is the rail page's, the open-owner dispatch inversion the surface page's, and the converter the boundary page's.
+Every owner's admission surface is itself a closed family decision: the fault is a `[Union]`, the bridge an extension over the generated factory, the composite an admission-ordered nest of leaf owners, and the wire grammar an owner-local row set. Each card fixes the shape; the carrier algebra that consumes it is the carrier page's, the open-owner dispatch inversion the surface page's, and the converter the boundary page's.
 
 [FAULT_FAMILIES]:
-- Law: the fault is one `[Union]` deriving the `Fault` base directly, so the same closed family is the rail-failure shape and the exhaustive recovery vocabulary — a bare `Error`, an exception, or `Validation<Seq<Error>,T>` for a multi-cause domain is the rejected non-shape.
+- Law: the fault is one `[Union]` deriving the `Fault` base directly, so the same closed family is the result-failure shape and the exhaustive recovery vocabulary — a bare `Error`, an exception, or `Validation<Seq<Error>,T>` for a multi-cause domain is the rejected non-shape.
 - Law: `Expected` is never the base — its positional `(message, code, inner)` state joins equality, deconstruction, and copying, so placeholder constructor arguments beside overriding members publish two answers for one value; the base instead seals the expected protocol over generated identity.
 - Law: every case is a DIRECT sealed leaf carrying one `[FaultCase(n)]` ordinal the generator caches as numeric identity beside the leaf's own `nameof` case token over the root's single band binding — record unions admit no abstract intermediate case, so cause and policy shared by several leaves ride typed payload or a root function.
-- Law: the family carries no aggregate case and no `Semigroup` — `Error.Many` is the one accumulation, and a family-local `Combine` disagrees with it on flattening and on recovery posture; the accumulation operator is the rail page's.
+- Law: the family carries no aggregate case and no `Semigroup` — `Error.Many` is the one accumulation, and a family-local `Combine` disagrees with it on flattening and on recovery posture; the accumulation operator is the carrier page's.
 - Law: no leaf is generically text-shaped — a case whose only payload is a string states no identity, and an owner `Create(string)` factory is exactly the surface that mints them; a string survives as presentation evidence beside typed identity, never as it.
-- Boundary: `StopAt` carves a smaller recovery surface where a boundary needs one; an in-process subscriber receives only `FaultObservation.Of(error)` — the optional generated identity, typed retriability, bounded cause stamps, and truncation — never `Message`, category, or owner, and a wire lowering copies the CODE half of that identity while the generated case token stays local. Code-keyed in-process recovery identity (`Is`/`HasCode`/`IsType<E>`, never `==`) is the rail page's fault-identity law, composed over this shape.
+- Boundary: `StopAt` carves a smaller recovery surface where a boundary needs one; an in-process subscriber receives only `FaultObservation.Of(error)` — the optional generated identity, typed retriability, bounded cause stamps, and truncation — never `Message`, category, or owner, and a wire lowering copies the CODE half of that identity while the generated case token stays local. Code-keyed in-process recovery identity (`Is`/`HasCode`/`IsType<E>`, never `==`) is the carrier page's fault-identity law, composed over this shape.
 - Reject: a category, registry, or key roster paralleling the union — the union case IS the identity, so a mirror publishes a second discriminant, and generated identity plus the band ledger already answer every question it was minted to answer.
 
 ```csharp
@@ -373,7 +373,7 @@ Every owner's admission surface is itself a closed family decision: the fault is
 public abstract partial record LaneFault : Fault {
     private LaneFault(string detail) => Detail = detail;
     // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
-    // `FaultBand.LaneGuard` already belongs to the estate's lane-guard family, and a second family on a live
+    // `FaultBand.LaneGuard` already belongs to the repo's lane-guard family, and a second family on a live
     // row is the deleted form the registry's disjointness proof exists to refuse.
     private static readonly FaultBand FamilyBand = FaultBand.Lane;
 
@@ -390,10 +390,10 @@ public abstract partial record LaneFault : Fault {
 }
 ```
 
-[RAIL_BRIDGE]:
-- Law: the admission seam is one generic extension over the generated factory interface — receiver inference binds `TOwner` so a single `Admission` block serves every owner, and the property-pattern projection (`Validate(...) is { } fault ? fault : owned!`) is the one expression admitting raw into the carrier.
-- Law: the shape is null-yield-aware — a non-null-yield factory takes the success-arm `!`, a null-yield owner takes the three-valued projection (fault, absence as `Option<T>`, instance) so blank-yields-null never reaches the interior as `Some(null)`; the carrier algebra each arm lifts into is the rail page's.
-- Boundary: the constraint `IObjectFactory<TOwner,TRaw,ValidationError>` with `TRaw : notnull, allows ref struct` carries the DEFAULT factory evidence — the seam lifts it once into `KernelFault.InvalidValue`, so ephemeral admission evidence never crosses an owner boundary as public identity.
+[CARRIER_BRIDGE]:
+- Law: the admission boundary is one generic extension over the generated factory interface — receiver inference binds `TOwner` so a single `Admission` block serves every owner, and the property-pattern projection (`Validate(...) is { } fault ? fault : owned!`) is the one expression admitting raw into the carrier.
+- Law: the shape is null-yield-aware — a non-null-yield factory takes the success-arm `!`, a null-yield owner takes the three-valued projection (fault, absence as `Option<T>`, instance) so blank-yields-null never reaches the interior as `Some(null)`; the carrier algebra each arm lifts into is the carrier page's.
+- Boundary: the constraint `IObjectFactory<TOwner,TRaw,ValidationError>` with `TRaw : notnull, allows ref struct` carries the DEFAULT factory evidence — the boundary lifts it once into `KernelFault.InvalidValue`, so ephemeral admission evidence never crosses an owner boundary as public identity.
 - Reject: bridging through `Create`, `TryCreate`, or `IParsable`; framework parsing and downgraded factory forms discard the evidence `Validate` already carries; a hand-rolled `Validation` tower re-deriving what the generated bridge already discharges — the generated `Validate` is the one admission authority.
 
 ```csharp
@@ -417,7 +417,7 @@ public static class Admission {
 - Law: a composite owner admits its leaf owners first, then binds composite refinements after every leaf succeeds, so the dependency graph of the fields — not a flag — selects whether the shape accumulates leaf faults or short-circuits on the first cross-field refusal.
 - Law: the generated factory spine never accumulates; an all-fault composite shape accumulates on `Validation<Error,T>`, whose failure parameter demands `Monoid<F>` — `Error` already carries it, and a family-typed carrier forces an empty-fault identity meaning no failure.
 - Law: every generated owner conforms to `IObjectFactory<TSelf,TRaw,TFault>`, so the owner type is the zero-witness typeclass instance a constrained generic dispatches on without an instance — the open-owner inversion and the constraint-tier-selection mechanics are the surface page's, the conformance is the shape.
-- Boundary: leaf admission composes through the rail page's accumulating carrier and the composite-refinement `guard`; this card owns only the leaf-before-composite order and the aggregate-case prerequisite, never the accumulation operator.
+- Boundary: leaf admission composes through the carrier page's accumulating `Validation` and the composite-refinement `guard`; this card owns only the leaf-before-composite order and the aggregate-case prerequisite, never the accumulation operator.
 
 [WIRE_OWNERSHIP]:
 - Law: a protocol DTO is a shape only on topology divergence — a scalar wire collapses into the owner's object factory, a string wire into a parse-format `[ObjectFactory<TValue>]` micro-grammar, and a keyed owner severs the DTO at declaration through `UseForSerialization`; a surviving DTO stays a raw disposable record that never grows `Validate`.

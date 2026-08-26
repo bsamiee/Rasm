@@ -9,7 +9,7 @@
 ## [02]-[CODEC]
 
 - Owner: `Codec` the one single-blob producer wrapping the `Bundle` carrier with its `lane: LanePolicy`; the four codec rows resolve here, the container rows on `package/archive#ARCHIVE`, the delta row on `package/delta#DELTA`. `Codec.pack`/`Codec.recover` are the `PackWorker` port kernels: public staticmethods over `(payloads, profile)` — the profile IS the discriminant, its `algo` derived, no second algorithm parameter to contradict it — total over the four rows, module-picklable so the `HOSTILE` crossing ships them `REFERENCE` by qualified name with the profile crossing as data.
-- Cases: `pack` discriminates on spread arity, never a `batch` flag — the `ZSTD` arm takes `multi_compress_to_buffer` for a two-or-more spread its `backend_features` advertises, else a per-payload loop serving the singular arm too, tuning through ONE `from_level(...)` object (`compression_params=`, never `level=` beside it — mutually exclusive) that receives only NON-ZERO log/length knobs, because an explicit `0` kwarg replaces the level-derived cparam with the context default and silently downgrades the keyed level. Both `GZIP` lanes emit one byte-reproducible self-delimiting member any stdlib `gzip` reads, and `BROTLI` rides a 16-byte prefix — 8-byte big-endian length plus 8-byte `xxh3_64` payload digest — since its stream is neither concatenation-splittable nor checksummed in-band. `recover` walks each codec's own end-of-frame seam, every decode bomb-bounded against `_DECOMPRESS_CEILING`: the `ZSTD` decode refuses a frame whose declared content size is unknown, erroneous, or over-ceiling BEFORE decompressing, caps `max_window_size=_DECOMPRESS_WINDOW` against a small-declared/huge-window frame, and requires both `eof` and output length equal to the declaration; the `GZIP` decode requires `eof` after the bounded call so a truncated member never masquerades as a recovered payload; the `LZ4` decode splits its two non-`eof` states through `needs_input` — starved input is `<lz4-truncated>`, a capped output the bomb — and normalizes the pre-tail `unused_data` `None` to the empty tail; the `BROTLI` decode counts the first bounded chunk and derives every empty-input drain through `Block.unfold` until `is_finished()`, using `can_accept_more_data()` only to distinguish a drained-but-incomplete stream before proving the sidecar digest. `_zstd_frame(trained)` reuses ONE dict-aware decompressor across frames because a `FULLDICT` frame decoded dictless raises corruption and a `trained` bundle is otherwise unrecoverable by its own manifest walk.
+- Cases: `pack` discriminates on spread arity, never a `batch` flag — the `ZSTD` arm takes `multi_compress_to_buffer` for a two-or-more spread its `backend_features` advertises, else a per-payload loop serving the singular arm too, tuning through ONE `from_level(...)` object (`compression_params=`, never `level=` beside it — mutually exclusive) that receives only NON-ZERO log/length knobs, because an explicit `0` kwarg replaces the level-derived cparam with the context default and silently downgrades the keyed level. Both `GZIP` lanes emit one byte-reproducible self-delimiting member any stdlib `gzip` reads, and `BROTLI` rides a 16-byte prefix — 8-byte big-endian length plus 8-byte `xxh3_64` payload digest — since its stream is neither concatenation-splittable nor checksummed in-band. `recover` walks each codec's own end-of-frame boundary, every decode bomb-bounded against `_DECOMPRESS_CEILING`: the `ZSTD` decode refuses a frame whose declared content size is unknown, erroneous, or over-ceiling BEFORE decompressing, caps `max_window_size=_DECOMPRESS_WINDOW` against a small-declared/huge-window frame, and requires both `eof` and output length equal to the declaration; the `GZIP` decode requires `eof` after the bounded call so a truncated member never masquerades as a recovered payload; the `LZ4` decode splits its two non-`eof` states through `needs_input` — starved input is `<lz4-truncated>`, a capped output the bomb — and normalizes the pre-tail `unused_data` `None` to the empty tail; the `BROTLI` decode counts the first bounded chunk and derives every empty-input drain through `Block.unfold` until `is_finished()`, using `can_accept_more_data()` only to distinguish a drained-but-incomplete stream before proving the sidecar digest. `_zstd_frame(trained)` reuses ONE dict-aware decompressor across frames because a `FULLDICT` frame decoded dictless raises corruption and a `trained` bundle is otherwise unrecoverable by its own manifest walk.
 - Output: `verified` is the real per-member proof count, never a uniform lie — enabled zstd `write_checksum` and lz4 `content_checksum` trailers count when present, gzip trailer CRC and the brotli sidecar digest always count; `frame_size` reads `zstandard.frame_content_size` per zstd frame (sentinel-guarded to zero on the evidence fold), while the other arms sum payload or `content_size` lengths. `Bundle.of` admits the Zstandard and LZ4 parameter bands against their provider bounds, so `pack` forwards the exact keyed level instead of clamping distinct profiles onto identical output.
 - Packages: `zstandard` (eager — the core arm and `trained`), `lz4.frame`/`brotli`/`zlib-ng` (lazy — reify at arm scope, in the worker process for the `HOSTILE` rows), `xxhash` (`xxh3_128_digest` the walk digests, `xxh3_64_digest` the brotli sidecar), `expression` (`Block.unfold` the anamorphism, `Map.of_seq` the dispatch rows, `Option`/`Some`/`Nothing` the walk step, `Result` the settled-output match), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`metrics`/`resilience`, `rasm.artifacts.core.plan`/`core.hooks`/`package.bundle`.
 - Growth: a new single-blob algorithm is one bundle-page `CompressionAlgo`/`CodecProfile`/`ALGO_OF`/`DEFAULT_PROFILE` row, one `pack` arm, one frame decoder, and one `recover` arm; a new tuning knob is one field on the owning bundle-page knob-struct; a new bounded knob value is one `Literal` token plus one arm-scope dispatch row — zero new verb beside `emit`/`packed`/`unpack`.
@@ -27,7 +27,7 @@ from expression import Nothing, Option, Result, Some
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -109,7 +109,7 @@ class Codec(Struct, frozen=True):
     @staticmethod
     async def trained(
         corpus: tuple[bytes, ...], *payloads: bytes, lane: LanePolicy, level: int = 19, dict_size: int = 112_640, parents: tuple[ContentKey, ...] = ()
-    ) -> RuntimeRail["Codec"]:
+    ) -> RuntimeResult["Codec"]:
         trained = await lane.offload(Kernel.of(zstandard.train_dictionary, KernelTrait.RELEASING), dict_size, list(corpus))
         return trained.map(
             lambda dictionary: Codec.of(
@@ -123,17 +123,17 @@ class Codec(Struct, frozen=True):
     def emit(self, /) -> ArtifactWork[tuple[bytes, BundleEvidence]]:
         return ArtifactWork(key=self.bundle.key, work=self._emit, parents=self.bundle.parents, admission=Admission(keyed=None), cost=self._cost)
 
-    async def packed(self, /) -> RuntimeRail[tuple[bytes, BundleEvidence]]:
+    async def packed(self, /) -> RuntimeResult[tuple[bytes, BundleEvidence]]:
         return await self.lane.offload(Kernel.of(Codec.pack, self._trait), self.bundle.payloads, self.bundle.profile)
 
-    async def _emit(self, /) -> RuntimeRail[tuple[bytes, BundleEvidence]]:
+    async def _emit(self, /) -> RuntimeResult[tuple[bytes, BundleEvidence]]:
         packed = await self.packed()
         match packed:
             case Result(tag="ok", ok=product):
                 Metrics.record({BYTE_VOLUME: float(len(product[0]))}, domain=DOMAIN, kind="bundle", scope=self.lane.scope)
         return packed
 
-    async def unpack(self, blob: bytes, /) -> RuntimeRail[BundleManifest]:
+    async def unpack(self, blob: bytes, /) -> RuntimeResult[BundleManifest]:
         kernel = Kernel.of(Codec.recover, self._trait, deadline=Some(_RECOVER_DEADLINE), enforcement=Enforcement.TERMINAL)
         rows = await self.lane.offload(kernel, blob, self.bundle.profile)
         return rows.map(lambda recovered: BundleManifest.of(self.bundle.algo, recovered))

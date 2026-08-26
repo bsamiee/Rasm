@@ -46,7 +46,7 @@
 - [29]-[RASTER_IO](.planning/graphic/raster/io.md): `Raster` host-free pixel IO/convert/working-surface owner over pillow and pyvips.
 - [30]-[RASTER_PROCESS](.planning/graphic/raster/process.md): Raster vocabulary owner and produced-raster engine over pillow and scikit-image.
 - [31]-[RASTER_MEASURE](.planning/graphic/raster/measure.md): scikit-image measured-score half producing perceptual and feature scalars.
-- [32]-[TEXTURE_PLANE](.planning/graphic/texture/plane.md): `Plane` deep-pixel substrate and the codec rows lifting the estate 8-bit ceiling.
+- [32]-[TEXTURE_PLANE](.planning/graphic/texture/plane.md): `Plane` deep-pixel substrate and the codec rows lifting the repo 8-bit ceiling.
 - [33]-[TEXTURE_DERIVE](.planning/graphic/texture/derive.md): `DeriveOp` channel-derivation kernels over one separable resampler.
 - [34]-[TEXTURE_INGEST](.planning/graphic/texture/ingest.md): `TextureRole`/`IblProduct` slot vocabulary and its total loose-file classifier.
 - [35]-[TEXTURE_SET](.planning/graphic/texture/set.md): `TextureSet` producer minting the generated `appearance.Set` behind a merkle set key.
@@ -56,7 +56,7 @@
 - [39]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill and hatch generator over typed motif-aware lowerings.
 - [40]-[MARKS_MARK](.planning/graphic/marks/mark.md): `Symbology` shared machine-readable-mark vocabulary both codec halves import.
 - [41]-[MARKS_ENCODE](.planning/graphic/marks/encode.md): `Mark` machine-readable-mark owner composing generation with decode and verify inverses.
-- [42]-[MARKS_DECODE](.planning/graphic/marks/decode.md): `DecodeScope.scan` decode substrate the generation arms cannot express, mark-rail-composed.
+- [42]-[MARKS_DECODE](.planning/graphic/marks/decode.md): `DecodeScope.scan` decode substrate the generation arms cannot express.
 - [43]-[COLOR_DERIVE](.planning/graphic/color/derive.md): `Colorimetry` upstream color source — CIE/CAM16/spectral, gamut, CVD, harmony, WCAG.
 - [44]-[COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` downstream ICC/LUT/CCTF color-managed raster egress.
 - [45]-[STYLE](.planning/graphic/style.md): `Theme` theme-as-data owner carrying type, stroke, palette, ground, and sheet-family rows.
@@ -94,7 +94,7 @@
 - [67]-[SYNTHESIS](.planning/media/synthesis.md): `Synthesis` generated audio and video test-signal producer feeding the encode arms.
 
 [SCENE]:
-- [68]-[SPEC](.planning/scene/spec.md): `SceneGrid` parse-floor seam vocabulary and the `WORKER_MODULE` floor anchor.
+- [68]-[SPEC](.planning/scene/spec.md): `SceneGrid` parse-floor boundary vocabulary and the `WORKER_MODULE` floor anchor.
 - [69]-[RENDER](.planning/scene/render.md): `Scene3d` offscreen 3D render producer and rgb24 frame-egress owner on the worker lane.
 - [70]-[RENDER_WORKER](.planning/scene/render_worker.md): `_KERNELS` shipped worker kernel bodies the process lane resolves on the worker floor.
 - [71]-[EXPORT](.planning/scene/export.md): `ExportRow` correspondence over every scene export target with deterministic capture.
@@ -147,7 +147,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 [VISUALIZATION]:
 - `altair`
 - `matplotlib`
-- `lets-plot` — FLOOR-GATED with no wheel, sdist, or nix route; second host-free chart engine whose `lets_plot` arms rail `<engine-unavailable>`.
+- `lets-plot` — FLOOR-GATED with no wheel, sdist, or nix route; second host-free chart engine whose `lets_plot` arms fault `<engine-unavailable>`.
 - `vl-convert-python` — Primary host-free chart export.
 - `vegafusion` — Chart export transform pre-pass.
 - `great-tables` — Publication-table producer.
@@ -173,7 +173,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `resvg-py` — SVG-to-raster render.
 - `tifffile` — TIFF container IO and layered-TIFF writer.
 - `psdtags` — Photoshop TIFF image resources.
-- `imagecodecs` — Deep-pixel file and channel-byte codec rails, display-container array writes, ICC transform, BCn decode.
+- `imagecodecs` — Deep-pixel file and channel-byte codec paths, display-container array writes, ICC transform, BCn decode.
 - `openexr` — Named-channel, multi-part, and tiled EXR documents.
 - `pyktx` — In-process KTX2 container with Basis/ASTC encode and block transcode.
 
@@ -242,7 +242,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 
 Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_RESULTS]:
 - `expression`
 - `msgspec`
 - `beartype`

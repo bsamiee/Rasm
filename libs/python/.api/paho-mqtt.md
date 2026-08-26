@@ -156,7 +156,7 @@ Each callback also has a decorator factory on the instance — `connect_callback
 
 [LOCAL_ADMISSION]:
 - `CallbackAPIVersion.VERSION2` is the one admitted shape, so every callback has one protocol-independent arity and MQTTv3 return codes arrive already lifted to `ReasonCode`.
-- `suppress_exceptions` stays false and the crossing rails its own faults, so a re-entry failure is a typed fault rather than a killed loop.
+- `suppress_exceptions` stays false and the crossing returns its own faults, so a re-entry failure is a typed fault rather than a killed loop.
 - `MQTTv5` is the admitted protocol for the binary content mode; an `MQTTv311` session carries no property surface and lowers structured-only.
 - `reinitialise` is refused; a re-armed composition constructs a fresh client.
 - Every client STATES `max_queued_messages` and `max_inflight_messages_set` before connecting, since the shipped queue ceiling is unbounded and a bound landing after connect refuses.

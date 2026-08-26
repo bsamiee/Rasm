@@ -1,10 +1,10 @@
 # [PY_DATA_API_SQLGLOT]
 
-`sqlglot` is the pure-Python SQL tokenizer, parser, transpiler, and optimizer for the data rail's query-IR, SQL-gate, and lineage concerns, with no database connection. `parse_one` builds an `Expr` syntax tree, `Expr.sql`/`transpile` regenerate it under any dialect, `optimizer.optimize` canonicalizes against a schema, `lineage.lineage` traces a column to its sources, and `diff` computes the AST edit set between two trees. `Dialect.get_or_raise` gates every dialect over the closed `Dialects` vocabulary, and every failure descends from `SqlglotError`.
+`sqlglot` is the pure-Python SQL tokenizer, parser, transpiler, and optimizer for the data domain's query-IR, SQL-gate, and lineage concerns, with no database connection. `parse_one` builds an `Expr` syntax tree, `Expr.sql`/`transpile` regenerate it under any dialect, `optimizer.optimize` canonicalizes against a schema, `lineage.lineage` traces a column to its sources, and `diff` computes the AST edit set between two trees. `Dialect.get_or_raise` gates every dialect over the closed `Dialects` vocabulary, and every failure descends from `SqlglotError`.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: AST node, dialect gate, engine triad, scope, lineage, diff, and the error rail
+[PUBLIC_TYPE_SCOPE]: AST node, dialect gate, engine triad, scope, lineage, diff, and the error channel
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
 | :-----: | :------------------------------ | :------------ | :---------------------------------------------------------------------------------- |
@@ -22,7 +22,7 @@
 |  [12]   | `diff.Edit`                     | diff op       | one AST edit `Insert`/`Remove`/`Move`/`Update`/`Keep` from `diff(source, target)`   |
 |  [13]   | `exp.*` clause nodes            | AST subtype   | `exp.Where`/`exp.Having`/`exp.Qualify`/`exp.Join`/`exp.Column` clause/column nodes  |
 
-[Error rail]: `SqlglotError` (root) `ParseError` (`errors` detail list) `TokenError` `UnsupportedError` `OptimizeError` `SchemaError`
+[error channel]: `SqlglotError` (root) `ParseError` (`errors` detail list) `TokenError` `UnsupportedError` `OptimizeError` `SchemaError`
 
 ## [02]-[ENTRYPOINTS]
 
@@ -68,13 +68,13 @@
 - `find`/`find_all`/`walk`/`find_ancestor` own AST search by node type and BFS/DFS flag; `find_tables` collects tables; `optimizer.scope.build_scope`/`traverse_scope`/`find_all_in_scope` own source and alias resolution.
 - `optimize` runs the `RULES` pipeline with `qualify` first; `schema` is a `{table:{col:type}}`/`{db:...}`/`{catalog:...}` mapping or a `Schema`, and a subset run slices `rules=`.
 - `lineage.lineage(column, sql, schema=...)` produces the column-lineage `Node` tree; `diff(source, target)` produces the `Edit` list for query-evolution and migration analysis.
-- Every failure descends from `SqlglotError` over the `ParseError`/`TokenError`/`UnsupportedError`/`OptimizeError`/`SchemaError` rows; `ErrorLevel` selects the parser policy; the boundary maps these onto the data rail's typed result.
+- Every failure descends from `SqlglotError` over the `ParseError`/`TokenError`/`UnsupportedError`/`OptimizeError`/`SchemaError` rows; `ErrorLevel` selects the parser policy; the boundary maps these onto the data domain's typed result.
 - Each query-IR operation retains its native facts: parse keys dialect and statement/node counts, transpile the `read`/`write` dialects, optimize the applied rule names and schema presence, lineage the target column and source-table set, diff the edit-op counts.
 
 [STACKING]:
 - `ibis-framework`(`.api/ibis-framework.md`): compiles its expression graph to SQL through sqlglot, so centralizing sqlglot here pins the `ibis` transitive SQL backend.
 - `duckdb`(`.api/duckdb.md`), `datafusion`(`.api/datafusion.md`): receive `transpile`-output SQL keyed by the engine's `Dialects` member, transpiled to the engine dialect rather than hand-written.
-- within-lib: the `Expr` AST feeds the data rail's query owner directly (gated through `Dialect.get_or_raise` before generate); `lineage.lineage` maps a result column back to its physical source columns for the provenance owner, and `diff` drives query-version change detection over a stored `Expr` baseline for the migration owner.
+- within-lib: the `Expr` AST feeds the data domain's query owner directly (gated through `Dialect.get_or_raise` before generate); `lineage.lineage` maps a result column back to its physical source columns for the provenance owner, and `diff` drives query-version change detection over a stored `Expr` baseline for the migration owner.
 
 [LOCAL_ADMISSION]:
 - Build new SQL through the builder DSL; parse and rewrite through `parse_one`/`Expr.transform`; gate every dialect through `Dialect.get_or_raise` over `Dialects`; trace provenance through `lineage.lineage` and query change through `diff`.

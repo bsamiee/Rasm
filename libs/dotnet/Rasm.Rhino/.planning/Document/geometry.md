@@ -15,10 +15,10 @@
 - Law: the state triple is ONE atom. Release, retain, and roster transitions compute as pure functions of `HandleState` and land through `Cell.Step`/`Cell.Commit`, so a losing transition reads its `Transition` case instead of assuming a swap; the six lock scopes the field triple demanded collapse to the two host-extent windows below.
 - Law: the native EXTENT still serializes under one `Lock` gate — RhinoCommon geometry is not safe under concurrent access and a host call cannot ride a CAS body that retries — so the gate brackets exactly the host window while every state decision rides the atom. Exemption: this gate and the ordinal-ordered dual gate in `Compare` are the platform-forced custody kernel; the ordinal order makes two-handle comparison deadlock-free, and one cell holds the whole state so no multi-cell `atomic` fold is ever needed.
 - Law: document-controlled ingress leaves document custody only through a deep copy; copy-on-write shares only non-document material and deepens before mutation.
-- Law: `With` lends the native value only for the synchronous extent of the supplied rail. Commit and rollback RETAIN each failed losing lease rather than discarding it, `Dispose` retries the complete roster, and every cleanup fault aggregates into the primary through the `Error` monoid — the retain-and-retry posture is this page's refinement of the shared release fold, because a disposal the host refused today may settle on the release path, and the discriminant is stated here.
+- Law: `With` lends the native value only for the synchronous extent of the supplied body. Commit and rollback RETAIN each failed losing lease rather than discarding it, `Dispose` retries the complete roster, and every cleanup fault aggregates into the primary through the `Error` monoid — the retain-and-retry posture is this page's refinement of the shared release fold, because a disposal the host refused today may settle on the release path, and the discriminant is stated here.
 - Law: mutation admission is the `CustodyPosture` row's own consequence — `Immutable` refuses with a typed fault naming the posture and `Mutable` admits — so no gate re-branches on a `bool Mutable` column and a third posture lands as one row.
 - Boundary: `GeometryCrc` and the kernel `ContentHash` are DIFFERENT custodies and neither substitutes for the other. `GeometryCrc` wraps `GeometryBase.DataCRC`, a host-computed running remainder over the native representation: chainable, cheap, in-process, and stable only for the process that computed it, so it answers "did this handle change under me" and nothing else. The kernel `ContentHash` is the federation identity a stored or transported value carries; a `GeometryCrc` persisted or compared across a boundary is the deleted form.
-- Growth: a custody policy is one `CrossingMode` behavior row over the same acquisition rail; a custody phase is one `HandleRelease` case the pure transitions absorb.
+- Growth: a custody policy is one `CrossingMode` behavior row over the same acquisition pipeline; a custody phase is one `HandleRelease` case the pure transitions absorb.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -687,12 +687,12 @@ public sealed record GeometryOutcome(
 
 - Owner: `ClipOp` owns clipping-plane state transitions over one retained seed and one canonical membership value, and it is the folder's ONE `SetClipParticipation` writer — `Exchange/sheets` composes it for the document-attached half rather than spelling a second scope algebra. `FieldOverride<T>` declares HERE at the Document tier: the three-state Keep/Set/Clear override vocabulary the depth arm and every Exchange override site read, seated at the lowest stratum both reach.
 - Law: `FieldOverride<T>` states three intentions and no more — `Keep` leaves the host state standing, `Set` writes a gate plus its value, and `Clear` forces the gate off so the host inherits. A caller carrying an override never spells a second enable flag beside its value, and a per-page override union beside this owner is the deleted form; the former Exchange-tier declaration re-points here.
-- Law: the owner carries BOTH gate-plus-value arms and no page mints a third — `Apply` rails admission at write time, `Through` writes totally for a payload its own type admitted at construction; admission TIMING is the whole discriminant, and the former Exchange-tier `HostGate.Through` static twin deletes onto this member.
+- Law: the owner carries BOTH gate-plus-value arms and no page mints a third — `Apply` gates admission at write time, `Through` writes totally for a payload its own type admitted at construction; admission TIMING is the whole discriminant, and the former Exchange-tier `HostGate.Through` static twin deletes onto this member.
 - Law: inclusion, exclusion, and unrestricted scope remain distinct even when their member sets are empty; admission canonicalizes identifiers once, and each scope case writes the host pair with its own literal — the case IS the exclusion discriminant, so no helper threads a bool.
 - Law: each edit mutates one deep working copy, re-reads the complete state, and proves the requested transition before lease swap; the depth arm proves `Keep` by equality with the prior state, so an untouched gate is a confirmed fact rather than an unchecked hole.
 - Law: viewport edits are set algebra over canonical before and after values, so add and remove are idempotent and replace derives one delta.
-- Law: a clipping plane authors DETACHED — `GeometryHandle` holds one custody lease and no document — so a raw `Guid` handed to `ViewportOp` is REQUESTED membership, admitted against `Guid.Empty` alone, and `Confirm` proves only that the written set equals the requested set. `ViewportOp.Proven` is the one fence turning requested membership into existence evidence: a caller holding a document folds `ViewportTarget` addresses through `ViewportTarget.ResolveViewport` before constructing the edit, so a committed plane carries ids that name live viewports. A committing rail that skips that fold commits fabricated ids, and no downstream read can tell them from real ones.
-- Boundary: document lookup, table mutation, and redraw remain on the document transaction spine; viewport EXISTENCE is proven by `ViewportOp.Proven` at whichever seam holds the document, because the spine never sees the detached authoring path.
+- Law: a clipping plane authors DETACHED — `GeometryHandle` holds one custody lease and no document — so a raw `Guid` handed to `ViewportOp` is REQUESTED membership, admitted against `Guid.Empty` alone, and `Confirm` proves only that the written set equals the requested set. `ViewportOp.Proven` is the one fence turning requested membership into existence evidence: a caller holding a document folds `ViewportTarget` addresses through `ViewportTarget.ResolveViewport` before constructing the edit, so a committed plane carries ids that name live viewports. A committing pipeline that skips that fold commits fabricated ids, and no downstream read can tell them from real ones.
+- Boundary: document lookup, table mutation, and redraw remain on the document transaction spine; viewport EXISTENCE is proven by `ViewportOp.Proven` at whichever boundary holds the document, because the spine never sees the detached authoring path.
 - Growth: a clipping capability extends `ClipOp`; a membership modality extends `ClipScope`; an override intention never widens — three states are the whole vocabulary.
 
 ```csharp
@@ -741,7 +741,6 @@ public sealed partial class ClipSet {
     public Seq<Guid> Objects { get; }
     public Seq<int> Layers { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<Guid> objects,
@@ -939,7 +938,7 @@ public sealed record ClipState(
 public readonly record struct ClipTransition(ClipState Before, ClipState After);
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-geometry.md` — geometry duplication/transform members; `api-rhinocommon-objects.md` — `SetClipParticipation`, handle custody); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]`/`[ValueObject]` clip and handle vocabularies, `[ComplexValueObject]` `FieldOverride<T>`); kernel `Domain/rails` (`Transition`, `Cell`, `Op`) + `Analysis` measures.
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-geometry.md` — geometry duplication/transform members; `api-rhinocommon-objects.md` — `SetClipParticipation`, handle custody); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]`/`[ValueObject]` clip and handle vocabularies, `[ComplexValueObject]` `FieldOverride<T>`); kernel `Domain/results` (`Transition`, `Cell`, `Op`) + `Analysis` measures.
 
 ## [05]-[RESEARCH]
 

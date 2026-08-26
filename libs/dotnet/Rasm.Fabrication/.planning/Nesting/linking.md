@@ -23,7 +23,7 @@
 - Result: `LinkComparison` carries pierce, rapid, cut, shared, bridge, partition, heat, quality, and remnant-loss axes before and after the candidate topology; remnant loss combines partition kerf area with sub-floor cell area as offcut-side costs.
 - Packages: `LanguageExt.Core`, `QuikGraph` (`ConnectedComponents`, `ComputeTransitiveReduction`, `TopologicalSort`, `MinimumSpanningTreeKruskal`, `TreeBreadthFirstSearch`, `ShortestPathsAStar`, `IsDirectedAcyclicGraph` — every graph question on this page is one of these operators, and no hand walk stands beside one), `Thinktecture.Runtime.Extensions`, `Rasm` (`JoinType`/`EndType`/`BooleanOp`/`OffsetPolicy`, `ICapability`/`CapabilitySet`, `Context`/`ToleranceLane`), `UnitsNet` (`Length`, `Area`, `Ratio` on the policy's own spans), `RhinoCommon`, and the `Geometry2D` owners compose the surface.
 - Growth: a cut edit is one `LinkOp` case; a scoring axis is one `LinkEvidence` member with one `CutLinkObjective` weight; a second waste decomposition turns `WasteVoronoi` into the union over its own payloads while the `Option` that routes enablement stays untouched; no consumer gains an orchestration step.
-- Boundary: `ChainRow.SheetIndex`, `Instances`, `SourceParts`, `Pierces`, `Members`, `Shared`, and `RapidPaths` form the posting seam, and `ContourCut.Path` is entry-rotated so a consumer leads at parameter zero without re-deriving the entry; mutable `QuikGraph` construction is the one statement-bearing seam, and the waste diagram is never minted here.
+- Boundary: `ChainRow.SheetIndex`, `Instances`, `SourceParts`, `Pierces`, `Members`, `Shared`, and `RapidPaths` form the posting boundary, and `ContourCut.Path` is entry-rotated so a consumer leads at parameter zero without re-deriving the entry; mutable `QuikGraph` construction is the one statement-bearing site, and the waste diagram is never minted here.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -96,7 +96,6 @@ public sealed partial class CutLinkObjective {
         + (evidence.QualityRisk / basis.Pierces * Quality)
         + (evidence.RemnantLossMm2 / basis.AreaMm2 * Remnant);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double pierce,
@@ -134,7 +133,6 @@ public sealed partial class CutLinkPolicy {
     public double AngularToleranceRadians => Tolerance.For(ToleranceLane.Angle).Value;
     public double ArcToleranceMm => Tolerance.For(ToleranceLane.Arc).Value;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CapabilitySet<LinkCapability> enabled,
@@ -172,7 +170,6 @@ public sealed partial class LinkRun {
     public Map<int, Seq<Loop>> KeepOutBySheet { get; }
     public CutLinkPolicy Policy { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FabricationResult.Placement placement,

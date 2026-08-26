@@ -11,10 +11,10 @@
 
 ## [02]-[EXECUTION]
 
-- Owner: `Execution` closes at TWO cases — `Uniform(PinAccess Depth, Step)` and `Mixed(Step)` — because the former pear/twig/tree triplet differed only in the carrier its pre-gather plumbing spelled: every step now reads and writes through `ProcessScope`'s own typed rails at the declared depth, the three per-carrier gather/write folds delete whole, and the depth survives as the ADMISSION datum topology coherence checks against. NAMED LOSS: the pre-gathered `Seq<IPear/ITwig/ITree>` step argument — a step spells `scope.Read<T>(pin, depth)` per pin, which is the same host call the plumbing made invisibly. `IterationPolicy` separately selects the host array driver or one custom whole-array fold.
-- Entry: `Executions.Run` invokes the step inside the scope and returns its `Fin<Unit>` unchanged; the host callback checks the scope's emitted `OutputPlan` set before collapsing the rail.
+- Owner: `Execution` closes at TWO cases — `Uniform(PinAccess Depth, Step)` and `Mixed(Step)` — because the former pear/twig/tree triplet differed only in the carrier its pre-gather plumbing spelled: every step now reads and writes through `ProcessScope`'s own typed results at the declared depth, the three per-carrier gather/write folds delete whole, and the depth survives as the ADMISSION datum topology coherence checks against. NAMED LOSS: the pre-gathered `Seq<IPear/ITwig/ITree>` step argument — a step spells `scope.Read<T>(pin, depth)` per pin, which is the same host call the plumbing made invisibly. `IterationPolicy` separately selects the host array driver or one custom whole-array fold.
+- Entry: `Executions.Run` invokes the step inside the scope and returns its `Fin<Unit>` unchanged; the host callback checks the scope's emitted `OutputPlan` set before collapsing the result.
 - Growth: a topology extends `Execution`; an array strategy extends `IterationPolicy`; output obligation extends `OutputPlan`; none creates a second processing entrypoint.
-- Boundary: `ProcessScope` is the only step seam into `IDataAccess`; it carries context, cancellation, iteration evidence, typed reads, output writes, notices, and the operation key.
+- Boundary: `ProcessScope` is the only step boundary into `IDataAccess`; it carries context, cancellation, iteration evidence, typed reads, output writes, notices, and the operation key.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -227,7 +227,7 @@ public sealed record ComponentSpec {
 
 - Owner: `IComponentDeclaration<TSelf>` binds one static declaration to its concrete component type; `SpecComponent<TSelf>` reads the admitted value from static storage before `ModularComponent` invokes `AddInputs`, `AddOutputs`, and initial maintenance.
 - Entry: host callbacks project into the declaration; per-access and custom-array processing check required outputs at the callback that owns each scope, and lifecycle stages park failures on the injected fault cell.
-- Growth: a host virtual adds one declaration projection; declaration, ledger, and rail ownership stay in the generic base.
+- Growth: a host virtual adds one declaration projection; declaration, ledger, and result ownership stay in the generic base.
 - Boundary: every ABI-only throw follows injected `FaultCell` custody; runtime failures report through `IDataAccess` where available.
 - Law: `Connectivity`/`ConnectivityComplete` exist on no live `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — all three are host plumbing the base owns, so no `Lifecycle` slot projects them and a catalog row claiming component virtuals for the first two is stale against the shipped assembly.
 

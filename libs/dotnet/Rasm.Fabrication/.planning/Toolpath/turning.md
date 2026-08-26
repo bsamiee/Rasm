@@ -28,7 +28,7 @@ The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`
 - Owner: `TurnStock` admits solid, tubular, and near-net blanks with axial bounds, inner/outer radii, and optional profile evidence.
 - Owner: `TurnPolicy` owns approach, retract, overlap, peck, and thread clearances as UnitsNet quantities and the rapid traverse as a `Speed`; no operation body carries a local machining constant and no column spells a unit into a name. Chord and biarc gates are NOT policy columns — the admitted profile carries its own `Context`, so `ToleranceLane.Chord` and `ToleranceLane.Arc` answer them and a project override moves both at once.
 - Owner: `SpindleMode` carries the radius FLOOR its own solve needs as a base column each case fills, so a constant-surface mode cannot exist without the floor that keeps its rpm finite at the axis and no body threads one policy column through every rpm site.
-- Entry: `TurnDemand.Admit` and `TurnRequest.Admit` accumulate profile, stock, insert, process, spindle, step, operation, synchronization, and numeric defects onto ONE `Validation` rail and land it as `Fin` — the accumulated refusal keeps its arity, so an eleven-defect request reports eleven rows rather than one flattened message.
+- Entry: `TurnDemand.Admit` and `TurnRequest.Admit` accumulate profile, stock, insert, process, spindle, step, operation, synchronization, and numeric defects onto ONE `Validation` result and land it as `Fin` — the accumulated refusal keeps its arity, so an eleven-defect request reports eleven rows rather than one flattened message.
 - Boundary: `TurnDemand` accepts canonical `Loop`, `CutterForm`, `CuttingData`, and `ProcessBudget.Turning` owners. `CuttingData.FeedBasis` must be `FeedBasis.PerRevolution`.
 
 ## [04]-[GENERATE]
@@ -179,7 +179,6 @@ public sealed partial class ThreadProfile {
         Seed(ThreadForm.Pipe, 27.5, 27.5, 0.0, 0.0, 0.1373, 0.1373, 0.6403))
         .Map(static row => (row.Form, row)));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ThreadForm form,
@@ -300,7 +299,6 @@ public sealed partial class TurnStock {
     public double AxialMaximum { get; }
     public Option<Loop> Envelope { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref StockKind kind,
@@ -336,7 +334,6 @@ public sealed partial class TurnInsert {
     public double LeadAngleDeg { get; }
     public TipOrientation Orientation { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CutterForm form,
@@ -377,7 +374,6 @@ public sealed partial class TurnPolicy {
 
     public Speed Rapid { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length approach,
@@ -441,7 +437,6 @@ public sealed partial class ThreadSpec {
     public double CrestRadius => Profile.CrestRadiusPitch * Pitch;
     public double RootRadius => Profile.RootRadiusPitch * Pitch;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ThreadProfile profile,
@@ -516,7 +511,6 @@ public abstract partial record LatheOp {
 
 [ValueObject<string>]
 public readonly partial struct ChannelToken {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))

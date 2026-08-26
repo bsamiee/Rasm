@@ -1,17 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Dependency-zero RhinoWIP stub with one reflective activation hop into the shell ALC.</Description>
+        <Description>Dependency-zero Rhino plugin with one reflective activation hop into the shell ALC.</Description>
         <AssemblyName>rasm-bridge</AssemblyName>
         <RootNamespace>Rasm.Bridge.Stub</RootNamespace>
+        <TargetExt>.rhp</TargetExt>
         <RasmPlugin>rhino</RasmPlugin>
-        <EnableDynamicLoading>true</EnableDynamicLoading>
-        <RhinoPluginAssemblyGuid>23898819-e84f-4fd3-bb2c-85b208718cba</RhinoPluginAssemblyGuid>
+        <RhinoPluginGuid>23898819-e84f-4fd3-bb2c-85b208718cba</RhinoPluginGuid>
         <YakPackageSlug>rasm-bridge</YakPackageSlug>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
     </PropertyGroup>
-    <ItemGroup Label="Project References">
-        <ProjectReference Include="../Shell/Shell.csproj" ReferenceOutputAssembly="false" RasmInfra="true" />
-    </ItemGroup>
+
     <ItemGroup Label="Yak Payload">
+        <ProjectReference Include="../Shell/Shell.csproj" ReferenceOutputAssembly="false" RasmInfra="true" />
         <YakPayloadProject Include="../Shell/Shell.csproj" />
     </ItemGroup>
 </Project>

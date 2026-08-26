@@ -1,6 +1,6 @@
 # [RASM_API_ETO_PLATFORM]
 
-`Eto.Platform` is the ambient handler-factory root beneath every `Eto.Forms` control and `Eto.Drawing` object: one platform mints, caches, and resolves each widget's backend handler, `HandlerAttribute` binds the widget type to its handler interface, and `IControlObjectSource.ControlObject` exposes the handler-created native control without a second field. `Style` restyles by name at attach time and `NativeControlHost` admits a raw platform object into the managed tree. This branch catalogue owns the handler root every consuming folder crosses; each host-boundary folder registers it and tables only the platform-specific handler set or host seam its own boundary reaches.
+`Eto.Platform` is the ambient handler-factory root beneath every `Eto.Forms` control and `Eto.Drawing` object: one platform mints, caches, and resolves each widget's backend handler, `HandlerAttribute` binds the widget type to its handler interface, and `IControlObjectSource.ControlObject` exposes the handler-created native control without a second field. `Style` restyles by name at attach time and `NativeControlHost` admits a raw platform object into the managed tree. This branch catalogue owns the handler root every consuming folder crosses; each host-boundary folder registers it and tables only the platform-specific handler set or host adapter its own boundary reaches.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -150,8 +150,8 @@
 
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): the identity vocabulary — `Platforms` ids and `PlatformFeatures` flags — maps at each boundary onto `[SmartEnum]` and flag owners, so a platform-gate decision is exhaustive dispatch rather than a stringly-keyed `ID` comparison collapsing an `IsMac`/`IsWpf` predicate ladder.
-- `LanguageExt.Core`(`.api/api-languageext.md`): runtime-nullable `Platform.Instance`, `Find`, and `CreateNativeControlArgs.NativeControl` lower onto `Option<T>`/`Fin<T>` at each boundary; `Platform.Create<T>()` and an invalid native-host payload enter `Op.Catch` before `Eff<A>` scopes the already-railed native attach and detach lifecycle for deterministic release.
-- `api-eto-forms`(`.api/api-eto-forms.md`) and `api-eto-drawing`(`.api/api-eto-drawing.md`): this root resolves the control object each consumes, and the `Themed*Handler` backend classes register through `Platform.Add<TWidget.IHandler>` at this seam rather than as widget-construction rows.
+- `LanguageExt.Core`(`.api/api-languageext.md`): runtime-nullable `Platform.Instance`, `Find`, and `CreateNativeControlArgs.NativeControl` lower onto `Option<T>`/`Fin<T>` at each boundary; `Platform.Create<T>()` and an invalid native-host payload enter `Op.Catch` before `Eff<A>` scopes the already-carried native attach and detach lifecycle for deterministic release.
+- `api-eto-forms`(`.api/api-eto-forms.md`) and `api-eto-drawing`(`.api/api-eto-drawing.md`): this root resolves the control object each consumes, and the `Themed*Handler` backend classes register through `Platform.Add<TWidget.IHandler>` at this registry rather than as widget-construction rows.
 
 [LOCAL_ADMISSION]:
 - Every widget composes its handler through `Platform.Create`, `CreateShared`, or `Find`; a page never re-mints a `WidgetHandler` the active `Platform` already owns.

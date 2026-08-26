@@ -26,7 +26,7 @@
 [CREDENTIAL_FORM]: provider credentials ride `env` as a `secretKeyRef`, never as a values literal, because chart values render into cluster state and every stack export.
 
 [FULLNAME]: the standard collapse scaffold with flat `nameOverride`/`fullnameOverride`, both nullable — the pin reaches the Deployment, the Service, the ServiceAccount, and the RBAC objects.
-[SERVICE_NAME]: `<fullname>` UNSUFFIXED, serving the controller's metrics door. Nothing in this estate dials it; the Service exists for the ServiceMonitor.
+[SERVICE_NAME]: `<fullname>` UNSUFFIXED, serving the controller's metrics door. Nothing in this cluster dials it; the Service exists for the ServiceMonitor.
 
 ## [02]-[IMPLEMENTATION_LAW]
 

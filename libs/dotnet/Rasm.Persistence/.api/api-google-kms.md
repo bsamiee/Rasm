@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_GOOGLE_KMS]
 
-`Google.Cloud.Kms.V1` binds the Cloud KMS remote-key surface behind the `Element/identity` `KmsProvider.Gcp` arm: encrypt-as-wrap custody of a data-encryption key, and asymmetric signing of the seam `OpDigest` whose verification runs client-side against the downloaded public key. One abstract `KeyManagementServiceClient` serves both arms over a pure-managed HTTP/2 transport, and every payload rides as `Google.Protobuf.ByteString` beside a CRC32C companion the caller sets and checks.
+`Google.Cloud.Kms.V1` binds the Cloud KMS remote-key surface behind the `Element/identity` `KmsProvider.Gcp` arm: encrypt-as-wrap custody of a data-encryption key, and asymmetric signing of the boundary `OpDigest` whose verification runs client-side against the downloaded public key. One abstract `KeyManagementServiceClient` serves both arms over a pure-managed HTTP/2 transport, and every payload rides as `Google.Protobuf.ByteString` beside a CRC32C companion the caller sets and checks.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -100,18 +100,18 @@
 
 [ENTRYPOINT_SCOPE]: resource-name builders — each `From…` composes ordered `string` segments and each `Parse` reads one full resource string.
 
-| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                         |
-| :-----: | :---------------------------------------------------------------------------- | :------ | :----------------------------------- |
-|  [01]   | `CryptoKeyName.FromProjectLocationKeyRingCryptoKey(…)`                        | factory | compose a `cryptoKeys/*` path        |
-|  [02]   | `CryptoKeyName.Parse(string)`                                                 | factory | parse a full key resource string     |
-|  [03]   | `CryptoKeyName.TryParse(string, out CryptoKeyName)`                           | static  | non-throwing parse onto a typed rail |
-|  [04]   | `CryptoKeyVersionName.FromProjectLocationKeyRingCryptoKeyCryptoKeyVersion(…)` | factory | compose a `cryptoKeyVersions/*` path |
-|  [05]   | `KeyRingName.FromProjectLocationKeyRing(…)`                                   | factory | compose a `keyRings/*` path          |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `CryptoKeyName.FromProjectLocationKeyRingCryptoKey(…)`                        | factory | compose a `cryptoKeys/*` path          |
+|  [02]   | `CryptoKeyName.Parse(string)`                                                 | factory | parse a full key resource string       |
+|  [03]   | `CryptoKeyName.TryParse(string, out CryptoKeyName)`                           | static  | non-throwing parse onto a typed result |
+|  [04]   | `CryptoKeyVersionName.FromProjectLocationKeyRingCryptoKeyCryptoKeyVersion(…)` | factory | compose a `cryptoKeyVersions/*` path   |
+|  [05]   | `KeyRingName.FromProjectLocationKeyRing(…)`                                   | factory | compose a `keyRings/*` path            |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `KeyManagementServiceClient` is abstract, so `Create`, `CreateAsync`, a builder, or the container registration yields the concrete instance and `GrpcClient` reaches the generated client beneath it; of the assembly's client roots the Persistence rails bind this one.
+- `KeyManagementServiceClient` is abstract, so `Create`, `CreateAsync`, a builder, or the container registration yields the concrete instance and `GrpcClient` reaches the generated client beneath it; of the assembly's client roots the Persistence owners bind this one.
 - One instance is thread-safe and long-lived over a single channel every operation shares.
 - `CryptoKeyName`, `CryptoKeyVersionName`, and `KeyRingName` own the `projects/*/locations/*/keyRings/*/cryptoKeys/*` grammar, so a path composes through a builder.
 - DEK custody rides an `EncryptDecrypt` key: `Encrypt` resolves the primary version while `Decrypt` reads the version embedded in the ciphertext and reports `UsedPrimary`, so rotation is a primary repoint through `UpdateCryptoKeyPrimaryVersion` or the key's own `RotationPeriod` schedule and stored ciphertext survives it unrewritten.
@@ -136,5 +136,5 @@
 - `KmsProvider` holds one container-resolved `KeyManagementServiceClient` singleton, and every operation calls the `…Async` twin at the persistence boundary.
 - Key identity persists as the typed `CryptoKeyName` string, rebuilt through `CryptoKeyName.FromProjectLocationKeyRingCryptoKey` at composition.
 - `EnvelopeAad` rides `AdditionalAuthenticatedData` on every wrap and unwrap, so a DEK wrapped for one partition and tenant recovers under that pair alone.
-- Every request sets its `*Crc32C` and every response checksum is checked before the payload crosses the boundary; a mismatch rails the typed `IdentityFault` band under a bounded retry.
+- Every request sets its `*Crc32C` and every response checksum is checked before the payload crosses the boundary; a mismatch lands the typed `IdentityFault` band under a bounded retry.
 - Signing binds an `AsymmetricSign` key version distinct from the `EncryptDecrypt` wrapping key, both leased through the one per-open `SecretLease` handle.

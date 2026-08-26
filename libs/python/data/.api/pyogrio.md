@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the OGR failure rail, each error re-exported at `pyogrio.raw`
+[PUBLIC_TYPE_SCOPE]: the OGR failure channel, each error re-exported at `pyogrio.raw`
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                             |
 | :-----: | :---------------- | :------------ | :--------------------------------------- |
@@ -61,4 +61,4 @@
 - within-lib: VSI paths with `set_gdal_config_options({'CPL_VSIL_CURL_*': ...})` read a zipped GeoPackage straight from object storage, complementary to the substrate `obstore` owner for the non-OGR blobs.
 
 [LOCAL_ADMISSION]:
-- Admit `pyogrio` as the OGR vector-IO owner on the data geospatial rail, feeding both the GeoDataFrame and Arrow egress paths rather than a per-driver or per-feature reader.
+- Admit `pyogrio` as the OGR vector-IO owner on the data geospatial domain, feeding both the GeoDataFrame and Arrow egress paths rather than a per-driver or per-feature reader.

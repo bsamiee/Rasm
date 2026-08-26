@@ -1,90 +1,50 @@
-using System.Collections.Frozen;
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
+using System.Text.Json;
 using Rasm.Bridge.Contract;
+using StreamJsonRpc;
 
 namespace Rasm.Bridge.Shell;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-internal enum AssemblyOwner {
-    Host,
-    Shell,
-    Cargo,
-}
-
-// --- [TABLES] --------------------------------------------------------------------------
-
-internal static class HostAssemblyTable {
-    internal static readonly FrozenSet<string> HostOwned = new[] {
-        "RhinoCommon", "Rhino.UI", "Rhino.Runtime.Code", "RhinoCodePlatform.Rhino3D",
-        "Grasshopper2", "GrasshopperIO", "Eto", "Microsoft.macOS", "System.Drawing.Common",
-    }.ToFrozenSet(comparer: StringComparer.Ordinal);
-
-    internal static readonly FrozenSet<string> ShellOwned = new[] {
-        "Rasm.Bridge.Contract", "Rasm.Bridge.Shell", "StreamJsonRpc",
-        "Nerdbank.Streams", "Nerdbank.MessagePack", "PolyType",
-        "Microsoft.VisualStudio.Threading", "Microsoft.VisualStudio.Validation",
-        "Newtonsoft.Json", "MessagePack", "Microsoft.NET.StringTools", "System.IO.Pipelines",
-    }.ToFrozenSet(comparer: StringComparer.Ordinal);
-
-    internal static AssemblyLoadContext ShellContext { get; } =
-        AssemblyLoadContext.GetLoadContext(assembly: typeof(HostAssemblyTable).Assembly) ?? AssemblyLoadContext.Default;
-
-    internal static Assembly? ShellAssembly(AssemblyName assemblyName) =>
-        string.Equals(a: assemblyName.Name, b: typeof(CargoManifest).Assembly.GetName().Name, comparisonType: StringComparison.Ordinal)
-            ? typeof(CargoManifest).Assembly
-            : string.Equals(a: assemblyName.Name, b: typeof(HostAssemblyTable).Assembly.GetName().Name, comparisonType: StringComparison.Ordinal)
-                ? typeof(HostAssemblyTable).Assembly
-                : ShellContext.Assemblies.FirstOrDefault(predicate: assembly => AssemblyName.ReferenceMatchesDefinition(reference: assemblyName, definition: assembly.GetName()));
-
-    internal static AssemblyOwner OwnerOf(string simpleName) {
-        string probe = simpleName;
-        while (probe.Length > 0) {
-            if (HostOwned.Contains(item: probe)) {
-                return AssemblyOwner.Host;
-            }
-            if (ShellOwned.Contains(item: probe)) {
-                return AssemblyOwner.Shell;
-            }
-            int cut = probe.LastIndexOf(value: '.');
-            if (cut <= 0) {
-                break;
-            }
-            probe = probe[..cut];
-        }
-        return AssemblyOwner.Cargo;
-    }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
-internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation) : AssemblyLoadContext(name: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Rasm.Bridge.Cargo#{generation}"), isCollectible: true) {
-    private readonly AssemblyDependencyResolver resolver = new(componentAssemblyPath: cargoAssemblyPath);
-    private readonly string stagePath = Path.GetDirectoryName(path: cargoAssemblyPath) ?? ".";
+internal sealed class CargoLoadContext : AssemblyLoadContext {
+    private static readonly AssemblyLoadContext ShellContext =
+        GetLoadContext(typeof(CargoLoadContext).Assembly) ?? Default;
+
+    private readonly AssemblyDependencyResolver resolver;
+    private readonly string stagePath;
+
+    internal CargoLoadContext(string cargoAssemblyPath, int generation)
+        : base(string.Create(CultureInfo.InvariantCulture, $"Rasm.Bridge.Cargo#{generation}"), isCollectible: true) {
+        resolver = new AssemblyDependencyResolver(cargoAssemblyPath);
+        stagePath = Path.GetDirectoryName(cargoAssemblyPath)
+            ?? throw new InvalidOperationException($"cargo entry has no parent directory: '{cargoAssemblyPath}'");
+    }
 
     protected override Assembly? Load(AssemblyName assemblyName) =>
-        HostAssemblyTable.OwnerOf(simpleName: assemblyName.Name ?? string.Empty) switch {
-            AssemblyOwner.Host => null,
-            AssemblyOwner.Shell => HostAssemblyTable.ShellAssembly(assemblyName: assemblyName)
-                ?? HostAssemblyTable.ShellContext.LoadFromAssemblyName(assemblyName: assemblyName),
-            _ => resolver.ResolveAssemblyToPath(assemblyName: assemblyName) is { } path
-                ? LoadFromAssemblyPath(assemblyPath: path)
-                : Path.Combine(path1: stagePath, path2: assemblyName.Name + ".dll") is { } staged && File.Exists(path: staged)
-                    ? LoadFromAssemblyPath(assemblyPath: staged)
-                    : null,
-        };
+        Loaded(Default, assemblyName) is not null
+            ? null
+            : Loaded(ShellContext, assemblyName)
+                ?? Staged(assemblyName.Name + ".dll")
+                ?? Staged(Path.Combine(CargoManifest.ScenariosDirectory, assemblyName.Name + ".dll"));
 
     protected override nint LoadUnmanagedDll(string unmanagedDllName) =>
-        resolver.ResolveUnmanagedDllToPath(unmanagedDllName: unmanagedDllName) is { } path ? LoadUnmanagedDllFromPath(unmanagedDllPath: path) : nint.Zero;
+        resolver.ResolveUnmanagedDllToPath(unmanagedDllName) is { } path ? LoadUnmanagedDllFromPath(path) : nint.Zero;
+
+    private Assembly? Staged(string relative) {
+        string path = Path.Combine(stagePath, relative);
+        return File.Exists(path) ? LoadFromAssemblyPath(path) : null;
+    }
+
+    private static Assembly? Loaded(AssemblyLoadContext context, AssemblyName assemblyName) =>
+        context.Assemblies.FirstOrDefault(assembly => string.Equals(assembly.GetName().Name, assemblyName.Name, StringComparison.Ordinal));
 }
 
 internal sealed class CargoGate : IDisposable {
-    private const string CargoAssemblyFile = "Rasm.Bridge.Cargo.dll";
     private const string CargoEntryType = "Rasm.Bridge.Cargo.CargoHost";
-    private const int GcRetryBudget = 10;
 
     private readonly Lock sync = new();
     private CargoLease? current;
@@ -100,90 +60,63 @@ internal sealed class CargoGate : IDisposable {
         }
     }
 
-    internal LoadedCargo Swap(CargoManifest manifest, HostFingerprint running, Action<BridgeEvent> publish) {
+    internal static LocalRpcException Refuse(BridgeFault fault) =>
+        new(fault.Prescription) {
+            ErrorCode = BridgeFault.RpcErrorCode,
+            ErrorData = JsonSerializer.SerializeToElement(fault, BridgeJsonContext.Default.BridgeFault),
+        };
+
+    internal LoadedCargo Load(CargoManifest manifest, HostFingerprint running, Action<BridgeEvent> publish) {
         lock (sync) {
             long started = Stopwatch.GetTimestamp();
-            bool reused = current is { } live && string.Equals(a: live.ContentHash, b: manifest.ContentHash, comparisonType: StringComparison.Ordinal);
-            if (!reused) {
-                if (current is { } stale) {
-                    current = null;
-                    PublishUnload(outcome: UnloadKernel(lease: stale), publish: publish);
-                }
-                current = Activate(manifest: manifest, running: running);
+            if (current is { } active && !string.Equals(active.ContentHash, manifest.ContentHash, StringComparison.Ordinal)) {
+                throw Refuse(new BridgeFault.CargoRecycleRequired(active.ContentHash, manifest.ContentHash));
             }
-            CargoLease lease = current!;
-            publish(BridgeEvent.Fact(key: reused ? "cargo.reused" : "cargo.swapped", value: manifest.ContentHash));
+            bool reused = current is not null;
+            CargoLease lease = current ??= Activate(manifest, running);
+            publish(BridgeEvent.Fact(reused ? "cargo.reused" : "cargo.loaded", manifest.ContentHash));
             return new LoadedCargo(
-                ContentHash: manifest.ContentHash,
-                SwapMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds,
-                Scenarios: lease.Cargo.Discover(),
-                Capabilities: lease.Cargo.Probe(publish: publish));
+                manifest.ContentHash,
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                lease.Cargo.Discover(),
+                lease.Cargo.Probe(publish));
         }
     }
 
     internal UnloadOutcome Unload() {
         lock (sync) {
             if (current is not { } lease) {
-                return new UnloadOutcome(Confirmed: true, DebuggerAttached: Debugger.IsAttached, GcRetries: 0, ElapsedMs: 0.0);
+                return new UnloadOutcome(ReleaseRequested: false, ElapsedMs: 0.0);
             }
             current = null;
-            return UnloadKernel(lease: lease);
+            long started = Stopwatch.GetTimestamp();
+            Release(lease);
+            return new UnloadOutcome(ReleaseRequested: true, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
     }
 
-    public void Dispose() {
-        lock (sync) {
-            if (current is { } lease) {
-                current = null;
-                _ = UnloadKernel(lease: lease);
-            }
-        }
-    }
+    public void Dispose() => _ = Unload();
 
     private CargoLease Activate(CargoManifest manifest, HostFingerprint running) {
-        string entryPath = Path.Combine(path1: manifest.StagePath, path2: CargoAssemblyFile);
+        string entryPath = Path.Combine(manifest.StagePath, CargoManifest.AssemblyFile);
         generation++;
-        CargoLoadContext context = new(cargoAssemblyPath: entryPath, generation: generation);
+        CargoLoadContext context = new(entryPath, generation);
         try {
-            Assembly assembly = context.LoadFromAssemblyPath(assemblyPath: entryPath);
-            Type entry = assembly.GetType(name: CargoEntryType, throwOnError: true)!;
-            IBridgeCargo cargo = (IBridgeCargo)Activator.CreateInstance(type: entry, args: [manifest, running])!;
-            return new CargoLease(ContentHash: manifest.ContentHash, Context: context, Cargo: cargo);
+            Type entry = context.LoadFromAssemblyPath(entryPath).GetType(CargoEntryType, throwOnError: true)!;
+            IBridgeCargo cargo = (IBridgeCargo)Activator.CreateInstance(entry, manifest, running)!;
+            return new CargoLease(manifest.ContentHash, context, cargo);
         } catch {
             context.Unload();
             throw;
         }
     }
 
-    private static UnloadOutcome UnloadKernel(CargoLease lease) {
-        long started = Stopwatch.GetTimestamp();
-        bool debugger = Debugger.IsAttached;
-        WeakReference probe = Release(lease: lease);
-        int retries = 0;
-        while (probe.IsAlive && retries < GcRetryBudget) {
-            retries++;
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-        }
-        return new UnloadOutcome(
-            Confirmed: !probe.IsAlive,
-            DebuggerAttached: debugger,
-            GcRetries: retries,
-            ElapsedMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference Release(CargoLease lease) {
+    private static void Release(CargoLease lease) {
         try {
             lease.Cargo.Dispose();
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            Debug.WriteLine(message: $"cargo dispose threw: {error.Message}");
+            Debug.WriteLine($"cargo dispose threw: {error.Message}");
         }
-        WeakReference probe = new(target: lease.Context);
         lease.Context.Unload();
-        return probe;
     }
-
-    private static void PublishUnload(UnloadOutcome outcome, Action<BridgeEvent> publish) =>
-        publish(BridgeEvent.Fact(key: outcome.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"gcRetries={outcome.GcRetries} elapsedMs={outcome.ElapsedMs:F0} debugger={outcome.DebuggerAttached}")));
 }

@@ -8,26 +8,26 @@ Full-plan derivation gates procedure qualification, measurement suitability, `Cp
 
 The critical path is a LONGEST path over the precedence DAG computed by the shipped critical relaxer, and per-operation early, late, and float fall out of the same forward and reverse walks — one algorithm, published as evidence columns, rather than a hand-threaded tuple whose ordering predicate gated chain and completion on one comparison.
 
-`PlanDraft` threads one accumulator through the rail, and its key covers every lot, capability, topology, route, and assignment discriminant.
+`PlanDraft` threads one accumulator through the pipeline, and its key covers every lot, capability, topology, route, and assignment discriminant.
 
-Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/estimation`'s quote lane, while plan facts cross to the element graph through one projector registration row; stage vocabulary never sits between wire and rail.
+Wire posture: HOST-LOCAL. `FabricationPlan` crosses to the caller and `Verify/estimation`'s quote lane, while plan facts cross to the element graph through one projector registration row; stage vocabulary never sits between wire and pipeline.
 
 ## [01]-[INDEX]
 
-- [02]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `InstanceReservation`, `OperationFloat`, `LotSchedule`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and the `FabricationProjector.Of` seam mint.
+- [02]-[DERIVATION]: `DerivationStage`, `PlanIdentitySchema`, `WorkAxis`, `JoinRouting`, `LotPolicy`, `CapabilityRequirement`, `InstanceReservation`, `OperationFloat`, `LotSchedule`, `WorkKind`, `OperationDemand`, `OperationTopology`, `DerivePolicy`, `PlanDraft`, `Derivation.Plan`, and the `FabricationProjector.Of` contract mint.
 
 ## [02]-[DERIVATION]
 
-- Owner: `DerivationStage` owns ordered ceilings; `WorkAxis` owns every per-modality work fact; `JoinRouting` owns the join-class-to-process correspondence; `LotPolicy` owns lot timing and batching; `LotSchedule` owns the keyed lap-phased schedule; `CapabilityRequirement` owns the demanded attestation set; `OperationDemand` and `OperationTopology` own executable work and its proven order; `DerivePolicy` owns request depth and aggregate admission; `PlanDraft` owns rail accumulation; `Derivation` owns the stage rail; and `FabricationProjector` owns the public seam mint over its internal implementation.
+- Owner: `DerivationStage` owns ordered ceilings; `WorkAxis` owns every per-modality work fact; `JoinRouting` owns the join-class-to-process correspondence; `LotPolicy` owns lot timing and batching; `LotSchedule` owns the keyed lap-phased schedule; `CapabilityRequirement` owns the demanded attestation set; `OperationDemand` and `OperationTopology` own executable work and its proven order; `DerivePolicy` owns request depth and aggregate admission; `PlanDraft` owns result accumulation; `Derivation` owns the stage pipeline; and `FabricationProjector` owns the public contract mint over its internal implementation.
 - Cases: `WorkKind` carries cut, join, form, additive, inspection, finish, fixture, treatment, cleaning, coating, transfer, handling, packing, and hold work. `DerivePolicy.Assessment` carries lot and the full `DfmRequest`; `Routing` adds fleet and preferences; `FullPlan` adds assembly, operations, setup, and artifact intent. Without a setup plan, full-plan work groups by process in setup `0`; with one, each admitted setup expands by operation ids and then by process.
 - Entry: `Plan(FabricationPolicy.Derive, FabricationInput, Option<InstrumentSet>)` admits the policy aggregate, admits DfM routing at every ceiling, gates full-plan capability, reduces the operation DAG into an `OperationTopology`, composes assembly precedence, verifies setup coverage, selects the highest-score feasible machine per step, and closes the lot against its due bound; the mounted set threads through the request switch into the fleet join, and an absent set leaves a headless derivation unobserved.
 - Auto: `Manufacturability.Assess(DfmRequest)` supplies ranked routes, fleet supplies scored matches, `AssemblyPlan.Apply(AssemblyOp.Plan)` supplies reduced join precedence and join duration, and `SetupSchedule.Apply(SetupOp.Schedule)` partitions topologically ordered demands. Every plan-derivation rejection lowers through `Reject` onto the `FabricationFault.Derivation` mint, so the witness clears its own kind predicate before the fault carrying it and its stage exists. `RequestedArtifacts` changes plan identity but never pretends an artifact was produced.
 - Output: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted topology and steps each naming its assigned station, capability requirement and verdict, lot schedule, key ledger, and content key. `LotSchedule` carries availability, its content key, calendar completion, total work, critical-chain effort, the critical operation chain, per-station reservation windows, per-operation float, the derived `Slack` between work and chain, availability-relative `Lead` and `Queue`, and the derived `Contention` each station held. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
 - Law: `CanonicalWriter` is MUTABLE-FLUENT — every primitive mutates its bound buffer and returns the same writer, the contract `Process/owner#RUN_DISPATCH` states — so a byte kernel here chains or discards the return interchangeably and a discarded return costs no bytes. Nothing in this page's preimage depends on a copied writer, and both preimages open and close through `FabricationCanon.Keyed`, so the retaining mint's refusal threads `Compose` and `LotOf` rather than surfacing as a key minted off bytes no writer held.
-- Law: `FabricationProjector.Of` returns the Element floor and the internal implementation owns only `Project`, whose typed rail returns untouched. `ProjectionAssembly.Capture` preserves unknown throws; only a documented terminal projector refusal could add caused `ProjectorFaulted`.
-- Packages: Process exports `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, and `ContentKey`; stage owners export `Manufacturability.Assess`, `Fleet.Capable`, `AvailabilityPlan.Finish`, `AssemblyPlan.Apply`, and `SetupSchedule.Apply`; QuikGraph owns DAG validation, reduction, and topological order; NodaTime owns instant and duration semantics; `Rasm.Element` owns graph projection and the `PropertyCategory` row-name custody every bag key mints through; Thinktecture.Runtime.Extensions and LanguageExt.Core own generated values and rails.
-- Growth: a rail segment is one ordered `DerivationStage` row and one fold arm; a work modality is one `WorkAxis` row with its `WorkKind` case, admission and byte projection following without a consumer edit; a join class becomes routable as one `JoinRouting` row; a route or plan fact widens the existing `FabricationPlan` record and canonical-byte projection; an element fact extends the existing total `Lower` arm for its owning result case.
-- Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. `TopologyOf` is the QuikGraph mutation kernel, while `KeyOf`, `Framed`, and the `Write` overloads are the canonical-byte kernel every optional slot presence-frames through. Projection is a COLUMN TABLE per result case — one row per bag key carrying its own source read and its typed render — so every fact keeps its type on the graph (counts `Integer`, ratios `Number`, gate outcomes `Boolean`, dimensioned facts SI-coerced `MeasureValue`, collections `List` of `Complex`), a content key lands as its framed family-and-digest pair rather than an interpolated string, and an optional payload renders its own table or contributes nothing. Every row name mints through `Row` over the seam owner's `PropertyCategory.Fabrication` scope, so this package declares its own vocabulary inside a partition the seam blesses and a bare `PropertyName.Create` at any write site is the deleted form. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
+- Law: `FabricationProjector.Of` returns the Element floor and the internal implementation owns only `Project`, whose typed result returns untouched. `ProjectionAssembly.Capture` preserves unknown throws; only a documented terminal projector refusal could add caused `ProjectorFaulted`.
+- Packages: Process exports `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, and `ContentKey`; stage owners export `Manufacturability.Assess`, `Fleet.Capable`, `AvailabilityPlan.Finish`, `AssemblyPlan.Apply`, and `SetupSchedule.Apply`; QuikGraph owns DAG validation, reduction, and topological order; NodaTime owns instant and duration semantics; `Rasm.Element` owns graph projection and the `PropertyCategory` row-name custody every bag key mints through; Thinktecture.Runtime.Extensions and LanguageExt.Core own generated values and result types.
+- Growth: a pipeline segment is one ordered `DerivationStage` row and one fold arm; a work modality is one `WorkAxis` row with its `WorkKind` case, admission and byte projection following without a consumer edit; a join class becomes routable as one `JoinRouting` row; a route or plan fact widens the existing `FabricationPlan` record and canonical-byte projection; an element fact extends the existing total `Lower` arm for its owning result case.
+- Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. `TopologyOf` is the QuikGraph mutation kernel, while `KeyOf`, `Framed`, and the `Write` overloads are the canonical-byte kernel every optional slot presence-frames through. Projection is a COLUMN TABLE per result case — one row per bag key carrying its own source read and its typed render — so every fact keeps its type on the graph (counts `Integer`, ratios `Number`, gate outcomes `Boolean`, dimensioned facts SI-coerced `MeasureValue`, collections `List` of `Complex`), a content key lands as its framed family-and-digest pair rather than an interpolated string, and an optional payload renders its own table or contributes nothing. Every row name mints through `Row` over the contract owner's `PropertyCategory.Fabrication` scope, so this package declares its own vocabulary inside a partition the contract blesses and a bare `PropertyName.Create` at any write site is the deleted form. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -97,7 +97,6 @@ public sealed partial class LotPolicy {
                     quantity, batchSize, release, due, transferBuffer, predecessors), DerivationStage.Operations))
             : Fin.Succ(admitted);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int quantity,
@@ -120,7 +119,6 @@ public sealed partial class CapabilityRequirement {
 
     public CapabilitySet<CapabilityAttestation> Gates { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double minimumCpk,
@@ -161,7 +159,6 @@ public sealed partial class LotSchedule {
         .Map(static group => (group.Key, group.Fold(Duration.Zero, static (held, row) => held + row.Held)))
         .ToSeq();
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ContentKey key,
@@ -304,7 +301,6 @@ public sealed partial class OperationDemand {
     internal Duration FirstBatchFor(LotPolicy lot) =>
         SetupDuration + UnitDuration * ((long)Quantity * Math.Min(lot.BatchSize, lot.Quantity));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int id,
@@ -330,7 +326,6 @@ public sealed partial class OperationTopology {
     public bool IsEmpty => Ordered.IsEmpty;
     public int Count => Ordered.Count;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<OperationDemand> ordered) {
@@ -892,12 +887,12 @@ public static class Derivation {
         CanonicalWriter writer) {
         Framed(writer, capability, static (sink, value) => toSeq(CapabilityAttestation.Items).Fold(
             sink.Double(value.Cpk).Double(value.DemandedCpk),
-            (rail, row) => rail.Bool(value.Attested.Admits(row))));
+            (bytes, row) => bytes.Bool(value.Attested.Admits(row))));
         Framed(writer, requirement, static (sink, value) => toSeq(value.Gates.Held
             .OrderBy(static gate => gate.Key))
             .Fold(
                 sink.Double(value.MinimumCpk).Ordinal(value.DemandedItGrade).Ordinal(value.Gates.Held.Count),
-                static (rail, gate) => rail.String(gate.Key)));
+                static (bytes, gate) => bytes.String(gate.Key)));
         Framed(writer, lot, static (sink, row) => LotBytes(
             sink, row.Available, row.Completion, row.Work, row.Chain, row.CriticalPath, row.Batches));
     }
@@ -916,7 +911,7 @@ public static class Derivation {
                 .I64(work.ToTimeSpan().Ticks)
                 .I64(chain.ToTimeSpan().Ticks)
                 .Ordinal(criticalPath.Count),
-            static (rail, operation) => rail.Ordinal(operation))
+            static (bytes, operation) => bytes.Ordinal(operation))
             .Ordinal(batches);
 
     private static void Framed<T>(CanonicalWriter writer, Option<T> slot, Func<CanonicalWriter, T, CanonicalWriter> project) =>
@@ -1121,7 +1116,7 @@ internal sealed class FabricationElementProjection(Seq<(NodeId Element, Fabricat
         Facts<CapabilityVerdict>.Number("CapabilityCpk", static row => row.Cpk),
         Facts<CapabilityVerdict>.Number("CapabilityDemandedCpk", static row => row.DemandedCpk),
         Facts<CapabilityVerdict>.Tokens("CapabilityAttested",
-            static row => toSeq(row.Attested.Held.OrderBy(static held => held.Rank).Select(static held => held.Key))));
+            static row => toSeq(row.Attested.Held.OrderBy(static held => held.Key, StringComparer.Ordinal).Select(static held => held.Key))));
 
     private static readonly Seq<Fact<CapabilityRequirement>> RequirementColumns = Seq(
         Facts<CapabilityRequirement>.Number("RequiredCpk", static row => row.MinimumCpk),
@@ -1252,10 +1247,10 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Fabrication derivation rail
+    accTitle: Fabrication derivation pipeline
     accDescr: A derive request admits once as an aggregate, then advances through manufacturability, routing, fleet matching, capability, assembly join routing, operation topology, setup coverage, machine assignment, and lap-phased lot feasibility before one canonical plan draft mints the plan key and feeds estimation and typed element projection.
     Derive["owner Run(Derive) landed arm"] --> Admit["DerivePolicy.Admit — duplicates, dangling predecessors, preferred pair"]
-    Admit --> Plan["Derivation.Plan stage rail"]
+    Admit --> Plan["Derivation.Plan stage pipeline"]
     Plan -->|1 manufacturability| Dfm["Spec/manufacturability Assess → DfmReport"]
     Plan -->|2 routing PreferProcess filter| Routed["ranked ProcessKind rows"]
     Plan -->|3 fleet| Matches["Kinematics/fleet Fleet.Capable → MachineMatch"]

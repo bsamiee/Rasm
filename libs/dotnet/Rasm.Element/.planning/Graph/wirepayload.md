@@ -29,7 +29,7 @@ using Rasm.Element.Properties;
 // Contracts are retired from this logic.
 using static LanguageExt.Prelude;
 using static Rasm.Domain.AdmissionSlots;
-using static Rasm.Element.Graph.SeamConverters;
+using static Rasm.Element.Graph.BoundaryConverters;
 
 namespace Rasm.Element.Graph;
 

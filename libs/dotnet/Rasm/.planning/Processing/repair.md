@@ -15,7 +15,7 @@ Rebuilds compose the un-gated Genus-tolerant `Topology` projection as the before
 - Auto: every author-kernel is a pure-managed arena fold composing the `Predicate` exact-sign floor and the `Axis.DominantOf` plane admission, reading its bands off `edit.Tolerance` under the lanes the plan policy names.
 - Law: `HealStage.Step` is the ONE stage-to-step table and each row stamps itself onto `HealStep.Stage`, so a mispaired stage is unrepresentable and no inverse table re-answers it; the mint rides `Fin`, so the boolean arm's missing arrangement census and the split's missing incidence lower typed instead of fabricating an empty step or re-measuring the arena.
 - Law: `HealStage.RebuildsTopology` and `HealStage.Collects` are two INDEPENDENT axes with no legal-corner law — the first selects the re-anchor contribution, the second the terminal debris sweep — so they stay a bool pair rather than one capability set, and every corner is admissible.
-- Law: the retile's arena maps key on EXACT `Point3d` equality, never a rounded lattice: `Tessellation.Triangles` hands back coordinates that are bit-identical readbacks of the soup corners and of `Implicit.Round()`, so equality is the ordinal. Sub-ulp near-misses therefore mint a distinct vertex, which is the sliver the terminal weld/degenerate sweep collects — the quantum is zero and the debris is scheduled, never rounded away.
+- Law: the retile's arena maps key on EXACT `Point3d` equality, never a rounded grid: `Tessellation.Triangles` hands back coordinates that are bit-identical readbacks of the soup corners and of `Implicit.Round()`, so equality is the ordinal. Sub-ulp near-misses therefore mint a distinct vertex, which is the sliver the terminal weld/degenerate sweep collects — the quantum is zero and the debris is scheduled, never rounded away.
 - Exemption: `Incidence`, the `Recut` patch table, and the retile's arena maps are mutable `Dictionary`/`HashSet` inside a single-writer span kernel and stay so — each is built, mutated, and dropped inside one fold with no reader past it.
 - Law: `HealSession` carries one typed `HealStep` per applied op; `before[n] = after[n-1]` threads the status pair so N ops cost N+1 projections, and the affected-entity seed reads the arena dirty bitsets admission clears. `Incidence` rides forward as arena-interior scratch spared a recomputation inside a mutation-free run, and the split's carried fold IS the residual `HealStep.Manifold` records — one authority, so the gate and the step cannot report two numbers.
 - Packages: `Rasm.Meshing`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Spatial`, QuikGraph, Thinktecture.Runtime.Extensions, LanguageExt.Core.
@@ -113,7 +113,6 @@ public sealed record RepairPolicy(
 
     public bool IsValid => ValidityClaim.All(Intersect.IsValid, Retile.IsValid, Arrangement.IsValid);
 
-    [BoundaryAdapter]
     public static Fin<RepairPolicy> Of(
         int maxManifoldPasses,
         Option<ToleranceLane> gap = default, Option<ToleranceLane> sliver = default, Option<ArenaPolicy> arena = default,
@@ -129,7 +128,6 @@ public sealed record RepairPolicy(
 public sealed record HealPlan(MeshSpace Input, Seq<HealOp> Ops, RepairPolicy Policy) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(ValidityClaim.CountAtLeast(count: Ops.Count, floor: 1), Policy.IsValid);
 
-    [BoundaryAdapter]
     public static Fin<HealPlan> Of(MeshSpace input, Option<Seq<HealOp>> ops = default, Option<RepairPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
         Seq<HealOp> sequence = ops.IfNone(() => Heal.Standard);
@@ -227,7 +225,6 @@ public static class Heal {
     static Seq<HealOp> Minted(Func<HealStage, bool> admits) =>
         toSeq(HealStage.Items).Filter(admits).Bind(static stage => stage.Mint.ToSeq()).Map(static mint => mint());
 
-    [BoundaryAdapter]
     public static Fin<HealSession> Repair(HealPlan plan, Op? key = null) {
         Op op = key.OrDefault();
         Context context = plan.Input.Tolerance;
@@ -381,31 +378,31 @@ public static class Heal {
     internal static Fin<HealEdit> Resolve(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key) =>
         Intersection.Apply(new IntersectOp.SelfMesh(current, policy.Intersect), key)
             .Bind(result => result is IntersectResult.Chains hit
-                ? Fin.Succ(hit.Lattice)
-                : Fin.Fail<CrossLattice>(key.InvalidResult()))
-            .Bind(lattice => lattice.Segments.Length == 0 && lattice.Coplanar.Length == 0
+                ? Fin.Succ(hit.Table)
+                : Fin.Fail<CrossTable>(key.InvalidResult()))
+            .Bind(table => table.Segments.Length == 0 && table.Coplanar.Length == 0
                 ? Fin.Succ(HealEdit.Same(edit))
-                : Recut(edit, current, lattice, policy, key));
+                : Recut(edit, current, table, policy, key));
 
-    static Fin<HealEdit> Recut(MeshEdit edit, MeshSpace current, CrossLattice lattice, RepairPolicy policy, Op key) {
+    static Fin<HealEdit> Recut(MeshEdit edit, MeshSpace current, CrossTable table, RepairPolicy policy, Op key) {
         using MeshEdit soup = MeshEdit.Of(current, policy.Arena);
         using MemoryOwner<int> arenaFace = MemoryOwner<int>.Allocate(soup.FaceCount, AllocationMode.Clear);
         for (int f = 0, live = 0; f < edit.FaceCount; f++) {
             if (edit.Alive(f)) { arenaFace.Span[live++] = f; }
         }
         Dictionary<int, List<Cut>> patches = new();
-        foreach ((int a, int b, int fa, int fb) in lattice.Segments) {
+        foreach ((int a, int b, int fa, int fb) in table.Segments) {
             if (a == b) continue;
             Note(patches, fa, new Cut.Pierced(a, b, fb)); Note(patches, fb, new Cut.Pierced(a, b, fa));
         }
-        foreach ((int a, int b, int fa, int fb, int cu, int cv, _) in lattice.Coplanar) {
+        foreach ((int a, int b, int fa, int fb, int cu, int cv, _) in table.Coplanar) {
             if (a == b) continue;
             Note(patches, fa, new Cut.Coplanar(a, b, cu, cv)); Note(patches, fb, new Cut.Coplanar(a, b, cu, cv));
         }
         if (patches.Count == 0) return Fin.Succ(HealEdit.Same(edit));
         Dictionary<Point3d, int> minted = new();
         return toSeq(patches.OrderBy(static patch => patch.Key)).Strict()
-            .TraverseM(patch => Subdivide(edit, soup, lattice, arenaFace.Memory.Span[patch.Key], patch.Key, patch.Value, minted, policy, key))
+            .TraverseM(patch => Subdivide(edit, soup, table, arenaFace.Memory.Span[patch.Key], patch.Key, patch.Value, minted, policy, key))
             .As()
             .Map(_ => HealEdit.Same(edit));
 
@@ -413,8 +410,8 @@ public static class Heal {
             (patches.TryGetValue(face, out List<Cut>? rows) ? rows : patches[face] = []).Add(row);
     }
 
-    static Fin<Unit> Subdivide(MeshEdit edit, MeshEdit soup, CrossLattice lattice, int face, int latticeFace, List<Cut> cuts, Dictionary<Point3d, int> minted, RepairPolicy policy, Op key) {
-        (int s0, int s1, int s2) = soup.Face(latticeFace);
+    static Fin<Unit> Subdivide(MeshEdit edit, MeshEdit soup, CrossTable table, int face, int tableFace, List<Cut> cuts, Dictionary<Point3d, int> minted, RepairPolicy policy, Op key) {
+        (int s0, int s1, int s2) = soup.Face(tableFace);
         (Point3d pa, Point3d pb, Point3d pc) = (soup.Position(s0), soup.Position(s1), soup.Position(s2));
         List<Implicit> rows = new(3 + cuts.Count) { new(pa), new(pb), new(pc) };
         Dictionary<CrossKey, int> slotOf = new();
@@ -442,7 +439,7 @@ public static class Heal {
         });
 
         int Intern(int row) {
-            Crossing crossing = lattice.Rows[row];
+            Crossing crossing = table.Rows[row];
             if (slotOf.TryGetValue(crossing.Key, out int at)) return at;
             rows.Add(crossing.Point);
             return slotOf[crossing.Key] = rows.Count - 1;
@@ -464,7 +461,7 @@ public static class Heal {
 
         int Arena(Point3d p) =>
             corner.TryGetValue(p, out int at) ? at
-            : minted.TryGetValue(p, out int seam) ? seam
+            : minted.TryGetValue(p, out int made) ? made
             : minted[p] = edit.AddVertex(p);
     }
 
@@ -495,7 +492,7 @@ flowchart LR
     HealPlan -->|MeshEdit.Of + ArenaPolicy| MeshEdit
     MeshEdit -->|Heal.Repair fold| HealOp
     HealOp -->|Orient2D exact signs| Predicate
-    HealOp -->|SelfMesh crossing lattice| Intersection
+    HealOp -->|SelfMesh crossing table| Intersection
     HealOp -->|Points CDT + Triangles| Tessellation
     HealOp -->|MeshBoolean delegation| Arrangement
     HealOp -->|gap proximity| Neighbors
@@ -511,9 +508,9 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or column.
 
-| [INDEX] | [AXIS_CONCERN]   | [OWNER]         | [RAIL]                                          | [CASES] |
+| [INDEX] | [AXIS_CONCERN]   | [OWNER]         | [RESULT]                                        | [CASES] |
 | :-----: | :--------------- | :-------------- | :---------------------------------------------- | :-----: |
-|  [01]   | Healing rail     | `Heal`/`HealOp` | `Heal.Repair(HealPlan, Op?) → Fin<HealSession>` |    7    |
+|  [01]   | Healing API      | `Heal`/`HealOp` | `Heal.Repair(HealPlan, Op?) → Fin<HealSession>` |    7    |
 |  [02]   | Heal modality    | `HealStage`     | `stage.Step(StepSeed) → Fin<HealStep>`          |    7    |
 |  [03]   | Retile row       | `Cut`           | interior (plane carriage)                       |    2    |
 |  [04]   | Policy row       | `RepairPolicy`  | `RepairPolicy.Of → Fin<RepairPolicy>`           |    —    |

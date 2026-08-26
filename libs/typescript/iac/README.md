@@ -1,6 +1,6 @@
 # [TS_IAC]
 
-`iac` is the estate's deploy plane: one decoded `StackSpec` becomes a capability-admitted deployment through typed Pulumi programs driven by the Automation API, with no `Pulumi.yaml` anywhere.
+`iac` is the platform's deploy plane: one decoded `StackSpec` becomes a capability-admitted deployment through typed Pulumi programs driven by the Automation API, with no `Pulumi.yaml` anywhere.
 
 ## [01]-[ROUTER]
 
@@ -12,7 +12,7 @@
 
 [OPERATE]:
 - [05]-[SECRET](.planning/operate/secret.md): Deploy-plane material — provisioned secret hierarchy, epoch-bound credentials, certificates.
-- [06]-[OBSERVE](.planning/operate/observe.md): Observability realization — selected store rows, one collector seam, the dev estate, compiled boards.
+- [06]-[OBSERVE](.planning/operate/observe.md): Observability realization — store rows, one collector boundary, the dev container, compiled boards.
 - [07]-[POLICY](.planning/operate/policy.md): Policy-plane verdicts — guard before apply, drift as projection, in-cluster reconcile.
 - [08]-[CONVERGE](.planning/operate/converge.md): Cutover as data — immutable generation construction, hydration, proof, and retention.
 - [09]-[CLOUD](.planning/operate/cloud.md): Hosted control-plane twins gated on the cloud backend — settings, schedules, RBAC, drift webhook.
@@ -64,11 +64,11 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 
 [BRANCH_PEERS]:
 - `@rasm/core` — Board, reliability, convention, and identity projections consumed by the deploy plane.
-- `@rasm/data` — Backend projections, PostgreSQL rows, and analytics residence contracts consumed by deployment tiers.
+- `@rasm/data` — Backend projections, PostgreSQL rows, and analytics tier contracts consumed by deployment tiers.
 - `@rasm/runtime` — Consumption-profile rosters that type deployment topology and recovery objectives.
 - `@rasm/security` — Encoded lease and custody contracts admitted at deploy-owned sinks.
 
-[TYPING_RAILS]:
+[TYPING_CORE]:
 - `effect`
 
 [PLATFORM]:

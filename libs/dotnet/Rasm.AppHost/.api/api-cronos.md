@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_CRONOS]
 
-`Cronos` parses five- and six-field cron expressions — hash-jitter `H` fields included — and computes DST-correct forward and reverse occurrences over UTC instants and explicit time zones. `CronExpression` values persist as text, rebuild through `TryParse`, and feed every AppHost schedule row through one occurrence rail.
+`Cronos` parses five- and six-field cron expressions — hash-jitter `H` fields included — and computes DST-correct forward and reverse occurrences over UTC instants and explicit time zones. `CronExpression` values persist as text, rebuild through `TryParse`, and feed every AppHost schedule row through one occurrence API.
 
 ## [01]-[PUBLIC_TYPES]
 

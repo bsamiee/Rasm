@@ -1,6 +1,6 @@
 # [RASM_RHINO_RENDER_KINDS]
 
-`RenderKind` owns material, texture, and environment specialization over one `RenderContent` lifecycle, and the photometric-file payload the light rail defers here. Material projections remain callback-bounded borrows, texture state replays every writable axis through one roster fold while retaining read-only simulation evidence, environment state detaches every native carrier, and each mint exits as an owned `Lease<RenderContent>`.
+`RenderKind` owns material, texture, and environment specialization over one `RenderContent` lifecycle, and the photometric-file payload the light pipeline defers here. Material projections remain callback-bounded borrows, texture state replays every writable axis through one roster fold while retaining read-only simulation evidence, environment state detaches every native carrier, and each mint exits as an owned `Lease<RenderContent>`.
 
 ## [01]-[INDEX]
 
@@ -12,18 +12,18 @@
 
 ## [02]-[MATERIAL_BRIDGE]
 
-- Owner: `MaterialMint` carries each table address and admits it against the live material roster inside the document-aware mint seam. `MaterialBridge` bounds baked and physically based projections to one callback. `SlotUsage` detaches standard-slot state and its native texture-type correspondence, and `MaterialScent` derives classification from predicate rows.
+- Owner: `MaterialMint` carries each table address and admits it against the live material roster inside the document-aware mint boundary. `MaterialBridge` bounds baked and physically based projections to one callback. `SlotUsage` detaches standard-slot state and its native texture-type correspondence, and `MaterialScent` derives classification from predicate rows.
 - Law: `MaterialBridge.Pbr` routes `ToMaterial`/`ConvertToPhysicallyBased` onto `Rhino.DocObjects.PhysicallyBasedMaterial`; each projection remains borrowed for one window.
 - Law: `Rhino.Render.PhysicallyBasedMaterial` is whole-class obsolete and never enters the design — it exists, so the simple name is ambiguous under this prelude and the document type is spelled `global::`-qualified at every fence site.
 - Law: `SetChild(renderContent, childSlotName)` is the live host spelling; the `ChangeContexts` overload is obsolete and the reason already rides the enclosing `ChangeScope.Write`, so no attach carries a context argument.
 - Law: `TextureType` is `Rhino.DocObjects`', never a `RenderMaterial` nested type — `TextureTypeFromSlot`/`SlotFromTextureType` are statics on `RenderMaterial` returning and taking that document enum, so the qualified spelling resolves nothing.
-- Law: slot vocabulary is the native `StandardChildSlots` — the PBR slot roster including its aliasing rows is host truth the seam consumes; a wrapper row per slot is the deleted form, and `SlotFromTextureType`/`TextureTypeFromSlot` answer the type-to-slot correspondence where a consumer needs it.
+- Law: slot vocabulary is the native `StandardChildSlots` — the PBR slot roster including its aliasing rows is host truth the boundary consumes; a wrapper row per slot is the deleted form, and `SlotFromTextureType`/`TextureTypeFromSlot` answer the type-to-slot correspondence where a consumer needs it.
 - Law: an absent slot texture carries NO grant — `SlotUsage.Texture` is one option over the whole `(id, posture, amount)` product, so a slot with no texture cannot publish an amount or an on-posture, and the corner a three-field record admits is unrepresentable.
 - Law: import residency is a ROW, never a `bool reference` argument — `MaterialResidency` names both corners of the host's import flag at the call site.
-- Law: assignment is operation-rail work — `AssignTo` over resolved object references with its sub-face and block choices rides the registry page's `ContentOp.Assign` case, so this page carries no table mutation.
+- Law: assignment is operation-pipeline work — `AssignTo` over resolved object references with its sub-face and block choices rides the registry page's `ContentOp.Assign` case, so this page carries no table mutation.
 - Law: `MaterialScent.CensusOf` narrows by row, never by column — both host predicates are independent native calls, so a mark costs both reads and a caller wanting one classification names that row rather than paying the whole roster. Marks holding NEITHER form are barred by the vocabulary's own law, so the census filter and the carrier state one fact instead of two.
 - Growth: a new scent is one `MaterialScent` row with its two predicate columns; a new mint form is one `MaterialMint` case.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderMaterial.FromMaterial`/`CreateBasicMaterial`/`CreateImportedMaterial`, `ToMaterial`, `ConvertToPhysicallyBased`, `GetTextureFromUsage`/`GetTextureOnFromUsage`/`GetTextureAmountFromUsage`/`TextureChildSlotName`, `RenderMaterial.StandardChildSlots`, `TextureTypeFromSlot`, `RenderTexture.TextureGeneration`, the `SmellsLike*`/`SmellsLikeTextured*` predicate pairs); `api-rhinocommon-objects.md` (`Material`, `PhysicallyBasedMaterial`, `TextureType`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw.Forbidden`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderMaterial.FromMaterial`/`CreateBasicMaterial`/`CreateImportedMaterial`, `ToMaterial`, `ConvertToPhysicallyBased`, `GetTextureFromUsage`/`GetTextureOnFromUsage`/`GetTextureAmountFromUsage`/`TextureChildSlotName`, `RenderMaterial.StandardChildSlots`, `TextureTypeFromSlot`, `RenderTexture.TextureGeneration`, the `SmellsLike*`/`SmellsLikeTextured*` predicate pairs); `api-rhinocommon-objects.md` (`Material`, `PhysicallyBasedMaterial`, `TextureType`); kernel `Domain/results` (`Op`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw.Forbidden`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -87,7 +87,7 @@ public abstract partial record MaterialMint {
         (RhinoDoc Document, Op Op) ctx, int index, Func<Material, RhinoDoc, RenderContent?> route) =>
         from _index in guard(index >= 0 && index < ctx.Document.Materials.Count, ctx.Op.InvalidInput()).ToFin()
         from source in ctx.Op.Catch(() => Optional(ctx.Document.Materials[index]).ToFin(Fail: ctx.Op.MissingContext()))
-        from minted in Seam.Minted(mint: () => route(source, ctx.Document), key: ctx.Op)
+        from minted in Bridge.Minted(mint: () => route(source, ctx.Document), key: ctx.Op)
         select minted;
 }
 
@@ -186,9 +186,9 @@ public static class MaterialBridge {
 - Law: `TextureAxis` and `FacsimileAxis` are the write rosters — every row answers `Unit` so the fold is uniform, a conditional host pair is one row whose option is its own predicate, and a straight-line setter run beside the roster is the deleted form.
 - Law: boolean texture axes ride ONE `CapabilitySet<TextureToggle>` whose row keys are the `TextureAxis` keys they write, so a boundary reading a persisted toggle word resolves it through `Admits(key)` without a second correspondence table. This collapse LOSES per-toggle compile-time exhaustiveness; the axis rows buy it back, naming their toggle row explicitly and breaking loudly when one is retired.
 - Law: read-only `LocalMappingTransform` and `OriginalFilename` never enter writable state; local mapping reconstructs from the admitted UVW fields, while original filename remains observation-only host provenance.
-- Law: `EnvironmentProjection` closes the eight host projection modes that name an environment mapping, and the simulated `Emap` posture is the one fallback row the key column cannot carry — it reads the OTHER host enum, so it stays the named `else` inside the one owner rather than an inline arm at the call site. Unrostered projections read as legal absence, not a fault, so this correspondence answers `Option` and takes no row-read rail.
+- Law: `EnvironmentProjection` closes the eight host projection modes that name an environment mapping, and the simulated `Emap` posture is the one fallback row the key column cannot carry — it reads the OTHER host enum, so it stays the named `else` inside the one owner rather than an inline arm at the call site. Unrostered projections read as legal absence, not a fault, so this correspondence answers `Option` and takes no row-read result.
 - Boundary: live evaluation (`CreateEvaluator`) and the bake gate (`SimulateTexture`) are the Display render page's `TextureBake` owner; this page configures the content, that one evaluates it, and the two never merge.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderTexture` get/set pairs for projection, wrap, repeat, offset, rotation, mapping channel, environment mode, graph info, preview and viewport flags; `PixelSize2`, `LocalMappingTransform`, `GetLocalMappingType`, `GetInternalEnvironmentMappingMode`, `IsHdrCapable`/`IsLinear`/`IsNormalMap`/`IsImageBased`, `NewBitmapTexture` both arities, `SaveAsImage`, `SimulatedTexture` writable axes, `SetMappingChannelAndProjectionMode`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Transform`); `api-rhinocommon-display.md` (`Color4f`); kernel `Domain/rails` (`Op.Catch`, `Op.Side`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `ISmartEnum`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `MapFail`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderTexture` get/set pairs for projection, wrap, repeat, offset, rotation, mapping channel, environment mode, graph info, preview and viewport flags; `PixelSize2`, `LocalMappingTransform`, `GetLocalMappingType`, `GetInternalEnvironmentMappingMode`, `IsHdrCapable`/`IsLinear`/`IsNormalMap`/`IsImageBased`, `NewBitmapTexture` both arities, `SaveAsImage`, `SimulatedTexture` writable axes, `SetMappingChannelAndProjectionMode`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Transform`); `api-rhinocommon-display.md` (`Color4f`); kernel `Domain/results` (`Op.Catch`, `Op.Side`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `ISmartEnum`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `MapFail`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -486,11 +486,11 @@ public abstract partial record TextureMint {
         Switch(
             state: (Document: document, Op: key),
             bitmapCase: static (ctx, mint) =>
-                Seam.Minted(mint: () => RenderTexture.NewBitmapTexture(bitmap: mint.Value, doc: ctx.Document), key: ctx.Op),
+                Bridge.Minted(mint: () => RenderTexture.NewBitmapTexture(bitmap: mint.Value, doc: ctx.Document), key: ctx.Op),
             simulatedCase: static (ctx, mint) => ctx.Op.Catch(() => {
                 using SimulatedTexture carrier = new(ctx.Document);
                 return mint.Value.Apply(simulated: carrier, key: ctx.Op)
-                    .Bind(_ => Seam.Minted(
+                    .Bind(_ => Bridge.Minted(
                         mint: () => RenderTexture.NewBitmapTexture(texture: carrier, doc: ctx.Document), key: ctx.Op));
             }));
 }
@@ -509,10 +509,10 @@ public static class TextureExport {
 - Owner: `EnvironmentState` detaches background color, projection, and image state. `Bake` contains the simulation lease under a `BakeScope` posture, and `Mint` reconstructs the document-aware carriers before yielding an owned content lease.
 - Law: `EnvironmentState.Bake` and `Mint` are the only sites holding a `SimulatedEnvironment`; the carrier has a public parameterless constructor, is `IDisposable`, and never crosses its window.
 - Law: the bake posture is a ROW — `BakeScope` names the host's data-only and full-simulation corners, so no caller passes a bare boolean into a native simulation call.
-- Law: colour crosses at the kernel owner in BOTH directions — `PerceptualColor.OfHost` admits the host background colour whole and `ToDrawing` returns it under a gamut policy on the rail, so no local quantizer exists and a chroma outside the host gamut refuses instead of clipping silently.
+- Law: colour crosses at the kernel owner in BOTH directions — `PerceptualColor.OfHost` admits the host background colour whole and `ToDrawing` returns it under a gamut policy on the carrier, so no local quantizer exists and a chroma outside the host gamut refuses instead of clipping silently.
 - Law: environment image absence reads through `SimulatedTexture.ConstPointer()`, never `Optional` — the `BackgroundImage` getter mints a fresh parent-backed facsimile per read and is never null, so a null projection admits an empty environment as an imaged one.
 - Law: environment duplication travels as one detached value; simulation-only transform provenance remains evidence while every host-writable image axis replays.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderEnvironment.SimulateEnvironment`, `NewBasicEnvironment`, `SimulatedEnvironment.BackgroundColor`/`BackgroundImage`/`BackgroundProjection`, `SimulatedTexture.ConstPointer`); kernel `Numerics/atoms` (`PerceptualColor.OfHost`, `PerceptualColor.ToDrawing`), `Domain/rails` (`Lease<T>`, `Op.Catch`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderEnvironment.SimulateEnvironment`, `NewBasicEnvironment`, `SimulatedEnvironment.BackgroundColor`/`BackgroundImage`/`BackgroundProjection`, `SimulatedTexture.ConstPointer`); kernel `Numerics/atoms` (`PerceptualColor.OfHost`, `PerceptualColor.ToDrawing`), `Domain/results` (`Lease<T>`, `Op.Catch`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -571,13 +571,13 @@ public sealed record EnvironmentState(
     }
 
     private static Fin<Lease<RenderContent>> Basic(SimulatedEnvironment simulated, RhinoDoc document, Op key) =>
-        Seam.Minted(mint: () => RenderEnvironment.NewBasicEnvironment(environment: simulated, doc: document), key: key);
+        Bridge.Minted(mint: () => RenderEnvironment.NewBasicEnvironment(environment: simulated, doc: document), key: key);
 }
 ```
 
 ## [05]-[PHOTOMETRIC]
 
-- Owner: `PhotometricDialect` closes the light-distribution file vocabulary by extension and description; `PhotometricFile` is the admitted payload the Objects lights rail defers here; `PhotometricPress` derives one registry `ContentSerializer` program per dialect row for host discovery, and its custody admissions convert owned leases into `ContentTransfer` custody.
+- Owner: `PhotometricDialect` closes the light-distribution file vocabulary by extension and description; `PhotometricFile` is the admitted payload the Objects lights pipeline defers here; `PhotometricPress` derives one registry `ContentSerializer` program per dialect row for host discovery, and its custody admissions convert owned leases into `ContentTransfer` custody.
 - Law: the name is `PhotometricFile`, never `PhotometricWeb` — this owner is a FILE REFERENCE admitted by extension, while the AppUi owner of that spelling is a DECODED candela table; two concepts, and the fork closes at the name rather than at an allowlist row.
 - Law: the path is a `FileLocation`, never a raw string — the kernel owner admits the path shape once, so the dialect read, the existence probe, and the serializer program all consume one admitted value.
 - Law: the host carries no first-class photometric type — `Rhino.Geometry.Light` ends at intensity and power, so the file travels as texture-kind render content on the light's attached render material, addressed as a `ContentRef` child slot and embedded through the content's own `FilesToEmbed` roster.
@@ -586,8 +586,8 @@ public sealed record EnvironmentState(
 - Law: a borrowed lease REFUSES without disposing — `Lease<T>.Borrowed.Dispose()` is a documented no-op because the host still owns the value, so a dispose call on the refusal path is vacuous ceremony.
 - Law: a new distribution dialect is one `PhotometricDialect` row; the serializer-program fold covers every row, so discovery, description, and admission cannot drift.
 - Boundary: the content class the serializer materializes is the discovering plugin's `CustomRenderContentAttribute` type; this page owns admission, discovery, attach, and the embed census, never the plugin's field layout — field declaration rides the fields page.
-- Boundary: the lights rail's photometric reach ends at `Radiance`; `LightEdit` never grows an IES case, and the seam crossing is this page's `PhotometricFile` alone. `AttachTo`'s declared consumer is LANDED — `Objects/lights.md` `IPhotometricRegistry.WebOf` is the one address the emitter holds into this stratum — while `Embedded` and `Serializers` stay open until the `Plugin/lifecycle` serializer Hooks row's registration body composes them; until then the obligation reads open rather than met.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.SetChild`, `ChildSlotOn`/`SetChildSlotOn`, `GetEmbeddedFilesList`, `FilesToEmbed`, `RenderContentSerializer`); kernel `Interaction/asset` (`FileLocation`), `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.AcceptText`, `Op.Catch`), `Domain/validation` (`Op.AcceptValidated<TVO>`); `Display/render.md` (`RenderFault`); `Render/registry.md` (`ContentTransfer`, `ContentSerializer`, `SerializerProgram`, `ContentExtension`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[ComplexValueObject]`, `[ValidationError]`).
+- Boundary: the lights pipeline's photometric reach ends at `Radiance`; `LightEdit` never grows an IES case, and the boundary crossing is this page's `PhotometricFile` alone. `AttachTo`'s declared consumer is LANDED — `Objects/lights.md` `IPhotometricRegistry.WebOf` is the one address the emitter holds into this stratum — while `Embedded` and `Serializers` stay open until the `Plugin/lifecycle` serializer Hooks row's registration body composes them; until then the obligation reads open rather than met.
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.SetChild`, `ChildSlotOn`/`SetChildSlotOn`, `GetEmbeddedFilesList`, `FilesToEmbed`, `RenderContentSerializer`); kernel `Interaction/asset` (`FileLocation`), `Domain/results` (`Lease<T>.Acquire`/`Use`, `Op.AcceptText`, `Op.Catch`), `Domain/validation` (`Op.AcceptValidated<TVO>`); `Display/render.md` (`RenderFault`); `Render/registry.md` (`ContentTransfer`, `ContentSerializer`, `SerializerProgram`, `ContentExtension`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[ComplexValueObject]`, `[ValidationError]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -612,7 +612,6 @@ public sealed partial class PhotometricFile : IDetachedDocumentResult {
     public FileLocation Path { get; }
     public PhotometricDialect Dialect { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FileLocation path,

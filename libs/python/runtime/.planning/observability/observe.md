@@ -2,7 +2,7 @@
 
 This owner seats the observation primitives every producing site composes — the one call-shaped span weave, the composition-scope axis, the field-redaction policy, the counted evidence window, the process-cost bracket, and the drain tally — and contributes nothing to provider install, product telemetry export, or health. The drain taxonomy is MINTED here: `DrainOutcome`, the derived `DRAIN_COLUMNS` beside the `DRAIN_DISPOSITIONS` carve that strips the admitted total off the terminal partition, and `Drained[T]` live on this page, and `execution/lanes#LANE` (the producing drain) and `observability/metrics#METRIC` (the `rasm.lane.drained` counter) import the taxonomy FROM this owner — no upward import survives and neither column set can drift.
 
-`measured` is the folder's sole span-lifecycle owner: span from the caller's scope, the fault fence INSIDE the live span, rail flatten, and the two-sided status close. A producer writes its own line through `structlog` at the site and its own instrument through `observability/metrics#METRIC`; `Redaction` is the `Classification`-keyed field policy that line binds under `REDACTION_KEY`, classifying by key name at every depth, and the `observability/logging#PIPELINE` chain applies it to the assembled line and ships under its `LogShip` law. Inbound context re-attaches through `attach` over the propagator's own extract — the cross-`libs/` `ONE_DISTRIBUTED_TRACE` Python leg against the C# `dotnet:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` producer. This page mints the `ScopeKey` composition axis naming which embedded composition owns a custody row, and composes the `reliability/faults#FAULT` `scoped` stamp naming which library emitted a signal — the instrumentation coordinate homing one tier lower because `identity`, `clock`, `shapes`, and `wire` emit spans from below this owner and no import of theirs reaches it.
+`measured` is the folder's sole span-lifecycle owner: span from the caller's scope, the fault fence INSIDE the live span, result flatten, and the two-sided status close. A producer writes its own line through `structlog` at the site and its own instrument through `observability/metrics#METRIC`; `Redaction` is the `Classification`-keyed field policy that line binds under `REDACTION_KEY`, classifying by key name at every depth, and the `observability/logging#PIPELINE` chain applies it to the assembled line and ships under its `LogShip` law. Inbound context re-attaches through `attach` over the propagator's own extract — the cross-`libs/` `ONE_DISTRIBUTED_TRACE` Python leg against the C# `dotnet:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` producer. This page mints the `ScopeKey` composition axis naming which embedded composition owns a custody row, and composes the `reliability/faults#FAULT` `scoped` stamp naming which library emitted a signal — the instrumentation coordinate homing one tier lower because `identity`, `clock`, `shapes`, and `wire` emit spans from below this owner and no import of theirs reaches it.
 
 ## [01]-[INDEX]
 
@@ -14,12 +14,12 @@ This owner seats the observation primitives every producing site composes — th
 - Owner: `Drained[T]` is the lane's own drain result — the terminal count partition, the values and faults that settled, the threaded session cache, and the drain's spend — so a caller reads what finished off one shape and `facts` is the one projection its log line spreads: the counts per `DRAIN_COLUMNS` column beside the `Cost` facts, so the line carries the denominator its parts sum to while the metrics counter keys the `DRAIN_DISPOSITIONS` carve of that same literal and carries the partition alone.
 - Owner: `Cost` is the one process-spend bracket — two `own` reads around a window fold to one `spent` delta through the `psutil` `oneshot` batch — and its `facts`/`measures` pair is the whole projection: a platform-gated column takes the optional slot and the `_volume` fold, so both projections omit its key rather than publishing a zero.
 - Law: the composition axis is ONE `ScopeKey` value threaded through the `scope` keyword every custody surface carries — hooks tables, metrics state, the install maps — and `logger` is its first custody surface: the default scope resolves the bare global logger preserving the standing call shape, a non-default scope resolves a `composition`-bound logger, so two compositions' lines partition and self-identify with no second emit surface.
-- Entry: `measured` is the one operation-owned span weave stated once — one entry discriminating modality on the dispatch shape, the caller's `facts` mapping stamped at span open with `scope`/`subject` authoritative last, the fault fence INSIDE the live span so a provider raise records on a recording span through the faults-owned conversion, a rail-returning dispatch flattened through the faults-owned `faulted` fold so an offload composes without double-nesting and a carried fault marks the same span the raise path marks, and the status close two-sided — OK set exactly once on the clean exit, ERROR at the rail lift. Its free `scope` parameter refuses off-grammar before a span mints — `SCOPE_ID` is the branch telemetry namespace the hook, meter, and instrument owners already enforce, and this weave is the one exported ingress a sibling package hands a scope, so a bare package-prefixed value refuses here rather than reaching an exporter as an instrumentation scope no backend joins. Its tracer mints through the faults-owned `scoped` stamp, memoized per scope: the API caches no handle, so a per-call mint allocates on the weave's hot path, while the pre-install proxy this memo holds re-reads the global at every `start_span` and upgrades at the install with no invalidation.
-- Entry: `attach` is the one context bracket — the loop side injects, the worker kernel extracts through the propagator and attaches around exactly the offloaded body, a placement one fused extract-and-activate scope cannot serve — and the gRPC ingress composes none of it: the `transport/serve#SERVE` interceptor is that seam's one context authority. Before the telemetry install the extract reads the default no-op propagator and the C# parent drops — the mechanical reason the extract sequences after the install.
+- Entry: `measured` is the one operation-owned span weave stated once — one entry discriminating modality on the dispatch shape, the caller's `facts` mapping stamped at span open with `scope`/`subject` authoritative last, the fault fence INSIDE the live span so a provider raise records on a recording span through the faults-owned conversion, a result-returning dispatch flattened through the faults-owned `faulted` fold so an offload composes without double-nesting and a carried fault marks the same span the raise path marks, and the status close two-sided — OK set exactly once on the clean exit, ERROR at the result lift. Its free `scope` parameter refuses off-grammar before a span mints — `SCOPE_ID` is the branch telemetry namespace the hook, meter, and instrument owners already enforce, and this weave is the one exported ingress a sibling package hands a scope, so a bare package-prefixed value refuses here rather than reaching an exporter as an instrumentation scope no backend joins. Its tracer mints through the faults-owned `scoped` stamp, memoized per scope: the API caches no handle, so a per-call mint allocates on the weave's hot path, while the pre-install proxy this memo holds re-reads the global at every `start_span` and upgrades at the install with no invalidation.
+- Entry: `attach` is the one context bracket — the loop side injects, the worker kernel extracts through the propagator and attaches around exactly the offloaded body, a placement one fused extract-and-activate scope cannot serve — and the gRPC ingress composes none of it: the `transport/serve#SERVE` interceptor is that boundary's one context authority. Before the telemetry install the extract reads the default no-op propagator and the C# parent drops — the mechanical reason the extract sequences after the install.
 - Law: every fence resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.OBSERVE`; the dispatch fence keeps the plane's catch-all because a dispatch is caller work, while the scope refusal carries the off-grammar value as its NAMED slot.
 - Law: `Redaction` scrubs by key name at EVERY depth and every `hash`-class field renders a stable keyed digest, so two lines carrying the same secret correlate without leaking the value; a producer binds its policy on the logger under `REDACTION_KEY`, never per call, and the chain's `redact` row strips the key before render.
 - Growth: a new retaining plane is one `Ring` field on its own custody map, parking through the same two arms rather than minting a second trim or a private drop counter; a new drain outcome is one `DrainOutcome` member with its `Drained` field, reaching the drained line through `DRAIN_COLUMNS` and the metrics counter through the `DRAIN_DISPOSITIONS` carve with zero consumer edits; a new cost column is one `Cost` field reaching the drained line, the crossing bracket, and the `rasm.cost.<measure>` projection through `facts`/`measures` with zero consumer edits; a new classified field one `Redaction` table row; a new redaction transform one `Scrub` member and one `_reduce` arm; a producer's new span fact one `facts` entry at its own call site with zero weave edits; a new composition one `ScopeKey` value threaded through the `scope` keyword, never a sibling registry; a widened instrumentation namespace one `SCOPE_ID` pattern edit.
-- Boundary: this page opens spans and binds policy; it configures nothing — the `observability/logging#PIPELINE` owner wires the processor chain and the stdlib bridge every line renders through, no private `LogRecordProcessor`/`OTLPLogExporter` stands beside the composition-root egress, and no second drain vocabulary or upward `lanes` import stands beside the taxonomy this page mints. No semconv or scope-version literal re-spells beside the faults-owned pair, and the stamp stays a coordinate rather than a provider seam: `scoped` passes `None` for the provider slot so the global the `observability/telemetry#TELEMETRY` install published stays the one resolution, and no page beside that install ever names a provider instance.
+- Boundary: this page opens spans and binds policy; it configures nothing — the `observability/logging#PIPELINE` owner wires the processor chain and the stdlib bridge every line renders through, no private `LogRecordProcessor`/`OTLPLogExporter` stands beside the composition-root egress, and no second drain vocabulary or upward `lanes` import stands beside the taxonomy this page mints. No semconv or scope-version literal re-spells beside the faults-owned pair, and the stamp stays a coordinate rather than a provider boundary: `scoped` passes `None` for the provider slot so the global the `observability/telemetry#TELEMETRY` install published stays the one resolution, and no page beside that install ever names a provider instance.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -41,7 +41,7 @@ from opentelemetry import context, trace
 from opentelemetry.context import Context
 from opentelemetry.trace import Span, Status, StatusCode
 
-from rasm.runtime.faults import OBSERVE_DISPATCH, OBSERVE_SCOPE, BoundaryFault, RuntimeRail, async_boundary, boundary, faulted, scoped
+from rasm.runtime.faults import OBSERVE_DISPATCH, OBSERVE_SCOPE, BoundaryFault, RuntimeResult, async_boundary, boundary, faulted, scoped
 from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -177,7 +177,7 @@ class Drained[T](Struct, frozen=True):
     def of[U](
         accepted: int,
         hit: int,
-        resolved: Block[tuple[Option[ContentKey], RuntimeRail[U]]],
+        resolved: Block[tuple[Option[ContentKey], RuntimeResult[U]]],
         replayed: Block[tuple[ContentKey, U]],
         cache: Map[ContentKey, U],
         cost: Option[Cost] = Nothing,
@@ -266,7 +266,7 @@ def _tracer(scope: str) -> trace.Tracer:
     return scoped(trace.get_tracer, scope)
 
 
-def _flat[T](span: Span, subject: str, value: "T | RuntimeRail[T]") -> "RuntimeRail[T]":
+def _flat[T](span: Span, subject: str, value: "T | RuntimeResult[T]") -> "RuntimeResult[T]":
     return value.map_error(lambda fault: faulted(span, subject, fault)) if isinstance(value, Result) else Ok(value)
 
 
@@ -275,16 +275,16 @@ def _closed[T](span: Span, value: T) -> T:
     return value
 
 
-async def _lifted[T](rail: RuntimeRail[T]) -> RuntimeRail[T]:
-    return rail
+async def _lifted[T](held: RuntimeResult[T]) -> RuntimeResult[T]:
+    return held
 
 
 def measured[T](
     scope: str, subject: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]], facts: Mapping[str, AttributeValue] = Map.empty()
-) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
+) -> RuntimeResult[T] | Awaitable[RuntimeResult[T]]:
     awaiting = iscoroutinefunction(dispatch) or iscoroutinefunction(getattr(dispatch, "__call__", None))
     if SCOPE_ID.fullmatch(scope) is None:
-        refusal: RuntimeRail[T] = Error(OBSERVE_SCOPE.raised(scope))
+        refusal: RuntimeResult[T] = Error(OBSERVE_SCOPE.raised(scope))
         return _lifted(refusal) if awaiting else refusal
 
     def opened() -> Span:
@@ -293,21 +293,21 @@ def measured[T](
             span.set_attributes({**facts, "scope": scope, "subject": subject})
         return span
 
-    async def settled(span: Span, pending: Callable[[], Awaitable[T]]) -> RuntimeRail[T]:
+    async def settled(span: Span, pending: Callable[[], Awaitable[T]]) -> RuntimeResult[T]:
         with trace.use_span(span, end_on_exit=True):
-            railed = await async_boundary(OBSERVE_DISPATCH, pending, catch=Exception)
-            return railed.bind(lambda value: _flat(span, subject, value)).map(lambda live: _closed(span, live))
+            held = await async_boundary(OBSERVE_DISPATCH, pending, catch=Exception)
+            return held.bind(lambda value: _flat(span, subject, value)).map(lambda live: _closed(span, live))
 
     if awaiting:
         return settled(opened(), dispatch)
     span = opened()
     with trace.use_span(span, end_on_exit=False):
-        railed = boundary(OBSERVE_DISPATCH, dispatch, catch=Exception).bind(lambda value: _flat(span, subject, value))
-        match railed:
+        held = boundary(OBSERVE_DISPATCH, dispatch, catch=Exception).bind(lambda value: _flat(span, subject, value))
+        match held:
             case Result(tag="ok", ok=pending) if isawaitable(pending):
                 return settled(span, lambda: pending)
             case _:
-                outcome = railed.map(lambda value: _closed(span, value))
+                outcome = held.map(lambda value: _closed(span, value))
                 span.end()
                 return outcome
 ```

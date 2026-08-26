@@ -6,7 +6,7 @@
 
 [PUBLIC_TYPE_SCOPE]: document, presentation, and settings
 - namespace: `Eto.Forms`
-- rail: eto-printing
+- concern: eto-printing
 
 | [INDEX] | [SYMBOL]               | [KIND]            | [CAPABILITY]                                                         |
 | :-----: | :--------------------- | :---------------- | :------------------------------------------------------------------- |
@@ -27,7 +27,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document lifecycle
-- rail: eto-printing
+- concern: eto-printing
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]              | [CAPABILITY]                             |
 | :-----: | :---------------------------- | :------------------------ | :--------------------------------------- |
@@ -45,7 +45,7 @@
 |  [12]   | `PrintDocument.Printed`       | event                     | observes job completion                  |
 
 [ENTRYPOINT_SCOPE]: presentation and progress
-- rail: eto-printing
+- concern: eto-printing
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                     | [CAPABILITY]                     |
 | :-----: | :--------------------------------- | :----------------------------------------------- | :------------------------------- |
@@ -63,7 +63,7 @@
 - `SetProgress` THROWS `ArgumentOutOfRangeException` for a fraction outside `0f..1f`; the fraction is validated at the boundary and never reaches the host unbounded.
 
 [ENTRYPOINT_SCOPE]: page and job settings
-- rail: eto-printing
+- concern: eto-printing
 
 | [INDEX] | [SURFACE]                                           | [CAPABILITY]                                  |
 | :-----: | :-------------------------------------------------- | :-------------------------------------------- |
@@ -83,7 +83,7 @@
 [PIPELINE_LAW]:
 - Construction is empty or over a `Control` whose rendered visual is the page source. Rendering runs `OnPrinting` → `OnPrintPage` per page → `OnPrinted`, and `OnPrintPage` receives a `PrintPageEventArgs` carrying the `Graphics` (`libs/dotnet/.api/api-eto-drawing.md`) the page paints into, so a page draws with the identical primitive set a `Drawable` uses on screen.
 - `Print` runs the job silently against the configured printer; `PrintDialog.ShowDialog` gates the same job behind the OS chooser; `PrintPreviewDialog` renders it to screen without committing to hardware.
-- A control-sourced job brackets the native tree: `Print` attaches an unloaded source control to a native parent before the render and detaches it after, so the render is UI-thread-bound and the source control is exclusively held for the job's duration — a control already mounted elsewhere, or a job run off the host thread, breaks the pair the platform seam owns (`libs/dotnet/Rasm.Rhino/.api/api-eto-platform.md`).
+- A control-sourced job brackets the native tree: `Print` attaches an unloaded source control to a native parent before the render and detaches it after, so the render is UI-thread-bound and the source control is exclusively held for the job's duration — a control already mounted elsewhere, or a job run off the host thread, breaks the pair the platform boundary owns (`libs/dotnet/Rasm.Rhino/.api/api-eto-platform.md`).
 - Page count is declared, not discovered: `PageCount` is set before the render and the per-page callback receives `CurrentPage`, so pagination is the boundary's computation over the printable rectangle, never a host-driven enumeration.
 
 [PROGRESS_LAW]:
@@ -96,9 +96,9 @@
 - `libs/dotnet/Rasm.Rhino/.api/api-eto-platform.md`: the `AttachNative`/`DetachNative` pair a control-sourced `Print` brackets internally; a boundary never nests its own attach inside a print job.
 - `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md`: the Rhino host marshal owner and the document-owned parent window — a print job and both dialogs cross the host thread there first, and the parent a dialog receives is resolved through the bridge.
 - `libs/dotnet/Rasm.Rhino/.api/api-eto-runtime.md`: a background producer requesting a print marshals through the registered application dispatch before touching the job.
-- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a print job composes as an effect — `PrintDocument.Print` and the `On*` callbacks fold into an `Eff<A>`/`IO<A>` pipeline whose per-page render is a step, and each `ShowDialog` result folds to `Fin<A>` so a cancelled `DialogResult` rides a typed rail. `PrintDocument` is resource-scoped through the `use` rail, its construction and disposal bracketing one scope; `Option<A>` lifts a null `PrintSettings` so an unconfigured job is `None`; the progress-fraction bound is a `Fin` guard, never a caught `ArgumentOutOfRangeException`.
+- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a print job composes as an effect — `PrintDocument.Print` and the `On*` callbacks fold into an `Eff<A>`/`IO<A>` pipeline whose per-page render is a step, and each `ShowDialog` result folds to `Fin<A>` so a cancelled `DialogResult` rides a typed result. `PrintDocument` is resource-scoped through the `use` bracket, its construction and disposal bracketing one scope; `Option<A>` lifts a null `PrintSettings` so an unconfigured job is `None`; the progress-fraction bound is a `Fin` guard, never a caught `ArgumentOutOfRangeException`.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): `PageOrientation`, `PrintSelection`, `TaskbarProgressState`, and `DialogResult` bind as `[SmartEnum]` owners routed by generated `Switch`/`Map`; a `Range<int>` page interval binds as a `[ComplexValueObject]` so the bound and the selection validate against each other as one owner; the progress fraction binds as a `[ValueObject<float>]` carrying the host's `0f..1f` bound.
 
 [LOCAL_ADMISSION]:
-- `Eto.Forms` printing is host-provided and never re-declared; a Rasm owner internalizes document output behind one canonical rail so downstream code composes a print effect and a page-render callback, never a raw `PrintDocument` lifecycle, a stringy dialog-result branch, or a hand-threaded taskbar update.
+- `Eto.Forms` printing is host-provided and never re-declared; a Rasm owner internalizes document output behind one canonical surface so downstream code composes a print effect and a page-render callback, never a raw `PrintDocument` lifecycle, a stringy dialog-result branch, or a hand-threaded taskbar update.
 - The kernel `Interaction/chrome` print owner and the Rhino publishing legs both compose this one catalogue; a folder-tier copy or redirect stub is the deleted form (branch RULINGS `[04]`).

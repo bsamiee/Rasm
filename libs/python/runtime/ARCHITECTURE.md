@@ -14,7 +14,7 @@ runtime/
 │   ├── bundle.py       # COLLECTORS table and the pull-only capsule; collectors run fenced
 │   └── journal.py      # Fact family with Retain classes, the JournalGate hook roster, KEK shredding, and the Ledger/Custody ports
 ├── reliability/        # One fault family and resilience policy every sibling returns through
-│   ├── faults.py       # BoundaryFault union, RuntimeRail, the folder-wide RAISES census, SCOPES, and the boundary/scoped decorators
+│   ├── faults.py       # BoundaryFault union, RuntimeResult, the folder-wide RAISES census, SCOPES, and the boundary/scoped decorators
 │   └── resilience.py   # RetryClass rows, RateGate, and the guard/guarded/guarded_sync decorators at the free BASE
 ├── transport/          # Resource roots, the companion server, the wire codec, and the message-envelope owner with its bindings and filters
 │   ├── body.py         # AdmissionSide/AdmissionPhase posture, BodyAdmission over the four Connect shapes, AdmissionError evidence
@@ -24,7 +24,7 @@ runtime/
 │   ├── shapes.py       # SPLAT_FORMS rows, the FaultRecovery correspondence, the REGISTRY descriptor seat, and the two-way boot census over services
 │   ├── wire.py         # Decode, the CRDT op-log codec, and one-family fields with retained presence/RGA horizons
 │   ├── event.py        # Strict generic CloudEvents, MessageEnvelope profile, format rows, and extension codecs
-│   ├── binding.py      # Binding rows, payload residence, authenticated delivery scope, and BrokerLane custody
+│   ├── binding.py      # Binding rows, payload storage, authenticated delivery scope, and BrokerLane custody
 │   └── filter.py       # Cesql lowered closures over the LALR grammar; FilterDialect pushdown rows and the Subscription seat
 ├── execution/          # Caller-owned host-fact admission, bounded concurrency, the worker crossing, and recipe execution
 │   ├── admission.py    # RuntimeContext/Profile, SecretBoundary, SettingsAdmission, PrincipalScope, and TenantAdoption
@@ -39,7 +39,7 @@ runtime/
 
 ## [02]-[STRATA]
 
-Interior composition is one acyclic import rail: `faults` roots the graph and every fault-bearing module returns through it, `body` and `artifact` seat beside it as the descriptor-driven transport floor importing no runtime sibling, and `serve` terminates the rail. Edges below are the transitive reduction of the real module imports, so a drawn edge is a direct import no shorter chain explains.
+Interior composition is one acyclic import path: `faults` roots the graph and every fault-bearing module returns through it, `body` and `artifact` seat beside it as the descriptor-driven transport floor importing no runtime sibling, and `serve` terminates the result. Edges below are the transitive reduction of the real module imports, so a drawn edge is a direct import no shorter chain explains.
 
 ```mermaid
 ---
@@ -50,8 +50,8 @@ config:
     padding: 25
 ---
 flowchart TB
-    accTitle: Runtime interior import rail
-    accDescr: Transitive-reduced module import rail from serve down through the execution and identity bands onto the faults root.
+    accTitle: Runtime interior import path
+    accDescr: Transitive-reduced module import path from serve down through the execution and identity bands onto the faults root.
     subgraph S7["S7-S9 COMPOSITION BAND"]
         Serve[serve]
         Binding[binding]
@@ -123,9 +123,9 @@ flowchart TB
     Metrics e34@-->|"[IMPORT]: Drained"| Observe
     Logging e35@-->|"[IMPORT]: Redaction"| Observe
     Reproduction e36@-->|"[IMPORT]: ContentIdentity"| Identity
-    Evidence e37@-->|"[IMPORT]: RuntimeRail"| Faults
+    Evidence e37@-->|"[IMPORT]: RuntimeResult"| Faults
     Observe e38@-->|"[IMPORT]: ContentKey"| Identity
-    Identity e39@-->|"[IMPORT]: RuntimeRail"| Faults
+    Identity e39@-->|"[IMPORT]: RuntimeResult"| Faults
     Shapes e40@-->|"[IMPORT]: BoundaryFault"| Faults
     Clock e41@-->|"[IMPORT]: BoundaryFault"| Faults
     Shapes e42@-->|"[IMPORT]: ArtifactError"| Artifact
@@ -133,7 +133,7 @@ flowchart TB
     Faults f1@-->|"forbidden: upward import"| S7
 ```
 
-- S0 `faults` — mints `BoundaryFault` and the `RuntimeRail` exactly once, importing no sibling; every module above returns through it.
+- S0 `faults` — mints `BoundaryFault` and the `RuntimeResult` exactly once, importing no sibling; every module above returns through it.
 - S0 `body` — descriptor-generic validation importing no runtime sibling and no generated family, so it names no family and widens with none.
 - S0 `artifact` — one edge above `body`, reading `buf.validate` bounds and `artifact_pb` envelopes as VALUES; the root feeds payload alone.
 - S1-S3 `clock`, `identity`, `shapes` sit on the floor — `shapes` reads `artifact`'s refusal carrier — so every stamp, key, and wire row loads first.
@@ -141,13 +141,13 @@ flowchart TB
 - S4-S6 banded rank is path-dependent — `profiles -> telemetry -> admission` and `event -> admission` order inside the band, no pair looping.
 - S4-S6 `telemetry` carries the `logging`-owned `LogShip` policy unchanged — the gate installs, the chain owns the wire projection.
 - S4-S6 `event` mints the envelope below its bindings, so a binding row grows with zero envelope edits.
-- S7-S9 `serve` alone terminates the rail — nothing imports `serve`, so the daemon root is a sink, never a dependency.
+- S7-S9 `serve` alone terminates the result — nothing imports `serve`, so the daemon root is a sink, never a dependency.
 - S7-S9 `filter -> binding` runs one way — `filter` reads `Pushdown` off the row and `binding` names no dialect, so the join adds no cycle.
-- S7-S9 `workers` boots parent-captured installs post-spawn, so a floor import never reaches back into the parent's rail.
+- S7-S9 `workers` boots parent-captured installs post-spawn, so a floor import never reaches back into the parent's result.
 - S7-S9 `recipe` seats geometry's `RecipeInterface` port on the thread lane; `bundle` folds install records, hook rings, and admitted context.
 - S7-S9 `journal`'s `Ledger` binds at composition — the evidence-truth plane arrives as a port, and no runtime module implements it.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -158,7 +158,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Runtime C# platform and kernel seams
+    accTitle: Runtime C# platform and kernel boundaries
     accDescr: Runtime sub-domain owners exchanging content keys, wire codecs, Connect transport, and clock stamps with the .NET peers.
     subgraph runtime[RUNTIME]
         Evidence[Evidence]
@@ -192,7 +192,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Runtime cross-package Python seams
+    accTitle: Runtime cross-package Python boundaries
     accDescr: Runtime sub-domain owners exchanging content identity, transport, kernel and hook ports, and measurements with the Python siblings.
     subgraph runtime[RUNTIME]
         Transport[Transport]
@@ -242,7 +242,7 @@ flowchart LR
     Transport e30@-->|"[BOUNDARY]: ArtifactTransfer"| Cad
 ```
 
-Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the .NET peers.
+Each fence's home roster holds only the sub-domains carrying a boundary with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal boundary with the .NET peers.
 
 Transport↔AppHost's `[WIRE]` edge also carries the `grpc.health.v1` serving-status leg over the companion UDS, and upstream `health.proto` is the frozen publisher source both ends generate from.
 
@@ -268,7 +268,7 @@ flowchart LR
     Metrics e5@-->|"series"| Telemetry
     Facts e6@-->|"record: Fact"| Journal[(journal · evidence truth)]
     Telemetry e7@-->|"OTLP"| Egress([collector])
-    Hooks f1@-.->|"subscriber breach: typed evidence"| Fault[/BoundaryFault rail/]
+    Hooks f1@-.->|"subscriber breach: typed evidence"| Fault[/BoundaryFault/]
     Telemetry f2@-.->|"install refusal before publish"| Fault
 ```
 

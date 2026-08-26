@@ -76,7 +76,7 @@
 
 [STACKING]:
 - `Polly.Core`(`.api/api-polly-core.md`): `ConfigureTelemetry<TBuilder>` binds any `ResiliencePipelineBuilder`/`ResiliencePipelineBuilder<T>`; `SeverityProviderArguments` carries the emitted `ResilienceEvent`/`ResilienceTelemetrySource`, and `AddResiliencePipelineRegistry<TKey>` wires the `ResiliencePipelineRegistry<TKey>`/`ResiliencePipelineProvider<TKey>` keyed-resolution surface.
-- `OpenTelemetry`(`libs/dotnet/.api/api-opentelemetry.md`): `Observability/telemetry#TELEMETRY_IDENTITY` admits the `Polly` scope to `AddMeter` through its `ForeignSource` row, which is the whole path this meter takes to a `MeterProvider`; `MeteringEnricher.Enrich` then appends `EnrichmentContext.Tags` as dimensions on the admitted streams, and `TelemetryOptions.LoggerFactory` binds the observability logging rail.
+- `OpenTelemetry`(`libs/dotnet/.api/api-opentelemetry.md`): `Observability/telemetry#TELEMETRY_IDENTITY` admits the `Polly` scope to `AddMeter` through its `ForeignSource` row, which is the whole path this meter takes to a `MeterProvider`; `MeteringEnricher.Enrich` then appends `EnrichmentContext.Tags` as dimensions on the admitted streams, and `TelemetryOptions.LoggerFactory` binds the observability logging path.
 - DI composition: `PollyServiceCollectionExtensions.AddResiliencePipeline*` folds every keyed pipeline into `IServiceCollection` (`.api/api-di.md`), resolved through the registry and configured by `AddOptions<TelemetryOptions>`.
 
 [LOCAL_ADMISSION]:

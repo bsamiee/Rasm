@@ -2,7 +2,7 @@
 
 `GlbCensus.of` is the provider's one measurement of the EMITTED discrete result: it re-opens the GLB bytes already written to a provider-owned path and reads placements, unique mesh faces, per-body closure, and per-body volume back out of them. Reading the artifact rather than the source shape is what makes the census a measurement: a count derived from `TopoDS` topology describes what was asked for, while a count derived from the file describes what a consumer will decode.
 
-Emitted-file authority binds both directions. `tessellation/mesh#MESH` gates its triangle budget against this census rather than its own preflight sum, and `metrology/properties#MEASURE` receives closure as a `Closure` arm this owner elects, so no leg reconstructs mesh evidence from a source estimate or publishes a sentinel count where a decode refused. Every refusal lands one `CENSUS_DECODE` row on `CadRail`, and no exception escapes into the `anyio.to_process` worker's return path.
+Emitted-file authority binds both directions. `tessellation/mesh#MESH` gates its triangle budget against this census rather than its own preflight sum, and `metrology/properties#MEASURE` receives closure as a `Closure` arm this owner elects, so no leg reconstructs mesh evidence from a source estimate or publishes a sentinel count where a decode refused. Every refusal lands one `CENSUS_DECODE` row on `CadResult`, and no exception escapes into the `anyio.to_process` worker's return path.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@ Emitted-file authority binds both directions. `tessellation/mesh#MESH` gates its
 - Law: `file_type` is a declared parameter while `process` rides `**kwargs` unvalidated, so a misspelling there is swallowed whole, conditioning silently runs, and every count drifts off the bytes on disk.
 - Law: placement collapses each `from_gltf_primitive` child onto its parent node, because one source mesh split by material is one placement.
 - Law: triangles sum `len(mesh.faces)` once across `Scene.geometry.values()`, so an instanced geometry counts once no matter how many nodes place it.
-- Law: closure and volume read the FLATTENED scene — `to_mesh()` applies every placement, then `merge_vertices` welds the bit-identical float32 seams glTF promotion introduces, without inheriting the mutable `tol.merge` default.
+- Law: closure and volume read the FLATTENED scene — `to_mesh()` applies every placement, then `merge_vertices` welds the bit-identical float32 boundaries glTF promotion introduces, without inheriting the mutable `tol.merge` default.
 - Law: `Trimesh.split` dispatches to `trimesh.graph.split`, which resolves `networkx` or `scipy` and raises `ImportError` where neither is installed.
 - Law: `networkx` rides the root manifest as that engine, so its absence is a deployment defect surfacing at import rather than a silent `ImportError` inside the worker wearing a `CENSUS_DECODE` row it never earned.
 - Law: per-body volume sums absolute component volumes, so an inverted component contributes magnitude instead of cancelling a sibling into a forged zero the measure delta then certifies.
@@ -34,7 +34,7 @@ import trimesh
 from expression import Error, Ok
 from msgspec import Struct
 
-from rasm.cad.faults import CENSUS_DECODE, CadRail
+from rasm.cad.faults import CENSUS_DECODE, CadResult
 from rasm.cad.metrology.properties import OPEN, Closure
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -58,7 +58,7 @@ class GlbCensus(Struct, frozen=True, gc=False):
         return Closure(closed=self.volume_m3) if self.watertight else OPEN
 
     @staticmethod
-    def of(path: Path, /) -> CadRail["GlbCensus"]:
+    def of(path: Path, /) -> CadResult["GlbCensus"]:
         try:
             scene = trimesh.load_scene(path, file_type="glb", process=False)
             parents = {child: parent for parent, child, _attributes in scene.graph.to_edgelist()}
@@ -85,7 +85,7 @@ class GlbCensus(Struct, frozen=True, gc=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _admitted(census: GlbCensus, /) -> CadRail[GlbCensus]:
+def _admitted(census: GlbCensus, /) -> CadResult[GlbCensus]:
     return (
         Ok(census)
         if census.instances > 0 and census.triangles > 0

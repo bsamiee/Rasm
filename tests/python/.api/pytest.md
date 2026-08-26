@@ -1,6 +1,6 @@
 # [PY_TESTS_API_PYTEST]
 
-`pytest` is the collector, fixture, marker, config, and hook engine the whole `tests/python` estate composes on: the `testkit` runtime plugin binds Hypothesis profiles and auto-markers through its hooks, the `spec.py` matrix folds report through its core `subtests` fixture, and every lane — unit, network, subprocess, benchmark, mutation — is a marker selection over one session. Parallel, ordering, and wall-clock lanes are sibling rails: `.api/pytest-xdist.md`, `.api/pytest-randomly.md`, `.api/pytest-timeout.md`.
+`pytest` is the collector, fixture, marker, config, and hook engine the whole `tests/python` repo composes on: the `testkit` runtime plugin binds Hypothesis profiles and auto-markers through its hooks, the `spec.py` matrix folds report through its core `subtests` fixture, and every lane — unit, network, subprocess, benchmark, mutation — is a marker selection over one session. Parallel, ordering, and wall-clock lanes are sibling plugins: `.api/pytest-xdist.md`, `.api/pytest-randomly.md`, `.api/pytest-timeout.md`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -104,5 +104,5 @@ def pytest_sessionstart(session: Session) -> None: ...
 [LOCAL_ADMISSION]:
 - `pytest` is admitted on the `tests/` dev plane in `[dependency-groups] dev`; no `libs/python` runtime graph imports it.
 - Specs reach construction and projection through `@spec`-injected `resolve(subject)` strategies, never a raw `test` free of the law registration.
-- Per-suite conftests compose fixtures and seams only; SUT registration lives in the root `conftest.py` via `register_tree`, and a tool suite registers in its own conftest via `register_sut`.
+- Per-suite conftests compose fixtures and doubles only; SUT registration lives in the root `conftest.py` via `register_tree`, and a tool suite registers in its own conftest via `register_sut`.
 - New capabilities extend the owning `testkit` module, never a helper file; the matrix folds take `subtests` as an optional row carrier so a single spec drives the whole fault table.

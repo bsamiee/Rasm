@@ -1,6 +1,6 @@
 # [RASM_API_SPECKLE]
 
-`Speckle.Sdk` owns the `Base` object-graph model, its dynamic detach/chunk serialisation, the DI-resolved `IOperations` send/receive surface, the transport family, and the GraphQL `IClient`; `Speckle.Objects` layers the geometry roster and the `Speckle.Objects.Data` host-object family onto `Base`. Two folders split one graph: `Rasm.Persistence` owns the SEND half — the serialiser, transports, and client feeding the sync rail's `SyncTransport.SpeckleLikeDiff` case, the send `rootObjId` mapping to `UInt128 ContentKey` through `SyncPump.Offer` — and `Rasm.Bim` owns the RECEIVE half: the deduplicating `Flatten` traversal, the display-mesh geometry, the metre-conversion surface, and the `DataObject` typed-parameter family folding onto the canonical Bim carriers at the exchange import seam. A non-display `Brep`/`Surface`/`Curve` with no `displayValue` hands off to the Compute tessellation companion.
+`Speckle.Sdk` owns the `Base` object-graph model, its dynamic detach/chunk serialisation, the DI-resolved `IOperations` send/receive surface, the transport family, and the GraphQL `IClient`; `Speckle.Objects` layers the geometry roster and the `Speckle.Objects.Data` host-object family onto `Base`. Two folders split one graph: `Rasm.Persistence` owns the SEND half — the serialiser, transports, and client feeding the sync path's `SyncTransport.SpeckleLikeDiff` case, the send `rootObjId` mapping to `UInt128 ContentKey` through `SyncPump.Offer` — and `Rasm.Bim` owns the RECEIVE half: the deduplicating `Flatten` traversal, the display-mesh geometry, the metre-conversion surface, and the `DataObject` typed-parameter family folding onto the canonical Bim carriers at the exchange import boundary. A non-display `Brep`/`Surface`/`Curve` with no `displayValue` hands off to the Compute tessellation companion.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -153,7 +153,7 @@ Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection, …
 |  [03]   | `string? speckleVersion, params Assembly[] assemblies`                    | params register              |
 |  [04]   | `params Assembly[] assemblies`                                            | params register (no version) |
 
-- `AddSpeckleSdk` registers `IOperations`, `IClient`, the transport factories, and the serialisation pipeline; the `SpeckleLikeDiff` rail resolves `IOperations` from the wired provider.
+- `AddSpeckleSdk` registers `IOperations`, `IClient`, the transport factories, and the serialisation pipeline; the `SpeckleLikeDiff` path resolves `IOperations` from the wired provider.
 
 [ENTRYPOINT_SCOPE]: `BaseExtensions` — traversal and display (statics extending `Base`)
 
@@ -188,17 +188,17 @@ Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection, …
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `Base` is a `DynamicBase`; a seam reads typed members through the package surface and never reflects the dynamic bag; host subtypes add typed columns over the one inherited `properties` dictionary.
+- `Base` is a `DynamicBase`; a boundary reads typed members through the package surface and never reflects the dynamic bag; host subtypes add typed columns over the one inherited `properties` dictionary.
 - `Flatten` is the sole deduplicating traversal, caching on `Base.id`; a hand-rolled `DynamicBase` recursion is the rejected form. `TryGetDisplayValue`/`IsDisplayableObject` own the displayable-node vocabulary — a per-type `is Mesh`/`is Brep` ladder is the rejected form.
 - `Mesh.faces` fans each length-prefixed n-gon to a triangle fan at the boundary; `Brep` ships no managed NURBS evaluator, so a non-mesh `Brep`/`Surface`/`Curve` lacking `displayValue` routes to the tessellation companion.
-- `IOperations` resolves from DI; `Operations` declares no static `Send`/`Receive`, so the `SpeckleLikeDiff` rail binds the instance surface alone. Transport-bound `Send`/`Receive` drive the explicit transport stack; `Send2`/`Receive2` run the URL-bound serialisation-V2 pipeline that bypasses it.
+- `IOperations` resolves from DI; `Operations` declares no static `Send`/`Receive`, so the `SpeckleLikeDiff` path binds the instance surface alone. Transport-bound `Send`/`Receive` drive the explicit transport stack; `Send2`/`Receive2` run the URL-bound serialisation-V2 pipeline that bypasses it.
 - `Send`/`Receive` lift `ArgumentException`/`ArgumentNullException` on a null graph, missing `objectId`, or empty transport set, `OperationCanceledException` on the token, and `HttpRequestException` at the HTTP layer.
 
 [STACKING]:
 - `dotbim`(`Rasm.Bim/.api/api-dotbim.md`), `SharpGLTF`(`api-sharpgltf.md`), `AssimpNetter`(`Rasm.Bim/.api/api-assimpnetter.md`): every display `Mesh` fans to the shared canonical triangle carrier these codecs decode into, so a received Speckle model re-exports through any of them.
-- `Thinktecture.Json`/`MessagePack`(`api-thinktecture-json.md`, `api-thinktecture-messagepack.md`, `api-messagepack.md`): parallel codec rails, never composed inline. Speckle owns its own `Base`-graph serialiser (`SpeckleObjectSerializer`, the V2 pipeline, content hashing) and never routes through the snapshot codecs; a Rasm owner marshals to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Version/ledger#SYNC_TRANSPORTS` `SpeckleSend` seam, then Speckle's serialiser hashes and stores it — no double-encoding.
-- Persistence consumer anchor: the sync rail composes `Send` over a `ServerTransport` + `SQLiteTransport` pair for remote-plus-local-cache, or `Send2` for the URL pipeline; `SyncPump.Offer` maps the resulting `rootObjId` to the existing `UInt128 ContentKey`. This half never re-projects a received graph.
-- Bim consumer anchor: the `Exchange/import` seam runs `root.Flatten()` split to `OfType<Mesh>` geometry and `OfType<DataObject>` semantics onto the canonical carriers, `Units.GetConversionFactor(mesh.units, Units.Meters)` scaling every mesh to the kernel metre frame; a `displayValue`-less `Brep`/`Surface`/`Curve` hands to the Compute tessellation companion; containment reconstructs by walking the `TraversalContext.Parent` chain. This half mints no transport.
+- `Thinktecture.Json`/`MessagePack`(`api-thinktecture-json.md`, `api-thinktecture-messagepack.md`, `api-messagepack.md`): parallel codec paths, never composed inline. Speckle owns its own `Base`-graph serialiser (`SpeckleObjectSerializer`, the V2 pipeline, content hashing) and never routes through the snapshot codecs; a Rasm owner marshals to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Version/ledger#SYNC_TRANSPORTS` `SpeckleSend` boundary, then Speckle's serialiser hashes and stores it — no double-encoding.
+- Persistence consumer anchor: the sync path composes `Send` over a `ServerTransport` + `SQLiteTransport` pair for remote-plus-local-cache, or `Send2` for the URL pipeline; `SyncPump.Offer` maps the resulting `rootObjId` to the existing `UInt128 ContentKey`. This half never re-projects a received graph.
+- Bim consumer anchor: the `Exchange/import` boundary runs `root.Flatten()` split to `OfType<Mesh>` geometry and `OfType<DataObject>` semantics onto the canonical carriers, `Units.GetConversionFactor(mesh.units, Units.Meters)` scaling every mesh to the kernel metre frame; a `displayValue`-less `Brep`/`Surface`/`Curve` hands to the Compute tessellation companion; containment reconstructs by walking the `TraversalContext.Parent` chain. This half mints no transport.
 
 [LOCAL_ADMISSION]:
 - `Speckle.Sdk`/`Speckle.Objects` run OUTSIDE-RHINO on the companion target; the in-Rhino assembly composes only the `SyncTransport.SpeckleLikeDiff` case and never references the Speckle assemblies. `Speckle.Sdk.Dependencies` repacks the Polly + channel + object-pool + serialisation-V2 closure so the SDK dependency graph stays isolated from the host.

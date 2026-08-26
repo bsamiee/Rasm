@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_POLLY_CORE]
 
-`Polly.Core` mints the resilience-pipeline substrate for every shared and non-HTTP rail: builders fold ordered strategies into one executable `ResiliencePipeline`, a keyed registry resolves pipelines by policy identity, and a pooled `ResilienceContext` threads outcome, cancellation, and telemetry through each run. Every knob is a validated options property proved at `Add*` time, and `Polly.Simmy` chaos ships inside this same assembly. HTTP boundary resilience composes this substrate through its own handler package.
+`Polly.Core` mints the resilience-pipeline substrate for every shared and non-HTTP call path: builders fold ordered strategies into one executable `ResiliencePipeline`, a keyed registry resolves pipelines by policy identity, and a pooled `ResilienceContext` threads outcome, cancellation, and telemetry through each run. Every knob is a validated options property proved at `Add*` time, and `Polly.Simmy` chaos ships inside this same assembly. HTTP boundary resilience composes this substrate through its own handler package.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -134,7 +134,7 @@
 |  [06]   | `RetryStrategyOptions<T>.ShouldHandle`        | property | handled-outcome predicate, `[Required]`   |
 |  [07]   | `RetryStrategyOptions<T>.DelayGenerator`      | property | per-attempt delay override                |
 |  [08]   | `RetryStrategyOptions<T>.OnRetry`             | property | retry event callback                      |
-|  [09]   | `RetryStrategyOptions<T>.Randomizer`          | property | jitter determinism seam, `[Required]`     |
+|  [09]   | `RetryStrategyOptions<T>.Randomizer`          | property | jitter determinism hook, `[Required]`     |
 |  [10]   | `TimeoutStrategyOptions.Timeout`              | property | deadline, `[Range]` 10 ms to one day      |
 |  [11]   | `TimeoutStrategyOptions.TimeoutGenerator`     | property | per-execution deadline override           |
 |  [12]   | `TimeoutStrategyOptions.OnTimeout`            | property | timeout event callback                    |
@@ -216,14 +216,14 @@
 | [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                     |
 | :-----: | :---------------------------------------------------------- | :------- | :----------------------------------------------- |
 |  [01]   | `AddChaosLatency`                                           | fold     | time plane, any builder                          |
-|  [02]   | `AddChaosFault`                                             | fold     | exception rail, any builder                      |
+|  [02]   | `AddChaosFault`                                             | fold     | exception path, any builder                      |
 |  [03]   | `AddChaosBehavior`                                          | fold     | side effect before the call, any builder         |
-|  [04]   | `AddChaosOutcome<TResult>`                                  | fold     | result rail, `ResiliencePipelineBuilder<T>` only |
+|  [04]   | `AddChaosOutcome<TResult>`                                  | fold     | result path, `ResiliencePipelineBuilder<T>` only |
 |  [05]   | `ChaosStrategyOptions.Enabled`                              | property | build-time injection gate                        |
 |  [06]   | `ChaosStrategyOptions.EnabledGenerator`                     | property | per-execution injection gate                     |
 |  [07]   | `ChaosStrategyOptions.InjectionRate`                        | property | draw threshold, `[Range(0.0, 1.0)]`              |
 |  [08]   | `ChaosStrategyOptions.InjectionRateGenerator`               | property | per-execution draw threshold                     |
-|  [09]   | `ChaosStrategyOptions.Randomizer`                           | property | draw determinism seam, `[Required]`              |
+|  [09]   | `ChaosStrategyOptions.Randomizer`                           | property | draw determinism hook, `[Required]`              |
 |  [10]   | `ChaosLatencyStrategyOptions.Latency`                       | property | injected delay                                   |
 |  [11]   | `ChaosFaultStrategyOptions.FaultGenerator`                  | property | injected exception, null return skips            |
 |  [12]   | `ChaosOutcomeStrategyOptions<T>.OutcomeGenerator`           | property | substituted outcome, `[Required]`                |
@@ -231,7 +231,7 @@
 |  [14]   | `FaultGenerator.AddException<TException>(int weight = 100)` | fold     | weighted exception row by type                   |
 |  [15]   | `FaultGenerator.AddException(Func<…>, int weight = 100)`    | fold     | weighted exception row by factory                |
 |  [16]   | `OutcomeGenerator<T>.AddResult(Func<…>, int weight = 100)`  | fold     | weighted result row                              |
-|  [17]   | `OutcomeGenerator<T>.AddException(…, int weight = 100)`     | fold     | weighted exception row on the result rail        |
+|  [17]   | `OutcomeGenerator<T>.AddException(…, int weight = 100)`     | fold     | weighted exception row on the result path        |
 
 - `ResiliencePipelineProvider<TKey>.TryGetPipeline` carries an untyped and a `<TResult>` overload mirroring `GetPipeline`, each `abstract bool TryGetPipeline(TKey key, [NotNullWhen(true)] out ResiliencePipeline? pipeline)`: the whole family is SYNC — no async probe exists — and the `[NotNullWhen(true)]` annotation is what lets a `true` branch read the out value without a null check.
 - `PredicateBuilder<T>` reaches a `ShouldHandle` slot through four implicit operators — retry, hedging, fallback, and breaker predicate delegates — so one transient row declares once and converts into every slot; `Build()` on a builder carrying zero arms throws `InvalidOperationException`, which surfaces at the `Add*` call the conversion runs inside.
@@ -262,8 +262,8 @@
 |  [02]   | `RetryStrategyOptions<T>.Delay`                      | 2 s               | first retry waits two seconds under any curve     |
 |  [03]   | `RetryStrategyOptions<T>.MaxRetryAttempts`           | 3                 | four total calls per logical operation            |
 |  [04]   | `RetryStrategyOptions<T>.MaxDelay`                   | `null`            | exponential growth runs uncapped                  |
-|  [05]   | `CircuitBreakerStrategyOptions<T>.MinimumThroughput` | 100               | a low-traffic seam never trips its breaker        |
-|  [06]   | `CircuitBreakerStrategyOptions<T>.FailureRatio`      | 0.1               | one failure in ten trips a busy seam              |
+|  [05]   | `CircuitBreakerStrategyOptions<T>.MinimumThroughput` | 100               | a low-traffic dependency never trips its breaker  |
+|  [06]   | `CircuitBreakerStrategyOptions<T>.FailureRatio`      | 0.1               | one failure in ten trips a busy dependency        |
 |  [07]   | `CircuitBreakerStrategyOptions<T>.SamplingDuration`  | 30 s              | statistics window outlives most attempt deadlines |
 |  [08]   | `CircuitBreakerStrategyOptions<T>.BreakDuration`     | 5 s               | open dwell is fixed unless a generator row lands  |
 |  [09]   | `TimeoutStrategyOptions.Timeout`                     | 30 s              | attempt deadline exceeds most transport budgets   |
@@ -284,13 +284,13 @@
 - Ownership follows CONSTRUCTION: strategies the builder constructs dispose with the pipeline, `AddPipeline` nests an external component whose disposal never transfers, and any limiter, generator, or state object a consumer hands in stays that consumer's to release.
 - `CircuitBreakerStateProvider` is single-attach — a second strategy reusing one instance throws `InvalidOperationException` at build — so per-seat evidence is structural rather than conventional.
 - `CircuitBreakerManualControl` attaches to N breakers and survives pipeline generations; a control constructed `isIsolated: true` isolates each breaker AT REGISTRATION through a blocking synchronous call, so a boot-dark group pays that cost inside pipeline construction.
-- Operator-forced transitions stay distinguishable at BOTH seams: `IsolatedCircuitException` derives from `BrokenCircuitException` so one catch arm covers organic and forced opens while the type attributes the cause, and `OnOpened`/`OnClosed` carry an `IsManual` flag reading the same discriminant without a type test.
+- Operator-forced transitions stay distinguishable at BOTH boundaries: `IsolatedCircuitException` derives from `BrokenCircuitException` so one catch arm covers organic and forced opens while the type attributes the cause, and `OnOpened`/`OnClosed` carry an `IsManual` flag reading the same discriminant without a type test.
 - `ResiliencePipelineRegistry<TKey>.DisposeAsync` force-disposes every materialized pipeline, and a reference held past that point throws — breaker statistics and limiter queues are process-local and intentionally unrecoverable.
 - `ConfigureBuilderContext<TKey>.AddReloadToken` SILENTLY DROPS a token that cannot be cancelled or is already cancelled, so a reload wired from a stale source registers nothing and reports nothing.
 
 [DELAY_ALGEBRA]:
 - Curve arithmetic is `Constant` = base, `Linear` = (n+1)·base, `Exponential` = 2ⁿ·base, and a zero base short-circuits to zero under every curve.
-- `UseJitter` applies ±25% uniform spread on the constant and linear curves and swaps the exponential curve for decorrelated jitter, which is what breaks correlated retry storms; `Randomizer` is the one determinism seam for both.
+- `UseJitter` applies ±25% uniform spread on the constant and linear curves and swaps the exponential curve for decorrelated jitter, which is what breaks correlated retry storms; `Randomizer` is the one determinism hook for both.
 - `MaxDelay` caps the COMPUTED curve alone — a `DelayGenerator` return bypasses it entirely, so an operator ceiling over server-directed delay belongs inside the generator.
 - Generator returns below `TimeSpan.Zero` and null returns alike fall back to the curve, so a generator answering one fault family and declining every other is one expression.
 - `OnRetry` runs after the failed attempt's outcome is captured and BEFORE that result is discarded and disposed, so a callback storing the result reads freed state; copy what the event needs inside the callback.
@@ -298,21 +298,21 @@
 [CHAOS_GATE]:
 - Injection runs one fixed per-execution sequence — `EnabledGenerator(context)`, then `InjectionRateGenerator(context)`, then `Randomizer() < threshold` — with a cancellation check ahead of each step, and generator presence makes the corresponding `Enabled`/`InjectionRate` scalar ignored, so targeting one tenant, environment, or fraction is a generator row rather than a build-time fork.
 - `Randomizer` receives NO `ResilienceContext` while both generators do, so a run that must decide injection from the executing frame decides at `EnabledGenerator`; a generator-returned threshold is COERCED into `[0.0, 1.0]` rather than validated, so an out-of-band computation silently clamps where the `[Range]`-validated `InjectionRate` property refuses at build.
-- Outcome injection substitutes the result rail WITHOUT invoking the callback and needs the result type, which is why `AddChaosOutcome` binds `ResiliencePipelineBuilder<TResult>` alone while the other three bind `ResiliencePipelineBuilderBase`.
+- Outcome injection substitutes the result WITHOUT invoking the callback and needs the result type, which is why `AddChaosOutcome` binds `ResiliencePipelineBuilder<TResult>` alone while the other three bind `ResiliencePipelineBuilderBase`.
 - Latency chaos delays through the builder's `TimeProvider` and observes cancellation before invoking the real callback, so injected latency surfaces as a cancelled outcome rather than a wedged call.
 
 [WEIGHTED_CATALOGUE]:
 - `Polly.Simmy.Fault.FaultGenerator` and `Polly.Simmy.Outcomes.OutcomeGenerator<T>` are the weighted mix builders — `AddException<TException>(int weight = 100)` beside `AddException(Func<Exception>, weight)`, `AddException(Func<ResilienceContext, Exception>, weight)`, and `AddResult(…)` on the outcome form — and each converts IMPLICITLY into its options slot, so a realistic fault mix is declared as weights rather than branching.
 - Weights are relative rather than fractional: a draw runs against the running total, so rows of 70 and 30 split seven to three exactly as rows of 7 and 3 do.
 - Weight draws are NOT addressable: both generators construct their internal helper on a fixed process randomizer through a parameterless ctor, and no options member substitutes it — so a weighted catalogue picks a different row every run even beneath a fully deterministic enablement gate, which forecloses replay-exact chaos through this surface.
-- Empty catalogues DIVERGE at the seam: an `OutcomeGenerator<T>` carrying no rows yields a null outcome and skips injection, while a `FaultGenerator` carrying no rows throws `InvalidOperationException` on the first gated execution — so a conditionally populated fault catalogue needs its own emptiness guard.
+- Empty catalogues DIVERGE at the boundary: an `OutcomeGenerator<T>` carrying no rows yields a null outcome and skips injection, while a `FaultGenerator` carrying no rows throws `InvalidOperationException` on the first gated execution — so a conditionally populated fault catalogue needs its own emptiness guard.
 - Null returns from a hand-written fault, outcome, or behavior generator skip injection for that execution, which is the per-execution opt-out channel a weighted catalogue forfeits — a zero-weight row is unreachable rather than a skip, so per-execution targeting rides `EnabledGenerator` instead.
 
 [STACKING]:
 - `Microsoft.Extensions.Http.Resilience`(`.api/api-resilience.md`): outbound handlers build their standard and hedging pipelines on `ResiliencePipelineBuilder`, and request metadata bridges into `ResilienceContext.Properties` through the request-context extensions.
 - `Polly.Extensions`(`.api/api-polly-extensions.md`): `ConfigureTelemetry` seats a `TelemetryListener` at the pipeline head over the `ResilienceEvent`/`ResilienceEventSeverity`/`ResilienceTelemetrySource` values this package raises, and DI `AddResiliencePipeline`/`AddResiliencePipelineRegistry` register keyed pipelines into one `ResiliencePipelineRegistry<TKey>` whose `BuilderNameFormatter` supplies every `pipeline.name`.
-- `Polly.RateLimiting`(`.api/api-polly-ratelimiting.md`): `AddRateLimiter` folds a limiter strategy onto `ResiliencePipelineBuilderBase`, rejected admissions surfacing as `RateLimiterRejectedException` on this package's `ExecutionRejectedException` rail with the same `TelemetrySource` stamp.
-- `Microsoft.Extensions.DependencyInjection`(`.api/api-di.md`): the registry and provider pair resolve as container services, and `ResiliencePipelineRegistryOptions<TKey>` binds through the options rail.
+- `Polly.RateLimiting`(`.api/api-polly-ratelimiting.md`): `AddRateLimiter` folds a limiter strategy onto `ResiliencePipelineBuilderBase`, rejected admissions surfacing as `RateLimiterRejectedException` on this package's `ExecutionRejectedException` hierarchy with the same `TelemetrySource` stamp.
+- `Microsoft.Extensions.DependencyInjection`(`.api/api-di.md`): the registry and provider pair resolve as container services, and `ResiliencePipelineRegistryOptions<TKey>` binds through the options system.
 - AppHost composition: `Wire/outbound#KEYED_PIPELINES` folds one keyed pipeline per non-HTTP hop and `Runtime/laneguard#LANE_GUARD` folds one per in-process work lane, both over `ResiliencePipelineBuilder`, both resolving through `ResiliencePipelineProvider<string>.TryGetPipeline`, and both folding terminations through `ExecuteOutcomeAsync` over a pooled context.
 
 [LOCAL_ADMISSION]:

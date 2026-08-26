@@ -2,11 +2,11 @@
 
 `assembly` owns the CAF reader family and the XCAF document every tessellation path reads: one transfer admits a STEP or IGES source into a document carrying colour, name, and layer, and one flatten yields the located compound the mesher triangulates and the metrology fold measures. Source-path custody, triangulation, budget preflight, and glTF emission all stay outside this owner.
 
-`exchange/step#PROTOCOL` supplies `declared` and `schema` and `exchange/step#CODEC` supplies `gated`; `faults#ROWS` supplies `CAF_TRANSFER`, `CAF_ROOTS`, and `STEP_SCHEMA`, and every refusal is `Error(<ROW>.at(...))` on `CadRail`. `tessellation/mesh#MESH` consumes `Assembly` whole — `document` feeds `RWGltf_CafWriter.Perform` and `root` feeds `BRepMesh_IncrementalMesh` — and `TessellateRequest.source` is the one closed dispatch that mints a reader.
+`exchange/step#PROTOCOL` supplies `declared` and `schema` and `exchange/step#CODEC` supplies `gated`; `faults#ROWS` supplies `CAF_TRANSFER`, `CAF_ROOTS`, and `STEP_SCHEMA`, and every refusal is `Error(<ROW>.at(...))` on `CadResult`. `tessellation/mesh#MESH` consumes `Assembly` whole — `document` feeds `RWGltf_CafWriter.Perform` and `root` feeds `BRepMesh_IncrementalMesh` — and `TessellateRequest.source` is the one closed dispatch that mints a reader.
 
 ## [01]-[INDEX]
 
-- [02]-[DOCUMENT]: `TessellateRequest.source` dispatch, the CAF reader family, its surviving channels, and the transfer rail.
+- [02]-[DOCUMENT]: `TessellateRequest.source` dispatch, the CAF reader family, its surviving channels, and the transfer path.
 - [03]-[ROOTS]: `Assembly`, the located free-shape flatten, and the part identity the wire cannot yet carry.
 
 ## [02]-[DOCUMENT]
@@ -42,7 +42,7 @@ from protobuf import Oneof
 # Contracts are retired from this logic.
 
 from rasm.cad.exchange.step import ExchangeArrow, declared, gated, schema
-from rasm.cad.faults import CAF_ROOTS, CAF_TRANSFER, STEP_SCHEMA, CadRail
+from rasm.cad.faults import CAF_ROOTS, CAF_TRANSFER, STEP_SCHEMA, CadResult
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -88,12 +88,12 @@ def _reader(request: TessellateRequest, /) -> tuple[CafReader, ExchangeArrow[Caf
             assert_never(unreachable)
 
 
-def _transferred(reader: CafReader, /) -> CadRail[TDocStd_Document]:
+def _transferred(reader: CafReader, /) -> CadResult[TDocStd_Document]:
     document = _document()
     return Ok(document) if reader.Transfer(document) else Error(CAF_TRANSFER.at("CafReader.Transfer"))
 
 
-def admitted(request: TessellateRequest, path: Path, /) -> CadRail[Assembly]:
+def admitted(request: TessellateRequest, path: Path, /) -> CadResult[Assembly]:
     reader, matched = _reader(request)
     return pipeline(
         gated(CAF_TRANSFER, "CafReader.ReadFile", lambda held: held.ReadFile(str(path))),
@@ -126,7 +126,7 @@ def _added(builder: TopoDS_Builder, compound: TopoDS_Compound, label: TDF_Label,
     return 1
 
 
-def _rooted(document: TDocStd_Document, /) -> CadRail[Assembly]:
+def _rooted(document: TDocStd_Document, /) -> CadResult[Assembly]:
     labels = TDF_LabelSequence()
     XCAFDoc_DocumentTool.ShapeTool_s(document.Main()).GetFreeShapes(labels)
     compound, builder = TopoDS_Compound(), TopoDS_Builder()

@@ -1,6 +1,6 @@
 # [RASM_BIM_API_CITYJSON]
 
-`bertt.CityJSON` reads and writes CityJSON — the OGC CityGML JSON encoding for 3D city models — as a managed codec over a `CityJsonDocument` graph of a transform-quantized vertex pool, a typed `CityObject` taxonomy, and an index-referenced LoD geometry hierarchy, across single-document and CityJSONSeq forms. Its `CityJSON.Extensions` rail dequantizes the geometry into NetTopologySuite `Polygon` and `Feature` sets, landing a dataset on the geospatial NTS algebra. Codec ownership stops at the `.city.json` round-trip and the NTS handoff — no reprojection, raster ingest, or IFC semantics.
+`bertt.CityJSON` reads and writes CityJSON — the OGC CityGML JSON encoding for 3D city models — as a managed codec over a `CityJsonDocument` graph of a transform-quantized vertex pool, a typed `CityObject` taxonomy, and an index-referenced LoD geometry hierarchy, across single-document and CityJSONSeq forms. Its `CityJSON.Extensions` path dequantizes the geometry into NetTopologySuite `Polygon` and `Feature` sets, landing a dataset on the geospatial NTS algebra. Codec ownership stops at the `.city.json` round-trip and the NTS handoff — no reprojection, raster ingest, or IFC semantics.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -82,9 +82,9 @@ CityJSONSeq is newline-delimited — one JSON object per line, a metadata header
 |  [01]   | `CityJsonSeqReader.ReadCityJsonSeq(string) -> List<CityJsonDocument>` | static  | stream-read a `.city.jsonl` sequence |
 |  [02]   | `CityJsonSeqWriter.WriteCityJsonSeq(List<CityJsonDocument>, string)`  | static  | stream-write a CityJSONSeq file      |
 
-[ENTRYPOINT_SCOPE]: NTS projection rail (`CityJSON.Extensions`, `CityJSON.IO`)
+[ENTRYPOINT_SCOPE]: NTS projection path (`CityJSON.Extensions`, `CityJSON.IO`)
 
-`ToFeatures` folds the whole document into NTS `Feature`s, each carrying a `MultiPolygon` and an `AttributesTable` built from `CityObject.Attributes`; the rail applies `Transform` per coordinate so a caller never walks the geometry tree by hand.
+`ToFeatures` folds the whole document into NTS `Feature`s, each carrying a `MultiPolygon` and an `AttributesTable` built from `CityObject.Attributes`; the path applies `Transform` per coordinate so a caller never walks the geometry tree by hand.
 
 | [INDEX] | [SURFACE]                                                                | [SHAPE] | [CAPABILITY]                                        |
 | :-----: | :----------------------------------------------------------------------- | :------ | :-------------------------------------------------- |
@@ -108,7 +108,7 @@ CityJSONSeq is newline-delimited — one JSON object per line, a metadata header
 - `NetTopologySuite`(`libs/dotnet/.api/api-nettopologysuite.md`): `ToFeatures`/`ToPolygons` return `NetTopologySuite.Features.Feature` and `Geometries.Polygon`, and `GetVerticesEnvelope()` an `Envelope` — a dataset lands on the NTS `Geometry`/`Envelope`/STRtree algebra as one more NTS-Feature source beside the shapefile and GeoPackage codecs (`.api/api-nts-esri-shapefile`).
 - `ProjNET`(`.api/api-projnet`): `Metadata.ReferenceSystem` drives the ProjNET datum/projection leg, reprojecting dequantized vertices into the shared projected frame before urban context federates with the BIM model.
 - `SharpGLTF.3DTiles`(`libs/dotnet/.api/api-sharpgltf-3dtiles.md`), `subtree`(`.api/api-subtree`): dequantized solid/surface geometry tessellates into the `Exchange/export` glTF/3D-Tiles delivery pipeline, sharing the projected frame the georeference leg establishes.
-- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): a `CityJsonWriter.Write` string's UTF-8 bytes mint the urban-context snapshot content key on the shared content-identity rail.
+- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): a `CityJsonWriter.Write` string's UTF-8 bytes mint the urban-context snapshot content key on the shared content-identity path.
 - within-lib: `CityJsonDocument.ToFeatures(lod)` composes the full decode in one fold — walking `CityObjects`, applying `Transform` per `CoordinateZ`, triangulating each `Geometry` through `PolygonCreator` into a `MultiPolygon`, and packing `CityObject.Attributes` into the NTS `AttributesTable`.
 
 [LOCAL_ADMISSION]:

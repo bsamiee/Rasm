@@ -11,7 +11,7 @@ Dual-certificate proof of global optimality the first-order design loop and the 
 ## [02]-[CONVEX]
 
 - Owner: `ConvexProgram` — the discriminant is the cone structure, so the differentiable design loop, the discrete math program, and the certified convex program are sibling owners on one sub-domain, never a duplicated optimizer surface; every case ends with one uniform `Policy` slot bound through the `policy` total `match self` or-pattern, never a `getattr(self, self.tag)[-1]` reflection whose `object` residual escapes the exhaustive match; factories are `@classmethod`-plus-`Self`, never a `@staticmethod` over a forward-ref. Six cone families differ by two `ConeRow` closures and one `psd` flag, four `ConeKKT` closures keyed on the constraint's cone family — the residual and primal closures take the constraint beside the dual/expr because cone PARAMETERS (`PowCone3D.alpha`) live on the constraint object, never in the stacked value — and the one `Fields` typed projection every case lands in — table and closure rows, never parallel `match` bodies, so `_assemble` and the evidence fold read fixed attributes and reduce with no shape-probe `if`.
-- Cases: `Problem.is_dcp()` adjudicates curvature BEFORE the solve, and a genuinely indefinite quadratic form fails it — never a silent `cp.psd_wrap` coercion that forces a PSD lift; the semidefinite case carries PSD membership as an explicit `X >> 0` cone row because a `PSD=True` leaf attribute hides the matrix dual `Z` behind the variable domain where `Constraint.dual_value` cannot reach it; the one `cp.Parameter` leaf sits on the inequality `rhs` — the sole DPP-legal parametrizable buffer, a `Parameter` in the form matrix or constraint matrix breaks the DPP ruleset — so a sweep warm-re-solves the one compiled `Problem`, never a rebuild. `power` rows `PowCone3D(aₓ@x, a_y@x, a_z@x, α)` membership per term — its dual is the `[u, v, w]` triple mirroring `args = [x, y, z]` (`np.asarray` stacks it `(3, n)`), inner-product slackness cancels per triple, and dual-cone membership scales `u/α`, `v/(1−α)` before the same weighted-geometric-mean gap the primal reads unscaled. `_BACKEND` rows declare each backend's covered cone families beside its cvxpy selector — HiGHS covers `linear`/`quadratic` alone and cvxpy refuses its conic hand-off with a `SolverError` at selection — so an uncovered `(backend, cone)` pair folds the uncertified sweep at admission, cardinality preserved, never a raise mid-sweep. Every solve pins `canon_backend=cp.SCIPY_CANON_BACKEND`: the floor's source-built CPP canon extension trips a fatal `ProblemData.hpp` assert on every canonicalization — a process abort no rail catches — and the SciPy path canonicalizes every family clean.
+- Cases: `Problem.is_dcp()` adjudicates curvature BEFORE the solve, and a genuinely indefinite quadratic form fails it — never a silent `cp.psd_wrap` coercion that forces a PSD lift; the semidefinite case carries PSD membership as an explicit `X >> 0` cone row because a `PSD=True` leaf attribute hides the matrix dual `Z` behind the variable domain where `Constraint.dual_value` cannot reach it; the one `cp.Parameter` leaf sits on the inequality `rhs` — the sole DPP-legal parametrizable buffer, a `Parameter` in the form matrix or constraint matrix breaks the DPP ruleset — so a sweep warm-re-solves the one compiled `Problem`, never a rebuild. `power` rows `PowCone3D(aₓ@x, a_y@x, a_z@x, α)` membership per term — its dual is the `[u, v, w]` triple mirroring `args = [x, y, z]` (`np.asarray` stacks it `(3, n)`), inner-product slackness cancels per triple, and dual-cone membership scales `u/α`, `v/(1−α)` before the same weighted-geometric-mean gap the primal reads unscaled. `_BACKEND` rows declare each backend's covered cone families beside its cvxpy selector — HiGHS covers `linear`/`quadratic` alone and cvxpy refuses its conic hand-off with a `SolverError` at selection — so an uncovered `(backend, cone)` pair folds the uncertified sweep at admission, cardinality preserved, never a raise mid-sweep. Every solve pins `canon_backend=cp.SCIPY_CANON_BACKEND`: the floor's source-built CPP canon extension trips a fatal `ProblemData.hpp` assert on every canonicalization — a process abort no result catches — and the SciPy path canonicalizes every family clean.
 - Entry: a solved model retains `Variable.value` on `ConvexOptimum` beside the objective and KKT evidence. A missing backend or DCP-rejected model folds one value-absent uncertified result per `ParamBind` row, preserving tuple cardinality.
 - Packages: `clarabel`, `scs`, and `highspy` are admitted only through their `solver=` selectors off the `_BACKEND` row, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides the scalar-only `ConvexEvidence`, while `ConvexOptimum` and the container/closure carriers stay GC-tracked; problem data admits as `numerics/array#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
 - Growth: a new cone family is one `ConvexProgram` case with one `_CONE_ROWS` row, one `_CONE_KKT` row, and one `_cone` arm; a new solve backend is one `Backend` member and one `_BACKEND` row naming its selector and covered cone families; a new solve-policy axis is one `Policy` field rather than a positional slot threaded through six factories; a new diagnostic is one `ConvexEvidence` slot reaching the facts map with no second edit; a new cvxpy status constant is one `_CONVEX_STATUS` row.
@@ -33,7 +33,7 @@ from opentelemetry import trace
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.compute.solvers.solve import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered, traversed
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered, traversed
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -241,15 +241,15 @@ class ConvexProgram:
 _CEILING: Final[Map[str, float]] = Map.of_seq([("duality_gap", 1e-8), ("primal_infeasibility", 1e-8), ("dual_infeasibility", 1e-8)])
 
 
-async def solve(program: ConvexProgram, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
-    async def dispatch() -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
-        return (await lane.offload(Kernel.of(_sweep, KernelTrait.RELEASING), program)).bind(lambda rail: rail)
+async def solve(program: ConvexProgram, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[tuple[ConvexOptimum, ...]]":
+    async def dispatch() -> "RuntimeResult[tuple[ConvexOptimum, ...]]":
+        return (await lane.offload(Kernel.of(_sweep, KernelTrait.RELEASING), program)).bind(lambda held: held)
 
     facts = {"program": program.tag, "binds": len(program.policy.binds)}
     return await evidence_run(EvidenceScope.CONVEX, f"convex.{program.tag}", dispatch, facts=facts, composition=composition)
 
 
-def graduates(optimum: ConvexOptimum, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Graduation]":
+def graduates(optimum: ConvexOptimum, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[Graduation]":
     ledger = {
         "duality_gap": optimum.evidence.duality_gap,
         "primal_infeasibility": optimum.evidence.primal_infeasibility,
@@ -339,7 +339,7 @@ def _fields(program: ConvexProgram) -> Fields:
             assert_never(unreachable)
 
 
-def _sweep(program: ConvexProgram) -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
+def _sweep(program: ConvexProgram) -> "RuntimeResult[tuple[ConvexOptimum, ...]]":
     row = _BACKEND[program.policy.backend]
     if row.solver(cp) not in cp.installed_solvers() or program.tag not in row.cones:
         return _uncertified_sweep(program, None)
@@ -347,13 +347,13 @@ def _sweep(program: ConvexProgram) -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
     problem = cp.Problem(_SENSE[program.policy.sense](cp)(objective), constraints)
     if not problem.is_dcp():
         return _uncertified_sweep(program, fields)
-    rails = (_solve_bind(program, problem, constraints, parameters, variable, fields, bind, cp) for bind in program.policy.binds)
-    return traversed(Block.of_seq(rails)).map(lambda block: tuple(block))
+    results = (_solve_bind(program, problem, constraints, parameters, variable, fields, bind, cp) for bind in program.policy.binds)
+    return traversed(Block.of_seq(results)).map(lambda block: tuple(block))
 
 
-def _uncertified_sweep(program: ConvexProgram, fields: "Fields | None") -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
-    rails = (_convex_key(program, fields, bind).map(lambda key: _uncertified(program, key)) for bind in program.policy.binds)
-    return traversed(Block.of_seq(rails)).map(lambda block: tuple(block))
+def _uncertified_sweep(program: ConvexProgram, fields: "Fields | None") -> "RuntimeResult[tuple[ConvexOptimum, ...]]":
+    results = (_convex_key(program, fields, bind).map(lambda key: _uncertified(program, key)) for bind in program.policy.binds)
+    return traversed(Block.of_seq(results)).map(lambda block: tuple(block))
 
 
 def _assemble(program: ConvexProgram, cp: object) -> tuple[object, list[object], "Fields", dict[str, object], object]:
@@ -387,7 +387,7 @@ def _solve_bind(
     fields: "Fields",
     bind: Map[str, np.ndarray],
     cp: object,
-) -> "RuntimeRail[ConvexOptimum]":
+) -> "RuntimeResult[ConvexOptimum]":
     for name, leaf in parameters.items():
         leaf.value = np.asarray(bind.try_find(name).default_value(leaf.value), dtype=float)
     return boundary(
@@ -558,7 +558,7 @@ def _seed_arrays(fields: "Fields | None") -> tuple[np.ndarray, ...]:
     return (*core, *term_blocks, *pow_blocks)
 
 
-def _convex_key(program: ConvexProgram, fields: "Fields | None", bind: Map[str, np.ndarray]) -> "RuntimeRail[ContentKey]":
+def _convex_key(program: ConvexProgram, fields: "Fields | None", bind: Map[str, np.ndarray]) -> "RuntimeResult[ContentKey]":
     seed_blocks = _seed_arrays(fields)
     bind_blocks = tuple(np.asarray(bind[name], dtype=float) for name in sorted(bind))
     blocks = (*seed_blocks, *bind_blocks)

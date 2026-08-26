@@ -14,14 +14,14 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - Native distributions whose wheels stop below the platform floor ride the Forge python-overlay `.pth`; one root marker row states it.
 - Root install carries generated sources through its module root; analyzer and test search paths never substitute for admission.
 - Hand-authored `.pth`, `-P`, and `sys.path` edits are refused; uv owns the development link and wheels own external installation.
-- `connectrpc` KEEP against its `asyncio` primitives — both ends run them, so the Connect rail pins asyncio and no `hypercorn.trio` host.
+- `connectrpc` KEEP against its `asyncio` primitives — both ends run them, so the Connect server pins asyncio and no `hypercorn.trio` host.
 
 ## [02]-[SHAPE]
 
 - `GeoreferenceFact` decodes once at geometry's IFC band as the ONE model CRS source — a dataset's own file CRS stays a data-owned origin beside it.
 - Settled money is exact `decimal` in the runtime journal and observed spend `float` in data's cost plane — a charge admits no float, a gauge does.
 - Evidence bands close on every exit inside a FENCED `finally` with exit state — pricing in the `map` arm loses the refused and unwound crossings.
-- One spelling per shared consumer — `Residence`/`Ledger` and `Classification`/`Scrub` split; two owners under one name resolve to last import.
+- One spelling per shared consumer — `Store`/`Ledger` and `Classification`/`Scrub` split; two owners under one name resolve to last import.
 - `Classification` stays folder-local where no consumer reaches two — artifacts' ISO-12006 reference, texture-set result, and grade share no reader.
 - Folder fault unions carry domain refusals alone — a provider raise and worker death convert to the runtime `BoundaryFault`, never a local twin.
 - Floor gates refuse through one `find_spec` map onto a rostered `import_` row raised by its door — every surface naming a gated coordinate binds it.
@@ -44,7 +44,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - `lark` stays dual-registered — runtime's `[PARSING]` seat and geometry's `[IFC_BIM]` seat each hold their own stratum's role, never one shared row.
 - Native-gated workers cross the `workers` `shipped` gate under a `covered(module, names)` witness — a `getattr` twin defers misspellings to offload.
 - Import deferral is the module-top `lazy` proxy, never function-local — `require-lazy` refuses the EAGER form, and a floor gate leads dereference.
-- Function-local imports ride a marker comment naming their module-scope ban — AGPL isolation, or a call-seam side effect the import must fire.
+- Function-local imports ride a marker comment naming their module-scope ban — AGPL isolation, or a call-boundary side effect the import must fire.
 - AGPL isolation refuses `lazy` — a static audit reads the module-scope proxy as coupling, and LICENSE class decides the ban, never a roster.
 
 ## [05]-[PROCESS]
@@ -53,6 +53,6 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - `KernelTrait` reads the provider's GIL behavior alone — payload weight and call frequency decide nothing: a GIL-holding call starves the loop.
 - Journal producers record at the nearest async producer fold; synchronous projections record nothing because the send suspends.
 - Tenancy resolves at the `Journal` writer off `TENANT_BAGGAGE` and a fact arriving WITH it passes untouched — a re-read kills the on-behalf case.
-- Provider release seams are per-distribution and the `.api` catalog names each — `hvac.Client` releases through `client.adapter.close()` alone.
+- Provider release boundaries are per-distribution and the `.api` catalog names each — `hvac.Client` releases through `client.adapter.close()` alone.
 - Host-native crossings ride the caller's `LanePolicy` onto the shared band — a folder-minted `CapacityLimiter` oversubscribes the provider's pool.
 - Blocking concerns each earn a named `CapacityLimiter` sized by their owner — anyio's ambient default thread limiter stays refused branch-wide.

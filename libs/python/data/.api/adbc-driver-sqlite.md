@@ -1,6 +1,6 @@
 # [PY_DATA_API_ADBC_DRIVER_SQLITE]
 
-`adbc-driver-sqlite` binds the native ADBC SQLite driver to the data partition rail: `connect` maps a SQLite URI (`:memory:`, a filesystem path, or a `file:` URI) onto an `AdbcDatabase`, and `dbapi.connect` derives an `AdbcSqliteConnection` over the shared driver-manager DBAPI core. `ConnectionOptions` keys `adbc.sqlite.load_extension.*` and `StatementOptions` carries `BATCH_ROWS` as canonical wire keys; `AdbcSqliteConnection` adds the sqlite-distinctive `enable_load_extension`/`load_extension` pair, while every query, ingest, and metadata concern rides the driver-manager rail.
+`adbc-driver-sqlite` binds the native ADBC SQLite driver to the data partition domain: `connect` maps a SQLite URI (`:memory:`, a filesystem path, or a `file:` URI) onto an `AdbcDatabase`, and `dbapi.connect` derives an `AdbcSqliteConnection` over the shared driver-manager DBAPI core. `ConnectionOptions` keys `adbc.sqlite.load_extension.*` and `StatementOptions` carries `BATCH_ROWS` as canonical wire keys; `AdbcSqliteConnection` adds the sqlite-distinctive `enable_load_extension`/`load_extension` pair, while every query, ingest, and metadata concern rides the driver-manager domain.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -76,7 +76,7 @@
 - `adbc-driver-manager`(`adbc-driver-manager.md`): loading, the DBAPI surface (`Connection`/`Cursor`/`Error` tree), transaction control, metadata (`adbc_get_objects`/`adbc_get_table_schema`/`adbc_get_statistics`), `Cursor.adbc_ingest`, and `AdbcStatusCode` mapping are the manager's; this catalog adds only the sqlite option vocabulary and the loadable-extension pair.
 - `arro3-core`(`arro3-core.md`), `polars`(`polars.md`): a result `RecordBatchReader.__arrow_c_stream__` feeds `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` with zero copy.
 - `adbc-driver-flightsql`(`adbc-driver-flightsql.md`), `adbc-driver-postgresql`(`adbc-driver-postgresql.md`): the local-file arm complements the remote arms on one shared manager surface, so cross-store federation swaps the driver, never the `dbapi` call shape.
-- data partition owner: an in-memory or on-disk SQLite database is queried, ingested, and introspected through the identical `dbapi` API, emitting Arrow record batches to the partition rail.
+- data partition owner: an in-memory or on-disk SQLite database is queried, ingested, and introspected through the identical `dbapi` API, emitting Arrow record batches to the partition domain.
 
 [LOCAL_ADMISSION]:
 - import `adbc_driver_sqlite` (and `.dbapi`) at boundary scope only.

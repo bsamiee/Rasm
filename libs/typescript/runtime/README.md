@@ -22,7 +22,7 @@
 - [11]-[SERVER](.planning/otel/server.md): Node auto-instrumentation rows over the async-local manager — self-egress excluded, engine series bound.
 - [12]-[INSTRUMENT](.planning/otel/instrument.md): Document instrumentation rows over the zone manager; interaction admission gates span cardinality.
 - [13]-[CRASH](.planning/otel/crash.md): One structured fatal emission for every settled `Cause` — a total fold no failure class escapes.
-- [14]-[METER](.planning/otel/meter.md): Durable-work and hook-rail evidence projected lossily onto Convention-keyed instruments.
+- [14]-[METER](.planning/otel/meter.md): Durable-work and hook-bus evidence projected lossily onto Convention-keyed instruments.
 - [15]-[PROFILE](.planning/otel/profile.md): Continuous wall and heap profiling pushed from the node lane under one identity projection.
 - [16]-[VITAL](.planning/otel/vital.md): Browser RUM — the Core Web Vitals family measured whole, graded, and emitted once per document.
 
@@ -71,7 +71,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row on the shared C# broker plane.
 - `@confluentinc/schemaregistry` — Kafka schema identity, compatibility admission, subject resolution, and codec framing.
 - `@connectrpc/connect-node` — public Node Connect, gRPC-Web, and gRPC transports over one scoped HTTP/2 manager, and the server adapter.
-- `mqtt` — `net/channel` owns the MQTT v5 channel seam and the branch-owned CloudEvents binding riding it.
+- `mqtt` — `net/channel` owns the MQTT v5 channel adapter and the branch-owned CloudEvents binding riding it.
 - `avsc` — `net/channel` mints the one `AvroCloudEvent` codec filling the empty arm `core/interchange/format`'s Avro media row leaves.
 - `chevrotain` — `work/filter` owns the CESQL lexer and LL(k) grammar behind the `sql` filter dialect.
 
@@ -111,7 +111,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@opentelemetry/exporter-logs-otlp-proto` — Protobuf log leg of the SDK bridge.
 - `@opentelemetry/context-zone`
 - `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under both condition nodes.
-- `@opentelemetry/instrumentation-http` — Inbound and outbound node HTTP spans covering foreign libraries the Effect seams never reach.
+- `@opentelemetry/instrumentation-http` — Inbound and outbound node HTTP spans covering foreign libraries the Effect adapters never reach.
 - `@opentelemetry/instrumentation-undici` — `fetch` and undici client spans on the node condition under the parent-presence gate.
 - `@opentelemetry/instrumentation-pg` — PostgreSQL client spans under the parent-presence gate and the statement-capture policy row.
 - `@opentelemetry/instrumentation-runtime-node` — Event-loop, GC, and V8 heap series on the node lane's meter provider.
@@ -120,7 +120,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `@opentelemetry/instrumentation-user-interaction`
 - `@opentelemetry/instrumentation-xml-http-request`
 - `@pyroscope/nodejs` — Continuous-profiling push; `otel/profile` owns the lifecycle, composed only at the node root.
-- `web-vitals` — Estate-wide Core Web Vitals source; `otel/vital` registers the enriched-build capture functions and owns the cutoff pairs.
+- `web-vitals` — Repo-wide Core Web Vitals source; `otel/vital` registers the enriched-build capture functions and owns the cutoff pairs.
 
 [TERMINAL]:
 - `@effect/cli`
@@ -153,11 +153,11 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 - `@bufbuild/protobuf` — Generated backend-contract message typing and official ProtoJSON values.
 
 [BRANCH_PEERS]:
-- `@rasm/core` — Fault, budget, carrier, event, invocation, evidence, and content-identity rails consumed across runtime capabilities.
-- `@rasm/data` — Data-owned backend generation and `dataref` residence ports consumed by readiness, event intake, and Kafka admission.
+- `@rasm/core` — Fault, budget, carrier, event, invocation, evidence, and content-identity types consumed across runtime capabilities.
+- `@rasm/data` — Data-owned backend generation and `dataref` tier ports consumed by readiness, event intake, and Kafka admission.
 - `@rasm/security` — Authentication, credential, signature, tenancy, and secret-custody capabilities consumed at runtime boundaries.
 
-[TYPING_RAILS]:
+[TYPING_CORE]:
 - `effect`
 
 [PLATFORM]:

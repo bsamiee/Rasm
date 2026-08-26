@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_HEADLESS]
 
-`Avalonia.Headless` boots a windowless Avalonia platform — manually-ticked render timer, synthetic input, rendered-frame capture — and `Avalonia.Headless.XUnit` wraps it in xUnit.v3 fact/theory discoverers marshalling test bodies onto the dispatcher thread. Together they own the UI-evidence rail: a `[AvaloniaFact]` drives view interaction with `KeyPress`/`MouseDown`/`DragDrop`, advances frames with `ForceRenderTimerTick`, and asserts on a `WriteableBitmap` from `CaptureRenderedFrame`. Only the public test-author surface is a consumer path; `internal` window impls stay off it.
+`Avalonia.Headless` boots a windowless Avalonia platform — manually-ticked render timer, synthetic input, rendered-frame capture — and `Avalonia.Headless.XUnit` wraps it in xUnit.v3 fact/theory discoverers marshalling test bodies onto the dispatcher thread. Together they own the UI-evidence suite: a `[AvaloniaFact]` drives view interaction with `KeyPress`/`MouseDown`/`DragDrop`, advances frames with `ForceRenderTimerTick`, and asserts on a `WriteableBitmap` from `CaptureRenderedFrame`. Only the public test-author surface is a consumer path; `internal` window impls stay off it.
 
 ## [01]-[PUBLIC_TYPES]
 

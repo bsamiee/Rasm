@@ -26,7 +26,7 @@
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :----------------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `IClock`                 | interface     | current-instant seam                            |
+|  [01]   | `IClock`                 | interface     | current-instant port                            |
 |  [02]   | `SystemClock`            | class         | process-wide real clock                         |
 |  [03]   | `ZonedClock`             | class         | clock bound to a zone and calendar              |
 |  [04]   | `CalendarSystem`         | class         | calendar identity, era and month arithmetic     |
@@ -54,13 +54,13 @@
 
 [PUBLIC_TYPE_SCOPE]: text and interop family
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                              |
-| :-----: | :--------------------------- | :------------ | :---------------------------------------- |
-|  [01]   | `IPattern<T>`                | interface     | non-throwing parse and format contract    |
-|  [02]   | `ParseResult<T>`             | class         | parse rail carrying value, fault, and map |
-|  [03]   | `CompositePatternBuilder<T>` | class         | predicate-selected pattern composition    |
-|  [04]   | `ClockExtensions`            | class         | `IClock` to `ZonedClock` binding          |
-|  [05]   | `TimeProviderExtensions`     | class         | `TimeProvider` to `IClock` lift           |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                |
+| :-----: | :--------------------------- | :------------ | :------------------------------------------ |
+|  [01]   | `IPattern<T>`                | interface     | non-throwing parse and format contract      |
+|  [02]   | `ParseResult<T>`             | class         | parse result carrying value, fault, and map |
+|  [03]   | `CompositePatternBuilder<T>` | class         | predicate-selected pattern composition      |
+|  [04]   | `ClockExtensions`            | class         | `IClock` to `ZonedClock` binding            |
+|  [05]   | `TimeProviderExtensions`     | class         | `TimeProvider` to `IClock` lift             |
 
 [PATTERN_TYPES]: `InstantPattern` `LocalDatePattern` `LocalTimePattern` `LocalDateTimePattern` `OffsetPattern` `OffsetDatePattern` `OffsetTimePattern` `OffsetDateTimePattern` `ZonedDateTimePattern` `AnnualDatePattern` `YearMonthPattern` `DurationPattern` `PeriodPattern`
 [BCL_BRIDGE_OWNERS]: `DateTimeExtensions` `DateTimeOffsetExtensions` `TimeSpanExtensions` `DateOnlyExtensions` `TimeOnlyExtensions` `DayOfWeekExtensions` `IsoDayOfWeekExtensions` `StopwatchExtensions` `DateTimeZoneProviderExtensions`
@@ -75,7 +75,7 @@
 | :-----: | :---------------------------------------------------------- | :------- | :-------------------------------- |
 |  [01]   | `IClock.GetCurrentInstant() -> Instant`                     | instance | sole current-time read            |
 |  [02]   | `SystemClock.Instance`                                      | property | process-wide real clock           |
-|  [03]   | `TimeProvider.ToClock() -> IClock`                          | static   | lifts the BCL clock onto the rail |
+|  [03]   | `TimeProvider.ToClock() -> IClock`                          | static   | lifts the BCL clock onto `IClock` |
 |  [04]   | `TimeProvider.ToZonedClock(CalendarSystem) -> ZonedClock`   | static   | zone-bound BCL clock              |
 |  [05]   | `IClock.InZone(DateTimeZone, CalendarSystem) -> ZonedClock` | static   | binds zone and calendar           |
 |  [06]   | `ZonedClock.GetCurrentZonedDateTime() -> ZonedDateTime`     | instance | zoned now                         |
@@ -170,7 +170,7 @@
 |  [01]   | `IPattern<T>.Parse(string) -> ParseResult<T>`                  | instance | non-throwing parse                  |
 |  [02]   | `IPattern<T>.Format(T) -> string`                              | instance | typed render                        |
 |  [03]   | `IPattern<T>.AppendFormat(T, StringBuilder) -> StringBuilder`  | instance | append without an intermediate      |
-|  [04]   | `ParseResult<T>.Success`                                       | property | rail discriminant                   |
+|  [04]   | `ParseResult<T>.Success`                                       | property | result discriminant                 |
 |  [05]   | `ParseResult<T>.TryGetValue(T, out T) -> bool`                 | instance | fallback fold                       |
 |  [06]   | `ParseResult<T>.GetValueOrThrow() -> T`                        | instance | throwing extraction                 |
 |  [07]   | `ParseResult<T>.Convert<TTarget>(Func<T, TTarget>)`            | instance | maps the value arm                  |
@@ -210,13 +210,13 @@ Pattern types mint through their own static family and reconfigure through insta
 [STACKING]:
 - `NodaTime.Serialization.SystemTextJson`(`.api/api-nodatime-stj.md`): `ConfigureForNodaTime` registers pattern-backed converters on `JsonSerializerOptions`, each binding one `IPattern<T>` singleton from this surface, and the zoned factories take the `IDateTimeZoneProvider` chosen here.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Instant`/`Duration` project onto the well-known `Timestamp`/`Duration` messages and `LocalDate`/`LocalTime`/`IsoDayOfWeek` onto the common `Date`/`TimeOfDay`/`DayOfWeek` messages, `NodaConstants.BclEpoch` bounding the outbound range.
-- Text rail: an `IPattern<T>` configures through `WithCulture`, `WithTemplateValue`, `WithCalendar`, `WithResolver`, and `WithZoneProvider`, `CompositePatternBuilder<T>` folds a predicate-selected set of them into one pattern, and results chain through `ParseResult<T>.Convert` before landing on the typed rail at `TryGetValue`.
-- Clock rail: `TimeProvider.ToClock` lifts the BCL clock onto `IClock`, `ClockExtensions.InZone` binds zone and calendar into a `ZonedClock`, and `Resolvers.CreateMappingResolver` supplies the mapping policy every local-to-zoned projection under that clock takes; `TimeProvider.System` is the process default, and `GetTimestamp()` with `GetElapsedTime(long)` supply the monotonic timestamp pair every timed seam derives elapsed truth from — never a wall-clock diff.
-- Arithmetic rail: `Instant`, `Duration`, and `Period` carry the `System.Numerics` operator interfaces, so each slots into a generic-constrained numeric fold with `IMinMaxValue` saturation, and `NodaTime.HighPerformance` supplies the long-backed `Instant64`/`Duration64` pair converting through `ToInstant`/`FromInstant` — an interior arithmetic accelerator crossing to `Instant`/`Duration` only at the operation boundary, never the wire shape.
+- Text path: an `IPattern<T>` configures through `WithCulture`, `WithTemplateValue`, `WithCalendar`, `WithResolver`, and `WithZoneProvider`, `CompositePatternBuilder<T>` folds a predicate-selected set of them into one pattern, and results chain through `ParseResult<T>.Convert` before landing on the typed result at `TryGetValue`.
+- Clock path: `TimeProvider.ToClock` lifts the BCL clock onto `IClock`, `ClockExtensions.InZone` binds zone and calendar into a `ZonedClock`, and `Resolvers.CreateMappingResolver` supplies the mapping policy every local-to-zoned projection under that clock takes; `TimeProvider.System` is the process default, and `GetTimestamp()` with `GetElapsedTime(long)` supply the monotonic timestamp pair every timed boundary derives elapsed truth from — never a wall-clock diff.
+- Arithmetic path: `Instant`, `Duration`, and `Period` carry the `System.Numerics` operator interfaces, so each slots into a generic-constrained numeric fold with `IMinMaxValue` saturation, and `NodaTime.HighPerformance` supplies the long-backed `Instant64`/`Duration64` pair converting through `ToInstant`/`FromInstant` — an interior arithmetic accelerator crossing to `Instant`/`Duration` only at the operation boundary, never the wire shape.
 - `System.IO.Hashing`(`.api/api-hashing.md`): a persisted clock fact entering a snapshot fingerprint formats through the invariant `InstantPattern.ExtendedIso`/`PeriodPattern.Roundtrip` before the `XxHash3.Append`, so the identity hash is culture- and machine-stable — never a culture-ambient `ToString()`.
 - `NodaTime.Testing`(`tests/dotnet/.api/nodatime-testing.md`): `FakeClock` implements `IClock` and substitutes `SystemClock.Instance` under programmable advance, and `FakeDateTimeZoneSource.ToProvider()` substitutes `DateTimeZoneProviders.Tzdb`, so a DST-straddling `GetZoneInterval` proof scripts its own transition instead of reading a tzdb release.
 - `Rasm`: causal-frame construction takes `IClock` as constructor material and never reaches an ambient clock — it folds the wall `Instant` into the HLC two-half pair and derives `SkewBound` as a `Duration` at stamp time, while `Duration.FromMinutes` builds every burn window and `Duration.TotalSeconds` the budget-share denominator, so objective arithmetic reads one span type end to end.
-- `Rasm.Element`: `ElementTap.Timed` is the one timing kernel and composes the kernel `MonotonicTimeline` the composing root hands in — `Capture` precedes the body, `Elapsed` derives the span the fact carries as a `Duration`, and a test host swaps the timeline's provider without touching a seam.
+- `Rasm.Element`: `ElementTap.Timed` is the one timing kernel and composes the kernel `MonotonicTimeline` the composing root hands in — `Capture` precedes the body, `Elapsed` derives the span the fact carries as a `Duration`, and a test host swaps the timeline's provider without touching a boundary.
 - `Rasm.Bim`: wire adapters register once on the STJ options the Bim wire codec owns, so one authored `Instant`/`ZonedDateTime`/`Duration` crosses the JSON and protobuf boundaries with an identity-preserving round-trip, never a per-boundary converter; `CompositePatternBuilder` owns multi-format intake as one format-dispatched parser, not a try/catch ladder over sibling `IPattern<T>` instances.
 - `Rasm.Compute`: `Instant.Plus(Duration)`/`Minus(Duration)` own the hot-path deadline math interior to the operation boundary — `Instant.MaxValue` the never-expire latch the `Model/sessions` idle-unload sweep reads, `Duration.Zero` the identity elapsed span — `Instant.ToDateTimeUtc()` is the one BCL crossing at the gRPC `CallOptions.WithDeadline` edge with the semantic `Instant` staying interior truth on both sides, and `Provenance.At` age is `clock.GetCurrentInstant() - row.Provenance.At` compared as `Duration` against the `RetryPolicy` backoff schedule, never a `DateTime` subtraction.
 

@@ -1,8 +1,8 @@
 # [RASM_FABRICATION_WIRE_EDM]
 
-`WireEdm.Generate` admits one traveling-wire demand, resolves context-keyed pass law, derives access and recovery, registers lower-to-upper correspondence, and emits simultaneous-guide `WireBlock` rows through one typed rail. `WireProgram` preserves every electrical, hydraulic, geometric, station, and quality decision without flattening simultaneous guides into sequential motion.
+`WireEdm.Generate` admits one traveling-wire demand, resolves context-keyed pass law, derives access and recovery, registers lower-to-upper correspondence, and emits simultaneous-guide `WireBlock` rows through one typed result. `WireProgram` preserves every electrical, hydraulic, geometric, station, and quality decision without flattening simultaneous guides into sequential motion.
 
-`WireEdm.Generate`, `WireProgram`, and `WireBlock` remain the wire seam names. `WirePolicy` is the admitted, profile-independent half of a wire job, so a CAM run routing an erosion boundary pass carries the policy it already holds and `WireDemand` is the profile and the budget joined to it — no eleven-column transcription stands between the two. `WireProgram.SpecializedDirective` projects simultaneous lower/upper guides, process action, lag, rotary state, and derived duration into the admitted `SpecializedToolpathEnvelope`, and `WireEdm.Lower` projects the lower guide as the Cartesian path a routed erosion pass executes while the upper guide stays whole on that same `SpecializedToolpathEnvelope`. `ProcessBudget.Erosion` supplies admitted process evidence, `ArcOffset` owns offset topology, `CavalierContours` owns arc-native station measurement, and `FabricationFault.WireTaperExceeded` carries refusal against the guide pair's operating envelope.
+`WireEdm.Generate`, `WireProgram`, and `WireBlock` remain the wire contract names. `WirePolicy` is the admitted, profile-independent half of a wire job, so a CAM run routing an erosion boundary pass carries the policy it already holds and `WireDemand` is the profile and the budget joined to it — no eleven-column transcription stands between the two. `WireProgram.SpecializedDirective` projects simultaneous lower/upper guides, process action, lag, rotary state, and derived duration into the admitted `SpecializedToolpathEnvelope`, and `WireEdm.Lower` projects the lower guide as the Cartesian path a routed erosion pass executes while the upper guide stays whole on that same `SpecializedToolpathEnvelope`. `ProcessBudget.Erosion` supplies admitted process evidence, `ArcOffset` owns offset topology, `CavalierContours` owns arc-native station measurement, and `FabricationFault.WireTaperExceeded` carries refusal against the guide pair's operating envelope.
 
 ## [01]-[INDEX]
 
@@ -38,7 +38,7 @@
 - Auto: corner control scales by the exact arc turn angle at the SHARPEST vertex inside the corner window — the sharpest corner is what the wire must survive, so the window folds a maximum and not a nearest — and the vertices index into window-width buckets, so a mark probes three buckets rather than the whole vertex roster.
 - Auto: `TaperCornerMode` applies every taper shift at full magnitude and owns only the upper corner radius, so no mode can silently flatten a taper.
 - Auto: access precedes cutting, recovery checkpoints preserve restart custody, and pass quality derives from schedule data.
-- Packages: `ArcOffset` owns offset topology; `Polyline<double>.PathLength`, `FindPointAtPathLength`, `PlineSeg.SegTangentVector`, `PrevWrappingIndex`, and `NextWrappingIndex` own arc-native stationing and turn measurement; `LanguageExt` `TraverseM`, `Fold`, and query syntax keep the rail flat.
+- Packages: `ArcOffset` owns offset topology; `Polyline<double>.PathLength`, `FindPointAtPathLength`, `PlineSeg.SegTangentVector`, `PrevWrappingIndex`, and `NextWrappingIndex` own arc-native stationing and turn measurement; `LanguageExt` `TraverseM`, `Fold`, and query syntax keep the result flat.
 - Boundary: `FabricationFault.WireTaperExceeded` refuses guide demand without clamping, and offset failures remain typed. No absence rides an infinity: an empty taper law is refused at admission, so the taper demand column measures a real law rather than carrying a sentinel past a structural gate.
 
 ## [04]-[EGRESS]
@@ -50,7 +50,7 @@
 - Output: `WireProgram.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
 - Output: `WirePassEvidence` preserves schedule identity, quality, removed offset, arc-true cut length, consumed wire, peak wire bow, bridge count, and recovery budget; cut length folds `TraversedMm` deltas within one ring, never chord distance between sampled guides; the per-pass fold mints no key and reads no clock.
 - Growth: a machine-book capability is one `WirePass` row; a new occurrence payload is one `WireCycle` case filling the shared columns; a new projection changes only the supplied arrow.
-- Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this seam.
+- Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this boundary.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -156,7 +156,6 @@ public sealed partial class WirePass {
             : stations.Bind(station => Seq(station, station - CornerSlowMm / perimeter, station + CornerSlowMm / perimeter))
                 .Map(station => closed ? station - Math.Floor(station) : Math.Clamp(station, 0.0, 1.0));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int pass,
@@ -200,7 +199,6 @@ public sealed partial class WireSchedule {
     public static Fin<WireSchedule> Admit(WireContext context, Length thickness, Arr<WirePass> passes) =>
         Validate(context, thickness, passes, out WireSchedule admitted).Admitted(admitted);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WireContext context,
@@ -239,7 +237,6 @@ public sealed partial class GuidePlanes {
     public static Fin<GuidePlanes> Admit(Length lowerZ, Length upperZ, Length programZ, Angle maxTaper) =>
         Validate(lowerZ, upperZ, programZ, maxTaper, out GuidePlanes admitted).Admitted(admitted);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length lowerZ,
@@ -274,7 +271,6 @@ public sealed partial class WireCorrespondence {
     public static Fin<WireCorrespondence> Admit(WireDirection direction, Arr<StationPair> anchors) =>
         Validate(direction, anchors, out WireCorrespondence admitted).Admitted(admitted);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WireDirection upperDirection,
@@ -341,7 +337,6 @@ public sealed partial class WireRecovery {
     public double RestartLeadMm { get; }
     public bool AutomaticRethread { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int attempts,
@@ -417,7 +412,6 @@ public sealed partial class WirePolicy {
             .Admitted(policy)
         select admitted;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WireCycle cycle,
@@ -479,7 +473,6 @@ public sealed partial class WireJob {
         from admitted in Validate(raw.Policy, raw.Profile, raw.Budget, out WireJob job).Admitted(job)
         select admitted;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref WirePolicy policy,

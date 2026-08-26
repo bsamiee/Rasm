@@ -8,13 +8,13 @@ Every operation answers a `Block[RasterFact]`, one fact per ADDRESSED member: a 
 
 ## [01]-[INDEX]
 
-- [02]-[MARK]: `MarkOp`, `Mark`, `Content`, taxonomy-derived provider dispatch, factory-specific QR admission, and the composed scan/verify inverse form one marks operation rail.
+- [02]-[MARK]: `MarkOp`, `Mark`, `Content`, taxonomy-derived provider dispatch, factory-specific QR admission, and the composed scan/verify inverse form one marks operation path.
 
 ## [02]-[MARK]
 
 - Owner: `Mark` holds the closed operation tuple. `encode` carries admitted content and options, `decode` carries source and detector scope, and `verify` carries encode input plus the full `RenderPolicy`; `_encode` derives provider dispatch from `TAXONOMY`, and `_QR_ROWS` derives only the forced segno factory.
 - Cases: `MarkOp.of_encode` admits every member the taxonomy carries — the writer family included, since the zxing writer generates it. `MarkOp.Decode` composes `DecodeScope.scan`. `MarkOp.of_verify` requires `RenderPolicy`, refuses carrier-less symbols through `unscannable`, and records failed recovery as evidence rather than a transport fault.
-- Law: `MarkFault` carries provider, admission, geometry, scan, contract, and `unscannable` causes on one rail; `options` accumulates every `ValidationError` location.
+- Law: `MarkFault` carries provider, admission, geometry, scan, contract, and `unscannable` causes on one result; `options` accumulates every `ValidationError` location.
 - Law: `Content.raw` preserves `str | bytes`, so segno and zxing receive binary payloads without a lossy text round trip while the text-only python-barcode arm refuses bytes at ingress. Structured `wifi`/`geo`/`email` and full `vcard`/`mecard` cases fold to canonical QR text once. `Content.epc(EpcPayment)` carries segno's full public EPC helper axis as a frozen per-mode payload; `make_epc_qr` fixes QR error/version policy, and verify refuses EPC because no public canonical-text twin exists for byte-equality evidence.
 - Entry: `Mark.over` normalizes singular and iterable request shapes. `of(lane)` launches each independent request in one task group; `_trait` selects `RELEASING` for encode and pixel scans, `HOSTILE` for raster scans and verify, and deterministic codec work carries no caller retry beyond the trait row. `emit(lane)` mints one node per addressed member off `_arity`, which reads the declared `symbol_count` — the one axis where a request's node count exceeds one.
 - Output: each addressed member returns its own `RasterFact`. Every encode arm measures its produced extent, and `_segno_score` stamps the member position; verify preserves the scanned dimensions and span-wide verdict in that fact.
@@ -60,7 +60,7 @@ from rasm.artifacts.graphic.marks.mark import (
 from rasm.artifacts.graphic.raster.process import RasterFact
 from rasm.artifacts.graphic.vector.path import bounds
 from rasm.artifacts.graphic.vector.region import RegionOp, RenderPolicy, applied
-from rasm.runtime.faults import FAULT_CONF, TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import FAULT_CONF, TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, rostered
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -77,7 +77,7 @@ if TYPE_CHECKING:
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type MarkRail = Result[Block[RasterFact], MarkFault | BoundaryFault]
+type MarkOutcome = Result[Block[RasterFact], MarkFault | BoundaryFault]
 
 
 class SegnoFactory(StrEnum):
@@ -498,9 +498,9 @@ def _trait(op: MarkOp, /) -> KernelTrait:
             return KernelTrait.RELEASING
 
 
-async def _offloaded(lane: LanePolicy, op: MarkOp, /) -> MarkRail:
-    railed = await lane.offload(Kernel.of(_performed, _trait(op)), op)
-    return railed.bind(lambda inner: inner)
+async def _offloaded(lane: LanePolicy, op: MarkOp, /) -> MarkOutcome:
+    outcome = await lane.offload(Kernel.of(_performed, _trait(op)), op)
+    return outcome.bind(lambda inner: inner)
 ```
 
 ```python
@@ -541,7 +541,7 @@ class Mark(Struct, frozen=True):
     def over(cls, ops: MarkOp | Iterable[MarkOp], /) -> Self:
         return cls(ops=_normalized(ops))
 
-    async def of(self, lane: LanePolicy, /) -> Block[MarkRail]:
+    async def of(self, lane: LanePolicy, /) -> Block[MarkOutcome]:
         async with anyio.create_task_group() as group:
             handles = tuple(group.start_soon(_offloaded, lane, op) for op in self.ops)
         return Block.of_seq(handle.return_value for handle in handles)
@@ -561,7 +561,7 @@ class Mark(Struct, frozen=True):
         )
 
     @staticmethod
-    async def _emit(op: MarkOp, member: int, lane: LanePolicy, /) -> RuntimeRail[RasterFact]:
+    async def _emit(op: MarkOp, member: int, lane: LanePolicy, /) -> RuntimeResult[RasterFact]:
         fact = await lane.offload(Kernel.of(_performed, _trait(op)), op)
         settled = fact.bind(
             lambda res: res.map(lambda members: members.item(member)).map_error(
@@ -590,7 +590,7 @@ __all__ = [
     "MarkContent",
     "MarkFact",
     "MarkOp",
-    "MarkRail",
+    "MarkOutcome",
     "MeCardFields",
     "RawContent",
     "SegnoFactory",
@@ -609,7 +609,7 @@ config:
 flowchart LR
     accTitle: Mark encode, decode, and verify dispatch
     accDescr: The mark lane and work emitter enter one total operation match whose encode arm dispatches by taxonomy class, whose decode arm composes the scan scope, and whose verify arm rasterizes its carrier through the scan; every arm answers one RasterFact per addressed member.
-    Over["Mark.over (MarkOp | Iterable)"] --> Of["Mark.of(lane): task-group fan-out + per-op trait + flattened MarkRail"]
+    Over["Mark.over (MarkOp | Iterable)"] --> Of["Mark.of(lane): task-group fan-out + per-op trait + flattened MarkOutcome"]
     Over --> Emit["Mark.emit(lane): one ArtifactWork per ADDRESSED member (_arity off declared symbol_count)"]
     Of --> Perf["_performed: total match over MarkOp -> Block[RasterFact]"]
     Emit --> Perf
@@ -623,7 +623,7 @@ flowchart LR
     Bar --> Fact
     Zx --> Fact
     Ver --> Fact
-    Fact -->|"member MarkFault -> member rail fault"| Rail["per-member RuntimeRail[RasterFact]"]
+    Fact -->|"member MarkFault -> member result fault"| Outcome["per-member RuntimeResult[RasterFact]"]
     Fact -.->|"SVG fragment per member"| Compose["composition/compose#COMPOSE / export/layered#LAYERED"]
 ```
 

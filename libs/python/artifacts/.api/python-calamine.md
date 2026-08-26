@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYTHON_CALAMINE]
 
-`python-calamine` binds the calamine Rust core as the read-only spreadsheet ingress for the artifacts office rail beside the odfpy ODS arm: `CalamineWorkbook` opens the OOXML, binary-Excel, and OpenDocument family (`.xlsx`/`.xlsm`/`.xlsb`/`.xls`/`.xla`/`.xlam`/`.ods`) from a path, `os.PathLike`, or seek+read buffer, introspects sheets and tables without materializing a grid, and projects each sheet to a native-scalar row matrix through `to_python`/`iter_rows` with calamine's own date-serial decode.
+`python-calamine` binds the calamine Rust core as the read-only spreadsheet ingress for the artifacts office domain beside the odfpy ODS arm: `CalamineWorkbook` opens the OOXML, binary-Excel, and OpenDocument family (`.xlsx`/`.xlsm`/`.xlsb`/`.xls`/`.xla`/`.xlam`/`.ods`) from a path, `os.PathLike`, or seek+read buffer, introspects sheets and tables without materializing a grid, and projects each sheet to a native-scalar row matrix through `to_python`/`iter_rows` with calamine's own date-serial decode.
 
 `python-calamine` reads the binary-Excel and SpreadsheetML formats odfpy's OASIS parser cannot and re-implements none of the unzip, BIFF reader, or shared-string decode the Rust core owns, evaluating no formula; `LensProvider.CALAMINE` folds each row matrix through its `XLSX_READ` arm into a `document/model` `TableNode` of `RunNode` cells, and authoring stays at the openpyxl/xlsxwriter/odfpy owners.
 
@@ -21,7 +21,7 @@
 
 [PUBLIC_TYPE_SCOPE]: ingest fault family
 
-`CalamineError` is the base every binding error derives from; the worker boundary maps it and each subclass into the `runtime` `RuntimeRail` fault.
+`CalamineError` is the base every binding error derives from; the worker boundary maps it and each subclass into the `runtime` `RuntimeResult` fault.
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                     |
 | :-----: | :------------------- | :-------------- | :------------------------------------------------------------------------------- |
@@ -73,13 +73,13 @@ Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (
 [TOPOLOGY]:
 - `from_object` is the one shape-discriminating ingress and `load_tables=True` (xlsx only) the single knob, never a per-format open; introspection reads workbook structure before any grid, filtering a non-`WorkSheet` `SheetTypeEnum` or `Hidden`/`VeryHidden` `SheetVisibleEnum` at the boundary.
 - Cells arrive as native `CellValue` scalars in the row list — no `Cell` wrapper and no formula evaluation, calamine reading the stored value and decoding a date serial to `datetime` directly.
-- `lazy import python_calamine` at module scope defers the PyO3 binding, and `_gated_recover` reifies it inside a worker process, so the native extension is paid only on an `XLSX_READ` op and only in the subprocess, trapping a Rust panic at the process seam.
+- `lazy import python_calamine` at module scope defers the PyO3 binding, and `_gated_recover` reifies it inside a worker process, so the native extension is paid only on an `XLSX_READ` op and only in the subprocess, trapping a Rust panic at the process boundary.
 
 [STACKING]:
-- `document/lens#LENS` (READ): the `LensProvider.CALAMINE` `XLSX_READ` recover arm — `from_object(BytesIO)` → `get_sheet_*` → `to_python` folds each row matrix into a `document/model#NODE` `TableNode` of `RunNode` cells, `merged_cell_ranges` into `TableNode.spans` and `start`/`end`/`height`/`width` into its bounds; `_gated_recover` re-resolves the `_ROUTES[XLSX_READ]` row and maps the `CalamineError` family to the read rail beside `pymupdf`/`pdfplumber`.
+- `document/lens#LENS` (READ): the `LensProvider.CALAMINE` `XLSX_READ` recover arm — `from_object(BytesIO)` → `get_sheet_*` → `to_python` folds each row matrix into a `document/model#NODE` `TableNode` of `RunNode` cells, `merged_cell_ranges` into `TableNode.spans` and `start`/`end`/`height`/`width` into its bounds; `_gated_recover` re-resolves the `_ROUTES[XLSX_READ]` row and maps the `CalamineError` family to the read domain beside `pymupdf`/`pdfplumber`.
 - `msoffcrypto-tool`: `PasswordError` routes the workbook through its decrypt, and the decrypted `BytesIO` re-enters `from_object` — calamine never decrypts.
 - `fastexcel`: disjoint on the shared Rust core — `fastexcel` owns the calamine-to-Arrow PyCapsule/`pyarrow.RecordBatch` columnar path for `libs/python/data`, this owner the `to_python` document-tree path for artifacts.
-- universal tier (`libs/python/.api`): `expression` `Result[Self, LensFault]`/`RuntimeRail` owns the admission fold and fault discriminant; the `runtime` `LanePolicy` bounds the `anyio` process band each worker decode runs in.
+- universal tier (`libs/python/.api`): `expression` `Result[Self, LensFault]`/`RuntimeResult` owns the admission fold and fault discriminant; the `runtime` `LanePolicy` bounds the `anyio` process band each worker decode runs in.
 
 [LOCAL_ADMISSION]:
 - Spreadsheet and binary-Excel ingest feeding the `document/lens#LENS` `XLSX_READ` arm, including `msoffcrypto-tool`-decrypted workbooks and the in-memory `from_object(BytesIO(payload))` open; `CALAMINE` rides `_GATED_PROVIDERS` for worker isolation of the Rust core.

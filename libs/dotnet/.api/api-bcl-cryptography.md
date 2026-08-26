@@ -44,7 +44,7 @@
 |  [09]   | `Find(ReadOnlySpan<char>) -> PemFields`                                     | static  | locate; throws on absent armor    |
 |  [10]   | `FindUtf8(ReadOnlySpan<byte>) -> PemFields`                                 | static  | UTF-8 locate; throws on absent    |
 
-- `PemEncoding.TryFind`: returns `false` at end-of-input, so a multi-element walk terminates on the rail.
+- `PemEncoding.TryFind`: returns `false` at end-of-input, so a multi-element walk terminates on the result.
 - `PemFields`: `Location`, `Label`, and `Base64Data` index the ORIGINAL span; `DecodedDataLength` sizes the DER destination and `Location.End` advances the walk cursor.
 
 [ENTRYPOINT_SCOPE]: certificate admission (`X509CertificateLoader`)

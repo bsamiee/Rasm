@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_CANVAS_MOTION]
 
-GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, animated glyphs, and lease-owned canvas pacing over the kernel motion estate: `MotionScript`/`MotionSample`/`MotionDrive.Step` sample every drive, `UiClock`/`PulseBeat`/`FaultPosture` own the beat, `Tween.Between` owns every interpolation, and the SAMPLE IS APPLIED BY THE HOST — each drive rides beside its apply closure at this mount, the kernel names no apply seam (the ruled host-side arm). Local `DriveSpec`/`DriveFrame`/`UiCadence`/`ClockBeat` vocabulary is DELETED onto those owners.
+GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, animated glyphs, and lease-owned canvas pacing over the kernel motion module: `MotionScript`/`MotionSample`/`MotionDrive.Step` sample every drive, `UiClock`/`PulseBeat`/`FaultPosture` own the beat, `Tween.Between` owns every interpolation, and the SAMPLE IS APPLIED BY THE HOST — each drive rides beside its apply closure at this mount, the kernel names no apply hook (the ruled host-side arm). Local `DriveSpec`/`DriveFrame`/`UiCadence`/`ClockBeat` vocabulary is DELETED onto those owners.
 
 `CanvasPacer` owns one leased clock over the injected session timeline, stops it on terminal settlement, schedules one repaint only after a sampled write set, and releases every timer edge through its lease. Budget judgment is the kernel gauge: `BudgetRow` realizes `IGaugeLane`, every bound DERIVES from the reference frame period, and a judgment answers measured `GaugedSpan<BudgetRow>` rows — the breach filter is the consumer's own `Filter(span => span.Breached)`.
 
@@ -88,14 +88,13 @@ using Rasm.Numerics;
 namespace Rasm.Grasshopper.Canvas;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct FrameWindow(DateTime Start, DateTime End) : IValidityEvidence {
     public bool IsValid => End >= Start;
     public TimeSpan Cost => End - Start;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class Lerp {
     public static Interpolate<T> Of<T>(Func<T, T, UnitInterval, T> kernel) =>
         (a, b, t) => kernel(a, b, Factor(value: t));
@@ -108,16 +107,15 @@ public static class Lerp {
                     from mixed in Tween.Between(from: left, to: right, at: factor, path: Some(path), key: key)
                     from host in mixed.ToEto()
                     select host)
-                .IfFail(cause => (ignore(faults.Park(point: Rail, cause: cause)), factor.Value >= 1d ? b : a).Item2);
+                .IfFail(cause => (ignore(faults.Park(point: Hook, cause: cause)), factor.Value >= 1d ? b : a).Item2);
         };
 
     private static UnitInterval Factor(double value) => UnitInterval.Create(
         value: double.IsFinite(value) ? Math.Clamp(value, 0d, 1d) : 0d);
 
-    private static readonly HookId Rail = HookId.Create(value: "rasm.grasshopper.canvas.motion");
+    private static readonly HookId Hook = HookId.Create(value: "rasm.grasshopper.canvas.motion");
 }
 
-[BoundaryAdapter]
 public static class Tweens {
     public static Animated<T> Hold<T>(T value, Interpolate<T> lerp) => Animated<T>.CreateFinished(value, lerp);
 
@@ -133,7 +131,6 @@ public static class Tweens {
     public static T Sample<T>(Animated<T> tween, DateTime at) => tween.Evaluate(at);
 }
 
-[BoundaryAdapter]
 public static class FlexDrive {
     public static Fin<T> Run<T>(IFlexControl surface, Animated<T> tween, Op? key = null);
     public static Fin<FrameWindow> Window(IFlexControl surface, Op? key = null);
@@ -180,7 +177,6 @@ public sealed partial class NoticeGlyph {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class GlyphPath {
     public static Fin<AnimatedPath> Custom(Seq<Option<PathSpec>> steps, Op? key = null) {
         Op op = key.OrDefault();
@@ -204,9 +200,9 @@ public static class GlyphPath {
 
 ## [05]-[PACER]
 
-- Owner: `CanvasPacer` — the lease-owned GH2 clock pacer over the KERNEL clock: `Mount(cadence, drives, posture, clock, faults, key)` admits a non-empty drive set — each drive a kernel `MotionScript` BESIDE its host `Action<MotionSample>` apply closure (the ruled host apply arm; the kernel names no apply seam) — creates one inert owned `UiClock` over the injected session timeline, seats it through `Cell.Seat`, and starts it only after ownership installed. Clock callback holds weak references to pacer and clock, so the clock never roots its owner and an abandoned pacer disposes the orphaned clock on the next tick.
-- Law: `MotionDrive.Step` is the shared sampling rail for this pacer and the platform display link — each successful beat steps every script at `beat.Evidence`, applies every sample through its own closure under `Op.Catch`, retains only continuing drives through one `Cell.Commit`, schedules ONE repaint for that write set through `GhSession.Apply(RepaintCase(Scheduled))`, and stops the clock after the terminal repaint request.
-- Law: an empty live set stops defensively and schedules nothing; a sampling or apply fault RETIRES its row, the survivor roster commits and the repaint schedules FIRST (commit-then-park — moved visuals never strand unpainted), then the fault returns on the beat rail where the kernel `FaultPosture.Halt` stops the clock with the cause parked on the composition's `FaultCell` — no newest-only fault column exists here.
+- Owner: `CanvasPacer` — the lease-owned GH2 clock pacer over the KERNEL clock: `Mount(cadence, drives, posture, clock, faults, key)` admits a non-empty drive set — each drive a kernel `MotionScript` BESIDE its host `Action<MotionSample>` apply closure (the ruled host apply arm; the kernel names no apply hook) — creates one inert owned `UiClock` over the injected session timeline, seats it through `Cell.Seat`, and starts it only after ownership installed. Clock callback holds weak references to pacer and clock, so the clock never roots its owner and an abandoned pacer disposes the orphaned clock on the next tick.
+- Law: `MotionDrive.Step` is the shared sampling path for this pacer and the platform display link — each successful beat steps every script at `beat.Evidence`, applies every sample through its own closure under `Op.Catch`, retains only continuing drives through one `Cell.Commit`, schedules ONE repaint for that write set through `GhSession.Apply(RepaintCase(Scheduled))`, and stops the clock after the terminal repaint request.
+- Law: an empty live set stops defensively and schedules nothing; a sampling or apply fault RETIRES its row, the survivor roster commits and the repaint schedules FIRST (commit-then-park — moved visuals never strand unpainted), then the fault returns on the beat path where the kernel `FaultPosture.Halt` stops the clock with the cause parked on the composition's `FaultCell` — no newest-only fault column exists here.
 - Law: custody is the kernel idiom — the clock seat is `Cell.Seat` over an option cell (a doubled mount reads `Ceded` and disposes its surplus with the refusal AGGREGATED), the release one-shot is the `Atom<bool>` latch through `Cell.Step`, and the drive roster advances through `Cell.Commit` — the two interlocked integer ladders and the five discarded swaps are unspellable.
 - Boundary: drive writes update consumer state; the repaint renders it in the next paint window — this pacer never writes host visuals directly. Composition root's mount roster reaches this owner, and this pacer is the one mount of `Platform/layers.md`'s `MotionAttachment` where a drive belongs on the compositor instead of the paint clock.
 - Packages: `Rasm.Interaction` (`UiClock`, `PulseBeat`, `FaultPosture`), `Rasm.Parametric` (`MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `MonotonicTimeline`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Shell/session.md` (`GhSession`, `SessionOp.RepaintCase`, `RepaintRow`), `Rasm.Numerics` (`PositiveMagnitude`).
@@ -223,7 +219,6 @@ using Rasm.Parametric;
 namespace Rasm.Grasshopper.Canvas;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-[BoundaryAdapter]
 public sealed class CanvasPacer : IDisposable {
     private readonly Atom<Seq<(MotionScript Script, Action<MotionSample> Apply)>> live;
     private readonly MotionPosture posture;
@@ -306,7 +301,7 @@ public sealed class CanvasPacer : IDisposable {
 - Owner: `BudgetRow` `[SmartEnum<string>]` realizing `IGaugeLane<BudgetRow>` — the closed budget vocabulary whose every bound DERIVES from the reference frame period as a dimensionless frame fraction: one row per judged cost axis, no millisecond literal anywhere, and the kernel gauge floor is what a `GaugedSpan<BudgetRow>` reads its bound from.
 - Owner: `BudgetSubject` `[Union]` — the judgment ingress: one polymorphic gate discriminates on the result shape (`FrameWindow`, `FramePulse`, the kernel `PaintTally`, or a row-addressed raw cost).
 - Entry: `BudgetGate.Judge(BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null)` → `Fin<Seq<GaugedSpan<BudgetRow>>>` — EVERY measured axis answers as a kernel gauged span; the pass verdict is the consumer's own `Filter(span => span.Breached)` over the sequence (NAMED LOSS: the breach-only sequence — bought back by that one filter; the judging consumer writes each breached span through `Shell/telemetry.md`'s `GhInstruments.Breached`), and `Overrun` derives on the span. Supplied `PaceBand` bounds every row as `Period × Frames` — the band's own period, no reference division — so a ProMotion panel judges at its real frame budget and an absent band reads the kernel `Portable` declared row.
-- Law: judgment happens at read time over results already settled — the gate never samples, never owns a clock, and never mutates a result; a breached span is shaped for the estate benchmark-claim fold, so the app-root benchmark rail consumes it without re-measuring.
+- Law: judgment happens at read time over results already settled — the gate never samples, never owns a clock, and never mutates a result; a breached span is shaped for the repo benchmark-claim fold, so the app-root benchmark suite consumes it without re-measuring.
 - Law: the host-free kernel families this boundary exercises carry corpus benchmark rows; this gate owns the live-session judgment, the corpus owns the regression floor, and both read the same row bounds.
 - Packages: LanguageExt.Core, Thinktecture, `Rasm.Parametric` (`IGaugeLane`, `GaugedSpan`, `PaceBand`), `Rasm.Interaction` (`PaintTally`), `Canvas/canvas.md` (`FramePulse`), `Rasm.Domain`.
 - Growth: a new judged axis is one row with one subject arm; a tuned bound is a row fraction change with every consumer untouched.
@@ -349,7 +344,6 @@ public abstract partial record BudgetSubject {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class BudgetGate {
     public static Fin<Seq<GaugedSpan<BudgetRow>>> Judge(
         BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null) {
@@ -376,7 +370,7 @@ public static class BudgetGate {
 
 ## [07]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]       | [OWNER]                     | [RAIL]                                              | [CASES] |
+| [INDEX] | [CONCERN]       | [OWNER]                     | [RESULT]                                            | [CASES] |
 | :-----: | :-------------- | :-------------------------- | :-------------------------------------------------- | :-----: |
 |  [01]   | host vocabulary | `SpanRow` + `PaceRow`       | host-ordinal keys, kernel substitution columns      |   24    |
 |  [02]   | interpolation   | `Lerp` + `Tweens`           | kernel `Tween.Between` lifted onto `Interpolate<T>` |    2    |

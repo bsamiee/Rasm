@@ -1,10 +1,10 @@
 # [TS_SECURITY_API_OTPLIB]
 
-`otplib` owns the RFC-4226 HOTP and RFC-6238 TOTP second factor on one strategy-discriminated async rail: `strategy` picks the algorithm as a value, `verify` returns a verdict rather than throwing, and crypto and base32 arrive as injected ports, so `authn/otp` binds the HMAC primitive `sign/crypto` already owns.
+`otplib` owns the RFC-4226 HOTP and RFC-6238 TOTP second factor on one strategy-discriminated async API: `strategy` picks the algorithm as a value, `verify` returns a verdict rather than throwing, and crypto and base32 arrive as injected ports, so `authn/otp` binds the HMAC primitive `sign/crypto` already owns.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the verdict union and the option algebra both rails share.
+[PUBLIC_TYPE_SCOPE]: the verdict union and the option algebra both APIs share.
 
 `VerifyResult` narrows on `.valid`; `"timeStep" in result` then selects the TOTP arm carrying the RFC-6238 step number and the matched period start. Functional entries take the `*FunctionalOptions` pair carrying `strategy`, `crypto`, and `base32`; class entries take the class pair, whose plugin fields the constructor already bound. `guardrails?` threads every option shape, and `@otplib/core` (`.api/otplib-core.md`) owns its caps and construction.
 
@@ -14,8 +14,8 @@
 |  [02]   | `VerifyResult`               | union         | verdict plus `delta`, `timeStep`, `epoch`       |
 |  [03]   | `OTPFunctionalOptions`       | interface     | functional generate shape                       |
 |  [04]   | `OTPVerifyFunctionalOptions` | interface     | functional verify shape, adds token and window  |
-|  [05]   | `OTPGenerateOptions`         | interface     | class-rail generate shape                       |
-|  [06]   | `OTPVerifyOptions`           | interface     | class-rail verify shape                         |
+|  [05]   | `OTPGenerateOptions`         | interface     | class-API generate shape                        |
+|  [06]   | `OTPVerifyOptions`           | interface     | class-API verify shape                          |
 |  [07]   | `OTPClassOptions`            | interface     | `OTP` construction shape                        |
 |  [08]   | `OTPURIGenerateOptions`      | interface     | `OTP.generateURI` shape                         |
 |  [09]   | `TOTPOptions`                | interface     | `TOTP` construction and per-call shape          |
@@ -36,7 +36,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the functional rail — one strategy-discriminated entry with a sync mirror.
+[ENTRYPOINT_SCOPE]: the functional API — one strategy-discriminated entry with a sync mirror.
 
 HOTP requires `counter`; TOTP reads `period`, `epoch`, and `t0`. `generateURI` requires `issuer`, `label`, and `secret`, taking `strategy`, `algorithm`, `digits`, `period`, and `counter` as options.
 
@@ -52,7 +52,7 @@ HOTP requires `counter`; TOTP reads `period`, `epoch`, and `t0`. `generateURI` r
 |  [08]   | `wrapResult(fn) -> (...Args) => OTPResult`                    | static  | lift a sync entry to a never-throw result   |
 |  [09]   | `wrapResultAsync(fn) -> (...Args) => Promise<OTPResult>`      | static  | lift an async entry to a never-throw result |
 
-[ENTRYPOINT_SCOPE]: the class rail — plugins and guardrails bound once per subject.
+[ENTRYPOINT_SCOPE]: the class API — plugins and guardrails bound once per subject.
 
 `OTP` keeps `strategy` dynamic; `TOTP` and `HOTP` fix it and tighten each signature to that algorithm, so HOTP takes its counter positionally and TOTP takes its token positionally. `HOTPOptions` and `TOTPVerifyOptions` reach only through the `@otplib/hotp` and `@otplib/totp` sub-imports.
 

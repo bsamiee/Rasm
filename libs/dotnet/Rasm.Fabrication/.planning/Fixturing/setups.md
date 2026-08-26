@@ -2,7 +2,7 @@
 
 `SetupSchedule` owns operation precedence, datum lineage, fixture and machine assignment, physical reorientation, carrier loading, per-instance work-offset allocation, transfer, probing, stock continuity, and schedule evidence. `SetupPlan` admits every operation, relation, fixture candidate, carrier station, part instance, resource row, and controller slot once; the search consumes only admitted identities and typed evidence.
 
-`Fixture`, `FixtureSet`, `ExclusionZone`, `Setup`, `WcsSlot`, and `SetupSchedule` remain the in-process wire vocabulary. `SetupSchedule.Apply` closes admission, scheduling, rebasing, and projection over `SetupOp`, and every egress addresses through the `Process/owner#RUN_DISPATCH` `FabricationCanon.Keyed` close, so a preimage that never retained its bytes refuses on the rail instead of forging an address. Scalar admission predicates, the `DatumTransfer` fold over the `Joining/sequence` `DistortionField`, and the restraint and clearance entries all compose `workholding#EVALUATION`, so this page re-declares no quantity guard and no holding algebra. Cost is one `SetupAxis` row table over `CostTerms`, so an objective weight, its scale, and its term travel together and the branch-and-bound bound reads the same rows the incumbent cost does. Every preimage composes `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`.
+`Fixture`, `FixtureSet`, `ExclusionZone`, `Setup`, `WcsSlot`, and `SetupSchedule` remain the in-process wire vocabulary. `SetupSchedule.Apply` closes admission, scheduling, rebasing, and projection over `SetupOp`, and every egress addresses through the `Process/owner#RUN_DISPATCH` `FabricationCanon.Keyed` close, so a preimage that never retained its bytes refuses on the error channel instead of forging an address. Scalar admission predicates, the `DatumTransfer` fold over the `Joining/sequence` `DistortionField`, and the restraint and clearance entries all compose `workholding#EVALUATION`, so this page re-declares no quantity guard and no holding algebra. Cost is one `SetupAxis` row table over `CostTerms`, so an objective weight, its scale, and its term travel together and the branch-and-bound bound reads the same rows the incumbent cost does. Every preimage composes `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter`.
 
 ## [01]-[INDEX]
 
@@ -242,7 +242,6 @@ public sealed partial class SetupObjective {
     public double Weight(SetupAxis axis) => Weights.Find(axis).IfNone(0.0);
     public double Total => Weights.Values.Sum();
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Map<SetupAxis, double> weights,
@@ -265,7 +264,6 @@ public sealed partial class SetupObjective {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct CarrierKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -737,7 +735,7 @@ internal static partial class Setups {
             ? Fin.Succ(Some(state))
             : Candidates(state, space.Operations[space.Order[cursor]], space.Plan).Fold(
                 Fin.Succ(Option<SetupDraft>.None),
-                (rail, candidate) => rail.Bind(best => Place(space, state, space.Operations[space.Order[cursor]], candidate)
+                (result, candidate) => result.Bind(best => Place(space, state, space.Operations[space.Order[cursor]], candidate)
                     .Bind(next => next.Match(
                         Some: admitted => Search(space, cursor + 1, admitted,
                             best.Match(Some: held => Math.Min(bound, held.Cost), None: () => bound)),

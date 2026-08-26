@@ -10,7 +10,7 @@
 
 - Owner: `GeometryFault` the direct `FaultBand.Geometry` union; `ParametricStage`, `DevelopmentStage`, `ParametricCarrier`, and the witness rosters type its payloads.
 - Cases: the 28 direct leaves in the fence, each at its compact generated ordinal.
-- Entry: construct a case directly and lift it bare onto the `Error` rail.
+- Entry: construct a case directly and lift it bare onto the `Error` base.
 - Auto: `[FaultCase]` generates the cached numeric identity from `FamilyBand`; the typed payload and total presentation message remain authored on this family.
 - Law: ordinals are contiguous union structure; no cluster arithmetic, category roster, or wrapper may duplicate or erase a case.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, and the kernel fault substrate.

@@ -1,15 +1,15 @@
 # [CORE_TAP]
 
-`Tap` owns point names, modality-split handlers, app-scoped registries, the one delivery rail registrars seat on, and the accounted breach ledger.
+`Tap` owns point names, modality-split handlers, app-scoped registries, the one delivery bus registrars seat on, and the accounted breach ledger.
 
-`Tap.Rail` is the branch's single hook mechanism: one accounted channel per point minted from that point's own depth, composition-unique seating whose verdict carries the release token, and one census counting both loss halves. Registrars — `runtime/otel/emit#HOOKS`, `ui/system/hook`, `security/access/audit`, `data/journal/append#HOOK_RAIL` — own their point rosters, payload types, and policy rows; none owns delivery.
+`Tap.Bus` is the branch's single hook mechanism: one accounted channel per point minted from that point's own depth, composition-unique seating whose verdict carries the release token, and one census counting both loss halves. Registrars — `runtime/otel/emit#HOOKS`, `ui/system/hook`, `security/access/audit`, `data/journal/append#HOOK_POINTS` — own their point rosters, payload types, and policy rows; none owns delivery.
 
 ## [01]-[INDEX]
 
 - [02]-[MODALITY_TABLE]: closed modality tuple, dispatch rows, and the feedback/purity/buffer axes; `Tap` (modality reads).
 - [03]-[POINT_VOCABULARY]: point-name brand, retention depth column, and the fact-binding point mint; `Tap` (point mint).
-- [04]-[RAIL_CONTRACT]: `Tap` subscriptions, registry admission, breach isolation, and the accumulating admission fault.
-- [05]-[DELIVERY_RAIL]: scoped rail, accounted rings, mount and release verdicts, publish verdicts, and the breach ledger.
+- [04]-[BUS_CONTRACT]: `Tap` subscriptions, registry admission, breach isolation, and the accumulating admission fault.
+- [05]-[DELIVERY_BUS]: scoped bus, accounted rings, mount and release verdicts, publish verdicts, and the breach ledger.
 
 ## [02]-[MODALITY_TABLE]
 
@@ -47,12 +47,12 @@ const _Modality = Shape.vocabulary(_modalities, _rows)
 
 ## [03]-[POINT_VOCABULARY]
 
-- Owner: `Tap.point` admits a branded name, a unique nonempty modality set, a positive depth, and the fact schema on one `Either` rail.
+- Owner: `Tap.point` admits a branded name, a unique nonempty modality set, a positive depth, and the fact schema on one `Either`.
 - Law: `Tap.point` binds a producer-owned fact schema to name-modality-depth data and stores only its decoded type side.
-- Law: registries key rails by `Identity.App.Key`; `Identity.Tenant` remains outside hook identity.
+- Law: registries key buses by `Identity.App.Key`; `Identity.Tenant` remains outside hook identity.
 - Law: declaration-time point admission proves the name, unique modalities, and a positive depth; observe is the default modality.
 - Law: `depth` is the point's own channel width and `_retained` projects it into the replay window where `buffered` reads true.
-- Law: retention is a declared point property — no rail policy overrides it and no registrar re-derives it.
+- Law: retention is a declared point property — no bus policy overrides it and no registrar re-derives it.
 - Growth: a new hook point is one folder-owned `Tap.point` declaration; a new modality widens that declaration's admitted set.
 - Boundary: publishers own point declarations and publication; Convention owns attribute, metric, and event names.
 - Packages: `effect`, `Identity`, and `Shape`.
@@ -74,13 +74,13 @@ const _retained = (point: Tap.Rostered): number =>
   Array.some(point.modalities, (modality) => _Modality.at(modality).buffered) ? point.depth : 0
 ```
 
-## [04]-[RAIL_CONTRACT]
+## [04]-[BUS_CONTRACT]
 
 - Owner: `Tap.Handler`, `Tap.subscription`, `Tap.emitter`, `Tap.registry`, `Tap.isolated`, `Tap.Veto`, and `Tap.Breach`.
 - Law: `Tap.emitter` mounts one Convention row and derives its update input and frequency words from that row.
 - Law: Tap may consume Convention names, but Convention never depends on Tap.
 - Law: effectful handlers require an explicit error type and no environment; omitted errors normalize to `Tap.Fault`.
-- Law: `Tap.registry` accumulates modality issues on one `Tap.Fault` rail and never publishes a partial registry.
+- Law: `Tap.registry` accumulates modality issues on one `Tap.Fault` and never publishes a partial registry.
 - Law: two legs partition the census — `admission` refuses a bad point row or unadmitted handler, `seating` refuses duplicate and foreign rows.
 - Law: each reason renders its own declared subject — a shared free-string detail re-opens the axis `reason` closed.
 - Law: `Tap.isolated` folds a delivery cause through `Fault.Class.dominant`; interruption-only causes produce no breach.
@@ -113,7 +113,7 @@ const _family = Fault.Class.family(["duplicate", "foreign", "modality", "point",
     class: "denied",
     leg: "seating",
     detail: Schema.Struct({ app: Schema.NonEmptyString }),
-    render: (subject) => `registry app ${subject.app} offered to another app's rail`,
+    render: (subject) => `registry app ${subject.app} offered to another app's bus`,
   }),
   modality: Fault.Class.row({
     class: "invalid",
@@ -137,7 +137,7 @@ const _family = Fault.Class.family(["duplicate", "foreign", "modality", "point",
     class: "absent",
     leg: "seating",
     detail: Schema.Struct({ point: _Name, label: Schema.String }),
-    render: (subject) => `${subject.point}@${subject.label} names no rail slot`,
+    render: (subject) => `${subject.point}@${subject.label} names no bus slot`,
   }),
 })
 
@@ -225,9 +225,9 @@ const _isolated = <E>(point: Tap.Name, label: string) => (cause: Cause.Cause<E>)
     new _Breach({ point, label, class: kind, detail: Cause.pretty(cause) }))
 ```
 
-## [05]-[DELIVERY_RAIL]
+## [05]-[DELIVERY_BUS]
 
-- Owner: `Tap.rail` mints the plane — a `Tap.Slot` per point, the `Tap.Ledger` ring, the seating tally — under `mount`, `release`, `publish`.
+- Owner: `Tap.bus` mints the plane — a `Tap.Slot` per point, the `Tap.Ledger` ring, the seating tally — under `mount`, `release`, `publish`.
 - Law: one constructor serves every channel — `PubSub.dropping({ capacity, replay })` over the point's depth and the retention `_retained` projects.
 - Law: saturation refuses the newest fact and answers `false`; `bounded` suspends the publishing fold and `sliding` evicts unaccounted.
 - Law: `shed` counts a fact the channel refused at admission, read off `PubSub.publish`'s answer and never a discarded boolean.
@@ -239,11 +239,11 @@ const _isolated = <E>(point: Tap.Name, label: string) => (cause: Cause.Cause<E>)
 - Law: a duplicate registration reads as a typed refusal, never a silent second subscription double-counting every emitter.
 - Law: release brackets the acquisition for every modality alike — `Effect.acquireRelease` binds each mount's `FiberSet` and seats to its scope.
 - Law: `Tap.release` runs that same effect mid-life, answering seats dropped, fibers interrupted, and the summed census of every point it touched.
-- Law: replay needs no journal — a fresh subscription drains the channel's retained window before live facts, so no rail holds a second history.
+- Law: replay needs no journal — a fresh subscription drains the channel's retained window before live facts, so no bus holds a second history.
 - Law: `Tap.publish` answers a closed verdict carrying arbitration, delivering arity, and census; an unrostered point is its own case.
 - Law: the veto fold runs before any admission and first refusal wins — a vetoed fact charges the census without reaching the channel.
 - Law: teardown shuts each channel down rather than flushing — a tap fact is a live signal the plane already sheds, never a durable row.
-- Entry: the composition root mints one rail per app inside the app scope and hands it to every registrar.
+- Entry: the composition root mints one bus per app inside the app scope and hands it to every registrar.
 - Growth: a new tally is one `Tap.Census` or `Tap.Seating` column with its `SemigroupSum` row; a new verdict case is one arm every `$match` breaks on.
 - Boundary: instrument rows and dimension names are `observe/convention`'s; this cluster owns the counts and publishes them as one `Tap.Report` read.
 - Packages: `effect` (`Data`, `FiberSet`, `HashMap`, `PubSub`, `Ref`, `Scope`, `Stream`); `@effect/typeclass` (`Monoid`, `Semigroup`, `data/Number`).
@@ -267,7 +267,7 @@ declare namespace Tap {
   type Slot = Ring<unknown> & { readonly seats: Ref.Ref<HashMap.HashMap<string, Seat>> }
   type Resolved = { readonly label: string; readonly slot: Slot; readonly sub: Subscription<unknown, unknown> }
   type Ledger = Ring<Breach>
-  type Rail = {
+  type Bus = {
     readonly app: Identity.App.Key
     readonly ledger: Ledger
     readonly seating: Ref.Ref<Seating>
@@ -306,8 +306,13 @@ declare namespace Tap {
     readonly Mount: typeof _Mount
     readonly Veto: typeof _Veto
     readonly Verdict: typeof _Verdict
-    readonly breaches: (rail: Rail) => Stream.Stream<Breach>
-    readonly census: (rail: Rail) => Effect.Effect<Report>
+    readonly breaches: (bus: Bus) => Stream.Stream<Breach>
+    readonly bus: (
+      app: Identity.App.Key,
+      points: ReadonlyArray<Rostered>,
+      policy: Policy,
+    ) => Effect.Effect<Bus, never, Scope.Scope>
+    readonly census: (bus: Bus) => Effect.Effect<Report>
     readonly emitter: <N extends Convention.MetricName, A, const W extends Convention.Roster>(
       point: Point<A>,
       metric: N,
@@ -317,16 +322,11 @@ declare namespace Tap {
     readonly isolated: <E>(point: Name, label: string) => (cause: Cause.Cause<E>) => Option.Option<Breach>
     readonly modality: <A, E>(handler: Handler<A, E>) => Modality
     readonly mount: <T extends Record<string, unknown>, E extends { readonly [K in keyof T]: unknown }>(
-      rail: Rail,
+      bus: Bus,
       registry: Registry<T, E>,
     ) => Effect.Effect<Mount, never, Scope.Scope>
     readonly point: <A, I>(source: Text | PointRow, fact: Schema.Schema<A, I>) => Either.Either<Point<A>, _Fault>
-    readonly publish: <A>(rail: Rail, point: Point<A>, fact: A) => Effect.Effect<Verdict>
-    readonly rail: (
-      app: Identity.App.Key,
-      points: ReadonlyArray<Rostered>,
-      policy: Policy,
-    ) => Effect.Effect<Rail, never, Scope.Scope>
+    readonly publish: <A>(bus: Bus, point: Point<A>, fact: A) => Effect.Effect<Verdict>
     readonly registry: <T extends Record<string, unknown>, E extends { readonly [K in keyof T]: unknown }>(
       app: Identity.App.Key,
       rows: { readonly [K in keyof T]: Subscription<T[K], E[K]> },
@@ -384,11 +384,11 @@ const _arbitrated = (seats: HashMap.HashMap<string, Tap.Seat>, fact: unknown): O
 const _arity = (seats: HashMap.HashMap<string, Tap.Seat>): number =>
   HashMap.size(HashMap.filter(seats, (seat) => !_Modality.at(seat.modality).feedback))
 
-const _rail = (
+const _bus = (
   app: Identity.App.Key,
   points: ReadonlyArray<Tap.Rostered>,
   policy: Tap.Policy,
-): Effect.Effect<Tap.Rail, never, Scope.Scope> =>
+): Effect.Effect<Tap.Bus, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.gen(function* () {
       const slots = yield* Effect.forEach(points, (point) =>
@@ -406,19 +406,19 @@ const _rail = (
         slots: HashMap.fromIterable(slots),
       }
     }),
-    (rail) =>
+    (bus) =>
       Effect.zipRight(
-        Effect.forEach(HashMap.values(rail.slots), (slot) => PubSub.shutdown(slot.hub), { discard: true }),
-        PubSub.shutdown(rail.ledger.hub),
+        Effect.forEach(HashMap.values(bus.slots), (slot) => PubSub.shutdown(slot.hub), { discard: true }),
+        PubSub.shutdown(bus.ledger.hub),
       ),
   )
 
 const _admitted = (
-  rail: Tap.Rail,
+  bus: Tap.Bus,
   label: string,
   sub: Tap.Subscription<unknown, unknown>,
 ): Effect.Effect<Either.Either<Tap.Resolved, _Issue>> =>
-  Option.match(HashMap.get(rail.slots, sub.point.name), {
+  Option.match(HashMap.get(bus.slots, sub.point.name), {
     onNone: () => Effect.succeed(Either.left<_Issue>({ reason: "unrostered", point: sub.point.name, label })),
     onSome: (slot) =>
       Effect.map(Ref.get(slot.seats), (seats) =>
@@ -428,7 +428,7 @@ const _admitted = (
   })
 
 const _seat = (
-  rail: Tap.Rail,
+  bus: Tap.Bus,
   fibers: FiberSet.FiberSet<void>,
   row: Tap.Resolved,
 ): Effect.Effect<Tap.Seat> =>
@@ -448,67 +448,67 @@ const _seat = (
           Effect.catchAllCause(handler.handle(fact), (cause) =>
             Option.match(_isolated(point.name, row.label)(cause), {
               onNone: () => Effect.void,
-              onSome: (breach) => Effect.asVoid(_charged(rail.ledger, breach)),
+              onSome: (breach) => Effect.asVoid(_charged(bus.ledger, breach)),
             }))),
       ))
     yield* Ref.update(row.slot.seats, HashMap.set(row.label, seat))
     return seat
   })
 
-const _released = (rail: Tap.Rail, mounted: Omit<Tap.Mounted, "release">, fibers: FiberSet.FiberSet<void>): Effect.Effect<Tap.Released> =>
+const _released = (bus: Tap.Bus, mounted: Omit<Tap.Mounted, "release">, fibers: FiberSet.FiberSet<void>): Effect.Effect<Tap.Released> =>
   Effect.gen(function* () {
     const running = yield* FiberSet.size(fibers)
     yield* FiberSet.clear(fibers)
     yield* Effect.forEach(mounted.seats, (seat) =>
-      Option.match(HashMap.get(rail.slots, seat.point), {
+      Option.match(HashMap.get(bus.slots, seat.point), {
         onNone: () => Effect.void,
         onSome: (slot) => Ref.update(slot.seats, HashMap.remove(seat.label)),
       }), { discard: true })
     const census = _Census.combineAll(
       yield* Effect.forEach(Array.dedupe(Array.map(mounted.seats, (seat) => seat.point)), (point) =>
-        Option.match(HashMap.get(rail.slots, point), {
+        Option.match(HashMap.get(bus.slots, point), {
           onNone: () => Effect.succeed(_Census.empty),
           onSome: (slot) => Ref.get(slot.census),
         })),
     )
-    yield* Ref.update(rail.seating, (held) => ({ ...held, released: held.released + 1 }))
+    yield* Ref.update(bus.seating, (held) => ({ ...held, released: held.released + 1 }))
     return { app: mounted.app, census, fibers: running, seats: Array.length(mounted.seats) }
   })
 
 const _seated = (
-  rail: Tap.Rail,
+  bus: Tap.Bus,
   app: Identity.App.Key,
   rows: ReadonlyArray<Tap.Resolved>,
 ): Effect.Effect<Tap.Mounted, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.gen(function* () {
       const fibers = yield* FiberSet.make<void>()
-      const handle = { app, seats: yield* Effect.forEach(rows, (row) => _seat(rail, fibers, row)) }
-      yield* Ref.update(rail.seating, (held) => ({ ...held, mounted: held.mounted + 1 }))
-      return { ...handle, release: _released(rail, handle, fibers) }
+      const handle = { app, seats: yield* Effect.forEach(rows, (row) => _seat(bus, fibers, row)) }
+      yield* Ref.update(bus.seating, (held) => ({ ...held, mounted: held.mounted + 1 }))
+      return { ...handle, release: _released(bus, handle, fibers) }
     }),
     (mounted) => mounted.release,
   )
 
 const _mount = <T extends Record<string, unknown>, E extends { readonly [K in keyof T]: unknown }>(
-  rail: Tap.Rail,
+  bus: Tap.Bus,
   registry: Tap.Registry<T, E>,
 ): Effect.Effect<Tap.Mount, never, Scope.Scope> =>
   Effect.gen(function* () {
     const rows = Record.toEntries(registry.rows) as ReadonlyArray<readonly [string, Tap.Subscription<unknown, unknown>]>
-    const held: ReadonlyArray<Either.Either<Tap.Resolved, _Issue>> = registry.app === rail.app
-      ? yield* Effect.forEach(rows, ([label, sub]) => _admitted(rail, label, sub))
+    const held: ReadonlyArray<Either.Either<Tap.Resolved, _Issue>> = registry.app === bus.app
+      ? yield* Effect.forEach(rows, ([label, sub]) => _admitted(bus, label, sub))
       : [Either.left<_Issue>({ reason: "foreign", app: registry.app })]
     const issues = Array.getLefts(held)
     if (Array.isNonEmptyReadonlyArray(issues)) {
-      yield* Ref.update(rail.seating, (row) => ({ ...row, refused: row.refused + 1 }))
+      yield* Ref.update(bus.seating, (row) => ({ ...row, refused: row.refused + 1 }))
       return _Mount.refused({ fault: new _Fault({ issues }) })
     }
-    return _Mount.mounted({ handle: yield* _seated(rail, registry.app, Array.getRights(held)) })
+    return _Mount.mounted({ handle: yield* _seated(bus, registry.app, Array.getRights(held)) })
   })
 
-const _publish = <A>(rail: Tap.Rail, point: Tap.Point<A>, fact: A): Effect.Effect<Tap.Verdict> =>
-  Option.match(HashMap.get(rail.slots, point.name), {
+const _publish = <A>(bus: Tap.Bus, point: Tap.Point<A>, fact: A): Effect.Effect<Tap.Verdict> =>
+  Option.match(HashMap.get(bus.slots, point.name), {
     onNone: () => Effect.succeed(_Verdict.unrostered({ point: point.name })),
     onSome: (slot) =>
       Effect.flatMap(Ref.get(slot.seats), (seats) =>
@@ -523,14 +523,14 @@ const _publish = <A>(rail: Tap.Rail, point: Tap.Point<A>, fact: A): Effect.Effec
         })),
   })
 
-const _census = (rail: Tap.Rail): Effect.Effect<Tap.Report> =>
+const _census = (bus: Tap.Bus): Effect.Effect<Tap.Report> =>
   Effect.all({
-    ledger: Ref.get(rail.ledger.census),
+    ledger: Ref.get(bus.ledger.census),
     points: Effect.forEach(
-      HashMap.toEntries(rail.slots),
+      HashMap.toEntries(bus.slots),
       ([point, slot]) => Effect.map(Ref.get(slot.census), (census) => [point, census] as const),
     ),
-    seating: Ref.get(rail.seating),
+    seating: Ref.get(bus.seating),
   })
 
 const Tap: Tap.Shape = {
@@ -541,7 +541,8 @@ const Tap: Tap.Shape = {
   Mount: _Mount,
   Veto: _Veto,
   Verdict: _Verdict,
-  breaches: (rail) => Stream.fromPubSub(rail.ledger.hub),
+  breaches: (bus) => Stream.fromPubSub(bus.ledger.hub),
+  bus: _bus,
   census: _census,
   emitter: _emitter,
   isolated: _isolated,
@@ -549,7 +550,6 @@ const Tap: Tap.Shape = {
   mount: _mount,
   point: _point,
   publish: _publish,
-  rail: _rail,
   registry: _registry,
   release: (mounted) => mounted.release,
   schema: _Name,

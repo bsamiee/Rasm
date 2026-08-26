@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_UNCERTAINTIES]
 
-`uncertainties` owns first-order linear error propagation with automatic correlation tracking for the compute uncertainty rail. `ufloat` mints an independent `Variable`, and every arithmetic result is a derived `UFloat` (the public alias of `AffineScalarFunc`) carrying a `derivatives` chain-rule gradient against its source variables, so two results sharing a `Variable` stay correlated with no side covariance table. A derived `std_dev` and its `error_components()` variance split feed the `Measurement`, and a bare `math`/NumPy call that drops the propagation graph is the boundary reject signal.
+`uncertainties` owns first-order linear error propagation with automatic correlation tracking for the compute uncertainty domain. `ufloat` mints an independent `Variable`, and every arithmetic result is a derived `UFloat` (the public alias of `AffineScalarFunc`) carrying a `derivatives` chain-rule gradient against its source variables, so two results sharing a `Variable` stay correlated with no side covariance table. A derived `std_dev` and its `error_components()` variance split feed the `Measurement`, and a bare `math`/NumPy call that drops the propagation graph is the boundary reject signal.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -83,13 +83,13 @@ Row [01] is NOT re-exported from the package root — a `catch` set imports it f
 - value graph: `ufloat` returns a `Variable`; every arithmetic result is an `AffineScalarFunc`/`UFloat` carrying a `derivatives` map of linear sensitivities to the originating `Variable` atoms. Correlation is the chain rule on that map — sharing a `Variable` is shared dependence, never a side covariance table.
 - cohort reconstruction: `correlated_values(nom, cov)` and `correlated_values_norm((val,std)..., corr)` rebuild a correlated `UFloat` cohort from a matrix; `covariance_matrix`/`correlation_matrix` are the exact inverse. One polymorphic pair owns both directions — no per-rank helper.
 - function lifting: `wrap` lifts an arbitrary numeric callable, using supplied analytic partials or finite-difference estimation; `nan_if_exception` guards a derivative at a singular argument.
-- array thread: `unumpy.uarray` produces an object-dtype `ndarray` that NumPy ufuncs and `unumpy` math thread propagation through, folding the same array the compute array rail carries under both units and uncertainty without a parallel container.
+- array thread: `unumpy.uarray` produces an object-dtype `ndarray` that NumPy ufuncs and `unumpy` math thread propagation through, folding the same array the compute array domain carries under both units and uncertainty without a parallel container.
 
 [STACKING]:
 - `pint` (`.api/pint.md`): `Quantity.plus_minus`/`UnitRegistry.Measurement` build a `pint.Measurement` over a `UFloat` magnitude, so a unit-bearing quantity carries correlation in one carrier with no side error bookkeeping.
 - `scipy` (`.api/scipy.md`) / `numpy` (`.api/numpy.md`, substrate tier): `correlated_values(popt, pcov, tags=...)` lifts a `scipy.optimize.curve_fit` `(popt, pcov)` into a correlated `UFloat` cohort that auto-propagates the fit covariance; `unumpy.nominal_values`/`std_devs` split it back into NumPy arrays.
 - `arviz` (`.api/arviz.md`) / `pandera` (`libs/python/data/.api/pandera.md`): a derived `std_dev` and its `error_components()` variance split are the uncertainty claim on the `Measurement`.
-- `compute` uncertainty rail: study math routes through `umath`/`unumpy`, never bare `math`/NumPy, so the propagation graph threads unbroken from `ufloat` input to `Measurement`.
+- `compute` uncertainty domain: study math routes through `umath`/`unumpy`, never bare `math`/NumPy, so the propagation graph threads unbroken from `ufloat` input to `Measurement`.
 
 [LOCAL_ADMISSION]:
 - import: `uncertainties`/`umath` at boundary scope; `unumpy` only on an array path (it pulls `numpy`).

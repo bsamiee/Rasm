@@ -6,13 +6,13 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: IdsLib — audit engine, result status, schema seam
+[PUBLIC_TYPE_SCOPE]: IdsLib — audit engine, result status, schema boundary
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                                                                           |
 | :-----: | :---------------------- | :------------ | :------------------------------------------------------------------------------------- |
 |  [01]   | `Audit`                 | class         | static audit entrypoint; `Run`/`RunAsync` overloads in [03]                            |
 |  [02]   | `Audit.Status`          | enum          | `[Flags]` pass/fail result; flag set below                                             |
-|  [03]   | `Audit.ISchemaProvider` | interface     | IDS-XSD source seam: `GetSchemas(Stream, ILogger?, out IEnumerable<XmlSchema>)`        |
+|  [03]   | `Audit.ISchemaProvider` | interface     | IDS-XSD source boundary: `GetSchemas(Stream, ILogger?, out IEnumerable<XmlSchema>)`    |
 |  [04]   | `LibraryInformation`    | class         | static engine-build facts: `AssemblyVersion`, `Commit`, `Sha`, `CommitDate`, `Isdirty` |
 
 [`Audit.Status`]: `Ok`(pass) `NotImplementedError` `InvalidOptionsError` `NotFoundError` `IdsStructureError` `IdsContentError` `XsdSchemaError` `UnhandledError` `IdsStructureWarning`
@@ -28,7 +28,7 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 
 [`IBatchAuditOptions`]: `InputSource` `InputExtension` `SchemaFiles` `AuditSchemaDefinition` `OmitIdsContentAudit` `OmitIdsContentAuditPattern`
 
-[PUBLIC_TYPE_SCOPE]: IdsLib.SchemaProviders — IDS-XSD source seam
+[PUBLIC_TYPE_SCOPE]: IdsLib.SchemaProviders — IDS-XSD source boundary
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
 | :-----: | :--------------------------- | :------------ | :---------------------------------------------------------------------------------------- |
@@ -126,7 +126,7 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 - `IdsLib.IfcSchema` resolves without an audit: `SchemaIfc{2x3,4,4x3}` give the class hierarchy, `ClassInfo.Is(name)`/`GetConcreteClassesFrom(top, version)` are the inheritance algebra, `PropertySetInfo.GetSchema(version)` the standard Pset/Qto catalog, and `GetMeasureInformation`/`IfcMeasureInformation.Exponents` the measure → SI-base dimensional metadata.
 
 [STACKING]:
-- `xbim-informationspecifications`(`.api/api-xbim-informationspecifications.md`): the in-memory IDS spec object model (`Xids` → `SpecificationsGroup` → `Specification` over the six `FacetBase` facets); `Review/validation#IDS_FACETS` authors and reads specs through `Xids.LoadBuildingSmartIDS`/`ExportBuildingSmartIDS` and audits the serialized `.ids` through `Audit.RunAsync`, sharing one schema vocabulary via `IfcSchemaVersionHelper` (`Xids` `IfcSchemaVersion` ↔ this engine's `IfcSchemaVersions`) — one rail, two roles, never a duplicated IDS reader.
+- `xbim-informationspecifications`(`.api/api-xbim-informationspecifications.md`): the in-memory IDS spec object model (`Xids` → `SpecificationsGroup` → `Specification` over the six `FacetBase` facets); `Review/validation#IDS_FACETS` authors and reads specs through `Xids.LoadBuildingSmartIDS`/`ExportBuildingSmartIDS` and audits the serialized `.ids` through `Audit.RunAsync`, sharing one schema vocabulary via `IfcSchemaVersionHelper` (`Xids` `IfcSchemaVersion` ↔ this engine's `IfcSchemaVersions`) — one path, two roles, never a duplicated IDS reader.
 - `unitsnet`(`libs/dotnet/.api/api-unitsnet.md`): `SchemaInfo.GetMeasureInformation` supplies the SI-base dimensional truth (`IfcMeasureInformation.Exponents`, `SiUnitNameEnums`) that drives the `Semantics/properties.md` `QuantitySet.Derive` unit coercion — ids-lib owns the schema truth, UnitsNet the value conversion.
 - `smino-bcf-toolkit`(`.api/api-smino-bcf-toolkit.md`): a failing `Audit.Status` and its per-line diagnostics mint a `Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment` per non-conformance, line/position provenance riding the topic free-text since BCF carries no structured position column.
 - `geometrygym-ifc`(`.api/api-geometrygym-ifc.md`): ids-lib is the schema meta-model (what an `IfcWall` may carry), GeometryGym the instance graph (this `IfcWall`'s data); validation joins them by class name + attribute.

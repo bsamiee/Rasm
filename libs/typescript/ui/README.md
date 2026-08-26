@@ -9,10 +9,10 @@
 - [02]-[ACT](.planning/system/act.md): One seat for interaction — accessible events, gesture recognition, and motion rows never fork.
 - [03]-[ATOM](.planning/system/atom.md): One state binding — the app's Layer graph stands behind the registry; components project.
 - [04]-[CACHE](.planning/system/cache.md): Durable browser-resident bands keyed by content, leaf-verified, committed through one ledger.
-- [05]-[HOOK](.planning/system/hook.md): Folder registrar on core's Tap rail — one typed row and one runtime policy per plane.
+- [05]-[HOOK](.planning/system/hook.md): Folder registrar on core's Tap bus — one typed row and one runtime policy per plane.
 - [06]-[VITAL](.planning/system/vital.md): Interface-visible evidence — long-animation-frame, event timing, commit windows as probe rows.
 - [07]-[INTL](.planning/system/intl.md): Localization with no i18n package — one ambient locale spine over the kernel locale brand.
-- [08]-[PRIMITIVE](.planning/system/primitive.md): Headless component spine — `styled` recipe factory, roster law, the announce and sanitize rails.
+- [08]-[PRIMITIVE](.planning/system/primitive.md): Headless component spine — `styled` recipe factory, roster law, the announce and sanitize ports.
 
 [VIEW]:
 - [09]-[FORM](.planning/view/form.md): Schema-driven input, submission, resumable upload, the wizard, and the auth ceremony faces.
@@ -21,7 +21,7 @@
 - [12]-[CHART](.planning/view/chart.md): Declared statistics, streaming series, and pivots behind one data-shape discriminant.
 - [13]-[EXPORT](.planning/view/export.md): Every egress of rendered state — a serializer matrix making illegal pairs uncompilable.
 - [14]-[SHELL](.planning/view/shell.md): Chrome as data — a region roster the pane solver realizes, one navigation vocabulary.
-- [15]-[STATUS](.planning/view/status.md): Feedback between toast rail and field error — states from the one atom `Result` fold.
+- [15]-[STATUS](.planning/view/status.md): Feedback between toast queue and field error — states from the one atom `Result` fold.
 - [16]-[CONTENT](.planning/view/content.md): Prose and document editing as one derivation — block rows drive schema, codec, DOM, and wire.
 - [17]-[MEDIA](.planning/view/media.md): Byte-borne presentation classes as rows — loading behavior is policy data, bytes arrive keyed.
 - [18]-[CANVAS](.planning/view/canvas.md): Node/flow editing, worker graph layout, and temporal bands mirrored through one adapter atom.
@@ -110,7 +110,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 - `prosemirror-schema-list`
 - `prosemirror-gapcursor`
 - `prosemirror-dropcursor`
-- `prosemirror-collab` — JSON steps on the estate's own wire; the sequencer authority is a port the composition root satisfies.
+- `prosemirror-collab` — JSON steps on the app's own wire; the sequencer authority is a port the composition root satisfies.
 
 [CANVAS]:
 - `@xyflow/react` — Controlled node-flow engine; `view/canvas`'s `Canvas.useEdge` binds the controlled props over the one graph cell.
@@ -142,7 +142,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_CORE]:
 - `effect`
 
 [PLATFORM]:

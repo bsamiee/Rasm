@@ -1,6 +1,6 @@
 # [PY_CAD_API_CADQUERY_OCP]
 
-`cadquery-ocp` binds the OpenCASCADE Technology (OCCT) B-rep modeling kernel to Python as flat `OCP.*` submodules: BREP topology, `gp`/`Geom` geometry, primitive/feature/Boolean/fillet/offset shape construction, mesh triangulation, STEP/IGES exchange, and the XCAF assembly/color/name/material document model. It is the sole `OCP` path this estate admits, and `CadService` composes its operations behind the generated boundary, so a peer reaches this kernel through typed requests rather than an import of its own.
+`cadquery-ocp` binds the OpenCASCADE Technology (OCCT) B-rep modeling kernel to Python as flat `OCP.*` submodules: BREP topology, `gp`/`Geom` geometry, primitive/feature/Boolean/fillet/offset shape construction, mesh triangulation, STEP/IGES exchange, and the XCAF assembly/color/name/material document model. It is the sole `OCP` path this repo admits, and `CadService` composes its operations behind the generated boundary, so a peer reaches this kernel through typed requests rather than an import of its own.
 
 ## [01]-[PUBLIC_TYPES]
 

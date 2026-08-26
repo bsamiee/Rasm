@@ -32,7 +32,7 @@
 |  [01]   | `schema.SchemaParseException`         | exception     | a malformed or contradictory schema document                         |
 |  [02]   | `schema.UnknownType`                  | exception     | a named reference no accumulator resolves                            |
 |  [03]   | `schema.FINGERPRINT_ALGORITHMS`       | `set[str]`    | `hashlib.algorithms_guaranteed` plus `SHA-256`, `MD5`, `CRC-64-AVRO` |
-|  [04]   | `repository.AbstractSchemaRepository` | ABC           | one `load(name)` member — the `load_schema` injection seam           |
+|  [04]   | `repository.AbstractSchemaRepository` | ABC           | one `load(name)` member — the `load_schema` injection point          |
 |  [05]   | `repository.FlatDictRepository`       | class         | `.avsc` files under one directory, keyed by schema name              |
 |  [06]   | `repository.SchemaRepositoryError`    | exception     | a failed load or parse, both re-raised as one class                  |
 |  [07]   | `read.SchemaResolutionError`          | exception     | a writer schema the reader schema cannot resolve                     |

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PVLIB]
 
-`pvlib.solarposition` owns the NREL SPA solar-ephemeris surface feeding the artifacts diagram rail: apparent and true solar position, sunrise/sunset/transit times, Earth-Sun distance, hour angle, and the analytical declination and equation-of-time closed forms, all numpy-vectorized over the input `pandas.DatetimeIndex`. It emits ephemeris data alone, so `visualization/diagram/solar#SOLAR` consumes the `azimuth`/`apparent_elevation` columns as source geometry for sun-path arcs, projection, and furniture.
+`pvlib.solarposition` owns the NREL SPA solar-ephemeris surface feeding the artifacts diagram domain: apparent and true solar position, sunrise/sunset/transit times, Earth-Sun distance, hour angle, and the analytical declination and equation-of-time closed forms, all numpy-vectorized over the input `pandas.DatetimeIndex`. It emits ephemeris data alone, so `visualization/diagram/solar#SOLAR` consumes the `azimuth`/`apparent_elevation` columns as source geometry for sun-path arcs, projection, and furniture.
 
 ## [01]-[PUBLIC_TYPES]
 

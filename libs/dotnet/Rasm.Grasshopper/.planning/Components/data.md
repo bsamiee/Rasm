@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_DATA]
 
-`GardenData` is the GH2 data boundary: one transfer policy carries item, pear, twig, and tree topology across `IDataAccess`; typed ingress rows absorb array and assistant reads; and the `Garden` algebra owns promotion, metadata retagging, expression application, and tree-wise folds. `Coerce` resolves host objects through scope-ranked broker rows, the merit-scored conversion server, and the geometry brokers' native discriminants. Broker participation composes the canonical `Lease<T>` ownership rail, and `HostUnits` projects host tolerance evidence directly into the canonical domain `Context`.
+`GardenData` is the GH2 data boundary: one transfer policy carries item, pear, twig, and tree topology across `IDataAccess`; typed ingress rows absorb array and assistant reads; and the `Garden` algebra owns promotion, metadata retagging, expression application, and tree-wise folds. `Coerce` resolves host objects through scope-ranked broker rows, the merit-scored conversion server, and the geometry brokers' native discriminants. Broker participation composes the canonical `Lease<T>` ownership contract, and `HostUnits` projects host tolerance evidence directly into the canonical domain `Context`.
 
 ## [01]-[INDEX]
 
@@ -282,9 +282,9 @@ public static class GardenData {
 - Owner: `Coerce` is the conversion fold: direct assignment admits first, the ROOT-OWNED `BrokerLedger` evaluates scope-ranked rows, and `ConversionServer` is the terminal generic route. `BrokerLedger` is an INSTANCE the composition root constructs and holds (`Platform/composition.md` row `[03]` — a process-global static registry on a library page was the seat defect), its row store an `AtomHashMap` whose per-key transitions replace the whole-map swap. `CurveShape` and `SurfaceShape` project the geometry brokers' returned `CurveType` and `SurfaceLikeType` discriminants without inferring a case from out-parameter defaults.
 - Cases: `BrokerScope` closes at `Document` and `Plugin`; `BrokerRank` states that lower values run first; the enrolment ordinal orders rows stably within an equal scope and rank.
 - Entry: `Coerce.To<TOut>(raw, ledger, scope, key)` is the one typed conversion entry; broker candidates settle by first success and LanguageExt combines plural failures without a package-local aggregate case.
-- Auto: enrolment returns an owned `Lease<BrokerRegistration>`; disposing the lease revokes the row exactly once through the canonical resource rail.
+- Auto: enrolment returns an owned `Lease<BrokerRegistration>`; disposing the lease revokes the row exactly once through the canonical resource contract.
 - Growth: a new conversion route is one broker row; a new geometry family member is one union case with one probe arm.
-- Boundary: the `BrokerLedger` per-key transitions and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives the typed value on `Fin`, and the ledger's ONE instance lives on `PlatformRoot.Brokers` — no page constructs a second.
+- Boundary: the `BrokerLedger` per-key transitions and the cast-or-convert out-probes are the named boundary-kernel statement forms; interior code receives the typed value on `Fin`, and the ledger's ONE instance lives on `PlatformRoot.Brokers` — no page constructs a second.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------

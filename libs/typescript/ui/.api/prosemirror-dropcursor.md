@@ -36,8 +36,8 @@
 - `prosemirror-model`(`.api/prosemirror-model.md`): the `declare module "prosemirror-model"` augmentation adds `disableDropCursor` to `NodeSpec`, so a node declares its interior policy on the same row that declares its content and DOM mapping.
 - `prosemirror-transform`(`.api/prosemirror-transform.md`): `dropPoint(doc, pos, slice)` is the admissibility rule behind where the cursor may appear, so indicator and drop agree by construction.
 - `prosemirror-state`(`.api/prosemirror-state.md`): the plugin is one `Plugin` holding its own tracking state and contributing view props; it dispatches nothing.
-- `@use-gesture/react`(`.api/use-gesture-react.md`): the branch's gesture rail owns pointer gestures outside the editor; a drag into `view.dom` hands off to the view's native drag pipeline, so the two never track one pointer at once.
-- `class-variance-authority`(`.api/class-variance-authority.md`): `color: false` and a `class` from the one `cn` rail style the indicator on the token scale rather than the package default.
+- `@use-gesture/react`(`.api/use-gesture-react.md`): the branch's gesture layer owns pointer gestures outside the editor; a drag into `view.dom` hands off to the view's native drag pipeline, so the two never track one pointer at once.
+- `class-variance-authority`(`.api/class-variance-authority.md`): `color: false` and a `class` from the one `cn` fold style the indicator on the token scale rather than the package default.
 - within-lib `view/content`: any document class admitting draggable block nodes mounts `dropCursor()` with the branch's own indicator class, and declares `disableDropCursor` on the specs whose interiors reject drops.
 
 [LOCAL_ADMISSION]:

@@ -93,7 +93,7 @@
 [DockPoint]: `readonly struct (double X, double Y)`.
 [IDockState]: `Save(IDock)`, `Restore(IDock)`, and `Reset()` capture and restore the live layout.
 [IDockSerializer]: `Serialize<T>`/`Deserialize<T>`/`Load<T>`/`Save<T>` — the round-trip contract the `Dock.Serializer.SystemTextJson` catalog implements.
-[IDockDispatcher]: `Task InvokeAsync(Action)` in `Dock.Model.ReactiveUI.Services` — the framework-free UI-thread seam the ReactiveUI binding marshals graph mutation through.
+[IDockDispatcher]: `Task InvokeAsync(Action)` in `Dock.Model.ReactiveUI.Services` — the framework-free UI-thread port the ReactiveUI binding marshals graph mutation through.
 
 [MODEL_ENUMS]: `Dock.Model.Core` vocabulary; every row is an `enum` or closed enum family.
 
@@ -228,7 +228,7 @@
 - Every dockable-taking mutation verb ships a default-implemented `(object? parameter)` twin that pattern-matches `IDockable` and forwards, so each one binds straight to an `ICommand` without a converter; the interface also raises a `DockableInit`/`Added`/`Removed`/`Closing`/`Closed`/`Moved`/`Docked`/`Undocked`/`Swapped`/`Pinned`/`Unpinned`/`Hidden`/`Restored` event per operation beside the matching `On*` hook, plus the window and activation families.
 - `PinDockable` toggles: it unpins an already-pinned dockable, gates on `DockCapability.Pin`, and takes the pin alignment from `IDockable.OriginalOwner`; `UnpinDockable` delegates back to it under an `IsDockablePinned` guard.
 
-[PINNED_DOCK_RAIL]: pinned-tool state on `IFactory` and the strip/flyout controls rendering it.
+[PINNED_DOCK_STRIP]: pinned-tool state on `IFactory` and the strip/flyout controls rendering it.
 
 | [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                                                   |
 | :-----: | :-------------------------------------------------- | :------- | :------------------------------------------------------------- |
@@ -272,7 +272,7 @@
 |  [10]   | `CurrentDockable` / `CurrentRootDock` / `CurrentDockWindow` / `CurrentHostWindow` | live drag/focus cursors (get-only)        |
 |  [11]   | `HideToolsOnClose` / `HideDocumentsOnClose : bool`                                | close-hides-instead-of-removes policy     |
 
-- The locators are the DESERIALIZATION seam: a serialized graph carries `Id` values and no contexts, so `GetContext(id)` reads `ContextLocator` (falling back to `DefaultContextLocator`), `RestoreDockable(string)` reads `DockableLocator`, and a graph restored without them rehydrates structurally with every `Context` null.
+- The locators are the DESERIALIZATION boundary: a serialized graph carries `Id` values and no contexts, so `GetContext(id)` reads `ContextLocator` (falling back to `DefaultContextLocator`), `RestoreDockable(string)` reads `DockableLocator`, and a graph restored without them rehydrates structurally with every `Context` null.
 
 [FACTORY_RESOLUTION]: id-keyed reads over those registries.
 

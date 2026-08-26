@@ -1,6 +1,6 @@
 # [RASM_MATERIALS_API_VIVIDORANGE_MATERIALS]
 
-`VividOrange.Materials` owns the EN/Eurocode structural-material grade DATA: a grade enum with a `NationalAnnex` reads back `fck`/`fy`/`E`, partial factors, and durability metadata as `UnitsNet` quantities, and an `En*Factory` lowers that grade to the constitutive σ(ε) law an analysis consumes. It is the material half of the RC section seam — it supplies the `IMaterial` a section's `Rebar`/`ConcreteSection` bind and the strengths the interaction-diagram fibre integral reads. This assembly implements EN grades alone; an Australian or American grade has no producer here.
+`VividOrange.Materials` owns the EN/Eurocode structural-material grade DATA: a grade enum with a `NationalAnnex` reads back `fck`/`fy`/`E`, partial factors, and durability metadata as `UnitsNet` quantities, and an `En*Factory` lowers that grade to the constitutive σ(ε) law an analysis consumes. It is the material half of the RC section boundary — it supplies the `IMaterial` a section's `Rebar`/`ConcreteSection` bind and the strengths the interaction-diagram fibre integral reads. This assembly implements EN grades alone; an Australian or American grade has no producer here.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -105,5 +105,5 @@
 
 [LOCAL_ADMISSION]:
 - Grade DATA is admitted only through the Materials boundary that needs a structural-material grade — the steel `Profile` family, the RC `ConcreteSection`, the reinforcement `Rebar`. A design page names an `EnConcreteGrade`/`EnSteelGrade`/`EnRebarGrade` with a `NationalAnnex` and reads `fck`/`fy`/`E` and partial factors as `UnitsNet` quantities.
-- An EN derivation throw (`ArgumentException`/`MissingNationalAnnexException`/`InvalidSteelSpecificationException`) is trapped at the in-folder boundary and lowered onto the typed material-grade `LanguageExt.Fin` rail; `TryCreateFromDesignition`'s `false` maps to the typed parse failure instead of catching a throw.
+- An EN derivation throw (`ArgumentException`/`MissingNationalAnnexException`/`InvalidSteelSpecificationException`) is trapped at the in-folder boundary and lowered onto the typed material-grade `LanguageExt.Fin` result; `TryCreateFromDesignition`'s `false` maps to the typed parse failure instead of catching a throw.
 - Constitutive materials are admitted at the analysis boundary that needs a stress-strain law: a non-EN measured material constructs directly, an EN grade lowers through `AnalysisMaterialFactory`.

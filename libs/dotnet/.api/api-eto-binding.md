@@ -1,10 +1,10 @@
 # [RASM_API_ETO_BINDING]
 
-`Eto.Forms` owns the two-way data-binding rail both host boundaries compose: a control property fused to a `DataContext` model through the `IBindable` seam, one projection chain reshaping and guarding the value, and the data-store carriers backing grid, list, and tree views. One `DataContext` assignment walks the control tree, so every bound descendant resolves against it. Branch-tier owner under the dual-home law — `Rasm.Grasshopper` and `Rasm.Rhino` both register this catalogue and add no binding carrier of their own.
+`Eto.Forms` owns the two-way data-binding surface both host boundaries compose: a control property fused to a `DataContext` model through the `IBindable` interface, one projection chain reshaping and guarding the value, and the data-store carriers backing grid, list, and tree views. One `DataContext` assignment walks the control tree, so every bound descendant resolves against it. Branch-tier owner under the dual-home law — `Rasm.Grasshopper` and `Rasm.Rhino` both register this catalogue and add no binding carrier of their own.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: binding carriers and the bindable seam
+[PUBLIC_TYPE_SCOPE]: binding carriers and the bindable interface
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                    |
 | :-----: | :-------------------------------- | :------------ | :------------------------------ |
@@ -99,14 +99,14 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 - `BindableBinding.Child` also admits an `Expression<Func<T,TNewValue>>` property path; both overloads return `BindableBinding<T,TNewValue>`.
 - `CatchException<TException>(Func<TException,bool>)` is DECLARED on `DirectBinding<T>`/`IndirectBinding<T>` and returns that binding shape; `BindableBinding` reaches it only as the inherited `DirectBinding` form, so the guard attaches on the source side of a dual link and the fluent `BindableBinding` chain ends at the trap. A non-generic `Func<Exception,bool>` overload traps every fault; a handler returning `true` swallows the conversion or access fault.
 
-[ENTRYPOINT_SCOPE]: accessor factories, value seam, and propagation control
+[ENTRYPOINT_SCOPE]: accessor factories, value accessors, and propagation control
 
 | [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                   |
 | :-----: | :------------------------------------------------------- | :------- | :----------------------------- |
 |  [01]   | `Binding.Property<T,TValue>(Expression<Func<T,TValue>>)` | static   | property-path accessor factory |
 |  [02]   | `Binding.Delegate<TValue>(get, set, add, remove)`        | static   | callback accessor factory      |
 |  [03]   | `Binding.Delegate<T,TValue>(get, set, add, remove, …)`   | static   | item-callback accessor factory |
-|  [04]   | `IndirectBinding<T>.GetValue` / `.SetValue`              | instance | data-item value seam           |
+|  [04]   | `IndirectBinding<T>.GetValue` / `.SetValue`              | instance | data-item value accessor       |
 |  [05]   | `IndirectBinding<T>.AfterDelay(TimeSpan, bool)`          | instance | debounced write propagation    |
 |  [06]   | `DirectBinding<T>.DataValue` / `.DataValueChanged`       | property | source value and change event  |
 |  [07]   | `DualBinding<T>.Unbind` / `.Update`                      | instance | link teardown and forced push  |
@@ -134,9 +134,9 @@ Each projection returns a `BindableBinding<T,TNew>`, so the chain composes.
 - a collection view binds by source shape: an enumerable source reaches the enumerable `DataStore` sinks unadapted, a virtualized `IDataStore<T>` window reaches them through `DataStoreVirtualCollection<T>`, and a tree reaches `TreeGridView` as an `ITreeGridStore<T>`
 
 [STACKING]:
-- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): a model-bound field validates in the `Convert` to-source direction through a `Validation<Error,A>` gate exiting `.ToFin()` before the model accepts; callback-only `CatchException<TException>` contains a host update and publishes `Error.New(raised.Message, (Exception)raised)` to the owning failure sink, avoiding the generic exception's ambiguous `Error` conversion without becoming a substitute for `Op.Catch` on a rail-returning call; a `DataContext` swap is an `Eff` marshalled onto the UI thread after admission.
+- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): a model-bound field validates in the `Convert` to-source direction through a `Validation<Error,A>` gate exiting `.ToFin()` before the model accepts; callback-only `CatchException<TException>` contains a host update and publishes `Error.New(raised.Message, (Exception)raised)` to the owning failure sink, avoiding the generic exception's ambiguous `Error` conversion without becoming a substitute for `Op.Catch` on a result-returning call; a `DataContext` swap is an `Eff` marshalled onto the UI thread after admission.
 - `api-thinktecture-runtime-extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): a bound model field is a `[ValueObject<T>]` and `BindableBinding.Convert` maps the control primitive to and from it; a `[SmartEnum<TKey>]` case binds to a `DropDown`/`SegmentedButton` selection through `Convert`, the smart enum owning the display-label projection
-- `api-eto-forms`(`libs/dotnet/.api/api-eto-forms.md`): every control `*Binding` is the `BindableBinding` this rail consumes, and the grid/list/tree `DataStore` properties are the `IDataStore<T>` sinks it fills
+- `api-eto-forms`(`libs/dotnet/.api/api-eto-forms.md`): every control `*Binding` is the `BindableBinding` this surface consumes, and the grid/list/tree `DataStore` properties are the `IDataStore<T>` sinks it fills
 - `api-eto-runtime`(`libs/dotnet/.api/api-eto-runtime.md`): `DataContext` propagation and binding update run on the UI thread through `Application.Instance`
 - one panel `DataContext` drives every editable field through `BindDataContext`, so a model feeds its whole inspector without per-field source wiring
 

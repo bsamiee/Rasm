@@ -2,7 +2,7 @@
 
 `ToleranceSpec` owns every production-specification value from raw quantity admission through geometric control, ISO 286 fit, general tolerance, surface texture, method-parameterized stackup, typed derivation, and parameterized wire projection. `FeatureControl`, `FitClass`, `SurfaceTexture`, and `ToleranceChain` admit once, while `ToleranceSpec.Apply` dispatches every ingress, operation, and egress modality on payload-complete `ToleranceRequest` cases and answers each in the one result case its request seats.
 
-The GD&T algebra is a DRAWING-STANDARD vocabulary, so its glyphs, datum letters, and characteristic legality compose the kernel `Drawing/sheet` owners — `GeometricCharacteristic`, `DatumDesignator`, `DatumRegime`, `ZoneModifier`, and `SymbolSet.For(standard)` — and this page declares only the specification structure those rows are read into. The bare-scalar tolerance carrier is the kernel `Domain/context` `Tolerance`, which is why the specification union is `ToleranceSpec`: two types named `Tolerance` in one compilation shadow by namespace proximity, and the closer name silently wins at every seam that meant the other.
+The GD&T algebra is a DRAWING-STANDARD vocabulary, so its glyphs, datum letters, and characteristic legality compose the kernel `Drawing/sheet` owners — `GeometricCharacteristic`, `DatumDesignator`, `DatumRegime`, `ZoneModifier`, and `SymbolSet.For(standard)` — and this page declares only the specification structure those rows are read into. The bare-scalar tolerance carrier is the kernel `Domain/context` `Tolerance`, which is why the specification union is `ToleranceSpec`: two types named `Tolerance` in one compilation shadow by namespace proximity, and the closer name silently wins at every boundary that meant the other.
 
 `ToleranceSpec` preserves the cross-runtime wire name consumed by the artifacts plane without exporting its C# shape, keys structural refusals through `SpecOp`, carries `ContentKey` into `ToleranceUnsatisfiable`, consumes measured cutter geometry through admitted `CutterForm`, and accepts capability evidence only as input-carried achievable width. `Rasm.Solving` owns the name `Fitted`, so the ISO 286 pairing result is `FitLimits`.
 
@@ -275,7 +275,6 @@ public sealed partial class QifKind {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct ZoneWidth {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value > 0.0 ? null : ToleranceSpec.Validation("tolerance-zone-width");
 }
@@ -288,7 +287,6 @@ public sealed partial class ToleranceZone {
     public Option<double> SecondMm { get; }
     public Set<FrameModifier> Modifiers { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToleranceZoneKind kind,
         ref ZoneWidth width, ref Option<double> secondMm, ref Set<FrameModifier> modifiers) =>
         validationError = Legal(kind, width, secondMm) ? null : ToleranceSpec.Validation("tolerance-zone");
@@ -314,7 +312,6 @@ public sealed partial class DatumPoint {
     public double YMm { get; }
     public double ZMm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double xMm, ref double yMm, ref double zMm) =>
         validationError = double.IsFinite(xMm) && double.IsFinite(yMm) && double.IsFinite(zMm)
             ? null : ToleranceSpec.Validation("datum-point");
@@ -334,7 +331,6 @@ public sealed partial class DatumSystem {
 
     public Option<DatumDesignator> Primary => References.HeadOrNone().Map(static row => row.Label);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<DatumReference> references) {
         references = toSeq(references.OrderBy(static row => row.Precedence.Order)).ToArr();
         validationError = references.Count <= 3
@@ -350,7 +346,6 @@ public sealed partial class BasicDimension {
     public string Label { get; }
     public double NominalMm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string label, ref double nominalMm) {
         label = label?.Trim() ?? string.Empty;
         validationError = label.Length > 0 && double.IsFinite(nominalMm) ? null : ToleranceSpec.Validation("basic-dimension");
@@ -363,7 +358,6 @@ public sealed partial class CompositeSegment {
     public Set<FrameModifier> Modifiers { get; }
     public DatumSystem Datums { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ZoneWidth width,
         ref Set<FrameModifier> modifiers, ref DatumSystem datums) =>
         validationError = double.IsFinite(width.ToValue()) && width.ToValue() > 0.0
@@ -376,7 +370,6 @@ public sealed partial class FrameExtension {
     public Arr<DatumTarget> Targets { get; }
     public Option<CompositeSegment> Composite { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<BasicDimension> basics,
         ref Arr<DatumTarget> targets, ref Option<CompositeSegment> composite) =>
         validationError = basics.Map(static row => row.Label).Distinct().Count == basics.Count
@@ -408,7 +401,6 @@ public sealed partial class FeatureSize {
     public double LeastMaterialMm => Geometry.Material(LowerMm, UpperMm).LeastMm;
     public double RangeMm => UpperMm - LowerMm;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref FeatureGeometry geometry,
         ref double lowerMm, ref double upperMm) =>
         validationError = double.IsFinite(lowerMm) && lowerMm > 0.0
@@ -453,7 +445,6 @@ public sealed partial class FeatureControl {
         && achievableMm.ForAll(static value => double.IsFinite(value) && value > 0.0)
         && SymbolSet.For(standard).Admits(characteristic.Drawn);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CharacteristicId id, ref ContentKey source,
         ref FeatureCharacteristic characteristic, ref FeatureScope scope, ref ToleranceZone zone, ref DatumSystem datums,
         ref MaterialCondition material, ref FrameExtension extension, ref Option<FeatureSize> size,
@@ -513,7 +504,6 @@ public sealed partial class FeatureFrame {
         + Modifiers.Map(static (modifier, index) => new FrameSymbolRow(FrameCompartment.Modifier, modifier.Symbol, index)).ToSeq()
         + Datums.Map(static (datum, index) => new FrameSymbolRow(FrameCompartment.Datum, datum.Label.Text, index)).ToSeq();
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref FeatureControl control) =>
         validationError = control is null ? ToleranceSpec.Validation("feature-frame") : null;
 }
@@ -531,7 +521,6 @@ public readonly record struct FrameSymbolRow(FrameCompartment Compartment, strin
 
 [ValueObject<UInt128>]
 public readonly partial struct CharacteristicId {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref UInt128 value) =>
         validationError = value == UInt128.Zero ? ToleranceSpec.Validation("tolerance:characteristic-id") : null;
 }
@@ -708,7 +697,6 @@ public sealed partial class GeneralToleranceKind {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct FinishingAllowanceFactor {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value >= 0.0
             ? null : ToleranceSpec.Validation("finishing-allowance-factor");
@@ -721,7 +709,6 @@ public sealed partial class DiameterBand {
 
     public double ReferenceMm => Math.Sqrt(Math.Max(LowerMm, 1.0) * UpperMm);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double lowerMm, ref double upperMm) =>
         validationError = double.IsFinite(lowerMm) && lowerMm >= 0.0 && double.IsFinite(upperMm) && upperMm > lowerMm
             ? null : ToleranceSpec.Validation("diameter-band");
@@ -738,7 +725,6 @@ public sealed partial class ItGrade {
     public double ToleranceMicrometers => Name.Micrometers(Diameter.ReferenceMm);
     public double ToleranceMillimeters => Length.FromMicrometers(ToleranceMicrometers).Millimeters;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ItGradeName name,
         ref DiameterBand diameter, ref FinishingAllowanceFactor allowanceFactor) =>
         validationError = double.IsFinite(allowanceFactor.ToValue())
@@ -759,7 +745,6 @@ public sealed partial class FitStandard {
     public Arr<DiameterBand> Diameters { get; }
     public Arr<FitException> Exceptions { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<DiameterBand> diameters,
         ref Arr<FitException> exceptions) =>
         validationError = diameters.Count > 0
@@ -809,7 +794,6 @@ public sealed partial class FitClass {
     public FitBound FundamentalBound { get; }
     public double FundamentalMicrometers { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref FitMember member,
         ref FitLetter letter, ref ItGrade grade, ref FitBound fundamentalBound, ref double fundamentalMicrometers) =>
         validationError = double.IsFinite(fundamentalMicrometers) ? null : ToleranceSpec.Validation("fit-class");
@@ -844,7 +828,6 @@ public sealed partial class FitLimits {
     public string Designation => string.Concat(ZoneModifier.Diametral.Glyph,
         NominalMm.ToString(CultureInfo.InvariantCulture), " ", Hole.Designation, "/", Shaft.Designation);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ContentKey source,
         ref double nominalMm, ref FitClass hole, ref FitClass shaft, ref FitCharacter character) {
         if (source is null || hole is null || shaft is null || character is null) {
@@ -885,7 +868,6 @@ public readonly record struct GeneralSeed(GeneralToleranceClass Class, GeneralTo
 public sealed partial class GeneralStandard {
     public Arr<GeneralSeed> Seeds { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<GeneralSeed> seeds) =>
         validationError = seeds.Count > 0
             && seeds.ForAll(static row => row.Limit.IsValid && row.Kind.Admits(row.Limit))
@@ -906,7 +888,6 @@ public sealed partial class GeneralTolerance {
     public double NominalMm { get; }
     public GeneralLimit Limit { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ContentKey source,
         ref GeneralToleranceClass @class, ref GeneralToleranceKind kind, ref double nominalMm, ref GeneralLimit limit) =>
         validationError = double.IsFinite(nominalMm)
@@ -1046,7 +1027,6 @@ public sealed partial class ProcessMark {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct ScallopFactor {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) && value > 0.0 ? null : ToleranceSpec.Validation("scallop-factor");
 }
@@ -1062,7 +1042,6 @@ public sealed partial class SurfaceRequirement {
     public SurfaceMeasure Measure => Parameter.Measure;
     public Enum Unit => Parameter.Measure.Unit;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SurfaceParameter parameter,
@@ -1085,7 +1064,6 @@ public sealed partial class TransmissionBand {
     public double SamplingMm { get; }
     public double EvaluationMm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double cutoffMm,
         ref double samplingMm, ref double evaluationMm) =>
         validationError = double.IsFinite(cutoffMm) && cutoffMm > 0.0 && double.IsFinite(samplingMm) && samplingMm > 0.0
@@ -1102,7 +1080,6 @@ public sealed partial class SurfaceTexture {
     public Option<double> MachiningAllowanceMm { get; }
     public Option<string> Treatment { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ContentKey source,
         ref Arr<SurfaceRequirement> requirements, ref SurfaceLay lay, ref ProcessMark mark, ref Option<TransmissionBand> band,
         ref Option<double> machiningAllowanceMm, ref Option<string> treatment) =>
@@ -1118,7 +1095,6 @@ public sealed partial class RaTarget {
     public ScallopFactor Factor { get; }
     public double ScallopHeightMm => Length.FromMicrometers(Micrometers * Factor.ToValue()).Millimeters;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double micrometers,
         ref ScallopFactor factor) =>
         validationError = double.IsFinite(micrometers) && micrometers > 0.0 && double.IsFinite(factor.ToValue())
@@ -1195,7 +1171,6 @@ public sealed partial class ToleranceTerm {
     public double HalfRangeMm => (UpperMm - LowerMm) * 0.5;
     public double StatisticalHalfRangeMm => HalfRangeMm * Distribution.QuadratureWeight;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string key,
         ref double deviationLowerMm, ref double deviationUpperMm, ref double sensitivity,
         ref ProcessDistribution distribution) {
@@ -1243,7 +1218,6 @@ public sealed partial class ToleranceChain {
     public double BoundMm { get; }
     public StackMethod Method { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ContentKey source,
         ref Arr<ToleranceTerm> terms, ref double boundMm, ref StackMethod method) =>
         validationError = terms.Count > 0
@@ -1294,7 +1268,7 @@ public sealed record ChainEvidence(ContentKey Key, StackMethod Method, double Wo
 - Wire: each closed domain vocabulary derives onto its generated enum by normalized member name and proves a bijection before the encoder becomes available; `ContentKey` crosses whole with its egress kind and 16-byte digest, so equal payload digests in different families remain distinct.
 - Wire: `CorpusFrame` freezes the byte-deriving input, so the pinned vector regenerates from this page rather than from a captured buffer.
 - Law: zone width crosses as its exact magnitude and a symbol never crosses at all — decimal presentation and glyph belong to the consuming drawing standard, where a producer-rounded string draws a sub-micron zone as zero.
-- Boundary: frame-box facts cross while model-space geometry does not — datum targets and basic dimensions need a view transform this wire has no view to apply, so each rides the geometry seam.
+- Boundary: frame-box facts cross while model-space geometry does not — datum targets and basic dimensions need a view transform this wire has no view to apply, so each rides the geometry boundary.
 
 ```csharp
 // --- [VOCABULARIES] --------------------------------------------------------------------
@@ -1321,7 +1295,6 @@ public sealed partial class SpecQuantity {
     public double Canonical { get; }
     public string Received { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SpecAxis axis,
         ref double canonical, ref string received) {
         received = received?.Trim() ?? string.Empty;

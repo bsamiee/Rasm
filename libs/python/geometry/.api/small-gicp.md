@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_SMALL_GICP]
 
-`small_gicp` owns the parallel fine point-cloud registration speed-path for the scan-processing rail: the polymorphic `align` entrypoint drives ICP, point-to-plane ICP, GICP, and VGICP to a `RegistrationResult` 4x4 transform, discriminating on the target shape and a `registration_type` string. It fills the fine multi-threaded refinement slot the coarse global `kiss_matcher`/`open3d` engines seed and the core `trimesh`/`manifold3d` spine cannot reach at scan scale.
+`small_gicp` owns the parallel fine point-cloud registration speed-path for the scan-processing domain: the polymorphic `align` entrypoint drives ICP, point-to-plane ICP, GICP, and VGICP to a `RegistrationResult` 4x4 transform, discriminating on the target shape and a `registration_type` string. It fills the fine multi-threaded refinement slot the coarse global `kiss_matcher`/`open3d` engines seed and the core `trimesh`/`manifold3d` spine cannot reach at scan scale.
 
 ## [01]-[PUBLIC_TYPES]
 

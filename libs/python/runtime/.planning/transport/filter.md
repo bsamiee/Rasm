@@ -2,7 +2,7 @@
 
 Delivery predicates over a message envelope seat here: `Cesql` is the table-driven expression owner behind the `sql` dialect, `FilterDialect` closes the seven-dialect predicate family, and `Subscription` is the specification's own resource carrying the filter AND-set beside its sink and `protocolsettings` slice. Filters decide DELIVERY and never mutate what they read, so an expression is a pure read over admitted attributes and a subscription carrying none delivers everything.
 
-Evaluation is TOTAL by specification: every operator, function, and cast answers a VALUE beside an accumulated fault list, so a runtime error withholds one event rather than darkening a subscription, and an expression naming a missing attribute keeps matching every event whose attribute is present. `parse` alone reaches a rail, at subscription admission, where an unparseable expression refuses the subscription itself. Composed owners: `transport/event#MESSAGE` the attribute roster and its numeric carve, `transport/event#GRAMMAR` the `EventType` a subscription prefilters on, `transport/binding#BINDING` the row whose `pushdown` column decides where a dialect resolves and whose `settings` roster admits the `protocolsettings` slice, `reliability/faults#FAULT` the admission rail.
+Evaluation is TOTAL by specification: every operator, function, and cast answers a VALUE beside an accumulated fault list, so a runtime error withholds one event rather than darkening a subscription, and an expression naming a missing attribute keeps matching every event whose attribute is present. `parse` alone reaches a result, at subscription admission, where an unparseable expression refuses the subscription itself. Composed owners: `transport/event#MESSAGE` the attribute roster and its numeric carve, `transport/event#GRAMMAR` the `EventType` a subscription prefilters on, `transport/binding#BINDING` the row whose `pushdown` column decides where a dialect resolves and whose `settings` roster admits the `protocolsettings` slice, `reliability/faults#FAULT` the admission path.
 
 ## [01]-[INDEX]
 
@@ -21,9 +21,9 @@ Evaluation is TOTAL by specification: every operator, function, and cast answers
 - Law: casts are TOTAL — a cast that cannot succeed answers the target space's ZERO beside a `cast` fault, because a raise makes one malformed attribute value darken an otherwise-matching subscription. `_number` and `_flag` read the specification's own spellings and guess at nothing, so a truthiness read never makes every non-empty attribute satisfy a boolean filter.
 - Law: faults UNION across operands and every lift carries its own — `_carried` is the one combination law, so a binary node reports both sides, a unary arm reports the cast it took, and no arm reaches a value by dropping a diagnosis it raised.
 - Law: both refusals resolve a `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.FILTER` — `FILTER_PARSE` the admission fence and `FILTER_SETTINGS` the protocol-slice gate carrying the protocol beside the stray keys as NAMED coordinates.
-- Entry: `Cesql.compiled(source)` parses once and rails `parse` through the faults owner; `Cesql.answered(reading)` runs the held closure per event. That pair is the whole surface — no second entry takes a tree, a token stream, or a pre-parsed node.
+- Entry: `Cesql.compiled(source)` parses once and results `parse` through the faults owner; `Cesql.answered(reading)` runs the held closure per event. That pair is the whole surface — no second entry takes a tree, a token stream, or a pre-parsed node.
 - Auto: a compiled expression is a VALUE held for the subscription's life, because a grammar rebuilt per event reconstructs the whole closure graph on every delivery.
-- Packages: `lark` (`Lark(grammar, parser="lalr", start=, maybe_placeholders=False, transformer=)` the built-once parser folding in-parse, `Transformer` + `v_args(inline=True)` the fold, `Token` the terminal carrier, `UnexpectedInput` the parse refusal, `VisitError` the wrapper a transformer raise arrives under — `cache=` stays unset, since a cache file is a filesystem side effect no composition asked for); `expression` (`tagged_union` the value and fault families, `Block`/`Map` the immutable carriers); `msgspec` (`Struct` the frozen rows and the outcome); runtime (`event.MessageEnvelope`/`NUMERIC_EXTENSIONS` the attribute reading, `faults.RuntimeRail`/`boundary` the admission rail).
+- Packages: `lark` (`Lark(grammar, parser="lalr", start=, maybe_placeholders=False, transformer=)` the built-once parser folding in-parse, `Transformer` + `v_args(inline=True)` the fold, `Token` the terminal carrier, `UnexpectedInput` the parse refusal, `VisitError` the wrapper a transformer raise arrives under — `cache=` stays unset, since a cache file is a filesystem side effect no composition asked for); `expression` (`tagged_union` the value and fault families, `Block`/`Map` the immutable carriers); `msgspec` (`Struct` the frozen rows and the outcome); runtime (`event.MessageEnvelope`/`NUMERIC_EXTENSIONS` the attribute reading, `faults.RuntimeResult`/`boundary` the admission path).
 - Growth: a new function is one `FUNCTIONS` row carrying its arity and its total body; a new operator is one `OPERATORS` row beside one grammar terminal alternative; a new value space or error type is a specification move, not a branch one.
 - Boundary: expression compilation and total evaluation only. Mints no dialect, no subscription, and no binding. Rejected: a recursive-descent walk over mutable parser state; a node family beside an evaluator re-dispatching what the parser already discriminated; a raise escaping any arm; a widened 64-bit answer where the specification's `Integer` is 32-bit; a `LIKE` pattern translated per event; a `str | int | bool` value union; a unary arm dropping its cast's fault.
 
@@ -39,7 +39,7 @@ from lark import Lark, Token, Transformer, UnexpectedInput, VisitError, v_args
 from msgspec import Struct
 
 from rasm.runtime.event import NUMERIC_EXTENSIONS, MessageEnvelope
-from rasm.runtime.faults import FILTER_PARSE, RuntimeRail, boundary
+from rasm.runtime.faults import FILTER_PARSE, RuntimeResult, boundary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -166,7 +166,7 @@ class Cesql(Struct, frozen=True, gc=False):
     run: Eval
 
     @classmethod
-    def compiled(cls, source: str, /) -> RuntimeRail[Self]:
+    def compiled(cls, source: str, /) -> RuntimeResult[Self]:
         return boundary(FILTER_PARSE, lambda: _PARSER.parse(source), catch=(UnexpectedInput, VisitError)).map(
             lambda run: cls(source=source, run=run)
         )
@@ -426,7 +426,7 @@ _PARSER: Final[Lark] = Lark(GRAMMAR, parser="lalr", start="expression", maybe_pl
 - Law: the three affix dialects are MEMBERSHIP tests and an absent attribute answers false with NO fault, which is exactly the distinction `sql`'s `attribute` fault draws — a missing attribute is a legitimate non-match for an affix and a diagnosable read for an expression. All four read one `_reading` projection per event, so N filters over one message envelope share one attribute view rather than re-deriving it per arm.
 - Law: `settings` admits against the binding row's OWN `settings` roster, so a key outside that slice refuses at subscription admission and never at a delivery. `sink` and `protocol` name where the fan lands; the connection is `transport/binding#ADAPTER`'s and no lane reaches this page.
 - Law: pushdown is the BINDING row's `pushdown` column joined to the dialect, never a dialect property — `exact` and `prefix` resolve at a broker row on its routing attribute, `suffix` and `not_` never do, a composite pushes only where every child does, and `sql` is consumer-side on every row because no broker in the roster evaluates it. `pushed` derives that join off `BINDINGS`, so a seventh binding row reaches it untouched.
-- Entry: `Subscription.admitted(...)` is the one construction — it proves the `settings` slice and COMPILES every `sql` expression once, so an unparseable expression rails here and no delivery parses text. `Subscription.delivered(envelope)` answers the folded `Verdict`, and `FilterDialect.verdict(reading)` is the one recursive arm every case rides.
+- Entry: `Subscription.admitted(...)` is the one construction — it proves the `settings` slice and COMPILES every `sql` expression once, so an unparseable expression faults here and no delivery parses text. `Subscription.delivered(envelope)` answers the folded `Verdict`, and `FilterDialect.verdict(reading)` is the one recursive arm every case rides.
 - Output: accumulated faults ride the emitter's own `Delivery` beside the withheld count at `transport/binding#EMISSION`, so an expression quietly erroring on every event reads as a rate rather than as silence; this owner mints none.
 - Growth: a new dialect is one `FilterDialect` case, one `verdict` arm, and one `BROKER_ELIGIBLE` membership; a new protocol setting is one key on the binding row's own `settings`; a new pushdown mechanism is one `Pushdown` value at the binding owner.
 - Boundary: delivery predicates only. Mints no binding, no lane, no message envelope, no outcome semantics, and no persistence for the subscription itself. Rejected: a filter mutating what it reads; an affix dialect faulting on an absent attribute; a dialect carrying its own pushdown column beside the binding row that owns it; a `sql` expression parsed at delivery; a `settings` key outside its row's slice.
@@ -452,7 +452,7 @@ from msgspec import Struct
 
 from rasm.runtime.binding import BINDINGS, Binding, Pushdown
 from rasm.runtime.event import EventType, MessageEnvelope
-from rasm.runtime.faults import FILTER_SETTINGS, RuntimeRail
+from rasm.runtime.faults import FILTER_SETTINGS, RuntimeResult
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -547,7 +547,7 @@ class Subscription(Struct, frozen=True, gc=False):
         types: Block[EventType] = NO_TYPES,
         filters: Block[FilterDialect] = NO_FILTERS,
         config: Map[str, str] = Map.empty(),
-    ) -> RuntimeRail[Self]:
+    ) -> RuntimeResult[Self]:
         stray = Block.of_seq(sorted(key for key in settings.keys() if key not in BINDINGS[protocol].settings))
         return (
             Error(FILTER_SETTINGS.raised(protocol.value, ",".join(stray)))

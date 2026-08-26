@@ -54,8 +54,8 @@
 
 [STACKING]:
 - `api-eto-forms`(`libs/dotnet/.api/api-eto-forms.md`): the registered construction spine every panel composes — a `Panel`/`Scrollable` root holds one layout owner and the layout holds the field, data-view, and container roster, with the rows here seated among them.
-- `api-eto-binding`(`libs/dotnet/.api/api-eto-binding.md`): every field and view exposes its `*Binding`, the seam the branch-tier binding rail fuses to a `DataContext`.
-- `api-eto-drawing`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-drawing.md`): the registered `Drawable` paint seam hands its context to the drawing surface for owner-drawn content.
+- `api-eto-binding`(`libs/dotnet/.api/api-eto-binding.md`): every field and view exposes its `*Binding`, the hook the branch-tier binding layer fuses to a `DataContext`.
+- `api-eto-drawing`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-drawing.md`): the registered `Drawable` paint hook hands its context to the drawing surface for owner-drawn content.
 - `api-eto-runtime`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-runtime.md`): dialog presentation, control invalidation, and cross-thread mutation marshal through the registered application singleton.
 - `api-thinktecture-runtime-extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): a masked field's typed provider and a bounded field value are `[ValueObject<T>]` owners the control binding reads and writes; the tree hit-test kind is a `[SmartEnum]` case the drag policy dispatches on.
 - `api-languageext`(`libs/dotnet/.api/api-languageext.md`): `Optional(view.GetCellAt(point))` null-gates a hit test into `Option<TreeGridCell>` and a drop-target read folds to `Fin<TreeGridViewDragInfo>` before a canvas commits the move.
@@ -63,4 +63,4 @@
 [LOCAL_ADMISSION]:
 - Panel subclasses a registered control or composes the registered roster directly; a new control capability lands as a subclass or a composition, never a wrapper renaming a host member or a re-implemented native widget.
 - Format-masked or increment-carrying field takes the rows here; a hand-rolled mask parser or spinner pair beside them is the deleted form.
-- Boundary faults lower onto the LanguageExt rail.
+- Boundary faults lower onto LanguageExt result types.

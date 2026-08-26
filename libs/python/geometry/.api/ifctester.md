@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFCTESTER]
 
-`ifctester` owns buildingSMART IDS authoring, parsing, and validation: it serializes IDS XML into `Ids`/`Specification` models, validates each specification against an `ifcopenshell.file` to a tri-state per-spec `status` and per-spec entity sets, and reports the outcome as a `Results` graph or a rendered artifact. `Ids.validate` mutates each `Specification` in place, so the consumer reads the `applicable`/`passed`/`failed` entity sets for per-element evidence, never the boolean verdict alone; IFC parse stays `ifcopenshell`, feeding the geometry ifc-analysis rail.
+`ifctester` owns buildingSMART IDS authoring, parsing, and validation: it serializes IDS XML into `Ids`/`Specification` models, validates each specification against an `ifcopenshell.file` to a tri-state per-spec `status` and per-spec entity sets, and reports the outcome as a `Results` graph or a rendered artifact. `Ids.validate` mutates each `Specification` in place, so the consumer reads the `applicable`/`passed`/`failed` entity sets for per-element evidence, never the boolean verdict alone; IFC parse stays `ifcopenshell`, feeding the geometry ifc-analysis domain.
 
 ## [01]-[PUBLIC_TYPES]
 

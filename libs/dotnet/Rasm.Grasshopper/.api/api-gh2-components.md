@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_GH2_COMPONENTS]
 
-`Grasshopper2.Components` owns the GH2 component-authoring model — the `Component`/`ModularComponent` document object whose lifecycle runs pin registration, per-access and iteration-array processing, and variable-parameter mutation, with `IDataAccess` the sole item/pear/twig/tree seam into the running solution. Typed pins register through the `InputAdder`/`OutputAdder` families; `Garden` and the `Grasshopper2.Types.Conversion` brokers own tree construction and conversion, and `Plugin`/`PluginServer` own registration.
+`Grasshopper2.Components` owns the GH2 component-authoring model — the `Component`/`ModularComponent` document object whose lifecycle runs pin registration, per-access and iteration-array processing, and variable-parameter mutation, with `IDataAccess` the sole item/pear/twig/tree interface into the running solution. Typed pins register through the `InputAdder`/`OutputAdder` families; `Garden` and the `Grasshopper2.Types.Conversion` brokers own tree construction and conversion, and `Plugin`/`PluginServer` own registration.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -22,7 +22,7 @@
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                             |
 | :-----: | :------------------- | :------------ | :----------------------------------------------------------------------- |
-|  [01]   | `IDataAccess`        | access seam   | typed data and host-context reads, output writes, messages, and progress |
+|  [01]   | `IDataAccess`        | access port   | typed data and host-context reads, output writes, messages, and progress |
 |  [02]   | `InputAdder`         | pin adder     | typed input declaration with `Access` and `Requirement`                  |
 |  [03]   | `OutputAdder`        | pin adder     | typed output declaration with `Access`                                   |
 |  [04]   | `ModularInputAdder`  | modular adder | input declaration plus label, colour, category, and hidden state         |
@@ -149,7 +149,7 @@
 - `IDataAccess.Get*`: each returns `bool`, the out-value binding only when the read succeeds.
 - `IDataAccess` context and iteration columns: `Index`, `Iterations`, `CustomData`, `Callstack`, `Solution`, `CountIn`/`CountOut`, `CoverageIn`/`CoverageOut`, `NameIn`/`NameOut`, `AccessIn`/`AccessOut`, `HasInputChanged(int)`, `GetNull(int)`/`GetNullArray`, `GetMeta(int)`/`GetMetaArray`, `GetIndex`/`GetIndices`/`GetIndexing`.
 - `IDataAccess` dedicated typed reads own their conversion: `GetTransform(int, out Transform)` and `GetQuaternion(int, out Quaternion)` sit beside the generic path, and the `Rectify*` (`Domain`/`Enum`/`LessThan`/`LessThanOrEqualTo`/`NonNegative`/`Positive`) and `Verify*` (assistant, domain, twig-count, coincidence, colinearity, parallelism, zero/unit-vector) families gate reads without a hand-rolled guard ladder.
-- `Connectivity`/`ConnectivityComplete` exist on no public `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — host plumbing, never an override seam.
+- `Connectivity`/`ConnectivityComplete` exist on no public `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — host plumbing, never an override point.
 - Adder rosters run wide: `InputAdder` 55 `Add*` members, `OutputAdder` 54, `ModularInputAdder` 94 (typed + `AddHidden*` twins), `ModularOutputAdder` 96; `ModularList.Show(int[, ActionList])`/`Hide(int[, ActionList])` drive modular visibility.
 
 [ENTRYPOINT_SCOPE]: component-attribute overrides and resize state (`Grasshopper2.Doc`, `Grasshopper2.Doc.Attributes`)
@@ -165,8 +165,8 @@
 |  [07]   | `ComponentAttributes(Component owner)` / `{Central, Label, Content}Box`             | ctor     | construction + three layout boxes    |
 |  [08]   | `ComponentAttributes.Responder -> Responses`                                        | property | private nested responder, hook point |
 |  [09]   | `ComponentAttributes.Layout{Bounds, CentralBox, InputParameters, OutputParameters}` | virtual  | the four layout stages               |
-|  [10]   | `ComponentAttributes.Draw(Context, Skin, Capsule)`                                  | sealed   | sealed; decoration is the only seam  |
-|  [11]   | `ComponentAttributes.DrawForegroundDecorations(Context, Skin, Capsule, Shade)`      | virtual  | the post-content decoration seam     |
+|  [10]   | `ComponentAttributes.Draw(Context, Skin, Capsule)`                                  | sealed   | sealed; decoration is the only hook  |
+|  [11]   | `ComponentAttributes.DrawForegroundDecorations(Context, Skin, Capsule, Shade)`      | virtual  | the post-content decoration hook     |
 |  [12]   | `Draw{Background, Content, Icon, Name, Label, UserName}`                            | virtual  | per-region paint overrides           |
 |  [13]   | `ShowTentative{Inputs, Outputs}` / `Tentative{Inputs, Outputs}`                     | property | animated ZUI grip advertisement      |
 |  [14]   | `ResizableAttributes<T>(T owner, SizeF minimumSize, SizeF maximumSize)`             | ctor     | orders min/max, restores size        |
@@ -250,12 +250,12 @@
 
 [TOPOLOGY]:
 - `Component` declares pins once through `AddInputs(InputAdder)`/`AddOutputs(OutputAdder)`, computes through `Process(IDataAccess)`, overrides `Process(IDataAccess[], CancellationToken)` for iteration-array policy, and reconciles variable pins through the `Can*`/`Do*Parameter(Side, int, ActionList)` pairs — every structural edit rides an `ActionList` for undo.
-- `IDataAccess` is the sole in-`Process` seam: typed `Get*`/`Set*` over item/pear/twig/tree depth, tolerance and unit context, transform reads, and `AddRemark`/`AddWarning`/`AddError` messages; `Process` reads `access.Solution`/`access.Callstack`, never the `Document`.
+- `IDataAccess` is the sole in-`Process` interface: typed `Get*`/`Set*` over item/pear/twig/tree depth, tolerance and unit context, transform reads, and `AddRemark`/`AddWarning`/`AddError` messages; `Process` reads `access.Solution`/`access.Callstack`, never the `Document`.
 - pins are `IParameter`s carrying an `Access` (`Item`/`Twig`/`Tree`) and a `Requirement` (`MustExist`/`MayBeNull`/`MayBeMissing`); the adder families are the one pin-declaration surface, and the modular adders extend each with label, colour, category, and hidden state.
 - data is `Tree<T>` of `Twig<T>` of `Pear<T>`: `Garden` builds and folds trees (`PairWiseOp`/`PearWiseOp`), `Twig<T>.Convert`/`Apply` transform a branch, and the `Grasshopper2.Parameters.Standard` brokers and `ConversionServer` resolve a host object onto its concrete family carrying a `Merit` score.
 - `ModularComponent` drives its pin surface from `__`-prefixed well-known keys (`__Icon`, `__Colour`, `__Optional`, `__Category`, `__HideByDefault`, `__HiddenWires`); `Plugin`/`PluginServer` own registration and `IoIdAttribute` stamps the persistent serialization id.
 - Pin's writable policy is post-declaration property assignment on the concrete `Grasshopper2.Parameters.Standard` parameter the adder returned, never a declaration argument, so a policy carrier admits its whole column set and writes it in one pass against the exact parameter type.
-- `CreateAttributes` returns the object's own `IAttributes`: `ComponentAttributes` is the component base whose `Responder` and `DrawForegroundDecorations` are the two extension seams, while `ResizableAttributes<T>` is a sibling over `Attributes<T>` carrying persisted size and its own resize responder — the two bases share no layout or decoration member, so one policy spine projects onto them through different host callbacks.
+- `CreateAttributes` returns the object's own `IAttributes`: `ComponentAttributes` is the component base whose `Responder` and `DrawForegroundDecorations` are the two extension points, while `ResizableAttributes<T>` is a sibling over `Attributes<T>` carrying persisted size and its own resize responder — the two bases share no layout or decoration member, so one policy spine projects onto them through different host callbacks.
 
 [STACKING]:
 - `api-thinktecture-runtime-extensions`(`.api/api-thinktecture-runtime-extensions.md`): the host `Access`, `Requirement`, and `Side` enums fold onto `[SmartEnum]` owners, so a pin depth, presence, or side is one exhaustive dispatch value, and the typed `Add*` roster generates from one `[SmartEnum]` pin-kind vocabulary rather than an enumerated method wall.
@@ -266,5 +266,5 @@
 [LOCAL_ADMISSION]:
 - `Component`/`ModularComponent` is the one authoring base the folder extends.
 - pin declaration composes the adder families through the generated pin-kind vocabulary.
-- `IDataAccess` is the sole in-`Process` seam into data, context, and messages.
+- `IDataAccess` is the sole in-`Process` interface into data, context, and messages.
 - `Garden` and the brokers own tree construction and conversion.

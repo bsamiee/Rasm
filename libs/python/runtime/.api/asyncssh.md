@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection, options, and SFTP-read family
-- rail: transport
+- concern: transport
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                                       |
 | :-----: | :--------------------------- | :------------ | :----------------------------------------------------------------- |
@@ -17,7 +17,7 @@
 |  [06]   | `SSHClientProcess`           | exec          | remote process session (async ctx mgr; binary stdio, signal kill)  |
 
 [PUBLIC_TYPE_SCOPE]: fault family
-- rail: transport
+- concern: transport
 - Exception type discriminates: `ConnectionLost`/`DisconnectError` are the transient retry class; `HostKeyNotVerifiable`/`PermissionDenied` and the `SFTP*` read faults are terminal.
 
 | [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [CAPABILITY]                                             |
@@ -31,7 +31,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection and SFTP-read chain
-- rail: transport
+- concern: transport
 
 | [INDEX] | [SURFACE]                                                                | [SHAPE]        | [CAPABILITY]                               |
 | :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------- |
@@ -41,7 +41,7 @@
 |  [04]   | `await file.read(size=-1, offset=-1)`                                    | sftp io        | whole-fetch or offset-bounded chunked read |
 
 [ENTRYPOINT_SCOPE]: connection-options and host-key verification
-- rail: transport
+- concern: transport
 - `SSHClientConnectionOptions` is built once from the settings model (`roots.md` `_ssh_options`) carrying credentials, trust, and channel policy in one object; `read_known_hosts` loads the host-key trust database at admission (`admission.md` `SecretBoundary.known_hosts`).
 
 | [INDEX] | [SURFACE]                                                                                                             | [SHAPE] |
@@ -50,7 +50,7 @@
 |  [02]   | `read_known_hosts(filelist)`                                                                                          | verify  |
 
 [ENTRYPOINT_SCOPE]: remote-exec crossing
-- rail: worker crossing
+- concern: worker crossing
 - `create_process(command, encoding=None)` keeps both stdio streams binary for the sealed-blob round trip; the session is an async context manager whose exit closes the channel, so a cooperatively abandoned session HUP-reaps the far process.
 
 | [INDEX] | [SURFACE]                                           | [SHAPE]   | [CAPABILITY]                                     |
@@ -78,6 +78,6 @@
 - `execution/workers`(`runtime/.planning/execution/workers.md`): `RemoteEndpoint.dialed()` -> memoized `SSHClientConnection` per REMOTE arm -> per-submit `create_process(f"{endpoint.python} -m rasm.runtime.workers", encoding=None)` -> sealed blob on `stdin` -> pickled verdict off `stdout`; cloudpickle seals the request, tblib carrying the fault frames home.
 
 [LOCAL_ADMISSION]:
-- Transport composes asyncssh for the SFTP-read companion seam only; the runtime owns no second SSH client (`paramiko` is not admitted) and no durable remote store.
+- Transport composes asyncssh for the SFTP-read companion boundary only; the runtime owns no second SSH client (`paramiko` is not admitted) and no durable remote store.
 - `cryptography` backs asyncssh as its crypto kernel, reached only through asyncssh's surface, never instantiated in parallel.
 - Copyleft (`EPL-2.0`/`GPL-2.0-or-later`) constrains redistribution: asyncssh is consumed as an unmodified library dependency over its public API, never vendored, embedded, or modified in-tree.

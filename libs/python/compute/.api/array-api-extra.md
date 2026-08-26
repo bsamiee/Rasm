@@ -91,7 +91,7 @@
 - `default_dtype(xp, kind=...)` resolves a backend's canonical `real floating`/`complex floating`/`integral`/`indexing` dtype for result-buffer allocation, replacing a hardcoded `xp.float64`.
 
 [STACKING]:
-- `array-api-compat`(`.api/array-api-compat.md`): `xp = array_namespace(*arrays)` resolves the namespace once, then `array_api_extra.<op>(..., xp=xp)` threads it — one backend-agnostic rail with no per-backend branch; `is_writeable_array(x)` gates the `at(...).set(..., copy=...)` mutate-vs-copy fork, and `is_lazy_array(x)` routes the traced path to `lazy_apply` and the eager path to the direct `xp` op, the same eager/lazy fork the `diffrax`/`equinox`/`optimistix` JAX rails consume.
+- `array-api-compat`(`.api/array-api-compat.md`): `xp = array_namespace(*arrays)` resolves the namespace once, then `array_api_extra.<op>(..., xp=xp)` threads it — one backend-agnostic domain with no per-backend branch; `is_writeable_array(x)` gates the `at(...).set(..., copy=...)` mutate-vs-copy fork, and `is_lazy_array(x)` routes the traced path to `lazy_apply` and the eager path to the direct `xp` op, the same eager/lazy fork the `diffrax`/`equinox`/`optimistix` JAX layers consume.
 - within-lib (compute kernels): `at(...).set(..., copy=...)` is the single indexed-update expression spanning JAX `.at[idx].set()` and NumPy in-place assignment, and `apply_where(cond, args, f1, f2, fill_value=)` evaluates each branch only on its live mask — the graph-safe substitute for `xp.where(cond, f1(x), f2(x))` where a branch errors off its masked domain (`log` of non-positive).
 
 [LOCAL_ADMISSION]:

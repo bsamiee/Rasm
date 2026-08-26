@@ -1,13 +1,13 @@
 # [DOTNET_BRANCH_ARCHITECTURE]
 
-`libs/dotnet` orders the .NET packages across the strata under one acyclic, upward-only reference graph: the `Rasm` kernel at the base, the seam and runtime spine above it, the AEC domain and stores over those, and orchestration under the app-platform leaf, with the host boundary a plane-distinct pair beside the spine. Each package's interior is its own architecture's charter; the branch roster, the cross-runtime seams, the cross-package flow spines, and the stratum-permission law are the branch grain.
+`libs/dotnet` orders the .NET packages across the strata under one acyclic, upward-only reference graph: the `Rasm` kernel at the base, the contract and runtime spine above it, the AEC domain and stores over those, and orchestration under the app-platform leaf, with the host boundary a plane-distinct pair beside the spine. Each package's interior is its own architecture's charter; the branch roster, the cross-runtime boundaries, the cross-package flow spines, and the stratum-permission law are the branch grain.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text
 libs/dotnet/
 ├── Rasm/              # [KERNEL]         RhinoCommon-aware geometry and numeric kernel
-├── Rasm.Element/      # [AEC_DOMAIN]     Lowest AEC element seam onto the one ElementGraph
+├── Rasm.Element/      # [AEC_DOMAIN]     Lowest AEC element contract onto the one ElementGraph
 ├── Rasm.Materials/    # [AEC_DOMAIN]     Host-neutral profiles, appearance, and construction
 ├── Rasm.Bim/          # [AEC_DOMAIN]     Host-neutral BIM object model and IFC/glTF/STEP exchange
 ├── Rasm.Fabrication/  # [AEC_DOMAIN]     Host-neutral fabrication and detailing
@@ -26,9 +26,9 @@ Planning-scoped packages carry a `.planning/` scaffold of index docs and design 
 Rank is reference depth, never domain family: two packages share a rank only when neither reaches the other, so `[01]-[DOMAIN_MAP]` names the family a package serves while the rows below name what it may reference, which is why the app platform spreads across four ranks rather than wearing one label.
 
 - S0 kernel — `Rasm` references no sibling and carries every rank above it.
-- S1 seam — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
+- S1 contract — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph`.
 - S1 spine — `Rasm.AppHost` references only `Rasm` and PORT-decodes store shapes without a downward reference.
-- S1 law — the seam and the spine never reference each other, so a package composes either alone.
+- S1 law — the contract and the spine never reference each other, so a package composes either alone.
 - S1 host plane — `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm`, sit outside the host-neutral graph, and enter at the host app root.
 - S1 host law — bake stays at the host boundary, no host-neutral package references it, and the two boundaries never reference each other.
 - S2 domain — `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Materials` reference `{Rasm, Rasm.Element}`.
@@ -36,7 +36,7 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S2 stores — `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record.
 - S2 recovery — `Rasm.Persistence` adds `Rasm.AppHost` for the settled `RecoveryObjective` alone.
 - S2 wire law — binary and ProtoJSON codecs compose the spine's neutral `WireAdmission`; S2 members hold generated messages, never a validator.
-- S2 law — S2 members never reference each other; alignment travels seam contracts and the content-keyed wire.
+- S2 law — S2 members never reference each other; alignment travels boundary contracts and the content-keyed wire.
 - S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
 - S5 app shell — `apps/<plugin>/` shells, each its own app, seat outside `libs/dotnet` and compose the app platform with the host boundary.
 - S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
@@ -51,7 +51,7 @@ config:
 ---
 flowchart TB
     accTitle: .NET branch package reference strata
-    accDescr: Package reference strata from the app leaf down to the kernel, the host boundary plane-distinct at the seam rank.
+    accDescr: Package reference strata from the app leaf down to the kernel, the host boundary plane-distinct at the contract rank.
     subgraph S4["S4 APP LEAF"]
         AppUi[Rasm.AppUi]
     end
@@ -64,7 +64,7 @@ flowchart TB
         Fabrication[Rasm.Fabrication]
         Persistence[Rasm.Persistence]
     end
-    subgraph S1["S1 SEAM AND SPINE"]
+    subgraph S1["S1 CONTRACT AND SPINE"]
         Element[Rasm.Element]
         AppHost[Rasm.AppHost]
     end
@@ -107,9 +107,9 @@ flowchart TB
     Rasm f1@-->|"forbidden: upward import"| S4
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
-Every cross-runtime seam is data-bearing: the peer decodes the contract-conforming wire or publisher container without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; per-shape byte detail folds to the package pages. Two fences partition by peer runtime. Graduation's descriptor exchange uses python's `HandoffAxis` and C#'s `GraduationEvidence`; its serving-population reference is the separate native `GraduationEnvelope` container.
+Every cross-runtime boundary is data-bearing: the peer decodes the contract-conforming wire or publisher container without re-minting. Each edge freezes the single load-bearing contract at its partner grain, spelled verbatim from the owning package page; per-shape byte detail folds to the package pages. Two fences partition by peer runtime. Graduation's descriptor exchange uses python's `HandoffAxis` and C#'s `GraduationEvidence`; its serving-population reference is the separate native `GraduationEnvelope` container.
 
 ```mermaid
 ---
@@ -120,7 +120,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: .NET branch python seam registry
+    accTitle: .NET branch python boundary registry
     accDescr: Which kinded contract shapes cross between the .NET packages and their python counterparts.
     subgraph dotnet[LIBS/DOTNET]
         Rasm[Rasm]
@@ -168,7 +168,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: .NET branch typescript seam registry
+    accTitle: .NET branch typescript boundary registry
     accDescr: Which kinded wires the .NET packages produce for the typescript core, data, runtime, and ui domains to decode.
     subgraph dotnet[LIBS/DOTNET]
         Rasm[Rasm]
@@ -200,7 +200,7 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-`Rasm.Element`, `Rasm.Materials`, and `Rasm.Bim` meet at one seam, the `ElementGraph`: Element owns what a thing IS, Materials what a thing is MADE OF, Bim what a thing MEANS in IFC. Materials seeds and projects components onto the graph, Bim lowers foreign IFC onto it and re-authors IFC off it, and every cross-package fact travels as graph content, so neither projector reaches into the other.
+`Rasm.Element`, `Rasm.Materials`, and `Rasm.Bim` meet at one contract, the `ElementGraph`: Element owns what a thing IS, Materials what a thing is MADE OF, Bim what a thing MEANS in IFC. Materials seeds and projects components onto the graph, Bim lowers foreign IFC onto it and re-authors IFC off it, and every cross-package fact travels as graph content, so neither projector reaches into the other.
 
 ```mermaid
 ---
@@ -212,7 +212,7 @@ config:
 ---
 flowchart LR
     accTitle: AEC triad projection spine
-    accDescr: How Materials and Bim project onto the one ElementGraph seam and the app platform consumes the graph.
+    accDescr: How Materials and Bim project onto the one ElementGraph contract and the app platform consumes the graph.
     Materials[Rasm.Materials]
     Bim[Rasm.Bim]
     Graph[(ElementGraph)]
@@ -227,13 +227,13 @@ flowchart LR
     Graph e6@-->|"content keys"| Persistence
 ```
 
-Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` for the two projectors and `IGraphConstraint` for composition-time delta legality. Element's `TypeCandidate` record carries the type-reconciliation loop beside them as contract-aligned data under the Bim-declared `IIfcTypeReconciler` port, both ends composing one declaration, never a package edge. Owners mint their own identity at their own seam and nothing re-mints a peer's: Materials the deterministic Type node, Bim the per-ingest rooted id.
+Two projection surfaces, both declared in `Rasm.Element`, are the only cross-package contracts: `IElementProjection` for the two projectors and `IGraphConstraint` for composition-time delta legality. Element's `TypeCandidate` record carries the type-reconciliation loop beside them as contract-aligned data under the Bim-declared `IIfcTypeReconciler` port, both ends composing one declaration, never a package edge. Owners mint their own identity at their own boundary and nothing re-mints a peer's: Materials the deterministic Type node, Bim the per-ingest rooted id.
 
-Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical seam surfaces change only through an explicit brief entry naming the owner and the move.
+Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-derives section geometry or material data; Element never carries a fact only one projector understands. Consumers needing the thing read the graph; consumers needing the IFC meaning read Bim's projection; nothing reads across. Canonical contract surfaces change only through an explicit brief entry naming the owner and the move.
 
-Signal crosses the strata on one plane: a signal concept two strata both spell homes at the OTel-free kernel capsule, every stratum composes it as instances with per-folder fact unions as the one per-folder signal type, and telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
+Signal crosses the strata on one plane: a signal concept two strata both spell homes at the OTel-free kernel capsule, every stratum composes it as instances with per-folder fact unions as the one per-folder signal type, and telemetry leaves the branch opaque on the `[TRANSPORT]` boundary.
 
-Canonical operation results remain the truth: AppHost projects their measured facts into telemetry at the instrumentation seam, and Persistence lands only the durable domain data it owns.
+Canonical operation results remain the truth: AppHost projects their measured facts into telemetry at the instrumentation boundary, and Persistence lands only the durable domain data it owns.
 
 ```mermaid
 ---
@@ -247,16 +247,16 @@ flowchart LR
     accTitle: .NET branch signal plane spine
     accDescr: How canonical operation results project into AppHost governance and where telemetry leaves or lands.
     Capsule[Rasm · signal capsule]
-    KernelRail[Rasm · SignalRail]
+    KernelSignal[Rasm · SignalHooks]
     Folders[folder fact unions · composed instances]
     Governance[Rasm.AppHost · SignalGovernance]
-    Residence[(Rasm.Persistence · analytics residence)]
+    Storage[(Rasm.Persistence · analytics storage)]
     Egress([OtelExport transport])
-    Capsule e1@-->|"compose: SignalFact instance"| KernelRail
+    Capsule e1@-->|"compose: SignalFact instance"| KernelSignal
     Capsule e2@-->|"compose: fact-union instance"| Folders
-    KernelRail e3@-->|"project: result facts"| Governance
+    KernelSignal e3@-->|"project: result facts"| Governance
     Folders e4@-->|"project: result facts"| Governance
-    Governance e5@-->|"land: analytics plane"| Residence
+    Governance e5@-->|"land: analytics plane"| Storage
     Governance e6@-->|"lace: OTel + HLC + baggage"| Egress
 ```
 
@@ -275,17 +275,17 @@ Every extension lands on a canonical owner: a row where possible, a compiler-for
 |  [05]   | new relation semantics      | sub-kind rows or `Generic` attributes    | one row or attribute convention               |
 |  [06]   | new quantity or dimension   | `QuantityRow`, `Dimension`               | one mint row or member                        |
 |  [07]   | new fault case              | owning `*Fault` union                    | one `[FaultCase]` leaf                        |
-|  [08]   | new seam participant        | `IElementProjection`                     | one projector; any new fault family uses [16] |
+|  [08]   | new boundary participant    | `IElementProjection`                     | one projector; any new fault family uses [16] |
 |  [09]   | new folder signal surface   | the folder's composed capsule instance   | one fact case, point row, or instrument row   |
 |  [10]   | new capsule mechanism       | kernel signal capsule (`Rasm`)           | one member on the one mechanism               |
 |  [11]   | new reliability indicator   | kernel signal capsule (`Rasm`)           | one indicator, burn, severity, or panel row   |
 |  [12]   | new OTel wiring or exporter | `Rasm.AppHost` `SignalGovernance`        | one governance row; the vocabulary stays S0   |
-|  [13]   | analytics residence or slot | `Rasm.Persistence` `Query/residence`     | one row answering the estate residence floor  |
-|  [14]   | new columnar query end      | `Rasm.Persistence` `Query/serving`       | one `ResidenceReach` arm on the one read plan |
+|  [13]   | analytics storage or slot   | `Rasm.Persistence` `Query/backend`       | one row answering the repo storage floor      |
+|  [14]   | new columnar query end      | `Rasm.Persistence` `Query/serving`       | one `BackendReach` arm on the one read plan   |
 |  [15]   | new tolerance lane          | `Rasm` `ToleranceLane`                   | one lane row carrying its band and dimension  |
 |  [16]   | new fault family            | `Rasm` `FaultBand` + package `*Fault`    | one band row + one direct `[Union]` root      |
 |  [17]   | new retriability class      | `Rasm` `Retriability`                    | one case plus one `Redrive` arm               |
-|  [18]   | new hook mechanism          | `Rasm` `HookRail`                        | one member on the one mechanism               |
+|  [18]   | new hook mechanism          | `Rasm` `HookSet`                         | one member on the one mechanism               |
 |  [19]   | new mesh source             | `Rasm` `MeshSource`                      | one case plus one admission arm               |
 |  [20]   | new statistic               | `Rasm` `Stat<TCarrier>`                  | one slot plus one validity conjunct           |
 |  [21]   | new UI modality or control  | the owning `Rasm/Interaction` owner      | one case or one row                           |

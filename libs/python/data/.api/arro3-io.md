@@ -1,6 +1,6 @@
 # [PY_DATA_API_ARRO3_IO]
 
-`arro3.io` owns the pyarrow-free codec rail for the carrier leg: native Rust readers parse Arrow IPC file and stream framing, Parquet, CSV, JSON, and NDJSON into a lazy `arro3.core.RecordBatchReader`, and writers lower any `arro3.core.types` PyCapsule producer back to each format with no producer-named branch. `read_parquet_async` streams a cloud Parquet object off an `ObjectStore` into a materialized `arro3.core.Table` with no local copy, and a typed `exceptions` hierarchy surfaces store and codec faults — every surface on the `arro3.core` model that keeps the `pyarrow` C++ bridge out.
+`arro3.io` owns the pyarrow-free codec domain for the carrier leg: native Rust readers parse Arrow IPC file and stream framing, Parquet, CSV, JSON, and NDJSON into a lazy `arro3.core.RecordBatchReader`, and writers lower any `arro3.core.types` PyCapsule producer back to each format with no producer-named branch. `read_parquet_async` streams a cloud Parquet object off an `ObjectStore` into a materialized `arro3.core.Table` with no local copy, and a typed `exceptions` hierarchy surfaces store and codec faults — every surface on the `arro3.core` model that keeps the `pyarrow` C++ bridge out.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -25,7 +25,7 @@
 |  [03]   | `LocalStore` / `MemoryStore`          | class         | local-disk (`prefix`) and in-memory stores                 |
 |  [04]   | `RetryConfig` / `BackoffConfig`       | `TypedDict`   | retry-count/timeout and exponential-backoff request policy |
 
-[PUBLIC_TYPE_SCOPE]: typed failure rail (`arro3.io.exceptions`)
+[PUBLIC_TYPE_SCOPE]: typed failure result (`arro3.io.exceptions`)
 
 `BaseError` roots the hierarchy that surfaces every store and codec fault as a typed exception.
 
@@ -87,7 +87,7 @@ Writers take `data` as any `ArrowStreamExportable`/`ArrowArrayExportable` produc
 [STACKING]:
 - `arro3-core`(`.api/arro3-core.md`): a reader's `RecordBatchReader` and a writer's `ArrowStreamExportable`/`ArrowArrayExportable` intake ride the `arro3.core.types` PyCapsule protocols, so any producer frame lowers with no copy and no producer named.
 - `arro3-compute`(`.api/arro3-compute.md`): a read yields the `RecordBatchReader` the compute kernels consume and a kernel `Array`/`ArrayReader` lowers back through a writer, so a frame round-trips codec → compute → codec on one memory model.
-- carrier-leg codec owner: a slim serialize/deserialize leg reaches for `arro3.io` over its `arro3-core` dependency alone, catching `exceptions.NotFoundError`/`PermissionDeniedError`/`PreconditionError` at the async store boundary and routing them onto the domain error rail.
+- carrier-leg codec owner: a slim serialize/deserialize leg reaches for `arro3.io` over its `arro3-core` dependency alone, catching `exceptions.NotFoundError`/`PermissionDeniedError`/`PreconditionError` at the async store boundary and routing them onto the domain error channel.
 
 [LOCAL_ADMISSION]:
 - Read and write the carrier leg through `arro3.io` where the payload is IPC/Parquet/CSV/JSON.

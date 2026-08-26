@@ -2,7 +2,7 @@
 
 The variable-length nested-array owner over `awkward`: `RaggedArray` owns the irregular row — variable-length lists, option types, record and union arrays over columnar memory — through one `RaggedSource` admission union, one `RaggedOp` transform axis, and one `RaggedSink` egress. It is the irregular counterpart of the dense `gridded/store#STORE` chunk-grid store — a distinct owner composing the existing Arrow carrier and runtime content key, never a ragged backend tag on `TensorBackend`.
 
-The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes a `pyarrow.Table` whose native `__arrow_c_stream__` capsule crosses to the `tabular/interop#INTEROP` carrier through `ArrowCStream.of`, the carrier staying pyarrow-free because the capsule, not pyarrow's compute, crosses the seam. The `Table` lowering is load-bearing over `ak.to_arrow` — the `pyarrow.Array` it returns exports only `__arrow_c_array__`, no native stream — and it folds a fieldless ragged array into a struct-top schema without a manual `ak.zip` re-wrap. The `arrow` sink serializes through the folder's ONE `arrow_bytes` IPC fold imported from `tabular/interop#INTEROP`, and `egress` returns the `ContentKey` minted over the chosen sink's bytes.
+The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes a `pyarrow.Table` whose native `__arrow_c_stream__` capsule crosses to the `tabular/interop#INTEROP` carrier through `ArrowCStream.of`, the carrier staying pyarrow-free because the capsule, not pyarrow's compute, crosses the boundary. The `Table` lowering is load-bearing over `ak.to_arrow` — the `pyarrow.Array` it returns exports only `__arrow_c_array__`, no native stream — and it folds a fieldless ragged array into a struct-top schema without a manual `ak.zip` re-wrap. The `arrow` sink serializes through the folder's ONE `arrow_bytes` IPC fold imported from `tabular/interop#INTEROP`, and `egress` returns the `ContentKey` minted over the chosen sink's bytes.
 
 ## [01]-[INDEX]
 
@@ -30,7 +30,7 @@ from opentelemetry import trace
 lazy import pyarrow as pa
 
 from rasm.data.tabular.interop import ArrowCStream, DataLeg, arrow_bytes
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.roots import ResourceRef
 
@@ -280,27 +280,27 @@ class RaggedArray(Struct, frozen=True):
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
-    def admit(source: RaggedSource) -> "RuntimeRail[RaggedArray]":
+    def admit(source: RaggedSource) -> "RuntimeResult[RaggedArray]":
         at, catch = source.raises
         with _TRACER.start_as_current_span(f"ragged.admit.{source.tag}", attributes={"rasm.ragged.source": source.tag}):
             return boundary(at, lambda: _admit(_ingest(source)), catch=catch)
 
-    def transform(self, op: RaggedOp) -> "RuntimeRail[RaggedArray]":
+    def transform(self, op: RaggedOp) -> "RuntimeResult[RaggedArray]":
         return boundary(RAGGED_TRANSFORM, lambda: _admit(_apply(self.array, op)), catch=_RAGGED_RAISES)
 
-    def to_backend(self, backend: Backend) -> "RuntimeRail[RaggedArray]":
+    def to_backend(self, backend: Backend) -> "RuntimeResult[RaggedArray]":
         return boundary(RAGGED_BACKEND, lambda: _admit(ak.to_backend(self.array, backend)), catch=_RAGGED_RAISES)
 
-    def to_arrow(self) -> "RuntimeRail[object]":
+    def to_arrow(self) -> "RuntimeResult[object]":
         return boundary(RAGGED_ARROW, lambda: _arrow(self.array), catch=_parquet_raises())
 
-    def c_stream(self) -> "RuntimeRail[ArrowCStream]":
+    def c_stream(self) -> "RuntimeResult[ArrowCStream]":
         return boundary(RAGGED_ARROW, lambda: _c_stream(self.array), catch=_parquet_raises())
 
-    def to_layout(self) -> "RuntimeRail[Buffers]":
+    def to_layout(self) -> "RuntimeResult[Buffers]":
         return boundary(RAGGED_LAYOUT, lambda: _to_buffers(self.array), catch=_RAGGED_RAISES)
 
-    def egress(self, sink: RaggedSink) -> "RuntimeRail[ContentKey]":
+    def egress(self, sink: RaggedSink) -> "RuntimeResult[ContentKey]":
         at, catch = sink.raises
         with _TRACER.start_as_current_span(f"ragged.egress.{sink.tag}", attributes={"rasm.ragged.rows": len(self.array)}):
             return boundary(at, lambda: _serialize(self.array, sink), catch=catch).bind(
@@ -308,7 +308,7 @@ class RaggedArray(Struct, frozen=True):
             )
 
     @staticmethod
-    def metadata(ref: ResourceRef) -> "RuntimeRail[dict[str, object]]":
+    def metadata(ref: ResourceRef) -> "RuntimeResult[dict[str, object]]":
         return boundary(RAGGED_METADATA, lambda: dict(ak.metadata_from_parquet(str(ref.path))), catch=_parquet_raises())
 
 
@@ -430,7 +430,7 @@ flowchart LR
     Owner --> Arrow["to_arrow ak.to_arrow_table pyarrow.Table __arrow_c_stream__"]
     Arrow --> Stream["c_stream ArrowCStream.of (tabular/interop#INTEROP)"]
     Owner --> Serialize["egress _serialize arrow/parquet/json bytes"]
-    Serialize --> Key["ContentIdentity.of .bind/.map RuntimeRail[ContentKey]"]
+    Serialize --> Key["ContentIdentity.of .bind/.map RuntimeResult[ContentKey]"]
     Egress --> Key["ContentKey over serialized bytes"]
 ```
 

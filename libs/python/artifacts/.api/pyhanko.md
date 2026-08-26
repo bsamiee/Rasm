@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYHANKO]
 
-`pyhanko` owns PDF digital signing and signature validation for the artifacts pdf rail: CMS/CAdES/PAdES signing across the B-B/B-T/B-LT/B-LTA ladder, document certification, DSS embedding, RFC 3161 timestamp and LTV chaining, pluggable diff analysis, and two-phase HSM/remote signing. Every signer composes a `pyhanko_certvalidator.ValidationContext` for trust and revocation; CMS is never hand-built and no parallel signing path forks.
+`pyhanko` owns PDF digital signing and signature validation for the artifacts pdf domain: CMS/CAdES/PAdES signing across the B-B/B-T/B-LT/B-LTA ladder, document certification, DSS embedding, RFC 3161 timestamp and LTV chaining, pluggable diff analysis, and two-phase HSM/remote signing. Every signer composes a `pyhanko_certvalidator.ValidationContext` for trust and revocation; CMS is never hand-built and no parallel signing path forks.
 
 ## [01]-[PUBLIC_TYPES]
 

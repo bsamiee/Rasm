@@ -1,5 +1,5 @@
 ---
-description: Full-estate dependency freshening — every version-owner manifest to newest, every .api catalog and libs/ consumer integrated, zero stale residue
+description: Full-repo dependency freshening — every version-owner manifest to newest, every .api catalog and libs/ consumer integrated, zero stale residue
 disable-model-invocation: true
 ---
 
@@ -66,22 +66,22 @@ EOF
 5. AGE-GATE CLEANUP: Delete auto-grown `minimumReleaseAgeExclude`; `minimumReleaseAge: 0` disables the gate; rerun `pnpm install`.
 6. BUMP LIST: `git diff pnpm-workspace.yaml` catalog rows.
 
-[DOTNET] — `Directory.Packages.props` + `.config/dotnet-tools.json` are the sole version owners:
-1. PROBE every `PackageVersion` and tool id at `api.nuget.org/v3-flatcontainer/<id>/index.json` (lowercase id); pick per channel law.
+[DOTNET] — `Directory.Packages.props` is the sole version owner (dotnet global tools ride the Forge repo, never a repo tool manifest):
+1. PROBE every `PackageVersion` at `api.nuget.org/v3-flatcontainer/<id>/index.json` (lowercase id); pick per channel law.
 2. SEMVER-INVERSION PROBE: Query `api.nuget.org/v3/registration5-gz-semver2/<id>/<ver>.json` for each major's publish date (gzip body).
 3. SEMVER-INVERSION HOLD: Hold candidates older than current pins with comments naming the trap.
 4. Rewrite versions preserving alignment and comments.
-5. Run `dotnet restore Workspace.slnx --force-evaluate` to regenerate `packages.lock.json`, then `dotnet tool restore`.
+5. Run `dotnet restore Workspace.slnx --force-evaluate` to regenerate `packages.lock.json`.
 6. PROOF: Restore exits 0 with zero `NU` warnings.
 7. FAILURE: Roll back the error's named pin set as one batch under one shared hold comment naming the blocker, then re-prove.
 8. CLUSTER LAW: Interdependent pin clusters hold as one unit.
-9. BUMP LIST: `git diff Directory.Packages.props .config/dotnet-tools.json`.
+9. BUMP LIST: `git diff Directory.Packages.props`.
 
 ## [02]-[DISPATCH]
 
 Catalog content keyed by package id resolves each bump's owning `.api` catalogs across tiers. Catalog charter package ids drive `libs/` consumer searches. Record bumps with neither catalog nor consumer in the ledger; dispatch only mapped bumps.
 
-- MINOR/PATCH: One `freshness-integrator` per 4 bumps, grouped by tier/domain so sibling-seam reads stay cheap.
+- MINOR/PATCH: One `freshness-integrator` per 4 bumps, grouped by tier/domain so sibling-boundary reads stay cheap.
 - MAJOR (or structural — a package split, an engine jump, a channel move): One `freshness-integrator` solo, investigation depth.
 - DISPATCH INPUT: Exact package `old -> new` spans, owning catalog paths, known consumer pages, and changelog source repo.
 - VERIFICATION KEY: `py:<dist>` | `nuget:<Id>` | `npm:<pkg>` | `host:<assembly>`; each ecosystem owns its `--key` scope.
@@ -96,6 +96,6 @@ Catalog content keyed by package id resolves each bump's owning `.api` catalogs 
 ## [03]-[CLOSE]
 
 1. Drain all dispatches.
-2. RESIDUE PROOF: Estate-wide `rg` finds no removed/purged member or moved-package `blocked until`/wheel-gate claim; repair each hit at its owner.
+2. RESIDUE PROOF: Repo-wide `rg` finds no removed/purged member or moved-package `blocked until`/wheel-gate claim; repair each hit at its owner.
 3. IDEMPOTENCY: Rerun `pnpm install` and `dotnet restore Workspace.slnx`; both exit clean without changes.
 4. LEDGER: `.claude/scratch/freshen-<YYYY-MM-DD>/` carries the full bump table with holds and their reasons — reasons feed the next run's hold law.

@@ -11,7 +11,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]         | [CAPABILITY]                                        |
 | :-----: | :-------------------- | :-------------------- | :-------------------------------------------------- |
 |  [01]   | `OpenAiClient`        | class (`Context.Tag`) | tag `@effect/ai-openai/OpenAiClient` over `Service` |
-|  [02]   | `Service`             | interface             | curated REST rails wrapping `Generated.Client`      |
+|  [02]   | `Service`             | interface             | curated REST methods wrapping `Generated.Client`    |
 |  [03]   | `ResponseStreamEvent` | union                 | Responses SSE fold, each event `type`-discriminated |
 |  [04]   | `LogProbs`            | class                 | per-token logprob with `top_logprobs`               |
 |  [05]   | `SummaryPart`         | class                 | reasoning-summary text part                         |
@@ -56,7 +56,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 
 - every constructor requires the `OpenAiClient` tag; `model`/`modelWithTokenizer` return a value that is BOTH a `Layer` and an `Effect<Layer>`, and `*WithTokenizer` folds `Tokenizer.Tokenizer` into the provided tags.
 - model argument widens to `(string & {}) | Model`, so the enum drives autocomplete without rejecting newer ids.
-- `Config.Service` omits `input`/`tools`/`tool_choice`/`stream`/`text`, made partial, and adds `fileIdPrefixes`, `text.verbosity` (`low`/`medium`/`high`), and `strict`; `static getOrUndefined` reads it, and `ai/model.ts` writes it per call as the tier-routing seam.
+- `Config.Service` omits `input`/`tools`/`tool_choice`/`stream`/`text`, made partial, and adds `fileIdPrefixes`, `text.verbosity` (`low`/`medium`/`high`), and `strict`; `static getOrUndefined` reads it, and `ai/model.ts` writes it per call as the tier-routing record.
 - `declare module` augments the `@effect/ai` `Prompt`/`Response` interfaces with an optional `openai` slot; internal code reads canonical shapes and the edge maps them. Distinctive slot payloads: `itemId`/`encryptedContent` on reasoning parts, `imageDetail` on file parts, `refusal` on text metadata, `file_citation`/`url_citation` index shapes on source metadata, and `serviceTier` (`default`/`auto`/`flex`/`scale`/`priority`) on finish metadata.
 
 ## [03]-[EMBEDDING_MODEL]
@@ -130,7 +130,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 | :-----: | :----------------------------------------------------------------------- | :------ | :-------------------------------- |
 |  [01]   | `addGenAIAnnotations(OpenAiTelemetryAttributeOptions) -> (Span) -> void` | fold    | dual; mutates the `Span` in place |
 
-- `OpenAiTelemetry` extends the core `Telemetry` GenAI attribute set; `addGenAIAnnotations` mutates the `effect/Tracer` `Span` in place — the one boundary-kernel mutation and the seam onto `@effect/opentelemetry`. Both `RequestAttributes` and `ResponseAttributes` fold under the `gen_ai.openai.request` prefix, so response attributes resolve under the request namespace. `OpenAiTelemetryAttributeOptions` NESTS — `{ openai: { request?, response? } }`, never flat fields. `ResponseAttributes.systemFingerprint` is currently unfillable through the part algebra: `FinishPartMetadata.openai` exposes `serviceTier` alone, and no `Response` augmentation forwards the raw response's `system_fingerprint`.
+- `OpenAiTelemetry` extends the core `Telemetry` GenAI attribute set; `addGenAIAnnotations` mutates the `effect/Tracer` `Span` in place — the one boundary-kernel mutation and the adapter onto `@effect/opentelemetry`. Both `RequestAttributes` and `ResponseAttributes` fold under the `gen_ai.openai.request` prefix, so response attributes resolve under the request namespace. `OpenAiTelemetryAttributeOptions` NESTS — `{ openai: { request?, response? } }`, never flat fields. `ResponseAttributes.systemFingerprint` is currently unfillable through the part algebra: `FinishPartMetadata.openai` exposes `serviceTier` alone, and no `Response` augmentation forwards the raw response's `system_fingerprint`.
 
 ## [07]-[CONFIG]
 
@@ -175,7 +175,7 @@ Every provider symbol is one parameterized surface over the `Generated` REST cor
 [STACKING]:
 - `@effect/ai`(`.api/effect-ai.md`): `OpenAiLanguageModel.model`/`.layer` resolve `LanguageModel.LanguageModel`, `OpenAiEmbeddingModel.layerBatched`/`layerDataLoader` resolve `EmbeddingModel.EmbeddingModel`, `OpenAiTokenizer.layer`/`OpenAiLanguageModel.layerWithTokenizer` resolve `Tokenizer.Tokenizer`, the four `OpenAiTool` ctors return `Tool.ProviderDefined`, `OpenAiTelemetry.addGenAIAnnotations` extends `Telemetry.GenAITelemetryAttributes`, and the `Prompt`/`Response` `declare module` augmentations attach the `openai` slot onto the core interfaces.
 - `@effect/platform`(`.api/effect-platform.md`): `make`/`layer`/`layerConfig` require `HttpClient.HttpClient` from the `net/client` default-policy row, `Service.streamRequest` takes an `HttpClientRequest.HttpClientRequest`, and a `Generated` op fails into `HttpClientError.HttpClientError | ParseError`; `FetchHttpClient.layer`, `NodeHttpClient.layerUndici`, or `BrowserHttpClient.layerXMLHttpRequest` satisfy the tag at the app root.
-- `@effect/ai-openrouter`(`.api/effect-ai-openrouter.md`): a peer provider carrying its own `OpenRouterClient` and `Generated`, sharing only the `@effect/ai` `LanguageModel` tag — no direct member seam; both are `Model.make` rows the `ai/model.ts` Layer selects between.
+- `@effect/ai-openrouter`(`.api/effect-ai-openrouter.md`): a peer provider carrying its own `OpenRouterClient` and `Generated`, sharing only the `@effect/ai` `LanguageModel` tag — no direct member boundary; both are `Model.make` rows the `ai/model.ts` Layer selects between.
 - `ai/model.ts`: composes the `OpenAiLanguageModel.model(id)` row and writes `OpenAiLanguageModel.Config` per call for tier routing; `ai/embed.ts` binds `OpenAiEmbeddingModel` to the `read/search` `Embedder` port; `ai/tool.ts` projects the four `OpenAiTool` constructors through `Toolkit.make` onto the MCP lane; `OpenAiTelemetry.addGenAIAnnotations` writes the active `otel` span.
 
 [LOCAL_ADMISSION]:

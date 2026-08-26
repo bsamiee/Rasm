@@ -72,7 +72,7 @@ public abstract partial record SinkhornStep {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudTransportPolicy(
     PositiveMagnitude Regularization, Dimension MaxIterations, TransportEstimator Estimator,
     Option<PositiveMagnitude> MassRelaxation, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude CouplingCutoff) {
@@ -103,9 +103,9 @@ public readonly record struct CloudTransportPolicy(
 - Entry: `Sinkhorn<TOut>` solves once and the requested `TOut` selects the projection row, so every projection caller shares one entry and one solve. `policy.Estimator` selects the debias leg through a generated `Switch`, so the two-solve arm is a case rather than a branch on a flag.
 - Auto: log-domain scalings iterate under a max-shifted `LogSumExp`, so a fully-improbable row degrades to `−∞` gracefully; a non-finite distance or residual faults the solve. `Range.FoldUntil` owns the exact iteration budget and stops on the step's settled case.
 - Law: the budget is bounded and its exhaustion is EVIDENCE, not silence — a run that stops on the schedule leaves `SinkhornStep.Advance` and the plan publishes `SinkhornStopKind.*StoppedWithoutConvergence`. Because that evidence rides the summary alone, `Project<TOut>` REFUSES the evidence-free rows — `double`, `Matrix`, `CloudCorrespondenceSet`, `VectorCloud` — on an unconverged plan, since handing a bare cost out of an exhausted run is exactly the success-shaped fall-through that certifies unconverged as converged. `SinkhornSummary` admits it, because that shape carries the stop.
-- Packages: RhinoCommon `Point3d.DistanceToSquared` is the cost kernel; System.Numerics.Tensors `TensorPrimitives` folds the LSE rows, the coupling emission, and the entropic-cost reduction; CommunityToolkit.HighPerformance `Memory2D<T>`/`Span2D<T>.GetRowSpan` addresses both `(m, n)` planes, so no stride arithmetic and no stride argument survive; `Rasm.Domain` `Stat<Scalar>`/`Distribution<Scalar>` own every moment and order statistic the summary publishes; LanguageExt.Core carries the rails, value objects, and bounded fold; Thinktecture.Runtime.Extensions carries the generated vocabularies.
+- Packages: RhinoCommon `Point3d.DistanceToSquared` is the cost kernel; System.Numerics.Tensors `TensorPrimitives` folds the LSE rows, the coupling emission, and the entropic-cost reduction; CommunityToolkit.HighPerformance `Memory2D<T>`/`Span2D<T>.GetRowSpan` addresses both `(m, n)` planes, so no stride arithmetic and no stride argument survive; `Rasm.Domain` `Stat<Scalar>`/`Distribution<Scalar>` own every moment and order statistic the summary publishes; LanguageExt.Core carries the types, value objects, and bounded fold; Thinktecture.Runtime.Extensions carries the generated vocabularies.
 - Growth: a new transport mode is one `TransportEstimator` row and one arm over the same kernel and summary vocabulary, never a second solver body; a new stop species is one `SinkhornStopKind` row.
-- Boundary: the two `(m, n)` planes are the named statement kernel with a `Fin` rail at both edges, confined to the solve body — ONE rental each, addressed through the `Memory2D<T>` view, so the flat buffer serves only the whole-plane `TensorPrimitives` reductions and no site re-derives an offset; the coupling leaves only as a `matrix.md` `Matrix` through its projection row; `MinPositiveNormal` is THE underflow anchor and `LogUnderflowFloor` derives from it, so an ad-hoc `Math.Exp` on an unfloored exponent re-introduces the silent-zero defect; `typeof(TOut)` resolution routes `ProjectionRow` entries through `atoms.md` `AtomProjection.Rows`, never a reflection ladder.
+- Boundary: the two `(m, n)` planes are the named statement kernel with a `Fin` result at both edges, confined to the solve body — ONE rental each, addressed through the `Memory2D<T>` view, so the flat buffer serves only the whole-plane `TensorPrimitives` reductions and no site re-derives an offset; the coupling leaves only as a `matrix.md` `Matrix` through its projection row; `MinPositiveNormal` is THE underflow anchor and `LogUnderflowFloor` derives from it, so an ad-hoc `Math.Exp` on an unfloored exponent re-introduces the silent-zero defect; `typeof(TOut)` resolution routes `ProjectionRow` entries through `atoms.md` `AtomProjection.Rows`, never a reflection ladder.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -278,7 +278,7 @@ internal sealed record SinkhornPlan(
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SinkhornSummary(
     double Distance, Option<double> RawDistance, Option<double> SourceBiasDistance, Option<double> TargetBiasDistance,
     double Regularization, Option<double> MassRelaxation, double ConvergenceTolerance, double CouplingCutoff,
@@ -314,17 +314,17 @@ public readonly record struct SinkhornSummary(
 - Entry: `Correspondences.OfCoupling` walks the coupling above the cutoff and folds every statistic in one pass.
 - Auto: `Rmse = √(Σ π·d² / Σ π)` weights by mass and falls back to the summary's own unweighted `Rms` on a vanishing total, riding an `Option` because an empty pairing set measured no error and a zero there reads as a perfect registration; retained source and target mass derives off the covered `Set<int>` partition after the walk, the sparsification-loss signal an unbalanced solve reads to see how much measure the relaxation dropped.
 - Growth: a new pairing statistic is one column on the set and one term in the single-pass fold; a new order statistic is one percentile on the `Distribution<Scalar>` call and no new column at all.
-- Boundary: the cutoff is the policy's and EVERY floor on this rail reads it — the census, the confidence denominator, the RMSE fallback, and the barycentric row mass — so a second ad-hoc epsilon is the double-policy defect and a length-scale anchor never gates a probability mass; order statistics come off `Domain/stats` `Distribution<Scalar>`, the branch's ONE exact-quantile owner, so a transport quantile and a statistics quantile cannot disagree on one sample set; index pairs refer to ADMITTED cluster vertices, so `cloud.md`'s `OriginalToUnique` re-indexing has already happened upstream and correspondence indices never see pre-deduplication positions.
+- Boundary: the cutoff is the policy's and EVERY floor on this page reads it — the census, the confidence denominator, the RMSE fallback, and the barycentric row mass — so a second ad-hoc epsilon is the double-policy defect and a length-scale anchor never gates a probability mass; order statistics come off `Domain/stats` `Distribution<Scalar>`, the branch's ONE exact-quantile owner, so a transport quantile and a statistics quantile cannot disagree on one sample set; index pairs refer to ADMITTED cluster vertices, so `cloud.md`'s `OriginalToUnique` re-indexing has already happened upstream and correspondence indices never see pre-deduplication positions.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudCorrespondence(
     int SourceIndex, int TargetIndex, Point3d SourcePoint, Point3d TargetPoint, Vector3d Residual,
     double Distance, double SquaredDistance,
     Option<double> SourceMass, Option<double> TargetMass, Option<double> CouplingMass, Option<double> Confidence);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudCorrespondenceSet(
     Seq<CloudCorrespondence> Items, int SourceCount, int TargetCount, int NonZeroCount,
     double TotalMass, Option<double> Rmse, Option<Distribution<Scalar>> Distances,

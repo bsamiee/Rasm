@@ -29,7 +29,7 @@ describe('absence lane', () => {
         expect(present.length).toBeLessThan(samples.length);
     });
 
-    it('every generated encoded value crosses the decode seam green', () => {
+    it('every generated encoded value crosses the decode boundary green', () => {
         const samples = FastCheck.sample(Arbitrate.absence(Frame), _SEED);
         expect(
             Array.every(samples, (sample) => Either.isRight(_decode(sample))),

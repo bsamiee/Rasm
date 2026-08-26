@@ -1,6 +1,6 @@
 # [PY_DATA_API_LASPY]
 
-`laspy` owns LAS/LAZ point-cloud file IO and the COPC octree-subset read for the data scan-exchange rail. `laspy.open(source, mode)` is the one polymorphic IO entry, discriminating `mode` into a `LasReader`/`LasWriter`/`LasAppender`, and `laspy.read` is the eager whole-file load into a `LasData`. Compressed decode rides a companion `LazBackend`, so the LASzip range codec is never re-implemented here.
+`laspy` owns LAS/LAZ point-cloud file IO and the COPC octree-subset read for the data scan-exchange domain. `laspy.open(source, mode)` is the one polymorphic IO entry, discriminating `mode` into a `LasReader`/`LasWriter`/`LasAppender`, and `laspy.read` is the eager whole-file load into a `LasData`. Compressed decode rides a companion `LazBackend`, so the LASzip range codec is never re-implemented here.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -84,13 +84,13 @@
 - `CopcReader.open(source)` reads the COPC header and root octree page eagerly, then serves `query` lazily. `query(bounds, resolution, level)` discriminates the read: `bounds` is a `laspy.copc.Bounds` (2D bounds skip Z filtering, promoted via `ensure_3d`); `resolution` and `level` are mutually exclusive, `resolution` deriving an octree level range from `copc_info.spacing` and `level` selecting an explicit `int`/`range`. `spatial_query`/`level_query` are the single-axis forms `query` dispatches into, and the result is always a `ScaleAwarePointRecord`.
 - extra dimensions declare through `ExtraBytesParams(name, type, description, offsets, scales, no_data)` fed to `LasData.add_extra_dim(s)`/`PointFormat.add_extra_dimension`; CRS round-trips through `LasHeader.add_crs(pyproj.CRS, keep_compatibility)`/`parse_crs(prefer_wkt)`; VLR/EVLR payloads are `VLR(user_id, record_id, description)` carrying `record_data_bytes`, read off `LasHeader.vlrs`/`LasData.evlrs`.
 - `LasHeader.parse_crs(prefer_wkt=True) -> pyproj.CRS | None` scans `LASF_Projection` across BOTH `vlrs` and `evlrs`, parses every WKT and GeoTIFF-key record it finds, and elects `prefer_wkt` first with the other as fallback, so a file carrying both declarations answers one CRS and never reports the disagreement. `None` covers three distinct states a caller cannot tell apart from the return: no projection VLR at all, a WKT record whose string is EMPTY, and a GeoTIFF key directory holding no `ProjectedCSTypeGeoKey`/`GeographicTypeGeoKey` inside the EPSG range 1024–32766.
-- A projection VLR that is present and MALFORMED does not answer `None` — `pyproj.exceptions.CRSError` propagates out of `parse_crs` from a non-empty unparseable WKT string and from an in-range EPSG code no registry holds. Absence and corruption are therefore two rails, not one, and admitting the header CRS means an option-shaped `None` test AND a caught `CRSError` at the same boundary; treating the docstring's "not understood returns None" as total lets a corrupt declaration kill the read.
+- A projection VLR that is present and MALFORMED does not answer `None` — `pyproj.exceptions.CRSError` propagates out of `parse_crs` from a non-empty unparseable WKT string and from an in-range EPSG code no registry holds. Absence and corruption are therefore two results, not one, and admitting the header CRS means an option-shaped `None` test AND a caught `CRSError` at the same boundary; treating the docstring's "not understood returns None" as total lets a corrupt declaration kill the read.
 
 [STACKING]:
 - `lazrs`(`.api/lazrs.md`): every `.laz`/`.copc.laz` decode routes through the Rust `laz-rs` backend, laspy's default and required COPC codec; `LazBackend.{Lazrs, LazrsParallel}` selects it under `is_available()`.
 - `laszip`(`.api/laszip.md`): the native-LASzip alternative codec; `DecompressionSelection.to_laszip() -> int` is the sole producer of the field mask the `laszip` binding consumes, and `lazrs` reads the same flag set — one mask vocabulary across both.
 - `pyproj`(`.api/pyproj.md`): `LasHeader.add_crs(pyproj.CRS)`/`parse_crs` round-trips the point-cloud CRS through header VLRs.
-- `data/spatial/mesh` `PointCloud` owner: threads one `decompression_selection` `Selection` fixed at `open` identically through `laspy.read` and `CopcReader.open`, crossing point records as a content-keyed `PointRecordTable` on the shared columnar Arrow rail.
+- `data/spatial/mesh` `PointCloud` owner: threads one `decompression_selection` `Selection` fixed at `open` identically through `laspy.read` and `CopcReader.open`, crossing point records as a content-keyed `PointRecordTable` on the shared columnar Arrow path.
 
 [LOCAL_ADMISSION]:
-- Admit `laspy` for LAS 1.0–2.0 / LAZ / COPC point-cloud file interchange on the scan rail; a compressed read or append requires `lazrs` or `laszip` present on the worker lane.
+- Admit `laspy` for LAS 1.0–2.0 / LAZ / COPC point-cloud file interchange on the scan domain; a compressed read or append requires `lazrs` or `laszip` present on the worker lane.

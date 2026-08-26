@@ -71,7 +71,7 @@
 - `Rasm.Fabrication` references `Rhino3dm` under `Aliases="R3"`, seating every symbol behind `extern alias R3`; a type crosses the `.3dm` boundary through `R3::Rhino.*` at ingress and egress alone, and the two `Rhino.Geometry` identities stay binary-distinct.
 
 [STACKING]:
-- `Robots`(`.api/api-robots.md`): Rhino3dm's `Rhino.Geometry.*` (`Plane`, `Mesh`, `Point3d`, `Transform`, `Interval`) is the Robots kinematics geometry substrate; `plan-cs` maps a pose to a `Rhino3dm` `Plane`/`double[]` joint vector at the kinematics seam and reads `KinematicSolution` back, never passing a RhinoCommon instance into a `Robots` parameter.
+- `Robots`(`.api/api-robots.md`): Rhino3dm's `Rhino.Geometry.*` (`Plane`, `Mesh`, `Point3d`, `Transform`, `Interval`) is the Robots kinematics geometry substrate; `plan-cs` maps a pose to a `Rhino3dm` `Plane`/`double[]` joint vector at the kinematics boundary and reads `KinematicSolution` back, never passing a RhinoCommon instance into a `Robots` parameter.
 - Fabrication `.3dm` ingress lowers `File3dmObjectTable` geometry into folder-owned carriers; egress folds `GeometryBase` through `File3dmObjectTable.Add` and serializes through `File3dm.Write`.
 
 [LOCAL_ADMISSION]:

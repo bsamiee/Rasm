@@ -68,6 +68,6 @@
 - within-library: `Configuration` threads a strategy pair into the convention, each strategy folds to a `MaxLengthChange` an `int?` mints implicitly, `MaxLengthCache` memoizes the fold per strategy and type, and `Create` reaches the same converter directly where the model resolves none.
 
 [LOCAL_ADMISSION]:
-- `Element/identity#ELEMENT_IDENTITY` mounts `UseThinktectureValueConverters(Configuration.Default)` on the one `ConverterRail.Compose` options composition, so every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column converts under a bounded key width; `Configuration.NoMaxLength` is rejected on key columns because an unbounded key column fractures the schema fingerprint.
+- `Element/identity#ELEMENT_IDENTITY` mounts `UseThinktectureValueConverters(Configuration.Default)` on the one `ConverterOptions.Compose` options composition, so every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column converts under a bounded key width; `Configuration.NoMaxLength` is rejected on key columns because an unbounded key column fractures the schema fingerprint.
 - Single declared members convert through the property, complex-type, or primitive-collection entry — one builder call per column, never a converter class.
 - Key-column width rides `Configuration`: the smart-enum and keyed-value-object strategies bound the `nvarchar(n)`/`varchar(n)` column as conversion metadata, never a per-entity `HasMaxLength` annotation.

@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_SCRUTOR]
 
-`Scrutor` folds assembly scanning into convention-driven `ServiceDescriptor` registration on the AppHost DI rail, and decorates a resolved service behind its own public contract.
+`Scrutor` folds assembly scanning into convention-driven `ServiceDescriptor` registration on the AppHost DI container, and decorates a resolved service behind its own public contract.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -78,7 +78,7 @@
 - Decoration is an axis orthogonal to scanning: `Decorate` rewrites an already-registered descriptor to wrap the resolved service behind the same contract, the decorated instance resolved through a generated service key `GetDecoratedServices` reads back.
 
 [STACKING]:
-- `api-di`(`.api/api-di.md`): `Scan` emits `ServiceDescriptor` rows onto the `IServiceCollection` under a `RegistrationStrategy`, and `Decorate`/`TryDecorate` rewrite an existing descriptor — every scan result is a descriptor this rail resolves.
+- `api-di`(`.api/api-di.md`): `Scan` emits `ServiceDescriptor` rows onto the `IServiceCollection` under a `RegistrationStrategy`, and `Decorate`/`TryDecorate` rewrite an existing descriptor — every scan result is a descriptor this container resolves.
 - within-lib: AppHost's composition root runs one `Scan` chain over `FromAssemblies` with each module's explicit `Assembly` — `Runtime/modules.md` rules `FromApplicationDependencies` and `FromDependencyContext` the deleted sources, since plugin-ALC assemblies never appear in the default dependency closure and a closure-walking scan silently misses them — narrowing through `AddClasses`, a filter, `AsImplementedInterfaces`, and `WithScopedLifetime` before `RegistrationStrategy` resolves conflicts against the hand-registered ports.
 
 [LOCAL_ADMISSION]:

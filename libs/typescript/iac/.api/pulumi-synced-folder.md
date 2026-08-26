@@ -30,5 +30,5 @@
 
 [STACKING]:
 - `@pulumi/aws`(`.api/pulumi-aws.md`): `S3BucketFolder.bucketName` binds `aws.s3.BucketV2.bucket`, the arm's object cell feeding the folder's sync target.
-- `@pulumi/gcp`(`.api/pulumi-gcp.md`): `GoogleCloudFolder.bucketName` binds `gcp.storage.Bucket.name`, the same object-cell-to-content seam on the GCS arm.
+- `@pulumi/gcp`(`.api/pulumi-gcp.md`): `GoogleCloudFolder.bucketName` binds `gcp.storage.Bucket.name`, the same object-cell-to-content binding on the GCS arm.
 - within-lib: the built frontend folder lands in the prepared arm's object cell, and the static-distribution leg composes the dialect matching that cell.

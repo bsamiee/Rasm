@@ -174,9 +174,9 @@
 
 [STACKING]:
 - `arro3-compute`(`.api/arro3-compute.md`): arro3 `Array`/`ChunkedArray`/`ArrayReader` feed its kernels directly through the shared `arro3.core.types` protocols, and a stream-typed kernel returns a lazy `ArrayReader` so decode/aggregate stays lazy
-- `arro3-io`(`.api/arro3-io.md`): its readers emit a lazy `arro3.core.RecordBatchReader` and its writers accept any capsule producer, making arro3 the codec-rail carrier
+- `arro3-io`(`.api/arro3-io.md`): its readers emit a lazy `arro3.core.RecordBatchReader` and its writers accept any capsule producer, making arro3 the codec-layer carrier
 - `adbc-driver-manager`(`.api/adbc-driver-manager.md`): `Cursor.fetch_record_batch()` yields a reader whose `__arrow_c_stream__` feeds `RecordBatchReader.from_stream`, and `read_all()` collapses partitions into one `Table` with no Python-row materialization
-- `polars`(`.api/polars.md`): `polars.from_arrow`/`DataFrame.to_arrow` ride the same capsule, round-tripping a `Table` through a polars lazy frame and back as one rail
+- `polars`(`.api/polars.md`): `polars.from_arrow`/`DataFrame.to_arrow` ride the same capsule, round-tripping a `Table` through a polars lazy frame and back as one result
 - `pyarrow`(`.api/pyarrow.md`): `pyarrow.table(arro3_table)` and `Array.from_arrow(pa_array)` cross the capsule symmetrically, escaping into `pyarrow` compute and back
 - `awkward`(`.api/awkward.md`): a ragged column exports via `ak.to_arrow` and re-imports through `Array.from_arrow`; `list_array`/`struct_array` rebuild the nested layout, `list_flatten`/`struct_field` descend it without copy
 - data branch: pair a stream-typed accessor (`list_flatten`, `dictionary_indices`) with `ArrayReader`/`RecordBatchReader` so dictionary-decode, list-unnest, and partition reads stay lazy until a terminal `read_all`/`to_numpy`

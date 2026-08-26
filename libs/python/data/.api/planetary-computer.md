@@ -1,10 +1,10 @@
 # [PY_DATA_API_PLANETARY_COMPUTER]
 
-`planetary_computer` mints the Microsoft Planetary Computer SAS signing surface for the data catalog rail: one `sign` `singledispatch` entry rewrites Azure Blob Storage HREFs across a `str`/VRT URL, `pystac` `Asset`/`Item`/`ItemCollection`/`Collection`, `pystac_client` `ItemSearch`, or STAC `Mapping`, and feeds `pystac_client.Client.open(modifier=...)` as the catalog-signing patch step. It fetches short-lived SAS tokens per account/container, caches them to expiry, and owns the token fetch and HREF rewrite no consumer re-implements.
+`planetary_computer` mints the Microsoft Planetary Computer SAS signing surface for the data catalog domain: one `sign` `singledispatch` entry rewrites Azure Blob Storage HREFs across a `str`/VRT URL, `pystac` `Asset`/`Item`/`ItemCollection`/`Collection`, `pystac_client` `ItemSearch`, or STAC `Mapping`, and feeds `pystac_client.Client.open(modifier=...)` as the catalog-signing patch step. It fetches short-lived SAS tokens per account/container, caches them to expiry, and owns the token fetch and HREF rewrite no consumer re-implements.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: SAS token and signed-link response models — internal to the signing rail, consumed indirectly and never imported at the boundary.
+[PUBLIC_TYPE_SCOPE]: SAS token and signed-link response models — internal to the signing domain, consumed indirectly and never imported at the boundary.
 
 | [INDEX] | [SYMBOL]     | [MODULE]                      | [TYPE_FAMILY]     | [CAPABILITY]                                                     |
 | :-----: | :----------- | :---------------------------- | :---------------- | :--------------------------------------------------------------- |

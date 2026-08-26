@@ -1,6 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <IsTestShellProject>true</IsTestShellProject>
+        <Description>Scenario content home: every [RhinoScenario] method the bridge stages into the live host.</Description>
         <RasmHost>grasshopper;platform</RasmHost>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
     </PropertyGroup>
+
+    <ItemGroup Label="Scenario Packages">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Project References">
+        <ProjectReference Include="../scenariokit/Rasm.ScenarioKit.csproj" />
+        <ProjectReference Include="../../../tools/rhino-bridge/Contract/Contract.csproj" Private="false" />
+    </ItemGroup>
 </Project>

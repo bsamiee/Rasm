@@ -1,13 +1,13 @@
 # [PY_ARTIFACTS_API_OPENEXR]
 
-`openexr` owns the NAMED-CHANNEL EXR document — the one surface in the estate that authors and reads an OpenEXR file as a header beside a channel dictionary rather than an anonymous component array. It carries the arbitrary-channel namespace (`diffuse.R`, `Z`, `mask.A`), multi-part files, per-channel sub-sampling and `pLinear`, tiled storage, the `envmap` latlong and cube attribute, and every header attribute the format defines — `TimeCode`, `KeyCode`, `PreviewImage`, `Rational`, chromaticities, and opaque pass-through. Pixels cross as `numpy` arrays of `uint32`, `float16`, or `float32`; the module is the ASWF reference implementation bound through pybind11, so its vocabulary IS the file format's.
+`openexr` owns the NAMED-CHANNEL EXR document — the one surface in the repo that authors and reads an OpenEXR file as a header beside a channel dictionary rather than an anonymous component array. It carries the arbitrary-channel namespace (`diffuse.R`, `Z`, `mask.A`), multi-part files, per-channel sub-sampling and `pLinear`, tiled storage, the `envmap` latlong and cube attribute, and every header attribute the format defines — `TimeCode`, `KeyCode`, `PreviewImage`, `Rational`, chromaticities, and opaque pass-through. Pixels cross as `numpy` arrays of `uint32`, `float16`, or `float32`; the module is the ASWF reference implementation bound through pybind11, so its vocabulary IS the file format's.
 
 Flat codec work stays with `imagecodecs`(`.api/imagecodecs.md`), which encodes anonymous single-part planes at every compression row and reads a part by index while DISCARDING names. Ownership splits by NAMES, never by capability overlap: a per-channel egress plane takes `imagecodecs`, and a role-bearing, multi-part, sub-sampled, or environment-map file takes this owner. Container-level tiling exists here; a mip or rip PYRAMID does not survive the write, so a pyramid ships as per-level files.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the document model
-- rail: raster
+- concern: raster
 
 | [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [CAPABILITY]                                           |
 | :-----: | :----------------------------------------------------------- | :------------ | :----------------------------------------------------- |
@@ -23,7 +23,7 @@ Flat codec work stays with `imagecodecs`(`.api/imagecodecs.md`), which encodes a
 |  [10]   | `error`                                                      | fault         | the module exception every malformed read raises       |
 
 [PUBLIC_TYPE_SCOPE]: the closed header vocabularies
-- rail: raster
+- concern: raster
 
 Every enum is exported twice — as a class with members and as bare module constants, so `OpenEXR.ZIP_COMPRESSION` is `Compression.ZIP_COMPRESSION`; each `Compression` row carries the `_COMPRESSION` suffix the table elides.
 
@@ -40,7 +40,7 @@ Every enum is exported twice — as a class with members and as bare module cons
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document read and write
-- rail: raster
+- concern: raster
 - [SHAPE]: instance (`File` is the one root; `Part` and `Channel` are its members)
 
 | [INDEX] | [SURFACE]                                              | [CAPABILITY]                                                             |
@@ -63,11 +63,11 @@ Every enum is exported twice — as a class with members and as bare module cons
 - `File(header, channels)` MUTATES the channels dict it is handed — every value is replaced in place by a `Channel` object. Verify passes keep an independent expected-array dict, because reading the caller's own dict after construction reads the binding's objects, never the source arrays.
 - `Part.name`, `Part.type`, `Part.width`, `Part.height`, `Part.compression`, and `Channel.type` are METHODS, not properties — reading them without the call yields a bound method that formats as text and compares equal to nothing. `Channel.name` is the ONE exception (measured live): it reads back as a plain `str` ATTRIBUTE, and CALLING it raises `'str' object is not callable`.
 - `TileDescription()` takes NO constructor arguments — `xSize`, `ySize`, `mode`, and `roundingMode` are assigned after construction. Positional construction raises `TypeError` naming the zero-argument overload.
-- MIP AND RIP PYRAMIDS DO NOT SURVIVE THE WRITE: a part whose `tiles.mode` is `MIPMAP_LEVELS` or `RIPMAP_LEVELS` writes only level 0 and leaves a chunk table the reader rejects — the re-read warns `corrupt chunk table` and reports ZERO parts. `ONE_LEVEL` tiled and scanline parts round-trip whole. Pyramids therefore ship as one file per level under the estate's per-level egress grammar, never as one mip-tiled EXR.
+- MIP AND RIP PYRAMIDS DO NOT SURVIVE THE WRITE: a part whose `tiles.mode` is `MIPMAP_LEVELS` or `RIPMAP_LEVELS` writes only level 0 and leaves a chunk table the reader rejects — the re-read warns `corrupt chunk table` and reports ZERO parts. `ONE_LEVEL` tiled and scanline parts round-trip whole. Pyramids therefore ship as one file per level under the repo's per-level egress grammar, never as one mip-tiled EXR.
 - `header_only=True` reports `width()` and `height()` as `0` on a tiled part; extent reads from `dataWindow` on the header, or from a full read.
 - Channel storage type is the array dtype: `float16` writes `HALF`, `float32` writes `FLOAT`, `uint32` writes `UINT`. There is no cast at the boundary, so the plane's declared depth is chosen before the channel dict is built.
 - Compression splits lossless from lossy on the row: `NO`/`RLE`/`ZIPS`/`ZIP`/`PIZ` round-trip byte-exact, and `HTJ2K32`/`HTJ2K256`/`DWAA`/`DWAB`/`B44`/`B44A`/`PXR24` do not — the HTJ2K rows are measured broken inside EXR across the extent range a mip ladder spans (all-NaN at 16×16 and 2×512 float32, inexact at ≤8). Content-keyed planes admit a lossy row only when the key is minted over the ENCODED bytes.
-- Channel NAMES are the interchange contract, and a reader sorts them alphabetically. Layered files spell `<layer>.<component>` such as `diffuse.R`, the estate's own channel roster stays canonical, and a name resolved from a guess rather than the roster is the silent role-swap this owner exists to foreclose.
+- Channel NAMES are the interchange contract, and a reader sorts them alphabetically. Layered files spell `<layer>.<component>` such as `diffuse.R`, the repo's own channel roster stays canonical, and a name resolved from a guess rather than the roster is the silent role-swap this owner exists to foreclose.
 
 [STACKING]:
 - `imagecodecs`(`.api/imagecodecs.md`): the anonymous-plane codec. `exr_encode`/`exr_decode` cover every compression row at half, float, and uint32 for one unnamed component array; this owner covers names, parts, tiles, sub-sampling, and header attributes. `exr_decode(data, index=)` reads a part authored here and drops the names, which is the correct read exactly when the consumer wants components.
@@ -81,4 +81,4 @@ Every enum is exported twice — as a class with members and as bare module cons
 
 [LOCAL_ADMISSION]:
 - `import OpenEXR` at boundary scope only, behind the same `lazy import` proxy the other native document owners use.
-- Deep-scanline and deep-tile storage (`Storage.deepscanline`, `Storage.deeptile`) are declared by the format and unused by the estate; a deep document admits only with an owner that consumes sample counts.
+- Deep-scanline and deep-tile storage (`Storage.deepscanline`, `Storage.deeptile`) are declared by the format and unused by the repo; a deep document admits only with an owner that consumes sample counts.

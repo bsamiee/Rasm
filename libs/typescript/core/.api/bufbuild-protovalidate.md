@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the validator, its options, the verdict, and the violation — rail interchange/format
+[PUBLIC_TYPE_SCOPE]: the validator, its options, the verdict, and the violation — route interchange/format
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                      |
 | :-----: | :----------------------- | :------------ | :--------------------------------------------------------------------------------------- |
@@ -22,7 +22,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: mint once, validate per message, render a violation — rail interchange/format
+[ENTRYPOINT_SCOPE]: mint once, validate per message, render a violation — route interchange/format
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                               |
 | :-----: | :------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
@@ -42,7 +42,7 @@
 
 [STACKING]:
 - `@bufbuild/protobuf`(`../../.api/bufbuild-protobuf.md`): generated descriptors drive validation and `pathToString` renders coordinates.
-- `effect`(`libs/typescript/.api/effect.md`): the verdict folds inside ONE `Schema.filter` — `true`, an array of `FilterIssue`, or a `ParseResult.Forbidden` — so a violation is a `ParseError` on the decode rail and no second refusal family exists.
+- `effect`(`libs/typescript/.api/effect.md`): the verdict folds inside ONE `Schema.filter` — `true`, an array of `FilterIssue`, or a `ParseResult.Forbidden` — so a violation is a `ParseError` on the decode path and no second refusal family exists.
 - `interchange/codec`: remote `FaultDetail.violations` are the PEER's `google.rpc.BadRequest.FieldViolation` rows, not this package's `Violation`; the two never convert into each other.
 
 [LOCAL_ADMISSION]:

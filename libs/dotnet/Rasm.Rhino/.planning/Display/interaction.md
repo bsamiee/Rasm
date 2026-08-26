@@ -2,11 +2,11 @@
 
 `DisplayHooks.Mount`, `Gumballs.Mount`, and `WidgetHost` own the three Rhino viewport-interaction modalities. Each admits host input once, emits bounded value facts, and confines callback arguments, mouse state, acquisition handles, and registered UI objects to its lease.
 
-The viewport pointer seam is HOST-SPECIFIC and stays whole — `MouseCallbackEventArgs` carries a veto the host reads back and `RhinoView`'s static event tables have no host-neutral form — but its VERDICT vocabulary is the kernel's: a veto policy answers `Rasm.Interaction`'s `InputVerdict` precedence algebra, never a bare bool. Widget overlay painting rides the draw page's one `Marks.Paint` entry, document mutation remains caller-owned after `GumballRig.Complete` returns its evidence, and `DocumentSession` binds document-local widget registration without exporting `RhinoDoc`.
+The viewport pointer callback is HOST-SPECIFIC and stays whole — `MouseCallbackEventArgs` carries a veto the host reads back and `RhinoView`'s static event tables have no host-neutral form — but its VERDICT vocabulary is the kernel's: a veto policy answers `Rasm.Interaction`'s `InputVerdict` precedence algebra, never a bare bool. Widget overlay painting rides the draw page's one `Marks.Paint` entry, document mutation remains caller-owned after `GumballRig.Complete` returns its evidence, and `DocumentSession` binds document-local widget registration without exporting `RhinoDoc`.
 
 ## [01]-[INDEX]
 
-- [02]-[POINTERS]: `ChannelPlan`, callback pulse projection, the kernel verdict seam, overflow policy, and the pointer lease.
+- [02]-[POINTERS]: `ChannelPlan`, callback pulse projection, the kernel verdict boundary, overflow policy, and the pointer lease.
 - [03]-[GUMBALL]: geometry seating, pick/update fold, grip custody, and transform evidence.
 - [04]-[WIDGETS]: registered grip, direction, rotation, text-dot, SVG, and slider families over one fact channel, at the host's full axis set.
 - [05]-[HOOKS]: `DisplayHooks` seats the two display hook points as TYPED kernel bindings.
@@ -15,13 +15,13 @@ The viewport pointer seam is HOST-SPECIFIC and stays whole — `MouseCallbackEve
 
 - Owner: `ChannelPlan` is the one bounded-channel triple both display grants admit; `ViewportPointerFact` carries phase, edge, viewport identity, point, button, the modifier set, gumball occupancy, the veto verdict, and monotonic ordinal; `PointerPulse` is the ten-row callback table; `PointerLease` owns the mounted hook.
 - Entry: `DisplayHooks.Mount` binds the admitted channel plan and veto responder directly to a `PointerLease`.
-- Law: the pointer seam IS veto-capable and the veto answers the KERNEL's `InputVerdict` — `MouseCallbackEventArgs` derives `CancelEventArgs`, so a Begin edge asks the mount's admitted responder and writes `Cancel` for a `Handled` or `Capture` verdict, while `Ignored` and `Release` let Rhino's own default handling run; the matching End edge READS `Cancel` back. A bool cannot distinguish the four postures a nested responder tree resolves on, which is the kernel's own law and the reason no second verdict vocabulary exists here.
-- Law: the veto's answer and the default's outcome are TWO facts one bool was spelling — `PointerVerdict` closes them as cases: a Begin fact carries `Admitted` or `Vetoed`, an End fact carries `DefaultRan` or `DefaultSuppressed`, and an atomic fact carries `Admitted` because its seam offers nothing to cancel.
+- Law: the pointer callback IS veto-capable and the veto answers the KERNEL's `InputVerdict` — `MouseCallbackEventArgs` derives `CancelEventArgs`, so a Begin edge asks the mount's admitted responder and writes `Cancel` for a `Handled` or `Capture` verdict, while `Ignored` and `Release` let Rhino's own default handling run; the matching End edge READS `Cancel` back. A bool cannot distinguish the four postures a nested responder tree resolves on, which is the kernel's own law and the reason no second verdict vocabulary exists here.
+- Law: the veto's answer and the default's outcome are TWO facts one bool was spelling — `PointerVerdict` closes them as cases: a Begin fact carries `Admitted` or `Vetoed`, an End fact carries `DefaultRan` or `DefaultSuppressed`, and an atomic fact carries `Admitted` because its callback offers nothing to cancel.
 - Law: the ten host callbacks are ROWS — `PointerPulse` pairs each override with its phase and edge, so an override is one delegation and the pairing has one authority; the modifier pair rides a `CapabilitySet<PointerModifier>` and gumball occupancy carries the host's own `GumballMode` through `HostRow` rather than discarding the discriminant into a bool.
-- Law: arming crosses the marshal seam — `MouseCallback.Enabled` reflects over the subclass to subscribe and unsubscribe the host's own static view-event tables, so both edges run through `HostThread.Run`, and a mount whose arm refuses never returns a live lease.
+- Law: arming crosses the marshal boundary — `MouseCallback.Enabled` reflects over the subclass to subscribe and unsubscribe the host's own static view-event tables, so both edges run through `HostThread.Run`, and a mount whose arm refuses never returns a live lease.
 - Law: retire closes callback admission, disables the hook, settles admitted callbacks within the plan-owned bound, completes the channel, and then snapshots final totals; the gate refuses a close issued from a thread already holding a claim, since such a close waits on its own release.
-- Law: the bounded drain rides the SCHEDULER, never the closing caller's thread — `LifecycleGate.Begin` arms the close, runs the stop step inline so a marshalled arm keeps its seam, and hands back the completion a host-thread owner settles off-thread, while `Close` awaits that same completion for a pool caller; a blocking drain on the host thread stalls exactly the callbacks it waits to see released.
-- Law: callback faults PARK on the lease's bounded `FaultCell` under the page's own rail point — an unbounded `Atom<Seq<Error>>` ledger grows for process life under a pointer storm, and the cell's `Parked`, `Shed`, and declined parks all read as numbers.
+- Law: the bounded drain rides the SCHEDULER, never the closing caller's thread — `LifecycleGate.Begin` arms the close, runs the stop step inline so a marshalled arm keeps its affinity, and hands back the completion a host-thread owner settles off-thread, while `Close` awaits that same completion for a pool caller; a blocking drain on the host thread stalls exactly the callbacks it waits to see released.
+- Law: callback faults PARK on the lease's bounded `FaultCell` under the page's own hook point — an unbounded `Atom<Seq<Error>>` ledger grows for process life under a pointer storm, and the cell's `Parked`, `Shed`, and declined parks all read as numbers.
 - Boundary: `MouseCallbackEventArgs` and `MouseCallback` never cross the callback adapter.
 - Packages: RhinoCommon `Rhino.UI.MouseCallback`/`MouseCursor` (`.api/api-rhinocommon-display.md`); `Rasm.Interaction` (`InputVerdict`); `Rasm.Domain` (`FaultCell`, `HookId`, `Cell`); `System.Threading.Channels`; LanguageExt.Core; `Rasm.Rhino.Document` (`LifecycleGate` — `Document/lifetime.md`).
 
@@ -125,7 +125,7 @@ public readonly record struct ViewportPointerFact(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PointerLease : IDisposable {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.pointer");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.pointer");
 
     private readonly Channel<ViewportPointerFact> channel;
     private readonly PointerHook hook;
@@ -155,7 +155,7 @@ public sealed class PointerLease : IDisposable {
         settle: () => Fin.Succ((channel.Writer.TryComplete(), unit).Item2),
         key: key);
 
-    public void Dispose() => _ = Release().IfFail(failure => ignore(faults.Park(point: Rail, cause: failure)));
+    public void Dispose() => _ = Release().IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
 }
 
 [SmartEnum<int>]
@@ -176,7 +176,7 @@ internal sealed partial class PointerPulse {
 }
 
 internal sealed class PointerHook : MouseCallback {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.pointer");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.pointer");
 
     private readonly ChannelWriter<ViewportPointerFact> sink;
     private readonly Atom<long> rejected;
@@ -223,7 +223,7 @@ internal sealed class PointerHook : MouseCallback {
                     : projected;
             _ = Op.SideWhen(!sink.TryWrite(settled), () => ignore(rejected.Swap(static count => count + 1)));
             return Fin.Succ(unit);
-        }, static () => Fin.Succ(unit), key).IfFail(failure => ignore(faults.Park(point: Rail, cause: failure)));
+        }, static () => Fin.Succ(unit), key).IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
     }
 }
 
@@ -239,8 +239,8 @@ internal sealed class PointerHook : MouseCallback {
 - Law: the handle roster is a `CapabilitySet<GumballHandle>` whose rows seat their own host member — fourteen `Contains` probes against a `FrozenSet` were the deleted form — and appearance is one admitted value the seat call takes whole: the host settings carrier is a plain settable, so a mount projects `GumballLook` into it once through the row fold and never mutates it after seating.
 - Law: drag state and liveness are ONE cell — `GumballGrip` closes idle, dragging, and released as cases stepped through `Cell.Step`, so a drag write after release DECLINES typed, a second release reads `Refused` rather than no-opping, and the interlocked flag pair the rig carried — a mutable `Dragging` settable written inside `Map` and a re-arming release int — has no spelling left. `GumballRig.Pick` returns the host's `PickResult` mode as `Option<HostRow<GumballMode>>`.
 - Law: release runs stop-then-dispose with every step attempted and every refusal aggregated through kernel `Custody` — conduit disable, conduit dispose, gumball dispose — and the fold's fault parks on the rig's bounded cell; a failed release does not re-arm because the one-shot cell forecloses double-dispose.
-- Boundary: `PickContext` and `GetPoint` are the command rail's, BORROWED by `Pick` for the length of the call; the rig holds neither and disposes neither.
-- Packages: RhinoCommon `Rhino.UI.Gumball` (`GumballObject`, `GumballDisplayConduit`, `GumballAppearanceSettings` — `.api/api-rhinocommon-display.md`); `Rasm.Domain` (`Cell`, `Transition`, `FaultCell`, `CapabilitySet`); `Rasm.Domain` (`Custody` — `Domain/rails.md`).
+- Boundary: `PickContext` and `GetPoint` are the command pipeline's, BORROWED by `Pick` for the length of the call; the rig holds neither and disposes neither.
+- Packages: RhinoCommon `Rhino.UI.Gumball` (`GumballObject`, `GumballDisplayConduit`, `GumballAppearanceSettings` — `.api/api-rhinocommon-display.md`); `Rasm.Domain` (`Cell`, `Transition`, `FaultCell`, `CapabilitySet`); `Rasm.Domain` (`Custody` — `Domain/results.md`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -376,7 +376,7 @@ public sealed record GumballLook {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class GumballRig : IDisposable {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.gumball");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.gumball");
 
     private readonly GumballObject gumball;
     private readonly GumballDisplayConduit conduit;
@@ -434,7 +434,7 @@ public sealed class GumballRig : IDisposable {
             contended: static (ctx, _) => Fin.Fail<Unit>(ctx.Op.InvalidResult()));
 
     public void Dispose() => _ = Release(Op.Of(nameof(GumballRig)))
-        .IfFail(failure => ignore(faults.Park(point: Rail, cause: failure)));
+        .IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -471,14 +471,14 @@ public static class Gumballs {
 - Entry: `WidgetHost` returns `WidgetId`, `WidgetState`, `WidgetAnswer`, or `Unit` directly from the operation that owns each value.
 - Law: every host axis the widget surface publishes LANDS — the grip's glyph, rotation, stroke width, ink and fill colours, and its three snap-and-cursor switches; the direction widget's arrow glyph; the text dot's hover height; the SVG control's second text channel, alignment pair, world tracking point, and computed hit rectangle; the slider's range-overrun pair and formatted render — a missing axis is a defect, not thrift. Every optional axis rides `Option` and an absent value WRITES NOTHING, because the host publishes its own defaults and a restated default is a forged value.
 - Law: pull reads are a PROBE union, not member families — per-viewport arrow and arc visibility, the computed screen rectangle in its named pixel space, and the slider's precision-formatted value each answer through one `Ask` request whose probe case fixes the answer shape, and a probe against a widget kind that does not publish it refuses typed naming the axis.
-- Law: adapters project every host callback through one `WidgetSink`; painting draws the native widget visual through `base.OnDraw`, then replays the mounted mark program through the draw page's ONE `Marks.Paint` entry under the `WidgetOverlay` phase the seam occupies — the per-widget sprite cache is gone with the paint absorption, and the sink never invents a renderer.
+- Law: adapters project every host callback through one `WidgetSink`; painting draws the native widget visual through `base.OnDraw`, then replays the mounted mark program through the draw page's ONE `Marks.Paint` entry under the `WidgetOverlay` phase the sink occupies — the per-widget sprite cache is gone with the paint absorption, and the sink never invents a renderer.
 - Law: the mark program is a swappable slot on the sink, so `Change` retargets an overlay in place beside the host writes — every widget state moves through one request and none demands retire-and-remount, the move that drops the `WidgetId` a consumer keys on; an absent mark program leaves the mounted one standing. The swap is a total replace, so it rides a plain `Swap` by the transition owner's own carve.
 - Law: visibility, active-view binding, and registration are ONE `CapabilitySet<WidgetVisibility>` — `Registered` is MEASURED, so the request law bars it from a mount or change posture and only the state sweep may hold it.
 - Law: document-local registration uses `ViewUserInterface.Add` and removal uses the same table; all-document registration pairs `RegisterForAllDocuments` with `Unregister`. The two paths are exclusive per widget — a widget registered both ways draws twice and retires once.
 - Law: `LifecycleGate` admits operation and callback claims, closes admission before bounded retirement, and retains failed mounts for the next cleanup attempt; sink faults park on the host's bounded `FaultCell` and release fans through kernel `Custody`.
 - Law: change captures native state before either write and compensates visibility and active-view binding when either write fails, the compensation itself running all-attempted with faults aggregated.
 - Boundary: a mounted widget is visible only through `WidgetId`, `WidgetFact`, `WidgetState`, and `WidgetAnswer` values.
-- Packages: RhinoCommon `Rhino.UI` widget estate (`.api/api-rhinocommon-custom-objects.md` `[GRIP_WIDGETS]`/`[CONTROL_WIDGETS]`/`[WIDGET_BASE_AND_REGISTRATION]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `FaultCell`); `Rasm.Rhino.Document` (`LifecycleGate`), `Rasm.Domain` (`Custody`); `Display/draw.md` (`Marks.Paint`, `Canvas.Pipeline`, `Mark`).
+- Packages: RhinoCommon `Rhino.UI` widget catalog (`.api/api-rhinocommon-custom-objects.md` `[GRIP_WIDGETS]`/`[CONTROL_WIDGETS]`/`[WIDGET_BASE_AND_REGISTRATION]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `FaultCell`); `Rasm.Rhino.Document` (`LifecycleGate`), `Rasm.Domain` (`Custody`); `Display/draw.md` (`Marks.Paint`, `Canvas.Pipeline`, `Mark`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -666,7 +666,7 @@ internal sealed record WidgetSink(
     Atom<long> Rejected,
     LifecycleGate Lifecycle,
     Op Key) {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.widget");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.widget");
 
     internal Unit Paint(DrawEventArgs args) => Observe(Lifecycle.Within(
         body: () => Marks.Paint(
@@ -695,7 +695,7 @@ internal sealed record WidgetSink(
 
     private Unit Observe(Fin<Unit> outcome) => outcome.Match(
         Succ: static _ => unit,
-        Fail: failure => ignore(Faults.Park(point: Rail, cause: failure)));
+        Fail: failure => ignore(Faults.Park(point: HookPoint, cause: failure)));
 }
 
 // --- [ADAPTERS] ------------------------------------------------------------------------
@@ -823,7 +823,7 @@ internal sealed class SliderWidget : UserInterfaceSlider {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class WidgetHost : IDisposable {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.rhino.display.widget");
+    private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.widget");
 
     private readonly Channel<WidgetFact> channel;
     private readonly Atom<HashMap<WidgetId, WidgetMount>> mounted = Atom(HashMap<WidgetId, WidgetMount>());
@@ -1005,7 +1005,7 @@ public sealed class WidgetHost : IDisposable {
         stop: static () => Fin.Succ(unit),
         settle: () => ReleaseAll(Op.Of(nameof(WidgetHost))),
         key: Op.Of(nameof(WidgetHost)))
-        .IfFail(error => ignore(faults.Park(point: Rail, cause: error)));
+        .IfFail(error => ignore(faults.Park(point: HookPoint, cause: error)));
 }
 ```
 
@@ -1013,8 +1013,8 @@ public sealed class WidgetHost : IDisposable {
 
 - Owner: `DisplayHooks.Mount` seats the two display hook points — `rasm.rhino.display.pointer` granting a `PointerLease` and `rasm.rhino.display.widget` granting a `WidgetHost` — as TYPED kernel bindings, each bind minting a fresh owner so no two consumers contend for one bounded channel.
 - Law: a binding is `HookBinding<RhinoPoint, PluginKey, TAsk, TGrant>` — the ask and grant types are the binding's own parameters, so the `Type`-pair-plus-`object`-cast erasure the registry mount carried has no spelling left and a mismatched ask is a compile fact. `HookMounts.MountAll` seats both rows and releases the first when the second refuses.
-- Law: each point carries the ask its seam can honour — the pointer binding takes its `ChannelPlan` beside the veto responder, while the widget binding takes `ChannelPlan` alone.
-- Law: display modality splits by seam, not by page — widget `MouseState` callbacks run post-hoc and observe, while the pointer seam vetoes through the kernel's `InputVerdict`. The two draw-suppression seams (`CullObjectEventArgs.CullObject`, `DrawObjectEventArgs.DrawObject`) stay the conduit owner's.
+- Law: each point carries the ask its callback can honour — the pointer binding takes its `ChannelPlan` beside the veto responder, while the widget binding takes `ChannelPlan` alone.
+- Law: display modality splits by callback, not by page — widget `MouseState` callbacks run post-hoc and observe, while the pointer callback vetoes through the kernel's `InputVerdict`. The two draw-suppression callbacks (`CullObjectEventArgs.CullObject`, `DrawObjectEventArgs.DrawObject`) stay the conduit owner's.
 - Law: `GumballRig` returns transform evidence directly from move and completion, while gumball occupancy rides every `ViewportPointerFact`.
 - Packages: `Rasm.Domain` (`HookBinding`, `HookMounts`, `IHookBinding` — `Domain/hooks.md`); `Rasm.Rhino.Document` (`RhinoPoint` roster).
 

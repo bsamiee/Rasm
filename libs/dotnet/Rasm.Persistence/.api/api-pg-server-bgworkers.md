@@ -112,7 +112,7 @@ Every surface is a GUC bound through `SET`; the runtime obligation is the bound 
 ## [06]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every surface lands through the EF `MigrationBuilder.Sql` rail — a `ServerExtension` `CreateSql`, a GUC `SET`, or a `cron`/`squeeze` registry `INSERT`. `HasPostgresExtension` cannot encode a preload prerequisite, so a preload-gated `CREATE EXTENSION` rides raw SQL.
+- Every surface lands through the EF `MigrationBuilder.Sql` entry — a `ServerExtension` `CreateSql`, a GUC `SET`, or a `cron`/`squeeze` registry `INSERT`. `HasPostgresExtension` cannot encode a preload prerequisite, so a preload-gated `CREATE EXTENSION` rides raw SQL.
 - Cadence ownership partitions with no overlap: TimescaleDB `add_*_policy` bgworkers own continuous-aggregate, retention, and columnstore cadence; `pg_partman_bgw` owns partition rotation; `pg_squeeze` owns bloat-reclaim cadence through its `squeeze.tables.schedule` column; `pg_cron` owns server-local jobs alone; the process-side `persistence-maintenance` schedule owns `ANALYZE` and `REINDEX`.
 
 [STACKING]:

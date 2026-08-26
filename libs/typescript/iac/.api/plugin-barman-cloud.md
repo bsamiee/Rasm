@@ -31,7 +31,7 @@
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` with `skipCrds: false` renders the plugin and its CRD as managed resources under one pin.
 - `cloudnative-pg`(`.api/cloudnative-pg.md`): the operator this plugin extends — installed FIRST, with this chart parented on it so the plugin registers against a live controller.
-- `../crds/cnpg` (crd2pulumi): `barmancloud.v1.ObjectStore` is the typed destination class the cluster tier authors, sitting in the same generated module as the `postgresql.v1` estate.
+- `../crds/cnpg` (crd2pulumi): `barmancloud.v1.ObjectStore` is the typed destination class the cluster tier authors, sitting in the same generated module as the `postgresql.v1` CRDs.
 - `kube/data#PG_CLUSTER`: the owner installing this chart after the operator, minting one `ObjectStore` per realized scope out of the caller's credential mint, and binding the cluster's backup and recovery rows to it.
 - `minio`(`.api/minio.md`) / `rook-ceph-cluster`(`.api/rook-ceph-cluster.md`): the endpoint and bucket the `ObjectStore` CR addresses, with the credential Secret whichever engine row minted.
 

@@ -1,8 +1,8 @@
 # [RASM_VECTORS_INTENT]
 
-`VectorIntent` owns the kernel consumer rail: one `[Union]` spanning every kernel capability band, reached through one `Project<TOut>(Context, Op?)` egress. `Rasm.Rhino` Camera and the settled corpus bind that exact egress signature, so the entry contract holds as a frozen wire name while every owner behind it re-derives freely.
+`VectorIntent` owns the kernel consumer API: one `[Union]` spanning every kernel capability band, reached through one `Project<TOut>(Context, Op?)` egress. `Rasm.Rhino` Camera and the settled corpus bind that exact egress signature, so the entry contract holds as a frozen wire name while every owner behind it re-derives freely.
 
-Every case admits through exactly one factory that internalizes `Domain/validation.md` and each payload owner's `Admit`, so dispatch never re-validates an admitted intent. Dispatch composes, never computes: every arm routes to the owning page's entry and projects the result through the `Numerics/atoms.md` `AtomProjection` rail, `Op` threaded as the explicit value key.
+Every case admits through exactly one factory that internalizes `Domain/validation.md` and each payload owner's `Admit`, so dispatch never re-validates an admitted intent. Dispatch composes, never computes: every arm routes to the owning page's entry and projects the result through the `Numerics/atoms.md` `AtomProjection` rows, `Op` threaded as the explicit value key.
 
 ## [01]-[INDEX]
 
@@ -13,18 +13,18 @@ Every case admits through exactly one factory that internalizes `Domain/validati
 
 - Owner: `VectorIntent` `[Union]` with a private root constructor and no implicit conversions; a case constructor is `internal` where its payload must arrive pre-admitted, positional-public only where every payload is a raw value or an admitted-by-construction carrier the dispatch admits through its owner.
 - Entry: exactly one factory per case — the case roster and the factory roster are the same length, and the round trip is the growth check no generated `Switch` proves. Raw scalars admit through `Op.AcceptValidated`, geometry through the `Admit` vocabulary, and a payload carrying an owner re-admits through that owner; an admitted-by-construction payload gates only its presence.
-- Law: the whole union is one `[BoundaryAdapter]` owner, so every factory and the egress carry the `Op? key = null` + `OrDefault()` spelling; every OTHER optional is `Option<T> = default` resolved against the owner's canonical row, never a `bool` knob, a nullable tail, or a sibling overload.
+- Law: the whole union is one owner, so every factory and the egress carry the `Op? key = null` + `OrDefault()` spelling; every OTHER optional is `Option<T> = default` resolved against the owner's canonical row, never a `bool` knob, a nullable tail, or a sibling overload.
 - Law: host capture and kernel authorship are TWO cases per capability, never one shadowing the other — `FlattenHostCase`/`RemeshHostCase` route the RhinoCommon echo, `ParameterizeCase`/`RewriteCase`/`SimplifyCase` route the variational, first-principles, and quadric owners, so the generated `Switch` makes the choice a compile-time decision at every call site and no caller silently receives the lane it did not ask for.
 - Law: `AxesCase` carries a `Dimension Rank`, not a planarity flag — the cardinal set a rank admits is `SignedAxis.Cardinal(rank)`'s own filter over the axis ordinal, so a caller states the dimension it works in and a lattice that already publishes its rank forwards it unchanged. `SpatialRank` (3) is the default.
-- Growth: a new kernel capability is one case, one factory, and one dispatch arm, so the generated `Switch` breaks every dispatch site at compile time; a new modality of an existing capability is a policy row or case field on the owning page, reaching this rail with zero new surface.
-- Boundary: `VectorIntent`'s factory surface is the only construction path, so no un-admitted intent exists; a factory carries a solver decision as the payload's own vocabulary, never interpreting it. View composition homes at `Rasm.Drawing`'s `ViewConvention` catalog, never a geometry-rail case.
+- Growth: a new kernel capability is one case, one factory, and one dispatch arm, so the generated `Switch` breaks every dispatch site at compile time; a new modality of an existing capability is a policy row or case field on the owning page, reaching this API with zero new surface.
+- Boundary: `VectorIntent`'s factory surface is the only construction path, so no un-admitted intent exists; a factory carries a solver decision as the payload's own vocabulary, never interpreting it. View composition homes at `Rasm.Drawing`'s `ViewConvention` catalog, never a geometry-band case.
 
 ## [03]-[DISPATCH]
 
 - Entry: `Project<TOut>(Context, Op?)` is frozen; a context gate rejects a null `Context` before the total `Switch`, and `TOut` — the output discriminant each owner's projection rows resolve — lets one entry serve every typed evidence carrier the owners publish.
-- Auto: every arm delegates to its owning page's entry and gates output through the `AtomProjection` rail; the `Switch` body carries each arm's owner target.
-- Law: this rail mints no evidence of its own; every arm surfaces the owner's typed result through the owner's projection rows, so evidence provenance is single-sourced.
-- Boundary: dispatch carries zero domain math; `Project<TOut>` is total over the `Fin` rail, an unsupported `TOut` returns the owner's typed `Unsupported` fault naming both the case and the requested type, and the generated `Switch` with no `_` arm is the exhaustiveness proof a new case cannot silently escape.
+- Auto: every arm delegates to its owning page's entry and gates output through the `AtomProjection` rows; the `Switch` body carries each arm's owner target.
+- Law: this API mints no evidence of its own; every arm surfaces the owner's typed result through the owner's projection rows, so evidence provenance is single-sourced.
+- Boundary: dispatch carries zero domain math; `Project<TOut>` is total over `Fin`, an unsupported `TOut` returns the owner's typed `Unsupported` fault naming both the case and the requested type, and the generated `Switch` with no `_` arm is the exhaustiveness proof a new case cannot silently escape.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -43,7 +43,6 @@ namespace Rasm.Processing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union]
-[BoundaryAdapter]
 public abstract partial record VectorIntent {
     public sealed record AxisCase(SignedAxis Value, Option<Plane> Basis) : VectorIntent;
     public sealed record DirectionCase(Vector3d Value) : VectorIntent;

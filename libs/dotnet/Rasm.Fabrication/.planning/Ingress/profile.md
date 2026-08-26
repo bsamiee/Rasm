@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_PROFILE_IMPORT]
 
-`ProfileImport` owns DXF/DWG census, admission, topology healing, and projection. `ProfileFormat` dispatches every admitted path, `ProfilePolicy` admits unit, sampling, lane, fill, entity, notification, and closure decisions as one gated value, provider entities lower through their owning OCS frames into provenance-bearing contours and markings, and `ProfileTopology` stitches compatible endpoints, composes `ArcAlgebra` and `PolygonAlgebra`, and records each repair. `Ingress` seats here too, so every admitted geometry source reaches the fabrication rail through one entry, and `SourceSnapshot` is the one byte-to-path materialization every path-taking provider reader in the sub-domain composes.
+`ProfileImport` owns DXF/DWG census, admission, topology healing, and projection. `ProfileFormat` dispatches every admitted path, `ProfilePolicy` admits unit, sampling, lane, fill, entity, notification, and closure decisions as one gated value, provider entities lower through their owning OCS frames into provenance-bearing contours and markings, and `ProfileTopology` stitches compatible endpoints, composes `ArcAlgebra` and `PolygonAlgebra`, and records each repair. `Ingress` seats here too, so every admitted geometry source reaches the fabrication pipeline through one entry, and `SourceSnapshot` is the one byte-to-path materialization every path-taking provider reader in the sub-domain composes.
 
 `Loop`, `Context`, `PolygonFill`, `ArcAlgebra`, `PolygonAlgebra`, `ArcForest`, `RegionTopology`, and `DensifyEvidence` arrive settled from `Geometry2D/algebra` and `Geometry2D/arcs`. `ContentHash.Of` is the one kernel digest mint every fabrication egress key seeds from. `Process/faults` allocates this lane `IngressTranslation` and `IngressProviderUnavailable` over provider-neutral `SourceLocus.ProfileEntity`, `PolicyInadmissible` on `FabConcern.Ingress` for every declared-value refusal, and degenerate topology routes `GeometryFault.DegenerateInput`. Every owned vocabulary that corresponds to a provider enum carries the HOST ORDINALS as a column and admits by containment, so no lowering arm restates a provider roster. Public entries defer boundary work on `Eff`.
 
@@ -20,7 +20,7 @@
 - Entry: `ProfileImport.Probe(ProfileSource)` returns one deferred `Eff<ProfileCensus>` — the survey leg reading encoding, declared units, the complete layer table with its lane assignment, per-type entity counts, and provider notices without admitting one contour.
 - Auto: `ProfileEncoding.Of` classifies the DXF byte layout through `DxfReader.IsBinary` before either read opens; the survey leg reads the layer table rather than the entity stream, so `ProfileLayerCoverage.CompleteTable` is a fact the census carries rather than a claim; `ProfileScale` is one `UnitsType`-keyed table so a survey dialect and a metric one resolve through one lookup, and `ProfileUnitPolicy.DeclaredOr` falls back on ANY unresolvable declaration rather than `Unitless` alone; `ProfilePolicy` holds ONE case-insensitive lane index keyed on each admitted `LayerName`'s own rendered text, so lane resolution costs a lookup per lowered entity rather than a scan of the declared map.
 - Output: one `ProfileCensus` — encoding, declared `UnitsType`, `ProfileLayerCoverage`, the complete per-layer lane assignment with entity counts, per-type entity counts, and the provider notice stream.
-- Packages: `ACadSharp` owns reader configuration, encoding classification, and partial reads; `UnitsNet` owns the millimeter scale every declared unit resolves to; `Thinktecture.Runtime.Extensions` owns the closed policy families and their admission; `LanguageExt.Core` owns the deferred rail, the notice cell, and the immutable carriers.
+- Packages: `ACadSharp` owns reader configuration, encoding classification, and partial reads; `UnitsNet` owns the millimeter scale every declared unit resolves to; `Thinktecture.Runtime.Extensions` owns the closed policy families and their admission; `LanguageExt.Core` owns the deferred effect, the notice cell, and the immutable carriers.
 - Growth: a new file family is one `ProfileFormat` row carrying its extensions and its read delegate; a new fabrication intent is one `ProfileLane` row with its two columns; a new reader knob is one `ProfileReadCapability` row read at the provider call; a new declared unit is one `ProfileScale` row.
 - Boundary: the notice cell, the byte snapshot, and the disposable partial readers are the provider statement kernel — every `CadDocument` and `Entity` terminates here and no provider type reaches the canonical owner; documented BCL file-availability exceptions lower to caused `IngressProviderUnavailable`, while ACadSharp and callback throws retain the exact exceptional `Error`. `ProfileCensus` holds the provider notifications once, so no later stage re-reads them; `ProfilePolicy` decides which lanes owe closure, so a bend or etch run never fails a healed import and a reference layer is censused then discarded; a rejected notice kind lowers to `IngressTranslation` on the source locus before any contour is built.
 
@@ -67,7 +67,6 @@ namespace Rasm.Fabrication.Ingress;
 // --- [RAW_ADMISSION] -------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct ProfilePath {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (!Witness.Keyed(value)) {
             validationError = new ValidationError(string.Join(" | ", new object?[] { "profile-path:blank" }));
@@ -81,7 +80,6 @@ public readonly partial struct ProfilePath {
 
 [ValueObject<int>]
 public readonly partial struct SplineDensity {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value < 2 ? new ValidationError(string.Join(" | ", new object?[] { "spline-density:below-two" })) : null;
 
@@ -90,7 +88,6 @@ public readonly partial struct SplineDensity {
 
 [ValueObject<Length>]
 public readonly partial struct ProfileGap {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Length value) =>
         validationError = ValidityClaim.Positive(value.Millimeters) ? null : new ValidationError(string.Join(" | ", new object?[] { "profile-gap:non-positive" }));
 
@@ -205,7 +202,6 @@ public sealed partial class ProfileReadPolicy {
     public Set<ProfileReadCapability> Capabilities { get; }
     public Set<ProfileNoticeKind> Rejects { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Set<ProfileReadCapability> capabilities,
@@ -245,7 +241,6 @@ public sealed partial class ProfilePolicy {
     public PolygonFill Fill { get; }
     public Context Tolerance { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SplineDensity spline,
@@ -449,10 +444,10 @@ public static partial class ProfileImport {
 - Law: entity lowering resolves by walking the provider type's OWN base chain from most-derived upward, so a table row for a base can never shadow the row for a type that derives from it. The prior `switch` ladder made three arms order-critical — placed attribute before single-line text, exploded unit ellipse before the general conic — and carried three comment warnings saying so; the walk makes declaration order decide nothing.
 - Law: DXF codes 11/21/31 govern placement exactly where code 72 or 73 is nonzero, so `MarkingContent.Text.Align` places every `MarkingAnchor` outside `Left`/`Baseline` and `ProfileMarking.At` places the rest; both points survive lowering because `TextEntity.ApplyTransform` and `GetBoundingBox` read `InsertPoint` alone, leaving a transformed provider entity's alignment point stale.
 - Law: stitching is ONE pairwise endpoint census, ONE union pass, and ONE ordered walk per component. Re-scoring every candidate pair after each merge paid cubic distance tests for a relation the endpoints already fix; the fork guard runs FIRST, so each surviving component is a simple chain whose order is the walk from either free end.
-- Entry: `ProfileImport.Read(ProfileSource)` returns one deferred `Eff<ImportedProfile>` folding ONE byte read, ONE document open, notice rejection, unit resolution, entity lowering, census derivation, and topology repair on one rail over one entity snapshot.
-- Auto: entity coordinates lower through their owning frame, so a mirrored normal inverts bulge sense wherever the frame maps; one hatch emits one contour per `Paths` row, its line, circular-arc, and polyline leaves preserving exact endpoints and bulges while its ellipse and spline leaves compose the provider's own samplers; the spline arm walks the owner's parametric evaluator first and falls back to its bulk tessellator then its fit-point rebuild in order, the surviving sampler landing as `ProfileRepair.Sampled` evidence; an insertion lowers the placed attribute collection beside its exploded children, because the provider's explode leg enumerates the block record alone; `ProfileProvenance` preserves the entity handle and ordinal set, so each fault names its entity and `Validation` accumulates every rejection in one pass; `ProfileBlock` preserves nested insert identity and replica indices through arbitrary depth, and the block-reference graph rails `IsDirectedAcyclicGraph` over bare edges read off the block TABLE before any lowering runs, so a cyclic block refuses typed rather than being caught by an ancestor set threaded down a walk that has already lowered half the drawing.
+- Entry: `ProfileImport.Read(ProfileSource)` returns one deferred `Eff<ImportedProfile>` folding ONE byte read, ONE document open, notice rejection, unit resolution, entity lowering, census derivation, and topology repair on one effect over one entity snapshot.
+- Auto: entity coordinates lower through their owning frame, so a mirrored normal inverts bulge sense wherever the frame maps; one hatch emits one contour per `Paths` row, its line, circular-arc, and polyline leaves preserving exact endpoints and bulges while its ellipse and spline leaves compose the provider's own samplers; the spline arm walks the owner's parametric evaluator first and falls back to its bulk tessellator then its fit-point rebuild in order, the surviving sampler landing as `ProfileRepair.Sampled` evidence; an insertion lowers the placed attribute collection beside its exploded children, because the provider's explode leg enumerates the block record alone; `ProfileProvenance` preserves the entity handle and ordinal set, so each fault names its entity and `Validation` accumulates every rejection in one pass; `ProfileBlock` preserves nested insert identity and replica indices through arbitrary depth, and the block-reference graph fails `IsDirectedAcyclicGraph` over bare edges read off the block TABLE before any lowering runs, so a cyclic block refuses typed rather than being caught by an ancestor set threaded down a walk that has already lowered half the drawing.
 - Result: `ImportedProfile` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, the census, `ProfileUnitEvidence`, contours, markings, regions, extents, and the typed repair sequence; `Loops` projects the boundary set without re-walking provenance, and `ProfileMarking.Tag` names the one key a traveler or posted program looks a marking up by.
-- Packages: `ArcAlgebra` composes `CavalierContours` for arc-native cleanup and densification; `PolygonAlgebra` composes `Clipper2` for fill-rule region topology; `QuikGraph` `ForestDisjointSet<int>` partitions the stitch candidates and `IsDirectedAcyclicGraph` rails the block-reference census; `Loop` owns bulge-bearing admission; `UnitsNet` carries every join distance, closure gap, glyph height, and area delta; `LanguageExt.Core` owns the rails and immutable carriers.
+- Packages: `ArcAlgebra` composes `CavalierContours` for arc-native cleanup and densification; `PolygonAlgebra` composes `Clipper2` for fill-rule region topology; `QuikGraph` `ForestDisjointSet<int>` partitions the stitch candidates and `IsDirectedAcyclicGraph` fails the block-reference census; `Loop` owns bulge-bearing admission; `UnitsNet` carries every join distance, closure gap, glyph height, and area delta; `LanguageExt.Core` owns the result types and immutable carriers.
 - Growth: a new provider entity is one dispatch ROW beside its loop factory; a new annotation modality is one `MarkingContent` case beside its lowering arm; a new sampler is one `SplineSampler` row; a new repair species is one `ProfileRepair` case carrying its measured evidence; a new grouping axis is one field on the provenance key the stitch and normalize folds already read.
 - Boundary: closure is demanded only from lanes `ProfileLane.Closes` marks, so an open bend run reaches the result unhealed; provider justification, attachment, stretch, and attribute-flag rosters resolve through owned rows carrying those ordinals, so no provider enum reaches the result and no arm restates a roster; `ProfileTopology` reopens no source file and holds no provider handle, because admission already terminated every provider type.
 

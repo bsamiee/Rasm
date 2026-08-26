@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_NUTPIE]
 
-`nutpie` is admitted ONLY as a `pymc` NUTS-backend string: the compute Bayesian-study rail never imports it, never drives its Rust-native compile/sample/Zarr-store surfaces. `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs=...)` is the sole crossing — PyMC compiles and samples through nutpie, returning the `arviz.InferenceData` / `xarray.DataTree` the `pymc`/`arviz` catalogs own. Installed-never-imported is the admission's nature: the `SamplerBackend` union carries the string, and PyMC owns the handoff.
+`nutpie` is admitted ONLY as a `pymc` NUTS-backend string: the compute Bayesian-study domain never imports it, never drives its Rust-native compile/sample/Zarr-store surfaces. `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs=...)` is the sole crossing — PyMC compiles and samples through nutpie, returning the `arviz.InferenceData` / `xarray.DataTree` the `pymc`/`arviz` catalogs own. Installed-never-imported is the admission's nature: the `SamplerBackend` union carries the string, and PyMC owns the handoff.
 
 ## [01]-[STRING_BACKEND_CONTRACT]
 

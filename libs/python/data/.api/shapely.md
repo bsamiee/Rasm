@@ -1,6 +1,6 @@
 # [PY_DATA_API_SHAPELY]
 
-`shapely` owns GEOS-backed planar geometry for the data geospatial rail: an immutable `Geometry` hierarchy and a NumPy-vectorized top-level namespace where every predicate, measurement, set, and constructive op is a broadcasting ufunc over scalar geometries or geometry arrays. `STRtree` bulk-indexes with a predicate-filtered `query`, `prepare` accelerates repeated predicates, and `from_ragged_array`/`to_ragged_array` are the zero-copy GeoArrow bridge into the `pyarrow`/`geopandas`/`polars-st` siblings.
+`shapely` owns GEOS-backed planar geometry for the data geospatial domain: an immutable `Geometry` hierarchy and a NumPy-vectorized top-level namespace where every predicate, measurement, set, and constructive op is a broadcasting ufunc over scalar geometries or geometry arrays. `STRtree` bulk-indexes with a predicate-filtered `query`, `prepare` accelerates repeated predicates, and `from_ragged_array`/`to_ragged_array` are the zero-copy GeoArrow bridge into the `pyarrow`/`geopandas`/`polars-st` siblings.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -59,4 +59,4 @@
 - within-lib: the data geospatial owner drives the vectorized array form and runs `STRtree.query(geom, predicate=...)` as the spatial-join primitive directly into the feature table.
 
 [LOCAL_ADMISSION]:
-- Admit `shapely` as the planar-geometry and GEOS-ufunc owner on the data geospatial rail, composing the vectorized array form and `STRtree` rather than looping instance predicate methods.
+- Admit `shapely` as the planar-geometry and GEOS-ufunc owner on the data geospatial domain, composing the vectorized array form and `STRtree` rather than looping instance predicate methods.

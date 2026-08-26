@@ -1,6 +1,6 @@
 # [UI_SHELL]
 
-Shell owns application chrome as data: one region roster the pane solver realizes, one navigation item vocabulary every rail, tab strip, and breadcrumb renders, one scaffold grammar for page composition, and the shell's command rows on the one overlay vocabulary. react-resizable-panels solves pane constraints and ships the window-splitter interaction whole; RAC supplies tabs, breadcrumbs, disclosure, and tree semantics; routing stays the runtime plane's — hrefs arrive as plain strings through the atom bridge, and this owner resolves none. Module: `ui/src/view/shell.ts`.
+Shell owns application chrome as data: one region roster the pane solver realizes, one navigation item vocabulary every sidebar, tab strip, and breadcrumb renders, one scaffold grammar for page composition, and the shell's command rows on the one overlay vocabulary. react-resizable-panels solves pane constraints and ships the window-splitter interaction whole; RAC supplies tabs, breadcrumbs, disclosure, and tree semantics; routing stays the runtime plane's — hrefs arrive as plain strings through the atom bridge, and this owner resolves none. Module: `ui/src/view/shell.ts`.
 
 Composition facts arrive settled: the pane engine's `Layout` value crosses as `{ [panelId]: percentage }` through `defaultLayout` + `onLayoutChanged` (`.api/react-resizable-panels.md`); persisted grain keys derive through `system/atom#STORE_ROOT`'s one key mint and their parcels seal by generation; the z ladder and breakpoints are `system/token#SCALE_TABLES` rows; enter/exit motion is `system/act#MOTION_ROWS`; the command table, its scope column, and the chord census are `view/overlay#PALETTE`'s — this page legislates rows for it and mints no second table.
 
@@ -9,20 +9,20 @@ Composition facts arrive settled: the pane engine's `Layout` value crosses as `{
 - [02]-[REGION_PLANE]: `Shell.Region` rows drive the pane-solver fold, stance stamping, and the persisted layout parcel; `Shell`.
 - [03]-[NAV_PLANE]: `Shell.Item` carries href-keyed selection, the hierarchy discriminant, and breadcrumb elision; `Shell`.
 - [04]-[SCAFFOLD]: page scaffold areas, the header slot roster, the item-row recipe, the responsive law; `Shell`.
-- [05]-[COMMAND_SEAM]: Shell legislates its command rows onto the overlay vocabulary under the binding-collision law; —.
+- [05]-[COMMAND_ROWS]: Shell legislates its command rows onto the overlay vocabulary under the binding-collision law; —.
 
 ## [02]-[REGION_PLANE]
 
 [REGION_PLANE]:
-- Owner: the region algebra riding `Shell` — `Shell.Region` rows carry the whole chrome axis set as data (`side`, `variant`, `collapse`, mixed-unit `size` bounds, `collapsedSize`), `Shell.rail(orientation, regions, held, drive)` folds the roster and the persisted `Layout` into prop records for `Group`, each region `Panel`, the content remainder, and every `Separator`, and `Shell.stamped(region, stance)` projects a region's live stance into the `data-*` attribute record recipes style against — so a new chrome arrangement is a region row set and zero components.
+- Owner: the region algebra riding `Shell` — `Shell.Region` rows carry the whole chrome axis set as data (`side`, `variant`, `collapse`, mixed-unit `size` bounds, `collapsedSize`), `Shell.panes(orientation, regions, held, drive)` folds the roster and the persisted `Layout` into prop records for `Group`, each region `Panel`, the content remainder, and every `Separator`, and `Shell.stamped(region, stance)` projects a region's live stance into the `data-*` attribute record recipes style against — so a new chrome arrangement is a region row set and zero components.
 - Packages: `react-resizable-panels` (`Group`, `Panel`, `Separator`, `Layout`, `LayoutChangedMeta` — the solver, the window-splitter aria/key model, and coarse-pointer hit targets all ship inside); `effect` (`Array`, `Option`, `Record`, `Schema`); `react` (`ComponentProps`).
-- Entry: one `Shell.rail` call per pane group; a second group is a nested `Group` under the same fold, never a second engine.
+- Entry: one `Shell.panes` call per pane group; a second group is a nested `Group` under the same fold, never a second engine.
 - Law: prop records LIFT, never restate — every returned record is `ComponentProps` of the part it feeds (the `Overlay.sheet` law), so a package prop rename breaks here rather than at every app shell; `Panel` and `Separator` stay direct DOM children of their `Group`, ids are explicit and stable (the `useId` fallback re-keys across renders and orphans a persisted layout), and a `Separator` renders between every adjacent pair because edge dragging alone leaves the split unreachable by keyboard.
 - Law: persistence is the props pair gated on provenance — `defaultLayout` seeds from the persisted atom and `onLayoutChanged(layout, meta)` writes back only under `meta.isUserInteraction`, so a restore, a constraint recompute, and a programmatic `setLayout` never echo as user edits; the parcel decodes through `Shell.Persisted` sealed by `Store.sealed` on an `Atom.kvs` row whose key mints through the store owner's one `Store.key` member (`system/atom#STORE_ROOT`) — layout is disposable, so the `discard` disposition drops a parcel written under another generation and the shell boots on its region defaults, never on a mis-decoded layout.
-- Law: exactly one relative panel per group — the content remainder carries `preserve-relative-size` while every chrome region pins `preserve-pixel-size`, so a window resize scales the work surface and holds the rails; the solver requires at least one relative member and this fold supplies it by construction.
-- Law: stance is DOM data, never a JS branch — `data-state`/`data-variant`/`data-side`/`data-collapsible` from `Shell.stamped` are the whole styling contract, recipes read them through the `cn` rail's variants, and `data-collapsible` stamps EMPTY while expanded so the collapse selector matches only the collapsed state; a `stance.open` conditional selecting class strings in render is the named defect.
-- Law: stance persists at the REGION grain — the parcel's `open` record keys region keys, so a rail and an inspector collapse independently and a toggle command names its region; one shared boolean re-opens every region on any toggle, and the `inspected` scaffold row already proves two collapsible regions in one chrome.
-- Law: the desktop frame is two elements per collapsible region — a in-flow GAP element animating width beside a FIXED positioned container carrying the content — so collapse and expand reflow the content column without laying out the rail's interior every frame; the gap/fixed pair is stylesheet structure the stamped attributes select, not module code.
+- Law: exactly one relative panel per group — the content remainder carries `preserve-relative-size` while every chrome region pins `preserve-pixel-size`, so a window resize scales the work surface and holds the regions; the solver requires at least one relative member and this fold supplies it by construction.
+- Law: stance is DOM data, never a JS branch — `data-state`/`data-variant`/`data-side`/`data-collapsible` from `Shell.stamped` are the whole styling contract, recipes read them through `cn`'s variants, and `data-collapsible` stamps EMPTY while expanded so the collapse selector matches only the collapsed state; a `stance.open` conditional selecting class strings in render is the named defect.
+- Law: stance persists at the REGION grain — the parcel's `open` record keys region keys, so a sidebar and an inspector collapse independently and a toggle command names its region; one shared boolean re-opens every region on any toggle, and the `inspected` scaffold row already proves two collapsible regions in one chrome.
+- Law: the desktop frame is two elements per collapsible region — a in-flow GAP element animating width beside a FIXED positioned container carrying the content — so collapse and expand reflow the content column without laying out the sidebar's interior every frame; the gap/fixed pair is stylesheet structure the stamped attributes select, not module code.
 - Law: the mobile arm is the sheet host — under the coarse breakpoint a collapsible region renders through the overlay sheet row with `Shell.Stance.openMobile` as its detent-open state and an SR-only title, so no second drawer engine exists and the region's item rows render identically in both harnesses.
 - Growth: a new region is one row; a new chrome arrangement is one roster value; a vertical dock is the `orientation` value; a new stance axis is one `Shell.Stance` field beside its stamp — never a sibling shell component.
 - Boundary: which regions exist, their sizes, and their sides are app composition data; the sheet mechanics are `view/overlay#SHEET_HOST`'s; the kvs mechanics and the seal grammar are `system/atom`'s.
@@ -60,7 +60,7 @@ declare namespace Shell {
     readonly collapsedSize: Option.Option<number | string>
   }
   type Stance = { readonly open: boolean; readonly openMobile: boolean }
-  type Rail = {
+  type Panes = {
     readonly group: ComponentProps<typeof Group>
     readonly content: ComponentProps<typeof Panel>
     readonly panels: Record.ReadonlyRecord<string, ComponentProps<typeof Panel>>
@@ -76,12 +76,12 @@ const _Persisted = Schema.Struct({
 
 const _sealed = Store.sealed(_Persisted, { generation: 1, residue: "discard" })
 
-const _rail = (
+const _panes = (
   orientation: "horizontal" | "vertical",
   regions: ReadonlyArray<Shell.Region>,
   held: Layout,
   drive: (layout: Layout) => void,
-): Shell.Rail => ({
+): Shell.Panes => ({
   group: {
     orientation,
     defaultLayout: held,
@@ -119,14 +119,14 @@ const _stamped = (region: Shell.Region, stance: Shell.Stance): Record.ReadonlyRe
 ## [03]-[NAV_PLANE]
 
 [NAV_PLANE]:
-- Owner: the navigation vocabulary riding `Shell` — `Shell.Item` is the one item row every rail, tab strip, menu section, and breadcrumb renders: label as a `system/intl` catalog key, `Option`-carried icon and badge, children for hierarchy, and the invocation union — an item NAVIGATES (`href` the app minted through its router) or INVOKES (`command` naming a row on the overlay table), never both and never neither; `Shell.current(live, items)` folds the live href against the roster into the active key and its ancestor trail, and `Shell.crumbs(trail)` applies the elide policy row.
+- Owner: the navigation vocabulary riding `Shell` — `Shell.Item` is the one item row every sidebar, tab strip, menu section, and breadcrumb renders: label as a `system/intl` catalog key, `Option`-carried icon and badge, children for hierarchy, and the invocation union — an item NAVIGATES (`href` the app minted through its router) or INVOKES (`command` naming a row on the overlay table), never both and never neither; `Shell.current(live, items)` folds the live href against the roster into the active key and its ancestor trail, and `Shell.crumbs(trail)` applies the elide policy row.
 - Packages: `react-aria-components` (`Tabs`/`TabList`/`Tab`/`TabPanel`, `Breadcrumbs`/`Breadcrumb`, `DisclosureGroup`/`Disclosure`/`DisclosurePanel`, `Tree`/`TreeItem`/`TreeItemContent`, `Toolbar`, `Link`, `Button` — the whole nav interaction surface); `lucide-react` (`LucideIcon` — icon as identity); `effect` (`Array`, `Option`).
 - Law: selection is ROUTE-KEYED, never selection state — the live href arrives as a plain string through the atom bridge (the app derives it from its router's location cell; this folder types no runtime member), `Shell.current` answers `aria-current` and the ancestor emphasis from href equality alone, and a collapsed ancestor whose descendant is active stays emphasized because the trail carries every ancestor key; a `selectedKeys` cell mirroring the location is the second copy of domain state the atom law forbids.
 - Law: the invocation union is the item's whole discriminant — the `href` arm renders RAC `Link` (router-intercepted by the app's navigation ingress), the `command` arm renders RAC `Button` forking the named overlay row, and the two never stack on one item; a nav item embedding its own Effect forks the one command table.
 - Law: hierarchy is a closed discriminant, never a component choice — `disclosure` renders chrome groups through `DisclosureGroup`/`Disclosure` (`allowsMultipleExpanded` as roster policy), `tree` renders data-shaped hierarchy through `Tree`/`TreeItem` where depth is arbitrary and rows are the collection; one region declares one `Shell.Nest` value and both arms read the same `Shell.Item` rows.
 - Law: tab strips split by the SAME union — items with `href` render as route tabs (RAC `Tab` carries the link and the router intercepts it; no `TabPanel` mounts because the route swap IS the panel change), items without render content tabs with `TabPanel` arms; one item vocabulary, and a hand-built nav-tab component beside RAC `Tabs` is the named defect.
 - Law: breadcrumb overflow is a policy row — `_ELIDE` keeps the head and tail crumbs and folds the middle into one overflow entry rendered as a menu of the folded items; the fold is pure, so an elided trail re-expands from the same value and the policy retunes as two numbers.
-- Law: the collapsed rail labels through tooltips DECLARATIVELY — the tooltip trigger disables unless the region is collapsed on a fine pointer (`isDisabled` computed from the stamped stance), so an expanded rail never mounts tooltip machinery and no conditional JSX branches on stance.
+- Law: the collapsed sidebar labels through tooltips DECLARATIVELY — the tooltip trigger disables unless the region is collapsed on a fine pointer (`isDisabled` computed from the stamped stance), so an expanded sidebar never mounts tooltip machinery and no conditional JSX branches on stance.
 - Law: direction is structural — logical properties and the `cn` motion groups' `start`/`end` rows carry RTL, and a directional chevron flips through the direction-aware slide rows; a `left`/`right` literal in a nav recipe is the named defect.
 - Growth: a new nav surface is one render of the same rows; a new item fact (a count, a presence dot) is one `Shell.Item` field every renderer inherits; a new hierarchy posture is one `_nests` member — never a sibling item type.
 - Boundary: href minting, route matching, and admission are the runtime navigation plane's, reached only through app composition; which items exist is app data; tooltip and menu hosting are `view/overlay`'s.
@@ -238,13 +238,13 @@ const _header = cva("grid gap-2 [grid-template-areas:var(--header-areas)]", {
 })
 ```
 
-## [05]-[COMMAND_SEAM]
+## [05]-[COMMAND_ROWS]
 
-[COMMAND_SEAM]:
+[COMMAND_ROWS]:
 - Law: the shell's actions are ROWS on the one overlay command table — toggle, collapse, and region-focus land as `Overlay.Command` rows under the `shell` scope member, declared at app composition where the table assembles, so this module imports no view sibling and mints no second table; the fence below is the legislated row shape an app transcribes, not a member of this module's export surface.
 - Law: the shell binds no key of its own — every chord is the row's `binding` column projected through the overlay bindings record, and a `keydown` listener beside the table re-opens the shadow the chord census closes; the toggle's shipped default is `Mod+b`.
 - Law: a chord an editing surface also claims resolves as DATA, never a guard — `Mod+b` collides with the prose editor's bold intent, the editor's own keymap consumes the key at its focused element before the document-level bundle sees it, and an app hosting both rebinds the shell row to an uncontested chord as one written value re-entering the same census; a focus-in-textbox probe wrapped around the matcher is the named defect because it hides the collision the census exists to surface.
-- Law: `run` drives the stance atom — each row's Effect writes `Shell.Stance` through the store (a nullary intent per the overlay law), so palette invocation, chord, and rail-button press are one write path and a replay cannot tell them apart.
+- Law: `run` drives the stance atom — each row's Effect writes `Shell.Stance` through the store (a nullary intent per the overlay law), so palette invocation, chord, and sidebar-button press are one write path and a replay cannot tell them apart.
 - Boundary: the `shell` scope member lands on `view/overlay#PALETTE`'s `_scopes` roster; the table, census, and arming law are that page's; the stance atom is `[02]`'s persisted parcel.
 
 ```typescript
@@ -258,7 +258,7 @@ const _rows = {
   "shell.toggle": {
     icon: PanelLeft,
     label: "shell.toggle",
-    keywords: ["sidebar", "rail", "collapse"],
+    keywords: ["sidebar", "drawer", "collapse"],
     scope: "shell",
     binding: "Mod+b",
     needs: [],
@@ -288,7 +288,7 @@ declare namespace Shell {
     readonly slots: typeof _SLOTS
     readonly headerSlots: typeof _HEADER
     readonly elide: typeof _ELIDE
-    readonly rail: typeof _rail
+    readonly panes: typeof _panes
     readonly stamped: typeof _stamped
     readonly current: typeof _current
     readonly crumbs: typeof _crumbs
@@ -309,7 +309,7 @@ const Shell: Shell.Shape = {
   slots: _SLOTS,
   headerSlots: _HEADER,
   elide: _ELIDE,
-  rail: _rail,
+  panes: _panes,
   stamped: _stamped,
   current: _current,
   crumbs: _crumbs,

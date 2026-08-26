@@ -296,7 +296,7 @@
 
 [TOPOLOGY]:
 - `Point64.X` and `Point64.Y` are `long`, so a double entry scales in at `Math.Pow(10, precision)` and descales at the reciprocal; `ClipperD` and the `Clipper` double statics fold that pair around an int64 core, and a hand-spelled `Clipper.ScalePaths64`-clip-`ScalePathsD` sequence reproduces them exactly.
-- Precision admits integers `-8` through `8`: `ClipperD`'s constructor rails an out-of-range value as `ClipperLibException`, while the `Clipper` double statics rail it as a bare `Exception` from the internal precision check.
+- Precision admits integers `-8` through `8`: `ClipperD`'s constructor rejects an out-of-range value as `ClipperLibException`, while the `Clipper` double statics reject it as a bare `Exception` from the internal precision check.
 - Every `Execute` clears its caller-supplied solution container before filling it; the overlay engines return `bool`, where `false` marks an internal fault the engine caught rather than a successful empty result, and `ClipperOffset.Execute` returns void.
 - `ClipperOffset.Execute(DeltaCallback64, Paths64)` binds the callback and runs at delta `1.0`, so the callback returns each vertex's whole signed magnitude.
 - `ClipperBase.Clear()` drops the added path set rather than the last solution alone, and `ClipperBase.GetBounds()` measures the added vertices in engine int64 space.

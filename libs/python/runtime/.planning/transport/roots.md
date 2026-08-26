@@ -1,8 +1,8 @@
 # [PY_RUNTIME_ROOTS]
 
-Resource-root, object-store, and transport-resource acquisition: `ResourceRoot` admits file, object-store, and scratch roots over `fsspec`/`universal-pathlib` with traversal-safe relative resolution, `ObjectStoreLane` is the one `obstore` operation surface the whole branch dispatches through, and `TransportResource` is the one tagged union over `httpx` HTTP and `asyncssh` SSH/SFTP generic-artifact acquisition. `RemoteEndpoint` is the one asyncssh channel custodian — connection identity, options construction, known-hosts law, and the credential un-mask live here for both consumers, the SFTP acquisition legs on this page and the `execution/workers#POOL` REMOTE exec crossing — so the asyncssh scope widens exactly one seam past SFTP-read and a second SSH dial spelling never forms. `HttpEndpoint` is its HTTP mirror, carrying the destination identity, the RFC-9111 cache posture, the egress hop, and the keyed-store coordinate. No durable store, daemon scheduler, product store-root derivation, broker acquisition, or AEC-collaboration transport crosses this page; Speckle and OPC-UA terminate .NET-side per the cross-`libs/` boundary and reach the companion through the canonical wire, while every broker-addressed acquisition seats at `transport/binding#BINDING` beside the envelope it carries.
+Resource-root, object-store, and transport-resource acquisition: `ResourceRoot` admits file, object-store, and scratch roots over `fsspec`/`universal-pathlib` with traversal-safe relative resolution, `ObjectStoreLane` is the one `obstore` operation surface the whole branch dispatches through, and `TransportResource` is the one tagged union over `httpx` HTTP and `asyncssh` SSH/SFTP generic-artifact acquisition. `RemoteEndpoint` is the one asyncssh channel custodian — connection identity, options construction, known-hosts law, and the credential un-mask live here for both consumers, the SFTP acquisition legs on this page and the `execution/workers#POOL` REMOTE exec crossing — so the asyncssh scope widens exactly one boundary past SFTP-read and a second SSH dial spelling never forms. `HttpEndpoint` is its HTTP mirror, carrying the destination identity, the RFC-9111 cache posture, the egress hop, and the keyed-store coordinate. No durable store, daemon scheduler, product store-root derivation, broker acquisition, or AEC-collaboration transport crosses this page; Speckle and OPC-UA terminate .NET-side per the cross-`libs/` boundary and reach the companion through the canonical wire, while every broker-addressed acquisition seats at `transport/binding#BINDING` beside the envelope it carries.
 
-Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience#RESILIENCE` `guarded` retried-traced-railed envelope, so the page mints no second retry loop, derivation span, or inline `try`/`except` ladder. STREAM acquisitions return their lazy iterator under single-consumer custody and defer the provider-fault lift to the `evidence/identity#IDENTITY` consumer that pulls it. One `StoreBackend` row family is the branch's whole store vocabulary — every scheme roster, reach cell, and native driver name derives from it — and one `ObjectStoreLane` owns the whole `obstore` operation set beneath it, so `data/tabular/egress#EGRESS` composes the transport rather than re-minting a second provider composer beside it: identity, quantity, and veto semantics at the data tier, transport at this one.
+Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience#RESILIENCE` `guarded` retried-traced-result envelope, so the page mints no second retry loop, derivation span, or inline `try`/`except` ladder. STREAM acquisitions return their lazy iterator under single-consumer custody and defer the provider-fault lift to the `evidence/identity#IDENTITY` consumer that pulls it. One `StoreBackend` row family is the branch's whole store vocabulary — every scheme roster, reach cell, and native driver name derives from it — and one `ObjectStoreLane` owns the whole `obstore` operation set beneath it, so `data/tabular/egress#EGRESS` composes the transport rather than re-minting a second provider composer beside it: identity, quantity, and veto semantics at the data tier, transport at this one.
 
 ## [01]-[INDEX]
 
@@ -12,23 +12,23 @@ Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience
 ## [02]-[RESOURCE]
 
 - Owner: `Transfer` is the one cross-cutting acquisition aspect every reader composes — the fault, transport, lane, and resilience clusters read acquisition only through `Transfer.run`; `TransferPlan` keeps the WHOLE retry-span-fault triplet and the STREAM lazy thunk one shape rather than a five-positional helper signature.
-- Cases: outbound credentials resolve through `execution/admission#SETTINGS` `SecretBoundary.resolve` BEFORE case construction and ride as `Option[SecretStr]`, un-masking through `_BearerAuth`/`_proxy`/`_ssh_options` only at the transport seam — admission owns gating at credential resolution, so re-checking `RuntimeContext.admits` inside `acquire`/`read` is the forbidden double-gate. Each case carries ONE endpoint owner beside its `RetryClass`: the `ssh` case a `RemoteEndpoint` whose `password` is the connection authentication secret, distinct from a key-decryption passphrase a `client_keys` field carries, whose `known_hosts` is the admission-supplied verified database, and whose `root` confines every SFTP request through `confined`, so an absolute or escaping path rails before any dial, the dial carrying connect-timeout and keepalive policy as constants so an idle fleet channel's death is observed within `SSH_KEEPALIVE_MAX` probes rather than discovered at the next submit; the `http` case an `HttpEndpoint` whose `posture` declares the destination's cache class, whose `proxy` declares its egress hop, whose `confined` holds the same gate over the request url, and whose `pool` axes key the client. `Delivery` is the caller-declared closed-enum discriminant — never an `obstore.head` size probe re-deriving it from a second metadata round-trip.
-- Law: containment is ONE gate spelled at the three residences it guards — `ResourceRoot.child` resolves a filesystem child against a resolved root, `RemoteEndpoint.confined` normalizes a POSIX request under the session root, `HttpEndpoint.confined` reads an RFC-3986 join back against its origin and path — because each residence resolves escapes by its own rules and no single fold expresses all three. What they share is the verdict and the comparison: an escaping request rails `resource` under its own `traversal:` subject BEFORE any dial, request, or handle, and every gate compares resolved SEGMENTS rather than string prefixes.
+- Cases: outbound credentials resolve through `execution/admission#SETTINGS` `SecretBoundary.resolve` BEFORE case construction and ride as `Option[SecretStr]`, un-masking through `_BearerAuth`/`_proxy`/`_ssh_options` only at the transport boundary — admission owns gating at credential resolution, so re-checking `RuntimeContext.admits` inside `acquire`/`read` is the forbidden double-gate. Each case carries ONE endpoint owner beside its `RetryClass`: the `ssh` case a `RemoteEndpoint` whose `password` is the connection authentication secret, distinct from a key-decryption passphrase a `client_keys` field carries, whose `known_hosts` is the admission-supplied verified database, and whose `root` confines every SFTP request through `confined`, so an absolute or escaping path faults before any dial, the dial carrying connect-timeout and keepalive policy as constants so an idle fleet channel's death is observed within `SSH_KEEPALIVE_MAX` probes rather than discovered at the next submit; the `http` case an `HttpEndpoint` whose `posture` declares the destination's cache class, whose `proxy` declares its egress hop, whose `confined` holds the same gate over the request url, and whose `pool` axes key the client. `Delivery` is the caller-declared closed-enum discriminant — never an `obstore.head` size probe re-deriving it from a second metadata round-trip.
+- Law: containment is ONE gate spelled at the three surfaces it guards — `ResourceRoot.child` resolves a filesystem child against a resolved root, `RemoteEndpoint.confined` normalizes a POSIX request under the session root, `HttpEndpoint.confined` reads an RFC-3986 join back against its origin and path — because each surface resolves escapes by its own rules and no single fold expresses all three. What they share is the verdict and the comparison: an escaping request faults `resource` under its own `traversal:` subject BEFORE any dial, request, or handle, and every gate compares resolved SEGMENTS rather than string prefixes.
 - Law: `TRANSPORT_ARMS` answers the selection descriptor per arm as data — `fits`, `admit`, `lifetime`, `degrade` — because the `(Endpoint, RetryClass)` tuple states machinery and never which arm a reader wants, and the two arms diverge on every cell: a pooled, cached, proxied HTTP dial and a per-call SFTP dial share no pool, no cache, no egress vocabulary, and no session custody. Tenancy is not a column, on `StoreBackend`'s own reason — an arm isolates no tenant, the endpoint's confined root and resolved credential do — and a coordinate an arm cannot express records the divergence on `degrade` rather than dropping the column.
-- Law: `_object_store`/`_transport_client` memoise one handle per key — `from_url` parses, resolves, and binds credentials, so per-access reconstruction re-pays that cost, and the credential provider joins the store key as its own axis because two roots differing only in provider are two credential resolutions the one handle cannot serve. Client keys hold plain strings alone and their secrets ride one-way digests: an `httpx.Proxy` value keys by object identity and forks a pool per call site, and a live secret there keys by secret. Retry has ONE owner: `RetryClass` holds every curve, and `store_handle` pins the Rust core to a single attempt so no store operation runs under two schedules whose effective attempts are their product. `AsyncHTTPTransport(retries=CONNECT_RETRIES)` survives beside it because it re-dials a failed CONNECTION alone and moves no request, so it composes under a curve rather than nesting a second one inside it. `http2=True` is load-bearing — the concurrent-small-object fan-out multiplexes over one negotiated h2 connection instead of queueing on `max_connections`. Status enforcement is the client `event_hooks` response seam bound once, never an asymmetric inline `raise_for_status`.
+- Law: `_object_store`/`_transport_client` memoise one handle per key — `from_url` parses, resolves, and binds credentials, so per-access reconstruction re-pays that cost, and the credential provider joins the store key as its own axis because two roots differing only in provider are two credential resolutions the one handle cannot serve. Client keys hold plain strings alone and their secrets ride one-way digests: an `httpx.Proxy` value keys by object identity and forks a pool per call site, and a live secret there keys by secret. Retry has ONE owner: `RetryClass` holds every curve, and `store_handle` pins the Rust core to a single attempt so no store operation runs under two schedules whose effective attempts are their product. `AsyncHTTPTransport(retries=CONNECT_RETRIES)` survives beside it because it re-dials a failed CONNECTION alone and moves no request, so it composes under a curve rather than nesting a second one inside it. `http2=True` is load-bearing — the concurrent-small-object fan-out multiplexes over one negotiated h2 connection instead of queueing on `max_connections`. Status enforcement is the client `event_hooks` response boundary bound once, never an asymmetric inline `raise_for_status`.
 - Law: egress policy is per DESTINATION and rides the `next_transport` the cache transport wraps, so one row states proxy, connect retries, h2, and pool bounds together and an absent proxy IS direct egress. `AsyncClient(proxy=)` is the refused spelling for a reason the provider fixes in code: a client-level proxy mounts a fresh bare transport per url pattern that the client returns ahead of an explicit `transport=`, so a proxied request bypasses both the cache and the connect retries, and the same explicit `transport=` disables env-proxy resolution so `HTTP_PROXY`/`HTTPS_PROXY` are inert for that client. Proxy credentials join the client key as a digest rather than riding per request, because the credential is baked into the `Proxy` the pooled transport holds — two callers proxying one hop under different credentials are two transports, or the second rides the first's identity.
-- Law: the HTTP cache rides the transport seam, so one long-lived `AsyncClient` keeps its timeout, auth, and status hook while `AsyncCacheTransport` wraps the pooled `AsyncHTTPTransport` beneath it — a swapped `AsyncCacheClient` is the rejected form, and posture is per DESTINATION from birth because one freshness rule cannot serve both a long-TTL revalidating catalog root and a presigned URL that must never be stored at all. Cache state crosses in BOTH directions on the provider's own extension vocabulary: the posture's `RequestMetadata` keys ride the outbound request so body-keying and TTL refresh are per-destination request facts rather than a policy subclass every request through the pooled client then pays, and the response's `ResponseMetadata` keys land the reached decision and its stored-at stamp on the acquisition span its own plan opened — never a hit/miss inferred from `Cache-Control`/`Age` headers and never a span-derived counter, because `opentelemetry-instrumentation-httpx` spans BENEATH the cache so a served entry emits no origin span at all. This is the RFC-9111 revalidation half of the two-cache ruling; `execution/recipe#RECIPE` owns content-keyed artifact elision and neither substitutes for the other.
-- Law: the residence credential rides `ResourceRef`, so every store-opening consumer reads ONE column instead of growing its own — a lane takes no `credential_provider` beside its ref, a keyed store takes none beside its root, and a page holding a bare ref reaches a private or requester-pays residence without a second field its own callers then have to fill. It seats on the ref rather than the root because the ref is what CROSSES: a root mints refs and stamps its own provider onto each, so the fact travels with the coordinate it credentials and a consumer never joins two values to open one handle.
-- Law: a returned STREAM is single-consumer and `_Fenced` is where that custody is real — the guard enters ahead of the delegated pull, so an overlapping second puller rails on `anyio.BusyResourceError` before it can interleave the provider session, where a guard inside a leg's own generator never fires at all: the interpreter rejects the frame re-entry first, with an untyped raise naming the frame rather than the resource. `ResourceGuard` reads OVERLAP and not ownership, so a sequential hand-off between tasks stays lawful. `_Fenced` ends the acquisition span in that same bracket, because a span is a value the leg carries and never an attached context: an async generator shares its consumer's context, so attaching there leaves the acquisition span current between pulls and stamps every unrelated operation the consumer runs mid-drain.
+- Law: the HTTP cache rides the transport boundary, so one long-lived `AsyncClient` keeps its timeout, auth, and status hook while `AsyncCacheTransport` wraps the pooled `AsyncHTTPTransport` beneath it — a swapped `AsyncCacheClient` is the rejected form, and posture is per DESTINATION from birth because one freshness rule cannot serve both a long-TTL revalidating catalog root and a presigned URL that must never be stored at all. Cache state crosses in BOTH directions on the provider's own extension vocabulary: the posture's `RequestMetadata` keys ride the outbound request so body-keying and TTL refresh are per-destination request facts rather than a policy subclass every request through the pooled client then pays, and the response's `ResponseMetadata` keys land the reached decision and its stored-at stamp on the acquisition span its own plan opened — never a hit/miss inferred from `Cache-Control`/`Age` headers and never a span-derived counter, because `opentelemetry-instrumentation-httpx` spans BENEATH the cache so a served entry emits no origin span at all. This is the RFC-9111 revalidation half of the two-cache ruling; `execution/recipe#RECIPE` owns content-keyed artifact elision and neither substitutes for the other.
+- Law: the store credential rides `ResourceRef`, so every store-opening consumer reads ONE column instead of growing its own — a lane takes no `credential_provider` beside its ref, a keyed store takes none beside its root, and a page holding a bare ref reaches a private or requester-pays store without a second field its own callers then have to fill. It seats on the ref rather than the root because the ref is what CROSSES: a root mints refs and stamps its own provider onto each, so the fact travels with the coordinate it credentials and a consumer never joins two values to open one handle.
+- Law: a returned STREAM is single-consumer and `_Fenced` is where that custody is real — the guard enters ahead of the delegated pull, so an overlapping second puller faults on `anyio.BusyResourceError` before it can interleave the provider session, where a guard inside a leg's own generator never fires at all: the interpreter rejects the frame re-entry first, with an untyped raise naming the frame rather than the resource. `ResourceGuard` reads OVERLAP and not ownership, so a sequential hand-off between tasks stays lawful. `_Fenced` ends the acquisition span in that same bracket, because a span is a value the leg carries and never an attached context: an async generator shares its consumer's context, so attaching there leaves the acquisition span current between pulls and stamps every unrelated operation the consumer runs mid-drain.
 - Law: an abandoned stream releases its provider session deterministically through one `AsyncExitStack` per leg — `aclose()` raises `GeneratorExit` into the suspended `yield` and the stack unwinds in reverse order — closing only the per-call response context, never the cached client. `drain` is the one teardown the daemon awaits as a `(subject, stage)` row on the `transport/serve#ENTRY` drain fold, and it is TERMINAL for the composition rather than a reclaim a live acquisition may race: it runs after that entry stopped admitting, so a client minted between the clear and the close outlives the teardown that already enumerated the map, and a request already in flight meets a closed pool. Custody is therefore one-way — a re-armed composition mints fresh handles rather than adopting a drained map, exactly as the band probe re-registers rather than surviving its retire. Every pooled client `aclose`s so no pool reaches the GC, and ONE close is total because the client closes its transport and the cache transport closes both the wrapped pool and its keyed storage — a second `storage.close()` beside it is the doubled teardown, never the missing one. `_object_store` caches a GC-safe Rust handle, so its memo only clears.
-- Entry: `read` is ONE entry over both arities, discriminating on the value — a `ResourceRef` answers `Acquired`, a `Block[ResourceRef]` fans that same per-ref plan through one task group and answers a `Batch` whose members each carry their own rail, so a refused ref sheds no sibling's payload and a caller re-drives exactly what failed. Fanned refs inherit the bounds the single acquisition already takes — `SCAN_BAND` on every filesystem hop, the row's own retry envelope on every store hop — so it buys concurrency and never a second bound; the `scan` band registers its occupancy probe on the first filesystem plan and retires on `drain`. Whole acquisitions cross the one `guarded` envelope, `CLASSIFY` landing the precise tag under the plan's subject — never a `.map_error` re-tag forcing every class to `resource`. Filesystem reads bind `RetryClass.SCAN`, whose `(OSError,)` target retries a transient local read; the `OBJECT_STORE` row's `obstore`-typed target excludes `OSError` and surfaces it terminal. `read` threads the caller's prior provider validator as the `if_none_match` precondition, so an unchanged remote answers `NotModifiedError` instead of re-downloading a payload the identity fold discards. STREAM iterators feed the `evidence/identity#IDENTITY` sync fold only after the consumer's async drain — the drain is the boundary seam. `httpx` ships no bearer-`Auth` class, so `_BearerAuth` is the catalog-sanctioned custom `auth_flow`; the whole-payload arm is reserved for small payloads and the stream arm bounds the large GLB/IFC/scan artifacts, per the provider streaming laws.
+- Entry: `read` is ONE entry over both arities, discriminating on the value — a `ResourceRef` answers `Acquired`, a `Block[ResourceRef]` fans that same per-ref plan through one task group and answers a `Batch` whose members each carry their own result, so a refused ref sheds no sibling's payload and a caller re-drives exactly what failed. Fanned refs inherit the bounds the single acquisition already takes — `SCAN_BAND` on every filesystem hop, the row's own retry envelope on every store hop — so it buys concurrency and never a second bound; the `scan` band registers its occupancy probe on the first filesystem plan and retires on `drain`. Whole acquisitions cross the one `guarded` envelope, `CLASSIFY` landing the precise tag under the plan's subject — never a `.map_error` re-tag forcing every class to `resource`. Filesystem reads bind `RetryClass.SCAN`, whose `(OSError,)` target retries a transient local read; the `OBJECT_STORE` row's `obstore`-typed target excludes `OSError` and surfaces it terminal. `read` threads the caller's prior provider validator as the `if_none_match` precondition, so an unchanged remote answers `NotModifiedError` instead of re-downloading a payload the identity fold discards. STREAM iterators feed the `evidence/identity#IDENTITY` sync fold only after the consumer's async drain — the drain is the boundary. `httpx` ships no bearer-`Auth` class, so `_BearerAuth` is the catalog-sanctioned custom `auth_flow`; the whole-payload arm is reserved for small payloads and the stream arm bounds the large GLB/IFC/scan artifacts, per the provider streaming laws.
 - Auto: a thread hop abandons on cancel exactly where the abandoned thread holds nothing the frame still owns — the WHOLE filesystem read does, so a cancelled scope stops waiting out a multi-gigabyte read, while the STREAM legs do not: an abandoned open strands the descriptor its frame is the sole closer of, and an abandoned block read races the close that follows it. `STREAM_CHUNK` is what makes the split affordable, since an attached hop waits at most one `STREAM_CHUNK`.
 - Growth: a new storage backend is one `StoreBackend` row every derived roster picks up untouched; a new transport is one `TransportResource` case binding an endpoint owner and a `RetryClass` beside its `TRANSPORT_ARMS` row; a new read size class is one `Delivery` row; a new call arity is one `read` arm over the value's own shape, never a second entry; a new credential provider is one `Provider` value on the admitting root, reaching every ref and lane it mints untouched; a new cache posture is one `CachePosture` member with its `_CACHE_POLICY` and `_CACHE_EXTENSIONS` rows, the pair splitting what the client's policy decides from what each request declares; a new egress hop is one `proxy` value on the admitting endpoint, reaching the key and the transport at once; a new retry geometry is one `RetryClass` row the `TransferPlan` binds; a new SSH consumer is one `RemoteEndpoint.dialed` call site, never a second options or dial spelling.
-- Boundary: runtime-transport acquisition, object-store operation dispatch, and SSH channel custody only — no default root creation, bridge staging-root ownership, service API layer, or companion-control transport. `RemoteEndpoint.dialed` is the one asyncssh dial in the branch; the workers REMOTE arm consumes it for the exec crossing and owns everything past the established connection — sessions, the sealed-kernel payload, deadline enforcement, supervision. `OBJECT_STORE_SCHEMES` names the remote object-store residence the `read` dispatch and the `data/gridded/store#STORE` engine select on, derived off the row family's own `remote` column rather than hand-listed or read off a capability that merely agrees with it today. Speckle terminates .NET-side (`dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS`), and this branch reads any Speckle-sourced artifact through the canonical wire, never a `specklepy` client. Rejected: a second scheme roster, backend literal, or native-driver map beside the row family; a `hishel_cache.db` provider-default store path where the composition-admitted scratch root owns it; a bearer or proxy secret joining a client pool key; a client-level proxy beside an injected transport; an `fsspec.open_files` batch arm, whose sync single-use context fans its opens through a concurrency running outside every bound this owner accounts for.
+- Boundary: runtime-transport acquisition, object-store operation dispatch, and SSH channel custody only — no default root creation, bridge staging-root ownership, service API layer, or companion-control transport. `RemoteEndpoint.dialed` is the one asyncssh dial in the branch; the workers REMOTE arm consumes it for the exec crossing and owns everything past the established connection — sessions, the sealed-kernel payload, deadline enforcement, supervision. `OBJECT_STORE_SCHEMES` names the remote object-storage location the `read` dispatch and the `data/gridded/store#STORE` engine select on, derived off the row family's own `remote` column rather than hand-listed or read off a capability that merely agrees with it today. Speckle terminates .NET-side (`dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS`), and this branch reads any Speckle-sourced artifact through the canonical wire, never a `specklepy` client. Rejected: a second scheme roster, backend literal, or native-driver map beside the row family; a `hishel_cache.db` provider-default store path where the composition-admitted scratch root owns it; a bearer or proxy secret joining a client pool key; a client-level proxy beside an injected transport; an `fsspec.open_files` batch arm, whose sync single-use context fans its opens through a concurrency running outside every bound this owner accounts for.
 
 ## [03]-[STORE]
 
-- Owner: `ObjectStoreLane` — the one `obstore` operation surface, discriminating `StoreOp` through one `_ROUTE` data table over one `_StoreRow` shape, never a `put_object`/`get_object`/`list_objects` method family, never an async method twin, never a second handle row beside the byte-bearing rows. `store_handle` is the branch's one public `from_url` fold beside it, so a sibling needing a bare registry of per-URL handles rather than an operation surface — a manifest walker registering many archival sources — inherits the retry envelope and the credential carry instead of re-spelling the constructor. Its ONE `ObjectStore` handle mints at `of` off the `ref.root` scheme with the Rust core pinned to a single attempt, so every row crosses the provider exactly once per rail attempt and the `retry` column alone decides whether a second attempt exists at all — an ambiguously-succeeded copy/rename replayed inside the provider corrupts state the same as one replayed by the rail, which is why the pin is unconditional rather than a zero-retry twin handle standing beside a retried one. Because the `obstore` sync and async members carry identical keyword signatures, `_async` is the same row read under a second entrypoint (catalogue `_async`-identity law), never a parallel `AsyncStoreOp` family.
+- Owner: `ObjectStoreLane` — the one `obstore` operation surface, discriminating `StoreOp` through one `_ROUTE` data table over one `_StoreRow` shape, never a `put_object`/`get_object`/`list_objects` method family, never an async method twin, never a second handle row beside the byte-bearing rows. `store_handle` is the branch's one public `from_url` fold beside it, so a sibling needing a bare registry of per-URL handles rather than an operation surface — a manifest walker registering many archival sources — inherits the retry envelope and the credential carry instead of re-spelling the constructor. Its ONE `ObjectStore` handle mints at `of` off the `ref.root` scheme with the Rust core pinned to a single attempt, so every row crosses the provider exactly once per retry attempt and the `retry` column alone decides whether a second attempt exists at all — an ambiguously-succeeded copy/rename replayed inside the provider corrupts state the same as one replayed by the result, which is why the pin is unconditional rather than a zero-retry twin handle standing beside a retried one. Because the `obstore` sync and async members carry identical keyword signatures, `_async` is the same row read under a second entrypoint (catalogue `_async`-identity law), never a parallel `AsyncStoreOp` family.
 - Cases: the fence's factories and `_ROUTE` rows carry each obstore member; the decisions the fence cannot show —
   - `Put` accepts owned bytes or a local `Path`. Bytes retain the complete `PutMode` axis; a path admits atomic `overwrite` only, preserving obstore's multipart path upload instead of forcing `create` through a materialized body. `chunk_size` remains an explicit request value defaulting to the 5-MiB `CHUNK` axis, never the provider default.
   - `GetRange` addresses one window as start+end or start+length — `end` and `length` are mutually exclusive descriptors on the one case.
@@ -41,14 +41,14 @@ Every acquisition rides one `Transfer` aspect fusing the `reliability/resilience
   - `reader`/`writer`/`sign` `read`s carry the obstore handle or URL batch on the outcome `payload` slot and emit a `None` `Source`, so no tag escapes the `_ROUTE` fold and no control-plane op claims operation bytes it never moved.
 - Law: the reach matrix DERIVES off the row family's own capability columns rather than transcribing cells — a backend whose `signs` column is false lands its `sign` refusal automatically, so a seventh backend row arrives already gated and an unreachable cell answers its typed reason ahead of every provider call. Cells absent from the matrix stay reachable and ride their `_ROUTE` row; a cell no capability column answers lands as one explicit row beside the derivation.
 - Law: retry is a per-row mutation-class disposition — reads, `put`, `delete`, `sign`, and the lazy `open_reader`/`open_writer` handle mints replay safely under `OBJECT_STORE` (a conditional-write collision stays the terminal `boundary` fault), while `copy` (a provider-side multi-step rewrite chain) and `rename` (copy-then-delete) cross the bare `boundary`/`async_boundary` fence unretried. `NotFoundError` alone lifts onto `StoreFault.missing` before the envelope, whose terminal refusal row preserves the typed token whole; authentication, permission, deadline, and transport failures retain their own provider class through the normal runtime lift, so a consumer can map absence without laundering an outage into a cache miss. `_STORE_RAISES` is the named surface — the `BaseError` root, the store-owned token, and the two classes the row fold's own raw index and attribute reach can raise — so an unlisted class propagates as the defect it is.
-- Entry: `run` and `run_async` open one `kind=SpanKind.CLIENT` span off the faults-owned `scoped` stamp, read one `_admitted` prologue, and return `RuntimeRail[StoreOutcome]` — reach answers a cell this backend cannot serve BEFORE the caller's gate fires and before any provider call, then the gate fires its own pre-flight points and may SETTLE the call outright. `run_async` reads the prologue through a `match` closed by `assert_never` rather than a `bind`, so both entrypoints stay total over the carrier. `StoreOp.Stream` returns its managed `StoreStream` on the outcome payload; each pull opens the store-client span and fault fence around exactly one provider poll, so response demand bounds both durable-store reads and memory to the provider's current chunk.
+- Entry: `run` and `run_async` open one `kind=SpanKind.CLIENT` span off the faults-owned `scoped` stamp, read one `_admitted` prologue, and return `RuntimeResult[StoreOutcome]` — reach answers a cell this backend cannot serve BEFORE the caller's gate fires and before any provider call, then the gate fires its own pre-flight points and may SETTLE the call outright. `run_async` reads the prologue through a `match` closed by `assert_never` rather than a `bind`, so both entrypoints stay total over the carrier. `StoreOp.Stream` returns its managed `StoreStream` on the outcome payload; each pull opens the store-client span and fault fence around exactly one provider poll, so response demand bounds both durable-store reads and memory to the provider's current chunk.
 - Auto: `gate` is the caller's whole pre-flight policy as ONE pre-constructed value — a `StoreAdmission` answering DISPATCH or SETTLED, so a governance veto and a by-reference no-op both ride the composing tier's own semantics with no transport knob and no second prologue, and a consumer owning neither passes nothing. It rides the CALL rather than the lane because its closure carries per-call evidence (the caller's prior outcome) a lane field frozen at construction cannot hold, and it survives the knob test by carrying exactly what the op cannot reconstruct. SETTLED outcomes report zero quantity, carry the caller's own `meta`, and keep the operation bytes on their `source` slot, so the outcome the composing tier folds keys identically to the write it stands in for.
 - Output: `StoreOutcome` is payload-agnostic transport evidence (what moved, what the provider reported, the operation bytes a keyer digests, the handle a streaming caller holds), and content identity, quantity vocabulary, mutation veto, and reuse verdict are the composing tier's. That split is exactly where the tier boundary falls: transport here, outcome semantics at `data/tabular/egress#EGRESS`.
 - Packages: `obstore` is the sole store provider; `SignCapableStore`/`HTTP_METHOD` are stub-only typing references (`obstore._sign.pyi` `TypeAlias`), so `Method` inlines the nine members rather than a runtime import, while the module-level `obstore.parse_scheme` IS bound — it answers the closed six-member backend classification off a store URL, which `from_url`'s own dispatch settles internally and never exposes — and `GetResult.stream`'s `BytesStream` is a typing-only chunk-iterator growth value the same `Get` row carries. `obstore.exceptions`' leaf taxonomy (`BaseError` root and the eleven leaves) and the `config`/`client_options`/`retry_config` `TypedDict` shapes are `libs/python/.api/obstore.md` catalog facts.
-- Law: every windowed acquisition states its PEER — `on=Some(...)` naming the residence root, the HTTP destination identity, or the SSH channel identity — because `OBJECT_STORE`, `HTTP`, and `SSH` all carry a `CIRCUIT` row and an unstated peer refuses at the envelope. The grain is the DEPENDENCY and never the object: one arc per residence trips on a residence that is out, where a per-path arc counts one failure each and never reaches a trip at all.
+- Law: every windowed acquisition states its PEER — `on=Some(...)` naming the storage root, the HTTP destination identity, or the SSH channel identity — because `OBJECT_STORE`, `HTTP`, and `SSH` all carry a `CIRCUIT` row and an unstated peer refuses at the envelope. The grain is the DEPENDENCY and never the object: one arc per store trips on a store that is out, where a per-path arc counts one failure each and never reaches a trip at all.
 - Law: every refusal resolves ONE `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.ROOTS` and derives its subject from that leg. The three confinement refusals — HTTP origin, SFTP root, filesystem child — collapse onto ONE `ROOTS_TRAVERSAL` row taking the root key beside the escaping relative, since all three refuse ONE law; `ROOTS_UNSUPPORTED` carries the matrix cell's own reason as a NAMED coordinate under the caller-repairable `config` arm, a capability bound a re-issue never clears.
 - Growth: a new store operation is one `StoreOp` case and one `_ROUTE` row carrying dispatch, argument planning, result projection, path, and retry class; a new precondition one `PutMode` on `Put` or one `overwrite` value on `Copy`/`Rename`; a newly unreachable cell one capability column on `StoreBackend` the matrix derives from, or one explicit `_REFUSAL` row where no column answers it; a new conditional-get axis one `GetOptions` key on `Get`; a new get-response evidence field one more `GetResult` member on the `Get` `read`'s `payload` tuple; a new streaming or signing surface one `StoreOp` case whose `read` carries its non-byte value on the `payload` slot and emits a `None` `Source`, never a parallel handle table.
-- Boundary: object-store operation dispatch and its reach matrix only. Composes — never re-mints — the `reliability/resilience#RESILIENCE` `guarded`/`guarded_sync` envelopes and the `reliability/faults#FAULT` `BoundaryFault` those lift; mints no content key, quantity unit, hook point, or durable fact. Rejected: a capability bound answered by a provider exception where a matrix row states it as data; an exported `reader` used for response streaming, because its later pulls escape the operation rail; a consumer catch over `BaseError`; a message match for not-found; a hand-opened boundary/span around a guarded caller; a sync leg dropping a retried row's `OBJECT_STORE` envelope; a per-operation `from_url` re-mint; a parallel `S3Lane`/`AsyncObjectStoreLane` family.
+- Boundary: object-store operation dispatch and its reach matrix only. Composes — never re-mints — the `reliability/resilience#RESILIENCE` `guarded`/`guarded_sync` envelopes and the `reliability/faults#FAULT` `BoundaryFault` those lift; mints no content key, quantity unit, hook point, or durable fact. Rejected: a capability bound answered by a provider exception where a matrix row states it as data; an exported `reader` used for response streaming, because its later pulls escape the operation path; a consumer catch over `BaseError`; a message match for not-found; a hand-opened boundary/span around a guarded caller; a sync leg dropping a retried row's `OBJECT_STORE` envelope; a per-operation `from_url` re-mint; a parallel `S3Lane`/`AsyncObjectStoreLane` family.
 
 ```python
 import hashlib
@@ -92,7 +92,7 @@ from rasm.runtime.faults import (
     Catch,
     FaultRow,
     RuntimeLeg,
-    RuntimeRail,
+    RuntimeResult,
     async_boundary,
     boundary,
     scoped,
@@ -109,7 +109,7 @@ if TYPE_CHECKING:
 
 type Chunk = Bytes | bytes
 type Acquired = Chunk | AsyncIterator[Chunk]
-type Fetched = tuple["ResourceRef", "RuntimeRail[Acquired]"]
+type Fetched = tuple["ResourceRef", "RuntimeResult[Acquired]"]
 type WholeFetch = Callable[["Span"], Awaitable[Chunk]]
 type StreamOpen = Callable[["Span"], AsyncGenerator[Chunk]]
 type Pool = tuple[str, str]
@@ -123,7 +123,7 @@ type Meta = "ObjectMeta | PutResult | None"
 type Source = Buffer | Iterable[bytes] | None
 type Call = tuple[tuple[Any, ...], dict[str, Any]]
 type Read = tuple[int, Meta, Source, Any]
-type StoreGate = Callable[["StoreOp", str], "RuntimeRail[StoreAdmission]"]
+type StoreGate = Callable[["StoreOp", str], "RuntimeResult[StoreAdmission]"]
 
 
 class Delivery(StrEnum):
@@ -163,26 +163,26 @@ class StoreBackend(Struct, frozen=True, gc=False):
 STORE_BACKENDS: Final[Block[StoreBackend]] = Block.of_seq([
     StoreBackend(
         "s3", frozenset({"s3", "s3a"}), "s3", True, True,
-        fits="S3 and S3-compatible object residence — the branch's default remote plane and the only one every admitted engine addresses",
+        fits="S3 and S3-compatible object store — the branch's default remote plane and the only one every admitted engine addresses",
         admit="`ObjectStoreLane` over the `store_handle` fold, or the chunk engine's own `s3` kvstore driver",
         lifetime="the bucket's own policy; this branch deletes exactly what a `Delete` op names and expires nothing on its own",
-        concedes=("copy and rename are provider-side multi-step rewrites, so both cross the rail unretried and an ambiguous failure is terminal",),
+        concedes=("copy and rename are provider-side multi-step rewrites, so both cross the result unretried and an ambiguous failure is terminal",),
     ),
     StoreBackend(
         "gcs", frozenset({"gs", "gcs"}), "gcs", True, True,
-        fits="Google Cloud Storage residence, reached identically to S3 through one handle fold",
+        fits="Google Cloud Storage backend, reached identically to S3 through one handle fold",
         admit="`ObjectStoreLane` over the `store_handle` fold, or the chunk engine's own `gcs` kvstore driver",
         lifetime="the bucket's own policy; this branch deletes exactly what a `Delete` op names",
-        concedes=("copy and rename cross the rail unretried on the same mutation-ambiguity law S3 takes",),
+        concedes=("copy and rename cross the result unretried on the same mutation-ambiguity law S3 takes",),
     ),
     StoreBackend(
         "azure", frozenset({"az", "abfs", "abfss", "azure"}), None, True, True,
-        fits="Azure Blob and ADLS residence — a full object plane this branch signs and reads, yet no chunk-store engine opens",
+        fits="Azure Blob and ADLS store — a full object plane this branch signs and reads, yet no chunk-store engine opens",
         admit="`ObjectStoreLane` over the `store_handle` fold alone",
         lifetime="the container's own policy; this branch deletes exactly what a `Delete` op names",
         concedes=(
-            "no tensorstore kvstore driver exists for it, so a dense chunk store refuses this residence BY NAME off the `kvstore` column",
-            "copy and rename cross the rail unretried on the same mutation-ambiguity law S3 takes",
+            "no tensorstore kvstore driver exists for it, so a dense chunk store refuses this store BY NAME off the `kvstore` column",
+            "copy and rename cross the result unretried on the same mutation-ambiguity law S3 takes",
         ),
     ),
     StoreBackend(
@@ -206,11 +206,11 @@ STORE_BACKENDS: Final[Block[StoreBackend]] = Block.of_seq([
     ),
     StoreBackend(
         "memory", frozenset({"memory"}), "memory", False, False,
-        fits="a process-local residence for a fixture, a probe, or a fold that must never touch a disk",
-        admit="the same `ObjectStoreLane` surface every residence takes, so a test crosses the identical reach, gate, retry, and outcome path",
+        fits="a process-local store for a fixture, a probe, or a fold that must never touch a disk",
+        admit="the same `ObjectStoreLane` surface every store takes, so a test crosses the identical reach, gate, retry, and outcome path",
         lifetime="THIS PROCESS — every byte dies with the interpreter, and no drain, groom, or delete is owed",
         concedes=(
-            "durability whole: a write that succeeded here proves nothing survived, so no evidence, journal, or residence plane may name this backend",
+            "durability whole: a write that succeeded here proves nothing survived, so no evidence, journal, or storage plane may name this backend",
             "no presigned URL and no reach past the process that wrote it",
         ),
     ),
@@ -244,13 +244,13 @@ TRANSPORT_ARMS: Final[Map[Arm, TransportArm]] = Map.of_seq(
         ),
         TransportArm(
             "ssh",
-            fits="an operator-owned SFTP residence behind a verified known-hosts entry — a fleet scratch tree or staged artifact path no object store fronts",
+            fits="an operator-owned SFTP store behind a verified known-hosts entry — a fleet scratch tree or staged artifact path no object store fronts",
             admit="`TransportResource(ssh=(RemoteEndpoint, RetryClass))`, whose `confined` gates the POSIX path ahead of any dial and whose `dialed` is the branch's one asyncssh connection mint",
             lifetime="one connection per acquisition, closed by the leg's own `AsyncExitStack`; nothing pools and nothing outlives the call, so `SSH_KEEPALIVE` bounds only how fast a dead peer is observed",
             degrade=(
                 "no pool and no cache: every acquisition re-dials, re-authenticates, and re-reads bytes the http arm would have served out of its keyed store",
-                "no egress hop and no status vocabulary — a proxy is unspellable here and a refusal arrives as an asyncssh error the rail classifies, never as a code a caller branches on",
-                "one host key database gates the whole arm, so a residence the admitted `known_hosts` does not carry is unreachable rather than reachable-unverified",
+                "no egress hop and no status vocabulary — a proxy is unspellable here and a refusal arrives as an asyncssh error the result classifies, never as a code a caller branches on",
+                "one host key database gates the whole arm, so a store the admitted `known_hosts` does not carry is unreachable rather than reachable-unverified",
             ),
         ),
     )
@@ -359,7 +359,7 @@ class HttpEndpoint(Struct, frozen=True):
     def pool(self) -> Pool:
         return (self.key, self.cache)
 
-    def confined(self, relative: str, /) -> "RuntimeRail[str]":
+    def confined(self, relative: str, /) -> "RuntimeResult[str]":
         base = httpx.URL(self.url if self.url.endswith("/") else f"{self.url}/")
         target = base.join(relative)
         inside = (target.scheme, target.host, target.port) == (base.scheme, base.host, base.port) and _segmented(base.path, target.path)
@@ -385,7 +385,7 @@ class RemoteEndpoint(Struct, frozen=True):
         secret = self.password.map(lambda held: hashlib.sha256(held.get_secret_value().encode()).hexdigest()[:16]).default_value("-")
         return f"{self.host}:{self.port}:{self.python}:{self.root}:{secret}:kh{id(self.known_hosts):x}"
 
-    def confined(self, relative: str, /) -> "RuntimeRail[str]":
+    def confined(self, relative: str, /) -> "RuntimeResult[str]":
         normalized = posixpath.normpath(relative)
         escaped = relative.startswith("/") or normalized == ".." or normalized.startswith("../")
         return Error(ROOTS_TRAVERSAL.raised(self.key, relative)) if escaped else Ok(posixpath.join(self.root, normalized))
@@ -500,7 +500,7 @@ class StoreStream:
     def __init__(self, chunks: "BytesStream", path: str) -> None:
         self._chunks, self._path, self._guard = chunks, path, anyio.ResourceGuard(action="draining")
 
-    async def pull(self) -> RuntimeRail[Option[bytes]]:
+    async def pull(self) -> RuntimeResult[Option[bytes]]:
         async def next_chunk() -> Option[bytes]:
             return Option.of_optional(await anext(self._chunks, None))
 
@@ -560,7 +560,7 @@ def _proxy(url: str | None, secret: Option[SecretStr]) -> "httpx.Proxy | None":
 
 class Transfer:
     @staticmethod
-    async def run(plan: TransferPlan, delivery: Delivery) -> RuntimeRail[Acquired]:
+    async def run(plan: TransferPlan, delivery: Delivery) -> RuntimeResult[Acquired]:
         span = _TRACER.start_span(f"transport.{plan.at.point}", kind=SpanKind.CLIENT)
         match delivery:
             case Delivery.STREAM:
@@ -802,7 +802,7 @@ class ResourceRoot(Struct, frozen=True):
         path = UPath(uri)
         return cls(scheme=path.protocol or "file", root=str(path), owner=owner, credentials=credentials)
 
-    def child(self, relative: str) -> RuntimeRail[ResourceRef]:
+    def child(self, relative: str) -> RuntimeResult[ResourceRef]:
         base = UPath(self.root)
         resolved = (base / relative).resolve()
         return (
@@ -813,7 +813,7 @@ class ResourceRoot(Struct, frozen=True):
 
     async def read(
         self, source: ResourceRef | Block[ResourceRef], delivery: Delivery = Delivery.WHOLE, known: Option[str] = Nothing
-    ) -> RuntimeRail[Acquired | Batch]:
+    ) -> RuntimeResult[Acquired | Batch]:
         match source:
             case Block() as refs:
                 return await self._fan(refs, delivery, known)
@@ -822,10 +822,10 @@ class ResourceRoot(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def _fetch(self, ref: ResourceRef, delivery: Delivery, known: Option[str]) -> RuntimeRail[Acquired]:
+    async def _fetch(self, ref: ResourceRef, delivery: Delivery, known: Option[str]) -> RuntimeResult[Acquired]:
         return await Transfer.run(self._plan(ref, known), delivery)
 
-    async def _fan(self, refs: Block[ResourceRef], delivery: Delivery, known: Option[str]) -> RuntimeRail[Batch]:
+    async def _fan(self, refs: Block[ResourceRef], delivery: Delivery, known: Option[str]) -> RuntimeResult[Batch]:
         async with anyio.create_task_group() as fan:
             handles = refs.map(lambda ref: fan.start_soon(self._fetch, ref, delivery, known))
         return Ok(Batch(owner=self.owner, delivery=delivery, fetched=refs.zip(handles.map(lambda held: held.return_value))))
@@ -858,16 +858,16 @@ class ObjectStoreLane(Struct, frozen=True):
     def of(cls, ref: ResourceRef, config: Config | None = None, client_options: "ClientConfig | None" = None) -> ObjectStoreLane:
         return cls(ref=ref, store=store_handle(ref, config=config, client_options=client_options), backend=obstore.parse_scheme(ref.root))
 
-    def reached(self, op: StoreOp) -> RuntimeRail[StoreOp]:
+    def reached(self, op: StoreOp) -> RuntimeResult[StoreOp]:
         refused = _REFUSAL.try_find((self.backend, op.tag))
         return refused.map(lambda refusal: Error(ROOTS_UNSUPPORTED.raised(op.tag, refusal.value))).default_value(Ok(op))
 
-    def run(self, op: StoreOp, path: str = "", *, gate: StoreGate = _ADMIT) -> RuntimeRail[StoreOutcome]:
+    def run(self, op: StoreOp, path: str = "", *, gate: StoreGate = _ADMIT) -> RuntimeResult[StoreOutcome]:
         target = path or self.ref.relative
         with self._span(op):
             return self._admitted(op, target, gate).bind(lambda admission: self._settled(admission, target))
 
-    async def run_async(self, op: StoreOp, path: str = "", *, gate: StoreGate = _ADMIT) -> RuntimeRail[StoreOutcome]:
+    async def run_async(self, op: StoreOp, path: str = "", *, gate: StoreGate = _ADMIT) -> RuntimeResult[StoreOutcome]:
         target = path or self.ref.relative
         with self._span(op):
             match self._admitted(op, target, gate):
@@ -878,10 +878,10 @@ class ObjectStoreLane(Struct, frozen=True):
                 case unreachable:
                     assert_never(unreachable)
 
-    def _admitted(self, op: StoreOp, target: str, gate: StoreGate) -> RuntimeRail[StoreAdmission]:
+    def _admitted(self, op: StoreOp, target: str, gate: StoreGate) -> RuntimeResult[StoreAdmission]:
         return self.reached(op).bind(lambda admitted: gate(admitted, target))
 
-    def _settled(self, admission: StoreAdmission, target: str) -> RuntimeRail[StoreOutcome]:
+    def _settled(self, admission: StoreAdmission, target: str) -> RuntimeResult[StoreOutcome]:
         match admission:
             case StoreAdmission(tag="settled", settled=outcome):
                 return Ok(outcome)
@@ -895,7 +895,7 @@ class ObjectStoreLane(Struct, frozen=True):
             case unreachable:
                 assert_never(unreachable)
 
-    async def _awaited(self, admission: StoreAdmission, target: str) -> RuntimeRail[StoreOutcome]:
+    async def _awaited(self, admission: StoreAdmission, target: str) -> RuntimeResult[StoreOutcome]:
         match admission:
             case StoreAdmission(tag="settled", settled=outcome):
                 return Ok(outcome)
@@ -937,7 +937,7 @@ class TransportResource:
     http: tuple[HttpEndpoint, RetryClass] = case()
     ssh: tuple[RemoteEndpoint, RetryClass] = case()
 
-    async def acquire(self, relative: str, delivery: Delivery = Delivery.WHOLE) -> RuntimeRail[Acquired]:
+    async def acquire(self, relative: str, delivery: Delivery = Delivery.WHOLE) -> RuntimeResult[Acquired]:
         match self:
             case TransportResource(tag="http", http=(endpoint, retry_class)):
                 client, auth = _transport_client(endpoint), _auth(endpoint.bearer)

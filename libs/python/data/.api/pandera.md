@@ -93,7 +93,7 @@
 - `Check` runs element-wise or vectorized and groups by another column; `Hypothesis` wraps a statistical test; `Parser` transforms data before checks run.
 - Schema-evolution methods (`update_column`, `add_columns`, `set_index`, ...) return new immutable schemas.
 - Decorators enforce `pandera.typing.Series`/`DataFrame`/`Index` annotations (`pandera.typing.polars.*` for the polars backend); the annotation is the contract.
-- `SchemaInitError`/`SchemaDefinitionError` raise at schema-build time on a bad dtype or ill-formed model, the fail-fast definition rail distinct from the collect-all data rail.
+- `SchemaInitError`/`SchemaDefinitionError` raise at schema-build time on a bad dtype or ill-formed model, the fail-fast definition domain distinct from the collect-all data domain.
 
 [STACKING]:
 - `dataframely`(`.api/dataframely.md`) / `pointblank`(`.api/pointblank.md`): one validation concern partitioned by engine — pandas and multi-backend declarative contracts here, Polars-native `Collection` integrity to dataframely, column-health grading to pointblank.

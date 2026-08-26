@@ -4,7 +4,7 @@ This standard binds every `libs/` planning surface: it fixes the doc-set per tie
 
 ## [01]-[DOC_SET]
 
-This planning corpus widens by scope: a folder owns one package, a branch aggregates one independently adoptable language estate, and the cross-`libs/` core owns polyglot law. Peer languages appear in a branch or folder doc only as seam-registry counterpart nodes; every capability, ownership, and dependency claim spanning languages stays at the cross-`libs/` core.
+This planning corpus widens by scope: a folder owns one package, a branch aggregates one independently adoptable language repo, and the cross-`libs/` core owns polyglot law. Peer languages appear in a branch or folder doc only as boundary-registry counterpart nodes; every capability, ownership, and dependency claim spanning languages stays at the cross-`libs/` core.
 
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`.
 - Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
@@ -24,9 +24,9 @@ Each index doc opens on its own charter law, and every line it carries is load-b
 [README]:
 - Router: the design-page index under `.planning/`.
 - Domain packages: the folder-specific libraries the folder admits, grouped into `[CONCERN]` groups under `## [02]-[DOMAIN_PACKAGES]`.
-- Domain concerns group by honest breadth — a single-package group survives only as a genuine seam; substrate groups mirror the branch registry.
+- Domain concerns group by honest breadth — a single-package group survives only as a genuine boundary; substrate groups mirror the branch registry.
 - Rows carry no version pin and no `.api/` link — versions centralize in the owning manifest, and a catalogue link couples to a moving surface.
-- License gate: any license granting an OSS project full free use admits, copyleft included — the estate is fully OSS with zero commercial intent.
+- License gate: any license granting an OSS project full free use admits, copyleft included — the repo is fully OSS with zero commercial intent.
 - Payment-required or paid-tier-gated capability rejects; no deeper license analysis runs.
 - Row and annotation grammar follows the docgen readme template; depth beyond the one line belongs to the package's `.api/` catalogue, never the row.
 - Substrate packages: `## [03]-[SUBSTRATE_PACKAGES]` names the branch substrate the folder consumes, under `[01]-[DOC_SET]` `[API_TIERS]`.
@@ -34,7 +34,7 @@ Each index doc opens on its own charter law, and every line it carries is load-b
 [ARCHITECTURE]:
 - Codemaps name the complete eventual source structure under the real domain concept each node owns; a planned-but-empty sub-domain stays visible.
 - Branch architecture owns dependency direction and the folder roster with one-line charters; folder architecture composes that direction.
-- Every seam appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
+- Every boundary appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
 - `[<KIND>]: <shape>`; `KIND: WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|CONTENT_KEY|EVENT|TRANSPORT|TESSELLATION|GRADUATION|LEDGER|FAULT`.
 - Codemap edges carry `IMPORT` — a sub-domain composing a sibling owner — and `COUNTER` — the strata counter-edge — under the same label grammar.
 - Page filenames are their codemap node name language appropriate cased, so page and node resolve as one name and a rename moves consistently.
@@ -50,7 +50,7 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - H1 `# [<PKG>_<PAGE>]`; sections `## [k]-[TOKEN]` numbered from 1, section [1] the index of the page's clusters.
 - Leads run two paragraphs: the charter paragraph carries the capability the owner owns, its piece in the folder's system, and the boundary it holds.
 - Its composition paragraph carries the settled facts a rebuild composes without re-derivation, present only when the page carries them.
-- Composition facts: reused axes with their owning pages, seam obligations and frozen wire names, admission rails, policy rows.
+- Composition facts: reused axes with their owning pages, boundary obligations and frozen wire names, admission results, policy rows.
 - `[RESEARCH]` is the terminal section: each row is `- [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>`.
 - Research rows record epistemic debt in place of a guessed spelling; `(none)` marks the empty section, and a resolved row is deleted whole.
 - Settled facts never ride a research section — each folds into its owning line at write, and a bullet restating settled law is removed on sight.
@@ -59,7 +59,7 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Card fields are a closed ordered vocabulary: `Owner` `Cases` `Law` `Exemption` `Entry` `Auto` `Output` `Packages` `Growth` `Boundary`.
 - Each card field is earned: a field that decides nothing for the cluster is omitted.
 - Card bullets carry only what the fence cannot show — the decision, invariant, boundary, ownership ruling, trap, or rejection-with-reason.
-- `[01]-[INDEX]` indexes the page's clusters in section order, one entry per cluster and never an owner roster or a card restatement.
+- `[01]-[INDEX]` indexes the page's clusters in section order, one entry per cluster and never an owner roster or a card rrepoment.
 - Each index entry leads `[NN]-[CLUSTER]` restating its cluster's header number — a leader list, never a table seating the ordinal in `[INDEX]`.
 - Signature fences are transcription-complete: every generated-owner knob, closed-family key, union case, and entrypoint signature copies verbatim.
 - Fence bodies land only where the body is the law.
@@ -95,4 +95,4 @@ Signature fences transcribe an external member as settled fence code only when t
 
 This cross-`libs/` core registers only the packages that are genuinely project-level: shared tooling spanning languages, or the dependencies of an admin/meta `libs/<x>` surface bound to no branch domain. Its registry names the package and its language scope, never a version or a link. There is no project-level `.api/`.
 
-Catalogue homing follows `[01]-[DOC_SET]` `[API_TIERS]`: a package shared across folders only as a domain seam keeps a per-folder catalogue in each consuming folder, because the seam resource is folder-local, and a per-language package that is not cross-cutting stays folder-local in the folder README and `.api/`.
+Catalogue homing follows `[01]-[DOC_SET]` `[API_TIERS]`: a package shared across folders only as a domain boundary keeps a per-folder catalogue in each consuming folder, because the boundary resource is folder-local, and a per-language package that is not cross-cutting stays folder-local in the folder README and `.api/`.

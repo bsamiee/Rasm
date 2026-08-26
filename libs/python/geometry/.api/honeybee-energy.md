@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_HONEYBEE_ENERGY]
 
-`honeybee-energy` owns the building-energy extension on the geometry energy-modeling rail: `import honeybee_energy` fires `_extend_honeybee` to register `*EnergyProperties` onto every `honeybee-core` object, then it owns the energy object library, abridged HBJSON serialization, the `lib` by-identifier standards loaders, the `SimulationParameter` family, the `run` CLI bridge, and the SQL/CSV `result` parsers. It rides `honeybee-core` as the spine and feeds `honeybee-openstudio` and `dragonfly-energy`, while standards data, HBJSON validation, and the simulation engine stay in siblings.
+`honeybee-energy` owns the building-energy extension on the geometry energy-modeling domain: `import honeybee_energy` fires `_extend_honeybee` to register `*EnergyProperties` onto every `honeybee-core` object, then it owns the energy object library, abridged HBJSON serialization, the `lib` by-identifier standards loaders, the `SimulationParameter` family, the `run` CLI bridge, and the SQL/CSV `result` parsers. It rides `honeybee-core` as the spine and feeds `honeybee-openstudio` and `dragonfly-energy`, while standards data, HBJSON validation, and the simulation engine stay in siblings.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -128,7 +128,7 @@ Assignment is the room/model property surface; the owner composes these rather t
 
 [ENTRYPOINT_SCOPE]: simulation run bridge (`honeybee_energy.run`)
 
-Blocking EnergyPlus/OpenStudio CLI boundary; `run_osw`/`run_idf` shell out to the external engine and `to_openstudio_osw` builds the OSW. Owner offloads every run off the event loop, never blocking it (the offload rail is `[STACKING]`).
+Blocking EnergyPlus/OpenStudio CLI boundary; `run_osw`/`run_idf` shell out to the external engine and `to_openstudio_osw` builds the OSW. Owner offloads every run off the event loop, never blocking it (the offload path is `[STACKING]`).
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]           | [CAPABILITY]                                         |
 | :-----: | :------------------------------ | :--------------------- | :--------------------------------------------------- |
@@ -146,7 +146,7 @@ Blocking EnergyPlus/OpenStudio CLI boundary; `run_osw`/`run_idf` shell out to th
 |  [12]   | `from_idf_osw`                  | paths                  | reverse-import workflow from IDF                     |
 |  [13]   | `from_gbxml_osw`                | paths                  | reverse-import workflow from gbXML                   |
 
-- `run_idf`/`run_osw`: return output file paths on success and depend on an external EnergyPlus/OpenStudio install discovered through `honeybee_energy.config.folders`; a missing engine is a runtime fault, not an `ImportError`, so the `run` rail checks `folders.energyplus_exe`/`folders.openstudio_exe` before bracketing the subprocess.
+- `run_idf`/`run_osw`: return output file paths on success and depend on an external EnergyPlus/OpenStudio install discovered through `honeybee_energy.config.folders`; a missing engine is a runtime fault, not an `ImportError`, so the `run` layer checks `folders.energyplus_exe`/`folders.openstudio_exe` before bracketing the subprocess.
 
 [ENTRYPOINT_SCOPE]: result parsers (`honeybee_energy.result.*`)
 
@@ -204,11 +204,11 @@ Convert a proposed model into its Appendix G baseline and rate the simulated pai
 - `honeybee-energy-standards`(`.api/honeybee-energy-standards.md`): the large ASHRAE 90.1 / DOE-prototype JSON dropped into `folders.standards_extension_folders`; `building_program_type_by_identifier` resolves against it, present only when installed.
 - `honeybee-openstudio`(`.api/honeybee-openstudio.md`): the in-process OpenStudio translation over the native `openstudio` SDK; `DetailedHVAC` and the measure-backed path round-trip through it rather than the `run_idf` CLI.
 - `dragonfly-energy`(`.api/dragonfly-energy.md`): the urban aggregator above — its translators explode a district massing model into per-building honeybee-energy assignments through the same `.properties.energy` accessor.
-- `pydantic`(`libs/python/.api/pydantic.md`), `msgspec`(`libs/python/.api/msgspec.md`): abridged HBJSON validated through the `honeybee-schema` energy models (the `pydantic` rail) and decoded through `msgspec` at the boundary.
-- `anyio`(`libs/python/.api/anyio.md`), `expression`(`libs/python/.api/expression.md`): each `run_idf`/`run_osw` brackets through `anyio.to_thread.run_sync` off the event loop under runtime observation, folding the provider result into the `expression` `Result` rail.
+- `pydantic`(`libs/python/.api/pydantic.md`), `msgspec`(`libs/python/.api/msgspec.md`): abridged HBJSON validated through the `honeybee-schema` energy models (the `pydantic` layer) and decoded through `msgspec` at the boundary.
+- `anyio`(`libs/python/.api/anyio.md`), `expression`(`libs/python/.api/expression.md`): each `run_idf`/`run_osw` brackets through `anyio.to_thread.run_sync` off the event loop under runtime observation, folding the provider result into the `expression` `Result`.
 - `numpy`(`libs/python/.api/numpy.md`), `xarray`(`libs/python/.api/xarray.md`): the `result.*_from_sql` rows promote into the `numpy`/`xarray` data tier, `match_rooms_to_data`/`match_faces_to_data` joining the series back onto honeybee geometry.
 - `baseline.*` needs a PROPOSED simulation beside a baseline roster, so a rating entry runs after two `run_idf` passes and never off one sql; `pci`/`result` read the `data/` vintage csv tables and no other path reaches them.
 
 [LOCAL_ADMISSION]:
-- Energy-property assignment feeds the energy-modeling owner; standards resolve through `lib.*_by_identifier`; result rows promote to the `numpy`/`xarray` tier and `check_all(detailed=True)` folds into the `expression` `Result` rail.
+- Energy-property assignment feeds the energy-modeling owner; standards resolve through `lib.*_by_identifier`; result rows promote to the `numpy`/`xarray` tier and `check_all(detailed=True)` folds into the `expression` `Result`.
 - Consume the AGPL-3.0 stack as a process-boundary companion exchanging HBJSON and shelling out to the external EnergyPlus/OpenStudio CLI, never statically linked into a distributed proprietary artifact.

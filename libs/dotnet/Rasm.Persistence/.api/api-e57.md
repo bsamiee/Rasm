@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_E57]
 
-`Aardvark.Data.E57` owns the managed ASTM E57 (E2807-11) read decode: the 48-byte binary file header, the XML `E57Root` metadata tree with one `E57Data3D` record per scan setup, and the CRC-paged CompressedVector point section unpacked chunk-by-chunk out of its bit-packed per-property byte streams. `Ingest/pointcloud#SCAN_SOURCE` composes it as the E57 leg of the reality-capture codec pair — header and `Data3D` metadata rows for the durable header, streamed point chunks for the chunked-blob residence and the per-region cell fold. Decode only: the assembly carries no writer.
+`Aardvark.Data.E57` owns the managed ASTM E57 (E2807-11) read decode: the 48-byte binary file header, the XML `E57Root` metadata tree with one `E57Data3D` record per scan setup, and the CRC-paged CompressedVector point section unpacked chunk-by-chunk out of its bit-packed per-property byte streams. `Ingest/pointcloud#SCAN_SOURCE` composes it as the E57 leg of the reality-capture codec pair — header and `Data3D` metadata rows for the durable header, streamed point chunks for the chunked-blob storage and the per-region cell fold. Decode only: the assembly carries no writer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -124,5 +124,5 @@
 - `E57FileHeader.Parse` receives a SEEKABLE stream and the true byte count; a non-seekable `Origin.FromStream` buffers first, because the header read seeks to `XmlOffset` and every point read seeks to its section offset
 - streaming enters at `E57Data3D.StreamPointsFull` per setup, never at the `E57.Chunks`/`ChunksFull` facade — the facade's `ParseConfig` defaults fabricate colour, normal, intensity, and classification lanes a durable row must not inherit, and `Chunks` silently drops the index, flag, and return channels
 - raw `ASTM_E57.*` and `E57Chunk` types never leave the decode leg: internal code holds the canonical `ScanHeader`/`ScanRegion`/`ScanBatch` rows
-- every thrown parse refusal traps at the fold boundary onto `ScanFault.CodecReject`; a setup whose `CoordinateMetadata` names a CRS the spec cannot admit rails `ScanFault.CrsUnsupported`
+- every thrown parse refusal traps at the fold boundary onto `ScanFault.CodecReject`; a setup whose `CoordinateMetadata` names a CRS the spec cannot admit yields `ScanFault.CrsUnsupported`
 - AGPL-3.0 custody rides a SEPARATE assembly reference (`PackageReference`), never an ILMerge into a Rasm assembly; the pure-managed ns2.0 IL binds forward and the plugin ALC firebreak holds

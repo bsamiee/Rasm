@@ -11,7 +11,7 @@
 |  [01]   | `HealthCheckService`          | evaluator service  | health execution     |
 |  [02]   | `HealthCheckServiceOptions`   | registration store | contributor registry |
 |  [03]   | `HealthCheckPublisherOptions` | publisher policy   | report cadence       |
-|  [04]   | `IHealthChecksBuilder`        | builder contract   | registration rail    |
+|  [04]   | `IHealthChecksBuilder`        | builder contract   | registration API     |
 
 [PUBLIC_TYPE_SCOPE]: health contract family
 
@@ -70,4 +70,4 @@
 - Health checks project capability state, never own runtime state; a probe returns a typed `HealthCheckResult`, and a thrown exception crossing the fold is the deleted form.
 - Every check enters through the one `HealthContributorRow` adapter carrying its tag for filtered projection, never a parallel `Add*` face.
 - Degraded maps to a usable-capability outcome, so a faulted dependency degrades the host rather than failing it.
-- `IHealthCheckPublisher` is the projection seam and `DegradationCell` the one publisher, never a second health store.
+- `IHealthCheckPublisher` is the projection interface and `DegradationCell` the one publisher, never a second health store.

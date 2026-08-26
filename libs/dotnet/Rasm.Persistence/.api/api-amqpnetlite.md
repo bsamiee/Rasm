@@ -109,6 +109,6 @@
 
 [LOCAL_ADMISSION]:
 - egress sends through `SendAsync(Message, TimeSpan)` alone; its awaited return IS the settlement, and an `AmqpException` over a `Released` or `Rejected` outcome is the refusal.
-- callback send forms refuse on a durable rail because their queue has no ceiling and their null-callback variant acknowledges nothing.
+- callback send forms refuse on a durable path because their queue has no ceiling and their null-callback variant acknowledges nothing.
 - in-flight breadth is the composing fence's declared row value realized over a bounded channel, never a client setting, because this client publishes none.
 - connection, session, and link each register one closed-callback subscription at composition, folding `Error` into the delivery leg's out-of-band cell.

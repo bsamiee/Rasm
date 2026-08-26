@@ -1,6 +1,6 @@
 # [PERSISTENCE_VERSION_MERGE]
 
-`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or `FieldMask` member patches over the binary `NodeWire`, lowered onto the generated `Element.EntityEditWire` whose members arm carries one `PatchOp` per mask path, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `Conflict` without manufacturing missing authorship.
+`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or `FieldMask` member patches over the binary `NodeWire`, lowered onto the generated `Element.EntityEditWire` whose members arm carries one `PatchOp` per mask path, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation path. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `Conflict` without manufacturing missing authorship.
 
 ## [01]-[INDEX]
 
@@ -15,17 +15,17 @@
 - Owner: `TallyFact`, `MergeOutcome`, and `StructuralMerge` own merge evidence and the full merge fold.
 - Cases: `EntityEdit` is `Tombstone | Members`; both arms carry the addressed current-node base.
 - Cases: `Delete` maps to `Tombstone`; held-node material edits map to `Members`.
-- Cases: `EditOp.Insert` remains on the graph mutation rail and does not fabricate a held-node EntityEdit.
+- Cases: `EditOp.Insert` remains on the graph mutation path and does not fabricate a held-node EntityEdit.
 - Entry: `Reconcile` aligns imported ids from GlobalId and unambiguous GlobalId-less type keys.
 - Entry: `Forest` and `DiffContent` project object topology and non-object content onto separate detection axes.
 - Entry: `ThreeWay` returns clean edits, typed conflicts, and tally evidence in one result.
-- Entry: `Patch(script, base, target, policy, key)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault rail; `EditWire.Wire(edit, key)` lowers one edit onto the generated message.
+- Entry: `Patch(script, base, target, policy, key)` returns `Fin<HashMap<NodeId, EntityEdit>>` on the element fault channel; `EditWire.Wire(edit, key)` lowers one edit onto the generated message.
 - Auto: Every base is `ContentAddress.Of(baseNode, base.Header.Tolerance)`.
 - Auto: `Members` diffs the binary `NodeWire` pair field by field off `NodeWire.Descriptor.Fields.InFieldNumberOrder()` through `IFieldAccessor` equality — message fields recurse, repeated and map fields compare whole, a presence flip names the path, a changed oneof arm names both arms.
 - Auto: `FieldMask.IsValid` gates the path set; `Merge` under `ReplaceMessageFields`/`ReplaceRepeatedFields`/`ReplacePrimitiveFields` applies it, so a primitive returning to its default crosses as a change — the member a ProtoJSON diff elided.
 - Auto: The wire pointer re-spells each mask segment through the field's `JsonName`, and the op kind derives from which side renders the member — `Add`, `Replace`, or `Remove` — so the peer's ProtoJSON document and the binary mask name one change.
 - Auto: `Patch` collapses an over-ceiling path set to the top-level field set both sides render, so the successor replaces whole and the op count stays under the ceiling by construction.
-- Output: `MergeOutcome.Counts` carries the conflict count, and each `MergeConflict` projects the held/incoming changefeed evidence it actually has to `Conflict`; each projected conflict fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
+- Output: `MergeOutcome.Counts` carries the conflict count, and each `MergeConflict` projects the held/incoming changefeed evidence it actually has to `Conflict`; each projected conflict fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOKS`) at the composition root.
 - Packages: Google.Protobuf owns `FieldMask`/`Merge`/`IsValid`, the descriptor walk (`Fields.InFieldNumberOrder`, `FieldDescriptor.Accessor`/`JsonName`/`HasPresence`/`FieldType`/`IsRepeated`, `MessageDescriptor.Parser`), and `Value.Parser.ParseJson`; Rasm.AppHost `WireJson.Formatter.WriteValue` is the one ProtoJSON leaf render.
 - Packages: Rasm `ContentHash.Of` + `CanonicalWriter` own every local digest (`GeometryDigest`, `Seal`); LanguageExt owns immutable carriers and `Fin`.
 - Packages: Thinktecture owns closed unions; NodaTime owns merge evidence time.
@@ -33,7 +33,7 @@
 - Boundary: Re-ingest alignment precedes every durable-`NodeId` diff.
 - Boundary: `Forest` reads `Relationship.Compose` containment and the complete representation map.
 - Boundary: Non-object content nodes diff directly from the node map and never disappear behind the object forest.
-- Boundary: `GraphNode` hashes drive detection only; patch masks target the binary `NodeWire` the seam encoded, and ProtoJSON is a `PatchOp` leaf render, never a patch target or a relay.
+- Boundary: `GraphNode` hashes drive detection only; patch masks target the binary `NodeWire` upstream encoded, and ProtoJSON is a `PatchOp` leaf render, never a patch target or a relay.
 - Boundary: TypeScript decodes the generated `EntityEditWire`, applies the `PatchOp` run to its retained ProtoJSON, and decodes the successor through the existing node landing.
 
 ```csharp
@@ -458,21 +458,21 @@ public static class StructuralMerge {
 }
 ```
 
-| [INDEX] | [POLICY]              | [VALUE]                                                                       |
-| :-----: | :-------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | re-ingest align       | `Reconcile` on `Node.Object.ExternalId`                                       |
-|  [02]   | forest topology       | `Relationship.Compose` containment edges                                      |
-|  [03]   | node role             | `(ObjectKind, containment-whole)` neutral signal                              |
-|  [04]   | geometry axis         | the FULL `Representations.ByIdentifier` map                                   |
-|  [05]   | content axis          | the non-`Object` nodes diffed off the node map                                |
-|  [06]   | content key           | seam `ContentAddress.Of` over `ToCanonicalBytes`                              |
-|  [07]   | subtree prune         | kernel `ContentHash.Of` over `U128`/`Ordinal`/`String`/`Rows`                 |
-|  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                     |
-|  [09]   | edit egress           | `Tombstone \| Members` lowered onto `Element.EntityEditWire` by `EditWire`    |
-|  [10]   | conflict              | `Version/ledger#MERGE_LAW` `Conflict`                                         |
-|  [11]   | reconciliation seam   | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
-|  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |
-|  [13]   | patch target          | binary `NodeWire`: `FieldMask` diff, `IsValid` gate, `Merge` apply            |
+| [INDEX] | [POLICY]                | [VALUE]                                                                       |
+| :-----: | :---------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | re-ingest align         | `Reconcile` on `Node.Object.ExternalId`                                       |
+|  [02]   | forest topology         | `Relationship.Compose` containment edges                                      |
+|  [03]   | node role               | `(ObjectKind, containment-whole)` neutral signal                              |
+|  [04]   | geometry axis           | the FULL `Representations.ByIdentifier` map                                   |
+|  [05]   | content axis            | the non-`Object` nodes diffed off the node map                                |
+|  [06]   | content key             | upstream `ContentAddress.Of` over `ToCanonicalBytes`                          |
+|  [07]   | subtree prune           | kernel `ContentHash.Of` over `U128`/`Ordinal`/`String`/`Rows`                 |
+|  [08]   | conflict accumulation   | `MergeOutcome` carries merged + conflicts                                     |
+|  [09]   | edit egress             | `Tombstone \| Members` lowered onto `Element.EntityEditWire` by `EditWire`    |
+|  [10]   | conflict                | `Version/ledger#MERGE_LAW` `Conflict`                                         |
+|  [11]   | reconciliation boundary | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
+|  [12]   | type correlation        | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |
+|  [13]   | patch target            | binary `NodeWire`: `FieldMask` diff, `IsValid` gate, `Merge` apply            |
 
 Each row's binding invariant, keyed to its policy:
 
@@ -481,12 +481,12 @@ Each row's binding invariant, keyed to its policy:
 - [03]-[NODE_ROLE]: never an IFC-class string scan of `Classification.Code`.
 - [04]-[GEOMETRY_AXIS]: the complete `Representations.ByIdentifier` map, kernel digests read not re-minted.
 - [05]-[CONTENT_AXIS]: `DiffContent` carries every single-side content edit the `Object`-only forest never reaches.
-- [06]-[CONTENT_KEY]: `ContentAddress.Of` mints every content key as the ONE seam hasher.
+- [06]-[CONTENT_KEY]: `ContentAddress.Of` mints every content key as the ONE upstream hasher.
 - [07]-[SUBTREE_PRUNE]: linear in changed nodes, no `GetHashCode`, no second alphabet beside the kernel writer.
 - [08]-[CONFLICT_ACCUMULATION]: one-pass classify, both carried, never first-abort.
 - [09]-[EDIT_EGRESS]: both arms compare the held node's producer-carried base address.
 - [10]-[CONFLICT]: held/incoming `(Hlc, actor)` from the changefeed.
-- [11]-[RECONCILIATION_SEAM]: `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary.
+- [11]-[RECONCILIATION_BOUNDARY]: `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary.
 - [12]-[TYPE_CORRELATION]: `TypeKey` diffs a re-keyed GlobalId-less `Type` as RENAME; the kernel V8a seed replaces the interim on landing.
 - [13]-[PATCH_TARGET]: `Members` diffs the binary `NodeWire` and applies through `Merge`; ProtoJSON is the `PatchOp` leaf render alone; insertion remains on `GraphDelta`.
 

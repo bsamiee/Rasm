@@ -2,7 +2,7 @@
 
 `CadClient` is geometry's client edge to the OCCT provider, and it is ONE entry over the whole generated `CadService` rpc set. One `CadRoute` policy value carries each rpc: its request and reply classes, the dial already woven with its own refusal capture, and the fault row that dial publishes under — so a second rpc is one route row and the entry, its callers, and the refusal projection stand untouched. Each unary reply carries an output `ArtifactRef`; the operation that consumes the body resolves that reference through `ArtifactTransfer.fetch` for exactly its own scope, and this boundary neither materializes the body nor extends a helper-owned path lifetime. Geometry owns no STEP parser, OCCT proxy, protocol mirror, stream state machine, or second triangle census.
 
-`transport/shapes#VOCABULARY`'s `dialed` weave is the one client-edge refusal capture and arrives settled: the client-side admission phase lands on the route's own row and a peer `ConnectError` lifts whole through `remote_fault`, so no arm is re-spelled here and the two sibling wrappers that each carried their own copy of it are gone. `Deadline` is this seam's one reading of a caller budget, projected once into the wire's millisecond unit and threaded unchanged, so no call site re-derives a bound the value already carries.
+`transport/shapes#VOCABULARY`'s `dialed` weave is the one client-edge refusal capture and arrives settled: the client-side admission phase lands on the route's own row and a peer `ConnectError` lifts whole through `remote_fault`, so no arm is re-spelled here and the two sibling wrappers that each carried their own copy of it are gone. `Deadline` is this boundary's one reading of a caller budget, projected once into the wire's millisecond unit and threaded unchanged, so no call site re-derives a bound the value already carries.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@
 - Law: element and triangle counts arrive only from the provider's emitted-GLB census; geometry does not parse GLB a second time.
 - Law: `Deadline` reads a budget ONCE and threads it as the value. Whole milliseconds are the wire unit, so a budget under one millisecond states a bound the transport cannot carry and REFUSES; the deleted `max(1, int(seconds * 1000.0))` floor silently widened such a budget to a full millisecond and turned an already-spent bound into a fresh one.
 - Growth: a new `CadService` rpc is one `CadRoute` row beside one row on `RAISES`; the entry, every caller, and the refusal projection stand untouched, and a route whose reply class the caller does not name is unspellable.
-- Boundary: STEP/IGES and sealed B-rep cross `CadService`; every body crosses `ArtifactService` by reference and no `OCP.*` import exists in this package. `mesh/brep#BREP` composes `EXECUTE` and owns the B-rep evidence projection; this page owns the seam alone and no evidence of its own.
+- Boundary: STEP/IGES and sealed B-rep cross `CadService`; every body crosses `ArtifactService` by reference and no `OCP.*` import exists in this package. `mesh/brep#BREP` composes `EXECUTE` and owns the B-rep evidence projection; this page owns the boundary alone and no evidence of its own.
 
 ```python
 from collections.abc import Awaitable, Callable
@@ -31,7 +31,7 @@ from protobuf import Message
 # Contracts are retired from this logic.
 
 from rasm.geometry.graduation import GeometryLeg
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, rostered
 from rasm.runtime.shapes import Dialed, dialed
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -69,11 +69,11 @@ class Deadline(Struct, frozen=True, gc=False):
     milliseconds: int | None
 
     @staticmethod
-    def of(budget: Option[float], /) -> RuntimeRail["Deadline"]:
+    def of(budget: Option[float], /) -> RuntimeResult["Deadline"]:
         return budget.map(Deadline._spelled).default_value(Ok(Deadline(milliseconds=None)))
 
     @staticmethod
-    def _spelled(seconds: float, /) -> RuntimeRail["Deadline"]:
+    def _spelled(seconds: float, /) -> RuntimeResult["Deadline"]:
         return (
             Ok(Deadline(milliseconds=int(seconds * 1000.0)))
             if isfinite(seconds) and seconds >= 0.001
@@ -108,7 +108,7 @@ class CadClient:
     def __init__(self, client: CadServiceClient) -> None:
         self._client = client
 
-    async def call[Q: Message, R: Message](self, route: CadRoute[Q, R], request: Q, *, budget: Option[float]) -> RuntimeRail[R]:
+    async def call[Q: Message, R: Message](self, route: CadRoute[Q, R], request: Q, *, budget: Option[float]) -> RuntimeResult[R]:
         match Deadline.of(budget):
             case Result(tag="error") as refused:
                 return refused

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_DASK]
 
-`dask` owns lazy chunked parallel collections over a deferred task graph — blocked arrays, partitioned dataframes, unstructured bags, and lifted calls — none materializing until `compute`, `persist`, `store`, or a scheduler submission drives it. `compute` consumes `dask.array.Array` as one passive Array-API backend and imports dask at no runtime point; `data` owns the graph-orchestration surface, feeding the lazy-collections rail.
+`dask` owns lazy chunked parallel collections over a deferred task graph — blocked arrays, partitioned dataframes, unstructured bags, and lifted calls — none materializing until `compute`, `persist`, `store`, or a scheduler submission drives it. `compute` consumes `dask.array.Array` as one passive Array-API backend and imports dask at no runtime point; `data` owns the graph-orchestration surface, feeding the lazy-collections domain.
 
 ## [01]-[PUBLIC_TYPES]
 

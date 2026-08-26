@@ -15,7 +15,7 @@ config:
 ---
 gantt
   accTitle: Compute campaign schedule
-  accDescr: A six-week compute campaign from survey and brief through parallel kernel and seam workstreams, gated by a scope freeze, converging on a verified landing milestone.
+  accDescr: A six-week compute campaign from survey and brief through parallel kernel and boundary workstreams, gated by a scope freeze, converging on a verified landing milestone.
   title Compute Campaign
   dateFormat YYYY-MM-DD
   axisFormat %b %d
@@ -32,7 +32,7 @@ gantt
   section Build
   Solver kernel :active, k1, after b1, 6d
   Outcome algebra :k2, after k1, 4d
-  Seam ledger :s1, after b2, 5d
+  Boundary ledger :s1, after b2, 5d
   Wire fences :crit, s2, after s1, 5d
   section Landing
   Cold verify :crit, l1, after k2 s2, 3d

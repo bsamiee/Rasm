@@ -14,7 +14,7 @@ The scenario axis is data twice over: `ScenarioKind` is the closed family-kind v
 - Law: leaves are CF cubes and group nodes are structure — `map_over_datasets` visits every node, so the mapped step guards the empty group dataset and transforms leaves alone; reduction concats the leaf cubes over a minted `scenario` dimension named by leaf identity, so the collapsed cube carries scenario provenance as a coordinate a query selects on, never a positional index.
 - Law: `difference` names its baseline by leaf identity and refuses typed on an absent one — a silent empty delta over a mistyped baseline is the wire-damage class the refusal forecloses; the delta tree drops the baseline leaf, because a zero self-delta is a fabricated row no consumer asked for.
 - Entry: `ScenarioTree.of(kind, cubes)` builds `/{kind}/{name}` paths through `DataTree.from_dict`; `apply(op)` returns the `TreeResult` union; `write(target)` lands the hierarchy as one Zarr store and keys its `zarr.json` root-metadata bytes.
-- Packages: `xarray` (`DataTree.from_dict`, `map_over_datasets`, `leaves`, `to_zarr`, `concat`), `pandas` (the named `scenario` index the concat dimension rides), `msgspec` (the frozen owner), runtime (`RuntimeRail`/`boundary`/`FaultRow`/`ContentIdentity`/`scoped`), `tabular/interop#INTEROP` (`DataLeg`, the folder's one raise-leg roster).
+- Packages: `xarray` (`DataTree.from_dict`, `map_over_datasets`, `leaves`, `to_zarr`, `concat`), `pandas` (the named `scenario` index the concat dimension rides), `msgspec` (the frozen owner), runtime (`RuntimeResult`/`boundary`/`FaultRow`/`ContentIdentity`/`scoped`), `tabular/interop#INTEROP` (`DataLeg`, the folder's one raise-leg roster).
 - Growth: a new scenario family kind is one `ScenarioKind` member; a new group-wise operation is one `TreeOp` case plus one `apply` arm; a new reduction verb is one `ReduceVerb` literal; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.ENSEMBLE` in this module's one `RAISES` table; zero new surface.
 - Boundary: composes the CF owner and the Zarr surface, never a second labelled-array store, scenario generation, or UQ replicate container.
 
@@ -32,7 +32,7 @@ from opentelemetry import trace
 lazy import xarray as xr
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.roots import ResourceRef
 
@@ -95,20 +95,20 @@ class ScenarioTree(Struct, frozen=True):
     scenarios: tuple[str, ...]
 
     @classmethod
-    def of(cls, kind: ScenarioKind, cubes: "dict[str, xr.Dataset]") -> "RuntimeRail[ScenarioTree]":
+    def of(cls, kind: ScenarioKind, cubes: "dict[str, xr.Dataset]") -> "RuntimeResult[ScenarioTree]":
         def build() -> "ScenarioTree":
             tree = xr.DataTree.from_dict({f"/{kind.value}/{name}": cube for name, cube in cubes.items()})
             return cls(tree=tree, kind=kind, scenarios=tuple(sorted(cubes)))
 
         return boundary(TREE_BUILD, build, catch=_tree_raises())
 
-    def apply(self, op: TreeOp) -> "RuntimeRail[TreeResult]":
+    def apply(self, op: TreeOp) -> "RuntimeResult[TreeResult]":
         with _TRACER.start_as_current_span(
             f"ensemble.{op.tag}", attributes={"rasm.field.kind": self.kind.value, "rasm.field.scenarios": len(self.scenarios)}
         ):
-            return boundary(TREE_APPLY, lambda: self._apply(op), catch=_tree_raises()).bind(lambda railed: railed)
+            return boundary(TREE_APPLY, lambda: self._apply(op), catch=_tree_raises()).bind(lambda inner: inner)
 
-    def _apply(self, op: TreeOp) -> "RuntimeRail[TreeResult]":
+    def _apply(self, op: TreeOp) -> "RuntimeResult[TreeResult]":
         match op:
             case TreeOp(tag="mapped", mapped=step):
                 mapped = self.tree.map_over_datasets(lambda ds: step(ds) if ds else ds)
@@ -132,14 +132,14 @@ class ScenarioTree(Struct, frozen=True):
     def _stacked(self) -> Any:
         return xr.concat([node.dataset for node in self.tree.leaves], dim=pd.Index(self.scenarios, name="scenario"))
 
-    def write(self, target: ResourceRef) -> "RuntimeRail[ContentKey]":
-        def emit() -> "RuntimeRail[ContentKey]":
+    def write(self, target: ResourceRef) -> "RuntimeResult[ContentKey]":
+        def emit() -> "RuntimeResult[ContentKey]":
             self.tree.to_zarr(str(target.path))
             source = (target.path / "zarr.json").read_bytes()
             return ContentIdentity.of("field", source)
 
         with _TRACER.start_as_current_span("ensemble.write", attributes={"rasm.field.kind": self.kind.value}):
-            return boundary(TREE_WRITE, emit, catch=_store_raises()).bind(lambda rail: rail)
+            return boundary(TREE_WRITE, emit, catch=_store_raises()).bind(lambda held: held)
 ```
 
 ## [03]-[RESEARCH]

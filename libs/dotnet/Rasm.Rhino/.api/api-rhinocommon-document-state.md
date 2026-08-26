@@ -1,11 +1,11 @@
 # [RASM_RHINO_API_RHINOCOMMON_DOCUMENT_STATE]
 
-This catalog owns the document-scoped saved-state presets — named construction planes, named positions, named layer states, the snapshot name roster, and the worksession reference-model roster — beside the `SnapShotsClient` seam through which a plugin captures and restores snapshots. `NamedViewTable` stays owned by Viewport/operations.md through `NamedViewOp`; the `ArchivableDictionary` and `PersistentSettings` custody spine lives in `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md`. `SnapshotTable` carries its name roster alone: capture and restore ride `RunScript` and `SnapShotsClient`, never a table method.
+This catalog owns the document-scoped saved-state presets — named construction planes, named positions, named layer states, the snapshot name roster, and the worksession reference-model roster — beside the `SnapShotsClient` interface through which a plugin captures and restores snapshots. `NamedViewTable` stays owned by Viewport/operations.md through `NamedViewOp`; the `ArchivableDictionary` and `PersistentSettings` custody spine lives in `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md`. `SnapshotTable` carries its name roster alone: capture and restore ride `RunScript` and `SnapShotsClient`, never a table method.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: named-preset tables
-- rail: document-state-boundary
+- concern: document-state-boundary
 
 | [INDEX] | [SYMBOL]                      | [KIND]       | [CAPABILITY]                                                    |
 | :-----: | :---------------------------- | :----------- | :-------------------------------------------------------------- |
@@ -15,14 +15,14 @@ This catalog owns the document-scoped saved-state presets — named construction
 |  [04]   | `SnapshotTable`               | sealed table | snapshot name roster only; capture and restore ride `RunScript` |
 
 [PUBLIC_TYPE_SCOPE]: preset value carriers and participation
-- rail: document-state-boundary
+- concern: document-state-boundary
 
 | [INDEX] | [SYMBOL]                        | [KIND]         | [CAPABILITY]                                                    |
 | :-----: | :------------------------------ | :------------- | :-------------------------------------------------------------- |
 |  [01]   | `ConstructionPlane`             | class          | grid, plane, snap, and axis-color vocabulary of one cplane      |
 |  [02]   | `ConstructionPlaneGridDefaults` | class          | seven-field default grid carrier for new cplanes                |
 |  [03]   | `Worksession`                   | sealed class   | reference-model roster read surface; mutation is command-driven |
-|  [04]   | `SnapShotsClient`               | abstract class | plugin capture, restore, and animation participation seam       |
+|  [04]   | `SnapShotsClient`               | abstract class | plugin capture, restore, and animation participation hook       |
 |  [05]   | `RestoreLayerProperties`        | flags enum     | property mask consumed by `NamedLayerStateTable.Restore`        |
 
 [ENUM_ROSTERS]:
@@ -90,9 +90,9 @@ This catalog owns the document-scoped saved-state presets — named construction
 [STACKING]:
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Plane`/`Transform`/`BoundingBox` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
 - `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): table `bool` outcomes and negative-signalling `int` indices fold to `Fin<Unit>`/`Fin<int>`, `ObjectXform`'s `ref Transform` out projects to `Fin<Transform>`, and roster arrays land as `Seq<A>` with zero-pointer slots dropped.
-- `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): `RestoreLayerProperties` wraps as a bounded flags vocabulary owning the property-group mask, and the preset kinds close as generated cases so the save/restore rail dispatches totally.
+- `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): `RestoreLayerProperties` wraps as a bounded flags vocabulary owning the property-group mask, and the preset kinds close as generated cases so the save/restore path dispatches totally.
 - `Rasm` kernel: cplane `Plane`, grid metrics, and per-object `Transform` values compose the kernel numeric owners and colors compose the kernel color owner, never re-derived inside the preset layer.
 
 [LOCAL_ADMISSION]:
-- a preset enters through the owning table's `Save` or `Add`; restore and update return `bool` outcomes the rail lifts to `Fin`; snapshot participation enters once through `RegisterSnapShotClient`.
+- a preset enters through the owning table's `Save` or `Add`; restore and update return `bool` outcomes the boundary lifts to `Fin`; snapshot participation enters once through `RegisterSnapShotClient`.
 - live `ConstructionPlane`, `Worksession`, and archive-reader handles stay inside the document grant; downstream code receives detached preset values, decoded transforms, or detached results.

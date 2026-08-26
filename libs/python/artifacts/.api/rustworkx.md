@@ -29,7 +29,7 @@
 |  [04]   | `rx.NodeMap`                              | mapping       | `subgraph_with_nodemap` / `substitute_node_with_subgraph` old->new map      |
 |  [05]   | `rx.BFSSuccessors` / `rx.BFSPredecessors` | sequence      | `bfs_successors` / `bfs_predecessors` `(node, [successors])` rows           |
 
-[PUBLIC_TYPE_SCOPE]: incremental DAG sorter, GraphML egress keys, and the typed faults the `expression` Result rail folds instead of a bare raise crossing the domain
+[PUBLIC_TYPE_SCOPE]: incremental DAG sorter, GraphML egress keys, and the typed faults the `expression` result type folds instead of a bare raise crossing the domain
 - call: `TopologicalSorter(dag, check_cycle, *, reverse=False, initial=None, check_args=True)` — ready-set loop; `.get_ready()` / `.done(nodes)` / `.is_active()`
 
 | [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY] | [CAPABILITY]                                            |
@@ -109,9 +109,9 @@
 - `node_link_json` supplies `node_attrs` / `edge_attrs` so two glyph-distinct graphs serialize distinctly; two layouts of one graph under distinct `LayoutPolicy` values key distinctly because the coordinate and route maps join the topology wire, so a diagram is content-addressable on its full laid-out form.
 
 [STACKING]:
-- `expression` / `beartype`(`libs/python/.api/{expression,beartype}.md`): the figure/AEC owner wraps build+layout+serialize in a `RuntimeRail[...]` (`expression`-folded `Result`) so a `NullGraph`, `DAGWouldCycle`, or `JSONSerializationError` folds to a typed rail fault, and the `@beartype`-validated boundary rejects a wrong-shaped adjacency row at the seam, not deep in the Rust core.
+- `expression` / `beartype`(`libs/python/.api/{expression,beartype}.md`): the figure/AEC owner wraps build+layout+serialize in a `RuntimeResult[...]` (`expression`-folded `Result`) so a `NullGraph`, `DAGWouldCycle`, or `JSONSerializationError` folds to a typed result fault, and the `@beartype`-validated boundary rejects a wrong-shaped adjacency row at the boundary, not deep in the Rust core.
 - `numpy`(`libs/python/.api/numpy.md`): `Pos2DMapping` is `__array__`-convertible and `from_adjacency_matrix` / `adjacency_matrix` exchange a dense `npt.NDArray[np.float64]` with the shared substrate — a coordinate map crosses into the numeric lane for a bounding-box extent and a numpy matrix crosses back into a graph, one array contract with no second copy.
-- `anyio` / `stamina` / `structlog` / OpenTelemetry(`libs/python/.api/{anyio,stamina,structlog,opentelemetry-api}.md`): the synchronous native build+layout+DAG-order+serialize is one `_render` kernel crossed through the instance `lane.offload(Kernel.of(..., KernelTrait.RELEASING))` seam — the RELEASING trait (not the subinterpreter) because the kernel touches the isolate-unsafe `numpy` / `msgspec` C-extensions — with capacity and deadline owned by the runtime `LanePolicy` and emitted as a `structlog` event inside an OpenTelemetry span.
+- `anyio` / `stamina` / `structlog` / OpenTelemetry(`libs/python/.api/{anyio,stamina,structlog,opentelemetry-api}.md`): the synchronous native build+layout+DAG-order+serialize is one `_render` kernel crossed through the instance `lane.offload(Kernel.of(..., KernelTrait.RELEASING))` boundary — the RELEASING trait (not the subinterpreter) because the kernel touches the isolate-unsafe `numpy` / `msgspec` C-extensions — with capacity and deadline owned by the runtime `LanePolicy` and emitted as a `structlog` event inside an OpenTelemetry span.
 - `visualization/diagram/layout#LAYOUT` + `grandalf`(`.api/grandalf.md`): `_as_graph` folds the adjacency frame into a `PyDiGraph` and `_position` discriminates the `LayoutPolicy` — `Force` -> `spring_layout`, `Radial` -> `circular_layout` / `shell_layout`, `Layered(engine=RUSTWORKX)` -> `topological_generations`, `Layered(engine=GRANDALF)` -> the `grandalf` `SugiyamaLayout` arm — with `node_link_json` the content-key wire; rustworkx is the builder, the force/radial/topological provider, and the wire, `grandalf` only the layered arm.
 
 [LOCAL_ADMISSION]:

@@ -1,8 +1,8 @@
 # [APPUI]
 
-`Rasm.AppUi` is the one Avalonia product surface, shell to viewport: every plane the router seats returns its canonical domain result and publishes through the AppUi hook rail, every visual literal traces to the theme vocabulary, every screen windows through one virtualization fabric, every fault crosses one typed envelope, and every collaborative surface converges through one merge authority.
+`Rasm.AppUi` is the one Avalonia product surface, shell to viewport: every plane the router seats returns its canonical domain result and publishes through the AppUi hook dispatch, every visual literal traces to the theme vocabulary, every screen windows through one virtualization fabric, every fault crosses one typed envelope, and every collaborative surface converges through one merge authority.
 
-Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute results inward; it references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
+Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute results inward; it references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a boundary contract.
 
 ## [01]-[ROUTER]
 
@@ -10,7 +10,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 - [01]-[NAVIGATION](.planning/Shell/navigation.md): Routing spine with a typed deep-link grammar over dockable layouts.
 - [02]-[SCREENS](.planning/Shell/screens.md): Screen catalog, activation state, and the generated AppUi surface-program projection.
 - [03]-[HOSTS](.planning/Shell/hosts.md): Host-neutral surface mounting under the host class a supplied profile row states.
-- [04]-[COMMANDS](.planning/Shell/commands.md): One command rail — every menu, hotkey, palette, and remote verb derives from one intent table.
+- [04]-[COMMANDS](.planning/Shell/commands.md): One command deck — every menu, hotkey, palette, and remote verb derives from one intent table.
 - [05]-[PALETTE](.planning/Shell/palette.md): Command palette and shortcut editor presenting the one intent table.
 - [06]-[QUEUE](.planning/Shell/queue.md): Job, run, and step surface whose sealed outputs hand off to the analysis plane.
 - [07]-[CONTROLS](.planning/Shell/controls.md): Declarative control materialization — a screen body is an intent stream, never a XAML literal.
@@ -70,7 +70,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 [COLLAB]:
 - [50]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
 - [51]-[PRESENCE](.planning/Collab/presence.md): Everything a co-edit session broadcasts and nothing it persists.
-- [52]-[COMPARE](.planning/Collab/compare.md): Two read-only rails over historical cuts, reverting through the one commit rail.
+- [52]-[COMPARE](.planning/Collab/compare.md): Two read-only views over historical cuts, reverting through the one commit path.
 - [53]-[ISSUES](.planning/Collab/issues.md): openBIM issue board over the Bim BCF contract, its triage register, and typed redline tools.
 - [54]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence and its chrome.
 - [55]-[SESSION](.planning/Collab/session.md): Typed session governance gating edit-intent admission by role and membership.
@@ -90,7 +90,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 - [63]-[TOKENS](.planning/Theme/tokens.md): Every visual constant in the package resolved through one generated token catalogue.
 - [64]-[SEMI](.planning/Theme/semi.md): Shipped Semi and Dock design tokens bound to the generated catalogue, carves stated.
 - [65]-[EMISSION](.planning/Theme/emission.md): Resolved token generation turned into the live application surface.
-- [66]-[TYPOGRAPHY](.planning/Theme/typography.md): Every text appearance generated from two axes and shaped through one itemizing rail.
+- [66]-[TYPOGRAPHY](.planning/Theme/typography.md): Every text appearance generated from two axes and shaped through one itemizing pipeline.
 - [67]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
 - [68]-[ASSETS](.planning/Theme/assets.md): Kernel asset vocabulary composed with rank-fallback sourcing, pointer rows, one budgeted cache.
 - [69]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, calendars, and collation with mirroring and measurement law.
@@ -204,7 +204,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `Generator.Equals` — `Availability` and `ResolvedTheme` structural equality over frozen set and map members.
-- `JetBrains.Annotations`
 - `NodaTime`
 - `System.IO.Hashing`
 - `UnitsNet`
@@ -232,7 +231,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `ACadSharp` — DWG/DXF/SVG drafting-write leg over one authored `CadDocument`.
 
 [PLANAR_GEOSPATIAL]:
-- `NetTopologySuite` — Point-in-area location index behind spatial cross-filter brushing; the planar algebra stays the geometry rail's.
+- `NetTopologySuite` — Point-in-area location index behind spatial cross-filter brushing; the planar algebra stays the geometry kernel's.
 
 [RUNTIME_INBOX]:
 - `System.Diagnostics.Metrics` — In-box instrument surface behind the `rasm.appui.*` telemetry spine.

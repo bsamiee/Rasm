@@ -18,12 +18,12 @@
 - [09]-[CAUSAL](.planning/state/causal.md): Four-way causal ordering honest under clock uncertainty — held delivery, finality reads.
 - [10]-[COMMIT](.planning/state/commit.md): Anti-entropy across replicas — each commit carries parents, causal vector, stamp, and author.
 - [11]-[MACHINE](.planning/state/machine.md): Statecharts as data — one transition spec whose macrostep folds the declared tree.
-- [12]-[EVIDENCE](.planning/state/evidence.md): Command lifecycle outcomes, progress tallies, and availability lattices per tenant.
+- [12]-[EVIDENCE](.planning/state/evidence.md): Command lifecycle outcomes, progress tallies, and availability levels per tenant.
 - [13]-[FEED](.planning/state/feed.md): Tenant-scoped evidence-and-document timeline folded by contribution identity.
 - [14]-[PRESENCE](.planning/state/presence.md): Live actor faces — join, heartbeat, and ephemeral-move ops converging without consensus.
 
 [INTERCHANGE]:
-- [15]-[FORMAT](.planning/interchange/format.md): Encoding arms lifted onto one typed parse rail under one defect normalization.
+- [15]-[FORMAT](.planning/interchange/format.md): Encoding arms lifted onto one typed parse path under one defect normalization.
 - [16]-[CODEC](.planning/interchange/codec.md): Closed wire-family roster and one bounded walk over every recursive tree it lands.
 - [17]-[FRAME](.planning/interchange/frame.md): Interleaved band assembly, residency admission, and IFC container admission.
 - [18]-[CARRIER](.planning/interchange/carrier.md): Strict event envelopes, one address mint, generic `dataref`, and generated conversion.
@@ -59,7 +59,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `pnpm-
 
 Shared substrate consumed from the TypeScript registry, whose charters own the full contracts; `libs/typescript/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_CORE]:
 - `effect`
 
 [PLATFORM]:

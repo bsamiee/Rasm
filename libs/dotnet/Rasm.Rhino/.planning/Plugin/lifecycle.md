@@ -21,10 +21,10 @@
 - Law: the three page callbacks are PHASE CASES, not a second request union over a second delegate column — one moment vocabulary means one hook, one router, and one place a new host callback lands.
 - Law: `Icon(Size)` earns no case — the host member is a NON-virtual instance read forwarding to `PlugInInfo.Icon`, so no icon hook exists; the plug-in icon is a registry read at `census#DESCRIPTOR`.
 - Law: `LoadVerdict` is keyed on `LoadReturnCode`, so the refusal code is data on the program and `OnLoad` never guesses between the two failure codes.
-- Owner: `PluginFault` is this boundary's plug-in admission family on `FaultBand.HostPlugin 4960/5` — the folder ruling seats ONE fault family per band row at the band's owner page, and `census#ADMISSION`, `document#CROSSING`, and `licensing#RAIL` all code on it. `Unreachable` is the only case overriding `Retriability`, because the Zoo and CloudZoo arms are the only network-backed host calls in the domain and a terminal classification there would refuse a retry the caller is entitled to.
+- Owner: `PluginFault` is this boundary's plug-in admission family on `FaultBand.HostPlugin 4960/5` — the folder ruling seats ONE fault family per band row at the band's owner page, and `census#ADMISSION`, `document#CROSSING`, and `licensing#PIPELINE` all code on it. `Unreachable` is the only case overriding `Retriability`, because the Zoo and CloudZoo arms are the only network-backed host calls in the domain and a terminal classification there would refuse a retry the caller is entitled to.
 - Law: `CommandRegistrar` is window-scoped — the adapter mints it for the `CreateCommands` call and closes it on return, because `RegisterCommand` is meaningless once the host has finished command creation; the seat state is a closed `RegistrarState` stepped through `Cell.Step`, so a closed registrar refuses typed instead of consulting a boolean latch.
 - Boundary: `RegisterCommand(Command)` stays behind the registrar, so a consumer hands a `RasmCommand<TSelf,TState>` leaf and never a bare host delegate.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Side`, `Op.Text`, `Lease<T>`, `Cell`, `Transition`, `FaultBand`, `Retriability`, `ValidityClaim`, `Custody`), `Domain/hooks` (`Ring<T>`), `Domain/frame` (`PackageIdentity<TKey,THostFact>`), `Parametric/projections` (`MonotonicTimeline`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:53` — `LoadReturnCode`; `:81` — `OnLoad`/`OnShutdown`/`ResetMessageBoxes`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/results` (`Op`, `Op.Side`, `Op.Text`, `Lease<T>`, `Cell`, `Transition`, `FaultBand`, `Retriability`, `ValidityClaim`, `Custody`), `Domain/hooks` (`Ring<T>`), `Domain/frame` (`PackageIdentity<TKey,THostFact>`), `Parametric/projections` (`MonotonicTimeline`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:53` — `LoadReturnCode`; `:81` — `OnLoad`/`OnShutdown`/`ResetMessageBoxes`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -137,7 +137,7 @@ public sealed class CommandRegistrar {
 - Law: admission accumulates — every column reports its own absence through `ValidityClaim.All` under `[ValidationError]`, and `Key` is admitted rather than skipped, so a leaf learns WHICH column it left out instead of reading one incomplete-program sentence.
 - Law: `[IgnoreMember]` rides the delegate column — equality and `ToString` over a captured closure compare references and render a compiler-generated type name, which is neither the program's identity nor a diagnostic.
 - Boundary: the phase hook answers a `PhaseAnswer`, so page custody is `HostUi/pages#MOUNT`'s and the adapter only retains the `MountedPages` for release.
-- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`, `[BoundaryAdapter]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`, `ValidityClaim`); `Persistence/settings` (`SettingKey`); `HostUi/shell` (`ShellMount`); `Plugin/census` (`PluginAct`); `Plugin/document` (`IParticipant`).
+- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/results` (`Op`, `ValidityClaim`); `Persistence/settings` (`SettingKey`); `HostUi/shell` (`ShellMount`); `Plugin/census` (`PluginAct`); `Plugin/document` (`IParticipant`).
 
 ```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -163,7 +163,6 @@ public sealed partial class PluginBoot {
     public Seq<ShellMount> Mounts { get; }
     public TimeProvider Clock { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<PluginAct> prerequisites,
@@ -195,7 +194,6 @@ public sealed partial class PluginProgram {
     public IParticipant Archive { get; }
     public Option<IPluginCapability> Capability { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PluginKey key,
@@ -222,13 +220,13 @@ public sealed partial class PluginProgram {
 - Owner: `PluginRoot` is what one load resolved — the S14 package identity, the session's ONE `MonotonicTimeline`, the telemetry contributor port, the seated shell capsule, the plug-in settings node, and the `PluginOutcome` of every registry prerequisite the load committed.
 - Entry: `RasmPlugIn.Root` publishes it once the load settled; the `apps/<app>/` plugin shell reads it and binds the AppHost lacing that only that assembly may reference.
 - Law: `PackageIdentity<PluginKey, HostSnapshot>.Resolve` runs HERE because `GetType().Assembly` is the plug-in root assembly and nothing else inside `libs/` holds it; `ShellIdentity` and a second identity resolve are the deleted forms.
-- Law: the boundary's ONE `MonotonicTimeline` mints in this fold and is threaded from `PluginRoot` forever after — a gate minting its own timeline forks the causal order, and the provider comes off `PluginBoot.Clock` so a test root supplies a fake without a second seam (folder RULINGS `[02]`).
+- Law: the boundary's ONE `MonotonicTimeline` mints in this fold and is threaded from `PluginRoot` forever after — a gate minting its own timeline forks the causal order, and the provider comes off `PluginBoot.Clock` so a test root supplies a fake without a second boundary (folder RULINGS `[02]`).
 - Law: prerequisites commit BEFORE the capsule opens, because a prerequisite load runs another plug-in's own `OnLoad` and a mount roster seated first would be observed by a plug-in this one has not finished loading.
 - Law: the fold is sequential, not accumulating — each step consumes the previous step's product (identity feeds telemetry and the capsule, the capsule feeds every mount), so a refusal stops the load rather than reporting six independent absences.
 - Boundary: telemetry is DECLARED here and OPENED at the app root — this page mints the contributor port off the resolved version and holds no meter, provider, or `PluginTelemetryHost`, per `HostUi/shell#TELEMETRY_ROOT`.
 - Boundary: `ShellCapsule.Open` is the one process-lifetime seat table and `ShellMount` its one case roster (`HostUi/shell#COMPOSITION_CAPSULE`); the block vault rides `ShellMount.Vault` (`Blocks/lifecycle`) and the render engines ride `ShellMount.Engines` (`Display/render`), so neither owner waits for an `apps/` shell to reach it.
 - Law: render-content serializer seating is a DECLARED `ShellMount.Hooks` row, never a call beside the fold — the row's `(PluginKey, Op?) -> Fin<IDisposable>` body runs `Registry.Run(RegistryCommand.RegisterSerializer(...))` per `SerializerProgram` column (`Render/registry#FACTORY_REGISTRY`), and its release drains the serializer ring's `Parked`/`Shed`/`Lost` tallies into the load report before the adapter unregisters — a serializer registered outside this row leaks its failure evidence at ALC unload.
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `Traverse`); kernel `Domain/frame` (`PackageIdentity<TKey,THostFact>.Resolve`), `Domain/rails` (`Op`, `Lease<T>`), `Parametric/projections` (`MonotonicTimeline.Of`); `Document/events` (`RhinoInstruments.Telemetry`, `PluginKey`); `HostUi/shell` (`ShellCapsule.Open`, `ShellMount`, `HostFacts.Process`, `HostSnapshot`); `Persistence/settings` (`SettingPath`); `Plugin/census` (`PluginRegistry.Commit`, `PluginOutcome`); `Plugin/document` (`PluginSettings.Commit`, `SettingsBridge.Root`, `SettingsLoad`).
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `Traverse`); kernel `Domain/frame` (`PackageIdentity<TKey,THostFact>.Resolve`), `Domain/results` (`Op`, `Lease<T>`), `Parametric/projections` (`MonotonicTimeline.Of`); `Document/events` (`RhinoInstruments.Telemetry`, `PluginKey`); `HostUi/shell` (`ShellCapsule.Open`, `ShellMount`, `HostFacts.Process`, `HostSnapshot`); `Persistence/settings` (`SettingPath`); `Plugin/census` (`PluginRegistry.Commit`, `PluginOutcome`); `Plugin/document` (`PluginSettings.Commit`, `SettingsBridge.Root`, `SettingsLoad`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -252,7 +250,7 @@ public sealed record PluginRoot(
 - Law: the reverse sweep runs every disposer through kernel `Custody.Release`, because a mount that refuses release must not strand the mounts behind it.
 - Boundary: the obsolete `ObjectPropertiesPages(List<ObjectPropertiesPage>)` overload stays unoverridden — `PageBasket` seats `ObjectPropertiesPageCollection` alone, and the host marks the list form obsolete in favour of it.
 - Boundary: `GetPlugInObject` falls back to the base answer when the program publishes no capability or the published instance refuses; both reasons park distinctly on the ring, and the host's `object` return carries neither, which is the host's shape and not a collapse this page chose.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Cell.Take`, `Cell.Seat`, `Transition`, `Lease<T>.Use`, `Custody.Release`), `Domain/hooks` (`Ring<T>`); `HostUi/pages` (`PageBasket`, `MountedPages`); `Document/session` (`DocKey.Of`); `Plugin/document` (`Participation.Cross`, `ParticipationAsk`, `ParticipationAnswer`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:81` — `OnLoad`, `OnShutdown`, `ResetMessageBoxes`; `:60` — `Id`, `Version`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/results` (`Op`, `Op.Catch`, `Op.Need`, `Cell.Take`, `Cell.Seat`, `Transition`, `Lease<T>.Use`, `Custody.Release`), `Domain/hooks` (`Ring<T>`); `HostUi/pages` (`PageBasket`, `MountedPages`); `Document/session` (`DocKey.Of`); `Plugin/document` (`Participation.Cross`, `ParticipationAsk`, `ParticipationAnswer`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:81` — `OnLoad`, `OnShutdown`, `ResetMessageBoxes`; `:60` — `Id`, `Version`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
 
 ```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -496,7 +494,7 @@ flowchart LR
     Boot e6@--> Root[(PluginRoot)]
     Root e7@--> Phase
     Phase e8@--> Hook[[PluginProgram.Phase]]
-    Hook e9@--> Settled{Rail settled?}
+    Hook e9@--> Settled{Result settled?}
     Settled f1@-->|"succeeded"| Native[Native success shape]
     Settled f2@-->|"refused"| Ledger[(Bounded refusal ring)]
     Ledger f3@--> Refusal[Declared LoadVerdict refusal]
@@ -506,16 +504,16 @@ flowchart LR
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER]               | [INGRESS]                    | [STATE]                         | [EGRESS]                     |
-| :-----: | :-------------------- | :--------------------------- | :------------------------------ | :--------------------------- |
-|  [01]   | `RasmPlugIn`          | eleven sealed host overrides | `Ring<Error>` · three cells     | native shapes · `Report`     |
-|  [02]   | `RasmPlugIn.Boot`     | `OnLoad`, assembly in hand   | `Cell.Seat` root cell           | `PluginRoot`                 |
-|  [03]   | `PluginProgram`       | leaf declaration at `apps/`  | generated admission             | hook · archive · capability  |
-|  [04]   | `PluginBoot`          | leaf declaration             | generated admission             | prerequisites · settings     |
-|  [05]   | `PluginCapability<T>` | `GetPlugInObject`            | none — the parameter proves it  | published contract instance  |
-|  [06]   | `CommandRegistrar`    | `CreateCommands` window      | `Cell.Step` on `RegistrarState` | seated host commands         |
-|  [07]   | `PluginFault`         | every refusal on this domain | `FaultBand.HostPlugin` offsets  | rail errors · `Retriability` |
-|  [08]   | `LoadReport`          | `Report` read                | parked rows · shed · lost       | evidence · root · refusals   |
+| [INDEX] | [OWNER]               | [INGRESS]                    | [STATE]                         | [EGRESS]                       |
+| :-----: | :-------------------- | :--------------------------- | :------------------------------ | :----------------------------- |
+|  [01]   | `RasmPlugIn`          | eleven sealed host overrides | `Ring<Error>` · three cells     | native shapes · `Report`       |
+|  [02]   | `RasmPlugIn.Boot`     | `OnLoad`, assembly in hand   | `Cell.Seat` root cell           | `PluginRoot`                   |
+|  [03]   | `PluginProgram`       | leaf declaration at `apps/`  | generated admission             | hook · archive · capability    |
+|  [04]   | `PluginBoot`          | leaf declaration             | generated admission             | prerequisites · settings       |
+|  [05]   | `PluginCapability<T>` | `GetPlugInObject`            | none — the parameter proves it  | published contract instance    |
+|  [06]   | `CommandRegistrar`    | `CreateCommands` window      | `Cell.Step` on `RegistrarState` | seated host commands           |
+|  [07]   | `PluginFault`         | every refusal on this domain | `FaultBand.HostPlugin` offsets  | result errors · `Retriability` |
+|  [08]   | `LoadReport`          | `Report` read                | parked rows · shed · lost       | evidence · root · refusals     |
 
 ## [08]-[RESEARCH]
 

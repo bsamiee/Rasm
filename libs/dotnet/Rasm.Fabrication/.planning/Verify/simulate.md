@@ -2,7 +2,7 @@
 
 `Simulate.Execute` admits one `SimulatePolicy`, evaluates the motion source it carries without replanning, and emits the authoritative `SimulationLedger` clock. `MotionSource` closes that source: a posted `CutProgram` folds through controller semantics, and a `RobotCell` folds through the sampled pose census `Kinematics/cell` resolves. `GCommand.Grammar` owns syntactic admission; simulation owns relational motion admission, modal execution, machine-limit evidence, coordinated timing, energy, and terminal state.
 
-Every block settles at admission into ONE feed and ONE duration, so a commanded feed and a commanded block time never share a column and the peak-feed population holds millimetres per minute alone. `Move.Circular.SweepRadians` carries the signed arc sweep, admitted by the S0 atom against its own sense and its `(0, Tau]` band — this page derives it once at the G-code decode seam where the program carries no sweep at all, hands it to `Move.Circular.Of`, and every reader here and at `Verify/removal` reads that one column.
+Every block settles at admission into ONE feed and ONE duration, so a commanded feed and a commanded block time never share a column and the peak-feed population holds millimetres per minute alone. `Move.Circular.SweepRadians` carries the signed arc sweep, admitted by the S0 atom against its own sense and its `(0, Tau]` band — this page derives it once at the G-code decode boundary where the program carries no sweep at all, hands it to `Move.Circular.Of`, and every reader here and at `Verify/removal` reads that one column.
 
 Spindle speed changes cost the ramp the declared operating envelope implies wherever they arrive, tool changes cost the `ToolChangeEvidence.Elapsed` `Tooling/magazine` derived against a REAL ordinal pair, and constant surface speed resolves against a modal diameter rather than whichever block happens to execute.
 
@@ -150,7 +150,6 @@ public sealed partial class ControllerTiming {
         AdmissionSlots.Gate(spans.ForAll(static row => row.Value >= Duration.Zero),
             FabConcern.Verify, "controller-timing:negative", FabricationFault.Inadmissible));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Map<DelayKind, Duration> spans,
@@ -254,7 +253,6 @@ public sealed partial class SimulatePolicy {
                 posted: static row => !row.Program.Nodes.IsEmpty,
                 cell: static row => !row.Moves.IsEmpty), FabConcern.Verify, "simulate:source", FabricationFault.Inadmissible));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MotionSource source,
@@ -332,13 +330,13 @@ public sealed record ControllerState(
 
 - Owner: `ArcEvidence` owns the working plane, the plane-projected radius, the helical rise, the arc-command sense roster, and the admitted `Move.Circular` every sweep read resolves through. `MotionGeometry` closes the span shape. `Instruction` closes the physical effect a word settles into. `ModalSlot` owns the address a modal command reads and the ordinal law it admits under. `CommandEffect` is the one admission table keyed by `GCommand`.
 - Cases: `CommandEffect` reduces a word to motion, dwell, tool change, halt, constant-surface-speed, spindle, auxiliary, thermal, frame, or modal admission.
-- Law: `Move.Circular.SweepRadians` carries the signed arc sweep. G-code carries no sweep, so this page derives it ONCE at the decode seam — I/J/K or R fix the centre, `ArcEvidence.SenseOf` fixes the sense, and coincident plane-projected endpoints are the full turn a G2/G3 block spells that way — then hands it to `Move.Circular.Of`, which admits sign-against-sense and the `(0, Tau]` magnitude band before the instruction exists. Every reader here and at `Verify/removal` reads that one column, so no second sweep convention, sign rule, or angular epsilon exists on either page.
+- Law: `Move.Circular.SweepRadians` carries the signed arc sweep. G-code carries no sweep, so this page derives it ONCE at the decode boundary — I/J/K or R fix the centre, `ArcEvidence.SenseOf` fixes the sense, and coincident plane-projected endpoints are the full turn a G2/G3 block spells that way — then hands it to `Move.Circular.Of`, which admits sign-against-sense and the `(0, Tau]` magnitude band before the instruction exists. Every reader here and at `Verify/removal` reads that one column, so no second sweep convention, sign rule, or angular epsilon exists on either page.
 - Law: `ArcEvidence.SenseOf` is the arc DISCRIMINANT and it answers an option: a command the roster does not name is not an arc at all, so the span decode carries the sense it resolved rather than a boolean shadowing the same fact, and the feed ceiling reads the decode's own shape.
 - Law: every block commands either a FEED or a block TIME, and the two are different dimensions. Both settle at admission into one millimetres-per-minute reading and one duration, so the peak-feed population never mixes reciprocal minutes with real feeds and the modal feed register is written only by the blocks that command one. Units-per-minute blocks clamp to the machine ceiling, which is what the machine physically does; an inverse-time block whose commanded duration demands a feed above that ceiling is INFEASIBLE and refuses, because clamping it silently reports a cycle time the machine cannot achieve.
 - Law: `Simulate.Addressable` names the rotary addresses a posted WORD can carry — ISO 6983 spells rotation about X/Y/Z as `A`/`B`/`C`, while the joint rows share their address with the arc-centre offset word and reach no posted block. Commanding a rotary the policy never declared answers `SimulatedOvertravel` rather than executing as pure linear travel.
 - Exemption: `ArcEvidence.Witnesses`, `ArcEvidence.Sweep`, and `Simulate.RadiusDefinition` are the numeric-kernel statement exemptions.
 - Entry: `Simulate.AdmitMotion` settles geometry, rate, rotary travel, and the operating envelope gate before returning, so every refusal lands before a modal register moves.
-- Auto: `GCommand.Grammar.Admit` validates address shape and `GCommand.Role` selects the clock band. Every dimensioned address arrives CANONICAL — the parse seam folds the active `ModalGroup.Units` row through `ProgramUnits.Canonical`, so X/Y/Z, U/V/W, I/J/K, an arc or cycle R, and a per-minute F are millimetres before simulation reads them, and a unit scale re-applied here double-converts an inch program.
+- Auto: `GCommand.Grammar.Admit` validates address shape and `GCommand.Role` selects the clock band. Every dimensioned address arrives CANONICAL — the parse boundary folds the active `ModalGroup.Units` row through `ProgramUnits.Canonical`, so X/Y/Z, U/V/W, I/J/K, an arc or cycle R, and a per-minute F are millimetres before simulation reads them, and a unit scale re-applied here double-converts an inch program.
 - Boundary: `Relative` is the one relative tolerance band on this cluster, and it governs both the endpoint-radius admission and the witness-amplitude degeneracy test, so the two cannot drift. `SpecializedToolpathEnvelope` proved kind correspondence, non-empty rows, and finite non-negative duration once at `Process/owner`, so no arm here revalidates a payload it was handed.
 
 ```csharp
@@ -381,7 +379,6 @@ public sealed partial class ArcEvidence {
             : direction * wrapped;
     }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Plane plane,

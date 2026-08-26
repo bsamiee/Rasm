@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_MACHINE_FLEET]
 
-`Fleet` owns the one shop-capability join from an admitted component and an admitted `MachineFleet` to ranked `MachineMatch` evidence, and the one finite-capacity seat from a demand roster to physical stations. `FleetDemand` reads the component quantity bag once through typed `DemandKey` rows keyed in the seam's own `PropertyName` space and decodes that bag's capability REQUESTS into one `CapabilitySet<FleetCapability>` at the same boundary; each `CapabilityCriterion` generates its fact under the three-state `FactVerdict`, each `FleetObjective` carries the priority and scale its penalty folds through, and a dimension no pair asked for answers `NotDemanded` instead of passing over a zero demand.
+`Fleet` owns the one shop-capability join from an admitted component and an admitted `MachineFleet` to ranked `MachineMatch` evidence, and the one finite-capacity seat from a demand roster to physical stations. `FleetDemand` reads the component quantity bag once through typed `DemandKey` rows keyed in the contract's own `PropertyName` space and decodes that bag's capability REQUESTS into one `CapabilitySet<FleetCapability>` at the same boundary; each `CapabilityCriterion` generates its fact under the three-state `FactVerdict`, each `FleetObjective` carries the priority and scale its penalty folds through, and a dimension no pair asked for answers `NotDemanded` instead of passing over a zero demand.
 
 `StationCapacity` is a TYPED per-case payload carrying its `CapacityAxis` and a `UnitsNet` quantity, so two stations compare only where they answer the same axis and a kilonewton can never be ranked against a millimetre. Availability is a GENERATED calendar: `CalendarSpan` closes dated and yearly-recurrent windows on `AnnualDate`, `MaintenanceRule` generates every hole, `ShiftCalendar.Horizon` reports capacity per `YearMonth`, and a caller-supplied literal interval roster is the deleted form. `AvailabilityPlan.Finish` is the ONE seat — the body that consumes an instance's staffed windows at its committed load — so `Process/derivation` advances each operation through the assigned station's own plan, `FleetAvailability` publishes the window census per `MachineInstanceKey` beside it, and `Fleet.Assign` covers a demand roster through `HungarianAlgorithm` over that same seat with its cost row retained as promise-interval evidence. `AvailabilityPlan.Standing` is the ONE routing verdict and names declared state, staffing, and registry absence apart, so the registry index and the capability join read one body. `MachineInstanceKey` arrives settled from `Process/atoms#PLAN`; a bare instance string is the deleted form. A process names NO dialect, so controller fitness reads `PostDialect.Admits` against the process modality.
 
@@ -21,9 +21,9 @@
 - Law: an absent CEILING is `None`, never a positive-infinity bound. A sentinel ceiling compares as a real limit in every fold that reads it and silently admits a value no shop declared.
 - Law: integrality is the UNIT's fact, never a per-row knob. A count is whole and a millimetre is not, so `DemandUnit.Whole` decides it once for every row that carries the unit; the deleted form is a positional `bool integral` repeated on every row, which is also what let `Hardness` sit on `DemandUnit.Count` while declaring itself fractional — a scale reading wearing a tally's unit, now `DemandUnit.HardnessNumber`.
 - Law: a REQUEST is a capability membership, never a count. `CertificationRequired` and `BarFeedRequired` were `DemandUnit.Count` rows with a `Some(1.0)` ceiling — flags wearing a quantity's clothes, whose facts published "demand 1.0, available 1.0" in counts and whose ceiling read as a real shop limit in every fold that saw it. They are `FleetCapability` rows now, decoded once at the bag boundary into `FleetDemand.Requested`, and the interior sees membership only.
-- Auto: every constitutive axis is a `DemandKey` row the ingress already read and range-admitted against the same bounds `ConstitutiveState` validates, so the state is a total projection of the bag — derived once per demand on the rail, never a second stored copy a caller can fill with three of its six members. `FleetCapability.Holds` generates the held set from the roster and `CapabilityRequest` generates the required set, so neither is a hand-built column of adjacent booleans.
+- Auto: every constitutive axis is a `DemandKey` row the ingress already read and range-admitted against the same bounds `ConstitutiveState` validates, so the state is a total projection of the bag — derived once per demand on the result, never a second stored copy a caller can fill with three of its six members. `FleetCapability.Holds` generates the held set from the roster and `CapabilityRequest` generates the required set, so neither is a hand-built column of adjacent booleans.
 - Growth: a new component scalar is one `DemandKey` row carrying its unit, fallback, and bounds; a new fitness dimension is one `FleetCapability` row carrying its request regime and its held predicate; a new request regime is one `CapabilityRequest` case.
-- Packages: `Rasm/Domain/validation#CAPABILITY` supplies `ICapability` and `CapabilitySet` — membership, the required-set seam, the `Missing` evidence complement, and the rank-ordered wire all arrive from the kernel column and this page mints no set algebra of its own; `Rasm/Domain/rails#VALIDITY_FOLD` supplies `ValidityClaim`; `Rasm.Element` supplies `PropertyName` and `PropertyCategory`; Thinktecture.Runtime.Extensions owns the closed rows.
+- Packages: `Rasm/Domain/validation#CAPABILITY` supplies `ICapability` and `CapabilitySet` — membership, the required-set contract, the `Missing` evidence complement, and the ordinal-key wire all arrive from the kernel column and this page mints no set algebra of its own; `Rasm/Domain/results#VALIDITY_FOLD` supplies `ValidityClaim`; `Rasm.Element` supplies `PropertyName` and `PropertyCategory`; Thinktecture.Runtime.Extensions owns the closed rows.
 - Boundary: this cluster reads the admitted component's own bag and nothing else; geometry bounds and material identity resolve at the join.
 
 ```csharp
@@ -229,7 +229,7 @@ internal sealed record FleetDemand(
 - Law: station validity reaches the kernel oracle. `ProcessEnvelope` implements `IValidityEvidence` and composes `ValidityClaim` rows, so `OpAcceptance.ValidityOf` answers on the envelope's own fold; the page-local `double.IsFinite && > 0` predicate it replaces was a hand twin of `ValidityClaim.Positive` sitting beside an admitted kernel.
 - Auto: `SpindleWindow.Required` composes `Process/physics#BUDGET_FOLD` `SurfaceSpeed.Rpm` over the CUTTING diameter — the one forward cutting-speed relation in the package — so no arm re-derives `vc * 1000 / (pi * D)`.
 - Growth: a new station modality is one `ProcessEnvelope` case with its three base columns and one assessment arm; a new capacity dimension is one `StationCapacity` case over an existing `CapacityAxis` row.
-- Packages: `Rasm/Domain/rails#VALIDITY_FOLD` supplies `IValidityEvidence` and every `ValidityClaim` row the envelope fold composes; UnitsNet owns the typed capacities; Thinktecture.Runtime.Extensions owns the closed families.
+- Packages: `Rasm/Domain/results#VALIDITY_FOLD` supplies `IValidityEvidence` and every `ValidityClaim` row the envelope fold composes; UnitsNet owns the typed capacities; Thinktecture.Runtime.Extensions owns the closed families.
 - Boundary: `Process/family` `MachineCapacity` is the machine CLASS operating envelope admitted with the equipment; `ProcessEnvelope` is the INSTALLED station a program runs on, so the two never mirror and a station absent from the shop floor cannot be inferred from the class.
 
 ```csharp
@@ -497,7 +497,6 @@ public sealed partial class ShiftBlock {
     public LocalTime End { get; }
     public double Staffing { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref IsoDayOfWeek day,
@@ -518,7 +517,6 @@ public sealed partial class CalendarException {
     public CalendarSpan Span { get; }
     public Seq<ShiftBlock> Blocks { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CalendarExceptionKind kind,
@@ -538,7 +536,6 @@ public sealed partial class MaintenanceRule {
     public LocalTime Start { get; }
     public Duration Length { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CalendarSpan span,
@@ -567,7 +564,6 @@ public sealed partial class ShiftCalendar {
     public Seq<MaintenanceRule> Maintenance { get; }
     public Duration Horizon { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DateTimeZone zone,
@@ -696,7 +692,6 @@ public sealed partial class AvailabilityPlan {
 
     public double Schedulable => 1.0 - LoadFactor;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MachineAvailability state,
@@ -754,7 +749,6 @@ public sealed partial class PerformanceBaseline {
 
     public double Oee => PerformanceRatio * QualityRatio;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double performanceRatio,
@@ -822,7 +816,6 @@ public sealed partial class MachinePerformance {
 
     private const double SecondsPerHour = 3600.0;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Instant observedAt,
@@ -877,7 +870,6 @@ public sealed partial class MachineInstance {
         .Filter(value => value.ObservedAt <= fleet.RoutingAt
             && fleet.RoutingAt - value.ObservedAt <= fleet.Policy.PerformanceHorizon);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MachineInstanceKey id,
@@ -988,7 +980,6 @@ public sealed partial class MachineFleet {
     internal RoutingStanding Standing(MachineInstance instance) =>
         Standings.Find(instance.Id).IfNone(RoutingStanding.Unregistered);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<MachineInstance> instances,
@@ -1244,7 +1235,6 @@ public sealed partial class FleetPolicy {
     internal double Burden(CapabilityContext context) =>
         FleetObjective.Items.Sum(objective => For(objective).Scale(objective.Penalty(context)));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref HashMap<FleetObjective, ObjectiveTuning> tuning,
@@ -1268,7 +1258,6 @@ public sealed partial class CapabilityFact {
 
     public double Margin => Criterion.Sense * (Available - Demand);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CapabilityCriterion criterion,
@@ -1297,7 +1286,6 @@ public sealed partial class CapabilityCheck {
     public bool Feasible => !Facts.IsEmpty && Facts.ForAll(static fact => fact.Verdict != FactVerdict.Short);
     public Seq<CapabilityFact> Rejections => Facts.Filter(static fact => fact.Verdict == FactVerdict.Short);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CapabilityFact> facts) {
         bool complete = toSeq(CapabilityCriterion.Items).ForAll(criterion => facts.Exists(fact => fact.Criterion == criterion));
         bool unique = facts.Map(static fact => fact.Criterion).Distinct().Count == facts.Count;

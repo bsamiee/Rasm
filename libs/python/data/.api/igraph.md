@@ -1,6 +1,6 @@
 # [PY_DATA_API_IGRAPH]
 
-`igraph` owns the libigraph C-core graph surface for the data graph rail: one `Graph` container carrying the `community_*` detection family, modularity scoring, component and core decomposition, and C-core centrality, with `VertexClustering`/`VertexDendrogram` result carriers and the `compare_communities` partition-distance surface. Data graph detection routes through `Graph.community_leiden`/`community_multilevel`/`community_infomap`, reads `VertexClustering.membership`/`modularity` directly, and folds the C-core modularity optimization rather than re-implementing it.
+`igraph` owns the libigraph C-core graph surface for the data graph domain: one `Graph` container carrying the `community_*` detection family, modularity scoring, component and core decomposition, and C-core centrality, with `VertexClustering`/`VertexDendrogram` result carriers and the `compare_communities` partition-distance surface. Data graph detection routes through `Graph.community_leiden`/`community_multilevel`/`community_infomap`, reads `VertexClustering.membership`/`modularity` directly, and folds the C-core modularity optimization rather than re-implementing it.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -62,7 +62,7 @@ Detection methods bind on `Graph` as instance methods; `weights` accepts an edge
 |  [10]   | `vs`                                                                         | property | vertex sequence (`VertexSeq`) |
 |  [11]   | `es`                                                                         | property | edge sequence (`EdgeSeq`)     |
 
-- `g.vs['name']` recovers the `vertex_name_attr` a `TupleList` build stored — the seam back to source vertex ids.
+- `g.vs['name']` recovers the `vertex_name_attr` a `TupleList` build stored — the boundary back to source vertex ids.
 
 [ENTRYPOINT_SCOPE]: clustering result inspection
 
@@ -139,5 +139,5 @@ All rows are instance methods on `Graph`.
 - data graph owner: build `Graph` from the pandas edge frame, run `community_leiden`, read `VertexClustering.membership`/`modularity`, and fold the membership onto the downstream frame in one pass with no Python re-walk of the C-core result.
 
 [LOCAL_ADMISSION]:
-- `igraph` carries a GPL libigraph C core; confine it to the data graph rail, and route a plugin-distributed graph to the Apache `rustworkx`(`.api/rustworkx.md`) sibling.
-- Import at boundary scope; the admitted surface is C-core detection, modularity, centrality, and component split, with live drawing (`plot`/Cairo/Matplotlib) outside the rail.
+- `igraph` carries a GPL libigraph C core; confine it to the data graph domain, and route a plugin-distributed graph to the Apache `rustworkx`(`.api/rustworkx.md`) sibling.
+- Import at boundary scope; the admitted surface is C-core detection, modularity, centrality, and component split, with live drawing (`plot`/Cairo/Matplotlib) outside the result.

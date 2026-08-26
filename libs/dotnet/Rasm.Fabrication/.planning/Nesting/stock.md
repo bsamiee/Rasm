@@ -2,7 +2,7 @@
 
 `StockNest` owns rectangular cutting-stock assignment across finite heterogeneous inventory. One admitted `NestRun` expands physical part instances, derives rectangular stock frames, proves eligibility, evaluates the complete provider family, and admits one geometry- and conservation-proved `NestPlan` with stable evidence identity.
 
-`Pack` remains the single rectangular entry. `NestRun`, `NestPlan`, `NestPlacement`, `NestYield`, and `SheetIndex` preserve the true-shape seam, while provider rectangles and heuristic enums remain private to this owner.
+`Pack` remains the single rectangular entry. `NestRun`, `NestPlan`, `NestPlacement`, `NestYield`, and `SheetIndex` preserve the true-shape boundary, while provider rectangles and heuristic enums remain private to this owner.
 
 ## [01]-[INDEX]
 
@@ -18,7 +18,7 @@
 - Law: the symmetry law is the STOCK's and rides the frame alone — a part row declares where it wants its grain, and the material declares which turns of the blank leave it looking the same, so a law column beside the part states the material's fact at the wrong owner.
 - Cases: `NestStrategy` carries maximal-rectangle, skyline, guillotine, shelf, homogeneous mass-cut, and parameterized sweep policies.
 - Law: `CutAxis` and `CutProof` carry the ordinal every digest and validator reads, so no consumer re-derives a discriminant by case test.
-- Packages: `Thinktecture` supplies the generated strategy, axis, grade, and proof families; `LanguageExt` supplies admission and the `Fin` rail; `UnitsNet` supplies material quantities; `Rasm` supplies `ContentHash` for the snapshot digest and the `MaterialSymmetry`/`SymmetryFold` legality algebra each frame carries.
+- Packages: `Thinktecture` supplies the generated strategy, axis, grade, and proof families; `LanguageExt` supplies admission and the `Fin` result; `UnitsNet` supplies material quantities; `Rasm` supplies `ContentHash` for the snapshot digest and the `MaterialSymmetry`/`SymmetryFold` legality algebra each frame carries.
 - Growth: a rectangular provider or heuristic lands as one `NestStrategy` case consumed by `Evaluate`; a stock modality remains a `Stock` case consumed by `Frame`.
 
 ## [03]-[ADMISSION]
@@ -40,7 +40,7 @@
 - Auto: `Orientations` enumerates the exact mixed-radix assignment space while it fits `OrientationBudget` and draws decorrelated assignments beyond it, so no part is pinned to its first rotation.
 - Auto: `MaxRectsBinPack`, `SkylineBinPack`, `GuillotineBinPack`, and `ShelfBinPack` share one multi-stock `Drive` fold; `SingleBinPack` owns homogeneous mass-cut.
 - Law: the rectangular provider family is a genuine fast path, not a degenerate case of the true-shape algebra — `Pack` is reached only through `SearchOp.Rectangular`, so `Nest` holds no second provider switch and the integer-frame lane never competes with the configuration-space walk for a nonrectangular profile. The kernel offers no packing algebra that subsumes it: `OffsetOp.Minkowski` and `ArrangementOp.PlanarOverlay` build a configuration space, and a search over that space is this branch's own concern.
-- Auto: `ParallelHelper.For2D` isolates each strategy-orientation evaluation; inapplicable providers return `Option.None`, provider faults abort the evaluation rail, and capacity-limited winners retain explicit unplaced cardinality in `NestPlan`.
+- Auto: `ParallelHelper.For2D` isolates each strategy-orientation evaluation; inapplicable providers return `Option.None`, provider faults abort the evaluation pipeline, and capacity-limited winners retain explicit unplaced cardinality in `NestPlan`.
 - Auto: one `ProviderSheet` per stock frame carries the packer's own geometry; `MaxRectsBinPack` and `GuillotineBinPack` publish their placement lists, and the max-rects row admits its list only while `BinWidth`/`BinHeight` still match the frame that constructed it.
 - Packages: `RectangleBinPack` supplies `MaxRectsBinPack` (`UsedRectangles`, `FreeRectangles`, `BinWidth`, `BinHeight`), `SkylineBinPack`, `GuillotineBinPack` (`MergeFreeRectangles`, `UsedRectangles`, `FreeRectangles`), `ShelfBinPack`, `SingleBinPack`, and `Rect.Area`; `Rasm` supplies the `Deterministic` lanes the beyond-budget orientation draw reads; `CommunityToolkit.HighPerformance` supplies the per-evaluation partition.
 - Boundary: each packer `Insert` mutates its own free geometry, so `Drive` folds eligible frames and stops at the first fit; each `Height == 0` sentinel becomes a rejected stock candidate and no provider type crosses `ProviderRun`.
@@ -232,7 +232,6 @@ public sealed partial class CutPart {
     public Option<double> GrainAxis { get; }
     public Seq<double> Rotations { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int partId, ref int instance,
         ref double widthMm, ref double heightMm, ref double trueAreaMm2, ref double linearTolerance,
         ref double angularTolerance, ref Option<MaterialId> material, ref Option<double> grainAxis, ref Seq<double> rotations) {
@@ -286,7 +285,6 @@ public sealed partial class NestRun {
     public double KerfMm => Grid.KerfMm;
     public double EdgeAllowanceMm => Grid.EdgeAllowanceMm;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CutPart> parts,
         ref Seq<Stock> inventory, ref NestStrategy strategy, ref Seq<NestStrategy> strategies,
         ref RectangularBudget budget, ref RectangularGrid grid) {
@@ -374,7 +372,6 @@ public sealed partial class NestPlan {
 
     public Seq<UnplacedReason> Unplaced { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref NestRun run, ref Seq<Stock> stock,
         ref Seq<NestPlacement> placements, ref Seq<CutPattern> patterns, ref NestYield yield, ref ContentKey evidence,
         ref Seq<UnplacedReason> unplaced) {

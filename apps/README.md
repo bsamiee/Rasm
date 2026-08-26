@@ -28,12 +28,12 @@ Host roster stays open. Rhino 9 WIP and Grasshopper 2 are the bound hosts today,
 
 ## [03]-[SUBSTRATE]
 
-Root config estates reach every island already, so an app invents no configuration surface of its own.
+Root configuration files reach every island already, so an app invents no configuration surface of its own.
 
 [MSBUILD]:
 - Root `Directory.Build.props` and `Directory.Build.targets` classify and configure every project by tree position.
-- Nested estate files under an island open with the upward chaining import, whose canonical line rides a comment in `Directory.Build.props`.
-- Omitting that import erases the whole root estate while the build stays green.
+- Nested build files under an island open with the upward chaining import, whose canonical line rides a comment in `Directory.Build.props`.
+- Omitting that import erases the whole root configuration while the build stays green.
 
 [PYTHON]:
 - Root `pyproject.toml` owns resolution, dependency groups, and the one `uv.lock`; member manifests carry membership and bare-name edges.
@@ -42,11 +42,11 @@ Root config estates reach every island already, so an app invents no configurati
 [TYPESCRIPT]:
 - `pnpm-workspace.yaml` seats app packages through its `apps/*/*` glob, and its catalog holds every version.
 - Project `tsconfig.json` extends `tsconfig.base.json` and declares only `references`; a node runtime adds `types: ["node"]`.
-- Root `tsconfig.json` is the solution shell `tsc --build` drives, so a project absent from its `references` never typechecks in the estate sweep.
+- Root `tsconfig.json` is the solution shell `tsc --build` drives, so a project absent from its `references` never typechecks in the workspace sweep.
 
 ## [04]-[MINTING]
 
-Blessed per-project file sets are minimal, and what the init rail emits is the whole set.
+Blessed per-project file sets are minimal, and what the init command emits is the whole set.
 
 - C# projects mint by hand as an identity-only `.csproj` joined through `dotnet sln add`, under the parity and shape guards.
 - TypeScript projects mint by hand as `package.json` beside `tsconfig.json`, composed by the root presets.

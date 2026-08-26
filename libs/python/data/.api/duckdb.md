@@ -78,7 +78,7 @@
 - `duckdb-extensions.md`(`.api/duckdb-extensions.md`): loadable-extension roster, per-connection load shapes, the Substrait plan TABLE FUNCTIONS, and DuckLake catalog functions; `install_extension`/`load_extension` are the connection-side load boundary this surface owns, and a loaded extension adds SQL alone — it binds no method onto `DuckDBPyConnection`, so every extension capability is reached through `execute` under prepared parameters.
 - `datafusion`(`.api/datafusion.md`), `polars`, `deltalake`, `pyarrow`: `from_arrow`/`register` ingest and `to_arrow_table`/`to_arrow_reader`/`pl` egress thread one shared Arrow C-data capsule, so a frame crosses the engine boundary with no copy.
 - `deltalake`(`.api/deltalake.md`): `register`/`from_arrow` adopts `DeltaTable.to_pyarrow_dataset()` for pushdown SQL, and `to_parquet`/`to_arrow_reader` feeds a `write_deltalake` commit over the same Delta/Parquet files.
-- `tabular` `DuckDbSession`: the request-scoped scan rail composes `register`/`from_arrow` ingest and relation egress as the columnar and query engine behind data-branch egress.
+- `tabular` `DuckDbSession`: the request-scoped scan domain composes `register`/`from_arrow` ingest and relation egress as the columnar and query engine behind data-branch egress.
 - udf/retry: an Arrow-vectorized `create_function` batch is the shared capsule; a remote-source query composes under a `stamina` `retry_context` and an OpenTelemetry span keyed by `query_progress()`.
 
 [LOCAL_ADMISSION]:

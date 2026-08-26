@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SCYLLADB]
 
-`ScyllaDBCSharpDriver` owns CQL wide-column store access — the shard-per-core, tunable-consistency backend driving ScyllaDB and Apache Cassandra over the one CQL binary protocol, folding every `DriverException` onto the `Fin` rail. It is the scale-out wide-column class alone; the relational, columnar-OLAP, and dedicated-vector concerns route to their own backends.
+`ScyllaDBCSharpDriver` owns CQL wide-column store access — the shard-per-core, tunable-consistency backend driving ScyllaDB and Apache Cassandra over the one CQL binary protocol, folding every `DriverException` onto `Fin`. It is the scale-out wide-column class alone; the relational, columnar-OLAP, and dedicated-vector concerns route to their own backends.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -13,8 +13,8 @@
 | :-----: | :----------------------------- | :--------------------- | :------------------------------------------------------------------------- |
 |  [01]   | `Cluster`                      | connected-cluster root | `Builder()`/`BuildFrom`, `Connect*`, `Metadata`                            |
 |  [02]   | `Builder`                      | fluent configuration   | the one fluent config root -> `Build()`                                    |
-|  [03]   | `ISession`                     | execution rail         | `: IDisposable`; execution + keyspace-DDL rail                             |
-|  [04]   | `ICluster`/`IInitializer`      | cluster contracts      | the `ISession`-factory contract / the `BuildFrom` initializer seam         |
+|  [03]   | `ISession`                     | execution session      | `: IDisposable`; execution + keyspace-DDL surface                          |
+|  [04]   | `ICluster`/`IInitializer`      | cluster contracts      | the `ISession`-factory contract / the `BuildFrom` initializer interface    |
 |  [05]   | `Configuration`                | resolved config        | the materialized cluster configuration (`Builder.Build` result)            |
 |  [06]   | `RowSet` / `Row`               | result set / row       | `IEnumerable<Row>`; `Row.GetValue<T>(name\|i)`, `PagingState`, auto-paging |
 |  [07]   | `ExecutionInfo` / `QueryTrace` | per-query telemetry    | achieved consistency, queried hosts, server-side trace events              |
@@ -174,7 +174,7 @@
 
 [TOPOLOGY]:
 - bootstrap: `Cluster.Builder().AddContactPoints(...).With*(...).Build()` -> `cluster.Connect(keyspace)`; `Cluster` and `ISession` are heavyweight, thread-safe, long-lived singletons — one `ISession` per backend, opened once and reused, never per request.
-- execution: the async `ExecuteAsync(IStatement) -> Task<RowSet>` is the canonical rail; `Prepare` once and `Bind` per call so the query parses server-side once and the routing key derives from the prepared metadata.
+- execution: the async `ExecuteAsync(IStatement) -> Task<RowSet>` is the canonical entry; `Prepare` once and `Bind` per call so the query parses server-side once and the routing key derives from the prepared metadata.
 - routing: `Builder.WithLoadBalancingPolicy(new TokenAwarePolicy(new DefaultLoadBalancingPolicy(localDc)))` is the canonical policy — token + shard aware, so a `BoundStatement` with a known routing key reaches the owning replica's owning shard; the `Tablet`/`HostShard`/`HostShardPair` metadata makes the shard target precise, and `cluster.GetReplicas(keyspace, partitionKey)` is the public shard-resolution readout.
 - consistency: `ConsistencyLevel` is per-statement (`SetConsistencyLevel`) or per-execution-profile (`WithExecutionProfiles`); `Serial`/`LocalSerial` are the LWT consistency for `IF`-conditional statements, distinct from the quorum levels for normal reads/writes.
 - idempotence: `SetIdempotence(true)` marks a statement retry-safe so the retry/speculative-execution policy may re-issue it; a non-idempotent statement is never speculatively duplicated.
@@ -182,7 +182,7 @@
 [STACKING]:
 - policy rows: the `ExecutionProfiles` + retry/LB/speculative-execution policies declare once on the `Builder` and select per query by name — consistency, timeout, retry, and routing variation lives in a named profile, never in parallel session objects or per-call branching.
 - compression: `CompressionType.LZ4` rides the transitive `K4os.Compression.LZ4` (`api-lz4`) for CQL frame compression — wire transport compression on the driver, distinct from the `CompressionPolicy` snapshot/blob codec axis.
-- encryption + KMS: `AesColumnEncryptionPolicy`'s `AesKeyAndIV` key provisions through the KMS rail (`api-aws-kms`/`api-azure-keyvault`/`api-google-kms`) — the driver encrypts the column client-side before write, the KMS owns the key lifecycle; the policy consumes a KMS-issued data key, never a key store itself.
+- encryption + KMS: `AesColumnEncryptionPolicy`'s `AesKeyAndIV` key provisions through the KMS providers (`api-aws-kms`/`api-azure-keyvault`/`api-google-kms`) — the driver encrypts the column client-side before write, the KMS owns the key lifecycle; the policy consumes a KMS-issued data key, never a key store itself.
 - vector lane: `CqlVector<T>` gives ScyllaDB native `vector<float, n>` columns for ANN co-located with the wide-column row; the billion-scale ANN store stays `Qdrant.Client` and the in-PG ANN tier stays `pgvector`/`pgvectorscale`.
 - observability: `Builder.WithMetrics(IDriverMetricsProvider)` and `WithRequestTracker(IRequestTracker)` feed the AppHost telemetry port; per-`RowSet` `ExecutionInfo`/`QueryTrace` carry achieved consistency and queried-host detail.
 

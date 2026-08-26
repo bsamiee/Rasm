@@ -2,12 +2,12 @@
 
 `CanvasLayout` owns programmatic arrangement as document mutation with owned undo, and interactive snap solving as typed capsules over the host solver surfaces. Every arrangement is ONE `CanvasArrangement` case folded to per-object pivot deltas and settled as ONE document mutation: `IAttributes.Move` under pre-captured `PivotAction` undo rows, sealed through `Document/history.md`'s `HistoryLedger.Seal` with the caller's `VerbNoun` — a move without its undo record is unconstructible from this gate. Session clock arrives INJECTED and required; the mint-when-absent fallback this page carried was the folder's third clock posture and is deleted (folder RULINGS `[02]`).
 
-Host absorption owns every solver: the `SnappingAction` factory family owns align, gap, ortho, and wire-straighten candidates, `SnappingConstraints` owns document-scoped snapping, `SnapSpace` owns numeric lattices, and `StretchLayoutSolver` owns min/ideal/max distribution. Snap-guide feedback is a `Seq<Mark>` producer over the kernel paint vocabulary — evidence records carry no paint intent.
+Host absorption owns every solver: the `SnappingAction` factory family owns align, gap, ortho, and wire-straighten candidates, `SnappingConstraints` owns document-scoped snapping, `SnapSpace` owns numeric snap grids, and `StretchLayoutSolver` owns min/ideal/max distribution. Snap-guide feedback is a `Seq<Mark>` producer over the kernel paint vocabulary — evidence records carry no paint intent.
 
 ## [01]-[INDEX]
 
 - [02]-[CANDIDATES]: `CandidatePayload` + `CandidateRow` + `NudgeVector` — the snap-candidate factory rows, the winning-nudge fold, and the kernel-mark guide projection.
-- [03]-[SOLVERS]: `SelectionSide` + `SnapScope` + `SnapField` + `Lattice` + `RoundingPosture` + `StretchPlan` — the document snap capsule, the numeric lattice, and the stretch distribution fold.
+- [03]-[SOLVERS]: `SelectionSide` + `SnapScope` + `SnapField` + `SnapGrid` + `RoundingPosture` + `StretchPlan` — the document snap capsule, the numeric snap grid, and the stretch distribution fold.
 - [04]-[ARRANGE]: `Axis` + `CanvasArrangement` + `CanvasLayout` — the arrangement union and the one sealed-mutation gate.
 
 ## [02]-[CANDIDATES]
@@ -77,7 +77,7 @@ public sealed partial class CandidateRow {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidence {
     public float Magnitude => float.Hypot(Dx, Dy);
     public bool IsValid => ValidityClaim.All(ValidityClaim.Finite(value: Dx), ValidityClaim.Finite(value: Dy));
@@ -99,8 +99,8 @@ public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidenc
 ## [03]-[SOLVERS]
 
 - Owner: `SelectionSide` `[SmartEnum<string>]` realizing `ICapability` — the selection-scope vocabulary whose corner law FORBIDS the empty set (a snap field over neither selected nor unselected objects snaps against nothing and was a guard every caller re-derived); `SnapScope` `[Union]` — `ExcludingCase(Seq<Guid>)`, `SelectionCase(CapabilitySet<SelectionSide>, Option<HashSet<Guid>>)`, `BoxesCase(Seq<RectangleF>)` — the raw array becomes `Seq`, so structural equality holds by carrier.
-- Owner: `SnapField` sealed `[BoundaryAdapter]` — the document snap capsule over `SnappingConstraints`: one polymorphic `Of` over the scope union and `Solve` lifting the `SnapRectangle` out-pair onto `SnapPair` (`Option<SnappingAction>` per axis — a null out is typed absence). NAMED LOSS: the unread `SolveObject`, `SolveWires`, and `DrawGuides` members DELETE — each re-lands as one member when a consumer arrives; the host draws its own drag-time guides.
-- Owner: `Lattice` — the numeric snap lattice over `SnapSpace`: `Orthogonal` (the two host arities on the presence of the second cell size) and `Fix` lifting the out-triple onto `SnapVerdict(X, Y)`. NAMED LOSS: the unread `Merge`/`Empty`/`Of` element and numeric arms DELETE with the same re-landing clause; the unread `Rule` string column dies with its refuted no-parse claim.
+- Owner: `SnapField` sealed — the document snap capsule over `SnappingConstraints`: one polymorphic `Of` over the scope union and `Solve` lifting the `SnapRectangle` out-pair onto `SnapPair` (`Option<SnappingAction>` per axis — a null out is typed absence). NAMED LOSS: the unread `SolveObject`, `SolveWires`, and `DrawGuides` members DELETE — each re-lands as one member when a consumer arrives; the host draws its own drag-time guides.
+- Owner: `SnapGrid` — the numeric snap grid over `SnapSpace`: `Orthogonal` (the two host arities on the presence of the second cell size) and `Fix` lifting the out-triple onto `SnapVerdict(X, Y)`. NAMED LOSS: the unread `Merge`/`Empty`/`Of` element and numeric arms DELETE with the same re-landing clause; the unread `Rule` string column dies with its refuted no-parse claim.
 - Owner: `RoundingPosture` `[SmartEnum<int>]` — `Exact` and `Pixel`, the row carrying whether the solver's `Round()` pass runs; a policy is a row, not a `bool round` parameter. `StretchPlan.Solve` admits every row through `Validation` — N bad rows report N labeled faults, not one.
 - Law: capsule state is gesture-scoped — a `SnapField` is built per drag or per arrangement against the CURRENT graph and never cached across mutations, because constraint boxes are position snapshots.
 - Law: settings policy is host-direct — `SnappingSettings.Default`/`Current` are the two reads and the fourteen axis getters ARE the evidence row; a local mirror or read wrapper is the deleted form.
@@ -140,28 +140,27 @@ public sealed partial class RoundingPosture {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SnapPair(Option<SnappingAction> X, Option<SnappingAction> Y);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SnapVerdict(double X, double Y) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(ValidityClaim.Finite(value: X), ValidityClaim.Finite(value: Y));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct StretchRow(float Min, float Max, float Ideal) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Ordered(lower: Min, upper: Ideal),
         ValidityClaim.Ordered(lower: Ideal, upper: Max));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct StretchVerdict([property: Generator.Equals.OrderedEquality] Seq<float> Lengths) : IValidityEvidence {
     public bool IsValid => Lengths.ForAll(static length => float.IsFinite(length) && length >= 0f);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-[BoundaryAdapter]
 public sealed class SnapField {
     private readonly SnappingConstraints constraints;
 
@@ -190,17 +189,16 @@ public sealed class SnapField {
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct Lattice {
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SnapGrid {
     internal SnapSpace Space { get; }
 
-    public static Fin<Lattice> Orthogonal(double originX, double originY, double sizeX, Option<double> sizeY = default, Op? key = null);
+    public static Fin<SnapGrid> Orthogonal(double originX, double originY, double sizeX, Option<double> sizeY = default, Op? key = null);
 
     public Fin<SnapVerdict> Fix(double x, double y, Option<double> cutoff, Op key);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class StretchPlan {
     public static Fin<StretchVerdict> Solve(Seq<StretchRow> rows, float target, RoundingPosture rounding, Op key) =>
         from admitted in rows.Zip(toSeq(Range(0, rows.Count))).Traverse(pair => pair.Item1.IsValid
@@ -270,13 +268,12 @@ public abstract partial record CanvasArrangement {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ArrangeFacts(int Moved, double Displacement) : IValidityEvidence {
     public bool IsValid => Moved >= 0 && ValidityClaim.Nonnegative(value: Displacement).Holds;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class CanvasLayout {
     public static Fin<(ArrangeFacts Facts, GaugedSpan<CanvasLane> Span)> Arrange(
         VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context, Op? key = null) {
@@ -321,8 +318,8 @@ public static class CanvasLayout {
                 }),
             gridCase: static (s, c) =>
                 from rows in Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
-                from lattice in Lattice.Orthogonal(originX: c.Origin.X, originY: c.Origin.Y, sizeX: c.CellWidth, sizeY: Some(c.CellHeight), key: s.Key)
-                from moves in rows.Map(row => lattice.Fix(x: row.Pivot.X, y: row.Pivot.Y, cutoff: Option<double>.None, key: s.Key)
+                from grid in SnapGrid.Orthogonal(originX: c.Origin.X, originY: c.Origin.Y, sizeX: c.CellWidth, sizeY: Some(c.CellHeight), key: s.Key)
+                from moves in rows.Map(row => grid.Fix(x: row.Pivot.X, y: row.Pivot.Y, cutoff: Option<double>.None, key: s.Key)
                         .Map(verdict => (Target: row, Dx: (float)(verdict.X - row.Pivot.X), Dy: (float)(verdict.Y - row.Pivot.Y))))
                     .TraverseM(identity).As()
                 select moves.Strict(),
@@ -363,12 +360,12 @@ public static class CanvasLayout {
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]            | [OWNER]                              | [RAIL]                                       | [CASES] |
+| [INDEX] | [CONCERN]            | [OWNER]                              | [RESULT]                                     | [CASES] |
 | :-----: | :------------------- | :----------------------------------- | :------------------------------------------- | :-----: |
 |  [01]   | snap candidates      | `CandidateRow` + `CandidatePayload`  | one generic `Row<TCase>` factory, typed miss |   12    |
 |  [02]   | nudge evidence       | `NudgeVector`                        | value-only; guides project as kernel marks   |    1    |
 |  [03]   | document snapping    | `SnapField` + `SnapScope`            | one `Of`, corner-law selection scope         |    3    |
-|  [04]   | numeric lattice      | `Lattice` + `SnapVerdict`            | out-params lifted, unread arms deleted       |    1    |
+|  [04]   | numeric grid         | `SnapGrid` + `SnapVerdict`           | out-params lifted, unread arms deleted       |    1    |
 |  [05]   | stretch distribution | `StretchPlan` + `RoundingPosture`    | per-row `Validation`, policy as a row        |    1    |
 |  [06]   | sealed arrangement   | `CanvasArrangement` + `CanvasLayout` | one gauged gate, `Axis` row-column folds     |    5    |
 

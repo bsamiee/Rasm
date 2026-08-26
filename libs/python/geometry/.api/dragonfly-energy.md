@@ -59,7 +59,7 @@
 
 [STACKING]:
 - `anyio`(`.api/anyio.md`): the `run_*` pipeline runs each subprocess/Docker stage through `anyio.run_process`/`anyio.to_thread.run_sync` in a task group with a cancel scope + deadline so a wedged URBANopt/Modelica run reclaims
-- `guarded`(`runtime/reliability/resilience#RESILIENCE`): wrap `run_reopt` (the NREL REopt HTTP API) in the retry rail for transient API failures; the local subprocess stages are non-idempotent and never retry
+- `guarded`(`runtime/reliability/resilience#RESILIENCE`): wrap `run_reopt` (the NREL REopt HTTP API) in the retry policy for transient API failures; the local subprocess stages are non-idempotent and never retry
 - `structlog` + `opentelemetry`(`.api/opentelemetry-api.md`): one span per `model_to_urbanopt`/`run_urbanopt`/`run_des_modelica`/`run_reopt` carrying `(scenario, building_count, cpu_count)`; the minutes-long run is the span unit
 - `psutil`(`.api/psutil.md`): size the `cpu_count` on `prepare_urbanopt_folder`/`run_urbanopt` from the resource governor rather than hardcoding
 - `universal-pathlib`(`.api/universal-pathlib.md`): point the `folder` outputs (feature GeoJSON, OSW, sys-param JSON) at the artifact store

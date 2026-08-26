@@ -8,7 +8,7 @@
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [CAPABILITY]                                                                        |
 | :-----: | :----------------------- | :-------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `DataFrame`              | eager frame     | settled frame; `.style` is the GT seam, `.to_dicts`/`.to_numpy` the egress          |
+|  [01]   | `DataFrame`              | eager frame     | settled frame; `.style` is the GT boundary, `.to_dicts`/`.to_numpy` the egress      |
 |  [02]   | `Series`                 | typed column    | single column into the standalone `vals.fmt_*` and `.to_numpy`/`.to_list` egress    |
 |  [03]   | `Expr`                   | expression node | the aggregate/predicate the table owner builds for `summary_rows`/`loc.body(mask=)` |
 |  [04]   | `DataType` family        | value object    | per-column dtype selecting the `FmtKind` and `cs.by_dtype(...)` set                 |
@@ -18,8 +18,8 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the great-tables construction seam (`visualization/table`)
-- [GT_SEAM]: `DataFrame.style -> GT` `GT(frame, rowname_col=, groupname_col=, locale=, id=)` — in-process styled-table construction from the frame with no frame→table marshalling; `.style` folds the `TableOp` sequence, the explicit ctor is the fall-through when knobs diverge from default.
+[ENTRYPOINT_SCOPE]: the great-tables construction boundary (`visualization/table`)
+- [GT_BOUNDARY]: `DataFrame.style -> GT` `GT(frame, rowname_col=, groupname_col=, locale=, id=)` — in-process styled-table construction from the frame with no frame→table marshalling; `.style` folds the `TableOp` sequence, the explicit ctor is the fall-through when knobs diverge from default.
 - [SUMMARY_EXPR]: `pl.col(name).mean()` `.sum()` `.median()` `.std()` `.quantile()` `.min()` `.max()` `.n_unique()` `.alias(name)` — each `summary_rows`/`grand_summary_rows` `fns` value names its own column, great-tables rejecting a non-`None` `columns`.
 - [MASK_PREDICATE]: `pl.col(name) > v` `.is_between(lo, hi)` `.is_in(set)` `.is_null()` `& | ~` — the boolean `Expr` for `loc.body(mask=)` cell targeting, mutually exclusive with `columns`/`rows`.
 - [DERIVED_CELL]: `pl.when(pred).then(x).otherwise(y)` `pl.lit(v)` `pl.format(tmpl, *exprs)` `pl.concat_str(exprs, separator=)` `pl.coalesce(*exprs)` `pl.struct(*exprs)` — derive a display column inside `select`/`with_columns` before `.style`.
@@ -41,7 +41,7 @@
 
 [STACKING]:
 - `great-tables`(`.api/great-tables.md`): the BYO-DataFrame contract is polars-first — `GT(frame)` and `frame.style` take a `pl.DataFrame`, `summary_rows`/`grand_summary_rows` take `dict[str, pl.Expr]`, `loc.body(mask=)` takes a boolean `Expr`, `vals.fmt_*` takes a `pl.Series`; the styled frame folds the `TableOp` sequence and emits HTML/LaTeX/PDF with no intermediate interchange.
-- `expression`(`.api/expression.md`): `TablePlan.render`/`DiagramLayout.assign` thread every seam crossing through `RuntimeRail`/`boundary`, mapping the `pl.exceptions` family (`ColumnNotFoundError`, `SchemaError`, `ComputeError`) onto a typed `Result`/`Error` rather than raising.
+- `expression`(`.api/expression.md`): `TablePlan.render`/`DiagramLayout.assign` thread every boundary crossing through `RuntimeResult`/`boundary`, mapping the `pl.exceptions` family (`ColumnNotFoundError`, `SchemaError`, `ComputeError`) onto a typed `Result`/`Error` rather than raising.
 - `beartype`(`.api/beartype.md`): an artifacts owner's ingress validates `pl.DataFrame`/`pl.Series`/`pl.Expr` as the declared annotation, faulting a wrong-shape input at the boundary.
 - `numpy`(`.api/numpy.md`): `to_numpy()`/`Series.to_numpy()` exits to the dense-array substrate for diagram coordinates and nanoplot vectors.
 - within-lib: `TablePlan` folds the `TableOp` sequence onto `frame.style` and indexes `VALS_TABLE[kind](series, opts)` for out-of-table Series formatting; `DiagramLayout` lowers `adjacency`/`attributes` through `to_dicts()` into a `rustworkx` graph.

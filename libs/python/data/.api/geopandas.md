@@ -1,6 +1,6 @@
 # [PY_DATA_API_GEOPANDAS]
 
-`geopandas` extends pandas with an active geometry column, holding CRS as a `pyproj.CRS` and dispatching vectorized Shapely GEOS ops, spatial and nearest joins, overlay, and dissolve over `GeoDataFrame`/`GeoSeries`. Geometry, projection, codec, and driver concerns delegate to their owners — the column is a `shapely` `GeometryArray`, IO routes through `pyogrio` (GDAL) and the GeoArrow/GeoParquet `pyarrow` wire, `GeoSeries.to_wkb()`/`points_from_xy` arrays feed the `h3ronpy` DGGS rail — so geopandas composes the geospatial stack, never re-implements it.
+`geopandas` extends pandas with an active geometry column, holding CRS as a `pyproj.CRS` and dispatching vectorized Shapely GEOS ops, spatial and nearest joins, overlay, and dissolve over `GeoDataFrame`/`GeoSeries`. Geometry, projection, codec, and driver concerns delegate to their owners — the column is a `shapely` `GeometryArray`, IO routes through `pyogrio` (GDAL) and the GeoArrow/GeoParquet `pyarrow` wire, `GeoSeries.to_wkb()`/`points_from_xy` arrays feed the `h3ronpy` DGGS domain — so geopandas composes the geospatial stack, never re-implements it.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -55,7 +55,7 @@
 - `pyarrow`(`.api/pyarrow.md`): `to_arrow`/`to_parquet` emit GeoArrow/GeoParquet (`geometry_encoding='WKB'` or `'geoarrow'`, `write_covering_bbox=True` for predicate pushdown); the resulting table feeds `polars-st`/`datafusion`/`duckdb` in one columnar hand-off with no intermediate file.
 - `pyogrio`(`.api/pyogrio.md`): `read_file`/`to_file` select the GDAL driver through pyogrio; `list_layers` enumerates layers before a scoped read.
 - `h3ronpy`(`.api/h3ronpy.md`): `GeoSeries.to_wkb()` feeds `wkb_to_cells(arr, resolution, containment_mode)` and `points_from_xy` feeds `coordinates_to_cells`; geometry leaves as WKB or coordinate arrays, never per-row Python geometries.
-- within-lib: the data geospatial owner drives the vectorized array form and the `sindex` STRtree join primitive directly; `read_postgis`/`to_postgis` round-trip through the query rail's SQLAlchemy/GeoAlchemy connection rather than a parallel DB client.
+- within-lib: the data geospatial owner drives the vectorized array form and the `sindex` STRtree join primitive directly; `read_postgis`/`to_postgis` round-trip through the query domain's SQLAlchemy/GeoAlchemy connection rather than a parallel DB client.
 
 [LOCAL_ADMISSION]:
-- Admit `geopandas` as the geometry-aware tabular owner on the data geospatial rail, composing shapely/pyproj/pyogrio/pyarrow rather than re-importing them per row.
+- Admit `geopandas` as the geometry-aware tabular owner on the data geospatial domain, composing shapely/pyproj/pyogrio/pyarrow rather than re-importing them per row.

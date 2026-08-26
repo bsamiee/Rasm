@@ -276,7 +276,7 @@
 - `GeometryBase` derives world, transformed, and frame-aligned bounds off one geometry instance, so a placement bound reads from the source and its `Transform` directly.
 
 [STACKING]:
-- `LanguageExt.Core`(`.api/api-languageext.md`): every `bool` mutator and `out`-parameter probe on this surface projects onto `Fin<A>` or `Option<A>` at the boundary, so a geometry pipeline threads one rail where the host hands back a flag.
+- `LanguageExt.Core`(`.api/api-languageext.md`): every `bool` mutator and `out`-parameter probe on this surface projects onto `Fin<A>` or `Option<A>` at the boundary, so a geometry pipeline threads one result where the host hands back a flag.
 - `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): a `Point3d`/`Vector3d` component triple admits through `CreateVector.DenseOfArray<double>` as the nonlinear-minimizer carrier, and a fitted parameter vector crosses back through the `Plane` and `Transform` factories.
 - `NetTopologySuite`(`.api/api-nettopologysuite.md`): a `Point3d` set flattens to `Coordinate` sequences for planar predicate topology, and `BoundingBox.Min`/`.Max` supply the `Envelope` every spatial index keys on.
 - Within-library: `Rasm` kernel owners consume these structs as the sole host-crossing carrier — a frame lands as one `Plane`, a placement as one `Transform` folded from its factories, and a spatial extent as one `BoundingBox` accumulated from the `Empty` seed.

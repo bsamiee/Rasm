@@ -1,6 +1,6 @@
 # [PY_DATA_API_POLARS_ST]
 
-`polars-st` mints the GeoArrow spatial extension for the `data` spatial rail: a `.st` accessor on `polars.Expr`/`Series`/`DataFrame`/`LazyFrame` running GEOS-backed geometry ops as registered plugin expressions over a WKB column, with parsing factories, OGR/GeoPandas IO, and the `GeoExprNameSpace` predicate/measure/overlay/transform vocabulary. Every op folds into the same `LazyFrame` graph as ordinary Polars work and inherits pushdown; GEOS overlay, buffering, and PROJ reprojection stay bound to the extension.
+`polars-st` mints the GeoArrow spatial extension for the `data` spatial domain: a `.st` accessor on `polars.Expr`/`Series`/`DataFrame`/`LazyFrame` running GEOS-backed geometry ops as registered plugin expressions over a WKB column, with parsing factories, OGR/GeoPandas IO, and the `GeoExprNameSpace` predicate/measure/overlay/transform vocabulary. Every op folds into the same `LazyFrame` graph as ordinary Polars work and inherits pushdown; GEOS overlay, buffering, and PROJ reprojection stay bound to the extension.
 
 ## [01]-[PUBLIC_TYPES]
 

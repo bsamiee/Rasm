@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_QUALITY_RECORD]
 
-As-built quality truth enters once through `QualityRecord.Admit(QualitySource)` and remains typed across inspection, material, process, nonconformance, calibration, and declaration evidence. `QualityEvidence` owns the record rail and every column writer the plane's preimages chain; the release gate that signs those records into a `SealedRecord` is `Documentation/passport`, a different lifecycle behind a cryptographic boundary. `ShopSchedule` folds the same seam's realization bags into bar-bending, weld-map, and stud-layout deliverables.
+As-built quality truth enters once through `QualityRecord.Admit(QualitySource)` and remains typed across inspection, material, process, nonconformance, calibration, and declaration evidence. `QualityEvidence` owns the record pipeline and every column writer the plane's preimages chain; the release gate that signs those records into a `SealedRecord` is `Documentation/passport`, a different lifecycle behind a cryptographic boundary. `ShopSchedule` folds the same contract's realization bags into bar-bending, weld-map, and stud-layout deliverables.
 
 Every column writer here frames over the `Rasm.Element` `CanonicalWriter` composing `FabricationCanon`, never a serializer's output: a quantity enters as its family token and base-unit magnitude, so renaming a display unit cannot invalidate a signature, and every collection carries its count while every optional column carries its presence bit.
 
@@ -9,7 +9,7 @@ Every column writer here frames over the `Rasm.Element` `CanonicalWriter` compos
 ## [01]-[INDEX]
 
 - [02]-[EVIDENCE]: the closed refusal, relation, grade, class, stage, sampling, disposition, decision-rule, coverage, declaration, outcome, root-cause, and correction rows every record keys on.
-- [03]-[QUALITY]: admitted evidence owners, the observation family and its census, the closed as-built record family, `QualityRecord.Admit` over one `QualitySource`, and the `QualityEvidence` rail with its column writers.
+- [03]-[QUALITY]: admitted evidence owners, the observation family and its census, the closed as-built record family, `QualityRecord.Admit` over one `QualitySource`, and the `QualityEvidence` pipeline with its column writers.
 - [04]-[SCHEDULE]: `ScheduleKind` fold rows over `DetailSchema.Realization` bags and the `ScheduleEntry` deliverables they emit.
 
 ## [02]-[EVIDENCE]
@@ -274,11 +274,11 @@ public sealed partial class CorrectionKind {
 - Owner: `QualityDeclaration` carries conformity scope, PPAP level and parts, coating system and film thickness, heat-treatment cycle, or special-process procedure and operator.
 - Law: a SHORT sample emits ONE `Missing` observation PER MISSING UNIT. A single observation for a plan that drew five of twenty units states the same evidence gap as one that drew nineteen, and every census, severity, and acceptance read off it inherits that flattening.
 - Law: a characteristic row carries `ChainEvidence` whole where a chain governs its closure, so a failed characteristic names the feature variation dominating it and corrective action routes to a term rather than to the assembly. Conformance reads `Conforming`, the ranked terms and both worst-case extremes read the same result, and the preimage frames through `ChainEvidence.Frame` — this page ranks, bounds, and re-keys nothing of its own.
-- Law: `ProcessEvidence.Unfulfilled` diffs `ProcedureAssessment.Inspections` against the performed `WeldInspectionRow` set through `InspectionRequirement.Satisfies(NdtMethod)` — the ONE grain seam `Joining/procedure` owns — so a documentation-plane reconciliation never re-derives the family-to-method correspondence under a second vocabulary.
+- Law: `ProcessEvidence.Unfulfilled` diffs `ProcedureAssessment.Inspections` against the performed `WeldInspectionRow` set through `InspectionRequirement.Satisfies(NdtMethod)` — the ONE grain contract `Joining/procedure` owns — so a documentation-plane reconciliation never re-derives the family-to-method correspondence under a second vocabulary.
 - Law: `CalibrationRow` carries the interval `Period` and the `Impacted` record keys measured inside it, so an out-of-tolerance as-found reading is `Complete` only once its downstream impact is enumerated.
 - Law: `QualityObservation.Outcome` projects every evidence atom to one `EvidenceOutcome`; `EvidenceCensus.Of` folds rows into one bucket map and `Count` reads it BY ROW, so the partition is structural, `Severity` carries the worst outcome seen, and a new outcome needs no census column.
-- Law: `RecordRefusal` rows name operation rejections on `Op.InvalidResult(detail:)`; generated owners keep ephemeral `ValidationError` diagnostics until `Admitted` crosses to the kernel rail.
-- Law: `QualityEvidence` owns the record rail and every column writer this plane's preimages chain. `Refusal` answers on the fabrication band under its own locus, `Refused`/`Gate` on the record op under its own detail, and `Fraction` is CLOSED on [0, 1] — the strictly-positive demand composes `static value => ValidityClaim.Positive(value).Holds` rather than riding a mode flag on the predicate.
+- Law: `RecordRefusal` rows name operation rejections on `Op.InvalidResult(detail:)`; generated owners keep ephemeral `ValidationError` diagnostics until `Admitted` crosses to the kernel fault channel.
+- Law: `QualityEvidence` owns the record pipeline and every column writer this plane's preimages chain. `Refusal` answers on the fabrication band under its own locus, `Refused`/`Gate` on the record op under its own detail, and `Fraction` is CLOSED on [0, 1] — the strictly-positive demand composes `static value => ValidityClaim.Positive(value).Holds` rather than riding a mode flag on the predicate.
 - Entry: `public static Fin<QualityRecord> QualityRecord.Admit(QualitySource source)` is the only record-creation entrypoint; `Documentation/passport` `QualityReport.Seal` is the only path out.
 - Exemption: the `extension(CanonicalWriter sink)` bodies are the byte kernel; every other body on this cluster is expression-shaped.
 - Result: `CharacteristicRow`, `ChemistryRow`, `MechanicalRow`, `WeldInspectionRow`, and `CalibrationRow` carry quantity, `CoverageInterval` uncertainty, method, equipment, personnel, procedure, acceptance, examiner grade, locus, coverage, environment, traceability, and lifecycle evidence. `Measurement.StandardUncertainty` and `ToleranceRatio` derive from the declared coverage factor.
@@ -291,7 +291,6 @@ public sealed partial class CorrectionKind {
 [ValueObject<string>]
 [ConfidentialData]
 public readonly partial struct HeatNumber {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -303,7 +302,6 @@ public readonly partial struct HeatNumber {
 
 [ValueObject<string>]
 public readonly partial struct NonconformanceNumber {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -315,7 +313,6 @@ public readonly partial struct NonconformanceNumber {
 
 [ValueObject<string>]
 public readonly partial struct AssetTag {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -327,7 +324,6 @@ public readonly partial struct AssetTag {
 
 [ValueObject<string>]
 public sealed partial class EvidenceId {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -339,7 +335,6 @@ public sealed partial class EvidenceId {
 
 [ValueObject<string>]
 public sealed partial class Narrative {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -395,7 +390,6 @@ public abstract partial record EvidenceRef {
 
 [ValueObject<Seq<EvidenceRef>>]
 public sealed partial class EvidenceLinks {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<EvidenceRef> value) {
         if (value.IsEmpty || value.Distinct().Count != value.Count)
             validationError = QualityEvidence.Validation("evidence-links");
@@ -413,7 +407,6 @@ public sealed partial class EvidenceContext {
     public Option<Narrative> Locus { get; }
     public Instant At { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Personnel actor,
@@ -460,7 +453,6 @@ public sealed partial class Measurement {
         Validate(nominal, observed, lower, upper, expandedUncertainty, coverage, decisionRule, context,
             out Measurement admitted).Admitted(admitted);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref IQuantity nominal,
@@ -504,7 +496,6 @@ public sealed partial class CharacteristicRow {
         Option<ChainEvidence> stackup) =>
         Validate(subject, measurement, verdict, stackup, out CharacteristicRow admitted).Admitted(admitted);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CharacteristicSubject subject,
@@ -528,7 +519,6 @@ public sealed partial class ChemistryRow {
     public Disposition Verdict { get; }
     public bool Within => Lower <= Observed && Observed <= Upper;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Narrative element,
@@ -552,7 +542,6 @@ public sealed partial class CategoricalEvidence {
     public bool Within => Admitted.Exists(value =>
         string.Equals(value.ToValue(), Observed.ToValue(), StringComparison.OrdinalIgnoreCase));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Characteristic characteristic,
@@ -574,7 +563,6 @@ public sealed partial class TraceEvidence {
     public TraceRelation Relation { get; }
     public EvidenceContext Context { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef subject,
@@ -635,7 +623,6 @@ public sealed partial class EvidenceSet {
     internal static Fin<EvidenceSet> Admit(Seq<QualityObservation> observations) =>
         Admission.Of<EvidenceSet, Seq<QualityObservation>>(observations);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<QualityObservation> value) {
@@ -675,7 +662,6 @@ public sealed partial class MaterialResults {
         Chemistry.Map(static row => (QualityObservation)new QualityObservation.Chemistry(row))
         + Mechanicals.Bind(static row => row.Properties.ToValue());
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<ChemistryRow> chemistry,
@@ -748,7 +734,6 @@ public sealed partial class WeldInspectionRow {
     internal bool Satisfies(InspectionRequirement demand) =>
         demand.Joint == Joint && demand.Satisfies(Method) && Coverage >= demand.Coverage;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int joint,
@@ -800,7 +785,6 @@ public sealed partial class CalibrationRow {
     private bool Bounded(IQuantity error) => Math.Abs(error.As(AllowedError.Unit))
         + (DecisionRule.GuardBandFactor * ExpandedUncertainty.As(AllowedError.Unit)) <= Math.Abs((double)AllowedError.Value);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref AssetTag asset,
@@ -914,7 +898,6 @@ public sealed partial class SamplingPlan {
     public int Accept { get; }
     public int Reject { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Requirement requirement,
@@ -960,7 +943,6 @@ public sealed partial class InspectionEvidence {
                 .Map(_ => (QualityObservation)new QualityObservation.Missing(Plan.Requirement, row.Measurement.Context)))
             .IfNone(Seq<QualityObservation>());
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Report report,
@@ -993,7 +975,6 @@ public sealed partial class MaterialCertificate {
     public CertType Cert { get; }
     public Instant IssuedAt { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Report report,
@@ -1027,7 +1008,6 @@ public sealed partial class ProcessEvidence {
             .Map(id => (QualityObservation)new QualityObservation.Missing(new EvidenceRef.Requirement(id), Context))
             .ToSeq());
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Report report,
@@ -1065,7 +1045,6 @@ public sealed partial class NonconformanceEvidence {
     public Seq<QualityObservation> Observations =>
         Verification.ToValue() + Effectiveness.Map(static set => set.ToValue()).IfNone(Seq<QualityObservation>());
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Product product,
@@ -1257,7 +1236,6 @@ public sealed partial class SampledLot {
     public Option<CapabilityReport> Capability { get; }
     public Option<ContentKey> Prior { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref EvidenceRef.Report report,
@@ -1545,11 +1523,11 @@ public static class QualityEvidence {
 - Law: a weld's connection CONTEXT is an occurrence fact — the carried member's width and depth belong to the connection the detailing copies onto the weld occurrence, while the throat and joint modality ride the weld type itself.
 - Law: a stud's PITCH is a type fact off the stud row and its EDGE DISTANCE a placement fact — the sheathing field and edge nailing a panel product publishes are a different concept under the same words, and they never reach this fold because their bag is the product schema's.
 - Law: `RequiredRows` is `TypeRows` followed by `OccurrenceRows` and gates the deliverable all-or-nothing — a partially detailed element yields no half-schedule a shop would read as authored. `OptionalRows` EXTEND a deliverable that already exists and gate nothing, so a straight bar schedules without a bend block and a plug weld without a part thickness, while a shaped bar and a prepared groove carry theirs.
-- Law: the deliverable row name mints through `PropertyCategory.Fabrication.Row`, the seam's own custody scope, so this package names its deliverables inside the partition the seam blesses and a bare `PropertyName.Create` at a fold site is the deleted form.
+- Law: the deliverable row name mints through `PropertyCategory.Fabrication.Row`, the contract's own custody scope, so this package names its deliverables inside the partition the contract blesses and a bare `PropertyName.Create` at a fold site is the deleted form.
 - Law: the fold reads the bag whose `SetName` is the realization schema's own; a bag from another schema carries the same row names under a different contract and is skipped rather than mis-read.
 - Entry: `ShopSchedule.Of(Seq<RealizedDetail>)` is the one fold; every kind reads the same bag set and contributes independently.
 - Growth: a new shop deliverable is one `ScheduleKind` row naming its deliverable row and its inputs under their two custodies; a new column on an existing deliverable is one roster member, required where every instance carries it and optional where the geometry decides.
-- Boundary: the values stay `PropertyValue` as the seam authored them — this fold selects and groups, it never re-resolves a material, re-derives a quantity, or renders a sheet.
+- Boundary: the values stay `PropertyValue` as the contract authored them — this fold selects and groups, it never re-resolves a material, re-derives a quantity, or renders a sheet.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1622,7 +1600,7 @@ flowchart LR
     Records --> Observations["QualityObservation.Outcome — one EvidenceOutcome per atom"]
     Observations --> Census["EvidenceCensus.Of — one bucket fold"]
     Records --> Demands["QualityRecord.Requirements — attestation demands"]
-    Records --> Writer["QualityEvidence — record rail and column writers"]
+    Records --> Writer["QualityEvidence — record pipeline and column writers"]
     Census --> Seal["Documentation/passport — QualityReport.Seal"]
     Demands --> Seal
     Writer -->|"CanonicalWriter columns"| Seal

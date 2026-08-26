@@ -12,7 +12,7 @@
 
 - Owner: `FormPolicy` owns admitted sheet intent; `FormSource` owns the closed production-modality family the `Process/owner` `Form` case carries, each arm holding its own admitted run and its own machine envelope; `SheetSource` owns formed-panel, component, and kernel-surface ingress; `SheetLink` owns panel and surface adjacency; `SheetForm` owns line-form and local-feature evidence; `FlatPattern` owns development and projection; `ElasticLaw` and `FormingCanon` own the folder-wide forming law every `Rasm.Fabrication.Forming` page composes, the `Geometry2D` algebra owner owns the clip-trace projections each region reader takes, and the S0 `FabricationCanon` owns every preimage frame and close beneath them.
 - Cases: `KSource` resolves table, measured-coupon, `DIN 6935`, and material-physics neutral-axis positions; `HemKind` carries per-row sweep and inside-radius laws; `ReliefKind` sizes and generates rectangular, obround, tear, and circular reliefs; `SheetForm` carries each feature's distinct evidence and its tooling demand.
-- Entry: `FlatPattern.Unfold(FormPolicy, FabricationInput)` is the frozen development seam, and `FlatPattern.Formed(UnfoldResult, Seq<BendStep>) : Fin<FabricationResult>` is the frozen result projection — the rail is the preimage close's, because a content key minted off a writer holding no buffer is a forged artifact identity.
+- Entry: `FlatPattern.Unfold(FormPolicy, FabricationInput)` is the frozen development boundary, and `FlatPattern.Formed(UnfoldResult, Seq<BendStep>) : Fin<FabricationResult>` is the frozen result projection — the refusal is the preimage close's, because a content key minted off a writer holding no buffer is a forged artifact identity.
 - Auto: Panel links derive a topological placement order; the generated grain field gates bend radius and loop-feature strain; surface links shift kernel islands by neutral-axis deltas; every bend endpoint enters one relief-seat census that folds co-terminating bends into one corner seat sized against the formed radius; one `PolygonOp.Boolean` subtracts admitted reliefs.
 - Result: `UnfoldResult` preserves flat regions, bend topology, forming physics, kernel isometry, neutral-axis displacement, feature evidence, relief evidence, and material identity.
 - Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `QuikGraph`, `MathNet.Numerics` (`Brent.TryFindRoot`, the folder's one elastic-recovery inversion), `UnitsNet`, `Rasm`, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon`, and the `Geometry2D` owner compose the surface.
@@ -229,7 +229,6 @@ public sealed partial class BendCoupon {
     public double DevelopedAllowanceMm { get; }
     public double RadiusThicknessTolerance { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Material material,
@@ -274,7 +273,6 @@ public sealed partial class KFactorBand {
     public double KLow { get; }
     public double KHigh { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Material material,
@@ -297,7 +295,6 @@ public sealed partial class KFactorBand {
 public sealed partial class KFactorTable {
     public Arr<KFactorBand> Bands { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<KFactorBand> bands) =>
         validationError = !bands.IsEmpty
             && toSeq(bands.GroupBy(static band => (band.Material, band.Grade, band.Method))).ForAll(static series =>
@@ -332,7 +329,6 @@ public sealed partial class KQuery {
     public Option<BendCoupon> Coupon { get; }
     public ProcessBudget.Formed Forming { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MaterialSpec material,
@@ -418,7 +414,6 @@ public sealed partial class GrainLaw {
     public double Transverse { get; }
     public double Exponent { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double rollingDeg,
@@ -465,7 +460,6 @@ public sealed partial class FormPolicy {
     public DevelopPolicy Development { get; }
     public double FeatureStrainLimit { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SheetSource source,
@@ -562,7 +556,6 @@ public sealed partial class UnfoldResult {
     public ProcessBudget.Formed Forming { get; }
     public UnfoldEvidence Evidence { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<Loop> flat,

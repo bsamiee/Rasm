@@ -21,9 +21,9 @@
 - Auto: spanning topology mints ONE undirected container from the adjacency links and ONE directed forest from the Kruskal edges, both through the edge-set projection rather than a hand-populated second graph; a single `BreadthFirstSearchAlgorithm` per component carries two attached distance recorders, so hop depth and path length come from ONE walk instead of a per-vertex path re-enumeration.
 - Law: adjacency retains the `Geometry2D/algebra` `SiteEdge` WHOLE and never re-projects it. That row already carries the shared dual segment and DERIVES its midpoint and length off it, so a page-local twin renaming its endpoints and materializing what the owner computes spelled one fact under two names; the Kruskal weight and the breadth-first span recorder now read the owner's own measure. NAMED LOSS: length recomputes per read rather than storing once at projection. WITNESS: the spanning fold and the distance observer are its only readers, each consuming an edge once per walk, so the store bought nothing a second traversal pays for.
 - Output: `Partitioned` carries every clipped region per generating site, both the generating site and its clipped centroid, border membership, perimeter, adjacency links, the minimum spanning forest, breadth-first tour, per-cell traversal evidence, stroke split, the `PartitionSolid` rows, candidate/requested/surviving/merge census, the nearest boundary-anchor cell, and the density closure. `PartitionDensity` closes the inverse the strategy opened — target areal density and cell area against the density and mean cell area the retained cells realized, beside the walk's Lloyd residual — so a consumer reads whether the field it asked for is the field it got. `PartitionSolid` reads the kernel `CloudVoronoiCell` column for column — bound-gated `Option` volume, centroid, and extent beside the natural-neighbour sites — so an unbounded cell publishes absence rather than a zero no fold measured, and `Bounded` is the measured subset a lattice or support-cell consumer reads. A depth-bearing projection reaches this success shape only after the kernel dual completes; a degenerate dual remains the exact `Fin` failure, while an empty solid set means the caller asked for no depth.
-- Packages: `Rasm` supplies the `Deterministic` draw lanes, the `VectorCloud`/`VectorIntent.Voronoi` rail carrying the 3D dual, its per-cell measures, and the success-only `CloudVoronoiResult`/`CloudVoronoiCensus` census, and, through `PolygonOp.Cells`, the bounded planar Voronoi diagram, its Lloyd relaxation, its merge fold, and the nearest-site index; the `Geometry2D` owner supplies measure, Boolean, open-clip, and the `SiteEdge` adjacency row this page retains rather than re-projects; QuikGraph supplies the edge-set container projections, Kruskal spanning, component labels, the breadth-first walk, and its distance recorders; LanguageExt supplies applicative admission, the bounded fold, traversal, the `HashMap` separation index, and the `Fin` rail.
+- Packages: `Rasm` supplies the `Deterministic` draw lanes, the `VectorCloud`/`VectorIntent.Voronoi` pipeline carrying the 3D dual, its per-cell measures, and the success-only `CloudVoronoiResult`/`CloudVoronoiCensus` census, and, through `PolygonOp.Cells`, the bounded planar Voronoi diagram, its Lloyd relaxation, its merge fold, and the nearest-site index; the `Geometry2D` owner supplies measure, Boolean, open-clip, and the `SiteEdge` adjacency row this page retains rather than re-projects; QuikGraph supplies the edge-set container projections, Kruskal spanning, component labels, the breadth-first walk, and its distance recorders; LanguageExt supplies applicative admission, the bounded fold, traversal, the `HashMap` separation index, and the `Fin` result.
 - Growth: a new site-cloud law is one `SiteDistribution` row carrying its own lane fold; a new grading law is one `DensityField` row; a new egress modality is one `PartitionProjection` case; a new ordering law consumes the retained graph without changing tessellation; a new per-cell planar measure is one `PartitionCell` column read off the retained `SiteCell`, and a new volumetric measure is one `PartitionSolid` column read off the retained `CloudVoronoiCell`.
-- Boundary: QuikGraph construction and the observed walk are the one statement-bearing foreign-mutation seam; aggregate admission, domain computation, and egress remain expression-shaped. Diagrams are never minted here — a page-local tessellator, relaxation loop, draw stream, or volumetric dual is the deleted form, the planar complex routing `PolygonOp.Cells` and the 3D complex `VectorIntent.Voronoi`. Every `PolygonAlgebra.Apply` call carries its `Op` key, so a trace-shape refusal names the calling operation instead of a hand-written axis literal. No absence rides a sentinel count or an infinite length: an unreachable cell leaves the tour and the closure census refuses.
+- Boundary: QuikGraph construction and the observed walk are the one statement-bearing foreign-mutation boundary; aggregate admission, domain computation, and egress remain expression-shaped. Diagrams are never minted here — a page-local tessellator, relaxation loop, draw stream, or volumetric dual is the deleted form, the planar complex routing `PolygonOp.Cells` and the 3D complex `VectorIntent.Voronoi`. Every `PolygonAlgebra.Apply` call carries its `Op` key, so a trace-shape refusal names the calling operation instead of a hand-written axis literal. No absence rides a sentinel count or an infinite length: an unreachable cell leaves the tour and the closure census refuses.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -95,7 +95,6 @@ public sealed partial class SamplingField {
     public int Seed { get; }
     public DensityField Density { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SiteDistribution source,
@@ -204,7 +203,6 @@ public sealed partial class PartitionStrategy {
         return new PartitionField(sites, cell, pitch, pitch * MinimumSeparationRatio, cell * MergeAreaRatio);
     }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -256,7 +254,6 @@ public sealed partial class PartitionRequest {
     public Loop Boundary { get; }
     public PartitionProjection Projection { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PartitionStrategy strategy,

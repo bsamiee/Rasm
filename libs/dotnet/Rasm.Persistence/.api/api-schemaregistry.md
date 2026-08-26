@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SCHEMAREGISTRY]
 
-`Confluent.SchemaRegistry` owns the registry REST control-plane every `Confluent.SchemaRegistry.Serdes.*` codec shares: subject register/lookup, schema-id and GUID resolution, compatibility governance, wire-id framing, subject naming, and the client-side data-contract rule engine backing field-level encryption and migration. It is the registry leg of the `Version/egress#EGRESS_SINK` rail — one codec builds once against one `ISchemaRegistryClient`, the registry governs evolution out-of-band, and only the registered schema id rides each Kafka payload.
+`Confluent.SchemaRegistry` owns the registry REST control-plane every `Confluent.SchemaRegistry.Serdes.*` codec shares: subject register/lookup, schema-id and GUID resolution, compatibility governance, wire-id framing, subject naming, and the client-side data-contract rule engine backing field-level encryption and migration. It is the registry leg of the `Version/egress#EGRESS_SINK` pipeline — one codec builds once against one `ISchemaRegistryClient`, the registry governs evolution out-of-band, and only the registered schema id rides each Kafka payload.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -141,7 +141,7 @@
 |  [08]   | `GetAssociationsByResourceNameAsync(...)`           | lists associations by resource name                           |
 |  [09]   | `DeleteAssociationsAsync(...)`                      | deletes resource associations                                 |
 
-- `CreateAssociationAsync`: takes an `AssociationCreateOrUpdateRequest` (`ResourceName`/`ResourceNamespace`/`ResourceId`/`ResourceType` + `AssociationCreateOrUpdateInfo` rows) and returns an `AssociationResponse`; the `*AssociationAsync` surface is the data-governance lineage rail, distinct from schema register/lookup.
+- `CreateAssociationAsync`: takes an `AssociationCreateOrUpdateRequest` (`ResourceName`/`ResourceNamespace`/`ResourceId`/`ResourceType` + `AssociationCreateOrUpdateInfo` rows) and returns an `AssociationResponse`; the `*AssociationAsync` surface is the data-governance lineage API, distinct from schema register/lookup.
 
 [ENTRYPOINT_SCOPE]: schema, id, and rule construction
 
@@ -168,14 +168,14 @@
 - `SchemaRegistryConfig.Url` accepts a comma-separated failover list the `RestService` round-robins under retry. Bearer auth is the `BearerAuth*` block (`BearerAuthClientId`/`ClientSecret`/`Scope`/`TokenEndpointUrl`/`TokenEndpointQuery`/`LogicalCluster`/`IdentityPoolId`, or a preminted `BearerAuthToken`); basic auth is `BasicAuthUserInfo`.
 - `ISchemaIdEncoder` frames the wire id, selected with the `SchemaIdSerializerStrategy` enum on the serde config, never by referencing a concrete encoder class (the encoders are `internal`): `Prefix` writes the magic-byte `[0x00][int32 schema id]` prefix; `Header` moves the id GUID into the `__value_schema_id`/`__key_schema_id` Kafka header, leaving the value payload prefix-free.
 - `SchemaIdDeserializerStrategy` picks the decoder: `Dual` reads header-or-prefix so a topic migrates prefix->header without a flag day, `Prefix` reads prefix-only; `SchemaId.FromBytes` reverses the framing.
-- `RuleSet` is the data-contract surface: `MigrationRules` (cross-version `Upgrade`/`Downgrade`), `DomainRules` (`Write`/`Read` field transforms, the CSFLE encrypt/decrypt seam), and `EncodingRules`; `RuleRegistry.GlobalInstance` is the default executor/action lookup every serde reads unless a per-serde `RuleRegistry` is passed.
+- `RuleSet` is the data-contract surface: `MigrationRules` (cross-version `Upgrade`/`Downgrade`), `DomainRules` (`Write`/`Read` field transforms, the CSFLE encrypt/decrypt hook), and `EncodingRules`; `RuleRegistry.GlobalInstance` is the default executor/action lookup every serde reads unless a per-serde `RuleRegistry` is passed.
 
 [STACKING]:
 - `Confluent.SchemaRegistry.Serdes.Avro`/`.Json`(`.api/api-schemaregistry-serdes-avro.md`, `api-schemaregistry-serdes-json.md`): each serde binds one shared `ISchemaRegistryClient`, frames every payload with `SchemaId`, and reads `RuleRegistry` for CSFLE and migration.
 - `Confluent.Kafka`(`.api/api-kafka.md`): `SchemaIdSerializerStrategy.Header` moves the id into `Message<TKey,TValue>.Headers`, freeing the value payload for a non-Confluent downstream consumer.
 - `CloudNative.CloudEvents.Kafka`(`.api/api-cloudevents-kafka.md`): the header-framed schema id rides the same `Headers` as CloudEvents attributes and trace context on one message.
 - `AWSSDK.KeyManagementService`/`Azure.Security.KeyVault.Keys`/`Google.Cloud.Kms.V1`(`.api/api-aws-kms.md`, `api-azure-keyvault.md`, `api-google-kms.md`): a field-encryption `IRuleExecutor` wraps per-field DEKs against these KMS clients through the shared `RuleRegistry`.
-- `Version/egress`: builds one `CachedSchemaRegistryClient` per registry endpoint from one `SchemaRegistryConfig`, shared by every serde on the cluster and disposed once at rail teardown.
+- `Version/egress`: builds one `CachedSchemaRegistryClient` per registry endpoint from one `SchemaRegistryConfig`, shared by every serde on the cluster and disposed once at pipeline teardown.
 
 [LOCAL_ADMISSION]:
 - `SubjectNameStrategy` is fixed at serde-config time: `Topic` (`<topic>-value`) for single-type topics; `TopicRecord`/`Record` for a multi-event-type op-log topic so a `BimCommitted` and a `GeometryRebaked` event coexist on one topic, each governed by its own subject.

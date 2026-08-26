@@ -1,6 +1,6 @@
 # [RASM_BIM_API_BSDD]
 
-bSDD — the buildingSMART Data Dictionary — is the live REST authority for standard classification systems (IFC, Uniclass, OmniClass, ETIM) and their class-to-property mappings, consumed as a hand-thin read-only HTTP client over the injected Compute transport. `BsddPort.Fetch` issues one identifier-URI `GET`, content-negotiates `application/json`, and projects the wire `ClassContract.v1` into the seam-owned `BsddClass`/`BsddProperty` evidence that classification resolution returns and the property templates mine for `PropertyKey` seeds.
+bSDD — the buildingSMART Data Dictionary — is the live REST authority for standard classification systems (IFC, Uniclass, OmniClass, ETIM) and their class-to-property mappings, consumed as a hand-thin read-only HTTP client over the injected Compute transport. `BsddPort.Fetch` issues one identifier-URI `GET`, content-negotiates `application/json`, and projects the wire `ClassContract.v1` into the contract-owned `BsddClass`/`BsddProperty` evidence that classification resolution returns and the property templates mine for `PropertyKey` seeds.
 
 ## [01]-[ENDPOINTS]
 
@@ -111,16 +111,16 @@ Optional query parameters, keyed to the rows above:
 |  [06]   | `api/Dictionary/v1[?Uri=]`                                | enumerate dictionaries / pin one version                    |
 
 [BSDD_CLASS]: `BsddClass(code, name, classType, definition, uri, properties, status, relatedIfcEntities, relations, reverseRelations, parent, ancestry, children, replaces, replacedBy, deprecation)` — `Status` gates IDS admission, `Relations`/`ReverseRelations` feed the `BsddFederation` closure, `Parent`/`Ancestry`/`Children` the containment, `Replaces`/`ReplacedBy`/`Deprecation` the supersession the `Admit` gate reads.
-[BSDD_PROPERTY]: `BsddProperty(propertyCode ?? code, name, dataType, propertySet, predefinedValue, isRequired, valueKind, status, allowedValues, pattern, bounds, siDimension, units)` — `AllowedValues`/`Pattern`/`Bounds`/`SiDimension`/`Units` feed the `Semantics/properties` templates and IDS value constraints; the seven `dimension*` exponent columns build the seam `Dimension` directly, so no exponent carrier stands beside it.
+[BSDD_PROPERTY]: `BsddProperty(propertyCode ?? code, name, dataType, propertySet, predefinedValue, isRequired, valueKind, status, allowedValues, pattern, bounds, siDimension, units)` — `AllowedValues`/`Pattern`/`Bounds`/`SiDimension`/`Units` feed the `Semantics/properties` templates and IDS value constraints; the seven `dimension*` exponent columns build the shared `Dimension` directly, so no exponent carrier stands beside it.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - Class identity IS the identifier URI (`{org}/{dictionary}/{version}/class/{code}`); every resource is addressed by that URI, so `BsddPort.Fetch(string dictionaryClassUri)` carries one argument and the API resolves the org/dictionary/version/code split server-side.
 - `api/Class/v1` with `IncludeClassProperties=true` returns the class header AND its `classProperties[]` in one round trip; a second `api/Class/Properties/v1` call serves only the paginated long tail (`> 1000` properties) or a `PropertySet`/`SearchText` filter, so the default ingest is the single class call.
-- `ClassPropertyContract.v1` is the CLASS-scoped binding: its `allowedValues`/`min*`/`max*`/`pattern` may be STRICTER than the `PropertyContract.v5` master defaults, and the seam reads the class-level constraint, so a class that narrows an enumeration is honored.
+- `ClassPropertyContract.v1` is the CLASS-scoped binding: its `allowedValues`/`min*`/`max*`/`pattern` may be STRICTER than the `PropertyContract.v5` master defaults, and the contract reads the class-level constraint, so a class that narrows an enumeration is honored.
 - A class fixes a value through `predefinedValue` (single fixed value) or `propertyValueKind` (`Single`/`Range`/`List`/`Complex`/`ComplexList`) with `allowedValues[]`; `BsddProperty` carries both, so a `PropertyKey` template knows fixed-vs-selectable without re-fetching.
-- `status` (`Preview`/`Active`/`Inactive`) gates admission: an `Inactive`/`Preview` class or property resolves but is not authoritative, so the seam keeps the status on the evidence and the IDS facet decides whether a preview binding is accepted.
+- `status` (`Preview`/`Active`/`Inactive`) gates admission: an `Inactive`/`Preview` class or property resolves but is not authoritative, so the contract keeps the status on the evidence and the IDS facet decides whether a preview binding is accepted.
 
 [STACKING]:
 - `Semantics/properties#PROPERTY_TEMPLATES`: `ClassPropertyContract.v1.propertySet` names the IFC Pset, `propertyCode` is the `PropertyKey`, `dataType`/`propertyValueKind`/`predefinedValue`/`allowedValues` drive the typed `PropertyValue` template, and `isRequired` marks the IDS requirement — one class call seeds the whole property-template roster.
@@ -129,7 +129,7 @@ Optional query parameters, keyed to the rows above:
 - `GeometryGymIFC_Core`(`api-geometrygym-ifc.md`): the resolved `ClassContract.v1.uri` is the `IfcClassificationReference.Location`, the `code` its `Identification`, and `relatedIfcEntityNames[]` aligns the bSDD class to the `IfcClass` entity, re-authored through `IfcRelAssociatesClassification` on export with no re-resolution.
 
 [LOCAL_ADMISSION]:
-- `BsddResolution.Resolve` issues the request over the INJECTED `Rasm.Compute/Runtime/ingest#REST_INGEST` transport bound as `BsddPort`; `Rasm.Bim` is AEC-domain and depends strictly upward, so the live leg rides Compute and a transport minted inside `Rasm.Bim` is the named seam violation.
-- `BsddClass.Of` reads ONLY the fields enumerated here; the wire is `additionalProperties: false`, so an unexpected member signals contract drift, not a new capability, and a field absent from this catalog is a phantom the seam never deserializes.
+- `BsddResolution.Resolve` issues the request over the INJECTED `Rasm.Compute/Runtime/ingest#REST_INGEST` transport bound as `BsddPort`; `Rasm.Bim` is AEC-domain and depends strictly upward, so the live leg rides Compute and a transport minted inside `Rasm.Bim` is the named contract violation.
+- `BsddClass.Of` reads ONLY the fields enumerated here; the wire is `additionalProperties: false`, so an unexpected member signals contract drift, not a new capability, and a field absent from this catalog is a phantom the contract never deserializes.
 - A transport miss degrades to the row's local code-shape policy (`LocalShape`); only a MALFORMED published-class shape routes `Model/faults#FAULT_BAND` `BimFault.Refused` under `BimScope.Semantics`/`BimReason.Codec` — an unreachable service is a degrade, a corrupt response is a fault.
-- Memoization keyed by the dictionary class URI rides Compute's transport cache; a durable classification cache is the calling app-platform's concern at the seam.
+- Memoization keyed by the dictionary class URI rides Compute's transport cache; a durable classification cache is the calling app-platform's concern at the boundary.

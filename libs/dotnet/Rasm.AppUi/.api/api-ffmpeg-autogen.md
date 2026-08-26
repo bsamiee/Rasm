@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_FFMPEG_AUTOGEN]
 
-`FFmpeg.AutoGen` owns the in-process video-encode rail: CppSharp-generated unsafe bindings expose the full libavcodec/libavformat/libavutil/libswscale C surface as one static `ffmpeg` facade over runtime-resolved function pointers, with the generated `AV*` struct and enum model. It turns the compositor/path-trace RGBA frame stream into an MP4/H.264 flythrough through the swscale RGBA→YUV420P convert, the encoder send/receive loop, and the muxer write — the encode counterpart to the `libmpv` decode/playback owner.
+`FFmpeg.AutoGen` owns the in-process video-encode path: CppSharp-generated unsafe bindings expose the full libavcodec/libavformat/libavutil/libswscale C surface as one static `ffmpeg` facade over runtime-resolved function pointers, with the generated `AV*` struct and enum model. It turns the compositor/path-trace RGBA frame stream into an MP4/H.264 flythrough through the swscale RGBA→YUV420P convert, the encoder send/receive loop, and the muxer write — the encode counterpart to the `libmpv` decode/playback owner.
 
 ## [01]-[PUBLIC_TYPES]
 

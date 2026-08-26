@@ -2,7 +2,7 @@
 
 `Bevel.Condition` admits a station-varying preparation field, process evidence, head kinematics, compensation calibration, height-control policy, and pass schedule before it emits guarded tool-axis blocks. `BevelPass` preserves geometry, process, height-control, and inspection evidence as one specialized section.
 
-`Bevel.Condition`, `BevelPass`, `ThcDirective`, and `ThcSpan` remain the bevel seam names. `BevelPolicy` is the admitted, edge-independent half of a bevel job, so one calibration conditions many edges. `Beveled.SpecializedDirective` projects tool axis, pivot, angle, compensation, feed, and derived duration into the admitted `Bevel`-kind `SpecializedToolpathEnvelope` under ONE program-wide block ordinal, while `Beveled.InspectionDirective` carries measured conformance on its own `Inspection`-kind one. `ProcessBudget.Thermal` and `ProcessBudget.Abrasive` own cut physics and kerf width alike, `ArcOffset` owns kerf topology, and head geometry binds to the canonical `ToolMetric` rows `Tooling/magazine` already decoded — this page reaches no provider type.
+`Bevel.Condition`, `BevelPass`, `ThcDirective`, and `ThcSpan` remain the bevel contract names. `BevelPolicy` is the admitted, edge-independent half of a bevel job, so one calibration conditions many edges. `Beveled.SpecializedDirective` projects tool axis, pivot, angle, compensation, feed, and derived duration into the admitted `Bevel`-kind `SpecializedToolpathEnvelope` under ONE program-wide block ordinal, while `Beveled.InspectionDirective` carries measured conformance on its own `Inspection`-kind one. `ProcessBudget.Thermal` and `ProcessBudget.Abrasive` own cut physics and kerf width alike, `ArcOffset` owns kerf topology, and head geometry binds to the canonical `ToolMetric` rows `Tooling/magazine` already decoded — this page reaches no provider type.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@
 
 ## [02]-[ADMISSION]
 
-`BevelJob` owns every fact that changes edge preparation as THREE columns beyond the edge — the admitted policy, the inspection record, and the two caller seams. Named groove forms are seed values over the same generated section equation; `PrepSection.Custom` and `PrepLaw` extend the section and edge-station spaces without another bevel type or entrypoint.
+`BevelJob` owns every fact that changes edge preparation as THREE columns beyond the edge — the admitted policy, the inspection record, and the two caller interfaces. Named groove forms are seed values over the same generated section equation; `PrepSection.Custom` and `PrepLaw` extend the section and edge-station spaces without another bevel type or entrypoint.
 
 - Owner: generated `PrepStandard` values supply section-law data for square, top, underside, opposed, land, radius, flare, and scarf forms; `TopShare` and `BottomShare` partition the body into disjoint flank bands, `MemberScale` states how much of the joint's included angle this member cuts, and `BottomAngleScale` carries the asymmetric double-prep flank a single admitted angle cannot express.
 - Owner: `PrepSection` closes generated and custom profiles and projects `SideSign` and `Mirrored`; `PrepLaw` admits one coherent side across every station and owns `KerfSideMm`, so kerf compensation follows the prepared side instead of a fixed positive offset.
@@ -33,7 +33,7 @@
 - Auto: `PrepLaw.OffsetAt` interpolates both through-thickness and edge-station dimensions for variable and compound bevels.
 - Auto: calibrated compensation partitions geometry shift and tool-axis correction while pivot and head limits remain admitted constraints.
 - Auto: anti-dive reads emitted feed ratio and angle rate, and its armed counter resets on every suspension; `ThcSpan.AdmitSchedule` coalesces adjacent equal directives and proves full-pass coverage.
-- Packages: `ArcOffset` owns kerf offset; `Polyline<double>.PathLength` and `FindPointAtPathLength` own arc-native stations; `LanguageExt` `TraverseM`, `FoldM`, and query syntax keep the rail flat.
+- Packages: `ArcOffset` owns kerf offset; `Polyline<double>.PathLength` and `FindPointAtPathLength` own arc-native stations; `LanguageExt` `TraverseM`, `FoldM`, and query syntax keep the result flat.
 - Boundary: unsupported process or head demand returns `FabricationFault.BevelUnsupported`; no silent tilt clamp, swallowed guard failure, or detached THC bag survives. A caller callback that throws surfaces its own cause in the refusal locus rather than being flattened to the slot name.
 
 ## [04]-[EGRESS]
@@ -88,7 +88,6 @@ public sealed partial class PrepStandard {
     public double MemberScale { get; }
     public double BottomAngleScale { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double topShare,
@@ -281,7 +280,6 @@ public sealed partial class PrepDimensions {
             out PrepDimensions dimensions).Admitted(dimensions)
         select admitted;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double thicknessMm,
@@ -358,7 +356,6 @@ public sealed partial class PrepLaw {
         from admitted in Validate(stations, total, out PrepLaw law).Admitted(law)
         select admitted;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<PrepStation> stations,
@@ -393,7 +390,6 @@ public sealed partial class PassRow {
         double pierceDelaySeconds) =>
         Validate(ordinal, depthShare, feedScale, height, pierceDelaySeconds, out PassRow pass).Admitted(pass);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int pass,
@@ -435,7 +431,6 @@ public sealed partial class HeadPolicy {
         assembly.Snapshot.Metric(kind).ToFin(
             new KernelFault.InvalidValue("bevel", $"bevel:head:{kind.Key}"));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref HeadKinematics kinematics,
@@ -478,7 +473,6 @@ public sealed partial class CompensationPolicy {
         Validate(mode, kerfGain, lagDegPerMeterPerMinute, wear, angleBias, crossTilt,
             out CompensationPolicy policy).Admitted(policy);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CompensationMode mode,
@@ -503,7 +497,6 @@ public sealed partial class ThcPolicy {
     public static Fin<ThcPolicy> Admit(double antiDiveFeedRatio, double angleRateHoldDegPerStation, int responseBlocks) =>
         Validate(antiDiveFeedRatio, angleRateHoldDegPerStation, responseBlocks, out ThcPolicy policy).Admitted(policy);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double antiDiveFeedRatio,
@@ -538,7 +531,6 @@ public sealed partial class BevelPolicy {
             out BevelPolicy policy).Admitted(policy)
         select admitted;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PrepLaw preparation,
@@ -580,7 +572,6 @@ public sealed partial class BevelJob {
             .Admitted(job)
         select admitted;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref BevelPolicy policy,
@@ -662,7 +653,6 @@ public sealed partial class ThcSpan {
             : Fin.Fail<Seq<ThcSpan>>(new KernelFault.InvalidValue("bevel", "bevel:thc-coverage"))
         select covered;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int fromInclusive,

@@ -1,19 +1,19 @@
 # [RASM_RHINO_COMMAND]
 
-`CommandFlow<TState>.Drive` interprets one admitted, bounded command program over immutable state. Host lifecycle enters once through `RasmCommand<TSelf,TState>`, acquisition and mutation remain calls into their owning rails, and every command lifecycle callback fans out through the kernel hook rail on the folder's own `RhinoPoint` roster — the observer plumbing, the per-observer reject sink, and the hand-bounded fault ledgers this page once carried are the kernel's now.
+`CommandFlow<TState>.Drive` interprets one admitted, bounded command program over immutable state. Host lifecycle enters once through `RasmCommand<TSelf,TState>`, acquisition and mutation remain calls into their owning pipelines, and every command lifecycle callback fans out through the kernel hook pipeline on the folder's own `RhinoPoint` roster — the observer plumbing, the per-observer reject sink, and the hand-bounded fault ledgers this page once carried are the kernel's now.
 
 ## [01]-[INDEX]
 
 - [02]-[TERMINAL_POLICY]: `CommandVerdict`, `ScriptEcho`, `ReplayHook`, `HistoryOwner`, `FaultNotice`, and `CommandPolicy`.
 - [03]-[PROGRAM]: `StageKey`, `Stage<TState>`, `FlowStep<TState>`, `CommandTurn<TState>`, and `CommandFlow<TState>` under a QuikGraph-proved topology.
 - [04]-[HOST_ADAPTER]: `CommandFaults` on the kernel ring and the one `RasmCommand<TSelf,TState>` derivation.
-- [05]-[REGISTRY_AND_EVENTS]: the self-typed `CommandQuery<TAnswer>`, `CommandActivity`, the `CommandFact` family, `[Mapper] CommandMap`, `CommandPulse` firing the kernel `HookRail`, and `CommandRegistry`.
+- [05]-[REGISTRY_AND_EVENTS]: the self-typed `CommandQuery<TAnswer>`, `CommandActivity`, the `CommandFact` family, `[Mapper] CommandMap`, `CommandPulse` firing the kernel `HookSet`, and `CommandRegistry`.
 - [06]-[SCRIPT]: `ScriptOp` and the `Scripting` run/proxy pair.
 - [07]-[RESEARCH]: open verification rows.
 
 ## [02]-[TERMINAL_POLICY]
 
-`CommandVerdict` preserves every native terminal in both directions. `CommandPolicy` admits the session demand, replay behavior, and stage budget as one value before a flow starts, each defect reported beside the others. `ReplayHook` and `HistoryOwner` are the two seam values `Objects/history.md` composes upward — the regrowth body and the command identity a history record keys on.
+`CommandVerdict` preserves every native terminal in both directions. `CommandPolicy` admits the session demand, replay behavior, and stage budget as one value before a flow starts, each defect reported beside the others. `ReplayHook` and `HistoryOwner` are the two boundary values `Objects/history.md` composes upward — the regrowth body and the command identity a history record keys on.
 
 - Law: `OfNative`'s parameter is `result` — `Objects/materials.md` calls `OfNative(result:, key:)` by name, and the prior `native` spelling was a live CS1739 at that composing site; the coupling is recorded at both ends.
 - Law: the two-row presentation and language vocabularies key on the HOST bool itself — `[SmartEnum<bool>]` deletes the mirror column, so the row name is the read and no `.Echo`/`.IsEnglish` getter restates the key.
@@ -58,7 +58,6 @@ public sealed partial class ScriptEcho {
 public sealed partial class ReplayHook {
     public Func<ReplayHistoryData, bool> Regrow { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Func<ReplayHistoryData, bool> regrow) =>
@@ -103,7 +102,6 @@ public sealed partial class CommandPolicy {
     public FaultNotice Notice { get; }
     public Rasm.Numerics.Dimension StageBudget { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<SessionNeed> needs,
@@ -125,7 +123,7 @@ public sealed partial class CommandPolicy {
 
 - Law: the successor roster is a BASE POSITIONAL column — every case hands its outgoing keys to the root at construction, so no static ladder re-derives per case what the case already knows, and a new case cannot land without stating where it goes.
 - Law: `CommandFlow<TState>.Of` proves topology on the graph, not on a guard ladder. The row set builds ONE QuikGraph `AdjacencyGraph` (vertices = admitted keys, edges = declared successors); distinctness, entry membership, successor resolution, terminal presence, and REACHABILITY from the entry are five independent clauses accumulated through `Validation` — the prior four guards reported first-defect-only and never asked whether a stage was reachable at all, so an orphaned stage rode every program silently.
-- Law: `Drive` folds the kernel `foldUntil` over the budget range — the fold carries the rail as its state, stops on a settled verdict or a failed rail, and exhausting the range without a verdict is a typed budget refusal naming `StageBudget`; a success-shaped fall-through past the bound would certify an unconverged program as converged.
+- Law: `Drive` folds the kernel `foldUntil` over the budget range — the fold carries the result as its state, stops on a settled verdict or a failed result, and exhausting the range without a verdict is a typed budget refusal naming `StageBudget`; a success-shaped fall-through past the bound would certify an unconverged program as converged.
 - Law: `Commit.Fold` admits the next command state before `Tables.Commit`; a fold refusal prevents mutation, and a commit refusal discards the projected state.
 
 ```csharp
@@ -133,7 +131,6 @@ public sealed partial class CommandPolicy {
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct StageKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
         validationError = value.Length is 0
@@ -300,10 +297,10 @@ public sealed record CommandFlow<TState> {
 
 `RasmCommand<TSelf,TState>` owns the only `Command` derivation. Session admission, deterministic release, flow execution, and native projection occur in the sealed callback; replay never escapes its host-owned callback window.
 
-Both host overrides collapse a typed rail into a bare native verdict, so both persist the `Error` into `CommandFaults` before the scalar returns — the console line is a presentation leg, never the sink. The site is recoverable from the error itself, because each override mints its `Op` with its own name, so the ledger needs no parallel site column. `Commands` is S1 and the `ObjectsTelemetry` egress is S2, so publishing there is the forbidden upward edge; the process-local cell is the S1 evidence surface, and a consumer above the boundary reads it.
+Both host overrides collapse a typed result into a bare native verdict, so both persist the `Error` into `CommandFaults` before the scalar returns — the console line is a presentation leg, never the sink. The site is recoverable from the error itself, because each override mints its `Op` with its own name, so the ledger needs no parallel site column. `Commands` is S1 and the `ObjectsTelemetry` egress is S2, so publishing there is the forbidden upward edge; the process-local cell is the S1 evidence surface, and a consumer above the boundary reads it.
 
 - Law: `CommandFaults` is a LEDGER declaration, not a fault family and not a factory — it holds one `Ring<Error>` under a declared retention row and one `Refused` sink, mints no case, takes no message string, and classifies nothing. It belongs to this package's `<Surface>Faults` ledger family beside `PluginFaults`, `ShellFaults`, and `DisplayFaults`, so renaming it alone forks four consistent declarations into three plus one. The near-collision with `Rasm.AppHost`'s `CommandFault` union is not one: that family sits at a stratum this package cannot reference, and the branch row rules a referencing package's own EVIDENCE and REFUSAL types, which is what this static holder is not. A suffix sweep converting it destroys a real retention surface and reaches no untyped producer.
-- Law: the process ledger IS the kernel ring. A cap, oldest-first eviction, and a shed counter were this page's hand `FaultLedger` — the kernel `Ring<Error>` is that shape once for the estate, its `Park` verdict is COUNTED (`Lost`) rather than discarded, and the capacity is a named policy row instead of a buried literal. The per-observer twin deletes with the observer plumbing (`[05]`).
+- Law: the process ledger IS the kernel ring. A cap, oldest-first eviction, and a shed counter were this page's hand `FaultLedger` — the kernel `Ring<Error>` is that shape once for the solution, its `Park` verdict is COUNTED (`Lost`) rather than discarded, and the capacity is a named policy row instead of a buried literal. The per-observer twin deletes with the observer plumbing (`[05]`).
 
 ```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
@@ -363,10 +360,10 @@ public abstract class RasmCommand<TSelf, TState> : Command
 
 ## [05]-[REGISTRY_AND_EVENTS]
 
-`CommandRegistry.Ask` re-admits each query payload before any live read, and the query is SELF-TYPED — the request case fixes its answer shape, so the nine-case answer union and every consumer cast delete. `CommandPulse` detaches lifecycle, prompt, and escape callbacks into the evidence-bearing `CommandFact` family and FIRES the kernel hook rail at the folder's own `RhinoPoint` command rows, the seat gated by the fact's own `Seats` fan; a consumer subscribes a `HookTap` on the rail and the observer type, its reject sink, and its hand-bounded ledger delete.
+`CommandRegistry.Ask` re-admits each query payload before any live read, and the query is SELF-TYPED — the request case fixes its answer shape, so the nine-case answer union and every consumer cast delete. `CommandPulse` detaches lifecycle, prompt, and escape callbacks into the evidence-bearing `CommandFact` family and FIRES the kernel hook pipeline at the folder's own `RhinoPoint` command rows, the seat gated by the fact's own `Seats` fan; a consumer subscribes a `HookTap` on the pipeline and the observer type, its reject sink, and its hand-bounded ledger delete.
 
-- Law: `CommandFact` realizes the kernel `IHookFact<RhinoPoint>` floor, so the FACT declares where it seats and the rail refuses a foreign pair at fire entry and again on the veto fold's product. Five cases are 1:1 with the `CommandPulse` row that mints them, and `Rejected` — the `CommandMap` failure fact — fans to exactly the mapped pulses' points, derived off the pulse roster's own `Point` column so a new pulse row moves the fan with it. This is what keeps a command fact off the document, display, and host rows the shared roster also carries.
-- Law: the rail is the ONE fan-out. `HookRail<RhinoPoint, CommandFact, PluginKey>` carries gates, taps, isolation, and the bounded `FaultCell` — a subscriber raise parks on the rail's cell and the pulse settles, so instrumentation is never a liveness dependency and the per-observer `Reject` callback has no seam left to exist on. NAMED LOSS: the observer-local reject arm; bought back as `rail.Faults.Parked` beside `Shed`, a number where a `void` callback was a discard.
+- Law: `CommandFact` realizes the kernel `IHookFact<RhinoPoint>` floor, so the FACT declares where it seats and the pipeline refuses a foreign pair at fire entry and again on the veto fold's product. Five cases are 1:1 with the `CommandPulse` row that mints them, and `Rejected` — the `CommandMap` failure fact — fans to exactly the mapped pulses' points, derived off the pulse roster's own `Point` column so a new pulse row moves the fan with it. This is what keeps a command fact off the document, display, and host rows the shared roster also carries.
+- Law: the pipeline is the ONE fan-out. `HookSet<RhinoPoint, CommandFact, PluginKey>` carries gates, taps, isolation, and the bounded `FaultCell` — a subscriber raise parks on the pipeline's cell and the pulse settles, so instrumentation is never a liveness dependency and the per-observer `Reject` callback has no boundary left to exist on. NAMED LOSS: the observer-local reject arm; bought back as `hooks.Faults.Parked` beside `Shed`, a number where a `void` callback was a discard.
 - Law: escape has ONE arming seat and it is a `CommandPulse` row. Escape answers on EVERY cancellable command, not only on a metered one; the pulse row arms once per mount and every command lane reads the same fact.
 - Law: the escape handler is a per-mount closure, never a static method group — the host keys `+=`/`-=` on delegate IDENTITY, so one shared instance makes the second mount's attach a no-op and its detach a theft of the first mount's hook.
 - Law: the three host-args projections are ONE `[Mapper] CommandMap` — each source type's field copy generates, `[UserMapping]` rows carry the `UndoMoment` and `OptionKind` resolutions, and the Started/Ended CASE stays on the pulse row because the same host args type serves both events: the discriminant is the pulse's own, unrecoverable from the argument value, so the mapper owns the columns and the row owns the case.
@@ -558,50 +555,50 @@ internal static partial class CommandMap {
 [SmartEnum<int>]
 public sealed partial class CommandPulse {
     public static readonly CommandPulse Begin = new(key: 0, point: static () => RhinoPoint.CommandBegin,
-        attach: static (rail, op) => Subscription.Attach(
+        attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler<CommandEventArgs> handler) => Command.BeginCommand += handler,
             unsubscribe: static handler => Command.BeginCommand -= handler,
-            handler: (_, args) => ignore(rail.Fire(
+            handler: (_, args) => ignore(hooks.Fire(
                 at: RhinoPoint.CommandBegin,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.Started(Value: value),
                     Fail: static error => new CommandFact.Rejected(Value: error)),
                 key: op))));
     public static readonly CommandPulse End = new(key: 1, point: static () => RhinoPoint.CommandEnd,
-        attach: static (rail, op) => Subscription.Attach(
+        attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler<CommandEventArgs> handler) => Command.EndCommand += handler,
             unsubscribe: static handler => Command.EndCommand -= handler,
-            handler: (_, args) => ignore(rail.Fire(
+            handler: (_, args) => ignore(hooks.Fire(
                 at: RhinoPoint.CommandEnd,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.Ended(Value: value),
                     Fail: static error => new CommandFact.Rejected(Value: error)),
                 key: op))));
     public static readonly CommandPulse UndoRedo = new(key: 2, point: static () => RhinoPoint.CommandUndo,
-        attach: static (rail, op) => Subscription.Attach(
+        attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler<UndoRedoEventArgs> handler) => Command.UndoRedo += handler,
             unsubscribe: static handler => Command.UndoRedo -= handler,
-            handler: (_, args) => ignore(rail.Fire(
+            handler: (_, args) => ignore(hooks.Fire(
                 at: RhinoPoint.CommandUndo,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.Undo(Value: value),
                     Fail: static error => new CommandFact.Rejected(Value: error)),
                 key: op))));
     public static readonly CommandPulse Prompt = new(key: 3, point: static () => RhinoPoint.CommandPrompt,
-        attach: static (rail, op) => Subscription.Attach(
+        attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler<CommandPromptChangedEventArgs> handler) => RhinoApp.CommandPromptChanged += handler,
             unsubscribe: static handler => RhinoApp.CommandPromptChanged -= handler,
-            handler: (_, args) => ignore(rail.Fire(
+            handler: (_, args) => ignore(hooks.Fire(
                 at: RhinoPoint.CommandPrompt,
                 fact: CommandMap.ToEvent(args: args).Match<CommandFact>(
                     Succ: static value => new CommandFact.PromptChanged(Value: value),
                     Fail: static error => new CommandFact.Rejected(Value: error)),
                 key: op))));
     public static readonly CommandPulse Escape = new(key: 4, point: static () => RhinoPoint.CommandEscape,
-        attach: static (rail, op) => Subscription.Attach(
+        attach: static (hooks, op) => Subscription.Attach(
             subscribe: static (EventHandler handler) => RhinoApp.EscapeKeyPressed += handler,
             unsubscribe: static handler => RhinoApp.EscapeKeyPressed -= handler,
-            handler: (_, _) => ignore(rail.Fire(
+            handler: (_, _) => ignore(hooks.Fire(
                 at: RhinoPoint.CommandEscape,
                 fact: new CommandFact.Escaped(Value: EscapeEvent.Signalled),
                 key: op))));
@@ -610,15 +607,15 @@ public sealed partial class CommandPulse {
     internal partial RhinoPoint Point();
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Subscription> Attach(HookRail<RhinoPoint, CommandFact, PluginKey> rail, Op op);
+    internal partial Fin<Subscription> Attach(HookSet<RhinoPoint, CommandFact, PluginKey> hooks, Op op);
 
     public static Fin<Subscription> Mount(
-        HookRail<RhinoPoint, CommandFact, PluginKey> rail,
+        HookSet<RhinoPoint, CommandFact, PluginKey> hooks,
         Op? key = null,
         params ReadOnlySpan<CommandPulse> pulses) {
         Op op = key.OrDefault(name: nameof(CommandPulse));
         Seq<CommandPulse> candidates = toSeq(pulses.ToArray());
-        return from active in op.Need(rail)
+        return from active in op.Need(hooks)
                from _ in guard(!candidates.IsEmpty && candidates.ForAll(static pulse => pulse is not null), op.InvalidInput())
                from attached in Subscription.AttachAll(candidates.Distinct().Map(pulse =>
                    (Func<Fin<Subscription>>)(() => pulse.Attach(active, op))))
@@ -711,7 +708,7 @@ public static class Scripting {
 }
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-commands.md` — `Command` subclassing, `RunCommand`, command-context enums); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` census rows, `[ComplexValueObject]`/`[ValueObject]` carriers); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the `CommandMap` `[Mapper]`); kernel `Domain/rails` (`Op`, `Fin`) and `Domain/hooks` (`HookRail`, `IHookFact`).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-commands.md` — `Command` subclassing, `RunCommand`, command-context enums); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` census rows, `[ComplexValueObject]`/`[ValueObject]` carriers); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the `CommandMap` `[Mapper]`); kernel `Domain/results` (`Op`, `Fin`) and `Domain/hooks` (`HookSet`, `IHookFact`).
 
 ## [07]-[RESEARCH]
 

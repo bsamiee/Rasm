@@ -62,9 +62,9 @@
 [STACKING]:
 - `@effect/opentelemetry`(`.api/effect-opentelemetry.md`): `PyroscopeConfig.appName`/`tags` fold from the same `AppIdentity` that `Resource.layer({ serviceName, attributes })` stamps on the shared `Resource.Resource` Tag, so a profile carries the `service.name` traces and metrics already carry — one identity, two transports.
 - `@opentelemetry/resources`(`.api/opentelemetry-resources.md`): `PyroscopeConfig.tags` and the `resourceFromAttributes` `service.name` attribute derive from one `AppIdentity`, so a backend correlates a pprof profile with its OTLP signal on the shared coordinate.
-- `otel/profile` (within-lib): `Profile.live(policy)` folds the policy into one `PyroscopeConfig` — the tagged credential arm's own fields from a `Redacted` unwrapped once, `tags` from `Convention.profiled`, `sourceMapper` from `SourceMapper.create(roots)` — arms each rostered sampler as its own `acquireRelease` extended into the child scope a ranked `Life` row closes, bridges `setLogger` onto the Effect log rail, and `Profile.banded` scopes `wrapWithLabels` around a schema-decoded band whose parser is held per vocabulary.
+- `otel/profile` (within-lib): `Profile.live(policy)` folds the policy into one `PyroscopeConfig` — the tagged credential arm's own fields from a `Redacted` unwrapped once, `tags` from `Convention.profiled`, `sourceMapper` from `SourceMapper.create(roots)` — arms each rostered sampler as its own `acquireRelease` extended into the child scope a ranked `Life` row closes, bridges `setLogger` onto the Effect logger, and `Profile.banded` scopes `wrapWithLabels` around a schema-decoded band whose parser is held per vocabulary.
 
 [LOCAL_ADMISSION]:
 - `scope:runtime`, node lane only — `init`/`start`/`stop` live in the node boot and drain graph; the browser and worker lanes carry no profiler.
-- push is the default rail — `expressMiddleware`/`fastifyMiddleware` mount a pull endpoint only where a scrape topology owns collection.
+- push is the default mode — `expressMiddleware`/`fastifyMiddleware` mount a pull endpoint only where a scrape topology owns collection.
 - `Setting.otel.profile` carries the backend origin and the sealed credential — bearer or basic pair; an absent origin leaves the lane unarmed and composes zero profiler code.

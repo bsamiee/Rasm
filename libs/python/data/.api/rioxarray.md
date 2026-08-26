@@ -1,6 +1,6 @@
 # [PY_DATA_API_RIOXARRAY]
 
-`rioxarray` extends `xarray` with the rasterio-backed `.rio` accessor for georeferenced raster IO: `open_rasterio` reads any GDAL raster into a `DataArray`/`Dataset`, and `RasterArray`/`RasterDataset` over the shared `XRasterBase` own CRS/transform/nodata metadata, warping, clipping, windowing, and GDAL-driver writeback as one object-discriminated accessor. Raster decode, CRS algebra, and vector geometry defer to `rasterio`/GDAL, `pyproj`, and `shapely`/`geopandas`; rioxarray composes the coverage and STAC-catalog raster rail, never re-implementing the GDAL stack.
+`rioxarray` extends `xarray` with the rasterio-backed `.rio` accessor for georeferenced raster IO: `open_rasterio` reads any GDAL raster into a `DataArray`/`Dataset`, and `RasterArray`/`RasterDataset` over the shared `XRasterBase` own CRS/transform/nodata metadata, warping, clipping, windowing, and GDAL-driver writeback as one object-discriminated accessor. Raster decode, CRS algebra, and vector geometry defer to `rasterio`/GDAL, `pyproj`, and `shapely`/`geopandas`; rioxarray composes the coverage and STAC-catalog raster domain, never re-implementing the GDAL stack.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -98,7 +98,7 @@
 - clip axis: `clip` (geometry) and `clip_box` (bounds) are the masking rows; `all_touched`/`drop`/`invert`/`from_disk` are call flags, and an empty result surfaces `NoDataInBounds`, never a silent empty array.
 - merge axis: `merge_arrays`/`merge_datasets` mosaic tile sequences with `bounds`/`res`/`nodata`/`method` rows, never a manual concat-and-align.
 - evidence: the canonical geospatial result retains CRS, affine transform, resolution, bounds, shape, dtype, nodata, and driver when callers require them.
-- boundary: rioxarray owns the rasterio/GDAL-to-xarray raster seam; vector geometry routes to `shapely`/`geopandas`, CRS algebra to `pyproj`, STAC discovery to `pystac`/`pystac-client`, and band-level IO to `rasterio` when no xarray labeling is needed.
+- boundary: rioxarray owns the rasterio/GDAL-to-xarray raster boundary; vector geometry routes to `shapely`/`geopandas`, CRS algebra to `pyproj`, STAC discovery to `pystac`/`pystac-client`, and band-level IO to `rasterio` when no xarray labeling is needed.
 
 [STACKING]:
 - `rasterio`(`.api/rasterio.md`): `open_rasterio` wraps `rasterio.open`/`rasterio.vrt.WarpedVRT` (`filename` accepts an open `DatasetReader`/`WarpedVRT` directly) and shares the `rasterio.crs.CRS` object so CRS algebra is never duplicated; `resampling` rows are `rasterio.enums.Resampling`, and `to_rasterio_dataset` reopens the array as an in-memory rasterio dataset.
@@ -106,7 +106,7 @@
 - `odc-stac`(`.api/odc-stac.md`): `odc.stac.load` assembles a multi-item cube and `.rio` then owns per-band CRS/transform/nodata, `reproject_match` onto a reference grid, and `merge_arrays`/`merge_datasets` for the catalog-coverage mosaic.
 - `zarr`(`.api/zarr.md`)/`icechunk`(`.api/icechunk.md`)/`virtualizarr`(`.api/virtualizarr.md`): `write_crs(convention=Convention.ZARR)` and `to_raster` (or the xarray `to_zarr` path) persist the georeferenced cube; `Convention` selects CF vs Zarr grid-mapping so one object round-trips to both GeoTIFF and Zarr.
 - `shapely`(`.api/shapely.md`)/`geopandas`(`.api/geopandas.md`)/`pyproj`(`.api/pyproj.md`): `.rio.clip(geometries, crs=...)` consumes GeoJSON-like/`shapely` geometries (reprojected when `crs` differs), and `estimate_utm_crs`/`transform_bounds` defer the CRS algebra to the shared `pyproj` owner.
-- within-lib: the data geospatial owner drives `open_rasterio` and the `.rio` accessor as the coverage read path with chunking/masking/CRS as call rows, handing `reproject_match` and merge output to the STAC catalog and object-store egress rails.
+- within-lib: the data geospatial owner drives `open_rasterio` and the `.rio` accessor as the coverage read path with chunking/masking/CRS as call rows, handing `reproject_match` and merge output to the STAC catalog and object-store egress paths.
 
 [LOCAL_ADMISSION]:
-- Admit `rioxarray` as the rasterio/GDAL-to-xarray raster owner on the data geospatial rail, composing `rasterio`/`pyproj`/`shapely` rather than re-decoding rasters or duplicating CRS algebra.
+- Admit `rioxarray` as the rasterio/GDAL-to-xarray raster owner on the data geospatial domain, composing `rasterio`/`pyproj`/`shapely` rather than re-decoding rasters or duplicating CRS algebra.

@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_DYNAMICDATA]
 
-`DynamicData` owns the live change-set rail: a keyed cache or ordered list mutates through `Edit`, one `Connect()` fans an `IChangeSet` stream, and every query, bind, and aggregate operator folds that stream into a projection a screen binds. One cache is the single source of truth, each surface a projection off it, never a parallel mutation path.
+`DynamicData` owns the live change-set pipeline: a keyed cache or ordered list mutates through `Edit`, one `Connect()` fans an `IChangeSet` stream, and every query, bind, and aggregate operator folds that stream into a projection a screen binds. One cache is the single source of truth, each surface a projection off it, never a parallel mutation path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -187,7 +187,7 @@
 - within-lib: one `SourceCache.Connect()` fans to `SortAndBind` (the `DataGrid`/`ItemsControl` source), `ToCollection()` (chart series), and the `Aggregation` operators (`Count`/`Sum`/`Maximum`) feeding dashboard tiles.
 - within-lib: a grouped window holds one `Group` subscription; `TransformOnObservable` maps each `IGroup` to a slice combining its `Cache.Connect()` collection with its `Aggregation` folds over that same published connection, and `CombineLatest(…, expansion).EditDiff(keySelector)` flattens band-then-members into the one keyed node stream `Virtualise` windows — so a member edit re-emits its own group alone and a collapsed group emits one node whose dropped members are REMOVED, which `ToObservableChangeSet` cannot express because it never removes.
 - within-lib: tree expansion holds one `TransformToTree` subscription; `CombineLatest(tree.ToCollection(), expansion)` re-walks roots against the live expansion set and `EditDiff(keySelector)` diffs successive flat snapshots into the minimal keyed change-set, re-realizing only changed indent rows and REMOVING the rows a collapse dropped — `ToObservableChangeSet` upserts without removing, so a collapse would leave every expanded descendant standing — `expansion.Select(rebuild).Switch()` re-subscribes `TransformToTree` per toggle at O(n) and is the rejected form.
-- `TransformOnObservable`/`FilterOnObservable` stack an async or `Rasm.Compute` result stream per item — each row maps to an `IObservable<TDest>` — so the bound collection updates as each result arrives without leaving the change-set rail.
+- `TransformOnObservable`/`FilterOnObservable` stack an async or `Rasm.Compute` result stream per item — each row maps to an `IObservable<TDest>` — so the bound collection updates as each result arrives without leaving the change-set pipeline.
 
 [LOCAL_ADMISSION]:
 - A live collection in the AppUi shell is admitted only as a projection off a `SourceCache`/`SourceList`; a screen binding raw mutable state instead of a change-set stream is rejected.

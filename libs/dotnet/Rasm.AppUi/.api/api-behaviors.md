@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_BEHAVIORS]
 
-`Xaml.Behaviors.Avalonia` attaches declarative behavior, trigger, and action graphs to Avalonia controls, holding view-models free of code-behind gesture, timing, picker, drag, clipboard, and HTTP plumbing. Kernel `Avalonia.Xaml.Interactivity` is the sole derive-from base; every other assembly attaches as a XAML leaf, feeding the behaviors rail.
+`Xaml.Behaviors.Avalonia` attaches declarative behavior, trigger, and action graphs to Avalonia controls, holding view-models free of code-behind gesture, timing, picker, drag, clipboard, and HTTP plumbing. Kernel `Avalonia.Xaml.Interactivity` is the sole derive-from base; every other assembly attaches as a XAML leaf, feeding the behaviors layer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -119,7 +119,7 @@
 
 [EVENT_TYPES]: `Avalonia.Xaml.Interactions.Events` — `<Event>EventTrigger` / `<Event>EventBehavior` mint one typed routed-event trigger and behavior pair per Avalonia control event.
 
-- Gesture rails bind this POINTER family, each member shipping both halves of the pair: `PointerPressed` `PointerReleased` `PointerMoved` `PointerEntered` `PointerExited` `PointerWheelChanged` `PointerCaptureLost`, beside the aggregate `PointerEvents` pair carrying the whole set through one attachment.
+- Gesture bindings bind this POINTER family, each member shipping both halves of the pair: `PointerPressed` `PointerReleased` `PointerMoved` `PointerEntered` `PointerExited` `PointerWheelChanged` `PointerCaptureLost`, beside the aggregate `PointerEvents` pair carrying the whole set through one attachment.
 
 [RESPONSIVE_TYPES]: `Avalonia.Xaml.Interactions.Responsive`
 
@@ -147,7 +147,7 @@
 |  [11]   | `Behavior.AssociatedObject` / `IsEnabledProperty`                                        | property | bound target + gate  |
 |  [12]   | `IAction.Execute(object?, object?) -> object?`                                           | instance | action execution     |
 
-[COMMAND_ACTION_ENTRYPOINTS]: command, async-group, and trigger properties, all `AvaloniaProperty` — `InvokeCommandActionBase` is the full MVVM command seam, mapping the event-args payload through an `IValueConverter` before invocation; `ThrottleAction`/`DebounceAction`/`DelayAction`/`TimerTrigger` carry `Interval` or `Delay` as `TimeSpan`.
+[COMMAND_ACTION_ENTRYPOINTS]: command, async-group, and trigger properties, all `AvaloniaProperty` — `InvokeCommandActionBase` is the full MVVM command adapter, mapping the event-args payload through an `IValueConverter` before invocation; `ThrottleAction`/`DebounceAction`/`DelayAction`/`TimerTrigger` carry `Interval` or `Delay` as `TimeSpan`.
 
 | [INDEX] | [SURFACE]                                                     | [CAPABILITY]       |
 | :-----: | :------------------------------------------------------------ | :----------------- |
@@ -205,7 +205,7 @@
 - `System.Reactive`(`api-reactive.md`): operators feed `ObservableStreamBehavior.Source`/`ObservableTriggerBehavior`, and an upstream `Observable.Throttle` collapses with `ThrottleAction`/`DebounceAction` — the behavior owns a view-rate limit, the operator a data-stream limit.
 - `DynamicData`(`api-dynamicdata.md`): `.ToCollection()`/`.QueryWhenChanged()` change-set streams project into the observable behavior source, so collection and state changes drive `ActionCollection` fans off the same pipeline that feeds a `ReactiveObject`.
 - `Avalonia`(`api-avalonia.md`): picker actions resolve `StorageProvider` via `TopLevel.GetTopLevel(control)`, and the selected `IStorageFile`/`IStorageFolder` is the file-boundary token AppUi maps to a domain path at the command edge.
-- within-lib: `TypedDragBehavior` with `IDropHandler`/`DropHandlerBase` carries a typed payload and `ManagedDragDropService` moves it cross-window; binding the drop handler to a view-model `ReactiveCommand` routes reorder and drop mutations through the state rail, keeping `DynamicData` source lists the single reorder authority.
+- within-lib: `TypedDragBehavior` with `IDropHandler`/`DropHandlerBase` carries a typed payload and `ManagedDragDropService` moves it cross-window; binding the drop handler to a view-model `ReactiveCommand` routes reorder and drop mutations through the state pipeline, keeping `DynamicData` source lists the single reorder authority.
 
 [LOCAL_ADMISSION]:
 - Derive a Rasm behavior from `StyledElementBehavior`/`StyledElementTrigger`/`StyledElementAction` when it participates in styling, resource inheritance, or `{Binding}` on its own properties; from `Behavior`/`Trigger` otherwise.

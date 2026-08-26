@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the one protobuf `SpanExporter`
-- rail: observability/export/trace
+- concern: observability/export/trace
 - `OTLPTraceExporter extends OTLPExporterBase<ReadableSpan[]> implements SpanExporter`; the `export`/`forceFlush`/`shutdown` lifecycle and the `OTLPExporterConfigBase`/`OTLPExporterNodeConfigBase` config live in `.api/opentelemetry-exporter-trace-otlp-http.md` and are reused here — the one member this package adds is the constructor that binds `ProtobufTraceSerializer`.
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                                            |
@@ -16,7 +16,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SDK-bridge protobuf trace export composition
-- rail: observability/export/trace
+- concern: observability/export/trace
 - Exporter is never a leaf: construct it, wrap it in `BatchSpanProcessor` (buffered, production) or `SimpleSpanProcessor` (synchronous, dev), hand the processor to the facade `Configuration.spanProcessor`. `url`/`headers`/`compression`/`timeoutMillis` source from config or `OTEL_EXPORTER_OTLP_*` env via core's readers; the protobuf wire is fixed by the package, never a config toggle.
 
 | [INDEX] | [SURFACE]                                                          | [SHAPE]     | [CAPABILITY]                                  |
@@ -31,7 +31,7 @@
 - `.api/effect-opentelemetry.md` owns the native-first `[OTEL_PIN_BLOCK]`-collapse dual-lane law this leg composes under.
 
 [STACKING]:
-- `.api/opentelemetry-exporter-trace-otlp-http.md`: JSON sibling that owns the `OTLPTraceExporter`/config/lifecycle surface; this row is its protobuf half — one per span-export lane, the collector's accepted encoding decides, both feed the same processor and facade seams unchanged.
+- `.api/opentelemetry-exporter-trace-otlp-http.md`: JSON sibling that owns the `OTLPTraceExporter`/config/lifecycle surface; this row is its protobuf half — one per span-export lane, the collector's accepted encoding decides, both feed the same processor and facade adapters unchanged.
 - `.api/opentelemetry-sdk-trace-base.md`: `new OTLPTraceExporter(cfg)` wraps in `new BatchSpanProcessor(exporter)` or `SimpleSpanProcessor`; the processor owns batching, retry, and the `forceFlush` drain over this `SpanExporter`.
 - `.api/effect-opentelemetry.md` `NodeSdk`/`WebSdk`: the wrapped processor is handed to `Configuration.spanProcessor` (node/bun `sdk-trace-node`; browser `sdk-trace-web`) alongside the one `AppIdentity`-derived `Resource`; the facade owns provider lifecycle, this package owns protobuf wire serialization.
 - `.api/opentelemetry-core.md`: `export()` reports terminal disposition through `ExportResult`/`ExportResultCode`, the outbound HTTP `Context` is `suppressTracing`-fenced so OTLP egress is never self-traced, and `timeoutMillis`/`url`/`compression` default from `OTEL_EXPORTER_OTLP_*` env via core's typed readers.

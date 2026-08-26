@@ -45,7 +45,7 @@ Perceptual tint math composes the kernel `PerceptualColor`/`BlendPath` owner —
 
 ## [05]-[DRAW]
 
-- Owner: `IconDraw` `[Union]` — the draw-plan family (RENAMED from the render noun the kernel's `IconRender` request owns): `SurfaceCase(IconContext Target)` (`IIcon.Draw(IconContext)` — the in-window draw through a filtered context) and `RasterCase(Size Extent, int Padding, Color Backdrop)` (`IIcon.DrawToBitmap(Size size, int padding, Color background)` → `Bitmap` — the owned-bitmap projection; the backdrop informs contrast decisions while the bitmap itself renders on transparency, per the host contract). `IconProduct` `[Union]` is the draw RESULT: `DrawnCase` for the surface modality, which produces no owned value, and `RasterCase(AssetRaster Frame)` carrying the bitmap as the KERNEL's raster carrier — `AssetRaster.Toolkit(scale, Lease<Bitmap>.Owned)` — so an icon raster and every other admitted raster in the estate share one custody shape. `IconOwner` is the operator: `Mint` (`[02]`), `Pose(IIcon icon, PoseShift shift, Op?)` → `Fin<Unit>`, `Poses(IIcon icon, Op?)` → `Fin<Seq<IconState>>` (the keyed-state inventory), `Filtered` (`[04]`), and `Draw(IIcon icon, IconDraw plan, Op?)` → `Fin<IconProduct>` — one gate for both modalities. `Materialize(IconRender request, RasterStack stack, Op?)` → `Fin<IconProduct>` composes the kernel's whole request shape: mint the origin, refuse a non-identity `IconPose` typed (GH2 draws no rotated icons through this gate), apply the filter chain, draw at the asked shape.
+- Owner: `IconDraw` `[Union]` — the draw-plan family (RENAMED from the render noun the kernel's `IconRender` request owns): `SurfaceCase(IconContext Target)` (`IIcon.Draw(IconContext)` — the in-window draw through a filtered context) and `RasterCase(Size Extent, int Padding, Color Backdrop)` (`IIcon.DrawToBitmap(Size size, int padding, Color background)` → `Bitmap` — the owned-bitmap projection; the backdrop informs contrast decisions while the bitmap itself renders on transparency, per the host contract). `IconProduct` `[Union]` is the draw RESULT: `DrawnCase` for the surface modality, which produces no owned value, and `RasterCase(AssetRaster Frame)` carrying the bitmap as the KERNEL's raster carrier — `AssetRaster.Toolkit(scale, Lease<Bitmap>.Owned)` — so an icon raster and every other admitted raster in the module share one custody shape. `IconOwner` is the operator: `Mint` (`[02]`), `Pose(IIcon icon, PoseShift shift, Op?)` → `Fin<Unit>`, `Poses(IIcon icon, Op?)` → `Fin<Seq<IconState>>` (the keyed-state inventory), `Filtered` (`[04]`), and `Draw(IIcon icon, IconDraw plan, Op?)` → `Fin<IconProduct>` — one gate for both modalities. `Materialize(IconRender request, RasterStack stack, Op?)` → `Fin<IconProduct>` composes the kernel's whole request shape: mint the origin, refuse a non-identity `IconPose` typed (GH2 draws no rotated icons through this gate), apply the filter chain, draw at the asked shape.
 - Law: every draw marshals through the kernel `UiThread.Run` blocking arity and runs under `Op.Catch`; the raster crosses as `AssetRaster.Toolkit` over `Lease<Bitmap>.Owned`, so the caller's disposal window bounds the host resource and the surface modality carries no product to release — a bare `Option<Bitmap>` return spells the absent modality as an absent value and hands out a live host bitmap with no release contract.
 - Law: an `IconContext` for an off-window surface mints through the host `IconContext(Context, RectangleF, Color)` constructor at the consumer; this gate draws through whatever context arrives and never opens a draw window of its own — the paint window is `Canvas/paint.md`'s.
 - Packages: Grasshopper2 (`IIcon`, `IconContext`), `Rasm.Interaction` (`AssetRaster`, `RasterStack`, `IconRender`, `IconPose`), Eto (`Size`, `Color`, `Bitmap`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`).
@@ -89,13 +89,13 @@ public abstract partial record IconProduct {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct IconDiagnostics(Seq<CodeDiagnostic> Errors, Seq<CodeDiagnostic> Warnings) : IValidityEvidence {
     public bool IsValid => Errors.IsEmpty;
     public static readonly IconDiagnostics Clean = new(Errors: Seq<CodeDiagnostic>(), Warnings: Seq<CodeDiagnostic>());
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CompileEvidence(
     int References,
     bool InMemory,
@@ -142,7 +142,6 @@ public sealed class IconCatalog {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class IconOwner {
     public static Fin<IconHandle> Mint(AssetOrigin origin, bool census = false, Op? key = null) {
         Op op = key.OrDefault();
@@ -290,7 +289,7 @@ flowchart LR
 
 ## [06]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                               | [RAIL]                        |
+| [INDEX] | [CONCERN]         | [OWNER]                               | [RESULT]                      |
 | :-----: | :---------------- | :------------------------------------ | :---------------------------- |
 |  [01]   | icon admission    | kernel `AssetOrigin` → `AbstractIcon` | `Mint → Fin<IconHandle>`      |
 |  [02]   | icon identity     | `IconTag` `[ValueObject]`             | admitted trimmed, non-blank   |
@@ -299,7 +298,7 @@ flowchart LR
 |  [05]   | filter applicator | kernel `IconFilter` → `IconContext`   | `Filtered → Fin<IconContext>` |
 |  [06]   | draw              | `IconDraw` + `IconProduct`            | `Draw → Fin<IconProduct>`     |
 
-Kernel `AssetOrigin`/`AssetRaster`/`IconFilter`/`IconRender`, `UiThread`, `Op`, `Fault`, `ValidityClaim`, `Lease<T>`, and the kernel `PerceptualColor` owner are composed upstream owners; the folder `IconSource`/`ResourceAnchor`/`IconFilter` twins, the `SessionCache` raster-recency law (the cache estate is deleted; raster caching is the host's custody per the kernel asset boundary), and the kernel-shadow `IconRender` plan name are all deleted. `Duration`, `Motion`, and `IconType` cross as host boundary data.
+Kernel `AssetOrigin`/`AssetRaster`/`IconFilter`/`IconRender`, `UiThread`, `Op`, `Fault`, `ValidityClaim`, `Lease<T>`, and the kernel `PerceptualColor` owner are composed upstream owners; the folder `IconSource`/`ResourceAnchor`/`IconFilter` twins, the `SessionCache` raster-recency law (the cache module is deleted; raster caching is the host's custody per the kernel asset boundary), and the kernel-shadow `IconRender` plan name are all deleted. `Duration`, `Motion`, and `IconType` cross as host boundary data.
 
 ## [07]-[RESEARCH]
 

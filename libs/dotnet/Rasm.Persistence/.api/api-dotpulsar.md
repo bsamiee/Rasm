@@ -80,7 +80,7 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 |  [09]   | `ConsumerState`               | state enum        | lifecycle; finals `Closed`/`Faulted`/`Fenced`/`ReachedEndOfTopic`               |
 |  [10]   | `ProducerState`               | state enum        | lifecycle; finals `Closed`/`Faulted`/`Fenced`/`ReachedEndOfTopic`               |
 |  [11]   | `ReaderState`                 | state enum        | lifecycle; finals `Closed`/`Faulted`/`Fenced`/`ReachedEndOfTopic`               |
-|  [12]   | `DotPulsarException`          | failure family    | lifts onto the egress fault rail                                                |
+|  [12]   | `DotPulsarException`          | failure family    | lifts onto the egress fault channel                                             |
 
 ## [02]-[ENTRYPOINTS]
 
@@ -173,10 +173,10 @@ Each `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` requires an `I
 - egress payload codec: the CDC-egress op payload (already a redacted, framed byte buffer) sends through the raw-bytes `ISend<ReadOnlySequence<byte>>.Send(byte[], ct)` with CloudEvents attributes carried as `MessageMetadata` properties, so a broker filters on metadata without decoding `Data`; `Schema.Protobuf<T>()` (`Google.Protobuf` `IMessage<T>` payloads) or `Schema.Avro*` (`api-chr-avro`) instead binds a typed sink so the schema rides the message.
 - exactly-once egress: `ProducerAccessMode.WaitForExclusive` with the reactive `IState` await elects one WAL-leader producer per partition; the awaited `Send` `MessageId` (`LedgerId:EntryId:Partition:BatchIndex`) confirms the durable offset advance, and a `ProducerFencedException` on the loser triggers re-election.
 - broker-side dedup rests entirely on the sequence-id trap above and is a separate claim: a returned `MessageId` reads alike for a stored message and one the broker discarded as a duplicate, so an unordered or restart-reset id turns silent loss into an advancing cursor.
-- ingress replay: `IReader<TMessage>` from a stored `MessageId` (or `Seek(publishTime)`) replays the topic deterministically into the `Version/ledger` ingress rail; tiered storage makes the replay window long-lived, distinct from a cursor-bound consumer.
-- back-pressure: `GetLastMessageIds` against the consumer position derives subscription lag for the egress back-pressure shed — the same lag-probe shape as the Kafka watermark seam (`api-kafka`).
+- ingress replay: `IReader<TMessage>` from a stored `MessageId` (or `Seek(publishTime)`) replays the topic deterministically into the `Version/ledger` ingress path; tiered storage makes the replay window long-lived, distinct from a cursor-bound consumer.
+- back-pressure: `GetLastMessageIds` against the consumer position derives subscription lag for the egress back-pressure shed — the same lag-probe shape as the Kafka watermark API (`api-kafka`).
 - telemetry: the built-in `ActivitySource`/`Meter` registers with the AppHost OpenTelemetry tracer (`telemetry` port) so produce/consume spans and client-created/disposed meters ride the shared provider, never a bespoke logger.
-- fault rail: the `DotPulsarException` family (`ProducerFencedException`, `ConsumerFaultedException`, `TooLargeMessageException`, `TransactionConflictException`) lifts at the sink edge onto the egress failure rail; `ExceptionContext.Result` (`FaultAction.Retry`/`Rethrow`/`ThrowException`) is the registered handler's verdict.
+- fault channel: the `DotPulsarException` family (`ProducerFencedException`, `ConsumerFaultedException`, `TooLargeMessageException`, `TransactionConflictException`) lifts at the sink edge onto the egress failure family; `ExceptionContext.Result` (`FaultAction.Retry`/`Rethrow`/`ThrowException`) is the registered handler's verdict.
 
 [LOCAL_ADMISSION]:
 - DotPulsar enters behind the `Version/egress#EGRESS_SINK` vocabulary as the `pulsar` binding row and a distinct log-streaming ingress backend, orthogonal to the Kafka/NATS/RabbitMQ wire protocols.

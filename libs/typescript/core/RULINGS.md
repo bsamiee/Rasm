@@ -12,7 +12,7 @@
 - Word axes arrive as their owner's published census — a caller-spelled tuple admits a duplicate word and a reason no raiser can produce.
 - Census aspects mount and fold at the convention owner — a page pairing its own mount with a tracking or exit fold forks the emission point.
 - Log annotations carry rostered `rasm.*` keys — an ungoverned annotation family reaches a sink under a name no query resolves.
-- `Wire` family keys name ONE shape estate-wide — two disjoint field sets under one key resolve by renaming the non-producer, never by widening.
+- `Wire` family keys name ONE shape repo-wide — two disjoint field sets under one key resolve by renaming the non-producer, never by widening.
 - `Clock.Hlc.physicalOf` scales its millisecond reading onto the tick axis — a stamp is an exact 10,000-tick multiple, never a raw millis half.
 - `CanonicalWriter` at `core/value/contentKey` is the ONE semantic-field preimage writer feeding `Digest.mint`; caller framing defines no identity.
 - `Shape.vocabulary` snapshots the tuple and rows every literal schema, guard, and column read derives from — a second roster or owner drifts.
@@ -24,8 +24,8 @@
 - `Convention.Bounds` freezes at the instrument mint — an objective, budget, or ceiling moving an edge re-buckets every series already exported.
 - `Convention.Ladder` generates edges from its scalar law — `explicit` transcribes literals only where an external specification fixed the ladder.
 - `Convention.translated` renders receiver suffixes from target, unit, and kind; rows keep unsuffixed mint names — suffixing is a target property.
-- One `Query` owner renders every backend from a target parameter and dialect-free expression data — a panel authors one expression estate-wide.
-- `Query.Target` carries metric-series backends alone — trace selection compiles through wide-event residence, so no trace arm enters the family.
+- One `Query` owner renders every backend from a target parameter and dialect-free expression data — a panel authors one expression repo-wide.
+- `Query.Target` carries metric-series backends alone — trace selection compiles through wide-event storage, so no trace arm enters the family.
 - `Convention.dimensions` sources every governor allow-list from the mounted rows' declared fan — a roster folded from one consumer strips its peers.
 - SLI metric sets derive from their instrument rows' own kind and time-code columns — a roster beside them strands every row landed after it.
 - `Wire` transcribes a peer vocabulary WHOLE beside its legality columns — every subset derives from those columns under a two-way guard.
@@ -64,7 +64,7 @@
 - Event wire bodies are oneof: raw `data` with `data_base64` refuses, and the base64 arm lands canonical `Uint8Array`.
 - Rasm event domains close against `Convention.domain`; source capability stays independent of type subject.
 - Generic protobuf URI-arm provenance rides the admitted SDK envelope and `Event.clone`, never a second envelope model.
-- Generic and Rasm events preserve descriptor-validated `dataref`; residence, resolution, and parity belong downstream.
+- Generic and Rasm events preserve descriptor-validated `dataref`; placement, resolution, and parity belong downstream.
 - `Event.address` is the one tagged, length-framed `(source,id)` digest consumed by ingress and transport deduplication.
 - `Invoke.Dial` is the ONE Connect selector — its adapter family admits the supported web and Node pairs, and no other pair has a type arm.
 - Connect GET routes unary alone — `ProgressService.Watch`, the one `NO_SIDE_EFFECTS` method bound here, streams, so `useHttpGet` stays deleted.
@@ -79,7 +79,7 @@
 - Wire version literals name their PREIMAGE law, not a field roster — a decoder pinning a superseded literal admits a digest no producer mints.
 - Refined key domains close through `Shape.Record` — bare `Schema.Record` DROPS a refused key and answers success on a document never sent.
 - Producer disposition unions cross WHOLE — a boolean over their failure arms fuses repairs that differ, so one badge stands for unlike states.
-- ONE decoded fault observation serves every seam carrying one — a per-arm code or sentence answers neither recovery nor re-offer.
+- ONE decoded fault observation serves every boundary carrying one — a per-arm code or sentence answers neither recovery nor re-offer.
 - Wire absence takes the PRODUCER's emission posture — omitted, null, and empty-string are three encodings, and the wrong one refuses every document.
 - Compaction deletes a wire field at every producer and consumer in one unit — a reserved coordinate or dual decoder keeps the deleted shape alive.
 - `Dial.sdk` demands `Capability.Admitted`, the one value the resolve step mints — caller-ordered admission is the deleted form.

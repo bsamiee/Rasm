@@ -1,12 +1,12 @@
 # [PY_RUNTIME_SERVE]
 
-Companion server-host and daemon composition root: `ServerHost` owns the inbound Connect lifecycle — every generated `<Svc>ASGIApplication` constructed here over its servicer, mounted under one dispatcher, and served by hypercorn — and the interceptor tuple every rpc crosses: metadata admission once per call and descriptor-driven constraint validation on every request and response body. `ServerHost` is itself the generated `grpc.health.v1` `Health` servicer, so the host's serving state publishes through the same generated seam every dialer reaches. `CapabilityInvoke` is the descriptor-driven outbound dial over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon's unary `ComputeService.Tessellate`, server-streaming `ArtifactService.Fetch`, and client-streaming `ArtifactService.Put` over the corpus Connect contract on the UDS leg and re-mints nothing it composes: hypercorn owns the plaintext UNIX-socket ASGI bind and answers gRPC by prior-knowledge h2c, Connect over h2 and HTTP/1.1, and gRPC-Web with no further config; the socket path stays under the `AF_UNIX` `sun_path` limit or the bind refuses with `AF_UNIX path too long`. Connect's server and client both run asyncio loop primitives, so this host serves under `anyio.run(..., backend="asyncio")` alone.
+Companion server-host and daemon composition root: `ServerHost` owns the inbound Connect lifecycle — every generated `<Svc>ASGIApplication` constructed here over its servicer, mounted under one dispatcher, and served by hypercorn — and the interceptor tuple every rpc crosses: metadata admission once per call and descriptor-driven constraint validation on every request and response body. `ServerHost` is itself the generated `grpc.health.v1` `Health` servicer, so the host's serving state publishes through the same generated boundary every dialer reaches. `CapabilityInvoke` is the descriptor-driven outbound dial over the C#-generated capability SDK, and `Entrypoint` the daemon boot/serve/drain choreography. It hosts the geometry companion daemon's unary `ComputeService.Tessellate`, server-streaming `ArtifactService.Fetch`, and client-streaming `ArtifactService.Put` over the corpus Connect contract on the UDS leg and re-mints nothing it composes: hypercorn owns the plaintext UNIX-socket ASGI bind and answers gRPC by prior-knowledge h2c, Connect over h2 and HTTP/1.1, and gRPC-Web with no further config; the socket path stays under the `AF_UNIX` `sun_path` limit or the bind refuses with `AF_UNIX path too long`. Connect's server and client both run asyncio loop primitives, so this host serves under `anyio.run(..., backend="asyncio")` alone.
 
 ## [01]-[INDEX]
 
 - [02]-[SERVE]: inbound host lifecycle over the generated applications under the profile's `WirePolicy`, metadata admission, body constraint validation, the two-directional `CredentialPolicy`, and typed error-detail egress.
 - [03]-[CAPABILITY_INVOKE]: descriptor-driven outbound dial, the `FaultDetail` detail ingress, and the two-axis re-drive gate over the `WIRE` retry row.
-- [04]-[ENTRY]: daemon composition root — railed boot under the structure-first wire gates, supervised serve, the ordered drain, and the one-shot recipe command.
+- [04]-[ENTRY]: daemon composition root — result-typed boot under the structure-first wire gates, supervised serve, the ordered drain, and the one-shot recipe command.
 
 ## [02]-[SERVE]
 
@@ -17,25 +17,25 @@ Companion server-host and daemon composition root: `ServerHost` owns the inbound
 
 Entry: the method roster:
 
-| [INDEX] | [METHOD]                                                        | [CONTRACT]                                                  |
-| :-----: | :-------------------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `mount(served) -> RuntimeRail[int]`                             | construct each application under the `WirePolicy`; one tree |
-|  [02]   | `admitted() -> RuntimeContext`                                  | the context the interceptor bound for the live rpc          |
-|  [03]   | `settle(rail) -> T`                                             | rail-terminating fold; Connect error with `FaultDetail`     |
-|  [04]   | `Admission.on_start(ctx) / on_end(token, ctx, error)`           | metadata admission, deadline, contextvars, timing, span     |
-|  [05]   | `BodyAdmission(SERVER)`                                         | validate every request and response element by rpc arity    |
-|  [06]   | `serve() -> RuntimeRail[None]`                                  | bind UDS under hypercorn, flip `SERVING`, await the trigger |
-|  [07]   | `drain() -> None`                                               | `NOT_SERVING` first, then the shutdown trigger and grace    |
-|  [08]   | `status(service, serving) -> None`                              | supervisor flip keyed on the `WireService` text; one bool   |
-|  [09]   | `check(request, ctx) -> HealthCheckResponse`                    | generated `Health.check`: the serving map per service       |
-|  [10]   | `CredentialPolicy.server_config(config) -> RuntimeRail[Config]` | loopback → plaintext `bind`; TLS rows assign cert material  |
-|  [11]   | `CredentialPolicy.client_transport() -> RuntimeRail[Dial]`      | four outbound rows; loopback refuses as an inbound seat     |
+| [INDEX] | [METHOD]                                                          | [CONTRACT]                                                  |
+| :-----: | :---------------------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `mount(served) -> RuntimeResult[int]`                             | construct each application under the `WirePolicy`; one tree |
+|  [02]   | `admitted() -> RuntimeContext`                                    | the context the interceptor bound for the live rpc          |
+|  [03]   | `settle(held) -> T`                                               | result-terminating fold; Connect error with `FaultDetail`   |
+|  [04]   | `Admission.on_start(ctx) / on_end(token, ctx, error)`             | metadata admission, deadline, contextvars, timing, span     |
+|  [05]   | `BodyAdmission(SERVER)`                                           | validate every request and response element by rpc arity    |
+|  [06]   | `serve() -> RuntimeResult[None]`                                  | bind UDS under hypercorn, flip `SERVING`, await the trigger |
+|  [07]   | `drain() -> None`                                                 | `NOT_SERVING` first, then the shutdown trigger and grace    |
+|  [08]   | `status(service, serving) -> None`                                | supervisor flip keyed on the `WireService` text; one bool   |
+|  [09]   | `check(request, ctx) -> HealthCheckResponse`                      | generated `Health.check`: the serving map per service       |
+|  [10]   | `CredentialPolicy.server_config(config) -> RuntimeResult[Config]` | loopback → plaintext `bind`; TLS rows assign cert material  |
+|  [11]   | `CredentialPolicy.client_transport() -> RuntimeResult[Dial]`      | four outbound rows; loopback refuses as an inbound seat     |
 
- `serve()` refuses an empty `Served` set with a typed `config` fault — never a silent empty bind — binds and listens its sockets ahead of the `ready` hook so an sd-notify READY never precedes an accepting listener, and awaits the shutdown trigger directly; supervision is the `[04]-[ENTRY]` composition root's. `Admission.on_start` lifts `ctx.timeout_ms` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline rail — never an unbounded handler — and records every rpc's duration and outcome onto `Metrics.record`. The `transport/body`-owned `BodyAdmission(SERVER)` interceptor evaluates generated descriptor constraints on every unary body and every streamed element: request refusals cross as `INVALID_ARGUMENT`, response refusals as `INTERNAL`, and structured request violations survive on the `ConnectError`. A server-stream fault mid-stream crosses the same typed terminal as a unary fault. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same host a calling host polls and no second health surface exists.
+ `serve()` refuses an empty `Served` set with a typed `config` fault — never a silent empty bind — binds and listens its sockets ahead of the `ready` hook so an sd-notify READY never precedes an accepting listener, and awaits the shutdown trigger directly; supervision is the `[04]-[ENTRY]` composition root's. `Admission.on_start` lifts `ctx.timeout_ms` into the admitted `Deadline`, feeding the caller-dialed budget to the deadline path — never an unbounded handler — and records every rpc's duration and outcome onto `Metrics.record`. The `transport/body`-owned `BodyAdmission(SERVER)` interceptor evaluates generated descriptor constraints on every unary body and every streamed element: request refusals cross as `INVALID_ARGUMENT`, response refusals as `INTERNAL`, and structured request violations survive on the `ConnectError`. A server-stream fault mid-stream crosses the same typed terminal as a unary fault. `status` is the one worker-facing flip the `execution/workers#SUPERVISION` actuator drives, so pool liveness advertises through the same host a calling host polls and no second health surface exists.
 
 - Auto: `OpenTelemetryMiddleware` is the ONE trace-context authority — it extracts the inbound W3C parent off `scope["headers"]` and opens the SERVER span natively with `exclude_spans=["receive", "send"]` so a streaming rpc multiplies no child spans, `Admission` re-extracts nothing, no handler body opens a second scope, and an observe `attach` around the handler body re-roots spans the middleware already parented. `server_request_hook` stamps `rpc.service`/`rpc.method` off the `/<package>.<Service>/<Method>` path, so the per-call dimension rides the middleware natively. `Admission.on_start` binds the admitted context onto structlog contextvars for the rpc window, so `merge_contextvars` stamps every handler log line with the same admitted identity whichever arity served it.
-- Auto: the generated `<Svc>` protocol declares each rpc's shape (`async def` unary, `AsyncIterator` server stream, `AsyncIterator` in and out for bidi) and the generated application binds the matching `Endpoint` kind. `BodyAdmission` implements those four native interceptor protocols in `transport/body` and no servicer repeats constraint logic; `settle` remains the one rail fold a handler body composes.
-- Auto: `ServerHost` implements the selected generated `Health.Check` rpc — `serve()` mounts `HealthASGIApplication(self, interceptors=_INTERCEPTORS)` beside every served application, and `check` projects the serving map per service (an empty name answers the host whole, an unknown name `SERVICE_UNKNOWN`) — so a supervisor publishes on the same generated seam every dialer polls, the health application crosses the same admission and validation boundaries as every served rpc, and no hand-written health route exists; `Watch` remains upstream support closure but has no selected actor or runtime implementation. `connectrpc` ships no health surface, which is why the service is the vendored `grpc/health/v1/health.proto` module generated for this branch.
+- Auto: the generated `<Svc>` protocol declares each rpc's shape (`async def` unary, `AsyncIterator` server stream, `AsyncIterator` in and out for bidi) and the generated application binds the matching `Endpoint` kind. `BodyAdmission` implements those four native interceptor protocols in `transport/body` and no servicer repeats constraint logic; `settle` remains the one result fold a handler body composes.
+- Auto: `ServerHost` implements the selected generated `Health.Check` rpc — `serve()` mounts `HealthASGIApplication(self, interceptors=_INTERCEPTORS)` beside every served application, and `check` projects the serving map per service (an empty name answers the host whole, an unknown name `SERVICE_UNKNOWN`) — so a supervisor publishes on the same generated boundary every dialer polls, the health application crosses the same admission and validation boundaries as every served rpc, and no hand-written health route exists; `Watch` remains upstream support closure but has no selected actor or runtime implementation. `connectrpc` ships no health surface, which is why the service is the vendored `grpc/health/v1/health.proto` module generated for this branch.
 - Growth: a new served service is one `Served` row — the generated `<Svc>ASGIApplication` class beside its servicer — the composition root hands `mount`, with its `SERVICE_VOCABULARY` row; a new rpc or constraint is one proto edit and regeneration, with validation inherited at the body boundary; a new `FaultTag` member is one `_FAULT_STATUS` row and nothing else, the table being total by construction and read as a raw index, and that row carries its own re-drive membership with it because `_REDRIVEN` derives from it; a new refusal on this page is one `FaultRow` anchor at the `reliability/faults#FAULT` roster called through `raised`, never a literal construction; a new outbound credential posture is one `CredentialPolicy` case with one `client_transport` arm; a new span dimension is one `enrich` key; a new compression algorithm is one `Compression` value on the `WirePolicy` row both `mount` and `CapabilityInvoke.connect` read; a new health rpc is one upstream proto change the regenerated `health_connect` protocol carries and one override on `ServerHost`.
 
 ```python
@@ -74,7 +74,7 @@ from rasm.runtime.admission import Deadline, RuntimeContext, RuntimeProfile
 from rasm.runtime.clock import CausalFrame
 from rasm.runtime.faults import (
     FAULT_OWNER, FAULT_TAG, SERVE_ANCHOR, SERVE_BUNDLE, SERVE_DIRECTION, SERVE_ROSTER,
-    BoundaryFault, Catch, FaultTag, Recovery, RuntimeLeg, RuntimeRail,
+    BoundaryFault, Catch, FaultTag, Recovery, RuntimeLeg, RuntimeResult,
 )
 from rasm.runtime.journal import NANOS_PER_TICK
 from rasm.runtime.metrics import FAULT_OUTCOME, Metrics
@@ -137,7 +137,7 @@ class CredentialPolicy:
     def bundled(cls, *rows: "CredentialPolicy") -> Self:
         return cls(composed=rows)
 
-    def server_config(self, config: Config, bind: str) -> RuntimeRail[Config]:
+    def server_config(self, config: Config, bind: str) -> RuntimeResult[Config]:
         match self:
             case CredentialPolicy(tag="insecure_loopback"):
                 config.bind = [bind]
@@ -147,7 +147,7 @@ class CredentialPolicy:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def client_transport(self) -> RuntimeRail[Dial]:
+    def client_transport(self) -> RuntimeResult[Dial]:
         match self:
             case CredentialPolicy(tag="tls", tls=roots):
                 return Ok((HTTPTransport(tls_ca_cert=roots.encode()), ()))
@@ -254,7 +254,7 @@ class ServerHost(Health):
         self._serving: Map[str, bool] = Map.empty()
         self._shutdown = anyio.Event()
 
-    def mount(self, served: Block[Served[Any]]) -> RuntimeRail[int]:
+    def mount(self, served: Block[Served[Any]]) -> RuntimeResult[int]:
         self._applications = self._applications.append(served.map(lambda row: self._constructed(*row)))
         return Ok(len(served))
 
@@ -271,7 +271,7 @@ class ServerHost(Health):
         trace.get_current_span().set_attributes(context.attribute() | {_DESCRIPTOR_ATTR: descriptor} | seat.default_value({}))
 
     @staticmethod
-    def settle[T](wired: RuntimeRail[T]) -> T:
+    def settle[T](wired: RuntimeResult[T]) -> T:
         match wired:
             case Result(tag="ok", ok=payload):
                 return payload
@@ -283,7 +283,7 @@ class ServerHost(Health):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def serve(self, ready: Callable[[], Awaitable[None]] | None = None) -> RuntimeRail[None]:
+    async def serve(self, ready: Callable[[], Awaitable[None]] | None = None) -> RuntimeResult[None]:
         if self._applications.is_empty():
             return Error(SERVE_ROSTER.raised())
         match self._credential.server_config(Config(), self._bind):
@@ -340,7 +340,7 @@ def _rpc_attributes(span: trace.Span, scope: dict[str, object]) -> None:
     span.set_attributes({"rpc.system": "connect_rpc", "rpc.service": service, "rpc.method": method})
 
 
-def _bundled(rows: Block[CredentialPolicy]) -> RuntimeRail[Dial]:
+def _bundled(rows: Block[CredentialPolicy]) -> RuntimeResult[Dial]:
     anchors, tokens = rows.filter(lambda row: row.tag in ("tls", "mtls")), rows.filter(lambda row: row.tag == "bearer")
     return (
         Error(SERVE_BUNDLE.raised(",".join(sorted({row.tag for row in rows}))))
@@ -378,7 +378,7 @@ def _sealed(fault: BoundaryFault, context: RuntimeContext, recovery: Recovery) -
 - Entry: `CapabilityInvoke.connect(target, expected_pin, tenant, credential, profile, scope)` dials discovery first; it re-hashes and decodes the carried canonical document, proves the expected pin, exact-joins the sorted live availability and estimate rows to that document, and enrolls only the joined native view. Any divergence closes the transport.
 - Entry: `run(descriptor_id, request, into)` admits the id against the generated catalog and sends the typed message over `/{WireService.CAPABILITY}/{descriptor_id}`.
 - Growth: a new capability is one C# descriptor row; a new static descriptor column extends the canonical pin document once and its typed decoder here; a new dynamic discovery fact is one proto change and regeneration.
-- Boundary: schema is absent from live discovery; generated SDK types own request and reply shape. `DescriptorPinWire.document` alone owns static surface, effect, repeat posture, scope, and cost-unit semantics; each generated `AvailableCapability` states only live presence and estimates, which this seam joins to the decoded document by descriptor and unit.
+- Boundary: schema is absent from live discovery; generated SDK types own request and reply shape. `DescriptorPinWire.document` alone owns static surface, effect, repeat posture, scope, and cost-unit semantics; each generated `AvailableCapability` states only live presence and estimates, which this boundary joins to the decoded document by descriptor and unit.
 - Boundary: `connect` owns and closes the `pyqwest` transport; discovery refusal or pin divergence closes before enrollment, and normal drain closes after enrollment.
 
 ```python
@@ -408,7 +408,7 @@ from rasm.runtime.admission import RuntimeProfile
 from rasm.runtime.clock import Tenant
 from rasm.runtime.faults import (
     FAULT_TAG, SCOPES, SERVE_CATALOG, SERVE_DIAL, SERVE_DISCOVERY, SERVE_ENCODE,
-    BoundaryFault, Recovery, RuntimeRail, Scope, async_boundary, boundary, scoped,
+    BoundaryFault, Recovery, RuntimeResult, Scope, async_boundary, boundary, scoped,
 )
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.metrics import TENANT_BAGGAGE
@@ -426,7 +426,7 @@ type IdempotencyKey = Literal["idempotent", "keyed", "single-shot", "non-idempot
 
 
 class WireDispatch(Protocol):
-    async def __call__[R: Message](self, descriptor: str, request: Message, into: type[R], /) -> RuntimeRail[R]: ...
+    async def __call__[R: Message](self, descriptor: str, request: Message, into: type[R], /) -> RuntimeResult[R]: ...
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -550,7 +550,7 @@ class CapabilityInvoke:
         *,
         profile: RuntimeProfile,
         scope: ScopeKey = DEFAULT_SCOPE,
-    ) -> RuntimeRail[Self]:
+    ) -> RuntimeResult[Self]:
         match credential.client_transport():
             case Result(tag="error", error=refused):
                 return Error(refused)
@@ -579,15 +579,15 @@ class CapabilityInvoke:
             read_max_bytes=policy.read_max_bytes,
         )
 
-        async def discovered() -> RuntimeRail[DiscoverResponse]:
+        async def discovered() -> RuntimeResult[DiscoverResponse]:
             try:
                 catalog = await _WIRE_CALLER(discovery.discover, DiscoverRequest(), use_get=True)
                 return Ok(catalog)
             except ConnectError as terminal:
                 return Error(remote_fault(terminal))
 
-        catalog_rail = (await async_boundary(SERVE_DIAL, discovered, catch=_WIRE_RAISES)).bind(lambda rail: rail)
-        match catalog_rail:
+        catalog_held = (await async_boundary(SERVE_DIAL, discovered, catch=_WIRE_RAISES)).bind(lambda held: held)
+        match catalog_held:
             case Result(tag="error", error=refused):
                 await transport.aclose()
                 return Error(refused)
@@ -603,10 +603,10 @@ class CapabilityInvoke:
             case _ as unreachable:
                 assert_never(unreachable)
 
-        async def dispatch[R: Message](descriptor_id: str, request: Message, into: type[R], /) -> RuntimeRail[R]:
+        async def dispatch[R: Message](descriptor_id: str, request: Message, into: type[R], /) -> RuntimeResult[R]:
             method = MethodInfo(name=descriptor_id, service_name=WireService.CAPABILITY, input=type(request), output=into, idempotency_level=IdempotencyLevel.UNKNOWN)
 
-            async def called() -> RuntimeRail[R]:
+            async def called() -> RuntimeResult[R]:
                 try:
                     return Ok(await _WIRE_CALLER(client.execute_unary, request=request, method=method))
                 except ConnectError as terminal:
@@ -616,11 +616,11 @@ class CapabilityInvoke:
                 case Result(tag="error", error=refused):
                     return Error(refused)
                 case _:
-                    return (await async_boundary(SERVE_DIAL, called, catch=_WIRE_RAISES)).bind(lambda rail: rail)
+                    return (await async_boundary(SERVE_DIAL, called, catch=_WIRE_RAISES)).bind(lambda held: held)
 
         return Ok(_enrolled(cls(rows, dispatch, transport, scope)))
 
-    async def run[R: Message](self, descriptor_id: str, request: Message, into: type[R]) -> RuntimeRail[R]:
+    async def run[R: Message](self, descriptor_id: str, request: Message, into: type[R]) -> RuntimeResult[R]:
         match self._catalog.try_find(descriptor_id):
             case Option(tag="none"):
                 return Error(SERVE_CATALOG.raised(descriptor_id))
@@ -680,9 +680,9 @@ _WIRE_CALLER: Final[stamina.BoundAsyncRetryingCaller] = stamina.AsyncRetryingCal
 
 - Owner: `companion_app` is the `cyclopts` command axis AND the daemon composition root, co-located with `ServerHost` because the serve command composes the host it launches. `companion_app(served, drains, charges, ledger, composition)` is parameterized over the `Served` rows, the drainable owners, the supervised worker charges, the durable-evidence binding, and the custody scope, so a downstream folder's composition root — geometry `mesh/serve` the named consumer — supplies its served rows, drain stages, pool charges, `(Ledger, Custody)` pair, and `ScopeKey` by data; runtime never imports a downstream sibling package, and every install owner it composes is a runtime-interior module.
 - Law: STRUCTURE PROVES BEFORE CUSTODY IS CLAIMED — `aligned` and `sealed` both seat immediately after the admitted context and ahead of every install, because each install takes process ownership no refusal hands back: a set-once OTel global, a patched contrib train, a registered profiler, a claimed hook-point table. A census seated after them reports a drifted mirror roster or a broken packed layout onto a process that has already mounted the surfaces its own refusal cannot unmount, and neither gate reads installed state, so the earlier seat costs nothing.
-- Entry: the boot fold installs the durable evidence plane LAST among the observability owners and only where the caller bound one — `Journal.install` binds onto the same railed chain, so a refused census, an unmet port, or a colliding point roster stops the boot rather than leaving every producer's `record` railing for the process's life; an unbound composition installs none and runs unjournalled. `_supervised` then starts `Journal.drained` FIRST inside the supervision group through `tg.start`, whose readiness signal blocks until the consumer holds the receive end, so no later leg can suspend into an intake nothing reads.
-- Entry: this drain fold owns ORDER — the journal drain first so facts stop before the pools that produce them die and the buffered window flushes losslessly through the drain still running behind it, then the caller's `drains` rows, then one pool-drain row per charge, then the supervisor's daemon-stop escalation so no spawned child outlives the daemon, then the two outbound client closes — the transport clients and every dialed capability invoke — and the profiles push stop. The `drained` line writes off that accumulated rail after those stages; `Telemetry.shutdown` settles and stops LAST. Every stage runs after an earlier fault, and the faults accumulate into one aggregate; a first-fault abort leaving later stages undrained never lands. Boot chains ride the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express. Each stage is a `(FaultRow, DrainStage)` pair rather than a labelled thunk, so a stage's fault subject derives from the owning module's own `Leg`.
-- Auto: readiness is sd-notify-shaped data — `NotifyState` closes the handshake vocabulary, `_notify` writes the service manager's `NOTIFY_SOCKET` datagram through the anyio UNIX-datagram factory, and an absent socket folds to a no-op so the same daemon runs bare or managed. `READY` fires through the serve `ready` hook after the health flips, `STOPPING` fires at the signal seam before the drain, and the `beating` leg halves `WATCHDOG_USEC` into its ping interval only when the manager arms it. Workers' actuator joins the one supervision group with the awaited `ServerHost.status` coroutine as its flip, so pool death advertises on the served health state without a second loop, and the serve leg's terminal send cancels the whole group. Lifecycle facts fire on the registered `LIFECYCLE_POINTS` rows and `_booted` subscribes the log tap per point, so daemon lifecycle telemetry is a hook projection, never a second emit path.
+- Entry: the boot fold installs the durable evidence plane LAST among the observability owners and only where the caller bound one — `Journal.install` binds onto the same result-typed chain, so a refused census, an unmet port, or a colliding point roster stops the boot rather than leaving every producer's `record` refusing for the process's life; an unbound composition installs none and runs unjournalled. `_supervised` then starts `Journal.drained` FIRST inside the supervision group through `tg.start`, whose readiness signal blocks until the consumer holds the receive end, so no later leg can suspend into an intake nothing reads.
+- Entry: this drain fold owns ORDER — the journal drain first so facts stop before the pools that produce them die and the buffered window flushes losslessly through the drain still running behind it, then the caller's `drains` rows, then one pool-drain row per charge, then the supervisor's daemon-stop escalation so no spawned child outlives the daemon, then the two outbound client closes — the transport clients and every dialed capability invoke — and the profiles push stop. The `drained` line writes off that accumulated result after those stages; `Telemetry.shutdown` settles and stops LAST. Every stage runs after an earlier fault, and the faults accumulate into one aggregate; a first-fault abort leaving later stages undrained never lands. Boot chains ride the faults `returns_result` builder over heterogeneous binds a `traversed` fold cannot express. Each stage is a `(FaultRow, DrainStage)` pair rather than a labelled thunk, so a stage's fault subject derives from the owning module's own `Leg`.
+- Auto: readiness is sd-notify-shaped data — `NotifyState` closes the handshake vocabulary, `_notify` writes the service manager's `NOTIFY_SOCKET` datagram through the anyio UNIX-datagram factory, and an absent socket folds to a no-op so the same daemon runs bare or managed. `READY` fires through the serve `ready` hook after the health flips, `STOPPING` fires at the signal boundary before the drain, and the `beating` leg halves `WATCHDOG_USEC` into its ping interval only when the manager arms it. Workers' actuator joins the one supervision group with the awaited `ServerHost.status` coroutine as its flip, so pool death advertises on the served health state without a second loop, and the serve leg's terminal send cancels the whole group. Lifecycle facts fire on the registered `LIFECYCLE_POINTS` rows and `_booted` subscribes the log tap per point, so daemon lifecycle telemetry is a hook projection, never a second emit path.
 - Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(FaultRow, stage)` row the ordered fold, the accumulate, and the line absorb, its anchor seated at the faults roster under the draining module's own `Leg`; a new lifecycle point is one `LIFECYCLE_POINTS` row; a new supervised pool is one `Charge` row; a new manager handshake is one `NotifyState` member; a new boot gate is one `yield from` beside the two structural ones, above the installs; a new custody posture behind the bound `ledger` pair is one `Custody` instance the caller constructs, zero serve edits; a sibling daemon is one `companion_app(served, drains, charges, ledger, composition)` call with its own served rows.
 
 ```python
@@ -711,7 +711,7 @@ from rasm.runtime.clock import sealed
 from rasm.runtime.faults import (
     HOOKS_RELEASE, JOURNAL_DRAIN, PROFILES_DRAIN, ROOTS_DRAIN, SCOPES, SERVE_DIALS, SERVE_DRAIN, SERVE_HOST,
     SERVE_INPUTS, SERVE_SELECTOR, SERVE_SETTINGS, TELEMETRY_STOP, WORKERS_DAEMONS, WORKERS_POOL,
-    Disposition, FaultRow, RuntimeRail, Scope, async_boundary, boundary, railed, traversed,
+    Disposition, FaultRow, RuntimeResult, Scope, async_boundary, boundary, result-typed, traversed,
 )
 from rasm.runtime.hooks import HookPoint, Hooks, Modality, TapRow
 from rasm.runtime.journal import Custody, Journal, Ledger
@@ -729,7 +729,7 @@ from rasm.runtime.workers import Charge, Supervisor, WorkerKind, WorkerPool
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type DrainStage = Callable[[], Awaitable[object] | RuntimeRail[object]]
+type DrainStage = Callable[[], Awaitable[object] | RuntimeResult[object]]
 class NotifyState(StrEnum):
     READY = "READY=1"
     STOPPING = "STOPPING=1"
@@ -758,15 +758,15 @@ LIFECYCLE_POINTS: Final[Block[HookPoint[LifecycleFact]]] = Block.of_seq([
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _exit(outcome: RuntimeRail[object] | Drained[object]) -> int:
+def _exit(outcome: RuntimeResult[object] | Drained[object]) -> int:
     match outcome:
-        case Result() as rail:
-            return rail.map(lambda _value: 0).default_value(1)
+        case Result() as held:
+            return held.map(lambda _value: 0).default_value(1)
         case drained:
             return 0 if drained.faults.is_empty() else 1
 
 
-@railed
+@returns_result
 def _booted(bind: str, grace: float, served: Block[Served[Any]], ledger: Option[tuple[Ledger, Custody]]) -> Generator[Any, Any, ServerHost]:
     settings = yield from boundary(SERVE_SETTINGS, SettingsAdmission.mounted, catch=(SettingsError, ValidationError, OSError))
     ship = LogShip.OTLP_CONSOLE
@@ -787,20 +787,20 @@ def _booted(bind: str, grace: float, served: Block[Served[Any]], ledger: Option[
     return host
 
 
-async def _settled(at: FaultRow, stage: DrainStage) -> RuntimeRail[object]:
+async def _settled(at: FaultRow, stage: DrainStage) -> RuntimeResult[object]:
     match boundary(at, stage, catch=Exception):
         case Result(tag="error") as refused:
             return refused
-        case Result(tag="ok", ok=Result() as rail):
-            return rail
+        case Result(tag="ok", ok=Result() as held):
+            return held
         case Result(tag="ok", ok=pending):
             return await async_boundary(at, lambda: pending, catch=Exception)
         case _ as unreachable:
             assert_never(unreachable)
 
 
-async def _drained(stages: Block[tuple[FaultRow, DrainStage]]) -> RuntimeRail[Block[object]]:
-    settled: Block[RuntimeRail[object]] = Block.empty()
+async def _drained(stages: Block[tuple[FaultRow, DrainStage]]) -> RuntimeResult[Block[object]]:
+    settled: Block[RuntimeResult[object]] = Block.empty()
     for at, stage in stages:
         settled = settled.append(Block.singleton(await _settled(at, stage)))
     return traversed(settled, by=Disposition.ACCUMULATE)
@@ -846,15 +846,15 @@ def _fleet(charges: Block[Charge]) -> Block[tuple[FaultRow, DrainStage]]:
 
 async def _supervised(
     host: ServerHost, drains: Block[tuple[FaultRow, DrainStage]], charges: Block[Charge], journalled: bool, composition: ScopeKey
-) -> RuntimeRail[None]:
-    send, receive = anyio.create_memory_object_stream[RuntimeRail[object]](max_buffer_size=2)
+) -> RuntimeResult[None]:
+    send, receive = anyio.create_memory_object_stream[RuntimeResult[object]](max_buffer_size=2)
 
-    async def hosting(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
+    async def hosting(sink: MemoryObjectSendStream[RuntimeResult[object]]) -> None:
         async with sink:
-            await sink.send((await async_boundary(SERVE_HOST, lambda: host.serve(ready=_launched), catch=_WIRE_RAISES)).bind(lambda rail: rail))
+            await sink.send((await async_boundary(SERVE_HOST, lambda: host.serve(ready=_launched), catch=_WIRE_RAISES)).bind(lambda held: held))
         group.cancel_scope.cancel()
 
-    async def tripped(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
+    async def tripped(sink: MemoryObjectSendStream[RuntimeResult[object]]) -> None:
         async with sink:
             with anyio.open_signal_receiver(signal.SIGTERM, signal.SIGINT) as trips:
                 async for _ in trips:
@@ -911,7 +911,7 @@ async def _daemon(
     charges: Block[Charge],
     ledger: Option[tuple[Ledger, Custody]],
     composition: ScopeKey,
-) -> RuntimeRail[None]:
+) -> RuntimeResult[None]:
     match _booted(bind, grace, served, ledger):
         case Result(tag="error") as refused:
             return refused

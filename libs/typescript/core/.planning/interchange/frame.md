@@ -2,7 +2,7 @@
 
 `Frame` owns bounded artifact reassembly, residency admission, and IFC container admission. Interleaved bands fold by artifact and generation under one ingress budget, verification gates the joined allocation, and each residency manifest replaces whole against the producer's pinned cluster roster and the budget it declares. Module `core/src/interchange/frame.ts` admits an arrival class as one refusal row, a residency payload as one kind row, and an IFC serialization as one admission row.
 
-`Frame` composes the `value` floor's `Digest` identity and `Shape.Ingress` ceilings, the `codec` owner's fault, gap, parity, and quarantine rails, and the `format` owner's proto suite and JSON schema mints. Producers own every payload axis crossing this plane, so `Frame` folds arrivals into artifacts, views, censuses, and admissions and mints no payload axis of its own.
+`Frame` composes the `value` floor's `Digest` identity and `Shape.Ingress` ceilings, the `codec` owner's fault, gap, parity, and quarantine policies, and the `format` owner's proto suite and JSON schema mints. Producers own every payload axis crossing this plane, so `Frame` folds arrivals into artifacts, views, censuses, and admissions and mints no payload axis of its own.
 
 ## [01]-[INDEX]
 
@@ -373,11 +373,11 @@ const Residency: {
 
 - Owner: `Frame.Ifc` owns the IFC wire form — serialization rows, the container column, and the release roster both cross sparsely.
 - Law: Serialization and container stay separate axes whose product is SPARSE on both crossings — a wrapper names the serializations it carries and never the text inside them, so `zip` admits STEP and XML alone, and each serialization names the releases it publishes for, so `Ifc.admits` refuses an unpublished pair by row where a cross product admits a document no schema validates.
-- Law: ADMISSION and PUBLICATION are two verdicts over one row set — `Ifc.admits` grades the bytes this decoder reads, `Ifc.seals` grades what a producer may write, and one fused predicate either forfeits a lawful read or authorizes a form no producer of this estate mints.
+- Law: ADMISSION and PUBLICATION are two verdicts over one row set — `Ifc.admits` grades the bytes this decoder reads, `Ifc.seals` grades what a producer may write, and one fused predicate either forfeits a lawful read or authorizes a form no producer of this repo mints.
 - Law: Direction rides the `refusal` cell, and the cell QUOTES its producer rather than re-deriving it — `libs/dotnet/Rasm.Bim/.planning/Projection/wireform.md` `IfcSerialization.Refusal` names `ifcx` unproduced, its `Published` reads that cell first and fails whatever release follows, and its `Sniff` still admits the span.
 - Law: `IFC4X3` publishes under no serialization — the ISO-approved 4.3 line carries the `IFC4X3_ADD2` identifier and every published 4.3 artifact spells it, so the roster keeps the token to NAME that refusal rather than failing an unknown literal at decode.
-- Law: `ifcx` is IFC5's own encoding rather than a `json` release — a document there carries its release at `header.ifcxVersion` where ifcJSON reads `schemaIdentifier`, so folding IFC5 onto the JSON row forks two vocabularies into one member read; that `json` row itself publishes against a community-maintained schema where `step` and `xml` publish against the ISO editions, a weaker claim its consumers price at the seam.
-- Law: `ifcx` reaches this branch from a foreign producer alone — the estate's own producer maps IFC5 to no writer, so the row admits on the read side and refuses on the seal side, stated as a cell on both ends rather than a shape one end silently lacks.
+- Law: `ifcx` is IFC5's own encoding rather than a `json` release — a document there carries its release at `header.ifcxVersion` where ifcJSON reads `schemaIdentifier`, so folding IFC5 onto the JSON row forks two vocabularies into one member read; that `json` row itself publishes against a community-maintained schema where `step` and `xml` publish against the ISO editions, a weaker claim its consumers price at the boundary.
+- Law: `ifcx` reaches this branch from a foreign producer alone — the repo's own producer maps IFC5 to no writer, so the row admits on the read side and refuses on the seal side, stated as a cell on both ends rather than a shape one end silently lacks.
 - Law: Each serialization declares the header member carrying its release, so admission reads a named member rather than guessing.
 - Law: `sniff` prices the release read, and an inflating container raises its serialization's extent to the whole document.
 - Law: Rows decide selection, admission, publication, and `degrade` alone — a wire form realizes no tenancy and ends no lifetime.

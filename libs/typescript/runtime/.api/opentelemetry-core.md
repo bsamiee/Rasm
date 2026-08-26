@@ -1,8 +1,8 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_CORE]
 
-`@opentelemetry/core` is the dependency-free primitive layer beneath every `@opentelemetry/sdk-*` and `exporter-*` peer — the W3C propagation codecs, the `ExportResult` export rail, and the `HrTime` timestamp algebra those peers build on.
+`@opentelemetry/core` is the dependency-free primitive layer beneath every `@opentelemetry/sdk-*` and `exporter-*` peer — the W3C propagation codecs, the `ExportResult` export result, and the `HrTime` timestamp algebra those peers build on.
 
-`otel/emit` composes its codecs to continue an inbound `traceparent` into the `@effect/opentelemetry` facade, and the SDK-bridge lane reports through its `ExportResult` rail; the native `Otlp` lane owns its own context bridge, so core is never reached there.
+`otel/emit` composes its codecs to continue an inbound `traceparent` into the `@effect/opentelemetry` facade, and the SDK-bridge lane reports through its `ExportResult` type; the native `Otlp` lane owns its own context bridge, so core is never reached there.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -20,9 +20,9 @@ Propagators are one parameterized `api.TextMapPropagator` family (`inject`/`extr
 |  [06]   | `TRACE_PARENT_HEADER = "traceparent"` | header const      | the `traceparent` header key              |
 |  [07]   | `TRACE_STATE_HEADER = "tracestate"`   | header const      | the `tracestate` header key               |
 
-[PUBLIC_TYPE_SCOPE]: export rail + diagnostic carriers
+[PUBLIC_TYPE_SCOPE]: export result + diagnostic carriers
 
-Every exporter and SDK processor reports terminal disposition through `ExportResult`/`ExportResultCode`, the single result rail the SDK-bridge lane surfaces; `internal._export` adapts a callback `Exporter<T>` into a `Promise<ExportResult>` at the SDK seam.
+Every exporter and SDK processor reports terminal disposition through `ExportResult`/`ExportResultCode`, the single result type the SDK-bridge lane surfaces; `internal._export` adapts a callback `Exporter<T>` into a `Promise<ExportResult>` at the SDK boundary.
 
 | [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]      | [CAPABILITY]                        |
 | :-----: | :------------------------------------------------------- | :----------------- | :---------------------------------- |
@@ -86,7 +86,7 @@ Timestamp conversion folds one `api.HrTime` `[seconds, nanos]` tuple: a new time
 |  [07]   | `sanitizeAttributes` / `isAttributeValue`                       | validator       | scrub/guard `Attributes` before a signal          |
 |  [08]   | `globalErrorHandler` / `setGlobalErrorHandler`                  | error sink      | process-wide exporter error handler + setter      |
 |  [09]   | `loggingErrorHandler`                                           | error sink      | the default logging `ErrorHandler`                |
-|  [10]   | `internal._export(exporter, arg) -> Promise<ExportResult>`      | promise adapter | callback `Exporter<T>` to the `ExportResult` rail |
+|  [10]   | `internal._export(exporter, arg) -> Promise<ExportResult>`      | promise adapter | callback `Exporter<T>` to the `ExportResult` type |
 |  [11]   | `merge` / `BindOnceFuture` / `callWithTimeout` + `TimeoutError` | util            | config-merge, once-shutdown future, deadline wrap |
 |  [12]   | `isUrlIgnored` / `urlMatches` / `unrefTimer`                    | util            | URL-filter predicates, timer unref                |
 
@@ -104,7 +104,7 @@ Timestamp conversion folds one `api.HrTime` `[seconds, nanos]` tuple: a new time
 - `opentelemetry-exporter-trace-otlp-http`(`.api/opentelemetry-exporter-trace-otlp-http.md`): the OTLP exporters and every SDK processor report through core's `ExportResult`/`ExportResultCode`. No exporter calls `suppressTracing` — the SDK PROCESSORS and READERS do, one layer above: `BatchSpanProcessorBase` and `BatchLogRecordProcessorBase` wrap their `exporter.export` call in `context.with(suppressTracing(context.active()))`, and `PeriodicExportingMetricReader` reaches the same wrap through `internal._export`, which is what that adapter is for beyond the callback-to-promise lift. Suppression is honored at the SDK `Tracer.startSpan`, which reads `isTracingSuppressed` and answers a non-recording span, so an instrumentation package need not reference the flag to be governed by it — none does. The fence therefore covers exactly the three OTLP legs and nothing that pushes outside a processor or reader: a vendor profiler's own HTTP, a second telemetry backend, and any non-SDK egress stay traced and need a caller-side exclusion.
 - `@effect/platform`(`.api/effect-platform.md`): core carries no HTTP client, so the SDK exporters bring their own `http`/`XMLHttpRequest` transport and the SDK-bridge lane does not inherit the `net/client` retry/proxy policy the native `Otlp` lane gets.
 - `opentelemetry-resources`(`.api/opentelemetry-resources.md`): `SDK_INFO` seeds the `telemetry.sdk.*` attributes `defaultResource()` merges onto the `AppIdentity`-derived base, and the typed env readers back `OTEL_RESOURCE_ATTRIBUTES` ingestion on the same resource.
-- `otel/emit` (within-lib): the export-boundary owner composes core's codecs at every ingress for extract-and-continue and surfaces core's `ExportResult` rail on the SDK-bridge lane.
+- `otel/emit` (within-lib): the export-boundary owner composes core's codecs at every ingress for extract-and-continue and surfaces core's `ExportResult` type on the SDK-bridge lane.
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` admits ONLY inside `scope:runtime` (edge-ledger); every other folder emits through Effect's native `Effect.withSpan`/`Metric`/`Effect.log` and never imports core.

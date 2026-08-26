@@ -12,8 +12,8 @@ Canonical-bytes custody is recorded here and re-minted nowhere in this folder: t
 - Cases: presence on a generated class is the generator's — a message-typed slot reads `None` when unset, an `optional` scalar constructs on `T | None`, reads its proto zero when unset under the native store, and answers presence through `has_field`; `Oneof(field, value)` on the oneof attribute, `None` for an unset oneof. A scalar whose producer MEASURES nothing on one arm — the chart residual an uncalibrated capture never solves — reads absent off `has_field` and no shape here re-spells it. `TessellateRequest` declares no `optional` column — its budget rides `TessellationPolicy.triangle_budget` under the required `policy` message — so every presence it answers is a message-typed slot's.
 - Auto: `WireI63` survives for the MessagePack op-log envelope alone — `OperationId` and `OpLogEntry` spell their non-negative signed-64 counters and HLC halves through it, matching the producer's `long.MaxValue` admission, while generated protobuf owns CRDT arm counters. `TessellateRequest`/`TessellateResponse`/`ArtifactFrame`/`GaussianSplatScan` are generated classes geometry `mesh/serve` and `scan/ingestion` import by symbol, minting no wire shape; `GaussianSplatScan.format` grounding is the `SPLAT_FORMS` matrix keyed on the generated `SplatFormat` enum and never a comment: one DECLARED cell per rostered release carries the band ceiling and the alpha activation it grounds, the corpus's `enum.defined_only` rule refusing every unrostered release at decode, and `splat_form` is the ONE read over it, seated here because the boot census walks declarations and a key is a VALUE.
 - Output: `FaultDetail` is the typed refusal detail the suite converges on through Connect error details; `transport/serve#SERVE` owns egress while `wire_detail`/`remote_fault` here own the one ingress correspondence every generated client can import without depending on the serve composition sink. `domain` and `case` identify the producing fault row, never a transport code. The producer states recovery on the `FaultRecovery` oneof, and `RecoveryCell` owns both directions between that generated cell and the interior `Recovery` vocabulary. `FaultRecovery`'s throttled arm IS the standard `google.rpc.RetryInfo`, so `RecoveryCell.advice` hands the serve edge THAT instance for its generic detail seat and no leg reconstructs a second window a later edit can drive apart.
-- Entry: `admitted`, `custody`, and the `dialed` leaf are the definition-time weaves that correspondence exists to serve, so a client edge declares its rows and never re-spells the capture. `dialed` covers the two arms EVERY generated-client call carries — `AdmissionError`, the client-side body admission refusing before a socket, and `ConnectError`, the peer's own typed detail lifted whole through `remote_fault` — while `custody` covers the one arm only a seam holding artifact custody carries, `ArtifactError`'s failed aggregate proof. They are separate because their arm sets are separate: a pure dial can never raise `ArtifactError`, so folding it in binds a row nothing mints, and a custody bracket wrapping a dial stacks `custody` outside `admitted` so the inner refusal is already railed before the bracket unwinds. `admitted` and `custody` are both rail-PRESERVING and stack in either depth; `dialed` is the minting leaf a bare generated-client call weaves, derived as `admitted` over the one lift so the capture keeps a single body. Each factory REQUIRES the slot its own token fills — `("phase",)` for the admission phase, `("proof",)` for the artifact proof — so publishing an admission token under a coordinate named `proof` is unspellable rather than merely wrong.
-- Boundary: the matrix and generated-detail correspondences a declaration census can never hold — no codec, span, or transcode body (`transport/wire#WIRE_RAIL`) and no causal lift (`evidence/clock#CLOCK`). `transport/serve#SERVE` alone packs a refusal; this page only unpacks the live generated detail at a client edge and preserves it whole. Neither fold reads policy or a clock.
+- Entry: `admitted`, `custody`, and the `dialed` leaf are the definition-time weaves that correspondence exists to serve, so a client edge declares its rows and never re-spells the capture. `dialed` covers the two arms EVERY generated-client call carries — `AdmissionError`, the client-side body admission refusing before a socket, and `ConnectError`, the peer's own typed detail lifted whole through `remote_fault` — while `custody` covers the one arm only a boundary holding artifact custody carries, `ArtifactError`'s failed aggregate proof. They are separate because their arm sets are separate: a pure dial can never raise `ArtifactError`, so folding it in binds a row nothing mints, and a custody bracket wrapping a dial stacks `custody` outside `admitted` so the inner refusal is already carried before the bracket unwinds. `admitted` and `custody` are both result-PRESERVING and stack in either depth; `dialed` is the minting leaf a bare generated-client call weaves, derived as `admitted` over the one lift so the capture keeps a single body. Each factory REQUIRES the slot its own token fills — `("phase",)` for the admission phase, `("proof",)` for the artifact proof — so publishing an admission token under a coordinate named `proof` is unspellable rather than merely wrong.
+- Boundary: the matrix and generated-detail correspondences a declaration census can never hold — no codec, span, or transcode body (`transport/wire#WIRE_RESULT`) and no causal lift (`evidence/clock#CLOCK`). `transport/serve#SERVE` alone packs a refusal; this page only unpacks the live generated detail at a client edge and preserves it whole. Neither fold reads policy or a clock.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -31,7 +31,7 @@ from protobuf import Oneof
 from protobuf.wkt import Duration, Empty
 # Contracts are retired from this logic.
 
-from rasm.runtime.faults import BoundaryFault, SERVE_REMOTE, SHAPES_FORMAT, SHAPES_WINDOW, FaultRow, Leg, Recovery, RuntimeRail
+from rasm.runtime.faults import BoundaryFault, SERVE_REMOTE, SHAPES_FORMAT, SHAPES_WINDOW, FaultRow, Leg, Recovery, RuntimeResult
 from rasm.runtime.transport.artifact import ArtifactError
 from rasm.runtime.transport.body import AdmissionError
 
@@ -39,7 +39,7 @@ from rasm.runtime.transport.body import AdmissionError
 
 type WireI63 = Annotated[int, Meta(ge=0, le=9_223_372_036_854_775_807)]
 
-type Dialed[**P, T] = Callable[P, Awaitable[RuntimeRail[T]]]
+type Dialed[**P, T] = Callable[P, Awaitable[RuntimeResult[T]]]
 type ClientWeave[**P, T] = Callable[[Dialed[P, T]], Dialed[P, T]]
 type CustodyWeave[**P, T] = ClientWeave[P, T]
 
@@ -83,7 +83,7 @@ class RecoveryCell:
                 return Nothing
 
     @staticmethod
-    def stated(cell: FaultRecovery | None) -> RuntimeRail[Option[Recovery]]:
+    def stated(cell: FaultRecovery | None) -> RuntimeResult[Option[Recovery]]:
         match cell.kind if cell is not None else None:
             case None:
                 return Ok(Nothing)
@@ -124,7 +124,7 @@ def admitted[**P, T, L: Leg](admission: FaultRow[L], /) -> ClientWeave[P, T]:
 
     def weave(call: Dialed[P, T], /) -> Dialed[P, T]:
         @wraps(call)
-        async def held(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:
+        async def held(*args: P.args, **kwargs: P.kwargs) -> RuntimeResult[T]:
             try:
                 return await call(*args, **kwargs)
             except AdmissionError as refused:
@@ -137,9 +137,9 @@ def admitted[**P, T, L: Leg](admission: FaultRow[L], /) -> ClientWeave[P, T]:
     return weave
 
 
-def _railed[**P, T](call: Callable[P, Awaitable[T]], /) -> Dialed[P, T]:
+def _lifted[**P, T](call: Callable[P, Awaitable[T]], /) -> Dialed[P, T]:
     @wraps(call)
-    async def minted(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:
+    async def minted(*args: P.args, **kwargs: P.kwargs) -> RuntimeResult[T]:
         return Ok(await call(*args, **kwargs))
 
     return minted
@@ -147,7 +147,7 @@ def _railed[**P, T](call: Callable[P, Awaitable[T]], /) -> Dialed[P, T]:
 
 def dialed[**P, T, L: Leg](admission: FaultRow[L], /) -> Callable[[Callable[P, Awaitable[T]]], Dialed[P, T]]:
     weave = admitted(admission)
-    return lambda call: weave(_railed(call))
+    return lambda call: weave(_lifted(call))
 
 
 def custody[**P, T, L: Leg](integrity: FaultRow[L], /) -> CustodyWeave[P, T]:
@@ -156,7 +156,7 @@ def custody[**P, T, L: Leg](integrity: FaultRow[L], /) -> CustodyWeave[P, T]:
 
     def weave(call: Dialed[P, T], /) -> Dialed[P, T]:
         @wraps(call)
-        async def held(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:
+        async def held(*args: P.args, **kwargs: P.kwargs) -> RuntimeResult[T]:
             try:
                 return await call(*args, **kwargs)
             except ArtifactError as refused:
@@ -182,13 +182,13 @@ SPLAT_FORMS: Final[Map[SplatFormat, SplatGrounding]] = Map.of_seq([
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def splat_form(key: SplatFormat) -> RuntimeRail[SplatGrounding]:
+def splat_form(key: SplatFormat) -> RuntimeResult[SplatGrounding]:
     return SPLAT_FORMS.try_find(key).to_result_with(lambda: SHAPES_FORMAT.raised(key.name))
 ```
 
 ## [03]-[BOOT_CENSUS]
 
-- Owner: `REGISTRY` is the ONE `Registry` over every generated descriptor this branch binds — the estate and vendored `_pb` files plus the `buf.validate`, `google.rpc`, and `google.type` dependencies they import — so `Any` packing, ProtoJSON `@type` resolution, and `ErrorDetail.value(REGISTRY)` all resolve off one seat and no page mints a second registry for one type name. `SERVICE_VOCABULARY` binds each dialed or served service to its rpc roster and the generated application class that proves it — the compute and artifact services the geometry servicer implements and the vendored `grpc.health.v1` service `transport/serve#SERVE` hosts — and `aligned` proves every row beside every `Closure` row a caller registers in one pass. The descriptor-backed message families need no row here: their structure is the corpus gate's, and a `PROTO_VOCABULARY` row beside the generated class would be a second authority for one fact. `transport/serve#SERVE` mounts its generated applications under the `WireService` members; the daemon composition root runs `aligned` once before serve binds and is the one seat that hands it the `Closure` roster.
+- Owner: `REGISTRY` is the ONE `Registry` over every generated descriptor this branch binds — the repo and vendored `_pb` files plus the `buf.validate`, `google.rpc`, and `google.type` dependencies they import — so `Any` packing, ProtoJSON `@type` resolution, and `ErrorDetail.value(REGISTRY)` all resolve off one seat and no page mints a second registry for one type name. `SERVICE_VOCABULARY` binds each dialed or served service to its rpc roster and the generated application class that proves it — the compute and artifact services the geometry servicer implements and the vendored `grpc.health.v1` service `transport/serve#SERVE` hosts — and `aligned` proves every row beside every `Closure` row a caller registers in one pass. The descriptor-backed message families need no row here: their structure is the corpus gate's, and a `PROTO_VOCABULARY` row beside the generated class would be a second authority for one fact. `transport/serve#SERVE` mounts its generated applications under the `WireService` members; the daemon composition root runs `aligned` once before serve binds and is the one seat that hands it the `Closure` roster.
 - Auto: a service row carries the full name and rpc roster because Connect resolves both as one path. Generated discovery proves through `CapabilityDiscoveryServiceASGIApplication`; only per-capability invoke remains brokered, with descriptor ids admitted from that generated catalog.
 - Law: every selected served rpc EXISTS on its generated service — the selector may deliberately retain an upstream method as support closure without assigning it a runtime actor, as `grpc.health.v1.Health.Watch` does. Every selected method has a `WireMethod` row and an `@override`, and a row absent from the generated service refuses at boot rather than at a peer's first dial. The generated protocol's snake_case member naming is the generator's own derivation and is never re-derived here; a stale override name breaks at type-check under `@override`.
 - Growth: a new generated family is one `desc()` seat on `REGISTRY`; a new served or dialed method is one `WireMethod` member on its service's roster and a new service one `WireService` member with its `SERVICE_VOCABULARY` row naming the generated application; a new closed family the tables key on is one `Closure` row at the composition root; a new structural assertion is one arm in `_service` or `_closed`, never a second gate; a new sibling consumer binds existing rows by symbol.
@@ -205,7 +205,7 @@ from msgspec import Struct
 from protobuf import Registry
 # Contracts are retired from this logic.
 
-from rasm.runtime.faults import SHAPES_DOUBLED, SHAPES_DRIFT, SHAPES_SERVICES, RuntimeRail, boundary
+from rasm.runtime.faults import SHAPES_DOUBLED, SHAPES_DRIFT, SHAPES_SERVICES, RuntimeResult, boundary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -298,7 +298,7 @@ def _service(name: WireService, methods: tuple[WireMethod, ...], proof: ServiceP
             assert_never(unreachable)
 
 
-def aligned(closed: Block[Closure]) -> RuntimeRail[int]:
+def aligned(closed: Block[Closure]) -> RuntimeResult[int]:
     rows = len(SERVICE_VOCABULARY) + len(closed)
     doubled = any(
         unique != len(table)

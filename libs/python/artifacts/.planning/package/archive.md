@@ -2,7 +2,7 @@
 
 `Archive` is the multi-file container producer over the two container rows — the `py7zr` `SevenZipFile` 7z container and the `stream-zip`/`stream-unzip` bounded-memory ZIP container. It folds a `*payloads` spread into ONE container whose directory recovers the full member row set, never N single-frame bundles, composing the `package/bundle#BUNDLE` vocabulary downward and importing no sibling.
 
-`emit() -> ArtifactWork` carries the producer contract — `key = Bundle.key`, `Admission(keyed=None)`, the work key is retained — `packed()` is the composite-consumer face returning the sealed container bytes plus evidence on the rail (`delivery/transmittal#TRANSMITTAL` seals through it), and `parents` is the scene-bundling seam: a caller bundling upstream artifacts (scene files, sheet PDFs, transmittal members) passes their content keys, so the plan graph holds a DATA edge (`scene/export` emits files and reaches no compression plane) and an identical member set elides before the container writes. An unencrypted ZIP is byte-reproducible — the fixed bundle `_EPOCH` stamp with `extended_timestamps=False` and the shared `zlib_ng` raw-DEFLATE at the profile `level` — so its content key dedups across runs; the encrypted ZIP is intentionally non-reproducible (fresh AES salt/IV per pack) and the 7z container honestly non-reproducible (`py7zr` stamps an uncontrollable wall-clock `creationtime` per entry).
+`emit() -> ArtifactWork` carries the producer contract — `key = Bundle.key`, `Admission(keyed=None)`, the work key is retained — `packed()` is the composite-consumer face returning the sealed container bytes plus evidence on the result (`delivery/transmittal#TRANSMITTAL` seals through it), and `parents` is the scene-bundling boundary: a caller bundling upstream artifacts (scene files, sheet PDFs, transmittal members) passes their content keys, so the plan graph holds a DATA edge (`scene/export` emits files and reaches no compression plane) and an identical member set elides before the container writes. An unencrypted ZIP is byte-reproducible — the fixed bundle `_EPOCH` stamp with `extended_timestamps=False` and the shared `zlib_ng` raw-DEFLATE at the profile `level` — so its content key dedups across runs; the encrypted ZIP is intentionally non-reproducible (fresh AES salt/IV per pack) and the 7z container honestly non-reproducible (`py7zr` stamps an uncontrollable wall-clock `creationtime` per entry).
 
 ## [01]-[INDEX]
 
@@ -41,7 +41,7 @@ from stream_unzip import (
 )
 from stream_zip import Method, NO_COMPRESSION_32, NO_COMPRESSION_64, ZIP_32, ZIP_64, ZIP_AUTO, stream_zip
 
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -89,17 +89,17 @@ class Archive(Struct, frozen=True):
     def emit(self, /) -> ArtifactWork[tuple[bytes, BundleEvidence]]:
         return ArtifactWork(key=self.bundle.key, work=self._emit, parents=self.bundle.parents, admission=Admission(keyed=None), cost=self._cost)
 
-    async def packed(self, /) -> RuntimeRail[tuple[bytes, BundleEvidence]]:
+    async def packed(self, /) -> RuntimeResult[tuple[bytes, BundleEvidence]]:
         return await self.lane.offload(Kernel.of(Archive.pack, KernelTrait.RELEASING), self.bundle.payloads, self.bundle.profile)
 
-    async def _emit(self, /) -> RuntimeRail[tuple[bytes, BundleEvidence]]:
+    async def _emit(self, /) -> RuntimeResult[tuple[bytes, BundleEvidence]]:
         packed = await self.packed()
         match packed:
             case Result(tag="ok", ok=product):
                 Metrics.record({BYTE_VOLUME: float(len(product[0]))}, domain=DOMAIN, kind="bundle", scope=self.lane.scope)
         return packed
 
-    async def unpack(self, blob: bytes, /) -> RuntimeRail[BundleManifest]:
+    async def unpack(self, blob: bytes, /) -> RuntimeResult[BundleManifest]:
         rows = await self.lane.offload(Kernel.of(Archive.recover, KernelTrait.RELEASING), blob, self.bundle.profile)
         return rows.map(lambda recovered: BundleManifest.of(self.bundle.algo, recovered))
 

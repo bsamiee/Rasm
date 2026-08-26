@@ -1,6 +1,6 @@
 # [PY_COMPUTE_HISTORY]
 
-Experiment-run persistence, resume, and comparison rail on the study spine: `experiments/study#STUDY` owns one grid evaluation, `RunHistory` owns the multi-run cohort that persists, resumes, and compares those evaluations. `StudyRun` retains the sampled design and measured response vector beside its derived facts; `Partial` resume evaluates only the remaining rows and recomputes sensitivity indices over the whole reconstituted vector. Run-scoped census stays the resume's own — zero elapsed, absent speedup, `evaluated_cells` counting only the rows admitted fresh — so a resume never re-bills or re-benches the held prefix.
+Experiment-run persistence, resume, and comparison path on the study spine: `experiments/study#STUDY` owns one grid evaluation, `RunHistory` owns the multi-run cohort that persists, resumes, and compares those evaluations. `StudyRun` retains the sampled design and measured response vector beside its derived facts; `Partial` resume evaluates only the remaining rows and recomputes sensitivity indices over the whole reconstituted vector. Run-scoped census stays the resume's own — zero elapsed, absent speedup, `evaluated_cells` counting only the rows admitted fresh — so a resume never re-bills or re-benches the held prefix.
 
 `Study.spec_key` binds axes, method, mode, objective identity, seed, and design bytes to each run, so `RunHistory` selects held responses through the run's own key and keeps no parallel response map. `resume` evaluates the remaining rows through the same `HOSTILE`-trait `Kernel` crossing `Study.run` rides; `compare` stays on the synchronous weave. Both entries bind the caller's `ScopeKey`, and each settled value stamps its attributes on that live span. `scipy.stats` supplies the rank-correlation family the cohort comparison reads.
 
@@ -16,7 +16,7 @@ Experiment-run persistence, resume, and comparison rail on the study spine: `exp
 - Output: `CrossStat` parameterizes the comparison on both axes — the variadic `*keys` cohort in, the per-statistic agreement table out — reading run concurrence as per-axis sensitivity-ordering agreement, never a side-by-side index transpose. Its kernels ARE the `scipy.stats` estimators: `spearmanr`, `kendalltau`, and `pearsonr` each answer their `.statistic` with the tie correction a local double-`argsort` transform silently drops, and `kendalltau`'s merge is O(n log n) where a sign-matrix contraction materializes two O(n²) operands per pair. Only the footrule distance has no scipy estimator, so it alone composes `rankdata` — one row, never a rank transform standing beside the provider's.
 - Stage: `resume` reports THREE named positions off its own closed `ResumeStage` roster — the regenerated design and its minted key, the tail evaluation, and the whole-vector recompute — and the per-row beat carries the RUNNING total across the cached prefix, so a resumed fold reports progress against the whole grid rather than restarting at the tail's first row. The mark is ONE `StageTap` the entry opens with an absent census and the worker re-stamps.
 - Output: `Comparison` carries the cohort key — a merkle address over its member keys, order-sensitive by construction — and its `attributes` name those members, so the span and the value address one cohort.
-- Growth: a new resume state is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member and one `_KERNELS` row naming its estimator; a new interior position is one `ResumeStage` member and one `beat` call; a new sync entrypoint shares the `_traced` weave by passing its own `FaultRow`, provider raise set, and rail-returning thunk.
+- Growth: a new resume state is one `ResumePlan` case and its `match` arm; a new comparison projection is one `RunProjection` field; a new cross-run statistic is one `CrossStat` member and one `_KERNELS` row naming its estimator; a new interior position is one `ResumeStage` member and one `beat` call; a new sync entrypoint shares the `_traced` weave by passing its own `FaultRow`, provider raise set, and result-returning thunk.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -37,7 +37,7 @@ from opentelemetry import trace
 from rasm.compute.experiments.study import Measured, Objective, Study, StudyRun
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, SpanFacts, StageTap, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -210,7 +210,7 @@ class Comparison(Struct, frozen=True):
 
 
 @beartype(conf=FAULT_CONF)
-def _compare(by_key: Map[ContentKey, StudyRun], keys: tuple[ContentKey, ...], stats: frozenset[CrossStat]) -> "RuntimeRail[Comparison]":
+def _compare(by_key: Map[ContentKey, StudyRun], keys: tuple[ContentKey, ...], stats: frozenset[CrossStat]) -> "RuntimeResult[Comparison]":
     found, missing = Block.of_seq(keys).map(lambda k: (k, by_key.try_find(k))).partition(lambda kv: kv[1].is_some())
     if missing:
         raise KeyError(", ".join(k.hex for k, _ in missing))
@@ -266,15 +266,15 @@ def _recompute(study: Study, design: np.ndarray, responses: np.ndarray, key: Con
 
 def _resume_kernel(
     by_key: Map[ContentKey, StudyRun], study: Study, objective: Objective, seed: int, mark: StageTap
-) -> RuntimeRail[StudyRun]:
-    def worked() -> RuntimeRail[StudyRun]:
+) -> RuntimeResult[StudyRun]:
+    def worked() -> RuntimeResult[StudyRun]:
         design = study.method.design(study.axes, seed)
         staged = structs.replace(mark, total=Some(len(design)))
         return study.spec_key(design, Some(objective), seed=seed).map(
             lambda key: _resume(by_key, study, objective, design, key, seed, _planned(staged, len(design)))
         )
 
-    return boundary(HISTORY_RESUME, worked, catch=_RESUME_RAISES).bind(lambda rail: rail)
+    return boundary(HISTORY_RESUME, worked, catch=_RESUME_RAISES).bind(lambda held: held)
 
 
 def _planned(mark: StageTap, cells: int) -> StageTap:
@@ -294,12 +294,12 @@ class RunHistory(Struct, frozen=True):
 
     async def resume(
         self, study: Study, objective: Objective, lane: LanePolicy, /, *, seed: int = 0, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[StudyRun]:
+    ) -> RuntimeResult[StudyRun]:
         mark = StageTap.of(EvidenceScope.HISTORY, lane.pulses.tap)
 
-        async def dispatch() -> RuntimeRail[StudyRun]:
+        async def dispatch() -> RuntimeResult[StudyRun]:
             kernel = Kernel.of(_resume_kernel, KernelTrait.HOSTILE)
-            return (await lane.offload(kernel, self._by_key, study, objective, seed, mark)).bind(lambda rail: rail)
+            return (await lane.offload(kernel, self._by_key, study, objective, seed, mark)).bind(lambda held: held)
 
         facts = {"method": study.method.tag, "runs": len(self.runs), "seed": seed}
         settled = await evidence_run(
@@ -316,13 +316,13 @@ class RunHistory(Struct, frozen=True):
         *keys: ContentKey,
         stats: frozenset[CrossStat] = frozenset({CrossStat.RANK_CORRELATION}),
         composition: ScopeKey = DEFAULT_SCOPE,
-    ) -> RuntimeRail[Comparison]:
+    ) -> RuntimeResult[Comparison]:
         return self._traced(HISTORY_COMPARE, _COMPARE_RAISES, lambda: _compare(self._by_key, keys, stats), {"cohort": len(keys), "stats": len(stats)}, composition)
 
     def _traced[E: Traceable](
-        self, row: FaultRow[ComputeLeg], catch: Catch, thunk: "Callable[[], RuntimeRail[E]]", facts: SpanFacts = Map.empty(),
+        self, row: FaultRow[ComputeLeg], catch: Catch, thunk: "Callable[[], RuntimeResult[E]]", facts: SpanFacts = Map.empty(),
         composition: ScopeKey = DEFAULT_SCOPE,
-    ) -> RuntimeRail[E]:
+    ) -> RuntimeResult[E]:
         return evidence_run(
             EvidenceScope.HISTORY, f"history.{row.point}", lambda: boundary(row, thunk, catch=catch).bind(lambda value: value),
             facts=facts, composition=composition,

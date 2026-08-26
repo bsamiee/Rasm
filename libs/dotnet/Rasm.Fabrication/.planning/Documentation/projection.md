@@ -18,8 +18,8 @@
 - Law: broad-phase inflation is the OPERAND's, not the policy's. `IntersectPolicy` carries no inflation column and the sweep band reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the band scales with the model and a caller wanting a wider sweep widens that context — one authority for the tolerance rather than a per-view scalar every hatch and view leg re-spelled.
 - Law: an anchor is projected evidence, not a cross product. A characteristic anchors in a view only where its locus projects to a FINITE POSITIVE depth in that view's own camera, so a locus behind the camera or on its plane records no anchor rather than a screen point a sheet would place.
 - Law: a balloon anchors at the ARC-LENGTH MIDPOINT of its part's LONGEST visible chain. ISO 6433 §4.4 seats a part reference outside the outlines of the part it names and connects it by a leader terminating against that outline, so the outline stretch a leader wants is the longest one the view draws — the run a neighbouring part's linework crowds least, and the one whose midpoint holds the part at every drawing scale. Chain partition COMPOSES `SuccessorChain.Walk` over the run's own visible set: `ProjectedSegment.Next` indexes within that set, so a per-part filter ahead of the walk strands every ordinal, and a page-local cursor loop beside the kernel's one walk is the deleted twin. Each chain keys on its head's `Part` — a linked run is one source edge's own — length is summed screen distance, ties fall to the lowest first-segment ordinal, and the depth cue INTERPOLATES between the bracketing segment's own endpoint pair rather than reporting an endpoint's.
-- Law: a part with no visible edge is UNCALLED, and the verdict is the histogram's — `DrawingProjection.Parts[part].VisibleCount` is the per-part tally the kernel already published, so the fold reads it rather than recounting, and a wholly occluded part records no anchor instead of a leader landing on a neighbour's outline. Chain heads carrying no `Part` — inter-part seams and section rows — anchor nothing for the same reason.
-- Law: face-grain attribution reads the SEGMENT — `ProjectedSegment.SourceFace` carries the kernel's classifying face ordinal, which on this single-part solve IS the composed model's own face index, so `ProjectionEvidence.Attribute(segment.SourceFace)` resolves per-segment operand lineage with no side table; `SourceA`/`SourceB` stay source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, and a `-1` face (an inter-part seam or section segment) attributes to nothing, the honest answer.
+- Law: a part with no visible edge is UNCALLED, and the verdict is the histogram's — `DrawingProjection.Parts[part].VisibleCount` is the per-part tally the kernel already published, so the fold reads it rather than recounting, and a wholly occluded part records no anchor instead of a leader landing on a neighbour's outline. Chain heads carrying no `Part` — inter-part boundaries and section rows — anchor nothing for the same reason.
+- Law: face-grain attribution reads the SEGMENT — `ProjectedSegment.SourceFace` carries the kernel's classifying face ordinal, which on this single-part solve IS the composed model's own face index, so `ProjectionEvidence.Attribute(segment.SourceFace)` resolves per-segment operand lineage with no side table; `SourceA`/`SourceB` stay source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, and a `-1` face (an inter-part boundary or section segment) attributes to nothing, the honest answer.
 - Entry: `Fabrication.Run` remains the sole public package entry; `Hlr.Solve` is internal, receives parameterized ingress and egress, and preserves every `ProjectedSegment` field of every requested view through the kernel `DrawingProjection` carrier.
 - Auto: the policy is CONSUMER-AUTHORED per run — a drafting consumer raises its own `ProjectionView` rows from the camera basis it already holds and its `PlotPolicy` from the sheet it is issuing to, minting the whole row through `PlotPolicy.Issue(size, key)` where it holds only the size — so no view, scale, or sheet convention originates inside this owner and admission validates whatever a consumer raises. Requested views enter one `Validation<Error>` traversal, so an unprojectable view reports beside every other failed view rather than masking them.
 - Result: `ProjectionEvidence` carries the issued `PlotPolicy`, publishes its `Quadrant` off that sheet's standard, and retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies, and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, the anchor stream carrying its symbol rows, and the per-part balloon stream a parts-list leader seats on.
@@ -50,7 +50,6 @@ namespace Rasm.Fabrication.Documentation;
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct ViewKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -67,7 +66,6 @@ public sealed partial class ProjectionCharacteristic {
 
     public CharacteristicId Id => Frame.Id;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FeatureFrame frame,
@@ -145,7 +143,6 @@ public sealed partial class ProjectionPolicy {
     public Map<ViewKey, HatchPlan> Hatching { get; }
     public Seq<ProjectionCharacteristic> Characteristics { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ProjectionSource source,

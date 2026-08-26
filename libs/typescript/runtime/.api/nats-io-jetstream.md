@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_NATS_IO_JETSTREAM]
 
-`@nats-io/jetstream` layers JetStream over a `@nats-io/nats-core` connection: `jetstreamManager` administers streams, `jetstream` mints the client whose `publish` arms `msgID` dedup and `expect` optimistic concurrency, whose `startBatch` stages indivisibly, whose consumers deliver `JsMsg` beside their own status rail, and whose `DeliverPolicy` anchors bounded replay. It is the fanout/replay engine of `net/pubsub` — at-least-once redelivery, exactly-once publish inside the dedup window — never the system of record: retention bounds every stream and the journal owns full history.
+`@nats-io/jetstream` layers JetStream over a `@nats-io/nats-core` connection: `jetstreamManager` administers streams, `jetstream` mints the client whose `publish` arms `msgID` dedup and `expect` optimistic concurrency, whose `startBatch` stages indivisibly, whose consumers deliver `JsMsg` beside their own status stream, and whose `DeliverPolicy` anchors bounded replay. It is the fanout/replay engine of `net/pubsub` — at-least-once redelivery, exactly-once publish inside the dedup window — never the system of record: retention bounds every stream and the journal owns full history.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -47,20 +47,20 @@
 
 [ENTRYPOINT_SCOPE]: publish, consume, administer
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]  | [CONSUMER]                                                           |
-| :-----: | :---------------------------------------------- | :-------------- | :------------------------------------------------------------------- |
-|  [01]   | `jetstream(nc)` / `jetstreamManager(nc)`        | mint            | engine Layer build over the core connection                          |
-|  [02]   | `js.publish(subject, payload?, opts?)`          | publish         | dedup-windowed exactly-once publish; `expect` rows are the OCC arms  |
-|  [03]   | `jsm.streams.add(config)`                       | ensure          | idempotent stream provisioning per topic row                         |
-|  [04]   | `jsm.consumers.add(stream, config)`             | ensure          | durable consumer: `durable_name`, `ack_wait`, `max_deliver`, anchor  |
-|  [05]   | `js.consumers.get(stream, nameOrOptions?)`      | consumer        | ordered (nameless) start-anchor, or durable bind by name             |
-|  [06]   | `consumer.consume(opts?: ConsumeOptions)`       | delivery        | the long-lived pull loop the engine lifts to a `Stream`              |
-|  [07]   | `consumer.fetch(opts)` / `consumer.next(opts?)` | delivery        | bounded-batch and single-shot pulls                                  |
-|  [08]   | `msg.ack()` / `msg.ackAck()`                    | ack             | ack-after-success; `ackAck` double-ack confirms the ack              |
-|  [09]   | `msg.nak(millis?)` / `msg.working()`            | redelivery      | redelivery request; `working()` heartbeats ack-wait                  |
-|  [10]   | `msg.term(reason?)`                             | poison          | terminal reject for unprocessable poison                             |
-|  [11]   | `messages.status()`                             | consumer status | `AsyncIterable<ConsumerNotification>` — the loop's own evidence rail |
-|  [12]   | `js.startBatch(subj, payload?, opts?)`          | atomic stage    | → `Promise<Batch>`; the opening message carries the stage's `msgID`  |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]  | [CONSUMER]                                                          |
+| :-----: | :---------------------------------------------- | :-------------- | :------------------------------------------------------------------ |
+|  [01]   | `jetstream(nc)` / `jetstreamManager(nc)`        | mint            | engine Layer build over the core connection                         |
+|  [02]   | `js.publish(subject, payload?, opts?)`          | publish         | dedup-windowed exactly-once publish; `expect` rows are the OCC arms |
+|  [03]   | `jsm.streams.add(config)`                       | ensure          | idempotent stream provisioning per topic row                        |
+|  [04]   | `jsm.consumers.add(stream, config)`             | ensure          | durable consumer: `durable_name`, `ack_wait`, `max_deliver`, anchor |
+|  [05]   | `js.consumers.get(stream, nameOrOptions?)`      | consumer        | ordered (nameless) start-anchor, or durable bind by name            |
+|  [06]   | `consumer.consume(opts?: ConsumeOptions)`       | delivery        | the long-lived pull loop the engine lifts to a `Stream`             |
+|  [07]   | `consumer.fetch(opts)` / `consumer.next(opts?)` | delivery        | bounded-batch and single-shot pulls                                 |
+|  [08]   | `msg.ack()` / `msg.ackAck()`                    | ack             | ack-after-success; `ackAck` double-ack confirms the ack             |
+|  [09]   | `msg.nak(millis?)` / `msg.working()`            | redelivery      | redelivery request; `working()` heartbeats ack-wait                 |
+|  [10]   | `msg.term(reason?)`                             | poison          | terminal reject for unprocessable poison                            |
+|  [11]   | `messages.status()`                             | consumer status | `AsyncIterable<ConsumerNotification>` — the loop's evidence stream  |
+|  [12]   | `js.startBatch(subj, payload?, opts?)`          | atomic stage    | → `Promise<Batch>`; the opening message carries the stage's `msgID` |
 
 [BATCH_OPTS]: `BatchMessageOptions` omits `msgID` and `lastMsgID`, so the OPENING message alone carries a dedup key and the stage's dedup grain is the batch; `commit` takes `RequestOptions`, carrying headers but no publish options. `Batch` publishes NO abort member — the server's idle window is the only reclamation.
 
@@ -70,8 +70,8 @@
 
 [STACKING]:
 - `@nats-io/nats-core` (`.api/nats-io-nats-core.md`): the connection and `Nats-Msg-Id` carriage — the `msgID` publish option writes the header the consumer reads back as identity.
-- `effect` (`.api/effect.md`): every promise member converts through `Effect.tryPromise`; `ConsumerMessages` lifts through `Stream.fromAsyncIterable` under `Effect.acquireRelease` releasing `close()`; ack members are sync-void except `ackAck()`, awaited as `Effect.promise`; `status()` lifts through the same seam on a fiber forked into the pull loop's own scope.
-- `@nats-io/nats-core` `status()`: the CONNECTION union and `ConsumerNotification` are DISJOINT families answering different questions — one reports what the socket did, the other what the pull loop did — so a rail folding only the first reports a healthy socket under a dead consumer.
+- `effect` (`.api/effect.md`): every promise member converts through `Effect.tryPromise`; `ConsumerMessages` lifts through `Stream.fromAsyncIterable` under `Effect.acquireRelease` releasing `close()`; ack members are sync-void except `ackAck()`, awaited as `Effect.promise`; `status()` lifts through the same bridge on a fiber forked into the pull loop's own scope.
+- `@nats-io/nats-core` `status()`: the CONNECTION union and `ConsumerNotification` are DISJOINT families answering different questions — one reports what the socket did, the other what the pull loop did — so a stream folding only the first reports a healthy socket under a dead consumer.
 - `core/value/contentKey` + `core/value/clock`: the publish `msgID` is content-derived — kernel mint or `Hlc` stamp — so dedup identity is cross-language by construction.
 - data journal: the stream is a bounded window; the journal owns full history.
 

@@ -2,7 +2,7 @@
 
 AEC detail management binds the callout, content-keyed `ezdxf` detail library, and cross-reference DAG between sheets. `Detail` owns the closed `Callout`/`CalloutBoundary`/`DetailSource` families and discriminates egress with `SymbolTarget`. Each boundary and leader lowers to a `drawsvg` named-layer group or equivalent `ezdxf` entities beside the reusable block store, preserving circle, rectangle, polygon, and section-line geometry on both targets. `drawing/symbol#SYMBOL` supplies bubble vocabulary, `drawing/regime#REGIME` supplies layer and scale codes, and `graphic/color/derive#DERIVE` supplies palette projection. Drawing-plane documentation remains separate from the `dotnet:Rasm.Bim` semantic model.
 
-Block authoring and placement recover one identity from one registry. `DetailSource.embedded` owns captured standalone-DXF bytes, `DetailSource.referenced` owns an external path plus its captured `ContentKey`, and `DetailEntry.of` derives and verifies the entry key from that mode payload. `DetailLibrary.claims` is the primary citation fact; `entries` derives the deduplicated key-to-source block registry, and `by_ref` derives the citation-to-entry placement registry without discarding per-citation metadata. DXF block names derive from the entry key, while each placement retains its own `DETAIL_NO`/`SHEET`/`TITLE`/`SCALE` attributes. Cross-reference edges join the `(host, ordinal)` placement discriminant to the target citation. `rustworkx.PyDAG(check_cycle=True)` builds once per `resolved()` call; `DAGWouldCycle` preserves the rejected edge as evidence, `transitive_reduction` yields the minimal graph, `topological_generations` yields depth layers, and `node_link_json` produces the persisted audit wire. `ReferenceReport.severed` carries `cyclic`/`collided`/`dangling` coverage evidence without blocking render, while provider failures cross the runtime rail through `async_boundary`. `LanePolicy` offloads rendering, and `ArtifactWork` schedules the named layers.
+Block authoring and placement recover one identity from one registry. `DetailSource.embedded` owns captured standalone-DXF bytes, `DetailSource.referenced` owns an external path plus its captured `ContentKey`, and `DetailEntry.of` derives and verifies the entry key from that mode payload. `DetailLibrary.claims` is the primary citation fact; `entries` derives the deduplicated key-to-source block registry, and `by_ref` derives the citation-to-entry placement registry without discarding per-citation metadata. DXF block names derive from the entry key, while each placement retains its own `DETAIL_NO`/`SHEET`/`TITLE`/`SCALE` attributes. Cross-reference edges join the `(host, ordinal)` placement discriminant to the target citation. `rustworkx.PyDAG(check_cycle=True)` builds once per `resolved()` call; `DAGWouldCycle` preserves the rejected edge as evidence, `transitive_reduction` yields the minimal graph, `topological_generations` yields depth layers, and `node_link_json` produces the persisted audit wire. `ReferenceReport.severed` carries `cyclic`/`collided`/`dangling` coverage evidence without blocking render, while provider failures cross the runtime result through `async_boundary`. `LanePolicy` offloads rendering, and `ArtifactWork` schedules the named layers.
 
 ## [01]-[INDEX]
 
@@ -36,7 +36,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeResult, async_boundary, rostered
 
 from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
@@ -379,7 +379,7 @@ class Detail(Struct, frozen=True):
         spec = ContentIdentity.key(f"drawing-detail-{self.target}", _CANON.encode((self.callouts, self.palette, self.target, claims)))
         return ContentIdentity.key(f"drawing-detail-{self.target}", (spec, *(entry.key for entry in self.library.claims)))
 
-    async def _emit(self) -> RuntimeRail[tuple[LayerNode, ...]]:
+    async def _emit(self) -> RuntimeResult[tuple[LayerNode, ...]]:
         settled = await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)
         match settled:
             case Result(tag="ok", ok=layers):
@@ -389,7 +389,7 @@ class Detail(Struct, frozen=True):
             case refused:
                 return Error(refused.error)
 
-    async def layered(self) -> RuntimeRail[LayerPlan]:
+    async def layered(self) -> RuntimeResult[LayerPlan]:
         return (await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)).map(
             lambda layers: LayerPlan(schema=LayerSchema.ISO13567, roots=layers)
         )

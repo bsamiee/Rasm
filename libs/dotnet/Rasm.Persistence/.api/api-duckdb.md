@@ -1,12 +1,12 @@
 # [RASM_PERSISTENCE_API_DUCKDB]
 
-`DuckDB.NET.Data.Full` owns the in-process DuckDB analytical store behind the `Query/columnar` `ColumnarProfile` algebra: the ADO.NET provider, the bulk appender and data-chunk vector rails, scalar and table function registration, and schema metadata. Appender and data-chunk throughput project directly to telemetry, and the snapshot codecs project `[ValueObject]`/`[SmartEnum]` owners into columns through the typed `AppendValue`/`WriteValue` rails. One provider also carries the engine's full extension surface as `INSTALL`/`LOAD` SQL over `DuckDBCommand` — no second engine, no per-extension package.
+`DuckDB.NET.Data.Full` owns the in-process DuckDB analytical store behind the `Query/columnar` `ColumnarProfile` algebra: the ADO.NET provider, the bulk appender and data-chunk vector APIs, scalar and table function registration, and schema metadata. Appender and data-chunk throughput project directly to telemetry, and the snapshot codecs project `[ValueObject]`/`[SmartEnum]` owners into columns through the typed `AppendValue`/`WriteValue` overloads. One provider also carries the engine's full extension surface as `INSTALL`/`LOAD` SQL over `DuckDBCommand` — no second engine, no per-extension package.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: ADO.NET provider surfaces
 
-`DuckDBQueryProgress` (`DuckDB.NET.Native` struct) carries `double Percentage`, `ulong RowsProcessed`, `ulong TotalRowsToProcess` from `GetQueryProgress()`. `DuckDBErrorType` (`DuckDB.NET.Native` enum) discriminates `DuckDBException.ErrorType` over the native fault vocabulary, lifting `DuckDBException` to the store-profile fault rail.
+`DuckDBQueryProgress` (`DuckDB.NET.Native` struct) carries `double Percentage`, `ulong RowsProcessed`, `ulong TotalRowsToProcess` from `GetQueryProgress()`. `DuckDBErrorType` (`DuckDB.NET.Native` enum) discriminates `DuckDBException.ErrorType` over the native fault vocabulary, lifting `DuckDBException` to the store-profile fault channel.
 
 `DuckDBConnectionStringBuilder` exposes `DataSource` and the `const string` anchors `InMemoryDataSource` (`:memory:`), `InMemoryConnectionString`, `InMemorySharedDataSource` (`:memory:?cache=shared`), `InMemorySharedConnectionString`. `DuckDBClientFactory : DbProviderFactory` carries `static readonly Instance` and `const ProviderInvariantName = "DuckDB.NET.Data"` for `DbProviderFactories` registration.
 
@@ -162,8 +162,8 @@ Every DuckDB extension enters as `INSTALL`/`LOAD` SQL over `DuckDBCommand.Execut
 |  [11]   | `fts`       | —                   | columnar full-text lane                          |
 |  [12]   | `excel`     | —                   | spreadsheet ingest/extract                       |
 |  [13]   | `avro`      | —                   | event-payload ingest lane                        |
-|  [14]   | `aws`       | —                   | S3 credential rail (with `httpfs`)               |
-|  [15]   | `azure`     | —                   | Azure blob credential rail                       |
+|  [14]   | `aws`       | —                   | S3 credential provider (with `httpfs`)           |
+|  [15]   | `azure`     | —                   | Azure blob credential provider                   |
 |  [16]   | `inet`      | —                   | network-typed columns                            |
 |  [17]   | `icu`       | —                   | temporal/locale correctness                      |
 |  [18]   | `ducklake`  | —                   | catalog-managed lakehouse lane                   |
@@ -213,10 +213,10 @@ Every DuckDB extension enters as `INSTALL`/`LOAD` SQL over `DuckDBCommand.Execut
 
 [STACKING]:
 - `api-thinktecture-json`/`api-thinktecture-messagepack`(`libs/dotnet/.api/`): a `[ValueObject]`/`[SmartEnum]` owner crosses into a DuckDB column through `ThinktectureJsonConverterFactory`/`ThinktectureMessageFormatterResolver` projecting the owner to its key, which the typed `AppendValue` (or data-chunk `WriteValue<T>`) writes; the inverse decodes the column value back through the same factory, never a hand-rolled column mapping.
-- `Apache.Arrow`(`libs/dotnet/.api/api-arrow.md`): the `Query/columnar` extract path (DuckDB result → Arrow record batch) bridges through `Apache.Arrow` `RecordBatch`/`Schema` and the `Apache.Arrow.Adbc` driver manager over a native `[LibraryImport]` against `duckdb`; the managed `DuckDB.NET.Data` surface exposes no Arrow CLR member, so a zero-copy DuckDB→Arrow path is an explicit native-bridge rail, never a `DuckDBConnection` member.
+- `Apache.Arrow`(`libs/dotnet/.api/api-arrow.md`): the `Query/columnar` extract path (DuckDB result → Arrow record batch) bridges through `Apache.Arrow` `RecordBatch`/`Schema` and the `Apache.Arrow.Adbc` driver manager over a native `[LibraryImport]` against `duckdb`; the managed `DuckDB.NET.Data` surface exposes no Arrow CLR member, so a zero-copy DuckDB→Arrow path is an explicit native bridge, never a `DuckDBConnection` member.
 - `api-ara3d-bimopenschema`(`.api/api-ara3d-bimopenschema.md`): the BIM analytics-frame producer this provider reads — `WriteDuckDB`/`DuckDbUtils.WriteToDuckDB` bulk-appends the columnar BIM tables (each suffixed `<Name>_<n>`) through a `DuckDBAppender`, and a Persistence analytics query opens that `.duckdb` over this same `DuckDBConnection` and SQL-joins the suffixed entity/parameter/relation tables.
 - store-profile telemetry: appender batch and data-chunk vector throughput project directly, and `GetQueryProgress()` `DuckDBQueryProgress` feeds a progress span through the AppHost `telemetry`/`drain` ports, never a bespoke logger.
-- fault rail: `DuckDBException` lifts at the provider edge discriminated on `DuckDBErrorType`, joining the store-profile failure rail rather than surfacing as a raw ADO exception.
+- fault channel: `DuckDBException` lifts at the provider edge discriminated on `DuckDBErrorType`, joining the store-profile failure channel rather than surfacing as a raw ADO exception.
 - spatial: `ST_AsWKB`/`ST_GeomFromWKB` exchange geometry with the branch core codecs (`WKBReader`/`WKBWriter`, `libs/dotnet/.api/api-nettopologysuite.md`) and `ST_Read` reads the GDAL formats admitted via `api-npgsql-nts`; DuckDB owns columnar spatial aggregation, PG GiST owns transactional spatial indexing.
 - lakehouse: `delta_scan`/`iceberg_scan` read the same tables the managed `api-deltalake` writer produces — DuckDB is the read/aggregate projection, the managed writer the system of record, meeting at the table path.
 - live PG join: `postgres` `ATTACH` reads the same database `api-npgsql`/`api-npgsql-ef` write; the analytical lane joins columnar DuckDB against live PG without an ETL hop under a staleness watermark, while the synchronous Marten/Npgsql path owns authoritative read-your-writes consistency.

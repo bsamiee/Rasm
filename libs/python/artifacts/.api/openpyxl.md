@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_OPENPYXL]
 
-`openpyxl` owns read+write `.xlsx`/`.xlsm`/`.xltx` for the artifacts office rail: one `Workbook` root whose `write_only`/`read_only` flags select streaming mirrors, a `Worksheet` grid, and the style, chart, conditional-format, table, validation, pivot, page-setup, and `formula.Translator` families over full OOXML fidelity. `openpyxl` never re-implements the OOXML parse, SpreadsheetML packaging, or formula reference-translation it already owns; the document emit owner lowers its `TableNode` grid through this surface and the detect gate routes spreadsheet ingest here, constant-memory bulk write routing to `xlsxwriter` and value-only fast read to `python-calamine`.
+`openpyxl` owns read+write `.xlsx`/`.xlsm`/`.xltx` for the artifacts office domain: one `Workbook` root whose `write_only`/`read_only` flags select streaming mirrors, a `Worksheet` grid, and the style, chart, conditional-format, table, validation, pivot, page-setup, and `formula.Translator` families over full OOXML fidelity. `openpyxl` never re-implements the OOXML parse, SpreadsheetML packaging, or formula reference-translation it already owns; the document emit owner lowers its `TableNode` grid through this surface and the detect gate routes spreadsheet ingest here, constant-memory bulk write routing to `xlsxwriter` and value-only fast read to `python-calamine`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -20,7 +20,7 @@
 |  [10]   | `workbook.defined_name.DefinedName`        | named range/formula | workbook- or sheet-scoped name resolving to a range or formula      |
 |  [11]   | `cell.read_only.ReadOnlyCell`              | read-stream cell    | value-only lazy cell under `read_only=True` (no style write)        |
 |  [12]   | `cell.cell.WriteOnlyCell`                  | write-stream cell   | styled cell for a `WriteOnlyWorksheet` (the streamed-style carrier) |
-|  [13]   | `packaging.core.DocumentProperties`        | core metadata       | `Workbook.properties` metadata seam (title/creator/…)               |
+|  [13]   | `packaging.core.DocumentProperties`        | core metadata       | `Workbook.properties` metadata boundary (title/creator/…)           |
 |  [14]   | `workbook.protection.WorkbookProtection`   | workbook lock       | `Workbook.security` structure/window lock + password hash           |
 |  [15]   | `worksheet.protection.SheetProtection`     | sheet lock          | `Worksheet.protection` per-sheet lock + allowances                  |
 
@@ -64,7 +64,7 @@
 |  [09]   | `add_named_style(style)`                                           | register a reusable `NamedStyle`                          |
 |  [10]   | `create_named_range(name, worksheet=None, value=None, scope=None)` | register a `DefinedName` range                            |
 |  [11]   | `defined_names -> DefinedNameDict`                                 | workbook-scoped name to `DefinedName` resolution          |
-|  [12]   | `properties -> DocumentProperties`                                 | descriptive metadata; the `exchange/metadata` seam        |
+|  [12]   | `properties -> DocumentProperties`                                 | descriptive metadata; the `exchange/metadata` boundary    |
 |  [13]   | `security -> WorkbookProtection`                                   | workbook structure/window lock (`document/egress#FINISH`) |
 |  [14]   | `sheetnames -> list[str]` / `Workbook[title] -> Worksheet`         | sheet lookup by title (no `get_sheet_by_name`)            |
 |  [15]   | `iso_dates` / `epoch` / `template`                                 | ISO date toggle; `1900`/`1904` epoch; `.xltx` flag        |
@@ -138,7 +138,7 @@
 [STACKING]:
 - `msgspec`(`.api/msgspec.md`): each `CellValue` `msgspec.Struct` projects through `write_openpyxl()` to the typed scalar the emit arm's `append` lands, and `iso_dates=True` serializes tz-aware `datetime`/`date` natively.
 - `pydantic`(`.api/pydantic.md`): admission rejects a bad `EmitPayload` through a `TypeAdapter`, and the conditional-format/number-format/validation options derive from the same column schema that drives the writes, never hand-built twice.
-- `expression`(`.api/expression.md`): an arm raise converts to the runtime `BoundaryFault` via `async_boundary` on the `Result` rail, exactly as the sibling office arms route.
+- `expression`(`.api/expression.md`): an arm raise converts to the runtime `BoundaryFault` via `async_boundary` on the `Result`, exactly as the sibling office arms route.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): one span stamps sheet/cell extent, style/name/feature counts, streaming mode, and output byte length onto the `EmitFact` carrier, never re-derived off the bytes by a second reader.
 - `xlsxwriter`(`.api/xlsxwriter.md`): constant-memory bulk authoring (write-only, no read) when a dataset exceeds openpyxl's `write_only` budget.
 - `python-calamine`(`.api/python-calamine.md`): value-only fast Excel read (the `document/lens#LENS` `XLSX_READ` arm); openpyxl reads when style/chart/validation/defined-name fidelity matters, calamine when only the values do.

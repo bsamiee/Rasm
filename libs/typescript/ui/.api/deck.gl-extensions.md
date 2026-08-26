@@ -34,7 +34,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `extensions: LayerExtension[]` is one seam on every layer: a cross-layer capability is an instance in that array, composed by concatenation — never a layer subclass or a forked layer prop.
+- `extensions: LayerExtension[]` is one extension point on every layer: a cross-layer capability is an instance in that array, composed by concatenation — never a layer subclass or a forked layer prop.
 - construction options bake a static shader-compilation switch once; injected props drive per-frame values through `setProps` — recompile with options, drive with props, never conflate.
 - host-layer `updateTriggers` memoizes each extension accessor prop as a core `Accessor`; a filter accessor closing over an atom value carries its own `updateTriggers` key.
 

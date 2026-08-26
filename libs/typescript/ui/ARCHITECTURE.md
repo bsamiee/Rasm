@@ -12,7 +12,7 @@ ui/
 │   │   ├── act.ts        # Motion and interaction, discrete accessible events split from continuous gestures
 │   │   ├── atom.ts       # Atom registry seat with the persistence, SSR, and undo planes
 │   │   ├── cache.ts      # Content-keyed OPFS residency: band ledger, integrity gate, quota sweep
-│   │   ├── hook.ts       # Folder registrar on core's Tap rail — point roster, adopted sources, consult selector
+│   │   ├── hook.ts       # Folder registrar on core's Tap bus — point roster, adopted sources, consult selector
 │   │   ├── vital.ts      # LoAF, event, commit, and compile evidence folded into probe-shaped rows; CWV is runtime's
 │   │   ├── intl.ts       # Zero-package locale plane riding native Intl behind one cache
 │   │   └── primitive.ts  # Headless spine: the one styled recipe and the sanitize gate
@@ -98,7 +98,7 @@ flowchart TB
 - S2 `panel` folds livewire outcomes on the store; `probe`'s evidence stays render-side and gates nothing.
 - S2→S0 evidence crossings are publish-only — viewer taps and long-frame rows land at the floor owners, and no floor owner reads a viewer symbol.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -109,7 +109,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: UI package seam registry
+    accTitle: UI package boundary registry
     accDescr: Which value, wire, port, and boundary contracts cross between the ui owners and their core, runtime, and C# counterparts.
     subgraph ui[UI]
         System[System floor]
@@ -127,7 +127,7 @@ flowchart LR
     Core e4@-->|"[SHAPE]: Presence.State"| View
     Core e5@-->|"[SHAPE]: Residency.View"| Viewer
     Core e6@-->|"[SHAPE]: Wire.ModelDiff + Wire.GeoFeature"| Viewer
-    Core e7@-->|"[SHAPE]: Tap.Rail"| System
+    Core e7@-->|"[SHAPE]: Tap.Bus"| System
     Runtime e8@-->|"[PORT]: Atom.subscribable"| System
     Runtime e9@-->|"[PORT]: GlbViewport"| Viewer
     Runtime e10@-->|"[PORT]: Vital.Report"| System
@@ -140,7 +140,7 @@ flowchart LR
     Bim e17@-->|"[WIRE]: ModelDiff"| Viewer
 ```
 
-Each seam edge collapses every contract between its endpoints at its labeled kind: the core wire, tap, and presence edges and the AppUi wire edge carry representative shapes, and the core codec registry census enumerates the full families.
+Each boundary edge collapses every contract between its endpoints at its labeled kind: the core wire, tap, and presence edges and the AppUi wire edge carry representative shapes, and the core codec registry census enumerates the full families.
 
 ## [04]-[INTERNAL]
 
@@ -182,4 +182,4 @@ Every state fact binds through the one atom bridge, so a component projects and 
 - `EXT_meshopt_compression` refuses as `codec-absent` without its decoder; codec construction requires draco and ktx2.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.
 - Telemetry leaves through app-composed hook taps; the folder mints no OTel instrument and imports no collector.
-- One bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.
+- One bridge layer subscribes `system/hook` points at app composition and carries rows to the telemetry spine.

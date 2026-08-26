@@ -25,10 +25,10 @@
 - [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
 - [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval fusing the vector and text branches beside the document full-text corpus lane.
 - [16]-[TOPOLOGY](.planning/Query/topology.md): In-process QuikGraph view owning default synchronous traversal.
-- [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane over extension trust gates, secret residence, and ADBC warehouse reach.
+- [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane over extension trust gates, secret storage, and ADBC warehouse reach.
 - [18]-[LAKEHOUSE](.planning/Query/lakehouse.md): Co-transactional flat-table egress, Parquet generation codec, and the partitioned lake scan.
-- [19]-[RESIDENCE](.planning/Query/residence.md): Column vocabulary, the analytics residence family, seam admission, and provisioning DDL.
-- [20]-[SERVING](.planning/Query/serving.md): Residence read plan, Substrait lowering, transport reach, and the relational landing.
+- [19]-[BACKEND](.planning/Query/backend.md): Column vocabulary, the analytics backend family, schema admission, and provisioning DDL.
+- [20]-[SERVING](.planning/Query/serving.md): Backend read plan, Substrait lowering, transport reach, and the relational landing.
 - [21]-[DATASETS](.planning/Query/datasets.md): Series hypertable roster and Fleet op-log rows.
 - [22]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
 - [23]-[CACHE](.planning/Query/cache.md): Compute-result reuse index with its benchmark gate and invalidation.
@@ -38,18 +38,18 @@
 - [25]-[TABULAR](.planning/Ingest/tabular.md): `TabularSource` lane over the MiniExcel streaming codec; `TabularSpec` the modality discriminant.
 - [26]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
 - [27]-[GEOSPATIAL](.planning/Ingest/geospatial.md): `GeoSource` lane over the NTS-IO codec family; `GeoFormat` crossing four wire projections.
-- [28]-[ISSUE](.planning/Ingest/issue.md): BCF issue rows — GlobalId correlation, cycle reconcile, and the typed-row seam to the container custodian.
-- [29]-[POINTCLOUD](.planning/Ingest/pointcloud.md): Reality-capture codec — E57/LAS/LAZ scan headers, chunked blob residence, per-region H3 cells.
+- [28]-[ISSUE](.planning/Ingest/issue.md): BCF issue rows — GlobalId correlation, cycle reconcile, and the typed-row boundary to the custodian.
+- [29]-[POINTCLOUD](.planning/Ingest/pointcloud.md): Reality-capture codec — E57/LAS/LAZ scan headers, chunked blob storage, per-region H3 cells.
 
 [STORE]:
 - [30]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed artifact object plane — client dispatch, grant plane, multipart transfer sessions.
-- [31]-[RESIDENCE](.planning/Store/residence.md): Stored-byte form and write stance — checksum, codec, seal, storage tier, WORM lock.
-- [32]-[REDRIVE](.planning/Store/redrive.md): Process-seam fault band, the retriability discriminant, the re-offer route, and the re-drive port.
+- [31]-[PLACEMENT](.planning/Store/placement.md): Stored-byte form and write stance — checksum, codec, seal, storage tier, WORM lock.
+- [32]-[REDRIVE](.planning/Store/redrive.md): Process-boundary fault band, the retriability discriminant, the re-offer route, and the re-drive port.
 - [33]-[BLOBGC](.planning/Store/blobgc.md): Write-blob-first protocol, lifecycle arming, and the full-history reachability sweep.
 - [34]-[SCHEMA](.planning/Store/schema.md): One immutable `SchemaContract` — generation identity minted canonically, the two-proof verdict.
 - [35]-[PROVISIONING](.planning/Store/provisioning.md): Verify-only extension tier and provider materializer rows.
 - [36]-[COORDINATION](.planning/Store/coordination.md): Fenced budget, CAS, lease, membership, and typed per-sink outbox cursor.
-- [37]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook rail, chargeback residence, and contributor port.
+- [37]-[OBSERVABILITY](.planning/Store/observability.md): Store telemetry over harvests, hook dispatcher, chargeback storage, and contributor port.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -90,7 +90,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Apache.Arrow.Adbc`
 - `Apache.Arrow.Adbc.Drivers.Apache` — Pure-managed Thrift+Arrow ADBC over Hive, Impala, and Spark.
 - `Apache.Arrow.Adbc.Drivers.BigQuery` — Pure-managed BigQuery ADBC cloud-warehouse lane.
-- `FlowtideDotNet.Substrait` — Substrait portable query-plan IR backing the federation rail and the one residence lowering.
+- `FlowtideDotNet.Substrait` — Substrait portable query-plan IR backing the federation path and the one backend lowering.
 
 [COLUMNAR_FORMATS]: Columnar file formats, the lake scanner, and content-defined chunking.
 - `Apache.Arrow.Compression` — Arrow-IPC `Lz4Frame`/`Zstd` codec factory.
@@ -113,7 +113,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 [FILE_CODECS]: Spreadsheet, schedule, and scan file codecs.
 - `MiniExcel` — Streaming `.xlsx`/`.csv` codec; the spreadsheet lane `Sep` cannot reach.
 - `MPXJ.Net` — MS-Project, P6, and Asta schedule-file codec the `Sep`/`MiniExcel` lanes lack.
-- `Aardvark.Data.E57` — ASTM E57 scan decode behind the `Ingest/pointcloud` residence leg: header, `Data3D` setup, CompressedVector stream.
+- `Aardvark.Data.E57` — ASTM E57 scan decode behind the `Ingest/pointcloud` storage leg: header, `Data3D` setup, CompressedVector stream.
 - `Sep`
 
 [APPEND_EGRESS]: Marten append substrate, the out-of-Rhino sync transports, and the CDC change-egress pipeline.
@@ -155,30 +155,29 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `Thinktecture.Runtime.Extensions.MessagePack`
-- `JetBrains.Annotations`
 - `NodaTime`
 - `NodaTime.Serialization.SystemTextJson`
 - `System.IO.Hashing`
 - `QuikGraph` — Models the in-process topology the synchronous `Query/topology` lane composes.
-- `Riok.Mapperly` — Generated boundary transcription for the package's structural seams; `Store/schema` composes generated parity messages directly.
+- `Riok.Mapperly` — Generated boundary transcription for the package's structural boundaries; `Store/schema` composes generated parity messages directly.
 - `Generator.Equals` — Generated structural equality; `Version/commits` payload-true CRDT state equality; content keys stay `XxHash128`.
 - `CommunityToolkit.HighPerformance` — Spans, memory pools, and bit primitives on the cache and object-store path.
 - `System.Numerics.Tensors` — SIMD `TensorPrimitives` backing the `VECTOR_CODEBOOK` PQ k-means and ADC scan.
 
 [DATA_SUBSTRATE]:
 - `Apache.Arrow` — Columnar format and Arrow IPC wire; the ADBC/Flight/compression egress train rides folder-side (`api-arrow-egress.md`).
-- `Microsoft.Data.Sqlite` — Embedded ADO.NET transport and the `Handle` raw bridge beneath the store-profile rail.
+- `Microsoft.Data.Sqlite` — Embedded ADO.NET transport and the `Handle` raw bridge beneath the store-profile layer.
 
 [EXCHANGE_SUBSTRATE]:
 - `Speckle.Sdk` — Send half: serialiser, transports, and client behind `SyncTransport.SpeckleLikeDiff`.
 - `Speckle.Objects` — `Base`-derived geometry and `DataObject` shapes a sync marshal targets.
-- `Unofficial.laszip.netstandard` — One LAS/LAZ engine behind chunked residence and `.lax` windowed reads.
+- `Unofficial.laszip.netstandard` — One LAS/LAZ engine behind chunked storage and `.lax` windowed reads.
 - `PollinationSDK` — Cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half.
 
 [PLANAR_GEOSPATIAL]:
 - `NetTopologySuite` — `Geometry` currency and WKB/WKT core codecs behind every spatial column, satellite codec, and geometry content key.
-- `NetTopologySuite.IO.GeoJSON4STJ` — GeoJSON text on the `Ingest/geospatial#FEATURE_ROWS` seam and the web egress projection.
-- `NetTopologySuite.IO.GeoPackage` — GeoPackage geometry-BLOB coding on the same feature-rows seam.
+- `NetTopologySuite.IO.GeoJSON4STJ` — GeoJSON text on the `Ingest/geospatial#FEATURE_ROWS` boundary and the web egress projection.
+- `NetTopologySuite.IO.GeoPackage` — GeoPackage geometry-BLOB coding on the same feature-rows boundary.
 - `pocketken.H3` — Managed Uber-H3 v4 hex indexing; the same cell id at ingest and in PostgreSQL as `h3-pg`.
 
 [EVENT_TRANSPORT]:

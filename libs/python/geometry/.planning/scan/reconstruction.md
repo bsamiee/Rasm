@@ -1,8 +1,8 @@
 # [PY_GEOMETRY_SCAN_RECONSTRUCTION]
 
-`ScanReconstruction` builds a watertight `TriangleMesh` from a registered `Cloud` — the `scan/ingestion#INGESTION` array carrier, never a live `open3d` handle across the worker seam — and produces the `reconstructed-mesh` `GeometrySubject`. Reconstruction is a STATIC open3d constructor choice keyed by `ReconstructionMethod`, never a runtime mode flag, holding parity with the sibling `ScanRegistration`/`ScanDeviation` owners. The worker writes GLB to a parent-owned helper path; the parent seals and publishes that exact path through the injected `ArtifactTransfer` before returning its generated SHA-256 `ArtifactRef`. No raw GLB bytes, process-pipe body, retired carrier, or duplicate hash survives. The closure algebra and watertight conditioning belong to named `mesh/` siblings, never re-implemented here.
+`ScanReconstruction` builds a watertight `TriangleMesh` from a registered `Cloud` — the `scan/ingestion#INGESTION` array carrier, never a live `open3d` handle across the worker boundary — and produces the `reconstructed-mesh` `GeometrySubject`. Reconstruction is a STATIC open3d constructor choice keyed by `ReconstructionMethod`, never a runtime mode flag, holding parity with the sibling `ScanRegistration`/`ScanDeviation` owners. The worker writes GLB to a parent-owned helper path; the parent seals and publishes that exact path through the injected `ArtifactTransfer` before returning its generated SHA-256 `ArtifactRef`. No raw GLB bytes, process-pipe body, retired carrier, or duplicate hash survives. The closure algebra and watertight conditioning belong to named `mesh/` siblings, never re-implemented here.
 
-A reconstructed body's watertight/winding/euler/volume/area/components algebra reads ONCE through `mesh/quality`'s public `closure_fold` (quality tiers below the scan producers) — `Reconstruction` carries the folded `QualityMetrics`, and the graduation residual ledger projects from that one fold. That ledger gates `nonwatertight` and `noncontiguous` (the `components - 1` over-segmentation residual) against zero ceilings, so a Poisson balloon that closes into two disjoint shells fails a gate the lone watertight flag passes. `reconstruct` runs `async`, riding the `lane.offload` crossing on `Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE)` under the graduation `evidence_run` weave seeded by `EvidenceScope.SCAN_RECONSTRUCTION` — the `open3d` band imports under no isolated subinterpreter, so the kernel rides the warm process pool, the `Cloud` arrays cross the pickle seam, and the kernel re-inflates through `Cloud.legacy()` where the normal estimation begins. `Reconstruction` retains its closure metrics and source identity directly. A registered pose from `scan/registration#REGISTRATION` is the precondition; watertight conditioning routes the `mesh/repair#MESH` `MeshRepairOp.Condition` arm.
+A reconstructed body's watertight/winding/euler/volume/area/components algebra reads ONCE through `mesh/quality`'s public `closure_fold` (quality tiers below the scan producers) — `Reconstruction` carries the folded `QualityMetrics`, and the graduation residual ledger projects from that one fold. That ledger gates `nonwatertight` and `noncontiguous` (the `components - 1` over-segmentation residual) against zero ceilings, so a Poisson balloon that closes into two disjoint shells fails a gate the lone watertight flag passes. `reconstruct` runs `async`, riding the `lane.offload` crossing on `Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE)` under the graduation `evidence_run` weave seeded by `EvidenceScope.SCAN_RECONSTRUCTION` — the `open3d` band imports under no isolated subinterpreter, so the kernel rides the warm process pool, the `Cloud` arrays cross the pickle boundary, and the kernel re-inflates through `Cloud.legacy()` where the normal estimation begins. `Reconstruction` retains its closure metrics and source identity directly. A registered pose from `scan/registration#REGISTRATION` is the precondition; watertight conditioning routes the `mesh/repair#MESH` `MeshRepairOp.Condition` arm.
 
 ## [01]-[INDEX]
 
@@ -12,9 +12,9 @@ A reconstructed body's watertight/winding/euler/volume/area/components algebra r
 
 - Owner: `ScanReconstruction` discriminates by `ReconstructionMethod` over a registered `Cloud` carrier and carries the composition `ScopeKey` its weave and bench fold stamp; `ReconPolicy` carries the per-algorithm knobs (normal search, orientation `k`, Poisson depth/scale/density-quantile, ball-pivoting radius schedule, alpha, DBSCAN eps/min-points) and `Reconstruction` the typed result — method, cluster count, the closure grade, and the source key. This page mints NO quality value object — `mesh/quality.closure_fold` is the one closure truth, this page one of its two scan consumers, the `scan/deviation#DEVIATION` watertight gate the other.
 - Cases: `POISSON` is watertight by construction and the default; `BALL_PIVOTING` preserves detail over the oriented samples yet never closes; `ALPHA_SHAPE` is the concave-hull surface for sparse or open scans. Each resolves as one `_CONSTRUCT[method]` row read binding the STATIC open3d constructor directly — the row IS the callable, since a one-field struct over it adds a declaration and a dereference and carries no second column — never a `match` over three near-identical arms.
-- Law: `bench` rides the graduation `bench_seam` fold over the whole `reconstruct` crossing — normal estimation, `_CONSTRUCT` row, closure fold, weave — cloud-size-parameterized: the subject keys the method and the input point count as `rasm.geometry.scan.reconstruction.<method>.p<points>`; latency and throughput rows per row, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
-- Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. Poisson's constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately, and each cluster solve beats the graduation `GeometryPulse.RECONSTRUCTION` point through `pulsed` over the lane conduit's pickled tap — lossy live progress, never a second observability rail.
-- Packages: `open3d` (the `PointCloud` normal/cluster ops and the three `TriangleMesh.create_from_point_cloud_*` constructors, `DoubleVector`, `KDTreeSearchParamHybrid`), `trimesh` (the `Trimesh(...)` lift and path-backed GLB export), runtime `transport/artifact` (output spool, SHA-256 sealing, and confirmed Put), `numpy`, `beartype`, `expression`, `msgspec`, the geometry graduation/quality owners, and runtime rails.
+- Law: `bench` rides the graduation `bench_boundary` fold over the whole `reconstruct` crossing — normal estimation, `_CONSTRUCT` row, closure fold, weave — cloud-size-parameterized: the subject keys the method and the input point count as `rasm.geometry.scan.reconstruction.<method>.p<points>`; latency and throughput rows per row, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
+- Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. Poisson's constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately, and each cluster solve beats the graduation `GeometryPulse.RECONSTRUCTION` point through `pulsed` over the lane conduit's pickled tap — lossy live progress, never a second observability pipeline.
+- Packages: `open3d` (the `PointCloud` normal/cluster ops and the three `TriangleMesh.create_from_point_cloud_*` constructors, `DoubleVector`, `KDTreeSearchParamHybrid`), `trimesh` (the `Trimesh(...)` lift and path-backed GLB export), runtime `transport/artifact` (output spool, SHA-256 sealing, and confirmed Put), `numpy`, `beartype`, `expression`, `msgspec`, the geometry graduation/quality owners, and runtime results.
 - Growth: a new reconstruction algorithm is one `ReconstructionMethod` member and one `_CONSTRUCT` row binding its constructor; a new pre-step is one composition above the cluster split; a per-cluster method selection is one policy field discriminating the row read.
 - Boundary: raw-scan ingestion and decimation route `scan/ingestion#INGESTION`; watertight repair and hole-fill route the `mesh/repair#MESH` `MeshRepairOp.Condition` arm, the only path from a non-watertight ball-pivoting or alpha surface to a valid solid; scan-vs-model deviation routes `scan/deviation#DEVIATION`; the closure algebra is `mesh/quality.closure_fold`'s. No IFC tessellation, no durable store, no Rhino/GH mutation.
 
@@ -40,13 +40,13 @@ from rasm.geometry.graduation import (
     EvidenceScope,
     GeometryLeg,
     GeometryPulse,
-    bench_seam,
+    bench_boundary,
     bench_subject,
     evidence_run,
 )
 from rasm.geometry.mesh.quality import QualityMetrics, closure_fold
 from rasm.geometry.scan.ingestion import Cloud
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, FaultRow, RuntimeRail, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, FaultRow, RuntimeResult, rostered
 from rasm.runtime.hooks import StageMark
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
@@ -223,8 +223,8 @@ class ScanReconstruction(Struct, frozen=True):
 
     @custody(RECON_INTEGRITY)
     @admitted(RECON_ADMISSION)
-    async def reconstruct(self, cloud: Cloud, method: ReconstructionMethod) -> "RuntimeRail[tuple[ArtifactRef, Reconstruction]]":
-        async def fold() -> "RuntimeRail[tuple[ArtifactRef, Reconstruction]]":
+    async def reconstruct(self, cloud: Cloud, method: ReconstructionMethod) -> "RuntimeResult[tuple[ArtifactRef, Reconstruction]]":
+        async def fold() -> "RuntimeResult[tuple[ArtifactRef, Reconstruction]]":
             async with output(suffix=".glb") as sink:
                 built = await self.lane.offload(
                     Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE),
@@ -249,8 +249,8 @@ class ScanReconstruction(Struct, frozen=True):
             composition=self.composition,
         )
 
-    def bench(self, cloud: Cloud, method: ReconstructionMethod, *, rounds: int = 32, warmup: int = 4) -> "RuntimeRail[Benchmark]":
-        return bench_seam(
+    def bench(self, cloud: Cloud, method: ReconstructionMethod, *, rounds: int = 32, warmup: int = 4) -> "RuntimeResult[Benchmark]":
+        return bench_boundary(
             bench_subject(EvidenceScope.SCAN_RECONSTRUCTION, method, f"p{len(cloud)}"), partial(self.reconstruct, cloud, method), rounds=rounds, warmup=warmup
         )
 

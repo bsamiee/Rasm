@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA_GRID]
 
-`Avalonia.Controls.DataGrid` owns the AppUi tabular rail: a virtualized `TemplatedControl` over `ItemsSource` with two-level editable rows and sortable, groupable, pageable, frozen columns, paired with the `DataGridCollectionView` engine that folds filter, sort, group, page, and current-row state over `Avalonia.Collections`. Typed rows reach it as one DynamicData-projected `ReadOnlyObservableCollection` bound into `ItemsSource`, and selection and edit state bind through a ReactiveUI view model. This is the single tabular boundary; no parallel hand-rolled list control exists.
+`Avalonia.Controls.DataGrid` owns the AppUi tabular surface: a virtualized `TemplatedControl` over `ItemsSource` with two-level editable rows and sortable, groupable, pageable, frozen columns, paired with the `DataGridCollectionView` engine that folds filter, sort, group, page, and current-row state over `Avalonia.Collections`. Typed rows reach it as one DynamicData-projected `ReadOnlyObservableCollection` bound into `ItemsSource`, and selection and edit state bind through a ReactiveUI view model. This is the single tabular boundary; no parallel hand-rolled list control exists.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -185,7 +185,7 @@
 - `DataGrid` realizes `ItemsSource` lazily through `DataGridRowsPresenter`/`DataGridCellsPresenter`, recycling containers on `LoadingRow`/`UnloadingRow`; no `DataGridRow` exists for an off-screen item.
 - Filter, sort, group, and page state lives on `DataGrid.CollectionView` — the internal `DataGridCollectionView` wrapping a plain `IEnumerable` source — never on the source collection.
 - `CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true)` validates and persists a whole row; `BeginningEdit`/`CellEditEnding`/`RowEditEnding` veto through `e.Cancel`, and the `*Ended` events observe post-commit.
-- Sorting routes through `DataGridColumn.SortMemberPath` and `CustomSortComparer`; the `Sorting` event intercepts through `e.Handled`, which vetoes the whole built-in gesture and is the seam for pushing the order into a backing query.
+- Sorting routes through `DataGridColumn.SortMemberPath` and `CustomSortComparer`; the `Sorting` event intercepts through `e.Handled`, which vetoes the whole built-in gesture and is the hook for pushing the order into a backing query.
 - The header gesture owns MULTI-SORT: a plain click clears `SortDescriptions` and toggles that column alone, `Shift`-click appends or toggles in place (click order becomes key order), `Ctrl`/`Cmd`-click clears every description, `Shift`+`Ctrl`/`Cmd` is a no-op, and the whole gesture is refused while `EditingRow` is non-null. `DataGridColumn.GetSortDescription` matches a comparer-bearing column by `SourceComparer` alone and a path-bearing column by `PropertyPath`, so a column carrying BOTH `CustomSortComparer` and a path-bearing description gains a SECOND sort entry on the next click.
 - Cell and row validity are read-only from outside: `DataGridCell.IsValid`/`DataGridRow.IsValid` carry internal setters and only `EndCellEdit` writes them, reading `DataValidationErrors.GetHasErrors(editingElement)` when `CurrentColumn.CellEditBinding` is non-null — so `:invalid` is reachable on BOUND columns alone, and `DataValidationErrors.SetErrors` written inside `CellEditEnding` (which raises before that read) both refuses the cell commit and stamps the pseudo-class. A `DataGridTemplateColumn` generates no `CellEditBinding` and therefore cannot reach the cell-level gate.
 - The built-in `Ctrl+C` copy walks `ColumnsInternal.GetVisibleColumns()`, so an `IsVisible=false` column contributes nothing to the clipboard payload; there is no paste path on the control at all.
@@ -199,7 +199,7 @@
 - `api-thinktecture-runtime-extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`, shared tier): rows are `[ValueObject]`/`[SmartEnum]` records; `DataGridColumn.Binding` targets the typed members and `CustomSortComparer` consumes the value-object ordering, so no stringly-typed cell reaches the grid.
 - `api-dock`(`.api/api-dock.md`), `api-avalonia-fluent`(`.api/api-avalonia-fluent.md`): `Dock.Avalonia` hosts each `DataGrid` as a dockable document or tool, and `api-avalonia-fluent` themes the column-header and cell chrome.
 - within-lib: one `DataGridCollectionView.DeferRefresh()` scope wraps a multi-axis `SortDescriptions`/`GroupDescriptions`/`Filter` mutation, collapsing N re-projections into one.
-- within-lib: every product tabular surface is one `DataGrid` over this rail; a new table is a new DynamicData-bound `ReadOnlyObservableCollection`, never a new control.
+- within-lib: every product tabular surface is one `DataGrid` over this control; a new table is a new DynamicData-bound `ReadOnlyObservableCollection`, never a new control.
 
 [LOCAL_ADMISSION]:
 - A tabular surface in the AppUi shell is admitted only as a `DataGrid` bound to a DynamicData-projected `ReadOnlyObservableCollection`, its filter/sort/group/page state on `DataGridCollectionView` and its rows typed value objects.

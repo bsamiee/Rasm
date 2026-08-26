@@ -1,21 +1,21 @@
 # [RASM_API_TELEMETRY_ABSTRACTIONS]
 
-`Microsoft.Extensions.Telemetry.Abstractions` holds the contract half of the first-party telemetry rail every instrumented library binds: the generator grammar turning a `[LoggerMessage]` partial into classified tag emission and a partial factory into a typed `Counter`/`Gauge`/`Histogram`, the enricher, buffer, and sampler seams a composition root fills, the pooled latency ledger timing in-flight phases, and the outgoing-request metadata a transport boundary stamps. Every activation verb lives in `Microsoft.Extensions.Telemetry`.
+`Microsoft.Extensions.Telemetry.Abstractions` holds the contract half of the first-party telemetry surface every instrumented library binds: the generator grammar turning a `[LoggerMessage]` partial into classified tag emission and a partial factory into a typed `Counter`/`Gauge`/`Histogram`, the enricher, buffer, and sampler interfaces a composition root fills, the pooled latency ledger timing in-flight phases, and the outgoing-request metadata a transport boundary stamps. Every activation verb lives in `Microsoft.Extensions.Telemetry`.
 
 ## [01]-[PUBLIC_TYPES]
 
 [GRAMMAR_TYPES]: log emission grammar and its pooled tag-collection state
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                     |
-| :-----: | :--------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `LogPropertiesAttribute`     | attribute      | expands one parameter's members into tags        |
-|  [02]   | `LogPropertyIgnoreAttribute` | attribute      | drops one member from the expansion              |
-|  [03]   | `TagProviderAttribute`       | attribute      | routes an unannotatable type to a method         |
-|  [04]   | `TagNameAttribute`           | attribute      | renames one tag at its declaration               |
-|  [05]   | `ITagCollector`              | interface      | provider-method write seam, classified overload  |
-|  [06]   | `LoggerMessageState`         | class          | pooled per-record tag and classified-tag state   |
-|  [07]   | `LoggerMessageHelper`        | static class   | thread-local state seat and enumerable stringify |
-|  [08]   | `LoggingSampler`             | abstract class | per-entry sample verdict a host subclasses       |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                         |
+| :-----: | :--------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `LogPropertiesAttribute`     | attribute      | expands one parameter's members into tags            |
+|  [02]   | `LogPropertyIgnoreAttribute` | attribute      | drops one member from the expansion                  |
+|  [03]   | `TagProviderAttribute`       | attribute      | routes an unannotatable type to a method             |
+|  [04]   | `TagNameAttribute`           | attribute      | renames one tag at its declaration                   |
+|  [05]   | `ITagCollector`              | interface      | provider-method write interface, classified overload |
+|  [06]   | `LoggerMessageState`         | class          | pooled per-record tag and classified-tag state       |
+|  [07]   | `LoggerMessageHelper`        | static class   | thread-local state seat and enumerable stringify     |
+|  [08]   | `LoggingSampler`             | abstract class | per-entry sample verdict a host subclasses           |
 
 - `LogPropertiesAttribute`: `SkipNullProperties` `OmitReferenceName` `Transitive`
 - `TagProviderAttribute(Type, string)`: `ProviderType` `ProviderMethod` `OmitReferenceName`
@@ -35,7 +35,7 @@
 - Each metric attribute carries `Name` `Unit` and, off its two constructors, either a `TagNames` string roster or a strongly typed `Type` whose members become the dimensions.
 - Generic arms fix the measurement type, and `Microsoft.Extensions.Diagnostics.Metrics.TagNameAttribute` stands distinct from the `Microsoft.Extensions.Logging` one, so a file consuming both disambiguates by namespace.
 
-[GOVERNANCE_TYPES]: the buffering and enrichment seams a composition root fills
+[GOVERNANCE_TYPES]: the buffering and enrichment interfaces a composition root fills
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [CAPABILITY]                                    |
 | :-----: | :------------------------ | :------------- | :---------------------------------------------- |
@@ -44,7 +44,7 @@
 |  [03]   | `PerRequestLogBuffer`     | abstract class | request-scoped ring a pipeline host resolves    |
 |  [04]   | `ILogEnricher`            | interface      | per-record tag projection                       |
 |  [05]   | `IStaticLogEnricher`      | interface      | per-provider tag projection                     |
-|  [06]   | `IEnrichmentTagCollector` | interface      | enricher write seam                             |
+|  [06]   | `IEnrichmentTagCollector` | interface      | enricher write interface                        |
 
 [LATENCY_TYPES]: the in-flight latency ledger
 
@@ -131,11 +131,11 @@
 - Logging and metric attributes drive generators: a generated log method rents `LoggerMessageHelper.ThreadLocalState`, writes tags and classified tags onto it, and returns it cleared, so a record costs no per-call allocation.
 - Classified tags carry their `DataClassificationSet` to the sink, so redaction selects a redactor per classification before any provider observes the value.
 - Latency names register once at composition into `LatencyContextRegistrationOptions`; runtime code resolves each name to a positional token, records through the token, then `Freeze` hands `LatencyData` to `ILatencyDataExporter.ExportAsync` — no name lookup and no allocation on the hot path.
-- Enrichment, buffering, and sampling are contract-only seams here; each carries no bound rule until a composition root activates one.
+- Enrichment, buffering, and sampling are contract-only interfaces here; each carries no bound rule until a composition root activates one.
 - Request metadata is boundary material for an outgoing dependency call, carried in the `IOutgoingRequestContext` ambient slot keyed by `TelemetryConstants.RequestMetadataKey`, with `HttpRouteParameterRedactionMode` scoping how a route parameter survives into the record.
 
 [STACKING]:
-- `Microsoft.Extensions.Telemetry`(`Rasm.AppHost/.api/api-telemetry.md`): realizes every seam declared here — a sampler, enricher, buffer, or latency registration binds the concrete policy at the composition root while the contract and attributes stay library-tier.
+- `Microsoft.Extensions.Telemetry`(`Rasm.AppHost/.api/api-telemetry.md`): realizes every interface declared here — a sampler, enricher, buffer, or latency registration binds the concrete policy at the composition root while the contract and attributes stay library-tier.
 - `Microsoft.Extensions.Logging.Abstractions`(`api-logging-abstractions.md`): `[LogProperties]`, `[TagProvider]`, and `[TagName]` ride the in-box `[LoggerMessage]` partial, so payload expansion, foreign projection, and tag naming land on one generated declaration, and `LoggingSampler` reads that package's `LogEntry<TState>`.
 - `Microsoft.Extensions.Compliance.Redaction`(`api-redaction.md`): supplies the `DataClassificationSet` vocabulary the classified-tag overloads carry and the `Redactor` each classification selects.
 - `Microsoft.Extensions.Http.Diagnostics`(`Rasm.AppHost/.api/api-http-diagnostics.md`): consumes `RequestMetadata` and `IDownstreamDependencyMetadata`, owns the dependency-route registration, and resolves the `HttpRouteParameterRedactionMode` its outbound logger applies.
@@ -146,4 +146,4 @@
 - Instrumented libraries reference this contract assembly alone — grammar attributes, enricher contracts, latency tokens — and every activation verb stays composition-root surface.
 - Tags stay bounded dimensions, and smuggled domain payload on one is the defect the classification set exists to make visible.
 - Latency names pre-register at composition and runtime records through tokens only.
-- Generated metric factories name their instrument in the estate metric grammar, never a package-local spelling.
+- Generated metric factories name their instrument in the solution metric grammar, never a package-local spelling.

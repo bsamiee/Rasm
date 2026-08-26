@@ -23,12 +23,6 @@
         "resolved": "3.36.0",
         "contentHash": "wDPg8sKlmA8we1bqnC9DYKwLog4PNJ4GYTWV9FkzlGvfs3kNCSt2x0Qe31SBOeBPS2JGEZ/lNfil/Bkwx18Ufg=="
       },
-      "JetBrains.Annotations": {
-        "type": "Direct",
-        "requested": "[2026.2.0, )",
-        "resolved": "2026.2.0",
-        "contentHash": "drvAEaI7Xf4wU6dx4UTB9MoZWXZlraaQ0qoeThPQ411FxNhId7QdUTukIC9I8aUHP0ycAaGwZNKqSvfOZQvUlg=="
-      },
       "LanguageExt.Core": {
         "type": "Direct",
         "requested": "[5.0.0-beta-77, )",
@@ -1006,9 +1000,6 @@
         "resolved": "0.2.0",
         "contentHash": "InpgxLSt5OY8WfgfuUg0fChCqcZ5TXMWYQ8shm7C0yUQLG7/6J7PDEEo5J8v15h8ExGGapLgB3drlL/iFLTTYw=="
       },
-      "csp.contracts": {
-        "type": "Project"
-      },
       "rasm": {
         "type": "Project",
         "dependencies": {
@@ -1019,11 +1010,9 @@
           "CloudNative.CloudEvents.Protobuf": "[2.9.0, )",
           "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "Csp.Contracts": "[1.0.0, )",
           "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
-          "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MIConvexHull": "[1.1.19.1019, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
@@ -1056,7 +1045,6 @@
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CloudNative.CloudEvents.AspNetCore": "[2.9.0, )",
           "Cronos": "[0.13.0, )",
-          "Csp.Contracts": "[1.0.0, )",
           "FluentModbus": "[5.3.2, )",
           "FluentValidation": "[12.1.1, )",
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
@@ -1069,7 +1057,6 @@
           "Grpc.Core.Api": "[2.83.0, )",
           "Grpc.Net.Client": "[2.83.0, )",
           "Grpc.StatusProto": "[2.83.0, )",
-          "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MQTTnet": "[5.2.0.1603, )",
           "MTConnect.NET-Common": "[6.9.0.2, )",
@@ -1166,10 +1153,8 @@
           "Celly.Protovalidate": "[1.2.0, )",
           "CloudNative.CloudEvents": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "Csp.Contracts": "[1.0.0, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
-          "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "NodaTime": "[3.3.3, )",
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",

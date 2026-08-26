@@ -1,11 +1,11 @@
 # [PY_COMPUTE_ARCHITECTURE]
 
-`compute` maps host-free offline scientific evidence outward through one rail: independent numeric-science sub-domains meet at the graduation rail, solve routes return the one `Solve` result, and each graduating axis owner clears the one admission gate, while the numeric substrate every sub-domain admits through carries any backend array. Columnar data and tensor sessions cross their owned seams; geometry retains its canonical results outside the compute graduation axis.
+`compute` maps host-free offline scientific evidence outward through one result: independent numeric-science sub-domains meet at the graduation path, solve routes return the one `Solve` result, and each graduating axis owner clears the one admission gate, while the numeric substrate every sub-domain admits through carries any backend array. Columnar data and tensor sessions cross their owned boundaries; geometry retains its canonical results outside the compute graduation axis.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text
-compute/                    # Offline scientific evidence, graduating outward through one rail
+compute/                    # Offline scientific evidence, graduating outward through one result
 ├── solvers/                # Unified solve routes plus sensitivity, weak-form assembly, and field readout
 │   ├── solve.py            # Method-tagged tuple payloads, the bounded SolveStatus vocabulary, the graduate fold
 │   ├── linear.py           # LinearIntent dispatch; the sparse exchange pairs with the C# factor lane
@@ -22,7 +22,7 @@ compute/                    # Offline scientific evidence, graduating outward th
 ├── experiments/            # Study spine, run history, inference, and model assets
 │   ├── study.py            # Study spine; DOE frames admit through the published data contract
 │   ├── history.py          # Multi-run cohort; Partial resume recomputing indices over the whole response vector
-│   ├── inference.py        # Inference owner; Posterior projects onto the graduation rail
+│   ├── inference.py        # Inference owner; Posterior projects onto the graduation path
 │   └── model.py            # ModelAsset owner; Python writes the native GraduationEnvelope law that the C# identity gate admits
 ├── numerics/               # Numeric substrate every sub-domain admits through
 │   ├── array.py            # ArrayPayload admission floor every producer stratum composes
@@ -31,12 +31,12 @@ compute/                    # Offline scientific evidence, graduating outward th
 │   ├── quantity.py         # UncertainQuantity; correlated unit-bearing uncertainty on one owner
 │   └── statistics.py       # TestIntent hypothesis routes and MLE fit; report keys intent-owned over sample bytes
 ├── analysis/               # Classical-math evidence producers
-│   ├── signal.py           # SignalOp folds; artifacts hands SignalOp shapes across the seam
+│   ├── signal.py           # SignalOp folds; artifacts hands SignalOp shapes across the boundary
 │   ├── transform.py        # FOURIER_ROUTES row table, native coefficient and roundtrip products
 │   ├── symbolic.py         # Block[SymbolicOp] left-fold over ExprForm; terminal provider value paired with its content key
 │   └── spatial.py          # Native point-set query products; one-way graduation, no trimesh surface re-owned
 └── graduation/             # Multi-domain graduation hub and C# stub codegen
-    ├── handoff.py          # Rail mint: HandoffAxis, Graduation, EvidenceScope, ComputeLeg, StageTap, minted once
+    ├── handoff.py          # Result mint: HandoffAxis, Graduation, EvidenceScope, ComputeLeg, StageTap, minted once
     ├── codegen.py          # ast-built msgspec stubs and JSON Schema $defs from the CamelCase bundle decode
     └── observability.py    # ComputePoint roster folded onto the runtime registry; cpu-rss-io-switch band and stage stream
 ```
@@ -83,16 +83,16 @@ flowchart TB
     Handoff f1@-->|"forbidden: upward import"| S2
 ```
 
-- S0 `graduation` — mints the outward rail (`HandoffAxis`, `Graduation`, `EvidenceScope`) exactly once and imports no compute sibling.
-- S0 `codegen` and `observability` compose `handoff` in-stratum; the hub weave re-enters `observability` through one lazy seam.
-- S1 `numerics` + `solvers` — one module-acyclic stratum: `solvers` folds `Solve`/`SolveStatus` onto the rail.
+- S0 `graduation` — mints the outward result (`HandoffAxis`, `Graduation`, `EvidenceScope`) exactly once and imports no compute sibling.
+- S0 `codegen` and `observability` compose `handoff` in-stratum; the hub weave re-enters `observability` through one lazy boundary.
+- S1 `numerics` + `solvers` — one module-acyclic stratum: `solvers` folds `Solve`/`SolveStatus` onto the result.
 - S1 merged rank stays module-acyclic — `interval` reads `solve`'s `graduate` while `solve` reads `array`'s floor, no module pair looping.
 - S1 interleave: `quadrature` composes `jit` and the `solve` `graduate` fold, `interval` that fold, `solve` mounting the `EngineProfile` band.
 - S2 `analysis` + `experiments` + `optimization` — the producer stratum no sibling imports.
 - S2 producers hold no intra-stratum edge — `design` and `program` stay parallel programs, the floor asymmetry a policy fact, never an import.
 - S2→S0 `EvidenceScope` edges skip S1 lawfully — the weave is floor capability every stratum reaches, and no S1 mediation exists to bypass.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -103,10 +103,10 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Compute package seam registry
+    accTitle: Compute package interface registry
     accDescr: Compute sub-domain owners exchanging graduation evidence, content keys, and the Kernel port with peers.
     subgraph compute[COMPUTE]
-        Graduation[Graduation rail]
+        Graduation[graduation path]
         Solvers[Solve result]
         Numerics[Numeric substrate]
         Experiments[Study spine]
@@ -138,13 +138,13 @@ flowchart LR
     Runtime e20@-->|"[PORT]: Kernel"| Optimization
 ```
 
-`ContentIdentity` keys ride beneath the `Parity` parity seam, and the graduation reverse leg spells the owner's `GraduationEvidence`, landed interior as `EvidenceBundle`. `experiments/model#ENVELOPE` rides the forward model crossing as the `GraduationEnvelope` copy the C# identity gate ingests, `solvers/linear#EXCHANGE` pairs the sparse containers with the C# factor lane, and each collapsed edge stands for every contract at its kind, per-contract wiring on the owning pages.
+`ContentIdentity` keys ride beneath the `Parity` parity boundary, and the graduation reverse leg spells the owner's `GraduationEvidence`, landed interior as `EvidenceBundle`. `experiments/model#ENVELOPE` rides the forward model crossing as the `GraduationEnvelope` copy the C# identity gate ingests, `solvers/linear#EXCHANGE` pairs the sparse containers with the C# factor lane, and each collapsed edge stands for every contract at its kind, per-contract wiring on the owning pages.
 
 Every leg admitting, writing, or consuming a countable population records through the runtime `Journal` writer on the `[SHAPE]: Fact` durable half, whose `Ledger` a composition root binds and this package never implements. Producing legs are awaitable by law, so a synchronous entrypoint reaches the plane through its own twin. `Resource.COMPUTE` charges once per dispatch at the resource band's async close, and each `Fact` edge carries the evidence its own fold owns.
 
 ## [04]-[INTERNAL]
 
-Independent sub-domains produce nothing outward on their own: every producer runs under the hub evidence-weave span for its `EvidenceScope` row, the graduating axis owners project `Graduation` onto the single rail that crosses outward, and an owner with no `HandoffAxis` case stops at the span by charter.
+Independent sub-domains produce nothing outward on their own: every producer runs under the hub evidence-weave span for its `EvidenceScope` row, the graduating axis owners project `Graduation` onto the single result that crosses outward, and an owner with no `HandoffAxis` case stops at the span by charter.
 
 ```mermaid
 ---
@@ -156,10 +156,10 @@ config:
 ---
 flowchart LR
     accTitle: Compute internal result spine
-    accDescr: Numeric-science sub-domains fold solve results and graduating axis evidence onto the single graduation rail crossing outward.
+    accDescr: Numeric-science sub-domains fold solve results and graduating axis evidence onto the single graduation path crossing outward.
     SolveRoutes[[Solve routes]] e1@-->|"Solve"| SolveResult[Solve result]
     Optimization[[Optimization programs]] e2@-->|"Optimum"| SolveResult
-    Optimization e3@-->|"ConvexOptimum"| Handoff[Graduation rail]
+    Optimization e3@-->|"ConvexOptimum"| Handoff[graduation path]
     History[[Run history]] e4@-->|"StudyRun"| Study[Study spine]
     Experiments[[Inference and models]] e5@-->|"Posterior"| Handoff
     Experiments e6@-->|"ModelAssetManifest"| Handoff
@@ -173,9 +173,9 @@ Sub-domains are independent numeric-science concerns. Each discriminates variati
 
 ## [05]-[BOUNDARIES]
 
-- `compute` owns offline evidence on the one rail — no runtime, benchmark authority, substrate selector, tensor session, or product result seats.
+- `compute` owns offline evidence on the one result — no runtime, benchmark authority, substrate selector, tensor session, or product result seats.
 - Columnar and labelled-array interchange stays in the `data` branch; `compute` composes its shapes, never re-owning the data interior.
 - Columnar and gridded statistical aggregation is the `data` branch gridded/field owner; `numerics/statistics` operates on in-memory samples only.
-- Geometry tessellation, registration, and topology stay in the `geometry` branch on their canonical results and runtime observation seam.
+- Geometry tessellation, registration, and topology stay in the `geometry` branch on their canonical results and runtime observation boundary.
 - `compute` neither imports geometry nor assigns geometry a `HandoffAxis` case.
 - Scope admits classical evidence — a capability lands where its result fits a `HandoffAxis` case or the span; deep-learning authoring fits none.

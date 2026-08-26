@@ -62,5 +62,5 @@
 - within-lib: `FindBestMatch` resolves the newest in-range candidate across several registry versions — its return is `NuGetVersion?` and an empty or all-out-of-range candidate set yields `null`, so the caller folds that absence onto `VersionIncompatible` rather than dereferencing — and `PrettyPrint`/`ToNormalizedString` render the range and version into the fault payload.
 
 [LOCAL_ADMISSION]:
-- Admission enters through `VersionRange.TryParse` and `NuGetVersion.TryParse` (never `Parse`) at the artifact/host boundary, decided by `Satisfies`; the total fold lowers the `bool` onto the `Validation`/`Fin` rail, so a malformed contract range is a typed denial rather than a throw.
+- Admission enters through `VersionRange.TryParse` and `NuGetVersion.TryParse` (never `Parse`) at the artifact/host boundary, decided by `Satisfies`; the total fold lowers the `bool` onto `Validation`/`Fin`, so a malformed contract range is a typed denial rather than a throw.
 - Only the version/range/comparer surface is admitted; package-graph resolution, framework-compatibility, and the wider NuGet client surface stay out of scope.

@@ -34,7 +34,7 @@ from zarr.errors import BaseZarrError
 lazy import xarray as xr
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.roots import ResourceRef
 
@@ -80,8 +80,8 @@ CONTAINER_ELEMENT: Final[FaultRow[DataLeg]] = FaultRow(
 CONTAINER_LAYOUT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.FIELD, point="container.layout", arm="boundary", defect="layout-mismatch", retriability=TERMINAL, slots=("layout",)
 )
-CONTAINER_RESIDENCE: Final[FaultRow[DataLeg]] = FaultRow(
-    leg=DataLeg.FIELD, point="container.residence", arm="boundary", defect="residence-unknown", retriability=TERMINAL, slots=("residence",)
+CONTAINER_PRECISION: Final[FaultRow[DataLeg]] = FaultRow(
+    leg=DataLeg.FIELD, point="container.precision", arm="boundary", defect="precision-unknown", retriability=TERMINAL, slots=("precision",)
 )
 CORPUS_CREATE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.FIELD, point="corpus.create", arm="boundary", defect="corpus-create", retriability=TRANSIENT
@@ -104,7 +104,7 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
     CONTAINER_TRUNCATED,
     CONTAINER_ELEMENT,
     CONTAINER_LAYOUT,
-    CONTAINER_RESIDENCE,
+    CONTAINER_PRECISION,
     CORPUS_CREATE,
     CORPUS_OPEN,
     CORPUS_SLAB,
@@ -174,19 +174,19 @@ class FieldDataset(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def open(cls, ref: ResourceRef) -> "RuntimeRail[FieldDataset]":
+    def open(cls, ref: ResourceRef) -> "RuntimeResult[FieldDataset]":
         with _TRACER.start_as_current_span("field.open", attributes={"rasm.field.engine": FieldEngine.from_ref(ref).value}):
             return boundary(FIELD_OPEN, lambda: _open(ref, FieldEngine.from_ref(ref)), catch=_CF_RAISES)
 
-    def read(self) -> "RuntimeRail[xr.Dataset]":
+    def read(self) -> "RuntimeResult[xr.Dataset]":
         with _TRACER.start_as_current_span("field.read", attributes={"rasm.field.engine": self.engine.value}):
             return boundary(FIELD_READ, self.engine.open(str(self.ref.path)), catch=_CF_RAISES)
 
-    def write(self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()) -> "RuntimeRail[ContentKey]":
+    def write(self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()) -> "RuntimeResult[ContentKey]":
         with _TRACER.start_as_current_span("field.write", attributes={"rasm.field.engine": self.engine.value}):
-            return boundary(FIELD_WRITE, lambda: _write(self, dataset, target, encoding), catch=_CF_RAISES).bind(lambda railed: railed)
+            return boundary(FIELD_WRITE, lambda: _write(self, dataset, target, encoding), catch=_CF_RAISES).bind(lambda inner: inner)
 
-    def to_arrow(self, dataset: "xr.Dataset") -> "RuntimeRail[tuple[pa.Table, ContentKey]]":
+    def to_arrow(self, dataset: "xr.Dataset") -> "RuntimeResult[tuple[pa.Table, ContentKey]]":
         return boundary(FIELD_ARROW, lambda: _to_arrow(dataset), catch=_arrow_raises()).bind(lambda lowered: _arrow_keyed(*lowered))
 
 
@@ -218,7 +218,7 @@ lazy from flox import groupby_scan
 lazy from flox.xarray import xarray_reduce
 lazy from xarray.groupers import TimeResampler
 
-from rasm.runtime.faults import Catch, RuntimeRail, boundary
+from rasm.runtime.faults import Catch, RuntimeResult, boundary
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -264,7 +264,7 @@ type ReductionMethod = Literal["map-reduce", "blockwise", "cohorts"]
 type ReductionEngine = Literal["flox", "numpy", "numba", "numbagg"]
 type GrouperKind = Literal["group", "bins", "resample"]
 type ReductionFunc = "Reduction | Aggregation"
-type ScanRail = "ScanFunc | Scan"
+type ScanSpec = "ScanFunc | Scan"
 type ReindexPolicy = "ReindexStrategy | bool | None"
 
 _SELECT_RAISES: Final[Catch] = (AttributeError, IndexError, KeyError, NotImplementedError, TypeError, ValueError)
@@ -282,7 +282,7 @@ _FALLBACK_CALL: "Final[Map[GrouperKind, Callable[[xr.Dataset, tuple[object, ...]
 
 class ReductionPolicy(Struct, frozen=True):
     func: ReductionFunc = "mean"
-    scan: ScanRail = "cumsum"
+    scan: ScanSpec = "cumsum"
     method: ReductionMethod = "map-reduce"
     engine: ReductionEngine = "flox"
     expected_groups: tuple[object, ...] | None = None
@@ -364,11 +364,11 @@ class FieldSelection:
         return FieldSelection(resample=({dim: freq}, replace(policy, freq=freq)))
 
     @staticmethod
-    def Scan(*by: str, func: "ScanRail" = "cumsum", policy: ReductionPolicy = ReductionPolicy()) -> "FieldSelection":
+    def Scan(*by: str, func: "ScanSpec" = "cumsum", policy: ReductionPolicy = ReductionPolicy()) -> "FieldSelection":
         return FieldSelection(scan=(by, replace(policy, scan=func)))
 
 
-def apply(selection: FieldSelection, dataset: "xr.Dataset") -> "RuntimeRail[xr.Dataset]":
+def apply(selection: FieldSelection, dataset: "xr.Dataset") -> "RuntimeResult[xr.Dataset]":
     return boundary(FIELD_SELECT, lambda: _select(selection, dataset), catch=_SELECT_RAISES)
 
 
@@ -434,7 +434,7 @@ from typing import TYPE_CHECKING
 lazy import pyarrow as pa
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import Catch, RuntimeRail, boundary
+from rasm.runtime.faults import Catch, RuntimeResult, boundary
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
@@ -445,7 +445,7 @@ def _arrow_raises() -> Catch:
     return (pa.ArrowException, IndexError, KeyError, MemoryError, TypeError, ValueError, OSError)
 
 
-def _write(field: "FieldDataset", dataset: "xr.Dataset", target: ResourceRef, encoding: "FieldEncoding") -> "RuntimeRail[ContentKey]":
+def _write(field: "FieldDataset", dataset: "xr.Dataset", target: ResourceRef, encoding: "FieldEncoding") -> "RuntimeResult[ContentKey]":
     path = str(target.path)
     field.engine.write(dataset, path, encoding)()
     source = target.path.read_bytes() if target.path.is_file() else (target.path / "zarr.json").read_bytes()
@@ -458,17 +458,17 @@ def _to_arrow(dataset: "xr.Dataset") -> "tuple[pa.Table, bytes]":
     return table, payload
 
 
-def _arrow_keyed(table: "pa.Table", payload: bytes) -> "RuntimeRail[tuple[pa.Table, ContentKey]]":
+def _arrow_keyed(table: "pa.Table", payload: bytes) -> "RuntimeResult[tuple[pa.Table, ContentKey]]":
     return ContentIdentity.of("field.arrow", payload).map(lambda key: (table, key))
 ```
 
 ## [05]-[CONTAINER]
 
-- Cases: `ContainerMeta` is the typed projection of the producer's ROOT attribute roster — `format-key`/`residence`/`bits`/`bound`/`max-residual` wire spellings mapped once at the edge onto canonical snake fields; `residence` is the closed `exact`/`quantized` pair because the producer's `predicted` case refuses HDF5 egress at its own fence.
+- Cases: `ContainerMeta` is the typed projection of the producer's ROOT attribute roster — `format-key`/`precision`/`bits`/`bound`/`max-residual` wire spellings mapped once at the edge onto canonical snake fields; `precision` is the closed `exact`/`quantized` pair because the producer's `predicted` case refuses HDF5 egress at its own fence.
 - Entry: `FieldContainer.open` probes the `/field` dataset before any resolve and refuses typed on an absent roster, requires a little-endian float32 element, a chunked station-leading grid, and the Shuffle→Deflate-compatible h5py filter view, and refuses a ROOT attribute the roster names but the container omits; `window` reads one station slab, `read` the whole cube, `labelled` the phony-dims lift.
 - Auto: station slabs are chunk-aligned by construction — the `Grid` derivation chunks the station axis at 1, so ANY station range lands on chunk boundaries and the h5py slice IS the producer's `HyperslabSelection` window; readers accept any deflate level a foreign producer wrote while the C# writer holds its own four-value grade set.
 - Boundary: reads mint no duplicate whole-file content key; the manifest proof owns the frozen specimen digest, so opening a screening-scale field never stages the entire HDF5 file merely to name bytes no consumer reads.
-- Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the rail on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
+- Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the result on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
 
 ```python
 from typing import Final, Literal
@@ -481,11 +481,11 @@ from msgspec import Struct
 
 lazy import xarray as xr
 
-from rasm.runtime.faults import FAULT_CONF, Catch, RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, Catch, RuntimeResult, boundary
 from rasm.runtime.roots import ResourceRef
 
 
-type Residence = Literal["exact", "quantized"]
+type Precision = Literal["exact", "quantized"]
 
 _H5_RAISES: Final[Catch] = (KeyError, TypeError, ValueError, OSError)
 _LIFT_RAISES: Final[Catch] = (CompatibilityError, *_H5_RAISES)
@@ -493,7 +493,7 @@ _LIFT_RAISES: Final[Catch] = (CompatibilityError, *_H5_RAISES)
 _FIELD_PATH: Final[str] = "field"
 _META: Final[tuple[tuple[str, str], ...]] = (
     ("format-key", "format_key"),
-    ("residence", "residence"),
+    ("precision", "precision"),
     ("bits", "bits"),
     ("bound", "bound"),
     ("max-residual", "max_residual"),
@@ -502,7 +502,7 @@ _META: Final[tuple[tuple[str, str], ...]] = (
 
 class ContainerMeta(Struct, frozen=True):
     format_key: str
-    residence: Residence
+    precision: Precision
     bits: int
     bound: float
     max_residual: float
@@ -524,23 +524,23 @@ class FieldContainer(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def open(cls, ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
-        return boundary(CONTAINER_OPEN, lambda: _open_container(ref), catch=_H5_RAISES).bind(lambda railed: railed)
+    def open(cls, ref: ResourceRef) -> "RuntimeResult[FieldContainer]":
+        return boundary(CONTAINER_OPEN, lambda: _open_container(ref), catch=_H5_RAISES).bind(lambda inner: inner)
 
-    def window(self, stations: slice) -> "RuntimeRail[np.ndarray]":
+    def window(self, stations: slice) -> "RuntimeResult[np.ndarray]":
         return boundary(CONTAINER_SLAB, lambda: _slab(self.ref, stations), catch=_H5_RAISES)
 
-    def read(self) -> "RuntimeRail[np.ndarray]":
+    def read(self) -> "RuntimeResult[np.ndarray]":
         return boundary(CONTAINER_SLAB, lambda: _slab(self.ref, slice(None)), catch=_H5_RAISES)
 
-    def labelled(self) -> "RuntimeRail[xr.Dataset]":
+    def labelled(self) -> "RuntimeResult[xr.Dataset]":
         def lift() -> "xr.Dataset":
             return xr.open_dataset(str(self.ref.path), engine="h5netcdf", phony_dims="sort")
 
         return boundary(CONTAINER_LIFT, lift, catch=_LIFT_RAISES)
 
 
-def _open_container(ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
+def _open_container(ref: ResourceRef) -> "RuntimeResult[FieldContainer]":
     with h5py.File(str(ref.path), "r") as file:
         if _FIELD_PATH not in file:
             return Error(CONTAINER_TRUNCATED.raised(f"/{_FIELD_PATH}"))
@@ -569,21 +569,21 @@ def _open_container(ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
             return Error(CONTAINER_TRUNCATED.raised(",".join(absent)))
         raw = {field: file.attrs[wire] for wire, field in _META}
         shape, chunks = tuple(dataset.shape), tuple(dataset.chunks or dataset.shape)
-    if not isinstance(raw["format_key"], str) or not isinstance(raw["residence"], str):
+    if not isinstance(raw["format_key"], str) or not isinstance(raw["precision"], str):
         return Error(CONTAINER_ELEMENT.raised("root:text"))
     bits = _container_scalar(raw["bits"], "i", 8)
     bound = _container_scalar(raw["bound"], "f", 8)
     max_residual = _container_scalar(raw["max_residual"], "f", 8)
     if not bits[0] or not bound[0] or not max_residual[0]:
         return Error(CONTAINER_ELEMENT.raised("root:bits,bound,max-residual"))
-    residence = str(raw["residence"])
-    if residence not in ("exact", "quantized"):
-        return Error(CONTAINER_RESIDENCE.raised(residence))
+    precision = str(raw["precision"])
+    if precision not in ("exact", "quantized"):
+        return Error(CONTAINER_PRECISION.raised(precision))
     bit_count, error_bound, achieved = int(bits[1]), float(bound[1]), float(max_residual[1])
-    residence_held = (
-        (residence == "exact" and bit_count == 0 and error_bound == 0.0 and achieved == 0.0)
+    precision_held = (
+        (precision == "exact" and bit_count == 0 and error_bound == 0.0 and achieved == 0.0)
         or (
-            residence == "quantized"
+            precision == "quantized"
             and 1 <= bit_count <= 24
             and np.isfinite(error_bound)
             and error_bound > 0.0
@@ -591,14 +591,14 @@ def _open_container(ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
             and 0.0 <= achieved <= error_bound
         )
     )
-    if not residence_held:
-        return Error(CONTAINER_RESIDENCE.raised(f"{residence}:{bit_count}:{error_bound}:{achieved}"))
+    if not precision_held:
+        return Error(CONTAINER_PRECISION.raised(f"{precision}:{bit_count}:{error_bound}:{achieved}"))
     return Ok(
         FieldContainer(
             ref=ref,
             meta=ContainerMeta(
                 format_key=raw["format_key"],
-                residence=residence,
+                precision=precision,
                 bits=bit_count,
                 bound=error_bound,
                 max_residual=achieved,
@@ -634,7 +634,7 @@ def _slab(ref: ResourceRef, stations: slice) -> np.ndarray:
 - Entry: `EnsembleCorpus.create` is create-only in the plane's own law — mode `x`, shuffle+deflate on every chunked dataset, one call landing design, responses, and attributes whole; `open` reads the meta and shapes; `replicate` slices one replicate slab across every response.
 - Law: `create` returns the `EnsembleCorpus` beside the content key minted over the written container bytes.
 - Growth: a new response family is one dataset row under `/responses`; a new sampler fact is one `EnsembleMeta` field with its attribute spelling; zero new surface.
-- Boundary: design generation is compute's (`SALib`/`pyDOE3` at the study spine) — this owner is the container residence alone, admitting a design any sampler produced; no C# consumer exists and none is claimed, so no corpus entry binds this layout.
+- Boundary: design generation is compute's (`SALib`/`pyDOE3` at the study spine) — this owner is the container precision alone, admitting a design any sampler produced; no C# consumer exists and none is claimed, so no corpus entry binds this layout.
 
 ```python
 from collections.abc import Mapping
@@ -657,15 +657,15 @@ class EnsembleCorpus(Struct, frozen=True):
     @beartype(conf=FAULT_CONF)
     def create(
         cls, ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
-    ) -> "RuntimeRail[tuple[EnsembleCorpus, ContentKey]]":
-        return boundary(CORPUS_CREATE, lambda: _create(ref, meta, design, responses), catch=_H5_RAISES).bind(lambda railed: railed)
+    ) -> "RuntimeResult[tuple[EnsembleCorpus, ContentKey]]":
+        return boundary(CORPUS_CREATE, lambda: _create(ref, meta, design, responses), catch=_H5_RAISES).bind(lambda inner: inner)
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def open(cls, ref: ResourceRef) -> "RuntimeRail[EnsembleCorpus]":
+    def open(cls, ref: ResourceRef) -> "RuntimeResult[EnsembleCorpus]":
         return boundary(CORPUS_OPEN, lambda: _open_ensemble(ref), catch=_H5_RAISES)
 
-    def replicate(self, ordinal: int) -> "RuntimeRail[dict[str, np.ndarray]]":
+    def replicate(self, ordinal: int) -> "RuntimeResult[dict[str, np.ndarray]]":
         def slab() -> dict[str, np.ndarray]:
             with h5py.File(str(self.ref.path), "r") as file:
                 return {name: file[f"responses/{name}"][ordinal] for name in self.responses}
@@ -675,7 +675,7 @@ class EnsembleCorpus(Struct, frozen=True):
 
 def _create(
     ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
-) -> "RuntimeRail[tuple[EnsembleCorpus, ContentKey]]":
+) -> "RuntimeResult[tuple[EnsembleCorpus, ContentKey]]":
     with h5py.File(str(ref.path), "x") as file:
         file.create_dataset("design", data=np.asarray(design, dtype="<f8"), compression="gzip", shuffle=True)
         group = file.create_group("responses")

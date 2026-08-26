@@ -2,7 +2,7 @@
 
 `identity` rules the provider's byte-stability contract: two runs of one admitted operation over identical geometry emit identical STEP octets, which is what makes `CadService.Execute` idempotent at the artifact rather than merely at the reply. This owner holds the canonical header stamp, the canonical product identity every emission carries, and the `Interface_Static` policy the whole worker process runs under.
 
-`exchange/step#CODEC` composes `canonical` between transfer and write and proves `EMITTED` on readback, so this page seats beneath `step` inside the folder and imports nothing from it. `service/lane#REGIME` holds the ONE executable controller-and-pin table and fold, run once per worker process under its own `NATIVE_INIT`; this page declares the membership and the values — `UNIT`, `SCHEMA`, the three pin coordinates — and executes none of it. `faults#ROWS` supplies `STEP_WRITE`, and every refusal is `Error(<ROW>.at(...))` on `CadRail`.
+`exchange/step#CODEC` composes `canonical` between transfer and write and proves `EMITTED` on readback, so this page seats beneath `step` inside the folder and imports nothing from it. `service/lane#REGIME` holds the ONE executable controller-and-pin table and fold, run once per worker process under its own `NATIVE_INIT`; this page declares the membership and the values — `UNIT`, `SCHEMA`, the three pin coordinates — and executes none of it. `faults#ROWS` supplies `STEP_WRITE`, and every refusal is `Error(<ROW>.at(...))` on `CadResult`.
 
 ## [01]-[INDEX]
 
@@ -32,7 +32,7 @@ from OCP.StepData import StepData_StepModel
 from OCP.TCollection import TCollection_HAsciiString
 # Contracts are retired from this logic.
 
-from rasm.cad.faults import STEP_WRITE, CadRail
+from rasm.cad.faults import STEP_WRITE, CadResult
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ def _stamped(header: APIHeaderSection_MakeHeader, /) -> None:
         write(header, TCollection_HAsciiString(value))
 
 
-def canonical(model: StepData_StepModel, /) -> CadRail[StepData_StepModel]:
+def canonical(model: StepData_StepModel, /) -> CadResult[StepData_StepModel]:
     header = APIHeaderSection_MakeHeader(model)
     if not header.HasFn():
         return Error(STEP_WRITE.at("file-name.unsized"))

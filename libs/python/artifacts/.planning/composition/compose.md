@@ -33,7 +33,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import FAULT_CONF, TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TRANSIENT, FaultRow, RuntimeResult, async_boundary, rostered
 
 from rasm.artifacts.graphic.vector.path import Bounds, PathFault, Span, bounds, fragment, px, scene
 from rasm.artifacts.graphic.vector.region import BooleanOp, Fragment, RegionFault, RegionOp, RegionResult, RenderPolicy, applied
@@ -395,7 +395,7 @@ class Figure(Struct, frozen=True):
     def rendered(self) -> Self:
         return structs.replace(self, placed=_placed(self.op))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[Placed]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeResult[Placed]:
         match await async_boundary(FIGURE_RENDER, partial(self._rendered, key), catch=_FAULTS):
             case Result(tag="ok", ok=placed):
                 kind: ArtifactKind = "document" if self.op.tag == "pdf" else "preview"
@@ -425,8 +425,8 @@ class Figure(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-def _out_of[T](rail: "RuntimeRail[T]", /) -> T:
-    return rail.default_with(_figure_raise)
+def _out_of[T](held: "RuntimeResult[T]", /) -> T:
+    return held.default_with(_figure_raise)
 
 
 def _figure_raise(fault: object) -> NoReturn:

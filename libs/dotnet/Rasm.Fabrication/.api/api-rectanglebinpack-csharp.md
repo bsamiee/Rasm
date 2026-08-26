@@ -73,7 +73,7 @@
 
 [TOPOLOGY]:
 - Each packer is a mutable single-bin state machine: construct or `Init` to one bin extent, then `Insert` per part, each call mutating the free/used geometry and returning the placed `Rect`; the consumer pre-sorts parts descending by area or longer side (placement is order-sensitive) and folds each returned `Rect.X`/`Rect.Y` into a scalar placement transform.
-- `Height == 0` is the sole infeasibility signal — no `Insert` throws, and the suite ships no exception type — so the placement loop wraps in a `Fin` rail mapping the zero-height return to the typed `FabricationFault.Nest` case.
+- `Height == 0` is the sole infeasibility signal — no `Insert` throws, and the suite ships no exception type — so the placement loop wraps in a `Fin` result mapping the zero-height return to the typed `FabricationFault.Nest` case.
 - Coordinates are `int` end to end with no `uint` domain: the `Nesting/stock` owner ceils each part footprint and the sheet extent to `int` inbound and offsets the returned `Rect.X`/`Rect.Y` back into the layout frame outbound.
 - Utilization is consumer-derived: `MaxRectsBinPack` alone exposes `UsedRectangles`/`FreeRectangles`, giving `sum(used.Area) / (BinWidth * BinHeight)` and the cutting-stock remnant ledger; the other packers accumulate returned `Rect`s. `GuillotineBinPack.MergeFreeRectangles()` (or per-insert `merge: true`) coalesces fragmented free area before the remnant read.
 - Multi-sheet packing opens a fresh packer through `Init` after a `Height == 0` failure and re-feeds the unplaced part — the suite carries no built-in multi-bin driver.
@@ -81,7 +81,7 @@
 
 [STACKING]:
 - `Nesting/stock` (within-lib): `StockNest.Pack` selects the packer by layout intent — `GuillotineBinPack` for saw-cut sheet goods, `MaxRectsBinPack` for nest density, `SingleBinPack` for identical-part yield — folds each returned `Rect.X`/`Rect.Y` to the scalar placement, and reads `MaxRectsBinPack.FreeRectangles` or post-merge `GuillotineBinPack.FreeRectangles` as the remnant ledger.
-- `Nesting/nfp` (within-lib): the rect-fastpath arm of the true-shape CAM nest runs one `MaxRectsBinPack.Insert` heuristic sweep over this same suite; neither concern re-packs the other, and a `Rect` or heuristic-enum type crossing into any signature outside `Nesting/stock` is the seam violation.
+- `Nesting/nfp` (within-lib): the rect-fastpath arm of the true-shape CAM nest runs one `MaxRectsBinPack.Insert` heuristic sweep over this same suite; neither concern re-packs the other, and a `Rect` or heuristic-enum type crossing into any signature outside `Nesting/stock` is the boundary violation.
 - cross-`.api`: none — the int-rect suite carries zero package dependencies and composes with no sibling catalogue.
 
 [LOCAL_ADMISSION]:

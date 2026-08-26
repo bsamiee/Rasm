@@ -46,7 +46,7 @@ from expression.extra.result import traverse
 from rasm.cad.brep.placement import ShapeBuilder, built
 from rasm.cad.brep.provenance import Outcome, ShapeHistory, read
 from rasm.cad.exchange.step import sourced
-from rasm.cad.faults import CadRail
+from rasm.cad.faults import CadResult
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -75,11 +75,11 @@ def nary(
     factory: Callable[[], BooleanBuilder],
     coordinate: str,
     /,
-) -> CadRail[TopoDS_Shape]:
+) -> CadResult[TopoDS_Shape]:
     return built(_seeded(factory(), arguments, tools, 0.0), coordinate)
 
 
-def _performed(field: str, fuzzy_m: float, shapes: Block[TopoDS_Shape], /) -> CadRail[Outcome]:
+def _performed(field: str, fuzzy_m: float, shapes: Block[TopoDS_Shape], /) -> CadResult[Outcome]:
     operands = tuple(shapes)
     operation = _seeded(BOOLEANS[field](), operands[:1], operands[1:], fuzzy_m)
     return built(operation, field).map(
@@ -87,7 +87,7 @@ def _performed(field: str, fuzzy_m: float, shapes: Block[TopoDS_Shape], /) -> Ca
     )
 
 
-def boolean(field: str, payload: BooleanInputs, sources: frozendict[bytes, Path], /) -> CadRail[Outcome]:
+def boolean(field: str, payload: BooleanInputs, sources: frozendict[bytes, Path], /) -> CadResult[Outcome]:
     return traverse(lambda operand: sourced(operand, sources), Block.of_seq(payload.operands)).bind(
         partial(_performed, field, payload.fuzzy_m)
     )

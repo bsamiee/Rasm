@@ -1,6 +1,6 @@
 # [PY_DATA_API_OLCA_IPC]
 
-`olca-ipc` drives a running openLCA server through one transport-agnostic client: model CRUD, product-system construction, calculation and Monte-Carlo simulation, and the full result-query surface across inventory, impact, cost, and contribution axes. `olca_schema` carries the typed model graph as a separate package — transport-free dataclasses with `new_*` factories and dict/JSON codecs. It owns the live openLCA compute/interchange leg of the data EPD/LCA rail, never re-implementing the matrix solver openLCA owns nor holding the model as the system of record.
+`olca-ipc` drives a running openLCA server through one transport-agnostic client: model CRUD, product-system construction, calculation and Monte-Carlo simulation, and the full result-query surface across inventory, impact, cost, and contribution axes. `olca_schema` carries the typed model graph as a separate package — transport-free dataclasses with `new_*` factories and dict/JSON codecs. It owns the live openLCA compute/interchange leg of the data EPD/LCA domain, never re-implementing the matrix solver openLCA owns nor holding the model as the system of record.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -124,9 +124,9 @@
 - `bw2calc`(`.api/bw2calc.md`) / `bw2data`(`.api/bw2data.md`): `olca-ipc` is the remote openLCA compute+store, `bw2calc` over a `bw2data` project the in-process alternative for the same characterized result — a `get_total_impacts()` row is the openLCA counterpart of a `bw2calc` `score`.
 - `epdx`(`.api/epdx.md`) / `openepd`(`.api/openepd.md`): openLCA 2.x models EPDs first-class (`o.RefType.Epd`), so an `epdx`-parsed ILCD+EPD or `openepd` payload maps onto a native EPD/process/flow + `o.ImpactFactor` set pushed via `put_all`, and conversely `get_total_impacts()` yields EPD-comparable indicators.
 - `premise`(`.api/premise.md`): `premise.NewDatabase(...).write_db_to_olca(filepath)` exports a prospective ecoinvent database into openLCA — `olca-ipc` is the openLCA sink of premise's `write_db_to_olca` and calculates the forward-looking scenarios.
-- `pandas`(`.api/pandas.md`) / `polars`(`.api/polars.md`): result rows (`list[o.ImpactValue]`/`list[o.EnviFlowValue]`/`list[o.TechFlowValue]`) project straight into a frame feeding the tabular/contract/profile rails; `to_dict` gives the same as a record stream.
+- `pandas`(`.api/pandas.md`) / `polars`(`.api/polars.md`): result rows (`list[o.ImpactValue]`/`list[o.EnviFlowValue]`/`list[o.TechFlowValue]`) project straight into a frame feeding the tabular/contract/profile stages; `to_dict` gives the same as a record stream.
 - `msgspec`(`../../.api/msgspec.md`) / `pydantic`(`../../.api/pydantic.md`): the `olca_schema` `to_dict`/`from_dict` forms decode into `msgspec.Struct`/`pydantic` models at the wire for a typed internal carrier.
 - within-lib: construct `Client(endpoint)`/`RestClient(url)` from the runtime `TransportResource` at the boundary; wrap the `requests`-backed calls in a `stamina` retry, run `wait_until_ready()` under an `anyio` deadline, span `calculate`→query via `structlog`/`opentelemetry` keyed by `CalculationSetup.target`/`ResultState.id`, key a calculation by the runtime `ContentIdentity` over the setup for reuse-ledger dedup, and release the `Result` in a `finally`/`async with`.
 
 [LOCAL_ADMISSION]:
-- `olca-ipc` is the sole live-openLCA client on the epd-lca rail; a folder composing it registers `olca-ipc` and `olca-schema` in the branch manifest and this catalog.
+- `olca-ipc` is the sole live-openLCA client on the epd-lca domain; a folder composing it registers `olca-ipc` and `olca-schema` in the branch manifest and this catalog.

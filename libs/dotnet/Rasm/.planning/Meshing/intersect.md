@@ -1,26 +1,26 @@
 # [RASM_INTERSECTION_INTERSECT]
 
-`Rasm.Meshing` owns the predicate-exact crossing lattice: one `IntersectOp` `[Union]` folded by one `Intersection.Apply` entry, crossing EXISTENCE decided by exact straddle signs, every crossing POINT an `Implicit` construction rounded at the `Round()` emission seam. Endpoints key by defining entities through `CrossKey`, adjacent-face crossings interning to one row by integer equality, and chains walk that adjacency into oriented closed loops and typed OPEN rows. Predicate-exact discrete crossing is the whole charter; host-parametric NURBS/Brep intersection homes at `Analysis/relations`.
+`Rasm.Meshing` owns the predicate-exact crossing table: one `IntersectOp` `[Union]` folded by one `Intersection.Apply` entry, crossing EXISTENCE decided by exact straddle signs, every crossing POINT an `Implicit` construction rounded at the `Round()` emission boundary. Endpoints key by defining entities through `CrossKey`, adjacent-face crossings interning to one row by integer equality, and chains walk that adjacency into oriented closed loops and typed OPEN rows. Predicate-exact discrete crossing is the whole charter; host-parametric NURBS/Brep intersection homes at `Analysis/relations`.
 
-Rebuilding composes the broad phase from `Spatial.Apply`, the triangle soups from `MeshEdit.Of`, and exact ordering from `Predicate.Compare`, authoring the Guigue-Devillers narrow phase and the key-connectivity chain assembly alone. `CrossingStore` binds the `Meshing/edit` arena law, and `IntersectResult.Chains` carries the frozen `CrossLattice` so `Meshing/arrangement` consumes the same run without a second narrow phase.
+Rebuilding composes the broad phase from `Spatial.Apply`, the triangle soups from `MeshEdit.Of`, and exact ordering from `Predicate.Compare`, authoring the Guigue-Devillers narrow phase and the key-connectivity chain assembly alone. `CrossingStore` binds the `Meshing/edit` arena law, and `IntersectResult.Chains` carries the frozen `CrossTable` so `Meshing/arrangement` consumes the same run without a second narrow phase.
 
 ## [01]-[INDEX]
 
 - [02]-[INTERSECTION]: one `Intersection.Apply` folding seven `IntersectOp` cases; `Crossing` = `Implicit` construction + `CrossKey` merge key over the `CrossingStore` arena; Guigue-Devillers narrow phase; key-connectivity chain walk with oriented loops and typed open chains.
-- [03]-[DENSITY_BAR]: one owner per axis with its return rail and case count.
+- [03]-[DENSITY_BAR]: one owner per axis with its return type and case count.
 
 ## [02]-[INTERSECTION]
 
-- Owner: `PrimitiveKind` `[SmartEnum<string>]` mints the primitive vocabulary the `GeometryFault.IntersectionFault` payload reads; `IntersectKind` `[SmartEnum<string>]` carries the `A`/`B` primitive-pair columns the fault payload derives from its own row; `IntersectPolicy` registers `IValidityEvidence`; `CrossKey` is the defining-entity merge key where integer equality IS the cross-face merge; `Crossing` pairs the `Implicit` exact point with its `CrossKey`; `CrossingStore` interns key-classified crossing rows and segment pairs, freezing into the `CrossLattice` projection; `Chain` is the typed result row and `ChainWalk` the ONE oriented-edge decomposition behind it, composed here and by the arrangement rim; `IntersectOp`/`IntersectResult` are the request/result unions folded by the `Intersection` static surface.
+- Owner: `PrimitiveKind` `[SmartEnum<string>]` mints the primitive vocabulary the `GeometryFault.IntersectionFault` payload reads; `IntersectKind` `[SmartEnum<string>]` carries the `A`/`B` primitive-pair columns the fault payload derives from its own row; `IntersectPolicy` registers `IValidityEvidence`; `CrossKey` is the defining-entity merge key where integer equality IS the cross-face merge; `Crossing` pairs the `Implicit` exact point with its `CrossKey`; `CrossingStore` interns key-classified crossing rows and segment pairs, freezing into the `CrossTable` projection; `Chain` is the typed result row and `ChainWalk` the ONE oriented-edge decomposition behind it, composed here and by the arrangement rim; `IntersectOp`/`IntersectResult` are the request/result unions folded by the `Intersection` static surface.
 - Cases: `IntersectOp` cases `SegmentSegment` · `SegmentTriangle` · `TriangleTriangle` · `RayMesh` · `MeshMesh` · `SelfMesh` · `PlaneMesh`; `IntersectResult` cases `Points` · `Segments` · `Chains`.
-- Entry: `[BoundaryAdapter] Apply` discriminates on the op case and resolves the ONE key every interior static then takes outright; `Fin<T>` routes `GeometryFault.DegenerateInput` on an inadmissible primitive and `GeometryFault.IntersectionFault` — carrying the offending endpoint slot in its `Junction` column — on a section edge key incident to three or more faces, while an OPEN section on a boundaried mesh is a typed `Chain(Closed: false)`, never a fault. `SegmentSegment` carries its projection `Axis`, so the 2D restriction lives in the request shape.
+- Entry: `Apply` discriminates on the op case and resolves the ONE key every interior static then takes outright; `Fin<T>` routes `GeometryFault.DegenerateInput` on an inadmissible primitive and `GeometryFault.IntersectionFault` — carrying the offending endpoint slot in its `Junction` column — on a section edge key incident to three or more faces, while an OPEN section on a boundaried mesh is a typed `Chain(Closed: false)`, never a fault. `SegmentSegment` carries its projection `Axis`, so the 2D restriction lives in the request shape.
 - Auto: point-level cases run the exact straddle directly; mesh-level cases fold `MeshEdit.Of`, the `Spatial.Apply` BVH broad phase, and the narrow phase, interning each crossing endpoint into `CrossingStore` by `CrossKey` so a crossing reached from two face pairs lands on one row and a hit on a pierced edge or corner keys by its classified landing, not by either incident face. Chain assembly hands the material-oriented segments stored `from → to` to `ChainWalk`, which seats them in a bidirectional container source-first: an out-degree or in-degree above one on any endpoint routes the non-manifold junction fault carrying that endpoint, a zero-indegree head opens a typed open chain, a head the container gives a predecessor sits on a cycle and closes an oriented loop, and every remaining component is reached by the one depth-first sweep.
-- Output: `IntersectResult`, its `Chains` case carrying the frozen `CrossLattice` as payload; the hash-eligible artifacts are the `Polyline`/`Point3d` values at the `Round()` seam.
+- Output: `IntersectResult`, its `Chains` case carrying the frozen `CrossTable` as payload; the hash-eligible artifacts are the `Polyline`/`Point3d` values at the `Round()` boundary.
 - Law: every crossing row keys by INTEGER defining entities, and the one coincidence fallback keys by `Axis.BitKey` — the predicate owner's exact IEEE triple with signed zero folded onto positive, the same zero the exact `Compare` reads — so the arena carries no float-keyed table, no page re-derives that ordinal, and no tolerance decides identity. Broad-phase inflation reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the sweep band scales with the model instead of pinning an absolute epsilon on the policy row. `IntersectPolicy.KeepCoplanar` stays a bare bool: it gates whether the coplanar AREA contact emits constraint rows at all, and no second policy column shares a legal-corner law with it.
-- Exemption: the mutable tables are arena or statement-kernel state, never frozen — `CrossingStore`'s `interned`/`byBits` intern maps and `segments`/`coplanar` accumulators (the arena's own columns, published only through `Freeze`), the `seam` third-vertex ledger inside one `Section` sweep, and `ChainWalk`'s `incoming` seed set, which orders the container's insertion and dies with the build.
+- Exemption: the mutable tables are arena or statement-kernel state, never frozen — `CrossingStore`'s `interned`/`byBits` intern maps and `segments`/`coplanar` accumulators (the arena's own columns, published only through `Freeze`), the `shared` third-vertex ledger inside one `Section` sweep, and `ChainWalk`'s `incoming` seed set, which orders the container's insertion and dies with the build.
 - Packages: `Rasm.Numerics` (`Predicate`, `Implicit`/`Ssi`/`Lpi`, `Sign`, `Axis` with `Coord`/`BitKey`, `GeometryFault`), `Rasm.Spatial` (`Spatial.Apply` broad phase), `Rasm.Meshing` (`MeshEdit.Of`, `MeshSpace`), `Rasm.Domain` (`Op`, `Kind`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`), QuikGraph (`GraphExtensions.ToAdjacencyGraph`/`ToBidirectionalGraph`, `BidirectionalGraph`/`SEdge`, `DepthFirstSearchAlgorithm` under `ProcessAllComponents`, `VertexPredecessorPathRecorderObserver` — the chain decomposition's one container, one walk, one observer), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new crossing modality is one `IntersectKind` row and one `IntersectOp` case reading the same narrow phase and key-connectivity assembly; a new crossing construction is a predicate-owner `Implicit` case; a new broad-phase knob is one `IntersectPolicy` column, and a new band is one `ToleranceLane` row at the context owner.
-- Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality and exact `Compare` signs; every ordering is a TOTAL function of the input, the arena slot or arrival ordinal settling the `Compare` tie a collinear multi-touch produces, so no emission depends on an unstable sort's array layout; loops emit oriented at emission and open sections emit as typed rows; `Apply` is total over the `Fin` rail; `CrossingStore` is the single-writer arena whose frozen `CrossLattice` is the only projection consumers hold.
+- Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality and exact `Compare` signs; every ordering is a TOTAL function of the input, the arena slot or arrival ordinal settling the `Compare` tie a collinear multi-touch produces, so no emission depends on an unstable sort's array layout; loops emit oriented at emission and open sections emit as typed rows; `Apply` is total over `Fin`; `CrossingStore` is the single-writer arena whose frozen `CrossTable` is the only projection consumers hold.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -132,7 +132,7 @@ internal static class ChainWalk {
     }
 }
 
-public sealed record CrossLattice(
+public sealed record CrossTable(
     Crossing[] Rows,
     (int A, int B, int FaceA, int FaceB)[] Segments,
     (int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)[] Coplanar) {
@@ -172,7 +172,7 @@ public sealed class CrossingStore {
     public void Segment(int a, int b, int faceA, int faceB) => segments.Add((a, b, faceA, faceB));
     public void CoplanarRow(int a, int b, int faceA, int faceB, int carrierU, int carrierV, int carrierSide) => coplanar.Add((a, b, faceA, faceB, carrierU, carrierV, carrierSide));
 
-    public CrossLattice Freeze() => new([.. rows.AsSpan(0, count)], [.. segments], [.. coplanar]);
+    public CrossTable Freeze() => new([.. rows.AsSpan(0, count)], [.. segments], [.. coplanar]);
 
     void Grow(int needed) {
         if (needed <= rows.Length) { return; }
@@ -186,7 +186,7 @@ public abstract partial record IntersectResult {
 
     public sealed record Points(Seq<Point3d> Hits) : IntersectResult;
     public sealed record Segments(Seq<Line> Crossings) : IntersectResult;
-    public sealed record Chains(Seq<Chain> Walked, CrossLattice Lattice) : IntersectResult;
+    public sealed record Chains(Seq<Chain> Walked, CrossTable Table) : IntersectResult;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -214,7 +214,6 @@ public abstract partial record IntersectOp {
 }
 
 public static class Intersection {
-    [BoundaryAdapter]
     public static Fin<IntersectResult> Apply(IntersectOp op, Op? key = null) {
         Op site = key.OrDefault();
         return Admit(op).Bind(_ => op.Switch(
@@ -227,8 +226,8 @@ public static class Intersection {
                     Some: seg => Seq(new Line(seg.A.Round(), seg.B.Round())),
                     None: () => Seq<Line>()))),
             rayMesh:          r => FirstHit(r, site),
-            meshMesh:         m => Lattice(m, site).Bind(store => Chains(store.Freeze(), m.Kind)),
-            selfMesh:         sm => SelfLattice(sm, site).Bind(store => Chains(store.Freeze(), sm.Kind)),
+            meshMesh:         m => Cross(m, site).Bind(store => Chains(store.Freeze(), m.Kind)),
+            selfMesh:         sm => SelfCross(sm, site).Bind(store => Chains(store.Freeze(), sm.Kind)),
             planeMesh:        p => Section(p, site).Bind(store => Chains(store.Freeze(), p.Kind))));
     }
 
@@ -382,8 +381,8 @@ public static class Intersection {
                 ? Fin.Succ(pairs.Overlaps)
                 : Fin.Fail<Seq<(int, int)>>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Overlap)));
 
-    // --- [LATTICE]
-    static Fin<CrossingStore> Lattice(IntersectOp.MeshMesh op, Op key) {
+    // --- [CROSSINGS]
+    static Fin<CrossingStore> Cross(IntersectOp.MeshMesh op, Op key) {
         using MeshEdit ea = MeshEdit.Of(op.A);
         using MeshEdit eb = MeshEdit.Of(op.B);
         return (Bvh(ea, key), Bvh(eb, key)).Apply((ia, ib) => (ia, ib)).As()
@@ -391,7 +390,7 @@ public static class Intersection {
             .Map(pairs => pairs.Fold(new CrossingStore(op.Policy.SeedCapacity), (store, pair) => PairCrossings(store, ea, eb, pair.Left, pair.Right, op.Policy)));
     }
 
-    static Fin<CrossingStore> SelfLattice(IntersectOp.SelfMesh op, Op key) {
+    static Fin<CrossingStore> SelfCross(IntersectOp.SelfMesh op, Op key) {
         using MeshEdit soup = MeshEdit.Of(op.Mesh);
         return Bvh(soup, key)
             .Bind(index => OverlapPairs(index, index, op.Mesh.Tolerance.For(ToleranceLane.MeshIntersection).Value, key))
@@ -525,7 +524,7 @@ public static class Intersection {
         using MeshEdit soup = MeshEdit.Of(op.Mesh);
         (Point3d po, Point3d px, Point3d py) = (op.Cut.Origin, op.Cut.Origin + op.Cut.XAxis, op.Cut.Origin + op.Cut.YAxis);
         CrossingStore store = new(op.Policy.SeedCapacity);
-        Dictionary<(int U, int V), Sign> seam = new();
+        Dictionary<(int U, int V), Sign> shared = new();
         for (int f = 0; f < soup.FaceCount; f++) {
             (int v0, int v1, int v2) = soup.Face(f);
             Span<int> verts = [v0, v1, v2];
@@ -544,7 +543,7 @@ public static class Intersection {
                 (int u, int v) = (verts[lying], verts[(lying + 1) % 3]);
                 (int cu, int cv) = (int.Min(u, v), int.Max(u, v));
                 Sign third = s[(lying + 2) % 3];
-                if (!seam.TryGetValue((cu, cv), out Sign facing)) { seam[(cu, cv)] = third; continue; }
+                if (!shared.TryGetValue((cu, cv), out Sign facing)) { shared[(cu, cv)] = third; continue; }
                 if (facing.Times(third) != Sign.Negative) { continue; }
                 int au = store.Intern(new Implicit(soup.Position(u)), CrossKey.Vertex(0, u));
                 int av = store.Intern(new Implicit(soup.Position(v)), CrossKey.Vertex(0, v));
@@ -594,9 +593,9 @@ public static class Intersection {
     }
 
     // --- [CHAIN]
-    static Fin<IntersectResult> Chains(CrossLattice lattice, IntersectKind kind) =>
-        ChainWalk.Of(lattice.Segments.Select(static s => (s.A, s.B)), slot => lattice.Rows[slot].Point.Round(), kind.A, kind.B)
-            .Map(chains => (IntersectResult)new IntersectResult.Chains(chains, lattice));
+    static Fin<IntersectResult> Chains(CrossTable table, IntersectKind kind) =>
+        ChainWalk.Of(table.Segments.Select(static s => (s.A, s.B)), slot => table.Rows[slot].Point.Round(), kind.A, kind.B)
+            .Map(chains => (IntersectResult)new IntersectResult.Chains(chains, table));
 
     // --- [PRIMITIVES]
     static Sign Along(Vector3d d, Axis axis) => Sign.Of(Axis.Coord(d, axis.Key));
@@ -612,7 +611,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Crossing lattice flow
+    accTitle: Crossing table flow
     accDescr: Operands flow through the broad phase, exact narrow phase, and key-interned crossing rows into chained loops and open rows.
     IntersectOp -->|Orient3D / projected Orient2D straddles| Predicate
     IntersectOp -->|Overlap pairs / ray-reach Range via Spatial.Apply| SpatialIndex
@@ -621,16 +620,16 @@ flowchart LR
     Crossing -->|CrossKey intern — exact cross-face merge| CrossingStore
     CrossingStore -->|key adjacency, Next successor| Chain
     Chain -->|oriented closed loops + typed open rows| IntersectResult
-    CrossingStore -->|Freeze| CrossLattice
-    CrossLattice -->|per-face constraint carriage| Arrangement
+    CrossingStore -->|Freeze| CrossTable
+    CrossTable -->|per-face constraint carriage| Arrangement
     IntersectOp -.->|DegenerateInput / IntersectionFault| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]
 
-`[RAIL]` cells name the one return rail each owner exposes.
+`[RESULT]` cells name the one return type each owner exposes.
 
-| [INDEX] | [AXIS_CONCERN]   | [OWNER]           | [RAIL]                                            | [CASES] |
+| [INDEX] | [AXIS_CONCERN]   | [OWNER]           | [RESULT]                                          | [CASES] |
 | :-----: | :--------------- | :---------------- | :------------------------------------------------ | :-----: |
 |  [01]   | Intersection     | `IntersectOp`     | `Intersection.Apply → Fin<IntersectResult>`       |    7    |
 |  [02]   | Primitive kinds  | `PrimitiveKind`   | payload row (faults compose it)                   |    5    |

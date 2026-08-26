@@ -2,9 +2,9 @@
 
 `@pulumi/github` provisions the source-control leg of the bootstrap axis — repository shells, branch law, deployment-environment gates, Actions slots, deploy keys, webhooks, org/team RBAC — as typed resources under one `Provider`; secret VALUES never route here, so `iac` authors only the shells the Doppler mirror fills.
 
-## [01]-[PROVIDER_SEAM]
+## [01]-[PROVIDER_CONFIG]
 
-[PROVIDER_SCOPE]: one credentialed seam per estate
+[PROVIDER_SCOPE]: one credentialed provider per deployment
 - Rate posture rides provider knobs: `maxRetries`/`retryDelayMs`/`retryableErrors`/`readDelayMs`/`writeDelayMs`/`parallelRequests`/`maxPerPage`.
 
 | [INDEX] | [FIELD]   | [MEANING]                                                                                       |
@@ -39,10 +39,10 @@
 
 [TOPOLOGY]:
 - one `Provider` per owner scope, constructed from the fan-in token once and threaded through tier options; `appAuth` supersedes a PAT for durable machine identity, and rate posture rides the provider knobs.
-- one branch-law owner per repo: `RepositoryRuleset` for rules-engine estates, `BranchProtection` for classic protection, `BranchProtectionV3` only when adopting a REST-managed repo.
+- one branch-law owner per repo: `RepositoryRuleset` for rules-engine repos, `BranchProtection` for classic protection, `BranchProtectionV3` only when adopting a REST-managed repo.
 - `RepositoryEnvironment` is the deployment gate shell — `reviewers`, `waitTimer`, `preventSelfReview`, and a `deploymentBranchPolicy` refined by `RepositoryEnvironmentDeploymentPolicy` (`branchPattern` XOR `tagPattern`).
 
 [STACKING]:
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `secretssync.GithubActions` (`syncTarget: "repo"|"org"`) writes Actions secret VALUES from the canonical config into the repo/environment slots, its `environmentName` targeting the `RepositoryEnvironment` shell authored here.
 - `@pulumi/tls`(`.api/pulumi-tls.md`): `RepositoryDeployKey.key` binds `PrivateKey.publicKeyOpenssh` (`readOnly: true` the default posture, a write key deliberate) — the private half never enters this provider; `RepositoryWebhook.configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies.
-- within-lib: environment names align with the estate's `StackSpec.doppler.config` axis, so the mirror, the gate, and the stack speak one environment vocabulary.
+- within-lib: environment names align with the stack's `StackSpec.doppler.config` axis, so the mirror, the gate, and the stack speak one environment vocabulary.

@@ -1,6 +1,6 @@
 # [PY_CAD_ARCHITECTURE]
 
-`cad` maps exact solid modeling and neutral CAD exchange onto one owner per sub-domain folder, each composing the OCP kernel below the boundary and returning the one `CadRail` the `faults` spine mints. Alignment with the geometry peer travels the `CadService` wire while generated `ArtifactService` carries every body by reference, so no native handle, local mirror, provider store, or stream state machine crosses.
+`cad` maps exact solid modeling and neutral CAD exchange onto one owner per sub-domain folder, each composing the OCP kernel below the boundary and returning the one `CadResult` the `faults` spine mints. Alignment with the geometry peer travels the `CadService` wire while generated `ArtifactService` carries every body by reference, so no native handle, local mirror, provider store, or stream state machine crosses.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -74,7 +74,7 @@ flowchart TB
     Service e1@-->|"[IMPORT]: TessellationEvidence"| Tessellation
     Service e2@-->|"[IMPORT]: BrepEvidence"| Brep
     Service e3@-->|"[IMPORT]: WHOLE_LANE"| Regime
-    Service e4@-->|"[IMPORT]: CadRail"| Faults
+    Service e4@-->|"[IMPORT]: CadResult"| Faults
     Tessellation e5@-->|"[IMPORT]: Assembly"| Assembly
     Tessellation e6@-->|"[IMPORT]: GlbCensus"| Metrology
     Tessellation e7@-->|"[IMPORT]: Custody"| Regime
@@ -88,11 +88,11 @@ flowchart TB
     Step e15@-->|"[IMPORT]: canonical"| Identity
     Iges e16@-->|"[IMPORT]: global"| Identity
     Iges e17@-->|"[IMPORT]: topology"| Metrology
-    Placement e18@-->|"[IMPORT]: CadRail"| Faults
+    Placement e18@-->|"[IMPORT]: CadResult"| Faults
     Faults f1@-->|"forbidden: upward import"| S5
 ```
 
-- S0 `faults` — imports no sibling, and every owner returns its `CadRail`; a refusal shape is one row here, never a band-local family.
+- S0 `faults` — imports no sibling, and every owner returns its `CadResult`; a refusal shape is one row here, never a band-local family.
 - S1 lowering and measurement — `brep/regime`, `brep/placement`, `exchange/identity`, and `metrology` reach only OCP and the spine.
 - S1 `brep/regime` mints tolerance and `Custody`; the lane passes `WHOLE_LANE`, and kernel pages mint no parallel grant.
 - S2 codecs — `exchange/step` owns format dispatch and imports `exchange/iges` for the surface arm; both emit sealed bodies.
@@ -103,7 +103,7 @@ flowchart TB
 - `brep/operation` alone imports downward for placement, source resolution, and codec sealing; every arm remains below the apex.
 - S5 `service` alone composes runtime `transport/artifact` for spool custody and verified transfer; lower ranks remain branch-independent.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -114,7 +114,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: cad provider seams to its Python branch counterparts
+    accTitle: cad provider boundaries to its Python branch counterparts
     accDescr: Provider owners meeting the geometry peer over one Connect wire, reading generated vocabulary from the import root and custody from runtime.
     subgraph cad[CAD]
         Service[service]
@@ -150,19 +150,19 @@ flowchart LR
     Kernel e4@-->|"sealed, extent-gated, rekeyed evidence"| Lane
     Lane e5@-->|"written output path"| Sink[spool · sealed sink]
     Sink e6@-->|"confirmed reference"| Reply[/unary reply/]
-    Kernel f1@-.->|"rail refusal"| Fault[/CadFault/]
+    Kernel f1@-.->|"result refusal"| Fault[/CadFault/]
     Lane f2@-.->|"worker death, saturation, deadline"| Fault
     Fault f3@-.->|"projected detail"| Reply
 ```
 
 - One deadline scope opens at the servicer and every inner window derives from the effective deadline, so no call re-threads that budget.
 - Sources resolve ONCE at the spool under admitted validation; the worker takes resolved paths and re-derives no reference at all.
-- Generated messages cross the pickle seam as binary; native handles remain worker-local, and each fold receives bounded values plus `Custody`.
-- Refusals cross that same seam as values, because a fault carries a frozen row and a coordinate that pickle by reference at both ends of it.
+- Generated messages cross the pickle boundary as binary; native handles remain worker-local, and each fold receives bounded values plus `Custody`.
+- Refusals cross that same boundary as values, because a fault carries a frozen row and a coordinate that pickle by reference at both ends of it.
 - Process-global OCCT state initializes inside the worker on first fold, so the parent holds no latch the fold reads and a respawn re-establishes it.
 - Sealed outputs re-read before reply; readback proves format and extent, then rekeys correspondence onto decoded order.
 - One emitted-file census supplies the measure's closure, the tessellation counts, and the parts roster, so measurement decodes once.
-- Refusal converges at the servicer alone; interior owners return the rail, and one row beside the admitted stamp builds the terminal Connect error.
+- Refusal converges at the servicer alone; interior owners return the result, and one row beside the admitted stamp builds the terminal Connect error.
 
 ## [05]-[BOUNDARIES]
 
@@ -170,4 +170,4 @@ flowchart LR
 - App root binds the provider address, the artifact client, credentials, process memory limits, and the call-spool filesystem quota.
 - `runtime` `transport/body` and `transport/artifact` own body admission and the verified artifact lifecycle this package composes.
 - `geometry` owns mesh semantics, the per-placement body decode, IFC projection, and every consumer-side quality verdict reached across the wire.
-- GLB is the estate's one discrete carrier; this package emits no second triangle wire beside it.
+- GLB is the repo's one discrete carrier; this package emits no second triangle wire beside it.

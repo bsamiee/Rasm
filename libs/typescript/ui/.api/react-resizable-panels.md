@@ -2,7 +2,7 @@
 
 `react-resizable-panels` owns the split-pane constraint solver: a `Group` holds N `Panel` children with per-panel min, max, collapse, and unit-mixed size constraints, and every drag, keypress, or programmatic resize solves the whole row at once so the sum stays exact. `Separator` ships the complete window-splitter pattern — the full `role="separator"` aria property set, arrow, Home, End, Enter, and F6 keys, and coarse-pointer hit-target widening.
 
-Layout crosses the boundary as a plain `{ [panelId]: percentage }` map through `defaultLayout` and `onLayoutChanged`, so persistence, restore, and workspace tokens ride the estate's own storage rail.
+Layout crosses the boundary as a plain `{ [panelId]: percentage }` map through `defaultLayout` and `onLayoutChanged`, so persistence, restore, and workspace tokens ride the package's own storage path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -73,7 +73,7 @@ Layout crosses the boundary as a plain `{ [panelId]: percentage }` map through `
 [STACKING]:
 - `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): an async or server-backed layout store rides the props pair rather than the hook — `useAtomValue` supplies `defaultLayout` from a workspace atom that suspends until hydrated, and `onLayoutChanged` dispatches through `useAtomSet`, branching on `meta.isUserInteraction` so a hydration write never round-trips to the server. `Atom.kvs` serves the local-only case with the same shape.
 - `react-aria-components` (`.api/react-aria-components.md`): the panes host RAC surfaces and never wrap them — this package owns `role="separator"` and its key handling outright, so a RAC focus scope or pressable layered onto a `Separator` doubles the keyboard model; `F6` separator cycling composes beside RAC's own landmark navigation.
-- `class-variance-authority` (`.api/class-variance-authority.md`): `cva()` selectors folded through the one `cn()` rail style off the library's own state attributes — `data-separator` resolves to `focus`, `active`, `disabled`, or the hover state — with `disableCursor` handing cursor styling to the token plane.
+- `class-variance-authority` (`.api/class-variance-authority.md`): `cva()` selectors folded through the one `cn()` fold style off the library's own state attributes — `data-separator` resolves to `focus`, `active`, `disabled`, or the hover state — with `disableCursor` handing cursor styling to the token plane.
 - `@tanstack/react-virtual` (`.api/tanstack-react-virtual.md`): a windowed list inside a panel reads its own scroll container, and the panel's `onResize` (`PanelSize.inPixels`) drives `virtualizer.measure()`, so a pane drag settles the window without a second `ResizeObserver`.
 - `@xyflow/react` (`.api/xyflow-react.md`): a canvas hosted in a panel takes `width`/`height` from the panel rather than the window, and the pane's settled `onLayoutChanged` drives `fitView` from `useReactFlow`, so the graph reframes once per drag instead of once per frame.
 - `@use-gesture/react` (`.api/use-gesture-react.md`): pane dragging stays library-owned — `Separator` binds pointer capture and `touch-action: none` itself, so a gesture hook on the handle double-applies every delta.

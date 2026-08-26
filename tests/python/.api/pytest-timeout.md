@@ -30,7 +30,7 @@ Config key, marker, and CLI/env surface resolving a per-test ceiling.
 
 | [INDEX] | [SURFACE]                                      | [KIND]            | [CAPABILITY]                                                     |
 | :-----: | :--------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
-|  [01]   | `timeout` (ini)                                | config key        | session-wide seconds; `0` = no timeout; the estate sets `"30"`   |
+|  [01]   | `timeout` (ini)                                | config key        | session-wide seconds; `0` = no timeout; the repo sets `"30"`     |
 |  [02]   | `@pytest.mark.timeout(seconds, ...)`           | per-test override | overrides the ini ceiling; `method`/`func_only` kwargs per test  |
 |  [03]   | `--timeout <seconds>` · `PYTEST_TIMEOUT` (env) | CLI/env override  | run-time ceiling above the ini value                             |
 |  [04]   | `--timeout-method <signal\|thread>`            | mechanism         | `signal` = SIGALRM (main thread); `thread` = timer (any context) |

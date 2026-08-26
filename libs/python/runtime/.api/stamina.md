@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_STAMINA]
 
-`stamina` mints the production retry layer over `tenacity`: a `@retry` decorator and a `retry_context` iterator share one keyword policy schema, reusable sync/async callers bind the retryable exception set through `.on(...)`, exponential backoff with jitter and a wait cap schedules every attempt, and a context-manager-capable on-retry hook surface feeds the observability rail. It is the resilience rail's sole owner — every transient-failure boundary folds through it.
+`stamina` mints the production retry layer over `tenacity`: a `@retry` decorator and a `retry_context` iterator share one keyword policy schema, reusable sync/async callers bind the retryable exception set through `.on(...)`, exponential backoff with jitter and a wait cap schedules every attempt, and a context-manager-capable on-retry hook surface feeds the observability pipeline. It is the resilience layer's sole owner — every transient-failure boundary folds through it.
 
 ## [01]-[PUBLIC_TYPES]
 

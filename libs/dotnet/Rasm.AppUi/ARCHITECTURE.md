@@ -1,6 +1,6 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-`Rasm.AppUi` maps the APP-PLATFORM Avalonia product surface over canonical domain results, the AppUi hook rail, and the leased GPU device: one shell mounts every admitted host substrate, one control vocabulary materializes every surface, and each sub-domain fault family derives `Fault` on its own kernel `FaultBand` row. S4 seats it as the consuming leaf — it references the platform peers downward, re-owns none of their capability, and never becomes the composition root.
+`Rasm.AppUi` maps the APP-PLATFORM Avalonia product surface over canonical domain results, the AppUi hook dispatch, and the leased GPU device: one shell mounts every admitted host substrate, one control vocabulary materializes every surface, and each sub-domain fault family derives `Fault` on its own kernel `FaultBand` row. S4 seats it as the consuming leaf — it references the platform peers downward, re-owns none of their capability, and never becomes the composition root.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -9,25 +9,25 @@ Rasm.AppUi/
 ├── Shell/                # Host-mount axis and application shell spine
 │   ├── Navigation.cs     # NavRequest union over the ShellRoot router; ShellDockFactory folds DockableRow rows through RegionProgram
 │   ├── Screens.cs        # Frozen ScreenCatalog derivation table; ProductScreen owns activation, admission, and snapshot state
-│   ├── Hosts.cs          # SurfaceMount union beside the profile-stated host class; one SurfaceSeam record carries the mount
+│   ├── Hosts.cs          # SurfaceMount union beside the profile-stated host class; one SurfacePort record carries the mount
 │   ├── Commands.cs       # CommandRow rows with payload union, the availability algebra seat, CommandDeck derivations
 │   ├── Palette.cs        # Federated provider vocabulary, one merged rank fold, the binding editor over the frozen deck
 │   ├── Queue.cs          # Run-queue surface: OutputState rows, Retriability-driven retry verbs, the queue instrument rows
 │   ├── Controls.cs       # Closed ControlIntent [Union] seating arity, provider, modality, and emphasis as case columns
 │   ├── Solver.cs         # LayoutConstraint equality, inequality, and priority algebra; the Cassowary-backed panel seat
 │   ├── Virtualization.cs # VirtualWindow viewport-range realization at constant cost; control-recycling columns
-│   ├── Dialogs.cs        # DialogIntent union over per-root Interaction seams; StackOwner binding and Fin-railed results
+│   ├── Dialogs.cs        # DialogIntent union over per-root Interaction boundaries; StackOwner binding and Fin-typed results
 │   ├── Input.cs          # GesturePolicy chord derivation, behavior trigger and action rows, the frozen PanZoomRow family
 │   └── Accessibility.cs  # ScreenCatalogRow automation columns, KeyboardNavigation reachability, the luminance gate fold
 ├── Render/               # GPU viewport, temporal plane, and the 2D documentation legs
 │   ├── Pipeline.cs       # Pass-DAG over the leased GRContext; GpuBackend rows carry Target delegates over the GpuBinding union
 │   ├── Viewpoint.cs      # Viewpoint outcome with the OverrideState vocabulary; the ViewRegistry named-view address space
 │   ├── Meshlets.cs       # ResidencyMeshlet descriptor reads; selection owner for bindless residency, prefetch, and instancing
-│   ├── PathTrace.cs      # BVH build-and-refit, ReSTIR reservoirs, progressive denoise; ShadeSeam off the Materials values
+│   ├── PathTrace.cs      # BVH build-and-refit, ReSTIR reservoirs, progressive denoise; ShadePort off the Materials values
 │   ├── Shading.cs        # ShaderAssetCache keyed per GpuBackend beside the byte-budgeted native texture-plane cache
 │   ├── Immersive.cs      # OpenXR session machine on the leased Wgpu device; the immersive deck composition root
 │   ├── Reality.cs        # SplatSource and PointCloudSource decodes off the residency carrier; the CapturePass projection
-│   ├── Capture.cs        # DrawSource capsule with Fin-railed Use; thumbnail variants and content-hashed encode rows
+│   ├── Capture.cs        # DrawSource capsule with Fin-returning Use; thumbnail variants and content-hashed encode rows
 │   ├── Measure.cs        # SectionDrag handles and MeasureSession reads over one shared world-to-screen projection arrow
 │   ├── Drafting.cs       # SheetSet axis, Viewport2D frames, DraftDimension records, the DraftEmit format dispatch
 │   ├── CadWrite.cs       # One SheetEntity-to-CadDocument fold behind the DwgWriter/DxfWriter/SvgWriter rows
@@ -40,14 +40,14 @@ Rasm.AppUi/
 │   ├── Boards.cs         # BoardContext value, the placement fold, the sealed snapshot grain, the cross-filter brush index
 │   ├── Custom.cs         # CustomVisual frozen layout catalog binding one VisualPayload case per row
 │   ├── Basemap.cs        # Mapsui MapControl with BasemapSource tile rows and NTS overlay rows; EditManager Apply verbs
-│   ├── Telemetry.cs      # TelemetryBoard row pinning the AppUi hook rail, frame objectives, store-profile series, EvidenceJoin
+│   ├── Telemetry.cs      # TelemetryBoard row pinning the AppUi hook dispatch, frame objectives, store-profile series, EvidenceJoin
 │   └── Climate.cs        # Declared diagram family lowering onto the chart plane, each row carrying its polar-split verdict
 ├── Analysis/             # Sealed study results as a scene, a comparison, and one environmental coordinate
 │   ├── Layers.cs         # ResultLayer stack with study, input-digest, and run-history columns; ResultDomain legend resolution
 │   ├── Compare.cs        # CompareAxis vocabulary; per-cell coordinate-triple binding under the shared channel set
 │   └── Context.cs        # AnalysisContext value: site, civil moment, grain, climate scenario; the BudgetMeter pre-solve gate
 ├── Editing/              # Typed-edit surfaces over the model
-│   ├── Inspector.cs      # InspectorPolicy admission capsule, ranked EditorFactory rows, and the canonical edit-result rail
+│   ├── Inspector.cs      # InspectorPolicy admission capsule, ranked EditorFactory rows, and the canonical edit-result type
 │   ├── Conflict.cs       # ThreeWay region alignment carrying one HunkVerdict each; the HunkBands in-editor chrome
 │   ├── CodePane.cs       # EditorInk correspondence, the RasmRegistry grammar locator, the CodePane custody chain
 │   ├── Tables.cs         # TableColumnRow metadata family and the TableProjection fold across flat, tree, and grouped reads
@@ -79,9 +79,9 @@ Rasm.AppUi/
 │   └── Compose.cs        # Slot vocabulary keyed by compositor property names; keyframe mint under the duration floor, trigger maps
 └── Theme/                # Pure vocabulary every visual literal in the package resolves through
     ├── Tokens.cs         # Appearance seed rows folded into the TokenKey ladder; the Severity family, colormap catalog, variant and density axes
-    ├── Semi.cs           # SemiSlot correspondence with SemiExclusion verdicts and the walked-roster conformance rail
-    ├── Emission.cs       # Variant-partitioned dictionary emission; ThemeCell swap capsule; ThemeRail Styles chain; SkinRow table
-    ├── Typography.cs     # TypographyRole rhythm rungs with the orthogonal TypeAxis; the itemizing shaping rail seat
+    ├── Semi.cs           # SemiSlot correspondence with SemiExclusion verdicts and the walked-roster conformance check
+    ├── Emission.cs       # Variant-partitioned dictionary emission; ThemeCell swap capsule; ThemeGate Styles chain; SkinRow table
+    ├── Typography.cs     # TypographyRole rhythm rungs with the orthogonal TypeAxis; the itemizing shaping pipeline seat
     ├── Motion.cs         # MotionToken rows carrying one MotionTiming modality and a reduced-motion delegate each
     ├── Assets.cs         # IconRow registry of kernel AssetOrigins; IconSurface composes IconRender with pose and filter chain
     └── Locale.cs         # LocaleRow culture axis and the ResolvedLocale binding; per-script shaping, calendar-bound patterns
@@ -91,7 +91,7 @@ Rasm.AppUi/
 
 Member-resolved strata order the interior, and every consumption edge points down.
 
-- S0 hub — `Diagnostics/Evidence` seats lowest; `AppUiFact` projects producer-owned facts through one hook rail, adding no upward import.
+- S0 hub — `Diagnostics/Evidence` seats lowest; `AppUiFact` projects producer-owned facts through one hook dispatch, adding no upward import.
 - S0 durable — `StateSeal` seats with the hub, so every persisted surface reaches one generation compare and mints no second stored-shape authority.
 - S0 substrate — fault families seat beside the hub, so a raising sub-domain adds a consumer and no code range collides with a sibling's.
 - S0 vocabulary — pure `Theme`: every visual literal traces to a generated `TokenRow`, and the swap re-seeds atomically.
@@ -117,7 +117,7 @@ flowchart TB
         Board[TriageBoard]
     end
     subgraph S2["S2 STREAMS"]
-        Rail[BehaviorRail]
+        Bridge[BehaviorBridge]
         Intent[EditIntent]
         Revert[RevertibleOp]
     end
@@ -134,22 +134,22 @@ flowchart TB
     end
     Factory e1@-->|"[IMPORT]: VirtualWindowSpec"| Virtual
     Factory e2@-->|"[IMPORT]: LayoutSolver"| Solver
-    Factory e3@-->|"[IMPORT]: BehaviorRail"| Rail
+    Factory e3@-->|"[IMPORT]: BehaviorBridge"| Bridge
     Factory e4@-->|"[IMPORT]: TokenRow"| Token
     Board e5@-->|"[IMPORT]: EditIntent"| Intent
-    Rail e6@-->|"[IMPORT]: CommandRow"| Command
+    Bridge e6@-->|"[IMPORT]: CommandRow"| Command
     Revert e7@-->|"[IMPORT]: CommandRow"| Command
     Revert e8@-->|"[IMPORT]: edit result"| Inspect
     Intent e9@-->|"[IMPORT]: CommandRow"| Command
     Command e10@-->|"[IMPORT]: FaultBand.UiCommand"| Fault
     Graph e11@-->|"[IMPORT]: FaultBand.Canvas"| Fault
-    Fault e12@-.->|"[OBSERVE]: HookRail"| Factory
+    Fault e12@-.->|"[OBSERVE]: HookSet"| Factory
     Fault f1@-->|"forbidden: hub upward"| S3
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
-Seam fences split by counterpart role: the first binds the same-branch AEC peers, the kernel, and the durable store; the second binds the platform host and the TypeScript peers. Each collapsed edge stands for every contract between that owner and that partner at the load-bearing kind, and the rows below state the per-edge exceptions alone.
+Boundary fences split by counterpart role: the first binds the same-branch AEC peers, the kernel, and the durable store; the second binds the platform host and the TypeScript peers. Each collapsed edge stands for every contract between that owner and that partner at the load-bearing kind, and the rows below state the per-edge exceptions alone.
 
 ```mermaid
 ---
@@ -160,7 +160,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: AppUi AEC-domain, render-source, and storage seams
+    accTitle: AppUi AEC-domain, render-source, and storage boundaries
     accDescr: Which projections, shapes, results, boundaries, ports, wires, and content keys cross between the AppUi owners and their .NET peers.
     subgraph appui[RASM.APPUI]
         Render[Render plane]
@@ -212,7 +212,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: AppUi platform-host and cross-runtime wire seams
+    accTitle: AppUi platform-host and cross-runtime wire boundaries
     accDescr: AppUi owners exchanging wires, ports, transport, the command shape, and the fault-band adjacency with the app host and TypeScript peers.
     subgraph appui[RASM.APPUI]
         Shell[Shell spine]
@@ -231,8 +231,8 @@ flowchart LR
     Shell e4@-->|"[WIRE]: AppUiSurfaceProgram + CommandGateWire"| Ui
     AppHost e5@-->|"[PORT]: DeterminismContext"| Document
     Diagnostics e6@<-->|"[FAULT]: FaultBand + generated FaultObservation"| AppHost
-    Rasm e7@-->|"[PORT]: HookRail + InstrumentSet"| Diagnostics
-    AppHost e8@-->|"[PORT]: HookRail"| Diagnostics
+    Rasm e7@-->|"[PORT]: HookSet + InstrumentSet"| Diagnostics
+    AppHost e8@-->|"[PORT]: HookSet"| Diagnostics
     AppHost e9@-->|"[PORT]: ProfileSampleSource"| Diagnostics
     Collab e10@<-->|"[TRANSPORT]: CollabWireContext"| AppHost
     Shell e11@-->|"[SHAPE]: CommandIntent + CommandResult + CallerModality"| AppHost
@@ -249,8 +249,8 @@ flowchart LR
 - `[SHAPE]: SunPosition` — `Charts/climate` projects kernel angles into its analysis carrier without re-solving the ephemeris.
 - Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
 - `[PORT]: DeterminismContext` — AppHost composes its runtime port spine at app composition, and `CapabilityPin` anchors it.
-- `[PORT]: HookRail + InstrumentSet` — domain facts fire through the hook rail; measured values write to the composition-mounted instruments.
-- `[PORT]: HookRail` — `SurfaceRuntime.Open` mounts the AppUi rail once from the app-root clock, span, fault cell, and binding leg.
+- `[PORT]: HookSet + InstrumentSet` — domain facts fire through the hook dispatch; measured values write to the composition-mounted instruments.
+- `[PORT]: HookSet` — `SurfaceRuntime.Open` mounts the AppUi dispatch once from the app-root clock, span, fault cell, and binding leg.
 - `[PORT]: ProfileSampleSource` — capture stays AppHost-side and `FlameNode.Of` folds the arriving samples into the frame tree.
 - Samples carry the producer's symbolization posture, so AppUi renders the frames it received and resolves no address itself.
 - Feed rides an existing AppHost port row, never a new `PortCardinality` port.
@@ -274,13 +274,13 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Rasm.AppUi mount-to-event rail
+    accTitle: Rasm.AppUi mount-to-event path
     accDescr: How a mounted surface routes through shell, screens, and controls onto the draw executor while faults converge on the band.
     Mount(["SurfaceMount"]) e1@--> Route["ShellRoot routing"]
     Route e2@--> Screen["ScreenCatalog activation"]
     Screen e3@--> Control["ControlFactory materialization"]
     Control e4@--> Draw["Vfx draw executor"]
-    Draw e5@--> Spine["HookRail"]
+    Draw e5@--> Spine["HookSet"]
     Spine e6@--> Event(["RasmEvent"])
     Route f1@-.->|"route fault"| Band[/Kernel FaultBand rows/]
     Screen f2@-.->|"screen fault"| Band
@@ -305,8 +305,8 @@ flowchart LR
 - `DrawSource.Layered` is the one `SaveLayer` site; `Vfx/material` selects its ground arm and supplies its `LayerSpec`.
 - `Vfx` EXECUTES the `Theme` material, wash, and motion rows; a value authored on an effects page is a second token source the swap never re-seeds.
 - Runtime-SkSL compilation partitions by type domain — 3D appearance at `Render/shading`, 2D chrome at `Vfx/shader`, one cache each.
-- `BehaviorRail` intent bridge is the single C# view-binding seam and rejects binder symbols, so ReactiveUI code-behind binding has no seam to enter.
-- `HookRail<AppUiPoint, AppUiFact, TelemetrySource>` is the one observation rail every AppUi owner fires through.
+- `BehaviorBridge` intent bridge is the single C# view-binding boundary and rejects binder symbols, so ReactiveUI code-behind binding has no entry.
+- `HookSet<AppUiPoint, AppUiFact, TelemetrySource>` is the one observation dispatch every AppUi owner fires through.
 - `SurfaceRuntime.Open` publishes observed facts as typed `RasmEvent` data and retains the bounded live window until runtime disposal.
 - `CommandRow` table is the one UI verb registry over AppHost's `CommandIntent` — hotkey, palette, and conflict views are derivation folds over it.
 - `ControlIntent` union through `ControlFactory` materializes every control.
@@ -320,7 +320,7 @@ flowchart LR
 - Every AppUi content hash composes the one kernel `ContentHash.Of` seed-zero entry, the branch's frozen content-key entry.
 - Bim, the `Rasm` kernel, and the AppHost `RecomputeGraph` own geodesy, solar position, clustering, and recompute.
 - `Rasm.Materials` owns appearance whole — channel roster, texture-plane storage, decode ladder, set admission, and the resolved sky.
-- Render-side appearance machinery has no seam to enter; Render binds the values and holds the device.
+- Render-side appearance machinery has no entry; Render binds the values and holds the device.
 - Texture-plane VRAM budgets at `Render/shading` under the byte-ceiling law `Render/meshlets` `ResidencyBudget` holds for geometry VRAM.
 - `Analysis` mounts, probes, compares, and bakes canonical study results, solving nothing itself.
 - `Analysis/context` `AnalysisContext` is the ONE environmental coordinate every layer, diagram, sun-position consumer, and bound series reads.

@@ -1,8 +1,8 @@
 # [RASM_FABRICATION_CAPABILITY]
 
-`Capability` owns characteristic-scoped process evidence from admission through control-state, distribution, measurement-system, tolerance-stack, history, and plan-gate projection. Variable and attribute studies share one assessment rail, and every report preserves the evidence that makes its verdict reproducible.
+`Capability` owns characteristic-scoped process evidence from admission through control-state, distribution, measurement-system, tolerance-stack, history, and plan-gate projection. Variable and attribute studies share one assessment pipeline, and every report preserves the evidence that makes its verdict reproducible.
 
-`CapabilityIdentity`, `ToleranceChain`, `ProcedureAssessment`, `Stat`, `CapabilityVerdict`, and `FabricationFault` remain the seam owners. `CapabilityReport` is the terminal specification result, while `CapabilityHistory` carries its validity-bounded ledger projection into `Gate` and `Achievable`.
+`CapabilityIdentity`, `ToleranceChain`, `ProcedureAssessment`, `Stat`, `CapabilityVerdict`, and `FabricationFault` remain the contract owners. `CapabilityReport` is the terminal specification result, while `CapabilityHistory` carries its validity-bounded ledger projection into `Gate` and `Achievable`.
 
 ## [01]-[INDEX]
 
@@ -269,7 +269,6 @@ public sealed partial class ControlConstant {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct SigmaSpan {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = ValidityClaim.Nonnegative(value) ? null : Capability.Validation("sigma-span");
 
@@ -281,7 +280,6 @@ public sealed partial class SearchBracket {
     public double Lower { get; }
     public double Upper { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError,
         ref double lower, ref double upper) =>
         validationError = ValidityClaim.All(
@@ -303,7 +301,6 @@ public sealed partial class DistributionPolicy {
     public SigmaSpan Bracket { get; }
     public int FitSeed { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int candidateCount,
@@ -552,7 +549,6 @@ public sealed partial class CapabilityIdentity {
     public ToolEvidence ToolState { get; }
     public UInt128 Setup { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ProcessKind process,
@@ -593,7 +589,6 @@ public sealed partial class VariableMeasurementStudy {
 
     public bool Suitable => GrrFraction <= MaximumGrr && DistinctCategories >= MinimumDistinctCategories;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length repeatability,
@@ -631,7 +626,6 @@ public sealed partial class AttributeAgreementStudy {
         && Ratio.FromDecimalFractions(double.Max(FalseAcceptRate.DecimalFractions, MissRate.DecimalFractions))
             <= MaximumFalseDecisionRate;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Ratio appraiserAgreement,
@@ -679,7 +673,6 @@ public sealed partial class ControlPolicy {
     public Ratio MaximumAutocorrelation { get; }
     public Length MaximumDrift { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int subgroupSize,
@@ -713,7 +706,6 @@ public sealed partial class AttributeSample {
     public int Opportunities { get; }
     public Instant At { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int inspected,
@@ -820,7 +812,6 @@ public sealed partial class StackContributor {
 
     public double IndependentLoading => Math.Sqrt(1.0 - FactorLoadings.Fold(0.0, static (sum, value) => sum + (value * value)));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string term,
@@ -847,7 +838,6 @@ public sealed partial class StackupPolicy {
     public Ratio TailProbability { get; }
     public int RandomSeed { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ToleranceChain chain,
@@ -897,7 +887,6 @@ public sealed partial class CapabilityTolerance {
     public double ConfidenceValue => Confidence.DecimalFractions;
     public double DemandedCpk => MathNet.Numerics.Distributions.Normal.InvCDF(0.0, 1.0, 1.0 - TailProbabilityValue) / 3.0;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CapabilityIdentity identity,
@@ -951,8 +940,8 @@ public sealed partial class CapabilityTolerance {
 - Entry: `Capability.Assess`, `Capability.Gate`, and `Capability.Achievable` parameterize assessment, ledger selection, and tolerance projection without ambient state; `Assess` takes the trailing optional instrument set the run spine hands it, so observation stays at the settled result and every estimation fold stays observation-free.
 - Auto: `Validation` accumulates independent request and gate faults under distinct errors; `Stat<Scalar>` owns variable moments and `Distribution<Scalar>` the simulation tail; `Distance.Pearson` derives the autocorrelation spectrum; `Fit.Line` derives drift; `SpecialFunctions.GammaLn` and `Gamma` own distribution functions; `Traverse`, `Choose`, and `Fold` own collection flow.
 - Result: `CapabilityReport` carries moment and percentile indices or attribute rates, per-metric confidence intervals, pointwise control limits, merged rule windows, the fitted distribution, effective sample size, measurement and procedure evidence, the optional stackup assessment with both analytic evaluations and its covariance shares, the control-evidence set, and the admitted `CapabilityVerdict`. `Capability.Assess` writes index rows, the study verdict, and violation count through the mounted `FabricationInstruments` set.
-- Packages: MathNet.Numerics owns fitted distributions, roots, regression, correlation, and batch sampling; `Rasm.Domain` owns `Stat<TCarrier>`, `Distribution<TCarrier>`, `MomentNormalizer`, `QuantileRule`, the `Tolerance` band carrier, and the `CapabilitySet`/`ICapability` axis; `Rasm.Element` owns the `AdmissionSlots` gate and accumulate fold; `System.Numerics.Tensors` owns numeric reductions; CommunityToolkit.HighPerformance owns pooled and partitioned trial execution; UnitsNet owns specification lengths, achievable tolerance, and probability ratios; `ToolEvidence` carries MTConnect operating state decoded at `Tooling/magazine`; Thinktecture and LanguageExt own generated values and the accumulated rail.
-- Boundary: `CapabilityReport` never enters `FabricationResult`, and only `CapabilityVerdict` crosses the plan seam.
+- Packages: MathNet.Numerics owns fitted distributions, roots, regression, correlation, and batch sampling; `Rasm.Domain` owns `Stat<TCarrier>`, `Distribution<TCarrier>`, `MomentNormalizer`, `QuantileRule`, the `Tolerance` band carrier, and the `CapabilitySet`/`ICapability` axis; `Rasm.Element` owns the `AdmissionSlots` gate and accumulate fold; `System.Numerics.Tensors` owns numeric reductions; CommunityToolkit.HighPerformance owns pooled and partitioned trial execution; UnitsNet owns specification lengths, achievable tolerance, and probability ratios; `ToolEvidence` carries MTConnect operating state decoded at `Tooling/magazine`; Thinktecture and LanguageExt own generated values and the accumulated `Validation`.
+- Boundary: `CapabilityReport` never enters `FabricationResult`, and only `CapabilityVerdict` crosses the plan boundary.
 
 ```csharp
 public sealed record CapabilitySeries(
@@ -1616,7 +1605,6 @@ public sealed partial class CapabilityHistory {
         && Attested.AdmitsAll(CapabilitySet<CapabilityAttestation>.All)
         && Cpk >= DemandedCpk;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CapabilityIdentity identity,

@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_IFC5D]
 
-`ifc5d` owns the IFC 5D costing surface over the `ifcopenshell` model: rule-driven quantity take-off through `qto.quantify`/`qto.edit_qtos` writing `IfcElementQuantity` base quantities, and structured cost-schedule export through the `ifc5Dspreadsheet` writer family to CSV, ODS, XLSX, and typst PDF. It feeds the geometry ifc-analysis 5D rail, folding the `qto.rules` base-quantity table over an element set the shared `IfcSelector` gate validates.
+`ifc5d` owns the IFC 5D costing surface over the `ifcopenshell` model: rule-driven quantity take-off through `qto.quantify`/`qto.edit_qtos` writing `IfcElementQuantity` base quantities, and structured cost-schedule export through the `ifc5Dspreadsheet` writer family to CSV, ODS, XLSX, and typst PDF. It feeds the geometry ifc-analysis 5D domain, folding the `qto.rules` base-quantity table over an element set the shared `IfcSelector` gate validates.
 
 ## [01]-[PUBLIC_TYPES]
 

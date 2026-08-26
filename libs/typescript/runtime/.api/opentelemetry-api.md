@@ -40,7 +40,7 @@
 - `@effect/opentelemetry`(`.api/effect-opentelemetry.md`): the facade implements these contracts and owns registration; `Tracer.currentOtelSpan` is the one sanctioned reach from Effect into an api `Span` where a third-party surface demands one.
 - `@opentelemetry/context-zone`(`.api/opentelemetry-context-zone.md`): `ZoneContextManager` implements this package's `ContextManager` and hands it to the `web` SDK row's context wiring.
 - `@opentelemetry/core`(`.api/opentelemetry-core.md`): the propagator triad implements `TextMapPropagator`; `parseTraceParent` yields this package's `SpanContext` already rejecting malformed and all-zero ids, so the guard tier never re-checks header decode.
-- `otel/emit` (within-lib): the export-boundary owner consumes `SpanContext` on its continuation kernel and `TextMapPropagator` at transports in type position, the facade owning span and metric semantics through Effect so no `trace.getTracer` call crosses the seam.
+- `otel/emit` (within-lib): the export-boundary owner consumes `SpanContext` on its continuation kernel and `TextMapPropagator` at transports in type position, the facade owning span and metric semantics through Effect so no `trace.getTracer` call crosses the boundary.
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` admits only inside `scope:runtime`; the browser instrumentation rows the app root composes reach it there in type position too.

@@ -2,7 +2,7 @@
 
 `sharp` is the libvips image processor the `object` plane folds for content-addressed derivative generation: one `sharp(input?, options?)` factory ingests every source through a `SharpOptions` ingress, returns a chainable `Sharp` `Duplex`, and dispatches the whole codec space through `toFormat(format, options)`.
 
-Native and server-bound, its Promise and stream terminals lift into the `Effect` rail at the `object/file` boundary, where `failOn` and `sharp.block` gate untrusted uploads before decode.
+Native and server-bound, its Promise and stream terminals lift into `Effect` at the `object/file` boundary, where `failOn` and `sharp.block` gate untrusted uploads before decode.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -1,44 +1,61 @@
+using System.Collections.Frozen;
 using Eto.Drawing;
+using Grasshopper2.Framework;
 using GhEditor = Grasshopper2.UI.Editor;
 
 namespace Rasm.Bridge.Cargo;
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-internal readonly record struct CaptureFile(string Path, int Width, int Height);
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
-internal sealed class Gh2Lane : IDisposable {
-    private const int FallbackHeight = 720;
+internal sealed class Gh2Lane {
     private const int FallbackWidth = 1280;
+    private const int FallbackHeight = 720;
 
-    private GhEditor? editor;
+    private readonly GhEditor editor;
 
-    private Gh2Lane(GhEditor editor) => this.editor = editor;
+    private Gh2Lane(GhEditor editor, int pluginsLoaded, int pluginsFailed) {
+        this.editor = editor;
+        PluginsLoaded = pluginsLoaded;
+        PluginsFailed = pluginsFailed;
+    }
 
-    internal static Gh2Lane Acquire() => new(editor: GhEditor.Instance ?? new GhEditor());
+    internal readonly record struct CaptureFile(string Path, int Width, int Height);
+
+    internal static string Version => typeof(GhEditor).Assembly.GetName().Version?.ToString() ?? string.Empty;
+
+    internal int PluginsLoaded { get; }
+    internal int PluginsFailed { get; }
+    internal static int Registered => ObjectProxies.Count;
+
+    internal static Gh2Lane Acquire() {
+        GhEditor live = GhEditor.Instance ?? GhEditor.ShowEditor(createVisible: false);
+        FrozenSet<string> core = PluginServer.CorePlugins.ToFrozenSet(StringComparer.Ordinal);
+        (int loaded, int failed) = PluginServer.LoadAllScopedPlugins(location => core.Contains(location) && !PluginServer.State.IsLocationLoaded(location));
+        return new Gh2Lane(live, loaded, failed);
+    }
 
     internal Fin<CaptureFile> DrawCanvas(string path) {
         if (editor is not { Canvas: { } canvas }) {
-            return Fin.Fail<CaptureFile>(error: Error.New(message: "Gh2Lane: editor canvas absent"));
+            return Error.New("Gh2Lane: editor canvas absent");
         }
         try {
             int width = canvas.Width > 0 ? canvas.Width : FallbackWidth;
             int height = canvas.Height > 0 ? canvas.Height : FallbackHeight;
-            using Bitmap? bitmap = canvas.DrawToBitmap(width: width, height: height, drawBackground: true, drawWires: true, drawMessages: true);
+            using Bitmap? bitmap = canvas.DrawToBitmap(width, height, drawBackground: true, drawWires: true, drawMessages: true);
             if (bitmap is null) {
-                return Fin.Fail<CaptureFile>(error: Error.New(message: "Canvas.DrawToBitmap returned null — GH2 swallowed a paint exception"));
+                return Error.New("Canvas.DrawToBitmap returned null: GH2 swallowed a paint exception");
             }
-            _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: path) ?? ".");
+            byte[] png = bitmap.ToByteArray(ImageFormat.Png);
+            if (png.Length == 0) {
+                return Error.New("Canvas.DrawToBitmap produced an empty PNG");
+            }
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
             string temp = path + ".tmp";
-            File.WriteAllBytes(path: temp, bytes: bitmap.ToByteArray(ImageFormat.Png));
-            File.Move(sourceFileName: temp, destFileName: path, overwrite: true);
-            return Fin.Succ(value: new CaptureFile(Path: path, Width: width, Height: height));
+            File.WriteAllBytes(temp, png);
+            File.Move(temp, path, overwrite: true);
+            return new CaptureFile(path, width, height);
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            return Fin.Fail<CaptureFile>(error: Error.New(message: $"canvas capture failed: {error.GetType().Name}: {error.Message}"));
+            return Error.New($"canvas capture failed: {error.GetType().Name}: {error.Message}");
         }
     }
-
-    public void Dispose() => editor = null;
 }

@@ -137,7 +137,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- every `C…` handle wraps an `IntPtr` over the native core; `Internal.Lib3MFWrapper` marshals the call and `CheckError` lifts a native error code into `Lib3MFException`, which the boundary owner catches once and lowers to the `Additive` `ThreeMfWriteRejected` 2747 `(EgressKind target, string native)` arm on the `Fin` rail — a CLR defect propagates
+- every `C…` handle wraps an `IntPtr` over the native core; `Internal.Lib3MFWrapper` marshals the call and `CheckError` lifts a native error code into `Lib3MFException`, which the boundary owner catches once and lowers to the `Additive` `ThreeMfWriteRejected` 2747 `(EgressKind target, string native)` arm on the `Fin` result — a CLR defect propagates
 - RID-keyed native libraries stay sidecar/host-side, never referenced from a type loading in an in-Rhino plugin ALC
 - `Wrapper.GetSpecificationVersion` capability-probes each extension (production, beam-lattice, slice); a required-but-unsupported extension raises the `Additive` `Unsupported3mfExtension` 2725 `(ThreeMfExtension extension, EgressKind target)` arm at the boundary
 

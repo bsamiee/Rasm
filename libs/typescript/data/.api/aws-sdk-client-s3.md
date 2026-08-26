@@ -1,6 +1,6 @@
 # [TS_DATA_API_AWS_SDK_CLIENT_S3]
 
-`@aws-sdk/client-s3` drives every S3-compatible endpoint through one `S3Client` whose single polymorphic `send(command)` discriminates the whole command space; `endpoint` + `forcePathStyle` retarget MinIO, R2, Tigris, or Ceph, never a per-verb method. It carries its own `requestHandler`, so under Effect the client is `acquireRelease`d and each `send` is a `tryPromise` bridging the fiber `AbortSignal` to SDK cancellation — the Effect seam is the wrap, never the transport.
+`@aws-sdk/client-s3` drives every S3-compatible endpoint through one `S3Client` whose single polymorphic `send(command)` discriminates the whole command space; `endpoint` + `forcePathStyle` retarget MinIO, R2, Tigris, or Ceph, never a per-verb method. It carries its own `requestHandler`, so under Effect the client is `acquireRelease`d and each `send` is a `tryPromise` bridging the fiber `AbortSignal` to SDK cancellation — the Effect adapter is the wrap, never the transport.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -54,8 +54,8 @@
 - [LOCK_MEMBER]: `PutObjectRequest.ObjectLockMode` (`ObjectLockMode` = `COMPLIANCE` `GOVERNANCE`) / `.ObjectLockRetainUntilDate: Date` / `.ObjectLockLegalHoldStatus` — the write-time lock members, unspellable here for the same versioning reason.
 - [REFUSED]: object lock in every form rests on `ObjectLockEnabled`, which a bucket takes only at creation and only with versioning on; the content-addressed plane refuses versioning because the key IS the content, so the whole surface is catalogued and never composed — litigation preservation rides the folder's own hold ledger and its frozen tag posture instead.
 
-[PUBLIC_TYPE_SCOPE]: multipart, pagination, waiters, and the error rail
-- Multipart is the low-level command family composed under an Effect scope; paginators and waiters are `AsyncIterable`/promise helpers the wrap lifts; the `S3ServiceException` hierarchy seeds the tagged rail.
+[PUBLIC_TYPE_SCOPE]: multipart, pagination, waiters, and the error channel
+- Multipart is the low-level command family composed under an Effect scope; paginators and waiters are `AsyncIterable`/promise helpers the wrap lifts; the `S3ServiceException` hierarchy seeds the tagged error channel.
 - [MULTIPART]: `CreateMultipartUploadCommand` `UploadPartCommand` `UploadPartCopyCommand` `CompleteMultipartUploadCommand` `AbortMultipartUploadCommand` `ListPartsCommand` `ListMultipartUploadsCommand` — hand-composed large-blob ingest, `Abort` on scope interrupt.
 - [MULTIPART_MEMBER]: `CreateMultipartUploadRequest.ChecksumAlgorithm`/`.ChecksumType`; `UploadPartRequest.ChecksumAlgorithm`/`.ChecksumSHA256`; `UploadPartOutput.ChecksumSHA256`; `CompletedPart.ETag`/`.PartNumber`/`.ChecksumSHA256`; `CompleteMultipartUploadRequest.IfNoneMatch`/`.IfMatch`/`.ChecksumType`/`.MpuObjectSize` — `Create` carries no conditional member.
 - [PAGINATOR]: `paginateListObjectsV2` `paginateListParts` `paginateListBuckets` `paginateListDirectoryBuckets` `paginateListObjectAnnotations` — `AsyncIterable` → `Stream.fromAsyncIterable`.

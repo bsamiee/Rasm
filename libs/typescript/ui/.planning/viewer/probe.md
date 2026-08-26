@@ -158,7 +158,7 @@ const _host = (
 - Owner: `Probe.board` admits `BenchmarkClaimWire` bytes through `Wire.decode`, then performs the full label-keyed join against local metrics.
 - Law: units must agree before a row receives a numeric delta.
 - Law: display formats through `Format` number rows (`system/intl`); tones key off delta sign through the `[6]` table.
-- Boundary: `Probe.board` is the claim byte-ingress seam; persisting local runs as new claims is app egress through wire encode.
+- Boundary: `Probe.board` is the claim byte-ingress boundary; persisting local runs as new claims is app egress through wire encode.
 
 ```typescript
 import { Array, HashMap, HashSet } from "effect"

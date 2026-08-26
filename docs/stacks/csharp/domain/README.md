@@ -1,6 +1,6 @@
 # [DOMAIN_STACK]
 
-Domain pages route specialized C# implementation decisions after the root stack pages have already fixed language shape, generated owners, dispatch, rails, boundaries, algorithms, and system-API replacement. Use this README to choose the domain page; use the selected page for the law.
+Domain pages route specialized C# implementation decisions after the root stack pages have already fixed language shape, generated owners, dispatch, carriers, boundaries, algorithms, and system-API replacement. Use this README to choose the domain page; use the selected page for the law.
 
 ## [01]-[ROUTER]
 
@@ -23,8 +23,8 @@ Domain pages route specialized C# implementation decisions after the root stack 
 ## [02]-[CODE_DOCTRINE]
 
 [LAW]:
-- Domain code composes the root stack law; it never re-opens admission, shape, rail, dispatch, boundary, algorithm, or system-API decisions locally.
-- Raw input crosses one boundary, becomes one generated owner, then travels typed rails. Interior code does not see nulls, sentinels, provider shapes, flags, or unclassified foreign errors.
+- Domain code composes the root stack law; it never re-opens admission, shape, carrier, dispatch, boundary, algorithm, or system-API decisions locally.
+- Raw input crosses one boundary, becomes one generated owner, then travels typed results. Interior code does not see nulls, sentinels, provider shapes, flags, or unclassified foreign errors.
 - Each domain axis is one closed vocabulary with behavior rows, folds, generated dispatch, or policy values. New capability lands as a row, case, projection, or carrier choice inside the owner.
 - Libraries admitted by manifests are implementation material. Use their native surfaces at full depth; do not create provider wrappers, helper shells, local aliases, or lower-level reimplementations.
 - Domain pages may name packages only when the package changes the implementation shape. Package versions, graph state, and build admission stay in manifests and build owners.
@@ -33,4 +33,4 @@ Domain pages route specialized C# implementation decisions after the root stack 
 
 ## [03]-[CONFLICTS]
 
-When a decision appears to span pages, route to the page that owns the executable mechanic. Consumers state only the consequence that changes their implementation. A second registry, duplicate policy table, local conversion rail, repeated retry loop, provider-branded wrapper, or package-shaped page is an ownership defect.
+When a decision appears to span pages, route to the page that owns the executable mechanic. Consumers state only the consequence that changes their implementation. A second registry, duplicate policy table, local conversion path, repeated retry loop, provider-branded wrapper, or package-shaped page is an ownership defect.

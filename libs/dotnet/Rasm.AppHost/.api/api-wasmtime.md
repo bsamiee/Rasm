@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_WASMTIME]
 
-`Wasmtime` binds the native WebAssembly runtime (`libwasmtime`) as the sandbox rail's plugin-isolation core: an `Engine` compiles a `Module`, a `Store` executes it under fuel, epoch, and memory limits, and a `Linker` resolves the capability-scoped import table. Guests reach host authority only through the linker's granted imports over WASI-Preview-1, and the managed surface stops at the core module — the component model is a native engine flag with no managed type behind it.
+`Wasmtime` binds the native WebAssembly runtime (`libwasmtime`) as the sandbox host's plugin-isolation core: an `Engine` compiles a `Module`, a `Store` executes it under fuel, epoch, and memory limits, and a `Linker` resolves the capability-scoped import table. Guests reach host authority only through the linker's granted imports over WASI-Preview-1, and the managed surface stops at the core module — the component model is a native engine flag with no managed type behind it.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -206,7 +206,7 @@ Untyped surfaces trail `(… , IReadOnlyList<ValueKind> parameterKinds, IReadOnl
 
 [STACKING]:
 - within-lib fold: `Engine` → `Module` + `Store` → `Linker.Instantiate` → `Instance`; typed exports invoke through `Instance.GetFunction<...>`/`GetAction<...>`, and `Config` → `Store` threads fuel and epoch state.
-- `SandboxRows.Wasm` (AppHost sandbox owner): one `Linker.DefineFunction` row lands per granted `CapabilityDescriptor` so the import table IS the grant scope, `Linker.DefineWasi()` mounts the WASI-Preview-1 descriptors a `WasiConfiguration` pre-open set scopes, `Config.WithFuelConsumption`/`Store.Fuel` meters CPU, `Store.SetLimits` caps linear memory, and `Config.WithEpochInterruption` + `Store.SetEpochDeadline` + `Engine.IncrementEpoch` carry the wall budget and the kill rail.
+- `SandboxRows.Wasm` (AppHost sandbox owner): one `Linker.DefineFunction` row lands per granted `CapabilityDescriptor` so the import table IS the grant scope, `Linker.DefineWasi()` mounts the WASI-Preview-1 descriptors a `WasiConfiguration` pre-open set scopes, `Config.WithFuelConsumption`/`Store.Fuel` meters CPU, `Store.SetLimits` caps linear memory, and `Config.WithEpochInterruption` + `Store.SetEpochDeadline` + `Engine.IncrementEpoch` carry the wall budget and the kill switch.
 - `TrapException.Type` is that owner's kill witness: `Interrupt` proves an epoch kill converged and `OutOfFuel` a CPU breach, both projecting onto one quota fault before eviction consumes the trapped code.
 
 [LOCAL_ADMISSION]:

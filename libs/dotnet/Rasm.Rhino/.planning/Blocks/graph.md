@@ -6,7 +6,7 @@ Definition topology (`Rasm.Rhino.Blocks`) owns one graph-source union, one evide
 
 - [02]-[SOURCE_AND_TOPOLOGY]: `GraphSource` admitting a live session, a borrowed archive, or a stored archive opened inside the fold, `Topology` carrying nodes, dependency-first edges, and placement evidence, and `GraphFold` canonicalizing vertices so equivalent graphs emit identical sequences.
 - [03]-[ASK_FAMILY]: `BlockGraphAsk` closing host queries, whole-topology projections, and structural algorithms under one entry over the one vertex-generic `QuikGraph` fold, `BlockGraphAnswer` preserving result meaning against key, path, and completeness confusion.
-- [04]-[ARCHIVE_CLOSURE]: `ClosureReport` the bounded linked-archive walk — raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, and typed completion evidence under a closure budget, `ArchivePlane` stating the POSIX-only traversal seam once and refusing every unservable platform at selection, and `ClosureWalk` carrying the whole traversal as one state-threaded value the budget-bounded fold advances.
+- [04]-[ARCHIVE_CLOSURE]: `ClosureReport` the bounded linked-archive walk — raw and resolved edges, source-aware broken links, self-inclusive cycle groups, unit facts, native read logs, and typed completion evidence under a closure budget, `ArchivePlane` stating the POSIX-only traversal boundary once and refusing every unservable platform at selection, and `ClosureWalk` carrying the whole traversal as one state-threaded value the budget-bounded fold advances.
 - [05]-[SURFACE_LEDGER]: owner-to-ingress-to-algorithm-to-egress roster across `BlockGraph`, `GraphFold`, and `ClosureReport`.
 
 ## [02]-[SOURCE_AND_TOPOLOGY]
@@ -15,7 +15,7 @@ Definition topology (`Rasm.Rhino.Blocks`) owns one graph-source union, one evide
 
 Live placement evidence comes from `GetReferences(0)` and retains every instance id. Archive placement evidence correlates each `File3dmObject.Id` with definition `GetObjectIds()` membership; an instance reference outside every definition roster is top-level, while one inside a roster yields a nesting edge.
 
-`GetReferences` is thread-affine, and `DocumentSession.Demand` is the rail that satisfies it: the demand resolves on the host command thread — a live session marshals through `RhinoApp.InvokeAndWait`, a headless one stays on the caller — so every live read on this page sits inside a demand window and no arm re-derives affinity. Composing a thread-affine host member outside a demand is the deleted form.
+`GetReferences` is thread-affine, and `DocumentSession.Demand` is the path that satisfies it: the demand resolves on the host command thread — a live session marshals through `RhinoApp.InvokeAndWait`, a headless one stays on the caller — so every live read on this page sits inside a demand window and no arm re-derives affinity. Composing a thread-affine host member outside a demand is the deleted form.
 
 `GraphFold` canonicalizes vertices through an admitted order before grouping, component ranking, and condensed-edge ordering; equivalent graphs therefore emit identical component and edge sequences.
 
@@ -133,7 +133,7 @@ internal sealed record Topology(
 
 `BlockGraphAsk` closes direct host queries, whole-topology projections, structural algorithms, and archive closure under one entry. `BlockGraphAnswer` preserves result meaning: definition keys never masquerade as placement ids, paths never masquerade as order, and placement answers carry completeness evidence instead of projecting opaque links as top-level instances.
 
-`GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling rail re-deriving one of its folds is the deleted form. `GraphGrouping<TVertex>.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary<TVertex>`, `GraphGrouping<TVertex>`, and `GraphProjection<TVertex>` carry paired algorithm choice as delegate rows over the same vertex parameter `GraphFold` takes — hand rows with sealed constructors, because the row generator refuses a generic owner — so the definition rail's `Guid` graph and the closure walk's `ArchivePath` graph read one vocabulary; a request case per algorithm, or a policy pinned to one vertex type, is the deleted form. The boundary rows bind against the catalog's own degree semantics: under used-to-container orientation, semantic roots are the ZERO-OUTDEGREE vertices (`Sinks`) and semantic leaves the zero-indegree ones (`Roots`). `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
+`GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling owner re-deriving one of its folds is the deleted form. `GraphGrouping<TVertex>.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary<TVertex>`, `GraphGrouping<TVertex>`, and `GraphProjection<TVertex>` carry paired algorithm choice as delegate rows over the same vertex parameter `GraphFold` takes — hand rows with sealed constructors, because the row generator refuses a generic owner — so the definition pipeline's `Guid` graph and the closure walk's `ArchivePath` graph read one vocabulary; a request case per algorithm, or a policy pinned to one vertex type, is the deleted form. The boundary rows bind against the catalog's own degree semantics: under used-to-container orientation, semantic roots are the ZERO-OUTDEGREE vertices (`Sinks`) and semantic leaves the zero-indegree ones (`Roots`). `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -173,7 +173,6 @@ public sealed partial class ClosureBudget {
             ? null
             : new ValidationError(string.Join(" | ", new object?[] { nameof(ClosureBudget), "positive archive, link, depth, and byte ceilings", None }));
 
-    [BoundaryAdapter]
     public static Fin<ClosureBudget> Of(
         int maxArchives,
         long maxLinks,
@@ -515,7 +514,7 @@ internal static class GraphFold {
 
 Completion accounts for REFUSALS, not only for budgets. The walk counts targets offered, opened, and refused; a target that would not open contributes no links, so every edge beyond it is missing and the terminal settles `Truncated` with those three counts rather than `Complete`. A budget terminal outranks truncation because it already names the ceiling that stopped the walk.
 
-`ArchivePlane` is the platform seam stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns, its containment comparison, and its canonical-key fold, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Comparison is a per-plane column like the flags — Darwin's default APFS is case-insensitive, Linux ordinal — and the fold MATERIALIZES that policy once, at `Canonical`, into the `ArchivePath` every container keys on, so no traversal step re-asks which platform it is on and no container can forget the comparer the page's own defence names.
+`ArchivePlane` is the platform boundary stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns, its containment comparison, and its canonical-key fold, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Comparison is a per-plane column like the flags — Darwin's default APFS is case-insensitive, Linux ordinal — and the fold MATERIALIZES that policy once, at `Canonical`, into the `ArchivePath` every container keys on, so no traversal step re-asks which platform it is on and no container can forget the comparer the page's own defence names.
 
 The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontier, the seen set, every accumulator, and the terminal as ONE value, `ClosureWalk.Step` advances exactly one frontier entry, and the drive is a bounded fixpoint whose tick count derives from `ClosureBudget.MaxArchives` — a settled walk re-emits itself, so the fold is total. Deduplication happens at ENQUEUE, so every frontier entry is new and the archive budget is the exact step bound; a link resolving onto an already-failed archive records its broken re-reference there rather than re-entering the frontier.
 
@@ -730,7 +729,6 @@ public static partial class BlockGraph {
         public void Dispose() => Handle.Dispose();
     }
 
-    [BoundaryAdapter]
     [System.Runtime.InteropServices.LibraryImport(
         "libc",
         EntryPoint = "open",
@@ -738,7 +736,6 @@ public static partial class BlockGraph {
         StringMarshalling = System.Runtime.InteropServices.StringMarshalling.Utf8)]
     private static partial Microsoft.Win32.SafeHandles.SafeFileHandle OpenDirectory(string path, int flags);
 
-    [BoundaryAdapter]
     [System.Runtime.InteropServices.LibraryImport(
         "libc",
         EntryPoint = "openat",
@@ -1055,7 +1052,7 @@ public static partial class BlockGraph {
 |  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | budget-bounded `foldWhile` walk         | closure evidence   |
 |  [04]   | `ArchivePlane`  | `Current`                 | per-RID open flags · canonical fold     | plane or refusal   |
 
-- Packages: `QuikGraph` (`libs/dotnet/.api/api-quikgraph.md` — `StronglyConnectedComponents`, `WeaklyConnectedComponents`, `CondensateStronglyConnected`, `ComputeTransitiveClosure`, `ComputeTransitiveReduction`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`, `Roots`, `Sinks`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — rails, `FoldWhile`, `Traverse`, keyed containers); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — unions, rows, `[ValidationError]`); `Generator.Equals` (`libs/dotnet/.api/api-generator-equals.md` — the `ArchivePath` explicit-member equality); `CommunityToolkit.HighPerformance` (`libs/dotnet/.api/api-highperformance.md` — `SpanOwner<byte>` snapshot lease); the BCL `LibraryImport` source generator (inbox, no manifest row) for the two `libc` seams; `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-blocks.md`, `api-rhinocommon-fileio.md`).
+- Packages: `QuikGraph` (`libs/dotnet/.api/api-quikgraph.md` — `StronglyConnectedComponents`, `WeaklyConnectedComponents`, `CondensateStronglyConnected`, `ComputeTransitiveClosure`, `ComputeTransitiveReduction`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`, `Roots`, `Sinks`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — carriers, `FoldWhile`, `Traverse`, keyed containers); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — unions, rows, `[ValidationError]`); `Generator.Equals` (`libs/dotnet/.api/api-generator-equals.md` — the `ArchivePath` explicit-member equality); `CommunityToolkit.HighPerformance` (`libs/dotnet/.api/api-highperformance.md` — `SpanOwner<byte>` snapshot lease); the BCL `LibraryImport` source generator (inbox, no manifest row) for the two `libc` bindings; `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-blocks.md`, `api-rhinocommon-fileio.md`).
 
 ## [06]-[RESEARCH]
 

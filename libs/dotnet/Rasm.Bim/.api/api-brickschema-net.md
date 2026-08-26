@@ -141,7 +141,7 @@ Generated `BrickClass` subclasses are the vocabulary instantiated through `AddEn
 - `Xbim.Properties`(`api-xbim-properties.md`): IFC Psets seed Brick `EntityProperty` values as the static design metadata.
 - `Xbim.CobieExpress`(`api-xbim-cobieexpress.md`): the COBie asset-handover view shares the equipment roster; Brick is the runtime systems graph, COBie the handover snapshot of the same equipment.
 - `UnitsNet`(`libs/dotnet/.api/api-unitsnet.md`): a `Measureable` point value reconciles to a canonical quantity at the boundary, so a BACnet engineering-unit reading and a model expectation agree before a `BrickBehavior` computes conformance.
-- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): a `SaveSchema` JSON-LD document's bytes mint the systems-graph snapshot content key on the shared content-identity rail, joining the IFC and energy-model exports; the `Deprecation*` shapes carry the schema-version migration a diff reads.
+- `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): a `SaveSchema` JSON-LD document's bytes mint the systems-graph snapshot content key on the shared content-identity path, joining the IFC and energy-model exports; the `Deprecation*` shapes carry the schema-version migration a diff reads.
 - within-library: AppHost OPC UA/MQTT/Modbus transport owners stream live values onto `BACnetReference`/`BACnetDevice`/`ModbusDevice` point bindings, Brick the semantic target they land on.
 
 [LOCAL_ADMISSION]:

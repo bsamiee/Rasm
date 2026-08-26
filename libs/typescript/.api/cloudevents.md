@@ -23,7 +23,7 @@ Barrel exports bound the admitted surface. Four HTTP header members and the `Det
 |  [11]   | `Options`                                       | untyped bag      | `[key: string]: string \| Record<string, unknown> \| unknown`      |
 
 - `dist/message/index.d.ts` declares `Detector`, the `Binding.isEvent` shape, and the barrel omits it, so a branch surface naming a detector declares its own predicate type.
-- `Mode` is a TypeScript `enum`, which `erasableSyntaxOnly` refuses in branch code; its three members reach the branch as an owned literal union and cross to `emitterFor` at the seam alone.
+- `Mode` is a TypeScript `enum`, which `erasableSyntaxOnly` refuses in branch code; its three members reach the branch as an owned literal union and cross to `emitterFor` at the boundary alone.
 
 ## [02]-[ENTRYPOINTS]
 
@@ -71,11 +71,11 @@ Barrel exports bound the admitted surface. Four HTTP header members and the `Det
 - `Emitter` and `event.emit()` back one process-global `EventEmitter`, so two branch applications in one process share one registry.
 
 [STACKING]:
-- `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): `Event.admit`/`mint` own strict SDK construction, `Event.format.protobuf` owns publisher Protobuf conversion, `Event.address` owns the `(source,id)` dedup coordinate, and `Event.rasm` owns the descriptor-derived profile while leaving `dataref` residence downstream.
+- `core/interchange/carrier`(`core/.planning/interchange/carrier.md`): `Event.admit`/`mint` own strict SDK construction, `Event.format.protobuf` owns publisher Protobuf conversion, `Event.address` owns the `(source,id)` dedup coordinate, and `Event.rasm` owns the descriptor-derived profile while leaving `dataref` placement downstream.
 - `core/interchange/format` (`core/.planning/interchange/format.md`): exact JSON, generated Protobuf, and lane-bound Avro codecs with optional batch members and exact parsed media identity.
 - `core/interchange/codec`(`core/.planning/interchange/codec.md`): the wire registry excludes the message envelope by law, so no `Wire` family, landing class, or parity obligation names a CloudEvents shape.
 - `data/journal/append` (`data/.planning/journal/append.md`): mints the stable `journal` capability source independently from the admitted type, projects each claimed row through `Event.rasm.Fact` and `Event.rasm.mint`, and keeps `dataschema` as the payload schema URI.
-- `data/object/store`(`data/.planning/object/store.md`): `Dataref` externalizes and resolves subject-addressed bytes under one confined HTTPS residence, proving a dual inline/reference payload byte-equal.
+- `data/object/store`(`data/.planning/object/store.md`): `Dataref` externalizes and resolves subject-addressed bytes under one confined HTTPS location, proving a dual inline/reference payload byte-equal.
 - `runtime/serve/route`(`runtime/.planning/serve/route.md`): consumes the core closed frame, admitted JSON and Protobuf codecs, and the publisher-asset Avro codec; resolves `dataref` through the data port and deduplicates each member on `Event.address` before settlement.
 - `runtime/net/channel`(`runtime/.planning/net/channel.md`): mints frames through `MQTTMessageFactory`, routes structured JSON through the SDK and Protobuf or Avro through their exact codecs, refuses every batch, and re-admits each SDK or Avro result strictly.
 - `effect` `Schema`(`.api/effect.md`): `Binding.toEvent` yields `CloudEventV1<unknown>` or an array of them, so the landing narrows the arity before `Schema.decodeUnknown` decodes `data` and the typed extensions; `Effect.try` lifts every construction throw.
@@ -84,7 +84,7 @@ Barrel exports bound the admitted surface. Four HTTP header members and the `Det
 - `mqtt`(`runtime/.api/mqtt.md`): owns connectivity; `MQTTMessageFactory` builds the frame this package's binding shapes and `mqtt` publishes.
 - `runtime/net/pubsub`(`runtime/.planning/net/pubsub.md`): Kafka uses its SDK binding; NATS and browser tabs carry the exact structured JSON single codec; every decoded event crosses `Event.admit`.
 - `runtime/work/deliver`(`runtime/.planning/work/deliver.md`): projects the stored announcement at claim time through the mode's own binding and signs the exact encoded transport octets once before any reserialization.
-- `core/value/fault`(`core/.planning/value/fault.md`): `ValidationError.errors` becomes `Fault.Class` evidence inside `Effect.try`; a bare `TypeError` from the cross-version guard folds onto the same rail.
+- `core/value/fault`(`core/.planning/value/fault.md`): `ValidationError.errors` becomes `Fault.Class` evidence inside `Effect.try`; a bare `TypeError` from the cross-version guard folds onto the same channel.
 
 [LOCAL_ADMISSION]:
 - Supply `id`, `time`, and `specversion` at every mint, so no message envelope carries an SDK-minted identity or wall-clock instant.

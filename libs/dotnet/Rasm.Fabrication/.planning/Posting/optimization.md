@@ -21,7 +21,7 @@
 - Law: `OptimizeMap` is the ONE unit lift. A millimetre double becoming a `Length` is a mapping, so it rides the generated mapper and the hand-written constructor fan that spelled every conversion at a call site is the deleted form.
 - Cases: `Feed` carries engagement evidence and its minimum fraction; `Smooth` geometry preservation; `Compact` collinear and co-circular tolerances; `Pattern` the pattern window, its occurrence floor, its first label, and its occurrence BUDGET; `Stability` the chatter lobes with the depth they are relative to and the margin floor a point must clear.
 - Entry: `Optimize.Apply(CutProgram, OptimizationIngress, OptimizationEgress)` is the only public operation; `OptimizationEgress.Measurement` derives the final codec, termination, and framing with `BlockLimit.Observe`, while `Final` retains `BlockLimit.Enforce`.
-- Auto: independent raw-policy failures accumulate through `Validation<Error, _>` before the `Fin<_>` execution rail; each policy admits through its generated `Validate` and the one `Admitted` bridge.
+- Auto: independent raw-policy failures accumulate through `Validation<Error, _>` before the `Fin<_>` execution stage; each policy admits through its generated `Validate` and the one `Admitted` bridge.
 - Result: every admitted column carries its `UnitsNet` quantity past admission.
 - Packages: `UnitsNet` supplies `Speed`, `RotationalSpeed`, `Length`, `Angle`, `Power`, `Ratio`, and `Duration`; `Process/physics#EQUIPMENT` `ProcessRange` supplies controller bounds; `Riok.Mapperly` owns the unit lift; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, `Fin<_>`, and the equality-keyed `HashMap` carrier `BlockLocus` requires.
 - Boundary: raw dimensional doubles, provider range types, and page-local cutting-force equations never cross admission; the ordered `Map` carrier never keys on a `[ComplexValueObject]`, which owns structural equality and no comparer.
@@ -60,7 +60,6 @@ public sealed partial class OptimizePass {
 
 [ValueObject<int>(KeyMemberName = "Segments")]
 public readonly partial struct PatternLength {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value > 0 ? null : new ValidationError("optimization:pattern-length");
 }
@@ -69,7 +68,6 @@ public readonly partial struct PatternLength {
 public sealed partial class BlockLocus {
     public Seq<int> Path { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<int> path) {
         if (path.IsEmpty || path.Exists(static index => index < 0))
             validationError = new ValidationError("optimization:locus");
@@ -84,7 +82,6 @@ public sealed partial class EngagementRow {
     public Length RadialDepth { get; }
     public Length AxialDepth { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref BlockLocus locus, ref Length radialDepth, ref Length axialDepth) {
         if (radialDepth <= Length.Zero || axialDepth <= Length.Zero)
@@ -110,7 +107,6 @@ public sealed partial class CutContext {
     public Length NominalAxialDepth { get; }
     public Option<Power> SpindlePower { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref CuttingData cutting,
         ref Speed processFeed, ref Speed minimumFeed, ref Speed maximumFeed, ref RotationalSpeed minimumSpindle,
@@ -188,7 +184,6 @@ public sealed partial class FeedPolicy {
     public Ratio MinimumEngagement { get; }
     public HashMap<BlockLocus, EngagementRow> Engagement { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Ratio minimumEngagement,
         ref HashMap<BlockLocus, EngagementRow> engagement) {
@@ -205,7 +200,6 @@ public sealed partial class SmoothPolicy {
     public Length MinimumRadius { get; }
     public Length GeometryTolerance { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Length maximumDeviation,
         ref Angle minimumTurn, ref Length minimumRadius, ref Length geometryTolerance) {
@@ -220,7 +214,6 @@ public sealed partial class CompactPolicy {
     public Length CollinearTolerance { get; }
     public Length CocircularTolerance { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Length collinearTolerance, ref Length cocircularTolerance) {
         if (collinearTolerance <= Length.Zero || cocircularTolerance <= Length.Zero)
@@ -237,7 +230,6 @@ public sealed partial class PatternPolicy {
 
     public int OccurrenceBudget { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref PatternLength minimumLength,
         ref PatternLength maximumLength, ref int minimumOccurrences, ref int firstLabel, ref int occurrenceBudget) {
@@ -253,7 +245,6 @@ public sealed partial class StabilityGate {
     public Length RequestedDepth { get; }
     public Ratio MinimumMargin { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref StabilityLobes lobes,
         ref Length requestedDepth, ref Ratio minimumMargin) {
@@ -315,7 +306,6 @@ public sealed partial class OptimizePolicy {
     [IgnoreMember]
     public Seq<PassPolicy> Ordered => toSeq(Passes.OrderBy(static row => row.Pass.Order));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref CutContext context,
         ref Seq<PassPolicy> passes, ref PostPolicy post) {
@@ -332,7 +322,6 @@ public sealed partial class OptimizationEgress {
     public EmitPolicy Measurement => EmitPolicy.Create(
         Final.Codec, Final.NewLine, Final.FinalTerminator, Final.Frame, new BlockLimit.Observe());
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref EmitPolicy @final) {
         if (@final.Limit is not BlockLimit.Enforce)
             validationError = new ValidationError("optimization:egress");
@@ -599,7 +588,7 @@ public static partial class Optimize {
 
 - Owner: `NodeWalk` owns the ONE structural recursion over a `GNode` sequence.
 - Law: the descent through block, macro, and subprogram bodies lives HERE. Five parallel walkers each re-enumerated every node case, and two of them had already lost their directive arm — a label census that skipped directives and an engagement census that skipped them too, both compiling clean while silently under-reporting. One walker means a new case is one arm.
-- Cases: `Deep` REWRITES on the rail — a leaf rewrite over words and cycles, and a level rewrite over each body sequence after its children settle; `Collect` FOLDS — one projection per node into an accumulated sequence.
+- Cases: `Deep` REWRITES on the result — a leaf rewrite over words and cycles, and a level rewrite over each body sequence after its children settle; `Collect` FOLDS — one projection per node into an accumulated sequence.
 - Auto: both entries thread the structural `BlockLocus`, so a pass keyed on engagement or a label reads the same path the trace publishes.
 - Boundary: `NodeWalk` decides no domain question — it descends and re-seats bodies, and every rewrite is the caller's.
 

@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_DIFFRAX]
 
-`diffrax` owns JAX-native ODE, SDE, and CDE integration for the compute differential-equation rail: one `diffeqsolve` routes every `NumericIntent` case on a chosen solver, step-size controller, and adjoint. Implicit and stiff solvers fold a `lineax`/`optimistix` root-find inside each step, and the whole solve stays JIT-, grad-, and vmap-transformable as an `equinox` pytree.
+`diffrax` owns JAX-native ODE, SDE, and CDE integration for the compute differential-equation domain: one `diffeqsolve` routes every `NumericIntent` case on a chosen solver, step-size controller, and adjoint. Implicit and stiff solvers fold a `lineax`/`optimistix` root-find inside each step, and the whole solve stays JIT-, grad-, and vmap-transformable as an `equinox` pytree.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -154,7 +154,7 @@
 [STACKING]:
 - `equinox`(`.api/equinox.md`): a `diffeqsolve` call is a pure JAX function over `equinox.Module` pytree state, composing inside `filter_jit`/`filter_grad`/`filter_vmap` — a batched parameter sweep is one `filter_vmap(diffeqsolve, ...)` and a gradient-through-solve is `filter_grad` over the chosen `adjoint`; `RESULTS` inherits the `equinox.Enumeration` termination base.
 - `lineax`(`.api/lineax.md`) / `optimistix`(`.api/optimistix.md`): an `AbstractImplicitSolver` (`ImplicitEuler`/`Kvaerno*`/`KenCarp*`) runs an `optimistix` root-find each step whose linear sub-solve is a `lineax` operator solve, and `ImplicitAdjoint` threads the same `optimistix`/`lineax` implicit-function solve — the stiff step reuses the sibling solver stack.
-- `interpax`(`.api/interpax.md`) / `quadax`(`.api/quadax.md`): dense output (`SaveAt(dense=True)` -> `Solution.interpolation`) yields a continuous trajectory the `interpax`/`quadax` rails resample or integrate; a CDE control path builds with `backward_hermite_coefficients` + `CubicInterpolation` passed as the `ControlTerm` control.
+- `interpax`(`.api/interpax.md`) / `quadax`(`.api/quadax.md`): dense output (`SaveAt(dense=True)` -> `Solution.interpolation`) yields a continuous trajectory the `interpax`/`quadax` layers resample or integrate; a CDE control path builds with `backward_hermite_coefficients` + `CubicInterpolation` passed as the `ControlTerm` control.
 - within-lib: the `DifferentialIntent` route folds the `Solution` (`stats` step counts + `result` verdict) onto `Solve`, and `RecursiveCheckpointAdjoint` bounds reverse-mode memory for the graduation gradient study.
 
 [LOCAL_ADMISSION]:

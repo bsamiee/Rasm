@@ -1,12 +1,12 @@
 # [RASM_RHINO_PERSISTENCE_USERTEXT]
 
-`TextMutationBatch` closes document, attribute, and geometry writes; `TextQuery` closes detached reads and wildcard search. `UserTexts.Commit` returns the mutation rail, while `UserTexts.Read` returns the query's detached result.
+`TextMutationBatch` closes document, attribute, and geometry writes; `TextQuery` closes detached reads and wildcard search. `UserTexts.Commit` returns the mutation result, while `UserTexts.Read` returns the query's detached result.
 
 ## [01]-[INDEX]
 
 - [02]-[VOCABULARY]: `TextKey`, `UserTextValue`, `TextSection`, `ObjectTextStore`, `TextComparison`, `TextSearchPolicy`, `TextAddress`, `TextEdit`, `TextObjectFilter`, `TextMutationBatch`, and `TextQuery`.
 - [03]-[DETACHED_RESULTS]: `DocumentTextSnapshot`, `ObjectTextSnapshot`, `TextMatch`, `UserTextAnswer` — the censuses and the answer family.
-- [04]-[INTERPRETER]: `UserTexts.Commit` and `UserTexts.Read` — the seeded document fold, the planned object commit, and the host search seam.
+- [04]-[INTERPRETER]: `UserTexts.Commit` and `UserTexts.Read` — the seeded document fold, the planned object commit, and the host search boundary.
 
 ## [02]-[VOCABULARY]
 
@@ -262,7 +262,7 @@ public abstract partial record TextQuery {
 - Owner: `DocumentTextSnapshot` is the flat/section partition of the document string table; `ObjectTextSnapshot` is one object's two stores; `TextMatch` names an object and the store set that matched it; `UserTextAnswer` is the answer family.
 - Law: a snapshot carries the MAPS alone. The retired form carried the host's own counts beside them with a `Consistent` predicate every caller re-read — a mirror that reports disagreement instead of refusing it. The host counts are now a POSTCONDITION inside the read: `DocumentUserTextCount` must equal the folded flat map and `DocumentDataCount` the folded section map, `UserStringCount` must equal the folded attribute map, and a disagreement is a typed `Diverged` carrying both readings.
 - Law: `TextMatch.Stores` is a capability set, so a store row added to the vocabulary adds no product case and an object matched in both stores is one row rather than two.
-- Law: every collection-bearing record declares its equality explicitly, because the object commit rail DECIDES on sequence equality between a planned delta run and the run the host callback reproduced — synthesized record equality over a LanguageExt carrier compares the wrong thing at exactly the site that must not be wrong.
+- Law: every collection-bearing record declares its equality explicitly, because the object commit pipeline DECIDES on sequence equality between a planned delta run and the run the host callback reproduced — synthesized record equality over a LanguageExt carrier compares the wrong thing at exactly the site that must not be wrong.
 - Growth: a new answer shape is one `UserTextAnswer` case; a new census column is one snapshot member and its postcondition.
 - Packages: `Document/tables` (`ResourceId`); `Document/session` (`IDetachedDocumentResult`); Generator.Equals (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]`, `[UnorderedEquality]`); LanguageExt.Core.
 
@@ -309,15 +309,15 @@ public abstract partial record UserTextAnswer : IDetachedDocumentResult {
 
 ## [04]-[INTERPRETER]
 
-- Owner: `UserTexts` — `Commit` routes document and object mutations to their owning transaction rail, while `Read` routes detached reads and wildcard search.
+- Owner: `UserTexts` — `Commit` routes document and object mutations to their owning transaction pipeline, while `Read` routes detached reads and wildcard search.
 - Entry: `UserTexts.Commit(DocumentSession, TextMutationBatch, Op?)`; `UserTexts.Read(DocumentSession, TextQuery, Op?)`.
-- Auto: the document rail reads the string table TWICE regardless of batch length — once to seed the fold, once to settle it. The seeded maps ARE the document's text state, each applied mutation advances them, and the next mutation reads its prior from the fold. The retired per-probe prior read walked `Strings.Count` calling `GetKey(index)`, so every mutation cost a full table scan and every batch cost two per mutation; the closing census proves the whole batch at once, which is strictly stronger than the per-mutation re-read it replaces.
+- Auto: the document pipeline reads the string table TWICE regardless of batch length — once to seed the fold, once to settle it. The seeded maps ARE the document's text state, each applied mutation advances them, and the next mutation reads its prior from the fold. The retired per-probe prior read walked `Strings.Count` calling `GetKey(index)`, so every mutation cost a full table scan and every batch cost two per mutation; the closing census proves the whole batch at once, which is strictly stronger than the per-mutation re-read it replaces.
 - Law: every object write settles on the STORED value. A host `true` that wrote something else is a silent divergence, and a host `false` settles ONLY when the key already holds what the request asked for — deleting an absent key, or writing the value already there. A refusal that leaves an EFFECTIVE change unapplied is a typed failure.
 - Law: object mutations are planned against detached values before any host write, and the attribute callback proves its stored map equals that plan before the table mutation commits.
-- Law: `TextPlan` owns each staged geometry clone through `Tables.Commit`; failed planning releases the clones already staged, and terminal commit releases the complete plan on both rails.
-- Law: object mutation terminates at `Tables.Commit`; document text remains under the session's own undo bracket. Two rails because two transaction owners: the object table's program carries its own undo and interaction posture, and a document string write has no table occurrence to address.
-- Boundary: Rhino's mutable text, clone, undo, and object-table calls form the platform-forced statement seam. No live `RhinoObject` and no mutable string collection escapes a projection.
-- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `StringTable.Count`/`GetKey`/`GetValue`/`SetString`/`Delete`/`DocumentUserTextCount`/`DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject.Attributes`/`Geometry`, `GetUserStrings`, `GetUserString`, `SetUserString`, `DeleteUserString`, `UserStringCount`, `ObjectTable.FindId`/`FindByUserString`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`); `Document/tables` (`Tables.Commit`, `TableOp.Amend`/`Replace`, `TableTarget`, `TableTransaction.Recorded`, `AttributeChange`, `ModeRegard`); kernel `Domain/rails` (`Op.Catch`, `Custody`); LanguageExt.Core (`TraverseM`, `Choose`, `HashMap`).
+- Law: `TextPlan` owns each staged geometry clone through `Tables.Commit`; failed planning releases the clones already staged, and terminal commit releases the complete plan on both pipelines.
+- Law: object mutation terminates at `Tables.Commit`; document text remains under the session's own undo bracket. Two pipelines because two transaction owners: the object table's program carries its own undo and interaction posture, and a document string write has no table occurrence to address.
+- Boundary: Rhino's mutable text, clone, undo, and object-table calls form the platform-forced statement block. No live `RhinoObject` and no mutable string collection escapes a projection.
+- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `StringTable.Count`/`GetKey`/`GetValue`/`SetString`/`Delete`/`DocumentUserTextCount`/`DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject.Attributes`/`Geometry`, `GetUserStrings`, `GetUserString`, `SetUserString`, `DeleteUserString`, `UserStringCount`, `ObjectTable.FindId`/`FindByUserString`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`); `Document/tables` (`Tables.Commit`, `TableOp.Amend`/`Replace`, `TableTarget`, `TableTransaction.Recorded`, `AttributeChange`, `ModeRegard`); kernel `Domain/results` (`Op.Catch`, `Custody`); LanguageExt.Core (`TraverseM`, `Choose`, `HashMap`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------

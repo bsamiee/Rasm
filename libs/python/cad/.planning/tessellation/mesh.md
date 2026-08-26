@@ -32,7 +32,7 @@ from expression import Error, Ok
 from msgspec import Struct
 # Contracts are retired from this logic.
 
-from rasm.cad.faults import MESH_KERNEL, CadRail
+from rasm.cad.faults import MESH_KERNEL, CadResult
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ WHOLE_LANE: Final[Custody] = Custody(parallel=True)
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _meshed(root: TopoDS_Shape, policy: TessellationPolicy, custody: Custody, /) -> CadRail[TopoDS_Shape]:
+def _meshed(root: TopoDS_Shape, policy: TessellationPolicy, custody: Custody, /) -> CadResult[TopoDS_Shape]:
     mesher = BRepMesh_IncrementalMesh(root, policy.deflection_m, False, policy.angle_tolerance_rad, custody.parallel)
     done, flags = mesher.IsDone(), mesher.GetStatusFlags()
     return Ok(root) if done and flags == 0 else Error(MESH_KERNEL.at(f"BRepMesh_IncrementalMesh:done={done};flags={flags}"))
@@ -80,7 +80,7 @@ from expression.collections import Block
 from expression.extra.result import traverse
 # Contracts are retired from this logic.
 
-from rasm.cad.faults import MESH_BUDGET, MESH_KERNEL, CadRail
+from rasm.cad.faults import MESH_BUDGET, MESH_KERNEL, CadResult
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -92,13 +92,13 @@ def _faces(shape: TopoDS_Shape, /) -> Iterator[TopoDS_Face]:
         explorer.Next()
 
 
-def _triangles(face: TopoDS_Face, /) -> CadRail[int]:
+def _triangles(face: TopoDS_Face, /) -> CadResult[int]:
     triangulation: Poly_Triangulation | None = BRep_Tool.Triangulation_s(face, TopLoc_Location())
     return Ok(triangulation.NbTriangles()) if triangulation is not None else Error(MESH_KERNEL.at("mesh.face-triangulation"))
 
 
-def _preflight(root: TopoDS_Shape, policy: TessellationPolicy, /) -> CadRail[int]:
-    def gated(counts: Block[int], /) -> CadRail[int]:
+def _preflight(root: TopoDS_Shape, policy: TessellationPolicy, /) -> CadResult[int]:
+    def gated(counts: Block[int], /) -> CadResult[int]:
         total = sum(counts)
         return Ok(total) if total <= policy.triangle_budget else Error(MESH_BUDGET.at(f"preflight:{total}>{policy.triangle_budget}"))
 
@@ -112,7 +112,7 @@ def _preflight(root: TopoDS_Shape, policy: TessellationPolicy, /) -> CadRail[int
 - Law: the emitted census gates the budget a second time, because welding and primitive splitting move the emitted total away from the native sum.
 - Law: `MESH_BUDGET` carries both gates under distinct coordinates, so the refusal names whether the native fold or the emitted file crossed the line.
 - Law: `GlbCensus.closure` elects the `Closure` arm `measured` consumes, so watertight and delta are never decided twice.
-- Output: `TessellationEvidence` crosses the `to_process` seam as a value; the emitted bytes never do, and the parent owns the path they sit on.
+- Output: `TessellationEvidence` crosses the `to_process` boundary as a value; the emitted bytes never do, and the parent owns the path they sit on.
 - Output: `artifact_bytes` rides the evidence as emission proof `service/spool#SPOOL` confirms its publish against; the wire reserves the field.
 - Growth: a new spine stage is one `yield from` arrow; a new source kind lands at `exchange/assembly#ROOTS` and this spine stands unchanged.
 - Boundary: `TessellateResponse` is assembled at `service/provider#PROVIDER`, which owns the `ArtifactRef` this worker never sees.
@@ -125,7 +125,7 @@ from msgspec import Struct
 # Contracts are retired from this logic.
 
 from rasm.cad.exchange.assembly import transferred
-from rasm.cad.faults import MESH_BUDGET, CadFault, CadRail
+from rasm.cad.faults import MESH_BUDGET, CadFault, CadResult
 from rasm.cad.metrology.census import GlbCensus
 from rasm.cad.metrology.properties import measured
 from rasm.cad.tessellation.emission import emitted
@@ -143,7 +143,7 @@ class TessellationEvidence(Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _budgeted(census: GlbCensus, budget: int, /) -> CadRail[GlbCensus]:
+def _budgeted(census: GlbCensus, budget: int, /) -> CadResult[GlbCensus]:
     return Ok(census) if census.triangles <= budget else Error(MESH_BUDGET.at(f"emitted:{census.triangles}>{budget}"))
 
 

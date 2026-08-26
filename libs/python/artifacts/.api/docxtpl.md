@@ -67,6 +67,6 @@ Carriers serialize to OOXML and stringify into the render context. `RichText`/`R
 - `msoffcrypto-tool`(`.api/msoffcrypto-tool.md`): the saved `.docx` routes here for ECMA-376 encryption when a protected deliverable is required.
 
 [LOCAL_ADMISSION]:
-- Pure-Python wheel, LGPL-2.1 weak copyleft, dynamic-link-safe for an internalized owner; admitted for the `document` rail.
+- Pure-Python wheel, LGPL-2.1 weak copyleft, dynamic-link-safe for an internalized owner; admitted for the `document` layer.
 - Import lazily at boundary scope (`from docxtpl import DocxTemplate, InlineImage, Listing, RichText, RichTextParagraph`); `R`/`RP` stay aliases, never imported as distinct names.
 - `new_subdoc`/`Subdoc` and its optional `docxcompose` dependency stay out of admission; the `DocumentNode` carriers cover styled content without sub-document composition.

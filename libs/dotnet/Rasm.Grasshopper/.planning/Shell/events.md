@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_SHELL_EVENTS]
 
-Boundary's UI event estate is the kernel input estate instantiated: `GhFact` is the folder's closed fact band riding the kernel `IUiFact` floor with a `Kernel(UiFact)` wrapping case, the GH2 source rows are one `IUiSource<GhFact>` roster over two generic wire folds, and subscription, ordering, bounded evidence, and completion are all `Rasm/Interaction/input.md`'s — `UiEvents.Observe`, `UiEvent<GhFact>` with its drain-minted `Ordinal`, `EvidenceDrain<GhFact>`, and `UiSubscription<GhFact>`. Every Eto fact case, anchor case, and source row this page once declared is DELETED onto the kernel band; what stays is the Grasshopper2 host truth the kernel cannot name.
+Boundary's UI event module is the kernel input module instantiated: `GhFact` is the folder's closed fact band riding the kernel `IUiFact` floor with a `Kernel(UiFact)` wrapping case, the GH2 source rows are one `IUiSource<GhFact>` roster over two generic wire folds, and subscription, ordering, bounded evidence, and completion are all `Rasm/Interaction/input.md`'s — `UiEvents.Observe`, `UiEvent<GhFact>` with its drain-minted `Ordinal`, `EvidenceDrain<GhFact>`, and `UiSubscription<GhFact>`. Every Eto fact case, anchor case, and source row this page once declared is DELETED onto the kernel band; what stays is the Grasshopper2 host truth the kernel cannot name.
 
 Drain's single compare-and-swap mints the stamp and the ordinal together (kernel law), so the sink-serialized total order `Shell/journal.md`'s replay depends on survives as `UiEvent<GhFact>.Ordinal` — no local ordinal cell, saturation guard, or `EventSink` exists here.
 
@@ -8,7 +8,7 @@ Drain's single compare-and-swap mints the stamp and the ordinal together (kernel
 
 - [02]-[FACTS]: `CanvasSignal`/`DocumentSignal`/`GraphSignal`/`SolutionSignal`/`UndoSignal` + `GhFact` — the GH2 signal vocabularies and the folder fact band.
 - [03]-[SOURCES]: `GhSource` — the GH2 source roster over the two wire folds, each row pairing attach with its exact inverse.
-- [04]-[BRIDGES]: `HookBridge` — the two `CancelEventArgs` veto bridges writing a hook-rail refusal back into the host.
+- [04]-[BRIDGES]: `HookBridge` — the two `CancelEventArgs` veto bridges writing a hook refusal back into the host.
 
 ## [02]-[FACTS]
 
@@ -104,7 +104,7 @@ public abstract partial record GhFact : IUiFact {
 
 - Owner: `GhSource` — one `IUiSource<GhFact>` row per GH2 host stream, every row a one-line seat over TWO generic folds: `Row<THost, TArgs>` names the host family and its typed args, `Wired<THost, TArgs>` carries the add-and-remove pair as one value so a subscription a row cannot undo is unspellable. Former seven per-anchor factories and eight per-args sub-folds are these two.
 - Law: a GH2 SUBJECT rides its ROW — the kernel `EventAnchor` union is Eto-shaped and closed, so a row over a `Document`, `SolutionServer`, or `History` closes over the subject at its mint (`GhSource.Of(document)` answers that subject's row set) and admits `EventAnchor.Ambient` alone, the spelling that states no Eto surface is touched; the six canvas rows demand `OnControl` whose control IS the GH2 `Canvas` and refuse any other typed. Anchor agreement stays admission, never documentation.
-- Law: every wire spells its host delegate exactly — the flex-seam four carry typed args (`ProjectionChangedEventArgs`, `WindowSelectionEventArgs`, `MouseDwellEventArgs` with `ContentPoint`, `ControlDrawEventArgs`); the document three carry `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`BeforeAfterEventArgs<Document, IDocumentParent>`; the object-list ten carry the `ObjectEventArgs` family; the solution six carry `SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`; the undo seven carry `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`. Wire assuming a wrong delegate family fails at compile.
+- Law: every wire spells its host delegate exactly — the flex-interface four carry typed args (`ProjectionChangedEventArgs`, `WindowSelectionEventArgs`, `MouseDwellEventArgs` with `ContentPoint`, `ControlDrawEventArgs`); the document three carry `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`BeforeAfterEventArgs<Document, IDocumentParent>`; the object-list ten carry the `ObjectEventArgs` family; the solution six carry `SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`; the undo seven carry `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`. Wire assuming a wrong delegate family fails at compile.
 - Law: the emit thunk publishes into the kernel drain through `UiEvents.Observe` — projection runs inside the drain's own admission, a refused projection counts on `Refused`, a dropped event on `Shed`, and the ordinal mints under the drain's one compare-and-swap. No row touches an ordinal, a fault cell, or a log; the loss accounting is the kernel's.
 - Law: subscription is `UiEvents.Observe(anchor, drain, Atomicity.AllOrNothing, key, rows)` — the folder's ruled posture: a refused row detaches every seated sibling and refuses whole, because the journal reading the drain is replayable only over a complete row set. Diagnostic consumer wanting partial attach names `Atomicity.Partial` at its own call site; both are kernel rows, not folder forks.
 - Boundary: native-monitor streams stay `Platform/native.md`'s — the platform owner projects its gated monitors into the same drain from above; the eight canvas paint fences are `Canvas/paint.md`'s executor and never rows here.
@@ -224,10 +224,10 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
 
 ## [04]-[BRIDGES]
 
-- Owner: `HookBridge` — the two veto bridges the hook census names as this page's fire sites: `Window.Closing` and `Application.Terminating` carry `CancelEventArgs` the kernel fact projection cannot write back, so each bridge attaches the raw handler, fires its own point — `rail.Fire(at: GrasshopperPoint.WindowClose, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)` at the closing bridge, `ShellTerminate` at the terminating one — and writes `args.Cancel = true` on the `Fail` leg — the one host readback in the estate, stated rather than hidden in a source row.
-- Law: the bridge takes the rail as a REQUIRED parameter (minted at `Platform/composition.md`); a mount with no rail has no veto to consult and does not exist.
-- Law: the bridge is not an event row — the same host events also ride the kernel `UiSource.Closing`/`Terminating` rows as facts; the bridge exists only for the verdict write-back, so observation and governance stay two seams with two shapes.
-- Packages: Eto.Forms (`Window`, `Application`, `CancelEventArgs`), `Rasm.Domain` (`HookRail`, `Op`, `Lease<T>`).
+- Owner: `HookBridge` — the two veto bridges the hook census names as this page's fire sites: `Window.Closing` and `Application.Terminating` carry `CancelEventArgs` the kernel fact projection cannot write back, so each bridge attaches the raw handler, fires its own point — `hooks.Fire(at: GrasshopperPoint.WindowClose, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)` at the closing bridge, `ShellTerminate` at the terminating one — and writes `args.Cancel = true` on the `Fail` leg — the one host readback in the module, stated rather than hidden in a source row.
+- Law: the bridge takes the hooks as a REQUIRED parameter (minted at `Platform/composition.md`); a mount with no hooks has no veto to consult and does not exist.
+- Law: the bridge is not an event row — the same host events also ride the kernel `UiSource.Closing`/`Terminating` rows as facts; the bridge exists only for the verdict write-back, so observation and governance stay two boundaries with two shapes.
+- Packages: Eto.Forms (`Window`, `Application`, `CancelEventArgs`), `Rasm.Domain` (`HookSet`, `Op`, `Lease<T>`).
 - Growth: a third `CancelEventArgs` surface is one mount arm; the write-back law never widens.
 
 ```csharp
@@ -238,31 +238,30 @@ using Rasm.Domain;
 namespace Rasm.Grasshopper.Shell;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class HookBridge {
     public static Fin<Lease<IDisposable>> Closing(
-        Window window, HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op? key = null);
+        Window window, HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, Op? key = null);
 
     public static Fin<Lease<IDisposable>> Terminating(
-        HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op? key = null);
+        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, Op? key = null);
 
     private static void Consult(
-        HookRail<GrasshopperPoint, HookSignal, HookScope> rail, GrasshopperPoint at, CancelEventArgs args, Op key) =>
-        rail.Fire(at: at, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)
+        HookSet<GrasshopperPoint, HookSignal, HookScope> hooks, GrasshopperPoint at, CancelEventArgs args, Op key) =>
+        hooks.Fire(at: at, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)
             .IfFail(_ => { args.Cancel = true; });
 }
 ```
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                        | [RAIL]                                       | [CASES] |
+| [INDEX] | [CONCERN]           | [OWNER]                        | [RESULT]                                     | [CASES] |
 | :-----: | :------------------ | :----------------------------- | :------------------------------------------- | :-----: |
 |  [01]   | signal vocabularies | `CanvasSignal`…`UndoSignal`    | five keyed smart-enum row sets               |   32    |
 |  [02]   | fact band           | `GhFact : IUiFact`             | closed union + the kernel wrap case          |    6    |
 |  [03]   | source roster       | `GhSource : IUiSource<GhFact>` | 32 one-line rows over two generic wire folds |   32    |
-|  [04]   | veto bridges        | `HookBridge`                   | rail verdict → `CancelEventArgs` write-back  |    2    |
+|  [04]   | veto bridges        | `HookBridge`                   | hook verdict → `CancelEventArgs` write-back  |    2    |
 
-Subscription, atomicity, ordinal, bounded drain, shed/refused accounting, and completion are the kernel input estate's (`UiEvents`, `UiSubscription<GhFact>`, `EvidenceDrain<GhFact>`, `DrainPolicy`); the 29 Eto source rows, 13 Eto fact cases, 4 Eto anchors, `EventSink`, `Detachment`, the local ordinal CAS, and both `[LoggerMessage]` partials deleted onto it.
+Subscription, atomicity, ordinal, bounded drain, shed/refused accounting, and completion are the kernel input module's (`UiEvents`, `UiSubscription<GhFact>`, `EvidenceDrain<GhFact>`, `DrainPolicy`); the 29 Eto source rows, 13 Eto fact cases, 4 Eto anchors, `EventSink`, `Detachment`, the local ordinal CAS, and both `[LoggerMessage]` partials deleted onto it.
 
 ## [06]-[RESEARCH]
 

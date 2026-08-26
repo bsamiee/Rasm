@@ -6,7 +6,7 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 
 ## [01]-[PUBLIC_TYPES]
 
-[GRAPH_CONTRACTS]: `NodeEditor.Model` graph algebra, editing engine, and validation rail
+[GRAPH_CONTRACTS]: `NodeEditor.Model` graph algebra, editing engine, and validation types
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                             |
 | :-----: | :----------------------------- | :------------ | :------------------------------------------------------- |
@@ -37,7 +37,7 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 [IConnectablePin]: `Direction : PinDirection { get; }` `BusWidth : int { get; }` — a product pin implements this beside `IPin` to admit directional and bus-width policy
 [IDrawingNodeSettings.connection]: `EnableConnections` `RequireDirectionalConnections` `RequireMatchingBusWidth` `EnableMultiplePinConnections` `AllowSelfConnections` `AllowDuplicateConnections` `ConnectionValidator : ConnectionValidationHandler?`
 [IDrawingNodeSettings.ink]: `EnableInk` `IsInkMode` `InkPens : IList<InkPen>?` `ActivePen : InkPen?`
-[IDrawingNodeSettings.lattice]: `EnableSnap` `SnapX` `SnapY` `NudgeStep` `NudgeMultiplier` `EnableGrid` `GridCellWidth` `GridCellHeight` `EnableGuides` `GuideSnapTolerance`
+[IDrawingNodeSettings.grid]: `EnableSnap` `SnapX` `SnapY` `NudgeStep` `NudgeMultiplier` `EnableGrid` `GridCellWidth` `GridCellHeight` `EnableGuides` `GuideSnapTolerance`
 [IDrawingNodeSettings.routing]: `EnableConnectorRouting` `RoutingGridSize` `RoutingObstaclePadding` `RoutingAlgorithm : ConnectorRoutingAlgorithm` `RoutingBendPenalty` `RoutingDiagonalCost` `RoutingCornerRadius` `RoutingMaxCells : int` `DefaultConnectorStyle : ConnectorStyle`
 [IDrawingNodeFactory]: `CreatePin() : IPin` `CreateConnector() : IConnector` `CreateList<T>() : IList<T>`
 [INodeFactory]: `CreateTemplates() : IList<INodeTemplate>` `CreateDrawing(string?) : IDrawingNode`
@@ -51,7 +51,7 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                            |
 | :-----: | :-------------------------- | :------------ | :-------------------------------------- |
 |  [01]   | `ConnectorRoutingMode`      | enum          | per-connector manual or automatic route |
-|  [02]   | `ConnectorRoutingAlgorithm` | enum          | routing lattice selection               |
+|  [02]   | `ConnectorRoutingAlgorithm` | enum          | routing grid selection                  |
 |  [03]   | `ConnectorStyle`            | enum          | connector path shape                    |
 |  [04]   | `ConnectorOrientation`      | enum          | control-point projection axis           |
 |  [05]   | `ConnectorArrowStyle`       | enum          | endpoint arrowhead                      |
@@ -145,10 +145,10 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 [ConnectorSelectedAdorner]: `Connectors : IReadOnlyList<IConnector>?` `Stroke : IBrush?` `StrokeThickness : double` (default `2.0`)
 [ConnectorCrossingsAdorner]: `Connectors : IReadOnlyList<IConnector>?` `Stroke : IBrush?` `Background : IBrush?` `StrokeThickness : double` (default `2.0`) `ArcRadius : double` (default `6.0`)
 [EditableTextBlock]: `Text : string?` (two-way) `Placeholder : string?` `IsEditing : bool` `AcceptsReturn : bool` `TextWrapping : TextWrapping` `TextAlignment : TextAlignment`
-[DrawingNodeProperties]: two-way styled properties mirror `IsInkMode`, the connection flags, the whole lattice and routing set, `DrawingWidth`, and `DrawingHeight`
+[DrawingNodeProperties]: two-way styled properties mirror `IsInkMode`, the connection flags, the whole grid and routing set, `DrawingWidth`, and `DrawingHeight`
 [DrawingNodeProperties.gap]: `ConnectionValidator` `EnableInk` `InkPens` `ActivePen` `DefaultConnectorStyle` carry no control property, so a view-model binds them on `IDrawingNode.Settings` directly
 
-[CANVAS_INTERACTION]: `NodeEditor.Behaviors` gestures and drop rails over `Avalonia.Xaml.Behaviors`, and `NodeEditor.Converters` binding adapters
+[CANVAS_INTERACTION]: `NodeEditor.Behaviors` gestures and drop behaviors over `Avalonia.Xaml.Behaviors`, and `NodeEditor.Converters` binding adapters
 
 | [INDEX] | [SYMBOL]                                                                  | [TYPE_FAMILY]  | [CAPABILITY]                            |
 | :-----: | :------------------------------------------------------------------------ | :------------- | :-------------------------------------- |
@@ -286,14 +286,14 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 
 [TOPOLOGY]:
 - `NodeEditorAvalonia.Model` owns the graph algebra host-free and `NodeEditorAvalonia` binds it to Avalonia. Every mutation folds through the `IDrawingNode` command surface and the `DrawingNodeEditor` engine, never a repositioned control; connection policy rides `IDrawingNodeSettings` with `IConnectablePin.Direction`/`BusWidth` typing the ports, and every visual rides a `ControlTheme` or a variant resource key.
-- Routing, hit-testing, spatial indexing, snapping, and connector-path geometry are internal to `NodeEditorAvalonia`; a consumer steers them through `IDrawingNodeSettings.Routing*` and the lattice knobs, never by calling the algorithms.
+- Routing, hit-testing, spatial indexing, snapping, and connector-path geometry are internal to `NodeEditorAvalonia`; a consumer steers them through `IDrawingNodeSettings.Routing*` and the grid knobs, never by calling the algorithms.
 
 [STACKING]:
 - `ReactiveUI.Avalonia`(`api-reactiveui-avalonia.md`): product view-models implement `IDrawingNode`/`INode`/`IConnector`/`IPin` as `ReactiveObject`-backed models, and each `On*` notifier raises from the reactive setter so `Connector.ConnectorSource` and `Node.NodeSource` bindings track state.
 - `Avalonia.Skia`(`api-avalonia-skia.md`) and `SkiaSharp`(`api-skiasharp.md`): `ExportRenderer` renders through `Avalonia.Skia.Helpers.DrawingContextHelper.RenderAsync` onto an `SKCanvas`, `RenderPdf`/`RenderXps` wrapping it in `SKDocument.CreatePdf`/`CreateXps` pages.
-- `Avalonia.Xaml.Behaviors`(`api-behaviors.md`): every interaction rides `Behavior<T>`, and `DrawingDropHandler` extends the `IDropHandler` rail `ContextDropBehavior.Handler` consumes.
+- `Avalonia.Xaml.Behaviors`(`api-behaviors.md`): every interaction rides `Behavior<T>`, and `DrawingDropHandler` extends the `IDropHandler` contract `ContextDropBehavior.Handler` consumes.
 - `Loro`(`api-loro.md`): the `LoroTree` co-edit bridge projects graph mutation bidirectionally under one echo-suppressed handshake — `EventTriggerKind.Local` commits a local UI mutation as tree ops without re-applying its own echo, `Import` applies a remote merge to the model without re-emitting.
-- `ACadSharp`/`PDFsharp`(`api-drafting-export.md`, `api-pdfsharp.md`): `ExportRenderer.RenderPdf`/`RenderSvg` canvas output converges with the drafting and PDF export set on the shared vector-export rail.
+- `ACadSharp`/`PDFsharp`(`api-drafting-export.md`, `api-pdfsharp.md`): `ExportRenderer.RenderPdf`/`RenderSvg` canvas output converges with the drafting and PDF export set on the shared vector-export path.
 - within-lib: the parametric and dependency-graph editing surfaces drive every mutation through the `IDrawingNode` commands and the `DrawingNodeEditor` engine; `StorageService` supplies the matching `FilePickerFileType` presets, and `INodeSerializer` binds one serializer for clipboard, duplication, and persistence alike.
 
 [LOCAL_ADMISSION]:
@@ -301,5 +301,5 @@ Every mutation folds through `IDrawingNode` and `DrawingNodeEditor`; every visua
 - `NodeZoomBorder` derives the LEGACY `ZoomBorder` and adds seven parameterless command shims and nothing else — no property, field, or override — so `SavedView`, view history, discrete zoom, grid, rotation, and `ExportState` are unreachable through it; `Editor` fills `ZoomControl` from `PART_ZoomBorder` with that type, so a host wanting the pinned viewport mounts `DrawingNode` inside `PanAndZoom` `ZoomBorder` and skips `Editor`.
 - `NodeZoomBorder` shims: `ResetZoomCommand()` -> `ResetMatrix()`; `ZoomToCommand(object?)` parses a string factor, resets, then zooms about the child bounds centre; `ZoomInCommand()`/`ZoomOutCommand()` -> `ZoomIn`/`ZoomOut`; `FitCanvasCommand()` -> `Uniform`; `FitToFillCommand()` -> `UniformToFill`; `FillCanvasCommand()` -> `Fill`.
 - `InkLayer` renders `IDrawingNode.InkStrokes` UNCONDITIONALLY and captures only while `Settings.EnableInk && Settings.IsInkMode`, so a host driving its own stroke fold leaves ink mode false and keeps the layer as renderer alone. Its capture writes a constant `1.0` pressure and reads `GetCurrentPoint`, discarding the coalesced burst; `RenderStroke` builds ONE `ImmutablePen` at `Math.Max(0.5, stroke.Thickness)` for the whole stroke and reads `InkPoint.Pressure` nowhere, so a pressure-varying line renders as a per-run stroke sequence or not at all. Capture wraps `BeginUndoBatch`/`EndUndoBatch` when the drawing implements `IUndoRedoHost`.
-- `NodeEditor.SnapHelper` is `internal static` and unreachable: `Snap(double value, double snap)` returns `value` when `Math.Abs(snap) <= 0.0` and otherwise `Math.Round(value / Math.Abs(snap), MidpointRounding.AwayFromZero) * Math.Abs(snap)`, and `Snap(Point, snapX, snapY, enabled)` applies it PER AXIS. A host committing its own coordinates transcribes that body to land on the lattice the interactive drag quantizes to; calling it, or approximating with `Math.Round` at the default banker's midpoint, converges two peers to two positions for one gesture.
+- `NodeEditor.SnapHelper` is `internal static` and unreachable: `Snap(double value, double snap)` returns `value` when `Math.Abs(snap) <= 0.0` and otherwise `Math.Round(value / Math.Abs(snap), MidpointRounding.AwayFromZero) * Math.Abs(snap)`, and `Snap(Point, snapX, snapY, enabled)` applies it PER AXIS. A host committing its own coordinates transcribes that body to land on the grid the interactive drag quantizes to; calling it, or approximating with `Math.Round` at the default banker's midpoint, converges two peers to two positions for one gesture.
 - Host resources resolve `EditorBackground`, `DrawingBackground`, and the four icon keys before `NodeEditorTheme.axaml` composes; an unresolved `DynamicResource` renders that chrome blank rather than faulting.

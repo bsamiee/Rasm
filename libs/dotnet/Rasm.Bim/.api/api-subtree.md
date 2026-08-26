@@ -1,6 +1,6 @@
 # [RASM_BIM_API_SUBTREE]
 
-`subtree` owns the 3D-Tiles implicit-tiling `.subtree` availability bitstream — the Morton-ordered tile, content, and child-subtree bitstreams that tell a client which implicit nodes exist. It authors and reads tileset AVAILABILITY structure only, the interchange-rail complement to `SharpGLTF.Ext.3DTiles`, which owns per-tile glTF CONTENT. `SubtreeCreator` folds a `List<Tile>` (quadtree) or `List<Tile3D>` (octree) into a binary `.subtree` buffer, `ImplicitSubdivisionScheme` selecting the level-offset and Morton arithmetic.
+`subtree` owns the 3D-Tiles implicit-tiling `.subtree` availability bitstream — the Morton-ordered tile, content, and child-subtree bitstreams that tell a client which implicit nodes exist. It authors and reads tileset AVAILABILITY structure only, the interchange-path complement to `SharpGLTF.Ext.3DTiles`, which owns per-tile glTF CONTENT. `SubtreeCreator` folds a `List<Tile>` (quadtree) or `List<Tile3D>` (octree) into a binary `.subtree` buffer, `ImplicitSubdivisionScheme` selecting the level-offset and Morton arithmetic.
 
 ## [01]-[PUBLIC_TYPES]
 

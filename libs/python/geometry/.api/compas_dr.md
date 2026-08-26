@@ -99,9 +99,9 @@ Base `project`/`update`/`compute_*`/`update_location_at_param` raise `NotImpleme
 
 [STACKING]:
 - `compas`(`.api/compas.md`): `InputData` and every `Constraint` extend `compas.data.Data`, serialize through `compas.json_dumps`/`json_loads`, and consume `Mesh` through `InputData.from_mesh`; numpy solvers offload through `compas.rpc.Proxy.function("compas_dr.solvers.dr_numpy")`.
-- `compas_tna`(`.api/compas_tna.md`): the two COMPAS solver companions share the one form-finding fault rail (`RetryClass.RPC`) and ride the same `compas` `Mesh`/`json_*` spine, selected apart by the algebra owner's `FormEngine` sub-enum.
+- `compas_tna`(`.api/compas_tna.md`): the two COMPAS solver companions share the one form-finding fault channel (`RetryClass.RPC`) and ride the same `compas` `Mesh`/`json_*` spine, selected apart by the algebra owner's `FormEngine` sub-enum.
 - `graph/algebra#ALGEBRA`: selects this solver on the one form-finding case, threads the `solver_proxy` async-resource scope so a fan of solves shares one reconnected worker, and decodes constraint geometry through `json_loads` so `Constraint(decoded_geometry)` dispatches on the real decoded type.
 
 [LOCAL_ADMISSION]:
 - form-finding pipeline: build `InputData.from_mesh(mesh, fixed, loads, qpre, ...)`, run `dr_numpy(indata)` or `dr_constrained_numpy(indata=..., constraints=[Constraint(geometry), ...])`, then `ResultData.update_mesh(mesh)`; constraints attach by node index, built polymorphically via `Constraint(geometry)`.
-- `Mesh` seam: `InputData.from_mesh` and `ResultData.update_mesh` are the only `Mesh` touch-points; the solver never reads mesh topology directly.
+- `Mesh` boundary: `InputData.from_mesh` and `ResultData.update_mesh` are the only `Mesh` touch-points; the solver never reads mesh topology directly.

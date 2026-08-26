@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using StreamJsonRpc;
 
@@ -8,11 +8,10 @@ namespace Rasm.Bridge.Contract;
 
 [JsonRpcContract]
 public partial interface IBridgeShell {
-    public Task<Handshake> HelloAsync(Handshake supervisor, CancellationToken ct);
+    public Task<HostFingerprint> HelloAsync(int supervisorPid, CancellationToken ct);
     public Task<LoadedCargo> LoadCargoAsync(CargoManifest manifest, CancellationToken ct);
     public Task<ScenarioOutcome[]> RunAsync(ScenarioSelection selection, CancellationToken ct);
     public Task<UnloadOutcome> UnloadCargoAsync(CancellationToken ct);
-    public Task<long> PingAsync(CancellationToken ct);
     public Task<QuitScrub> PrepareQuitAsync(CancellationToken ct);
 }
 
@@ -32,7 +31,8 @@ public interface IBridgeCargo : IDisposable {
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip)]
 [JsonSerializable(typeof(BridgeEvent))]
 [JsonSerializable(typeof(BridgeFault))]
-[JsonSerializable(typeof(Handshake))]
+[JsonSerializable(typeof(EndpointRecord))]
+[JsonSerializable(typeof(HostFingerprint))]
 [JsonSerializable(typeof(CargoManifest))]
 [JsonSerializable(typeof(LoadedCargo))]
 [JsonSerializable(typeof(ScenarioSelection))]
@@ -40,34 +40,8 @@ public interface IBridgeCargo : IDisposable {
 [JsonSerializable(typeof(UnloadOutcome))]
 [JsonSerializable(typeof(QuitScrub))]
 [JsonSerializable(typeof(SessionEnvelope))]
-[JsonSerializable(typeof(EvidenceClass))]
-[JsonSerializable(typeof(EvidenceRole))]
-[JsonSerializable(typeof(ArtifactRetentionClass))]
 [JsonSerializable(typeof(EvidenceName))]
-[JsonSerializable(typeof(ArtifactHash))]
-[JsonSerializable(typeof(ArtifactRef))]
-[JsonSerializable(typeof(CaptureArtifact))]
-[JsonSerializable(typeof(ObjectManifest))]
-[JsonSerializable(typeof(GeometryManifest))]
-[JsonSerializable(typeof(ViewportManifest))]
-[JsonSerializable(typeof(Gh2CanvasManifest))]
-[JsonSerializable(typeof(ScratchManifest))]
-[JsonSerializable(typeof(EvidenceCounts))]
-[JsonSerializable(typeof(ScenarioCounts))]
-[JsonSerializable(typeof(StatusBreakdown))]
-[JsonSerializable(typeof(PhaseOutcome))]
-[JsonSerializable(typeof(FaultSummary))]
-[JsonSerializable(typeof(SpoolSummary))]
-[JsonSerializable(typeof(EvidenceCertificate))]
-[JsonSerializable(typeof(ArtifactRef[]))]
-[JsonSerializable(typeof(ObjectManifest[]))]
-[JsonSerializable(typeof(GeometryManifest[]))]
-[JsonSerializable(typeof(ViewportManifest[]))]
-[JsonSerializable(typeof(Gh2CanvasManifest[]))]
-[JsonSerializable(typeof(ScratchManifest[]))]
-[JsonSerializable(typeof(PhaseOutcome[]))]
-[JsonSerializable(typeof(EvidenceClass[]))]
-[JsonSerializable(typeof(JsonElement[]))]
+[JsonSerializable(typeof(JsonNode))]
 [JsonSerializable(typeof(bool))]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(long))]

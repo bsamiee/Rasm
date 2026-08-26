@@ -2,7 +2,7 @@
 
 <page-charter-lead-one-paragraph: the owner's charter in owning voice — the capability it owns, the piece it plays in the unit's system, and the boundary it holds; never the doc-set, realization status, or a sibling recap.>
 
-<page-composition-lead-one-paragraph: the settled facts a rebuild composes without re-derivation — reused axes and their owning pages, seam obligations and frozen wire names, admission rails, modality and policy rows the page binds; present only when the page carries them, never process narration or restated higher law.>
+<page-composition-lead-one-paragraph: the settled facts a rebuild composes without re-derivation — reused axes and their owning pages, boundary obligations and frozen wire names, admission results, modality and policy rows the page binds; present only when the page carries them, never process narration or restated higher law.>
 
 ## [01]-[INDEX]
 
@@ -31,7 +31,7 @@
 - Output: `Shaped` carries the content key and the census the planner reads
 - Packages: `shape-core` for the refinement kernel
 - Growth: a new op is one `ShapeOp` case and one dispatch arm
-- Boundary: this owner refuses wire decode, deferred to the codec seam
+- Boundary: this owner refuses wire decode, deferred to the codec boundary
 
 ```python
 class ShapeFold:
@@ -44,7 +44,7 @@ class ShapeFold:
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[STATUS]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member list.
 -->
 
 (none)

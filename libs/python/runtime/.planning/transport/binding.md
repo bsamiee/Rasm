@@ -1,34 +1,34 @@
 # [PY_RUNTIME_BINDING]
 
-Every protocol lowering of a message envelope seats here: `BINDINGS` is the one row family carrying content mode, header prefix, routing key, `protocolsettings` slice, filter pushdown, execution arm, and payload-residence policy per protocol, and `Emitter` is the `observe` subscription that turns a fired hook fact into a message envelope and hands it to a bound binding. Rows span HTTP, Kafka, both MQTT protocol versions, AMQP 1.0, NATS, and RabbitMQ; growth is one row and every consumer stands untouched, because binding is DATA and never a type a caller switches on.
+Every protocol lowering of a message envelope seats here: `BINDINGS` is the one row family carrying content mode, header prefix, routing key, `protocolsettings` slice, filter pushdown, execution arm, and payload-store policy per protocol, and `Emitter` is the `observe` subscription that turns a fired hook fact into a message envelope and hands it to a bound binding. Rows span HTTP, Kafka, both MQTT protocol versions, AMQP 1.0, NATS, and RabbitMQ; growth is one row and every consumer stands untouched, because binding is DATA and never a type a caller switches on.
 
-Specification law owns each lowering and the SDK accelerates four of them: the four SDK binding modules carry distinct prefix families and MQTT carries none, so the MQTT and NATS rows are branch-owned whole. Composed owners: `transport/event#MESSAGE` the message envelope, `transport/event#FORMAT` the codec, `transport/roots#STORE` the `dataref` residence, `reliability/resilience#RESILIENCE` every curve, window, and rate, `observability/hooks#HOOKS` the fired facts, `observability/journal#FACT` the durable write, `execution/admission#CONTEXT` the profile, principal scope, and tenancy adoption.
+Specification law owns each lowering and the SDK accelerates four of them: the four SDK binding modules carry distinct prefix families and MQTT carries none, so the MQTT and NATS rows are branch-owned whole. Composed owners: `transport/event#MESSAGE` the message envelope, `transport/event#FORMAT` the codec, `transport/roots#STORE` the `dataref` store, `reliability/resilience#RESILIENCE` every curve, window, and rate, `observability/hooks#HOOKS` the fired facts, `observability/journal#FACT` the durable write, `execution/admission#CONTEXT` the profile, principal scope, and tenancy adoption.
 
 `BrokerLane` closes the connection half the rows describe: one owner drives every protocol's membership, settlement, transactional boundary, poll cadence, and drain off the same `BINDINGS` row that lowers its carrier and a composition-bound `Client` port. A seventh protocol is one row beside one bound port, with no adapter class, arm, or second authority to add. No package on this page creates or owns an event loop — every lane composes inside the caller's `anyio` task group and `lifecycle` defaults `caller-owned`.
 
 ## [01]-[INDEX]
 
 - [02]-[BINDING]: binding rows — content modes, the prefix families, routing keys, `protocolsettings`, pushdown verdicts, execution arms, and the per-binding `dataref` policy.
-- [03]-[EMISSION]: `Emitter` — the hook subscription, its per-event batch settlement, and the declared rails every long-tail state crosses.
+- [03]-[EMISSION]: `Emitter` — the hook subscription, its per-event batch settlement, and the declared paths every long-tail state crosses.
 - [04]-[ADAPTER]: `BrokerLane` — the per-protocol execution arm, group membership, the journal-joined settlement, transactional boundaries, poll-loop lifetime, backpressure, dead-letter routing, and the flushing drain.
 
 ## [02]-[BINDING]
 
 - Owner: `BindingRow` is the branch's whole protocol vocabulary and `BINDINGS` the table every consumer reads — a lowering, a subscription's `protocolsettings` slice, a filter's pushdown verdict, an execution arm, and a payload threshold all derive from one row, so a new protocol is ONE row and no fold, adapter, or admission gate is edited. `Content` closes the mode vocabulary and `Prefix` the header family, both spelled once rather than as literals at four lowering sites.
-- Cases: distinct prefix families span the SDK bindings — `ce-` for HTTP and RabbitMQ, `ce_` for Kafka, `cloudEvents_` for AMQP writing and `cloudEvents:` for AMQP reading — while MQTT carries NO prefix at all, its attributes riding bare User Property names, and NATS carries `ce-` under a branch-owned lowering the distribution does not ship. Reading `ce-` as one estate-wide spelling is the drift this table forecloses.
+- Cases: distinct prefix families span the SDK bindings — `ce-` for HTTP and RabbitMQ, `ce_` for Kafka, `cloudEvents_` for AMQP writing and `cloudEvents:` for AMQP reading — while MQTT carries NO prefix at all, its attributes riding bare User Property names, and NATS carries `ce-` under a branch-owned lowering the distribution does not ship. Reading `ce-` as one repo-wide spelling is the drift this table forecloses.
 - Cases: mode and structured-format support are per row. HTTP, Kafka, MQTT 5, AMQP 1.0, NATS, and RabbitMQ carry binary and singular structured formats; MQTT 3.1.1 carries JSON structured only, whose media type is implied because that protocol has no Content Type property. Generic JSON/protobuf batch codecs remain at the format owner, while this connection owner declines batch send until a bounded producer can return per-event custody. Unsupported combinations refuse at admission and never lower another way.
-- Law: `protocolsettings` is the subscription's own per-binding slice and REPLACES every hand-rolled per-sink knob — MQTT `topicname` required beside `qos`/`retain`/`expiry`/`userproperties`; AMQP `address`/`linkname`/`sendersettlementmode`/`linkproperties`; Kafka `topicname`/`partitionkeyextractor`/`clientid`/`acks`; NATS `subject`; RabbitMQ the branch's own `exchange`/`routingkey`/`deliverymode`/`expiration`, since the specification carries no RabbitMQ entry. A dual-residence row admits `datarefprojection=reference` only as explicit peer-negotiation evidence; without it the row refuses rather than weakening carriage. HTTP request method, destination, authorization, and application headers remain on its bound client/target policy; this carrier row invents none. Unknown keys refuse before any codec or client sees them, while the complete admitted slice reaches the bound dialer.
+- Law: `protocolsettings` is the subscription's own per-binding slice and REPLACES every hand-rolled per-sink knob — MQTT `topicname` required beside `qos`/`retain`/`expiry`/`userproperties`; AMQP `address`/`linkname`/`sendersettlementmode`/`linkproperties`; Kafka `topicname`/`partitionkeyextractor`/`clientid`/`acks`; NATS `subject`; RabbitMQ the branch's own `exchange`/`routingkey`/`deliverymode`/`expiration`, since the specification carries no RabbitMQ entry. A dual-store row admits `datarefprojection=reference` only as explicit peer-negotiation evidence; without it the row refuses rather than weakening carriage. HTTP request method, destination, authorization, and application headers remain on its bound client/target policy; this carrier row invents none. Unknown keys refuse before any codec or client sees them, while the complete admitted slice reaches the bound dialer.
 - Law: pushdown is a row verdict, never a runtime probe. MQTT resolves a topic filter at the BROKER through SUBSCRIBE, NATS through subject wildcards, RabbitMQ through the exchange binding on its routing key, and AMQP through link-source filters under a `copy` or `move` distribution mode; Kafka has no server-side filtering and HTTP no native mechanism, so both filter consumer-side. `transport/filter#DIALECT` owns the dialect half of that join and reads THIS column rather than carrying one of its own — a composite pushes only where every child does, and negation and `sql` never do.
 - Law: routing keys are the row's, derived from the roster rather than restated — Kafka takes `partitionkey` onto the record key through the SDK's own `_default_key_mapper`, MQTT and NATS take the topic and subject, RabbitMQ the routing key, and HTTP and AMQP take none. Hand-spelled key extractors beside the helper that owns the roster are the deleted form.
 - Law: NO row owns `retry`, and no row carries a column for it either. Transport families foreclose the coordinate and `reliability/resilience#RESILIENCE` holds every schedule, so the answer is uniform across the whole family and rides this line rather than a cell each row re-answers — the adapter that owns a connection binds the class, and a row carrying its own curve makes the effective attempts a product of two.
 - Law: tenancy is NOT a row column, on `transport/roots#RESOURCE`'s own reason — a protocol name isolates no tenant. The admitted profile decides the tenancy shape and the application-owned binder supplies an authenticated `PrincipalScope` per received delivery; the generic lane never derives scope from a resolved credential. A coordinate a row cannot express records the divergence on `degrade` rather than dropping the column.
 - Law: the execution arm rides the row because it is a protocol fact, and NO row creates or owns an event loop. `KAFKA` is a blocking librdkafka client whose every blocking call releases the GIL, so it rides a `CapacityLimiter`-bounded `to_thread` lane with its delivery, rebalance, and settlement callbacks re-entering through one `BlockingPortalProvider`. `RABBITMQ` is blocking and single-threaded by contract, so it takes one dedicated worker per connection whose only inbound door is `add_callback_threadsafe`, and its pump calls `process_data_events` on its own cadence because deliveries and heartbeats dispatch nowhere else. `MQTT` needs no thread at all — `socket()` registers on the caller's own readiness and `loop_read`/`loop_write`/`loop_misc` run as bounded steps inside the task group. `NATS` is asyncio-native and composes directly, forfeiting the trio backend on its own `degrade`. `HTTP` rides the `transport/roots#RESOURCE` arm already bound.
-- Law: `dataref` is ONE policy row per binding and never a global constant, because a threshold fixed estate-wide either strands the smallest transport or wastes the largest. `threshold` comes from the live client ceiling where the protocol negotiates one — NATS `max_payload`, MQTT 5.0 `Maximum Packet Size`, AMQP link `max-frame-size` — and from the row floor otherwise. `Residence` binds the existing `transport/roots#STORE` `ResourceRoot`/`ObjectStoreLane` at composition, persists the exact event-data bytes under the subject content key with the row's `Retain` tag, and resolves the admitted URI-reference through that confined root. Its mandatory `DataIdentity` table binds each event type to the existing content-identity policy and seed, so acquired bytes must prove the envelope's `subject`; dual carriage additionally proves byte equality. An unbound residence refuses before any reference ships. `ResidenceProjection` records dual versus reference-only carriage. A row declaring reference-only projects once past its threshold. A dual row never silently changes semantics: beyond its live ceiling it refuses until admitted `protocolsettings` carry a real negotiation proof. `Externalized` carries the reference, retention, projection, and byte count.
+- Law: `dataref` is ONE policy row per binding and never a global constant, because a threshold fixed repo-wide either strands the smallest transport or wastes the largest. `threshold` comes from the live client ceiling where the protocol negotiates one — NATS `max_payload`, MQTT 5.0 `Maximum Packet Size`, AMQP link `max-frame-size` — and from the row floor otherwise. `PayloadStore` binds the existing `transport/roots#STORE` `ResourceRoot`/`ObjectStoreLane` at composition, persists the exact event-data bytes under the subject content key with the row's `Retain` tag, and resolves the admitted URI-reference through that confined root. Its mandatory `DataIdentity` table binds each event type to the existing content-identity policy and seed, so acquired bytes must prove the envelope's `subject`; dual carriage additionally proves byte equality. An unbound store refuses before any reference ships. `CarriageMode` records dual versus reference-only carriage. A row declaring reference-only projects once past its threshold. A dual row never silently changes semantics: beyond its live ceiling it refuses until admitted `protocolsettings` carry a real negotiation proof. `Externalized` carries the reference, retention, projection, and byte count.
 - Law: `dataclassification` gates what crosses which binding, and `CLASSIFICATION_ROWS` is where that gate is DATA — the generated extension carries the canonical string and admission resolves it through `Classification(value)` before table lookup. Missing and unknown values both refuse before lowering, trust, routing, or settlement; no transport arm fabricates an `internal` grade. A grade a binding cannot honor refuses before encoding. Transport never mutates a typed payload under a generic "redaction" label; `SECRET` reaches no binding at all, and application projection owns any sanctioned lower-sensitivity fact.
-- Entry: `lower(value, binding, mode, suffix, settings, formats)` is one entry over every protocol: the row admits the mode, binary requires no suffix and one envelope, structured requires one envelope plus a suffix, and batch requires a block plus a suffix. The composition-bound `EventFormat` owns bytes; this owner lowers only the carrier. `raise_(message, binding, formats)` derives structured/batch from media type and otherwise delegates binary attributes to the official SDK before the same generated-profile admission. `Residence.resolve(envelope)` is the inverse data leg, admitting and confining `dataref`, acquiring its bytes, verifying `subject`, and comparing dual data before returning.
+- Entry: `lower(value, binding, mode, suffix, settings, formats)` is one entry over every protocol: the row admits the mode, binary requires no suffix and one envelope, structured requires one envelope plus a suffix, and batch requires a block plus a suffix. The composition-bound `EventFormat` owns bytes; this owner lowers only the carrier. `raise_(message, binding, formats)` derives structured/batch from media type and otherwise delegates binary attributes to the official SDK before the same generated-profile admission. `PayloadStore.resolve(envelope)` is the inverse data leg, admitting and confining `dataref`, acquiring its bytes, verifying `subject`, and comparing dual data before returning.
 - Auto: a binding a deployment cannot serve refuses on the `providers` OPEN axis as one `execution/admission#CONTEXT` descriptor row, never a boolean knob, because a knob re-mints the assumed consumer roster the open form forecloses. AMQP 1.0 is exactly that case in this branch: the row lowers and raises an `AMQPMessage` value and names no client, so a composition binding it refuses at admission with the axis named.
-- Growth: a new protocol is one `BindingRow` with its `Dataref` row, reaching every `CLASSIFICATION_ROWS` `broker` cell that admits it; a new sensitivity grade is one `Classification` member at its admission owner with one `CLASSIFICATION_ROWS` row here; a new content mode is one `Content` member on the rows that hold it; a new protocol setting is one key on that row's slice; a new pushdown mechanism is one `Pushdown` value; a new execution arm is one `Arm` member with its lane law; a new residence is one port binding at the composition root.
-- Boundary: protocol lowering, its policy rows, and payload residence only — the connection half seats at `[04]-[ADAPTER]` on this same page, so a row states the protocol fact and the lane realizes it. Composes — never re-mints — the message envelope, the format contract, the resilience curves, the store lane, and the hook registry. Rejected: a per-sink knob outside its row's `protocolsettings` slice; a `ce-` literal at a lowering site; a hand-spelled partition-key extractor beside `_default_key_mapper`; a global `dataref` threshold; a `retry` column on a transport row; a boolean capability knob where the `providers` axis refuses.
+- Growth: a new protocol is one `BindingRow` with its `Dataref` row, reaching every `CLASSIFICATION_ROWS` `broker` cell that admits it; a new sensitivity grade is one `Classification` member at its admission owner with one `CLASSIFICATION_ROWS` row here; a new content mode is one `Content` member on the rows that hold it; a new protocol setting is one key on that row's slice; a new pushdown mechanism is one `Pushdown` value; a new execution arm is one `Arm` member with its lane law; a new store is one port binding at the composition root.
+- Boundary: protocol lowering, its policy rows, and payload store only — the connection half seats at `[04]-[ADAPTER]` on this same page, so a row states the protocol fact and the lane realizes it. Composes — never re-mints — the message envelope, the format contract, the resilience curves, the store lane, and the hook registry. Rejected: a per-sink knob outside its row's `protocolsettings` slice; a `ce-` literal at a lowering site; a hand-spelled partition-key extractor beside `_default_key_mapper`; a global `dataref` threshold; a `retry` column on a transport row; a boolean capability knob where the `providers` axis refuses.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -64,7 +64,7 @@ from rasm.runtime.event import (
     WireKey,
     parse_media,
 )
-from rasm.runtime.faults import BINDING_ADMIT, BINDING_DECODE, BINDING_ENCODE, RuntimeRail, boundary
+from rasm.runtime.faults import BINDING_ADMIT, BINDING_DECODE, BINDING_ENCODE, RuntimeResult, boundary
 from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, IdentityPolicy, U64
 from rasm.runtime.journal import Retain
 from rasm.runtime.roots import ObjectStoreLane, ResourceRef, ResourceRoot, StoreOp, StoreOutcome
@@ -121,7 +121,7 @@ class Pushdown(StrEnum):
     CONSUMER = "consumer"
 
 
-class ResidenceProjection(StrEnum):
+class CarriageMode(StrEnum):
     DUAL = "dual"
     REFERENCE = "reference"
 
@@ -175,7 +175,7 @@ CLASSIFICATION_ROWS: Final[Map[Classification, ClassificationRow]] = Map.of_seq(
         ClassificationRow(
             Classification.INTERNAL,
             broker=frozenset(Binding),
-            carries="an explicitly classified estate-interior fact every admitted binding carries under the standing trust row",
+            carries="an explicitly classified repo-interior fact every admitted binding carries under the standing trust row",
         ),
         ClassificationRow(
             Classification.RESTRICTED,
@@ -195,13 +195,13 @@ class Dataref(Struct, frozen=True, gc=False):
     threshold: int
     negotiated: bool
     retain: Retain
-    projection: ResidenceProjection
+    projection: CarriageMode
 
 
 class Externalized(Struct, frozen=True, gc=False):
     ref: ResourceRef
     retain: Retain
-    projection: ResidenceProjection
+    projection: CarriageMode
     quantity: int
 
 
@@ -214,9 +214,9 @@ class DataIdentityRow(Struct, frozen=True, gc=False):
 class DataIdentity(Struct, frozen=True, gc=False):
     rows: Map[EventType, DataIdentityRow]
 
-    def verify(self, event_type: EventType, expected: WireKey, body: bytes, /) -> RuntimeRail[None]:
+    def verify(self, event_type: EventType, expected: WireKey, body: bytes, /) -> RuntimeResult[None]:
         return self.rows.try_find(event_type).to_result_with(
-            lambda: BINDING_DECODE.raised("residence", f"missing-identity:{event_type.wire}")
+            lambda: BINDING_DECODE.raised("store", f"missing-identity:{event_type.wire}")
         ).bind(
             lambda row: ContentIdentity.of(
                 row.fmt,
@@ -227,21 +227,21 @@ class DataIdentity(Struct, frozen=True, gc=False):
             ).bind(
                 lambda actual: Ok(None)
                 if compare_digest(actual, expected)
-                else Error(BINDING_DECODE.raised("residence", "subject-mismatch"))
+                else Error(BINDING_DECODE.raised("store", "subject-mismatch"))
             )
         )
 
 
-class Residence(Struct, frozen=True, gc=False):
+class PayloadStore(Struct, frozen=True, gc=False):
     root: ResourceRoot
     identity: DataIdentity
 
     async def externalize(
-        self, envelope: MessageEnvelope, policy: Dataref, projection: ResidenceProjection, /
-    ) -> RuntimeRail[tuple[MessageEnvelope, Externalized]]:
+        self, envelope: MessageEnvelope, policy: Dataref, projection: CarriageMode, /
+    ) -> RuntimeResult[tuple[MessageEnvelope, Externalized]]:
         match envelope.subject:
             case Option(tag="none"):
-                return Error(BINDING_ADMIT.raised("residence", "dataref-without-subject"))
+                return Error(BINDING_ADMIT.raised("store", "dataref-without-subject"))
             case Option(tag="some", some=subject):
                 referred = self.root.child(f"events/{subject}.payload")
         match referred:
@@ -255,7 +255,7 @@ class Residence(Struct, frozen=True, gc=False):
             case Result(tag="ok", ok=body):
                 projected = replace(
                     envelope,
-                    payload=envelope.payload if projection is ResidenceProjection.DUAL else None,
+                    payload=envelope.payload if projection is CarriageMode.DUAL else None,
                     extensions=replace(envelope.extensions, dataref=ref.relative),
                 )
         match projected.event():
@@ -277,12 +277,12 @@ class Residence(Struct, frozen=True, gc=False):
             )
         )
 
-    async def resolve(self, envelope: MessageEnvelope, /) -> RuntimeRail[bytes]:
+    async def resolve(self, envelope: MessageEnvelope, /) -> RuntimeResult[bytes]:
         if not envelope.extensions.has_field("dataref"):
-            return Error(BINDING_DECODE.raised("residence", "missing-dataref"))
+            return Error(BINDING_DECODE.raised("store", "missing-dataref"))
         match envelope.subject:
             case Option(tag="none"):
-                return Error(BINDING_DECODE.raised("residence", "dataref-without-subject"))
+                return Error(BINDING_DECODE.raised("store", "dataref-without-subject"))
             case Option(tag="some", some=subject):
                 referred = self.root.child(envelope.extensions.dataref)
         match referred:
@@ -343,7 +343,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
                 threshold=8 << 10,
                 negotiated=False,
                 retain=Retain.OPERATIONAL,
-                projection=ResidenceProjection.REFERENCE,
+                projection=CarriageMode.REFERENCE,
             ),
             pump=Pump.REQUEST,
             grouping=Grouping.NONE,
@@ -381,7 +381,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
                 threshold=1 << 20,
                 negotiated=False,
                 retain=Retain.OPERATIONAL,
-                projection=ResidenceProjection.DUAL,
+                projection=CarriageMode.DUAL,
             ),
             pump=Pump.POLL,
             grouping=Grouping.GROUP,
@@ -399,7 +399,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
             settle="an explicit offset commit joined to the durable write, never an auto-commit that outruns it",
             replay="a seek to any retained offset, which is what makes this the audit-grade row",
             bound="`message.max.bytes` and `max.request.size`, both about a mebibyte",
-            refuse="a payload past the frame budget with no bound residence, and a classification the topic's trust row does not carry",
+            refuse="a payload past the frame budget with no bound store, and a classification the topic's trust row does not carry",
             degrade=(
                 "no server-side filtering, so every subscription expression evaluates consumer-side after the fetch",
                 "headers cross as bytes and every attribute value stringifies, so a typed extension round-trips only through the roster's own codecs",
@@ -419,7 +419,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
                 threshold=64 << 10,
                 negotiated=True,
                 retain=Retain.EPHEMERAL,
-                projection=ResidenceProjection.DUAL,
+                projection=CarriageMode.DUAL,
             ),
             pump=Pump.READY,
             grouping=Grouping.QUEUE,
@@ -437,11 +437,11 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
             settle="PUBACK or PUBCOMP by QoS, deferred where manual acknowledgement is armed",
             replay="none beyond the retained message and the session's own queued window",
             bound="the session's negotiated Maximum Packet Size, read off the live connection rather than this floor",
-            refuse="a payload past the negotiated packet size with no bound residence, and a classification the topic's trust row refuses",
+            refuse="a payload past the negotiated packet size with no bound store, and a classification the topic's trust row refuses",
             degrade=(
                 "attributes ride UNPREFIXED User Property names, so a peer's own property namespace collides with an attribute name by construction",
                 "a wildcard subscription filters on the topic alone, so every non-topic expression still evaluates consumer-side",
-                "the client re-raises a callback fault into its own network loop, so the crossing rails its faults rather than letting one kill the pump",
+                "the client re-raises a callback fault into its own network loop, so the crossing returns its faults rather than letting one kill the pump",
             ),
         ),
         BindingRow(
@@ -457,7 +457,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
                 threshold=64 << 10,
                 negotiated=False,
                 retain=Retain.EPHEMERAL,
-                projection=ResidenceProjection.DUAL,
+                projection=CarriageMode.DUAL,
             ),
             pump=Pump.READY,
             grouping=Grouping.NONE,
@@ -495,7 +495,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
                 threshold=128 << 10,
                 negotiated=True,
                 retain=Retain.OPERATIONAL,
-                projection=ResidenceProjection.DUAL,
+                projection=CarriageMode.DUAL,
             ),
             pump=Pump.ABSENT,
             grouping=Grouping.NONE,
@@ -533,7 +533,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
                 threshold=1 << 20,
                 negotiated=True,
                 retain=Retain.EPHEMERAL,
-                projection=ResidenceProjection.DUAL,
+                projection=CarriageMode.DUAL,
             ),
             pump=Pump.NATIVE,
             grouping=Grouping.QUEUE,
@@ -571,7 +571,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
                 threshold=128 << 10,
                 negotiated=False,
                 retain=Retain.OPERATIONAL,
-                projection=ResidenceProjection.DUAL,
+                projection=CarriageMode.DUAL,
             ),
             pump=Pump.WORKER,
             grouping=Grouping.WORK,
@@ -589,7 +589,7 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
             settle="an explicit ack, nack, or reject carrying its own requeue disposition",
             replay="none; a redelivery is the requeue, not a rewind",
             bound="the negotiated frame max, 128 KiB by this client's default",
-            refuse="a classification the exchange's trust row does not carry, and a payload past the frame budget with no bound residence",
+            refuse="a classification the exchange's trust row does not carry, and a payload past the frame budget with no bound store",
             degrade=(
                 "the client is single-threaded by contract, so one worker owns the connection and every inbound crossing is a threadsafe callback",
                 "deliveries, timers, and heartbeats dispatch ONLY inside the pump, so a worker that stops pumping stops answering the broker entirely",
@@ -610,7 +610,7 @@ JOURNAL_SETTLED: Final[frozenset[Binding]] = frozenset(
 )
 
 
-def _event_data(envelope: MessageEnvelope, /) -> RuntimeRail[bytes]:
+def _event_data(envelope: MessageEnvelope, /) -> RuntimeResult[bytes]:
     match envelope.payload:
         case Raw() as body:
             return Ok(bytes(body))
@@ -618,29 +618,29 @@ def _event_data(envelope: MessageEnvelope, /) -> RuntimeRail[bytes]:
             return (
                 Ok(message.to_binary())
                 if envelope.content_type.is_some() and envelope.data_schema.is_some()
-                else Error(BINDING_ADMIT.raised("residence", "protobuf-data-without-content-coordinate"))
+                else Error(BINDING_ADMIT.raised("store", "protobuf-data-without-content-coordinate"))
             )
         case None:
-            return Error(BINDING_ADMIT.raised("residence", "dataref-without-data"))
+            return Error(BINDING_ADMIT.raised("store", "dataref-without-data"))
 
 
-def _stored(outcome: StoreOutcome, expected: int, /) -> RuntimeRail[int]:
+def _stored(outcome: StoreOutcome, expected: int, /) -> RuntimeResult[int]:
     return (
         Ok(outcome.quantity)
         if outcome.operation == "put" and outcome.quantity == expected
-        else Error(BINDING_ENCODE.raised("residence", "incomplete-put"))
+        else Error(BINDING_ENCODE.raised("store", "incomplete-put"))
     )
 
 
-def _resolved(outcome: StoreOutcome, /) -> RuntimeRail[bytes]:
+def _resolved(outcome: StoreOutcome, /) -> RuntimeResult[bytes]:
     return (
         Ok(bytes(outcome.payload))
         if outcome.operation == "get" and isinstance(outcome.payload, (Bytes, bytes, bytearray, memoryview))
-        else Error(BINDING_DECODE.raised("residence", "non-byte-payload"))
+        else Error(BINDING_DECODE.raised("store", "non-byte-payload"))
     )
 
 
-def _same_data(envelope: MessageEnvelope, acquired: bytes, /) -> RuntimeRail[None]:
+def _same_data(envelope: MessageEnvelope, acquired: bytes, /) -> RuntimeResult[None]:
     match envelope.payload:
         case None:
             return Ok(None)
@@ -651,7 +651,7 @@ def _same_data(envelope: MessageEnvelope, acquired: bytes, /) -> RuntimeRail[Non
     return (
         Ok(None)
         if compare_digest(held, acquired)
-        else Error(BINDING_DECODE.raised("residence", "inline-dataref-mismatch"))
+        else Error(BINDING_DECODE.raised("store", "inline-dataref-mismatch"))
     )
 
 
@@ -664,7 +664,7 @@ def lower(
     suffix: Option[Suffix],
     settings: Settings,
     formats: EventFormat,
-) -> RuntimeRail[Message]:
+) -> RuntimeResult[Message]:
     row = BINDINGS[binding]
     admitted_settings = _settings(row, settings)
     if admitted_settings.is_error():
@@ -691,7 +691,7 @@ def lower(
     )
 
 
-def raise_(message: Message, /, *, binding: Binding, formats: EventFormat) -> RuntimeRail[Decoded]:
+def raise_(message: Message, /, *, binding: Binding, formats: EventFormat) -> RuntimeResult[Decoded]:
     return boundary(
         BINDING_DECODE,
         lambda: _parts(message, binding),
@@ -707,7 +707,7 @@ def _framed(
     settings: Settings,
     formats: EventFormat,
     /,
-) -> RuntimeRail[Message]:
+) -> RuntimeResult[Message]:
     if mode is Content.STRUCTURED:
         if not isinstance(value, MessageEnvelope):
             return Error(BINDING_ADMIT.raised(binding.value, "structured-batch"))
@@ -731,7 +731,7 @@ def _framed(
 
 def _classified(
     value: MessageEnvelope | Block[MessageEnvelope], binding: Binding, /
-) -> RuntimeRail[None]:
+) -> RuntimeResult[None]:
     envelopes = Block.singleton(value) if isinstance(value, MessageEnvelope) else value
     return envelopes.fold(
         lambda admitted, envelope: admitted.bind(
@@ -741,7 +741,7 @@ def _classified(
     )
 
 
-def _grade(envelope: MessageEnvelope, binding: Binding, /) -> RuntimeRail[Classification]:
+def _grade(envelope: MessageEnvelope, binding: Binding, /) -> RuntimeResult[Classification]:
     if not envelope.extensions.has_field("dataclassification"):
         return Error(BINDING_ADMIT.raised(binding.value, "missing-dataclassification"))
     return boundary(
@@ -755,7 +755,7 @@ def _grade(envelope: MessageEnvelope, binding: Binding, /) -> RuntimeRail[Classi
     )
 
 
-def _carried(encoded: Encoded, binding: Binding, settings: Settings, /) -> RuntimeRail[Message]:
+def _carried(encoded: Encoded, binding: Binding, settings: Settings, /) -> RuntimeResult[Message]:
     match binding:
         case Binding.HTTP:
             return Ok(http.HTTPMessage(headers={"content-type": encoded.media}, body=encoded.body))
@@ -901,7 +901,7 @@ def _header(headers: dict[str, str], name: str, /) -> str:
     return next((value for key, value in headers.items() if key.lower() == name), "")
 
 
-def _raised(parts: tuple[str, bytes], message: Message, binding: Binding, formats: EventFormat, /) -> RuntimeRail[Decoded]:
+def _raised(parts: tuple[str, bytes], message: Message, binding: Binding, formats: EventFormat, /) -> RuntimeResult[Decoded]:
     media, body = parts
     if not media:
         return _binary_decoded(message, binding, formats)
@@ -916,7 +916,7 @@ def _raised(parts: tuple[str, bytes], message: Message, binding: Binding, format
     )
 
 
-def _binary_decoded(message: Message, binding: Binding, formats: EventFormat, /) -> RuntimeRail[Decoded]:
+def _binary_decoded(message: Message, binding: Binding, formats: EventFormat, /) -> RuntimeResult[Decoded]:
     return boundary(
         BINDING_DECODE,
         lambda: _raised_binary(message, binding, formats),
@@ -948,11 +948,11 @@ def _byte_header(headers: dict[str, bytes], name: str, /) -> str:
     return next((value.decode() for key, value in headers.items() if key.lower() == name), "")
 
 
-def _setting(settings: Settings, name: str, binding: Binding, /) -> RuntimeRail[str]:
+def _setting(settings: Settings, name: str, binding: Binding, /) -> RuntimeResult[str]:
     return settings.try_find(name).to_result_with(lambda: BINDING_ADMIT.raised(binding.value, f"missing-{name}"))
 
 
-def _settings(row: BindingRow, settings: Settings, /) -> RuntimeRail[None]:
+def _settings(row: BindingRow, settings: Settings, /) -> RuntimeResult[None]:
     unknown = frozenset(settings.keys()) - row.settings
     return (
         Ok(None)
@@ -974,15 +974,15 @@ def _raise_missing(binding: Binding, name: str, /) -> Never:
 ## [03]-[EMISSION]
 
 - Owner: `Emitter` is an `observe` subscription over `observability/hooks#HOOKS` fired facts and never an emit inside a domain fold — a producer fires its fact once and this owner projects it into an message envelope, so the domain never learns a transport exists and a composition with no emitter bound loses no fact. `Delivery` is what a fan across bound bindings answers, carrying accepted beside matched-duplicate as separate halves.
-- Law: the modality is `OBSERVE` and nothing else. `VETO` inverts the announcement law a message envelope exists under, letting a broker refusal reject a domain operation that already happened; a raising observe tap parks on the hook fault window while the emitter's own rail stays `Ok`, which is exactly the isolation a fact stream needs.
+- Law: the modality is `OBSERVE` and nothing else. `VETO` inverts the announcement law a message envelope exists under, letting a broker refusal reject a domain operation that already happened; a raising observe tap parks on the hook fault window while the emitter's own path stays `Ok`, which is exactly the isolation a fact stream needs.
 - Law: a decoded batch yields one identity-correlated outcome per event, while the shared provider handle settles only when the complete frame returns. `Settlement` keeps `accepted`, `duplicate`, and `moot` separate because matched duplication and expiry are not acceptance. Batch position and D20 `sequence` establish no transport order. This connection owner exposes no batch producer until one bounded send can prove custody for every event.
-- Law: every long-tail state crosses a declared rail rather than a default. Poison messages route to the dead-letter address on the subscription's own slice; a redelivery is distinguished from a duplicate by `(source, id)` alone; D20 `sequence` crosses unchanged and ordering remains the consumer's declared window; a producer `recordedtime` after local arrival drops lag to unmeasured and REFUSES rather than publishing a negative reading; an oversized payload takes the row's `dataref` leg; a broker refusing an attribute name surfaces that name rather than the whole message; an extension name colliding with a native transport header refuses at the lowering; an absent `datacontenttype` under the JSON format defaults to that format's own declared payload type.
+- Law: every long-tail state crosses a declared path rather than a default. Poison messages route to the dead-letter address on the subscription's own slice; a redelivery is distinguished from a duplicate by `(source, id)` alone; D20 `sequence` crosses unchanged and ordering remains the consumer's declared window; a producer `recordedtime` after local arrival drops lag to unmeasured and REFUSES rather than publishing a negative reading; an oversized payload takes the row's `dataref` leg; a broker refusing an attribute name surfaces that name rather than the whole message; an extension name colliding with a native transport header refuses at the lowering; an absent `datacontenttype` under the JSON format defaults to that format's own declared payload type.
 - Law: a never-shedding consumer closes by FLUSHING, never by cancelling the in-flight window — the drain stops admitting first, then awaits what is already in flight, so a fact accepted at the boundary is never lost to its own teardown.
 - Law: `dataclassification` admits through the closed `Classification` vocabulary and gates before the lowering, so a classification a row cannot honor never reaches an encoder; `source` is the producer claim verified against the trust row before any routing decision reads it.
 - Entry: `Emitter.bound(points, scope=...)` registers one subscription over a whole hook roster and returns the detacher, so a producer's entire point table is tapped at one grain and the emitter dies with the composition that bound it. `scope` is the composition whose points it reaches — the SAME `ScopeKey` the producer registered under — because two compositions embedding the runtime in one process partition point custody structurally, and an emitter bound at the default scope reaches none of an embedded composition's roster. `Emitter.project` is the one fact-to-envelope arm, so a new fact family is one projection row and no binding is edited.
 - Auto: fan-out across bound bindings inherits the bounds the single delivery already takes — the row's own retry class on every hop, the lane's capacity on every thread arm — so it buys concurrency and never a second bound. Refused bindings shed no sibling's delivery, so the caller re-drives exactly what failed.
 - Output: `Delivery` carries the two settlement halves, the per-binding refusals, and each binding's `Externalized` — reference, retention, dual/reference projection, and stored byte count — when payload data externalized; outcome SEMANTICS stay the producing surface's, on `transport/roots#STORE`'s own split.
-- Growth: a new fact family is one `project` row; a new bound binding is one member of the emitter's set with no projection edited; a new long-tail state is one declared rail on this cluster and one arm on the fold that reads it; a new composition is one `ScopeKey` threaded through `bound`, never a sibling emitter.
+- Growth: a new fact family is one `project` row; a new bound binding is one member of the emitter's set with no projection edited; a new long-tail state is one declared path on this cluster and one arm on the fold that reads it; a new composition is one `ScopeKey` threaded through `bound`, never a sibling emitter.
 - Boundary: hook-fact projection and delivery fan only. Mints no hook point, no outcome semantics, no retention window, and no client connection. Rejected: an emit inside a domain fold; a `VETO` subscription over a fact stream; accepted and matched-duplicate folded into one count; batch position treated as event order; a drain that cancels the in-flight window.
 
 ```python
@@ -995,15 +995,15 @@ from expression.collections import Block
 from msgspec import Struct
 
 from rasm.runtime.event import MessageEnvelope, Uniqueness
-from rasm.runtime.faults import BINDING_ADMIT, BoundaryFault, RuntimeRail
+from rasm.runtime.faults import BINDING_ADMIT, BoundaryFault, RuntimeResult
 from rasm.runtime.hooks import Attachment, HookId, HookPoint, Hooks
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Project[P: Struct] = Callable[[P], RuntimeRail[MessageEnvelope]]
-type ProjectionApply = Callable[[HookId, Struct], RuntimeRail[MessageEnvelope]]
-type Fan = Callable[[HookId, RuntimeRail[MessageEnvelope], frozenset[Binding]], Awaitable["Delivery"]]
+type Project[P: Struct] = Callable[[P], RuntimeResult[MessageEnvelope]]
+type ProjectionApply = Callable[[HookId, Struct], RuntimeResult[MessageEnvelope]]
+type Fan = Callable[[HookId, RuntimeResult[MessageEnvelope], frozenset[Binding]], Awaitable["Delivery"]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -1022,7 +1022,7 @@ class Projection(Struct, frozen=True, gc=False):
 
     @classmethod
     def of[P: Struct](cls, point: HookPoint[P], project: Project[P], /) -> Self:
-        def apply(point_id: HookId, payload: Struct, /) -> RuntimeRail[MessageEnvelope]:
+        def apply(point_id: HookId, payload: Struct, /) -> RuntimeResult[MessageEnvelope]:
             if point_id is not point.id or not _payload(payload, point.payload):
                 return Error(BINDING_ADMIT.raised("emitter", f"projection-type:{point_id.value}"))
             return project(payload)
@@ -1035,7 +1035,7 @@ class Emitter(Struct, frozen=True, gc=False):
     bindings: frozenset[Binding]
     fan: Fan
 
-    def bound(self, points: Block[HookPoint[Struct]], /, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Callable[[], None]]:
+    def bound(self, points: Block[HookPoint[Struct]], /, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[Callable[[], None]]:
         claimed = tuple(row.point_id for row in self.projections)
         if len(claimed) != len(frozenset(claimed)):
             return Error(BINDING_ADMIT.raised("emitter", "duplicate-projection"))
@@ -1048,7 +1048,7 @@ class Emitter(Struct, frozen=True, gc=False):
             return Error(BINDING_ADMIT.raised("emitter", f"missing-projection:{missing.head().id.value}"))
         return Hooks.subscribe(points, self._observed, scope=scope).map(_detacher)
 
-    def project[P: Struct](self, point_id: HookId, payload: P, /) -> RuntimeRail[MessageEnvelope]:
+    def project[P: Struct](self, point_id: HookId, payload: P, /) -> RuntimeResult[MessageEnvelope]:
         return self.projections.filter(lambda row: row.point_id is point_id).try_head().to_result_with(
             lambda: BINDING_ADMIT.raised("emitter", f"missing-projection:{point_id.value}")
         ).bind(lambda row: row.apply(point_id, payload))
@@ -1082,11 +1082,11 @@ def _payload[P: Struct](value: Struct, expected: type[P], /) -> TypeIs[P]:
 - Law: delivery custody is one serialized state agent, not a shared mutable cell. Provider coordinates key frame ownership while `(source, id)` alone keys deduplication and journal verdicts. Commands cross one memory-stream door and each has one reply stream; the sole consumer replaces immutable state after each transition. Publish and receive steps hold an activity lease, so drain closes admission before waiting for both `active == 0` and empty `inflight`; the caller's deadline scope bounds that event-driven reply without polling.
 - Law: a poison message with a bound dead-letter address routes there and settles its original handle only after that publish confirms; only then does it enter `Drained.shed`. Without that address the decode refusal and shed evidence return while the handle remains live, so the operator sees an unconfigured poison route rather than a fabricated settlement. Redelivery is distinguished from duplication by `(source, id)` alone.
 - Law: the drain FLUSHES and never cancels. `drained(deadline)` closes admission through the state agent, awaits its empty-window reply under one deadline scope, then flushes the producer — `flush` polls until the queue empties, so every pending delivery report lands and `purge` surfaces an unsent message as its own report rather than dropping it silently — and only then closes. Cancelling the in-flight window instead loses facts already accepted at the boundary, which is exactly the loss the acceptance promised against.
-- Entry: `BrokerLane.bound(group, binding, client, consumption, context, settings, formats, trust, residence)` is the composition entry. Each protocol binder's authenticated receive arm places a `PrincipalScope` beside the provider message; the generic lane receives no credentials and supplies no fallback scope. `Client.payload_limit(connection)` exposes the safe live event-body ceiling after the protocol binder reserves frame/header overhead; `published` lowers once to measure the selected mode, externalizes past the effective threshold, re-lowers the projected envelope, and answers `Published` with its `Externalized`. `consumed` is the railed async iterator every handler drains. `drained(deadline)` is terminal, and `transacted(delivered, unit)` brackets only the explicit delivered block whose handles the package must send into its transaction.
+- Entry: `BrokerLane.bound(group, binding, client, consumption, context, settings, formats, trust, store)` is the composition entry. Each protocol binder's authenticated receive arm places a `PrincipalScope` beside the provider message; the generic lane receives no credentials and supplies no fallback scope. `Client.payload_limit(connection)` exposes the safe live event-body ceiling after the protocol binder reserves frame/header overhead; `published` lowers once to measure the selected mode, externalizes past the effective threshold, re-lowers the projected envelope, and answers `Published` with its `Externalized`. `consumed` is the result-typed async iterator every handler drains. `drained(deadline)` is terminal, and `transacted(delivered, unit)` brackets only the explicit delivered block whose handles the package must send into its transaction.
 - Auto: ingress ADMITS through `execution/admission#TENANCY` and inherits nothing. The generated event profile intentionally carries no tenant claim; `TenantAdoption` compares the composition-authenticated principal scope beside the provider delivery against the admitted deployment axis and source issuer row. `source` remains an untrusted event claim verified before routing, and missing or unknown `dataclassification` refuses before trust, routing, or settlement. The admitted delivery retains `TenantAdoption`, so downstream work consumes the verified principal, tenant, and issuer row rather than re-resolving them.
 - Auto: every package thunk returns through one binding fault anchor. Retry schedules, failure windows, and broker throttle directives remain composition-owned resilience policy; the lane neither duplicates those owners nor performs an invisible retry around a transaction.
 - Auto: `Delivered.lag` measures local arrival minus producer `recordedtime` once. An expired `expirytime` yields `Moot` immediately, remains attached to the provider delivery so a shared frame settles whole, bypasses the durable fact record, and lands under the distinct `MOOT` verdict. `LaneDrained` keeps acceptance, duplicate, moot, and shed evidence disjoint.
-- Output: `Published` carries the event composite beside the exact `Externalized` residence when externalization occurred. `Settlement` and `LaneDrained` carry accepted, matched-duplicate, and moot composites separately; `LaneDrained` additionally carries the finished window and shed causes, so clean, expired, duplicate, and lossy crossings never collapse.
+- Output: `Published` carries the event composite beside the exact `Externalized` store when externalization occurred. `Settlement` and `LaneDrained` carry accepted, matched-duplicate, and moot composites separately; `LaneDrained` additionally carries the finished window and shed causes, so clean, expired, duplicate, and lossy crossings never collapse.
 - Growth: a new protocol is one `BINDINGS` row beside one bound `Client`; a new membership shape is one `Grouping` member with its arm on the one membership fold; a new settlement join is one `Settle` member; a new producer guarantee is one `Producing` member with its bracket; a new loop cadence is one `Pump` member with its step; a new dead-letter route is one value on the subscription's slice.
 - Boundary: connection lifetime, membership, settlement, and drain only. Mints no message envelope, no format, no retry curve, no failure window, no outcome semantics, and no hook point. Rejected: a lane creating a loop or a thread the caller's group does not own; `loop_start`'s daemon thread; a `BlockingPortalProvider` minted per callback; an automatic offset commit; a prefetch unpaired with its limiter; work started inside a rebalance callback; a drain that cancels the in-flight window; a per-protocol adapter class beside the one row-driven lane.
 
@@ -1118,7 +1118,7 @@ from rasm.runtime.faults import (
     BINDING_TRANSACTION,
     BoundaryFault,
     Catch,
-    RuntimeRail,
+    RuntimeResult,
     async_boundary,
     boundary,
 )
@@ -1259,17 +1259,17 @@ class LeaveCommand(Struct, tag="leave", frozen=True, gc=False):
 
 class TrackCommand(Struct, tag="track", frozen=True, gc=False):
     delivered: Block[Delivered]
-    reply: MemoryObjectSendStream[RuntimeRail[None]]
+    reply: MemoryObjectSendStream[RuntimeResult[None]]
 
 
 class LiveCommand(Struct, tag="live", frozen=True, gc=False):
     delivered: Block[Delivered]
-    reply: MemoryObjectSendStream[RuntimeRail[None]]
+    reply: MemoryObjectSendStream[RuntimeResult[None]]
 
 
 class ClaimCommand(Struct, tag="claim", frozen=True, gc=False):
     delivered: Block[Delivered]
-    reply: MemoryObjectSendStream[RuntimeRail[None]]
+    reply: MemoryObjectSendStream[RuntimeResult[None]]
 
 
 class ReleaseCommand(Struct, tag="release", frozen=True, gc=False):
@@ -1327,13 +1327,13 @@ class LaneAgent(Struct, frozen=True, gc=False):
     async def leave(self, /) -> None:
         await _answer(self.door, lambda reply: LeaveCommand(reply))
 
-    async def track(self, delivered: Block[Delivered], /) -> RuntimeRail[None]:
+    async def track(self, delivered: Block[Delivered], /) -> RuntimeResult[None]:
         return await _answer(self.door, lambda reply: TrackCommand(delivered, reply))
 
-    async def live(self, delivered: Block[Delivered], /) -> RuntimeRail[None]:
+    async def live(self, delivered: Block[Delivered], /) -> RuntimeResult[None]:
         return await _answer(self.door, lambda reply: LiveCommand(delivered, reply))
 
-    async def claim(self, delivered: Block[Delivered], /) -> RuntimeRail[None]:
+    async def claim(self, delivered: Block[Delivered], /) -> RuntimeResult[None]:
         return await _answer(self.door, lambda reply: ClaimCommand(delivered, reply))
 
     async def release(self, delivered: Block[Delivered], /) -> None:
@@ -1440,7 +1440,7 @@ async def _lane_state(
 
 def _tracked_state(
     state: LaneState, delivered: Block[Delivered], binding: Binding, /
-) -> tuple[LaneState, RuntimeRail[None]]:
+) -> tuple[LaneState, RuntimeResult[None]]:
     if delivered.is_empty():
         return state, Ok(None)
     coordinates = frozenset(held.coordinate for held in delivered)
@@ -1463,7 +1463,7 @@ def _tracked_state(
     ), Ok(None)
 
 
-def _live_state(state: LaneState, delivered: Block[Delivered], binding: Binding, /) -> RuntimeRail[None]:
+def _live_state(state: LaneState, delivered: Block[Delivered], binding: Binding, /) -> RuntimeResult[None]:
     identities = frozenset(held.composite for held in delivered)
     if len(identities) != len(delivered):
         return Error(BINDING_SETTLE.raised(binding.value, "repeated-delivery"))
@@ -1483,7 +1483,7 @@ def _live_state(state: LaneState, delivered: Block[Delivered], binding: Binding,
 
 def _claimed_state(
     state: LaneState, delivered: Block[Delivered], binding: Binding, /
-) -> tuple[LaneState, RuntimeRail[None]]:
+) -> tuple[LaneState, RuntimeResult[None]]:
     identities = frozenset(held.composite for held in delivered)
     if not identities.isdisjoint(state.claimed):
         return state, Error(BINDING_SETTLE.raised(binding.value, "delivery-already-settling"))
@@ -1553,7 +1553,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
     settings: Settings
     formats: EventFormat
     trust: Trust
-    residence: Option[Residence]
+    store: Option[PayloadStore]
     agent: LaneAgent
     limiter: Option[CapacityLimiter]
     portal: Option[BlockingPortalProvider]
@@ -1569,9 +1569,9 @@ class BrokerLane(Struct, frozen=True, gc=False):
         settings: Settings,
         formats: EventFormat,
         trust: Trust,
-        residence: Option[Residence],
+        store: Option[PayloadStore],
         /,
-    ) -> RuntimeRail[Self]:
+    ) -> RuntimeResult[Self]:
         match BINDINGS.try_find(binding):
             case Option(tag="none"):
                 return Error(BINDING_ADMIT.raised(binding.value, "provider-unavailable"))
@@ -1604,7 +1604,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
                         settings=settings,
                         formats=formats,
                         trust=trust,
-                        residence=residence,
+                        store=store,
                         agent=LaneAgent(door),
                         limiter=limiter,
                         portal=portal,
@@ -1613,7 +1613,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
 
     async def published(
         self, envelope: MessageEnvelope, /, *, mode: Content, suffix: Option[Suffix] = Nothing
-    ) -> RuntimeRail[Published]:
+    ) -> RuntimeResult[Published]:
         if not await self.agent.enter():
             return Error(BINDING_DRAIN.raised(self.row.binding.value, "lane-closed"))
         try:
@@ -1637,7 +1637,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
 
     async def _publish_prepared(
         self, envelope: MessageEnvelope, mode: Content, suffix: Option[Suffix], /
-    ) -> RuntimeRail[Prepared]:
+    ) -> RuntimeResult[Prepared]:
         lowered = lower(
             envelope,
             binding=self.row.binding,
@@ -1661,15 +1661,15 @@ class BrokerLane(Struct, frozen=True, gc=False):
         if size <= threshold:
             return Ok(Prepared(envelope=envelope, message=message, externalized=Nothing))
         projection = self.row.dataref.projection
-        if projection is ResidenceProjection.DUAL and size > ceiling:
-            if self.settings.try_find("datarefprojection") != Some(ResidenceProjection.REFERENCE.value):
+        if projection is CarriageMode.DUAL and size > ceiling:
+            if self.settings.try_find("datarefprojection") != Some(CarriageMode.REFERENCE.value):
                 return Error(BINDING_ADMIT.raised(self.row.binding.value, "dual-over-ceiling-without-negotiation"))
-            projection = ResidenceProjection.REFERENCE
-        match self.residence:
+            projection = CarriageMode.REFERENCE
+        match self.store:
             case Option(tag="none"):
-                return Error(BINDING_ADMIT.raised(self.row.binding.value, "dataref-without-residence"))
-            case Option(tag="some", some=residence):
-                externalized = await residence.externalize(envelope, self.row.dataref, projection)
+                return Error(BINDING_ADMIT.raised(self.row.binding.value, "dataref-without-store"))
+            case Option(tag="some", some=store):
+                externalized = await store.externalize(envelope, self.row.dataref, projection)
         match externalized:
             case Result(tag="error") as refused:
                 return refused
@@ -1690,7 +1690,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
             else Error(BINDING_ENCODE.raised(self.row.binding.value, "dataref-frame-over-ceiling"))
         )
 
-    async def consumed(self) -> AsyncIterator[RuntimeRail[DeliveryOutcome]]:
+    async def consumed(self) -> AsyncIterator[RuntimeResult[DeliveryOutcome]]:
         while await self.agent.enter():
             try:
                 stepped = await async_boundary(
@@ -1720,7 +1720,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
                                             yield emptied
                                         continue
                                     live: Block[Delivered] = Block.empty()
-                                    refused: Block[RuntimeRail[Delivered]] = Block.empty()
+                                    refused: Block[RuntimeResult[Delivered]] = Block.empty()
                                     faults: Block[BoundaryFault] = Block.empty()
                                     for envelope in decoded.events:
                                         delivered = self._delivery(
@@ -1756,7 +1756,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
                     await self.agent.leave()
             await anyio.lowlevel.checkpoint()
 
-    async def settled(self, delivered: Block[Delivered], /) -> RuntimeRail[Settlement]:
+    async def settled(self, delivered: Block[Delivered], /) -> RuntimeResult[Settlement]:
         if delivered.is_empty():
             return Ok(Settlement(accepted=Block.empty(), duplicate=Block.empty(), moot=Block.empty()))
         live = await self.agent.live(delivered)
@@ -1775,14 +1775,14 @@ class BrokerLane(Struct, frozen=True, gc=False):
 
     async def _settlement_prepared(
         self, delivered: Block[Delivered], /
-    ) -> RuntimeRail[Map[Uniqueness, SettlementVerdict]]:
+    ) -> RuntimeResult[Map[Uniqueness, SettlementVerdict]]:
         identities = frozenset(held.composite for held in delivered)
         retained = await self.agent.prepared(identities)
         if not retained.is_empty() and len(retained) != len(identities):
             return Error(BINDING_SETTLE.raised(self.row.binding.value, "partial-record-verdict"))
         active = delivered.filter(lambda held: not held.moot)
         if not retained.is_empty():
-            recorded: RuntimeRail[Map[Uniqueness, SettlementVerdict]] = Ok(retained)
+            recorded: RuntimeResult[Map[Uniqueness, SettlementVerdict]] = Ok(retained)
         elif active.is_empty():
             recorded = Ok(Map.empty())
         elif self.row.settlement is Settle.JOURNAL:
@@ -1810,8 +1810,8 @@ class BrokerLane(Struct, frozen=True, gc=False):
                 return settled.map(lambda _: verdicts)
 
     async def transacted[T](
-        self, delivered: Block[Delivered], unit: Callable[[Block[Delivered]], Awaitable[RuntimeRail[T]]], /
-    ) -> RuntimeRail[T]:
+        self, delivered: Block[Delivered], unit: Callable[[Block[Delivered]], Awaitable[RuntimeResult[T]]], /
+    ) -> RuntimeResult[T]:
         if self.row.producing is not Producing.TRANSACTIONAL:
             return Error(BINDING_TRANSACTION.raised(self.row.binding.value, self.row.producing.value))
         if delivered.is_empty():
@@ -1868,7 +1868,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
                         await self.agent.release(delivered)
                         return committed if aborted.is_ok() else aborted
 
-    async def drained(self, /, *, deadline: float) -> RuntimeRail[LaneDrained]:
+    async def drained(self, /, *, deadline: float) -> RuntimeResult[LaneDrained]:
         if deadline < 0.0:
             return Error(BINDING_DRAIN.raised(self.row.binding.value, "negative-deadline"))
         until = anyio.current_time() + deadline
@@ -1906,7 +1906,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
 
     def _admitted(
         self, envelope: MessageEnvelope, authority: PrincipalScope, /
-    ) -> RuntimeRail[TenantAdoption]:
+    ) -> RuntimeResult[TenantAdoption]:
         return _grade(envelope, self.row.binding).bind(
             lambda admitted_grade: TenantAdoption.of(
                 self.context,
@@ -1923,7 +1923,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
         coordinate: ProviderCoordinate,
         handle: object,
         /,
-    ) -> RuntimeRail[Delivered]:
+    ) -> RuntimeResult[Delivered]:
         arrived = datetime.now(UTC)
         lag = (
             stamped(envelope.extensions.recordedtime.to_datetime(), arrived).map(Some)
@@ -1956,7 +1956,7 @@ class BrokerLane(Struct, frozen=True, gc=False):
         key: Option[Uniqueness],
         fault: BoundaryFault,
         /,
-    ) -> RuntimeRail[None]:
+    ) -> RuntimeResult[None]:
         match self.consumption.dead_letter:
             case Option(tag="none"):
                 await self.agent.shed(key, fault)

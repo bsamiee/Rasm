@@ -2,7 +2,7 @@
 
 One material environmental-impact owner — the EPD/LCA normalization plane of `data`. Two external EPD declaration formats (`openepd`, `epdx`) and three life-cycle-assessment compute legs (the Brightway solver, the live openLCA engine, `premise`-shifted prospective backgrounds) fold into ONE `MaterialImpact` carrier: an EN 15804 indicator × life-cycle-stage matrix keyed by `ContentIdentity`, discriminated on the source payload shape, never a provider knob. This owner owns only the normalization to the common carrier, its identity, and tabular egress — `openepd`/`epdx` own EPD wire parsing, `bw2data` owns the project graph as system of record (filled by `impact/inventory#INVENTORY`), `bw2calc`/openLCA own the solver (`impact/solve#SOLVE` the batch arity), `impact/scenario#SCENARIO` drives the prospective background build the composition runs out of band, and `MaterialImpact` is never the system of record.
 
-Its self-describing eight-column frame crosses to the C# AEC domain as the seam `Discipline.Environmental` `Assessment` payload routed onto the `Material` node `MaterialPropertySet.Environmental` case — `Rasm.Compute` the assessment-runner owner, `Rasm.Materials` the material-node projection — the physical crossing content-keyed canonical Arrow bytes through the `tabular/columnar` public fold. Its solver cluster is pure-python: every provider binds once at module scope through its own `lazy import`, so the deferral is optional-provider loading and never a version gate — a run touching only the declaration arms never pays the Brightway/openLCA import — and every interpreter marker or pin lives in the root manifest alone. Two openepd surfaces stand outside that deferral for stated reasons: `openepd.model.factory`, whose import runs the `patch_pydantic` registration, so a side-effect module is never `lazy`-deferred and `_doctyped` binds it at the call seam that must fire the patch; and `openepd.model.lcia`'s `LCIAMethod`, the carrier's own method VOCABULARY typed on `MaterialImpact` and valued on every `ImpactRegime` row, which a vocabulary cannot defer past the module that types its fields. Transport endpoints arrive from the runtime `TransportResource` at the boundary, never re-minted here.
+Its self-describing eight-column frame crosses to the C# AEC domain as the boundary `Discipline.Environmental` `Assessment` payload routed onto the `Material` node `MaterialPropertySet.Environmental` case — `Rasm.Compute` the assessment-runner owner, `Rasm.Materials` the material-node projection — the physical crossing content-keyed canonical Arrow bytes through the `tabular/columnar` public fold. Its solver cluster is pure-python: every provider binds once at module scope through its own `lazy import`, so the deferral is optional-provider loading and never a version gate — a run touching only the declaration arms never pays the Brightway/openLCA import — and every interpreter marker or pin lives in the root manifest alone. Two openepd surfaces stand outside that deferral for stated reasons: `openepd.model.factory`, whose import runs the `patch_pydantic` registration, so a side-effect module is never `lazy`-deferred and `_doctyped` binds it at the call boundary that must fire the patch; and `openepd.model.lcia`'s `LCIAMethod`, the carrier's own method VOCABULARY typed on `MaterialImpact` and valued on every `ImpactRegime` row, which a vocabulary cannot defer past the module that types its fields. Transport endpoints arrive from the runtime `TransportResource` at the boundary, never re-minted here.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ Its self-describing eight-column frame crosses to the C# AEC domain as the seam 
 - Owner: `MaterialImpact` reuses the `openepd` `LCIAMethod` value vocabulary as the canonical method axis, never re-declared, and carries it as `Posture[LCIAMethod]` so a method the declaration itself DECLARED never reads the same as one the regime row SUPPLIED; `Spread` gives mined dispersion a typed home on every `ImpactCell` (`rsd` declared, `std` sampled), so uncertainty is a carried slot, never an afterthought. `Indicator` and `Stage` are the PROVIDER-FIELD key space — `Stage.value` IS the `epdx` `ImpactCategory` field name the walk reads and the stem `OPENEPD_STAGE` upper-cases, `Indicator.value` the `epdx` `EPD` field name — never the `declaration-record` contract's module and indicator tokens that `impact/declaration#DECLARATION` mints; the two key spaces index apart under the `data/RULINGS.md` key-space row and a cross-page join on spelling is the deleted form.
 - Regime: `ImpactRegime` is the EN 15804 edition as a POLICY ROW, not a comment — one frozen row per `Regime` carrying that edition's declared per-indicator unit axis and its characterization-method preference ORDER, with `iso21930` the next ROW and never a new arm. The regime owns the unit: an indicator the edition does not define has no row, so an amount it cannot place refuses by name instead of crossing to the C# decoder wearing a foreign edition's unit. Election is DECLARED per arm, never inferred — `EPDX_REGIME` keys the epdx `Standard` member NAME onto the row so `UNKNOWN` refuses instead of coercing to A1, and `OPENEPD_REGIME` names the +A2 row because openepd's LCIA roster IS the +A2 shape (split GWP, split EP, `WDP`, `ADP_mineral`/`ADP_fossil`). `ImpactRegime.rostered` censuses the whole table at IMPORT under the ACCUMULATE posture — every regime rostered, every indicator placeable under at least one edition, every row carrying a method order — so roster-versus-contract parity is a fold a reader can run, never a sentence a reader must trust.
 - Cases: the provider is recovered from the payload shape and the arity from the payload value; the `openepd` method selector is `Option[LCIAMethod]`, and `Nothing` reads the regime's declared preference order intersected with the declaration's own `available_methods()`, first declared row winning.
-- Entry: `ilcd`, `fetched`, and `olca` are the three admission projectors, one per foreign edge, each minting an `ImpactSource` on the rail — `ilcd` crossing the shared `ilcd_document` guard and the openepd fold admitting the optional `Impacts` container on the rail before it elects a method, so a declaration carrying resource and output flows alone refuses by name instead of answering `AttributeError`; `gated(*rules)` composes the `tabular/contract#ADMISSION` gate downward over the eight-column frame and `profiled(profile)` grades the same frame through the `tabular/profile#PROFILE` plan and hands back the whole `Interrogation` so a downstream report reuses the graded plan; `wire` composes the consumer-edge crossing over the `tabular/columnar` public Arrow-bytes fold with the carrier's `ContentKey`.
+- Entry: `ilcd`, `fetched`, and `olca` are the three admission projectors, one per foreign edge, each minting an `ImpactSource` on the result — `ilcd` crossing the shared `ilcd_document` guard and the openepd fold admitting the optional `Impacts` container on the result before it elects a method, so a declaration carrying resource and output flows alone refuses by name instead of answering `AttributeError`; `gated(*rules)` composes the `tabular/contract#ADMISSION` gate downward over the eight-column frame and `profiled(profile)` grades the same frame through the `tabular/profile#PROFILE` plan and hands back the whole `Interrogation` so a downstream report reuses the graded plan; `wire` composes the consumer-edge crossing over the `tabular/columnar` public Arrow-bytes fold with the carrier's `ContentKey`.
 - Auto: `premise` builds the future-year background LCI OUT OF BAND and computes no LCIA of its own, so the `premise_background` case names the written database, proves it registered in the open `bw2data` project, and scores it through the same Brightway solve arm — a scenario tuple with no registered background is a refusal, never a present-day score wearing a future year. Identity joins that tuple with the database's own `bd.databases.version`, so identical prospective builds dedupe in the reuse ledger while a rebuilt background re-keys; a demand×method sweep rides the `Block` arity with each solve content-keyed, never a second arm.
 - Law: source identity keys `MaterialImpact` from the declaration id and version, solve fingerprint, setup identity, or scenario tuple, so an identical normalization yields the same carrier key. The carrier retains the method posture and every mixed-unit cell a caller needs; `_one`'s normalize span is the embedded solver's trace surface.
 - Packages: `bw2data` resolves the demand keys and answers the prospective-background registry, `bw2calc` solves, `bw2analyzer` mines the contribution rows, `olca-ipc` drives the live openLCA engine over `requests`, and `openepd`/`epdx` parse the two declaration wires; `ilcd_document` is the package's ONE PyO3 panic guard and the sibling declaration ingress composes it rather than restating the qualname probe. `bw2io` LCI ingestion and `bw-processing` matrix-datapackage custody stand OUTSIDE this normalization fold — the demand keys arrive already resolved in the open project, which the `impact/inventory#INVENTORY` custodian fills — so this owner composes neither and claims no depth it does not reach; `pyarrow` binds at module scope through `lazy import`, deferring the egress load to first lowering.
@@ -52,7 +52,7 @@ from rasm.runtime.faults import (
     Disposition,
     FaultRow,
     Posture,
-    RuntimeRail,
+    RuntimeResult,
     boundary,
     rostered,
     scoped,
@@ -259,7 +259,7 @@ class MaterialImpact(Struct, frozen=True):
     @classmethod
     def of(
         cls, payload: "ImpactSource | Block[ImpactSource]", *, by: Disposition = Disposition.ABORT
-    ) -> "RuntimeRail[MaterialImpact] | RuntimeRail[Block[MaterialImpact]]":
+    ) -> "RuntimeResult[MaterialImpact] | RuntimeResult[Block[MaterialImpact]]":
         match payload:
             case Block() as many:
                 return traversed(many.map(cls._one), by=by)
@@ -267,14 +267,14 @@ class MaterialImpact(Struct, frozen=True):
                 return cls._one(lone)
 
     @staticmethod
-    def ilcd(document: "str | bytes") -> "RuntimeRail[ImpactSource]":
+    def ilcd(document: "str | bytes") -> "RuntimeResult[ImpactSource]":
         return boundary(
             IMPACT_ILCD, lambda: ImpactSource(ilcd_epd=EPD.model_validate(msgjson.decode(ilcd_document(document).encode()))),
             catch=_ilcd_raises(),
         )
 
     @staticmethod
-    async def fetched(transport: TransportResource, uuid: str, method: "Option[LCIAMethod]" = Nothing) -> "RuntimeRail[ImpactSource]":
+    async def fetched(transport: TransportResource, uuid: str, method: "Option[LCIAMethod]" = Nothing) -> "RuntimeResult[ImpactSource]":
         acquired = await transport.acquire(f"epds/{uuid}")
         return acquired.bind(
             lambda body: boundary(
@@ -285,7 +285,7 @@ class MaterialImpact(Struct, frozen=True):
         )
 
     @staticmethod
-    def olca(endpoint: str, setup: "CalculationSetup", refs: "Map[str, Indicator]") -> "RuntimeRail[ImpactSource]":
+    def olca(endpoint: str, setup: "CalculationSetup", refs: "Map[str, Indicator]") -> "RuntimeResult[ImpactSource]":
         target = Option.of_optional(setup.target).bind(lambda ref: Option.of_optional(ref.id))
         keyed = Option.of_optional(setup.impact_method)
         method_ref = keyed.bind(lambda ref: Option.of_optional(ref.id))
@@ -315,23 +315,23 @@ class MaterialImpact(Struct, frozen=True):
         return Ok(ImpactSource(openlca=OlcaSolve(endpoint=endpoint, setup=setup, refs=refs, identity=identity)))
 
     @classmethod
-    def _one(cls, payload: "ImpactSource") -> "RuntimeRail[MaterialImpact]":
+    def _one(cls, payload: "ImpactSource") -> "RuntimeResult[MaterialImpact]":
         with _TRACER.start_as_current_span(f"impact.normalize.{payload.tag}", attributes={"rasm.impact.source": payload.tag}):
             return boundary(
                 IMPACT_NORMALIZE, lambda: _normalize(payload), catch=(*_ilcd_raises(), *_solver_raises(), *_olca_raises())
             )
 
-    def frame(self) -> "RuntimeRail[pa.Table]":
+    def frame(self) -> "RuntimeResult[pa.Table]":
         return boundary(IMPACT_FRAME, lambda: _lower(self), catch=(pa.ArrowException, TypeError, ValueError))
 
-    def wire(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
+    def wire(self) -> "RuntimeResult[tuple[bytes, ContentKey]]":
         return self.frame().map(lambda table: (bytes(arrow_bytes(table)), self.content_key))
 
-    def gated(self, *rules: QualityRule) -> "RuntimeRail[ContractClaim]":
+    def gated(self, *rules: QualityRule) -> "RuntimeResult[ContractClaim]":
         admission = FrameAdmission.of(FrameInterop.of(Backend.PYARROW), _WIRE_SHAPES, *rules)
         return self.frame().bind(lambda table: admission.admit(table).bind(admission.enforce))
 
-    async def profiled(self, profile: QualityProfile) -> "RuntimeRail[Interrogation]":
+    async def profiled(self, profile: QualityProfile) -> "RuntimeResult[Interrogation]":
         match await on_thread(self.frame):
             case Result(tag="error") as refused:
                 return refused

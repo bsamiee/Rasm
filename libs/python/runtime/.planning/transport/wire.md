@@ -4,20 +4,20 @@ Every decode rides the one `Decode` aspect — a direction-parameterized OTel sp
 
 ## [01]-[INDEX]
 
-- [02]-[WIRE_RAIL]: `Decode` — the traced-railed aspect every wire boundary composes.
+- [02]-[WIRE_RESULT]: `Decode` — the traced-result aspect every wire boundary composes.
 - [03]-[CRDT_CODEC]: generic MessagePack envelope admission beside generated-protobuf CRDT payload admission.
 - [04]-[CRDT_STATE]: six field-keyed converging state owners, each publishing its own read, beside the one identity-aware `replayed` fold a replica materializes an op-log prefix through.
 
-## [02]-[WIRE_RAIL]
+## [02]-[WIRE_RESULT]
 
 - Owner: `Decode` is the one cross-cutting wire-boundary aspect every codec on this page composes — telemetry and fault conversion declared once and reused by both CRDT legs, never repeated inline per codec and never a CONSUMER-kind span mis-scoping an egress encode.
-- Entry: every ingress is buffered — the durability decode reads the op-log payload whole — so `railed` and `routed` are the two entries, and the terminal decode `ValidationError` rides the `railed` boundary on the first decode, never a retry.
+- Entry: every ingress is buffered — the durability decode reads the op-log payload whole — so `decoded` and `routed` are the two entries, and the terminal decode `ValidationError` rides the `decoded` boundary on the first decode, never a retry.
 - Auto: `annotated` lowers through `msgspec.structs.asdict` — the field-NAME-keyed projection serving the `array_like` CRDT arms (the positional indices `to_builtins(array_like=True)` returns are meaningless) — keeping raw `bytes` for the fixed-width `.hex()` render, unlike the base64-lowering `to_builtins`.
-- Law: the fault coordinate is a `RuntimeLeg.WIRE` roster row and never a free subject string, so `railed` and `routed` differ by ROW rather than by a verb literal and the SAME row names the span head — one declaration fixes what a trace shows and what `facts()` publishes, where two spellings drift the moment either moves. The row's own posture is what makes a codec fault terminal: re-decoding identical bytes fails identically, so a re-drive gate reading the ingress class alone would re-offer a refusal no retry can clear.
-- Law: `catch` is REQUIRED at both entries and every composer names its provider ROOTS rather than a leaf list — `msgspec.MsgspecError` covers decode, encode, and constraint validation, and the msgpack ENCODER raises `OverflowError` on an int past the 64-bit wire before any hook runs, so the encode arm names it beside the root — while a generated class validates at ENCODE alone (`to_binary`/`to_json` raise `TypeError`, `ValueError`, `OverflowError`; construction and assignment check nothing) and no fence on this page encodes one. A defect raised inside a thunk therefore propagates as the defect it is instead of railing as a codec fault. The one plane this aspect cannot import is the INJECTED envelope codec, which therefore carries its own raise class on the value rather than being guessed at here.
-- Packages: `msgspec`, `opentelemetry-api`, and the faults/resilience rails per the fence imports; the `Status`/`record_exception` egress is the faults owner's `_convert`, never re-spelled here.
-- Growth: a new wire boundary composes `Decode.railed`/`routed` and inherits span and fault with zero new cross-cutting code; a new transport direction is one `(row, kind, annotate)` triple on `_traced`, its row supplying span head and fault coordinate at once; a new cross-language wire is a corpus message and imports its generated class — it earns no codec here.
-- Boundary: every leg crosses the `railed`/`routed` span-and-`boundary` fence and the terminal decode fault converts exactly once — never a bare exception across a handler and never a second async rail.
+- Law: the fault coordinate is a `RuntimeLeg.WIRE` roster row and never a free subject string, so `decoded` and `routed` differ by ROW rather than by a verb literal and the SAME row names the span head — one declaration fixes what a trace shows and what `facts()` publishes, where two spellings drift the moment either moves. The row's own posture is what makes a codec fault terminal: re-decoding identical bytes fails identically, so a re-drive gate reading the ingress class alone would re-offer a refusal no retry can clear.
+- Law: `catch` is REQUIRED at both entries and every composer names its provider ROOTS rather than a leaf list — `msgspec.MsgspecError` covers decode, encode, and constraint validation, and the msgpack ENCODER raises `OverflowError` on an int past the 64-bit wire before any hook runs, so the encode arm names it beside the root — while a generated class validates at ENCODE alone (`to_binary`/`to_json` raise `TypeError`, `ValueError`, `OverflowError`; construction and assignment check nothing) and no fence on this page encodes one. A defect raised inside a thunk therefore propagates as the defect it is instead of refusing as a codec fault. The one plane this aspect cannot import is the INJECTED envelope codec, which therefore carries its own raise class on the value rather than being guessed at here.
+- Packages: `msgspec`, `opentelemetry-api`, and the faults/resilience results per the fence imports; the `Status`/`record_exception` egress is the faults owner's `_convert`, never re-spelled here.
+- Growth: a new wire boundary composes `Decode.decoded`/`routed` and inherits span and fault with zero new cross-cutting code; a new transport direction is one `(row, kind, annotate)` triple on `_traced`, its row supplying span head and fault coordinate at once; a new cross-language wire is a corpus message and imports its generated class — it earns no codec here.
+- Boundary: every leg crosses the `decoded`/`routed` span-and-`boundary` fence and the terminal decode fault converts exactly once — never a bare exception across a handler and never a second async path.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -28,7 +28,7 @@ from expression.collections import Block
 from opentelemetry import trace
 from opentelemetry.trace import Span, SpanKind
 
-from rasm.runtime.faults import SCOPES, WIRE_DECODE, WIRE_ENCODE, Catch, FaultRow, RuntimeRail, Scope, boundary, scoped
+from rasm.runtime.faults import SCOPES, WIRE_DECODE, WIRE_ENCODE, Catch, FaultRow, RuntimeResult, Scope, boundary, scoped
 
 _TRACER = scoped(trace.get_tracer, SCOPES[Scope.WIRE])
 
@@ -60,17 +60,17 @@ class Decode:
                 return None
 
     @classmethod
-    def _traced[T](cls, at: FaultRow, kind: SpanKind, subject: str, run: Callable[[], T], catch: Catch, *, annotate: bool) -> RuntimeRail[T]:
+    def _traced[T](cls, at: FaultRow, kind: SpanKind, subject: str, run: Callable[[], T], catch: Catch, *, annotate: bool) -> RuntimeResult[T]:
         with _TRACER.start_as_current_span(f"{at.subject}.{subject}", kind=kind) as span:
-            rail = boundary(at, run, catch=catch)
-            return rail.map(lambda frame: cls.annotated(span, frame)) if annotate else rail
+            held = boundary(at, run, catch=catch)
+            return held.map(lambda frame: cls.annotated(span, frame)) if annotate else held
 
     @classmethod
-    def railed[T](cls, subject: str, decode: Callable[[], T], *, catch: Catch) -> RuntimeRail[T]:
+    def decoded[T](cls, subject: str, decode: Callable[[], T], *, catch: Catch) -> RuntimeResult[T]:
         return cls._traced(WIRE_DECODE, SpanKind.CONSUMER, subject, decode, catch, annotate=True)
 
     @classmethod
-    def routed[T](cls, subject: str, encode: Callable[[], T], *, catch: Catch) -> RuntimeRail[T]:
+    def routed[T](cls, subject: str, encode: Callable[[], T], *, catch: Catch) -> RuntimeResult[T]:
         return cls._traced(WIRE_ENCODE, SpanKind.PRODUCER, subject, encode, catch, annotate=False)
 ```
 
@@ -85,7 +85,7 @@ class Decode:
 - Law: `OperationId` carries the `(origin, counter)` dot beside the frontier its minter observed, and identity NEVER derives from payload content — two peers writing identical bytes are two operations, so a content-keyed log reports the second as a duplicate and discards a real edit. Vector slots — `context` here, `WriteOp.context` and `MaintainOp.quiescent` alike — arrive ASCENDING by origin bytes, the producer's canonical order, because a hash-ordered slot list gives one causal position a different digest per runtime and per insertion history, which is what keeps the shared fixture unfreezable.
 - Auto: `OpLogCodec` admits the thirteen-position MessagePack envelope and verifies seed-zero XxHash128 for every payload before encode or after decode. `CrdtOpCodec` then serializes and admits only the generated payload through the class's `to_binary`/`from_binary` pair and runs `protovalidate.validate` on both sides. Vector and observed-tag rows must already be strict ascending producer order; the generated descriptor is the sole arm/field authority and the adapter owns no operation-arm mirror roster.
 - Entry: `OpLogCodec.decode` admits the native outer envelope; `CrdtOpCodec.ops` selects its CRDT lane and decodes the generated payload while retaining the outer operation id. `CrdtOpCodec.encode` independently serializes an already-authored generated message and is not a semantic minter.
-- Growth: a new envelope column is one `OpLogEntry` field the producer pins first, never a sibling struct; a new op kind is one corpus oneof arm, one identity-aware `replayed` arm, and one `CrdtState` column where it opens a new convergence family — the producer adds the descriptor member first, the companion regenerates, never ahead of the wire; an `Ext`-typed producer slot enters as one `ext_hook=`/`enc_hook=` seam on the cached codecs, never a parallel decoder. Compression remains a transport concern and never changes this message shape.
+- Growth: a new envelope column is one `OpLogEntry` field the producer pins first, never a sibling struct; a new op kind is one corpus oneof arm, one identity-aware `replayed` arm, and one `CrdtState` column where it opens a new convergence family — the producer adds the descriptor member first, the companion regenerates, never ahead of the wire; an `Ext`-typed producer slot enters as one `ext_hook=`/`enc_hook=` boundary on the cached codecs, never a parallel decoder. Compression remains a transport concern and never changes this message shape.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -101,7 +101,7 @@ from protovalidate import CompilationError, EvaluationError, ValidationError, va
 
 # Contracts are retired from this logic.
 from rasm.runtime.clock import ElementId, Hlc
-from rasm.runtime.faults import Catch, RuntimeRail
+from rasm.runtime.faults import Catch, RuntimeResult
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.shapes import WireI63
 
@@ -179,17 +179,17 @@ class OpLogEntry(Struct, frozen=True, array_like=True, forbid_unknown_fields=Tru
 class CrdtOpCodec:
 
     @classmethod
-    def decode(cls, payload: bytes) -> RuntimeRail[crdt_pb.CrdtOpWire]:
-        return Decode.railed("crdt", lambda: _op(payload), catch=_PROTO_RAISES)
+    def decode(cls, payload: bytes) -> RuntimeResult[crdt_pb.CrdtOpWire]:
+        return Decode.decoded("crdt", lambda: _op(payload), catch=_PROTO_RAISES)
 
     @classmethod
-    def encode(cls, op: crdt_pb.CrdtOpWire) -> RuntimeRail[bytes]:
+    def encode(cls, op: crdt_pb.CrdtOpWire) -> RuntimeResult[bytes]:
         return Decode.routed("crdt", lambda: _binary(op), catch=_PROTO_RAISES)
 
     @classmethod
-    def ops(cls, entries: Block[OpLogEntry]) -> RuntimeRail[Block[tuple[OperationId, crdt_pb.CrdtOpWire]]]:
+    def ops(cls, entries: Block[OpLogEntry]) -> RuntimeResult[Block[tuple[OperationId, crdt_pb.CrdtOpWire]]]:
         crdt = entries.filter(lambda entry: entry.family == _CRDT_LANE)
-        return Decode.railed(
+        return Decode.decoded(
             "crdt.ops", lambda: Block.of_seq((entry.id, _op(entry.payload)) for entry in crdt), catch=_PROTO_RAISES
         )
 
@@ -199,13 +199,13 @@ class OpLogCodec:
     _envelope: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder()
 
     @classmethod
-    def decode(cls, payload: bytes) -> RuntimeRail[OpLogEntry]:
-        return Decode.railed(
+    def decode(cls, payload: bytes) -> RuntimeResult[OpLogEntry]:
+        return Decode.decoded(
             "oplog.entry", lambda: _admit_entry(cls._entry.decode(payload)), catch=(*_MSGPACK_RAISES, ValueError)
         )
 
     @classmethod
-    def encode(cls, entry: OpLogEntry) -> RuntimeRail[bytes]:
+    def encode(cls, entry: OpLogEntry) -> RuntimeResult[bytes]:
         return Decode.routed(
             "oplog.entry", lambda: cls._envelope.encode(_admit_entry(entry)), catch=(*_MSGPACK_RAISES, ValueError)
         )
@@ -281,7 +281,7 @@ def _ordered(op: crdt_pb.CrdtOpWire, /) -> None:
 - Law: `replayed` is the only materialization fold. A dot already under the applied frontier skips as a redelivery, where content equality would report a second genuine edit of identical bytes as the same skip and lose it; a `maintain` whose minter never observed its horizon refuses; and the same dot reaches the multi-value register as the version its causal context needs. `OpLogEntry.seq` resumes the producer drain and no arm reads it, because a state keyed on a transport ordinal diverges the moment peers resume from different frontiers.
 - Law: observed-set removal spends both generated coordinates: `element` selects the member and `observed_tags` tombstones only tags observed for that member. A global tag tombstone discards the element coordinate the descriptor deliberately carries and lets malformed input remove a different member's add.
 - Law: RGA compaction removes retired value bytes without cutting or reordering the insertion tree. A retired identity becomes a value-free routing tombstone: its predecessor edge and child adjacency remain, so preorder still visits its descendants at the exact former position. Reparenting those children and sorting them among the retired node's siblings changes order; dropping the adjacency loses them outright.
-- Law: every convergence column publishes its own READ on the shape that owns the state — `LwwRegister.value`, `MvRegister.values`, `OrSet.members`, `Rga.ordered`, `PnCounter.value`, `EphemeralMap.beats` — because a write-only column converges a state no replica can project back out, and a reader seated anywhere else re-derives an ordering law the family already holds. `Rga` alone reads by WALK rather than by field, so it alone takes the shared `reliability/faults#FAULT` `Depth` and rails a typed exhaustion where the other five are total and take no bound. No graph substrate backs that walk: `networkx` names `data` and `geometry` as its owners, and `libs/python/.planning/RULINGS.md` keeps graph reducers plural precisely because each owns a node index a merged owner re-keys — re-keying an adjacency whose determinism IS the synthesized `ElementId` order onto a foreign index is the ruled defect, not the repair.
+- Law: every convergence column publishes its own READ on the shape that owns the state — `LwwRegister.value`, `MvRegister.values`, `OrSet.members`, `Rga.ordered`, `PnCounter.value`, `EphemeralMap.beats` — because a write-only column converges a state no replica can project back out, and a reader seated anywhere else re-derives an ordering law the family already holds. `Rga` alone reads by WALK rather than by field, so it alone takes the shared `reliability/faults#FAULT` `Depth` and results a typed exhaustion where the other five are total and take no bound. No graph substrate backs that walk: `networkx` names `data` and `geometry` as its owners, and `libs/python/.planning/RULINGS.md` keeps graph reducers plural precisely because each owns a node index a merged owner re-keys — re-keying an adjacency whose determinism IS the synthesized `ElementId` order onto a foreign index is the ruled defect, not the repair.
 - Entry: `maintain` requires one already-seated sequence or presence family; absence and cross-family ambiguity refuse because the wire carries no family discriminant to resolve them. `insert_after` refuses an undefined predecessor, the zero root as an element identity, a self predecessor, and any reuse of an identity with different predecessor or value; those gates keep the retained routing tree acyclic and make replay of the same insert the only legal reuse.
 - Acceptance: fold each causally eligible ordering of an admitted op multiset, then fold that ordering again; state and frontier must be identical. Presence permutations include maintain-before-beat and leave-before-beat, RGA permutations delete-before-insert and maintain-before-replay, and PN ties include both exact replay and divergent fork refusal. A delivery whose outer context is not under the held frontier refuses as a causal gap rather than advancing that frontier and later misclassifying the missing operation as replay.
 - Growth: a new convergence family is one `CrdtState` column with its own absorb method and its arms' routing rows; a new op on a standing family is one arm and no column; a new tiebreak axis is one field on the family that needs it, reaching the fold through its own method; a new family projection is one method on the family that owns its state, never a reader seated on `CrdtState` or re-derived at a consumer.
@@ -299,7 +299,7 @@ from protobuf import Oneof
 
 # Contracts are retired from this logic.
 from rasm.runtime.clock import ElementId, Hlc
-from rasm.runtime.faults import WIRE_INSERT, WIRE_MAINTAIN, WIRE_ORDERED, Depth, RuntimeRail
+from rasm.runtime.faults import WIRE_INSERT, WIRE_MAINTAIN, WIRE_ORDERED, Depth, RuntimeResult
 from rasm.runtime.identity import ContentIdentity
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -314,7 +314,7 @@ class LwwRegister(Struct, frozen=True):
     cell: Hlc = Hlc(0, 0)
     origin: bytes = b""
 
-    def absorbed(self, candidate: "LwwRegister") -> RuntimeRail["LwwRegister"]:
+    def absorbed(self, candidate: "LwwRegister") -> RuntimeResult["LwwRegister"]:
         return self.cell.compare(candidate.cell).fold(
             before=lambda: Ok(candidate),
             equal=lambda: Ok(candidate if candidate.origin > self.origin else self)
@@ -345,7 +345,7 @@ class MvEntry(Struct, frozen=True):
 class MvRegister(Struct, frozen=True):
     values: Block[MvEntry] = Block.empty()
 
-    def written(self, candidate: MvEntry) -> RuntimeRail["MvRegister"]:
+    def written(self, candidate: MvEntry) -> RuntimeResult["MvRegister"]:
         joined = [*self.values, candidate]
         if any(
             left.version.origin == right.version.origin
@@ -408,7 +408,7 @@ class Rga(Struct, frozen=True):
     routing: Block[ElementId] = Block.empty()
     fingerprints: Map[ElementId, int] = Map.empty()
 
-    def inserted(self, predecessor: ElementId, identity: ElementId, value: bytes) -> RuntimeRail["Rga"]:
+    def inserted(self, predecessor: ElementId, identity: ElementId, value: bytes) -> RuntimeResult["Rga"]:
         parents = Block.of_seq(parent for parent, children in self.after.items() if identity in children)
         if identity == _ROOT or predecessor == identity or len(parents) > 1:
             return Error(WIRE_INSERT.raised(identity.origin.hex(), str(identity.logical)))
@@ -468,7 +468,7 @@ class Rga(Struct, frozen=True):
     def defined(self, identity: ElementId) -> bool:
         return self.values.try_find(identity).is_some() or identity in self.routing
 
-    def ordered(self, *, bound: Depth) -> RuntimeRail[Block[bytes]]:
+    def ordered(self, *, bound: Depth) -> RuntimeResult[Block[bytes]]:
         frontier: Block[tuple[ElementId, Depth]] = Block.singleton((_ROOT, bound))
         emitted: list[bytes] = []
         while not frontier.is_empty():
@@ -490,7 +490,7 @@ class Rga(Struct, frozen=True):
 class PnCounter(Struct, frozen=True):
     buckets: Map[bytes, tuple[int, int, int]] = Map.empty()
 
-    def incremented(self, origin: bytes, sequence: int, positive: int, negative: int) -> RuntimeRail["PnCounter"]:
+    def incremented(self, origin: bytes, sequence: int, positive: int, negative: int) -> RuntimeResult["PnCounter"]:
         candidate = (sequence, positive, negative)
         held = self.buckets.try_find(origin)
         if held.is_none():
@@ -572,7 +572,7 @@ class CrdtState(Struct, frozen=True):
     counter: Map[str, PnCounter] = Map.empty()
     presence: Map[str, EphemeralMap] = Map.empty()
 
-    def families(self, field: str) -> RuntimeRail[Block[str]]:
+    def families(self, field: str) -> RuntimeResult[Block[str]]:
         seated = Block.of_seq(
             family
             for family, column in (
@@ -607,7 +607,7 @@ def _cell(stamp: hlc_pb.Hlc) -> Hlc:
     return Hlc(stamp.physical, stamp.logical)
 
 
-def _seated(state: CrdtState, field: str, family: str) -> RuntimeRail[None]:
+def _seated(state: CrdtState, field: str, family: str) -> RuntimeResult[None]:
     return state.families(field).bind(
         lambda held: Ok(None)
         if held.is_empty() or held.head() == family
@@ -617,12 +617,12 @@ def _seated(state: CrdtState, field: str, family: str) -> RuntimeRail[None]:
 
 def replayed(
     state: CrdtState, frontier: Map[bytes, int], entries: Block[tuple[OperationId, crdt_pb.CrdtOpWire]]
-) -> RuntimeRail[tuple[CrdtState, Map[bytes, int]]]:
+) -> RuntimeResult[tuple[CrdtState, Map[bytes, int]]]:
     def stepped(
-        rail: RuntimeRail[tuple[CrdtState, Map[bytes, int]]], entry: tuple[OperationId, crdt_pb.CrdtOpWire]
-    ) -> RuntimeRail[tuple[CrdtState, Map[bytes, int]]]:
+        held: RuntimeResult[tuple[CrdtState, Map[bytes, int]]], entry: tuple[OperationId, crdt_pb.CrdtOpWire]
+    ) -> RuntimeResult[tuple[CrdtState, Map[bytes, int]]]:
         identity, op = entry
-        return rail.bind(
+        return held.bind(
             lambda held: Ok(held)
             if identity.applied(held[1])
             else _admissible(held[1], identity, op).bind(
@@ -637,7 +637,7 @@ def replayed(
 
 def _admissible(
     frontier: Map[bytes, int], identity: OperationId, op: crdt_pb.CrdtOpWire
-) -> RuntimeRail[None]:
+) -> RuntimeResult[None]:
     if not _covers(frontier, identity.observed):
         return Error(WIRE_ORDERED.raised(f"<crdt-causal-gap:{identity.origin.hex()}:{identity.counter}>"))
     match op.arm:
@@ -658,7 +658,7 @@ def _joined(held: Map[bytes, int], advanced: Map[bytes, int]) -> Map[bytes, int]
 
 def _applied(
     state: CrdtState, identity: OperationId, op: crdt_pb.CrdtOpWire
-) -> RuntimeRail[CrdtState]:
+) -> RuntimeResult[CrdtState]:
     match op.arm:
         case Oneof(field="set", value=crdt_pb.SetOp(value=value, stamp=hlc_pb.Hlc() as stamp, origin=origin)):
             held = state.register.try_find(op.field).default_value(LwwRegister())

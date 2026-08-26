@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_SERVICE_DISCOVERY]
 
-`Microsoft.Extensions.ServiceDiscovery` resolves an outbound service name into a live endpoint set and balances calls across it: `ServiceEndpointResolver` folds configuration and pass-through providers into a change-token-refreshed `ServiceEndpointSource`, and the `HttpClient`/gRPC integration picks one instance per request through the registered round-robin selector. AppHost's wire/coordination rail dials cluster membership by service name through the resolving named `HttpClient` this surface decorates.
+`Microsoft.Extensions.ServiceDiscovery` resolves an outbound service name into a live endpoint set and balances calls across it: `ServiceEndpointResolver` folds configuration and pass-through providers into a change-token-refreshed `ServiceEndpointSource`, and the `HttpClient`/gRPC integration picks one instance per request through the registered round-robin selector. AppHost's wire/coordination layer dials cluster membership by service name through the resolving named `HttpClient` this surface decorates.
 
 ## [01]-[PUBLIC_TYPES]
 

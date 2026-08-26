@@ -1,22 +1,22 @@
 # [PY_ARTIFACTS_GRAPHIC_VECTOR_REGION]
 
-`Region` owns boolean, offset, geometric-query, document, and raster operations over one closed `RegionOp` family. `applied(op)` is the in-process rail, while `Region.over(...).of(lane)` normalizes batch shape and crosses the batch as one `KernelTrait.HOSTILE` kernel onto the warm process pool — cooperative for trusted pathops/drawsvg geometry, `Enforcement.TERMINAL` under `_RASTER_DEADLINE` when the batch carries a `rasterize` op, because that arm decodes caller SVG through resvg and a malformed-input wedge dies only at wall-clock; private kernels preserve the `RegionFault` and `RegionResult` families at every call site.
+`Region` owns boolean, offset, geometric-query, document, and raster operations over one closed `RegionOp` family. `applied(op)` is the in-process path, while `Region.over(...).of(lane)` normalizes batch shape and crosses the batch as one `KernelTrait.HOSTILE` kernel onto the warm process pool — cooperative for trusted pathops/drawsvg geometry, `Enforcement.TERMINAL` under `_RASTER_DEADLINE` when the batch carries a `rasterize` op, because that arm decodes caller SVG through resvg and a malformed-input wedge dies only at wall-clock; private kernels preserve the `RegionFault` and `RegionResult` families at every call site.
 
-`skia-pathops` (the abi3 binding of Skia's `SkPathOps`/`SkStroke`) owns the boolean/offset/outline algebra `svgelements` cannot express — N-ary planar set operations (`op`/`OpBuilder`), self-intersection removal and winding repair (`simplify`), stroke-to-outline offset (`Path.stroke` with cap/join/miter/dash), the projective 3x3 `Path.transform` warp, the settable `Path.clockwise` normalization, the `area`/`bounds`/`controlPointBounds`/`isConvex` query family, and the fill-rule `Path.contains` hit test — over ONE mutable accumulator the `graphic/vector/path#PATH` segment stream draws into through the FontTools pen protocol and draws back out of into a `fonttools` `SVGPathPen`, so geometry never re-parses a `d` string between ops. Every geometric query resolves its `WindingRule` onto `Path.fillType` BEFORE the read — `contains`, `area`, and the facts family are fill-rule-governed, so the winding policy is a case payload, never an ambient default. `drawsvg` owns EVERY document emission: `Drawing`/`Group`/`Path(d=)`/`Raw` assemble fragments onto a viewBox-framed canvas, the `LinearGradient`/`RadialGradient` def-tier owners carry the `PaintSpec` gradient rows, and `as_svg().encode()` is the one egress — a hand-emitted f-string tag is the rejected form. `resvg_py.svg_to_bytes` rasterizes a placed document to PNG bytes in-process under the one `RenderPolicy`. TEXT-ON-PATH lands here as the `text_path` baseline threading: `typography/shape#SHAPE`'s `PositionedGlyphRun.on_path()` per-glyph outlines lay along a baseline at METRIC arc-length positions composing path's `point_at`, never a local re-shape (the shape-once law). Because the pathops algebra, the drawsvg assembly, and the resvg render are synchronous native/CPU work, the modal rail crosses the whole batch through the runtime lane's `offload(Kernel.of(..., KernelTrait.HOSTILE))` — zero folder-minted limiters or retry callers, enforcement derived from the batch's own op census.
+`skia-pathops` (the abi3 binding of Skia's `SkPathOps`/`SkStroke`) owns the boolean/offset/outline algebra `svgelements` cannot express — N-ary planar set operations (`op`/`OpBuilder`), self-intersection removal and winding repair (`simplify`), stroke-to-outline offset (`Path.stroke` with cap/join/miter/dash), the projective 3x3 `Path.transform` warp, the settable `Path.clockwise` normalization, the `area`/`bounds`/`controlPointBounds`/`isConvex` query family, and the fill-rule `Path.contains` hit test — over ONE mutable accumulator the `graphic/vector/path#PATH` segment stream draws into through the FontTools pen protocol and draws back out of into a `fonttools` `SVGPathPen`, so geometry never re-parses a `d` string between ops. Every geometric query resolves its `WindingRule` onto `Path.fillType` BEFORE the read — `contains`, `area`, and the facts family are fill-rule-governed, so the winding policy is a case payload, never an ambient default. `drawsvg` owns EVERY document emission: `Drawing`/`Group`/`Path(d=)`/`Raw` assemble fragments onto a viewBox-framed canvas, the `LinearGradient`/`RadialGradient` def-tier owners carry the `PaintSpec` gradient rows, and `as_svg().encode()` is the one egress — a hand-emitted f-string tag is the rejected form. `resvg_py.svg_to_bytes` rasterizes a placed document to PNG bytes in-process under the one `RenderPolicy`. TEXT-ON-PATH lands here as the `text_path` baseline threading: `typography/shape#SHAPE`'s `PositionedGlyphRun.on_path()` per-glyph outlines lay along a baseline at METRIC arc-length positions composing path's `point_at`, never a local re-shape (the shape-once law). Because the pathops algebra, the drawsvg assembly, and the resvg render are synchronous native/CPU work, the modal path crosses the whole batch through the runtime lane's `offload(Kernel.of(..., KernelTrait.HOSTILE))` — zero folder-minted limiters or retry callers, enforcement derived from the batch's own op census.
 
 ## [01]-[INDEX]
 
-- [02]-[REGION]: the boolean/offset/outline/serialization owner over the closed `RegionOp` family — the `pathops` boolean/stroke/warp/wind/facts/contains spine under an explicit per-query `WindingRule`, the metric TEXT-ON-PATH threading, the drawsvg document assembly with `PaintSpec` paint, and the `resvg_py` raster floor under one `RenderPolicy` — one entrypoint family: `applied(op)` the in-process dispatch siblings compose, `Region.over`/`of` the batch rail over `Block[RegionResult]`.
+- [02]-[REGION]: the boolean/offset/outline/serialization owner over the closed `RegionOp` family — the `pathops` boolean/stroke/warp/wind/facts/contains spine under an explicit per-query `WindingRule`, the metric TEXT-ON-PATH threading, the drawsvg document assembly with `PaintSpec` paint, and the `resvg_py` raster floor under one `RenderPolicy` — one entrypoint family: `applied(op)` the in-process dispatch siblings compose, `Region.over`/`of` the batch path over `Block[RegionResult]`.
 
 ## [02]-[REGION]
 
-- Owner: `Region` holds `ops: tuple[RegionOp, ...]`, discriminates over the closed `RegionOp` family, projects one `RegionResult` family, and rails provider failures into `RegionFault`. `applied` is the ONE public dispatch. `pathops.Path` is the boolean working surface, `drawsvg.Drawing` the document canvas, and `resvg_py.svg_to_bytes` the raster floor. Parse, drawable narrowing, combined outlines, affine matrices, and metric positions arrive from `graphic/vector/path#PATH`.
+- Owner: `Region` holds `ops: tuple[RegionOp, ...]`, discriminates over the closed `RegionOp` family, projects one `RegionResult` family, and results provider failures into `RegionFault`. `applied` is the ONE public dispatch. `pathops.Path` is the boolean working surface, `drawsvg.Drawing` the document canvas, and `resvg_py.svg_to_bytes` the raster floor. Parse, drawable narrowing, combined outlines, affine matrices, and metric positions arrive from `graphic/vector/path#PATH`.
 - Cases: `RegionOp` cases split by outcome — `Boolean` (N-ary `OpBuilder` fold keyed by `BooleanOp`, `simplify` winding, `fillType` from `WindingRule` — the set-op algebra svgelements has no member for), `Outline` (`Path.stroke` centerline into a closed filled offset keyed by `CapStyle`/`JoinStyle`), `Warp` (full 3x3 `Path.transform` perspective), `Wind` (`simplify` then set `clockwise`), `Contains` (`WindingRule` resolved onto `Path.fillType` before `Path.contains`), `Facts` (fill-aware area plus tight/control bounds, contour/point/verb counts, convexity, winding, and contour starts), `Clip` (per-shape geometric crop), `TextPath` (metric mid-advance placement through `point_at` and tangent-following `Matrix`), `Transform`/`Fit` (typed placement followed by transformed extent), `Serialize` (closed `Fragment` rows under `PaintSpec`), and `Rasterize` (`resvg_py.svg_to_bytes` under `RenderPolicy`) — matched by one total `match`. `RegionResult` carries `document`, `facts`, `hits`, or `raster` payloads.
-- Entry: `applied(op)` for one in-process operation; `Region.over` normalizes `RegionOp | Iterable[RegionOp]` into the `ops` tuple by a structural `match` at the head and `of(lane)` crosses the batch through one `PROCESS` offload, flattening the runtime rail onto the region fault union — a lone boolean the one-element case, a mixed sheet the multi-element case, never a `batch: bool` and never a per-op sibling export. Enforcement folds over the op census: a `rasterize`-bearing batch crosses `Enforcement.TERMINAL` with the `_RASTER_DEADLINE` budget — resvg parses untrusted caller SVG, so the pebble wall-clock kill is the one bound a wedged decode obeys — while a pathops-only batch stays cooperative on the warm pool.
+- Entry: `applied(op)` for one in-process operation; `Region.over` normalizes `RegionOp | Iterable[RegionOp]` into the `ops` tuple by a structural `match` at the head and `of(lane)` crosses the batch through one `PROCESS` offload, flattening the runtime result onto the region fault union — a lone boolean the one-element case, a mixed sheet the multi-element case, never a `batch: bool` and never a per-op sibling export. Enforcement folds over the op census: a `rasterize`-bearing batch crosses `Enforcement.TERMINAL` with the `_RASTER_DEADLINE` budget — resvg parses untrusted caller SVG, so the pebble wall-clock kill is the one bound a wedged decode obeys — while a pathops-only batch stays cooperative on the warm pool.
 - Auto: `_ingest` replays the svgelements segment stream into a `pathops.Path` through `getPen()` under one total `match`; `_admitted` pre-flattens arcs to cubics under `TOLERANCE.flatten`; `_drawn` runs `convertConicsToQuads(TOLERANCE.conic)` into `SVGPathPen`; `_document` frames a `drawsvg.Drawing` at the supplied extent, registers `PaintSpec` defs once, and exhaustively lowers each `Fragment` case; `_resolved` orders `OpenPathError` before `PathOpsError`; `_text_path` derives glyph mid-advance distances through one `accumulate` scan and one `point_at` call; `_transform` transforms typed shapes before reading their bounds, so serialized geometry and document extent share one fact.
 - Growth: a new boolean kind is one `BooleanOp` member (its `.name` resolving the `pathops.PathOp` member by `getattr`); a new stroke cap/join one `CapStyle`/`JoinStyle` member; a winding policy one `WindingRule` member (its `.name` resolving `pathops.FillType`, threaded to every fill-governed query); a winding target one `WindingDir` member; a new paint row one `PaintSpec` case lowered to its drawsvg def; a knockout glyph boolean composes the SAME `getPen`/`draw` spine onto the typography glyph producers with no serialization hop; a new resvg knob one `RenderPolicy` field carried into the one `svg_to_bytes` spread, never a second rasterizer; a new fault cause one `RegionFault` case; a new operation one `RegionOp` case plus one private kernel plus one `applied` arm — zero new public surface.
 - Packages: `skia-pathops` (`Path`/`getPen`/`draw`/`stroke`/`transform`/`clockwise`/`fillType`/`simplify`/`convertConicsToQuads`/`area`/`bounds`/`controlPointBounds`/`isConvex`/`contains`, `op`/`OpBuilder.add`+`resolve`, `PathOp`/`FillType`/`LineCap`/`LineJoin`, `OpenPathError`/`PathOpsError` leaves; `reverse_difference` is NOT re-exported at top level, so the `op(one, two, PathOp.REVERSE_DIFFERENCE)` binary form and the `OpBuilder` N-way form are the top-level spellings); `drawsvg` (`Drawing`/`append`/`append_def`/`as_svg`, `Path(d=)`/`Group`/`Raw`, `LinearGradient`/`RadialGradient` + `add_stop`; save_png/video extras absent on core, raster stays resvg); `resvg_py` (`svg_to_bytes`, `ValueError` the one raise); `fonttools` (`SVGPathPen`); `svgelements` (segment types the pen replay matches); `expression`/`msgspec`/`beartype`; runtime `lanes`/`faults`; `typography/shape#SHAPE` (`PositionedGlyphRun.on_path()` — glyph outlines arrive shaped, never re-shaped here).
-- Boundary: the fault rail carries a composed `graphic/vector/path#PATH` `PathFault` whole (`geometry`) rather than re-classifying it, mints `render`/`empty`/`contract`/`open_path`/`degenerate` for its own raises, and never trusts a boundary capsule to swallow an unclassified provider raise. No parse/measure/sample/affine re-derivation (path's, one hop); no repeating fill geometry (`graphic/vector/pattern#PATTERN` composes THIS page's `applied`); no chart-origin SVG rasterization (`vl-convert`'s bundled resvg owns it); no text shaping (`typography/shape#SHAPE` shapes; this page places outlines); no identity minting; no folder-minted limiter — the native seam is the runtime lane's `offload`.
+- Boundary: the fault channel carries a composed `graphic/vector/path#PATH` `PathFault` whole (`geometry`) rather than re-classifying it, mints `render`/`empty`/`contract`/`open_path`/`degenerate` for its own raises, and never trusts a boundary capsule to swallow an unclassified provider raise. No parse/measure/sample/affine re-derivation (path's, one hop); no repeating fill geometry (`graphic/vector/pattern#PATTERN` composes THIS page's `applied`); no chart-origin SVG rasterization (`vl-convert`'s bundled resvg owns it); no text shaping (`typography/shape#SHAPE` shapes; this page places outlines); no identity minting; no folder-minted limiter — the native boundary is the runtime lane's `offload`.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -69,7 +69,7 @@ type RegionResultTag = Literal["document", "facts", "hits", "raster"]
 type RegionFaultTag = Literal["geometry", "render", "empty", "contract", "open_path", "degenerate"]
 type PaintTag = Literal["flat", "linear", "radial"]
 type FragmentTag = Literal["path", "stroke", "filled"]
-type RegionRail = Result[Block[RegionResult], RegionFault | BoundaryFault]
+type RegionOutcome = Result[Block[RegionResult], RegionFault | BoundaryFault]
 
 
 class BooleanOp(StrEnum):
@@ -587,14 +587,14 @@ class Region(Struct, frozen=True):
             case _:
                 return cls(ops=tuple(ops))
 
-    async def of(self, lane: LanePolicy, /) -> RegionRail:
+    async def of(self, lane: LanePolicy, /) -> RegionOutcome:
         kernel = (
             Kernel.of(_worked, KernelTrait.HOSTILE, deadline=Some(_RASTER_DEADLINE), enforcement=Enforcement.TERMINAL)
             if any(op.tag == "rasterize" for op in self.ops)
             else Kernel.of(_worked, KernelTrait.HOSTILE)
         )
-        railed = await lane.offload(kernel, self.ops)
-        return railed.bind(lambda inner: inner)
+        held = await lane.offload(kernel, self.ops)
+        return held.bind(lambda inner: inner)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -611,7 +611,7 @@ __all__ = [
     "RegionFacts",
     "RegionFault",
     "RegionOp",
-    "RegionRail",
+    "RegionOutcome",
     "RegionResult",
     "RenderPolicy",
     "Stops",
@@ -630,8 +630,8 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Region operation dispatch and result rail
-    accDescr: One public applied entry totally matching each region case onto the boolean, outline, warp, wind, contains, facts, clip, text-path, transform, serialize, and rasterize arms over a single geometry spine, every arm closing on the region result rail that folds to a block and composes one hop into the downstream surfaces.
+    accTitle: Region operation dispatch and result type
+    accDescr: One public applied entry totally matching each region case onto the boolean, outline, warp, wind, contains, facts, clip, text-path, transform, serialize, and rasterize arms over a single geometry spine, every arm closing on the region result type that folds to a block and composes one hop into the downstream surfaces.
     Applied["applied(op) — the ONE public dispatch (@_contracted)"] --> Disp["total match per RegionOp case"]
     Over["Region.over (RegionOp | Iterable)"] --> Of["Region.of(lane) -> offload PROCESS (TERMINAL when rasterize-bearing) -> flatten"]
     Of -->|traverse| Applied
@@ -654,7 +654,7 @@ flowchart LR
     Fc --> Result
     Rz --> Result
     Result -.->|"in-process compose"| Consumers["pattern / annotate scallop-band / symbol / compose / marks verify — applied one hop"]
-    Result -->|traverse fold| Block["Block[RegionResult] on the batch rail"]
+    Result -->|traverse fold| Block["Block[RegionResult] on the batch path"]
 ```
 
 ## [03]-[RESEARCH]

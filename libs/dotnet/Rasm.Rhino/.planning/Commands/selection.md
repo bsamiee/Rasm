@@ -21,7 +21,7 @@
 - Law: pick provenance is ONE record over two independent presence axes, not four cases. A curve parameter and a surface parameter are each present or absent; the four case names spelled that cross product, the union's own producer already supplied the two `Option`s, and both hand ladders re-derived the product it had just destructured. NAMED LOSS: the arm names `Point`/`Curve`/`Surface`/`CurveOnSurface`; the discriminant is recoverable from `(Parameter, Uv)` presence and the sole producer at `Picks.Capture` reads them straight off the host probes.
 - Law: view identity is ONE record over a durable runtime serial and an OPTIONAL detail serial. The host spells "no detail" as `0`, so the sentinel dies at admission and the two former cases — whose only behavioural difference was a name, since both answered the same serial to `Live` — collapse. NAMED LOSS: the arm names `Main`/`Detail`, recoverable from `DetailSerial` presence.
 - Law: the component index is ADMITTED, not guarded per use. The host's two legal corners — an invalid type at index `-1`, a named type at a non-negative index — are the value object's construction law, so `Objects/state` composes the same owner instead of re-spelling the pattern (E-R55, seated at the LOWER stratum: `ARCHITECTURE.md:107,161` places Objects above Commands, so the shared owner lands here and Objects imports it).
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`, `PartitionFallible`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`, `ValidityClaim`, the `Rollback` custody extension), `Analysis/query` (`AnalysisQuery`, `Analyze`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:217-219` — the `ObjRef` projector roster, `PickContext`, `ObjectTable.PickObjects`, the `GetBaseClass` result reads), RhinoCommon objects (`api-rhinocommon-objects.md:184` — `ObjRef` identity projection).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`, `PartitionFallible`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op`, `Op.Side`, `ValidityClaim`, the `Rollback` custody extension), `Analysis/query` (`AnalysisQuery`, `Analyze`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:217-219` — the `ObjRef` projector roster, `PickContext`, `ObjectTable.PickObjects`, the `GetBaseClass` result reads), RhinoCommon objects (`api-rhinocommon-objects.md:184` — `ObjRef` identity projection).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -54,7 +54,6 @@ public sealed partial class PickMethod {
 [ValueObject<ComponentIndex>]
 [ValidationError]
 public readonly partial struct PartIndex {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ComponentIndex value) {
         Op op = Op.Of();
         ComponentIndex component = value;
@@ -73,7 +72,6 @@ public sealed partial class PickOrigin {
     public Option<double> Parameter { get; }
     public Option<Point2d> Uv { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PickMethod method,
@@ -110,7 +108,6 @@ public sealed partial class PickView {
     public uint RuntimeSerial { get; }
     public Option<uint> DetailSerial { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref uint runtimeSerial,

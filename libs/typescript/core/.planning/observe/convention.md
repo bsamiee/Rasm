@@ -1,6 +1,6 @@
 # [CORE_CONVENTION]
 
-Conformance rides as rows: dotted `rasm.<domain>.<measure>` names under UCUM codes close against `_domain`, `Convention.scope` spells the scope, and `Convention.wire` holds the estate pins. `Convention.translated` projects store series names, while `Convention.mount` materializes an instrument row.
+Conformance rides as rows: dotted `rasm.<domain>.<measure>` names under UCUM codes close against `_domain`, `Convention.scope` spells the scope, and `Convention.wire` holds the repo pins. `Convention.translated` projects store series names, while `Convention.mount` materializes an instrument row.
 
 Closed rosters publish as data, `dimensions` derives each metric-plane fan, and `Convention.conformance` projects native immutable diagnostic rows for the runtime OTel owner. Its module is `core/src/observe/convention.ts`.
 
@@ -197,17 +197,17 @@ const _value = {
 
 ## [03]-[RASM_ROWS]
 
-- Owner: `_module`, `_domain`, `_rasm`, `_metric`, `_unit`, `_kinds`, `_censuses`, `_instrument`, `_event`, and `_profile` publish every estate-minted name, so a dotted spelling closes against a roster rather than a producer's coinage.
+- Owner: `_module`, `_domain`, `_rasm`, `_metric`, `_unit`, `_kinds`, `_censuses`, `_instrument`, `_event`, and `_profile` publish every repo-minted name, so a dotted spelling closes against a roster rather than a producer's coinage.
 - Law: `rasm.<domain>.<measure>` closes against `_domain` at the declaration — a measure naming an unrostered segment fails the guard rather than exporting a series no board can find, and the same `<domain>` segment is the capability subject a message-envelope `type` reads.
 - Law: `_domain` rows name their emitting modules, so a subject no module mints refuses at the guard and a segment carries legislated capability rather than a coined word.
 - Law: `_module` carries the emitting column and the emitter union derives from it, so a module that stops mounting narrows one roster instead of stranding a hand-listed union.
-- Law: estate dimensions carve out of every instrument's own fan — a row claiming `ring` or `tenant` as its dimension double-stamps a coordinate the resource projection already carries.
+- Law: resource dimensions carve out of every instrument's own fan — a row claiming `ring` or `tenant` as its dimension double-stamps a coordinate the resource projection already carries.
 - Law: unit codes are UCUM and every unit answers both egress tables, so an unanswered code renames its own series at one receiver and renders unitless at the other.
 - Law: instrument rows carry their bucket layout, quantile window, and carrier width as columns, so a mount reads one row and a histogram never takes a bucket vector a caller assembled.
 - Law: a frequency row admits no dimension column, because its word axis IS the exported dimension the bridge appends and a second fan multiplies one census into many.
 - Law: every word-bearing row declares its CENSUS SOURCE — `fault` binds the axis to a raiser's own reason roster and `vocabulary` to a lane's declared roster — so which census a site takes is the row's answer, never the site's.
 - Law: a census column rides a frequency row or a row declaring a reason fan, because a census over neither counts words no tag can carry.
-- Law: `rasm.fault.*` log annotations are rostered dimensions like every other estate coordinate, so an annotation key no row spells refuses at its raise rather than reaching a log sink no query resolves.
+- Law: `rasm.fault.*` log annotations are rostered dimensions like every other repo coordinate, so an annotation key no row spells refuses at its raise rather than reaching a log sink no query resolves.
 - Law: a tracked outcome joins its evaluations on `feature_flag.context.id`, because the tracking call names a business event and carries no flag key — the targeting identity both planes stamp is the only shared coordinate, and an outcome spelled under `feature_flag.key` asserts a flag the call never named.
 - Law: the tracked magnitude rides the wide event and the occurrence rides the metric plane, because a caller-defined value carries no dimension — one summed series folds currency, duration, and arity into a code no UCUM row spells — while a sampled trace plane cannot count an outcome an experiment reads as a rate.
 - Law: `rasm.flag.detail` carries the tracking remainder as ONE rendered payload, because those members are caller-keyed and admit nested objects, arrays, and instants no attribute value type accepts, so the boundary is declared at the row rather than flattened into keys no roster closes.
@@ -261,7 +261,7 @@ const _domain = {
   security: { emitters: ["security"], subject: "authenticity, authorization, and key-custody decisions" },
   slo: { emitters: ["core"], subject: "objective burn and severity axes" },
   stream: { emitters: ["data"], subject: "resumable-upload finalization" },
-  tap: { emitters: ["core"], subject: "hook-plane seating, delivery admission, and the isolated subscriber breaches each rail accounts" },
+  tap: { emitters: ["core"], subject: "hook-plane seating, delivery admission, and the isolated subscriber breaches each bus accounts" },
   vital: { emitters: ["runtime"], subject: "graded web-vital observations with the phase and subject decomposition attributing each" },
   work: { emitters: ["runtime"], subject: "work-plane channel routing and durable-actor identity" },
 } as const
@@ -367,7 +367,7 @@ const _rasm = {
   workShard: "rasm.work.shard",
 } as const
 
-const _ESTATE = ["ring", "tenant"] as const
+const _RESOURCE = ["ring", "tenant"] as const
 
 const _metric = {
   admitPassed: "rasm.admit.passed",
@@ -714,7 +714,7 @@ const _profile = {
 
 ## [04]-[IDENTITY_PROJECTION]
 
-- Owner: `_translation`, `_wire`, `_translated`, `_conformance`, `_mount`, `_outcome`, `_tracked`, `_dimensions`, and `_identity` own store-side naming, estate pins, local diagnostics, instrument materialization, census aspects, and resource stamping.
+- Owner: `_translation`, `_wire`, `_translated`, `_conformance`, `_mount`, `_outcome`, `_tracked`, `_dimensions`, and `_identity` own store-side naming, repo pins, local diagnostics, instrument materialization, census aspects, and resource stamping.
 - Law: suffixing is a TARGET property — `translated` projects a store's own series name off the receiver's declared strategy, so a producer mints one dotted name and a store that escapes or suffixes reads its own row rather than a second spelling on the mint.
 - Law: `mount` memoizes each row-and-vocabulary pair, so one site names an instrument and a second site naming the same row shares its carrier instead of minting a twin the exporter reports separately.
 - Law: UCUM tagging lands at the mount, because the OTLP bridge computes an exported descriptor's unit before any view runs and the constructors take no unit option; the export lane drops that key by name.
@@ -723,11 +723,11 @@ const _profile = {
 - Law: every word axis arrives as its owner's PUBLISHED census, so a duplicate word already refused at the vocabulary mint and a word no raiser produces has no spelling at the call.
 - Law: a census word shadowing an exit row refuses at the aspect's own parameter, because a reason spelled `resolved` fuses a settled success with the fault it hid.
 - Law: the outcome fold holds one tagged carrier per admitted word from construction, so the exit path mints nothing and a word outside the census cannot be reached.
-- Law: `tracked` is the fault-census frequency aspect — the row's mount and the error-rail fold ride one declaration, so no page spells the tracking operator beside its own mount.
+- Law: `tracked` is the fault-census frequency aspect — the row's mount and the error-channel fold ride one declaration, so no page spells the tracking operator beside its own mount.
 - Law: `conformance.of` and `conformance.row` return native immutable diagnostic values with rows sorted by key; no generated message or peer wire restates this branch-owned governance report.
 - Law: the resource projection stamps identity ONCE and every optional coordinate rides a fold, so an absent region, zone, cluster, or tenant OMITS its key rather than exporting an empty string a query reads as a value.
-- Law: the estate service group is the floor a fleet's own namespace overrides, so one pin serves every unconfigured app without freezing a deployment that names its own.
-- Growth: a receiver posture is one `_translation` row; a promoted identity coordinate is one `_ESTATE` entry with its resource fold.
+- Law: the repo service group is the floor a fleet's own namespace overrides, so one pin serves every unconfigured app without freezing a deployment that names its own.
+- Growth: a receiver posture is one `_translation` row; a promoted identity coordinate is one `_RESOURCE` entry with its resource fold.
 - Boundary: this S1 owner exposes local diagnostic data only. Exporter wiring and the reader seat are `runtime/otel`'s.
 - Packages: `effect` (`Array`, `Cause`, `Duration`, `Effect`, `Exit`, `Metric`, `MetricBoundaries`, `MutableHashMap`, `Option`, `Order`, `Record`, `Types`); `../value/identity.ts` (`Identity`); `../value/schema.ts` (`Shape`).
 
@@ -904,7 +904,7 @@ const _keys: ReadonlyArray<Convention.Key> = [
 
 const _dimensions: ReadonlyArray<Convention.Dimension> = Array.dedupe([
   ...Array.flatMap(Record.values(_instrument), (row) => row.dimensions ?? []),
-  ...Array.map(_ESTATE, (dimension) => _rasm[dimension]),
+  ...Array.map(_RESOURCE, (dimension) => _rasm[dimension]),
   _wire.occurrence,
 ])
 
@@ -953,8 +953,8 @@ declare namespace Convention {
   type Domain = keyof typeof _domain
   type Module = keyof typeof _module
   type Emitter = { readonly [M in Module]: (typeof _module)[M]["emits"] extends true ? M : never }[Module]
-  type EstateDimension = (typeof _ESTATE)[number]
-  type EstateKey = (typeof _rasm)[EstateDimension]
+  type ResourceDimension = (typeof _RESOURCE)[number]
+  type ResourceKey = (typeof _rasm)[ResourceDimension]
   type AttrKey = (typeof _attr)[Attr]
   type IncubatingKey = (typeof _incubating)[keyof typeof _incubating]
   type RasmKey = (typeof _rasm)[keyof typeof _rasm]
@@ -1086,7 +1086,7 @@ declare namespace Convention {
         & ((typeof _instrument)[K]["kind"] extends "summary" ? { readonly window: Window } : { readonly window?: never })
         & ((typeof _instrument)[K]["kind"] extends "frequency" | "histogram" | "summary" ? { readonly bigint?: never } : { readonly bigint?: true })
         & ((typeof _instrument)[K]["kind"] extends "frequency" ? { readonly census: CensusSource; readonly dimensions?: never }
-          : { readonly census?: CensusSource; readonly dimensions?: readonly [Exclude<Key, EstateKey>, ...ReadonlyArray<Exclude<Key, EstateKey>>] })
+          : { readonly census?: CensusSource; readonly dimensions?: readonly [Exclude<Key, ResourceKey>, ...ReadonlyArray<Exclude<Key, ResourceKey>>] })
     } = typeof _instrument,
   > = T
   type _Censuses<
@@ -1107,8 +1107,8 @@ declare namespace Convention {
   type _Module<T extends Record<Module, { readonly emits: boolean }> = typeof _module> = T
   type _Rasm<
     T extends
-      & Record<Exclude<keyof typeof _rasm, EstateDimension>, `rasm.${Domain}.${string}`>
-      & Record<EstateDimension, `rasm.${string}`> = typeof _rasm,
+      & Record<Exclude<keyof typeof _rasm, ResourceDimension>, `rasm.${Domain}.${string}`>
+      & Record<ResourceDimension, `rasm.${string}`> = typeof _rasm,
   > = T
   type _RasmMetric<T extends Record<Exclude<keyof typeof _metric, "httpServerDuration">, `rasm.${Domain}.${string}`> = typeof _metric> = T
   type _Value<K extends `connection${string}` | `flag${string}` = keyof typeof _value> = K

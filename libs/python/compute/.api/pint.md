@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PINT]
 
-`pint` owns the physical-unit registry, dimensional quantities, measurement uncertainty, and unit conversion for the compute units rail. One shared `UnitRegistry` mints the vocabulary, and every array-admission and study-result claim rides as a `Quantity` whose magnitude is any array-protocol object, so units thread through `numpy` ufuncs over the same array the compute array rail folds. A dimensional claim captured off the `Quantity` feeds the `Measurement`, and a dimension mismatch is the boundary reject signal.
+`pint` owns the physical-unit registry, dimensional quantities, measurement uncertainty, and unit conversion for the compute units domain. One shared `UnitRegistry` mints the vocabulary, and every array-admission and study-result claim rides as a `Quantity` whose magnitude is any array-protocol object, so units thread through `numpy` ufuncs over the same array the compute array domain folds. A dimensional claim captured off the `Quantity` feeds the `Measurement`, and a dimension mismatch is the boundary reject signal.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -17,7 +17,7 @@
 |  [07]   | `Context`             | transform set     | named cross-dimension conversion rules (e.g. spectroscopy wavelength↔energy)                 |
 |  [08]   | `Group`               | unit grouping     | a named subset of the registry's units for selective compatibility queries                   |
 
-[PUBLIC_TYPE_SCOPE]: error and warning rails
+[PUBLIC_TYPE_SCOPE]: error and warning families
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]                 | [CAPABILITY]                                        |
 | :-----: | :----------------------------- | :---------------------------- | :-------------------------------------------------- |
@@ -98,12 +98,12 @@
 - faults: an incompatible-dimension operation raises `DimensionalityError`, a magnitude consumed through a unit-dropping NumPy operation raises `UnitStrippedWarning`, and offset (temperature) and logarithmic (dB/decade) units raise `OffsetUnitCalculusError`/`LogarithmicUnitCalculusError`, both under `PintTypeError`.
 
 [STACKING]:
-- `numpy` (`.api/numpy.md`, substrate tier): a `Quantity` magnitude is the same array the array rail folds; `force_ndarray_like=True` coerces every magnitude to a NumPy/array-API container, and `numpy` ufuncs/`__array_function__` thread units through it in place of unwrap-operate-rewrap.
-- `uncertainties` (`.api/uncertainties.md`): `Quantity.plus_minus`/`UnitRegistry.Measurement` build a `Measurement` carrying magnitude-plus-error, the unit-bearing mirror of the uncertainty rail's correlation graph, so a study magnitude carries unit and uncertainty in one carrier.
-- `arviz` (`.api/arviz.md`) / `pandera` (`libs/python/data/.api/pandera.md`): the captured `dimensionality` (`UnitsContainer`) and base-unit `convert` factor are the unit claim on a `Measurement`, and a dimensionality mismatch is the boundary rail's reject signal.
-- `compute` units rail: `wraps`/`check` decorate the offline study function to assert argument and return units at the Python boundary, and a magnitude crossing into a numerical kernel is base-unit-normalized via `m_as`/`to_base_units` so the kernel sees raw arrays.
+- `numpy` (`.api/numpy.md`, substrate tier): a `Quantity` magnitude is the same array the array domain folds; `force_ndarray_like=True` coerces every magnitude to a NumPy/array-API container, and `numpy` ufuncs/`__array_function__` thread units through it in place of unwrap-operate-rewrap.
+- `uncertainties` (`.api/uncertainties.md`): `Quantity.plus_minus`/`UnitRegistry.Measurement` build a `Measurement` carrying magnitude-plus-error, the unit-bearing mirror of the uncertainty domain's correlation graph, so a study magnitude carries unit and uncertainty in one carrier.
+- `arviz` (`.api/arviz.md`) / `pandera` (`libs/python/data/.api/pandera.md`): the captured `dimensionality` (`UnitsContainer`) and base-unit `convert` factor are the unit claim on a `Measurement`, and a dimensionality mismatch is the boundary result's reject signal.
+- `compute` units domain: `wraps`/`check` decorate the offline study function to assert argument and return units at the Python boundary, and a magnitude crossing into a numerical kernel is base-unit-normalized via `m_as`/`to_base_units` so the kernel sees raw arrays.
 
 [LOCAL_ADMISSION]:
-- `get_application_registry` serves the rail's one shared registry; per-claim registries are rejected.
+- `get_application_registry` serves the result's one shared registry; per-claim registries are rejected.
 - each array-admission and study result carries a `Quantity` unit claim, converted via `to`/`to_base_units`/`convert`; error-bearing magnitudes use `Measurement`/`plus_minus`.
-- unit claims graduate as evidence on the one rail, and a consumer folds them into its own unit policy.
+- unit claims graduate as evidence on the one result, and a consumer folds them into its own unit policy.

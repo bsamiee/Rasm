@@ -6,7 +6,7 @@
 
 - [02]-[VOCABULARY]: admitted mapping classifications, the recovery union, and policy rows.
 - [03]-[SPEC_AND_STATE]: construction, inverse recovery, profile, snapshot, tag, evaluation, decomposition, and coordinate-cache owners.
-- [04]-[CHANNEL_RAIL]: one request/result family over document-bound channel mutation and inspection.
+- [04]-[CHANNEL_PIPELINE]: one request/result family over document-bound channel mutation and inspection.
 - [05]-[SURFACE_LEDGER]: page-owned surfaces and growth rules.
 
 ## [02]-[VOCABULARY]
@@ -19,7 +19,7 @@
 - Law: a magic evaluation ordinal never appears inline — `SideCode` rows carry the host's documented side codes per mapping type, and a type owning no rows answers `General` on any positive code.
 - Law: `MappingCap` is the sole cap authority on capped `MappingSpec` cases; mint and recovery consume the same payload, so construction and inverse evidence cannot disagree.
 - Growth: a host classification adds one row with its recovery form; a policy value adds one row with its host projection; a new evaluated side is one `SideCode` row and no `MappingSide` case at all.
-- Packages: `api-rhinocommon-geometry.md` (`TextureMapping`, `TextureMappingType`, `TextureSpace`, `TextureMapping.Projection`, `TryGetMappingPlane`/`Box`/`Sphere`/`Cylinder`/`Mesh`, `Mesh`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`Op.Row`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-geometry.md` (`TextureMapping`, `TextureMappingType`, `TextureSpace`, `TextureMapping.Projection`, `TryGetMappingPlane`/`Box`/`Sphere`/`Cylinder`/`Mesh`, `Mesh`); kernel `Domain/results` (`Op`, `Lease<T>`), `Domain/validation` (`Op.Row`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -191,11 +191,11 @@ public sealed partial class MappingKind {
 - Law: `MappingSide` carries TWO cases, not eleven — `General(MappingKind)` for a type publishing no side vocabulary and `Sided(SideCode)` for one that does, so the nine ordinals live once as `SideCode` rows and a new side is one row with no union case and no factory lambda. This collapse LOSES a nine-arm compile-time switch at the consumer; it is bought back one hop down, because `SideCode` is a closed generated roster whose own read stays exhaustive.
 - Law: `SideCode` answers both of the side fold's questions off ONE lazy index — the exact `(owner, ordinal)` hit and whether a type publishes side codes at all — so the roster is scanned once at first use rather than twice per evaluation.
 - Law: `MappingSpec.Mint` and `MappingKind.Recover` are the two directions of one correspondence — mint takes the lease-carrying spec, recovery answers the `MappingRecovery` union; unsupported inverse kinds retain their admitted kind and profile while recovery stays `Bare`.
-- Law: `MappingChannel` refuses its own default at the TYPE — `IDisallowDefaultValue` makes a `default`-initialized channel unconstructible, so no request seam re-screens for the ghost and the guard that did so deletes.
+- Law: `MappingChannel` refuses its own default at the TYPE — `IDisallowDefaultValue` makes a `default`-initialized channel unconstructible, so no request boundary re-screens for the ghost and the guard that did so deletes.
 - Law: `TextureCoordinates.Run` owns cache prime, read, presence, and invalidation modalities; invalidation scope is a policy row, never a boolean knob.
 - Boundary: `RenderFault` on `FaultBand.HostRender 4950/4` is this branch's render admission family, minted at `Display/render.md`; every generated owner on this page codes its refusals on it and mints no second family.
-- Boundary: `MappingTag` crosses only through `ChannelTag.Of` and `ChannelTag.Native`; custom meshes transfer through `Lease<Mesh>`, and native property application, cache mutation, losing mesh recovery, and coordinate-wrapper disposal are the platform-forced statement seams.
-- Packages: `api-rhinocommon-geometry.md` (`TextureMapping.Create*` factories, `TextureSpace`, `UvwTransform`, `PrimitiveTransform`, `NormalTransform`, `Evaluate`, `Decompose`, `MappingTag`, `CachedTextureCoordinates`, `Mesh.GetCachedTextureCoordinates`/`SetCachedTextureCoordinatesFromMaterial`/`InvalidateCachedTextureCoordinates`/`HasCachedTextureCoordinates`); kernel `Domain/rails` (`Lease<T>`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.AcceptValidated<TVO>`); LanguageExt.Core (`Fin`, `Option`, `Arr`, `HashMap`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[ValidationError]`, `IDisallowDefaultValue`).
+- Boundary: `MappingTag` crosses only through `ChannelTag.Of` and `ChannelTag.Native`; custom meshes transfer through `Lease<Mesh>`, and native property application, cache mutation, losing mesh recovery, and coordinate-wrapper disposal are the platform-forced statement blocks.
+- Packages: `api-rhinocommon-geometry.md` (`TextureMapping.Create*` factories, `TextureSpace`, `UvwTransform`, `PrimitiveTransform`, `NormalTransform`, `Evaluate`, `Decompose`, `MappingTag`, `CachedTextureCoordinates`, `Mesh.GetCachedTextureCoordinates`/`SetCachedTextureCoordinatesFromMaterial`/`InvalidateCachedTextureCoordinates`/`HasCachedTextureCoordinates`); kernel `Domain/results` (`Lease<T>`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.AcceptValidated<TVO>`); LanguageExt.Core (`Fin`, `Option`, `Arr`, `HashMap`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[ValidationError]`, `IDisallowDefaultValue`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -259,7 +259,6 @@ public sealed partial class MappingProfile {
     public MappingProjection Projection { get; }
     public Transform Uvw { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MappingSpace space,
@@ -298,7 +297,6 @@ public sealed partial class MappingSnapshot : IDetachedDocumentResult {
     public Option<MappingSpec> Spec { get; }
     public Option<Transform> ObjectMotion { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MappingKind kind,
@@ -337,7 +335,6 @@ public sealed partial class MappingProbe {
     public Vector3d Normal { get; }
     public Option<(Transform Points, Transform Normals)> Motion { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Point3d point,
@@ -409,7 +406,6 @@ public sealed partial class MappingEvaluation : IDetachedDocumentResult {
     public MappingSide Side { get; }
     public Point3d Point { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MappingSide side,
@@ -432,7 +428,6 @@ public sealed partial class MappingFrame : IDetachedDocumentResult {
     public Vector3d UvwRepeat { get; }
     public Vector3d UvwRotation { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Vector3d position,
@@ -457,7 +452,6 @@ public sealed partial class MappingFrame : IDetachedDocumentResult {
 [ValueObject<int>]
 [ValidationError]
 public readonly partial struct MappingChannel : IDisallowDefaultValue {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value > 0
             ? null
@@ -474,7 +468,6 @@ public sealed partial class ChannelTag : IComparable<ChannelTag>, IDetachedDocum
     public uint Crc { get; }
     public Transform MeshTransform { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Guid id,
@@ -508,7 +501,6 @@ public sealed partial class CoordinateBlock : IDetachedDocumentResult {
     public int VertexCount { get; }
     public Arr<Point3d> Rows { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int dim,
@@ -586,15 +578,15 @@ public static class TextureCoordinates {
 }
 ```
 
-## [04]-[CHANNEL_RAIL]
+## [04]-[CHANNEL_PIPELINE]
 
 - Owner: `MappingRequest` stores bind, snapshot, evaluation, decomposition, or census modality; `MappingResult` keeps each answer case explicit; `Mappings.Run` is the sole document entry.
-- Law: a request admits target, channel, profile, spec, transforms, and redraw policy before the demand window; the host document and native mapping never leave it. Channels need no seam admission at all — `MappingChannel` is default-refusing at the type, so a request carrying one is already proved.
+- Law: a request admits target, channel, profile, spec, transforms, and redraw policy before the demand window; the host document and native mapping never leave it. Channels need no boundary admission at all — `MappingChannel` is default-refusing at the type, so a request carrying one is already proved.
 - Law: bind resolves every object once, mints one mapping lease, applies one profile, records one undo bracket, and restores redraw suppression on every exit.
 - Law: census composes `ObjectAttributes.HasMapping` as the cheap attribute gate and `RhinoObject.HasTextureMapping` as the texture-specific gate before reading channels.
 - Law: the host reports no object motion as `Transform.Identity`, so a read carries the returned transform as `Some(motion)` and an invalid readback transform is malformed host data failing typed — never collapsed into `None`.
 - Boundary: `MappingSpec.Ocs` binds only to `ObjectAttributes.OCSMappingChannelId`; unsupported inverse kinds remain visible through `MappingSnapshot.Kind` and absent through `MappingSnapshot.Spec`.
-- Packages: `api-rhinocommon-objects.md` (`RhinoObject.SetTextureMapping` both arities, `GetTextureMapping`, `GetTextureChannels`, `HasTextureMapping`, `ObjectAttributes.HasMapping`, `ObjectAttributes.OCSMappingChannelId`); `api-rhinocommon-document.md` (`RhinoDoc.Objects.FindId`); kernel `Domain/rails` (`Lease<T>.Use`, `Op`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`), `Document/tables.md` (`TableTarget`, `RedrawPolicy`, `DocumentCommit.Sealed`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-objects.md` (`RhinoObject.SetTextureMapping` both arities, `GetTextureMapping`, `GetTextureChannels`, `HasTextureMapping`, `ObjectAttributes.HasMapping`, `ObjectAttributes.OCSMappingChannelId`); `api-rhinocommon-document.md` (`RhinoDoc.Objects.FindId`); kernel `Domain/results` (`Lease<T>.Use`, `Op`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`), `Document/tables.md` (`TableTarget`, `RedrawPolicy`, `DocumentCommit.Sealed`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -756,7 +748,7 @@ public static class Mappings {
 |  [07]   | side taxonomy    | `SideCode`          | host side ordinals per mapping type, indexed | `Of` / `Rules`               |
 |  [08]   | side answer      | `MappingSide`       | two cases over the coded and uncoded types   | `Of(type, side, key)`        |
 |  [09]   | channel identity | `MappingChannel`    | positive, default-refusing at the type       | `Of(value, key)`             |
-|  [10]   | channel rail     | `MappingRequest`    | bind, snapshot, evaluate, decompose, census  | `Mappings.Run`               |
+|  [10]   | channel pipeline | `MappingRequest`    | bind, snapshot, evaluate, decompose, census  | `Mappings.Run`               |
 |  [11]   | tag round trip   | `ChannelTag`        | admitted kind with native projection         | `Of` / `Native`              |
 |  [12]   | coordinate cache | `CoordinateRequest` | prime, read, probe, or scoped invalidation   | `TextureCoordinates.Run`     |
 

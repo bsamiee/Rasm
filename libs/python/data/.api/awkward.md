@@ -12,7 +12,7 @@
 |  [02]   | `ak.Record`       | single record     | one row from a record-typed array                |
 |  [03]   | `ak.ArrayBuilder` | incremental build | append-based construction of irregular arrays    |
 
-[PUBLIC_TYPE_SCOPE]: error rail (`awkward.errors`)
+[PUBLIC_TYPE_SCOPE]: error channel (`awkward.errors`)
 
 Two published classes, BOTH builtin refinements, so a consumer's catch set names the ancestors and never these: `AxisError` subclasses `ValueError` and `IndexError`, `FieldNotFoundError` subclasses `IndexError`. Every other refusal raises a builtin directly — `TypeError`/`ValueError` for a layout or dtype mismatch, `NotImplementedError` for a kernel the layout does not lower, `ImportError` for an absent `cuda`/`jax` backend, and `AttributeError`/`RuntimeError` through the C++ dispatch.
 

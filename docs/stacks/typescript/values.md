@@ -1,33 +1,33 @@
 # [TYPESCRIPT_VALUES]
 
-Every runtime invariant selects exactly one owning primitive, and the selection is this page's law: keyed state, membership, order, growth, identity, comparison, combination, time, precision, partiality, bytes, and secrecy each ride the owner that carries the invariant structurally. Identity is a construction fact, never a comparison-site computation; comparison, equivalence, refinement, and combination are composed instance values that travel as parameters and carry their derived operator families with them; scalars ride owners whose arithmetic is the domain's arithmetic. JS stdlib `Map`, `Set`, `Date`, epoch numbers, `NaN` sentinels, `btoa`, and raw secret strings survive only at the FFI seam and inside marked kernels — the moment one carries domain meaning, the owning primitive or a composed instance replaces it, and the value decision becomes recoverable from a declaration.
+Every runtime invariant selects exactly one owning primitive, and the selection is this page's law: keyed state, membership, order, growth, identity, comparison, combination, time, precision, partiality, bytes, and secrecy each ride the owner that carries the invariant structurally. Identity is a construction fact, never a comparison-site computation; comparison, equivalence, refinement, and combination are composed instance values that travel as parameters and carry their derived operator families with them; scalars ride owners whose arithmetic is the domain's arithmetic. JS stdlib `Map`, `Set`, `Date`, epoch numbers, `NaN` sentinels, `btoa`, and raw secret strings survive only at the FFI boundary and inside marked kernels — the moment one carries domain meaning, the owning primitive or a composed instance replaces it, and the value decision becomes recoverable from a declaration.
 
-Everything around the value plane is shed by kind: vocabulary tables and the type-derivation algebra are `derivation.md`'s, Schema owners and decoded collection admission are `shapes.md`'s, the carrier with its in-flow `Option`/`Either` folds is `rails-and-effects.md`'s, dispatch over values is `surfaces-and-dispatch.md`'s, algorithmic bodies and the fold algebra over admitted collections are `computation.md`'s, keyed accumulators threaded through incremental dataflow are `streams.md`'s, the decode seam that admits these values is `boundaries.md`'s, and the kernel mark with the statement seam is `language.md`'s.
+Everything around the value plane is shed by kind: vocabulary tables and the type-derivation algebra are `derivation.md`'s, Schema owners and decoded collection admission are `shapes.md`'s, the carrier with its in-flow `Option`/`Either` folds is `results-and-effects.md`'s, dispatch over values is `surfaces-and-dispatch.md`'s, algorithmic bodies and the fold algebra over admitted collections are `computation.md`'s, keyed accumulators threaded through incremental dataflow are `streams.md`'s, the decode boundary that admits these values is `boundaries.md`'s, and the kernel mark with the statement body is `language.md`'s.
 
 ## [01]-[INVARIANT_CHOOSER]
 
 A value invariant selects the form that owns it; the most specific invariant wins.
 
-| [INDEX] | [INVARIANT]                       | [OWNING_FORM]                                       | [REJECTED_FORM]                       |
-| :-----: | :-------------------------------- | :-------------------------------------------------- | :------------------------------------ |
-|  [01]   | keyed domain state                | `HashMap` keyed by `Data` value or primitive        | JS `Map`, object-as-map mutation      |
-|  [02]   | keyed insert, update, and delete  | `HashMap.modifyAt` `Option` fold                    | `get`-then-`set` pair, spread rebuild |
-|  [03]   | membership                        | `HashSet`                                           | JS `Set`, `Array.includes` scan       |
-|  [04]   | order-bearing keyed traversal     | `SortedMap` carrying its `Order` at construction    | sort-on-read of map entries           |
-|  [05]   | ordered membership, set algebra   | `SortedSet`; `union`/`intersection` owner reads     | sorted-array scans, re-sorted `Set`   |
-|  [06]   | amortized growth, batch windows   | `Chunk`                                             | `push` accumulation, spread rebuild   |
-|  [07]   | closed literal key set            | plain record under `Record`/`Struct` folds          | `HashMap` over a closed key set       |
-|  [08]   | relationship and adjacency state  | `Graph` constructor closure; `Graph.mutate` batches | adjacency `HashMap`, hand traversal   |
-|  [09]   | prefix-keyed lookup               | `Trie`; `keysWithPrefix`/`longestPrefixOf` reads    | sorted-key scans, split-key ladders   |
-|  [10]   | domain equality and container key | `Data` construction; `Equal.equals`                 | `===`, `JSON.stringify` comparison    |
-|  [11]   | comparison and refinement policy  | composed `Order`/`Equivalence`/`Predicate` instance | inline comparators, boolean soup      |
-|  [12]   | combine two values of one shape   | `Semigroup.struct`/`Monoid.struct` row table        | hand merge function, seeded `reduce`  |
-|  [13]   | keyed partial-record merge        | `getMonoidUnion`/`getSemigroupUnion` instance       | spread overlay last-wins              |
-|  [14]   | instant, zone, and span           | `DateTime`/`Duration` owner arithmetic              | `Date`, epoch-millisecond math        |
-|  [15]   | exact decimal                     | `BigDecimal` with explicit rounding                 | binary-float money math               |
-|  [16]   | fallible numeric operation        | `Option`-returning owner; one fold at the consumer  | `NaN` guards, `parseFloat` ladders    |
-|  [17]   | binary crossing a text channel    | `Encoding` seam; `Either` on every fallible side    | `btoa`/`atob`, platform buffer calls  |
-|  [18]   | secret value                      | `Redacted` sealed lifecycle                         | raw string secret in a shape or log   |
+| [INDEX] | [INVARIANT]                       | [OWNING_FORM]                                        | [REJECTED_FORM]                       |
+| :-----: | :-------------------------------- | :--------------------------------------------------- | :------------------------------------ |
+|  [01]   | keyed domain state                | `HashMap` keyed by `Data` value or primitive         | JS `Map`, object-as-map mutation      |
+|  [02]   | keyed insert, update, and delete  | `HashMap.modifyAt` `Option` fold                     | `get`-then-`set` pair, spread rebuild |
+|  [03]   | membership                        | `HashSet`                                            | JS `Set`, `Array.includes` scan       |
+|  [04]   | order-bearing keyed traversal     | `SortedMap` carrying its `Order` at construction     | sort-on-read of map entries           |
+|  [05]   | ordered membership, set algebra   | `SortedSet`; `union`/`intersection` owner reads      | sorted-array scans, re-sorted `Set`   |
+|  [06]   | amortized growth, batch windows   | `Chunk`                                              | `push` accumulation, spread rebuild   |
+|  [07]   | closed literal key set            | plain record under `Record`/`Struct` folds           | `HashMap` over a closed key set       |
+|  [08]   | relationship and adjacency state  | `Graph` constructor closure; `Graph.mutate` batches  | adjacency `HashMap`, hand traversal   |
+|  [09]   | prefix-keyed lookup               | `Trie`; `keysWithPrefix`/`longestPrefixOf` reads     | sorted-key scans, split-key ladders   |
+|  [10]   | domain equality and container key | `Data` construction; `Equal.equals`                  | `===`, `JSON.stringify` comparison    |
+|  [11]   | comparison and refinement policy  | composed `Order`/`Equivalence`/`Predicate` instance  | inline comparators, boolean soup      |
+|  [12]   | combine two values of one shape   | `Semigroup.struct`/`Monoid.struct` row table         | hand merge function, seeded `reduce`  |
+|  [13]   | keyed partial-record merge        | `getMonoidUnion`/`getSemigroupUnion` instance        | spread overlay last-wins              |
+|  [14]   | instant, zone, and span           | `DateTime`/`Duration` owner arithmetic               | `Date`, epoch-millisecond math        |
+|  [15]   | exact decimal                     | `BigDecimal` with explicit rounding                  | binary-float money math               |
+|  [16]   | fallible numeric operation        | `Option`-returning owner; one fold at the consumer   | `NaN` guards, `parseFloat` ladders    |
+|  [17]   | binary crossing a text channel    | `Encoding` boundary; `Either` on every fallible side | `btoa`/`atob`, platform buffer calls  |
+|  [18]   | secret value                      | `Redacted` sealed lifecycle                          | raw string secret in a shape or log   |
 
 ## [02]-[COLLECTION_OWNERS]
 
@@ -89,7 +89,7 @@ export { Meter };
 - Law: `Graph` is `@experimental` — the manifest pin owns drift, and exactly one owner declaration constructs and writes each graph value while consumers take the value and its owner reads, so a minor-line API break lands as one broken declaration, never a consumer sweep.
 - Law: traversal, path, condensation, and diagram questions are owner reads the value already carries — an adjacency `HashMap` under a hand-rolled frontier restates that algorithm family — and the walker, path, and projection reads compose in `computation.md`'s consumption law; this owner constructs and writes, never re-teaches the reads.
 - Law: prefix-keyed lookup admits `string` keys only and rides `Trie` at operator depth — `Trie.make`/`Trie.fromIterable`/`Trie.insert`/`Trie.insertMany` build, `Trie.longestPrefixOf` matches to `Option<[string, V]>`, `Trie.keysWithPrefix`/`valuesWithPrefix`/`entriesWithPrefix` stream a subtree, `Trie.modify`/`Trie.remove`/`Trie.removeMany` write, and `Trie.reduce`/`Trie.map`/`Trie.filter`/`Trie.filterMap`/`Trie.compact` fold structurally — a sorted-key scan or split-on-separator ladder restates the prefix walk the structure owns.
-- Exemption: the constructor closure and the `Graph.mutate` batch are the owner's scoped statement seam — statements write only the `MutableGraph` draft and no draft escapes the expression; the in-process kernel mark stays `language.md`'s.
+- Exemption: the constructor closure and the `Graph.mutate` batch are the owner's scoped statement body — statements write only the `MutableGraph` draft and no draft escapes the expression; the in-process kernel mark stays `language.md`'s.
 
 ```typescript
 import { Graph, Option, Trie } from "effect";
@@ -106,7 +106,7 @@ const Flow: {
     readonly prune: (flow: Flow.Net, floor: number) => Flow.Net;
 } = {
     seed: Graph.directed((draft) => {
-        // the constructor closure is the owner's scoped write seam: statements shape the draft, and no draft escapes
+        // the constructor closure is the owner's scoped write body: statements shape the draft, and no draft escapes
         const head = Graph.addNode(draft, { label: "<stage-a>", weight: 2 });
         const mid = Graph.addNode(draft, { label: "<stage-b>", weight: 5 });
         const tail = Graph.addNode(draft, { label: "<stage-c>", weight: 3 });
@@ -247,7 +247,7 @@ A domain combine is a `Semigroup`/`Monoid` instance, never an ad-hoc function. `
 - Law: a keyed partial-record merge is an instance — `getMonoidUnion`/`getSemigroupUnion` from `@effect/typeclass/data/Record` keep keys present in one side and combine keys present in both by the row algebra, `getSemigroupIntersection` keeps only shared keys — and the spread overlay `{ ...left, ...right }` is the deleted spelling because it silently last-wins every collision.
 - Law: absence lifts an identity-free algebra to lawful — `getOptionalMonoid(semigroup)` from `data/Option` makes `Option.none()` the empty, so an absent field is the identity and no sentinel value is forged to pad the fold.
 - Use: `Record.union(self, that, combine)` as the one-off spelling when the combine is genuinely site-local; a keyed merge that recurs is the instance.
-- Boundary: applicative error accumulation on the rail is `rails-and-effects.md`'s; a merge folded across a stream window is `streams.md`'s.
+- Boundary: applicative error accumulation on the carrier is `results-and-effects.md`'s; a merge folded across a stream window is `streams.md`'s.
 
 ```typescript
 import * as Monoid from "@effect/typeclass/Monoid";
@@ -310,17 +310,17 @@ export { Gauge, Ledger, Tally };
 A scalar invariant rides the owner whose operations are the domain's operations: instants are `DateTime`, spans are `Duration`, exact decimals are `BigDecimal`, and every partial numeric operation returns `Option` so absence folds once at the consumer instead of leaking as `NaN`, `Infinity`, or a throw.
 
 [TIME_OWNERS]:
-- Law: calendar arithmetic lives on `DateTime` — `DateTime.add`, `DateTime.addDuration`, `DateTime.subtractDuration`, `DateTime.startOf`, `DateTime.endOf`, `DateTime.nearest` move, `DateTime.distanceDuration` measures elapsed, `DateTime.Order` with `min`/`max`/`between`/`clamp` compares — so epoch-millisecond arithmetic never carries domain meaning and `Date` survives only at the FFI seam under `Order.Date`.
+- Law: calendar arithmetic lives on `DateTime` — `DateTime.add`, `DateTime.addDuration`, `DateTime.subtractDuration`, `DateTime.startOf`, `DateTime.endOf`, `DateTime.nearest` move, `DateTime.distanceDuration` measures elapsed, `DateTime.Order` with `min`/`max`/`between`/`clamp` compares — so epoch-millisecond arithmetic never carries domain meaning and `Date` survives only at the FFI boundary under `Order.Date`.
 - Law: an instant is `DateTime.Utc` or `DateTime.Zoned`, and the zone is value-carried — `DateTime.makeZoned(input, { timeZone })` anchors an instant and returns `Option`; wall-clock input adds `{ adjustForTimeZone: true, disambiguation }` so a DST-gap or DST-overlap reading resolves by declared policy, never platform accident — `disambiguation` decides nothing over instant input. `DateTime.setZone` re-anchors the same instant, calendar moves on a `Zoned` resolve in its wall zone so a DST shift is an arithmetic fact, and `DateTime.toParts`/`DateTime.getPart` project calendar fields — the ambient-zone forms (`DateTime.withCurrentZone`, `DateTime.nowInCurrentZone`) are capability reads whose provision is `services-and-layers.md`'s.
-- Law: span policy is one value table — named `Duration` rows validated by `satisfies` without widening, constructed by `Duration.millis`/`seconds`/`minutes`/`hours` or the `Duration.decode` template forms, combined by `Duration.sum`/`times`/`subtract`, compared by `Duration.Order`/`lessThan`/`between` — a raw millisecond literal re-derives units at every reader, and unit egress happens once at the seam through `Duration.toMillis`/`Duration.parts`/`Duration.format`, never by hand division.
-- Law: `DateTime.now` rides the rail as `Effect<Utc>`; `DateTime.unsafeNow`, `BigDecimal.unsafeFromNumber`, `Number.unsafeDivide`, and every `unsafe*` constructor is kernel vocabulary stating a proof obligation at the call site — outside a marked kernel the total or `Option`-returning form is the only legal spelling.
+- Law: span policy is one value table — named `Duration` rows validated by `satisfies` without widening, constructed by `Duration.millis`/`seconds`/`minutes`/`hours` or the `Duration.decode` template forms, combined by `Duration.sum`/`times`/`subtract`, compared by `Duration.Order`/`lessThan`/`between` — a raw millisecond literal re-derives units at every reader, and unit egress happens once at the boundary through `Duration.toMillis`/`Duration.parts`/`Duration.format`, never by hand division.
+- Law: `DateTime.now` rides the carrier as `Effect<Utc>`; `DateTime.unsafeNow`, `BigDecimal.unsafeFromNumber`, `Number.unsafeDivide`, and every `unsafe*` constructor is kernel vocabulary stating a proof obligation at the call site — outside a marked kernel the total or `Option`-returning form is the only legal spelling.
 
 [EXACT_AND_PARTIAL_NUMBERS]:
 - Law: exact decimals are `BigDecimal` — `make`/`fromString` construction, `sum`/`multiply`/`subtract`/`divide` arithmetic, `round` with an explicit `RoundingMode`, `normalize` for canonical form, `BigDecimal.Order` comparisons — and binary-float money math is the deleted spelling.
 - Law: a partial operation returns `Option` — `Number.divide`, `Number.parse`, `BigDecimal.fromString`, `BigDecimal.divide`, `BigDecimal.safeFromNumber` for the float-to-exact admission, `BigInt.fromString` and `BigInt.toNumber` for the integer text and precision crossings, `Duration.divide`, `DateTime.make`, `DateTime.makeZoned` — and partiality composes: `Option.flatMap` chains partial construction and partial arithmetic into one absent-or-present pipeline, so a failed parse and a zero divisor collapse into the same fold at the consumer.
 - Law: `Duration.decode` stays total because `DurationInput` is proven at the type; `Duration.decodeUnknown` is its unknown-admitting `Option` twin — typed input buys totality, untyped input buys a fold.
 - Reject: `new Date()` and `Date.now()` in domain flow; `parseFloat`-then-`isNaN` ladders; an `Infinity` escaping a division; hand unit scaling between milliseconds and minutes.
-- Boundary: wire admission of scalars — `Schema.DateTimeUtc`, decimal-string decode — is `shapes.md`'s and `boundaries.md`'s; `Schedule` policy consuming `Duration` is `rails-and-effects.md`'s; substituting the clock behind `DateTime.now` is `services-and-layers.md`'s Layer provision.
+- Boundary: wire admission of scalars — `Schema.DateTimeUtc`, decimal-string decode — is `shapes.md`'s and `boundaries.md`'s; `Schedule` policy consuming `Duration` is `results-and-effects.md`'s; substituting the clock behind `DateTime.now` is `services-and-layers.md`'s Layer provision.
 
 ```typescript
 import { BigDecimal, DateTime, Duration, Effect, Number, Option, pipe } from "effect";
@@ -338,7 +338,7 @@ const Scale: {
     readonly share: (raw: string, total: number) => number;
 } = {
     horizon: Effect.gen(function* () {
-        const now = yield* DateTime.now; // the wall-clock read rides the rail; DateTime.unsafeNow is kernel vocabulary
+        const now = yield* DateTime.now; // the wall-clock read rides the carrier; DateTime.unsafeNow is kernel vocabulary
         const until = DateTime.endOf(DateTime.addDuration(now, _grace.lease), "hour");
         const sweep = DateTime.nearest(DateTime.addDuration(now, _grace.audit), "day");
         return { until, sweep, slack: Duration.subtract(DateTime.distanceDuration(now, until), _grace.flush) }; // calendar moves and elapsed stay on the owners — epoch math never appears
@@ -364,14 +364,14 @@ export { Scale };
 
 ## [07]-[BYTES_AND_SECRETS]
 
-Bytes and secrets are sealed at the text seam. The interior carries `Uint8Array` and sealed values; base64, hex, and URI text exist only at the channel, and a secret never exists raw past its admission expression.
+Bytes and secrets are sealed at the text boundary. The interior carries `Uint8Array` and sealed values; base64, hex, and URI text exist only at the channel, and a secret never exists raw past its admission expression.
 
-[SEALED_SEAMS]:
-- Law: the byte codecs are asymmetric — `Encoding.encodeBase64`, `encodeBase64Url`, and `encodeHex` accept `Uint8Array | string` and always succeed, while `decodeBase64`, `decodeBase64Url`, `decodeHex` and the string-returning `decodeBase64String`/`decodeBase64UrlString`/`decodeHexString` return `Either<_, DecodeException>` — malformed text is a value at the seam, and the interior never sees undecoded text.
-- Law: the URI plane is fallible in both directions — `Encoding.encodeUriComponent` and `Encoding.decodeUriComponent` return `Either`, because a lone surrogate fails encode with `EncodeException` — so every fallible side of the seam is an `Either` value, never a thrown `URIError` or `atob` escape.
+[SEALED_BOUNDARIES]:
+- Law: the byte codecs are asymmetric — `Encoding.encodeBase64`, `encodeBase64Url`, and `encodeHex` accept `Uint8Array | string` and always succeed, while `decodeBase64`, `decodeBase64Url`, `decodeHex` and the string-returning `decodeBase64String`/`decodeBase64UrlString`/`decodeHexString` return `Either<_, DecodeException>` — malformed text is a value at the boundary, and the interior never sees undecoded text.
+- Law: the URI plane is fallible in both directions — `Encoding.encodeUriComponent` and `Encoding.decodeUriComponent` return `Either`, because a lone surrogate fails encode with `EncodeException` — so every fallible side of the boundary is an `Either` value, never a thrown `URIError` or `atob` escape.
 - Law: the secret lifecycle is structural — `Redacted.make` seals at admission, values travel and compare sealed through `Redacted.getEquivalence`, `Redacted.value` unwraps exactly once at the consuming boundary, and `Redacted.unsafeWipe` retires terminally: a wiped secret throws on `value`, so retirement is enforced by the carrier, and the method's boolean is the direct return value. `Redacted` implements `Equal` and prints `<redacted>` on every string, JSON, and inspect channel — safety is construction, never discipline.
 - Reject: `btoa`/`atob` and platform buffer conversions in domain flow; a raw string secret inside a shape, log, error, or policy record — the field is `Redacted` from admission; unwrap-and-compare; base64 text carried as the domain representation of bytes.
-- Boundary: `Config.redacted` and `Schema.Redacted` admission are `boundaries.md`'s and `shapes.md`'s; lifting the decode `Either` onto the rail is `rails-and-effects.md`'s.
+- Boundary: `Config.redacted` and `Schema.Redacted` admission are `boundaries.md`'s and `shapes.md`'s; lifting the decode `Either` onto the carrier is `results-and-effects.md`'s.
 
 ```typescript
 import { Either, Encoding, Equivalence, Option, Redacted } from "effect";
@@ -379,10 +379,10 @@ import { Either, Encoding, Equivalence, Option, Redacted } from "effect";
 const _sameKey: Equivalence.Equivalence<Redacted.Redacted<string>> = Redacted.getEquivalence(Equivalence.string);
 
 const Seal = {
-    // one owner holds the text seam: bytes and secrets cross here, and the interior never sees undecoded text or a raw secret
-    recoded: (hex: string): Option.Option<string> => Option.map(Either.getRight(Encoding.decodeHex(hex)), Encoding.encodeBase64Url), // the asymmetric seam in one pass: decode is an Either value, never a thrown atob; encode is total over the recovered bytes
+    // one owner holds the text boundary: bytes and secrets cross here, and the interior never sees undecoded text or a raw secret
+    recoded: (hex: string): Option.Option<string> => Option.map(Either.getRight(Encoding.decodeHex(hex)), Encoding.encodeBase64Url), // the asymmetric boundary in one pass: decode is an Either value, never a thrown atob; encode is total over the recovered bytes
     pair: (key: string, value: string): Either.Either<string, Encoding.EncodeException> =>
-        Either.zipWith(Encoding.encodeUriComponent(key), Encoding.encodeUriComponent(value), (k, v) => `${k}=${v}`), // the URI plane fails encode too: a lone surrogate is an Either at the seam, never a thrown URIError
+        Either.zipWith(Encoding.encodeUriComponent(key), Encoding.encodeUriComponent(value), (k, v) => `${k}=${v}`), // the URI plane fails encode too: a lone surrogate is an Either at the boundary, never a thrown URIError
     admit: (wire: string): Either.Either<Redacted.Redacted<string>, Encoding.DecodeException> =>
         Either.map(Encoding.decodeBase64String(wire), Redacted.make), // sealed at admission: past this expression the secret never exists raw
     rotated: (live: Redacted.Redacted<string>, next: Redacted.Redacted<string>): boolean => !_sameKey(live, next), // compared sealed: policy reads never unwrap, and Redacted prints <redacted> on every accidental channel

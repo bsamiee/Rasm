@@ -22,7 +22,7 @@ Each vocabulary is a frozen const object of literal members beside a `keyof type
 
 Consuming args stay string-widened by the provider itself (`Input<string>`), so this SDK closes nothing at the call site: a union assigns straight in, and a closed admission exists only where a caller spends the roster on a coordinate it owns. Members grow additively across releases, so a derived roster widens with the installed tree and pins no version.
 
-Rows below name the vocabularies this estate ruled on; the remaining trees carry the same shape and no estate coordinate — `ec2.{InstancePlatform,PlacementStrategy,ProtocolType,Tenancy}`, `rds.{EngineType,EngineMode,InstanceType}`, and the `alb`, `applicationloadbalancing`, `autoscaling`, `ecr`, `lambda`, and `ssm` trees.
+Rows below name the vocabularies this branch ruled on; the remaining trees carry the same shape and no branch coordinate — `ec2.{InstancePlatform,PlacementStrategy,ProtocolType,Tenancy}`, `rds.{EngineType,EngineMode,InstanceType}`, and the `alb`, `applicationloadbalancing`, `autoscaling`, `ecr`, `lambda`, and `ssm` trees.
 
 | [INDEX] | [MEMBER]                    | [CAPABILITY]                                                                          |
 | :-----: | :-------------------------- | :------------------------------------------------------------------------------------ |
@@ -36,7 +36,7 @@ Rows below name the vocabularies this estate ruled on; the remaining trees carry
 
 [ENTRYPOINT_SCOPE]: bucket access posture (the private-origin set)
 
-Object ownership carries no exported roster — `BucketOwnershipControlsRule.objectOwnership` is `Input<string>` whose values (`BucketOwnerPreferred`, `ObjectWriter`, `BucketOwnerEnforced`) live in an arg comment alone, so a posture literal is the provider's own openness and not the estate's. `BucketPolicy.policy` takes the typed `types.input.s3.PolicyDocument` beside its string twin, so a grant spells as a value under the `iam` enum constants and never as serialized JSON.
+Object ownership carries no exported roster — `BucketOwnershipControlsRule.objectOwnership` is `Input<string>` whose values (`BucketOwnerPreferred`, `ObjectWriter`, `BucketOwnerEnforced`) live in an arg comment alone, so a posture literal is the provider's own openness and not the branch's. `BucketPolicy.policy` takes the typed `types.input.s3.PolicyDocument` beside its string twin, so a grant spells as a value under the `iam` enum constants and never as serialized JSON.
 
 Public-access refusals ride four independent `Input<boolean>` args on one resource: `blockPublicAcls`, `blockPublicPolicy`, `ignorePublicAcls`, and `restrictPublicBuckets`.
 
@@ -142,4 +142,4 @@ Classes are `aws.*` with the prefix elided; `awsx.*` is called out. This bounded
 - `aws` arm is one dispatch row reading a `StackSpec`, constructing one `aws.Provider`, and realizing the service-equivalence subset with that provider scoped in; the `provider/surface` map is the single place a capability resolves to an `aws.*`/`awsx.*` resource class.
 - `awsx` components own standard compositions (VPC, Fargate service, ALB) and raw `aws.*` resources own fine-grained control, both taking the arm's explicit StackSpec-derived provider.
 - Credentials and account selection ride the `StackSpec` Doppler project ref into `ProviderArgs` (`profile`/`assumeRoles`) marked `pulumi.secret`, sourced through the `@pulumiverse/doppler`/`security/crypt/secret` read path.
-- `<Resource>.get(name, id)` adopts a pre-existing cloud resource into the arm's graph under the same explicit provider, so an estate built by hand enters the typed program as library code and the plane keeps zero authored `Pulumi.yaml`.
+- `<Resource>.get(name, id)` adopts a pre-existing cloud resource into the arm's graph under the same explicit provider, so a resource built by hand enters the typed program as library code and the plane keeps zero authored `Pulumi.yaml`.

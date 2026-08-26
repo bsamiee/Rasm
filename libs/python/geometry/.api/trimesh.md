@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_TRIMESH]
 
-`trimesh` owns the geometry branch's triangle-mesh modeling, conditioning, and exchange rail: a `Trimesh` body with a content-hash-keyed lazy property algebra, a `Scene` transform graph, a `PointCloud`, polymorphic `load_scene`/`export` IO, `creation` primitives from `shapely` profiles, and operation modules spanning CSG, registration, conditioning, remesh, proximity, sampling, and collision. Mesh owners compose these surfaces and never re-implement trimesh's own bindings — the IO codecs, the `manifold3d` CSG kernel, the `scipy` sparse-Laplacian solve, the `rtree` index, and `fcl` collision.
+`trimesh` owns the geometry branch's triangle-mesh modeling, conditioning, and exchange domain: a `Trimesh` body with a content-hash-keyed lazy property algebra, a `Scene` transform graph, a `PointCloud`, polymorphic `load_scene`/`export` IO, `creation` primitives from `shapely` profiles, and operation modules spanning CSG, registration, conditioning, remesh, proximity, sampling, and collision. Mesh owners compose these surfaces and never re-implement trimesh's own bindings — the IO codecs, the `manifold3d` CSG kernel, the `scipy` sparse-Laplacian solve, the `rtree` index, and `fcl` collision.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -77,7 +77,7 @@ Persistent query objects amortize index construction across many queries; batch 
 
 [ENTRYPOINT_SCOPE]: primitive creation (`creation`)
 
-`creation.*` are static constructors returning a `Trimesh`, each taking an optional 4x4 `transform` and forwarding `**kwargs` to the constructor. `extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, bridging the planar `shapely` rail into solids.
+`creation.*` are static constructors returning a `Trimesh`, each taking an optional 4x4 `transform` and forwarding `**kwargs` to the constructor. `extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, bridging the planar `shapely` layer into solids.
 
 | [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                  |
 | :-----: | :------------------------------------------------------------------------ | :-------------------------------------------- |
@@ -199,9 +199,9 @@ Analysis and spatial surfaces for measurement, interference, and visibility; the
 - data mesh codec (`rasm.data.spatial.mesh`): `mesh.export(file_type='glb') -> bytes` is the only encode path, owned by `MeshPayload`; geometry returns the conditioned triangulation and the data codec owns GLB/3MF/PLY serialization, so the kernel never opens a file handle.
 - `manifold3d`(`.api/manifold3d.md`): `boolean.union`/`difference`/`intersection` are the facade over the `Manifold` CSG kernel; an owner needing batched booleans or `+`/`-`/`^` drops to `manifold3d` directly and re-wraps via `Trimesh(vertices=..., faces=...)`, gating on `is_watertight` before the call.
 - `open3d`(`.api/open3d.md`)/`small_gicp`(`.api/small-gicp.md`)/`kiss-matcher`(`.api/kiss-matcher.md`): trimesh owns mesh-mesh rigid (`mesh_other`/`icp`/`procrustes`) and non-rigid (`nricp_amberg`/`nricp_sumner`) alignment; point-cloud global registration and fine GICP route to those engines, and every backend's 4x4 transform feeds the same `apply_transform`.
-- `shapely` planar -> `creation` solid: `creation.extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, and `Trimesh.section(...)` closes the loop to a `Path3D` whose `.polygons_full` are `shapely` polygons, so section -> planar-op -> re-extrude is one rail.
+- `shapely` planar -> `creation` solid: `creation.extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, and `Trimesh.section(...)` closes the loop to a `Path3D` whose `.polygons_full` are `shapely` polygons, so section -> planar-op -> re-extrude is one result.
 - `scipy.sparse`: `smoothing.laplacian_calculation(pinned_vertices=...)` returns a reusable cotangent/uniform Laplacian; the implicit `filter_laplacian` path solves through `scipy.sparse.linalg.spsolve`, and the operator reuses across `filter_taubin`/`filter_laplacian`/`filter_humphrey` via `laplacian_operator=`.
-- within-lib deviation rail: `ProximityQuery(reference).signed_distance(sample.sample_surface(target, n)[0])` folds a watertight-gated signed-distance distribution into `DeviationResult`, amortizing the `rtree` triangle index across the sample batch.
+- within-lib deviation domain: `ProximityQuery(reference).signed_distance(sample.sample_surface(target, n)[0])` folds a watertight-gated signed-distance distribution into `DeviationResult`, amortizing the `rtree` triangle index across the sample batch.
 - within-lib identity: `Trimesh.identifier_hash`/`Scene.identifier_hash` is a rotation/translation/scale-invariant content hash seeding `ContentIdentity` for memoized boolean/decomposition/registration results.
 
 [LOCAL_ADMISSION]:

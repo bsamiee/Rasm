@@ -1,29 +1,29 @@
 # [RASM_HOOKS]
 
-`Rasm.Domain` owns the branch's one extension mechanism: a hook point is a declared seat on a folder's roster, a rail is the per-composition capsule that fires it, and a mount is the ask-and-grant binding a plugin rider claims. Veto admission, observe isolation, replay retention, bounded fault custody, scoped release, and the frozen mount census are this owner's — a folder declares its `<Package>Point` roster and its closed fact union and nothing else.
+`Rasm.Domain` owns the branch's one extension mechanism: a hook point is a declared seat on a folder's roster, a bus is the per-composition capsule that fires it, and a mount is the ask-and-grant binding a plugin rider claims. Veto admission, observe isolation, replay retention, bounded fault custody, scoped release, and the frozen mount census are this owner's — a folder declares its `<Package>Point` roster and its closed fact union and nothing else.
 
 `Rasm.Domain` closes the mechanism against re-spelling: the roster is a TYPE PARAMETER, so a folder minting ids as inline `HookId.Create` literals does not compile; the fact family is a closed union, so a stringly payload cannot enter; the fault cell is bounded, so a tap storm sheds rather than growing for process lifetime; and the span bracket is an open floor the signal capsule conforms to, so tracing composes downward with no upward edge.
 
 ## [01]-[INDEX]
 
 - [02]-[HOOK_POINT]: `HookId`, `TraceScope`, `HookModality`, `IsolatedFault`, `HookDetacher`, `IHookPoint`, `HookPoint<TFact>` — the seat, its plane and delivery semantics, and the fire/veto/observe/drain capsule.
-- [03]-[HOOK_RAIL]: `IHookRoster<TSelf>`, `IHookSpan`, `HookGate`, `HookTap`, `Ring<T>`, `FaultCell`, `HookRail<TPoint,TFact,TOwner>` — the one per-composition rail over a folder's roster.
+- [03]-[HOOKS]: `IHookRoster<TSelf>`, `IHookSpan`, `HookGate`, `HookTap`, `Ring<T>`, `FaultCell`, `HookSet<TPoint,TFact,TOwner>` — the one per-composition bus over a folder's roster.
 - [04]-[HOOK_MOUNT]: `IHookBinding`, `HookBinding`, `HookMounts<TPoint,TOwner>` — ask-and-grant seats with rider custody and partial-mount rollback.
 - [05]-[HOOK_REGISTRY]: `HookRegistry` — the composition's one frozen point census.
 
 ## [02]-[HOOK_POINT]
 
-- Owner: `HookId` keys points under the estate grammar `rasm.<pkg>.<domain>.<point>`; `TraceScope` is the `rasm.<package>.<plane>` plane identity a hook roster row, an instrument mount, and a span bracket all read — seated HERE because this page is the lowest of its three readers, so the causal frame above and the span band above both point down; `HookModality` is the delivery-capability vocabulary carrying `CanVeto`, `Retains`, and its retention depth as row data, so veto admission and replay retention are the modality's own columns and a held set is a `CapabilitySet<HookModality>`; `IsolatedFault` is the point-attributed, clock-stamped evidence a shielded subscriber parks — the cell stamps arrival off its own `TimeProvider`, so a parked fault is orderable evidence and never a bare pair; `HookDetacher` is the detach value every attach returns; `IHookPoint` is the untyped census view a registry freezes; `HookPoint<TFact>` is the capsule holding one seat's vetoes, taps, and retention buffer.
+- Owner: `HookId` keys points under the solution grammar `rasm.<pkg>.<domain>.<point>`; `TraceScope` is the `rasm.<package>.<plane>` plane identity a hook roster row, an instrument mount, and a span bracket all read — seated HERE because this page is the lowest of its three readers, so the causal frame above and the span band above both point down; `HookModality` is the delivery-capability vocabulary carrying `CanVeto`, `Retains`, and its retention depth as row data, so veto admission and replay retention are the modality's own columns and a held set is a `CapabilitySet<HookModality>`; `IsolatedFault` is the point-attributed, clock-stamped evidence a shielded subscriber parks — the cell stamps arrival off its own `TimeProvider`, so a parked fault is orderable evidence and never a bare pair; `HookDetacher` is the detach value every attach returns; `IHookPoint` is the untyped census view a registry freezes; `HookPoint<TFact>` is the capsule holding one seat's vetoes, taps, and retention buffer.
 - Cases: `Veto` transforms or refuses, `Observe` taps fault-isolated, `Replay` buffers for late drain. Each roster row declares a SET of modalities and both admission gates read the set's own COLUMNS, so a point that both vetoes and retains is one row rather than two seats — a row-identity probe against `Replay` is the deleted form, and so is a second `Admits` member beside `CapabilitySet.Admits`.
-- Entry: `Fire` discriminates by call shape — unary publishes a settled fact, the guarded form hands its body the ADMITTED fact so a veto transform reaches the seam it guards and runs observe taps only from its success path; `Veto`, `Observe`, and `Drain` are the subscriber entries, and `Observe` discriminates its arm's rail shape so an effectful tap and a typed-rail projection reach one entry. Every delegate admission refuses on the typed rail through `Op.Need`, so no null reaches mount or dispatch and no argument contract survives beside the rail on one owner.
+- Entry: `Fire` discriminates by call shape — unary publishes a settled fact, the guarded form hands its body the ADMITTED fact so a veto transform reaches the point it guards and runs observe taps only from its success path; `Veto`, `Observe`, and `Drain` are the subscriber entries, and `Observe` discriminates its arm's result shape so an effectful tap and a typed-result projection reach one entry. Every delegate admission refuses on the typed result through `Op.Need`, so no null reaches mount or dispatch and no argument contract survives beside the bus on one owner.
 - Auto: fire order is law — retention first so replay truth is the last fact even under a veto refusal; the veto left-fold second in ATTACH order, its first refusal the verdict parked beside the return; observe taps last, each forked before its shielded run so the synchronous path returns without waiting. Veto gates fold INSIDE `Op.Catch`, so a throwing gate parks as evidence instead of escaping into the host callback that fired it. Fork refusals and throwing taps park as `IsolatedFault` while delivery continues; a replay point prunes its buffer oldest-first per fire and hands a fresh subscriber the held window on attach.
 - Law: retention depth is the MODALITY's column, not a capsule constructor knob — `Retains` is false on two of three rows, so a depth beside a non-retaining point is a dead parameter the row already answers.
 - Law: `CanVeto` is the delivery discriminant BOTH gates read — `Veto` admits a point holding any vetoing row, `Observe` a point holding any non-vetoing one — so neither gate names `Veto`, `Observe`, or `Replay` by identity and a fourth delivery semantics joins both gates by declaring its column alone.
 - Law: every capture funnels through `Op.Catch`, so a cancelled subscriber keeps `KernelFault.Cancelled` instead of parking as an ordinary isolated fault; a bare `Try.lift(...).Run().Match` on this capsule is the deleted form.
 - Law: a point mints nothing — the fire IS the evidence event and the emitter's typed result already carries the fact; the shared `FaultCell` records veto refusals and shielded tap faults point-attributed.
-- Packages: Thinktecture.Runtime.Extensions for the generated owners, LanguageExt.Core for the `Fin`/`IO`/`Seq`/`Atom` rails, BCL inbox.
+- Packages: Thinktecture.Runtime.Extensions for the generated owners, LanguageExt.Core for the `Fin`/`IO`/`Seq`/`Atom` types, BCL inbox.
 - Growth: a new delivery semantics is one `HookModality` row with its column values, breaking every modality dispatch at compile time; a consuming folder's new point is one row on its own `<Package>Point` roster — the capsule type never widens per folder.
-- Boundary: `TFact` closes at declaration as the owning folder's closed union, so a stringly payload cannot enter the rail; a subscriber failure is evidence or a refusal, never a broken emitter or a starved sibling, because every tap runs inside its own shield. Evidence cells enter as constructor material from the owning composition, never process-static — two compositions in one process hold two cells.
+- Boundary: `TFact` closes at declaration as the owning folder's closed union, so a stringly payload cannot enter the bus; a subscriber failure is evidence or a refusal, never a broken emitter or a starved sibling, because every tap runs inside its own shield. Evidence cells enter as constructor material from the owning composition, never process-static — two compositions in one process hold two cells.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -72,10 +72,10 @@ public sealed partial class HookModality : ICapability<HookModality> {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct IsolatedFault(HookId Point, Error Cause, DateTimeOffset At);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct HookDetacher(Action Detach) : IDisposable {
     public void Dispose() => Detach();
 }
@@ -155,22 +155,22 @@ public sealed class HookPoint<TFact> : IHookPoint {
 }
 ```
 
-## [03]-[HOOK_RAIL]
+## [03]-[HOOKS]
 
-- Owner: `IHookRoster<TSelf>` is what a folder's `<Package>Point` vocabulary realizes, so the rail takes the roster as a TYPE PARAMETER and seats mint from `TPoint.Items` alone; `IHookSpan` is the open bracket floor the signal capsule conforms to; `HookGate` and `HookTap` are the subscriber rows; `Ring<T>` is the ONE versioned bounded oldest-out ring, `RingSettlement<T>` its park-and-cleanup settlement, and `FaultCell` its isolated-fault instance with the stamp clock; `HookRail<TPoint,TFact,TOwner>` is the one rail per composition, roster, and owner key.
-- Cases: `RingSettlement<T>` is `Landed` with settled state and cleanup rail, `Ceded` when another writer moved the ring, or `Refused` when no candidate exists; `TOwner` is the identity a subscription and a rider belong to — `TelemetrySource` inside a library tier, `PluginKey` at the Rhino boundary, `HookScope` at the Grasshopper boundary — so scoped release is one shape at every stratum and a collectible load context drops exactly its own subscriptions.
-- Entry: `Ring.Park(item)` lands an ordinary row and `Park(item, release, key)` a custodial row; `Of` mints the rail from its gate and tap rows, an optional span floor, and the composition's own evidence cell; `Fire` is the ONE raise in both arities; `Drain` reads a retaining point's held window; `Replay` RE-FIRES a captured window through `TraverseM` over `Fire`, refusing on a point whose roster row does not retain; `Detach` tears the whole rail down in reverse registration order; `Release` drops one owner's subscriptions.
-- Auto: `Points` is the census a `HookRegistry` freezes, derived from `TPoint.Items` so a point outside the roster is unrepresentable rather than merely undeclared. Taps naming a `Scope` pay nothing on the fires they ignore. `Replay` is a re-fire with a verdict rail, never a buffer read — the six per-folder `Admitted`/`Settled`/`Planned`/`Ran`/`Marked` members those folders declare become call sites of `Fire`.
-- Law: the rail composes tracing through `IHookSpan` and never through the signal capsule's own type, so this page depends downward and the capsule conforms upward — an `Option<SpanBand>` parameter here inverts the dependency the telemetry split exists to straighten. `IHookSpan` takes the PLANE as an argument because the roster row already carries it: the rail reads `TPoint.Plane` at the fire site, so one band serves every plane a composition mounts and a per-plane band roster never appears.
-- Law: the evidence cell arrives WHOLE from the composition, never as a clock beside a cap — one `FaultCell` carries the stamp source and the ceiling together, so the tenancy stamp, the interaction shield, and every rail in one process park on one ring and a composition replaying under a fake `TimeProvider` reads deterministic evidence at all three.
+- Owner: `IHookRoster<TSelf>` is what a folder's `<Package>Point` vocabulary realizes, so the bus takes the roster as a TYPE PARAMETER and seats mint from `TPoint.Items` alone; `IHookSpan` is the open bracket floor the signal capsule conforms to; `HookGate` and `HookTap` are the subscriber rows; `Ring<T>` is the ONE versioned bounded oldest-out ring, `RingSettlement<T>` its park-and-cleanup settlement, and `FaultCell` its isolated-fault instance with the stamp clock; `HookSet<TPoint,TFact,TOwner>` is the one bus per composition, roster, and owner key.
+- Cases: `RingSettlement<T>` is `Landed` with settled state and cleanup fold, `Ceded` when another writer moved the ring, or `Refused` when no candidate exists; `TOwner` is the identity a subscription and a rider belong to — `TelemetrySource` inside a library tier, `PluginKey` at the Rhino boundary, `HookScope` at the Grasshopper boundary — so scoped release is one shape at every stratum and a collectible load context drops exactly its own subscriptions.
+- Entry: `Ring.Park(item)` lands an ordinary row and `Park(item, release, key)` a custodial row; `Of` mints the bus from its gate and tap rows, an optional span floor, and the composition's own evidence cell; `Fire` is the ONE raise in both arities; `Drain` reads a retaining point's held window; `Replay` RE-FIRES a captured window through `TraverseM` over `Fire`, refusing on a point whose roster row does not retain; `Detach` tears the whole bus down in reverse registration order; `Release` drops one owner's subscriptions.
+- Auto: `Points` is the census a `HookRegistry` freezes, derived from `TPoint.Items` so a point outside the roster is unrepresentable rather than merely undeclared. Taps naming a `Scope` pay nothing on the fires they ignore. `Replay` is a re-fire with a verdict result, never a buffer read — the six per-folder `Admitted`/`Settled`/`Planned`/`Ran`/`Marked` members those folders declare become call sites of `Fire`.
+- Law: the bus composes tracing through `IHookSpan` and never through the signal capsule's own type, so this page depends downward and the capsule conforms upward — an `Option<SpanBand>` parameter here inverts the dependency the telemetry split exists to straighten. `IHookSpan` takes the PLANE as an argument because the roster row already carries it: the bus reads `TPoint.Plane` at the fire site, so one band serves every plane a composition mounts and a per-plane band roster never appears.
+- Law: the evidence cell arrives WHOLE from the composition, never as a clock beside a cap — one `FaultCell` carries the stamp source and the ceiling together, so the tenancy stamp, the interaction shield, and every bus in one process park on one ring and a composition replaying under a fake `TimeProvider` reads deterministic evidence at all three.
 - Law: a bounded fault cell sheds rather than grows — `Ring<T>` is the ONE bounded ring (`Park` past its `Dimension` cap evicts OLDEST-FIRST and counts the eviction onto `Shed`), `FaultCell` is `Ring<IsolatedFault>` with the stamp clock, so a tap storm is observable as a number instead of as process memory; an unbounded cell, and a boundary journal or ledger re-declaring cap + oldest-out + shed over its own payload, are the deleted forms.
-- Law: eviction ownership transfers only after the versioned whole-state CAS lands. `Landed` carries the reverse/all-attempted cleanup rail beside the settled state, including cleanup failure; retrying that settlement would duplicate an item already parked. `Ceded`/`Refused` alone mean not-landed. `Shed` counts evicted rows and `Lost` counts parks that never landed; cleanup evidence remains on the landed settlement and merges with neither counter.
+- Law: eviction ownership transfers only after the versioned whole-state CAS lands. `Landed` carries the reverse/all-attempted cleanup fold beside the settled state, including cleanup failure; retrying that settlement would duplicate an item already parked. `Ceded`/`Refused` alone mean not-landed. `Shed` counts evicted rows and `Lost` counts parks that never landed; cleanup evidence remains on the landed settlement and merges with neither counter.
 - Law: `Detach` and owner-scoped `Release` run every registered detacher in reverse order even when one throws, and the whole refusal set settles through `Error.Many` — a teardown that discards a fault or abandons on its first refusal is the deleted form.
-- Output: `Faults` is the parked evidence, `Shed` its overflow count, and `Lost` its declined-park count; none is a rail outcome, so a consumer reads them and never branches a fire on them.
+- Output: `Faults` is the parked evidence, `Shed` its overflow count, and `Lost` its declined-park count; none is a fire outcome, so a consumer reads them and never branches a fire on them.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`TimeProvider`).
-- Growth: a new subscriber kind is one row type composed into `Of`; a new folder is one roster realizing `IHookRoster<TSelf>` with one closed fact union realizing `IHookFact<TPoint>` — its `Seats` a one-line derivation from the union's own fact→point map — and zero rail members.
+- Growth: a new subscriber kind is one row type composed into `Of`; a new folder is one roster realizing `IHookRoster<TSelf>` with one closed fact union realizing `IHookFact<TPoint>` — its `Seats` a one-line derivation from the union's own fact→point map — and zero bus members.
 - Law: `Seats` is the fact union's OWN declared correspondence and `Fire` gates on it twice — at entry (an emitter pairing a fact with a foreign point refuses before any veto runs) and on the veto fold's product (a gate rewriting to a sibling case that does not seat at the point refuses before the body or any tap). A 1:1 union derives `Seats` from its `At`/`Point` map; a broadcast fact answers the point set it lawfully fans to; a case entering only through `Replay` seats at its journal points and says so.
-- Boundary: NAMED LOSS (narrowed by E-M16) — folding the per-folder rails onto one mechanism erases the per-point FACT TYPE at compile time: a subscriber to a named `HookPoint<BimFact.Imported>` field could not receive an exported fact, while under one rail every point on a roster shares one `TFact` and subscribers discriminate on the case. What survives is the roster row's modality admission, the union's closure (a foreign case is unspellable), AND per-point fact-CASE narrowing as the RUNTIME `Seats` gate derived from the union's declared correspondence — only the compile-time shape of the narrowing is lost. The roster-COLUMN form was refused: the census view's law bars a `Type` column, and the correspondence is the fact's, not the point's. WITNESS — `Rasm.Bim/Model/observability.md:211-252`'s fourteen `HookPoint<BimFact.*>` columns, its fourteen-line `Live()`, its fourteen-entry census, and its private `Seat<TFact>` mint become one roster, one fact union, and one `HookRail<BimPoint, BimFact, TelemetrySource>.Of(key, taps: taps)`.
+- Boundary: NAMED LOSS (narrowed by E-M16) — folding the per-folder buses onto one mechanism erases the per-point FACT TYPE at compile time: a subscriber to a named `HookPoint<BimFact.Imported>` field could not receive an exported fact, while under one bus every point on a roster shares one `TFact` and subscribers discriminate on the case. What survives is the roster row's modality admission, the union's closure (a foreign case is unspellable), AND per-point fact-CASE narrowing as the RUNTIME `Seats` gate derived from the union's declared correspondence — only the compile-time shape of the narrowing is lost. The roster-COLUMN form was refused: the census view's law bars a `Type` column, and the correspondence is the fact's, not the point's. WITNESS — `Rasm.Bim/Model/observability.md:211-252`'s fourteen `HookPoint<BimFact.*>` columns, its fourteen-line `Live()`, its fourteen-entry census, and its private `Seat<TFact>` mint become one roster, one fact union, and one `HookSet<BimPoint, BimFact, TelemetrySource>.Of(key, taps: taps)`.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -292,7 +292,7 @@ public sealed class FaultCell {
         Ring.Park(item: new IsolatedFault(Point: point, Cause: cause, At: clock.GetUtcNow()));
 }
 
-public sealed class HookRail<TPoint, TFact, TOwner>
+public sealed class HookSet<TPoint, TFact, TOwner>
     where TPoint : IHookRoster<TPoint>
     where TFact : IHookFact<TPoint>
     where TOwner : notnull {
@@ -301,29 +301,29 @@ public sealed class HookRail<TPoint, TFact, TOwner>
     private readonly Option<IHookSpan> span;
     private readonly Atom<Seq<(Option<TOwner> Owner, IDisposable Detach)>> subscriptions = Atom(Seq<(Option<TOwner> Owner, IDisposable Detach)>());
 
-    private HookRail(HashMap<TPoint, HookPoint<TFact>> seats, FaultCell faults, Option<IHookSpan> span) =>
+    private HookSet(HashMap<TPoint, HookPoint<TFact>> seats, FaultCell faults, Option<IHookSpan> span) =>
         (this.seats, Faults, this.span) = (seats, faults, span);
 
-    public static Fin<HookRail<TPoint, TFact, TOwner>> Of(
+    public static Fin<HookSet<TPoint, TFact, TOwner>> Of(
         Op key,
         Seq<HookGate<TPoint, TFact, TOwner>> gates = default,
         Seq<HookTap<TPoint, TFact, TOwner>> taps = default,
         Option<IHookSpan> span = default,
         Option<FaultCell> cell = default) {
         FaultCell faults = cell.IfNone(static () => new FaultCell(cap: DefaultCap, clock: TimeProvider.System));
-        HookRail<TPoint, TFact, TOwner> rail = new(
+        HookSet<TPoint, TFact, TOwner> hooks = new(
             seats: toSeq(TPoint.Items).ToHashMap(static row => row, row => new HookPoint<TFact>(id: row.Id, modalities: row.Modalities, faults: faults)),
             faults: faults, span: span);
         Seq<(Option<TOwner> Owner, Func<Fin<IDisposable>> Attach)> plan =
-            gates.Map(gate => (gate.Owner, Attach: new Func<Fin<IDisposable>>(() => rail.Seat(at: gate.Point, key: key).Bind(seat => seat.Veto(gate: gate.Admit, key: key)))))
+            gates.Map(gate => (gate.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: gate.Point, key: key).Bind(seat => seat.Veto(gate: gate.Admit, key: key)))))
             + taps.Bind(tap => tap.Scope.IfNone(toSeq(TPoint.Items)).Map(point =>
-                (tap.Owner, Attach: new Func<Fin<IDisposable>>(() => rail.Seat(at: point, key: key).Bind(seat => seat.Observe(arm: tap.Observe, key: key))))));
+                (tap.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: point, key: key).Bind(seat => seat.Observe(arm: tap.Observe, key: key))))));
         return plan.Fold(Fin.Succ(Seq<(Option<TOwner> Owner, IDisposable Detach)>()), (held, row) => held.Bind(taken =>
                 row.Attach().Match(
                     Succ: detach => Fin.Succ(taken.Add((row.Owner, detach))),
                     Fail: refusal => Fin.Fail<Seq<(Option<TOwner> Owner, IDisposable Detach)>>(refusal)
                         .Rollback(held: taken, release: static row => { row.Detach.Dispose(); return Fin.Succ(unit); }, key: key))))
-            .Map(taken => (ignore(rail.subscriptions.Swap(_ => taken)), rail).Item2);
+            .Map(taken => (ignore(hooks.subscriptions.Swap(_ => taken)), hooks).Item2);
     }
 
     public Seq<IHookPoint> Points => toSeq(TPoint.Items).Map(row => (IHookPoint)seats[row]);
@@ -437,11 +437,11 @@ public sealed class HookMounts<TPoint, TOwner>
 
 ## [05]-[HOOK_REGISTRY]
 
-- Owner: `HookRegistry` — the composition's ONE frozen point census, minted by folding every contributing rail's `Points`.
+- Owner: `HookRegistry` — the composition's ONE frozen point census, minted by folding every contributing bus's `Points`.
 - Entry: `Mount(params ReadOnlySpan<IHookPoint>)` is that one freeze, returning `Fin` so a duplicate id names both owners instead of throwing at a frozen-dictionary merge.
-- Law: the freeze is the composition's alone — a peer reaching `HookRegistry.Mount` itself splits the audit into partial tables, so every contributing rail hands its census IN and calls nothing (branch RULINGS `[02]`).
+- Law: the freeze is the composition's alone — a peer reaching `HookRegistry.Mount` itself splits the audit into partial tables, so every contributing bus hands its census IN and calls nothing (branch RULINGS `[02]`).
 - Law: a fired id outside the frozen table is unreachable by construction, because firing takes a declared roster VALUE and the roster is the type parameter.
-- Growth: a new contributing rail is one argument at the composition root.
+- Growth: a new contributing bus is one argument at the composition root.
 - Boundary: the registry is an audit surface, never a dispatch surface — nothing fires through it, and a lookup that returns a point for firing is the deleted form.
 
 ```csharp
@@ -457,7 +457,7 @@ public sealed record HookRegistry(FrozenDictionary<string, IHookPoint> Points) {
         Seq<string> collided = rows.Collisions(static row => row.Id.ToString());
         return collided.IsEmpty
             ? Fin.Succ(new HookRegistry(Points: rows.ToFrozenDictionary(static row => row.Id.ToString(), static row => row, StringComparer.Ordinal)))
-            : Fin.Fail<HookRegistry>(new KernelFault.InvalidValue(Label: string.Join(", ", collided), Requirement: "one point per id across every contributing rail"));
+            : Fin.Fail<HookRegistry>(new KernelFault.InvalidValue(Label: string.Join(", ", collided), Requirement: "one point per id across every contributing bus"));
     }
 }
 ```

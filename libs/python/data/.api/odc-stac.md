@@ -1,6 +1,6 @@
 # [PY_DATA_API_ODC_STAC]
 
-`odc-stac` folds a sequence of STAC `Item` objects into one lazy multi-band `xarray.Dataset` cube backed by a Dask graph, resolving the output `GeoBox` — CRS, resolution, anchor, extent — from the items or explicit load parameters. `load` (alias `stac_load`) is the single `CATALOG_COVERAGE_ODCSTAC` rail the `data` owner composes: items in, lazy cube out, `groupby`/`bands`/`chunks`/`resampling`/geobox controls as call rows. GeoBox math defers to `odc.geo` and pixel reads to `odc.loader`; STAC search stays upstream in the catalog client.
+`odc-stac` folds a sequence of STAC `Item` objects into one lazy multi-band `xarray.Dataset` cube backed by a Dask graph, resolving the output `GeoBox` — CRS, resolution, anchor, extent — from the items or explicit load parameters. `load` (alias `stac_load`) is the single `CATALOG_COVERAGE_ODCSTAC` layer the `data` owner composes: items in, lazy cube out, `groupby`/`bands`/`chunks`/`resampling`/geobox controls as call rows. GeoBox math defers to `odc.geo` and pixel reads to `odc.loader`; STAC search stays upstream in the catalog client.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -65,7 +65,7 @@ These surfaces expose the internal load pipeline for debugging: item parsing to 
 - `pystac-client`(`.api/pystac-client.md`): `ItemSearch.item_collection()`/`items()` feeds the live `/search` result straight into `load` as the `items` argument.
 - `planetary-computer`(`.api/planetary-computer.md`): `patch_url=planetary_computer.sign` rewrites each parsed `RasterSource` Azure Blob href to a SAS-signed URL before the lazy cube reads it.
 - `rioxarray`(`.api/rioxarray.md`): the returned cube carries the resolved CRS, so its `.rio` accessor warps (`reproject`), masks (`clip`), and writes (`to_raster`) the loaded coverage downstream.
-- `data` owner: `load`/`stac_load` is the single `CATALOG_COVERAGE_ODCSTAC` rail, threading the `patch_url` signer and `with_properties` coordinate lift through one call.
+- `data` owner: `load`/`stac_load` is the single `CATALOG_COVERAGE_ODCSTAC` layer, threading the `patch_url` signer and `with_properties` coordinate lift through one call.
 
 [LOCAL_ADMISSION]:
 - `load`/`stac_load` is the sole repo entry for STAC-item coverage; a folder composing it threads items, geobox controls, and the `patch_url` signer through the one call, never a per-collection loader wrapper.

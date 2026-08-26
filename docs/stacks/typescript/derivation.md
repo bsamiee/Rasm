@@ -1,14 +1,14 @@
 # [TYPESCRIPT_DERIVATION]
 
-This page is the derivation law: every type, vocabulary, and secondary surface computes from one anchor, and a hand-written parallel is a second, unverified source of truth. One declaration anchors each correspondence, inference solves once at the owner so no consumer restates what the anchor carries, and the plane's own machinery — the registry merge seam, the `unique symbol` nominal regime, `HKT.TypeLambda`, typestate — exists only where a witness proves it.
+This page is the derivation law: every type, vocabulary, and secondary surface computes from one anchor, and a hand-written parallel is a second, unverified source of truth. One declaration anchors each correspondence, inference solves once at the owner so no consumer restates what the anchor carries, and the plane's own machinery — the registry merge point, the `unique symbol` nominal regime, `HKT.TypeLambda`, typestate — exists only where a witness proves it.
 
-Everything around the algebra is shed by kind: the stated-annotation export gate and emit seam are `language.md`'s, collection and scalar selection is `values.md`'s, Schema owners and their derived surfaces are `shapes.md`'s, and overload sets, `Match` terminals, and `Function.dual` operators are `surfaces-and-dispatch.md`'s.
+Everything around the algebra is shed by kind: the stated-annotation export gate and emit boundary are `language.md`'s, collection and scalar selection is `values.md`'s, Schema owners and their derived surfaces are `shapes.md`'s, and overload sets, `Match` terminals, and `Function.dual` operators are `surfaces-and-dispatch.md`'s.
 
 ## [01]-[ANCHOR_ALGEBRA]
 
 - Anchor law: one declaration anchors each correspondence — a value anchor where runtime rows, iteration, or order exist (the `as const` table, the `as const` key tuple), a merged registry interface where the row set is contributed across modules, a type anchor where the correspondence is purely type-plane, a `const` type parameter where the caller supplies the shape, a state parameter where the fact is protocol position
 - Direction law: the algebra runs three directions and closes — types derive from values, secondary types compute from primary types, and generated types govern values back through shape checks — so an anchor edit propagates as compile pressure around the whole loop; a hand parallel in any direction is the break that lets the loop drift silently
-- Gate law: the stated-annotation export gate leaves an exported anchor plain `as const` — its shape check homes as constrained-default guard aliases in the merged namespace, an assembled owner states a `typeof`-derived annotation over its interior anchors, and the expression-seam `satisfies` spelling survives only where no export reaches the anchor
+- Gate law: the stated-annotation export gate leaves an exported anchor plain `as const` — its shape check homes as constrained-default guard aliases in the merged namespace, an assembled owner states a `typeof`-derived annotation over its interior anchors, and the expression-site `satisfies` spelling survives only where no export reaches the anchor
 - Placement law: a shape check rides the anchor declaration, an annotation states a public operation surface, and `as` is kernel material — each declaration fixes its form once, and a widening annotation on an anchor destroys every literal downstream
 - Pre-solve law: inference is the owner's obligation — `const` type parameters, `NoInfer` check-only positions, instantiation expressions, and reverse-mapped parameters fix literals and row payloads at the declaration; a consumer writing a type argument, an `as const`, a lambda annotation the owner solves, or a re-assertion marks the owner's signature as the defect
 - Posture law: distribution and variance are declared decisions — a naked conditional parameter maps a union member-wise, `[T] extends [U]` asks one question of the whole, and `in`/`out` paired with a variance struct makes variance checked and witnessed intent
@@ -52,7 +52,7 @@ Each table routes a correspondence to the form that owns it, and every `[USE]` n
 |  [07]   | union subset by pattern      | `Extract`/`Exclude` with a template pattern    | re-listed members                              |
 |  [08]   | derived-surface flatten      | `Types.Simplify` at the public alias           | hand-rolled `{ [K in keyof T]: T[K] }` alias   |
 
-- [01]: `keyof Registry` reads the merge seam.
+- [01]: `keyof Registry` reads the merge point.
 - [05]: package carriers: `Effect.Effect.Success`, `Schema.Schema.Type`, `Context.Tag.Service`, `Layer.Layer.Success`.
 
 [GENERATION_FORMS]: how a member family generates from anchors.
@@ -62,7 +62,7 @@ Each table routes a correspondence to the form that owns it, and every `[USE]` n
 |  [01]   | renamed member family      | mapped type, `as` key remap, intrinsic case operators | sibling interfaces per member |
 |  [02]   | capability cross product   | template literal over union anchors                   | enumerated string constants   |
 |  [03]   | row-predicate filtering    | key remap to `never` on the row's column              | a parallel filtered table     |
-|  [04]   | seam-recast view           | `-readonly`/`+?`/`-?` on the same mapped clause       | a second hand-written family  |
+|  [04]   | type-recast view           | `-readonly`/`+?`/`-?` on the same mapped clause       | a second hand-written family  |
 |  [05]   | generated-union governance | shape-checked value closing the loop                  | hand-synced tables that drift |
 |  [06]   | consumed-union residue     | `satisfies never` on the terminal narrowing arm       | silent default, thrown guard  |
 
@@ -87,9 +87,9 @@ Each rule fixes the placement detail its chooser rows cannot state. Snippets com
 - Use when: a bounded keyed domain carries behavior rows and its secondary surfaces — discriminant, projections, wire literal, returns — must stay provably consistent with it.
 - Accept: interior anchors unexported — the `as const` key tuple where order, iteration, or a non-empty spread is load-bearing, the plain `as const` row table keeping every literal — and one exported owner assembling them: rows spread in, companions as properties, operations as members, the merged `declare namespace` hub carrying every derived type off the single import, the assembled owner's alias flattened through `Types.Simplify` so consumers read one record instead of a `typeof` intersection; the shape as a constrained-default guard pair inside the hub — a row guard whose default `typeof` query proves completeness and row shape, a key guard whose default discriminant proves no excess row — drift failing loudly at the alias declaration with zero widening of the anchors; `keyof typeof` discriminants; indexed row and axis projections; a conditional return derived as indexed access over the table keyed by the generic literal parameter; the tuple spread into `Schema.Literal`.
 - Reject: a hand union or parallel constant beside the table; a discriminant anchored on the assembled owner — `keyof` there drags member keys into the key space, so `Kind` anchors on the interior row table; an annotation restating row literals to buy the export — the assembled owner's annotation derives as a `typeof` intersection over its interior anchors; a row-tuple anchor (`[{ kind: ... }] as const`) self-carrying its keys — lookup degrades to a linear scan and the discriminant re-derives as `(typeof rows)[number]["kind"]`, so the record owns lookup and the tuple owns order; `Object.keys` enumeration widened to `Array<string>` and asserted back when the tuple already carries the ordered key set; an `extends ?` conditional return — the checker cannot prove its body, and the cast it demands marks dispatch that belongs to the overload owner.
-- Law: the guard pair is the satisfies algebra relocated to the declaration seam — a constrained default validates without widening exactly as `satisfies` does, completeness and shape ride the row guard, excess rides the key guard, and both erase; an anchor no export reaches keeps the shorter `as const satisfies` spelling at the expression seam.
+- Law: the guard pair is the satisfies algebra relocated to the declaration site — a constrained default validates without widening exactly as `satisfies` does, completeness and shape ride the row guard, excess rides the key guard, and both erase; an anchor no export reaches keeps the shorter `as const satisfies` spelling at the expression site.
 - Law: a stated annotation admits only a table whose literals stay inert — the annotation widens every column, so a sibling derivation reading a widened column (an `extends true` subset, a literal-keyed projection) silently resolves `never` while validating identically to `satisfies`, a guard that compiles and enforces nothing; a table any derivation reads keeps the `as const satisfies` anchor.
-- Law: the tuple spread holds `Schema.Literal`'s non-empty overload and preserves the exact literal tuple; spreading derived keys lands in the widened `ReadonlyArray` overload and demotes the schema to `SchemaClass<Kind>` — non-emptiness and order are tuple facts stated once at the anchor, never assertion repairs at the seam.
+- Law: the tuple spread holds `Schema.Literal`'s non-empty overload and preserves the exact literal tuple; spreading derived keys lands in the widened `ReadonlyArray` overload and demotes the schema to `SchemaClass<Kind>` — non-emptiness and order are tuple facts stated once at the anchor, never assertion repairs at the use site.
 - Law: a fold parameterized over a caller-selected row table derives its order and its extremum or fallback selection from the selected table's values — the key tuple anchors membership and default iteration only, so a tuple-positional read inside the parameterized fold (the tuple's first entry standing as the below-floor fallback) re-imports module declaration order the caller's table lawfully overrides.
 - Boundary: the stated-annotation export gate is `language.md`'s; the Schema owner that admits the wire value, and the class families vocabularies embed into, are `shapes.md`'s; dispatch composed over row lookups is `surfaces-and-dispatch.md`'s.
 
@@ -138,10 +138,10 @@ export { Tier };
 [REGISTRY_MERGE_SITE]:
 - Use when: a row set must accept contributions from modules the owner never imports — capability rows, codec rows, handler rows landing from feature modules — while the union, projections, and governance still derive at the owner.
 - Accept: one open `interface Registry` merged with its `declare namespace` hub under one exported name — the one sanctioned open interface in the corpus; contributor rows injected as `declare module "<owner-specifier>"` blocks at the declaring module, one row per contribution; `keyof Registry` deriving the union across every contribution with no central edit; indexed access `Registry[K]["axis"]` projecting per-contribution literals; the constrained-default guard re-validating the merged whole, so a malformed row in any contributing module fails at the owner's declaration.
-- Reject: a second open interface anywhere — openness is this seam's monopoly, and a shape that merely wants fields is a closed owner; augmentation aimed at any module other than the declaring one; a central table contributors edit — the seam exists so contribution is a new file's row, never a shared-file edit; a registry whose every row one module contributes — a closed `as const` table wearing the open form.
-- Law: the guard pair survives the seam — interface merging is program-wide, the constrained default re-checks the merged whole on every compilation, so the open seam keeps closed-table governance: row shape rides the constraint, and the union stays derived.
+- Reject: a second open interface anywhere — openness is this registry's monopoly, and a shape that merely wants fields is a closed owner; augmentation aimed at any module other than the declaring one; a central table contributors edit — the registry exists so contribution is a new file's row, never a shared-file edit; a registry whose every row one module contributes — a closed `as const` table wearing the open form.
+- Law: the guard pair survives the merge — interface merging is program-wide, the constrained default re-checks the merged whole on every compilation, so the open registry keeps closed-table governance: row shape rides the constraint, and the union stays derived.
 - Law: the registry is type-plane only — the paired runtime row arrives by registration at the composition graph, never a mutable module-level table; `services-and-layers.md` owns registration.
-- Boundary: `declare module` augmentation capturing a foreign package's codec quirk is `boundaries.md`'s; this seam owns own-registry row contribution only.
+- Boundary: `declare module` augmentation capturing a foreign package's codec quirk is `boundaries.md`'s; this page owns own-registry row contribution only.
 
 ```typescript
 interface Registry {
@@ -174,7 +174,7 @@ export type { Registry };
 
 [GENERATED_SURFACE_SITE]:
 - Use when: a member family corresponds to an anchor generatively — renamed handler names, capability matrices, filtered projections — so the family's size tracks the anchor's, never a hand count.
-- Accept: mapped types with `as` key remapping and the intrinsic case operators `Capitalize`, `Uncapitalize`, `Uppercase`, `Lowercase`; template-literal cross products multiplying union anchors; row-predicate filtering by remapping the excluded key to `never`; modifier algebra on the same mapped clause — `-readonly` strips and `+?`/`-?` recast presence, so a type-seam view derives with zero second family; `Extract` and `Exclude` over template patterns for subsets; the governed value closing the loop under a stated `Record<GeneratedUnion, V>` annotation — the mapped domain demands completeness, the fresh-literal check rejects excess, the binding exports, and a new anchor row breaks it loudly at compile time; the consumed-union residue `(x satisfies never)` in the terminal arm of a narrowing chain — `never` assigns to every return type, so the arm compiles exactly while the chain consumes the whole union.
+- Accept: mapped types with `as` key remapping and the intrinsic case operators `Capitalize`, `Uncapitalize`, `Uppercase`, `Lowercase`; template-literal cross products multiplying union anchors; row-predicate filtering by remapping the excluded key to `never`; modifier algebra on the same mapped clause — `-readonly` strips and `+?`/`-?` recast presence, so a type-level view derives with zero second family; `Extract` and `Exclude` over template patterns for subsets; the governed value closing the loop under a stated `Record<GeneratedUnion, V>` annotation — the mapped domain demands completeness, the fresh-literal check rejects excess, the binding exports, and a new anchor row breaks it loudly at compile time; the consumed-union residue `(x satisfies never)` in the terminal arm of a narrowing chain — `never` assigns to every return type, so the arm compiles exactly while the chain consumes the whole union.
 - Reject: sibling interfaces restating a family member by member; enumerated string constants a template cross product derives; a parallel filtered table beside its anchor; a generated family over members that merely rhyme — generation encodes a real correspondence, never a coincidence of spelling.
 - Law: the mapped parameter correlates name and payload — `(typeof Anchor)[K]` keeps each generated member row-precise where a hand-written family blurs every payload to the union.
 - Law: governance is two-sided — the stated `Record` annotation closes data completeness and excess at a binding, and `satisfies never` closes consumption completeness at an expression; the same residue proof is the closing line of a sanctioned statement kernel's `default` arm.
@@ -278,18 +278,18 @@ export type { Step };
 - Boundary: `satisfies`-checked handler records and `Match` dispatch over these rows are `surfaces-and-dispatch.md`'s; this rule owns the inference mechanics.
 
 ```typescript
-declare namespace lattice {
-    // lattice's merged hub carries the row proof: one export serves both planes
+declare namespace grid {
+    // grid's merged hub carries the row proof: one export serves both planes
     type Cell<A> = { readonly seed: A; readonly step: (state: A, tick: number) => A };
 }
 
-const lattice = <T extends Record<string, unknown>>(
-    cells: { readonly [K in keyof T]: lattice.Cell<T[K]> }, // reverse-mapped parameter: the caller's object literal solves T key by key
+const grid = <T extends Record<string, unknown>>(
+    cells: { readonly [K in keyof T]: grid.Cell<T[K]> }, // reverse-mapped parameter: the caller's object literal solves T key by key
 ): { readonly at: <K extends keyof T>(key: K, tick: number) => T[K] } => ({
     at: (key, tick) => cells[key].step(cells[key].seed, tick), // indexed access keeps the body checker-proven; no cast survives here
 });
 
-const _grid = lattice({
+const _grid = grid({
     count: { seed: 0, step: (n, tick) => n + tick }, // n: number — the depth-1 seed drives, the depth-2 lambda consumes contextually
     label: { seed: "<value-a>", step: (s) => s.trim() }, // s: string — per-row solve; rows widen deliberately so the step can refill them
     open: { seed: false, step: (b) => !b },
@@ -302,7 +302,7 @@ const _cross: string = _grid.at("count", 3);
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { lattice };
+export { grid };
 ```
 
 [CONDITIONAL_DECOMPOSITION_SITE]:
@@ -354,7 +354,7 @@ export type { Facet, Flow, Parse, Realm, Trail, Verb };
 
 [CONTAINER_KIND_SITE]:
 - Use when: one combinator must serve many containers — the same enrichment over `Option`, `ReadonlyArray`, and an own container, written once.
-- Accept: an own `HKT.TypeLambda` implementor per own container, whose single `readonly type` line states how the container consumes `this["Target"]` — interface-declared by necessity, since a `this` type resolves only in an interface, and with the registry seam it is one of this layer's two interface sites; combinator signatures over `HKT.Kind<F, In, Out2, Out1, Target>` constrained by the `@effect/typeclass` vocabulary — `Covariant` and its siblings — with `In`, `Out2`, and `Out1` threading ambient channels and `Target` as the mapped slot; shipped instances from `@effect/typeclass/data/Option` and `@effect/typeclass/data/Array`; one own instance per own container, its dual `map` paired with the `covariant.imap` derivation.
+- Accept: an own `HKT.TypeLambda` implementor per own container, whose single `readonly type` line states how the container consumes `this["Target"]` — interface-declared by necessity, since a `this` type resolves only in an interface, and with the registry merge it is one of this layer's two interface sites; combinator signatures over `HKT.Kind<F, In, Out2, Out1, Target>` constrained by the `@effect/typeclass` vocabulary — `Covariant` and its siblings — with `In`, `Out2`, and `Out1` threading ambient channels and `Target` as the mapped slot; shipped instances from `@effect/typeclass/data/Option` and `@effect/typeclass/data/Array`; one own instance per own container, its dual `map` paired with the `covariant.imap` derivation.
 - Reject: an HKT combinator with one instance — an ordinary generic wearing a lambda; domain variation carried on `F` — vocabulary rows and tagged families own domain axes, the lambda owns containers only; a local functor-shaped interface shadowing the typeclass vocabulary; container abstraction no call site swaps.
 - Law: the fence is plural instantiation — the lambda earns existence when combinator call sites apply distinct instances; when every call site names one container, the combinator collapses into that container's module and the lambda dies.
 - Boundary: which container a domain value rides, and the instance merge algebra over `struct` and `tuple` composition, are `values.md`'s.
@@ -402,7 +402,7 @@ export type { Ranked, RankedTypeLambda };
 [NOMINAL_CARRIER_SITE]:
 - Use when: an own carrier type — a feed, a handle, a resource cell — must not unify with structural look-alikes, and its type parameters need declared, witnessed variance.
 - Accept: the annotated `unique symbol` pair — `const FeedTypeId: unique symbol = Symbol.for("<scope>/Feed")` with the same-name `type FeedTypeId = typeof FeedTypeId` — the symbol is the nominal key and `Symbol.for` holds one identity across module instances; the carrier keyed by `[FeedTypeId]` holding a variance struct, one row per parameter at its true variance — `Types.Contravariant<Cmd>`, `Types.Covariant<Row>`, `Types.Invariant` where reads meet writes — paired with `in`/`out` on the parameter list; cast-free runtime witnesses — `Function.constVoid` inhabits a contravariant row and `(_: never) => _` a covariant row; assignability then follows declared variance, so a carrier of narrower commands and wider rows flows where the wider carrier is demanded.
-- Reject: `Schema.brand` reached for carrier identity — the brand marks admitted values at the decode seam inside Schema owners and carries parse evidence, never carrier identity; a TypeId minted for a domain shape a Schema owner admits — the same defect from the other plane; a variance struct omitting a parameter — the omitted parameter erases from comparison exactly like an unwitnessed typestate parameter, and instantiations unify; a string-literal brand field as the key — two modules spelling one string forge each other, where `unique symbol` identity cannot collide.
+- Reject: `Schema.brand` reached for carrier identity — the brand marks admitted values at the decode boundary inside Schema owners and carries parse evidence, never carrier identity; a TypeId minted for a domain shape a Schema owner admits — the same defect from the other plane; a variance struct omitting a parameter — the omitted parameter erases from comparison exactly like an unwitnessed typestate parameter, and instantiations unify; a string-literal brand field as the key — two modules spelling one string forge each other, where `unique symbol` identity cannot collide.
 - Law: the struct is the witness and the annotation is the check — `in`/`out` declare intent the compiler verifies against inference, and the struct rows make the same variance structural so it survives assignability on its own; the two disagree only when one is wrong, and the error lands at the declaration.
 - Law: module-instance identity is two-plane — `Symbol.for` holds the runtime key while the `unique symbol` declaration holds the type identity, and a runtime companion the carrier must hold once across duplicated module loads — an intern table, a registry cell — anchors as `GlobalValue.globalValue(FeedTypeId, () => value)` keyed by the same symbol; the admission is identity, never state: a `globalValue` holding what a Layer owns is a module-level live instance under a global key, and capability still enters through the requirement channel.
 - Boundary: brand-in-field refinements on admitted values are `shapes.md`'s; the `TypeLambda` an own carrier needs to ride typeclass combinators is this page's container rule.
@@ -448,7 +448,7 @@ export type { Feed };
 - Reject: a phantom parameter carrying ordinary domain data — a value the program reads at runtime is a field on its owner, never a type argument; an unreferenced state parameter — an unused type parameter does not participate in assignability, so every instantiation unifies and the protocol it claims is unenforced; a runtime flag re-checking what the state parameter proves; a conditional-return terminal whose implementation needs the cast.
 - Law: the witness law — a protocol parameter is witnessed structurally in a real position or through a `Types.Invariant` variance slot; unwitnessed state erases from comparison and enforces nothing.
 - Law: the subtraction law — each transition subtracts its key from the open set and intersects it into the filled record, so the protocol is order-free, refills are compile errors, and completion is exactly the spent key set.
-- Boundary: a builder whose product is a domain shape terminates at the Schema owner in `shapes.md`; runtime acquire/release ordering is `rails-and-effects.md`'s.
+- Boundary: a builder whose product is a domain shape terminates at the Schema owner in `shapes.md`; runtime acquire/release ordering is `results-and-effects.md`'s.
 
 ```typescript
 import { Record } from "effect";
@@ -490,7 +490,7 @@ Use these tests before keeping a form the derivation layer already owns.
 
 [PARALLEL_RESTATEMENT]:
 - Smell: a hand union tracks a table's keys, an interface mirrors a derivable type, a second constant restates rows another declaration carries, an exported anchor's annotation restates every row, a central table collects rows other modules contribute, or a value ungoverned by the type plane drifts unchecked beside its generated union.
-- Collapse: derive — `keyof typeof`, indexed access, mapped generation, template cross product, or the shipped extractor — home the shape proof as the namespace guard pair, open the row set through the registry seam when contribution crosses modules, and govern the value under the generated union's stated annotation.
+- Collapse: derive — `keyof typeof`, indexed access, mapped generation, template cross product, or the shipped extractor — home the shape proof as the namespace guard pair, open the row set through the registry merge when contribution crosses modules, and govern the value under the generated union's stated annotation.
 - Done when: every secondary surface computes from its anchor, every governed value breaks on anchor growth, and deleting the parallel changes no meaning anywhere.
 
 [CALL_SITE_RESIDUE]:
@@ -505,5 +505,5 @@ Use these tests before keeping a form the derivation layer already owns.
 
 [UNWITNESSED_ABSTRACTION]:
 - Smell: an HKT combinator every call site applies to one container, a state parameter that is unused or carries domain data, a variance struct missing a parameter's row, a TypeId minted for a shape a Schema owner admits, or a registry whose every row one module contributes.
-- Collapse: the ordinary generic or the container's own module; a structural or `Types.Invariant` witness, or a field on the owning shape; the completed struct; `Schema.brand` at the decode seam; the closed `as const` table.
+- Collapse: the ordinary generic or the container's own module; a structural or `Types.Invariant` witness, or a field on the owning shape; the completed struct; `Schema.brand` at the decode boundary; the closed `as const` table.
 - Done when: every lambda has plural instances at real call sites, every state parameter is witnessed and protocol-only, and every nominal or open form carries its witness.

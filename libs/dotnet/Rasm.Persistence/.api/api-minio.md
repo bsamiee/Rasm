@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[CLIENT_TYPES]: the client contract, its state carrier, and the pluggable credential and handler seams.
+[CLIENT_TYPES]: the client contract, its state carrier, and the pluggable credential and handler interfaces.
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                      |
 | :-----: | :------------------------- | :------------ | :------------------------------------------------ |
@@ -51,7 +51,7 @@
 |  [14]   | `SelectResponseStream`           | select result  | the server-side `SELECT` output stream          |
 |  [15]   | `PostPolicy`                     | presign policy | browser-direct upload form conditions           |
 |  [16]   | `MinioNotificationRaw`           | notification   | raw event payload on the change feed            |
-|  [17]   | `ResponseResult`                 | transport      | raw response the handler seams inspect          |
+|  [17]   | `ResponseResult`                 | transport      | raw response the handlers inspect               |
 |  [18]   | `Minio.DataModel.ILM.Transition` | ILM rule part  | `: Duration`; free-string `StorageClass`        |
 |  [19]   | `Minio.DataModel.ILM.Duration`   | ILM base       | `ExpiryDate` string with `double? Days`         |
 
@@ -197,8 +197,8 @@ Each builder adds these setters above its inherited tiers; `Tagging.GetObjectTag
 - `api-fastcdc`(`.api/api-fastcdc.md`): `FastCdc.GetChunks()` cut boundaries pack into `PutObjectArgs` multipart parts, so an upload window spans whole content-defined chunks and a re-upload skips the chunks the index already holds.
 - `api-parquetsharp`(`.api/api-parquetsharp.md`): a `ParquetFileWriter` managed-`Stream` sink writes straight into an upload stream, and `SelectObjectContentAsync` with `ParquetInputOptions` then pushes the predicate into the store, reading the stored object in place instead of a full GET.
 - `api-rocksdb`(`.api/api-rocksdb.md`): checkpoint and SST exports land as objects on this lane, and the symmetric bulk-restore reads them back through a range or full read.
-- `api-rabbitmq`(`.api/api-rabbitmq.md`): dead-lettered payloads and shovel snapshots take the same object residence as every other egress sink.
-- `api-deltalake`(`.api/api-deltalake.md`): delta-rs reaches a self-hosted S3 residence natively, so a table's files and this client's objects share one endpoint and credential.
+- `api-rabbitmq`(`.api/api-rabbitmq.md`): dead-lettered payloads and shovel snapshots take the same object storage as every other egress sink.
+- `api-deltalake`(`.api/api-deltalake.md`): delta-rs reaches a self-hosted S3 backend natively, so a table's files and this client's objects share one endpoint and credential.
 - `api-pollination-sdk`(`libs/dotnet/.api/api-pollination-sdk.md`): presigned upload and download requests resolve on the same S3 plane, so a fetched asset lands content-keyed through this transfer rather than a second HTTP uploader.
 - Within-lib: the builder tiers compose to full depth in one chain — SSE stance, version id, precondition ETag, and WORM retention stack onto one `PutObjectArgs`, `IProgress<ProgressReport>` streams transfer telemetry, and `IClientProvider` chains credential acquisition without a second client.
 - Within-lib: `ListenBucketNotificationsAsync` carries mutations originating outside this process, so it feeds the ledger as an external ingress rather than the op-log the event store projects from its own events.

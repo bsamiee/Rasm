@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYMUPDF]
 
-`pymupdf` owns the native MuPDF-backed document surface for the artifacts pdf rail: one `Document` root spanning the PDF/XPS/EPUB/CBZ/image family drives render, text/image/table extraction, per-page OCR, redaction, annotation, vector drawing, and page assembly, all through the bundled MuPDF C core. Whole-program AGPL copyleft binds that path to internal or permissively-licensed deployments and routes a distributed closed service to the BSD render and structural siblings on the same rail.
+`pymupdf` owns the native MuPDF-backed document surface for the artifacts pdf domain: one `Document` root spanning the PDF/XPS/EPUB/CBZ/image family drives render, text/image/table extraction, per-page OCR, redaction, annotation, vector drawing, and page assembly, all through the bundled MuPDF C core. Whole-program AGPL copyleft binds that path to internal or permissively-licensed deployments and routes a distributed closed service to the BSD render and structural siblings on the same path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -241,4 +241,4 @@ Five PDF page boxes: MediaBox (physical sheet), CropBox (visible region), TrimBo
 [LOCAL_ADMISSION]:
 - `import pymupdf` at boundary scope only.
 - Native calls own render, extract, OCR, redact, scrub, draw, table, and embed; a hand-rolled object walker, a second rasterizer, a re-clustered table grid, or a raster-to-PDF library beside `insert_image` is the deleted form.
-- AGPL routing is the rail's architecture constraint: reserve pymupdf for internal or permissively-licensed pipelines or an Artifex commercial seat, and route a distributed closed service's render/extract path to BSD `pypdfium2` and `pypdf`.
+- AGPL routing is the result's architecture constraint: reserve pymupdf for internal or permissively-licensed pipelines or an Artifex commercial seat, and route a distributed closed service's render/extract path to BSD `pypdfium2` and `pypdf`.

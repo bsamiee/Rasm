@@ -58,4 +58,4 @@
 - `Model/run#RUN_MODES`: folds the string INGRESS alone — `RunInput.Strings` over `CreateFromStringTensor` and the ONNX `Tensor<string>`. The egress half is `Model/extension#EXTENSION_OPS`', and the `ZipMap` classifier reader is the `Egress`→`OpOutput.Sequence` path this owner's `Classify` composes.
 
 [LOCAL_ADMISSION]:
-- Extension operators enter through `SessionOptions.RegisterOrtExtensions()`; tokenizer, preprocessing, and postprocessing operators stay model-rail assets, and native asset presence is model evidence before execution admits.
+- Extension operators enter through `SessionOptions.RegisterOrtExtensions()`; tokenizer, preprocessing, and postprocessing operators stay model-pipeline assets, and native asset presence is model evidence before execution admits.

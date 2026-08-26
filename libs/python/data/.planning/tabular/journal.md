@@ -12,14 +12,14 @@ Two caller-plane tables riding `Lakehouse.run` carry the journal: the append-onl
 
 ## [02]-[JOURNAL]
 
-- Owner: `FactJournal` — the one `Ledger` implementer, holding an opened `Lakehouse` handle beside a `DatasetRef` per residence so a committing member reaches the matrix and a reading member reaches the scan plane without either re-opening the other's provider. `_FACT_COLUMNS` and `_CUSTODY_COLUMNS` declare the two durable shapes and their schemas derive off them, `_FACT_LAYOUT` and `_CUSTODY_LAYOUT` carry them as arming specs, and `_subject` spells a custody identity once so claim, read, and destroy cannot key differently.
-- Cases: every member awaits, because the port's install proof refuses a member present yet not a coroutine function. Committing members ride `Lakehouse.run_async`, which owns the band hop; reading members fold the synchronous `columnar.execute` rail inside `async_boundary` over `on_thread`, since a scan on the drain's own loop stalls every producer suspended behind it.
+- Owner: `FactJournal` — the one `Ledger` implementer, holding an opened `Lakehouse` handle beside a `DatasetRef` per store so a committing member reaches the matrix and a reading member reaches the scan plane without either re-opening the other's provider. `_FACT_COLUMNS` and `_CUSTODY_COLUMNS` declare the two durable shapes and their schemas derive off them, `_FACT_LAYOUT` and `_CUSTODY_LAYOUT` carry them as arming specs, and `_subject` spells a custody identity once so claim, read, and destroy cannot key differently.
+- Cases: every member awaits, because the port's install proof refuses a member present yet not a coroutine function. Committing members ride `Lakehouse.run_async`, which owns the band hop; reading members fold the synchronous `columnar.execute` layer inside `async_boundary` over `on_thread`, since a scan on the drain's own loop stalls every producer suspended behind it.
 - Entry: `FactJournal.of` admits the two dataset refs, one `TableFormat`, and the in-engine credential rows both planes share, opening both handles through `Lakehouse.open` so a format-refused ref fails at admission rather than inside a member. Separate refs are load-bearing: a custody plane and an evidence plane carry different retention and different access posture, and folding them onto one table turns an erasure into a rewrite of the stream it must not touch.
 - Auto: `landed` proves the offered keys distinct, resolves the matched KEYS through one bounded probe, and then merges on `key`, so `accepted` names the rows the plane did not hold and `duplicate` names the redeliveries, the two partitioning the offered batch by construction and giving the port's drain the identity its accepted-only projection filters on. Distinctness is the merge's own precondition — two source rows matching one target abort the commit — and refusing the batch by name keeps each half counting every offered key exactly once. Order carries the whole correctness here: after the commit every offered key reads present, and no merge result slot names which rows inserted — deriving either half from a fused output tally reports zero duplicates forever, because that count includes rows merely COPIED into a rewritten file and so exceeds the batch it was handed. `scanned` lowers a `Scan` case to one predicate over the pinned columns and decodes each `payload` through the port's own `DECODE`, never a local codec.
 - Auto: `tallied` pushes its group-by INTO the engine — the port lifts `(resource, quantity)` onto `FactRow`, so `_TALLY_SQL` groups on `(tenant, resource)` over the bound `source` view and only the aggregate rows cross, where a row-wise fold allocates one object per metered fact of a settlement month to produce a handful of slots. `_billed` rebuilds `Priced`/`Aggregate` off those four columns, deriving `attributed` from the empty-tenant spelling exactly as `Priced.of` derives it from an absent one, so a pushed-down tally and `Aggregate.rolled` answer the identical `Map`.
 - Auto: `groomed` folds the horizon map into ONE predicate per retention class and answers the summed reclaim; a class whose horizon is absent contributes no clause, so a permanent class is untouched by construction rather than by a guard a later edit can drop.
 - Result: members use the `LakeResult` and `QueryCensus` their composed owners already return; this page adds no operation carrier, measure, or span.
-- Packages: `tabular/lakehouse#LAKEHOUSE` (`Lakehouse.open`/`run_async`, `LakeOp.Ensure`/`Merge`/`Delete`/`Read`, `LakePlane`, `TableLayout`, `LakeResult`), `tabular/columnar#SCAN` (`DatasetRef`/`ScanPlan.DuckDb`/`SecretRow`/`execute`/`quote_literal`), `tabular/interop#INTEROP` (`ColumnSpec`/`column_schema`/`column_frame` the two durable rosters derive through, and `DataLeg` this page anchors its `RAISES` table on), `pyarrow` (the Arrow types the rosters name and the scan-side column reads), `duckdb` (`Error`, the one raise root every scan leg names — no engine member is called here), `expression` (`Block`/`Map`/`Option` the folds ride), `msgspec` (`Struct` the frozen owner), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`), runtime (`RuntimeRail`/`FAULT_CONF`/`FaultRow`/`Catch`/`async_boundary`/`on_thread`, `clock.Hlc`, `identity.ContentKey`) and the port's own `FactRow`/`Fact`/`DECODE`/`Scan`/`Landing`/`Billed`/`Priced`/`Aggregate`/`Resource`/`Groomed`/`Tombstone`/`SubjectKey` vocabulary.
+- Packages: `tabular/lakehouse#LAKEHOUSE` (`Lakehouse.open`/`run_async`, `LakeOp.Ensure`/`Merge`/`Delete`/`Read`, `LakePlane`, `TableLayout`, `LakeResult`), `tabular/columnar#SCAN` (`DatasetRef`/`ScanPlan.DuckDb`/`SecretRow`/`execute`/`quote_literal`), `tabular/interop#INTEROP` (`ColumnSpec`/`column_schema`/`column_frame` the two durable rosters derive through, and `DataLeg` this page anchors its `RAISES` table on), `pyarrow` (the Arrow types the rosters name and the scan-side column reads), `duckdb` (`Error`, the one raise root every scan leg names — no engine member is called here), `expression` (`Block`/`Map`/`Option` the folds ride), `msgspec` (`Struct` the frozen owner), `beartype` (`@beartype(conf=FAULT_CONF)` on `of`), runtime (`RuntimeResult`/`FAULT_CONF`/`FaultRow`/`Catch`/`async_boundary`/`on_thread`, `clock.Hlc`, `identity.ContentKey`) and the port's own `FactRow`/`Fact`/`DECODE`/`Scan`/`Landing`/`Billed`/`Priced`/`Aggregate`/`Resource`/`Groomed`/`Tombstone`/`SubjectKey` vocabulary.
 - Growth: a new port member is one method composing the same two owners; a new object-plane identity is one `SecretRow` both handles inherit; a new landing half is one `Landing` column the probe already resolves; a new lifted column is one `_rowed` projection at the port and ONE `_FACT_COLUMNS` row here, its Arrow field and its commit projection both deriving; a new rollup axis is one `_TALLY_SQL` group key beside its `_billed` key field; a new table posture is one `TableLayout` edit; a new table format under this ledger costs zero edits here, the matrix already carrying every arm.
 - Boundary: this implementer records NO journal fact and its two handles carry `LakePlane.LEDGER` so the commit owner records none either — the port's own recursion law: a fact minted for a landing on this plane lands through that same landing. Its `landed`, `groomed`, and `claimed` commits therefore appear on the durable stream only as the rows they carry, never as commits of their own.
 - Boundary: no provider opens here, no engine is named, and no duration is spelled — `WINDOWS` prices retention at the port and this owner executes the reclaim the horizon hands it. Deleted forms: a second codec beside the port's `ENCODE`/`DECODE`, a landing half derived from a merge result's fused output tally, a matched-key probe run after the commit that resolved it, an erasure touching the fact stream, and a custody row on the evidence table.
@@ -38,7 +38,7 @@ from msgspec import Struct
 from rasm.data.tabular.columnar import DatasetRef, ScanPlan, SecretRow, execute, quote_literal
 from rasm.data.tabular.interop import ColumnSpec, DataLeg, column_frame, column_schema
 from rasm.data.tabular.lakehouse import Lakehouse, LakeOp, LakePlane, TableFormat, TableLayout
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.clock import Hlc
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.journal import (
@@ -121,7 +121,7 @@ _CUSTODY_LAYOUT: Final[TableLayout] = TableLayout(schema=_CUSTODY_SCHEMA, partit
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _armed(handle: Lakehouse, layout: TableLayout) -> "RuntimeRail[Lakehouse]":
+def _armed(handle: Lakehouse, layout: TableLayout) -> "RuntimeResult[Lakehouse]":
     return handle.run(LakeOp.Ensure(layout)).map(lambda _result: handle)
 
 
@@ -179,7 +179,7 @@ class FactJournal(Struct, frozen=True):
     @beartype(conf=FAULT_CONF)
     def of(
         cls, facts: DatasetRef, custody: DatasetRef, table_format: TableFormat = TableFormat.DELTA, *, secrets: tuple[SecretRow, ...] = ()
-    ) -> "RuntimeRail[FactJournal]":
+    ) -> "RuntimeResult[FactJournal]":
         return (
             Lakehouse.open(facts, table_format, secrets=secrets, plane=LakePlane.LEDGER)
             .bind(lambda held: _armed(held, _FACT_LAYOUT))
@@ -190,7 +190,7 @@ class FactJournal(Struct, frozen=True):
             )
         )
 
-    async def landed(self, rows: Block[FactRow], /) -> "RuntimeRail[Landing]":
+    async def landed(self, rows: Block[FactRow], /) -> "RuntimeResult[Landing]":
         keys = rows.map(lambda row: row.key)
         match _repeated(keys):
             case Option(tag="some", some=offender):
@@ -211,28 +211,28 @@ class FactJournal(Struct, frozen=True):
             case refused:
                 return Error(refused.error)
 
-    async def _matched(self, keys: Block[ContentKey]) -> "RuntimeRail[frozenset[str]]":
+    async def _matched(self, keys: Block[ContentKey]) -> "RuntimeResult[frozenset[str]]":
         listed = ", ".join(quote_literal(key.hex) for key in keys)
         plan = ScanPlan.DuckDb(f"SELECT key FROM source WHERE key IN ({listed})", ())
-        railed = await async_boundary(JOURNAL_PROBE, lambda: on_thread(lambda: execute(plan, self.fact_ref)), catch=_SCAN_RAISES)
-        return railed.map(lambda table: frozenset(table.column("key").to_pylist()))
+        outcome = await async_boundary(JOURNAL_PROBE, lambda: on_thread(lambda: execute(plan, self.fact_ref)), catch=_SCAN_RAISES)
+        return outcome.map(lambda table: frozenset(table.column("key").to_pylist()))
 
-    async def scanned(self, scan: Scan, /) -> "RuntimeRail[Block[Fact]]":
+    async def scanned(self, scan: Scan, /) -> "RuntimeResult[Block[Fact]]":
         return (await self._read(scan)).map(lambda table: Block.of_seq(DECODE(payload) for payload in table.column("payload").to_pylist()))
 
-    async def tallied(self, scan: Scan, /) -> "RuntimeRail[Billed]":
+    async def tallied(self, scan: Scan, /) -> "RuntimeResult[Billed]":
         plan = ScanPlan.DuckDb(_TALLY_SQL.format(predicate=_predicate(scan)), ())
-        railed = await async_boundary(JOURNAL_TALLY, lambda: on_thread(lambda: execute(plan, self.fact_ref)), catch=_SCAN_RAISES)
-        return railed.map(_billed)
+        outcome = await async_boundary(JOURNAL_TALLY, lambda: on_thread(lambda: execute(plan, self.fact_ref)), catch=_SCAN_RAISES)
+        return outcome.map(_billed)
 
-    async def groomed(self, horizon: Map[Retain, Hlc], /) -> "RuntimeRail[Groomed]":
+    async def groomed(self, horizon: Map[Retain, Hlc], /) -> "RuntimeResult[Groomed]":
         clauses = " OR ".join(f"(retention = {quote_literal(clazz.value)} AND stamp < {cutoff.packed})" for clazz, cutoff in horizon.items())
         if not clauses:
             return Ok(Groomed(reclaimed=0))
         reclaimed = await self.facts.run_async(LakeOp.Delete(clauses))
         return reclaimed.map(lambda result: Groomed(reclaimed=result.quantity))
 
-    async def claimed(self, subject: SubjectKey, wrapped: bytes, /) -> "RuntimeRail[bytes]":
+    async def claimed(self, subject: SubjectKey, wrapped: bytes, /) -> "RuntimeResult[bytes]":
         row = column_frame(_CUSTODY_COLUMNS, Block.singleton((subject, wrapped)))
         merged = await self.custody.run_async(
             LakeOp.Merge("target.tenant = source.tenant AND target.subject = source.subject", Map.empty(), delete_unmatched=False), row
@@ -249,17 +249,17 @@ class FactJournal(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def held(self, subject: SubjectKey, /) -> "RuntimeRail[Option[bytes]]":
+    async def held(self, subject: SubjectKey, /) -> "RuntimeResult[Option[bytes]]":
         plan = ScanPlan.DuckDb(f"SELECT wrapped FROM source WHERE {_subject(subject)}", ())
-        railed = await async_boundary(JOURNAL_CUSTODY, lambda: on_thread(lambda: execute(plan, self.custody_ref)), catch=_SCAN_RAISES)
-        return railed.map(lambda table: Some(table.column("wrapped")[0].as_py()) if table.num_rows else Nothing)
+        outcome = await async_boundary(JOURNAL_CUSTODY, lambda: on_thread(lambda: execute(plan, self.custody_ref)), catch=_SCAN_RAISES)
+        return outcome.map(lambda table: Some(table.column("wrapped")[0].as_py()) if table.num_rows else Nothing)
 
-    async def destroyed(self, stone: Tombstone, /) -> "RuntimeRail[Option[Tombstone]]":
+    async def destroyed(self, stone: Tombstone, /) -> "RuntimeResult[Option[Tombstone]]":
         key = SubjectKey(tenant=stone.tenant, subject=stone.subject)
         removed = await self.custody.run_async(LakeOp.Delete(_subject(key)))
         return removed.map(lambda result: Some(stone) if result.quantity else Nothing)
 
-    async def _read(self, scan: Scan) -> "RuntimeRail[pa.Table]":
+    async def _read(self, scan: Scan) -> "RuntimeResult[pa.Table]":
         return await async_boundary(
             JOURNAL_SCAN,
             lambda: on_thread(lambda: execute(ScanPlan.DuckDb(f"SELECT * FROM source WHERE {_predicate(scan)}", ()), self.fact_ref)),

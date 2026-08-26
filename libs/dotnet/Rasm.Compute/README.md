@@ -2,7 +2,7 @@
 
 `Rasm.Compute` is the measured-execution engine and discipline-assessment authority over the `ElementGraph`: a solver farm engineering failure as rigorously as success, every verdict and failure a content-keyed fact with retry policy. Screening loops re-solve thousands of variants, so failure caching, keyed reuse, and dispatchable sweeps are load-bearing, and a declared discipline Compute cannot answer is a coverage defect.
 
-One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and `ComputeOutput` returns the selected lane's value. Producing lanes retain their own results while instruments observe them directly.
+One intent pipeline admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and `ComputeOutput` returns the selected lane's value. Producing lanes retain their own results while instruments observe them directly.
 
 ## [01]-[ROUTER]
 
@@ -10,7 +10,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [01]-[VOCABULARY](.planning/Tensor/vocabulary.md): CPU tensor vocabulary — shape, factory, dtype, and op-family axes every numeric lane reads.
 - [02]-[LAYOUT](.planning/Tensor/layout.md): Layout forms and the one shape-edit request union.
 - [03]-[DISPATCH](.planning/Tensor/dispatch.md): Arity-keyed kernel dispatch and the differentiable-adjoint law.
-- [04]-[RESIDENCY](.planning/Tensor/residency.md): GPU residency lattice and the geometry-to-tensor encoding boundary.
+- [04]-[RESIDENCY](.planning/Tensor/residency.md): GPU residency matrix and the geometry-to-tensor encoding boundary.
 - [05]-[MEMORY](.planning/Tensor/memory.md): Bounded staging memory and the zero-copy stream pool.
 - [06]-[BLAS](.planning/Tensor/blas.md): Dense-BLAS, factorization, and spectral core.
 - [07]-[FACTOR](.planning/Tensor/factor.md): Sparse ingestion and the criterion-stack iterative solve.
@@ -37,13 +37,13 @@ One intent rail admits every execution request once, a substrate axis routes it 
 [SOLVER]:
 - [23]-[ELEMENT](.planning/Solver/element.md): One Vandermonde mechanism under twelve continuum types, beside the owned two-node member family.
 - [24]-[DISCRETIZATION](.planning/Solver/discretization.md): `MeshLane` volumetric generation with Dörfler adaptive refinement.
-- [25]-[FIELDSPACE](.planning/Solver/field.md): Seam where generation freezes and assembly reads out, so no consumer re-elects a rule already proven.
+- [25]-[FIELDSPACE](.planning/Solver/field.md): Boundary where generation freezes and assembly reads out; no consumer re-elects a proven rule.
 - [26]-[CONTRACT](.planning/Solver/contract.md): Solve admission and dispatch over the physics axis and its lane policy.
 - [27]-[ASSEMBLY](.planning/Solver/assembly.md): Operator assembly — cell fold, boundary conditions, lumped inertia.
 - [28]-[ROUTE](.planning/Solver/route.md): Route bodies, the recovery ladder, solve archive sessions, and coupled fields.
 - [29]-[CONSTITUTIVE](.planning/Solver/constitutive.md): Per-Gauss-point stress-update axis and contact enforcement.
 - [30]-[OPTIMIZER](.planning/Solver/optimizer.md): Design-space search axis with surrogate duality.
-- [31]-[EXACT](.planning/Solver/exact.md): CP-SAT/MILP exact lane — shadow prices, bound streams, and the vehicle-routing rail.
+- [31]-[EXACT](.planning/Solver/exact.md): CP-SAT/MILP exact lane — shadow prices, bound streams, and the vehicle-routing backend.
 - [32]-[SWEEP](.planning/Solver/sweep.md): N-dim DOE sweep grid and sensitivity analysis.
 - [33]-[CLASH](.planning/Solver/clash.md): Collision compute, occlusion rays, and the digital-twin loop.
 - [34]-[UNCERTAINTY](.planning/Solver/uncertainty.md): Forward-UQ and reliability over the shared evaluate oracle.
@@ -61,7 +61,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [42]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
 - [44]-[CLAIMS](.planning/Runtime/claims.md): Measured gate on every performance-motivated route — a winning claim whose fingerprint and class match.
 - [45]-[LEDGER](.planning/Runtime/ledger.md): Cost algebra, rate policy, and the tenant chargeback egress.
-- [47]-[WIRE](.planning/Runtime/wire.md): Proto vocabulary, `ParseGuard` admission, the served progress stream, and the client fault rail.
+- [47]-[WIRE](.planning/Runtime/wire.md): Proto vocabulary, `ParseGuard` admission, the served progress stream, and the client fault channel.
 - [48]-[CHANNELS](.planning/Runtime/channels.md): Channel mechanics — transport rows, call policy, and the artifact-frame law.
 - [49]-[INGEST](.planning/Runtime/ingest.md): Foreign-delivery boundary for sensor and dictionary material — bytes this process never controls.
 - [50]-[OBSERVATION](.planning/Runtime/observation.md): Durable half of the sensor wire — metered streams as graph evidence, sole reach to `Node`.
@@ -94,7 +94,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [SOLVER_SEARCH]:
 - `AngouriMath` — Managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
-- `Google.OrTools` — CP-SAT, MILP, and vehicle-routing exact rails the `Solver/exact` lane binds.
+- `Google.OrTools` — CP-SAT, MILP, and vehicle-routing exact backends the `Solver/exact` lane binds.
 - `GeneticSharp` — Evolutionary and metaheuristic `OptimizerKind` tier OR-Tools does not reach.
 - `Microsoft.Z3` — SMT rule satisfaction returning SAT/UNSAT and unsat-core, where CP-SAT optimizes.
 
@@ -113,7 +113,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 
 [REMOTE_TRANSPORT]:
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
-- `Grpc.Net.Common` — Shared compression and connectivity vocabulary beneath the gRPC rails.
+- `Grpc.Net.Common` — Shared compression and connectivity vocabulary beneath the gRPC channels.
 - `EC3` — openEPD REST service consumed hand-thin over `HttpClient`; no manifest row.
 
 ## [03]-[SUBSTRATE_PACKAGES]
@@ -124,8 +124,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
-- `Generator.Equals` — `[Equatable]` structural equality and `Inequalities` diff rails for class roots and collection members; union CASES only.
-- `JetBrains.Annotations`
+- `Generator.Equals` — `[Equatable]` structural equality and `Inequalities` diff surfaces for class roots and collection members; union CASES only.
 - `NodaTime`
 - `System.IO.Hashing`
 - `CommunityToolkit.HighPerformance`
@@ -137,7 +136,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [NUMERIC_SUBSTRATE]:
 - `CSparse` — Managed sparse direct-factor terminal.
 - `MathNet.Numerics` — Quadrature, distributions, and the MKL/OpenBLAS provider hooks.
-- `MathNet.Numerics.Data.Text` — Matrix Market sparse exchange bound by the `matrix-market-exchange` seam's `sparse` case.
+- `MathNet.Numerics.Data.Text` — Matrix Market sparse exchange bound by the `matrix-market-exchange` boundary's `sparse` case.
 - `PeterO.Numbers` — Exact-rational `ERational` ℚ⁷ dimension carrier and the `EFloat` criterion-sum accumulator.
 
 [GPU_DEVICE]:
@@ -170,7 +169,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — Envelope type the branch-owned MQTT 5.0 and NATS bindings raise; the kernel owns grammar, field mechanics, and decode.
-- `NATS.Net` — NATS Core subscription seam for broker sensor ingest and the request/reply compute leg.
+- `NATS.Net` — NATS Core subscription boundary for broker sensor ingest and the request/reply compute leg.
 
 [MACHINE_CONNECTIVITY]:
 - `MQTTnet` — MQTT v5 carrier beneath the branch-owned MQTT binding the sensor ingest decodes through.
@@ -180,7 +179,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore.Server`
 - `Grpc.Core.Api` — `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` on the served compute endpoints.
-- `Grpc.StatusProto` — `GetRpcStatus` decode of the `google.rpc.Status` trailer on the client rail; the producer leg stays AppHost's.
+- `Grpc.StatusProto` — `GetRpcStatus` decode of the `google.rpc.Status` trailer on the client channel; the producer leg stays AppHost's.
 - `Google.Api.CommonProtos` — `google.rpc.Status` and `BadRequest.FieldViolation`, the detail envelope and rule-refusal rows the fault wire carries.
 - `Celly.Protovalidate` — One concurrent `Validator` over the closed descriptor set; `ParseGuard.Read` validates after the bounded parse.
 - `NodaTime.Serialization.Protobuf`

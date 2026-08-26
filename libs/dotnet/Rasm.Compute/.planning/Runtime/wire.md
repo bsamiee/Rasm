@@ -3,7 +3,7 @@
 ## [01]-[INDEX]
 
 - [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, progress, stage, control, artifact, fault, clock, scan, and event families, rosters the surviving generated services, seats the bounded `ParseGuard` beside `WireServices`, and holds the one enum-to-key lowering every interior roster reads.
-- [03]-[FAULT_PROJECTION]: the total `StatusCode`→`WireFault` client rail and the `RemoteFault` admission composed off AppHost `FaultWire`.
+- [03]-[FAULT_PROJECTION]: the total `StatusCode`→`WireFault` client fold and the `RemoteFault` admission composed off AppHost `FaultWire`.
 - [04]-[JSON_CONTEXT]: `InvariantTextJsonConverter<T>`, `ComputeWireContext` — the one Strict STJ context every JSON-crossing Compute value rides.
 - [05]-[TS_PROJECTION]: the browser consumes the generated `@rasm\/contracts` schemas and service descriptors; this page mints no TS shape.
 
@@ -193,9 +193,9 @@ Each rpc carries one wire law:
 - [01]-[TESSELLATE]: bridges tessellation to the companion over two hops — the app root transcribes the Bim bridge request, `Runtime/tiles#TWO_HOP_TESSELLATION` validates and invokes it, and the Python geometry service reads the same generated message
 - [02]-[FETCH]: `Runtime/channels#ARTIFACT_FRAMES` validates `FetchRequest.sha256`, unwraps each `FetchResponse.frame`, and admits arrival-ordered frames under the whole-artifact SHA-256 gate
 - [03]-[PUT]: the same owner validates each shared frame, wraps it in `PutRequest.frame`, and admits `PutResponse.artifact` against the submitted digest and extent; storage mode remains the provider's atomic implementation detail
-- [04]-[SETDEGRADATION]: `SetDegradationRequest` lands its `DegradationLevel` on the one override rail as the `Rasm.AppHost/Runtime/config#KILL_SWITCH` `ForceLevel` arm, and the response answers the resolved level the caller re-admits; richer degradation evidence rides the health owner, so a column lands here when a caller reads it
-- [05]-[DRAINRUNTIME]: commits the drain phase and folds onto `Rasm.AppHost/Runtime/lifecycle#DRAIN_CONDUCTOR`, re-implementing nothing it holds; the request carries the parent's REMAINING cooperative allotment and the handler takes `min(inherited, DeadlineClass.DrainCooperative)`, since allotments inherit through nested seams as the minimum
-- [06]-[WATCH]: Compute SERVES this one — `Runtime/progress#OBSERVATION_SEAMS` `ProgressStream` overrides the generated base, admits the request through `ParseGuard.Validated`, subscribes the correlated `ProgressCell` at `SubscriptionPolicy.Wire`, ends the stream on the terminal mark, and the app root maps the service beside `Rasm.AppHost/Wire/companion#CONTROL_SERVICE` `ControlServiceImpl`; the peer client is `typescript:core/interchange/invoke#PROGRESS_WATCH`
+- [04]-[SETDEGRADATION]: `SetDegradationRequest` lands its `DegradationLevel` on the one override channel as the `Rasm.AppHost/Runtime/config#KILL_SWITCH` `ForceLevel` arm, and the response answers the resolved level the caller re-admits; richer degradation evidence rides the health owner, so a column lands here when a caller reads it
+- [05]-[DRAINRUNTIME]: commits the drain phase and folds onto `Rasm.AppHost/Runtime/lifecycle#DRAIN_CONDUCTOR`, re-implementing nothing it holds; the request carries the parent's REMAINING cooperative allotment and the handler takes `min(inherited, DeadlineClass.DrainCooperative)`, since allotments inherit through nested boundaries as the minimum
+- [06]-[WATCH]: Compute SERVES this one — `Runtime/progress#OBSERVATION_PORTS` `ProgressStream` overrides the generated base, admits the request through `ParseGuard.Validated`, subscribes the correlated `ProgressCell` at `SubscriptionPolicy.Wire`, ends the stream on the terminal mark, and the app root maps the service beside `Rasm.AppHost/Wire/companion#CONTROL_SERVICE` `ControlServiceImpl`; the peer client is `typescript:core/interchange/invoke#PROGRESS_WATCH`
 
 Each message carries its generated field set and wire role; enum vocabularies carry their `_UNSPECIFIED = 0` arm refused by `defined_only` + `not_in: [0]` rules:
 
@@ -218,13 +218,13 @@ Each message carries its generated field set and wire role; enum vocabularies ca
 
 ## [03]-[FAULT_PROJECTION]
 
-- Owner: `WireFault` is the local client-edge transport rail; `StatusRail` the CLIENT fold `StatusCode → WireFault`, keyed by numeric `StatusCode`; `Classify` the residual-status projection; `Decode` the detail admission composed off AppHost `FaultWire.Decode`.
+- Owner: `WireFault` is the local client-edge transport channel; `StatusFold` the CLIENT fold `StatusCode → WireFault`, keyed by numeric `StatusCode`; `Classify` the residual-status projection; `Decode` the detail admission composed off AppHost `FaultWire.Decode`.
 - Cases: every local transport arm derives its numeric identity from `[FaultCase]` against `FaultBand.Wire`, ordinals compacted with the unshipped plane; `Remote` carries the foreign `RemoteFault` opaquely and never reconstructs its source family.
 - Entry: `Decode(RpcException error, Error cause)` returns a cause-bearing `Remote` when AppHost admits exactly one detail, `None` when none was present; `Classify` projects residual transport status.
-- Law: `FaultWire` — `Observe`, `Recovery`, `Pack`, `Status`, `Raise`, `Decode`, `Admit` — together with `RemoteFault`, `WireViolation`, `WireBoundary`, and `FaultContext` live at `Rasm.AppHost/Runtime/ports#WIRE_LAW`; this page declares none of them and composes them by name. `FaultWire.Status` is the producer fold (`Error → StatusCode`); `StatusRail` here is its client inverse and never packs. `Decode` reads `error.GetRpcStatus()` through `Grpc.StatusProto` inside AppHost.
+- Law: `FaultWire` — `Observe`, `Recovery`, `Pack`, `Status`, `Raise`, `Decode`, `Admit` — together with `RemoteFault`, `WireViolation`, `WireBoundary`, and `FaultContext` live at `Rasm.AppHost/Runtime/ports#WIRE_LAW`; this page declares none of them and composes them by name. `FaultWire.Status` is the producer fold (`Error → StatusCode`); `StatusFold` here is its client inverse and never packs. `Decode` reads `error.GetRpcStatus()` through `Grpc.StatusProto` inside AppHost.
 - Law: recovery crosses through the generated `FaultRecovery` oneof because numeric identity alone cannot determine it; the detail's `domain` + `case` pair is the producing family's ordinal under its owner key and is NEVER a gRPC status code; the message rides `google.rpc.Status`.
-- Growth: a new local transport arm is one `[FaultCase]` leaf and one `StatusRail` entry when a status gains distinct semantics; a new malformed-envelope condition is one `WireViolation` case at the AppHost owner.
-- Boundary: the server raises through AppHost `FaultWire.Raise` with one `FaultDetail` in `google.rpc.Status.details`; the client admits exactly one recognized detail as opaque `RemoteFault` on a cause-bearing `WireFault.Remote`. Zero recognized details use transport classification; malformed or multiple recognized details retain the caught RPC error on AppHost's typed `WireBoundary` evidence. In-band conflict slots admit the same compact envelope as response evidence without fabricating a transport cause. Status lookup is keyed by numeric `StatusCode`, never ordinal position. This family is the CLIENT edge alone — the served `ProgressService` leaves its refusals through `FaultWire.Raise` at `Runtime/progress#OBSERVATION_SEAMS`, so no arm here is ever packed onto a trailer.
+- Growth: a new local transport arm is one `[FaultCase]` leaf and one `StatusFold` entry when a status gains distinct semantics; a new malformed-envelope condition is one `WireViolation` case at the AppHost owner.
+- Boundary: the server raises through AppHost `FaultWire.Raise` with one `FaultDetail` in `google.rpc.Status.details`; the client admits exactly one recognized detail as opaque `RemoteFault` on a cause-bearing `WireFault.Remote`. Zero recognized details use transport classification; malformed or multiple recognized details retain the caught RPC error on AppHost's typed `WireBoundary` evidence. In-band conflict slots admit the same compact envelope as response evidence without fabricating a transport cause. Status lookup is keyed by numeric `StatusCode`, never ordinal position. This family is the CLIENT edge alone — the served `ProgressService` leaves its refusals through `FaultWire.Raise` at `Runtime/progress#OBSERVATION_PORTS`, so no arm here is ever packed onto a trailer.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -263,7 +263,7 @@ public abstract partial record WireFault : Fault {
     public static Fin<Option<WireFault>> Decode(RpcException error, Error cause) =>
         FaultWire.Decode(error).Map(admitted => admitted.Map(remote => (WireFault)new Remote(remote, cause)));
 
-    private static readonly FrozenDictionary<StatusCode, Func<string, Error, WireFault>> StatusRail =
+    private static readonly FrozenDictionary<StatusCode, Func<string, Error, WireFault>> StatusFold =
         new Dictionary<StatusCode, Func<string, Error, WireFault>> {
             [StatusCode.Cancelled] = static (detail, cause) => new Cancelled(detail, cause),
             [StatusCode.DeadlineExceeded] = static (detail, cause) => new DeadlineExpired(detail, cause),
@@ -283,7 +283,7 @@ public abstract partial record WireFault : Fault {
         }.ToFrozenDictionary();
 
     public static WireFault Classify(RpcException error, Error cause) =>
-        StatusRail.TryGetValue(error.StatusCode, out Func<string, Error, WireFault>? make)
+        StatusFold.TryGetValue(error.StatusCode, out Func<string, Error, WireFault>? make)
             ? make(error.Status.Detail, cause)
             : new Unreachable(error.StatusCode, error.Status.Detail, cause);
 }

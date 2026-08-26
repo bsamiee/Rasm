@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_RESILIENCE]
 
-`Microsoft.Extensions.Http.Resilience` owns the outbound HTTP resilience rail: it folds standard, hedging, and custom `Polly` pipelines onto an `IHttpClientBuilder`, resolves a pipeline per request authority, and bridges request metadata into the resilience context. Every remote hop crosses one seam-local policy chain built on `Polly.Core`.
+`Microsoft.Extensions.Http.Resilience` owns the outbound HTTP resilience pipeline: it folds standard, hedging, and custom `Polly` pipelines onto an `IHttpClientBuilder`, resolves a pipeline per request authority, and bridges request metadata into the resilience context. Every remote hop crosses one boundary-local policy chain built on `Polly.Core`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -95,11 +95,11 @@
 - `Polly.Core`(`.api/api-polly-core.md`): the standard and hedging handlers build their strategy chains on `ResiliencePipelineBuilder`, `ResilienceHandler(pipeline)` wraps the built `ResiliencePipeline<HttpResponseMessage>`, and request metadata threads into `ResilienceContext.Properties` through the request-message extensions.
 - `Microsoft.Extensions.ServiceDiscovery`(`.api/api-service-discovery.md`): `AddResilienceHandler` and `IHttpClientBuilder.AddServiceDiscovery` fold onto one client builder with resilience outermost, so a retried attempt re-resolves the endpoint the discovery handler produced.
 - `Microsoft.Extensions.Http`: `HttpClientBuilderExtensions.AddHttpMessageHandler(this IHttpClientBuilder, Func<DelegatingHandler>)` appends a per-client link, and resilience seats outermost by the same insertion that puts it ahead of the discovery handler — so a link added this way runs INSIDE the retry and hedging loops and observes every attempt, not only the first.
-- Wire outbound composition: the outbound boundary folds one resilience handler per seam and selects the pipeline by authority, so each remote host carries its own retry schedule and breaker state.
+- Wire outbound composition: the outbound boundary folds one resilience handler per boundary and selects the pipeline by authority, so each remote host carries its own retry schedule and breaker state.
 
 [LOCAL_ADMISSION]:
-- Each outbound seam carries one resilience policy chain.
+- Each outbound boundary carries one resilience policy chain.
 - Hedging is admitted only when the remote operation is idempotent by policy.
 - Routing groups are explicit package policy, never hidden URI rewriting.
 - Request metadata enters the `Polly` context through the request-message extensions.
-- Domain retry schedules and HTTP resilience pipelines never stack on one seam.
+- Domain retry schedules and HTTP resilience pipelines never stack on one boundary.

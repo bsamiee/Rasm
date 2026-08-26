@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_OPENFEATURE_SERVER_SDK]
 
-`@openfeature/server-sdk` mints the vendor-neutral server evaluation contract: a global `OpenFeature` singleton registers a `Provider` and mints clients that answer `ResolutionDetails` per value kind, threading a `Hook` lifecycle, a provider event plane, and evaluation context keyed by `targetingKey` over `AsyncLocalStorage`. `proc/flag` is the one `Provider`, projecting its live ruleset onto this seam so every hook, context, and event rides the client path.
+`@openfeature/server-sdk` mints the vendor-neutral server evaluation contract: a global `OpenFeature` singleton registers a `Provider` and mints clients that answer `ResolutionDetails` per value kind, threading a `Hook` lifecycle, a provider event plane, and evaluation context keyed by `targetingKey` over `AsyncLocalStorage`. `proc/flag` is the one `Provider`, projecting its live ruleset onto this contract so every hook, context, and event rides the client path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -40,7 +40,7 @@
 |  [10]   | `.setTransactionContext(ctx, fn, ...args)`                         | static          | run `fn` under a request-scoped context       |
 |  [11]   | `.close()`                                                         | static          | scope-release teardown in `Flags` Layer       |
 |  [12]   | `client.track(name, context?, details?)`                           | instance        | associate a flag outcome with an action       |
-|  [13]   | `TypedInMemoryProvider`                                            | class           | in-memory provider for SDK-seam specs         |
+|  [13]   | `TypedInMemoryProvider`                                            | class           | in-memory provider for SDK-contract specs     |
 |  [14]   | `CommonProvider.domainScoped?` / `CommonProvider.track?`           | contract        | optional members a provider literal opts into |
 
 - `.getClient`: its one-argument arm reads as CONTEXT whenever the argument is not a string, so a domain always travels with its own slot.
@@ -54,9 +54,9 @@
 - Domain binding reaches the provider at init — `initialize` receives the domain the registration named, so a deployment serving several domains from one ruleset source specializes inside one provider class and the domain never becomes a second registry keyed outside the SDK.
 
 [STACKING]:
-- `effect`(`.api/effect.md`): the provider's promise members bridge through the runtime captured at Layer build — `Effect.runtime` + `Runtime.runPromise` for the callback seam, `Effect.tryPromise`/`Effect.promise` converting registration and `close` inside the `Flags` scoped build; a `Cache.makeWith` memo tier keys on reason with a TTL the `ConfigurationChanged` handler invalidates.
+- `effect`(`.api/effect.md`): the provider's promise members bridge through the runtime captured at Layer build — `Effect.runtime` + `Runtime.runPromise` for the callback boundary, `Effect.tryPromise`/`Effect.promise` converting registration and `close` inside the `Flags` scoped build; a `Cache.makeWith` memo tier keys on reason with a TTL the `ConfigurationChanged` handler invalidates.
 - `proc/flag` rule engine: the provider projects the pure `Rollout.decide` fold over the live ruleset cell — the SDK owns lifecycle and contract, the page owns targeting semantics and bucket parity.
-- `net/channel` `Feed`: ruleset patches arrive over the SSE seam, and the provider emits `ConfigurationChanged` per accepted patch so consumers invalidate on the SDK's own signal.
+- `net/channel` `Feed`: ruleset patches arrive over the SSE feed, and the provider emits `ConfigurationChanged` per accepted patch so consumers invalidate on the SDK's own signal.
 
 [LOCAL_ADMISSION]:
 - `proc/flag` implements exactly one `Provider`; a second or vendor provider is a roster decision, never a silent import. Domain fan-out rides that one class through the `initialize` domain argument, costing a specialization arm rather than a provider.

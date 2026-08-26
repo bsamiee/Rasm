@@ -51,7 +51,7 @@ Provider rows carry DIFFERENT halves. `httpfs` registers the `s3`, `gcs`, and `r
 |  [07]   | pool tuning    | `postgres_configure_pool('<n>', <size>)`           | connection-pool sizing per mount |
 |  [08]   | secret mount   | `CREATE SECRET <n> (TYPE postgres, ...)`           | credential off the attach string |
 
-[CONSUMER]: `tabular/columnar#SCAN` `Attach` carries the row through `DuckDbExtension.attach_type`, whose `_ATTACH_TYPE` entry spells the keyword divergence once, and `DuckDbSession.connect` loads each attach row's own extension before the `ATTACH` executes. `tabular/query#QUERY` `QueryEngine.session` is where a caller spells that `Attach`, so the `[TENANT_COST_JOIN]` fold against live tenant, grant, and workload tables runs as ONE statement beside the evidence residence rather than through a second transport.
+[CONSUMER]: `tabular/columnar#SCAN` `Attach` carries the row through `DuckDbExtension.attach_type`, whose `_ATTACH_TYPE` entry spells the keyword divergence once, and `DuckDbSession.connect` loads each attach row's own extension before the `ATTACH` executes. `tabular/query#QUERY` `QueryEngine.session` is where a caller spells that `Attach`, so the `[TENANT_COST_JOIN]` fold against live tenant, grant, and workload tables runs as ONE statement beside the evidence store rather than through a second transport.
 
 [DELTA_ENTRY_SCOPE]: Delta transaction-log reads
 
@@ -140,7 +140,7 @@ DuckLake is a DuckDB core extension attaching a table-format catalog backed by P
 
 [STACKING]:
 - `datafusion`(`.api/datafusion.md`): the `CALL get_substrait` BLOB is the same wire `Plan` `datafusion.substrait.Consumer` ingests, and `Producer` output feeds `CALL from_substrait`; neither side reimplements the protobuf codec.
-- `substrait`(`.api/substrait.md`): `Plan.ParseFromString` validates the emitted BLOB before a peer engine executes it. `get_substrait` emits a comparison-function anchor whose urn is the bare `extension:io.substrait:` — live-verified, and referenced by the declaration carrying `gt:i64_i64` — where the bundled registry rows `extension:io.substrait:functions_comparison`. `ExtensionRegistry.lookup_urn` therefore answers `None` for it, so a DuckDB-minted plan routed into the inbound plan gate refuses as an unknown extension. Estate plans mint and execute inside ONE connection instead, and that gate stays for the foreign wire it exists to admit.
+- `substrait`(`.api/substrait.md`): `Plan.ParseFromString` validates the emitted BLOB before a peer engine executes it. `get_substrait` emits a comparison-function anchor whose urn is the bare `extension:io.substrait:` — live-verified, and referenced by the declaration carrying `gt:i64_i64` — where the bundled registry rows `extension:io.substrait:functions_comparison`. `ExtensionRegistry.lookup_urn` therefore answers `None` for it, so a DuckDB-minted plan routed into the inbound plan gate refuses as an unknown extension. Repo plans mint and execute inside ONE connection instead, and that gate stays for the foreign wire it exists to admit.
 - `duckdb`(`.api/duckdb.md`): the `data` owner loads extensions on one bound connection and composes their SQL through `con.execute`/`con.sql`.
 
 [LOCAL_ADMISSION]:

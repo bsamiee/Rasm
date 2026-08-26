@@ -84,7 +84,6 @@ public sealed partial class SequenceCounter {
         ? (First + ((long)Step * index)) % Modulus
         : First + ((long)Step * index);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref int first, ref int step, ref int modulus) {
         if (first < 0 || step <= 0 || modulus < 0 || (modulus > 0 && first >= modulus))
@@ -119,7 +118,6 @@ public sealed partial class EmitPolicy {
     public RecordFrame Frame { get; }
     public BlockLimit Limit { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Encoding codec,

@@ -5,7 +5,7 @@
 ## [01]-[RESOURCE_ABI]
 
 [ABI_SCOPE]: the parameterized resource shape all three classes instantiate
-- `Image`/`Index`/`Provider` share `new X(name, XArgs, opts?)` where `opts` is the universal `pulumi.CustomResourceOptions`/`ResourceOptions` seam (`provider`/`dependsOn`/`parent`/`protect`, `.api/pulumi-pulumi.md`); adoption is `static get(name, id, opts?)` and every output prop is an `Output<T>` mirror. `Provider` extends `pulumi.ProviderResource`; `Image`/`Index` extend `pulumi.CustomResource`.
+- `Image`/`Index`/`Provider` share `new X(name, XArgs, opts?)` where `opts` is the universal `pulumi.CustomResourceOptions`/`ResourceOptions` parameter (`provider`/`dependsOn`/`parent`/`protect`, `.api/pulumi-pulumi.md`); adoption is `static get(name, id, opts?)` and every output prop is an `Output<T>` mirror. `Provider` extends `pulumi.ProviderResource`; `Image`/`Index` extend `pulumi.CustomResource`.
 
 | [INDEX] | [MEMBER]                    | [SHAPE_BOUNDARY]                                         |
 | :-----: | :-------------------------- | :------------------------------------------------------- |

@@ -84,7 +84,7 @@ Every surface is a `proto.Plan` method: the gate parses untrusted bytes with `Pa
 |  [06]   | `list_functions_across_urns` | `(name, sig) -> list[(FunctionEntry, Type)]`                   | enumerate overloads across URNs        |
 |  [07]   | `lookup_urn`                 | `(urn: str) -> int \| None`                                    | map a URN to its extension anchor      |
 
-[CONSUMER]: `tabular/query#QUERY` holds one default-loaded `_REGISTRY` and resolves every `extension_urns` entry through `lookup_urn`, a `None` answering the `PlanRefusal.UNKNOWN_EXTENSION` row; an estate function vocabulary beyond the bundled set registers there once through `register_extension_yaml`, so every inbound plan reads one vocabulary. `lookup_function` stays unbound: the gate resolves the extension SPACE a plan declares, and resolving each function overload needs the `(name, signature)` pair only a declaration walk carries.
+[CONSUMER]: `tabular/query#QUERY` holds one default-loaded `_REGISTRY` and resolves every `extension_urns` entry through `lookup_urn`, a `None` answering the `PlanRefusal.UNKNOWN_EXTENSION` row; a repo function vocabulary beyond the bundled set registers there once through `register_extension_yaml`, so every inbound plan reads one vocabulary. `lookup_function` stays unbound: the gate resolves the extension SPACE a plan declares, and resolving each function overload needs the `(name, signature)` pair only a declaration walk carries.
 
 [CONSUMER]: `tabular/query#QUERY` `_plan_provenance` re-reads `extension_urns` on the admitted plan and lands each `SimpleExtensionURN.urn` as a `("substrait-urn", urn)` lineage edge on the query result, so the foreign producer's function vocabulary survives the gate that resolved it.
 
@@ -150,7 +150,7 @@ Every `builders.plan` surface returns `Callable[[ExtensionRegistry], Plan]` — 
 - `Plan` crosses as the wire artifact itself, never a re-encoded copy: `SerializeToString` and `ByteSize` re-emit and measure a plan this package MINTS, while a gated inbound plan hands its original bytes onward untouched so the producer's content key survives.
 - `builders.plan`/`builders.type`/`builders.extended_expression` thunk `Callable[[ExtensionRegistry], Plan]`, building a plan lazily and binding functions against one registry; `read_named_table` and unary/binary combinators own the relation family.
 - `PlanPrinter.stringify_plan` renders a rejected or admitted plan to gate-log text — a display path, never a parse path.
-- Rejection answers a typed refusal row naming which of the four checks stopped, never an engine fault lifted onto the rail; admission returns the admitted `Plan`, and the consuming query owns any caller-required plan census.
+- Rejection answers a typed refusal row naming which of the four checks stopped, never an engine fault lifted onto the result; admission returns the admitted `Plan`, and the consuming query owns any caller-required plan census.
 - `protobuf` owns the wire codec beneath `ParseFromString`/`SerializeToString`; `datafusion` and the DuckDB substrait extension own plan production and execution; downstream owners consume an admitted `Plan` or its bytes.
 
 [STACKING]:

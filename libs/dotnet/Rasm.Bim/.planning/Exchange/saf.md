@@ -1,23 +1,23 @@
 # [SAF_EXCHANGE]
 
-`Rasm.Bim` owns the SAF (Structural Analysis Format) XLSX interchange codec the `Exchange/format#FORMAT_AXIS` `saf` row's `CanImport`/`CanExport` capabilities stand on: `SafCodec` validates and executes both workbook directions, lowers the seam `Graph/element#ELEMENT_GRAPH` `ElementGraph` onto an `ExcelModel`, and realizes an import by AUTHORING the GeometryGym structural-analysis entities the ONE `Projection/semantic#SEMANTIC_PROJECTOR` then ingests. SAF is an ANALYTICAL exchange, so its member spine is the physical-to-analytical `CorrespondenceRow` set this page folds off the seam Generic edges, and the DOF verdicts the `Model/structural#STRUCTURAL_PROJECTION` reader stamped cross as the SAF constraint pair. The workbook's own information sheet is authored here too — the seam STEP header's provenance beside the `ExcelNationalCode` design code, elected off the `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime` row whose KEY IS the SAF member name, so the design-code correspondence derives from that roster rather than standing a second table at the wire.
+`Rasm.Bim` owns the SAF (Structural Analysis Format) XLSX interchange codec the `Exchange/format#FORMAT_AXIS` `saf` row's `CanImport`/`CanExport` capabilities stand on: `SafCodec` validates and executes both workbook directions, lowers the shared `Graph/element#ELEMENT_GRAPH` `ElementGraph` onto an `ExcelModel`, and realizes an import by AUTHORING the GeometryGym structural-analysis entities the ONE `Projection/semantic#SEMANTIC_PROJECTOR` then ingests. SAF is an ANALYTICAL exchange, so its member spine is the physical-to-analytical `CorrespondenceRow` set this page folds off the shared Generic edges, and the DOF verdicts the `Model/structural#STRUCTURAL_PROJECTION` reader stamped cross as the SAF constraint pair. The workbook's own information sheet is authored here too — the shared STEP header's provenance beside the `ExcelNationalCode` design code, elected off the `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime` row whose KEY IS the SAF member name, so the design-code correspondence derives from that roster rather than standing a second table at the wire.
 
-Both legs read the reader's vocabulary rather than re-spelling it: the restraint families, the `LoadFamily` roster the action lowering dispatches on, and the `StructuralRows` axis families are the structural owner's. Foreign cells cross ONE `SafCell` admission that accumulates every missing column, the flat transcription rides ONE Mapperly seam, refusals rail `Model/faults#FAULT_BAND` `BimFault`, and the authoring residue accumulates on the `Projection/fidelity#FIDELITY_LEDGER` `WriterT<FidelityLog, Fin, A>` carrier.
+Both legs read the reader's vocabulary rather than re-spelling it: the restraint families, the `LoadFamily` roster the action lowering dispatches on, and the `StructuralRows` axis families are the structural owner's. Foreign cells cross ONE `SafCell` admission that accumulates every missing column, the flat transcription rides ONE Mapperly mapper, refusals return `Model/faults#FAULT_BAND` `BimFault`, and the authoring residue accumulates on the `Projection/fidelity#FIDELITY_LEDGER` `WriterT<FidelityLog, Fin, A>` carrier.
 
 ## [01]-[INDEX]
 
-- [02]-[SAF_EXCHANGE]: `SafOp` the direction carrier, `StructuralCorrespondence` with its `CorrespondenceRole` and `CurveVariety`/`SafCaseType` correspondences, `CorrespondenceRow`/`CorrespondenceJoint` with the `JointEnd` discriminant, `SafCell` the foreign-cell admission, the `Saf*` carriers with `SafInformation`, `SafSeam` the Mapperly transcription, and `SafCodec` — `Run`, `Correspondence`, `Workbook` under its stated `AnnexRegime` code, `Author`.
+- [02]-[SAF_EXCHANGE]: `SafOp` the direction carrier, `StructuralCorrespondence` with its `CorrespondenceRole` and `CurveVariety`/`SafCaseType` correspondences, `CorrespondenceRow`/`CorrespondenceJoint` with the `JointEnd` discriminant, `SafCell` the foreign-cell admission, the `Saf*` carriers with `SafInformation`, `SafMapper` the Mapperly transcription, and `SafCodec` — `Run`, `Correspondence`, `Workbook` under its stated `AnnexRegime` code, `Author`.
 
 ## [02]-[SAF_EXCHANGE]
 
-- Owner: `SafCodec` the SAF interchange codec — the ONLY page authoring SAF-sourced GeometryGym entities and the ONLY lowering of the seam graph onto `ExcelModel`; `StructuralCorrespondence` the closed `[SmartEnum<string>]` roster keyed on the analytical entity name, binding the physical member classes to their idealized counterparts with the schema-derived variety sets and, on a connection row, the `IfcBoundaryCondition` family its restraint lowers through; `CorrespondenceRow`/`CorrespondenceJoint` the typed member-and-joint spine both legs consume; `SafCell` the ONE foreign-cell admission; `SafInformation` the project-information row imaging the seam STEP header's provenance onto SAF's own project cells beside the elected design code; `SafSeam` the ONE `[Mapper]` owning the flat carrier-to-worksheet transcription.
-- Law: SAF import AUTHORS GeometryGym entities and re-enters through the ONE `SemanticProjector`, so a SAF-side projector minting seam member nodes is the deleted standalone form; `Exchange/import#IMPORT_RAIL` performs that re-entry off the returned database.
-- Entry: `SafCodec.Run(SafOp, IExcelImportService, IExcelExportService, IExcelValidator, Op)` validates and executes both directions over `ExcelModel.Objects`; the source version derives from `ExcelModel.OriginalVersion`, which the import service alone assigns, so a GRAPH-authored export model coalesces onto the target version rather than handing the validator a null `Version` — the ONE lawful coalesce on this page, resolved once at the entry. `SafCodec.Correspondence(ElementGraph, Op)` yields the typed member-and-joint rows; `SafCodec.Workbook(ElementGraph, GeometrySource, Option<AnnexRegime>, Op)` lowers the graph onto the `ExcelModel` the export leg writes, geometry crossing ONLY through the seam `GeometrySource` port and the design code electing off the stated regime row — REQUIRED and undefaulted exactly as the eurocode policy is, `None` writing no code cell rather than a fabricated `EC_Standard_EN`; `SafCodec.Author(DatabaseIfc, IfcSpatialElement, ExcelModel, Op)` returns `WriterT<FidelityLog, Fin, Unit>`, the residue riding the ledger rather than a bare string run a caller can drop.
+- Owner: `SafCodec` the SAF interchange codec — the ONLY page authoring SAF-sourced GeometryGym entities and the ONLY lowering of the element graph onto `ExcelModel`; `StructuralCorrespondence` the closed `[SmartEnum<string>]` roster keyed on the analytical entity name, binding the physical member classes to their idealized counterparts with the schema-derived variety sets and, on a connection row, the `IfcBoundaryCondition` family its restraint lowers through; `CorrespondenceRow`/`CorrespondenceJoint` the typed member-and-joint spine both legs consume; `SafCell` the ONE foreign-cell admission; `SafInformation` the project-information row imaging the shared STEP header's provenance onto SAF's own project cells beside the elected design code; `SafMapper` the ONE `[Mapper]` owning the flat carrier-to-worksheet transcription.
+- Law: SAF import AUTHORS GeometryGym entities and re-enters through the ONE `SemanticProjector`, so a SAF-side projector minting shared member nodes is the deleted standalone form; `Exchange/import#IMPORT_PIPELINE` performs that re-entry off the returned database.
+- Entry: `SafCodec.Run(SafOp, IExcelImportService, IExcelExportService, IExcelValidator, Op)` validates and executes both directions over `ExcelModel.Objects`; the source version derives from `ExcelModel.OriginalVersion`, which the import service alone assigns, so a GRAPH-authored export model coalesces onto the target version rather than handing the validator a null `Version` — the ONE lawful coalesce on this page, resolved once at the entry. `SafCodec.Correspondence(ElementGraph, Op)` yields the typed member-and-joint rows; `SafCodec.Workbook(ElementGraph, GeometrySource, Option<AnnexRegime>, Op)` lowers the graph onto the `ExcelModel` the export leg writes, geometry crossing ONLY through the shared `GeometrySource` port and the design code electing off the stated regime row — REQUIRED and undefaulted exactly as the eurocode policy is, `None` writing no code cell rather than a fabricated `EC_Standard_EN`; `SafCodec.Author(DatabaseIfc, IfcSpatialElement, ExcelModel, Op)` returns `WriterT<FidelityLog, Fin, Unit>`, the residue riding the ledger rather than a bare string run a caller can drop.
 - Auto: every dimensioned cell the authoring needs crosses `SafCell` ONCE into an admitted carrier, and the columns of one row ACCUMULATE — a point whose X and Z are unset names both. That admission is what deletes the fabricated measurement: an absent SAF coordinate no longer becomes a point at the origin, an absent thickness a zero-metre plate, an absent factor a unit multiplier, or an absent reference the empty lookup key that silently misses. `GuidOf` keeps `Guid.Empty` on a non-hex identity because SAF references are NAME-strung, so no cross-reference rides the Guid.
 - Output: the authoring's `FidelityLog` names every SAF payload this codec carries no IFC counterpart for — the surface-connection subsoil and point-support-deformation rows (GeometryGym's face condition and displacement components are sealed internal fields with no public authoring path), the rigid-link/member/cross relations (no IFC counterpart entity), the SAF result tables, and every directional or non-linear constraint DEGRADED to its linear base, one fact per occurrence with the row's own name as the anchor.
 - Packages: StructuralAnalysisFormat, GeometryGymIFC_Core, Riok.Mapperly, UnitsNet, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new SAF worksheet is one admitted carrier, one `SafSeam` mapping, and one arm on the `Workbook` and `Author` folds beside the roster row that classifies it; a new national design regime is one `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime` row and reaches this page as data, the import-side inverse costing no surface at all because `AnnexRegime.TryGet(code.ToString())` recovers the row from an imported workbook's own cell; a new SAF-to-IFC vocabulary axis is ONE row set carrying both directions as columns, never a map and its hand-kept inverse; a new physical member family is one entry on the owning roster row's physical map, its SAF role riding the same entry; a new analytical family is one roster row, never a second classifier beside the roster.
-- Boundary: the seam graph is the ONLY export source and this page's `Workbook` the ONLY lowering, so a second `Relationship.Generic` walker or a rail-side `ExcelModel` assembly is the deleted parallel form; geometry crosses by CONTENT KEY alone through the seam `GeometrySource` — a member whose `Axis` key resolves nothing emits its row without a length cell, the named degradation, never a fabricated span, and a connection's position is its own `PlacementTransform` origin rather than a second geometry lane; the design-code cell elects off the `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime` row's own KEY, so a second annex-to-`ExcelNationalCode` correspondence on this page, a `NationalAnnex` switch at the wire, and a stem derived from the annex abbreviation are each the deleted form — the abbreviation table is internal to `VividOrange.Standards` and its values do not stem the SAF token anyway; the named export negatives are stated per arm — the eccentricity content key is a preserved STEP fragment, not a Y/Z scalar pair, so the SAF eccentricity columns stay unset; the thermal gradient rows name no SAF cell, because TempL/R/T/B are fibre temperatures needing a section height no row carries, so only the constant DeltaT crosses; and the EN 1990 combination roster stays off the workbook, because SAF's combination table wants per-case factor arrays where the seam stores the package-generated `Definition` expressions, so a hand-parsed factor array off that text is the deleted form; an analytical member class outside the roster faults rather than silently skipping idealization, and a malformed eccentricity key faults the same way, because this codec's peer stamped it and a non-hex payload is corruption, never vocabulary; every quantity mints FROM already-SI seam magnitudes through the UnitsNet `From*` factories and reads back through the typed SI accessors, so neither `ToUnit(UnitSystem.SI)` nor `QuantityTypeConverter` is reached on this lane.
+- Growth: a new SAF worksheet is one admitted carrier, one `SafMapper` mapping, and one arm on the `Workbook` and `Author` folds beside the roster row that classifies it; a new national design regime is one `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime` row and reaches this page as data, the import-side inverse costing no surface at all because `AnnexRegime.TryGet(code.ToString())` recovers the row from an imported workbook's own cell; a new SAF-to-IFC vocabulary axis is ONE row set carrying both directions as columns, never a map and its hand-kept inverse; a new physical member family is one entry on the owning roster row's physical map, its SAF role riding the same entry; a new analytical family is one roster row, never a second classifier beside the roster.
+- Boundary: the element graph is the ONLY export source and this page's `Workbook` the ONLY lowering, so a second `Relationship.Generic` walker or a result-side `ExcelModel` assembly is the deleted parallel form; geometry crosses by CONTENT KEY alone through the shared `GeometrySource` — a member whose `Axis` key resolves nothing emits its row without a length cell, the named degradation, never a fabricated span, and a connection's position is its own `PlacementTransform` origin rather than a second geometry lane; the design-code cell elects off the `Model/eurocode#EUROCODE_ALGEBRA` `AnnexRegime` row's own KEY, so a second annex-to-`ExcelNationalCode` correspondence on this page, a `NationalAnnex` switch at the wire, and a stem derived from the annex abbreviation are each the deleted form — the abbreviation table is internal to `VividOrange.Standards` and its values do not stem the SAF token anyway; the named export negatives are stated per arm — the eccentricity content key is a preserved STEP fragment, not a Y/Z scalar pair, so the SAF eccentricity columns stay unset; the thermal gradient rows name no SAF cell, because TempL/R/T/B are fibre temperatures needing a section height no row carries, so only the constant DeltaT crosses; and the EN 1990 combination roster stays off the workbook, because SAF's combination table wants per-case factor arrays where the shared stores the package-generated `Definition` expressions, so a hand-parsed factor array off that text is the deleted form; an analytical member class outside the roster faults rather than silently skipping idealization, and a malformed eccentricity key faults the same way, because this codec's peer stamped it and a non-hex payload is corruption, never vocabulary; every quantity mints FROM already-SI shared magnitudes through the UnitsNet `From*` factories and reads back through the typed SI accessors, so neither `ToUnit(UnitSystem.SI)` nor `QuantityTypeConverter` is reached on this lane.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -179,17 +179,17 @@ public sealed partial class SafCaseType {
 
     public ExcelLoadCaseType Wire { get; }
     public IfcActionSourceTypeEnum Source { get; }
-    public Seq<string> Seam { get; }
+    public Seq<string> Neutral { get; }
 
     static readonly FrozenDictionary<ExcelLoadCaseType, SafCaseType> ByWire =
         Items.ToFrozenDictionary(static row => row.Wire, static row => row);
 
-    static readonly FrozenDictionary<string, SafCaseType> BySeam =
-        Items.SelectMany(static row => row.Seam.Select(token => (Token: token, Row: row)))
+    static readonly FrozenDictionary<string, SafCaseType> ByNeutral =
+        Items.SelectMany(static row => row.Neutral.Select(token => (Token: token, Row: row)))
             .ToFrozenDictionary(static pair => pair.Token, static pair => pair.Row, StringComparer.Ordinal);
 
-    public static Option<ExcelLoadCaseType> WireOf(string seamToken) =>
-        BySeam.TryGetValue(seamToken, out SafCaseType? row) && row is { } hit ? Some(hit.Wire) : None;
+    public static Option<ExcelLoadCaseType> WireOf(string neutralToken) =>
+        ByNeutral.TryGetValue(neutralToken, out SafCaseType? row) && row is { } hit ? Some(hit.Wire) : None;
 
     public static IfcActionSourceTypeEnum SourceOf(Option<ExcelLoadCaseType> wire) =>
         wire.Bind(static w => ByWire.TryGetValue(w, out SafCaseType? row) && row is { } hit ? Some(hit) : None)
@@ -297,7 +297,7 @@ internal readonly record struct SafConstraint(ExcelConstraintType? Type, double 
 }
 
 [Mapper(EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
-internal static partial class SafSeam {
+internal static partial class SafMapper {
     internal static partial ExcelModelInformation ToWorksheet(SafInformation information);
 
     [MapProperty(nameof(SafPoint.X), nameof(ExcelStructuralPointConnection.X))]
@@ -417,7 +417,7 @@ public static class SafCodec {
             Seq<Relationship.Generic> activities = generics.Filter(static edge => edge.WireName == IfcRelKind.ConnectsStructActivity.Key);
 
             Seq<IExcelModuleObject> points = Nodes(graph, StructuralCorrespondence.PointConnection)
-                .Map(node => (IExcelModuleObject)SafSeam.ToWorksheet(new SafPoint(
+                .Map(node => (IExcelModuleObject)SafMapper.ToWorksheet(new SafPoint(
                     SafName(node), GuidOf(node),
                     node.Placement.Map(static frame => frame.Location.X).IfNone(0d),
                     node.Placement.Map(static frame => frame.Location.Y).IfNone(0d),
@@ -443,7 +443,7 @@ public static class SafCodec {
             Seq<IExcelModuleObject> loads = activities.Bind(edge => Actions(objects, edge));
 
             Seq<IExcelModuleObject> information = Seq<IExcelModuleObject>(
-                SafSeam.ToWorksheet(Information(graph, regime)));
+                SafMapper.ToWorksheet(Information(graph, regime)));
 
             return new ExcelModel(
                 (information + points + members + supports + releases + cases + loads).ToList(),
@@ -468,7 +468,7 @@ public static class SafCodec {
         Seq<CorrespondenceJoint> ordered =
             row.Joints.Filter(static joint => joint.End == Some(JointEnd.Start))
             + row.Joints.Filter(static joint => joint.End != Some(JointEnd.Start));
-        ExcelStructuralCurveMember member = SafSeam.ToWorksheet(new SafCurve(
+        ExcelStructuralCurveMember member = SafMapper.ToWorksheet(new SafCurve(
             SafName(node), GuidOf(node),
             ordered.Head.Map(joint => Host(objects, joint.Connection)).IfNone(""),
             ordered.Last.Map(joint => Host(objects, joint.Connection)).IfNone(""),
@@ -479,7 +479,7 @@ public static class SafCodec {
     }
 
     private static ExcelStructuralSurfaceMember Surface(ElementGraph graph, CorrespondenceRow row, Node.Object node) {
-        ExcelStructuralSurfaceMember member = SafSeam.ToWorksheet(new SafSurface(
+        ExcelStructuralSurfaceMember member = SafMapper.ToWorksheet(new SafSurface(
             SafName(node), GuidOf(node), Seq<string>(), "",
             StructuralProjection.Si(BagOf(graph, node.Id), StructuralRow.Thickness.Name), row.SafRole));
         return member;

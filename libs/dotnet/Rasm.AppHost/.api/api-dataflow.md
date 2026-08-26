@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_DATAFLOW]
 
-`System.Threading.Tasks.Dataflow` owns bounded in-process message blocks for AppHost background work: a block drains under a `BoundedCapacity` bound with `SendAsync` backpressure, `LinkTo` wires a block graph that fans completion end to end, and the `Completion` task gates drain while surfacing faults. Broadcast, batch, and join blocks feed the drainable-queue and event-bus rails; every block stays internal, surfaced only as runtime intent on the public ports.
+`System.Threading.Tasks.Dataflow` owns bounded in-process message blocks for AppHost background work: a block drains under a `BoundedCapacity` bound with `SendAsync` backpressure, `LinkTo` wires a block graph that fans completion end to end, and the `Completion` task gates drain while surfacing faults. Broadcast, batch, and join blocks feed the drainable-queue and event-bus pipelines; every block stays internal, surfaced only as runtime intent on the public ports.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -74,6 +74,6 @@
 - `Wire/topics.md`: `Topic` and `Subscription` compose the `Runtime/resources` `DrainSurface` builders — `BroadcastBlock` topic fan, one bounded `ActionBlock` as both subscription intake and consumer, `JoinBlock` correlate, `BatchedJoinBlock` coalesce — never a raw block.
 
 [LOCAL_ADMISSION]:
-- Background work enters bounded blocks; drain awaits `Completion` and faults the owning operation rail on block failure.
+- Background work enters bounded blocks; drain awaits `Completion` and faults the owning operation on block failure.
 - Blocks stay internal implementation; public ports expose runtime intent and outcomes, never a block.
 - Grouping blocks enter only when batch or join semantics ride the operation result.

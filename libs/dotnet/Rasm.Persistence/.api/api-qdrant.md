@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_QDRANT]
 
-`Qdrant.Client` owns the scale-out distributed vector-store lane, the billion-scale ANN residence past the in-Postgres `pgvector` tier. `QdrantClient` fronts a `QdrantGrpcClient` gRPC channel speaking the `Qdrant.Client.Grpc` protobuf model, folding named, sparse, and multi-vector collections, server-side quantization, the universal `QueryAsync` fusion/formula retrieval API, payload push-down, and multitenant sharding onto one async surface. In-Postgres `pgvector` holds the default residence; Qdrant enters where ANN cardinality or recall tuning exceeds an HNSW index.
+`Qdrant.Client` owns the scale-out distributed vector-store lane, the billion-scale ANN backend past the in-Postgres `pgvector` tier. `QdrantClient` fronts a `QdrantGrpcClient` gRPC channel speaking the `Qdrant.Client.Grpc` protobuf model, folding named, sparse, and multi-vector collections, server-side quantization, the universal `QueryAsync` fusion/formula retrieval API, payload push-down, and multitenant sharding onto one async surface. In-Postgres `pgvector` is the default backend; Qdrant enters where ANN cardinality or recall tuning exceeds an HNSW index.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -124,14 +124,14 @@
 [TOPOLOGY]:
 - `QdrantClient` maps friendly arguments onto `QdrantGrpcClient`, the raw `Grpc.Net.Client` channel carrying the generated `Collections`/`Points`/`Snapshots`/`Qdrant` service clients.
 - Implicit conversions on the `Google.Protobuf` model widen a `ulong`/`Guid`/`string` to `PointId` and a `float[]`/`ReadOnlyMemory<float>` to `Vector`, so the façade takes primitive ids and vectors directly.
-- Binary gRPC binds port `6334`, distinct from the `6333` REST port; `https`/`apiKey`/`headers` configure TLS and the `api-key` metadata, and the `QdrantGrpcClient` ctor overload is the DI seam where `Grpc.Net.ClientFactory` owns channel pooling.
+- Binary gRPC binds port `6334`, distinct from the `6333` REST port; `https`/`apiKey`/`headers` configure TLS and the `api-key` metadata, and the `QdrantGrpcClient` ctor overload is the DI integration point where `Grpc.Net.ClientFactory` owns channel pooling.
 - Every façade method is `Task`-returning and `CancellationToken`-aware; the client is async-only.
 
 [STACKING]:
 - `api-pgvector-ef` / `api-pgvectorscale`: the `Query/retrieval` `VectorBackend` row discriminates the in-Postgres leg from this scale-out leg on cardinality and recall, and the canonical vector value object with its `Distance` metric crosses both, so one embedding serves either tier.
-- `api-objectstore`: `CreateSnapshotAsync` bytes land in the object-store residence holding the Parquet and Delta extracts, so vector backup shares the `Store/blobstore` lane.
+- `api-objectstore`: `CreateSnapshotAsync` bytes land in the object store holding the Parquet and Delta extracts, so vector backup shares the `Store/blobstore` lane.
 - embedding ingest: a `[ValueObject]` embedding owner projects onto `Vector`/`SparseVector` through the implicit conversion and the payload map carries the `Element/graph` element fact as a protobuf `Value` map; `Document` hands raw text to server-side inference, so Qdrant computes the embedding.
-- telemetry: the `QdrantClient(loggerFactory)` ctor wires `Microsoft.Extensions.Logging` and the channel's `Activity` spans feed the AppHost `telemetry` port through the admitted OpenTelemetry gRPC instrumentation, making query latency and recall a span; `QdrantException` lifts at the façade edge onto the store-profile failure rail.
+- telemetry: the `QdrantClient(loggerFactory)` ctor wires `Microsoft.Extensions.Logging` and the channel's `Activity` spans feed the AppHost `telemetry` port through the admitted OpenTelemetry gRPC instrumentation, making query latency and recall a span; `QdrantException` lifts at the façade edge onto the store-profile failure channel.
 - resilience: the `grpcTimeout` ctor argument sets the per-call deadline and the channel's service config retries transient gRPC status codes, aligning Qdrant with the `Polly`-shaped engine retry the other transports carry.
 
 [LOCAL_ADMISSION]:

@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_EKS]
 
-`@pulumi/eks` owns the managed-Kubernetes escalation of the `aws` column — EKS control plane, access-entry auth, IRSA/OIDC wiring, managed and self-managed node capacity, Fargate, EKS Auto Mode, and addon lifecycle as one `Cluster` component with satellite node/addon components. `cluster.kubeconfigJson` binds a `k8s.Provider`, so promoting the `aws` column to a k8s-shaped estate is a provider-seam swap that reuses the `kube/*` tier roster unchanged. `Cluster` composes `@pulumi/aws` and `@pulumi/kubernetes` in-process, so its children are typed resources under Pulumi diff and CrossGuard.
+`@pulumi/eks` owns the managed-Kubernetes escalation of the `aws` column — EKS control plane, access-entry auth, IRSA/OIDC wiring, managed and self-managed node capacity, Fargate, EKS Auto Mode, and addon lifecycle as one `Cluster` component with satellite node/addon components. `cluster.kubeconfigJson` binds a `k8s.Provider`, so promoting the `aws` column to a k8s-shaped deployment is a provider swap that reuses the `kube/*` tier roster unchanged. `Cluster` composes `@pulumi/aws` and `@pulumi/kubernetes` in-process, so its children are typed resources under Pulumi diff and CrossGuard.
 
 ## [01]-[CLUSTER_COMPONENT]
 
@@ -16,9 +16,9 @@ Deprecated aliases sit beside live members and map onto the same values — `Aut
 
 | [INDEX] | [MEMBER]                  | [SHAPE_MEANING]                                                                                            |
 | :-----: | :------------------------ | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `cluster.kubeconfigJson`  | `Output<string>` — the provider seam; `kubeconfig` is its structured `Output<any>` twin                    |
+|  [01]   | `cluster.kubeconfigJson`  | `Output<string>` — the provider binding; `kubeconfig` is its structured `Output<any>` twin                 |
 |  [02]   | `cluster.getKubeconfig`   | `(profileName?, roleArn?)` → `Output<{ result: string }>`; role/profile-scoped kubeconfig for off-host use |
-|  [03]   | `cluster.provider`        | ready-bound provider handle; explicit `k8s.Provider({ kubeconfig })` is the arm-seam spelling              |
+|  [03]   | `cluster.provider`        | ready-bound provider handle; explicit `k8s.Provider({ kubeconfig })` is the arm-level binding              |
 |  [04]   | `cluster.eksCluster`      | `Output<aws.eks.Cluster>` — the underlying typed resource for raw-attribute reach                          |
 |  [05]   | `cluster.core`            | `Output<CoreData>` — assembled internals (subnets, roles, security groups) satellite components consume    |
 |  [06]   | `cluster.createNodeGroup` | `(name, ClusterNodeGroupOptionsArgs)` mixin — a self-managed group bound to this plane                     |
@@ -63,4 +63,4 @@ Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon`
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `cluster.kubeconfigJson` binds `new k8s.Provider({ kubeconfig, enableServerSideApply: true })`, and every `kube/*` row — `helm.v4.Chart` operators, `apiextensions.CustomResource` — rides the EKS plane through that one provider.
 - `@pulumi/postgresql`(`.api/pulumi-postgresql.md`): the `kube/data` CNPG `Cluster` declared through the k8s provider exposes its `-rw` service host into `postgresql.Provider`, so the data plane finalizes over the EKS-hosted CNPG operator.
 - `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the component's children are typed resources under Pulumi diff and CrossGuard, and a construction failure rejects the lifecycle operation and maps to `DeployFault`.
-- within-lib: the `provider/dispatch` `aws` arm promotes to a k8s-shaped estate by swapping only the provider seam — `ManagedNodeGroup`/`NodeGroupV2` capacity and `createOidcProvider` IRSA anchors ride the same `Cluster` the arm already constructs.
+- within-lib: the `provider/dispatch` `aws` arm promotes to a k8s-shaped deployment by swapping only the provider binding — `ManagedNodeGroup`/`NodeGroupV2` capacity and `createOidcProvider` IRSA anchors ride the same `Cluster` the arm already constructs.

@@ -16,7 +16,7 @@
 - Entry: `AdmissionError(phase, cause)` with `phase`, `cause`, and `violations` read-only.
 - Packages: `protovalidate` (`ValidationError`, `CompilationError`, `EvaluationError`, `Violation`); stdlib `enum` and `typing`.
 - Growth: a new posture value lands as one enum member and one arm in each closed match of `[03]-[ADMISSION]`; the type checker names the missing arm.
-- Boundary: the posture pair and the carrier hold no message body; `transport/shapes#VOCABULARY` maps the carrier onto the runtime fault rail.
+- Boundary: the posture pair and the carrier hold no message body; `transport/shapes#VOCABULARY` maps the carrier onto the runtime fault channel.
 
 ```python
 """Descriptor-driven admission for asynchronous Connect message bodies."""

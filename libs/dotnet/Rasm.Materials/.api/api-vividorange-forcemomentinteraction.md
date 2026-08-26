@@ -1,6 +1,6 @@
 # [RASM_MATERIALS_API_VIVIDORANGE_FORCEMOMENTINTERACTION]
 
-`VividOrange.ForceMomentInteraction` owns the N-M-M column capacity-hull concrete: `ForceMomentVertex` carries one `(Force N, Torque My, Torque Mz)` point, `ForceMomentMesh` welds those points into the closed capacity onion behind a topology kernel, and `ForceMomentTriFace` weights each facet. This package owns the mesh DATA and topology algebra; the engine produces the vertices, and consumers read the hull through the interface floor. Coordinates stay `UnitsNet` `Force`/`Torque` quantities, so the surface renders as a `VividOrange.Geometry` mesh and round-trips the taxonomy JSON rail.
+`VividOrange.ForceMomentInteraction` owns the N-M-M column capacity-hull concrete: `ForceMomentVertex` carries one `(Force N, Torque My, Torque Mz)` point, `ForceMomentMesh` welds those points into the closed capacity onion behind a topology kernel, and `ForceMomentTriFace` weights each facet. This package owns the mesh DATA and topology algebra; the engine produces the vertices, and consumers read the hull through the interface floor. Coordinates stay `UnitsNet` `Force`/`Torque` quantities, so the surface renders as a `VividOrange.Geometry` mesh and round-trips the taxonomy JSON serializer.
 
 ## [01]-[PUBLIC_TYPES]
 

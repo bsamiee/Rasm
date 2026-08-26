@@ -1,37 +1,37 @@
 # [TRANSPORT]
 
-Wire transport is one axis declared at composition roots. Every cross-package call travels a typed port record — call arrows and policy values, zero provider types — materialized from a closed transport-row vocabulary, so in-process hand-off, UDS companion, remote TLS, and browser translation are rows of one axis and a call site can neither see nor select the byte mover. One generated message per concept is the wire vocabulary, reached through the one committed generated assembly, and one corpus emission owns compatibility — a wire reshapes in place, a wire generation compares at attach, unknown fields tolerate on the binary and the JSON door alike; every JSON crossing is ProtoJSON of that same generated message through one registry-bearing formatter and parser pair; hostile bytes parse under `CreateWithLimits`; frozen fixtures write `Deterministic`; a fault leaves as one `google.rpc.Status` detail through `Grpc.StatusProto`; temporal values cross as well-known types through one dual-codec bridge; server exposure is one record folded at the app root; local endpoints live behind a discovery manifest whose publish-last ordering makes liveness a single observable bit; raw corridors admit frames under one four-gate invariant; partial updates are binary `FieldMask` merges applied once and re-admitted whole. Hop resilience arrives composed — the channel's retry row or the seam's pipeline owns each hop, declared as one row column, never both. Growth lands as rows: a new peer is a route row, a new service an exposure row, a new wire family one generated context, a new frame kind one cap row.
+Wire transport is one axis declared at composition roots. Every cross-package call travels a typed port record — call arrows and policy values, zero provider types — materialized from a closed transport-row vocabulary, so in-process hand-off, UDS companion, remote TLS, and browser translation are rows of one axis and a call site can neither see nor select the byte mover. One generated message per concept is the wire vocabulary, reached through the one committed generated assembly, and one corpus emission owns compatibility — a wire reshapes in place, a wire generation compares at attach, unknown fields tolerate on the binary and the JSON door alike; every JSON crossing is ProtoJSON of that same generated message through one registry-bearing formatter and parser pair; hostile bytes parse under `CreateWithLimits`; frozen fixtures write `Deterministic`; a fault leaves as one `google.rpc.Status` detail through `Grpc.StatusProto`; temporal values cross as well-known types through one dual-codec bridge; server exposure is one record folded at the app root; local endpoints live behind a discovery manifest whose publish-last ordering makes liveness a single observable bit; raw corridors admit frames under one four-gate invariant; partial updates are binary `FieldMask` merges applied once and re-admitted whole. Hop resilience arrives composed — the channel's retry row or the boundary's pipeline owns each hop, declared as one row column, never both. Growth lands as rows: a new peer is a route row, a new service an exposure row, a new wire family one generated context, a new frame kind one cap row.
 
 ## [01]-[TRANSPORT_CHOOSER]
 
 This table routes a wire concern to its owning surface; the most specific row wins.
 
-| [INDEX] | [CONCERN]            | [OWNER]                                                             | [REJECTED_FORM]                |
-| :-----: | :------------------- | :------------------------------------------------------------------ | :----------------------------- |
-|  [01]   | peer channel         | one channel row per authority at the root                           | per-call `ForAddress` scatter  |
-|  [02]   | cross-package calls  | port record + transport-row column                                  | `if (remote)` call-site branch |
-|  [03]   | wire retry           | per-row owner column: channel or seam                               | stacked double owner           |
-|  [04]   | wire reshape         | one corpus emission + attach-time generation                        | per-seam compatibility checks  |
-|  [05]   | temporal wire values | well-known types + converter slots                                  | serialized temporal text       |
-|  [06]   | server exposure      | one exposure record fold at the app root                            | per-service options scatter    |
-|  [07]   | wire faults          | `FaultDetail` in `google.rpc.Status.details` via `Grpc.StatusProto` | code-plus-string parsing       |
-|  [08]   | browser access       | translation row + endpoint consent                                  | second browser client          |
-|  [09]   | local endpoint       | manifest-gated UDS lifecycle                                        | ad-hoc socket paths            |
-|  [10]   | peer identity        | connection-level kernel credentials                                 | call-context peer read         |
-|  [11]   | artifact corridor    | framed-corridor invariant                                           | unframed stream writes         |
-|  [12]   | JSON crossings       | ProtoJSON of the generated message                                  | STJ record mirror per surface  |
-|  [13]   | partial updates      | `FieldMask` + `Merge` on the binary shape                           | JSON-patch over ProtoJSON      |
+| [INDEX] | [CONCERN]            | [OWNER]                                                             | [REJECTED_FORM]                   |
+| :-----: | :------------------- | :------------------------------------------------------------------ | :-------------------------------- |
+|  [01]   | peer channel         | one channel row per authority at the root                           | per-call `ForAddress` scatter     |
+|  [02]   | cross-package calls  | port record + transport-row column                                  | `if (remote)` call-site branch    |
+|  [03]   | wire retry           | per-row owner column: channel or boundary                           | stacked double owner              |
+|  [04]   | wire reshape         | one corpus emission + attach-time generation                        | per-boundary compatibility checks |
+|  [05]   | temporal wire values | well-known types + converter slots                                  | serialized temporal text          |
+|  [06]   | server exposure      | one exposure record fold at the app root                            | per-service options scatter       |
+|  [07]   | wire faults          | `FaultDetail` in `google.rpc.Status.details` via `Grpc.StatusProto` | code-plus-string parsing          |
+|  [08]   | browser access       | translation row + endpoint consent                                  | second browser client             |
+|  [09]   | local endpoint       | manifest-gated UDS lifecycle                                        | ad-hoc socket paths               |
+|  [10]   | peer identity        | connection-level kernel credentials                                 | call-context peer read            |
+|  [11]   | artifact corridor    | framed-corridor invariant                                           | unframed stream writes            |
+|  [12]   | JSON crossings       | ProtoJSON of the generated message                                  | STJ record mirror per surface     |
+|  [13]   | partial updates      | `FieldMask` + `Merge` on the binary shape                           | JSON-patch over ProtoJSON         |
 
 ## [02]-[WIRE_AXIS]
 
 [PORT_LAW]:
-- Law: the only cross-package transport seam is a fixed small set of typed port records — call arrows and policy values, zero interfaces, zero inheritance, zero provider types in the signature — and a consumer binds the record, never channel, invoker, or handler types; the aggregate port bundling every operation a package exposes and the provider-branded port are the two named defect forms.
+- Law: the only cross-package transport boundary is a fixed small set of typed port records — call arrows and policy values, zero interfaces, zero inheritance, zero provider types in the signature — and a consumer binds the record, never channel, invoker, or handler types; the aggregate port bundling every operation a package exposes and the provider-branded port are the two named defect forms.
 - Law: the method descriptor is a value — `Method<TReq,TRes>` built once from `MethodType`, service and verb symbols, and `Marshallers.Create` over the generated message's `ToByteArray`/`Parser.ParseFrom` — and generated clients are edge adapters materialized at the root from `CreateCallInvoker()`; the generated client type never crosses a package boundary.
 - Law: stream shape is carrier dispatch — a value case maps to unary, a subscription case to a server-stream drained by `ResponseStream.ReadAllAsync`, a sequence case to a client-stream whose response materializes only after `RequestStream.CompleteAsync()`, a duplex case to independent sides — every call object is `IDisposable` with disposal of an undrained call as the cancellation idiom, one write at a time per `IAsyncStreamWriter<T>` serialized through a lane upstream, and the only backpressure primitives are await-on-`WriteAsync` and pull-on-`ReadAllAsync`; shape-suffixed verb families are the foreclosed spelling.
-- Exemption: the stream-drain iterator — call disposal held open across `yield` — is the platform-forced statement seam.
+- Exemption: the stream-drain iterator — call disposal held open across `yield` — is the platform-forced statement body.
 
 [ROW_AXIS]:
-- Law: one `GrpcChannel` per remote authority per process, created once and held for process life — it owns connection pooling, retry buffers, balancer state, and the compression registry; channel policy is one `GrpcChannelOptions` site whose defaults are restated as row values — receive cap 4_194_304, send cap absent, retry buffer 1_048_576 per call — and per-call variance is `CallOptions` only.
+- Law: one `GrpcChannel` per remote authority per process, created once and held for process life — it owns connection pooling, retry buffers, balancer state, and the compression registry; channel policy is one `GrpcChannelOptions` site whose defaults are rrepod as row values — receive cap 4_194_304, send cap absent, retry buffer 1_048_576 per call — and per-call variance is `CallOptions` only.
 - Law: connectivity is a held state machine — `ConnectAsync` warms the channel before the first deadline-bearing call, `WaitForStateChangedAsync` parks the watch loop as state, wait, re-read, never polling, and both are unavailable when the channel wraps a caller-supplied `HttpClient`; `Dispose` closes connections only when the channel owns its handler, so one shared `SocketsHttpHandler` across rows keeps handler lifetime at the root.
 - Law: address resolution is a scheme row — `dns:///` re-resolves periodically, `static:///` with a registered `StaticResolverFactory` serves manifest-published address sets, and `LoadBalancingConfigs` selects `PickFirstConfig` failover or `RoundRobinConfig` rotation, activated by `ServiceProvider` on the channel options; `Resolver.Refresh()` is the manifest-change hook, and `DisableResolverServiceConfig` pins root-declared policy against resolver override.
 - Law: long-lived stream columns require keep-alive rows — `KeepAlivePingDelay`, `KeepAlivePingTimeout`, `KeepAlivePingPolicy` (`WithActiveRequests` versus `Always` for idle push streams) — or an idle middlebox kills the connection and the next write surfaces as `Unavailable` minutes later; fan-out past the server's max-concurrent-streams queues invisibly until `EnableMultipleHttp2Connections` is set.
@@ -90,32 +90,29 @@ public static class WireAxis {
 }
 ```
 
-## [03]-[CALL_SEAM]
+## [03]-[CALL_BOUNDARY]
 
 [CALL_LAW]:
 - Law: `CallOptions(headers, deadline, cancellationToken)` is the per-call policy triple, minted inside the port delegate from the hop row — the deadline is one absolute UTC instant computed from the row's budget at the outermost site, transmitted as the wire timeout header so the server observes remaining budget, and inner hops only shrink it; a deadline already in the past fails locally with `DeadlineExceeded`, zero latency, and no trailers — the signature separating budget exhaustion from server slowness.
-- Law: the foreign `StatusCode` enum folds once at the boundary into the closed `TransportFault` `[Union]` deriving from `Fault` — `DeadlineExceeded` to `Deadline`, `Cancelled` to `Cancelled`, `Unavailable` to `Unreachable`, `ResourceExhausted` to `Exhausted`, `Unimplemented` to `Drift`, every other code to `Wire(StatusCode, Detail)` — so recovery dispatches on the typed case through `HasCode`/`IsType`, never a bare coded `Error.New` and never interior dispatch on status strings; the structured detail is read FIRST through `RpcException.GetRpcStatus()` (`Grpc.StatusProto`) under `Op.Catch` — `null` is absence, a throw is a malformed trailer held typed — and exactly one recognized `fault.FaultDetail` among `Status.Details` becomes opaque remote evidence before the residual code folds; `ThrowOperationCanceledOnCancellation = true` re-rails termination onto the cancellation rail only where a surrounding pipeline owns cancellation unification — where the port fold is the seam it stays false so one typed fold serves every termination.
+- Law: the foreign `StatusCode` enum folds once at the boundary into the closed `TransportFault` `[Union]` deriving from `Fault` — `DeadlineExceeded` to `Deadline`, `Cancelled` to `Cancelled`, `Unavailable` to `Unreachable`, `ResourceExhausted` to `Exhausted`, `Unimplemented` to `Drift`, every other code to `Wire(StatusCode, Detail)` — so recovery dispatches on the typed case through `HasCode`/`IsType`, never a bare coded `Error.New` and never interior dispatch on status strings; the structured detail is read FIRST through `RpcException.GetRpcStatus()` (`Grpc.StatusProto`) under `Op.Catch` — `null` is absence, a throw is a malformed trailer held typed — and exactly one recognized `fault.FaultDetail` among `Status.Details` becomes opaque remote evidence before the residual code folds; `ThrowOperationCanceledOnCancellation = true` re-routes termination onto the cancellation path only where a surrounding pipeline owns cancellation unification — where the port fold is the boundary it stays false so one typed fold serves every termination.
 - Law: exactly one stamping interceptor per channel, installed at invoker creation — `Intercept(Func<Metadata,Metadata>)` covers all five call shapes from one delegate, a full `Interceptor` subclass is earned only by response-side inspection, and `Intercept(params Interceptor[])` applies first-element-outermost while chained `Intercept` calls make the last outermost, so a second stamper is a merge conflict, never a layer; the stamped message-envelope content arrives settled from the correlation spine.
 - Law: binary metadata requires the `-bin` suffix (`Metadata.BinaryHeaderSuffix`) — the entry constructor enforces the byte/string split and lowercases keys, `GetValueBytes` is the read verb, and `Metadata.Empty` is frozen, so stamping always allocates.
-- Law: transport retry is data — `MethodConfig` rows pair `MethodName` selectors with exactly one of `RetryPolicy` or `HedgingPolicy`; a present row makes the channel the hop's one retry owner and a seam pipeline beside it the second-owner conflict, so the choice is a per-row owner column auditable without reading code; hedging duplicates the call in flight after each `HedgingDelay`, admissible for idempotent methods only, and its result records attempt cardinality or the diagnostics fold under-counts wire traffic.
+- Law: transport retry is data — `MethodConfig` rows pair `MethodName` selectors with exactly one of `RetryPolicy` or `HedgingPolicy`; a present row makes the channel the hop's one retry owner and a boundary pipeline beside it the second-owner conflict, so the choice is a per-row owner column auditable without reading code; hedging duplicates the call in flight after each `HedgingDelay`, admissible for idempotent methods only, and its result records attempt cardinality or the diagnostics fold under-counts wire traffic.
 - Law: retry commitment is structural — observed response data or buffered request bytes past `MaxRetryBufferPerCallSize` commit the in-flight attempt, so large payloads silently exit retry protection at the 1_048_576 default; `RetryThrottlingPolicy` is the channel-wide brake converting downstream brownout into reduced retry pressure, and `MaxRetryAttempts` caps whatever the config requests.
 - Law: per-call identity is `CallCredentials.FromInterceptor` with token refresh inside the delegate and `CallCredentials.Compose` stacking identities — composed call credentials transmit only over TLS unless the unsafe channel row names the perimeter.
 - Law: request compression is a per-call metadata opt-in — the `grpc-internal-encoding-request` entry names a registered `CompressionProviders` row, response decompression is automatic from the registry, and `WriteOptions` with `WriteFlags.NoCompress` exempts individual messages inside a compressed stream — the mixed-entropy row.
-- Exemption: the awaited capture kernel — the `RpcException` catch arm — and the `Metadata` stamping sweep over the mutable host collection the interceptor delegate returns are the platform-forced statement seam.
+- Exemption: the awaited capture kernel — the `RpcException` catch arm — and the `Metadata` stamping sweep over the mutable host collection the interceptor delegate returns are the platform-forced statement body.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransportFault : Fault {
     private TransportFault(string detail) => Detail = detail;
-    // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
-    // `FaultBand.Wire` already belongs to the estate's wire family, and a second family on a live row is the
-    // deleted form the registry's disjointness proof exists to refuse.
     private static readonly FaultBand FamilyBand = FaultBand.Transport;
 
     public string Detail { get; }
     public sealed override string Message => Detail;
 
-    // --- [CALL_SEAM] offsets 0-5
+    // --- [CALL_BOUNDARY]
     [FaultCase(0)]
     public sealed partial record Wire(StatusCode Status, string Note, Error Cause) : TransportFault($"<status:{Status}:{Note}>"), ICausedFault;
     [FaultCase(1)]
@@ -130,17 +127,17 @@ public abstract partial record TransportFault : Fault {
     public sealed partial record Exhausted(Error Cause) : TransportFault("<cap-breach>"), ICausedFault;
     [FaultCase(5)]
     public sealed partial record Drift(string Note, Error Cause) : TransportFault($"<wire-drift:{Note}>"), ICausedFault;
-    // --- [SUITE_CODECS] offset 6
+    // --- [SUITE_CODECS]
     [FaultCase(6)]
     public sealed partial record Fork(string Note) : TransportFault($"<wire-fork:{Note}>");
-    // --- [ENDPOINT_LIFECYCLE] offsets 7-9
+    // --- [ENDPOINT_LIFECYCLE]
     [FaultCase(7)]
     public sealed partial record Publish(Error Cause) : TransportFault($"<publish:{Cause.Message}>"), ICausedFault;
     [FaultCase(8)]
     public sealed partial record Unpublished(Error Cause) : TransportFault($"<unpublished:{Cause.Message}>"), ICausedFault;
     [FaultCase(9)]
     public sealed partial record Stale(long Epoch) : TransportFault($"<stale-listener:{Epoch}>");
-    // --- [CORRIDOR] offsets 10-14
+    // --- [CORRIDOR]
     [FaultCase(10)]
     public sealed partial record Oversize(int Size, int Cap) : TransportFault($"<oversize:{Size}:{Cap}>");
     [FaultCase(11)]
@@ -153,11 +150,11 @@ public abstract partial record TransportFault : Fault {
     public sealed partial record Undecodable(Error Cause) : TransportFault($"<undecodable:{Cause.Message}>"), ICausedFault;
 }
 
-public static class CallSeam {
+public static class CallBoundary {
     public static CallInvoker Stamped(GrpcChannel channel, Func<Seq<(string Key, string Value)>> departure) {
         ArgumentNullException.ThrowIfNull(channel);
         return channel.CreateCallInvoker().Intercept(headers => {
-            Metadata stamped = headers ?? [];                                   // Exemption: Metadata is the mutable host collection the Func<Metadata,Metadata> seam returns; the pair sweep is the platform-forced statement seam, never a fold-costume over in-place mutation
+            Metadata stamped = headers ?? [];
             departure().Iter(pair => stamped.Add(pair.Key, pair.Value));
             return stamped;
         });
@@ -174,8 +171,6 @@ public static class CallSeam {
         }
     }
 
-    // The detail is read before the code folds: `GetRpcStatus()` answers null on an absent trailer and throws on a
-    // malformed one, so absence and corruption stay two verdicts and neither re-parses the trailer by hand.
     private static Error Fold(RpcException wire, Func<FaultDetail, string, Error> remote, CancellationToken caller, Error cause) =>
         Op.Of().Catch(() => Fin.Succ(Optional(wire.GetRpcStatus())))
             .Match(
@@ -213,8 +208,6 @@ public static class CallSeam {
 - Law: the corpus reshapes a wire IN PLACE and regenerates every branch from that one source in the same pass, so no consumer meets two shapes of one message and a package a peer advertises past the local one convicts a stale binary; `UnknownFieldSet` tolerance covers the window between a regenerated producer and a consumer restart, never a second standing shape.
 
 ```csharp
-// One runtime compatibility shape: the generation a peer advertises, derived from the generated descriptor,
-// compared whole; unknown fields are the parser's tolerance and one corpus emission settles every other verdict.
 public sealed record WireGeneration(string Package) {
     public static readonly Fin<WireGeneration> Compute = Of(ComputeReflection.Descriptor);
 
@@ -235,8 +228,8 @@ public static class Handshake {
 ```
 
 [TEMPORAL_BRIDGE]:
-- Law: domain time crosses wire shapes as well-known types, never as serialized temporal text — both directions are `NodaTime.Serialization.Protobuf` extension projections at the bridge, never a hand-rolled BCL round-trip through `DateTime`: inward is `ProtobufExtensions` on the wire type (`Timestamp.ToInstant`, `Duration.ToNodaDuration`, `Date.ToLocalDate`, `TimeOfDay.ToLocalTime`, `DayOfWeek.ToIsoDayOfWeek`), outward is `NodaExtensions` on the domain type (`Instant.ToTimestamp`, `NodaTime.Duration.ToProtobufDuration`, `LocalDate.ToDate`, `LocalTime.ToTimeOfDay`, `IsoDayOfWeek.ToProtobufDayOfWeek`), and no temporal value exists between seams in wire shape; the `Timestamp.FromDateTime`-over-`Instant.ToDateTimeUtc()` detour is the rejected re-spelling of `ToTimestamp` the package already owns. Calendar `Date`, `TimeOfDay`, and `DayOfWeek` projections need the `google.type` common-proto package admitted, so a suite carrying calendar wire values declares that package before the law reaches them.
-- Law: the range checks throw and project onto one coded fault band at the seam — `Timestamp.ToInstant` rejects pre-`0001-01-01T00:00:00Z` instants, `Duration.ToNodaDuration` and `ToProtobufDuration` reject spans outside the protobuf ±315_576_000_000 s window, leap-second and 24:00 time-of-day payloads reject, the unspecified day-of-week wire value maps to the none case as the family's one sentinel-to-vocabulary projection, and a range rejection reads identically at binary and JSON edges because both codecs feed one fault family.
+- Law: domain time crosses wire shapes as well-known types, never as serialized temporal text — both directions are `NodaTime.Serialization.Protobuf` extension projections at the bridge, never a hand-rolled BCL round-trip through `DateTime`: inward is `ProtobufExtensions` on the wire type (`Timestamp.ToInstant`, `Duration.ToNodaDuration`, `Date.ToLocalDate`, `TimeOfDay.ToLocalTime`, `DayOfWeek.ToIsoDayOfWeek`), outward is `NodaExtensions` on the domain type (`Instant.ToTimestamp`, `NodaTime.Duration.ToProtobufDuration`, `LocalDate.ToDate`, `LocalTime.ToTimeOfDay`, `IsoDayOfWeek.ToProtobufDayOfWeek`), and no temporal value exists between boundaries in wire shape; the `Timestamp.FromDateTime`-over-`Instant.ToDateTimeUtc()` detour is the rejected re-spelling of `ToTimestamp` the package already owns. Calendar `Date`, `TimeOfDay`, and `DayOfWeek` projections need the `google.type` common-proto package admitted, so a suite carrying calendar wire values declares that package before the law reaches them.
+- Law: the range checks throw and project onto one coded fault band at the boundary — `Timestamp.ToInstant` rejects pre-`0001-01-01T00:00:00Z` instants, `Duration.ToNodaDuration` and `ToProtobufDuration` reject spans outside the protobuf ±315_576_000_000 s window, leap-second and 24:00 time-of-day payloads reject, the unspecified day-of-week wire value maps to the none case as the family's one sentinel-to-vocabulary projection, and a range rejection reads identically at binary and JSON edges because both codecs feed one fault family.
 - Law: the STJ bridge is one options mutation at suite-codec composition — `ConfigureForNodaTime(options, IDateTimeZoneProvider)` or `ConfigureForNodaTime(options, NodaJsonSettings)` whose sixteen converter slots make per-suite overrides slot writes, with `WithIsoIntervalConverter`/`WithIsoDateIntervalConverter` swapping the interval representation — the default interval converter's `Start`/`End` names pass through the naming policy and its instants delegate to the registered instant slot, so interval JSON shape pins in golden bytes; zone-bearing types require the explicit provider, non-ISO calendars reject at write, and the `NodaTimeDefaultJsonConverterAttribute` per-property route hard-pins defaults and serves isolated DTOs only.
 
 ```csharp
@@ -270,15 +263,15 @@ public static class TemporalBridge {
 ## [05]-[SERVER_EXPOSURE]
 
 [EXPOSURE_FOLD]:
-- Law: exposure is one record folded at the app root — `AddGrpc` settles global policy once, `MapGrpcService` binds each row with the `ServerServiceDefinition` overloads as the runtime-assembled ingress, the returned `GrpcServiceEndpointConventionBuilder` is the per-endpoint convention seam, and the endpoint row owns the protocol prerequisite (`HttpProtocols.Http2` on plaintext trusted lanes, ALPN under TLS) — so nothing outside the record reaches the options and the second-configuration-site defect is structurally impossible; stubs arrive by ONE project reference to the committed generated assembly — one assembly serves client and server, app roots derive `<Svc>.<Svc>Base` and clients bind `<Svc>.<Svc>Client` — never a per-consumer `Grpc.Tools` item or post-build pruning.
+- Law: exposure is one record folded at the app root — `AddGrpc` settles global policy once, `MapGrpcService` binds each row with the `ServerServiceDefinition` overloads as the runtime-assembled ingress, the returned `GrpcServiceEndpointConventionBuilder` is the per-endpoint convention hook, and the endpoint row owns the protocol prerequisite (`HttpProtocols.Http2` on plaintext trusted lanes, ALPN under TLS) — so nothing outside the record reaches the options and the second-configuration-site defect is structurally impossible; stubs arrive by ONE project reference to the committed generated assembly — one assembly serves client and server, app roots derive `<Svc>.<Svc>Base` and clients bind `<Svc>.<Svc>Client` — never a per-consumer `Grpc.Tools` item or post-build pruning.
 - Law: interceptors are option rows with constructor args as data — global rows always run before per-service rows, so a per-service row can never wrap a global one, and a stateful interceptor demands container registration or its state resets every call.
 - Law: per-service override is inherit-unless-specified — `AddServiceOptions<TService>` carries paired `MaxReceiveMessageSizeSpecified`/`MaxSendMessageSizeSpecified` flags, so assigning null explicitly LIFTS a global cap and clearing the flag restores inheritance; copying global values by hand re-derives what the flags encode.
 - Law: an empty compression-provider list pre-seeds gzip and deflate; supplying any provider row suppresses both, so a custom-codec root re-adds gzip explicitly or older peers lose a negotiable encoding; `ResponseCompressionAlgorithm` names the negotiated row, `EnableDetailedErrors` is a trusted-lane row only, and `IgnoreUnknownServices` stays false so wire drift surfaces as the unimplemented status the client taxonomy expects.
 - Law: `ServerCallContext` is the one per-call capability — `Deadline` arrives client-budgeted, `CancellationToken` fires on disconnect, cancel, and expiry and is the only token to thread, `WriteResponseHeadersAsync` is the one-shot early flush, and `GetHttpContext()` bridges to connection evidence; a streaming handler observing the token enforces drain behavior — writing on past it sends into a dead call.
-- Exemption: the exposure fold's builder-mutation body is the platform-forced statement seam.
+- Exemption: the exposure fold's builder-mutation body is the platform-forced statement body.
 
 [FAULT_HEALTH_WEB]:
-- Law: fault transport is two-tier — the wire tier is the generated fault-detail message packed as ONE `Any` into `google.rpc.Status.details` and raised through `Grpc.StatusProto` `Status.ToRpcException()` from ONE producer owner (`FaultWire.Raise`) that also holds the ONE `Error → StatusCode` table, with the throttled arm's own `google.rpc.RetryInfo` seated a second time as a top-level detail so generic middleware and the estate peer read ONE message rather than two projections that can disagree, and protovalidate refusals as `BadRequest.FieldViolation`; the local tier is the closed `TransportFault` `[Union]` deriving from `Fault` that the boundary fold mints, so `Status.Message` is human summary only, `case` is the producing family's `[FaultCase]` ordinal and never a gRPC code, machine discriminants in detail text are the named defect, and the decode arrow bridges the wire message into a `TransportFault` case rather than a bare coded `Error.New`.
+- Law: fault transport is two-tier — the wire tier is the generated fault-detail message packed as ONE `Any` into `google.rpc.Status.details` and raised through `Grpc.StatusProto` `Status.ToRpcException()` from ONE producer owner (`FaultWire.Raise`) that also holds the ONE `Error → StatusCode` table, with the throttled arm's own `google.rpc.RetryInfo` seated a second time as a top-level detail so generic middleware and the repo peer read ONE message rather than two projections that can disagree, and protovalidate refusals as `BadRequest.FieldViolation`; the local tier is the closed `TransportFault` `[Union]` deriving from `Fault` that the boundary fold mints, so `Status.Message` is human summary only, `case` is the producing family's `[FaultCase]` ordinal and never a gRPC code, machine discriminants in detail text are the named defect, and the decode arrow bridges the wire message into a `TransportFault` case rather than a bare coded `Error.New`.
 - Law: health is two rows — `AddGrpcHealthChecks` and `MapGrpcHealthChecksService` — with the empty-string service pre-mapped to all checks and per-service rows as name-keyed predicate maps; the wire fold is fixed — any unhealthy entry folds NOT_SERVING, degraded still SERVES because degradation visibility is a diagnostics signal, zero matches fold UNKNOWN — and the surfaces disagree on an unmapped name by design: Check fails not-found while Watch reports SERVICE_UNKNOWN, so probes tolerate both spellings.
 - Law: `UseHealthChecksCache` false executes mapped checks inline per Check; the Watch stream's first write is freshly computed with later writes on the runtime-owned publisher cadence, and stopping completes watchers with a final NOT_SERVING — the drain edge attach choreography consumes — while polling Check races listener teardown.
 - Law: browser translation is one middleware and per-endpoint consent — `UseGrpcWeb(new GrpcWebOptions { DefaultEnabled })` with `EnableGrpcWeb`/`DisableGrpcWeb` conventions — and a grpc-web request without consent falls through as a non-gRPC request, the signature of a missing enable row; detection is structural, the response mode negotiates independently from the Accept header, the middleware spoofs the protocol so no service code can detect translation, and browser callers need a CORS policy exposing `Grpc-Status`, `Grpc-Message`, and the encoding headers.
@@ -303,8 +296,6 @@ public static class ServerRoot {
         return app;
     }
 
-    // ONE mint: the status carries the code and the summary, the detail rides `details` as an `Any`, and
-    // `ToRpcException` seats the serialized status on the trailer — no handler spells the trailer key.
     public static RpcException Fault(StatusCode code, string brief, FaultDetail detail) =>
         new Google.Rpc.Status { Code = (int)code, Message = brief, Details = { Any.Pack(detail) } }.ToRpcException();
 }
@@ -313,11 +304,11 @@ public static class ServerRoot {
 ## [06]-[IPC_TOPOLOGY]
 
 [ENDPOINT_LIFECYCLE]:
-- Law: `UnixDomainSocketEndPoint` validates the platform path budget in bytes at construction — ~104 on BSD-derived systems, ~108 on Linux — so endpoint directories stay short and ASCII; the abstract namespace is the rejected row for credential-gated seams because no directory mode exists to enforce, and the Windows column of the same row axis is the named pipe via `ListenNamedPipe` — platform variance is one column value.
+- Law: `UnixDomainSocketEndPoint` validates the platform path budget in bytes at construction — ~104 on BSD-derived systems, ~108 on Linux — so endpoint directories stay short and ASCII; the abstract namespace is the rejected row for credential-gated boundaries because no directory mode exists to enforce, and the Windows column of the same row axis is the named pipe via `ListenNamedPipe` — platform variance is one column value.
 - Law: `ListenUnixSocket` binds an absolute path without unlinking an existing file, so a stale file surfaces as address-in-use and the bind failure IS the mutual-exclusion primitive — a racing claimant loses at bind and re-reads the manifest; unlink-on-dispose is asymmetric: the listener socket recorded its bound path and best-effort deletes it, accepted sockets never unlink, so clean shutdown self-cleans and a killed process leaves the stale file the probe ladder owns.
 - Law: the manifest is the single attach record — socket path, publisher pid with process-start stamp, epoch, wire generation, cap pair, codec id; every field either routes the dial or gates it — and publication is atomic-by-rename in the same directory: a temp file in a different directory silently downgrades the move to copy-plus-delete and forfeits atomicity, `File.Replace` is the variant retaining the displaced generation as evidence, and the owner-only directory mode is set atomically at creation because create-then-chmod leaves a window — `File.GetUnixFileMode` is the audit read.
 - Law: attach choreography orders the manifest last — directory, bind-and-serve, publish — and detach inverts it, so manifest presence implies a listener existed at publish time and every alternative ordering admits an observable lie costing a bespoke probe; the staleness ladder covers the one uncovered history, death after publish — the pid/start-stamp probe is advisory, the socket connect probe is authoritative, and only connect licenses reclamation; post-dial readiness is the peer's health stream, never a parallel readiness ping.
-- Exemption: the staged-write protocol and the socket connect probe are the platform-forced statement seam.
+- Exemption: the staged-write protocol and the socket connect probe are the platform-forced statement body.
 
 [PEER_EVIDENCE]:
 - Law: peer identity on local transports is connection-level kernel evidence, never a call-context read — the call context's peer string degrades to `"unknown"` off IP; the accepted socket surfaces through `IConnectionSocketFeature`, a connection middleware verifies once per connection before protocol negotiation, and the probe is `GetRawSocketOption` with platform rows — Linux `SOL_SOCKET(1)`/`SO_PEERCRED(17)` into a 12-byte ucred captured at connect time so a later exec cannot launder identity, macOS `SOL_LOCAL(0)`/`LOCAL_PEERCRED(1)` into a 76-byte xucred and `LOCAL_PEERPID(2)` for the peer pid.
@@ -381,7 +372,7 @@ public static class Endpoint {
 - Law: the producer pre-checks — exact `CalculateSize` against the cap before serializing, because post-serialization detection has already paid allocation and encoding for an unsendable payload; the cap pair is negotiated manifest data consumed through one frame-kind row column — control frames cap small, artifact frames at the corridor budget — making asymmetric caps unrepresentable.
 - Law: the content key over the framed body is the kernel `ContentHash.Of` seed-zero `XxHash128` the artifact index addresses by — so a corridor body and its persisted artifact share one identity and the frame check and the content key never collapse into one hash serving two invariants.
 - Law: the four failures are disjoint by construction and each maps to exactly one remediation — oversize re-chunks, truncated re-reads, corrupt redials, misframed re-gates — and a corridor implementing any subset re-discovers the missing class in production as the ambiguous one.
-- Exemption: the receive-order kernel — exact reads, the rented-buffer lease, and the catch arms — is the platform-forced stream statement seam.
+- Exemption: the receive-order kernel — exact reads, the rented-buffer lease, and the catch arms — is the platform-forced stream statement body.
 
 ```csharp
 [SmartEnum<byte>]
@@ -451,9 +442,9 @@ public static class Corridor {
 - Law: STJ serves the surfaces the corpus does not define — a discovery manifest a local peer reads, a publisher dialect (BCF-API bodies) — and NEVER a surface a generated message carries; an STJ record mirroring a generated message is the deleted form, because the corpus gate is the one wire authority and a second schema beside the descriptor drifts where nothing compiles across the pair.
 - Law: each package ships one source-generated codec context owning its residual STJ family, and app roots merge per-package contexts once — `JsonTypeInfoResolver.Combine` flattens nested combinations into one ordered chain with `TypeInfoResolverChain` as the options-bound mutable view.
 - Law: a type resolvable by two contexts is a conflict, never a fallback — order-dependent resolution that works is a latent wire fork where reordering re-decides another package's format — and the disjointness probe doubles as the defense against a smuggled reflection resolver, caught by its over-breadth rather than by name; after the probe, `MakeReadOnly()` freezes the suite options and `IsReadOnly` is the audit bit; the same conflict law covers the codec axis — every wire surface declares exactly one codec (proto binary, ProtoJSON, a framing row, or a residual STJ context), and a second observed codec is a typed composition fault, never a runtime fallback that masks drift by re-encoding what the primary rejected.
-- Law: `WithAddedModifier` is the cross-cutting seam over the merged chain — one modifier enforcing suite invariants across every package's codec surface without touching any generator, and modifiers stack without re-wrapping.
+- Law: `WithAddedModifier` is the cross-cutting hook over the merged chain — one modifier enforcing suite invariants across every package's codec surface without touching any generator, and modifiers stack without re-wrapping.
 - Law: no STJ schema export pins peer compatibility — `JsonSchemaExporter` output is never compared, hashed, or advertised between peers; the wire generation compared at attach is the whole compatibility surface, so a schema-hash pin beside it is the foreclosed second authority.
-- Exemption: the merge root's options-mutation body is the platform-forced statement seam.
+- Exemption: the merge root's options-mutation body is the platform-forced statement body.
 
 ```csharp
 public sealed record PackageCodec(string Package, IJsonTypeInfoResolver Context, Seq<Type> Advertised);
@@ -484,4 +475,4 @@ public static class SuiteCodecs {
 [PATCH_LAW]:
 - Law: a partial update of a WIRE message is binary — the changed path set is a `FieldMask` computed on the generated shape (`Fields.InFieldNumberOrder()` with `IFieldAccessor` reads, message fields recursing, repeated and map fields compared whole), gated by `FieldMask.IsValid(descriptor, mask)`, and applied by `Merge(source, target, MergeOptions)` with the replace flags the owner declares; a JSON-patch over ProtoJSON is the rejected form because ProtoJSON elides defaults (a change TO a default vanishes) and strips unknown fields (a relay defeats the compatibility law).
 - Law: RFC 6902 survives where the document is JSON by nature — a configuration section a control verb edits — and crosses the wire as the generated `patch.PatchOp` oneof (`add`/`remove`/`replace`/`move`/`copy`/`test`, paths as RFC 6901 pointers under the descriptor's pattern rule), never as an opaque `Struct`; the receiver lowers the ops onto `JsonPatchDocument` through one total `Switch`, so a renamed verb breaks the build at the lowering.
-- Law: apply is a boundary act — the `ApplyTo(target, Action<JsonPatchError>)` overload projects the first failed operation into one `JsonPatchError` row routed to the rail and then halts, so application is fail-fast by construction, never accumulating, because a patch is an ordered sequence where a later operation observes earlier mutations and replaying past a failed precondition corrupts the target; `Test` carries optimistic concurrency inside the document so a stale-precondition replay aborts the whole patch at its first `Test`, and the mutated document re-enters admission as a whole value; applying patches to admitted owners bypasses admission and is the rejected form.
+- Law: apply is a boundary act — the `ApplyTo(target, Action<JsonPatchError>)` overload projects the first failed operation into one `JsonPatchError` row routed to the result and then halts, so application is fail-fast by construction, never accumulating, because a patch is an ordered sequence where a later operation observes earlier mutations and replaying past a failed precondition corrupts the target; `Test` carries optimistic concurrency inside the document so a stale-precondition replay aborts the whole patch at its first `Test`, and the mutated document re-enters admission as a whole value; applying patches to admitted owners bypasses admission and is the rejected form.

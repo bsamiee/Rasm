@@ -68,7 +68,7 @@ Every surface is promise-native; `query` and `sql` return `Results<T>`, `exec` r
 - `@electric-sql/pglite-tools`: `pgDump({ pg })` yields logical SQL for `candidate.exec(await file.text())`.
 - `pg.dumpDataDir()` yields distinct physical same-engine recovery material.
 - within-lib: configured `live` projects `LiveNamespace`; `PGliteWorker.create` proxies `PGliteInterface`.
-- within-lib: `NodeFS` and `OpfsAhpFS` satisfy the `PGliteOptions.fs` seam.
+- within-lib: `NodeFS` and `OpfsAhpFS` satisfy the `PGliteOptions.fs` interface.
 
 [LOCAL_ADMISSION]:
 - Construct at a generation-qualified coordinate; admit exact generation and capability evidence before publication.

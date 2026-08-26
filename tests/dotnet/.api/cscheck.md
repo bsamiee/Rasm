@@ -1,6 +1,6 @@
 # [DOTNET_TESTING_API_CSCHECK]
 
-`CsCheck` is the random-testing engine the TestKit composes: PCG-seeded generation with size-ordered shrinking, property sampling, model-based and metamorphic state testing, linearizability checking, and chi-squared distribution gates. It is zero-dependency pure BCL; `Directory.Build.props` injects it into test and kit projects with `PrivateAssets="all"` and a global `Using Include="CsCheck"`, and the kit's `Gens` bands build on the `Gen` factories while the `Spec` owner routes every sample family, so specs compose kit gates instead of calling `Check` raw.
+`CsCheck` is the random-testing engine the TestKit composes: PCG-seeded generation with size-ordered shrinking, property sampling, model-based and metamorphic state testing, linearizability checking, and chi-squared distribution gates. It is zero-dependency pure BCL; the kit and every suite declare it in their own csproj and the root `Directory.Build.targets` derives the global `Using Include="CsCheck"` from that reference, and the kit's `Gens` bands build on the `Gen` factories while the `Spec` owner routes every sample family, so specs compose kit gates instead of calling `Check` raw.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -59,5 +59,5 @@ public static void ChiSquared(int[] expected, int[] actual, double sigma = 6.0);
 - `coverlet.MTP` (`coverlet-mtp.md`): no hook — coverage instruments the SUT the sample bodies exercise.
 
 [LOCAL_ADMISSION]:
-- Specs reach the engine through kit gates; a spec calling `Check.Sample` directly instead of `Spec.ForAll`/`Hold` re-derives seed, print, and rail policy the kit owns.
+- Specs reach the engine through kit gates; a spec calling `Check.Sample` directly instead of `Spec.ForAll`/`Hold` re-derives seed, print, and result policy the kit owns.
 - `seed`/`iter`/`time`/`threads` pass as named arguments with the `-1` sentinel deferring to environment policy.

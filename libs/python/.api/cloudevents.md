@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_CLOUDEVENTS]
 
-`cloudevents` is the CNCF Python distribution carrying TWO disjoint trees that never import each other. `cloudevents.core` is the validating tree: a typed `CloudEvent` per spec version validating required, optional, and extension attributes into one aggregating `CloudEventValidationError`, a `Format` protocol whose `write_data`/`read_data` pair is the binary-mode payload seam, and four protocol bindings lowering one event onto transport parts. `cloudevents.v1` is the frozen legacy tree: a mutable dict-backed event whose constructor checks a required-NAME subset and nothing else, a converter/marshaller stack over it, and a pydantic mirror. Every binding returns a transport-neutral value and the distribution holds no broker or HTTP client, so its reach ends at message envelope bytes.
+`cloudevents` is the CNCF Python distribution carrying TWO disjoint trees that never import each other. `cloudevents.core` is the validating tree: a typed `CloudEvent` per spec version validating required, optional, and extension attributes into one aggregating `CloudEventValidationError`, a `Format` protocol whose `write_data`/`read_data` pair is the binary-mode payload boundary, and four protocol bindings lowering one event onto transport parts. `cloudevents.v1` is the frozen legacy tree: a mutable dict-backed event whose constructor checks a required-NAME subset and nothing else, a converter/marshaller stack over it, and a pydantic mirror. Every binding returns a transport-neutral value and the distribution holds no broker or HTTP client, so its reach ends at message envelope bytes.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -106,8 +106,8 @@ The four leaf findings expose `attribute_name` but no stable code, tag, enum, or
 | :-----: | :----------------------------------------- | :------- | :----------------------------------------------------------------------- |
 |  [01]   | `Format.read(event_factory, data)`         | protocol | structured message envelope to event; `None` factory detects the version |
 |  [02]   | `Format.write(event)`                      | protocol | structured message envelope to bytes                                     |
-|  [03]   | `Format.write_data(data, datacontenttype)` | protocol | PAYLOAD alone to bytes — the binary-mode seam                            |
-|  [04]   | `Format.read_data(body, datacontenttype)`  | protocol | PAYLOAD alone from bytes — the binary-mode seam                          |
+|  [03]   | `Format.write_data(data, datacontenttype)` | protocol | PAYLOAD alone to bytes — the binary-mode boundary                        |
+|  [04]   | `Format.read_data(body, datacontenttype)`  | protocol | PAYLOAD alone from bytes — the binary-mode boundary                      |
 |  [05]   | `Format.get_content_type()`                | protocol | the structured-mode media type                                           |
 
 [ENTRYPOINT_SCOPE]: protocol bindings (`cloudevents.core.bindings`) — one uniform shape across all four modules
@@ -149,7 +149,7 @@ Kafka alone widens the two `to_*` legs with `key_mapper: KeyMapper | None = None
 |  [10]   | `v1.conversion.from_dict(event_type, event)` / `to_dict(event)`              | static   | mapping round trip                           |
 |  [11]   | `v1.sdk.converters.util.has_binary_headers(headers)`                         | static   | ALL `ce-specversion`/`-source`/`-type`/`-id` |
 
-`data_marshaller` and `data_unmarshaller` are the two callable seams the legacy tree threads: `MarshallerType` rides every `to_*` leg positionally after the event and defaults `None`; `UnmarshallerType` rides every `from_*` leg last and defaults `None` at the public surface while `Converter.read`, `BaseEvent.UnmarshalJSON`, and `BaseEvent.UnmarshalBinary` each REQUIRE it. `HTTPMarshaller.FromRequest` defaults it to `json.loads` and `BaseEvent.MarshalBinary` defaults its marshaller to `json.dumps`; `v1.conversion.from_http` defaults to the module-private `_json_or_string`. Either slot rejects a non-callable, raising `InvalidDataMarshaller`/`InvalidDataUnmarshaller`. `v1.kafka.conversion` alone adds `envelope_marshaller`/`envelope_unmarshaller` for the structured leg.
+`data_marshaller` and `data_unmarshaller` are the two callable boundaries the legacy tree threads: `MarshallerType` rides every `to_*` leg positionally after the event and defaults `None`; `UnmarshallerType` rides every `from_*` leg last and defaults `None` at the public surface while `Converter.read`, `BaseEvent.UnmarshalJSON`, and `BaseEvent.UnmarshalBinary` each REQUIRE it. `HTTPMarshaller.FromRequest` defaults it to `json.loads` and `BaseEvent.MarshalBinary` defaults its marshaller to `json.dumps`; `v1.conversion.from_http` defaults to the module-private `_json_or_string`. Either slot rejects a non-callable, raising `InvalidDataMarshaller`/`InvalidDataUnmarshaller`. `v1.kafka.conversion` alone adds `envelope_marshaller`/`envelope_unmarshaller` for the structured leg.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -176,14 +176,14 @@ Kafka alone widens the two `to_*` legs with `key_mapper: KeyMapper | None = None
 - The generic Avro adapter retains the publisher AVSC's complete recursive JSON-value union; its wire-only record wrappers disappear before package `CloudEvent` construction, and profile admission narrows later.
 - Runtime `EventFormat.write`/`decode` expose strict generic v1 single and batch capability over the package event protocol; `encode`/`admit` compose the generated Rasm profile without replacing those entries.
 - The CloudEvents `ce_integer` abstract type is signed 32-bit in both publisher protobuf and Avro schemas, so a wider generated scalar re-enters that ceiling before mint.
-- Binary `write_data`/`read_data` are an SDK binding mechanism, not a structured event-format choice. Compression applies after the complete carrier body at the binding/residence owner; no identity frame or marshaller twin sits inside a format row.
+- Binary `write_data`/`read_data` are an SDK binding mechanism, not a structured event-format choice. Compression applies after the complete carrier body at the binding/store owner; no identity frame or marshaller twin sits inside a format row.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): `propagate.inject`/`propagate.extract` over the attribute mapping carry the CREATION-time W3C context as extension attributes; the distribution declares no OpenTelemetry dependency, so both directions are branch-wired.
 - `confluent-kafka`(`.api/confluent-kafka.md`): `KafkaMessage.headers`/`key`/`value` map onto `Producer.produce(headers=, key=, value=)` and back off `Message.headers()`/`key()`/`value()`; the SDK opens no connection, so the client leg is the branch's.
 - `pika`(`.api/pika.md`): `RabbitMQMessage.headers`/`content_type`/`body` map onto `BasicProperties(headers=, content_type=)` and `basic_publish(body=)`.
 - `python-dateutil`: `isoparse` is the only RFC-3339 reader in the tree, reached through `common.decode_header_value` and `JSONFormat.read`.
 
 [LOCAL_ADMISSION]:
-- `cloudevents.core` is the admitted validating family at every seam; the `v1` legacy tree, its converters, its marshaller stack, and its pydantic mirror are refused whole — a second event type, a second `KafkaMessage`, a second `KeyMapper`, and a third version vocabulary each fork a concept the branch owns once.
+- `cloudevents.core` is the admitted validating family at every boundary; the `v1` legacy tree, its converters, its marshaller stack, and its pydantic mirror are refused whole — a second event type, a second `KafkaMessage`, a second `KeyMapper`, and a third version vocabulary each fork a concept the branch owns once.
 - Extension names admit through the branch roster before construction, since the package's charset check carries no length ceiling and no roster.
 - Every `attributes` mapping handed to the constructor is freshly built per mint and never a value the caller retains, because construction writes defaults into it.
 - Every raise crosses one `boundary` fence into `BoundaryFault`; `CloudEventValidationError.errors` spreads into the aggregate rather than collapsing to its `__str__`.

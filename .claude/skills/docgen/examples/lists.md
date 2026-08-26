@@ -18,7 +18,7 @@ One hyphen fusing a law, its mechanism, two consequences, an exception, and an e
     ````markdown
     Every arm materializes one `Shape` allocation at the boundary.
 
-    - Law: `Compose` folds each row through its own `Codec` arm, `unless` the row's companion column routes geometry to the companion rail.
+    - Law: `Compose` folds each row through its own `Codec` arm, `unless` the row's companion column routes geometry to the companion path.
 
     ```text
     mesh   -> Reader.Decode     -> Shape triple
@@ -59,14 +59,14 @@ Splitting a mega bullet's sentence run into sibling bullets without classifying 
     ```markdown
     - `Compose` folds each row through its `Codec` arm and a per-format importer family is the deleted form.
     - The `mesh` arm materializes one `Shape` triple because the accessor admits no zero-copy span, so a per-row `float[]` is the deleted form.
-    - The rejected reader picks stand and a second tokenizer is the deleted form, while geometry routes to the companion rail unless the row clears it.
+    - The rejected reader picks stand and a second tokenizer is the deleted form, while geometry routes to the companion path unless the row clears it.
     ```
 - Accepted:
 
     ````markdown
     Every arm materializes one `Shape` allocation at the boundary.
 
-    - Law: `Compose` folds each row through its own `Codec` arm, `unless` the row routes geometry to the companion rail.
+    - Law: `Compose` folds each row through its own `Codec` arm, `unless` the row routes geometry to the companion path.
 
     ```text
     mesh   -> Reader.Decode     -> Shape triple
@@ -84,7 +84,7 @@ Lists whose entries answer different reader questions — what exists, how it ru
 - Detection: Consecutive entries under one label switch question class — a model inventory beside a package call beside an output projection beside an anti-pattern ban — so no single question orders the list.
 - Rejected:
     ```markdown
-    - Cases: `Row` carries the format, extent, and style; the `mesh` arm calls `Reader.Decode` over the accessor contract; the `Decoded` result projects `(key, bytes, count)`; a per-format importer family and a raw `float[]` proliferation are the deleted forms; ownership stops at the capsule, never crossing the seam.
+    - Cases: `Row` carries the format, extent, and style; the `mesh` arm calls `Reader.Decode` over the accessor contract; the `Decoded` result projects `(key, bytes, count)`; a per-format importer family and a raw `float[]` proliferation are the deleted forms; ownership stops at the capsule, never crossing the boundary.
     ```
 - Accepted:
 
@@ -183,7 +183,7 @@ Child entries nested under a parent that is not their governing rule are peers m
     ```markdown
     - Boundary: `Compose` closes the dispatch and prepares each arm, never authoring content.
         - [MESH_CODECS]: The `mesh` arm names `Reader` as its package and grounds the `stl`/`obj`/`off` rows, import-only, the writer family out of scope.
-        - [SCENE_CODECS]: The `scene` arm folds `Context.Import` over the triangulate steps, the leaked types never crossing the seam.
+        - [SCENE_CODECS]: The `scene` arm folds `Context.Import` over the triangulate steps, the leaked types never crossing the boundary.
         - [PROTOCOL]: The `step` rows split a managed leg and a companion geometry leg keyed on the row.
     ```
 - Accepted:

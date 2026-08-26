@@ -9,11 +9,11 @@ Work-file entries bury their state in a prose sentence instead of a greppable `[
 - Detection: Flag an entry whose lifecycle state lives in a sentence an agent must parse, not in a leader token it can filter.
 - Rejected:
     ```markdown
-    - Entry 0042 is currently blocked on the persistence seam and moves once the codec lands.
+    - Entry 0042 is currently blocked on the persistence boundary and moves once the codec lands.
     ```
 - Accepted:
     ```markdown
-    - [0042]-[BLOCKED]: persistence seam codec
+    - [0042]-[BLOCKED]: persistence boundary codec
         - Capability: Content-addressed decode across the wire
         - Anchors: Codec owner and artifact index
         - Tension: Decode contract unresolved
@@ -69,13 +69,13 @@ Dense deltas and checklists spell each state as a full word where a declared com
 - Rejected:
     ```markdown
     - pass: codec landing
-    - fail: seam alignment
+    - fail: boundary alignment
     - attention: index migration
     ```
 - Accepted:
     ```markdown
     - [O] codec landing
-    - [X] seam alignment
+    - [X] boundary alignment
     - [!] index migration
     ```
 - Reason: Compact glyphs with globally declared meanings carry state at delta density; a full-word status widens every line where the glyph suffices.

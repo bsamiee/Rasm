@@ -1,6 +1,6 @@
 # [RUNTIME]
 
-Production automation treats the descriptor boundary as the real API surface, keeping process invocation, output serialization, and packaging policy outside script bodies. AppleScript and JXA sit as language rows on one CLI rail.
+Production automation treats the descriptor boundary as the real API surface, keeping process invocation, output serialization, and packaging policy outside script bodies. AppleScript and JXA sit as language rows on one CLI path.
 
 | [INDEX] | [SURFACE]      | [CONTRACT]                                                                                                  |
 | :-----: | :------------- | :---------------------------------------------------------------------------------------------------------- |
@@ -194,7 +194,7 @@ end script
 do shell script "/usr/bin/stat " & Shell's argv({"-f", "%N:%z", POSIX path of (choose file)})
 ```
 
-Elevated shell execution runs outside application `tell` blocks or inside `tell me`, since the target application never becomes the parent process for a privileged scripting addition; multi-command elevation sends one quoted script to `/bin/sh -c`, preserving one authentication prompt, one root shell, and one injection boundary. Long data enters a temporary file the rail deletes on every exit, never the command string, and a background command detaches with explicit redirection and a captured PID so AppleScript receives a process handle, never a live pipe.
+Elevated shell execution runs outside application `tell` blocks or inside `tell me`, since the target application never becomes the parent process for a privileged scripting addition; multi-command elevation sends one quoted script to `/bin/sh -c`, preserving one authentication prompt, one root shell, and one injection boundary. Long data enters a temporary file the caller deletes on every exit, never the command string, and a background command detaches with explicit redirection and a captured PID so AppleScript receives a process handle, never a live pipe.
 
 ```applescript
 tell application "Finder" to set selectedPaths to (POSIX path of (selection as alias list))

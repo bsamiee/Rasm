@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_MINIEXCEL]
 
-`MiniExcel` owns zero-template streaming spreadsheet interchange: one static façade reads `.xlsx`/`.csv` forward-only into lazy `dynamic`, typed, or `IDataReader` rows under a shared-strings disk cache, and writes any enumerable, reader, table, or anonymous value through direct, template, and transcode egress. Column, sheet, style, range, and picture binding ride declared policy values, so workbook size never bounds memory. Persistence routes its spreadsheet lane here, taking row shape alone into the record rail the delimited codec also feeds.
+`MiniExcel` owns zero-template streaming spreadsheet interchange: one static façade reads `.xlsx`/`.csv` forward-only into lazy `dynamic`, typed, or `IDataReader` rows under a shared-strings disk cache, and writes any enumerable, reader, table, or anonymous value through direct, template, and transcode egress. Column, sheet, style, range, and picture binding ride declared policy values, so workbook size never bounds memory. Persistence routes its spreadsheet lane here, taking row shape alone into the record stream the delimited codec also feeds.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -129,7 +129,7 @@ Every read carries the tail `(sheetName, ExcelType, startCell, IConfiguration)`;
 - Ingress is lazy end to end: `Query`, `QueryRange`, and `GetReader` all `yield` from one provider enumeration, the path overloads holding the shared-read `FileStream` open only for the enumeration's life, and `EnableSharedStringCache` spilling the shared-strings table to `SharedStringCachePath` so workbook size never bounds memory.
 
 [STACKING]:
-- `Sep`(`.api/api-sep.md`): peer codec on one record rail — Sep owns SIMD delimited text over `ReadOnlySpan<char>` rows, MiniExcel owns `.xlsx` workbooks and the symmetric `ConvertXlsxToCsv`/`ConvertCsvToXlsx` transcode; source format selects the owner and both deliver the same anonymous row stream downstream.
+- `Sep`(`.api/api-sep.md`): peer codec on one record stream — Sep owns SIMD delimited text over `ReadOnlySpan<char>` rows, MiniExcel owns `.xlsx` workbooks and the symmetric `ConvertXlsxToCsv`/`ConvertCsvToXlsx` transcode; source format selects the owner and both deliver the same anonymous row stream downstream.
 - `linq2db.EntityFrameworkCore`(`.api/api-linq2db-ef.md`): a typed row sequence sources `LinqToDBForEFTools.BulkCopyAsync<T>` into PostgreSQL binary COPY, and `BulkCopy`/`BulkCopyAsync` bind `IEnumerable<T>`/`IAsyncEnumerable<T>`, so the typed enumerable is the bulk source and the reader never is.
 - `Apache.Arrow`(`libs/dotnet/.api/api-arrow.md`)/`DuckDB.NET`(`.api/api-duckdb.md`): `GetReader`'s `MiniExcelDataReader : IDataReader` is the row source the columnar materializer pulls, and the binary columnar path stays theirs — a workbook is never read as a columnar file.
 - `NodaTime.Serialization.SystemTextJson`(`.api/api-nodatime-stj.md`)/`Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`): a header-keyed `dynamic` row binds through the composed wire converters, minting `Instant`, `LocalDate`, value-object, and smart-enum cells; `DateOnlyConversionMode` governs `DateOnly` admission and `DynamicExcelColumn.CustomFormatter` projects the cell on the dynamic, reader, and write legs.

@@ -1,6 +1,6 @@
 # [DOTNET_TESTING_API_XUNIT_V3]
 
-xunit.v3 packages carry the whole .NET proof estate: `xunit.v3.assert` is the assertion surface the kit gates throw through, `xunit.v3.extensibility.core` owns the fact/theory/collection attribute model, `xunit.v3.common` is their shared substrate, and `xunit.v3.mtp-v2` is the metapackage that turns each test project into a self-hosting Microsoft.Testing.Platform executable. `Directory.Build.props` injects the three sub-packages into `IsTestKitProject` and `mtp-v2` into `IsTestProject`, all `PrivateAssets="all"`, with a global `Using Include="Xunit"`; a csproj never re-wires them.
+xunit.v3 packages carry the whole .NET proof tree: `xunit.v3.assert` is the assertion surface the kit gates throw through, `xunit.v3.extensibility.core` owns the fact/theory/collection attribute model, `xunit.v3.common` is their shared substrate, and `xunit.v3.mtp-v2` is the metapackage that turns each test project into a self-hosting Microsoft.Testing.Platform executable. Every suite csproj declares `xunit.v3.mtp-v2` itself and `Rasm.TestKit.csproj` declares `xunit.v3.assert` and `xunit.v3.extensibility.core`; the root `Directory.Build.targets` derives the global `Using Include="Xunit"` from that declared reference.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -66,13 +66,9 @@ public interface ITestOutputHelper {
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-[RUNNER_CONFIG]: the runner json is MSBuild-emitted, never a checked-in file — `Directory.Build.targets` holds the `_XunitRunnerJsonContent` literal and writes it to `$(IntermediateOutputPath)/xunit.runner.json` per test project.
-- `parallelAlgorithm: "conservative"` — caps concurrently scheduled threads instead of oversubscribing when tests block.
-- `preEnumerateTheories: true` — each theory row discovers as its own case.
-- `longRunningTestSeconds: 30` — diagnostic notification past the wall-clock threshold.
-- `printMaxEnumerableLength: 64` / `printMaxObjectDepth: 4` — failure-message formatting caps.
+[RUNNER_CONFIG]: no `xunit.runner.json` exists in the repo; the runner's defaults (`parallelAlgorithm: conservative`, theory pre-enumeration, diagnostic caps) stand, and any per-suite deviation lands as a checked-in `xunit.runner.json` `Content` item in that suite alone. Result writers (`--report-xunit-trx`, `--report-xunit-html`, `--report-ctrf`) ship inside `xunit.v3.core.mtp-v2`, so no separate TRX extension is admitted.
 
-[MTP_BRIDGE]: `xunit.v3.mtp-v2` is a pure metapackage; its transitive `xunit.v3.core.mtp-v2` carries the `buildTransitive` props/targets that generate the MTP entry point, so `UseMicrosoftTestingPlatformRunner=true` + `OutputType=Exe` compile every suite into a self-hosting MTP executable, and the MTP dependency floor it declares floats up to the centrally pinned Testing.Platform stack. `GenerateTestingPlatformEntryPoint`-family properties are scrubbed from transitive project references by the estate's reference-isolation `ItemDefinitionGroup`.
+[MTP_BRIDGE]: `xunit.v3.mtp-v2` is a pure metapackage; its transitive `xunit.v3.core.mtp-v2` carries the `buildTransitive` props/targets that generate the MTP entry point, so `UseMicrosoftTestingPlatformRunner=true` + `OutputType=Exe` compile every suite into a self-hosting MTP executable, and the MTP dependency floor it declares floats up to the centrally pinned Testing.Platform stack.
 
 [FIXTURES]: fixtures route through `IClassFixture<T>`/`ICollectionFixture<T>`, `AssemblyFixtureAttribute`, and the `CollectionAttribute<T>`/`CollectionDefinitionAttribute` pairing; all three tiers ship in `xunit.v3.core.dll`.
 
@@ -83,5 +79,5 @@ public interface ITestOutputHelper {
 - `Microsoft.Testing.Platform` stack (`testing-platform.md`): the execution host the mtp-v2 entry point registers into.
 
 [LOCAL_ADMISSION]:
-- Test and kit projects receive the family through the `Directory.Build.props` classifier rows; a csproj adding its own xunit reference is the named defect.
-- Assertion access outside kit gates is unconstrained; kit `Spec`/`Approx` owners wrap the float and rail regimes so specs never hand-roll tolerance logic.
+- Each suite declares the family in its own csproj; a second owner injecting it is the named defect.
+- Assertion access outside kit gates is unconstrained; kit `Spec`/`Approx` owners wrap the float and result regimes so specs never hand-roll tolerance logic.

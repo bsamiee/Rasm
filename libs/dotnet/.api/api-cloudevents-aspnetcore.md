@@ -2,7 +2,7 @@
 
 `CloudNative.CloudEvents.AspNetCore` binds the CloudEvents HTTP protocol binding onto ASP.NET Core's own request and response abstractions: two extension classes carrying the content probe, the single-event and batch decode off an `HttpRequest`, and the single-event and batch write onto an `HttpResponse`.
 
-`Rasm.AppHost` is the one folder that reaches it, serving the estate's HTTP ingress and its abuse-protection handshake over the envelope owner at `Rasm/Domain/event#ENVELOPE_MINT`. This package ships no model binder, no input formatter, and no middleware — an endpoint calls the extensions directly.
+`Rasm.AppHost` is the one folder that reaches it, serving the solution's HTTP ingress and its abuse-protection handshake over the envelope owner at `Rasm/Domain/event#ENVELOPE_MINT`. This package ships no model binder, no input formatter, and no middleware — an endpoint calls the extensions directly.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -45,7 +45,7 @@
 - Batch surfaces are content-type-only in BOTH directions: a header-mode batch has no spelling, so a producer batching over HTTP frames structured.
 
 [STACKING]:
-- `api-cloudevents.md`: that catalogue owns the envelope, the `CloudEventFormatter` contract, `ContentMode`, `MimeUtilities`, and the `HttpUtilities` header grammar; this package binds them onto the ASP.NET Core abstractions alone, and the sibling `.Http` classes there serve `HttpClient`, `HttpListener`, and `HttpWebRequest` hosts this estate does not run.
+- `api-cloudevents.md`: that catalogue owns the envelope, the `CloudEventFormatter` contract, `ContentMode`, `MimeUtilities`, and the `HttpUtilities` header grammar; this package binds them onto the ASP.NET Core abstractions alone, and the sibling `.Http` classes there serve `HttpClient`, `HttpListener`, and `HttpWebRequest` hosts this solution does not run.
 - Kernel owner anchor: every call takes the `EventFormat` row's formatter; each ingress supplies a generated-descriptor declaration for the `event.Extensions` fields it consumes, so no kernel wire roster or attribute literal survives.
 - `Rasm.AppHost` consumer anchor: the HTTP ingress route probes, decodes under its generated-descriptor declarations, and admits tenancy before its injected domain projection routes the envelope; the abuse-protection `OPTIONS` handshake and its `WebHook-*` headers remain route-owned.
 

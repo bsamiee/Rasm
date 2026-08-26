@@ -85,16 +85,16 @@
 [TOPOLOGY]:
 - `Cluster` and `Chain` each duplicate their selected objects into an owned inner `Document`; the outer graph binds the inner boundary only through explicit map admission, never an automatic parameter rebuild.
 - `Cluster` aligns outer inputs to `Listen` rows and outer outputs to `Shout` rows, and `EnsureMaps` returns those cached arrays by `out` with no validation or verdict.
-- `Chain` transfers only through `MigrateConnections`; `OrderChainLinks` and `ValidateChain` carry no ordering or validation capability and enter no composition rail.
+- `Chain` transfers only through `MigrateConnections`; `OrderChainLinks` and `ValidateChain` carry no ordering or validation capability and enter no composition path.
 - `GH1InteropComponent` hosts against a live GH1 runtime and persists its XML, never upgrading the component.
 
 [STACKING]:
 - `api-languageext`(`.api/api-languageext.md`): `EnsureMaps` out-arrays lift onto `Option<Listen>`/`Option<Shout>` per boundary slot so a runtime-null entry is an absent case, and `OrderChainLinks`/`ValidateChain` — a stub order and an always-false verdict — lower onto `Fin` so a chain-admission refusal is a typed `Error` rather than a silent `false`.
 - `api-thinktecture-runtime-extensions`(`.api/api-thinktecture-runtime-extensions.md`): `Accumulation`, `ClusterBoundary`, and `LoopContinuation` fold onto `[SmartEnum]` owners, so an accumulation mode, boundary role, or loop-continuation branch dispatches through one exhaustive `Switch`.
-- `NativeObject`(within-lib): composes `Cluster`/`Chain` construction and `GH1InteropComponent` import admission, mapping outer-to-inner boundaries and the GH1 icon conversion at one seam.
+- `NativeObject`(within-lib): composes `Cluster`/`Chain` construction and `GH1InteropComponent` import admission, mapping outer-to-inner boundaries and the GH1 icon conversion at one boundary.
 
 [LOCAL_ADMISSION]:
-- Public composition admits `Cluster`, `Chain`, `GH1InteropComponent`, `Accumulation`, `ClusterBoundary`, and `LoopContinuation`; internal loop types and private cluster/chain helpers never enter a public signature, generated vocabulary, factory, or operation rail.
+- Public composition admits `Cluster`, `Chain`, `GH1InteropComponent`, `Accumulation`, `ClusterBoundary`, and `LoopContinuation`; internal loop types and private cluster/chain helpers never enter a public signature, generated vocabulary, factory, or operation surface.
 - `EnsureMaps` lifts as a void host call followed by explicit array and element admission, never a boolean confirmation.
 - `OrderChainLinks` and `ValidateChain` remain signature facts; public composition calls neither.
 - `IGH_Component` is admitted as a wrapper around a validated live GH1 object, its nullable parameter and icon reads stay explicit, and transfer index pairs are range-admitted before invocation.

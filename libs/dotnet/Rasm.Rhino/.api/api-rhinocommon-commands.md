@@ -1,11 +1,11 @@
 # [RASM_RHINO_API_RHINOCOMMON_COMMANDS]
 
-This catalog owns the interactive command boundary: the `Rhino.Commands.Command` lifecycle, `RhinoApp` UI-thread marshalling and script dispatch, `RhinoGet` one-shot modal acquisition, and the `Rhino.Input.Custom` getter family carrying command-line options, selection policy, constrained point picking, and transform capture. Every acquisition resolves to a `GetResult`/`Result` the boundary projects onto `LanguageExt` rails; every geometry payload crosses at the geometry catalog's boundary, and the closed host vocabularies wrap as `Thinktecture` generated owners.
+This catalog owns the interactive command boundary: the `Rhino.Commands.Command` lifecycle, `RhinoApp` UI-thread marshalling and script dispatch, `RhinoGet` one-shot modal acquisition, and the `Rhino.Input.Custom` getter family carrying command-line options, selection policy, constrained point picking, and transform capture. Every acquisition resolves to a `GetResult`/`Result` the boundary projects onto `LanguageExt` carriers; every geometry payload crosses at the geometry catalog's boundary, and the closed host vocabularies wrap as `Thinktecture` generated owners.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: lifecycle and dispatch
-- rail: command-boundary
+- concern: command-boundary
 
 | [INDEX] | [SYMBOL]                                 | [KIND]           | [CAPABILITY]                                                            |
 | :-----: | :--------------------------------------- | :--------------- | :---------------------------------------------------------------------- |
@@ -18,7 +18,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 |  [07]   | `Rhino.UI.CommandPromptChangedEventArgs` | event args       | command-prompt text, default, and callback-scoped options               |
 
 [PUBLIC_TYPE_SCOPE]: acquisition and getters
-- rail: command-boundary
+- concern: command-boundary
 
 | [INDEX] | [SYMBOL]                      | [KIND]          | [CAPABILITY]                                                                    |
 | :-----: | :---------------------------- | :-------------- | :------------------------------------------------------------------------------ |
@@ -35,7 +35,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 |  [11]   | `GetPointDrawEventArgs`       | event args      | per-frame dynamic-draw payload during point acquisition                         |
 
 [PUBLIC_TYPE_SCOPE]: command-line option carriers
-- rail: command-boundary
+- concern: command-boundary
 
 | [INDEX] | [SYMBOL]                         | [KIND]             | [CAPABILITY]                                                 |
 | :-----: | :------------------------------- | :----------------- | :----------------------------------------------------------- |
@@ -57,8 +57,8 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Commands.Command.EnglishName -> string` — invariant English command identity used for lookup and history.
 - `Rhino.Commands.Command.LocalName -> string` — localized display name.
 - `Rhino.Commands.Command.Settings -> PersistentSettings` — per-command persistent settings bag.
-- `Rhino.Commands.Command.RunCommand(RhinoDoc doc, RunMode mode) -> Result` — protected abstract execution seam each command overrides.
-- `Rhino.Commands.Command.ReplayHistory(Rhino.DocObjects.ReplayHistoryData replayData) -> bool` — protected virtual history re-solve seam; the host owns and disposes the callback argument, while overrides read its typed values and update its `ReplayHistoryResult` roster inside the call.
+- `Rhino.Commands.Command.RunCommand(RhinoDoc doc, RunMode mode) -> Result` — protected abstract execution entry point each command overrides.
+- `Rhino.Commands.Command.ReplayHistory(Rhino.DocObjects.ReplayHistoryData replayData) -> bool` — protected virtual history re-solve hook; the host owns and disposes the callback argument, while overrides read its typed values and update its `ReplayHistoryResult` roster inside the call.
 - `Rhino.Commands.Command.BeginCommand -> EventHandler<CommandEventArgs>` — static command-start signal.
 - `Rhino.Commands.Command.EndCommand -> EventHandler<CommandEventArgs>` — static command-end signal.
 - `Rhino.Commands.Command.UndoRedo -> EventHandler<UndoRedoEventArgs>` — static undo/redo recording and replay signal.
@@ -130,7 +130,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `TransformObjectList.DisplayFeedbackEnabled -> bool` / `UpdateDisplayFeedbackTransform(Transform) -> bool` — arms per-sample display feedback and re-poses the WHOLE buffered set in one host call.
 - `TransformObjectList.Clear() -> void` — empties the buffer without disposing it.
 - `Rhino.Input.Custom.GetTransform.AddTransformObjects(TransformObjectList list) -> void` — the consuming member lives on the GETTER, not on the buffer: `GetTransform` takes a populated buffer and paints its own feedback thereafter. `GetTransform.ObjectList` lazily mints its own `TransformObjectList(this)`, so a caller supplying one owns that instance and the getter's own property is a second, separate buffer.
-- `Rhino.Input.Custom.GetTransform.GetXform() -> GetResult` / `HaveTransform -> bool` / `Transform -> Transform` / `abstract CalculateTransform(RhinoViewport, Point3d) -> Transform` — the capture rail; the abstract member receives a LIVE viewport per mouse sample and cannot be lifted onto detached evidence.
+- `Rhino.Input.Custom.GetTransform.GetXform() -> GetResult` / `HaveTransform -> bool` / `Transform -> Transform` / `abstract CalculateTransform(RhinoViewport, Point3d) -> Transform` — the capture surface; the abstract member receives a LIVE viewport per mouse sample and cannot be lifted onto detached evidence.
 
 [GETTER_PROMPTS_AND_DEFAULTS]:
 - `Rhino.Input.Custom.GetBaseClass.SetCommandPrompt(string prompt) -> void` — sets the getter prompt.
@@ -213,7 +213,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetPoint.MouseDown -> EventHandler<GetPointMouseEventArgs>` — dynamic mouse-down signal.
 - `Rhino.Input.Custom.GetPoint.DynamicDraw -> EventHandler<GetPointDrawEventArgs>` — per-frame dynamic-draw signal.
 - `Rhino.Input.Custom.GetPoint.PostDrawObjects -> EventHandler<DrawEventArgs>` — post-object overlay-draw signal.
-- `Rhino.Input.Custom.GetPoint.InterruptMouseMove() -> bool` — exits the native mouse-move loop so a callback-captured fault can return through the managed rail.
+- `Rhino.Input.Custom.GetPoint.InterruptMouseMove() -> bool` — exits the native mouse-move loop so a callback-captured fault can return through the managed carrier.
 - `Rhino.Input.Custom.GetPoint.SetBasePoint(Point3d basePoint, bool showDistanceInStatusBar) -> void` — anchors the base point.
 - `Rhino.Input.Custom.GetPoint.Constrain(Curve curve, bool allowPickingPointOffObject) -> bool` — constrains acquisition to a curve.
 - `Rhino.Input.Custom.GetPoint.Constrain(Surface surface, bool allowPickingPointOffObject) -> bool` — constrains acquisition to a surface.
@@ -243,7 +243,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 ## [03]-[IMPLEMENTATION_LAW]
 
 [COMMAND_TOPOLOGY]:
-- `Command` owns identity and the `RunCommand`/`ReplayHistory` execution seam; `RhinoApp` owns thread affinity and script dispatch; `RhinoGet` owns one-shot modal acquisition; the `Rhino.Input.Custom` getters own multi-step acquisition with options, constraints, and dynamic draw. Acquisition state (`InGet`/`InGetPoint`/`InGetObject`) reads from `RhinoGet` and `RhinoDoc`, never inferred.
+- `Command` owns identity and the `RunCommand`/`ReplayHistory` execution entry point; `RhinoApp` owns thread affinity and script dispatch; `RhinoGet` owns one-shot modal acquisition; the `Rhino.Input.Custom` getters own multi-step acquisition with options, constraints, and dynamic draw. Acquisition state (`InGet`/`InGetPoint`/`InGetObject`) reads from `RhinoGet` and `RhinoDoc`, never inferred.
 - every getter terminates in a `GetResult` and every command in a `Result`, both separating cancel and nothing from failure; the boundary reads the discriminant, never treating a cancel as an error.
 - mutating and prompt-bearing calls run on the UI thread; off-thread work marshals through `RhinoApp.InvokeOnUiThread` (fire-and-forget) or `RhinoApp.InvokeAndWait` (blocking), gated by `IsOnMainThread`/`InvokeRequired`.
 
@@ -254,5 +254,5 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rasm` kernel: bounded numeric ranges, unit values, and easing/interpolation for dynamic-draw feedback compose the kernel owners; the boundary re-derives none of them.
 
 [LOCAL_ADMISSION]:
-- a command enters through a `Command`-derived owner whose `RunCommand` returns a projected `Result`; interactive acquisition enters through a getter owner that registers options and defaults, applies the accept policy, runs `Get`/`GetMultiple`/`GetXform`, and projects the `GetResult` onto a `Fin` rail keyed to the payload.
-- host getter and option carrier types never leak past the boundary; downstream code holds the projected rail value and the canonical geometry payload the geometry catalog admits.
+- a command enters through a `Command`-derived owner whose `RunCommand` returns a projected `Result`; interactive acquisition enters through a getter owner that registers options and defaults, applies the accept policy, runs `Get`/`GetMultiple`/`GetXform`, and projects the `GetResult` onto a `Fin` carrier keyed to the payload.
+- host getter and option carrier types never leak past the boundary; downstream code holds the projected carrier value and the canonical geometry payload the geometry catalog admits.

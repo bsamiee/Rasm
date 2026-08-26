@@ -1,8 +1,8 @@
 # [PY_CAD_FAULTS]
 
-`CadFault` is the provider's one refusal value and `CadRail` the carrier every owner returns. One frozen row set spells each refusal shape once — its leg, its frozen `rasm.cad` case ordinal, the Connect code it crosses under, and the producer's own three-arm recovery verdict — so a leg refusal, its wire projection, and its re-drive posture read from one declaration instead of parallel exception families and a translation tax paid at every seam.
+`CadFault` is the provider's one refusal value and `CadResult` the carrier every owner returns. One frozen row set spells each refusal shape once — its leg, its frozen `rasm.cad` case ordinal, the Connect code it crosses under, and the producer's own three-arm recovery verdict — so a leg refusal, its wire projection, and its re-drive posture read from one declaration instead of parallel exception families and a translation tax paid at every boundary.
 
-This owner imports no sibling and every sub-domain reaches it, so the row roster seats below the exchange codecs, the B-rep owners, and the served lane alike. `expression` supplies the carrier and `msgspec` the frozen row and fault records; both pickle by reference, so a refusal minted inside the `anyio.to_process` worker crosses the seam as a VALUE and no custom exception transports an inner fault across it. `FaultRecovery`'s throttled arm IS `google.rpc.RetryInfo`, so estate detail and standard detail carry ONE message and never two projections that can disagree.
+This owner imports no sibling and every sub-domain reaches it, so the row roster seats below the exchange codecs, the B-rep owners, and the served lane alike. `expression` supplies the carrier and `msgspec` the frozen row and fault records; both pickle by reference, so a refusal minted inside the `anyio.to_process` worker crosses the boundary as a VALUE and no custom exception transports an inner fault across it. `FaultRecovery`'s throttled arm IS `google.rpc.RetryInfo`, so repo detail and standard detail carry ONE message and never two projections that can disagree.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ This owner imports no sibling and every sub-domain reaches it, so the row roster
 
 ## [02]-[ROWS]
 
-- Owner: `CadFault` — the one refusal value; `FaultRow.at` is its only mint and every owner returns `CadRail[T]`.
+- Owner: `CadFault` — the one refusal value; `FaultRow.at` is its only mint and every owner returns `CadResult[T]`.
 - Cases: `CadCase` is the FROZEN ordinal set under `domain="rasm.cad"` — an issued code outlives its row, so a member appends and never renumbers.
 - Law: `CadLeg` and `CadCase` are independent columns — four legs raise `INPUT` and one leg raises five cases, so either collapse loses a join axis.
 - Law: a per-leg `kind` `Literal` is the deleted form — nested subsets forced a re-wrap at each leg and rebuilt the ordinal at the serve edge.
@@ -20,7 +20,7 @@ This owner imports no sibling and every sub-domain reaches it, so the row roster
 - Law: `Recovery` mirrors `FaultRecovery.kind` arm for arm, so the verdict is a VALUE the row carries and the third arm stays spellable.
 - Law: a `transient: bool` knob is the deleted form — it collapsed three arms onto two and made the stated window unreachable from every row.
 - Law: a windowed row is DERIVED, never rostered — `FaultRow.windowed` reads the admitted `call_seconds`, so the delay is a measured worst case.
-- Law: `at` returns the fault and never raises it — a raise survives only at the `to_process` crossing and the serve edge, each naming its seam.
+- Law: `at` returns the fault and never raises it — a raise survives only at the `to_process` crossing and the serve edge, each naming its boundary.
 - Growth: a refusal shape is one `FaultRow`; a wire case, one `CadCase` member; a posture, one `Recovery` case beside one `_PROJECTED` row.
 - Boundary: refusal SHAPE alone lives here — correlation, stamp, and tenant arrive as `FaultStamp`, and the raise is `service/provider`'s collapse.
 
@@ -39,7 +39,7 @@ from protobuf.wkt import Duration, Empty
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type CadRail[T] = Result[T, "CadFault"]
+type CadResult[T] = Result[T, "CadFault"]
 
 DOMAIN: Final[str] = "rasm.cad"
 
@@ -103,7 +103,7 @@ class FaultStamp(Struct, frozen=True, gc=False):
     tenant: str | None = None
 
     @staticmethod
-    def of(correlation: bytes, stamp: Hlc, tenant: str | None = None, /) -> CadRail["FaultStamp"]:
+    def of(correlation: bytes, stamp: Hlc, tenant: str | None = None, /) -> CadResult["FaultStamp"]:
         return (
             Ok(FaultStamp(correlation=correlation, stamp=stamp, tenant=tenant))
             if len(correlation) == 16

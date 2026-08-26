@@ -15,8 +15,8 @@ Spine is `trimesh` and `numpy` — never a phantom `scipy` spine, since no geome
 - Law: arity is absorbed at the head and the CROSSING is per work class, never per query — the batch-heavy members of a whole batch ship as ONE `HOSTILE` kernel invocation, so the worker's `trimesh` mesh caches its `triangles_tree` and proximity index across every member and an N-query batch pays one index construction where a per-member hop pays N; the index-cached members read the capsule's own cached tree in-process, and both legs reassemble by admission ordinal so the returned `Block` aligns with the input.
 - Law: each sweep writes ONE `structlog` line at the capsule — query count, offloaded count, and the resolved tier — bound to the capsule's composition logger, so a batch reads as one line and an empty sweep writes nothing.
 - Entry: `query` is the one polymorphic read and `benched` its macro-bench; the capsule's composition `ScopeKey` binds the logger, so an embedded root's lines partition from the process root's.
-- Auto: an offloaded sweep rebuilds whatever index its hop needs inside the worker process — a live R-tree, FCL model, or `Manifold` is a native handle no pickler carries, so only the numpy-backed `Trimesh` crosses the seam and the capsule caches no native handle — while the in-process kinds read the lazily-cached `triangles_tree`/`kdtree` indices the capsule `Trimesh` owns and amortizes across calls.
-- Packages: `trimesh` (proximity/ray/contains/sample and the cached indices), `numpy`, `rtree` (the `triangles_tree` R-tree), `python-fcl` (the direct narrow-phase `fcl.distance`, deferred through one module-scope `lazy import` so its interpreter-marked absence costs nothing until the witness tier is selected), `manifold3d` (through repair's `to_manifold`), `expression`, `structlog` through the runtime `logger`, and the runtime rails per the fence imports.
+- Auto: an offloaded sweep rebuilds whatever index its hop needs inside the worker process — a live R-tree, FCL model, or `Manifold` is a native handle no pickler carries, so only the numpy-backed `Trimesh` crosses the boundary and the capsule caches no native handle — while the in-process kinds read the lazily-cached `triangles_tree`/`kdtree` indices the capsule `Trimesh` owns and amortizes across calls.
+- Packages: `trimesh` (proximity/ray/contains/sample and the cached indices), `numpy`, `rtree` (the `triangles_tree` R-tree), `python-fcl` (the direct narrow-phase `fcl.distance`, deferred through one module-scope `lazy import` so its interpreter-marked absence costs nothing until the witness tier is selected), `manifold3d` (through repair's `to_manifold`), `expression`, `structlog` through the runtime `logger`, and the runtime results per the fence imports.
 
 - Growth: a new query kind is one `SpatialQuery` case and its mirrored `SpatialResult` arm and one `_dispatch` arm — `assert_never` forces the closure; a new exact-geometry provider is one `ManifoldTier` row at `mesh/repair#MESH`, never a probe minted here.
 - Boundary: vertex-KNN acceleration (`open3d.geometry.KDTreeFlann`, `small_gicp.KdTree.batch_knn_search`) is NOT this owner's backend — a vertex nearest-neighbor is a coarser, distinct result from `closest_point`'s exact on-surface projection, so that acceleration belongs to the `scan/registration` consumer that owns the cloud-to-vertex correspondence; IFC clash detection is `ifc/analysis#ANALYSIS`'s `ifcclash` drive, never this index; conditioning is `mesh/repair#MESH`'s and the capability probe with it; metrology is `mesh/quality#QUALITY`'s.
@@ -33,9 +33,9 @@ from expression import Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 
 
-from rasm.geometry.graduation import EvidenceScope, GeometryLeg, bench_seam, bench_subject
+from rasm.geometry.graduation import EvidenceScope, GeometryLeg, bench_boundary, bench_subject
 from rasm.geometry.mesh.repair import ManifoldTier, to_manifold
-from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey, logger
 from rasm.runtime.profiles import Benchmark
@@ -252,17 +252,17 @@ class MeshSpatial:
         self._composition = composition
 
     @overload
-    async def query(self, q: SpatialQuery) -> "RuntimeRail[SpatialResult]": ...
+    async def query(self, q: SpatialQuery) -> "RuntimeResult[SpatialResult]": ...
     @overload
-    async def query(self, q: Sequence[SpatialQuery]) -> "RuntimeRail[Block[SpatialResult]]": ...
-    async def query(self, q: SpatialQuery | Sequence[SpatialQuery]) -> "RuntimeRail[SpatialResult] | RuntimeRail[Block[SpatialResult]]":
+    async def query(self, q: Sequence[SpatialQuery]) -> "RuntimeResult[Block[SpatialResult]]": ...
+    async def query(self, q: SpatialQuery | Sequence[SpatialQuery]) -> "RuntimeResult[SpatialResult] | RuntimeResult[Block[SpatialResult]]":
         match q:
             case SpatialQuery() as one:
                 return (await self._swept(Block.singleton(one))).map(lambda kept: kept.head())
             case batch:
                 return await self._swept(Block.of_seq(batch))
 
-    async def _swept(self, queries: Block[SpatialQuery]) -> "RuntimeRail[Block[SpatialResult]]":
+    async def _swept(self, queries: Block[SpatialQuery]) -> "RuntimeResult[Block[SpatialResult]]":
         rows = queries.mapi(lambda i, one: (i, one))
         heavy, light = rows.partition(lambda row: row[1].tag in _OFFLOAD)
         indexed = boundary(
@@ -273,16 +273,16 @@ class MeshSpatial:
         )
         return (await self._heavy(heavy)).map2(indexed, lambda a, b: Map.of_seq(a.append(b))).map(_ordered)
 
-    async def _heavy(self, rows: Block[tuple[int, SpatialQuery]]) -> "RuntimeRail[Block[tuple[int, SpatialResult]]]":
+    async def _heavy(self, rows: Block[tuple[int, SpatialQuery]]) -> "RuntimeResult[Block[tuple[int, SpatialResult]]]":
         if rows.is_empty():
             return Ok(Block.empty())
         kernel = Kernel.of(_swept_kernel, KernelTrait.HOSTILE)
-        railed = await self._lane.offload(kernel, self._mesh, tuple(row[1] for row in rows), self._tier)
-        return railed.map(lambda out: Block.of_seq(zip((row[0] for row in rows), out, strict=True)))
+        outcome = await self._lane.offload(kernel, self._mesh, tuple(row[1] for row in rows), self._tier)
+        return outcome.map(lambda out: Block.of_seq(zip((row[0] for row in rows), out, strict=True)))
 
-    def benched(self, q: SpatialQuery | Sequence[SpatialQuery], *, rounds: int = 32, warmup: int = 4) -> "RuntimeRail[Benchmark]":
+    def benched(self, q: SpatialQuery | Sequence[SpatialQuery], *, rounds: int = 32, warmup: int = 4) -> "RuntimeResult[Benchmark]":
         kind = q.tag if isinstance(q, SpatialQuery) else "batch"
-        return bench_seam(bench_subject(EvidenceScope.MESH_SPATIAL, kind), partial(self.query, q), rounds=rounds, warmup=warmup)
+        return bench_boundary(bench_subject(EvidenceScope.MESH_SPATIAL, kind), partial(self.query, q), rounds=rounds, warmup=warmup)
 ```
 
 ## [03]-[RESEARCH]

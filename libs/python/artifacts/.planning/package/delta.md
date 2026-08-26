@@ -2,7 +2,7 @@
 
 `Delta` is the binary diff/patch producer — incremental artifact deltas keyed by a parent content key. Where `package/codec#CODEC` compresses one payload against nothing and `package/archive#ARCHIVE` folds many into one container, `Delta` diffs ONE to-image payload against a parent from-image and stores only the compressed patch, so an artifact revising a near-identical predecessor ships the delta, not the whole blob. It composes the `package/bundle#BUNDLE` vocabulary downward and imports no sibling.
 
-`emit() -> ArtifactWork` carries the producer contract, and the parent-keyed row is structural: the node's `parents` name the base bundle key (`DeltaKnobs.parent_key`, forced by `Bundle.of`'s delta arm), so the plan graph holds the base→patch dependency and a re-issued identical revision elides pre-run (`Admission(keyed=None)`, the work key is retained) — cheaply, because the spec key folds `from_image` down to its xxh3_128 digest — a changed base image flips the node identity — while the parent identity rides the merkle fold. `Delta.of` accepts the single `DeltaKnobs` policy value, the to-image payload, and the keyword-only `lane` the composition root projects; `Bundle.of` admits its full `detools.create_patch` axis against `DELTA_MATRIX`, band congruence, and in-place memory layout, so `pack` is total over admitted policies and runs no combination validation. Reconstruction keys on the patch header kind through `_delta_apply` — the same kernel re-applying the just-minted patch at pack time — and `_proved_size` applies the patch-kind, size, compression, in-place memory-band, and firmware data-format proofs in both pack and recovery. A failed round-trip, size, or header proof RAISES a `<delta-verify:*>` fault into the offload rail, so `BundleEvidence` materializes only after the patch round-trips and carries `verified = 1`. `detools` owns the superset diff engine — a hand-rolled bsdiff or suffix-array diff is the deleted form — and its create/apply bodies release the GIL, so the kernel crosses at `KernelTrait.RELEASING` on the thread arm.
+`emit() -> ArtifactWork` carries the producer contract, and the parent-keyed row is structural: the node's `parents` name the base bundle key (`DeltaKnobs.parent_key`, forced by `Bundle.of`'s delta arm), so the plan graph holds the base→patch dependency and a re-issued identical revision elides pre-run (`Admission(keyed=None)`, the work key is retained) — cheaply, because the spec key folds `from_image` down to its xxh3_128 digest — a changed base image flips the node identity — while the parent identity rides the merkle fold. `Delta.of` accepts the single `DeltaKnobs` policy value, the to-image payload, and the keyword-only `lane` the composition root projects; `Bundle.of` admits its full `detools.create_patch` axis against `DELTA_MATRIX`, band congruence, and in-place memory layout, so `pack` is total over admitted policies and runs no combination validation. Reconstruction keys on the patch header kind through `_delta_apply` — the same kernel re-applying the just-minted patch at pack time — and `_proved_size` applies the patch-kind, size, compression, in-place memory-band, and firmware data-format proofs in both pack and recovery. A failed round-trip, size, or header proof RAISES a `<delta-verify:*>` fault into the offload path, so `BundleEvidence` materializes only after the patch round-trips and carries `verified = 1`. `detools` owns the superset diff engine — a hand-rolled bsdiff or suffix-array diff is the deleted form — and its create/apply bodies release the GIL, so the kernel crosses at `KernelTrait.RELEASING` on the thread arm.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@
 - Entry: `Delta.of(policy, payload, lane=lane)` binds the parent at construction — the policy carries `from_image` (the only side-input either leg needs) and `parent_key`, and the node reads `parents=(parent_key,)`, so a content-addressed delta keyed by its parent is the storage and graph shape; `packed` offloads `Delta.pack` for the byte-holding consumer, `_emit` records the packed byte volume and returns that result unchanged, and `unpack` names the recovered member `f"from-{parent_key.hex}"` so it traces its parent.
 - Packages: `detools` (lazy — `create_patch`/`apply_patch*`/`patch_info`; runtime deps `bitstruct`/`heatshrink2`/`lz4`/`pyelftools`/`zstandard` ride it), `xxhash` (the recovered-image digest), `expression` (`Map.of_seq` the header-slot row, `Result` the settled-output match), `msgspec` (`Struct`), runtime `identity`/`faults`/`lanes`/`metrics`/`resilience`, `rasm.artifacts.core.plan`/`core.hooks`/`package.bundle`.
 - Growth: a new patch type is one bundle-page `DeltaPatchType` token, its `DELTA_MATRIX` pairings, plus one `_delta_apply` arm; a new diff algorithm/codec/architecture/suffix-array constructor is one token on its bundle-page axis; a new tuning knob is one named `DeltaKnobs` field with `Delta.of(policy, payload, lane=lane)` unchanged — the in-place and firmware bands are the anticipatory collapse already absorbed, zero new verb beside `emit`/`packed`/`unpack`.
-- Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter or retry caller, no CLI argparse plumbing (`data_format_args` is never a library resolver), and no corpus modality (a corpus diff is N parent-bound nodes, never one). Verification failure rides the rail before `BundleEvidence` exists.
+- Boundary: no sibling import, no vocabulary re-own, no folder-minted limiter or retry caller, no CLI argparse plumbing (`data_format_args` is never a library resolver), and no corpus modality (a corpus diff is N parent-bound nodes, never one). Verification failure rides the result before `BundleEvidence` exists.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -27,7 +27,7 @@ from expression import Error, Result
 from expression.collections import Map
 from msgspec import Struct
 
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -65,17 +65,17 @@ class Delta(Struct, frozen=True):
     def emit(self, /) -> ArtifactWork[tuple[bytes, BundleEvidence]]:
         return ArtifactWork(key=self.bundle.key, work=self._emit, parents=self.bundle.parents, admission=Admission(keyed=None), cost=self._cost)
 
-    async def packed(self, /) -> RuntimeRail[tuple[bytes, BundleEvidence]]:
+    async def packed(self, /) -> RuntimeResult[tuple[bytes, BundleEvidence]]:
         return await self.lane.offload(Kernel.of(Delta.pack, KernelTrait.RELEASING), self.bundle.payloads, self.bundle.profile)
 
-    async def _emit(self, /) -> RuntimeRail[tuple[bytes, BundleEvidence]]:
+    async def _emit(self, /) -> RuntimeResult[tuple[bytes, BundleEvidence]]:
         packed = await self.packed()
         match packed:
             case Result(tag="ok", ok=product):
                 Metrics.record({BYTE_VOLUME: float(len(product[0]))}, domain=DOMAIN, kind="bundle", scope=self.lane.scope)
         return packed
 
-    async def unpack(self, blob: bytes, /) -> RuntimeRail[BundleManifest]:
+    async def unpack(self, blob: bytes, /) -> RuntimeResult[BundleManifest]:
         rows = await self.lane.offload(Kernel.of(Delta.recover, KernelTrait.RELEASING), blob, self.bundle.profile)
         return rows.map(lambda recovered: BundleManifest.of(self.bundle.algo, recovered))
 

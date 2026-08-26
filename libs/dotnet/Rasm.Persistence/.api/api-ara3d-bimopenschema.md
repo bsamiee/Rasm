@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_ARA3D_BIMOPENSCHEMA]
 
-`Ara3D.BimOpenSchema` owns the columnar struct-of-arrays BIM analytics schema: a string-interned, typed-index entity/parameter/relation graph (`BimData`) authored through `BimDataBuilder` and projected by `ToDataSet` to the generic `Ara3D.DataTable` `IDataSet`. `Ara3D.BimOpenSchema.IO` owns the codec leg — the `IDataSet` written to and read from a Parquet-zip, a DuckDB file, an Excel workbook, and gzipped JSON. Managed writer and native reader meet at the file format, never the assembly: the folder's own DuckDB, ParquetSharp/Arrow, and MiniExcel rails read what this surface writes.
+`Ara3D.BimOpenSchema` owns the columnar struct-of-arrays BIM analytics schema: a string-interned, typed-index entity/parameter/relation graph (`BimData`) authored through `BimDataBuilder` and projected by `ToDataSet` to the generic `Ara3D.DataTable` `IDataSet`. `Ara3D.BimOpenSchema.IO` owns the codec leg — the `IDataSet` written to and read from a Parquet-zip, a DuckDB file, an Excel workbook, and gzipped JSON. Managed writer and native reader meet at the file format, never the assembly: the folder's own DuckDB, ParquetSharp/Arrow, and MiniExcel codecs read what this surface writes.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -108,11 +108,11 @@
 
 [STACKING]:
 - `api-duckdb.md` (`DuckDB.NET.Data.Full`): `data.WriteDuckDB(fp)` writes a `.duckdb` the folder's own DuckDB opens and SQL-joins in-process (`Entities_4 e JOIN DoubleParameters_6 p ON p."Entity" = …`), reusing the one pinned runtime and its osx-arm64 dylib.
-- `api-parquetsharp.md` (`ParquetSharp`) + `libs/dotnet/.api/api-arrow.md` (`Apache.Arrow`) + `api-arrow-egress.md` (`Apache.Arrow.Adbc`): `data.WriteToParquetZip(fp)` writes standard `.parquet` (managed `Parquet.Net`); the folder's native ParquetSharp and Arrow read the SAME files into record batches, so BIM frames flow into the Arrow/ADBC rail without re-encoding.
+- `api-parquetsharp.md` (`ParquetSharp`) + `libs/dotnet/.api/api-arrow.md` (`Apache.Arrow`) + `api-arrow-egress.md` (`Apache.Arrow.Adbc`): `data.WriteToParquetZip(fp)` writes standard `.parquet` (managed `Parquet.Net`); the folder's native ParquetSharp and Arrow read the SAME files into record batches, so BIM frames flow into the Arrow/ADBC pipeline without re-encoding.
 - `api-miniexcel.md` (`MiniExcel`): `data.WriteToExcel(fp)` writes an `.xlsx` (`ClosedXML`); the folder's streaming MiniExcel reads it back as `IDataReader` rows via `GetReader`.
 - within-lib: the DuckDB-table synthesis binds the consumed generic `Ara3D.DataTable` traversal surface (`Ara3D.SDK`) at operator depth — walk `Tables` by fixed ordinal, fold `Columns` into the `CREATE OR REPLACE TABLE`, bound the appender loop by `Rows.Count`, and dispatch each cell by its column `Descriptor.Type` CLR→DuckDB map below:
 
-| [INDEX] | [MEMBER]                               | [SHAPE]                      | [SEAM]                                    |
+| [INDEX] | [MEMBER]                               | [SHAPE]                      | [USE]                                     |
 | :-----: | :------------------------------------- | :--------------------------- | :---------------------------------------- |
 |  [01]   | `IDataSet.Tables`                      | `IReadOnlyList<IDataTable>`  | the fixed-ordinal table walk              |
 |  [02]   | `IDataTable.Name`                      | `string`                     | the `<Name>_<n>` trust-gated identifier   |
@@ -124,5 +124,5 @@
 |  [08]   | `IDataDescriptor.Name` / `Type`        | `string` / `System.Type`     | column name + `DuckType` CLR→DuckDB map   |
 
 [LOCAL_ADMISSION]:
-- This page carries `Ara3D.BimOpenSchema[.IO]` API facts only; the `Query/columnar` case algebra, content-key projection, and columnar query rail are the design pages'.
-- Codecs meet only at the file boundary, never substitute at the API: `Parquet.Net` (managed write) and `ParquetSharp` (native read) are distinct engines over one `.parquet`; `ClosedXML` writes and `MiniExcel` reads one `.xlsx`; the DuckDB writer and the folder query rail share the one pinned `DuckDB.NET.Data.Full`, and the `<Name>_<n>` suffix is a serializer fact a direct SQL consumer honors.
+- This page carries `Ara3D.BimOpenSchema[.IO]` API facts only; the `Query/columnar` case algebra, content-key projection, and columnar query path are the design pages'.
+- Codecs meet only at the file boundary, never substitute at the API: `Parquet.Net` (managed write) and `ParquetSharp` (native read) are distinct engines over one `.parquet`; `ClosedXML` writes and `MiniExcel` reads one `.xlsx`; the DuckDB writer and the folder query engine share the one pinned `DuckDB.NET.Data.Full`, and the `<Name>_<n>` suffix is a serializer fact a direct SQL consumer honors.

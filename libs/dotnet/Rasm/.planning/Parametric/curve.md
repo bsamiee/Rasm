@@ -1,6 +1,6 @@
 # [RASM_PARAMETRIC_CURVE]
 
-`Rasm.Parametric` owns the host-neutral curve op algebra — one static rail folding `ParametricOp` through `Parametric.Apply`, at OP altitude composing the `nurbs.md` engine members over `NurbsForm.Curve` and, for the planar constructions, over the frame-local `PlanarPrimitive` run.
+`Rasm.Parametric` owns the host-neutral curve op algebra — one static owner folding `ParametricOp` through `Parametric.Apply`, at OP altitude composing the `nurbs.md` engine members over `NurbsForm.Curve` and, for the planar constructions, over the frame-local `PlanarPrimitive` run.
 
 Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, witness)`, and no exception crosses the public surface; degeneracy-sensitive verdicts escalate to `Numerics/predicates`. Every emitted curve content-keys through `ToEncodeForm()` into the reconciliation identity chain, minting no second identity.
 
@@ -18,9 +18,9 @@ Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, wi
 - Law: `Refinement` publishes the band the fit MET. `Slack` is a second lane-resolved `Tolerance` — the band a final still-breaching round may be accepted under — and `Applied` carries it beside `Target`, so no consumer reads a tolerance the refinement never cleared. NAMED LOSS: `double Budget: 8.0`, a dimensionless multiplier on a document tolerance that admitted a fit eight times outside the band it published; a caller wanting slack now states an admitted allowance in model units and the default slack IS the band.
 - Law: `Order` and every count on this page are `Dimension`. NAMED LOSS: `int.Max(1, op.Order)`, a silent clamp answering order 1 where `locate.md` refuses the same request — three regimes for one concept across three pages collapse to the carrier's own guard.
 - Output: `Refinement` carries the deviation evidence on `Refit`/`Offsets`, both bands absent on an arm that ran no refinement; `StationField.FrameDefect` is the orthonormality witness whose vectorized reduction rides the registered `FrameDefectClaim`, correctness never on it, and an empty batch refuses rather than publishing a fabricated zero.
-- Packages: `Rasm.Parametric` `nurbs.md` (the vendored engine — `RationalDerivatives`/`TangentAt`/`CurvatureAt`/`Length`/`LengthAt`/`ParameterAtLength`/`ParameterAtChordLength`/`ClosestParameter`/`PerpendicularFrames`/`SplitAt`/`SubCurve`/`IsClosed` carrier members, `Nurbs.Of` + `NurbsWire.CurveThrough` + `SplinePolicy` the fit seed, `NurbsPolicy` the G7 knobs), `Rasm.Numerics` (`Interpolant.CubicSplineMonotone` the batch inversion table — the ONE interpolation owner, never a raw MathNet reach; `Predicate`/`Axis` the exact escalation seam; `GeometryFault.ParametricFault` + `ParametricStage`; `Dimension` atoms), MathNet.Numerics (`Brent.TryFindRoot` the section roots; `Broyden.FindRoot` the 2-var crossing refinement, `Op.Catch`-funnelled), `Rasm.Meshing` (`Intersection.Apply` + `IntersectOp.SegmentSegment` + `IntersectPolicy` the exact candidate lattice; `Arrangement.Apply` + `ArrangementOp.PlanarOverlay` + `BooleanOp` + `ArrangementPolicy` the `Fill` delegation), `Rasm.Domain` (`Op`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`, `BenchClaim` the registered claim row), `Rhino.Geometry` (`Point3d`/`Point2d`/`Vector3d`/`Plane`/`Interval`/`Line`/`Polyline` carriers), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Arr`/`Seq`/`Option`, `FoldUntil` the halting fold both bounded refinements ride), System.Numerics.Tensors (`TensorPrimitives.Max` the SoA wire reduction under the registered claim row), CommunityToolkit.HighPerformance (`MemoryOwner<double>` the frame-defect staging plane).
+- Packages: `Rasm.Parametric` `nurbs.md` (the vendored engine — `RationalDerivatives`/`TangentAt`/`CurvatureAt`/`Length`/`LengthAt`/`ParameterAtLength`/`ParameterAtChordLength`/`ClosestParameter`/`PerpendicularFrames`/`SplitAt`/`SubCurve`/`IsClosed` carrier members, `Nurbs.Of` + `NurbsWire.CurveThrough` + `SplinePolicy` the fit seed, `NurbsPolicy` the G7 knobs), `Rasm.Numerics` (`Interpolant.CubicSplineMonotone` the batch inversion table — the ONE interpolation owner, never a raw MathNet reach; `Predicate`/`Axis` the exact escalation ladder; `GeometryFault.ParametricFault` + `ParametricStage`; `Dimension` atoms), MathNet.Numerics (`Brent.TryFindRoot` the section roots; `Broyden.FindRoot` the 2-var crossing refinement, `Op.Catch`-funnelled), `Rasm.Meshing` (`Intersection.Apply` + `IntersectOp.SegmentSegment` + `IntersectPolicy` the exact candidate table; `Arrangement.Apply` + `ArrangementOp.PlanarOverlay` + `BooleanOp` + `ArrangementPolicy` the `Fill` delegation), `Rasm.Domain` (`Op`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`, `BenchClaim` the registered claim row), `Rhino.Geometry` (`Point3d`/`Point2d`/`Vector3d`/`Plane`/`Interval`/`Line`/`Polyline` carriers), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Arr`/`Seq`/`Option`, `FoldUntil` the halting fold both bounded refinements ride), System.Numerics.Tensors (`TensorPrimitives.Max` the SoA wire reduction under the registered claim row), CommunityToolkit.HighPerformance (`MemoryOwner<double>` the frame-defect staging plane).
 - Growth: a new op is one `ParametricOp` case over the SAME carrier members — `Blend` and `Project` are the executed precedent; a new division scheme is one `DivideRule` case read by the shared `Stationize` kernel; a new measure address is one `MeasureProbe` case; a new crossing target (the host-deferred triple arriving in-kernel) is one `IntersectTarget` case; a new planar construction is one op case lowering onto the SAME `PlanarPrimitive` run, and a new primitive shape is one `PlanarPrimitive` case every construction and every rendering arm gains together; zero new entry surfaces.
-- Boundary: OP altitude composes `nurbs.md`'s ENGINE members — an op union there, or a basis/insertion/arc-length/RMF kernel re-minted here instead of the vendored instance surface, is the altitude violation. Runtime reciprocals hold one anchor each: `projections.md` Rhino evaluation, `locate.md` Rhino location, `relations.md` the host-deferred SSI/surface-plane/curve-surface triple; a second location algebra or a kernel SSI beside them is the double-owner defect. `Intersect2D` existence is EXACT and coordinates are refined `double` — an unrefined crossing or unescalated near-tangent verdict downstream is the precision defect. `Fill` DELEGATES — a local winding fill or re-derived overlay is the deleted form. `Offset` trims by exact `SegmentSegment` verdicts on neighbor-excluded pairs — trusting the raw fit or trimming by float chords is the G8 regression. `StationField` binds the Generation seam directly as SoA columns; a row-object re-pack is the rejected layout. Composite planar outlines are DERIVED ONCE here — a host path backend and a NURBS emission both read the `Outline` run, so a host composite factory on one arm and a hand-derived corner walk on the other, two derivations of one shape that silently disagree, is the deleted form; the run is frame-local and radian-valued, and the pixel or degree conversion is the consuming boundary's own.
+- Boundary: OP altitude composes `nurbs.md`'s ENGINE members — an op union there, or a basis/insertion/arc-length/RMF kernel re-minted here instead of the vendored instance surface, is the altitude violation. Runtime reciprocals hold one anchor each: `projections.md` Rhino evaluation, `locate.md` Rhino location, `relations.md` the host-deferred SSI/surface-plane/curve-surface triple; a second location algebra or a kernel SSI beside them is the double-owner defect. `Intersect2D` existence is EXACT and coordinates are refined `double` — an unrefined crossing or unescalated near-tangent verdict downstream is the precision defect. `Fill` DELEGATES — a local winding fill or re-derived overlay is the deleted form. `Offset` trims by exact `SegmentSegment` verdicts on neighbor-excluded pairs — trusting the raw fit or trimming by float chords is the G8 regression. `StationField` binds the Generation entry directly as SoA columns; a row-object re-pack is the rejected layout. Composite planar outlines are DERIVED ONCE here — a host path backend and a NURBS emission both read the `Outline` run, so a host composite factory on one arm and a hand-derived corner walk on the other, two derivations of one shape that silently disagree, is the deleted form; the run is frame-local and radian-valued, and the pixel or degree conversion is the consuming boundary's own.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -326,14 +326,14 @@ config:
 ---
 flowchart LR
     accTitle: Parametric curve dispatch
-    accDescr: Curve operations compose the vendored engine, exact crossing lattice, arrangement owner, and identity projection.
+    accDescr: Curve operations compose the vendored engine, exact crossing table, arrangement owner, and identity projection.
     Op["ParametricOp — 12 cases"] -->|"Parametric.Apply — ONE Switch"| Engine["nurbs.md NurbsForm.Curve members"]
     Op -->|"RoundedRectangle · CardinalSpline"| Outline["Outline — PlanarPrimitive run, frame-local radians"]
     Engine -->|"SubCurve [T0,T1] → Stationize → batch PerpendicularFrames"| Wire["StationField SoA — Generation PathRow/Placement"]
     Engine -->|"CurveThrough fit seed"| Offset["Offset: deviation fold → exact trim"]
-    Offset -->|"SegmentSegment verdicts"| Lattice["intersect.md [V4] crossing lattice"]
-    Op -->|"Intersect2D"| Lattice
-    Lattice -->|"Broyden / Brent refine"| Crossings
+    Offset -->|"SegmentSegment verdicts"| Table["intersect.md [V4] crossing table"]
+    Op -->|"Intersect2D"| Table
+    Table -->|"Broyden / Brent refine"| Crossings
     Parametric -->|"Fill: rings → PlanarOverlay"| Arrangement["arrangement.md exact overlay"]
     Engine -->|"ToEncodeForm — normalized bytes"| Identity["reconciliation EncodeForm.Parametric"]
     Op -.->|"ParametricFault — Evaluation / Station / Offset"| GeometryFault
@@ -341,9 +341,9 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RAIL]` names one return rail, and indexed notes state the collapse.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RESULT]` names one return type, and indexed notes state the collapse.
 
-| [INDEX] | [AXIS_CONCERN]    | [OWNER]                                      | [RAIL]                            | [CASES] |
+| [INDEX] | [AXIS_CONCERN]    | [OWNER]                                      | [RESULT]                          | [CASES] |
 | :-----: | :---------------- | :------------------------------------------- | :-------------------------------- | :-----: |
 |  [01]   | Curve op algebra  | `ParametricOp` + `Parametric`                | `Apply → Fin<ParametricResult>`   |   12    |
 |  [02]   | Result carrier    | `ParametricResult`                           | carrier (drained at the consumer) |    9    |
@@ -363,7 +363,7 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 - [07]-[POLICY_ROWS]: window + inversion-table floor · lane-resolved deviation band with its one `Refine.Fold` driver.
 - [08]-[REGION_DELEGATION]: ring sampling → `PlanarOverlay` — delegation, never a local fill.
 
-Signature-pinned kernels compose vendored engine members and the exact lattice; no textbook arithmetic is local.
+Signature-pinned kernels compose vendored engine members and the exact table; no textbook arithmetic is local.
 
 ## [04]-[RESEARCH]
 

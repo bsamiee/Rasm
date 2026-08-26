@@ -1,6 +1,6 @@
 # [RASM_PARAMETRIC_SURFACE]
 
-`Surfaces` owns the surface op algebra of `Rasm.Parametric` and mints its UV-provenance seam: `Tessellate` emits `UvTessellation`, a frozen mesh carrying an index-aligned per-vertex `(u, v)` column beside its live surface binding — the one surface input the tier's downstream consumers admit by type.
+`Surfaces` owns the surface op algebra of `Rasm.Parametric` and mints its UV-provenance carrier: `Tessellate` emits `UvTessellation`, a frozen mesh carrying an index-aligned per-vertex `(u, v)` column beside its live surface binding — the one surface input the tier's downstream consumers admit by type.
 
 Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliation `EncodeForm.Parametric` identity chain.
 
@@ -16,7 +16,7 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 - Auto: every op composes the vendored engine with the landed distance, refit, and arena machinery; no evaluation arithmetic is local.
 - Law: the curvature bands are `Stat<Scalar>` off `Stat<Scalar>.Of(ReadOnlySpan<double>, key)` — the kernel's ONE moment owner and the leg that already carries the vectorized reduction. NAMED LOSS: the page's local `FieldExtrema` triple and its registered `CurvatureSummaryClaim`; the speed claim belongs to the reduction's owner, and the consumer gains variance, RMS, and the rejected count no triple carries. WITNESS: `FieldExtrema.Of(k1Plane)` rebuilt as `Stat<Scalar>.Of(k1Plane, key)`, whose `Minimum`/`Maximum`/`Mean` read the same three values.
 - Law: the area integral rides `Quadrature.Integrate` over `IntegrationDomain.Rectangle`, never a raw `Integrate.OnRectangle` — the funnel's finite guard, skip budget, and `QuadratureEvidence` are the evidence a bare product rule cannot produce, and a pole in `|Su×Sv|` poisons an unguarded weighted sum silently.
-- Law: the dense-pullback seed lookup is `NeighborIndex` — Rasm `RULINGS [02]` seats bare-point neighborhoods there, and the query subject is a bare point. NAMED LOSS: the page-local `Supercluster.KDTree.Net` admission, its per-probe boxing of three doubles into an `IReadOnlyList<double>`, and a `.First()` that threw on an empty answer; the gain is one batch query, one owner, and a `Fin` rail through the seed leg.
+- Law: the dense-pullback seed lookup is `NeighborIndex` — Rasm `RULINGS [02]` seats bare-point neighborhoods there, and the query subject is a bare point. NAMED LOSS: the page-local `Supercluster.KDTree.Net` admission, its per-probe boxing of three doubles into an `IReadOnlyList<double>`, and a `.First()` that threw on an empty answer; the gain is one batch query, one owner, and a `Fin` result through the seed leg.
 - Law: `GeodesicField.Grade` records the distance lane a consumer dispatches on; `UvTessellation` carries its own provenance and nothing beside it.
 - Packages: `nurbs.md` the vendored engine (`NurbsPolicy` knobs, `SplinePolicy` the G5 refit seed); `Rasm.Numerics` for `Quadrature.Integrate`/`IntegrationDomain.Rectangle`/`IntervalSpec` area cubature, `Dimension` atoms, and `GeometryFault.ParametricFault`/`ParametricStage`; `Rasm.Spatial` for the `NeighborIndex`/`NeighborSource`/`NeighborKernel` bare-point seed lookup; `Rasm.Meshing` for the `MeshEdit` arena, the `MeshSpace` freeze, the `Chain` ring carrier, and the `Conform` constrained-tessellation carriage; `Rasm.Processing` for the landed distance lanes; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`, `Stat<Scalar>`/`Scalar`, and validity; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new tessellation density is one `TessellateRule` case; a new isoline selection one `IsolineRule` case; a second distance lane one `GeodesicGrade` row; a new field quantity one `CurvatureField` column off the same `CurvatureAt` sweep; a lofted, swept, or revolved construction is a growth row on the engine admission.
@@ -242,7 +242,7 @@ config:
 ---
 flowchart LR
     accTitle: Surface op dispatch and result carriers
-    accDescr: Surfaces.Apply folds the SurfaceOp cases over nurbs.md engine members into typed SurfaceResult carriers; UvTessellation is the tier seam feeding develop, panelize, and patternmap, and refusals route to GeometryFault.
+    accDescr: Surfaces.Apply folds the SurfaceOp cases over nurbs.md engine members into typed SurfaceResult carriers; UvTessellation is the tier carrier feeding develop, panelize, and patternmap, and refusals route to GeometryFault.
     Op["SurfaceOp — 6 cases"] -->|"Surfaces.Apply — ONE Switch"| Engine["nurbs.md NurbsForm.Surface members"]
     Engine -->|"lattice PointAt → soup arena → freeze"| UvT["UvTessellation — MeshSpace + (u,v) column + binding"]
     UvT -->|"tier input law"| Consumers["develop.md · panelize.md · patternmap.md"]
@@ -258,7 +258,7 @@ flowchart LR
 
 `Surfaces` is the one entry-bearing owner; every other axis is a payload, discriminant, or policy row.
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]                  | [RAIL]                            |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                  | [RESULT]                          |
 | :-----: | :----------------- | :----------------------- | :-------------------------------- |
 |  [01]   | Surface op algebra | `SurfaceOp` + `Surfaces` | `Apply → Fin<SurfaceResult>`      |
 |  [02]   | Result carrier     | `SurfaceResult`          | carrier (drained at the consumer) |

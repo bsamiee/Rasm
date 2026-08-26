@@ -1,6 +1,6 @@
 # [RASM_API_NETTOPOLOGYSUITE]
 
-`NetTopologySuite` owns the OGC Simple Features algebra on the double-precision production plane: geometry representation, DE-9IM topology, robust overlay, spatial indexing, validity repair, and the text and binary geometry codecs every geospatial, persistence, and circulation boundary crosses. Kernel `Rasm` keeps exact-predicate geometry; this rail carries everything downstream of that conversion. `NetTopologySuite.Features` couples one geometry to its attribute table as the vector-codec row shape.
+`NetTopologySuite` owns the OGC Simple Features algebra on the double-precision production plane: geometry representation, DE-9IM topology, robust overlay, spatial indexing, validity repair, and the text and binary geometry codecs every geospatial, persistence, and circulation boundary crosses. Kernel `Rasm` keeps exact-predicate geometry; this package carries everything downstream of that conversion. `NetTopologySuite.Features` couples one geometry to its attribute table as the vector-codec row shape.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -342,9 +342,9 @@
 - `Npgsql.NetTopologySuite`(`Rasm.Persistence/.api/api-npgsql-nts.md`): `NpgsqlNetTopologySuiteExtensions.UseNetTopologySuite` binds this geometry model as the PostGIS `geometry`/`geography` codec, so a spatial column round-trips the same `Geometry` the algebra operates on.
 - `ProjNET`(`Rasm.Bim/.api/api-projnet.md`): `Densifier.Densify` bounds segment length first, then `MathTransform.Transform(Span<double>, Span<double>, Span<double>, int, int, int)` batches strided over `RawCoordinateSequence.GetRawCoordinatesAndStride` or `PackedDoubleCoordinateSequence.GetRawCoordinates` in place, and `Geometry.GeometryChanged()` closes the walk.
 - `NetTopologySuite.IO.Esri.Shapefile`(`Rasm.Bim/.api/api-nts-esri-shapefile.md`): `ShapefileReader` streams `Feature`/`AttributesTable` values of this model, and the GeoPackage and GeoJSON codecs decode to the identical `Geometry` object.
-- `Clipper2`(`libs/dotnet/.api/api-clipper2.md`): integer-exact winding takes the toolpath and nesting plane; this rail holds the double-plane topology on both sides of that conversion.
+- `Clipper2`(`libs/dotnet/.api/api-clipper2.md`): integer-exact winding takes the toolpath and nesting plane; this package holds the double-plane topology on both sides of that conversion.
 - within-lib: one spatial-join fold composes `STRtree<T>.Query(Envelope)` broad phase with `PreparedGeometryFactory.Prepare` narrow phase and `OverlayNGRobust.Union` dissolve, while `Polygonizer`, `LineMerger`, and `VoronoiDiagramBuilder` assemble corridor, boundary, and medial-axis geometry off that same factory policy.
-- wire seam: `Geometry.ToBinary()` and `WKBWriter.Write` emit the domain-footprint wire form; `shapely` decodes it on the Python side and the `WkbParser` port on the TypeScript side.
+- wire boundary: `Geometry.ToBinary()` and `WKBWriter.Write` emit the domain-footprint wire form; `shapely` decodes it on the Python side and the `WkbParser` port on the TypeScript side.
 
 [LOCAL_ADMISSION]:
 - Geometry construction enters through a `NtsGeometryServices.Instance`-resolved `GeometryFactory` configured once at startup.

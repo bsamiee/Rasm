@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SYMPY]
 
-`sympy` owns the compute branch's offline computer-algebra rail: exact calculus, equation solving, simplification, polynomial and matrix algebra, set and assumption logic, geometry primitives, `mpmath`-backed exact-to-numeric evaluation, and multi-language code generation. Every result is offline evidence a .NET owner graduates as emitted source or a numeric callable, never production algebra the Python side runs.
+`sympy` owns the compute branch's offline computer-algebra domain: exact calculus, equation solving, simplification, polynomial and matrix algebra, set and assumption logic, geometry primitives, `mpmath`-backed exact-to-numeric evaluation, and multi-language code generation. Every result is offline evidence a .NET owner graduates as emitted source or a numeric callable, never production algebra the Python side runs.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -189,13 +189,13 @@
 
 [TOPOLOGY]:
 - assumptions (`real`, `positive`, `integer`) declared on `symbols`/`sympify` are derivation inputs, not post-hoc filters, so a derivation constrains its domain at construction.
-- exact symbolic results graduate as evidence on the one rail, and this branch mutates no host document.
+- exact symbolic results graduate as evidence on the one result, and this branch mutates no host document.
 - graduation emits one artifact per candidate — a numeric callable (`lambdify`/`ufuncify`) or C/C++/Fortran/Rust source (`ccode`/`codegen`) through one printer-family surface, never parallel emitters — and `cse` factors shared subexpressions before emission.
 - each derivation returns the terminal provider value beside its content key; emitted source and compiled callables retain their native package shapes.
 
 [STACKING]:
 - `mpmath`(`.api/mpmath.md`): `evalf`/`N` evaluate through the bundled `mp` context, lifting an exact closed form to arbitrary `dps` as the precision oracle a fast-path result certifies against.
-- `numpy`(`libs/python/.api/numpy.md`) / `jax`(`.api/jax.md`): `lambdify(..., modules='numpy')` compiles a vectorized callable and `modules='jax'` a traceable/differentiable one, so a symbolic derivation feeds the numeric study rail with no hand-written kernel.
+- `numpy`(`libs/python/.api/numpy.md`) / `jax`(`.api/jax.md`): `lambdify(..., modules='numpy')` compiles a vectorized callable and `modules='jax'` a traceable/differentiable one, so a symbolic derivation feeds the numeric study domain with no hand-written kernel.
 - `python-flint`(`.api/python-flint.md`): a hot exact polynomial or number-theory step promotes off the pure-Python `Poly` onto FLINT-backed ground-domain arithmetic; sympy owns the symbolic algebra, flint the fast exact ground domain.
 - within-lib: `SymbolicDerivation` lowers a derivation to a NumPy or C handoff artifact, and the symbolic `HandoffAxis` graduates that terminal value by content key.
 

@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Host-neutral AEC-domain materials: the polymorphic Component owner over the closed ComponentFamily axis (one SectionSolver over the closed SectionProfile algebra, the frozen ComputedSection), the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), the typed engineering-property and sustainability catalogues, and the ComponentProjector onto the Rasm.Element seam.</Description>
-        <CspScope>Domain</CspScope>
+        <Description>Host-neutral AEC-domain materials: the polymorphic Component owner over the closed ComponentFamily axis (one SectionSolver over the closed SectionProfile algebra, the frozen ComputedSection), the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), the typed engineering-property and sustainability catalogues, and the ComponentProjector onto the Rasm.Element contract.</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Project References">
@@ -44,9 +43,12 @@
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>

@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_OPENIDDICT_CLIENT]
 
-`OpenIddict.Client` owns the standalone OAuth 2.0 / OpenID Connect relying-party client: `OpenIddictClientService` folds every token-acquisition flow, RP-initiated interactive sign-out, introspection, revocation, registration resolution, and server-metadata discovery through one polymorphic request-record entry. It is the AppHost agent-identity rail behind delegated and machine-to-machine credential flows; the access and identity tokens it acquires cross to `Microsoft.IdentityModel.JsonWebTokens` for validation.
+`OpenIddict.Client` owns the standalone OAuth 2.0 / OpenID Connect relying-party client: `OpenIddictClientService` folds every token-acquisition flow, RP-initiated interactive sign-out, introspection, revocation, registration resolution, and server-metadata discovery through one polymorphic request-record entry. It is the AppHost agent-identity surface behind delegated and machine-to-machine credential flows; the access and identity tokens it acquires cross to `Microsoft.IdentityModel.JsonWebTokens` for validation.
 
 ## [01]-[PUBLIC_TYPES]
 

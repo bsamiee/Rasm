@@ -10,7 +10,7 @@
 | :-----: | :------------------------------------------------------ | :---------------- | :--------------------------------------- |
 |  [01]   | `GeneticAlgorithm` / `IGeneticAlgorithm`                | class / interface | engine root — runs the evolve loop       |
 |  [02]   | `IChromosome` / `ChromosomeBase`                        | interface / class | genome — encoding + `CreateNew`/`Clone`  |
-|  [03]   | `IFitness`                                              | interface         | fitness — the objective oracle seam      |
+|  [03]   | `IFitness`                                              | interface         | fitness — the objective oracle interface |
 |  [04]   | `ISelection` / `SelectionBase`                          | interface / class | selection — chooses parents by fitness   |
 |  [05]   | `ICrossover` / `CrossoverBase`                          | interface / class | crossover — recombines parents, w/ arity |
 |  [06]   | `IMutation` / `MutationBase`                            | interface / class | mutation — perturbs a gene by rate       |
@@ -59,7 +59,7 @@
 |  [17]   | `AndTermination` / `OrTermination`                                    | termination   | composite (`params ITermination[]`)  |
 |  [18]   | `FuncFitness`                                                         | fitness       | wraps a `Func<IChromosome, double>`  |
 
-[PUBLIC_TYPE_SCOPE]: parallel execution and operator strategy — the seam to the bounded compute lanes
+[PUBLIC_TYPE_SCOPE]: parallel execution and operator strategy — the boundary to the bounded compute lanes
 
 | [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]     | [CAPABILITY]                                 |
 | :-----: | :-------------------------------------------------- | :---------------- | :------------------------------------------- |
@@ -138,7 +138,7 @@
 - `GeneticAlgorithm` is the one engine, assembled from an operator set; `Reinsertion`/`Termination`/`TaskExecutor`/`OperatorsStrategy` are settable, so the evolve loop configures from an operator set, never a subclass.
 - every operator is a single-method interface, so a row selects an operator set; `AndTermination`/`OrTermination` take `params ITermination[]`, composing convergence rather than branching it.
 - `IFitness.Evaluate` is the sole objective coupling; `FuncFitness` adapts an inline `Func<IChromosome, double>` oracle.
-- parallelism has two seams: `ITaskExecutor` batches fitness evaluations, `IOperatorsStrategy` applies genetic operators across parents.
+- parallelism has two interfaces: `ITaskExecutor` batches fitness evaluations, `IOperatorsStrategy` applies genetic operators across parents.
 - `RandomizationProvider.Current` is the global RNG (`BasicRandomization`/`FastRandomRandomization`); the provider assignment picks the generator and `FastRandomRandomization.ResetSeed` pins its draw, so reproducibility needs both statements and the assignment alone leaves the run entropy-seeded.
 
 [STACKING]:

@@ -1,6 +1,6 @@
 # [PY_DATA_API_PYPROJ]
 
-`pyproj` binds PROJ as the data branch's coordinate-reference-system and transformation owner: `CRS` construction with WKT/PROJ4/EPSG/JSON/CF interchange, axis-aware `Transformer` reprojection under area-of-interest operation selection, and `Geod` ellipsoidal distance and area. Geometry stays CRS-free at `shapely` and tabular CRS rides `geopandas`/`rasterio`/`pyogrio` as one `pyproj.CRS` interchanged by WKT/EPSG/JSON, so pyproj owns the projection math the geospatial rail never re-implements.
+`pyproj` binds PROJ as the data branch's coordinate-reference-system and transformation owner: `CRS` construction with WKT/PROJ4/EPSG/JSON/CF interchange, axis-aware `Transformer` reprojection under area-of-interest operation selection, and `Geod` ellipsoidal distance and area. Geometry stays CRS-free at `shapely` and tabular CRS rides `geopandas`/`rasterio`/`pyogrio` as one `pyproj.CRS` interchanged by WKT/EPSG/JSON, so pyproj owns the projection math the geospatial domain never re-implements.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -61,4 +61,4 @@
 - within-lib: the data geospatial owner builds `Transformer.from_crs(src, dst, always_xy=True)` once at boundary scope and drives the vectorized numpy transform across the `VectorOp`/`RasterOp` axes.
 
 [LOCAL_ADMISSION]:
-- Admit `pyproj` as the canonical CRS and coordinate-transformation owner on the data geospatial rail, composed by geopandas/shapely/rasterio/pyogrio rather than re-parsed per library.
+- Admit `pyproj` as the canonical CRS and coordinate-transformation owner on the data geospatial domain, composed by geopandas/shapely/rasterio/pyogrio rather than re-parsed per library.

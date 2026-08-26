@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_OPENTELEMETRY_RESOURCE_DETECTOR_CONTAINERID]
 
-`opentelemetry-resource-detector-containerid` reads the host `container.id` into an OpenTelemetry `Resource`: one `ResourceDetector` returning the cgroup container id on a container host and an empty resource everywhere else, composed as one entry in the runtime `get_aggregated_resources` detector list ahead of the env detector on the observability rail.
+`opentelemetry-resource-detector-containerid` reads the host `container.id` into an OpenTelemetry `Resource`: one `ResourceDetector` returning the cgroup container id on a container host and an empty resource everywhere else, composed as one entry in the runtime `get_aggregated_resources` detector list ahead of the env detector on the observability pipeline.
 
 ## [01]-[PUBLIC_TYPES]
 

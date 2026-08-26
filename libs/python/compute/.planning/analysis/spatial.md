@@ -28,7 +28,7 @@ from expression.collections import Block
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -262,7 +262,7 @@ def _circumradius(simplex: np.ndarray) -> float:
 def _spatial_kernel(
     query: SpatialQuery, workers: int
 ) -> (
-    "RuntimeRail[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
+    "RuntimeResult[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
     " | ConvexHull | Delaunay | Voronoi | SphericalVoronoi | HalfspaceIntersection]"
 ):
     return ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT).bind(
@@ -277,18 +277,18 @@ def _spatial_kernel(
 async def solve(
     query: SpatialQuery, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE
 ) -> (
-    "RuntimeRail[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
+    "RuntimeResult[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
     " | ConvexHull | Delaunay | Voronoi | SphericalVoronoi | HalfspaceIntersection]"
 ):
     async def dispatch() -> (
-        "RuntimeRail[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
+        "RuntimeResult[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
         " | ConvexHull | Delaunay | Voronoi | SphericalVoronoi | HalfspaceIntersection]"
     ):
         return (
             await lane.whole(
                 lambda grant: lane.offload(Kernel.of(_spatial_kernel, KernelTrait.RELEASING), query, grant.width)
             )
-        ).bind(lambda rail: rail)
+        ).bind(lambda held: held)
 
     return await evidence_run(
         EvidenceScope.SPATIAL,

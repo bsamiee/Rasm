@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SQLITEPCL]
 
-`SQLitePCLRaw.bundle_e_sqlite3` binds the `e_sqlite3` native SQLite engine to the process and opens `SQLitePCL.raw`, the 1:1 P/Invoke surface carrying every engine call the ADO transport omits. Every call takes the `sqlite3` handle `SqliteConnection.Handle` exposes, so the managed transport and the raw rail share one native connection and one transaction state. Provider binding is a process-wide act the embedded store profile owns.
+`SQLitePCLRaw.bundle_e_sqlite3` binds the `e_sqlite3` native SQLite engine to the process and opens `SQLitePCL.raw`, the 1:1 P/Invoke surface carrying every engine call the ADO transport omits. Every call takes the `sqlite3` handle `SqliteConnection.Handle` exposes, so the managed transport and the raw surface share one native connection and one transaction state. Provider binding is a process-wide act the embedded store profile owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -47,7 +47,7 @@
 |  [04]   | `raw.FreezeProvider(bool)`             | static  | locks the bound provider against a later rebind             |
 |  [05]   | `raw.GetNativeLibraryName() -> string` | static  | the resolved native library basename                        |
 
-- `raw.SetProvider`: unbound `raw` calls throw; `Microsoft.Data.Sqlite` runs the same init internally, so the embedded profile shares one bound provider with the raw rail.
+- `raw.SetProvider`: unbound `raw` calls throw; `Microsoft.Data.Sqlite` runs the same init internally, so the embedded profile shares one bound provider with the raw surface.
 
 [ENTRYPOINT_SCOPE]: engine operations over the shared `sqlite3` handle — backup, snapshot, checkpoint, image moves, and blob cursors.
 
@@ -168,10 +168,10 @@
 - `Store/provisioning#EMBEDDED_FLOOR` folds the open ritual through the int-flag `sqlite3_db_config` overload — `SQLITE_DBCONFIG_DEFENSIVE` armed, `SQLITE_DBCONFIG_DQS_DDL`/`DQS_DML` cleared, the loader op absent — once per physical open before any user statement, so defensive posture and double-quoted-literal rejection are connection policy rather than connection-string knobs.
 - `Store/provisioning#ENGINE_OPERATIONS` brackets a consistent multi-transaction read: `sqlite3_snapshot_get`, one `sqlite3_snapshot_recover` retry on a refused pin, a `sqlite3_snapshot_cmp` monotonic-floor guard so a reader never regresses across brackets, `sqlite3_snapshot_open`, and `sqlite3_snapshot_free` of only a held handle; `sqlite3_wal_checkpoint_v2` returns log-frame and checkpointed-frame counts through `CheckpointState`, and `SQLITE_BUSY` requests a retry.
 - `Store/observability#SQLITE_STATUS_HARVEST` owns `SqliteStatHarvest.Arm`, which `Store/provisioning#EMBEDDED_FLOOR` mounts as the LEADING `EmbeddedRitual.Capabilities` grant so the registry arms ahead of the first statement; the harvest then walks `sqlite3_next_stmt` over the shared handle and folds the read-and-reset `sqlite3_stmt_status` counters with the `sqlite3_db_status` gauges into telemetry over that one native connection.
-- `sqlite3_serialize`/`sqlite3_deserialize` move a whole-schema image between memory and a store without file IO, the snapshot rail's path for a memory-backed image distinct from the `byte[]` content-chunk frame.
+- `sqlite3_serialize`/`sqlite3_deserialize` move a whole-schema image between memory and a store without file IO, the snapshot path for a memory-backed image distinct from the `byte[]` content-chunk frame.
 
 [LOCAL_ADMISSION]:
 - `Batteries_V2.Init()` runs on the store-profile open path, explicit and idempotent.
 - Deployment copies only the native asset matching the selected runtime identifier, and the bridge target trims to the single consumer RID.
 - Extension loading arms per deployment through an explicit `sqlite3_db_config` op absent from the open ritual's set.
-- Provider-bundle facts stay on the store-profile rail and never define public Persistence vocabulary.
+- Provider-bundle facts stay on the store profile and never define public Persistence vocabulary.

@@ -44,7 +44,7 @@
 | :-----: | :--------------------------------------------- | :--------------- | :--------------------------------------- |
 |  [01]   | `ExchangeType`                                 | routing enum     | `Direct`/`Fanout`/`Topic`/`Headers`      |
 |  [02]   | `PublicationAddress`                           | address value    | exchange + routing-key address           |
-|  [03]   | `RabbitMQActivitySource`                       | telemetry seam   | OTel source + trace-context propagation  |
+|  [03]   | `RabbitMQActivitySource`                       | telemetry hook   | OTel source + trace-context propagation  |
 |  [04]   | `RabbitMQTracingOptions`                       | telemetry policy | tracing enable/baggage policy            |
 |  [05]   | `Events.ShutdownEventArgs`                     | shutdown event   | reply code/text + initiator              |
 |  [06]   | `Exceptions.OperationInterruptedException`     | failure          | broker-initiated operation interrupt     |
@@ -126,9 +126,9 @@
 [STACKING]:
 - `CloudNative.CloudEvents` (`api-cloudevents`) frames the body and rides its attributes (`traceparent`, `redacted`, `sequence`) on `BasicProperties.Headers`, so a headers-exchange binding filters on attributes without parsing the body; `RabbitMQ.Client` owns only the publish and ack.
 - `RabbitMQActivitySource.ContextInjector`/`ContextExtractor` propagate W3C trace context through `BasicProperties.Headers` and the publisher/subscriber `ActivitySource`s register with the AppHost `telemetry` OpenTelemetry pipeline; the redacted op payload is framed by the redaction codec (`api-redaction`) before publish.
-- `IConnection.UpdateSecretAsync` rotates an OAuth2 token on the live connection and `ICredentialsProvider` is the periodic-refresh form; the runtime token authority (`OpenIddict.Client`) is the shared seam binding broker auth to the token provider.
-- `OutstandingPublisherConfirmationsRateLimiter` (a `System.Threading.RateLimiting.RateLimiter`) bounds in-flight publishes only where the composing root PASSES one, since the constructor defaults it to `null`; transient connect/publish faults retry through the `Polly`/`stamina` engine rail, `ConnectionBlockedAsync` feeds the connection-scoped broker-resource-alarm shed, and `IChannel.FlowControlAsync` is its channel-scoped peer.
-- Dead-lettered messages and shovel/backup snapshots share the object-store residence (`api-objectstore`/`Minio`) with the other egress sinks through the `Store/blobstore` lane.
+- `IConnection.UpdateSecretAsync` rotates an OAuth2 token on the live connection and `ICredentialsProvider` is the periodic-refresh form; the runtime token authority (`OpenIddict.Client`) is the shared adapter binding broker auth to the token provider.
+- `OutstandingPublisherConfirmationsRateLimiter` (a `System.Threading.RateLimiting.RateLimiter`) bounds in-flight publishes only where the composing root PASSES one, since the constructor defaults it to `null`; transient connect/publish faults retry through the `Polly`/`stamina` engine, `ConnectionBlockedAsync` feeds the connection-scoped broker-resource-alarm shed, and `IChannel.FlowControlAsync` is its channel-scoped peer.
+- Dead-lettered messages and shovel/backup snapshots share the object-store backend (`api-objectstore`/`Minio`) with the other egress sinks through the `Store/blobstore` lane.
 
 [LOCAL_ADMISSION]:
 - `rabbitmq` binds one `IConnection` per broker and one `IChannel` per publishing path via `CreateChannelAsync` with confirm tracking enabled AND an explicit rate limiter, because the constructor's own default leaves unconfirmed publishes unbounded; the channel confirm policy is fixed at open, never per-publish.

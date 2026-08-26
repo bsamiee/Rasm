@@ -63,7 +63,7 @@
 - fault: the encode validators raise `IllegalCharacterError`, `NumberOfDigitsError`, and `WrongCountryCodeError` and the registry raises `BarcodeNotFoundError`, each mapped onto a distinct `MarkFault` case (`illegal`/`arity`/`arity`/`unknown`) at the `linear` arm.
 
 [STACKING]:
-- `svgelements` (`.api/svgelements.md`): the SVG markup parses through `SVG.parse(...)` for scale-to-fit / n-up / `bbox()` query before document egress, landing a barcode in the same figure-composition rail as a `segno` QR `svg_inline`, a `great-tables` table SVG, and a `vl-convert` chart SVG.
+- `svgelements` (`.api/svgelements.md`): the SVG markup parses through `SVG.parse(...)` for scale-to-fit / n-up / `bbox()` query before document egress, landing a barcode in the same figure-composition domain as a `segno` QR `svg_inline`, a `great-tables` table SVG, and a `vl-convert` chart SVG.
 - `stream-zip` (`.api/stream-zip.md`): the `write(BytesIO(), …)` SVG stream feeds a `MemberFile` data iterable, so a batch of barcode SVGs streams into a ZIP label bundle without buffering whole files — identical to the segno `save(BytesIO, kind='svg')` bundle path.
 
 [LOCAL_ADMISSION]:

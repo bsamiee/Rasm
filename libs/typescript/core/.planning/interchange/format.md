@@ -1,6 +1,6 @@
 # [CORE_FORMAT]
 
-`Format` owns the branch's encoding engines. One defect-normalizing transform lifts every third-party decoder onto the typed `ParseError` rail, three arms — protobuf, MessagePack, JSON — publish bounded complete-payload codecs, the closed RFC 6902 algebra applies patches prototype-safely, and the announced-fact media roster names which arm renders each event format. Module `core/src/interchange/format.ts` admits an encoding as one arm row, an `Any`-visible descriptor family as one `_suite` key, a MessagePack extension as one type-byte registration, and an event format as one media row.
+`Format` owns the branch's encoding engines. One defect-normalizing transform lifts every third-party decoder onto the typed `ParseError`, three arms — protobuf, MessagePack, JSON — publish bounded complete-payload codecs, the closed RFC 6902 algebra applies patches prototype-safely, and the announced-fact media roster names which arm renders each event format. Module `core/src/interchange/format.ts` admits an encoding as one arm row, an `Any`-visible descriptor family as one `_suite` key, a MessagePack extension as one type-byte registration, and an event format as one media row.
 
 `Format` composes the value floor beside generated descriptor modules and hands `interchange/codec` the arm rows that select a family's codec and render a quarantined frame. Every engine and ceiling configures once at module initialization, so an ingress arms its bounds before the first untrusted byte.
 
@@ -51,14 +51,14 @@ const _lifted = (
 ## [03]-[PROTO_ENGINE]
 
 - Owner: `Format.proto` composes complete protobuf messages with owned schemas, validates every message at the one admission point, frames the artifact stream, and exposes one descriptor registry.
-- Law: every decoded message passes the corpus's own `buf.validate` rules through one `Validator` before it lands, and every encoded message passes them before it leaves; a violation refuses on the `ParseError` rail and a rule that fails to compile refuses as `Forbidden`, never as a silent admission.
+- Law: every decoded message passes the corpus's own `buf.validate` rules through one `Validator` before it lands, and every encoded message passes them before it leaves; a violation refuses as `ParseError` and a rule that fails to compile refuses as `Forbidden`, never as a silent admission.
 - Law: binary and JSON decode share one admission posture — unknown fields survive under both `_READ` and `_JSON_READ`, recursion bounds at one depth under both, and `_JSON_READ` is passed at every `fromJson` site because the package's own default REFUSES an unknown field.
 - Law: `framing` is a row of the descriptor family — `binary` for every proto-binary crossing, `json` for every ProtoJSON document a host emits — and the landed value is one shape under both, so a consumer never reads which framing carried it.
 - Law: protobuf parity is semantic — a re-encode reorders map entries and relocates unknown fields, so equality is proved by decoding both sides and comparing the landed values, never by comparing octets.
 - Law: registry-visible generated descriptors enter through `_suite`; a direct owner composes its generated descriptor without registering a second name.
 - Law: `interchange/codec#LANDING_EVIDENCE` is such a direct owner for generated `CrdtOpWire`: `message(CrdtOpWireSchema)` validates the required oneof after the op-log owner extracts slot-seven bytes, while this engine learns no CRDT arm roster.
 - Law: `_suite` keys transcribe declared message names verbatim; a family owning no descriptor source rides a `codec` arm.
-- Law: `_suite` and `registry` hold estate-declared families alone; a foreign publisher's descriptor reaches `frame`/`family` as an argument off its own generated module, so the vendored CloudEvents module never enters this registry.
+- Law: `_suite` and `registry` hold Rasm-declared families alone; a foreign publisher's descriptor reaches `frame`/`family` as an argument off its own generated module, so the vendored CloudEvents module never enters this registry.
 - Law: `_suite` binds each family through the generated module its own `.proto` declares, with no barrel between — the `contracts/` folder is the one producer of every symbol it binds.
 - Law: `framed` is the size-delimited stream frame — egress through `sizeDelimitedEncode`, ingress through a `sizeDelimitedPeek` fold that refuses a frame past the ingress ceiling BEFORE buffering it, and a partial tail at stream end refuses as a truncation; the Connect envelope never enters here because a Connect transport already frames its own streams.
 - Law: the well-known bridges seat here once — `any` packs and unpacks against THIS registry, `struct` and `value` cross `Shape.Json` through the generated `Struct`/`Value` codecs — so a field the corpus declares as `Any`, `Struct`, or `Value` is read at one owner and never through a hand JSON walk.

@@ -4,15 +4,15 @@
 
 Both host boundaries built this twice. Rhino carried the atom-state arm, the timing axis, the legality ladder, the commit latch, and the keyed failure ledger; Grasshopper carried the model lens with its delegate and notify arms, the typed value gate with its refusal posture, the ambient context assignment, and the collection-store mount. Neither carried the other's half. This owner is the union: every axis takes the richer side's shape and the poorer side gains it, and both boundaries compose this page with no adapter.
 
-Composition is downward: `Op`, `Lease<T>`, `Atom`, `Transition<TState>`, `Cell`, and `ValidityClaim` come from `Domain/rails`; `PositiveMagnitude` and `Dimension` from `Numerics/atoms`; `UiFault`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`. Every touch of the control tree crosses `UiThread` on the immediate lane, so this owner holds the same affinity contract as every other surface on the sub-domain rather than standing as its unmarshalled exception. Each crossing is a `Blocking` case, whose static type selects the SYNCHRONOUS marshal arity — the rig composes inside its own `Fin` query and blocks on nothing, because a task-shaped return over an in-frame crossing forces every binding site to wait on a result it already holds.
+Composition is downward: `Op`, `Lease<T>`, `Atom`, `Transition<TState>`, `Cell`, and `ValidityClaim` come from `Domain/results`; `PositiveMagnitude` and `Dimension` from `Numerics/atoms`; `UiFault`, `UiDispatch<T>`, `DispatchLane`, and `UiThread` from `Interaction/dispatch`. Every touch of the control tree crosses `UiThread` on the immediate lane, so this owner holds the same affinity contract as every other surface on the sub-domain rather than standing as its unmarshalled exception. Each crossing is a `Blocking` case, whose static type selects the SYNCHRONOUS marshal arity — the rig composes inside its own `Fin` query and blocks on nothing, because a task-shaped return over an in-frame crossing forces every binding site to wait on a result it already holds.
 
 ## [01]-[INDEX]
 
 - [02]-[FLOW]: `BindingKey`, `FlowMode`, `Cadence`, `SourceKind`, `CadenceKind` — the identity and the three axes a fusion is keyed on.
 - [03]-[SOURCE]: `Lens<TState,TValue>`, `StateCell<TState>`, `BindSource<TValue>` — the model side, from an atom lens to a delegate accessor to a drilled child path.
-- [04]-[GATE]: `ValueGate<TRaw,TModel>`, `GatePolicy<TModel>`, `BindFusion`, `BindLaw`, `BindingPlan`, `CommitLatch<TPayload>` — the typed admission seam, the legality table, and the rig.
+- [04]-[GATE]: `ValueGate<TRaw,TModel>`, `GatePolicy<TModel>`, `BindFusion`, `BindLaw`, `BindingPlan`, `CommitLatch<TPayload>` — the typed admission gate, the legality table, and the rig.
 - [05]-[LEDGER]: `LedgerCapacity`, `BindLedgerEntry`, `BindLedger`, `BindLink`, `DataScope` — keyed current failure over bounded history, the leased link, and the ambient model assignment.
-- [06]-[STORE]: `StoreRow<T>`, `StoreItemLens`, `TreeStore<T>`, `StoreSink<T>`, `StoreRail` — the collection carriers and the one mount gate over grid, list, and tree.
+- [06]-[STORE]: `StoreRow<T>`, `StoreItemLens`, `TreeStore<T>`, `StoreSink<T>`, `StoreGate` — the collection carriers and the one mount gate over grid, list, and tree.
 
 ## [02]-[FLOW]
 
@@ -107,14 +107,14 @@ public abstract partial record Cadence {
 - Auto: the context band lowers to ONE host accessor through a total dispatch answering `Option`, so the plan holds an access SHAPE a reader can inspect while the host sees one binding, and the two arms with no accessor answer absence rather than a raise. A pre-lowered binding as the only case would erase which access a plan chose, which a refusal, a diagnostic, and a re-rig all need.
 - Auto: `Drill`'s refusal reason DERIVES from `Kind`, so the two refusing arms are one expression rather than two restatements of the same sentence.
 - Law: every atom transition returns a `Transition<TState>` verdict. `Mutate` is a public unmarshalled entry, so a compute lane may drive it; the marshal sits in the change ADAPTER, where the host handler is raised, and the mutation itself carries no affinity requirement.
-- Law: the cell carries its OWN `FaultCell`, because both host seams it wires are `void`. A `void` delegate licenses no discard — a refused write and a raised change notification are facts that vanish otherwise — so the setter's verdict and the adapter's crossing both PARK, and `Faults` is where a consumer reads what the seam could not carry outward. All four transition arms are spelled, so no case reaches `ignore`.
+- Law: the cell carries its OWN `FaultCell`, because both host hooks it wires are `void`. A `void` delegate licenses no discard — a refused write and a raised change notification are facts that vanish otherwise — so the setter's verdict and the adapter's crossing both PARK, and `Faults` is where a consumer reads what the gate could not carry outward. All four transition arms are spelled, so no case reaches `ignore`.
 - Law: every compare-and-swap on this page takes the kernel default `Cell.SwapBudget` (branch RULINGS `[02]`). This page measures no lane whose contention differs from the kernel's, so a page-local budget shell would be an unanchored second ceiling.
 - Law: the absent setter crosses as `Op.ToHostSlot`, the one place a `null` is a legal spelling — a host slot the domain never reads back. A hand-spelled `Match` onto `null` is the deleted form, because it puts the projection at every call site instead of at its one owner.
 - Law: the lens write executes INSIDE the compare-and-swap, so `Put` stays pure — the swap retries under contention and a `Put` carrying an effect runs that effect once per attempt.
 - Law: the change-adapter map is keyed on the host handler the binding machinery hands in and removal reads the stored adapter, so an add and a remove of one handler cancel exactly. A re-derived adapter closure compares unequal and leaves the atom subscribed to a released control.
 - Growth: a new access shape is one case with one `Lower` arm; the family's recursion is CASE-owned, so a deeper drill costs no consumer an edit.
 - Law: NAMED LOSS — `Delegated` and `Child` erase their CONTEXT type. The host accessor the band lowers to addresses `object` (`Binding.Property<TContext,TValue>` answers a context-erased `PropertyBinding<TValue>`), and a case cannot introduce a type parameter its union does not carry, so the erasure sits exactly where the host puts it. `Path<TContext>` is the one typed mint and the recursion stays typed in its VALUE at every level; what is lost is a compile-time context check on the delegate arm, which no host binding surface offers either.
-- Exemption: the change-adapter map is a `ConcurrentDictionary` that MUTATES for the life of the cell — the host binding machinery adds and removes handlers from the marshal while a compute lane may still be swapping the atom, so neither a frozen table nor a rail-side keyed map serves. It is the one mutable registry on this page and it is owned by the cell that mutates it.
+- Exemption: the change-adapter map is a `ConcurrentDictionary` that MUTATES for the life of the cell — the host binding machinery adds and removes handlers from the marshal while a compute lane may still be swapping the atom, so neither a frozen table nor a caller-side keyed map serves. It is the one mutable registry on this page and it is owned by the cell that mutates it.
 - Boundary: the reflected `Named` arm is the one site a model member is addressed by text, and every call site spells it through `nameof`, so a renamed property breaks at compile time rather than at first bind.
 
 ```csharp
@@ -184,7 +184,7 @@ public sealed record Lens<TState, TValue>(Func<TState, TValue> Get, Func<TState,
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
-    private static readonly HookId Rail = HookId.Create(value: "rasm.kernel.interaction.binding.state");
+    private static readonly HookId Point = HookId.Create(value: "rasm.kernel.interaction.binding.state");
 
     public TState Current => state.Value;
     public Seq<IsolatedFault> Faults => faults.Parked;
@@ -212,17 +212,17 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
         state: op,
         committed: static (_, _) => unit,
         ceded: static (_, _) => unit,
-        refused: (_, row) => ignore(faults.Park(point: Rail, cause: row.Cause)),
-        contended: (key, _) => ignore(faults.Park(point: Rail, cause: key.InvalidResult())));
+        refused: (_, row) => ignore(faults.Park(point: Point, cause: row.Cause)),
+        contended: (key, _) => ignore(faults.Park(point: Point, cause: key.InvalidResult())));
 
     private Unit Park(Fin<Unit> crossing, Op op) => crossing.Match(
-        Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Rail, cause: cause)));
+        Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Point, cause: cause)));
 }
 ```
 
 ## [04]-[GATE]
 
-- Owner: `ValueGate<TRaw,TModel>` the bidirectional admission seam between a control primitive and a domain value; `GatePolicy<TModel>` the refused-write posture; `BindFusion` the three-coordinate key; `FusionLaw` the five legality clause rows and `BindLaw` the table they derive; `BindingPlan<TControl,TValue,TModel>` the admitted riggable plan; `CommitLatch<TPayload>` the focus-scoped write buffer.
+- Owner: `ValueGate<TRaw,TModel>` the bidirectional admission gate between a control primitive and a domain value; `GatePolicy<TModel>` the refused-write posture; `BindFusion` the three-coordinate key; `FusionLaw` the five legality clause rows and `BindLaw` the table they derive; `BindingPlan<TControl,TValue,TModel>` the admitted riggable plan; `CommitLatch<TPayload>` the focus-scoped write buffer.
 - Cases: `GatePolicy` is `Hold` — the control snaps back to the last admitted model value — or `Fallback` carrying an ALREADY-ADMITTED substitute. The Grasshopper form carried a raw substitute and re-admitted it inside the refusal path, so a fallback could itself refuse and the fold had nothing left but a default; carrying the model value forecloses that.
 - Entry: `BindingPlan.Admitted` accumulates every absent dependency through `Validation`, gates the fusion through `BindLaw.Admit`, and stores only a legal plan; `Rig` selects the control binding, wires the source, arms the latch under commit timing, and answers a leased link.
 - Auto: the legal roster DERIVES from the five `FusionLaw` rows at type init over the full `SourceKind × FlowMode × CadenceKind` cross-product. A clause, a flow row, or a timing kind lands as one declaration and the table re-materializes with no corner edited — that derivation is the executable statement of which fusions both host boundaries actually support.
@@ -236,7 +236,7 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
 - Output: `Fin<Lease<BindLink>>` — the link's lifetime is the caller's custody and its key addresses its own ledger row.
 - Packages: Eto.Forms for `BindableBinding`, `DualBinding`, `Convert`, `CatchException`, and `BindDataContext` (verified in `libs/dotnet/.api/api-eto-binding.md`); LanguageExt.Core for `Validation`, `Fin`, `Atom`, and `Lease`.
 - Growth: a new refusal posture is one `GatePolicy` case; a new legality clause is one `FusionLaw` row beside its `RejectReason` row, and the two land together.
-- Boundary: host binding construction, cadence attach, rollback, and unbind are the binding-provider statement seam, and all four cross `UiThread` on the immediate lane.
+- Boundary: host binding construction, cadence attach, rollback, and unbind are the binding-provider statement form, and all four cross `UiThread` on the immediate lane.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -258,7 +258,7 @@ public abstract partial record GatePolicy<TModel> {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ValueGate<TRaw, TModel>(Func<TModel, TRaw> Render, Func<TRaw, Fin<TModel>> Admit) {
     public static Fin<ValueGate<TRaw, TModel>> Of(Func<TModel, TRaw> render, Func<TRaw, Fin<TModel>> admit, Op op) {
         return from rendered in op.Need(render)
@@ -361,7 +361,6 @@ public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where 
                     key, held.Select, held.Source, fusion, held.Cadence, gate, held.Ledger)));
     }
 
-    [BoundaryAdapter]
     public Fin<Lease<BindLink>> Rig(Control control, Op key) =>
         from typed in control is TControl accepted
             ? Fin.Succ(accepted)
@@ -404,7 +403,7 @@ internal sealed class CommitLatch<TPayload> : IDisposable {
 - Law: the release one-shot is an `Atom<bool>` seated through a guarded transition, so a second release reads a REFUSED verdict rather than no-opping into silence; a hand interlocked integer beside this page's `Atom`/`Cell`/`Transition` custody is the deleted form.
 - Law: refusal routing rides `Release`, so the one non-throwing terminal every capsule on this sub-domain shares stays unmodified and this link still records its keyed rejection without minting a second terminal.
 - Law: a teardown fault lands on the link's own ledger, never on the unwinding stack — disposal fires from a `finally` and from a `using` unwind, where a raise REPLACES the primary exception with a teardown fault.
-- Law: `DataScope.Assign` is the ONE ambient-model seam. Assignment on a container propagates to every bound descendant, which is what makes per-control source wiring the deleted form; it crosses the marshal because propagation raises host change events across the whole subtree.
+- Law: `DataScope.Assign` is the ONE ambient-model boundary. Assignment on a container propagates to every bound descendant, which is what makes per-control source wiring the deleted form; it crosses the marshal because propagation raises host change events across the whole subtree.
 - Output: `BindLink` carries its key, its validity fold, its release faults, and a `Refresh` pushing in the flow row's declared update direction.
 - Growth: a new evidence column extends `BindLedgerEntry`; retention and current failure stay independent.
 - Boundary: control realization retains links and releases them in reverse tree order, so a partially rigged subtree unwinds exactly what it wired.
@@ -486,16 +485,16 @@ public sealed class BindLink : IDisposable, IValidityEvidence {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DataScope {
-    [BoundaryAdapter] public static Fin<Unit> Assign(IBindable root, object model, Op? key = null);
+    public static Fin<Unit> Assign(IBindable root, object model, Op? key = null);
 }
 ```
 
 ## [06]-[STORE]
 
-- Owner: `StoreRow<T>` the collection carrier family; `StoreItemLens` the list display and key projections; `TreeStore<T>` the tree carrier with its element projection; `StoreSink<T>` the closed mount destination family, every case carrying its own store; `StoreRail` the one mount gate.
+- Owner: `StoreRow<T>` the collection carrier family; `StoreItemLens` the list display and key projections; `TreeStore<T>` the tree carrier with its element projection; `StoreSink<T>` the closed mount destination family, every case carrying its own store; `StoreGate` the one mount gate.
 - Cases: `StoreRow` is `Eager` over a fully materialized observable source whose mutations refresh the bound view, or `Virtual` over a random-access window contract adapted at mount. `StoreSink<T>` is `Grid` and `List` each carrying their `StoreRow<T>`, or `Tree` carrying its `TreeStore<T>` — the tree's item contract, not the element type, is what discriminates it.
-- Entry: `StoreRail.Mount(sink, key)` is the ONE gate; every case carries the store it mounts, so the gate takes no second carrier.
-- Law: the store rides its CASE. NAMED LOSS: the mount's `Option<StoreRow<T>>` arity, whose tree case demanded absence and whose two other cases demanded presence — a pairing every call site had to know and no signature stated. The tree-with-rows and the grid-without-rows corners are now unrepresentable rather than refusable. Witness: `StoreRail.Mount(new StoreSink.Tree(view, store), Some(rows), key)` no longer compiles, where before it type-checked and refused at runtime.
+- Entry: `StoreGate.Mount(sink, key)` is the ONE gate; every case carries the store it mounts, so the gate takes no second carrier.
+- Law: the store rides its CASE. NAMED LOSS: the mount's `Option<StoreRow<T>>` arity, whose tree case demanded absence and whose two other cases demanded presence — a pairing every call site had to know and no signature stated. The tree-with-rows and the grid-without-rows corners are now unrepresentable rather than refusable. Witness: `StoreGate.Mount(new StoreSink.Tree(view, store), Some(rows), key)` no longer compiles, where before it type-checked and refused at runtime.
 - Law: `TreeStore<T>` carries its element projection beside the host store, so the type parameter is RECOVERABLE — a selection read off a tree view answers `Option<T>` rather than the `ITreeGridItem` the host sink erased it to. A carrier branded by a parameter nothing reads is the decorative form this column forecloses.
 - Auto: both carriers project through one `Carrier` dispatch onto the enumerable the host view demands, so a virtualized window never reaches a view unadapted and an enumerable source is never wrapped in an adapter its view already accepts.
 - Law: mutation flows through the mounted collection and the view refreshes from the collection change — rebuilding a control per row is the deleted form. A snapshot source that never mutates still mounts `Eager`, because the CARRIER is the contract and the mutation rate is not.
@@ -541,8 +540,7 @@ public abstract partial record StoreSink<T> where T : class {
 public sealed record StoreItemLens(Option<IIndirectBinding<string>> Text, Option<IIndirectBinding<string>> Key);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class StoreRail {
-    [BoundaryAdapter]
+public static class StoreGate {
     public static Fin<Unit> Mount<T>(StoreSink<T> sink, Op? key = null) where T : class;
 }
 ```

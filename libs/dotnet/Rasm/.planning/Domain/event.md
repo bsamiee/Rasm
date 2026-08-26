@@ -1,6 +1,6 @@
 # [RASM_EVENT]
 
-Bindings, filters, subscriptions, and `dataref` residence policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `rails.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[02]-[CAPSULE]`, `Hlc` and `CausalStamp` from `frame.md` `[04]-[STAMP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
+Bindings, filters, subscriptions, and `dataref` storage policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `results.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[02]-[CAPSULE]`, `Hlc` and `CausalStamp` from `frame.md` `[04]-[STAMP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@ Bindings, filters, subscriptions, and `dataref` residence policy seat at their c
 - Entry: `EventType.Of` assembles the type; `EventSource.Of(domain, capability)` admits the independently stated producer coordinate; the Rasm profile proves domain agreement only. `EventId.Of(value, key)` admits the operation value; `ContentHash.Hex` and `.Admit` project the optional `subject` at the profile crossing.
 - Law: `<fact>` reads past tense and carries the whole announced semantics, so a semantic break mints a fresh fact spelling rather than re-pointing the subscriptions keyed on the standing one. Payload-schema evolution stays independent: `dataschema` moves on its own axis and the type reads unchanged.
 - Law: `source` names the producing CAPABILITY and never a host, package, or deployment — a redeployment that re-authors the identity consumers keyed on is the failure the `rasm:` scheme and its two-segment path foreclose, since neither segment has a spelling an environment can move. It never derives from `type.subject`: source context and fact classification are independent CloudEvents attributes.
-- Law: `(source, id)` is the uniqueness composite every dedup reads. Producers sharing one capability source draw collision-resistant operation values from that source's namespace; `id` never repeats the capability as a prefix. The payload identity rides `subject`, while `dataref` is the residence URI-reference.
+- Law: `(source, id)` is the uniqueness composite every dedup reads. Producers sharing one capability source draw collision-resistant operation values from that source's namespace; `id` never repeats the capability as a prefix. The payload identity rides `subject`, while `dataref` is the storage URI-reference.
 - Law: admission proves the ROUND TRIP, never the parse — a bare `UInt128.TryParse` admits upper-case and short forms this fabric never emits, so `"A"` and a full-width key ending `0a` collapse onto one dedup key while both read correct in isolation. That proof has ONE owner at `identity.md`: `ContentHash.Hex` renders and `ContentHash.Admit` refuses the spellings the outbound half cannot produce, and this page re-declares neither the `x32` literal nor the case rule.
 - Packages: Thinktecture.Runtime.Extensions, CloudNative.CloudEvents, LanguageExt.Core (`Fin`, `MapFail`), BCL inbox (`System.Buffers`, `System.Globalization`).
 - Growth: a new attribute vocabulary is one value object on this cluster; a new capability subject is one row on the branch conformance roster and none here, because this grammar validates the segment's SHAPE and the minter resolves its MEMBERSHIP.
@@ -118,8 +118,8 @@ public readonly record struct EventId {
 | [INDEX] | [GRADE]      | [REDACT]             | [BROKER]  | [REACH]                              |
 | :-----: | :----------- | :------------------- | :-------- | :----------------------------------- |
 |  [01]   | `public`     | no obligation        | `every`   | every binding                        |
-|  [02]   | `internal`   | no obligation        | `trusted` | estate-trusted bindings alone        |
-|  [03]   | `restricted` | redaction route runs | `trusted` | estate-trusted bindings alone        |
+|  [02]   | `internal`   | no obligation        | `trusted` | deployment-trusted bindings alone    |
+|  [03]   | `restricted` | redaction route runs | `trusted` | deployment-trusted bindings alone    |
 |  [04]   | `secret`     | redaction route runs | `barred`  | no binding — reference-only carriage |
 
 ```csharp
@@ -156,7 +156,7 @@ public sealed partial class DataGrade {
 - Owner: `CloudEventMint` owns the generic standard construction shape; `RasmEventMint<T>` composes the Rasm grammar, typed content-key subject, and whole generated extension message; `EventExtensionContract<T>` derives the SDK projection from generated descriptors, validates the message, and stamps the causal slots by descriptor name; `EventEnvelope` owns the generic mint/raise funnel; `RasmEventEnvelope` owns profile mint/admission and the ONE publish door every durable kernel fact crosses.
 - Entry: `EventEnvelope.Mint(request, key)` returns the generic strict SDK envelope. `RasmEventEnvelope.Publish(request, contract, clock, key)` is the producer's door — it takes `CausalStamp.Now(clock)`, writes the five causal slots onto the generated message through `contract.Stamp`, seals `time` with the stamp's physical half, and mints; `RasmEventEnvelope.Mint(request, contract, key)` is the already-stamped form a relay re-mints through, and `.Admit(envelope, contract, key)` returns the admitted typed profile. `EventEnvelope.Raise` remains the binary-mode inverse.
 - Auto: `CloudEvent.Validate()` throws on a malformed envelope, so construction, projected extension writes, and validation funnel through one `Op.Catch`; the first refused field is the verdict and no partly stamped instance escapes.
-- Law: the SDK indexer stamps IN PLACE, so a refused write leaves the instance partly stamped; what the rail guarantees is that such an instance is UNREACHABLE — `Mint` holds the only reference until `Validate()` returns it, and a refusal returns no envelope at all. A rail claiming the stronger "no half-stamped envelope exists" would be a law with no producer.
+- Law: the SDK indexer stamps IN PLACE, so a refused write leaves the instance partly stamped; what the result guarantees is that such an instance is UNREACHABLE — `Mint` holds the only reference until `Validate()` returns it, and a refusal returns no envelope at all. A result claiming the stronger "no half-stamped envelope exists" would be a law with no producer.
 - Law: the creation-time trace is the generated `event.Extensions` `traceparent`/`tracestate`/`baggage` triplet, stamped ONCE at `Publish` from the live span's `TraceCarrier` and projected descriptor-total by `EventExtensionContract<T>`; `sequence` carries the stamp's logical half and `recordedtime` the wall instant the mint read. The transport carrier remains the current-hop context, and no ingress re-stamps a creation-time slot — `Stamp` resolves each slot through `Descriptor.FindFieldByName`, so a generated contract missing one refuses typed instead of dropping the frame.
 - Law: `datacontenttype` and `dataschema` are row data off the serdes arrow that produced the body; both collapse to the SDK's nullable slot at this one crossing, exactly as optional `subject` does.
 - Law: `time` is the occurrence stamp — the HLC physical half on every published profile event, so `(time, sequence)` IS the causal order — and `recordedtime` is when the producer created the CloudEvent. A receiver preserves both, records its own arrival time only in its interior delivery carrier, and measures skew from `recordedtime` against that arrival; re-stamping `recordedtime` at ingress erases the producer-to-receiver interval and violates the extension.
@@ -166,7 +166,7 @@ public sealed partial class DataGrade {
 - Law: `EventCarrier` publishes absence on both halves. It resolves only attributes already declared on the envelope, so an unknown or over-ceiling peer field drops without this foundation inventing or mirroring a roster.
 - Law: the message envelope PROJECTS the producing operation's own result as `data` and adds address, trace, tenant, stamp, and handling facts alone; a parallel event ledger, header wire, or fact stream beside the results is the deleted form.
 - Packages: CloudNative.CloudEvents, Celly.Protovalidate, Google.Protobuf, Generator.Equals, LanguageExt.Core, NodaTime, BCL inbox (`System.Net.Mime`).
-- Growth: a new estate extension changes only the generated descriptor; the projection walk, declaration set, construction, and decode consume it automatically. A new unsupported protobuf field kind fails visibly until one CloudEvents abstract-type correspondence is added.
+- Growth: a new solution extension changes only the generated descriptor; the projection walk, declaration set, construction, and decode consume it automatically. A new unsupported protobuf field kind fails visibly until one CloudEvents abstract-type correspondence is added.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -221,7 +221,6 @@ public sealed record RasmEvent<TExtensions>(
     TExtensions Extensions)
     where TExtensions : class, IMessage<TExtensions>;
 
-[BoundaryAdapter]
 public readonly record struct EventField(CloudEventAttribute Attribute, object Value) {
     public static CloudEventAttribute Declare(string name, CloudEventAttributeType type) =>
         name.Length is > 0 and <= 20
@@ -613,7 +612,6 @@ public sealed partial class EventFormat {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter]
 public readonly record struct EventFrame(ReadOnlyMemory<byte> Body, ContentType Framing);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -744,7 +742,7 @@ flowchart LR
 
 One owner per axis; capability is a row, case, or column, never a sibling surface, and a consuming stratum composes one instance of this algebra rather than re-declaring a mint.
 
-| [INDEX] | [AXIS_CONCERN]       | [OWNER]                               | [RAIL]                                 |
+| [INDEX] | [AXIS_CONCERN]       | [OWNER]                               | [RESULT]                               |
 | :-----: | :------------------- | :------------------------------------ | :------------------------------------- |
 |  [01]   | Profile grammar      | `EventGrammar`                        | strict shared segment admission        |
 |  [02]   | Type grammar         | `EventType`                           | generated factory + segment projection |
@@ -758,7 +756,7 @@ One owner per axis; capability is a row, case, or column, never a sibling surfac
 |  [10]   | Construction shape   | `CloudEventMint` / `RasmEventMint<T>` | generic standard / typed profile       |
 |  [11]   | Mint boundary        | `EventEnvelope` / `RasmEventEnvelope` | generic funnel / `Publish` + admission |
 |  [12]   | Creation-time stamp  | `CausalStamp` + `Contract.Stamp`      | five slots, once, at `Publish`         |
-|  [13]   | Propagation seam     | `EventCarrier`                        | `Option`-publishing accessor pair      |
+|  [13]   | Propagation edge     | `EventCarrier`                        | `Option`-publishing accessor pair      |
 |  [14]   | Format rows          | `EventFormat`                         | structured/batch rows + one formatter  |
 |  [15]   | Codec options        | `EventJson`                           | one serializer + document identity     |
 |  [16]   | Framing carriage     | `EventFrame`                          | body + chosen `ContentType`            |

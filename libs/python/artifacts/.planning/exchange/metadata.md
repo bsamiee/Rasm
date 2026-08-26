@@ -36,7 +36,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, RuntimeResult
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -330,22 +330,22 @@ class Metadata:
         )
         return ContentIdentity.key(f"metadata.{self.carrier.value}.{self.tag}", msgpack.encode(canon))
 
-    async def close(self, lane: LanePolicy, /) -> RuntimeRail[tuple[ContentKey, bytes, MetaFacts]]:
+    async def close(self, lane: LanePolicy, /) -> RuntimeResult[tuple[ContentKey, bytes, MetaFacts]]:
         policy = _CARRIER[self.carrier]
         match self:
             case Metadata(tag="read", read=(_, payload)):
-                railed = (await lane.offload(Kernel.of(policy.reader, policy.trait), payload)).map(
+                outcome = (await lane.offload(Kernel.of(policy.reader, policy.trait), payload)).map(
                     lambda facts: (payload, facts)
                 )
             case Metadata(tag="write", write=(_, payload, spec)):
-                railed = (await lane.offload(Kernel.of(policy.writer, policy.trait), payload, spec.facts, spec.bind)).map(
+                outcome = (await lane.offload(Kernel.of(policy.writer, policy.trait), payload, spec.facts, spec.bind)).map(
                     lambda blob: (blob, MetaFacts() if spec.bind is MetaBind.STRIP else spec.facts)
                 )
             case _ as unreachable:
                 assert_never(unreachable)
-        return railed.map(lambda pair: (ContentIdentity.key(f"metadata.{self.carrier.value}", pair[0]), pair[0], pair[1]))
+        return outcome.map(lambda pair: (ContentIdentity.key(f"metadata.{self.carrier.value}", pair[0]), pair[0], pair[1]))
 
-    async def _emit(self, lane: LanePolicy, /) -> RuntimeRail[tuple[ContentKey, bytes, MetaFacts]]:
+    async def _emit(self, lane: LanePolicy, /) -> RuntimeResult[tuple[ContentKey, bytes, MetaFacts]]:
         match await self.close(lane):
             case Result(tag="ok", ok=(key, payload, facts)):
                 Metrics.record({BYTE_VOLUME: float(len(payload))}, domain=DOMAIN, kind="metadata", scope=lane.scope)

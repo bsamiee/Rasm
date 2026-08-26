@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_PGVECTORSCALE]
 
-`pgvectorscale` (installed extension `vectorscale`) mints the `diskann` index access method over a pgvector `vector(N)` column — a disk-backed StreamingDiskANN graph with statistical binary quantization (SBQ) that scales approximate-nearest-neighbour search past RAM-resident HNSW. Every surface is server-side SQL, no managed assembly: the diskann index DDL feeds the search-provisioning rail through the EF migration boundary, and a pgvector distance query planner-routes through the index transparently.
+`pgvectorscale` (installed extension `vectorscale`) mints the `diskann` index access method over a pgvector `vector(N)` column — a disk-backed StreamingDiskANN graph with statistical binary quantization (SBQ) that scales approximate-nearest-neighbour search past RAM-resident HNSW. Every surface is server-side SQL, no managed assembly: the diskann index DDL feeds the search-provisioning path through the EF migration boundary, and a pgvector distance query planner-routes through the index transparently.
 
 ## [01]-[INDEX_DDL]
 
@@ -46,5 +46,5 @@ Session GUCs the planner reads to widen a diskann scan, `SET LOCAL` per session/
 - `api-pg-search.md`: `FusionRank.Fuse` composes the diskann vector branch with the `pg_search` BM25 branch in one reciprocal-rank-fusion CTE projecting identities, no learned reranker (`Query/retrieval#FUSION_AND_REUSE`); the probed embedding is generated upstream at `Rasm.Compute/Model/run#INFERENCE_MODES`.
 
 [LOCAL_ADMISSION]:
-- SBQ requires `memory_optimized`, so a `<#>` inner-product build against `storage_layout = plain` rails as a typed `ProvisionSql` `Fin.Fail` at the deploy gate before `Sql()` lands.
+- SBQ requires `memory_optimized`, so a `<#>` inner-product build against `storage_layout = plain` lands as a typed `ProvisionSql` `Fin.Fail` at the deploy gate before `Sql()` lands.
 - `vectorscale` installs through its `ServerExtension` `CASCADE` row, never a `shared_preload_libraries` entry and never linked into managed code.

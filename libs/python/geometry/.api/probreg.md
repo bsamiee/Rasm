@@ -1,12 +1,12 @@
 # [PY_GEOMETRY_API_PROBREG]
 
-`probreg` owns correspondence-free probabilistic point-set registration for the scan-processing rail: Gaussian-mixture estimators align a source array onto a target without correspondences, returning a `Transformation` whose non-rigid arm warps a per-point deformation field over arbitrary query points. One `registration_*` entrypoint per algorithm discriminates rigid, affine, and non-rigid on a `tf_type_name` string. It fills the non-rigid slot `kiss_matcher`, `open3d`, and `small_gicp` leave open; native compilation and a hard `open3d` import bind it to the worker interpreter.
+`probreg` owns correspondence-free probabilistic point-set registration for the scan-processing domain: Gaussian-mixture estimators align a source array onto a target without correspondences, returning a `Transformation` whose non-rigid arm warps a per-point deformation field over arbitrary query points. One `registration_*` entrypoint per algorithm discriminates rigid, affine, and non-rigid on a `tf_type_name` string. It fills the non-rigid slot `kiss_matcher`, `open3d`, and `small_gicp` leave open; native compilation and a hard `open3d` import bind it to the worker interpreter.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: transformation family (`probreg.transformation`)
 
-`Transformation.transform(points, array_type=open3d.utility.Vector3dVector)` warps an array through the estimated model, so a non-rigid instance IS the deformation-field carrier mapping arbitrary query points, not only the registered source; `RigidTransformation` composes `rot`/`t`/`scale` into the rail's 4x4 contract through `inverse()` and `__mul__`, and the non-rigid variants carry the warp basis.
+`Transformation.transform(points, array_type=open3d.utility.Vector3dVector)` warps an array through the estimated model, so a non-rigid instance IS the deformation-field carrier mapping arbitrary query points, not only the registered source; `RigidTransformation` composes `rot`/`t`/`scale` into the result's 4x4 contract through `inverse()` and `__mul__`, and the non-rigid variants carry the warp basis.
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [CAPABILITY]                                                           |
 | :-----: | :------------------------- | :------------- | :--------------------------------------------------------------------- |
@@ -70,13 +70,13 @@ Each entrypoint takes `source, target` as a numpy `Nx3`/`Nx6` array or an `open3
 
 `MstepResult` carries the optimization outcome; `Transformation.transform` warps arbitrary points through the recovered deformation field.
 
-| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [CAPABILITY]                                           |
-| :-----: | :-------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `result.transformation`                 | result         | estimated source-to-target `Transformation`            |
-|  [02]   | `result.sigma2` / `result.q`            | result         | final GMM variance and log-likelihood objective        |
-|  [03]   | `transformation.transform(points)`      | warp           | apply the estimated warp to any point array            |
-|  [04]   | `RigidTransformation.rot`/`.t`/`.scale` | rigid          | rotation, translation, scale for the 4x4 rail contract |
-|  [05]   | `estimator.registration(target, ...)`   | estimator      | run EM from a preconfigured estimator plus callbacks   |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :-------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `result.transformation`                 | result         | estimated source-to-target `Transformation`              |
+|  [02]   | `result.sigma2` / `result.q`            | result         | final GMM variance and log-likelihood objective          |
+|  [03]   | `transformation.transform(points)`      | warp           | apply the estimated warp to any point array              |
+|  [04]   | `RigidTransformation.rot`/`.t`/`.scale` | rigid          | rotation, translation, scale for the 4x4 result contract |
+|  [05]   | `estimator.registration(target, ...)`   | estimator      | run EM from a preconfigured estimator plus callbacks     |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_CONFIG]
 
-`Microsoft.Extensions.Configuration` owns the AppHost configuration tree: ordered `IConfigurationSource` inputs merge into one `IConfigurationRoot` of colon-delimited string keys with provider precedence by source order, and every reload propagates through a change token. Its boundary is bootstrap — sources mount and the root builds at composition, and runtime policy binds typed projections off the binder rail, never a raw section read.
+`Microsoft.Extensions.Configuration` owns the AppHost configuration tree: ordered `IConfigurationSource` inputs merge into one `IConfigurationRoot` of colon-delimited string keys with provider precedence by source order, and every reload propagates through a change token. Its boundary is bootstrap — sources mount and the root builds at composition, and runtime policy binds typed projections off the binder, never a raw section read.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -2,7 +2,7 @@
 
 `react-error-boundary` owns the folder's one render-catch boundary: `ErrorBoundary`, whose recovery is a three-arm discriminated prop union, with `useErrorBoundary` escalating the carrier-less throws React never catches in render.
 
-`ErrorBoundary` seams the Effect typed-error channel to the React tree: a failed `useAtomSuspense` read throws `Cause.squash(cause)` in render, so the boundary catches the tagged `E` and the recovery folds it through `Match` into the `value/fault` projection.
+`ErrorBoundary` binds the Effect typed-error channel to the React tree: a failed `useAtomSuspense` read throws `Cause.squash(cause)` in render, so the boundary catches the tagged `E` and the recovery folds it through `Match` into the `value/fault` projection.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -42,7 +42,7 @@ One boundary owner drives all recovery; the modality is the prop-union arm, neve
 - `resetKeys` re-arms on a listed value change (bind it to the atom query key); `resetErrorBoundary(...args)` is the explicit retry; `onReset` receives the discriminated reason so the retry re-runs the failed `Effect`.
 
 [STACKING]:
-- `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): `useAtomSuspense(atom)` is the primary async rail — its `Failure` arm throws `Cause.squash(cause)` in render as `FallbackProps.error`, the tagged `E` that `Match.tagsExhaustive` needs where a raw `Cause` will not tag-match; `includeFailure: true` returns the `Failure` inline for a local `Result.match` instead; `resetKeys`/`onReset` re-run the atom through `useAtomRefresh`.
+- `@effect-atom/atom-react` (`.api/effect-atom-atom-react.md`): `useAtomSuspense(atom)` is the primary async path — its `Failure` arm throws `Cause.squash(cause)` in render as `FallbackProps.error`, the tagged `E` that `Match.tagsExhaustive` needs where a raw `Cause` will not tag-match; `includeFailure: true` returns the `Failure` inline for a local `Result.match` instead; `resetKeys`/`onReset` re-run the atom through `useAtomRefresh`.
 - `effect` (`libs/typescript/.api/effect.md`): the recovery dispatches the tagged fault family through `Match.tagsExhaustive`/`Data.taggedEnum().$match` into the `value/fault` row, localized by `intl/format`; `resetErrorBoundary` re-enters the failed computation whose `Effect.retry(Schedule)` policy lives on the effect — the boundary owns the unwind, `Match` the branch, `intl` the message.
 - `react-dom` (`.api/react-dom.md`): the `createRoot` `RootOptions` error trio frames the boundary — `onCaughtError` forwards a caught error to `telemetry`, `onUncaughtError` catches what escaped every boundary, `onRecoverableError` handles hydration divergence; boundary `onError` and root `onCaughtError` are one event at two altitudes.
 - `view` rows (within-lib): every `view` row wraps its `useAtomSuspense` reads in one `<Suspense>` + `ErrorBoundary` pair, and the recovery is the sole fault-render surface.

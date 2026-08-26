@@ -1,11 +1,11 @@
 # [RASM_ELEMENT_ARCHITECTURE]
 
-`Rasm.Element` is the lowest AEC-domain seam between the `Rasm` kernel and its AEC peers. Sub-domains compose `ElementGraph`; universal admission remains on `KernelFault`, while graph, address, and projection semantics use `ElementFault`.
+`Rasm.Element` is the lowest AEC-domain contract between the `Rasm` kernel and its AEC peers. Sub-domains compose `ElementGraph`; universal admission remains on `KernelFault`, while graph, address, and projection semantics use `ElementFault`.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text
-Rasm.Element/              # Neutral thing-model seam over the kernel; geometry crosses by content hash alone
+Rasm.Element/              # Neutral thing-model contract over the kernel; geometry crosses by content hash alone
 ├── Graph/                 # One authoritative graph, its mutation algebra, and generated node-edit support
 │   ├── Element.cs         # Header + frozen node store + Relationship array + built-once incidence; Bake(objectNode) derives the element
 │   ├── Delta.cs           # GraphMutation [Union] through the generated total Switch onto a HAMT WorkingGraph; Thaw lowers, Freeze lifts
@@ -13,7 +13,7 @@ Rasm.Element/              # Neutral thing-model seam over the kernel; geometry 
 │   ├── WirePayload.cs     # NodeWire fold minting each node's content address beside object codecs
 │   ├── WireValue.cs       # Recursive PropertyValue support closure; decode legs re-mint through the OfSi gate
 │   ├── WireSubstance.cs   # Arms re-enter their accumulating Of* admissions; ProfileRef keys re-derive; SectionColumns one-table codec
-│   ├── WireCodec.Evidence.cs # PayloadContent derives from flat wire columns through the owner's Open gate; EvidenceRun re-enters railed Of
+│   ├── WireCodec.Evidence.cs # PayloadContent derives from flat wire columns through the owner's Open gate; EvidenceRun re-enters result-returning Of
 │   ├── WireRaster.cs      # Base-as-level-0 rebuild from flat columns; palettes cross the one ToRgb quantizer the content key shares
 │   ├── Corpus.cs          # CorpusProfile closes density, depth, mix, cadence, and seed; Mint admits members through GraphDelta.AdmitOnto
 │   └── Table.cs           # Tabulate fold; a TableRow case IS the dataset and TableFamily carries columns, key, spine, rollup measure
@@ -37,7 +37,7 @@ Rasm.Element/              # Neutral thing-model seam over the kernel; geometry 
 │   └── Reference.cs       # Map-conversion state, axis scales, GeodeticDatum, and the ProjectedCrs/VerticalCrs identity pair
 └── Projection/            # Cross-stratum contracts, the content codec, the fault band, the observability tap, and the model grade
     ├── Projection.cs      # Two instance-interface floors peers implement without referencing each other; Assemble is the app-wired capability
-    ├── Address.cs         # Kernel-hashed canonical seam bytes; this file declares no writer and re-exports nothing
+    ├── Address.cs         # Kernel-hashed canonical shared bytes; this file declares no writer and re-exports nothing
     ├── Fault.cs           # Direct typed graph, address, and projection cases
     ├── Observe.cs         # ElementPoint closes the rasm.element.<domain>.<point> roster on a modality column; ElementFact carries marks
     └── Audit.cs           # Per-discipline coverage ratios and a graded integrity stream in one fold; Bim ModelHealth composes, never overlaps
@@ -48,7 +48,7 @@ Rasm.Element/              # Neutral thing-model seam over the kernel; geometry 
 Interior is one strongly-connected component at folder grain, since `Graph/Element` declares both the primitive `NodeId` every sibling keys and the aggregate `ElementGraph` that composes every sibling; the ladder therefore resolves member-first, and each consumption edge points down.
 
 - S0 substrate — `ElementFault` and `NodeId`; package admissions compose the kernel `AdmissionSlots` fold.
-- S0 law — no substrate file names an upper seam type, so every stratum rails and keys through it with no return edge.
+- S0 law — no substrate file names an upper shared type, so every stratum faults and keys through it with no return edge.
 - S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` signature, `GeoReference`, and the `Query` predicate algebra.
 - S1 law — the predicate algebra seats vocabulary and byte projection alone; evaluation stays with each consuming folder.
 - S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, `CoverageGrid`.
@@ -56,8 +56,8 @@ Interior is one strongly-connected component at folder grain, since `Graph/Eleme
 - S3 spine — the `Wire*` codemap nodes realize ONE generated codec owner seated with the graph, so six files add no wire stratum.
 - S3 co-seat — `Relations` seats beside the graph: `ElementGraph` composes `Relationship` rows and edges reference nodes by `NodeId` alone, acyclic.
 - S4 contracts — `IElementProjection`, `IGraphConstraint`, and the `ContentAddress` codec seat above the graph they name and fold.
-- S4 observability — the `ElementHooks`-minted kernel rail and its `GraphInstrument` projection observe every lower stratum without entering one.
-- S4 corpus — `GraphForge` realizes whole graphs through the S3 admission rail it consumes.
+- S4 observability — the `ElementHooks`-minted kernel hooks and its `GraphInstrument` projection observe every lower stratum without entering one.
+- S4 corpus — `GraphForge` realizes whole graphs through the S3 admission path it consumes.
 - S4 tabulation — `GraphTable` flattens the S3 snapshot into columnar row families and imports nothing above it.
 - S4 grade — `ModelAudit` folds the S3 snapshot through the S4 codec into one graded value, mutating nothing and minting no fault of its own.
 
@@ -76,7 +76,7 @@ flowchart TB
         IProjection[IElementProjection]
         IConstraint[IGraphConstraint]
         Address[ContentAddress]
-        HookRail[ElementHooks]
+        HookSet[ElementHooks]
         Instrument[GraphInstrument]
         Forge[GraphForge]
         Table[GraphTable]
@@ -104,9 +104,9 @@ flowchart TB
     end
     IProjection e1@-->|"[IMPORT]: ElementGraph"| ElementGraph
     IConstraint e2@-->|"[IMPORT]: GraphDelta"| Delta
-    HookRail e3@-->|"[IMPORT]: GraphDelta"| Delta
-    HookRail e4@-->|"[IMPORT]: ElementFault"| Fault
-    Instrument e5@-->|"[IMPORT]: ElementFact"| HookRail
+    HookSet e3@-->|"[IMPORT]: GraphDelta"| Delta
+    HookSet e4@-->|"[IMPORT]: ElementFault"| Fault
+    Instrument e5@-->|"[IMPORT]: ElementFact"| HookSet
     Forge e6@-->|"[IMPORT]: GraphDelta"| Delta
     Table e7@-->|"[IMPORT]: ElementGraph"| ElementGraph
     Audit e8@-->|"[IMPORT]: ElementGraph"| ElementGraph
@@ -125,7 +125,7 @@ flowchart TB
     Fault f1@-->|"forbidden: substrate upward"| S4
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -136,7 +136,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Element AEC-domain projection seams
+    accTitle: Element AEC-domain projection boundaries
     accDescr: Which projections and neutral shapes cross between Element's owners, the AEC peers, and the persistence custodian.
     subgraph element[RASM.ELEMENT]
         Graph[Graph spine]
@@ -182,7 +182,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Element platform and cross-runtime wire seams
+    accTitle: Element platform and cross-runtime wire boundaries
     accDescr: Which content keys, shapes, and wires cross between Element's owners, the kernel, the app platform, and the runtime peers.
     subgraph element[RASM.ELEMENT]
         Graph[Graph spine]
@@ -221,7 +221,7 @@ flowchart LR
     Projection e21@<-->|"[CONTENT_KEY]: ContentAddress"| Runtime
 ```
 
-`[PROJECTION]` rows are inversion of control: every provider, GeometryGym and VividOrange and peers alike, stays in the AEC peer that implements `IElementProjection` and lowers its foreign source onto a `GraphDelta`, so no provider edge points down into the seam and no second IFC stack forms.
+`[PROJECTION]` rows are inversion of control: every provider, GeometryGym and VividOrange and peers alike, stays in the AEC peer that implements `IElementProjection` and lowers its foreign source onto a `GraphDelta`, so no provider edge points down into the contract and no second IFC stack forms.
 
 Each provider mints its own `Object` identity under the owner-mints-its-identity law, so a minter never stamps a foreign projector's egress; per-provider Type and Occurrence minting lives on the owning pages. Acyclic strata holds: every AEC peer references `{Rasm, Rasm.Element}` as a shared lower stratum, and peers never reference each other.
 
@@ -231,14 +231,14 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 - `Graph/wire` carries node-edit support keys verbatim; native graph fingerprints remain with `Graph/corpus`.
 - `GraphMembers.Advance` steps a stable grid or returns typed `Refold`; either member set re-enters `ContentAddress.OfGraph` byte-identically.
 - `Graph/corpus` terminal research row owns the exact parity-pin route until literal addresses exist.
-- `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB seam.
+- `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB boundary.
 - Non-rooted `NodeId` is the self-hash of the node's own canonical bytes.
 - Rooted `Object` ids carry one regime with two `ObjectKind`-keyed seedings — Guid-v7 placement identity and the exclusion-seeded Type derivation.
 - Exact `NodeId.Of(NodeSeed.Content)` mint, the `Verify` dual, and per-lane key derivations live on the owning implementation pages.
 
 ## [04]-[INTERNAL]
 
-`Graph` is the spine every sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and `Graph/Element`'s `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns: content identity, operation keys, and the direct `Fault` base remain kernel-owned.
+`Graph` is the spine every sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and `Graph/Element`'s `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Contract identity re-mints nothing the kernel owns: content identity, operation keys, and the direct `Fault` base remain kernel-owned.
 
 ```mermaid
 ---
@@ -257,12 +257,12 @@ flowchart LR
     Freeze e4@--> Bake[[Memoized Bake]]
     Freeze e5@--> TableEg[/Tabulate row families/]
     Freeze e6@--> Persist[/Native persistence/]
-    Admit f1@-.->|"admission refusal"| Fault[/Typed Error rail/]
+    Admit f1@-.->|"admission refusal"| Fault[/Typed Error channel/]
     Persist f2@-.->|"persistence fault"| Fault
 ```
 
 ## [05]-[BOUNDARIES]
 
 - `Rasm.Element` owns the neutral thing-model and generated node-edit projection; `IElementProjection` inverts control over provider and host types.
-- Composition roots own live element assembly — the seam owns `Assemble`, the apps the wiring.
+- Composition roots own live element assembly — the contract owns `Assemble`, the apps the wiring.
 - Each AEC peer owns its provider stack behind `IElementProjection`, and Persistence owns the system of record.

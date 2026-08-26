@@ -44,7 +44,7 @@ Resource detection folds host environment facts into semantic-convention attribu
 - Detected keys stay disjoint from the minted `service.*` identity, so detection adds placement dimensions without contending for the identity slots.
 
 [STACKING]:
-- `OpenTelemetry`(`api-opentelemetry.md`): `ResourceBuilder.AddDetector` is the seam every extension rides and `ConfigureResource` the augmenting delegate carrying them onto each provider builder; `CreateDefault` seats `AddEnvironmentVariableDetector` ahead of them, so a chained detector outranks an `OTEL_RESOURCE_ATTRIBUTES` value for the same key.
+- `OpenTelemetry`(`api-opentelemetry.md`): `ResourceBuilder.AddDetector` is the hook every extension rides and `ConfigureResource` the augmenting delegate carrying them onto each provider builder; `CreateDefault` seats `AddEnvironmentVariableDetector` ahead of them, so a chained detector outranks an `OTEL_RESOURCE_ATTRIBUTES` value for the same key.
 - AppHost observability root: its identity delegate mints the `service.*` triple, chains the detector extensions onto that same `ResourceBuilder`, and re-chains `AddEnvironmentVariableDetector` last, yielding one `Resource` carrying identity, placement, and the deployment override in that precedence.
 
 [LOCAL_ADMISSION]:

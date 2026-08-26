@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_UHARFBUZZ]
 
-`uharfbuzz` owns OpenType text shaping and live font-table introspection for the artifacts text-shaping rail: it loads font data through `Blob`/`Face`/`Font`, shapes a `Buffer` into positioned glyphs, extracts outlines through `DrawFuncs` or a fontTools pen, walks the COLRv1 paint graph through `PaintFuncs`/`RasterPaint`, and drives the HarfBuzz subsetter and GSUB/GPOS repacker. Unicode itemisation, OpenType layout, COLRv1 paint composition, and subtable-overflow repacking stay in-package; full COLRv1 SVG composition routes to `blackrenderer` over this same paint surface.
+`uharfbuzz` owns OpenType text shaping and live font-table introspection for the artifacts text-shaping domain: it loads font data through `Blob`/`Face`/`Font`, shapes a `Buffer` into positioned glyphs, extracts outlines through `DrawFuncs` or a fontTools pen, walks the COLRv1 paint graph through `PaintFuncs`/`RasterPaint`, and drives the HarfBuzz subsetter and GSUB/GPOS repacker. Unicode itemisation, OpenType layout, COLRv1 paint composition, and subtable-overflow repacking stay in-package; full COLRv1 SVG composition routes to `blackrenderer` over this same paint surface.
 
 ## [01]-[PUBLIC_TYPES]
 

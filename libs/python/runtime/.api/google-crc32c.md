@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_GOOGLE_CRC32C]
 
-`google-crc32c` binds Google's CRC32C (Castagnoli) C library at one runtime seam: the admission cloud-arm integrity fence. Secret Manager's client never self-verifies `SecretPayload.data_crc32c`, so the `CloudVault.read` fence compares it against `google_crc32c.value(payload.data)` before trusting the payload — a mismatch raises `IntegrityError` (the admission-owned `OSError` subclass the `RetryClass.SECRET` target still catches while the fault detail names itself). Streaming `Checksum` and `extend` stay unconsumed: the payload arrives as one buffer, so the one-shot digest is the whole slice.
+`google-crc32c` binds Google's CRC32C (Castagnoli) C library at one runtime boundary: the admission cloud-arm integrity fence. Secret Manager's client never self-verifies `SecretPayload.data_crc32c`, so the `CloudVault.read` fence compares it against `google_crc32c.value(payload.data)` before trusting the payload — a mismatch raises `IntegrityError` (the admission-owned `OSError` subclass the `RetryClass.SECRET` target still catches while the fault detail names itself). Streaming `Checksum` and `extend` stay unconsumed: the payload arrives as one buffer, so the one-shot digest is the whole slice.
 
 ## [01]-[ENTRYPOINTS]
 

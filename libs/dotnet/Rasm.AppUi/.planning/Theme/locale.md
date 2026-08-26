@@ -2,13 +2,13 @@
 
 One locale law serves every AppUi surface. `LocaleRow` is the culture axis — tag, flow, per-script shaping and language-tag election, calendar, collation, break oracle, proofing posture — while plural cardinality belongs to each message pattern. `ResolvedLocale` binds culture, calendar-bound patterns, collator, ICU formatter, and measurement policy, and `LocaleRuntime` propagates a complete candidate before publishing, so failed propagation cannot expose mixed culture. This page owns that axis, the message registry, composition, speech policy, mirroring, and measurement.
 
-`typography#SHAPING_RAIL` owns `RunSpec`, `FaceRequest`, `BreakClass`, and `LineBreaker`, reading the BCP-47 tail and the break oracle from here; `typography#FONT_ADMISSION` owns the ranked `FontChain`, so a locale-local family roster is unrepresentable; `assets#ICON_AXIS` owns `IconRow.Mirror` as the kernel `Option<MirrorAxis>`, deriving its mechanism from the resolved source, so this page contributes `LocaleRow.Flow` alone; `tokens#THEME_APPLICATION` constructs the three Semi theme styles with the culture this page's policy row names; `LocaleFault` carries each failure through a direct generated union case.
+`typography#TEXT_SHAPING` owns `RunSpec`, `FaceRequest`, `BreakClass`, and `LineBreaker`, reading the BCP-47 tail and the break oracle from here; `typography#FONT_ADMISSION` owns the ranked `FontChain`, so a locale-local family roster is unrepresentable; `assets#ICON_AXIS` owns `IconRow.Mirror` as the kernel `Option<MirrorAxis>`, deriving its mechanism from the resolved source, so this page contributes `LocaleRow.Flow` alone; `tokens#THEME_APPLICATION` constructs the three Semi theme styles with the culture this page's policy row names; `LocaleFault` carries each failure through a direct generated union case.
 
 ## [01]-[INDEX]
 
 - [02]-[LOCALE_AXIS]: Culture rows — tag, flow, shaping, per-script tags, calendar, collation, break oracle, proofing posture.
 - [03]-[MESSAGE_REGISTRY]: Resx vocabulary, nameof keys, the context-and-length variant walk, ICU patterns, coverage conformance.
-- [04]-[CULTURE_COMPOSITION]: Resolve fold, the propagation seam roster, verdict-carrying switch, pattern and format binding, the settings correspondence.
+- [04]-[CULTURE_COMPOSITION]: Resolve fold, the propagation sink roster, verdict-carrying switch, pattern and format binding, the settings correspondence.
 - [05]-[SPEECH_POLICY]: Announcement phrases the accessibility plane reads; caption language and translation policy.
 - [06]-[MIRRORING_LAW]: Flipping and never-flipping subject sets, one flow projection, order reversal, anchor swap.
 - [07]-[MEASUREMENT_FORMAT]: Display-unit election, architectural fractions, DMS angles, tabular participation, elapsed and relative grammar.
@@ -24,7 +24,7 @@ One locale law serves every AppUi surface. `LocaleRow` is the culture axis — t
 - Auto: generated `Items` and key lookup under one comparer; the break and proof columns ride `[UseDelegateFromConstructor]`. Pseudo expansion derives from the source string's own length through `ExpansionBand`, so proofing scales the way real translation does — short strings grow hardest — instead of one flat multiplier that under-proofs exactly the labels that overflow.
 - Packages: NodaTime, HarfBuzzSharp, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a shipped language is one `LocaleRow` row with one satellite resx set; a script needing its own face election is one `ScriptTags` entry on an existing row; a locale whose CLDR plural rule the engine does not ship is one `Pluralizer` registered onto `MessageFormatter.CardinalPluralizers`/`OrdinalPluralizers` at the `[04]` formatter mint, never a dispatch arm; a script needing its own wrap rule is one `LocaleBreaks` oracle bound to the row's `Break` column; a per-row string-table override is one delegate column re-added the day a second source exists — today every row reads `LocaleStrings`, so the column would carry one value and is deleted.
-- Boundary: a row whose satellite resx is absent resolves the neutral strings through the inbox `ResourceManager` fallback while its flow, calendar, collation, script tags, and break oracle still apply. The failure modes sit OUTSIDE resolution: invariant globalization makes the culture constructor throw onto the `FormatRejected` rail, a build whose culture assignment drops a `qps` tag emits no satellite for the walk to reach, and a case-sensitive file system needs the directory in the tag's normalized casing. Plural and select grammar lives in the full ICU pattern stored at the resx base key, and `PluralRoute` remains the closed validation vocabulary for cardinal and ordinal pattern inventories rather than a locale column.
+- Boundary: a row whose satellite resx is absent resolves the neutral strings through the inbox `ResourceManager` fallback while its flow, calendar, collation, script tags, and break oracle still apply. The failure modes sit OUTSIDE resolution: invariant globalization makes the culture constructor throw onto the `FormatRejected` case, a build whose culture assignment drops a `qps` tag emits no satellite for the walk to reach, and a case-sensitive file system needs the directory in the tag's normalized casing. Plural and select grammar lives in the full ICU pattern stored at the resx base key, and `PluralRoute` remains the closed validation vocabulary for cardinal and ordinal pattern inventories rather than a locale column.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -313,14 +313,14 @@ public static class LocaleConformance {
 
 ## [04]-[CULTURE_COMPOSITION]
 
-- Owner: `LocalePolicy` the user-settings options section; `LocaleSeam` the propagation-destination roster with `LocaleSeams` the admitted arm table; `LocaleField` the settings correspondence roster carrying forward projection, admission, and inverse landing as columns of ONE family; `ResolvedLocale` the resolve product every formatter, shaper, and label resolver folds; `LocaleRuntime` the apply-then-publish locale cell; `LocaleValueFormatter` the one typed-value coercion hook; `LocaleFault` the direct generated `[Union]` with one `[FaultCase]` leaf per locale failure.
+- Owner: `LocalePolicy` the user-settings options section; `LocaleSink` the propagation-destination roster with `LocaleSinks` the admitted arm table; `LocaleField` the settings correspondence roster carrying forward projection, admission, and inverse landing as columns of ONE family; `ResolvedLocale` the resolve product every formatter, shaper, and label resolver folds; `LocaleRuntime` the apply-then-publish locale cell; `LocaleValueFormatter` the one typed-value coercion hook; `LocaleFault` the direct generated `[Union]` with one `[FaultCase]` leaf per locale failure.
 - Cases: `LocaleFault` = TagUnresolved | ZoneUnresolved | FormatRejected | PropagationRejected | MeasureRejected | CoverageRejected.
-- Law: the candidate PROPAGATES BEFORE it publishes — every `LocaleSeam` row takes the new culture, and only then does the cell commit — so a partially applied culture is unrepresentable and a failed propagation leaves the committed predecessor live; the commit is a kernel `Cell.Commit` whose `Transition` verdict the apply fold READS, never an `ignore`d swap.
-- Entry: `public Fin<Unit> Apply(LocalePolicy policy)` — `Fin` aborts on unresolved tag, zone, culture, pattern, propagation failure, or a declined commit; `public static Fin<LocaleRuntime> Boot(LocalePolicy policy, IDateTimeZoneProvider zones, LocaleSeams seams)`; `public ReloadOutcome Republish(LocalePolicy policy)` — the options-monitor bridge; `LocaleSeams.Of(…)` — the admission proving every roster row bound exactly once; `LocaleField.State`/`LocaleField.Decode` — the two halves of the settings correspondence off one roster, `Decode` a `Validation` applicative accumulating every column defect.
+- Law: the candidate PROPAGATES BEFORE it publishes — every `LocaleSink` row takes the new culture, and only then does the cell commit — so a partially applied culture is unrepresentable and a failed propagation leaves the committed predecessor live; the commit is a kernel `Cell.Commit` whose `Transition` verdict the apply fold READS, never an `ignore`d swap.
+- Entry: `public Fin<Unit> Apply(LocalePolicy policy)` — `Fin` aborts on unresolved tag, zone, culture, pattern, propagation failure, or a declined commit; `public static Fin<LocaleRuntime> Boot(LocalePolicy policy, IDateTimeZoneProvider zones, LocaleSinks sinks)`; `public ReloadOutcome Republish(LocalePolicy policy)` — the options-monitor bridge; `LocaleSinks.Of(…)` — the admission proving every roster row bound exactly once; `LocaleField.State`/`LocaleField.Decode` — the two halves of the settings correspondence off one roster, `Decode` a `Validation` applicative accumulating every column defect.
 - Auto: `Republish` is the whole options-monitor bridge — `OptionsAdmission.Observe` wires it under the transition reload class, so a culture switch is an options reload and not a second driver. Resolution binds one cached `MessageFormatter(useCache: true, culture: Formats, customValueFormatter: …)` per culture so each ICU pattern compiles once, `LocaleValueFormatter` riding the constructor as the one typed-value coercion hook, and a locale swap mints a fresh formatter rather than mutating the live one. Date patterns carry the row's calendar and the timestamp projects its instant into that calendar at the zone, so a Hijri row renders its own era without a second pattern family.
 - Packages: Rasm, Jeffijoe.MessageFormat, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new display grammar is one pattern value on `ResolvedLocale`; a new format edge is one expression-bodied projection on the same record; a new propagation destination is one `LocaleSeam` row — an arm table missing it refuses at `Of`, so no boot path can forget it; a new settings column is one `LocaleField` row carrying its own projection, admission, and landing.
-- Boundary: ambient process culture remains absent — `CultureInfo.CurrentCulture` has no reader on any AppUi surface, and every format edge takes the resolved culture explicitly; the zoned pattern is built against the INJECTED provider the runtime resolves its zone from, because a statically named provider would parse against a registry the runtime never resolved a zone from. The theme seam carries `Strings` rather than `Formats`: the theme locale selects the SHIPPED control-theme strings, not number and date rendering, so a product running English strings under German formats keeps English theme captions — and all three Semi theme styles resolve a Chinese locale for an unset value, so the seam is required at construction and re-applied on every swap. `Resolve`, `Plural`, and `Message` trap culture and formatter exceptions onto `Fin`, and `Quantity` routes through the measurement policy so a dimensioned value renders in its surface's elected unit at its declared precision — a bare scalar reaching a measured label has no spelling. Every registry-resolved settings literal derives through `LocaleStrings.Key`, so a call-site interpolation of a message key has no producer.
+- Growth: a new display grammar is one pattern value on `ResolvedLocale`; a new format edge is one expression-bodied projection on the same record; a new propagation destination is one `LocaleSink` row — an arm table missing it refuses at `Of`, so no boot path can forget it; a new settings column is one `LocaleField` row carrying its own projection, admission, and landing.
+- Boundary: ambient process culture remains absent — `CultureInfo.CurrentCulture` has no reader on any AppUi surface, and every format edge takes the resolved culture explicitly; the zoned pattern is built against the INJECTED provider the runtime resolves its zone from, because a statically named provider would parse against a registry the runtime never resolved a zone from. The theme sink carries `Strings` rather than `Formats`: the theme locale selects the SHIPPED control-theme strings, not number and date rendering, so a product running English strings under German formats keeps English theme captions — and all three Semi theme styles resolve a Chinese locale for an unset value, so the sink is required at construction and re-applied on every swap. `Resolve`, `Plural`, and `Message` trap culture and formatter exceptions onto `Fin`, and `Quantity` routes through the measurement policy so a dimensioned value renders in its surface's elected unit at its declared precision — a bare scalar reaching a measured label has no spelling. Every registry-resolved settings literal derives through `LocaleStrings.Key`, so a call-site interpolation of a message key has no producer.
 
 ```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -357,10 +357,10 @@ public abstract partial record LocaleFault : Fault {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LocaleSeam {
-    public static readonly LocaleSeam Theme = new("theme", rank: 0);
-    public static readonly LocaleSeam Resources = new("resources", rank: 1);
-    public static readonly LocaleSeam Inspector = new("inspector", rank: 2);
+public sealed partial class LocaleSink {
+    public static readonly LocaleSink Theme = new("theme", rank: 0);
+    public static readonly LocaleSink Resources = new("resources", rank: 1);
+    public static readonly LocaleSink Inspector = new("inspector", rank: 2);
 
     public int Rank { get; }
 }
@@ -374,20 +374,20 @@ public sealed record LocalePolicy(string Tag, string Zone, Option<string> Format
         Tag: LocaleRow.En.Key, Zone: "Etc/UTC", FormatTag: None, Units: UnitPosture.Metric.Key, Denominator: 16);
 }
 
-public sealed record LocaleSeams(HashMap<LocaleSeam, Func<ResolvedLocale, Fin<Unit>>> Arms) {
-    public static Fin<LocaleSeams> Of(params ReadOnlySpan<(LocaleSeam Seam, Func<ResolvedLocale, Fin<Unit>> Apply)> arms) {
-        HashMap<LocaleSeam, Func<ResolvedLocale, Fin<Unit>>> table =
-            toSeq(arms.ToArray()).ToHashMap(static arm => arm.Seam, static arm => arm.Apply);
-        return table.Count == LocaleSeam.Items.Count
-            ? Fin.Succ(new LocaleSeams(table))
-            : Fin.Fail<LocaleSeams>(new LocaleFault.PropagationRejected(
-                $"seam arms {table.Count} of {LocaleSeam.Items.Count}"));
+public sealed record LocaleSinks(HashMap<LocaleSink, Func<ResolvedLocale, Fin<Unit>>> Arms) {
+    public static Fin<LocaleSinks> Of(params ReadOnlySpan<(LocaleSink Sink, Func<ResolvedLocale, Fin<Unit>> Apply)> arms) {
+        HashMap<LocaleSink, Func<ResolvedLocale, Fin<Unit>>> table =
+            toSeq(arms.ToArray()).ToHashMap(static arm => arm.Sink, static arm => arm.Apply);
+        return table.Count == LocaleSink.Items.Count
+            ? Fin.Succ(new LocaleSinks(table))
+            : Fin.Fail<LocaleSinks>(new LocaleFault.PropagationRejected(
+                $"sink arms {table.Count} of {LocaleSink.Items.Count}"));
     }
 
     public Fin<Unit> Propagate(ResolvedLocale resolved) =>
-        toSeq(LocaleSeam.Items.OrderBy(static seam => seam.Rank))
-            .TraverseM(seam => Arms.Find(seam)
-                .ToFin(Fail: (Error)new LocaleFault.PropagationRejected($"seam {seam.Key} unbound"))
+        toSeq(LocaleSink.Items.OrderBy(static sink => sink.Rank))
+            .TraverseM(sink => Arms.Find(sink)
+                .ToFin(Fail: (Error)new LocaleFault.PropagationRejected($"sink {sink.Key} unbound"))
                 .Bind(arm => arm(resolved)))
             .As()
             .Map(static _ => unit);
@@ -601,23 +601,23 @@ public sealed partial class LocaleField {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public sealed class LocaleRuntime(Atom<ResolvedLocale> cell, IDateTimeZoneProvider zones, LocaleSeams seams) {
+public sealed class LocaleRuntime(Atom<ResolvedLocale> cell, IDateTimeZoneProvider zones, LocaleSinks sinks) {
     public Atom<ResolvedLocale> Cell { get; } = cell;
 
     public IDateTimeZoneProvider Zones { get; } = zones;
 
-    public LocaleSeams Seams { get; } = seams;
+    public LocaleSinks Sinks { get; } = sinks;
 
-    public static Fin<LocaleRuntime> Boot(LocalePolicy policy, IDateTimeZoneProvider zones, LocaleSeams seams) =>
+    public static Fin<LocaleRuntime> Boot(LocalePolicy policy, IDateTimeZoneProvider zones, LocaleSinks sinks) =>
         from resolved in Compose(policy, zones)
-        from _ in seams.Propagate(resolved)
-        select new LocaleRuntime(Atom(resolved), zones, seams);
+        from _ in sinks.Propagate(resolved)
+        select new LocaleRuntime(Atom(resolved), zones, sinks);
 
     public ResolvedLocale Current => Cell.Value;
 
     public Fin<Unit> Apply(LocalePolicy policy) =>
         from resolved in Compose(policy, Zones)
-        from _ in Seams.Propagate(resolved)
+        from _ in Sinks.Propagate(resolved)
         from landed in Landed(Cell.Commit(Cell, _ => resolved))
         select landed;
 
@@ -689,9 +689,9 @@ config:
 ---
 flowchart LR
     accTitle: Locale resolution ownership
-    accDescr: Locale policy resolves one culture row, propagates it through the admitted seam roster before publishing, and feeds message formatting, shaping election, mirroring, and measurement from that one resolved value.
+    accDescr: Locale policy resolves one culture row, propagates it through the admitted sink roster before publishing, and feeds message formatting, shaping election, mirroring, and measurement from that one resolved value.
     LocalePolicy --> LocaleRuntime
-    LocaleRuntime --> LocaleSeams --> ResolvedLocale
+    LocaleRuntime --> LocaleSinks --> ResolvedLocale
     LocaleRuntime --> ReloadOutcome
     LocaleRow --> ResolvedLocale
     ResolvedLocale --> LocaleStrings
@@ -708,7 +708,7 @@ flowchart LR
 - Law: an announcement is a MESSAGE KEY under a posture, never a composed sentence at a call site — the accessibility plane subscribes to the projected text and the platform live-setting, so a translated product announces translated text with no per-surface string work and a posture change is one column edit.
 - Law: the caption route is a UNION, so a translate request against a non-English target is unspellable — the engine-side translate task admits exactly the English target, and the refused combination stopped being a runtime admission the moment it stopped being representable.
 - Entry: `public Fin<string> Say(ResolvedLocale locale, params (string Name, object? Value)[] args)` on `AnnouncementPhrase`; `public AutomationLiveSetting Setting` — the platform posture the announcement row carries; `CaptionPolicy.Transcribe(target, source)` / `CaptionPolicy.Translated(source)` — the two mints; `public ShapedAnnotation Annotate(string transcript)` — the caption line shaped under the target row.
-- Auto: the phrase projects through the same ICU rail every label uses, so plural and select grammar inside an announcement is engine-owned; `Setting` derives from the posture column so a row cannot carry a posture the platform vocabulary does not name; `Target` and `Translate` derive from the route, so the media owner's reads survive as projections of one value.
+- Auto: the phrase projects through the same ICU formatter every label uses, so plural and select grammar inside an announcement is engine-owned; `Setting` derives from the posture column so a row cannot carry a posture the platform vocabulary does not name; `Target` and `Translate` derive from the route, so the media owner's reads survive as projections of one value.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: an announced fact is one `AnnouncementPhrase` value naming an existing key; a broader machine-translation target is one `CaptionRoute` case landed with its named engine consumer; zero new surface.
 - Boundary: caption CAPTURE and band rendering belong to `Document/media` — the audio tap, the segmentation, the transcription engine, and the timed band live with the media owner, and this page owns only what language a caption is transcribed or translated INTO and how its text shapes and announces; media consumes `CaptionPolicy` and hands back transcript text, and a locale-side audio pipeline is the deleted form. `ShapedAnnotation` passes the row's `RunSpec` and its `TypographyRole` to typography, so annotation feature tags stay role-owned and one reconciled feature sequence reaches shaping.
@@ -835,12 +835,12 @@ public sealed partial class MirrorSubject {
 
 - Owner: `UnitPosture` the unit-system axis whose `Pick` column elects a role's display unit; `MeasureGrammar` the rendering-grammar vocabulary whose `Spell` column IS the fold; `MeasureRole` the per-readout row carrying its display unit per system, its precision, and its grammar; `FractionRung` the imperial denominator ladder; `MeasurePolicy` the elected policy every readout folds; `RelativeUnit` and `ElapsedGrammar` the relative and elapsed time grammar.
 - Cases: `UnitPosture` = metric | imperial; `MeasureGrammar` = decimal | fraction | dms; `MeasureRole` = distance | elevation | extent | area | volume | angle | mass | force | pressure | temperature | speed | energy | irradiance | illuminance | irradiation | humidity; `RelativeUnit` = year | month | week | day | hour | minute | second; `FractionRung` = 2 | 4 | 8 | 16 | 32 | 64.
-- Law: display-unit election is an EXPLICIT unit token per role per system, never a unit-system walk — the package resolves a system to a unit through seven-axis base-unit equality most unit rows leave undeclared, so a system-driven projection fails per quantity family rather than uniformly. Each role names its metric and imperial unit outright, construction REFUSES a pair drafted across two quantity families, and a system flip re-renders the estate by re-reading one policy value.
+- Law: display-unit election is an EXPLICIT unit token per role per system, never a unit-system walk — the package resolves a system to a unit through seven-axis base-unit equality most unit rows leave undeclared, so a system-driven projection fails per quantity family rather than uniformly. Each role names its metric and imperial unit outright, construction REFUSES a pair drafted across two quantity families, and a system flip re-renders the app by re-reading one policy value.
 - Entry: `public Fin<string> Render(IQuantity value, MeasureRole role, CultureInfo formats)` — the one quantity render, electing the display unit, converting, and applying the role's grammar column; `public string Abbreviation(MeasureRole role, CultureInfo formats)` — the elected unit's bare abbreviation the one owner every axis title, legend, and column header reads; `public Enum Unit(UnitPosture posture)` on `MeasureRole` — the election every external consumer reads; `public static Fin<string> Relative(ResolvedLocale locale, Instant from, Instant to)` — the coarsest-unit relative phrase; `public static string Elapsed(ResolvedLocale locale, Duration span)`.
 - Auto: the elected unit's own abbreviation rides the converted quantity, so a label states no unit the value does not carry; the fraction grammar reads the policy denominator once so a shop drawing at sixteenths and a survey at hundredths are one policy value apart; the relative fold walks the unit rows coarse-first over one calendar-accurate period, so month and year lengths come from the row's calendar rather than an averaged day count; the DMS seconds carry the role's declared decimals, so a survey bearing reads to the precision the row states.
 - Packages: UnitsNet, NodaTime, Jeffijoe.MessageFormat, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new readout concern is one `MeasureRole` row naming its two unit tokens, its precision, and an existing grammar; a new rendering grammar is one `MeasureGrammar` row carrying its own `Spell`; a new relative granularity is one `RelativeUnit` row with its period reader and message stem; a new fraction precision is one `FractionRung` row; zero new surface.
-- Boundary: `Render` takes `IQuantity` and refuses the wider `IFormattable`, because a bare `double` satisfies the wider face and makes a unit-blind label reachable by construction; a role whose family does not match the supplied quantity refuses on the rail rather than converting through an unrelated token. Tabular participation is DECLARED on the role and consumed by the type table — the digit-advance feature stays typography's. Temperature is affine, so its conversion crosses the package's own reprojection and never a scalar offset applied here. Angular rendering is degrees-minutes-seconds under the DMS grammar and decimal degrees under the decimal grammar, both from one `Angle` family. Elapsed spans are a MEASURED grammar owned by `ElapsedGrammar` over the resolved duration pattern — a `MeasureGrammar` row for them would be a second elapsed authority with no electing role, which is why none exists.
+- Boundary: `Render` takes `IQuantity` and refuses the wider `IFormattable`, because a bare `double` satisfies the wider face and makes a unit-blind label reachable by construction; a role whose family does not match the supplied quantity refuses on the result rather than converting through an unrelated token. Tabular participation is DECLARED on the role and consumed by the type table — the digit-advance feature stays typography's. Temperature is affine, so its conversion crosses the package's own reprojection and never a scalar offset applied here. Angular rendering is degrees-minutes-seconds under the DMS grammar and decimal degrees under the decimal grammar, both from one `Angle` family. Elapsed spans are a MEASURED grammar owned by `ElapsedGrammar` over the resolved duration pattern — a `MeasureGrammar` row for them would be a second elapsed authority with no electing role, which is why none exists.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

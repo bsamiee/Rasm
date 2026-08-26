@@ -17,7 +17,7 @@
 
 [ENTRYPOINT_SCOPE]: registration overloads — `Microsoft.Extensions.DependencyInjection`
 
-Every overload is a `static` extension on `IHealthChecksBuilder` returning it for chaining, carrying the shared `name`, `failureStatus`, `tags`, `timeout`, `configureClient`, and `configurePrimaryHttpMessageHandler` tail; `configureClient` (`Action<IServiceProvider, HttpClient>`) and `configurePrimaryHttpMessageHandler` (`Func<IServiceProvider, HttpMessageHandler>`) are the seam binding the probe's named `HttpClient` to the host resilience handler and service-discovery resolver.
+Every overload is a `static` extension on `IHealthChecksBuilder` returning it for chaining, carrying the shared `name`, `failureStatus`, `tags`, `timeout`, `configureClient`, and `configurePrimaryHttpMessageHandler` tail; `configureClient` (`Action<IServiceProvider, HttpClient>`) and `configurePrimaryHttpMessageHandler` (`Func<IServiceProvider, HttpMessageHandler>`) are the hooks binding the probe's named `HttpClient` to the host resilience handler and service-discovery resolver.
 
 | [INDEX] | [SURFACE]                                    | [CAPABILITY]                                   |
 | :-----: | :------------------------------------------- | :--------------------------------------------- |
@@ -66,7 +66,7 @@ Each member is an `instance` fluent call returning `IUriOptions`, overriding the
 [STACKING]:
 - `Microsoft.Extensions.ServiceDiscovery`(`api-service-discovery.md`): the `Func<IServiceProvider, Uri>` overload resolves each probe endpoint, targeting the resolved address the host calls rather than an embedded literal.
 - `Microsoft.Extensions.Http.Resilience`(`api-resilience.md`): `configurePrimaryHttpMessageHandler` supplies the shared resilience handler, so probe and live traffic share one circuit-breaker state.
-- `OpenIddict.Client`(`api-openiddict-client.md`): `AddCustomHeader` carries the bearer token the client rail acquires for an authenticated endpoint.
+- `OpenIddict.Client`(`api-openiddict-client.md`): `AddCustomHeader` carries the bearer token the client package acquires for an authenticated endpoint.
 - `Microsoft.Extensions.Diagnostics.HealthChecks`(`api-health.md`): `UriHealthCheck` implements `IHealthCheck`, and its `HealthCheckResult` folds into the one `HealthReport`.
 - `Observability/health.md`: `DriverProbe.Upstream` binds `UriHealthCheck` as one `Remote`-tagged contributor through the `ProbeSource.Driver` case and `HealthSurface.Register`; a faulted upstream drives `Rule(Remote, Unhealthy, ReducedRemote)`.
 

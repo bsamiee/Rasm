@@ -28,7 +28,7 @@
 [STACKING]:
 - `@nats-io/nats-core` (`.api/nats-io-nats-core.md`): `connect` and `wsconnect` both yield `NatsConnection`; the node lane draws core vocabulary through this package's re-export, never importing both packages. The authenticator factories and the credential types come through that re-export unchanged, so a credential projection is written once against the core spelling and holds on either lane.
 - `@nats-io/jetstream` (`.api/nats-io-jetstream.md`), `@nats-io/kv` (`.api/nats-io-kv.md`), `@nats-io/obj` (`.api/nats-io-obj.md`): each takes the `NatsConnection` transport-blind — durability, revision-CAS, and blob rows compose identically over a TCP or websocket connection.
-- `effect` (`.api/effect.md`): `Effect.acquireRelease` brackets `connect`/`drain`, `Effect.tryPromise` converts promise members at the engine seam, `Stream.fromAsyncIterable` lifts the async-iterable surfaces.
+- `effect` (`.api/effect.md`): `Effect.acquireRelease` brackets `connect`/`drain`, `Effect.tryPromise` converts promise members at the engine boundary, `Stream.fromAsyncIterable` lifts the async-iterable surfaces.
 - `proc/config` `Setting`: config rows carry the dial origin; no connection literal exists in the engine.
 
 [LOCAL_ADMISSION]:

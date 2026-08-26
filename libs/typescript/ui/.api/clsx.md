@@ -1,6 +1,6 @@
 # [TS_UI_API_CLSX]
 
-`clsx` folds `ClassValue` — strings, numbers, bigints, nested arrays, and truthy-keyed object maps — into one space-joined class `string`, dropping every falsy input in a single pure pass. It carries no framework, effect, or Tailwind awareness: `tailwind-merge` owns conflict resolution, `class-variance-authority` owns variant selection, and `clsx` is the fold both compose over as `cn = twMerge(clsx(...))`, the one class rail every `view` row emits `className` through.
+`clsx` folds `ClassValue` — strings, numbers, bigints, nested arrays, and truthy-keyed object maps — into one space-joined class `string`, dropping every falsy input in a single pure pass. It carries no framework, effect, or Tailwind awareness: `tailwind-merge` owns conflict resolution, `class-variance-authority` owns variant selection, and `clsx` is the fold both compose over as `cn = twMerge(clsx(...))`, the one class path every `view` row emits `className` through.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -8,7 +8,7 @@
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]                                                                   |
 | :-----: | :---------------- | :-------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `ClassValue`      | recursive union | the one class-rail input type; `cva`'s `CxOptions` is its `Parameters`         |
+|  [01]   | `ClassValue`      | recursive union | the one class-path input type; `cva`'s `CxOptions` is its `Parameters`         |
 |  [02]   | `ClassDictionary` | conditional map | `Record<string, any>`; `{ "text-red-500": isError }` emits the key when truthy |
 |  [03]   | `ClassArray`      | nested list     | `ClassValue[]`; arbitrary nesting flattened in one pass                        |
 

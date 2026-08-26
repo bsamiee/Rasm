@@ -5,9 +5,9 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and device contracts
-- rail: input
+- concern: input
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]    | [RAIL]                                                    |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]    | [CAPABILITY]                                              |
 | :-----: | :--------------- | :--------------- | :-------------------------------------------------------- |
 |  [01]   | `IInputContext`  | disposable root  | per-view device aggregator + `Handle`/`ConnectionChanged` |
 |  [02]   | `IInputDevice`   | device base      | `Name`/`Index`/`IsConnected` identity                     |
@@ -20,9 +20,9 @@
 |  [09]   | `IInputPlatform` | backend contract | `IsApplicable(IView)` + `CreateInput(IView)`              |
 
 [PUBLIC_TYPE_SCOPE]: input value carriers (immutable poll state)
-- rail: input
+- concern: input
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [RAIL]                                                |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [CAPABILITY]                                          |
 | :-----: | :------------ | :-------------------- | :---------------------------------------------------- |
 |  [01]   | `Button`      | struct                | `Name`(`ButtonName`)/`Index`/`Pressed`                |
 |  [02]   | `Thumbstick`  | struct                | `Index`/`X`/`Y`; derived polar `Position`/`Direction` |
@@ -33,9 +33,9 @@
 |  [07]   | `ScrollWheel` | struct (`IEquatable`) | `X`/`Y` scroll delta                                  |
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies
-- rail: input
+- concern: input
 
-| [INDEX] | [SYMBOL]         | [KIND] | [RAIL]                                            |
+| [INDEX] | [SYMBOL]         | [KIND] | [CAPABILITY]                                      |
 | :-----: | :--------------- | :----- | :------------------------------------------------ |
 |  [01]   | `ButtonName`     | enum   | `Unknown`/`A`/`B`/`X`/`Y`/bumpers/sticks/`DPad*`  |
 |  [02]   | `Key`            | enum   | GLFW-style keyboard map (`Unknown`..`Menu`)       |
@@ -47,9 +47,9 @@
 |  [08]   | `StandardCursor` | enum   | named OS cursor shapes                            |
 
 [PUBLIC_TYPE_SCOPE]: backend registration and extensions
-- rail: input
+- concern: input
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                               |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                         |
 | :-----: | :----------------------- | :------------ | :------------------------------------------------------------------- |
 |  [01]   | `InputWindowExtensions`  | static class  | `CreateInput` + platform registry                                    |
 |  [02]   | `GamepadExtensions`      | static class  | named-button/stick accessors (throw `PlatformNotSupportedException`) |
@@ -58,9 +58,9 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: context creation and platform registry
-- rail: input
+- concern: input
 
-| [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]          | [RAIL]                                         |
+| [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]          | [CAPABILITY]                                   |
 | :-----: | :----------------------------------------------- | :---------------------- | :--------------------------------------------- |
 |  [01]   | `IView.CreateInput()`                            | `InputWindowExtensions` | mint `IInputContext`                           |
 |  [02]   | `Platforms`                                      | `InputWindowExtensions` | registered backend list (lazy reflection load) |
@@ -69,9 +69,9 @@
 |  [05]   | `TryAdd(string assemblyName)`                    | `InputWindowExtensions` | reflective backend load                        |
 
 [ENTRYPOINT_SCOPE]: gamepad named accessors (`GamepadExtensions`)
-- rail: input
+- concern: input
 
-| [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]      | [RAIL]               |
+| [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]      | [CAPABILITY]         |
 | :-----: | :----------------------------------------------- | :------------------ | :------------------- |
 |  [01]   | `A` / `B` / `X` / `Y`                            | `GamepadExtensions` | face `Button` lookup |
 |  [02]   | `LeftBumper` / `RightBumper`                     | `GamepadExtensions` | shoulder `Button`    |
@@ -81,9 +81,9 @@
 |  [06]   | `LeftThumbstick` / `RightThumbstick`             | `GamepadExtensions` | `Thumbstick` lookup  |
 
 [ENTRYPOINT_SCOPE]: device state and event streams
-- rail: input
+- concern: input
 
-| [INDEX] | [SURFACE]                                                                   | [ROOT]                 | [RAIL]                      |
+| [INDEX] | [SURFACE]                                                                   | [ROOT]                 | [CAPABILITY]                |
 | :-----: | :-------------------------------------------------------------------------- | :--------------------- | :-------------------------- |
 |  [01]   | `Gamepads` / `Joysticks` / `Keyboards` / `Mice` / `OtherDevices`            | `IInputContext`        | live device lists           |
 |  [02]   | `Handle`                                                                    | `IInputContext`        | native pointer              |

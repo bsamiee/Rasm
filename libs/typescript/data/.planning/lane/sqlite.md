@@ -494,7 +494,7 @@ const _bytes = (io: SqliteIo) =>
 - Law: availability is priced as row data and the arm READS that price — every evidence statement gates on the active profile's `_harvest` column, so a profile the table marks without page pragmas issues none and omits the counter; a probe running past its own row erases the table's reason to exist and fires SQL at a surface the deployment does not carry.
 - Law: `dbstat` is `probe` on the server and wasm profiles — the virtual table is a compile-time engine fact `_dbstat` answers per deployment, never a static claim — and `stmtStatus` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver; a recorded refusal omits its counter and no arm fabricates a zero.
 - Law: wall span is harness-measured — the engine exposes no per-query clock through any admitted driver, so `_profiled` times the statement's own run with `Effect.timed` and the span covers exactly the profiled execution; the diagnosis therefore EXECUTES the statement, scoping the arm to explicit calls like the pg EXPLAIN arm.
-- Law: the harvest never re-parses driver rows by hand — `EXPLAIN QUERY PLAN` rows, `pragma_page_count()`/`pragma_freelist_count()` reads, and the `dbstat` aggregate all decode through `SqlSchema`, so a malformed cell is a `ParseError` on the admission rail.
+- Law: the harvest never re-parses driver rows by hand — `EXPLAIN QUERY PLAN` rows, `pragma_page_count()`/`pragma_freelist_count()` reads, and the `dbstat` aggregate all decode through `SqlSchema`, so a malformed cell is a `ParseError` on admission.
 
 ```typescript
 import { Pg } from "./postgres.ts"

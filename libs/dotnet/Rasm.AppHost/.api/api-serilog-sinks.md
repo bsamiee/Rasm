@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_SERILOG_SINKS]
 
-`Serilog.Sinks.Console` and `Serilog.Sinks.File` own AppHost's two bootstrap log sinks — interactive terminal diagnostics and retained rolling runtime files — each registered through the `WriteTo`/`AuditTo` rail at the composition root.
+`Serilog.Sinks.Console` and `Serilog.Sinks.File` own AppHost's two bootstrap log sinks — interactive terminal diagnostics and retained rolling runtime files — each registered through the `WriteTo`/`AuditTo` API at the composition root.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -23,7 +23,7 @@
 | :-----: | :---------------------------------- | :------------------ | :----------------------------------------------------------- |
 |  [01]   | `FileLoggerConfigurationExtensions` | sink extension      | `WriteTo.File` overload family                               |
 |  [02]   | `RollingInterval`                   | enum                | `Infinite`/`Year`/`Month`/`Day`/`Hour`/`Minute` roll cadence |
-|  [03]   | `FileLifecycleHooks`                | lifecycle hook base | mutate/delete hook seam                                      |
+|  [03]   | `FileLifecycleHooks`                | lifecycle hook base | mutate/delete hook point                                     |
 |  [04]   | `IFileSink`                         | sink contract       | event emission contract                                      |
 |  [05]   | `IFlushableFileSink`                | sink contract       | flush-to-disk contract                                       |
 |  [06]   | `FileSink`                          | sink impl           | exclusive file sink                                          |
@@ -50,20 +50,20 @@
 |  [02]   | `WriteTo.File(ITextFormatter)`      | static   | formatter-owned file sink       |
 |  [03]   | `AuditTo.File`                      | static   | synchronous audit file sink     |
 |  [04]   | `AuditTo.File(ITextFormatter)`      | static   | formatter audit file sink       |
-|  [05]   | `FileLifecycleHooks.OnFileOpened`   | instance | stream-open lifecycle seam      |
-|  [06]   | `FileLifecycleHooks.OnFileDeleting` | instance | retention-deletion seam         |
+|  [05]   | `FileLifecycleHooks.OnFileOpened`   | instance | stream-open lifecycle hook      |
+|  [06]   | `FileLifecycleHooks.OnFileDeleting` | instance | retention-deletion hook         |
 |  [07]   | `FileLifecycleHooks.Then`           | instance | hook-chain composition          |
 |  [08]   | `IFlushableFileSink.FlushToDisk`    | instance | durability boundary             |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Console and file sinks extend `LoggerSinkConfiguration.WriteTo` and `LoggerAuditSinkConfiguration.AuditTo`; every registration folds through that one rail and the library emits `ILogger` alone.
+- Console and file sinks extend `LoggerSinkConfiguration.WriteTo` and `LoggerAuditSinkConfiguration.AuditTo`; every registration folds through that one API and the library emits `ILogger` alone.
 - Cross-process append is the `shared: true` argument on the `WriteTo.File` arrow, never a constructed sink: `SharedFileSink` carries `[Obsolete]` naming that arrow as its replacement. The arrow returns a `LoggerConfiguration` and no sink handle, so `IFlushableFileSink.FlushToDisk` is reachable only from a caller-constructed `FileSink`, which is exclusive — a shared file and a caller-held flush handle are mutually exclusive, and `flushToDiskInterval` is the shared leg's own durability seat.
 
 [STACKING]:
-- `Serilog`(`.api/api-serilog.md`): `WriteTo`/`AuditTo` resolve `LoggerSinkConfiguration`/`LoggerAuditSinkConfiguration`; these extensions are the terminal sink arms that rail admits.
-- `Rasm.AppHost` `Observability/telemetry#LOG_PROJECTION`: `SerilogSinks.For` mints every leg as a rail ARROW behind the `LogPipeline` arbitration — `WriteTo.Console(ITextFormatter)` on the hot tier, `AuditTo.Console(ITextFormatter)` on the audit leg, and the host-keyed `WriteTo.File(ITextFormatter, path, shared: true, flushToDiskInterval, rollingInterval)` on the `Fallible`/`FallbackChain` rescue leg — so `SerilogProjectionPolicy.Shape` folds arrows alone and the record holds no sink handle to dispose.
+- `Serilog`(`.api/api-serilog.md`): `WriteTo`/`AuditTo` resolve `LoggerSinkConfiguration`/`LoggerAuditSinkConfiguration`; these extensions are the terminal sink arms that API admits.
+- `Rasm.AppHost` `Observability/telemetry#LOG_PROJECTION`: `SerilogSinks.For` mints every leg as a configuration ARROW behind the `LogPipeline` arbitration — `WriteTo.Console(ITextFormatter)` on the hot tier, `AuditTo.Console(ITextFormatter)` on the audit leg, and the host-keyed `WriteTo.File(ITextFormatter, path, shared: true, flushToDiskInterval, rollingInterval)` on the `Fallible`/`FallbackChain` rescue leg — so `SerilogProjectionPolicy.Shape` folds arrows alone and the record holds no sink handle to dispose.
 
 [LOCAL_ADMISSION]:
 - Console output carries bounded structured event rendering for interactive and supervisor diagnostics, never domain outcomes as log text.

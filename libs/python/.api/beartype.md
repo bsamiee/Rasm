@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_BEARTYPE]
 
-`beartype` mints near-O(1) runtime type enforcement: `@beartype` rewrites a callable into branch-minimal validation code and `beartype.claw` hooks it across a whole package at import. It holds the internal call-boundary contract on domain functions the wire never touches, `BeartypeConf(violation_type=...)` folds every violation onto a domain error rail, and the DOOR API answers `isinstance`-for-any-hint checks and decidable subhint queries inline.
+`beartype` mints near-O(1) runtime type enforcement: `@beartype` rewrites a callable into branch-minimal validation code and `beartype.claw` hooks it across a whole package at import. It holds the internal call-boundary contract on domain functions the wire never touches, `BeartypeConf(violation_type=...)` folds every violation onto a domain error channel, and the DOOR API answers `isinstance`-for-any-hint checks and decidable subhint queries inline.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -87,7 +87,7 @@ Every violation catches as `BeartypeCallHintViolation`; catch the canonical root
 - `@beartype` rewrites the callable into branch-minimal wrapper code; `O1` (default) samples one item per container, holding a check constant-time regardless of container size, `Ologn`/`On` deepen traversal, `O0` makes the decorator a no-op for opt-out hot paths.
 - `is_random=True` (default) varies the sampled container index per call so repeated calls cover different elements; `is_random=False` fixes it for deterministic tests.
 - `BeartypeConf` memoizes on its kwargs: identical kwargs return one singleton, minted once and reused across every decoration and claw hook.
-- `violation_type`/`violation_param_type`/`violation_return_type`/`violation_door_type` redirect a raised violation to a caller-supplied `Exception` subtype — the first-class hook mapping a type violation onto a domain error rail with no try/except adapter.
+- `violation_type`/`violation_param_type`/`violation_return_type`/`violation_door_type` redirect a raised violation to a caller-supplied `Exception` subtype — the first-class hook mapping a type violation onto a domain error channel with no try/except adapter.
 - `is_pep484_tower=True` admits the numeric tower (`int` satisfies `float`/`complex`, `bytearray` satisfies `bytes`); `is_pep557_fields=True` type-checks `@dataclass` field assignments.
 - `beartype.claw` installs an import-path AST transformer decorating every callable and class in a hooked package at import; `claw_skip_package_names` excludes subpackages.
 

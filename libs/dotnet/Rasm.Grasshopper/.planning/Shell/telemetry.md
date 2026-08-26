@@ -2,7 +2,7 @@
 
 `GhTelemetry` owns the boundary's telemetry admission: one injected `IMeterFactory` mints the `Rasm.Grasshopper` meter, the kernel `InstrumentSet` over `GhInstruments.Rows` and the admitted logger factory seat on one per-load-context cell, and every producing page writes its own UCUM-named `rasm.grasshopper.*` instrument through `GhInstruments` at the site that settles the fact, carrying document and plugin attribution. Providers, exporters, views, and unload custody stay at the app root, so the folder holds zero OpenTelemetry reference.
 
-Every declaration composes the KERNEL telemetry estate as found: instrument rows are `InstrumentSpec.Create` values, handle custody is `InstrumentSet`, bucket advice is the kernel `Buckets` ladder roster, sensitivity is the kernel `Sensitivity` taxonomy (S1-41 — the folder's byte-identical four-row twin deleted), tags mint through the TENANT-FREE `InstrumentSet.Tags` arity (S1-44), the ambient seat is the kernel `Cell.Seat` token custody (S1-42), and every latency objective pins its ceiling ON its instrument's declared bucket ladder (S1-43 — a ceiling off the ladder grades a flat zero forever).
+Every declaration composes the KERNEL telemetry module as found: instrument rows are `InstrumentSpec.Create` values, handle custody is `InstrumentSet`, bucket advice is the kernel `Buckets` ladder roster, sensitivity is the kernel `Sensitivity` taxonomy (S1-41 — the folder's byte-identical four-row twin deleted), tags mint through the TENANT-FREE `InstrumentSet.Tags` arity (S1-44), the ambient seat is the kernel `Cell.Seat` token custody (S1-42), and every latency objective pins its ceiling ON its instrument's declared bucket ladder (S1-43 — a ceiling off the ladder grades a flat zero forever).
 
 ## [01]-[INDEX]
 
@@ -12,15 +12,15 @@ Every declaration composes the KERNEL telemetry estate as found: instrument rows
 
 ## [02]-[CUSTODY]
 
-- Owner: `GhTelemetry` — the composition capsule pairing the factory-owned instrument spine with logger admission. `Of` mints the `Rasm.Grasshopper` meter through `IMeterFactory.Create(MeterOptions)` exactly once, stamping the composing plugin's identity as a meter-scope tag, hands it to the kernel `InstrumentSet` that owns every handle and the write rail, and seats that set beside the logger factory on the one per-ALC cell `GhInstruments` and `GhLog` read.
+- Owner: `GhTelemetry` — the composition capsule pairing the factory-owned instrument spine with logger admission. `Of` mints the `Rasm.Grasshopper` meter through `IMeterFactory.Create(MeterOptions)` exactly once, stamping the composing plugin's identity as a meter-scope tag, hands it to the kernel `InstrumentSet` that owns every handle and the write path, and seats that set beside the logger factory on the one per-ALC cell `GhInstruments` and `GhLog` read.
 - Entry: `GhTelemetry.Of(IMeterFactory factory, HookScope plugin, Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null)` → `Fin<GhTelemetry>` — the one admission gate; `Instruments` and `Logs` are the two capability slots the capsule holds.
 - Law: plugin identity is the typed `Shell/hooks.md` `HookScope` — the one process-global plugin key the `(point, scope)` hook registry and the `gh.plugin` meter tag share by construction, so the two per-plugin surfaces cannot fork their key space.
 - Law: the injected factory is the sole per-ALC meter lifetime owner — a composing plugin passes its `PluginTelemetryHost.Meters`, and `AssemblyLoadContext.Unloading` drives the host's `ForceFlush`-then-`Dispose` on both providers, so no instrument outlives its plugin and an unload never drops the tail of an export batch.
 - Law: `GhTelemetry.Dispose` releases the seat only — disposing the minted meter here competes with provider custody.
-- Law: meter-scope tags are TENANT-FREE (S1-44) — this boundary mints every tag through the kernel's tenant-free `Tags` arity, `gh.plugin` is plugin identity, and no account or tenant identity enters a meter tag; the tenant-bearing arity is the fabrication estate's and composing it here stamps a tenant this host never has.
+- Law: meter-scope tags are TENANT-FREE (S1-44) — this boundary mints every tag through the kernel's tenant-free `Tags` arity, `gh.plugin` is plugin identity, and no account or tenant identity enters a meter tag; the tenant-bearing arity is the fabrication module's and composing it here stamps a tenant this host never has.
 - Law: a composition that runs logger-less takes `NullLoggerFactory.Instance` through the `Option` default, never a nullable factory.
 - Law: fault-family `[LoggerMessage]` partials live beside their retaining owners — `Canvas/paint.md` `PaintLog`, `Canvas/interaction.md` `InteractionLog`, `Shell/journal.md` `JournalLog`, `Platform/native.md` `NativeLog`, `Platform/capture.md` `CaptureLog` — and resolve their `ILogger` through `GhLog.For` at the fault-record site, so a retained fault emits once when it lands and no consumer polls a `LastFault` cell; a new log class lands its classification sweep in the same pass or it does not land.
-- Law: every boundary log payload parameter carries its classification — the kernel `Sensitivity` rows (S1-41) attach as `[UserContent]`/`[HostPath]`/`[MachineIdentity]`/`[AccountIdentity]` parameter attributes on the log partials, so the fail-closed app-root redactor sees every sensitive value and an unclassified boundary line never crosses the export seam invisible; the attach seats at this producer because only the boundary knows a payload embeds user content or a host path.
+- Law: every boundary log payload parameter carries its classification — the kernel `Sensitivity` rows (S1-41) attach as `[UserContent]`/`[HostPath]`/`[MachineIdentity]`/`[AccountIdentity]` parameter attributes on the log partials, so the fail-closed app-root redactor sees every sensitive value and an unclassified boundary line never crosses the export boundary invisible; the attach seats at this producer because only the boundary knows a payload embeds user content or a host path.
 - Law: two classification rules cover the roster — every `detail` parameter is an `Error.Message` off arbitrary consumer callbacks, preserved host throws, or capture faults (window titles, file paths, user-typed text) and classifies `[UserContent]`; a stall's `operation` parameter is a caller-minted `Op` name spelling member identity and classifies `[MachineIdentity]`. Bounded vocabulary keys (`source` row keys, `lane`, measurements) stay unclassified operational values.
 - Law: `Sensitivity.Values` rides the contributor port's `Classifications` column, so every classification value this boundary attaches is rostered at composition and a value present here and absent at the root refuses at admission instead of erasing at egress.
 - Law: the seat is the per-load-context ambient cell under the kernel `Cell.Seat` token custody (S1-42) — `Of` seats its set and factory only while the seat is free and holds the token, a later capsule keeps its own `Instruments`/`Logs` without overwriting the live binding, and `Dispose` clears the seat only through its own token, so disposing one capsule never disables another still-live one; collectible plugin ALCs isolate the static per plugin, an unbound context logs into the null logger and answers every write `unit` at zero cost.
@@ -37,7 +37,7 @@ Every declaration composes the KERNEL telemetry estate as found: instrument rows
 - Owner: `GhInstruments.Rows` — the kernel `InstrumentSpec.Create` declarations the capsule mounts through `InstrumentSet.Of` and publishes on its port; each row names its own kind and `MeasureForm`, so the kernel (kind × form) bind derivation spells every create and this page spells none, and the duration histograms carry the kernel `Buckets.CanvasFrameSeconds` and `Buckets.AckSeconds` advice rows as the explicit-bucket fallback a backend without base2-exponential histograms reads.
 - Owner: `GhInstruments.Board` — the folder's one kernel `BoardPack`, binding a panel per published row beside the three reliability objectives that grade canvas interactivity, marshal latency, and command acknowledgement — solution-object survival stays unmeasured because `SolutionRecord`'s per-object counters are host structural zeros no objective can grade.
 - Law: instrument identity de-duplicates by name inside the meter, so name, unit, description, bound policy, and tag vocabulary are declaration facts spelled once ON THE ROW and every mint and every governance read projects from it; units are UCUM (`s`, `{mark}`, `{command}`) and never pre-baked into the name.
-- Law: `Head` is the folder's one estate segment — every instrument name and the `OpSlot` tag key concatenate it at compile time, so a segment rename moves one const; `gh.doc` and `gh.plugin` are the folder's compact attribution pair spelled whole by declaration, outside the estate prefix. FAULT axes take NO segment: allocating owner and recovery posture are estate-wide facts, so `hook.faults` mounts the kernel `KernelInstrument.OwnerSlot`/`PostureSlot` and writes the kernel `Retriability.Key` value — a `<segment>.fault.*` twin forks one dimension into a per-package pair, and no board then groups a contained canvas fault beside the kernel fault it descends from.
+- Law: `Head` is the folder's one name segment — every instrument name and the `OpSlot` tag key concatenate it at compile time, so a segment rename moves one const; `gh.doc` and `gh.plugin` are the folder's compact attribution pair spelled whole by declaration, outside the name prefix. FAULT axes take NO segment: allocating owner and recovery posture are repo-wide facts, so `hook.faults` mounts the kernel `KernelInstrument.OwnerSlot`/`PostureSlot` and writes the kernel `Retriability.Key` value — a `<segment>.fault.*` twin forks one dimension into a per-package pair, and no board then groups a contained canvas fault beside the kernel fault it descends from.
 - Law: every row is a projection of a typed result already settled at its producing site — a metric minted beside this roster is a second truth, and a result column no row projects stays on the result by declaration.
 - Law: the write table is the closed result-to-instrument correspondence; a new projected column is one table row, one instrument declaration, and one write-member edit, never a call-site meter mint.
 - Law: instrument names, tag keys, and the dimension VALUES an objective partitions on are consts the roster, every write member, and every pack row read, so a rename moves one line and a partition indicator can never grade a value no write produces.
@@ -45,7 +45,7 @@ Every declaration composes the KERNEL telemetry estate as found: instrument rows
 - Law: a latency objective's ceiling IS a declared bucket bound of its instrument's own advice ladder (S1-43) — the kernel pack admission proves it, so the frame objectives pin at the `CanvasFrameSeconds` ladder's `0.017` bound (the 60 Hz bucket) and the acknowledgement objective at the `AckSeconds` ladder's `0.1` bound; a free-literal ceiling off the ladder grades a flat zero forever because every sample lands under or over the phantom bound, and `dispatch.body` therefore carries the FRAME ladder, because its budget is frame-relative and its objective must pin on the same ladder it advises.
 - Law: one board tile is one `PanelSpec` row and one reliability target one `Objective` row on the same pack; a hand-built dashboard or an alert rule authored beside the pack is the drift the carriage deletes.
 
-Instrument cells and folder-owned tag cells extend the `rasm.grasshopper.` prefix; a key outside the estate namespace spells whole, and the owner and posture cells name the kernel `rasm.fault.*` slots this roster composes rather than mints.
+Instrument cells and folder-owned tag cells extend the `rasm.grasshopper.` prefix; a key outside the module namespace spells whole, and the owner and posture cells name the kernel `rasm.fault.*` slots this roster composes rather than mints.
 
 | [INDEX] | [WRITE]                    | [INSTRUMENT]       | [UNIT]        | [KIND]         | [TAGS]                     |
 | :-----: | :------------------------- | :----------------- | :------------ | :------------- | :------------------------- |
@@ -65,15 +65,15 @@ Instrument cells and folder-owned tag cells extend the `rasm.grasshopper.` prefi
 |  [14]   | `Hooked` subscriber fault  | `hook.faults`      | `{fault}`     | `Count`        | `point`, owner, posture    |
 |  [15]   | `Proofed` non-bearing      | `capture.breach`   | `{breach}`    | `Count`        | `gh.doc`, `lane`           |
 
-- Boundary: write sites are the producing owners — `Canvas/paint.md` `GhPaint.Execute` (`Painted`), `Canvas/motion.md` `FlexDrive.Window` and the `BudgetGate` breach consumer (`Windowed`, `Breached`), `Canvas/canvas.md` `CanvasQuery.Pulse` (`Pulsed`), `Shell/session.md` `GhSession.Apply` (`Settled`), `Document/solution.md` `Probe`/`Audit`/`Trace` (`Probed`/`Ran`/`Chronicled`), the kernel `UiThread.Watch` pulse tap (`Marshalled`), the rail's fault-cell tap (`Hooked`), `Shell/journal.md` `Mount`'s shed accounting (`Dropped`), and the composition's `PaintProof.Judge` route (`Proofed`).
+- Boundary: write sites are the producing owners — `Canvas/paint.md` `GhPaint.Execute` (`Painted`), `Canvas/motion.md` `FlexDrive.Window` and the `BudgetGate` breach consumer (`Windowed`, `Breached`), `Canvas/canvas.md` `CanvasQuery.Pulse` (`Pulsed`), `Shell/session.md` `GhSession.Apply` (`Settled`), `Document/solution.md` `Probe`/`Audit`/`Trace` (`Probed`/`Ran`/`Chronicled`), the kernel `UiThread.Watch` pulse tap (`Marshalled`), the dispatch's fault-cell tap (`Hooked`), `Shell/journal.md` `Mount`'s shed accounting (`Dropped`), and the composition's `PaintProof.Judge` route (`Proofed`).
 - Growth: a new instrument is one `Rows` declaration and one write member, the handle deriving; a new bucket policy is one kernel `Buckets` row; a per-phase or per-disposition family is one instrument with a tag axis, never sibling instruments per value; a new board tile is one `PanelSpec` and a new reliability target one `Objective` on the same pack.
 
 ## [04]-[WRITES]
 
 - Owner: `GhInstruments` — the folder's one instrument owner: the roster, the board, and one write member per producing lane, each folding its result's columns into `InstrumentSet.Write` calls over the seated set.
-- Entry: every write member answers `Fin<Unit>` — `unit` when no capsule is seated, the kernel write rail's refusal otherwise — so a producer binds it into its own rail and an unmounted name or a family mismatch rides that rail to the producer's `FaultCell` instead of vanishing into a void write.
+- Entry: every write member answers `Fin<Unit>` — `unit` when no capsule is seated, the kernel write path's refusal otherwise — so a producer binds it into its own result and an unmounted name or a family mismatch rides that result to the producer's `FaultCell` instead of vanishing into a void write.
 - Law: document attribution is result-owned — a document-scoped write takes the host `Document.Identity` guid and stamps `gh.doc = {documentId:N}`; `Settled` and `Pulsed` take `Option<Guid>` because a session command and a canvas pulse settle without a document, and an absent tag reads as the untagged whole; `Dropped`, `Marshalled`, and `Hooked` are process-scoped and carry no document, because a shed fact's document identity died with the fact.
-- Law: per-document tag fan-out is bounded by open documents, and the app-root views own cardinality caps; a write never re-validates its result — the typed owner already admitted it, and `IsValid` stays the acceptance oracle at the producing seam.
+- Law: per-document tag fan-out is bounded by open documents, and the app-root views own cardinality caps; a write never re-validates its result — the typed owner already admitted it, and `IsValid` stays the acceptance oracle at the producing boundary.
 - Boundary: kernel marshal latency arrives as `DispatchPulse` from the `UiThread.Watch` tap; each hook `IsolatedFault` enters `Hooked` whole, so point, locally derived owner, and recursive recovery posture project without losing its `Error`.
 - Packages: BCL inbox, LanguageExt.Core, `Rasm.Domain` (`Op`, `InstrumentSet`, `KernelInstrument`, `Redrive`), `Rasm.Interaction` (`DispatchPulse`, `IsolatedFault`), `Rasm.Parametric` (`GaugedSpan`), `Canvas/paint.md`/`Canvas/motion.md`/`Canvas/canvas.md`/`Document/document.md`/`Document/solution.md`/`Platform/capture.md` result owners.
 - Growth: a new lane is one write member with its roster row; a new tag axis on an existing write is one `Tag` pair inside the member.
@@ -104,7 +104,6 @@ public sealed class AccountIdentityAttribute() : DataClassificationAttribute(
     new DataClassification(Sensitivity.Taxonomy, Sensitivity.AccountIdentity.Key));
 
 // --- [SERVICES] ------------------------------------------------------------------------
-[BoundaryAdapter]
 public static class GhInstruments {
     internal const string MeterName = "Rasm.Grasshopper";
 
@@ -265,7 +264,6 @@ public static class GhInstruments {
         document.Match<object?>(Some: static held => held.ToString("N"), None: static () => null);
 }
 
-[BoundaryAdapter]
 public static class GhLog {
     public static ILogger For(string category) =>
         GhTelemetry.Seat.Value.Match(
@@ -273,7 +271,6 @@ public static class GhLog {
             None: static () => (ILoggerFactory)NullLoggerFactory.Instance).CreateLogger(categoryName: category);
 }
 
-[BoundaryAdapter]
 public sealed class GhTelemetry : IDisposable {
     internal static readonly Atom<Option<(object Token, ILoggerFactory Logs, InstrumentSet Instruments)>> Seat =
         Atom(Option<(object, ILoggerFactory, InstrumentSet)>.None);
@@ -336,21 +333,21 @@ flowchart LR
     HookW["fault-cell tap → Hooked"] --> Owner
     CaptureW["PaintProof.Judge route → Proofed"] --> Owner
     Owner -->|"InstrumentSet.Write · gh.doc · gh.plugin tags (tenant-free)"| Seat[("seated InstrumentSet · Rasm.Grasshopper meter")]
-    Owner -.->|"BoardPack on the contributor port"| Boards["estate board plane"]
+    Owner -.->|"BoardPack on the contributor port"| Boards["repo board plane"]
     Seat -->|"IMeterFactory custody"| Host["per-ALC provider · app root"]
     Host -->|"ForceFlush on ALC unload"| Egress["OTLP egress"]
 ```
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                                    | [RAIL]                                 | [CASES] |
+| [INDEX] | [CONCERN]           | [OWNER]                                    | [RESULT]                               | [CASES] |
 | :-----: | :------------------ | :----------------------------------------- | :------------------------------------- | :-----: |
 |  [01]   | instrument roster   | `GhInstruments`                            | `Rows` + `Board` + 12 write members    |   15    |
 |  [02]   | telemetry admission | `GhTelemetry`                              | `Of → Fin<GhTelemetry>`; seat inverse  |    1    |
-|  [03]   | ambient log seam    | `GhLog`                                    | `For(category) → ILogger`; `Cell.Seat` |    1    |
+|  [03]   | ambient log port    | `GhLog`                                    | `For(category) → ILogger`; `Cell.Seat` |    1    |
 |  [04]   | classification      | kernel `Sensitivity` + 4 attach attributes | port roster + `[LoggerMessage]` params |    4    |
 
-`Op`, `Lease<T>`, the kernel instrument mechanism (`InstrumentSpec.Create`, `InstrumentSet`, `Buckets`, `BoardPack`, `Sensitivity`, `Cell.Seat`), and every result owner are composed upstream; the app root owns `IMeterFactory` custody, provider binding, views, and OTLP egress — nothing on this page names an exporter. Deleted: the evidence union and its total projection fold (each producer writes its own instrument at its site), the `GhSensitivity` taxonomy twin (S1-41), the hand-rolled seat ladder (S1-42), the three folder-named spec factories (`Advised`/`Count`/`Distribution` → the kernel's one `Create`), the off-ladder objective ceilings (S1-43), the `DocumentToken`/session-cache/`ReportTagMetrics` obligations (cache estate deleted), and the `EtoDispatch.Watch`/`RuntimeLog`/`UiEventsLog` references (kernel `UiThread.Watch` and the kernel input estate own those seams).
+`Op`, `Lease<T>`, the kernel instrument mechanism (`InstrumentSpec.Create`, `InstrumentSet`, `Buckets`, `BoardPack`, `Sensitivity`, `Cell.Seat`), and every result owner are composed upstream; the app root owns `IMeterFactory` custody, provider binding, views, and OTLP egress — nothing on this page names an exporter. Deleted: the evidence union and its total projection fold (each producer writes its own instrument at its site), the `GhSensitivity` taxonomy twin (S1-41), the hand-rolled seat ladder (S1-42), the three folder-named spec factories (`Advised`/`Count`/`Distribution` → the kernel's one `Create`), the off-ladder objective ceilings (S1-43), the `DocumentToken`/session-cache/`ReportTagMetrics` obligations (cache module deleted), and the `EtoDispatch.Watch`/`RuntimeLog`/`UiEventsLog` references (kernel `UiThread.Watch` and the kernel input module own those boundaries).
 
 ## [06]-[RESEARCH]
 

@@ -295,7 +295,7 @@ def test_covers_tuple_consumed_at_collection() -> None:
         pytest.param(_FrozenRow, True, id="frozen-struct-method-free"),
         pytest.param(42, True, id="value-int"),
         pytest.param((1, 2), True, id="value-tuple"),
-        pytest.param(ContextVar("seam"), True, id="value-contextvar"),
+        pytest.param(ContextVar("probe"), True, id="value-contextvar"),
         pytest.param(msgspec.json.Decoder(int), True, id="value-codec"),
         pytest.param(_FrozenOwner, False, id="frozen-struct-with-method"),
         pytest.param(_ValidatedRow, False, id="frozen-struct-with-post-init"),

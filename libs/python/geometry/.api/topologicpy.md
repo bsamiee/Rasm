@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_TOPOLOGICPY]
 
-`topologicpy` owns the geometry-algebra rail's non-manifold topology modeling and graph analytics: stateless static-method facades over `topologic_core` C++ handles across the `Vertex`-through-`CellComplex` hierarchy, the polymorphic `Topology` owner, and a `Graph` facade. It never re-implements the boolean kernel or graph analytics `topologic_core` and `networkx` own, and IFC semantic identity stays with the C# `IfcSemanticModel` seam. Its `AGPL-3.0-or-later` network copyleft gates admission opt-in on the Forge lane.
+`topologicpy` owns the geometry-algebra domain's non-manifold topology modeling and graph analytics: stateless static-method facades over `topologic_core` C++ handles across the `Vertex`-through-`CellComplex` hierarchy, the polymorphic `Topology` owner, and a `Graph` facade. It never re-implements the boolean kernel or graph analytics `topologic_core` and `networkx` own, and IFC semantic identity stays with the C# `IfcSemanticModel` boundary. Its `AGPL-3.0-or-later` network copyleft gates admission opt-in on the Forge lane.
 
 ## [01]-[PUBLIC_TYPES]
 

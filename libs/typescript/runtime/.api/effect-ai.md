@@ -19,7 +19,7 @@ Every provider resolves a `Model.make` row into these tags, so provider choice i
 |  [07]   | `LanguageModel.GenerateTextResponse`        | class            | text response (`.text`/`.usage`/…)       |
 |  [08]   | `LanguageModel.GenerateObjectResponse`      | class            | object response (`.value`)               |
 |  [09]   | `LanguageModel.ProviderOptions`             | interface        | provider-normalized request              |
-|  [10]   | `LanguageModel.ConstructorParams`           | interface        | provider implementation seam             |
+|  [10]   | `LanguageModel.ConstructorParams`           | interface        | provider implementation point            |
 |  [11]   | `LanguageModel.ExtractError/ExtractContext` | conditional type | toolkit error/context inference          |
 
 [GENERATE_TEXT_OPTIONS]: `prompt: Prompt.RawInput` `toolkit: Toolkit.WithHandler<Tools> | Effect.Effect<…>` `toolChoice: ToolChoice<Tools>` `concurrency: Concurrency` `disableToolCallResolution: boolean`
@@ -92,7 +92,7 @@ The three system combinators take a body ALONE — only `makeMessage(role, { con
 [SURFACES]: `RawInput` `empty` `make` `fromMessages` `fromResponseParts` `merge` `setSystem` `prependSystem` `appendSystem` `makeMessage` `makePart` `systemMessage` `FinishReason` `Usage` `FromJson` — the fused parse-then-decode schema a stored prompt string admits through, so a persisted history re-enters typed rather than through a hand `JSON.parse`
 [FINISH_REASON]: `"stop"` `"length"` `"content-filter"` `"tool-calls"` `"error"` `"pause"` `"other"` `"unknown"` — providers map their own wire value in, so a family that publishes no counterpart for a band never produces it and an unmapped wire value arrives as `"unknown"`
 
-[AUGMENTATION_BASE]: the provider boundary-hook seam — every provider `declare module`-augments these interface twins, never the schema
+[AUGMENTATION_BASE]: the provider boundary hook — every provider `declare module`-augments these interface twins, never the schema
 
 Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Response` part a `Response.ProviderMetadata` slot (both `Schema.Record<string, Record<string, unknown> | undefined>` bases). A provider attaches its one optional provider-named key by augmenting the same interfaces below; internal code reads canonical shapes, and the edge maps the slots.
 
@@ -147,7 +147,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 
 ## [09]-[TELEMETRY_IDS_ERRORS]
 
-[PUBLIC_TYPE_SCOPE]: GenAI telemetry, id generation, error rail
+[PUBLIC_TYPE_SCOPE]: GenAI telemetry, id generation, error channel
 
 `Telemetry.addGenAIAnnotations(span, opts)` writes GenAI semantic-convention attributes onto the span; a provider `*Telemetry` module extends `GenAITelemetryAttributes` via `AttributesWithPrefix` over `AllAttributes`. `IdGenerator` is the pluggable tool-call id source; `AiError` is the one tagged failure union under `Match.tag` dispatch.
 
@@ -167,7 +167,7 @@ Two provider tokenizers bind this tag — `AnthropicTokenizer` a bare `Service` 
 [STACKING]:
 - `effect`: `Schema` types every tool/prompt/response and the `generateObject` output; `Stream` folds `streamText` deltas by `part.type`; `Layer`/`Context.Tag` bind every service; `Cache`/`Duration` back `EmbeddingModel.make`.
 - `effect-ai-openai.md`/`effect-ai-anthropic.md`/`effect-ai-google.md`/`effect-ai-amazon-bedrock.md`/`effect-ai-openrouter.md`: each `model(...)`/`layer(...)` resolves the core `LanguageModel`/`EmbeddingModel`/`Tokenizer` tags; `[03]` catalogs the per-provider asymmetry.
-- `effect-opentelemetry.md` (`@effect/opentelemetry`): `Telemetry.addGenAIAnnotations` writes GenAI semconv onto `ProviderOptions.span`, one span per generation, tool call, and agent run over the OTLP rail.
+- `effect-opentelemetry.md` (`@effect/opentelemetry`): `Telemetry.addGenAIAnnotations` writes GenAI semconv onto `ProviderOptions.span`, one span per generation, tool call, and agent run over the OTLP exporter.
 - `effect-rpc.md` + `@effect/experimental`: `Chat.layerPersisted` durable sessions and the `McpServer` RPC transport ride these peers.
 - `modelcontextprotocol-sdk.md` (`@modelcontextprotocol/sdk`): admits as MCP client only; `McpServer.toolkit` registering a `Toolkit` under one transport layer is the sole host path.
 - `@effect/platform`: every provider `layer*` requires `HttpClient` from `net/client`; `McpServer.layerHttp` composes `HttpRouter`.

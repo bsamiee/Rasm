@@ -35,13 +35,13 @@
 |  [06]   | `Compiler` / `Statement.Transformer` | codec / transform | `compile(fragment) → [sql, params]`; `Transformer` snake↔camel        |
 |  [07]   | `PrimitiveKind` / `Helper`           | value taxonomy    | parameter-binding kinds the compiler placeholders; helper union       |
 
-[PUBLIC_TYPE_SCOPE]: schema-typed query, batching resolver, and error rail
+[PUBLIC_TYPE_SCOPE]: schema-typed query, batching resolver, and error channel
 - `SqlSchema`/`SqlResolver` parse-not-validate: a request `Schema` validates input, a result `Schema` decodes the untyped `Connection.Row`, and a decode miss rides `ParseError` on the `Effect` channel. `SqlResolver<T, I, A, E, R>`/`SqlRequest<T, A, E>` layer `effect`'s `Request`/`RequestResolver` batching with a `spanLink` per request inside a `sql.Resolver.batch <tag>` window span.
-- `Model.VariantsDatabase` (`select`/`insert`/`update`) splits from `Model.VariantsJson` (`json`/`jsonCreate`/`jsonUpdate`); `SqlError` is the one tagged fault the rail fails into.
+- `Model.VariantsDatabase` (`select`/`insert`/`update`) splits from `Model.VariantsJson` (`json`/`jsonCreate`/`jsonUpdate`); `SqlError` is the one tagged fault the `Effect` fails into.
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                              |
 | :-----: | :---------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `SqlError` (tagged `YieldableError`)            | fault rail      | driver failure on the `Effect` channel; `value/fault` classifies |
+|  [01]   | `SqlError` (tagged `YieldableError`)            | fault channel   | driver failure on the `Effect` channel; `value/fault` classifies |
 |  [02]   | `ResultLengthMismatch`                          | tagged error    | `SqlResolver.ordered` guard — result count ≠ request count       |
 |  [03]   | `SqlResolver` / `SqlRequest`                    | batched request | a resolver over `RequestResolver` (generics in lead)             |
 |  [04]   | `Model.Any` / `Model.AnyNoContext`              | model bound     | constraint `makeRepository`/`makeDataLoaders` accept             |
@@ -139,10 +139,10 @@
 - migrations are banned: `Migrator` (`make`, `fromGlob`/`fromBabelGlob`/`fromRecord`, the driver `SqliteMigrator`/`PgMigrator` re-exports) ships but is not admitted; `data` is no-migration by construction — an event-shape change re-mints the journal whole at `journal/evolve`, and DDL is idempotent declarative ensure split `iac` (apply at provision) ↔ `data` (verify at startup). Runtime never mutates schema.
 
 [INTEGRATION_LAW]:
-- Stack on `effect` (`.api/effect.md`): the statement is an `Effect`, `withTransaction` an effect transformer, `SqlError` a `catchTag`-discriminated member of the error channel; `Model` fields ARE `Schema` (`Generated`/`Sensitive`/`DateTimeInsert` compose `Schema.brand`/`optionalWith`/`transform`) and `SqlSchema`/`SqlResolver` lift `ParseError` into `E`. This tier adds no rail — it is `effect` applied to durable persistence.
+- Stack on `effect` (`.api/effect.md`): the statement is an `Effect`, `withTransaction` an effect transformer, `SqlError` a `catchTag`-discriminated member of the error channel; `Model` fields ARE `Schema` (`Generated`/`Sensitive`/`DateTimeInsert` compose `Schema.brand`/`optionalWith`/`transform`) and `SqlSchema`/`SqlResolver` lift `ParseError` into `E`. This tier adds no carrier — it is `effect` applied to durable persistence.
 - Stack on `@effect/experimental` (`.api/effect-experimental.md`): `reactive`/`reactiveMailbox` require the `Reactivity` service — `read/live` emits `Reactivity.invalidate(keys)` after an OCC append; `Model.Class` builds on `VariantSchema`; `SqlEventJournal`/`SqlEventLogServer`/`SqlPersistedQueue` satisfy the overlay's `EventJournal`/`EventLogServer.Storage`/`PersistedQueueStore` Tags `[SQL_OVERLAY_BACKING]`, the durable backing never a second authority `[OVERLAY_BOUNDARY_RULING]`.
 - Stack on `@effect/platform` (`.api/effect-platform.md`): the driver `layerConfig` reads its DSN/filename from `Config` behind `PlatformConfigProvider`, and a `sql.reserve`d `Connection` frames LISTEN/NOTIFY and COPY over the platform `Socket`; the banned `SqliteMigrator`'s `FileSystem`/`Path`/`CommandExecutor` needs are exactly why it stays out.
-- Stack across `data`: the driver Layer's `SqlClient` is the sole seam the `journal`, `read`, `lane`, and `object` sub-domains share; `lane/tenant` sets the `rasm.tenant` GUC inside `withTransaction`, `lane/capability` compiles fail-closed extension probes via `sql.unsafe`/`.compile()`, and `runtime/work` and the `security` state ports declare a `SqlClient`/journal port the `data` Layer satisfies rather than importing `data`.
+- Stack across `data`: the driver Layer's `SqlClient` is the sole port the `journal`, `read`, `lane`, and `object` sub-domains share; `lane/tenant` sets the `rasm.tenant` GUC inside `withTransaction`, `lane/capability` compiles fail-closed extension probes via `sql.unsafe`/`.compile()`, and `runtime/work` and the `security` state ports declare a `SqlClient`/journal port the `data` Layer satisfies rather than importing `data`.
 
 [LOCAL_ADMISSION]:
 - Yield the neutral `SqlClient` Tag in every row; a driver package (`-pg`/`-sqlite-*`) is imported only at the app composition root and the runtime-scoped `./server`/`./browser`/`./wasm` subpaths.

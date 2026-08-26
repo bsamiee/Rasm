@@ -1,12 +1,12 @@
 # [PY_GEOMETRY_MESH_REPAIR]
 
-Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean kernel and the `trimesh.repair` watertight-conditioning pass — the shared downstream primitive the tessellation, scan-reconstruction, clash-volume, and STEP hops compose. `MeshRepairOp` discriminates two kinds: `Condition` folds a selected `RepairStep` step-set over the supplied `trimesh.Trimesh`, and `Boolean` runs n-ary CSG through `manifold3d.Manifold.batch_boolean`. This owner conditions and combines triangulations in memory and never opens or writes a mesh file — decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`) across the `mesh ← data/spatial` seam.
+Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean kernel and the `trimesh.repair` watertight-conditioning pass — the shared downstream primitive the tessellation, scan-reconstruction, clash-volume, and STEP hops compose. `MeshRepairOp` discriminates two kinds: `Condition` folds a selected `RepairStep` step-set over the supplied `trimesh.Trimesh`, and `Boolean` runs n-ary CSG through `manifold3d.Manifold.batch_boolean`. This owner conditions and combines triangulations in memory and never opens or writes a mesh file — decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`) across the `mesh ← data/spatial` boundary.
 
 `to_manifold` is this owner's public exact-topology kernel and `ManifoldTier` its capability probe. `MeshRepairResult` retains its operation, subject, topology, metric, and optional closure facts directly; `apply` returns it through runtime observation on the HOSTILE lane.
 
 ## [01]-[INDEX]
 
-- [02]-[MESH]: conditioning and boolean operations under one union over the `trimesh.repair` step table and the `manifold3d` `batch_boolean` kernel, the `ManifoldTier` capability probe, offloaded to the warm process lane, returning `RuntimeRail[MeshResult]`.
+- [02]-[MESH]: conditioning and boolean operations under one union over the `trimesh.repair` step table and the `manifold3d` `batch_boolean` kernel, the `ManifoldTier` capability probe, offloaded to the warm process lane, returning `RuntimeResult[MeshResult]`.
 
 ## [02]-[MESH]
 
@@ -14,10 +14,10 @@ Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean
 - Cases: `Condition(mesh, steps)` is the one reconstruction-hop entry the `scan/reconstruction#RECONSTRUCTION` consumer reads, selecting `STEPS_WATERTIGHT` (re-weld) or `STEPS_ORIENT` (orientation-only) as a named `Steps` value, so a new reconstruction surface composes a step tuple rather than racing a second factory; `Boolean(meshes, op)` cross-checks the exact kernel `volume()` against the re-wrapped `Trimesh.volume` as the `closure_gap` agreement, a kernel-vs-mesh verdict rather than a single-source claim.
 - Law: `ManifoldTier.resolve` folds the ORDERED provider set — the exact `manifold3d` gap first, the `python-fcl` witness separation second — through one `find_spec` probe and answers `Option`, so a floor carrying neither returns `Nothing` and its consumer answers a typed invalid verdict rather than raising `ModuleNotFoundError` inside a worker kernel; the probe selects a capability tier and never an offload route, since a process-pool worker shares the one venv.
 - Law: `MeshRepairResult` holds only facts the repair fold measured; conditioned results omit `closure_gap`, while exact boolean results carry the provider's closure gap.
-- Law: `benched` rides the graduation `bench_seam` fold over the whole `apply` crossing — offload, kernel, weave — subject-keyed `rasm.geometry.mesh.repair.<tag>`, so the conditioning and boolean kernels carry latency and throughput rows beside the per-call evidence-duration histogram with zero instrument rows; the pulse boundary bars any in-kernel probe, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
+- Law: `benched` rides the graduation `bench_boundary` fold over the whole `apply` crossing — offload, kernel, weave — subject-keyed `rasm.geometry.mesh.repair.<tag>`, so the conditioning and boolean kernels carry latency and throughput rows beside the per-call evidence-duration histogram with zero instrument rows; the pulse boundary bars any in-kernel probe, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Auto: `batch_boolean(manifolds, op)` is the single n-ary CSG owner (empty folds to the identity `Manifold`, a singleton is a no-op) — the deprecated `Manifold.compose`, the `trimesh.boolean` facade, and a manual `+`/`-`/`^` left-fold rebuilding the kernel N-1 times never enter.
 - Entry: `apply` and `benched` take the composition `ScopeKey` every geometry entry carries, threaded whole into `evidence_run`, so an embedded root's evidence and charter series partition from the process root's exactly as its registered pulse points do.
-- Packages: `trimesh` (the `repair` verbs and cached validity/mass axes, eager since every arm touches it), `manifold3d` (the robust CSG kernel, reached directly through one module-scope `lazy import` because the native band costs nothing until the boolean arm runs), `numpy`, `expression`, `msgspec`, and the runtime rails per the fence imports.
+- Packages: `trimesh` (the `repair` verbs and cached validity/mass axes, eager since every arm touches it), `manifold3d` (the robust CSG kernel, reached directly through one module-scope `lazy import` because the native band costs nothing until the boolean arm runs), `numpy`, `expression`, `msgspec`, and the runtime results per the fence imports.
 - Growth: a new conditioning pass is one `RepairStep` row and one `_CONDITION` entry; a new CSG verb is one `BooleanOp` row and one `_OPTYPES` entry; a new exact-geometry provider is one `ManifoldTier` row and one `_TIER_MODULE` entry ahead of or behind the rows it supersedes — never a parallel per-operation class and never a second capability probe beside this one.
 - Boundary: point-cloud registration is `scan/registration#REGISTRATION`'s; IFC tessellation is `mesh/daemon#DAEMON`'s; exact OCCT B-rep Boolean is `mesh/brep#BREP`'s — robust triangle-mesh CSG here, exact B-rep CSG there, two kernels on two owners; decimation/subdivision/smoothing/metrics are `mesh/quality#QUALITY`'s; proximity/ray/contains/sampling are `mesh/spatial#SPATIAL`'s; the compas half-edge algebra is `graph/algebra#ALGEBRA`'s.
 
@@ -38,11 +38,11 @@ from msgspec import Struct
 from rasm.geometry.graduation import (
     EvidenceScope,
     GeometrySubject,
-    bench_seam,
+    bench_boundary,
     bench_subject,
     evidence_run,
 )
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.profiles import Benchmark
@@ -180,7 +180,7 @@ _TIER_MODULE: Final[Block[tuple[ManifoldTier, str]]] = Block.of_seq((
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def apply(op: MeshRepairOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[MeshResult]":
+async def apply(op: MeshRepairOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[MeshResult]":
     return await evidence_run(
         EvidenceScope.MESH_REPAIR, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op), composition=composition
     )
@@ -188,8 +188,8 @@ async def apply(op: MeshRepairOp, lane: LanePolicy, *, composition: ScopeKey = D
 
 def benched(
     op: MeshRepairOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4, composition: ScopeKey = DEFAULT_SCOPE
-) -> "RuntimeRail[Benchmark]":
-    return bench_seam(bench_subject(EvidenceScope.MESH_REPAIR, op.tag), partial(apply, op, lane, composition=composition), rounds=rounds, warmup=warmup)
+) -> "RuntimeResult[Benchmark]":
+    return bench_boundary(bench_subject(EvidenceScope.MESH_REPAIR, op.tag), partial(apply, op, lane, composition=composition), rounds=rounds, warmup=warmup)
 
 
 def _raise[T](fault: RepairFault) -> T:

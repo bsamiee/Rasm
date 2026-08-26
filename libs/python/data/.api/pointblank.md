@@ -1,6 +1,6 @@
 # [PY_DATA_API_POINTBLANK]
 
-`pointblank` owns the graded data-quality validation rail: a `Validate` plan chains column, row, schema, and aggregate steps over a Narwhals-backed frame, `interrogate()` executes the fold, and `Thresholds`/`Actions` grade each step at warning/error/critical severity. `Validate` reduces the interrogated plan to a boolean/fractional pass-fail grade and emits a `great_tables.GT` report; the profile plane folds this surface into the `PROFILE_POINTBLANK_GRADE` path, while frame normalization, contract grading, and render stay downstream owners.
+`pointblank` owns the graded data-quality validation layer: a `Validate` plan chains column, row, schema, and aggregate steps over a Narwhals-backed frame, `interrogate()` executes the fold, and `Thresholds`/`Actions` grade each step at warning/error/critical severity. `Validate` reduces the interrogated plan to a boolean/fractional pass-fail grade and emits a `great_tables.GT` report; the profile plane folds this surface into the `PROFILE_POINTBLANK_GRADE` path, while frame normalization, contract grading, and render stay downstream owners.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -29,7 +29,7 @@ Per-column generation constraints carry two equivalent idioms — the `IntField`
 
 [ENTRYPOINT_SCOPE]: `Validate` plan, interrogate, and grade
 
-`Validate(data, ...)` opens the plan; each validation method appends a step and returns `Validate`, so steps chain under shared `thresholds`/`actions`/`brief`/`active` policy. `interrogate()` executes the fold and the boolean/fraction rails reduce it to a grade; `get_tabular_report()` emits the renderable `GT` frame.
+`Validate(data, ...)` opens the plan; each validation method appends a step and returns `Validate`, so steps chain under shared `thresholds`/`actions`/`brief`/`active` policy. `interrogate()` executes the fold and the boolean/fraction paths reduce it to a grade; `get_tabular_report()` emits the renderable `GT` frame.
 - open: `Validate(data, *, reference, tbl_name, label, thresholds, actions, final_actions, brief, lang, locale, owner, consumers, version) -> Validate`; `interrogate(*, collect_extracts, collect_tbl_checked, get_first_n, sample_n, sample_frac, extract_limit) -> Validate`
 - report: `get_tabular_report(*, title, incl_header, incl_footer, incl_footer_timings, incl_footer_notes) -> GT`; `get_step_report(i, *, columns_subset, header, limit) -> GT`; `get_json_report(*, use_fields, exclude_fields) -> str`; `get_dataframe_report(tbl_type) -> Frame`; `get_sundered_data(type) -> Frame`
 - grade: `all_passed() -> bool`; `n_passed(i, *, scalar)` / `n_failed` / `f_passed` / `f_failed` -> per-step dict or scalar; `above_threshold(level, i) -> bool`; `assert_below_threshold(level, i, message)`
@@ -127,7 +127,7 @@ Every step row appends to the plan and returns `Validate`; `columns` accepts a n
 - comparison axis: `col_vals_gt`/`ge`/`lt`/`le`/`eq`/`ne`/`between`/`outside`/`in_set`/`not_in_set`/`regex`/`within_spec` is one comparison surface discriminated by operator and value shape; `value` accepts a literal, `col(...)`, or `ref(...)`, never a parallel step type per operator.
 - column axis: `columns` resolves a name, list, `col(...)`, or selector (`starts_with`/`ends_with`/`contains`/`matches`/`everything`/`first_n`/`last_n`); selectors are rows, never a hand-built column-name loop.
 - grade axis: `Thresholds(warning, error, critical)` grades failing test units at three severity levels as counts or fractions; `Actions`/`FinalActions` bind callables to a severity and `above_threshold`/`assert_below_threshold`/`all_passed`/`n_passed`/`f_passed` reduce the interrogated plan to the boolean and fractional grade.
-- action axis: severity callables are the package's own side-effect rail — `send_slack_notification`/`emit_otel` are built `Actions` payloads (the OTel span emits from pointblank), and `get_action_metadata`/`get_validation_summary` read the breaching-step context inside the callable.
+- action axis: severity callables are the package's own side-effect domain — `send_slack_notification`/`emit_otel` are built `Actions` payloads (the OTel span emits from pointblank), and `get_action_metadata`/`get_validation_summary` read the breaching-step context inside the callable.
 - generation axis: `generate_dataset(schema, ...)` synthesizes a table from a `Schema` whose columns are `*_field()` helpers or `*Field` classes with a `GeneratorConfig` policy; `schema_from_tbl`/`profile_fields` round-trip a real frame into a generation `Schema`, so fixtures stack into the same `Validate` plan.
 - interrogate axis: `interrogate()` is the single execution surface; sampling (`sample_n`/`sample_frac`/`get_first_n`) and extract limits are call rows, never a separate runner type.
 - render axis: `get_tabular_report()` emits the `great_tables.GT` grade frame keyed by the interrogated plan; `get_step_report`/`get_dataframe_report`/`get_json_report` and the plan-free `col_summary_tbl`/`missing_vals_tbl`/`preview`/`DataScan.get_tabular_report` are report rows feeding the renderer directly.

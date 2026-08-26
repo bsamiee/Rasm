@@ -72,7 +72,7 @@
 - Paging is a measured fold: `getTextDimensions`/`splitTextToSize`/`getTextWidth` drive layout over decoded rows, and the loop appends `addPage` when running `y` exceeds `internal.pageSize.getHeight()`.
 - Bytes are reproducible: `setCreationDate(fixed)` and `compress` make equal rows emit equal bytes, so the report `XxHash128` content key stays stable for cache dedupe.
 - Encryption passwords ride `Redacted`, unwrapped only at construction; `userPermissions` is a bounded policy set on the document.
-- `jsPDF.API` is the extension seam: repeated document furniture registers once on the prototype, never re-drawn per call site.
+- `jsPDF.API` is the extension point: repeated document furniture registers once on the prototype, never re-drawn per call site.
 
 [STACKING]:
 - `effect` (`../../.api/effect.md`): `Effect.sync` wraps the build-and-`output("arraybuffer")`; `Schema.decodeUnknown` types rows before layout; `Array.reduce`/`Effect.forEach` fold rows into pages; `Config.redacted` carries encryption passwords; `Effect.withSpan` tags page count and byte size.
@@ -84,6 +84,6 @@
 
 [LOCAL_ADMISSION]:
 - `output("arraybuffer")` -> `Uint8Array` is the only egress in a Node job; `save()`/`html()`/`output("blob"\|"bloburi")` stay in `browser`.
-- Build inside one `Effect.sync` and cross once at `output`; the mutable `jsPDF` never threads the `Effect` rail.
+- Build inside one `Effect.sync` and cross once at `output`; the mutable `jsPDF` never threads the `Effect`.
 - `addImage` takes `Uint8Array`/`RGBAData`/data-URI bytes; a DOM `HTMLImageElement`/`HTMLCanvasElement` source never enters a Node job.
 - `EncryptionOptions` passwords ride `Config.redacted`, `setCreationDate`/`compress` pin for byte stability, and shared furniture registers once on `jsPDF.API`.

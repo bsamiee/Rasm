@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_ONNXRUNTIME]
 
-`onnxruntime` owns offline inference-session checking of a validated ONNX model for the compute model-asset rail: it loads a `ModelProto` into an `InferenceSession`, reads the `NodeArg` signatures, and runs sample inputs through `run` to confirm well-shaped output before graduation to the C# `Rasm.Compute` runtime, which keeps production execution, provider policy, and benchmark authority.
+`onnxruntime` owns offline inference-session checking of a validated ONNX model for the compute model-asset domain: it loads a `ModelProto` into an `InferenceSession`, reads the `NodeArg` signatures, and runs sample inputs through `run` to confirm well-shaped output before graduation to the C# `Rasm.Compute` runtime, which keeps production execution, provider policy, and benchmark authority.
 
 ## [01]-[PUBLIC_TYPES]
 

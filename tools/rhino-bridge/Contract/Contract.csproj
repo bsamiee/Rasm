@@ -4,6 +4,7 @@
         <AssemblyName>Rasm.Bridge.Contract</AssemblyName>
         <RootNamespace>Rasm.Bridge.Contract</RootNamespace>
     </PropertyGroup>
+
     <ItemGroup Label="Wire Packages">
         <PackageReference Include="StreamJsonRpc" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />

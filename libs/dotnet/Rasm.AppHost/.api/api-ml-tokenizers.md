@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_ML_TOKENIZERS]
 
-`Microsoft.ML.Tokenizers` owns deterministic offline token counting for the grant-broker cost preview: the abstract `Tokenizer` surface and its `sealed` `TiktokenTokenizer` BPE implementation price a prompt with no network round trip. `CountTokens` feeds `CostModel.Variable` a per-prompt `CostUnit.ModelTokens` count before a model draw charges the budget, and the `GetIndexByTokenCount` family trims a turn to its model context window in place. Only the offline counting and truncation surface binds; encode-for-inference and custom tokenization stages stay out of the cost rail.
+`Microsoft.ML.Tokenizers` owns deterministic offline token counting for the grant-broker cost preview: the abstract `Tokenizer` surface and its `sealed` `TiktokenTokenizer` BPE implementation price a prompt with no network round trip. `CountTokens` feeds `CostModel.Variable` a per-prompt `CostUnit.ModelTokens` count before a model draw charges the budget, and the `GetIndexByTokenCount` family trims a turn to its model context window in place. Only the offline counting and truncation surface binds; encode-for-inference and custom tokenization stages stay out of the cost path.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -85,4 +85,4 @@ Every factory carries optional `extraSpecialTokens`, `cacheSize` (default `8192`
 [LOCAL_ADMISSION]:
 - AppHost capability-agent constructs one `TiktokenTokenizer` per model encoding through `CreateForModel`/`CreateForEncoding`, resolving the embedded vocab from the referenced `*.Data.*` assembly.
 - one shared instance answers concurrent `CountTokens` thread-safe, built once at composition and injected, since vocab load and BPE rank build is the expensive step.
-- only the offline counting and truncation surface is admitted; encode-for-inference, custom `PreTokenizer`/`Normalizer` stages, the `Bpe`/`SentencePiece`/`WordPiece`/`Bert`/`Llama` model family, and the `TokenizerExtensions` helpers stay outside the cost-preview rail.
+- only the offline counting and truncation surface is admitted; encode-for-inference, custom `PreTokenizer`/`Normalizer` stages, the `Bpe`/`SentencePiece`/`WordPiece`/`Bert`/`Llama` model family, and the `TokenizerExtensions` helpers stay outside the cost-preview path.

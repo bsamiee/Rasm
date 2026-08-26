@@ -8,7 +8,7 @@
 ObjC.import('Foundation');
 ObjC.import('OSAKit');
 // OSACopyScriptingDefinitionFromURL(CFURLRef, SInt32 modeFlags, CFDataRef *sdef) — modeFlags reserved as
-// kOSAModeNull. This is the whole dictionary rail on a Command Line Tools-only host: sdef and sdp both
+// kOSAModeNull. This is the whole dictionary path on a Command Line Tools-only host: sdef and sdp both
 // refuse a developer directory that is not full Xcode. It synthesizes from an 'aete' resource or a
 // scriptSuite pair where no native .sdef ships, so a legacy target still answers.
 ObjC.bindFunction('OSACopyScriptingDefinitionFromURL', [
@@ -16,7 +16,7 @@ ObjC.bindFunction('OSACopyScriptingDefinitionFromURL', [
     ['id', 'int', 'pointer'],
 ]);
 
-// Growth axis: one row per verb the caller's rail requires. `code` is the sdef's own eight-character
+// Growth axis: one row per verb the caller's table requires. `code` is the sdef's own eight-character
 // class+id pair, so the raw fallback reads its wire identity from the same row that names the term.
 const REQUIRED = [
     { verb: 'count', code: 'corecnte', parameters: ['each'] },

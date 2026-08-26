@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_FONTTOOLS]
 
-`fontTools` owns the OpenType/TrueType binary-font model for the artifacts font rail: font IO, the pen outline algebra, variable-font compile and instancing, glyph/feature/table subsetting with WOFF re-flavoring, OpenType Layout feature compilation, from-scratch synthesis, multi-font merge, and cubic-quadratic outline conversion, all through one `TTFont` container. HarfBuzz owns itemisation and layout and `blackrenderer` owns COLRv1 rasterization; this surface never re-parses sfnt tables, hand-prunes glyph entries, or hand-codes the script-to-OT-tag map.
+`fontTools` owns the OpenType/TrueType binary-font model for the artifacts font domain: font IO, the pen outline algebra, variable-font compile and instancing, glyph/feature/table subsetting with WOFF re-flavoring, OpenType Layout feature compilation, from-scratch synthesis, multi-font merge, and cubic-quadratic outline conversion, all through one `TTFont` container. HarfBuzz owns itemisation and layout and `blackrenderer` owns COLRv1 rasterization; this surface never re-parses sfnt tables, hand-prunes glyph entries, or hand-codes the script-to-OT-tag map.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -10,7 +10,7 @@
 | :-----: | :----------------------------- | :-------------- | :-------------------------------------------------------------------------------- |
 |  [01]   | `fontTools.ttLib.TTFont`       | font container  | sfnt/WOFF/WOFF2 container; `font[tag]` table access, `lazy`/`cfg`/`flavor` policy |
 |  [02]   | `fontTools.ttLib.TTCollection` | font collection | `(file, shareTables=False)` — TTC/OTC collection of `TTFont` members              |
-|  [03]   | `fontTools.ttLib.TTLibError`   | font fault      | binary-font IO/parse error rail                                                   |
+|  [03]   | `fontTools.ttLib.TTLibError`   | font fault      | binary-font IO/parse error channel                                                |
 
 [PUBLIC_TYPE_SCOPE]: glyph pen protocol (`fontTools.pens`)
 
@@ -112,7 +112,7 @@ Pens are the outline read/write algebra: `getGlyphSet()[name].draw(pen)` replays
 [STACKING]:
 - `uharfbuzz`(`.api/uharfbuzz.md`): fontTools owns the binary `TTFont` model and Unicode metadata (`unicodedata.script`/`ot_tags_from_script`, `getBestCmap` codepoint→glyph) HarfBuzz consumes for itemisation and layout; the two subsetters split — `Subsetter`+`Options` for Python-native pruning policy, HarfBuzz subset only when its repacker wires in via `Options(harfbuzz_repacker=True)`.
 - `blackrenderer`(`.api/blackrenderer.md`): `colorLib.builder.buildCOLR`/`buildCPAL` (via `FontBuilder.setupCOLR`/`setupCPAL`) author the COLR/CPAL tables `blackrenderer` rasterizes over the loaded `TTFont`, and the renderer never re-decodes COLR.
-- `resvg-py`(`.api/resvg-py.md`)/`svgelements`(`.api/svgelements.md`): `getGlyphSet()[name].draw(SVGPathPen(glyphSet))` then `.getCommands()` emits the glyph `d` path the SVG/figure rail consumes, a `TransformPen` applying the units-per-em-to-target affine inline.
+- `resvg-py`(`.api/resvg-py.md`)/`svgelements`(`.api/svgelements.md`): `getGlyphSet()[name].draw(SVGPathPen(glyphSet))` then `.getCommands()` emits the glyph `d` path the SVG/figure domain consumes, a `TransformPen` applying the units-per-em-to-target affine inline.
 - within-lib: an instanced + subset + WOFF2-flavored `TTFont.save(buf)` produces the embeddable web-font bytes the document/PDF/HTML owners reference; fontTools writes only the font binary, never a layout.
 
 [LOCAL_ADMISSION]:

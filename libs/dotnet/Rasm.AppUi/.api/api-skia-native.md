@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_SKIA_NATIVE]
 
-`SkiaSharp.NativeAssets.macOS` and `SkiaSharp.NativeAssets.Linux.NoDependencies` supply the per-platform `libSkiaSharp` native payload the managed `SkiaSharp` bindings P/Invoke, and the buildTransitive `.targets` that copy the RID-matched asset to output. Neither ships a managed assembly — the `lib/<tfm>/_._` files are compile placeholders — so these packages own only the native load identity the AppUi render, capture, and headless rails resolve against.
+`SkiaSharp.NativeAssets.macOS` and `SkiaSharp.NativeAssets.Linux.NoDependencies` supply the per-platform `libSkiaSharp` native payload the managed `SkiaSharp` bindings P/Invoke, and the buildTransitive `.targets` that copy the RID-matched asset to output. Neither ships a managed assembly — the `lib/<tfm>/_._` files are compile placeholders — so these packages own only the native load identity the AppUi render, capture, and headless paths resolve against.
 
 ## [01]-[PACKAGE_ASSETS]
 

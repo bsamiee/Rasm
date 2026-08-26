@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_TBLIB]
 
-`tblib` carries a traceback across the pickle seam so a worker-side exception re-raises parent-side with its frames intact. `Traceback` is the explicit carrier — wrapping a live traceback, folding to a dict or parsed string for wire transport, and rebuilding a native traceback for `raise exc.with_traceback(...)`; `pickling_support.install` is the process-global `copyreg` monkeypatch that round-trips every `BaseException` and `TracebackType` through pickle with tracebacks, feeding `BoundaryFault.of` the true worker cause instead of a flattened marker.
+`tblib` carries a traceback across the pickle boundary so a worker-side exception re-raises parent-side with its frames intact. `Traceback` is the explicit carrier — wrapping a live traceback, folding to a dict or parsed string for wire transport, and rebuilding a native traceback for `raise exc.with_traceback(...)`; `pickling_support.install` is the process-global `copyreg` monkeypatch that round-trips every `BaseException` and `TracebackType` through pickle with tracebacks, feeding `BoundaryFault.of` the true worker cause instead of a flattened marker.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -44,7 +44,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- two rails own one concern: `Traceback` is the explicit carrier a producer wraps, transports, and re-raises by hand; `pickling_support.install` monkeypatches ordinary `pickle` to carry the traceback with no carrier code at the call site.
+- two carriers own one concern: `Traceback` is the explicit carrier a producer wraps, transports, and re-raises by hand; `pickling_support.install` monkeypatches ordinary `pickle` to carry the traceback with no carrier code at the call site.
 - `Traceback` reconstructs a native traceback over synthetic per-frame `Code`: `as_traceback` recovers `co_name` and `tb_lineno` while `co_code` is `None`, `f_globals` a two-key stub (`__file__`, `__name__`), and `f_locals` empty unless the carrier was built with `get_locals=get_all_locals`; the result is displayable and re-raisable, never executable, and treating a reconstructed frame as live is a defect. Source text re-reads from the file at display time, never carried.
 - `to_dict`/`from_dict` is the lossless structured round-trip for encoded payloads; `from_string` is the lossy recovery of frames from an already-formatted stacktrace when only text survived.
 - `copyreg.dispatch_table` keys on exact type, so re-running `install()` overwrites each reducer in place and never stacks a hook — a repeat call nets a no-op latch. No positional argument registers the `TracebackType` reducer and one reducer per current `BaseException` subclass walked at call time, so a subclass defined afterward stays on the default pickle path until a later `install`.
@@ -53,7 +53,7 @@
 - `get_locals=get_all_locals` packs each frame's `f_locals` into the pickled traceback; one unpicklable local — a module, socket, open handle — raises `TypeError` mid-pickle and destroys the whole crossing, so default-off locals capture is a correctness floor.
 
 [STACKING]:
-- `execution/workers`(`runtime/.planning/execution/workers.md`): `fidelity()` wraps `pickling_support.install()` under a per-interpreter `@cache` one-shot, and each `KIND_POLICY` row carries the `fidelity` obligation — `THREAD`/`DAEMON` share the interpreter and `WASM` crosses no pickle seam (`fidelity=False`), while `INTERPRETER`, `PROCESS`, `GPU`, and `REMOTE` set `fidelity=True`. Every `WorkerPool` executor runs the latch through `initializer=fidelity` and re-arms it on the worker floor, since a spawned interpreter starts cold and the `copyreg` table never crosses the seam with it.
+- `execution/workers`(`runtime/.planning/execution/workers.md`): `fidelity()` wraps `pickling_support.install()` under a per-interpreter `@cache` one-shot, and each `KIND_POLICY` row carries the `fidelity` obligation — `THREAD`/`DAEMON` share the interpreter and `WASM` crosses no pickle boundary (`fidelity=False`), while `INTERPRETER`, `PROCESS`, `GPU`, and `REMOTE` set `fidelity=True`. Every `WorkerPool` executor runs the latch through `initializer=fidelity` and re-arms it on the worker floor, since a spawned interpreter starts cold and the `copyreg` table never crosses the boundary with it.
 - `reliability/faults`(`runtime/.planning/reliability/faults.md`): a pickled worker raise re-crosses with frames intact, so `BoundaryFault.of(at, cause)` runs the `CLASSIFY` `isinstance` rows against the true worker exception rather than a flattened subprocess marker; a worker-fan `ExceptionGroup` lands the `BoundaryFault.aggregate` case through `combine`, each member fault keeping its own reconstructed traceback.
 - `cloudpickle`(`.api/cloudpickle.md`): the two codecs split one PROCESS hop — `cloudpickle.dumps(fn)` ships the kernel in by value and tblib ships the fault out; absent the fidelity latch the shipped kernel's raise degrades to a traceback-less marker.
 - `loky`(`.api/loky.md`) and `pebble`(`.api/pebble.md`): a worker that RAISES pickles its exception back through tblib with frames intact (→ `BoundaryFault.of` on the true type), while a worker that DIES — `TerminatedWorkerError`/`BrokenProcessPool`, `ProcessExpired`/`TimeoutError` — is pool-synthesized on the pending future with no worker traceback, landing the resilience `WORKER` retry band or the faults `resource`/`deadline` rows. Both pools arm the latch through `initializer=fidelity`.
@@ -63,5 +63,5 @@
 [LOCAL_ADMISSION]:
 - `install()` at process init is the worker-crossing default, making every crossing exception faithful with zero carrier code at the call site; the explicit `Traceback` carrier serves a consumer transporting a traceback as data over `to_dict`/`from_dict` outside the pickle path.
 - locals capture stays off unless a fault's frame locals are the diagnostic payload, because one unpicklable local breaks the whole crossing before it inflates any wire form.
-- `from_string` is the last-resort recovery lane when only formatted text survived a boundary; a producer owning the live exception uses the pickle rail or `to_dict`.
-- re-raise is `raise exc.with_traceback(tb.as_traceback())` at the owning boundary, and interior code receives the `Result`/`Option` rail.
+- `from_string` is the last-resort recovery lane when only formatted text survived a boundary; a producer owning the live exception uses the pickle path or `to_dict`.
+- re-raise is `raise exc.with_traceback(tb.as_traceback())` at the owning boundary, and interior code receives the `Result`/`Option` carrier.

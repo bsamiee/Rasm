@@ -10,11 +10,11 @@
 - [05]-[RUI]: `RuiCommand` folds toolbar-file state changes and `RuiOutcome` carries the census snapshot with any applied-prefix fault.
 - [06]-[MENU_LINKS]: `MenuDelta` carries menu update state as cases over one registered host callback.
 - [07]-[SECTIONS]: `PanelSectionSpec`, `PanelSectionSignal`, the two capability rosters, and `PanelSectionMount` realize ordered collapsible sections with lifecycle routing and complete content lifetime.
-- [08]-[HOST_CONTROLS]: `HostControl`, the three `RhinoLayout` vocabularies, `ThemePalette`, and `UiServices` close the Rhino widget library, theme read, and platform-service seams.
+- [08]-[HOST_CONTROLS]: `HostControl`, the three `RhinoLayout` vocabularies, `ThemePalette`, and `UiServices` close the Rhino widget library, theme read, and platform-service boundaries.
 
 ## [02]-[PANEL_MODEL]
 
-- Owner: `PanelKey` admits the panel type's declared identity; `PanelChange` closes the lifecycle evidence; `PanelSeat` is the instance identity; `PanelAudience` scopes fact delivery; `PanelFact` is the stamped evidence row; `MountState` is the one-shot release vocabulary both mounting owners on this page step; `HostPanel` is the abstract implement seam over the foreign panel bases.
+- Owner: `PanelKey` admits the panel type's declared identity; `PanelChange` closes the lifecycle evidence; `PanelSeat` is the instance identity; `PanelAudience` scopes fact delivery; `PanelFact` is the stamped evidence row; `MountState` is the one-shot release vocabulary both mounting owners on this page step; `HostPanel` is the abstract implementation base over the foreign panel bases.
 - Cases: `PanelChange` is shown, hidden, unclassified, panel-closing, or document-closing — five states with no boolean payload. `MountState` is live or released, and the transition between them is the latch.
 - Entry: `HostPanel` realizes its control tree once in its constructor, retains the leased `ElementMount`, and routes every host callback through `PanelHost.Stamp`.
 - Auto: identity is read from the DECLARED attribute and never the runtime type identity, because the runtime synthesizes a fallback for an unattributed type — so an empty-identity gate cannot tell a declared panel key from a build-derived one and the attribute read is the whole admission.
@@ -22,7 +22,7 @@
 - Law: the host-wide projection names NO plug-in, because the host reports visibility for panels this boundary never registered; an unowned fact seats nowhere and reaches a registry-scoped observer alone.
 - Law: the one-shot release is a guarded TRANSITION over a closed state, not an interlocked exchange. A raw latch beside this folder's own cell custody is a second mechanism answering the question the transition already answers, and its verdict is what tells a second releaser it never won. NAMED LOSS: none — the exchange and the state answer the same fact, and only the state can be read.
 - Law: an identity refusal, a lifecycle-hook throw, and a lifecycle-hook failure all PARK on the panel's bounded ring — durable typed evidence that never re-enters the host callback and never grows without a ceiling.
-- Law: `Admits` is a PREDICATE and answers a bool. It asks whether an audience covers an owner, which every sibling `Admit` on this page does not: those admit a value and can refuse, this one filters a fan and has nothing to recover from. A rail here would be a failure no caller could act on.
+- Law: `Admits` is a PREDICATE and answers a bool. It asks whether an audience covers an owner, which every sibling `Admit` on this page does not: those admit a value and can refuse, this one filters a fan and has nothing to recover from. A result here would be a failure no caller could act on.
 - Output: `PanelFact` carries owning plug-in, panel, optional document, change, and the monotonic ordinal the registry stamped, and projects its own seat.
 - Boundary: `Construction` retains the leased `ElementMount` so realization failure and control-tree lifetime stay typed even where the host requires a constructed panel instance.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panel`, `IPanel`, `ShowPanelReason`, `Panels.IsShowing`/`IsHiding`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Label`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Realize`, `ElementMount`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `PluginKey`).
@@ -47,7 +47,6 @@ namespace Rasm.Rhino.HostUi;
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public readonly partial struct PanelKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
         validationError = value == Guid.Empty ? new ValidationError(message: "Panel identity is empty.") : null;
 
@@ -68,7 +67,6 @@ public readonly partial struct PanelKey {
 
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public readonly partial struct DockBarKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
         validationError = value == Guid.Empty ? new ValidationError(message: "Dock-bar identity is empty.") : null;
 
@@ -215,12 +213,12 @@ public abstract class HostPanel : Panel, IPanel {
 
 ## [03]-[PANEL_HOST]
 
-- Owner: `PanelIntent<TPanel>` is the one registry operation family for a panel type; `PanelMount<TPanel>` is its result family; `PanelVerb` names which settlement a mount reports; `PanelBadge` is the two-seam icon projection the host publishes; `PanelPresence` carries visibility beside the dock bars and the registry-wide open set; `PanelRegistry` is the one process state the host reads and writes.
+- Owner: `PanelIntent<TPanel>` is the one registry operation family for a panel type; `PanelMount<TPanel>` is its result family; `PanelVerb` names which settlement a mount reports; `PanelBadge` is the two-overload icon projection the host publishes; `PanelPresence` carries visibility beside the dock bars and the registry-wide open set; `PanelRegistry` is the one process state the host reads and writes.
 - Cases: registration, placement, presence, document close, scoped instances, icon replacement, and dock-bar usage — session-scoped and serial-scoped instance reads are one case because the instance scope already discriminates them.
 - Entry: `PanelHost.Run<TPanel>` dispatches one request under one command-thread crossing; `PanelHost.Use<TPanel,T>` is the ONE live-instance surface, running its body inside the session frame that resolved the instances so no panel crosses out of the boundary.
 - Auto: the registry is ONE state — the seat-keyed fact ledger, the watcher fan, and the two monotone ordinals move together under one commit, so a stamp mints its ordinal from the state it lands in rather than from a process-wide counter beside it.
 - Auto: the three settle-only outcomes fold to one case carrying the verb, so a reader takes the verb off a column rather than off a case name and a fourth settlement is one row.
-- Law: the icon is a kernel `AssetOrigin` and the host publishes exactly TWO seams for it — a resource named by assembly and path, and a live icon object. `Resource` takes the resource-backed registration with no materialization and no disposal at all; `File` mints an icon under a lease; every other origin case names a byte source the host panel registry has no member for and refuses TYPED by name.
+- Law: the icon is a kernel `AssetOrigin` and the host publishes exactly TWO overloads for it — a resource named by assembly and path, and a live icon object. `Resource` takes the resource-backed registration with no materialization and no disposal at all; `File` mints an icon under a lease; every other origin case names a byte source the host panel registry has no member for and refuses TYPED by name.
 - Law: a rebadge from a resource anchor refuses when the anchor names an assembly other than the panel type's own, because the host's rebadge member takes the resource path ALONE and resolves it against that type — a silently mismatched anchor would replace the icon with nothing.
 - Law: `Register` proves the host plug-in identity IS the declared key, so a panel registered under one plug-in never stamps another plug-in's seat.
 - Law: a generated row cannot be absent, so the placement admission gates the identities it carries and nothing else — a null check over a smart-enum column is a guard at use where construction already closed the corner.
@@ -574,7 +572,7 @@ public static class PanelHost {
 ## [04]-[PANEL_OBSERVATION]
 
 - Owner: `PanelObserve` chooses the owned callback ledger under a declared audience or the host-wide document projection; `PanelObservation.Observe` is the one subscription entry; `PanelHooks.Mount` seats the point.
-- Entry: `Observe` answers one symmetric subscription for either case and delivers projection failures through the sink rail.
+- Entry: `Observe` answers one symmetric subscription for either case and delivers projection failures through the sink channel.
 - Law: owned callbacks update the registry ledger; the host-wide projection never re-stamps it.
 - Law: the point binding is TYPED end to end. The ask is the callback observer and the grant is the subscription, both named on the binding, so the registry's typed bind answers by name and the cast that once turned an untyped ask into an observer has no site.
 - Law: multi-plug-in coexistence is one law — a point seat is first-mount-wins, every subscriber is keyed by the plug-in its mount declared, and teardown returns the seat, so a second plug-in mounting the same point faults typed instead of forking discovery or crossing fact streams.
@@ -765,7 +763,6 @@ public abstract partial record RuiFileRef {
 public sealed partial class RuiBarSize {
     public FrozenDictionary<RuiBar, DrawingSize> Values { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FrozenDictionary<RuiBar, DrawingSize> values) =>
@@ -954,7 +951,6 @@ public sealed partial class RuiAddress {
     public Guid Menu { get; }
     public Guid Item { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Guid file,
@@ -1056,7 +1052,6 @@ public sealed partial class PanelSectionSpec {
     public Option<HostText> CommandOption { get; }
     public Option<Func<PanelSectionSignal, Fin<Unit>>> Life { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref HostText caption,
@@ -1229,20 +1224,20 @@ public static class PanelSections {
 
 ## [08]-[HOST_CONTROLS]
 
-- Owner: `HostControl` closes the consumable `Rhino.UI.Controls` widget library as exact-payload cases; `HostCommandRow` is the one command-bearing button row; `RhinoPad`, `RhinoSpace`, and `RhinoWidth` key the three host layout vocabularies; `UnitPulse`, `UnitSpan`, and `UnitFormat` carry the unit-aware entry; `ThemePalette` detaches and feeds host theme swatches; `UiServices` is the platform-service seam.
+- Owner: `HostControl` closes the consumable `Rhino.UI.Controls` widget library as exact-payload cases; `HostCommandRow` is the one command-bearing button row; `RhinoPad`, `RhinoSpace`, and `RhinoWidth` key the three host layout vocabularies; `UnitPulse`, `UnitSpan`, and `UnitFormat` carry the unit-aware entry; `ThemePalette` detaches and feeds host theme swatches; `UiServices` is the platform-service boundary.
 - Entry: `HostControl.ToSpec` admits every nested payload and answers a kernel `ControlSpec.Custom`, so realization, mounts, styling, and teardown stay the control owner's.
 - Auto: a mint answers the kernel MINT carrier, so the buttons a row builds inside itself and the children a grid holds are child mints the mount drains in reverse order — the two hand cleanup towers that once drained them are gone with their own failure paths.
 - Auto: `GridWrap` is the family's one nested case and its children are `HostControl` rows minted through the same dispatch, so the wrapping grid composes the family it belongs to rather than a parallel container surface.
 - Law: the padding, spacing, and width vocabularies are ROWS the host publishes and every widget that takes one reads its row — a pixel literal or a raw host flag never reaches a call site, and a roster nothing reads would be decorative.
 - Law: the command row carries BOTH tooltips and its second one selects the host overload: a row with one tip mints the plain image button and a row with two mints the dual-tooltip one, which is a widget the library publishes and this family had no shape for.
 - Law: unit-entry update modes are a capability SET whose ONE illegal corner is the empty one, because the host flag word carries no zero member and an empty set would mint a control that never reports a value. The law is stated on the roster and refused at admission rather than seeded away inside a fold.
-- Law: text-area access is the kernel EDIT capability set, so read-only is the absence of the editable row rather than a boundary-local access vocabulary — the same set every other text surface in the estate reads.
+- Law: text-area access is the kernel EDIT capability set, so read-only is the absence of the editable row rather than a boundary-local access vocabulary — the same set every other text surface in the solution reads.
 - Law: colour payloads enter as `PerceptualColor` and quantize once at the mint arm through the paint correspondence; the host theme tree is read-only, so a consumer detaches swatches and never authors a zone.
 - Law: the theme feed's role map is the positive ALLOW-LIST — every declared role must resolve to a zone swatch, and an unresolved role fails the feed with the missing paths as typed evidence rather than seating a partial grid.
 - Law: `ThemePalette.Detach` and `UiServices.Resolve` cross the command thread like every other entry on this page, and `Feed` inherits the crossing through `Detach` rather than opening a second one.
 - Boundary: the parent-coupled host slider and the document-bound linetype grid stay behind their own document-scoped owners; the host dialog bases ride the shell presenter, and native pointer handles never cross this family.
 - Output: `ControlMint` per case and `ThemeChange` per feed — both settled values the kernel owners already publish.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`NumericUpDownWithUnitParsing`, `RichTextAreaWithAlternateText`, `ImageButton`, `ImageToolTipButton`, `AddRemoveButton`, `RhinoButtonRow`, `ControlGridLayout`, `Divider`, `LabelSeparator`, `StaticAlignedLabel`, `DisplayAndPrintColorPicker`, `ViewportControl`, `RhinoLayout` padding/spacing/width/label factories, `NumericUpDownWithUnitParsingUpdateMode`, `DistanceDisplayMode`, `GridWrapMode`, `DisplayAndPrintColorPickerMode`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Theme.ThemeZone`, `RhinoUiServiceLocator`, `PlatformServiceProvider`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); `Rasm/Interaction` (`ControlSpec`, `ControlMint`, `ElementSpec`, `ElementRuntime`, `EditTrait`, `IntentTable.Verb`, `IntentKey`, `PaintColor`, `ThemeSeam`, `ThemeShift`, `ThemeVariant`, `PaletteRole`, `ThemeChange`, `UiFault`); `Rasm/Domain` (`Op`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`, `PositiveMagnitude`).
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`NumericUpDownWithUnitParsing`, `RichTextAreaWithAlternateText`, `ImageButton`, `ImageToolTipButton`, `AddRemoveButton`, `RhinoButtonRow`, `ControlGridLayout`, `Divider`, `LabelSeparator`, `StaticAlignedLabel`, `DisplayAndPrintColorPicker`, `ViewportControl`, `RhinoLayout` padding/spacing/width/label factories, `NumericUpDownWithUnitParsingUpdateMode`, `DistanceDisplayMode`, `GridWrapMode`, `DisplayAndPrintColorPickerMode`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Theme.ThemeZone`, `RhinoUiServiceLocator`, `PlatformServiceProvider`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); `Rasm/Interaction` (`ControlSpec`, `ControlMint`, `ElementSpec`, `ElementRuntime`, `EditTrait`, `IntentTable.Verb`, `IntentKey`, `PaintColor`, `ThemePort`, `ThemeShift`, `ThemeVariant`, `PaletteRole`, `ThemeChange`, `UiFault`); `Rasm/Domain` (`Op`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`, `PositiveMagnitude`).
 - Growth: a new Rhino widget is one `HostControl` case and one mint arm; a new layout row is one entry on its own vocabulary; a new update mode is one `UnitPulse` row the mask fold already reads.
 
 ```csharp
@@ -1323,7 +1318,6 @@ public sealed partial class UnitSpan {
     public PositiveMagnitude Increment { get; }
     public Rasm.Numerics.Dimension Decimals { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double value,
@@ -1566,19 +1560,19 @@ public static class ThemePalette {
 
     public static Fin<ThemeChange> Feed(
         ThemeZone zone,
-        ThemeSeam seam,
+        ThemePort theme,
         ThemeVariant variant,
         HashMap<string, PaletteRole> roles,
         Op? key = null) {
         Op op = key.OrDefault();
-        return op.Accept<object>(seam, variant).Bind(_ => Detach(zone, op)).Bind(swatches => {
+        return op.Accept<object>(theme, variant).Bind(_ => Detach(zone, op)).Bind(swatches => {
             HashMap<string, PerceptualColor> found = toHashMap(swatches.Map(static swatch => (swatch.Path, swatch.Value)));
             Seq<string> missing = toSeq(roles.AsIterable())
                 .Filter(row => found.Find(row.Key).IsNone)
                 .Map(static row => row.Key)
                 .Strict();
             return missing.IsEmpty
-                ? seam.Change(
+                ? theme.Change(
                     shift: new ThemeShift.Hosted(
                         Variant: variant,
                         Cells: toHashMap(toSeq(roles.AsIterable())

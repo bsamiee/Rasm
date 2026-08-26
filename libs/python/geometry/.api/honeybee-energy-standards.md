@@ -1,11 +1,11 @@
 # [PY_GEOMETRY_API_HONEYBEE_ENERGY_STANDARDS]
 
-`honeybee-energy-standards` owns the large ASHRAE 90.1 / DOE-prototype standard energy library as pure JSON data on the energy-modeling rail. It carries no Python code — its surface is the JSON contract dropped into `honeybee_energy.config.folders.standards_extension_folders`, resolved through the `honeybee-energy` `lib.*_by_identifier` loaders that merge it additively onto the `honeybee-standards` floor. `building_program_type_by_identifier` and an ASHRAE climate-zone `construction_set_by_identifier` require it; absent this extension only the small `honeybee-standards` floor resolves.
+`honeybee-energy-standards` owns the large ASHRAE 90.1 / DOE-prototype standard energy library as pure JSON data on the energy-modeling domain. It carries no Python code — its surface is the JSON contract dropped into `honeybee_energy.config.folders.standards_extension_folders`, resolved through the `honeybee-energy` `lib.*_by_identifier` loaders that merge it additively onto the `honeybee-standards` floor. `building_program_type_by_identifier` and an ASHRAE climate-zone `construction_set_by_identifier` require it; absent this extension only the small `honeybee-standards` floor resolves.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: data library layout (`honeybee_energy_standards/`)
-- rail: energy-modeling
+- concern: energy-modeling
 - No classes, functions, or path constants: the entire surface is the on-disk JSON tree `honeybee-energy` scans, organized by domain and by the 8 ASHRAE vintages.
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                          |
@@ -20,8 +20,8 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the data contract and the consumer seam
-- rail: energy-modeling
+[ENTRYPOINT_SCOPE]: the data contract and the consumer boundary
+- concern: energy-modeling
 - Package has no callable entry points: its contract is the JSON shape and the install location `honeybee_energy.lib._load*` scans at import. Loader rows elide the shared `honeybee_energy.lib.` prefix; the owner resolves through these `*_by_identifier` loaders, never by opening the files.
 
 | [INDEX] | [SURFACE]                                          | [CALL_SHAPE]      | [CAPABILITY]                                                   |
@@ -43,7 +43,7 @@
 
 [STACKING]:
 - `honeybee-standards`(`.api/honeybee-standards.md`): the defaults floor this library layers onto — `folders.defaults_file` seeds the registries first, this extension merges on top through `folders.standards_extension_folders`.
-- `honeybee-energy`(`.api/honeybee-energy.md`): the `lib.*_by_identifier` loaders and `_load*` scan modules are the sole resolution rail; this library's JSON becomes registry objects only across that seam.
+- `honeybee-energy`(`.api/honeybee-energy.md`): the `lib.*_by_identifier` loaders and `_load*` scan modules are the sole resolution domain; this library's JSON becomes registry objects only across that boundary.
 - `dragonfly-energy`(`.api/dragonfly-energy.md`): consumes this library as its `standards` extra, assigning realistic ASHRAE/DOE defaults to the urban model through the same `honeybee-energy.lib` resolvers.
 
 [LOCAL_ADMISSION]:

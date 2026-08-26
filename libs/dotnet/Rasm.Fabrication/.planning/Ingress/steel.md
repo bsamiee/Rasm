@@ -20,7 +20,7 @@
 - Result: `SteelPart.Topology` preserves outer, hole, parent, depth, area, and bounds evidence; `SteelPart.Placed` resolves each face-local feature into part coordinates with contour bulges beside transformed vertices; `SteelPart.Preparations` publishes the per-edge groove demand the skewed contour points state, keyed on the boundary ordinal a run's profile column shares.
 - Packages: `DSTV.Net` owns asynchronous parsing; `Riok.Mapperly` owns field transcription; `Thinktecture.Runtime.Extensions` owns cases and policy rows; `LanguageExt.Core` owns effects, accumulation, and immutable carriers; `UnitsNet` owns physical values; `Loop` composes `CavalierContours` for arc measures; `PolygonAlgebra` composes `Clipper2` for hierarchy and fill.
 - Growth: a readable block lands as one `SteelFeature` case, one `SteelBlockKind` row, and one Mapperly declaration; a parser fault lands as one `SteelParseKind` row; a profile or face convention lands as one `SteelProfileCode` or `SteelFace` row; a new source or view lands as one generated case or row.
-- Boundary: `DstvBend` remains a typed `KA` rejection until its complete payload is publicly readable; face frames derive wholly from the admitted header so a convention correction is one row; an unlisted DSTV code refuses through the vocabulary's own generated `TryGet` lifted to `Option`, on the rail at the line that read it. The documented `ParseException` hierarchy and BCL file availability lower to caused fabrication cases; every other throw retains the exact exceptional `Error`. `ToSvg()` remains outside fabrication projection.
+- Boundary: `DstvBend` remains a typed `KA` rejection until its complete payload is publicly readable; face frames derive wholly from the admitted header so a convention correction is one row; an unlisted DSTV code refuses through the vocabulary's own generated `TryGet` lifted to `Option`, on the error channel at the line that read it. The documented `ParseException` hierarchy and BCL file availability lower to caused fabrication cases; every other throw retains the exact exceptional `Error`. `ToSvg()` remains outside fabrication projection.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -152,7 +152,6 @@ public sealed partial class SteelProfileCode {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct OrderMark {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = Witness.Keyed(value) ? null : new ValidationError(string.Join(" | ", new object?[] { "steel-header:order" }));
@@ -163,7 +162,6 @@ public readonly partial struct OrderMark {
 
 [ValueObject<string>]
 public readonly partial struct PhaseMark {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = Witness.Keyed(value) ? null : new ValidationError(string.Join(" | ", new object?[] { "steel-header:phase" }));
@@ -174,7 +172,6 @@ public readonly partial struct PhaseMark {
 
 [ValueObject<string>]
 public readonly partial struct PieceMark {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         validationError = Witness.Keyed(value) ? null : new ValidationError(string.Join(" | ", new object?[] { "steel-header:piece" }));
@@ -191,7 +188,6 @@ public sealed partial class SteelContourPolicy {
 
     public NamingStandard Drawings { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Context tolerance,
@@ -270,7 +266,6 @@ public sealed partial class SteelHeader {
     public string Text3InfoOnPiece { get; }
     public string Text4InfoOnPiece { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Option<OrderMark> order,
@@ -493,9 +488,9 @@ internal static partial class DstvMap {
 ## [03]-[STEEL_LIFECYCLE]
 
 - Owner: `SteelImport` owns source normalization, parse, header-before-feature admission, contour rounding, and topology derivation.
-- Law: parse and source effects remain deferred on `Eff`; independent feature faults accumulate on `Validation<Error, Seq<SteelFeature>>` and collapse once into the ingress rail.
+- Law: parse and source effects remain deferred on `Eff`; independent feature faults accumulate on `Validation<Error, Seq<SteelFeature>>` and collapse once into the ingress pipeline.
 - Entry: `SteelImport.Read(SteelSource, SteelContourPolicy)` normalizes every source to stable bytes before `DstvReader.ParseAsync` runs; both arguments arrive ADMITTED, so a null guard at the entry is refuted ceremony the type system already carries.
-- Auto: the header admits before any feature, so profile-code face admissibility gates each located element; DSTV block positions are one-based and the ordinal converts once, so no fault site can mint the line-zero locus `SourceKind.Steel` refuses; an outer contour orients counter-clockwise on the same rail that admits it.
+- Auto: the header admits before any feature, so profile-code face admissibility gates each located element; DSTV block positions are one-based and the ordinal converts once, so no fault site can mint the line-zero locus `SourceKind.Steel` refuses; an outer contour orients counter-clockwise on the same path that admits it.
 - Exemption: `Corner` and `Rounded` are the named contour statement kernel — the tangent construction IS the fillet law, and each guard names the geometric condition it refuses.
 - Boundary: path cancellation remains source data; one `Fault` mint floors every locus at the `ST` line so `SourceKind.Steel` admits it, and every unreadable block fails with its block key and one-based line.
 

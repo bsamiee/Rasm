@@ -1,6 +1,6 @@
 # [PY_GEOMETRY]
 
-`geometry` is the Python branch's standalone host-free geometry and IFC/BIM platform, with content-keyed crossings produced off the event loop. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactService` Connect contract.
+`geometry` is the Python branch's standalone host-free geometry and IFC/BIM platform, with content-keyed crossings produced off the event loop. Peer branches meet it through content identity and the GLB tessellation path over the `ComputeService`/`ArtifactService` Connect contract.
 
 ## [01]-[ROUTER]
 
@@ -92,14 +92,14 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 - `dragonfly-core` — District 2.5-D massing model exploding to Honeybee.
 - `dragonfly-energy` — District-energy translation.
 - `queenbee` — Recipe and workflow schema contract; the schema binding homes to `runtime`.
-- `lbt-recipes` — Recipe binding and input coercion, consumed through the runtime recipe rail.
-- `pollination-handlers` — Model-to-recipe-input handler adapters the runtime recipe rail consumes.
+- `lbt-recipes` — Recipe binding and input coercion, consumed through the runtime recipe pipeline.
+- `pollination-handlers` — Model-to-recipe-input handler adapters the runtime recipe pipeline consumes.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_RESULTS]:
 - `expression`
 - `msgspec`
 - `beartype`

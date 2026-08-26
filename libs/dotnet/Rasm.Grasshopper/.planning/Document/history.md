@@ -6,15 +6,15 @@ Every undo verb is a case of one `HistoryOp` union handled by one `Commit` gate 
 
 ## [01]-[INDEX]
 
-- [02]-[LEDGER]: `LedgerStride` + `ObjectUndoVerb` + `HistoryOp` + `HistoryLedger` — the command union, the stride/replay row family, the one `Commit` gate, and the cross-page `Seal`/`Bank` seams.
+- [02]-[LEDGER]: `LedgerStride` + `ObjectUndoVerb` + `HistoryOp` + `HistoryLedger` — the command union, the stride/replay row family, the one `Commit` gate, and the cross-page `Seal`/`Bank` boundaries.
 - [03]-[BRANCHES]: `BranchPath` + `BranchCrown` — branch reconciliation and node-topology projection over the undo tree.
 
 ## [02]-[LEDGER]
 
 - Owner: `LedgerStride` `[SmartEnum<int>]` — the direction vocabulary with two delegate columns: `Back` (key 0, `History.Undo` / `Record.Undo(Document)`), `Forward` (key 1, `History.Redo` / `Record.Redo(Document)`) — one row family serves both the live tree stride and the banked-record replay, so direction is data on both surfaces. `ObjectUndoVerb` `[Union]` — the object-scoped verb pair: `AttachCase(VerbNoun, UndoAction)` (`IDocumentObject.AddUndoRecord`) and `AutoSaveCase(AutoSaveReason)` (`IDocumentObject.RequestAutoSave`); both ride ONE `HistoryOp.SubjectCase(IDocumentObject, ObjectUndoVerb)` because the subject shape is shared and the verb is the discriminant — two sibling top-level cases re-spelled the same custody. `HistoryOp` `[Union]` `[GenerateUnionOps]` closes the command family: `SealCase(VerbNoun, ActionList)` (`History.Do` — seal a filled action buffer into the tree), `StrideCase(LedgerStride)` (step the tree), `BranchCase(Node, Node)` (`Node.PromoteChild` — promote a secondary child to the primary line), `ReplayCase(LedgerStride, Record)` (replay a banked record against the document), `SubjectCase(IDocumentObject, ObjectUndoVerb)`.
-- Entry: `HistoryLedger.Commit(HistoryOp op, Option<HostDocument> graph = default, Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Op? key = null)` → `Fin<GateOutcome>` — the command gate; `HistoryLedger.Seal(History ledger, ActionList actions, VerbNoun label, Op key)` → `Fin<Unit>` — the one-expression seal the folder's mutation gates compose inside their own marshal windows; `HistoryLedger.Bank(ActionList actions, VerbNoun label, Op? key = null)` → `Fin<Record>` — `ActionList.ToRecord`, minting a replayable record without touching the tree.
+- Entry: `HistoryLedger.Commit(HistoryOp op, Option<HostDocument> graph = default, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Op? key = null)` → `Fin<GateOutcome>` — the command gate; `HistoryLedger.Seal(History ledger, ActionList actions, VerbNoun label, Op key)` → `Fin<Unit>` — the one-expression seal the folder's mutation gates compose inside their own marshal windows; `HistoryLedger.Bank(ActionList actions, VerbNoun label, Op? key = null)` → `Fin<Record>` — `ActionList.ToRecord`, minting a replayable record without touching the tree.
 - Law: `Seal` is the folder's only `History.Do` spelling — `Document/document.md`'s `Transact` arms and `Document/graph.md`'s `Mutate` arms call it with the `ActionList` their host verb filled, so no mutation in the folder exists without its undo record and no second seal path exists to diverge; `Seal` runs on the caller's marshal and never opens its own.
-- Law: `StrideCase` and `ReplayCase` are the `history.replay` fire site — both re-run sealed actions against the live document, so each fires `GrasshopperPoint.HistoryReplay` (`Replay` modality) on the injected rail with the case's own op as the intent signal before the host verb runs; an absent rail replays unobserved, and `SealCase`/`BranchCase`/`SubjectCase` fire nothing because nothing re-runs.
+- Law: `StrideCase` and `ReplayCase` are the `history.replay` fire site — both re-run sealed actions against the live document, so each fires `GrasshopperPoint.HistoryReplay` (`Replay` modality) on the injected hooks with the case's own op as the intent signal before the host verb runs; absent hooks replay unobserved, and `SealCase`/`BranchCase`/`SubjectCase` fire nothing because nothing re-runs.
 - Law: a `Record` is banked evidence, not tree state — `Bank` seals an action buffer into a detached `Record` whose `ReplayCase` replays it against any document; the tree stride and the record replay share the `LedgerStride` rows, so a new direction semantics is impossible to add to one surface and forget on the other.
 - Law: object-scoped undo rides the object — `SubjectCase` binds its `ObjectUndoVerb` to one `IDocumentObject`; neither verb touches the document tree, both settle through the same gate.
 - Law: `VerbNoun` mints as `new VerbNoun(verb, noun)` and every gate accepts the already-minted label; `ActionList`'s `params Action[]` constructor admits the empty call the folder's mutation gates make; `History.Undo`/`Redo` return `void` in both their bare and `Node`-targeted arities, so `SettledCase` IS the host's whole answer for a stride, never a dropped return.
@@ -67,7 +67,6 @@ public abstract partial record HistoryOp {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static partial class HistoryLedger {
     public static Fin<Unit> Seal(History ledger, ActionList actions, VerbNoun label, Op key) =>
         from live in Optional(ledger).ToFin(key.MissingContext())
@@ -84,24 +83,24 @@ public static partial class HistoryLedger {
     public static Fin<GateOutcome> Commit(
         HistoryOp op,
         Option<HostDocument> graph = default,
-        Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default,
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default,
         Op? key = null) {
         Op active = key.OrDefault();
         return Optional(op).ToFin(active.InvalidInput())
             .Bind(valid => DocumentGate.Run(
                 graph: graph, key: active,
                 body: document => valid.Switch(
-                        state: (Key: active, Graph: document, Rail: rail),
+                        state: (Key: active, Graph: document, Hooks: hooks),
                         sealCase: static (frame, c) =>
                             Seal(ledger: frame.Graph.Undo, actions: c.Actions, label: c.Label, key: frame.Key)
                                 .Map(_ => (GateOutcome)new GateOutcome.SettledCase()),
                         strideCase: static (frame, c) =>
-                            Replayed(rail: frame.Rail, op: c.SelfOp, document: frame.Graph, key: frame.Key)
+                            Replayed(hooks: frame.Hooks, op: c.SelfOp, document: frame.Graph, key: frame.Key)
                                 .Bind(_ => Free(frame.Key, () => c.Stride.Stride(ledger: frame.Graph.Undo))),
                         branchCase: static (frame, c) => Free(frame.Key,
                             () => Op.Side(action: () => c.Parent.PromoteChild(c.Child))),
                         replayCase: static (frame, c) =>
-                            Replayed(rail: frame.Rail, op: c.SelfOp, document: frame.Graph, key: frame.Key)
+                            Replayed(hooks: frame.Hooks, op: c.SelfOp, document: frame.Graph, key: frame.Key)
                                 .Bind(_ => Free(frame.Key, () => c.Stride.Replay(record: c.Record, document: frame.Graph))),
                         subjectCase: static (frame, c) => Free(frame.Key, () => c.Verb.Switch(
                             state: c.Subject,
@@ -110,8 +109,8 @@ public static partial class HistoryLedger {
     }
 
     private static Fin<Unit> Replayed(
-        Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail, Op op, HostDocument document, Op key) =>
-        rail.Match(
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks, Op op, HostDocument document, Op key) =>
+        hooks.Match(
             Some: live => live.Fire(
                     at: GrasshopperPoint.HistoryReplay,
                     fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)),
@@ -146,7 +145,7 @@ namespace Rasm.Grasshopper.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly partial record struct BranchPath(
     [property: ReferenceEquality] Node Ancestor,
     [property: OrderedEquality] Seq<Node> Path) : IValidityEvidence {
@@ -155,7 +154,7 @@ public readonly partial record struct BranchPath(
 }
 
 [Equatable]
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly partial record struct BranchCrown(
     Option<Node> Primary,
     [property: OrderedEquality] Seq<Node> Secondary) : IValidityEvidence {
@@ -197,7 +196,7 @@ public static partial class HistoryLedger {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]             | [OWNER]                      | [RAIL]                         | [CASES] |
+| [INDEX] | [CONCERN]             | [OWNER]                      | [RESULT]                       | [CASES] |
 | :-----: | :-------------------- | :--------------------------- | :----------------------------- | :-----: |
 |  [01]   | stride direction      | `LedgerStride`               | `Stride`/`Replay` (internal)   |    2    |
 |  [02]   | object-scoped verbs   | `ObjectUndoVerb`             | cases inside `SubjectCase`     |    2    |
@@ -209,7 +208,7 @@ public static partial class HistoryLedger {
 - [01]-[STRIDE_DIRECTION]: `[SmartEnum<int>]` stride + replay columns.
 - [02]-[OBJECT_SCOPED_VERBS]: `[Union]` verb pair under one subject custody.
 - [03]-[UNDO_COMMANDS]: `[GenerateUnionOps]` `[Union]` on the shared gate spine, replay rows firing `history.replay`.
-- [04]-[THE_ONE_SEAL]: cross-page composed seam, caller-marshal.
+- [04]-[THE_ONE_SEAL]: cross-page composed boundary, caller-marshal.
 - [05]-[RECORD_BANKING]: `ActionList.ToRecord` mint.
 - [06]-[BRANCH_RECONCILIATION]: `[Equatable]` projections over the live tree, climbs as `List.unfold`.
 

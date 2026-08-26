@@ -42,7 +42,7 @@ core/
 - S1 `state` — pure algebra over the value floor; the merge↔fold cycle never forms: `Fold.run` arrives as a caller parameter, never an import.
 - S1 `commit` rides beside `causal` on `Digest.Key`; `presence` rides beside `merge`; `machine` composes no interior sibling.
 - S1 `observe` — vocabulary and derivation over the value floor alone; peer to `state` with no edge between them.
-- S1 depth law — interior chains rank by lowest shared consumer, never path length, so a five-deep import rail still seats one stratum.
+- S1 depth law — interior chains rank by lowest shared consumer, never path length, so a five-deep import chain still seats one stratum.
 - S2 `interchange` — `codec` is the one decode seat; siblings consume decoded `Wire` values and re-parse no bytes.
 - S2 `carrier` takes the same census union type-only, so its typed-metadata roster closes against the wire families with no value edge.
 - S2 `carrier` also seats the message envelope, since its extension slot IS a carrier frame and a second seat forks one attribute record.
@@ -120,7 +120,7 @@ flowchart TB
     Schema f1@-->|"forbidden: upward import"| S2
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -131,7 +131,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Core wire-plane seam registry
+    accTitle: Core wire-plane boundary registry
     accDescr: Wire, Frame, and Invoke admit peer-owned contracts; every external edge preserves its producer spelling.
     subgraph core[CORE]
         Digest[Digest]
@@ -176,7 +176,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Core TypeScript sibling seam registry
+    accTitle: Core TypeScript sibling boundary registry
     accDescr: Which core-owned shapes each sibling folder consumes, and which query targets the olap and operate owners hand back to Board.
     subgraph core[CORE]
         Digest[Digest]
@@ -189,7 +189,7 @@ flowchart LR
         Convention[Semconv]
         Reliability[Reliability]
         Board[Dashboard]
-        Tap[Hook rail]
+        Tap[Hook bus]
         Carrier[Propagation carrier]
         Event[Message envelope]
         Transition[Statechart machine]
@@ -218,7 +218,7 @@ flowchart LR
     Convention e16@-->|"[SHAPE]: Convention"| Iac
     Board e17@-->|"[PROJECTION]: Board.DashboardModel"| Iac
     Board e18@-->|"[PROJECTION]: Board.Query"| Iac
-    Board e19@-->|"[SHAPE]: Board.Query.Residence"| Data
+    Board e19@-->|"[SHAPE]: Board.Query.Tier"| Data
     Board e20@-->|"[PROJECTION]: Board.DashboardModel.Signal"| Data
     Reliability e21@-->|"[PROJECTION]: Reliability.Alert.Spec"| Iac
     Reliability e22@-->|"[PROJECTION]: Reliability.Objective"| Iac
@@ -240,7 +240,7 @@ flowchart LR
     Board e38@-->|"[PROJECTION]: Board.Pack"| Iac
 ```
 
-Each sibling edge collapses every contract between its endpoints at its labeled kind: the `Wire`, `Tap`, and `Presence` edges toward `ui` and `security` carry representative shapes, and the consuming folder's own seam registry enumerates the full family.
+Each sibling edge collapses every contract between its endpoints at its labeled kind: the `Wire`, `Tap`, and `Presence` edges toward `ui` and `security` carry representative shapes, and the consuming folder's own boundary registry enumerates the full family.
 
 ## [04]-[INTERNAL]
 
@@ -277,6 +277,6 @@ Exact delegating sites and per-owner wiring live on the owning implementation pa
 
 - Core imports nothing from the branch and nothing host-bound; every module runs identically under node, bun, and the browser.
 - Core composes generated contract bindings by module path; one registry encodes and decodes each wire family for every later stratum.
-- Each cross-language primitive admits and brands at one seam; corpus parity compares map-free bytes and semantic values elsewhere.
+- Each cross-language primitive admits and brands at one boundary; corpus parity compares map-free bytes and semantic values elsewhere.
 - Secret derivation is the security folder's concern; the digest engine here is content identity only.
 - Persistence, serving, transport hosting, rendering, and exporters are later-wave concerns; core defines the shapes they carry and nothing they run.

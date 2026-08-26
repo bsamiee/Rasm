@@ -1,6 +1,6 @@
 # [PY_DATA_API_PANDAS]
 
-`pandas` owns the boundary frame: the labeled, axis-indexed `DataFrame` and `Series` value, backed by typed `Index` and dtype objects, that every non-native source lowers into and every external consumer receives. Its `read_*` ingest and `to_*` egress span text, SQL, columnar, and lakehouse formats, and `groupby`/`rolling`/`resample` drive split-apply-combine reduction. Label alignment is the topology every operation folds through; the frame is the interchange edge, never the compute hot path, and Arrow-backed columns hand off zero-copy to the columnar rail.
+`pandas` owns the boundary frame: the labeled, axis-indexed `DataFrame` and `Series` value, backed by typed `Index` and dtype objects, that every non-native source lowers into and every external consumer receives. Its `read_*` ingest and `to_*` egress span text, SQL, columnar, and lakehouse formats, and `groupby`/`rolling`/`resample` drive split-apply-combine reduction. Label alignment is the topology every operation folds through; the frame is the interchange edge, never the compute hot path, and Arrow-backed columns hand off zero-copy to the columnar layer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -89,7 +89,7 @@
 - `loc`/`at` index by label and `iloc`/`iat` by position; `query`/`eval` evaluate string expressions over columns.
 
 [STACKING]:
-- `narwhals`(`.api/narwhals.md`): `narwhals.from_native(df)` wraps the frame as a backend-agnostic frame, the translation seam behind interop egress.
+- `narwhals`(`.api/narwhals.md`): `narwhals.from_native(df)` wraps the frame as a backend-agnostic frame, the translation boundary behind interop egress.
 - `polars`(`.api/polars.md`): `polars.from_pandas(df)` lifts the frame into the columnar engine, an `ArrowDtype`-backed frame crossing zero-copy through Arrow.
 - `pyarrow`(`.api/pyarrow.md`): `pyarrow.Table.from_pandas(df)`, the `DataFrame.__dataframe__` interchange protocol, and `DataFrame.__arrow_c_stream__` bridge to Arrow; `ArrowDtype` columns are already Arrow-native.
 - `pandera`(`.api/pandera.md`): `pandera.pandas.DataFrameSchema`/`DataFrameModel` validate the in-memory frame with no re-materialization; `pointblank`(`.api/pointblank.md`) `Validate` grades the same frame against quality thresholds.

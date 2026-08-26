@@ -1,15 +1,15 @@
 # [TS_BRANCH_API_EFFECT]
 
-`effect` is the branch standard library every `libs/typescript` folder types against: one `Effect<A, E, R>` carrier composing monadically for dependent steps and applicatively for independent accumulation, `Schema` as the single decode/encode authority whose secondary surfaces derive from one AST, and capability arriving only through the `Context`/`Layer` graph. Cross-cutting capability — decode, span, retry, lifetime — attaches at the owner seam as an effect transformer, never hand-threaded.
+`effect` is the branch standard library every `libs/typescript` folder types against: one `Effect<A, E, R>` carrier composing monadically for dependent steps and applicatively for independent accumulation, `Schema` as the single decode/encode authority whose secondary surfaces derive from one AST, and capability arriving only through the `Context`/`Layer` graph. Cross-cutting capability — decode, span, retry, lifetime — attaches at the owner boundary as an effect transformer, never hand-threaded.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the carrier, its data siblings, and failure algebra
-- rail: rails-and-effects
+- concern: results-and-effects
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]          | [CAPABILITY]                                                |
 | :-----: | :--------------------------------------------- | :--------------------- | :---------------------------------------------------------- |
-|  [01]   | `Effect<A, E, R>`                              | carrier                | every folder — the one rail; `R` is the app-root Tag set    |
+|  [01]   | `Effect<A, E, R>`                              | carrier                | every folder — the one carrier; `R` is the app-root Tag set |
 |  [02]   | `Option<A>` / `Either<R, L>`                   | value union            | `core/value` absence, decode results — replaces `null`      |
 |  [03]   | `Cause<E>` / `Exit<A, E>`                      | failure tree / outcome | `core/value/fault`, `otel/crash` — retains defect+interrupt |
 |  [04]   | `Data.TaggedEnum<...>` / `Data.Class`          | closed family          | `core/state`, `core/interchange`, `serve` — value equality  |
@@ -19,7 +19,7 @@
 |  [08]   | `Scope` / `Fiber<A, E>`                        | resource / handle      | `proc/life`, `work`, `browser` — structured lifetime        |
 
 [PUBLIC_TYPE_SCOPE]: schema, its derivations, and boundary shapes
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]   | [CAPABILITY]                                             |
 | :-----: | :------------------------------------------------------ | :-------------- | :------------------------------------------------------- |
@@ -32,7 +32,7 @@
 |  [07]   | `FastCheck.Arbitrary<A>` / `Arbitrary.LazyArbitrary<A>` | generator       | testkit source — Schema-derived; `makeLazy` recursive    |
 
 [PUBLIC_TYPE_SCOPE]: services, layers, and dispatch surfaces
-- rail: surfaces-and-dispatch
+- concern: surfaces-and-dispatch
 
 | [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------- | :---------------- | :---------------------------------------------------- |
@@ -41,18 +41,18 @@
 |  [03]   | `LayerMap.Service` / `LayerMap`                          | keyed layer cache | `data/lane/tenant` `ScopeKey`-scoped stores           |
 |  [04]   | `ManagedRuntime<R, E>`                                   | runtime root      | `browser/boot`, `proc/exec` — host edge calls in      |
 |  [05]   | `Match.Matcher` (`Match.type`/`Match.value`)             | dispatch builder  | `core/interchange` codec, `iac/program/provider` arms |
-|  [06]   | `Metric.Metric` / `Logger.Logger` / `Tracer.Span`        | signal owner      | `otel` — counters, loggers, spans on the rail         |
+|  [06]   | `Metric.Metric` / `Logger.Logger` / `Tracer.Span`        | signal owner      | `otel` — counters, loggers, spans on `Effect`         |
 
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Effect` carrier — construct, boundary lift, observe, run; surfaces are `Effect.*` unless qualified
-- rail: rails-and-effects
+- concern: results-and-effects
 
 | [INDEX] | [SURFACE]                                                  | [SHAPE]        | [CAPABILITY]                                           |
 | :-----: | :--------------------------------------------------------- | :------------- | :----------------------------------------------------- |
 |  [01]   | `succeed` / `fail` / `sync` / `suspend`                    | construct      | values + thunks; `fail` seeds the error channel        |
 |  [02]   | `gen(function*(){ … })` / `fn("span")(body, …pipeline)`    | do-notation    | every flow; body per attempt, policy pipeline          |
-|  [03]   | `tryPromise({...})` / `try` / `async` / `promise`          | boundary lift  | `Promise`/throw → typed error at the seam              |
+|  [03]   | `tryPromise({...})` / `try` / `async` / `promise`          | boundary lift  | `Promise`/throw → typed error at the edge              |
 |  [04]   | `all(effects, {...})` / `forEach` / `validateAll`          | applicative    | operands accumulate; `mode`: abort vs validate-all     |
 |  [05]   | `flatMap` / `andThen` / `zipWith` / `tap`                  | sequence       | steps; `andThen` = value / `Effect` / thunk            |
 |  [06]   | `transposeOption` / `transposeMapOption(f)`                | sequence       | `Option<Effect>` → `Effect<Option>`; `None` succeeds   |
@@ -62,20 +62,20 @@
 |  [10]   | `addFinalizer` / `scoped`                                  | resource       | `proc/life`, `data`, `work` leases                     |
 |  [11]   | `fork` / `forkScoped` / `forkDaemon` / `interrupt`         | concurrency    | `serve/live`, `browser` — scoped forks die with scope  |
 |  [12]   | `provide` / `provideService` / `updateService`             | context supply | app root injects `Layer`/service; per-Tag at a site    |
-|  [13]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`        | observe seam   | `otel` — span/log/metric attach onto the rail          |
+|  [13]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`        | observe hook   | `otel` — span/log/metric attach onto `Effect`          |
 |  [14]   | `runFork` / `runPromise` / `runSync` / `runPromiseExit`    | run            | imperative edge; `runtime` re-enters foreign callbacks |
 |  [15]   | `exit` / `onExit` / `onError` / `ensuring`                 | outcome        | reify the settled outcome; observe it once per run     |
 |  [16]   | `Exit.match` / `Cause.isInterruptedOnly` / `failureOption` | outcome fold   | one interrupt-first discrimination over the cause tree |
 
 - `Effect.tryPromise`: its `try` callback receives the fiber's interrupt-wired `AbortSignal`, so a crossing deadline or interrupt threads it.
 - `Stream.withExecutionPlan` carries `preventFallbackOnPartialStream` — without it a stream that fails AFTER emitting elements falls to the next tier and re-emits from the start, contaminating the consumer with a duplicated prefix; any gated stream sets it.
-- `Effect.onExit(cleanup: (exit: Exit.Exit<A, E>) => Effect<X, never, R2>)` is `Function.dual` and fires ONCE after the outcome settles, which is what makes it the single emission point for an outcome dimension: a string minted inside a recovery arm double-counts every retried attempt and never sees a defect. `Effect.onError` narrows the same aspect to failure, `Effect.ensuring` finalizes with no outcome in hand, and `Effect.exit` reifies the rail into `Exit<A, E>` for a caller folding it later.
+- `Effect.onExit(cleanup: (exit: Exit.Exit<A, E>) => Effect<X, never, R2>)` is `Function.dual` and fires ONCE after the outcome settles, which is what makes it the single emission point for an outcome dimension: a string minted inside a recovery arm double-counts every retried attempt and never sees a defect. `Effect.onError` narrows the same aspect to failure, `Effect.ensuring` finalizes with no outcome in hand, and `Effect.exit` reifies the outcome into `Exit<A, E>` for a caller folding it later.
 - `Exit.match({ onFailure, onSuccess })` folds the outcome and hands `onFailure` the whole `Cause`, never a bare error. Discrimination runs interrupt-first — `Cause.isInterruptedOnly(cause)` answers `boolean` and `Cause.failureOption(cause)` answers `Option<E>` — because an interrupted run carries no outcome and a defect is not a typed fault; reading `failureOption` first classifies an interrupt as an unknown failure.
 - `Effect.transposeOption` is a plain unary function while `Effect.transposeMapOption` is `Function.dual`, so a `pipe` chain passes the former by reference and calls the latter with its mapper.
-- Channel-shaping small combinators: `Effect.mapError` re-tags the error channel at a seam, `Effect.tapError` observes failure alone, and `Effect.tapBoth({ onFailure, onSuccess })` observes both SETTLED channels yet never a defect or interrupt — an outcome emission that must see every termination rides `onExit`. `Effect.zipRight` sequences discarding the left value; `Effect.void`, `Effect.succeedNone`, and `Effect.asSome` are the unit and `Option`-lift constructors; `Effect.timeoutFail({ duration, onTimeout })` converts a deadline into a typed fault on the channel (the bare `Effect.timeout` answers `Option`); the type extractor `Effect.Effect.Success<T>` projects a rail's success type wherever a derived surface types off a table of effects.
+- Channel-shaping small combinators: `Effect.mapError` re-tags the error channel at a boundary, `Effect.tapError` observes failure alone, and `Effect.tapBoth({ onFailure, onSuccess })` observes both SETTLED channels yet never a defect or interrupt — an outcome emission that must see every termination rides `onExit`. `Effect.zipRight` sequences discarding the left value; `Effect.void`, `Effect.succeedNone`, and `Effect.asSome` are the unit and `Option`-lift constructors; `Effect.timeoutFail({ duration, onTimeout })` converts a deadline into a typed fault on the channel (the bare `Effect.timeout` answers `Option`); the type extractor `Effect.Effect.Success<T>` projects an effect's success type wherever a derived surface types off a table of effects.
 
 [ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive; surfaces are `Schema.*` unless qualified
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SURFACE]                                                | [SHAPE]       | [CAPABILITY]                                              |
 | :-----: | :------------------------------------------------------- | :------------ | :-------------------------------------------------------- |
@@ -105,7 +105,7 @@
 - `Schema.optionalToRequired(from, to, { decode, encode })` is the presence flip: `decode` receives `Option<FA>` where `none` MEANS the key was absent from the input and answers a total interior value, `encode` answers `Option` where `none` OMITS the key from the output, and the minted `PropertySignature<":", TA, never, "?:", FI, false, …>` is required on the `Type` side and optional on `Encoded`. It is the landing where interior totality and wire optionality disagree and `optionalWith`'s default/`Option` postures both lose — a defaulted field whose absence must be reconstructed from siblings, or an omit-on-sentinel egress. `requiredToOptional` inverts it and `optionalToOptional` mediates both sides.
 
 [ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots; surfaces are `Layer.*` unless qualified
-- rail: surfaces-and-dispatch
+- concern: surfaces-and-dispatch
 
 | [INDEX] | [SURFACE]                                            | [SHAPE]         | [CAPABILITY]                                               |
 | :-----: | :--------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
@@ -120,7 +120,7 @@
 |  [09]   | `Reloadable.auto(Tag, {...})` / `Reloadable.reload`  | hot reload      | `crypt/sign` ring rotation under one reloading layer       |
 
 [ENTRYPOINT_SCOPE]: dispatch — `Match` builder and `Data` closed families
-- rail: surfaces-and-dispatch
+- concern: surfaces-and-dispatch
 
 | [INDEX] | [SURFACE]                                                 | [SHAPE]         | [CAPABILITY]                                             |
 | :-----: | :-------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
@@ -138,7 +138,7 @@
 - `Data.taggedEnum<Z>()` overloads on arity: handed a plain union it answers `TaggedEnum.Constructor<A>`, handed an `interface Z extends Data.TaggedEnum.WithGenerics<N>` whose `taggedEnum` member instantiates the union at `this["A"]`..`this["D"]` it answers generic constructors with `TaggedEnum.GenericMatchers<Z>` — so ONE declaration carries the case algebra for every type argument and `TaggedEnum.Kind<Z, A>` names the instantiation. `WithGenerics` exports no `Constructor` alias, so the value binds by inference alone and a restated annotation is the defect.
 
 [ENTRYPOINT_SCOPE]: `Stream` / `Sink` — pull-based streaming; surfaces are `Stream.*` unless qualified
-- rail: rails-and-effects
+- concern: results-and-effects
 
 | [INDEX] | [SURFACE]                                                | [SHAPE]    | [CAPABILITY]                                            |
 | :-----: | :------------------------------------------------------- | :--------- | :------------------------------------------------------ |
@@ -166,7 +166,7 @@
 - `Stream.timeoutFail(error, duration)` takes `error` as a `LazyArg`, so the failure value mints per timeout rather than once at declaration.
 
 [ENTRYPOINT_SCOPE]: concurrency and mutable state
-- rail: rails-and-effects
+- concern: results-and-effects
 
 | [INDEX] | [SURFACE]                                               | [SHAPE]       | [CAPABILITY]                                              |
 | :-----: | :------------------------------------------------------ | :------------ | :-------------------------------------------------------- |
@@ -194,7 +194,7 @@
 - `FiberSet.run(self, effect)` forks through `Effect.forkDaemon`, so the child's lifetime is the SET's scope and never the calling fiber's; the set removes each fiber on completion, and a member failing with a TYPED error completes `FiberSet.join` with that failure while `FiberSet.clear` interrupts every member under an internal `FiberId` the observer filters out — clear empties the set and leaves `join` pending, which is what separates a drain from a fault. `FiberSet.size` answers `0` for a CLOSED set exactly as it does for an empty open one, and `run` against a closed set answers an already-interrupted fiber rather than failing, so a census must not read liveness off either.
 
 [ENTRYPOINT_SCOPE]: schedule, config, time, and observability signals
-- rail: system-apis
+- concern: system-apis
 
 | [INDEX] | [SURFACE]                                                    | [SHAPE]        | [CAPABILITY]                                             |
 | :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------------------- |
@@ -235,7 +235,7 @@
 - `Schedule`: values compose — `exponential |> jittered |> intersect(recurs(n))` is one recurrence value, never a hand-rolled retry loop.
 
 [ENTRYPOINT_SCOPE]: immutable collections, equality, and caching
-- rail: shapes
+- concern: shapes
 
 | [INDEX] | [SURFACE]                                       | [SHAPE]      | [CAPABILITY]                                       |
 | :-----: | :---------------------------------------------- | :----------- | :------------------------------------------------- |
@@ -267,7 +267,7 @@
 - `BigDecimal` is the only exact-decimal carrier in the branch, and its exactness starts at the ACCUMULATOR: a JS `number` sum rounds past 2^53 and `BigInt` widens that rounded double without complaint, so a money preimage folds as `bigint` and lifts through `BigDecimal.make(total, 0)` once. `round` takes `{ mode, scale }` and belongs at the terminal alone — a per-row round accumulates drift a settlement cannot reconcile against its own aggregate.
 - `Data.tuple` is what makes a composite `HashMap` key work at all — a plain array key hashes by reference, so a rollup fold over `[a, b, c]` literals mints one bucket per row and reads as a working group-by that never groups.
 - `Record.map(self, f)` hands `f` the `(value, key)` pair and returns a record keyed identically, so a table of policy rows mints one derived value per row with the key in hand — the spelling a per-row instrument or projection fold takes instead of an entry-array round trip. JS `Array.prototype.map` passes an INDEX second, so a callback written against that habit reads a key as a number.
-- Idle module roster (verified on the tree, no fence composes them yet): `Micro`, `Channel`, `GroupBy`, `Graph`, `HashRing`, `PartitionedSemaphore`, `RcRef`/`Resource`/`ScopedCache`/`ScopedRef`, `Trie`/`RedBlackTree`/`SortedSet`, `Console`/`Random`/`Clock` service overrides, `PrimaryKey`, `Take`, the `TestClock` family, and the extended `STM` family — each enters at a consuming seam the day one earns it; `Trie` already lands at `serve/live`'s channel-rule read and `PrimaryKey` at the persisted-request families.
+- Idle module roster (verified on the tree, no fence composes them yet): `Micro`, `Channel`, `GroupBy`, `Graph`, `HashRing`, `PartitionedSemaphore`, `RcRef`/`Resource`/`ScopedCache`/`ScopedRef`, `Trie`/`RedBlackTree`/`SortedSet`, `Console`/`Random`/`Clock` service overrides, `PrimaryKey`, `Take`, the `TestClock` family, and the extended `STM` family — each enters at a consuming boundary the day one earns it; `Trie` already lands at `serve/live`'s channel-rule read and `PrimaryKey` at the persisted-request families.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -276,14 +276,14 @@
 - Three type parameters are the whole contract: `A` success, `E` the typed error channel (a tagged union, discriminated by `catchTag`/`catchTags`), `R` the requirement set of `Context.Tag`s the app root must satisfy. `R` reaching `never` at the composition root is the proof that every dependency is wired; an unsatisfied Tag is a compile error, not a runtime `undefined`.
 - `Schema` is the one boundary codec: `Type` is the decoded interior value, `Encoded` the wire shape, and every secondary surface (`Arbitrary`, `JSONSchema`, `Pretty`, `Equivalence`, `standardSchemaV1`) derives from the same AST so it cannot drift. Decode once at ingress with `Schema.decodeUnknown`; the interior never re-validates and never sees `null`/`undefined`/provider shapes.
 - `Context.Tag`/`Effect.Service` are the DI primitives; `Layer` builds the acyclic dependency graph with memoized construction, `scoped` construction for resource lifetime, and `provide`/`provideMerge` for wiring. `Layer` values compose — folders export Layer families and the thin app `main.ts` selects and composes them with zero lib edits.
-- Cross-cutting capability attaches at its seam as an effect transformer: decode+brand at the single Schema, `Effect.withSpan`/`annotateLogs`/`withMetric` for observability, `Effect.retry(Schedule)` for resilience, `Effect.acquireRelease`+`Layer.scoped` for lifetime. `Effect.fn("name")(body, ...pipeline)` seats that seam — body runs once per attempt and the pipeline carries the policy, so resilience stays recoverable from the declaration rather than buried inside the body.
+- Cross-cutting capability attaches at its boundary as an effect transformer: decode+brand at the single Schema, `Effect.withSpan`/`annotateLogs`/`withMetric` for observability, `Effect.retry(Schedule)` for resilience, `Effect.acquireRelease`+`Layer.scoped` for lifetime. `Effect.fn("name")(body, ...pipeline)` seats that boundary — body runs once per attempt and the pipeline carries the policy, so resilience stays recoverable from the declaration rather than buried inside the body.
 - Interruption is structural: `Effect.forkScoped` fibers are interrupted when their `Scope` closes, finalizers run on success, failure, and interrupt alike, and `Cause` retains the full failure tree (typed error + defect + interrupt + parallel causes) so `core/value/fault` and `otel/crash` reconstruct rather than flatten.
 
 [STACKING]:
-- within-lib: one `Effect.fn("name")(body, ...pipeline)` seam stacks decode+brand at the single `Schema`, `Effect.retry(Schedule)`, `Effect.withSpan`/`withMetric`, and `Effect.acquireRelease` as composed transformers over one carrier — resilience and observability stay recoverable from the declaration, never threaded through the body.
+- within-lib: one `Effect.fn("name")(body, ...pipeline)` boundary stacks decode+brand at the single `Schema`, `Effect.retry(Schedule)`, `Effect.withSpan`/`withMetric`, and `Effect.acquireRelease` as composed transformers over one carrier — resilience and observability stay recoverable from the declaration, never threaded through the body.
 - `@effect/platform`(`.api/effect-platform.md`): platform contracts are `Effect`-returning services keyed by `Context.Tag` — `HttpClient` yields `Effect<HttpClientResponse, HttpClientError>`, `HttpApiEndpoint` bodies are `Schema`-typed handlers, `FileSystem`/`Command`/`Worker` are Tags a `Layer` satisfies; one Schema decodes request and encodes response, and the tagged-error family flows the `Effect` error channel to `serve/problem`.
 - `@effect/platform-node`(`.api/effect-platform-node.md`): the `Node*` `Layer`s satisfy the platform Tags this substrate's graph requires; `NodeRuntime.runMain` is the `Effect.runFork` edge for a node process, draining fibers and finalizers on signal.
-- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): Effect's `Metric`/`Logger`/`Tracer` signals feed `Otlp.layer` (native OTLP over `HttpClient`, no `@opentelemetry/sdk-*`); the OTel `Layer` installs `Tracer.OtelTracer` and the `AppIdentity`-derived `Resource` under the whole graph, so `Effect.withSpan`/`withMetric` on any rail export unchanged.
+- `@effect/opentelemetry`(`runtime/.api/effect-opentelemetry.md`): Effect's `Metric`/`Logger`/`Tracer` signals feed `Otlp.layer` (native OTLP over `HttpClient`, no `@opentelemetry/sdk-*`); the OTel `Layer` installs `Tracer.OtelTracer` and the `AppIdentity`-derived `Resource` under the whole graph, so `Effect.withSpan`/`withMetric` on any effect export unchanged.
 - `@effect/vitest`(`tests/typescript/.api/effect-vitest.md`): `it.effect`/`it.scoped` run an `Effect` under `TestServices` (deterministic `TestClock`/`TestRandom`), `it.prop` consumes `Schema`-derived `FastCheck.Arbitrary`s, and `it.layer` shares a `Layer` across a spec block.
 - `@effect/sql`(`data/.api/effect-sql.md`): the `SqlClient` `Context.Tag` a driver `Layer` satisfies — `work`/`data` code once against the neutral contract and the app root binds the dialect.
 - `@effect/cluster`(`runtime/.api/effect-cluster.md`): the `MessageStorage` `Context.Tag` for durable-actor delivery; `SqlMessageStorage.layer` binds it to the `store`-owned `SqlClient` at the app root, so `work` composes it as a port.
@@ -292,7 +292,7 @@
 - `hash-wasm`(`core/.api/hash-wasm.md`): the WASM digest engine sits behind `core/value/contentKey`'s `Digest` row table — every consumer imports `Digest`, never the package.
 
 [LOCAL_ADMISSION]:
-- Use `Effect<A, E, R>` for every fallible or effectful operation; never a bare `Promise`, a thrown exception in domain logic, or a `try`/`catch` outside a `BOUNDARY ADAPTER` kernel — a `Promise`/throw converts at the owning seam through `Effect.tryPromise`/`Effect.try`.
+- Use `Effect<A, E, R>` for every fallible or effectful operation; never a bare `Promise`, a thrown exception in domain logic, or a `try`/`catch` outside a `BOUNDARY ADAPTER` kernel — a `Promise`/throw converts at the owning boundary through `Effect.tryPromise`/`Effect.try`.
 - Use one `Schema` per concept with `pick`/`omit`/`partial`/`extend` projections; never a parallel `type`/`interface` mirroring a runtime shape, a fresh Schema per view, or a standalone branded-primitive export.
 - Use `Context.Tag`/`Effect.Service` + `Layer` for dependencies; never a module-level singleton, a hand-passed config object, or a manual constructor-injection chain.
 - Use `Match.exhaustive`/`Data.taggedEnum().$match` for closed-family dispatch and vocabulary lookup for keyed domains; never an `if`/`switch` ladder that re-derives what a tag or a vocabulary row already carries.

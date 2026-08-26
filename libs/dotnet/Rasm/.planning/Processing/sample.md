@@ -1,8 +1,8 @@
 # [RASM_VECTORS_SAMPLE]
 
-`SampleKind` owns point sampling: every draw is one closed `[Union]` case admitted at its factory, and `SampleKernel.Sample` folds all cases through one domain dispatch total over admitted kinds. Grouped `PowerCcvtPolicy.Preset` mints the BNOT tuning surface on the `Op` rail, one `with` mutation overrides it, and every convergence threshold reads its own `ToleranceLane` at the run.
+`SampleKind` owns point sampling: every draw is one closed `[Union]` case admitted at its factory, and `SampleKernel.Sample` folds all cases through one domain dispatch total over admitted kinds. Grouped `PowerCcvtPolicy.Preset` mints the BNOT tuning surface on the `Op` gate, one `with` mutation overrides it, and every convergence threshold reads its own `ToleranceLane` at the run.
 
-Rebuild work composes settled owners: `extract.md` `ExtractionDomain` carries the domain axis, `intent.md` the consumer rail, `evaluation.md` `Evaluate(EvaluationRequest.Sample(...))` the support-space candidate draw, `matrix.md` `SparseMatrix.SingularSolveDetailed` the gauge-fixed solve, `segment.md` `SegmentKernel.ValidateSamplingSpectrum` the blue-noise witness, `mesh.md` `RestrictedPowerDiagram` the restricted power cells this page reads one-directionally, and `identity.md` `Deterministic` every draw addresses through a declared `SampleLane` ordinal.
+Rebuild work composes settled owners: `extract.md` `ExtractionDomain` carries the domain axis, `intent.md` the consumer API, `evaluation.md` `Evaluate(EvaluationRequest.Sample(...))` the support-space candidate draw, `matrix.md` `SparseMatrix.SingularSolveDetailed` the gauge-fixed solve, `segment.md` `SegmentKernel.ValidateSamplingSpectrum` the blue-noise witness, `mesh.md` `RestrictedPowerDiagram` the restricted power cells this page reads one-directionally, and `identity.md` `Deterministic` every draw addresses through a declared `SampleLane` ordinal.
 
 ## [01]-[INDEX]
 
@@ -150,7 +150,6 @@ public sealed partial class PowerCcvtStopKind {
 }
 
 [Union]
-[BoundaryAdapter]
 public abstract partial record SampleKind {
     public sealed record ExplicitCase(Seq<Point3d> Points) : SampleKind;
     public sealed record PoissonDiskCase(PositiveMagnitude Radius, Dimension Attempts, int Seed) : SampleKind;
@@ -298,7 +297,7 @@ public abstract partial record SampleKind {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DworkCensus(
     DworkSamplingDomain Domain, double RMin, Option<double> BackgroundCellSize, Option<int> BackgroundGridCells,
     int AttemptsPerActive, int GeneratedCandidates, int ActivePops, int RejectedTooClose, int RejectedDomain,
@@ -313,7 +312,7 @@ public readonly record struct DworkCensus(
         ValidityClaim.CountAtLeast(RejectedDomain, 0), ValidityClaim.Ordered(LocalRadiusMin, LocalRadiusMax));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PowerCellFragmentFacts(
     int SiteCount, int FragmentCount, int FacetCount, int EmptyCellCount,
     Stat<Scalar> Mass, double IntegrationResidual) : IValidityEvidence {
@@ -324,7 +323,7 @@ public readonly record struct PowerCellFragmentFacts(
         EmptyCellCount <= SiteCount, ValidityClaim.Evidence(Mass), ValidityClaim.Nonnegative(IntegrationResidual));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PowerCcvtSolution(
     int SiteCount, double TargetMass,
     double CapacityResidualInf, double CapacityResidualL1, double CapacityResidualL2, double CapacityResidualNormalized,
@@ -354,7 +353,7 @@ public readonly record struct PowerCcvtSolution(
         ValidityClaim.Evidence(DualSolve), ValidityClaim.Evidence(Spectrum));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SampleAlgorithm(
     SampleAlgorithmKind Kind, CapabilitySet<SampleAssurance> Assurances,
     Option<int> Seed = default, Option<int> TargetCount = default, Option<int> OversampleCount = default, Option<int> OversampleFactor = default,
@@ -384,7 +383,7 @@ public readonly record struct SampleAlgorithm(
         ValidityClaim.Evidence(Dwork), ValidityClaim.Evidence(Spectrum), ValidityClaim.Evidence(PowerCcvt));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SampleTally(
     int Attempted, int Emitted, int Rejected, Option<int> CandidateCount, Option<Distribution<Scalar>> Spacing,
     Option<double> DensityError, Option<int> DensityAccepted, Option<int> DensityRejected, Option<int> Iterations,

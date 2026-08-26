@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_JAX]
 
-`jax` owns the XLA-compiled, autodiff-capable array substrate the compute numeric-study rail differentiates, compiles, vectorizes, and parallelizes through composable function transforms. Every JAX-ecosystem sibling composes on it — each consumes `jax.numpy` arrays, registers its carriers as `tree_util` pytrees, and rides the `grad`/`jit`/`vmap` transforms cataloged here — and the owner never re-implements an autodiff or XLA pipeline jax owns.
+`jax` owns the XLA-compiled, autodiff-capable array substrate the compute numeric-study domain differentiates, compiles, vectorizes, and parallelizes through composable function transforms. Every JAX-ecosystem sibling composes on it — each consumes `jax.numpy` arrays, registers its carriers as `tree_util` pytrees, and rides the `grad`/`jit`/`vmap` transforms cataloged here — and the owner never re-implements an autodiff or XLA pipeline jax owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -189,7 +189,7 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 |  [07]   | `numpy.max` / `sum` / `argmin`                      | reduction      | worst-case / total / index reductions over a traced array        |
 
 [ENTRYPOINT_SCOPE]: pytree operations (`jax.tree_util`)
-- `tree_leaves` yields the ordered leaf list the `Solve` and finiteness rails fold; every sibling carrier (`equinox.Module`, `diffrax`/`optimistix`/`lineax` solver states, `optax.OptState`) is a registered pytree these ops walk and reconstruct.
+- `tree_leaves` yields the ordered leaf list the `Solve` and finiteness stages fold; every sibling carrier (`equinox.Module`, `diffrax`/`optimistix`/`lineax` solver states, `optax.OptState`) is a registered pytree these ops walk and reconstruct.
 - call: `tree_map(f, tree, *rest)`, `tree_leaves(tree, is_leaf=None)`, `tree_structure(tree)` / `tree_flatten(tree)`, `tree_unflatten(treedef, leaves)`, `tree_reduce(f, tree, initializer)`, `register_pytree_node(cls, flatten, unflatten)`, `Partial(fun, *args, **kwargs)`
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CAPABILITY]                                                        |
@@ -214,12 +214,12 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 
 [ENTRYPOINT_SCOPE]: side effects, configuration, and sharding context
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]     | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------- | :----------------- | :---------------------------------------------------- |
-|  [01]   | `debug.print(fmt, *args)` / `debug.callback(cb, *a)` | traced side effect | print/callback legal inside `jit`/`grad`/`vmap`       |
-|  [02]   | `config.update("jax_enable_x64", True)`              | precision          | promote the rail to float64 (double-precision solves) |
-|  [03]   | `sharding.Mesh(devices, axis_names)`                 | device mesh        | named device mesh for `NamedSharding`/`shard_map`     |
-|  [04]   | `make_mesh(axis_shapes, axis_names)`                 | device mesh        | construct a `Mesh` from axis shapes/names             |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]     | [CAPABILITY]                                            |
+| :-----: | :--------------------------------------------------- | :----------------- | :------------------------------------------------------ |
+|  [01]   | `debug.print(fmt, *args)` / `debug.callback(cb, *a)` | traced side effect | print/callback legal inside `jit`/`grad`/`vmap`         |
+|  [02]   | `config.update("jax_enable_x64", True)`              | precision          | promote the result to float64 (double-precision solves) |
+|  [03]   | `sharding.Mesh(devices, axis_names)`                 | device mesh        | named device mesh for `NamedSharding`/`shard_map`       |
+|  [04]   | `make_mesh(axis_shapes, axis_names)`                 | device mesh        | construct a `Mesh` from axis shapes/names               |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -234,10 +234,10 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 - arrays are immutable; in-place updates use the indexed-update syntax `x.at[idx].set(v)`
 
 [STACKING]:
-- canonical stacked rail: define carriers as `equinox.Module` pytrees -> assemble the objective from `jax.numpy`/`interpax` interpolants and `quadax` quadrature -> integrate dynamics with `diffrax.diffeqsolve` (inner linear solves via `lineax`) -> differentiate with `jax.grad`/`equinox.filter_grad` -> descend with `optax`/`optimistix` -> compile with `jax.jit`/`equinox.filter_jit`
-- `tree_util` is the seam: `diffrax.Solution`, `optimistix.Solution`, `lineax` operators/states, `optax.OptState`, and `equinox.Module` are registered pytree nodes, so `tree_map`/`tree_leaves`/`tree_structure` walk and reconstruct any sibling carrier; a finiteness/divergence verdict folds `numpy.isfinite` over `tree_leaves(state)`
+- canonical stacked domain: define carriers as `equinox.Module` pytrees -> assemble the objective from `jax.numpy`/`interpax` interpolants and `quadax` quadrature -> integrate dynamics with `diffrax.diffeqsolve` (inner linear solves via `lineax`) -> differentiate with `jax.grad`/`equinox.filter_grad` -> descend with `optax`/`optimistix` -> compile with `jax.jit`/`equinox.filter_jit`
+- `tree_util` is the boundary: `diffrax.Solution`, `optimistix.Solution`, `lineax` operators/states, `optax.OptState`, and `equinox.Module` are registered pytree nodes, so `tree_map`/`tree_leaves`/`tree_structure` walk and reconstruct any sibling carrier; a finiteness/divergence verdict folds `numpy.isfinite` over `tree_leaves(state)`
 - `random.key`/`split` is the determinism backbone every stochastic sibling consumes — `diffrax` Brownian paths, `numpyro`/`blackjax` MCMC chains, `equinox.nn` initialization, `optax.add_noise` — never a reseeded global RNG
-- `config.update("jax_enable_x64", True)` is a rail-wide precondition: `lineax`/`optimistix`/`diffrax` solves and `numpyro` log-densities assume float64
+- `config.update("jax_enable_x64", True)` is a result-wide precondition: `lineax`/`optimistix`/`diffrax` solves and `numpyro` log-densities assume float64
 - `custom_jvp`/`custom_vjp` attach analytic derivative rules where a sibling's internal solve is non-differentiable or the implicit-function theorem gives a closed-form adjoint (the mechanism `lineax`/`optimistix` use internally for differentiable solves)
 - `numerics/jit#JIT`: `_capture_jax` stages one `jit(kernel).lower(*probe)`, advances it to `Compiled`, and folds `Lowered.as_text` and `Compiled.as_text` extents beside `cost_analysis` entries into the same `EngineProfile` band the numba `inspect_llvm`/`inspect_asm` extents fill, so one profile shape spans both engines
 - `numerics/jit#JIT`: `_traced` brackets the warm probe in `profiler.trace`, walks the emitted `.xplane.pb` through `ProfileData.from_file` -> `planes` -> `lines` -> `events`, and folds event counts and `duration_ns` totals beside `device_memory_profile` byte length into the xla case's trace band

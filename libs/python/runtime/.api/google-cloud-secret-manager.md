@@ -45,8 +45,8 @@ Every surface hangs off `SecretManagerServiceClient`: the bare `(...)` row const
 |  [03]   | `secret_version_path(project, secret, version)`   | static   | `projects/*/secrets/*/versions/*` resource name     |
 |  [04]   | `access_secret_version(name= \| request=)`        | instance | one polymorphic read; `.payload.data` bytes         |
 |  [05]   | `await async_client.access_secret_version(name=)` | instance | asyncio twin for a native-async resolve leg         |
-|  [06]   | `__enter__` / `__exit__`                          | bracket  | the ONLY release seam; no `close` member exists     |
-|  [07]   | `__aenter__` / `__aexit__`                        | bracket  | async-twin release seam                             |
+|  [06]   | `__enter__` / `__exit__`                          | bracket  | the ONLY release point; no `close` member exists    |
+|  [07]   | `__aenter__` / `__aexit__`                        | bracket  | async-twin release point                            |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -63,4 +63,4 @@ Every surface hangs off `SecretManagerServiceClient`: the bare `(...)` row const
 - `reliability/resilience#RESILIENCE`: `guarded(RetryClass.SECRET, ...)` wraps the cloud-tier probe, offloaded through `anyio.to_thread.run_sync` so the blocking gRPC read never stalls the loop.
 
 [LOCAL_ADMISSION]:
-- admission admits `SecretManagerServiceClient` construction, its `secret_client=` injection, and the `with` bracket that retires it; ADC/service-account resolution, retry/timeout defaults, and the internal `SecretManagerServiceGrpcTransport` — a client-private channel no runtime serve or dial seam shares — all arrive settled from the client, and this page owns only the read slice the cloud-tier row consumes.
+- admission admits `SecretManagerServiceClient` construction, its `secret_client=` injection, and the `with` bracket that retires it; ADC/service-account resolution, retry/timeout defaults, and the internal `SecretManagerServiceGrpcTransport` — a client-private channel no runtime serve or dial boundary shares — all arrive settled from the client, and this page owns only the read slice the cloud-tier row consumes.

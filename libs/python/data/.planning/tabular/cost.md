@@ -14,7 +14,7 @@ The cost ledger projects producer-owned operation results into per-key, per-tena
 - Packages: `pyarrow`, `msgspec`, `expression`, `opentelemetry-api`, `beartype`, the four producer pages, and runtime fault and identity surfaces.
 - Growth: a new producer result is one `CostFact.of` arm; a new quantity axis extends `CostFact`, `CostUnit`, `_COST_COLUMNS`, `combined`, and `RatePolicy.price` together.
 - Boundary: this is an in-memory projection over canonical producer results. Rates arrive as policy rows; there is no scan owner, storage owner, metric projection, or span here.
-- Boundary: the priced frame is the TERMINAL egress and advertises no reader: `python:artifacts/visualization/table#TABLE` `TablePlan.of` admits it as the settled Arrow-capsule frame it is, so naming a renderer here claims a seam neither end carries.
+- Boundary: the priced frame is the TERMINAL egress and advertises no reader: `python:artifacts/visualization/table#TABLE` `TablePlan.of` admits it as the settled Arrow-capsule frame it is, so naming a renderer here claims a boundary neither end carries.
 - Boundary: rates and totals ride `float` and no settlement reads this frame — observed spend is a dashboard reading, while the trapped exact-decimal arithmetic a settled charge demands homes at the runtime journal's rating fold and never at this projection.
 
 ```python
@@ -37,7 +37,7 @@ from rasm.data.tabular.egress import EgressResult
 from rasm.data.tabular.interop import ColumnSpec, DataLeg, arrow_bytes, column_frame
 from rasm.data.tabular.lakehouse import LakeResult
 from rasm.data.tabular.materialize import PartitionBundle
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import TENANT_BAGGAGE
 
@@ -151,7 +151,7 @@ class CostFact(Struct, frozen=True):
     unpriced: int = 0
 
     @classmethod
-    def of(cls, source: CostInput) -> "RuntimeRail[CostFact]":
+    def of(cls, source: CostInput) -> "RuntimeResult[CostFact]":
         tenant = _tenant()
         match source:
             case CostFact() as fact:
@@ -194,7 +194,7 @@ class CostFact(Struct, frozen=True):
                 assert_never(unreachable)
 
     @classmethod
-    def _tensor(cls, facts: Mapping[str, object], tenant: str | None) -> "RuntimeRail[CostFact]":
+    def _tensor(cls, facts: Mapping[str, object], tenant: str | None) -> "RuntimeResult[CostFact]":
         op, executor, target = facts.get("op"), facts.get("executor"), facts.get("target")
         malformed = (
             not isinstance(op, str)
@@ -241,7 +241,7 @@ class RatePolicy(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def of(cls, currency: str, *rows: tuple[CostDomain, CostUnit, float]) -> "RuntimeRail[RatePolicy]":
+    def of(cls, currency: str, *rows: tuple[CostDomain, CostUnit, float]) -> "RuntimeResult[RatePolicy]":
         keys = tuple((domain, unit) for domain, unit, _price in rows)
         invalid = (
             not currency
@@ -258,8 +258,8 @@ class RatePolicy(Struct, frozen=True):
             else Ok(cls(currency=currency, rates=Map.of_seq(((domain, unit), price) for domain, unit, price in rows)))
         )
 
-    def price(self, fact: CostFact) -> "RuntimeRail[float]":
-        def priced(quantities: tuple[tuple[CostUnit, float], ...]) -> "RuntimeRail[float]":
+    def price(self, fact: CostFact) -> "RuntimeResult[float]":
+        def priced(quantities: tuple[tuple[CostUnit, float], ...]) -> "RuntimeResult[float]":
             if any(not isfinite(amount) or amount < 0.0 for _unit, amount in quantities):
                 return Error(COST_QUANTITY.raised(fact.domain.value))
             missing = tuple(unit for unit, amount in quantities if amount != 0.0 and not self.rates.contains_key((fact.domain, unit)))
@@ -298,16 +298,16 @@ class CostLedger(Struct, frozen=True):
 
     @classmethod
     @beartype(conf=FAULT_CONF)
-    def of(cls, sources: Iterable[CostInput]) -> "RuntimeRail[CostLedger]":
+    def of(cls, sources: Iterable[CostInput]) -> "RuntimeResult[CostLedger]":
         return traverse(CostFact.of, Block.of_seq(sources)).map(lambda facts: cls(tuple(facts)))
 
-    def frame(self, policy: RatePolicy) -> "RuntimeRail[CostFrame]":
+    def frame(self, policy: RatePolicy) -> "RuntimeResult[CostFrame]":
         return traverse(
             lambda row: policy.price(row[1]).map(lambda price: PricedSlot(slot=row[0], fact=row[1], price=price, currency=policy.currency)),
             Block.of_seq(self._grouped().to_seq()),
         ).bind(lambda rows: self._frame(policy, Block.of_seq(rows)))
 
-    def _frame(self, policy: RatePolicy, priced: "Block[PricedSlot]") -> "RuntimeRail[CostFrame]":
+    def _frame(self, policy: RatePolicy, priced: "Block[PricedSlot]") -> "RuntimeResult[CostFrame]":
         def materialized() -> tuple[pa.Table, bytes]:
             table = column_frame(_COST_COLUMNS, priced)
             return table, arrow_bytes(table)

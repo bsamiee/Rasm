@@ -1,12 +1,12 @@
 # [PY_DATA_VIRTUAL]
 
-The sole manifest-cube owner: virtualizarr byte-range manifest construction AND icechunk native virtual-chunk addressing on one page. `FieldVirtual` aggregates archival chunk byte ranges into one zero-copy virtual `xarray.Dataset` — the actual bytes stay in the source files — and `VirtualReference` registers those external byte ranges as virtual chunks inside one transactional versioned `icechunk` `Repository`, never copying a byte. `ManifestWrite` is the one export/registration axis: one manifest vocabulary spanning the reference-document export, the session-store lowering, and the raw-slab registration, both folds returning the rail so an arm handed the direction it does not serve refuses typed rather than raising into the enclosing lift.
+The sole manifest-cube owner: virtualizarr byte-range manifest construction AND icechunk native virtual-chunk addressing on one page. `FieldVirtual` aggregates archival chunk byte ranges into one zero-copy virtual `xarray.Dataset` — the actual bytes stay in the source files — and `VirtualReference` registers those external byte ranges as virtual chunks inside one transactional versioned `icechunk` `Repository`, never copying a byte. `ManifestWrite` is the one export/registration axis: one manifest vocabulary spanning the reference-document export, the session-store lowering, and the raw-slab registration, both folds returning the result so an arm handed the direction it does not serve refuses typed rather than raising into the enclosing lift.
 
 Every content key is canonical bytes per the folder key-law — sorted per-variable `path offset length` rows, `snapshot.encode()`, the joined-refs stream — never a `repr()`/`str()` source. The committed snapshot's branch, tag, ancestry, and virtual-chunk content key cross to `dotnet:Rasm.Persistence/Version/Snapshots`; the runtime parity result grades cross-runtime seed reproduction from the C#-pinned `XxHash128` seed. `icechunk` ships stable-ABI wheels, so it imports module-top.
 
 ## [01]-[INDEX]
 
-- [02]-[MANIFEST]: the absorbed `FieldVirtual` byte-range virtual-datacube owner — the `VirtualParser` seam, the `h5py` native path, the `CFDtype` seam, and canonical manifest keying.
+- [02]-[MANIFEST]: the absorbed `FieldVirtual` byte-range virtual-datacube owner — the `VirtualParser` boundary, the `h5py` native path, the `CFDtype` boundary, and canonical manifest keying.
 - [03]-[VIRTUAL]: the `VirtualReference` icechunk owner — the `VersionOp` request axis over one `apply` dispatch and its awaitable twin, the `IceStorage` scheme table, the `ConflictSolver` auto-rebase commit, and `VirtualSnapshot`.
 
 ## [02]-[MANIFEST]
@@ -36,7 +36,7 @@ lazy import h5py
 lazy import xarray as xr
 
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.roots import ResourceRef, store_handle
 from virtualizarr.parsers import (
@@ -221,7 +221,7 @@ class ManifestWrite:
     cube: "FieldVirtual" = case()
     native: tuple[str, tuple[VirtualChunkSlab, ...]] = case()
 
-    def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> "RuntimeRail[None]":
+    def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> "RuntimeResult[None]":
         is_tree = isinstance(cube, xr.DataTree)
         match self:
             case ManifestWrite(tag="kerchunk", kerchunk=(fmt, record_size, threshold)):
@@ -241,7 +241,7 @@ class ManifestWrite:
             case unreachable:
                 assert_never(unreachable)
 
-    def register(self, session: "Session") -> "RuntimeRail[tuple[tuple[str, ...], VirtualEngine, int]]":
+    def register(self, session: "Session") -> "RuntimeResult[tuple[tuple[str, ...], VirtualEngine, int]]":
         match self:
             case ManifestWrite(tag="cube", cube=spec):
                 fields = {key: value for key, value in structs.asdict(spec).items() if key != "export"}
@@ -275,14 +275,14 @@ class FieldVirtual(Struct, frozen=True):
     store_config: StoreConfig | None = None
 
     @beartype(conf=FAULT_CONF)
-    def aggregate(self) -> "RuntimeRail[ContentKey]":
+    def aggregate(self) -> "RuntimeResult[ContentKey]":
         with _TRACER.start_as_current_span("virtual.manifest", attributes={"rasm.virtual.sources": len(self.sources)}):
-            return boundary(MANIFEST_WALK, lambda: _aggregate(self), catch=_MANIFEST_RAISES).bind(lambda railed: railed)
+            return boundary(MANIFEST_WALK, lambda: _aggregate(self), catch=_MANIFEST_RAISES).bind(lambda inner: inner)
 
     @beartype(conf=FAULT_CONF)
-    def tree(self, group: str | None = None) -> "RuntimeRail[ContentKey]":
+    def tree(self, group: str | None = None) -> "RuntimeResult[ContentKey]":
         with _TRACER.start_as_current_span("virtual.manifest.tree", attributes={"rasm.virtual.sources": len(self.sources)}):
-            return boundary(MANIFEST_TREE, lambda: _tree(self, group), catch=_MANIFEST_RAISES).bind(lambda railed: railed)
+            return boundary(MANIFEST_TREE, lambda: _tree(self, group), catch=_MANIFEST_RAISES).bind(lambda inner: inner)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
@@ -295,12 +295,12 @@ class FieldVirtual(Struct, frozen=True):
         maxshape: MaxShape | None = None,
         fillvalue: object | None = None,
         export: ManifestWrite = ManifestWrite(kerchunk=("parquet", None, None)),
-    ) -> "RuntimeRail[ContentKey]":
-        def _built() -> "RuntimeRail[ContentKey]":
+    ) -> "RuntimeResult[ContentKey]":
+        def _built() -> "RuntimeResult[ContentKey]":
             _native_file(slabs, shape, dtype, target, maxshape, fillvalue)
             return _aggregate(FieldVirtual(sources=(target,), target=target, export=export))
 
-        return boundary(MANIFEST_NATIVE, _built, catch=_MANIFEST_RAISES).bind(lambda railed: railed)
+        return boundary(MANIFEST_NATIVE, _built, catch=_MANIFEST_RAISES).bind(lambda inner: inner)
 
 
 def _url(ref: ResourceRef) -> str:
@@ -331,8 +331,8 @@ def _manifest_wire(name: str, manifest: dict[str, dict[str, object]]) -> bytes:
     return "\n".join(rows).encode()
 
 
-def _keyed(sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: "ManifestWrite", target: ResourceRef) -> "RuntimeRail[ContentKey]":
-    def resolved(_landed: None) -> "RuntimeRail[ContentKey]":
+def _keyed(sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: "ManifestWrite", target: ResourceRef) -> "RuntimeResult[ContentKey]":
+    def resolved(_landed: None) -> "RuntimeResult[ContentKey]":
         manifests = [
             _manifest_wire(str(name), var.data.manifest.dict()) for name, var in stats.data_vars.items() if hasattr(var.data, "manifest")
         ]
@@ -341,12 +341,12 @@ def _keyed(sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: "Manif
     return export.write(sink, target).bind(resolved)
 
 
-def _aggregate(spec: FieldVirtual) -> "RuntimeRail[ContentKey]":
+def _aggregate(spec: FieldVirtual) -> "RuntimeResult[ContentKey]":
     cube = _open_virtual(spec)
     return _keyed(cube, cube, spec.export, spec.target)
 
 
-def _tree(spec: FieldVirtual, group: str | None) -> "RuntimeRail[ContentKey]":
+def _tree(spec: FieldVirtual, group: str | None) -> "RuntimeResult[ContentKey]":
     registry = _registry(spec.sources, spec.store_config)
     head = _url(spec.sources[0])
     parser = VirtualParser.for_source(head).build()
@@ -373,12 +373,12 @@ def _native_file(
 ## [03]-[VIRTUAL]
 
 - Owner: `VirtualReference` — one frozen owner; the destination `IceStorage` backend is recovered per call from the `ResourceRef` scheme rather than stored, the virtual-chunk credential map threads once at the `open_or_create(authorize_virtual_chunk_access=)` lifecycle keyword rather than per `set_virtual_ref` call, and the version modality rides the `VersionOp` case the `apply` entrypoint takes rather than a stored write field.
-- Entry: `run` returns `RuntimeRail[VirtualOutcome]` — the verbs produce genuinely irreducible outcomes no fold collapses to one shape, so the named union is what the caller `match`es, never a bare `object` erasure; `apply` fences the raising `icechunk` calls in one boundary and `.bind`s away the doubled rail, and `apply_async` is its awaitable twin over one `on_thread` band hop — a blocking repository call never runs inline on a caller's loop, and it is the one seat this owner lands durable evidence from, since recording suspends by law where a synchronous entry cannot.
+- Entry: `run` returns `RuntimeResult[VirtualOutcome]` — the verbs produce genuinely irreducible outcomes no fold collapses to one shape, so the named union is what the caller `match`es, never a bare `object` erasure; `apply` fences the raising `icechunk` calls in one boundary and `.bind`s away the doubled result, and `apply_async` is its awaitable twin over one `on_thread` band hop — a blocking repository call never runs inline on a caller's loop, and it is the one seat this owner lands durable evidence from, since recording suspends by law where a synchronous entry cannot.
 - Law: the committing outcome lands durable evidence on the runtime journal — one operational `AuditFact` carries the snapshot and branch arrival, and a `STORAGE` `MeterFact` carries the bytes this commit made addressable. The read verbs record nothing because they mutate nothing.
-- Auto: a concurrent branch write auto-rebases at commit through `session.commit(rebase_with=)` under the supplied `ConflictSolver`, never a serialized retry loop; the content key materializes the snapshot-identity and registered-location component keys first, then Merkle-folds the resolved pair — the materialized-component idiom — never a nested rail the fold cannot key.
+- Auto: a concurrent branch write auto-rebases at commit through `session.commit(rebase_with=)` under the supplied `ConflictSolver`, never a serialized retry loop; the content key materializes the snapshot-identity and registered-location component keys first, then Merkle-folds the resolved pair — the materialized-component idiom — never a nested result the fold cannot key.
 - Law: `VirtualSnapshot` carries the aggregate case's Merkle key over snapshot identity and registered-location census; the census tuple materializes once and feeds both its count and location key. The `stamp`, `diff`, `reclaim`, and `checkout` cases return their native outcomes directly.
 - Packages: `_REPOSITORY` is the one `RepositoryConfig` every `open_or_create` binds — the repository's Rust-core store I/O is the one leg the runtime `store_handle` envelope cannot reach, so its `StorageRetriesSettings`/`StorageTimeoutSettings` derive from the branch `STORE_RETRIES`/`STORE_TIMEOUT` constants rather than running provider defaults beside a manifest walk that carries them, and `ManifestSplittingConfig`/`ManifestPreloadConfig` shard and bound the ref table one session open otherwise pays whole. Its `split_sizes` is a SEQUENCE of `(node-condition, sequence-of-(dim-condition, size))` pairs, never the mapping its shape reads as. The icechunk S3-family storage rows carry `from_env=` credential resolution — the `azure` `account` and `r2` `account_id` secondary identities resolve from the environment under `from_env=True`, never an `r.root` aliased onto two identity slots; `containers_credentials` values are the `AnyCredential` factory-return union, never a raw token tuple.
-- Growth: a new manifest shard axis is one `split_sizes` row narrowing `ManifestSplitCondition.PathMatches`/`NameMatches` against `ManifestSplitDimCondition.DimensionName`/`Axis`, and every other repository axis (caching budget, inline-chunk threshold, virtual-chunk containers, compression level) is a caller-supplied `RepositoryConfig` replacing the value whole with zero owner edits; a new storage backend is one `IceStorage` case plus one `_STORAGE` scheme row; a new export or registration path one `ManifestWrite` case; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`, the conflict rail through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member; a new reclaim modality one `Reclaim` case, a new time-travel anchor one `ReadAt` case; a new repository refusal law one `FaultRow` row beside `VERSION_APPLY`; zero new surface.
+- Growth: a new manifest shard axis is one `split_sizes` row narrowing `ManifestSplitCondition.PathMatches`/`NameMatches` against `ManifestSplitDimCondition.DimensionName`/`Axis`, and every other repository axis (caching budget, inline-chunk threshold, virtual-chunk containers, compression level) is a caller-supplied `RepositoryConfig` replacing the value whole with zero owner edits; a new storage backend is one `IceStorage` case plus one `_STORAGE` scheme row; a new export or registration path one `ManifestWrite` case; a new version operation (branch reset through `reset_branch`, snapshot rewrite through `rewrite_manifests`, the conflict path through `Session.rebase`) is one `VersionOp` case composing the matching `Repository` member; a new reclaim modality one `Reclaim` case, a new time-travel anchor one `ReadAt` case; a new repository refusal law one `FaultRow` row beside `VERSION_APPLY`; zero new surface.
 - Boundary: `open_or_create` binds the declared config; the durable git-like version-control engine stays C# Persistence. This page returns snapshot identity and consumes icechunk's native diff, reclaim, and rebase-at-commit outcomes.
 
 ```python
@@ -392,7 +392,7 @@ from msgspec import Struct
 
 lazy import xarray as xr
 
-from rasm.runtime.faults import Catch, RuntimeRail, async_boundary, boundary, railed, scoped
+from rasm.runtime.faults import Catch, RuntimeResult, async_boundary, boundary, returns_result, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import on_thread
@@ -532,12 +532,12 @@ class VersionOp:
     reclaim: Reclaim = case()
     checkout: ReadAt = case()
 
-    def run(self, repo: "Repository", spec: "VirtualReference") -> "RuntimeRail[VirtualOutcome]":
+    def run(self, repo: "Repository", spec: "VirtualReference") -> "RuntimeResult[VirtualOutcome]":
         match self:
             case VersionOp(tag="aggregate", aggregate=(write, meta, solver)):
                 session = repo.writable_session(spec.branch)
 
-                @railed
+                @returns_result
                 def _commit():
                     dims, engine, referenced = yield from write.register(session)
                     refs = tuple(session.all_virtual_chunk_locations())
@@ -592,17 +592,17 @@ class VirtualReference(Struct, frozen=True):
     config: "RepositoryConfig" = _REPOSITORY
     scope: ScopeKey = DEFAULT_SCOPE
 
-    def apply(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
+    def apply(self, op: VersionOp) -> "RuntimeResult[VirtualOutcome]":
         with _TRACER.start_as_current_span(f"{DOMAIN}.{op.tag}", attributes={"rasm.virtual.branch": self.branch}):
             return boundary(
                 VERSION_APPLY,
                 lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers, self.config), self),
                 catch=_VERSION_RAISES,
-            ).bind(lambda rail: rail)
+            ).bind(lambda held: held)
 
-    async def apply_async(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
-        railed = await async_boundary(VERSION_APPLY, lambda: on_thread(self.apply, op), catch=_VERSION_RAISES)
-        match railed.bind(lambda rail: rail):
+    async def apply_async(self, op: VersionOp) -> "RuntimeResult[VirtualOutcome]":
+        outcome = await async_boundary(VERSION_APPLY, lambda: on_thread(self.apply, op), catch=_VERSION_RAISES)
+        match outcome.bind(lambda held: held):
             case Result(tag="ok", ok=outcome):
                 return (await Journal.record(_evidence(self, outcome), scope=self.scope)).map(lambda _landed: outcome)
             case refused:

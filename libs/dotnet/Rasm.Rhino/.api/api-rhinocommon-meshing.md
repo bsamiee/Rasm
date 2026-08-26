@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_MESHING]
 
-`RhinoCommon` owns the host-fidelity mesh and SubD construction boundary: the `MeshingParameters`-driven mesher, quad-remesh and shrink-wrap generation, mesh booleans, the reduce/weld/offset/heal/smooth/split edit family, the `MeshExtruder`, and the `SubD` object model. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's own commands, standing above the host-neutral `Rasm` remesh, decimate, and subdivision kernel it never re-derives and projecting native outcomes onto the `LanguageExt` rails.
+`RhinoCommon` owns the host-fidelity mesh and SubD construction boundary: the `MeshingParameters`-driven mesher, quad-remesh and shrink-wrap generation, mesh booleans, the reduce/weld/offset/heal/smooth/split edit family, the `MeshExtruder`, and the `SubD` object model. Every member P/Invokes `rhcommon_c` and returns geometry bit-compatible with Rhino's own commands, standing above the host-neutral `Rasm` remesh, decimate, and subdivision kernel it never re-derives and projecting native outcomes onto the `LanguageExt` carriers.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -328,10 +328,10 @@
 
 [STACKING]:
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`Transform`/`BoundingBox`/`Interval` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
-- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a nullable single build lifts to `Option<Mesh>`/`Option<SubD>`, a null-or-empty array lands as `Seq<Mesh>`, an in-place `bool`/`int` edit folds into a `Fin` keyed to the mutated geometry, the boolean `Result`+`int[][]` map and the hull/offset side-channels fold into typed mesh build facts, and `QuadRemeshBrepAsync`/`QuadRemeshAsync` project their `Task<Mesh>` onto the effect rail.
+- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a nullable single build lifts to `Option<Mesh>`/`Option<SubD>`, a null-or-empty array lands as `Seq<Mesh>`, an in-place `bool`/`int` edit folds into a `Fin` keyed to the mutated geometry, the boolean `Result`+`int[][]` map and the hull/offset side-channels fold into typed mesh build facts, and `QuadRemeshBrepAsync`/`QuadRemeshAsync` project their `Task<Mesh>` onto the effect carrier.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the closed vocabularies wrap as `[SmartEnum<TKey>]`/`[Flags]`-backed owners; the mesh op models as a `[Union]` over the from-source, generate, boolean, split, and edit arms, and the subd op as a `[Union]` over the create, subdivide, offset, and convert arms.
 - `Rasm` kernel: host-neutral isotropic and quad remesh, quadric decimation, and stencil subdivision stand at the kernel altitude and the boundary re-derives none of them; densities, counts, tolerances, and offset distances compose the kernel numeric owners before the native call.
 
 [LOCAL_ADMISSION]:
-- Construction enters through the mesh or subd op union: each arm binds its native member, projects the outcome and any index-map or `Result` side-channel onto the rail, and disposes the `MeshExtruder` solver through a using scope or lease; `SubDSurfaceInterpolator` never mints on this rail (detached-unreachable, see the interpolation row).
+- Construction enters through the mesh or subd op union: each arm binds its native member, projects the outcome and any index-map or `Result` side-channel onto the carrier, and disposes the `MeshExtruder` solver through a using scope or lease; `SubDSurfaceInterpolator` never mints on this carrier (detached-unreachable, see the interpolation row).
 - Native `Mesh`, `SubD`, component lists, and configuration carriers stay inside the construction grant; downstream code receives content-hash-keyed duplicated geometry, the typed mesh or subd build facts, or an owned geometry lease, and the component-list reads project into detached topology records before crossing the boundary.

@@ -12,12 +12,12 @@ Optional appearance system, loaded only when a deliverable explicitly wants a th
 |  [04]   | Comment    | `#6272A4` | muted line + annotation            |
 |  [05]   | Foreground | `#F8F8F2` | label text                         |
 |  [06]   | Cyan       | `#8BE9FD` | external system + typed interface  |
-|  [07]   | Green      | `#50FA7B` | success rail + executed capability |
+|  [07]   | Green      | `#50FA7B` | success edge + executed capability |
 |  [08]   | Lavender   | `#D6BCFA` | container boundary + title ink     |
 |  [09]   | Orange     | `#FFB86C` | data store + durable fact          |
 |  [10]   | Pink       | `#FF79C6` | primary control flow               |
 |  [11]   | Purple     | `#BD93F9` | node ownership border + focus      |
-|  [12]   | Red        | `#FF5555` | error rail + rejection             |
+|  [12]   | Red        | `#FF5555` | error edge + rejection             |
 |  [13]   | Yellow     | `#FFD866` | payload + literal content          |
 
 Comment `#6272A4` is the muted-line and annotation ink; Selection `#44475A` is the node-fill shade. `themeVariables` take hex only — the theming engine rejects named colors there, and a themed corpus carries palette hexes on every styling surface.
@@ -28,72 +28,72 @@ Yellow sits at OKLCH `0.89 0.139 90` — true gold, clear of the green-adjacent 
 
 ## [02]-[ROLE_MAP]
 
-Every token carries its role on two surfaces: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge — a token with no rail is unspendable, so every token names both. Same meaning, same token, corpus-wide; a role outside this set composes from the nearest listed role, never a new hex. Rank and tier are not color roles: a tiered structure encodes rank by Y-position and subgraph membership, and the ordinal-palette families — `pie*`, `cScale*`, `fillType*`, `git*` — sequence hues as arbitrary category identity only.
+Every token carries its role on two surfaces: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` style that spends it per node and per edge — a token with no edge style is unspendable, so every token names both. Same meaning, same token, corpus-wide; a role outside this set composes from the nearest listed role, never a new hex. Rank and tier are not color roles: a tiered structure encodes rank by Y-position and subgraph membership, and the ordinal-palette families — `pie*`, `cScale*`, `fillType*`, `git*` — sequence hues as arbitrary category identity only.
 
 [BACKGROUND]:
 - Role: canvas + bright-fill text
 - Theme carriers: `background`, bright-ordinal `*Label*`, `sequenceNumberColor`
-- Class or rail: `color:#282A36` on every bright translucent class
+- Class or edge style: `color:#282A36` on every bright translucent class
 
 [DARKER]:
 - Role: recessed container + dormant / done + label backing
 - Theme carriers: `clusterBkg`, `compositeBackground`, `tertiaryColor`, `doneTaskBkgColor`, `sectionBkgColor`, `edgeLabelBackground`, `labelBackgroundColor`, `labelBoxBkgColor`, `relationLabelBackground`
-- Class or rail: `recessed` class; recessed label backing
+- Class or edge style: `recessed` class; recessed label backing
 
 [SELECTION]:
 - Role: neutral fill + activation + neutral note
 - Theme carriers: `mainBkg`, `primaryColor`, `actorBkg`, `taskBkgColor`, `noteBkgColor`, `activationBkgColor`, `altBackground`, `compositeTitleBackground`
-- Class or rail: `primary` fill
+- Class or edge style: `primary` fill
 
 [COMMENT]:
-- Role: secondary rail + muted stroke + neutral-note border
+- Role: secondary edge + muted stroke + neutral-note border
 - Theme carriers: `secondaryColor`, `gridColor`, `noteBorderColor`, `actorLineColor`, `git7`
-- Class or rail: `annotation` stroke; dashed trace rail
+- Class or edge style: `annotation` stroke; dashed trace edge
 
 [FOREGROUND]:
 - Role: label text
 - Theme carriers: every `*TextColor`, `textColor`
-- Class or rail: `color:#F8F8F2` on dark and deep-translucent classes
+- Class or edge style: `color:#F8F8F2` on dark and deep-translucent classes
 
 [CYAN]:
 - Role: external system / typed interface
 - Theme carriers: `git2`, `pie2`, `cScale1`, `plotColorPalette`
-- Class or rail: `external` class; external rail
+- Class or edge style: `external` class; external edge
 
 [GREEN]:
 - Role: success / executed
 - Theme carriers: `git3`, `pie3`, `cScale2`
-- Class or rail: `success` class; success rail
+- Class or edge style: `success` class; success edge
 
 [LAVENDER]:
 - Role: container boundary + container title ink
 - Theme carriers: `clusterBorder`, `compositeBorder`, `titleColor`, `labelBoxBorderColor`, `archGroupBorderColor`
-- Class or rail: the 1px dashed container border and its title, every container family
+- Class or edge style: the 1px dashed container border and its title, every container family
 
 [ORANGE]:
 - Role: data store / durable fact
 - Theme carriers: `git4`, `pie4`, `cScale3`
-- Class or rail: `data` class; data rail
+- Class or edge style: `data` class; data edge
 
 [PINK]:
 - Role: primary control flow + terminus marks
 - Theme carriers: `lineColor`, `arrowheadColor`, `signalColor`, `transitionColor`, `todayLineColor`
-- Class or rail: `primary` stroke; default rail; arrowheads, pseudostate discs, terminal rings, lollipop rings
+- Class or edge style: `primary` stroke; default edge; arrowheads, pseudostate discs, terminal rings, lollipop rings
 
 [PURPLE]:
 - Role: node ownership border / focus
 - Theme carriers: `nodeBorder`, `primaryBorderColor`, `actorBorder`, `taskBorderColor`, `activationBorderColor`, `git0`
-- Class or rail: `boundary` stroke; solid on nodes, never on containers
+- Class or edge style: `boundary` stroke; solid on nodes, never on containers
 
 [RED]:
 - Role: error / rejection / forbidden
 - Theme carriers: `critBkgColor`, `critBorderColor`, `git5`, `pie6`, `cScale5`
-- Class or rail: `error` class; error rail on every fault edge
+- Class or edge style: `error` class; error edge on every fault edge
 
 [YELLOW]:
 - Role: payload / literal / tag / attention note
 - Theme carriers: `tagLabelBackground`, `git6`, `pie7`, `cScale6`, class-diagram `noteBkgColor`
-- Class or rail: `payload` class; payload rail; class-note chip; gitgraph tag; treeview highlight; railroad terminal — every carrier translucent gold under Foreground ink
+- Class or edge style: `payload` class; payload edge; class-note chip; gitgraph tag; treeview highlight; railroad terminal — every carrier translucent gold under Foreground ink
 
 ## [03]-[BASE_BLOCK]
 
@@ -312,13 +312,13 @@ config:
 
 Each surface owns one color job; ceding it to another is the defect, and every `classDef` sets an explicit `color:` to survive a host swap. Class names are free-form — a themed diagram names its own semantic classes — while every hex a class carries traces to the palette table.
 
-| [INDEX] | [SURFACE]        | [OWNS]                                     |
-| :-----: | :--------------- | :----------------------------------------- |
-|  [01]   | `themeVariables` | diagram-wide defaults                      |
-|  [02]   | `classDef`       | semantic node classes, id-bound edge rails |
-|  [03]   | `linkStyle`      | positional per-edge semantic rails         |
-|  [04]   | inline `style`   | one-off node exception                     |
-|  [05]   | `themeCSS`       | renderer escape hatch                      |
+| [INDEX] | [SURFACE]        | [OWNS]                                      |
+| :-----: | :--------------- | :------------------------------------------ |
+|  [01]   | `themeVariables` | diagram-wide defaults                       |
+|  [02]   | `classDef`       | semantic node classes, id-bound edge styles |
+|  [03]   | `linkStyle`      | positional per-edge semantic edge styles    |
+|  [04]   | inline `style`   | one-off node exception                      |
+|  [05]   | `themeCSS`       | renderer escape hatch                       |
 
 `linkStyle` binds positionally and its property set is `stroke`, `stroke-width`, `stroke-dasharray`, `color`, and `fill`; a non-default edge that declares no `fill` gets `fill:none` injected.
 
@@ -381,7 +381,7 @@ A callout node reads against the standing role fills because its recessed surfac
 
 Only the class-diagram note takes the payload chip — `noteBkgColor: "#FFD86654"`, `noteBorderColor: "#FFD866"`, `noteTextColor: "#F8F8F2"` — because a class note tags an invariant; sequence and state notes stay neutral Selection captions. Gitgraph tag, treeview highlight, and railroad terminal spend the same yellow-law chip: translucent gold, full gold border, Foreground ink.
 
-Edge rails bind explicitly — every semantic edge takes its rail, and only a plain forward hop rides the default:
+Edge styles bind explicitly — every semantic edge takes its style, and only a plain forward hop rides the default:
 
 ```text
 linkStyle default stroke:#FF79C6,color:#F8F8F2
@@ -392,9 +392,9 @@ linkStyle 4 stroke:#FFB86C,color:#F8F8F2
 linkStyle 5 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
 ```
 
-Rail semantics: Pink primary, Green success, Red error — on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every rail declares `color:#F8F8F2` so its label never falls to a derived color; a rail without an explicit width rides the standing `2px` the micro-scale stamps, the fault rail the `3px` emphasis weight, the trace rail the `1.5px` dashed weight — the one ladder in [05]. Every styled edge's arrowhead colors from its resolved stroke — a Red rail ends in a Red head with no extra key — and `arrowheadColor` governs only unstyled edges.
+Edge semantics: Pink primary, Green success, Red error — on every fault edge — Cyan external, Orange data-carrying, Comment-dashed trace and secondary. Every edge style declares `color:#F8F8F2` so its label never falls to a derived color; a edge style without an explicit width rides the standing `2px` the micro-scale stamps, the fault edge style the `3px` emphasis weight, the trace edge style the `1.5px` dashed weight — the one ladder in [05]. Every styled edge's arrowhead colors from its resolved stroke — a Red edge style ends in a Red head with no extra key — and `arrowheadColor` governs only unstyled edges.
 
-A rail binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`. Id-form binding survives the insertions that renumber every positional index; a fence under ongoing edits binds through it. Canonical edge classes mirror the non-default rails:
+An edge style binds two ways with identical semantics: positionally through `linkStyle N` — indices are 0-based parse positions, so every edge insertion or deletion recounts every positional index before the diagram ships — or insertion-stably through an edge id, `A e1@--> B` then `class e1 edgeError`. Id-form binding survives the insertions that renumber every positional index; a fence under ongoing edits binds through it. Canonical edge classes mirror the non-default edge styles:
 
 ```text
 classDef edgeControl stroke:#FF79C6,color:#F8F8F2
@@ -405,7 +405,7 @@ classDef edgeData stroke:#FFB86C,color:#F8F8F2
 classDef edgeTrace stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
 ```
 
-`edgeControl` spells the Pink rail as an id-bound class: a kinded control or import edge — a seam `[KIND]:` label, a labeled dependency — binds it explicitly so the edge survives insertion, reading identically to the default rail while asserting the binding was chosen, never forgotten.
+`edgeControl` spells the Pink style as an id-bound class: a kinded control or import edge — a boundary `[KIND]:` label, a labeled dependency — binds it explicitly so the edge survives insertion, reading identically to the default edge while asserting the binding was chosen, never forgotten.
 
 ## [05]-[MICRO_SCALE]
 
@@ -425,7 +425,7 @@ Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every valu
 |  [10]   | loop / group label          | `.loopText`, `.labelText`                |  12   | 500                    |
 |  [11]   | section / lane title        | `.sectionTitle`, kanban `.cluster-label` | 13.5  | 700, Lavender ink      |
 
-Line-weight ladder — one scale, every stroke on the canvas, stated here once and spent verbatim by every stamp, rail, and class:
+Line-weight ladder — one scale, every stroke on the canvas, stated here once and spent verbatim by every stamp, edge style, and class:
 
 | [INDEX] | [STROKE]                         | [WEIGHT] | [RATIO] | [FORM]                     |
 | :-----: | :------------------------------- | :------: | :-----: | :------------------------- |
@@ -456,7 +456,7 @@ gantt:     ".sectionTitle{font-size:13.5px;font-weight:700;fill:#D6BCFA}.taskTex
 
 - `themeCSS` admits no `>` combinator: the sanitizer drops the entire injected block on the first `>`, silently reverting every rule in it — use the descendant space. A `classDef` emits inline `!important` declarations that beat any stylesheet rule including an `!important` one, so the strings above own only what no class carries: typography, bare strokes, weights, and the filter belt.
 - Mermaid's engine measures label boxes before `themeCSS` applies, so a `text-transform` clips its target — the uppercase container title rides the title text itself (`subgraph core[CORE PACKAGE]`), and any size stamped above the measured 16px default clips the same way; the stamps above only step down. A namespace path title (`Company.Engineering.Backend`) renders as declared — case law binds free labels only.
-- Weight law: the ladder above is the only weight source — the standing `2px` edge stamps through the engine's own thickness classes, the pattern classes pull every dashed and dotted edge to `1.5px` at the trace rhythm, and a rail that needs another weight carries it inline where it wins by inline precedence.
+- Weight law: the ladder above is the only weight source — the standing `2px` edge stamps through the engine's own thickness classes, the pattern classes pull every dashed and dotted edge to `1.5px` at the trace rhythm, and a edge style that needs another weight carries it inline where it wins by inline precedence.
 - Dashed-rhythm law: `4 6` reads as trace and annotation, `6 6` as planned and deferred, `5 4` as container containment, solid as realized — one rhythm system across every themed diagram; the trace gap runs longer than its dash so a dotted line reads as a distinct rhythm, not a broken solid.
 - Canvas law: themed flowchart fences carry `layout: elk` and `flowchart: { curve: linear, padding: 25 }` — ELK routes orthogonally on its own and paints its bends through a fixed rounded joint, while the `curve: linear` key holds the elbow posture on any host that falls back to the non-ELK renderer; `subGraphTitleMargin` stays out of ELK diagrams, since it displaces edge labels there.
 - Marker route law: Requirement, C4, and architecture markers use family routes; state barb markers stay at `.4`. Every unfilled marker declares fill and stroke.
@@ -573,7 +573,7 @@ Per-family selector recipes and engine bounds a themed render works around; each
 - Architecture: arrowheads are `polygon.arrow` filled from `archEdgeArrowColor` — gray unless set, `lineColor` never reaches this family; a CSS transform on them erases the placement translate, so arrow size tunes only through `iconSize`; the `.architecture-service svg rect`/`.architecture-groups svg rect` stamp re-fills the hardcoded blue icon plates.
 - Packet: `.packetBlock`, `.packetLabel`, `.packetByte`, `.packetTitle` classes own the whole surface; fields composite one hue family, never a rainbow.
 - Timeline: ordinal fills read `cScale` but theme resolution strips alpha, so translucency rides `.node-bkg{fill-opacity:.5}` with per-section full-hue borders — section classes index from `-1`, so the first section is `.section--1`; unclassed axis and connectors restyle by attribute (`line[stroke-width='4']`, `line[stroke-dasharray='5,5']`).
-- GitGraph: branch rails are `.arrow` paths drawn at 8px, pulled to 2px by the stamp; commit dots scale −25% through one transform on `.commit-bullets circle`, preserving merge-ring ratios; a canvas-valued `primaryColor` renders merges as hollow rings; `.arrowN` classes index branch declaration order, and only an unmerged branch takes the `6 6` planned rhythm; tags chip through `.tag-label-bkg`/`.tag-label`/`.tag-hole`.
+- GitGraph: branch lines are `.arrow` paths drawn at 8px, pulled to 2px by the stamp; commit dots scale −25% through one transform on `.commit-bullets circle`, preserving merge-ring ratios; a canvas-valued `primaryColor` renders merges as hollow rings; `.arrowN` classes index branch declaration order, and only an unmerged branch takes the `6 6` planned rhythm; tags chip through `.tag-label-bkg`/`.tag-label`/`.tag-hole`.
 - Kanban: column fills read `cScale` shifted one — column classes index from `section-1`; cards fill the `background` variable under `nodeBorder` strokes; hardcoded priority-bar colors remap through `line[stroke='red'|'orange'|'blue'|'lightblue']` attribute hooks.
 - TreeView: `treeView:` config keys land directly; the highlight and description surfaces restyle through `.treeView-highlight-bg` and `.treeView-node-description`.
 - Cynefin: domain fills, boundary, cliff, and arrow color nest under `cynefin:`; the engine multiplies each `*Bg` by a `.4` fill-opacity, so a ~20% alpha hex lands near an 8% composite wash; `.cynefinItem`/`.cynefinItemText` chip the items.
@@ -586,21 +586,21 @@ Per-family selector recipes and engine bounds a themed render works around; each
 
 ## [10]-[CONSISTENCY_LAWS]
 
-Where a deliverable commits to a themed render, review binds these laws on every fence in it; the values each law spends — hexes, stamps, weights, rail styles — live in the sections above, and a law here never redefines them.
+Where a deliverable commits to a themed render, review binds these laws on every fence in it; the values each law spends — hexes, stamps, weights, edge style styles — live in the sections above, and a law here never redefines them.
 
-- Edge-rail law: every semantic edge carries an explicit rail from the [04] set, bound positionally through `linkStyle` or insertion-stably through an edge-id class; only a plain forward hop inherits the default, every fault edge is Red, and every edge insertion recounts positional indices — the id form escapes the recount.
+- Edge-style law: every semantic edge carries an explicit style from the [04] set, bound positionally through `linkStyle` or insertion-stably through an edge-id class; only a plain forward hop inherits the default, every fault edge is Red, and every edge insertion recounts positional indices — the id form escapes the recount.
 - Weight law: every stroke spends the one weight ladder, so weight alone lifts an important hop above a routine one; the arrowhead rides the `.marker path` scale the family stamp carries, never the line weight.
 - Animation law: `animate: true` marks live, streaming, or hot-path semantics — one per diagram and never decoration; the engine stills it under reduced motion, and a second competing animation dilutes the first. A static export freezes the animation's dash keyframe, so the edge prints dashed and collides with the trace rhythm — a fence whose proof or destination is a raster leaves `animate` off and carries the emphasis on weight or a callout instead.
 - Container law: every container family spends the border canon's one container surface and title ink; nested regions step one tone lighter, and white containers fail the render floor.
 - Render-flat law: the border canon's four-layer flat lock reaches every themed fence, and no fence, string, or template reintroduces a gradient reference or a node filter.
 - Terminus law: every terminus mark rides its line's color at the marker and circle scales, so no circle reads as a stray dot, no circle shoulders its label, and no head outweighs its line; an engine that leaves a marker unfilled takes an explicit fill-and-stroke stamp, so no arrowhead renders grey anywhere.
-- Label-placement law: an edge or relationship label never sits bare on its stroke — the recessed backing chip masks the line it crosses, offsets clear collision hot spots, and a label the engine strands away from its edge is dropped in favor of the rail's color semantics.
+- Label-placement law: an edge or relationship label never sits bare on its stroke — the recessed backing chip masks the line it crosses, offsets clear collision hot spots, and a label the engine strands away from its edge is dropped in favor of the edge style's color semantics.
 - classDef-completeness law: a themed flowchart, state, ER, class, or requirement diagram ships every class its semantics demand — an aggregate root, junction, fault, or dormant state rendering identical to its neighbors is the defect.
 - Translucency law: every semantically colored shape composites the two-tier alpha table under a full-opacity border of the same hue; an opaque accent fill is the defect the table exists to prevent.
 - Typography law: the mono stack and micro-scale stamps reach every themed fence, emphasis rides a callout node or color rather than a markdown `**bold**` span that renders chunky in mono, and no canvas text renders below the 12px floor.
 - Backing law: label backings ride the recessed backing chip so the chip masks the stroke it crosses; a backing equal to the canvas reads as a hole.
 - Ordinal-completeness law: a type reading an ordinal palette defines the full engine range the base block carries, so no band derives to `primaryColor` mud.
-- Single-home law: this reference carries every token role, the micro-scale stamps, and the canonical class and rail sets; a themed fence demonstrates the keys it consumes and never privately defines a role.
+- Single-home law: this reference carries every token role, the micro-scale stamps, and the canonical class and edge-style sets; a themed fence demonstrates the keys it consumes and never privately defines a role.
 
 ## [11]-[DUAL_HOST]
 

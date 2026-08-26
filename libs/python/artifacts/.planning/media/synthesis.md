@@ -26,7 +26,7 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct
 
-from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeResult, async_boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -282,9 +282,9 @@ class Synthesis(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"media.synthesis-{self.op.tag}", CANON.encode((self.op, _identity_policy(self.op, self.profile))))
 
-    async def _emit(self) -> RuntimeRail[Produced]:
-        railed = await async_boundary(SYNTHESIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
-        settled = railed.bind(
+    async def _emit(self) -> RuntimeResult[Produced]:
+        outcome = await async_boundary(SYNTHESIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
+        settled = outcome.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SYNTHESIS_FOLD.subject, fault)))
         )
         match settled:
@@ -294,8 +294,8 @@ class Synthesis(Struct, frozen=True):
 
     async def _folded(self, /) -> Result[Produced, MediaFault]:
         replayable = not any(row.container.segmented and row.segment is not None for row in (self.profile.media, self.profile.video))
-        railed = await self.lane.offload(Kernel.of(_synthesize, KernelTrait.HOSTILE, idempotent=replayable), self.op, self.profile)
-        return railed.map_error(_lapsed).bind(lambda inner: inner)
+        outcome = await self.lane.offload(Kernel.of(_synthesize, KernelTrait.HOSTILE, idempotent=replayable), self.op, self.profile)
+        return outcome.map_error(_lapsed).bind(lambda inner: inner)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -585,8 +585,8 @@ def _screened(op: SynthOp, profile: SynthProfile, /) -> Result[Produced, MediaFa
         case SynthOp(tag="bars", bars=(seconds, _, tone_hz)) if tone_hz > 0.0:
             arate = profile.media.rate
             tone = _blocks(_TONE_LEVEL * np.sin(_phase(tone_hz, int(seconds * arate), arate)))
-            railed = _mux_av(frames, tone, profile.video, profile.media)
-            return railed.map(
+            outcome = _mux_av(frames, tone, profile.video, profile.media)
+            return outcome.map(
                 lambda pair: _banded(pair, band | {"tone_hz": tone_hz, "tone_level": _TONE_LEVEL, "tone_rate": float(arate)})
             )
         case _:

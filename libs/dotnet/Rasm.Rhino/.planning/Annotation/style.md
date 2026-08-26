@@ -6,28 +6,28 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 
 ## [01]-[INDEX]
 
-- [02]-[ADDRESS_AND_VOCAB]: the `TableGrip<TComponent, TDef>` revision law and the `TableOp`/`ListEdit`/`TagEdit` verb families over the Document-owned `ResourceRef`/`ResourceLens<T>` address, the `DraftCrossing` detach seam, the `DraftBorrow` input seam, the shared drafting scalars, and explicit-value length-display rows.
+- [02]-[ADDRESS_AND_VOCAB]: the `TableGrip<TComponent, TDef>` revision law and the `TableOp`/`ListEdit`/`TagEdit` verb families over the Document-owned `ResourceRef`/`ResourceLens<T>` address, the `DraftCrossing` detach boundary, the `DraftBorrow` input bracket, the shared drafting scalars, and explicit-value length-display rows.
 - [03]-[FIELD_SCHEMA]: `StyleAxis`, `EnumFamily`, `StyleValue`, the `FieldTable<TOwner, THostEnum>` row mechanism, exact-family `StyleField` rows, the `StylePatch` fold that re-derives an override child from its construction parent, and the `DraftStandard` projection of the kernel drawing ladders onto those rows.
-- [04]-[STYLE_RAIL]: `StyleDef`, `StyleOp`, `DraftPlan<StyleOp>`, and the `Styles.Commit` entry over the shared spine.
+- [04]-[STYLE_PIPELINE]: `StyleDef`, `StyleOp`, `DraftPlan<StyleOp>`, and the `Styles.Commit` entry over the shared spine.
 - [05]-[ASK_FAMILY]: `StyleAsk`/`StyleAnswer` — snapshot, built-in census, swatch lease, and name minting.
 - [06]-[SPINE]: `DraftSpine` provides the shared command entry.
 - [07]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[ADDRESS_AND_VOCAB]
 
-- Owner: `TableGrip<TComponent, TDef>` extends the Document spine's `ResourceRef`/`ResourceLens<TComponent>` component address (tables.md) with every verb a host component table publishes — title, index, duplicate, mint, revise, retitle, modify, seat, retire, elect, the tag seam, an optional host-state bracket, and the two independent file halves — and owns the one duplicate-then-`Modify` revision law every component table walks; `TableOp<TComponent, TDef>` is the shared eight-case verb family over that grip; the address family, its `ResourceId`/`ResourceName`/`ResourceIndex` scalars, and the sentinel projectors live on the Document spine, never re-declared here.
-- Law: each Annotation table contributes one `ResourceLens<T>` row and one `TableGrip<T, TDef>` — style, linetype, hatch, and section each declare exactly one — and embeds `TableOp` as a single case on its own program union; a page re-spelling `Author`, `Amend`, `Rename`, `Retag`, `Delete`, `SetCurrent`, `Import`, or `Export` as its own arm executes the deleted form, and no rail mints a second address family.
+- Owner: `TableGrip<TComponent, TDef>` extends the Document spine's `ResourceRef`/`ResourceLens<TComponent>` component address (tables.md) with every verb a host component table publishes — title, index, duplicate, mint, revise, retitle, modify, seat, retire, elect, the tag surface, an optional host-state bracket, and the two independent file halves — and owns the one duplicate-then-`Modify` revision law every component table walks; `TableOp<TComponent, TDef>` is the shared eight-case verb family over that grip; the address family, its `ResourceId`/`ResourceName`/`ResourceIndex` scalars, and the sentinel projectors live on the Document spine, never re-declared here.
+- Law: each Annotation table contributes one `ResourceLens<T>` row and one `TableGrip<T, TDef>` — style, linetype, hatch, and section each declare exactly one — and embeds `TableOp` as a single case on its own program union; a page re-spelling `Author`, `Amend`, `Rename`, `Retag`, `Delete`, `SetCurrent`, `Import`, or `Export` as its own arm executes the deleted form, and no owner mints a second address family.
 - Law: the grip's verb columns are the host's own members, and the two file halves are INDEPENDENT — a table that reads a `.lin` roster but publishes no writer states `Ingest` and leaves `Emit` absent, so `TableOp.Export` against it refuses typed where a paired read/write record forces a fabricated writer, exactly as `HatchSpec.Lens.ById` states the id lookup its table does not publish.
 - Law: `TableGrip.Revised` releases its duplicate on all three paths — revise refusal, `Modify` refusal, and success — because `Modify` copies settings into the table row and leaves the duplicate the caller's; the released-on-refusal-only shape leaks one native per successful amendment. `Scoped` brackets a host STATE toggle around the revise and runs its exit on EVERY leg, so a refused edit can never leave the duplicate in the toggled state.
-- Law: `ListEdit<TRow>` is the one index-addressed list-revision vocabulary and `ListSurface<TRow>` the seam it walks — the append, remove, optional in-place write, optional bulk purge, and row floor the host and its table declare — so a list without an in-place setter spells `Replace` as a bounded remove-then-append ONCE, here, and a list that may not empty carries its floor as a column instead of a guard re-spelled per page.
-- Law: `TagEdit` is the one component user-string vocabulary — incremental set, delete, clear, and the whole-bag `Replace` whose replay rides `DocumentCommit.Compensated` — and `TagSurface` binds one tagged component's four re-published members; the host keeps that surface `internal` on `CommonObject`, so the seam is the argument and never a reflected delegate receiver.
+- Law: `ListEdit<TRow>` is the one index-addressed list-revision vocabulary and `ListSurface<TRow>` the interface it walks — the append, remove, optional in-place write, optional bulk purge, and row floor the host and its table declare — so a list without an in-place setter spells `Replace` as a bounded remove-then-append ONCE, here, and a list that may not empty carries its floor as a column instead of a guard re-spelled per page.
+- Law: `TagEdit` is the one component user-string vocabulary — incremental set, delete, clear, and the whole-bag `Replace` whose replay rides `DocumentCommit.Compensated` — and `TagSurface` binds one tagged component's four re-published members; the host keeps that surface `internal` on `CommonObject`, so the surface is the argument and never a reflected delegate receiver.
 - Law: `DraftCrossing.Crossed` lands a raw host batch on `GeometryHandle` custody through the Document crossing; disposal and failed-path aggregation remain kernel `Custody`/`Rollback` work.
 - Law: `DraftScale` and `DraftAngle` are the namespace's drafting quantity owners — pattern and boundary scales and radian rotations admit once here and compose from every drafting page, so no page re-mints a scalar owner for a host property another already owns. A millimetre PLOT WEIGHT is not one of them: the ISO 128-24 width ladder is the kernel's and the folder's ingress is `Document/layers.md` `PrintPen`, whose three cases carry the host's `0.0` and `-1.0` sentinels as named rows.
-- Law: `DraftBorrow` is the one input-custody seam — a `GeometryHandle` argument projects its live native inside one lease scope through `Typed`, and a handle spread nests one scope per member, so a public drafting payload names custody and never a raw `Curve` or `Brep`.
+- Law: `DraftBorrow` is the one input-custody bracket — a `GeometryHandle` argument projects its live native inside one lease scope through `Typed`, and a handle spread nests one scope per member, so a public drafting payload names custody and never a raw `Curve` or `Brep`.
 - Law: `ResourceName` carries the ordinal-ignore-case comparer the host component tables key on, so a name census, a duplicate probe, and an occupancy guard read ONE comparison policy instead of passing `StringComparer.OrdinalIgnoreCase` per call site.
 - Law: `TargetResolution.Only<TNative>` owns exactly-one object resolution with the typed cast probe; `LengthDisplayRow` keys each host value explicitly, including the host spelling `Millmeters`.
 - Boundary: resolution reads live per call inside the owning operation — tables mutate under commands, so no resolved component is cached on a value.
-- Packages: `Document/tables.md` (`ResourceRef`, `ResourceLens<T>`, `ResourceName`, `ResourceIndex`, `TableTarget`, `GeometryHandle`, `GeometryCrossing`, `TagOp.Snapshot`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Document/session.md` (`DraftFault`), `Domain/rails` (`Lease<T>`, `Custody`, the `Op` receiver rows); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon component tables per `.api/api-rhinocommon-drafting-resources.md`.
+- Packages: `Document/tables.md` (`ResourceRef`, `ResourceLens<T>`, `ResourceName`, `ResourceIndex`, `TableTarget`, `GeometryHandle`, `GeometryCrossing`, `TagOp.Snapshot`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Document/session.md` (`DraftFault`), `Domain/results` (`Lease<T>`, `Custody`, the `Op` receiver rows); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon component tables per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a component table joins with one lens row and one grip; a new table verb is one `TableOp` case beside one grip column every table already answers.
 
 ```csharp
@@ -332,7 +332,7 @@ public sealed partial class LengthDisplayRow {
 - Owner: `FieldTable<TOwner, THostEnum>` is the row MECHANISM — the nine payload adapters, the one `Of<T>` seat, and the host-enum row admission — parameterized over the owner the delegates read and the host enum the rows key on, so a second drafting schema over a different host enum instantiates it instead of re-spelling nine adapters; `FieldSeat<TOwner>` is the row payload the mechanism mints; `StyleField` is that mechanism keyed to `DimensionStyle.Field`, each row carrying its axis with exact read, admission, and write delegates, while `StyleEdit` is the sole admitted field/payload pair.
 - Owner: `EnumFamily` is the one CLR-enum admission memo: the `[Flags]` question, the composite mask, and the membership probe resolve ONCE per enum family at first touch and the family rides on the value, so a payload carries an admission WITNESS rather than a `Type` every reader re-tests and no admission runs reflection per call.
 - Law: enum payloads carry their admitted family beside the value; each `Pick<TEnum>` row accepts only its exact family and a declared member before any host cast, and `[Flags]` rows admit composites `Enum.IsDefined` refuses through the family's own mask-subset test.
-- Law: the write path is RAILED end to end — a payload's host projection is a `Fin<T>`, so a colour leaving through the gamut boundary refuses at the field rather than inside a statement block the fold cannot see.
+- Law: the write path is RESULT-TYPED end to end — a payload's host projection is a `Fin<T>`, so a colour leaving through the gamut boundary refuses at the field rather than inside a statement block the fold cannot see.
 - Law: `StylePatch.Of` accumulates its edit admission while `Apply` stops on the first refused host write, and `Overlay` mints annotation overrides — the two folds answer different questions, so they carry different failure algebras.
 - Law: color/plot-source `Field` cases from `ExtLineColorSource` through `DimLinePlotWeight_mm`, with `MaskFlags`, `SignedOrdinate`, and `UnitSystem`, carry no CLR property on `DimensionStyle`; `Name` and `Index` cannot inherit from a parent. `StyleField` excludes every non-property case, and the override census reports schema rows alone.
 - Law: each host setter marks its own override field, while `MaskOffset` binds `Field.MaskBorder`.
@@ -737,7 +737,7 @@ public static class DraftStandard {
 }
 ```
 
-## [04]-[STYLE_RAIL]
+## [04]-[STYLE_PIPELINE]
 
 - Owner: `AnnotationStyleOp` is the per-annotation override pair — overlay a patch, or clear every property override — shared verbatim by the dimension and text programs; `StyleDef` is the authorable dimension-style aggregate — name, patch, and optional parentage — the grip mints and revises; `StyleOp` `[Union]` carries the shared table verbs as ONE `Table` case beside the six verbs no other component table has: whole-setting copy, override clearing, reverse absorption, reparenting, length scaling, and the paper/model scale faces; `DraftPlan<StyleOp>` is the admitted commit plan; `Styles` the `Commit`/`Ask` entry pair.
 - Law: an amendment never mutates the resolved live component — every write duplicates it, applies its change to the copy, and lands through `DimStyleTable.Modify` by index inside the shared undo bracket, the `TableGrip` law this page owns.
@@ -746,7 +746,7 @@ public static class DraftStandard {
 - Law: every plural ADMISSION fold in the namespace accumulates — `Traverse` onto `Validation`, then back to `Fin` — so a rejected batch reports its whole refusal set; the fail-fast `TraverseM` shape is reserved for plural HOST WRITES, where a later write must never run after an earlier one refused.
 - Law: `Absorb` is the one reverse projection — `DimStyleTable.Modify(style, annotation)` folds a live annotation's per-instance overrides back onto the style, accepting `Modify` and `Override` while `NotSaved` is a typed refusal.
 - Law: `Copy` projects every source setting through `DimensionStyle.CopyFrom` while preserving the target name, id, and index; `ClearOverrides` names its scope as the field run itself, and `StyleField.On(axis)` is how a caller spells a whole axis without a second request shape.
-- Law: reclamation is not a case — unused-style reclaim is the document rail's `TableOp.Reclaim(TableKind.DimStyles)` row, and re-spelling it here splits one host member across two owners.
+- Law: reclamation is not a case — unused-style reclaim is the document pipeline's `TableOp.Reclaim(TableKind.DimStyles)` row, and re-spelling it here splits one host member across two owners.
 - Law: the write posture is the spine's `HostInteraction`, carried by every drafting op case in the namespace — style, linetype, hatch, and section alike. The axis is exactly quiet-versus-interactive-versus-designed-silence and the spine already owns it, so a folder-local vocabulary over the same host `quiet` boolean held one concept under two names that drift apart.
 - Law: every scale a case carries is a `DraftScale`, admitted at its own gate — a positivity guard inside an arm re-decides at the write what the owner already decided at admission.
 - Packages: `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DocumentSession.Demand`); RhinoCommon `DimStyleTable` per `.api/api-rhinocommon-annotation.md`.
@@ -919,10 +919,10 @@ public static class Styles {
 - Owner: `StyleAsk` `[Union]` — the catalog-backed read requests: whole-state snapshot under an optional axis scope, built-in-style census, swatch render, and default-or-rooted name minting; `StyleAnswer` `[Union]` — one typed result case per request; `StyleSetting` — one `(field, value)` read fact; `StyleTag` — one admitted user-string fact; `StyleSnapshot` — the one-pass definition read: identity, parentage, override census over schema rows, config projection, current-selection state, rendered length units, and user strings.
 - Law: the snapshot's config projection is the schema fold — every `StyleField` row in the asked scope answers one `StyleSetting` through its own `Read` delegate, so a consumer never re-reads those host properties and an axis-scoped ask costs the rows of that axis alone.
 - Law: the swatch crosses as an owned lease — `CreatePreviewBitmap` acquires a native bitmap, the answer wraps it in `Lease<Bitmap>.Owned`, and the caller's disposal is the only release; a bare bitmap field is the deleted form.
-- Boundary: `CreatePreviewBitmap` renders through the host and reaches this page only inside `Styles.Ask`'s `DocumentSession.Demand`, which resolves every body on the command thread — so the preview needs no second crossing and none is spelled, exactly as the block-preview rail is bound. A preview reached outside a demand has no affinity at all, and this page publishes no such route.
+- Boundary: `CreatePreviewBitmap` renders through the host and reaches this page only inside `Styles.Ask`'s `DocumentSession.Demand`, which resolves every body on the command thread — so the preview needs no second crossing and none is spelled, exactly as the block-preview path is bound. A preview reached outside a demand has no affinity at all, and this page publishes no such route.
 - Law: the preview extent is the kernel's `AssetExtent` — both scaled edges are measured against a DECLARED raster ceiling and the pixel product is proved inside `long` before any allocation — so this page carries no budget owner of its own and no ceiling literal a caller disagrees with.
 - Law: the override census reads `IsFieldOverriden` (host single-`d` spelling) per schema row and `Overridden` IS the census, so a presence bool beside it mirrors `Overridden.IsEmpty` and drifts from it; `HasFieldOverrides` still answers presence before the per-row sweep, so an unoverridden style costs one probe.
-- Packages: `Interaction/asset.md` (`AssetExtent`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`), `Domain/rails` (`Lease<T>`); RhinoCommon `DimensionStyle.CreatePreviewBitmap`/`BuiltInStyles`/`GetUnusedStyleName` per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Interaction/asset.md` (`AssetExtent`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`), `Domain/results` (`Lease<T>`); RhinoCommon `DimensionStyle.CreatePreviewBitmap`/`BuiltInStyles`/`GetUnusedStyleName` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a read is one `StyleAsk` case with its `StyleAnswer` twin; the scope, the lease law, and the extent ceiling come free.
 
 ```csharp
@@ -1068,8 +1068,8 @@ public sealed record StyleSnapshot(
 ## [06]-[SPINE]
 
 - Owner: `DraftSpine` is the one Annotation commit entry: it derives its needs through `SessionNeed.Mutation(custody:, redraw:)`, demands once, and commits the command-only program through `DocumentCommit.Sealed`.
-- Law: the spine is the one commit entry for the namespace — style, text, dimension, hatch, linetype, and section commits share it verbatim, so undo, redraw, and grant semantics cannot drift between drafting rails; a rail re-spelling the demand-and-seal sequence, or opening `UndoBracket.Begin` beside `Sealed`, is the deleted form.
-- Law: `DocumentCommit.Compensated` is the one compensating-transaction fold — land each element, roll back every landed key on the first refusal, settle source custody through its release policy on every outcome, preserve the initiating fault, and append rollback and release faults in order; a rail re-typing this fold or spelling a caller-local release cascade beside it is the deleted form.
+- Law: the spine is the one commit entry for the namespace — style, text, dimension, hatch, linetype, and section commits share it verbatim, so undo, redraw, and grant semantics cannot drift between drafting programs; a page re-spelling the demand-and-seal sequence, or opening `UndoBracket.Begin` beside `Sealed`, is the deleted form.
+- Law: `DocumentCommit.Compensated` is the one compensating-transaction fold — land each element, roll back every landed key on the first refusal, settle source custody through its release policy on every outcome, preserve the initiating fault, and append rollback and release faults in order; a page re-typing this fold or spelling a caller-local release cascade beside it is the deleted form.
 - Packages: `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`).
 
 ```csharp
@@ -1116,26 +1116,26 @@ internal static class DraftSpine {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]        | [OWNER]                         | [FORM]                                       | [ENTRY]                    |
-| :-----: | :--------------- | :------------------------------ | :------------------------------------------- | :------------------------- |
-|  [01]   | native crossing  | `DraftCrossing`                 | detached handle crossing                     | `Crossed`                  |
-|  [02]   | table revision   | `TableGrip<T, TDef>`            | Document lens + the host verb column roster  | `Revised(target, ...)`     |
-|  [03]   | table verbs      | `TableOp<T, TDef>`              | eight cases every component table shares     | `Apply(grip, ...)`         |
-|  [04]   | list revision    | `ListEdit<TRow>`/`ListSurface`  | index-addressed edits over a declared seam   | `Apply(surface, op)`       |
-|  [05]   | user-string bag  | `TagEdit`/`TagSurface`          | incremental edits + compensated whole-bag    | `Apply(owner, op)`         |
-|  [06]   | object singleton | `TargetResolution`              | exactly-one id + typed cast on `TableTarget` | `Only<TNative>`            |
-|  [07]   | input custody    | `DraftBorrow`                   | nested lease scopes over a handle or a run   | `Typed<TNative, TOut>`     |
-|  [08]   | drafting scalars | `DraftScale`/`DraftAngle`       | positive scale and radian owners             | `Create` / `Value`         |
-|  [09]   | unit vocabulary  | `LengthDisplayRow`              | rows keyed on host values                    | `Host` projection          |
-|  [10]   | enum admission   | `EnumFamily`                    | per-family flags mask and membership memo    | `For<TEnum>` / `Admits`    |
-|  [11]   | schema mechanism | `FieldTable<TOwner, THostEnum>` | nine payload adapters + one seat + row read  | `Real` … `Glyph` / `Row`   |
-|  [12]   | config schema    | `StyleField`                    | one row per proven property/`Field` pairing  | `Read` / `Write` / `On`    |
-|  [13]   | edit currency    | `StylePatch`                    | exact-family run, table and override folds   | `Apply` / `Overlay`        |
-|  [14]   | drawing standard | `DraftStandard`                 | kernel sheet ladders projected onto the rows | `Patch(size, form, scale)` |
-|  [15]   | annotation style | `AnnotationStyleOp`             | overlay / clear a per-annotation override    | `Apply(annotation, op)`    |
-|  [16]   | style mutations  | `StyleOp`                       | shared verbs plus six style-only cases       | `Styles.Commit`            |
-|  [17]   | style reads      | `StyleAsk`                      | closed request/answer family, axis-scoped    | `Styles.Ask`               |
-|  [18]   | commit entry     | `DraftSpine`                    | sealed command fold                          | `Commit`                   |
+| [INDEX] | [CONCERN]        | [OWNER]                         | [FORM]                                          | [ENTRY]                    |
+| :-----: | :--------------- | :------------------------------ | :---------------------------------------------- | :------------------------- |
+|  [01]   | native crossing  | `DraftCrossing`                 | detached handle crossing                        | `Crossed`                  |
+|  [02]   | table revision   | `TableGrip<T, TDef>`            | Document lens + the host verb column roster     | `Revised(target, ...)`     |
+|  [03]   | table verbs      | `TableOp<T, TDef>`              | eight cases every component table shares        | `Apply(grip, ...)`         |
+|  [04]   | list revision    | `ListEdit<TRow>`/`ListSurface`  | index-addressed edits over a declared interface | `Apply(surface, op)`       |
+|  [05]   | user-string bag  | `TagEdit`/`TagSurface`          | incremental edits + compensated whole-bag       | `Apply(owner, op)`         |
+|  [06]   | object singleton | `TargetResolution`              | exactly-one id + typed cast on `TableTarget`    | `Only<TNative>`            |
+|  [07]   | input custody    | `DraftBorrow`                   | nested lease scopes over a handle or a run      | `Typed<TNative, TOut>`     |
+|  [08]   | drafting scalars | `DraftScale`/`DraftAngle`       | positive scale and radian owners                | `Create` / `Value`         |
+|  [09]   | unit vocabulary  | `LengthDisplayRow`              | rows keyed on host values                       | `Host` projection          |
+|  [10]   | enum admission   | `EnumFamily`                    | per-family flags mask and membership memo       | `For<TEnum>` / `Admits`    |
+|  [11]   | schema mechanism | `FieldTable<TOwner, THostEnum>` | nine payload adapters + one seat + row read     | `Real` … `Glyph` / `Row`   |
+|  [12]   | config schema    | `StyleField`                    | one row per proven property/`Field` pairing     | `Read` / `Write` / `On`    |
+|  [13]   | edit currency    | `StylePatch`                    | exact-family run, table and override folds      | `Apply` / `Overlay`        |
+|  [14]   | drawing standard | `DraftStandard`                 | kernel sheet ladders projected onto the rows    | `Patch(size, form, scale)` |
+|  [15]   | annotation style | `AnnotationStyleOp`             | overlay / clear a per-annotation override       | `Apply(annotation, op)`    |
+|  [16]   | style mutations  | `StyleOp`                       | shared verbs plus six style-only cases          | `Styles.Commit`            |
+|  [17]   | style reads      | `StyleAsk`                      | closed request/answer family, axis-scoped       | `Styles.Ask`               |
+|  [18]   | commit entry     | `DraftSpine`                    | sealed command fold                             | `Commit`                   |
 
 ## [08]-[RESEARCH]
 

@@ -20,7 +20,7 @@
 |  [07]   | `Pcr` / `PcrRef`     | `BaseOpenEpdSchema`           | Product Category Rule entity + `PcrRef`; `PcrStatus` lifecycle |
 |  [08]   | `Specs`              | `BaseOpenEpdHierarchicalSpec` | per-material performance-spec aggregate on `Epd.specs`         |
 
-[DECLARATION_FIELD_SCOPE]: the `Epd` attribute rail an identity-and-validity ingest reads (`openepd.model.epd.Epd` over `EpdPreviewV0` → `EpdRef` → `BaseDeclaration` → `RootDocument`)
+[DECLARATION_FIELD_SCOPE]: the `Epd` attribute domain an identity-and-validity ingest reads (`openepd.model.epd.Epd` over `EpdPreviewV0` → `EpdRef` → `BaseDeclaration` → `RootDocument`)
 - optionality: EVERY `Epd` field is optional — `model_fields[name].is_required()` is `False` for all of them; scalars default `None`, `compliance`/`plants`/`includes` default `[]`, `product_classes` defaults `{}`. `Measurement.mean` (`float`) is the one required field the declaration tree carries
 - org refs: `Org` extends `OrgRef`, whose whole identity triple — `name`, `web_domain`, `ref` — is `str | None`, so an org's display name is itself absence-bearing and an issuer read unwraps twice
 - ABSENT: no `subtype`, `sub_type`, or representativeness field exists anywhere in the distribution — `doctype` is the only representativeness axis, and it is a plain `str` (default `"openEPD"`, no validator) carrying an `OpenEpdDoctypes` value
@@ -63,7 +63,7 @@
 |  [06]   | `WithAttachmentsMixin`                    | typed `attachments: dict[str, AnyUrl]` via `set_attachment(name, url)`     |
 |  [07]   | `AverageDatasetMixin`                     | marks an industry/average dataset and its representativeness               |
 
-[LCIA_CARRIER_OPTIONALITY]: all three `WithLciaMixin` slots are OPTIONAL and default `None` — `impacts: Impacts | None`, `resource_uses: ResourceUseSet | None`, `output_flows: OutputFlowSet | None` (verified against the installed distribution). A declaration carrying resource and output flows alone is a LAWFUL document, so `decl.impacts.available_methods()` on the bare attribute answers `AttributeError` rather than a domain refusal: the container admits on the rail before any method is elected.
+[LCIA_CARRIER_OPTIONALITY]: all three `WithLciaMixin` slots are OPTIONAL and default `None` — `impacts: Impacts | None`, `resource_uses: ResourceUseSet | None`, `output_flows: OutputFlowSet | None` (verified against the installed distribution). A declaration carrying resource and output flows alone is a LAWFUL document, so `decl.impacts.available_methods()` on the bare attribute answers `AttributeError` rather than a domain refusal: the container admits on the result before any method is elected.
 
 ## [02]-[LCIA_PAYLOAD]
 
@@ -144,18 +144,18 @@
 - `Impacts` is the method × indicator × EN 15804 stage matrix the material-impact owner sums; the sync client and the offline `bundle` are the two IO legs — live EC3 fetch/search and offline packages.
 
 [STACKING]:
-- `pydantic`(`../../.api/pydantic.md`): `Epd`/`Impacts`/`Specs` drop straight onto the boundary contract rail; `model_validate`/`model_dump` are the parse-not-validate seam.
+- `pydantic`(`../../.api/pydantic.md`): `Epd`/`Impacts`/`Specs` drop straight onto the boundary contract domain; `model_validate`/`model_dump` are the parse-not-validate boundary.
 - `msgspec`(`../../.api/msgspec.md`): re-encode `Epd.model_dump(mode="json")` when a non-Pydantic wire carrier is wanted; the `dict` is the handoff.
-- `structlog`(`../../.api/structlog.md`) / `opentelemetry-api`(`../../.api/opentelemetry-api.md`): wrap a synchronous `OpenEpdApiClientSync` fetch in an OTel span and log the EC3 endpoint + filter; `SyncHttpClient` throttles/retries internally, so `stamina` adds only the rail-level idempotent retry, never a double-retry.
+- `structlog`(`../../.api/structlog.md`) / `opentelemetry-api`(`../../.api/opentelemetry-api.md`): wrap a synchronous `OpenEpdApiClientSync` fetch in an OTel span and log the EC3 endpoint + filter; `SyncHttpClient` throttles/retries internally, so `stamina` adds only the result-level idempotent retry, never a double-retry.
 - `anyio`(`../../.api/anyio.md`): the client blocks, so `anyio.to_thread.run_sync` keeps a bulk fetch off the structured-concurrency loop.
 - `universal-pathlib`(`../../.api/universal-pathlib.md`): point the `bundle` reader/writer at a `UPath` so declaration packages round-trip through the shared artifact store.
 - `epdx`(`.api/epdx.md`): the complementary EPD front door — `epdx` parses ILCD+EPD, `openepd` models OpenEPD/EC3; the impact owner folds `ScopeSet` (per-indicator stage matrix) and `epdx.ImpactCategory` (per-stage indicator) onto one internal shape.
 - `bw2io`(`.api/bw2io.md`) / `bw2data`(`.api/bw2data.md`) / `bw2calc`(`.api/bw2calc.md`): map an `ImpactSet` onto a Brightway result for cross-check, or write a declared indicator set as a `bw2data` activity through a `bw2io` strategy that `bw2calc` then scores.
 - `olca-ipc`(`.api/olca-ipc.md`): push an openepd-modeled product into openLCA as a process with the LCIA result attached.
 - `premise`(`.api/premise.md`): combine a current `Epd` foreground with a premise-shifted prospective background for a forward-looking footprint.
-- `pandas`(`.api/pandas.md`) / `polars`(`.api/polars.md`) / `pyarrow`(`.api/pyarrow.md`): flatten `Impacts` (method × indicator × stage) into a frame for the profile/quality rail and cross-EPD comparison.
+- `pandas`(`.api/pandas.md`) / `polars`(`.api/polars.md`) / `pyarrow`(`.api/pyarrow.md`): flatten `Impacts` (method × indicator × stage) into a frame for the profile/quality domain and cross-EPD comparison.
 - impact owner (within-lib): key a fetched or parsed `Epd` by `open_xpd_uuid` + version so the persistence reuse ledger dedupes re-ingestion; the bundle's `AssetInfo` ref is the in-package identity.
-- declaration owner (within-lib): `data/impact/declaration#DECLARATION` reads the identity-and-validity rail — `program_operator` the issuer, `program_operator_doc_id` the registration, `id` the provenance identity, `date_of_issue`/`valid_until` the dates, `declared_unit` the `Amount`, `compliance` the standard claim, `doctype` the representativeness — and folds an `EF 3.x` `ImpactSet` onto the frozen contract cell map.
+- declaration owner (within-lib): `data/impact/declaration#DECLARATION` reads the identity-and-validity domain — `program_operator` the issuer, `program_operator_doc_id` the registration, `id` the provenance identity, `date_of_issue`/`valid_until` the dates, `declared_unit` the `Amount`, `compliance` the standard claim, `doctype` the representativeness — and folds an `EF 3.x` `ImpactSet` onto the frozen contract cell map.
 
 [LOCAL_ADMISSION]:
-- `openepd` is the sole OpenEPD/EC3 modeler and fetcher on the impact rail; a folder composing it registers `openepd` in the branch manifest and this catalog.
+- `openepd` is the sole OpenEPD/EC3 modeler and fetcher on the impact domain; a folder composing it registers `openepd` in the branch manifest and this catalog.

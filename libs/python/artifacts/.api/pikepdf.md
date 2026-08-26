@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PIKEPDF]
 
-`pikepdf` binds libqpdf through nanobind and owns qpdf-grade PDF structure for the artifacts pdf rail: open/repair, linearization, AES-R6 encryption with granular permissions, page assembly and overlay, content-stream tokenization and authoring, object-model editing, image extraction, XMP/docinfo metadata, and declarative qpdf jobs. It never re-implements the PDF parser, the qpdf object model, or the affine `Matrix` the package already binds.
+`pikepdf` binds libqpdf through nanobind and owns qpdf-grade PDF structure for the artifacts pdf domain: open/repair, linearization, AES-R6 encryption with granular permissions, page assembly and overlay, content-stream tokenization and authoring, object-model editing, image extraction, XMP/docinfo metadata, and declarative qpdf jobs. It never re-implements the PDF parser, the qpdf object model, or the affine `Matrix` the package already binds.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -117,11 +117,11 @@
 
 [ENTRYPOINT_SCOPE]: native content authoring
 
-| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                 |
-| :-----: | :----------------------------------------------------------- | :------- | :------------------------------------------- |
-|  [01]   | `canvas.Canvas(page_size=(w, h))`                            | ctor     | author native page content                   |
-|  [02]   | `models.PdfImage(...).as_pil_image(*, apply_mask=True)`      | instance | extract an embedded image to the Pillow rail |
-|  [03]   | `models.PdfImage(...).extract_to(*, apply_mask=True) -> str` | instance | write native codec bytes, mask-composited    |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :----------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `canvas.Canvas(page_size=(w, h))`                            | ctor     | author native page content                     |
+|  [02]   | `models.PdfImage(...).as_pil_image(*, apply_mask=True)`      | instance | extract an embedded image to the Pillow domain |
+|  [03]   | `models.PdfImage(...).extract_to(*, apply_mask=True) -> str` | instance | write native codec bytes, mask-composited      |
 
 - `PdfImage.as_pil_image`/`extract_to`: `apply_mask=True` composites the `/SMask` soft mask or `/Mask` stencil/colour-key mask into an alpha channel (`LA`/`RGBA`, transparency-capable format), `apply_mask=False` returns the opaque base; `apply_decode_array=True` (default) folds a non-default `/Decode` per-channel map, `False` yields raw stored samples; `extract_to` writes to a `stream` or a `fileprefix`+ext path and returns that path. `PdfImage.MAX_IMAGE_PIXELS` raises `DecompressionBombError` on a larger pixel count (set the class attribute to `None` to disable the guard).
 - [04]-[CONTENTSTREAMBUILDER_OPS]: `begin_text` `set_text_font` `show_text` `show_text_with_kerning` `set_text_leading` `move_cursor_new_line` `set_fill_color` `set_stroke_color` `set_line_width` `set_dashes` `cm` `append_rectangle` `fill` `stroke_and_close` `draw_xobject` `begin_marked_content` to `.build()` — text and vector op emitter; raster rides `draw_xobject`, there is no `draw_image`.

@@ -1,122 +1,72 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Runtime.Loader;
-using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading.Channels;
 using Rasm.Bridge.Contract;
 using Rhino;
 using Rhino.PlugIns;
 using Rhino.Runtime;
 using StreamJsonRpc;
+using GhDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Bridge.Shell;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-[Union]
-internal abstract partial record Gh2ScrubOutcome {
-    private Gh2ScrubOutcome() { }
-    public sealed record NotLoaded : Gh2ScrubOutcome;
-    public sealed record Scrubbed(int Documents, int Unmodified) : Gh2ScrubOutcome;
-    public sealed record Failed(string Detail) : Gh2ScrubOutcome;
-
-    public string Summary => Switch(
-        notLoaded: static _ => "not-loaded",
-        scrubbed: static s => string.Create(provider: CultureInfo.InvariantCulture, $"documents={s.Documents};unmodified={s.Unmodified}"),
-        failed: static f => $"reflective-scrub-failed:{f.Detail}");
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class ShellHost : IDisposable {
-    private static readonly Guid Grasshopper2PluginId = Guid.Parse(input: "8307876d-a461-4daa-bb77-eb3715925513");
-    private const int FaultErrorCode = -32050;
     private const int PipeInstances = 4;
-    private const string McneelPlugInGuid = "2668d7ed-f507-4a68-8295-8172147a0e39";
+    private static readonly Guid Grasshopper2PluginId = Guid.Parse("8307876d-a461-4daa-bb77-eb3715925513");
 
     private readonly Lock sync = new();
-    private readonly ConcurrentQueue<string> defaultResolves = new();
-    private readonly Channel<BridgeEvent> outbox = Channel.CreateUnbounded<BridgeEvent>(options: new UnboundedChannelOptions { SingleReader = true });
+    private readonly Channel<BridgeEvent> outbox = Channel.CreateUnbounded<BridgeEvent>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource lifetime = new();
-    private readonly Func<AssemblyLoadContext, AssemblyName, Assembly?> resolvingTap;
     private readonly HostUtils.ExceptionReportDelegate reportTap;
-    private readonly EventHandler closingTap;
-    private readonly EndpointRecord endpoint;
-    private readonly HostFingerprint fingerprint;
-    private readonly CapabilityEntry shellContent;
-    private readonly IdlePump pump;
-    private readonly CargoGate gate;
-    private readonly Task[] acceptLoops;
-    private readonly Task forwarder;
+    private readonly EndpointRecord.Live endpoint;
+    private readonly IdlePump pump = new();
+    private readonly CargoGate gate = new();
     private CargoManifest? activeManifest;
     private Connection? owner;
     private long ownedAtUnixMs;
     private long sequence;
     private bool disposed;
 
-    private ShellHost(string deployDir, int rhinoPid) {
-        endpoint = EndpointRecord.Create(
-            pipeName: string.Create(provider: CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}{rhinoPid}-{Guid.NewGuid().ToString(format: "N")[..8]}"),
-            rhinoPid: rhinoPid,
-            rhinoStartedAtUnixMs: HostStartedAtUnixMs(),
-            contractGeneration: Handshake.Generation,
-            shellVersion: ShellVersion,
-            rhinoVersion: RhinoApp.Version.ToString(),
-            fault: string.Empty);
-        fingerprint = RunningFingerprint();
-        shellContent = ShellContent(deployDir: deployDir);
-        resolvingTap = (_, name) => RecordDefaultResolve(assemblyName: name);
-        reportTap = (source, error) => Publish(evt: new BridgeEvent.HostExceptionCase(Report: $"{source}: {error.GetType().Name}: {error.Message}") { Stamp = default });
-        closingTap = (_, _) => Publish(evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.QuitAe, Status: PhaseStatus.Ok, DurationMs: 0.0, Fault: null) { Stamp = default });
-        pump = new IdlePump();
-        gate = new CargoGate();
-        AssemblyLoadContext.Default.Resolving += resolvingTap;
+    private ShellHost(int rhinoPid) {
+        endpoint = new EndpointRecord.Live(
+            PipeName: string.Create(CultureInfo.InvariantCulture, $"{EndpointRecord.PipePrefix}{rhinoPid}-{Guid.NewGuid().ToString("N")[..8]}"),
+            RhinoPid: rhinoPid,
+            RhinoStartedAtUnixMs: HostStartedAtUnixMs(),
+            RhinoVersion: RhinoApp.Version.ToString());
+        reportTap = (source, error) => Publish(BridgeEvent.Fact("host.exception", $"{source}: {error.GetType().Name}: {error.Message}"));
         HostUtils.OnExceptionReport += reportTap;
-        RhinoApp.Closing += closingTap;
-        WriteEndpoint(record: endpoint);
-        forwarder = ForwardLoopAsync(token: lifetime.Token);
-        acceptLoops = [.. Enumerable.Range(start: 0, count: PipeInstances).Select(_ => AcceptLoopAsync(token: lifetime.Token))];
+        WriteEndpoint(endpoint);
+        _ = ForwardLoopAsync(lifetime.Token);
+        _ = Enumerable.Range(0, PipeInstances).Select(_ => AcceptLoopAsync(lifetime.Token)).ToArray();
     }
 
-    internal bool IsRunning =>
-        !lifetime.IsCancellationRequested && !forwarder.IsCompleted && acceptLoops.Any(predicate: static loop => !loop.IsCompleted);
-
-    private static string ShellVersion =>
-        typeof(ShellHost).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?? typeof(ShellHost).Assembly.GetName().Version?.ToString()
-        ?? "unknown";
-
-    public static ShellHost? Start(string deployDir, int rhinoPid) {
+    public static ShellHost? Start(int rhinoPid) {
         try {
-            return new ShellHost(deployDir: deployDir, rhinoPid: rhinoPid);
-        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException
-            or ArgumentException or NotSupportedException or System.ComponentModel.DataAnnotations.ValidationException) {
-            WritePoisoned(rhinoPid: rhinoPid, fault: error.GetBaseException().Message);
+            return new ShellHost(rhinoPid);
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or NotSupportedException) {
+            WritePoisoned(rhinoPid, error.GetBaseException().Message);
             return null;
         }
     }
 
     public void Dispose() {
-        bool alreadyDisposed;
         lock (sync) {
-            alreadyDisposed = disposed;
+            if (disposed) {
+                return;
+            }
             disposed = true;
         }
-        if (!alreadyDisposed) {
-            RhinoApp.Closing -= closingTap;
-            HostUtils.OnExceptionReport -= reportTap;
-            AssemblyLoadContext.Default.Resolving -= resolvingTap;
-            lifetime.Cancel();
-            _ = outbox.Writer.TryComplete();
-            pump.Dispose();
-            gate.Dispose();
-            lifetime.Dispose();
-        }
+        HostUtils.OnExceptionReport -= reportTap;
+        lifetime.Cancel();
+        _ = outbox.Writer.TryComplete();
+        pump.Dispose();
+        gate.Dispose();
+        lifetime.Dispose();
     }
 
     // --- [CONNECTION_TARGET]
@@ -126,109 +76,81 @@ public sealed class ShellHost : IDisposable {
         internal int ClientPid { get; set; }
         internal bool IsAlive => !rpc.Completion.IsCompleted;
 
-        public Task<Handshake> HelloAsync(Handshake supervisor, CancellationToken ct) =>
-            Task.FromResult(result: host.Hello(connection: this, supervisor: supervisor));
+        public Task<HostFingerprint> HelloAsync(int supervisorPid, CancellationToken ct) =>
+            Task.FromResult(host.Hello(this, supervisorPid));
 
         public Task<LoadedCargo> LoadCargoAsync(CargoManifest manifest, CancellationToken ct) =>
-            host.LoadCargoAsync(connection: this, manifest: manifest, ct: ct);
+            host.LoadCargoAsync(this, manifest, ct);
 
         public Task<ScenarioOutcome[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
-            host.RunAsync(connection: this, selection: selection, ct: ct);
+            host.RunAsync(this, selection, ct);
 
         public Task<UnloadOutcome> UnloadCargoAsync(CancellationToken ct) =>
-            host.UnloadCargoAsync(connection: this, ct: ct);
-
-        public Task<long> PingAsync(CancellationToken ct) =>
-            Task.FromResult(result: Environment.TickCount64);
+            host.UnloadCargoAsync(this, ct);
 
         public Task<QuitScrub> PrepareQuitAsync(CancellationToken ct) =>
-            host.PrepareQuitAsync(connection: this, ct: ct);
+            host.PrepareQuitAsync(this, ct);
     }
 
     // --- [VERBS]
 
-    private Handshake Hello(Connection connection, Handshake supervisor) {
-        ArgumentNullException.ThrowIfNull(argument: supervisor);
-        connection.ClientPid = ClientPidOf(capabilities: supervisor.Capabilities);
+    private HostFingerprint Hello(Connection connection, int supervisorPid) {
+        connection.ClientPid = supervisorPid;
         EnsureEndpoint();
-        return new Handshake(
-            ContractGeneration: Handshake.Generation,
-            SenderVersion: ShellVersion,
-            Capabilities: [
-                new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Detail: RpcAssemblyVersion),
-                new CapabilityEntry(Key: "alc.default.resolving", Outcome: PhaseStatus.Ok, Detail: DefaultResolves()),
-                shellContent,
-                McpListener(),
-                McpPlatform(),
-            ],
-            Fingerprint: fingerprint,
-            Endpoint: endpoint);
+        return RunningFingerprint();
     }
 
     private async Task<LoadedCargo> LoadCargoAsync(Connection connection, CargoManifest manifest, CancellationToken ct) {
-        ArgumentNullException.ThrowIfNull(argument: manifest);
-        Admit(connection: connection);
+        ArgumentNullException.ThrowIfNull(manifest);
+        Admit(connection);
         activeManifest = manifest;
-        return await pump.OnUiThreadAsync(job: () => {
-            PreloadHostPlugin(id: Grasshopper2PluginId);
-            LoadedCargo loaded = gate.Swap(manifest: manifest, running: RunningFingerprint(), publish: Publish);
-            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.count", value: loaded.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
-            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: loaded.Scenarios.Select(selector: static scenario => scenario.Name))));
-            return loaded;
-        }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+        LoadedCargo loaded = await pump.OnUiThreadAsync(() => {
+            PreloadGrasshopper2();
+            return gate.Load(manifest, RunningFingerprint(), Publish);
+        }, ct).ConfigureAwait(false);
+        Publish(BridgeEvent.Fact("scenario.discovered", string.Join(',', loaded.Scenarios.Select(static scenario => scenario.Name))));
+        return loaded;
     }
 
     private async Task<ScenarioOutcome[]> RunAsync(Connection connection, ScenarioSelection selection, CancellationToken ct) {
-        ArgumentNullException.ThrowIfNull(argument: selection);
-        Admit(connection: connection);
-        IBridgeCargo cargo = gate.Current ?? throw new LocalRpcException(message: "no cargo loaded: LoadCargoAsync precedes RunAsync") { ErrorCode = FaultErrorCode };
-        ScenarioEntry[] discovered = await pump.OnUiThreadAsync(job: cargo.Discover, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-        ScenarioEntry[] selected = selection.Filter(entries: discovered);
-        Publish(evt: BridgeEvent.Fact(key: "scenario.selected.count", value: selected.Length.ToString(provider: CultureInfo.InvariantCulture)));
-        Publish(evt: BridgeEvent.Fact(key: "scenario.selected.names", value: string.Join(separator: ',', values: selected.Select(selector: static scenario => scenario.Name))));
+        ArgumentNullException.ThrowIfNull(selection);
+        Admit(connection);
+        IBridgeCargo cargo = gate.Current ?? throw CargoGate.Refuse(new BridgeFault.CapabilityAbsent("cargo", "no cargo loaded: LoadCargoAsync precedes RunAsync"));
+        ScenarioEntry[] discovered = await pump.OnUiThreadAsync(cargo.Discover, ct).ConfigureAwait(false);
+        ScenarioEntry[] selected = selection.Filter(discovered);
+        Publish(BridgeEvent.Fact("scenario.selected", string.Join(',', selected.Select(static scenario => scenario.Name))));
         if (selected.Length == 0) {
-            BridgeFault fault = new BridgeFault.CapabilityAbsent(
-                Capability: "scenario.selection",
-                Detail: $"selection matched zero scenarios; discovered={string.Join(separator: ',', values: discovered.Select(selector: static scenario => scenario.Name))}");
-            throw new LocalRpcException(message: fault.Prescription) {
-                ErrorCode = FaultErrorCode,
-                ErrorData = JsonSerializer.SerializeToElement(value: fault, jsonTypeInfo: BridgeJsonContext.Default.BridgeFault),
-            };
+            throw CargoGate.Refuse(new BridgeFault.CapabilityAbsent(
+                "scenario.selection",
+                $"selection matched zero scenarios; discovered={string.Join(',', discovered.Select(static scenario => scenario.Name))}"));
         }
         ScenarioOutcome[] outcomes = new ScenarioOutcome[selected.Length];
         for (int index = 0; index < selected.Length; index++) {
             ScenarioEntry entry = selected[index];
-            outcomes[index] = await pump.OnUiThreadAsync(job: () => cargo.Run(scenario: entry, publish: Publish), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            outcomes[index] = await pump.OnUiThreadAsync(() => cargo.Run(entry, Publish), ct).ConfigureAwait(false);
         }
         return outcomes;
     }
 
     private async Task<UnloadOutcome> UnloadCargoAsync(Connection connection, CancellationToken ct) {
-        Admit(connection: connection);
-        UnloadOutcome unloaded = await pump.OnUiThreadAsync(job: gate.Unload, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-        ReleaseOwner(connection: connection);
+        Admit(connection);
+        UnloadOutcome unloaded = await pump.OnUiThreadAsync(gate.Unload, ct).ConfigureAwait(false);
+        ReleaseOwner(connection);
         return unloaded;
     }
 
     private async Task<QuitScrub> PrepareQuitAsync(Connection connection, CancellationToken ct) {
-        Admit(connection: connection);
-        (QuitScrub quit, Gh2ScrubOutcome gh2) = await pump.OnUiThreadAsync(job: static () => {
+        Admit(connection);
+        QuitScrub quit = await pump.OnUiThreadAsync(static () => {
             RhinoDoc[] open = RhinoDoc.OpenDocuments();
-            int markedClean = open.Count(predicate: static doc => doc.Modified);
-            Array.ForEach(array: open, action: static doc => doc.Modified = false);
-            Gh2ScrubOutcome scrub = CleanGrasshopper2();
-            RhinoDoc[] residual = RhinoDoc.OpenDocuments();
-            int residualDirty = residual.Count(predicate: static doc => doc.Modified);
-            string[] savedPaths = [.. residual.Where(predicate: static doc => doc.Modified && doc.Path is { Length: > 0 }).Select(selector: static doc => doc.Path)];
-            return (new QuitScrub(Documents: open.Length, MarkedClean: markedClean, ResidualDirty: residualDirty, Gh2: scrub.Summary, SavedPaths: savedPaths), scrub);
-        }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-        Publish(evt: BridgeEvent.Fact(
-            key: "quit.prepared",
-            value: string.Create(provider: CultureInfo.InvariantCulture,
-                $"{(quit.Scrubbed ? "rhino-docs-marked-clean" : "rhino-docs-residual-dirty")}; documents={quit.Documents};markedClean={quit.MarkedClean};residualDirty={quit.ResidualDirty}; gh2={quit.Gh2}")));
-        if (gh2 is Gh2ScrubOutcome.Failed) {
-            Publish(evt: BridgeEvent.Fact(key: "quit.scrub.gh2-reflective-failed", value: quit.Gh2));
-        }
+            int markedClean = open.Count(static doc => doc.Modified);
+            Array.ForEach(open, static doc => doc.Modified = false);
+            Gh2Scrub gh2 = Grasshopper2Loaded ? ScrubGrasshopper2() : new Gh2Scrub.NotLoaded();
+            RhinoDoc[] dirty = [.. RhinoDoc.OpenDocuments().Where(static doc => doc.Modified)];
+            return new QuitScrub(open.Length, markedClean, dirty.Length, gh2,
+                [.. dirty.Select(static doc => doc.Path).Where(static path => path is { Length: > 0 })]);
+        }, ct).ConfigureAwait(false);
+        Publish(BridgeEvent.Fact("quit.prepared", JsonSerializer.SerializeToElement(quit, BridgeJsonContext.Default.QuitScrub)));
         return quit;
     }
 
@@ -237,14 +159,10 @@ public sealed class ShellHost : IDisposable {
     private void Admit(Connection connection) {
         lock (sync) {
             long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            if (owner is { } held && !ReferenceEquals(objA: held, objB: connection) && held.IsAlive) {
-                BridgeFault fault = new BridgeFault.BusyHeld(HolderPid: held.ClientPid, AgeSeconds: (now - ownedAtUnixMs) / 1000.0);
-                throw new LocalRpcException(message: fault.Prescription) {
-                    ErrorCode = FaultErrorCode,
-                    ErrorData = JsonSerializer.SerializeToElement(value: fault, jsonTypeInfo: BridgeJsonContext.Default.BridgeFault),
-                };
+            if (owner is { } held && !ReferenceEquals(held, connection) && held.IsAlive) {
+                throw CargoGate.Refuse(new BridgeFault.BusyHeld(held.ClientPid, (now - ownedAtUnixMs) / 1000.0));
             }
-            if (!ReferenceEquals(objA: owner, objB: connection)) {
+            if (!ReferenceEquals(owner, connection)) {
                 owner = connection;
                 ownedAtUnixMs = now;
             }
@@ -253,7 +171,7 @@ public sealed class ShellHost : IDisposable {
 
     private void ReleaseOwner(Connection connection) {
         lock (sync) {
-            if (ReferenceEquals(objA: owner, objB: connection)) {
+            if (ReferenceEquals(owner, connection)) {
                 owner = null;
             }
         }
@@ -261,31 +179,21 @@ public sealed class ShellHost : IDisposable {
 
     // --- [EVIDENCE]
 
-    private void Publish(BridgeEvent evt) {
-        EventStamp stamp = new(
-            SessionId: activeManifest?.SessionId ?? Guid.Empty,
-            Sequence: Interlocked.Increment(location: ref sequence),
-            AtUnixMs: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Scenario: evt.Stamp.Scenario);
-        BridgeEvent stamped = evt switch {
-            BridgeEvent.FactCase row => row with { Stamp = stamp },
-            BridgeEvent.CaptureCase row => row with { Stamp = stamp },
-            BridgeEvent.PhaseCase row => row with { Stamp = stamp },
-            BridgeEvent.ProgressCase row => row with { Stamp = stamp },
-            BridgeEvent.HostExceptionCase row => row with { Stamp = stamp },
-            _ => evt,
-        };
-        _ = outbox.Writer.TryWrite(item: stamped);
-    }
+    private void Publish(BridgeEvent evt) =>
+        _ = outbox.Writer.TryWrite(evt.Stamped(new EventStamp(
+            activeManifest?.SessionId ?? Guid.Empty,
+            Interlocked.Increment(ref sequence),
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            evt.Stamp.Scenario)));
 
     private async Task ForwardLoopAsync(CancellationToken token) {
         try {
-            await foreach (BridgeEvent evt in outbox.Reader.ReadAllAsync(cancellationToken: token).ConfigureAwait(continueOnCapturedContext: false)) {
+            await foreach (BridgeEvent evt in outbox.Reader.ReadAllAsync(token).ConfigureAwait(false)) {
                 if (CurrentOwner() is { Events: { } events }) {
                     try {
-                        await events.PublishAsync(evt: evt).ConfigureAwait(continueOnCapturedContext: false);
+                        await events.PublishAsync(evt).ConfigureAwait(false);
                     } catch (Exception error) when (error is IOException or ObjectDisposedException or ConnectionLostException or RemoteInvocationException) {
-                        Debug.WriteLine(message: $"event forward dropped: {error.Message}");
+                        Debug.WriteLine($"event forward dropped: {error.Message}");
                     }
                 }
             }
@@ -299,126 +207,47 @@ public sealed class ShellHost : IDisposable {
         }
     }
 
-    private Assembly? RecordDefaultResolve(AssemblyName assemblyName) {
-        defaultResolves.Enqueue(item: assemblyName.Name ?? "unknown");
-        return null;
-    }
+    // --- [HOST]
 
-    private string DefaultResolves() {
-        string[] names = [.. defaultResolves.Distinct(comparer: StringComparer.Ordinal).Order(comparer: StringComparer.Ordinal)];
-        return string.Create(provider: CultureInfo.InvariantCulture, $"{names.Length}:{string.Join(separator: ',', value: names)}");
-    }
+    private static bool Grasshopper2Loaded => PlugIn.GetPlugInInfo(Grasshopper2PluginId)?.IsLoaded == true;
 
-    private static CapabilityEntry McpListener() =>
-        Environment.GetEnvironmentVariable(variable: "RHINO_MCP_AUTOSTART_PORT") switch {
-            "0" => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-                Detail: "autostart suppressed by RHINO_MCP_AUTOSTART_PORT=0; bridge did not start a listener"),
-            { Length: > 0 } port => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-                Detail: $"listener autostart gate unavailable; bridge owns no autostart for RHINO_MCP_AUTOSTART_PORT={port}"),
-            _ => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-                Detail: "listener autostart gate unavailable; bridge did not start a listener"),
-        };
-
-    private static CapabilityEntry McpPlatform() {
-        string[] loaded = [.. AppDomain.CurrentDomain.GetAssemblies()
-            .Where(predicate: IsMcneelRhinoMcp)
-            .Select(selector: static assembly => assembly.GetName())
-            .Select(selector: static name => $"{name.Name}:{name.Version}")
-            .Order(comparer: StringComparer.Ordinal)];
-        return loaded.Length == 0
-            ? new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Unsupported, Detail: "McNeel Rhino-MCP-Platform not loaded")
-            : new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Ok, Detail: string.Join(separator: ',', value: loaded));
-    }
-
-    private static bool IsMcneelRhinoMcp(Assembly assembly) =>
-        string.Equals(a: assembly.GetCustomAttribute<GuidAttribute>()?.Value, b: McneelPlugInGuid, comparisonType: StringComparison.OrdinalIgnoreCase)
-        || (string.Equals(a: assembly.GetName().Name, b: "RhinoMcpPlatform", comparisonType: StringComparison.Ordinal)
-            && HostReflection.LoadableTypes(assembly: assembly).Any(predicate: static type => IsRhMcpNamespace(ns: type.Namespace)));
-
-    private static bool IsRhMcpNamespace(string? ns) =>
-        ns is "RhMcp" || (ns?.StartsWith(value: "RhMcp.", comparisonType: StringComparison.Ordinal) ?? false);
-
-    private static CapabilityEntry ShellContent(string deployDir) {
-        string path = Path.Combine(path1: deployDir, path2: "Rasm.Bridge.Shell.dll");
-        try {
-            return File.Exists(path: path)
-                ? new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Ok,
-                    Detail: Convert.ToHexStringLower(inArray: SHA256.HashData(source: File.ReadAllBytes(path: path))))
-                : new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Detail: $"missing:{path}");
-        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) {
-            return new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Detail: $"{error.GetType().Name}: {error.Message}");
-        }
-    }
-
-    private void PreloadHostPlugin(Guid id) {
+    private void PreloadGrasshopper2() {
         string outcome;
         try {
-            outcome = PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true
-                ? "already-loaded"
-                : PlugIn.LoadPlugIn(pluginId: id, loadQuietly: true, forceLoad: false)
-                    ? PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true ? "loaded" : "load-true-not-loaded"
-                    : "load-returned-false";
+            outcome = Grasshopper2Loaded ? "already-loaded"
+                : PlugIn.LoadPlugIn(Grasshopper2PluginId, loadQuietly: true, forceLoad: false) && Grasshopper2Loaded ? "loaded"
+                : "load-refused";
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
             outcome = $"threw {error.GetType().Name}: {error.Message}";
         }
-        Publish(evt: BridgeEvent.Fact(key: $"hostplugin.{id:D}", value: outcome));
+        Publish(BridgeEvent.Fact("hostplugin.grasshopper2", outcome));
     }
 
     private static HostFingerprint RunningFingerprint() => new(
-        BundleVersion: RhinoApp.Version.ToString(),
-        RhinoCommonVersion: typeof(RhinoApp).Assembly.GetName().Version?.ToString() ?? string.Empty,
-        Grasshopper2Version: LoadedAssemblyVersion(simpleName: "Grasshopper2"),
-        RuntimeVersion: Environment.Version.ToString());
+        RhinoApp.Version.ToString(),
+        typeof(RhinoApp).Assembly.GetName().Version?.ToString() ?? string.Empty,
+        Grasshopper2Loaded ? Grasshopper2Version() : string.Empty,
+        Environment.Version.ToString());
 
-    private static Gh2ScrubOutcome CleanGrasshopper2() {
+    private static string Grasshopper2Version() => typeof(GhDocument).Assembly.GetName().Version?.ToString() ?? string.Empty;
+
+    private static Gh2Scrub ScrubGrasshopper2() {
         try {
-            Type? documentType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(selector: static assembly => HostReflection.LoadableTypes(assembly: assembly))
-                .FirstOrDefault(predicate: static type => string.Equals(a: type.FullName, b: "Grasshopper2.Doc.Document", comparisonType: StringComparison.Ordinal));
-            if (documentType is null) {
-                return new Gh2ScrubOutcome.NotLoaded();
+            GhDocument[] documents = [.. GhDocument.AllDocuments];
+            int modifiedBefore = documents.Count(static document => document.Modified);
+            foreach (GhDocument document in documents.Where(static document => document.Modified)) {
+                document.Unmodify();
             }
-            object? all = documentType.GetProperty(name: "AllDocuments", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null);
-            object[] documents = [.. Enumerate(value: all)];
-            int unmodified = 0;
-            foreach (object document in documents) {
-                unmodified += Invoke(document, methodName: "Unmodify") ? 1 : 0;
-            }
-            return new Gh2ScrubOutcome.Scrubbed(Documents: documents.Length, Unmodified: unmodified);
+            return new Gh2Scrub.Scrubbed(documents.Length, modifiedBefore, documents.Count(static document => document.Modified));
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            return new Gh2ScrubOutcome.Failed(Detail: $"{error.GetType().Name}: {error.Message}");
+            return new Gh2Scrub.Failed($"{error.GetType().Name}: {error.Message}");
         }
     }
 
-    private static IEnumerable<object> Enumerate(object? value) {
-        if (value is System.Collections.IEnumerable items) {
-            foreach (object? item in items) {
-                if (item is not null) {
-                    yield return item;
-                }
-            }
-        }
+    private static long HostStartedAtUnixMs() {
+        using Process host = Process.GetCurrentProcess();
+        return new DateTimeOffset(host.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds();
     }
-
-    private static bool Invoke(object target, string methodName) {
-        MethodInfo? method = target.GetType().GetMethod(
-            name: methodName, bindingAttr: BindingFlags.Public | BindingFlags.Instance,
-            binder: null, types: Type.EmptyTypes, modifiers: null);
-        if (method is null) {
-            return false;
-        }
-        _ = method.Invoke(obj: target, parameters: null);
-        return true;
-    }
-
-    private static string RpcAssemblyVersion =>
-        typeof(JsonRpc).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?? typeof(JsonRpc).Assembly.GetName().Version?.ToString()
-        ?? "unknown";
-
-    private static int ClientPidOf(CapabilityEntry[] capabilities) =>
-        capabilities.FirstOrDefault(predicate: static entry => string.Equals(a: entry.Key, b: "client.pid", comparisonType: StringComparison.Ordinal))
-            is { Detail: { Length: > 0 } text } && int.TryParse(s: text, provider: CultureInfo.InvariantCulture, result: out int pid) ? pid : 0;
 
     // --- [TRANSPORT]
 
@@ -426,17 +255,17 @@ public sealed class ShellHost : IDisposable {
         while (!token.IsCancellationRequested) {
             try {
                 NamedPipeServerStream pipe = new(
-                    pipeName: endpoint.PipeName, direction: PipeDirection.InOut, maxNumberOfServerInstances: PipeInstances,
-                    transmissionMode: PipeTransmissionMode.Byte, options: PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-                await using (pipe.ConfigureAwait(continueOnCapturedContext: false)) {
-                    await pipe.WaitForConnectionAsync(cancellationToken: token).ConfigureAwait(continueOnCapturedContext: false);
-                    await ServeAsync(pipe: pipe, token: token).ConfigureAwait(continueOnCapturedContext: false);
+                    endpoint.PipeName, PipeDirection.InOut, PipeInstances,
+                    PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+                await using (pipe.ConfigureAwait(false)) {
+                    await pipe.WaitForConnectionAsync(token).ConfigureAwait(false);
+                    await ServeAsync(pipe, token).ConfigureAwait(false);
                 }
             } catch (OperationCanceledException) when (token.IsCancellationRequested) {
             } catch (Exception error) when (!token.IsCancellationRequested && error is IOException or InvalidOperationException
                 or UnauthorizedAccessException or ObjectDisposedException or ConnectionLostException) {
-                Debug.WriteLine(message: $"accept loop recovered: {error.Message}");
-                await Task.Delay(millisecondsDelay: 100, cancellationToken: CancellationToken.None).ConfigureAwait(continueOnCapturedContext: false);
+                Debug.WriteLine($"accept loop recovered: {error.Message}");
+                await Task.Delay(100, CancellationToken.None).ConfigureAwait(false);
             }
         }
     }
@@ -444,20 +273,19 @@ public sealed class ShellHost : IDisposable {
     private async Task ServeAsync(NamedPipeServerStream pipe, CancellationToken token) {
         using SystemTextJsonFormatter formatter = new();
         formatter.JsonSerializerOptions = new JsonSerializerOptions(BridgeJsonContext.Default.Options) {
-            TypeInfoResolver = System.Text.Json.Serialization.Metadata.JsonTypeInfoResolver.Combine(
-                BridgeJsonContext.Default, new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver()),
+            TypeInfoResolver = JsonTypeInfoResolver.Combine(BridgeJsonContext.Default, new DefaultJsonTypeInfoResolver()),
         };
-        using HeaderDelimitedMessageHandler handler = new(duplexStream: pipe, formatter: formatter);
-        using JsonRpc rpc = new(messageHandler: handler);
-        Connection connection = new(host: this, rpc: rpc, events: rpc.Attach<IBridgeEvents>());
-        rpc.AddLocalRpcTarget<IBridgeShell>(target: connection, options: null);
+        using HeaderDelimitedMessageHandler handler = new(pipe, formatter);
+        using JsonRpc rpc = new(handler);
+        Connection connection = new(this, rpc, rpc.Attach<IBridgeEvents>());
+        rpc.AddLocalRpcTarget<IBridgeShell>(connection, options: null);
         rpc.StartListening();
         try {
-            await rpc.Completion.WaitAsync(cancellationToken: token).ConfigureAwait(continueOnCapturedContext: false);
+            await rpc.Completion.WaitAsync(token).ConfigureAwait(false);
         } catch (Exception error) when (error is ConnectionLostException or IOException or ObjectDisposedException or OperationCanceledException) {
-            Debug.WriteLine(message: $"connection closed: {error.Message}");
+            Debug.WriteLine($"connection closed: {error.Message}");
         } finally {
-            ReleaseOwner(connection: connection);
+            ReleaseOwner(connection);
         }
     }
 
@@ -465,45 +293,28 @@ public sealed class ShellHost : IDisposable {
 
     private void EnsureEndpoint() {
         try {
-            EndpointRecord? onDisk = File.Exists(path: EndpointRecord.EndpointPath)
-                ? JsonSerializer.Deserialize(json: File.ReadAllText(path: EndpointRecord.EndpointPath), jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord)
+            EndpointRecord? onDisk = File.Exists(EndpointRecord.FilePath)
+                ? JsonSerializer.Deserialize(File.ReadAllText(EndpointRecord.FilePath), BridgeJsonContext.Default.EndpointRecord)
                 : null;
-            if (onDisk is null || onDisk != endpoint) {
-                WriteEndpoint(record: endpoint);
+            if (onDisk != endpoint) {
+                WriteEndpoint(endpoint);
             }
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) {
-            WriteEndpoint(record: endpoint);
+            WriteEndpoint(endpoint);
         }
     }
 
     private static void WriteEndpoint(EndpointRecord record) {
-        _ = Directory.CreateDirectory(path: EndpointRecord.EndpointDirectory);
-        using FileStream stream = new(path: EndpointRecord.EndpointPath, mode: FileMode.Create, access: FileAccess.Write, share: FileShare.Read);
-        JsonSerializer.Serialize(utf8Json: stream, value: record, jsonTypeInfo: BridgeJsonContext.Default.EndpointRecord);
+        _ = Directory.CreateDirectory(RasmHome.Directory);
+        using FileStream stream = new(EndpointRecord.FilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+        JsonSerializer.Serialize(stream, record, BridgeJsonContext.Default.EndpointRecord);
     }
 
     private static void WritePoisoned(int rhinoPid, string fault) {
         try {
-            WriteEndpoint(record: EndpointRecord.Create(
-                pipeName: string.Empty,
-                rhinoPid: rhinoPid,
-                rhinoStartedAtUnixMs: HostStartedAtUnixMs(),
-                contractGeneration: Handshake.Generation,
-                shellVersion: ShellVersion,
-                rhinoVersion: RhinoApp.Version.ToString(),
-                fault: fault));
+            WriteEndpoint(new EndpointRecord.Poisoned(rhinoPid, HostStartedAtUnixMs(), RhinoApp.Version.ToString(), fault));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
-            RhinoApp.WriteLine(message: $"[rasm-bridge] poisoned endpoint write failed: {error.Message}; fault was: {fault}");
+            RhinoApp.WriteLine($"[rasm-bridge] poisoned endpoint write failed: {error.Message}; fault was: {fault}");
         }
     }
-
-    private static long HostStartedAtUnixMs() {
-        using Process host = Process.GetCurrentProcess();
-        return new DateTimeOffset(dateTime: host.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds();
-    }
-
-    private static string LoadedAssemblyVersion(string simpleName) =>
-        AppDomain.CurrentDomain.GetAssemblies()
-            .FirstOrDefault(predicate: assembly => string.Equals(a: assembly.GetName().Name, b: simpleName, comparisonType: StringComparison.Ordinal))
-            ?.GetName().Version?.ToString() ?? string.Empty;
 }

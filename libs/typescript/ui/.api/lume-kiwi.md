@@ -25,18 +25,18 @@ Bottom-up, `Variable` cells fold through `plus`/`minus`/`multiply`/`divide` into
 
 `ui` folds the algebra in wire order, then drives the solver; members below sit on `Solver` unless prefixed. `new Constraint(...)`+`addConstraint(c)` and `createConstraint(lhs, op, rhs, strength?)` are equivalent, the latter constructing and adding in one call. Live drag registers an edit variable at sub-`required` strength, calls `suggestValue` per frame, and `updateVariables()` re-solves.
 
-| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                            |
-| :-----: | :------------------------------------------------------- | :------- | :------------------------------------------------------ |
-|  [01]   | `new Variable(name)`                                     | ctor     | one `Variable` per decoded wire cell, in wire order     |
-|  [02]   | `new Expression([coeff, v], …)`                          | ctor     | fold the wire term-list into the constraint LHS         |
-|  [03]   | `Strength.create(a, b, c, w?)`                           | static   | map the wire strength field to a numeric strength       |
-|  [04]   | `createConstraint(lhs, op, rhs, strength?)`              | instance | construct-and-add one constraint, in wire order         |
-|  [05]   | `addConstraint(c)` / `removeConstraint(c)`               | instance | incremental add or remove of a constraint               |
-|  [06]   | `hasConstraint(c)` / `getConstraints()`                  | instance | `hasConstraint` guards idempotent replay                |
-|  [07]   | `addEditVariable(v, strength)` / `removeEditVariable(v)` | instance | register live-drag variables at `strength` `< required` |
-|  [08]   | `hasEditVariable(v)`                                     | instance | test whether a variable is an edit variable             |
-|  [09]   | `suggestValue(v, value)` then `updateVariables()`        | instance | per-frame drag target, then incremental re-solve        |
-|  [10]   | `v.value()` after `updateVariables()`                    | instance | the solved coordinate the panel binds — the seam output |
+| [INDEX] | [SURFACE]                                                | [SHAPE]  | [CAPABILITY]                                              |
+| :-----: | :------------------------------------------------------- | :------- | :-------------------------------------------------------- |
+|  [01]   | `new Variable(name)`                                     | ctor     | one `Variable` per decoded wire cell, in wire order       |
+|  [02]   | `new Expression([coeff, v], …)`                          | ctor     | fold the wire term-list into the constraint LHS           |
+|  [03]   | `Strength.create(a, b, c, w?)`                           | static   | map the wire strength field to a numeric strength         |
+|  [04]   | `createConstraint(lhs, op, rhs, strength?)`              | instance | construct-and-add one constraint, in wire order           |
+|  [05]   | `addConstraint(c)` / `removeConstraint(c)`               | instance | incremental add or remove of a constraint                 |
+|  [06]   | `hasConstraint(c)` / `getConstraints()`                  | instance | `hasConstraint` guards idempotent replay                  |
+|  [07]   | `addEditVariable(v, strength)` / `removeEditVariable(v)` | instance | register live-drag variables at `strength` `< required`   |
+|  [08]   | `hasEditVariable(v)`                                     | instance | test whether a variable is an edit variable               |
+|  [09]   | `suggestValue(v, value)` then `updateVariables()`        | instance | per-frame drag target, then incremental re-solve          |
+|  [10]   | `v.value()` after `updateVariables()`                    | instance | the solved coordinate the panel binds — the solver output |
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -44,7 +44,7 @@ Bottom-up, `Variable` cells fold through `plus`/`minus`/`multiply`/`divide` into
 - one incremental solver: `Solver` holds a simplex tableau; `addConstraint`/`removeConstraint`/`suggestValue` mutate it and `updateVariables()` re-optimizes without a rebuild, while `maxIterations` (default `10000`) caps iteration to fail loud on a pathological program.
 - strength is numeric, not categorical: `required` is hard and the solver satisfies it or throws on an unsatisfiable required set; `strong`/`medium`/`weak` and any `Strength.create(a, b, c, w)` value are soft, minimizing weighted violation, and an edit variable rejects `required` strength.
 - `Constraint` normalizes to `expr op 0`; `createConstraint(lhs, op, rhs, …)` folds `lhs − rhs` into that form, and `suggestValue` applies only to a registered edit variable.
-- identical ordered inputs yield identical positions: under equal-strength competition the tableau depends on constraint insertion order and edit weights, so the seam fixes every axis — constraint set, insertion order, strengths, edit-suggestion sequence — and both sides run the same Cassowary algorithm to one tableau; drift surfaces at the panel as a construction defect, never a re-solve-until-close loop.
+- identical ordered inputs yield identical positions: under equal-strength competition the tableau depends on constraint insertion order and edit weights, so the contract fixes every axis — constraint set, insertion order, strengths, edit-suggestion sequence — and both sides run the same Cassowary algorithm to one tableau; drift surfaces at the panel as a construction defect, never a re-solve-until-close loop.
 
 [STACKING]:
 - `wire`#vocab (`effect` Schema, `libs/typescript/.api/effect.md`): `ui` types the decoded ordered program through the `wire` `#vocab` subpath; the codec interior stays unexported, so the panel cannot re-parse or re-mint the program and the fold consumes decoded values only.

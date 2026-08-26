@@ -1,6 +1,6 @@
 # [PY_DATA_API_ADBC_DRIVER_SNOWFLAKE]
 
-`adbc-driver-snowflake` binds a Snowflake warehouse to the data partition rail: one `connect` factory loads the native `libadbc_driver_snowflake.so` into an `AdbcDatabase`, and typed `enum.Enum` vocabularies key every setting by its canonical `adbc.snowflake.*` string. Consumption rides `dbapi.connect` on one streamed cursor — Snowflake stages each result set as Arrow chunks in cloud storage, which the driver downloads concurrently under `PREFETCH_CONCURRENCY` and delivers zero-copy to the partition, query, and dataframe owners.
+`adbc-driver-snowflake` binds a Snowflake warehouse to the data partition domain: one `connect` factory loads the native `libadbc_driver_snowflake.so` into an `AdbcDatabase`, and typed `enum.Enum` vocabularies key every setting by its canonical `adbc.snowflake.*` string. Consumption rides `dbapi.connect` on one streamed cursor — Snowflake stages each result set as Arrow chunks in cloud storage, which the driver downloads concurrently under `PREFETCH_CONCURRENCY` and delivers zero-copy to the partition, query, and dataframe owners.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -23,7 +23,7 @@
 |  [01]   | `connect(uri, db_kwargs) -> AdbcDatabase`                            | factory | low-level Snowflake database handle |
 |  [02]   | `dbapi.connect(uri, db_kwargs, conn_kwargs, **kwargs) -> Connection` | factory | DBAPI connection over Snowflake     |
 
-[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.SNOWFLAKE` at `DriverKind.NATIVE` — the kind whose connect projection threads `uri`/`db_kwargs`/`conn_kwargs` — with `db.system.name` `snowflake` on its `DbapiSeam` row.
+[CONSUMER]: `tabular/query#QUERY` `_DRIVER` rows `RemoteDriver.SNOWFLAKE` at `DriverKind.NATIVE` — the kind whose connect projection threads `uri`/`db_kwargs`/`conn_kwargs` — with `db.system.name` `snowflake` on its `DbapiDriver` row.
 
 [ENTRYPOINT_SCOPE]: `DatabaseOptions` keys
 

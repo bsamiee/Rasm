@@ -1,16 +1,16 @@
 # [PY_COMPUTE_INFERENCE]
 
-One classical Bayesian-inference owner over an explicit prior/likelihood/posterior graph: `Inference.run` builds a `pymc.Model` from a frozen request, draws the posterior with gradient MCMC across a backend axis, scores convergence and predictive fit with `arviz`, and graduates the typed `Posterior` through the `uncertainty_law` admission rail. This owner is bounded at conjugate and GLM-class models over scalar latent nodes — a vector group-level latent the per-variable summary fold cannot key by a single name is out of scope, as are variational, normalizing-flow, and neural-posterior estimation. A posterior failing the `ConvergenceBar` is an admission rejection on the graduation rail, never a graduated handoff.
+One classical Bayesian-inference owner over an explicit prior/likelihood/posterior graph: `Inference.run` builds a `pymc.Model` from a frozen request, draws the posterior with gradient MCMC across a backend axis, scores convergence and predictive fit with `arviz`, and graduates the typed `Posterior` through the `uncertainty_law` admission path. This owner is bounded at conjugate and GLM-class models over scalar latent nodes — a vector group-level latent the per-variable summary fold cannot key by a single name is out of scope, as are variational, normalizing-flow, and neural-posterior estimation. A posterior failing the `ConvergenceBar` is an admission rejection on the graduation path, never a graduated handoff.
 
 Three polymorphic surfaces carry every variation: `Distribution` over the `pymc` families, read in both the prior and likelihood roles off one vocabulary; `SamplerBackend` over the MCMC engine and its per-engine policy; the `ConvergenceBar` policy row folded against the `_RESIDUALS` dimension table, so a stricter bar is a tighter row, never a new gate. This run rides the `EvidenceScope.INFERENCE` weave — span, a `boundary` fence narrowed to the posterior stack's own raise set, beartype guard, the `Posterior` `attributes` stamp on that span — the same composed form `experiments/model#ASSET` and `graduation/handoff#GRADUATION` hold. The narrowing resolves at first dispatch, so naming `pymc`'s exception classes never reifies the compile chain the page defers.
 
 ## [01]-[INDEX]
 
-- [02]-[BAYESIAN]: the prior/likelihood/posterior graph on one `Inference` owner — the `Distribution` and `SamplerBackend` unions, the `arviz` diagnostic fold, and the graduation-rail convergence gate.
+- [02]-[BAYESIAN]: the prior/likelihood/posterior graph on one `Inference` owner — the `Distribution` and `SamplerBackend` unions, the `arviz` diagnostic fold, and the graduation-path convergence gate.
 
 ## [02]-[BAYESIAN]
 
-- Owner: `Inference` — `InferenceSpec` is the frozen request; `Posterior.graduates` routes the measured-versus-ceiling ledger through the shared `graduation/handoff#GRADUATION` admission rail, the same gate the sibling solver, convex, and array-layout owners feed, never a parallel admission body.
+- Owner: `Inference` — `InferenceSpec` is the frozen request; `Posterior.graduates` routes the measured-versus-ceiling ledger through the shared `graduation/handoff#GRADUATION` admission path, the same gate the sibling solver, convex, and array-layout owners feed, never a parallel admission body.
 - Cases: `Distribution` is one union read in both roles, each case carrying its canonical parameters as a typed tuple — never a stringly `dict[str, float]` drifting from the class signature; the union's own keyword constructor is the construction surface, no parallel factory family re-wraps the cases.
 - Law: the async `run` fold charges one `Resource.RECORD` `MeterFact` over the sample population — draws times chains off the `SamplerPlan`, surfaced by the sampler engine — because that fold is the nearest async owner of a count the offloaded kernel produced and binds no plane for. The charge lands off the cleared arm alone, since a run refused at admission drew nothing, and the `Posterior` reads the settled population from the provider dimensions. The resource already names its series at the journal owner, so no metric row is minted beside the meter.
 - Auto: PyMC owns the model lowering and the JAX/Numba handoff — this page never re-drives `pymc.sampling.jax`, the `nutpie.compile_pymc_model`/`sample` pair, or the raw `blackjax` kernel algebra, and the accelerated engines install only so PyMC's own dispatch resolves them, never as imports here. Sampling never retries: the posterior draw is the evidence, and worker-death handling stays the lane's.
@@ -35,7 +35,7 @@ from opentelemetry import trace
 
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.journal import Journal, MeterFact, Resource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -255,7 +255,7 @@ class Posterior:
     def subject(self) -> str:
         return f"{self.likelihood}:{self.backend}"
 
-    def graduates(self, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Graduation]:
+    def graduates(self, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[Graduation]:
         return Graduation.graduates(
             EvidenceScope.INFERENCE.value,
             HandoffAxis(uncertainty_law=self.subject()),
@@ -289,7 +289,7 @@ def _posterior_raises() -> Catch:
     return (BeartypeCallHintViolation, pymc.exceptions.ShapeError, RuntimeError, TypeError, ValueError)
 
 
-def _fit_kernel(spec: "InferenceSpec") -> "RuntimeRail[Posterior]":
+def _fit_kernel(spec: "InferenceSpec") -> "RuntimeResult[Posterior]":
     return boundary(INFERENCE_FIT, lambda: Inference._fit(spec), catch=_posterior_raises()).bind(lambda outcome: outcome)
 
 
@@ -299,12 +299,12 @@ def _metered(engine: str, plan: SamplerPlan) -> MeterFact:
 
 class Inference:
     @staticmethod
-    async def run(spec: InferenceSpec, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Posterior]:
+    async def run(spec: InferenceSpec, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[Posterior]:
         engine = spec.plan.backend.engine
         trait = KernelTrait.HOSTILE if spec.plan.backend.tag == "external_nuts" else KernelTrait.RELEASING
 
-        async def dispatch() -> RuntimeRail[Posterior]:
-            return (await lane.offload(Kernel.of(_fit_kernel, trait), spec)).bind(lambda rail: rail)
+        async def dispatch() -> RuntimeResult[Posterior]:
+            return (await lane.offload(Kernel.of(_fit_kernel, trait), spec)).bind(lambda held: held)
 
         facts = {"engine": engine, "likelihood": spec.likelihood.tag, "draws": spec.plan.draws, "chains": spec.plan.chains}
         settled = await evidence_run(EvidenceScope.INFERENCE, f"inference.{engine}", dispatch, facts=facts, composition=composition)
@@ -316,7 +316,7 @@ class Inference:
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
-    def _fit(spec: InferenceSpec) -> "RuntimeRail[Posterior]":
+    def _fit(spec: InferenceSpec) -> "RuntimeResult[Posterior]":
         plan, names = spec.plan, [lat.name for lat in spec.latents]
         with pymc.Model() as model:
             nodes = {lat.name: lat.prior.declare(lat.name) for lat in spec.latents}

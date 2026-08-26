@@ -31,7 +31,7 @@
 [TOPOLOGY]:
 - composition-root only — the row patches globals; a library registration double-instruments the host.
 - every admitted event is a span, so a high-frequency event (scroll, mousemove) enters only through a deliberate `eventNames` row gated by `shouldPreventSpanCreation`.
-- `AttributeNames.URL_FULL` spells the page URL on its semantic-convention key, so an estate rule keyed on the convention — a scrub seal, a deny-list view, a gateway strip — reaches interaction spans with no instrumentation-specific alias; the three interaction-local keys carry no convention and stay this row's own vocabulary.
+- `AttributeNames.URL_FULL` spells the page URL on its semantic-convention key, so a repo rule keyed on the convention — a scrub seal, a deny-list view, a gateway strip — reaches interaction spans with no instrumentation-specific alias; the three interaction-local keys carry no convention and stay this row's own vocabulary.
 
 [STACKING]:
 - `opentelemetry-context-zone.md` `ZoneContextManager`: the row detects the patched `Zone` and parents the triggered fetch under the interaction span; absent the manager it degrades to `addEventListener` patching and async causality thins to same-tick work.

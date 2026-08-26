@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_SVGELEMENTS]
 
-`svgelements` owns pure-Python SVG geometry for the figure rail: SVG-document parse, the `PathSegment` path algebra, spec-faithful affine `Matrix` transform, the document-tree node vocabulary, and the `Length`/`Color`/`Angle`/`Point` value objects that resolve units, colors, angles, and coordinates. It parses, transforms, bounds, and composes the SVG that `segno`/`great-tables`/`vl-convert-python` emit; PNG/PDF egress routes downstream to `resvg-py`/`vl-convert-python`/`pyvips`/`pillow`.
+`svgelements` owns pure-Python SVG geometry for the figure domain: SVG-document parse, the `PathSegment` path algebra, spec-faithful affine `Matrix` transform, the document-tree node vocabulary, and the `Length`/`Color`/`Angle`/`Point` value objects that resolve units, colors, angles, and coordinates. It parses, transforms, bounds, and composes the SVG that `segno`/`great-tables`/`vl-convert-python` emit; PNG/PDF egress routes downstream to `resvg-py`/`vl-convert-python`/`pyvips`/`pillow`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -139,11 +139,11 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)`; `
 - `Length`/`Color`/`Angle`/`Point` own unit, color, angle, and coordinate resolution; `Length.value(ppi=)` resolves to absolute px and `Color.parse` answers the color question. `SVGELEMENTS_VERSION` names the version constant.
 
 [STACKING]:
-- `segno` (`.api/segno.md`), `great-tables` (`.api/great-tables.md`), and `vl-convert-python` (`.api/vl-convert-python.md`) emit SVG that `SVG.parse` ingests into one typed tree; `Matrix.scale(...) * shape` + `bbox()` then composes each into an n-up sheet, so one figure rail consumes every admitted SVG producer.
+- `segno` (`.api/segno.md`), `great-tables` (`.api/great-tables.md`), and `vl-convert-python` (`.api/vl-convert-python.md`) emit SVG that `SVG.parse` ingests into one typed tree; `Matrix.scale(...) * shape` + `bbox()` then composes each into an n-up sheet, so one figure domain consumes every admitted SVG producer.
 - `resvg-py` (`.api/resvg-py.md`) `svg_to_bytes` or `vl-convert-python` rasterizes the composed SVG to PNG/PDF, and that PNG feeds `pillow` (`.api/pillow.md`) or `pyvips` (`.api/pyvips.md`); `svgelements` is the geometry/layout owner upstream of every raster owner.
 - `Length.value(ppi=, viewbox=)` resolves CSS units against the same viewport the document target declares — a `weasyprint`/`pymupdf` page box — so scale-to-fit is spec-correct rather than a 96-dpi assumption.
 - `Path.bbox()` and `SVG.elements(conditional=)` feed the typed `PathResult` geometry cases directly.
 - `graphic/vector` folds `Path` as its metric substrate (point-at-distance, decimation) and `Matrix` as its transform, materializing one `Shape` per op before the `Rasterize` hand-off.
 
 [LOCAL_ADMISSION]:
-- Admitted as the sole SVG geometry, parse, transform, and bounds owner for the figure rail — ingestion, transform, scale-to-fit, n-up composition, crop, and bounds query over the SVG that `segno`/`great-tables`/`vl-convert-python` emit, feeding the document and figure owners; rasterization stays downstream at `resvg-py`/`vl-convert-python`.
+- Admitted as the sole SVG geometry, parse, transform, and bounds owner for the figure domain — ingestion, transform, scale-to-fit, n-up composition, crop, and bounds query over the SVG that `segno`/`great-tables`/`vl-convert-python` emit, feeding the document and figure owners; rasterization stays downstream at `resvg-py`/`vl-convert-python`.

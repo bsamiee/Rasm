@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_LZ4]
 
-`lz4` owns the branch LZ4 compression rail: `lz4.frame` mints self-describing framed compression for artifact packages, and `lz4.block` mints raw-block compression/decompression and the blocked runtime `CRDT_OPLOG_LZ4_DECODE` `Envelope` seam over the C# `MessagePackCompression.Lz4BlockArray` envelope.
+`lz4` owns the branch LZ4 compression domain: `lz4.frame` mints self-describing framed compression for artifact packages, and `lz4.block` mints raw-block compression/decompression and the blocked runtime `CRDT_OPLOG_LZ4_DECODE` `Envelope` boundary over the C# `MessagePackCompression.Lz4BlockArray` envelope.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -50,10 +50,10 @@
 - Imports stay at boundary scope; consumers compose the public `lz4.frame` and `lz4.block` modules alone.
 
 [STACKING]:
-- `msgspec`(`.api/msgspec.md`): the boundary encodes canonical payload `bytes` via `msgspec.msgpack.encode` / `json.encode` first, then `lz4.frame` (self-describing bundles) or `lz4.block` (the raw `Lz4BlockArray` runtime seam) compresses the encoded buffer — `msgspec` owns payload structure, `lz4` owns the compressed frame.
+- `msgspec`(`.api/msgspec.md`): the boundary encodes canonical payload `bytes` via `msgspec.msgpack.encode` / `json.encode` first, then `lz4.frame` (self-describing bundles) or `lz4.block` (the raw `Lz4BlockArray` runtime boundary) compresses the encoded buffer — `msgspec` owns payload structure, `lz4` owns the compressed frame.
 - artifacts `Lz4Knobs`: the `LZ4` codec arm carries frame/block selection, compression level, block size, checksum flags, linked-block policy, and bytearray-output policy as row data.
 
 [LOCAL_ADMISSION]:
 - artifacts `LZ4` defaults to `lz4.frame` for self-describing bundles; raw `lz4.block` admits only where a codec row selects raw-block payloads.
-- runtime `CRDT_OPLOG_LZ4_DECODE` binds one injected `Envelope` carrying `lz4.block.decompress` beside the `LZ4BlockError` its `raises` column declares, so the wire lift catches a plane it never imports; the seam admits raw-block decode alone, the C# `MessagePackCompression.Lz4BlockArray` frame being a raw LZ4 block rather than a self-describing `lz4.frame` payload.
+- runtime `CRDT_OPLOG_LZ4_DECODE` binds one injected `Envelope` carrying `lz4.block.decompress` beside the `LZ4BlockError` its `raises` column declares, so the wire lift catches a plane it never imports; the boundary admits raw-block decode alone, the C# `MessagePackCompression.Lz4BlockArray` frame being a raw LZ4 block rather than a self-describing `lz4.frame` payload.
 - corrupt-block `LZ4BlockError` is terminal, reaches the decode boundary fault through the injected `Envelope.raises` column the wire lift catches on, and is never retried by the `stamina` owner.

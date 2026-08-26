@@ -22,9 +22,9 @@
 - Family values publish their own census, spreading the vocabulary they mint — a `static readonly roster` restating that tuple drifts from it.
 - Untyped failure grades `defect` at `Fault.Class` — `terminal` recovery, `restart` re-offer, system-blamed, refused by every `Fault.Budget` gate.
 - `Effect.tryPromise`/`Effect.try` replace `Effect.promise`/`Effect.sync`, and `Effect.async` guards the synchronous throw beside its callback.
-- Foreign and `unknown` error channels fold onto the typed rail at the seam that widened them, never past the shielded gate downstream.
-- `Effect` channels carry operation truth — `Effect.exit` reifies settlement only as state, `Effect.onExit` observes it once at the terminal seam.
-- `Evidence.Outcome` carries command lifecycle as CloudEvent data and `Transition.Macro` state-machine transitions; OTel projects both at the seam.
+- Foreign and `unknown` error channels fold onto the typed error at the boundary that widened them, never past the shielded gate downstream.
+- `Effect` channels carry operation truth — `Effect.exit` reifies settlement only as state, `Effect.onExit` observes it once at the terminal boundary.
+- `Evidence.Outcome` carries command lifecycle as CloudEvent data and `Transition.Macro` state-machine transitions; OTel projects both at the boundary.
 - `Tap` owns in-process extension observation; registrars own point rosters and policy rows, while durable facts remain with their domain owners.
 - Tenancy baggage decodes ONLY through `Identity.Tenant.FromScope` under `Convention.rasm.tenant` — a second parse forks the dimension's alphabet.
 - `CookieSpec` owns the one CSRF echo header the serve gate reads and the browser dial stamps — a literal at either end forks the pair fail-closed.
@@ -35,7 +35,7 @@
 - `rasm.*` instruments mint at the core convention owner alone — `@effect/opentelemetry` derives the exported unit from `Convention.wire.unit` alone.
 - `rasm.work.family` rides every actor message span, `rasm.work.shard` the lifetime span alone — `toLayer.spanAttributes` is a static record.
 - Wasm modules are capability, never code — the folder-owned artifact acquires scoped behind a `Context.Tag`, and no linear-memory view escapes it.
-- Scalars cross a seam with typed unit and frame — `jose` reads `uat` in ms, `oauth4webapi` in seconds; `watlas` strides bytes, `meshopt` float32.
+- Scalars cross a boundary with typed unit and frame — `jose` reads `uat` in ms, `oauth4webapi` in seconds; `watlas` strides bytes, `meshopt` float32.
 - Isolation spells `tenancy` on every descriptor row — `residency`, `partition`, and `scope` name it nowhere, each staying live as its own concept.
 - Provider-native retry pins to ONE attempt and `value/fault#RETRY_BUDGET` owns every curve — a nested SDK schedule multiplies effective attempts.
 - Closed tenancy seats at `core/value/identity#IDENTITY_OWNER` — every stratum reads `Identity.tenancy` and no folder re-mints `none|single|multi`.
@@ -44,7 +44,7 @@
 - Recovery objectives cross STRUCTURALLY — an S2 grader reaches no S3 schema, and `Converge.Profile` naming a spec type refuses every foreign root.
 - Env custody is the `Setting` family form — one described record per namespace resolved at its owning construction; a second decode site forks it.
 - Config rows resolve at the boot line, never first use — a roster row picks which rows resolve, so optional capability never defers the proof.
-- Package-owned config records satisfy the `Setting` family at the package seam — a folder restatement forks it.
+- Package-owned config records satisfy the `Setting` family at the package boundary — a folder restatement forks it.
 - `iac` mints no `Setting` group — deploy-host env owns its own records, shape crossing as decoded `StackSpec`, material as in-graph Doppler rows.
 - Counter-plane availability stamps the claim's host fingerprint, never a metric band — a band conflates machine refusal with an uncounted metric.
 - Moderation verdicts never borrow the transport reason — transport bands `transient`, a verdict `denied`, so one shared cell re-drives the refusal.
@@ -52,7 +52,7 @@
 - `dpop`-scheme principals present only through security's proved call — `DPoPHandle` publishes `calculateThumbprint()` alone, so other wires refuse.
 - `DateTime.distanceDuration` is absolute; `distanceDurationEither` returns equal instants as `Left`, while deadline gates read signed `distance`.
 - `Schema.partialWith` drops the record's node annotation — a closed key domain piped through it re-seats its posture outside or silently reopens.
-- Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one seam word.
+- Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one boundary word.
 - Queue durability is the SKIP-LOCKED outbox — `data` owns the outbox relation and `runtime` the relay, so no broker deployment enters `iac`.
 - `Migrator` binds nowhere — ensure rows census fail-closed at Layer construction and the deploy plane applies them, so runtime mutates no schema.
 

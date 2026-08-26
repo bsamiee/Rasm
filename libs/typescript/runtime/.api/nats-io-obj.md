@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: store admin, the object surface, and the read and info shapes
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CONSUMER]                                                                                |
 | :-----: | :-------------- | :------------- | :---------------------------------------------------------------------------------------- |
@@ -20,7 +20,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: store lifecycle, chunked transfer, and aliasing
-- rail: boundaries
+- concern: boundaries
 
 | [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [CONSUMER]                                                    |
 | :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------------------------ |

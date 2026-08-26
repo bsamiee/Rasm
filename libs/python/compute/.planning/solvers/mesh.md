@@ -23,9 +23,9 @@ Each operation folds into one `MeshCensus` whose `Literal` `tag` IS the operatio
 - Owner: `MeshExchange` is the one `@tagged_union(frozen=True)` operation owner discriminating `generate`, `assemble`, `read`, and `write` rather than a free `MeshField.assemble` method beside a `read`/`write` static pair; each `MeshCensus` case retains that operation's canonical product and measured facts. meshio `Mesh` is the canonical container `read`/`write` project through and meshio owns the ~40-format registry — a hand-rolled format parser, a wrapper-rename of `read`/`write`, a flat `cell_data` dropping the block-parallel list, and a write-only promotion that never recovers on read are all rejected.
 - Cases: `generate` mints the mesh gmsh owns — `GmshSource` is the boundary-input axis (a bottom-up planar loop set, an OpenCASCADE primitive, an imported STEP/IGES/BREP or `.geo` model) and `SizeField` the density axis (a uniform target size, or the canonical `Threshold`-over-`Distance` graded refinement installed as the background mesh), so a new source is one case and a new density rule one case, never a second generation entry. The arm terminates in `gmsh.write` and mints its `MeshField` through the SAME `_read` fold every other inbound mesh crosses, so a generated and a read mesh carry identical group and element semantics by construction and no second extraction path, no second element vocabulary, and no gmsh element-type integer table forms beside `CTOR`. Boundary input arrives as data — coordinate arrays, entity tags, a file path — so this owner imports no geometry-branch kernel, exactly as the folder charter rules.
 - Law: the promote/recover round-trip reads a USER region alone — `_promotable` refuses a colon-namespaced column because that namespace is the writing format's own bookkeeping, MEASURED on a gmsh `.msh`: the blind integer sweep re-promotes `gmsh:physical` as `set-gmsh:physical-<tag>` beside the named groups meshio already recovered AND promotes `gmsh:geometrical`, an entity-id column naming no region at all, tripling the set roster and re-keying a mesh whose regions never changed. The named `cell_sets` meshio recovers stay authoritative; the gate is the format-agnostic colon discriminant, never a per-format skip list.
-- Entry: `MeshExchange.run(lane)` rides the hub weave as `evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch, facts=..., composition=...)`, which owns span and fault fence, while the `MeshCensus` mint retains the operation's product and stamps only scalar `attributes` on that span; the caller's composition key partitions those facts by default-free threading. `dispatch` resolves the `_TRAIT` row through `lane.offload` — the interchange arms ride the `RELEASING` thread band because meshio blocks on disk, the assemble and generate arms ride the `HOSTILE` process band because `skfem.asm` drives the caller's Python form callbacks GIL-held (the closure-bearing `FemForm` thunks cross on the pool's cloudpickle wire) and the gmsh kernel plus its `model.setCurrent` selector are process-global state concurrent in-process callers corrupt — isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, so no arm stalls the loop. meshio `ReadError`/`WriteError`, the gmsh kernel faults its own `logger.getLastError` reports, and the skfem assembly exceptions convert exactly once at the weave's fence into the `BoundaryFault` rail through the `runtime/reliability/faults#FAULT` `CLASSIFY` fold, so a malformed input or unsupported cell type is a typed rail, never a raised exception in domain flow.
+- Entry: `MeshExchange.run(lane)` rides the hub weave as `evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch, facts=..., composition=...)`, which owns span and fault fence, while the `MeshCensus` mint retains the operation's product and stamps only scalar `attributes` on that span; the caller's composition key partitions those facts by default-free threading. `dispatch` resolves the `_TRAIT` row through `lane.offload` — the interchange arms ride the `RELEASING` thread band because meshio blocks on disk, the assemble and generate arms ride the `HOSTILE` process band because `skfem.asm` drives the caller's Python form callbacks GIL-held (the closure-bearing `FemForm` thunks cross on the pool's cloudpickle wire) and the gmsh kernel plus its `model.setCurrent` selector are process-global state concurrent in-process callers corrupt — isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, so no arm stalls the loop. meshio `ReadError`/`WriteError`, the gmsh kernel faults its own `logger.getLastError` reports, and the skfem assembly exceptions convert exactly once at the weave's fence into the `BoundaryFault` channel through the `runtime/reliability/faults#FAULT` `CLASSIFY` fold, so a malformed input or unsupported cell type is a typed result, never a raised exception in domain flow.
 - Output: `MeshCensus` is the one `@tagged_union(frozen=True)` result whose `Literal` `tag` IS the operation. `generated` and `read` retain the `MeshField`, `assembled` retains the `AssembledSystem`, and `written` retains the emitted `Path`; measured counts, format, key, and terminal `SolveStatus` remain beside that value, while `.attributes` projects only their scalar observations. No operation carries a solve, so every factory floors a well-formedness extent, not a convergence residual, through the shared public `status_of` floor; `assembled` records `load_norm` as evidence yet floors on `dof_count` and a finite load rather than mislabeling a valid large load, and `generated` floors on a non-empty node and cell count while recording the meshed dimension and realized group count as evidence. Every factory closes through `_noted`, stamping `attributes` on the weave span.
-- Packages: `gmsh` (the process-global `initialize`/`finalize` bracket, `model.add`, the `geo` bottom-up `addPoint`/`addLine`/`addCurveLoop`/`addPlaneSurface` builders and the `occ` primitive/`importShapes` builders each under their own `synchronize`, `addPhysicalGroup(dim, tags, name=)` the sole region-naming route, the `mesh.field` `Distance`/`Threshold` pair under `setAsBackgroundMesh`, `mesh.setSize`/`generate`/`recombine`/`setOrder`, and `write` emitting the `.msh` meshio reads), `skfem` (`Basis`/`asm`, the `Mesh*1`/`Element*` constructors resolved by name through `CTOR` with `ElementVector`/`ElementComposite` wrapping their inner elements, `get_dofs(facets=...).flatten()` the DOF selector, `basis.N` the dof count), `meshio` (the ~40-format registry, the per-type-merged `cell_data_dict`/`cell_sets_dict` read views, the block-parallel write surface, the `cell_sets_to_data`/`cell_data_to_sets` promoter/inverter family, `ReadError`/`WriteError` boundary-folded), `numpy` (`linalg.norm` the load fold, `issubdtype` the integer-label gate), `math.isfinite`, `expression` (`tagged_union`/`Map` the table rail), hub (`evidence_run`), `solvers/solve#SOLVE` (`status_of` by public name), runtime (`railed` the `effect.result` builder, `Kernel`/`KernelTrait` the offload crossing, `ContentIdentity` under `CANONICAL_POLICY`).
+- Packages: `gmsh` (the process-global `initialize`/`finalize` bracket, `model.add`, the `geo` bottom-up `addPoint`/`addLine`/`addCurveLoop`/`addPlaneSurface` builders and the `occ` primitive/`importShapes` builders each under their own `synchronize`, `addPhysicalGroup(dim, tags, name=)` the sole region-naming route, the `mesh.field` `Distance`/`Threshold` pair under `setAsBackgroundMesh`, `mesh.setSize`/`generate`/`recombine`/`setOrder`, and `write` emitting the `.msh` meshio reads), `skfem` (`Basis`/`asm`, the `Mesh*1`/`Element*` constructors resolved by name through `CTOR` with `ElementVector`/`ElementComposite` wrapping their inner elements, `get_dofs(facets=...).flatten()` the DOF selector, `basis.N` the dof count), `meshio` (the ~40-format registry, the per-type-merged `cell_data_dict`/`cell_sets_dict` read views, the block-parallel write surface, the `cell_sets_to_data`/`cell_data_to_sets` promoter/inverter family, `ReadError`/`WriteError` boundary-folded), `numpy` (`linalg.norm` the load fold, `issubdtype` the integer-label gate), `math.isfinite`, `expression` (`tagged_union`/`Map` the table carrier), hub (`evidence_run`), `solvers/solve#SOLVE` (`status_of` by public name), runtime (`returns_result` the `effect.result` builder, `Kernel`/`KernelTrait` the offload crossing, `ContentIdentity` under `CANONICAL_POLICY`).
 - Growth: a new operation (a `Functional` energy-norm evaluation, an adaptive `refined` step) is one `MeshExchange` case, one product-carrying `MeshCensus` case, and one `_TRAIT` row sharing the `CTOR` resolution and the status floor; a new element is one `CTOR` row, a wrapper or mixed element the same row naming its inner kinds, so an H(div), H(curl), plate, or DG family lands as rows with no builder edit; a new meshable cell shape is one `_DIM` row and, where the kernel reaches it only by recombination, one `_RECOMBINED` member; a new generation source is one `GmshSource` case and one `build` arm; a new density rule is one `SizeField` case and one `install` arm; a new OpenCASCADE primitive is one `GmshSolid` row carrying its own arity; a new assembled field is one slot on `AssembledSystem`; a new format is zero new surface because meshio owns the registry; a new termination class is one `SolveStatus` member; never a parallel mesh container and never a solve on this owner.
 
 ```python
@@ -47,7 +47,7 @@ from opentelemetry import trace
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, StageTap, evidence_run
 from rasm.compute.solvers.solve import SolveStatus, status_of
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, railed, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, returns_result, rostered
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -215,7 +215,7 @@ class GmshSource:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def build(self, gmsh: Any) -> RuntimeRail[tuple[tuple[int, int], ...]]:
+    def build(self, gmsh: Any) -> RuntimeResult[tuple[tuple[int, int], ...]]:
         occ, geo = gmsh.model.occ, gmsh.model.geo
         match self:
             case GmshSource(tag="planar", planar=(points, loops, size)):
@@ -441,11 +441,11 @@ class MeshExchange:
     def Write(cls, field: MeshField, path: Path, file_format: str | None = None, /) -> Self:
         return cls(write=(field, path, file_format))
 
-    async def run(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[MeshCensus]:
+    async def run(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[MeshCensus]:
         mark: Option[StageTap] = Some(StageTap.of(EvidenceScope.MESH, lane.pulses.tap)) if self.tag in _STAGED else Nothing
 
-        async def dispatch() -> RuntimeRail[MeshCensus]:
-            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, mark)).bind(lambda rail: rail).map(
+        async def dispatch() -> RuntimeResult[MeshCensus]:
+            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, mark)).bind(lambda held: held).map(
                 lambda census: census._noted()
             )
 
@@ -457,7 +457,7 @@ class MeshExchange:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@railed
+@returns_result
 def _dispatch(exchange: MeshExchange, mark: Option[StageTap]) -> MeshCensus:
     match exchange:
         case MeshExchange(tag="generate", generate=(source, plan, path)):
@@ -479,7 +479,7 @@ def _dispatch(exchange: MeshExchange, mark: Option[StageTap]) -> MeshCensus:
             assert_never(unreachable)
 
 
-@railed
+@returns_result
 def _field(
     element: ElementKind,
     points: np.ndarray,
@@ -535,7 +535,7 @@ def _assemble(field: MeshField, form: FemForm) -> AssembledSystem:
     )
 
 
-def _generate(source: GmshSource, plan: MeshPlan, path: Path, mark: Option[StageTap]) -> RuntimeRail[MeshField]:
+def _generate(source: GmshSource, plan: MeshPlan, path: Path, mark: Option[StageTap]) -> RuntimeResult[MeshField]:
     row = CTOR[plan.element]
     gmsh.initialize()
     try:
@@ -576,7 +576,7 @@ def _promotable(column: str, values: np.ndarray) -> bool:
     return _region(column) and bool(np.issubdtype(np.asarray(values).dtype, np.integer))
 
 
-def _read(path: Path, element: ElementKind, fmt: str | None) -> RuntimeRail[MeshField]:
+def _read(path: Path, element: ElementKind, fmt: str | None) -> RuntimeResult[MeshField]:
     cell_type = CTOR[element].cell
     mesh = meshio.read(str(path), fmt)
     for column, blocks in tuple(mesh.cell_data.items()):

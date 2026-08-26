@@ -2,7 +2,7 @@
 
 `daft` is a Rust-backed distributed and streaming dataframe engine for multimodal, out-of-core data: a lazy `DataFrame` builds a logical plan from `Expression` nodes and defers execution to a sink, so pushdown and partition-parallel evaluation own the cost on the native or Ray runner. A typed `DataType` vocabulary — numeric, temporal, nested, and multimodal `tensor`/`image`/`embedding` — backs every column, and `read_*`/`from_*` constructors ingest the file, lakehouse, SQL, and Arrow sources without eager materialization.
 
-`data` composes `DataFrame`, `Expression`, and the `read_*` rail into the `DAFT_ELASTICITY` path, never re-implementing the execution, partitioning, or lakehouse readers daft owns.
+`data` composes `DataFrame`, `Expression`, and the `read_*` layer into the `DAFT_ELASTICITY` path, never re-implementing the execution, partitioning, or lakehouse readers daft owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -34,7 +34,7 @@
 
 [PUBLIC_TYPE_SCOPE]: exception hierarchy
 
-`daft.exceptions` roots every fault at `DaftCoreException` (subclasses `ValueError`); the `DaftTransientError` branch is the retry discriminant a `stamina` rail targets.
+`daft.exceptions` roots every fault at `DaftCoreException` (subclasses `ValueError`); the `DaftTransientError` branch is the retry discriminant a `stamina` layer targets.
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]                            |
 | :-----: | :------------------- | :------------- | :-------------------------------------- |
@@ -188,7 +188,7 @@ Streaming sinks pull execution incrementally so an out-of-core result never full
 - Every `read_*`/`from_*` constructor and every transform returns a lazy `DataFrame` carrying a logical plan; execution fires only at a sink (`collect`, `show`, `count_rows`, `iter_rows`, `to_*`, `write_*`), so intermediate frames never materialize the full set and pushdown and partition-parallel evaluation own the cost.
 - One `Expression` algebra owns column logic as a flat typed method surface (`list_*`, `image_*`, `regexp_*`, `jq`, predicates, and `over`); `col`/`lit`/`element`/`interval` and `functions.struct`/`coalesce`/`when` mint nodes, and `select`/`where`/`with_columns`/`agg`/`sort`/`join` accept an `Expression` or a column-name `str` interchangeably.
 - `DataType` classmethods are the single dtype factory spanning numeric, temporal, `list`/`struct`/`map`, and multimodal `tensor`/`image`/`embedding`; `from_arrow_type` bridges pyarrow, and schema infers per reader unless `schema`/`infer_schema=False` pins it.
-- `read_*` is the lazy scan rail keyed by format and lakehouse backend, threading `io_config` for credentials and `hive_partitioning`/`partition_col` for pruning; `from_*` ingests in-memory and framework objects zero-copy where the source admits.
+- `read_*` is the lazy scan domain keyed by format and lakehouse backend, threading `io_config` for credentials and `hive_partitioning`/`partition_col` for pruning; `from_*` ingests in-memory and framework objects zero-copy where the source admits.
 - `set_runner_native`/`set_runner_ray` select the backend as a runner row, not a parallel frame type — the same plan runs single-node or on Ray; `Session`/`Catalog`/`Identifier` resolve catalog-scoped tables, and `sql`/`sql_expr` address the plan the builder addresses.
 - `udf(return_dtype=...)` decorates a callable into a partition UDF carrying `num_cpus`/`num_gpus`/`memory_bytes`/`concurrency` resource rows, and `Expression.apply` is the element-wise row; every UDF declares `return_dtype`.
 - Each plan and executed frame expose the resolved `Schema`, partition count, runner backend, scan source and format, pushdown predicates, and row count directly.

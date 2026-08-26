@@ -15,7 +15,7 @@ The stream-and-reshape plane: `ChartStream` is the typed feed roster with retent
 - Cases: `ChartShape` = series | grouped | matrix | summary | span; `ChartReducer` = count | sum | mean | weighted | median | quantile | minimum | maximum | deviation | five-number; `BinPolicy` = Buckets | Width | Extent; `CalendarAxis` = hour-by-day | month | season | weekday.
 - Packages: Rasm, DynamicData, NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new reducer is one `ChartReducer` row projecting the spread; a new civil axis is one `CalendarAxis` row; zero new surface.
-- Boundary: every order statistic reads the kernel `Distribution<Scalar>` under `QuantileRule.NearestRank` — the declared percentile is an observation the population CONTAINS, so a p95 a viewer reads beside a measured maximum belongs to the same sample set, and min, max, mean, deviation, median, quartiles, and the requested quantile are ONE kernel fold per group rather than ten hand statistics over a privately sorted array; the weighted mean is the kernel `Stat<Scalar>.Of` weighted fold, the one reduction a stream of PRE-REDUCED rows admits without distortion, and a zero-mass window REFUSES on the kernel rail rather than reading zero. `GroupSpread.Of` is the one construction, so a row set reducing one group nine ways folds once. Calendar reshape rides NodaTime through one injected zone and calendar policy, so an hour-by-day matrix, a month rollup, and a season rollup resolve their civil fields through the same zone a time brush and an axis label resolve theirs through, and a UTC-offset literal anywhere in a reshape is the deleted form.
+- Boundary: every order statistic reads the kernel `Distribution<Scalar>` under `QuantileRule.NearestRank` — the declared percentile is an observation the population CONTAINS, so a p95 a viewer reads beside a measured maximum belongs to the same sample set, and min, max, mean, deviation, median, quartiles, and the requested quantile are ONE kernel fold per group rather than ten hand statistics over a privately sorted array; the weighted mean is the kernel `Stat<Scalar>.Of` weighted fold, the one reduction a stream of PRE-REDUCED rows admits without distortion, and a zero-mass window REFUSES on the kernel result rather than reading zero. `GroupSpread.Of` is the one construction, so a row set reducing one group nine ways folds once. Calendar reshape rides NodaTime through one injected zone and calendar policy, so an hour-by-day matrix, a month rollup, and a season rollup resolve their civil fields through the same zone a time brush and an axis label resolve theirs through, and a UTC-offset literal anywhere in a reshape is the deleted form.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ public sealed record CalendarPolicy(DateTimeZone Zone, CalendarSystem Calendar) 
 
 - Owner: `TransformRow` — one declared reshape between feed and series, each case naming the shape it consumes and produces; `TransformChain` — the declaration-time shape fold and the one evaluator.
 - Cases: Bin | Aggregate | Window | Calendar | Cumulative | LoadDuration | Downsample | Shift | Clamp.
-- Entry: `TransformChain.Admit(Seq<TransformRow> rows, ChartShape source)` — the declaration-time shape fold; `TransformChain.Run(Seq<TransformRow> rows, Seq<ChartDatum> source, CalendarPolicy calendar)` — the one evaluator on the `Fin` rail, so a group whose whole population the kernel spread refuses names itself instead of rendering as a zero.
+- Entry: `TransformChain.Admit(Seq<TransformRow> rows, ChartShape source)` — the declaration-time shape fold; `TransformChain.Run(Seq<TransformRow> rows, Seq<ChartDatum> source, CalendarPolicy calendar)` — the one evaluator returning `Fin`, so a group whose whole population the kernel spread refuses names itself instead of rendering as a zero.
 - Auto: an hourly carpet matrix, a monthly rollup, a box-plot summary, a load-duration curve, and a downsampled min/max band are five declarations over one evaluator, so no tile reshapes data in view code.
 - Packages: Rasm, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new reshape is one `TransformRow` case naming its input and output shape and one evaluator arm; zero new surface.
@@ -167,14 +167,14 @@ public abstract partial record TransformRow {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TransformChain {
     public static Fin<ChartShape> Admit(Seq<TransformRow> rows, ChartShape source) =>
-        rows.Fold(Fin.Succ(source), static (rail, row) => rail.Bind(held =>
+        rows.Fold(Fin.Succ(source), static (acc, row) => acc.Bind(held =>
             row.Shapes switch {
                 var (want, next) when want == held || (want == ChartShape.Grouped && held.Keyed) => Fin.Succ(next),
                 var (want, _) => Fin.Fail<ChartShape>(new ChartFault.TransformRejected($"{row.GetType().Name} consumes {want.Key}, chain carries {held.Key}")),
             }));
 
     public static Fin<Seq<ChartDatum>> Run(Seq<TransformRow> rows, Seq<ChartDatum> source, CalendarPolicy calendar) =>
-        rows.Fold(Fin.Succ(source), (rail, row) => rail.Bind(held => row.Switch(
+        rows.Fold(Fin.Succ(source), (acc, row) => acc.Bind(held => row.Switch(
             state: (Held: held, Calendar: calendar),
             bin: static (s, r) => Fin.Succ(Binned(s.Held, r.Policy)),
             aggregate: static (s, r) => Reduced(s.Held, r.Reducer, r.Tau),
@@ -374,10 +374,10 @@ public static class ChartFolds {
 ## [05]-[PLAN_FEEDS]
 
 - Owner: `PlanFeeds` — the folds projecting the Bim `CostSchedule` and `ScheduleNetwork` planning results into chart rows and event marks.
-- Entry: `PlanFeeds.Schedule(ScheduleNetwork network, Op key)` — composes the Bim CPM (`ScheduleCpm.Schedule`) and folds each ACTIVITY onto one span row: `X` the early-start ordinal, slot A the scheduled working days, slot B the total float in days — criticality DERIVES as `float <= 0`, so no third slot restates it; `PlanFeeds.Milestones(ScheduleNetwork network, string layer, Op key)` — milestones cross as `ChartAnnotation.Moment` event lines at their early start, because a zero-content event drawn as a zero-length bar is invisible exactly where it matters; `PlanFeeds.Cost(CostSchedule schedule, Op key, Seq<ExchangeRate> fx = default)` — composes the Bim railed `Rollup` and folds its per-category partition onto categorical rows in the schedule currency, so a stacked cost tile sums values one repricing authority already made summable.
+- Entry: `PlanFeeds.Schedule(ScheduleNetwork network, Op key)` — composes the Bim CPM (`ScheduleCpm.Schedule`) and folds each ACTIVITY onto one span row: `X` the early-start ordinal, slot A the scheduled working days, slot B the total float in days — criticality DERIVES as `float <= 0`, so no third slot restates it; `PlanFeeds.Milestones(ScheduleNetwork network, string layer, Op key)` — milestones cross as `ChartAnnotation.Moment` event lines at their early start, because a zero-content event drawn as a zero-length bar is invisible exactly where it matters; `PlanFeeds.Cost(CostSchedule schedule, Op key, Seq<ExchangeRate> fx = default)` — composes the Bim result-typed `Rollup` and folds its per-category partition onto categorical rows in the schedule currency, so a stacked cost tile sums values one repricing authority already made summable.
 - Packages: Rasm.Bim, NodaTime, LanguageExt.Core
 - Growth: a new planning read is one fold here projecting a result column the Bim owner already carries; zero new surface.
-- Boundary: planning results are CONSUMED as feed values, never re-solved — the CPM walk, the calendar election (`network.CalendarFor(task)`, never a network-wide calendar parameter), the float derivation, and the currency repricing are the Bim owner's, and this fold reads `TaskGrain`, `CriticalPath`, and `CostRollup` columns whole; a `bool IsMilestone` read and a network-wide `WorkCalendar` argument are the deleted forms the Bim page's own laws name. Cost rows fold the `ByCategory` partition of the RAILED rollup, so a mixed-currency estimate reaches the chart already repriced or refuses by name — summing native amounts across currencies inside a reducer is unspellable because the fold never sees them. Instants cross to chart space as `DateTime.Ticks` exactly as every temporal coordinate on this plane does.
+- Boundary: planning results are CONSUMED as feed values, never re-solved — the CPM walk, the calendar election (`network.CalendarFor(task)`, never a network-wide calendar parameter), the float derivation, and the currency repricing are the Bim owner's, and this fold reads `TaskGrain`, `CriticalPath`, and `CostRollup` columns whole; a `bool IsMilestone` read and a network-wide `WorkCalendar` argument are the deleted forms the Bim page's own laws name. Cost rows fold the `ByCategory` partition of the RESULT-TYPED rollup, so a mixed-currency estimate reaches the chart already repriced or refuses by name — summing native amounts across currencies inside a reducer is unspellable because the fold never sees them. Instants cross to chart space as `DateTime.Ticks` exactly as every temporal coordinate on this plane does.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------

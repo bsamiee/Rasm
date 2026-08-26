@@ -97,7 +97,7 @@
 [STACKING]:
 - `pydantic`(`.api/pydantic.md`): a `BaseSettings` subclass is a `BaseModel`, so fields carry `pydantic` `Field`/validators/`SecretStr` and the `NoDecode`/`ForceDecode` markers ride `Annotated` metadata on one field; admission faults are `ValidationError`.
 - `fsspec`(`.api/fsspec.md`) / `obstore`(`.api/obstore.md`): the validated model carries the `storage_options` (key/secret/token/endpoint) the branch storage dispatch consumes, and a cloud-mounted secrets tree is read by `NestedSecretsSettingsSource(secrets_dir=...)`; the cloud secret-manager sources are the credential-store origin feeding the same merged model.
-- runtime rail: one `BaseSettings` model declares the full source tuple in `settings_customise_sources`, `CliApp.run` is the binary entry, and the resulting immutable model threads into every downstream resource and observability owner.
+- runtime domain: one `BaseSettings` model declares the full source tuple in `settings_customise_sources`, `CliApp.run` is the binary entry, and the resulting immutable model threads into every downstream resource and observability owner.
 
 [LOCAL_ADMISSION]:
 - Admission receives the validated settings model as a caller-owned value; the runtime resolves no host profile or global clock from it.

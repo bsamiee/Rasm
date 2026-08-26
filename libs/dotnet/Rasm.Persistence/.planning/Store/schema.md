@@ -10,7 +10,7 @@
 
 ## [02]-[CONTRACT]
 
-- Owner: generated `Backend`, `Artifact`, and `Capability` messages own the contract vocabulary; `SchemaContract` couples one admitted `Backend` value to its semantic `GenerationId`; `[FaultCase]` keeps every refusal on the kernel fault rail.
+- Owner: generated `Backend`, `Artifact`, and `Capability` messages own the contract vocabulary; `SchemaContract` couples one admitted `Backend` value to its semantic `GenerationId`; `[FaultCase]` keeps every refusal on the kernel fault floor.
 - Law: generated `ArtifactRole`, `Provider`, `FailureRank`, and `RestartClass` enums carry every cross-runtime discriminant. `SchemaArtifact` carries local framework bytes and generated enum values without minting a wire twin.
 - Law: `CapabilityProjection.Message` lowers each provisioning `ServerExtension` into one generated `Capability`; provisioning retains absence behavior and disruption rank, while the generated enum values alone cross the contract.
 - Boundary: operator settings, capacity, coordinates, secrets, schedules, observations, and recovery objectives stay outside `Backend`. Recovery evidence enters the admission verdict after generation identity is settled.
@@ -419,7 +419,7 @@ public static class BackendAdmission {
 
 - Owner: `BackendConformance.Emit` writes an admitted generated `Backend` through the branch ProtoJSON edge; `BackendConformance.Project` parses and Celly-validates foreign ProtoJSON before the strict semantic projection mints generation identity.
 - Law: `WireAdmission` owns the descriptor registry and Celly evaluator; `WireJson` owns the unknown-field posture, recursion bound, and ProtoJSON pair. This page builds no validator, parser, formatter, JSON Schema, STJ context, or hand-authored conformance document beside them.
-- Law: `DocumentCeiling` rejects transported ProtoJSON before generated decode and emitted ProtoJSON before publication. Its 512 KiB budget sits beneath the 1 MiB ConfigMap residence after base64 and object metadata; descriptor string, content, and repeated-field ceilings remain the constructed-message floor.
+- Law: `DocumentCeiling` rejects transported ProtoJSON before generated decode and emitted ProtoJSON before publication. Its 512 KiB budget sits beneath the 1 MiB ConfigMap ceiling after base64 and object metadata; descriptor string, content, and repeated-field ceilings remain the constructed-message floor.
 - Law: transported ProtoJSON octets survive as deployment content only. `Project` never compares them with a local re-encode and `ContractComposition.Preimage` never reads them.
 - Law: descriptor admission precedes canonical repeated-row proof; a schema-valid document with reordered rows refuses before generation minting.
 - Boundary: conformance proves contract projection semantics; realized provider and recovery evidence still enter through `BackendAdmission`.

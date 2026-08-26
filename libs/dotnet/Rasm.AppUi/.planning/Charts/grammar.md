@@ -139,7 +139,6 @@ public sealed partial class ChartFind {
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
-[NoReorder]
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayerTrait : ICapability<LayerTrait> {
@@ -448,7 +447,6 @@ public sealed partial class ChartCanvas {
     public static readonly ChartCanvas Map = new("map");
 }
 
-[NoReorder]
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SeriesTrait : ICapability<SeriesTrait> {
@@ -545,8 +543,8 @@ public static class GeoSeries {
                 changes => {
                     lock (sync) {
                         toSeq(changes)
-                            .Fold(Fin.Succ(0), (rail, change) =>
-                                rail.Bind(folded => Apply(series.Lands, index, change).Map(touched => folded + touched)))
+                            .Fold(Fin.Succ(0), (acc, change) =>
+                                acc.Bind(folded => Apply(series.Lands, index, change).Map(touched => folded + touched)))
                             .Match(Succ: observed, Fail: fault);
                     }
                 },
@@ -633,7 +631,6 @@ public sealed partial class ChartAxisKind {
     public partial string Label(ChartAxisKind kind, ResolvedLocale locale, double value);
 }
 
-[NoReorder]
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AxisTrait : ICapability<AxisTrait> {

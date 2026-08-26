@@ -120,7 +120,7 @@
 - [02]: `view` — `useEffectEvent<T>(cb)` (main entry, not `./experimental`) extracts a non-reactive event from a deps list
 - [03]: react-compiler OWNS these — never hand-write in a row; present for library/interop code only
 - [04]: `act/transition` defers work; `useSyncExternalStore` is the external-store subscription `@effect-atom` builds on
-- [05]: `view` — unwrap a promise (suspends) or context in render/loops; the `Result`-atom async seam
+- [05]: `view` — unwrap a promise (suspends) or context in render/loops; the `Result`-atom async boundary
 - [06]: `view/form` submit trip — server-action pending/error + optimistic UI; pairs `react-dom` `useFormStatus`
 - [07]: `act/transition` — behind a capability flag; import from `./canary`/`./experimental`
 

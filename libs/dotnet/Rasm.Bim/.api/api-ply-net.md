@@ -58,7 +58,7 @@
 - `PropertyData.Property.DataType` is the ONLY sound normalizer for a domain-bounded column: PLY writes `red`/`green`/`blue` as `UInt8` far more often than as unit-valued `Float32`, and a dark scan whose channels all sit under `1.0` is indistinguishable from float output by inspection, so a unit-interval read divides by the DECLARED width's full scale and never by one inferred from the values.
 
 [STACKING]:
-- `Exchange/import#IMPORT_RAIL` `BimIo.Ply`: `PlyParser.Parse(stream, maxChunkSize)` decodes into `Dataset`, `Header.Vertex` x/y/z and `Header.Face` `vertex_indices` typed columns fan-triangulate onto the canonical triangle-soup `ImportedGeometry`; `ParseHeader` alone feeds `Detect` classification by element roster without a body decode.
+- `Exchange/import#IMPORT_PIPELINE` `BimIo.Ply`: `PlyParser.Parse(stream, maxChunkSize)` decodes into `Dataset`, `Header.Vertex` x/y/z and `Header.Face` `vertex_indices` typed columns fan-triangulate onto the canonical triangle-soup `ImportedGeometry`; `ParseHeader` alone feeds `Detect` classification by element roster without a body decode.
 - `Exchange/format#FORMAT_AXIS` `InterchangeCodec.Ply`: the `ply-net` codec row owns the extension-keyed codec map; `Ply.Net` grounds only the import-only `.ply` leg, every sibling format on its own codec row.
 
 [LOCAL_ADMISSION]:

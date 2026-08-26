@@ -37,7 +37,7 @@ from opentelemetry import trace
 
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, railed, rostered, traversed
+from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeResult, boundary, returns_result, rostered, traversed
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 _UREG: pint.UnitRegistry = pint.get_application_registry()
@@ -276,8 +276,8 @@ class UncertainQuantity(Struct, frozen=True):
     content_key: ContentKey
 
     @classmethod
-    def of(cls, nominal: float, std_dev: float, unit: str, /) -> "RuntimeRail[UncertainQuantity]":
-        def _build() -> "RuntimeRail[UncertainQuantity]":
+    def of(cls, nominal: float, std_dev: float, unit: str, /) -> "RuntimeResult[UncertainQuantity]":
+        def _build() -> "RuntimeResult[UncertainQuantity]":
             cell = ufloat(nominal, std_dev)
             measurement = _UREG.Measurement(cell, unit)
             return _scalar_key(nominal, std_dev, unit).map(lambda key: cls(measurement, Magnitude.Scalar(cell), key))
@@ -287,8 +287,8 @@ class UncertainQuantity(Struct, frozen=True):
     @classmethod
     def correlated(
         cls, nominals: Sequence[float], covariance: Covariance, unit: str, tags: tuple[str, ...], /, *, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> "RuntimeRail[tuple[UncertainQuantity, ...]]":
-        @railed
+    ) -> "RuntimeResult[tuple[UncertainQuantity, ...]]":
+        @returns_result
         def _build() -> "tuple[UncertainQuantity, ...]":
             cells = covariance.reconstruct(nominals, tags)
             cohort: ContentKey = yield from _cohort_key(nominals, covariance, unit, tags)
@@ -312,8 +312,8 @@ class UncertainQuantity(Struct, frozen=True):
             facts=facts, composition=composition,
         )
 
-    def convert(self, target_unit: str, /) -> "RuntimeRail[UncertainQuantity]":
-        def _to() -> "RuntimeRail[UncertainQuantity]":
+    def convert(self, target_unit: str, /) -> "RuntimeResult[UncertainQuantity]":
+        def _to() -> "RuntimeResult[UncertainQuantity]":
             converted = self.measurement.to(target_unit)
             cell = converted.magnitude
             return _scalar_key(cell.nominal_value, cell.std_dev, target_unit).map(
@@ -322,8 +322,8 @@ class UncertainQuantity(Struct, frozen=True):
 
         return boundary(CONVERT, _to, catch=_UNIT_CATCH).bind(lambda outcome: outcome)
 
-    def propagate(self, propagation: Propagation, unit: str, /, *operands: "UncertainQuantity") -> "RuntimeRail[UncertainQuantity]":
-        def _build() -> "RuntimeRail[UncertainQuantity]":
+    def propagate(self, propagation: Propagation, unit: str, /, *operands: "UncertainQuantity") -> "RuntimeResult[UncertainQuantity]":
+        def _build() -> "RuntimeResult[UncertainQuantity]":
             supplied = 1 + len(operands)
             if propagation.arity >= 0 and supplied != propagation.arity:
                 return Error(ARITY.raised(str(propagation.arity), str(supplied)))
@@ -335,7 +335,7 @@ class UncertainQuantity(Struct, frozen=True):
 
         return boundary(PROPAGATE, _build, catch=_PROPAGATE_CATCH).bind(lambda outcome: outcome)
 
-    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Graduation]":
+    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[Graduation]":
         cell = self.magnitude.cell
         rel = float(abs(cell.std_dev / cell.nominal_value)) if cell.nominal_value else (0.0 if cell.std_dev == 0.0 else float("inf"))
         dim = dict(self.measurement.units.dimensionality)
@@ -366,7 +366,7 @@ class UncertainQuantity(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[np.ndarray]":
+def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[np.ndarray]":
     def _read() -> np.ndarray:
         cells = [q.magnitude.cell for q in quantities]
         match view:
@@ -394,12 +394,12 @@ def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /, *, comp
     )
 
 
-def _scalar_key(nominal: float, std_dev: float, unit: str, /) -> "RuntimeRail[ContentKey]":
+def _scalar_key(nominal: float, std_dev: float, unit: str, /) -> "RuntimeResult[ContentKey]":
     cell = np.ascontiguousarray([nominal, std_dev], dtype=np.float64).tobytes()
     return ContentIdentity.of("quantity", IdentitySource(parts=(cell, unit.encode())))
 
 
-def _cohort_key(nominals: Sequence[float], covariance: Covariance, unit: str, tags: Sequence[str], /) -> "RuntimeRail[ContentKey]":
+def _cohort_key(nominals: Sequence[float], covariance: Covariance, unit: str, tags: Sequence[str], /) -> "RuntimeResult[ContentKey]":
     return ContentIdentity.of(
         "quantity.cohort",
         IdentitySource(parts=(
@@ -412,11 +412,11 @@ def _cohort_key(nominals: Sequence[float], covariance: Covariance, unit: str, ta
     )
 
 
-def _member_key(cohort: ContentKey, member_tag: str, /) -> "RuntimeRail[ContentKey]":
+def _member_key(cohort: ContentKey, member_tag: str, /) -> "RuntimeResult[ContentKey]":
     return ContentIdentity.of("quantity.member", IdentitySource(parts=(cohort.memory, member_tag.encode())))
 
 
-def _propagated_key(propagation: Propagation, unit: str, operands: tuple["UncertainQuantity", ...], /) -> "RuntimeRail[ContentKey]":
+def _propagated_key(propagation: Propagation, unit: str, operands: tuple["UncertainQuantity", ...], /) -> "RuntimeResult[ContentKey]":
     return ContentIdentity.of(
         "quantity.propagate",
         IdentitySource(parts=(propagation.label.encode(), unit.encode(), *(o.content_key.memory for o in operands))),

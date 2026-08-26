@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_LIBMPV]
 
-`HanumanInstitute.LibMpv` owns the managed libmpv client: `MpvContext` projects the mpv command, property, and option API as typed members over an embedded OpenGL, software, and native render path, and `HanumanInstitute.LibMpv.Avalonia` binds that path into an Avalonia visual tree through the `MpvView` control. Together they own the AppUi Editing MediaSurface decode-and-playback rail — the on-screen counterpart to the `FFmpeg.AutoGen` encode-out owner.
+`HanumanInstitute.LibMpv` owns the managed libmpv client: `MpvContext` projects the mpv command, property, and option API as typed members over an embedded OpenGL, software, and native render path, and `HanumanInstitute.LibMpv.Avalonia` binds that path into an Avalonia visual tree through the `MpvView` control. Together they own the AppUi Editing MediaSurface decode-and-playback path — the on-screen counterpart to the `FFmpeg.AutoGen` encode-out owner.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -13,7 +13,7 @@
 |  [03]   | `MpvCommand`        | command request | deferred command invocation  |
 |  [04]   | `MpvCommandOptions` | command policy  | prefixes and async behavior  |
 |  [05]   | `MpvAsyncOptions`   | async policy    | timeout and error behavior   |
-|  [06]   | `MpvException`      | failure rail    | libmpv error projection      |
+|  [06]   | `MpvException`      | failure type    | libmpv error projection      |
 |  [07]   | `MpvEventLoop`      | event-loop enum | loop strategy selection      |
 
 [PUBLIC_TYPE_SCOPE]: typed property and option wrappers.
@@ -150,7 +150,7 @@
 
 - `track-list/{0}/type` spells the subtitle lane `"sub"` while its option spells it `sid`, so a lane vocabulary spanning both states the correspondence once.
 
-[ENTRYPOINT_SCOPE]: per-wrapper observation — the OBSERVE seam a UI feed subscribes.
+[ENTRYPOINT_SCOPE]: per-wrapper observation — the OBSERVE port a UI feed subscribes.
 
 | [INDEX] | [SURFACE]                                                         | [CAPABILITY]                           |
 | :-----: | :---------------------------------------------------------------- | :------------------------------------- |

@@ -16,7 +16,7 @@
 |  [06]   | `Stream.AsyncStreamBuffer`  | point buffer     | the bounded point staging buffer (`IStreamBuffer`) behind the handler          |
 
 - [04]-[VLR]: `RecordID` (`ushort`; the `ProjectionRecordID` const `2112` is the OGC WKT CRS record) with `Data` (`byte[]`, UTF-8 WKT for record `2112`), `UserID`, `Description`, and `RecordLengthAfterHeader`.
-- [05]-[STREAM_HANDLER]: `AsyncStreamHandler` is the sole shipped `IStreamHandler`, constructing from `(string, uint)`, so byte admission is PATH-BOUND to one temp path; `new LasReader(IStreamHandler)` is the stream growth seam.
+- [05]-[STREAM_HANDLER]: `AsyncStreamHandler` is the sole shipped `IStreamHandler`, constructing from `(string, uint)`, so byte admission is PATH-BOUND to one temp path; `new LasReader(IStreamHandler)` is the stream growth boundary.
 
 [PUBLIC_TYPE_SCOPE]: point value model
 
@@ -52,7 +52,7 @@
 | [INDEX] | [SURFACE]                                                         | [SHAPE]  | [CAPABILITY]                                     |
 | :-----: | :---------------------------------------------------------------- | :------- | :----------------------------------------------- |
 |  [01]   | `new LasReader(string lasFilePath, uint pointsToBuffer = 250000)` | ctor     | opens a LAS file, reads/validates the header     |
-|  [02]   | `new LasReader(IStreamHandler stream)`                            | ctor     | stream growth seam; no shipped handler           |
+|  [02]   | `new LasReader(IStreamHandler stream)`                            | ctor     | stream growth boundary; no shipped handler       |
 |  [03]   | `LasPoint GetNextPoint()`                                         | instance | decodes/returns a new point (per-point alloc)    |
 |  [04]   | `void GetNextPoint(ref LasPoint lpt)`                             | instance | fills caller point in place, no per-point alloc  |
 |  [05]   | `bool EOF` / `ulong PointCount`                                   | property | end-of-stream flag and total point count         |
@@ -97,7 +97,7 @@
 [STACKING]:
 - `Unofficial.laszip.netstandard`(`libs/dotnet/.api/api-laszip.md`): `LasIngest.Decode` composes this reader as the UNCOMPRESSED leg with the laszip compressed leg as one front — `LasCompression.Sniff` (public-header point-data-format byte at offset 104, high bit = LASzip) selects the engine once without a full open, `ReadLas` folds the no-alloc `GetNextPoint(ref LasPoint)` loop into one `LasCloud` (positions `Clone()`-detached, classes `& 0x1F`-masked below format 6), and the kernel registration is agnostic to which engine decoded
 - `dotnet:Rasm.Compute/Tensor/blas`(`#DENSE_ALGEBRA`): `LasPoint.Position` is the `MathNet.Numerics` `Vector<double>` the Compute dense-LA substrate consumes with no re-wrap, so a point batch crosses into covariance/PCA normal estimation and ICP transform directly, each collected instance a `Clone()` off the reader's one mutating vector
-- content identity: the source-cloud bytes content-key as the `reconstruct#RECONSTRUCTION` `ReconstructionLineage` `[ValueObject<UInt128>]` through the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` composed via the seam `CanonicalWriter`, never a second hashing scheme and never the upper-stratum `Rasm.Compute` `InterchangeIdentity` (that reference inverts the strata DAG)
+- content identity: the source-cloud bytes content-key as the `reconstruct#RECONSTRUCTION` `ReconstructionLineage` `[ValueObject<UInt128>]` through the kernel `Rasm.Domain.ContentHash` seed-zero `XxHash128` composed via the shared `CanonicalWriter`, never a second hashing scheme and never the upper-stratum `Rasm.Compute` `InterchangeIdentity` (that reference inverts the strata DAG)
 - classification seed: `LasPoint.Classification` (`& 0x1F`-masked below format 6 at ingest) folds into `LasCloud.ClassHistogram` and reduces to the `SegmentedCloud.DominantClass` the `reconstruct#RECONSTRUCTION` `AsprsBias` policy and `ElementClassifier` `(PrimitiveShape, IfcDomain, orientation)` table key on
 - georeference: the header scale/offset and the `ProjectionRecordID` `2112` CRS WKT VLR land on `LasCloud.CrsWkt`, lowered onto the `Header.Reference` `GeoReference` through the `dotnet:Rasm.Bim/Semantics/georeference#GEO_PROJECTION` `ProjNET` datum leg
 - time: the capture `Instant` rides `LasCloud.At` (`NodaTime`-typed, supplied at `LasIngest.Decode`); the per-point GPS `Timestamp` decodes to a `DateTime` through `GpsTime`/`LeapSeconds` for a temporal scan slice
@@ -105,7 +105,7 @@
 [LOCAL_ADMISSION]:
 - `LasReader`/`LasWriter` are the only LAS codec roots; one streaming reader decodes every point data record format by `PointTypeMap` row
 - one `LasPoint` carries the decoded point; a consumer narrows to the facet it needs (`IPosition` for geometry, `ILasPointBase` for classification, `ILasTime` for temporal), and `Position` enters the kernel as the `MathNet` vector it already is
-- byte admission is PATH-BOUND: the ingest span-writes raw bytes to one `try/finally`-scoped temp path because the sole shipped `IStreamHandler` (`AsyncStreamHandler`) constructs from `(string, uint)`; `new LasReader(IStreamHandler)` is the stream growth seam
+- byte admission is PATH-BOUND: the ingest span-writes raw bytes to one `try/finally`-scoped temp path because the sole shipped `IStreamHandler` (`AsyncStreamHandler`) constructs from `(string, uint)`; `new LasReader(IStreamHandler)` is the stream growth boundary
 - `LasHeaderBuilder` composes the header and `ILasHeader` reads it
 - LAS GPS time (`GpsTime`), CRS WKT VLR (`LasVariableLengthRecord`), and ASPRS classification (`LasPoint.Classification`) thread onto the canonical owners `georeference#GEO_PROJECTION` and `reconstruct#RECONSTRUCTION`
 - LAZ decodes at the `libs/dotnet/.api/api-laszip.md` peer, routed by a `LasCompression.Sniff`-detected compressed input; both engines are pure-managed IL, so the ALC firebreak holds

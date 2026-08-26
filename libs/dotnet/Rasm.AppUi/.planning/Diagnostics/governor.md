@@ -220,7 +220,7 @@ public sealed class Governor {
         PerfBudget policy,
         PerfSample sample,
         InstrumentSet signals,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
         Op key) =>
         (Cell.Step(
             cell,
@@ -232,7 +232,7 @@ public sealed class Governor {
             Transition<GovernorCell> declined => Fin.Fail<QualityVerdict>(
                 declined is Transition<GovernorCell>.Refused refused ? refused.Cause : new GovernorFault.Stale(sample.At)),
         }).Bind(verdict => signals.Write(PerfBudget.Tier, (long)verdict.Tier.Rank)
-            .Bind(_ => rail.Fire(
+            .Bind(_ => hooks.Fire(
                 AppUiPoint.Quality,
                 new AppUiFact.Quality(
                     verdict.Tier.Key,
@@ -273,19 +273,19 @@ flowchart LR
 
 ## [03]-[GPU_TIMELINE]
 
-- Owner: `GpuQuerySeam` the encoder-side write/resolve/retire boundary capsule; `GpuTimingPass` the per-pass timestamp-query planner owning the ONE pair-stride spelling; `PipelineStat` the pipeline-statistics row with the `Columns` roster its stride and order derive from; `PassTiming` the projected-vs-measured pair owning the ONE guarded divergence read; `GpuTimeline` the measured-vs-projected per-pass GPU projection feeding the verdict.
-- Entry: `Resolve(Seq<PassTiming> planned, ReadOnlyMemory<ulong> resolvedTicks)` and `ResolveStats(ReadOnlyMemory<ulong> resolvedCounters)` — the two pure read-back folds over one planner; `Attributed(UnitInterval fraction)` — the divergence-to-bottleneck join both folds feed; `GpuQuerySeam.Retired(seam, device, cadence)` — the scheduled non-blocking retire poll over the `nint` handle the boundary law already mandates.
+- Owner: `GpuQueryPort` the encoder-side write/resolve/retire boundary capsule; `GpuTimingPass` the per-pass timestamp-query planner owning the ONE pair-stride spelling; `PipelineStat` the pipeline-statistics row with the `Columns` roster its stride and order derive from; `PassTiming` the projected-vs-measured pair owning the ONE guarded divergence read; `GpuTimeline` the measured-vs-projected per-pass GPU projection feeding the verdict.
+- Entry: `Resolve(Seq<PassTiming> planned, ReadOnlyMemory<ulong> resolvedTicks)` and `ResolveStats(ReadOnlyMemory<ulong> resolvedCounters)` — the two pure read-back folds over one planner; `Attributed(UnitInterval fraction)` — the divergence-to-bottleneck join both folds feed; `GpuQueryPort.Retired(port, device, cadence)` — the scheduled non-blocking retire poll over the `nint` handle the boundary law already mandates.
 - Auto: `GpuTimingPass` writes a `Silk.NET.WebGPU` `QueryType.Timestamp` query PAIR per render-graph pass through `CommandEncoderWriteTimestamp` at the indices `Pair` mints, resolves the `QuerySet` through `CommandEncoderResolveQuerySet`, and retires the resolve through the non-blocking WGPU-extension `DevicePoll` on a declared `Schedule` cadence — never a blocking fence and never a one-shot poll nothing re-runs; pipeline statistics ride the WGPU vendor extension (core `QueryType` exposes only Timestamp and Occlusion) — one statistics query per pass whose counters `ResolveStats` folds at the stride and ORDER the `PipelineStat.Columns` roster declares, the same roster the query-set mint reads, so the transcription cannot drift from the read-back; `GpuTimeline` correlates the measured GPU seq against the projected CPU seq keyed by the frame ordinal, and a pass with no resolved pair keeps `Measured = None` so a projected estimate never masquerades as a measurement.
 - Outcome: the per-pass GPU figure replaces `FrameRender.Gpu` with resolved nanoseconds only when every pass resolved, so a mixed projected/measured sum never enters the measured column; `Deepen` writes divergence and fires `AppUiFact.GpuFrame`, whose measured-versus-unmeasured split keeps a projected estimate distinguishable from a resolved timestamp.
 - Packages: Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new profiled pass is one `GpuTimingPass` timestamp-query pair beside its one statistics query; a new pipeline statistic is one `PipelineStat` column with its `Columns` roster seat; zero new surface.
-- Law: the timing passes ride `ONE_WGPU_DEVICE` — the shared device seam declared with Compute — and never acquire a second device or queue; `GpuQuerySeam` is the named boundary capsule for the unsafe encoder statement seam, one `WebGPU` core plus one `Wgpu` extension view over the one loaded runtime.
-- Law: the `Render/pipeline.md` `WgpuFrameEvidence.Measure` delegate composes at binding acquisition FROM this seam's resolved pairs, so one `QuerySet` serves both the frame lane and the per-pass attribution.
+- Law: the timing passes ride `ONE_WGPU_DEVICE` — the shared device boundary declared with Compute — and never acquire a second device or queue; `GpuQueryPort` is the named boundary capsule for the unsafe encoder statement boundary, one `WebGPU` core plus one `Wgpu` extension view over the one loaded runtime.
+- Law: the `Render/pipeline.md` `WgpuFrameEvidence.Measure` delegate composes at binding acquisition FROM this port's resolved pairs, so one `QuerySet` serves both the frame lane and the per-pass attribution.
 - Boundary: the pipeline-statistics arm is availability-gated on the WGPU extension probe at device acquisition, and the degrade is a `GpuTimeline` whose `Stats` is empty — `ResolveStats` returns that empty `Seq` off an absent counter buffer, so the gate needs no second arm and `Attributed` answers `None` per pass rather than throwing.
 
 ```csharp
 // --- [BOUNDARIES] ----------------------------------------------------------------------
-public sealed unsafe record GpuQuerySeam(WebGPU Api, Wgpu Native) {
+public sealed unsafe record GpuQueryPort(WebGPU Api, Wgpu Native) {
     public Unit Stamp(CommandEncoder* encoder, QuerySet* queries, uint index) {
         Api.CommandEncoderWriteTimestamp(encoder, queries, index);
         return unit;
@@ -298,8 +298,8 @@ public sealed unsafe record GpuQuerySeam(WebGPU Api, Wgpu Native) {
 
     public bool Retire(Device* device) => Native.DevicePoll(device, false, (WrappedSubmissionIndex*)null);
 
-    public static IO<bool> Retired(GpuQuerySeam seam, nint device, Schedule cadence) =>
-        IO.lift(() => seam.Retire((Device*)device)).RepeatUntil(cadence, static done => done);
+    public static IO<bool> Retired(GpuQueryPort port, nint device, Schedule cadence) =>
+        IO.lift(() => port.Retire((Device*)device)).RepeatUntil(cadence, static done => done);
 
     public Unit StatsOpen(RenderPassEncoder* pass, QuerySet* stats, uint index) {
         Native.RenderPassEncoderBeginPipelineStatisticsQuery(pass, stats, index);
@@ -419,13 +419,13 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
     public Fin<FrameRender> Deepen(
         FrameRender frame,
         InstrumentSet signals,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
         Op key) =>
         Observe(signals).Bind(_ =>
             (FullyResolved
                 ? frame with { Gpu = MeasuredGpu, Passes = Passes.Map(static pass => (pass.Pass, pass.Resolved)) }
                 : frame) switch {
-                    var deepened => rail.Fire(
+                    var deepened => hooks.Fire(
                         AppUiPoint.GpuFrame,
                         new AppUiFact.GpuFrame(
                             checked((ulong)FrameOrdinal),

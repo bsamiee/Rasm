@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_MESH_QUALITY]
 
-Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQualityOp` discriminates decimate/subdivide/smooth/metrics on one polymorphic entrypoint, `MeshQualityResult` mirrors the op case, and `QualityMetrics` is the one shape/validity/topology grade — never a metric-per-method family. Tessellation, scan-reconstruction, and STEP hops compose this primitive to coarsen, refine, denoise, and grade a surface before it crosses a downstream rail; the surface arrives and returns as in-memory `trimesh.Trimesh` across the `mesh ← data/spatial` seam, and this owner never opens or writes a mesh file.
+Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQualityOp` discriminates decimate/subdivide/smooth/metrics on one polymorphic entrypoint, `MeshQualityResult` mirrors the op case, and `QualityMetrics` is the one shape/validity/topology grade — never a metric-per-method family. Tessellation, scan-reconstruction, and STEP hops compose this primitive to coarsen, refine, denoise, and grade a surface before it crosses a downstream boundary; the surface arrives and returns as in-memory `trimesh.Trimesh` across the `mesh ← data/spatial` boundary, and this owner never opens or writes a mesh file.
 
 `closure_fold` is the public exact-closure truth composed by reconstruction and deviation. The exact topology enrichment builds through repair's public `to_manifold`, and CPU-bound kernels use the runtime HOSTILE lane. `QualityMetrics` retains topology and cell-distribution facts directly.
 
@@ -15,7 +15,7 @@ Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQ
 - Law: a grade that took no measurement records absence, never a zero — a face-less triangulation has no cell distribution and a vertex-less one no curvature, so both quantile summaries and both defect moments answer `Nothing`, `worst` answers `Nothing` with them, and the frame OMITS the columns rather than publishing a five-zero summary a gate reads as the best surface it has ever seen; a conditioning arm writes ONE `structlog` line at the capsule — face count before and after beside the watertight verdict — bound to the composition logger, so a decimate pass reads as its own census rather than as a grade it never took.
 - Law: `_metrics_outcome` records the mesh genus/aspect charter rows at the producing fold. `QualityMetrics.frame` projects the complete topology census and cell distributions through `EvidenceFrame` using the caller's actual subject and key.
 - Auto: the exact-topology fold is enrichment over the always-available Euler-characteristic spine, gated on watertightness alone — `manifold3d` carries no interpreter marker, so a tier branch over a probe that cannot fail is a dead arm, and the honest conditional path is the watertight precondition the exact kernel needs. One offloaded build yields the exact genus (summed over `decompose()` components), the exact counts, and the kernel mass superseding the `trimesh` measure in a single fold.
-- Packages: `trimesh` (the conditioning filters, cached validity/mass axes, `vertex_defects`), `numpy` (the half-edge incidence fold and per-cell shape statistics), `manifold3d` (the exact tier, reached through repair's `to_manifold` over one module-scope `lazy import` for the `Error` status vocabulary alone), `expression` (`Option` the whole absence axis), `msgspec`, `structlog` through the runtime `logger`, geometry graduation (`EvidenceFrame`/`charter_record`, the charter measure authority, and `GeometryLeg` the folder roster this page's `FaultRow` rows anchor on), and the runtime rails per the fence imports.
+- Packages: `trimesh` (the conditioning filters, cached validity/mass axes, `vertex_defects`), `numpy` (the half-edge incidence fold and per-cell shape statistics), `manifold3d` (the exact tier, reached through repair's `to_manifold` over one module-scope `lazy import` for the `Error` status vocabulary alone), `expression` (`Option` the whole absence axis), `msgspec`, `structlog` through the runtime `logger`, geometry graduation (`EvidenceFrame`/`charter_record`, the charter measure authority, and `GeometryLeg` the folder roster this page's `FaultRow` rows anchor on), and the runtime results per the fence imports.
 - Growth: a new conditioning op is one `MeshQualityOp` case, its mirrored `MeshQualityResult` arm, one body producing it, and one `FaultRow` row in `_ARM_RAISED` where the arm fences; a new smoothing filter is one `SmoothKind` row; a new exact-geometry provider is one `ManifoldTier` row at `mesh/repair#MESH`, never a probe minted here.
 - Boundary: watertight repair, hole-fill, boolean CSG, and the `ManifoldTier` capability probe are `mesh/repair`'s; proximity, ray, contains, and sampling queries are `mesh/spatial`'s; registration and reconstruction are `scan/registration`+`scan/reconstruction`'s; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
 
@@ -33,7 +33,7 @@ from msgspec import Struct
 
 from rasm.geometry.graduation import EvidenceFrame, GeometryLeg, GeometrySubject, charter_record
 from rasm.geometry.mesh.repair import to_manifold
-from rasm.runtime.faults import TERMINAL, Catch, Disposition, FaultRow, RuntimeRail, boundary, rostered, traversed
+from rasm.runtime.faults import TERMINAL, Catch, Disposition, FaultRow, RuntimeResult, boundary, rostered, traversed
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey, logger
@@ -101,7 +101,7 @@ class QualityMetrics(Struct, frozen=True):
     def worst(self) -> Option[tuple[float, float]]:
         return self.aspect_ratio.bind(lambda cells: self.skewness.map(lambda skew: (cells[4], skew[4])))
 
-    def frame(self, subject: GeometrySubject, key: ContentKey) -> "RuntimeRail[EvidenceFrame]":
+    def frame(self, subject: GeometrySubject, key: ContentKey) -> "RuntimeResult[EvidenceFrame]":
         table: dict[str, list[object]] = {
             "watertight": [self.watertight],
             "winding_consistent": [self.winding_consistent],
@@ -288,18 +288,18 @@ class MeshQuality:
         self._exact: ExactTopology | None = None
 
     @overload
-    async def apply(self, op: MeshQualityOp) -> "RuntimeRail[MeshQualityResult]": ...
+    async def apply(self, op: MeshQualityOp) -> "RuntimeResult[MeshQualityResult]": ...
     @overload
-    async def apply(self, op: Sequence[MeshQualityOp]) -> "RuntimeRail[Block[MeshQualityResult]]": ...
-    async def apply(self, op: MeshQualityOp | Sequence[MeshQualityOp]) -> "RuntimeRail[MeshQualityResult] | RuntimeRail[Block[MeshQualityResult]]":
+    async def apply(self, op: Sequence[MeshQualityOp]) -> "RuntimeResult[Block[MeshQualityResult]]": ...
+    async def apply(self, op: MeshQualityOp | Sequence[MeshQualityOp]) -> "RuntimeResult[MeshQualityResult] | RuntimeResult[Block[MeshQualityResult]]":
         match op:
             case MeshQualityOp() as one:
                 return await self._route(one)
             case batch:
-                rails = Block.of_seq([await self._route(one) for one in batch])
-                return traversed(rails, by=Disposition.ABORT)
+                results = Block.of_seq([await self._route(one) for one in batch])
+                return traversed(results, by=Disposition.ABORT)
 
-    async def _route(self, op: MeshQualityOp) -> "RuntimeRail[MeshQualityResult]":
+    async def _route(self, op: MeshQualityOp) -> "RuntimeResult[MeshQualityResult]":
         match op:
             case MeshQualityOp(tag="decimate", decimate=target_faces):
                 before = len(self._mesh.faces)
@@ -313,11 +313,11 @@ class MeshQuality:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def _exact_topology(self) -> "RuntimeRail[Option[ExactTopology]]":
+    async def _exact_topology(self) -> "RuntimeResult[Option[ExactTopology]]":
         if self._exact is not None:
             return Ok(Some(self._exact))
-        rail = await self._lane.offload(Kernel.of(_topology_kernel, KernelTrait.HOSTILE), self._mesh)
-        return rail.map(self._cache_exact)
+        held = await self._lane.offload(Kernel.of(_topology_kernel, KernelTrait.HOSTILE), self._mesh)
+        return held.map(self._cache_exact)
 
     def _cache_exact(self, exact: ExactTopology) -> Option[ExactTopology]:
         self._exact = exact

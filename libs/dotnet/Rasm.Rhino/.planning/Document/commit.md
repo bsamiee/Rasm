@@ -2,7 +2,7 @@
 
 `Rasm.Rhino.Document` owns the host-mutation commit envelope. `DocumentCommit.Sealed` opens typed undo custody inside redraw compensation, projects the serial only into results that own it, and converges every fault before releasing the bracket.
 
-The bracket's custody is a closed union, never a bool triple: a program either opened no record, owns the record it opened, enlisted in the command's record, or was refused a seat — four states the prior five booleans spelled as eight unreachable corners and two hand-kept lifecycle flags. The seal folds the execution outcome and the bounded close directly on their own rails; the two private record families that re-wrapped those rails as hand unions delete with the booleans.
+The bracket's custody is a closed union, never a bool triple: a program either opened no record, owns the record it opened, enlisted in the command's record, or was refused a seat — four states the prior five booleans spelled as eight unreachable corners and two hand-kept lifecycle flags. The seal folds the execution outcome and the bounded close directly on their own carriers; the two private record families that re-wrapped those carriers as hand unions delete with the booleans.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ The bracket's custody is a closed union, never a bool triple: a program either o
 ## [02]-[REDRAW]
 
 - Owner: `RedrawAxis` `ICapability` vocabulary — the five repaint traits the host's own `EnableRedraw(enable, redrawDocument, redrawLayers)` and `Redraw(deferred)` members read; `RedrawPolicy` `[SmartEnum<int>]` — the five closed postures, each carrying its traits as ONE `CapabilitySet<RedrawAxis>` column; `RedrawScope.Within` — the one suppress/restore/success-gated-flush bracket.
-- Law: the posture roster is CLOSED and the traits are a SET — five bool columns on five rows spelled twenty-five cells a reader audited one at a time, where a set column prints its own wire and a new trait is one vocabulary row every posture answers. The two repaint columns the host's `EnableRedraw` takes are trait rows, not literals inside the bracket: a suppressing policy that hardcoded `false` on both silently forbade the terminal repaint some rails need on the restore edge.
+- Law: the posture roster is CLOSED and the traits are a SET — five bool columns on five rows spelled twenty-five cells a reader audited one at a time, where a set column prints its own wire and a new trait is one vocabulary row every posture answers. The two repaint columns the host's `EnableRedraw` takes are trait rows, not literals inside the bracket: a suppressing policy that hardcoded `false` on both silently forbade the terminal repaint some pipelines need on the restore edge.
 - Law: the flush fires only after the prior redraw state is restored, so a suppressing policy still lands its terminal repaint; restore settles beside the primary through the one aggregation fold — a cleanup refusal never rides a discard.
 
 ```csharp
@@ -80,7 +80,7 @@ internal static class RedrawScope {
 
 - Owner: `HostInteraction` `[SmartEnum<int>]` — the corpus-wide host-dialogue axis every folder's `quiet` argument reads; `DocumentCommit` — the sealed commit entry and the compensation algebra.
 - Law: `HostInteraction` carries THREE rows because two different facts project the same host bool. `Quiet` and `Interactive` are a CALLER's election on a surface that offers the choice; `Silent` is design-mandated silence — a rollback or compensation leg whose surface offers no choice at all — so a reader tells "the caller chose quiet" from "no choice existed" at the row, and the prior law's per-site comment ("always quiet by design") becomes a row read. A folder minting its own two-row notice vocabulary beside this axis is the forked form, and a bare `quiet:` literal is the unnamed one.
-- Law: `DocumentCommit.Sealed` brackets the body, opens the undo record, runs the program, applies an optional serial projection, runs the railed result projection inside the bracket, and seals. Callers omit `stamp` when the serial is not part of their canonical result.
+- Law: `DocumentCommit.Sealed` brackets the body, opens the undo record, runs the program, applies an optional serial projection, runs the carried result projection inside the bracket, and seals. Callers omit `stamp` when the serial is not part of their canonical result.
 - Law: `DocumentCommit.Compensated` owns the whole compensation algebra: land each element, roll back every landed key on the first refusal, and settle source custody through its release policy — every source releases once the fold's fate is decided, a release refusal after success rolls the landed keys back, and rollback then release faults append in that order onto the initiating fault. The identity release is the default modality riding the `Option` seat, so the release-free arity twin is deleted too; a suffix-only cleanup inside a rollback lambda or a `.Match` ladder re-spelling release beside the fold is the deleted form.
 
 ```csharp
@@ -147,8 +147,8 @@ internal static class DocumentCommit {
 - Owner: `UndoSerial` admits the host's positive record identity; `BracketCustody` `[Union]` closes who owns the record; `BracketPhase` `[SmartEnum<int>]` carries the monotone open/closed/sealed lifecycle; `UndoBracket` owns the result-agnostic document transaction capsule.
 - Law: custody is a CLOSED UNION derived once at `Begin`, never a bool triple re-tested per member. The five prior booleans (`required`, `owned`, `enlisted`, `closed`, `terminal`) spelled twenty-four unreachable corners; the union's four cases are the four reachable states, the serial rides its case as an admitted `UndoSerial` — so the `serial > 0u` guard deletes by construction — and an active non-command record lands `Refused`, which the admission gate reads before any mutation runs.
 - Law: the lifecycle is MONOTONE — `Open` → `Closed` → `Sealed` — so "closed" and "seal-attempted" are one ordered axis rather than two independent flags: `Close` advances to `Closed`, `Seal` and `Dispose` terminate at `Sealed`, and a second seal reads the phase and refuses. `Dispose` cannot re-enter close after any seal attempt.
-- Law: `Seal` owns bounded close recovery and the terminal rollback decision, folding the execution outcome and the bounded close DIRECTLY on their own rails — success requires a fault-free close, recovered close faults fail successful execution, failed execution rolls back after recovered close, and an unrecoverable close reports rollback as unexecuted. The two private record families that re-wrapped `Fin<TResult>` and `Fin<Option<Error>>` as hand unions for one tuple switch are the deleted form: each was a re-mint of the rail it copied, and the fold now reads the rails it already holds.
-- Law: `UndoBracket` is result-agnostic — every folder commit rail folds the sealed serial into its own result through `DocumentCommit.Sealed` without a foreign-shape hop; `Stamper` stamps only through an owned or enlisted custody, whose serial the union already proved positive, and an unrecorded program bypasses stamping.
+- Law: `Seal` owns bounded close recovery and the terminal rollback decision, folding the execution outcome and the bounded close DIRECTLY on their own carriers — success requires a fault-free close, recovered close faults fail successful execution, failed execution rolls back after recovered close, and an unrecoverable close reports rollback as unexecuted. The two private record families that re-wrapped `Fin<TResult>` and `Fin<Option<Error>>` as hand unions for one tuple switch are the deleted form: each was a re-mint of the carrier it copied, and the fold now reads the carriers it already holds.
+- Law: `UndoBracket` is result-agnostic — every folder commit pipeline folds the sealed serial into its own result through `DocumentCommit.Sealed` without a foreign-shape hop; `Stamper` stamps only through an owned or enlisted custody, whose serial the union already proved positive, and an unrecorded program bypasses stamping.
 - Law: rollback is custody-total — an owned record undoes and clears redo, an enlisted record propagates the failure to the command boundary that owns the record, and an unrecorded or refused seat has nothing to roll; every rollback fault appends onto the primary.
 
 ```csharp
@@ -303,7 +303,7 @@ internal ref struct UndoBracket {
 }
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` — undo-record bracketing, redraw suspension members); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` redraw/interaction rows, the `BracketCustody` `[Union]`); kernel `Domain/rails` (`Op`, `Fin`, `Lease`, `Custody.Rollback`).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` — undo-record bracketing, redraw suspension members); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` redraw/interaction rows, the `BracketCustody` `[Union]`); kernel `Domain/results` (`Op`, `Fin`, `Lease`, `Custody.Rollback`).
 
 ## [05]-[RESEARCH]
 

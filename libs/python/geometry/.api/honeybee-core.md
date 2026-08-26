@@ -116,15 +116,15 @@ Window-to-wall ratio, gridded glazing, louvers, and overhangs are owned operatio
 - Every honeybee object wraps a `ladybug_geometry` primitive (`Face`/`Aperture`/`Door`/`Shade` a `Face3D`, `Room` a `Polyface3D`, `ShadeMesh` a `Mesh3D`); the owner composes vertex/normal/area/planarity/solid algebra from `ladybug-geometry` and folds transforms (`move`/`rotate`/`rotate_xy`/`reflect`/`scale`) and aperture/louver/overhang generation into owned face operations, never a per-transform branch.
 - `.properties` is the single extension dispatch surface: extensions register `*EnergyProperties`/`*RadianceProperties` onto the host classes via `_extend_honeybee`, so the owner reads `room.properties.energy` through one extension-key table and serializes via `to_dict(include=[...])`, never a parallel per-extension object model; `apply_properties_from_dict(data)` is the re-attach leg after `from_dict`.
 - `to_dict` emits exactly the shape `honeybee-schema` pydantic-v2 models validate (`*Abridged` variants are the compact wire forms); `dict_to_object` is the one polymorphic decode dispatching on the dict `type` key.
-- `check_all(detailed=True)` and `validate(json_output=True)` return structured error rows folded into the `expression` `Result` rail; individual `check_*` methods are the per-rule legs `check_all` aggregates.
+- `check_all(detailed=True)` and `validate(json_output=True)` return structured error rows folded into the `expression` `Result`; individual `check_*` methods are the per-rule legs `check_all` aggregates.
 - `facetype`, `boundarycondition`, and `altnumber` are closed value-object vocabularies resolved through the `face_types`/`boundary_conditions` singletons and `get_type_from_normal`/`get_bc_from_position`.
 
 [STACKING]:
 - `ladybug-geometry`(`.api/ladybug-geometry.md`): every object holds a `Face3D`/`Polyface3D`/`Mesh3D`; `Room.from_polyface3d`, `Face` construction, and all transforms delegate to its primitive algebra.
 - `dragonfly-core`(`.api/dragonfly-core.md`): honeybee-core is the translation target — `dragonfly.Model.to_honeybee(object_per_model='Building'|'Story'|'District', use_multiplier=...)` explodes an urban massing graph into an array of these `Model`s, `from_honeybee` reverses it.
 - `honeybee-energy`(`.api/honeybee-energy.md`), `honeybee-openstudio`(`.api/honeybee-openstudio.md`): compose through `.properties.energy` and `_extend_honeybee`; `honeybee-openstudio` is the OpenStudio/EnergyPlus translation, `honeybee-standards`(`.api/honeybee-standards.md`) the standards library.
-- `pydantic`, `msgspec`(`libs/python/.api/`): validate an inbound HBJSON dict through `honeybee-schema` (the `pydantic` rail) at the boundary, decode the body through `msgspec`, then materialize via `Model.from_dict`/`dict_to_object`.
-- `expression`(`libs/python/.api/expression.md`): fold `check_all(detailed=True)` error rows into the `Result` rail, turning a geometry-defect model into a typed failure carrier rather than a caught exception.
+- `pydantic`, `msgspec`(`libs/python/.api/`): validate an inbound HBJSON dict through `honeybee-schema` (the `pydantic` layer) at the boundary, decode the body through `msgspec`, then materialize via `Model.from_dict`/`dict_to_object`.
+- `expression`(`libs/python/.api/expression.md`): fold `check_all(detailed=True)` error rows into the `Result`, turning a geometry-defect model into a typed failure carrier rather than a caught exception.
 
 [LOCAL_ADMISSION]:
 - Building-energy model assembly feeds the energy-modeling owner and admits this `Model` as the `dragonfly.Model.to_honeybee` translation target.

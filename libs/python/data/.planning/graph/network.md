@@ -2,7 +2,7 @@
 
 Capacity-constrained network owner for building-service graphs — duct, pipe, cable, and egress-circulation networks answer max-flow, min-cut, minimum-cost flow, and network-simplex questions over one `FlowNetwork` payload. The flow family is the one algorithm set the `graph/graph#GRAPH` rustworkx kernel does not spell, so this page rides the networkx lane for exactly that family and nothing beside it: admission, node vocabulary, and result lowering compose the sibling owner — `NodeId` stays the stable `int` index, and results lower through `GraphResult` (`flows` the edge-keyed case this family mints).
 
-Edge capacity, cost, and node demand are DATA on the admitted rows, never networkx attribute strings a caller spells — the owner projects its rows onto the `capacity`/`weight`/`demand` attribute vocabulary the provider reads, so the provider's naming convention is an interior fact with one spelling site. Infeasibility is a typed refusal: `nx.NetworkXUnfeasible` on an unbalanced demand set rails through the boundary fence as the fault a sizing consumer reads, never an exception crossing the rail.
+Edge capacity, cost, and node demand are DATA on the admitted rows, never networkx attribute strings a caller spells — the owner projects its rows onto the `capacity`/`weight`/`demand` attribute vocabulary the provider reads, so the provider's naming convention is an interior fact with one spelling site. Infeasibility is a typed refusal: `nx.NetworkXUnfeasible` on an unbalanced demand set faults through the boundary fence as the fault a sizing consumer reads, never an exception crossing the result.
 
 ## [01]-[INDEX]
 
@@ -14,9 +14,9 @@ Edge capacity, cost, and node demand are DATA on the admitted rows, never networ
 - Law: this page owns ONLY the flow family — every other analysis question routes to the `graph/graph#GRAPH` kernel, and a second analysis surface here is the rejected parallel kernel; the split predicate is kernel availability, the same law the folder's fast-path ruling states. The networkx graph is built HERE from admitted rows and never accepted as a caller-passed handle, so attribute spelling, multigraph refusal, and node vocabulary stay this owner's interior.
 - Entry: `analyze` folds one `FlowAlgorithm` through the provider kernel under one boundary fence per run — `max_flow` answers the flow value beside its edge assignment, `min_cut` the cut value beside the partition, `min_cost` and `simplex` the demand-satisfying assignment, `max_flow_min_cost` the cheapest maximum flow — each lowering onto `GraphResult` so the frame join rides the sibling surface unchanged.
 - Law: the payload keys once at admission over the canonical edge-roster bytes, so an unchanged network keys byte-stable.
-- Packages: `networkx` (`maximum_flow`, `minimum_cut`, `min_cost_flow`, `network_simplex`, `max_flow_min_cost` — the flow kernels, `capacity=`/`weight=`/`demand=` their attribute keywords), `msgspec` (frozen rows and the canonical key encoding), runtime (`RuntimeRail`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`).
+- Packages: `networkx` (`maximum_flow`, `minimum_cut`, `min_cost_flow`, `network_simplex`, `max_flow_min_cost` — the flow kernels, `capacity=`/`weight=`/`demand=` their attribute keywords), `msgspec` (frozen rows and the canonical key encoding), runtime (`RuntimeResult`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`).
 - Growth: a new flow question is one `FlowAlgorithm` case plus one `_run_flow` arm; a new edge annotation is one `FlowEdge` field projected at the one build site; a networkx `@_dispatchable` flow accelerator is the same `backend=` policy row the sibling codec lane names, never a second kernel.
-- Boundary: no durable network store, no hydraulic or electrical physics (sizing semantics belong to the consumer reading the flow evidence), no undirected admission — a service network is directed by construction and an undirected question routes to the sibling kernel; `NodeId` never widens beyond the stable `int` index the folder's frame seam joins on.
+- Boundary: no durable network store, no hydraulic or electrical physics (sizing semantics belong to the consumer reading the flow evidence), no undirected admission — a service network is directed by construction and an undirected question routes to the sibling kernel; `NodeId` never widens beyond the stable `int` index the folder's frame boundary joins on.
 
 ```python
 from collections.abc import Iterable
@@ -31,7 +31,7 @@ from opentelemetry import trace
 
 from rasm.data.graph.graph import GraphResult, NodeId
 from rasm.data.tabular.interop import DataLeg
-from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
+from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeResult, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ class FlowNetwork(Struct, frozen=True):
     content_key: ContentKey
 
     @classmethod
-    def of(cls, edges: tuple[FlowEdge, ...], demands: "Map[NodeId, float]" = Map.empty()) -> "RuntimeRail[FlowNetwork]":
+    def of(cls, edges: tuple[FlowEdge, ...], demands: "Map[NodeId, float]" = Map.empty()) -> "RuntimeResult[FlowNetwork]":
         def build() -> "tuple[Any, bytes]":
             graph = nx.DiGraph()
             graph.add_weighted_edges_from(((e.source, e.target, e.capacity) for e in edges), weight="capacity")
@@ -98,7 +98,7 @@ class FlowNetwork(Struct, frozen=True):
             )
         )
 
-    def analyze(self, algo: FlowAlgorithm) -> "RuntimeRail[GraphResult]":
+    def analyze(self, algo: FlowAlgorithm) -> "RuntimeResult[GraphResult]":
         with _TRACER.start_as_current_span(
             f"network.analyze.{algo.tag}",
             attributes={"rasm.graph.algorithm": algo.tag, "rasm.graph.backend": "networkx", "rasm.graph.nodes": self.node_count},

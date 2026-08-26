@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PYDOE3]
 
-`pyDOE3` mints classical design-of-experiments matrices — factorial, response-surface, screening, orthogonal-array, and Doehlert families — beside low-discrepancy and quasi-random samplers, filling the coded response-surface DOE gap left open between the SALib variance-based samplers and the `scipy.stats.qmc` space-filling engines for the compute `Study` design rail.
+`pyDOE3` mints classical design-of-experiments matrices — factorial, response-surface, screening, orthogonal-array, and Doehlert families — beside low-discrepancy and quasi-random samplers, filling the coded response-surface DOE gap left open between the SALib variance-based samplers and the `scipy.stats.qmc` space-filling engines for the compute `Study` design domain.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -61,7 +61,7 @@
 [ENTRYPOINT_SCOPE]: Taguchi and regression utilities
 - `list_orthogonal_arrays() -> list[str]`, `get_orthogonal_array() -> np.ndarray`, `compute_snr() -> float`; `var_regression_matrix` model tokens read `"1 x1 x2 x1*x2"`.
 
-| [INDEX] | [SURFACE]                                     | [RAIL]                                         |
+| [INDEX] | [SURFACE]                                     | [RESULT]                                       |
 | :-----: | :-------------------------------------------- | :--------------------------------------------- |
 |  [01]   | `list_orthogonal_arrays()`                    | list admitted Taguchi array ids                |
 |  [02]   | `get_orthogonal_array(oa_name)`               | coded orthogonal array for `oa_name`           |
@@ -80,8 +80,8 @@
 [STACKING]:
 - `salib`(`.api/salib.md`): `saltelli_sampling`/`morris_sampling` emit the screening matrices SALib's `sobol`/`morris` samplers own; the SALib `ProblemSpec` pipeline stays the analyzer owner and consumes a pyDOE3 sample only where a coded classical cohort is required over a variance-based one.
 - `scipy`(`.api/scipy.md`): `scipy.stats.qmc` owns pure space-filling QMC; pyDOE3 owns the response-surface and screening design matrices, never the QMC engines or the sensitivity indices.
-- study design rail: response-surface generators are `StudyMethod` design arms beside the `factorial` meshgrid and the QMC engines, each family-coded matrix folding through the per-`ParamAxis` mapping so the design matrix and the response contract stay identical across design and sampling methods.
-- regression + numpy rail: `build_regression_matrix`/`var_regression_matrix` lower a coded design into its regression matrix and prediction-variance field for the polynomial-surrogate diagnostic without a hand-built Vandermonde; every design and sample crosses into the study spine and the `data/tabular` DOE-frame gate as a plain `numpy.ndarray` of float64 columns.
+- study design domain: response-surface generators are `StudyMethod` design arms beside the `factorial` meshgrid and the QMC engines, each family-coded matrix folding through the per-`ParamAxis` mapping so the design matrix and the response contract stay identical across design and sampling methods.
+- regression + numpy domain: `build_regression_matrix`/`var_regression_matrix` lower a coded design into its regression matrix and prediction-variance field for the polynomial-surrogate diagnostic without a hand-built Vandermonde; every design and sample crosses into the study spine and the `data/tabular` DOE-frame gate as a plain `numpy.ndarray` of float64 columns.
 
 [LOCAL_ADMISSION]:
 - Generate classical DOE cohorts through the coded factorial/response-surface generators; route pure space-filling QMC to `scipy.stats.qmc` and variance-based sensitivity to the SALib samplers.

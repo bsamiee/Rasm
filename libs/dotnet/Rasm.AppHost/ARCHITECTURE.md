@@ -1,6 +1,6 @@
 # [RASM_APPHOST_ARCHITECTURE]
 
-`Rasm.AppHost` maps the APP-PLATFORM runtime spine `Compute`, `Persistence`, and `AppUi` adapt to and never reverse. One domain-folder owner per concern folds its axis with closed cases on a typed rail, cross-package facts cross only the inward port records, so alignment travels the port seam, never a peer reference.
+`Rasm.AppHost` maps the APP-PLATFORM runtime spine `Compute`, `Persistence`, and `AppUi` adapt to and never reverse. One domain-folder owner per concern folds its axis with closed cases on a typed result, cross-package facts cross only the inward port records, so alignment travels the port boundary, never a peer reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -9,13 +9,13 @@ Rasm.AppHost/
 ├── Runtime/             # Runtime spine — lifecycle, clocks, config, ports, determinism, orchestration
 │   ├── Profiles.cs      # ProfileSurface.Resolve seat; ResolvedProfile record, BootVariable set, and the FidelityScale fold
 │   ├── Lifecycle.cs     # Phase transitions, ranked drain, and the cancellation custody every lane closes through
-│   ├── Time.cs          # ClockPolicy record, DeadlineClass gauge roster, SchedulePort occurrence rail, FencingToken carrier
+│   ├── Time.cs          # ClockPolicy record, DeadlineClass gauge roster, SchedulePort occurrence family, FencingToken carrier
 │   ├── Resources.cs     # CacheLane axis, PoolPolicy rows, DrainSpec/DrainQueue family, and the DedupeWindow primitive
 │   ├── Modules.cs       # ModuleContribution rows, DescriptorSlot algebra, and the one-pass composition fold
 │   ├── Config.cs        # ConfigSource rank axis, ConfigError vocabulary, ReloadOutcome transitions, OperatorOverride family
 │   ├── Secrets.cs       # SecretLease rows, CredentialMaterial DER admission vocabulary, and the KMS-unwrap custody
 │   ├── Ports.cs         # Port-record family under the cardinality invariant, the boot tenancy mint, the suite JSON wire law
-│   ├── Determinism.cs   # DeterminismContext, ChainHash log entries, replay-verify rail, macro engine, recompute graph, chaos gate
+│   ├── Determinism.cs   # DeterminismContext, ChainHash log entries, replay-verify path, macro engine, recompute graph, chaos gate
 │   ├── Orchestration.cs # Workflow and job state machines persisted through the store ports; replay survives restart
 │   ├── LaneGuard.cs     # WorkLane roster with LanePolicy rows, the LaneGuard.Runtime seat map, LanePermits resizer, and the Admission union
 │   └── Features.cs      # FlagDefinition rows over the TargetingRule union, Bucketing off ContentHash, and the FlagVerdict carrier
@@ -24,9 +24,9 @@ Rasm.AppHost/
 │   ├── Reasoning.cs     # ReasoningSession loop, SemanticDiscovery ranking, ModelGovernance draw owner, ReasoningTranscript result
 │   ├── Federation.cs    # McpClientTool adoption onto brokered federated.{server}.{tool} descriptor rows
 │   ├── Capability.cs    # CapabilityDescriptor rows, CommandAlgebra commit-or-rollback, GrantBroker ceiling algebra, codegen seat
-│   ├── Identity.cs      # Per-issuer trust anchors, the Principal validation rail, TokenLease custody, PolicyDescriptor rows
+│   ├── Identity.cs      # Per-issuer trust anchors, the Principal validation path, TokenLease custody, PolicyDescriptor rows
 │   └── Runtime.cs       # Run(CommandIntent) entry; hook veto, grant-handle mediation, CommandAlgebra dispatch, chained result
-├── Wire/                # Outbound and external-binding seam
+├── Wire/                # Outbound and external-binding boundary
 │   ├── Outbound.cs      # OutboundHop case family, frozen HopPolicy/HopAllotment rows, CapabilitySet<HopCapability> columns
 │   ├── LiveWire.cs      # Binding rows over the industrial-transport axis; the MQTT live-wire row and egress sink
 │   ├── Companion.cs     # ModalityRow set, PeerRoster lease-epoch transitions, ControlVerb fold, ServiceHost mount, HostBinding table
@@ -37,7 +37,7 @@ Rasm.AppHost/
 │   ├── Admission.cs     # SupplyChainGate.Admit fold, AdmissionSubject union, TrustPolicy rows, SupplyChainFault band
 │   ├── Isolation.cs     # WASM and process capsules behind one call broker; GrantBroker cost vectors meter every crossing
 │   ├── Solver.cs        # SolverKind category rows with representation and effect-ceiling columns; manifest, negotiation, hosted load
-│   └── Provisioning.cs  # UpdateRail phase machine over the UpdateOutcome union; FleetRoll walks MembershipView.Serving under one RollStrategy
+│   └── Provisioning.cs  # UpdateMachine phase machine over the UpdateOutcome union; FleetRoll walks MembershipView.Serving under one RollStrategy
 └── Observability/       # Telemetry composition, health grading, and redacted support capture
     ├── Telemetry.cs     # ForeignSource admission, TelemetryDomain roster, and signal governance
     ├── Health.cs        # Pressure grades folded in one atomic cell; store probes ride the production pool
@@ -48,7 +48,7 @@ Rasm.AppHost/
     └── Egress.cs        # Disposition vocabulary, queue-arming policy row, blob queue, mutual-auth mount, dual-leg handler
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail choice is named in the return type: `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; operation results stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
+Implementation collapses to one owner per axis and one entrypoint family per carrier: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Carrier choice is named in the return type: `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; operation results stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
 
 ## [02]-[STRATA]
 
@@ -115,9 +115,9 @@ flowchart TB
     Tenant f1@-->|"forbidden: substrate upward"| S4
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
-Cross-boundary seams split by counterpart group: cross-runtime wires to the TypeScript and Python peers, and same-branch ports to the .NET platform packages. Each edge collapses one sub-domain-to-partner contract family onto its load-bearing kind, and the owning implementation pages carry the full family each edge stands for.
+Cross-boundary contracts split by counterpart group: cross-runtime wires to the TypeScript and Python peers, and same-branch ports to the .NET platform packages. Each edge collapses one sub-domain-to-partner contract family onto its load-bearing kind, and the owning implementation pages carry the full family each edge stands for.
 
 ```mermaid
 ---
@@ -128,12 +128,12 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: AppHost cross-runtime wire seams
+    accTitle: AppHost cross-runtime wire boundaries
     accDescr: Which kinded wires, content keys, and transport cross between AppHost and the TypeScript core, security, runtime, and Python peers.
     subgraph apphost[RASM.APPHOST]
         Agent[Agent surface]
         Runtime[Runtime spine]
-        Wire[Wire seam]
+        Wire[Wire boundary]
         Observability[Observability signals]
     end
     Core([typescript:core])
@@ -160,12 +160,12 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: AppHost C# platform seams
+    accTitle: AppHost C# platform boundaries
     accDescr: Which ports, wires, domain shapes, and content keys cross between AppHost and every .NET peer.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
-        Wire[Wire seam]
+        Wire[Wire boundary]
         Sandbox[Sandbox broker]
         Observability[Observability signals]
     end
@@ -201,7 +201,7 @@ flowchart LR
     Runtime e22@<-->|"[PORT]: HybridCache"| Persistence
     Persistence e23@-->|"[RESULT]: ProvisionVerdict"| Observability
     Observability e24@<-->|"[PORT]: TelemetryContributorPort"| Persistence
-    Observability e26@-->|"[PORT]: HookRail"| AppUi
+    Observability e26@-->|"[PORT]: HookSet"| AppUi
     Runtime e27@<-->|"[FAULT]: FaultBand"| AppUi
     Observability e28@-->|"[PORT]: ProfileSampleSource"| AppUi
     Fabrication e30@-->|"[PORT]: FabricationHooks"| Observability
@@ -219,7 +219,7 @@ flowchart LR
 
 Two AppUi edges carry reciprocals the counterpart page names: `[TRANSPORT]: CollabWireContext` is the collab-delta feed whose `TraceContext` adapter and `CollabFrame` schema this package owns, `Collab/sync` framing each delta AppUi-side; `[PORT]: ProfileSampleSource` delivers correlation-keyed Pyroscope and EventPipe samples over an existing port row, `Diagnostics/devloop` folding them into its frame tree.
 
-`Rasm.Bim` `Model/systems` mints the `[WIRE]: BrickGraph` building-systems operations topology election-agnostically; this package's composition supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport rows, so Bim names no live transport and the livewire axis names no ontology. That same seam carries Bim's national design regime, elected once at this package's `Runtime/modules#MODULE_LEDGER` seat because no Bim type is nameable here.
+`Rasm.Bim` `Model/systems` mints the `[WIRE]: BrickGraph` building-systems operations topology election-agnostically; this package's composition supplies the `BrickBinding` class election, persists the returned JSON-LD, and binds each Brick point to its external source through the `Wire/livewire` transport rows, so Bim names no live transport and the livewire axis names no ontology. That same boundary carries Bim's national design regime, elected once at this package's `Runtime/modules#MODULE_LEDGER` seat because no Bim type is nameable here.
 
 `[PORT]: ITessellationCompanion` binds only at a product composition assembly that references both Bim and Compute. AppHost references neither peer: `Runtime/modules#MODULE_LEDGER` supplies the typed `ModuleContribution` grammar, while the product's `BimComputeCompanion` projects the Bim request to the generated contract, binds one generated client bundle to the outer call's explicit correlation, and drives Compute's unary-plus-server-stream edge without a service locator, blocking bridge, or duplicate transport shape.
 
@@ -242,13 +242,13 @@ flowchart LR
     Admit e4@--> Fold["CompositionSurface.Compose"]
     Fold e5@--> Ready["Lifecycle: Boot to Ready"]
     Ready e6@--> Running["Running"]
-    Running e7@--> Rails["SignalGovernance / HealthSurface / SupportCapture / OutboundSurface"]
-    Rails e8@--> Ports[("Runtime ports")]
+    Running e7@--> Services["SignalGovernance / HealthSurface / SupportCapture / OutboundSurface"]
+    Services e8@--> Ports[("Runtime ports")]
     Running e9@--> Drain["DrainConductor.Drain"]
     Drain e10@--> Unloaded(["PhaseCommit: Unloaded"])
 ```
 
-Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behind validated frozen policy, and transitions the `Lifecycle` cell to Running; the telemetry, health, support, and outbound rails surround it and surface through the port records, and `DrainConductor.Drain` folds ranked participants into one `PhaseCommit`. Exact per-stage wiring lives on the owning implementation pages.
+Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behind validated frozen policy, and transitions the `Lifecycle` cell to Running; the telemetry, health, support, and outbound services surround it and surface through the port records, and `DrainConductor.Drain` folds ranked participants into one `PhaseCommit`. Exact per-stage wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
@@ -256,22 +256,22 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - Telemetry composition homes at `Observability/telemetry`: OTLP exporter seats, Serilog bridge and sinks, durable egress queue.
 - Composition-root-only pins — gRPC-Web middleware, Kestrel public binding, sink instances, and the exporter endpoint value — stay at the app root.
 - Protocol-runtime types the fences carry stay lib references, never app-root pins; the Sandbox and Wire owners hold the certified transport stack.
-- Statement carve-outs are boundary capsules named per fence on the owning page; every other member stays expression-shaped on typed rails.
+- Statement carve-outs are boundary capsules named per fence on the owning page; every other member stays expression-shaped on typed results.
 - Op catalog, command transaction, grant/cost broker, MCP projection, sandbox, solver, binding, and determinism are runtime-policy axes.
 - Op execution stays Compute, durability stays Persistence, and the official SDKs own the MCP and industrial-protocol wires.
 - Grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
-- Sentinels stop at the admission seam: `ClockPolicy.Admit` projects defaults to `Option<Instant>`; interiors never see provider shapes.
+- Sentinels stop at the admission boundary: `ClockPolicy.Admit` projects defaults to `Option<Instant>`; interiors never see provider shapes.
 - AppHost owns support trigger and correlation; contributors own classification and payload projection through `SupportContributorPort` rows.
 - S0-S2 strata emit `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection, SDK wiring, and ambient sinks enter at AppHost.
 - Each instrument lives and dies with its provider.
-- Public capability extends its sub-domain owner region as a row, case, or policy value; the port records own the cross-package seam.
+- Public capability extends its sub-domain owner region as a row, case, or policy value; the port records own the cross-package boundary.
 - `Lifecycle` is the one runtime phase cell — shutdown and readiness read it rather than a parallel flag or sibling phase enum.
 - `CancelScope` owns every cancellation source below the composition root.
 - `ClockPolicy` owns the wall clock and the monotonic clock, and every duration bound traces to a `DeadlineClass` row or a page policy table.
 - Interiors read frozen policy records published at ready; `IConfiguration` and `IOptions` handles stop at bootstrap.
 - `Describe`/`DescribeKeyed` rows and `FromAssemblies` own every service registration; service-descriptor spellings are never hand-written.
-- Generated Thinktecture and NodaTime converters own STJ serialization, and classified values redact at every exporter and bundle seam.
-- One scheduler, one cache owner, and one retry owner sit on each seam; database retry stays at the Persistence execution strategy.
+- Generated Thinktecture and NodaTime converters own STJ serialization, and classified values redact at every exporter and bundle boundary.
+- One scheduler, one cache owner, and one retry owner sit on each boundary; database retry stays at the Persistence execution strategy.
 - Every operation returns its canonical domain result rather than projecting a second generic carrier.
 - `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` are the one notification sender, binding poller, alerter, and power monitor.
 - Notification, polling, alerting, and power monitoring read the existing hop, health, and power signals as their only state.
@@ -283,7 +283,7 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - Federated capability enters as brokered descriptor rows — the one tool catalog.
 - Reasoning-loop tool adoption rides the one brokered `CommandAIFunction`.
 - Every `IChatClient` call rides the one middleware pipeline — metered by `GrantBroker`, cached, and traced.
-- ArchUnitNET asserts no GeometryGym edge at or below the element seam; `Rasm.Bim` is the sole owner above it.
+- ArchUnitNET asserts no GeometryGym edge at or below the element boundary; `Rasm.Bim` is the sole owner above it.
 - `SupplyChainGate.Admit` proves signature and provenance against the pinned offline root before any release or plugin byte stages or loads.
 - `DriverProbe` adapters are the one backing-service probe seat; each driver row binds the shared pooled driver, so no second connection opens.
-- AppHost contributes only the `ProjectionContext` primitives the app root assembles; AEC and GeometryGym/IFC types stay past the port seam.
+- AppHost contributes only the `ProjectionContext` primitives the app root assembles; AEC and GeometryGym/IFC types stay past the port boundary.

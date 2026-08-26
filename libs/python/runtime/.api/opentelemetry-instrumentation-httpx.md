@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_OPENTELEMETRY_INSTRUMENTATION_HTTPX]
 
-`opentelemetry-instrumentation-httpx` traces the httpx client legs: one `HTTPXClientInstrumentor` patches the sync and async clients at the transport seam so every request emits an HTTP client span and injects W3C trace context onto the wire, with sync and async request/response hooks enriching the active span.
+`opentelemetry-instrumentation-httpx` traces the httpx client legs: one `HTTPXClientInstrumentor` patches the sync and async clients at the transport boundary so every request emits an HTTP client span and injects W3C trace context onto the wire, with sync and async request/response hooks enriching the active span.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -512,11 +512,11 @@ const Carrier: Carrier.Shape = {
 
 ## [05]-[EVENT_ENVELOPE]
 
-- Owner: `Event.admit` and `Event.mint` are the strict SDK boundary; `Event.rasm` owns the estate profile without narrowing generic CloudEvents.
+- Owner: `Event.admit` and `Event.mint` are the strict SDK boundary; `Event.rasm` owns the Rasm profile without narrowing generic CloudEvents.
 - Owner: `Event.schema` is the semantic Schema boundary; consumers may add generation metadata but never another predicate or admission transform over a CloudEvents envelope.
 - Owner: `Event.fromProto` and `Event.toProto` are the generated-message ↔ SDK semantic bridge; `Event.format.protobuf` owns publisher Protobuf single/batch octets and `Event.format.json` owns JSON, each with strict admission once for every binding.
 - Entry: `_eventProtobuf` is the publisher-Protobuf semantic adapter published as `Event.format.protobuf`; `Event.fromProto` and `Event.toProto` preserve the generated publisher message semantics on either side of it.
-- Owner: `_gradePolicy` is the Rasm profile's one closed classification policy over the standard open-string `dataclassification` extension; the generated contract owns the extension's spelling and validation, not the estate policy.
+- Owner: `_gradePolicy` is the Rasm profile's one closed classification policy over the standard open-string `dataclassification` extension; the generated contract owns the extension's spelling and validation, not the Rasm policy.
 - Law: generic `mint` supplies `id` and `specversion` and preserves optional CloudEvents `time`; Rasm mint requires `Fact.time`. Neither path reaches `uuid.v4()` or the wall clock from a constructor no `Clock` or `Random` enters.
 - Law: SDK construction remains strict on mint and admission; admission refuses absent `id` or `specversion` before the SDK can synthesize either, rejects non-v1 events the SDK reports as merely false, and keeps malformed required attributes or non-absolute `dataschema` values on `EventRefusal`.
 - Law: raw `data` and `data_base64` are exclusive. Admission decodes the base64 arm into canonical `Uint8Array` before SDK construction and repairs binding-produced non-byte typed arrays from that authoritative arm.
@@ -524,7 +524,7 @@ const Carrier: Carrier.Shape = {
 - Law: the Rasm profile admits `rasm.<domain>.<subject>.<fact>` only when `<domain>` is a `Convention.domain` capability; event-type evolution remains independent of the payload-schema URI.
 - Law: generic admission delegates the required `source` URI-reference to the strict SDK; `Event.rasm.source(type, capability)` derives the profile's absolute `rasm:<domain>/<capability>` identity from two admitted axes, and `Fact` requires only that source and type share their domain. The event-type subject never re-authors producer capability.
 - Law: `id` is the producer's operation identity and never a digest, so `(source, id)` is the uniqueness composite every dedup and idempotency key reads. `Event.address` length-frames those UTF-8 arms and digests the frame into the bounded branch coordinate; transports and ingress consume that one mint rather than maintaining private concatenations.
-- Law: `subject` publishes the content key as 32 LOWERCASE hex through `_EVENT_KEY`, the boundary mapping over `Digest.Key.content` whose upper-encoding interchange codec stays untouched. Generated `dataref` remains the standard open URI-reference on generic and Rasm events; core validates and preserves the attribute but owns no residence, authorization, dereference, or inline/reference equality policy. A binding that spends it composes the data plane's confined capability before application settlement.
+- Law: `subject` publishes the content key as 32 LOWERCASE hex through `_EVENT_KEY`, the boundary mapping over `Digest.Key.content` whose upper-encoding interchange codec stays untouched. Generated `dataref` remains the standard open URI-reference on generic and Rasm events; core validates and preserves the attribute but owns no placement, authorization, dereference, or inline/reference equality policy. A binding that spends it composes the data plane's confined capability before application settlement.
 - Law: `datacontenttype` and `dataschema` arrive as row data off the caller's serdes arrow; a literal at either field states a payload encoding the arrow already decided.
 - Law: `ExtensionsSchema` is the only extension roster and validator; mint and read cross its generated ProtoJSON mapping through `Format.proto`, so no field schema or name table exists here.
 - Law: descriptor field kinds project a validated extension message into SDK-native scalars, bytes, timestamps, and generated enum names; ProtoJSON remains the inverse admission mapping, never the in-memory extension type model.
@@ -535,7 +535,7 @@ const Carrier: Carrier.Shape = {
 - Growth: an extension changes `event.proto`; a Rasm handling grade changes the single policy projection here; an addressed attribute is one `Fact` field.
 - Tests: strict mint/admit reject synthesized required identity, non-v1 events, malformed source, and relative `dataschema`; the Rasm profile admits distinct type-subject/source-capability pairs in one rostered domain, refuses unrostered or mismatched domains, dual body arms, malformed `dataref`, and an unrostered `dataclassification`; base64 admission lands exact `Uint8Array`; generated conversion covers all seven attribute arms, preserves generic URI-arm identity through repository-owned clones, binary/text/`Any` data, batch members, unsupported-data refusal, and structural-then-semantic refusal.
 - Boundary: binding and media routing seat at runtime; this cluster owns strict SDK admission, generated conversion, the Rasm profile, and no transport.
-- Packages: `cloudevents`; `@bufbuild/protobuf`; `effect`; generated CloudEvents and estate event modules; `./format.ts`; `../value/contentKey.ts`; `../value/fault.ts`.
+- Packages: `cloudevents`; `@bufbuild/protobuf`; `effect`; generated CloudEvents and Rasm event modules; `./format.ts`; `../value/contentKey.ts`; `../value/fault.ts`.
 
 ```typescript
 import { CloudEvent, type CloudEventV1, V1 } from "cloudevents"

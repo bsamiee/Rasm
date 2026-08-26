@@ -28,7 +28,7 @@
 |  [02]   | `db.connect()` → connection; `conn.close()` / `db.terminate()` | session lease  | scoped connection; release arms                     |
 |  [03]   | `query<T>(sql)` → `arrow.Table<T>`                             | materialize    | Arrow-native result — zero-copy into the viewer     |
 |  [04]   | `for await (const batch of await send<T>(sql))`                | stream read    | lazy record-batch pull — the lane's `Stream` lift   |
-|  [05]   | `prepare<T>(sql)` → `AsyncPreparedStatement<T>`                | bind seam      | binds cross here alone; `close()` on every exit     |
+|  [05]   | `prepare<T>(sql)` → `AsyncPreparedStatement<T>`                | bind boundary  | binds cross here alone; `close()` on every exit     |
 |  [06]   | `stmt.query(...params)` / `stmt.send(...params)`               | bound read     | the prepared twins of rows [03] and [04]            |
 |  [07]   | `conn.bindings` → `AsyncDuckDB`                                | engine reach   | the file registry off a leased session              |
 |  [08]   | `insertArrowTable(table, { name })`                            | arrow ingest   | the ONE columnar wire inbound                       |
@@ -50,11 +50,11 @@
 
 [STACKING]:
 - `apache-arrow`(`.api/apache-arrow.md`): `query<T>()` returns `arrow.Table<T>` and `send<T>()` yields an `arrow.AsyncRecordBatchStreamReader<T>` that lifts through `Stream.fromAsyncIterable`; inbound, a live `arrow.Table` rides `insertArrowTable` and IPC bytes ride `insertArrowFromIPCStream`.
-- `lane/olap`: instantiation and connection ride `Effect.acquireRelease` under `Scope`, `query` lifts through `Effect.tryPromise`, and `send` batches lift to `Stream` at the lane seam.
+- `lane/olap`: instantiation and connection ride `Effect.acquireRelease` under `Scope`, `query` lifts through `Effect.tryPromise`, and `send` batches lift to `Stream` at the lane boundary.
 - `lane/olap`: this engine mints the SAME leased-session handle the node row mints, so the browser lane answers one bulkhead, one budget, one replay rule, and one engine-tagged meter fan rather than a private read path.
 
 [LOCAL_ADMISSION]:
-- `query` and `send` take TEXT alone, so every parameterized read crosses `prepare` and its statement closes on each exit; splicing a value into the SQL is the injection surface the bind seam exists to delete, and admission text stays bind-free because a multi-statement `INSTALL`/`LOAD` prepares nowhere.
+- `query` and `send` take TEXT alone, so every parameterized read crosses `prepare` and its statement closes on each exit; splicing a value into the SQL is the injection surface the bind boundary exists to delete, and admission text stays bind-free because a multi-statement `INSTALL`/`LOAD` prepares nowhere.
 - Single-threaded by default; threads demand cross-origin isolation, a deployment fact rather than a code branch.
 - HTTP-range Parquet reads are CORS-bound; presigned object-plane grants are the sanctioned remote source.
 - Browser analytics accelerates server-minted data, never records truth.

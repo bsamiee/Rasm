@@ -1,12 +1,12 @@
 # [PY_ARTIFACTS_API_PUREMAGIC]
 
-`puremagic` mints content identity from a self-contained signature table: it carries the head and foot of bytes, a path, or a seekable stream against the table and returns a confidence-ranked roster of `(extension, mime_type, name)` matches. Its `scanners/` deep-scan layer disambiguates the ambiguous `PK\x03\x04` ZIP and `\xd0\xcf\x11\xe0` CFBF containers to the exact OOXML/ODF/EPUB/USDZ or legacy-Office subtype. It is the artifacts file-control rail's default sniffer: pure-Python with a bundled `magic_data.json`, running in-process on the event loop with no native dependency.
+`puremagic` mints content identity from a self-contained signature table: it carries the head and foot of bytes, a path, or a seekable stream against the table and returns a confidence-ranked roster of `(extension, mime_type, name)` matches. Its `scanners/` deep-scan layer disambiguates the ambiguous `PK\x03\x04` ZIP and `\xd0\xcf\x11\xe0` CFBF containers to the exact OOXML/ODF/EPUB/USDZ or legacy-Office subtype. It is the artifacts file-control domain's default sniffer: pure-Python with a bundled `magic_data.json`, running in-process on the event loop with no native dependency.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the match record and fault rail
+[PUBLIC_TYPE_SCOPE]: the match record and fault channel
 
-`PureMagic` is a `namedtuple` the owner folds into `DetectIdentity` by field or `._asdict()`; the deep-scan `scanners.helpers.Match` dataclass re-wraps as `PureMagicWithConfidence` before it crosses the module boundary, so the owner only ever sees the namedtuple shape. `PureError`/`PureMagic`/`PureMagicWithConfidence` import from top-level `puremagic`, `PureValueError` reaches as `puremagic.main.PureValueError`, and both faults lift to the file-control rail at the boundary.
+`PureMagic` is a `namedtuple` the owner folds into `DetectIdentity` by field or `._asdict()`; the deep-scan `scanners.helpers.Match` dataclass re-wraps as `PureMagicWithConfidence` before it crosses the module boundary, so the owner only ever sees the namedtuple shape. `PureError`/`PureMagic`/`PureMagicWithConfidence` import from top-level `puremagic`, `PureValueError` reaches as `puremagic.main.PureValueError`, and both faults lift to the file-control domain at the boundary.
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                               |
 | :-----: | :------------------------ | :------------ | :------------------------------------------------------------------------- |
@@ -76,14 +76,14 @@ Each `scanners.<name>` module exposes a `match_bytes` constant and `main(file_pa
 - Source is one axis: bytes, path, and stream are three rows on the one `from_*`/`magic_*` surface, never parallel detector types. `from_string`/`magic_string` is the canonical in-memory row because admission already holds the payload; `filename=` is how that buffer row still reaches the deep-scan.
 - Output is two read shapes over one detection: the cooked `str` (`from_*`, `mime=True` selecting MIME over extension) and the ranked `list[PureMagicWithConfidence]` (`magic_*`). ONE `magic_*` call returns the full identity as the roster the owner folds — highest-confidence head as primary, tail as the multi-match ambiguity evidence — never a per-output flag cookie.
 - Deep-scan is the categorical axis: `single_deep_scan` resolves the `PK\x03\x04` ZIP family and the `\xd0\xcf\x11\xe0` CFBF compound to the exact subtype, folding in at `confidence == 1.0`. `PUREMAGIC_DEEPSCAN=0` is the one runtime switch, set through `os.environ` for an untrusted-ingest table-only pass, never a per-call argument.
-- Faults are two narrow rails: `from_*`/`from_extension` raise `PureError` on no match and `PureValueError` on empty input; the ranked `magic_*` rows return the table matches or `[]` rather than raising, so an empty or low-confidence roster reads as `MediaClass.UNKNOWN`. Both lift to the file-control rail once at the boundary.
+- Faults are two narrow paths: `from_*`/`from_extension` raise `PureError` on no match and `PureValueError` on empty input; the ranked `magic_*` rows return the table matches or `[]` rather than raising, so an empty or low-confidence roster reads as `MediaClass.UNKNOWN`. Both lift to the file-control domain once at the boundary.
 
 [STACKING]:
 - `exchange/detect`: reads the `magic_string(payload, filename=spill)`/`magic_file(path)` ranked roster into the `DetectIdentity`/`MediaClass`/`Container`/`Trust` fold as the default in-process sniffer — highest-confidence `mime_type` through `MediaClass.of`/`Container.of`, `extension` into the `extensions` tuple, float `confidence` and multi-row tail into the `Trust.AMBIGUOUS`/`UNKNOWN` verdict — and takes `single_deep_scan`'s OOXML/CFBF resolution to close the generic-container floor.
-- `expression`(`.api/expression.md`): `tagged_union` owns the two-source `Source` (`Buffer`/`File`) discriminant the `from_string`/`from_file` rows dispatch under; `Result`/`RuntimeRail` carries the railed verdict.
+- `expression`(`.api/expression.md`): `tagged_union` owns the two-source `Source` (`Buffer`/`File`) discriminant the `from_string`/`from_file` rows dispatch under; `Result`/`RuntimeResult` carries the typed verdict.
 - `msgspec`(`.api/msgspec.md`): folds the `PureMagicWithConfidence` roster into the frozen `DetectIdentity` `Struct` — `roster[0].mime_type`/`.extension`/`.name`/`.confidence` scalars, `[r.mime_type for r in roster]` for the tail — and projects the result to span attributes through `to_builtins`.
 - `beartype`(`.api/beartype.md`): validates the `str`/`bytes`/`PathLike` ingress shapes at the boundary.
-- `anyio`(`.api/anyio.md`): runs the in-process call under `async_boundary`, inheriting the `structlog` event, OpenTelemetry span, and `RuntimeRail` message envelope; only a latency-bounded sniff crosses to `to_thread.run_sync`.
+- `anyio`(`.api/anyio.md`): runs the in-process call under `async_boundary`, inheriting the `structlog` event, OpenTelemetry span, and `RuntimeResult` message envelope; only a latency-bounded sniff crosses to `to_thread.run_sync`.
 
 [LOCAL_ADMISSION]:
 - Admitted MIT and pure-Python, no native provisioning and no `.mgc` loader, as the default `artifacts` file-control sniffer. `python-magic`/libmagic joins only for the broad-leaf-signature fallback its compiled database owns, never the default sniff.

@@ -1,6 +1,6 @@
 # [PY_CAD_PLACEMENT]
 
-`Frame3` arrives orthogonality-proved and `UnitDirection3` magnitude-proved by protovalidate, so lowering is total and re-validation never runs; refusal opens at the kernel builders alone, on `BREP_INPUT` and `BREP_KERNEL` from `faults#ROWS`, and this page owns the builder-admission rail the whole B-rep leg composes. One `Lowering` correspondence declares each spatial owner as an ordered component read spread onto its `gp` constructor, and one span algebra serves the 3-D `CurveSegment3` family here and the 2-D `ProfileKnot` family at `profile#LOOPS`, parameterized by the point lift alone.
+`Frame3` arrives orthogonality-proved and `UnitDirection3` magnitude-proved by protovalidate, so lowering is total and re-validation never runs; refusal opens at the kernel builders alone, on `BREP_INPUT` and `BREP_KERNEL` from `faults#ROWS`, and this page owns the builder-admission path the whole B-rep leg composes. One `Lowering` correspondence declares each spatial owner as an ordered component read spread onto its `gp` constructor, and one span algebra serves the 3-D `CurveSegment3` family here and the 2-D `ProfileKnot` family at `profile#LOOPS`, parameterized by the point lift alone.
 
 ## [01]-[INDEX]
 
@@ -11,13 +11,13 @@
 ## [02]-[ADMISSION]
 
 - Owner: `built` — one fold over an OCCT builder's `Build`, its `IsDone` verdict, and its shape half, so no arm in the sub-domain re-spells that ladder.
-- Law: builder admission seats on this page because `brep/operation#ARMS` imports every arm page, so the same rail seated at that apex forces each arm to import back into it and closes a cycle no seating resolves.
+- Law: builder admission seats on this page because `brep/operation#ARMS` imports every arm page, so the same path seated at that apex forces each arm to import back into it and closes a cycle no seating resolves.
 - Law: the halves grade apart — an unfinished builder refuses on `BREP_KERNEL` because the kernel declined the construction, and a null or invalid result refuses on `BREP_OUTPUT` because the kernel returned a body no consumer can measure.
 - Law: `admitted` is that shape half alone, reached by producers answering no `Build` — sewing, lofting, offset areas, and the pipe shell each hold a finished shape before any verdict exists to read.
 - Law: `admitted` stays generic in the concrete topology type, so a face admits as a face and no caller re-downcasts a `TopoDS_Shape` it had already narrowed before the probe.
 - Law: `_edged` admits the typed-accessor edge builders, which answer `Edge` and never `Build`, so the accessor is the discriminant that keeps three admission arms rather than one erased helper.
-- Law: a caller wanting a different refusal row re-rows through `map_error` on the returned rail, which keeps the validity probe single-sited while the row stays the arm's own decision.
-- Law: this rail is B-rep-leg scoped, so `metrology/properties` keeps its own validity probe under `MEASURE_DEGENERATE`; that leg seats below this page and cannot reach here, and the duplication is deliberate.
+- Law: a caller wanting a different refusal row re-rows through `map_error` on the returned result, which keeps the validity probe single-sited while the row stays the arm's own decision.
+- Law: this result is B-rep-leg scoped, so `metrology/properties` keeps its own validity probe under `MEASURE_DEGENERATE`; that leg seats below this page and cannot reach here, and the duplication is deliberate.
 - Growth: a new builder family is one admission arm keyed on its accessor, never a second `BRepCheck_Analyzer` call standing beside the probe this cluster owns.
 - Boundary: source resolution stays at `exchange/step#CODEC`, the arm roster at `brep/operation#ARMS`, and the seal handoff at `brep/operation#SPINE`; this owner grades one builder's verdict and nothing about the request that reached it.
 
@@ -34,16 +34,16 @@ class ShapeBuilder(Protocol):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def admitted[S: TopoDS_Shape](shape: S, coordinate: str, /) -> CadRail[S]:
+def admitted[S: TopoDS_Shape](shape: S, coordinate: str, /) -> CadResult[S]:
     return Ok(shape) if not shape.IsNull() and BRepCheck_Analyzer(shape).IsValid() else Error(BREP_OUTPUT.at(coordinate))
 
 
-def built(builder: ShapeBuilder, coordinate: str, /) -> CadRail[TopoDS_Shape]:
+def built(builder: ShapeBuilder, coordinate: str, /) -> CadResult[TopoDS_Shape]:
     builder.Build()
     return Error(BREP_KERNEL.at(coordinate)) if not builder.IsDone() else admitted(builder.Shape(), coordinate)
 
 
-def _edged(builder: BRepBuilderAPI_MakeEdge, coordinate: str, /) -> CadRail[TopoDS_Edge]:
+def _edged(builder: BRepBuilderAPI_MakeEdge, coordinate: str, /) -> CadResult[TopoDS_Edge]:
     return Ok(builder.Edge()) if builder.IsDone() else Error(BREP_KERNEL.at(coordinate))
 ```
 
@@ -52,7 +52,7 @@ def _edged(builder: BRepBuilderAPI_MakeEdge, coordinate: str, /) -> CadRail[Topo
 - Owner: `Lowering` — one row per spatial owner, reading an ordered component run and spreading it onto its own `gp` constructor.
 - Cases: `point`, `direction`, `axis`, `seated`, `frame`, and `datum` are the whole roster, and every composite row reads its leaves through the leaf rows instead of re-spelling a coordinate.
 - Law: `axis` and `seated` share ONE component read and differ only in the constructor they spread onto, which is the correspondence paying for itself — a second `Axis3` converter never forms beside the first.
-- Law: protovalidate proves coordinate finiteness, direction magnitude, and frame orthogonality on the wire, so every arm in this cluster is total and returns no rail.
+- Law: protovalidate proves coordinate finiteness, direction magnitude, and frame orthogonality on the wire, so every arm in this cluster is total and returns no result.
 - Law: `frame` lowers `Frame3` through `gp_Ax2`, whose validated Z and X axes fix one exact local basis and whose Y axis derives as Z×X, matching the rule the wire states for local coordinates.
 - Law: a wire-carried Y axis is the deleted form, because a third transmitted axis can disagree with the cross product the kernel derives and no consumer can tell which one is authoritative.
 - Law: `Basis` lowers a frame once into an origin and two planar directions, so a loop of many knots pays one `gp_Ax2` construction; the old planar lift rebuilt that frame on every knot of every loop.
@@ -82,7 +82,7 @@ from expression.extra.result import sequence, traverse
 from protobuf import Message, Oneof
 # Contracts are retired from this logic.
 
-from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, BREP_OUTPUT, CadRail
+from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, BREP_OUTPUT, CadResult
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -145,7 +145,7 @@ def displaced(op: TransformOp, /) -> gp_Trsf:
     return scale.Multiplied(rigid)
 
 
-def placed(shape: TopoDS_Shape, op: TransformOp, /) -> CadRail[TopoDS_Shape]:
+def placed(shape: TopoDS_Shape, op: TransformOp, /) -> CadResult[TopoDS_Shape]:
     return built(BRepBuilderAPI_Transform(shape, displaced(op), True, False), "transform")
 ```
 
@@ -157,7 +157,7 @@ def placed(shape: TopoDS_Shape, op: TransformOp, /) -> CadRail[TopoDS_Shape]:
 - Law: `_interior` reads the `through` member both span families spell identically; the read is structural over the oneof payload and its totality is the oneof's own closed case set, which is what buys the single dispatch.
 - Law: `_EDGE` is total over `EdgeKind` by construction and the interpolator's periodic flag rides the row rather than a caller-passed knob, so no arm reconstructs from a boolean what the kind already answers.
 - Law: span builders admit through `_edged` at `[02]-[ADMISSION]`, so the edge family's typed accessor and the `ShapeBuilder` verdict stay one owner's decision rather than two probes drifting apart.
-- Exemption: `EdgeKind(field)` under `except ValueError` is the admission seam for a raw oneof token, and the OCCT builder accumulation loops are the platform-forced statement sites; every expression past them is total over admitted members.
+- Exemption: `EdgeKind(field)` under `except ValueError` is the admission boundary for a raw oneof token, and the OCCT builder accumulation loops are the platform-forced statement sites; every expression past them is total over admitted members.
 - Entry: `curve` pairs every segment endpoint with its successor's start, so continuity is structural, no join coordinate is recomputed, and the open spine the sweep rides carries one coordinate per join.
 - Growth: a new span shape is one `EdgeKind` member, one `_EDGE` row, and one `_interior` arm, with both wire families reaching it and neither call site edited.
 - Boundary: edges and wires mint here; face construction, hole repair, and offset areas belong to `profile#REGIONS`, and sub-topology selection to `brep/feature#SELECTION`.
@@ -189,12 +189,12 @@ class Span[P]:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _arced(run: Sequence[gp_Pnt], /) -> CadRail[TopoDS_Edge]:
+def _arced(run: Sequence[gp_Pnt], /) -> CadResult[TopoDS_Edge]:
     held = GC_MakeArcOfCircle(run[0], run[1], run[2])
     return _edged(BRepBuilderAPI_MakeEdge(held.Value()), "span.arc") if held.IsDone() else Error(BREP_INPUT.at("span.arc"))
 
 
-def _fitted(run: Sequence[gp_Pnt], /, *, periodic: bool) -> CadRail[TopoDS_Edge]:
+def _fitted(run: Sequence[gp_Pnt], /, *, periodic: bool) -> CadResult[TopoDS_Edge]:
     values = TColgp_HArray1OfPnt(1, len(run))
     for index, held in enumerate(run, 1):
         values.SetValue(index, held)
@@ -205,7 +205,7 @@ def _fitted(run: Sequence[gp_Pnt], /, *, periodic: bool) -> CadRail[TopoDS_Edge]
     return _edged(BRepBuilderAPI_MakeEdge(fitter.Curve()), "span.spline.edge")
 
 
-_EDGE: Final[frozendict[EdgeKind, Callable[[Sequence[gp_Pnt]], CadRail[TopoDS_Edge]]]] = frozendict({
+_EDGE: Final[frozendict[EdgeKind, Callable[[Sequence[gp_Pnt]], CadResult[TopoDS_Edge]]]] = frozendict({
     EdgeKind.LINE: lambda run: _edged(BRepBuilderAPI_MakeEdge(run[0], run[-1]), "span.line"),
     EdgeKind.ARC: _arced,
     EdgeKind.SPLINE: partial(_fitted, periodic=False),
@@ -213,11 +213,11 @@ _EDGE: Final[frozendict[EdgeKind, Callable[[Sequence[gp_Pnt]], CadRail[TopoDS_Ed
 })
 
 
-def minted(kind: EdgeKind, run: Sequence[gp_Pnt], /) -> CadRail[TopoDS_Edge]:
+def minted(kind: EdgeKind, run: Sequence[gp_Pnt], /) -> CadResult[TopoDS_Edge]:
     return _EDGE[kind](run)
 
 
-def joined(edges: Iterable[TopoDS_Edge], /) -> CadRail[TopoDS_Wire]:
+def joined(edges: Iterable[TopoDS_Edge], /) -> CadResult[TopoDS_Wire]:
     builder = BRepBuilderAPI_MakeWire()
     for edge in edges:
         builder.Add(edge)
@@ -238,22 +238,22 @@ def _interior[P](kind: EdgeKind, case: Message, /) -> tuple[P, ...]:
             assert_never(unreachable)
 
 
-def _kind(field: str, /) -> CadRail[EdgeKind]:
+def _kind(field: str, /) -> CadResult[EdgeKind]:
     try:
         return Ok(EdgeKind(field))
     except ValueError:
         return Error(BREP_INPUT.at(f"span.kind:{field}"))
 
 
-def spanning[P](held: Oneof, start: P, end: P, /) -> CadRail[Span[P]]:
+def spanning[P](held: Oneof, start: P, end: P, /) -> CadResult[Span[P]]:
     return _kind(held.field).map(lambda kind: Span(kind=kind, case=held.value, start=start, end=end))
 
 
-def spanned[P](span: Span[P], lift: Lift[P], /) -> CadRail[TopoDS_Edge]:
+def spanned[P](span: Span[P], lift: Lift[P], /) -> CadResult[TopoDS_Edge]:
     return minted(span.kind, tuple(map(lift, (span.start, *_interior[P](span.kind, span.case), span.end))))
 
 
-def wired[P](spans: Block[Span[P]], lift: Lift[P], /) -> CadRail[TopoDS_Wire]:
+def wired[P](spans: Block[Span[P]], lift: Lift[P], /) -> CadResult[TopoDS_Wire]:
     return traverse(lambda span: spanned(span, lift), spans).bind(joined)
 
 
@@ -262,7 +262,7 @@ def _paired(value: Curve3, /) -> Block[tuple[Oneof, Point3, Point3]]:
     return Block.of_seq(zip((one.curve for one in value.segments), (value.start, *ends), ends, strict=True))
 
 
-def curve(value: Curve3, /) -> CadRail[TopoDS_Wire]:
+def curve(value: Curve3, /) -> CadResult[TopoDS_Wire]:
     return sequence(_paired(value).starmap(spanning)).bind(lambda spans: wired(spans, point))
 ```
 

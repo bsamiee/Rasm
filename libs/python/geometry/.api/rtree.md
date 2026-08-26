@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: index, container, and result-item family
-- rail: mesh/spatial
+- concern: mesh/spatial
 
 `Index` (aliased `Rtree`) is the query carrier; `RtreeContainer` is the sibling variant storing live Python objects instead of pickled payloads; `Item` is the hydrated query entry returned under `objects=True`.
 
@@ -16,7 +16,7 @@
 |  [03]   | `Item`           | result entry  | `id`, `bbox`, `bounds`, `object`, `get_object()` for a hydrated hit (`objects=True`)      |
 
 [PUBLIC_TYPE_SCOPE]: property and enum family
-- rail: mesh/spatial
+- concern: mesh/spatial
 
 `Property` carries the index configuration; the `RT_*` module constants seed its `type`/`variant`/`storage` slots. `RTreeError` is the single failure type.
 
@@ -33,7 +33,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction (`index.Index`)
-- rail: mesh/spatial
+- concern: mesh/spatial
 
 `Index` is one polymorphic constructor discriminated by the first positional argument: a `str`/path opens or creates disk storage, a generator triggers packed bulk load, an absent first argument yields a memory index. `properties=Property(...)` sets dimension and variant; `interleaved=True` fixes the coordinate order for every query.
 
@@ -44,7 +44,7 @@
 |  [03]   | `Index(stream, properties=...)`                     | bulk load      | packed construction from a `(id, coords, obj)` generator |
 
 [ENTRYPOINT_SCOPE]: mutation and query
-- rail: mesh/spatial
+- concern: mesh/spatial
 
 `insert`/`add` and `delete` carry the interleaved `(min, max)` coordinate tuple; every query row accepts `objects=False` (ids), `objects=True` (`Item`), or `objects='raw'` (the stored payload). `count` returns the hit tally without materializing ids.
 
@@ -58,7 +58,7 @@
 |  [06]   | `contains(coordinates, objects=False)`               | query          | entries fully contained by the query window     |
 
 [ENTRYPOINT_SCOPE]: vectorized batch, persistence, and payload
-- rail: mesh/spatial
+- concern: mesh/spatial
 
 `intersection_v`/`nearest_v` take numpy `(n, d)` min/max arrays and return numpy id-and-count arrays for a whole batch in one native call, `nearest_v` carrying an optional per-query distance cutoff. `dumps`/`loads` are the pickle payload codec; `flush`/`close` commit and release disk storage; `bounds`/`get_bounds`/`leaves`/`get_size`/`valid` introspect the tree.
 

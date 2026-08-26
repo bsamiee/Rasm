@@ -1,6 +1,6 @@
 # [RASM_TOPOLOGY_RECONCILIATION]
 
-`Rasm.Spatial` reconciliation owns the one naming↔hash fence: the lineage-stable reference axis reconciled against the change-sensitive content axis through the single `Reconciliation.Apply` entry, over the frozen canonical byte layouts every content key hashes. `GeometryHash` and `TopoName` are type-distinct, so a cross-axis compare is a compile error, and the canonical bytes cross only the in-process seam, never sitting between wire and rail.
+`Rasm.Spatial` reconciliation owns the one naming↔hash fence: the lineage-stable reference axis reconciled against the change-sensitive content axis through the single `Reconciliation.Apply` entry, over the frozen canonical byte layouts every content key hashes. `GeometryHash` and `TopoName` are type-distinct, so a cross-axis compare is a compile error, and the canonical bytes cross only the in-process boundary, never sitting between wire and result.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@
 - Auto: `Mesh` encoding re-hashes identically under a morph and distinctly under a topology break; every arm gates input and answer through the acceptance oracle, so consumers never re-check the `IValidityEvidence` claims.
 - Law: `NamingHash` is the reconciliation evidence the Persistence structural merge consumes per node, registering into the `OpAcceptance.ValidityOf` oracle like every kernel result — no parallel reconciliation ledger.
 - Law: `RebuiltEntity.Canonical` is a run of int WORDS, never a pre-serialized block, so the framing decision stays at `CanonicalWriter` and the entity keeps structural equality — a `byte[]` column compared by reference, which is precisely what a record whose identity IS its content cannot afford. Three `EncodeForm` streams stay BYTE-UNCHANGED under the writer, and the correspondence is member-for-member: `Word` was int32-LE and `Ordinal` is; `Real` wrote the raw IEEE754 pattern little-endian and `Bits` writes exactly that pattern, never `Double`, whose quantization is a different identity space; and every hand `Word(count)` preceding a run is precisely the count frame `Rows` writes, so the mesh-adjacency digest and the python/ts `XxHash128` peers agree unchanged — the digest rides `Digest(EncodeForm)` through `MeshStream`, which no member below touched. RIPPLE: the per-entity `Content` key gains the count frame `Rows` writes ahead of its word run, so `NamingHash.Addresses` and the `Rasm.Persistence` structural merge re-baseline their stored per-node keys once. Cross-runtime agreement is the proof — one mesh encoded through the peer writers digests identically, so a divergence names the member that broke framing rather than a baseline anyone may move. NAMED LOSS: the deleted `Real` collapsed `-0.0` to `+0.0` and `Bits` writes the pattern it is handed, so a `-0.0` coordinate addresses a distinct key (escalated to `Domain/identity.md`).
-- Packages: `Rasm.Meshing` `MeshSpace` with the `RhinoCommon` welded-topology read behind `MeshSpace.DuplicateNative`, `VectorCloud`, `Rasm.Domain` for the seed-zero `ContentHash.Of`, the `CanonicalWriter` framing, and the `Op`/`Context`/`IValidityEvidence` rails, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`.
+- Packages: `Rasm.Meshing` `MeshSpace` with the `RhinoCommon` welded-topology read behind `MeshSpace.DuplicateNative`, `VectorCloud`, `Rasm.Domain` for the seed-zero `ContentHash.Of`, the `CanonicalWriter` framing, and the `Op`/`Context`/`IValidityEvidence` types, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`.
 - Growth: a new geometry modality is one `EncodeForm` case with its own frozen stream and one `CloudForm`-style wire row where it needs a discriminant; a new per-case content column is one counted layout block on the owning case's stream, the cluster mass block the precedent; a new reconciliation projection is one column on `NameAddress`; a native-brep adjacency source is one `CanonicalTopology.Of*` factory under the same canonical-order law.
 
 ```csharp
@@ -152,7 +152,6 @@ public sealed partial record CanonicalTopology(
                 ? entity.Kind == EntityKind.Edge && entity.Self == index - VertexCount
                 : entity.Kind == EntityKind.Face && entity.Self == index - VertexCount - Edges.Count).ForAll(static holds => holds));
 
-    [BoundaryAdapter]
     public static CanonicalTopology OfMesh(MeshSpace space) {
         Mesh mesh = space.DuplicateNative();
         int vertices = mesh.TopologyVertices.Count;

@@ -6,14 +6,14 @@ Input and output are both parameterized: `ExportSource` discriminates the `to_on
 
 ## [01]-[INDEX]
 
-- [02]-[ASSET]: the sklearn-to-ONNX export over `ExportSource`, the `ValidationCheck` fold to `ValidationEvidence` verdicts, and the graduation rail on one `ModelAsset` owner.
+- [02]-[ASSET]: the sklearn-to-ONNX export over `ExportSource`, the `ValidationCheck` fold to `ValidationEvidence` verdicts, and the graduation path on one `ModelAsset` owner.
 - [03]-[ENVELOPE]: the drift-envelope companion — reference bands fitted from the training population and written as the HDF5 container the C# admission gate ingests, its `write_async` twin the crossing's one movement record.
 
 ## [02]-[ASSET]
 
-- Owner: `ModelAsset` — `ModelAssetManifest` is the io-names, op-types, providers, model-card, and per-check verdict value object backing the graduation seam; a failed check is a residual `1.0` above its governed `_CHECK_CEILING` row on the shared `graduation/handoff#GRADUATION` fold, never a second admission body here and never a bar derived from the run's own residual roster, and the manifest crosses outward only through `graduates` under the caller's composition key.
+- Owner: `ModelAsset` — `ModelAssetManifest` is the io-names, op-types, providers, model-card, and per-check verdict value object backing the graduation boundary; a failed check is a residual `1.0` above its governed `_CHECK_CEILING` row on the shared `graduation/handoff#GRADUATION` fold, never a second admission body here and never a bar derived from the run's own residual roster, and the manifest crosses outward only through `graduates` under the caller's composition key.
 - Cases: `ExportSource` — the sample drives `initial_types` inference, so a categorical or mixed-dtype source is the `columns` case, never a hand-built `FloatTensorType`; `OperatorGate` bounds the emitted operators, so a quantized or opset-restricted graph is a tighter row, never a converter fork.
-- Output: the `ValidationEvidence` case IS the verdict row — its `tag` names the check and `passed` reads the outcome, no separate `CheckVerdict` carrier re-stamping the discriminant; a malformed graph and an unpropagated shape both land as one failed `structural` verdict on the domain rail, never an infrastructure `BoundaryFault`.
+- Output: the `ValidationEvidence` case IS the verdict row — its `tag` names the check and `passed` reads the outcome, no separate `CheckVerdict` carrier re-stamping the discriminant; a malformed graph and an unpropagated shape both land as one failed `structural` verdict on the domain layer, never an infrastructure `BoundaryFault`.
 - Output: the manifest's failed-check roster is its `band`, stamped on the weave span beside every check verdict — the retired `validated: bool` answered THAT a check failed and erased WHICH, so a parity failure and a structural failure read identically to every consumer downstream of the flag. The producer name rides a `Posture`: a graph whose metadata named none is ABSENT, and the subject falls back to the checksum's own wire render rather than a `<anonymous>` literal every unnamed asset would collide onto.
 - Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, one `run` arm, and one `_CHECK_CEILING` row; a new refusal is one `FaultRow` anchor in `RAISES`; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal and one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter `_CHECK_CEILING` row or the caller's override.
 
@@ -36,7 +36,7 @@ from opentelemetry import trace
 
 from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN, ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, Posture, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import FAULT_CONF, TERMINAL, Catch, FaultRow, Posture, RuntimeResult, boundary, rostered
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
@@ -245,7 +245,7 @@ class ModelAssetManifest(Struct, frozen=True):
     def subject(self) -> str:
         return self.producer.option().default_value(self.checksum.project("wire"))
 
-    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Graduation]:
+    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[Graduation]:
         return Graduation.graduates(
             EvidenceScope.MODEL.value,
             HandoffAxis(model_asset=self.subject()),
@@ -256,11 +256,11 @@ class ModelAssetManifest(Struct, frozen=True):
         )
 
 
-def _validate_kernel(asset: "ModelAsset") -> "RuntimeRail[ModelAssetManifest]":
+def _validate_kernel(asset: "ModelAsset") -> "RuntimeResult[ModelAssetManifest]":
     return boundary(MODEL_VALIDATE, lambda: asset._load_and_run(asset.ref.path, None), catch=_ONNX_RAISES).bind(lambda outcome: outcome)
 
 
-def _export_kernel(asset: "ModelAsset", source: "ExportSource", gating: "OperatorGate") -> "RuntimeRail[ModelAssetManifest]":
+def _export_kernel(asset: "ModelAsset", source: "ExportSource", gating: "OperatorGate") -> "RuntimeResult[ModelAssetManifest]":
     return boundary(MODEL_EXPORT, lambda: asset._export(source, gating), catch=_ONNX_RAISES).bind(lambda outcome: outcome)
 
 
@@ -268,24 +268,24 @@ class ModelAsset(Struct, frozen=True):
     ref: ResourceRef
     providers: tuple[str, ...] = ()
 
-    async def validate(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[ModelAssetManifest]:
+    async def validate(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[ModelAssetManifest]:
         return await self._traced(lane, "validate", _validate_kernel, self, composition=composition)
 
     async def export(
         self, lane: LanePolicy, source: ExportSource, /, *, gating: OperatorGate = OperatorGate(), composition: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[ModelAssetManifest]:
+    ) -> RuntimeResult[ModelAssetManifest]:
         return await self._traced(lane, f"export.{source.tag}", _export_kernel, self, source, gating, composition=composition)
 
     async def _traced(
-        self, lane: LanePolicy, op: str, kernel: Callable[..., "RuntimeRail[ModelAssetManifest]"], *args: object, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[ModelAssetManifest]:
-        async def dispatch() -> RuntimeRail[ModelAssetManifest]:
-            return (await lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), *args)).bind(lambda rail: rail)
+        self, lane: LanePolicy, op: str, kernel: Callable[..., "RuntimeResult[ModelAssetManifest]"], *args: object, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> RuntimeResult[ModelAssetManifest]:
+        async def dispatch() -> RuntimeResult[ModelAssetManifest]:
+            return (await lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), *args)).bind(lambda held: held)
 
         return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch, facts={"op": op, "providers": ",".join(self.providers)}, composition=composition)
 
     @beartype(conf=FAULT_CONF)
-    def _load_and_run(self, path: UPath, source: ExportSource | None) -> "RuntimeRail[ModelAssetManifest]":
+    def _load_and_run(self, path: UPath, source: ExportSource | None) -> "RuntimeResult[ModelAssetManifest]":
         model = onnx.load(str(path))
         session = self._session(path)
         meta = session.get_modelmeta()
@@ -343,7 +343,7 @@ class ModelAsset(Struct, frozen=True):
         return onnxruntime.InferenceSession(str(path), sess_options=options, providers=preference)
 
     @beartype(conf=FAULT_CONF)
-    def _export(self, source: ExportSource, gating: OperatorGate) -> "RuntimeRail[ModelAssetManifest]":
+    def _export(self, source: ExportSource, gating: OperatorGate) -> "RuntimeResult[ModelAssetManifest]":
         graph = source.convert(get_latest_tested_opset_version(), gating)
         self.ref.path.write_bytes(graph.SerializeToString())
         return self._load_and_run(self.ref.path, source)
@@ -353,7 +353,7 @@ class ModelAsset(Struct, frozen=True):
 
 - Owner: `GraduationEnvelope` — the serving-population drift companion this owner fits at graduation and ships beside the ONNX artifact: `ReferenceBand` is the numeric-or-categorical band union, `fit` derives each feature's band from the training columns only this owner holds, and `write` is the `hdf5-exchange/graduation` domain producer whose container `dotnet:Rasm.Compute/Model/identity#MODEL_IDENTITY` `GraduationEnvelope.Admit(HdfHandle)` consumes. The reverse JSON `EvidenceBundle` leg stays whole on `graduation/codegen#STUB_CODEGEN`, untouched.
 - Cases: this producer's law is one root `bands` group carrying the `evidence-key` attribute as the 32-hex `ContentKey` rendering the C# parses `NumberStyles.HexNumber`; one group per feature carrying the `kind` attribute (`numeric`/`categorical`); numeric bands the explicit little-endian `edges` float64[k] and `mass` float64[k+1] datasets, categorical bands the vlen UTF-8 `categories` and little-endian float64 `mass` datasets.
-- Law: `write_async` is the ONE durable seat and the crossing's only movement evidence — one `REGULATORY` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes landed. It is an awaitable twin because this owner carries no weave and `write` is synchronous whole while recording suspends; without the line, a reference population leaves for the peer's admission gate and neither branch records that it moved. `REGULATORY` is earned rather than inherited: a drift envelope is the population a served model is graded against for as long as that model serves. The record rail BINDS, so a container the plane refused never reads as written.
+- Law: `write_async` is the ONE durable seat and the crossing's only movement evidence — one `REGULATORY` `AuditFact` naming the destination beside a `STORAGE` `MeterFact` over the bytes landed. It is an awaitable twin because this owner carries no weave and `write` is synchronous whole while recording suspends; without the line, a reference population leaves for the peer's admission gate and neither branch records that it moved. `REGULATORY` is earned rather than inherited: a drift envelope is the population a served model is graded against for as long as that model serves. The record result BINDS, so a container the plane refused never reads as written.
 - Entry: `GraduationEnvelope.fit(evidence_key, numeric, categorical)` folds the training columns into admitted bands or a typed refusal; `write(ref)` is create-only h5py, one call landing roster, attributes, and datasets whole and answering the container's byte extent; `write_async(ref)` is its awaitable twin.
 - Auto: `fit` mirrors every `Wellformed` gate BEFORE bytes land, so a container this writer emits never fails the peer's admission — finite strictly-increasing edges, mass length `edges + 1`, every mass strictly positive and summing to one within `1e-9`, non-blank unique features and categories, a non-zero evidence key. Numeric edges are interior training quantiles, so the k+1 mass vector covers BOTH outer bins the peer's half-open bisection addresses; `_edges` drops any edge bounding an empty bin until every bin holds mass, because duplicated quantiles over ties otherwise mint a zero-mass bin the peer's normalization gate refuses.
 - Law: the envelope is a crossing artifact, not hub evidence — it graduates nothing itself; the `model_asset` axis crossing on `[02]-[ASSET]` stays the one graduation leg, and the envelope's container `ContentKey` pairs the artifact with that crossing's evidence key.
@@ -430,7 +430,7 @@ class GraduationEnvelope(Struct, frozen=True):
     @beartype(conf=FAULT_CONF)
     def fit(
         cls, evidence_key: ContentKey, numeric: Mapping[str, np.ndarray], categorical: Mapping[str, np.ndarray], *, bins: int = _BINS
-    ) -> "RuntimeRail[GraduationEnvelope]":
+    ) -> "RuntimeResult[GraduationEnvelope]":
         def build() -> GraduationEnvelope:
             rows: list[ReferenceBand] = []
             for name, column in numeric.items():
@@ -451,7 +451,7 @@ class GraduationEnvelope(Struct, frozen=True):
 
         return boundary(ENVELOPE_FIT, build, catch=_ENVELOPE_FIT_RAISES)
 
-    def write(self, ref: ResourceRef) -> "RuntimeRail[int]":
+    def write(self, ref: ResourceRef) -> "RuntimeResult[int]":
         def emit() -> int:
             with h5py.File(str(ref.path), "x") as file:
                 root = file.create_group("bands")
@@ -473,7 +473,7 @@ class GraduationEnvelope(Struct, frozen=True):
 
         return boundary(ENVELOPE_WRITE, emit, catch=_ENVELOPE_WRITE_RAISES)
 
-    async def write_async(self, ref: ResourceRef, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[int]":
+    async def write_async(self, ref: ResourceRef, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeResult[int]":
         match self.write(ref):
             case Result(tag="ok", ok=written):
                 return (await Journal.record(_evidence(self, ref, written), scope=composition)).map(lambda _landed: written)

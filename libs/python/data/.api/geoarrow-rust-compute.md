@@ -1,6 +1,6 @@
 # [PY_DATA_API_GEOARROW_RUST_COMPUTE]
 
-`geoarrow-rust-compute` owns the native GeoArrow geometry-compute surface for the geospatial-ingress rail: vectorized GeoRust algorithms compiled to a static Rust package operating directly over Arrow-backed geometry arrays through the Arrow PyCapsule interface. Every operation consumes and returns Arrow capsules in-process, so a geometry crosses the ingress path once as a capsule and never round-trips through a Shapely/GEOS scalar loop; the package owns the algorithm kernels and never re-implements them.
+`geoarrow-rust-compute` owns the native GeoArrow geometry-compute surface for the geospatial-ingress domain: vectorized GeoRust algorithms compiled to a static Rust package operating directly over Arrow-backed geometry arrays through the Arrow PyCapsule interface. Every operation consumes and returns Arrow capsules in-process, so a geometry crosses the ingress path once as a capsule and never round-trips through a Shapely/GEOS scalar loop; the package owns the algorithm kernels and never re-implements them.
 
 ## [01]-[PUBLIC_TYPES]
 

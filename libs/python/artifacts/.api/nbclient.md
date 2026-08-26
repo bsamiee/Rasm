@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_NBCLIENT]
 
-`nbclient` owns the Jupyter notebook execution runtime for the `artifacts` notebook rail: `NotebookClient` drives the full kernel lifecycle — cell-by-cell execution, per-cell timeout, output-hook and widget-state capture — and folds every cell, timeout, and kernel fault onto a typed exception family. `async_execute` is the authoritative coroutine entrypoint; every sync method trampolines it through `run_sync`, so the async mirror carries the real signature. Rail composition rides the `anyio` loop natively, never a worker thread.
+`nbclient` owns the Jupyter notebook execution runtime for the `artifacts` notebook domain: `NotebookClient` drives the full kernel lifecycle — cell-by-cell execution, per-cell timeout, output-hook and widget-state capture — and folds every cell, timeout, and kernel fault onto a typed exception family. `async_execute` is the authoritative coroutine entrypoint; every sync method trampolines it through `run_sync`, so the async mirror carries the real signature. Result composition rides the `anyio` loop natively, never a worker thread.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -13,7 +13,7 @@
 
 [PUBLIC_TYPE_SCOPE]: exception family — `nbclient.exceptions`
 
-`CellControlSignal` is a plain `Exception`, not a fault; the loop catches it to split a clean cell end (`CellExecutionComplete`) from an error. `CellTimeoutError` also subclasses stdlib `TimeoutError`, so a timeout is catchable as a stdlib timeout — the seam the `[04]` `deadline` route keys on.
+`CellControlSignal` is a plain `Exception`, not a fault; the loop catches it to split a clean cell end (`CellExecutionComplete`) from an error. `CellTimeoutError` also subclasses stdlib `TimeoutError`, so a timeout is catchable as a stdlib timeout — the boundary the `[04]` `deadline` route keys on.
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]                                                                        |
 | :-----: | :---------------------- | :---------------- | :---------------------------------------------------------------------------------- |
@@ -35,14 +35,14 @@
 
 [ENTRYPOINT_SCOPE]: notebook execution — `nbclient.NotebookClient`
 
-Sync rows `[03]`/`[05]`/`[09]`/`[11]`/`[14]` are `run_sync` wrappers of the `async_` mirror beneath them; the async form carries the authoritative signature and is the form the rail composes. Constructor `resources` seeds `metadata.path` from `cwd`; every `execute`/cell method returns the mutated `NotebookNode`.
+Sync rows `[03]`/`[05]`/`[09]`/`[11]`/`[14]` are `run_sync` wrappers of the `async_` mirror beneath them; the async form carries the authoritative signature and is the form the result composes. Constructor `resources` seeds `metadata.path` from `cwd`; every `execute`/cell method returns the mutated `NotebookNode`.
 
 | [INDEX] | [SURFACE]                                                              | [CAPABILITY]                                                |
 | :-----: | :--------------------------------------------------------------------- | :---------------------------------------------------------- |
 |  [01]   | `nbclient.execute(nb, cwd, km, **kwargs)`                              | one-shot construct + run; `cwd` seeds `metadata.path`       |
 |  [02]   | `NotebookClient(nb, km, **kw)`                                         | bind a node to a kernel manager; traits + `resources=` dict |
 |  [03]   | `execute(reset_kc, **kwargs)`                                          | sync `run_sync` wrapper of `async_execute`                  |
-|  [04]   | `async_execute(reset_kc, **kwargs)`                                    | the rail entrypoint; runs all cells on the loop             |
+|  [04]   | `async_execute(reset_kc, **kwargs)`                                    | the result entrypoint; runs all cells on the loop           |
 |  [05]   | `execute_cell(cell, cell_index, execution_count, store_history)`       | sync wrapper; mutates `cell` in place                       |
 |  [06]   | `async_execute_cell(cell, cell_index, execution_count, store_history)` | coroutine single-cell exec; mutates `cell` in place         |
 |  [07]   | `setup_kernel(**kwargs)`                                               | sync `@contextmanager`: start, yield, shutdown              |
@@ -115,20 +115,20 @@ nbclient fires these eight `Callable` traits around the notebook and per-cell li
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `async_execute` awaited directly on the `anyio` loop is the one rail form; it returns the mutated in-memory `NotebookNode`. Every sync method is a `run_sync(async_…)` trampoline, so a sync `execute` inside a running event loop is the nested-loop hazard the `async_` mirror avoids; `setup_kernel`/`async_setup_kernel` own explicit kernel lifecycle when the client outlives one `execute`.
+- `async_execute` awaited directly on the `anyio` loop is the one result form; it returns the mutated in-memory `NotebookNode`. Every sync method is a `run_sync(async_…)` trampoline, so a sync `execute` inside a running event loop is the nested-loop hazard the `async_` mirror avoids; `setup_kernel`/`async_setup_kernel` own explicit kernel lifecycle when the client outlives one `execute`.
 - `NotebookEngine.client_kwargs()` is the one boundary view: it `asdict`s the frozen `msgspec.Struct` and re-projects `error_on_timeout` from its `frozendict` to a real `dict` (a `traitlets.Dict` rejects a `frozendict`), while tuple fields (`allow_error_names`/`display_data_priority`/`extra_arguments`) ride as-is since `traitlets.List` coerces a tuple. `NotebookEngine` grows a bounded-safety trait as one struct field, zero call-site edit.
 - Bounded-safety defaults: `force_raise_errors=True` + `interrupt_on_timeout=True` + `raise_on_iopub_timeout=True` make a runaway cell raise rather than hang and a late iopub raise rather than warn; `coalesce_streams=True` merges adjacent stream output; `record_timing=True` stamps per-cell timing; `allow_errors=False` with `allow_error_names` as the narrow whitelist keeps a failing cell a hard fault.
-- Timeout: `timeout` applies per-cell (`None` = unbounded, the rail pins 600); `startup_timeout` bounds the kernel-start handshake; `error_on_timeout` injects a fake `error` reply as the cell result; `iopub_timeout`/`raise_on_iopub_timeout` bound the trailing output wait; `shell_timeout_interval` is the shell-poll granularity the reply loop ticks on.
+- Timeout: `timeout` applies per-cell (`None` = unbounded, the result pins 600); `startup_timeout` bounds the kernel-start handshake; `error_on_timeout` injects a fake `error` reply as the cell result; `iopub_timeout`/`raise_on_iopub_timeout` bound the trailing output wait; `shell_timeout_interval` is the shell-poll granularity the reply loop ticks on.
 - Widget state: `store_widget_state=True` captures Jupyter widget state into `metadata.widgets` via `on_comm_open_jupyter_widget` -> `register_output_hook` -> `OutputWidget` -> `set_widgets_metadata`.
 
 [STACKING]:
 - `papermill`(`.api/papermill.md`): `parameterize_notebook` injects the parameter cell upstream and its default `NBClientEngine` delegates the kernel lifecycle to this client — nbclient owns the execution loop papermill's engine wraps.
 - `jupytext`(`.api/jupytext.md`): `jupytext.reads` sources the node; `jupytext.writes(executed, "ipynb")` archives the mutated node after execution.
 - `nbconvert`(`.api/nbconvert.md`): the executed `NotebookNode` feeds `nbconvert.get_exporter(...).from_notebook_node` downstream; `nbconvert.ExecutePreprocessor` is a thin wrapper over this same client, left `enabled=False` to avoid double execution.
-- `document/report#REPORT` constructs `NotebookClient(parameterized, **NotebookEngine.client_kwargs()).async_execute()` awaited natively on the `anyio` loop with no `to_thread` offload; only the downstream blocking `nbconvert` render crosses `anyio.to_thread.run_sync(limiter=_OFFLOAD)`. Faults funnel through `runtime/reliability/faults#FAULT` `async_boundary` onto `RuntimeRail = Result[T, BoundaryFault]` (`expression`).
+- `document/report#REPORT` constructs `NotebookClient(parameterized, **NotebookEngine.client_kwargs()).async_execute()` awaited natively on the `anyio` loop with no `to_thread` offload; only the downstream blocking `nbconvert` render crosses `anyio.to_thread.run_sync(limiter=_OFFLOAD)`. Faults funnel through `runtime/reliability/faults#FAULT` `async_boundary` onto `RuntimeResult = Result[T, BoundaryFault]` (`expression`).
 
 [LOCAL_ADMISSION]:
 - `NotebookNode` is `nbformat`'s in-memory form, mutated in place during execution; the owner archives it via `jupytext.writes` and lowers it via `nbconvert.get_exporter(...).from_notebook_node`, never re-reading from disk.
-- `km` accepts an externally managed `KernelManager`; when absent the client builds one from `kernel_manager_class` and destroys it. `kernel_name=''` defers to the notebook's kernelspec; the rail pins `kernel_name="python3"` and threads the same value into `parameterize_notebook` so a non-Python kernel routes its own `papermill` translator.
-- `document/report`'s `async_boundary` catches every fault; the `CLASSIFY` table routes by family: `CellTimeoutError` lands on the `deadline` row through its stdlib `TimeoutError` base, while `CellExecutionError` (`<- Exception`) and `DeadKernelError` (`<- RuntimeError`) land on the `boundary` catch-all — the rail never catches an nbclient fault itself.
+- `km` accepts an externally managed `KernelManager`; when absent the client builds one from `kernel_manager_class` and destroys it. `kernel_name=''` defers to the notebook's kernelspec; the result pins `kernel_name="python3"` and threads the same value into `parameterize_notebook` so a non-Python kernel routes its own `papermill` translator.
+- `document/report`'s `async_boundary` catches every fault; the `CLASSIFY` table routes by family: `CellTimeoutError` lands on the `deadline` row through its stdlib `TimeoutError` base, while `CellExecutionError` (`<- Exception`) and `DeadKernelError` (`<- RuntimeError`) land on the `boundary` catch-all — the result never catches an nbclient fault itself.
 - `CellExecutionError` carries `traceback`/`ename`/`evalue` from the kernel, embeds the error output in the node, and is picklable (`__reduce__`) so it survives a process boundary; `DeadKernelError` requires a kernel restart and is not recoverable by the same `NotebookClient` instance.

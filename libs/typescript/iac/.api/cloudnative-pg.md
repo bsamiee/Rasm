@@ -1,6 +1,6 @@
 # [TS_IAC_API_CLOUDNATIVE_PG]
 
-`cloudnative-pg` installs the PostgreSQL operator and its CRD estate; every cluster, database, pooler, backup, and replication object is a custom resource authored beside the chart. Chart values decide the controller's reach, webhook posture, and configuration ConfigMap — nothing here creates a database. Its webhook Service name is HARDCODED and survives every override, which is the one address a fence must not derive.
+`cloudnative-pg` installs the PostgreSQL operator and its CRD set; every cluster, database, pooler, backup, and replication object is a custom resource authored beside the chart. Chart values decide the controller's reach, webhook posture, and configuration ConfigMap — nothing here creates a database. Its webhook Service name is HARDCODED and survives every override, which is the one address a fence must not derive.
 
 ## [01]-[CHART_VALUES]
 
@@ -26,7 +26,7 @@
 
 ## [02]-[CR_CONTRACT]
 
-[CRD_ESTATE]: group `postgresql.cnpg.io`, all served and stored at `v1` — `Cluster`, `Pooler`, `Database`, `ScheduledBackup`, `Backup`, `Publication`, `Subscription`, `DatabaseRole`, `FailoverQuorum`, and the image catalogues `ImageCatalog` (namespaced) and `ClusterImageCatalog` (cluster-scoped).
+[CRD_SET]: group `postgresql.cnpg.io`, all served and stored at `v1` — `Cluster`, `Pooler`, `Database`, `ScheduledBackup`, `Backup`, `Publication`, `Subscription`, `DatabaseRole`, `FailoverQuorum`, and the image catalogues `ImageCatalog` (namespaced) and `ClusterImageCatalog` (cluster-scoped).
 
 [CLUSTER_RESOURCES]: `Cluster.spec.resources` is `core/v1` `ResourceRequirements` VERBATIM — `requests` and `limits` as `map[string]Quantity` under the int-or-string quantity pattern, beside the `claims[]` list of `{ name, request }` keyed as a list-map on `name`. There is no CNPG-local shape and no pod-level seat on the CR.
 
@@ -52,12 +52,12 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- The chart installs the CONTROLLER; the estate authors the CRs. Every CNPG object the branch declares is a committed `crd2pulumi` class, so the operator vocabulary is compile-checked where the estate is PG-heaviest and a raw untyped `CustomResource` has no spelling.
+- The chart installs the CONTROLLER; the cluster authors the CRs. Every CNPG object the branch declares is a committed `crd2pulumi` class, so the operator vocabulary is compile-checked where the cluster is PG-heaviest and a raw untyped `CustomResource` has no spelling.
 - The generated CRD module and the chart pin move together: a bump regenerates the module rather than shifting an npm dependency, so the cluster schema and the typed classes never disagree.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` with `skipCrds: false` renders the operator AND its CRDs as managed resources, so a version bump diffs the schema rather than leaving Helm's install-once copy in place.
-- `../crds/cnpg` (crd2pulumi): `postgresql.v1.Cluster`, `Database`, `ScheduledBackup`, `Pooler`, `Publication`, and `Subscription` beside `barmancloud.v1.ObjectStore` — the typed estate every CR row in the branch is built from.
+- `../crds/cnpg` (crd2pulumi): `postgresql.v1.Cluster`, `Database`, `ScheduledBackup`, `Pooler`, `Publication`, and `Subscription` beside `barmancloud.v1.ObjectStore` — the typed module every CR row in the branch is built from.
 - `plugin-barman-cloud`(`.api/plugin-barman-cloud.md`): the second chart in the same tier, installed after this one, adding WAL archiving, scheduled backup, recovery, and PITR against one typed `ObjectStore`.
 - `kube/data#PG_CLUSTER`: the owner installing both charts, minting per-scope credentials, folding the extension matrix into every cluster, and publishing the pooler host, port, database, role, and realized pooling mode.
 - `minio`(`.api/minio.md`) / `rook-ceph-cluster`(`.api/rook-ceph-cluster.md`): the archive destination the barman `ObjectStore` names, reached through whichever object-plane engine row the profile selected.
@@ -68,6 +68,6 @@
 - Install this chart BEFORE the barman plugin and before any CR, and parent each dependent on it so admission is live when the first cluster lands.
 - Let the chart carry the CRDs under a render carrier; a separately applied CRD set drifts from the pin the generated module was built against.
 - Leave both webhook `failurePolicy` values at `Fail` — an admission bypass on a database operator turns a rejected spec into a half-built cluster.
-- State `Cluster.spec.resources` on every cluster: omitted, the operator stamps an empty envelope onto each generated container and the estate's only stateful pod schedules BestEffort.
+- State `Cluster.spec.resources` on every cluster: omitted, the operator stamps an empty envelope onto each generated container and the cluster's only stateful pod schedules BestEffort.
 - Size a pooler through a container entry named `pgbouncer`, never through the pod-level `template.spec.resources` — that field is alpha, gated, and reaches the bootstrap init container alone.
 - Name a `Pooler` so it can never collide with a cluster in its namespace, and treat every `cluster.name` reference as a create-time constant.

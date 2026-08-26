@@ -6,14 +6,14 @@
 
 [PUBLIC_TYPE_SCOPE]: client + adapter family
 
-- `Client` exposes NO `close`, `__enter__`, or `__exit__` — the only release seam is `client.adapter.close()`, which closes the adapter's own `requests.Session`.
+- `Client` exposes NO `close`, `__enter__`, or `__exit__` — the only release point is `client.adapter.close()`, which closes the adapter's own `requests.Session`.
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                                     |
 | :-----: | :------------------------- | :------------ | :--------------------------------------------------------------- |
 |  [01]   | `Client`                   | client        | root client; `.secrets`/`.auth`/`.sys` engine and method routers |
 |  [02]   | `Client.adapter`           | property      | settable; the live adapter holding the HTTP session              |
 |  [03]   | `adapters.Adapter`         | abstract base | request-adapter contract; custom transport extension point       |
-|  [04]   | `adapters.Adapter.close()` | release       | closes the underlying `requests.Session`; the ONLY release seam  |
+|  [04]   | `adapters.Adapter.close()` | release       | closes the underlying `requests.Session`; the ONLY release point |
 |  [05]   | `adapters.JSONAdapter`     | impl          | default adapter; JSON-decoded responses                          |
 |  [06]   | `adapters.RawAdapter`      | impl          | raw `requests.Response` passthrough adapter                      |
 
@@ -54,7 +54,7 @@
 |  [01]   | `Client(url=, token=, namespace=, verify=, timeout=30)` | ctor    | Enterprise `namespace=` targeting; TLS `verify=` |
 |  [02]   | `Client(..., adapter=adapters.JSONAdapter)`             | ctor    | adapter injection; `JSONAdapter` default         |
 |  [03]   | `client.is_authenticated() -> bool`                     | probe   | live token-validity check before the first read  |
-|  [04]   | `client.adapter.close()`                                | release | the release seam; `Client` has no `close`        |
+|  [04]   | `client.adapter.close()`                                | release | the release point; `Client` has no `close`       |
 
 [ENTRYPOINT_SCOPE]: secret read
 - `read_secret_version` is the one polymorphic KV-v2 entry over `path=`/`version=`; the payload lands at `["data"]["data"]`.

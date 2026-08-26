@@ -1,13 +1,13 @@
 # [RASM_DOMAIN_EVALUATION]
 
-`Evaluation` owns the closest-point, sampling, and differential-frame lattice: one polymorphic entry answers where every admissible Rhino form sits relative to a sample, what its local frame is, and which points it yields, recovering the richest evidence each form admits into one `ClosestHit`. Evaluation reads `Rhino.Geometry` values only — document or view reach is the boundary-law violation — and nothing above the lattice re-derives closest-point logic.
+`Evaluation` owns the closest-point, sampling, and differential-frame family: one polymorphic entry answers where every admissible Rhino form sits relative to a sample, what its local frame is, and which points it yields, recovering the richest evidence each form admits into one `ClosestHit`. Evaluation reads `Rhino.Geometry` values only — document or view reach is the boundary-law violation — and nothing above the family re-derives closest-point logic.
 
-Rebuilds compose these seams unchanged: `ClosestHit` conforms to the `Domain/rails` `IValidityEvidence` fold the `Domain/validation` oracle reads through one interface arm; typed output projects through the `Numerics/atoms` `AtomProjection` rail, one `ProjectionRow` per facet; capability admission rides the `Domain/normalization` `Capability` rows while analytic value forms reach native arms through `Lease` recoveries; and facet selection past the canonical projection is `Spatial/support` `SupportProjection`'s row vocabulary over the hit fields, so no boolean rides a signature.
+Rebuilds compose these boundaries unchanged: `ClosestHit` conforms to the `Domain/results` `IValidityEvidence` fold the `Domain/validation` oracle reads through one interface arm; typed output projects through the `Numerics/atoms` `AtomProjection` rows, one `ProjectionRow` per facet; capability admission rides the `Domain/normalization` `Capability` rows while analytic value forms reach native arms through `Lease` recoveries; and facet selection past the canonical projection is `Spatial/support` `SupportProjection`'s row vocabulary over the hit fields, so no boolean rides a signature.
 
 ## [01]-[INDEX]
 
-- [02]-[HIT]: `ClosestHit` — the typed closest-point hit, its facet admissions, and the typed projection rail.
-- [03]-[LATTICE]: `ClosestForm` — the ordered recovery roster, one row per admissible form.
+- [02]-[HIT]: `ClosestHit` — the typed closest-point hit, its facet admissions, and the typed projection rows.
+- [03]-[ROSTER]: `ClosestForm` — the ordered recovery roster, one row per admissible form.
 - [04]-[EVALUATION]: `EvaluationRequest` + `EvaluationResult` + `Evaluation` — the one verb union, its total dispatch, and the surface-typed members.
 
 ## [02]-[HIT]
@@ -17,8 +17,8 @@ Rebuilds compose these seams unchanged: `ClosestHit` conforms to the `Domain/rai
 - Law: `ClosestHit` is the one evidence carrier for every arm; a per-form `CurveHit`/`MeshHit`/`BrepHit` family is the rejected proliferation, an absent facet is `Option.None` never a `double.NaN` or `Point2d.Unset` sentinel, and the hit's own `IValidityEvidence` conformance retires the acceptance oracle's hand-enumerated arm under the one-oracle law.
 - Law: `At` computes `Distance` from the query target, so a caller-supplied distance is the rejected trust hole; `SignedDistanceFrom` reads the recovered normal and is the one sign convention.
 - Growth: a new hit facet is one `Option` field, one `ProjectionRow`, and one `IsValid` conjunct, every existing arm compiling unchanged because an absent facet is `None`.
-- Boundary: projection is `ProjectionRow` data through the one `AtomProjection.Rows` rail, so hit and atom projection share one dispatch; distance is the `double` projection at this altitude while parameter, span, signed, and containment facet selection is `Spatial/support` `SupportProjection`'s row vocabulary over the same hit fields, which is the only path to the tangent and parameter facets the CLR-type-keyed projection cannot discriminate.
-- Packages: RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`/`ProjectionRow`, LanguageExt.Core rails, and the Foundation `[BoundaryAdapter]` contract.
+- Boundary: projection is `ProjectionRow` data through the one `AtomProjection.Rows` fold, so hit and atom projection share one dispatch; distance is the `double` projection at this altitude while parameter, span, signed, and containment facet selection is `Spatial/support` `SupportProjection`'s row vocabulary over the same hit fields, which is the only path to the tangent and parameter facets the CLR-type-keyed projection cannot discriminate.
+- Packages: RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`/`ProjectionRow`, LanguageExt.Core types, and the Foundation contract.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -31,7 +31,7 @@ using static LanguageExt.Prelude;
 namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ClosestHit(
     Point3d Point,
     Option<double> Distance,
@@ -89,16 +89,16 @@ public readonly record struct ClosestHit(
 }
 ```
 
-## [03]-[LATTICE]
+## [03]-[ROSTER]
 
-- Owner: `ClosestForm` is the closest-point recovery roster — one row per admissible form, each carrying the type it names, the `TypeMatch` row saying how a runtime type must meet it, and the recovery that mints its `ClosestHit`. Rows carry the lattice as data, so a new evaluatable form lands as one row and no consumer's dispatch changes.
-- Owner: `TypeMatch` is the admission correspondence — `Exact` and `Assignable` are the two shapes the whole lattice uses, so a row states its own as a column and carries no predicate body; `Admits` is one derived member reading both columns.
+- Owner: `ClosestForm` is the closest-point recovery roster — one row per admissible form, each carrying the type it names, the `TypeMatch` row saying how a runtime type must meet it, and the recovery that mints its `ClosestHit`. Rows carry the roster as data, so a new evaluatable form lands as one row and no consumer's dispatch changes.
+- Owner: `TypeMatch` is the admission correspondence — `Exact` and `Assignable` are the two shapes the whole roster uses, so a row states its own as a column and carries no predicate body; `Admits` is one derived member reading both columns.
 
-- Law: DECLARATION ORDER is the lattice order and it is load-bearing. `BrepFace` precedes `Surface` because `BrepFace : Surface`, and routing a trimmed face to the untrimmed surface row silently answers off the trim. `Curve`, `Surface`, and `Brep` rows precede nothing analytic because a native reaching this roster has already exhausted every shape above it; their host reads refuse typed rather than falling through to a form recovery that leases the same object and re-enters forever.
-- Law: `Capability.Closest` is the WHOLE-lattice gate the dispatch prologue reads, and the rows are the per-form recovery; the gate answers whether a type admits evaluation at all, a row answers how. Neither restates the other.
+- Law: DECLARATION ORDER is the roster order and it is load-bearing. `BrepFace` precedes `Surface` because `BrepFace : Surface`, and routing a trimmed face to the untrimmed surface row silently answers off the trim. `Curve`, `Surface`, and `Brep` rows precede nothing analytic because a native reaching this roster has already exhausted every shape above it; their host reads refuse typed rather than falling through to a form recovery that leases the same object and re-enters forever.
+- Law: `Capability.Closest` is the WHOLE-roster gate the dispatch prologue reads, and the rows are the per-form recovery; the gate answers whether a type admits evaluation at all, a row answers how. Neither restates the other.
 - Auto: the `Brep` row is the only two-axis recovery — the host answers a component index and the row dispatches face against edge over one joint pattern, its frame slot falling from the edge's perpendicular frame to a tangent-built basis to absence in one priority list.
 - Exemption: `Point3d` and `Rhino.Geometry.Point` are two rows because the roster keys on the runtime type and the value shape and its native wrapper are two types carrying one identity.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]` rows), RhinoCommon geometry members, LanguageExt.Core rails.
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]` rows), RhinoCommon geometry members, LanguageExt.Core types.
 - Growth: a new form is one row placed by its assignability against the rows above it; a form that subclasses an existing row's type places above it or is unreachable.
 
 ```csharp
@@ -288,15 +288,15 @@ internal sealed partial class ClosestForm {
 
 ## [04]-[EVALUATION]
 
-- Owner: `EvaluationRequest` is the ONE verb union — closest point, signed distance, surface sampling, and vertex reading are four cases under one total `Switch`, each verb's former preamble now its case constructor and the shared null gate the dispatch prologue. `EvaluationResult` carries the three answer shapes one projection rail collapses.
+- Owner: `EvaluationRequest` is the ONE verb union — closest point, signed distance, surface sampling, and vertex reading are four cases under one total `Switch`, each verb's former preamble now its case constructor and the shared null gate the dispatch prologue. `EvaluationResult` carries the three answer shapes one projection fold collapses.
 - Entry: `geometry.Evaluate(request, key) : Fin<EvaluationResult>` is the one polymorphic entry; `Analysis/query`'s `AnalysisQuery` forwards its cases here rather than re-wrapping four sibling members, and a new verb breaks every dispatch site at compile time instead of growing a fifth entry.
 - Auto: capability admission rides the `Capability` rows so no arm re-derives type admissibility, and `Recovered` is the ONE form-resolve ladder every verb shares — a value shape leases its native, re-enters the same request, and disposes at `Use` scope exit, recursion bounded at two hops because a native never enters the ladder. Sampling is metric-honest: `Sample(n)` yields n arc-length curve samples and an n×n uv grid, and `SurfaceSampleUv` pulls exterior grid samples back onto trimmed faces, failing only when no sample survives the trim.
 - Law: signed distance derives its own hit. Callers hand none in, so a hit from a DIFFERENT geometry never pairs with a sample and answers without refusal; a caller already holding a hit reads `ClosestHit.SignedDistanceFrom` directly.
 - Law: `SurfaceDomain` is the ONE surface-domain usability answer — both intervals valid and each longer than the model tolerance. `SurfaceUv`, `SurfaceSampleUv`, and `Domain/validation`'s domain readiness row all read it, so a degenerate-domain surface is refused identically at every altitude; the collapse TIGHTENS the two sampling members, which previously admitted a zero-length domain that produced a degenerate grid.
 - Law: `NormalAt` flips for `BrepFace.OrientationIsReversed` and `FrameAt` re-handeds the frame to agree, so the hit never carries a frame/normal disagreement.
-- Output: `EvaluationResult.Project<TOut>` is the one typed egress — a hit projects through its own facet rows, a distance and a point sequence through the `AtomProjection` value and sequence rails.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]` request/result with generated total `Switch`), RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`, LanguageExt.Core rails.
-- Growth: a new verb is one `EvaluationRequest` case and one `Switch` arm; a new evaluatable form is one `ClosestForm` row or one arm in the verb's own lattice.
+- Output: `EvaluationResult.Project<TOut>` is the one typed egress — a hit projects through its own facet rows, a distance and a point sequence through the `AtomProjection` value and sequence rows.
+- Packages: Thinktecture.Runtime.Extensions (`[Union]` request/result with generated total `Switch`), RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`, LanguageExt.Core types.
+- Growth: a new verb is one `EvaluationRequest` case and one `Switch` arm; a new evaluatable form is one `ClosestForm` row or one arm in the verb's own roster.
 - Boundary: `Evaluation` preserves every recovery the mature kernel performed; the recursion ordering fixes change no terminating input's result, and the `BrepFace` totalization trades one silently-untrimmed underlying-surface point for a typed refusal.
 
 ```csharp
@@ -337,7 +337,6 @@ public abstract partial record EvaluationResult {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 internal static class Evaluation {
     extension(object? geometry) {
         public Fin<EvaluationResult> Evaluate(EvaluationRequest request, Op key) =>
@@ -478,7 +477,7 @@ config:
 ---
 flowchart LR
     accTitle: Evaluation request dispatch and recovery spine
-    accDescr: One request union dispatching four verbs over admitted geometry, the closest verb reading the ordered recovery roster into a nine-field hit, every verb sharing one form-resolve ladder for value shapes, and one result union fanning into the typed projection rail.
+    accDescr: One request union dispatching four verbs over admitted geometry, the closest verb reading the ordered recovery roster into a nine-field hit, every verb sharing one form-resolve ladder for value shapes, and one result union fanning into the typed projection rows.
     Raw["object? geometry + EvaluationRequest"] --> Dispatch{"total Switch over the verb union"}
     Dispatch -->|Closest| Gate["Capability.Closest gate + oracle"]
     Gate --> Roster{"ClosestForm row for the runtime type?"}
@@ -486,14 +485,14 @@ flowchart LR
     Roster -.->|none| Ladder
     Dispatch -->|Signed| Signed["analytic region arms · else derive the hit"]
     Dispatch -->|Sample| Sampling["arc-length parameters · uv grid · vertex route"]
-    Dispatch -->|Vertices| VertexLattice["vertex lattice · brep-form lift"]
+    Dispatch -->|Vertices| VertexRows["vertex rows · brep-form lift"]
     Sampling -.-> Ladder{"Recovered: one form-resolve ladder"}
-    VertexLattice -.-> Ladder
+    VertexRows -.-> Ladder
     Signed --> Hit
     Ladder -->|"Lease recovery ≤2 deep"| Dispatch
     Hit --> Result["EvaluationResult"]
     Sampling --> Result
-    VertexLattice --> Result
+    VertexRows --> Result
     Result -->|Project TOut| Typed["AtomProjection rows · value · sequence"]
     Result -->|fields read by rows| Support["Spatial/support SupportProjection facets"]
 ```

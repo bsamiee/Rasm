@@ -32,7 +32,7 @@ from msgspec import Meta, Struct
 from rasm.compute.graduation.handoff import EvidenceScope, Graduation, evidence_run
 from rasm.compute.solvers.solve import graduate
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.faults import FAULT_CONF, RuntimeRail
+from rasm.runtime.faults import FAULT_CONF, RuntimeResult
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 lazy import flint
@@ -299,8 +299,8 @@ _CEILING: Final[Map[str, float]] = Map.of_seq([("refuted", 0.0), ("width", 1e-6)
 class IntervalNumerics:
     @staticmethod
     @beartype(conf=FAULT_CONF)
-    def run(op: IntervalOp, *, precision: int = 128, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[tuple[Yield, ContentKey]]:
-        def result() -> RuntimeRail[tuple[Yield, ContentKey]]:
+    def run(op: IntervalOp, *, precision: int = 128, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[tuple[Yield, ContentKey]]:
+        def result() -> RuntimeResult[tuple[Yield, ContentKey]]:
             yielded = _dispatch(op, precision)
             return ContentIdentity.of(f"interval.{op.tag}", op.identity_source(precision)).map(lambda key: (yielded, key))
 
@@ -310,7 +310,7 @@ class IntervalNumerics:
     @staticmethod
     def graduates(
         result: tuple[Yield, ContentKey], subject: str = "interval-certificate", *, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> "RuntimeRail[Graduation]":
+    ) -> "RuntimeResult[Graduation]":
         yielded, key = result
         enclosures = yielded if isinstance(yielded, tuple) else (yielded,)
         ledger = {

@@ -1,26 +1,26 @@
 # [CORE_BOARD]
 
-`Board` renders the estate's observability read surface from data alone: `Query` compiles one expression tree to every backend from a target parameter, `Panel` and `DashboardModel` encode dashboards as wire values the deploy plane realizes, `Bench` grades benchmark claims through an admission ladder, and the pack table gives every instrument family its standing consumer. Its module is `core/src/observe/board.ts`.
+`Board` renders the repo's observability read surface from data alone: `Query` compiles one expression tree to every backend from a target parameter, `Panel` and `DashboardModel` encode dashboards as wire values the deploy plane realizes, `Bench` grades benchmark claims through an admission ladder, and the pack table gives every instrument family its standing consumer. Its module is `core/src/observe/board.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[QUERY]: target-parameterized expression algebra — PromQL and residence SQL from one tree; `Board.Query`.
+- [02]-[QUERY]: target-parameterized expression algebra — PromQL and tier SQL from one tree; `Board.Query`.
 - [03]-[PANEL]: closed panel schema union every dashboard encodes; `Panel`.
 - [04]-[MODEL]: dashboard identity, grid layout, live-metric snapshot, pack dispatch; `Board.DashboardModel`.
 - [05]-[BENCH]: benchmark claims, mitata ingestion, admission-gated regression grading; `Board.Bench`.
-- [06]-[PACKS]: standing pack and suite builders over the instrument estate; `Board.DashboardModel.pack`/`suite`.
+- [06]-[PACKS]: standing pack and suite builders over the instrument catalog; `Board.DashboardModel.pack`/`suite`.
 - [07]-[PACK_WIRE]: generated producer-pack decode onto the deploy-plane ingest value; `Board.Pack`.
 
 ## [02]-[QUERY]
 
-- Owner: `Board.Query` compiles one tagged expression tree — instant, windowed, aggregate, binary, quantile, fraction, rank, const — and `render` answers each `Target` arm in that store's own dialect, so a panel authors one expression estate-wide.
+- Owner: `Board.Query` compiles one tagged expression tree — instant, windowed, aggregate, binary, quantile, fraction, rank, const — and `render` answers each `Target` arm in that store's own dialect, so a panel authors one expression repo-wide.
 - Law: counter windows fold monotonic resets through the lag-increment leg, so a restarted process reads as its true increase rather than a negative spike.
 - Law: scalar-only binary arms fold to constants before any relation forms, so a threshold comparison never joins a relation against a broadcast constant.
 - Law: `breach`, `indicator`, and `burn` derive their expressions from `Reliability` values alone, so an objective's board query and its alert rule read one definition.
 - Law: a leaf names a series that is EITHER a census key or a producer-declared row, and one `_declared` fold answers the three columns every render reads, so a pack from a runtime this branch never mounts compiles through the same tree instead of a second expression owner beside it.
-- Law: both foreign mints are brands, so a bare string is unspellable as a series or a break key and the estate census stays closed — admission runs once, at the boundary that decodes the producer's declaration.
+- Law: both foreign mints are brands, so a bare string is unspellable as a series or a break key and the repo census stays closed — admission runs once, at the boundary that decodes the producer's declaration.
 - Growth: a rendering backend is one `_ENGINES` row; a windowed verb one `_FNS` row; an operator one `_OPS` row spelled in both dialects.
-- Boundary: residence DDL and datasource realization are the data and deploy planes'; this owner emits expression strings alone.
+- Boundary: tier DDL and datasource realization are the data and deploy planes'; this owner emits expression strings alone.
 - Packages: `effect` (`Data`, `Duration`, `Match`, `Schema`); `./convention.ts` (`Convention`); `./slo.ts` (`Reliability`).
 
 ```typescript
@@ -138,7 +138,7 @@ declare namespace _Query {
   type Engine = keyof typeof _ENGINES
   type Histogram = "classic" | "native"
   type Key = Convention.Key | Dialect | ForeignKey
-  type Residence = {
+  type Tier = {
     readonly attribute: (key: Key) => string
     readonly degrade: string
     readonly fraction: (below: number) => string
@@ -197,7 +197,7 @@ const _ENGINES = {
 type _Engine = (typeof _ENGINES)[_Query.Engine]
 type _Target = Data.TaggedEnum<{
   Promql: { readonly histogram: _Query.Histogram; readonly source: string; readonly translation: Convention.Translation }
-  Sql: { readonly engine: _Query.Engine; readonly residence: _Query.Residence; readonly resolution: _Query.Span; readonly source: string }
+  Sql: { readonly engine: _Query.Engine; readonly resolution: _Query.Span; readonly source: string; readonly tier: _Query.Tier }
 }>
 const _Target = Data.taggedEnum<_Target>()
 type _Promql = Extract<_Target, { readonly _tag: "Promql" }>
@@ -272,21 +272,21 @@ const _predicates = (
   row: _Sql,
   source: { readonly labels: _Query.Labels; readonly matchers?: ReadonlyArray<_Query.Matcher>; readonly metric: _Query.Series },
 ): ReadonlyArray<string> => [
-  `${row.residence.name} = ${_quoted(_declared(source.metric).name)}`,
+  `${row.tier.name} = ${_quoted(_declared(source.metric).name)}`,
   ...Array.filterMap(_LABEL_KEYS, (key) =>
-    Option.map(Option.fromNullable(source.labels[key]), (value) => `${row.residence.attribute(key)} = ${_quoted(value)}`)),
+    Option.map(Option.fromNullable(source.labels[key]), (value) => `${row.tier.attribute(key)} = ${_quoted(value)}`)),
   ...Array.map(source.matchers ?? [], ({ key, op, value }) =>
     pipe(
       _MATCH[op].sql === "match"
-        ? _ENGINES[row.engine].match(row.residence.attribute(key), _quoted(value))
-        : `${row.residence.attribute(key)} = ${_quoted(value)}`,
+        ? _ENGINES[row.engine].match(row.tier.attribute(key), _quoted(value))
+        : `${row.tier.attribute(key)} = ${_quoted(value)}`,
       (predicate) => _MATCH[op].negate ? `NOT (${predicate})` : predicate,
     )),
 ]
 
 const _alias = (key: _Query.Key): string => `"${String(key).replaceAll('"', '""')}"`
 const _keySelect = (row: _Sql, keys: ReadonlyArray<_Query.Key>): string =>
-  Array.join(Array.map(keys, (key) => `, ${row.residence.attribute(key)} AS ${_alias(key)}`), "")
+  Array.join(Array.map(keys, (key) => `, ${row.tier.attribute(key)} AS ${_alias(key)}`), "")
 const _keyProject = (keys: ReadonlyArray<_Query.Key>, qualifier = ""): string =>
   Array.join(Array.map(keys, (key) => `, ${qualifier}${_alias(key)}`), "")
 const _projection = (keys: ReadonlyArray<_Query.Key>, qualifier = ""): string =>
@@ -302,9 +302,9 @@ const _leaf = (
   value: (column: string, time: string, engine: _Engine) => string,
 ): string =>
   pipe(_declared(source.metric).kind, (kind) =>
-    `SELECT ${_ENGINES[row.engine].bucket(row.residence.time, _bucketed(window, row.resolution))} AS ${_COLUMN.at},`
-    + ` ${row.residence.identity(keys)} AS ${_COLUMN.by}${_keySelect(row, keys)}, ${value(row.residence.value[kind], row.residence.time, _ENGINES[row.engine])} AS ${_COLUMN.value}`
-    + ` FROM ${row.residence.table[kind]}`
+    `SELECT ${_ENGINES[row.engine].bucket(row.tier.time, _bucketed(window, row.resolution))} AS ${_COLUMN.at},`
+    + ` ${row.tier.identity(keys)} AS ${_COLUMN.by}${_keySelect(row, keys)}, ${value(row.tier.value[kind], row.tier.time, _ENGINES[row.engine])} AS ${_COLUMN.value}`
+    + ` FROM ${row.tier.table[kind]}`
     + ` WHERE ${Array.join(_predicates(row, source), " AND ")} ${_group(keys)}`)
 
 const _increment = (value: string, prior: string): string =>
@@ -318,12 +318,12 @@ const _resetLeaf = (
   fn: "increase" | "rate",
 ): string => {
   const kind = Convention.Metric.at(source.metric).kind
-  const value = row.residence.value[kind]
+  const value = row.tier.value[kind]
   const seconds = _bucketed(window, row.resolution)
-  const stepped = `SELECT *, lag(${value}) OVER (PARTITION BY ${row.residence.identity(_LABEL_KEYS)} ORDER BY ${row.residence.time}) AS ${_COLUMN.prior}`
-    + ` FROM ${row.residence.table[kind]} WHERE ${Array.join(_predicates(row, source), " AND ")}`
-  return `SELECT ${_ENGINES[row.engine].bucket(row.residence.time, seconds)} AS ${_COLUMN.at}, ${row.residence.identity(keys)} AS ${_COLUMN.by}`
-    + `${_keySelect(row, keys)}, ${_FNS[fn].sql(_increment(value, _COLUMN.prior), seconds, row.residence.time, _ENGINES[row.engine])} AS ${_COLUMN.value}`
+  const stepped = `SELECT *, lag(${value}) OVER (PARTITION BY ${row.tier.identity(_LABEL_KEYS)} ORDER BY ${row.tier.time}) AS ${_COLUMN.prior}`
+    + ` FROM ${row.tier.table[kind]} WHERE ${Array.join(_predicates(row, source), " AND ")}`
+  return `SELECT ${_ENGINES[row.engine].bucket(row.tier.time, seconds)} AS ${_COLUMN.at}, ${row.tier.identity(keys)} AS ${_COLUMN.by}`
+    + `${_keySelect(row, keys)}, ${_FNS[fn].sql(_increment(value, _COLUMN.prior), seconds, row.tier.time, _ENGINES[row.engine])} AS ${_COLUMN.value}`
     + ` FROM (${stepped}) reset ${_group(keys)}`
 }
 
@@ -393,9 +393,9 @@ const _sql = (query: _Query, row: _Sql, keys: ReadonlyArray<_Query.Key> = []): s
             onSome: _constant,
           })),
       Const: ({ value }) => _constant(`${value}`),
-      Fraction: ({ labels, matchers, metric, upper, window }) => _leaf(row, keys, { labels, matchers, metric }, window, () => row.residence.fraction(upper)),
+      Fraction: ({ labels, matchers, metric, upper, window }) => _leaf(row, keys, { labels, matchers, metric }, window, () => row.tier.fraction(upper)),
       Instant: (source) => _leaf(row, keys, source, row.resolution, (column, time) => engine.latest(column, time)),
-      Quantile: ({ labels, matchers, metric, q, window }) => _leaf(row, keys, { labels, matchers, metric }, window, () => row.residence.quantile(q)),
+      Quantile: ({ labels, matchers, metric, q, window }) => _leaf(row, keys, { labels, matchers, metric }, window, () => row.tier.quantile(q)),
       Rank: ({ count, of, op }) => engine.rank(_sql(of, row, keys), _RANK[op].order, count, _projection(keys)),
       Windowed: ({ fn, of, window }) =>
         of._tag === "Instant"
@@ -422,7 +422,7 @@ const _Query: Data.TaggedEnum.Constructor<_Query> & {
   readonly render: (query: _Query, target: _Query.Target) => string
   readonly span: typeof _QuerySpan.make
   readonly sql: (
-    row: { readonly engine: _Query.Engine; readonly residence: _Query.Residence; readonly resolution?: _Query.Span; readonly source: string },
+    row: { readonly engine: _Query.Engine; readonly resolution?: _Query.Span; readonly source: string; readonly tier: _Query.Tier },
   ) => _Query.Target
 } = {
   ..._QueryCases,
@@ -436,8 +436,8 @@ const _Query: Data.TaggedEnum.Constructor<_Query> & {
   rankCount: _RankCount.make,
   render: _render,
   span: _QuerySpan.make,
-  sql: ({ engine, residence, resolution = _QuerySpan.make(Duration.minutes(1)), source }) =>
-    _Target.Sql({ engine, residence, resolution, source }),
+  sql: ({ engine, resolution = _QuerySpan.make(Duration.minutes(1)), source, tier }) =>
+    _Target.Sql({ engine, resolution, source, tier }),
 }
 ```
 
@@ -682,7 +682,7 @@ declare namespace _DashboardModel {
 - Owner: `Board.Bench` decodes mitata measurements into `Claim` values and grades a candidate against a baseline through the ordered admission ladder — suite, host, duplicates, metric roster, sample floor, rung positivity — before any ratio computes.
 - Law: refusals carry both sides' projection on the failed axis, so a refused grade is diagnosable evidence rather than a boolean.
 - Law: polarity owns the ratio direction, so a maximize metric grades improved on growth without any consumer inverting a comparison.
-- Growth: a hardware-counter leaf is one `_COUNTER_PATHS` row joining the series estate-wide; an admission axis is one `_ADMISSION` row; a grading knob is one `Tolerance` field.
+- Growth: a hardware-counter leaf is one `_COUNTER_PATHS` row joining the series repo-wide; an admission axis is one `_ADMISSION` row; a grading knob is one `Tolerance` field.
 - Boundary: benchmark execution and suite selection are the runtime bench owner's; this owner ingests and grades landed claims.
 - Packages: `mitata` (`measure` stats shape); `../value/contentKey.ts` (`Digest`); `../value/schema.ts` (`Shape.Record`).
 
@@ -1994,7 +1994,7 @@ const _SUITE: { readonly [K in _DashboardModel.Pack]: (board: _DashboardModel.Bo
 
 - Law: the branch's ONE ProtoJSON arm carries it — `Format.proto.frame(BoardPackWireSchema, "json")` runs the corpus's own rules at the engine door before any fold, so the `wire` pattern, enum definedness, objective-name distinctness, and alert-resolves-objective are already proved and nothing below re-proves them. `interchange/codec#WIRE_REGISTRY` seats that SAME schema as the family's census row, so the census and the pack door read one spelling; the fold sits outside the schema because it renders against a target the producer never knew.
 - Law: a producer's series, break keys, and objective names are FOREIGN vocabulary and this branch mints no census seat for them — the panel row carries the exported wire form, the published name, and the UCUM code beside every panel, and the decode admits each through the `[02]-[QUERY]` foreign brands. Forging census rows for a meter this runtime never mounts is the strata twin the wire exists to delete.
-- Law: enum dispatch closes BOTH ways — `_WIDGETS` seats one arm per generated `PanelKind` member against the enum's own type, so a member the corpus adds fails this table at compile time and the unset ordinal refuses on the rail rather than rendering a default panel.
+- Law: enum dispatch closes BOTH ways — `_WIDGETS` seats one arm per generated `PanelKind` member against the enum's own type, so a member the corpus adds fails this table at compile time and the unset ordinal refuses at decode rather than rendering a default panel.
 - Law: Geomap, Nodes, and Logs REFUSE, each for its own named reason. A pack declares no latitude/longitude pair and no node/edge frame convention, and both builders read exactly those — a panel compiled without them plots the frame's first two numeric columns by accident, which reads as data rather than as the absence it is; a Logs panel names a declared INSTRUMENT, and no instrument roster carries a stream a log query can select.
 - Law: factor, windows, hold, tone, and urgency are NEVER read off the wire — `burn` and `severity` cross as generated enums and every column resolves off `Reliability.Slo.Burn.at` and `Reliability.Alert.Severity.at`, so this branch's tuning governs the rules it compiles and a producer cannot freeze its own numbers into them.
 - Law: `wire` stays a pattern-refined string here and `iac`'s `_PACKS` tuple owns the closed admitted set, so this decode originates no provenance key and an unadmitted one refuses at the typed boundary that earns it rather than at a second roster forked into this branch.
@@ -2287,10 +2287,10 @@ declare namespace Board {
     type Labels = _Query.Labels
     type Matcher = _Query.Matcher
     type QuantileValue = _Query.QuantileValue
-    type Residence = _Query.Residence
     type Series = _Query.Series
     type Span = _Query.Span
     type Target = _Query.Target
+    type Tier = _Query.Tier
     type Window = _Query.Window
   }
   namespace Bench {

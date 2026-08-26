@@ -1,6 +1,6 @@
 # [PY_DATA_API_POLARS]
 
-`polars` owns the columnar dataframe rail: a Rust-backed engine whose eager `DataFrame`/`Series` and lazy `LazyFrame` share one `Expr`-composed transformation API over a typed dtype vocabulary. `LazyFrame` defers a query graph until `collect` — engine-selectable across in-memory, streaming out-of-core, and GPU backends under per-call optimizer flags — or a streaming `sink_*`, admitting predicate/projection pushdown and out-of-core execution. `polars.plugins.register_plugin_function` admits native Rust kernels as first-class `Expr` nodes, the seam `polars-st` grafts geometry onto.
+`polars` owns the columnar dataframe domain: a Rust-backed engine whose eager `DataFrame`/`Series` and lazy `LazyFrame` share one `Expr`-composed transformation API over a typed dtype vocabulary. `LazyFrame` defers a query graph until `collect` — engine-selectable across in-memory, streaming out-of-core, and GPU backends under per-call optimizer flags — or a streaming `sink_*`, admitting predicate/projection pushdown and out-of-core execution. `polars.plugins.register_plugin_function` admits native Rust kernels as first-class `Expr` nodes, the boundary `polars-st` grafts geometry onto.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -155,7 +155,7 @@
 [TOPOLOGY]:
 - `DataFrame` and `LazyFrame` share one `Expr` transformation API; `LazyFrame` records a graph and `collect` runs the optimizer, whose passes toggle per call through `QueryOptFlags` or boolean kwargs.
 - `collect(engine=)` selects in-memory, streaming out-of-core, or `GPUEngine` execution; `background=True` returns an `InProcessQuery`, and `collect_batches`/`sink_batches` stream the result as `RecordBatch`es.
-- `POLARS_VERBOSE=1` writes to STDERR rather than stdout and streams the streaming-engine node state machine with per-transition NANOSECOND timings — a granularity `profile` never reaches, since `profile` reports fused stage spans; the two rails compose, verbose owning transition-level tracing and `profile` owning stage accounting.
+- `POLARS_VERBOSE=1` writes to STDERR rather than stdout and streams the streaming-engine node state machine with per-transition NANOSECOND timings — a granularity `profile` never reaches, since `profile` reports fused stage spans; the two results compose, verbose owning transition-level tracing and `profile` owning stage accounting.
 - Expressions stay lazy regardless of frame: `col("x") * 2` is an `Expr` until evaluated inside `select`/`with_columns`/`filter`/`group_by(...).agg`/`Expr.over`; `DataTypeExpr`/`dtype_of`/`self_dtype` defer schema-dependent dtype decisions into the graph.
 - Dtypes are value objects: `Datetime`/`Duration` carry a `time_unit`, `Categorical`/`Enum` bind a string-cache identity through `Categories`, and `Struct`/`List`/`Array` nest inner dtypes.
 - Temporal windowing folds through `group_by_dynamic`, `Expr.rolling`, and `Expr.over(order_by=, mapping_strategy=)`; `join_asof` joins sorted keys and `join_where` joins inequality predicates.

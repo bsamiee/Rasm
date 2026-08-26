@@ -2,7 +2,7 @@
 
 `Audit.Preflight` admits one additive `SliceStack`, rasterizes it in one correlated build frame, labels per-layer and volumetric connectivity, resolves void escape, and emits geometry and process-risk evidence before scan or production commitment. `AuditEvidence` is the sole preflight result scan-path and production gates consume.
 
-Risk membership derives from the `AdditiveProcess` capability axes `Additive/production` owns — `Recoated` and `Supported` — so no risk table mirrors the process roster and a ninth process arrives with its families already decided. Every `AuditDefect` case names the `AuditRisk` it belongs to, so one filter applies the whole process policy and the census is total over the admitted families. `AuditEnvelope` binds section frame and build intervals into one relational owner. `RasterWorkspace` owns pooled solid, void, support, and label planes, `ParallelHelper.For2D` owns independent occupancy cells, and connectivity is run-scanline union-find over those planes — no graph container addresses a raster cell. Wall thickness is the one measure the raster does not answer: it composes the kernel `Offsetting.Apply` medial locus, whose `ClearanceNode` radii are exact boundary distances in the clearance vocabulary the toolpath seam already speaks.
+Risk membership derives from the `AdditiveProcess` capability axes `Additive/production` owns — `Recoated` and `Supported` — so no risk table mirrors the process roster and a ninth process arrives with its families already decided. Every `AuditDefect` case names the `AuditRisk` it belongs to, so one filter applies the whole process policy and the census is total over the admitted families. `AuditEnvelope` binds section frame and build intervals into one relational owner. `RasterWorkspace` owns pooled solid, void, support, and label planes, `ParallelHelper.For2D` owns independent occupancy cells, and connectivity is run-scanline union-find over those planes — no graph container addresses a raster cell. Wall thickness is the one measure the raster does not answer: it composes the kernel `Offsetting.Apply` medial locus, whose `ClearanceNode` radii are exact boundary distances in the clearance vocabulary the toolpath boundary already speaks.
 
 ## [01]-[INDEX]
 
@@ -152,7 +152,6 @@ public sealed partial class AuditEnvelope {
     public RhinoInterval V { get; }
     public RhinoInterval W { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Plane frame,
@@ -221,7 +220,6 @@ public sealed partial class AuditThresholds {
     public long CellCap { get; }
     public int MaximumRadiusCells { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Length cell,
@@ -290,7 +288,6 @@ public sealed partial class AuditPolicy {
 
     public Set<AuditRisk> Risks => AuditRisk.Of(Process);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref AdditiveProcess process,
@@ -323,7 +320,7 @@ public sealed partial class AuditPolicy {
 
 ## [04]-[RASTER_FRAME]
 
-- Owner: `RasterGrid` owns the local cell lattice; `AdmittedAudit` owns the admitted stack, its local ordinates, the per-layer regions, and the per-layer support capsules; `RasterWorkspace` owns every pooled plane and the fill passes over them.
+- Owner: `RasterGrid` owns the local cell grid; `AdmittedAudit` owns the admitted stack, its local ordinates, the per-layer regions, and the per-layer support capsules; `RasterWorkspace` owns every pooled plane and the fill passes over them.
 - Law: the workspace rents FOUR planes per layer — solid occupancy, void occupancy, support coverage, and the component label — and `BytesPerCell` states the budget those four cost, so `DemandGate` bounds what is actually rented rather than a plane count that hides an integer plane behind three byte planes.
 - Exemption: `RasterWorkspace.Allocate`, `RasterWorkspace.Fill`, `OccupancyAction.Invoke`, and `SupportAction.Invoke` are the platform rental and parallel-fill kernels; each writes a disjoint cell and holds no shared state.
 - Entry: `RasterWorkspace.Allocate` is the one rental and disposes every prior owner on a partial failure; `Solid`, `Void`, `Support`, and `Labels` are the plane reads.
@@ -347,7 +344,6 @@ internal sealed partial class RasterGrid {
     public Point3d Local(int row, int column, double w) =>
         new(MinU + ((column + 0.5) * CellMm), MinV + ((row + 0.5) * CellMm), w);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double minU,
@@ -538,7 +534,7 @@ internal readonly struct SupportAction(
 - Owner: `Run` and `RunLabels` own raster connectivity; `PlaneFold` owns the whole-plane measurements.
 - Law: connectivity labels RUNS, never cells. A maximal occupied span in one raster row is one union-find element, so the disjoint set holds one entry per run where a per-cell graph holds one vertex per cell — the structure a cell-addressed graph container inflates by two to three orders of magnitude against a raster the demand gate budgets in bytes. Runs in adjacent rows arrive column-sorted, so the overlap join is a two-pointer merge and the whole labeling is two linear passes.
 - Exemption: `RunLabels.Find`, `RunLabels.Union`, `Runs.Label`, `Runs.Join`, `PlaneFold.Count`, `PlaneFold.Perimeter`, and `PlaneFold.DirectionalExposure` are the named numerical kernels; each is a bounded in-place sweep over one owned plane.
-- Cases: `Connectivity.Planar` unions runs within one layer across adjacent rows; `Connectivity.Volumetric` extends that union across column-overlapping runs in adjacent layers, so solid components and the void lattice are one kernel under two modes rather than two graph builders.
+- Cases: `Connectivity.Planar` unions runs within one layer across adjacent rows; `Connectivity.Volumetric` extends that union across column-overlapping runs in adjacent layers, so solid components and the void grid are one kernel under two modes rather than two graph builders.
 - Output: `Runs.Label` writes the compacted component label into the layer's own label plane and returns one row per component carrying its cell count and its first cell, so no later pass reconstructs a component from a label dictionary and no witness read can meet an empty group.
 - Packages: `CommunityToolkit.HighPerformance` (`Memory2D<T>`, `Span2D<T>`, `Span2D<T>.GetRowSpan`); BCL inbox.
 - Boundary: connectivity and occupancy are RASTER questions and stay here; wall thickness is an exact ring question and composes the kernel wavefront at `[07]-[PREFLIGHT]`. The two never merge — a raster resolves what is connected to what, and a distance quantized to the cell pitch is not a thickness this preflight is willing to report. These kernels read and write planes and integers only; a caller projects a returned cell through `AdmittedAudit.World`.
@@ -748,10 +744,10 @@ internal readonly record struct MetricState(
 - Law: defect production is UNCONDITIONAL and `Preflight` applies the process policy through one `AuditDefect.Risk` filter, so no family carries its own guard and no new case escapes the policy. A finding whose evidence axis is absent is never minted, so an unmeasured axis produces no defect rather than a comparison against a fabricated zero that always passes.
 - Exemption: `Components`, `Voids`, `Escape`, `Metrics`, `Unsupported`, and `Bounds` are the named numerical kernels folding the owned planes.
 - Entry: `public static Fin<AuditEvidence> Preflight(SliceStack stack, AuditPolicy policy)` admits the stack channels first because every later gate indexes them, then accumulates demand, evidence, and support admission before opening the pooled kernel. Allocation crosses one `Try` boundary and every owner disposes before egress.
-- Auto: `DemandGate` proves the co-axiality the frame convention rests on — a layer whose points scatter across local ordinates has no single ordinate and every grid read would mislocate — and bounds the rental in bytes against the admitted cell cap; open-contour counts read the stack's own per-contour `Open` column through its layer pointers rather than materializing every chain to count the unclosed ones; the support plan's own spatial index resolves the branch set crossing each layer once on the rail, so no cell fold scans the node roster, and an absent index — the planar-only program's honest state — takes the same empty-capsule arm an absent plan does.
+- Auto: `DemandGate` proves the co-axiality the frame convention rests on — a layer whose points scatter across local ordinates has no single ordinate and every grid read would mislocate — and bounds the rental in bytes against the admitted cell cap; open-contour counts read the stack's own per-contour `Open` column through its layer pointers rather than materializing every chain to count the unclosed ones; the support plan's own spatial index resolves the branch set crossing each layer once on the result, so no cell fold scans the node roster, and an absent index — the planar-only program's honest state — takes the same empty-capsule arm an absent plan does.
 - Output: `AuditEvidence` carries the process, per-layer metrics, component rows with parents and children, void rows with escape disposition, typed defects, and `Census` keyed by `AuditRisk`. The census seeds over the admitted families alone, so a zero means a family was checked and clean rather than a family the process cannot exhibit; a new defect case reports through it without a result edit.
 - Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `IsOpen`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult.Axis`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Canonical`); `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `SpatialAnswer.Result`, `QueryResult.Hits`); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the component lineage alone; `Process/faults`; LanguageExt.Core.
-- Boundary: wall thickness composes the kernel wavefront and never the raster, so this page mints no thickness measure of its own and speaks the same clearance vocabulary the toolpath seam already reads. The wavefront admits ONE simple ring, so an outer ring's medial cannot see the layer's holes — every interior node re-measures against them, and that second read is the whole reason the wall fold is not the kernel call alone. QuikGraph addresses components, never cells: a lineage graph holds one vertex per labeled region while a raster graph holds one per cell, and only the former sizes with what the demand gate budgets. `IncrementalConnectedComponentsAlgorithm` and `ForestDisjointSet<T>` are refused for raster connectivity by name — both key on a boxed vertex, so either reintroduces the per-cell element count the run algebra exists to delete.
+- Boundary: wall thickness composes the kernel wavefront and never the raster, so this page mints no thickness measure of its own and speaks the same clearance vocabulary the toolpath boundary already reads. The wavefront admits ONE simple ring, so an outer ring's medial cannot see the layer's holes — every interior node re-measures against them, and that second read is the whole reason the wall fold is not the kernel call alone. QuikGraph addresses components, never cells: a lineage graph holds one vertex per labeled region while a raster graph holds one per cell, and only the former sizes with what the demand gate budgets. `IncrementalConnectedComponentsAlgorithm` and `ForestDisjointSet<T>` are refused for raster connectivity by name — both key on a boxed vertex, so either reintroduces the per-cell element count the run algebra exists to delete.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1275,7 +1271,7 @@ flowchart TB
     Planes --> Label["Runs.Label scanline union-find over runs"]
     Rings --> Field["Offsetting.Apply OffsetOp.Medial → ClearanceNode radii"]
     Label --> Components["Components lineage over ComponentId"]
-    Label --> Voids["Voids volumetric lattice + Escape"]
+    Label --> Voids["Voids volumetric grid + Escape"]
     Field --> Walls["ThinWalls thinnest interior node, re-measured against holes"]
     Planes --> Metrics["Metrics Option axes + RecoaterLikelihood"]
     Components --> Census["AuditDefect.Risk filter over AuditRisk.Of(process)"]

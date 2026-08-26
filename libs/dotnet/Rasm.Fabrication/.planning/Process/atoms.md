@@ -18,7 +18,7 @@
 - Owner: `Loop` owns the arc-native closed or open chain and every profile query over it; `BoolKind` owns the Boolean posture with its provider code and truth function; `PartTransform` owns the nest placement map; `ProjectionDir` owns the orthonormal screen basis.
 - Cases: `ProfileOp` carries each arc-native operation's evidence — measure, bound, containment, closest point, arc-length sample, single-loop offset, island-preserving shape offset, Boolean, intersection census, and containment relation.
 - Entry: `Loop.Apply` is the sole profile-operation surface; input shape selects behavior. `Loop.Admit` is the sole construction, `Loop.Canonical` the sole identity normalization, and `Loop.CanonicalOrder` the sole sibling rank over that normal form.
-- Law: the Boolean posture crosses every seam as `BoolKind`, so the provider ordinal stays a private column on the row and a plane above reaches a set operation without naming a `CavalierContours` type; the owned key is also what a preimage frames, under the folder ruling that a provider ordinal never enters one.
+- Law: the Boolean posture crosses every boundary as `BoolKind`, so the provider ordinal stays a private column on the row and a plane above reaches a set operation without naming a `CavalierContours` type; the owned key is also what a preimage frames, under the folder ruling that a provider ordinal never enters one.
 - Auto: one `Polyline<double>` and one `StaticAABB2DIndex<double>` are built per `Loop` and HELD, so a fold running measure, winding, offset, and Boolean over one loop pays one build rather than one per query; the held view is ignored by equality because it is derived from the admitted members.
 - Law: island-preserving offset rides `Shape<double>.FromPlines(...).ParallelOffset(...)`, which offsets CCW outer and CW hole loops together; a per-loop `PlineOffset.ParallelOffset` over a forest loses the hole nesting and is the deleted form. A single loop with no islands keeps the single-polyline path, where the two agree.
 - Output: `ProfileResult.Loops` carries rebuilt loops re-admitted through `Loop.Admit`, so a provider result that degenerated fails at the boundary rather than downstream.
@@ -94,7 +94,6 @@ public sealed partial class Loop {
         return new LoopView(pline, pline.CreateAabbIndex());
     }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<Point3d> vertices,
@@ -353,7 +352,6 @@ public sealed partial class PartTransform {
 
     public bool Mirrored { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int partId,
@@ -401,7 +399,6 @@ public sealed partial class ProjectionDir {
 
     private const double Orthogonal = 1e-9;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Vector3d forward,
@@ -449,7 +446,7 @@ public sealed partial class ProjectionDir {
 
 - Owner: `Move` owns the admitted endpoint, its intrinsic circular geometry, and the continuous tool frame an oriented cut carries; `MotionDirective` owns executable non-Cartesian semantics; `SpecializedToolpathEnvelope` owns the admitted specialized-row payload; `MotionEvidence` owns one joint row and duration per motion target.
 - Cases: every `Move` case inherits `Target` and `Orientation`, and `Move.Circular` carries feed, centre, sense, and intrinsic signed sweep; `MotionDirective` carries spindle law with its direction and ceiling, a basis-carrying dwell, a synchronized channel pair, an oriented stop with its orient angle, a channel barrier, and an admitted `SpecializedToolpathEnvelope`; `SpecializedToolpathRow` preserves wire, bevel, link, inspection, and turning evidence through one case-owned toolpath-kind column.
-- Entry: `Move.Rapid.Of`, `Move.Linear.Of`, and `Move.Circular.Of` are the ONLY constructions — every case constructor is private, so admission runs BEFORE the value exists and no caller holds an unvalidated move. `Move.Transformed` re-seats an admitted move under a placement without re-admission, because an affine placement preserves every admitted invariant and mirrors the sweep sign with the point map. `Move.Admit` is the ONE re-proof a plane receiving a move across a seam runs — each case re-enters its own factory — so a consumer never spells a per-case admission ladder.
+- Entry: `Move.Rapid.Of`, `Move.Linear.Of`, and `Move.Circular.Of` are the ONLY constructions — every case constructor is private, so admission runs BEFORE the value exists and no caller holds an unvalidated move. `Move.Transformed` re-seats an admitted move under a placement without re-admission, because an affine placement preserves every admitted invariant and mirrors the sweep sign with the point map. `Move.Admit` is the ONE re-proof a plane receiving a move across a boundary runs — each case re-enters its own factory — so a consumer never spells a per-case admission ladder.
 - Law: an admitted `Move` with no `Orientation` is AXIS-FREE, so its planar swept solid is exact; a consumer computing a planar sweep over an oriented move refuses with `FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "swept-solid:oriented-move")` rather than approximating the tilt silently. Indexed three-plus-two work carries no orientation here — its frame belongs to the setup, not the move.
 - Auto: `SpecializedToolpathEnvelope.Admit` folds payload validity ONCE — kind correspondence across every row, non-empty rows, finite non-negative duration — so a consumer holding the admitted payload revalidates nothing.
 - Output: `MotionEvidence.Warnings` carries typed `RunWarning` rows naming the raising plane and its locus, so the `rasm.fabrication.run.warnings` instrument partitions by concern instead of counting opaque text.
@@ -727,7 +724,6 @@ public sealed partial class MotionEvidence {
     public Seq<string> ControllerCode { get; }
     public Seq<RunWarning> Warnings { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<Arr<double>> joints,
@@ -769,7 +765,6 @@ public sealed partial class MotionEvidence {
 // --- [EQUIPMENT]
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct ConsumableKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -919,7 +914,6 @@ public sealed partial class ToolEvidence {
     public Seq<string> InsertIds { get; }
     public Seq<string> InsertGrades { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string toolId,
@@ -1010,7 +1004,6 @@ public sealed partial class CutterForm {
     public Option<double> MajorLengthMm => Metrics.Find(CutterMetric.MajorLength);
     public Option<double> SecondaryAngleDeg => Metrics.Find(CutterMetric.SecondaryAngle);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CutterFamily family,
@@ -1052,7 +1045,7 @@ public sealed partial class CutterForm {
 ## [05]-[PLAN]
 
 - Owner: `AdmittedComponent` owns the geometry-and-property carrier every plane derives from; `PlannedStep` owns one routed operation group with its assigned machine INSTANCE; `CapabilityAttestation` owns the attestation vocabulary and `CapabilityVerdict` the fail-closed capability gate over it.
-- Law: component quantities and properties key on `PropertyName` minted through `PropertyCategory.Fabrication.Row`, the seam's own custody scope — a bare string key at S0 forks the vocabulary the derivation plane already blesses, and a `PropertyName.Create` at a write site is the deleted form.
+- Law: component quantities and properties key on `PropertyName` minted through `PropertyCategory.Fabrication.Row`, the contract's own custody scope — a bare string key at S0 forks the vocabulary the derivation plane already blesses, and a `PropertyName.Create` at a write site is the deleted form.
 - Cases: `PlannedStep.Instance` names the physical machine the schedule reserved, so a lot fold seats work on a specific station rather than on a machine CLASS with unbounded parallelism; a step whose plane owns no instance census carries `None` and the schedule treats the class as uncapped.
 - Auto: every atom here admits through its generated `Validate` and the one `Admitted` bridge, so no site re-spells the refusal lift.
 - Boundary: `CapabilityVerdict` fails closed by ABSENCE — an attestation the study never earned is unheld, so it fails `Pass` on its own evidence rather than masquerading as a zero-Cpk process, and a consumer states the attestations it demands as one `CapabilitySet` value instead of a bool per axis.
@@ -1061,7 +1054,6 @@ public sealed partial class CutterForm {
 // --- [PLAN]
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MachineInstanceKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -1086,7 +1078,6 @@ public sealed partial class AdmittedComponent {
     public Map<PropertyName, double> Quantities { get; }
     public Map<PropertyName, string> Properties { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref UInt128 representationKey,
@@ -1136,7 +1127,6 @@ public sealed partial class ResidualStock {
     public ContentKey Key { get; }
     public Arr<Loop> Uncut { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ContentKey key,
@@ -1155,7 +1145,6 @@ public sealed partial class StockSnapshot {
     public ContentKey Key { get; }
     public Arr<Loop> Machined { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int setup,
@@ -1181,7 +1170,6 @@ public sealed partial class PlannedStep {
     public Arr<int> Operations { get; }
     public Option<ContentKey> Program { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int order,
@@ -1216,7 +1204,6 @@ public sealed partial class CamPassPolicy {
     public double StepOver { get; }
     public int Passes { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double stepOver,
@@ -1259,7 +1246,6 @@ public sealed partial class CapabilityVerdict {
     public CapabilitySet<CapabilityAttestation> Attested { get; }
     public bool Pass => Cpk >= DemandedCpk && Attested.AdmitsAll(CapabilitySet<CapabilityAttestation>.All);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double cpk,
@@ -1296,7 +1282,6 @@ public sealed partial class InspectionFeature {
     public double DeviationMm => Nominal.DistanceTo(Measured);
     public Option<bool> Pass => ToleranceMm.Map(tolerance => DeviationMm + UncertaintyMm <= tolerance);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref PropertyName key,

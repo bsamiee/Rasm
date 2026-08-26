@@ -2,7 +2,7 @@
 
 `Rasm.Interaction` owns the one clipboard, drag, and drop payload algebra. A payload is a closed slot family with total one-shot release, a surface is the leased board or bundle it is written to, and every verb — read, write, probe, clear, drag — is a case of one request union under one entry. Drag is a CASE, never a second entrypoint, because a drag is a write to a bundle the host carries rather than a different concern.
 
-Custody is symmetric across the seam: a slot carrying a stream, an image, or a native resource carries its `Lease<T>` with it, so the write leg disposes what it staged on refusal and the read leg hands the caller a lease it can close. A host event argument never escapes — the drop admits it once, publishes location, permitted effect, and payload as admitted values, and the argument is gone before any consumer sees it.
+Custody is symmetric across the boundary: a slot carrying a stream, an image, or a native resource carries its `Lease<T>` with it, so the write leg disposes what it staged on refusal and the read leg hands the caller a lease it can close. A host event argument never escapes — the drop admits it once, publishes location, permitted effect, and payload as admitted values, and the argument is gone before any consumer sees it.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Custody is symmetric across the seam: a slot carrying a stream, an image, or a n
 ## [02]-[MIME]
 
 - Owner: `Mime` `[ValueObject<string>]` — the format key on every payload slot, every probe, and every inventory row.
-- Entry: the generated `Validate` admission over the `type/subtype` grammar — never `Create`, which throws, nor `TryCreate`, which downgrades the generated error to a bare miss — so a host format string canonicalizes and admits once at the seam and the interior compares admitted values.
+- Entry: the generated `Validate` admission over the `type/subtype` grammar — never `Create`, which throws, nor `TryCreate`, which downgrades the generated error to a bare miss — so a host format string canonicalizes and admits once at the boundary and the interior compares admitted values.
 - Law: the key CANONICALIZES at admission and compares ordinally after. The standard's own rule is that type and subtype are ASCII case-insensitive, so admission lowers by `ref` before storage and one board's `TEXT/PLAIN` and another's `text/plain` land as one key; the comparison then stays ordinal and never culture-folded, because a culture-sensitive fold admits a Turkish-dotless mismatch on `text/plain`. Canonicalizing without the ordinal comparison, or comparing ordinally without canonicalizing, each strands one half of the rule.
 - Growth: a new format is a value, never a row — the vocabulary is the platform's and unbounded, so this owner admits rather than enumerating.
 - Boundary: the host's own format constants (`Eto` clipboard type strings, platform UTIs) enter through admission and never as raw strings past this page.
@@ -54,7 +54,7 @@ public readonly partial struct Mime {
 - Law: `Required` refuses an absent read with `UiFault.AbsentPayload` carrying the wanted `Mime`; `Optional` lands `None`. The two are a ROW carrying its own `Settle`, not a boolean: a mirror bool restating the key leaves every read leg to re-derive the refusal, and the row that carries it makes this law executable rather than prose the fold has to honour.
 - Packages: Eto.Drawing for `Image` (aliased in the prelude); LanguageExt.Core for `Lease`, `Seq`, `Arr`; `Domain/validation` for `ICapability` and `CapabilitySet`.
 - Growth: a new payload kind is one case plus one shape row, breaking every total dispatch loudly; a new platform-named format is one `WellKnownFormat` row keyed on the accessor the host publishes; a new presence posture is one row carrying its own settle.
-- Boundary: a native handle never rides `Bytes` — it rides `Resourced` with its lease, so the seam that acquired it is the seam that closes it.
+- Boundary: a native handle never rides `Bytes` — it rides `Resourced` with its lease, so the owner that acquired it is the owner that closes it.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -150,7 +150,7 @@ public abstract partial record PayloadSlot : IDisposable {
 - Law: a refused write disposes every slot it staged, reverse order, every disposer running even when one throws — the total `Dispose` on the slot family is what makes that fold one expression rather than a per-case ladder.
 - Law: an inventory `Probe` reports the format roster and the well-known set as MEASURED facts off the surface, never as a cached census — a board another process just wrote is stale the instant it is remembered.
 - Output: `TransferOutcome` — `Read(Option<Lease<PayloadSlot>>)`, `Written(Seq<TransferWriteFact>)`, `Cleared`, `Inventory(Seq<Mime>, CapabilitySet<WellKnownFormat>)`, `Dragged(DragEffects)`.
-- Packages: Eto.Forms for `Clipboard`, `DataObject`, `DragEffects` (verified in `libs/dotnet/.api/api-eto-runtime.md` and `api-eto-forms.md`); LanguageExt.Core for the rails.
+- Packages: Eto.Forms for `Clipboard`, `DataObject`, `DragEffects` (verified in `libs/dotnet/.api/api-eto-runtime.md` and `api-eto-forms.md`); LanguageExt.Core for the types.
 - Growth: a new verb is one case, one arm, and one `Key` row the generator already minted; a new outcome shape rides its verb's case.
 - Boundary: NAMED LOSS — both boundaries carried their own `Transfer`, `TransferQuery`, `TransferOp`, `TransferOutcome`, `TransferWriteFact`, `TransferTarget`, `PayloadSlot`, `PayloadPresence`, `DragPlan`, and `Drop`, and every one of them deletes. What is genuinely lost is each side's bespoke naming at its own call sites; what survives is stronger, because the two implementations disagreed on whether a write reported per slot and only one of them did.
 
@@ -169,8 +169,8 @@ public abstract partial record TransferSurface {
     public sealed record Board(Lease<Clipboard> Value) : TransferSurface;
     public sealed record Bundle(Lease<DataObject> Value) : TransferSurface;
 
-    [BoundaryAdapter] public static Fin<TransferSurface> System(Op? key = null);
-    [BoundaryAdapter] public static Fin<TransferSurface> Staged(Op? key = null);
+    public static Fin<TransferSurface> System(Op? key = null);
+    public static Fin<TransferSurface> Staged(Op? key = null);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -218,7 +218,7 @@ public abstract partial record TransferOutcome {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Transfer {
-    [BoundaryAdapter] public static ValueTask<Fin<TransferOutcome>> Apply(TransferOp operation, Op? key = null);
+    public static ValueTask<Fin<TransferOutcome>> Apply(TransferOp operation, Op? key = null);
 }
 ```
 
@@ -245,12 +245,12 @@ namespace Rasm.Interaction;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DragPlan(Seq<PayloadSlot> Slots, DragEffects Permitted, Option<(EtoImage Image, EtoPointF Offset)> Ghost);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DropOutcome(EtoPointF Location, DragEffects Allowed, DragEffects Resolved);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Drop {
-    [BoundaryAdapter] public static Fin<Drop> Of(DragEventArgs provider, Op? key = null);
+    public static Fin<Drop> Of(DragEventArgs provider, Op? key = null);
 
     public EtoPointF Location { get; }
     public DragEffects Allowed { get; }

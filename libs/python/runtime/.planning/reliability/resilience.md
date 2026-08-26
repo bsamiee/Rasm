@@ -14,7 +14,7 @@ One retry-policy table rules the whole branch: `RetryClass` is the single behavi
 
 - Owner: `RetryClass`, `Policy`, `Backoff`, and the hook stack per the fence. `guard`/`guard_sync` memoise through a module-level `@cache` rather than a `cached_property` — an `Enum` member carries no writable `__dict__` — and only the reusable bound caller is safe to cache, the one-shot `retry_context` rebuilding per call.
 - Cases: `Backoff` answers `Recovery` and `Policy.route` answers `Reoffer`, two closed axes over one raise. `Recovery` states WHETHER a refusal may be re-offered — the fault owner's own vocabulary, read here rather than re-minted — and `Reoffer` states HOW: `wait` re-invokes the identical call the schedule already timed, `restart` re-establishes the dependency handle first, and `rescope` names the LEG a caller takes instead. Fusing the two loses the state an operator most needs: a terminal the caller can still satisfy NARROWED.
-- Entry: `guarded`/`guarded_sync` own the whole circuit/rate/retry/span/lift chain for every fetch-shaped leg, so a budget-exhausted transient surfaces as the `boundary` case naming the final cause and a non-transient raise surfaces immediately. Both take TWO coordinates answering different questions: the caller's rostered `at: FaultRow[L]` names WHICH CALL raised, so a fence cannot spell a leg its package never declares and the span, the lift, and a routed refusal all derive from one declaration; `on: Option[str]` names WHICH PEER the call reached, and the two stateful stages key on that alone through `Dependency`. `guard(cls)` is the bare bound caller for the one consumer that already owns its span and fault rail — the `execution/lanes#LANE` `retried` admission row, where a second span and boundary lift doubles the lane's rail; `retrying(cls)` is the inline form for blocks the caller cannot pre-shape as a coroutine; `install(mode)` returns the finalized `get_on_retry_hooks()` tuple as typed registration evidence.
+- Entry: `guarded`/`guarded_sync` own the whole circuit/rate/retry/span/lift chain for every fetch-shaped leg, so a budget-exhausted transient surfaces as the `boundary` case naming the final cause and a non-transient raise surfaces immediately. Both take TWO coordinates answering different questions: the caller's rostered `at: FaultRow[L]` names WHICH CALL raised, so a fence cannot spell a leg its package never declares and the span, the lift, and a routed refusal all derive from one declaration; `on: Option[str]` names WHICH PEER the call reached, and the two stateful stages key on that alone through `Dependency`. `guard(cls)` is the bare bound caller for the one consumer that already owns its span and fault channel — the `execution/lanes#LANE` `retried` admission row, where a second span and boundary lift doubles the lane's result; `retrying(cls)` is the inline form for blocks the caller cannot pre-shape as a coroutine; `install(mode)` returns the finalized `get_on_retry_hooks()` tuple as typed registration evidence.
 - Law: the three-state verdict collapses at ONE edge — `Backoff.__call__`, lowering `Recovery` onto the `bool | float | timedelta` contract `runtime/.api/stamina.md` `[02]` declares for `on=`. Every interior reader takes the VALUE, because a bool read fuses a stated `retry_after=0.0` with a refusal and a stated `5.0` with a bare transient, leaving the breaker unable to separate an immediate re-offer from a terminal or a dependency that is DOWN from one that ANSWERED.
 - Law: a window keys the dependency INSTANCE and never the fence row. A rostered row names the CALL, and one row serves every destination its lane dials, so keying arcs there fuses two peers into one and sheds every healthy caller of the peer that never went down; keying them at the fence ALSO splits one origin's arc across every fence that dials it, so no arc reaches its trip and an open arc stops meaning the dependency is out. `_keyed` is the one gate: a class declaring a `CIRCUIT` or `RATES` row refuses `config` when no peer is stated, a class declaring neither answers `Nothing` and both stages no-op on it, and a peer stated for such a class is KEPT so its first window row lands correctly keyed instead of breaking every call site at once.
 - Law: the lift's `catch` DERIVES from the row's target rather than defaulting at the call site — a row naming only importable classes narrows the fence to exactly those, so an unexpected raise propagates as the defect it is, and a row matching a provider class by dotted spelling or structural probe widens to `Exception` because this BASE tier refuses the import that would name it. The widening is a declared property of the row, and `Exception` is the ceiling the fault owner fixes so a cancellation never converts.
@@ -53,7 +53,7 @@ from rasm.runtime.faults import (
     Leg,
     Recovery,
     RuntimeLeg,
-    RuntimeRail,
+    RuntimeResult,
     Scope,
     async_boundary,
     boundary,
@@ -319,7 +319,7 @@ def _marks[L: Leg](cls: RetryClass, at: FaultRow[L], on: Option[Dependency]) -> 
     return {"rasm.retry_class": cls.value, "rasm.subject": at.subject} | on.map(lambda dep: {"rasm.peer": dep.instance}).default_value({})
 
 
-def _keyed(cls: RetryClass, peer: Option[str]) -> RuntimeRail[Option[Dependency]]:
+def _keyed(cls: RetryClass, peer: Option[str]) -> RuntimeResult[Option[Dependency]]:
     match peer:
         case Option(tag="some", some=named):
             return Ok(Some(Dependency(retry=cls, instance=named)))
@@ -348,7 +348,7 @@ def _settled[L: Leg](at: FaultRow[L], on: Option[Dependency], cls: RetryClass, r
 async def _metered[T, L: Leg](
     at: FaultRow[L], on: Option[Dependency], cls: RetryClass, fn: Callable[..., Awaitable[T]], args: tuple[object, ...],
     kwargs: dict[str, object],
-) -> RuntimeRail[T]:
+) -> RuntimeResult[T]:
     await anyio.sleep(RateGate.delay(on))
     try:
         held = await fn(*args, **kwargs)
@@ -365,7 +365,7 @@ async def _metered[T, L: Leg](
 def _metered_sync[T, L: Leg](
     at: FaultRow[L], on: Option[Dependency], cls: RetryClass, fn: Callable[..., T], args: tuple[object, ...],
     kwargs: dict[str, object],
-) -> RuntimeRail[T]:
+) -> RuntimeResult[T]:
     time.sleep(RateGate.delay(on))
     try:
         held = fn(*args, **kwargs)
@@ -381,7 +381,7 @@ def _metered_sync[T, L: Leg](
 
 async def guarded[T, L: Leg](
     cls: RetryClass, fn: Callable[..., Awaitable[T]], *args: object, at: FaultRow[L], on: Option[str] = Nothing, **kwargs: object
-) -> RuntimeRail[T]:
+) -> RuntimeResult[T]:
     match _keyed(cls, on):
         case Result(tag="error") as unkeyed:
             return unkeyed
@@ -394,12 +394,12 @@ async def guarded[T, L: Leg](
                         lifted = await async_boundary(
                             at, lambda: guard(cls)(_metered, at, keyed, cls, fn, args, kwargs), catch=cls.policy.target.catch
                         )
-                        return lifted.bind(lambda rail: rail)
+                        return lifted.bind(lambda held: held)
 
 
 def guarded_sync[T, L: Leg](
     cls: RetryClass, fn: Callable[..., T], *args: object, at: FaultRow[L], on: Option[str] = Nothing, **kwargs: object
-) -> RuntimeRail[T]:
+) -> RuntimeResult[T]:
     match _keyed(cls, on):
         case Result(tag="error") as unkeyed:
             return unkeyed
@@ -412,7 +412,7 @@ def guarded_sync[T, L: Leg](
                         lifted = boundary(
                             at, lambda: guard_sync(cls)(_metered_sync, at, keyed, cls, fn, args, kwargs), catch=cls.policy.target.catch
                         )
-                        return lifted.bind(lambda rail: rail)
+                        return lifted.bind(lambda held: held)
 
 
 def install(mode: RetryMode = RetryMode.EMIT) -> tuple[RetryHook, ...]:
@@ -643,7 +643,7 @@ RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (RetrySpanHook, M
 - Cases: `BreakerState` is `CLOSED | OPEN | HALF_OPEN` and the three arms are total. `CLOSED` counts consecutive terminals and resets on any success, so an intermittent peer never accumulates its way open. `OPEN` refuses without dialing until the cooldown elapses, then leases exactly `probes` crossings. `HALF_OPEN` admits its leased probes and closes on the first success or re-opens on the first terminal, so the recovering peer meets one caller rather than the concurrency that felled it.
 - Law: the arc trips on TRANSIENCE alone, read off the `Recovery` the class's own row already answered and never a second predicate — a malformed payload, a refused classification, and an unroutable key are terminal at the first attempt and prove nothing about the dependency, so counting them opens a circuit on a peer that never went down and sheds every healthy caller of it. `guard` already burned its attempts against exactly this verdict, which is what makes one open arc mean the dependency is out rather than that one caller sent something wrong.
 - Law: a THROTTLED verdict counts nothing. A peer that stated a window ANSWERED — it is up and pacing its callers — so counting its directive toward the trip opens a circuit on a healthy dependency and sheds the very callers it just admitted; the window re-seats that destination's rate at the metered arm instead, which is the whole difference between a dependency that is DOWN and one that is BUSY.
-- Law: state settles from inside the retried unit where the RAISE is live. Lifting to `BoundaryFault` surrenders the exception the target classifies, so a breaker reading the rail instead of the raise cannot tell a transient exhaustion from a first-attempt refusal and counts every terminal fault toward the trip.
+- Law: state settles from inside the retried unit where the RAISE is live. Lifting to `BoundaryFault` surrenders the exception the target classifies, so a breaker reading the result instead of the raise cannot tell a transient exhaustion from a first-attempt refusal and counts every terminal fault toward the trip.
 - Law: no timer, no background sweep, and no expiry task — the arc re-reads `time.monotonic()` on each read, so an arc nobody consults costs nothing and a process that stops calling a dependency leaves no work behind. Cooldown is a monotonic span rather than a wall instant, so a host clock step never re-opens or prematurely closes a live arc.
 - Entry: `refused(on)` is the pre-flight read every `guarded`/`guarded_sync` call folds ahead of its dial, answering `Some(fault)` off the `CIRCUIT_OPEN` row where the circuit refuses and `Nothing` where the attempt may cross; `passed` and `failed` are the settle pair `_settled` drives, `failed` taking the `Recovery` already read rather than re-deriving one from the raise. `state(on)` is the operator read the bundle capsule projects, and `retired(on)` drops one arc where a composition releases the peer it named.
 - Auto: every transition writes its own `circuit` line beside one `rasm.circuit.transitions` count keyed on the subject and the state reached, so an open circuit is evidence a board reads rather than a silent shed a caller infers from latency. Refusals carry the subject and the remaining cooldown on the fault, so an operator reads WHICH dependency is out and for how long.
@@ -749,7 +749,7 @@ class Breaker:
 
 - Owner: `RateGate` holds one token bucket per `Dependency` beside `RATES`, the per-class default rate — the SAME key the breaker holds, so one destination's pacing and one destination's failure window can never name two different peers. A peer that states its own wait re-seats that bucket through `directed`, so the negotiated rate is the operating one and the row is the floor a destination negotiating nothing keeps.
 - Cases: two peer directives state a wait this branch must honor — a broker throttle event carrying its window and an origin answering `Retry-After`. Both reach `directed` through ONE producer: the `throttled` verdict a class's own target answers, read once at the metered settle, so a stated window becomes pacing rather than per-protocol sleeps at call sites.
-- Law: the directive arrives as the WINDOW the peer stated, and the steady rate it seats is that window's reciprocal — one dial per window — because a wait is what every one of the three producers actually publishes and a rate answer converts to it at the seam that decoded it. A peer stating NO wait re-seats the row's own floor, never an unbounded rate no ceiling then holds.
+- Law: the directive arrives as the WINDOW the peer stated, and the steady rate it seats is that window's reciprocal — one dial per window — because a wait is what every one of the three producers actually publishes and a rate answer converts to it at the boundary that decoded it. A peer stating NO wait re-seats the row's own floor, never an unbounded rate no ceiling then holds.
 - Law: `delay` is a PURE debit answering seconds, and the caller performs its own wait — the async envelope through `anyio.sleep` and the sync mirror through `time.sleep`. One bucket therefore serves both arms with one law, and the wait is a cancellation checkpoint the caller's scope reaches rather than a block inside a provider call it cannot interrupt.
 - Law: the gate WAITS and never refuses. Any ceiling here is a second refusal beside the deadline `execution/admission#CONTEXT` already carries, and two refusals over one queue disagree the moment either moves; the caller's own budget bounds the wait, and the waited seconds publish as evidence so a saturated bucket reads as a measured queue rather than a silent stall.
 - Law: the bucket refills by ELAPSED monotonic time on read rather than by a ticking task, so an idle destination costs nothing, a burst banks exactly `burst` permits, and a host clock step never mints or destroys permits.

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_MSOFFCRYPTO_TOOL]
 
-`msoffcrypto-tool` owns encrypted-Office confidentiality for the artifacts document and exchange rail: `OfficeFile(file)` sniffs a container to its format object, `load_key` derives the secret key from a password, private key, or secret key, and `decrypt` streams plaintext to a caller handle; `OOXMLFile.encrypt` reseals a plaintext OOXML payload under a fresh agile container. It composes the in-package ECMA-376 and RC4/XOR key schedules over `cryptography` and `olefile`, never re-deriving the crypto and never re-parsing the OOXML/OLE document tree the readers and persistence owners model.
+`msoffcrypto-tool` owns encrypted-Office confidentiality for the artifacts document and exchange domain: `OfficeFile(file)` sniffs a container to its format object, `load_key` derives the secret key from a password, private key, or secret key, and `decrypt` streams plaintext to a caller handle; `OOXMLFile.encrypt` reseals a plaintext OOXML payload under a fresh agile container. It composes the in-package ECMA-376 and RC4/XOR key schedules over `cryptography` and `olefile`, never re-deriving the crypto and never re-parsing the OOXML/OLE document tree the readers and persistence owners model.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -75,14 +75,14 @@
 - `OfficeFile(file)` is the single entry; container kind is a stream-layout discriminant resolved by the factory, never a caller-selected format flag or a per-extension reader.
 - `load_key` owns key derivation; `password`/`private_key`/`secret_key` are call rows, never a per-credential method family, and `keyTypes` advertises which rows the container `type` admits.
 - OOXML folds verification into the call opt-in (`verify_password` on `load_key`, `verify_integrity` on `decrypt`) while the 97 path always verifies inside `load_key`; `decrypt` writes to the caller's handle under an always-on post-decrypt zip-validity gate, never an in-package buffer.
-- `OOXMLFile.encrypt` is the inverse rail (fresh agile container only), so an encrypt on a legacy object is an `AttributeError` at the type edge. Both directions are idempotent at the `is_encrypted()` gate: `encrypt` on a sealed file raises `EncryptionError`, so the consumer short-circuits an already-sealed reseal and an already-plaintext unlock.
+- `OOXMLFile.encrypt` is the inverse domain (fresh agile container only), so an encrypt on a legacy object is an `AttributeError` at the type edge. Both directions are idempotent at the `is_encrypted()` gate: `encrypt` on a sealed file raises `EncryptionError`, so the consumer short-circuits an already-sealed reseal and an already-plaintext unlock.
 - Each unlock/reseal captures container `format`/`type`, advertised `keyTypes`, key-input kind, verification outcome, and byte length as confidentiality evidence; `InvalidKeyError` is the wrong-key fault, `FileFormatError` the unrecognized-container fault, `EncryptionError` the reseal fault.
 
 [STACKING]:
 - `openpyxl`(`.api/openpyxl.md`)/`python-docx`(`.api/python-docx.md`)/`python-pptx`(`.api/python-pptx.md`): the decrypted plaintext stream is their document-open input; this owner unlocks and never re-parses the OOXML/OLE tree they model.
 - `py7zr`(`.api/py7zr.md`)/`stream-zip`(`.api/stream-zip.md`): the plaintext or resealed bytes flow to the persistence archive owners.
 - within-lib detect: `exchange/detect#DETECT` routes the `MediaClass.ENCRYPTED`/`OFFICE_LEGACY` verdict here, so this owner reads one routing member and never re-sniffs the bytes.
-- within-lib egress: `document/egress#FINISH` folds the format-discriminated unlock/reseal into its `PROTECT` `EgressStep`; an `expression` Result carries `RuntimeRail[ContentKey]`, the `async_boundary` capsule maps a `DecryptionError`/`FileFormatError` to a `BoundaryFault`, and the `anyio` `lane.offload` seam runs the GIL-releasing decrypt off the event loop.
+- within-lib egress: `document/egress#FINISH` folds the format-discriminated unlock/reseal into its `PROTECT` `EgressStep`; an `expression` Result carries `RuntimeResult[ContentKey]`, the `async_boundary` capsule maps a `DecryptionError`/`FileFormatError` to a `BoundaryFault`, and the `anyio` `lane.offload` boundary runs the GIL-releasing decrypt off the event loop.
 - within-lib capsule: `xxhash`-backed `ContentIdentity.of` mints the content key over the decrypted/resealed bytes, `beartype` validates the boundary over a per-finish `BytesIO(egress.source)` handle, and `structlog` excludes key material from every event.
 
 [LOCAL_ADMISSION]:

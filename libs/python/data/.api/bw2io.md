@@ -120,4 +120,4 @@
 - within-lib: `apply_strategies` folds an ordered `bw2io.strategies` list, a custom `list[dict] -> list[dict]` strategy composing into the same fold; wrap the one-shot imports in a `stamina` retry and `apply_strategies` in a `structlog`/`opentelemetry` span keyed by `db_name`, and key the imported database and `.bw2package` export by the runtime `ContentIdentity` for reuse dedup.
 
 [LOCAL_ADMISSION]:
-- `bw2io` is the sole ingestion path onto the EPD/LCA rail: a new source format is an `LCIImporter`/`LCIAImporter` subclass or a custom strategy, never a hand-rolled parser, and the written `bw2data.Database` is the only hand-off to `bw2calc`.
+- `bw2io` is the sole ingestion path onto the EPD/LCA domain: a new source format is an `LCIImporter`/`LCIAImporter` subclass or a custom strategy, never a hand-rolled parser, and the written `bw2data.Database` is the only hand-off to `bw2calc`.

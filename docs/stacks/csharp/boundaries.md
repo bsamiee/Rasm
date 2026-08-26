@@ -1,12 +1,12 @@
 # [BOUNDARIES]
 
-Foreign material crosses once: a boundary owner projects handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, results, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the seam names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners, and every native crossing mints a closed fault family so the cause stays structurally addressable.
+Foreign material crosses once: a boundary owner projects handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed results, so everything the interior receives — values, results, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the boundary names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners, and every native crossing mints a closed fault family so the cause stays structurally addressable.
 
-## [01]-[SEAM_CHOOSER]
+## [01]-[BOUNDARY_CHOOSER]
 
 This table selects the owner for a foreign signal; when a signal matches several rows, the most specific wins, and lifetime rows are read before transport rows.
 
-| [INDEX] | [FOREIGN_SIGNAL]     | [SEAM_OWNER]        | [INTERIOR_FORM]                   | [REJECT]                   |
+| [INDEX] | [FOREIGN_SIGNAL]     | [BOUNDARY_OWNER]    | [INTERIOR_FORM]                   | [REJECT]                   |
 | :-----: | :------------------- | :------------------ | :-------------------------------- | :------------------------- |
 |  [01]   | native resource      | capsule owner       | `Fin<T>` value projection         | raw handle field           |
 |  [02]   | borrowed live memory | scoped view         | detached value copy               | escaping span              |
@@ -22,17 +22,17 @@ This table selects the owner for a foreign signal; when a signal matches several
 [SENTINEL_PROJECTION]:
 - Use: any foreign null, invalid handle, detached row, missing key, default struct, or not-found code.
 - Law: project at the single read site that first sees the foreign value into `Option<T>`, `Fin<T>`, or a closed `[Union]` state family — that line is the last one in the program naming the sentinel, the projector owns the absence vocabulary, and no sentinel survives into an interior or persisted shape.
-- Law: a sentinel that re-appears after the seam — a transform that can itself return null, a nested field erasing late, a provider default surfacing on a second call — is a second admission site, not a leaked first one, so it projects where it appears; the present branch never manufactures `Some(null!)`, because a carrier wrapping a foreign sentinel re-leaks it one hop later and breaks the interior totality the first admission promised.
+- Law: a sentinel that re-appears after the boundary — a transform that can itself return null, a nested field erasing late, a provider default surfacing on a second call — is a second admission site, not a leaked first one, so it projects where it appears; the present branch never manufactures `Some(null!)`, because a carrier wrapping a foreign sentinel re-leaks it one hop later and breaks the interior totality the first admission promised.
 - Law: a host member returning `void` with `out` slots publishes NO verdict, so its single read site funnels every slot into ONE `Fin` — a tuple of per-slot presences or the admitted owner whose gate refuses — where PRESENCE is the evidence: an absent array reads as the empty run it is and an absent reference as `Option.None`; a `??` coalesce there fabricates an answer the host never gave, and a discarded `bool` beside the slots hides the refusal.
-- Reject: a sentinel admitted once then trusted forever where a later transform re-mints it; sentinel checks in interior flow; nullable payloads riding past the seam; `Option<T>.Case` read without an `IsSome` proof.
+- Reject: a sentinel admitted once then trusted forever where a later transform re-mints it; sentinel checks in interior flow; nullable payloads riding past the boundary; `Option<T>.Case` read without an `IsSome` proof.
 
 [ABSENCE_TAXONOMY]:
 - Law: cause-bearing foreign state — unavailable, degraded, pending, faulted — is a closed `[Union]` family, never `None`; `Option<T>` is correct only when absence has no action-changing cause.
-- Law: provision and state are different axes: a required capability is always present as a port whose value carries its own unavailable state, and the environment read is the one authorized sentinel-projection seam, fusing read, projection, and rail lift into one bound step.
+- Law: provision and state are different axes: a required capability is always present as a port whose value carries its own unavailable state, and the environment read is the one authorized sentinel-projection site, fusing read, projection, and carrier lift into one bound step.
 - Reject: flattening nested absence before the layer carrying cause or evidence is consumed; conditional capability constraints, null ports, or service lookup standing in for runtime absence.
 
 [PROBE_SWEEP_POLICY]:
-- Law: a probe sweep fixes its algebra once at the seam, and the carrier's `Apply` owns accumulate-versus-abort — selecting the carrier selects whether the boundary reports one absence or all of them.
+- Law: a probe sweep fixes its algebra once at the boundary, and the carrier's `Apply` owns accumulate-versus-abort — selecting the carrier selects whether the boundary reports one absence or all of them.
 - Law: traversal never guarantees the element function runs; a per-probe boundary obligation attaches at the probe itself, never inside the traverse.
 - Accept: survivor/casualty partition when callers need both usable values and rejected facts.
 - Reject: a later list walk that reinterprets why each probe disappeared.
@@ -62,9 +62,9 @@ public static class ForeignAdmission {
 - Law: a native borrow spans the full operation that observes the handle — `DangerousAddRef`/`DangerousRelease` bracket the projection, and liveness is never tested apart from the consumption it guards.
 - Law: the native crossing splits into the closed `Fault` cases the projector already owns — the syscall `Host`, the marshalling `Marshal`, the refused mutation `Refused` — so the cause stays addressable, never a bare `Error.New(ex)` flattening a multi-cause domain to one token; the same borrow window the lifetime owns is where the discrimination rides, so no provider exception escapes unconverted.
 - Law: the measured window is the disposition's structural property, not a runtime flag — `Revise` threads one owned span through the edit `Seq` as an in-place kernel and refuses the read-only cases with the `Refused` fault; the per-edit rebind that recopies the whole buffer is the rejected quadratic form the platform makes prohibitive.
-- Law: callers receive values or rails, never live handles; the capsule guarantees deterministic close, and a handle left for finalization where close must precede the backing free is rejected.
+- Law: callers receive values or results, never live handles; the capsule guarantees deterministic close, and a handle left for finalization where close must precede the backing free is rejected.
 - Law: a host base constructor that invokes virtuals before the subclass's fields exist takes a TYPED construction fence — one mount-phase vocabulary (`Raw` until the subclass constructor completes, `Mounted` after) every shell over that base composes; a bare `bool ready`/`mounted` field names neither the phase nor why the guard exists, and two shells minting sibling bools for one hazard is the fork the shared vocabulary deletes.
-- Exemption: the `SetHandle` populate, the add-ref/release window, and the in-place slice write inside the capsule kernel are the named platform-forced statement seam.
+- Exemption: the `SetHandle` populate, the add-ref/release window, and the in-place slice write inside the capsule kernel are the named platform-forced statement body.
 - Reject: scattered `using`, public handle fields, parallel borrowed/owned/measured wrapper types, a second disposer registry, a bare `Error.New(ex)` where the closed family states the cause, or a per-edit buffer rebind where the measured window is revised in place.
 
 ```csharp
@@ -111,7 +111,7 @@ public abstract partial record Lease {
     static unsafe Fin<int> Patch(nint address, int extent, Seq<(int Offset, ReadOnlyMemory<byte> Patch)> edits) {
         Span<byte> window = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<byte>((void*)address), extent);
         int written = 0;
-        foreach ((int offset, ReadOnlyMemory<byte> patch) in edits) {                          // Exemption: the borrow kernel mutates one owned window in place; per-edit rebind is the rejected O(n·size) recopy
+        foreach ((int offset, ReadOnlyMemory<byte> patch) in edits) {
             patch.Span.CopyTo(window[offset..]);
             written += patch.Length;
         }
@@ -177,12 +177,12 @@ public static class ViewBoundary {
 - Law: the borrow taken before wiring rides every exit — a throwing attach releases the ref it took before re-raising, because the detacher that releases it never reaches the caller, so the success path alone defers release to detach.
 - Law: the subscription set is the scope — reactivation constructs a fresh set, never appends to a retained one, and the set dies with the live state that owns it.
 - Law: a shared generic projection over a base-bounded args family parameterizes a per-subtype evidence extractor — a projection reading only base members erases the identity and decision evidence richer subtypes carry, a payload gap roster completeness never surfaces because every phase stays present.
-- Exemption: the add-ref open, the throwing-attach release, the attach/detach `+=`/`-=` wiring, and the posted-callback body are the named platform-forced statement seam.
+- Exemption: the add-ref open, the throwing-attach release, the attach/detach `+=`/`-=` wiring, and the posted-callback body are the named platform-forced statement body.
 - Reject: inline lambdas that cannot detach, finalizer-owned unsubscribe, split attach/detach owners, or host-bus deregistration assumed rather than probed.
 
 [HOST_MARSHAL]:
-- Law: thread-affine work crosses through an explicit effect carrying a `SynchronizationContext` or scheduler captured once at the composition root — host post primitives swallow exceptions and a null context silently degrades posting to inline execution, so the seam verifies the capture and routes failure through the effect.
-- Law: the crossing's outcome is a closed crossing-fault `[Union]` the seam mints — the dead-context post, the refused capture handshake, the converted worker raise are distinct cases, never one stringified provider message — so a recovery predicate sends the dead-context and handshake arms to rebuild a fresh capture (a closed context never re-posts, so reusing it re-faults) while the converted worker raise returns railed to the transient weave; cancellation never enters this family.
+- Law: thread-affine work crosses through an explicit effect carrying a `SynchronizationContext` or scheduler captured once at the composition root — host post primitives swallow exceptions and a null context silently degrades posting to inline execution, so the boundary verifies the capture and routes failure through the effect.
+- Law: the crossing's outcome is a closed crossing-fault `[Union]` the boundary mints — the dead-context post, the refused capture handshake, the converted worker raise are distinct cases, never one stringified provider message — so a recovery predicate sends the dead-context and handshake arms to rebuild a fresh capture (a closed context never re-posts, so reusing it re-faults) while the converted worker raise returns carried to the transient weave; cancellation never enters this family.
 - Law: cancellation normalizes once into that vocabulary — caller shutdown, local deadline, and external timeout carry distinct evidence when behavior differs — and cancellation is never transient: it is the first arm every retry predicate refuses, re-raised on its own carrier rather than collapsed into a crossing case.
 - Law: `ExecutionContext` flow and `SynchronizationContext` affinity are separate decisions; a context-free callback takes the unsafe registration form only when it reads no ambient state, and an interior transform never reads ambient thread state to recover evidence the crossing already carried as an admitted value.
 - Reject: `Thread.CurrentThread` tests, ambient context reads inside reusable transforms, fire-and-forget posts, a stringified provider message standing in for the closed crossing fault.
@@ -190,7 +190,7 @@ public static class ViewBoundary {
 [HANDOFF_DRAIN]:
 - Law: a high-frequency callback submits intent and returns — a committed cell is the latest-value register for a per-tick consumer, a `Channel<T>` is the log for a consumer that must see every intermediate; the consumer's need selects the carrier, and producer back-pressure is independent of consumer pacing.
 - Law: promises completed from a foreign thread queue continuations — `TaskCompletionSource<T>` constructed with `TaskCreationOptions.RunContinuationsAsynchronously` — and a cell-change handler that blocks or re-enters routes through a channel.
-- Accept: a bounded channel's full-behavior — drop or wait — is the seam's declared policy, stated where the writer is discarded; under a drop mode `TryWrite` reports admission, never delivery, so loss evidence rides the `Channel.CreateBounded` dropped-item callback into the seam's fault record, never an inferred write result.
+- Accept: a bounded channel's full-behavior — drop or wait — is the boundary's declared policy, stated where the writer is discarded; under a drop mode `TryWrite` reports admission, never delivery, so loss evidence rides the `Channel.CreateBounded` dropped-item callback into the boundary's fault record, never an inferred write result.
 - Reject: blocking the foreign callback, mutating interior state from it, or a foreign thread running arbitrary downstream logic.
 
 ```csharp
@@ -317,14 +317,14 @@ public static class DrainBoundary {
 - Law: generation mode fixes codec coverage, not tuning — `Default` covers read and write, `Metadata` emits shapes with no fast path, `Serialization` emits write-only with no `Populate` — and `JsonTypeInfo<T>` coordinates carry name, requiredness, converter, order, and discriminant as breaking-change axes of equal gravity; resolver, converter, and options instances are stable codec identities, so policy variance travels through values the converter reads, never fresh option graphs that cold-miss the per-type metadata cache.
 - Law: `SerializeHandler != null` swept across every message-envelope type at startup is the compile-adjacent proof the write path stays generated and allocation-free — a null handler inside a source-generated context is the silent reflection fallback the declared surface claims it deleted.
 - Law: a `TypeInfoResolver = Context.Default` options set resolves only `[JsonSerializable]`-registered roots, so every wire binding consumer-typed payloads — generic `Deserialize<T>`, POCO property reify — mounts an open-resolver options twin carrying the same converter rows; pointing a consumer wire at the closed context is a silent `GetTypeInfo` refusal, and runtime converters never substitute for root metadata.
-- Law: modifier fusion is ordered policy — rename before redaction produces a different surface than redaction before rename — and a captured resolution fault replays on every request: sticky, non-transient, classified expected-non-retriable at the seam.
+- Law: modifier fusion is ordered policy — rename before redaction produces a different surface than redaction before rename — and a captured resolution fault replays on every request: sticky, non-transient, classified expected-non-retriable at the boundary.
 - Reject: reflection fallback where the declaration claims generated coverage; per-call resolver construction, reordered converter lists, or post-seal mutation; a fresh closured resolver per options forcing a cold metadata cache.
 
 [CONVERTER_OWNER]:
 - Law: one `JsonConverter<T>` owns a closed wire family — read resolves the discriminant once and write emits it with the selected case — and the converter consumes exactly the value it owns, throwing `JsonException` for wire-shape rejection so token displacement, depth balance, and path evidence stay boundary facts.
 - Law: the converter owns only the irreducible work — discriminant resolution and a value transform no mapper can express — and delegates the name-only owner↔DTO correspondence to the generated `[Mapper]` it calls, so the read arm wraps the deserialized wire DTO through the generated inverse and the write arm projects the case through the generated forward, and no field assignment is hand-written on either leg.
 - Law: a compile-total `[Union]` crossing dispatches through its generated `Switch` composing the per-case generated mappers — `[MapDerivedType]` trades that exhaustiveness for a runtime type switch and serves only open class hierarchies sharing a base type, so a closed union rewritten onto it is the deleted form.
-- Exemption: the converter's reader statements and `JsonException` throw channel are the named platform-forced seam.
+- Exemption: the converter's reader statements and `JsonException` throw channel are the named platform-forced body.
 - Reject: converter-per-case sprawl, case converters bypassing the family owner, sentinels returned from converters, unanchored interior exceptions, or a hand-written field-by-field projection where `[Mapper]` generates the rename.
 
 ```csharp
@@ -377,7 +377,7 @@ public sealed class FrameConverter : JsonConverter<Frame> {
 - Law: a 128-bit identity enters a hash frame as both canonical little-endian halves; converting it to an `Int64` seed truncates identity and manufactures deterministic collisions.
 - Law: a digest is a terminal projection, never an incremental state — deriving a full-state key from a prior key and a delta requires a composable accumulator owned by the content-addressing design, and a digest-only shortcut cannot reconstruct the order-independent full-state address.
 - Law: a parent-ancestry key folds as an ordered incremental hash over the sorted parent keys — an XOR or addition fold self-cancels duplicate identical-content parents and erases multiplicity, so two nodes with different dependency multisets key identically.
-- Exemption: the parse-probe `using` inside the admission kernel is the named platform-forced statement seam.
+- Exemption: the parse-probe `using` inside the admission kernel is the named platform-forced statement body.
 - Boundary: the admitted value carries coordinates and hashes, never payload bytes.
 - Reject: parse-and-reserialize between verification, signing, or forwarding.
 

@@ -125,7 +125,7 @@
 | :-----: | :------------------------------------------------------------------ | :------- | :----------------------------------------------------- |
 |  [01]   | `Get -> Func<object, object?>?` / `Set -> Action<object, object?>?` | property | member access delegates                                |
 |  [02]   | `ShouldSerialize -> Func<object, object?, bool>?`                   | property | per-member write predicate                             |
-|  [03]   | `AttributeProvider -> ICustomAttributeProvider?`                    | property | metadata seam a modifier writes and export folds       |
+|  [03]   | `AttributeProvider -> ICustomAttributeProvider?`                    | property | metadata hook a modifier writes and export folds       |
 |  [04]   | `CustomConverter -> JsonConverter?`                                 | property | member-scoped converter override                       |
 |  [05]   | `IsRequired` / `Order` / `IsExtensionData`                          | property | member admission and layout                            |
 |  [06]   | `IsGetNullable` / `IsSetNullable`                                   | property | per-direction nullability the annotation posture reads |
@@ -304,7 +304,7 @@
 | :-----: | :--------------------------------------------------------- | :------- | :------------------------------------------ |
 |  [01]   | `Default -> JsonSchemaExporterOptions`                     | property | zero-knob instance                          |
 |  [02]   | `TreatNullObliviousAsNonNullable -> bool`                  | property | null-oblivious reference reads non-nullable |
-|  [03]   | `TransformSchemaNode -> Func<Context, JsonNode, JsonNode>` | property | per-node post-transform seam                |
+|  [03]   | `TransformSchemaNode -> Func<Context, JsonNode, JsonNode>` | property | per-node post-transform hook                |
 |  [04]   | `Context.Path -> ReadOnlySpan<string>`                     | property | node location as pointer segments           |
 |  [05]   | `Context.TypeInfo -> JsonTypeInfo`                         | property | contract of the node's declared type        |
 |  [06]   | `Context.PropertyInfo -> JsonPropertyInfo`                 | property | owning property, `null` off a member        |
@@ -329,7 +329,7 @@
 [STACKING]:
 - `Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`): `ThinktectureJsonConverterFactory` on `JsonSerializerOptions.Converters` projects every `[SmartEnum]`/`[ValueObject]` key onto the wire before the freeze, and the generated converter describes no schema, so its owner exports as `true` until a `TransformSchemaNode` arm keyed on `JsonSchemaExporterContext.TypeInfo` writes the key or string form.
 - `NodaTime.Serialization.SystemTextJson`(`.api/api-nodatime-stj.md`): `ConfigureForNodaTime` registers the pattern converters onto the same options instance the freeze seals and export reads, so `Instant` takes one transform arm rather than a second date policy.
-- `Microsoft.AspNetCore.JsonPatch.SystemTextJson`(`.api/api-jsonpatch.md`): one frozen options instance drives both seams — export describes the record and RFC 6902 application mutates its live `JsonObject` — splitting contract projection from structured edit without forking configuration.
+- `Microsoft.AspNetCore.JsonPatch.SystemTextJson`(`.api/api-jsonpatch.md`): one frozen options instance drives both paths — export describes the record and RFC 6902 application mutates its live `JsonObject` — splitting contract projection from structured edit without forking configuration.
 - `Microsoft.Extensions.AI`(`.api/api-extensions-ai.md`): `AIJsonUtilities.CreateJsonSchema` and `CreateFunctionJsonSchema` project one `JsonSerializerOptions` contract into the `JsonElement` that `ChatResponseFormat.ForJsonSchema` and `AIFunctionDeclaration.JsonSchema` both bind, so wire, tool manifest, and structured-output schema cannot drift.
 - `System.IO.Hashing`(`.api/api-hashing.md`): `JsonSerializer.SerializeToUtf8Bytes(value, typeInfo)` hands the canonical UTF-8 payload straight to `ContentHash.Of`, minting the one content key a schema identity and its bytes share.
 - `Google.Protobuf`(`.api/api-protobuf.md`): the binary contract and the suite JSON contract are disjoint codecs over one shape, so a wire surface declares exactly one and a second observed codec is a typed composition conflict, never a re-encode fallback.

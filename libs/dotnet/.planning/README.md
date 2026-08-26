@@ -1,6 +1,6 @@
 # [DOTNET_BRANCH]
 
-`libs/dotnet` is an independently adoptable Rhino 9/GH2-aware AEC estate spanning the geometry kernel, the element seam and its AEC peers, the app platform, and the host boundaries. C# applications originate and operate these capabilities from the branch package graph alone; polyglot applications exchange contract-conforming artifacts at app roots, aligned by wire bytes and the frozen corpus, never by import.
+`libs/dotnet` is an independently adoptable Rhino 9/GH2-aware AEC solution spanning the geometry kernel, the element contract and its AEC peers, the app platform, and the host boundaries. C# applications originate and operate these capabilities from the branch package graph alone; polyglot applications exchange contract-conforming artifacts at app roots, aligned by wire bytes and the frozen corpus, never by import.
 
 This branch registry admits a package only where two or more folders share it; a folder README owns its own additions, `libs/dotnet/.api/` holds the shared API catalogues, and the one C# manifest pins versions.
 
@@ -9,7 +9,7 @@ This branch registry admits a package only where two or more folders share it; a
 Package roots in strata order; each root README routes its own design pages, and the host-boundary shells reference only `Rasm`.
 
 - [01]-[KERNEL]: [Rasm](../Rasm/README.md) — RhinoCommon-aware geometry/numeric kernel.
-- [02]-[AEC_DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — canonical property-graph element model; the lowest AEC seam.
+- [02]-[AEC_DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — canonical property-graph element model; the lowest AEC contract.
 - [03]-[AEC_DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — architectural substance, appearance, and buildable component type.
 - [04]-[AEC_DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — openBIM object model and IFC/glTF/STEP exchange.
 - [05]-[AEC_DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — host-neutral design-to-fabrication making-domain owner.
@@ -31,7 +31,6 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 [CORE_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance` — 2D span grids and high-performance buffers.
 - `Generator.Equals` — Source-generated structural equality and member-level diff; runtime `Generator.Equals.Runtime`.
-- `JetBrains.Annotations`
 - `LanguageExt.Core`
 - `NodaTime`
 - `NodaTime.Serialization.SystemTextJson`
@@ -63,7 +62,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `SharpGLTF.Ext.3DTiles` — `EXT_structural_metadata` and `EXT_mesh_features` overlay on the shared glTF graph.
 - `Speckle.Sdk` — `Base` object-graph, detach/chunk serialisation, and DI-resolved send/receive transport surface.
 - `Speckle.Objects` — Geometry roster and `DataObject` host-object family over `Base`.
-- `Unofficial.laszip.netstandard` — One managed LAS/LAZ codec behind scan-to-BIM decode, chunked residence, and `.lax` windowed reads.
+- `Unofficial.laszip.netstandard` — One managed LAS/LAZ codec behind scan-to-BIM decode, chunked storage, and `.lax` windowed reads.
 
 [MESH_PROCESSING]:
 - `Alimer.Bindings.MeshOptimizer` — GPU-ready mesh optimization, meshlet, LOD, and `EXT_meshopt_compression` codec substrate.
@@ -82,7 +81,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 
 [DATA_SUBSTRATE]:
 - `Apache.Arrow` — Columnar `RecordBatch` format and Arrow IPC wire; Compute constructs, Persistence serialises and egresses.
-- `Microsoft.Data.Sqlite` — Embedded SQLite ADO.NET transport; the Persistence store rail and the Compute results reader.
+- `Microsoft.Data.Sqlite` — Embedded SQLite ADO.NET transport; the Persistence store driver and the Compute results reader.
 
 [SERVICE_CONTRACTS]:
 - `Microsoft.Extensions.AI` — Provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
@@ -108,7 +107,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — CloudEvents 1.0 message envelope and typed attribute algebra.
 - `CloudNative.CloudEvents.SystemTextJson` — Structured/binary/batch JSON event formatter over STJ.
-- `NATS.Net` — NATS protocol: Core pub/sub, JetStream durable streams, KV, Object Store, and the capture-ingest seam.
+- `NATS.Net` — NATS protocol: Core pub/sub, JetStream durable streams, KV, Object Store, and the capture-ingest boundary.
 
 [MACHINE_CONNECTIVITY]:
 - `MTConnect.NET-Common` — MTConnect observation/streams/agent model and the ISO-13399 cutting-tool asset graph.
@@ -125,7 +124,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 
 [DEPENDENCY_FLOORS]:
 - `System.Configuration.ConfigurationManager` — Transitive XML-configuration floor under log4net and PerformanceCounter, never a direct reference.
-- `System.Drawing.Common` — Compile-only GDI+ surface at the Rhino/Eto host seam.
+- `System.Drawing.Common` — Compile-only GDI+ surface at the Rhino/Eto host boundary.
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*`
@@ -133,7 +132,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `coverlet.MTP`
 - `Microsoft.Extensions.TimeProvider.Testing` — `FakeTimeProvider` deterministic clock for the proof gauges.
 - `NodaTime.Testing` — `FakeClock` semantic-instant double and the scripted zone sources a DST proof needs; `FakeTimeProvider`'s pair, not its rival.
-- `Microsoft.Extensions.Diagnostics.Testing` — `MetricCollector<T>` measurement-assertion rail over any instrument.
+- `Microsoft.Extensions.Diagnostics.Testing` — `MetricCollector<T>` measurement-assertion harness over any instrument.
 - `Polly.Testing` — `ResiliencePipelineDescriptor` composition inspection over a built resilience pipeline.
 - `Microsoft.Testing.Platform`
 - `Microsoft.AspNetCore.TestHost` — In-memory ASP.NET Core server behind the transport proof harnesses.

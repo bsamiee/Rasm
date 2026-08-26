@@ -1,19 +1,19 @@
 # [RASM_RHINO_CAMERA]
 
-Camera ownership (`Rasm.Rhino.Viewport`) separates kernel pose and intent, session-scoped native borrows over the Document-owned `ViewportTarget` address, and value-only host projections. `CameraPose` composes `Rasm.Numerics.VectorFrame`; `ViewportLease` retains only `DocumentSession` plus `ViewportTarget`; `CameraSnapshot` disposes `ViewportInfo` before egress. Frustum, depth, visibility, depth-of-field, construction plane, detail scale, and coordinate transforms remain typed rows on one `Fin` rail, and every read enters through ONE lease query seam rather than a per-row admission preamble.
+Camera ownership (`Rasm.Rhino.Viewport`) separates kernel pose and intent, session-scoped native borrows over the Document-owned `ViewportTarget` address, and value-only host projections. `CameraPose` composes `Rasm.Numerics.VectorFrame`; `ViewportLease` retains only `DocumentSession` plus `ViewportTarget`; `CameraSnapshot` disposes `ViewportInfo` before egress. Frustum, depth, visibility, depth-of-field, construction plane, detail scale, and coordinate transforms remain typed rows on one `Fin` carrier, and every read enters through ONE lease query member rather than a per-row admission preamble.
 
 ## [01]-[INDEX]
 
-- [02]-[SCOPE_LEASE]: `ViewportBorrowMode`, `ViewportCardinality`, and `ViewportLease` — the session-gated borrow with its one query seam, redraw bracket, and redriven restore.
+- [02]-[SCOPE_LEASE]: `ViewportBorrowMode`, `ViewportCardinality`, and `ViewportLease` — the session-gated borrow with its one query member, redraw bracket, and redriven restore.
 - [03]-[POSE_MODEL]: `CameraPose` over the kernel `VectorFrame`, `LensAngle`, the `ProjectionKind` rows, and `CameraSeat` — the host-handle classification and seat owner behind the pose read/write pair.
 - [04]-[HOST_ROWS]: `SpatialProbe`, `CameraFrustum`, `CameraDof`, `CPlaneState` over the Persistence-seated grid parts, `DetailLength`, and `ViewMapping`.
-- [05]-[SNAPSHOT]: `CameraSnapshot` — the `ViewportInfo` value adapter with typed staleness evidence and the restore seam.
+- [05]-[SNAPSHOT]: `CameraSnapshot` — the `ViewportInfo` value adapter with typed staleness evidence and the restore member.
 
 ## [02]-[SCOPE_LEASE]
 
 - Owner: `ViewportLease` is the sole session-gated borrow surface, retaining only the `DocumentSession` plus the Document-owned `ViewportTarget` address; `ViewportBorrowMode` `[SmartEnum<int>]` gates broadcast redraw suppression; `ViewportCardinality` admits the resolved row count. Every borrow resolves and consumes the Document `ViewportRef` rows inside one session demand marshalled through the kernel dispatch, so no `RhinoView`, `RhinoViewport`, or `DetailViewObject` survives its borrow.
-- Entry: `ViewportTarget.Active` / `Named` / `Id` / `Page` / `Detail` / `Every` mint the durable address on the Document owner; `ViewportLease.Of(DocumentSession, ViewportTarget, Op?)` admits it; `Read<T>(project, key?)` is the ONE scalar query seam — self-admitting, observe-moded, resolving exactly one row — that every host-row projection on this page composes, so the eleven per-row `Admit`-then-`Use` preambles the prior page spelled collapse to one member; `Use<T>` is one name with two arities, the scalar observe borrow and the set borrow carrying its mode and terminal — the cardinality is value-borne inside the one `Borrow` body and the return SHAPE is the discriminant, exactly the kernel marshal's own arity law. NAMED LOSS: the `UseAll` name; witness — `Viewport/operations.md`'s broadcast apply composes `Use(borrow, mode, terminal)` and compiles unchanged but for the name.
-- Law: a detail edit is committed through `CommitViewportChanges` on the operations rail, not observed — the lease only proves which rows are details, reading the `DetailViewObject` the Document `ViewportRef` carries.
+- Entry: `ViewportTarget.Active` / `Named` / `Id` / `Page` / `Detail` / `Every` mint the durable address on the Document owner; `ViewportLease.Of(DocumentSession, ViewportTarget, Op?)` admits it; `Read<T>(project, key?)` is the ONE scalar query member — self-admitting, observe-moded, resolving exactly one row — that every host-row projection on this page composes, so the eleven per-row `Admit`-then-`Use` preambles the prior page spelled collapse to one member; `Use<T>` is one name with two arities, the scalar observe borrow and the set borrow carrying its mode and terminal — the cardinality is value-borne inside the one `Borrow` body and the return SHAPE is the discriminant, exactly the kernel marshal's own arity law. NAMED LOSS: the `UseAll` name; witness — `Viewport/operations.md`'s broadcast apply composes `Use(borrow, mode, terminal)` and compiles unchanged but for the name.
+- Law: a detail edit is committed through `CommitViewportChanges` on the operations pipeline, not observed — the lease only proves which rows are details, reading the `DetailViewObject` the Document `ViewportRef` carries.
 - Law: durable identity is `DocKey` plus `ViewportTarget`; mutation identity is sampled from `RhinoViewport.ChangeCounter` by the operation that projects the value. A lease never stamps a native instance and therefore cannot become a stale handle cache.
 - Law: every borrow crosses the kernel dispatch on the interactive lane and proves `SessionNeed.Redraw` inside the same window — `UiThread.Run(new UiDispatch<T>.Blocking(...), DispatchLane.Interactive, key)` wraps the session demand, so the crossing is gauged against the interactive frame budget and the demand serializes the host call; the retired command-thread marshal (`HostThread.Run` over `HostWork<T>.Session`) survives only at the shell, whose axis is the command queue and not this borrow.
 - Law: broadcast redraw suppression is a BRACKET — the acquisition captures the prior redraw state and disables, the use traverses the rows, and the restore runs from the bracket's own final arm — and the restore RE-DRIVES once through the kernel redrive owner (`Redrive.Run(RedrivePolicy.Of(Schedule.recurs(1), 1), restore)`), its residual fault APPENDING to the primary through the one aggregation fold. A hand-spelled retry literal and a `.Match` ladder re-spelling cleanup beside the fold are the deleted forms.
@@ -161,7 +161,7 @@ public sealed class ViewportLease : IDetachedDocumentResult {
 
 - Owner: `CameraPose` composes `VectorFrame`, target, `LensAngle`, and the observable `ProjectionKind` rows `Parallel`, `Perspective`, and `TwoPoint`; `CameraSeat` owns every member that takes a host handle — projection classification, the projection gate, and the seat triplet. RhinoCommon exposes no reflected read predicate, so reflected projection remains an explicit `ProjectionChange.ReflectedCase` command and never masquerades as readable pose state.
 - Entry: `CameraPose.Read(ViewportLease, Op?)` projects the live camera through the lease query; `CameraPose.Of(...)` admits a synthetic pose; `Write(ViewportLease, Op?)` enters `Cameras.Apply`, which proves the requested `ProjectionKind` through `CameraSeat.Accepts` and composes the one `CameraSeat.Seat` triplet.
-- Law: `CameraSeat.Accepts` answers the RAIL and its refusal CARRIES the live classification — `Fin<Unit>` whose failure detail names `Classify(viewport)` — because a bare `false` discards the one discriminant the caller needs to correct the request (`DISCARDED_DISCRIMINANT`); `Viewport/operations.md:738` is the consumer that reads it.
+- Law: `CameraSeat.Accepts` answers the RESULT and its refusal CARRIES the live classification — `Fin<Unit>` whose failure detail names `Classify(viewport)` — because a bare `false` discards the one discriminant the caller needs to correct the request (`DISCARDED_DISCRIMINANT`); `Viewport/operations.md:738` is the consumer that reads it.
 - Law: `CameraPose` and `ProjectionKind` cross to `Rasm.Rhino.Modeling` as VALUE-ONLY shapes, so neither carries a member taking a `RhinoViewport` — `CameraSeat` is where every such member lives.
 - Law: the frame is read through `RhinoViewport.GetCameraFrame(frame: out Plane)` and admitted through `VectorFrame.Of` — a second local frame construction beside the kernel owner is the killed census defect; an up-vector fallback resolves through `ViewportInfo.CalculateCameraUpDirection(location:, direction:, angle:)`, never a hand-rolled orthogonalization.
 - Law: the pose write orders direction before angle and refuses `updateTargetLocation` on the direction write so the admitted target survives the seat; a mismatched projection is a typed refusal rather than a pose that silently omits one declared field, and the write returns the post-write `ChangeCounter`.
@@ -174,7 +174,6 @@ public sealed class ViewportLease : IDetachedDocumentResult {
 [ValueObject<double>]
 [ValidationError]
 public readonly partial struct LensAngle {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
         validationError = double.IsFinite(value) && value > 0.0 && value < Math.PI
             ? validationError
@@ -262,12 +261,12 @@ internal static class CameraSeat {
 ## [04]-[HOST_ROWS]
 
 - Owner: `SpatialProbe` — ONE probe union with two verbs, `Depth` and `Visible`, replacing the former probe twins whose case rosters overlapped on every geometric shape; `CameraFrustum` owns six planes, aspect, and bounds; `CameraDof` owns focal-blur state and `CameraDofField` the ordered setter vocabulary; `CPlaneState` owns the LIVE construction-plane read COMPOSED from the Persistence-seated value parts — `CPlaneGrid` (spacing, snap, count, frequency, and the `CapabilitySet<CPlaneTrait>` visibility axes) and `CPlanePalette` (the five inks) seat at `Persistence/presets.md`, the persisted owner at the lowest stratum both reach (E-R33), and this page adds only the name and the live read; `DetailLength` owns paper/model conversion; `ViewMapping` owns the coordinate-transform rows.
-- Entry: every row's read is ONE composition of the lease query seam — `lease.Read(row => ..., key)` — so the eleven admission preambles the prior page spelled per row are gone and a new host row costs its projection alone.
+- Entry: every row's read is ONE composition of the lease query member — `lease.Read(row => ..., key)` — so the eleven admission preambles the prior page spelled per row are gone and a new host row costs its projection alone.
 - Law: `SpatialProbe` is one shape vocabulary because the two verbs read the SAME four geometric cases — a point, a box, a sphere, and a geometry's bounds — and the verb, not the shape, was the twins' only discriminant; each verb lowers the cases onto the host members that answer it, deriving a bounds where the host verb lacks the direct arity, so the shape roster grows once for both questions.
 - Law: every row is an ADMITTED value projection — `DepthExtent`, `CameraFrustum`, `CameraDof`, and the composed `CPlaneState` reach the caller on `Fin` through generated `Validate` stamped `[ValidationError]`, so a refusal carries the typed viewport fault and no `key.Catch(Create)` exception funnel survives where an admission belongs; finiteness folds ride `ValidityClaim.All`/`Finite` over spans, never hand `new[]{...}.All` ladders.
 - Law: `CPlaneState` names the LIVE viewport read and Persistence's `CPlaneGrid`/`CPlanePalette` name the STORED parts — one value vocabulary, two custody points, and the five host screen colours cross into the kernel contract through `PerceptualColor.OfHost` at this one read (S12), accumulating so one refusal names every rejected channel.
 - Law: `ViewMapping` is the ONE world/screen/clip/camera correspondence — one admitted `(Source, Destination)` pair generates the complete directional space, and a consumer needing pixels-per-unit reads `GetWorldToScreenScale` through `PixelScale`, never a re-derived projection ratio; the transform reads through a `ViewportInfo.GetXform` snapshot because that member returns `Transform.Unset` on failure where the live `RhinoViewport.GetTransform` returns `Identity` and makes refusal invisible to `IsValid`.
-- Boundary: depth-of-field lives on `ViewInfo` (named-view state), not the live viewport — `CameraDof.Read`/`Write` take the `ViewInfo` the render and named-view rails hold, and the write is host mutation gated by the operations rail. `Write` captures all focal-blur fields before mutation, applies the ordered field rows fail-fast, and restores the complete prior state through one compensation path when any setter fails; the sample-count invariant is mode-conditional so an unconfigured view (`ViewInfoFocalBlurModes.None`, zero samples) reads back cleanly and that capture stays reachable on the first write.
+- Boundary: depth-of-field lives on `ViewInfo` (named-view state), not the live viewport — `CameraDof.Read`/`Write` take the `ViewInfo` the render and named-view pipelines hold, and the write is host mutation gated by the operations pipeline. `Write` captures all focal-blur fields before mutation, applies the ordered field rows fail-fast, and restores the complete prior state through one compensation path when any setter fails; the sample-count invariant is mode-conditional so an unconfigured view (`ViewInfoFocalBlurModes.None`, zero samples) reads back cleanly and that capture stays reachable on the first write.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -324,7 +323,6 @@ public readonly partial struct ViewMapping {
     public CoordinateSystem Source { get; }
     public CoordinateSystem Destination { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CoordinateSystem source,
@@ -343,7 +341,6 @@ public readonly partial struct DepthExtent {
     public double Near { get; }
     public double Far { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double near, ref double far) {
         validationError = ValidityClaim.All(ValidityClaim.Finite([near, far]), near <= far)
             ? validationError
@@ -364,7 +361,6 @@ public readonly partial struct CameraFrustum {
     public double Aspect { get; }
     public BoundingBox Bounds { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double left,
@@ -422,7 +418,6 @@ public sealed partial class CameraDof {
     public double Jitter { get; }
     public uint SampleCount { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ViewInfoFocalBlurModes mode,
@@ -544,7 +539,6 @@ public abstract partial record DetailLength {
 [ValueObject<double>]
 [ValidationError]
 public readonly partial struct DetailMagnitude {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
         validationError = double.IsFinite(value) && value >= 0.0
             ? validationError
@@ -590,8 +584,8 @@ public static class ViewTransforms {
 - Entry: `CameraSnapshot.Take(ViewportLease, Op?)` captures pose, frustum, quad, and serial under ONE borrow through the lease query, so the stamped `ChangeCounter` names exactly the state the values project; `Restore(ViewportLease, Op?)` replays the stored pose through `CameraPose.Write` after proving the document identity; `Stale(ViewportLease)` answers `Fin<Staleness>`.
 - Law: staleness is a UNION, never a bool — `Fresh`, `Reopened` (the `DocKey` moved: a reopened document can alias a stored counter), and `Mutated` (the counter moved under the same document) are three verdicts a caller recovers from differently, and the bool collapsed the two stale causes a restore must tell apart.
 - Law: frame-plane corners read through `ViewportInfo.GetFramePlaneCorners(depth:)` in host order `(BottomLeft, BottomRight, TopLeft, TopRight)` and travel as a typed quad, so downstream capture and draw code consumes named corners instead of index arithmetic.
-- Law: snapshot values feed three consumers with one shape — the operations rail's view stack, the capture specification's window mapping, and the motion drive's keyframe seeding — so a per-consumer snapshot variant is the collapsed form.
-- Boundary: `Restore` is a host mutation and enters the operations rail through `CameraPose.Write`; the snapshot owner never seats a native viewport directly.
+- Law: snapshot values feed three consumers with one shape — the operations pipeline's view stack, the capture specification's window mapping, and the motion drive's keyframe seeding — so a per-consumer snapshot variant is the collapsed form.
+- Boundary: `Restore` is a host mutation and enters the operations pipeline through `CameraPose.Write`; the snapshot owner never seats a native viewport directly.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -654,7 +648,7 @@ public sealed record CameraSnapshot(
 }
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — `RhinoViewport` camera members, viewport queries); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` cardinality/projection rows, `[ComplexValueObject]`/`[ValueObject]` frames); kernel `Domain/rails` (`ViewportLease.Read` scalar seam, `IO.Bracket` suppression) + `Persistence/presets` (`CPlaneGrid`/`CPlanePalette` composed per the folder CPlane-seat ruling).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-display.md` — `RhinoViewport` camera members, viewport queries); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` cardinality/projection rows, `[ComplexValueObject]`/`[ValueObject]` frames); kernel `Domain/results` (`ViewportLease.Read` scalar boundary, `IO.Bracket` suppression) + `Persistence/presets` (`CPlaneGrid`/`CPlanePalette` composed per the folder CPlane-seat ruling).
 
 ## [06]-[RESEARCH]
 

@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_CONNECTRPC]
 
-`connectrpc` owns the branch RPC seam: generated handler protocols and their ASGI / WSGI applications answer Connect, gRPC, and gRPC-Web on one route set, typed async and sync clients dial that seam over `pyqwest`, and interceptors, codecs, compression, and the `ConnectError` status rail bind both ends. `protobuf-py` keeps message shape; every request and response crosses here as its own generated class.
+`connectrpc` owns the branch RPC boundary: generated handler protocols and their ASGI / WSGI applications answer Connect, gRPC, and gRPC-Web on one route set, typed async and sync clients dial that boundary over `pyqwest`, and interceptors, codecs, compression, and the `ConnectError` status domain bind both ends. `protobuf-py` keeps message shape; every request and response crosses here as its own generated class.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -216,6 +216,6 @@
 
 [LOCAL_ADMISSION]:
 - generated `<Svc>ASGIApplication` / `<Svc>Client` pairs are the sole handler and dialer shape; a hand-built `ConnectASGIApplication(endpoints=...)` or a raw `execute_unary(method=MethodInfo(...))` lives only where no generated stub exists.
-- `protobuf=py` is the one generator option the estate emits, so `connectrpc.compat` codecs stay out of every fence.
+- `protobuf=py` is the one generator option the repo emits, so `connectrpc.compat` codecs stay out of every fence.
 - `connectrpc` and `protoc-gen-connectrpc` resolve from one source coordinate and one protobuf floor. The `_connect.py` tree regenerates whenever that pair moves.
 - every client takes an injected `pyqwest` `Client` over an `HTTPTransport` the composition root `aclose`s, and no fence leans on `ConnectClient.close()` to release a socket.

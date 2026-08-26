@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_API_ONNXRUNTIME]
 
-`Microsoft.ML.OnnxRuntime` owns measured ONNX model-session execution for the Compute model rail: session construction, typed `OrtValue` binding, run-policy deadlines, execution-provider selection, EP-context warm-start compilation, autoEP hardware-device discovery, and the native runtime assets they bind. Every native handle is `SafeHandle`/`IDisposable` and releases deterministically. `Model/*` internalizes the managed surface into dense boot, session, provider, and run rails rather than one-to-one wrappers.
+`Microsoft.ML.OnnxRuntime` owns measured ONNX model-session execution for the Compute model pipeline: session construction, typed `OrtValue` binding, run-policy deadlines, execution-provider selection, EP-context warm-start compilation, autoEP hardware-device discovery, and the native runtime assets they bind. Every native handle is `SafeHandle`/`IDisposable` and releases deterministically. `Model/*` internalizes the managed surface into dense boot, session, provider, and run pipelines rather than one-to-one wrappers.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -143,7 +143,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [13]   | `Dispose()`                                                        | instance | releases native handles                |
 
 - `Run` returns `IDisposableReadOnlyCollection<OrtValue>` and also accepts an `IReadOnlyDictionary<string,OrtValue>` input mirror; `RunWithBoundResults` returns the same, read back from binding via `OrtIoBinding.GetOutputValues`.
-- `RunAsync` requires caller-pre-allocated output `OrtValue`s and completes on a native callback off the lane scope; the design routes async through the lane seam.
+- `RunAsync` requires caller-pre-allocated output `OrtValue`s and completes on a native callback off the lane scope; the design routes async through the lane boundary.
 
 [ENTRYPOINT_SCOPE]: `SessionOptions.AppendExecutionProvider*` — instance EP append; append order is fallback priority
 
@@ -500,13 +500,13 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 
 [STACKING]:
 - `api-onnxruntimegenai`(`.api/api-onnxruntimegenai.md`): the genai `Config.AppendProvider`/`SetProviderOption`/`SetDecoderProviderOptionsHardware*` surface selects from this EP roster and binds to devices this page's `OrtEpDevice`/`OrtHardwareDevice` discovery enumerates; genai native co-locates per RID beside this runtime.
-- boot rail: `OrtThreadingOptions` reads the AppHost `CpuBudget`, folds into `EnvironmentCreationOptions`, and `OrtEnv.CreateInstanceWithOptions(ref)` boots once behind `OrtEnv.IsCreated`; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals.
-- session rail: `SessionOptions` config keys, EP register, and `OrtModelCompilationOptions` compile fold into one `Open` keyed on `ResidentKey(ModelIdentity.Checksum, SessionPolicy.Fingerprint(ep))`.
-- warm rail: both warm artifacts — the compiled EP-context blob and the managed `OptimizedModelFilePath` graph — content-address through one device-aware `ContextKey` over `OrtEpDevice` `EpName`/`VendorId`/`DeviceId`/`HardwareDevice.Type`, carrying the form's suffix with `GetVersionString()` on the compat-info-free managed form, and cross to the Persistence blob lane as one `ArtifactIndexRow`.
-- load rail: `SetLoadCancellationFlag(true)` registered off the caller's cancellation token is the ONLY bound on session construction — the load-time counterpart of `RunOptions.Terminate` — so the registration is owned beside the `SessionOptions` it arms and released before them.
-- provider rail: the `ExecutionProvider` `[SmartEnum<string>]` (Thinktecture) carries each EP's option-table/`ExecutionProviderDevicePolicy`/`OrtHardwareDeviceType`-affinity columns as one polymorphic `Register`, and the two-step compatibility enum verdict is read once and consumed into the warm-start branch.
-- run rail: `OrtValue` carriers admit through a `[Union]` `RunInput`, `OrtIoBinding` amortizes the loop over a `CreateSharedAllocator` arena, `RunOptions.Terminate` latches off the AppHost `CancelScope`, `System.Numerics.Tensors.TensorPrimitives` owns reductions, projections land in a LanguageExt `Fin<T>` inside a native-disposal bracket, and the deterministic result keys through `Microsoft.Extensions.Caching.Hybrid` stamped with `GetVersionString()`.
-- time rail: profiling chrome-trace (`EndProfiling` + `ProfilingStartTimeNs`) lands as an `ArtifactIndexRow`.
+- boot pipeline: `OrtThreadingOptions` reads the AppHost `CpuBudget`, folds into `EnvironmentCreationOptions`, and `OrtEnv.CreateInstanceWithOptions(ref)` boots once behind `OrtEnv.IsCreated`; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals.
+- session pipeline: `SessionOptions` config keys, EP register, and `OrtModelCompilationOptions` compile fold into one `Open` keyed on `ResidentKey(ModelIdentity.Checksum, SessionPolicy.Fingerprint(ep))`.
+- warm pipeline: both warm artifacts — the compiled EP-context blob and the managed `OptimizedModelFilePath` graph — content-address through one device-aware `ContextKey` over `OrtEpDevice` `EpName`/`VendorId`/`DeviceId`/`HardwareDevice.Type`, carrying the form's suffix with `GetVersionString()` on the compat-info-free managed form, and cross to the Persistence blob lane as one `ArtifactIndexRow`.
+- load pipeline: `SetLoadCancellationFlag(true)` registered off the caller's cancellation token is the ONLY bound on session construction — the load-time counterpart of `RunOptions.Terminate` — so the registration is owned beside the `SessionOptions` it arms and released before them.
+- provider pipeline: the `ExecutionProvider` `[SmartEnum<string>]` (Thinktecture) carries each EP's option-table/`ExecutionProviderDevicePolicy`/`OrtHardwareDeviceType`-affinity columns as one polymorphic `Register`, and the two-step compatibility enum verdict is read once and consumed into the warm-start branch.
+- run pipeline: `OrtValue` carriers admit through a `[Union]` `RunInput`, `OrtIoBinding` amortizes the loop over a `CreateSharedAllocator` arena, `RunOptions.Terminate` latches off the AppHost `CancelScope`, `System.Numerics.Tensors.TensorPrimitives` owns reductions, projections land in a LanguageExt `Fin<T>` inside a native-disposal bracket, and the deterministic result keys through `Microsoft.Extensions.Caching.Hybrid` stamped with `GetVersionString()`.
+- time pipeline: profiling chrome-trace (`EndProfiling` + `ProfilingStartTimeNs`) lands as an `ArtifactIndexRow`.
 
 [LOCAL_ADMISSION]:
 - Compute model execution enters through ONNX Runtime sessions and typed value binding.

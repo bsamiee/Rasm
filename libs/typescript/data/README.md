@@ -7,7 +7,7 @@
 [LANE]:
 - [01]-[CACHE](.planning/lane/cache.md): Correctness-neutral latency — a lost node costs one cold recompute, stampedes collapse to one.
 - [02]-[CAPABILITY](.planning/lane/capability.md): Engine admission proving every extension row, relation, and demand before a guarantee lane boots.
-- [03]-[OLAP](.planning/lane/olap.md): Analytical throughput without durability claims — leased sessions, residence fills, the lake.
+- [03]-[OLAP](.planning/lane/olap.md): Analytical throughput without durability claims — leased sessions, tier fills, the lake.
 - [04]-[POSTGRES](.planning/lane/postgres.md): Relational guarantee spine — first-party capability rows and explicit concurrency denials.
 - [05]-[SQLITE](.planning/lane/sqlite.md): One embedded contract across node, bun, wasm-OPFS, libSQL, and D1 — degradation keyed both ways.
 - [06]-[TENANT](.planning/lane/tenant.md): Tenant isolation cases keyed off the app key, enforced before any statement runs.
@@ -15,7 +15,7 @@
 [JOURNAL]:
 - [07]-[APPEND](.planning/journal/append.md): Journal, outbox, and idempotency settling atomically — a replay returns its stored append.
 - [08]-[EVOLVE](.planning/journal/evolve.md): One shape change re-mints the log whole under a custody row; snapshots as discardable projections.
-- [09]-[FACT](.planning/journal/fact.md): Audit evidence and usage metering as one polymorphic fact family on one buffered rail.
+- [09]-[FACT](.planning/journal/fact.md): Audit evidence and usage metering as one polymorphic fact family on one buffered intake.
 - [10]-[GENERATION](.planning/journal/generation.md): Floor mint — payload coordinate, generation identity, custody ledger, transaction guard.
 - [11]-[RETAIN](.planning/journal/retain.md): Lawful aging — the log never rewrites; windows expire ledgers, shredding folds reads to redaction.
 
@@ -23,7 +23,7 @@
 - [12]-[ASSET](.planning/object/asset.md): Delivered-asset admission — a category is a row with its own transforms and derive plane.
 - [13]-[FILE](.planning/object/file.md): Filesystem and derivative planes on one spine — open, admit, emit, mint, store, refer.
 - [14]-[REMOTE](.planning/object/remote.md): Every non-local byte tree behind one origin-addressed surface — SFTP, FTP, WebDAV, object peers.
-- [15]-[STORE](.planning/object/store.md): Verified object custody, confined event `dataref` residence, grants, lifecycle, and GC.
+- [15]-[STORE](.planning/object/store.md): Verified object custody, confined event `dataref` storage, grants, lifecycle, and GC.
 - [16]-[STREAM](.planning/object/stream.md): Resumable content-addressed intake — bounded chunks, verified offsets, one identity to the key.
 
 [READ]:
@@ -89,14 +89,14 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 - `@rasm\/contracts` — Generated appearance, organization, and parity contract descriptors consumed at data boundaries.
 
 [BRANCH_PEERS]:
-- `@rasm/core` — Content identity, generated-message codecs, event envelopes, observation conventions, and shared value rails.
+- `@rasm/core` — Content identity, generated-message codecs, event envelopes, observation conventions, and shared value carriers.
 - `@rasm/security` — Lease and custody contracts consumed through data-owned boundary ports.
 
-[TYPING_RAILS]:
+[TYPING_CORE]:
 - `effect`
 
 [EVENT_FABRIC]:
-- `cloudevents` — Outbox message-envelope projection at the claim seam, minted through the core owner.
+- `cloudevents` — Outbox message-envelope projection at the claim boundary, minted through the core owner.
 
 [PLATFORM]:
 - `@effect/platform`

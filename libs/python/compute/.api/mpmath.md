@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_MPMATH]
 
-`mpmath` owns arbitrary-precision real, complex, and interval arithmetic with a broad special-function, calculus, linear-algebra, and number-theory library for the compute exact-arithmetic rail. Its precision-oracle role certifies a fast-path JAX/numba result against a guaranteed-correct high-`dps` evaluation, and `iv` interval arithmetic bounds the enclosure rigorously.
+`mpmath` owns arbitrary-precision real, complex, and interval arithmetic with a broad special-function, calculus, linear-algebra, and number-theory library for the compute exact-arithmetic domain. Its precision-oracle role certifies a fast-path JAX/numba result against a guaranteed-correct high-`dps` evaluation, and `iv` interval arithmetic bounds the enclosure rigorously.
 
 ## [01]-[PUBLIC_TYPES]
 

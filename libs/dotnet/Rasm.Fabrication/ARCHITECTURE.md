@@ -4,14 +4,14 @@
 
 ```text
 Rasm.Fabrication/
-├── Process/                 # Entry vocabulary, axes, physics, rail, and plan orchestrator
+├── Process/                 # Entry vocabulary, axes, physics, faults, and plan orchestrator
 │   ├── Owner.cs             # Fabrication.Run admission-to-result seat; evidence projects lineage without replaying plane logic
 │   ├── Atoms.cs             # Construction-admitted atom families reading nothing above themselves; payloads name planes, reach no behaviour
 │   ├── Family.cs            # Machine.Admit keyed-capability generation, MachineCapacity.Facts correspondence, PostDialect binding
 │   ├── Physics.cs           # Material identity carrying per-modality physics and the removal budget
 │   ├── Faults.cs            # FabricationFault union over the FaultBand.Fabrication band
 │   ├── Derivation.cs        # Derivation.Plan Run(Derive) lowering; DerivePolicy.Admit gates duplicates and preference conflicts
-│   └── Telemetry.cs         # Instrument roster, site-write operators, span band, hook rail, board-pack descriptor rows
+│   └── Telemetry.cs         # Instrument roster, site-write operators, span band, hook set, board-pack descriptor rows
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
 │   ├── Magazine.cs          # Provider-detached ToolAssembly owner, correspondence tables, typed-shortfall kitting, and ordered life scheduling
 │   ├── CuttingData.cs       # Kienzle regime resolution: material seeds with operation factors, the evidence-domain guard, one force model
@@ -186,7 +186,7 @@ flowchart TB
     Atoms f1@-->|"forbidden: atoms upward"| S5
 ```
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -197,10 +197,10 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Fabrication AEC-domain peer seams
+    accTitle: Fabrication AEC-domain peer interfaces
     accDescr: Fabrication owners exchanging projector, graph, tolerance, yield, and telemetry contracts with the AEC peers and the artifacts plane.
     subgraph fabrication[RASM.FABRICATION]
-        Process[Process rail]
+        Process[Process pipeline]
         Telemetry[Process telemetry]
         Ingress[Ingress admission]
         Kinematics[Kinematics observation]
@@ -231,10 +231,10 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Fabrication kernel and platform seams
+    accTitle: Fabrication kernel and platform interfaces
     accDescr: Which contracts cross between Fabrication, the kernel substrate, and the app-platform UI, one labeled edge per family.
     subgraph fabrication[RASM.FABRICATION]
-        Process[Process rail]
+        Process[Process pipeline]
         Ingress[Ingress admission]
         Geometry2D[Geometry2D substrate]
         Toolpath[Toolpath CAM]
@@ -296,7 +296,7 @@ flowchart LR
     Admit f1@-.->|"admission refusal"| Fault[/FabricationFault/]
     Cam f2@-.->|"generation fault"| Fault
     Prove f3@-.->|"verify fault"| Fault
-    Fault f4@--> Rail(["Fin/Error rail"])
+    Fault f4@--> Result(["Fin/Error result"])
 ```
 
 [KINEMATICS]:
@@ -322,16 +322,16 @@ flowchart LR
 - `Analyze.Run` bindings freeze the kernel entry's two-type-parameter arity, query-first then subject; `Analyze.Query` and `Analyze.In` stay unbound.
 - Every machine-consumable egress mints its content key through the kernel `ContentHash.Of` seed-zero entry, with no second mint.
 - `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
-- `FabricationProjector.Of` hands the app the package-owned `IElementProjection`; every seam-lowered quantity rides its internal implementation.
+- `FabricationProjector.Of` hands the app the package-owned `IElementProjection`; every contract-lowered quantity rides its internal implementation.
 - Absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
 - Machine telemetry enters through the AppHost decode lane, never a direct transport reference.
 - `Kinematics/observation` admits the decoded entities once; every measured consumer folds the one `MachineObservation` slice.
 - Durable shop state rides the Persistence slot registry's contributed span as the `store.fabrication.<domain>.<verb>` family.
 - Each owning page names its slot spellings as value federation, mounted as call-site data at the composition root.
 - Runtime-carried `HybridCache` replays NFP pair polygons under `PairTable.Key` identities in process.
-- Durable memo tier federates at the Persistence cache seam beside the benchmark index.
+- Durable memo tier federates at the Persistence cache boundary beside the benchmark index.
 - Speed claims resolve against Persistence `BenchmarkRow` claims through the kernel `BenchClaim` keys `Toolpath/guard` mints.
-- `AcceptedBenchmarkClaim` binds one result to the `Benchmark.ClaimKey` digest its pass stamped, judgment arriving as a seam AppHost mints.
+- `AcceptedBenchmarkClaim` binds one result to the `Benchmark.ClaimKey` digest its pass stamped, judgment arriving as a contract AppHost mints.
 - `ProbeRoute.Measured` authorizes its parallel substrate only against an accepted claim, never against a roster row alone.
 - Program delivery closes chain-of-custody by value: `ProgramDelivery`'s cell drive result re-mints a content key from the controller-bound records.
 - `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality and writes its custody verdict through the mounted instrument set.
@@ -340,14 +340,14 @@ flowchart LR
 - `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster and board pack inward at composition; the mounting root proves both.
 - `FabricationInstruments.Telemetry` supplies the package's instrument bindings to AppHost.
 - Classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
-- Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried kernel rail's own `Points` census.
-- One `HookRail<FabricationPoint, FabricationHookFact, TelemetrySource>` carries every spine point; the folder declares roster and fact union alone.
+- Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried kernel hook set's own `Points` census.
+- One `HookSet<FabricationPoint, FabricationHookFact, TelemetrySource>` carries every spine point; the folder declares roster and fact union alone.
 - Hook modality and payload close at declaration; subscribers attach only at app roots.
 - Solver spans ride `FabricationTrace.Scopes` — one `TraceScope` per `FabricationEngine` row — admitted into the composing root's kernel `SpanBand`.
 - Meter scope stays `TelemetrySource.Fabrication`, and neither the meter grammar nor the `SpanBand` trace grammar derives from the other.
 - Every observed lane takes optional mounted instruments and spans as trailing parameters.
 - Trace-based exemplars join the fabrication histograms to their solve traces.
-- `FabricationDescriptors` binds one kernel `BoardPack` the contributor port carries to the AppHost alert rail and deploy-plane dashboard compile.
+- `FabricationDescriptors` binds one kernel `BoardPack` the contributor port carries to the AppHost alert channel and deploy-plane dashboard compile.
 - Indicator, severity, panel, and burn vocabularies stay the kernel signal capsule's and cross as values, never re-decided here.
 - `FabricationFault` is one `[Union]` on the kernel `FaultBand.Fabrication` band; `Process/faults` owns the offset ledger and its free frontier.
 - Every case DECLARES at `Process/faults` — a same-named partial in a folder namespace is a distinct type the generated dispatch never reaches.

@@ -2,7 +2,7 @@
 
 `TubeProgram` owns one tube-forming algebra across discrete bending, axis-specific section roll curving, and cope projection. `TubeSection`, `RollSection`, `TubeTool`, and `TubePolicy` admit section mechanics, material, weld seam, tooling, deformation limits, and egress policy once; numeric bands are `ToleranceLane` reads off the admitting `Context`, never policy columns beside them.
 
-Cross-section algebra is the `Rasm.Element` `Composition/material#SectionProperties` seam owner — `OfMillimetres` admits every column on this page's millimetre basis and `SectionForm` carries the shape witness the family, the tool catalogue, and every deformation law read.
+Cross-section algebra is the `Rasm.Element` `Composition/material#SectionProperties` contract owner — `OfMillimetres` admits every column on this page's millimetre basis and `SectionForm` carries the shape witness the family, the tool catalogue, and every deformation law read.
 
 `TubeProgram.Apply` composes the frozen `ProcessEnvelope.Bender`, `ProcessEnvelope.Roll`, `ProcessBudget.Formed`, `Intersection.Apply`, `Development.Apply`, `UvIsland`, and `ContentKey.Of` wires. Intersection provenance and atlas provenance remain intact through sectioned cope projection.
 
@@ -13,13 +13,13 @@ Cross-section algebra is the `Rasm.Element` `Composition/material#SectionPropert
 
 ## [02]-[TUBE_FORMING]
 
-- Owner: `TubeFormKind` owns discrete process physics; `BendFormat` owns command projection; `CopeEnd` owns analytic branch-end selection; `TubeSection` owns closed thin-wall mechanics ONTO the `Rasm.Element` section seam; `RollSection` and `RollAxis` own closed, open, solid, and plate roll mechanics; `TubeTool` owns tooling evidence; `TubeProgram` owns all operation dispatch and projection.
+- Owner: `TubeFormKind` owns discrete process physics; `BendFormat` owns command projection; `CopeEnd` owns analytic branch-end selection; `TubeSection` owns closed thin-wall mechanics ONTO the `Rasm.Element` section contract; `RollSection` and `RollAxis` own closed, open, solid, and plate roll mechanics; `TubeTool` owns tooling evidence; `TubeProgram` owns all operation dispatch and projection.
 - Cases: `TubeOp` carries `Form`, `Roll`, and `Cope`; `TubeResult` mirrors those modalities through `BendProgram`, `RollSchedule`, and `CopePattern`; `TubeCommand` binds one canonical `TubeCoordinate` to a `BendFormat` projection row; `TubeFormKind` carries rotary-draw, compression, ram, push, stretch, and freeform behavior; `CopeEnd` selects the negative or positive analytic root; `MandrelKind` carries the tooling axis.
 - Entry: `TubeProgram.Apply(TubeOp)` is the one polymorphic entry for every modality.
-- Law: cross-section columns seat on the `Rasm.Element` seam owner and this page holds NO section record of its own — one discretized wall run derives every column, `OfMillimetres` admits them, and the interior reads evidence rather than re-gating it. `SectionForm` carries the vertex census, curved-edge count, radial compactness, outline perimeter, and the two BOUNDING extents `Major`/`Minor` — bounding, never the radii of gyration the same owner spells beside them.
+- Law: cross-section columns seat on the `Rasm.Element` contract owner and this page holds NO section record of its own — one discretized wall run derives every column, `OfMillimetres` admits them, and the interior reads evidence rather than re-gating it. `SectionForm` carries the vertex census, curved-edge count, radial compactness, outline perimeter, and the two BOUNDING extents `Major`/`Minor` — bounding, never the radii of gyration the same owner spells beside them.
 - Auto: centerlines normalize once, tooling resolves per bend, neutral-axis length consumes the forming budget, the folder's `ElasticLaw` inverts the CUBIC elastic-recovery law over the loaded radius for bend springback and a bracketed root recovers pass curvature — the only transcendental inversions on the page, and the cope station's quadratic never reaches them — mandrel rows supply their own interior wall support, weld-seam rotation propagates, roll passes generate command curvature with axis modulus and distortion gates, and sectioned cope lowers exact crossing keys through source vertices or source faces into developed islands.
 - Result: `BendProgram` carries bend evidence and key; `RollSchedule` carries roll evidence and key; `CopePattern` carries developed curves, cope evidence, and key. Each lane's frame mints its key from the complete operation result.
-- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon` and the `Composition/material` section seam, `MathNet.Numerics`, `UnitsNet` (`Length`, `Angle`, `Area`, `Ratio`, `ReciprocalLength`, `Force`, `Torque`), `RhinoCommon`, `Rasm.Meshing`, `Rasm.Parametric`, `Rasm.Processing`, and `ContentKey` compose the surface.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon` and the `Composition/material` section contract, `MathNet.Numerics`, `UnitsNet` (`Length`, `Angle`, `Area`, `Ratio`, `ReciprocalLength`, `Force`, `Torque`), `RhinoCommon`, `Rasm.Meshing`, `Rasm.Parametric`, `Rasm.Processing`, and `ContentKey` compose the surface.
 - Growth: A discrete process is one `TubeFormKind` row, a command convention is one `BendFormat` row, a physical tool is one catalog row, an analytic branch end is one `CopeEnd` row, a roll target is data, and a new modality is one `TubeOp`/`TubeResult` case pair.
 - Boundary: Forming owns tube mechanics and projection; machine capacity, process material physics, exact intersection, development, planar loop admission, posting text, and content identity remain at their canonical owners.
 
@@ -141,7 +141,6 @@ public sealed partial class TubeSection {
 
     public SectionForm Form { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref TubeSectionFamily family,
@@ -309,7 +308,6 @@ public sealed partial class TubeTool {
     public double QualifiedOvality { get; }
     public double QualifiedThinning { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -361,7 +359,6 @@ public sealed partial class TubePolicy {
     public Dimension MaximumCopeStations { get; }
     public Angle WeldSeamExclusion { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<TubeTool> tools,
@@ -403,7 +400,6 @@ public sealed partial class TubeRun {
     public double LeadAllowanceMm { get; }
     public double TailAllowanceMm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<Point3d> centerline,
@@ -437,7 +433,6 @@ public sealed partial class TubeCommand {
     public BendFormat Format { get; }
     public TubeCoordinate Coordinate { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref BendFormat format,
@@ -523,7 +518,6 @@ public sealed partial class RollSection {
     public SectionProperties Properties { get; }
     public double GoverningThicknessMm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -562,7 +556,6 @@ public sealed partial class RollPolicy {
     public PositiveMagnitude MaximumDistortion { get; }
     public Dimension RootIterations { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ReciprocalLength maximumCurvatureIncrement,
@@ -591,7 +584,6 @@ public sealed partial class RollRun {
     public Length WorkpieceWidth { get; }
     public RollPolicy Policy { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref RollSection section,
@@ -681,7 +673,7 @@ public abstract partial record TubeResult {
 
 - Owner: `TubeProgram` owns every operation dispatch, the bend and roll passes, cope generation, developed-chain projection, and the canonical preimage; the vocabulary cluster above owns the values every arm consumes.
 - Law: a cope station's residual is a QUADRATIC in the axial coordinate, so its two branch ends are closed-form roots. A bracketed root-find run twice per station burned the iteration budget the page reserves for the genuinely transcendental elastic-recovery law, and a bracket that failed to straddle silently dropped a station the algebra always answers.
-- Law: a chain point resolves to the crossing that PRODUCED it through one station index built per cope on the admitted quantum — exact equality against a rounded lattice station discarded the intersection walk's own provenance and rescanned the lattice once per point.
+- Law: a chain point resolves to the crossing that PRODUCED it through one station index built per cope on the admitted quantum — exact equality against a rounded grid station discarded the intersection walk's own provenance and rescanned the grid once per point.
 - Law: a section refuses on zero metal area where the degeneracy is, so no NaN second moment reaches the machine-capacity comparison that reads it as within capacity.
 - Exemption: the barycentric solve and the quadratic root pair are bounded numeric kernels — the kernel publishes no barycentric triangle query, so the solve stays local with a scale-relative degeneracy gate.
 - Boundary: intersection provenance and atlas provenance stay intact through sectioned cope projection; developed islands carry their chart identity and no arm re-derives a crossing.
@@ -1029,14 +1021,14 @@ public static class TubeProgram {
         from unrolled in development is DevelopmentResult.Unrolled value
             ? Fin.Succ(value)
             : Fin.Fail<DevelopmentResult.Unrolled>(new KernelFault.InvalidValue("tube", "tube:cope-development"))
-        from edges in ProjectEdges(chains.Lattice, unrolled.Atlas)
-        let stations = Stations(chains.Lattice, source.Part.Mesh.Tolerance.Absolute.Value)
+        from edges in ProjectEdges(chains.Table, unrolled.Atlas)
+        let stations = Stations(chains.Table, source.Part.Mesh.Tolerance.Absolute.Value)
         from developed in chains.Walked
             .Traverse(chain => DevelopedChain(chain, stations, edges, source.Part.Mesh.Tolerance).ToValidation()).As().ToFin()
         let loops = developed.Bind(static run => run)
         let evidence = new CopeEvidence(
-            chains.Lattice.Rows.Length,
-            chains.Lattice.Segments.Length + chains.Lattice.Coplanar.Length,
+            chains.Table.Rows.Length,
+            chains.Table.Segments.Length + chains.Table.Coplanar.Length,
             edges.Bind(static edge => Seq(edge.A, edge.B)),
             Some(unrolled.Atlas.Result))
         from key in Canonical(loops, evidence, source.Part.Mesh.Tolerance)
@@ -1045,11 +1037,11 @@ public static class TubeProgram {
     private sealed record DevelopedEdge(int CrossingA, int CrossingB, CopeProjection A, CopeProjection B);
     private sealed record DevelopedRun(ChartId Chart, Seq<Point2d> Points);
 
-    private static Fin<Seq<DevelopedEdge>> ProjectEdges(CrossLattice lattice, ChartAtlas atlas) {
+    private static Fin<Seq<DevelopedEdge>> ProjectEdges(CrossTable table, ChartAtlas atlas) {
         Mesh mesh = atlas.Source.DuplicateNative();
-        return toSeq(lattice.Segments).Traverse(row => (
-            from a in CrossUv(row.A, lattice.Rows[row.A], row.FaceA, mesh, atlas.Source.Tolerance, atlas.Islands)
-            from b in CrossUv(row.B, lattice.Rows[row.B], row.FaceA, mesh, atlas.Source.Tolerance, atlas.Islands)
+        return toSeq(table.Segments).Traverse(row => (
+            from a in CrossUv(row.A, table.Rows[row.A], row.FaceA, mesh, atlas.Source.Tolerance, atlas.Islands)
+            from b in CrossUv(row.B, table.Rows[row.B], row.FaceA, mesh, atlas.Source.Tolerance, atlas.Islands)
             from _chart in a.Chart == b.Chart
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, $"tube:cope-edge-chart:{row.A}:{row.B}"))
@@ -1164,8 +1156,8 @@ public static class TubeProgram {
             tolerance).ToValidation()).As().ToFin()
         select loops;
 
-    private static Map<(long X, long Y, long Z), int> Stations(CrossLattice lattice, double quantum) =>
-        toSeq(lattice.Rows)
+    private static Map<(long X, long Y, long Z), int> Stations(CrossTable table, double quantum) =>
+        toSeq(table.Rows)
             .Map((crossing, index) => (Station(crossing.Point.Round(), quantum), index))
             .Fold(Map<(long, long, long), int>(), static (index, row) => index.AddOrUpdate(row.Item1, row.index));
 

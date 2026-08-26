@@ -2,7 +2,7 @@
 
 `solid` owns every B-rep arm that mints a fresh body from parameters and a frame, reading no source artifact: the analytic primitives, the generative sweeps over a placed profile, and the identity-guarded set folds those sweeps reduce through. Arms opening a `SealedStep` operand belong to `brep/boolean` and `brep/feature`; this owner never resolves a source and never seals a result.
 
-Spatial seats lower through `placement#PLACEMENT` and every profile enters as the oriented face run `profile#OFFSET` hands over, so no geometry is re-derived here. Builder admission composes `built` and `admitted` at `placement#ADMISSION` and set algebra composes `nary` over the `BOOLEANS` roster at `brep/boolean#BOOLEAN`, keeping one admission owner and one operator roster for the whole sub-domain. Refusals ride `CadRail` on `BREP_INPUT` here and on `BREP_OUTPUT` through the admission rail's own grading.
+Spatial seats lower through `placement#PLACEMENT` and every profile enters as the oriented face run `profile#OFFSET` hands over, so no geometry is re-derived here. Builder admission composes `built` and `admitted` at `placement#ADMISSION` and set algebra composes `nary` over the `BOOLEANS` roster at `brep/boolean#BOOLEAN`, keeping one admission owner and one operator roster for the whole sub-domain. Refusals ride `CadResult` on `BREP_INPUT` here and on `BREP_OUTPUT` through the admission path's own grading.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@ Spatial seats lower through `placement#PLACEMENT` and every profile enters as th
 - Law: `PRIMITIVE` is the roster the arm fold reads, exactly as `BOOLEANS` at `brep/boolean#BOOLEAN` is the roster its five wire fields read; an arm table restating either roster is the duplicated form, because a new operator then edits two sites.
 - Law: `seated` at `placement#PLACEMENT` supplies the axis-seated placement cylinder, cone, and torus share, so the origin-and-direction read is spelled once for the whole family rather than restated per row.
 - Law: a full sphere carries no observable rotation, so `_UP` seats the frame the wire declines to spell rather than standing in as a default; an angle-bounded sphere makes that seat observable and rides the open research row.
-- Law: `primitive` refuses an unrostered field instead of indexing the roster, so the arm fold routes on membership it never has to prove a second time and no unproved lookup crosses the worker seam.
+- Law: `primitive` refuses an unrostered field instead of indexing the roster, so the arm fold routes on membership it never has to prove a second time and no unproved lookup crosses the worker boundary.
 - Growth: a new primitive is one `PRIMITIVE` row beside one wire case; the arm fold reads the roster and grows no body of its own.
 - Boundary: `built` composes from `placement#ADMISSION`, so this owner mints no second builder-admission helper and no second validity probe beside it.
 
@@ -55,7 +55,7 @@ from protobuf import Message, Oneof
 from rasm.cad.brep.boolean import BOOLEANS, nary
 from rasm.cad.brep.placement import Basis, ShapeBuilder, admitted, axis, built, curve, direction, frame, point, seated
 from rasm.cad.brep.profile import faces, offset, wire
-from rasm.cad.faults import BREP_INPUT, CadRail
+from rasm.cad.faults import BREP_INPUT, CadResult
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -97,7 +97,7 @@ PRIMITIVE: Final[frozendict[str, PrimitiveRow]] = frozendict({
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def primitive(held: Oneof, /) -> CadRail[TopoDS_Shape]:
+def primitive(held: Oneof, /) -> CadResult[TopoDS_Shape]:
     return (
         Option.of_optional(PRIMITIVE.get(held.field))
         .to_result_with(lambda: BREP_INPUT.at(f"primitive.kind:{held.field}"))
@@ -115,7 +115,7 @@ def primitive(held: Oneof, /) -> CadRail[TopoDS_Shape]:
 - Boundary: fuzzy tolerance, parallel custody, and correspondence capture stay at `brep/boolean#BOOLEAN`; this owner elects operands and reads no history.
 
 ```python
-def merged(shapes: Sequence[TopoDS_Shape], /) -> CadRail[TopoDS_Shape]:
+def merged(shapes: Sequence[TopoDS_Shape], /) -> CadResult[TopoDS_Shape]:
     match shapes:
         case ():
             return Error(BREP_INPUT.at("unite.empty"))
@@ -125,7 +125,7 @@ def merged(shapes: Sequence[TopoDS_Shape], /) -> CadRail[TopoDS_Shape]:
             return nary(shapes[:1], shapes[1:], BOOLEANS["fuse"], "unite")
 
 
-def carved(body: TopoDS_Shape, tools: Sequence[TopoDS_Shape], coordinate: str, /) -> CadRail[TopoDS_Shape]:
+def carved(body: TopoDS_Shape, tools: Sequence[TopoDS_Shape], coordinate: str, /) -> CadResult[TopoDS_Shape]:
     return Ok(body) if not tools else nary((body,), tools, BOOLEANS["cut"], coordinate)
 ```
 
@@ -144,13 +144,13 @@ def carved(body: TopoDS_Shape, tools: Sequence[TopoDS_Shape], coordinate: str, /
 ```python
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Extrusion = Callable[[TopoDS_Face], CadRail[TopoDS_Shape]]
+type Extrusion = Callable[[TopoDS_Face], CadResult[TopoDS_Shape]]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def generated(section: PlacedProfile, extrusion: Extrusion, /) -> CadRail[TopoDS_Shape]:
+def generated(section: PlacedProfile, extrusion: Extrusion, /) -> CadResult[TopoDS_Shape]:
     return (
         faces(section)
         .bind(lambda placed: traverse(extrusion, Block.of_seq(placed)))
@@ -158,7 +158,7 @@ def generated(section: PlacedProfile, extrusion: Extrusion, /) -> CadRail[TopoDS
     )
 
 
-def _prism(base: TopoDS_Face, heading: UnitDirection3, distance_m: float, /) -> CadRail[TopoDS_Shape]:
+def _prism(base: TopoDS_Face, heading: UnitDirection3, distance_m: float, /) -> CadResult[TopoDS_Shape]:
     reach = direction(heading)
     return built(
         BRepPrimAPI_MakePrism(base, gp_Vec(reach.X() * distance_m, reach.Y() * distance_m, reach.Z() * distance_m), True, True),
@@ -166,7 +166,7 @@ def _prism(base: TopoDS_Face, heading: UnitDirection3, distance_m: float, /) -> 
     )
 
 
-def _piped(spine: TopoDS_Wire, section: TopoDS_Wire, /) -> CadRail[TopoDS_Shape]:
+def _piped(spine: TopoDS_Wire, section: TopoDS_Wire, /) -> CadResult[TopoDS_Shape]:
     builder = BRepOffsetAPI_MakePipeShell(spine)
     builder.SetMode(False)
     builder.SetTransitionMode(BRepBuilderAPI_Transformed)
@@ -181,7 +181,7 @@ def _piped(spine: TopoDS_Wire, section: TopoDS_Wire, /) -> CadRail[TopoDS_Shape]
     return admitted(builder.Shape(), "sweep.invalid")
 
 
-def _pipe(spine: TopoDS_Wire, base: TopoDS_Face, /) -> CadRail[TopoDS_Shape]:
+def _pipe(spine: TopoDS_Wire, base: TopoDS_Face, /) -> CadResult[TopoDS_Shape]:
     outer = BRepTools.OuterWire_s(base)
     if outer.IsNull():
         return Error(BREP_INPUT.at("sweep.outer"))
@@ -199,7 +199,7 @@ def _pipe(spine: TopoDS_Wire, base: TopoDS_Face, /) -> CadRail[TopoDS_Shape]:
     )
 
 
-def _wall(op: ThickOp, base: TopoDS_Face, /) -> CadRail[TopoDS_Shape]:
+def _wall(op: ThickOp, base: TopoDS_Face, /) -> CadResult[TopoDS_Shape]:
     source = _prism(base, op.direction, op.distance_m)
     shifted = (
         offset(base, op.thickness_m)
@@ -211,21 +211,21 @@ def _wall(op: ThickOp, base: TopoDS_Face, /) -> CadRail[TopoDS_Shape]:
     ).bind(lambda pair: carved(pair[0], (pair[1],), "thick.cut"))
 
 
-def extruded(op: ExtrudeOp, /) -> CadRail[TopoDS_Shape]:
+def extruded(op: ExtrudeOp, /) -> CadResult[TopoDS_Shape]:
     return generated(op.section, lambda base: _prism(base, op.direction, op.distance_m))
 
 
-def revolved(op: RevolveOp, /) -> CadRail[TopoDS_Shape]:
+def revolved(op: RevolveOp, /) -> CadResult[TopoDS_Shape]:
     return generated(
         op.section, lambda base: built(BRepPrimAPI_MakeRevol(base, axis(op.axis), op.angle_rad, True), "revolve")
     )
 
 
-def thickened(op: ThickOp, /) -> CadRail[TopoDS_Shape]:
+def thickened(op: ThickOp, /) -> CadResult[TopoDS_Shape]:
     return generated(op.section, partial(_wall, op))
 
 
-def swept(op: SweepOp, /) -> CadRail[TopoDS_Shape]:
+def swept(op: SweepOp, /) -> CadResult[TopoDS_Shape]:
     return curve(op.spine).bind(lambda spine: generated(op.section, partial(_pipe, spine)))
 ```
 
@@ -237,7 +237,7 @@ def swept(op: SweepOp, /) -> CadRail[TopoDS_Shape]:
 - Law: the wire's hole-correspondence rule proves every section carries index-matching holes, so the hole roster reads off section zero and no arm re-counts per section.
 - Law: outer and hole tracks run one loft body under one pick function, so the per-hole loop body is one value in a run rather than a second block standing beside the first.
 - Law: a loft section carries a region and a frame and never an offset, so the placed-face run at `profile#OFFSET` is not this owner's path into geometry and the loops lower directly.
-- Exemption: `BRepOffsetAPI_ThruSections` accumulates its wires by statement, the platform-forced seam every OCCT `Make*` owner carries.
+- Exemption: `BRepOffsetAPI_ThruSections` accumulates its wires by statement, the platform-forced boundary every OCCT `Make*` owner carries.
 
 ```python
 # --- [ROWS] -----------------------------------------------------------------------------
@@ -252,7 +252,7 @@ def _hole(index: int, region: ProfileRegion, /) -> ProfileLoop:
     return region.holes[index]
 
 
-def _tracked(style: LoftStyle, wires: Block[TopoDS_Wire], /) -> CadRail[TopoDS_Shape]:
+def _tracked(style: LoftStyle, wires: Block[TopoDS_Wire], /) -> CadResult[TopoDS_Shape]:
     builder = BRepOffsetAPI_ThruSections(True, _RULED[style], Precision.Confusion_s())
     for held in wires:
         builder.AddWire(held)
@@ -263,13 +263,13 @@ def _tracked(style: LoftStyle, wires: Block[TopoDS_Wire], /) -> CadRail[TopoDS_S
     return admitted(builder.Shape(), "loft.invalid")
 
 
-def _shell(track: LoftTrack, style: LoftStyle, pick: Callable[[ProfileRegion], ProfileLoop], /) -> CadRail[TopoDS_Shape]:
+def _shell(track: LoftTrack, style: LoftStyle, pick: Callable[[ProfileRegion], ProfileLoop], /) -> CadResult[TopoDS_Shape]:
     return traverse(
         lambda section: wire(pick(section.region), Basis.of(section.frame)), Block.of_seq(track.sections)
     ).bind(lambda wires: _tracked(style, wires))
 
 
-def _track(track: LoftTrack, style: LoftStyle, /) -> CadRail[TopoDS_Shape]:
+def _track(track: LoftTrack, style: LoftStyle, /) -> CadResult[TopoDS_Shape]:
     picks: tuple[Callable[[ProfileRegion], ProfileLoop], ...] = (
         lambda region: region.outer,
         *(partial(_hole, index) for index in range(len(track.sections[0].region.holes))),
@@ -281,7 +281,7 @@ def _track(track: LoftTrack, style: LoftStyle, /) -> CadRail[TopoDS_Shape]:
     )
 
 
-def lofted(op: LoftOp, /) -> CadRail[TopoDS_Shape]:
+def lofted(op: LoftOp, /) -> CadResult[TopoDS_Shape]:
     return traverse(lambda track: _track(track, op.style), Block.of_seq(op.tracks)).bind(
         lambda solids: merged(tuple(solids))
     )

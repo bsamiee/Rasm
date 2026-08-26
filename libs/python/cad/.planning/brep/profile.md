@@ -1,6 +1,6 @@
 # [PY_CAD_PROFILE]
 
-Loop closure and span kind are structural on the wire, so this owner refuses only what the kernel refuses, returning `CadRail` over `BREP_INPUT` and `BREP_KERNEL`. Span construction composes `placement#SPANS` under the planar lift a once-lowered `Basis` supplies, which is what keeps the 2-D knot family and the 3-D segment family on one algebra. `PlacedProfile.offset` projects to `Option` at its single read and never travels inward as a null.
+Loop closure and span kind are structural on the wire, so this owner refuses only what the kernel refuses, returning `CadResult` over `BREP_INPUT` and `BREP_KERNEL`. Span construction composes `placement#SPANS` under the planar lift a once-lowered `Basis` supplies, which is what keeps the 2-D knot family and the 3-D segment family on one algebra. `PlacedProfile.offset` projects to `Option` at its single read and never travels inward as a null.
 
 ## [01]-[INDEX]
 
@@ -39,7 +39,7 @@ from protobuf import Message, Oneof
 # Contracts are retired from this logic.
 
 from rasm.cad.brep.placement import Basis, EdgeKind, Lift, admitted, joined, minted, spanning, wired
-from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadRail
+from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadResult
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ def _knots(loop: PiecewiseLoop, /) -> Block[tuple[Oneof, Point2, Point2]]:
     )
 
 
-_LOOP: Final[frozendict[str, Callable[[Message, Lift[Point2]], CadRail[TopoDS_Wire]]]] = frozendict({
+_LOOP: Final[frozendict[str, Callable[[Message, Lift[Point2]], CadResult[TopoDS_Wire]]]] = frozendict({
     "piecewise": lambda case, lift: sequence(_knots(case).starmap(spanning)).bind(lambda spans: wired(spans, lift)),
     "periodic_spline": lambda case, lift: minted(EdgeKind.RING, tuple(map(lift, case.through))).bind(
         lambda edge: joined((edge,))
@@ -63,7 +63,7 @@ _LOOP: Final[frozendict[str, Callable[[Message, Lift[Point2]], CadRail[TopoDS_Wi
 })
 
 
-def wire(loop: ProfileLoop, basis: Basis, /) -> CadRail[TopoDS_Wire]:
+def wire(loop: ProfileLoop, basis: Basis, /) -> CadResult[TopoDS_Wire]:
     return (
         Option.of_optional(_LOOP.get(loop.curve.field))
         .to_result_with(lambda: BREP_INPUT.at(f"loop.kind:{loop.curve.field}"))
@@ -78,11 +78,11 @@ def wire(loop: ProfileLoop, basis: Basis, /) -> CadRail[TopoDS_Wire]:
 - Law: the wire's required `ProfileRegion.outer` is that proof, and the deleted `profile.wires.empty` refusal loses no reachable state.
 - Law: `ShapeFix_Face.FixOrientation` repairs boundary orientation alone, because a wider repair pass rewrites the geometry the kernel measure attests and the mesh reconciliation then compares two different bodies.
 - Law: the shape-half probe at `placement#ADMISSION` gates the repaired face, so an invalid region refuses here, never reaches a solid builder, and re-rows to `BREP_INPUT` because a bad region is caller material rather than a kernel output defect.
-- Exemption: the face builder accumulates its holes by statement, the platform-forced seam every OCCT `Make*` owner carries.
+- Exemption: the face builder accumulates its holes by statement, the platform-forced boundary every OCCT `Make*` owner carries.
 - Boundary: offsetting a finished face and rebuilding its areas belong to `[04]-[OFFSET]`.
 
 ```python
-def _faced(outer: TopoDS_Wire, holes: Sequence[TopoDS_Wire], /) -> CadRail[TopoDS_Face]:
+def _faced(outer: TopoDS_Wire, holes: Sequence[TopoDS_Wire], /) -> CadResult[TopoDS_Face]:
     builder = BRepBuilderAPI_MakeFace(outer, True)
     if not builder.IsDone():
         return Error(BREP_INPUT.at("profile.outer"))
@@ -96,7 +96,7 @@ def _faced(outer: TopoDS_Wire, holes: Sequence[TopoDS_Wire], /) -> CadRail[TopoD
     return admitted(fixer.Face(), "profile.invalid").map_error(lambda _graded: BREP_INPUT.at("profile.invalid"))
 
 
-def face(region: ProfileRegion, basis: Basis, /) -> CadRail[TopoDS_Face]:
+def face(region: ProfileRegion, basis: Basis, /) -> CadResult[TopoDS_Face]:
     return (
         wire(region.outer, basis)
         .map2(
@@ -129,7 +129,7 @@ def edges(shape: TopoDS_Shape, /) -> TopTools_ListOfShape:
     return result
 
 
-def offset(base: TopoDS_Face, distance_m: float, /) -> CadRail[tuple[TopoDS_Face, ...]]:
+def offset(base: TopoDS_Face, distance_m: float, /) -> CadResult[tuple[TopoDS_Face, ...]]:
     builder = BRepOffsetAPI_MakeOffset(base, GeomAbs_JoinType.GeomAbs_Arc, False)
     builder.SetApprox(False)
     builder.Perform(distance_m, 0.0)
@@ -151,13 +151,13 @@ def offset(base: TopoDS_Face, distance_m: float, /) -> CadRail[tuple[TopoDS_Face
     )
 
 
-def _shifted(placed: Sequence[TopoDS_Face], distance_m: float, /) -> CadRail[tuple[TopoDS_Face, ...]]:
+def _shifted(placed: Sequence[TopoDS_Face], distance_m: float, /) -> CadResult[tuple[TopoDS_Face, ...]]:
     return traverse(lambda base: offset(base, distance_m), Block.of_seq(placed)).map(
         lambda nested: tuple(area for areas in nested for area in areas)
     )
 
 
-def faces(section: PlacedProfile, /) -> CadRail[tuple[TopoDS_Face, ...]]:
+def faces(section: PlacedProfile, /) -> CadResult[tuple[TopoDS_Face, ...]]:
     basis = Basis.of(section.frame)
     held = Option.of_optional(section.offset)
     return traverse(lambda region: face(region, basis), Block.of_seq(section.profile.regions)).bind(

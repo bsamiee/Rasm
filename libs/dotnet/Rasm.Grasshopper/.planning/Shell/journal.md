@@ -45,7 +45,7 @@ public sealed record JournalPolicy(int Capacity) {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct JournalRow(long Sequence, Option<Guid> Document, UiEvent<GhFact> Fact) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Sequence >= 0L,
@@ -60,7 +60,7 @@ public sealed partial record JournalExport(
     public Seq<HookSignal> Signals => Rows.Map(static row => (HookSignal)new HookSignal.EventCase(Fact: row.Fact));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Partitions, long Next, long Appended, long Shed) {
     public static readonly JournalLedger Empty = new(Partitions: HashMap<Guid, Seq<JournalRow>>(), Next: 0L, Appended: 0L, Shed: 0L);
 
@@ -98,7 +98,7 @@ public sealed class SessionJournal : IDisposable {
     private Task consuming = Task.CompletedTask;
 
     public JournalLedger Tallies => ledger.Value;
-    public Seq<IsolatedFault> Faults => faults.Parked.Filter(static fault => fault.Point == Rail);
+    public Seq<IsolatedFault> Faults => faults.Parked.Filter(static fault => fault.Point == Hook);
 
     public static Fin<SessionJournal> Of(
         MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default, Op? key = null);
@@ -153,7 +153,7 @@ public sealed class SessionJournal : IDisposable {
 
     private Unit Park(Error cause) {
         JournalLog.ConsumerFaulted(GhLog.For(category: nameof(SessionJournal)), cause.Message);
-        return ignore(faults.Park(point: Rail, cause: cause));
+        return ignore(faults.Park(point: Hook, cause: cause));
     }
 
     private Fin<Unit> Shed(EvidenceDrain<GhFact> drain) =>
@@ -162,7 +162,7 @@ public sealed class SessionJournal : IDisposable {
             _ => Fin.Succ(unit),
         };
 
-    private static readonly HookId Rail = HookId.Create(value: "rasm.grasshopper.shell.journal");
+    private static readonly HookId Hook = HookId.Create(value: "rasm.grasshopper.shell.journal");
 
     private static Option<Guid> DocumentOf(UiEvent<GhFact> fact) => fact.Fact switch {
         GhFact.DocumentCase document => document.DocumentId,
@@ -173,7 +173,7 @@ public sealed class SessionJournal : IDisposable {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                | [RAIL]                                          | [CASES] |
+| [INDEX] | [CONCERN]         | [OWNER]                | [RESULT]                                        | [CASES] |
 | :-----: | :---------------- | :--------------------- | :---------------------------------------------- | :-----: |
 |  [01]   | fact admission    | `JournalRow`           | one envelope family → sequenced row evidence    |    1    |
 |  [02]   | bounded fold      | `JournalLedger`        | one `Cell.Commit` — row, ordinal, tallies whole |    1    |

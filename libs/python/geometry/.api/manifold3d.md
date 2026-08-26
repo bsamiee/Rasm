@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_MANIFOLD3D]
 
-`manifold3d` owns the geometry branch's guaranteed-manifold CSG rail: watertight 3D boolean solids, 2D polygon boolean and offset over Clipper2, SDF level sets, convex hull and Minkowski morphology, and ray casting. Geometry owners compose its lazy transform chains, `batch_boolean` n-ary CSG, and the `level_set` SDF constructor into the spatial-operation union rather than re-implementing Clipper2 offsetting, the manifold boolean kernel, or convex hull. In-memory `Mesh`/`Mesh64` arrays wire straight to the data mesh codec, so this nanobind extension never opens a file.
+`manifold3d` owns the geometry branch's guaranteed-manifold CSG domain: watertight 3D boolean solids, 2D polygon boolean and offset over Clipper2, SDF level sets, convex hull and Minkowski morphology, and ray casting. Geometry owners compose its lazy transform chains, `batch_boolean` n-ary CSG, and the `level_set` SDF constructor into the spatial-operation union rather than re-implementing Clipper2 offsetting, the manifold boolean kernel, or convex hull. In-memory `Mesh`/`Mesh64` arrays wire straight to the data mesh codec, so this nanobind extension never opens a file.
 
 ## [01]-[PUBLIC_TYPES]
 

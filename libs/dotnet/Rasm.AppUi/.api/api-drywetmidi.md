@@ -1,10 +1,10 @@
 # [RASM_APPUI_API_DRYWETMIDI]
 
-`Melanchall.DryWetMidi` owns the AppUi MIDI surface: the Standard MIDI File and chunk object model, the channel and meta event family, the `TempoMap`-anchored timed note/chord interaction layer, the grid transform tools, and the device/recording/playback rails a native multimedia clock drives. Managed `Core`/`Interaction`/`Tools` bind on every host; the `Multimedia` device rails bind only where the native clock is present, so the headless-Linux path stays managed-only. `Midi` folds onto the single `InputFabric` edge every device rail shares.
+`Melanchall.DryWetMidi` owns the AppUi MIDI surface: the Standard MIDI File and chunk object model, the channel and meta event family, the `TempoMap`-anchored timed note/chord interaction layer, the grid transform tools, and the device/recording/playback paths a native multimedia clock drives. Managed `Core`/`Interaction`/`Tools` bind on every host; the `Multimedia` device paths bind only where the native clock is present, so the headless-Linux path stays managed-only. `Midi` folds onto the single `InputFabric` edge every device path shares.
 
 ## [01]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: multimedia devices, clock, and rails
+[PUBLIC_TYPE_SCOPE]: multimedia devices, clock, and paths
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [CAPABILITY]               |
 | :-----: | :--------------------------------------------- | :--------------- | :------------------------- |
@@ -13,8 +13,8 @@
 |  [03]   | `IInputDevice` / `IOutputDevice`               | device contracts | device abstraction         |
 |  [04]   | `DevicesConnector`                             | device link      | input-to-output bridge     |
 |  [05]   | `DevicesWatcher`                               | device monitor   | hot-plug add/remove signal |
-|  [06]   | `Recording`                                    | capture rail     | timed event capture        |
-|  [07]   | `Playback`                                     | playback rail    | timed event scheduling     |
+|  [06]   | `Recording`                                    | capture path     | timed event capture        |
+|  [07]   | `Playback`                                     | playback path    | timed event scheduling     |
 |  [08]   | `PlaybackSettings`                             | playback policy  | clock/snap/state config    |
 |  [09]   | `MidiClock` / `MidiClockSettings`              | timer            | high-precision tick source |
 |  [10]   | `PlaybackCurrentTimeWatcher`                   | time observer    | polled current-time signal |

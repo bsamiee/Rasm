@@ -23,7 +23,7 @@
 |  [09]   | `remote.CommandArgs.connection`               | transport     | `Input<ConnectionArgs>` (required)                                       |
 |  [10]   | `Command.stdout` / `.stderr`                  | output        | `Output<string>` always present; threads via `.apply`/`pulumi.all`       |
 
-[CONNECTION_SCOPE]: `types.input.remote.ConnectionArgs` — the VPS/metal SSH seam
+[CONNECTION_SCOPE]: `types.input.remote.ConnectionArgs` — the VPS/metal SSH boundary
 
 `host` is the only required field; `proxy` nests a full `ProxyConnectionArgs` for a bastion/jump-host hop. Every credential field is `Input<string>`, so it binds a `tls`/`doppler`/`random` `Output`, never a literal.
 

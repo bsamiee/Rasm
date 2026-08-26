@@ -2,7 +2,7 @@
 
 `ssh2` owns the in-process SSHv2 client: connection lifecycle and auth, `exec`/`shell` channels as Node `Duplex` values, the SFTP subsystem — parallel `fastGet`/`fastPut`, backpressured streams, byte-offset resume primitives — port forwarding, and `sock`-chained jump hosts.
 
-Its callback + EventEmitter surface adapts wholly at the seam, so no member reaches domain code; every maintained SSH wrapper is a Promise skin over this root, admitted as the data remote-transfer root while the skins are mined for design.
+Its callback + EventEmitter surface adapts wholly at the boundary, so no member reaches domain code; every maintained SSH wrapper is a Promise skin over this root, admitted as the data remote-transfer root while the skins are mined for design.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -17,7 +17,7 @@ Its callback + EventEmitter surface adapts wholly at the seam, so no member reac
 |  [05]   | connect auth config                              | connect config  | key, agent, keyboard-interactive, custom handler                  |
 |  [06]   | config trust + tuning                            | connect config  | known-hosts verification, cipher policy, liveness budget          |
 |  [07]   | config `sock`                                    | duplex inject   | bastion chaining — a `forwardOut` duplex feeds the next `connect` |
-|  [08]   | exec/shell channel (Node `Duplex`; `exit` event) | channel         | stdout/stderr/stdin streams; exit code → the result rail          |
+|  [08]   | exec/shell channel (Node `Duplex`; `exit` event) | channel         | stdout/stderr/stdin streams; exit code → the typed result         |
 
 [CLIENT_MEMBERS]: `connect` `exec` `shell` `sftp` `subsys` `rekey` `setNoDelay` `end`
 [CONNECT_AUTH]: `host` `port` `username` `password` `privateKey`+`passphrase` `agent`+`agentForward` `tryKeyboard` `authHandler`
@@ -66,12 +66,12 @@ No native SFTP resume or watch exists; both are capability-dispatched policy row
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Callback and event surface adapts only at the boundary seam: `Effect.acquireRelease` brackets the connection (`ready` resolves, `end()` releases), `NodeStream`/`NodeSink` lift channels and SFTP streams, `Effect.async`/`Stream.asyncPush` carry discrete events, and the channel `exit` code folds into the typed result rail — language-owned callback control lives only here.
+- Callback and event surface adapts only at the boundary: `Effect.acquireRelease` brackets the connection (`ready` resolves, `end()` releases), `NodeStream`/`NodeSink` lift channels and SFTP streams, `Effect.async`/`Stream.asyncPush` carry discrete events, and the channel `exit` code folds into the typed result — language-owned callback control lives only here.
 - Two transfer engines share one policy surface: in-process SFTP against external `rsync`/`scp`/`ssh` as `@effect/platform` `Command` processes, and selection is a policy row — rsync-over-ssh when both ends carry rsync, SFTP offset resume otherwise, chunked-parallel for raw throughput.
 - `sock` is the sole transport door: ssh2 owns its own wire, so `Socket` never wraps it and a pre-connected duplex enters only through `sock` — exactly how jump-host chains and custom tunnels compose.
 
 [STACKING]:
-- `@effect/platform-node` (`.api/effect-platform-node.md`): `NodeStream.fromReadable`/`fromDuplex` and `NodeSink.fromWritable` are the only channel and stream seams; no raw `.on("data")` survives past the adapter.
+- `@effect/platform-node` (`.api/effect-platform-node.md`): `NodeStream.fromReadable`/`fromDuplex` and `NodeSink.fromWritable` are the only channel and stream boundaries; no raw `.on("data")` survives past the adapter.
 - `@effect/platform` (`.api/effect-platform.md`): `Command` is the sibling engine — rsync-over-ssh and every host-tool invocation ride `CommandExecutor`, never a hand-spawned subprocess.
 - `effect` (`.api/effect.md`): `acquireRelease`/`Scope` bracket the pooled connection, `Stream.asyncPush` lifts events, `Schedule` drives poll cadence, and typed fault rows carry auth/trust/channel failures.
 - `webdav` / `basic-ftp` (`.api/webdav.md`, `.api/basic-ftp.md`): sibling remote-origin rows on the `object/file` plane — one origin-addressed surface dispatches on scheme + capability flags, and a missing server-side capability degrades by row, never by fork.

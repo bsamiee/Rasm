@@ -22,7 +22,7 @@ Two MCP tools and a REST surface: `resolve-library-id` ranks indexed sources, `q
 
 ## [01]-[SYMBOL_TRUTH]
 
-Any member of an external package about to be written, reviewed, or debugged, cross-library seam names both sides in one query.
+Any member of an external package about to be written, reviewed, or debugged, cross-library boundary names both sides in one query.
 
 Step 1. Resolve the library — skip when the ID is already known; libraryName AND query both required
 ```text

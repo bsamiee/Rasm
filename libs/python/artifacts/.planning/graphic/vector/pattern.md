@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[PATTERN]: `PatternSpec`, payload-bearing `Motif`, `PatternOp`, and `PatternResult` form one repeating-fill rail over the `_strokes` and `_dashed` generators.
+- [02]-[PATTERN]: `PatternSpec`, payload-bearing `Motif`, `PatternOp`, and `PatternResult` form one repeating-fill path over the `_strokes` and `_dashed` generators.
 
 ## [02]-[PATTERN]
 

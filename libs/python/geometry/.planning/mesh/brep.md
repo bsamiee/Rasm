@@ -2,7 +2,7 @@
 
 Geometry's B-rep surface is a generated `ExecuteRequest` crossing, not a Python operation mirror. `apply` hands the typed construct, Boolean, profile, or feature arm to `mesh/cad#BRIDGE`'s one client entry under its `EXECUTE` route and projects the returned `ExecuteResponse` — the generated sealed STEP and `BrepMeasure` — whole. Geometry stamps the provider's measures on its span without inventing mesh-quality measures; it never unseals a native handle or re-measures the kernel's census.
 
-`mesh/cad#BRIDGE` settles the client seam, its refusal capture, and its budget reading: each route carries the rpc, its reply class, and the row its refusals publish under, so this page holds no dial, no `except` arm, and no fault row of its own. What survives here is the one thing that seam cannot own — how a returned kernel measure reaches geometry's span.
+`mesh/cad#BRIDGE` settles the client boundary, its refusal capture, and its budget reading: each route carries the rpc, its reply class, and the row its refusals publish under, so this page holds no dial, no `except` arm, and no fault row of its own. What survives here is the one thing that boundary cannot own — how a returned kernel measure reaches geometry's span.
 
 ## [01]-[INDEX]
 
@@ -26,7 +26,7 @@ from msgspec import Struct
 
 from rasm.geometry.graduation import EvidenceScope, GeometrySubject, evidence_run
 from rasm.geometry.mesh.cad import EXECUTE, CadClient
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ async def apply(
     *,
     budget: Option[float],
     composition: ScopeKey = DEFAULT_SCOPE,
-) -> RuntimeRail[BrepResult]:
+) -> RuntimeResult[BrepResult]:
     return (
         await evidence_run(
             EvidenceScope.MESH_BREP,

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_ALTAIR]
 
-`altair` mints the declarative Vega-Lite chart-specification surface for the artifacts visuals rail: one `Chart` builder folds the `mark_*`/`encode`/`transform_*`/`configure_*` method families, the `param`/`when`/`condition`/`binding_*` interaction algebra, and the `layer`/`hconcat`/`vconcat`/`concat`/`facet`/`repeat` operators into Vega-Lite JSON over any narwhals frame. altair constructs and emits the spec alone — `transformed_data` pre-executes transforms locally and the plugin registries own every backend; rasterization, pre-aggregation, and self-render defer to the sibling render band.
+`altair` mints the declarative Vega-Lite chart-specification surface for the artifacts visuals domain: one `Chart` builder folds the `mark_*`/`encode`/`transform_*`/`configure_*` method families, the `param`/`when`/`condition`/`binding_*` interaction algebra, and the `layer`/`hconcat`/`vconcat`/`concat`/`facet`/`repeat` operators into Vega-Lite JSON over any narwhals frame. altair constructs and emits the spec alone — `transformed_data` pre-executes transforms locally and the plugin registries own every backend; rasterization, pre-aggregation, and self-render defer to the sibling render band.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -133,7 +133,7 @@ Encoding constructors (`X`/`Y`/`Color`/…) and guides (`Scale`/`Axis`/`Legend`)
 - `vl-convert-python`(`.api/vl-convert-python.md`): the registered `vl-convert` `vegalite_compilers` entry lowers a `to_dict` spec to static SVG/PNG/JPEG/PDF/HTML bytes; it feeds no external dataset, so a `vegafusion` reduction inlines inside the spec (`inline_datasets=` does not exist on the compiler).
 - `vegafusion`(`.api/vegafusion.md`): the registered `data_transformers.enable('vegafusion')` server-side pre-aggregation engine for large datasets; `transformed_data` is the in-process narwhals counterpart.
 - `structlog`(`.api/structlog.md`) + `opentelemetry`(`.api/opentelemetry-api.md`): each chart render binds mark kind, encoded channels, transform count, renderer, format, and byte length to one event and span.
-- `expression`(`.api/expression.md`): a `SchemaValidationError` from `to_dict`/`to_json` validation folds onto the `Result` rail rather than raising into the producer.
+- `expression`(`.api/expression.md`): a `SchemaValidationError` from `to_dict`/`to_json` validation folds onto the `Result` rather than raising into the producer.
 - `anyio`(`.api/anyio.md`): every native render offloads under one `CapacityLimiter` — `vl-convert`/`lets-plot` ride `to_thread`, the `vegafusion` pre-pass and matplotlib ride `to_process`, so no native render blocks the event loop.
 - within-lib: the visuals owner composes the `Chart` builder, its method families, the interaction surface, `transformed_data`, and the emit family into one spec that drives every backend, never a per-backend chart definition.
 

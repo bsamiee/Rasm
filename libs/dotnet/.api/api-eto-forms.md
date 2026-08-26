@@ -1,6 +1,6 @@
 # [RASM_API_ETO_FORMS]
 
-`Eto.Forms` is the host-neutral widget, layout, window, and command construction spine both Rhino host boundaries cross: one host-loaded `Eto.dll` resolves every control through the ambient platform handler, four orthogonal layout owners place them, the window and dialog hierarchy presents them, and one `Command` drives every chrome projection of an action. One construction row produces a native control on each host, and host divergence lives in the handler, never in the row. This branch catalogue owns the spine; each host-boundary folder registers it and tables only the widgets and seams its own boundary adds.
+`Eto.Forms` is the host-neutral widget, layout, window, and command construction spine both Rhino host boundaries cross: one host-loaded `Eto.dll` resolves every control through the ambient platform handler, four orthogonal layout owners place them, the window and dialog hierarchy presents them, and one `Command` drives every chrome projection of an action. One construction row produces a native control on each host, and host divergence lives in the handler, never in the row. This branch catalogue owns the spine; each host-boundary folder registers it and tables only the widgets and adapters its own boundary adds.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -97,7 +97,7 @@
 |  [08]   | `Drawable`          | container     | owner-drawn surface issuing `Graphics` (`.api/api-eto-drawing.md`) |
 |  [09]   | `WebView`           | container     | embedded browser: navigation, script execution, title              |
 |  [10]   | `PropertyGrid`      | container     | reflected property editor over a bound object graph                |
-|  [11]   | `NativeControlHost` | container     | host-native view embedding seam (`.api/api-eto-platform.md`)       |
+|  [11]   | `NativeControlHost` | container     | host-native view embedding boundary (`.api/api-eto-platform.md`)   |
 |  [12]   | `DocumentControl`   | container     | closable, reorderable document-tab host                            |
 |  [13]   | `DocumentPage`      | container     | one closable document tab over a content control                   |
 
@@ -214,7 +214,7 @@
 |  [02]   | `ThemedPropertyGrid`     | control       | themed reflected property editor over one or many bound objects |
 |  [03]   | `ThemedCollectionEditor` | control       | themed add and remove editor over a homogeneous collection      |
 
-[THEMED_STATE]: `ThemedMessageBox.AddButton`; result, text, alignment, image · `ThemedPropertyGrid` selection, categories, description, refresh, change · `ThemedCollectionEditor.DataStore`/`ElementType`/`ExtraContent` — the `Themed*Handler` backends register at the platform-handler seam, never as construction rows
+[THEMED_STATE]: `ThemedMessageBox.AddButton`; result, text, alignment, image · `ThemedPropertyGrid` selection, categories, description, refresh, change · `ThemedCollectionEditor.DataStore`/`ElementType`/`ExtraContent` — the `Themed*Handler` backends register at the platform-handler registry, never as construction rows
 
 ## [02]-[ENTRYPOINTS]
 
@@ -313,7 +313,7 @@
 
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed control-kind, cell-kind, layout-strategy, and dialog-outcome vocabularies a generator-shaped UI layer folds to rows, and a `[Union]` owns the discriminated screen-element tree, so the generated `Switch`/`Map` drives construction dispatch instead of a hand-written control-type ladder; a bounded field value is a `[ValueObject<T>]` the control `*Binding` reads and writes.
-- `LanguageExt.Core`(`.api/api-languageext.md`): `Fin<A>` rails `ShowModal`/`ShowModalAsync` outcomes and chooser results, cancellation a `Fail` rather than a null sentinel; `Option<A>` carries the nullable `bool?` scale flags and every selection read; `Eff<A>` wraps `DoDragDrop` and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over; independent field reads lift to `Validation`, fan in through the tuple apply, and exit `.ToFin()` before a panel commits its edit.
+- `LanguageExt.Core`(`.api/api-languageext.md`): `Fin<A>` carries `ShowModal`/`ShowModalAsync` outcomes and chooser results, cancellation a `Fail` rather than a null sentinel; `Option<A>` carries the nullable `bool?` scale flags and every selection read; `Eff<A>` wraps `DoDragDrop` and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over; independent field reads lift to `Validation`, fan in through the tuple apply, and exit `.ToFin()` before a panel commits its edit.
 - `api-eto-drawing`(`.api/api-eto-drawing.md`): `Drawable.Paint` and `DrawableCell` hand `PaintEventArgs.Graphics` to the paint surface for owner-drawn content.
 - `api-eto-runtime`(`.api/api-eto-runtime.md`): dialog presentation, control invalidation, and every cross-thread mutation marshal through `Application.Instance`.
 - `Wacton.Unicolour`(`.api/api-unicolour.md`): the canonical colour value behind `ColorPicker` and `ColorDialog`; the paint-edge `Color` maps to and from `Unicolour`, keeping theme ramps and perceptual selection in the perceptual model.
@@ -321,4 +321,4 @@
 [LOCAL_ADMISSION]:
 - A hosted surface is an `Eto.Forms` composition: a `Panel`/`Scrollable` root holds one layout owner, and the layout holds the field, data-view, and container roster; a new control capability lands as a subclass or a composition of the admitted roster, never a wrapper renaming a host member or a re-implemented native widget.
 - A screen is built once from element rows against these construction, layout, and presentation surfaces; `Eto.Forms.*` types stay behind the owning boundary and downstream code composes screen definitions rather than raw widget calls.
-- Boundary faults lower onto the LanguageExt rail.
+- Boundary faults lower onto the LanguageExt carrier.

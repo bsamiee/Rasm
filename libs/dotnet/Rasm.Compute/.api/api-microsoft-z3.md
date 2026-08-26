@@ -76,4 +76,4 @@
 - `Runtime/scheduling`: each rule-verify job is a `JobGraph` node keyed by the rule-set and input content key, one `Context` per job disposed at completion.
 
 [LOCAL_ADMISSION]:
-- `Solver/satisfy` owns rule satisfaction: a verdict enriches an existing discipline's `AssessmentResult` on that discipline's route, or persists as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches under a seam `Discipline.Compliance` row.
+- `Solver/satisfy` owns rule satisfaction: a verdict enriches an existing discipline's `AssessmentResult` on that discipline's route, or persists as its own content-keyed `Node.Assessment` the `Analysis/assessment` Sweep dispatches under a contract `Discipline.Compliance` row.

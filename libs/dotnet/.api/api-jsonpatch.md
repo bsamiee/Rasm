@@ -64,7 +64,7 @@
 |  [07]   | `Operation.Apply(object, IObjectAdapter)`                       | instance | dispatches one op on `OperationType`         |
 |  [08]   | `Operation<TModel>.Apply(TModel, IObjectAdapter)`               | instance | typed single-op dispatch                     |
 
-- `ApplyTo(object, IObjectAdapter)`: `IObjectAdapter` is the one public extension seam; every built-in list, dictionary, `JsonObject`, and POCO adapter is assembly-internal, reached through the adapter-free overloads.
+- `ApplyTo(object, IObjectAdapter)`: `IObjectAdapter` is the one public extension point; every built-in list, dictionary, `JsonObject`, and POCO adapter is assembly-internal, reached through the adapter-free overloads.
 - `Operation.Apply`: throws `NotSupportedException` on a `Test` op against a bare `IObjectAdapter`, and matches no dispatch arm on an `Invalid` verb, so an unrecognized `op` applies silently.
 - `IJsonPatchDocument.GetOperations`: explicit interface implementation on both documents, reachable only through an `IJsonPatchDocument` reference.
 
@@ -107,5 +107,5 @@
 
 [LOCAL_ADMISSION]:
 - Intake deserializes `application/json-patch+json` into the untyped `JsonPatchDocument`; `JsonPatchDocument<TModel>` is the authoring shape, its `Expression` paths breaking the build on a renamed member.
-- Every apply passes a `logErrorAction` collector, so a failed operation lands on the typed failure rail with prior state intact.
+- Every apply passes a `logErrorAction` collector, so a failed operation lands on the typed failure result with prior state intact.
 - Non-POCO targets inject a consumer `IObjectAdapterWithTest` through the adapter overloads.

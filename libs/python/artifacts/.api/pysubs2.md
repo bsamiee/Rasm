@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYSUBS2]
 
-`pysubs2` owns the subtitle/caption DOCUMENT model for the artifacts MEDIA rail: parse and dialect-autodetect a timed-text track, edit it as an `SSAEvent`/`SSAStyle` record model, retime by constant shift or framerate rescale, and re-serialize to any registered dialect. It owns the document layer alone — the codec, mux, and container wire belong to `av`. One `SSAFile` (`MutableSequence[SSAEvent]`) is the spine feeding the `media/subtitle` owner, and only serialized subtitle bytes and projected `plaintext` frame text cross the boundary.
+`pysubs2` owns the subtitle/caption DOCUMENT model for the artifacts MEDIA domain: parse and dialect-autodetect a timed-text track, edit it as an `SSAEvent`/`SSAStyle` record model, retime by constant shift or framerate rescale, and re-serialize to any registered dialect. It owns the document layer alone — the codec, mux, and container wire belong to `av`. One `SSAFile` (`MutableSequence[SSAEvent]`) is the spine feeding the `media/subtitle` owner, and only serialized subtitle bytes and projected `plaintext` frame text cross the boundary.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -16,7 +16,7 @@
 |  [04]   | `Color`     | value         | range-validated 8-bit RGBA a style carries                                            |
 |  [05]   | `Alignment` | enum          | numpad 1–9 ASS anchor; `from_ssa_alignment`/`to_ssa_alignment` bridge SSA numbering   |
 
-[PUBLIC_TYPE_SCOPE]: the typed error rail
+[PUBLIC_TYPE_SCOPE]: the typed error result
 
 `Pysubs2Error` roots the hierarchy as the owner's subtitle-boundary `except` anchor; each subclass carries a `__reduce__` for clean cross-process propagation off the worker band, and the `Path.open` ingest/egress raises `OSError`/`UnicodeDecodeError`/`UnicodeEncodeError` beside them.
 
@@ -115,15 +115,15 @@ Events index and slice as a list; a slice is type-checked and a non-`SSAEvent` r
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every subtitle production folds through one `expression.tagged_union` `SubtitleOp` dispatched by a total `match`/`case` closed by `assert_never`, returning `RuntimeRail[ContentKey]` keyed over the produced bytes — one polymorphic owner, never a `convert_srt`/`retime`/`burn` function family.
+- Every subtitle production folds through one `expression.tagged_union` `SubtitleOp` dispatched by a total `match`/`case` closed by `assert_never`, returning `RuntimeResult[ContentKey]` keyed over the produced bytes — one polymorphic owner, never a `convert_srt`/`retime`/`burn` function family.
 - `formats.FORMAT_IDENTIFIERS` folds into one `SubtitleDialect` `StrEnum` carried in the op payload, never a free `format_` string re-validated at each arm.
 
 [STACKING]:
-- `av`(`.api/av.md`): the `Mux` arm mints a timed-text stream via `add_stream("ass"|"srt")`/`add_stream_from_template` and muxes the serialized bytes through `OutputContainer.mux`/`mux_one` beside the video/audio streams; the `BurnIn` arm composites rendered RGBA onto the rgb24 frame via `VideoFrame.from_bytes(data, w, h, format="rgba")`; the seam is the serialized byte stream and the `av` handle never crosses back.
+- `av`(`.api/av.md`): the `Mux` arm mints a timed-text stream via `add_stream("ass"|"srt")`/`add_stream_from_template` and muxes the serialized bytes through `OutputContainer.mux`/`mux_one` beside the video/audio streams; the `BurnIn` arm composites rendered RGBA onto the rgb24 frame via `VideoFrame.from_bytes(data, w, h, format="rgba")`; the boundary is the serialized byte stream and the `av` handle never crosses back.
 - `numpy`(`.api/numpy.md`): the RGBA burn buffer and the rgb24 frame the composite reads and writes as an `ndarray`.
-- `expression`(`.api/expression.md`): `tagged_union` owns the `SubtitleOp` discriminant and `Result` the typed-error rail the `RuntimeRail` message envelope builds on.
+- `expression`(`.api/expression.md`): `tagged_union` owns the `SubtitleOp` discriminant and `Result` the typed-error channel the `RuntimeResult` message envelope builds on.
 - `msgspec`(`.api/msgspec.md`): the frozen `Struct` op and evidence owners.
-- within-library convert/retime/restyle: `SSAFile.from_string(text, format_=src).to_string(format_=dst)` is the whole convert axis — one parse, one serialize, no per-pair converter; `Retime` folds `shift`/`transform_framerate`, `Restyle` folds `rename_style`/`import_styles`, `Whisper` folds `load_from_whisper` over an ASR segment set; a `Pysubs2Error`/`OSError`/`UnicodeError` surfaces through the `media.subtitle` `async_boundary` as a typed `RuntimeRail` fault.
+- within-library convert/retime/restyle: `SSAFile.from_string(text, format_=src).to_string(format_=dst)` is the whole convert axis — one parse, one serialize, no per-pair converter; `Retime` folds `shift`/`transform_framerate`, `Restyle` folds `rename_style`/`import_styles`, `Whisper` folds `load_from_whisper` over an ASR segment set; a `Pysubs2Error`/`OSError`/`UnicodeError` surfaces through the `media.subtitle` `async_boundary` as a typed `RuntimeResult` fault.
 - within-library burn-in: `BurnIn` hands `SSAEvent.plaintext` (or `substation.parse_tags` styled runs for override-faithful text) to the `typography/shape#SHAPE` + `graphic/raster/process#PROCESS` render, selected by `media/filtergraph#FILTER` when the linked FFmpeg lacks the `subtitles`/`ass` filter; an event burns onto frame `index` when `event.start <= make_time(frames=index, fps=rate) < event.end`.
 
 [LOCAL_ADMISSION]:

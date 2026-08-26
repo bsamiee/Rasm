@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_MSGSPEC]
 
-`msgspec` owns wire serialization and decode-time validation on `Struct`, a C-extension record whose field schema resolves at class creation. It binds zero-copy JSON and MessagePack codecs, `Annotated[T, Meta(...)]` field constraints validated during decode, runtime struct construction via `defstruct`, `msgspec.inspect` type-node introspection, and JSON Schema emission from Python types. It is the serialization rail's sole wire-model owner — every cross-boundary payload mints as a `Struct`.
+`msgspec` owns wire serialization and decode-time validation on `Struct`, a C-extension record whose field schema resolves at class creation. It binds zero-copy JSON and MessagePack codecs, `Annotated[T, Meta(...)]` field constraints validated during decode, runtime struct construction via `defstruct`, `msgspec.inspect` type-node introspection, and JSON Schema emission from Python types. It is the serialization domain's sole wire-model owner — every cross-boundary payload mints as a `Struct`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -147,7 +147,7 @@ Constructor signatures the table abbreviates as `...`; the numeric and non-numer
 - `pydantic`(`.api/pydantic.md`): a `Struct` tagged union is the wire discriminant, `to_builtins` projects it to builtins feeding `TypeAdapter.validate_python`, and `Decoder(dec_hook=...)` resolves the shared custom scalars — one discriminant vocabulary spans both validators, no parallel DTO.
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): `to_builtins(struct, str_keys=True)` yields the `str | bool | int | float | Sequence[...]` builtins `Span.set_attributes` accepts directly, so a decoded wire struct flows into a trace attribute map with no hand-rolled flattener.
 - `numpy`(`.api/numpy.md`): a `Raw`-typed field defers a numeric block so `numpy.asarray` reconstructs only when the consumer needs the buffer, never eagerly decoding a large numeric sub-tree.
-- transport/wire: `OpLogEntry.payload` is decoded `bytes`, so the generic envelope retains the opaque bin value without the MessagePack tag and length that `Raw` includes. `OpLogCodec` owns that envelope; `CrdtOpCodec` opens only a `crdt` payload through generated protobuf. `ext_hook` remains the growth seam for an `Ext`-typed producer slot; no producer publishes one today.
+- transport/wire: `OpLogEntry.payload` is decoded `bytes`, so the generic envelope retains the opaque bin value without the MessagePack tag and length that `Raw` includes. `OpLogCodec` owns that envelope; `CrdtOpCodec` opens only a `crdt` payload through generated protobuf. `ext_hook` remains the growth boundary for an `Ext`-typed producer slot; no producer publishes one today.
 
 [LOCAL_ADMISSION]:
 - Wire models are `Struct` subclasses; field constraints ride `Annotated[T, Meta(...)]`, and `gc=False` marks leaf structs holding only non-container fields.

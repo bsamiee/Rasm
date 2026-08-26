@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_CAVALIERCONTOURS]
 
-`CavalierContours` owns arc-native (bulge) 2D polyline algebra — offset, closed-polyline Boolean, containment, measure, and spatial indexing. Each circular arc rides as one `PlineVertex<T>` pair carrying `Bulge = tan(theta/4)`, so the offset and Boolean engine runs in exact arc-space where the line-only `Clipper2` (`api-clipper2`) cannot. It produces the kerf, lead-arc, and morphed-spiral adaptive-clearing paths in arc-space, retiring the post-hoc `Clipper2`-offset-then-`g3.BiArcFit2`-refit on the `Toolpath` and `Posting` arc rails.
+`CavalierContours` owns arc-native (bulge) 2D polyline algebra — offset, closed-polyline Boolean, containment, measure, and spatial indexing. Each circular arc rides as one `PlineVertex<T>` pair carrying `Bulge = tan(theta/4)`, so the offset and Boolean engine runs in exact arc-space where the line-only `Clipper2` (`api-clipper2`) cannot. It produces the kerf, lead-arc, and morphed-spiral adaptive-clearing paths in arc-space, retiring the post-hoc `Clipper2`-offset-then-`g3.BiArcFit2`-refit on the `Toolpath` and `Posting` arc pipelines.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -227,7 +227,7 @@
 
 [TOPOLOGY]:
 - each vertex is `(X, Y, Bulge)` where `Bulge = tan(theta/4)` of the arc to the next vertex: `0` straight, `> 0` sweeps CCW, `< 0` sweeps CW, `|Bulge| == 1` a semicircle. One constant-radius arc is one vertex pair — the whole reason to choose this owner over `Clipper2` for an arc-walled profile.
-- instantiate `Polyline<double>` and `Vector2<double>`; the engine assumes no float width internally, so a `Half`/`float` `T` is type-legal but `double` is the fabrication rail.
+- instantiate `Polyline<double>` and `Vector2<double>`; the engine assumes no float width internally, so a `Half`/`float` `T` is type-legal but `double` is the fabrication standard.
 - closed CCW polylines carry positive `Area()` and `CounterClockwise` `Orientation()`; the offset sign follows, so a positive offset of a CCW closed loop inflates outward. `Orientation()` returns `Open` for an open polyline.
 - `WindingNumber`, `ClosestPoint`, `Area`, and `PathLength` integrate over the true arc; only `ArcsToApproxLines(errorDistance)` chord-approximates, the explicit bridge when a line-only consumer cannot accept bulge.
 
@@ -247,4 +247,4 @@
 - `geometry3Sharp`(`libs/dotnet/.api/api-geometry3sharp.md`): `g3.BiArcFit2` refits a genuinely line-sourced path to biarcs; a bulge-carried offset skips it, so `g3.BiArcFit2` owns only that residual case.
 - `Posting/program`: `PlineVertex<T>.Bulge` maps to a `G2`/`G3` arc move — center and radius derive from the vertex pair, and `Move.ArcCenter` reads straight from the segment with no refit.
 - `Nesting/nfp`: `PlineBoolean` `Not` mints the kerf-inflated `Remnant` in arc-space; the remnant's bulge threads into the next pass's `StaticAABB2DIndex` placement scan.
-- kernel: `Core.Vector2<double>` and `AABB<double>` boundary-map to `Rasm` `Point3d`/`Vector3d` (z-dropped) and the `Geometry2D` box at the `Polyline<double>` ⇄ `Loop` seam, bulge preserved into the `Loop` arc-segment.
+- kernel: `Core.Vector2<double>` and `AABB<double>` boundary-map to `Rasm` `Point3d`/`Vector3d` (z-dropped) and the `Geometry2D` box at the `Polyline<double>` ⇄ `Loop` boundary, bulge preserved into the `Loop` arc-segment.

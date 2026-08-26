@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_ARCHITECTURE]
 
-`artifacts` owns the host-free durable-output engine at the top of the Python branch, each sub-domain closing its concern behind one polymorphic surface. Every artifact keys by the runtime content key, and alignment with every peer travels the content-keyed wire and the seam contracts, never a reference.
+`artifacts` owns the host-free durable-output engine at the top of the Python branch, each sub-domain closing its concern behind one polymorphic surface. Every artifact keys by the runtime content key, and alignment with every peer travels the content-keyed wire and the interface contracts, never a reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -50,22 +50,22 @@ artifacts/
 │   │   ├── plane.py     # float32 (H,W,C) carrier, storage/transfer/alpha/mip vocabulary, and the DEEP_CODEC rows
 │   │   ├── derive.py    # Channel derivation: normal/height/occlusion/curvature, packing, mip fold, one resampler
 │   │   ├── ingest.py    # _ROLE_SPACE law table and _ALIASES grammar; classify stays total, pure, and accumulating
-│   │   ├── set.py       # TextureSet producer, egress grammar, KTX2 tool seam
+│   │   ├── set.py       # TextureSet producer, egress grammar, KTX2 tool boundary
 │   │   └── ibl.py       # Environment prefilter kernels over the deep plane; products land on the set manifest
 │   ├── vector/
-│   │   ├── path.py      # PathOp traversal into PathRail on the shared PathFault | BoundaryFault union
-│   │   ├── region.py    # RegionOp family; applied() in-process rail beside the HOSTILE process-pool batch crossing
+│   │   ├── path.py      # PathOp traversal into PathOutcome on the shared PathFault | BoundaryFault union
+│   │   ├── region.py    # RegionOp family; applied() in-process path beside the HOSTILE process-pool batch crossing
 │   │   └── pattern.py   # StrokeFamily placement rows, Motif payload cases, and the DensityLaw scale resolver
 │   ├── marks/
 │   │   ├── mark.py      # TAXONOMY rows binding Symbology to behavior class and decode carrier; explicit None carriers
 │   │   ├── encode.py    # Mark operation owner: segno/python-barcode/zxing-cpp generation with composed decode/verify
-│   │   └── decode.py    # zxing-cpp scan substrate on the shared MarkFault rail
+│   │   └── decode.py    # zxing-cpp scan substrate on the shared MarkFault channel
 │   ├── color/
 │   │   ├── derive.py    # Colorimetry seat the visual planes pull palettes from; no egress concern enters it
 │   │   └── managed.py   # Downstream color egress the raster and document outputs route through
 │   ├── style.py         # ThemeMode/ColorScheme/ColorRole selection over substrate-owned values; FamilyStack chain
 │   └── layer.py         # LayerNode closed group/leaf family, LayerMeta identity and paint order, LayerComp visibility
-├── typography/          # Font binary, glyph shaping, math typesetting, and line-layout over one PositionedGlyphRun seam
+├── typography/          # Font binary, glyph shaping, math typesetting, and line-layout over one PositionedGlyphRun boundary
 │   ├── font.py          # FontEngineering subset/instance/synthesize/axis/outline/embed-audit owner and the FaceMetrics value
 │   ├── shape.py         # uharfbuzz shaping, bidi reorder, COLRv1 glyph render, SVG path export
 │   ├── math.py          # Formula typesetting seat; consumers compose one route and bind no engine import
@@ -199,7 +199,7 @@ flowchart TB
 - S5 `core/bench` rides the conductor stratum without conducting — no producer imports it or cycles through it.
 - S5 `bench` composes package recipes and `media/synthesis` replay; native-offload kernels arrive as caller values.
 
-## [03]-[SEAMS]
+## [03]-[CONTRACTS]
 
 ```mermaid
 ---
@@ -210,7 +210,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Artifacts package seam registry
+    accTitle: Artifacts package interface registry
     accDescr: Artifacts sub-domain owners exchanging content keys, wires, and shapes with Python, C#, and TypeScript peers.
     subgraph artifacts[PY:ARTIFACTS]
         Core[Core spine]
@@ -263,7 +263,7 @@ Issue lifecycle and transmittal points register onto the runtime `Hooks` registr
 
 ## [04]-[INTERNAL]
 
-One production spine composes the primitive substrate, the producer planes, and the finishing tiers; per-stage guards, conditioning, and rails live on the owning implementation pages.
+One production spine composes the primitive substrate, the producer planes, and the finishing tiers; per-stage guards, conditioning, and results live on the owning implementation pages.
 
 ```mermaid
 ---
@@ -286,7 +286,7 @@ flowchart LR
     Package e8@--> Deliver([Transmittal])
 ```
 
-High-order producer planes sit on a shared primitive substrate. `graphic` and `typography` own the raster, vector, marks, color, style, layer, font, shaping, math, and line-layout primitives every plane composes over one `PositionedGlyphRun` seam; the producer planes lower onto them; `composition` places the outputs, `export` and `exchange` finish them, `core` is the production spine, and `package` is the content-addressed close.
+High-order producer planes sit on a shared primitive substrate. `graphic` and `typography` own the raster, vector, marks, color, style, layer, font, shaping, math, and line-layout primitives every plane composes over one `PositionedGlyphRun` boundary; the producer planes lower onto them; `composition` places the outputs, `export` and `exchange` finish them, `core` is the production spine, and `package` is the content-addressed close.
 
 - `core/plan` seats the one product-egress port — `ProductFact` describes each produced file, `ProductSink[F]` threading egress per fault family.
 - Composite owners drive sibling producers only through the uniform `emit()`/`work()` contract; a sibling convenience entry is a phantom.
@@ -316,7 +316,7 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 
 ## [05]-[BOUNDARIES]
 
-- `artifacts` owns durable output alone — authoring, composing, and emitting every produced file the estate ships.
+- `artifacts` owns durable output alone — authoring, composing, and emitting every produced file the repo ships.
 - UI surfaces, IFC/GLB geometry, and columnar or mesh interchange stay peer-owned.
-- Store custody carves at the port: producers write through `core/plan#PLAN`'s `ProductSink`; residence, catalog, and store stay peer-owned.
+- Store custody carves at the port: producers write through `core/plan#PLAN`'s `ProductSink`; storage, catalog, and store stay peer-owned.
 - Envelope algebra, format, and protocol lowering stay runtime-owned; this folder projects facts, minting no attribute, header, or wire value.

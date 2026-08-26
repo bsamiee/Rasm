@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_PICOGK]
 
-`PicoGK` (LEAP71) owns the implicit/SDF/voxel geometry kernel for additive manufacturing over an OpenVDB/boost/TBB native core. An `IImplicit` signed-distance field rasterizes to `Voxels`, the field owner of 3D SDF Boolean, distance morphology, dual-contour mesh extraction, and the grayscale-and-vector SLA/DLP/MSLA layer stack no planar FFF path reaches. Planar perimeters and 2D toolpaths stay on `Clipper2`/`CavalierContours`; the voxel/SDF/layer-stack concern stays here. `Voxels.mshAsMesh` is the wire seam handing an extracted `Mesh` to the kernel `MeshSpace` vocabulary.
+`PicoGK` (LEAP71) owns the implicit/SDF/voxel geometry kernel for additive manufacturing over an OpenVDB/boost/TBB native core. An `IImplicit` signed-distance field rasterizes to `Voxels`, the field owner of 3D SDF Boolean, distance morphology, dual-contour mesh extraction, and the grayscale-and-vector SLA/DLP/MSLA layer stack no planar FFF path reaches. Planar perimeters and 2D toolpaths stay on `Clipper2`/`CavalierContours`; the voxel/SDF/layer-stack concern stays here. `Voxels.mshAsMesh` is the wire boundary handing an extracted `Mesh` to the kernel `MeshSpace` vocabulary.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -210,9 +210,9 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- ALC FIREBREAK: `PicoGK` binds a RID-bearing native core (`picogk.26.2.*` over boost/TBB/icu/zstd) and never loads inside an in-Rhino plugin ALC; the AM rail runs it in the `Rasm.AppHost` sidecar and marshals the extracted `Mesh` and slice programs back across the wire.
+- ALC FIREBREAK: `PicoGK` binds a RID-bearing native core (`picogk.26.2.*` over boost/TBB/icu/zstd) and never loads inside an in-Rhino plugin ALC; the AM pipeline runs it in the `Rasm.AppHost` sidecar and marshals the extracted `Mesh` and slice programs back across the wire.
 - LIBRARY LIFECYCLE: one `Library` bound to one `fVoxelSizeMM` owns every field, mesh, and lattice allocation. `new Library.GlobalInstance(fVoxelSizeMM, ...)` binds the ambient instance the parameterless ctors resolve through `Library.oLibrary()`; an explicit `Library` passes to the `(Library, ...)` overloads. A voxel-size change is a new `Library`, and fields from two libraries never mix.
-- DISPOSAL: every field/mesh/lattice/file/library handle is `IDisposable` over a native object and disposes through `using` or a resource rail; `Library.n*MemUsage()`/`n*Allocated()` is the native-resource census. Allocation failure throws `PicoGKAllocException`, a native-version mismatch `PicoGKLibraryMismatchException`.
+- DISPOSAL: every field/mesh/lattice/file/library handle is `IDisposable` over a native object and disposes through `using` or a resource scope; `Library.n*MemUsage()`/`n*Allocated()` is the native-resource census. Allocation failure throws `PicoGKAllocException`, a native-version mismatch `PicoGKLibraryMismatchException`.
 - MUTATE-VS-COPY: each Boolean or morphology op pairs a mutating verb (`BoolAdd`, `Offset`) with a copy verb (`voxBoolAdd`, `voxOffset`) returning a fresh `Voxels`; shelling ships copy-only as `voxShell`, so an owned pipeline swaps the lease and disposes the source. Distances are MM.
 
 [STACKING]:

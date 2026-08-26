@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Rhino 9 host boundary for Rasm: document, commands, blocks, viewport, display, exchange, native Eto UI, and Rhino.UI shell.</Description>
-        <CspScope>Boundary</CspScope>
         <RasmHost>common;platform</RasmHost>
         <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     </PropertyGroup>
@@ -12,9 +11,12 @@
 
     <ItemGroup Label="Core Substrate">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 
     <ItemGroup Label="Observability">

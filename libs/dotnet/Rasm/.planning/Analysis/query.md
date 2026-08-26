@@ -2,13 +2,13 @@
 
 `AnalysisQuery` `[Union]` is the kernel's one public request algebra, `AnalysisVerb` its executable roster, and `Analyze` its execution facade — the measured-query runtime every host consumer enters. Call arity is recovered from the case through the `Single`/`Pair`/`Service` dispatchers reading the arity floor it realizes, never a name suffix, a verb sibling, or a mode knob, and the geometry band absorbs the geometry-request vocabulary as first-class cases: a second request ADT re-dispatched through a mapping switch into the same operations is the killed form, and a factory forwarding to another factory in two hops resolves in one instead. `Analyze.From(RhinoDoc)` is the surface's one doc-coupled adapter.
 
-`Analyze` is ONE class on this page, not a facade fragmented across five: `Analysis/measure`, `Analysis/inspect`, `Analysis/select`, `Analysis/relations`, and `Parametric/locate` publish their operation builders on their OWN owners — `Measure`, `Bounds`, `ConformanceMetric`, `Topologies`, `Meshes`, `Curves`, `Faces`, `Points`, `Relations` — and this page reaches them through the union's arity dispatch alone. `Operation<TGeometry, TOut>` carries the effect algebra over `Eff<Env, _>`, threading `Op` as the value key while `Env` holds the ambient runtime from `Domain/rails`; acceptance delegates to the one `Domain/validation` oracle `Op.AcceptValue`, and the host re-enters against frozen spellings a rename breaks.
+`Analyze` is ONE class on this page, not a facade fragmented across five: `Analysis/measure`, `Analysis/inspect`, `Analysis/select`, `Analysis/relations`, and `Parametric/locate` publish their operation builders on their OWN owners — `Measure`, `Bounds`, `ConformanceMetric`, `Topologies`, `Meshes`, `Curves`, `Faces`, `Points`, `Relations` — and this page reaches them through the union's arity dispatch alone. `Operation<TGeometry, TOut>` carries the effect algebra over `Eff<Env, _>`, threading `Op` as the value key while `Env` holds the ambient runtime from `Domain/results`; acceptance delegates to the one `Domain/validation` oracle `Op.AcceptValue`, and the host re-enters against frozen spellings a rename breaks.
 
 ## [01]-[INDEX]
 
 - [02]-[REQUEST_ALGEBRA]: `AnalysisBand`, `QueryArity`, the three arity floors, `VerbGate`, `AnalysisVerb` the keyed roster, and `AnalysisQuery` the floor-dispatched request `[Union]` with its geometry and spatial band builders.
 - [03]-[OPERATION_RUNTIME]: `Operation<TGeometry, TOut>` the effect algebra, `Env` the runtime, and `Analyze` the facade over `Validation`.
-- [04]-[DENSITY_BAR]: one owner per concern, each returning on the rail its row names.
+- [04]-[DENSITY_BAR]: one owner per concern, each returning on the type its row names.
 
 ## [02]-[REQUEST_ALGEBRA]
 
@@ -16,11 +16,11 @@
 - Cases: geometry `Coerce` `CurveForm` `Vertices` `SamplePoints` `SurfaceUv` `Closest` `SignedDistance`; family `Bounds` `Measure` `Location` `Curves` `Faces` `Topologies` `Meshes` `Points`; relation `Intersections` `Classification` `CurveDeviation` `SelfIntersection` `Ray` `Conformance`; spatial `SearchBox` `SearchSphere` `Overlap` `PointPairs`. `Conformance` is the one case realizing two floors — the input shape, never a second case or a mode, decides whether the runtime samples a pair or folds a stream of residuals the consumer measured.
 - Law: the CASE is the authority and the row its declared metadata — a case cannot compile without naming its `Verb`, so a new operation is one case and one row. Arity is the FLOOR a case realizes, never a set a row declares: a case claiming a shape it cannot build fails to compile, and `Arities` reads back off those floors, so the declaration bug the virtual `Build` triple once surfaced as a runtime `Unsupported` has no spelling left.
 - Law: the case↔row correspondence is PROVED at type init through the `Covered` accessor `Analyze.Rows` publishes — a verb row no case names, and two cases naming one verb, both raise there rather than reaching a caller as `Unsupported`.
-- Law: admission delegation is a declared `VerbGate` VALUE — the family, relation, and conformance rows carry `DelegatedCase` because the lattice deciding their admission is the owner union's own (`Bounds`, `ConformanceMetric`, `Relations`) and duplicating eight lattices here mints a second authority, while a row that FORGOT its gate cannot compile.
+- Law: admission delegation is a declared `VerbGate` VALUE — the family, relation, and conformance rows carry `DelegatedCase` because the table deciding their admission is the owner union's own (`Bounds`, `ConformanceMetric`, `Relations`) and duplicating eight tables here mints a second authority, while a row that FORGOT its gate cannot compile.
 - Auto: the three dispatchers gate once — the arity floor, then the row's `Admits` — so the twenty output-type ternaries the arms once repeated live as eleven owned gates; parameterless `Bounds()` defaults to `Bounds.AxisAligned` through the `Option` tail, and `Conformance` REFUSES percentiles on any metric but `ConformanceMetric.Distribution` rather than dropping the argument it was handed, its absent sampling budget being what a measured-residual caller spells.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, generated `Switch`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Eff`), `Rasm.Domain` (the `Op`/`Fault`/`Requirement`/`Context` rail, `CapabilitySet`, `RosterFold.Collisions`, the coercion and evaluation lattices), `Rasm.Spatial` (the `Spatial/neighbors` substrate), RhinoCommon (`Point3d`/`Point2d`/`BoundingBox`/`Sphere` payload values), BCL inbox (`RuntimeHelpers.GetUninitializedObject` at the coverage proof alone).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, generated `Switch`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Eff`), `Rasm.Domain` (the `Op`/`Fault`/`Requirement`/`Context` types, `CapabilitySet`, `RosterFold.Collisions`, the coercion and evaluation tables), `Rasm.Spatial` (the `Spatial/neighbors` substrate), RhinoCommon (`Point3d`/`Point2d`/`BoundingBox`/`Sphere` payload values), BCL inbox (`RuntimeHelpers.GetUninitializedObject` at the coverage proof alone).
 - Growth: a new query modality is one case realizing its arity floors, one factory, and one `AnalysisVerb` row; a family page gaining a capability adds a case to ITS union with this algebra untouched, a new relation forwards to a `Relations` builder, a new spatial probe is one `NeighborQuery` case on the `Spatial/neighbors` owner, and a new band is one `AnalysisBand` row admitted by charter amendment.
-- Boundary: the row's type gate rejects onto `KernelFault.Unsupported`, the host binding's probe discriminant, while spatial value defects reject `KernelFault.InvalidInput` at build; the geometry band composes the `Domain/normalization` coercion lattice and the `Domain/evaluation` `Evaluate` verb union rather than re-implementing either locally; the spatial band rides one service spine forwarding to the `Spatial/neighbors` owner's `NeighborIndex.Query` and projecting its `NeighborAnswer` through the substrate's own total `Switch`, the `Graph` arm refusing `Unsupported` by name because this spine publishes element sequences — pair-probe admission is the substrate's law, so a query-side probe whitelist, RTree wrapper, or second answer vocabulary is the deleted parallel rail.
+- Boundary: the row's type gate rejects onto `KernelFault.Unsupported`, the host binding's probe discriminant, while spatial value defects reject `KernelFault.InvalidInput` at build; the geometry band composes the `Domain/normalization` coercion table and the `Domain/evaluation` `Evaluate` verb union rather than re-implementing either locally; the spatial band rides one service spine forwarding to the `Spatial/neighbors` owner's `NeighborIndex.Query` and projecting its `NeighborAnswer` through the substrate's own total `Switch`, the `Graph` arm refusing `Unsupported` by name because this spine publishes element sequences — pair-probe admission is the substrate's law, so a query-side probe whitelist, RTree wrapper, or second answer vocabulary is the deleted parallel path.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -392,15 +392,15 @@ public abstract partial record AnalysisQuery {
 
 ## [03]-[OPERATION_RUNTIME]
 
-- Owner: `Env` `[BoundaryAdapter]` is the `Eff` reader runtime, its record shape host-frozen — the Grasshopper binding constructs it positionally and the sink is the defaulted trailing field, so every frozen construction spelling survives a new runtime field — and `Env.Live` is the ONE cancellation gate all four bodies bind. `Operation<TGeometry, TOut>` is the operation algebra behind a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) with one constructor per case, a `Prepare` gate ahead of every input-bearing evaluator, and one `Apply` fold over the `Body` `Switch` opening a `CostMark` before the fold and charging one `OpCost` capsule at ONE exit. `Analyze` is the ONE facade — `Scope` binding context, progress, cancellation, and sink; `From(RhinoDoc)` the one doc adapter; host-neutral `In` scope builders; `Query` closing three arities, `Run` four overloads over `Validation<Error, Seq<TOut>>`, and `Rows` publishing the proved verb roster. `AnalysisOutput<TOut>` `[BoundaryAdapter]` is the typed projection gate admitting every value through `Op.AcceptValue`, the one oracle; a row publishing a runtime-typed output reads the `Domain/validation` `OutputBinding` owner instead.
+- Owner: `Env` is the `Eff` reader runtime, its record shape host-frozen — the Grasshopper binding constructs it positionally and the sink is the defaulted trailing field, so every frozen construction spelling survives a new runtime field — and `Env.Live` is the ONE cancellation gate all four bodies bind. `Operation<TGeometry, TOut>` is the operation algebra behind a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) with one constructor per case, a `Prepare` gate ahead of every input-bearing evaluator, and one `Apply` fold over the `Body` `Switch` opening a `CostMark` before the fold and charging one `OpCost` capsule at ONE exit. `Analyze` is the ONE facade — `Scope` binding context, progress, cancellation, and sink; `From(RhinoDoc)` the one doc adapter; host-neutral `In` scope builders; `Query` closing three arities, `Run` four overloads over `Validation<Error, Seq<TOut>>`, and `Rows` publishing the proved verb roster. `AnalysisOutput<TOut>` is the typed projection gate admitting every value through `Op.AcceptValue`, the one oracle; a row publishing a runtime-typed output reads the `Domain/validation` `OutputBinding` owner instead.
 - Entry: `Analyze.Run<…>` closes single-query, pair-query, service-query, and already-built-operation inputs onto `Validation<Error, Seq<TOut>>` — one entry family discriminated by query and input shape, no `RunMany`/`RunPair`/`RunService` verb siblings; scoped execution threads `Analyze.In(…).With(progress).With(cancel).Run(operation, input)` and `With(factory, version, faults)` is the one sink mint, so a host never constructs a `TelemetrySink` beside the scope that carries it.
-- Auto: `Prepare` binds `Env.Live` first (`Errors.Cancelled`), absence second (`KernelFault.MissingGeometry`), then the `Requirement` matrix — an empty requirement still routes `GeometryBase` values through the validity-oracle admission so no geometry reaches an evaluator unvetted, while non-geometry service payloads pass untouched; a `Service` body carries no input and so reaches none of that fold, binding the same `Env.Live` ahead of its evaluator, so all four bodies refuse a cancelled run on the one direct-poll cancellation value the advertised `With(cancel)` surface promises and no second `IsCancellationRequested` ladder exists to forget the token; scope-less `Run` fails `KernelFault.MissingContext` when an operation `NeedsContext` and otherwise defaults to `Context.Of(units: UnitSystem.Millimeters)`; `Apply` flattens per-item chunks, feeds aggregates the whole prepared `Seq`, and lifts a `Rejected` body's fault onto the effect rail, rejection staying data until execution.
-- Law: `Charge` is ONE member reading ONE exit value — `Match` collapses both legs of the fold onto that `Fin` and the outcome row and fault payload both derive from it, so cost evidence and fault evidence cannot name different verdicts for one call. Per-item evaluation distributes over input concatenation on the VALUE channel alone, because `Apply`'s cost capsule is an aggregation seam billing one `OpCost` per call.
+- Auto: `Prepare` binds `Env.Live` first (`Errors.Cancelled`), absence second (`KernelFault.MissingGeometry`), then the `Requirement` matrix — an empty requirement still routes `GeometryBase` values through the validity-oracle admission so no geometry reaches an evaluator unvetted, while non-geometry service payloads pass untouched; a `Service` body carries no input and so reaches none of that fold, binding the same `Env.Live` ahead of its evaluator, so all four bodies refuse a cancelled run on the one direct-poll cancellation value the advertised `With(cancel)` surface promises and no second `IsCancellationRequested` ladder exists to forget the token; scope-less `Run` fails `KernelFault.MissingContext` when an operation `NeedsContext` and otherwise defaults to `Context.Of(units: UnitSystem.Millimeters)`; `Apply` flattens per-item chunks, feeds aggregates the whole prepared `Seq`, and lifts a `Rejected` body's fault onto the effect type, rejection staying data until execution.
+- Law: `Charge` is ONE member reading ONE exit value — `Match` collapses both legs of the fold onto that `Fin` and the outcome row and fault payload both derive from it, so cost evidence and fault evidence cannot name different verdicts for one call. Per-item evaluation distributes over input concatenation on the VALUE channel alone, because `Apply`'s cost capsule is an aggregation point billing one `OpCost` per call.
 - Law: a sink refusal PARKS on the composition's own bounded evidence cell at the fact's declared seat, never `ignore`d (branch RULINGS `[02]`) — telemetry can no more fail the analysis than it can vanish, and a full ring counts the loss as a number.
-- Output: `Validation<Error, Seq<TOut>>` is the public result carrier; faults accumulate the `Domain/rails` `Fault` union, `KernelFault.Unsupported` the host probe discriminant.
-- Packages: LanguageExt.Core (the `Validation`/`Fin` rails and `TraverseM`), Thinktecture.Runtime.Extensions (the `Body` `[Union]` and generated `Switch`), `Rasm.Domain` (`Context.Of` builders, `Requirement.Apply`, `TelemetrySink`/`SignalFact`/`CostMark`/`Outcome`, the `Op`/`Fault` rail), RhinoCommon (`RhinoDoc` at the one `From` adapter, `UnitSystem`).
+- Output: `Validation<Error, Seq<TOut>>` is the public result carrier; faults accumulate the `Domain/results` `Fault` union, `KernelFault.Unsupported` the host probe discriminant.
+- Packages: LanguageExt.Core (the `Validation`/`Fin` types and `TraverseM`), Thinktecture.Runtime.Extensions (the `Body` `[Union]` and generated `Switch`), `Rasm.Domain` (`Context.Of` builders, `Requirement.Apply`, `TelemetrySink`/`SignalFact`/`CostMark`/`Outcome`, the `Op`/`Fault` types), RhinoCommon (`RhinoDoc` at the one `From` adapter, `UnitSystem`).
 - Growth: a new execution modality is one `Body` case with one constructor on the same owner, never a second operation class; a new scope source is one `In`/`From` overload minting a `Context`; a new runtime capability is one field on `Env` threaded by the reader with zero operation edits.
-- Boundary: `Analyze.From(RhinoDoc)` is the one document-coupled adapter in the folder, so a second `RhinoDoc` reach anywhere in the analysis surface is the seam violation; a folder-local `ValidityOf` switch re-declaring result arms beside `Op.AcceptValue` is the killed parallel oracle; `Build` and `Service` evaluators receive state by value through `static` lambdas over an explicit state record, keeping operations allocation-lean and referentially transparent; the `As` object-lift is the sanctioned type-erasure bridge, rejecting onto `KernelFault.Unsupported` rather than casting unsafely; `OperationLift` is the one host for the rail bridges C# cannot declare inside a generic owner, and host machinery that throws is wrapped at its owning boundary through `Op.Catch`.
+- Boundary: `Analyze.From(RhinoDoc)` is the one document-coupled adapter in the folder, so a second `RhinoDoc` reach anywhere in the analysis surface is the boundary violation; a folder-local `ValidityOf` switch re-declaring result arms beside `Op.AcceptValue` is the killed parallel oracle; `Build` and `Service` evaluators receive state by value through `static` lambdas over an explicit state record, keeping operations allocation-lean and referentially transparent; the `As` object-lift is the sanctioned type-erasure bridge, rejecting onto `KernelFault.Unsupported` rather than casting unsafely; `OperationLift` is the one host for the type bridges C# cannot declare inside a generic owner, and host machinery that throws is wrapped at its owning boundary through `Op.Catch`.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -419,7 +419,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter]
 public sealed record Env(Context Context, Option<IProgress<double>> Progress, CancellationToken Cancellation, Option<TelemetrySink> Telemetry = default) {
     public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
     public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
@@ -430,7 +429,7 @@ public sealed record Env(Context Context, Option<IProgress<double>> Progress, Ca
     }).ToEff()).As();
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 internal readonly record struct AnalysisOutput<TOut>(Op Key) {
     public Fin<Seq<TOut>> One<TValue>(TValue value) => Many(values: Seq(value));
     public Fin<Seq<TOut>> Many<TValue>(Seq<TValue> values) => Project(key: Key, values: values);
@@ -506,7 +505,7 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
                 .Choose(fact => sink.Tap(fact: fact, key: key).Match(
                     Succ: static _ => Option<(HookId Seat, Error Cause)>.None,
                     Fail: cause => Some((Seat: fact.At.Id, Cause: cause))))
-                .Iter(parked => ignore(sink.Rail.Hooks.Faults.Park(point: parked.Seat, cause: parked.Cause))),
+                .Iter(parked => ignore(sink.Signals.Hooks.Faults.Park(point: parked.Seat, cause: parked.Cause))),
             None: static () => unit);
     private static Seq<SignalFact> Facts(Op key, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
         Seq(
@@ -541,7 +540,6 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class Analyze {
     public sealed record Scope {
         public Fin<Context> Context { get; }
@@ -669,15 +667,15 @@ flowchart LR
 
 ## [04]-[DENSITY_BAR]
 
-Each concern homes at one owner returning on the rail its row names.
+Each concern homes at one owner returning on the type its row names.
 
-| [INDEX] | [CONCERN]           | [OWNER]                       | [KIND]                        | [RAIL]                         |
+| [INDEX] | [CONCERN]           | [OWNER]                       | [KIND]                        | [RESULT]                       |
 | :-----: | :------------------ | :---------------------------- | :---------------------------- | :----------------------------- |
 |  [01]   | Verb roster         | `AnalysisVerb`                | `[SmartEnum<string>]` 25 rows | `VerbGate` + derived `Arities` |
 |  [02]   | Request vocabulary  | `AnalysisQuery`               | floor-dispatched `[Union]`    | `Operation` dispatch           |
 |  [03]   | Arity floor         | `ISingleQuery` + two siblings | internal builder interfaces   | compile-time arity claim       |
 |  [04]   | Operation algebra   | `Operation<TGeometry, TOut>`  | `Body` union + `Prepare`      | `Eff<Env, _>`                  |
-|  [05]   | Runtime environment | `Env`                         | `[BoundaryAdapter]` reader    | `Eff<Env, _>` + `Live` gate    |
+|  [05]   | Runtime environment | `Env`                         | reader                        | `Eff<Env, _>` + `Live` gate    |
 |  [06]   | Execution facade    | `Analyze`                     | `static class`                | `Validation<Error, Seq<TOut>>` |
 |  [07]   | Output projection   | `AnalysisOutput<TOut>`        | `readonly record struct`      | `Fin<Seq<TOut>>`, one oracle   |
 

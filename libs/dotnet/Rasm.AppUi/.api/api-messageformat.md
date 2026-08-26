@@ -68,7 +68,7 @@
 - `NodaTime`(`.api/api-nodatime.md`): an instant or date argument coerces through the `CustomValueFormatter` date/time delegates, so `{when, date, long}` respects the active culture's calendar without a parallel format path.
 - `UnitsNet`(`.api/api-unitsnet.md`): a quantity renders through the same number delegate, so `{qty, number}` shares one culture-aware coercion hook.
 - `Wacton.Unicolour`(`.api/api-unicolour.md`) + `Avalonia.Fonts.Inter`(`api-avalonia-fonts.md`): the resolved string feeds the Theme/tokens text pipeline as a plain string — `MessageFormat` owns grammar and plurality only, never layout or styling.
-- Theme/locale rail: one cached `MessageFormatter` per active culture materializes `ResolvedLocale.Plural`, and `CardinalPluralizers`/`OrdinalPluralizers` are the CLDR `Pluralizer` data table a new locale extends by insertion.
+- Theme/locale path: one cached `MessageFormatter` per active culture materializes `ResolvedLocale.Plural`, and `CardinalPluralizers`/`OrdinalPluralizers` are the CLDR `Pluralizer` data table a new locale extends by insertion.
 
 [LOCAL_ADMISSION]:
-- Theme/locale rail holds one cached `MessageFormatter` per active culture; a localized string resolves as `formatter.FormatMessage(pattern, args)` over a resx-carried ICU pattern.
+- Theme/locale path holds one cached `MessageFormatter` per active culture; a localized string resolves as `formatter.FormatMessage(pattern, args)` over a resx-carried ICU pattern.

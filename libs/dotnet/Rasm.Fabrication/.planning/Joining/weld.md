@@ -2,7 +2,7 @@
 
 `Weld.Plan` consumes one admitted `WeldRequest` and derives fill-complete bead deposits, side-correct transported torch frames, station-indexed deposit segments, preparation actions, qualification demands, and one content-keyed `WeldPlan`. Boundary-resolved preparation profiles carry the full section and cavity demand; planning never recreates `Rasm.Materials` groove geometry from a key or a nominal leg.
 
-`Joining/deposition` owns the physics and the policy this page reads — `WeldRuleSet` and its `WeldFactorTable` derate rows, `WeldProcessLaw` over its `TransferMode` set, `BeadProgram` over its role bands, `ArcProgram`, and the `ArcFitPolicy` gate — and `WeldPolicy` is the one admitted aggregate `WeldRequest` carries. The seam runs both ways inside one plane: the arc program places moves on the `TorchFrame` this page transports, and the access and demand-binding extension points judge the `WeldPass` roster this page emits.
+`Joining/deposition` owns the physics and the policy this page reads — `WeldRuleSet` and its `WeldFactorTable` derate rows, `WeldProcessLaw` over its `TransferMode` set, `BeadProgram` over its role bands, `ArcProgram`, and the `ArcFitPolicy` gate — and `WeldPolicy` is the one admitted aggregate `WeldRequest` carries. The boundary runs both ways inside one plane: the arc program places moves on the `TorchFrame` this page transports, and the access and demand-binding extension points judge the `WeldPass` roster this page emits.
 
 Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile` resolves the trapezoidal section at the current fill height through one held `IInterpolation` per section column, and `BeadProgram.Lattice` seats as many overlapped beads across that width as it admits. The circular-fit gate routes on POLICY PRESENCE — an absent `WeldPolicy.ArcFit` emits linear chains with no extra branch, and a present one measures over the transported frame origins so an orbital seam emits `Move.Circular` carrying its rotation sense while a non-circular run keeps the linear chain.
 
@@ -147,7 +147,6 @@ public sealed partial class PrepShape {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MaterialGroupKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -159,7 +158,6 @@ public readonly partial struct MaterialGroupKey {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct TransferModeKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -171,7 +169,6 @@ public readonly partial struct TransferModeKey {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct PreparationKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -183,7 +180,6 @@ public readonly partial struct PreparationKey {
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct DefectKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -203,7 +199,6 @@ public readonly partial struct SectionStation {
     public double HeightMm { get; }
     public double AreaMm2 => 0.5 * (WidthMm + RootWidthMm) * HeightMm;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double stationMm,
@@ -224,7 +219,6 @@ public readonly partial struct DepositSpan {
 
     public double LengthMm => EndMm - StartMm;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double startMm,
@@ -270,7 +264,6 @@ public sealed partial class FillProfile {
             axis[^1]);
     }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<SectionStation> stations,
@@ -474,7 +467,6 @@ public sealed partial class WeldJoint {
     public Option<double> PwhtMinutes { get; }
     public bool ImpactDemanded { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int joint,
@@ -589,7 +581,7 @@ public sealed partial class WeldJoint {
 - Auto: `BeadEvidence.CoolingTime` is the EN 1011-2 t8/5 form, the thicker arm governing above the transition thickness and the sheet arm below it, scaled by the position row's cooling factor.
 - Exemption: `Weld.Resample` is the two-stream station merge and `Weld.Weave` the Rhino pose-mutation kernel; both are measured folds whose statement bodies are the algorithm.
 - Result: `WeldPass` retains lattice placement, `CommandedFeedMmMin` scaled to hold seam progression through oscillation, `BeadEvidence`, `ArcProgram`, `PassLineage`, and its station-indexed `Segments`. `BeadEvidence` carries arc time, cooling time, deposit length, and an OPTIONAL filler length, absent where the carrier consumes no discrete filler.
-- Packages: `Joining/deposition` supplies `WeldPolicy`, `WeldRuleSet`, `RoleFactor`, `PositionFactor`, `ShapeFactor`, `BeadProgram`, `RoleBand`, `WeavePattern`, `ArcProgram`, `ArcFitPolicy`, `ArcFit`, `PassLineage`, `WeldProcessLaw`, and `TransferMode`; `Process/atoms` supplies `Move`, `MoveOrientation`, and `ProcessBudget.Joining`; RhinoCommon supplies `Plane`, `Point3d`, and `Vector3d`; LanguageExt.Core supplies the accumulated rail.
+- Packages: `Joining/deposition` supplies `WeldPolicy`, `WeldRuleSet`, `RoleFactor`, `PositionFactor`, `ShapeFactor`, `BeadProgram`, `RoleBand`, `WeavePattern`, `ArcProgram`, `ArcFitPolicy`, `ArcFit`, `PassLineage`, `WeldProcessLaw`, and `TransferMode`; `Process/atoms` supplies `Move`, `MoveOrientation`, and `ProcessBudget.Joining`; RhinoCommon supplies `Plane`, `Point3d`, and `Vector3d`; LanguageExt.Core supplies the accumulated `Validation`.
 - Boundary: `Joining/sequence` alone orders deposits and cooling, `Joining/procedure` alone assesses `WeldPlan.Demands`, kinematics alone turns segments into robot solutions, and Cam alone conditions execution motion. The arc program and the fit gate are `Joining/deposition` owners this fold DRIVES, so a run-in length or a fit tolerance is never re-derived here.
 
 ```csharp
@@ -613,7 +605,6 @@ public sealed partial class TorchFrame {
 
     public Option<MoveOrientation> Orientation => Some(new MoveOrientation(ToolAxis, ToolAxis, Some(Contact)));
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int joint,
@@ -731,7 +722,6 @@ public readonly partial struct BeadEvidence {
     public double CoolingTimeS { get; }
     public double DepositLengthMm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double depositedVolumeMm3,
@@ -804,7 +794,6 @@ public sealed partial class WeldPass {
 
     internal Seq<TorchFrame> Frames => Segments.Bind(static segment => segment.Frames).Distinct().ToSeq();
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int joint,
@@ -920,8 +909,8 @@ public sealed partial class JointStage {
 
 - Owner: `WeldRequest` owns census correspondence and the fill ledger; `WeldPlan` owns the settled result and its lineage closure; `WeldProjection` and `WeldView` own the egress family; `Weld` owns `Plan`, `HeatInput`, and the canonical preimage.
 - Law: `Weld.Plan` normalizes the census by joint identity, accumulates every joint's planning failure before reporting, resolves each process law and its admitted `TransferMode`, derives pass count from required volume and realized deposition, generates every pass from the role bands and the bead lattice, verifies heat, cooling, and fill conservation, emits procedure demand maps, and closes through `FabricationCanon.Keyed(EgressKind.WeldPlan, …)`.
-- Law: the pass-lineage closure is a GRAPH, not a prefix scan. Repair and temper passes edge child-to-parent, `IsDirectedAcyclicGraph` rails a forged chain before any traversal, and `SourceFirstTopologicalSort` yields the order whose in-edge fold publishes `WeldPlan.LineageDepth` — the depth a repair-of-a-repair reaches is result evidence, never a re-derivation at every consumer.
-- Law: the preimage FRAMES and CLOSES at `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter` and nothing else. `Rows` frames every collection, `Discriminant` frames every generated key, `Coords` frames every point and vector, `Maybe` frames every optional column, and `Keyed` opens the retaining mint and threads its own refusal onto the planning rail — the writer's constructor is private, so a `new CanonicalWriter(…)` spelling names no member and a key minted off bytes no writer retained forges an address. The governing `WeldCode` frames the digest ahead of the passes, so a code revision re-keys every plan it re-rates; the digest reads `WeavePattern.EdgeDwellS` alone, and the millisecond word derives at egress.
+- Law: the pass-lineage closure is a GRAPH, not a prefix scan. Repair and temper passes edge child-to-parent, `IsDirectedAcyclicGraph` fails a forged chain before any traversal, and `SourceFirstTopologicalSort` yields the order whose in-edge fold publishes `WeldPlan.LineageDepth` — the depth a repair-of-a-repair reaches is result evidence, never a re-derivation at every consumer.
+- Law: the preimage FRAMES and CLOSES at `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter` and nothing else. `Rows` frames every collection, `Discriminant` frames every generated key, `Coords` frames every point and vector, `Maybe` frames every optional column, and `Keyed` opens the retaining mint and threads its own refusal onto the planning result — the writer's constructor is private, so a `new CanonicalWriter(…)` spelling names no member and a key minted off bytes no writer retained forges an address. The governing `WeldCode` frames the digest ahead of the passes, so a code revision re-keys every plan it re-rates; the digest reads `WeavePattern.EdgeDwellS` alone, and the millisecond word derives at egress.
 - Exemption: `Weld.LineageDepth` and `Weld.Seeded` are the graph-population kernel; the container is transient and only its named outputs leave.
 - Result: `WeldPlan` retains passes, actions, demands, maximum heat input, bead count, lineage depth, and key; `WeldPlan.Project` returns execution, qualification, or result evidence through one closed egress family.
 - Packages: QuikGraph supplies `BidirectionalGraph`, `STaggedEdge`, `IsDirectedAcyclicGraph`, `SourceFirstTopologicalSort`, and `InEdges`; `Rasm.Element` supplies `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`; `Rasm.Domain` supplies `Op`; `Joining/deposition` supplies `WeldPolicy` and its rule set.
@@ -935,7 +924,6 @@ public sealed partial class WeldRequest {
     public WeldPolicy Policy { get; }
     public ProcessBudget.Joining Budget { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<WeldJoint> joints,
@@ -997,7 +985,6 @@ public sealed partial class WeldPlan {
 
     public ContentKey Key { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<WeldPass> passes,
@@ -1593,7 +1580,7 @@ flowchart LR
     Pass -->|"child -> parent, IsDirectedAcyclicGraph"| Lineage["LineageDepth"]
     Coverage --> Plan["WeldPlan"]
     Lineage --> Plan
-    Plan -->|"FabricationCanon.Keyed — retaining mint on the rail"| Key["ContentKey — EgressKind.WeldPlan"]
+    Plan -->|"FabricationCanon.Keyed — retaining mint on the result"| Key["ContentKey — EgressKind.WeldPlan"]
     Plan -->|Segments| Sequence["Joining/sequence — ordering and thermal fold"]
     Plan -->|Demands| Procedure["Joining/procedure — qualification assessment"]
 ```

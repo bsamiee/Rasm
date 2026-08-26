@@ -1,6 +1,6 @@
 # [TS_UI_API_MAPLIBRE_GL]
 
-`maplibre-gl` owns the vector basemap: one `Map` binds one WebGL2 context, one camera, one typed event stream, and the declarative style, driving populate/navigate/query through parameterized source/layer/control/handler rails. deck.gl interleaves GPU layers through the `addControl`/`CustomLayerInterface` rail into that one context — never a peer camera — while React owns mount and unmount alone and the imperative lifecycle folds into the `viewer` panel atom; `scope:viewer` project-local.
+`maplibre-gl` owns the vector basemap: one `Map` binds one WebGL2 context, one camera, one typed event stream, and the declarative style, driving populate/navigate/query through parameterized source/layer/control/handler entry points. deck.gl interleaves GPU layers through the `addControl`/`CustomLayerInterface` path into that one context — never a peer camera — while React owns mount and unmount alone and the imperative lifecycle folds into the `viewer` panel atom; `scope:viewer` project-local.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -50,12 +50,12 @@
 |  [14]   | `StyleImageInterface` / `StyleImageSource`      | style image spec    | the dynamic-image contract; the `addImage` input union    |
 
 [PUBLIC_TYPE_SCOPE]: control + DOM-overlay rows
-- Every `IControl` implementer is added via `addControl(control, position?)`; `MapboxOverlay` satisfies it and joins the same rail. `Marker`/`Popup` are DOM overlays anchored at a `LngLat`, distinct from deck.gl's GPU overlays.
+- Every `IControl` implementer is added via `addControl(control, position?)`; `MapboxOverlay` satisfies it and joins the same registry. `Marker`/`Popup` are DOM overlays anchored at a `LngLat`, distinct from deck.gl's GPU overlays.
 
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]    | [CAPABILITY]                                                |
 | :-----: | :------------------------------------------ | :--------------- | :---------------------------------------------------------- |
 |  [01]   | `IControl`                                  | control contract | the one `addControl` contract; `MapboxOverlay` satisfies it |
-|  [02]   | `NavigationControl` / `ScaleControl`        | control rows     | rows of one `addControl(control, ControlPosition)` rail     |
+|  [02]   | `NavigationControl` / `ScaleControl`        | control rows     | rows of one `addControl(control, ControlPosition)` registry |
 |  [03]   | `FullscreenControl` / `GeolocateControl`    | control rows     | fullscreen + geolocate controls                             |
 |  [04]   | `AttributionControl` / `LogoControl`        | control rows     | attribution + logo controls                                 |
 |  [05]   | `TerrainControl` / `GlobeControl`           | control rows     | terrain + globe controls                                    |
@@ -63,7 +63,7 @@
 |  [07]   | `Marker` / `Popup` (both `extends Evented`) | DOM overlay      | `viewer/mark` HTML anchors at a `LngLat`; draggable marker  |
 
 [PUBLIC_TYPE_SCOPE]: event algebra + interaction handlers
-- `on`/`once`/`off` over the `MapEventType`/`MapLayerEventType`/`SourceEventType` maps return a `Subscription`, and a layer-id overload filters by layer. Generic abstract `Evented<EventType extends EventTypeMap>` types the whole rail — `fire` and `listens` narrow to that map's own names alongside `on`/`once`/`off`, so the event vocabulary is closed by the emitter's type argument and a name outside it fails at compile rather than at runtime. Every event is a real class fired as an instance, `Event<TType>` carrying its name in the type. Handlers share one `map.<handler>` `enable`/`disable`/`isEnabled` surface gated at construction by `MapOptions`.
+- `on`/`once`/`off` over the `MapEventType`/`MapLayerEventType`/`SourceEventType` maps return a `Subscription`, and a layer-id overload filters by layer. Generic abstract `Evented<EventType extends EventTypeMap>` types the whole stream — `fire` and `listens` narrow to that map's own names alongside `on`/`once`/`off`, so the event vocabulary is closed by the emitter's type argument and a name outside it fails at compile rather than at runtime. Every event is a real class fired as an instance, `Event<TType>` carrying its name in the type. Handlers share one `map.<handler>` `enable`/`disable`/`isEnabled` surface gated at construction by `MapOptions`.
 
 | [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CAPABILITY]                                            |
 | :-----: | :------------------------------------------------------- | :---------------- | :------------------------------------------------------ |
@@ -100,20 +100,20 @@
 | [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]  | [CAPABILITY]                                         |
 | :-----: | :------------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
 |  [01]   | `new Map(options: MapOptions)`                                 | construct       | the one basemap; `container` is a `browser` port     |
-|  [02]   | `addSource(id, spec)` / `removeSource(id)`                     | source rail     | add/remove keyed by `spec.type`                      |
-|  [03]   | `getSource<T>(id)` / `isSourceLoaded(id)`                      | source rail     | typed lookup; load probe                             |
-|  [04]   | `addLayer(layer, beforeId?)` / `removeLayer` / `moveLayer`     | layer rail      | add/remove/reorder; `beforeId` orders it             |
-|  [05]   | `getLayer` / `getLayersOrder` / `setLayerZoomRange`            | layer rail      | inspect order; per-layer zoom range                  |
+|  [02]   | `addSource(id, spec)` / `removeSource(id)`                     | source mutate   | add/remove keyed by `spec.type`                      |
+|  [03]   | `getSource<T>(id)` / `isSourceLoaded(id)`                      | source read     | typed lookup; load probe                             |
+|  [04]   | `addLayer(layer, beforeId?)` / `removeLayer` / `moveLayer`     | layer mutate    | add/remove/reorder; `beforeId` orders it             |
+|  [05]   | `getLayer` / `getLayersOrder` / `setLayerZoomRange`            | layer inspect   | inspect order; per-layer zoom range                  |
 |  [06]   | `setFilter` / `getFilter`                                      | style mutate    | expression-data filter edits                         |
 |  [07]   | `setPaintProperty` / `setLayoutProperty` / `getLayoutProperty` | style mutate    | live paint/layout re-paint without a style swap      |
-|  [08]   | `addControl` / `removeControl` / `hasControl`                  | control rail    | `NavigationControl`…; `MapboxOverlay` joins          |
+|  [08]   | `addControl` / `removeControl` / `hasControl`                  | control mount   | `NavigationControl`…; `MapboxOverlay` joins          |
 |  [09]   | `jumpTo` / `easeTo` / `flyTo` / `fitBounds` / `stop`           | camera drive    | `jumpTo` instant, `easeTo`/`flyTo` animated          |
 |  [10]   | `setCenter` / `setZoom` / `setBearing`                         | camera set      | imperative center/zoom/bearing setters               |
 |  [11]   | `setPitch` / `setPadding`                                      | camera set      | imperative pitch/padding setters                     |
 |  [12]   | `getCenter` / `getZoom` / `getBearing`                         | camera read     | deck.gl reads these each `move`                      |
 |  [13]   | `getPitch` / `getPadding` / `getBounds`                        | camera read     | pitch/padding/bounds readback                        |
 |  [14]   | `cameraForBounds` / `calculateCameraOptionsFromTo(...)`        | camera solve    | eye→target solve → `CameraOptions`                   |
-|  [15]   | `on` / `once` / `off` → `Subscription`                         | event rail      | typed events; `on(type, layerId, fn)` filters by id  |
+|  [15]   | `on` / `once` / `off` → `Subscription`                         | event bind      | typed events; `on(type, layerId, fn)` filters by id  |
 |  [16]   | `project(lnglat)` → `Point` / `unproject(point)` → `LngLat`    | coordinate sync | pixel↔lnglat for deck view-state + markers           |
 |  [17]   | `queryRenderedFeatures(...)` / `querySourceFeatures(...)`      | feature query   | picking/selection; feeds `viewer/mark` sets          |
 |  [18]   | `setStyle` / `setProjection` / `setTerrain`                    | scene config    | style swap, globe/mercator projection, 3D terrain    |
@@ -134,7 +134,7 @@
 - `renderWithWebGL` receives the GL state a `CustomLayerInterface.render` gets — cull face, active texture, and pixel-store settings at their WebGL defaults, and no vertex array bound. maplibre restores its own state afterwards EXCEPT the scissor test, which it never touches, so an image that enables scissor disables it again.
 - `renderWithWebGL` fires before the first frame the image is used in, again on every `true` from `StyleImageInterface.render`, and once per atlas holding a slot the image has never drawn into — one change can therefore mean several calls carrying different targets.
 - `StyleImageInterface.onRemove` also fires on context loss, after which the SAME image is added back with no matching `onAdd`, so a GPU image holds no construction-time resource and rebuilds from its own descriptor against whatever `gl` its next draw carries.
-- `addImage` hands a `StyleImageWebGLData`-backed image straight to the image manager's own update rail on registration, so a GPU glyph mint is one `addImage` call behind a `hasImage` guard and never an add followed by a priming update.
+- `addImage` hands a `StyleImageWebGLData`-backed image straight to the image manager's own update path on registration, so a GPU glyph mint is one `addImage` call behind a `hasImage` guard and never an add followed by a priming update.
 - `Map.updateImage(id, image)`: rejects a width or height differing from the live image with an `ErrorEvent` and returns without writing, so an image slot is fixed-size once registered and a re-dimensioned image is a new id; it also rejects an id the style does not hold, which is the `addImage` case.
 - `Map.getSprite() -> Array<{ id: string; url: string }>`: answers the style's live sprite pair list and therefore the sprite registry read — MapLibre ships no `hasSprite`, so an idempotent sheet add scans this list the way an image add reads `hasImage`.
 - `Map.addSprite(id, url, options?)`: passes its load outcome to an internal completion callback the `Map` facade discards, so the sheet's fetch is fire-and-forget and its failure never reaches the caller; the observable refusal is the synchronous throw a style that has not finished loading raises, which is also what an unloaded `addLayer`, `setPaintProperty`, `setLayoutProperty`, or `setFilter` raises.
@@ -145,12 +145,12 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One `Map` owns the WebGL2 context and forwards its composed camera; generic `Evented<EventType>` owns the typed event rail. deck.gl interleaves — never a second context or peer camera.
-- Style is data: `StyleSpecification`/`LayerSpecification`/`FilterSpecification`/`PropertyValueSpecification` are declarative JSON the `addLayer`/`setFilter`/`setPaintProperty` rails consume, and maplibre evaluates expressions rather than hand-written render code.
-- Sources, layers, controls, and handlers are parameterized rails: `addSource` discriminates on `spec.type`, `addLayer` on `LayerSpecification | CustomLayerInterface`, `addControl` on `IControl`, handlers on one `enable`/`disable`/`isEnabled` surface — a new capability is a spec row or an implementer, never a method family.
-- `Evented` closes its name set at the emitter's own type argument, so an app-defined signal rides its own owner rather than a foreign name pushed through `fire`; a cross-surface signal folds through the panel atom, which already carries every subscription this rail produces.
+- One `Map` owns the WebGL2 context and forwards its composed camera; generic `Evented<EventType>` owns the typed event stream. deck.gl interleaves — never a second context or peer camera.
+- Style is data: `StyleSpecification`/`LayerSpecification`/`FilterSpecification`/`PropertyValueSpecification` are declarative JSON the `addLayer`/`setFilter`/`setPaintProperty` entries consume, and maplibre evaluates expressions rather than hand-written render code.
+- Sources, layers, controls, and handlers are parameterized entry points: `addSource` discriminates on `spec.type`, `addLayer` on `LayerSpecification | CustomLayerInterface`, `addControl` on `IControl`, handlers on one `enable`/`disable`/`isEnabled` surface — a new capability is a spec row or an implementer, never a method family.
+- `Evented` closes its name set at the emitter's own type argument, so an app-defined signal rides its own owner rather than a foreign name pushed through `fire`; a cross-surface signal folds through the panel atom, which already carries every subscription this stream produces.
 - GPU resources an image or source holds survive at the library's discretion alone: context loss re-adds a style image with no construction callback, so a `StyleImageInterface` treats every render as the first and rebuilds whatever it released.
-- Style writes report through the map's own `error` event, not their return: every id-resolution failure is an internal `ErrorEvent` and a silent return, so a caller wanting a fault rail probes the live style (`getLayer`, `getSource`, `hasImage`, `getSprite`) before the write rather than reading a result the rail does not produce.
+- Style writes report through the map's own `error` event, not their return: every id-resolution failure is an internal `ErrorEvent` and a silent return, so a caller wanting a fault channel probes the live style (`getLayer`, `getSource`, `hasImage`, `getSprite`) before the write rather than reading a result the call does not produce.
 
 [STACKING]:
 - `@deck.gl/mapbox` `MapboxOverlay` (`.api/deck.gl-mapbox.md`): `map.addControl(overlay)` mounts it; `interleaved: true` registers deck layers as `CustomLayerInterface` entries drawing into the shared GL context and depth buffer, so 3D deck geometry occludes; `overlaid` composites on a separate canvas above. `MapOptions.pixelRatio` on `new Map` sets the device-pixel ratio the shared context renders every interleaved deck layer at, so the resolution knob lives on the map that owns the canvas.

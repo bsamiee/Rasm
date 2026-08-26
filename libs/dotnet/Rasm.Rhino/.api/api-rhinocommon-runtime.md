@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_RUNTIME]
 
-`Rhino.Runtime` owns the in-process host environment beneath every other catalog: platform-service resolution, assembly loading, the native-pointer marshal seam, and the `CommonObject` const/non-const lifetime base every geometry and document handle derives from. Every managed handle crosses to native as an `nint` marshalled through `Interop`, and the domain never touches a native pointer the `InteropWrappers` disposable family does not first wrap.
+`Rhino.Runtime` owns the in-process host environment beneath every other catalog: platform-service resolution, assembly loading, the native-pointer marshal boundary, and the `CommonObject` const/non-const lifetime base every geometry and document handle derives from. Every managed handle crosses to native as an `nint` marshalled through `Interop`, and the domain never touches a native pointer the `InteropWrappers` disposable family does not first wrap.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -9,7 +9,7 @@
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                                                    |
 | :-----: | :------------------------- | :------------ | :------------------------------------------------------------------------------ |
 |  [01]   | `HostUtils`                | static class  | runtime environment, assembly loading, named callbacks, compute endpoints       |
-|  [02]   | `Interop`                  | static class  | managed-handle to native-pointer marshal seam across every host type            |
+|  [02]   | `Interop`                  | static class  | managed-handle to native-pointer marshal layer across every host type           |
 |  [03]   | `AssemblyResolver`         | static class  | search-folder/search-file assembly resolution hooks                             |
 |  [04]   | `IPlatformServiceLocator`  | interface     | platform-service provider `HostUtils.GetPlatformService<T>` resolves            |
 |  [05]   | `IShrinkWrapService`       | interface     | shrink-wrap mesh service contract resolved through the locator                  |
@@ -104,7 +104,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: platform services, assembly loading, and process facts
-- `HostUtils.GetPlatformService<T>(string, string) -> T where T : class` — resolve a platform service, the single seam `IShrinkWrapService`/`IZooClientUtilities` and OS-info reads route through
+- `HostUtils.GetPlatformService<T>(string, string) -> T where T : class` — resolve a platform service, the single entry point `IShrinkWrapService`/`IZooClientUtilities` and OS-info reads route through
 - `IPlatformServiceLocator.GetService<T>() -> T where T : class` — the locator's sole member; a platform assembly implements it once and `GetPlatformService` reaches every service through that one call
 - `HostUtils.LoadAssemblyFrom(string) -> Assembly` / `LoadAssemblyFromStream(Stream) -> Assembly` / `LoadAssemblyFromName(AssemblyName) -> Assembly` — collectible-context assembly loading
 - `HostUtils.RunningInMono -> bool` / `RunningOnServer -> bool` / `RunningInDarkMode -> bool` / `IsPreRelease -> bool` / `CurrentOSLanguage -> uint` — process discriminants
@@ -113,7 +113,7 @@
 - `HostUtils.GetPrinterNames() -> string[]` / `GetPrinterFormNames(string) -> string[]` / `GetPrinterFormSize(string, string, out double widthMm, out double heightMm) -> bool` / `GetPrinterFormMargins(...) -> bool` / `GetPrinterDPI(string, bool) -> double`
 - `AssemblyResolver.AddSearchFolder(string) -> void` / `AddSearchFile(string) -> void`; `CurrentDomainAssemblyResolve` / `CurrentDomainReflectionOnlyAssemblyResolve -> ResolveEventHandler` — the resolve hooks the host installs
 
-[ENTRYPOINT_SCOPE]: native-pointer marshal seam
+[ENTRYPOINT_SCOPE]: native-pointer marshal boundary
 - `Interop.NativeGeometryConstPointer(GeometryBase) -> nint` / `NativeGeometryNonConstPointer(GeometryBase) -> nint` / `CreateFromNativePointer(nint) -> GeometryBase` — geometry pointer round-trip
 - `Interop.NativeRhinoDocPointer(RhinoDoc) -> nint` / `RhinoObjectConstPointer(RhinoObject) -> nint` / `RhinoObjectFromPointer(nint) -> RhinoObject`
 - `Interop.NativeNonConstPointer(ViewCaptureSettings)` / `(ViewportInfo)` / `(RhinoViewport)` / `(DisplayPipeline)` / `(GetPoint) -> nint` — polymorphic host-handle pointer accessor
@@ -166,7 +166,7 @@
 - `RhinoAccoountsProgressInfo(ProgressState state, Dictionary<object, object> metadata = null, string customDescription = null)` / `State -> ProgressState` / `Description -> string` / `Metadata -> Dictionary<object, object>` — the progress payload; `Metadata` hands back a fresh copy on every read and a null `customDescription` derives a localized description from `State`
 - `ProgressState` — `AwaitingLogin`, `RetrievingTokens`, `AwaitingRedirect`, `Other`; `AwaitingRedirect` is a distinct browser-handoff stage, not a synonym of `AwaitingLogin`
 - `RhinoAccountsGroup(string id, string name)` / `Id -> string` / `Name -> string` — a get-only account-group identity pair with a public constructor
-- `RhinoAccountsException(string message, Exception innerException = null)` / `RhinoAccountsException(Exception innerException = null)` — `[Serializable]`, the message-free overload supplying a localized default; the concrete faults are `RhinoAccountsAuthTokenMismatchException`, `RhinoAccountsCannotListenException`, `RhinoAccountsInvalidResponseException`, `RhinoAccountsInvalidStateException`, `RhinoAccountsInvalidTokenException`, `RhinoAccountsOperationInProgressException`, `RhinoAccountsProxyException`, `RhinoAccountsServerException`, and `RhinoAccountsServerNotReachableException`, so a rail discriminates on the subclass and never on message text
+- `RhinoAccountsException(string message, Exception innerException = null)` / `RhinoAccountsException(Exception innerException = null)` — `[Serializable]`, the message-free overload supplying a localized default; the concrete faults are `RhinoAccountsAuthTokenMismatchException`, `RhinoAccountsCannotListenException`, `RhinoAccountsInvalidResponseException`, `RhinoAccountsInvalidStateException`, `RhinoAccountsInvalidTokenException`, `RhinoAccountsOperationInProgressException`, `RhinoAccountsProxyException`, `RhinoAccountsServerException`, and `RhinoAccountsServerNotReachableException`, so a classifier discriminates on the subclass and never on message text
 - `CloudHostUtils.IsEntitled -> bool` / `DenyReason -> string` / `Signature -> string` / `CheckEntitlement() -> void` — the compute-cloud entitlement gate
 
 [ENTRYPOINT_SCOPE]: the Zoo client contract and its parameter carrier
@@ -196,16 +196,16 @@
 - one host boundary crosses through `Interop`: a managed handle projects to an `nint` for a native call and a returned `nint` reconstructs a managed object; the `InteropWrappers` `SimpleArray*`/`StdVector*`/`StringHolder` disposables own every native collection or string across that call, released on a matched `Dispose`
 - `CommonObject` is the const/non-const lifetime root: a document-controlled handle stays read-only until `EnsurePrivateCopy` detaches it, and `IsValidWithLog` is the one validity read the whole geometry and document hierarchy inherits
 - platform capability resolves once through `HostUtils.GetPlatformService<T>`; a service such as `IShrinkWrapService` or `IZooClientUtilities` is located, never newed, so the host owns the single implementation
-- `RhinoCore` is the in-process headless boot seam; every call into a booted core marshals through `InvokeInHostContext` onto the host thread rather than touching host state from an arbitrary thread
+- `RhinoCore` is the in-process headless boot entry point; every call into a booted core marshals through `InvokeInHostContext` onto the host thread rather than touching host state from an arbitrary thread
 - named callbacks and compute endpoints register by string key into `HostUtils`, and `NamedParametersEventArgs` is the one typed payload crossing that key
 
 [STACKING]:
-- `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md`: the license family splits at the caller — this catalog owns the Zoo and Rhino Accounts state (`ZooClientParameters`, `IZooClientUtilities`, `LicenseTypes`, `LicenseStateChangedEventArgs`, and the accounts token rail), and the plug-in catalog owns the `PlugIn`-facing entitlement rail above it (`PlugIn.GetLicense`, `LicenseUtils`, and the license data/status/lease carriers)
+- `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md`: the license family splits at the caller — this catalog owns the Zoo and Rhino Accounts state (`ZooClientParameters`, `IZooClientUtilities`, `LicenseTypes`, `LicenseStateChangedEventArgs`, and the accounts token pipeline), and the plug-in catalog owns the `PlugIn`-facing entitlement pipeline above it (`PlugIn.GetLicense`, `LicenseUtils`, and the license data/status/lease carriers)
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`Line` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
-- `LanguageExt`(`libs/dotnet/.api/api-languageext.md`): every `HostUtils`/`Interop` call returning a nullable handle or an out-`bool` folds to `Fin<A>`/`Option<A>` at the boundary, `NamedParametersEventArgs.TryGet<T>` out-parameters lift to `Option<A>`, and a host call raising `CorruptGeometryException`/`NotLicensedException`/`RdkNotLoadedException` crosses through `Op.Catch` so the exact exception-backed `Error` reaches the rail and exception control flow never enters domain code
+- `LanguageExt`(`libs/dotnet/.api/api-languageext.md`): every `HostUtils`/`Interop` call returning a nullable handle or an out-`bool` folds to `Fin<A>`/`Option<A>` at the boundary, `NamedParametersEventArgs.TryGet<T>` out-parameters lift to `Option<A>`, and a host call raising `CorruptGeometryException`/`NotLicensedException`/`RdkNotLoadedException` crosses through `Op.Catch` so the exact exception-backed `Error` reaches the carrier and exception control flow never enters domain code
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): `Mode`, `LicenseTypes`, `Notifications.ButtonType`, `RhinoAccounts.ProgressState`, `InProcess.WindowStyle`, and `AdvancedSetting` map at the edge to keyed `SmartEnum` owners, and a plugin or product `Guid` handed to `RhinoAccountsManager` wraps as a `ValueObject<Guid>` so the bare host `Guid` never leaks
 - `Hashing`(`libs/dotnet/.api/api-hashing.md`): a `CommonObject.ToJSON`/`FromBase64String` serialization projects into the `XxHash128` content key the persistence artifact index dedupes host objects on
-- `libs/dotnet/Rasm.Rhino/.api/api-macos-native.md`: in-process `RhinoCore.InvokeInHostContext` marshal composes the Rasm host main-thread rail rather than a bespoke dispatcher; a `ViewCaptureWriter` subclass is NOT a composition route — vector egress composes `ViewCapture.CaptureToSvg` in `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-display.md`, and a page seating the writer as a delivery row publishes capability nothing can drive
+- `libs/dotnet/Rasm.Rhino/.api/api-macos-native.md`: in-process `RhinoCore.InvokeInHostContext` marshal composes the Rasm host main-thread marshal rather than a bespoke dispatcher; a `ViewCaptureWriter` subclass is NOT a composition route — vector egress composes `ViewCapture.CaptureToSvg` in `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-display.md`, and a page seating the writer as a delivery row publishes capability nothing can drive
 
 [LOCAL_ADMISSION]:
 - native-pointer traffic enters through `Interop` and the `InteropWrappers` disposable family; a raw `nint` never appears in domain code, and every marshal wrapper is disposed on its owning scope

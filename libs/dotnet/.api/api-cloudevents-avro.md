@@ -1,6 +1,6 @@
 # [RASM_API_CLOUDEVENTS_AVRO]
 
-`CloudNative.CloudEvents.Avro` binds the CloudEvents Avro Event Format: one `AvroEventFormatter` over the package's embedded CloudEvents Avro record schema, reaching STRUCTURED mode alone. `Rasm` admits it as one `EventFormat` row at `Rasm/Domain/event#FORMAT_CONTRACT` whose binary and batch columns both read false, so a caller asking for either refuses on the row rather than surfacing this package's `NotSupportedException` at its own rail. `IGenericRecordSerializer` is the seat where a schema-registry-framed Avro leg binds its own reader and writer without re-spelling the envelope schema.
+`CloudNative.CloudEvents.Avro` binds the CloudEvents Avro Event Format: one `AvroEventFormatter` over the package's embedded CloudEvents Avro record schema, reaching STRUCTURED mode alone. `Rasm` admits it as one `EventFormat` row at `Rasm/Domain/event#FORMAT_CONTRACT` whose binary and batch columns both read false, so a caller asking for either refuses on the row rather than surfacing this package's `NotSupportedException` at its own boundary. `IGenericRecordSerializer` is the seat where a schema-registry-framed Avro leg binds its own reader and writer without re-spelling the envelope schema.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -40,7 +40,7 @@
 - Records carry two fields — `attribute`, a map holding `specversion` beside every populated attribute, and `data`, the payload — so the envelope's whole attribute space rides one map and a required attribute has no dedicated field.
 - Encode passes a `bool`, `int`, `byte[]`, or `string` attribute value through unchanged and formats every other value through the attribute's own `Format`, so a `Uri` and a `DateTimeOffset` cross as their canonical text.
 - Decode is the inverse and asymmetric by design: a `bool`, `int`, or `byte[]` assigns through the envelope indexer, a `string` assigns through `SetAttributeFromString` so a declared typed extension parses, and any other Avro value type raises with the offending CLR type named.
-- `Data` populates DIRECTLY from the Avro record, so its value carries the natural Avro deserialization type rather than the type a producer serialized; a consumer that needs its own shape converts at its own seam.
+- `Data` populates DIRECTLY from the Avro record, so its value carries the natural Avro deserialization type rather than the type a producer serialized; a consumer that needs its own shape converts at its own boundary.
 - This formatter infers NO data content type, so an envelope arriving with none decodes with none.
 - Encode stamps `application/cloudevents+avro` with NO charset parameter, unlike the JSON and Protobuf formatters, so a framing comparison that includes parameters mismatches where a media-type comparison holds.
 
@@ -48,7 +48,7 @@
 - `api-cloudevents.md`: that catalogue owns the `CloudEventFormatter` contract, the envelope, the spec-version rosters, and `MimeUtilities.MediaType`; this package adds the format alone.
 - `Apache.Avro`: `RecordSchema`, `Schema.Parse`, and `GenericRecord` (with its `ref`-shaped `TryGetValue` and its `Add`) are the runtime the formatter and every custom serializer compose.
 - `Rasm.Persistence` registry seat: a Confluent-framed Avro leg binds its registry serde through `IGenericRecordSerializer` rather than beside the formatter, so the wire frame and the envelope schema stay one composition.
-- Kernel owner anchor: `Rasm/Domain/event#FORMAT_CONTRACT` seats this formatter as the `avro` `EventFormat` row whose `Binary` and `Batches` columns both read false, so a batch or binary request refuses on the row and the package's `NotSupportedException` never reaches a caller's rail.
+- Kernel owner anchor: `Rasm/Domain/event#FORMAT_CONTRACT` seats this formatter as the `avro` `EventFormat` row whose `Binary` and `Batches` columns both read false, so a batch or binary request refuses on the row and the package's `NotSupportedException` never reaches a caller's result.
 
 [LOCAL_ADMISSION]:
 - One `static readonly AvroEventFormatter` per process is the codec identity every binding shares.

@@ -4,7 +4,7 @@
 
 ## [01]-[PUBLIC_TYPES]
 
-[VIEW_TYPES]: typed view bases and view hosts — consumer-facing controls — rail: reactive-ui. `AvaloniaScheduler` and `AutoSuspendHelper` are sealed.
+[VIEW_TYPES]: typed view bases and view hosts — consumer-facing controls — concern: reactive-ui. `AvaloniaScheduler` and `AutoSuspendHelper` are sealed.
 
 | [INDEX] | [SYMBOL]                          | [BASE]                                            | [ROLE]                          |
 | :-----: | :-------------------------------- | :------------------------------------------------ | :------------------------------ |
@@ -15,7 +15,7 @@
 |  [05]   | `AvaloniaScheduler`               | `LocalScheduler`                                  | Avalonia UI scheduling          |
 |  [06]   | `AutoSuspendHelper`               | `IDisposable`                                     | application-lifetime suspension |
 
-[INFRASTRUCTURE_TYPES]: builder admission + binders. `WithAvalonia` registers all four fetchers; only the noted ones are public — command and property fetchers are `internal` resolver services — rail: reactive-ui
+[INFRASTRUCTURE_TYPES]: builder admission + binders. `WithAvalonia` registers all four fetchers; only the noted ones are public — command and property fetchers are `internal` resolver services — concern: reactive-ui
 
 | [INDEX] | [SYMBOL]                              | [VISIBILITY] | [CONTRACT]                      | [ROLE]                    |
 | :-----: | :------------------------------------ | :----------- | :------------------------------ | :------------------------ |
@@ -29,7 +29,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[BUILDER_ENTRYPOINTS]: admission during `AppBuilder` startup. `UseReactiveUI` calls `IReactiveUIBuilder.WithAvalonia()`, which registers the fetchers — rail: reactive-ui
+[BUILDER_ENTRYPOINTS]: admission during `AppBuilder` startup. `UseReactiveUI` calls `IReactiveUIBuilder.WithAvalonia()`, which registers the fetchers — concern: reactive-ui
 
 Every builder entrypoint is rooted at `AppBuilderExtensions`.
 
@@ -50,7 +50,7 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 - Entry assembly: `RegisterReactiveUIViewsFromEntryAssembly(this AppBuilder) : AppBuilder`
 - Custom container: `UseReactiveUIWithDIContainer<TContainer>(this AppBuilder, Func<TContainer> containerFactory, Action<TContainer> containerConfig, Func<TContainer, IDependencyResolver> dependencyResolverFactory, Action<ReactiveUIBuilder> configureReactiveUI) : AppBuilder`
 
-[VIEW_HOST_ENTRYPOINTS]: host/view-base members and the UI scheduler — rail: reactive-ui. Each `ViewModel`, `Router`, `ViewContract`, and `DefaultContent` member is backed by its same-named `Property` field.
+[VIEW_HOST_ENTRYPOINTS]: host/view-base members and the UI scheduler — concern: reactive-ui. Each `ViewModel`, `Router`, `ViewContract`, and `DefaultContent` member is backed by its same-named `Property` field.
 
 | [INDEX] | [SURFACE]                     | [SURFACE_ROOT]                    | [ROLE]                     |
 | :-----: | :---------------------------- | :-------------------------------- | :------------------------- |
@@ -69,7 +69,7 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 
 [SCHEDULER_SIGNATURE]: `Schedule<TState>(TState, TimeSpan, Func<IScheduler,TState,IDisposable>)`
 
-[LIFETIME_BINDING_ENTRYPOINTS]: suspension, activation, and property-subject bridge — rail: reactive-ui. Property bridges default `BindingPriority` to `LocalValue`.
+[LIFETIME_BINDING_ENTRYPOINTS]: suspension, activation, and property-subject bridge — concern: reactive-ui. Property bridges default `BindingPriority` to `LocalValue`.
 
 | [INDEX] | [SURFACE]                            | [SURFACE_ROOT]                     | [ROLE]                  |
 | :-----: | :----------------------------------- | :--------------------------------- | :---------------------- |
@@ -111,6 +111,6 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 
 [HOST_LAW]:
 - Package: `ReactiveUI.Avalonia`
-- Owns: one reactive binding + view-resolution rail for panels, companion windows, sidecars, diagnostics, dock layouts, and downstream shells
+- Owns: one reactive binding + view-resolution layer for panels, companion windows, sidecars, diagnostics, dock layouts, and downstream shells
 - Accept: routed screens, dock documents, and direct view-model hosts share one `IViewFor<T>` resolution contract registered once at startup
 - Reject: per-host reactive binding stacks; per-host view registration

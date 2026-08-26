@@ -1,8 +1,8 @@
 # [RASM_RHINO_OPERATIONS]
 
-`Exchanges.Run` owns document-bound import, export, persistence, geolocation, preset composition, in-session programs, and cross-document conversion. `ExchangeBudget` parameterizes parallel headless work; `CodecRequest`, `Presets.Commit`, and `DocumentCommit.Sealed` remain the owning seam contracts.
+`Exchanges.Run` owns document-bound import, export, persistence, geolocation, preset composition, in-session programs, and cross-document conversion. `ExchangeBudget` parameterizes parallel headless work; `CodecRequest`, `Presets.Commit`, and `DocumentCommit.Sealed` remain the owning boundary contracts.
 
-This page also seats three folder-wide owners the archive and codec rails compose and never re-mint: `ExchangeFault`, the folder's one refusal family on the kernel `FaultBand.HostExchange` row; `BatchProgram<TOutcome>`, the ordered independent-row fold both transaction rails had built twice; and `WriteContent`, the one write-channel vocabulary every host write surface reads its columns off. `MutationPhase` replaces the attempt/residue bool pair on both rails, the Document tier's `FieldOverride<T>` is the three-state override the sheet and dial pages read, and `OutputPolicy.Land` the atomic staging kernel every artifact this package writes itself passes through.
+This page also seats three folder-wide owners the archive and codec pipelines compose and never re-mint: `ExchangeFault`, the folder's one refusal family on the kernel `FaultBand.HostExchange` row; `BatchProgram<TOutcome>`, the ordered independent-row fold both transaction pipelines had built twice; and `WriteContent`, the one write-channel vocabulary every host write surface reads its columns off. `MutationPhase` replaces the attempt/residue bool pair on both pipelines, the Document tier's `FieldOverride<T>` is the three-state override the sheet and dial pages read, and `OutputPolicy.Land` the atomic staging kernel every artifact this package writes itself passes through.
 
 ## [01]-[INDEX]
 
@@ -11,7 +11,7 @@ This page also seats three folder-wide owners the archive and codec rails compos
 - [04]-[BATCH_PROGRAM]: `IBatchYield`, `BatchVerdict`, `BatchStep<TOutcome>`, `BatchProgram<TOutcome>` — the ordered independent-row regime and its ONE fold.
 - [05]-[PRESET_COMPOSITION]: `PresetOperation` and `Presets.Commit` — the Persistence owner composed by `ExchangeOp.PresetCase`.
 - [06]-[GEOLOCATION]: `GeoPoint`, `EarthAnchor`, and `AnchorOp` — read, write, planes, and the model↔earth correspondence on one owner.
-- [07]-[TRANSACTION_RAIL]: `ExchangeOp`, `WriteContent`, `ExchangeFact`/`ExchangeOutcome`, `BatchPosture`/`BatchPolicy`/`ConversionPolicy` with the `ExchangeHalt` cancellation carrier, and `Exchanges` — one session-proved dispatch plus the cross-document conversion fan.
+- [07]-[TRANSACTION_PIPELINE]: `ExchangeOp`, `WriteContent`, `ExchangeFact`/`ExchangeOutcome`, `BatchPosture`/`BatchPolicy`/`ConversionPolicy` with the `ExchangeHalt` cancellation carrier, and `Exchanges` — one session-proved dispatch plus the cross-document conversion fan.
 
 ## [02]-[FAULT]
 
@@ -20,7 +20,7 @@ This page also seats three folder-wide owners the archive and codec rails compos
 - Law: generated owners stamp `[ValidationError]`; public accumulation rides `Validation<Error, T>`, and foreign errors retain their exact identity.
 - Law: the generated fault-case identity supplies the numeric code, while this root's total `Message` switch supplies presentation.
 - Boundary: `ExchangeFault` never represents generated validation, aggregates, categories, or wire envelopes.
-- Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
+- Packages: `Domain/results`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -57,17 +57,17 @@ public abstract partial record ExchangeFault : Fault {
 
 ## [03]-[LANE_AND_OUTPUT]
 
-- Owner: `ExchangeBudget` admits I/O degree and scheduler once. `IoLane` closes sequential and budgeted-parallel conversion. `CollisionRule`, `DirectoryRule`, and `OutputPolicy` settle and land every egress path under one declared collision, directory, staging, durability, and content-identity contract. `MutationPhase` is the folder's one residue ladder and `MutationTrace` the cell carrying it, armed by the exchange rail at bracket entry and by the archive rail at its landing hook.
-- Law: the three-state override vocabulary is the Document tier's `FieldOverride<T>` (`Document/geometry.md`, E-R37) — this page COMPOSES it through the prelude's `Rasm.Rhino.Document` import; a second `Keep`/`Set`/`Clear` union on any Exchange page is the deleted twin, and the owner's two arms — railed `Apply(admit:, write:, clear:, key:)` and total `Through(host:, gate:, value:)` — are the ONE gate-plus-value pair, discriminated on admission timing.
-- Law: residue is a MONOTONE RANK, not two booleans. `Untouched` names a step that never reached its host call, `Attempted` an edit an undo bracket or preset commit can still roll back, and `Landing` a filesystem touch behind which no undo serial stands; `Raise` is the only transition and it never descends, so the pair `(Attempted, MayRemain)` cannot reach the `(false, true)` corner it could spell before. One ladder serves both rails, so a step's residue claim reads the same regardless of which rail observed it.
+- Owner: `ExchangeBudget` admits I/O degree and scheduler once. `IoLane` closes sequential and budgeted-parallel conversion. `CollisionRule`, `DirectoryRule`, and `OutputPolicy` settle and land every egress path under one declared collision, directory, staging, durability, and content-identity contract. `MutationPhase` is the folder's one residue ladder and `MutationTrace` the cell carrying it, armed by the exchange pipeline at bracket entry and by the archive pipeline at its landing hook.
+- Law: the three-state override vocabulary is the Document tier's `FieldOverride<T>` (`Document/geometry.md`, E-R37) — this page COMPOSES it through the prelude's `Rasm.Rhino.Document` import; a second `Keep`/`Set`/`Clear` union on any Exchange page is the deleted twin, and the owner's two arms — result-typed `Apply(admit:, write:, clear:, key:)` and total `Through(host:, gate:, value:)` — are the ONE gate-plus-value pair, discriminated on admission timing.
+- Law: residue is a MONOTONE RANK, not two booleans. `Untouched` names a step that never reached its host call, `Attempted` an edit an undo bracket or preset commit can still roll back, and `Landing` a filesystem touch behind which no undo serial stands; `Raise` is the only transition and it never descends, so the pair `(Attempted, MayRemain)` cannot reach the `(false, true)` corner it could spell before. One ladder serves both pipelines, so a step's residue claim reads the same regardless of which pipeline observed it.
 - Law: `ExchangeBudget` and `GeoPoint` refuse the default struct through `IDisallowDefaultValue`, so a zero-initialized budget or an origin-point-that-was-never-admitted is unrepresentable rather than screened at each reader. `IoLane.Admitted` and half of `ConversionPolicy`'s validator DELETE onto that refusal — the type states the invariant the guards were re-proving.
 - Law: direct host writers settle against the filesystem at dispatch instant, while staged artifacts validate, flush, and hash before the collision row atomically moves them onto an admitted destination; both return the settled `DocumentPath` on the outcome, so no fallible work follows commit and the caller never re-derives the ordinal.
 - Law: `Fail` and `AppendOrdinal` use no-clobber moves, and both walk ONE candidate roster whose head is the requested path — a probe walk for `Settle`, a move walk for `Land` — so the requested-path special case and its duplicated `File.Exists` are gone. A refusal whose candidate now exists lost the seat to a concurrent creator and the walk continues, any other refusal settles as the reported fault, and exhaustion is the typed `Exhausted` seat fault; an unbounded rename loop is unrepresentable because the bound is a `Dimension` policy value, and an exception filter deciding continuation is the deleted form.
 - Law: `Land` is the sole staging kernel for every artifact this package writes itself — archive persistence and amendment, embedded-file extraction, fresh-archive geometry emission, and every publish delivery stage through it; a second temp-write-verify-move spelling beside it is the deleted form. Host writers that dispatch on the destination extension or mutate document identity (`RhinoDoc.Export`, `ExportSelected`, `Save`, `SaveAs`, the direct engines) write their settled path directly, because a `.partial` staging name forks the host's own format dispatch.
 - Law: the temporary artifact is a LEASED resource, never a hand-released one. `StagedFile` disposes by deleting whatever still stands at its path, so a successful move leaves nothing to delete and a failure at any stage releases through `Lease<T>.Use`, which aggregates a cleanup refusal INTO the primary fault because `Error` is a monoid — the prior hand-written success/failure `Match` pair reported a cleanup failure only when the primary had already failed.
 - Exemption: filesystem probes, durable flush, and atomic move are ordered statements inside `CollisionRule`, `DirectoryRule`, and `OutputPolicy.Land`; that ordering is the platform-forced file-kernel exemption and no consumer writes one.
-- Packages: `Domain/rails` (`Op`, `Lease<T>`, `ContentHash`, `FaultBand`), `Rasm.Numerics` (`Dimension`), `Rasm.Rhino.Document` (`DocumentPath`), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`), LanguageExt.Core (`Atom`, `Fin`, `Option`, `Seq`).
-- Boundary: `OutputPolicy.Land`'s published shape is the folder's frozen staging seam — `Exchange/publish`'s `Landing` family and `Exchange/archive`'s `Archives.Land` both bind it by name, so its interior refines freely and its signature does not.
+- Packages: `Domain/results` (`Op`, `Lease<T>`, `ContentHash`, `FaultBand`), `Rasm.Numerics` (`Dimension`), `Rasm.Rhino.Document` (`DocumentPath`), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`, `IDisallowDefaultValue`), LanguageExt.Core (`Atom`, `Fin`, `Option`, `Seq`).
+- Boundary: `OutputPolicy.Land`'s published shape is the folder's frozen staging boundary — `Exchange/publish`'s `Landing` family and `Exchange/archive`'s `Archives.Land` both bind it by name, so its interior refines freely and its signature does not.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -171,7 +171,6 @@ public readonly partial struct ExchangeBudget : IDisallowDefaultValue {
     public Rasm.Numerics.Dimension IoDegree { get; }
     public System.Threading.Tasks.TaskScheduler Scheduler { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Rasm.Numerics.Dimension ioDegree,
@@ -226,7 +225,6 @@ public sealed partial record OutputPolicy {
         directory: DirectoryRule.Create,
         ordinalBound: OrdinalCeiling);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CollisionRule collision,
@@ -334,14 +332,14 @@ public sealed partial record OutputPolicy {
 
 ## [04]-[BATCH_PROGRAM]
 
-- Owner: `BatchStep<TOutcome>` — one settled row of an ordered program, carrying its source ordinal, its observed mutation phase, and either the row's outcome or its typed failure with the evidence the failed attempt produced; `BatchProgram<TOutcome>` — the settled program with requested cardinality, halt truth, stop ordinal, folded evidence, and the ONE driver both transaction rails run; `IBatchYield` — the two facts the fold reads off any outcome it threads, and `BatchVerdict` — the non-generic summary a nested program publishes upward.
+- Owner: `BatchStep<TOutcome>` — one settled row of an ordered program, carrying its source ordinal, its observed mutation phase, and either the row's outcome or its typed failure with the evidence the failed attempt produced; `BatchProgram<TOutcome>` — the settled program with requested cardinality, halt truth, stop ordinal, folded evidence, and the ONE driver both transaction pipelines run; `IBatchYield` — the two facts the fold reads off any outcome it threads, and `BatchVerdict` — the non-generic summary a nested program publishes upward.
 - Entry: `BatchProgram<TOutcome>.Fold(rows, requested, halt, posture, run)` — rows execute in source order, the halt is observed BETWEEN rows, and the posture decides whether a failed row stops the walk or the walk collects it and continues.
-- Law: this owner is the archive rail's `ArchiveStep`/`ArchiveProgram`/`ArchiveFold` and the exchange rail's `ExchangeStep`/`ExchangeProgram`/`ProgramFold` — one shape written twice, where a fix to the shared machinery landed on one copy and not the other. Six type declarations collapse to three; the archive rail's `MutationAttempted`/`MutationMayRemain` pair and the exchange rail's `MutationAttempted` flag collapse to the one `MutationPhase` column; and the `Running`/`Stopped` fold union collapses into the settled program's own `Halted` and `StoppedAt` reads.
+- Law: this owner is the archive pipeline's `ArchiveStep`/`ArchiveProgram`/`ArchiveFold` and the exchange pipeline's `ExchangeStep`/`ExchangeProgram`/`ProgramFold` — one shape written twice, where a fix to the shared machinery landed on one copy and not the other. Six type declarations collapse to three; the archive pipeline's `MutationAttempted`/`MutationMayRemain` pair and the exchange pipeline's `MutationAttempted` flag collapse to the one `MutationPhase` column; and the `Running`/`Stopped` fold union collapses into the settled program's own `Halted` and `StoppedAt` reads.
 - Law: a halt is observed, never inferred. Every requested row settles a step; a direct halt poll carries `Errors.Cancelled`, so `Steps.Count` equals `Requested` and `Halted` reads the exact cause.
 - Law: nesting reports through `BatchVerdict`, not through a generic recursion — an outcome publishes `Nested` when it wraps its own program, and the step folds that verdict's failure, halt, and mutation phase into its own, so an inner program's refusal is visible at the outer program without either type naming the other's outcome.
-- Packages: `Domain/rails` (`Op`), Thinktecture.Runtime.Extensions (`[Union]`), LanguageExt.Core (`Seq`, `Option`, `Fin`, `Error`, `Errors.Cancelled`).
-- Growth: a third batch rail joins with an outcome implementing `IBatchYield` and gains the ordinal, the halt residue, the mutation fold, and the evidence projection with no new declaration; a new halt cause rides the `Error` a failed step already carries.
-- Boundary: the fold owns ordering, halting, and residue alone — what a row DOES, what its outcome holds, and how its evidence reads stay with the composing rail.
+- Packages: `Domain/results` (`Op`), Thinktecture.Runtime.Extensions (`[Union]`), LanguageExt.Core (`Seq`, `Option`, `Fin`, `Error`, `Errors.Cancelled`).
+- Growth: a third batch pipeline joins with an outcome implementing `IBatchYield` and gains the ordinal, the halt residue, the mutation fold, and the evidence projection with no new declaration; a new halt cause rides the `Error` a failed step already carries.
+- Boundary: the fold owns ordering, halting, and residue alone — what a row DOES, what its outcome holds, and how its evidence reads stay with the composing pipeline.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -434,9 +432,9 @@ public sealed record BatchProgram<TOutcome> where TOutcome : IBatchYield {
 ## [05]-[PRESET_COMPOSITION]
 
 - Owner: `PresetOperation` and `Presets.Commit` own construction planes, named positions, named layer states, roster counts, identity resolution, participating object ids, and stored transforms. `ExchangeOp.PresetCase` composes that command without a second saved-state vocabulary or host-table interpreter.
-- Law: `Run` routes a preset request before any exchange demand because `Presets.Commit` derives its own read, mutation, undo, and redraw needs from `PresetOperation.Execution`; this rail reads that same policy row for its own profile rather than predicting mutation from the case shape. Batch execution re-enters `Run` per case, so preset and exchange programs share ordered failure and halt outcomes without nesting document demands.
+- Law: `Run` routes a preset request before any exchange demand because `Presets.Commit` derives its own read, mutation, undo, and redraw needs from `PresetOperation.Execution`; this pipeline reads that same policy row for its own profile rather than predicting mutation from the case shape. Batch execution re-enters `Run` per case, so preset and exchange programs share ordered failure and halt outcomes without nesting document demands.
 - Packages: `Rasm.Rhino.Persistence` (`PresetOperation`, `PresetExecution`, `Presets.Commit`).
-- Boundary: the composed seam is the Persistence surface below and nothing more — `PresetOperation` is the request, `PresetExecution` its policy row, and `Presets.Commit` the command.
+- Boundary: the composed boundary is the Persistence surface below and nothing more — `PresetOperation` is the request, `PresetExecution` its policy row, and `Presets.Commit` the command.
 
 ```csharp
 using Rasm.Rhino.Persistence;
@@ -451,7 +449,7 @@ using Rasm.Rhino.Persistence;
 - Law: north is a DECLARED posture, never an implied one. `SunCase` carries a kernel `NorthPosture` row: `True` bears the model-north declination the anchor holds, `Project` bears zero because the model's own `+X` IS the drawing's north. The prior arm hard-assumed true north and re-derived the bearing with a bare `Atan2`/`ToDegrees` pair beside the branch's own north convention (folder `RULINGS` states that convention once); here the bearing admits as a `VectorAngle`, the posture's `Rotation` column answers the plan rotation, and degrees enter only at the host write.
 - Law: earth-required and model-required preconditions gate per arm through `EarthLocationIsSet`/`ModelLocationIsSet` — a projection over an unset anchor is a typed refusal, never a garbage transform.
 - Law: the inverse transform reads through `Op.Probe`, so the host's `bool`-plus-`out` pair folds to `Option<Transform>` at the boundary and no arm carries a `TryGet` shape inward.
-- Packages: `Domain/rails` (`Op.Probe`, `Op.Catch`), `Rasm.Numerics` (`VectorAngle`), `Rasm.Drawing` (`NorthPosture`), RhinoCommon (`EarthAnchorPoint`, `RenderSettings`, `Sun`) per `.api/api-rhinocommon-document.md` and `.api/api-rhinocommon-rendersettings.md`.
+- Packages: `Domain/results` (`Op.Probe`, `Op.Catch`), `Rasm.Numerics` (`VectorAngle`), `Rasm.Drawing` (`NorthPosture`), RhinoCommon (`EarthAnchorPoint`, `RenderSettings`, `Sun`) per `.api/api-rhinocommon-document.md` and `.api/api-rhinocommon-rendersettings.md`.
 - Boundary: the model-to-earth transform is unit-aware — `GetModelToEarthTransform(modelUnits:)` receives the document's live `LengthUnit`, read inside the same demand window that uses it, so a stale unit regime cannot skew the projection.
 
 ```csharp
@@ -467,7 +465,6 @@ public readonly partial struct GeoPoint : IDisallowDefaultValue {
     public double Longitude { get; }
     public double Elevation { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double latitude,
@@ -500,7 +497,6 @@ public sealed partial record EarthAnchor {
     public Option<string> Name { get; }
     public Option<string> Description { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Option<GeoPoint> basepoint,
@@ -696,26 +692,26 @@ public abstract partial record AnchorYield {
 }
 ```
 
-## [07]-[TRANSACTION_RAIL]
+## [07]-[TRANSACTION_PIPELINE]
 
 - Owner: `ExchangeOp` closes the three routes one request can take — a document edit, a preset commit, a program — and `DocumentOp` closes the six edits the document dispatcher executes: import, export, save, write, geometry, anchor. `WriteContent` is the ONE write-channel vocabulary every host write surface reads. `ExchangeFact` is the ONE outcome vocabulary and `ExchangeOutcome` carries that outcome roster beside its evidence and an `Option<BatchProgram<ExchangeOutcome>>`, so a nested program is absence-or-presence rather than a parallel case in a second yield family every construction site builds twice.
 - Cases: `WriteContent` rows are the union of what the three host write surfaces admit — `GeometryOnly`, `UserData`, `RenderMeshes`, `PreviewImage`, `BitmapTable`, `History`, `Compression`, `Small`, `Textures`, `PluginData`, `PrimaryBackup`, `AuxiliaryBackup`.
 - Entry: `Exchanges.Run(DocumentSession, ExchangeOp, Op?, ExchangeHalt)` owns session-bound work. `Exchanges.Run(Seq<(SessionSource, ExchangeOp)>, ConversionPolicy, CancellationToken, Op?)` owns cross-document conversion and awaits `Parallel.ForEachAsync` under the caller-supplied `ExchangeBudget`.
 - Law: write CHANNELS are one capability vocabulary, and each write surface declares the AXES it admits. `DocumentContent` (eight columns), `SaveAsContent` (five columns), and `BackupPolicy` (three rows over two columns) were three types spelling one concept, and their separation existed only to keep a `Textures` request off a `WriteFile` call — a fact `Axes.Require(Content, refuse)` now states directly, so an inadmissible channel is REFUSED at admission — naming the unadmitted rows the door hands the refusal — where the host previously dropped it in silence. `WriteContent.Law` bars the geometry-only corners the host resolves by fiat, and the auxiliary-backup implication rides the write policy's own clause fold because a containment bar cannot express "B requires A". NAMED LOSS: fourteen compile-time boolean columns; bought back by the per-case axes gate, the barred-corner law, and the `Wire` projection an outcome can print.
 - Law: `ExchangeOutcome` is FILE-scoped and spans envelopes: a program re-enters `Run` across independent commits, and the conversion fan settles headless sessions sharing no commit. `ExchangeFact` therefore closes a flat outcome vocabulary carrying no commit slot or undo stamp.
-- Law: request families split by the rail that executes them, so every closed dispatch is total over what it actually runs. `Run` routes the three `ExchangeOp` cases — a preset delegates to `Presets.Commit`, a program re-enters `Run` per case, and an edit alone reaches the session demand — while `Dispatch` switches the six `DocumentOp` cases behind that demand.
+- Law: request families split by the pipeline that executes them, so every closed dispatch is total over what it actually runs. `Run` routes the three `ExchangeOp` cases — a preset delegates to `Presets.Commit`, a program re-enters `Run` per case, and an edit alone reaches the session demand — while `Dispatch` switches the six `DocumentOp` cases behind that demand.
 - Law: `Profile` answers a `MutationPhase`, not a boolean. `DocumentOp.Profile` derives demand, mutation floor, and surface evidence in one generated dispatch; `ExchangeOp.Profile` reads it through for an edit, RAISES it across a program, and answers a preset off `PresetOperation.Execution` — the Persistence owner's own policy row, never a re-derived mutation predicate. One ladder feeds the undo bracket decision, the trace floor, and the step's residue column, so the three cannot disagree.
 - Law: `MutationTrace` reaches `Attempted` immediately before preset commit or `DocumentCommit.Sealed`; failed steps report that observed phase instead of predicting mutation from request shape. The trace is `Option`-shaped because only a program step reads it — `Step` mints one per row and folds its phase into the `BatchStep`, while the single-op entry passes `None` rather than recording into a cell nothing projects.
 - Law: cancellation is cooperative and case-bounded, and it never rides an exception. `ExchangeHalt` composes every ambient and policy token, `Run` refuses before snapshot acquisition, and the parallel fan merges the caller's token into that halt INSTEAD of handing it to `ParallelOptions` — so `Parallel.ForEachAsync` raises no `OperationCanceledException`, the empty catch that swallowed one is gone, and every skipped row settles as a cancelled step the program's `Halted` reads. NAMED LOSS: the host's own eager mid-iteration loop abort; bought back because each body returns immediately once the halt is observed.
-- Law: `ConversionPolicy` is the outer storage seam: it admits `IoLane` and rejects a parallel lane paired with a halting posture, because collecting-only is an admission contract — a caller learns its lane was unusable at construction rather than watching it silently degrade to sequential with no refusal, no degradation evidence, and no outcome row. The zero-initialized-budget clause DELETES onto `ExchangeBudget`'s own default refusal, and parallel conversion never reads ambient processor count.
+- Law: `ConversionPolicy` is the outer storage boundary: it admits `IoLane` and rejects a parallel lane paired with a halting posture, because collecting-only is an admission contract — a caller learns its lane was unusable at construction rather than watching it silently degrade to sequential with no refusal, no degradation evidence, and no outcome row. The zero-initialized-budget clause DELETES onto `ExchangeBudget`'s own default refusal, and parallel conversion never reads ambient processor count.
 - Law: `SaveCase` consults `SessionSnapshot.Modified` — saving an unmodified document is a no-op `ExchangeFact`, never a redundant host write. It pre-guards a non-empty `RhinoDoc.Path` and crosses `op.Catch` on the dirty branch, because the host member throws on an unpathed document and this arm carries no undo bracket to convert for it; `TemplateCase` admits the archive extension against the codec row before the call and crosses the same catch.
 - Law: egress cases resolve their target through `OutputPolicy` exactly once and stamp the SETTLED path plus the artifact's `ContentHash.Of` content key on the outcome, so downstream indexing keys on evidence.
 - Law: the write target's codec is a `DocumentWritePolicy` projection, never a constant — `SaveAsCase`, `ArchiveCase`, and `TemplateCase` answer the row carrying `CodecAbility.Archive`, while `DocumentCase` writes through the extension-dispatching general writer and therefore answers `Codecs.Detect(target)` and refuses an undetectable extension. One projection feeds both `OutputPolicy.Resolve` and the outcome's fact.
-- Law: `GeometryCase` is a session-bound export that writes no live-document geometry — after the session proves export capability, a fresh `File3dm` receives the requested geometry rows and lands through `Archives.Land`, the archive rail's one `WriteWithLog`-hooked staging over `OutputPolicy.Land`, so the landed 3dm carries the same byte re-materialization parse proof every archive persistence carries.
+- Law: `GeometryCase` is a session-bound export that writes no live-document geometry — after the session proves export capability, a fresh `File3dm` receives the requested geometry rows and lands through `Archives.Land`, the archive pipeline's one `WriteWithLog`-hooked staging over `OutputPolicy.Land`, so the landed 3dm carries the same byte re-materialization parse proof every archive persistence carries.
 - Law: `ExportScope` gates selection by `CodecAbility.Selection` and owns one noninteractive `FileWriteOptions` carrier. Native `3dm`, `OBJ`, and `PLY` engines receive that carrier through one `Codecs.Apply`; every other selection row is refused before host contact.
-- Packages: `Domain/rails` (`Op`, `ContentHash`, `Lease<T>`), `Domain/validation` (`CapabilitySet<T>`, `CapabilityLaw<T>`, `ICapability<T>`), `Rasm.Numerics` (`Dimension`), `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `DocumentCommit`, `RedrawPolicy`, `DocumentPath`), RhinoCommon (`RhinoDoc.SaveAs`/`WriteFile`/`Write3dmFile`/`SaveAsTemplate`, `FileWriteOptions`) per `.api/api-rhinocommon-fileio.md`.
+- Packages: `Domain/results` (`Op`, `ContentHash`, `Lease<T>`), `Domain/validation` (`CapabilitySet<T>`, `CapabilityLaw<T>`, `ICapability<T>`), `Rasm.Numerics` (`Dimension`), `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `DocumentCommit`, `RedrawPolicy`, `DocumentPath`), RhinoCommon (`RhinoDoc.SaveAs`/`WriteFile`/`Write3dmFile`/`SaveAsTemplate`, `FileWriteOptions`) per `.api/api-rhinocommon-fileio.md`.
 - Growth: a new write channel is one `WriteContent` row plus its column in the surfaces that admit it; a new route or a new edit lands in exactly one request family and every closed dispatch breaks loudly.
-- Boundary: `RhinoDoc.Open` and every headless constructor belong to the Document session sources; an exchange request that names a document to acquire is a session construction at the call site, and this rail's batch runs against the session it was handed. `Parallel.ForEachAsync` and `DocumentSession` disposal statements are the platform-forced `Task` and resource exemptions.
+- Boundary: `RhinoDoc.Open` and every headless constructor belong to the Document session sources; an exchange request that names a document to acquire is a session construction at the call site, and this pipeline's batch runs against the session it was handed. `Parallel.ForEachAsync` and `DocumentSession` disposal statements are the platform-forced `Task` and resource exemptions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -940,7 +936,6 @@ public sealed partial record ConversionPolicy {
     public BatchPolicy Batch { get; }
     public IoLane Lane { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref BatchPolicy batch,
@@ -1222,7 +1217,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Rhino exchange transaction rail
+    accTitle: Rhino exchange transaction pipeline
     accDescr: One session-proved exchange request dispatches through host operation families into one detached outcome, while the halt gates entry between rows and typed evidence records native and degradation outcomes.
     Session["DocumentSession — lifetime, needs, Modified"] --> Entry["Exchanges.Run"]
     Request["ExchangeOp — Edit · Preset · Batch"] --> Entry

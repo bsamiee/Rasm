@@ -1,6 +1,6 @@
 # [RASM_BIM_API_VIVIDORANGE_ISTANDARDS]
 
-`VividOrange.IStandards` mints the Eurocode standards-identity taxonomy: the `IStandard`/`StandardBody` contract naming which body publishes a code, the closed `NationalAnnex` key parameterizing every Eurocode `ψ`/`γ` table lookup, the per-Eurocode `En199xPart` clause-part enums, and the `MissingNationalAnnexException` fault for an unmapped annex. Concrete `VividOrange.Standards` realizes it as the mutable `En1990`…`En1999` classes fixing `Body => StandardBody.EN`, and Bim reads the taxonomy on the standards rail, lowering the unmapped-annex fault onto `BimFault` at ingest.
+`VividOrange.IStandards` mints the Eurocode standards-identity taxonomy: the `IStandard`/`StandardBody` contract naming which body publishes a code, the closed `NationalAnnex` key parameterizing every Eurocode `ψ`/`γ` table lookup, the per-Eurocode `En199xPart` clause-part enums, and the `MissingNationalAnnexException` fault for an unmapped annex. Concrete `VividOrange.Standards` realizes it as the mutable `En1990`…`En1999` classes fixing `Body => StandardBody.EN`, and Bim reads the taxonomy on the standards path, lowering the unmapped-annex fault onto `BimFault` at ingest.
 
 ## [01]-[PUBLIC_TYPES]
 

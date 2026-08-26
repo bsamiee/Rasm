@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_PULUMI]
 
-`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` dependency algebra, the `Resource`/`ComponentResource` model every stack tier extends, `Config`/`StackReference` state access, and the Automation API's operation-specific lifecycle results. `iac` lifts inline `LocalWorkspace` programs onto one Effect rail.
+`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` dependency algebra, the `Resource`/`ComponentResource` model every stack tier extends, `Config`/`StackReference` state access, and the Automation API's operation-specific lifecycle results. `iac` lifts inline `LocalWorkspace` programs into one `Effect`.
 
 ## [01]-[OUTPUT_ALGEBRA]
 
@@ -60,7 +60,7 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 |  [13]   | `resourceType`                  | utility        | read a resource's type token                                                       |
 |  [14]   | `resourceName`                  | utility        | read a resource's name                                                             |
 |  [15]   | `InvokeOptions`                 | interface      | data-source invoke opts: `parent`/`provider`/`version`/`pluginDownloadURL`/`async` |
-|  [16]   | `InvokeOutputOptions`           | interface      | extends `InvokeOptions`; adds graph `dependsOn` for the `getXOutput` seam          |
+|  [16]   | `InvokeOutputOptions`           | interface      | extends `InvokeOptions`; adds graph `dependsOn` for the `getXOutput` form          |
 |  [17]   | `URN` / `ID`                    | string brand   | `URN`/`ID` = `string`; identity `static get(name, id: Input<ID>, …)` adopts        |
 |  [18]   | `queryable.ResolvedResource<T>` | utility        | `Omit<Resolved<T>, "urn"\|"getProvider">` — `@pulumi/policy` stack-narrowing view  |
 
@@ -167,9 +167,9 @@ Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` directly t
 - `_operations` maps the operation vocabulary to `Stack` methods while preserving each method's native result type; `previewRefresh` is the non-mutating drift leg, `policyPacks` attach CrossGuard, and stack methods retain their own state and ESC results.
 
 [STACKING]:
-- `effect`(`libs/typescript/.api/effect.md`): every `Stack` operation lifts through `Effect.tryPromise`, which threads fiber interruption through its `AbortSignal`; retry, timeout, and tracing compose on that rail while `onEvent` remains the caller's direct observation callback.
+- `effect`(`libs/typescript/.api/effect.md`): every `Stack` operation lifts through `Effect.tryPromise`, which threads fiber interruption through its `AbortSignal`; retry, timeout, and tracing compose on that `Effect` while `onEvent` remains the caller's direct observation callback.
 
-| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                           |
+| [INDEX] | [PULUMI_MEMBER]                       | [EFFECT_MEMBER]                                           |
 | :-----: | :------------------------------------ | :-------------------------------------------------------- |
 |  [01]   | `Stack.up/preview/refresh/destroy` op | `_operations` mapped record with correlated native result |
 |  [02]   | lifecycle `signal: AbortSignal`       | `Effect.tryPromise` fiber interruption                    |

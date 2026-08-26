@@ -11,11 +11,11 @@ Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) im
 ## [02]-[FEATURES]
 
 - Owner: `Features` holds the conditioned `trimesh.Trimesh` beside its lane and its composition `ScopeKey`, so every weave call this owner makes stamps the key the app root bound rather than a default. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms and one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
-- Entry: `run` discriminates a single request or a batch, each returning through its own weave rail; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the weave's fence. `bridged` never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
+- Entry: `run` discriminates a single request or a batch, each returning through its own weave path; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the weave's fence. `bridged` never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned result.
 - Output: leaderboards and partitions stay on typed `Census.values`; node-link evidence stays real JSON bytes; `frame` projects one held analytic board through `EvidenceFrame` using the result's own specification-derived key.
 - Packages: `trimesh`, `numpy`, and `networkx` per the fence imports; the analytic vocabulary and the graduation spine import downward from their geometry owners.
 - Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
-- Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
+- Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data boundary. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -35,7 +35,7 @@ from numpy.typing import NDArray
 
 from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometrySubject, evidence_key, evidence_run
 from rasm.geometry.graph.analytic import AnalyticValue, ranked
-from rasm.runtime.faults import Disposition, RuntimeRail, traversed
+from rasm.runtime.faults import Disposition, RuntimeResult, traversed
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -162,7 +162,7 @@ class FeatureResult(Struct, frozen=True):
 
         return b"|".join((self.kind.value.encode(), self.node_link))
 
-    def frame(self, op: AnalyticOp) -> "RuntimeRail[EvidenceFrame]":
+    def frame(self, op: AnalyticOp) -> "RuntimeResult[EvidenceFrame]":
         board = self.census.values.try_find(op).default_value(AnalyticValue.Leaderboard(())).tabled()
         return EvidenceFrame.of(self.graduation_subject, evidence_key(self.graduation_subject, self.spec), board)
 
@@ -361,7 +361,7 @@ class Features(Struct, frozen=True):
     lane: LanePolicy
     composition: ScopeKey = DEFAULT_SCOPE
 
-    def run(self, request: FeatureRequest | Sequence[FeatureRequest]) -> RuntimeRail[FeatureResult] | RuntimeRail[Block[FeatureResult]]:
+    def run(self, request: FeatureRequest | Sequence[FeatureRequest]) -> RuntimeResult[FeatureResult] | RuntimeResult[Block[FeatureResult]]:
         match request:
             case Sequence() as batch:
                 return traversed(
@@ -380,7 +380,7 @@ class Features(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def bridged(self, request: FeatureRequest) -> RuntimeRail[FeatureResult]:
+    async def bridged(self, request: FeatureRequest) -> RuntimeResult[FeatureResult]:
         return await evidence_run(
             EvidenceScope.GRAPH_FEATURES,
             f"bridged.{request.kind}",

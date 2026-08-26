@@ -1,6 +1,6 @@
 # [PY_DATA_API_ADBC_DRIVER_FLIGHTSQL]
 
-`adbc-driver-flightsql` binds an Arrow Flight SQL endpoint as an ADBC database on the data partition rail: `connect` mints the native-driver-backed `AdbcDatabase`, three option-enum vocabularies key every database, connection, and statement setting by canonical `adbc.flight.sql.*` string, and two OAuth axes drive client-credentials and RFC 8693 token-exchange auth. Partition deepening rides `dbapi.connect`, fanning `execute_partitions` endpoints back as Arrow record batches over Flight RPC.
+`adbc-driver-flightsql` binds an Arrow Flight SQL endpoint as an ADBC database on the data partition domain: `connect` mints the native-driver-backed `AdbcDatabase`, three option-enum vocabularies key every database, connection, and statement setting by canonical `adbc.flight.sql.*` string, and two OAuth axes drive client-credentials and RFC 8693 token-exchange auth. Partition deepening rides `dbapi.connect`, fanning `execute_partitions` endpoints back as Arrow record batches over Flight RPC.
 
 ## [01]-[PUBLIC_TYPES]
 

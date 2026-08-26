@@ -3,5 +3,5 @@ language js(typescript, jsx)
 `throw $err` where {
     $err <: not within `Effect.try($_)` ,
     $err <: not within `Effect.tryPromise($_)` ,
-    register_diagnostic(span=$err, message="Raw throw in domain flow. Fail through the typed rail: Effect.fail with a tagged error, or admit the throwing seam via Effect.try/Effect.tryPromise.", severity="error")
+    register_diagnostic(span=$err, message="Raw throw in domain flow. Fail through the typed error channel: Effect.fail with a tagged error, or admit the throwing call via Effect.try/Effect.tryPromise.", severity="error")
 }

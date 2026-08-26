@@ -131,10 +131,10 @@ Every blocking member carries an async twin over `Memory<byte>` with a `Cancella
 - `api-messagepack`(`libs/dotnet/.api/api-messagepack.md`): `MessagePackCompression.Lz4BlockArray` frames inside the serializer, so that codec pairs with the uncompressed policy row.
 - `api-hashing`(`../../.api/api-hashing.md`): `Crc32.HashToUInt32` seals the snapshot header prefix and `XxHash3.HashToUInt64` tags each chunk over bytes this codec produced, keeping frame checksum and content address distinct.
 - `api-highperformance`(`../../.api/api-highperformance.md`): `ArrayPoolBufferWriter<byte>.GetSpan` rents the pump's destination and `Advance` commits `bytesWritten`, so a streamed frame costs one pooled rental.
-- `Element/codec#COMPRESSION_HASHING`: `ZstdFrame.Pack` sets `contentSizeFlag` and `checksumFlag` on every frame, adds `enableLongDistanceMatching` with `ZSTD_btultra2` on the archival row, and `PackStream`/`UnpackStream` drive the adapters as the one streaming residence on the compression axis.
+- `Element/codec#COMPRESSION_HASHING`: `ZstdFrame.Pack` sets `contentSizeFlag` and `checksumFlag` on every frame, adds `enableLongDistanceMatching` with `ZSTD_btultra2` on the archival row, and `PackStream`/`UnpackStream` drive the adapters as the one streaming owner on the compression axis.
 
 [LOCAL_ADMISSION]:
 - `CompressionPolicy.Zstd` and `ZstdHigh` are the admitted rows, each a level with its archival flag; a further profile is one more row against the same frame helper.
 - `PackStream`/`UnpackStream` carry a payload past one contiguous buffer, and `GetCompressBound` bounds a one-shot destination.
-- `ZstdException` maps to a typed `Fin` failure at the codec boundary, so the no-throw twins keep a short destination on the value rail.
+- `ZstdException` maps to a typed `Fin` failure at the codec boundary, so the no-throw twins keep a short destination on the value channel.
 - Level, frame flags, dictionary id, and pledged size remain on the codec policy row.

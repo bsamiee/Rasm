@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_PLUGINS]
 
-`Rhino.PlugIns` binds managed code into the host through one subclassed `PlugIn` per package, its render, digitizer, and file-dialog specializations, and the license surface that owns the Zoo/CloudZoo entitlement rail.
+`Rhino.PlugIns` binds managed code into the host through one subclassed `PlugIn` per package, its render, digitizer, and file-dialog specializations, and the license surface that owns the Zoo/CloudZoo entitlement pipeline.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -67,7 +67,7 @@
 
 [ENTRYPOINT_SCOPE]: assembly-scoped declarative metadata
 - `[PlugInDescription(DescriptionType descriptionType, string value)]` — `AttributeTargets.Assembly`, `AllowMultiple = true`; `DescriptionType -> DescriptionType` / `Value -> string` are get-only, so one contact field is one attribute application and the roster is the applied set
-- `[LicenseId(string value)]` — `AttributeTargets.Assembly`, single application; `Value -> string` get-only binds the entitlement id the license rail discovers
+- `[LicenseId(string value)]` — `AttributeTargets.Assembly`, single application; `Value -> string` get-only binds the entitlement id the license pipeline discovers
 
 [ENTRYPOINT_SCOPE]: plug-in lifecycle overrides
 - `protected virtual OnLoad(ref string errorMessage) -> LoadReturnCode` / `OnShutdown() -> void` / `ResetMessageBoxes() -> void` — load and shutdown hooks
@@ -118,10 +118,10 @@
 - `RenderPlugIn`, `DigitizerPlugIn`, `FileImportPlugIn`, and `FileExportPlugIn` subclass `PlugIn` with their own abstract contract; a package picks one base per concern
 - file-dialog dispatch is index-keyed: `AddFileType` returns the index the later `ReadFile`/`WriteFile` receives, and the plug-in discriminates on that index, never a re-parsed path extension; the host re-walks the returned list and drops any entry with a blank description or an empty extension set before the native add, so a dropped entry shifts every later dispatch index — a registration fold admits both fields or the recorded index stops naming the row it dispatched
 - per-plug-in document state serializes through `ShouldCallWriteDocument`→`WriteDocument`/`ReadDocument` against the host `BinaryArchive*`
-- settings are a `PersistentSettings` tree keyed by plug-in id; license capability is a `LicenseCapabilities` flag set acquired through the Zoo/CloudZoo rail, never a hand-rolled key check
+- settings are a `PersistentSettings` tree keyed by plug-in id; license capability is a `LicenseCapabilities` flag set acquired through the Zoo/CloudZoo pipeline, never a hand-rolled key check
 
 [STACKING]:
-- `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md`: the license family splits at the caller — this catalog owns the `PlugIn`-facing entitlement rail (`PlugIn.GetLicense`, `LicenseUtils`, the license data/status/lease carriers, and the two change payloads), and the runtime catalog owns the Zoo and Rhino Accounts state beneath it (`ZooClientParameters`, `IZooClientUtilities`, `LicenseTypes`, `LicenseStateChangedEventArgs`, and the accounts token rail)
+- `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md`: the license family splits at the caller — this catalog owns the `PlugIn`-facing entitlement pipeline (`PlugIn.GetLicense`, `LicenseUtils`, the license data/status/lease carriers, and the two change payloads), and the runtime catalog owns the Zoo and Rhino Accounts state beneath it (`ZooClientParameters`, `IZooClientUtilities`, `LicenseTypes`, `LicenseStateChangedEventArgs`, and the accounts token pipeline)
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
 - `LanguageExt`(`libs/dotnet/.api/api-languageext.md`): the `ReadFile` `Result` and `WriteFile` `WriteFileResult` fold to `Fin<A>`, the registered-index-to-handler binding is a `HashMap` lookup, `Find`/`GetPluginSettings` nullable resolves fold to `Option<A>`, and the license `GetLicense`/`CheckOutLicense` bool outcomes fold to `Fin<Unit>` carrying the fault
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the registered file-type roster wraps as a keyed `SmartEnum` indexed by the `AddFileType` return, collapsing extension, description, and index into one owner the dispatch switches on; `PlugInType`, `PlugInLoadTime`, `LicenseType`, `LicenseBuildType`, and `LicenseCapabilities` map to `SmartEnum`/flag owners, and a plug-in `Guid` wraps as a `ValueObject<Guid>`

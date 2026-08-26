@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_JSZIP]
 
-`jszip` assembles and reads a ZIP container as one mutable tree — a polymorphic `file` that adds, fetches, or pattern-matches an entry by argument shape, `folder` scoping, and a type-indexed `generateAsync<T>`/`loadAsync` serialization narrowing through `OutputByType`. `report` folds artifacts into one archive inside `Effect.sync`, crosses to the rail once via `Effect.tryPromise`, and streams a large bundle through `generateNodeStream` rather than buffering.
+`jszip` assembles and reads a ZIP container as one mutable tree — a polymorphic `file` that adds, fetches, or pattern-matches an entry by argument shape, `folder` scoping, and a type-indexed `generateAsync<T>`/`loadAsync` serialization narrowing through `OutputByType`. `report` folds artifacts into one archive inside `Effect.sync`, crosses into `Effect` once via `Effect.tryPromise`, and streams a large bundle through `generateNodeStream` rather than buffering.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -63,7 +63,7 @@
 - `file` is one polymorphic method: `(path, data, options?)` adds and returns the tree for chaining, `(path)` fetches one entry or `null`, `(RegExp)` returns matches. `report` folds the artifact list through the add arm and reads through the accessor arm.
 - Output is a type-indexed family: `generateAsync<T>` and `entry.async<T>` narrow through `OutputByType[T]`. `report`'s Node path pins `type: "uint8array"` once; `blob`/`base64` are the `browser/persist` egress arms of the same call.
 - Compression is a policy value: `{ compression: "DEFLATE", compressionOptions: { level } }` per entry or archive-wide, defaulting to `STORE`; `streamFiles: true` generates without holding the whole archive. `pako` is pure-JS, so DEFLATE is CPU-bound and a large archive belongs off the request path.
-- `JSZip`'s tree is mutable and imperative but the seam stays pure: `report` folds it inside `Effect.sync` and crosses to the rail once at `generateAsync`/`loadAsync` via `Effect.tryPromise`; no archive state leaks across the boundary.
+- `JSZip`'s tree is mutable and imperative but the boundary stays pure: `report` folds it inside `Effect.sync` and crosses into `Effect` once at `generateAsync`/`loadAsync` via `Effect.tryPromise`; no archive state leaks across the boundary.
 - `unsafeOriginalName` is the zip-slip control: a loaded entry's stored path may carry `..`; the owner resolves every name against a fixed root and rejects an escape before `FileSystem.writeFile`.
 - Progress is a report stream: `onUpdate(JSZipMetadata)` reports `{ percent, currentFile }`, folded into a `Ref`/`SubscriptionRef` or a `Metric.gauge` for live job progress.
 
@@ -76,7 +76,7 @@
 
 [LOCAL_ADMISSION]:
 - One polymorphic `file` and `generateAsync<T>` parameterized by output type own add/get/match and serialization; a per-format serializer or `addFile`/`getFile` variant is rejected.
-- `Effect.tryPromise` bounds the `generateAsync`/`loadAsync` seam and `Effect.sync` the tree fold; the mutable tree never crosses the `Effect` boundary and domain code never `await`s a `JSZip` promise raw.
+- `Effect.tryPromise` bounds the `generateAsync`/`loadAsync` boundary and `Effect.sync` the tree fold; the mutable tree never crosses the `Effect` boundary and domain code never `await`s a `JSZip` promise raw.
 - `generateNodeStream` carries an unbounded bundle under real backpressure; `Path.resolve` against a fixed root validates every `unsafeOriginalName` before extraction.
 - `Stream.async` over `JSZipStreamHelper` events backpressures NOTHING: the helper pushes on `resume` while that constructor's undeclared bound is `Queue.bounded(16)` whose enqueues run detached, so every chunk past sixteen parks a fiber holding it and the whole archive lands on the heap. Push bridges over the helper hold only where the fence reads each emit's accepted flag and drives `pause`/`resume` off it; `generateNodeStream` already owns that loop, so the pulled read is the form.
 - `loadAsync` stamps `unsafeOriginalName` on FILE rows alone — `if (!input.dir)` in the loader — so it is `undefined` on every directory row and a resolver handed it throws `ERR_INVALID_ARG_TYPE` before any guard runs. Traversal folds therefore drop `entry.dir` rows first and fall back to the loader-sanitized `name` where no raw name survives.

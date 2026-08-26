@@ -137,7 +137,7 @@ Vocabulary and enum leaf types carry closed value rosters:
 |  [07]   | `meta.warnings[]`                              | folded into the result as soft notes                                        |
 |  [08]   | `meta.mf_hash`                                 | folded into the cache slot beside the leg's own fields                      |
 |  [09]   | `product_service_life_years` + `Bn_years`      | the B-stage replacement and use-stage scale folds                           |
-|  [10]   | `ImpactSet` 21-indicator roster                | transcribed onto the seam `ImpactCategory` rows                             |
+|  [10]   | `ImpactSet` 21-indicator roster                | transcribed onto the contract `ImpactCategory` rows                         |
 |  [11]   | `OPENEPDUNIT` closed unit roster               | the declared-unit admission and its `MeasurementBasis` column               |
 |  [12]   | OMF query grammar                              | object-factory admitted; a malformed filter refuses before any metered call |
 |  [13]   | `doctype` / `openepd_version`                  | the decoder guard, gating before any impact read                            |
@@ -145,14 +145,14 @@ Vocabulary and enum leaf types carry closed value rosters:
 |  [15]   | `compliance : Standard[]`                      | the issuer fallback where no org carries a web domain                       |
 |  [16]   | `Measurement.rsd` / `dist`                     | the declaration's own uncertainty model beside its mean                     |
 |  [17]   | `/v2/categories/tree`                          | NEGATIVE — `Classification`-to-OMF resolution is authoring-time enrichment  |
-|  [18]   | `EolScenario` probability-weighted pathways    | NEGATIVE — the seam impact matrix carries no scenario axis                  |
+|  [18]   | `EolScenario` probability-weighted pathways    | NEGATIVE — the contract impact matrix carries no scenario axis              |
 |  [19]   | `/pcrs/{uuid}` product category rule           | NEGATIVE — the consumer compares declarations, never audits their rule set  |
 |  [20]   | publisher write verbs                          | NEGATIVE — Rasm consumes carbon data; the typed client issues GET alone     |
 
 - [06]-[PAGER_REFUSED]: `Analysis/lifecycle` reads `meta.paging` without walking it, so a per-ply crawl never spends a category's token cost.
-- [10]-[INDICATOR_GAP]: `Analysis/lifecycle` degrades by name every indicator the seam holds no `ImpactCategory` row for.
+- [10]-[INDICATOR_GAP]: `Analysis/lifecycle` degrades by name every indicator the contract holds no `ImpactCategory` row for.
 - [17]-[AUTHORING_SEAT]: Bim's classification owner holds the dictionary-suggestion fold at that altitude, and the runner takes a resolved OMF as request input, so a tree walk inside a per-ply fold is the wrong seat.
-- [18]-[SCENARIO_AXIS]: `ImpactCategory` rows span `(indicator x module)` alone, so a weighted C-stage pathway has nowhere to land; the row reopens the moment the seam declares a scenario axis.
+- [18]-[SCENARIO_AXIS]: `ImpactCategory` rows span `(indicator x module)` alone, so a weighted C-stage pathway has nowhere to land; the row reopens the moment the contract declares a scenario axis.
 
 [LOCAL_ADMISSION]:
 - Every category + spec OMF query enters at the EN 15978 LCA boundary and returns kgCO2e-per-declared-unit measurements decoded once into typed domain scalars; `meta.warnings[]` fold into `AssessmentResult.Facts` as soft notes, never faults.

@@ -16,13 +16,13 @@ Pre-drawing procedure runs in order before the first shape.
 1. Inventory candidate entities, relations, and attributes on separate lists, keeping attributes off the node roster.
 2. Classify every relation into one semantic family — ownership, dependency, dataflow, invocation, sequence, containment, state-transition.
 3. Select one family as the payload and discard every entity that neither participates in it nor anchors a boundary.
-4. Trace one representative scenario, because runtime behavior exposes the real seams a file layout hides.
+4. Trace one representative scenario, because runtime behavior exposes the real boundaries a file layout hides.
 5. Fix a canonical name vocabulary — external actors, internal elements, relation verbs, allowed abbreviations — before the first fence.
 
 Each archetype names the corpus evidence that seeds its inventory; a diagram drawn from memory instead of these traces fabricates its subject.
 
 - [01]-[SPINE]: the boot entrypoint and composition root — walk main from process start to shutdown, listing every owner touched in order and every call that can fault
-- [02]-[SEAM-GRAPH]: cross-package imports and the declared seam ledger — every type that crosses the boundary, its direction, and the counterpart's mirror declaration
+- [02]-[BOUNDARY-GRAPH]: cross-package imports and the declared boundary ledger — every type that crosses the boundary, its direction, and the counterpart's mirror declaration
 - [03]-[LOGIC-FLOW]: the dispatch surface — the match, table, or policy rows of the one entry point, its discriminant vocabulary, and where the arms re-merge
 - [04]-[LIFECYCLE]: the state field — its bounded vocabulary, every write site as a transition candidate, every guard condition at each write
 - [05]-[WIRE-SEQUENCE]: protocol handlers on both sides of the wire — the request and response shapes, the timeout and fault arms, who initiates each step
@@ -42,9 +42,9 @@ Each archetype names the corpus evidence that seeds its inventory; a diagram dra
 A committed diagram is grown in rounds, never drawn at final size in one pass; naive size — the first seven boxes that come to mind — is the floor the rounds build past.
 
 1. Orientation: reading order carries the payload — `LR` for walks, flows, and time, `TB` for rank, hierarchy, and dependency descent; left or top holds the entry, and a diagram whose walk runs against its reading order is re-oriented before it grows.
-2. Skeleton: the dominant rail alone at one abstraction level — entry, the load-bearing owners, the terminal. Every later mark subordinates to this rail.
+2. Skeleton: the main path alone at one abstraction level — entry, the load-bearing owners, the terminal. Every later mark subordinates to this path.
 3. Interrogation rounds: each round asks one named reader question against the skeleton — where does this fault, what stores the fact, who sits outside the boundary, what selects the arm, what returns — and admits only the marks that answer it. A round that adds no mark closes the growth.
-4. Layering round: meaning that earns presence but not a node lands on the secondary vocabulary — edge labels, notes, annotation-classed side nodes on the Comment rail, subgraph membership, dashed traces — so density rises without new primary marks.
+4. Layering round: meaning that earns presence but not a node lands on the secondary vocabulary — edge labels, notes, annotation-classed side nodes on the Comment edge style, subgraph membership, dashed traces — so density rises without new primary marks.
 5. Split check: growth stops the moment a round's question is a second question — that round becomes a new diagram sharing the same name vocabulary, not a larger canvas.
 
 Node-annotation-omission ladder rules every candidate mark:
@@ -54,7 +54,7 @@ Node-annotation-omission ladder rules every candidate mark:
 - ANNOTATION — a reader decision needs it, but it holds no payload relation: a note, a brace comment, or an `annotation`-classed node on a dashed Comment trace.
 - OMISSION — its removal leaves the answer intact; the owning page's prose carries it, and the diagram does not.
 
-A massive subject grows under hierarchy — composites, subgraphs, summarizing nodes — until a needed legend, a second edge semantic, or density that aggregation cannot absorb forces the split, partitioned along the seam the reader already knows: phase, aggregate, package, or gate.
+A massive subject grows under hierarchy — composites, subgraphs, summarizing nodes — until a needed legend, a second edge semantic, or density that aggregation cannot absorb forces the split, partitioned along the boundary the reader already knows: phase, aggregate, package, or gate.
 
 ## [04]-[NODE_LAW]
 
@@ -93,15 +93,15 @@ Every structural channel is spent deliberately; a channel spent twice on one mea
 
 Payload family selected in [02] step 3 keys the type decision: the family lands in one cluster, the question wording refines within it, and wording never re-decides across clusters. The full grammar, floor, and trap roster per row is the syntax reference's property.
 
-| [INDEX] | [PAYLOAD_FAMILY] | [CLUSTER]                                                                                           |
-| :-----: | :--------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | ownership        | `flowchart` walk; `swimlane-beta` when the owning actor is the point; `C4` at system zoom           |
-|  [02]   | dependency       | `flowchart` lattice or seam view; `classDiagram` at compile time; `gantt` when the deps carry dates |
-|  [03]   | dataflow         | `flowchart`; `sankey` when conserved stage volume is the measure                                    |
-|  [04]   | invocation       | `flowchart` dispatch topology; `sequenceDiagram` when one scenario's ordering is the payload        |
-|  [05]   | sequence         | `sequenceDiagram`; `eventmodeling` for command-event causality; `gitGraph` for branch topology      |
-|  [06]   | containment      | hierarchy-by-lens row in [CONTRAST]; `block-beta` when grid placement is the meaning                |
-|  [07]   | state-transition | `stateDiagram-v2`                                                                                   |
+| [INDEX] | [PAYLOAD_FAMILY] | [CLUSTER]                                                                                                  |
+| :-----: | :--------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | ownership        | `flowchart` walk; `swimlane-beta` when the owning actor is the point; `C4` at system zoom                  |
+|  [02]   | dependency       | `flowchart` dependency or boundary view; `classDiagram` at compile time; `gantt` when the deps carry dates |
+|  [03]   | dataflow         | `flowchart`; `sankey` when conserved stage volume is the measure                                           |
+|  [04]   | invocation       | `flowchart` dispatch topology; `sequenceDiagram` when one scenario's ordering is the payload               |
+|  [05]   | sequence         | `sequenceDiagram`; `eventmodeling` for command-event causality; `gitGraph` for branch topology             |
+|  [06]   | containment      | hierarchy-by-lens row in [CONTRAST]; `block-beta` when grid placement is the meaning                       |
+|  [07]   | state-transition | `stateDiagram-v2`                                                                                          |
 
 Two clusters carry the live ambiguity, each resolved by the payload the reader's decision traverses:
 

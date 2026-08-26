@@ -1,6 +1,6 @@
 # [RASM_RHINO_API_RHINOCOMMON_DOCUMENT]
 
-`RhinoDoc` owns document identity across the live and headless runtimes: one handle keyed by `RuntimeSerialNumber` projects every typed component table, and every structural change surfaces as a bound event rather than a polled state. Headless documents expose the identical table, event, and undo surface behind the `IsHeadless` discriminant, making the handle the single host-boundary seam for document geometry.
+`RhinoDoc` owns document identity across the live and headless runtimes: one handle keyed by `RuntimeSerialNumber` projects every typed component table, and every structural change surfaces as a bound event rather than a polled state. Headless documents expose the identical table, event, and undo surface behind the `IsHeadless` discriminant, making the handle the single host-boundary interface for document geometry.
 
 ## [01]-[PUBLIC_TYPES]
 

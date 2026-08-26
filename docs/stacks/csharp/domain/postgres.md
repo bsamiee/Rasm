@@ -1,6 +1,6 @@
 # [POSTGRES]
 
-PostgreSQL is one declared store surface per database. One `NpgsqlDataSourceBuilder` fold owns every per-database concern — type mapping, JSON policy, credentials, session state, pool and prepare budgets, tracing shape — and `Build()` yields the one process-lifetime `NpgsqlDataSource` that both the ADO depth and the mapped `DbContext` share through one pool, so this page owns the driver-level surface the persistence page's EF profile composes beneath it, never the EF context lifecycle, identity mint, generation verdict, or set-based write lane that page legislates. SQL capability is consumed through a two-door routing law — provider-translated LINQ or interpolated typed SQL feeding one composable rail, no third lane — and every statement failure folds once over SQLSTATE class into a closed typed fault family. The extension axis is one wire-keyed lane vocabulary whose generation floor a verification-only admission fold proves and whose held set every query lane dispatches on, so vector, geo, full-text, temporal, and relational predicates compose in one typed query rail gated by the same vocabulary the verifier yields and the process never alters its environment. Bulk admission is binary COPY into staging reconciled by one reconciled MERGE; the change feed is ephemeral NOTIFY wake over a durable logical-replication slot whose `pgoutput` decode folds into the settled op-log shape durability owns. Growth lands as rows: a new wire type is a mapping row, a new extension a lane vocabulary item, a new retrieval axis a lane transform, a new maintenance duty one scheduler row.
+PostgreSQL is one declared store surface per database. One `NpgsqlDataSourceBuilder` fold owns every per-database concern — type mapping, JSON policy, credentials, session state, pool and prepare budgets, tracing shape — and `Build()` yields the one process-lifetime `NpgsqlDataSource` that both the ADO depth and the mapped `DbContext` share through one pool, so this page owns the driver-level surface the persistence page's EF profile composes beneath it, never the EF context lifecycle, identity mint, generation verdict, or set-based write lane that page legislates. SQL capability is consumed through a two-door routing law — provider-translated LINQ or interpolated typed SQL feeding one composable pipeline, no third lane — and every statement failure folds once over SQLSTATE class into a closed typed fault family. The extension axis is one wire-keyed lane vocabulary whose generation floor a verification-only admission fold proves and whose held set every query lane dispatches on, so vector, geo, full-text, temporal, and relational predicates compose in one typed query pipeline gated by the same vocabulary the verifier yields and the process never alters its environment. Bulk admission is binary COPY into staging reconciled by one reconciled MERGE; the change feed is ephemeral NOTIFY wake over a durable logical-replication slot whose `pgoutput` decode folds into the settled op-log shape durability owns. Growth lands as rows: a new wire type is a mapping row, a new extension a lane vocabulary item, a new retrieval axis a lane transform, a new maintenance duty one scheduler row.
 
 ## [01]-[POSTGRES_CHOOSER]
 
@@ -12,7 +12,7 @@ This table routes a store concern to its owning surface; the most specific row w
 |  [02]   | SQL construct routing | translated-LINQ or typed-SQL two-door | string-concatenated SQL      |
 |  [03]   | statement failure     | SQLSTATE-class disposition fold       | per-statement catch arms     |
 |  [04]   | extension capability  | declared row + admission verdict      | runtime `CREATE EXTENSION`   |
-|  [05]   | multi-axis retrieval  | lane-composed typed query rail        | per-lane sibling queries     |
+|  [05]   | multi-axis retrieval  | lane-composed typed query pipeline    | per-lane sibling queries     |
 |  [06]   | bulk writes           | binary COPY + MERGE reconcile         | batched INSERT loops         |
 |  [07]   | change consumption    | slot decode + NOTIFY wake             | payload-as-data notification |
 |  [08]   | schema deployment     | generation script + digest cutover    | mutate-at-startup            |
@@ -25,7 +25,7 @@ This table routes a store concern to its owning surface; the most specific row w
 - Law: `NpgsqlDataSourceBuilder` is the single configuration owner below the store profile — mapping (`MapEnum`, `MapComposite`), JSON (`EnableDynamicJson`, `ConfigureJsonOptions`), credentials, logging, type loading (`ConfigureTypeLoading`), tracing — and `Build()` yields the one process-lifetime `NpgsqlDataSource` per database; a connection from a raw string after the source exists forks pool identity and forgets every policy row, and `EnableParameterLogging`, `IncludeErrorDetail`, and `IncludeFailedBatchedCommand` default closed — opening any is a redaction-policy decision, never a debugging convenience.
 - Law: credential rotation is builder policy — `UsePeriodicPasswordProvider` with distinct success and failure cadences — never connection-string ceremony; `ClearPool`/`ClearAllPools` are the cutover levers and `UnprepareAll` pairs with them after wholesale statement-shape change, because prepared state survives pooled reopen.
 - Law: session state splits by mechanism — the connection-string `Options` parameter carries declarative floors applied at connection birth, `UsePhysicalConnectionInitializer` owns programmatic per-session state, and any initializer-established state disqualifies `NoResetOnClose`.
-- Law: multi-host is one `BuildMultiHost()` source with `TargetSessionAttributes` per acquisition — read/write splitting is acquisition-time policy on one source, never two configured sources — and the mapped profile consumes the same source through its data-source seam, so ADO depth and LINQ querying share one pool.
+- Law: multi-host is one `BuildMultiHost()` source with `TargetSessionAttributes` per acquisition — read/write splitting is acquisition-time policy on one source, never two configured sources — and the mapped profile consumes the same source through its data-source port, so ADO depth and LINQ querying share one pool.
 
 [BINDING_AND_ROUND_TRIPS]:
 - Law: the driver has one exclusivity concept — transactions, COPY, LISTEN, and replication bind a connector for a window, multiplexing serves the unbound query swarm — so the connection budget is a closed static table: listeners plus streams plus transaction ceiling plus COPY width, remainder multiplexed.
@@ -36,7 +36,7 @@ This table routes a store concern to its owning surface; the most specific row w
 [TELEMETRY_ROWS]:
 - Law: wiring is two composition-root rows — `AddNpgsql()` on the tracer, `AddNpgsqlInstrumentation()` on the meter — and depth is store-profile data on `ConfigureTracing`: command, batch, and COPY filters drop noise at the source, span-name providers collapse per-statement cardinality, enrichment callbacks attach domain tags; a per-call-site tracing decision is the rejected form, and governance — sampling, export, redaction — arrives settled.
 - Law: `EnableFirstResponseEvent` splits server execution from result drain inside one span; `EnablePhysicalOpenTracing` makes pool starvation visible as open-span bursts instead of latency-tail inference.
-- Exemption: the profile fold's builder mutation and initializer bodies are the platform-forced statement seam.
+- Exemption: the profile fold's builder mutation and initializer bodies are the platform-forced statement body.
 
 ```csharp
 public enum Band { Low, High }
@@ -81,13 +81,13 @@ public static class StoreProfile {
 - Law: every CTE reads the statement's ONE snapshot, so a sibling CTE never observes another's write and a guard computed in one CTE cannot gate a write in another; a conditional write states its whole condition inside its own `WHERE`, which the engine re-evaluates against the updated row after a concurrent block clears, and the frozen-guard form passes its own check while overdrawing the value it guarded.
 - Law: per-row re-check is per-ROW, so an N-row conditional write commits each row that passed and no single statement yields all-or-nothing over a vector; the batch's own undo is `SAVEPOINT` plus `ROLLBACK TO SAVEPOINT`, and a `NOT EXISTS` sibling-CTE guard standing in for it is decoration.
 - Law: `FOR UPDATE` refuses the nullable side of an outer join at plan time and locks nothing on an absent key, so an absent-or-present vector locks through `INSERT ... ON CONFLICT DO UPDATE` whose own `WHERE` binds post-wait, never a `LEFT JOIN ... FOR UPDATE`.
-- Law: conflict routing is two rows — `INSERT ... ON CONFLICT DO UPDATE` for row-at-a-time idempotent writes (speculative locks, arbiter-required including partial-unique arbiters, `EXCLUDED` proposed row, cannot raise unique violations) and `MERGE ... RETURNING merge_action()` for set reconciliation against any row source with per-row verdicts and `WHEN NOT MATCHED BY SOURCE` arms; MERGE can raise unique violations under concurrency, so retry policy lives on the MERGE rail alone.
+- Law: conflict routing is two rows — `INSERT ... ON CONFLICT DO UPDATE` for row-at-a-time idempotent writes (speculative locks, arbiter-required including partial-unique arbiters, `EXCLUDED` proposed row, cannot raise unique violations) and `MERGE ... RETURNING merge_action()` for set reconciliation against any row source with per-row verdicts and `WHEN NOT MATCHED BY SOURCE` arms; MERGE can raise unique violations under concurrency, so retry policy lives on the MERGE path alone.
 
 [TWO_DOOR_ROUTING]:
 - Law: a construct lives in LINQ exactly when the provider owns its translation; everything else is interpolated typed SQL (`SqlQuery<T>`, `ExecuteSql`) whose holes become parameters mechanically — no third lane exists, and routing a translated construct to raw SQL forfeits compile-time shape checking for zero capability gain.
 - Law: the composition hinge opens only at the root — a typed-SQL query returning a mapped type re-enters LINQ as a subquery, and a typed-SQL construct needed in a non-leaf position routes the whole query typed-SQL; misrouting toward LINQ fails loudly at query compilation, never by silent client evaluation.
 - Law: parameter-collection membership translates to `= ANY(@array)` — one parameter for any element count, so statement text and cached plans survive collection-size change, which is also what keeps auto-prepared generic plans valid.
-- Law: identifiers parameterize in neither lane — dynamic identifiers ride quoted interpolation at one declared seam over a closed vocabulary — and DDL routes through neither door: schema statements live in the generation artifacts, and the deploy credential split makes a runtime DDL string fail on privilege, not on review.
+- Law: identifiers parameterize in neither lane — dynamic identifiers ride quoted interpolation at one declared site over a closed vocabulary — and DDL routes through neither door: schema statements live in the generation artifacts, and the deploy credential split makes a runtime DDL string fail on privilege, not on review.
 
 | [INDEX] | [CONSTRUCT_FAMILY]                                    | [DOOR]    |
 | :-----: | :---------------------------------------------------- | :-------- |
@@ -103,18 +103,15 @@ public static class StoreProfile {
 ## [04]-[FAULT_DISPOSITION]
 
 [SQLSTATE_FOLD]:
-- Law: fault handling is one total dispatch over SQLSTATE class for every statement shape — per-statement catch arms are the rejected form — spelled as patterns over `PostgresErrorCodes` constants and the class prefix: conflicts (unique, exclusion) mint domain faults carrying constraint identity and are never retried; admission defects (foreign-key, check, not-null) carry column and constraint evidence retry cannot fix; serialization failure and deadlock are the only classes a store-level strategy may absorb silently; the 22-prefixed data-exception class is an admission defect that escaped the boundary, its production appearance evidence the validation seam has a hole.
+- Law: fault handling is one total dispatch over SQLSTATE class for every statement shape — per-statement catch arms are the rejected form — spelled as patterns over `PostgresErrorCodes` constants and the class prefix: conflicts (unique, exclusion) mint domain faults carrying constraint identity and are never retried; admission defects (foreign-key, check, not-null) carry column and constraint evidence retry cannot fix; serialization failure and deadlock are the only classes a store-level strategy may absorb silently; the 22-prefixed data-exception class is an admission defect that escaped the boundary, its production appearance evidence the validation boundary has a hole.
 - Law: the two-tier exception law splits transport from server — `NpgsqlException` carries `IsTransient`, `PostgresException` carries the structured error (`SqlState`, `ConstraintName`, `ColumnName`, `TableName`, `Detail`, `Hint`) — and both tiers fold into one closed `StoreFault` family deriving the `Fault` base, so conversion is lossless with zero message parsing and zero bare `Error.New` escape; `Detail`/`Hint` can carry row data: classification-gated evidence populated only under `IncludeErrorDetail`, and escalation reads the typed case, never message text.
 - Law: retry eligibility is case identity, never a code `==` — the family's `Retriable` predicate admits exactly the contention and transient-transport cases, so the store strategy and the outbound-hop owner read the same closed vocabulary and a conflict or admission defect is structurally unretriable.
-- Exemption: the capture seam's catch arms are the platform-forced statement seam.
+- Exemption: the capture boundary's catch arms are the platform-forced statement body.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StoreFault : Fault {
     private StoreFault(string detail) => Detail = detail;
-    // Illustrative row: a landed family allocates its OWN `FaultBand` registry row sized to its leaf count —
-    // no `Store` row exists until that allocation lands, and binding an unallocated name in landed code is the
-    // deleted form the registry's disjointness proof exists to refuse.
     private static readonly FaultBand FamilyBand = FaultBand.Store;
 
     public string Detail { get; }
@@ -140,7 +137,7 @@ public abstract partial record StoreFault : Fault {
     public sealed partial record Broken(string Note, Error Cause) : StoreFault($"<transport:{Note}>"), ICausedFault;
 }
 
-public static class StoreSeam {
+public static class StoreBoundary {
     public static async Task<Fin<T>> Ask<T>(NpgsqlDataSource store, Func<NpgsqlDataSource, CancellationToken, Task<T>> statement, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(statement);
         try { return Fin.Succ(await statement(store, token).ConfigureAwait(false)); }
@@ -172,13 +169,13 @@ public static class StoreSeam {
 }
 ```
 
-## [05]-[QUERY_RAIL]
+## [05]-[QUERY_PIPELINE]
 
 [LANE_GRAMMAR]:
 - Law: the lane vocabulary is one `[SmartEnum<string>]` keyed by the wire extension name, each item carrying its generation floor and a `FailureRank` row as columns and its narrowing `IQueryable` arrow as a `[UseDelegateFromConstructor]` transform — and the rank owns its own absence policy as an `Absorb` delegate, refusal versus recorded fold-out being a rank-row column the verifier dispatches through, never a `Switch` re-enumerated at the fold; so the capability symbol, the floor the verifier checks, the absence policy, and the query transform are one item against one rank, never a string compared with `==` against a parallel row, and a held lane is `FrozenSet<Lane>` identity membership, never a string probe.
 - Law: an extension lane is at most three declarations — a model `HasPostgresExtension` row, a wire admission, a translated vocabulary item — and a new lane is one vocabulary item plus those rows, zero architecture; codec-bearing lanes admit dually (`UseVector`, `UseNetTopologySuite` beside the wire admission), neither half standing alone — model-only fails at materialization, wire-only fails at translation — and lane sub-capability floors are item columns: a generation below the floor that carries a setting is absence for that sub-capability, so queries dispatch on the folded set, never probe.
 - Law: one column family takes one predicate vocabulary — ordered scalars array, documents jsonb, paths ltree, string fuzz trigram — and minority predicates ride expression indexes on the same column, never a second column in a second vocabulary; read-dominant hierarchies take ltree's GiST ancestry, write-heavy graphs keep recursive CTEs over adjacency.
-- Law: the rail folds the held lane subset over one root from either door, LINQ base or typed-SQL hinge — `Lane.Items` filtered by the verdict's `FrozenSet<Lane>.Contains`, then `Fold` each survivor's narrowing arrow — so a new retrieval axis is one vocabulary item, the typed capability verdict decides composition, and zero call-site branches exist.
+- Law: the pipeline folds the held lane subset over one root from either door, LINQ base or typed-SQL hinge — `Lane.Items` filtered by the verdict's `FrozenSet<Lane>.Contains`, then `Fold` each survivor's narrowing arrow — so a new retrieval axis is one vocabulary item, the typed capability verdict decides composition, and zero call-site branches exist.
 
 [VECTOR_LAW]:
 - Law: storage is always full-precision `vector`; every cheaper representation is an expression index — `binary_quantize(col)::bit(d)` Hamming prefilter re-ranked by the true operator, half-precision casts — so index species, representation, and scan policy are three orthogonal rows, and the recall-cost frontier is walked by changing rows, never schema.
@@ -187,7 +184,7 @@ public static class StoreSeam {
 
 [ORDERING_AND_TEXT]:
 - Law: every distance, rank, and similarity member is index-served only as the bare outermost `ORDER BY` — wrapped in arithmetic or post-filtered it degrades to exact evaluation — one rule across vector, geo, full-text, and trigram lanes; opclass-operator agreement is the first sequential-scan diagnostic.
-- Law: geodesic truth stores `geography` while hot planar predicates ride a stored generated planar projection — the generated-column law composing into the lane — and SRID is a per-factory type-level invariant with `Transform` the only sanctioned reprojection seam.
+- Law: geodesic truth stores `geography` while hot planar predicates ride a stored generated planar projection — the generated-column law composing into the lane — and SRID is a per-factory type-level invariant with `Transform` the only sanctioned reprojection verb.
 - Law: the full-text spine is three declarations — stored generated tsvector, GIN row, `Matches` predicates — with `WebSearchToTsQuery` the only parser admitted to user text because the full parser throws on malformed input; hybrid retrieval fuses lexical and semantic top-k as two index-served arms in one statement, never two client-fetched lists merged after paying two round trips.
 
 ```csharp
@@ -253,7 +250,7 @@ public sealed class FactStore(DbContextOptions<FactStore> options) : DbContext(o
     }
 }
 
-public static class QueryRail {
+public static class QueryPipeline {
     public static IQueryable<Fact> Compose(IQueryable<Fact> root, ProbeShape probe, CapabilityVerdict verdict) =>
         toSeq(Lane.Items).Filter(verdict.Held.Contains)
             .Fold(root, (facts, lane) => lane.Narrow(facts, probe))
@@ -268,7 +265,7 @@ public static class QueryRail {
 - Law: binary COPY has no server-side coercion — every ambiguous CLR mapping writes the discriminated overload (`NpgsqlDbType` or data-type name), and a wire-type mismatch surfaces mid-stream as a `PostgresException` folding through the same SQLSTATE-class owner every statement shares — never a bulk-local catch arm minting a bare error — while caller cancellation passes through untyped; registered codecs serve query, batch, and COPY identically, so rich domain rows bulk-admit with zero flattening and a staging-table-of-strings is a rejected form born of text-COPY habits.
 - Law: any write set large enough to batch twice is large enough to COPY — the bound connector out-throughputs batched INSERT by an order of magnitude — and the importer carries its own `Timeout`; server-side filters live in the COPY SQL, defect budgets in the bulk-admission options (`ON_ERROR ignore`, `REJECT_LIMIT n`), and `BeginRawBinaryCopy` is the zero-materialization table-to-table pipe.
 - Law: staging-then-MERGE is the highest-throughput reconciled upsert the engine offers — COPY into unlogged staging on a bound connector, then one MERGE reconciles into the target with per-row verdicts — rows staged, rows inserted, rows updated, all recorded with zero application-side row iteration, and the result proves conservation: staged equals inserted plus updated, breach failing typed.
-- Exemption: the COPY kernel — row loop, discard arm, verdict drain — is the platform-forced statement seam.
+- Exemption: the COPY kernel — row loop, discard arm, verdict drain — is the platform-forced statement body.
 
 ```csharp
 public sealed record StagedRow(Guid Key, Band Band, Slot Slot);
@@ -277,7 +274,7 @@ public sealed record ReconcileResult(ulong Staged, int Inserted, int Updated) { 
 public static class BulkLane {
     public static async Task<Fin<ReconcileResult>> Reconcile(NpgsqlDataSource store, Seq<StagedRow> rows, CancellationToken token) {
         ArgumentNullException.ThrowIfNull(store);
-        Fin<ReconcileResult> reconciled = await StoreSeam.Ask(store, async (source, ct) => {
+        Fin<ReconcileResult> reconciled = await StoreBoundary.Ask(store, async (source, ct) => {
             await using NpgsqlConnection connection = await source.OpenConnectionAsync(ct).ConfigureAwait(false);
             await using NpgsqlBinaryImporter importer = await connection.BeginBinaryImportAsync("COPY staging (key, band, slot) FROM STDIN (FORMAT BINARY)", ct).ConfigureAwait(false);
             foreach (StagedRow row in rows) {
@@ -309,7 +306,7 @@ public static class BulkLane {
 ## [07]-[CHANGE_FEED]
 
 [WAKE_ROW]:
-- Law: NOTIFY is transactional ephemeral wake — delivered on commit, collapsed within a transaction, payload-capped, lost on every reconnect window — so payloads carry a cursor hint and the listener re-reads authoritative state through the query rail; the canonical listener is one dedicated bound connection per process running `LISTEN` per channel, demultiplexing on `Channel`, and looping the connection's `WaitAsync` timeout overload, whose elapsed-window `false` is the liveness heartbeat and the watermark catch-up point.
+- Law: NOTIFY is transactional ephemeral wake — delivered on commit, collapsed within a transaction, payload-capped, lost on every reconnect window — so payloads carry a cursor hint and the listener re-reads authoritative state through the query pipeline; the canonical listener is one dedicated bound connection per process running `LISTEN` per channel, demultiplexing on `Channel`, and looping the connection's `WaitAsync` timeout overload, whose elapsed-window `false` is the liveness heartbeat and the watermark catch-up point.
 - Law: the `Notification` event without the wait loop is a latent bug — notifications surface only during protocol interaction — and the `Notice` event is informational server chatter, never control flow.
 - Law: the fused consumer law — NOTIFY is a latency optimization over the slot's polling cadence, and correctness derives solely from the slot's LSN watermark; a consumer correct only when NOTIFY arrives is broken by definition, a consumer ignoring NOTIFY is merely slower.
 
@@ -318,7 +315,7 @@ public static class BulkLane {
 - Law: which before-image arrives (none, key-only, full) is the table's replica identity — a DDL fact, never a client option — and `RelationMessage` re-arrives on schema change, decoding as an in-stream schema fact while the driver resolves `Relation` references on data messages; tuples are consumed fully in order because the read buffer is reused, unchanged-TOAST columns decode as a distinct third state, never null, and truncate is one relation-set message decoding to a purge fact, never per-row retractions.
 - Law: streamed in-progress transactions stage keyed by xid and release only on stream-commit — abort drops the stage — and commit order, not arrival order, is the op-log order; `IdentifySystem` pins system id and timeline, a watermark replayed against a different coordinate is re-bootstrap rather than resume, and bootstrap rides slot-creation snapshot mode `Use` for zero-gap, zero-overlap entry; with `Messages` enabled, application-emitted decoding messages arrive in-stream as transactional markers — an ordered, WAL-durable side channel for schema generations and batch boundaries riding the same cursor as the data it annotates.
 - Boundary: messages decode into the op-log shape whose law durability owns — this lane owns exactly the decode: message family to fact rows, before-image evidence, staging, watermark acknowledgement.
-- Exemption: the pump's message switch and tuple drains are the platform-forced statement seam.
+- Exemption: the pump's message switch and tuple drains are the platform-forced statement body.
 
 ```csharp
 [Union<string, Missing, Carried>(T1Name = "Text", T2Name = "Absent", T3Name = "Unchanged", T2IsStateless = true, T3IsStateless = true)]
@@ -406,7 +403,7 @@ public static class ChangeDecode {
 - Law: provisioning is verification-only — one read-only admission fold over catalog and settings reads (engine floor as the `server_version_num` integer, extension presence and generation floors, replication readiness and slot lag, invalid indexes, notification-queue headroom, privilege probes, audit binding, schedule-row preconditions) producing one typed capability verdict the process dispatches on; downstream code never re-probes, and no row touches user relations, so admission cost is data-volume-independent.
 - Law: failure rank is behavior-carrying row data — each `FailureRank` row holds its absence policy as one `Absorb` delegate the floor-miss branch threads gaps through, so required refuses the profile and stays deliberately minimal (engine floor, core schema, generation digest), degradable folds the lane out with a typed gap so absence surfaces at admission instead of first query, and observational records evidence, with the fold carrying zero rank arms and a new rank landing as one row; settings rows carry their restart class, so a gap names its repair's disruption class.
 - Law: the four provisioning rungs own creation — generation materialization rung one, idempotent seeds rung two, operator runbooks rung three, the environment rung four — and the fold reads all four; the process may emit repair artifacts (reconciliation grants, settings diffs) as typed verification outputs but never executes them, and a periodic re-verify stamps a verification epoch so environment drift becomes an observable event in the fact stream.
-- Exemption: the verification read kernel is the platform-forced statement seam.
+- Exemption: the verification read kernel is the platform-forced statement body.
 
 ```csharp
 public sealed record CapabilityVerdict(int Engine, FrozenSet<Lane> Held, Seq<Error> Gaps);

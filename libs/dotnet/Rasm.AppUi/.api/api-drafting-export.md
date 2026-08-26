@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_DRAFTING_EXPORT]
 
-`DocumentFormat.OpenXml` supplies AppUi's document-export rail, authoring OOXML docx/xlsx/pptx through the `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument` part graph. The CAD drafting-write leg beside it composes `ACadSharp` — AppUi holds CAD WRITE authority alone, one authored `CadDocument` folded to DWG, DXF, and SVG — and that package's member truth is the branch substrate catalogue (`libs/dotnet/.api/api-acadsharp.md`); this file registers the write leg and carries the OOXML surface.
+`DocumentFormat.OpenXml` supplies AppUi's document-export pipeline, authoring OOXML docx/xlsx/pptx through the `WordprocessingDocument`/`SpreadsheetDocument`/`PresentationDocument` part graph. The CAD drafting-write leg beside it composes `ACadSharp` — AppUi holds CAD WRITE authority alone, one authored `CadDocument` folded to DWG, DXF, and SVG — and that package's member truth is the branch substrate catalogue (`libs/dotnet/.api/api-acadsharp.md`); this file registers the write leg and carries the OOXML surface.
 
 ## [01]-[PUBLIC_TYPES]
 

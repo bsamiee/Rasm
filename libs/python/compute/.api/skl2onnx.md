@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SKL2ONNX]
 
-`skl2onnx` converts fitted scikit-learn estimators and `Pipeline`/`ColumnTransformer` objects to `onnx.ModelProto` for the compute model-asset export rail. It owns the conversion algebra — typed `initial_types`/`final_types`, operator gating, and custom converter/parser registration — and hands its output to the `onnx` structural gate ahead of `onnxruntime` inference.
+`skl2onnx` converts fitted scikit-learn estimators and `Pipeline`/`ColumnTransformer` objects to `onnx.ModelProto` for the compute model-asset export domain. It owns the conversion algebra — typed `initial_types`/`final_types`, operator gating, and custom converter/parser registration — and hands its output to the `onnx` structural gate ahead of `onnxruntime` inference.
 
 ## [01]-[PUBLIC_TYPES]
 

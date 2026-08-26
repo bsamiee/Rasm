@@ -1,6 +1,6 @@
 # [TS_DATA_API_PARQUET_WASM]
 
-`parquet-wasm` owns engine-free Parquet decode and encode at the lake-at-rest edge, round-tripping `apache-arrow` `Table` values through Parquet bytes with no analytical engine booted. Parquet is the format at rest, Arrow IPC the in-memory wire, and this codec the seam on `lane/olap`.
+`parquet-wasm` owns engine-free Parquet decode and encode at the lake-at-rest edge, round-tripping `apache-arrow` `Table` values through Parquet bytes with no analytical engine booted. Parquet is the format at rest, Arrow IPC the in-memory wire, and this codec the adapter on `lane/olap`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -24,15 +24,15 @@
 
 [ENTRYPOINT_SCOPE]: parquet decode, encode, and the streaming reader/writer
 
-| [INDEX] | [SURFACE]                                         | [SHAPE] | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------ | :------ | :--------------------------------- |
-|  [01]   | `readParquet(bytes, options?) -> Table`           | static  | decode a whole buffer to a Table   |
-|  [02]   | `writeParquet(table, props?) -> Uint8Array`       | static  | encode a Table to parquet bytes    |
-|  [03]   | `readSchema(bytes) -> Schema`                     | static  | schema without column decode       |
-|  [04]   | `ParquetFile.fromUrl(url)` / `.fromFile(blob)`    | factory | range-request or `Blob` reader     |
-|  [05]   | `readParquetStream(url)` / `ParquetFile.stream()` | static  | bounded-memory `RecordBatch` pull  |
-|  [06]   | `transformParquetStream(stream, props?)`          | static  | encode a `RecordBatch` stream out  |
-|  [07]   | `Table.fromIPCStream(buf)` / `.intoIPCStream()`   | factory | the `apache-arrow` round-trip seam |
+| [INDEX] | [SURFACE]                                         | [SHAPE] | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------ | :------ | :-------------------------------- |
+|  [01]   | `readParquet(bytes, options?) -> Table`           | static  | decode a whole buffer to a Table  |
+|  [02]   | `writeParquet(table, props?) -> Uint8Array`       | static  | encode a Table to parquet bytes   |
+|  [03]   | `readSchema(bytes) -> Schema`                     | static  | schema without column decode      |
+|  [04]   | `ParquetFile.fromUrl(url)` / `.fromFile(blob)`    | factory | range-request or `Blob` reader    |
+|  [05]   | `readParquetStream(url)` / `ParquetFile.stream()` | static  | bounded-memory `RecordBatch` pull |
+|  [06]   | `transformParquetStream(stream, props?)`          | static  | encode a `RecordBatch` stream out |
+|  [07]   | `Table.fromIPCStream(buf)` / `.intoIPCStream()`   | factory | the `apache-arrow` round-trip     |
 
 - `ParquetFile.fromUrl(url)` and `.stream(options?)` both answer a `Promise` — `stream` resolves a web `ReadableStream` of this package's own `RecordBatch`, so the lifted form awaits both and never treats either as synchronous.
 - `ParquetFile.fromUrl` reads by RANGE on both builds: opening costs three bounded requests — a suffix range for the footer length, a suffix range for the footer metadata, and one bounded span for the page index — and the stream then draws exactly ONE range request per row group, so a scan pays metadata and the groups it reads, never a whole-object GET.
@@ -51,6 +51,6 @@
 
 [LOCAL_ADMISSION]:
 - Ownership is per member, never a blanket bracket: `intoIPCStream`, `writeParquet`, and `WriterPropertiesBuilder.build` each call `__destroy_into_raw` and CONSUME their handle, so a release arm around one frees a pointer the call already took; `ParquetFile` outlives its mint and is the container that acquires under `Effect.acquireRelease` releasing `free()`.
-- No container leaves the expression that minted it — bytes and `apache-arrow` values are the only egress, so no linear-memory view crosses a lane seam.
+- No container leaves the expression that minted it — bytes and `apache-arrow` values are the only egress, so no linear-memory view crosses a lane boundary.
 - Each async build resolves its default initializer once at construction, proven before any entry; the `node` build inlines its wasm and resolves nothing, so the lane owner takes the initializer as a coordinate and no call site branches on runtime.
 - Unbounded lake objects ride `ParquetFile.stream`/`readParquetStream` lifted through `Stream.fromReadableStream`; `readParquet` whole-buffer decode admits only where the object is provably bounded.

@@ -9,10 +9,10 @@
 ## [02]-[GRADUATION]
 
 - Owner: `GeometryLeg` is the shared raise-leg roster. `GeometrySubject` keys the charter and result-frame families. `EvidenceScope` supplies the runtime instrumentation scope for each producer.
-- Law: `evidence_run` delegates directly to runtime `measured`; geometry owns no second span lifecycle, rail fold, cost bracket, signal sink, trace carrier, or logging path.
+- Law: `evidence_run` delegates directly to runtime `measured`; geometry owns no second span lifecycle, result fold, cost bracket, signal sink, trace carrier, or logging path.
 - Law: domain facts remain on the domain result that produced them. `EvidenceFrame` is the columnar result projection and `crossing()` is its Arrow IPC egress.
 - Law: `CHARTER` names geometry measures and `registered` proves the declared descriptors before registering the progress-point roster.
-- Law: `bench_seam` delegates measurement to runtime `Bench.run`, and `bench_terminal` adds only the runtime job envelope while returning `Benchmark` unchanged.
+- Law: `bench_boundary` delegates measurement to runtime `Bench.run`, and `bench_terminal` adds only the runtime job envelope while returning `Benchmark` unchanged.
 - Boundary: no compute import, generic outcome carrier, caller-authored evidence map, page-local span manager, signal harvesting, or duplicate benchmark model exists in this folder.
 
 ```python
@@ -34,7 +34,7 @@ lazy import pyarrow as pa
 from rasm.data.tabular.columnar import arrow_columns
 from rasm.data.tabular.interop import arrow_bytes
 from rasm.runtime.admission import RuntimeContext
-from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
+from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeResult, boundary, rostered
 from rasm.runtime.hooks import HookPoint, Hooks, Modality, StageMark
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import MEASURES as CENSUS
@@ -263,7 +263,7 @@ class EvidenceFrame(Struct, frozen=True):
     table: frozendict[str, np.ndarray]
 
     @classmethod
-    def of(cls, subject: GeometrySubject, key: ContentKey, table: "Mapping[str, Sequence[object] | np.ndarray]") -> "RuntimeRail[EvidenceFrame]":
+    def of(cls, subject: GeometrySubject, key: ContentKey, table: "Mapping[str, Sequence[object] | np.ndarray]") -> "RuntimeResult[EvidenceFrame]":
         arrays = frozendict({name: _sealed(values) for name, values in table.items()})
         extents = Block.of_seq([(name, array.shape[0] if array.ndim else -1) for name, array in arrays.items()])
         widths = frozenset(extent for _, extent in extents)
@@ -277,7 +277,7 @@ class EvidenceFrame(Struct, frozen=True):
     def rows(self) -> int:
         return next(iter(self.table.values())).shape[0] if self.table else 0
 
-    def crossing(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
+    def crossing(self) -> "RuntimeResult[tuple[bytes, ContentKey]]":
         return boundary(
             FRAME_CROSSING,
             lambda: bytes(arrow_bytes(arrow_columns(self.columns, dict(self.table)))),
@@ -303,7 +303,7 @@ def evidence_run[T](
     dispatch: Callable[[], T] | Callable[[], Awaitable[T]],
     *,
     composition: ScopeKey = DEFAULT_SCOPE,
-) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
+) -> RuntimeResult[T] | Awaitable[RuntimeResult[T]]:
     return measured(scope.value, operation, dispatch, {"composition": composition})
 
 
@@ -332,18 +332,18 @@ CORPUS: Final[Block[BenchSubject]] = Block.of_seq((
 ))
 
 
-def graded(kernels: Map[str, BenchKernel], corpus: Block[BenchSubject] = CORPUS) -> RuntimeRail[Block[BenchVerdict]]:
+def graded(kernels: Map[str, BenchKernel], corpus: Block[BenchSubject] = CORPUS) -> RuntimeResult[Block[BenchVerdict]]:
     return Bench.graded(corpus, kernels)
 
 
-def bench_seam(
+def bench_boundary(
     subject: str,
-    seam: Callable[[], Awaitable[object]],
+    boundary: Callable[[], Awaitable[object]],
     *,
     rounds: int = 32,
     warmup: int = 4,
-) -> RuntimeRail[Benchmark]:
-    return Bench.run(subject, lambda: anyio.run(seam), rounds=rounds, warmup=warmup)
+) -> RuntimeResult[Benchmark]:
+    return Bench.run(subject, lambda: anyio.run(boundary), rounds=rounds, warmup=warmup)
 
 
 def bench_terminal(
@@ -351,21 +351,21 @@ def bench_terminal(
     endpoint: str,
     run_id: str,
     subject: str,
-    seam: Callable[[], Awaitable[object]],
+    boundary: Callable[[], Awaitable[object]],
     *,
     rounds: int = 32,
     warmup: int = 4,
-) -> RuntimeRail[Benchmark]:
+) -> RuntimeResult[Benchmark]:
     return JobRun.bounded(
         ctx,
         endpoint,
         f"bench.{subject}",
         run_id,
-        partial(bench_seam, subject, seam, rounds=rounds, warmup=warmup),
+        partial(bench_boundary, subject, boundary, rounds=rounds, warmup=warmup),
     ).bind(lambda inner: inner)
 
 
-def registered(composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationInstall]:
+def registered(composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[GraduationInstall]:
     diverged = Block.of_seq(sorted(MEASURES, key=lambda row: row.measure)).choose(_diverged)
     if not diverged.is_empty():
         return Error(CHARTER_DIVERGED.raised(";".join(diverged)))

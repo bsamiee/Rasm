@@ -92,4 +92,4 @@
 
 [LOCAL_ADMISSION]:
 - `set_keyring`/`init_backend(limit=...)` inject or constrain a controlled backend at the test boundary; production selects via env/config, never by mutating the active backend in-process.
-- `errors.NoKeyringError` is the expected failure in a headless/container lane with no native keystore; the secret-admission rail lifts it to a typed boundary fault and falls back to the explicitly-configured env/config source, never a silent plaintext default.
+- `errors.NoKeyringError` is the expected failure in a headless/container lane with no native keystore; the secret-admission path lifts it to a typed boundary fault and falls back to the explicitly-configured env/config source, never a silent plaintext default.

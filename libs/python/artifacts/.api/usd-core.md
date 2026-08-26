@@ -1,11 +1,11 @@
 # [PY_ARTIFACTS_API_USD_CORE]
 
-`usd-core` supplies Pixar OpenUSD stage authoring and USDZ packaging for the `scene/stage` rail: a `pxr.Usd.Stage` root defines typed `UsdGeom` prims, binds `UsdShade` materials, carries `UsdSemantics` AEC labels, and fills `Gf`/`Vt` value arrays zero-copy from numpy through `Vt.<Type>Array.FromNumpy`, then `UsdUtils` packages the authored `.usdc`/`.usda` layer with its dependency closure into a `.usdz`. Numpy point/index buffer authoring is the standing path; the `vtkUSDExporter` render-to-layer front half needs a VTK build enabling `vtkIOUSD`. It never re-implements the C++ runtime's layer formats, composition-arc stack, Hydra render graph, or USDZ zip record, and authoring stays on the `HOSTILE`-trait offload worker.
+`usd-core` supplies Pixar OpenUSD stage authoring and USDZ packaging for the `scene/stage` layer: a `pxr.Usd.Stage` root defines typed `UsdGeom` prims, binds `UsdShade` materials, carries `UsdSemantics` AEC labels, and fills `Gf`/`Vt` value arrays zero-copy from numpy through `Vt.<Type>Array.FromNumpy`, then `UsdUtils` packages the authored `.usdc`/`.usda` layer with its dependency closure into a `.usdz`. Numpy point/index buffer authoring is the standing path; the `vtkUSDExporter` render-to-layer front half needs a VTK build enabling `vtkIOUSD`. It never re-implements the C++ runtime's layer formats, composition-arc stack, Hydra render graph, or USDZ zip record, and authoring stays on the `HOSTILE`-trait offload worker.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stage, prim, and layer roots
-- rail: scene — `pxr.Usd`, `pxr.Sdf`
+- concern: scene — `pxr.Usd`, `pxr.Sdf`
 
 `Usd.Stage` is the one authoring root — the source kind is a static-method choice (`CreateNew`/`CreateInMemory`/`Open`), never a parallel stage class — and `Usd.Prim` is the one node every typed schema wraps through `Define`/`Get`; layer format is the export suffix (`.usdc` crate-binary, `.usda` ASCII), never a per-format writer class. Sdf's registered converter auto-converts a bare `str` to `Sdf.AssetPath`, so `Sdf.AssetPath(s)` is the explicit form, not an error guard.
 
@@ -27,7 +27,7 @@
 - [03]-[USD_COMPOSITION]: `prim.GetReferences().AddReference(Sdf.Reference(asset))` authors an eager layer arc; `prim.GetPayloads().AddPayload(Sdf.Payload(asset))` authors its deferred-load counterpart.
 
 [PUBLIC_TYPE_SCOPE]: typed geometry prims and value vocabulary
-- rail: scene — `pxr.UsdGeom`, `pxr.UsdShade`, `pxr.UsdSemantics`, `pxr.Gf`, `pxr.Vt`, `pxr.UsdLux`
+- concern: scene — `pxr.UsdGeom`, `pxr.UsdShade`, `pxr.UsdSemantics`, `pxr.Gf`, `pxr.Vt`, `pxr.UsdLux`
 
 Every `UsdGeom` schema applies to the one `Usd.Prim` through `Define(stage, path)` — a `Mesh`, `Xform`, and `Camera` are three schemas over one node, never three prim classes; `Gf` scalars and `Vt` typed homogeneous arrays carry geometry values, so a mesh's point buffer is one typed-array set, never a per-vertex object list.
 
@@ -55,7 +55,7 @@ Every `UsdGeom` schema applies to the one `Usd.Prim` through `Define(stage, path
 |  [20]   | `UsdLux.DistantLight`                | light prim      | `Define`; `CreateIntensityAttr`/`CreateColorAttr`/`CreateAngleAttr`           |
 
 [PUBLIC_TYPE_SCOPE]: error reporting
-- rail: scene — `pxr.Tf`
+- concern: scene — `pxr.Tf`
 
 USD authoring faults raise `Tf.ErrorException`; a wrong-arity or wrong-type call into a `pxr` C++ overload raises `Boost.Python.ArgumentError`.
 
@@ -67,7 +67,7 @@ USD authoring faults raise `Tf.ErrorException`; a wrong-arity or wrong-type call
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stage authoring and layer export
-- rail: scene — `pxr.Usd`, `pxr.UsdGeom`, `pxr.Sdf`
+- concern: scene — `pxr.Usd`, `pxr.UsdGeom`, `pxr.Sdf`
 
 Whole-stage authoring is lazy — prims compose into the layer stack and write on `Save`/`Export`, the format following the path suffix.
 
@@ -98,7 +98,7 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 - `UsdShade.Output.ConnectToSource`: five overloads take `(sourceOutput)`, `(sourceInput)`, `(sourcePath)`, `(source, sourceName, sourceType=AttributeType.Output, typeName=Sdf.ValueTypeName())`, or `(source, mod=ConnectionModification.Replace)`; a material terminal rides the `(sourceOutput)` form.
 
 [ENTRYPOINT_SCOPE]: USDZ packaging, asset dependencies, and stage stats
-- rail: scene — `pxr.UsdUtils`
+- concern: scene — `pxr.UsdUtils`
 
 `CreateNewUsdzPackage` embeds the dependency closure into a `.usdz`; `CreateNewARKitUsdzPackage` applies the ARKit/QuickLook policy, `ExtractUsdzPackage` inverts, and `ComputeAllDependencies`/`ModifyAssetPaths` discover and rewrite asset paths before packaging.
 
@@ -124,10 +124,10 @@ Whole-stage authoring is lazy — prims compose into the layer stack and write o
 - packaging: `CreateNewUsdzPackage` and `CreateNewARKitUsdzPackage` both embed the dependency closure and return `bool`, the ARKit arm adding QuickLook constraints.
 
 [STACKING]:
-- worker-seam: `pxr` imports after `lane.offload(Kernel.of((WORKER_MODULE, "<kernel>"), KernelTrait.HOSTILE), ...)` reaches the native-VTK worker; `scene/export`'s `render_export`/`render_ingest` compose `scene/stage`'s `StageOp`/`PackageOp`; the runtime lane and worker capsule own execution bounds, while stage code mints no native fan-out.
+- worker-boundary: `pxr` imports after `lane.offload(Kernel.of((WORKER_MODULE, "<kernel>"), KernelTrait.HOSTILE), ...)` reaches the native-VTK worker; `scene/export`'s `render_export`/`render_ingest` compose `scene/stage`'s `StageOp`/`PackageOp`; the runtime lane and worker capsule own execution bounds, while stage code mints no native fan-out.
 - numpy (`libs/python/.api/numpy.md`): `StageOp.MeshAuthor` authors a layer from `scene/render`'s `surface_arrays` `.points`/`.regular_faces`/`.point_normals` `NDArray` buffers through `Vt.Vec3fArray.FromNumpy(points)` / `Vt.IntArray.FromNumpy(faces.reshape(-1))` / `Vt.FloatArray.FromNumpy(widths)` — zero-copy, no render pass, no Python list round-trip.
 - vtk (`.api/vtk.md`, `vtkIOUSD`-gated): `StageOp.RenderExport`'s front half is `vtkmodules.vtkIOUSD.vtkUSDExporter` (`SetRenderWindow(Plotter.render_window)`/`SetFileName`/`Write`) writing a `.usdc` that `UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(usdc), usdz)` packages; the resident VTK enables no `vtkIOUSD` module, so the arm activates only against a VTK carrying it and `MeshAuthor` is the standing path — `vtk` owns render-to-layer, `usd-core` layer-to-package.
-- structlog (`libs/python/.api/structlog.md`): `async_boundary("scene.<op>", ...)` owns terminal fault observation and maps `Tf.ErrorException`/`Boost.Python.ArgumentError` onto `RuntimeRail`, so `pxr` bodies carry no logging path; `PackageFault` carries false packaging outcomes to `scene/export`'s `ExportError("<usd-failed>")`.
+- structlog (`libs/python/.api/structlog.md`): `async_boundary("scene.<op>", ...)` owns terminal fault observation and maps `Tf.ErrorException`/`Boost.Python.ArgumentError` onto `RuntimeResult`, so `pxr` bodies carry no logging path; `PackageFault` carries false packaging outcomes to `scene/export`'s `ExportError("<usd-failed>")`.
 - arkit: `scene/stage`'s `UsdzProfile.ARKIT` selects `CreateNewARKitUsdzPackage` and `UsdzProfile.STANDARD` selects `CreateNewUsdzPackage` on the same `PackageOp` owner.
 
 [LOCAL_ADMISSION]:

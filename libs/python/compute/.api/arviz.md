@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_ARVIZ]
 
-`arviz` owns backend-agnostic Bayesian posterior analysis for the compute Bayesian-study rail: MCMC convergence diagnostics, the PSIS-LOO model-comparison family, prior/likelihood sensitivity, predictive divergence and metrics, credible intervals, and posterior visualization over an `xarray.DataTree`. It reads a posterior `DataTree` emitted by any sampler backend and never re-implements a diagnostic the package owns.
+`arviz` owns backend-agnostic Bayesian posterior analysis for the compute Bayesian-study domain: MCMC convergence diagnostics, the PSIS-LOO model-comparison family, prior/likelihood sensitivity, predictive divergence and metrics, credible intervals, and posterior visualization over an `xarray.DataTree`. It reads a posterior `DataTree` emitted by any sampler backend and never re-implements a diagnostic the package owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -79,7 +79,7 @@
 [ENTRYPOINT_SCOPE]: MCMC diagnostics (`arviz_stats`)
 - carry: each shares `(data, sample_dims, group, var_names, filter_vars, chain_axis=0, draw_axis=1)` and accepts a `DataTree` or a raw ndarray via `chain_axis=`/`draw_axis=`; the cell carries the discriminating `method`/threshold args
 
-| [INDEX] | [SURFACE]     | [ENTRY_FAMILY] | [RAIL]                                                                                             |
+| [INDEX] | [SURFACE]     | [ENTRY_FAMILY] | [RESULT]                                                                                           |
 | :-----: | :------------ | :------------- | :------------------------------------------------------------------------------------------------- |
 |  [01]   | `rhat`        | convergence    | rank-normalized R-hat; `method='rank'`                                                             |
 |  [02]   | `rhat_nested` | convergence    | nested R-hat for superchain ensembles; `superchain_ids`, `method='rank'`                           |
@@ -93,7 +93,7 @@
 [ENTRYPOINT_SCOPE]: model comparison and the LOO family (`arviz_stats`)
 - carry: every entry takes `data` and returns an `ELPDData` (a `DataFrame` for `compare`); `pointwise`, `var_name`, `reff`, `log_weights` are the shared optional tail, full signatures keyed below
 
-| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY]      | [RAIL]                                                     |
+| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY]      | [RESULT]                                                   |
 | :-----: | :-------------------------- | :------------------ | :--------------------------------------------------------- |
 |  [01]   | `loo`                       | model comparison    | PSIS-LOO-CV with Pareto-smoothed importance weights        |
 |  [02]   | `compare`                   | model comparison    | stacking / `'BB-pseudo-BMA'` weights across models         |
@@ -123,7 +123,7 @@
 
 [ENTRYPOINT_SCOPE]: sensitivity, predictive divergence, and credible intervals (`arviz_stats`)
 
-| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]   | [RAIL]                                                     |
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]   | [RESULT]                                                   |
 | :-----: | :------------------------------------------ | :--------------- | :--------------------------------------------------------- |
 |  [01]   | `psense`                                    | sensitivity      | power-scaling prior/likelihood sensitivity per variable    |
 |  [02]   | `psense_summary`                            | sensitivity      | prior-vs-likelihood sensitivity diagnosis table            |
@@ -145,7 +145,7 @@
 
 [ENTRYPOINT_SCOPE]: credible intervals, decision, point statistics, density, and stacking (`arviz_stats`)
 
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                                                                |
+| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RESULT]                                                              |
 | :-----: | :--------------------------------------------- | :------------- | :-------------------------------------------------------------------- |
 |  [01]   | `hdi`                                          | interval       | highest-density interval; `ci_bound` coord, multimodal to `max_modes` |
 |  [02]   | `eti`                                          | interval       | equal-tailed interval; `ci_bound` coord                               |
@@ -164,7 +164,7 @@
 [ENTRYPOINT_SCOPE]: chained `.azstats` xarray accessor (`arviz_stats`)
 - carry: every diagnostic above rides as a method `ds.azstats.<name>(...)` on a `Dataset`/`DataTree`, so a posterior carries its own diagnostic algebra without a free-function round-trip; each brace set lists the group's `<name>`s
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                       |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RESULT]                                     |
 | :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------- |
 |  [01]   | `{ess, rhat, rhat_nested, mcse, bfmi, thin}`           | diagnostic     | chained convergence diagnostics              |
 |  [02]   | `{hdi, eti, mean, median, mode, std, var, mad, iqr}`   | statistic      | chained credible interval / point statistics |
@@ -206,4 +206,4 @@
 - within-lib: the `.azstats` accessor mirrors every free diagnostic as a chained `ds.azstats.<op>()` method; `compare -> extract`/`weight_predictions` folds stacking weights into model-averaged draws without leaving xarray; `reloo`/`loo_kfold` drive a `SamplingWrapper` subclass (`sel_observations`/`sample`/`get_inference_data`/`log_likelihood__i`) for exact held-out refit.
 
 [LOCAL_ADMISSION]:
-- arviz is offline study work reading the `pm.sample` `DataTree`: capture the `rhat`/`ess`/`mcse` (or `summary(kind='diagnostics')`) diagnostics before any posterior claim, the `loo`/`compare` scores before any model-selection claim, and `psense_summary` as the prior-robustness check. Diagnostics feed the C# `Rasm.Compute` model rail; no production runtime imports arviz.
+- arviz is offline study work reading the `pm.sample` `DataTree`: capture the `rhat`/`ess`/`mcse` (or `summary(kind='diagnostics')`) diagnostics before any posterior claim, the `loo`/`compare` scores before any model-selection claim, and `psense_summary` as the prior-robustness check. Diagnostics feed the C# `Rasm.Compute` model domain; no production runtime imports arviz.

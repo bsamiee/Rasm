@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the ten Eurocode `IStandard` identity classes
-- rail: standards
+- concern: standards
 - contract: each class implements `IStandard, ITaxonomySerializable`, carrying constant `Body=EN`, a `NationalAnnex`, and a derived `Title`.
 - partition: each partitioned class carries its `En19xxPart`; `En1990` is the unpartitioned basis-of-design exception.
 
@@ -25,7 +25,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct and read a Eurocode citation
-- rail: standards
+- concern: standards
 
 | [INDEX] | [SURFACE]                           | [SHAPE]  | [CAPABILITY]                 |
 | :-----: | :---------------------------------- | :------- | :--------------------------- |

@@ -41,7 +41,7 @@ from expression.collections import Block
 from msgspec import Struct
 # Contracts are retired from this logic.
 
-from rasm.cad.faults import MEASURE_DEGENERATE, CadRail
+from rasm.cad.faults import MEASURE_DEGENERATE, CadResult
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -58,17 +58,17 @@ class Dimension(IntEnum):
 class _Rung(Struct, frozen=True):
     dimension: Dimension
     extent: Callable[[TopologyCensus], int]
-    measure: Callable[[TopoDS_Shape], CadRail[tuple[float, gp_Pnt]]]
+    measure: Callable[[TopoDS_Shape], CadResult[tuple[float, gp_Pnt]]]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _admitted(shape: TopoDS_Shape, /) -> CadRail[TopoDS_Shape]:
+def _admitted(shape: TopoDS_Shape, /) -> CadResult[TopoDS_Shape]:
     return Ok(shape) if not shape.IsNull() and BRepCheck_Analyzer(shape).IsValid() else Error(MEASURE_DEGENERATE.at("shape.invalid"))
 
 
-def _finite(value: float, coordinate: str, /) -> CadRail[float]:
+def _finite(value: float, coordinate: str, /) -> CadResult[float]:
     return Ok(value) if isfinite(value) else Error(MEASURE_DEGENERATE.at(f"{coordinate}.non-finite"))
 
 
@@ -96,7 +96,7 @@ def _accumulated(
     return folded
 
 
-def _solid_properties(shape: TopoDS_Shape, /) -> CadRail[tuple[float, gp_Pnt]]:
+def _solid_properties(shape: TopoDS_Shape, /) -> CadResult[tuple[float, gp_Pnt]]:
     solids = TopTools_IndexedMapOfShape()
     TopExp.MapShapes_s(shape, TopAbs_SOLID, solids)
     moments = Block.of_seq(range(1, solids.Extent() + 1)).fold(_accumulated(solids), (0.0, 0.0, 0.0, 0.0))
@@ -108,8 +108,8 @@ def _solid_properties(shape: TopoDS_Shape, /) -> CadRail[tuple[float, gp_Pnt]]:
     )
 
 
-def _massless(fill: Callable[[TopoDS_Shape, GProp_GProps], None], coordinate: str, /) -> Callable[[TopoDS_Shape], CadRail[tuple[float, gp_Pnt]]]:
-    def centred(shape: TopoDS_Shape, /) -> CadRail[tuple[float, gp_Pnt]]:
+def _massless(fill: Callable[[TopoDS_Shape, GProp_GProps], None], coordinate: str, /) -> Callable[[TopoDS_Shape], CadResult[tuple[float, gp_Pnt]]]:
+    def centred(shape: TopoDS_Shape, /) -> CadResult[tuple[float, gp_Pnt]]:
         properties = GProp_GProps()
         fill(shape, properties)
         center = properties.CentreOfMass()
@@ -131,7 +131,7 @@ _LADDER: Final[tuple[_Rung, ...]] = (
 )
 
 
-def _elected(shape: TopoDS_Shape, census: TopologyCensus, /) -> CadRail[tuple[float, gp_Pnt]]:
+def _elected(shape: TopoDS_Shape, census: TopologyCensus, /) -> CadResult[tuple[float, gp_Pnt]]:
     return next(
         (rung.measure(shape) for rung in _LADDER if rung.extent(census) > 0),
         Error(MEASURE_DEGENERATE.at("shape.vertex-only")),

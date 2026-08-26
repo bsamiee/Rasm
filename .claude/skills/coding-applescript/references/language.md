@@ -119,9 +119,9 @@ set {obj, err} to current application's NSJSONSerialization's JSONObjectWithData
 if obj is missing value then error (err's localizedDescription() as text) number 9200
 ```
 
-## [06]-[COERCION_RAILS]
+## [06]-[COERCION_RULES]
 
-`as` invokes AppleScript's and the Apple Event Manager's coercion handlers. A coercion rail names the source and target class explicitly at every ingress and egress where the caller's class can vary, and a failed coercion raises `-1700` (`errAECoercionFail`).
+`as` invokes AppleScript's and the Apple Event Manager's coercion handlers. A coercion names the source and target class explicitly at every ingress and egress where the caller's class can vary, and a failed coercion raises `-1700` (`errAECoercionFail`).
 
 ```applescript
 if class of x is alias then return POSIX path of x
@@ -306,7 +306,7 @@ tell application id "com.apple.finder"
 end tell
 ```
 
-`osadecompile` emits chevron literals for any compiled script referencing terminology the current dictionary no longer defines; a compile/decompile round-trip against a target whose `.sdef` changed surfaces every unresolved term as a raw code, a version-drift signal rather than corruption. A rail that must survive dictionary churn pins its load-bearing verbs as chevron literals rather than terms a future OS release may retire.
+`osadecompile` emits chevron literals for any compiled script referencing terminology the current dictionary no longer defines; a compile/decompile round-trip against a target whose `.sdef` changed surfaces every unresolved term as a raw code, a version-drift signal rather than corruption. A script that must survive dictionary churn pins its load-bearing verbs as chevron literals rather than terms a future OS release may retire.
 
 Text is a sequenced container with a fixed element vocabulary — `characters`, `words`, `paragraphs`, and `text items` — and every element form takes `every`, `item N`, `items X thru Y`, negative indices, `first`, `last`, `middle`, and `some`; word and paragraph segmentation is Unicode-aware and locale-influenced, while `text items` alone is delimiter-driven and deterministic against `text item delimiters`.
 
@@ -342,7 +342,7 @@ A script object closes over its constructor's parameters, so a handler that retu
 
 ## [14]-[VOCABULARY_AND_VERSION_GATE]
 
-`AppleScript`'s top-level object exposes read-only vocabulary constants — `pi`, `space`, `tab`, `return`, `linefeed`, `quote`, `version`, and time-span constants in integer seconds — that a rail treats as vocabulary rather than as literals. Date components (`hours`, `minutes`, `day`, `time`) are settable in place against a `date` value with no string reparse.
+`AppleScript`'s top-level object exposes read-only vocabulary constants — `pi`, `space`, `tab`, `return`, `linefeed`, `quote`, `version`, and time-span constants in integer seconds — that a script treats as vocabulary rather than as literals. Date components (`hours`, `minutes`, `day`, `time`) are settable in place against a `date` value with no string reparse.
 
 ```applescript
 set d to (current date) + (1 * days)
@@ -365,7 +365,7 @@ set row to {|id|:7, |class|:"widget", |name|:"gadget"}
 A dense language module owns one script object carrying policy rows, constructor handlers, and native errors in a single surface.
 
 ```applescript
-script TextRail
+script TextSplitter
     property parent : AppleScript
     property policies : {strictCase:true, delimiter:","}
     on configure given strictCase:strictCaseFlag, delimiter:delimiterText
@@ -390,6 +390,6 @@ script TextRail
         end try
     end split
 end script
-tell TextRail to configure with strictCase given delimiter:"x"
-tell TextRail to split("aXbxb")
+tell TextSplitter to configure with strictCase given delimiter:"x"
+tell TextSplitter to split("aXbxb")
 ```

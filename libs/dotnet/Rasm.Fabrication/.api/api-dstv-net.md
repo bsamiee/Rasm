@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_API_DSTV_NET]
 
-`DSTV.Net` owns the DSTV / NC1 (Tekla / NC) steel-fabrication READ leg under the Fabrication cut-program owner: `DstvReader.ParseAsync` lowers an `.nc1` profile-cut program — the `ST` steel-piece header with the hole (`BO`), slot, cut (`SC`), bend (`KA`), numeration (`SI`), and contour (`AK`/`IK`/`KO`/`PU`) feature blocks — into an immutable `IDstv` record tree, and every failure is a `ParseException` subtype carrying the source `LineNumber`. It reads only: `.nc1` emission is the Fabrication posting owner's own `PostDialect` writer, and `ToSvg()` is a debug preview, never a drafting rail.
+`DSTV.Net` owns the DSTV / NC1 (Tekla / NC) steel-fabrication READ leg under the Fabrication cut-program owner: `DstvReader.ParseAsync` lowers an `.nc1` profile-cut program — the `ST` steel-piece header with the hole (`BO`), slot, cut (`SC`), bend (`KA`), numeration (`SI`), and contour (`AK`/`IK`/`KO`/`PU`) feature blocks — into an immutable `IDstv` record tree, and every failure is a `ParseException` subtype carrying the source `LineNumber`. It reads only: `.nc1` emission is the Fabrication posting owner's own `PostDialect` writer, and `ToSvg()` is a debug preview, never a drafting pipeline.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -13,7 +13,7 @@
 |  [03]   | `IDstvHeader` | header contract   | the steel-piece `ST`-block descriptor                                               |
 |  [04]   | `ISplitter`   | tokenizer shape   | `string[] Split(string)` — the shape the internal line tokenizers hold              |
 
-- `ISplitter` is a describing shape, NOT a seam: `ParseAsync` takes no splitter, constructs its own `ReaderContext`, and every implementation is `internal` with an `internal static readonly ISplitter Instance`, while `ReaderContext`'s own constructor and `Source` are `internal` too — so the tokenizer pipeline is fixed and unreachable from a consumer.
+- `ISplitter` is a describing shape, NOT an extension point: `ParseAsync` takes no splitter, constructs its own `ReaderContext`, and every implementation is `internal` with an `internal static readonly ISplitter Instance`, while `ReaderContext`'s own constructor and `Source` are `internal` too — so the tokenizer pipeline is fixed and unreachable from a consumer.
 
 [PUBLIC_TYPE_SCOPE]: located-element record tree — `DSTV.Net.Data`
 
@@ -52,7 +52,7 @@
 
 Every `CodeProfile` member carries a `[Description]` label; the enum value is the canonical discriminant.
 
-[PUBLIC_TYPE_SCOPE]: typed parse-error rail — `DSTV.Net.Exceptions`
+[PUBLIC_TYPE_SCOPE]: typed parse-error channel — `DSTV.Net.Exceptions`
 
 | [INDEX] | [SYMBOL]                                         | [CAPABILITY]                                     |
 | :-----: | :----------------------------------------------- | :----------------------------------------------- |
@@ -85,7 +85,7 @@ Every `CodeProfile` member carries a `[Description]` label; the enum value is th
 |  [03]   | `Contour.PointList` / `.Points` | property | `IReadOnlyList<DstvContourPoint>` outer/inner boundary      |
 |  [04]   | `DstvElement.ToSvg()`           | instance | per-feature / whole-piece SVG string (debug preview)        |
 
-[ENTRYPOINT_SCOPE]: record factories — `DSTV.Net.Data`. Each `Create*` is a static factory parsing one DSTV data line into the typed record — the seam a custom ingress reuses without re-tokenizing.
+[ENTRYPOINT_SCOPE]: record factories — `DSTV.Net.Data`. Each `Create*` is a static factory parsing one DSTV data line into the typed record — the extension point a custom ingress reuses without re-tokenizing.
 
 | [INDEX] | [SURFACE]                                            | [CAPABILITY]                               |
 | :-----: | :--------------------------------------------------- | :----------------------------------------- |
@@ -106,9 +106,9 @@ Every `CodeProfile` member carries a `[Description]` label; the enum value is th
 [STACKING]:
 - `Clipper2`(`libs/dotnet/.api/api-clipper2.md`): parsed `DstvHole`/`DstvSlot`/`Contour` `(XCoord, YCoord)` flange coordinates map to `Path64`/`PathD` — contour boundaries become subject paths and holes/slots clip paths for the true-shape `Nesting/nfp` pack and the `Documentation/projection` screen clip; DSTV.Net delivers read geometry, `Clipper2` owns the polygon algebra.
 - `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): `XxHash128.HashToUInt128` content-addresses a parsed piece over its canonical header+feature bytes, so an identical `.nc1` re-parse keys to the same `Stock`/part identity for the nesting/remnant lineage.
-- within-lib: the per-block `Create*` factories are the seam a custom Fabrication ingress reuses without re-tokenizing; records project into the kernel `Loop`/polygon and the `Process/family` profile/feature vocabulary at ingress.
+- within-lib: the per-block `Create*` factories are the extension point a custom Fabrication ingress reuses without re-tokenizing; records project into the kernel `Loop`/polygon and the `Process/family` profile/feature vocabulary at ingress.
 
 [LOCAL_ADMISSION]:
 - DSTV.Net is READ-ONLY with no `.nc1` writer; the Fabrication cut-program owner emits DSTV/NC1 through its own `PostDialect` writer beside the G-code AST, mirroring the `IDstvHeader`/feature vocabulary DSTV.Net supplies.
-- boundary-map at the `DstvElement`/`IDstvHeader` seam: project records into the kernel `Loop`/polygon and `Process/family` vocabulary at ingress, never thread DSTV.Net record types into the toolpath/nesting kernels.
-- `await` `ParseAsync` at the boundary and convert `Task<IDstv>` → `Fin<IDstv>`, catching the abstract `ParseException` once and lowering its `LineNumber` into the `FabricationFault` rail; the typed rail is the failure source, never a sentinel or null `Header`.
+- boundary-map at the `DstvElement`/`IDstvHeader` boundary: project records into the kernel `Loop`/polygon and `Process/family` vocabulary at ingress, never thread DSTV.Net record types into the toolpath/nesting kernels.
+- `await` `ParseAsync` at the boundary and convert `Task<IDstv>` → `Fin<IDstv>`, catching the abstract `ParseException` once and lowering its `LineNumber` into the `FabricationFault` channel; the typed result is the failure source, never a sentinel or null `Header`.

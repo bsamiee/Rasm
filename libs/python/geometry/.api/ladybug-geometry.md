@@ -137,4 +137,4 @@ Beyond the primitives it owns its own pure-Python 2D boolean, intersection, boun
 - `geometry` owner: `network.coordinates_hash(point, tolerance)` buckets coordinates to a tolerance-stable key seeding the runtime `ContentIdentity` and memoizing boolean/triangulation/projection results; the energy-geometry owner composes the `Face3D` generators, the `geometry_dict_to_object` decoder, and OBJ/STL interop, never re-deriving the value-object algebra.
 
 [LOCAL_ADMISSION]:
-- AGPL-3.0 strong copyleft binds admission: consume the honeybee/ladybug/dragonfly band out-of-process as a companion rail, exchanging HBJSON/result evidence across the wire, its code never linked into a distributed host binary.
+- AGPL-3.0 strong copyleft binds admission: consume the honeybee/ladybug/dragonfly band out-of-process as a companion domain, exchanging HBJSON/result evidence across the wire, its code never linked into a distributed host binary.

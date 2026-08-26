@@ -37,7 +37,7 @@
 [STACKING]:
 - `@loaders.gl/core`(`.api/loaders.gl-core.md`): `load(url, Tiles3DLoader)` fetches-then-decodes a `tileset.json` or tile href and `selectLoader` sniffs the four-byte magic — no decode vocabulary added atop core's polymorphic `parse`/`load`.
 - `@deck.gl/geo-layers`(`.api/deck.gl-geo-layers.md`): `Tile3DLayer` defaults `loaders` to `Tiles3DLoader` (the singular `loader` prop ships `@deprecated`) and drives the `@loaders.gl/tiles` `Tileset3D`/`Tile3D` traversal — LOD by screen-space error, fetch fanout, lifecycle — surfacing each tile on `onTilesetLoad(Tileset3D)`/`onTileLoad(Tile3D)`; batched/instanced `gltf` renders through `@deck.gl/mesh-layers`, `pnts` feeds the columnar point path.
-- `@loaders.gl/las`(`.api/loaders.gl-las.md`): the `pnts` point content complements the LAS scan decoder on the same `PointCloudLayer` binary-attribute seam, each passed per call site.
+- `@loaders.gl/las`(`.api/loaders.gl-las.md`): the `pnts` point content complements the LAS scan decoder on the same `PointCloudLayer` binary-attribute interface, each passed per call site.
 - `viewer/geo`: `Tile3DFeatureTable`/`Tile3DBatchTable` decode the `featureTableBinary`/`batchTableJson` a `Tile3DLayer` `onClick` resolves picked-feature metadata against.
 
 [LOCAL_ADMISSION]:

@@ -1,6 +1,6 @@
 # [CONCURRENCY]
 
-Throughput is one declared posture. Every producer in the process flows through a closed lane vocabulary — a channel row with declared capacity, full-mode backpressure, drop losses, and a drain band — and every loss is recorded into one kind-tagged stream, so written = consumed + recorded loss closes from declarations alone with drop eviction and drain residue as kinds on that one stream; unaccounted loss is a rail rejection. One frozen budget record owns every degree, permit, capacity, and window and proves its own cross-axis inequalities at admission. Pacing is limiter policy rows whose verdicts carry typed evidence; identical concurrent intents collapse into one keyed flight; push streams admit only where time or combination algebra earns them and deliver through declared cadence edges; live collection state travels only as change-sets off two sources. Growth lands as rows: a new producer is a lane row, a new pacing class a limiter row, a new invalidation one resolution row, a rebalance one budget edit.
+Throughput is one declared posture. Every producer in the process flows through a closed lane vocabulary — a channel row with declared capacity, full-mode backpressure, drop losses, and a drain band — and every loss is recorded into one kind-tagged stream, so written = consumed + recorded loss closes from declarations alone with drop eviction and drain residue as kinds on that one stream; unaccounted loss is a typed rejection. One frozen budget record owns every degree, permit, capacity, and window and proves its own cross-axis inequalities at admission. Pacing is limiter policy rows whose verdicts carry typed evidence; identical concurrent intents collapse into one keyed flight; push streams admit only where time or combination algebra earns them and deliver through declared cadence edges; live collection state travels only as change-sets off two sources. Growth lands as rows: a new producer is a lane row, a new pacing class a limiter row, a new invalidation one resolution row, a rebalance one budget edit.
 
 ## [01]-[CONCURRENCY_CHOOSER]
 
@@ -24,7 +24,7 @@ This table routes a throughput concern to its owning surface; the most specific 
 
 [LANE_ROWS]:
 - Law: a lane is one `[SmartEnum<string>]` row whose wire key is the lane name and whose columns carry capacity, full-mode, prioritization, reader arity, continuation inlining, and drain band — one vocabulary per process, producers dispatch the polymorphic `Open<T>` on the row, and inline `BoundedChannelOptions` at a call site makes the backpressure decision unrecoverable from declarations and forfeits the `Items` inventory the conservation audit walks.
-- Law: six rows close the vocabulary; a producer fitting no row is a missing item, never a bespoke channel, and `LaneRow.Get(name)` admits an external lane selector through the one key seam.
+- Law: six rows close the vocabulary; a producer fitting no row is a missing item, never a bespoke channel, and `LaneRow.Get(name)` admits an external lane selector through the one key boundary.
 - Law: the loss column is `Option<LossClass>` set by full-mode at declaration — the three drop modes carry their class, `Wait` and the rendezvous row carry `None`, so a `Wait` lane never manufactures a refused-write loss record and `Open<T>` selects the callback-bearing `CreateBounded` overload only where a loss class exists.
 - Law: every bounded-lane operation serializes on one internal monitor, so the throughput ceiling is lock hand-off rate — a hot lane shards into budget-derived key-hash lanes, and widening capacity raises burst absorption, never throughput and never latency, because an empty-buffer write hands off directly to a parked reader.
 - Law: capacity 0 is the rendezvous row — no buffer exists, a write completes only when a read consumed it, and timing-dependent hand-off assertions become sequential ones.
@@ -170,7 +170,7 @@ public static class Budgeted {
 ```
 
 [PARALLEL_ADMISSION]:
-- Law: `Parallel.ForEachAsync` is the default parallel iteration — the body token is the loop's internal token tripping on any sibling fault or the external token, all failures aggregate on the returned task, and the aggregate converts once at the rail boundary; per-iteration catch blocks forfeit the aggregation the primitive already performs.
+- Law: `Parallel.ForEachAsync` is the default parallel iteration — the body token is the loop's internal token tripping on any sibling fault or the external token, all failures aggregate on the returned task, and the aggregate converts once at the carrier boundary; per-iteration catch blocks forfeit the aggregation the primitive already performs.
 - Law: source enumeration serializes under an internal lock — a slow producer serializes the whole loop, and the decoupled spelling is producer, lane, then `ForEachAsync` over `ReadAllAsync`; `ParallelOptions` pins degree, scheduler, and token together as one policy value.
 - Law: PLINQ admits only cpu-bound, side-effect-free, associative work in the total spelling — degree, cancellation, and a declared egress: `WithMergeOptions(NotBuffered)` for a streaming enumerated consumer, `FullyBuffered` for a terminal materialized sink, or `ForAll` into a lane write that re-enters the recorded world; `ForAll` runs the sink action on the partition threads with no merge back to the caller, so a `WithMergeOptions` beside a `ForAll` is dead configuration the merge never reads. `AsOrdered` is scoped and closed by `AsUnordered`, and `AsSequential` exits before cheap projection tails buy merge cost for nothing.
 - Law: `Parallel.ForAsync<T>` spans `IBinaryInteger<T>` for index kernels with no materialized range; synchronous `Parallel.For`/`ForEach` survive only inside measured kernels under the named kernel exemption.
@@ -242,7 +242,7 @@ public static class AdmissionGate {
 ## [05]-[REACTIVE_STREAMS]
 
 [STREAM_ADMISSION]:
-- Law: an observable chain earns admission only where time or combination algebra changes the design — two or more time or combination operators, one multicast lifetime, or time logic that must run under a virtual clock; a `Select`/`Where`-only chain buys push hazards while using none of the algebra and belongs on rails or lanes.
+- Law: an observable chain earns admission only where time or combination algebra changes the design — two or more time or combination operators, one multicast lifetime, or time logic that must run under a virtual clock; a `Select`/`Where`-only chain buys push hazards while using none of the algebra and belongs on carriers or lanes.
 - Law: the grammar is `OnNext* (OnError|OnCompleted)?`, serialized — `Subject<T>.OnNext` is unsynchronized, so concurrent producers serialize through `Synchronize()`, never per-observer locks that leave the grammar violated for every other observer.
 - Law: cold is the default — every subscription re-runs factory side effects, `Interval` and `Timer` are per-subscriber clocks (N raw subscriptions are N timers), and a side-effecting cold source fans out only behind a multicast row.
 - Law: `Subscribe` appears only at edges — the mid-chain tap is `Do`, termination is `Finally`, subscription-scoped resources are `Using`; a mid-pipeline `Subscribe` severs the declarative chain into imperative halves.
@@ -287,17 +287,17 @@ public static class DeliveryEdge {
 - Law: a terminated multicast is sticky — once upstream completes or errors, every later subscriber receives the terminal immediately; restart is a factory producing the chain plus a current-instance cell, never `Defer`, because a deferred multicast constructs per subscriber and shares nothing; unbounded `Replay` is a leak declared as policy.
 - Law: subjects are state cells with declared semantics — `BehaviorSubject<T>` the observable property cell (current value plus replay-1), `AsyncSubject<T>` the future cell (terminal value only), `ReplaySubject<T>` the bounded catch-up cell (`bufferSize`, `window`, scheduler) — and a bare `Subject<T>` survives only inside a multicast operator.
 - Law: disposal is a policy vocabulary — `CompositeDisposable` per scope, `SerialDisposable` replace-on-reconfigure disposing its predecessor, `SingleAssignmentDisposable` set-once wiring, `RefCountDisposable` shared teardown, `CancellationDisposable` the token bridge — and `TakeUntil` over a lifetime signal beats imperative disposal wherever the signal exists.
-- Law: behind the stream-to-rail seam, schedule policy is the one retry owner — a stream `Retry` under a rail retry is the double-loop defect, and in-stream `Catch` rows (typed handler, fallback stream, `params` cascade) survive only before that seam.
+- Law: behind the stream-to-carrier boundary, schedule policy is the one retry owner — a stream `Retry` under a carrier retry is the double-loop defect, and in-stream `Catch` rows (typed handler, fallback stream, `params` cascade) survive only before that boundary.
 - Reject: the double bridge — stream to lane to stream inside one hop launders backpressure evidence through a buffer; the relay subject — a hand-subscribed `Subject` re-spelling `Publish` without disposal symmetry.
 
-Four canonical seams cross the worlds — `OnNext` has no park position, so the lane crossing never waits — each with one spelling and one evidence carrier; a fifth crossing is a missing row, never a bespoke bridge.
+Four canonical boundaries cross the worlds — `OnNext` has no park position, so the lane crossing never waits — each with one spelling and one evidence carrier; a fifth crossing is a missing row, never a bespoke bridge.
 
-| [INDEX] | [CROSSING]     | [SPELLING]                                      | [EVIDENCE]                 |
-| :-----: | :------------- | :---------------------------------------------- | :------------------------- |
-|  [01]   | rail to stream | `FromAsync`/`Defer` over the effect             | the effect's typed failure |
-|  [02]   | stream to rail | `Materialize()` folded once into typed outcomes | terminal verdict           |
-|  [03]   | stream to lane | non-waiting `TryWrite` into a drop row          | drop losses                |
-|  [04]   | lane to stream | async `Observable.Create` over the read stream  | disposal cancels the pull  |
+| [INDEX] | [CROSSING]        | [SPELLING]                                      | [EVIDENCE]                 |
+| :-----: | :---------------- | :---------------------------------------------- | :------------------------- |
+|  [01]   | carrier to stream | `FromAsync`/`Defer` over the effect             | the effect's typed failure |
+|  [02]   | stream to carrier | `Materialize()` folded once into typed outcomes | terminal verdict           |
+|  [03]   | stream to lane    | non-waiting `TryWrite` into a drop row          | drop losses                |
+|  [04]   | lane to stream    | async `Observable.Create` over the read stream  | disposal cancels the pull  |
 
 ## [06]-[CHANGE_SETS]
 
@@ -355,7 +355,7 @@ public static class LiveSet {
 - Law: forced-phase residue reads come out FIFO on plain lanes and in comparer order on the prioritized row; post-completion write refusals are drain residue, never drop losses — conflating the two double-counts loss, so residue is recorded as `LaneLoss(DrainResidue)` in the same `Atom<Seq<LaneLoss>>` the drop modes feed and the loss vocabulary stays one stream with a kind column, never a parallel `int` beside the losses.
 - Law: limiters dispose in the forced phase after lanes complete — disposal fails all queued acquisitions, so cooperative work never observes synthetic limiter failures; stream scopes end cooperatively via `TakeUntil(softDeadline, scheduler)` and forcibly by scope disposal; a cache drains as stop-edits, release batching gates, close loss streams, await `AsyncDisposeMany` completion.
 - Law: the conservation identity is the audit — written = consumed + recorded loss per lane, summing to one process identity provable from declarations because drop loss and drain residue share the one loss stream; a lane that cannot close the identity from its declared evidence is misconfigured by construction.
-- Exemption: the cooperative flush loop and the forced residue sweep are the platform-forced `Task` seam.
+- Exemption: the cooperative flush loop and the forced residue sweep are the platform-forced `Task` body.
 
 ```csharp
 public readonly record struct DrainFact(LaneRow Lane, int Consumed, int Residue, bool Forced, Option<Error> Abort) {
@@ -380,7 +380,7 @@ public static class LaneDrain {
             }
         }
         catch (OperationCanceledException) when (budget.IsCancellationRequested) { }
-        while (lane.Reader.TryRead(out _)) { // Exemption: forced residue sweep — each undelivered item records DrainResidue on the same loss stream
+        while (lane.Reader.TryRead(out _)) {
             residue++;
             ignore(losses.Swap(f => f.Add(new LaneLoss(row, LossClass.DrainResidue))));
         }

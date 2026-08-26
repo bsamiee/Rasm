@@ -1,6 +1,6 @@
 # [RASM_MATERIALS_API_VIVIDORANGE_PROFILES_CATALOGUE]
 
-`VividOrange.Profiles.Catalogue` mints the published AISC and EN 10365:2017 section database as typed sealed-singleton profile classes, each carrying its geometry as `UnitsNet.Length` dimensions behind the `VividOrange.IProfiles` family contracts. `CatalogueFactory` maps a section-identity enum to an `ICatalogue`/`IProfile`; the catalogue owns the DATA half of the Materials Profiles section-property seam, and `VividOrange.Sections.SectionProperties` consumes each `IProfile` as the computation half. Published data seeds the Profiles steel and EN family axis over hand-keyed section literals.
+`VividOrange.Profiles.Catalogue` mints the published AISC and EN 10365:2017 section database as typed sealed-singleton profile classes, each carrying its geometry as `UnitsNet.Length` dimensions behind the `VividOrange.IProfiles` family contracts. `CatalogueFactory` maps a section-identity enum to an `ICatalogue`/`IProfile`; the catalogue owns the DATA half of the Materials Profiles section-property boundary, and `VividOrange.Sections.SectionProperties` consumes each `IProfile` as the computation half. Published data seeds the Profiles steel and EN family axis over hand-keyed section literals.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -16,9 +16,9 @@
 - Law: dwell rides `PhysicsQuantity.Duration` like every other axis. The hand `UnitsNet.Duration.TryParse` boundary this replaces claimed posting held one quantity `PhysicsQuantity` carried no row for — the row is on the axis roster and owns textual dwell, so the hand parse was a second text boundary beside the admitted one.
 - Law: every admitted column carries its UnitsNet quantity past admission. A millimetre double surviving admission puts the unit in the NAME, so a caller reading `KerfMm` beside `PierceSeconds` holds two scales one signature cannot check; the exception is `ThermalCoefficient`, which is reciprocal kelvin and has no admitted quantity family, so it stays a bare per-kelvin scalar with its unit stated at the column.
 - Law: `PostFit` is the biarc admission on the POSTING plane and shares no vocabulary with the kernel `Rasm.Solving` `FitPolicy` — that owner fits geometry to samples, this one decides when a sampled run may become two arcs, and one name across both would let a caller pass either into the other.
-- Entry: every policy admits through its generated `Validate` and the one `Admitted` bridge; independent dimension failures accumulate through `Validation<Error, _>` before the `Fin` rail.
+- Entry: every policy admits through its generated `Validate` and the one `Admitted` bridge; independent dimension failures accumulate through `Validation<Error, _>` before the `Fin` result.
 - Auto: `CompPolicy` derives cantilever stiffness, deflection, and thermal growth from its admitted columns, so no caller re-derives a compensation term; the load that stiffness divides is `CuttingLoad.TangentialPerEdge` off `Tooling/cuttingdata#CUTTING_LOAD`.
-- Packages: `UnitsNet` supplies `Length`, `Speed`, `Pressure`, `Duration`, `Force`, and `Ratio`; `Thinktecture.Runtime.Extensions` generates every value object; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, and the `Fin` rail.
+- Packages: `UnitsNet` supplies `Length`, `Speed`, `Pressure`, `Duration`, `Force`, and `Ratio`; `Thinktecture.Runtime.Extensions` generates every value object; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, and the `Fin` result.
 - Boundary: raw dimension text never crosses admission, and no column past it carries a unit in its name.
 
 ```csharp
@@ -104,7 +104,6 @@ public sealed partial class CutPolicy {
 
     public Speed LinkFeedRate => FeedCeiling * LinkFeed.DecimalFractions;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Length kerf, ref LeadStyle lead,
         ref Length leadRadius, ref Length tabWidth, ref Length tabSpacing, ref Duration pierce,
@@ -140,7 +139,6 @@ public sealed partial class PostFit {
     public Length SplitDistance { get; }
     public int ProbeFloor { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Tolerance deviation,
         ref Length minimumRun, ref Length splitDistance, ref int probeFloor) {
@@ -184,7 +182,6 @@ public sealed partial class CompPolicy {
     public Length ThermalGrowth =>
         Stickout * (ThermalCoefficientPerKelvin * TemperatureRise.Kelvins);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Length toolDiameter,
         ref Length cutWidth, ref Length axialDepth, ref Length stickout, ref int teeth, ref Pressure modulus,
@@ -249,7 +246,6 @@ public sealed partial class PostPolicy {
     public ProgramSetup Setup { get; }
     public EmitPolicy Emit { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref CutConditioning cut,
         ref ProgramTooling tooling, ref ProgramSetup setup, ref EmitPolicy emit) {

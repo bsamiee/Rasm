@@ -36,7 +36,7 @@
 
 | [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]  | [CAPABILITY]                                       |
 | :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `JobInfo`                                                  | job descriptor | `Job`/`ProjectSlug`/`LocalRunFolder`; submit rail  |
+|  [01]   | `JobInfo`                                                  | job descriptor | `Job`/`ProjectSlug`/`LocalRunFolder`; submit path  |
 |  [02]   | `JobRunner`                                                | job runner     | `RunOnCloudAsync` and static upload/status helpers |
 |  [03]   | `ScheduledJobInfo`                                         | submitted job  | cloud handle; watch and delete                     |
 |  [04]   | `RunInfo`                                                  | run handle     | `Run`; result-asset download                       |
@@ -134,7 +134,7 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `LBT.RestSharp` (HTTP) and `LBT.Newtonsoft.Json` (JSON) carry distinct package ids from the Persistence folder's `Newtonsoft.Json` and its System.Text.Json rails, so the vendored RestSharp-106 + Newtonsoft-fork closure never collides.
+- `LBT.RestSharp` (HTTP) and `LBT.Newtonsoft.Json` (JSON) carry distinct package ids from the Persistence folder's `Newtonsoft.Json` and its System.Text.Json legs, so the vendored RestSharp-106 + Newtonsoft-fork closure never collides.
 - `Microsoft.Data.Sqlite` is touched only by the `Wrapper.LocalDatabase` cache through the ADO.NET `SqliteConnection`/`SqliteCommand` surface; the `*Api` REST layer never references it.
 - Token auth is connection input the app root hands over (`Configuration.AddDefaultHeader`/`TokenRepo`), never a fence member.
 - SDK `ApiException` throws enter `Op.Catch`; the owner classifies the documented HTTP status once into `ComputeFault.ProviderFailed` while retaining the captured `Error` as `Cause`, never reminting the exception into non-caused `ComputeFault.AnalysisFailed`.
@@ -142,7 +142,7 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 [STACKING]:
 - `api-objectstore.md`(`Rasm.Persistence/.api/api-objectstore.md`): `ArtifactsApi.CreateArtifactAsync` returns an `S3UploadRequest` presigned PUT and the `*Download*` ops resolve S3-backed assets, so the byte transfer rides the folder's object-store owner (`AWSSDK.S3`/`Minio`) on the same S3 plane; a downloaded `RunAsset` lands content-keyed (`XxHash128`) through that same body bridge, never a second HTTP uploader.
 - `Microsoft.Data.Sqlite`(`api-sqlite.md`): the pulled `SqlFile` folds through the same read-only extraction over the bracketed scratch artifact the local subprocess route drives — one tabular reader serves both routes.
-- Compute consumer anchor: `Analysis/energy` owns the recipe-run dispatch policy — `EnergyRoute.Cloud` builds `JobInfo` from recipe plus `ElementGraph`-derived OSM/IDF inputs behind the runner entry point, threading `JobInfo` → `RunJobAsync` → `WatchJobStatusAsync` → `RunInfo.GetOutputAssets(platform)` → `DownloadRunAssetsAsync(assets, saveAsDir:)`, so a cloud simulation and a local one share one result-extraction seam.
+- Compute consumer anchor: `Analysis/energy` owns the recipe-run dispatch policy — `EnergyRoute.Cloud` builds `JobInfo` from recipe plus `ElementGraph`-derived OSM/IDF inputs behind the runner entry point, threading `JobInfo` → `RunJobAsync` → `WatchJobStatusAsync` → `RunInfo.GetOutputAssets(platform)` → `DownloadRunAssetsAsync(assets, saveAsDir:)`, so a cloud simulation and a local one share one result-extraction path.
 - Persistence consumer anchor: a `Run` result and its `RunOutputAsset`s land at `Version/provenance` (lineage) and `Query/cache#ARTIFACT_BLOB_INDEX` (result index), so a completed cloud run becomes a content-addressed, lineage-tracked artifact set.
 
 [LOCAL_ADMISSION]:

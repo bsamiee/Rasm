@@ -1,6 +1,6 @@
 # [PY_RUNTIME_API_HYPERCORN]
 
-`hypercorn` owns the ASGI host beneath the Connect serve rail: one `Config` declares listeners, TLS, protocol limits, and lifecycle timeouts, and `hypercorn.asyncio.serve` or `hypercorn.trio.serve` runs an ASGI or WSGI application on them inside the caller's event loop. One `bind` grammar spells TCP, UNIX-socket, and inherited-descriptor listeners; HTTP/2 arrives by ALPN over TLS and as h2c over plaintext.
+`hypercorn` owns the ASGI host beneath the Connect server: one `Config` declares listeners, TLS, protocol limits, and lifecycle timeouts, and `hypercorn.asyncio.serve` or `hypercorn.trio.serve` runs an ASGI or WSGI application on them inside the caller's event loop. One `bind` grammar spells TCP, UNIX-socket, and inherited-descriptor listeners; HTTP/2 arrives by ALPN over TLS and as h2c over plaintext.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -41,8 +41,8 @@
 |  [09]   | `ResponseSummary`                                      | TypedDict      | `status` `headers` that `Logger.access` reads                |
 |  [10]   | `ASGIVersions`                                         | TypedDict      | `spec_version` `version` under `scope['asgi']`               |
 |  [11]   | `ConnectionState` / `LifespanState`                    | dict alias     | per-connection and per-process `state` carriers              |
-|  [12]   | `AppWrapper` / `WorkerContext` / `TaskGroup` / `Event` | protocol       | backend seams asyncio and trio each implement                |
-|  [13]   | `SingleTask` / `H2SyncStream` / `H2AsyncStream`        | protocol       | restartable task and HTTP/2 stream seams                     |
+|  [12]   | `AppWrapper` / `WorkerContext` / `TaskGroup` / `Event` | protocol       | backend boundaries asyncio and trio each implement           |
+|  [13]   | `SingleTask` / `H2SyncStream` / `H2AsyncStream`        | protocol       | restartable task and HTTP/2 stream boundaries                |
 |  [14]   | `WorkerFunc`                                           | callable alias | `(config, sockets, shutdown_event)` worker `run` forks       |
 |  [15]   | `H11SendableEvent`                                     | union          | h11 events the HTTP/1.1 protocol writes                      |
 
@@ -218,13 +218,13 @@
 - `server_names` decides before the application spawns: a mismatched `Host` answers 404, and an empty roster admits every host.
 
 [STACKING]:
-- `connectrpc`(`libs/python/.api/connectrpc.md`): `serve(<Svc>ASGIApplication(service), config)` is the serve rail, `DispatcherMiddleware({app.path: app, ...})` mounts several generated applications on one listener, and gRPC and bidi streams need `alpn_protocols` HTTP/2 or an h2c `insecure_bind` for the trailers extension their status rides.
+- `connectrpc`(`libs/python/.api/connectrpc.md`): `serve(<Svc>ASGIApplication(service), config)` is the server, `DispatcherMiddleware({app.path: app, ...})` mounts several generated applications on one listener, and gRPC and bidi streams need `alpn_protocols` HTTP/2 or an h2c `insecure_bind` for the trailers extension their status rides.
 - `opentelemetry-instrumentation-asgi`(`.api/opentelemetry-instrumentation-asgi.md`): `OpenTelemetryMiddleware(app)` is the value handed to `serve`, and its server span closes on the final send event the ASGI stream emits.
-- `anyio`(`libs/python/.api/anyio.md`): `anyio.run(partial(serve, app, config, shutdown_trigger=stop.wait), backend='asyncio')` hosts the rail, `shutdown_trigger` binding one `anyio.Event` the composition root sets; `create_sockets()` then `worker_serve(wrap_app(app, config.wsgi_max_body_size, 'asgi'), config, sockets=...)` splits bind from serve where readiness must follow the bind.
+- `anyio`(`libs/python/.api/anyio.md`): `anyio.run(partial(serve, app, config, shutdown_trigger=stop.wait), backend='asyncio')` hosts the result, `shutdown_trigger` binding one `anyio.Event` the composition root sets; `create_sockets()` then `worker_serve(wrap_app(app, config.wsgi_max_body_size, 'asgi'), config, sockets=...)` splits bind from serve where readiness must follow the bind.
 - `cyclopts`(`.api/cyclopts.md`): `App.command` registers the async serve function that assigns `bind`, TLS paths, and timeouts onto one `Config`, then awaits `serve` under `App.run_async(backend='asyncio')`.
 - `runtime/transport/serve`: seats the one `Config` and the `serve` await at the daemon entry, binding `shutdown_trigger` onto its termination latch and `graceful_timeout` onto the drain, so no other fence opens a listener.
 
 [LOCAL_ADMISSION]:
 - one `Config` built at the composition root from typed settings; the `Config.from_*` loaders and the `hypercorn` CLI stay outside every fence.
-- `asyncio` is the loop flavour the serve rail runs; `hypercorn.trio.serve` hosts no Connect application, whose server runs asyncio primitives, so it stays outside the branch fences.
-- TLS client verification rides `verify_mode` and `verify_flags`; the UNIX-socket h2c seam is a plaintext `bind`, and `insecure_bind` exists beside a TLS `bind` alone.
+- `asyncio` is the loop flavour the server runs; `hypercorn.trio.serve` hosts no Connect application, whose server runs asyncio primitives, so it stays outside the branch fences.
+- TLS client verification rides `verify_mode` and `verify_flags`; the UNIX-socket h2c boundary is a plaintext `bind`, and `insecure_bind` exists beside a TLS `bind` alone.

@@ -32,12 +32,12 @@
 
 [TOPOLOGY]:
 - One release per tenant, in that tenant's own namespace: the tier mints the namespace and installs the chart under `<tenant>-plane`, so the virtual control plane's name and the tenant's name are one derivation and the host namespace is the isolation boundary.
-- The virtual plane installs its OWN CRDs at runtime, inside itself. The chart ships no `crds/` directory at all, so `skipCrds` is a no-op here and no host-side CRD estate belongs to this row.
+- The virtual plane installs its OWN CRDs at runtime, inside itself. The chart ships no `crds/` directory at all, so `skipCrds` is a no-op here and no host-side CRD set belongs to this row.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders the plane into the tenant namespace the tier just created; the namespace resource is the parent every rendered object depends on.
 - `kube/tenant#TENANT_TIER`: the `vcluster` mode row is the hard-isolation alternative to the `capsule` row — one `k8s.core.v1.Namespace` per tenant, one chart release named `<tenant>-plane`, and `sync.toHost.ingresses.enabled` as the single values row so tenant Ingress objects materialize on the host edge.
-- `capsule`(`.api/capsule.md`): the two arms are alternatives on one `tenancy.mode` axis and never compose — soft isolation governs shared namespaces through admission, hard isolation gives each tenant its own API server, and an estate running both would hold two tenancy authorities over one cluster.
+- `capsule`(`.api/capsule.md`): the two arms are alternatives on one `tenancy.mode` axis and never compose — soft isolation governs shared namespaces through admission, hard isolation gives each tenant its own API server, and a deployment running both would hold two tenancy authorities over one cluster.
 
 [LOCAL_ADMISSION]:
 - Derive every address from the RELEASE name; a `fullnameOverride` row renames nothing here and risks schema rejection.

@@ -1,11 +1,11 @@
 # [PY_ARTIFACTS_API_PDF_OXIDE]
 
-`pdf_oxide` supplies a Rust-core, dependency-free PDF surface for the artifacts pdf rail: the `PdfDocument` root for open/extract/render/edit/redact/sanitize/sign-read, the `Pdf`/`DocumentBuilder`/`FluentPageBuilder` creation trio, the `sign_pdf_bytes_pades` + `Certificate`/`TsaClient` PAdES family, and `Async*` mirrors over an owned worker pool. License is the rail-defining fact: `MIT OR Apache-2.0` where `pymupdf` is AGPL-3.0, so the commercial-safe closed/distributed/SaaS render-extract-redact-separation path routes here, reserving the AGPL siblings for permissive or internal pipelines.
+`pdf_oxide` supplies a Rust-core, dependency-free PDF surface for the artifacts pdf domain: the `PdfDocument` root for open/extract/render/edit/redact/sanitize/sign-read, the `Pdf`/`DocumentBuilder`/`FluentPageBuilder` creation trio, the `sign_pdf_bytes_pades` + `Certificate`/`TsaClient` PAdES family, and `Async*` mirrors over an owned worker pool. License is the result-defining fact: `MIT OR Apache-2.0` where `pymupdf` is AGPL-3.0, so the commercial-safe closed/distributed/SaaS render-extract-redact-separation path routes here, reserving the AGPL siblings for permissive or internal pipelines.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document roots and creation entries
-- rail: pdf
+- concern: pdf
 
 `PdfDocument` is the single open-edit-extract-render root; `Pdf`/`DocumentBuilder` are the two creation modalities (declarative-from-source vs fluent-tagged-chain); the `Async*` trio mirrors them on a built-in single-worker pool. `page(index)` yields the edit-surface `PdfPage`; iterating `pages` yields the extract-surface `Page` — distinct views, never interchanged.
 
@@ -22,7 +22,7 @@
 |  [09]   | `OfficeConverter` / `AsyncOfficeConverter` | office gate       | DOCX/PPTX/XLSX → `Pdf`/`AsyncPdf` (`from_*` + `_bytes` + `convert`)    |
 
 [PUBLIC_TYPE_SCOPE]: extraction value objects
-- rail: pdf
+- concern: pdf
 
 Geometry-bearing read models the `PdfDocument.extract_*` / `Page` accessors return; every `bbox` is a `(x0, y0, x1, y1)` float tuple in PDF user space. These feed the `document/lens#LENS` `RunNode`/`FigureNode`/`TableNode` lowering as the layout-aware extract source, never a hand char-cluster.
 
@@ -42,7 +42,7 @@ Geometry-bearing read models the `PdfDocument.extract_*` / `Page` accessors retu
 - `TextWord` / `TextSpan`: `sequence` is the content-stream emission (draw-call) order — it separates genuinely consecutive draws from spatially-close-but-stream-distant ones (table cells vs overlays), independent of the resolved reading order; `TextWord.rotation_degrees` carries the run's text-matrix rotation for rotated-page geometry.
 
 [PUBLIC_TYPE_SCOPE]: render buffers
-- rail: pdf
+- concern: pdf
 
 | [INDEX] | [SYMBOL]          | [PACKAGE_ROLE] | [CAPABILITY]                                                  |
 | :-----: | :---------------- | :------------- | :------------------------------------------------------------ |
@@ -53,7 +53,7 @@ Geometry-bearing read models the `PdfDocument.extract_*` / `Page` accessors retu
 - `SeparationPlate`: `data` runs 0–255 where pixel intensity == ink coverage percent, keyed by `ink_name`.
 
 [PUBLIC_TYPE_SCOPE]: authoring value objects — color, graphics, fonts, tables
-- rail: pdf
+- concern: pdf
 
 Construct-then-pass value objects fed into the `Pdf`/`DocumentBuilder`/`FluentPageBuilder` create chain; colors are normalized 0..1 float RGB, and the gradient/pattern/blend family is the publication-grade graphics axis.
 
@@ -79,7 +79,7 @@ Construct-then-pass value objects fed into the `Pdf`/`DocumentBuilder`/`FluentPa
 - `EmbeddedFont`: moved into the builder by `register_embedded_font`, so registering the same handle twice raises.
 
 [PUBLIC_TYPE_SCOPE]: signing and crypto value objects
-- rail: pdf
+- concern: pdf
 
 `Certificate`/`TsaClient`/`Signature` form the PAdES + RFC-3161 timestamp family feeding `exchange/conformance#CONFORMANCE`; the in-process signer stacks beside `pyhanko` where its cryptography stack is barred.
 
@@ -98,7 +98,7 @@ Construct-then-pass value objects fed into the `Pdf`/`DocumentBuilder`/`FluentPa
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open, authenticate, save
-- rail: pdf
+- concern: pdf
 - call: `PdfDocument(path, password=None)`; `PdfDocument.from_bytes(data, password=None)`; `authenticate(password)`; `page(index) -> PdfPage`; `pages -> PdfDocumentIter` yielding `Page`; `page_count`; `save(path, compress=True, garbage_collect=True, linearize=False)`; `to_bytes(...) -> bytes`; `save_encrypted(path, user_password, owner_password=None, allow_print=True, allow_copy=True, allow_modify=True, allow_annotate=True)`; `to_bytes_encrypted(...) -> bytes`; `permissions()`; `version() -> tuple[int, int]`; `save_page(page) -> bytes`.
 
 `PdfDocument` is a context manager (`__enter__`/`__exit__`), so `with PdfDocument.from_bytes(data) as doc:` closes the Rust handle deterministically; `version()` returns the `(major, minor)` pair.
@@ -116,7 +116,7 @@ Construct-then-pass value objects fed into the `Pdf`/`DocumentBuilder`/`FluentPa
 |  [09]   | `PdfDocument.permissions` / `version` / `save_page` | permission flags, PDF version, single-page bytes |
 
 [ENTRYPOINT_SCOPE]: layout-aware text extraction and conversion
-- rail: pdf
+- concern: pdf
 - call: `extract_text(page, region=None, exclude_layers=None, exclude_inks=None, extract_tables=True) -> str`; `extract_words(page, *, include_artifacts=True, region=None, word_gap_threshold=None, profile=None) -> list[TextWord]`; `extract_text_lines(page, *, include_artifacts=True, region=None, word_gap_threshold=None, line_gap_threshold=None, profile=None) -> list[TextLine]`; `extract_chars(page, region=None, exclude_layers=None, exclude_inks=None) -> list[TextChar]`; `extract_spans(page, region=None, reading_order=None) -> list[TextSpan]`; `extract_tables(page, region=None, table_settings=None)`; `extract_structured(page) -> str` (+ `extract_text_auto`/`extract_page_auto(options_json=)`); `extract_lines`/`extract_rects`/`extract_paths(page, region=)`; `extract_text_ocr(page, engine=None) -> str`; `to_markdown(page, preserve_layout=False, detect_headings=True, include_images=False, image_output_dir=None, embed_images=True, include_form_fields=True) -> str` (+ `to_markdown_all`); `to_html(...)`/`to_html_all`; `to_plain_text(...)`/`to_plain_text_all`; `search(pattern, case_insensitive=False, literal=False, whole_word=False, max_results=0)`/`search_page(page, pattern, ...)`; `classify_document() -> str`/`classify_page(page) -> str`; `page_layout_params(page) -> LayoutParams`.
 
 `pdf_oxide` extraction is the `document/lens#LENS` engine for the commercial-safe path; an `ExtractionProfile` tunes the heuristics per document class, and `classify_document`/`classify_page` return JSON (document keys `pages`/`pages_needing_ocr`/`summary`; page keys `page`/`kind`/`confidence`/`reason`/`signals`).
@@ -140,7 +140,7 @@ Construct-then-pass value objects fed into the `Pdf`/`DocumentBuilder`/`FluentPa
 |  [15]   | `PdfDocument.page_layout_params`                                | computed adaptive layout metrics for a page      |
 
 [ENTRYPOINT_SCOPE]: render to raster and ink separations
-- rail: pdf
+- concern: pdf
 - call: `render_page(page, dpi=None, format=None, background=None, transparent=False, render_annotations=None, jpeg_quality=None, excluded_layers=None) -> bytes`; `render_page_fit(page, width, height, *, format=None, background=None, transparent=False, render_annotations=None, jpeg_quality=None, excluded_layers=None) -> bytes`; `render_pixmap(page, dpi=None) -> RenderedPixmap`; `render_separation(page, ink_name, dpi=None) -> SeparationPlate`; `render_separations(page, dpi=None) -> list[SeparationPlate]`; `flatten_to_images(dpi=150)`.
 
 `render_separation(s)` is the prepress differentiator on this commercial-safe render surface, emitting per-ink grayscale coverage plates.
@@ -155,7 +155,7 @@ Construct-then-pass value objects fed into the `Pdf`/`DocumentBuilder`/`FluentPa
 |  [06]   | `PdfDocument.flatten_to_images`  | rasterize all pages, flattening interactive layers |
 
 [ENTRYPOINT_SCOPE]: redaction, sanitize, and content erase
-- rail: pdf
+- concern: pdf
 - call: `add_redaction(page, rect, fill=None)`; `apply_page_redactions(page)`/`apply_all_redactions()`; `apply_redactions_destructive(scrub_metadata=True, remove_javascript=True, remove_embedded_files=True, fill=...)`; `sanitize_document(scrub_metadata=True, remove_javascript=True, remove_embedded_files=True)`; `erase_region(page, llx, lly, urx, ury)`/`erase_regions(page, rects)`; `erase_header(page)`/`erase_footer(page)`/`erase_artifacts(page)`; `remove_headers(threshold=0.8) -> int`/`remove_footers(...)`/`remove_artifacts(...)`; `redaction_count(page)`/`is_page_marked_for_redaction(page)`/`clear_erase_regions(page)`/`unmark_page_for_redaction(page)`.
 
 `apply_redactions_destructive` is the irreversible scrub of this commercial-safe removal surface for the `document/egress#FINISH` REDACT/SCRUB steps; the `remove_*` family strips repeat-detected running content by threshold.
@@ -172,7 +172,7 @@ Construct-then-pass value objects fed into the `Pdf`/`DocumentBuilder`/`FluentPa
 |  [08]   | `PdfDocument.redaction_count` / `is_page_marked_for_redaction` / `clear_erase_regions` | redaction-state queries + erase reset           |
 
 [ENTRYPOINT_SCOPE]: page assembly, geometry, and image edit
-- rail: pdf
+- concern: pdf
 - call: `merge_from(source)`; `select_pages(pages)`/`move_page(from_index, to_index)`/`delete_page(index)`; `extract_pages(pages, output)`/`extract_pages_to_bytes(pages) -> bytes`/`extract_page_ranges_to_bytes(ranges)`; `rotate_page(page, degrees)`/`rotate_all_pages(degrees)`/`set_page_rotation(page, degrees)`/`page_rotation(page)`; `crop_margins(left, right, top, bottom)`/`set_page_crop_box(page, llx, lly, urx, ury)`/`set_page_media_box(...)`/`page_crop_box`/`page_media_box`; `page_images(page)`/`extract_images(page, region=None)`/`extract_image_bytes(page)`; `reposition_image(page, image_name, x, y)`/`resize_image(page, image_name, width, height)`/`set_image_bounds(page, image_name, x, y, width, height)`/`has_image_modifications`/`clear_image_modifications`; `within(page, bbox) -> PdfPageRegion`.
 
 This structural-edit surface feeds `document/egress#FINISH` composition.
@@ -189,7 +189,7 @@ This structural-edit surface feeds `document/egress#FINISH` composition.
 |  [08]   | `PdfDocument.within`                                                                    | bbox-restricted region view for re-extraction |
 
 [ENTRYPOINT_SCOPE]: forms, annotations, outline, layers, metadata
-- rail: pdf
+- concern: pdf
 - call: `get_form_fields() -> list[FormField]`; `get_form_field_value(name)`/`set_form_field_value(name, value)`; `export_form_data(path, format='fdf')`; `flatten_forms()`/`flatten_forms_on_page(page)`; `get_annotations(page)`; `flatten_all_annotations()`/`flatten_page_annotations(page)`; `get_outline()`; `get_layers() -> list[str]`/`get_page_inks(page)`/`get_page_inks_deep(page)`; `page_labels()`; `set_title(title)`/`set_author(author)`/`set_subject(subject)`/`set_keywords(keywords)`; `xmp_metadata()`; `embed_file(name, data)`; `edit_header(page)`/`edit_footer(page)`; `PdfPage`: `add_text(text, x, y, font_size=12.0)`/`add_highlight(x, y, width, height, color)`/`add_link(x, y, width, height, url)`/`add_note(x, y, text)`/`set_text(text_id, new_text)`/`find_text_containing(needle)`/`find_images()`/`get_element(id)`/`children()`/`annotations()`/`remove_annotation(index)`/`remove_element(id)`.
 
 This recovery + finishing surface feeds `document/lens#LENS` (read) and `document/egress#FINISH` (flatten/outline/metadata).
@@ -212,7 +212,7 @@ This recovery + finishing surface feeds `document/lens#LENS` (read) and `documen
 |  [14]   | `PdfPage` (from `page(index)`)                                          | per-page edit: text/annotations/links; retext; find/remove |
 
 [ENTRYPOINT_SCOPE]: structure, conformance validation, and PDF/A conversion
-- rail: pdf
+- concern: pdf
 - call: `has_structure_tree() -> bool`/`has_text_layer(page) -> bool`/`has_xfa() -> bool`; `structured_warnings()`/`flatten_warnings()`; `validate_pdf_a(level='1b') -> ConformanceReport`; `validate_pdf_ua() -> AccessibilityReport`; `validate_pdf_x(level='1a_2001') -> ConformanceReport`; `convert_to_pdf_a(level='2b') -> ConversionReport`.
 
 Tagged-structure recovery + the standards-validation triple, the `exchange/conformance#CONFORMANCE` and `document/tagged#ACCESS` engines; the reports are `TypedDict`s (`valid`/`level`/`errors`/`warnings`; conversion `success`/`actions`/`errors`).
@@ -227,7 +227,7 @@ Tagged-structure recovery + the standards-validation triple, the `exchange/confo
 |  [06]   | `PdfDocument.convert_to_pdf_a`                                  | upgrade the document to PDF/A archival conformance   |
 
 [ENTRYPOINT_SCOPE]: existing-signature read and verify
-- rail: pdf
+- concern: pdf
 - call: `signatures() -> list[Signature]` (then `Signature.verify()`/`verify_detached(pdf_data)`); `signature_count() -> int`; `dss() -> Dss | None`.
 
 This read half feeds `exchange/conformance#CONFORMANCE` audit.
@@ -239,7 +239,7 @@ This read half feeds `exchange/conformance#CONFORMANCE` audit.
 |  [03]   | `PdfDocument.dss`             | recover the `/DSS` store (certs/CRLs/OCSPs/VRI) |
 
 [ENTRYPOINT_SCOPE]: Office round-trip conversion
-- rail: pdf
+- concern: pdf
 - call: `OfficeConverter.from_docx(path) -> Pdf`/`from_pptx(path)`/`from_xlsx(path)` (+ `_bytes(data)` + `convert(path)`); `PdfDocument.to_docx(path)`/`to_xlsx(path)`/`to_pptx(path)` (+ `_bytes() -> bytes`).
 
 Both directions of Office ↔ PDF in-process, no LibreOffice subprocess.
@@ -250,7 +250,7 @@ Both directions of Office ↔ PDF in-process, no LibreOffice subprocess.
 |  [02]   | `PdfDocument.to_docx` / `to_xlsx` / `to_pptx`           | PDF → DOCX/XLSX/PPTX export       |
 
 [ENTRYPOINT_SCOPE]: PDF creation — declarative `Pdf` factories
-- rail: pdf
+- concern: pdf
 - call: `Pdf.from_markdown(content, title=None, author=None) -> Pdf`; `from_html(content, title=None, author=None)`; `from_text(content, title=None, author=None)`; `from_html_css(html, css, font_bytes) -> Pdf`/`from_html_css_with_fonts(html, css, fonts)`; `from_markdown_with_template(content, template, title=None, author=None)`; `from_image(path) -> Pdf`/`from_images(paths)`/`from_image_bytes(data)`; `merge(paths) -> Pdf`; `from_bytes(data) -> Pdf`/`save(path)`/`to_bytes() -> bytes` (+ `len(pdf)` page count).
 
 One content source → a `Pdf`; `from_html_css_with_fonts` carries embedded-font bytes and `from_markdown_with_template` applies a running-header/footer `PageTemplate`.
@@ -267,7 +267,7 @@ One content source → a `Pdf`; `from_html_css_with_fonts` carries embedded-font
 |  [08]   | `Pdf.from_bytes` / `save` / `to_bytes`                | round-trip bytes, emit to path/bytes                |
 
 [ENTRYPOINT_SCOPE]: PDF creation — fluent tagged `DocumentBuilder` / `FluentPageBuilder`
-- rail: pdf
+- concern: pdf
 - call: `DocumentBuilder()` → `.title`/`.author`/`.subject`/`.keywords`/`.creator`/`.language`/`.on_open(script)`; `register_embedded_font(name, font) -> DocumentBuilder`; `tagged_pdf_ua1() -> DocumentBuilder`/`role_map(custom, standard)`; `a4_page() -> FluentPageBuilder`/`letter_page()`/`page(width, height)`; `build() -> bytes`/`save(path)`/`save_encrypted(path, user_password, owner_password)`/`to_bytes_encrypted(...)`; `FluentPageBuilder` text `font`/`at`/`text`/`paragraph`/`heading`/`columns`/`text_in_rect`/`inline*`/`newline`/`space`/`measure`/`remaining_space`; graphics `line`/`rect`/`filled_rect`/`stroke_line`/`stroke_rect`/`stroke_line_dashed`/`horizontal_rule`; content `image_artifact`/`image_with_alt`/`table`/`streaming_table(columns, repeat_header=False, mode='fixed', sample_rows=50, min_col_width_pt=20.0, max_col_width_pt=400.0, max_rowspan=1, batch_size=256)`/`footnote`; annotations `highlight`/`underline`/`strikeout`/`squiggly`/`sticky_note`/`sticky_note_at`/`stamp`/`freetext`/`watermark`/`watermark_confidential`/`watermark_draft`; forms `text_field`/`checkbox`/`radio_group`/`combo_box`/`push_button`/`signature_field`; field scripts `field_validate`/`field_format`/`field_calculate`/`field_keystroke`/`link_javascript`/`on_open`/`on_close`; links `link_url`/`link_page`/`link_named`/`barcode_1d`/`barcode_qr`; `done() -> DocumentBuilder`/`new_page_same_size() -> FluentPageBuilder`.
 
 Each builder method mutates and returns `self` in this fluent tagged-PDF/UA modality; `tagged_pdf_ua1()` makes the output PDF/UA-1, and every page builder is single-use, sealed by `done()`.
@@ -289,7 +289,7 @@ Each builder method mutates and returns `self` in this fluent tagged-PDF/UA moda
 |  [13]   | `FluentPageBuilder.done` / `new_page_same_size`                            | seal the page / open another same-size page               |
 
 [ENTRYPOINT_SCOPE]: module functions — signing, crypto policy, barcodes, split, logging
-- rail: pdf
+- concern: pdf
 - call: `sign_pdf_bytes(pdf_data, cert, reason=None, location=None) -> bytes`; `sign_pdf_bytes_pades(pdf_data, cert, level, tsa_url=None, reason=None, location=None, revocation=None) -> bytes`; `has_document_timestamp(pdf_data) -> bool`; `crypto_active_provider() -> str`/`crypto_available_providers() -> list[str]`; `crypto_use_fips()`/`crypto_policy() -> str`/`crypto_set_policy(spec)`; `crypto_inventory() -> list[str]`/`crypto_cbom() -> str`; `generate_barcode_svg(barcode_type, data) -> str`/`generate_qr_svg(data, error_correction, size) -> str`; `split_by_bookmarks(src_bytes, title_prefix=None, ignore_case=False, level=1, include_front_matter=True) -> list` (+ `plan_split_by_bookmarks` dry-run); `pdf_oxide.pdf_oxide.prefetch_models(languages) -> str`/`model_manifest() -> str`/`prefetch_available() -> bool`; `pdf_oxide.pdf_oxide.set_max_ops_per_stream(limit) -> int | None`/`set_preserve_unmapped_glyphs(preserve) -> bool`; `setup_logging()`/`set_log_level(level)`/`get_log_level() -> str`/`disable_logging()`.
 
 Free functions: byte-level PAdES signing with no `PdfDocument` round-trip, the pluggable crypto-provider + FIPS + CBOM surface, standalone barcode/QR SVG, bookmark-driven split, OCR-model prefetch, and the stream-safety + logging controls; the `prefetch_*`/`set_max_ops_per_stream`/`set_preserve_unmapped_glyphs` functions live on the inner `pdf_oxide.pdf_oxide` module, not top-level re-exported.
@@ -309,7 +309,7 @@ Free functions: byte-level PAdES signing with no `PdfDocument` round-trip, the p
 |  [11]   | `setup_logging` / `set_log_level` / `get_log_level` / `disable_logging`         | route the Rust core's logs into `structlog`          |
 
 [ENTRYPOINT_SCOPE]: async mirrors
-- rail: pdf
+- concern: pdf
 - call: `await AsyncPdfDocument.open(path, password=None)`/`await AsyncPdfDocument.from_bytes(data, password=None)`/`await doc.close()`; `await doc.<op>(...)` (every `PdfDocument` op as a coroutine); `await AsyncPdf.from_*(...)`/`await pdf.save(path)`/`await pdf.to_bytes()`; `await AsyncOfficeConverter.from_docx(path) -> AsyncPdf` (+ `_bytes` + `convert`).
 
 Native async wrappers run every op on an owned single-worker pool (the `PdfDocument` core is `Send + Sync`), so a consumer already on the loop awaits them directly; `close()` tears the pool down explicitly.
@@ -335,12 +335,12 @@ Native async wrappers run every op on an owned single-worker pool (the `PdfDocum
 - create axis (`document/emit#DOCUMENT`): `Pdf.from_markdown`/`from_html`/`from_html_css_with_fonts`/`from_text`/`from_image(s)`/`merge` is the declarative arm; `DocumentBuilder().tagged_pdf_ua1()…build()` is the fluent tagged-PDF/UA arm. `EmbeddedFont` is one-shot and `FluentPageBuilder` single-use per page; tables route through buffered `Table`/`Column`/`Align` or row-streaming `StreamingTable`.
 - conformance axis (`exchange/conformance#CONFORMANCE`, `document/tagged#ACCESS`): `validate_pdf_a(level=)`/`validate_pdf_x(level=)`/`validate_pdf_ua()` are the in-process standards oracle, `convert_to_pdf_a(level=)` upgrades to archival, and `has_structure_tree`/`has_text_layer`/`has_xfa` are the tagged-PDF discriminants — the dependency-free complement to the `veraPDF` JRE cross-check.
 - signing axis (`exchange/conformance#CONFORMANCE`): `sign_pdf_bytes_pades(pdf_data, cert, level=PadesLevel.B_LTA, tsa_url=, revocation=RevocationMaterial(...))` signs with TSA + DSS/LTV; `Certificate.load_pkcs12(data, password)` loads the signer, `TsaClient(url).request_timestamp(data)` is the RFC-3161 client, and `signatures()`/`Signature.verify_detached(data)` + `dss()` are the audit-read half. `crypto_set_policy`/`crypto_use_fips`/`crypto_cbom` select FIPS/CBOM-grade providers.
-- encryption axis (`document/egress#FINISH` ENCRYPT): `PdfDocument.save_encrypted`/`to_bytes_encrypted` and `DocumentBuilder.save_encrypted`/`to_bytes_encrypted` share one crate construction path whose R≥5 arm emits `/R 6 /V 5 /AESV3 /UE /OE` and omits the `/Perms` entry that dictionary requires, so `qpdf --show-encryption` and `pikepdf.open(...).encryption` both refuse the emitted file and an authenticated re-open extracts empty text on an AES-CBC padding error. No estate arm binds these four members: `pikepdf.Encryption` authors every encryption strength on both license footings, and ENCRYPT therefore carries no permissive alternate.
+- encryption axis (`document/egress#FINISH` ENCRYPT): `PdfDocument.save_encrypted`/`to_bytes_encrypted` and `DocumentBuilder.save_encrypted`/`to_bytes_encrypted` share one crate construction path whose R≥5 arm emits `/R 6 /V 5 /AESV3 /UE /OE` and omits the `/Perms` entry that dictionary requires, so `qpdf --show-encryption` and `pikepdf.open(...).encryption` both refuse the emitted file and an authenticated re-open extracts empty text on an AES-CBC padding error. No repo arm binds these four members: `pikepdf.Encryption` authors every encryption strength on both license footings, and ENCRYPT therefore carries no permissive alternate.
 - office axis: `OfficeConverter.from_docx(path)` → `Pdf` (+ `from_pptx`/`from_xlsx` + `_bytes`) imports Office in-process with no LibreOffice subprocess; `PdfDocument.to_docx`/`to_xlsx`/`to_pptx` (+ `_bytes`) exports the reverse, the XLSX export composing the `visualization/table#TABLE` tabular output.
 - async axis: `AsyncPdfDocument`/`AsyncPdf`/`AsyncOfficeConverter` run every op on the built-in single-worker pool, so a consumer on the loop awaits them directly, while the sync `PdfDocument`/`Pdf` root crosses the runtime `LanePolicy.offload` thread arm (`self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` — the GIL-releasing Rust render/extract runs off the scheduler under the runtime band), never inline on the loop and never double-offloading the async mirror through a second thread.
 - search axis: `search(pattern, case_insensitive=, literal=, whole_word=, max_results=)`/`search_page` is native regex/literal full-text search → hit-region `AnnotationNode(annot=HIGHLIGHT)` leaves in the `SEARCH` `LensOp`; `classify_document`/`classify_page` route the auto-extraction profile.
 - split axis (`composition/imposition#IMPOSE`): `split_by_bookmarks(src_bytes, level=, include_front_matter=)` (with `plan_split_by_bookmarks` dry-run) is the bookmark-driven split; `extract_page_ranges_to_bytes(ranges)`/`extract_pages_to_bytes(pages)` are the explicit-range arms feeding plan-set assembly.
-- logging axis: `set_log_level("debug")`/`disable_logging()` route the Rust core's diagnostics into the `structlog` rail at the boundary; `set_max_ops_per_stream(limit)`/`set_preserve_unmapped_glyphs(preserve)` are the content-stream-safety + glyph-fidelity controls for untrusted-PDF intake.
+- logging axis: `set_log_level("debug")`/`disable_logging()` route the Rust core's diagnostics into the `structlog` layer at the boundary; `set_max_ops_per_stream(limit)`/`set_preserve_unmapped_glyphs(preserve)` are the content-stream-safety + glyph-fidelity controls for untrusted-PDF intake.
 - evidence: provider measurements land directly in the owning `EmitFact`, `Introspection`, or `ConformanceVerdict`; pdf-oxide adds no cross-operation carrier.
-- typed-model boundary: boundary code admits PyO3 returns into the `msgspec`/`pydantic` discriminated `DocumentNode`/`RunNode`/`TableNode` models once, never forwarding raw PyO3 objects inward. `@beartype` guards the boundary; a `pdf_oxide` raise wraps into the runtime `BoundaryFault` rail via `async_boundary` + an `expression` `Result`, and `stamina.retry` weaves over the `TsaClient`/PAdES network seam.
+- typed-model boundary: boundary code admits PyO3 returns into the `msgspec`/`pydantic` discriminated `DocumentNode`/`RunNode`/`TableNode` models once, never forwarding raw PyO3 objects inward. `@beartype` guards the boundary; a `pdf_oxide` raise wraps into the runtime `BoundaryFault` channel via `async_boundary` + an `expression` `Result`, and `stamina.retry` weaves over the `TsaClient`/PAdES network boundary.
 - boundary: `Pdf.create()` from the package docstring is not a real classmethod — create through the `from_*` factories or `DocumentBuilder`.

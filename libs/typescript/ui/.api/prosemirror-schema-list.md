@@ -37,7 +37,7 @@
 |  [05]   | `liftListItem(NodeType) -> Command`                                           | static  | lifts the item out of its wrapping list     |
 |  [06]   | `sinkListItem(NodeType) -> Command`                                           | static  | sinks the item into an inner list           |
 
-- `wrapRangeInList` returns a boolean and writes onto the transaction it is given, which is the seam for composing list wrapping inside a larger command.
+- `wrapRangeInList` returns a boolean and writes onto the transaction it is given, which is the entry point for composing list wrapping inside a larger command.
 - Every factory takes the `NodeType` from the caller's own schema, so a document class with renamed list nodes binds the same verbs.
 
 ## [03]-[IMPLEMENTATION_LAW]

@@ -1,25 +1,25 @@
-# [PERSISTENCE_QUERY_RESIDENCE]
+# [PERSISTENCE_QUERY_BACKEND]
 
-Rasm.Persistence declares the ANALYTICS RESIDENCE FAMILY here — one parameterized row set spanning the temporal projection tier, the interactive wide-event tier, and the cold tail, each answering the same capability columns and each provisioning itself from one branch-owned emitter. `ColumnType`, `ColumnShape`, `ColumnCell`, and `AnalyticsSchema` are the producer handoff vocabulary — `Rasm.Element` hands its datasets across the `[WIRE]: AnalyticsSchema` seam and `Rasm.Materials` hands its catalogue and texture generations across the `[WIRE]: MaterialsDataset` seam over the same Element table vocabulary; `AnalyticsSeam.Admit` gates that text into admitted identifiers; `ResidenceDdl` derives the ordered statement set a reviewed generation carries.
+Rasm.Persistence declares the ANALYTICS BACKEND FAMILY here — one parameterized row set spanning the temporal projection tier, the interactive wide-event tier, and the cold tail, each answering the same capability columns and each provisioning itself from one branch-owned emitter. `ColumnType`, `ColumnShape`, `ColumnCell`, and `AnalyticsSchema` are the producer handoff vocabulary — `Rasm.Element` hands its datasets across the `[WIRE]: AnalyticsSchema` boundary and `Rasm.Materials` hands its catalogue and texture generations across the `[WIRE]: MaterialsDataset` boundary over the same Element table vocabulary; `AnalyticsGate.Admit` gates that text into admitted identifiers; `BackendDdl` derives the ordered statement set a reviewed generation carries.
 
-One declaration serves every consumer of a dataset: the DDL that plants its relation, the Substrait plan that reads it, the binary COPY that lands it, and the `RecordBatch` `ArrowLanding.Build` folds all derive from the same `AnalyticsSchema` rows, so field order, nullability, physical type, and reader ordinals cannot disagree. Residences carry ZERO authority — the event log and identity-tier journal own truth, a residence drops at warm-up cost and rebuilds from them, and no residence carries a cardinality ceiling because unbounded dimensionality is the reason it exists.
+One declaration serves every consumer of a dataset: the DDL that plants its relation, the Substrait plan that reads it, the binary COPY that lands it, and the `RecordBatch` `ArrowLanding.Build` folds all derive from the same `AnalyticsSchema` rows, so field order, nullability, physical type, and reader ordinals cannot disagree. Backends carry ZERO authority — the event log and identity-tier journal own truth, a backend drops at warm-up cost and rebuilds from them, and no backend carries a cardinality ceiling because unbounded dimensionality is the reason it exists.
 
 ## [01]-[INDEX]
 
 - [02]-[COLUMN_VOCABULARY]: `ColumnType` carries one physical token per dialect beside its Arrow type, its Arrow builder, its cell law, and the Substrait literal it admits; `ColumnShape` generates the containers over it; `ColumnCell` is the value a producer hands; `AnalyticsSchema` carries the temporal spine; `ArrowLanding.Build` folds declaration and cells into one metadata-bearing `RecordBatch`.
-- [03]-[RESIDENCE_FAMILY]: `Residence` rows answer the estate residence floor beside this plane's dialect tokens, `ResidenceProjection` closes what a residence answers, `ResidenceTenancy` decides where the tenant byte rests, `ResidencePolicy` carries the tuned horizons, `EngineFault` renders every provider failure into one neutral pair, and `ResidenceFault` closes the band.
-- [04]-[SEAM_ADMISSION]: `AnalyticsSeam.Admit` accumulates every column, key, spine, and measure refusal into one report, and `Seat` proves a dataset against a residence's floor columns and hands back the consumption descriptor.
-- [05]-[PROVISIONING]: `ProvisionStep` types the SELECT-versus-CALL emission law, `ResidenceDdl` derives the column and sort-key projections both relational arms compose, and the three `*Residence.Statements` arms emit their own engine's ordered idempotent set.
+- [03]-[BACKEND_FAMILY]: `Backend` rows answer the solution backend floor beside this plane's dialect tokens, `BackendProjection` closes what a backend answers, `BackendTenancy` decides where the tenant byte rests, `BackendPolicy` carries the tuned horizons, `EngineFault` renders every provider failure into one neutral pair, and `BackendFault` closes the band.
+- [04]-[SCHEMA_ADMISSION]: `AnalyticsGate.Admit` accumulates every column, key, spine, and measure refusal into one report, and `Seat` proves a dataset against a backend's floor columns and hands back the consumption descriptor.
+- [05]-[PROVISIONING]: `ProvisionStep` types the SELECT-versus-CALL emission law, `BackendDdl` derives the column and sort-key projections both relational arms compose, and the three `*Backend.Statements` arms emit their own engine's ordered idempotent set.
 - [06]-[RESEARCH]: open verification debts and their routes.
 
 ## [02]-[COLUMN_VOCABULARY]
 
-- Owner: `ColumnType` is the physical-type correspondence — one neutral producer token answering the three query dialects, the binary-COPY wire type, the Arrow type, the Arrow BUILDER over a cell run, the CELL LAW proving and staging a producer's value, and the Substrait literal that token admits; `ColumnShape` is the container generator over it; `ColumnCell` is the closed value carrier a producer fills; `ColumnRow` is one admitted column; `TimeSpine` is the declared temporal category deciding who owns a dataset's clock; `AnalyticsSchema` is the seam value carrying the ordered key, the column roster, the time column, its category, and the optional measure a rollup folds; `ArrowLanding` is the ONE record-batch fold, deriving schema, field order, and column construction from that declaration.
+- Owner: `ColumnType` is the physical-type correspondence — one neutral producer token answering the three query dialects, the binary-COPY wire type, the Arrow type, the Arrow BUILDER over a cell run, the CELL LAW proving and staging a producer's value, and the Substrait literal that token admits; `ColumnShape` is the container generator over it; `ColumnCell` is the closed value carrier a producer fills; `ColumnRow` is one admitted column; `TimeSpine` is the declared temporal category deciding who owns a dataset's clock; `AnalyticsSchema` is the boundary value carrying the ordered key, the column roster, the time column, its category, and the optional measure a rollup folds; `ArrowLanding` is the ONE record-batch fold, deriving schema, field order, and column construction from that declaration.
 - Cases: `ColumnType` rows are `Utf8`, `Float16`, `Float32`, `Float64`, `Int32`, `Int64`, `UInt8`, `UInt32`, `UInt64`, `Bool`, `Date`, `Timestamp`, and `KeyHex` — `Float16` the half-precision lane a kernel `ChannelDtype.Float16` corpus lands at its stored width, Arrow-faced `HalfFloatType.Default` while the three dialects widen to their narrowest real; `ColumnShape` is `Scalar` | `List` | `FixedList` | `Map` | `Dictionary`, the last an ENCODING declaration the Fleet dialect wraps and the other dialects leave bare and `FixedList` the declared-arity run a channel interleave states; `ColumnCell` is `Text` | `Real` | `Half` | `Whole` | `Flag` | `Day` | `Moment` | `Key` | `Items` | `Tags` | `Absent` — `Items`/`Tags` carrying their element type so a composite proves against its column exactly as a scalar does, and `Absent` the one absence spelling: the producer contract (`Rasm.Element` `Graph/table#TABLE_FAMILIES` `TableColumn.Nullable`) already admits an absent cell on a nullable column and refuses it otherwise, and this arm is that contract's landing spelling, proving at the COLUMN grain through `ColumnRow.Admits` on scalar shapes alone; `TimeSpine` is `Event` (the producer stamps its own observation clock as a declared column) and `Landing` (the producer declares none and this custodian stamps the moment it admitted the batch).
 - Entry: `public static Fin<RecordBatch> ArrowLanding.Build<TRow>(AnalyticsSchema schema, Seq<TRow> rows, Func<TRow, Seq<ColumnCell>> cells, Seq<(string Key, string Value)> metadata, MemoryAllocator? allocator = null)` is the ONE batch fold — the field list, its order, and every column's construction derive from `schema`, the conformance proof accumulates across columns, and `metadata` carries producer facts onto the schema; `ColumnShape.Column(Seq<ColumnCell>, MemoryAllocator?)` is the per-column arm it walks; `ColumnRow.Admits` is the column-grain conformance proof (absence against `Nullable`, presence through the shape's own gate) and `ColumnType.Cell.Stage` the binary-COPY bind, both read off the DECLARED column.
 - Auto: adding a physical type is ONE `ColumnType` row answering every dialect column, its Arrow type, its builder, its cell law, and its plan literal; adding a container is ONE `ColumnShape` case whose five composer folds — `Arrow`, `Column`, `Bounded`, `Plan`, `Wire`, `Admits` — break at compile time; a metadata-free batch, a hand-built `Schema` beside a declared dataset, a positional column list, or a per-type builder helper is the deleted form because the declaration generates all of it. `metadata` is REQUIRED and never defaulted: `Schema.Builder` and `RecordBatch.Builder` expose no metadata seat, so a defaulted parameter silently drops the `content_key`/`strategy`/`at`/`points` facts every producer attaches and the batch reaches a reader carrying no provenance.
 - Packages: Apache.Arrow (`RecordBatch`/`Schema`/`Field`/`IArrowArray`/`MemoryAllocator`/`ArrowBuffer.Builder<T>`/`ArrayData`/`PrimitiveArrayBuilder<T,TArray,TBuilder>`/`StringArray.Builder`/`BooleanArray.Builder`/`Date32Array.Builder`/`TimestampArray.Builder`/`ListArray`/`MapArray`/`StructArray`/`DictionaryArray`/`FixedSizeListArray`), Apache.Arrow.Arrays (`FixedSizeBinaryArray`), Apache.Arrow.Types, Npgsql (`NpgsqlBinaryImporter`/`NpgsqlDbType`), FlowtideDotNet.Substrait (`Expression`/`StringLiteral`/`NumericLiteral`/`BoolLiteral`), Rasm.Element (`Graph/table#TABLE_FAMILIES` `TableType`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new dialect column on every row is one constructor parameter the twelve rows answer together; a new producer token grammar is one arm in `AnalyticsSeam.Admitted`; a new cell arm is one `ColumnCell` case beside the one `ColumnType` row whose cell law admits it; zero new surface — a per-type Arrow builder helper, a second schema fold, a `RecordBatch.Builder` assembly for a metadata-bearing batch, or a shape-to-type lookup table beside the row set is the deleted form.
+- Growth: a new dialect column on every row is one constructor parameter the twelve rows answer together; a new producer token grammar is one arm in `AnalyticsGate.Admitted`; a new cell arm is one `ColumnCell` case beside the one `ColumnType` row whose cell law admits it; zero new surface — a per-type Arrow builder helper, a second schema fold, a `RecordBatch.Builder` assembly for a metadata-bearing batch, or a shape-to-type lookup table beside the row set is the deleted form.
 - Law: batch construction derives from the DECLARED schema — every column reads its own row's Arrow type and builder, so a positional column list beside a declared schema is the deleted form. Container arrays bind their CTOR over child arrays each element row's own builder produced, because `ListArray.Builder` and `MapArray.Builder` expose only the untyped `IArrowArrayBuilder<IArrowArray, …>` child face and `DictionaryArray` and `FixedSizeBinaryArray` ship no builder at all — one assembly discipline covers all five shapes and no case reaches through a cast the declaration already made unnecessary.
 
 ```csharp
@@ -102,13 +102,13 @@ public sealed partial class ColumnType {
 
     static CellLaw Law<TCell>(Func<TCell, Fin<Unit>> canonical, Func<TCell, NpgsqlBinaryImporter, NpgsqlDbType, Task> stage)
         where TCell : ColumnCell =>
-        new(cell => cell is TCell held ? canonical(held) : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, $"<cell-arm:{cell.GetType().Name}>")),
+        new(cell => cell is TCell held ? canonical(held) : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key, $"<cell-arm:{cell.GetType().Name}>")),
             (cell, importer, wire) => stage((TCell)cell, importer, wire));
 
     static CellLaw Wholes(long low, long high) => Law<ColumnCell.Whole>(
         cell => cell.Value >= low && cell.Value <= high
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, $"<whole-range:{cell.Value}>")),
+            : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key, $"<whole-range:{cell.Value}>")),
         static (cell, importer, wire) => importer.WriteAsync(cell.Value, wire));
 
     static readonly CellLaw Reals = Law<ColumnCell.Real>(static _ => Fin.Succ(unit), static (c, i, w) => i.WriteAsync(c.Value, w));
@@ -223,10 +223,10 @@ public abstract partial record ColumnShape {
         scalar:     static c => Fin.Succ(c.Type.Wire),
         dictionary: static c => Fin.Succ(c.Element.Wire),
         map:        static _ => Fin.Succ(NpgsqlDbType.Jsonb),
-        fixedList:  static _ => Fin.Fail<NpgsqlDbType>(new ResidenceFault.Unwritable(Residence.Series.Key, "fixed-list")),
+        fixedList:  static _ => Fin.Fail<NpgsqlDbType>(new BackendFault.Unwritable(Backend.Series.Key, "fixed-list")),
         list:       static c => c.Element is Scalar leaf
             ? Fin.Succ(NpgsqlDbType.Array | leaf.Type.Wire)
-            : Fin.Fail<NpgsqlDbType>(new ResidenceFault.Unwritable(Residence.Series.Key, "nested-list")));
+            : Fin.Fail<NpgsqlDbType>(new BackendFault.Unwritable(Backend.Series.Key, "nested-list")));
 
     public Fin<Unit> Admits(ColumnCell cell) => Switch(
         state:      cell,
@@ -235,12 +235,12 @@ public abstract partial record ColumnShape {
         list:       static (c, s) => Run(s.Element, c).Bind(static run => Fin.Succ(unit)),
         fixedList:  static (c, s) => Run(s.Element, c).Bind(run => run.Count == s.Arity
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, $"<fixed-arity:{s.Arity}:{run.Count}>"))),
+            : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key, $"<fixed-arity:{s.Arity}:{run.Count}>"))),
         map:        static (c, s) => c is ColumnCell.Tags tags && tags.Element == ColumnType.Utf8 && s.Value is Scalar { Type.Key: "utf8" }
             ? tags.Pairs.Map(static pair => pair.Key).Distinct().Count == tags.Pairs.Count
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, "<map-duplicate-key>"))
-            : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, "<map-value>")));
+                : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key, "<map-duplicate-key>"))
+            : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key, "<map-value>")));
 
     public IArrowArray Column(Seq<ColumnCell> cells, MemoryAllocator? arena) => Switch(
         state:      (Cells: cells, Arena: arena),
@@ -254,7 +254,7 @@ public abstract partial record ColumnShape {
     static Fin<Seq<string>> Run(ColumnShape element, ColumnCell cell) =>
         cell is ColumnCell.Items items && items.Element == ColumnType.Utf8 && element is Scalar { Type.Key: "utf8" }
             ? Fin.Succ(items.Values)
-            : Fin.Fail<Seq<string>>(new ResidenceFault.Unwritable(Residence.Series.Key, "<list-element>"));
+            : Fin.Fail<Seq<string>>(new BackendFault.Unwritable(Backend.Series.Key, "<list-element>"));
 
     static Seq<ColumnCell> Values(Seq<ColumnCell> cells) =>
         cells.Bind(static cell => ((ColumnCell.Items)cell).Values.Map(static value => (ColumnCell)new ColumnCell.Text(value)));
@@ -298,7 +298,7 @@ public readonly record struct ColumnRow(Identifier Name, ColumnShape Type, bool 
     public Fin<Unit> Admits(ColumnCell cell) => cell switch {
         ColumnCell.Absent => Type is ColumnShape.Scalar && Nullable
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key,
+            : Fin.Fail<Unit>(new BackendFault.Unwritable(Backend.Series.Key,
                 Nullable ? $"<absent-container:{(string)Name}>" : $"<absent-not-null:{(string)Name}>")),
         _ => Type.Admits(cell),
     };
@@ -339,7 +339,7 @@ public static class ArrowLanding {
 
     static Validation<Error, Seq<IArrowArray>> Conformed(AnalyticsSchema schema, Seq<Seq<ColumnCell>> rows) =>
         rows.Exists(row => row.Count != schema.Columns.Count)
-            ? Fail<Error, Seq<IArrowArray>>(new ResidenceFault.IngestRefused(schema.Dataset,
+            ? Fail<Error, Seq<IArrowArray>>(new BackendFault.IngestRefused(schema.Dataset,
                 new EngineFault("<row-arity>", schema.Columns.Count.ToString(CultureInfo.InvariantCulture))))
             : schema.Columns.Zip(Pivot(rows, schema.Columns.Count))
                 .Traverse(pair => Proven(pair.Item1, pair.Item2)).As();
@@ -353,50 +353,50 @@ public static class ArrowLanding {
 }
 ```
 
-## [03]-[RESIDENCE_FAMILY]
+## [03]-[BACKEND_FAMILY]
 
-- Owner: `Residence` is the `[SmartEnum<string>]` residence family keyed by CAPABILITY — `Series` the temporal projection tier, `Fleet` the interactive wide-event tier, `Lake` the cold tail — each row answering the estate residence floor (`Fits`, `Admit`, `Tenancy`, `Lifetime` carrying both its extent and its ending owner, `Degrade`, and `Cap` stated permanently false) beside this plane's own extension: the projections it answers, its physical projection, its dialect tokens, its tenant and instant literals, and the provisioning statements its own engine runs; `ResidenceProjection` closes the projection vocabulary a residence declares rather than degrading silently; `ResidenceTenancy` decides where the tenant byte rests; `ResidencePolicy` carries the tuned retention, rollup grain, chunk, backfill, and root; `EngineFault` is the one engine-neutral diagnostic pair; `[FaultCase]` is the family's fault roster realizing the kernel `[FaultCase]` floor over the `Series` row; `ResidenceFault` closes that band above it and accumulates.
-- Cases: `Residence` is `Series` (relational hypertables under in-database policies), `Fleet` (MergeTree wide events under table TTL), `Lake` (hive Parquet generations under generation eviction); `ResidenceProjection` is `Point`/`Window`/`Quantile`/`Aggregate`/`Fraction` and every residence publishes the subset it answers, so a plan naming an unanswered projection refuses typed at the seam carrying that row's `Degrade` clause instead of rendering an empty tile; `ResidenceTenancy` is `SortKey` (the residence stores the tenant as its leading column) and `Prefix` (a hive directory holds it and the scan projects it back), so tenancy decides where the byte rests and never how a predicate compares it; semantic `IngestRefused`/`ReadRefused` stay cause-less, while `ProviderIngestRefused`/`ProviderReadRefused` retain the exact documented engine cause; independent failures accumulate as `Error.Many`.
-- Entry: `Residence.Render(ColumnShape)` is the ONE recursive dialect render every DDL arm and lowered projection reads; `Moment(Instant)` and `Partition(TenantContext)` are the instant and tenancy predicates each row spells for its own engine; `Answers(ResidenceProjection)` gates a read before a plan lowers; `Horizon(AnalyticsSchema)` is the family policy probe; `ReadRefused`/`IngestRefused` mint the two refusal shapes off the row's own `Diagnose`.
-- Auto: the residence family is ONE row set answering the estate floor beside this plane's extension, so adding a residence is a row carrying what it fits, the entry that admits into it, its tenancy mechanism, how long a resident row survives beside the owner that ends it, its honest projection subset, its dialect tokens, and the clause naming what it gives up — a residence hardcoded below the family, a second query language, or a raw-SQL reader is the deleted form. `Cap` is STATED and permanently false rather than omitted, computed rather than passed, and INSTANCE rather than static: no row can answer it differently, so a constructor argument re-opens the choice this family exists to refuse, while a type-level member strands the one floor column a fold walking `Items` cannot read off the row beside its five siblings.
+- Owner: `Backend` is the `[SmartEnum<string>]` backend family keyed by CAPABILITY — `Series` the temporal projection tier, `Fleet` the interactive wide-event tier, `Lake` the cold tail — each row answering the solution backend floor (`Fits`, `Admit`, `Tenancy`, `Lifetime` carrying both its extent and its ending owner, `Degrade`, and `Cap` stated permanently false) beside this plane's own extension: the projections it answers, its physical projection, its dialect tokens, its tenant and instant literals, and the provisioning statements its own engine runs; `BackendProjection` closes the projection vocabulary a backend declares rather than degrading silently; `BackendTenancy` decides where the tenant byte rests; `BackendPolicy` carries the tuned retention, rollup grain, chunk, backfill, and root; `EngineFault` is the one engine-neutral diagnostic pair; `[FaultCase]` is the family's fault roster realizing the kernel `[FaultCase]` floor over the `Series` row; `BackendFault` closes that band above it and accumulates.
+- Cases: `Backend` is `Series` (relational hypertables under in-database policies), `Fleet` (MergeTree wide events under table TTL), `Lake` (hive Parquet generations under generation eviction); `BackendProjection` is `Point`/`Window`/`Quantile`/`Aggregate`/`Fraction` and every backend publishes the subset it answers, so a plan naming an unanswered projection refuses typed at the boundary carrying that row's `Degrade` clause instead of rendering an empty tile; `BackendTenancy` is `SortKey` (the backend stores the tenant as its leading column) and `Prefix` (a hive directory holds it and the scan projects it back), so tenancy decides where the byte rests and never how a predicate compares it; semantic `IngestRefused`/`ReadRefused` stay cause-less, while `ProviderIngestRefused`/`ProviderReadRefused` retain the exact documented engine cause; independent failures accumulate as `Error.Many`.
+- Entry: `Backend.Render(ColumnShape)` is the ONE recursive dialect render every DDL arm and lowered projection reads; `Moment(Instant)` and `Partition(TenantContext)` are the instant and tenancy predicates each row spells for its own engine; `Answers(BackendProjection)` gates a read before a plan lowers; `Horizon(AnalyticsSchema)` is the family policy probe; `ReadRefused`/`IngestRefused` mint the two refusal shapes off the row's own `Diagnose`.
+- Auto: the backend family is ONE row set answering the solution floor beside this plane's extension, so adding a backend is a row carrying what it fits, the entry that admits into it, its tenancy mechanism, how long a resident row survives beside the owner that ends it, its honest projection subset, its dialect tokens, and the clause naming what it gives up — a backend hardcoded below the family, a second query language, or a raw-SQL reader is the deleted form. `Cap` is STATED and permanently false rather than omitted, computed rather than passed, and INSTANCE rather than static: no row can answer it differently, so a constructor argument re-opens the choice this family exists to refuse, while a type-level member strands the one floor column a fold walking `Items` cannot read off the row beside its five siblings.
 - Packages: Npgsql (`PostgresException.SqlState`/`MessageText`), ClickHouse.Driver (`ClickHouseServerException.ErrorCode`), DuckDB.NET.Data.Full (`DuckDBException.ErrorType`), NodaTime (`Instant`/`Duration`/`InstantPattern.ExtendedIso`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new residence is one `Residence` row answering the estate floor beside every extension column this plane declares; a new fault cause is one `ResidenceFault` case; a new projection is one `ResidenceProjection` row every residence's declared subset then answers or refuses; zero new surface — a per-environment policy script, an exporter-created table, a per-residence read entry, a metrics-store row, or a cardinality ceiling is the deleted form because the family generates the space and the engines own their own cadence.
-- Law: `Lifetime` carries BOTH halves in one string — how long a resident row survives and which owner ends it — because a window stated without its scheduler promises an expiry no owner runs. `Degrade` states the honest clause a row gives up rather than a boolean, since what a residence cannot do is EVIDENCE both a tile and a refusal read. `Literal` is the column every dialect must answer and none can share: the tenant is a 16-byte key whose PHYSICAL spelling differs per engine, and a quoted-text comparison against a `bytea` or a `FixedString(16)` matches nothing and raises nothing.
-- Boundary: a residence row is TEMPORAL by construction — every residence partitions, prunes, and expires on time — and no producer ever learns a chunk interval, a TTL, or a partition expression. Every residence is DERIVED and carries zero authority; reading one as authority turns a dropped accelerator into billing loss. NO analytics residence carries a cardinality cap and no row can grow one — a metrics store demands view caps because a TSDB indexes every series, while unbounded dimensionality IS the reason these residences exist. Provider failure renders through a TYPE TEST, never a cast: a driver raising a socket, TLS, or cancellation exception is not a `PostgresException`, and casting one at the fold throws straight out of the `Fin` the rail exists to carry. `Bucket` and `Quantile` are DECLARED rows whose lowering arms are owed at `Query/serving` — until that unit lands, the two projections they answer have no plan arm and a read naming one refuses `Unanswerable`.
+- Growth: a new backend is one `Backend` row answering the solution floor beside every extension column this plane declares; a new fault cause is one `BackendFault` case; a new projection is one `BackendProjection` row every backend's declared subset then answers or refuses; zero new surface — a per-environment policy script, an exporter-created table, a per-backend read entry, a metrics-store row, or a cardinality ceiling is the deleted form because the family generates the space and the engines own their own cadence.
+- Law: `Lifetime` carries BOTH halves in one string — how long a resident row survives and which owner ends it — because a window stated without its scheduler promises an expiry no owner runs. `Degrade` states the honest clause a row gives up rather than a boolean, since what a backend cannot do is EVIDENCE both a tile and a refusal read. `Literal` is the column every dialect must answer and none can share: the tenant is a 16-byte key whose PHYSICAL spelling differs per engine, and a quoted-text comparison against a `bytea` or a `FixedString(16)` matches nothing and raises nothing.
+- Boundary: a backend row is TEMPORAL by construction — every backend partitions, prunes, and expires on time — and no producer ever learns a chunk interval, a TTL, or a partition expression. Every backend is DERIVED and carries zero authority; reading one as authority turns a dropped accelerator into billing loss. NO analytics backend carries a cardinality cap and no row can grow one — a metrics store demands view caps because a TSDB indexes every series, while unbounded dimensionality IS the reason these backends exist. Provider failure renders through a TYPE TEST, never a cast: a driver raising a socket, TLS, or cancellation exception is not a `PostgresException`, and casting one at the fold throws straight out of the `Fin` the fold exists to carry. `Bucket` and `Quantile` are DECLARED rows whose lowering arms are owed at `Query/serving` — until that unit lands, the two projections they answer have no plan arm and a read naming one refuses `Unanswerable`.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ResidenceProjection {
-    public static readonly ResidenceProjection Point     = new("point");
-    public static readonly ResidenceProjection Window    = new("window");
-    public static readonly ResidenceProjection Quantile  = new("quantile");
-    public static readonly ResidenceProjection Aggregate = new("aggregate");
-    public static readonly ResidenceProjection Fraction  = new("fraction");
+public sealed partial class BackendProjection {
+    public static readonly BackendProjection Point     = new("point");
+    public static readonly BackendProjection Window    = new("window");
+    public static readonly BackendProjection Quantile  = new("quantile");
+    public static readonly BackendProjection Aggregate = new("aggregate");
+    public static readonly BackendProjection Fraction  = new("fraction");
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ResidenceTenancy {
-    public static readonly ResidenceTenancy SortKey = new("sort-key");
-    public static readonly ResidenceTenancy Prefix  = new("prefix");
+public sealed partial class BackendTenancy {
+    public static readonly BackendTenancy SortKey = new("sort-key");
+    public static readonly BackendTenancy Prefix  = new("prefix");
 }
 
-public readonly record struct ResidencePolicy(Duration Retain, Duration Grain, Duration Chunk, Duration Backfill, StorePath Root);
+public readonly record struct BackendPolicy(Duration Retain, Duration Grain, Duration Chunk, Duration Backfill, StorePath Root);
 
 public readonly record struct EngineFault(string Code, string Detail);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class Residence {
-    public static readonly Residence Series = new("series", ResidenceTenancy.SortKey,
+public sealed partial class Backend {
+    public static readonly Backend Series = new("series", BackendTenancy.SortKey,
         "temporal projection tier: bounded-key streams a board reads at interactive latency off materialised summaries",
-        "`ResidenceLanding.Stage` binary COPY beside `SeriesLane.Ingest`, both against relations this custodian provisioned",
-        "the declared `ResidencePolicy.Retain` extent, ended in-database by the Timescale bgworker `add_retention_policy` arms",
+        "`BackendLanding.Stage` binary COPY beside `SeriesLane.Ingest`, both against relations this custodian provisioned",
+        "the declared `BackendPolicy.Retain` extent, ended in-database by the Timescale bgworker `add_retention_policy` arms",
         "single-node; admits no wide event — a payload column belongs to the Fleet tier",
-        Seq(ResidenceProjection.Point, ResidenceProjection.Window, ResidenceProjection.Quantile, ResidenceProjection.Aggregate, ResidenceProjection.Fraction),
+        Seq(BackendProjection.Point, BackendProjection.Window, BackendProjection.Quantile, BackendProjection.Aggregate, BackendProjection.Fraction),
         static column => column.Series,
         static element => $"{element}[]",
         static (_, _) => "jsonb",
@@ -409,14 +409,14 @@ public sealed partial class Residence {
         static error => error is PostgresException wire
             ? Some(new EngineFault(wire.SqlState, wire.MessageText))
             : Option<EngineFault>.None,
-        SeriesResidence.Statements);
+        SeriesBackend.Statements);
 
-    public static readonly Residence Fleet = new("fleet", ResidenceTenancy.SortKey,
+    public static readonly Backend Fleet = new("fleet", BackendTenancy.SortKey,
         "interactive wide-event tier: any cardinality, the tenant leading the sort key so a single-tenant filter prunes granules",
         "the `Version/egress` ClickHouse sink under `insert_deduplication_token`, beside the collector's own OTLP wide events",
-        "the declared `ResidencePolicy.Retain` extent, ended by the ClickHouse merge scheduler running the row's `TTL … DELETE`",
+        "the declared `BackendPolicy.Retain` extent, ended by the ClickHouse merge scheduler running the row's `TTL … DELETE`",
         "no transaction — every read is a convergence-consistent view the egress cursor bounds",
-        Seq(ResidenceProjection.Point, ResidenceProjection.Window, ResidenceProjection.Quantile, ResidenceProjection.Aggregate, ResidenceProjection.Fraction),
+        Seq(BackendProjection.Point, BackendProjection.Window, BackendProjection.Quantile, BackendProjection.Aggregate, BackendProjection.Fraction),
         static column => column.Fleet,
         static element => $"Array({element})",
         static (key, value) => $"Map({key}, {value})",
@@ -429,14 +429,14 @@ public sealed partial class Residence {
         static error => error is ClickHouseServerException server
             ? Some(new EngineFault(server.ErrorCode.ToString(CultureInfo.InvariantCulture), server.Message))
             : Option<EngineFault>.None,
-        FleetResidence.Statements);
+        FleetBackend.Statements);
 
-    public static readonly Residence Lake = new("lake", ResidenceTenancy.Prefix,
+    public static readonly Backend Lake = new("lake", BackendTenancy.Prefix,
         "cold tail: cheapest per byte, batch scan over hive Parquet generations the object plane holds",
         "`#FLAT_TABLE_EGRESS`'s `LakeGeneration` writes the generations this row's VIEW names",
-        "whatever the object plane leaves resident, ended by `Store/blobstore#BLOB_GC` generation eviction; this residence expires nothing itself",
+        "whatever the object plane leaves resident, ended by `Store/blobstore#BLOB_GC` generation eviction; this backend expires nothing itself",
         "no interactive latency and no digest — a quantile tile here reads as a report or refuses",
-        Seq(ResidenceProjection.Point, ResidenceProjection.Window, ResidenceProjection.Aggregate, ResidenceProjection.Fraction),
+        Seq(BackendProjection.Point, BackendProjection.Window, BackendProjection.Aggregate, BackendProjection.Fraction),
         static column => column.Lake,
         static element => $"{element}[]",
         static (key, value) => $"MAP({key}, {value})",
@@ -449,15 +449,15 @@ public sealed partial class Residence {
         static error => error is DuckDBException engine
             ? Some(new EngineFault(engine.ErrorType.ToString(), engine.Message))
             : Option<EngineFault>.None,
-        LakeResidence.Statements);
+        LakeBackend.Statements);
 
-    public ResidenceTenancy Tenancy { get; }
+    public BackendTenancy Tenancy { get; }
     public string Fits { get; }
     public string Admit { get; }
     public string Lifetime { get; }
     public string Degrade { get; }
     public bool Cap => false;
-    public Seq<ResidenceProjection> Projections { get; }
+    public Seq<BackendProjection> Projections { get; }
     public Func<ColumnType, string> Physical { get; }
     public Func<string, string> ListOf { get; }
     public Func<string, string, string> MapOf { get; }
@@ -468,29 +468,29 @@ public sealed partial class Residence {
     public Func<string, Duration, string> Bucket { get; }
     public Func<string, double, string> Quantile { get; }
     public Func<Exception, Option<EngineFault>> Diagnose { get; }
-    public Func<AnalyticsSchema, ResidencePolicy, Seq<ProvisionStep>> Statements { get; }
+    public Func<AnalyticsSchema, BackendPolicy, Seq<ProvisionStep>> Statements { get; }
 
-    private Residence(string key, ResidenceTenancy tenancy, string fits, string admit, string lifetime, string degrade,
-        Seq<ResidenceProjection> projections,
+    private Backend(string key, BackendTenancy tenancy, string fits, string admit, string lifetime, string degrade,
+        Seq<BackendProjection> projections,
         Func<ColumnType, string> physical, Func<string, string> listOf, Func<string, string, string> mapOf,
         Func<string, string> dictOf, Func<Identifier, string> quote, Func<string, string> literal,
         Func<string, string> stamp, Func<string, Duration, string> bucket, Func<string, double, string> quantile,
         Func<Exception, Option<EngineFault>> diagnose,
-        Func<AnalyticsSchema, ResidencePolicy, Seq<ProvisionStep>> statements) : this(key) =>
+        Func<AnalyticsSchema, BackendPolicy, Seq<ProvisionStep>> statements) : this(key) =>
         (Tenancy, Fits, Admit, Lifetime, Degrade, Projections, Physical, ListOf, MapOf, DictOf, Quote, Literal, Stamp, Bucket, Quantile, Diagnose, Statements) =
         (tenancy, fits, admit, lifetime, degrade, projections, physical, listOf, mapOf, dictOf, quote, literal, stamp, bucket, quantile, diagnose, statements);
 
     public Error ReadRefused(Error error) => error.Exception.Bind(Diagnose).Match<Error>(
-        Some: engine => new ResidenceFault.ProviderReadRefused(Key, engine, error),
+        Some: engine => new BackendFault.ProviderReadRefused(Key, engine, error),
         None: () => error);
     public Error IngestRefused(Error error) => error.Exception.Bind(Diagnose).Match<Error>(
-        Some: engine => new ResidenceFault.ProviderIngestRefused(Key, engine, error),
+        Some: engine => new BackendFault.ProviderIngestRefused(Key, engine, error),
         None: () => error);
 
     public string Horizon(AnalyticsSchema schema) =>
         $"SELECT MIN({Quote(schema.Time)}), MAX({Quote(schema.Time)}), COUNT(*) FROM {Quote(schema.Table)}";
 
-    public bool Answers(ResidenceProjection projection) => Projections.Contains(projection);
+    public bool Answers(BackendProjection projection) => Projections.Contains(projection);
 
     public string Render(ColumnShape shape) => shape.Switch(
         state: this,
@@ -511,55 +511,55 @@ public sealed partial class Residence {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ResidenceFault : Fault {
+public abstract partial record BackendFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Series;
-    private ResidenceFault() { }
+    private BackendFault() { }
     [FaultCase(0)]
-    public sealed partial record IngestRefused(string Residence, EngineFault Engine) : ResidenceFault();
+    public sealed partial record IngestRefused(string Backend, EngineFault Engine) : BackendFault();
     [FaultCase(1)]
-    public sealed partial record Unprovisioned(string Lane) : ResidenceFault();
+    public sealed partial record Unprovisioned(string Lane) : BackendFault();
     [FaultCase(2)]
-    public sealed partial record ReadRefused(string Residence, EngineFault Engine) : ResidenceFault();
+    public sealed partial record ReadRefused(string Backend, EngineFault Engine) : BackendFault();
     [FaultCase(3)]
-    public sealed partial record Unanswerable(string Residence, string Projection, string Degrade) : ResidenceFault();
+    public sealed partial record Unanswerable(string Backend, string Projection, string Degrade) : BackendFault();
     [FaultCase(4)]
-    public sealed partial record Unlowerable(string Residence, string Node) : ResidenceFault();
+    public sealed partial record Unlowerable(string Backend, string Node) : BackendFault();
     [FaultCase(5)]
-    public sealed partial record Unwritable(string Residence, string Shape) : ResidenceFault();
+    public sealed partial record Unwritable(string Backend, string Shape) : BackendFault();
     [FaultCase(6)]
-    public sealed partial record ProviderReadRefused(string Residence, EngineFault Engine, Error Cause) : ResidenceFault(), ICausedFault;
+    public sealed partial record ProviderReadRefused(string Backend, EngineFault Engine, Error Cause) : BackendFault(), ICausedFault;
     [FaultCase(7)]
-    public sealed partial record ProviderIngestRefused(string Residence, EngineFault Engine, Error Cause) : ResidenceFault(), ICausedFault;
+    public sealed partial record ProviderIngestRefused(string Backend, EngineFault Engine, Error Cause) : BackendFault(), ICausedFault;
 
 
     public override string Message => Switch(
-        ingestRefused: static c => $"<residence-ingest:{c.Residence}:{c.Engine.Code}:{c.Engine.Detail}>",
-        unprovisioned: static c => $"<residence-unprovisioned:{c.Lane}>",
-        readRefused:   static c => $"<residence-read:{c.Residence}:{c.Engine.Code}:{c.Engine.Detail}>",
-        unanswerable:  static c => $"<residence-unanswerable:{c.Residence}:{c.Projection}:{c.Degrade}>",
-        unlowerable:   static c => $"<residence-unlowerable:{c.Residence}:{c.Node}>",
-        unwritable:    static c => $"<residence-unwritable:{c.Residence}:{c.Shape}>",
-        providerReadRefused:   static c => $"<residence-read:{c.Residence}:{c.Engine.Code}:{c.Engine.Detail}>",
-        providerIngestRefused: static c => $"<residence-ingest:{c.Residence}:{c.Engine.Code}:{c.Engine.Detail}>");
+        ingestRefused: static c => $"<backend-ingest:{c.Backend}:{c.Engine.Code}:{c.Engine.Detail}>",
+        unprovisioned: static c => $"<backend-unprovisioned:{c.Lane}>",
+        readRefused:   static c => $"<backend-read:{c.Backend}:{c.Engine.Code}:{c.Engine.Detail}>",
+        unanswerable:  static c => $"<backend-unanswerable:{c.Backend}:{c.Projection}:{c.Degrade}>",
+        unlowerable:   static c => $"<backend-unlowerable:{c.Backend}:{c.Node}>",
+        unwritable:    static c => $"<backend-unwritable:{c.Backend}:{c.Shape}>",
+        providerReadRefused:   static c => $"<backend-read:{c.Backend}:{c.Engine.Code}:{c.Engine.Detail}>",
+        providerIngestRefused: static c => $"<backend-ingest:{c.Backend}:{c.Engine.Code}:{c.Engine.Detail}>");
 }
 ```
 
-## [04]-[SEAM_ADMISSION]
+## [04]-[SCHEMA_ADMISSION]
 
-- Owner: `AnalyticsSeam` is the ONE seam gate turning a producer's wire schema into admitted identifiers and vocabulary rows, and `ResidenceCharter` is the consumption descriptor a seated dataset reads back — what the residence is for, the entry that puts rows in, how long a row survives beside the owner that ends it, and the cap clause, all read off the seated row's own floor columns.
-- Entry: `public static Fin<AnalyticsSchema> Admit(string dataset, Seq<(string Name, string Type, bool Nullable)> columns, Seq<string> key, string spine, Option<string> time = default, Option<string> measure = default)` admits a producer's declaration; `public static Validation<Error, ResidenceCharter> Seat(Residence residence, AnalyticsSchema schema, Seq<ResidenceProjection> wanted)` proves an admitted dataset against a residence's floor and hands back the descriptor.
-- Auto: the admission ACCUMULATES and collapses to `Fin` exactly once at the seam edge — a producer handing a wire schema learns every bad column name, every unknown type token, every unresolvable key, and a contradicted category in ONE report, because it cannot see the second defect after the first refusal and each round trip costs a whole declaration. Composite type tokens carry the grammar the wide-event seam needs — `list<utf8>`, `fixed<float64,3>`, `map<utf8,float64>`, `dict<utf8>` — over the scalar roster, so an OTLP attribute map, a channel interleave, and a low-cardinality dimension all arrive as text a producer writes and become shape exactly here.
+- Owner: `AnalyticsGate` is the ONE admission gate turning a producer's wire schema into admitted identifiers and vocabulary rows, and `BackendCharter` is the consumption descriptor a seated dataset reads back — what the backend is for, the entry that puts rows in, how long a row survives beside the owner that ends it, and the cap clause, all read off the seated row's own floor columns.
+- Entry: `public static Fin<AnalyticsSchema> Admit(string dataset, Seq<(string Name, string Type, bool Nullable)> columns, Seq<string> key, string spine, Option<string> time = default, Option<string> measure = default)` admits a producer's declaration; `public static Validation<Error, BackendCharter> Seat(Backend backend, AnalyticsSchema schema, Seq<BackendProjection> wanted)` proves an admitted dataset against a backend's floor and hands back the descriptor.
+- Auto: the admission ACCUMULATES and collapses to `Fin` exactly once at the boundary edge — a producer handing a wire schema learns every bad column name, every unknown type token, every unresolvable key, and a contradicted category in ONE report, because it cannot see the second defect after the first refusal and each round trip costs a whole declaration. Composite type tokens carry the grammar the wide-event boundary needs — `list<utf8>`, `fixed<float64,3>`, `map<utf8,float64>`, `dict<utf8>` — over the scalar roster, so an OTLP attribute map, a channel interleave, and a low-cardinality dimension all arrive as text a producer writes and become shape exactly here.
 - Packages: Rasm.Element (`Graph/table#TABLE_FAMILIES` — the producer's own declaration owner), Thinktecture.Runtime.Extensions (`Validate` on every gated vocabulary), LanguageExt.Core (`Validation` applicative, `Traverse`), BCL inbox.
-- Growth: a new token grammar is one arm in `Admitted`; a new floor column is one field on `ResidenceCharter` reading the row that already declares it; zero new surface — a per-producer admission entry, a second identifier gate, or a residence-specific column parser is the deleted form.
-- Law: the seam drops the custodian's own tenant column from BOTH producer rosters exactly here, because a producer naming `tenant` describes the key the seam already stamps — every downstream derivation then reads one roster carrying it once, where a per-site filter leaves whichever site nobody remembered emitting a second column at a second physical type. Category and columns AGREE or the dataset never admits: a landing-time dataset naming its own instant hands the custodian a clock it does not own, and an event-time dataset naming none is re-dated to admission by the same append that serves the other category.
-- Boundary: category crosses as TEXT exactly as every column token does, because the two AEC producers this seam names reference the kernel alone and sit BELOW this custodian — a typed parameter is unconstructable at both, and no reference closes that gap without inverting the edge the store already owns. Identity and CARDINALITY are both proven, because a membership test alone reads a repeated name as present: a twice-declared column mints two DDL entries at one name and a twice-named key mints a duplicate `orderby` entry TimescaleDB rejects outright. `Seat` reads the floor columns and never re-derives them — a residence that states a cap refuses an admission rather than accepting a dataset it will silently truncate, and today no row states one.
+- Growth: a new token grammar is one arm in `Admitted`; a new floor column is one field on `BackendCharter` reading the row that already declares it; zero new surface — a per-producer admission entry, a second identifier gate, or a backend-specific column parser is the deleted form.
+- Law: the boundary drops the custodian's own tenant column from BOTH producer rosters exactly here, because a producer naming `tenant` describes the key the boundary already stamps — every downstream derivation then reads one roster carrying it once, where a per-site filter leaves whichever site nobody remembered emitting a second column at a second physical type. Category and columns AGREE or the dataset never admits: a landing-time dataset naming its own instant hands the custodian a clock it does not own, and an event-time dataset naming none is re-dated to admission by the same append that serves the other category.
+- Boundary: category crosses as TEXT exactly as every column token does, because the two AEC producers this boundary names reference the kernel alone and sit BELOW this custodian — a typed parameter is unconstructable at both, and no reference closes that gap without inverting the edge the store already owns. Identity and CARDINALITY are both proven, because a membership test alone reads a repeated name as present: a twice-declared column mints two DDL entries at one name and a twice-named key mints a duplicate `orderby` entry TimescaleDB rejects outright. `Seat` reads the floor columns and never re-derives them — a backend that states a cap refuses an admission rather than accepting a dataset it will silently truncate, and today no row states one.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct ResidenceCharter(string Residence, string Fits, string Admit, string Lifetime, Option<string> Cap);
+public readonly record struct BackendCharter(string Backend, string Fits, string Admit, string Lifetime, Option<string> Cap);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class AnalyticsSeam {
+public static class AnalyticsGate {
     public static readonly Identifier LandedColumn = Identifier.Create("landed_at");
 
     public static Fin<AnalyticsSchema> Admit(
@@ -574,16 +574,16 @@ public static class AnalyticsSeam {
             .Bind(static schema => Resolved(schema))
             .ToFin();
 
-    public static Validation<Error, ResidenceCharter> Seat(Residence residence, AnalyticsSchema schema, Seq<ResidenceProjection> wanted) =>
-        (wanted.Traverse(projection => residence.Answers(projection)
-            ? Success<Error, ResidenceProjection>(projection)
-            : Fail<Error, ResidenceProjection>(new ResidenceFault.Unanswerable(residence.Key, projection.Key, residence.Degrade))).As(),
-        schema.Columns.Traverse(column => residence.Tenancy == ResidenceTenancy.SortKey
+    public static Validation<Error, BackendCharter> Seat(Backend backend, AnalyticsSchema schema, Seq<BackendProjection> wanted) =>
+        (wanted.Traverse(projection => backend.Answers(projection)
+            ? Success<Error, BackendProjection>(projection)
+            : Fail<Error, BackendProjection>(new BackendFault.Unanswerable(backend.Key, projection.Key, backend.Degrade))).As(),
+        schema.Columns.Traverse(column => backend.Tenancy == BackendTenancy.SortKey
             ? column.Type.Wire.ToValidation<Error>().Map(_ => column)
             : Success<Error, ColumnRow>(column)).As())
             .Apply(static (_, _) => unit).As()
-            .Map(_ => new ResidenceCharter(residence.Key, residence.Fits, residence.Admit, residence.Lifetime,
-                residence.Cap ? Some(residence.Degrade) : None));
+            .Map(_ => new BackendCharter(backend.Key, backend.Fits, backend.Admit, backend.Lifetime,
+                backend.Cap ? Some(backend.Degrade) : None));
 
     static Validation<Error, TimeSpine> Category(string token) =>
         TimeSpine.Validate(token, null, out TimeSpine? spine) is { } fault
@@ -593,23 +593,23 @@ public static class AnalyticsSeam {
     static Validation<Error, AnalyticsSchema> Spined(
         string dataset, TimeSpine spine, Seq<ColumnRow> rows, Seq<Identifier> keys,
         Option<Identifier> at, Option<Identifier> measure) {
-        Seq<ColumnRow> supplied = rows.Filter(static column => column.Name != Residence.TenantColumn);
-        Seq<Identifier> key = keys.Filter(static name => name != Residence.TenantColumn);
+        Seq<ColumnRow> supplied = rows.Filter(static column => column.Name != Backend.TenantColumn);
+        Seq<Identifier> key = keys.Filter(static name => name != Backend.TenantColumn);
         return at.Match(
             Some: named => spine == TimeSpine.Event
                 ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, key, supplied, named, spine, measure))
-                : Fail<Error, AnalyticsSchema>(new ResidenceFault.Unprovisioned($"<schema-spine:{dataset}:landing-names-clock>")),
+                : Fail<Error, AnalyticsSchema>(new BackendFault.Unprovisioned($"<schema-spine:{dataset}:landing-names-clock>")),
             None: () => spine == TimeSpine.Landing
                 ? Success<Error, AnalyticsSchema>(new AnalyticsSchema(dataset, key,
                     supplied + Seq(new ColumnRow(LandedColumn, ColumnType.Timestamp, Nullable: false)), LandedColumn, spine, measure))
-                : Fail<Error, AnalyticsSchema>(new ResidenceFault.Unprovisioned($"<schema-spine:{dataset}:event-names-no-clock>")));
+                : Fail<Error, AnalyticsSchema>(new BackendFault.Unprovisioned($"<schema-spine:{dataset}:event-names-no-clock>")));
     }
 
     static Validation<Error, AnalyticsSchema> Resolved(AnalyticsSchema schema) =>
         ((schema.Key + Seq(schema.Time) + schema.Measure.ToSeq())
             .Traverse(name => schema.Declares(name)
                 ? Success<Error, Identifier>(name)
-                : Fail<Error, Identifier>(new ResidenceFault.Unprovisioned($"<schema-undeclared:{schema.Dataset}.{(string)name}>"))).As(),
+                : Fail<Error, Identifier>(new BackendFault.Unprovisioned($"<schema-undeclared:{schema.Dataset}.{(string)name}>"))).As(),
         Unique(schema.Dataset, "columns", schema.Columns.Map(static column => column.Name)),
         Unique(schema.Dataset, "key", schema.Key))
             .Apply(static (_, _, _) => unit).As()
@@ -618,7 +618,7 @@ public static class AnalyticsSeam {
     static Validation<Error, Unit> Unique(string dataset, string roster, Seq<Identifier> names) =>
         names.Distinct().Count == names.Count
             ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(new ResidenceFault.Unprovisioned($"<schema-duplicate:{dataset}:{roster}>"));
+            : Fail<Error, Unit>(new BackendFault.Unprovisioned($"<schema-duplicate:{dataset}:{roster}>"));
 
     static Validation<Error, ColumnRow> Column((string Name, string Type, bool Nullable) row) =>
         (Trusted(row.Name), Admitted(row.Type)).Apply((name, type) => new ColumnRow(name, type, row.Nullable)).As();
@@ -642,27 +642,27 @@ public static class AnalyticsSeam {
         body.IndexOf(',', StringComparison.Ordinal) is int cut && cut > 0
             ? (Scalar(body[..cut]), Admitted(body[(cut + 1)..]))
                 .Apply(static (key, value) => (ColumnShape)new ColumnShape.Map(key, value)).As()
-            : Fail<Error, ColumnShape>(new ResidenceFault.Unprovisioned($"<column-type:map<{body}>>"));
+            : Fail<Error, ColumnShape>(new BackendFault.Unprovisioned($"<column-type:map<{body}>>"));
 
     static Validation<Error, ColumnShape> Fixed(string body) =>
         body.LastIndexOf(',') is int cut && cut > 0
             && int.TryParse(body[(cut + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out int arity) && arity > 0
             ? Admitted(body[..cut]).Map(shape => (ColumnShape)new ColumnShape.FixedList(shape, arity))
-            : Fail<Error, ColumnShape>(new ResidenceFault.Unprovisioned($"<column-type:fixed<{body}>>"));
+            : Fail<Error, ColumnShape>(new BackendFault.Unprovisioned($"<column-type:fixed<{body}>>"));
 
     static Validation<Error, ColumnType> Scalar(string token) =>
         ColumnType.Validate(token, null, out ColumnType? type) is { } fault
-            ? Fail<Error, ColumnType>(new ResidenceFault.Unprovisioned($"<column-type:{token}>"))
+            ? Fail<Error, ColumnType>(new BackendFault.Unprovisioned($"<column-type:{token}>"))
             : Success<Error, ColumnType>(type!);
 }
 ```
 
 ## [05]-[PROVISIONING]
 
-- Owner: `ProvisionStep` carries one emitted statement beside the VERB that runs it and the idempotence it claims; `SqlVerb` closes the emission vocabulary and renders each step's executable text; `ResidenceDdl` derives the column list and the sort key both relational arms compose and gates the derived set; `SeriesResidence`, `FleetResidence`, and `LakeResidence` are the three `Statements` delegate targets each `Residence` row names.
+- Owner: `ProvisionStep` carries one emitted statement beside the VERB that runs it and the idempotence it claims; `SqlVerb` closes the emission vocabulary and renders each step's executable text; `BackendDdl` derives the column list and the sort key both relational arms compose and gates the derived set; `SeriesBackend`, `FleetBackend`, and `LakeBackend` are the three `Statements` delegate targets each `Backend` row names.
 - Cases: `SqlVerb` is `Ddl` (a statement the engine executes as written), `Select` (a function invocation returning a row — `create_hypertable`, `add_retention_policy`, `add_continuous_aggregate_policy`), and `Call` (a procedure invocation returning none — `add_columnstore_policy`); each row renders its own invocation form, so a `CALL` against a function and a `SELECT` against a procedure are both unrepresentable from the derivation.
-- Entry: `public static Fin<Seq<ProvisionStep>> ResidenceDdl.Provision(Residence residence, AnalyticsSchema schema, ResidencePolicy policy)` derives the WHOLE ordered statement set the reviewed generation artifact carries, so no environment hand-spells a policy script and no exporter creates a table.
-- Auto: provisioning is DERIVED per residence from the schema's own spine — the Series arm splits SELECT functions from CALL procedures, the Fleet arm emits `CREATE TABLE … ENGINE = MergeTree` with the tenant leading and the time column trailing `ORDER BY`, a `TTL … DELETE` from the row's own retention window, and one `bloom_filter` skip index per admitted text column outside the sort key, and the Lake arm creates no storage and emits exactly the VIEW that gives its hive tree the name every lowered plan addresses; a measure-free dataset provisions its hypertable, columnstore, and retention and emits no continuous aggregate, so a wide event never grows a fabricated `avg` over a column it never declared.
+- Entry: `public static Fin<Seq<ProvisionStep>> BackendDdl.Provision(Backend backend, AnalyticsSchema schema, BackendPolicy policy)` derives the WHOLE ordered statement set the reviewed generation artifact carries, so no environment hand-spells a policy script and no exporter creates a table.
+- Auto: provisioning is DERIVED per backend from the schema's own spine — the Series arm splits SELECT functions from CALL procedures, the Fleet arm emits `CREATE TABLE … ENGINE = MergeTree` with the tenant leading and the time column trailing `ORDER BY`, a `TTL … DELETE` from the row's own retention window, and one `bloom_filter` skip index per admitted text column outside the sort key, and the Lake arm creates no storage and emits exactly the VIEW that gives its hive tree the name every lowered plan addresses; a measure-free dataset provisions its hypertable, columnstore, and retention and emits no continuous aggregate, so a wide event never grows a fabricated `avg` over a column it never declared.
 - Packages: timescaledb + timescaledb_toolkit (`create_hypertable`/`by_range`/`add_retention_policy`/`add_columnstore_policy`/`add_continuous_aggregate_policy`/`time_bucket`/`time_weight`/`percentile_agg`/`average`/`approx_percentile`), ClickHouse (`MergeTree`/`TTL … DELETE`/`bloom_filter`), DuckDB (`read_parquet`/`hive_partitioning`/`union_by_name`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new statement is one `ProvisionStep` row in its arm carrying its verb; a new emission form is one `SqlVerb` row breaking every arm at compile time; zero new surface — a raw statement string beside a typed step, a guard ladder around a re-applied script, or a per-environment provisioning path is the deleted form.
 - Law: the reviewed generation artifact RE-APPLIES whole, so a derived set carrying a step that cannot restate itself refuses at derivation rather than at the second apply against a half-provisioned relation. Grouping preserves IDENTITY and segmenting preserves COMPRESSION, and they are DIFFERENT lists derived from one schema: the rollup groups the whole key so each stream keeps its own buckets, while the columnstore segments the bounded text keys alone — segmenting a `KeyHex` content key mints one compressed batch per row and deletes the compression the columnstore exists for.
@@ -690,44 +690,44 @@ public readonly record struct ProvisionStep(SqlVerb Verb, string Text, bool Idem
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ResidenceDdl {
-    public static Fin<Seq<ProvisionStep>> Provision(Residence residence, AnalyticsSchema schema, ResidencePolicy policy) =>
-        residence.Statements(schema, policy) is var steps && steps.Find(static step => !step.Idempotent) is { IsSome: true } stray
-            ? Fin.Fail<Seq<ProvisionStep>>(new ResidenceFault.Unprovisioned($"<provision-reapply:{residence.Key}:{stray.Map(static step => step.Text).IfNone(string.Empty)}>"))
+public static class BackendDdl {
+    public static Fin<Seq<ProvisionStep>> Provision(Backend backend, AnalyticsSchema schema, BackendPolicy policy) =>
+        backend.Statements(schema, policy) is var steps && steps.Find(static step => !step.Idempotent) is { IsSome: true } stray
+            ? Fin.Fail<Seq<ProvisionStep>>(new BackendFault.Unprovisioned($"<provision-reapply:{backend.Key}:{stray.Map(static step => step.Text).IfNone(string.Empty)}>"))
             : Fin.Succ(steps);
 
-    internal static string Columns(Residence residence, AnalyticsSchema schema) =>
-        string.Join(", ", (residence.Tenancy.Switch(
-                sortKey: () => Seq(new ColumnRow(Residence.TenantColumn, ColumnType.KeyHex, false)),
+    internal static string Columns(Backend backend, AnalyticsSchema schema) =>
+        string.Join(", ", (backend.Tenancy.Switch(
+                sortKey: () => Seq(new ColumnRow(Backend.TenantColumn, ColumnType.KeyHex, false)),
                 prefix:  () => Seq<ColumnRow>())
             + schema.Columns)
-            .Map(column => $"{residence.Quote(column.Name)} {residence.Render(column.Type)}{(column.Nullable ? string.Empty : " NOT NULL")}"));
+            .Map(column => $"{backend.Quote(column.Name)} {backend.Render(column.Type)}{(column.Nullable ? string.Empty : " NOT NULL")}"));
 
-    internal static string Keys(Residence residence, AnalyticsSchema schema) =>
-        string.Join(", ", (residence.Tenancy.Switch(sortKey: () => Seq(Residence.TenantColumn), prefix: () => Seq<Identifier>())
+    internal static string Keys(Backend backend, AnalyticsSchema schema) =>
+        string.Join(", ", (backend.Tenancy.Switch(sortKey: () => Seq(Backend.TenantColumn), prefix: () => Seq<Identifier>())
             + schema.Key
-            + (schema.Key.Contains(schema.Time) ? Seq<Identifier>() : Seq(schema.Time))).Map(residence.Quote));
+            + (schema.Key.Contains(schema.Time) ? Seq<Identifier>() : Seq(schema.Time))).Map(backend.Quote));
 }
 
-public static class SeriesResidence {
-    public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, ResidencePolicy policy) {
-        string table = Residence.Series.Quote(schema.Table);
-        string rollup = Residence.Series.Quote(Rollup(schema));
+public static class SeriesBackend {
+    public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, BackendPolicy policy) {
+        string table = Backend.Series.Quote(schema.Table);
+        string rollup = Backend.Series.Quote(Rollup(schema));
         string at = (string)schema.Time;
-        string grouping = Names(Seq(Residence.TenantColumn) + schema.Sorted.Map(static column => column.Name));
-        string segments = Names(Seq(Residence.TenantColumn) + Bounded(schema).Map(static column => column.Name));
+        string grouping = Names(Seq(Backend.TenantColumn) + schema.Sorted.Map(static column => column.Name));
+        string segments = Names(Seq(Backend.TenantColumn) + Bounded(schema).Map(static column => column.Name));
         string ordering = Names(Unbounded(schema).Map(static column => column.Name).Filter(name => name != schema.Time) + Seq(schema.Time));
-        string grain = Residence.Interval(policy.Grain);
+        string grain = Backend.Interval(policy.Grain);
         return Seq(
-            ProvisionStep.Ddl($"CREATE TABLE IF NOT EXISTS {table} ({ResidenceDdl.Columns(Residence.Series, schema)})"),
-            ProvisionStep.Select($"create_hypertable('{table}', by_range('{at}', INTERVAL '{Residence.Interval(policy.Chunk)}'), if_not_exists => TRUE)"),
+            ProvisionStep.Ddl($"CREATE TABLE IF NOT EXISTS {table} ({BackendDdl.Columns(Backend.Series, schema)})"),
+            ProvisionStep.Select($"create_hypertable('{table}', by_range('{at}', INTERVAL '{Backend.Interval(policy.Chunk)}'), if_not_exists => TRUE)"),
             ProvisionStep.Ddl($"ALTER TABLE {table} SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = '{segments}', timescaledb.orderby = '{ordering}')"),
-            ProvisionStep.Call($"add_columnstore_policy('{table}', after => INTERVAL '{Residence.Interval(policy.Chunk)}', if_not_exists => TRUE)"),
-            ProvisionStep.Select($"add_retention_policy('{table}', drop_after => INTERVAL '{Residence.Interval(policy.Retain)}', if_not_exists => TRUE)"))
+            ProvisionStep.Call($"add_columnstore_policy('{table}', after => INTERVAL '{Backend.Interval(policy.Chunk)}', if_not_exists => TRUE)"),
+            ProvisionStep.Select($"add_retention_policy('{table}', drop_after => INTERVAL '{Backend.Interval(policy.Retain)}', if_not_exists => TRUE)"))
         + schema.Measure.ToSeq().Bind(value => Seq(
             ProvisionStep.Ddl($"CREATE MATERIALIZED VIEW IF NOT EXISTS {rollup} WITH (timescaledb.continuous) AS SELECT {grouping}, time_bucket(INTERVAL '{grain}', {at}) AS {Bucket}, time_weight('linear', {at}, {value}) AS {Weight}, percentile_agg({value}) AS {Sketch}, min({value}) AS {Low}, max({value}) AS {High}, count(*) AS {Samples} FROM {table} GROUP BY {grouping}, {Bucket} WITH NO DATA"),
             ProvisionStep.Ddl($"ALTER MATERIALIZED VIEW {rollup} SET (timescaledb.enable_columnstore = true)"),
-            ProvisionStep.Select($"add_continuous_aggregate_policy('{rollup}', start_offset => INTERVAL '{Residence.Interval(policy.Backfill)}', end_offset => INTERVAL '{grain}', schedule_interval => INTERVAL '{grain}', if_not_exists => TRUE)")));
+            ProvisionStep.Select($"add_continuous_aggregate_policy('{rollup}', start_offset => INTERVAL '{Backend.Interval(policy.Backfill)}', end_offset => INTERVAL '{grain}', schedule_interval => INTERVAL '{grain}', if_not_exists => TRUE)")));
     }
 
     static Seq<ColumnRow> Bounded(AnalyticsSchema schema) => schema.Sorted.Filter(static column => column.Type.Bounded);
@@ -746,24 +746,24 @@ public static class SeriesResidence {
         $"average({Weight}), approx_percentile({quantile.ToString("0.####", CultureInfo.InvariantCulture)}, {Sketch}), {Low}, {High}, {Samples}";
 }
 
-public static class FleetResidence {
-    public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, ResidencePolicy policy) {
-        string table = Residence.Fleet.Quote(schema.Table);
-        string at = Residence.Fleet.Quote(schema.Time);
+public static class FleetBackend {
+    public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, BackendPolicy policy) {
+        string table = Backend.Fleet.Quote(schema.Table);
+        string at = Backend.Fleet.Quote(schema.Time);
         return Seq(ProvisionStep.Ddl(
-            $"CREATE TABLE IF NOT EXISTS {table} ({ResidenceDdl.Columns(Residence.Fleet, schema)}) " +
-            $"ENGINE = MergeTree PARTITION BY toYYYYMM({at}) ORDER BY ({ResidenceDdl.Keys(Residence.Fleet, schema)}) " +
+            $"CREATE TABLE IF NOT EXISTS {table} ({BackendDdl.Columns(Backend.Fleet, schema)}) " +
+            $"ENGINE = MergeTree PARTITION BY toYYYYMM({at}) ORDER BY ({BackendDdl.Keys(Backend.Fleet, schema)}) " +
             $"TTL toDateTime({at}) + INTERVAL {(long)policy.Retain.TotalSeconds} SECOND DELETE SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1"))
             + schema.Payload
                 .Filter(static column => column.Type.Bounded)
                 .Map(column => ProvisionStep.Ddl(
-                    $"ALTER TABLE {table} ADD INDEX IF NOT EXISTS bloom_{column.Name} {Residence.Fleet.Quote(column.Name)} TYPE bloom_filter(0.01) GRANULARITY 1"));
+                    $"ALTER TABLE {table} ADD INDEX IF NOT EXISTS bloom_{column.Name} {Backend.Fleet.Quote(column.Name)} TYPE bloom_filter(0.01) GRANULARITY 1"));
     }
 }
 
-public static class LakeResidence {
-    public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, ResidencePolicy policy) => Seq(
-        ProvisionStep.Ddl($"CREATE OR REPLACE VIEW {Residence.Lake.Quote(schema.Table)} AS SELECT * FROM read_parquet('{(string)policy.Root}/**/*.parquet', hive_partitioning = true, union_by_name = true)"));
+public static class LakeBackend {
+    public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, BackendPolicy policy) => Seq(
+        ProvisionStep.Ddl($"CREATE OR REPLACE VIEW {Backend.Lake.Quote(schema.Table)} AS SELECT * FROM read_parquet('{(string)policy.Root}/**/*.parquet', hive_partitioning = true, union_by_name = true)"));
 }
 ```
 

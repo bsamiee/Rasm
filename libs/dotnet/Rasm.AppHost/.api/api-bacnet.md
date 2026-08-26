@@ -38,7 +38,7 @@
 |  [02]   | `BacnetReadFileResult`        | readonly struct | `Position`, `Count`, `EndOfFile`, `FileBuffer`, `FileBufferOffset` |
 |  [03]   | `BacnetPrivateTransferResult` | readonly struct | `VendorId`, `ServiceNumber`, `ResultBlock`                         |
 
-[PUBLIC_TYPE_SCOPE]: refusal carriers — the typed error surface the event rail and the `Begin`/`End` pair expose
+[PUBLIC_TYPE_SCOPE]: refusal carriers — the typed error surface the event callbacks and the `Begin`/`End` pair expose
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY] | [CAPABILITY]                                  |
 | :-----: | :------------------------------------------------ | :------------ | :-------------------------------------------- |
@@ -149,7 +149,7 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 | :-----: | :-------------- | :-----: | :------------------------------------------------- |
 |  [01]   | `DEVICE`        |    0    | device-level refusal                               |
 |  [02]   | `OBJECT`        |    1    | object-level refusal                               |
-|  [03]   | `PROPERTY`      |    2    | property-level refusal, the write rail's own class |
+|  [03]   | `PROPERTY`      |    2    | property-level refusal, the write path's own class |
 |  [04]   | `RESOURCES`     |    3    | device resource exhaustion                         |
 |  [05]   | `SECURITY`      |    4    | security refusal                                   |
 |  [06]   | `SERVICES`      |    5    | service-level refusal                              |
@@ -198,7 +198,7 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 |  [11]   |   10    |                               | `TSM_TIMEOUT`                       |
 |  [12]   |   11    |                               | `APDU_TOO_LONG`                     |
 
-`Storage.DeviceStorage` rides its own negative-valued verdict on `WriteOverrideHandler(..., out ErrorCodes status, out bool handled)`, the server-side counterpart to the client rail above.
+`Storage.DeviceStorage` rides its own negative-valued verdict on `WriteOverrideHandler(..., out ErrorCodes status, out bool handled)`, the server-side counterpart to the client API above.
 
 | [INDEX] | [MEMBER]            | [VALUE] | [MEANING]                        |
 | :-----: | :------------------ | :-----: | :------------------------------- |
@@ -247,11 +247,11 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 - `BacnetClient` binds one `IBacnetTransport` and is `IDisposable`; the AppHost binding holds it in the token-gated state cell the OPC-UA/MQTT/serial clients share, so a reconnect replaces the whole cell.
 - Read shape is dual: `ReadPropertyAsync` is the confirmed poll path awaiting `IList<BacnetValue>`, and `SubscribeCOVAsync` with the `OnCOVNotification` event is the push path — COV binds metered points, poll binds on-demand reads.
 - One property read projects to one `ExternalValue` (raw value, declared unit from `PROP_UNITS`, good flag from the read status, source instant); the boxed `BacnetValue` tag never enters the interior.
-- Failure reaches a caller on three rails, and only the `*Async` rail stringifies. `OnError`/`OnReject`/`OnAbort` hand `BacnetErrorClasses`, `BacnetErrorCodes`, `BacnetRejectReason`, and `BacnetAbortReason` as values; the `Begin`/`End` pair returns its refusal through `out Exception ex`, null meaning acceptance; the `*Async` members THROW under a BCL-only vocabulary.
-- `BacnetAsyncResult`'s constructor subscribes those same events and folds each verdict to text — `Error = new Exception($"Error from device: {errorClass} - {errorCode}")`, `$"Reject from device, reason: {reason}"`, `$"Abort from device, reason: {reason}"` — and `Resend()` sets `new IOException("Write Timeout")` or `new Exception("Write Exception: " + ex.Message)`, so the awaited rail inherits a message where the event rail held two enums.
+- Failure reaches a caller on three paths, and only the `*Async` path stringifies. `OnError`/`OnReject`/`OnAbort` hand `BacnetErrorClasses`, `BacnetErrorCodes`, `BacnetRejectReason`, and `BacnetAbortReason` as values; the `Begin`/`End` pair returns its refusal through `out Exception ex`, null meaning acceptance; the `*Async` members THROW under a BCL-only vocabulary.
+- `BacnetAsyncResult`'s constructor subscribes those same events and folds each verdict to text — `Error = new Exception($"Error from device: {errorClass} - {errorCode}")`, `$"Reject from device, reason: {reason}"`, `$"Abort from device, reason: {reason}"` — and `Resend()` sets `new IOException("Write Timeout")` or `new Exception("Write Exception: " + ex.Message)`, so the awaited path inherits a message where the event path held two enums.
 - `*Async` throw vocabulary: a device Error, Reject, or Abort surfaces as a bare `Exception` carrying only the folded message, an exhausted retry raises `TimeoutException` except on `ReadPropertyAsync` and the params `ReadPropertyMultipleAsync` which raise a bare `Exception`, and a tripped token raises `OperationCanceledException`.
 - Every awaited call sits inside one boundary catch projecting to `WireFault.ReadFailed`/`WriteRejected`; a leg needing the error class and code as values subscribes `OnError` beside the await rather than parsing the message.
-- TRAP: `SendRequestAsync` answers TRUE when the `Error` setter calls `MarkDone()`, so TRUE never means success on the `Begin`/`End` rail — the `out Exception` reads on every path.
+- TRAP: `SendRequestAsync` answers TRUE when the `Error` setter calls `MarkDone()`, so TRUE never means success on the `Begin`/`End` path — the `out Exception` reads on every path.
 - Cancellation is the caller's `CancellationToken` on the same member, never a second timeout knob beside the client's `timeout`/`retries` construction pair.
 - `BacnetIpUdpProtocolTransport.Start()` throws `InvalidOperationException` listing the candidates when several IPv4 interfaces exist and none was named, so a multi-homed host pins `localEndpointIp` at construction; the ctor also carries `maxApdu` and `dontFragment`, and `ReceiveBufferSize` (1 MB) is settable after `Start()`.
 - TRAP: `RegisterAsForeignDevice` routes BBMD networks off the local broadcast domain and returns `void`, logging its own transport mismatch — a non-IP transport is a log line, never a thrown fault the caller can branch on.
@@ -261,7 +261,7 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 [STACKING]:
 - `api-serialport.md`(`System.IO.Ports`): the package carries NO serial line of its own — `BacnetMstpProtocolTransport(IBacnetSerialTransport, short, byte, byte)` and `BacnetPtpProtocolTransport` take the line as a host-implemented `IBacnetSerialTransport`, so the MS/TP adapter wraps the same `SerialPort` the serialport owner opens under its `SerialPort.BaudRate`/`Parity`/`RtsEnable` line policy, one line owner serving both the `serial` row and the MS/TP row.
 - `api-serilog-hosting.md`: `BacnetLogging.Factory` takes the host's composed `ILoggerFactory`, so BACnet transport and BVLC diagnostics land on the one host log pipeline rather than a package-private sink.
-- `api-mtconnect.md`: building-automation observations decode at this seam exactly as MTConnect machine-tool observations feed Fabrication — one decode boundary, the observation crossing as a wire row.
+- `api-mtconnect.md`: building-automation observations decode at this adapter exactly as MTConnect machine-tool observations feed Fabrication — one decode boundary, the observation crossing as a wire row.
 - within-lib: the `bacnet` row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Subscribe`, `Writable: true`, an `OutboundHop` hop) and one `LiveClient` case wrapping `BacnetClient`, no bespoke poller beyond the client's confirmed-request retry.
 - `SubscribeCOV` establishes a device-side subscription pushing without a client cadence, so the row's steady-state read is push and `ReadPropertyAsync` serves the stale-lane fallback alone, never a declared cadence.
 
@@ -269,7 +269,7 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 - `IBacnetSerialTransport : IDisposable` is five members — `int BytesToRead { get; }`, `void Open()`, `void Close()`, `int Read(byte[] buffer, int offset, int length, int timeoutMs)`, `void Write(byte[] buffer, int offset, int length)`.
 - `Read`'s return is a sentinel dispatch, never a plain count: exactly `-110` (negative ETIMEDOUT; the transport's own `ETIMEDOUT = 110` const) reads as MS/TP `Timeout`/`SubTimeout` — the arm a sole master claims the token through — while any OTHER negative reads `ConnectionError` and `0` reads `ConnectionClose`, and BOTH of those log and re-enter the master loop without stopping it, so a host line answering a dead or idle bus with `0` spins a `ThreadPriority.Highest` thread at full burn; a benign timeout AND every port fault therefore answer `-110`.
 - Partial returns are legal — the 8-byte header loop and the body loop both accumulate offsets, and a started frame collapses the wait to the 80 ms inter-character gap — and `timeoutMs` is per call, so a `SerialPort`-backed line re-arms `ReadTimeout` on each entry.
-- Nothing catches around `Read`/`Write`: a thrown line fault ends the MS/TP thread permanently (`IsRunning = false`, no restart), so a host line never throws, and a swallowed write surfaces as the awaited confirmed service's own `TimeoutException` at the seam that carries it.
+- Nothing catches around `Read`/`Write`: a thrown line fault ends the MS/TP thread permanently (`IsRunning = false`, no restart), so a host line never throws, and a swallowed write surfaces as the awaited confirmed service's own `TimeoutException` at the boundary that carries it.
 - `Start()` and `StartSpyMode()` call `Open()` unguarded, so `Open` is idempotent on an open line; `Close` is reached only from `Dispose`, and ONE dedicated `IsBackground`, `ThreadPriority.Highest` thread drives every member synchronously — `FrameRecieved` alone re-dispatches on the pool.
 - `BacnetMstpProtocolTransport(IBacnetSerialTransport transport, short sourceAddress = -1, byte maxMaster = 127, byte maxInfoFrames = 1)` also exposes settable `SourceAddress`/`MaxMaster`, `IsRunning`, and the timing consts `T_NO_TOKEN` 500 / `T_REPLY_TIMEOUT` 295 / `T_USAGE_TIMEOUT` 95 / `T_FRAME_ABORT` 80 / `T_REPLY_DELAY` 250; `BacnetPtpProtocolTransport(IBacnetSerialTransport transport, bool isServer)` carries the dial-up `Password` knob.
 
@@ -277,4 +277,4 @@ Beneath every `*Async` member sits a `Begin`/`End` pair reporting refusal as a r
 - Point maps (object id, property id, COV lifetime, unit id) carry binding-spec policy data, never a parallel BACnet loop; the per-row retry is the `OutboundHop` breaker.
 - Hosts owning the native UDP line bind `BacnetIpUdpProtocolTransport` (or `BacnetIpV6UdpProtocolTransport`) directly; a host reaching a bus instead supplies its own `IBacnetSerialTransport` to the MS/TP or PTP transport, and a host reaching neither selects the `OutboundHop.CompanionSpawn` hop — three peer rows host fact selects.
 - `BACnet` is the ONLY admitted identifier of the line: its physical companions `BACnet.Serial` (the `System.IO.Ports` `IBacnetSerialTransport` implementation and the `SerialTransport.Mstp`/`Ptp` factories) and `BACnet.Ethernet` (raw Ethernet over libpcap, carrying `PacketDotNet`/`SharpPcap`) stay unadmitted, so an MS/TP binding implements `IBacnetSerialTransport` over the serialport owner's already-admitted `SerialPort` rather than pulling a fourth package for five members.
-- Schedule and calendar objects read and write through the `BacnetCalendarEntry`/`BacnetDailySchedule`/`BacnetSpecialEvent` family over the same property rail, so a setpoint ladder crosses as its own encoded object and never as a hand-built ASN.1 buffer.
+- Schedule and calendar objects read and write through the `BacnetCalendarEntry`/`BacnetDailySchedule`/`BacnetSpecialEvent` family over the same property API, so a setpoint ladder crosses as its own encoded object and never as a hand-built ASN.1 buffer.

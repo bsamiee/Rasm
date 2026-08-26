@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[PLAN]: `PagePlan`, `PageSeat`, `PageReveal`, and the identity owners close page kind, content, chrome, selection reach, and callback policy.
-- [03]-[SIGNAL]: `PageSignal` carries lifecycle, script, parent, and detached selection evidence through one answering rail.
+- [03]-[SIGNAL]: `PageSignal` carries lifecycle, script, parent, and detached selection evidence through one answering entry.
 - [04]-[REALIZATION]: `HostPage`, the internal leaves, and the custody-plus-claim gate realize the host base and expose kind-safe post-realization operations.
 - [05]-[NAVIGATION]: `PageNav` folds stacked activation, reveal, removal, dirty state, title, child adoption, and navigation style.
 - [06]-[MOUNT]: `PageBasket` and `PageMount.Land` register realized pages against the matching host collection and answer what a caller's own release will reach.
@@ -116,7 +116,6 @@ public sealed partial class ObjectIdentity {
     public Rasm.Numerics.Dimension Index { get; }
     public ObjectPageSeat Seat { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref HostText caption,
@@ -234,18 +233,18 @@ public sealed partial record SelectionEvidence(
 
 ## [04]-[REALIZATION]
 
-- Owner: `HostPage` is the realized handle and the estate's page `IMount`; `PageLeaf` closes the internal host-base alternatives; `PageOwner` names who claimed a registration; `PageCustody` is the re-entrancy and adoption machine over the kernel mount floor.
+- Owner: `HostPage` is the realized handle and the solution's page `IMount`; `PageLeaf` closes the internal host-base alternatives; `PageOwner` names who claimed a registration; `PageCustody` is the re-entrancy and adoption machine over the kernel mount floor.
 - Entry: `Realize` is the sole page mint and runs only inside an existing command-thread frame; `Navigate`, `Reveal`, `Selection`, and `Modify` expose the distinct result regimes of the handle; `Release` is the `IMount` teardown every owner reaches through.
 - Auto: realization brackets its own unwind through the leased `ElementMount`, so a refused style hop releases the control tree it had already grown, the cleanup fault aggregates into the primary, and the hand dispose-then-return block has no site.
-- Law: this page answers the kernel `IMount` floor, so it is adoptable by every mount in the estate as ITSELF, its child forest is `Seq<IMount>`, and its phase rows are the kernel `MountPhase` with the `Closes` consequence each row carries. NAMED LOSS: none — the local two-row phase vocabulary deletes.
+- Law: this page answers the kernel `IMount` floor, so it is adoptable by every mount in the solution as ITSELF, its child forest is `Seq<IMount>`, and its phase rows are the kernel `MountPhase` with the `Closes` consequence each row carries. NAMED LOSS: none — the local two-row phase vocabulary deletes.
 - Law: the re-entrancy machine MIRRORS the kernel custody shape rather than composing it, and the discriminant is an access modifier, not a design: `MountCustody` publishes its enter, leave, close, and adopt transitions `internal` to the kernel assembly, so a boundary mount can answer the floor and hold the phase rows but cannot step the machine. Every transition here takes and answers the kernel's own public types, so the local machine deletes with no call-site change the moment those transitions publish.
 - Law: the claim cell is the other half and stays host-specific by CONCEPT: the kernel custody owner band is an `IMount`, while a registration is claimed by a MOUNT TOKEN or transferred to the HOST COLLECTION, neither of which is a mount this page could hand it. Enter, leave, close, and adopt are custody; claim, unclaim, and transfer are the token's.
 - Law: a claim is answered by the CLAIMANT, so a close arriving from an owner that never claimed this page refuses rather than silently no-opping — the gap where one owner's release tore down a page another had claimed.
 - Law: a leave with no matching enter REFUSES. The visit count is absent rather than zero, so it can no longer run negative and reach a release nothing entered, and the caller reads which page answered instead of inferring it from a later double-dispose.
-- Law: each host override calls the plan's `Answer` once and collapses the rail only at the host return type the base fixed.
+- Law: each host override calls the plan's `Answer` once and collapses the result only at the host return type the base fixed.
 - Law: visibility conjoins the host type filter, the plan predicate, and the `SelectionShown` answer; refresh emits `SelectionUpdated` alone.
 - Law: `Modify` captures the callback's own verdict through a seated cell and refuses a host call that returned without invoking it, because the host publishes no return for the change it ran.
-- Law: `Release` and operation exits carry teardown faults on their typed rails; only the host-required `IDisposable` adapter parks a discarded verdict on the bounded ring.
+- Law: `Release` and operation exits carry teardown faults on their typed results; only the host-required `IDisposable` adapter parks a discarded verdict on the bounded ring.
 - Exemption: the custody seat is `lock`-held rather than compare-and-swap, because the release it hands back disposes host controls and a replayable transition body would run that disposal on every contended retry. It is contained in this class and no consumer writes one.
 - Boundary: `Realize` and every entry below are the published surface a command body in the `apps/<app>/` plugin shell composes; the app root is the sole producer and no in-package fence mints a page.
 - Output: `HostPage` retains its leased `ElementMount` and publishes its release faults; the handle IS the evidence and no second value exists.

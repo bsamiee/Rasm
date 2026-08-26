@@ -126,7 +126,7 @@ Each `route_with_*(e, pts)` clamps the polyline tail/head to node bounding boxes
 
 [STACKING]:
 - `rustworkx`(`.api/rustworkx.md`): grandalf ingests a `PyDiGraph` — `GrandalfVertex(i)` per `graph.node_indices()`, `GrandalfEdge(src, dst)` per `graph.edge_list()` — and its laid-out coordinates and routed edge points join the `rustworkx` `node_link_json` wire as the `ContentIdentity` content-key input, so two layouts of one graph under distinct `LayoutPolicy` values key distinctly and the diagram is content-addressable on its full laid-out form.
-- `anyio`(`libs/python/.api/anyio.md`): the synchronous `init_all()`/`draw()` runs under `to_thread.run_sync(self._render, limiter=_LAYOUT_LANES)` bounded by `CapacityLimiter(os.process_cpu_count())`, wrapped by the `runtime` `async_boundary` returning a `RuntimeRail[...]`, so a `ValueError` on an unconnected component surfaces as a typed rail fault and a many-node layered diagram never blocks the event loop.
+- `anyio`(`libs/python/.api/anyio.md`): the synchronous `init_all()`/`draw()` runs under `to_thread.run_sync(self._render, limiter=_LAYOUT_LANES)` bounded by `CapacityLimiter(os.process_cpu_count())`, wrapped by the `runtime` `async_boundary` returning a `RuntimeResult[...]`, so a `ValueError` on an unconnected component surfaces as a typed result fault and a many-node layered diagram never blocks the event loop.
 
 [LOCAL_ADMISSION]:
 - grandalf is admitted as the `HierarchyEngine.GRANDALF` layered provider behind the one `LayoutPolicy` owner, reached only by the `Layered(engine=GRANDALF)` `match` arm; its layered-engine standing — default, fallback, retirement — is decided at `visualization/diagram/layout#LAYOUT` `HierarchyEngine`.

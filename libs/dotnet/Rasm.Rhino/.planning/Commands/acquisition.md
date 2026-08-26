@@ -19,7 +19,7 @@
 
 `Acquired.Distance` pairs its magnitude with the kernel `ModelUnit` read off the document at parse time — the pairing `Document/session.md`'s `UnitText.LengthValueCase` already detaches on. An `AcquireOutcome` outlives its acquire window, so a `UnitRegime` change between acquisition and use re-reads a bare magnitude in a regime that no longer produced it; consumers re-entering the value rescale through `ModelUnit.ScaleTo`, the branch's one scale owner. `Acquired.Angle` carries no regime: radians ARE the canonical measure its name spells, `AngleGrammar` owns the degree/radian dialect on the TEXT side alone, and a regime column there names a fact no document holds.
 
-`Acquired.Paint` carries the kernel `PerceptualColor`, admitted through `Slots.Shade` at the getter seam and quantized back through `Slots.Rgb` — which now composes the kernel `ToDrawing` egress and REFUSES an out-of-gamut colour instead of hand-building `Color.FromArgb` off the clipping byte leg; the shim that bypassed the kernel's refusal is deleted and every write seam rides the rail. `Acquired.Objects` carries the selection page's own `PickOutcome` — survivors, named casualties, and the participating-getter fact — rather than a bare capture sequence, so a stale reference inside a multi-object pick no longer voids the whole acquisition and the caller reads which references refused. `Acquired.ScreenPoint` keeps `System.Drawing.Point` — a screen struct IS the host's pixel frame and has no kernel counterpart — and that carve is confined to the detached fact: no operation on this page reads it back into a host call.
+`Acquired.Paint` carries the kernel `PerceptualColor`, admitted through `Slots.Shade` at the getter boundary and quantized back through `Slots.Rgb` — which now composes the kernel `ToDrawing` egress and REFUSES an out-of-gamut colour instead of hand-building `Color.FromArgb` off the clipping byte leg; the shim that bypassed the kernel's refusal is deleted and every write boundary rides the carrier. `Acquired.Objects` carries the selection page's own `PickOutcome` — survivors, named casualties, and the participating-getter fact — rather than a bare capture sequence, so a stale reference inside a multi-object pick no longer voids the whole acquisition and the caller reads which references refused. `Acquired.ScreenPoint` keeps `System.Drawing.Point` — a screen struct IS the host's pixel frame and has no kernel counterpart — and that carve is confined to the detached fact: no operation on this page reads it back into a host call.
 
 `RulePlan<TRule, TSlot>` is the folder's rule-roster spine (E-R30): five owners spelled `Seq<TRule>` + one-per-slot + `Traverse`-admit + apply independently — `AcceptPlan`, `PointPlan`, `ObjectPlan` here, `PickPolicy` on the selection page, `OptionSet` on the options page — and the spine owns the roster, the null screen, the slot-injectivity gate with its stated exemption, and the two folds; each family keeps only its typed wrapper and its own apply delegate. `ISlotted<TSlot>` types the slot identity: the erased `object SlotKey` compared through `object.Equals` deletes, and each family declares the closed slot vocabulary its knobs actually address.
 
@@ -142,7 +142,7 @@ public static class Slots {
 
 ## [03]-[ACCEPTANCE]
 
-`AcceptSlot` is the acceptance family's closed slot vocabulary — one row per physical getter knob — and `AcceptGate` rows carry every parameterless native accept call beside its result terminal and its slot, so acceptance grows by one row, never a new case. `AcceptRule` closes the modalities as PRESENCE cases: `Number` enables numeric acceptance, `Zero` widens it to zero (and refuses without `Number` beside it), `Transparent` enables transparent commands — each case's presence IS the enablement, so the booleans that restated presence as payload delete, and an absent case leaves the host default standing rather than writing it. `WaitFor` carries NodaTime `Duration` — semantic time per the substrate law; the host milliseconds spell once at the apply seam. `Requiring` is the derivation seam: a prompt terminal's required row lands only into an unoccupied slot, so a caller's explicit posture survives admission and the derived row is a default, never an override.
+`AcceptSlot` is the acceptance family's closed slot vocabulary — one row per physical getter knob — and `AcceptGate` rows carry every parameterless native accept call beside its result terminal and its slot, so acceptance grows by one row, never a new case. `AcceptRule` closes the modalities as PRESENCE cases: `Number` enables numeric acceptance, `Zero` widens it to zero (and refuses without `Number` beside it), `Transparent` enables transparent commands — each case's presence IS the enablement, so the booleans that restated presence as payload delete, and an absent case leaves the host default standing rather than writing it. `WaitFor` carries NodaTime `Duration` — semantic time per the substrate law; the host milliseconds spell once at the apply boundary. `Requiring` is the derivation step: a prompt terminal's required row lands only into an unoccupied slot, so a caller's explicit posture survives admission and the derived row is a default, never an override.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -216,7 +216,6 @@ public sealed partial class AcceptPlan {
     public RulePlan<AcceptRule, AcceptSlot> Plan { get; }
     public int OptionBudget { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref RulePlan<AcceptRule, AcceptSlot> plan,
@@ -275,7 +274,7 @@ public sealed partial class AcceptPlan {
 
 ## [04]-[POINT_ALGEBRA]
 
-`PointConstraint` closes the native constraint family; its four pick-off surfaces carry ONE `PickOff` carrier instead of four raw bools, so the axis has one name and a fifth constrained surface composes the row. `PointRule` parameterizes every independent point-getter setting as data over the closed `PointSlot` vocabulary: `PointGate` becomes a capability vocabulary and the per-gate `(row, bool)` pair collapses onto ONE `Gates(Enabled, Disabled)` rule carrying two disjoint sets, the snap bars carry `SnapBarSpan` rows instead of an `(Enabled, Ends)` pair, the direction arrow carries `ArrowSense`, and the base point carries its two independent affordances as a `CapabilitySet<BaseTrait>`. `PointFeedback` carries rail-returning callbacks whose failures interrupt the native loop and surface after `Get` returns; `Pose` alone returns a value — its `Transform` re-poses the drag buffer through the host's own display-feedback call.
+`PointConstraint` closes the native constraint family; its four pick-off surfaces carry ONE `PickOff` carrier instead of four raw bools, so the axis has one name and a fifth constrained surface composes the row. `PointRule` parameterizes every independent point-getter setting as data over the closed `PointSlot` vocabulary: `PointGate` becomes a capability vocabulary and the per-gate `(row, bool)` pair collapses onto ONE `Gates(Enabled, Disabled)` rule carrying two disjoint sets, the snap bars carry `SnapBarSpan` rows instead of an `(Enabled, Ends)` pair, the direction arrow carries `ArrowSense`, and the base point carries its two independent affordances as a `CapabilitySet<BaseTrait>`. `PointFeedback` carries result-returning callbacks whose failures interrupt the native loop and surface after `Get` returns; `Pose` alone returns a value — its `Transform` re-poses the drag buffer through the host's own display-feedback call.
 
 The three pointer arms take `GetPointFact` (RENAMED from `PointerFact` — the kernel `Interaction/input` owns that name and `Display/interaction` carries `ViewportPointerFact`; this is the THIRD spelling and it names its getter frame, E-R31): world point, window point, viewport identity, and the held `CapabilitySet<PointerKey>`, projected at the callback edge so no `GetPointMouseEventArgs` reaches a caller sink. The two DRAW arms keep their host args because a draw sink's whole purpose is the live `DisplayPipeline` the arg carries.
 
@@ -590,7 +589,7 @@ public sealed record PointPlan {
 
 `ObjectPlan`, `ModalInput`, `DragSelection`, and `AcquireIntent` close the remaining custom and one-shot routes; `ShapeAsk` rows carry the parameterless one-shot shape getters as data projecting through the kernel form recovery, so a new native shape is one row. `DragSelection` (RENAMED from `DragPlan` — the kernel `Interaction/transfer` owns `DragPlan` for the transfer payload; this selects DOCUMENT OBJECTS into a `TransformObjectList`, E-R31) carries the drag prompt, its object plan, and its scope.
 
-The modal object asks take `Document`'s `ObjectKinds`, never a raw `ObjectType`. The view asks project `ViewportFact` at the seam. `FileAsk` keys the host's sparse `GetFileNameMode` roster, and the file ask's `Option<string> Title` IS the route discriminant: a caption drives `GetFileName` and its absence drives `GetFileNameScripted`. `InputMap` is the `[Mapper]` seam for the three host-args projections — the getter mouse args, a viewport, and a view — so the detachment correspondence is generated with its derived columns declared, never three hand bodies (`[05]` seam `InputMap`).
+The modal object asks take `Document`'s `ObjectKinds`, never a raw `ObjectType`. The view asks project `ViewportFact` at the boundary. `FileAsk` keys the host's sparse `GetFileNameMode` roster, and the file ask's `Option<string> Title` IS the route discriminant: a caption drives `GetFileName` and its absence drives `GetFileNameScripted`. `InputMap` is the `[Mapper]` boundary for the three host-args projections — the getter mouse args, a viewport, and a view — so the detachment correspondence is generated with its derived columns declared, never three hand bodies (`[05]` boundary `InputMap`).
 
 The point getter lends `PickContext` and `GetPoint` to `GumballRig.Pick`; move and completion return transform evidence directly from the rig.
 
@@ -744,7 +743,6 @@ public sealed partial class ObjectPlan {
     public int Maximum { get; }
     public RulePlan<ObjectRule, ObjectSlot> Plan { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int minimum,
@@ -779,7 +777,6 @@ public sealed partial class DragSelection {
     public ObjectPlan Selection { get; }
     public DragScope Scope { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string prompt,
@@ -1520,13 +1517,13 @@ A caller-supplied delegate takes a detached fact, never a host handle: `GetPoint
 - Carve: `AcquireIntent.Transform` takes `Func<RhinoViewport, Point3d, Transform>`, a live host viewport into caller code. The host's own `GetTransform.CalculateTransform` override has that shape and nothing detached can replace it — the transform is computed FROM the viewport's camera each mouse sample, so a `ViewportFact` would answer a stale frame. The borrow is bounded by `TransformGetter`'s override body.
 - Carve: `ObjectRule.Filter` takes the host `GetObjectGeometryFilter`, whose delegate receives a live `RhinoObject`, its `GeometryBase`, and a `ComponentIndex` per candidate inside the host's own pick loop. The borrow is bounded by `SetCustomGeometryFilter`'s call window, which ends when the getter disposes.
 
-`System.Drawing.Point` on `Acquired.ScreenPoint` is the last host struct on the surface — a SCREEN frame the kernel does not model, terminating on the detached fact. Colour gets no carve: `PerceptualColor` is the kernel owner, `Slots.Shade`/`Slots.Rgb` are the only two seams a host colour crosses, and the egress REFUSES out-of-gamut rather than clipping.
+`System.Drawing.Point` on `Acquired.ScreenPoint` is the last host struct on the surface — a SCREEN frame the kernel does not model, terminating on the detached fact. Colour gets no carve: `PerceptualColor` is the kernel owner, `Slots.Shade`/`Slots.Rgb` are the only two boundaries a host colour crosses, and the egress REFUSES out-of-gamut rather than clipping.
 
 The command-thread carve: `RhinoApp.IsOnMainThread` at the `Get` entry is Rhino's COMMAND-thread affinity — a different axis than the kernel marshal, whose `UiThread`/`UiDispatch` owner sits at S0 below this page; the getter loop runs on the command thread the host owns, and the kernel dispatch never substitutes for it.
 
 Unit identity crosses as the kernel `ModelUnit` and nothing else: `UnitSystem`, `LengthUnit`, and a raw meters-per-unit factor each re-open on egress an admission the kernel already gated. This page RESOLVES a regime and never converts between two — `ModelUnit.ScaleTo` owns a cross-regime rescale, at the consumer that owns the target.
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-commands.md` — the `GetPoint`/`GetObject`/`GetTransform` custom-get family this rail brackets); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — the `[SmartEnum]` rule/constraint rosters, `[ComplexValueObject]` carriers, `[ObjectFactory]` grammar admission); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the `[Mapper]` option projection); `Generator.Equals` (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]` structural equality); `NodaTime` (`libs/dotnet/.api/api-nodatime.md` — the acquisition instant); kernel `Domain/rails` + `Numerics/atoms`.
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-commands.md` — the `GetPoint`/`GetObject`/`GetTransform` custom-get family this pipeline brackets); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — the `[SmartEnum]` rule/constraint rosters, `[ComplexValueObject]` carriers, `[ObjectFactory]` grammar admission); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the `[Mapper]` option projection); `Generator.Equals` (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]` structural equality); `NodaTime` (`libs/dotnet/.api/api-nodatime.md` — the acquisition instant); kernel `Domain/results` + `Numerics/atoms`.
 
 ## [09]-[RESEARCH]
 

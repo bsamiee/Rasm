@@ -1,20 +1,20 @@
 # [RASM_BIM_API_NODAMONEY]
 
-`NodaMoney` owns the first-class monetary value algebra backing the `Planning/cost#ESTIMATE` 5D cost rail: `decimal`-precision `Money` arithmetic over the embedded ISO 4217 `Currency` registry, lossless multi-share allocation, FX conversion through `ExchangeRate`, and the ambient `MoneyContext` rounding/precision policy. `Money` is a `readonly struct` implementing the full generic-math operator set, so a priced cost line is an expression over typed money, never a free `(double, string)` pair.
+`NodaMoney` owns the first-class monetary value algebra backing the `Planning/cost#ESTIMATE` 5D cost path: `decimal`-precision `Money` arithmetic over the embedded ISO 4217 `Currency` registry, lossless multi-share allocation, FX conversion through `ExchangeRate`, and the ambient `MoneyContext` rounding/precision policy. `Money` is a `readonly struct` implementing the full generic-math operator set, so a priced cost line is an expression over typed money, never a free `(double, string)` pair.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: money value family
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]       | [CAPABILITY]                                                                             |
-| :-----: | :---------------- | :------------------ | :--------------------------------------------------------------------------------------- |
-|  [01]   | `Money`           | money value         | `readonly struct` over `decimal Amount` + `Currency`; the priced scalar                  |
-|  [02]   | `FastMoney`       | fast money value    | `readonly struct` OACurrency-backed (`long`, 4-decimal fixed); + `long` `*`/`/`          |
-|  [03]   | `Currency`        | currency identity   | `readonly record struct` over ISO 4217 `Code`; `Symbol`/`MinimalAmount`/`NoCurrency`     |
-|  [04]   | `CurrencyInfo`    | registry record     | metadata plus public `TryFromCode`/`GetAllCurrencies`/`TryAdd`/`TryRemove` ISO 4217 seam |
-|  [05]   | `MoneyExtensions` | money allocation    | `static`: the `Money.Split` family (`int shares`/`int[] ratios`) -> `IEnumerable<Money>` |
-|  [06]   | `ExchangeRate`    | FX rate             | `readonly record struct` `(BaseCurrency, QuoteCurrency, decimal Rate)`; `Convert(Money)` |
-|  [07]   | `MinorUnit`       | minor-unit exponent | `enum: byte` — the decimal-digit exponent of a currency's minor unit                     |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]       | [CAPABILITY]                                                                                 |
+| :-----: | :---------------- | :------------------ | :------------------------------------------------------------------------------------------- |
+|  [01]   | `Money`           | money value         | `readonly struct` over `decimal Amount` + `Currency`; the priced scalar                      |
+|  [02]   | `FastMoney`       | fast money value    | `readonly struct` OACurrency-backed (`long`, 4-decimal fixed); + `long` `*`/`/`              |
+|  [03]   | `Currency`        | currency identity   | `readonly record struct` over ISO 4217 `Code`; `Symbol`/`MinimalAmount`/`NoCurrency`         |
+|  [04]   | `CurrencyInfo`    | registry record     | metadata plus public `TryFromCode`/`GetAllCurrencies`/`TryAdd`/`TryRemove` ISO 4217 boundary |
+|  [05]   | `MoneyExtensions` | money allocation    | `static`: the `Money.Split` family (`int shares`/`int[] ratios`) -> `IEnumerable<Money>`     |
+|  [06]   | `ExchangeRate`    | FX rate             | `readonly record struct` `(BaseCurrency, QuoteCurrency, decimal Rate)`; `Convert(Money)`     |
+|  [07]   | `MinorUnit`       | minor-unit exponent | `enum: byte` — the decimal-digit exponent of a currency's minor unit                         |
 
 [PUBLIC_TYPE_SCOPE]: rounding/precision policy and FX context
 
@@ -109,7 +109,7 @@
 - `MoneyContext` is a property of the VALUE, not of a block: the `Money` ctor stamps `MoneyContext.CurrentContext` into a 7-bit `MoneyContextIndex` in the value's own flag bits, `money.Context` reads it back, and `Add`/`Subtract`/`Remainder` THROW `MoneyContextMismatchException` on two operands carrying different contexts — so a policy is observed only where every mint sees it. `Create` builds the policy (its `IRoundingStrategy` the `StandardRounding(ToEven)` banker's default, `NoRounding` exact, or `CashDenominationRounding(decimals)` smallest-coin) rather than threading `MidpointRounding` per construction; `CreateAndSetDefault`/`DefaultThreadContext` seat it process-wide and the `IDisposable` `CreateScope` seats it on the AsyncLocal `ThreadContext` for a block.
 
 [STACKING]:
-- seam `MeasureValue` (`Rasm.Element/Properties/quantity#MEASURE_VALUE`): the `CostItem.ValueOf` join is the canonical stack — the seam owns the dimensioned takeoff read as the SI magnitude `Quantity.Si`, `Money` owns the priced scalar, and the line value is `Rate * (decimal)Quantity.Si` (`Money * decimal -> Money`); `Money / decimal` applies the `UnitBasis` per-basis denominator.
+- shared `MeasureValue` (`Rasm.Element/Properties/quantity#MEASURE_VALUE`): the `CostItem.ValueOf` join is the canonical stack — the contract owns the dimensioned takeoff read as the SI magnitude `Quantity.Si`, `Money` owns the priced scalar, and the line value is `Rate * (decimal)Quantity.Si` (`Money * decimal -> Money`); `Money / decimal` applies the `UnitBasis` per-basis denominator.
 - `GeometryGymIFC_Core` (`.api/api-geometrygym-ifc.md`): the `CostProjection.ValueOf` fold lifts the IFC `(double AppliedValue, double UnitBasis)` pair off `IfcCostValue.AppliedValue`/`UnitBasis.ValueComponent` into `new Money((decimal)amount, currency)` then `Money / (decimal)basis`, the currency resolving from the project `IfcMonetaryUnit` alone (`UnitBasis.UnitComponent` is the measure denominator's unit, never a currency source), so the foreign amount becomes typed money at the boundary.
 - `MPXJ.Net` (`libs/dotnet/Rasm.Persistence/.api/api-mpxj.md`): the 5D cost-input peer of the IFC graph — `ResourceAssignment.Cost`/`.BudgetCost`/`.Units` and `Resource.StandardRate`/`.Cost`/`.CostPerUse`/`.OvertimeRate` surface as parse-only foreign `double?`; the same `CostProjection.ValueOf` fold lifts each into `Money` at the boundary, the rate as `new Money((decimal)StandardRate.Amount, ...)` then `Money * (decimal)Units`. `QuikGraph` (`libs/dotnet/.api/api-quikgraph.md`) owns the CPM schedule math over `Task.Predecessors`/`Successors`; `NodaMoney` owns only the priced scalar the resource loading projects onto.
 - `LanguageExt.Core`: `CostMoney.Of` gates an ISO code through public `CurrencyInfo.TryFromCode` before construction and lifts `BimFault.Refused(key, BimScope.Planning, BimReason.Codec, detail)` on a miss; no exception-capture normalization or `.ToError()` hop exists. `CostSchedule.Rollup` folds the `Money` additive operator from `Money.AdditiveIdentity`, repricing each foreign line through `ExchangeRate.Convert` first.

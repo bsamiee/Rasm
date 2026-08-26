@@ -7,7 +7,7 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 - [02]-[OPERATION_FAMILY]: `BlockOp` closing every definition and instance mutation, `BlockTrait` naming each case's commit demands, and the leased member admission every authoring arm runs.
 - [03]-[READ_FAMILY]: `BlockAsk`/`BlockAnswer` closing the read questions, `FieldSource` dispatching the text-field grammar, and `ExplodedPiece` owning detached custody.
 - [04]-[COMMIT_SPINE]: `BlockTransaction` admitting one homogeneous program and `Blocks` walking the shared commit entry.
-- [05]-[SURFACE_LEDGER]: owner-to-ingress-to-rail-to-egress roster.
+- [05]-[SURFACE_LEDGER]: owner-to-ingress-to-pipeline-to-egress roster.
 
 ## [02]-[OPERATION_FAMILY]
 
@@ -21,7 +21,7 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 - Law: `Bake` compares produced object ids with the source definition roster — shallow expansion requires equality, recursive expansion at least the direct roster — and `AddExplodedInstancePieces` answers null on a no-op despite its non-nullable signature, so a zero-member definition admits that sentinel as an empty roster and any other null is a refusal.
 - Boundary: `HostInteraction` is the Document spine's dialogue axis and reaches the host as a `quiet:` argument; `FileReference : IDisposable`, so every linked-source mint rides an owned lease that releases the moment the host call returns.
 - Growth: a new mutation is one `BlockOp` case, one trait row read, and one `Apply` arm — the generated dispatch breaks loudly until all three land.
-- Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinitionTable` authoring, linked-source, lifecycle, and instance members; `FileReference`), `Rasm.Rhino.Document` (`DocumentCommit`, `HostInteraction`, `ResourceRef`/`ResourceId`/`ResourceIndex`/`ResourceName`, `DocumentPath`, `GeometryIntake`), kernel `Domain/rails` (`Op`, `Lease<T>`, `Fault`, `Custody`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinitionTable` authoring, linked-source, lifecycle, and instance members; `FileReference`), `Rasm.Rhino.Document` (`DocumentCommit`, `HostInteraction`, `ResourceRef`/`ResourceId`/`ResourceIndex`/`ResourceName`, `DocumentPath`, `GeometryIntake`), kernel `Domain/results` (`Op`, `Lease<T>`, `Fault`, `Custody`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -62,7 +62,6 @@ public sealed partial class BlockHyperlink {
     public string Url { get; }
     public string Tag { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string url, ref string tag) {
         url = url?.Trim() ?? string.Empty;
         tag = tag?.Trim() ?? string.Empty;
@@ -89,7 +88,6 @@ public sealed partial class BlockMetadata {
     public string Description { get; }
     public Option<BlockHyperlink> Hyperlink { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref ResourceName name,
@@ -144,7 +142,6 @@ public sealed partial class BlockMember {
     public GeometryIntake Source { get; }
     public ObjectAttributes Attributes { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref GeometryIntake source,
@@ -470,10 +467,10 @@ public abstract partial record BlockOp {
 - Law: array cardinality is proven ONCE and carried. The native explode answers three parallel arrays; one zip proves their lengths agree and hands the fold a row of admitted triples, so no step re-indexes three arrays and no step re-proves the count.
 - Law: custody direction is the PARENT's — an exploded piece's `Geometry` is a non-owning const wrapper parented to its `RhinoObject`, so the release disposes the parent and the wrapper falls with it; disposing the child while leaking the parent inverts ownership and double-frees at parent teardown.
 - Law: the attribute set stays the CAPTURE's until the whole fold lands. A rolled-back piece releases only the detached geometry it minted, and the final sweep releases every captured parent plus the attributes no surviving product took, so each attribute set disposes exactly once whichever arm runs. `ProductCustody` is that decision as a ROW — the bool the release took was this discriminant left unnamed.
-- Law: failure-release custody is the rail's, not a call site's — each of the three release points is one `Rollback` or `Settled`, where three hand `MapFail` blocks folding `primary + cleanup` stood.
+- Law: failure-release custody is the pipeline's, not a call site's — each of the three release points is one `Rollback` or `Settled`, where three hand `MapFail` blocks folding `primary + cleanup` stood.
 - Boundary: `Lease<System.Drawing.Bitmap>` is a GDI carrier the preview lifecycle owns, and `Rhino.DocObjects.TextFields` is the host's own field grammar — both stay host-side; the kernel's raster owners carry no GDI handle.
-- Exemption: `Capture` is the statement-shaped native out-parameter boundary — two `Explode` overloads whose only outputs are three `out` arrays — and both collapse immediately onto the same tuple rail.
-- Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceObject.Explode` overloads, `TextFields.GetInstanceAttributeFields`, `TextFields.BlockAttributeText`), `Rasm.Rhino.Document` (`GeometryCrossing`/`GeometryHandle`, `DocumentCommit`, `TableTarget`, `ResourceRef`), kernel `Domain/rails` (`Custody`), Riok.Mapperly (`[Mapper]`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Exemption: `Capture` is the statement-shaped native out-parameter boundary — two `Explode` overloads whose only outputs are three `out` arrays — and both collapse immediately onto the same tuple carrier.
+- Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceObject.Explode` overloads, `TextFields.GetInstanceAttributeFields`, `TextFields.BlockAttributeText`), `Rasm.Rhino.Document` (`GeometryCrossing`/`GeometryHandle`, `DocumentCommit`, `TableTarget`, `ResourceRef`), kernel `Domain/results` (`Custody`), Riok.Mapperly (`[Mapper]`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -593,11 +590,11 @@ internal static partial class FieldMap {
 ## [04]-[COMMIT_SPINE]
 
 - Owner: `BlockTransaction` `[ComplexValueObject]` is the admitted homogeneous program; `Blocks` is the folder's one mutation and read entry.
-- Entry: `BlockTransaction.Batch` admits the name, the redraw posture, and the operation span through the spine's one `Admission.All` fold, then proves the program at the generated factory; `Blocks.Commit` and `Blocks.Ask` are the only public rails and each mints its own key.
+- Entry: `BlockTransaction.Batch` admits the name, the redraw posture, and the operation span through the spine's one `Admission.All` fold, then proves the program at the generated factory; `Blocks.Commit` and `Blocks.Ask` are the only public entries and each mints its own key.
 - Law: the undo posture is the PROGRAM's, proved uniform at admission and DERIVED thereafter. A stored `recordsUndo` column was a second authority over a fact `Operations` already states, and a mixed recorded/unrecorded program fails at the factory rather than inside a bracket it cannot roll back.
 - Law: the homogeneity invariant is STRUCTURAL — it lives in `ValidateFactoryArguments`, so no path constructs a `BlockTransaction` whose operations disagree on the undo axis, and the hand `sealed class` with a private constructor is the deleted form.
 - Law: `Blocks.Commit` walks the shared commit entry and nothing else — needs derive through `SessionNeed.Mutation` over the program's `UndoCustody` row, one document demand carries the whole program, the kernel `Context` resolves only where a case demands it, and `DocumentCommit.Sealed` owns bracket, restoration, redraw, and seal. A hand-spelled `UndoBracket.Begin`, a redraw triple, or an inline need roster beside this envelope is the deleted form.
-- Packages: `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `UndoCustody`, `RedrawPolicy`, `DocumentCommit`, `Admission`), kernel `Domain/rails` (`Op`, `Context`, `Fault`, `Custody`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `UndoCustody`, `RedrawPolicy`, `DocumentCommit`, `Admission`), kernel `Domain/results` (`Op`, `Context`, `Fault`, `Custody`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -608,7 +605,6 @@ public sealed partial class BlockTransaction {
     public Seq<BlockOp> Operations { get; }
     public RedrawPolicy Redraw { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string name,
@@ -821,7 +817,7 @@ public static class Blocks {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [OWNER]            | [INGRESS]        | [RAIL]                                 | [EGRESS]              |
+| [INDEX] | [OWNER]            | [INGRESS]        | [PIPELINE]                             | [EGRESS]              |
 | :-----: | :----------------- | :--------------- | :------------------------------------- | :-------------------- |
 |  [01]   | `BlockOp`          | generated values | `Apply`                                | `Unit`                |
 |  [02]   | `BlockTrait`       | generated rows   | `CapabilitySet<CommitDemand>`          | undo + context demand |

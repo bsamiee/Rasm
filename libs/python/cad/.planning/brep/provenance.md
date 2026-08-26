@@ -19,7 +19,7 @@
 - Law: `KEPT` names itself as its own image, so a surviving sub-shape is a row like any other and survival is never inferred from an absent row.
 - Law: an arm that maps nothing carries `Correspondence()` — an empty trace roster the wire frames as a zero count, never an unset slot a consumer tests beside the roster.
 - Law: the generated classes are the interior carrier — a `msgspec` twin restating `Trace` or `Correspondence` is the deleted mirror, and `Outcome` alone stays a dataclass because it holds a native handle.
-- Boundary: `Outcome` never crosses the worker seam; `service/lane` marshals `BrepEvidence.correspondence` as binary and the native handle stays worker-local.
+- Boundary: `Outcome` never crosses the worker boundary; `service/lane` marshals `BrepEvidence.correspondence` as binary and the native handle stays worker-local.
 
 ```python
 from collections.abc import Callable, Sequence

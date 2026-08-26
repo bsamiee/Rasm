@@ -151,7 +151,7 @@ Introspection reads where and how the interpreter ran — execution location, me
 - Law: the probe kind is a closed vocabulary, not a tool-id parameter — one `Probe` member keys the `SCOPE` `frozendict` to its `(tool_id, event_mask)` row, so a new probe (`FAULT` raises, `RETURN` returns, `STEP` steps) is one row and the callback stays polymorphic over the event family because every admitted event passes `(code, instruction_offset, *rest)` with the offset second, so `co_positions()[offset // 2]` reads the raise/return/step site uniformly and the trailing exception or return value falls into `*rest`; the `LINE` event is excluded from the family precisely because its callback passes a line number where the offset belongs, so a per-event `tool=`/`events=` knob pair the body re-pairs is the rejected form and a line-keyed event mixed into the offset family is the rejected smuggle.
 - Law: `sys.monitoring` scopes events to the observed code object through `set_local_events(tool_id, code, events)`, never `set_events` global — a process-wide `RAISE` scraper fires on every internal `StopIteration` of the generator and context-manager protocol, so observation targets one `__code__`, a registered callback returns `sys.monitoring.DISABLE` to retire itself at a hot location, and `restart_events()` re-arms the disabled set; `settrace` is the rejected whole-program scraper.
 - Law: observation is a root-scoped primitive, not a per-call decorator arm — installing a monitoring callback inside an invocation aspect rescrapes on every call, so the probe registers once at the observation root over the target `__code__`.
-- Law: the audit gate is the interpreter-global security observer the scoped probe is not — `sys.addaudithook(hook)` installs one irreversible hook firing on every `sys.audit` event, so the watched set is a closed `Audited` vocabulary membership-tested inside a total hook that neither rails nor raises because a raising audit hook aborts the audited operation, and the gate forwards the matched `(event, args)` pair rather than scoping to one `__code__`.
+- Law: the audit gate is the interpreter-global security observer the scoped probe is not — `sys.addaudithook(hook)` installs one irreversible hook firing on every `sys.audit` event, so the watched set is a closed `Audited` vocabulary membership-tested inside a total hook that neither returns nor raises because a raising audit hook aborts the audited operation, and the gate forwards the matched `(event, args)` pair rather than scoping to one `__code__`.
 - Reject: frame-pointer-stripped native builds, `settrace`/`threading.settrace_all_threads` event scrapers, `set_events` global registration for a scoped probe, a monkeypatched or detach-expecting security probe where `sys.addaudithook` is irreversible, `co_lnotab` decoding, a manual watchdog thread where `dump_traceback_later` arms one, and line-only diagnostics that discard column positions.
 
 [MEMORY_AND_COLLECTOR]:
@@ -164,7 +164,7 @@ Introspection reads where and how the interpreter ran — execution location, me
 
 [ACTIVE_EXCEPTION]:
 - Use when: the in-flight exception feeds an introspection surface, or a syntax form changes what the interpreter reports about it.
-- Law: the active exception is read through `sys.exception()` — the single-object form that replaces the `sys.exc_info()` triple — and the raise-site `(lineno, end_lineno, col, end_col)` is `co_positions()` indexed at the deepest traceback frame: walk `__traceback__` to its last `tb_next`, then index `tuple(code.co_positions())[tb_lasti // 2]`, because `co_positions()` enumerates every instruction and only `tb_lasti` selects the raising one — a bare `next(co_positions())` reads the first instruction's location, not the fault's. The read never reconstructs a traceback string and never threads an `exc_info` tuple through a signature. Grouped-failure transport into the carrier — `except*` partitioning and `BaseException.add_note` cause preservation — is `concurrency.md`'s group-edge conversion and `rails-and-effects.md`'s boundary-capture law, composed when introspection rides a multi-failure boundary, never re-spelled here.
+- Law: the active exception is read through `sys.exception()` — the single-object form that replaces the `sys.exc_info()` triple — and the raise-site `(lineno, end_lineno, col, end_col)` is `co_positions()` indexed at the deepest traceback frame: walk `__traceback__` to its last `tb_next`, then index `tuple(code.co_positions())[tb_lasti // 2]`, because `co_positions()` enumerates every instruction and only `tb_lasti` selects the raising one — a bare `next(co_positions())` reads the first instruction's location, not the fault's. The read never reconstructs a traceback string and never threads an `exc_info` tuple through a signature. Grouped-failure transport into the carrier — `except*` partitioning and `BaseException.add_note` cause preservation — is `concurrency.md`'s group-edge conversion and `results-and-effects.md`'s boundary-capture law, composed when introspection rides a multi-failure boundary, never re-spelled here.
 - Reject: `sys.exc_info()[1]` where `sys.exception()` reads the active exception; a hand-built traceback string where `co_positions` carries the structured location; `next(co_positions())` standing in for the raise-site position it does not name; the top `__traceback__` frame where the deepest `tb_next` frame holds the raise; `return`/`break`/`continue` that exits a `finally` and discards the in-flight exception; a docstring-only deprecation where `@warnings.deprecated()` is the auditable marker the type checker and `DeprecationWarning` filter both see.
 
 ```python
@@ -283,14 +283,14 @@ def observed(target: CodeType, sink: Callable[[Location], None], /, *, probe: Pr
         sink(tuple(code.co_positions())[offset // 2])
         return sys.monitoring.DISABLE
 
-    sys.monitoring.use_tool_id(tool, target.co_qualname)  # Exemption: sys.monitoring registration is an imperative C-API seam.
+    sys.monitoring.use_tool_id(tool, target.co_qualname)  # Exemption: sys.monitoring registration is an imperative C-API call.
     sys.monitoring.register_callback(tool, events, fired)
     sys.monitoring.set_local_events(tool, target, events)
 
 
 @beartype
 def audited(sink: Callable[[str, tuple[object, ...]], None], /) -> None:
-    def hook(event: str, args: tuple[object, ...], /) -> None:  # Exemption: an audit hook fires on every event and neither rails nor raises.
+    def hook(event: str, args: tuple[object, ...], /) -> None:  # Exemption: an audit hook fires on every event and neither returns nor raises.
         if event in _WATCHED:
             sink(event, args)
 

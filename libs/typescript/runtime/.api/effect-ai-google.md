@@ -2,7 +2,7 @@
 
 `@effect/ai-google` binds Gemini's generateContent API onto the `@effect/ai` core, resolving the provider-agnostic `LanguageModel` and `Tool` tags against Gemini and attaching a `google` slot to the core `Prompt`/`Response` part interfaces.
 
-It curates a language model and four provider-executed tools; embeddings and token-counting stay on the raw `Generated.Client`, so `ai/embed.ts` routes a Google embedding through the low-level `EmbedContent`/`CountTokens` rail. Failure flows through `AiError`, all I/O through `Effect`/`Stream`.
+It curates a language model and four provider-executed tools; embeddings and token-counting stay on the raw `Generated.Client`, so `ai/embed.ts` routes a Google embedding through the low-level `EmbedContent`/`CountTokens` client. Failure flows through `AiError`, all I/O through `Effect`/`Stream`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -17,7 +17,7 @@ It curates a language model and four provider-executed tools; embeddings and tok
 |  [05]   | `Model`                | type          | `string`; Gemini ships no model-id enum, autocomplete open  |
 
 - `Config`, `GoogleConfig`: each carries a `static getOrUndefined` reader for the resolved service.
-- `Config.Service`: `GenerateContentRequest.Encoded` minus `contents`/`tools`/`toolConfig`/`systemInstruction` made partial, with a partial `toolConfig.functionCallingConfig: Omit<FunctionCallingConfig.Encoded,"mode">` — the tier-routing seam `ai/model.ts` writes per call.
+- `Config.Service`: `GenerateContentRequest.Encoded` minus `contents`/`tools`/`toolConfig`/`systemInstruction` made partial, with a partial `toolConfig.functionCallingConfig: Omit<FunctionCallingConfig.Encoded,"mode">` — the tier-routing record `ai/model.ts` writes per call.
 - `GoogleConfig.Service`: one optional `transformClient: (HttpClient) => HttpClient` mutating the request client.
 
 [PUBLIC_TYPE_SCOPE]: the provider boundary-hook augmentations — each `declare module` attaches one optional `google` key
@@ -60,7 +60,7 @@ It curates a language model and four provider-executed tools; embeddings and tok
 |  [04]   | `generateContent(GenerateContentRequest.Encoded) -> Effect<GenerateContentResponse, AiError>`       | instance | one-shot generate     |
 |  [05]   | `generateContentStream(GenerateContentRequest.Encoded) -> Stream<GenerateContentResponse, AiError>` | instance | streamed generate     |
 |  [06]   | `streamRequest(HttpClientRequest, Schema<A,I,R>) -> Stream<A, AiError, R>`                          | instance | decode arbitrary SSE  |
-|  [07]   | `client -> Generated.Client`                                                                        | property | raw REST rail         |
+|  [07]   | `client -> Generated.Client`                                                                        | property | raw REST client       |
 
 - `make`: `apiUrl` defaults to the host root; `layer`/`layerConfig` default to the `/v1beta` root. Gemini authenticates by the `Redacted` `apiKey` alone — no org or project id.
 - `generateContentStream`: re-emits a full `GenerateContentResponse` per chunk, so a consumer folds `response.candidates[]` deltas, never a tagged `event.type` union.
@@ -105,7 +105,7 @@ It curates a language model and four provider-executed tools; embeddings and tok
 - `@effect/platform`(`.api/effect-platform.md`): every `layer*` requires the `HttpClient.HttpClient` Tag and `Service.streamRequest` consumes an `HttpClientRequest.HttpClientRequest`; `FetchHttpClient.layer` (browser) or `NodeHttpClient.layerUndici` (node) satisfies the Tag at the app root.
 - `ai/model.ts`: folds the Google row into the provider table, reads `FinishPartMetadata.google.safetyRatings` for the output-moderation guardrail gate, and writes the `Config` tag per call for tier routing.
 - `ai/tool.ts`: projects the four `GoogleTool` provider-defined tools under the shared safety owner.
-- `ai/embed.ts`: binds no Google `EmbeddingModel` — a Google embedding routes through `GoogleClient.Service.client.EmbedContent`, or `BatchEmbedContents(model, { requests })` for a whole engine batch in one call, on the low-level `Generated.Client` rail, or through another provider's tag.
+- `ai/embed.ts`: binds no Google `EmbeddingModel` — a Google embedding routes through `GoogleClient.Service.client.EmbedContent`, or `BatchEmbedContents(model, { requests })` for a whole engine batch in one call, on the low-level `Generated.Client`, or through another provider's tag.
 - `BatchEmbedContents(model, {requests}) -> BatchEmbedContentsResponse`: each request is an `EmbedContentRequest` carrying `model` in `models/{id}` form, `content`, an optional `taskType`, an optional `title` (honoured for `RETRIEVAL_DOCUMENT` alone), and an optional `outputDimensionality` that truncates the vector FROM THE END and is refused by the pre-2024 embedding generation; the response answers `embeddings[]` positionally, each an optional `values` array.
 
 [LOCAL_ADMISSION]:

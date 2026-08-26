@@ -46,5 +46,5 @@
 - `otel/server` `[02]-[REGISTRATION]`: the server registration node constructs the row from the export policy — the outbound hook matched against the collector host and port its `_authority` projection normalizes out of the parsed options, the inbound hook against the policy's own path roster, the parent-presence gate off `policy.server.orphan`, and the redaction roster off `policy.server.redact`.
 
 [LOCAL_ADMISSION]:
-- `scope:runtime`, server condition only — the server registration node is the sole importer, and Effect's own `Effect.withSpan` seams remain the primary span source.
-- this row covers foreign libraries; a branch seam reaching for it instead of opening its own span inverts the precedence law.
+- `scope:runtime`, server condition only — the server registration node is the sole importer, and Effect's own `Effect.withSpan` call sites remain the primary span source.
+- this row covers foreign libraries; a branch boundary reaching for it instead of opening its own span inverts the precedence law.

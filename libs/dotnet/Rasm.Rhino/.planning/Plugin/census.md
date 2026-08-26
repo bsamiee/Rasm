@@ -15,7 +15,7 @@
 
 ## [02]-[VOCABULARY]
 
-- Owner: `PluginKind` `[SmartEnum<PlugInType>]` is the plug-in kind vocabulary and realizes `ICapability<PluginKind>` so a kind SET is the kernel `CapabilitySet<PluginKind>`; the host flag IS the capability, so its member name is the canonical text and its bit is the rank, and no hand-minted key or rank column can drift from the enum the registry publishes.
+- Owner: `PluginKind` `[SmartEnum<PlugInType>]` is the plug-in kind vocabulary and realizes `ICapability<PluginKind>` so a kind SET is the kernel `CapabilitySet<PluginKind>`; the host flag IS the capability, its member name is the canonical text, and its bit is projected only where a mask is required.
 - Law: the `None` row exists so a host read is total — `PlugInInfo.PlugInType` answers `None` for a record whose kind the manager never resolved (`.api/api-rhinocommon-plugins.md:70`), and a vocabulary missing that row would refuse a row the registry genuinely holds. Its bit is zero, so it contributes nothing to a mask and cannot survive a mask ingress.
 - Law: `PluginKind.Law` BARS the empty set — `GetInstalledPlugInNames` reads the OR-fold as its filter and an empty selection asks the host for nothing while looking like a request; the corner states as the complement it is, not as an enumeration of the legal rest.
 - Owner: `PluginTrait` and `PluginState` are the descriptor's and the presence probe's own capability vocabularies, each row carrying the host read it answers — `PluginTrait` reads the registry record, `PluginState` reads the two `PlugInExists` out-slots — so each set is TOTAL over its producer's knowledge and neither can answer a row its host member never reported.
@@ -49,7 +49,6 @@ public sealed partial class PluginKind : ICapability<PluginKind> {
     public static readonly PluginKind Any = new(key: PlugInType.Any);
 
     string ICapability<PluginKind>.Key => Key.ToString();
-    int ICapability<PluginKind>.Rank => (int)Key;
 
     public static CapabilityLaw<PluginKind> Law { get; } =
         CapabilityLaw<PluginKind>.Forbidden(barred: Seq(CapabilitySet<PluginKind>.None));
@@ -187,7 +186,7 @@ public sealed record PluginProtection(PluginKey Plugin, LoadProtection Behavior)
 - Law: an unresolved identity or path is `None`, not a fault — the host answers `Guid.Empty` or an empty string for an unknown coordinate, and those sentinels are projected away by `PluginKey.Maybe` and `Op.Text` at the row rather than surfacing as a value.
 - Law: an answer names the request it answers where the payload alone cannot — `PluginAnswer.Names` carries its `NameSource`, because a command roster, an installed-name roster, and a folder roster are three questions with one payload shape (folder RULINGS `[02]`).
 - Boundary: the descriptor row is the ONE read that touches `PlugInInfo`; every other row reads a free-standing static, so the native record's lifetime never spans two reads.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/rails` (`Op.AcceptText`, `Op.Text`, `Op.Need`, `Op.Probe`, `Op.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/results` (`Op.AcceptText`, `Op.Text`, `Op.Need`, `Op.Probe`, `Op.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
 
 ```csharp
 // --- [TABLES] --------------------------------------------------------------------------
@@ -357,7 +356,7 @@ public abstract partial record PluginAnswer {
 - Law: the kind filter leaves the capability owner ONCE, at the one host member that takes the raw flag word, so the OR-fold has a single spelling and no caller re-derives it.
 - Law: `Icon` is a separate leased entry, not a `PluginInfo` field, because a raster is caller-disposed custody and a record field would make its lifetime ambient; it answers the kernel `AssetOrigin.Raster` over an `AssetRaster.Gdi` scale row, so a consumer receives extent and scale rather than an unlabelled bitmap and composes `AssetOrigin.Resolve` for any other product shape.
 - Boundary: every native string crosses through `Op.Text` and every registry identity through `PluginKey.Maybe`, so a host null, an empty string, and a `Guid.Empty` are each the same typed absence.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/rails` (`Op`, `Op.Text`, `Op.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/results` (`Op`, `Op.Text`, `Op.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -415,7 +414,7 @@ public static class PluginCensus {
 - Law: identity-keyed load answers a bare `bool`, so a false answer refuses typed with the requested key as detail; the host publishes no richer reason on that overload.
 - Law: `SetLoadProtection` returns nothing and the host publishes no failure signal, so `PluginOutcome.Protected` reports the assignment the boundary made and a caller wanting the settled state re-reads `PluginRead.Protection`.
 - Boundary: loading a plug-in runs its `OnLoad` inside this call, so a `Commit` is a host lifecycle event, never a query — this is exactly why the read family carries no load flag.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_API_LOGS]
 
-`@opentelemetry/api-logs` owns the logs-signal API tier beside the trace and metric APIs: the `SeverityNumber`/`AnyValue`/`LogBody`/`LogAttributes` vocabulary, the `LogRecord` input shape, the `Logger`/`LoggerProvider` contracts, and the `logs` global registration seam. Application logging rides `Effect.log` under the facade; this tier serves the SDK bridge and third-party instrumentation emitting OTel logs directly.
+`@opentelemetry/api-logs` owns the logs-signal API tier beside the trace and metric APIs: the `SeverityNumber`/`AnyValue`/`LogBody`/`LogAttributes` vocabulary, the `LogRecord` input shape, the `Logger`/`LoggerProvider` contracts, and the `logs` global registration point. Application logging rides `Effect.log` under the facade; this tier serves the SDK bridge and third-party instrumentation emitting OTel logs directly.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -28,7 +28,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the global logs registration seam
+[ENTRYPOINT_SCOPE]: the global logs registration point
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                       |
 | :-----: | :-------------------------------------------- | :------------- | :-------------------------------------------------------- |
@@ -45,7 +45,7 @@
 [STACKING]:
 - `@opentelemetry/sdk-logs`(`.api/opentelemetry-sdk-logs.md`): the SDK implements these contracts — `SdkLogRecord` is the mutable build of this `LogRecord` input, `LoggerConfig.minimumSeverity` keys on `SeverityNumber`, and `LogRecordProcessor.enabled?` mirrors `Logger.enabled` as the same pre-build drop at the processor tier; vocabulary flows downward and nothing here depends on the SDK.
 - `@opentelemetry/exporter-logs-otlp-http`(`.api/opentelemetry-exporter-logs-otlp-http.md`): `OTLPLogExporter` serializes `ReadableLogRecord`s carrying this vocabulary — API → SDK processor → exporter is the one pipeline order.
-- `@effect/opentelemetry`(`.api/effect-opentelemetry.md`): the facade wires the provider through `Logger.layerLoggerProvider` and owns the global registration, so `Effect.log` is the application-log path; direct `logs.getLogger` serves third-party instrumentation emitting OTel logs outside the Effect rail.
+- `@effect/opentelemetry`(`.api/effect-opentelemetry.md`): the facade wires the provider through `Logger.layerLoggerProvider` and owns the global registration, so `Effect.log` is the application-log path; direct `logs.getLogger` serves third-party instrumentation emitting OTel logs outside the Effect logger.
 - `otel/crash`: fatal capture keys `SeverityNumber.FATAL` and `eventName` on this vocabulary, threading `context` so a crash record correlates to its span.
 
 [LOCAL_ADMISSION]:

@@ -1,6 +1,6 @@
 # [RASM_RHINO_BLOCK_MODEL]
 
-Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-state projection, one dependency request, and closed policy values for every mutation and preview seam. Native discriminants enter once, `LinkState` carries their interior meaning, `BlockStamp` separates process-local geometry change from federation content identity, and every sibling re-resolves the Document-owned `ResourceRef` through `Definitions.Lens` inside its document window. The link-condition algebra seats here: `LinkCondition` names what a linked source must hold, `SourceMode` declares which conditions each source axis REQUIRES as a capability set, and the lifecycle rail reads `Regenerates` as one subset test instead of re-deriving a ternary from two bools.
+Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-state projection, one dependency request, and closed policy values for every mutation and preview boundary. Native discriminants enter once, `LinkState` carries their interior meaning, `BlockStamp` separates process-local geometry change from federation content identity, and every sibling re-resolves the Document-owned `ResourceRef` through `Definitions.Lens` inside its document window. The link-condition algebra seats here: `LinkCondition` names what a linked source must hold, `SourceMode` declares which conditions each source axis REQUIRES as a capability set, and the lifecycle pipeline reads `Regenerates` as one subset test instead of re-deriving a ternary from two bools.
 
 ## [01]-[INDEX]
 
@@ -43,11 +43,11 @@ public static class Definitions {
 ## [03]-[SNAPSHOT]
 
 - Owner: `BlockSnapshot` resolves its `ResourceRef` through `Definitions.Lens`, then captures identity, normalized source state, member order, the reference scope its placement census ran under, placed-reference evidence, usage, containers, and both change probes in one host read; `SourceFacet` is the source-axis capability vocabulary and `SourceMode` its keyed boundary owner carrying facets, required link conditions, and the host ordinal; `LinkCondition` names what a linked source must HOLD; `ArchiveCondition` is the archive-health capability vocabulary and `SourceHealth` its keyed owner; `LayerScope` closes the linked-definition layer policy; `LinkState` carries the interior meaning; `BlockDependency`/`BlockDependencyAnswer` fold the native probes onto typed answers.
-- Law: `SourceMode` declares its behaviour as SETS — `Facets` states whether the mode reads a source and embeds a copy, `Requires` states which `LinkCondition` rows a regeneration demands — and `Regenerates(held)` is ONE subset read (`held.AdmitsAll(Requires)`), so the lifecycle rail's refusal DERIVES from the missing condition and the two derived bools plus the ternary over their product are the deleted forms. The retired host ordinal `1` folds onto `Static` at admission so a legacy archive reads without the fence ever spelling the `[Obsolete]` host case.
+- Law: `SourceMode` declares its behaviour as SETS — `Facets` states whether the mode reads a source and embeds a copy, `Requires` states which `LinkCondition` rows a regeneration demands — and `Regenerates(held)` is ONE subset read (`held.AdmitsAll(Requires)`), so the lifecycle pipeline's refusal DERIVES from the missing condition and the two derived bools plus the ternary over their product are the deleted forms. The retired host ordinal `1` folds onto `Static` at admission so a legacy archive reads without the fence ever spelling the `[Obsolete]` host case.
 - Law: `SourceHealth` rows carry ONE `Condition` set over `ArchiveCondition` — a stale link and a broken link are capability rows, not two bool columns — and the vocabulary's absent row (`NotALinkedInstanceDefinition`) stays ABSENCE at the consumer: an unlinked definition has no source health.
-- Law: `Placements` and `InUse` answer only within `Scope`, while `Usage` carries the host's own scope-free tally, so a census reading empty under one scope is never confused with a definition nothing places; `InUse` DERIVES from the placement roster and is never stored. Containers carry stable ids, matching the topology rail's own vertex spelling. Member admission revalidates geometry and attributes with native diagnostic evidence before either enters identity.
+- Law: `Placements` and `InUse` answer only within `Scope`, while `Usage` carries the host's own scope-free tally, so a census reading empty under one scope is never confused with a definition nothing places; `InUse` DERIVES from the placement roster and is never stored. Containers carry stable ids, matching the topology graph's own vertex spelling. Member admission revalidates geometry and attributes with native diagnostic evidence before either enters identity.
 - Law: `BlockDependency` admits table indexes against their live bounds before one table fold composes the native dependency probes, and answers `BlockDependencyAnswer` — presence for a table probe, nesting depth for a definition probe — because one integer standing for both makes a depth of one indistinguishable from a boolean true.
-- Law: every host read on this page runs inside `DocumentSession.Demand`, which resolves on the host command thread — that demand IS the affinity rail the thread-affine members (`GetReferences`, every `CreatePreviewBitmap` overload) require, and composing one outside a demand is the deleted form.
+- Law: every host read on this page runs inside `DocumentSession.Demand`, which resolves on the host command thread — that demand IS the affinity path the thread-affine members (`GetReferences`, every `CreatePreviewBitmap` overload) require, and composing one outside a demand is the deleted form.
 - Law: `BlockStamp.Geometry` remains an in-process invalidation probe; `BlockStamp.Content` is the federation content key minted through the kernel `CanonicalWriter` — STORED definition fields and the admitted member payloads frame canonically, the archive is a PRODUCT of the stamp and never its preimage, and live-state axes (archive health, tenuous resolution) stay snapshot columns declared derived. NAMED LOSS: the prior hand preimage framed big-endian; the kernel writer frames little-endian with int32-LE string length prefixes, so the identity RE-KEYS ONCE at this landing and every stored stamp re-mints — stated here, never re-derived per consumer. Witness: `Identity` is one `ContentHash.Of<TState>` call over chained writer rows where four hand `Write` overloads, an `ArrayPoolBufferWriter`, and a `File3dm.ToByteArray()` round-trip stood.
 - Law: member content frames as ROWS — ordinal, the geometry's host `DataCRC` remainder, the attribute set's host `DataCRC` remainder — count-framed by the writer's own `Rows`, so member order is identity, no live `Guid` enters the preimage, and the archive-minted ordinal ids delete with the archive round-trip.
 - Boundary: `GeometryCrc` chains the host remainder for the process-local probe and never crosses a boundary; the kernel `ContentHash` is the ONLY federation identity (`Document/geometry.md` states the custody split).
@@ -236,7 +236,6 @@ public sealed partial class BlockUsage {
     public int TopLevel { get; }
     public int Nested { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int total,
@@ -548,7 +547,6 @@ internal sealed partial class PreviewFrame {
     public AssetExtent Extent { get; }
     public RasterScale Scale { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DefinedView projection,

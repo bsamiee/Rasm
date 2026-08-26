@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_PROTOBUF]
 
-`protobuf` owns the `google.protobuf` message runtime beneath the two foreign IRs the branch decodes — the Substrait plan and the ONNX model — whose `_pb2` classes derive from `Message`. It folds binary, JSON, and text codecs over those messages beside the well-known value carriers, and hands the estate's own wire vocabulary to `protobuf-py`.
+`protobuf` owns the `google.protobuf` message runtime beneath the two foreign IRs the branch decodes — the Substrait plan and the ONNX model — whose `_pb2` classes derive from `Message`. It folds binary, JSON, and text codecs over those messages beside the well-known value carriers, and hands the repo's own wire vocabulary to `protobuf-py`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -159,11 +159,11 @@
 - `onnx`(`libs/python/compute/.api/onnx.md`): `ModelProto` and `GraphProto` are `_pb2` messages; `onnx.load_model_from_string(s)` lands the model through `ParseFromString`, and `model.SerializeToString()` is the byte handoff `onnxruntime.InferenceSession` consumes past the checker gate.
 - `confluent-kafka`(`.api/confluent-kafka.md`): `ProtobufSerializer(msg_type, schema_registry_client)` calls `Message.SerializeToString()` beneath its magic-byte and message-index framing while `ProtobufDeserializer(message_type)` calls `ParseFromString` and answers a bad frame with `message.DecodeError`; the branch hands it messages and never frames bytes itself.
 - `opentelemetry-exporter-otlp-proto-http`(`.api/opentelemetry-exporter-otlp-proto-http.md`): `OTLPSpanExporter.export(spans)` encodes the SDK batch into an OTLP `_pb2` request and POSTs its `SerializePartialToString()` bytes, so this runtime is the encode engine under every signal exporter.
-- `protobuf-py`(`.api/protobuf-py.md`): the two runtimes meet on descriptor bytes alone — a `FileDescriptorSet.SerializeToString()` from this runtime feeds `protobuf.wkt.FileDescriptorSet.from_binary(...).to_registry()` so a Substrait or ONNX schema reads as `DescMessage` views on the estate rail; no estate fence transcodes between the two message families.
+- `protobuf-py`(`.api/protobuf-py.md`): the two runtimes meet on descriptor bytes alone — a `FileDescriptorSet.SerializeToString()` from this runtime feeds `protobuf.wkt.FileDescriptorSet.from_binary(...).to_registry()` so a Substrait or ONNX schema reads as `DescMessage` views on the repo domain; no repo fence transcodes between the two message families.
 
 [LOCAL_ADMISSION]:
-- `_pb2` classes arrive from the admitted IR distributions alone; no first-party `.proto` compiles against this runtime, and `protobuf-py` mints every estate wire message.
+- `_pb2` classes arrive from the admitted IR distributions alone; no first-party `.proto` compiles against this runtime, and `protobuf-py` mints every repo wire message.
 - `proto.serialize`/`proto.parse` carry the non-mutating path, and `ParseFromString` earns its call only where a caller reuses a pre-allocated message.
-- Codec fences name every refusal root their leg touches, since `message.Error` and `json_format.Error` stand disjoint and a catch naming one alone lets the other past the rail.
+- Codec fences name every refusal root their leg touches, since `message.Error` and `json_format.Error` stand disjoint and a catch naming one alone lets the other past the result.
 - Emit reads `MessageToDict(preserving_proto_field_name=True)` so the mapping keys match the proto field names the interior model already spells.
 - Unknown-field census rides `unknown_fields.UnknownFieldSet`, and `DiscardUnknownFields()` marks the deliberate erase a re-emit declares.

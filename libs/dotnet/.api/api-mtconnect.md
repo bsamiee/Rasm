@@ -239,7 +239,7 @@ Decode traverses `StreamsResponseDocument` through `DeviceStream` and `Component
 - within-lib: the `Tooling/magazine` `ToolAssembly` composes `CuttingToolAsset` as its tool-data model; the toolpath generator reads `ToolLife` remaining life against `Limit` for a mid-program tool change, and reads the `CuttingToolDefinition` `Format`-tagged `Value` through the structured `Measurements`/`CuttingItems`, never re-parsing the raw string
 
 [LOCAL_ADMISSION]:
-- Partitions bind per consuming folder and never cross: `Rasm.AppHost` reaches the connectivity namespaces alone and `Rasm.Fabrication` the `MTConnect.Assets.CuttingTools` slice with the `Asset` base, so a fabrication fence touching the devices/observations/streams/agent machinery, or a live-wire fence authoring a cutting-tool asset, reaches past the surface its own rail admits.
+- Partitions bind per consuming folder and never cross: `Rasm.AppHost` reaches the connectivity namespaces alone and `Rasm.Fabrication` the `MTConnect.Assets.CuttingTools` slice with the `Asset` base, so a fabrication fence touching the devices/observations/streams/agent machinery, or a live-wire fence authoring a cutting-tool asset, reaches past the surface its own leg admits.
 - Data-item maps (device key, data-item keys, poll interval, sequence cursor) carry binding-spec policy data; the per-row retry is the `OutboundHop` breaker, never an MTConnect re-poll loop.
 - Fabrication `Tooling/magazine` mid-job tool-life reload decodes `CuttingToolAsset` life/wear observations, and `Verify/probing` binds measured-feature/work-offset observations; both pin the `-Common` model slice and firewall transport to the `OutboundHop`. OPC-UA/umati machine data stays on the `OPCFoundation` runtime, never re-homed here.
 

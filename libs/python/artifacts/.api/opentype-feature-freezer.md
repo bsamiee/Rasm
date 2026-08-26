@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_OPENTYPE_FEATURE_FREEZER]
 
-`opentype_feature_freezer` owns GSUB-into-`cmap` feature freezing for the artifacts font rail: the single `RemapByOTL` engine bakes chosen GSUB single (LookupType 1) and alternate (LookupType 3) substitutions into a font's default Unicode-to-glyph map so features such as `smcp`/`onum`/`ss01` render on-by-default in non-OpenType consumers, then rewrites the `name`/CFF naming tables. It reads and writes through `fontTools.ttLib.TTFont` and owns no font model. `typography/font` `FontEngineering` drives it as the `FREEZE` `FontOp` arm — freeze rebinds `cmap` where `SUBSET` prunes glyphs.
+`opentype_feature_freezer` owns GSUB-into-`cmap` feature freezing for the artifacts font domain: the single `RemapByOTL` engine bakes chosen GSUB single (LookupType 1) and alternate (LookupType 3) substitutions into a font's default Unicode-to-glyph map so features such as `smcp`/`onum`/`ss01` render on-by-default in non-OpenType consumers, then rewrites the `name`/CFF naming tables. It reads and writes through `fontTools.ttLib.TTFont` and owns no font model. `typography/font` `FontEngineering` drives it as the `FREEZE` `FontOp` arm — freeze rebinds `cmap` where `SUBSET` prunes glyphs.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -78,7 +78,7 @@ In-process composition bypasses these and builds the options carrier directly; `
 - `fontTools`(`.api/fonttools.md`): shares the `TTFont` binary-font model the `typography/font` `SUBSET`/`INSTANCE`/`OUTLINE`/`EMBED_AUDIT` arms operate on; a `FREEZE -> SUBSET` chain freezes `cmap` to the default-glyph set, then `Subsetter.populate(unicodes=...)` prunes to the now-default glyphs so frozen smallcaps survive. fontTools owns the model; this package owns the GSUB->`cmap` remap fontTools exposes as no one-call op.
 - `msgspec`(`.api/msgspec.md`): the design-side options carrier is a frozen `Struct` spreading the [02] field names.
 - `beartype`(`.api/beartype.md`): validates the feature-tag/script-tag inputs at the boundary before the native remap.
-- `expression`(`.api/expression.md`): the `FREEZE` arm returns the `Result`/`RuntimeRail[ContentKey]` every `FontOp` arm rides; because the engine sets `.success` `False` on an unopenable/unsavable font instead of raising, the arm reads `engine.success` after `run()` and lifts a `False` into the rail failure rather than trusting a silent return.
+- `expression`(`.api/expression.md`): the `FREEZE` arm returns the `Result`/`RuntimeResult[ContentKey]` every `FontOp` arm rides; because the engine sets `.success` `False` on an unopenable/unsavable font instead of raising, the arm reads `engine.success` after `run()` and lifts a `False` into the result failure rather than trusting a silent return.
 - within-lib: `openFont`/`saveFont` are path-only, so the arm brackets a temp-path round-trip — write the input `font` bytes to a `NamedTemporaryFile`, point `options.inpath`/`options.outpath` at temp paths, `RemapByOTL(options).run()`, read the output back to `bytes`, `unlink` both in `finally` — exactly as `typography/shape` composes blackrenderer's path-only `saveImage`.
 - `typography/shape` (uharfbuzz) applies features per-run and reversibly at shaping time while `FREEZE` bakes them permanently into `cmap`, so the two are complementary and a make-smallcaps-default request routes to `FREEZE`, never a hand-rolled `cmap` rewrite or a uharfbuzz reshape.
 
@@ -86,4 +86,4 @@ In-process composition bypasses these and builds the options carrier directly; `
 - Freeze step is `RemapByOTL(options).run()` over a temp-path round-trip, never a hand-walked `GSUB` traversal nor a hand-built `cmap` rewrite — the engine owns the LookupType 1/3/7 fold and the alternate first-pick.
 - Freeze policy is the typed options struct spreading the [02] field names, never a loose `dict[str, object]` and never a parallel rename helper — `renameFont` owns the `name`/CFF rename and the OFL replace.
 - Font model stays `fontTools.ttLib.TTFont`, so a `FREEZE -> SUBSET -> INSTANCE` chain runs on one model.
-- `engine.success` carries a freeze fault into the `RuntimeRail` failure; `report` mode writes no font and prints the script, language, and feature enumeration.
+- `engine.success` carries a freeze fault into the `RuntimeResult` failure; `report` mode writes no font and prints the script, language, and feature enumeration.

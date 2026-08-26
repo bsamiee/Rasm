@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_DIALOGHOST]
 
-`DialogHost.Avalonia` owns retained modal orchestration over an Avalonia overlay region: a `DialogHost` control marks the region and a static identifier-keyed surface drives it by `Identifier`, no control reference held. `Show` returns `Task<object?>` whose awaited value is the close parameter — dismissal-as-a-value, a confirm to its chosen result and a cancel to `null`. `DialogClosingEventArgs.Cancel()` vetoes a dismissal, `IsMultipleDialogsEnabled` stacks sessions, and AppUi binds every surface through one ReactiveUI `Interaction` seam that re-types the erased parameter onto the `Fin` rail.
+`DialogHost.Avalonia` owns retained modal orchestration over an Avalonia overlay region: a `DialogHost` control marks the region and a static identifier-keyed surface drives it by `Identifier`, no control reference held. `Show` returns `Task<object?>` whose awaited value is the close parameter — dismissal-as-a-value, a confirm to its chosen result and a cancel to `null`. `DialogClosingEventArgs.Cancel()` vetoes a dismissal, `IsMultipleDialogsEnabled` stacks sessions, and AppUi binds every surface through one ReactiveUI `Interaction` boundary that re-types the erased parameter onto `Fin`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -27,7 +27,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[STATIC_DIALOG_OPS]: static `DialogHost` surface, identifier-keyed, no control reference; `Show` is the awaitable result rail
+[STATIC_DIALOG_OPS]: static `DialogHost` surface, identifier-keyed, no control reference; `Show` is the awaitable result
 
 | [INDEX] | [SURFACE]                                                 | [CAPABILITY]            |
 | :-----: | :-------------------------------------------------------- | :---------------------- |
@@ -102,9 +102,9 @@
 - `UpdateContent` swaps a resolved session's content in place (progress -> result) without closing, so the awaited `Show` task stays the single result handle across content phases.
 
 [STACKING]:
-- `api-reactiveui`(`.api/api-reactiveui.md`): each `DialogIntent` case maps to `Show(request, Identifier)` through one per-root `Interaction<DialogIntent, object?>`, and the erased `object?` close parameter re-types onto the `Fin` rail once at `DialogSurface.Project`, never per call site.
+- `api-reactiveui`(`.api/api-reactiveui.md`): each `DialogIntent` case maps to `Show(request, Identifier)` through one per-root `Interaction<DialogIntent, object?>`, and the erased `object?` close parameter re-types onto `Fin` once at `DialogSurface.Project`, never per call site.
 - `api-avalonia-fluent`(`.api/api-avalonia-fluent.md`): `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle.CornerRadius` resolve through Fluent theme token keys, so a host inherits the app theme rather than carrying inline brushes.
-- within-lib `DialogTopology`: one row binds identifier, stacking, close policy, and styling tokens per admitted surface, and `DialogSurface` folds `UpdateContent` with the toast/progress rail so a long-running session advances through content phases on one `Show` handle.
+- within-lib `DialogTopology`: one row binds identifier, stacking, close policy, and styling tokens per admitted surface, and `DialogSurface` folds `UpdateContent` with the toast/progress path so a long-running session advances through content phases on one `Show` handle.
 
 [LOCAL_ADMISSION]:
-- Every modal, transient, and pick surface binds one `DialogTopology` row and reaches DialogHost only through the `Interaction` seam; the static identifier surface addresses every session, and overlay, blur, and chrome resolve through theme tokens.
+- Every modal, transient, and pick surface binds one `DialogTopology` row and reaches DialogHost only through the `Interaction` boundary; the static identifier surface addresses every session, and overlay, blur, and chrome resolve through theme tokens.

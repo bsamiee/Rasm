@@ -2,7 +2,7 @@
 
 `DocumentScope` is the document spine of the GH2 graph boundary — ONE scope operator owning document minting across the inert/inactive/active tiers, the closed inert-facet read, and ONE command gate absorbing the whole `DocumentMethods` verb surface AND the lifecycle/persistence/shelf commands: the former `Apply`/`Transact` arity twins are one `Transact` over one `DocumentAct` union. This page also declares `GateOutcome` with its payload records and the `DocumentGate.Run` marshal spine every `Document/*` command composes.
 
-Every gate crosses the marshal through the kernel's synchronous `UiThread.Run` arity and returns the host's `GateOutcome`. Mutation fires the `document.mutate` veto row on the hook rail before committing, which is that row's fire-site producer.
+Every gate crosses the marshal through the kernel's synchronous `UiThread.Run` arity and returns the host's `GateOutcome`. Mutation fires the `document.mutate` veto row on the hook dispatch before committing, which is that row's fire-site producer.
 
 ## [01]-[INDEX]
 
@@ -20,7 +20,7 @@ Every gate crosses the marshal through the kernel's synchronous `UiThread.Run` a
 - Law: `Read` owns the INERT facets alone — `Objects` is `Document/graph.md`'s, `Undo` is `Document/history.md`'s, `Solution` is `Document/solution.md`'s, `Methods` is `[03]`'s gate.
 - Law: keyed state is one shelf — `Document.CustomValues` is the host's only `KeyedValues` facet; a shelf selector over a one-inhabitant vocabulary carries no information.
 - Law: the archive is symmetric on ONE axis — `Store(IWriter[, FileContents])` writes and the `Document(IReader)` constructor reads, so the load posture is a MINT beside `DocumentTier`, never a gate case.
-- Boundary: autosave requests are per-object and ride `Document/history.md`; file-compare and editor reveal are `Shell/editor.md`'s; the retired session-cache eviction claim is gone with the cache estate.
+- Boundary: autosave requests are per-object and ride `Document/history.md`; file-compare and editor reveal are `Shell/editor.md`'s; the retired session-cache eviction claim is gone with the cache module.
 - Packages: Grasshopper2 (the document surface), GrasshopperIO (`IWriter`, `IReader`, `IStorable`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new mint posture is one `DocumentTier` row; a new inert read is one facet row with its answer case; a new host answer shape is one `GateOutcome` case.
 
@@ -101,19 +101,19 @@ public abstract partial record DocumentAnswer {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct WirelessPair(Guid Shout, Guid Listen) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Shout != Guid.Empty,
         Listen != Guid.Empty);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct PinRepairRow(PinRepair Method, Guid Pin, Guid Cushion) : IValidityEvidence {
     public bool IsValid => Pin != Guid.Empty;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct RunPulse(
     SolutionId Id, SolutionPhase Phase, SolutionMode Mode,
     int Computable, int Invalid, int Progress, TimeSpan Age) : IValidityEvidence {
@@ -140,7 +140,6 @@ public abstract partial record GateOutcome {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class DocumentGate {
     public static Fin<GateOutcome> Run(
         Option<HostDocument> graph,
@@ -174,9 +173,9 @@ public static partial class DocumentScope {
 ## [03]-[TRANSACT]
 
 - Owner: `SelectionTarget` `[Union]` — selection-scope discriminant, read by every scoped verb: `Selected` names the live selection and `Explicit(Seq<IDocumentObject>)` a computed set riding the host's `*Objects` twin. GAIN over the deleted `Seq`-emptiness convention: a computed EMPTY set no longer silently means "the whole selection" — it is an explicit set that touches nothing. `SelectionSweep` names the 8-row sweep family; `SelectionPosture` the 9-row posture family whose explicit twin is an `Option` column (the four pin-side reveals carry `None` and the gate refuses an explicit target on them typed); `DeleteDepth` the 2-row depth family; `IsolationAxis` `[SmartEnum<string>]` realizing `ICapability` — three axes the host names by what each KEEPS reachable, carried as `CapabilitySet<IsolationAxis>` and read per named position at the one host call (the `[Flags]` enum with its `HasFlag` reads deletes; that change also lands `Document/graph.md`'s two flag enums).
-- Owner: `DocumentAct` `[Union]` `[GenerateUnionOps]` — THE one command union: the five lifecycle/shelf cases (`CloseCase`, `StoreCase`, `MarkCase`, `StashCase`, `ForgetCase` — the former `DocumentGate` union, merged: two gates over one result were arity twins) beside the seventeen graph cases (`SweepCase`, the clipboard three, the wrapper three, `DeleteCase(DeleteDepth, SelectionTarget, Seq<WireEnds>)`, `DropCase`, `SnippetCase`, `NudgeCase`, `PostureCase(SelectionPosture, SelectionTarget)`, `DressCase(PerceptualColor, SelectionTarget)`, `IsolateCase(IDocumentObject, CapabilitySet<IsolationAxis>)`, `MigrateCase`, `DependencyCase`, `RevealDependenciesCase`). Host discriminants (`ClipboardKind`, `PasteBehaviour`, `OpenColor.Family`) ride case payloads unchanged because this package IS the seam; the colour override crosses as the KERNEL `PerceptualColor` and projects to the host colour at its one write arm.
-- Entry: `DocumentScope.Transact(Option<VerbNoun> label, DocumentAct op, Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateOutcome>` — the ONE gate; a sealing case with an absent label refuses typed, and a non-sealing case ignores it.
-- Law: the `document.mutate` veto fires HERE — a mutating case fires `rail.Fire(at: GrasshopperPoint.DocumentMutate, fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)), key: key)` before its verb, and a `Fail` verdict refuses the transaction with nothing mutated; an absent rail dispatches ungoverned (the test-host arm). This is the fire-site producer the hook census names.
+- Owner: `DocumentAct` `[Union]` `[GenerateUnionOps]` — THE one command union: the five lifecycle/shelf cases (`CloseCase`, `StoreCase`, `MarkCase`, `StashCase`, `ForgetCase` — the former `DocumentGate` union, merged: two gates over one result were arity twins) beside the seventeen graph cases (`SweepCase`, the clipboard three, the wrapper three, `DeleteCase(DeleteDepth, SelectionTarget, Seq<WireEnds>)`, `DropCase`, `SnippetCase`, `NudgeCase`, `PostureCase(SelectionPosture, SelectionTarget)`, `DressCase(PerceptualColor, SelectionTarget)`, `IsolateCase(IDocumentObject, CapabilitySet<IsolationAxis>)`, `MigrateCase`, `DependencyCase`, `RevealDependenciesCase`). Host discriminants (`ClipboardKind`, `PasteBehaviour`, `OpenColor.Family`) ride case payloads unchanged because this package IS the boundary; the colour override crosses as the KERNEL `PerceptualColor` and projects to the host colour at its one write arm.
+- Entry: `DocumentScope.Transact(Option<VerbNoun> label, DocumentAct op, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateOutcome>` — the ONE gate; a sealing case with an absent label refuses typed, and a non-sealing case ignores it.
+- Law: the `document.mutate` veto fires HERE — a mutating case fires `hooks.Fire(at: GrasshopperPoint.DocumentMutate, fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)), key: key)` before its verb, and a `Fail` verdict refuses the transaction with nothing mutated; absent hooks dispatch ungoverned (the test-host arm). This is the fire-site producer the hook census names.
 - Law: mutation and undo are one act — every mutating arm mints one `ActionList`, runs its host verb into it, and seals through `HistoryLedger.Seal` under the caller's `VerbNoun`. `DocumentMethods` call outside this gate is the deleted form.
 - Law: each arm returns what the HOST answered through its `GateOutcome` case; chain and cluster wraps preflight through the host's own `CanCreate*` verdict on the same roster the mint consumes, with refusal returning `RefusedCase(whyNot)`.
 - Law: a `Data`-depth delete carrying a wire span refuses at admission — `DeleteObjectData` takes no wire span by host design.
@@ -310,7 +309,7 @@ public static partial class DocumentScope {
     public static Fin<GateOutcome> Transact(
         Option<VerbNoun> label,
         DocumentAct op,
-        Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default,
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default,
         Option<HostDocument> graph = default,
         Op? key = null);
 
@@ -324,7 +323,7 @@ public static partial class DocumentScope {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]        | [OWNER]                            | [RAIL]                                     | [CASES] |
+| [INDEX] | [CONCERN]        | [OWNER]                            | [RESULT]                                   | [CASES] |
 | :-----: | :--------------- | :--------------------------------- | :----------------------------------------- | :-----: |
 |  [01]   | document minting | `DocumentTier`                     | `Mint → Fin<HostDocument>`                 |    3    |
 |  [02]   | inert facet read | `DocumentFacet` + `DocumentAnswer` | `Read → Fin<DocumentAnswer>`               | 11 + 11 |

@@ -1,13 +1,13 @@
 # [RASM_VECTORS_EXTRACT]
 
-`ExtractionDomain` owns the extraction/projection rail: one polymorphic `Of` ingress admits raw Rhino geometry or an admitted `CellLattice` into a typed sampling domain, `ContourPolicy` sections every domain through the owner its shape names — RhinoCommon's contour and iso adapters for the multi-plane and surface-iso routes, the `Meshing/intersect` `IntersectOp.PlaneMesh` crossing lattice for a single mesh section, the `reconstruct.md` marching-squares owner for lattice scalar levels — and typed projection rows fold every request shape to any output type. One local marching-triangles kernel serves the per-vertex scalar contouring no owner carries.
+`ExtractionDomain` owns the extraction/projection API: one polymorphic `Of` ingress admits raw Rhino geometry or an admitted `CellLattice` into a typed sampling domain, `ContourPolicy` sections every domain through the owner its shape names — RhinoCommon's contour and iso adapters for the multi-plane and surface-iso routes, the `Meshing/intersect` `IntersectOp.PlaneMesh` crossing table for a single mesh section, the `reconstruct.md` marching-squares owner for lattice scalar levels — and typed projection rows fold every request shape to any output type. One local marching-triangles kernel serves the per-vertex scalar contouring no owner carries.
 
-Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; evidence validity folds through `Domain/rails.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rails, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this rail re-implements none of them.
+Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; evidence validity folds through `Domain/results.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rows, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this API re-implements none of them.
 
 ## [01]-[INDEX]
 
 - [02]-[SECTIONING]: domain ingress, admission, and owner-routed contour/iso sectioning with the local scalar-isoline kernel.
-- [03]-[PROJECTION_RAIL]: `Extraction` request union and its typed `Project<TOut>` egress over probe, iso-surface, and sampled modes.
+- [03]-[PROJECTION_ROW]: `Extraction` request union and its typed `Project<TOut>` egress over probe, iso-surface, and sampled modes.
 
 ## [02]-[SECTIONING]
 
@@ -19,15 +19,15 @@ Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; evidence vali
 - Boundary: native adapters wrap every RhinoCommon call in `Op.Catch` so a host throw converts at the boundary. Scalar-isoline extraction is the named statement-kernel exemption: no owner carries a per-vertex scalar contour, so the kernel follows Rhino's triangulated topology and returns stitched candidates only.
 - Exemption: the stitch frontier stays a BCL `bool[]`/`Dictionary` walk and REFUSES QuikGraph by name — `ConnectedComponents` answers the component set where the whole product here is the polyline's vertex ORDER, and `EulerianTrailAlgorithm` demands a traversal this kernel deliberately refuses, stopping at every branch node and tallying it as `BranchStops` rather than choosing an arm. Every table dies inside the one fold that fills it.
 
-## [03]-[PROJECTION_RAIL]
+## [03]-[PROJECTION_ROW]
 
 - Owner: `ExtractionProbe` `[Union]` is the field point-probe; `Extraction` `[Union]` is the public request vocabulary `intent.md` wraps as one case; `SampledExtraction` `[Union]` is the one sampled-mode family over one shared seed generator; `ExtractionTolerance` `[Union]` carries provenance and value as one.
 - Entry: the request factories admit once — probe source and sample gated, domain re-admitted, policy and mode validated through their own `Admit`, iso bounds gated finite and non-degenerate; `extraction.Project<TOut>(…)` is the one egress, each request kind resolving its output through typed projection rows.
-- Law: every union on this page is one `[BoundaryAdapter]` owner, so its factories carry the `Op? key = null` + `OrDefault()` spelling as a type-wide contract rather than a per-member attribute.
+- Law: every union on this page is one owner, so its factories carry the `Op? key = null` + `OrDefault()` spelling as a type-wide contract rather than a per-member attribute.
 - Auto: `ProjectSamples` is the one sampled spine — evaluate the seeds, fold each through the mode's item arm, mint the tally, and project through one `Rows` call; item rows gate on zero rejections, so a partial sampled extraction is a typed fault, never a truncated success.
 - Output: `ExtractionTally` carries the extraction route, attempted and emitted counts with derived rejected and completion, the tolerance carrier, one `ItemFailures` slot, and the optional child evidence, all folded to one validity claim.
 - Growth: a new section policy is one `ContourPolicy` case and one adapter arm per admitting domain, a new sampled mode one `SampledExtraction` case and one spine arm, a new probe output one `ProjectionRow`, a new ingress shape one `Of` arm.
-- Boundary: owner-first is law — the local kernel never shadows a route another owner carries, and the sampled projection composes the `sample.md`, `flow.md`, and `fields.md` owners rather than re-implementing any. Log-map is the probe's only mesh-band special case; a Hodge probe reads its sampled component vector here while the `HodgeWitness` rides `fields.md`'s tagged vector rail.
+- Boundary: owner-first is law — the local kernel never shadows a route another owner carries, and the sampled projection composes the `sample.md`, `flow.md`, and `fields.md` owners rather than re-implementing any. Log-map is the probe's only mesh-band special case; a Hodge probe reads its sampled component vector here while the `HodgeWitness` rides `fields.md`'s tagged vector row.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -69,7 +69,6 @@ public sealed partial class ChainEnd {
 }
 
 [Union]
-[BoundaryAdapter]
 public abstract partial record ExtractionTolerance {
     public sealed record FromContextCase(Tolerance Value) : ExtractionTolerance;
     public sealed record RhinoDefaultCase(Option<double> Witnessed) : ExtractionTolerance;
@@ -90,7 +89,6 @@ public abstract partial record ExtractionTolerance {
 }
 
 [Union]
-[BoundaryAdapter]
 public abstract partial record ContourPolicy {
     public sealed record PlaneCase(Plane Section) : ContourPolicy;
     public sealed record AxisCase(Point3d Start, Point3d End, PositiveMagnitude Interval) : ContourPolicy;
@@ -127,7 +125,6 @@ public abstract partial record ContourPolicy {
 }
 
 [Union]
-[BoundaryAdapter]
 public abstract partial record ExtractionDomain {
     public sealed record SupportCase : ExtractionDomain { internal SupportCase(SupportSpace value) => Value = value; public SupportSpace Value { get; } }
     public sealed record MeshCase : ExtractionDomain { internal MeshCase(MeshSpace value) => Value = value; public MeshSpace Value { get; } }
@@ -372,7 +369,6 @@ public abstract partial record ExtractionDomain {
 }
 
 [Union]
-[BoundaryAdapter]
 public abstract partial record ExtractionProbe {
     public sealed record VectorCase(VectorField Source) : ExtractionProbe;
     public sealed record ScalarCase(ScalarField Source) : ExtractionProbe;
@@ -419,7 +415,6 @@ public abstract partial record ExtractionProbe {
 }
 
 [Union]
-[BoundaryAdapter]
 public abstract partial record SampledExtraction {
     public sealed record GlyphCase(VectorField Field, PositiveMagnitude Scale) : SampledExtraction;
     public sealed record GridCase(ScalarField Field) : SampledExtraction;
@@ -450,7 +445,6 @@ public abstract partial record SampledExtraction {
 }
 
 [Union]
-[BoundaryAdapter]
 public abstract partial record Extraction {
     public sealed record ProbeCase(ExtractionProbe Source, Point3d Sample) : Extraction;
     public sealed record ContourCase(ExtractionDomain Domain, ContourPolicy Policy) : Extraction;
@@ -578,7 +572,7 @@ internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) {
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct IsolineCensus(
     int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int VertexTouchRejected,
     int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves)
@@ -611,10 +605,10 @@ public readonly record struct IsolineCensus(
         DedupedSegments <= RawSegments, EmittedCurves <= StitchedCandidates);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, IsolineCensus Census);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ExtractionTally(
     ExtractionRoute Route, int Attempted, int Emitted, ExtractionTolerance Tolerance,
     Option<IsoSurfaceRun> IsoSurface = default, Option<IsolineCensus> ScalarIsoline = default,

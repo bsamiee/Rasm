@@ -13,13 +13,13 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 
 [DOC_TOPOLOGY]: Every durable question has one owning surface — consult the owner, never re-derive or guess:
 
-| [INDEX] | [SURFACE]                        | [OWNS]                                                                         |
-| :-----: | :------------------------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `libs/.planning/README.md`       | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar          |
-|  [02]   | `libs/.planning/ARCHITECTURE.md` | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle |
-|  [03]   | `libs/.planning/RULINGS.md`      | Cross-libs settled decisions                                                   |
-|  [04]   | `libs/<language>/.planning/`     | Language-wide doc-set for cross-folder decisions                               |
-|  [05]   | `libs/<language>/<folder>/`      | Folder doc set at root — README/ARCHITECTURE/RULINGS                           |
+| [INDEX] | [SURFACE]                        | [OWNS]                                                                              |
+| :-----: | :------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `libs/.planning/README.md`       | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar               |
+|  [02]   | `libs/.planning/ARCHITECTURE.md` | Stratification law, cross-branch direction, wire boundaries, `.planning/` lifecycle |
+|  [03]   | `libs/.planning/RULINGS.md`      | Cross-libs settled decisions                                                        |
+|  [04]   | `libs/<language>/.planning/`     | Language-wide doc-set for cross-folder decisions                                    |
+|  [05]   | `libs/<language>/<folder>/`      | Folder doc set at root — README/ARCHITECTURE/RULINGS                                |
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
@@ -37,9 +37,10 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 - ALWAYS use `search-tavily` skill on known targets — extract or crawl a site, or run a cited multi-source report.
 - ALWAYS use `search-context7` skill on code/fences with external libraries; never guess SDK/framework/API capabilities or implementations.
 - ALWAYS use `nuget` MCP to validate the existence of a package and newest version available.
+- ALWAYS use `binlog` MCP over a `.binlog` (`dotnet build -bl`) for build failures, target/property/import questions, and timing; never replay to text.
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex config and harness questions; memory, skills, hooks, settings.
 
-[CLI_ESTATE]: Navigation and scratch iteration only — these rows are operator-box tool contracts (several ride machine config), and no verdict, gate, or CI lane may depend on one:
+[CLI_TOOLING]: Navigation and scratch iteration only — these rows are operator-box tool contracts (several ride machine config), and no verdict, gate, or CI lane may depend on one:
 
 | [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                                  |
 | :-----: | :-------- | :-------------------------------------------------------------------------------------------------------------------------- |
@@ -60,7 +61,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS land new functionality as if designed in from the start, never as tacked-on flat-code spam; extend the owner before minting a sibling.
 - ALWAYS model the full domain on every owner — a missing axis is a defect, not thrift, and zero current consumers never lowers the bar.
 - NEVER use weak, unbounded, or erased types where the language can express the domain precisely.
-- NEVER use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
+- NEVER use exception-style control flow in domain logic; use typed results and the required route's recovery patterns.
 - NEVER spell absence as null, sentinel, or magic default past the boundary; absence rides an option-shaped carrier consumers unwrap.
 
 [POLYMORPHISM] - Fewer, stronger owners over many loose shapes; variants are cases inside one closed family, never sibling types:
@@ -85,11 +86,11 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 [ADMISSION]:
 - ALWAYS admit foreign material once at the boundary into evidence-carrying owners; the interior never re-validates and never sees raw shapes.
 - ALWAYS choose the outcome carrier once at admission, thread it unchanged, and collapse it only at the host, UI, or wire edge.
-- ALWAYS shape domain logic as expressions on the rail — dependence sequences, independence accumulates, and the carrier, never a flag, selects.
+- ALWAYS shape domain logic as expressions on the result type — dependence sequences, independence accumulates, and the carrier, never a flag, selects.
 - ALWAYS keep boundary mapping at the edge; internal code uses canonical names and shapes.
 
 [COMPOSITION]:
-- ALWAYS keep one live shape per estate surface — schemas, contracts, and storage keys spell no version segment; change replaces the shape whole.
+- ALWAYS keep one live shape per surface, repo-wide — schemas, contracts, and storage keys spell no version segment; change replaces the shape whole.
 - ALWAYS rebuild stateful stores from declared truth on shape change — desired-state apply and whole replacement; migration logic never exists.
 - ALWAYS compose existing logic before minting parallel forms; wire new logic into consumers same-pass — a file no owner reaches is a dead end.
 - ALWAYS treat admitted packages as the standard library — use the deepest operator they reach; unmined capability is a hand-rolling defect.
@@ -137,7 +138,7 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - `[TYPES]`: type aliases, inferred types, protocols/interfaces, enums, discriminated unions, generated algebraic owners, value-object declarations.
 - `[CONSTANTS]`: dependency-free immutable anchors, caps, suffixes, primitive policies, schedules, and static literals.
 - `[MODELS]`: runtime schemas, records/classes, value objects, DTOs, table/domain models, result carriers.
-- `[ERRORS]`: typed error rails, tagged failures, domain failure policies.
+- `[ERRORS]`: typed error types, tagged failures, domain failure policies.
 - `[SERVICES]`: service contracts, dependency surfaces, application/service classes.
 - `[OPERATIONS]`: pure transforms, effect/result pipelines, algorithms, repository operations.
 - `[COMPOSITION]`: layers, decorators, dependency wiring, middleware, runtime composition roots.

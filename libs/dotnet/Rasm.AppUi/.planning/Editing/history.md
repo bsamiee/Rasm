@@ -2,7 +2,7 @@
 
 Client-side undo/redo is one revert algebra over the admitted `CancelableCommandRecorder` window and the durable Persistence `Version/ledger` stream, beside the timeline surface that scrubs it. `RevertDelta` owns the `Set`, `Insert`, `Remove`, `Move`, and `Composite` payloads with their structural inverses; `RevertibleOp` derives `RevertKind` from that payload and carries the target, actor, and `Hlc` stamp every timeline row reads; `ClientLog` is the typed-op roster beside the recorder, so one lane is an INSTANCE of the algebra rather than a second one; `RevertCursor` retains client depth and durable offset together; `RevertDirection` and `RevertArm` carry every difference between the two traversals as delegate columns; one `RevertScope.Revert` applies either direction before advancing its coordinate and one `RevertScope.Walk` folds N of them into one absolute jump. `EditHistory` projects that traversal onto the undo, redo, and scrub command intents under a solve-gate posture, and `TimelineSurface` renders the unified stream through the windowing fabric with its overview-strip decoration lanes. The page owns no parallel stack, direction-named sibling method, direction-specific fetch delegate, duplicate maximum-window knob, or timeline-local virtualizer.
 
-The spine is `bodong.PropertyModels`, the `CommandRow` and AppUi hook rails, the Persistence op-log (`OpLogEntry`, `ReplayWindow`, `Hlc`), the `Shell/virtualization` fabric (`VirtualWindow`, `ExtentLedger`, `FlatFold`, `OverviewFrame`), the `Shell/controls` `ControlIntent` vocabulary, Thinktecture.Runtime.Extensions, Riok.Mapperly, DynamicData, and LanguageExt rails.
+The spine is `bodong.PropertyModels`, the `CommandRow` and AppUi hook dispatch, the Persistence op-log (`OpLogEntry`, `ReplayWindow`, `Hlc`), the `Shell/virtualization` fabric (`VirtualWindow`, `ExtentLedger`, `FlatFold`, `OverviewFrame`), the `Shell/controls` `ControlIntent` vocabulary, Thinktecture.Runtime.Extensions, Riok.Mapperly, DynamicData, and LanguageExt result types.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@ The spine is `bodong.PropertyModels`, the `CommandRow` and AppUi hook rails, the
 
 - Owner: `RevertibleOp` the revertible delta op; `RevertDelta` the closed per-kind payload union; `RevertKind` the op-kind key axis the delta case derives, each row carrying the glyph key its timeline row paints; `HistoryFault` the direct generated `[Union]` with one `[FaultCase]` leaf per history failure; `ContentIdentity` and `ActorKey` the two admitted identity axes; `RevertOrdinal` the domain step space; `RevertPayload` the durable half an `OpLogEntry` carries in its bytes.
 - Cases: `RevertDelta` = Set | Insert | Remove | Move | Composite — each case carries exactly its own payload and derives its inverse; `RevertKind` = set | insert | remove | move | composite; `HistoryFault` = NothingToUndo | NothingToRedo | ApplyRejected | EntryInert | CursorUnreachable | StoreUnreachable | PayloadUndecodable.
-- Entry: `public RevertibleOp Inverse()` — the delta union's per-case inverse lifted onto the op; `public static Fin<RevertibleOp> Admit(string target, string identity, string actor, RevertDelta delta, Hlc at)` — the one boundary admission, accumulating; `public ICancelableCommand ToCommand(string name, Func<RevertibleOp, Fin<Unit>> apply, Func<Error, Unit> refuse)` — projects the typed application fold onto the admitted recorder's Boolean delegate boundary while routing the discarded `Error` to the lane's sink, so the narrow loses a rail and not a cause.
+- Entry: `public RevertibleOp Inverse()` — the delta union's per-case inverse lifted onto the op; `public static Fin<RevertibleOp> Admit(string target, string identity, string actor, RevertDelta delta, Hlc at)` — the one boundary admission, accumulating; `public ICancelableCommand ToCommand(string name, Func<RevertibleOp, Fin<Unit>> apply, Func<Error, Unit> refuse)` — projects the typed application fold onto the admitted recorder's Boolean delegate boundary while routing the discarded `Error` to the lane's sink, so the narrow loses a result and not a cause.
 - Auto: every edit records as a `RevertibleOp` whose delta case carries both directions structurally — `Set` swaps before and after, `Insert` inverts to `Remove` at the same position, `Move` swaps endpoints, `Composite` reverses and inverts its children — so an undo applies the derived inverse and a redo re-applies the forward without re-deriving either from a snapshot.
 - Auto: the `Composite` case folds a batch edit's child ops into one revertible unit, so a multi-item batch undoes as one transaction AND discloses as one parent row over its children on the timeline.
 - Auto: the op projects onto the admitted `ICancelableCommand`, so the `CancelableCommandRecorder` owns the queue, the `CanUndo`/`CanRedo` state, and the `MaxCommand=20` window, and `Recorder.Undo`/`Redo` pop-and-apply through that delegate pair.
@@ -24,7 +24,7 @@ The spine is `bodong.PropertyModels`, the `CommandRow` and AppUi hook rails, the
 - Boundary: `RevertibleOp` is the one revert vocabulary in the package — a second revertible-op shape, a separate redo stack, and a per-screen undo list are rejected. Both directions derive from the delta case, every durable payload rides `RevertPayload` under the composition-seated `EvidenceOps.Wire` options, and every composite child re-enters full operation admission under the parent's `ContentIdentity`; an undo never re-computes prior state from a snapshot. The op carries `Target`, `Actor`, and `At` because the timeline renders exactly those three beside the kind — the durable arm lifts them off `OpLogEntry.EntityKey`, `OpLogEntry.Actor`, and its own `Hlc` cell through the one `OpLogMap` correspondence, and the client arm stamps the live session actor, so a timeline row is a projection of the op rather than a second record the recorder's command NAME would have to carry.
 - Boundary: identity is ADMITTED ONCE. `ContentIdentity` and `ActorKey` are generated value objects refusing a blank at construction, so the four `IsNullOrWhiteSpace` re-guards that stood at two owners are unspellable and the interior never re-validates; `ContentIdentity` addresses the LEDGER ENTITY (`OpLogEntry.EntityKey`), of which a `Collab/sync` `DocumentKey` is one instantiation, so the two carry different domains rather than one spelling twice. `Target` stays raw text because it crosses unchanged into the `Render/viewpoint#VIEWPOINT_CODEC` highlight vocabulary and the picked-id set the linked lane reads.
 - Boundary: `RevertKind` owns the glyph key because the kind is the icon's semantic owner; the icon SOURCE rows stay at the `Theme/assets` catalogue, where all five kind keys are rostered through one `History` mint and the case-derived fallback walk ranks the rows WITHIN a rostered key — an unrostered key seals `AssetFault.UnknownKey` at that owner rather than degrading, so minting a sixth kind lands its catalogue row in the same pass and this roster READS the declaration rather than transcribing its text. The label key derives through `LocaleStrings.Key`, the one key derivation every registry-resolved literal crosses.
-- Boundary: the package-owned `ICancelableCommand` Boolean delegate is the sole narrowing boundary for the typed application rail, and the narrow ROUTES its discarded `Error` to the lane's fault sink, so the client arm reports the real cause instead of inventing one from the target. Durable replay preserves the exact failure. The `Composite` case makes a batch one revertible unit so partial-batch undo is structurally absent.
+- Boundary: the package-owned `ICancelableCommand` Boolean delegate is the sole narrowing boundary for the typed application result, and the narrow ROUTES its discarded `Error` to the lane's fault sink, so the client arm reports the real cause instead of inventing one from the target. Durable replay preserves the exact failure. The `Composite` case makes a batch one revertible unit so partial-batch undo is structurally absent.
 
 ```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -226,16 +226,16 @@ public sealed record RevertPayload(string Target, RevertDelta Delta);
 - Auto: a turn past the client window reads the durable window keyed by `ContentIdentity`, projects the entry through `RevertDirection.Project` — undo inverts, redo takes the forward op — and applies it through the SAME `Apply` delta fold the client commands were minted with, so both arms mutate through one application law, inversion has exactly one owner in `RevertDelta.Inverse`, and the fetched op APPLIES before the cursor advances.
 - Auto: every success carries `Next` — the arm's own deepening or one `Shallower` walk — so repeated undo addresses strictly deeper positions, repeated redo strictly shallower ones, and the client-to-durable transition is recoverable from the returned cursor alone.
 - Auto: the two arms speak one `RevertibleOp` vocabulary, so a client-window op projects onto the one `Collab/sync#EDIT_INTENT` `EditIntent` union and lands as Persistence-owned `OpLogEntry`/`SyncOpKind` rows through the `Version/ledger` changefeed.
-- Auto: the durable-arm write leg is the `Collab/compare#TIME_TRAVEL` route — that owner decodes the merge authority's own `DiffBatch` through its composition-bound `Inverse` column into `EditIntent` rows and folds each through `IntentLedger.Commit`, and this arm's inverse rides that same ingress, so revert commits and live edits share one ledger seam.
+- Auto: the durable-arm write leg is the `Collab/compare#TIME_TRAVEL` route — that owner decodes the merge authority's own `DiffBatch` through its composition-bound `Inverse` column into `EditIntent` rows and folds each through `IntentLedger.Commit`, and this arm's inverse rides that same ingress, so revert commits and live edits share one ledger boundary.
 - Auto: the commit-DAG inverse is a different altitude with a different owner — Persistence `Version/commits#COMMIT_DAG` mints it append-only through `CommitGraph.Rewrite` over `HistoryRewrite.Revert` — so neither plane re-derives the other's inversion and `RevertDelta.Inverse` remains the one inversion this package owns.
 - Packages: bodong.PropertyModels, Thinktecture.Runtime.Extensions, Riok.Mapperly, LanguageExt.Core, NodaTime, System.Reactive, Rasm (kernel `Cell`/`Transition`/`Dimension`/`Redrive`), Rasm.Persistence (project)
 - Growth: a new revert source is structurally fixed at two arms; a new directional difference is one column on `RevertDirection`; a new lane is one `RevertScope` construction; zero new surface.
-- Boundary: the revert scope is the one inverse algebra spanning two arms; the admitted `CancelableCommandRecorder` owns the client window and `Recorder.MaxCommand` is the only window bound. The durable half crosses as the frozen `ReplayWindow` WHOLE — origin, entity, model, family, `AfterSequence`, and `Take` — because a two-argument fetch delegate dropped `AfterSequence` and made a deep scrub structurally unable to page past its first window; the port is `Func<ReplayWindow, IO<Seq<OpLogEntry>>>`, so the take-and-offset arithmetic is a value the caller dials rather than an arity the seam re-derives.
-- Boundary: `OpLogMap` is the FIRST owner of the `OpLogEntry` correspondence the arm and the timeline both depended on. It was erased into a fetch delegate that answered ops already mapped, so every composer hand-transcribed the entity key, the actor, and the HLC cell; one generated `[Mapper]` now flattens the entry's structural half beside the decoded payload half, `RequiredMappingStrategy.Target` keeps the target-side diagnostic, and the conversion set withdraws `ExplicitCast` because LanguageExt carriers cross this seam and its throwing explicit conversions would otherwise be preferred over the registered value-object mints.
+- Boundary: the revert scope is the one inverse algebra spanning two arms; the admitted `CancelableCommandRecorder` owns the client window and `Recorder.MaxCommand` is the only window bound. The durable half crosses as the frozen `ReplayWindow` WHOLE — origin, entity, model, family, `AfterSequence`, and `Take` — because a two-argument fetch delegate dropped `AfterSequence` and made a deep scrub structurally unable to page past its first window; the port is `Func<ReplayWindow, IO<Seq<OpLogEntry>>>`, so the take-and-offset arithmetic is a value the caller dials rather than an arity the mapper re-derives.
+- Boundary: `OpLogMap` is the FIRST owner of the `OpLogEntry` correspondence the arm and the timeline both depended on. It was erased into a fetch delegate that answered ops already mapped, so every composer hand-transcribed the entity key, the actor, and the HLC cell; one generated `[Mapper]` now flattens the entry's structural half beside the decoded payload half, `RequiredMappingStrategy.Target` keeps the target-side diagnostic, and the conversion set withdraws `ExplicitCast` because LanguageExt carriers cross this mapper and its throwing explicit conversions would otherwise be preferred over the registered value-object mints.
 - Boundary: a window keeps BOTH halves. `RevertPage` carries the admitted ops beside the entries that refused, because a ledger holding one undecodable row must still serve every row around it — a `Fin` over the whole page would blank the history a reader can see for one entry it cannot. The refusals ride the stream to the lane's kernel `FaultCell` as counted evidence.
 - Boundary: `ClientLog` is the ONE client-side typed-op roster and a sealed CLASS, never a record — it holds a live `Atom` and folder RULINGS `[02]` rules that a record copy shares such a cell by reference, so `with`-copying a lane would have yielded two lanes over one roster. `Push` ANSWERS what it retired: the settled roster rides a kernel `Transition`, so the caller seats its cursor off one snapshot rather than re-reading a cell a concurrent push may already have moved, and the truncation a push performs is observable instead of discarded. A push TRUNCATES the redo tail because the recorder clears its own redo queue on push, so a retained tail would name steps the queue no longer holds.
 - Boundary: `RevertCursor` retains the actual client depth while traversing durable history, so returning from durable offset one resumes the real recorder depth instead of inventing `MaxCommand`; both coordinates are kernel `Dimension` values, so the negative-cursor guard that stood at the traversal head is unrepresentable. The durable read indexes through `Seq.Skip(offset).Head`, the `Option`-returning positional read the carrier publishes.
-- Boundary: `Walk` is TOTAL rather than `Fin` because a halted walk that already applied three of five steps is real mutation the cursor must reflect — a failure carrier discarding the applied prefix would leave the surface's cursor addressing a state the document had left. Its step count is a `Dimension`, so the clamp the fold used to spell has no site. `ContentIdentity` aligns client and durable operations across the seam, while a host-mutating revert routes through the abstract `DocumentTransaction` port so host and client undo remain one transaction.
+- Boundary: `Walk` is TOTAL rather than `Fin` because a halted walk that already applied three of five steps is real mutation the cursor must reflect — a failure carrier discarding the applied prefix would leave the surface's cursor addressing a state the document had left. Its step count is a `Dimension`, so the clamp the fold used to spell has no site. `ContentIdentity` aligns client and durable operations across the boundary, while a host-mutating revert routes through the abstract `DocumentTransaction` port so host and client undo remain one transaction.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -441,10 +441,10 @@ public static partial class OpLogMap {
 - Owner: `EditHistory` the `CancelableCommandRecorder` wrapper carrying its lane's scope, solve gate, surface key, actor, and kernel fault cell; `SolvePosture` the live-versus-gated regeneration axis; `SolveGate` the suspend/resume pair a scrub sequence batches through; `HistoryIntents` the undo/redo/scrub command-table projection; `ScrubPoint` the content-space point codec.
 - Cases: `SolvePosture` = live | gated, each row carrying the fold its half wraps a walk in.
 - Law: a control that publishes a typed gesture VALUE binds a surface-owned LIFTING arrow, never a deck row's materialized command; the lift mints `CommandPayload.Fields` through `ScrubPoint` and runs the deck row, so the verb stays a deck row while the payload union stays closed at its five cases.
-- Entry: `Record(RevertibleOp op, RevertCursor cursor, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)` admits nothing further — the op admitted at its own boundary — enqueues one `ICancelableCommand`, pushes its typed op, and returns `IO<Fin<RevertCursor>>` off the push's own settled roster; `Revert(RevertDirection direction, ContentIdentity identity, RevertCursor cursor, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)` resolves through `RevertScope`, fires the direction row's own `EditOutcome` case, and returns the advanced `RevertCursor`; `Jump(RevertOrdinal target, ContentIdentity identity, RevertCursor cursor, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)` folds the whole distance through `RevertScope.Walk` inside the solve gate and fires one settled fact for the sequence; `Ready(RevertDirection direction)` is the ONE availability stream; `HistoryIntents.Rows(EditHistory history, Func<RevertDirection, CancellationToken, IO<Unit>> turn, Func<RevertOrdinal, CancellationToken, IO<Unit>> jump, Func<double, Fin<RevertOrdinal>> ordinalOf)` projects the direction table and the scrub row into the deck's history verbs; `HistoryIntents.Scrub(CommandDeck deck)` mints the point-lifting arrow the strip binds.
+- Entry: `Record(RevertibleOp op, RevertCursor cursor, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` admits nothing further — the op admitted at its own boundary — enqueues one `ICancelableCommand`, pushes its typed op, and returns `IO<Fin<RevertCursor>>` off the push's own settled roster; `Revert(RevertDirection direction, ContentIdentity identity, RevertCursor cursor, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` resolves through `RevertScope`, fires the direction row's own `EditOutcome` case, and returns the advanced `RevertCursor`; `Jump(RevertOrdinal target, ContentIdentity identity, RevertCursor cursor, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks)` folds the whole distance through `RevertScope.Walk` inside the solve gate and fires one settled fact for the sequence; `Ready(RevertDirection direction)` is the ONE availability stream; `HistoryIntents.Rows(EditHistory history, Func<RevertDirection, CancellationToken, IO<Unit>> turn, Func<RevertOrdinal, CancellationToken, IO<Unit>> jump, Func<double, Fin<RevertOrdinal>> ordinalOf)` projects the direction table and the scrub row into the deck's history verbs; `HistoryIntents.Scrub(CommandDeck deck)` mints the point-lifting arrow the strip binds.
 - Auto: every edit records through the admitted `CancelableCommandRecorder`, whose `MaxCommand`, `CanUndo`, `CanRedo`, lifecycle events, and queue snapshots remain authoritative, and the same call pushes the typed op onto the lane's `ClientLog` so the timeline projects real ops.
 - Auto: the `history.undo` and `history.redo` command rows DERIVE from `HistoryIntents.Rows` — one per `RevertDirection`, keyed off that row's own declared `Verb` and gated on its own `Ready` column against the live recorder — and the recorder's four lifecycle events drive the availability edge those rows re-evaluate on.
-- Auto: the `history.scrub` row is the surface-scoped absolute-jump verb, so a chord, a palette hit, and a strip drag reach one row; a gated walk suspends regeneration once, applies every step, and resumes once, so scrubbing thirty entries costs one re-solve rather than thirty; the direction row fires its distinct outcome through the AppUi hook rail, and the recorder clears at screen teardown.
+- Auto: the `history.scrub` row is the surface-scoped absolute-jump verb, so a chord, a palette hit, and a strip drag reach one row; a gated walk suspends regeneration once, applies every step, and resumes once, so scrubbing thirty entries costs one re-solve rather than thirty; the direction row fires its distinct outcome through the AppUi hook dispatch, and the recorder clears at screen teardown.
 - Result: undo and redo return the canonical `RevertCursor` and fire `AppUiFact.Edit` once per traversal; a walk that applied nothing fires `EditOutcome.Rejected` while a partial walk fires its direction's outcome and parks the halt on the lane's kernel `FaultCell`; `TelemetryRow` contributes the revert, redo, and scrub instrument rows through the AppHost `TelemetryContributorPort`.
 - Packages: bodong.PropertyModels, ReactiveUI, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, Avalonia, NodaTime, Rasm (kernel `FaultCell`/`HookId`/`InstrumentSpec`)
 - Growth: a new history verb is one `CommandRow` row; a new regeneration posture is one `SolvePosture` row with its wrap fold; one history instrument is one `InstrumentSpec` row on `EditHistory`; zero new surface — an undo package is deleted by the admitted recorder.
@@ -511,7 +511,7 @@ public sealed record EditHistory(
 
     public IO<Fin<RevertCursor>> Record(
         RevertibleOp op, RevertCursor cursor,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         IO.lift(() => {
             Recorder.PushCommand(op.ToCommand(op.Kind.Key, Scope.Apply, Park));
             return Scope.Log.Push(op, cursor);
@@ -519,24 +519,24 @@ public sealed record EditHistory(
         .Map(settled => Fire(
             op.Target, op.Kind.Key, new EditOutcome.Committed(op.Kind.Key),
             settled is Transition<Seq<RevertibleOp>>.Committed ? RevertCursor.Start : cursor,
-            rail));
+            hooks));
 
     public IO<Fin<RevertCursor>> Revert(
         RevertDirection direction, ContentIdentity identity, RevertCursor cursor,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         Scope.Revert(direction, cursor, identity).Map(outcome => outcome.Match(
             Succ: advanced => Fire(
-                advanced.Op.Target, advanced.Op.Kind.Key, direction.Outcome(advanced.Op.Kind.Key), advanced.Next, rail),
+                advanced.Op.Target, advanced.Op.Kind.Key, direction.Outcome(advanced.Op.Kind.Key), advanced.Next, hooks),
             Fail: error => Fire(
-                identity.Value, string.Empty, new EditOutcome.Rejected(error), cursor, rail)));
+                identity.Value, string.Empty, new EditOutcome.Rejected(error), cursor, hooks)));
 
     public IO<Fin<RevertCursor>> Jump(
         RevertOrdinal target, ContentIdentity identity, RevertCursor cursor,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         RevertDirection.Toward(cursor.Position, target) switch {
             var move => Gate.Batch(Scope.Walk(move.Direction, cursor, identity, move.Steps))
                 .Bind(Parked)
-                .Map(walk => Fire(walk, move.Direction, identity, cursor, rail)),
+                .Map(walk => Fire(walk, move.Direction, identity, cursor, hooks)),
         };
 
     public IObservable<bool> Ready(RevertDirection direction) =>
@@ -559,19 +559,19 @@ public sealed record EditHistory(
 
     private Fin<RevertCursor> Fire(
         RevertWalk walk, RevertDirection direction, ContentIdentity identity,
-        RevertCursor cursor, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
+        RevertCursor cursor, HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
         walk.Ops.Last.Match(
-            Some: last => Fire(last.Target, last.Kind.Key, direction.Outcome(last.Kind.Key), walk.Next, rail),
+            Some: last => Fire(last.Target, last.Kind.Key, direction.Outcome(last.Kind.Key), walk.Next, hooks),
             None: () => Fire(
                 identity.Value, string.Empty,
                 new EditOutcome.Rejected(
                     walk.Halt.IfNone(new HistoryFault.ApplyRejected($"{identity.Value}: walk applied no operation"))),
-                cursor, rail));
+                cursor, hooks));
 
     private Fin<RevertCursor> Fire(
         string target, string editor, EditOutcome outcome, RevertCursor next,
-        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
-        rail.Fire(
+        HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks) =>
+        hooks.Fire(
             AppUiPoint.Edit,
             new AppUiFact.Edit(AppUiPoint.Edit.Key, Surface.Value, target, editor, outcome.GetType().Name),
             Op.Of(name: "appui.history.edit"),
@@ -858,7 +858,7 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Unified revert rail and its timeline surface
+    accTitle: Unified revert path and its timeline surface
     accDescr: Client commands and durable operations converge in one revert scope before direction-specific outcomes and command intents, while the same two halves project into timeline entries that flatten, window, and decorate one overview frame.
     RevertibleOp -->|ToCommand| CancelableCommandRecorder
     RevertibleOp -->|Push| ClientLog
@@ -870,7 +870,7 @@ flowchart LR
     RevertScope -->|Walk| SolveGate
     SolveGate --> EditOutcome
     EditOutcome --> AppUiFact
-    AppUiFact --> HookRail
+    AppUiFact --> HookSet
     EditHistory --> HistoryIntents
     RevertDirection -->|one row per direction| HistoryIntents
     HistoryIntents --> DeckRows

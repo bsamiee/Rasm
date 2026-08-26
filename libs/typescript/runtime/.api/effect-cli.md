@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_EFFECT_CLI]
 
-`@effect/cli` owns the terminal entry family: each verb is a `Command<Name, R, E, A>` value — an `Effect` yielding its parsed config — exported as data, folded at the app root into one `Command.run` boundary over the platform `Environment`. It is the terminal peer of the `@effect/rpc` contribution family; the ops verbs execute over `proc/exec` and `cli/render.ts` lowers output onto the `@effect/printer` rail.
+`@effect/cli` owns the terminal entry family: each verb is a `Command<Name, R, E, A>` value — an `Effect` yielding its parsed config — exported as data, folded at the app root into one `Command.run` boundary over the platform `Environment`. It is the terminal peer of the `@effect/rpc` contribution family; the ops verbs execute over `proc/exec` and `cli/render.ts` lowers output through the `@effect/printer` document.
 
 ## [01]-[COMMAND]
 
@@ -22,7 +22,7 @@
 
 ## [04]-[APP_CONFIG_DOCS]
 
-[APP_SCOPE]: app description, parser policy, the closed parse-error rail, the help algebra, and the config-file provider; `isHelpRequested` marks `--help`/`--version` a clean exit, `CliConfig.layer({ isCaseSensitive })` overrides parser policy at the root, `ConfigFile.layer(name)` layers a disk `ConfigProvider` for `withFallbackConfig` flags, and `CommandDescriptor`/`CommandDirective`/`BuiltInOptions`/`AutoCorrect`/`Primitive` are the internal parse machinery these typed surfaces subsume.
+[APP_SCOPE]: app description, parser policy, the closed parse-error family, the help algebra, and the config-file provider; `isHelpRequested` marks `--help`/`--version` a clean exit, `CliConfig.layer({ isCaseSensitive })` overrides parser policy at the root, `ConfigFile.layer(name)` layers a disk `ConfigProvider` for `withFallbackConfig` flags, and `CommandDescriptor`/`CommandDirective`/`BuiltInOptions`/`AutoCorrect`/`Primitive` are the internal parse machinery these typed surfaces subsume.
 
 [SURFACES]: `CliApp` `Environment` `ConstructorArgs` `make` `layer` `defaultConfig` `defaultLayer` `ValidationError` `isHelpRequested` `isValidationError` `isMissingFlag` `isMissingValue`
 
@@ -33,7 +33,7 @@
 
 [STACKING]:
 - `@effect/printer`(`.api/effect-printer.md`): `cli/render.ts` composes verb output as `Doc<Ansi>` through the combinator/layout surface (`vcat`/`hsep`/`nest`/`align`/`annotate`), never a pre-joined string.
-- `@effect/printer-ansi`(`.api/effect-printer-ansi.md`): `HelpDoc.toAnsiDoc` yields an `AnsiDoc`, and both help and verb output lower to the terminal string through `AnsiDoc.render` — one render rail, no second styling path.
+- `@effect/printer-ansi`(`.api/effect-printer-ansi.md`): `HelpDoc.toAnsiDoc` yields an `AnsiDoc`, and both help and verb output lower to the terminal string through `AnsiDoc.render` — one render pipeline, no second styling path.
 - `@effect/rpc`(`.api/effect-rpc.md`): `Command` and `RpcGroup` are the two contribution families under one edge assembly law, so a capability shipped as a verb and as an rpc method reuses one handler `Effect`.
 - `@effect/platform`(`.api/effect-platform.md`): `Command.run` yields `Effect<…, R | Environment>` with `Environment = FileSystem | Path | Terminal`, satisfied by `@effect/platform-node` `NodeContext.layer` or `@effect/platform-bun` — one runtime choice covers CLI and server.
 - `effect`(`.api/effect.md`): `Options.withSchema`/`Args.withSchema`/`fileSchema` decode a flag, arg, or file into a kernel brand at the terminal edge, and `withFallbackConfig`/`ConfigFile.layer` fold a flag into the `proc/config` provider chain so a flag and its env var are never two sources.

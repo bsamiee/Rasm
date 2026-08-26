@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_BINDER]
 
-`ConfigurationBinder` binds the merged `IConfiguration` tree onto typed AppHost policy records — scalars, object graphs, and constructor-bound records — through one reflection engine the package source generator supplants at every call site. Its boundary is bootstrap: a policy value materializes once and validates before runtime start, feeding the configuration rail every AppHost policy consumer reads.
+`ConfigurationBinder` binds the merged `IConfiguration` tree onto typed AppHost policy records — scalars, object graphs, and constructor-bound records — through one reflection engine the package source generator supplants at every call site. Its boundary is bootstrap: a policy value materializes once and validates before runtime start, feeding the configuration surface every AppHost policy consumer reads.
 
 ## [01]-[PUBLIC_TYPES]
 

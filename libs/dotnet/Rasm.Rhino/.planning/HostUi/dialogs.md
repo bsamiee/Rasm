@@ -135,7 +135,6 @@ public sealed partial class CurrentLayerChoice {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct InquiryKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
         validationError = value.Length > 0 ? null : new ValidationError(message: "Inquiry key is empty.");
@@ -296,7 +295,6 @@ public sealed partial class VerdictPolicy {
         : trait == AskTrait.RightToLeft ? ShowMessageOptions.RtlReading
         : ShowMessageOptions.SetForeground;
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref VerdictRoster roster,
@@ -319,7 +317,6 @@ public sealed partial class RangeInquiry {
     public RangeEdge MinimumEdge { get; }
     public RangeEdge MaximumEdge { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double minimum,
@@ -611,7 +608,7 @@ public static class Inquiries {
 - Law: an origin the host rasterizer cannot read refuses TYPED naming the case. The rasterizer takes SVG document TEXT, which is exactly `AssetOrigin.Source`; every other origin case names a byte source the kernel already resolves, so routing one here would be this page decoding what the kernel owns.
 - Law: the ground rides its PRESENCE and selects the host member. `PixelsFromSvg` composites onto a ground under a declared coverage carriage and `BitmapFromSvg` publishes neither parameter, so a stated ground is a pixel ask and an absent one a bitmap ask — the same presence law the kernel number prompt states, and it forecloses the corner where a declared ground is silently dropped.
 - Law: the mesh preview's colour cardinality is a CASE admitted once at the request. Zero colours derive the document display colour, one broadcasts, and one per mesh pairs; the count comparison happens at admission and never again inside a production that already holds an admitted ink.
-- Law: text metrics are not an asset. Shaping and measurement are the kernel paint owner's `GlyphBlock`, whose `Measure` already crosses the toolkit marshal and answers a rail, so a caller measures directly and this page opens no second crossing — which is what retired the blocking wait this production once made on a marshalled task.
+- Law: text metrics are not an asset. Shaping and measurement are the kernel paint owner's `GlyphBlock`, whose `Measure` already crosses the toolkit marshal and answers a result, so a caller measures directly and this page opens no second crossing — which is what retired the blocking wait this production once made on a marshalled task.
 - Law: the named-colour roster leaves as ADMITTED colour, never host bytes. It is a colour resource and seats with colour, so each entry carries a `PerceptualColor` and no consumer of this page holds a host colour value.
 - Law: a raster plane's rows mint through `AssetRaster.OfPixels` alone, so the buffer is proved against the extent and the coverage carriage it declares before any consumer reads past its end.
 - Output: `HostProduct` — a kernel raster, immutable stroke runs, or admitted palette entries; every disposable host asset rides inside the kernel raster's own `Lease`, so a bare bitmap crossing this boundary is the deleted shape.

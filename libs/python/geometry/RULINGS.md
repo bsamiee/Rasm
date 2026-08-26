@@ -15,9 +15,9 @@
 
 - `charter_record` cuts on its `GeometrySubject` and the close-out on `EvidenceScope`; neither takes a `kind`, so no page invents a series string.
 - Producers mint frame identity through `evidence_key` from their own `spec`; no caller hands one in.
-- Folds return their canonical domain value or `RuntimeRail` directly — caller facts ride that value; observation projects from the producing site.
+- Folds return their canonical domain value or `RuntimeResult` directly — caller facts ride that value; observation projects from the producing site.
 - Domain results carry their census and frames carry rows at the fold's grain; no extremum replaces a distribution.
-- Runtime `measured` owns span lifecycle and rail flattening; geometry adds no second observation weave.
+- Runtime `measured` owns span lifecycle and result flattening; geometry adds no second observation weave.
 - Descriptor sun angles reach a sky UNTOUCHED — `Sunpath` is the weather file's almanac and re-solving a captured instant answers a second number.
 - `_graded` reads honeybee's own `UNITS_TOLERANCES` floor converted to metres — a pinned literal drifts and a foot floor passes a metre deflection.
 - `Model.shade_meshes` and `Model.shades` are DISJOINT populations — a census over `shades` reports zero context on a fully contextualized model.
@@ -45,9 +45,9 @@
 
 ## [05]-[PROCESS]
 
-- Band faults cross the door AND the worker seam whole — `__str__` serves the log edge alone, and a family reaching none carries no render.
-- Refusals reachable outside `evidence_run` return the rail instead of raising — a raise from a mint no fence encloses escapes to its caller.
-- Artifact publication is required and rails on refusal, the source-index spill alone optimizing through generated `Spill`; no page mints `from_url`.
+- Band faults cross the door AND the worker boundary whole — `__str__` serves the log edge alone, and a family reaching none carries no render.
+- Refusals reachable outside `evidence_run` return the result instead of raising — a raise from a mint no fence encloses escapes to its caller.
+- Artifact publication is required and results on refusal, the source-index spill alone optimizing through generated `Spill`; no page mints `from_url`.
 - One daemon-owned artifact repository serves tessellation, replay, `Fetch`, and `Put` without divergent durable tiers.
 - Artifact bodies publish from helper-owned paths by atomic overwrite after identity proof; a header-create refusal clears on exact byte match.
 - Durable records seat past a transaction, HOSTILE kernel, or fault-owning `finally` — an in-bracket record holds half-applied state open.

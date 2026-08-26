@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_PLATFORM_LAYERS]
 
-`Compose` owns the macOS composition estate: CoreAnimation graph custody, the transaction fence every layer write rides, display-link motion over the kernel sampler, host-delegated glides, and the Display-P3 layer-colour crossing. Kernel owners supply the whole algebra — `MotionScript`/`MotionSample`/`MotionDrive.Step` sample motion, `MonotonicTimeline.Beat` mints temporal identity, `PaceBand` paces, `SettleBand` stops, and `PerceptualColor` projects — so this boundary binds values to native resources and computes nothing. `MacGate` admits the platform, `UiThread` owns UI affinity, and every retained native crosses through `Lease<T>` with one exact inverse.
+`Compose` owns the macOS composition module: CoreAnimation graph custody, the transaction fence every layer write rides, display-link motion over the kernel sampler, host-delegated glides, and the Display-P3 layer-colour crossing. Kernel owners supply the whole algebra — `MotionScript`/`MotionSample`/`MotionDrive.Step` sample motion, `MonotonicTimeline.Beat` mints temporal identity, `PaceBand` paces, `SettleBand` stops, and `PerceptualColor` projects — so this boundary binds values to native resources and computes nothing. `MacGate` admits the platform, `UiThread` owns UI affinity, and every retained native crosses through `Lease<T>` with one exact inverse.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@
 - Owner: `LayerTrait` `[SmartEnum<string>]` realizing `ICapability<LayerTrait>` — the two independent style bits (`Clip` masks to bounds, `Rounded` caps and joins a stroke) as one set; every corner is legal, so the law is `CapabilityLaw.Open` and states it. `LayerStyle` — the ONE style shape both node families read: frame, background, an edge carried as a colour-and-width PAIR (a border colour with no width and a width with no colour are unrepresentable), corner radius, traits, and an optional mask. `StrokePlan` — only what a shape ADDS: the owned path, the interior fill, and the stroke edge pair; the former `StrokeStyle` twin carried the style's columns again under second names and its `Fill` collided with the layer background's. `LayerNode` `[Union]` is the recursive graph — `PlainCase` and `ShapeCase` mint boundary-owned layers, `HostedCase(Lease<CALayer>.Owned, …)` consumes a detached caller-configured layer under sole custody. `LayerPaint` is the one style mint; `LayerMount` the retained graph; `Compose.Mount` the entry.
 - Entry: `Compose.Mount(MacAnchor anchor, LayerNode node, Op? key = null)` → `Fin<Lease<LayerMount>>`. One recursive admission fold rejects malformed styles, dead lease payloads, and duplicate hosted or mask identities; the mount scope rejects any graph payload identical to the anchor root before custody can double. Materialization stays detached until the complete preorder graph and lookup exist; attachment is the final mutation; any failure reverses edges and view backing, releases every acquired native, and aggregates inverse faults with the originating refusal through the `Error` monoid.
 - Entry: `LayerPaint.Plain` builds a `LayerStyle` and `LayerPaint.Stroked` a `StrokePlan`, every colour crossing `WideColor.ToLayer` and every path crossing `Eto.Mac.CGConversions.ToCG(this IGraphicsPath)` into an owned `Lease<CGPath>`. Minting is prefix-safe: a refused colour or path releases every lease already taken in the same call and aggregates the release fault into the refusal — the kernel's ruled disposal posture, never a discard.
-- Law: every scope refusal rides the rail with its own cause — a graph payload aliasing the anchor root is `InvalidInput`, a host backing-layer mint answering null is `InvalidResult` naming the member, a transfer with no captured backing is `MissingContext` — and the native writes stay downstream of admission, which is what keeps a refused lease from moving any layer state before it refuses.
+- Law: every scope refusal rides the result with its own cause — a graph payload aliasing the anchor root is `InvalidInput`, a host backing-layer mint answering null is `InvalidResult` naming the member, a transfer with no captured backing is `MissingContext` — and the native writes stay downstream of admission, which is what keeps a refused lease from moving any layer state before it refuses.
 - Law: `LayerNode` and its style shapes carry declared equality — `[Equatable]` with `[OrderedEquality]` on `Children` and member-level `[ReferenceEquality]` on every lease and mask handle — because a host handle publishes no content and two handles wrapping identical bytes are two resources with two lifetimes (the kernel paint page's cache-identity law, held here for the same reason).
 - Law: graph ordinals are stable only for one mount lease; every layer `Lookup` or `Find` hands back is borrowed and lives only while that lease lives. `Reframe(int, CGRect, Op?)` is the mount's own resize path — a raw `Frame` write off a borrowed handle is the deleted form the member absorbs.
 - Law: compositing is live-proven host behavior — the canvas backing `CALayer` is live even where `WantsLayer` reads false, a mounted sublayer survives the host's own `Drawable` paint, and a compositor-run animation advances its presentation layer with zero canvas paint events across the run. Canvas backing layer's `ContentsFormat` is 8-bit RGBA, so wide colour rides the mounted overlay's own contents, never the host layer's format.
@@ -136,7 +136,6 @@ internal sealed class NativeScope {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class LayerPaint {
     public static Fin<LayerStyle> Plain(
         CGRect frame, Option<PerceptualColor> background, Option<(PerceptualColor Colour, NFloat Width)> edge,
@@ -147,7 +146,6 @@ public static class LayerPaint {
         Op? key = null);
 }
 
-[BoundaryAdapter]
 public static class Compose {
     public static Fin<Lease<LayerMount>> Mount(MacAnchor anchor, LayerNode node, Op? key = null);
 
@@ -187,14 +185,14 @@ public sealed partial class TransactionPosture {
 
 ## [04]-[DISPLAY_LINK]
 
-- Owner: `MotionAttachment` — the `CADisplayLink` lease: callback target, run-loop attachment, workspace observation, and the per-tick fold that advances the injected timeline, samples kernel `MotionDrive.Step`, and applies the sample at the host inside the transaction fence. Kernel owns every number; this owner owns the timer lease and the apply seam alone (the branch motion ruling), and `Canvas/motion.md`'s pacer is its one mount.
+- Owner: `MotionAttachment` — the `CADisplayLink` lease: callback target, run-loop attachment, workspace observation, and the per-tick fold that advances the injected timeline, samples kernel `MotionDrive.Step`, and applies the sample at the host inside the transaction fence. Kernel owns every number; this owner owns the timer lease and the apply hook alone (the branch motion ruling), and `Canvas/motion.md`'s pacer is its one mount.
 - Entry: `Attach(anchor, script, apply, clock, faults, completed = default, key = null)` → `Fin<Lease<MotionAttachment>>` — admits the script through kernel `MotionDrive.Admit`, acquires the workspace watch, seats the callback through `Cell.Seat` so a second claim refuses typed, pauses and tunes the link, attaches to `NSRunLoop.Main` under `Common` mode, and only then resumes. Any mint or dispatch fault removes the run-loop attachment, invalidates and disposes every native, releases the watch, and aggregates cleanup faults through kernel `Custody.Release`.
 - Law: each callback advances `clock.Beat(seed, cadence, key)` from the origin or prior beat — the cadence DERIVES from the applied pace band's preferred rate, so the ordinal counts display periods and a coalesced tick reads as a gap. Clock is the session's ONE injected timeline (folder RULINGS `[02]`); this page mints none.
 - Law: the posture each sample carries is `MotionPosture(fact.Concessions, pace)` read off one `WorkspaceFact` snapshot, and the pace band scales through `PaceBand.ScaleTo` off the display's live ceiling — a retune fires only when the snapshot's pace moved, so a display migration never combines a stale ceiling with a new accessibility state.
 - Law: a colour tween is an `Eased` script whose apply closure samples `PerceptualColor.Mix` at the eased value — the kernel refuses a colour case by design, and the blend path lives in the closure (the kernel's own NAMED LOSS, honoured here).
 - Law: completion belongs to the terminal frame — the sample whose `Continues` is false installs a once-gated continuation (`Cell.Step` over the completion latch) on `CATransaction.CompletionBlock`, pauses the link, and suppresses the continuation after release begins. Every beat, sampling, or apply fault parks on the injected `FaultCell` and pauses the link — the cell is bounded evidence, never an `Atom<Option<Error>>` holding only the newest fault.
 - Law: release is the kernel one-shot — the `Atom<bool>` latch through `Cell.Step`, unbind before run-loop removal, pause, removal, invalidation, and both native disposals attempted independently, the workspace watch released even when UI dispatch refuses, every inverse fault aggregated.
-- Packages: Microsoft.macOS (`CADisplayLink`, `CAFrameRateRange`, `NSRunLoop`, `NSObject`, `Selector`, `ExportAttribute`), `Rasm.Parametric` (`MonotonicTimeline`, `BeatSeed`, `MonotonicBeat`, `MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `PaceBand`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Platform/native.md` (`WorkspaceFact`, `WorkspaceWatch`, `NativeSeam.Watch`, `MacGate`).
+- Packages: Microsoft.macOS (`CADisplayLink`, `CAFrameRateRange`, `NSRunLoop`, `NSObject`, `Selector`, `ExportAttribute`), `Rasm.Parametric` (`MonotonicTimeline`, `BeatSeed`, `MonotonicBeat`, `MotionScript`, `MotionSample`, `MotionDrive`, `MotionPosture`, `PaceBand`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `Cell`), `Platform/native.md` (`WorkspaceFact`, `WorkspaceWatch`, `NativeLayer.Watch`, `MacGate`).
 - Growth: a new sampled modality is one kernel `MotionScript` case; this attachment inherits beat, posture, terminal, and verdict semantics with no arm of its own.
 
 ```csharp
@@ -292,13 +290,11 @@ public abstract partial record GlidePlan {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class Glides {
     public static Fin<Unit> Animate(CALayer layer, GlidePlan plan, Op? key = null);
     public static Fin<Unit> Halt(CALayer layer, GlideKey glide, Op? key = null);
 }
 
-[BoundaryAdapter]
 public static class Curves {
     public static Fin<Lease<CAMediaTimingFunction>> Named(TimingCurve curve, Op? key = null);
 }
@@ -321,7 +317,6 @@ using Rasm.Numerics;
 namespace Rasm.Grasshopper.Platform;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static class WideColor {
     public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, Option<GamutPolicy> gamut = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -341,16 +336,16 @@ public static class WideColor {
 
 ## [07]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]    | [OWNER]                      | [RAIL]                                          | [CASES] |
+| [INDEX] | [CONCERN]    | [OWNER]                      | [RESULT]                                        | [CASES] |
 | :-----: | :----------- | :--------------------------- | :---------------------------------------------- | :-----: |
 |  [01]   | layer graph  | `LayerNode` + `LayerMount`   | one recursive admission, one leased inverse     |    3    |
 |  [02]   | style mint   | `LayerPaint`                 | prefix-safe colour/path minting                 |    2    |
 |  [03]   | transaction  | `TransactionPosture` + fence | one fence, posture as a row                     |    2    |
-|  [04]   | display link | `MotionAttachment`           | kernel `MotionDrive.Step`, host apply seam      |    1    |
+|  [04]   | display link | `MotionAttachment`           | kernel `MotionDrive.Step`, host apply hook      |    1    |
 |  [05]   | glides       | `GlidePlan` + `Glides`       | kernel spring projection, host-delegated timing |    2    |
 |  [06]   | wide colour  | `WideColor.ToLayer`          | one Display-P3 mint off the kernel tuple        |    1    |
 
-Motion algebra (`DriveSpec`/`MotionDrive`/`DriveFrame`/`PaceWindow`/`SpringSettlement`) deleted onto kernel `MotionScript`/`MotionSample`/`MotionDrive.Step`/`PaceBand`/`SettleBand`; the CoreImage/haptic/vibrancy estate deleted with zero consumers; a new native capability re-lands as one case or row on the owners above.
+Motion algebra (`DriveSpec`/`MotionDrive`/`DriveFrame`/`PaceWindow`/`SpringSettlement`) deleted onto kernel `MotionScript`/`MotionSample`/`MotionDrive.Step`/`PaceBand`/`SettleBand`; the CoreImage/haptic/vibrancy module deleted with zero consumers; a new native capability re-lands as one case or row on the owners above.
 
 ## [08]-[RESEARCH]
 

@@ -1,6 +1,6 @@
 # [RASM_API_KDTREE]
 
-`Supercluster.KDTree.Net` owns the kernel's generic, array-backed exact-k-NN kd-tree: a build-once balanced binary tree over `INumber<TDimension>` coordinates serving `NearestNeighbors` k-nearest and `RadialSearch` radius queries under a `DistanceMetrics`-selected or custom `Func` metric. It is the discrete point-nearest leaf for static point clouds, feeding the fit and registration rails.
+`Supercluster.KDTree.Net` owns the kernel's generic, array-backed exact-k-NN kd-tree: a build-once balanced binary tree over `INumber<TDimension>` coordinates serving `NearestNeighbors` k-nearest and `RadialSearch` radius queries under a `DistanceMetrics`-selected or custom `Func` metric. It is the discrete point-nearest leaf for static point clouds, feeding the fit and registration owners.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -14,7 +14,7 @@
 |  [02]   | `KDTree<TDimension,TPriority,TNode>` | class         | balanced tree, exact point search                |
 |  [03]   | `DistanceMetrics`                    | enum          | Manhattan/Euclidean²/Chebyshev exact · Cosine no |
 
-- `DistanceMetrics` rosters FOUR rows and only the three Lp rows are sound through this structure. Pruning drops a subtree by `Metric(rect.GetClosestPoint(target), target)` against the incumbent worst priority — valid for a coordinate-monotone metric alone. `Cosine` is scale-invariant, so a point inside a rejected halfspace sits arbitrarily nearer in cosine terms and the result set is APPROXIMATE, not the exact set the `[01]` rail line promises.
+- `DistanceMetrics` rosters FOUR rows and only the three Lp rows are sound through this structure. Pruning drops a subtree by `Metric(rect.GetClosestPoint(target), target)` against the incumbent worst priority — valid for a coordinate-monotone metric alone. `Cosine` is scale-invariant, so a point inside a rejected halfspace sits arbitrarily nearer in cosine terms and the result set is APPROXIMATE, not the exact set the `[01]` summary line promises.
 
 ## [02]-[CONSTRUCTION]
 
@@ -65,7 +65,7 @@
 
 [STACKING]:
 - `MIConvexHull`(`.api/api-miconvexhull.md`): `Triangulation.CreateDelaunay` yields a cell complex (connectivity) over the same cloud, this tree yields nearest-neighbour queries (no connectivity) — a fixed-cloud k-NN routes here, a triangulation there.
-- `DoubleDouble`(`.api/api-doubledouble.md`): `ddouble` coordinates bind straight through the `INumber<TDimension>` constraint, so a near-coincident precision-critical cloud indexes at 106-bit through the same generic metric — the three Lp statics ALONE, each of which stays in `TDimension` end to end. `CosineDistance` narrows through `double` regardless of the coordinate type, so it reads 53 bits off a 106-bit cloud and this seam does not survive that row. The seam's precondition is a 106-bit coordinate SOURCE: widening `TDimension` over a cloud whose coordinates arrived as `double` recovers no precision the input never carried and moves no prune verdict, because the hyperrect bounds derive from those same coordinates. A `Point3d`-carried cloud is therefore outside this seam by ABI, and degeneracy on such a cloud escalates to the exact-predicate ladder, never to a wider tree.
+- `DoubleDouble`(`.api/api-doubledouble.md`): `ddouble` coordinates bind straight through the `INumber<TDimension>` constraint, so a near-coincident precision-critical cloud indexes at 106-bit through the same generic metric — the three Lp statics ALONE, each of which stays in `TDimension` end to end. `CosineDistance` narrows through `double` regardless of the coordinate type, so it reads 53 bits off a 106-bit cloud and this binding does not survive that row. The binding's precondition is a 106-bit coordinate SOURCE: widening `TDimension` over a cloud whose coordinates arrived as `double` recovers no precision the input never carried and moves no prune verdict, because the hyperrect bounds derive from those same coordinates. A `Point3d`-carried cloud is therefore outside this binding by ABI, and degeneracy on such a cloud escalates to the exact-predicate ladder, never to a wider tree.
 - within-lib: the kernel BVH/octree (`Spatial/index`) and the NURBS `ClosestParameter` (`Parametric/nurbs`) are disjoint acceleration owners by query shape — this tree owns discrete point k-NN and radius, the BVH/octree primitive overlap and ray, the engine continuous single-carrier parametric projection.
 
 [LOCAL_ADMISSION]:

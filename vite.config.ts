@@ -316,7 +316,7 @@ const plugins = {
             ...visualizer({
                 ...B.viz,
                 exclude: [...B.viz.exclude],
-                projectRoot: process.cwd(),
+                projectRoot: ROOT_DIR,
             }),
             apply: 'build',
         } as unknown as Plugin),
@@ -550,7 +550,7 @@ const createConfig = (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-// The root anchor drops its build block: the root emits no artifact, and the destructure proves the createConfig rail end to end on every config load.
+// The root anchor drops its build block: the root emits no artifact, and the destructure proves the createConfig result end to end on every config load.
 const { build: _build, ...anchor } = Effect.runSync(
     createConfig({
         entry: './vite.config.ts',

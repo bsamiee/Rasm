@@ -50,8 +50,8 @@
 |  [03]   | `Status.UnpackDetailMessages(TypeRegistry) -> IEnumerable<IMessage>` | instance | every detail resolvable by the caller's registry      |
 |  [04]   | `StandardErrorTypeRegistry.Registry -> TypeRegistry`                 | static   | every standard detail message                         |
 
-- `Status.GetDetail<T>`: an `Any` of the right type name that fails to unpack throws; the estate filters by `Any.Is(FaultDetail.Descriptor)` and unpacks under `Op.Catch` to keep malformed distinct from absent.
-- `UnpackDetailMessages(registry)`: silently drops a detail the registry cannot resolve, so an estate detail reaches it only through a registry carrying the estate descriptors.
+- `Status.GetDetail<T>`: an `Any` of the right type name that fails to unpack throws; the solution filters by `Any.Is(FaultDetail.Descriptor)` and unpacks under `Op.Catch` to keep malformed distinct from absent.
+- `UnpackDetailMessages(registry)`: silently drops a detail the registry cannot resolve, so a solution detail reaches it only through a registry carrying the solution descriptors.
 
 [ENTRYPOINT_SCOPE]: `Google.Type` calendar fields
 
@@ -74,19 +74,19 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `Status.details` is the ONE extension slot on a gRPC error; an estate detail is one `Any` inside it beside the standard details, never a second trailer.
+- `Status.details` is the ONE extension slot on a gRPC error; a solution detail is one `Any` inside it beside the standard details, never a second trailer.
 - `Code` and `Grpc.Core.StatusCode` share numerics, so `(int)StatusCode` seeds `Status.Code` and `ToRpcException` reads it back with no table.
-- `RetryInfo` states a delay alone; `terminal` versus `transient` is unspellable in it, which is why the estate wraps it in a `FaultRecovery` oneof whose throttled arm IS a `RetryInfo`, so one instance seats both inside the estate detail and beside it in `Status.details`.
+- `RetryInfo` states a delay alone; `terminal` versus `transient` is unspellable in it, which is why the solution wraps it in a `FaultRecovery` oneof whose throttled arm IS a `RetryInfo`, so one instance seats both inside the solution detail and beside it in `Status.details`.
 - `google.type.Date`/`TimeOfDay`/`DayOfWeek` are the calendar wire scalars; `NodaTime.Serialization.Protobuf` owns their projection onto `LocalDate`/`LocalTime`/`IsoDayOfWeek`.
-- `google.type.DateTime` is deliberately broader than NodaTime `LocalDateTime`: a local-only seam requires `TimeOffsetCase.None` and validates complete date/time fields before constructing the domain value.
+- `google.type.DateTime` is deliberately broader than NodaTime `LocalDateTime`: a local-only boundary requires `TimeOffsetCase.None` and validates complete date/time fields before constructing the domain value.
 
 [STACKING]:
-- `Google.Protobuf`(`.api/api-protobuf.md`): every type here is a generated `IMessage<T>` with `Parser` and `Descriptor`; `TypeRegistry.FromFiles` over the estate `<F>Reflection` descriptors resolves `Status.details` beside `StandardErrorTypeRegistry`.
+- `Google.Protobuf`(`.api/api-protobuf.md`): every type here is a generated `IMessage<T>` with `Parser` and `Descriptor`; `TypeRegistry.FromFiles` over the solution `<F>Reflection` descriptors resolves `Status.details` beside `StandardErrorTypeRegistry`.
 - `Grpc.StatusProto`(`.api/api-grpc-statusproto.md`): carries `Status` onto the trailer and back.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Date.ToLocalDate`, `TimeOfDay.ToLocalTime`, `DayOfWeek.ToIsoDayOfWeek` and their inverses.
 - `Celly.Protovalidate`(`.api/api-celly-protovalidate.md`): each `Violation` projects onto `BadRequest.Types.FieldViolation` at admission.
 - `Rasm.AppHost` (`Runtime/ports#WIRE_LAW`): `FaultWire.Raise` mints `Status{Code, Message, Details}` and packs the detail's own `Recovery.RetryAfter` as the standard advice seat; `FaultWire.Decode` filters `Details` on `Any.Is(FaultDetail.Descriptor)`; `FaultWire.Pack` fills `FaultDetail.violations` from the admission's `FieldViolation` rows.
 
 [LOCAL_ADMISSION]:
-- `Status` enters and leaves only through `Grpc.StatusProto`; the estate never serializes it by hand.
-- Calendar scalars cross into domain time through the NodaTime bridge at the wire edge; no `google.type` value lives past a seam.
+- `Status` enters and leaves only through `Grpc.StatusProto`; the solution never serializes it by hand.
+- Calendar scalars cross into domain time through the NodaTime bridge at the wire edge; no `google.type` value lives past a boundary.

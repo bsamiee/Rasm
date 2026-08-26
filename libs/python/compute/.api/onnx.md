@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_ONNX]
 
-`onnx` owns the ONNX model intermediate representation for the compute model-asset rail: the protobuf graph/tensor schema and the structural gate that admits a `ModelProto`. `onnx` sits between the producer `skl2onnx` and the inference runtime `onnxruntime`, validating a model before it graduates to `Rasm.Compute`.
+`onnx` owns the ONNX model intermediate representation for the compute model-asset domain: the protobuf graph/tensor schema and the structural gate that admits a `ModelProto`. `onnx` sits between the producer `skl2onnx` and the inference runtime `onnxruntime`, validating a model before it graduates to `Rasm.Compute`.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -5,7 +5,7 @@
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: EventLog local-first event-sourcing family
-- rail: overlay/local-first
+- concern: overlay/local-first
 - `Event.make` payloads are closed `Schema.TaggedClass` families with app-authored versioning, the same closed-family law as `journal/append`; `EventJournal` carries `RemoteId`/`EntryId` HLC-style identity.
 
 | [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CAPABILITY]                                                   |
@@ -19,10 +19,10 @@
 |  [07]   | `EventJournal.EventJournal`                       | `Context.Tag`     | memory / IndexedDB / `SqlEventJournal` backing                 |
 |  [08]   | `EventJournal.Entry` / `EventJournal.RemoteEntry` | journal row       | local entry / remote-synced entry Schema classes               |
 |  [09]   | `EventJournal.RemoteId` / `EventJournal.EntryId`  | branded id        | `Uint8ArrayFromSelf` branded ids; `entryIdMillis` time-decode  |
-|  [10]   | `EventJournal.EventJournalError`                  | tagged error      | journal read/write fault rail                                  |
+|  [10]   | `EventJournal.EventJournalError`                  | tagged error      | journal read/write fault channel                               |
 
 [PUBLIC_TYPE_SCOPE]: EventLog sync transport + server + encryption
-- rail: overlay/local-first
+- concern: overlay/local-first
 - `EventLogServer` mounts the server as a raw `Socket` handler or an `HttpApp` at the `serve/live` protocol-handler port; `EventLogEncryption` makes it zero-knowledge — client-side Web Crypto E2E, ciphertext entries at rest.
 
 | [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [CAPABILITY]                                            |
@@ -38,7 +38,7 @@
 - `EventLogRemote` MsgPack codec: `decodeRequest`/`encodeRequest`/`decodeResponse`/`encodeResponse`.
 
 [PUBLIC_TYPE_SCOPE]: actor execution and persisted queue/cache
-- rail: actor-execution/persistence
+- concern: actor-execution/persistence
 - `Machine` is a host-neutral in-process serializable actor. `snapshot` and `restore` encode and consume state; they do not store it.
 - `PersistedQueue` and `PersistedCache` are separate storage-backed services over `KeyValueStore`/`Persistence`.
 
@@ -46,13 +46,13 @@
 | :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------------------- |
 |  [01]   | `Machine.Machine` / `Machine.SerializableMachine`  | actor def     | host-neutral in-process actor definitions                      |
 |  [02]   | `Machine.Actor` / `Machine.SerializableActor`      | live actor    | booted actor; `Subscribable` of state for `state`/`ui` binding |
-|  [03]   | `Machine.MachineContext` / `Machine.MachineDefect` | context/fault | in-actor context + defect rail                                 |
+|  [03]   | `Machine.MachineContext` / `Machine.MachineDefect` | context/fault | in-actor context + defect channel                              |
 |  [04]   | `PersistedQueue.PersistedQueue` / `…Factory`       | durable queue | `work/queue/job` durable job families over a store             |
 |  [05]   | `PersistedQueue.PersistedQueueStore`               | `Context.Tag` | `layerStoreMemory` / `SqlPersistedQueue.layerStore` backing    |
 |  [06]   | `PersistedCache.PersistedCache`                    | durable cache | `work` idempotency/result cache keyed by `Persistence` key     |
 
 [PUBLIC_TYPE_SCOPE]: persistence backing + reactive/streaming + governance
-- rail: overlay/resource
+- concern: overlay/resource
 - `Persistence` splits `BackingPersistence` (raw-byte KV) from `ResultPersistence` (schema-typed `Persistable`); both back `PersistedCache`/`PersistedQueue`/`RequestResolver.persisted`.
 
 | [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CAPABILITY]                                       |
@@ -60,9 +60,9 @@
 |  [01]   | `Persistence.BackingPersistence` / `…Store`                     | `Context.Tag`  | `layerMemory` / `layerKeyValueStore` backing       |
 |  [02]   | `Persistence.ResultPersistence` / `…Store`                      | `Context.Tag`  | schema-typed result store over a backing           |
 |  [03]   | `Persistence.Persistable`                                       | schema mixin   | `WithResult` schema keyed for persistence          |
-|  [04]   | `Persistence.PersistenceParseError` / `…BackingError`           | tagged error   | persistence fault rail                             |
+|  [04]   | `Persistence.PersistenceParseError` / `…BackingError`           | tagged error   | persistence fault channel                          |
 |  [05]   | `Reactivity.Reactivity`                                         | `Context.Tag`  | `read/live` query-key invalidation signal          |
-|  [06]   | `Sse.Event` / `Sse.EventEncoded` / `Sse.Parser` / `Sse.Encoder` | codec          | `net/channel` / `serve/live` SSE seam              |
+|  [06]   | `Sse.Event` / `Sse.EventEncoded` / `Sse.Parser` / `Sse.Encoder` | codec          | `net/channel` / `serve/live` SSE adapter           |
 |  [07]   | `Sse.Retry`                                                     | tagged control | SSE reconnection `retry:` directive                |
 |  [08]   | `RateLimiter.RateLimiter` / `RateLimiter.RateLimiterStore`      | `Context.Tag`  | `serve` + `work` + `security` quota store port     |
 |  [09]   | `RateLimiter.RateLimitExceeded` / `RateLimitStoreError`         | tagged error   | shared `_tag`, split on `reason` — 429/Retry-After |
@@ -76,7 +76,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: EventLog client assembly
-- rail: overlay/local-first
+- concern: overlay/local-first
 - Assembly runs `schema(...groups)` → `layer(schema)` → `makeClient(schema)`: `schema` freezes the event universe, `layer` mounts `EventLog` over the group services + `EventJournal` + `Identity` + `Reactivity`, `makeClient` yields the typed command dispatcher; storage and identity are swappable Layers — `layerIndexedDb` + `layerIdentityKvs` browser, `layerMemory` spec.
 
 | [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                               |
@@ -89,7 +89,7 @@
 |  [06]   | `EventJournal.layerIndexedDb({ database? })` / `layerMemory`            | journal  | IndexedDB / memory journal                 |
 
 [ENTRYPOINT_SCOPE]: EventLog sync transport + mountable server
-- rail: overlay/local-first
+- concern: overlay/local-first
 - `layerWebSocketBrowser(url)` is self-contained (needs only `EventLog`); `layerWebSocket(url)` needs a `Socket.WebSocketConstructor` (from `BrowserSocket`/`BunSocket`) and `EventLogEncryption`. `makeHandlerHttp` mounts the server as an `HttpApp` at the `serve/live` port; `makeHandler` serves it over a raw `Socket`.
 
 | [INDEX] | [SURFACE]                                                                 | [SHAPE]        | [CAPABILITY]                                |
@@ -103,7 +103,7 @@
 |  [07]   | `EventLogEncryption.layerSubtle` / `makeEncryptionSubtle(crypto: Crypto)` | encryption     | Web Crypto E2E; zero-knowledge server       |
 
 [ENTRYPOINT_SCOPE]: actor execution + persistence + governance
-- rail: actor-execution/resource
+- concern: actor-execution/resource
 - `Machine.boot` launches an in-process actor; `snapshot`/`restore` cross an encoded state boundary without persistence.
 - `Persistence.layerResultKeyValueStore` mounts the separate persistence tree onto a `KeyValueStore`.
 
@@ -136,7 +136,7 @@
 
 [TOPOLOGY]:
 - `[OVERLAY_BOUNDARY_RULING]` system-of-record boundary: `journal/append` on `@effect/sql` is the durable authority and the overlay lanes only accelerate local-first reads and offline queues; a record whose loss corrupts state is projected from, or mirrored to, the SQL journal, never held only in an overlay.
-- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer the app root selects, never named in lane code. `EventJournal` selects `layerMemory`, `layerIndexedDb`, or `@effect/sql` `SqlEventJournal.layer` `[SQL_OVERLAY_BACKING]`; `Persistence` selects `layerMemory` or `layerKeyValueStore`; `RateLimiterStore` selects `layerStoreMemory` on a single node and a shared store-backed Layer across a fleet, which is the one selection deciding whether a quota bucket is per-process or estate-wide.
+- one service, swappable storage: each lane is a `Context.Tag` whose backing is a Layer the app root selects, never named in lane code. `EventJournal` selects `layerMemory`, `layerIndexedDb`, or `@effect/sql` `SqlEventJournal.layer` `[SQL_OVERLAY_BACKING]`; `Persistence` selects `layerMemory` or `layerKeyValueStore`; `RateLimiterStore` selects `layerStoreMemory` on a single node and a shared store-backed Layer across a fleet, which is the one selection deciding whether a quota bucket is per-process or fleet-wide.
 - durable store backings ship in `@effect/sql`: `PersistedQueueStore` binds `SqlPersistedQueue.layerStore`, `EventLogServer.Storage` binds `SqlEventLogServer.layerStorage` (`data/.api/effect-sql.md`).
 - closed event families: `Event.make` payloads are `Schema.TaggedClass` closed families the overlay holds in one shape; a shape change re-mints the durable log whole at `journal/evolve`, never a per-entry read path.
 

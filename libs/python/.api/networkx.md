@@ -21,7 +21,7 @@
 [derivation]: `subgraph` `edge_subgraph` `copy` `to_directed` `to_undirected`
 
 [PUBLIC_TYPE_SCOPE]: exception taxonomy
-- every member derives from `NetworkXException`; the domain rail translates at the boundary
+- every member derives from `NetworkXException`; the domain layer translates at the boundary
 
 | [INDEX] | [SYMBOL]                          | [PARENT]                 | [FAILURE]                        |
 | :-----: | :-------------------------------- | :----------------------- | :------------------------------- |
@@ -129,10 +129,10 @@
 
 [STACKING]:
 - `msgspec`(`.api/msgspec.md`): `node_link_data(G)` emits `{nodes, edges, ...}` as the canonical persisted graph document through the JSON/msgpack codec, content-keyed like every other payload; `node_link_graph(data, directed=, multigraph=)` rebuilds it, discriminating kind from the two flags rather than a per-kind reader. `adjacency`/`cytoscape`/`tree` JSON are sibling round-trip shapes.
-- `numpy`(`.api/numpy.md`): `to_numpy_array` / `from_numpy_array` cross the dense numeric rail; `to_scipy_sparse_array` / `adjacency_matrix` hand the graph to the `scipy.sparse` rail for spectral and algebraic work.
-- columnar rail: `to_pandas_edgelist` / `to_pandas_adjacency` are the tabular egress; reframing into Arrow or Polars belongs to the columnar owner, and the graph is never re-parsed from an ad-hoc edge schema.
+- `numpy`(`.api/numpy.md`): `to_numpy_array` / `from_numpy_array` cross the dense numeric layer; `to_scipy_sparse_array` / `adjacency_matrix` hand the graph to the `scipy.sparse` layer for spectral and algebraic work.
+- columnar domain: `to_pandas_edgelist` / `to_pandas_adjacency` are the tabular egress; reframing into Arrow or Polars belongs to the columnar owner, and the graph is never re-parsed from an ad-hoc edge schema.
 
 [LOCAL_ADMISSION]:
-- `nx.config` (a `NetworkXConfig`) owns process-global dispatch policy — `backend_priority`, `backends`, `cache_converted_graphs`, `fallback_to_nx`, `warnings_to_ignore`; the graph rail sets it once at boundary scope and threads `backend=` only to override the global priority for one call.
-- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the domain rail translates the raised exception at the boundary into the `Result` rail.
+- `nx.config` (a `NetworkXConfig`) owns process-global dispatch policy — `backend_priority`, `backends`, `cache_converted_graphs`, `fallback_to_nx`, `warnings_to_ignore`; the graph domain sets it once at boundary scope and threads `backend=` only to override the global priority for one call.
+- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the domain layer translates the raised exception at the boundary into the `Result`.
 - Community algorithms namespace under `nx.community`: `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition, returning `list[set]`/`list[frozenset]`/a nested-tuple iterator.

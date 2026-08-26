@@ -2,13 +2,13 @@
 
 Python is an independently adoptable host-free platform for science, compute, data, geometry, IFC, and artifact production across peer packages held to the cross-language density bar. Python applications originate and operate these capabilities from the branch package graph alone; polyglot applications exchange contract-conforming artifacts at app roots, requested and re-imported as data, never imported as code.
 
-Root `pyproject.toml` is the virtual workspace root — no `[project]` table — owning the Python 3.15 platform, the estate dependency group, and every gate table; each folder carries one member manifest declaring its distribution identity and bare-name edges, and `uv.lock` fixes every version. Native distributions whose wheels stop below the platform floor ride the Forge python-overlay `.pth`, and their marker row states that mechanism at the root manifest.
+Root `pyproject.toml` is the virtual workspace root — no `[project]` table — owning the Python 3.15 platform, the workspace dependency group, and every gate table; each folder carries one member manifest declaring its distribution identity and bare-name edges, and `uv.lock` fixes every version. Native distributions whose wheels stop below the platform floor ride the Forge python-overlay `.pth`, and their marker row states that mechanism at the root manifest.
 
 This branch registry owns the substrate tiers every folder composes. FLOOR-GATED marks a folder registry row whose `python_version` marker no supported interpreter satisfies, so admission stands while reach waits on a floor wheel or a floor move; OVERLAY marks the inverse, where the Forge python-overlay `.pth` supplies the module worker-side at the interpreter floor; rows naming host binaries carry no manifest row and state their provisioning lane.
 
 ## [01]-[ROUTER]
 
-- [01]-[RUNTIME](../runtime/README.md): Shared-rail minting foundation.
+- [01]-[RUNTIME](../runtime/README.md): Shared-result minting foundation.
 - [02]-[COMPUTE](../compute/README.md): Scientific-evidence graduation.
 - [03]-[DATA](../data/README.md): Dataset movement and interchange.
 - [04]-[GEOMETRY](../geometry/README.md): Geometry and IFC evidence production.
@@ -19,7 +19,7 @@ This branch registry owns the substrate tiers every folder composes. FLOOR-GATED
 
 Every folder composes this cross-domain foundation. Each runtime-composable package carries one catalogue at the branch `libs/python/.api/<dist>.md`, folder overlays carry only local admission law, and the test tier is manifest-owned with no branch catalogue. Branch tier admits only the vendor-neutral surface every folder imports; composition-root machinery, the `opentelemetry-instrumentation-*` train and the `pyroscope-otel` push, homes folder-local to `runtime`.
 
-[TYPING_RAILS]:
+[TYPING_RESULTS]:
 - `expression` — `Result`/`Option` carriers, do-notation builders, `pipe`/`compose`, and `Block`/`Map` immutable traversal.
 - `msgspec` — `Struct` wire codecs, `Meta` constraints, and the `convert` rename projection.
 - `beartype` — Runtime boundary contracts, `vale` refinements, and `door` predicates.
@@ -28,8 +28,8 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 [CONCURRENCY]:
 - `anyio` — Structured-concurrency surface: task groups, cancel scopes, offload arms, memory streams, portal bridge.
 - `trio` — Backend `anyio` runs on and the deterministic test kit; a runtime selection, never a code change.
-- `cloudpickle` — Ships closures, lambdas, and module-local kernels across the worker process and subinterpreter seams stdlib pickle refuses.
-- `tblib` — Carries worker-side traceback frames across the pickle seam, so a crossed exception re-raises with its true origin.
+- `cloudpickle` — Ships closures, lambdas, and module-local kernels across the worker process and subinterpreter boundaries stdlib pickle refuses.
+- `tblib` — Carries worker-side traceback frames across the pickle boundary, so a crossed exception re-raises with its true origin.
 - `loky` — Owns the warm reusable crash-respawning process pool behind the worker crossing's `process` kind.
 - `pebble` — Owns terminal deadline enforcement: a wall-clock timeout kills the worker mid-kernel and reclaims the slot.
 
@@ -37,7 +37,7 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 - `structlog` — Processor-chain structured logging; the branch's in-process log face.
 - `opentelemetry-api` — Vendor-neutral tracer/meter/propagation surface; the only OTel import a library makes.
 - `opentelemetry-sdk` — Provider, `Resource`, processor, and reader wiring; composition roots alone touch it.
-- `opentelemetry-exporter-otlp-proto-http` — OTLP HTTP+protobuf egress; the estate default transport.
+- `opentelemetry-exporter-otlp-proto-http` — OTLP HTTP+protobuf egress; the repo default transport.
 - `psutil` — Whole-process accounting batched through one `Process.oneshot` collection.
 
 [NUMERIC_SUBSTRATE]:

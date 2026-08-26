@@ -1,6 +1,6 @@
 # [PY_DATA_API_GEOARROW_RUST_CORE]
 
-`geoarrow-rust-core` owns the GeoArrow-native geometry memory model for the geospatial-ingress rail: immutable Arrow-backed carriers exposing the Arrow PyCapsule interface, so a geometry crosses the path once as a capsule and never round-trips through a Shapely scalar. Encoded-bytes and external-container construction feed the same carriers the `geoarrow-rust-compute` kernels consume and return, and `get_crs` reads the GeoArrow field CRS as a `pyproj.CRS`.
+`geoarrow-rust-core` owns the GeoArrow-native geometry memory model for the geospatial-ingress domain: immutable Arrow-backed carriers exposing the Arrow PyCapsule interface, so a geometry crosses the path once as a capsule and never round-trips through a Shapely scalar. Encoded-bytes and external-container construction feed the same carriers the `geoarrow-rust-compute` kernels consume and return, and `get_crs` reads the GeoArrow field CRS as a `pyproj.CRS`.
 
 ## [01]-[PUBLIC_TYPES]
 

@@ -386,7 +386,7 @@ class Pool extends Context.Tag("runtime/browser/Pool")<
 - Law: artifact SHA-256 keys raw byte custody, while `Digest.Key<"content">` remains the separate semantic/cache vocabulary; the depot converts neither into the other.
 - Law: one `_admitted` read per pass answers both governors and carries the band's own admission row into every leg — storage pressure prices how fast this origin may fill, link grade prices how many legs are worth opening, and the tighter degree resizes the one gate; a second read inside a leg prices a pass already in flight.
 - Law: `warmDepot` refuses ADDING residency, never a pull — a near-full origin still serves the scene and an already-warm band still reads, so the admission gates the cache write alone and eviction pressure prices new rows.
-- Boundary: callers resolve each portable `ArtifactRef` through their application asset rail and forward the residency view, geometry arrivals, and dome arrivals to the UI port; no storage key crosses the semantic contract.
+- Boundary: callers resolve each portable `ArtifactRef` through their application asset pipeline and forward the residency view, geometry arrivals, and dome arrivals to the UI port; no storage key crosses the semantic contract.
 
 ```typescript
 const _DEGREES = { ample: 6, tight: 2, critical: 1, opaque: 2 } as const

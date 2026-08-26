@@ -15,7 +15,7 @@ Review joins `ModelDiff` changes and BCF issues by `GlobalId`, folds each topic'
 - Owner: `Review` closes presentation against `Wire.ModelDiff` change kinds and `Wire.BcfTopic` statuses.
 - Law: each row carries token tone and every selection, residency, blocking, and ordering decision that consumes the key.
 - Law: both vocabularies are the corpus's own — the change roster is the generated `kind` oneof's case names, the status roster the `BcfStatus` members `viewer/mark` narrows — so every table keys on a generated spelling, closes against it both ways, and mints no token of its own.
-- Boundary: `Review.rows` is the model-diff byte-ingress seam; BCF topics arrive decoded from their owning admission path.
+- Boundary: `Review.rows` is the model-diff byte-ingress boundary; BCF topics arrive decoded from their owning admission path.
 
 ```typescript
 import { Wire } from "@rasm/core"

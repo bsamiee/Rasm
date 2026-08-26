@@ -1,11 +1,11 @@
 # [PY_DATA_API_STAC_GEOPARQUET]
 
-`stac-geoparquet` owns the STAC<->GeoParquet/Arrow interchange on the STAC-catalog rail: its `stac_geoparquet.arrow.*` surface parses `pystac.Item` objects or STAC NDJSON into a `pyarrow.RecordBatchReader`, writes that stream to GeoParquet keyed by a STAC schema version, and rehydrates the table back to item dicts or NDJSON. Composition folds the arrow parse/write functions and `stac_table_to_items` into the `data` STAC item-table owner and pairs rehydration with `pystac.Item.from_dict`, never re-implementing the STAC->Arrow schema mapping this package owns.
+`stac-geoparquet` owns the STAC<->GeoParquet/Arrow interchange on the STAC-catalog domain: its `stac_geoparquet.arrow.*` surface parses `pystac.Item` objects or STAC NDJSON into a `pyarrow.RecordBatchReader`, writes that stream to GeoParquet keyed by a STAC schema version, and rehydrates the table back to item dicts or NDJSON. Composition folds the arrow parse/write functions and `stac_table_to_items` into the `data` STAC item-table owner and pairs rehydration with `pystac.Item.from_dict`, never re-implementing the STAC->Arrow schema mapping this package owns.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: interchange carriers and schema axis
-- rail: STAC catalog
+- concern: STAC catalog
 
 `ACCEPTED_SCHEMA_OPTIONS` is a `pa.Schema`, an `InferredSchema`, or a `Literal['FirstBatch', 'FullFile', 'ChunksToDisk']`; `SUPPORTED_PARQUET_SCHEMA_VERSIONS` is `Literal['1.0.0', '1.1.0']` (default `'1.1.0'`). Grid symbols drop the `arrow.` prefix.
 
@@ -22,7 +22,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Arrow parse and GeoParquet write (`stac_geoparquet.arrow.*`)
-- rail: STAC catalog
+- concern: STAC catalog
 - write carry: `chunk_size`, `schema` (`ACCEPTED_SCHEMA_OPTIONS`), `schema_version` (`SUPPORTED_PARQUET_SCHEMA_VERSIONS`), `collections`, `collection_metadata`, `filesystem`, `**kwargs`
 
 `parse_stac_items_to_arrow` takes `schema` over the full `ACCEPTED_SCHEMA_OPTIONS` union (default `'FullFile'`); `parse_stac_ndjson_to_arrow` takes an explicit `pa.Schema` or `None`.
@@ -37,7 +37,7 @@
 |  [06]   | `parse_stac_ndjson_to_delta_lake(input_path, table_or_uri, *, limit)` | static  | NDJSON -> Delta (`deltalake` extra)  |
 
 [ENTRYPOINT_SCOPE]: rehydrate, NDJSON readers, and geopandas trio
-- rail: STAC catalog
+- concern: STAC catalog
 
 `stac_table_to_items` generates plain item dicts (pair with `pystac.Item.from_dict`). `json_reader.read_json`/`read_json_chunked` are the NDJSON-to-dict readers feeding the parse functions. Top-level `to_dict`/`to_geodataframe`/`to_item_collection` form the geopandas `GeoDataFrame` round-trip.
 
@@ -71,7 +71,7 @@
 - `geopandas`(`.api/geopandas.md`): `to_geodataframe`/`to_item_collection` bridge to a `GeoDataFrame` where a vector-dataframe consumer requires one.
 - `odc-stac`(`.api/odc-stac.md`), `rioxarray`(`.api/rioxarray.md`): consume the rehydrated items for xarray-cube assembly.
 - `shapely`(`.api/shapely.md`), `geoarrow-rust-compute`(`.api/geoarrow-rust-compute.md`): consume the GeoArrow geometry column the GeoParquet write produces.
-- within-lib: the `data` STAC owner composes the arrow parse/write functions and `stac_table_to_items` as the sole STAC<->GeoParquet interchange, threading `ACCEPTED_SCHEMA_OPTIONS` and `schema_version` through one item-table rail.
+- within-lib: the `data` STAC owner composes the arrow parse/write functions and `stac_table_to_items` as the sole STAC<->GeoParquet interchange, threading `ACCEPTED_SCHEMA_OPTIONS` and `schema_version` through one item-table carrier.
 
 [LOCAL_ADMISSION]:
 - admit `stac_geoparquet.arrow.*` as the sole STAC<->GeoParquet interchange; the `deltalake` and `psycopg` extras admit only where a Delta sink or a pgstac read is composed, never as a default dependency.

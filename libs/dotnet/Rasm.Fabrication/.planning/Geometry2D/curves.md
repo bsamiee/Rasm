@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_CURVES]
 
-`CurveAlgebra` owns manufacturing admission and witnessed lowering for free-form curves. Kernel curves, arc forests, and canonical `Loop` values retain their owning semantics across every seam.
+`CurveAlgebra` owns manufacturing admission and witnessed lowering for free-form curves. Kernel curves, arc forests, and canonical `Loop` values retain their owning semantics across every boundary.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@
 - Law: `Narrowed` is the ONE kernel-union narrowing gate. Narrowing asks one question — is the returned case the requested one — so a generated total `Switch` whose every other arm returns the same refusal spells that question once per case; the type test spells it once per CALL, and a kernel union gaining a case grows this page by nothing.
 - Auto: closed sample admission normalizes one closure vertex before appending exactly one closing sample. Outline admission composes `ArcProjection.Lower`; chord admission composes `ArcProjection.Recover`. Lowering measures each chord's midpoint deviation and optionally recovers residual biarcs under the same requested error.
 - Result: `CurveAdmission` retains sample cardinality or the complete arc bridge evidence. `CurveOutput` discriminates chord-only and recovered-arc evidence without an optional recovery field.
-- Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsWire.CurveThrough`, and `Parametric.Apply`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `LanguageExt` supplies validation, traversal, immutable collections, and typed rails; `Thinktecture` generates every closed request, result, and value owner.
+- Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsWire.CurveThrough`, and `Parametric.Apply`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `LanguageExt` supplies validation, traversal, immutable collections, and typed results; `Thinktecture` generates every closed request, result, and value owner.
 - Growth: a new kernel operation remains a `ParametricOp` case on its owning surface; a manufacturing-only modality adds one `CurveOp` and one `CurveTrace` case; a lowering form adds one generated case and one total dispatch arm without a new entrypoint or parallel carrier.
 - Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
 

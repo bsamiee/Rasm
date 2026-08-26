@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_COMPAS]
 
-`compas` owns the computational-geometry and datastructure surface of the geometry algebra rail: the `compas.geometry` primitive/shape/NURBS/BREP algebra, the `compas.datastructures` half-edge mesh/graph/volmesh family, COMPAS-JSON `Data` serialization, file exchange, and the out-of-process `compas.rpc.Proxy` solver bridge. It is the spine of the COMPAS form-finding band — `compas_dr` and `compas_tna` ride its `Mesh` and its `json_dumps`/`json_loads` round-trip. It never re-implements vector algebra, best-fit, boolean operations, or the form-finding solvers its companions own.
+`compas` owns the computational-geometry and datastructure surface of the geometry algebra domain: the `compas.geometry` primitive/shape/NURBS/BREP algebra, the `compas.datastructures` half-edge mesh/graph/volmesh family, COMPAS-JSON `Data` serialization, file exchange, and the out-of-process `compas.rpc.Proxy` solver bridge. It is the spine of the COMPAS form-finding band — `compas_dr` and `compas_tna` ride its `Mesh` and its `json_dumps`/`json_loads` round-trip. It never re-implements vector algebra, best-fit, boolean operations, or the form-finding solvers its companions own.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -137,7 +137,7 @@ Construction routes through `from_*` classmethods, never positional constructors
 - `compas_tna`(`.api/compas_tna.md`): `FormDiagram` extends `compas.datastructures.Mesh` and builds through `FormDiagram.from_mesh`; diagrams round-trip the same `Data` handle, and `horizontal_numpy`/`vertical_from_zmax` resolve through `Proxy`.
 - `trimesh`(`.api/trimesh.md`): mesh exchange over vertices/faces arrays carries the `manifold3d`-backed boolean and repair paths past compas's `boolean_*_mesh_mesh` rows.
 - `topologicpy`(`.api/topologicpy.md`): the non-manifold-topology sibling composed beside the compas datastructures, never folded into their rows.
-- `meshio`(`.api/meshio.md`): the raw mesh-file decode/encode seam — compas returns COMPAS-JSON handles across the wire rather than writing a mesh file.
+- `meshio`(`.api/meshio.md`): the raw mesh-file decode/encode boundary — compas returns COMPAS-JSON handles across the wire rather than writing a mesh file.
 - `graph/algebra.md`: `ComputationalGeometry` folds geometry primitives, `_numpy` best-fit/hull, transform constructors, and datastructure verbs into `NumericalOp`/`DatastructureOp` tables, and offloads the whole `Proxy` scope on the runtime lane thread band under a `RetryClass.RPC` cold-start retry.
 
 [LOCAL_ADMISSION]:

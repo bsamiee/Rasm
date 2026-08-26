@@ -1,6 +1,6 @@
 # [PY_DATA_API_PYSTAC_CLIENT]
 
-`pystac-client` owns the live STAC API client for the data STAC-catalog rail: a `Client` — a `pystac.Catalog` bound to a STAC API root — whose one keyword-only `search` lazily pages the `/search` endpoint into `pystac.Item` objects, beside `collection_search`/`get_collections` for collection discovery. Conformance negotiation, CQL2 filtering, and result paging fold through this surface; `pystac` owns the in-memory model the results hydrate into.
+`pystac-client` owns the live STAC API client for the data STAC-catalog domain: a `Client` — a `pystac.Catalog` bound to a STAC API root — whose one keyword-only `search` lazily pages the `/search` endpoint into `pystac.Item` objects, beside `collection_search`/`get_collections` for collection discovery. Conformance negotiation, CQL2 filtering, and result paging fold through this surface; `pystac` owns the in-memory model the results hydrate into.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -15,7 +15,7 @@
 |  [05]   | `StacApiIO`                    | HTTP/paging I/O     | `pystac.StacIO` over `requests`; `get_pages`, `request_modifier`, retry       |
 |  [06]   | `ConformanceClasses`           | conformance enum    | conformance gate (`CORE`/`ITEM_SEARCH`/`FILTER`/`SORT`/`FIELDS` …)            |
 |  [07]   | `Modifiable`                   | modifier signature  | union the `modifier` callback receives (Item/Collection/ItemCollection/dict)  |
-|  [08]   | `APIError` / `ParametersError` | error rail          | HTTP/response failure; invalid-parameter failure (`pystac_client.exceptions`) |
+|  [08]   | `APIError` / `ParametersError` | error channel       | HTTP/response failure; invalid-parameter failure (`pystac_client.exceptions`) |
 |  [09]   | `PystacClientWarning`          | conformance warning | fires when the API under-declares conformance and the client degrades         |
 
 ## [02]-[ENTRYPOINTS]

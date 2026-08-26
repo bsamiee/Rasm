@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_HONEYBEE_STANDARDS]
 
-`honeybee-standards` mints the always-loaded baseline defaults the energy-modeling rail resolves against — `energy_default.json` for the default energy library and `radiance_default.json` for the default radiance library — each exposed as an absolute-path module constant. It carries no code API; the surface is the JSON data contract `honeybee-energy` reads at import through `folders.defaults_file`, materialized only through the `lib.*_by_identifier` loaders. It is the guaranteed floor of the standards band, distinct from the large ASHRAE/DOE `honeybee-energy-standards` extension.
+`honeybee-standards` mints the always-loaded baseline defaults the energy-modeling domain resolves against — `energy_default.json` for the default energy library and `radiance_default.json` for the default radiance library — each exposed as an absolute-path module constant. It carries no code API; the surface is the JSON data contract `honeybee-energy` reads at import through `folders.defaults_file`, materialized only through the `lib.*_by_identifier` loaders. It is the guaranteed floor of the standards band, distinct from the large ASHRAE/DOE `honeybee-energy-standards` extension.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -13,7 +13,7 @@
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the JSON data contract and the loader seam — every default reaches the owner through the `honeybee_energy.lib.*_by_identifier` loaders, never a direct file read
+[ENTRYPOINT_SCOPE]: the JSON data contract and the loader boundary — every default reaches the owner through the `honeybee_energy.lib.*_by_identifier` loaders, never a direct file read
 
 | [INDEX] | [SURFACE]                             | [SHAPE]   | [CAPABILITY]                                                        |
 | :-----: | :------------------------------------ | :-------- | :------------------------------------------------------------------ |
@@ -33,4 +33,4 @@
 - `.planning/energy/model.md`: energy-modeling owner binds the seeded floor through `lib.*_by_identifier` under the `check_all` gate, admitting the large `honeybee-energy-standards` extension separately.
 
 [LOCAL_ADMISSION]:
-- Admitted as the leaf defaults-data backend of the energy-modeling rail; a model resolving only floor identifiers needs no extension, and a model referencing an ASHRAE 90.1 climate-zone construction set or a DOE-prototype whole-building program requires `honeybee-energy-standards` present under `folders.standards_extension_folders`.
+- Admitted as the leaf defaults-data backend of the energy-modeling domain; a model resolving only floor identifiers needs no extension, and a model referencing an ASHRAE 90.1 climate-zone construction set or a DOE-prototype whole-building program requires `honeybee-energy-standards` present under `folders.standards_extension_folders`.

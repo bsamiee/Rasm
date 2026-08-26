@@ -24,7 +24,7 @@
 - `GPUAdapter`: `features` `limits` `info` `requestDevice`
 - `GPURequestAdapterOptions`: `powerPreference` `forceFallbackAdapter` `featureLevel`
 - `GPUDeviceDescriptor`: `requiredFeatures` `requiredLimits` `defaultQueue`
-- `GPUFeatureName` carries the load-bearing `texture-compression-bc`/`-etc2`/`-astc` members; `GPUDevice.features` (a `GPUSupportedFeatures`) exposes the negotiated set the transcode-target seam reads.
+- `GPUFeatureName` carries the load-bearing `texture-compression-bc`/`-etc2`/`-astc` members; `GPUDevice.features` (a `GPUSupportedFeatures`) exposes the negotiated set the transcode-target selection reads.
 
 [PUBLIC_TYPE_SCOPE]: the device object graph — resources, pipelines, encoders
 
@@ -97,7 +97,7 @@ Bounded string-literal unions carry the format, topology, and op axes; `declare 
 
 [PUBLIC_TYPE_SCOPE]: canvas presentation and the error/device-loss surface
 
-`GPUCanvasContext` is the swap-chain the renderer presents into; the error hierarchy and the `lost` promise are the resilience surface the viewer folds through the Effect rail.
+`GPUCanvasContext` is the swap-chain the renderer presents into; the error hierarchy and the `lost` promise are the resilience surface the viewer folds through the Effect path.
 
 | [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY] | [CAPABILITY]                  |
 | :-----: | :--------------------------------------------------------------------- | :------------ | :---------------------------- |
@@ -125,10 +125,10 @@ Bounded string-literal unions carry the format, topology, and op axes; `declare 
 [STACKING]:
 - `three` / `three/webgpu` (`.api/three.md`; `viewer/scene/glb`, `viewer/scene/appearance`): the sole consumer. `GPUDevice.features` (a `GPUSupportedFeatures`) is the set `three`'s `renderer.hasFeature` and `KTX2Loader.detectSupport` read over `GPUFeatureName` — three.md owns that renderer/loader runtime flow, this owns the `GPUDevice`/`GPUAdapter`/`GPUTextureFormat` types it stands on. `three`'s `WebGPURenderer` requests an adapter through `navigator.gpu` and its TSL compute compiles to WGSL on a `GPUDevice`, so the two are the WebGPU-path type + runtime halves.
 - `browser` decode-worker port (`ui/viewer` ↔ `browser`): a raw-WebGPU compute path (meshopt decode, GPU picking) runs in a worker whose tsconfig also lists `@webgpu/types`, and the augmentation covers `WorkerNavigator.gpu`/`OffscreenCanvas.getContext("webgpu")` so the worker's `GPUDevice` code type-checks off the same package; the `GlbViewport` residency port carries the decoded buffers the compute pass consumes.
-- `effect` (`libs/typescript/.api/effect.md`): `GPUDevice.lost` (a `Promise<GPUDeviceLostInfo>`) folds through the folder's Effect rail so a device loss (GPU reset, backgrounded tab) becomes a typed re-initialization, and `pushErrorScope`/`popErrorScope` capture `GPUValidationError` as values rather than an unhandled rejection.
+- `effect` (`libs/typescript/.api/effect.md`): `GPUDevice.lost` (a `Promise<GPUDeviceLostInfo>`) folds through the folder's Effect path so a device loss (GPU reset, backgrounded tab) becomes a typed re-initialization, and `pushErrorScope`/`popErrorScope` capture `GPUValidationError` as values rather than an unhandled rejection.
 
 [LOCAL_ADMISSION]:
 - Add `@webgpu/types` to the `ui/viewer` tsconfig `compilerOptions.types` (or one triple-slash reference); never `import` it, never admit it outside `scope:viewer`.
 - Consume the globals `three` exposes and reach raw `GPUDevice` only on the worker compute path, where the device graph, descriptors, enum vocabularies, and flag namespaces are all keyed by the parameterized unions.
-- Handle `device.lost` and error scopes through the folder's Effect rail; treat `GPUValidationError`/`GPUDeviceLostInfo` as typed values.
+- Handle `device.lost` and error scopes through the folder's Effect path; treat `GPUValidationError`/`GPUDeviceLostInfo` as typed values.
 - Bump the package for a missing member; never hand-declare a `GPU*` interface.

@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PYVISTA]
 
-`pyvista` wraps the VTK render engine into a numpy-native 3D scientific-visualization surface for the `scene` rail: a `DataSet` mesh hierarchy, an offscreen `Plotter` render owner, the `read`/`wrap` ingest pair, geometric sources, and the dataset filter family for clipping, slicing, contouring, mesh repair, and CSG. It renders host-free through `Plotter(off_screen=True)` over a software-GL backend and never re-implements the demand-driven VTK pipeline or the reader/writer pairs `vtk` owns.
+`pyvista` wraps the VTK render engine into a numpy-native 3D scientific-visualization surface for the `scene` layer: a `DataSet` mesh hierarchy, an offscreen `Plotter` render owner, the `read`/`wrap` ingest pair, geometric sources, and the dataset filter family for clipping, slicing, contouring, mesh repair, and CSG. It renders host-free through `Plotter(off_screen=True)` over a software-GL backend and never re-implements the demand-driven VTK pipeline or the reader/writer pairs `vtk` owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -52,7 +52,7 @@
 
 [ENTRYPOINT_SCOPE]: publication-quality render control, scene import, raw-vtk bridge
 
-`set_background`, the `enable_*` family, `add_axes`/`add_scalar_bar`/`add_text`, and the standard-view family tune the offscreen render. `import_gltf`/`import_obj`/`import_vrml` keep a re-render/re-export round-trip in-process. `render_window` exposes the raw `vtkRenderWindow` the `vtkIOUSD`-gated `vtkUSDExporter` reads; the standing USD path is the numpy buffer seam, not the render window.
+`set_background`, the `enable_*` family, `add_axes`/`add_scalar_bar`/`add_text`, and the standard-view family tune the offscreen render. `import_gltf`/`import_obj`/`import_vrml` keep a re-render/re-export round-trip in-process. `render_window` exposes the raw `vtkRenderWindow` the `vtkIOUSD`-gated `vtkUSDExporter` reads; the standing USD path is the numpy buffer boundary, not the render window.
 
 | [INDEX] | [SURFACE]                                               | [CAPABILITY]                                                    |
 | :-----: | :------------------------------------------------------ | :-------------------------------------------------------------- |
@@ -72,9 +72,9 @@
 - [04]: `set_background` `add_axes` `add_scalar_bar` `add_text`.
 - [08]: `view_xy` `view_xz` `view_yz` `view_isometric` `view_vector` — one call sets camera position and view-up parallel to a principal plane; `negative=True` flips to the opposite face.
 
-[ENTRYPOINT_SCOPE]: dataset filters, the numpy mesh seam, mesh repair, write
+[ENTRYPOINT_SCOPE]: dataset filters, the numpy mesh boundary, mesh repair, write
 
-Filter methods return a NEW dataset, mutating the source only under `inplace=True`; `PolyData` adds mesh repair and CSG. Accessors `.points`/`.regular_faces`/`.point_normals` are the numpy buffer seam the `usd-core` author path reads.
+Filter methods return a NEW dataset, mutating the source only under `inplace=True`; `PolyData` adds mesh repair and CSG. Accessors `.points`/`.regular_faces`/`.point_normals` are the numpy buffer boundary the `usd-core` author path reads.
 
 | [INDEX] | [SURFACE]                                                         | [CAPABILITY]                                              |
 | :-----: | :---------------------------------------------------------------- | :-------------------------------------------------------- |
@@ -93,7 +93,7 @@ Filter methods return a NEW dataset, mutating the source only under `inplace=Tru
 |  [13]   | `DataSet.sample` / `cell_data_to_point_data`                      | transfer/resample fields; cell<->point attribute transfer |
 |  [14]   | `PolyData` mesh-repair family                                     | reduce/smooth/refine/repair a surface                     |
 |  [15]   | `PolyData` CSG boolean family                                     | watertight-surface CSG (also `+`/`-` operators)           |
-|  [16]   | `PolyData.points` / `.regular_faces` / `.point_normals`           | numpy mesh buffers the `usd-core` author seam reads       |
+|  [16]   | `PolyData.points` / `.regular_faces` / `.point_normals`           | numpy mesh buffers the `usd-core` author boundary reads   |
 |  [17]   | `PolyDataFilters.extract_feature_edges(feature_angle=30.0)`       | crease/boundary/non-manifold edges as line `PolyData`     |
 
 - [13]: `sample` `cell_data_to_point_data` `point_data_to_cell_data`.
@@ -121,17 +121,17 @@ Filter methods return a NEW dataset, mutating the source only under `inplace=Tru
 - worker-local: `pyvista` and `vtk` import only inside the offloaded native worker process; the runtime producer imports neither.
 - one mesh hierarchy: mesh kind is a `DataSet` subclass, never a parallel per-source wrapper; `MultiBlock` collects named datasets and fans filters over its blocks.
 - filters return a new dataset, mutating only under `inplace=True`, so a slice-then-threshold-then-glyph visualization composes as a chain over one dataset, never a per-filter mesh type. Return shifts: `clip_box`/`threshold` -> `UnstructuredGrid`, `slice_orthogonal` -> `MultiBlock`, `clip_scalar`/`slice`/`contour`/`extract_surface` -> `PolyData`; `clip_scalar` selects complements with `both=`, not `return_clipped=`.
-- numpy geometry seam: `.points` `(N,3)` coordinates, `.regular_faces` `(M,k)` connectivity (valid `(M,3)` after `triangulate`, `ValueError` on irregular faces), and computed `.point_normals` are the buffers the USD author path consumes.
+- numpy geometry boundary: `.points` `(N,3)` coordinates, `.regular_faces` `(M,k)` connectivity (valid `(M,3)` after `triangulate`, `ValueError` on irregular faces), and computed `.point_normals` are the buffers the USD author path consumes.
 
 [STACKING]:
 - `vtk`(`.api/vtk.md`): `pyvista` wraps the demand-driven pipeline, dataset hierarchy, and render stack into a numpy-native API; it drops to raw `vtk` only through `Plotter.render_window` for the `vtkIOUSD`-gated `vtkUSDExporter`, never re-deriving a `vtkRenderWindow`/`vtkRenderer` pipeline `pyvista` already owns.
 - `numpy`(`libs/python/.api/numpy.md`): `wrap` admits a vertex/scalar buffer zero-copy, `screenshot(return_img=True)` returns an rgb(a) raster, and `.points`/`.regular_faces`/`.point_normals` are numpy views, so one buffer becomes mesh points, a scalar field, a captured frame, or a USD source in one hop.
 - `usd-core`(`.api/usd-core.md`): triangulated `.points`/`.regular_faces`/`.point_normals` cross to `Vt.<Type>Array.FromNumpy`; the `vtkUSDExporter` over `Plotter.render_window` stays `vtkIOUSD`-gated.
 - `anyio`(`libs/python/.api/anyio.md`): every offloaded arm crosses as a `KernelTrait.HOSTILE` kernel on the warm process pool, keeping the `pyvista`/`vtk`/`pxr` imports worker-local.
-- within-lib `scene`: the `scene/render` `Scene3d` owner composes `wrap`, `add_mesh`/`add_volume`/`add_points`, the filter family, the `enable_*` render controls, and `export_*`; `screenshot(return_img=True)` rasters pass to `media` `VideoFrame.from_ndarray(format="rgb24")` with no PNG intermediary, and `scene/stage` reads the numpy buffer seam.
+- within-lib `scene`: the `scene/render` `Scene3d` owner composes `wrap`, `add_mesh`/`add_volume`/`add_points`, the filter family, the `enable_*` render controls, and `export_*`; `screenshot(return_img=True)` rasters pass to `media` `VideoFrame.from_ndarray(format="rgb24")` with no PNG intermediary, and `scene/stage` reads the numpy buffer boundary.
 
 [LOCAL_ADMISSION]:
 - Construct `Plotter(off_screen=True)` and rasterize with `screenshot`; never spin an interactive window in the headless path.
 - Stay on the pyvista surface for meshes, filters, camera, and export; drop to raw `vtk` only for `Plotter.render_window`.
 - Import `pyvista`/`vtk` inside the offloaded worker; the runtime producer imports neither native package.
-- Chain filters as one composed sequence over a dataset; carry large mesh/scalar buffers through the numpy seam, never a per-element loop.
+- Chain filters as one composed sequence over a dataset; carry large mesh/scalar buffers through the numpy boundary, never a per-element loop.

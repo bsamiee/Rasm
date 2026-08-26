@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_PYROSCOPE]
 
-`Pyroscope` hosts the native continuous-profiler agent as a process-wide `Profiler` singleton — dynamic tags, per-signal capture toggles, ingest credentials, and span-context correlation, each degrading to a no-op when the native library is absent. `Pyroscope.OpenTelemetry` bridges the OpenTelemetry trace pipeline into that singleton: `PyroscopeSpanProcessor` folds every root span's context through `SetSpanContext` and stamps the `pyroscope.profile.id` tag onto the span. `Profiler.Instance` is the singleton seam both packages meet at.
+`Pyroscope` hosts the native continuous-profiler agent as a process-wide `Profiler` singleton — dynamic tags, per-signal capture toggles, ingest credentials, and span-context correlation, each degrading to a no-op when the native library is absent. `Pyroscope.OpenTelemetry` bridges the OpenTelemetry trace pipeline into that singleton: `PyroscopeSpanProcessor` folds every root span's context through `SetSpanContext` and stamps the `pyroscope.profile.id` tag onto the span. `Profiler.Instance` is the singleton both packages meet at.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -8,7 +8,7 @@
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                        |
 | :-----: | :----------------- | :------------ | :---------------------------------- |
-|  [01]   | `Profiler`         | class         | native profiler control seam        |
+|  [01]   | `Profiler`         | class         | native profiler control surface     |
 |  [02]   | `LabelSet`         | class         | immutable tag frame with `Activate` |
 |  [03]   | `LabelSet.Builder` | class         | `Add`/`Build` over a prior frame    |
 |  [04]   | `LabelsWrapper`    | class         | brackets a delegate under a frame   |
@@ -56,7 +56,7 @@
 
 [TOPOLOGY]:
 - `Profiler.Instance` is a lazy process-wide singleton over `LazyInitializer.EnsureInitialized`; one profiler owns the process and every native-interop fault degrades the calling method to a no-op.
-- `SetSpanContext(localRootSpanId, traceIdHi, traceIdLo)` is the sole trace-to-profile correlation seam, and the zero triple clears it.
+- `SetSpanContext(localRootSpanId, traceIdHi, traceIdLo)` is the sole trace-to-profile correlation point, and the zero triple clears it.
 - Dynamic tags scope through `LabelSet`: `Activate` clears then re-applies the frame, and `LabelsWrapper.Do` brackets a delegate and restores the prior frame on exit.
 - `PyroscopeSpanProcessor` folds only root spans (`data.Parent?.HasRemoteParent ?? true`): `OnStart` casts the span and trace ids into `SetSpanContext` and stamps `pyroscope.profile.id` (`SpanId.ToString()`) onto the `Activity`, `OnEnd` clears the context, and `OnStart` swallows any fault to `Console.WriteLine`.
 

@@ -56,7 +56,7 @@ Helpers `valueof(data, value, type?)` `column(source?)` `identity` `indexOf`; fo
 ## [04]-[INTERACTION]
 
 - `tip: true` on any mark, or an explicit `tip` mark, renders channel values at the pointed instant; extra `channels` rows surface in the tip.
-- `pointer`/`pointerX`/`pointerY` filter a mark to the nearest datum, drive the root element's `value`, and emit `input` — the chart-as-input seam.
+- `pointer`/`pointerX`/`pointerY` filter a mark to the nearest datum, drive the root element's `value`, and emit `input` — the chart-as-input interface.
 - `crosshair`/`crosshairX`/`crosshairY` compose pointer, rules, and axis text as one row.
 
 ## [05]-[IMPLEMENTATION_LAW]
@@ -65,7 +65,7 @@ Helpers `valueof(data, value, type?)` `column(source?)` `identity` `indexOf`; fo
 - Every mark is one channel-parameterized shape folding the shared `MarkOptions` vocabulary through a transform slot; scales, axes, legends, facets, and projections infer from channels, so the spec is data, never a render program.
 
 [STACKING]:
-- `react`(`.api/react.md`): `plot(...)` returns a detached element a component mounts in an effect bracket (`containerRef.current.replaceChildren(plot(...))`, cleanup removes) keyed on decoded inputs; the spec derives from atom state and the `pointer` `value`/`input` seam writes back through the atom binding, never component state.
+- `react`(`.api/react.md`): `plot(...)` returns a detached element a component mounts in an effect bracket (`containerRef.current.replaceChildren(plot(...))`, cleanup removes) keyed on decoded inputs; the spec derives from atom state and the `pointer` `value`/`input` pair writes back through the atom binding, never component state.
 - `apache-arrow`(`.api/apache-arrow.md`): marks bind an Arrow `Table` as `data` with column-name channel shorthand (`Plot.dot(table, {x: "Date", y: "Anomaly"})`) and Arrow date detection, so a wire-decoded frame plots with zero row materialization.
 - `d3`(`.api/d3.md`): Plot embeds d3 wholesale as its one runtime dep; scale options, `format`/`timeFormat` specifiers, curve names, and projection factories pass through to d3 vocabularies, and `d3-array` folds prepare data beside the spec.
 - `system/token` theming: Plot emits scoped classes under `className` and inherits CSS custom properties; categorical `color.range` and continuous `color.scheme` resolve from the token authority per the `.api/d3.md` chromatic boundary, `style` last-resort only.

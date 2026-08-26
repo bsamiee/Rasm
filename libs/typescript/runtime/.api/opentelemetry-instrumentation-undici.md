@@ -18,7 +18,7 @@
 
 - `UndiciInstrumentationConfig` extends `InstrumentationConfig` (`enabled?`) with `ignoreRequestHook?`, `requestHook?`, `responseHook?`, `startSpanHook?`, `requireParentforSpans?`, and `headersToSpanAttributes?: { requestHeaders?: string[]; responseHeaders?: string[] }`.
 - `UndiciRequest.origin` carries scheme and authority, so an ignore hook matches an endpoint by origin without reassembling a URL.
-- `UndiciRequest.addHeader(name, value)` opens the injection seam trace-context propagation uses, so a hook adds a header without touching the raw array form.
+- `UndiciRequest.addHeader(name, value)` opens the injection point trace-context propagation uses, so a hook adds a header without touching the raw array form.
 - `requireParentforSpans` gates on a live parent rather than suppressing a downstream layer; two different mechanisms, and this package ships the gate.
 
 ## [02]-[ENTRYPOINTS]

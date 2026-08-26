@@ -1,10 +1,10 @@
 # [SYSTEM_APIS]
 
-This page is the BCL-owner-replacement law: the high-churn surface where a yearly runtime delta retires a local helper, kept disjoint from the stable language-form law so `language.md` never churns with a BCL addition. A runtime API replaces local machinery only when it owns the concern; it never replaces a LanguageExt rail, a Thinktecture generated owner, or a downstream owner's law.
+This page is the BCL-owner-replacement law: the high-churn surface where a yearly runtime delta retires a local helper, kept disjoint from the stable language-form law so `language.md` never churns with a BCL addition. A runtime API replaces local machinery only when it owns the concern; it never replaces a LanguageExt carrier, a Thinktecture generated owner, or a downstream owner's law.
 
-Each card names the owning runtime surface and the local loop, wrapper, or branch it deletes, and the snippet composes that surface under a `Fin<T>` rail behind one admitted owner. A surface whose body the BCL leaves statement-shaped — the span transcode, the offset-addressed fill, the ref-into-bucket probe — is named at its card Exemption and still leaves the result a rail value; the interior never sees the `OperationStatus`, the `out` triple, or the raw `null`.
+Each card names the owning runtime surface and the local loop, wrapper, or branch it deletes, and the snippet composes that surface under a `Fin<T>` result behind one admitted owner. A surface whose body the BCL leaves statement-shaped — the span transcode, the offset-addressed fill, the ref-into-bucket probe — is named at its card Exemption and still leaves the result a carrier value; the interior never sees the `OperationStatus`, the `out` triple, or the raw `null`.
 
-Five concerns route to their owners and are never re-derived here: numerics, generic math, `Vector<T>`, and `TensorPrimitives` element kernels are `algorithms.md`'s; `TimeProvider`, the clock seam, caches, and pools are `runtime.md`'s `[08]`/`[07]`; channels, task composition, cancellation, rate limiters, and reactive streams are `concurrency.md`'s; `ActivitySource`, `Meter`, and `[LoggerMessage]` emission are `diagnostics.md`'s; content identity, the canonical byte-codec, the memo key, and the JSON shape are `boundaries.md`'s `BYTE_IDENTITY`/`MEMO_KEY`/`CODEC_SURFACE`. This page owns the in-process stdlib-surface selection only.
+Five concerns route to their owners and are never re-derived here: numerics, generic math, `Vector<T>`, and `TensorPrimitives` element kernels are `algorithms.md`'s; `TimeProvider`, the clock port, caches, and pools are `runtime.md`'s `[08]`/`[07]`; channels, task composition, cancellation, rate limiters, and reactive streams are `concurrency.md`'s; `ActivitySource`, `Meter`, and `[LoggerMessage]` emission are `diagnostics.md`'s; content identity, the canonical byte-codec, the memo key, and the JSON shape are `boundaries.md`'s `BYTE_IDENTITY`/`MEMO_KEY`/`CODEC_SURFACE`. This page owns the in-process stdlib-surface selection only.
 
 ## [01]-[SMELL_LOOKUP]
 
@@ -48,7 +48,7 @@ This table is a lookup by repeated local smell; the owning card states the place
 
 [FORMAT_AND_PARSE]:
 - Owner: `CompositeFormat`, `string.Create`, `Span<char>.TryWrite`, and `Utf8.TryWrite` over the `ISpanFormattable`/`ISpanParsable<T>` and `IUtf8SpanFormattable`/`IUtf8SpanParsable<T>` pairs, with `u8` literals, `Utf8.FromUtf16`/`ToUtf16`, and `Ascii.IsValid` for the fast-path admission gate.
-- Gate: wire and persisted values fix `CultureInfo.InvariantCulture` at the seam, never an ambient culture; chunked transcoding flows through the `OperationStatus` forms with the residual carried forward.
+- Gate: wire and persisted values fix `CultureInfo.InvariantCulture` at the boundary, never an ambient culture; chunked transcoding flows through the `OperationStatus` forms with the residual carried forward.
 - Rule: a domain type appearing in formatted output implements the span-formattable pair and composes into `TryWrite` holes with no allocation; `IUtf8SpanParsable<T>` is independent of `ISpanParsable<T>` and carries its own constraint, so a UTF-8 parse path states it explicitly.
 - Reject: repeated format-string parsing where `CompositeFormat.Parse` caches the segments; `StringBuilder` for fixed-length construction; a culture-ambient persisted value; `Encoding.UTF8.GetBytes` on a literal where `u8` is the constant; a UTF-16 round trip on a UTF-8 path.
 
@@ -108,9 +108,9 @@ public static class FrameCodec {
 - Reject: a static `Dictionary` rebuilt per call where `FrozenDictionary` bakes once; a string-key lookup copied per call; a `ToString` materialization before a keyed probe where the span lookup reads the source directly.
 
 [IMMUTABLE_BOUNDARY_PAYLOAD]:
-- Owner: `ImmutableArray`, `ImmutableDictionary`, and `ImmutableHashSet` at boundary payloads outside LanguageExt rails.
+- Owner: `ImmutableArray`, `ImmutableDictionary`, and `ImmutableHashSet` at boundary payloads outside LanguageExt carriers.
 - Rule: `default(ImmutableArray<T>)` is a distinct throwing state guarded by `IsDefaultOrEmpty`; an exact-capacity builder hands off through `MoveToImmutable` with zero copy; `AsSpan` reads the backing array without exposing it.
-- Boundary: domain sequence identity travels on `Seq<T>`/`Arr<T>` per `rails-and-effects.md`, never a BCL immutable; `ImmutableList<T>` on an indexed read path is the rejected form.
+- Boundary: domain sequence identity travels on `Seq<T>`/`Arr<T>` per `results-and-effects.md`, never a BCL immutable; `ImmutableList<T>` on an indexed read path is the rejected form.
 
 [ORDERED_AND_SCHEDULED]:
 - Owner: `OrderedDictionary<TKey,TValue>` with `GetAt`/`SetAt`/`IndexOf` for insertion order, and `PriorityQueue<TElement,TPriority>` for heap scheduling.
@@ -120,7 +120,7 @@ public static class FrameCodec {
 [SET_ALGEBRA_AND_INTERNALS]:
 - Owner: the keyed LINQ operators `ToLookup`, `DistinctBy`, `CountBy`, `AggregateBy`, `ExceptBy`, `IntersectBy`, `UnionBy`, `Index`, `LeftJoin`, `RightJoin`; and `CollectionsMarshal.GetValueRefOrAddDefault`, `GetValueRefOrNullRef`, `AsSpan`, and `SetCount` at measured boundaries.
 - Rule: `CountBy`/`AggregateBy` fold per key in one pass where a `GroupBy` then a per-group reduce materializes the groups; `LeftJoin`/`RightJoin` retire the `GroupJoin`-`SelectMany`-`DefaultIfEmpty` idiom; the same operator names transpose to `IAsyncEnumerable<T>` through the BCL `AsyncEnumerable` surface, and the `WhereAwait`-style spelling belongs to an external package and is the rejected form.
-- Exemption: `GetValueRefOrAddDefault` returns a `ref TValue?` into the bucket plus the `out bool exists` first-write witness — the one statement seam this card forces — so a running multi-field accumulator threads through one hash probe per row where `AggregateBy` reallocates its accumulator each step and cannot expose a `ref` into the live bucket; a pure single-field per-key reduce is `AggregateBy`'s and never takes the seam. The list size is pinned before `AsSpan` because a resizing `Add` invalidates the span, and a `GetValueRefOrNullRef` result is tested with `Unsafe.IsNullRef`.
+- Exemption: `GetValueRefOrAddDefault` returns a `ref TValue?` into the bucket plus the `out bool exists` first-write witness — the one statement body this card forces — so a running multi-field accumulator threads through one hash probe per row where `AggregateBy` reallocates its accumulator each step and cannot expose a `ref` into the live bucket; a pure single-field per-key reduce is `AggregateBy`'s and never takes the exemption. The list size is pinned before `AsSpan` because a resizing `Add` invalidates the span, and a `GetValueRefOrNullRef` result is tested with `Unsafe.IsNullRef`.
 - Reject: a repeated `GroupBy` for a count or fold; a loop dedup where `DistinctBy` keys it; a manual index counter where `Index` carries position; a comparer-free keyed set operation where the domain rule is not default equality; a `TryGetValue`-then-`Add` double probe; domain public identity built from mutable dictionary internals.
 
 ```csharp
@@ -141,7 +141,7 @@ public static class Tally {
 
     public static ImmutableArray<(int Rank, string Key, Roll Roll)> Fold(params ReadOnlySpan<(string Key, int Score)> rows) {
         Dictionary<string, Roll> rolls = new Dictionary<string, Roll>(rows.Length, StringComparer.Ordinal);
-        for (int i = 0; i < rows.Length; i++) {                              // Exemption: one ref probe threads count+peak+first-ordinal; AggregateBy reallocates per step and joins in a second pass
+        for (int i = 0; i < rows.Length; i++) {
             ref Roll roll = ref CollectionsMarshal.GetValueRefOrAddDefault(rolls, rows[i].Key, out bool exists);
             roll = new Roll(roll.Count + 1, Math.Max(roll.Peak, rows[i].Score), exists ? roll.FirstAt : i);
         }
@@ -162,7 +162,7 @@ public static class Tally {
 [BUFFERS_AND_PIPELINES]:
 - Owner: `ArrayPool<T>`, `MemoryPool<T>`, `ReadOnlySequence<T>`, `SequenceReader<T>`, `BinaryPrimitives`, `PipeReader`, and `PipeWriter`.
 - Rule: `BinaryPrimitives.TryReadUInt32BigEndian` reads an endian-fixed wire field where `BitConverter` leaks host endianness, and `SequenceReader<T>` walks a segmented `ReadOnlySequence<T>` where a copy-to-array flattens it; a rented array returns in `finally` and an `IMemoryOwner<T>` carries the lease across `await`.
-- Exemption: the `Rent`/`try`/`finally`/`Return` pool-lease bracket inside an `async` boundary method is the named platform-forced statement seam — `IO<T>.BracketIO` is the domain-flow owner, but a localized async pool window the rail never observes returns deterministically in `finally`; the leased span never escapes and the method still yields a `Fin<T>`.
+- Exemption: the `Rent`/`try`/`finally`/`Return` pool-lease bracket inside an `async` boundary method is the named platform-forced statement body — `IO<T>.BracketIO` is the domain-flow owner, but a localized async pool window the carrier never observes returns deterministically in `finally`; the leased span never escapes and the method still yields a `Fin<T>`.
 - Reject: an unbounded `MemoryStream`; a `new byte[n]` scratch buffer where `ArrayPool<T>` leases it; `BitConverter` for an endian wire frame.
 
 [INTEGRITY]:
@@ -210,20 +210,20 @@ public static class SegmentReader {
 
 ## [05]-[BOUNDARY_PRIMITIVES]
 
-[SEAM_GUARDS]:
+[BOUNDARY_GUARDS]:
 - Owner: `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty`/`ThrowIfNullOrWhiteSpace`, the `ArgumentOutOfRangeException.ThrowIf` comparison family, `ObjectDisposedException.ThrowIf`, the nullable-flow annotations `NotNullWhen`/`NotNullIfNotNull`/`MemberNotNull`/`DoesNotReturn`/`StringSyntax`, and `[CallerArgumentExpression]`.
-- Rule: `[CallerArgumentExpression]` captures the argument expression into the exception with no hand-formatted parameter-name string, and the `ThrowIfGreaterThanOrEqual`/`ThrowIfLessThan` comparison guards constrain on `where T : IComparable<T>` so signed, unsigned, and floating bounds share one spelling (`ThrowIfNegative`/`ThrowIfZero` widen to `INumberBase<T>`); these guard a host or library seam, and the nullable-flow annotations delete the null-forgiving scatter after a `Try*` or guard call.
-- Boundary: domain admission stays on Thinktecture generated owners and typed rails per `BOUNDARY_ADMISSION`; a data annotation validates a wire DTO at the converter seam, never a domain value, so a guard here precedes the rail bridge and never stands in for it.
+- Rule: `[CallerArgumentExpression]` captures the argument expression into the exception with no hand-formatted parameter-name string, and the `ThrowIfGreaterThanOrEqual`/`ThrowIfLessThan` comparison guards constrain on `where T : IComparable<T>` so signed, unsigned, and floating bounds share one spelling (`ThrowIfNegative`/`ThrowIfZero` widen to `INumberBase<T>`); these guard a host or library boundary, and the nullable-flow annotations delete the null-forgiving scatter after a `Try*` or guard call.
+- Boundary: domain admission stays on Thinktecture generated owners and typed results per `BOUNDARY_ADMISSION`; a data annotation validates a wire DTO at the converter boundary, never a domain value, so a guard here precedes the carrier bridge and never stands in for it.
 - Reject: a guard-block `if`-`throw` argument check; a hand-formatted parameter-name message; null-forgiving scatter after a guard API; a guard used as domain admission.
 
 [COMPILER_AND_INTEROP]:
 - Owner: `MethodImpl`, `CallerMemberName`, custom interpolated string handlers, `CollectionBuilder`, `StructLayout`, `MemoryMarshal`, `NativeMemory`, `SuppressGCTransition`, `[LibraryImport]` with `StringMarshalling`/`StringMarshallingCustomType`, and `[UnmanagedCallConv]`.
-- Rule: `[LibraryImport]` source-generates the marshalling stub at compile time and is the trim-safe, NativeAOT-compatible P/Invoke seam; `StringMarshalling.Utf8` fixes the encoding at the attribute where a manual `Marshal.StringToHGlobalAnsi` round trip re-spells it, and `[UnmanagedCallConv(CallConvs = [typeof(CallConvSuppressGCTransition)])]` is the cooperative-GC fast call a blittable leaf invocation states once.
+- Rule: `[LibraryImport]` source-generates the marshalling stub at compile time and is the trim-safe, NativeAOT-compatible P/Invoke boundary; `StringMarshalling.Utf8` fixes the encoding at the attribute where a manual `Marshal.StringToHGlobalAnsi` round trip re-spells it, and `[UnmanagedCallConv(CallConvs = [typeof(CallConvSuppressGCTransition)])]` is the cooperative-GC fast call a blittable leaf invocation states once.
 - Boundary: the native handle, the borrowed-memory window, and the callback are `boundaries.md`'s `CAPSULE_OWNER`/`REF_SAFE_PROJECTION`/`SUBSCRIPTION_VALUE` — the marshalling-stub-on-a-`SafeHandle` lives there; this card owns the marshalling-attribute selection only, and an `unsafe` interop body requires measured proof plus that boundary owner.
 - Reject: a `[DllImport]` runtime marshalling stub under a trimming owner; a hand-marshalled string where `StringMarshalling` is declarative; an `unsafe` block with no measured proof and no boundary capsule.
 
 ```csharp
-public static partial class HostSeam {
+public static partial class HostBoundary {
     [LibraryImport("<native>", EntryPoint = "probe_slot", StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvSuppressGCTransition)])]
     private static partial int Probe(string token, uint slot);

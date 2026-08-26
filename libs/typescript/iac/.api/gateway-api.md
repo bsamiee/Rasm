@@ -1,12 +1,12 @@
 # [TS_IAC_API_GATEWAY_API]
 
-`gateway-api` is the routing contract the deploy plane's network edge is written against, and it is the one CRD estate no chart in this folder installs: the cluster's Gateway controller owns the definitions, the estate authors only the custom resources. That split is the contract — no field here configures a controller, and no controller value changes what a `Gateway` or `HTTPRoute` may hold.
+`gateway-api` is the routing contract the deploy plane's network edge is written against, and it is the one CRD set no chart in this folder installs: the cluster's Gateway controller owns the definitions, the cluster authors only the custom resources. That split is the contract — no field here configures a controller, and no controller value changes what a `Gateway` or `HTTPRoute` may hold.
 
-Catalogue placement follows the folder rule that a CRD estate arriving with no chart of its own earns a folder-tier catalogue: no chart surface exists to hang a stacking bullet on, leaving the fences that assert these members verifying against nothing.
+Catalogue placement follows the folder rule that a CRD set arriving with no chart of its own earns a folder-tier catalogue: no chart surface exists to hang a stacking bullet on, leaving the fences that assert these members verifying against nothing.
 
 ## [01]-[GATEWAY_CONTRACT]
 
-[CLASS_CONTRACT]: `GatewayClass` is CLUSTER-scoped and this estate REFERENCES one by name without ever authoring it — the controller installs its own class, so `spec.controllerName` (`string` 1..253, REQUIRED, domain-slash-path pattern) is read-only estate context. `description` is `string` maxLength 64 and `parametersRef` is the implementation-specific handle.
+[CLASS_CONTRACT]: `GatewayClass` is CLUSTER-scoped and this cluster REFERENCES one by name without ever authoring it — the controller installs its own class, so `spec.controllerName` (`string` 1..253, REQUIRED, domain-slash-path pattern) is read-only cluster context. `description` is `string` maxLength 64 and `parametersRef` is the implementation-specific handle.
 
 | [INDEX] | [FIELD]                              | [CAPABILITY]                                                             |
 | :-----: | :----------------------------------- | :----------------------------------------------------------------------- |
@@ -50,12 +50,12 @@ Catalogue placement follows the folder rule that a CRD estate arriving with no c
 
 ## [03]-[IMPLEMENTATION_LAW]
 
-- Controller installs the CRDs; this estate authors the CRs. Every Gateway API object the branch declares is a committed `crd2pulumi` class, so the routing vocabulary is compile-checked at the one seam the public edge runs through, and a raw untyped `CustomResource` has no spelling.
+- Controller installs the CRDs; this cluster authors the CRs. Every Gateway API object the branch declares is a committed `crd2pulumi` class, so the routing vocabulary is compile-checked at the one boundary the public edge runs through, and a raw untyped `CustomResource` has no spelling.
 - Generated CRD module and the channel pin move together: a Gateway API bump regenerates `../crds/gateway` rather than shifting an npm dependency, so the cluster schema and the typed classes never disagree.
 - Standard channel bounds the pin — a member outside it carries no generated class and no catalogue row, so reaching for one is a channel decision made at the pin, never at a call site.
 
 [STACKING]:
-- `../crds/gateway` (crd2pulumi): `v1.Gateway` and `v1.HTTPRoute` are the branch's compile-checked spelling of this CRD estate, regenerated against the pinned channel rather than pinned as an npm dependency.
+- `../crds/gateway` (crd2pulumi): `v1.Gateway` and `v1.HTTPRoute` are the branch's compile-checked spelling of this CRD set, regenerated against the pinned channel rather than pinned as an npm dependency.
 - `kube/traffic#EDGE_FAMILY`: `_EDGES.gateway` carries the class name and controller namespace beside the legacy `Ingress` row.
 - `kube/traffic#EDGE_REALIZE`: authors the `Gateway` HTTPS listener over a `kubernetes.io/tls` sink and the `HTTPRoute` binding hostname to one backend.
 - `operate/policy#POLICY_ROWS`: `gateway-tls-required` walks `Gateway` CRs by `kind` and an `apiVersion` prefixed `gateway.networking.k8s.io`, judging listener sets for an `HTTPS` member with non-empty `certificateRefs` — the CR's own props are the carrier's stable discriminant.

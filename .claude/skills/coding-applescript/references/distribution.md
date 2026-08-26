@@ -24,7 +24,7 @@ An applet stub is a Mach-O binary, so its architecture slice set is a distributi
 
 A faulted Apple Event error-retrieval path stalls and surfaces as `-1712` (`errAETimeout`), occasionally `-600`: Finder's `empty trash` against an already-empty trash guards with `if ((items of trash) as list) is not {}` ahead of the call, and recompiling and re-saving the script repairs the stall.
 
-Script Editor refuses an older compiled script whose storage format dropped, failing with `-1758` (`errOSADataFormatObsolete`) and refusing every further script until relaunched. `osascript` executes the same artifact unchanged, so the repair is an `osacompile` re-save from decompiled source, and a release rail recompiles shipped artifacts so the output opens in the editor.
+Script Editor refuses an older compiled script whose storage format dropped, failing with `-1758` (`errOSADataFormatObsolete`) and refusing every further script until relaunched. `osascript` executes the same artifact unchanged, so the repair is an `osacompile` re-save from decompiled source, and a release pipeline recompiles shipped artifacts so the output opens in the editor.
 
 ## [03]-[DIAGNOSTICS]
 

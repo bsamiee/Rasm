@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_LAYOUT]
 
-`LineLayout` owns locale-aware paragraph layout over the document rail. One closed `LayoutRequest` family gives each arm only its consumed state, `SegmentEngine` selects uniseg's locale-free UAX #14 table or PyICU's CLDR-tailored dictionary segmentation, and `CollationPolicy` projects the UCA strength, case, normalization, numeric, and alternate-handling axes onto one ICU collator. pyphen contributes every legal soft break with its realized `(head, tail)` orthographic substitution. A Knuth-Plass total-fit program lowers HarfBuzz cluster groups into one `Item` stream, rejects every `unsafe_to_break` edge, admits `tatweel_points` as elastic kashida, and minimizes total demerits across the paragraph.
+`LineLayout` owns locale-aware paragraph layout over the document domain. One closed `LayoutRequest` family gives each arm only its consumed state, `SegmentEngine` selects uniseg's locale-free UAX #14 table or PyICU's CLDR-tailored dictionary segmentation, and `CollationPolicy` projects the UCA strength, case, normalization, numeric, and alternate-handling axes onto one ICU collator. pyphen contributes every legal soft break with its realized `(head, tail)` orthographic substitution. A Knuth-Plass total-fit program lowers HarfBuzz cluster groups into one `Item` stream, rejects every `unsafe_to_break` edge, admits `tatweel_points` as elastic kashida, and minimizes total demerits across the paragraph.
 
 Break boundaries and HarfBuzz clusters normalize onto code-point indices. `_icu_breaks` converts ICU's UTF-16 offsets before grapheme reconciliation, `_clusters` preserves each contiguous glyph cluster as one indivisible span, RTL reverses cluster groups rather than glyphs, and `_stream` reads break evidence at each group's trailing edge. `LayoutLine` carries both the shaped-run glyph span and source-text span, while `LineEnding.hyphenated` carries the selected pyphen substitution without forcing downstream reconstruction. `broken(spec)` exposes the same total-fit value used by `emit()`. Native ICU4C arms cross the process lane; the pure uniseg/pyphen folds — the input-scaled Knuth-Plass fit included — cross the own-GIL interpreter lane, so no synchronous fold ever runs on the event loop.
 
@@ -35,7 +35,7 @@ from opentelemetry import trace
 
 from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.runtime.faults import RuntimeRail, faulted, scoped
+from rasm.runtime.faults import RuntimeResult, faulted, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
@@ -267,7 +267,7 @@ class LineLayout(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    async def _emit(self, /) -> RuntimeRail[bytes]:
+    async def _emit(self, /) -> RuntimeResult[bytes]:
         acceptor, trait = _LAYOUT_TABLE[self.request.op], self._trait
         with _TRACER.start_as_current_span(f"layout.{self.request.tag}") as span:
             span.set_attributes({"step": self.request.tag, "trait": trait.value})

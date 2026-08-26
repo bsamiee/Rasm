@@ -2,7 +2,7 @@
 
 `SupportSpace` and `SupportProjection` own the corpus proximity gate: one closed `[Union]` over every closest-point-capable host shape, discriminated ONCE at admission by the proximity regime its reads need, and one `[SmartEnum<int>]` owning the closest-hit output modalities behind a single capability-gated `Project<TOut>`. Each new proximity answer is one vocabulary row carrying its required capability and its projection. Every proximity read in the corpus routes through this gate.
 
-This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit`, the `EvaluationRequest`/`EvaluationResult` algebra this adapter drives, and the one erased `extension(object? geometry) { Evaluate(request, key) }` ingress that algebra publishes; `normalization.md` owns the `Capability` admission rows whose verdicts gate admission once and every projection after; `validation.md` owns `ICapability`/`CapabilitySet` and `atoms.md` the `AtomProjection` raw→typed rail its canonical carriers (`ClosestHit`, `Direction`, `VectorSpan`) project through. Parametric `(u,v)` evaluation homes at `Parametric/projections.md`; this page owns proximity alone.
+This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit`, the `EvaluationRequest`/`EvaluationResult` algebra this adapter drives, and the one erased `extension(object? geometry) { Evaluate(request, key) }` ingress that algebra publishes; `normalization.md` owns the `Capability` admission rows whose verdicts gate admission once and every projection after; `validation.md` owns `ICapability`/`CapabilitySet` and `atoms.md` the `AtomProjection` raw→typed fold its canonical carriers (`ClosestHit`, `Direction`, `VectorSpan`) project through. Parametric `(u,v)` evaluation homes at `Parametric/projections.md`; this page owns proximity alone.
 
 ## [01]-[INDEX]
 
@@ -102,7 +102,6 @@ public abstract partial record SupportSpace {
     public sealed record Sheet(GeometryBase Value, CapabilitySet<SupportCapability> Held) : SupportSpace;
     public sealed record Form(object Value, CapabilitySet<SupportCapability> Held) : SupportSpace;
 
-    [BoundaryAdapter]
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
         Op op = key.OrDefault();
         return value switch {
@@ -273,9 +272,9 @@ public sealed partial class SupportProjection {
 
 ## [05]-[DENSITY_BAR]
 
-One owner per axis; each `[RAIL]` cell names the owner's return rail and `[CASES]` its bounded-vocabulary count.
+One owner per axis; each `[RESULT]` cell names the owner's return type and `[CASES]` its bounded-vocabulary count.
 
-| [INDEX] | [AXIS_CONCERN]       | [OWNER]             | [KIND]                | [RAIL]                                                | [CASES] |
+| [INDEX] | [AXIS_CONCERN]       | [OWNER]             | [KIND]                | [RESULT]                                              | [CASES] |
 | :-----: | :------------------- | :------------------ | :-------------------- | :---------------------------------------------------- | :-----: |
 |  [01]   | Proximity capability | `SupportCapability` | `[SmartEnum<string>]` | `Of → CapabilitySet<SupportCapability>`               |    4    |
 |  [02]   | Analytic species     | `AnalyticShape`     | `[Union]`             | `Of → Option<AnalyticShape>`; `Payload → object`      |    4    |

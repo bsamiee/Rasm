@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_JSONSCHEMA_NET]
 
-`JsonSchema.Net` owns in-process JSON Schema evaluation on the `validation` rail: schema parse, compiled-node build, dialect and vocabulary resolution, `$ref`/`$dynamicRef` document resolution, format assertion, and the three-tier output model. It computes application-side the boolean verdict a server-side `CHECK` constraint enforces at write, so one frozen schema text governs both residences. Schema is data, evaluation is a pure fold over `System.Text.Json`, and the four process-global registries are the only ambient state.
+`JsonSchema.Net` owns in-process JSON Schema evaluation on the `validation` path: schema parse, compiled-node build, dialect and vocabulary resolution, `$ref`/`$dynamicRef` document resolution, format assertion, and the three-tier output model. It computes application-side the boolean verdict a server-side `CHECK` constraint enforces at write, so one frozen schema text governs both sites. Schema is data, evaluation is a pure fold over `System.Text.Json`, and the four process-global registries are the only ambient state.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -147,10 +147,10 @@
 
 [TOPOLOGY]:
 - `JsonSchema` is a parse-once immutable value: the frozen schema text parses at composition, the compiled tree behind `Root` is thread-safe for concurrent `Evaluate`, and parse cost never repeats.
-- `Evaluate` folds a `JsonElement` instance to an `EvaluationResults` tree whose `IsValid` is the boolean the server-side check returns, so both residences yield one verdict from one schema text.
+- `Evaluate` folds a `JsonElement` instance to an `EvaluationResults` tree whose `IsValid` is the boolean the server-side check returns, so both sites yield one verdict from one schema text.
 - Draft selection is a `Dialect`: a schema's `$schema` keyword resolves one through `DialectRegistry`, and `BuildOptions.Dialect` pins the draft when `$schema` is absent, so a version-less schema binds a stated draft.
 - `EvaluationOptions.OutputFormat` selects the verdict tier inside one evaluation, and `ToList`/`ToFlag` reshape the standing result without a second pass.
-- `Evaluate` answers a schema-invalid instance with a verdict, so throwing marks a schema fault alone: `JsonSchema.FromText` lifts `JsonSchemaException` on invalid schema JSON and evaluation lifts `RefResolutionException` on an unresolvable reference, both discriminated from `IsValid == false` on the `validation` fault rail.
+- `Evaluate` answers a schema-invalid instance with a verdict, so throwing marks a schema fault alone: `JsonSchema.FromText` lifts `JsonSchemaException` on invalid schema JSON and evaluation lifts `RefResolutionException` on an unresolvable reference, both discriminated from `IsValid == false` on the `validation` fault channel.
 
 [STACKING]:
 - `System.Text.Json`(`.api/api-system-text-json.md`): `JsonSchemaExporter.GetJsonSchemaAsNode(JsonTypeInfo, JsonSchemaExporterOptions)` projects a schema from the live serializer contract, and that `JsonNode` crosses to `JsonSchema.Build(JsonElement, BuildOptions?, Uri?)` through `JsonSerializer.SerializeToElement`, so a contract-derived schema and the bytes it describes cannot drift.
@@ -159,7 +159,7 @@
 - within-lib: store provisioning parses the frozen text once into its schema contract and threads that `JsonSchema` through every candidate, `SchemaRegistry.CreateBundle` collapsing a multi-document `$ref` graph into one self-contained schema before the freeze.
 
 [LOCAL_ADMISSION]:
-- `JsonSchema.Net` is the sole in-process JSON Schema evaluator on the `validation` rail, computing application-side the verdict the server extension computes at write.
+- `JsonSchema.Net` is the sole in-process JSON Schema evaluator on the `validation` path, computing application-side the verdict the server extension computes at write.
 - Schema text freezes at composition and parses once; the resulting `JsonSchema` is the value every evaluation binds.
 - `SchemaRegistry`, `VocabularyRegistry`, `DialectRegistry`, and `FormatRegistry` are process-global: external `$ref` documents, vocabularies, dialects, and custom formats register once at startup.
 - `PredicateFormat` on `FormatRegistry.Global` asserts an identity shape no draft keyword expresses, and `IKeywordHandler` with `Dialect.With(...)` admits a lane-local keyword without forking the evaluator.

@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_GH2_EDITOR]
 
-`Editor` is the Grasshopper2 singleton shell owning the hosted canvas, open-document set, tabs, layouts, status bar, and the sole Rhino getter handoff through `BeginRhinoGetter`. Its chrome substrate — toolbar bars, category input panels, tooltip frames, stateful vector icons, and `UI.Flex` floating buttons — draws over `Eto.Drawing`, while canvas paint composition and the `IFlexControl` interaction seam ride sibling rails.
+`Editor` is the Grasshopper2 singleton shell owning the hosted canvas, open-document set, tabs, layouts, status bar, and the sole Rhino getter handoff through `BeginRhinoGetter`. Its chrome substrate — toolbar bars, category input panels, tooltip frames, stateful vector icons, and `UI.Flex` floating buttons — draws over `Eto.Drawing`, while canvas paint composition and the `IFlexControl` interaction boundary ride sibling paths.
 
 ## [01]-[PUBLIC_TYPES]
 

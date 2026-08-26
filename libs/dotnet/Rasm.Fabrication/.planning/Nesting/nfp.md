@@ -2,7 +2,7 @@
 
 `Nest` owns true-shape placement over heterogeneous material stock. One admitted `NestPolicy` compiles each search case into the shared candidate algebra, `NoFitPolygon` retains complete configuration-space topology, and exact arc-space collision and containment gate every emitted transform.
 
-`Nest.Solve` preserves the process seam, `Nest.Charts` the atlas projection, `NestPlan` the rectangular hand-off, `Stock.FromRemnant` the inventory union, and `FabricationResult.Placement` the process projection. Placement legality stays the material's: each stock row carries the `MaterialSymmetry` its component projects at `Rasm.Materials/Component/component#COMPONENT_OWNER`, and moves derive from that law at `Rasm/Parametric/patternmap#PATTERNING`. Part rules carry kernel chirality — parity, congruence class, book-match link — admitted through `NestParts.Of`.
+`Nest.Solve` preserves the process boundary, `Nest.Charts` the atlas projection, `NestPlan` the rectangular hand-off, `Stock.FromRemnant` the inventory union, and `FabricationResult.Placement` the process projection. Placement legality stays the material's: each stock row carries the `MaterialSymmetry` its component projects at `Rasm.Materials/Component/component#COMPONENT_OWNER`, and moves derive from that law at `Rasm/Parametric/patternmap#PATTERNING`. Part rules carry kernel chirality — parity, congruence class, book-match link — admitted through `NestParts.Of`.
 
 ## [01]-[INDEX]
 
@@ -27,7 +27,7 @@
 - Law: a `Mate` names a part id in the roster and the naming is SYMMETRIC — the policy factory proves `a`'s mate is `b` exactly when `b`'s mate is `a`, refusing `nest:mate-asymmetric`, because a half pair obligates an adjacency no second row honours.
 - Law: `ConstraintForce.Required` rejects a candidate and fails delivery; `ConstraintForce.Preferred` admits the candidate and rides `NestObjective` as weighted penalty.
 - Law: six objective weights fan onto one comparable number and every term reaches it DIMENSIONLESS. `NestBasis` carries all three nondimensionalizers — the characteristic length the cut and shared-edge terms divide through, the currency reference the cost term does, and the violation ceiling the constraint term does — on the scoring input, never on `NestSearch`; the basis derives once per solve from the admitted inventory and policy and threads on `SearchState`.
-- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, the `Chain` loop carrier, and the `MaterialSymmetry`/`SymmetryFold`/`MirrorRight` legality algebra beside the `PanelResult` and `InstanceStream` carriers `NestParts` admits; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` rail; `Thinktecture` supplies the generated stock, constraint, chirality, and mode families; `UnitsNet` supplies material quantities and the `Length` ratio the objective's characteristic-length nondimensionalization takes.
+- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, the `Chain` loop carrier, and the `MaterialSymmetry`/`SymmetryFold`/`MirrorRight` legality algebra beside the `PanelResult` and `InstanceStream` carriers `NestParts` admits; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` result; `Thinktecture` supplies the generated stock, constraint, chirality, and mode families; `UnitsNet` supplies material quantities and the `Length` ratio the objective's characteristic-length nondimensionalization takes.
 - Growth: a stock modality, constraint, candidate source, objective, or search algorithm lands as one case or row consumed by the existing folds; a further kernel carrier of placed instances lands as one `NestParts.Of` arm over the same three chirality columns.
 - Boundary: the symmetry law arrives DERIVED from the material's own construction rows — this plane admits it, folds it into identity, and derives moves from it, and a caller-set legality knob beside a material that already models direction has no parameter to reach.
 
@@ -39,10 +39,10 @@
 - Law: `PolygonAlgebra.Apply(new PolygonOp.Morphology(...))` proposes line-space candidates; `ArcAlgebra.Apply(new ArcOp.Inspect(...))` decides containment, exclusion, and collision on the original bulged loops.
 - Law: pair identity includes canonical loop geometry, tolerance, rotation, clearance, and chord error; inner-fit identity substitutes stock identity and edge allowance.
 - Law: each collision profile offsets its part by half the combined clearance and kerf; stock-boundary feasibility adds edge allowance without weakening part-part or exclusion checks.
-- Law: `PairMemo` content-keys the pair matrix under the same `PairTable.Key` identities through the branch `HybridCache` surface — the runtime-carried instance is the in-process tier, a durable L2 federates at the Persistence cache seam, hit and miss counts settle on `NestSearch` and write as the engine memo rows, and a failed build throws through the awaited factory so a fault never caches; the runtime cancellation token rides `GetOrBuild` into the awaited cache call and the awaited leg funnels through `Op.Catch`, the ONE inbound exception boundary, so token-proved cancellation lowers to the kernel cancellation rail rather than rethrowing on the async channel; inner-fit rows stay direct because an empty locus is a verdict, not a cacheable polygon.
+- Law: `PairMemo` content-keys the pair matrix under the same `PairTable.Key` identities through the branch `HybridCache` surface — the runtime-carried instance is the in-process tier, a durable L2 federates at the Persistence cache boundary, hit and miss counts settle on `NestSearch` and write as the engine memo rows, and a failed build throws through the awaited factory so a fault never caches; the runtime cancellation token rides `GetOrBuild` into the awaited cache call and the awaited leg funnels through `Op.Catch`, the ONE inbound exception boundary, so token-proved cancellation lowers to the kernel cancellation fault rather than rethrowing on the async channel; inner-fit rows stay direct because an empty locus is a verdict, not a cacheable polygon.
 - Law: the exact execution token owns cancellation: requested polling lowers `Errors.Cancelled`, and matching thrown cancellation lowers through `Op.Catch`; unrequested or foreign cancellation remains the exact captured failure. `PolicyInadmissible` never carries cancellation.
 - Auto: `ParallelHelper.For2D` fills uncached independent pair slots; memoized rows await one `HybridCache` task per identity outside the synchronous kernel, and `TraverseM` returns the first typed geometry failure without partial cache publication.
-- Packages: the `Geometry2D` owner supplies `PolygonOp.Morphology` and the arc-exact inspection rail; `Rasm` supplies the kernel Minkowski walk beneath it; `Microsoft.Extensions.Caching.Hybrid` supplies the pair memo; `CommunityToolkit.HighPerformance` supplies the parallel pair fill.
+- Packages: the `Geometry2D` owner supplies `PolygonOp.Morphology` and the arc-exact inspection API; `Rasm` supplies the kernel Minkowski walk beneath it; `Microsoft.Extensions.Caching.Hybrid` supplies the pair memo; `CommunityToolkit.HighPerformance` supplies the parallel pair fill.
 - Boundary: an empty pair morphology remains a typed fault, an empty inner-fit locus is the absent-key verdict that no position admits the part, and every returned topology component survives the projection.
 
 ## [04]-[SEARCH]
@@ -71,7 +71,7 @@
 - Law: the content preimage covers every `PartTransform` member including `Instance` and `Mirrored`, so two placements differing only by instance — or only by which face of the blank went up — never collide on one key.
 - Law: the evidence digest covers what the layout is, never what the search measured about it. Columns derived from geometry the placement key already covers — shared-edge overlap, pierce census, and the placement and remnant rosters `KeyOf` frames around the digest — and columns describing the run rather than the result — memo hit and miss counters and the mould and chiral-floor census — stay out of the preimage, so refining a measure, changing a cache tier, or re-running the same solve can never re-key a landed plan.
 - Law: `Moulds` counts the DISTINCT cut outlines the plan pays for — two parts of one shape class share an outline where their parity agrees, or where the stock law merges the mirrored congruence and one blank turns; a classless part is its own mould. Read against the class count it prices the mould delta the layout absorbs, and `ChiralFloor` carries the split the panel law already made, so the two answer what the material choice cost and what it was always going to cost.
-- Entry: `Nest.Solve` admits profiles, inventory, policy, and the run's own `FabricationRuntime`, then dispatches resolved rectangular plans or true-shape search on one `Fin` rail. The token threads the pair-memo lane into `HybridCache.GetOrCreateAsync` so an in-flight cancel surfaces on the kernel cancellation rail.
+- Entry: `Nest.Solve` admits profiles, inventory, policy, and the run's own `FabricationRuntime`, then dispatches resolved rectangular plans or true-shape search on one `Fin` result. The token threads the pair-memo lane into `HybridCache.GetOrCreateAsync` so an in-flight cancel surfaces on the kernel cancellation fault.
 - Entry: `NestBench.Workload` admits the `nfp-placement` measured workload — search lane, live inventory, part and budget floors — and `NestBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.NfpPlacement`, taking the same runtime the spine hands the plane so the timed entry is the one a real run reaches; measurement and result projection stay the bench edge's under the AppHost claim-field map.
 - Entry: `Nest.Charts` admits atlas distortion and reconstructs every island boundary cycle. `Nest.Rings` is the ONE `Chain`-to-`Loop` termination in the package — `Forming/sheet` composes it rather than re-admitting the same kernel carrier, because the walk that produced the chain already owns winding and once-counted edges and a second termination forks the admitted context.
 - Result: `NestSearch` remains private algorithm state. Delivery returns `FabricationResult.Placement` directly with transforms, utilization, unplaced count, remnants, and the content key, while writing its engine steps through the runtime's mounted instruments.
@@ -163,7 +163,6 @@ internal abstract partial record SearchOp {
 internal sealed partial class SearchProgram {
     public Seq<SearchOp> Steps { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<SearchOp> steps) =>
         validationError = steps.IsEmpty ? new ValidationError("nest:search-program") : null;
 }
@@ -208,7 +207,6 @@ public sealed partial class ObjectiveWeights {
     public double SharedEdge { get; }
     public double Constraint { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double yield, ref double cut,
         ref double remnant, ref double cost, ref double sharedEdge, ref double constraint) {
         Seq<double> weights = Seq(yield, cut, remnant, cost, sharedEdge, constraint);
@@ -265,7 +263,6 @@ public sealed partial class CandidateWeights {
     public double Y { get; }
     public double Contact { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double x, ref double y, ref double contact) =>
         validationError = !double.IsFinite(x) || x < 0.0 || !double.IsFinite(y) || y < 0.0
             || !double.IsFinite(contact) || contact < 0.0 || x + y + contact <= 0.0
@@ -342,7 +339,6 @@ public sealed partial class PartRule {
     public Option<int> Mate { get; }
     public int Priority { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int partId, ref int quantity,
         ref Option<MaterialId> material, ref Seq<double> angles, ref Option<double> grainAxis, ref Chirality parity,
         ref Option<int> shapeClass, ref Option<int> mate, ref int priority) =>
@@ -366,7 +362,6 @@ public sealed partial class StockBody {
     public Option<string> Heat { get; }
     public double Cost { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref MaterialId material, ref Context tolerance,
         ref Seq<Loop> region, ref Seq<Loop> exclusions, ref string piece, ref string lot, ref Option<string> heat, ref double cost) =>
         validationError = !tolerance.IsValid || region.IsEmpty || region.ForAll(static loop => loop.Winding() != Sign.Positive)
@@ -551,7 +546,6 @@ public sealed partial class NestPolicy {
 
     public int ChiralFloor { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PlacementMode mode, ref Seq<PartRule> parts,
         ref Seq<PlacementConstraint> constraints, ref FrozenSet<CandidateSource> candidates, ref CandidateOrder frontier,
         ref NestObjective objective,
@@ -610,7 +604,6 @@ public sealed partial class NoFitPolygon {
     public UInt128 Identity { get; }
     public NfpWitness Witness { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Loop> locus, ref UInt128 identity,
         ref NfpWitness witness) =>
         validationError = locus.IsEmpty || identity == UInt128.Zero || identity != witness.Pair

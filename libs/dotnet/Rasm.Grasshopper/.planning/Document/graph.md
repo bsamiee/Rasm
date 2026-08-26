@@ -160,7 +160,6 @@ public abstract partial record GraphAnswer {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[BoundaryAdapter]
 public static partial class GraphScope {
     public static Fin<GraphAnswer> Ask(GraphProbe probe, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
@@ -207,15 +206,15 @@ public static partial class GraphScope {
 ## [03]-[MUTATION]
 
 - Owner: `GraphMutation` `[Union]` `[GenerateUnionOps]` — the one wire-and-membership mutation vocabulary. `LinkCase(IParameter, IParameter)`/`UnlinkCase(IParameter, IParameter)` add and remove one wire through `Connections.Connect`/`Disconnect`; `PruneCase(IParameter, FlowSide, Seq<Guid>)` clears one side but a kept set through the direction row's `DisconnectAll*Except` column — an empty kept set is the full-side clear, so the bare disconnect-all verbs are the empty shape of one case; `RewireCase(WireEndRole, IParameter, IParameter, IParameter)` re-points a wire endpoint through `ReplaceSource`/`ReplaceTarget` selected by the end-role row; `SwapCase(IParameter, IParameter, IParameter, IParameter)` exchanges the sources feeding two targets through `SwapSources`; `BypassCase(IParameter, IParameter, IParameter)` cuts an intermediate through `CutOutMiddleMan`; `TransferCase(WireFreight, IParameter, IParameter)` hauls a whole wire set through `CopyAllInputs`/`MigrateAllOutputs` as freight rows; `SplitCase(IParameter, IParameter, string, PointF)` splits a wire into its wireless `Shout`/`Listen` pair through `DocumentMethods.SplitWire`, returning `WirelessPair`; `RemapCase(Option<HashMap<Guid, Guid>>)` discriminates on payload shape — `None` remints every id through `ChangeAllIds` and answers the host's own correspondence, `Some` applies the explicit map through `ApplyIdMap`; `PinCase(IPin)`/`RepairCase(PinRepair)` own document-pin membership and repair, the repair arm surfacing the host's per-pin report as `PinRepairRow` rows; `ExpireCase` expires the whole membership through `ExpireAll`; `WindowCase(WindowSelection, SelectionMode, CapabilitySet<PickAxis>)` applies rectangle selection through `WindowSelect` over the KERNEL pick vocabulary — the same `Foreground`/`Background`/`Wires` axes the canvas pick gate reads, so no folder-local survey triple exists.
-- Entry: `GraphScope.Mutate(VerbNoun label, GraphMutation op, Option<HostDocument> graph = default, Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Op? key = null)` → `Fin<GateOutcome>` — the one mutation gate on the shared `DocumentGate.Run` spine.
-- Law: the `document.mutate` veto fires HERE exactly as at `Document/document.md`'s `Transact` — the two undo-sealed gates share the fire-site row, a `Fail` verdict refuses with nothing mutated, and an absent rail dispatches ungoverned.
+- Entry: `GraphScope.Mutate(VerbNoun label, GraphMutation op, Option<HostDocument> graph = default, Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default, Op? key = null)` → `Fin<GateOutcome>` — the one mutation gate on the shared `DocumentGate.Run` spine.
+- Law: the `document.mutate` veto fires HERE exactly as at `Document/document.md`'s `Transact` — the two undo-sealed gates share the fire-site row, a `Fail` verdict refuses with nothing mutated, and absent hooks dispatch ungoverned.
 - Law: mutation and undo are one act — every `ActionList`-bearing arm mints one list, runs its host verb, and seals through `Document/history.md`'s `HistoryLedger.Seal` under the caller's `VerbNoun`; `WindowCase`, `RemapCase`, `PinCase`, `RepairCase`, and `ExpireCase` are the host's own unsealed membership verbs.
 - Law: wire mutation writes through `Grasshopper2.Parameters.Connections`, and reads never mutate: a probe from `[02]` inside a mutation arm is composition, never a second traversal implementation.
 - Law: every arm reports what the host answered — the wireless pair, the id correspondence `ChangeAllIds` returns, the admitted flag `AddGlobalPin` returns, and the `(method, pin, cushion)` rows `RepairPins` returns each land as the arm's `GateOutcome`.
 - Law: `WindowSelect`'s `SelectionResult` stays inside the arm — it is the host's mutable pick accumulator, not a value, so the arm returns `SettledCase` rather than leaking a live accumulator through the answer.
-- Law: cross-document adoption has no seam here — `ObjectList.Transfer` is the host's own private internal move, so a foreign object enters the live graph through the clipboard round-trip (`Document/document.md`'s `PasteCase`) or `MigrateObjects`, and a case naming an uncallable member is the deleted form.
+- Law: cross-document adoption has no boundary here — `ObjectList.Transfer` is the host's own private internal move, so a foreign object enters the live graph through the clipboard round-trip (`Document/document.md`'s `PasteCase`) or `MigrateObjects`, and a case naming an uncallable member is the deleted form.
 - Law: the two replace verbs disagree on parameter order — `ReplaceSource(oldSource, newSource, target)` against `ReplaceTarget(source, oldTarget, newTarget)` — so the `WireEndRole` rows bind by NAME and the anchor/retired/replacement vocabulary is the one order every call site spells.
-- Boundary: `Shout`/`Listen` as canvas objects — their attributes, painting, and interaction — are `Canvas/*` and `Components/objects.md` territory; this page owns only their minting at the split seam. Relay elision on reads is `[02]`'s `RelayFreeCase`; `GateOutcome`, `WirelessPair`, and `PinRepairRow` are `Document/document.md`'s.
+- Boundary: `Shout`/`Listen` as canvas objects — their attributes, painting, and interaction — are `Canvas/*` and `Components/objects.md` territory; this page owns only their minting at the split boundary. Relay elision on reads is `[02]`'s `RelayFreeCase`; `GateOutcome`, `WirelessPair`, and `PinRepairRow` are `Document/document.md`'s.
 - Packages: Grasshopper2 (`Connections`, `ObjectList.ChangeAllIds`/`ApplyIdMap`/`AddGlobalPin`/`RepairPins`/`ExpireAll`/`WindowSelect`, `DocumentMethods.SplitWire`, `Shout`, `Listen`, `PinRepair`, `WindowSelection`, `SelectionMode`), Eto (`PointF`), `Rasm.Interaction` (`PickAxis`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/document.md` (`DocumentGate`, `GateOutcome`, `WirelessPair`, `PinRepairRow`), `Document/history.md` (`HistoryLedger.Seal`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new wire verb is one `GraphMutation` case; a new bulk-transfer kind is one `WireFreight` row; a new endpoint role is one `WireEndRole` row; a new survey axis is one kernel `PickAxis` row — the gate never widens.
 
@@ -277,13 +276,13 @@ public static partial class GraphScope {
         VerbNoun label,
         GraphMutation op,
         Option<HostDocument> graph = default,
-        Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default,
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks = default,
         Op? key = null) {
         Op active = key.OrDefault();
         return Optional(op).ToFin(active.InvalidInput())
             .Bind(valid => DocumentGate.Run(
                 graph: graph, key: active,
-                body: document => Vetoed(rail: rail, op: valid.SelfOp, document: document, key: active)
+                body: document => Vetoed(hooks: hooks, op: valid.SelfOp, document: document, key: active)
                     .Bind(_ => valid.Switch(
                 state: (Key: active, Graph: document, Label: label),
                 linkCase: static (frame, c) => Sealed(frame, actions =>
@@ -332,8 +331,8 @@ public static partial class GraphScope {
     }
 
     private static Fin<Unit> Vetoed(
-        Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail, Op op, HostDocument document, Op key) =>
-        rail.Match(
+        Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks, Op op, HostDocument document, Op key) =>
+        hooks.Match(
             Some: live => live.Fire(
                     at: GrasshopperPoint.DocumentMutate,
                     fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)),
@@ -357,7 +356,7 @@ public static partial class GraphScope {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                       | [RAIL]                         | [CASES] |
+| [INDEX] | [CONCERN]           | [OWNER]                       | [RESULT]                       | [CASES] |
 | :-----: | :------------------ | :---------------------------- | :----------------------------- | :-----: |
 |  [01]   | flow direction      | `FlowSide`                    | `Search`/`Prune` (internal)    |    2    |
 |  [02]   | neighbourhood reach | `GraphReach`                  | `Find → Seq<ConnectiveObject>` |    4    |

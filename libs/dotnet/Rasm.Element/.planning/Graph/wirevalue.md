@@ -29,7 +29,7 @@ using Rasm.Element.Composition;
 using Rasm.Element.Properties;
 using Riok.Mapperly.Abstractions;
 using static LanguageExt.Prelude;
-using static Rasm.Element.Graph.SeamConverters;
+using static Rasm.Element.Graph.BoundaryConverters;
 
 namespace Rasm.Element.Graph;
 

@@ -6,7 +6,7 @@ Eigen systems ride the `matrix` owners — `MatrixKernel.GeneralizedEigenpairsDe
 
 ## [01]-[INDEX]
 
-- [02]-[DESCRIPTORS]: `MeshDescriptor` spectral descriptors, spectral distance, and the blue-noise sampling gate feeding the `sample` rail.
+- [02]-[DESCRIPTORS]: `MeshDescriptor` spectral descriptors, spectral distance, and the blue-noise sampling gate feeding the `sample` owner.
 - [03]-[FEATURES]: dihedral and curvature feature-edge classification over `MeshFeatureKind` with scale-derived policy admission.
 - [04]-[SEGMENTATION]: `MeshSegmentation` — one dispatch, one `Segmentation` evidence shape, over the shared scalar-derivation, adjacency, and component split.
 - [05]-[DIRECTION_FIELDS]: Knöppel GODF cross fields and stripe patterns.
@@ -67,7 +67,7 @@ public readonly partial struct MeshDescriptor {
 
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DescriptorSolve(
     DescriptorProfile Spectral, EigenSolution<double, Arr<double>> Eigen, AssemblyOrigin Origin,
     int RequestedEigenpairs, int ReturnedEigenpairs,
@@ -81,9 +81,9 @@ public readonly record struct DescriptorSolve(
         ValidityClaim.Evidence(Assembly));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorSolve Solve);
+[StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorSolve Solve);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SamplingSpectrum(
     int VertexCount, int SampleCount, int EigenpairCount,
     double LowFrequencyEnergy, double TotalEnergy, UnitInterval SuppressionRatio, UnitInterval ValidationThreshold) : IValidityEvidence {
@@ -94,7 +94,7 @@ public readonly record struct SamplingSpectrum(
         ValidityClaim.Positive(value: TotalEnergy));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectrumPolicy(UnitInterval LowFrequencyCeiling, Dimension BasisCap, Dimension LowModeCount) {
     public static readonly SpectrumPolicy Default = new(
         LowFrequencyCeiling: UnitInterval.Create(value: 0.5), BasisCap: Dimension.Create(value: 8), LowModeCount: Dimension.Create(value: 3));
@@ -189,7 +189,7 @@ internal static partial class SegmentKernel {
 - Owner: `MeshFeatureKind` the edge taxonomy and `FeatureEdges.Census` its one per-kind count stream; `MeshFeaturePolicy` derives the curvature threshold and smoothing scale from the mean edge length at admission while the dihedral threshold stays caller intent, and optional per-face regions turn region boundaries into features.
 - Entry: `DetectFeatureEdgesDetailed` seats the derived policy from a dihedral angle or admits a full policy — one concept, input-shape discrimination.
 - Auto: topology edges classify by connected-face census, then smooth two-face edges classify by the signed dihedral against the threshold — ridge or valley when the length-normalized curvature signal also clears the curvature threshold, plain crease otherwise; region-boundary classification precedes the angle tests when face regions are declared, and the curvature signal is endpoint-smoothed against single-edge noise, so a raw per-edge threshold is the rejected form.
-- Boundary: ngon interiors are counted and skipped, never dropped, and the below-threshold remainder lands in `UnclassifiedEdges`; `FeatureEdges`'s own gate enforces both census reconciliations, so totality is recomputable from its fields, never a prose promise; per-face normals ride the memoized `MeshSpace.FaceNormals` column on the `Fin` rail, so detection never mutates the frozen snapshot.
+- Boundary: ngon interiors are counted and skipped, never dropped, and the below-threshold remainder lands in `UnclassifiedEdges`; `FeatureEdges`'s own gate enforces both census reconciliations, so totality is recomputable from its fields, never a prose promise; per-face normals ride the memoized `MeshSpace.FaceNormals` column on the `Fin` result, so detection never mutates the frozen snapshot.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -206,14 +206,14 @@ public sealed partial class MeshFeatureKind {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct FeatureVerdict(MeshFeatureKind Kind, Option<double> DihedralRadians, Option<double> SignedDihedralRadians, Option<double> CurvatureSignal) {
     internal static FeatureVerdict Topological(MeshFeatureKind kind) => new(Kind: kind, DihedralRadians: None, SignedDihedralRadians: None, CurvatureSignal: None);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, FeatureVerdict Verdict);
+[StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, FeatureVerdict Verdict);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct FeatureEdges(
     Seq<FeatureEdge> Edges, HashMap<MeshFeatureKind, int> Census, double DihedralThresholdRadians, int UnclassifiedEdges = 0,
     double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0,
@@ -238,7 +238,7 @@ public readonly record struct FeatureEdges(
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, PositiveMagnitude CurvatureThreshold, PositiveMagnitude SmoothingScale, Option<Arr<int>> FaceRegions) {
     internal static Fin<MeshFeaturePolicy> Of(double dihedralRadians, MeshSpace space, Option<Arr<int>> faceRegions, Op key) =>
         from dihedral in key.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
@@ -358,11 +358,11 @@ internal static partial class SegmentKernel {
 - Entry: `Segment<TOut>` folds a generated total `Switch` over the union, projecting through `AtomProjection` rows — one entry, the algorithm is the case, `TOut` is the projection.
 - Auto: every algorithm shares ONE scalar derivation, ONE memoized frozen face-adjacency graph, and ONE connected-component split, so a per-algorithm re-derivation is the deleted form; the normalized-cut affinity `σ` is scale-derived from the value range over `√faceCount`, never a knob, and clustering is deterministic farthest-first k-means with no RNG, and both round folds ride `Cell.Converge` — each step commits its explicit settlement fact, so no hand `while` shadows the schedule and normal completion never borrows `Refused`.
 - Law: one `Segmentation` shape carries every algorithm — algorithm-specific evidence rides `Option` columns, never sibling types.
-- Boundary: `UnassignedRegion = -1` is the interior packing alone — `RegionLabel` admits nonnegative ordinals and the result publishes `Option<RegionLabel>`, so absence never crosses the boundary as an int a consumer must decode by prose; a NaN scalar is a MASK the algorithms census and segment around, so a partial field segments its defined region; every factory admits through the `Op` rail, so an invalid request never constructs.
+- Boundary: `UnassignedRegion = -1` is the interior packing alone — `RegionLabel` admits nonnegative ordinals and the result publishes `Option<RegionLabel>`, so absence never crosses the boundary as an int a consumer must decode by prose; a NaN scalar is a MASK the algorithms census and segment around, so a partial field segments its defined region; every factory admits through the `Op` gate, so an invalid request never constructs.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-[Union, BoundaryAdapter]
+[Union]
 public abstract partial record MeshScalars {
     private MeshScalars() { }
     public sealed record PerVertexCase(Arr<double> Values) : MeshScalars;
@@ -382,7 +382,7 @@ public abstract partial record MeshScalars {
             : Fin.Succ(candidate);
 }
 
-[Union, BoundaryAdapter]
+[Union]
 public abstract partial record MeshSegmentation {
     private MeshSegmentation() { }
     public sealed record ScalarThresholdCase(MeshScalars Values, double Threshold, ExtremumDirection Direction) : MeshSegmentation;
@@ -430,7 +430,7 @@ public sealed partial class MeshSegmentationStatus {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct Segmentation(
     MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount,
     int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations,
@@ -452,7 +452,7 @@ public readonly record struct Segmentation(
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<Option<RegionLabel>> FaceRegions, Arr<Option<RegionLabel>> VertexRegions, Segmentation Segmentation);
+[StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<Option<RegionLabel>> FaceRegions, Arr<Option<RegionLabel>> VertexRegions, Segmentation Segmentation);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class SegmentKernel {
@@ -802,7 +802,7 @@ internal static partial class SegmentKernel {
 - Owner: `CrossFieldKey` the value-identity cache probe — symmetry with canonically ordered constraints and cones, so permuted prescriptions hit one memo; the GODF arms and the stripe scalar.
 - Entry: `CrossFieldAt` returns the n-RoSy representative direction and `StripeAt` the field-aligned level-set scalar, the `VectorField.CrossField` and `ScalarField.Stripe` case delegates; each admits its raw ingress ONCE — `symmetry` into the closed `RosySymmetry` row, positive finite frequency — so a direct kernel caller meets the same gate the field factories admit through and no interior arm re-proves the order.
 - Auto: the smoothest field solves the smallest eigenpair of the Hermitian connection Laplacian by the `matrix` LOBPCG owner with the residual tolerance RELATIVE to `SparseHermitian.FrobeniusScale` and the ceiling from `KrylovPolicy.BlockBudget` — both read from their owners, so a page-local norm walk or a magic iteration constant is the rejected form, and the gate accepts ONLY `EigenSolveStop.ResidualConverged`; the constrained field rescales hints by the mass B-norm, so hint energy is independent of hint count, and its penalty shift derives from the same operator scale rather than an absolute reciprocal wearing a time argument; cone prescriptions route the `dec` trivial-connection owner as edge adjustments, the holonomy composed, never re-derived.
-- Boundary: per-vertex normalization floors at `ZeroTolerance`, so a zero connection component decodes to the zero vector, not NaN; the connection transport angles are the `mesh` signpost seam (`MeshKernel.ConnectionEntriesOf`), the SAME rows the cached real-block `ConnectionCholesky` assembles from, so a page-local transport-angle derivation is the deleted fourth path, and the Hermitian eigen path and the real-block Cholesky path are two discretizations of one operator from the same entries.
+- Boundary: per-vertex normalization floors at `ZeroTolerance`, so a zero connection component decodes to the zero vector, not NaN; the connection transport angles are the `mesh` signpost rows (`MeshKernel.ConnectionEntriesOf`), the SAME rows the cached real-block `ConnectionCholesky` assembles from, so a page-local transport-angle derivation is the deleted fourth path, and the Hermitian eigen path and the real-block Cholesky path are two discretizations of one operator from the same entries.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -945,7 +945,7 @@ internal static partial class SegmentKernel {
 - Owner: `QuadTarget`, `QuadGuideInfluence`, `QuadPreserveEdges`, and `RemeshKind` unions; `RemeshCapture`/`FlattenCapture` evidence including the optional unwrap symmetry plane; the host-capture arms.
 - Entry: `ApplyRemeshDetailed` folds a generated total `Switch` over `RemeshKind`; `ParameterizeFlattenDetailed` runs the native unwrap over the full `MeshUnwrapMethod` roster (LSCM default, ABFPP, ARAP) with an optional symmetry plane and the edge-length distortion witness, the mesh-set overload unwrapping a part family into ONE shared UV space; the capture echoes the selecting method.
 - Auto: the quad arm translates the typed target into `QuadRemeshParameters` through one named conversion constant for the native `[0,100]` adaptive unit, threads guide curves and face blocks, and echoes the full pre/post topology into the capture; the simplify arm captures the native reduce error text as failure detail; flatten runs LSCM, verifies texture-coordinate/vertex parity, and derives the edge-length distortion RMS under the energy-minimizing global scale as its quality witness.
-- Boundary: this tier captures the RhinoCommon `QuadRemesh`/`Reduce`/LSCM surface and never re-derives the first-principles restructure counterparts; a native failure disposes the partial output and routes the `Op` rail with the native error text preserved as detail — failure IS the rail, so a status enum whose only stampable row is `Completed` is deleted rather than carried as constant evidence, and a capture column mirroring that text is a second owner of one fault identity; captures echo every native parameter, so a remesh is reproducible from its capture alone; an invalid native output REFUSES at construction rather than constructing a capture whose stored verdict goes stale the moment the mesh moves.
+- Boundary: this tier captures the RhinoCommon `QuadRemesh`/`Reduce`/LSCM surface and never re-derives the first-principles restructure counterparts; a native failure disposes the partial output and routes the `Op` channel with the native error text preserved as detail — failure IS the result, so a status enum whose only stampable row is `Completed` is deleted rather than carried as constant evidence, and a capture column mirroring that text is a second owner of one fault identity; captures echo every native parameter, so a remesh is reproducible from its capture alone; an invalid native output REFUSES at construction rather than constructing a capture whose stored verdict goes stale the moment the mesh moves.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -993,7 +993,7 @@ public abstract partial record RemeshKind {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct RemeshCapture(
     RemeshKind Kind, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount,
     Option<double> ReductionRatio, Option<double> TargetLength = default, Option<int> TargetQuadCount = default,
@@ -1010,7 +1010,7 @@ public readonly record struct RemeshCapture(
         TargetQuadCount.Map(static count => count >= 1).IfNone(noneValue: true) && DesiredPolygonCount.Map(static count => count >= 1).IfNone(noneValue: true));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct RemeshResult(Mesh Mesh, RemeshCapture Capture) {
     internal Fin<TOut> Project<TOut>(Op key) {
         RemeshResult self = this;
@@ -1020,7 +1020,7 @@ public readonly record struct RemeshResult(Mesh Mesh, RemeshCapture Capture) {
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct FlattenCapture(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, MeshUnwrapMethod Method, Option<Plane> SymmetryPlane, Option<double> EdgeLengthDistortionRms) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         VertexCount >= 0 && UvCount >= 0 && TextureCoordinateCount >= 0 && BoundaryComponents >= 0,
@@ -1028,7 +1028,7 @@ public readonly record struct FlattenCapture(int VertexCount, int UvCount, int T
         EdgeLengthDistortionRms.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenCapture Capture) {
     internal Fin<TOut> Project<TOut>(Op key) {
         FlattenResult self = this;
@@ -1201,9 +1201,9 @@ flowchart LR
 
 ## [07]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, arm, or policy column, never a sibling surface. `[RAIL]` cells name the one return rail each owner exposes, and each owner kind rides the indexed note below.
+One owner per axis; capability is a case, arm, or policy column, never a sibling surface. `[RESULT]` cells name the one return type each owner exposes, and each owner kind rides the indexed note below.
 
-| [INDEX] | [CONCERN]         | [OWNER]                                 | [RAIL]                                           | [CASES] |
+| [INDEX] | [CONCERN]         | [OWNER]                                 | [RESULT]                                         | [CASES] |
 | :-----: | :---------------- | :-------------------------------------- | :----------------------------------------------- | :-----: |
 |  [01]   | Shape descriptors | `MeshDescriptor`                        | `DescribeShape<TOut> → Fin<TOut>`                |    —    |
 |  [02]   | Blue-noise gate   | `SamplingSpectrum`                      | `ValidateSamplingSpectrum → Fin<SampleResult>`   |    —    |
@@ -1225,7 +1225,7 @@ One owner per axis; capability is a case, arm, or policy column, never a sibling
 - [08]-[EVIDENCE]: `ValidityClaim.All` fold, declared gates, `AtomProjection` rows.
 - [09]-[ROSY_ORDER]: `RosySymmetry` — the closed {1,2,4,6} order admitted once, its `Phase` the one int-to-double seat.
 
-Flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; the `QuadRemesh`/`Reduce`/LSCM arms are the named platform-forced boundary, native calls returning nullable results converted at the seam.
+Flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; the `QuadRemesh`/`Reduce`/LSCM arms are the named platform-forced boundary, native calls returning nullable results converted at the boundary.
 
 ## [08]-[RESEARCH]
 

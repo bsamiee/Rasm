@@ -112,7 +112,7 @@ It owns placement and the interaction primitives react-aria leaves headless; rea
 [TOPOLOGY]:
 - Interaction and focus hooks read the `FloatingRootContext` — open-state, events, elements — so dismiss, ARIA role, and focus trap wire from that root with no geometry; `useFloating`'s `context` is that root extended with position and satisfies every hook as a superset.
 - `useInteractions([useClick(context), useDismiss(context), useRole(context)])` folds each hook's `ElementProps` into three chaining prop-getters; spreading `getReferenceProps`/`getFloatingProps`/`getItemProps` is the sole application, and a raw `ElementProps` spread drops the chaining and collides handlers.
-- `useFloatingRootContext` decouples the reference from the float across separate subtrees and is the seam where external open-state drives `open`/`onOpenChange`.
+- `useFloatingRootContext` decouples the reference from the float across separate subtrees and is the hook where external open-state drives `open`/`onOpenChange`.
 - `FloatingFocusManager` needs a mounted float and orders focus through `tabbable`: `modal` traps behind an inert backdrop, non-modal guides while `preserveTabOrder` holds the tab sequence to the React tree through a `FloatingPortal`; `FloatingOverlay` adds scroll-lock and pointer-blocking.
 - `FloatingTree` + `FloatingNode` + `useFloatingNodeId` bind only nested floats that communicate — a submenu bubbling an outside-press dismiss to its parent menu; flat overlays stay tree-free.
 - `TransitionStatus` sequences `unmounted → initial → open → close → unmounted` and `useTransitionStyles` maps each phase to a style object, so enter/exit is a value the render folds and the element unmounts only after the exit transition.

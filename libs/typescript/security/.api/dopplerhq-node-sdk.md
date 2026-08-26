@@ -54,7 +54,7 @@ Every `secrets` read keys on `(project, config)`; `includeDynamicSecrets` with `
 
 [STACKING]:
 - `effect`(`.api/effect.md`): `Effect.tryPromise` lifts each `Promise` call, `Match.value` folds `BaseHTTPError.statusCode` into the tagged fault set, `Config.redacted` sources the token, `Schema.decodeUnknown` brands each all-optional payload, `Schedule.fixed` drives the sub-lease refresh, `SubscriptionRef` publishes the rotating set, `Cache` de-dupes concurrent `(project, config)` refetches, and `Layer.scoped` binds the client with its `revokeLease` finalizer.
-- `@effect/platform`(`.api/effect-platform.md`): the SDK owns its node transport, so the seam is the `Effect.tryPromise` boundary rather than `HttpClient`; a read demanding shared net policy or tracing runs `HttpClient.retryTransient` against the REST endpoint directly.
+- `@effect/platform`(`.api/effect-platform.md`): the SDK owns its node transport, so the adapter is the `Effect.tryPromise` boundary rather than `HttpClient`; a read demanding shared net policy or tracing runs `HttpClient.retryTransient` against the REST endpoint directly.
 - `jose`(`.api/jose.md`): a fetched PEM or JWK string imports once through `importPKCS8`/`importSPKI`/`importJWK` into a non-extractable `CryptoKey` held for the `Layer` lifetime and `calculateJwkThumbprintUri` derives its `kid`, so a Doppler refresh re-imports the key where a per-call design re-imports every signature.
 - `crypt/secret`: one leased fetch feeds `crypt/sign`'s `Material.admit`, which hands `Jwt` its keys, webhook HMAC secrets, and argon2 pepper at layer construction, so no downstream surface reaches Doppler itself.
 

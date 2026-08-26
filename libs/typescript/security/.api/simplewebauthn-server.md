@@ -71,7 +71,7 @@ One parameterized pattern spans both ceremonies at two phases; registration veri
 
 [STACKING]:
 - `@simplewebauthn/browser`(`.api/simplewebauthn-browser.md`): `generateRegistrationOptions`/`generateAuthenticationOptions` output feeds `startRegistration`/`startAuthentication` unchanged, and the returned `RegistrationResponseJSON`/`AuthenticationResponseJSON` returns to `verifyRegistrationResponse`/`verifyAuthenticationResponse`. `expectedChallenge` resolves the challenge the browser never sees, while `browserSupportsWebAuthn` and `WebAuthnAbortService` gate and bound a ceremony this half never observes — one owner schema decodes both crossings.
-- `effect`(`.api/effect.md`): `Effect.tryPromise` lifts each ceremony into the typed rail with a `Schema.TaggedError` catch; `Schema.Struct` decodes the response JSON before `verify*` and encodes the options after `generate*`; `effect/Match` on the `verified` discriminant extracts the credential only on the true arm.
+- `effect`(`.api/effect.md`): `Effect.tryPromise` lifts each ceremony into the typed result with a `Schema.TaggedError` catch; `Schema.Struct` decodes the response JSON before `verify*` and encodes the options after `generate*`; `effect/Match` on the `verified` discriminant extracts the credential only on the true arm.
 - `@noble/hashes`(`.api/noble-hashes.md`): supplying `opts.challenge`/`opts.userID` routes challenge and user-handle bytes to `sign/crypto`'s `Entropy`-port RNG, keeping one RNG owner across the folder.
 - `authn/webauthn`: each verified `WebAuthnCredential` and `newCounter` writes through the `IdentityJournal` port `session/token` declares, so the counter check reads the journal the same fold updates.
 

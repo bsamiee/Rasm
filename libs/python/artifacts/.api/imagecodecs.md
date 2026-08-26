@@ -1,13 +1,13 @@
 # [PY_ARTIFACTS_API_IMAGECODECS]
 
-`imagecodecs` owns the native codec substrate under every raster plane the estate encodes, on two rails one flat surface carries: the DEEP-PIXEL file rail — scene-linear EXR (`none`/`rle`/`zips`/`zip`/`piz`/`pxr24`/`b44`/`b44a`/`dwaa`/`dwab`/`htj2k32`/`htj2k256`), Radiance `rgbe` `.hdr`, 16-bit PNG through three engines, float and half TIFF, JPEG XL at 16-bit and float, 12-bit AVIF, WebP, HTJ2K, JPEG 2000, LERC, UltraHDR, QOI — and the CHANNEL-BYTE rail the `export/layered` PSD/PSB/TIFF egress plane composes beneath its container writers. Beside them ride the `lcms2` ICC transform engine, block-compressed BCn/DDS DECODE, the `meshoptimizer` vertex codecs, and the lossy-float scientific compressors (`zfp`/`sz3`/`sperr`/`pcodec`/`quantize`). Every codec is a `<codec>_encode`/`_decode`/`_check`/`_version` quadruple over contiguous `numpy` buffers; no `Codec` ABC and no instance to construct.
+`imagecodecs` owns the native codec substrate under every raster plane the repo encodes, on two domains one flat surface carries: the DEEP-PIXEL file domain — scene-linear EXR (`none`/`rle`/`zips`/`zip`/`piz`/`pxr24`/`b44`/`b44a`/`dwaa`/`dwab`/`htj2k32`/`htj2k256`), Radiance `rgbe` `.hdr`, 16-bit PNG through three engines, float and half TIFF, JPEG XL at 16-bit and float, 12-bit AVIF, WebP, HTJ2K, JPEG 2000, LERC, UltraHDR, QOI — and the CHANNEL-BYTE domain the `export/layered` PSD/PSB/TIFF egress plane composes beneath its container writers. Beside them ride the `lcms2` ICC transform engine, block-compressed BCn/DDS DECODE, the `meshoptimizer` vertex codecs, and the lossy-float scientific compressors (`zfp`/`sz3`/`sperr`/`pcodec`/`quantize`). Every codec is a `<codec>_encode`/`_decode`/`_check`/`_version` quadruple over contiguous `numpy` buffers; no `Codec` ABC and no instance to construct.
 
 Structure owners stay outside: `psdtags` owns the PSD layer/channel graph, `tifffile` the TIFF directory, `psd-tools` the native PSD/PSB document, `openexr` every named-channel, multi-part, tiled, and environment-map EXR this flat surface cannot address, `pyktx` and the provisioned `ktx` CLI the whole KTX2 container, `pyvips` resampling and the fused decode path. Codec selection runs by name through one capability-discriminated boundary, each backend a `<CODEC>` object whose `.available` routes an absent core to a substitute or a `DelayedImportError`, never mid-write.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the codec quadruple, the per-codec capability object, and the fault family
-- rail: compression
+- concern: compression
 
 `imagecodecs` exposes a FLAT surface — each logical codec is four module-level functions, one `<CODEC>` capability object, and one `<Codec>Error`.
 
@@ -23,7 +23,7 @@ Structure owners stay outside: `psdtags` owns the PSD layer/channel graph, `tiff
 |  [08]   | `NONE` / `none_encode` / `none_decode`          | pass-through codec | identity codec (PSD method 0): store raw bytes                   |
 
 [PUBLIC_TYPE_SCOPE]: the policy `IntEnum` families each capability object carries
-- rail: compression
+- concern: compression
 
 Every encoder knob that is not a scalar takes its member, its `int`, or its lowercase name string; the enum is the settled spelling and a free-form string is a validated tag, never a caller literal.
 
@@ -50,7 +50,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the file image codecs, deep-pixel and display alike
-- rail: compression
+- concern: compression
 - [SHAPE]: static (module-level functions)
 
 `data` is any contiguous `Buffer` on decode and any `ArrayLike` on encode; the array's dtype IS the stored sample format, so depth is chosen by the caller's array and never by a knob. Every arm below also takes `out=None` — `out=<int>` preallocates a bounded output of that many bytes, `out=<bytearray|memoryview|NDArray>` writes into a caller-owned destination — and every encode arm returns `bytes`, every decode arm an `NDArray`.
@@ -82,7 +82,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - `ultrahdr_decode`: returns linear RGBA float16 `(H, W, 4)`, and `ultrahdr_check` sniffs — both live on this build.
 
 [ENTRYPOINT_SCOPE]: block-compressed texture DECODE
-- rail: compression
+- concern: compression
 - [SHAPE]: static (module-level functions)
 
 | [INDEX] | [SURFACE]                                              | [CAPABILITY]                                                           |
@@ -93,7 +93,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 |  [04]   | `bcn_encode` and `dds_encode`                          | declared and NOT implemented — both raise `NotImplementedError`        |
 
 [ENTRYPOINT_SCOPE]: ICC color management over lcms2
-- rail: color
+- concern: color
 - [SHAPE]: static (module-level functions)
 
 | [INDEX] | [SURFACE]                                                                    | [CAPABILITY]                                    |
@@ -106,7 +106,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - `cms_transform`: profiles are ICC BLOBS and a name string raises `CmsError`; `intent` speaks `CMS.INTENT` member names; a 4-band input DROPS its alpha band, so the caller splits alpha before the call and rejoins after.
 
 [ENTRYPOINT_SCOPE]: vertex, array, and numeric-precision codecs
-- rail: compression
+- concern: compression
 - [SHAPE]: static (module-level functions)
 
 | [INDEX] | [SURFACE]                                                        | [CAPABILITY]                                                    |
@@ -119,7 +119,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 |  [06]   | `zfp_encode` `sz3_encode` `sperr_encode` `pcodec_encode`         | error-bounded lossy compressors for solver-grade fields         |
 
 [ENTRYPOINT_SCOPE]: the PSD/PSB/TIFF channel codecs the layered-egress owner composes
-- rail: compression
+- concern: compression
 - [SHAPE]: static (module-level functions)
 
 `out=<int>` sizes the decode from the channel's `height * rowbytes` worst case so a decode never reallocates; the predictor codecs return a typed `NDArray` whose dtype and shape match the input but whose values are an encoded byte sequence, not meaningful numbers.
@@ -143,7 +143,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 |  [15]   | `none_encode(data, *args, **kwargs)`                          | pass-through identity (PSD method 0) with `none_decode`           |
 
 [ENTRYPOINT_SCOPE]: the generic dispatch face and the build census
-- rail: compression
+- concern: compression
 - [SHAPE]: static (module-level functions)
 
 | [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                                         |
@@ -165,7 +165,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - Alpha association is the codec's, never the caller's: EXR is associated (premultiplied), PNG/WebP/TIFF/KTX2 are straight, and `rgbe` carries no alpha at all. Encode converts into the format's canonical association and decode normalizes back out; a straight-to-associated conversion at 8-bit quantizes catastrophically at low alpha, so a plane whose declared association differs from its codec's admits at 16-bit or float depth alone.
 - Capability detection reads `<CODEC>.available` before routing to a build-dependent codec and `<codec>_version()` for its core string. Both probes remain safe on an absent backend; other attributes raise `DelayedImportError`.
 - `out=<nbytes>` bounds the decode allocation, so a compression bomb cannot exhaust memory; the lossless codecs (`packbits`/`zlib`/`deflate`/`lzw`/`delta`/`floatpred`/`bitorder`/`packints`/`none`) round-trip byte-identical, the PSD/TIFF channel contract.
-- Predictor-then-compressor is the method-3 codec topology, one rail: `delta_encode` (integer channels) or `floatpred_encode` (float channels) raises compressibility, then `deflate_encode(raw=True)` compresses the predicted bytes; decode inverts as `deflate_decode(raw=True)` then `delta_decode`. That same pairing rides `tiff_encode(predictor=TIFF.PREDICTOR.FLOATINGPOINT)` for a float TIFF plane, where libtiff owns the pass internally.
+- Predictor-then-compressor is the method-3 codec topology, one result: `delta_encode` (integer channels) or `floatpred_encode` (float channels) raises compressibility, then `deflate_encode(raw=True)` compresses the predicted bytes; decode inverts as `deflate_decode(raw=True)` then `delta_decode`. That same pairing rides `tiff_encode(predictor=TIFF.PREDICTOR.FLOATINGPOINT)` for a float TIFF plane, where libtiff owns the pass internally.
 - Buffer in, buffer out: the byte codecs take and return contiguous `bytes`/`bytearray`/`memoryview`, the image and predictor codecs `numpy`-shaped contiguous `NDArray`; a discontiguous view is `.copy()`-d at the boundary before any codec sees it.
 - `bcn_decode` demands `format` AND one of `shape`/`out` — the block stream carries neither extent nor format, so both arrive out of band from the container owner. Its declared return type is a byte buffer and its runtime return is a shaped `NDArray` (`uint8`, or `float16` for `BC6HU`/`BC6HS`); the runtime shape is the truth a consumer binds, and the component axis is part of `shape` (`BC7` reads `(h, w, 4)`, `BC5` `(h, w, 2)`, `BC4` `(h, w)`).
 
@@ -177,7 +177,7 @@ Every encoder knob that is not a scalar takes its member, its `int`, or its lowe
 - `numpy`(`.api/numpy.md`): the codec boundary is `NDArray -> bytes` on encode and `bytes -> NDArray` on decode over contiguous planes; the array dtype IS the sample format, `out=` is sized from `plane.nbytes`, and `quantize_encode`/`float24_encode` are the precision-reduction pre-passes a lossless codec then compresses.
 - `colour-science`(`.api/colour-science.md`) / `opencolorio`(`.api/opencolorio.md`): color-science transforms and OCIO config-driven processors own the SPACE, `cms_transform` owns the ICC-profile boundary. Embedded ICC profiles decode through `cms_profile_validate` + `cms_transform` at ingest, and a scene-linear working space is reached through the OCIO processor, never by synthesizing an ICC profile with `gamma=1.0` where a config row already names the transform.
 - `msgspec`(`.api/msgspec.md`): every codec selection is a typed member on a policy struct — a `PsdCompression` `IntEnum` (`RAW=0`/`RLE=1`/`ZIP=2`/`ZIP_PREDICTION=3`) or a plane-format tag — and a `frozendict` maps each member to the codec name, so `msgspec` decodes the policy and the name is a validated tag, never a free-form string reaching `imread(codec=...)`.
-- `beartype`(`.api/beartype.md`): annotate the rail `bytes | numpy.ndarray -> bytes | numpy.ndarray` so a non-buffer input rejects at the contract, not deep in the Cython extension; `<CODEC>.available` is the boundary predicate the contract reads, failing an unbuildable route with the codec name rather than a `DelayedImportError` stack.
+- `beartype`(`.api/beartype.md`): annotate the result `bytes | numpy.ndarray -> bytes | numpy.ndarray` so a non-buffer input rejects at the contract, not deep in the Cython extension; `<CODEC>.available` is the boundary predicate the contract reads, failing an unbuildable route with the codec name rather than a `DelayedImportError` stack.
 - `stamina`(`libs/python/runtime/.api/stamina.md`): a codec `encode`/`decode` is CPU-pure and deterministic — never `@retry`; a `<Codec>Error` or `DelayedImportError` is a terminal fault, and retry belongs only on the IO around the produced container bytes owned by `core/plan`.
 - `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each codec call binds codec, compression, predictor, level, byte lengths, ratio, and `<codec>_version()` to its span; the startup span binds `version()` once.
 - `anyio`(`.api/anyio.md`): the codec passes are CPU-bound native calls that release the GIL, so a many-channel or many-plane batch crosses the runtime `RELEASING` thread arm; a whole-document PSD/PSB author rides its channel-codec passes alongside the container author inside the one `HOSTILE` process crossing the libvips composite already runs.

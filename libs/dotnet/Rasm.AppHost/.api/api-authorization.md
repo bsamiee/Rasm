@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_AUTHORIZATION]
 
-`Microsoft.AspNetCore.Authorization` owns the host-neutral ABAC evaluation core: an injected `IAuthorizationService` folds a `ClaimsPrincipal`, an optional resource, and a requirement set through registered handlers into an `AuthorizationResult`. `AddAuthorizationCore` registers that core standalone — no `HttpContext`, no ASP.NET pipeline — serving the AppHost agent/policy rail.
+`Microsoft.AspNetCore.Authorization` owns the host-neutral ABAC evaluation core: an injected `IAuthorizationService` folds a `ClaimsPrincipal`, an optional resource, and a requirement set through registered handlers into an `AuthorizationResult`. `AddAuthorizationCore` registers that core standalone — no `HttpContext`, no ASP.NET pipeline — serving the AppHost agent/policy layer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -101,10 +101,10 @@
 [STACKING]:
 - `api-di`(`.api/api-di.md`): `AddAuthorizationCore` mints the evaluation-core `ServiceDescriptor` set onto the `IServiceCollection`, and both `IAuthorizationService` and every custom `IAuthorizationHandler` resolve through `GetRequiredService`.
 - `api-identitymodel-jwt`(`.api/api-identitymodel-jwt.md`): a validated `TokenValidationResult.ClaimsIdentity` becomes the `ClaimsPrincipal` argument to `AuthorizeAsync`, joining the token-validation leg to the access decision.
-- within-lib: AppHost's agent/policy rail injects `IAuthorizationService`, evaluates a domain resource object under an `OperationAuthorizationRequirement` and a resource-typed `AuthorizationHandler<TRequirement, TResource>`, and projects `AuthorizationFailure.FailureReasons` onto the host failure rail.
+- within-lib: AppHost's agent/policy layer injects `IAuthorizationService`, evaluates a domain resource object under an `OperationAuthorizationRequirement` and a resource-typed `AuthorizationHandler<TRequirement, TResource>`, and projects `AuthorizationFailure.FailureReasons` onto the host failure channel.
 
 [LOCAL_ADMISSION]:
 - AppHost binds the evaluation core through `AddAuthorizationCore`; the HTTP-coupled `AddAuthorization` and middleware surface stay out of the host.
 - Custom requirements implement `IAuthorizationRequirement` and pair with an `AuthorizationHandler<TRequirement>` (or the resource-typed arity) registered as `IAuthorizationHandler`.
 - Decisions read `AuthorizationResult.Succeeded` and project `AuthorizationFailure.FailureReasons`; the typed result flows through handler callbacks that never throw.
-- AppHost's resource-bound rail binds explicit `AuthorizationPolicy` values and `OperationAuthorizationRequirement` ahead of string policy names, which register through `AuthorizationOptions`/`AuthorizationBuilder`.
+- AppHost's resource-bound path binds explicit `AuthorizationPolicy` values and `OperationAuthorizationRequirement` ahead of string policy names, which register through `AuthorizationOptions`/`AuthorizationBuilder`.

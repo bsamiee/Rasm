@@ -2,7 +2,7 @@
 
 `ArtifactHook` owns issue lifecycle and transmittal chronology on the runtime `Hooks` registry. Producer measurements remain local observations over canonical domain values.
 
-`Production` is the composed entry over the runtime registry: `registered` lands `ARTIFACT_POINTS` through `Hooks.register` under a scope-keyed one-shot cell and deposits its `ArtifactInstall` record on that registry's install ledger, so the support-bundle capsule reads this plane's admission where an absent row is its stated diagnosis. `fired` rides the cell so every seam self-registers before `Hooks.fire` and a hook-free app's veto gate passes clean, and `subscribed` is the app-root attach answering the `Attachment` detacher the composition root brackets.
+`Production` is the composed entry over the runtime registry: `registered` lands `ARTIFACT_POINTS` through `Hooks.register` under a scope-keyed one-shot cell and deposits its `ArtifactInstall` record on that registry's install ledger, so the support-bundle capsule reads this plane's admission where an absent row is its stated diagnosis. `fired` rides the cell so every boundary self-registers before `Hooks.fire` and a hook-free app's veto gate passes clean, and `subscribed` is the app-root attach answering the `Attachment` detacher the composition root brackets.
 
 `ScopeKey` partitions points, subscribers, and replay rings. `ArtifactKind` supplies the shared metric dimension and delivery-gate policy key.
 
@@ -18,7 +18,7 @@
 - Entry: `Production.registered` installs the point table once per scope. `Production.fired` and `Production.subscribed` compose registration with the runtime hook operations.
 - Packages: `msgspec` owns payload rows; `expression` owns the scope cell; runtime hooks own point behavior; OpenTelemetry baggage supplies issue correlation.
 - Growth: a new domain occurrence adds one typed payload, one point row, and one emitting-owner projection.
-- Boundary: producer values, byte metrics, durable domain facts, and transport delivery stay at their owning seams.
+- Boundary: producer values, byte metrics, durable domain facts, and transport delivery stay at their owning boundaries.
 
 ```python
 # --- [IMPORTS] --------------------------------------------------------------------------
@@ -33,7 +33,7 @@ from msgspec import Struct
 from opentelemetry import baggage
 from opentelemetry import context as otel_context
 
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import RuntimeResult
 from rasm.runtime.hooks import Attachment, HookPoint, Hooks, Modality, StageMark, Tap, TapRow, Veto
 from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
@@ -249,38 +249,38 @@ def scoped(context: otel_context.Context, /) -> str:
 
 class Production:
     _lock: ClassVar[RLock] = RLock()
-    _wired: ClassVar[Map[ScopeKey, RuntimeRail[ArtifactInstall]]] = Map.empty()
+    _wired: ClassVar[Map[ScopeKey, RuntimeResult[ArtifactInstall]]] = Map.empty()
 
     @classmethod
-    def registered(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[ArtifactInstall]:
+    def registered(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[ArtifactInstall]:
         with cls._lock:
             match cls._wired.try_find(scope):
                 case Option(tag="some", some=prior):
                     return prior
                 case _:
-                    rail = Hooks.register(ARTIFACT_POINTS, scope=scope).map(
+                    held = Hooks.register(ARTIFACT_POINTS, scope=scope).map(
                         lambda points: Hooks.installed(OWNER, ArtifactInstall(points=tuple(point.id for point in points)), scope=scope)
                     )
-                    cls._wired = cls._wired.add(scope, rail)
-                    return rail
+                    cls._wired = cls._wired.add(scope, held)
+                    return held
 
     @classmethod
-    def fired[P: Struct](cls, point: ArtifactHook, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[P]:
+    def fired[P: Struct](cls, point: ArtifactHook, payload: P, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeResult[P]:
         return cls.registered(scope=scope).bind(lambda _install: Hooks.fire(point, payload, scope=scope))
 
     @overload
     @classmethod
-    def subscribed[P: Struct](cls, point: ArtifactHook, tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = ...) -> RuntimeRail[Attachment]: ...
+    def subscribed[P: Struct](cls, point: ArtifactHook, tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = ...) -> RuntimeResult[Attachment]: ...
     @overload
     @classmethod
     def subscribed[P: Struct](
         cls, point: Block[HookPoint[Struct]], tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = ...
-    ) -> RuntimeRail[Block[Attachment]]: ...
+    ) -> RuntimeResult[Block[Attachment]]: ...
 
     @classmethod
     def subscribed[P: Struct](
         cls, point: ArtifactHook | Block[HookPoint[Struct]], tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[Attachment] | RuntimeRail[Block[Attachment]]:
+    ) -> RuntimeResult[Attachment] | RuntimeResult[Block[Attachment]]:
         return cls.registered(scope=scope).bind(lambda _install: Hooks.subscribe(point, tap, scope=scope))
 
 

@@ -1,6 +1,6 @@
 # [RASM_API_LOGGING_ABSTRACTIONS]
 
-`Microsoft.Extensions.Logging.Abstractions` mints the vendor-neutral emission contract every instrumented library binds: `ILogger.Log<TState>` is the one primitive every extension, generated method, and provider folds through, and `ILoggingBuilder` is the seat every activation extension extends. Its in-package Roslyn generator turns a `[LoggerMessage]` partial into allocation-free strongly-typed emission, and the external-scope seam carries ambient state from the emitting call to the provider that formats it.
+`Microsoft.Extensions.Logging.Abstractions` mints the vendor-neutral emission contract every instrumented library binds: `ILogger.Log<TState>` is the one primitive every extension, generated method, and provider folds through, and `ILoggingBuilder` is the seat every activation extension extends. Its in-package Roslyn generator turns a `[LoggerMessage]` partial into allocation-free strongly-typed emission, and the external-scope provider carries ambient state from the emitting call to the provider that formats it.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -12,7 +12,7 @@
 |  [02]   | `ILogger<TCategoryName>`      | interface     | covariant category-typed seat the DI graph resolves    |
 |  [03]   | `Logger<T>`                   | class         | concrete `ILogger<T>` adapter over an `ILoggerFactory` |
 |  [04]   | `ILoggerFactory`              | interface     | category-keyed mint and provider registration          |
-|  [05]   | `ILoggerProvider`             | interface     | provider seam a composition root implements            |
+|  [05]   | `ILoggerProvider`             | interface     | provider interface a composition root implements       |
 |  [06]   | `ILoggingBuilder`             | interface     | `Services` seat every activation extension extends     |
 |  [07]   | `LogLevel`                    | enum          | `Trace` through `Critical`, with `None` as the off row |
 |  [08]   | `EventId`                     | struct        | `Id`/`Name` identity; implicit lift from `int`         |
@@ -26,14 +26,14 @@
 |  [16]   | `LoggerExternalScopeProvider` | class         | `AsyncLocal` frame stack backing that opt-in           |
 |  [17]   | `ProviderAliasAttribute`      | class         | `Alias` a configuration section binds a provider by    |
 |  [18]   | `LogEntry<TState>`            | struct        | level, category, event, state, exception, formatter    |
-|  [19]   | `IBufferedLogger`             | interface     | batch-replay seam a buffering provider implements      |
+|  [19]   | `IBufferedLogger`             | interface     | batch-replay interface a buffering provider implements |
 |  [20]   | `BufferedLogRecord`           | class         | held record with trace, span, and thread identity      |
 
-`NullLogger`, `NullLogger<T>`, `NullLoggerFactory`, `NullLoggerProvider`, and `NullExternalScopeProvider` each expose a static `Instance` — the zero-provider default at every seam a host has not bound.
+`NullLogger`, `NullLogger<T>`, `NullLoggerFactory`, `NullLoggerProvider`, and `NullExternalScopeProvider` each expose a static `Instance` — the zero-provider default at every slot a host has not bound.
 
 ## [02]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the emission primitive, the typed and cached-delegate declarations, and the scope and replay seams
+[ENTRYPOINT_SCOPE]: the emission primitive, the typed and cached-delegate declarations, and the scope and replay interfaces
 
 | [INDEX] | [SURFACE]                                                                                      | [SHAPE]  | [CAPABILITY]                 |
 | :-----: | :--------------------------------------------------------------------------------------------- | :------- | :--------------------------- |
@@ -73,5 +73,5 @@
 - `Rasm.Rhino` `ObjectsTelemetry`: `Configure` admits one `(PluginKey, ILogger)` row per plugin and `Publish` fans generated events across the live rows, an empty roster composing `NullLogger`.
 
 [LOCAL_ADMISSION]:
-- Libraries reference this contract assembly alone and take `ILogger`/`ILoggerFactory` by injection; `NullLogger.Instance` is the default at every seam a host has not bound.
+- Libraries reference this contract assembly alone and take `ILogger`/`ILoggerFactory` by injection; `NullLogger.Instance` is the default at every slot a host has not bound.
 - Every `ILoggingBuilder` extension is composition-root surface, so provider, sampler, and buffer activation lands at the app root.

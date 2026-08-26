@@ -205,7 +205,7 @@
 
 [ENTRYPOINT_SCOPE]: camera pose, frustum, depth, and gesture families
 
-Bare members live on `RhinoViewport`; `ViewportInfo`, `ViewInfo`, and `Rhino.ApplicationSettings.ViewSettings` rows carry their owner. `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` at the stack boundary or when the popped projection equals the current one — a benign no-op. `ViewportInfo.GetXform` returns `Transform.Unset` on failure where `RhinoViewport.GetTransform` returns `Identity`, so `GetXform` is the rail-detectable read.
+Bare members live on `RhinoViewport`; `ViewportInfo`, `ViewInfo`, and `Rhino.ApplicationSettings.ViewSettings` rows carry their owner. `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` at the stack boundary or when the popped projection equals the current one — a benign no-op. `ViewportInfo.GetXform` returns `Transform.Unset` on failure where `RhinoViewport.GetTransform` returns `Identity`, so `GetXform` is the failure-detectable read.
 
 `ChangeToPerspectiveProjection` orders `(targetDistance, symmetricFrustum, lensLength)` and `ChangeToTwoPointPerspectiveProjection` orders `(targetDistance, up, lensLength)`; `GetFramePlaneCorners(depth)` returns the quad bottom-left, bottom-right, top-left, top-right.
 
@@ -494,7 +494,7 @@ Beyond the method rows below, the attribute model is property families written b
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md`: `FilePdf.AddPage(ViewCaptureSettings)` consumes the identical `ViewCaptureSettings`, so page-view PDF egress reuses the capture configuration unchanged.
 - `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`: the host draw enums (`BlendMode`, `CullFaceMode`, `LineCapStyle`, `LineJoinStyle`, `PointStyle`, `IsoDrawMode`), the projection selectors (`DefinedViewportProjection`, `IsometricCamera`), and mode/attribute selectors are mapped at the edge to `[SmartEnum]` owners, and a display-mode or analysis-mode `Guid` is a `[ValueObject<Guid>]` — the domain composes the bounded owner, the host enum lives only in the adapter.
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-geometry.md`: every draw family consumes a `Rhino.Geometry` carrier (`Mesh`/`Brep`/`SubD`/`Hatch`/`TextEntity`/`ClippingPlaneSurface`); the pipeline is the sink, the geometry catalog the source.
-- `libs/dotnet/Rasm.Rhino/.api/api-macos-native.md`: sprite-cloud and dynamic-display animation pace off the host `CADisplayLink` frame clock rather than a wall timer, and perceptual color blending of `Color4f`/`IsoDrawEffect` band colors composes the Rasm kernel color rail, never a host-side channel-average.
+- `libs/dotnet/Rasm.Rhino/.api/api-macos-native.md`: sprite-cloud and dynamic-display animation pace off the host `CADisplayLink` frame clock rather than a wall timer, and perceptual color blending of `Color4f`/`IsoDrawEffect` band colors composes the Rasm kernel color owner, never a host-side channel-average.
 
 [LOCAL_ADMISSION]:
 - `Rhino.Display` types are host handles trapped and mapped at the boundary; a `DisplayPipeline`, `RhinoViewport`, or `ViewCaptureSettings` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.

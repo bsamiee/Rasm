@@ -1,6 +1,6 @@
 # [TS_UI_API_TAILWINDCSS_REACT_ARIA_COMPONENTS]
 
-`tailwindcss-react-aria-components` registers one Tailwind variant per react-aria-components interaction state, so RAC render-prop `className`/`style` functions collapse into static utility strings that flow through the folder's `cn` merge rail. It runs build-time only as an `@plugin` carrying a single `prefix` knob — zero runtime, never imported by a component.
+`tailwindcss-react-aria-components` registers one Tailwind variant per react-aria-components interaction state, so RAC render-prop `className`/`style` functions collapse into static utility strings that flow through the folder's `cn` merge fold. It runs build-time only as an `@plugin` carrying a single `prefix` knob — zero runtime, never imported by a component.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -40,7 +40,7 @@
 [STACKING]:
 - `react-aria-components` (`.api/react-aria-components.md`): every render-prop boolean (`isHovered`/`isSelected`/`isInvalid`) and enum (`placement`/`orientation`/`selectionMode`) has a matching variant, so a styled row expresses interaction state in classes instead of a render-prop `className`/`style` function.
 - `tailwindcss` (`.api/tailwindcss.md`): registered through the `@plugin` directive; the variants compose with Tailwind's own (`selected:hover:…`, `md:pressed:…`) and with `group-*`/`peer-*` over RAC's group/peer data-attributes.
-- `tailwind-merge` (`.api/tailwind-merge.md`): the variants are modifiers `twMerge` preserves as conflict scopes, flowing through the one `cn = twMerge(clsx(...))` rail; an order-sensitive interaction registers `orderSensitiveModifiers`.
+- `tailwind-merge` (`.api/tailwind-merge.md`): the variants are modifiers `twMerge` preserves as conflict scopes, flowing through the one `cn = twMerge(clsx(...))` fold; an order-sensitive interaction registers `orderSensitiveModifiers`.
 - `tw-animate-css` (`.api/tw-animate-css.md`): `entering:`/`exiting:` drive RAC transition phases — pairing them with `animate-in`/`animate-out` declares overlay motion in classes off RAC's `data-entering`/`data-exiting`.
 - `class-variance-authority` (`.api/class-variance-authority.md`): a `cva` slot's class string carries these state variants (`selected:` inside a variant), binding RAC state declaratively while `cva` selects the design variant.
 - `system/primitive` + `view/form`: the folder styles every RAC state through these variants, so the `Schema`→aria `Form.standard` binding surfaces `invalid:`/`required:` in classes and no styled row hand-writes a state branch.

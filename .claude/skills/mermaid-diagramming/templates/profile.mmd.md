@@ -17,9 +17,9 @@ radar-beta
   accTitle: Package capability profile
   accDescr: The compute kernel and persistence layer compared across six capability axes scored from the corpus audit on the 0-100 band.
   title Capability Profile
-  axis rails["Rails"], depth["Depth"], seams["Seams"], docs["Docs"], gates["Gates"], stack["Stacking"]
-  curve compute["Compute"]{ rails: 90, depth: 85, seams: 70, docs: 80, gates: 88, stack: 75 }
-  curve persist["Persist"]{ rails: 72, depth: 78, seams: 88, docs: 85, gates: 70, stack: 90 }
+  axis types["Types"], depth["Depth"], edges["Edges"], docs["Docs"], gates["Gates"], stack["Stacking"]
+  curve compute["Compute"]{ types: 90, depth: 85, edges: 70, docs: 80, gates: 88, stack: 75 }
+  curve persist["Persist"]{ types: 72, depth: 78, edges: 88, docs: 85, gates: 70, stack: 90 }
   showLegend true
   graticule polygon
   ticks 4

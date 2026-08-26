@@ -1,6 +1,6 @@
 # [TS_UI_API_APACHE_ARROW]
 
-`apache-arrow` owns the columnar container and type system every engine seam meets, exchanged as a `Table` in memory and an IPC frame on the wire; the viewer's GeoArrow plane binds a geometry `Vector`'s typed arrays straight to the GPU. `ui` carries the viewer-tier type-system and builder depth; `data` owns the OLAP/IPC seam.
+`apache-arrow` owns the columnar container and type system every engine boundary meets, exchanged as a `Table` in memory and an IPC frame on the wire; the viewer's GeoArrow plane binds a geometry `Vector`'s typed arrays straight to the GPU. `ui` carries the viewer-tier type-system and builder depth; `data` owns the OLAP/IPC boundary.
 
 ## [01]-[COLUMNAR_CORE]
 
@@ -77,12 +77,12 @@ One `Type` enum discriminates one `DataType` ADT, dispatched by one `Visitor`: e
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Arrow carries every analytical result crossing an engine seam — a `Table` in memory, an IPC frame on the wire; JSON or row re-encoding between engines is the named defect.
+- Arrow carries every analytical result crossing an engine boundary — a `Table` in memory, an IPC frame on the wire; JSON or row re-encoding between engines is the named defect.
 
 [STACKING]:
 - `geoarrow-deck.gl-geoarrow`(`.api/geoarrow-deck.gl-geoarrow.md`): every `GeoArrow*Layer` binds one `RecordBatch` as `data` with a coordinate-column accessor, reading the geometry `Vector`'s typed arrays into GPU attributes — one layer per `RecordBatch`, zero row materialization.
-- `@duckdb/duckdb-wasm`(`../../data/.api/duckdb-duckdb-wasm.md`): the OLAP/IPC seam — `query()` returns an `arrow.Table` and ingest folds through `insertArrowTable` (live `Table`) or `insertArrowFromIPCStream` (IPC bytes), the `isArrowTable`/`isArrowRecordBatch` guards discriminating the inbound shape.
+- `@duckdb/duckdb-wasm`(`../../data/.api/duckdb-duckdb-wasm.md`): the OLAP/IPC boundary — `query()` returns an `arrow.Table` and ingest folds through `insertArrowTable` (live `Table`) or `insertArrowFromIPCStream` (IPC bytes), the `isArrowTable`/`isArrowRecordBatch` guards discriminating the inbound shape.
 - `@perspective-dev/client`(`.api/perspective-dev-client.md`): `View.to_arrow()` emits an IPC `ArrayBuffer` that `tableFromIPC` decodes for any Arrow consumer, and `Client.table(buf,{format:"arrow"})` / `Table.update(arrowBuf)` ingest `tableToIPC` output — the streaming engine speaks Arrow both directions.
-- `turf-turf`(`.api/turf-turf.md`): consumes GeoJSON, so query-scale planar ops materialize the selected coordinate `Vector` at that seam and leave bulk columnar transport on Arrow.
+- `turf-turf`(`.api/turf-turf.md`): consumes GeoJSON, so query-scale planar ops materialize the selected coordinate `Vector` at that boundary and leave bulk columnar transport on Arrow.
 - `wire`: owns the WKB-to-GeoArrow projection; `tableFromIPC` decodes the viewer-bound frame after, so columnar decode stays here and WKB projection stays in `wire`.
 - `BrowserWorker`: off-thread decode pools carry heavy `tableFromIPC` frames off the render thread, wrapping malformed-frame throws in the typed `Effect` failure channel before layer binding.

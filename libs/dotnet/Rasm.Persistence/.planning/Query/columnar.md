@@ -1,20 +1,20 @@
 # [PERSISTENCE_QUERY_COLUMNAR]
 
-Rasm.Persistence runs analytical aggregation, columnar rollup, and artifact egress through one in-process DuckDB engine. `ColumnarSession` owns one posture-configured anchor and gives every concurrent operation a `Duplicate()` lane; `Identifier` admits all SQL identifier roles, `StorePath` admits storage locations, and `SecretResidence` distinguishes session and persistent credentials. ADBC is the Arrow bridge out of that engine and the `COPY (SELECT) TO` rail is its one SQL-mediated egress — two boundaries over the shared Arrow model, never one stretched to name the other.
+Rasm.Persistence runs analytical aggregation, columnar rollup, and artifact egress through one in-process DuckDB engine. `ColumnarSession` owns one posture-configured anchor and gives every concurrent operation a `Duplicate()` lane; `Identifier` admits all SQL identifier roles, `StorePath` admits storage locations, and `SecretStorage` distinguishes session and persistent credentials. ADBC is the Arrow bridge out of that engine and the `COPY (SELECT) TO` statement is its one SQL-mediated egress — two boundaries over the shared Arrow model, never one stretched to name the other.
 
-Four sibling owners hold everything downstream of that engine: producer declarations, the serving plane, this custodian's own dataset rosters, and the lake generations they land in. Producers reach those owners on TWO named wires over ONE admitted vocabulary: `Rasm.Element` and `Rasm.Compute` cross the `[WIRE]: AnalyticsSchema` seam, and `Rasm.Materials` crosses the `[WIRE]: MaterialsDataset` seam over the same Element table vocabulary — two wires because two producers declare on their own terms, one vocabulary because `Query/residence` admits both through a single gate.
+Four sibling owners hold everything downstream of that engine: producer declarations, the serving plane, this custodian's own dataset rosters, and the lake generations they land in. Producers reach those owners on TWO named wires over ONE admitted vocabulary: `Rasm.Element` and `Rasm.Compute` cross the `[WIRE]: AnalyticsSchema` boundary, and `Rasm.Materials` crosses the `[WIRE]: MaterialsDataset` boundary over the same Element table vocabulary — two wires because two producers declare on their own terms, one vocabulary because `Query/backend` admits both through a single gate.
 
 ## [01]-[INDEX]
 
-- [02]-[COLUMNAR_LANE]: `ColumnarSession` anchors one posture-configured DuckDB engine, `ColumnarProfile` bootstraps its extension roster, and `ColumnarLane` owns the parameterized streaming query, the typed bulk appender, the read-only `ATTACH` mount, the `CREATE SECRET` rail, the ADBC Arrow bridge, and the closed fault rail.
-- [03]-[ARTIFACT_EGRESS]: `ArtifactEgress` runs one engine-mediated `COPY (SELECT) TO` rail over the closed `EgressFormat`/`Codec`/`CopyMode`/`ArtifactClass` vocabularies, stamps and reads footer metadata, and scans a generation through `read_parquet`.
+- [02]-[COLUMNAR_LANE]: `ColumnarSession` anchors one posture-configured DuckDB engine, `ColumnarProfile` bootstraps its extension roster, and `ColumnarLane` owns the parameterized streaming query, the typed bulk appender, the read-only `ATTACH` mount, the `CREATE SECRET` statement, the ADBC Arrow bridge, and the closed fault channel.
+- [03]-[ARTIFACT_EGRESS]: `ArtifactEgress` runs one engine-mediated `COPY (SELECT) TO` statement over the closed `EgressFormat`/`Codec`/`CopyMode`/`ArtifactClass` vocabularies, stamps and reads footer metadata, and scans a generation through `read_parquet`.
 - [04]-[RESEARCH]: open verification debts and their routes.
 
-Siblings this page routes to: `Query/residence` owns the producer column vocabulary, the residence family, the seam admission, and the provisioning emitter; `Query/serving` owns the read plan and the four-reach serving plane beside the one relational landing; `Query/datasets` owns the three datasets this custodian declares for itself; `Query/lakehouse` owns the BIM fact egress, the Parquet codec lane, and the `LandingArm` producer spine.
+Siblings this page routes to: `Query/backend` owns the producer column vocabulary, the backend family, the schema admission, and the provisioning emitter; `Query/serving` owns the read plan and the four-reach serving plane beside the one relational landing; `Query/datasets` owns the three datasets this custodian declares for itself; `Query/lakehouse` owns the BIM fact egress, the Parquet codec lane, and the `LandingArm` producer spine.
 
 ## [02]-[COLUMNAR_LANE]
 
-- Owner: `Identifier`, `StorePath`, `ExecutionThreads`, and `AdbcSql` admit dynamic boundary values; `SecretScope` and `SecretResidence` carry credential resolution and lifetime; `ColumnarSession` owns one anchor and its duplicate lanes; `ColumnarProfile`, `ColumnarExtension`, `ExtensionRepo`, and `ColumnarFault` own posture, capability, bootstrap form, and the fault band; `WarehouseDriver`, `AdbcQuery`, `AdbcBind`, `AdbcRequest`, and `AdbcWarehouse` own the ADBC bridge; `ColumnarLane` owns the operations.
+- Owner: `Identifier`, `StorePath`, `ExecutionThreads`, and `AdbcSql` admit dynamic boundary values; `SecretScope` and `SecretStorage` carry credential resolution and lifetime; `ColumnarSession` owns one anchor and its duplicate lanes; `ColumnarProfile`, `ColumnarExtension`, `ExtensionRepo`, and `ColumnarFault` own posture, capability, bootstrap form, and the fault band; `WarehouseDriver`, `AdbcQuery`, `AdbcBind`, `AdbcRequest`, and `AdbcWarehouse` own the ADBC bridge; `ColumnarLane` owns the operations.
 - Cases: `ColumnarProfile` is `Geometry` (`spatial`/`parquet`), `Search` (`vss`/`fts`), `Lakehouse` (`httpfs`/`iceberg`/`delta`/`postgres`, order-free remote scan), `Bim` (`parquet`/`json`/`spatial` over the BimOpenSchema `.duckdb`), and `Federation` (`parquet`/`substrait`/`postgres`, fail-closed on the community row); `ColumnarExtension` rows are `Spatial`, `Vss`, `Fts`, `Parquet`, `Json`, `Icu`, `Httpfs`, `Iceberg`, `Delta`, `Postgres`, `Sqlite`, `Excel`, `Avro`, `Aws`, `Azure`, and `Substrait`; `ExtensionRepo` is `Linked` | `Core` | `Community`; `WarehouseDriver` is `Hive` | `Impala` | `Spark` | `BigQuery`; `AdbcQuery` is `Sql` | `Plan`; `AdbcBind` is `Batch` | `Stream`; `ColumnarFault` closes native query, extension, append, mount, egress, stamp, secret, trust, Delta, and policy admission failures across `8350`–`8359`.
 - Entry: `Open` admits the `StoreProfile` lane, then boots and probes the profile; `Query`, `Append`, `Mount`, and `Secret` each own a duplicate connection; `ArrowStream` admits one `AdbcRequest` and drains inside the ADBC statement lifetime; `ArrowPartitions` fans a server-side split; `AdbcWarehouse.Open` mints the connection under a driver row and `Tabular` is the whole driver-to-batches composition a federation tabular port takes.
 - Auto: every concurrent operation rides a duplicate lane over the held anchor; profile settings and the extension bootstrap are composition data; `Query` streams, mapped appenders own bulk ingress, and ADBC owns Arrow extraction.
@@ -161,10 +161,10 @@ public sealed partial class SecretScope {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SecretResidence {
-    private SecretResidence() { }
-    public sealed record Session : SecretResidence;
-    public sealed record Persistent : SecretResidence;
+public abstract partial record SecretStorage {
+    private SecretStorage() { }
+    public sealed record Session : SecretStorage;
+    public sealed record Persistent : SecretStorage;
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -310,11 +310,11 @@ public static class ColumnarLane {
         }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.MountRefused(alias, engine.ErrorType, cause))));
 
-    public static IO<Fin<Unit>> Secret(ColumnarSession session, SecretScope scope, Identifier name, Seq<(Identifier Key, string Value)> config, SecretResidence residence) =>
+    public static IO<Fin<Unit>> Secret(ColumnarSession session, SecretScope scope, Identifier name, Seq<(Identifier Key, string Value)> config, SecretStorage storage) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
-            string into = residence is SecretResidence.Persistent ? $" IN {scope.PersistInto}" : string.Empty;
+            string into = storage is SecretStorage.Persistent ? $" IN {scope.PersistInto}" : string.Empty;
             Seq<string> rows = config.Map(static pair => $"{pair.Key} '{pair.Value.Replace("'", "''", StringComparison.Ordinal)}'");
             command.CommandText = $"CREATE OR REPLACE SECRET {name}{into} (TYPE {scope.Key}, PROVIDER {scope.Provider}, {string.Join(", ", rows)})";
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
@@ -410,30 +410,30 @@ public abstract partial record AdbcBind {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                          |
-| :-----: | :------------------ | :---------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | engine session      | one anchor + `Duplicate()`                | never command interleaving                                         |
-|  [02]   | extension bootstrap | ordered repo-derived `INSTALL`/`LOAD` SQL | tri-state `ExtensionRepo`; fail-closed `duckdb_extensions()` probe |
-|  [03]   | consistency stance  | async, `StalenessWatermark`               | never read by interactive correctness without the wait             |
-|  [04]   | index ownership     | DuckDB spatial/vss are aggregators        | GiST/pgvector own the transactional index                          |
-|  [05]   | credential rail     | `CREATE SECRET` over `SecretScope`        | quote-doubled config literals; never an inline path key            |
-|  [06]   | Arrow bridge        | ADBC driver manager → `IArrowArrayStream` | no managed Arrow member; params via `AdbcStatement.Bind`           |
-|  [07]   | driver custody      | `WarehouseDriver` row opens every lane    | `Tabular` owns the whole span; never a bare unbound connection     |
-|  [08]   | fault rail          | `DuckDBException` → `ColumnarFault`       | discriminated on `DuckDBErrorType`, never a raw ADO throw          |
-|  [09]   | trust gate          | `Identifier`/`StorePath`                  | one grammar per identity regime                                    |
-|  [10]   | plan execution      | `AdbcQuery.Plan` → `SubstraitPlan`        | the federation intra-leg edge on the one ADBC statement seam       |
-|  [11]   | lane admission      | `StoreProfile.Admits(Lane)` inside `Open` | refused once with the axis named; never a per-verb lane test       |
+| [INDEX] | [POLICY]             | [VALUE]                                   | [BINDING]                                                          |
+| :-----: | :------------------- | :---------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | engine session       | one anchor + `Duplicate()`                | never command interleaving                                         |
+|  [02]   | extension bootstrap  | ordered repo-derived `INSTALL`/`LOAD` SQL | tri-state `ExtensionRepo`; fail-closed `duckdb_extensions()` probe |
+|  [03]   | consistency stance   | async, `StalenessWatermark`               | never read by interactive correctness without the wait             |
+|  [04]   | index ownership      | DuckDB spatial/vss are aggregators        | GiST/pgvector own the transactional index                          |
+|  [05]   | credential statement | `CREATE SECRET` over `SecretScope`        | quote-doubled config literals; never an inline path key            |
+|  [06]   | Arrow bridge         | ADBC driver manager → `IArrowArrayStream` | no managed Arrow member; params via `AdbcStatement.Bind`           |
+|  [07]   | driver custody       | `WarehouseDriver` row opens every lane    | `Tabular` owns the whole span; never a bare unbound connection     |
+|  [08]   | fault channel        | `DuckDBException` → `ColumnarFault`       | discriminated on `DuckDBErrorType`, never a raw ADO throw          |
+|  [09]   | trust gate           | `Identifier`/`StorePath`                  | one grammar per identity regime                                    |
+|  [10]   | plan execution       | `AdbcQuery.Plan` → `SubstraitPlan`        | the federation intra-leg edge on the one ADBC statement boundary   |
+|  [11]   | lane admission       | `StoreProfile.Admits(Lane)` inside `Open` | refused once with the axis named; never a per-verb lane test       |
 
 ## [03]-[ARTIFACT_EGRESS]
 
-- Owner: `Codec` is the compression vocabulary whose `.Key` IS the `COPY` `COMPRESSION` token; `CopyMode` the destination-collision vocabulary; `EgressFormat` the format vocabulary carrying its JSON `ARRAY` row and the row-group default its grouping admits; `CopyBody` the composed TYPED projection the COPY body embeds — never raw caller SQL; `ArtifactClass` the closed analytical-artifact declaration deriving emission, partition, and the footer stamp from one row; `ArtifactEgress` the static surface owning the rail, the footer-metadata stamp read, and the `read_parquet` generation scan.
+- Owner: `Codec` is the compression vocabulary whose `.Key` IS the `COPY` `COMPRESSION` token; `CopyMode` the destination-collision vocabulary; `EgressFormat` the format vocabulary carrying its JSON `ARRAY` row and the row-group default its grouping admits; `CopyBody` the composed TYPED projection the COPY body embeds — never raw caller SQL; `ArtifactClass` the closed analytical-artifact declaration deriving emission, partition, and the footer stamp from one row; `ArtifactEgress` the static surface owning the statement, the footer-metadata stamp read, and the `read_parquet` generation scan.
 - Cases: `EgressFormat` is `Parquet` (grouping, carrying the default row count), `Csv`, and `Json` (carrying `ARRAY true`); `Codec` is `Zstd`/`Snappy`; `CopyMode` is `Overwrite`/`OverwriteOrIgnore`/`Append`; `ArtifactClass` is `BimRollup` (the QTO Parquet generation, Zstd, overwrite) or `CoverageFeed` (the partitioned geospatial-coverage JSON feed, Snappy, append).
-- Entry: `Publish(ColumnarSession, ArtifactClass, CopyBody, StorePath, UInt128)` runs the one `COPY (body) TO destination (…)` statement assembled from the artifact-class rows over the trust-gated body and destination, the stamp hex-formatted at the seam so caller raw text is unrepresentable; `StampOf(ColumnarSession, StorePath)` reads the content stamp from the Parquet footer through `parquet_kv_metadata` without decoding data; `Generation(StorePath)` derives the `read_parquet` glob scan over a generation directory with `union_by_name`/`hive_partitioning`/`filename` provenance.
+- Entry: `Publish(ColumnarSession, ArtifactClass, CopyBody, StorePath, UInt128)` runs the one `COPY (body) TO destination (…)` statement assembled from the artifact-class rows over the trust-gated body and destination, the stamp hex-formatted at the boundary so caller raw text is unrepresentable; `StampOf(ColumnarSession, StorePath)` reads the content stamp from the Parquet footer through `parquet_kv_metadata` without decoding data; `Generation(StorePath)` derives the `read_parquet` glob scan over a generation directory with `union_by_name`/`hive_partitioning`/`filename` provenance.
 - Auto: one `COPY (SELECT) TO` statement owns engine-mediated egress — `FORMAT`, `COMPRESSION`, `ROW_GROUP_SIZE`, and `PARTITION_BY` interpolate beside the shared destination from the artifact-class rows, so a mistyped token is unrepresentable rather than a runtime SQL parse error and a second export path per format is the deleted form. One `KV_METADATA` stamp binds the artifact's content identity into the footer, and the generation read is `read_parquet` over a path or glob so a growing generation directory changes only the path argument.
 - Packages: DuckDB.NET.Data.Full (`DuckDBCommand.ExecuteNonQuery`/`ExecuteScalar`/`DuckDBParameter`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new artifact class is one `ArtifactClass` row deriving emission, partition, and stamp; a new egress format, codec, or collision mode is one vocabulary row whose `.Key` IS the `COPY` token; a format that groups declares its own default row count; zero new surface — a per-format export path, a `FORMAT` value stretched to name a transport the engine never performs, a filename-convention identity trust, an in-place generation rewrite, or a row-group literal restated per class is the deleted form.
 - Law: row-group geometry is the unit of scan parallelism and zonemap pruning, so the emitted size is the class's own override or the FORMAT's declared default and a non-grouping format has no size to emit — groups near the default row count prune well, and tiny groups are the signature of an append-per-batch exporter, which stages through a view and exports once. Partitioning is a pruning instrument at cardinality in the tens to low thousands, never a uniqueness scheme.
-- Boundary: the `COPY (SELECT) TO` rail is the SQL-mediated egress LANE, not the egress monopoly — the zero-copy `ArrowStream` ADBC bridge and the direct managed `Query/lakehouse#FLAT_TABLE_EGRESS` `ParquetSharp.Arrow` codec are distinct lanes a `FORMAT` token cannot express, so a non-SQL egress lands as a sibling lane and never as a `FORMAT` row. Artifact identity is the footer content stamp and the declared `ArtifactClass` shape, never a filename convention: a renamed artifact keeps its identity and a stamp that no longer matches its content is corruption, not drift. Generations are IMMUTABLE — compaction is a new artifact written beside the old with a new stamp — and `FIELD_IDS` at export with an id-keyed scan map make renames non-breaking across generations. `COPY` is a filesystem effect outside transaction rollback, so publication composes the atomic-write protocol `Element/codec#SNAPSHOT_SPINE` owns. Lakehouse `delta`/`iceberg` scans read the same tables the managed `PublishDelta` commit produces: DuckDB the read projection, the managed Delta log the versioned publication, meeting at the table path and never re-authoring each other's metadata.
+- Boundary: the `COPY (SELECT) TO` statement is the SQL-mediated egress LANE, not the egress monopoly — the zero-copy `ArrowStream` ADBC bridge and the direct managed `Query/lakehouse#FLAT_TABLE_EGRESS` `ParquetSharp.Arrow` codec are distinct lanes a `FORMAT` token cannot express, so a non-SQL egress lands as a sibling lane and never as a `FORMAT` row. Artifact identity is the footer content stamp and the declared `ArtifactClass` shape, never a filename convention: a renamed artifact keeps its identity and a stamp that no longer matches its content is corruption, not drift. Generations are IMMUTABLE — compaction is a new artifact written beside the old with a new stamp — and `FIELD_IDS` at export with an id-keyed scan map make renames non-breaking across generations. `COPY` is a filesystem effect outside transaction rollback, so publication composes the atomic-write protocol `Element/codec#SNAPSHOT_SPINE` owns. Lakehouse `delta`/`iceberg` scans read the same tables the managed `PublishDelta` commit produces: DuckDB the read projection, the managed Delta log the versioned publication, meeting at the table path and never re-authoring each other's metadata.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -534,15 +534,15 @@ public static class ArtifactEgress {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                      | [BINDING]                                                         |
-| :-----: | :---------------- | :------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | engine egress     | one `COPY (SELECT) TO` rail                  | `.Key` IS the COPY token; a second export path is deleted         |
-|  [02]   | artifact identity | footer `KV_METADATA` stamp                   | rides the file, never a filename convention                       |
-|  [03]   | row-group size    | the class override or the format's default   | a non-grouping format emits no clause; never a restated literal   |
-|  [04]   | partitioning      | `PARTITION_BY` hive directories              | a pruning instrument, never a uniqueness scheme                   |
-|  [05]   | generation read   | `read_parquet` glob + `union_by_name`        | generations immutable; additive columns compatible                |
-|  [06]   | non-SQL egress    | sibling ADBC / `ParquetSharp.Arrow` lane     | never a `FORMAT` token stretched to name a transport              |
-|  [07]   | copy body         | composed `CopyBody`, trust-gated identifiers | never raw caller SQL; filtered egress stages via the `Query` rail |
+| [INDEX] | [POLICY]          | [VALUE]                                      | [BINDING]                                                          |
+| :-----: | :---------------- | :------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | engine egress     | one `COPY (SELECT) TO` statement             | `.Key` IS the COPY token; a second export path is deleted          |
+|  [02]   | artifact identity | footer `KV_METADATA` stamp                   | rides the file, never a filename convention                        |
+|  [03]   | row-group size    | the class override or the format's default   | a non-grouping format emits no clause; never a restated literal    |
+|  [04]   | partitioning      | `PARTITION_BY` hive directories              | a pruning instrument, never a uniqueness scheme                    |
+|  [05]   | generation read   | `read_parquet` glob + `union_by_name`        | generations immutable; additive columns compatible                 |
+|  [06]   | non-SQL egress    | sibling ADBC / `ParquetSharp.Arrow` lane     | never a `FORMAT` token stretched to name a transport               |
+|  [07]   | copy body         | composed `CopyBody`, trust-gated identifiers | never raw caller SQL; filtered egress stages via the `Query` entry |
 
 ## [04]-[RESEARCH]
 

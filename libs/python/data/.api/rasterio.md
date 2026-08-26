@@ -1,6 +1,6 @@
 # [PY_DATA_API_RASTERIO]
 
-`rasterio` owns the NumPy-array raster IO rail over GDAL: `open` is the single polymorphic dataset entry (mode, `driver`, and creation kwargs discriminate read versus write), and `DatasetReader`/`DatasetWriter`, `MemoryFile`, `Env`, and the `Session` cloud family carry band read/write, windowing, reprojection, masking, and merge under affine and CRS georeferencing. rasterio is the band IO beneath `rioxarray`, the COG decoder for `pystac` hrefs, and the CRS owner shared with `pyproj`.
+`rasterio` owns the NumPy-array raster IO domain over GDAL: `open` is the single polymorphic dataset entry (mode, `driver`, and creation kwargs discriminate read versus write), and `DatasetReader`/`DatasetWriter`, `MemoryFile`, `Env`, and the `Session` cloud family carry band read/write, windowing, reprojection, masking, and merge under affine and CRS georeferencing. rasterio is the band IO beneath `rioxarray`, the COG decoder for `pystac` hrefs, and the CRS owner shared with `pyproj`.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -90,7 +90,7 @@
 - `pystac`(`.api/pystac.md`): a `MediaType.COG` asset href, signed through `planetary_computer.sign`, opens directly in `rasterio.open`/`WarpedVRT`; the projection-extension transform and CRS match the dataset `transform`/`crs`.
 - `rioxarray`(`.api/rioxarray.md`): `open_rasterio` wraps `rasterio.open`/`WarpedVRT` into a georeferenced xarray `DataArray`/`Dataset`; raw rasterio serves only where xarray labeling and dask chunking are unneeded.
 - `shapely`(`.api/shapely.md`)/`geopandas`(`.api/geopandas.md`): `features.shapes`/`features.rasterize`/`mask.mask` exchange GeoJSON-like mappings with shapely geometries and GeoDataFrames, and `warp.transform_geom` reprojects geometry through the shared PROJ.
-- `stac-geoparquet`(`.api/stac-geoparquet.md`)/`obstore`(`python/.api/obstore.md`): a `MemoryFile` write with an `obstore` PUT (or a `/vsis3/` path under `AWSSession`) is the COG write-and-upload rail; `default_gtiff_profile` with `Compression.zstd`/`webp` and tiling kwargs sets the creation profile.
+- `stac-geoparquet`(`.api/stac-geoparquet.md`)/`obstore`(`python/.api/obstore.md`): a `MemoryFile` write with an `obstore` PUT (or a `/vsis3/` path under `AWSSession`) is the COG write-and-upload domain; `default_gtiff_profile` with `Compression.zstd`/`webp` and tiling kwargs sets the creation profile.
 - `pyproj`(`.api/pyproj.md`): the `CRS` object is shared unchanged, never re-derived; one `Env(session=...)` scopes the whole read/warp/merge pipeline, the cloud provider a `Session` row rather than a per-call credential.
 - within-lib: the geospatial owner threads `open` (context-managed) into windowed/`block_windows` streaming, then `warp.reproject`/`WarpedVRT`, the `features`/`mask` vector bridge, and `merge` mosaicking under one `Env(session=...)`, every stage a `Resampling`/`MergeAlg` row.
 

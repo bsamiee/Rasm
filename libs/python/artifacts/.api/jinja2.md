@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_JINJA2]
 
-`jinja2` owns report-templating for the artifacts `document` rail: one sandboxed `Environment` composes a loader axis, an undefined-handling axis, autoescape policy, native-type rendering, the filter/test/global/extension registries, bytecode/precompile caching, and the sync/async render path that drives report generation from a `VisualSpec`/`ExportPlan` and runtime `ContentIdentity`. Its owner re-implements no lexing, parsing, compilation, or rendering jinja2 already carries.
+`jinja2` owns report-templating for the artifacts `document` layer: one sandboxed `Environment` composes a loader axis, an undefined-handling axis, autoescape policy, native-type rendering, the filter/test/global/extension registries, bytecode/precompile caching, and the sync/async render path that drives report generation from a `VisualSpec`/`ExportPlan` and runtime `ContentIdentity`. Its owner re-implements no lexing, parsing, compilation, or rendering jinja2 already carries.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -126,7 +126,7 @@
 - `render`/`render_async` is the one sync/async pair; `generate`/`stream` own chunked output for large reports; the render context carries the `VisualSpec`/`ExportPlan` projection and the runtime `ContentIdentity`, never a re-minted identity.
 - `NativeEnvironment`/`NativeTemplate` binds every template yielding a typed Python value, never `ast.literal_eval` over a string render; string reports stay on `Environment`.
 - Custom tags, filters, tests, and globals are configuration rows on the mutable `Environment` registries via `add_extension`/`.filters`/`.tests`/`.globals` and the `pass_context`/`pass_environment`/`pass_eval_context` decorators, never a second engine.
-- Untrusted report source binds `ImmutableSandboxedEnvironment`; the sandbox attribute/operator filters are the security boundary and `SecurityError` is a typed fault on the rail.
+- Untrusted report source binds `ImmutableSandboxedEnvironment`; the sandbox attribute/operator filters are the security boundary and `SecurityError` is a typed fault on the result.
 - `compile_templates(target)` feeds a parse-free `ModuleLoader` archive for sealed report sets; `FileSystemBytecodeCache`/`MemcachedBytecodeCache` caches a live engine for hot reload.
 - jinja2 renders the report body offline into bytes the document/PDF owner consumes; live UI templating and browser state stay outside this package.
 
@@ -138,6 +138,6 @@
 - within-lib: `document/report` composes the one `Environment` — loader rows, registries, and the sync/async render path — into the `DocumentNode` tree.
 
 [LOCAL_ADMISSION]:
-- BSD-3-Clause pure-Python wheel; admitted for the `document` report-templating rail. `MarkupSafe` is the runtime dependency; `Babel` enters only under the `i18n` extra.
+- BSD-3-Clause pure-Python wheel; admitted for the `document` report-templating domain. `MarkupSafe` is the runtime dependency; `Babel` enters only under the `i18n` extra.
 - Import lazily at boundary scope (`import jinja2`); module-level import is banned by the manifest import policy.
 - Sandbox attribute/operator filters stay enabled for every untrusted source; the owner never disables them to expose host internals.

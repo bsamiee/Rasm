@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_HOSTING]
 
-`Microsoft.Extensions.Hosting` roots the AppHost process: `Host.CreateApplicationBuilder` mints one `HostApplicationBuilder` whose configuration, service, logging, and metrics rails `Build` freezes into an `IHost` that runs every `IHostedService` through one start/stop lifecycle. Its boundary is bootstrap — a hosted service adapts an external integration lifetime into runtime state transitions, never a second bootstrap framework.
+`Microsoft.Extensions.Hosting` roots the AppHost process: `Host.CreateApplicationBuilder` mints one `HostApplicationBuilder` whose configuration, service, logging, and metrics builders `Build` freezes into an `IHost` that runs every `IHostedService` through one start/stop lifecycle. Its boundary is bootstrap — a hosted service adapts an external integration lifetime into runtime state transitions, never a second bootstrap framework.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -47,8 +47,8 @@
 |  [07]   | `ConfigureContainer<TBuilder>`       | instance | provider-specific setup      |
 |  [08]   | `UseServiceProviderFactory`          | instance | container replacement        |
 |  [09]   | `UseDefaultServiceProvider`          | static   | provider validation policy   |
-|  [10]   | `ConfigureLogging`                   | static   | logging rail admission       |
-|  [11]   | `ConfigureMetrics`                   | static   | metrics rail admission       |
+|  [10]   | `ConfigureLogging`                   | static   | logging builder admission    |
+|  [11]   | `ConfigureMetrics`                   | static   | metrics builder admission    |
 |  [12]   | `ConfigureHostOptions`               | static   | lifetime policy input        |
 |  [13]   | `UseEnvironment`                     | static   | environment identity         |
 |  [14]   | `UseContentRoot`                     | static   | content-root identity        |
@@ -78,7 +78,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- Every host folds through one builder: `Host.CreateApplicationBuilder` mints a `HostApplicationBuilder` exposing `Configuration`, `Environment`, `Services`, `Logging`, and `Metrics`, and `Build` freezes that rail into an `IHost` no later call reconfigures.
+- Every host folds through one builder: `Host.CreateApplicationBuilder` mints a `HostApplicationBuilder` exposing `Configuration`, `Environment`, `Services`, `Logging`, and `Metrics`, and `Build` freezes that builder into an `IHost` no later call reconfigures.
 - One `IHost` lifecycle runs `StartAsync`, `RunAsync`, `StopAsync`, then `Dispose`; `IHostApplicationLifetime.StopApplication` is the sole coordinated shutdown trigger, and its three `CancellationToken`s bind transition work through `Register`.
 - Hosted services start and stop in registration order: `IHostedLifecycleService` wraps each transition in `Starting`/`Started`/`Stopping`/`Stopped` hooks and `BackgroundService.ExecuteAsync` owns one long-running loop.
 - `HostOptions` owns lifecycle policy — startup timeout, shutdown timeout, hosted-service start/stop concurrency, and `BackgroundServiceExceptionBehavior` on a faulted loop.
@@ -89,9 +89,9 @@
 - `Microsoft.Extensions.Logging.Abstractions`(`libs/dotnet/.api/api-logging-abstractions.md`): `ConfigureLogging` admits `ILoggingBuilder`, and the built `IHost` resolves `ILoggerFactory` and `ILogger<T>` into hosted services.
 - `Microsoft.Extensions.Options`(`.api/api-options.md`): `ConfigureHostOptions` binds `HostOptions` through the options pattern on `Services`, and lifecycle policy resolves as `IOptions<HostOptions>`.
 - `Microsoft.Extensions.Hosting.Systemd`(`.api/api-hosting-lifetimes.md`): `UseConsoleLifetime` and `UseSystemd` install the `IHostLifetime` bridging process signals to `StopApplication`, the systemd row gated by its environment probe.
-- within-lib: AppHost's bootstrap root mints one `HostApplicationBuilder`, folds the config, service, logging, and host-option rails onto it, and `Build` freezes the `IHost` the environment-selected `IHostLifetime` runs.
+- within-lib: AppHost's bootstrap root mints one `HostApplicationBuilder`, folds the config, service, logging, and host-option builders onto it, and `Build` freezes the `IHost` the environment-selected `IHostLifetime` runs.
 
 [LOCAL_ADMISSION]:
 - Process-backed integrations boot through Generic Host; a hosted service adapts an external lifetime into runtime state transitions through the ordered lifecycle hooks.
-- Host configuration, app configuration, logging, and metrics enter through the builder rail, and AppHost bootstrap captures environment identity and `HostOptions` policy.
+- Host configuration, app configuration, logging, and metrics enter through the builder, and AppHost bootstrap captures environment identity and `HostOptions` policy.
 - Host lifetime events advance the lifecycle owner, never a second runtime state machine.

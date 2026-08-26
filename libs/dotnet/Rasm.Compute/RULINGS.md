@@ -40,7 +40,7 @@
 - `WireLimits.Artifact` is the ONE ceiling over a reassembled artifact — `Drain` parses under `CreateWithLimits`; `ParseGuard` gates `Inbound` alone.
 - `Artifact` reads `StreamPoolPolicy.ArtifactCeiling` (1 GiB), never the channel cap — deriving both rows from `MaxSendBytes` voided the frame law.
 - Leaf replay keys compose (content key, `ImportedGeometry.At`, pre-order leaf ordinal) — both halves content-derived; wall-clock keys defeat replay.
-- `StatusRail` is the CLIENT fold `StatusCode → WireFault`, the inverse of AppHost's producer `FaultWire.Status` — it packs no detail.
+- `StatusFold` is the CLIENT fold `StatusCode → WireFault`, the inverse of AppHost's producer `FaultWire.Status` — it packs no detail.
 - `ProgressStream` serves `ProgressService.Watch`; `typescript:core` alone dials it, and the app root binds the service base.
 - Policy keys carry `ReadOnlyMemory<double>`; the identity fold stores vectors in static closure state without capturing spans.
 - Closed C# vocabularies cross `compute.proto` as KEY text or a `[SmartEnum<int>]` value — a proto enum owes an `_UNSPECIFIED` arm none holds.
@@ -70,7 +70,7 @@
 ## [04]-[STRUCTURE]
 
 - Kernel spellings freeze and the Compute end moves — the line-search axis is `LineSearch` because the kernel owns `StepControl` as step-size policy.
-- Upstream services this estate never mints stay unimported — `grpc.health.v1` and `google.rpc.Status` ship pre-generated; a copy forks them.
+- Upstream services this solution never mints stay unimported — `grpc.health.v1` and `google.rpc.Status` ship pre-generated; a copy forks them.
 - Service names carry the `Service` suffix — the corpus `buf` gate holds `SERVICE_SUFFIX` unwaived, so no sibling reads by a different rule.
 - Compute's payload messages carry NO `Wire` suffix — nothing co-resident collides, so a suffix binds a name `compute.proto` never mints.
 - Wire messages spell `<Verb>Request`/`<Verb>Result` and the domain shape keeps its name — a rename moves a wire name and forks the roster.

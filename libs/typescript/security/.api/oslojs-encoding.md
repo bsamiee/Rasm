@@ -37,4 +37,4 @@
 - `sign/`: every mint the folder exposes ends on one of these codecs — `authn/apikey` prefix index, opaque `session/token` and recovery material, WebAuthn credential bytes — and each rendered string stays inside a `Redacted` carrier.
 
 [LOCAL_ADMISSION]:
-- `sign/` subpaths hold the sole import; every other rail receives already-encoded material across the folder seam.
+- `sign/` subpaths hold the sole import; every other consumer receives already-encoded material across the folder boundary.

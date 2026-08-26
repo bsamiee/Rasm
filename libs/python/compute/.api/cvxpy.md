@@ -1,11 +1,11 @@
 # [PY_COMPUTE_API_CVXPY]
 
-`cvxpy` mints the disciplined-convex-programming modeling algebra for the compute convex rail: `Variable`/`Parameter`/`Expression` terms compose under `Minimize`/`Maximize` and relational/cone constraints into a `Problem`, which `solve` compiles to conic form and dispatches to a pluggable backend (Clarabel by default), recovering the optimal value, primal values, and dual certificates. It owns the geometric (`gp`) and quasiconvex (`qcp`) modes, mixed-integer solves, and DPP warm re-solve; the backend owns the interior-point solve, never re-derived here.
+`cvxpy` mints the disciplined-convex-programming modeling algebra for the compute convex domain: `Variable`/`Parameter`/`Expression` terms compose under `Minimize`/`Maximize` and relational/cone constraints into a `Problem`, which `solve` compiles to conic form and dispatches to a pluggable backend (Clarabel by default), recovering the optimal value, primal values, and dual certificates. It owns the geometric (`gp`) and quasiconvex (`qcp`) modes, mixed-integer solves, and DPP warm re-solve; the backend owns the interior-point solve, never re-derived here.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: leaf, expression, objective, and problem roots
-- rail: convex optimization
+- concern: convex optimization
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [CAPABILITY]                                                                                 |
 | :-----: | :----------- | :---------------- | :------------------------------------------------------------------------------------------- |
@@ -18,7 +18,7 @@
 |  [07]   | `Problem`    | problem root      | `Problem(objective, constraints=[])` — compiled and solved                                   |
 
 [PUBLIC_TYPE_SCOPE]: constraint and cone types
-- rail: convex optimization
+- concern: convex optimization
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]     | [CAPABILITY]                                                         |
 | :-----: | :------------------ | :---------------- | :------------------------------------------------------------------- |
@@ -36,7 +36,7 @@
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: problem construction and solve
-- rail: convex optimization
+- concern: convex optimization
 - solve carry: `solver`, `warm_start`, `verbose`, `gp`, `qcp`, `requires_grad`, `enforce_dpp`, `ignore_dpp`, `canon_backend`, `**kwargs`
 
 Relational operators `==`/`<=`/`>=`/`>>`/`<<` on `Expression` build `Constraint` objects; `Problem.solve` selects the backend by `solver`, returns the optimal value, and writes primal values to `Variable.value` and duals to `Constraint.dual_value`. `gp=True` selects DGP geometric programming; `qcp=True` selects DQCP quasiconvex programming.
@@ -59,10 +59,10 @@ Relational operators `==`/`<=`/`>=`/`>>`/`<<` on `Expression` build `Constraint`
 - [05]-[DUAL_VALUE]: an `SOC(t, X)` dual is the stacked `[t_dual, X_dual...]` (reshaped per-cone to `(num_cones, 1+dim(X))`); a `PSD` dual is the symmetric `Z` of the primal `(n, n)` shape — the `tr(Z·X)` slackness and `λ_min` feasibility reads consume these; a `PowCone3D` dual is the `[u, v, w]` LIST of three arrays mirroring `args = [x, y, z]` — `np.asarray` stacks it `(3, n)` — with `constraint.alpha.value` carrying the exponent row the dual-cone read scales by.
 - [06]-[ARGS]: `Constraint.args` is the universal operand list — `[lhs, rhs]` for `Inequality`/`Equality`, `[t, X]` for `SOC`, `[X]` for `PSD`, `[x, y, z]` for `ExpCone`/`PowCone3D`; a cone row reads its primal through `constraint.args[i].value`.
 - [07]-[EXPR]: `Inequality.expr` is the relational-only `lhs − rhs` residual (`<= 0` at feasibility), absent on `SOC`/`PSD`/`ExpCone`; a uniform `Constraint.expr.value` raises `AttributeError` on every cone row.
-- [08]-[CANON_BACKEND]: the default CPP canon backend on the estate's source-built distribution trips a fatal `ProblemData.hpp` assert on EVERY canonicalization — a process abort, not an exception — so each `solve` pins `canon_backend=cp.SCIPY_CANON_BACKEND`; retires on an upstream cp315 release wheel.
+- [08]-[CANON_BACKEND]: the default CPP canon backend on the repo's source-built distribution trips a fatal `ProblemData.hpp` assert on EVERY canonicalization — a process abort, not an exception — so each `solve` pins `canon_backend=cp.SCIPY_CANON_BACKEND`; retires on an upstream cp315 release wheel.
 
 [ENTRYPOINT_SCOPE]: convex atom library (`cp.<atom>`)
-- rail: convex optimization
+- concern: convex optimization
 
 | [INDEX] | [FAMILY]          | [CAPABILITY]                                                    |
 | :-----: | :---------------- | :-------------------------------------------------------------- |

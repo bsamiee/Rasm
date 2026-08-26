@@ -39,7 +39,7 @@
 
 [STACKING]:
 - `pyroscope-otel`(`.api/pyroscope-otel.md`): `PyroscopeSpanProcessor.on_start` stamps the running thread's samples with `span_id`/`span_name`/`trace_id` through this agent's `add_thread_tag`, and `on_end` clears them via `remove_thread_tag` — closing the profile-to-trace link the `configure` push opens.
-- runtime profiles owner: one `configure` at the composition root, each kernel entry seam bracketed in `tag_wrapper`, `shutdown` on drain.
+- runtime profiles owner: one `configure` at the composition root, each kernel entry boundary bracketed in `tag_wrapper`, `shutdown` on drain.
 
 [LOCAL_ADMISSION]:
 - Only the profiles owner calls `configure`; worker-floor code composes `tag_wrapper` and the `add_thread_tag`/`remove_thread_tag` pair, reaching process-global `tag`/`remove_tags` only from the composition root.

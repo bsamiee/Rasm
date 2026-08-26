@@ -9,7 +9,7 @@
 |  [01]   | `mode`                                 | `distributed` \| `standalone` — distributed defaults to 16 replicas across 1 pool |
 |  [02]   | `rootUser` `rootPassword`              | `string` — the root credential; `existingSecret` is the reference alternative     |
 |  [03]   | `buckets[]`                            | declarative bucket creation through the `mc` Job                                  |
-|  [04]   | `policies[]` `users[]` `svcaccts[]`    | the remaining declarative estate the bootstrap Jobs realize                       |
+|  [04]   | `policies[]` `users[]` `svcaccts[]`    | the remaining declarative resources the bootstrap Jobs realize                    |
 |  [05]   | `persistence`                          | `{ enabled, size, storageClass, … }` — the data claim, DEFAULT 500Gi              |
 |  [06]   | `replicas` `pools` `drivesPerNode`     | `int` — the distributed topology — 16, 1, and 1 by default                        |
 |  [07]   | `service`                              | the S3 API door, port 9000                                                        |
@@ -24,14 +24,14 @@
 [persistence]: `enabled` `size` `storageClass` (`"-"` disables dynamic provisioning) `accessMode` `existingClaim` `volumeName` `subPath` `annotations`
 [jobs]: each `mc` Job carries its own `securityContext`, `resources`, `annotations`, `nodeSelector`, `tolerations`, and `affinity` — `exitCommand` on `postJob` is the escape hatch for a step the declarative rows cannot spell
 
-[FULLNAME]: the standard collapse scaffold with flat `nameOverride`/`fullnameOverride` — absent a pin, a release named `objects` renders `objects-minio`, so every address derived from the release name alone resolves to nothing. The estate pins the override to the release name so the two agree by proof.
-[SERVICE_NAME]: with the pin, the API Service is `<fullname>` on port 9000 and the console Service is `<fullname>-console` on 9001, both ClusterIP by default; a distributed install additionally renders the headless `<fullname>-svc` the StatefulSet's peers resolve through. The API door is the only one this estate addresses.
+[FULLNAME]: the standard collapse scaffold with flat `nameOverride`/`fullnameOverride` — absent a pin, a release named `objects` renders `objects-minio`, so every address derived from the release name alone resolves to nothing. The cluster pins the override to the release name so the two agree by proof.
+[SERVICE_NAME]: with the pin, the API Service is `<fullname>` on port 9000 and the console Service is `<fullname>-console` on 9001, both ClusterIP by default; a distributed install additionally renders the headless `<fullname>-svc` the StatefulSet's peers resolve through. The API door is the only one this cluster addresses.
 
 ## [02]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- The object plane is an engine ROW, not a fixed choice — the same tier answers `minio` or `ceph` off one profile axis, and each row supplies its own chart, values, endpoint projection, and credential mint. What crosses the seam is the endpoint and the bucket, never the engine.
-- Credentials here are the estate's, not the chart's: the root pair arrives from the in-graph Doppler read and lands again in a namespace `Secret` keyed `ACCESS_KEY_ID`/`SECRET_ACCESS_KEY`, which is what the barman archive CR references — one mint, two consumers.
+- The object plane is an engine ROW, not a fixed choice — the same tier answers `minio` or `ceph` off one profile axis, and each row supplies its own chart, values, endpoint projection, and credential mint. What crosses the boundary is the endpoint and the bucket, never the engine.
+- Credentials here are the cluster's, not the chart's: the root pair arrives from the in-graph Doppler read and lands again in a namespace `Secret` keyed `ACCESS_KEY_ID`/`SECRET_ACCESS_KEY`, which is what the barman archive CR references — one mint, two consumers.
 
 [STACKING]:
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `helm.v4.Chart` renders the workload and the bootstrap Jobs; `core.v1.Secret` carries the credential pair the archive CR reads.
@@ -43,5 +43,5 @@
 - Pin `fullnameOverride` to the release name; the collapse helper drops the chart name only for a release that already contains it, and no release named for its role does.
 - Declare buckets as `buckets[]` rows, never as a follow-on resource — the chart already owns an `mc` Job for exactly this, and a second creator races it.
 - Size through `persistence.size`; the chart's 500Gi default is a capacity commitment no profile made.
-- Address the API door alone; the console Service is a second plane this estate does not publish.
+- Address the API door alone; the console Service is a second plane this cluster does not publish.
 - Never spell `purge: true` against a bucket holding artifacts — it deletes before it creates.

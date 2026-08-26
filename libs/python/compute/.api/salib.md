@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SALIB]
 
-`SALib` owns global sensitivity analysis for the compute uncertainty-quantification rail: a `problem` dict and the `ProblemSpec` fluent pipeline fold a design's inputs through one sample→evaluate→analyze rail into variance-based, elementary-effect, moment-independent, and derivative-based sensitivity indices.
+`SALib` owns global sensitivity analysis for the compute uncertainty-quantification domain: a `problem` dict and the `ProblemSpec` fluent pipeline fold a design's inputs through one sample→evaluate→analyze domain into variance-based, elementary-effect, moment-independent, and derivative-based sensitivity indices.
 
 ## [01]-[PUBLIC_TYPES]
 

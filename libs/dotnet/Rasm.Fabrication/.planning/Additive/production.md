@@ -198,7 +198,6 @@ public static class Physical {
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct FeedstockLotKey {
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (!Witness.Keyed(value))
@@ -220,7 +219,6 @@ public sealed partial class FeedstockLot {
     public Option<ContentKey> SieveHistory { get; }
     public Option<FeedstockLotKey> Parent { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FeedstockLotKey key,
@@ -264,7 +262,6 @@ public sealed partial class FeedstockBlend {
         Constituents.Map(static row => row.Lot.Available * row.Fraction.DecimalFractions),
         UnitsNet.Units.MassUnit.Kilogram);
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Seq<FeedstockConstituent> constituents,
@@ -324,7 +321,6 @@ public sealed partial class MachineProfile {
     public AtmosphereEnvelope Chamber { get; }
     public MassFlow FeedstockThroughput { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref MachineInstance machine,
@@ -394,8 +390,8 @@ public sealed partial class MachineProfile {
 - Law: `AdditivePolicyRows` is the ONE anchor block; a bare literal in a validator or a body is the deleted form, and every anchor names the fact it bounds.
 - Law: a metadata key becomes a package URI segment, so it admits through the bounded segment grammar at the job gate — a non-blank check passes a slash, a dot segment, or a percent and forges a path.
 - Law: a plate policy states the TURNS it admits, never a free-or-fixed boolean. A packer seats footprints on a quarter-turn or half-turn roster as often as it seats them free, and the placement gate proves the returned bearing against that set — the arm a boolean could not carry because it named no angle.
-- Law: `RobotEvidence` carries warnings and no errors. The port already answers on the `Fin` rail, so a success carrying its own failures was a second refusal channel beside the one the caller reads, and the artifact gate refused every value that used it.
-- Boundary: `PartTransform` is the S0 placement atom and carries `Mirrored`; a mirrored placement is refused at the write seam rather than silently dropped, because a mirrored component inverts every normal the manifold proof just established.
+- Law: `RobotEvidence` carries warnings and no errors. The port already answers on the `Fin` result, so a success carrying its own failures was a second refusal channel beside the one the caller reads, and the artifact gate refused every value that used it.
+- Boundary: `PartTransform` is the S0 placement atom and carries `Mirrored`; a mirrored placement is refused at the write boundary rather than silently dropped, because a mirrored component inverts every normal the manifold proof just established.
 
 ```csharp
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -479,7 +475,6 @@ public sealed partial class OrientationWeights {
 
     public Ratio Of(OrientationAxis axis) => Table[axis];
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref HashMap<OrientationAxis, Ratio> table) {
         HashMap<OrientationAxis, Ratio> rows = table;
@@ -970,7 +965,6 @@ public sealed partial class ThreeMfPolicy {
     public ThreeMfGrade Grade { get; }
     public HashMap<RelationSlot, string> Relations { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int decimalPrecision,
@@ -1348,7 +1342,7 @@ public static class ThreeMf {
 - Owner: `Canonical` composes `FabricationCanon` over the Element codec; the writer is mutable-fluent, so a call site chains or discards the return interchangeably and no fold copies a writer.
 - Law: `BuildEvidence.Orientations` retains every `OrientationVerdict` — rejected rows with their typed errors included — so a build that admitted one candidate still reports why the others failed.
 - Law: the build's identity is the package's. The 3MF artifact is the only thing this plan publishes, so its key addresses the result and no second mint exists.
-- Law: the support beam set reads the ONE published `SupportTopology`. An endpoint the published index does not carry means the topology is internally inconsistent, so it refuses on the rail rather than throwing out of an indexer or silently dropping a beam.
+- Law: the support beam set reads the ONE published `SupportTopology`. An endpoint the published index does not carry means the topology is internally inconsistent, so it refuses on the error channel rather than throwing out of an indexer or silently dropping a beam.
 - Law: feedstock rows pair required against available mass per part identity, and the plate result stays `Option`-carried because a single job has no layout to report.
 - Result: `BuildOutcome` carries the process projection, published package, station, orientation verdicts, per-part preflight results, feedstock demand, plate layout, compiled programs, and 3MF write evidence. `ThreeMfEvidence` separates native read-back counts from declared resource-family counts and retains warnings, extension support, material genealogy, and canonical bytes.
 - Packages: `QuikGraph` (`SEquatableEdge` endpoints off the published topology), `Rasm.Element` `CanonicalWriter` through `FabricationCanon`, `NodaTime` (`Instant` off the preflight policy).
@@ -1414,7 +1408,7 @@ public static class Outline {
                 .ToFin(new KernelFault.InvalidValue("production", "production:footprint:empty"))
                 .Bind(first => loops.Tail.Fold(
                     Fin.Succ(Flattened(first, first.Plane)),
-                    (rail, loop) => rail.Bind(joined => Union(joined, Flattened(loop, first.Plane))))));
+                    (result, loop) => result.Bind(joined => Union(joined, Flattened(loop, first.Plane))))));
 
     public static Fin<Loop> Of(Chain chain, Context tolerance) => Loop.Admit(
         toSeq(chain.Points).Take(chain.Closed ? chain.Points.Count - 1 : chain.Points.Count).ToArr(),

@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGES]
 
-- `Riok.Mapperly` generates every projection seam, one `[Mapper]` per seam; only a generator-blocking demand keeps a named HAND arm.
+- `Riok.Mapperly` generates every projection mapper, one `[Mapper]` per boundary; only a generator-blocking demand keeps a named HAND arm.
 - `Microsoft.Extensions.Caching.Hybrid` does NOT re-enter — a cached carrier mints at the shell under `Platform/composition`'s cache-boundary law.
 - `Microsoft.Extensions.Compliance.Abstractions` carries `DataClassificationAttribute` — the shell attach pairs it with kernel `Sensitivity` rows.
 
@@ -21,7 +21,7 @@
 - `ToggleIntent` rows (`Hold`/`Release`/`Flip`) NAME the swing posture and derive the write from the read, so no bare bool target spells one.
 - Queued work names its fault sink — a queued `ExecuteCase` carries `Some(FaultCell)` or refuses construction, the cell being the discriminant.
 - `GrasshopperPoint` carries a `[FIRE_SITE]` column on every hook row, so the roster itself proves each point's live producer.
-- `EndSelection` is a `[SmartEnum]` roster carrying `PerceptualColor` admission as a row column, because a Mapperly seam carries no refusal.
+- `EndSelection` is a `[SmartEnum]` roster carrying `PerceptualColor` admission as a row column, because a Mapperly mapper carries no refusal.
 - Pin identity is `PinKey` under the kernel default validation bridge; package faults begin only at semantic GH contracts.
 - `ChromeTag` and `IconTag` mint chrome, editor, and icon identity as `[ValueObject<string>]` owners, so no raw string key stands beside them.
 - Boolean flag families ride `ICapability` vocabularies, the law stated on the owner: `Open` unless a corner is illegal.

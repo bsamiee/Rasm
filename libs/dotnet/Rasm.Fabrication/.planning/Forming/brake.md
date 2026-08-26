@@ -2,7 +2,7 @@
 
 `BendSequence` owns executable press-brake planning from `UnfoldResult` to ordered `BendStep` instructions. Tooling, back-gauge, orientation, support, transformed-panel, tonnage, springback, and clearance evidence govern every accepted search transition; `BrakePolicy` admits the cell geometry, tool catalog, support limits, solver tolerances, search budget, and search cost once.
 
-`BendSequence.Plan`, `FormPolicy`, `ProcessEnvelope.Brake`, `BendStep`, and `FlatPattern.Formed` preserve the forming wire. `PolygonAlgebra.Apply` owns section topology, and `ProcessEnvelope.Brake` remains the machine-capacity seam.
+`BendSequence.Plan`, `FormPolicy`, `ProcessEnvelope.Brake`, `BendStep`, and `FlatPattern.Formed` preserve the forming wire. `PolygonAlgebra.Apply` owns section topology, and `ProcessEnvelope.Brake` remains the machine-capacity boundary.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@
 - Entry: `BendSequence.Plan(UnfoldResult, FormPolicy, ProcessEnvelope.Brake, Option<InstrumentSet>, CancellationToken)` is the frozen polymorphic planning entry; the set defaults absent for headless callers and the token rides the frontier.
 - Entry: `BrakeBench.Workload` admits the `bend-search` measured workload — bend and tool floors with both bend signs present over the pinned literal operating envelope — and `BrakeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.BendSearch`; measurement and result projection stay the bench edge's under the AppHost claim-field map.
 - Law: dominance keys on the QUANTIZED state, on the same grid the frontier priority already uses. A key over exact `Transform` equality never matches two states the search reached by different arithmetic paths, so the map never fired and the pruning was structurally dead — the frontier then expanded the whole reachable space under its own budget. Two states agreeing to the admitted gauge and angular resolution ARE the same state for every future feasibility and cost question, and both resolutions are state policy: `RootAccuracyDeg` is the springback inversion's convergence band alone, so tightening the solver never widens the frontier.
-- Law: a typed geometry or policy fault leaves the search on the rail it arrived on as `BrakeCandidate.Refused`. Folding it into an evaluation rejection erased which band refused, so a degenerate profile read as an infeasible bend and the census counted a structural failure as a tried candidate.
+- Law: a typed geometry or policy fault leaves the search on the error channel it arrived on as `BrakeCandidate.Refused`. Folding it into an evaluation rejection erased which band refused, so a degenerate profile read as an infeasible bend and the census counted a structural failure as a tried candidate.
 - Law: the bend frontier polls its exact execution token and lowers `Errors.Cancelled` when requested; cancellation is neither a thrown control path nor a policy refusal.
 - Law: panel descent reads `Forming/sheet` `UnfoldEvidence.Descendants`, computed once at unfold; the byte-identical per-bend recursion this page carried walked the same tree a second time.
 - Auto: Candidate generation spans the admitted tool catalog and physical bend-axis alignments; each bend resolves the tooling its `SheetForm` demands over the policy default; independent gauge, support, sweep-station, and candidate failures accumulate before one accepted transition rotates every descendant panel and enters the best-first frontier; the folder's `ElasticLaw` inverts the cubic elastic-recovery law over the loaded radius under this lane's own fibre and thickness terms; blank weight and descendant closures resolve once for the whole search.
@@ -114,7 +114,6 @@ public sealed partial class BrakeTool {
     public double CapacityKn { get; }
     public Arr<Loop> ForbiddenSections { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string key,
@@ -142,7 +141,6 @@ public sealed partial class SupportRule {
     public double MaximumOverhangMm { get; }
     public double MaximumMomentNmm { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref SupportMode mode,
@@ -174,7 +172,6 @@ public sealed partial class BrakePolicy {
     public double GaugeTravelCost { get; }
     public double HandlingCost { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Arr<BrakeTool> tools,
@@ -217,7 +214,6 @@ public sealed partial class PartPose {
     public Transform Placement { get; }
     public BendOrientation Orientation { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Transform placement,

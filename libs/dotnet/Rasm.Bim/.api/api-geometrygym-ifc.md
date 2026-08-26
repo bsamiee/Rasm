@@ -1,6 +1,6 @@
 # [RASM_BIM_API_GEOMETRYGYM_IFC]
 
-`GeometryGymIFC_Core` owns a pure-managed buildingSMART IFC object model: the `DatabaseIfc` repository, schema-versioned read/write across STEP, IFC-XML, and IFC-JSON, the full IFC4.3 entity vocabulary, and `Extract<T>` graph traversal feeding the geometry-interchange rail. It holds the STEP/IFC data graph alone — no tessellation, BREP evaluation, or geometry kernel.
+`GeometryGymIFC_Core` owns a pure-managed buildingSMART IFC object model: the `DatabaseIfc` repository, schema-versioned read/write across STEP, IFC-XML, and IFC-JSON, the full IFC4.3 entity vocabulary, and `Extract<T>` graph traversal feeding the geometry-interchange path. It holds the STEP/IFC data graph alone — no tessellation, BREP evaluation, or geometry kernel.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -45,7 +45,7 @@
 |  [16]   | `IfcLogicalEnum`                   | three-valued logical                                                   |
 |  [17]   | `IfcWorkScheduleTypeEnum`          | work-schedule kind                                                     |
 
-[RELEASE_VALUES]: `ReleaseVersion` full roster in declaration order — `IFC2X` (retired), `IFC2x2` (retired), `IFC2x3`, `IFC4` (retired), `IFC4A1` (withdrawn), `IFC4A2`, `IFC4X1` (withdrawn), `IFC4X2` (withdrawn), `IFC4X3_RC1`-`RC4` (superseded), `IFC4X3`, `IFC4X3_ADD2`, `IFC4X4_DRAFT` (tunnel deployment testing, never production); the retired members remain live sniff/lower inputs, and no IFC5 slot exists. `[VersionAdded]` — the sole attribute type the assembly declares, with no `VersionRemoved` counterpart — rides BOTH grains, type declarations and enum members alike (rail-verified on 25.7.30: 120 type declarations, 243 enum members), so the entity-introduction span reflects off the type; deletion and deprecation ride `[Obsolete]` message text at both grains, its `DELETED <release>` / `DEPRECATED <release>` prefixes carrying the window. The token attributes diverge from schema truth on grown enums (`IfcWallTypeEnum` annotates the retired 2x3 trio `IFC4` and leaves the IFC4-added trio bare), so span truth stays the schema-derived overlay and the attribute is a cross-check.
+[RELEASE_VALUES]: `ReleaseVersion` full roster in declaration order — `IFC2X` (retired), `IFC2x2` (retired), `IFC2x3`, `IFC4` (retired), `IFC4A1` (withdrawn), `IFC4A2`, `IFC4X1` (withdrawn), `IFC4X2` (withdrawn), `IFC4X3_RC1`-`RC4` (superseded), `IFC4X3`, `IFC4X3_ADD2`, `IFC4X4_DRAFT` (tunnel deployment testing, never production); the retired members remain live sniff/lower inputs, and no IFC5 slot exists. `[VersionAdded]` — the sole attribute type the assembly declares, with no `VersionRemoved` counterpart — rides BOTH grains, type declarations and enum members alike (tool-verified on 25.7.30: 120 type declarations, 243 enum members), so the entity-introduction span reflects off the type; deletion and deprecation ride `[Obsolete]` message text at both grains, its `DELETED <release>` / `DEPRECATED <release>` prefixes carrying the window. The token attributes diverge from schema truth on grown enums (`IfcWallTypeEnum` annotates the retired 2x3 trio `IFC4` and leaves the IFC4-added trio bare), so span truth stays the schema-derived overlay and the attribute is a cross-check.
 
 [MODEL_VIEW_VALUES]: `ModelView` `Ifc4Reference` `Ifc4DesignTransfer` `Ifc2x3Coordination` `IFC4X3Reference` `IFC4X3AlignmentBasedView` `Ifc4X3NotAssigned`.
 
@@ -861,8 +861,8 @@
 [STACKING]:
 - `geometry3Sharp`(`libs/dotnet/.api/api-geometry3sharp.md`): `IfcTriangulatedFaceSet.CoordIndex` over `IfcCartesianPointList3D.Coordinates` lowers to a `g3.DMesh3` indexed triangle mesh for host-free geometry.
 - `sharpgltf`(`libs/dotnet/.api/api-sharpgltf.md`): the same tessellated face-set stream feeds `SceneBuilder.AddRigidMesh(IMeshBuilder<M>, ...)` -> `ToGltf2` glTF export.
-- `honeybee-schema`(`api-honeybee-schema.md`): the `IfcSpace`/`IfcBuildingStorey` spatial graph maps to `HoneybeeSchema.Room` on the energy-exchange rail.
-- Bim `Exchange` owner: composes `DatabaseIfc` import/export and `BaseClassIfc.Extract<T>` traversal as the IFC leg of the model-exchange owner feeding the geometry-interchange rail.
+- `honeybee-schema`(`api-honeybee-schema.md`): the `IfcSpace`/`IfcBuildingStorey` spatial graph maps to `HoneybeeSchema.Room` on the energy-exchange path.
+- Bim `Exchange` owner: composes `DatabaseIfc` import/export and `BaseClassIfc.Extract<T>` traversal as the IFC leg of the model-exchange owner feeding the geometry-interchange path.
 
 [INTERNAL_ACCESS_LAW]:
 - Four presentation payloads are PRESENT on a parsed graph with no public read or mint, and each binds through exactly one `System.Runtime.CompilerServices.UnsafeAccessor` extern: the field `IfcColourRgbList.mColourList` (`List<Tuple<double, double, double>>`, unit-valued), the field `IfcIndexedColourMap.mColourIndex` (`List<int>`, one-based, one entry per face), the `IfcIndexedTriangleTextureMap(DatabaseIfc)` constructor, and the field `IfcIndexedTriangleTextureMap.mTexCoordList` (`List<Tuple<int, int, int>>`, one triple per triangle).

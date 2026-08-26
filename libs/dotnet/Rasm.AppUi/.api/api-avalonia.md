@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA]
 
-`Avalonia` owns the retained UI object model every `SurfaceMount` mounts onto: typed property and element trees, binding, selector styling, resources, layout, paint, effects, transitions, input, routed events, and the render dispatcher. It holds the data-transfer boundary — clipboard and drag-drop — the shell input page composes, and marshals every cross-thread UI mutation through one render-thread hop. Every `SurfaceMount` case binds the whole substrate through the retained-ui rail.
+`Avalonia` owns the retained UI object model every `SurfaceMount` mounts onto: typed property and element trees, binding, selector styling, resources, layout, paint, effects, transitions, input, routed events, and the render dispatcher. It holds the data-transfer boundary — clipboard and drag-drop — the shell input page composes, and marshals every cross-thread UI mutation through one render-thread hop. Every `SurfaceMount` case binds the whole substrate through the retained-ui layer.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -249,7 +249,7 @@
 |  [04]   | `PlatformHotkeyConfiguration` | class         | per-OS gesture roster the settings carry        |
 
 - `PlatformColorValues` carries `ThemeVariant` (`PlatformThemeVariant`), `ContrastPreference` (`ColorContrastPreference`), and `AccentColor1`/`AccentColor2`/`AccentColor3`, where the second and third fall back to the first when a platform reports one accent.
-- Reduced motion, reduced transparency, and text scale have NO surface here: the framework probes appearance and contrast alone, so a product needing the remaining accessibility preferences reads them through its own host seam and never through this interface.
+- Reduced motion, reduced transparency, and text scale have NO surface here: the framework probes appearance and contrast alone, so a product needing the remaining accessibility preferences reads them through its own host port and never through this interface.
 
 [INPUT_AND_FOCUS_TYPES]: key gestures, bindings, focus, and modifiers
 
@@ -669,7 +669,7 @@
 
 - Every `Push…` returns a `PushedState` the caller disposes to pop the scope.
 
-[EFFECT_OPERATIONS]: the pixel-filter rail a `Visual` or drawing scope binds
+[EFFECT_OPERATIONS]: the pixel-filter chain a `Visual` or drawing scope binds
 
 | [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                                   |
 | :-----: | :--------------------------------------------------------------- | :------- | :--------------------------------------------- |

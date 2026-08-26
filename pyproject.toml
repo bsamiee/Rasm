@@ -1,12 +1,12 @@
 [dependency-groups]
-estate = [
+workspace = [
     # --- [GENERAL]
     "anyio",
     "apscheduler",                                        # [RUNTIME]: cron, interval, and date triggers
     "azure-identity",                                     # [RUNTIME]: TokenCredential chain (DefaultAzureCredential) backing the Azure Key Vault SecretTier.cloud arm
     "azure-keyvault-secrets",                             # [RUNTIME]: Azure Key Vault secret backend closing the SecretTier.cloud provider family beside the GCP and Vault arms
     "beartype",
-    "cloudpickle",                                        # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter seams
+    "cloudpickle",                                        # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter boundaries
     "cryptography",                                       # [RUNTIME]: AES-GCM envelope and key-wrap primitives behind the journal's per-subject crypto-shredding
     "cyclopts",
     "expression",
@@ -24,7 +24,7 @@ estate = [
     "opentelemetry-exporter-otlp-proto-http",
     "opentelemetry-instrumentation-asgi",                 # [RUNTIME]: ASGI middleware emitting server spans and extracting W3C context on every Connect request
     "opentelemetry-instrumentation-asyncio",              # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker crossing
-    "opentelemetry-instrumentation-dbapi",                # [RUNTIME]: generic PEP-249 wrap seam for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
+    "opentelemetry-instrumentation-dbapi",                # [RUNTIME]: generic PEP-249 wrap adapter for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
     "opentelemetry-instrumentation-httpx",                # [TRANSPORT]: httpx client spans carrying W3C trace context
     "opentelemetry-instrumentation-jinja2",               # [RUNTIME]: jinja2 template render spans, composed by the runtime instrumentor train
     "opentelemetry-instrumentation-psycopg",              # [RUNTIME]: psycopg v3 DBAPI spans, composed by the runtime instrumentor train
@@ -39,8 +39,8 @@ estate = [
     "psutil",
     "pydantic",
     "pydantic-settings",
-    "pyroscope-io",                                       # [RUNTIME]: continuous-profiling agent feeding the pyroscope-otel span-link rail
-    "pyroscope-otel",                                     # [RUNTIME]: continuous-profiling span links beside the OTLP rails
+    "pyroscope-io",                                       # [RUNTIME]: continuous-profiling agent feeding the pyroscope-otel span-link exporter
+    "pyroscope-otel",                                     # [RUNTIME]: continuous-profiling span links beside the OTLP exporters
     "ruamel-yaml",
     "stamina",
     "structlog",
@@ -55,13 +55,13 @@ estate = [
     "brotli",                                             # [ARTIFACTS]: compression
     "cloudevents",                                        # [RUNTIME]: validated CloudEvents attribute algebra plus HTTP, Kafka, AMQP, and RabbitMQ protocol bindings
     "confluent-kafka[schemaregistry,avro,json,protobuf]", # [RUNTIME]: librdkafka producer/consumer and the Schema Registry client with its Avro, JSON, and Protobuf serializers; the json-fast extra stays out because `JSONSerializer`/`JSONDeserializer` take `json_encode`/`json_decode` hooks the branch binds to msgspec, so orjson would enter as a second JSON engine nothing reads
-    "connectrpc",                                         # [RUNTIME]: Connect-Python — generated async service ABCs, ASGI applications, and typed clients speaking Connect, gRPC, and gRPC-Web over one HTTP seam
+    "connectrpc",                                         # [RUNTIME]: Connect-Python — generated async service ABCs, ASGI applications, and typed clients speaking Connect, gRPC, and gRPC-Web over one HTTP interface
     "detools",                                            # [ARTIFACTS]: binary-delta engine
     "fastavro",                                           # [RUNTIME]: Avro codec under the Schema Registry serializer and the `parse_schema` validator the branch reads `.avsc` documents through
     "fsspec",                                             # [TRANSPORT]: UPath-shared filesystem resolution and blocking-read offload for roots
     "hishel[httpx]",                                      # [TRANSPORT]: RFC-9111 HTTP cache layer over the httpx transport legs with a persistent sqlite store
     "httpx",                                              # [TRANSPORT]: approved HTTP client surface for typed adapters
-    "hypercorn",                                          # [RUNTIME]: ASGI server binding HTTP/2 and h2c the Connect serve rail needs for gRPC and bidi streams; TCP and UNIX-socket binds
+    "hypercorn",                                          # [RUNTIME]: ASGI server binding HTTP/2 and h2c the Connect server needs for gRPC and bidi streams; TCP and UNIX-socket binds
     "jsonschema",                                         # [RUNTIME]: validates a payload against a fetched JSON Schema document, the direction `msgspec.json.schema` emission cannot answer
     "lz4",                                                # [ARTIFACTS]: compression
     "nats-py",                                            # [RUNTIME]: NATS core and JetStream client for the subject-addressed transport arm
@@ -69,8 +69,8 @@ estate = [
     "obstore",                                            # [DATA]: object-store backend
     "paho-mqtt",                                          # [RUNTIME]: MQTT client for the telemetry and edge-device transport arm
     "pika",                                               # [RUNTIME]: blocking AMQP 0-9-1 client riding the `to_thread` arm, importing no asyncio
-    "protobuf",                                           # [DATA]+[COMPUTE]: google-protobuf message runtime beneath the Substrait plan IR and the ONNX model IR; the estate wire runtime is protobuf-py
-    "protobuf-py",                                        # [RUNTIME]: Buf protobuf runtime under the generated `_pb.py` bindings — binary, JSON, and descriptor surface for the estate wire
+    "protobuf",                                           # [DATA]+[COMPUTE]: google-protobuf message runtime beneath the Substrait plan IR and the ONNX model IR; the repo wire runtime is protobuf-py
+    "protobuf-py",                                        # [RUNTIME]: Buf protobuf runtime under the generated `_pb.py` bindings — binary, JSON, and descriptor surface for the repo wire
     "protovalidate",                                      # [RUNTIME+ARTIFACTS]: evaluates descriptor rules at transport and generated-document producer boundaries
     "py7zr",
     "python-dateutil",                                    # [RUNTIME]: RFC-3339 `isoparse` used by CloudEvents bindings and format readers
@@ -352,7 +352,7 @@ dev = [
     "s3fs",                                               # Object-store testkit backend over moto S3
     "scipy-stubs",
     "sniffio",                                            # Async-flavor detection the testkit env double imports directly
-    "sqlfluff",                                           # SQL format/lint rail; squawk keeps the migration-safety lane
+    "sqlfluff",                                           # SQL format/lint tool; squawk keeps the migration-safety lane
     "squawk-cli",
     "ty",
     "types-geopandas",
@@ -375,7 +375,7 @@ connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e
 protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
 
 [tool.uv]
-default-groups = ["estate", "dev"]
+default-groups = ["workspace", "dev"]
 
 # TOML 1.0 confines an inline table to one line, so the per-package build knobs ride their own table rather than a multi-line brace `taplo` refuses to parse.
 [tool.uv.config-settings-package]
@@ -671,7 +671,7 @@ ignore = [
     # --- [MATCH_DISPATCH]
     "unnecessary-assign",                         # Named intermediates keep flow pipelines readable
     "superfluous-else-return",                    # Explicit match dispatch keeps exhaustive arms visible
-    "superfluous-else-raise",                     # Explicit error branches keep ROP rails visible
+    "superfluous-else-raise",                     # Explicit error branches keep Result branches visible
     "if-else-block-instead-of-if-exp",            # Match/case owns dispatch, not ternaries
     "if-with-same-arms",                          # Match/case owns dispatch, not merged if arms
     # --- [DENSITY]
@@ -680,7 +680,7 @@ ignore = [
     "too-many-locals",                            # Dense dispatch surfaces own their locals; a variable cap pressures fragmentation
     "too-many-statements",                        # One surface owns every arm; a statement cap never justifies splitting a closed union
     "too-many-boolean-expressions",               # Dense dispatch predicates stay on the owning surface; a boolean-expression cap pressures fragmentation
-    # --- [ERROR_RAILS]
+    # --- [ERROR_RAISING]
     "raw-string-in-exception",                    # Frozen errors carry inline messages
     "f-string-in-exception",                      # Error constructors carry formatted context
     "raise-vanilla-args",                         # Domain errors carry descriptive messages
@@ -763,7 +763,7 @@ ignorelist = [
     "list",
     "quit",
     "type",
-]  # CLI verb vocabulary: a rail handler's own name is the verb the registry dispatches on
+]  # CLI verb vocabulary: a verb handler's own name is the verb the registry dispatches on
 
 [tool.ruff.lint.flake8-import-conventions.extend-aliases]
 "dask.array" = "da"
@@ -815,7 +815,7 @@ require-lazy = [
 "abc.abstractmethod".msg = "Use typing.Protocol — structural subtyping replaces nominal."
 "asyncio".msg = "Use anyio — run/sleep/gather/Lock/Event/Semaphore/Queue all have anyio equivalents."
 "collections.namedtuple".msg = "Use pydantic BaseModel(frozen=True) or msgspec.Struct(frozen=True) — namedtuple lacks runtime validation."
-"contextlib.suppress".msg = "Use Result rails or a marked boundary adapter — suppress hides fallibility."
+"contextlib.suppress".msg = "Use Result values or a marked boundary adapter — suppress hides fallibility."
 "http.client".msg = "Use httpx behind a validated adapter — direct stdlib HTTP bypasses timeout, retry, and observability policy."
 "json.dump".msg = "Use Path.write_bytes(msgspec.json.encode(obj)) — C-accelerated, struct-aware serialization."
 "json.dumps".msg = "Use msgspec.json.encode() — C-accelerated, gc=False struct support, 5x+ stdlib perf."
@@ -835,9 +835,9 @@ require-lazy = [
 "os.getenv".msg = "Use pydantic-settings BaseSettings — validated, typed config at startup; not scattered env reads."
 "pydantic.validator".msg = "Use @field_validator or @model_validator — pydantic.validator is deprecated v1 API."
 "requests".msg = "Use httpx behind a typed adapter — direct requests imports are not an approved transport surface."
-"returns".msg = "Use expression.Result / expression.Option — returns is not an approved rail surface."
-"returns.maybe".msg = "Use expression.Result / expression.Option — returns is not an approved rail surface."
-"returns.result".msg = "Use expression.Result / expression.Option — returns is not an approved rail surface."
+"returns".msg = "Use expression.Result / expression.Option — returns is not an approved Result library."
+"returns.maybe".msg = "Use expression.Result / expression.Option — returns is not an approved Result library."
+"returns.result".msg = "Use expression.Result / expression.Option — returns is not an approved Result library."
 "socket.create_connection".msg = "Use anyio networking or httpx adapters with explicit deadlines — direct sockets bypass boundary policy."
 "socket.create_server".msg = "Use anyio networking with explicit lifecycle ownership — direct sockets bypass boundary policy."
 "socket.socket".msg = "Use anyio networking or a marked boundary adapter — raw sockets bypass deadline and observability policy."

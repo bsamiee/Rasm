@@ -11,8 +11,8 @@ Co-firing rule binds before any row: two or more rows firing on one subject is t
 |  [01]   | mode machine        | a bounded status vocabulary with terminal absorption | lifecycle                                                 |
 |  [02]   | dispatch topology   | one entry point, a discriminant, many arms           | logic-flow                                                |
 |  [03]   | ownership walk      | "first, then, finally" across owners                 | spine                                                     |
-|  [04]   | dependency lattice  | "X needs Y"; imports; "never depend upward"          | strata                                                    |
-|  [05]   | boundary seam       | two packages naming each other's types               | seam-graph                                                |
+|  [04]   | dependency graph    | "X needs Y"; imports; "never depend upward"          | strata                                                    |
+|  [05]   | package boundary    | two packages naming each other's types               | boundary-graph                                            |
 |  [06]   | conversation        | retry/ack over a live wire; request/response turns   | wire-sequence                                             |
 |  [07]   | identity web        | "each X has many Y"; uniqueness claims               | schema                                                    |
 |  [08]   | command causality   | code-level emit/handle/project vocabulary            | event-flow                                                |
@@ -40,8 +40,8 @@ Co-firing rule binds before any row: two or more rows firing on one subject is t
 - mode machine: an enum field written from many sites under guards; unbounded monotone accumulation — grow-only sets, counters, append-only logs — never qualifies, and routes to dataflow or event shapes instead
 - dispatch topology: match or switch expressions; policy tables — a retry policy table is a dispatch, and retry exhaustion into a dead-letter is a mode machine; routing rules; "depending on"
 - ownership walk: boot narratives; request paths; a composition root — "pipeline" is shape-ambiguous, so read whether order, dependency, or a cache/skip decision carries the payload, and treat conditional skips as dispatch arms
-- dependency lattice: layer talk; cycle complaints — member-level seams inside a lattice co-fire row [05], strata rungs dominant and the seam view second
-- boundary seam: a declared contract ledger; "crosses the boundary"
+- dependency graph: layer talk; cycle complaints — member-level edges inside a graph co-fire row [05], strata rungs dominant and the boundary view second
+- package boundary: a declared contract ledger; "crosses the boundary"
 - identity web: nouns with identifiers; ownership claims over stored facts
 - command causality: projections consuming emitted events — a dated incident narrative whose entries assert cause is a causal chronology, drawn as a `timeline` with the causal claims annotated or a `swimlane-beta` by responder, never event-flow
 - domain sort: claimed movement between domains
@@ -79,4 +79,4 @@ Some concepts carry no inspectable relation, and a fence forced onto them decora
 
 ## [04]-[COMPOSITE_SUBJECTS]
 
-A real subject carries several shapes: a job queue is a mode machine (one job's lifecycle), a conversation (the worker protocol), and a queue snapshot (the backlog now); a member-resolved dependency lattice co-fires strata (dominant) and seam-graph (second view). Partition rule: one diagram per shape, dominant first — dominance belongs to the relation the material most describes, or the relation a downstream task consumes — every diagram sharing exact element names so views resolve against each other. Multi-view composition and the scenario cross-check are the methodology reference's property.
+A real subject carries several shapes: a job queue is a mode machine (one job's lifecycle), a conversation (the worker protocol), and a queue snapshot (the backlog now); a member-resolved dependency graph co-fires strata (dominant) and boundary-graph (second view). Partition rule: one diagram per shape, dominant first — dominance belongs to the relation the material most describes, or the relation a downstream task consumes — every diagram sharing exact element names so views resolve against each other. Multi-view composition and the scenario cross-check are the methodology reference's property.

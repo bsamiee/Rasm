@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[SECRET_LEASE]: Acquire-rotate-zeroize credential lifecycle extending the `SecretsStore` source row.
-- [03]-[CREDENTIAL_PEM]: Public DER material admission and the one generated carrier seam.
+- [03]-[CREDENTIAL_PEM]: Public DER material admission and the one generated carrier contract.
 - [04]-[TS_PROJECTION]: Public credential wire shape and its `jose` decode.
 
 ## [02]-[SECRET_LEASE]
@@ -244,7 +244,7 @@ public static class CredentialPublic {
 
 ## [04]-[TS_PROJECTION]
 
-- Owner: generated `CredentialPublicWire` — the public credential carrier on the protobuf `apphost-wire` seam, with `CertificateChain` its nested chain member.
+- Owner: generated `CredentialPublicWire` — the public credential carrier on the protobuf `apphost-wire` boundary, with `CertificateChain` its nested chain member.
 - Law: this page MINTS the carrier and `libs/typescript/core/.planning/interchange/codec.md` `Credential` BINDS the decode, which `libs/typescript/security/.planning/crypt/sign.md` `[03]-[KEY_MATERIAL]` folds into a `KeyHandle` — `Material.admit` dispatches the generated `material` oneof case rather than scraping a label out of text. This wire declares no private arm, so `importPKCS8` is unreachable from it by shape, and its one consumer decodes the one C#-minted vocabulary and re-mints none.
 - Entry: the carrier crosses as `CredentialPublicWire` under ProtoJSON; `key_id` crosses intact as the verifier's selection key, and `material` carries either the leaf-first `certificate_chain` DER roster or one bare `spki_der` body.
 - Growth: one carrier field extends every generated peer; one new material encoding is one oneof member landing beside its consumer arm; no hand-maintained carrier surface.

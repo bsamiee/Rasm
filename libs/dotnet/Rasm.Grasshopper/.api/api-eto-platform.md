@@ -171,11 +171,11 @@ Every row is an extension over the named receiver; `ToNS`/`ToNSUI` is the Eto-to
 - Conversion is one bidirectional owner per correspondence: `MacConversions` carries the AppKit direction and `CGConversions` the CoreGraphics direction, and this partition is their single home — a second conversion table beside them is the dual-home defect in miniature.
 
 [STACKING]:
-- `api-eto-platform`(`libs/dotnet/.api/api-eto-platform.md`): the registered handler root this backend seats into — the kernel `Rasm/Interaction` platform estate owns the registered identity, registration, mint-event, and shared-instance reads, and `Platform/native.md` composes this partition's macOS answers.
+- `api-eto-platform`(`libs/dotnet/.api/api-eto-platform.md`): the registered handler root this backend seats into — the kernel `Rasm/Interaction` platform module owns the registered identity, registration, mint-event, and shared-instance reads, and `Platform/native.md` composes this partition's macOS answers.
 - `api-eto-forms`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-forms.md`) and `api-eto-drawing`(`libs/dotnet/Rasm.Grasshopper/.api/api-eto-drawing.md`): the handler root resolves the control object each consumes, and the conversion owners here carry colour, image, point, matrix, and path values into AppKit and CoreGraphics with no local conversion layer.
 - `api-macos-native`(`libs/dotnet/Rasm.Grasshopper/.api/api-macos-native.md`): `GetContainerView` and `ContainerControl` yield the Eto-backed `NSView`; the native catalog owns the layer, event, and display-link work over that view's valid host lifetime.
 - `api-thinktecture-runtime-extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the registered platform identity and feature vocabularies map onto `[SmartEnum]` and flag owners, so a platform gate is exhaustive dispatch rather than a stringly-keyed comparison.
-- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): the runtime-nullable extractions — `GetMacControl`, `GetMacViewHandler`, `GetContainerView` — lower onto `Option<T>`/`Fin<T>` at the folder boundary, and the throwing conversions stay caught boundaries the same rail traps.
+- `api-languageext`(`libs/dotnet/.api/api-languageext.md`): the runtime-nullable extractions — `GetMacControl`, `GetMacViewHandler`, `GetContainerView` — lower onto `Option<T>`/`Fin<T>` at the folder boundary, and the throwing conversions stay caught boundaries the same path traps.
 
 [LOCAL_ADMISSION]:
 - Native-view work enters through `GetContainerView` or `IMacControlHandler.ContainerControl` behind the folder nullable boundary; raw AppKit runs only inside a verified host-valid window lifetime.

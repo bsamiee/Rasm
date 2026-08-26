@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_ZLIB_NG]
 
-`zlib-ng` binds the SIMD-accelerated zlib-ng C core as a stdlib `zlib`/`gzip` drop-in, owning the DEFLATE/gzip-container arm of the artifacts compression rail across three import surfaces: the `zlib_ng.zlib_ng` `zlib`-API mirror, the `gzip_ng` container module, and the `gzip_ng_threaded` GIL-escaping multi-threaded reader/writer. `package/codec`'s `GZIP` band binds it when bytes must round-trip with stdlib `zlib`/`gzip` (RFC 1950/1951/1952) at accelerated throughput; it re-implements neither the DEFLATE codec nor gzip framing nor the CRC/Adler checksums the native core owns.
+`zlib-ng` binds the SIMD-accelerated zlib-ng C core as a stdlib `zlib`/`gzip` drop-in, owning the DEFLATE/gzip-container arm of the artifacts compression domain across three import surfaces: the `zlib_ng.zlib_ng` `zlib`-API mirror, the `gzip_ng` container module, and the `gzip_ng_threaded` GIL-escaping multi-threaded reader/writer. `package/codec`'s `GZIP` band binds it when bytes must round-trip with stdlib `zlib`/`gzip` (RFC 1950/1951/1952) at accelerated throughput; it re-implements neither the DEFLATE codec nor gzip framing nor the CRC/Adler checksums the native core owns.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -61,7 +61,7 @@
 
 [STACKING]:
 - `package/codec#CODEC`'s `GZIP` band binds `gzip_ng`/`gzip_ng_threaded` as one `CodecProfile.gzip` `(compresslevel, threads, block_size)` row on the `package/bundle#BUNDLE` `CompressionAlgo` union: single-thread calls `gzip_ng.compress(payload, compresslevel=k, mtime=0)`, parallel drives `gzip_ng_threaded.open(sink, 'wb', ...)` whose writer recombines the trailer via `crc32_combine`.
-- runtime seam — the codec body rides `lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), ...)` because the native core releases the GIL: a bounded worker crossing, never an event-loop call, never a folder-minted `CapacityLimiter`; a `zlib_ng.error` folds to the `expression.Result[bytes, ArtifactError]`/`RuntimeRail` fault at the boundary.
+- runtime boundary — the codec body rides `lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), ...)` because the native core releases the GIL: a bounded worker crossing, never an event-loop call, never a folder-minted `CapacityLimiter`; a `zlib_ng.error` folds to the `expression.Result[bytes, ArtifactError]`/`RuntimeResult` fault at the boundary.
 - `package/archive`'s reproducible-ZIP member turns content-addressable under `mtime=0` framing, so a scene-file or document payload hashes identically for the runtime elision seed (`ArtifactWork.key` over input bytes).
 
 [LOCAL_ADMISSION]:

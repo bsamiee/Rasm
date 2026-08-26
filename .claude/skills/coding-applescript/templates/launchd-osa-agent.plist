@@ -44,7 +44,7 @@ Replace  : LABEL, the ProgramArguments vector, the trigger region, the log paths
   -->
 
   <!-- Stream custody: an unattended job has no terminal, so both streams land in owned files that
-       an external rotation rail truncates. stdout carries the result, stderr the
+       an external rotation job truncates. stdout carries the result, stderr the
        diagnostics, and a shared path interleaves them past any parse. -->
   <key>StandardOutPath</key>
   <string>STDOUT_LOG_PATH</string>

@@ -68,4 +68,4 @@
 - within-lib: the `spatial/mesh` plane consumes `rhino3dm` as the headless `.3dm` identity and topology owner; `Encode`/`Decode` JSON dicts cross the same `File3dm`/`GeometryBase` objects to Rhino.Compute and the rhino3dm.js binding with no re-serialization, and the live Rhino host over MCP and the bridge own kernel operations OpenNURBS-without-Rhino cannot perform.
 
 [LOCAL_ADMISSION]:
-- Admit `rhino3dm` as the headless OpenNURBS `.3dm` IO and lightweight-construction owner on the data AEC rail, constructing primitives, Breps-from-primitives, NURBS, meshes, and SubD control nets and reading/writing the document.
+- Admit `rhino3dm` as the headless OpenNURBS `.3dm` IO and lightweight-construction owner on the data AEC domain, constructing primitives, Breps-from-primitives, NURBS, meshes, and SubD control nets and reading/writing the document.

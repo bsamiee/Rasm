@@ -22,11 +22,11 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [12]-[USERDATA](.planning/Persistence/userdata.md): `ArchiveIo` frames attached custody; `TypedUserData` seals the participation template.
 - [13]-[USERTEXT](.planning/Persistence/usertext.md): `UserTexts.Commit` writes document and object strings; `UserTexts.Read` detaches them.
 - [14]-[PRESETS](.planning/Persistence/presets.md): `Presets.Commit` runs cplane, position, and layer-state presets under one mask vocabulary.
-- [15]-[SNAPSHOTS](.planning/Persistence/snapshots.md): `Snapshots.Commit` scripts snapshot state; `SnapshotParticipant` adapts the plugin seam.
+- [15]-[SNAPSHOTS](.planning/Persistence/snapshots.md): `Snapshots.Commit` scripts snapshot state; `SnapshotParticipant` adapts the plugin boundary.
 
 [OBJECTS]:
 - [16]-[STATE](.planning/Objects/state.md): `Objects.Ask` owns the live-object window — snapshot, frames, component touch, detached section custody.
-- [17]-[ATTRIBUTES](.planning/Objects/attributes.md): `AttributeProgram` closes attribute mutation as the typed payload of the table rail's `Amend`.
+- [17]-[ATTRIBUTES](.planning/Objects/attributes.md): `AttributeProgram` closes attribute mutation as the typed payload of the table `Amend`.
 - [18]-[MATERIALS](.planning/Objects/materials.md): `Materials.Ask` resolves materials, mappings, and mesh caches behind one shared-bracket commit.
 - [19]-[LIGHTS](.planning/Objects/lights.md): `Lights.Commit` runs the closed light-kind family under the shared bracket.
 - [20]-[HISTORY](.planning/Objects/history.md): `HistoryScript` and `ReplayProgram` own the record/replay triad, linkage topology, and governance.
@@ -42,11 +42,11 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [26]-[MODEL](.planning/Blocks/model.md): `Definitions.Lens` resolves the Document-owned `ResourceRef` into one whole-state projection.
 - [27]-[GRAPH](.planning/Blocks/graph.md): `BlockGraph.Ask` folds live and archived definitions into one transient topology and its closure evidence.
 - [28]-[LIFECYCLE](.planning/Blocks/lifecycle.md): `BlockLifecycle` composes ingress, preview vault, deferred refresh, eviction, and native disposal.
-- [29]-[OPERATIONS](.planning/Blocks/operations.md): `Blocks.Commit` runs read and transaction rails through plan grants.
+- [29]-[OPERATIONS](.planning/Blocks/operations.md): `Blocks.Commit` runs read and transaction pipelines through plan grants.
 
 [MODELING]:
 - [30]-[SOLIDS](.planning/Modeling/solids.md): `Solids.Build` runs Brep booleans, fillets, offsets, pipes, and joins on the `ModelGate` spine.
-- [31]-[LOFTING](.planning/Modeling/lofting.md): `Lofts.Build` folds rail sweeps, lofts, patches, and developable lofting into one policy rail.
+- [31]-[LOFTING](.planning/Modeling/lofting.md): `Lofts.Build` folds rail sweeps, lofts, patches, and developable lofting into one policy pipeline.
 - [32]-[SURFACES](.planning/Modeling/surfaces.md): `HostSurfaces.Build` owns network, revolve, grid, geodesic, and analytic construction.
 - [33]-[CURVES](.planning/Modeling/curves.md): `HostCurves.Build` owns curve host ops and seats the Modeling `ModelClaim` admission fold.
 - [34]-[MESHING](.planning/Modeling/meshing.md): `HostMeshes.Build` drives parameter-carried meshing and every host mesh edit.
@@ -81,7 +81,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [55]-[FIELDS](.planning/Render/fields.md): `ContentValue` owns every typed content parameter through polymorphic write, recover, and box dispatch.
 - [56]-[REGISTRY](.planning/Render/registry.md): `Registry` runs content factories, transactions, and events.
 - [57]-[SETTINGS](.planning/Render/settings.md): `Settings.Run` applies total render state across the document, archive, and free-floating duality.
-- [58]-[MAPPING](.planning/Render/mapping.md): `MappingSpec` mints texture mappings; the `Mappings` rail binds and recovers them per object channel.
+- [58]-[MAPPING](.planning/Render/mapping.md): `MappingSpec` mints texture mappings; `Mappings` binds and recovers them per object channel.
 
 [EXCHANGE]:
 - [59]-[FORMATS](.planning/Exchange/formats.md): `FileCodec` owns codec identity, detection, filter projection, dispatch, and dialog registration.
@@ -101,7 +101,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [69]-[LIFECYCLE](.planning/Plugin/lifecycle.md): `RasmPlugIn` seats the one host plug-in derivation and routes each override onto a typed phase.
 - [70]-[CENSUS](.planning/Plugin/census.md): `PluginCensus.Ask` answers the installed registry; `PluginRegistry.Commit` owns load and protection.
 - [71]-[LICENSING](.planning/Plugin/licensing.md): `Licenses.Ask` folds Zoo entitlement; its acquisition arm continues the plug-in derivation.
-- [72]-[DOCUMENT](.planning/Plugin/document.md): `Participation.Cross` rides the archive frame; `PluginSettings.Commit` bridges the settings rail.
+- [72]-[DOCUMENT](.planning/Plugin/document.md): `Participation.Cross` rides the archive frame; `PluginSettings.Commit` bridges the settings pipeline.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -124,7 +124,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `NodaTime` — Semantic time on the render sun band.
 - `Thinktecture.Runtime.Extensions`
-- `JetBrains.Annotations`
 - `CommunityToolkit.HighPerformance` — Pooled span rentals behind snapshot staging.
 - `QuikGraph` — Transient block-graph topology, reachability, and source-first ordering.
 - `Riok.Mapperly` — Existing-target policy transcription onto host option objects and wire lowering.
@@ -141,4 +140,4 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [DEPENDENCY_FLOORS]:
 - `Microsoft.Extensions.Compliance.Abstractions` — Transitive `DataClassification` attribute surface over kernel `Sensitivity` values.
-- `System.Drawing.Common` — Compile-time GDI carriers crossing host bitmap, icon, printer, and screen seams.
+- `System.Drawing.Common` — Compile-time GDI carriers crossing host bitmap, icon, printer, and screen boundaries.

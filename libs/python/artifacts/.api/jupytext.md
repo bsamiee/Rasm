@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_JUPYTEXT]
 
-`jupytext` owns notebook<->text conversion for the artifacts reports rail: a polymorphic `read`/`reads`/`write`/`writes` quartet exchanging an `nbformat.NotebookNode` across `.ipynb` and the text grammars, timestamp-ordered paired-file synchronization, executed-output-into-text merge, and round-trip equivalence assertion. It is the text-pairing layer beneath the `nbclient`/`papermill` execution rail and the `nbconvert` export rail, consuming `nbformat` for the node schema and `markdown-it-py` for the MyST parse.
+`jupytext` owns notebook<->text conversion for the artifacts reports domain: a polymorphic `read`/`reads`/`write`/`writes` quartet exchanging an `nbformat.NotebookNode` across `.ipynb` and the text grammars, timestamp-ordered paired-file synchronization, executed-output-into-text merge, and round-trip equivalence assertion. It is the text-pairing layer beneath the `nbclient`/`papermill` execution domain and the `nbconvert` export domain, consuming `nbformat` for the node schema and `markdown-it-py` for the MyST parse.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -72,7 +72,7 @@
 
 [ENTRYPOINT_SCOPE]: paired-path derivation and synchronization (`jupytext.paired_paths`, `jupytext.pairs`, `jupytext.sync_pairs`)
 
-Pairing is the reports rail's paired-editing core: `paired_paths` enumerates every path a notebook pairs to under a `formats` policy, `sync_pairs.read_pair`/`write_pair` read a paired group into the merged latest inputs and outputs and write back through one `write_one_file` callback, and `pairs.latest_inputs_and_outputs` resolves the inputs- and outputs-holders by timestamp. `read`/`writes` stays the single-file path.
+Pairing is the reports domain's paired-editing core: `paired_paths` enumerates every path a notebook pairs to under a `formats` policy, `sync_pairs.read_pair`/`write_pair` read a paired group into the merged latest inputs and outputs and write back through one `write_one_file` callback, and `pairs.latest_inputs_and_outputs` resolves the inputs- and outputs-holders by timestamp. `read`/`writes` stays the single-file path.
 
 | [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                             |
 | :-----: | :------------------------------------------------------------------ | :------------------------------------------------------- |

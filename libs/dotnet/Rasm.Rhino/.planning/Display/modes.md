@@ -2,7 +2,7 @@
 
 `Modes.Configure` owns display-mode appearance, descriptor policy, table operations, viewport binding, mode-scoped capture, and built-in analysis attachment as one request algebra. Raw host editors remain inside the fold, every viewport touch stays leased, and every successful mutation returns detached mode evidence.
 
-`ModeOp` is the display-mode table seam this page owns, `ViewportTarget` remains the viewport identity seam, and `CaptureArtifact` remains bitmap custody. `DisplayModeDescription`, `DisplayPipelineAttributes`, `RhinoViewport`, and `VisualAnalysisMode` never cross the outcome boundary. The page's flag estate rides ONE axis vocabulary: `DisplayAxis` names every boolean attribute slot the host publishes, each row carrying its own writer and reader, so a concern's flags are a `CapabilitySet<DisplayAxis>` and a sixty-five-member bool spread has no spelling left.
+`ModeOp` is the display-mode table boundary this page owns, `ViewportTarget` remains the viewport identity boundary, and `CaptureArtifact` remains bitmap custody. `DisplayModeDescription`, `DisplayPipelineAttributes`, `RhinoViewport`, and `VisualAnalysisMode` never cross the outcome boundary. The page's flag catalog rides ONE axis vocabulary: `DisplayAxis` names every boolean attribute slot the host publishes, each row carrying its own writer and reader, so a concern's flags are a `CapabilitySet<DisplayAxis>` and a sixty-five-member bool spread has no spelling left.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@
 
 - Owner: `HostRow<TNative>` is the ONE typed carrier for a single-column host-vocabulary mirror — the roster IS the host enum's own member list, admitted once through the defined gate; `DisplayAxis` is the sixty-five-row flag vocabulary, each row carrying its concern, its host writer, and its host reader; `FaceAxis` and `ShadowAxis` are the two product vocabularies whose corners a law states; `ConcernRow` is the sixteen-row table fusing the write dispatch and the read traversal under one keyed order; `Appearance` is the closed concern family; each case carries the whole state its host writer consumes.
 - Entry: `Appearance.Write` and `Appearance.Of` are the only surfaces that receive `DisplayPipelineAttributes`.
-- Auto: `Appearance.Write` traverses the immutable case sequence and captures host rejection on one rail; each concern writes under its own `Op` named by its `ConcernRow` key, so a mid-arm host throw names the concern that was mid-write and no reflection name survives on either half.
+- Auto: `Appearance.Write` traverses the immutable case sequence and captures host rejection on one carrier; each concern writes under its own `Op` named by its `ConcernRow` key, so a mid-arm host throw names the concern that was mid-write and no reflection name survives on either half.
 - Law: the family is SYMMETRIC — `ConcernRow.Items` is the one order both halves walk: `Write` dispatches the case sequence and `Of` folds the row table, row for case, so mode state round-trips, a commit compensates from a prior read, and a case whose writer has no reader is a defect neither half can hide. A concern that broadcasts one value across sibling host slots reads back from the slot the case names first.
 - Law: a boolean attribute slot is a `DisplayAxis` ROW, never a case column — the row carries its writer and reader as delegate columns, a concern's flag state is one `CapabilitySet<DisplayAxis>` whose members the row table already knows how to seat, and the sixty-five bool columns the sixteen cases carried are the deleted form. NAMED LOSS: per-axis compile-time exhaustiveness — a concern can no longer be forced by the compiler to state every flag; bought back by `ConcernRow.Admits`, which refuses a set holding a foreign concern's axis at admission, and by the sweep read, which measures every domain row. Witness: `ReadTechnical`'s seven property reads become one `DisplayAxis.Read(ConcernRow.Technical, live)` sweep.
 - Law: a single-column host vocabulary crosses as `HostRow<TNative>`, never as a hand roster and never raw — the eleven `*Use` rosters this page carried were pure re-namings of closed host enums, each free to drift from the member list it mirrored; the carrier admits through `Enum.IsDefined`, so a non-sequential family (`BoundingBoxDisplayMode`) needs no ordinal cast and a new host member is zero rows here. `WidthUse` and `ScopeUse` SURVIVE as rosters — each row carries one native column per divergent host family, which is more than a mirror. `Display/render.md` composes this carrier for its own single-column reads.
@@ -42,7 +42,7 @@ using Thinktecture;
 namespace Rasm.Rhino.Display;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct HostRow<TNative> where TNative : struct, Enum {
     private HostRow(TNative native) => Native = native;
 
@@ -301,7 +301,6 @@ public sealed partial class ShadowBand {
     public int TransparencyTolerance { get; }
     public float ClippingRadius { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref CapabilitySet<ShadowAxis> axes,
@@ -823,7 +822,7 @@ public abstract partial record ModePlan {
 - Entry: `ModeOp.Apply` returns resolved descriptors for every operation, including host-minted identities.
 - Law: every minted identifier re-resolves before egress; a dangling identifier never becomes a `ModeSummary`.
 - Law: every case has a reachable public ingress on `ModeRequest`, so the vocabulary and the entry family agree case for case; a table verb whose only argument is a live `DisplayModeDescription` has no admissible ingress across the outcome boundary and does not exist here — `AddDisplayMode(string)` mints through `BlankCase` and `UpdateDisplayMode` persists a descriptor the fold already resolved.
-- Law: the host splits its table verbs by return shape — the four minting verbs answer a `Guid` that is `Guid.Empty` on refusal, and the three persisting verbs answer a `bool` — so `Mint` folds the identifier verbs onto one re-resolving rail and `Confirm` folds the boolean ones, and no arm reads a return the host does not publish.
+- Law: the host splits its table verbs by return shape — the four minting verbs answer a `Guid` that is `Guid.Empty` on refusal, and the three persisting verbs answer a `bool` — so `Mint` folds the identifier verbs onto one re-resolving carrier and `Confirm` folds the boolean ones, and no arm reads a return the host does not publish.
 - Law: the `.ini` import's dialogue posture is the Document spine's `HostInteraction` row, never a bare bool — the row is the corpus-wide host-dialogue axis every folder's `quiet` argument reads.
 - Growth: a table verb is one request case, one dispatch arm, and one `ModeRequest` entry case in the same pass.
 

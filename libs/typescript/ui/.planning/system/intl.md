@@ -6,7 +6,7 @@ Intl localizes the folder with zero i18n package: one ambient locale spine over 
 
 - [02]-[LOCALE_SPINE]: `I18nProvider`/`useLocale` carry the ambient locale over the kernel brand; —.
 - [03]-[NATIVE_CACHE]: one per-locale `Intl` instance cache backs every self-constructed formatter; —.
-- [04]-[FORMAT_ROWS]: `Format` — option-row vocabulary, epoch seam, relative ladder, collation, filter; `Format`.
+- [04]-[FORMAT_ROWS]: `Format` — option-row vocabulary, epoch boundary, relative ladder, collation, filter; `Format`.
 - [05]-[MESSAGE_FAMILY]: `MessageSpec` closes the case family and `Catalog` owns the decode; `Message`.
 - [06]-[MESSAGE_FOLD]: `Message.format` totals the fold and walks the locale fallback chain; `Message`.
 
@@ -23,8 +23,8 @@ Intl localizes the folder with zero i18n package: one ambient locale spine over 
 
 [NATIVE_CACHE]:
 - Owner: `_native(kind, locale)` — the ONE per-locale instance cache behind every formatter this page constructs itself: a constructor row table (`plural` → `Intl.PluralRules`, `relative` → `Intl.RelativeTimeFormat`) and one interior `Map` keyed `kind:locale`; the plural fold and the relative-time fold both read through it, so the folder holds exactly one platform-formatter cache — the split per-concern caches are the collapsed defect.
-- Law: the cache is the module's platform-formatter FFI seam — a JS `Map` holding `Intl` instances only, never domain values; its two-line mutation is the seam's sanctioned statement, and the cache is invisible to consumers.
-- Law: the correlated return is the seam's marked cast — the heterogeneous instance map erases the per-kind type, and the `as` re-assertion is exactly the row the constructor table proves; the kernel carries the boundary mark on its first line, and the assertion is legal nowhere else in the module.
+- Law: the cache is the module's platform-formatter FFI boundary — a JS `Map` holding `Intl` instances only, never domain values; its two-line mutation is the boundary's sanctioned statement, and the cache is invisible to consumers.
+- Law: the correlated return is the boundary's marked cast — the heterogeneous instance map erases the per-kind type, and the `as` re-assertion is exactly the row the constructor table proves; the kernel carries the boundary mark on its first line, and the assertion is legal nowhere else in the module.
 - Growth: a new hook-less formatter family (`Intl.Segmenter`, `Intl.DisplayNames`) is one constructor row — never a second cache.
 
 ```typescript
@@ -51,7 +51,7 @@ const _native = <K extends keyof typeof _NATIVE>(kind: K, locale: string): Retur
 ## [04]-[FORMAT_ROWS]
 
 [FORMAT_ROWS]:
-- Owner: `Format` — the option-row vocabulary: `Format.date` (the closed date/time style rows — `stamp`, `long`, `time`, `weekday`), `Format.number` (`plain`, `compact`, `percent`, `bytes` unit rows), `Format.list` (`and`/`or` conjunction rows), `Format.relative` (the `Intl.RelativeTimeFormat` granularity ladder with its threshold table — seconds through years — folded from a `Duration` delta through `[3]`'s cache), the collation lift `Format.collate`, and the two ingress seams: `Format.instant(utc)` converting an effect `DateTime.Utc` to the native `Date` a formatter consumes (the ONE epoch crossing), `Format.span(duration)` projecting a `Duration` onto the relative-time ladder.
+- Owner: `Format` — the option-row vocabulary: `Format.date` (the closed date/time style rows — `stamp`, `long`, `time`, `weekday`), `Format.number` (`plain`, `compact`, `percent`, `bytes` unit rows), `Format.list` (`and`/`or` conjunction rows), `Format.relative` (the `Intl.RelativeTimeFormat` granularity ladder with its threshold table — seconds through years — folded from a `Duration` delta through `[3]`'s cache), the collation lift `Format.collate`, and the two ingress mappers: `Format.instant(utc)` converting an effect `DateTime.Utc` to the native `Date` a formatter consumes (the ONE epoch crossing), `Format.span(duration)` projecting a `Duration` onto the relative-time ladder.
 - Packages: `react-aria` (`useDateFormatter`, `useNumberFormatter`, `useListFormatter`, `useCollator`, `useFilter` — memoized native instances over the provider locale); `effect` (`DateTime`, `Duration`, `Array`, `Number`, `Option`, `Order` — the interior scalar owners).
 - Entry: a row consumes `useDateFormatter(Format.date.stamp)` — hook with row, never an inline options literal; a new presentation is one row on the owning table, and every consumer of that concern re-renders consistently.
 - Law: the epoch crossing is single and marked — `DateTime.toEpochMillis` feeds `new Date(millis)` inside `Format.instant` only; a `new Date()` or epoch arithmetic anywhere else in the folder is the named defect, and the interior never sees a native `Date`.

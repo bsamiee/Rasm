@@ -1,10 +1,10 @@
-# [TYPESCRIPT_RAILS_AND_EFFECTS]
+# [TYPESCRIPT_RESULTS_AND_EFFECTS]
 
-This page is the carrier algebra. `Effect<A, E, R>` is the one rail every fallible, contextual, or deferred computation rides; this page legislates which carrier states an outcome, how dependence and independence compose, how a fault family is sized, routed, accumulated, and folded, how a resource bracket stacks against resilience, and how recurrence, tiered failover, and telemetry ride the rail as policy values and transformers. A carrier is chosen once at admission and threaded unchanged: the narrowest carrier that states the real outcome transports the value, reusable transforms preserve it, and collapse to a bare value happens only at the run seam. The interior is total over admitted carriers — raw promises, thrown exceptions, `null` sentinels, and boolean status flags never travel it.
+This page is the carrier algebra. `Effect<A, E, R>` is the one carrier every fallible, contextual, or deferred computation rides; this page legislates which carrier states an outcome, how dependence and independence compose, how a fault family is sized, routed, accumulated, and folded, how a resource bracket stacks against resilience, and how recurrence, tiered failover, and telemetry ride the carrier as policy values and transformers. A carrier is chosen once at admission and threaded unchanged: the narrowest carrier that states the real outcome transports the value, reusable transforms preserve it, and collapse to a bare value happens only at the run boundary. The interior is total over admitted carriers — raw promises, thrown exceptions, `null` sentinels, and boolean status flags never travel it.
 
-Six siblings own surfaces this algebra composes as settled material: the fiber that executes the rail — its interruption, racing, supervision, and shared cells — is `concurrency.md`'s; incremental dataflow under the same fault law is `streams.md`'s; the decode seam that mints admitted values and lifts `ParseError` is `boundaries.md`'s; the `Effect.fn` definition seam and `Match` terminals that attach and collapse these policies are `surfaces-and-dispatch.md`'s; the Tag requirement channel and its Layer satisfaction are `services-and-layers.md`'s; the declaration mechanics of tagged families are `shapes.md`'s. This page states what crosses onto the rail and which policy value transports it.
+Six siblings own surfaces this algebra composes as settled material: the fiber that executes the carrier — its interruption, racing, supervision, and shared cells — is `concurrency.md`'s; incremental dataflow under the same fault law is `streams.md`'s; the decode boundary that mints admitted values and lifts `ParseError` is `boundaries.md`'s; the `Effect.fn` definition site and `Match` terminals that attach and collapse these policies are `surfaces-and-dispatch.md`'s; the Tag requirement channel and its Layer satisfaction are `services-and-layers.md`'s; the declaration mechanics of tagged families are `shapes.md`'s. This page states what crosses onto the carrier and which policy value transports it.
 
-## [01]-[RAIL_CHOOSER]
+## [01]-[CARRIER_CHOOSER]
 
 Choose the narrowest carrier that states the real outcome; a wider carrier is earned only by a capability the narrower one cannot carry — a typed cause, deferral, context, or Cause-tree evidence. The chooser rows are this page's map: each row's law lives in the section that owns it.
 
@@ -16,31 +16,31 @@ Choose the narrowest carrier that states the real outcome; a wider carrier is ea
 |  [04]   | `Exit<A, E>` / `Cause<E>`                     | folded outcome evidence             | boolean status flags                |
 |  [05]   | `Effect.all` mode, `partition`, `validateAll` | independent-batch disposition       | first-failure loop over a batch     |
 |  [06]   | one `TaggedError` family + policy table       | fault architecture                  | class-per-cause spam, string reason |
-|  [07]   | `Effect.acquireRelease` + `Scope`             | lifetime on the rail                | `try`/`finally` in domain flow      |
+|  [07]   | `Effect.acquireRelease` + `Scope`             | lifetime on the carrier             | `try`/`finally` in domain flow      |
 |  [08]   | `Schedule<Out, In, R>`                        | recurrence policy value             | hand-rolled retry and poll loops    |
 |  [09]   | `ExecutionPlan` step ladder                   | tiered failover as one value        | `catchAll` re-provision cascade     |
 |  [10]   | `Effect.withSpan` / `Metric` / `annotateLogs` | telemetry transformers              | branch-local logging, span pairs    |
 
 [CARRIER_EMBEDDING]:
-- Law: `Option` and `Either` are subtypes of `Effect` — a pure carrier composes onto the rail directly through `yield*` and `pipe`, so an inbound lift adapter is dead weight; `Effect.option`, `Effect.either`, and `Effect.exit` are outbound folds that reify a channel as a value, never inbound converters.
+- Law: `Option` and `Either` are subtypes of `Effect` — a pure carrier composes onto `Effect` directly through `yield*` and `pipe`, so an inbound lift adapter is dead weight; `Effect.option`, `Effect.either`, and `Effect.exit` are outbound folds that reify a channel as a value, never inbound converters.
 - Law: a yielded `Option.none` lifts as `Cause.NoSuchElementException` — a foreign fault in a domain channel — so absence converts at the point of knowledge: `Effect.mapError` re-spells the miss into the owning family in the same expression, and a bare `Option` reaches `yield*` only where the surface's boundary owns that re-spell.
-- Law: promotion is earned by capability alone — `Option` carries non-failing absence, `Either` adds the typed cause to a pure branch, `Effect` adds deferral, requirements, and Cause tracking; a total pure transform modeled as `Effect` buys nothing and costs the run seam.
-- Law: the thrown and promise worlds convert at their owning seam — `Effect.try({ try, catch })` and `Effect.tryPromise({ try, catch })` mint the owning family in the `catch` slot as one declaration consuming the foreign-value triage, and `tryPromise`'s `try` receives an interruption-wired `AbortSignal`, so cancellation crosses with the conversion; `Effect.promise` asserts a never-rejecting promise — a rejection there is a defect — and the bare single-argument forms mint `Cause.UnknownException`, a seam spelling whose consumer re-spells or escalates it, never a tag a handler routes on.
+- Law: promotion is earned by capability alone — `Option` carries non-failing absence, `Either` adds the typed cause to a pure branch, `Effect` adds deferral, requirements, and Cause tracking; a total pure transform modeled as `Effect` buys nothing and costs the run boundary.
+- Law: the thrown and promise worlds convert at their owning boundary — `Effect.try({ try, catch })` and `Effect.tryPromise({ try, catch })` mint the owning family in the `catch` slot as one declaration consuming the foreign-value triage, and `tryPromise`'s `try` receives an interruption-wired `AbortSignal`, so cancellation crosses with the conversion; `Effect.promise` asserts a never-rejecting promise — a rejection there is a defect — and the bare single-argument forms mint `Cause.UnknownException`, a boundary spelling whose consumer re-spells or escalates it, never a tag a handler routes on.
 - Law: dependence licenses sequence, independence licenses product — `Effect.gen` and `Effect.flatMap` when a step consumes the prior value, `Effect.zipWith` and `Effect.all` with `{ concurrent: true }` when operands are independent; degrees of parallelism beyond the pair are `concurrency.md`'s decision.
 - Law: the combinator states the continuation exactly — a pure continuation is `Effect.map`, an effectful one `Effect.flatMap`/`Effect.andThen`, an observation that returns the value untouched is `Effect.tap`/`Effect.tapError`, a value replacement is `Effect.as`/`Effect.zipRight`, and the two-channel fold is `Effect.matchEffect`; `flatMap` wrapping `Effect.succeed` restates `map`, a bind that returns its own input restates `tap`, and a hand fold joining independent results restates `zipWith`/`Effect.all`/`Effect.partition` — each mis-grade re-derives, line by line, a combinator the algebra already ships.
 - Law: composition is flat — `pipe` owns the linear chain whose every step consumes only its immediate predecessor, and `Effect.gen` takes over at the second live binding, the first step that reads a value older than its predecessor; a combinator body that opens another `flatMap`/`andThen` is the nested pyramid — one dependence spelled at two depths — and it flattens into the chain or the generator, never indentation.
-- Law: one carrier, one runtime — `Micro` is banned: it imports a second runtime with a parallel `MicroCause`/`MicroExit` vocabulary and severs the `Layer` graph and the telemetry transformers, so its bundle pitch buys a second algebra, not a smaller rail.
+- Law: one carrier, one runtime — `Micro` is banned: it imports a second runtime with a parallel `MicroCause`/`MicroExit` vocabulary and severs the `Layer` graph and the telemetry transformers, so its bundle pitch buys a second algebra, not a smaller carrier.
 - Reject: `Option.match` into `Effect.fail`/`Effect.succeed` re-deriving the embedding; `await` inside domain flow; an `Effect.gen` chain over operands no step depends on — it silently serializes and reports only the first fault; `Effect.Do` with `Effect.bind`/`Effect.bindTo`/`Effect.let` — `Effect.gen` is the sole do-notation, and the bind ladder rebuilds its scope one closure per step.
 
 [STATEMENT_CLOSERS]:
-- Law: `Effect.when`/`Effect.unless` close the conditional statement — the gated step returns `Option<A>` with refusal reified as `Option.none`, so a skipped effect is a value later steps compose, never an `if` around a run; `Effect.whenEffect`/`Effect.unlessEffect` gate on a railed predicate, and `Effect.if` selects between two arms on a railed condition — a pure condition over two rails is already the ternary expression.
-- Law: `Effect.filterOrFail` closes the guard — the predicate's refusal mints the typed fault in the same expression; `Effect.filterOrElse` diverts to an alternative rail, and `Effect.filterOrDie` escalates an invariant breach no consumer arm can act on.
-- Law: `Effect.matchEffect` folds both channels into one continuation without leaving the rail, `Effect.matchCauseEffect` widens the failure arm to the whole `Cause` when the fold must see defects and interruption, and `Effect.match` is the pure-arm form; reifying the outcome through `Effect.exit` is earned only where the outcome becomes state — a fold that merely continues the rail never pays the reification.
+- Law: `Effect.when`/`Effect.unless` close the conditional statement — the gated step returns `Option<A>` with refusal reified as `Option.none`, so a skipped effect is a value later steps compose, never an `if` around a run; `Effect.whenEffect`/`Effect.unlessEffect` gate on a result-typed predicate, and `Effect.if` selects between two arms on a result-typed condition — a pure condition over two carriers is already the ternary expression.
+- Law: `Effect.filterOrFail` closes the guard — the predicate's refusal mints the typed fault in the same expression; `Effect.filterOrElse` diverts to an alternative carrier, and `Effect.filterOrDie` escalates an invariant breach no consumer arm can act on.
+- Law: `Effect.matchEffect` folds both channels into one continuation without leaving the carrier, `Effect.matchCauseEffect` widens the failure arm to the whole `Cause` when the fold must see defects and interruption, and `Effect.match` is the pure-arm form; reifying the outcome through `Effect.exit` is earned only where the outcome becomes state — a fold that merely continues the carrier never pays the reification.
 
 [FOLDED_OUTCOME]:
 - Law: async and outcome state is one folded tagged value — `Effect.exit` reifies the outcome, `Exit.match` folds it, and the folded value carries the whole `Cause` as evidence; a `{ loading, error, data }` record re-derives `Exit` by hand and admits the impossible states `Exit` excludes by construction.
-- Law: the `Cause` tree retains typed failure, defect, and interruption — it is carried whole and discriminated once at the terminal seam; `[06]`'s outcome fold owns the discrimination order, and a fold that reads `.message` erases the tree the forensic projections consume.
-- Law: forensics are egress projections over the carried tree — `Cause.pretty` renders it for a text sink, `Cause.prettyErrors` reifies `PrettyError` values whose `span` survives into structured logs, and `Cause.squash`/`Cause.squashWith` collapse to the one dominant value for a foreign single-argument sink; every one is a terminal-seam spelling, never a recovery input.
+- Law: the `Cause` tree retains typed failure, defect, and interruption — it is carried whole and discriminated once at the terminal boundary; `[06]`'s outcome fold owns the discrimination order, and a fold that reads `.message` erases the tree the forensic projections consume.
+- Law: forensics are egress projections over the carried tree — `Cause.pretty` renders it for a text sink, `Cause.prettyErrors` reifies `PrettyError` values whose `span` survives into structured logs, and `Cause.squash`/`Cause.squashWith` collapse to the one dominant value for a foreign single-argument sink; every one is a terminal-boundary spelling, never a recovery input.
 - Use: `Effect.sandbox` when recovery itself must read defects and interruptions on the typed channel; `Effect.exit` when the outcome becomes state.
 
 ```typescript
@@ -117,8 +117,8 @@ Abort versus accumulate is a correctness decision fixed once at the boundary as 
 - Law: `NonEmptyArray<E>` on the accumulated channel is load-bearing — the fault set is provably inhabited, so `[03]`'s dominant fold consumes it with no emptiness guard.
 - Law: ordered alternatives split by the miss report — `Effect.validateFirst` returns the first success and names every rejected attempt on the error channel, `Effect.firstSuccessOf` runs the ladder and keeps only the terminal fault; a ladder whose misses feed a report races through the first, a pure fallback ladder through the second.
 - Use: `Effect.validate` for a fixed-arity pair accumulating both faults into the `Cause`.
-- Use: `Effect.reduce(items, zero, body)` for the dependent batch fold — the accumulator threads the rail with no mutable cell, `Effect.reduceWhile` carries its own stop predicate, and `Effect.mergeAll(effects, zero, f)` accumulates a batch of already-railed operands into one value; a `let` written from inside `Effect.forEach` restates the seeded fold.
-- Reject: a disposition parameter the body re-reads; a `for` loop collecting failures beside the rail; `Effect.forEach` over a batch whose faults the caller must enumerate — its first-failure abort is the dependent-chain default, not the batch report.
+- Use: `Effect.reduce(items, zero, body)` for the dependent batch fold — the accumulator threads the carrier with no mutable cell, `Effect.reduceWhile` carries its own stop predicate, and `Effect.mergeAll(effects, zero, f)` accumulates a batch of already-carried operands into one value; a `let` written from inside `Effect.forEach` restates the seeded fold.
+- Reject: a disposition parameter the body re-reads; a `for` loop collecting failures beside the carrier; `Effect.forEach` over a batch whose faults the caller must enumerate — its first-failure abort is the dependent-chain default, not the batch report.
 
 ```typescript
 import { type Array, Data, Effect, type Either, Number, type Option } from "effect";
@@ -175,14 +175,14 @@ Each surface owns one reason-discriminated fault family whose policy lives in on
 - Law: `throttled` alone admits a producer-stated window, and that window rides the raised value as an `Option<Duration>` — the schedule re-seats its base from it per refusal, so no row holds a slot only a raise can fill and a refusal measuring none spends the blind curve unchanged.
 - Law: three altitudes carry one window under three words — wire `retry_after`, class band `throttled`, value `after` — each answering its own producer, lifetime, and reader, so one shared spelling claims a single authority where three answer.
 - Law: the row states its detail — a free-string `detail` field on the raise re-opens the axis `reason` already closed, and `message` derives as the row's text over the subject the raise carries, never a template a class hand-writes per reason.
-- Law: a fault no consumer arm can act on is a defect, not a channel member — `Effect.die` and `Effect.orDie` escalate it at the routing seam so `E` stays total over actionable faults and no handler carries a dead arm.
+- Law: a fault no consumer arm can act on is a defect, not a channel member — `Effect.die` and `Effect.orDie` escalate it at the routing site so `E` stays total over actionable faults and no handler carries a dead arm.
 
 [ROUTING_AND_FOLDS]:
-- Law: `catchTag` and `catchTags` route between classes; behavior inside a class reads policy fields — the handler record is the routing table, attached inline at the recovery seam, and a partial record leaves the remaining tags on the channel.
+- Law: `catchTag` and `catchTags` route between classes; behavior inside a class reads policy fields — the handler record is the routing table, attached inline at the recovery site, and a partial record leaves the remaining tags on the channel.
 - Law: `Effect.catchAll` is a whole-channel fold, never routing — lawful only where one fault inhabits the channel or every tag deliberately converges on one continuation; a blanket `catchAll` or a reflex `Effect.ignore` over a tagged channel buries every tag the family declares, and the deliberate discard is `Effect.ignoreLogged`, or `Effect.ignore` under the owner's stated rule that the outcome is irrelevant — a decision the declaration carries, never a call-site reflex.
-- Law: an accumulated fault set collapses to one representative through the rank lattice — `Order.mapInput` projects the table's rank, `Array.max` folds the `NonEmptyArray` the accumulating forms mint, and the instance with its fold ride the family class as statics so policy arrives through the owner's one import; an if-ladder comparing tags, or a loose comparator const beside the class, re-implements the order the table already declares.
-- Law: accumulating admission mints one census carrier off that same roster — `issues` holds the `NonEmptyArray` those forms yield, the dominant issue elects on the rank lattice, and the tag doubles as the message prefix `catchTag` already discriminates on; re-declaring `{ issues, class, message }` at a second owner forks one taxonomy into two.
-- Law: quarantine is a typed divert, never a dropped element — a quarantinable fault is delivered to a typed intake and continues as `Either.left` on the success channel, so the rail proceeds and the evidence survives to the drain; a recovery that substitutes a default value destroys the evidence and is rejected wherever the fault feeds a report.
+- Law: an accumulated fault set collapses to one representative through the rank order — `Order.mapInput` projects the table's rank, `Array.max` folds the `NonEmptyArray` the accumulating forms mint, and the instance with its fold ride the family class as statics so policy arrives through the owner's one import; an if-ladder comparing tags, or a loose comparator const beside the class, re-implements the order the table already declares.
+- Law: accumulating admission mints one census carrier off that same roster — `issues` holds the `NonEmptyArray` those forms yield, the dominant issue elects on the rank order, and the tag doubles as the message prefix `catchTag` already discriminates on; re-declaring `{ issues, class, message }` at a second owner forks one taxonomy into two.
+- Law: quarantine is a typed divert, never a dropped element — a quarantinable fault is delivered to a typed intake and continues as `Either.left` on the success channel, so the carrier proceeds and the evidence survives to the drain; a recovery that substitutes a default value destroys the evidence and is rejected wherever the fault feeds a report.
 
 ```typescript
 import { Array, Data, Duration, Effect, Either, Function, Option, Order, Schedule } from "effect";
@@ -212,7 +212,7 @@ class SurfaceFault extends Data.TaggedError("SurfaceFault")<{
     readonly surface: string;
     readonly after: Option.Option<Duration.Duration>; // the stated window is measured at the raise: it rides the value, never a row slot
 }> {
-    // one import carries fault, order, and fold: the rank lattice rides the owner
+    // one import carries fault, order, and fold: the rank order rides the owner
     static readonly byRank: Order.Order<SurfaceFault> = Order.mapInput(Order.number, (fault: SurfaceFault) => fault.policy.rank);
     static readonly dominant = (faults: Array.NonEmptyReadonlyArray<SurfaceFault>): SurfaceFault => Array.max(faults, SurfaceFault.byRank);
     static readonly retryable = (fault: SurfaceFault): boolean => fault.policy.recovery !== "terminal"; // derived, never stored
@@ -225,7 +225,7 @@ class SurfaceFault extends Data.TaggedError("SurfaceFault")<{
 }
 
 class SurfaceCensus extends Data.TaggedError("SurfaceCensus")<{ readonly issues: Array.NonEmptyReadonlyArray<SurfaceFault> }> {
-    // one carrier off the same roster: admission seals here, the dominant issue elects on the rank lattice, the tag prefixes the message
+    // one carrier off the same roster: admission seals here, the dominant issue elects on the rank order, the tag prefixes the message
     static readonly sealed = <A, R>(work: ReadonlyArray<Effect.Effect<A, SurfaceFault, R>>): Effect.Effect<ReadonlyArray<A>, SurfaceCensus, R> =>
         Effect.mapError(Effect.validateAll(work, Function.identity), (issues) => new SurfaceCensus({ issues }));
     get dominant(): SurfaceFault {
@@ -299,7 +299,7 @@ export { FaultPolicy, PermitFault, reoffered, routed, salvaged, SurfaceCensus, S
 
 ## [04]-[RESOURCE_BRACKET]
 
-A lifetime rides the rail as a bracket whose release is part of the computation's type, and where the bracket sits against resilience is semantics, not style: a transformer governs everything below it in the pipe.
+A lifetime rides the carrier as a bracket whose release is part of the computation's type, and where the bracket sits against resilience is semantics, not style: a transformer governs everything below it in the pipe.
 
 [BRACKET_SELECTION]:
 - Law: the form is selected by two questions — does a value need releasing, and does teardown read the outcome. `Effect.acquireRelease` owns a resource value with an `Exit`-aware release; `Effect.acquireUseRelease` is the closed bracket when use is known at the declaration and no `Scope` escapes; `Effect.ensuring` finalizes unconditionally with no resource; `Effect.onExit` observes the settled outcome; `Effect.onError` observes failure alone; `Effect.addFinalizer` registers into the ambient `Scope` mid-`gen`.
@@ -363,7 +363,7 @@ Recurrence is a named `Schedule` value composed once beside the fault family it 
 - Law: `Schedule.jittered` decorrelates a fleet — a bare exponential curve synchronizes retries into waves against the same dependency.
 - Law: `Schedule.resetAfter(duration)` is reconnect correctness — after `duration` of input inactivity the policy state resets as if new, so a long-lived loop pays base delay for the next outage instead of the tail the last one escalated to.
 - Law: `Schedule.andThen` is phase change — the first policy runs to completion, then the second takes over with outputs merged as the union; `Schedule.andThenEither` keeps phase provenance — `Either.left` carries the first phase's output, `Either.right` the second's, spelled `Either<Out2, Out>` on the composed type.
-- Law: `Schedule.CurrentIterationMetadata` carries the driver's own coordinates — `recurrence`, `elapsed`, `elapsedSincePrevious`, `input`, `output`, `start`, `now` — read inside the governed step as a defaulted reference, so attempt-aware telemetry never threads a counter parameter beside the rail.
+- Law: `Schedule.CurrentIterationMetadata` carries the driver's own coordinates — `recurrence`, `elapsed`, `elapsedSincePrevious`, `input`, `output`, `start`, `now` — read inside the governed step as a defaulted reference, so attempt-aware telemetry never threads a counter parameter beside the carrier.
 - Use: `Schedule.cron("<expr>")` for calendar recurrence — each recurrence emits its `[start, end]` window — with `Schedule.hourOfDay`/`dayOfWeek`/`dayOfMonth`/`minuteOfHour`/`secondOfMinute` as single-axis gates; `Schedule.tapOutput` to observe the policy's own decisions.
 
 [TRANSFORMER_FORMS]:
@@ -372,7 +372,7 @@ Recurrence is a named `Schedule` value composed once beside the fault family it 
 - Law: a deadline joins the family through `Effect.timeoutFail`; member selection across the deadline family and its interruption semantics are `concurrency.md`'s — this page owns only the budget a deadline buys against retry.
 - Law: layering against retry is budget semantics — a timeout below `Effect.retry` is the per-attempt budget, above it the total budget; the two stack when the surface names both, and which budgets exist is the surface's stated vocabulary, never an accident of pipe order.
 - Law: `Effect.repeat` recurs on the success channel — `while`/`until` read the output and the first run is not a recurrence — so polling and convergence are repeat policies over a state-advancing step, never `while` statements; `Effect.schedule` hands even the first run to the policy where the cadence, not the caller, owns the start.
-- Boundary: a circuit breaker is composed, never a new owner — the trip-and-cool state is `computation.md`'s transition actor, the transient gate is the `whileInput` policy value, and the shed arm is `concurrency.md`'s load-shed permit; a breaker class hand-rolled on the rail restates all three.
+- Boundary: a circuit breaker is composed, never a new owner — the trip-and-cool state is `computation.md`'s transition actor, the transient gate is the `whileInput` policy value, and the shed arm is `concurrency.md`'s load-shed permit; a breaker class hand-rolled on the carrier restates all three.
 
 ```typescript
 import { Data, type Duration, Effect, Schedule } from "effect";
@@ -421,7 +421,7 @@ export { backoff, converged, nightly, PressFault, resilient, staged, stamped };
 
 [FAILOVER_PLAN]:
 - Law: tiered failover is one plan value — `ExecutionPlan.make` takes an ordered step ladder of `{ provide, attempts, schedule, while }`, each tier providing its own engine `Layer` or `Context` under its own budget, curve, and gate, and `Effect.withExecutionPlan` attaches the whole ladder as one transformer that eliminates the provided requirement from the governed effect; a `catchAll` cascade re-providing engines by hand scatters the budget across arms and cannot be merged or reused as a value.
-- Law: a step's `while` gate reads the fault — plain `boolean` or a railed predicate — so a tier engages only for the faults its gate admits and the ladder keys on the family's own policy projection, never a foreign predicate; `ExecutionPlan.merge` composes whole plans when two ladders serve one surface.
+- Law: a step's `while` gate reads the fault — plain `boolean` or a result-typed predicate — so a tier engages only for the faults its gate admits and the ladder keys on the family's own policy projection, never a foreign predicate; `ExecutionPlan.merge` composes whole plans when two ladders serve one surface.
 - Law: the module ships `@experimental` in the installed release — the admission is deliberate, and the plan value stays the one failover spelling; each tier's `Layer` construction is `services-and-layers.md`'s, this page owns only the ladder.
 
 ```typescript
@@ -464,15 +464,15 @@ export type { Escalation };
 
 Telemetry is a transformer stack attached at the owner declaration, and every signal derives its outcome from `Exit` — one fold, one emission point, one bounded dimension vocabulary.
 
-[RAIL_TRANSFORMERS]:
-- Law: span, log annotation, and metric attach as transformers on the same pipe that carries resilience — one `Effect.withSpan` per surface, policy recoverable from the declaration; the `Effect.fn` pipeline slot these transformers ride is `surfaces-and-dispatch.md`'s seam.
+[CARRIER_TRANSFORMERS]:
+- Law: span, log annotation, and metric attach as transformers on the same pipe that carries resilience — one `Effect.withSpan` per surface, policy recoverable from the declaration; the `Effect.fn` pipeline slot these transformers ride is `surfaces-and-dispatch.md`'s.
 - Law: `Effect.annotateLogs` record-form at the surface entry stamps every log in the region — per-call-site key spam restates context the region already carries, and `Effect.annotateSpans` carries the same record to the trace side.
 - Reject: manual span open/close pairs; `Effect.log` narrating control flow the span already records; telemetry buried inside the body where the declaration no longer states it.
 - Boundary: exporter wiring is not surface law — the `@effect/opentelemetry` spine (`Otlp.layer`, `Otlp.layerJson`, `Otlp.layerProtobuf`) lands as Layer rows at the composition root, `services-and-layers.md`'s provision; a surface names its span and metrics, never an exporter.
 
 [BOUNDED_DIMENSIONS]:
-- Law: the OTLP bridge seats a `MetricProducer` on the reader rather than mounting instruments on a provider, so no view, aggregation selector, or cardinality ceiling ever observes these metrics — the declaration is the only seam that shapes them.
-- Law: one `as const` row table declares the family and one mount projects every row, so name, description, unit tag, and bucket layout apply at a single seam and a new measure is one row.
+- Law: the OTLP bridge seats a `MetricProducer` on the reader rather than mounting instruments on a provider, so no view, aggregation selector, or cardinality ceiling ever observes these metrics — the declaration is the only place that shapes them.
+- Law: one `as const` row table declares the family and one mount projects every row, so name, description, unit tag, and bucket layout apply at a single site and a new measure is one row.
 - Law: a tag value is drawn from a bounded vocabulary — the derived outcome union, the family's reason rows — because every distinct value mints a series, so `Metric.tagged` at call time is licensed only by such a value.
 - Law: identifier-grade context rides span attributes and log annotations, which are per-occurrence; interpolating an identifier into a tag is the cardinality defect.
 - Law: an instrument name is dotted `<namespace>.<domain>.<measure>`, carrying no `_total` tail and no unit suffix.
@@ -525,7 +525,7 @@ const _SPREADS = {
     "app.pour.admission": { unit: "ms", text: "<queue wait>", edges: MetricBoundaries.fromIterable([5, 25, 125, 625]) },
 } as const satisfies Record.ReadonlyRecord<string, _Measure & { readonly edges: MetricBoundaries.MetricBoundaries }>;
 
-// one seam applies the tag, so every table mints through its own constructor without restating a name, a unit, or a description
+// one site applies the tag, so every table mints through its own constructor without restating a name, a unit, or a description
 const _mount = <K extends string, R extends _Measure, Type, In, Out>(
     rows: Record.ReadonlyRecord<K, R>,
     mint: (name: K, row: R) => Metric.Metric<Type, In, Out>,

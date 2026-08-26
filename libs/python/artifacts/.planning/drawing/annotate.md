@@ -38,7 +38,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
+from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeResult, async_boundary, rostered
 
 from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
@@ -223,7 +223,7 @@ class Annotate(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"drawing-annotate-{self.target}", _CANON.encode((self.marks, self.palette, self.target)))
 
-    async def _emit(self) -> RuntimeRail[tuple[LayerNode, ...]]:
+    async def _emit(self) -> RuntimeResult[tuple[LayerNode, ...]]:
         settled = await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)
         match settled:
             case Result(tag="ok", ok=layers):
@@ -233,7 +233,7 @@ class Annotate(Struct, frozen=True):
             case refused:
                 return Error(refused.error)
 
-    async def layered(self) -> RuntimeRail[LayerPlan]:
+    async def layered(self) -> RuntimeResult[LayerPlan]:
         return (await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)).map(
             lambda layers: LayerPlan(schema=LayerSchema.ISO13567, roots=layers)
         )

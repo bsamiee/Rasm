@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_NUMBA]
 
-`numba` owns LLVM-backed JIT compilation of NumPy-typed Python kernels for the compute accelerator rail, lowering a decorated kernel to native machine code and lifting scalar functions to NumPy ufuncs and gufuncs. Compilation is offline study evidence; no production runtime binds numba.
+`numba` owns LLVM-backed JIT compilation of NumPy-typed Python kernels for the compute accelerator domain, lowering a decorated kernel to native machine code and lifting scalar functions to NumPy ufuncs and gufuncs. Compilation is offline study evidence; no production runtime binds numba.
 
 ## [01]-[PUBLIC_TYPES]
 

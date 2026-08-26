@@ -2,7 +2,7 @@
 
 `SharpKml.Core` owns the full managed OGC-KML (+ Google `gx:`) object model and the `KmlFile`/`KmzFile` serialize-and-archive engine: a strongly-typed `SharpKml.Dom` element tree over styled features, its own geographic geometry, overlays, extended data, and camera tours, round-tripped through the `Serializer`/`Parser`/`KmlFactory` XML layer.
 
-It is the KML presentation-and-authoring leg of the geospatial seam — `GeoFeature` site-context rows project to styled `Placemark`/`GroundOverlay`/`gx:Tour` output for Google Earth and web-globe delivery, the styled model the geometry-only GDAL `KML` driver cannot reach; its `Vector`/`CoordinateCollection` geometry bridges to the NTS `Geometry` algebra at the seam, never shared as a type.
+It is the KML presentation-and-authoring leg of the geospatial boundary — `GeoFeature` site-context rows project to styled `Placemark`/`GroundOverlay`/`gx:Tour` output for Google Earth and web-globe delivery, the styled model the geometry-only GDAL `KML` driver cannot reach; its `Vector`/`CoordinateCollection` geometry bridges to the NTS `Geometry` algebra at the boundary, never shared as a type.
 
 ## [01]-[PUBLIC_TYPES]
 

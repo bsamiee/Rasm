@@ -26,7 +26,7 @@
 - [15]-[SHAPES](.planning/transport/shapes.md): Wire-form legality, the recovery correspondence, the descriptor registry, two-way boot census.
 - [16]-[WIRE](.planning/transport/wire.md): `Decode` aspect and CRDT-op codec with the converging state owners under one ruled discriminant.
 - [17]-[EVENT](.planning/transport/event.md): Strict generic CloudEvents, Rasm profile admission, generated extensions, typed data arms.
-- [18]-[BINDING](.planning/transport/binding.md): Protocol rows, verified residence, authenticated delivery scope, and broker-lane custody.
+- [18]-[BINDING](.planning/transport/binding.md): Protocol rows, verified store, authenticated delivery scope, and broker-lane custody.
 - [19]-[FILTER](.planning/transport/filter.md): Delivery predicates deciding subscription reach — pure reads whose faults accumulate beside a value.
 
 [EXECUTION]:
@@ -55,23 +55,23 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 
 [TRANSPORT]:
 - `httpx`
-- `hishel[httpx]` — RFC-9111 HTTP cache over the httpx transport rail.
+- `hishel[httpx]` — RFC-9111 HTTP cache over the httpx transport layer.
 - `asyncssh`
 - `watchfiles`
 - `stamina`
-- `hypercorn` — ASGI server binding HTTP/2 and h2c beneath the Connect serve rail; TCP and UNIX-socket listeners.
+- `hypercorn` — ASGI server binding HTTP/2 and h2c beneath the Connect server; TCP and UNIX-socket listeners.
 - `pyqwest` — HTTP transport beneath every Connect dial, transitive under `connectrpc`; TLS, mTLS, and the one socket release.
 
 [VALIDATION]:
-- `protovalidate` — Evaluates generated descriptor rules at the `transport/body` Connect boundary and at every non-Connect payload seam.
+- `protovalidate` — Evaluates generated descriptor rules at the `transport/body` Connect boundary and at every non-Connect payload boundary.
 
 [OBSERVABILITY]:
-- `opentelemetry-exporter-otlp-proto-grpc` — Daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
+- `opentelemetry-exporter-otlp-proto-grpc` — Daemon-selectable OTLP gRPC egress row; proto-http stays the repo default.
 - `opentelemetry-semantic-conventions` — Released schema-url roster the one branch schema-url pin reads; a semconv bump moves that pin.
 - `opentelemetry-instrumentation` — `BaseInstrumentor` lifecycle, dependency gate, and suppression scopes every train row below implements.
 - `opentelemetry-instrumentation-asgi` — Server spans and W3C context extraction on the Connect ASGI application.
 - `opentelemetry-instrumentation-asyncio` — Coroutine and `to_thread` context propagation on the train.
-- `opentelemetry-instrumentation-dbapi` — PEP-249 wrap seam: db-semconv spans for duckdb and ADBC drivers without a dedicated instrumentor.
+- `opentelemetry-instrumentation-dbapi` — PEP-249 wrap boundary: db-semconv spans for duckdb and ADBC drivers without a dedicated instrumentor.
 - `opentelemetry-instrumentation-httpx` — Client spans on the httpx transport legs.
 - `opentelemetry-instrumentation-jinja2` — Template render, compile, and load spans on the train.
 - `opentelemetry-instrumentation-psycopg` — psycopg DBAPI spans the data query surfaces ride.
@@ -101,7 +101,7 @@ Domain-specific libraries admitted by this folder; admission rows ride the works
 
 Shared substrate consumed from the Python registry, whose charters own the full contracts; `libs/python/.api/` holds the shared API evidence.
 
-[TYPING_RAILS]:
+[TYPING_RESULTS]:
 - `expression`
 - `msgspec`
 - `beartype`
@@ -148,4 +148,4 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [WIRE_CODEGEN]:
 - `protobuf-py`
 - `connectrpc`
-- `protobuf` — Google message runtime the OTLP exporters compose beneath the wire rail.
+- `protobuf` — Google message runtime the OTLP exporters compose beneath the wire path.

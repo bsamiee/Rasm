@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_FASTCDC]
 
-`FastCDC.Net` owns content-defined chunk boundary detection over an in-memory `byte[]`: one stateful chunker lazily yields `(Hash, Offset, Length)` cut descriptors whose boundaries survive an interior insertion that shifts every fixed-window boundary, so the snapshot rail re-stores only the chunks an edit changed. `Chunk.Hash` is the 32-bit gear-hash marker the cut decision consumed, never a dedup identity — content addressing and every stream or file IO concern sit downstream.
+`FastCDC.Net` owns content-defined chunk boundary detection over an in-memory `byte[]`: one stateful chunker lazily yields `(Hash, Offset, Length)` cut descriptors whose boundaries survive an interior insertion that shifts every fixed-window boundary, so the snapshot path re-stores only the chunks an edit changed. `Chunk.Hash` is the 32-bit gear-hash marker the cut decision consumed, never a dedup identity — content addressing and every stream or file IO concern sit downstream.
 
 ## [01]-[PUBLIC_TYPES]
 
@@ -21,7 +21,7 @@
 |  [02]   | `FastCdc.GetChunks() -> IEnumerable<Chunk>` | instance | lazy cut iterator over the held source |
 |  [03]   | `Chunk(uint, uint, uint)`                   | ctor     | hash, offset, and length of one cut    |
 
-- `FastCdc(…)`: validation throws before any cut — `ArgumentNullException`/`ArgumentException` on a null or empty source, `ArgumentOutOfRangeException` on an out-of-bound size, `ArgumentException` on a `min > avg` or `avg > max` ordering; the codec boundary lifts all three onto its `Fin` rail.
+- `FastCdc(…)`: validation throws before any cut — `ArgumentNullException`/`ArgumentException` on a null or empty source, `ArgumentOutOfRangeException` on an out-of-bound size, `ArgumentException` on a `min > avg` or `avg > max` ordering; the codec boundary lifts all three onto `Fin`.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -30,7 +30,7 @@
 - Size bounds bind at construction and each ceiling is a public `const uint`: `MinimumMin`/`MinimumMax` hold `minSize` in `[64, 67108864]`, `AverageMin`/`AverageMax` hold `avgSize` in `[256, 268435456]`, `MaximumMin`/`MaximumMax` hold `maxSize` in `[1024, 1073741824]`, ordered `minSize <= avgSize <= maxSize`.
 - `eof: true` emits a trailing remainder at or under `minSize` as a final chunk; `eof: false` withholds it, so a streamed source resumes on a fresh instance over the buffered tail.
 - One instance holds its source reference for its lifetime and chunks it once, so `ChunkPolicy.Over(source)` mints a chunker per payload and enumeration is single-pass.
-- `Chunk.Offset`/`Length` are `uint` over a `byte[]`, so one pass spans one `int`-length array — a larger payload partitions upstream, and the fold runs synchronous in-process inside the codec write under the Persistence `IO`/`Fin` rail.
+- `Chunk.Offset`/`Length` are `uint` over a `byte[]`, so one pass spans one `int`-length array — a larger payload partitions upstream, and the fold runs synchronous in-process inside the codec write under the Persistence `IO`/`Fin` carrier.
 
 [STACKING]:
 - `System.IO.Hashing`(`libs/dotnet/.api/api-hashing.md`): each cut span carries an `XxHash3.HashToUInt64` short tag (the `HashPolicy.Content` row) beside its 128-bit key, so `ContentChunker.Novel` probes the cheap tag sketch before the authoritative `holds` compare — a tag miss proves a chunk novel with no index lookup, a false positive costs one fall-through compare.
@@ -40,4 +40,4 @@
 
 [LOCAL_ADMISSION]:
 - Callers hand the whole segment as a `byte[]`, and `min`/`avg`/`max`/`eof` ride one `ChunkPolicy` row rather than a call-site literal.
-- `ChunkManifest` reassembles in chunk order, and a torn or reordered manifest rails as a typed `CodecFault.ChunkManifestRejected`.
+- `ChunkManifest` reassembles in chunk order, and a torn or reordered manifest fails as a typed `CodecFault.ChunkManifestRejected`.

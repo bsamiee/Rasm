@@ -1,8 +1,8 @@
 # [PY_DATA_GRAPH]
 
-One graph-payload owner over a license-split backend triangle: the permissive `rustworkx` analysis core, the `networkx` codec/egress lane, and the GPL-confined `igraph` community engine carrying the Leiden/Louvain/Infomap split rustworkx lacks and the BSD core cannot license. Its backend is recovered from the source shape, never a knob, and analysis collapses onto ONE kernel: every algorithm runs on `rustworkx` keyed by its stable non-recycled integer index, a `networkx` or `igraph` source converting once through the one-way `_as_rx` bridge, so the `NodeId` stays the rx `int` the node-keyed frame seam joins on.
+One graph-payload owner over a license-split backend triangle: the permissive `rustworkx` analysis core, the `networkx` codec/egress lane, and the GPL-confined `igraph` community engine carrying the Leiden/Louvain/Infomap split rustworkx lacks and the BSD core cannot license. Its backend is recovered from the source shape, never a knob, and analysis collapses onto ONE kernel: every algorithm runs on `rustworkx` keyed by its stable non-recycled integer index, a `networkx` or `igraph` source converting once through the one-way `_as_rx` bridge, so the `NodeId` stays the rx `int` the node-keyed frame boundary joins on.
 
-Payload identity is the railed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph rail and is never linked into a host-distributed plugin. `organization_graph` folds the C#-minted `rasm.organization` organization document into the containment graph, decoding through the branch's one wire-shape owner at `runtime/transport/shapes#VOCABULARY` and minting no wire struct here; the capacity-network flow family rides the sibling `graph/network#NETWORK` owner over the networkx lane this kernel does not spell.
+Payload identity is the result-typed `ContentIdentity` fingerprint over the canonical node-link wire, never a `repr(dict)` byte stream. `GraphResult.frame` lowers node-index-keyed results into one canonical `node`-keyed `pa.Table` the `tabular/columnar#SCAN` plane left-joins by `node` — a centrality run is a left-join enrichment, never a re-keyed copy. `igraph`'s GPL core stays in this data graph domain and is never linked into a host-distributed plugin. `organization_graph` folds the C#-minted `rasm.organization` organization document into the containment graph, decoding through the branch's one wire-shape owner at `runtime/transport/shapes#VOCABULARY` and minting no wire struct here; the capacity-network flow family rides the sibling `graph/network#NETWORK` owner over the networkx lane this kernel does not spell.
 
 ## [01]-[INDEX]
 
@@ -48,7 +48,7 @@ from rasm.runtime.faults import (
     Depth,
     Disposition,
     FaultRow,
-    RuntimeRail,
+    RuntimeResult,
     boundary,
     rostered,
     scoped,
@@ -259,8 +259,8 @@ class GraphResult:
     flag: bool = case()
     flows: tuple[tuple[NodeId, NodeId, float], ...] = case()
 
-    def frame(self) -> "RuntimeRail[pa.Table]":
-        return boundary(GRAPH_FRAME, lambda: _frame(self), catch=_arrow_raises()).bind(lambda railed: railed)
+    def frame(self) -> "RuntimeResult[pa.Table]":
+        return boundary(GRAPH_FRAME, lambda: _frame(self), catch=_arrow_raises()).bind(lambda inner: inner)
 
 
 class GraphPayload(Struct, frozen=True, gc=False):
@@ -272,39 +272,39 @@ class GraphPayload(Struct, frozen=True, gc=False):
     content_key: ContentKey
 
     @classmethod
-    def of(cls, graph: "AnyGraph") -> "RuntimeRail[GraphPayload]":
+    def of(cls, graph: "AnyGraph") -> "RuntimeResult[GraphPayload]":
         backend, kind, n, e, wire = _shape(graph)
         return ContentIdentity.of("graph", wire).map(
             lambda key: cls(graph=graph, backend=backend, kind=kind, node_count=n, edge_count=e, content_key=key)
         )
 
     @overload
-    def analyze(self, algo: "GraphAlgorithm", *, by: Disposition = ...) -> "RuntimeRail[GraphResult]": ...
+    def analyze(self, algo: "GraphAlgorithm", *, by: Disposition = ...) -> "RuntimeResult[GraphResult]": ...
     @overload
     def analyze(
         self, algo: "Block[GraphAlgorithm]", *, by: Literal[Disposition.ABORT, Disposition.ACCUMULATE] = ...
-    ) -> "RuntimeRail[Block[GraphResult]]": ...
+    ) -> "RuntimeResult[Block[GraphResult]]": ...
     @overload
     def analyze(
         self, algo: "Block[GraphAlgorithm]", *, by: Literal[Disposition.PARTITION]
-    ) -> "RuntimeRail[tuple[Block[GraphResult], Block[BoundaryFault]]]": ...
+    ) -> "RuntimeResult[tuple[Block[GraphResult], Block[BoundaryFault]]]": ...
     def analyze(
         self, algo: "GraphAlgorithm | Block[GraphAlgorithm]", *, by: Disposition = Disposition.ABORT
-    ) -> "RuntimeRail[GraphResult] | RuntimeRail[Block[GraphResult]] | RuntimeRail[tuple[Block[GraphResult], Block[BoundaryFault]]]":
+    ) -> "RuntimeResult[GraphResult] | RuntimeResult[Block[GraphResult]] | RuntimeResult[tuple[Block[GraphResult], Block[BoundaryFault]]]":
         match algo:
             case Block() as algos:
                 return traversed(algos.map(self._one), by=by)
             case lone:
                 return self._one(lone)
 
-    def _one(self, algo: "GraphAlgorithm") -> "RuntimeRail[GraphResult]":
+    def _one(self, algo: "GraphAlgorithm") -> "RuntimeResult[GraphResult]":
         with _TRACER.start_as_current_span(
             f"graph.analyze.{algo.tag}",
             attributes={"rasm.graph.algorithm": algo.tag, "rasm.graph.backend": self.backend, "rasm.graph.nodes": self.node_count},
         ):
             return boundary(GRAPH_ANALYZE, lambda: _run_rx(_as_rx(self.graph), algo, self.kind), catch=_kernel_raises(algo))
 
-    def write(self, fmt: GraphFormat) -> "RuntimeRail[bytes]":
+    def write(self, fmt: GraphFormat) -> "RuntimeResult[bytes]":
         return boundary(GRAPH_EGRESS, lambda: _EGRESS[self.backend][fmt](self.graph), catch=_egress_raises(self.backend))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -346,7 +346,7 @@ def _arrow_raises() -> Catch:
     return (pa.ArrowException, TypeError, ValueError)
 
 
-def _frame(result: GraphResult) -> "RuntimeRail[pa.Table]":
+def _frame(result: GraphResult) -> "RuntimeResult[pa.Table]":
     match result:
         case GraphResult(tag="scores", scores=rows):
             return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "value": [v for _, v in rows]}))
@@ -595,15 +595,15 @@ flowchart TD
     accTitle: Graph payload flow
     accDescr: Source admission into the payload, coercion onto the rustworkx kernel, the community delegation, and result frames joining the tabular plane.
     src["rx.PyGraph·PyDiGraph / nx.Graph·DiGraph / igraph.Graph"] -->|_shape recovers backend·kind·counts·wire| payload["GraphPayload"]
-    payload -->|ContentIdentity.of over node-link wire| key["RuntimeRail[ContentKey]"]
+    payload -->|ContentIdentity.of over node-link wire| key["RuntimeResult[ContentKey]"]
     payload -->|analyze lone: _one boundary fence| coerce["_as_rx: rx identity · nx networkx_converter · ig to_networkx+converter"]
     coerce -->|single rustworkx kernel, bare-name dispatch| rxk["_run_rx: path·centrality·structure·cut·layout"]
     rxk -->|community arm delegates| igk["_run_ig over TupleList: Leiden·Louvain·Infomap"]
     rxk --> result["GraphResult: order·layered·path·scores·matrix·partition·tree·coloring·matching·layout·scalar·flag"]
     igk --> result
-    payload -->|analyze Block: traversed by Disposition| batch["RuntimeRail[Block[GraphResult]] | (results, faults)"]
+    payload -->|analyze Block: traversed by Disposition| batch["RuntimeResult[Block[GraphResult]] | (results, faults)"]
     payload -->|write over GraphFormat: codec/egress lane| egress["_EGRESS[backend][fmt]: node_link·graphml·edge_list bytes"]
-    result -->|frame: node-keyed cases| node_frame["RuntimeRail[pa.Table] node·value/color/component/rank/depth/x·y"]
+    result -->|frame: node-keyed cases| node_frame["RuntimeResult[pa.Table] node·value/color/component/rank/depth/x·y"]
     node_frame -->|columnar#SCAN pa.Table.join keys=node left outer| enrich["node-attribute enrichment"]
     payload --> key
 ```
@@ -634,8 +634,8 @@ def _address(key: bytes) -> str:
     return key.hex()
 
 
-def organization_graph(payload: bytes) -> "RuntimeRail[tuple[GraphPayload, OrganizationIndex]]":
-    def build() -> "RuntimeRail[tuple[Any, OrganizationIndex]]":
+def organization_graph(payload: bytes) -> "RuntimeResult[tuple[GraphPayload, OrganizationIndex]]":
+    def build() -> "RuntimeResult[tuple[Any, OrganizationIndex]]":
         wire = Organization.from_binary(payload)
         rows: list[tuple[str, str | None, Entity]] = []
         keys: set[str] = set()
@@ -686,7 +686,7 @@ def organization_graph(payload: bytes) -> "RuntimeRail[tuple[GraphPayload, Organ
             current=None if selected is None else entities[selected],
         )))
 
-    return boundary(ORG_BUILD, build, catch=_ORG_RAISES).bind(lambda railed: railed).bind(
+    return boundary(ORG_BUILD, build, catch=_ORG_RAISES).bind(lambda inner: inner).bind(
         lambda built: GraphPayload.of(built[0]).map(lambda payload: (payload, built[1]))
     )
 ```

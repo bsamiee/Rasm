@@ -1,13 +1,13 @@
 # [PY_ARTIFACTS_API_OPENCOLORIO]
 
-`opencolorio` owns the CONFIG-DRIVEN color pipeline — the studio-grade transform graph the estate resolves a working space, a display view, and a look through. Configs name colorspaces, roles, displays, views, looks, named transforms, and file rules; asking it for a transform between two of them yields a `Processor`, which compiles to a `CPUProcessor` applying in place over `numpy` buffers or to a `GPUProcessor` emitting GLSL, MSL, HLSL, or OSL shader text. ACES CG and Studio configs ship inside the distribution, so an ACEScg scene-linear working space and its display renderings resolve with no config file on disk.
+`opencolorio` owns the CONFIG-DRIVEN color pipeline — the studio-grade transform graph the repo resolves a working space, a display view, and a look through. Configs name colorspaces, roles, displays, views, looks, named transforms, and file rules; asking it for a transform between two of them yields a `Processor`, which compiles to a `CPUProcessor` applying in place over `numpy` buffers or to a `GPUProcessor` emitting GLSL, MSL, HLSL, or OSL shader text. ACES CG and Studio configs ship inside the distribution, so an ACEScg scene-linear working space and its display renderings resolve with no config file on disk.
 
-Boundaries against the estate's other color owners run on AUTHORITY, not on the math: `colour-science` owns colorimetry, appearance models, and spectral computation; `coloraide` owns CSS-space parsing and gamut mapping; the `imagecodecs` `cms_*` arms own the ICC-profile edge where a file carries an embedded profile. This owner holds the config — the versioned, shareable declaration of what a project's colorspaces MEAN — and every scene-linear working-space decision resolves through its `scene_linear` role rather than a synthesized profile or a hardcoded matrix.
+Boundaries against the repo's other color owners run on AUTHORITY, not on the math: `colour-science` owns colorimetry, appearance models, and spectral computation; `coloraide` owns CSS-space parsing and gamut mapping; the `imagecodecs` `cms_*` arms own the ICC-profile edge where a file carries an embedded profile. This owner holds the config — the versioned, shareable declaration of what a project's colorspaces MEAN — and every scene-linear working-space decision resolves through its `scene_linear` role rather than a synthesized profile or a hardcoded matrix.
 
 ## [01]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the config graph and its compiled processors
-- rail: color
+- concern: color
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]      | [CAPABILITY]                                               |
 | :-----: | :-------------------------------------- | :----------------- | :--------------------------------------------------------- |
@@ -25,7 +25,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [12]   | `Exception` `ExceptionMissingFile`      | fault              | every config, resolution, and transform fault              |
 
 [PUBLIC_TYPE_SCOPE]: the transform families a config composes
-- rail: color
+- concern: color
 
 | [INDEX] | [FAMILY]                                                           | [CAPABILITY]                                              |
 | :-----: | :----------------------------------------------------------------- | :-------------------------------------------------------- |
@@ -39,7 +39,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [08]   | `GroupTransform` `BuiltinTransform` `AllocationTransform`          | composition, the shipped roster, GPU allocation hints     |
 
 [PUBLIC_TYPE_SCOPE]: the closed policy vocabularies
-- rail: color
+- concern: color
 
 | [INDEX] | [ENUM]                | [ROWS]                                                                     |
 | :-----: | :-------------------- | :------------------------------------------------------------------------- |
@@ -57,7 +57,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 ## [02]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: config resolution
-- rail: color
+- concern: color
 - [SHAPE]: static factories on `Config`, beside module-level process state
 
 | [INDEX] | [SURFACE]                                            | [CAPABILITY]                                                        |
@@ -73,7 +73,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [09]   | `ClearAllCaches()` and `SetComputeHashFunction(fn)`  | process cache and file-hash policy                                  |
 
 [ENTRYPOINT_SCOPE]: graph interrogation
-- rail: color
+- concern: color
 - [SHAPE]: instance (`Config`)
 
 | [INDEX] | [SURFACE]                                               | [CAPABILITY]                                                      |
@@ -88,7 +88,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 |  [08]   | `getCurrentContext()` and `getEnvironmentVarNames()`    | the context whose variables expand inside file paths              |
 
 [ENTRYPOINT_SCOPE]: processor compilation and application
-- rail: color
+- concern: color
 - [SHAPE]: instance (`Config` to `Processor` to `CPUProcessor` or `GPUProcessor`)
 
 | [INDEX] | [SURFACE]                                                        | [CAPABILITY]                                                   |
@@ -120,7 +120,7 @@ Boundaries against the estate's other color owners run on AUTHORITY, not on the 
 - GPU emission is a DESCRIPTOR fill, never a string return — `GpuShaderDesc.CreateShaderDesc(language=…)` then `GPUProcessor.extractGpuShaderInfo(desc)`, after which `desc` carries the shader text, the entry function name, the uniform roster, and the LUT textures the caller must bind. Emitting text without binding those textures produces a shader that compiles and computes the wrong answer.
 - Process-wide state is app-root only: `SetCurrentConfig`, `SetLoggingLevel`, `SetLoggingFunction`, `SetEnvVariable`, and `ClearAllCaches` mutate the process. Library tiers thread an explicit `Config`; the startup census reads `GetVersion()` once.
 - Config resolution from a file path is `getColorSpaceFromFilepath`, which returns the colorspace and rule index from the config's own `FileRules` — an ingest that infers a colorspace from a filename convention of its own forks the project's declared rules.
-- Every fault is `PyOpenColorIO.Exception`, with `ExceptionMissingFile` for an unresolvable LUT or config reference, so the boundary adapter maps that one family onto the estate's typed fault rather than catching per call.
+- Every fault is `PyOpenColorIO.Exception`, with `ExceptionMissingFile` for an unresolvable LUT or config reference, so the boundary adapter maps that one family onto the repo's typed fault rather than catching per call.
 
 [STACKING]:
 - `colour-science`(`.api/colour-science.md`): the split is AUTHORITY. Colorimetry, CAM16, spectral computation, chromatic adaptation, and gamut volumes stay with `colour-science`; what a project's `ACEScg` or display view MEANS stays with the config. Hardcoding a primaries matrix where a config role answers is the fork this owner exists to foreclose, and the shipped ACES configs make the role reachable without a config file.

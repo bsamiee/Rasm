@@ -2,26 +2,26 @@
 
 `TextSeed`, `TextSpec`, and `LeaderSpec` admit content and placement once; `RunFormat` carries every decoration edit through the namespace's one `FaceDecoration` roster, live and RTF alike; `FieldKind` generates the evaluator space from signature data instead of a mirrored case roster.
 
-`OutlineSpec` dispatches form and grouping through two closed folds and returns detached geometry with content identity and bounds; `TextOp` collapses text and leader placement into one mutation rail.
+`OutlineSpec` dispatches form and grouping through two closed folds and returns detached geometry with content identity and bounds; `TextOp` collapses text and leader placement into one mutation pipeline.
 
 ## [01]-[INDEX]
 
 - [02]-[CONTENT_MODEL]: admitted content, placement, run edits, and detached RTF formatting.
 - [03]-[FIELD_FORMULAS]: evaluator rows, typed signature data, programs, composition, and evaluation.
 - [04]-[OUTLINING]: transform-aware form and grouping dispatch with detached geometry evidence.
-- [05]-[TEXT_RAIL]: placement, mutation, snapshot, query, and shared commit entry.
+- [05]-[TEXT_PIPELINE]: placement, mutation, snapshot, query, and shared commit entry.
 - [06]-[SURFACE_LEDGER]: owner table over every surface above.
 - [07]-[RESEARCH]: open questions.
 
 ## [02]-[CONTENT_MODEL]
 
 - Owner: `TextSeed` owns plain-versus-rich source, `TextSpec` owns text creation, `LeaderPath` and `LeaderSpec` share point-run admission across creation and repointing, and `RunEdit` owns replacement, formatting, and wrapping.
-- Law: every union on this page seals — a private owner constructor closes the case family and a public `Fin`-returning factory is the sole ingress, so a value that exists is admitted and no rail re-validates what it was handed. `Admit` folds re-screened already-constructed cases, which is a second admission authority answering after construction.
+- Law: every union on this page seals — a private owner constructor closes the case family and a public `Fin`-returning factory is the sole ingress, so a value that exists is admitted and no interior re-validates what it was handed. `Admit` folds re-screened already-constructed cases, which is a second admission authority answering after construction.
 - Law: `RunFormat` is the sole formatting vocabulary for live annotation edits and `FormatRtfString` alike; the decoration axis is `Annotation/typeface.md`'s `FaceDecoration`, whose rows carry the host members that write and probe them, so no second delta shape reconstructs bold, italic, or underline state.
 - Law: a `RunFormat.Decorate` naming a decoration the host publishes no setter for refuses typed at the write — `FaceDecoration.Mark` is absent on exactly that row, so the refusal is the roster's own declared coverage rather than a guard this page maintains.
 - Law: every plural admission on this page ACCUMULATES — point runs, format runs, formula values, program runs, and run edits each report their whole refusal set, so a caller repairs one batch in one pass rather than one member per round trip.
-- Law: every scalar owner rails through `ValidityClaim` and refuses with a typed `DraftFault` clause set, so a refused width, angle, or span names the column and the requirement instead of one sentence covering four columns.
-- Packages: `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`ResourceName`); `Document/session.md` (`DraftFault`); `Domain/rails` (`ValidityClaim`, `Op` receivers); `Domain/validation` (`CapabilitySet<T>`, `Op.AcceptValidated`); RhinoCommon `TextEntity`/`Leader`/`AnnotationBase` per `.api/api-rhinocommon-annotation.md`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Law: every scalar owner admits through `ValidityClaim` and refuses with a typed `DraftFault` clause set, so a refused width, angle, or span names the column and the requirement instead of one sentence covering four columns.
+- Packages: `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`ResourceName`); `Document/session.md` (`DraftFault`); `Domain/results` (`ValidityClaim`, `Op` receivers); `Domain/validation` (`CapabilitySet<T>`, `Op.AcceptValidated`); RhinoCommon `TextEntity`/`Leader`/`AnnotationBase` per `.api/api-rhinocommon-annotation.md`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: a host formatting member joins as a column on the `FaceDecoration` row that already names its concept; a new run edit is one case with its factory and its arm.
 
 ```csharp
@@ -494,7 +494,7 @@ public sealed record FieldProgram {
 - Law: `OutlineProduct` carries its owned natives as a BASE POSITIONAL column and exposes typed `Release(Op)`; cleanup never parks inside a value the caller may not inspect.
 - Boundary: `OutlineSpec.Apply` owns its duplicated `TextEntity` through one lease spanning every transform and outline exit.
 - Boundary: `OutlineProduct` receives native geometry only after strict evidence capture; capture failure and product release both settle through kernel `Custody`, so no outline path spells a cleanup fold of its own.
-- Packages: `Domain/rails` (`Custody`, `Lease<T>`, `ValidityClaim`); RhinoCommon `TextEntity` outline members per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Domain/results` (`Custody`, `Lease<T>`, `ValidityClaim`); RhinoCommon `TextEntity` outline members per `.api/api-rhinocommon-annotation.md`.
 - Growth: a new outline family is one `OutlineForm` case, one arm naming its host pair, and one `OutlineProduct` case; the grouping fold and the evidence capture gain it unchanged.
 
 ```csharp
@@ -697,20 +697,20 @@ public sealed partial class OutlineSpec {
 }
 ```
 
-## [05]-[TEXT_RAIL]
+## [05]-[TEXT_PIPELINE]
 
 - Owner: `AnnotationSeed` closes text and leader placement; `TextOp` owns placement, run amendment, formula assignment, leader repointing, and the per-object style verbs; `TextAsk` owns detached content, frame, bounds, style, override, leader, and geometry evidence; a native-bearing answer case carries a lease or a `GeometryHandle` run and settles it through kernel `Custody`.
-- Law: the per-annotation style verbs are `Annotation/style.md`'s `AnnotationStyleOp` under ONE `TextOp.Style` case — overlay and clear were two cases spelling one concern, the annotation's relation to its style, and the dimension rail spells the same pair against the same owner.
+- Law: the per-annotation style verbs are `Annotation/style.md`'s `AnnotationStyleOp` under ONE `TextOp.Style` case — overlay and clear were two cases spelling one concern, the annotation's relation to its style, and the dimension family spells the same pair against the same owner.
 - Law: every host enum crossing a snapshot boundary lands on a bounded owner — `AnnotationKind` for the annotation kind, `MaskSource`/`TextMaskFrame` for the mask pair, `LeaderArrow`/`LeaderCurve`/`LeaderContentAngle`/`TextAlignAcross`/`TextAlignDown` for the leader vocabulary — each admitted through the kernel's host-enum `Op.Row` arm, so an undefined host value is an `InvalidResult` naming the enum rather than an `(int)` cast landing on no row.
-- Law: `AnnotationKind` carries the WHOLE `AnnotationType` roster with a `Measures` column, so this page's own text and leader snapshots resolve and a measuring consumer narrows through the column; a vocabulary spanning the dimension rows alone refuses the majority of the objects this rail places.
+- Law: `AnnotationKind` carries the WHOLE `AnnotationType` roster with a `Measures` column, so this page's own text and leader snapshots resolve and a measuring consumer narrows through the column; a vocabulary spanning the dimension rows alone refuses the majority of the objects this operation places.
 - Law: snapshot decorations are `CapabilitySet<FaceDecoration>` values off the shared roster — the first-character set reads the resolved `FirstCharFont` and the run-wide set reads the three host `IsAll*` probes, so the roster's own coverage names why the two sets differ instead of six booleans that state nothing.
 - Law: `TextMask` is a union, not a flag beside dead columns — a disabled mask carries no colour, source, frame, or offset, and the enabled case carries its traits as one set.
 - Law: an override census IS the presence answer — `TextStyleState.Overridden` empty says what a second `HasPropertyOverrides` column said, and two authorities over one host verdict drift the moment either read changes.
-- Law: native-bearing answers expose one total `Release(Op)` fold; cleanup faults stay typed on that rail and no disposer parks them inside the answer.
+- Law: native-bearing answers expose one total `Release(Op)` fold; cleanup faults stay typed on that result and no disposer parks them inside the answer.
 - Law: placement and duplicate-then-replace amendments hold native geometry in one owned lease through override, add, edit, and replace failure, and an absent attributes or history payload lowers through `Op.ToHostSlot` — the ONE spelling where an absent optional becomes a host `null`, never `ValueUnsafe`, which throws on `None`.
 - Law: formula assignment uses `SetRichText(rtfText, dimstyle)`; snapshot evidence reads first-character decoration off `FirstCharFont` because the host publishes no per-annotation decoration member.
 - Law: the dimension-scale probe carries the Document-owned `ViewportTarget` address and resolves it to one native viewport through `ResolveViewport` inside the session demand immediately before `GetDimensionScale`, so no live `RhinoViewport` handle rides the detached request.
-- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `StyleField`, `StyleOp.Lens`, `DraftCrossing`, `DraftPlan`, `DraftSpine`, `LengthDisplayRow`); `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`TableTarget`, `TargetResolution.Only`, `ResourceId`, `GeometryHandle`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); `Numerics/atoms` (`PerceptualColor.OfHost`); RhinoCommon `AnnotationObjectBase`/`Leader`/`TextFields` per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `StyleField`, `StyleOp.Lens`, `DraftCrossing`, `DraftPlan`, `DraftSpine`, `LengthDisplayRow`); `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`TableTarget`, `TargetResolution.Only`, `ResourceId`, `GeometryHandle`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/results` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); `Numerics/atoms` (`PerceptualColor.OfHost`); RhinoCommon `AnnotationObjectBase`/`Leader`/`TextFields` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a new text mutation is one `TextOp` case with its factory and arm; a new read is one `TextAsk` case beside its answer case, and the commit and ask entries gain both unchanged.
 
 ```csharp

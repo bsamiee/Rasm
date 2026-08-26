@@ -27,7 +27,7 @@ Both boundaries carried an origin family and an icon record; the AppUi product s
 - Law: the extent carries its own allocation CEILING and every pixel figure is overflow-safe. `MaxDimension` is a REQUIRED column seeded from the declared `AssetExtent.Ceiling` row — the tightest maximum raster edge the admitted imaging stacks publish — so an absent ask reads a bound some surface actually allocates under rather than a fabricated `int.MaxValue`; both scaled edges are measured in `double` against it and `PixelCount` answers in `long`, because two admitted edges under a retina scale wrap an `int` product long before either edge reads as unreasonable, and a wrapped count reads back as a small buffer the decode then writes past.
 - Law: an extent past its ceiling REFUSES at `Of` and no read clamps. A saturating scaled edge fabricates a picture the caller never asked for, and the fabricated edge then sizes the buffer every consumer below trusts.
 - Auto: `AssetExtent` derives its scaled pixel extent from the logical extent and the surface scale, so no consumer multiplies.
-- Packages: Eto.Drawing for the toolkit bitmap and `System.Drawing.Common` for the GDI bitmap (both prelude-aliased); LanguageExt.Core for the rails, `Seq`, and the packed `Arr<byte>` rows; `System.Reflection` for the embedded-resource anchor; `System.Buffers` for the frozen refused-glyph set the path admission reads. Composed inside the sub-domain: `AlphaLayout` from `Interaction/paint`, `FieldTag` from `Interaction/control`, and `UiFault`/`RejectReason` from `Interaction/dispatch`.
+- Packages: Eto.Drawing for the toolkit bitmap and `System.Drawing.Common` for the GDI bitmap (both prelude-aliased); LanguageExt.Core for the types, `Seq`, and the packed `Arr<byte>` rows; `System.Reflection` for the embedded-resource anchor; `System.Buffers` for the frozen refused-glyph set the path admission reads. Composed inside the sub-domain: `AlphaLayout` from `Interaction/paint`, `FieldTag` from `Interaction/control`, and `UiFault`/`RejectReason` from `Interaction/dispatch`.
 - Growth: a new byte source is one case, breaking every resolve site loudly; a new product shape is one raster case beside one `RasterStack` row; a new scale in a set is one row; a backend publishing a tighter raster edge is one ceiling row.
 - Boundary: the kernel never CACHES a resolved asset — a host image cache, a `DisplayBitmap` table, and a platform image list are the boundary's own custody, because their eviction policy is the host's and a kernel cache would outlive the surface that asked.
 
@@ -79,7 +79,7 @@ public readonly partial struct FileLocation {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record AssetAnchor(Assembly Owner, string ResourcePath);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct AssetExtent(
     Dimension Width, Dimension Height, PositiveMagnitude Scale, Dimension MaxDimension) : IValidityEvidence {
     public static readonly Dimension Ceiling = Dimension.Create(value: 16_384);
@@ -154,7 +154,7 @@ public abstract partial record AssetOrigin {
     public sealed record Source(string Text) : AssetOrigin;
     public sealed record Render(Func<AssetExtent, Fin<PaintProgram>> Draw) : AssetOrigin;
 
-    [BoundaryAdapter] public Fin<AssetRaster> Resolve(AssetExtent extent, RasterStack stack, Op? key = null);
+    public Fin<AssetRaster> Resolve(AssetExtent extent, RasterStack stack, Op? key = null);
 }
 ```
 
@@ -221,7 +221,7 @@ public sealed partial class MirrorAxis {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct IconPose(VectorAngle Rotation, Option<MirrorAxis> Mirror, AssetExtent Extent) : IValidityEvidence {
     public static IconPose Upright(AssetExtent extent);
     public bool IsValid => ValidityClaim.All(Extent.IsValid, Band.Angle.Admits(value: Rotation.Value));
@@ -231,7 +231,7 @@ public readonly record struct IconPose(VectorAngle Rotation, Option<MirrorAxis> 
 ## [04]-[RENDER]
 
 - Owner: `IconRender` — the composed request: an origin, a pose, and the ORDERED filter chain, each entry carrying its own payload.
-- Law: the render is a VALUE both boundaries pass whole, constructible without a rail because every invalid pairing is unrepresentable — neither re-spells its columns, and a boundary that needs one more coordinate widens this record rather than wrapping it.
+- Law: the render is a VALUE both boundaries pass whole, constructible without a gate because every invalid pairing is unrepresentable — neither re-spells its columns, and a boundary that needs one more coordinate widens this record rather than wrapping it.
 - Law: filter ORDER IS LAW. `Filters` applies head to tail and the sequence is the operation, because greyscale-then-fade and fade-then-greyscale answer different pixels — one desaturates a blended colour, the other blends toward a colour already desaturated. A single filter is a one-element chain and unfiltered is the empty one, so the arity that carried the ordering question is gone rather than answered per host. A host applying the chain in any other order is drawing something the value did not ask for.
 - Law: the chain states its wire form as its entries' keys IN ORDER through `Wire`, so a persisted or logged render round-trips the sequence rather than a set — a set-shaped read is the form that silently reorders, which is the same defect as a host reordering the apply.
 - Growth: a new axis is one column every consumer answers; a new filter step is one chain entry no consumer edits.
