@@ -71,6 +71,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS close dispatch by default — a catch-all over an owned family turns a compile break into a silent pass; openness needs foreign extension.
 - NEVER mint entrypoint siblings — name-suffix families, arity twins, boolean mode knobs; the discriminant must be recoverable from the value.
 - NEVER guard an invalid state at each use; make it unrepresentable at construction and canonicalize at intake so consumers read one regime.
+- NEVER mint a two-case closed family whose cases carry no payload, nor a roster mirroring another owner's cases — a bool column or option.
 
 [PARAMETERIZATION] - Variation lives in data or a typed parameter, never in a name, a flag, or a body:
 - ALWAYS hunt both directions — a literal encoding a decision becomes a policy row; a knob set whose combinations the body re-derives collapses.
@@ -101,6 +102,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and never use suppressions.
 - ALWAYS maintain semantic consistency in naming of files, code functionality, types, classes, and functions, USE 1-2 word values; avoid 3+
 - ALWAYS use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, or policy row.
+- ALWAYS spell explicit types and name arguments only where they disambiguate; `var`, `Foo(value: value)`, and `Fin.Succ(x)` in a typed slot are noise.
 
 ## [03]-[DEPENDENCY_POLICY]
 

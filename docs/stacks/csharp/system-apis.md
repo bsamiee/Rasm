@@ -30,6 +30,9 @@ This table is a lookup by repeated local smell; the owning card states the place
 |  [16]   | `SHA256` for a non-cryptographic key   | `XxHash3`                  |
 |  [17]   | guard-block argument `throw`           | throw-helper statics       |
 |  [18]   | `[DllImport]` runtime marshalling stub | `[LibraryImport]`          |
+|  [19]   | `lock (object)` on a boxed sentinel    | `System.Threading.Lock`    |
+|  [20]   | hand popcount, log2, or bit rotate     | `BitOperations`            |
+|  [21]   | `Vector<T>` as the first SIMD reach    | `Vector128<T>` fixed width |
 
 ## [02]-[TEXT_AND_WIRE]
 

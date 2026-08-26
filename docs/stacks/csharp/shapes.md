@@ -29,6 +29,7 @@ When a concept matches several signatures, the most specific row wins.
 
 [OWNER_SELECTION]:
 - `SelectOwner(concept)`: choose by singleton-versus-instance, field coverage, relatedness, invariant, admission boundary, reads-of-evidence per write, payload timing, and openness; high-churn intermediate values stay plain until the seam where evidence becomes domain material.
+- `NameOwner(type)`: a type named for its shape or constraint rather than its concept, or two adjacent types a reader cannot tell apart by name, is the deleted form — the cost of a type is confusability, never its line count.
 - `UseSmartEnum(vocabulary)`: fixed named instances, identity dispatch, behavior columns, key lookup, and declared growth absorption.
 - `UseUnion(family)`: per-occurrence payload, case dispatch, stored call modality, transport carrier under `SwitchMapMethodsGeneration.None`, and ad-hoc members meaningful outside the family.
 - `UseComplexValueObject(product)`: require every field under every value; move discriminator-dependent fields to `UseUnion`; keep non-admitting, no-invariant, default-comparer products as `record`.
@@ -69,23 +70,16 @@ When a concept matches several signatures, the most specific row wins.
 - Law: the raw key stays private except conversion and explicit-interface egress; consumers compare and dispatch on the owner, and a key-type move breaks at the boundary.
 - Law: comparer policy is a type argument; `IEqualityComparerAccessor<T>` and `IComparerAccessor<T>` swing equality, hashing, ordering, relational operators, and `CompareTo` together, with comparers cached in `static readonly` fields.
 - Law: string keys default to ordinal-ignore-case across generated surfaces but never inherit policy; every string-bearing layer declares one accessor type, and divergence is the defect.
+- Law: `ComparerAccessors` ships every ordinal and culture accessor; a hand accessor is earned only by a comparer the library lacks.
 - Accept: `[MemberEqualityComparer<...>]` makes complex-owner equality opt-in; unmarked members remain materialized but leave equality, hashing, and diagnostic text.
 - Boundary: collection members keep reference identity unless a sequence comparer accessor owns that member.
 
 ```csharp
-public sealed class FieldKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
-    private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
-
-    public static IEqualityComparer<string> EqualityComparer => Policy;
-
-    public static IComparer<string> Comparer => Policy;
-}
-
 [ValueObject<string>(
     ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
-[KeyMemberEqualityComparer<FieldKeyPolicy, string>]
-[KeyMemberComparer<FieldKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct FieldKey;
 
 public static class FieldRanks {
@@ -182,7 +176,8 @@ public static class AxisAlgebra {
 - Law: the declaration list is the vocabulary; `public static readonly` fields fix item membership, dispatch indices, callback order, and metadata identifiers, while static properties and case-typed fields vanish from `Items` and dispatch at warning severity.
 - Law: keyed vocabularies carry two independent orders: `Items` by declaration and comparison by key comparer; one key policy swings lookup, hash, comparison, and operators, and a key mirroring a host enum ordinal spells `(int)HostEnum.Value`, never a hand-numbered literal the host roster silently outgrows.
 - Law: domain rank is an item column, never a bent comparer; range dispatch needs numeric keys to keep future thresholds total, and a row-to-row correspondence is a `[UseDelegateFromConstructor]` column deferring behind `static () => Row` — never an eager field reference, which captures null before materialization protects it, and never a key string re-looked-up at read time, whose failed lookup silently falls back to the unresolved row.
-- Accept: keyless vocabularies only for behavior rows: items, dispatch, reference identity, no lookup, no conversions, no parsing; wire identity requires declared `[ObjectFactory<TValue>]`.
+- Accept: keyless vocabularies for every process-local roster — items, dispatch, reference identity, behavior columns; a key is earned by wire, host, or persisted identity alone, and a hand-numbered `key: 0, 1, 2` on a local roster is the deleted form.
+- Law: a two-row vocabulary with no behavior column is a `bool` column on its owner named for the true arm; a roster mirroring a union's cases, or a bool its producer already holds, publishes a second discriminant and deletes.
 
 [LOOKUP_LIFECYCLE]:
 - Law: validity belongs to keys, never instances; no invalid item is constructible, callers choose `Get`, `TryGet`, or `Validate`, and exception catching is the wrong verb.
@@ -254,7 +249,8 @@ public static class VariantOps {
 
 [AD_HOC_FORM]:
 - Law: storage is computed: typed fields per stateful unique member until a second stateful reference member collapses references into one `object` slot; struct members stay inline, and `TxIsStateless` identity rides the discriminator.
-- Law: struct ad-hoc `default` is poison; index zero throws on first observation, never minting, and only `Is{Name}` probes are total enough for rehydration, pooling, and array scans.
+- Law: struct ad-hoc `default` is poison; index zero throws on first observation, never minting, and only `Is{Name}` probes are total enough for rehydration, pooling, and array scans — no stable option maps `default` onto a member.
+- Law: `Normalize{Member}(ref T)` is the ad-hoc union's generated intake canonicalizer, the union-side `ValidateFactoryArguments`; a consumer-side trim or clamp beside it is the deleted form.
 - Law: equality gates by discriminator, then member under `DefaultStringComparison`; hash omits discriminator mixing, `ToString` erases the active case, and identity-bearing rendering routes through generated case dispatch or `Is{Name}` and `As{Name}` probes.
 - Boundary: implicit conversions make the union a parameter absorber, replacing overloads and lifting mixed collection expressions, until interface, `object`, type-parameter, or duplicate members require `Create{Name}` factories; closing ingress sets both non-public `ConstructorAccessModifier` and `ConversionFromValue = ConversionOperatorsGeneration.None`.
 
@@ -425,5 +421,5 @@ public static class Admission {
 
 [WIRE_OWNERSHIP]:
 - Law: a protocol DTO is a shape only on topology divergence — a scalar wire collapses into the owner's object factory, a string wire into a parse-format `[ObjectFactory<TValue>]` micro-grammar, and a keyed owner severs the DTO at declaration through `UseForSerialization`; a surviving DTO stays a raw disposable record that never grows `Validate`.
-- Law: `[ObjectFactory<TValue>]` rows are owner-local admission grammars whose declaration order is behavior — the last matching row wins consumer resolution, and serialization, persistence, and binding each claim exactly one row, so the owner carries every wire dialect as a closed row set rather than a sibling DTO per protocol.
+- Law: `[ObjectFactory<TValue>]` rows are owner-local admission grammars, one per plane — one model-binding row, one persistence row, and no two rows claiming the same serialization framework — so the owner carries every wire dialect as a closed row set rather than a sibling DTO per protocol.
 - Boundary: `HasCorrespondingConstructor` marks the persistence-only trusted-rehydration row for already-admitted truth; the converter, resolver, and metadata-plane mechanics that consume these rows are the boundary page's, named here only as the owner-shape decision they read.

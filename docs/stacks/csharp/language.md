@@ -11,6 +11,8 @@ Every language-form snippet composes those owners as settled material and demons
 - Target framework: `net10.0`
 - Language version: `14.0` explicit; floating `latest`/`preview` is rejected so a form lands only when the pinned compiler owns it
 - Nullable: `enable` with warnings-as-errors, so a nullable annotation is checked, never advisory
+- Types: every local, pattern designation, and lambda parameter spells its type; `var` never appears, and a single-arm `switch`/`is` binding used as a `let` is a typed local
+- Named arguments: only where they disambiguate — a generated `Switch` arm, a literal, adjacent same-typed parameters; `Foo(value: value)` and `Math.Sqrt(d: x)` are noise
 - Implicit usings: `enable`; `LanguageExt.Prelude` enters `static`, so `Optional`, `guard`, `Some`, and `None` are unqualified
 - Overflow: `CheckForOverflowUnderflow` is on, so an unchecked numeric body is the deliberate `unchecked(...)` exception, and a key-math operator traps by default
 
@@ -66,6 +68,9 @@ Each table routes a concept to the C# 14 form that owns it; the most specific ro
 |  [04]   | ref state inside a coroutine      | `ref`/`unsafe` in an iterator or `async` body | an extracted helper duplicating the body |
 |  [05]   | embedded structured text          | raw string literal `"""..."""`                | escape-laden concatenation               |
 |  [06]   | terminal escape in processed text | `\e`                                          | the `\x1b` magic literal                 |
+|  [07]   | fixed small row of values         | `[InlineArray(N)]` struct                     | `fixed` buffer, N named fields, array    |
+|  [08]   | mutual exclusion                  | `System.Threading.Lock`                       | `lock (object)`, `Monitor` on a box      |
+|  [09]   | assign through a possible absence | `?.=` null-conditional assignment             | `if (x is not null) x.P = v` guard block |
 
 ## [03]-[LANGUAGE_FORMS]
 
@@ -140,6 +145,7 @@ public static class MarkPolicy {
 - Use when: an inert carrier needs identity, mandatory initialization, or a property-local invariant, and has no admission, vocabulary, or dispatch pressure that graduates it to a generated owner.
 - Accept: `record` and `readonly record struct` for structural identity over scalar, string, and value-object members; `required` plus `init` for mandatory members so a missing field is a construction-site compile error, not a runtime null; the `field` keyword to attach a one-property clamp without a named backing field; `with` for nondestructive update; `partial` members and constructors where a generator co-owns the type.
 - Law: synthesized record equality runs `EqualityComparer<T>.Default` per member, so an `ImmutableArray<T>`, `T[]`, `FrozenDictionary<TKey, TValue>`, `FrozenSet<T>`, `Dictionary<TKey, TValue>`, `ImmutableDictionary<TKey, TValue>`, or `ReadOnlyMemory<T>` member compares by reference or buffer coordinates and voids the structural claim — the remedy is `[Equatable]` on the `partial` owner with the member's policy attribute (`[OrderedEquality]`, `[UnorderedEquality]`, `[SetEquality]`), never a hand-written pair; LanguageExt `Seq`/`Map`/`HashMap`/`Arr` members are already structural and take no attribute.
+- Law: a record member derived from siblings is a computed getter, never a precomputed field — `with` copies backing fields and leaves a precomputed derivation stale; a `readonly record struct` dispatched through an interface boxes and has lost its reason to be a struct.
 - Reject: a manual backing field serving one accessor, constructor telescoping for mandatory members, a `Create`/`With`/copy-constructor factory beside `with`, an optional-parameter constructor that re-admits a value the `init` already gates, and a hand-written `Equals`/`GetHashCode` on inert data — equality is the record's or its `[Equatable]` repair's, and the content key is the `boundaries.md` byte-identity owner's.
 - Boundary: the three collection policies bind only `IEnumerable<T>` members, so the CARRIER is the decision — a `ReadOnlyMemory<T>` or rank-2 array member is unreachable by them, and a `ReadOnlyMemory<T>`/`Memory<T>` member left to the default path compares the HANDLE (reference, offset, length), never the bytes; value equality over the payload seats `[CustomEquality(typeof(...))]` naming an `IEqualityComparer<ReadOnlyMemory<T>>` whose static `Default` runs span `SequenceEqual` and hashes the content digest, a member whose identity a digest column already carries rides `[IgnoreEquality]` beside that `[DefaultEquality]` digest, and only a member wanting neither swaps to an enumerable carrier; a multidimensional-array member under any equality policy NREs the whole generator, surfacing as warning `CS8785` that only `TreatWarningsAsErrors` makes fatal, so such a member is `[IgnoreEquality]` by law.
 - Boundary: the moment a carrier admits raw input, carries a closed vocabulary, or dispatches, it becomes a `[ValueObject]`, `[ComplexValueObject]`, `[SmartEnum]`, or `[Union]` chosen by `shapes.md` `OWNER_CHOOSER`; the `field` clamp here is a layout convenience over trusted data, not the admission factory that owner's `Validate` is.

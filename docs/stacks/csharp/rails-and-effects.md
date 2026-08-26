@@ -20,11 +20,13 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 |  [08]   | `HashMap<K,V>`        | immutable keyed lookup         | mutable dictionary policy   |
 |  [09]   | `Atom<T>`             | boundary state cell            | domain accumulator          |
 |  [10]   | `K<F,A>`              | carrier-polymorphic arrow      | duplicate carrier pipelines |
+|  [11]   | `These<A,B>`          | value beside a non-fatal fault | receipt record beside value |
 
 `Option<T>` carries absence with zero failure semantics; promote to `Fin<T>` when the caller must know why; promote to `Validation<E,T>` only when independent faults must accumulate before reporting. `Fin<T>` pins its fail side to `Error` — the narrowest carrier whose failure composes with effect lifts without a bridge; `Either<L,R>` is reserved for a left that is not `Error` and demands an explicit `L → Error` bridge before entering an effect chain.
 
 [REPRESENTATION_DEFAULT]:
 - Law: `Option<T>` is a `readonly struct` — value-copied, zero-allocation, total over `default` as `None`.
+- Law: `Fin<T>`, `Validation<E,T>`, and `Option<T>` lift the value and the failure implicitly, so a target-typed position — expression body, `return`, `Switch` arm — spells the bare value and the bare fault; `Fin.Succ`, `Fin.Fail<T>`, and `Some` survive only where no target type exists, and an explicit-return-type lambda restores one.
 - Law: every class-shaped carrier — `Fin`, `Validation`, `Either`, the effect carriers — has a null reference as `default`, throwing before the rail ever sees it.
 - Boundary: an absence-carrying slot defaults safely; a fallible field, array slot, or generic `default` is a latent null, never zero-init storage.
 
@@ -44,6 +46,7 @@ Every boundary converts once into the carrier that states the real outcome; reus
 - Law: cancellation is cancellation only when the token handed to the body proves requested; an unrequested or tokenless `OperationCanceledException` stays an ordinary captured failure, never inferred from the exception class.
 - Law: an unknown exception stays exceptional and unmapped — only a documented provider refusal crosses into a typed fault, through a classifier constrained to carry the original error as its cause, whose `None` arm returns the captured error exact.
 - Law: one inbound funnel admits a raw exception, a wrapped error-exception, a bare string, or an option at a single entry, never a per-shape branch.
+- Law: an invariant violation or a state the program cannot continue from throws and stops — a `Fin` minted to keep going past it, or an exception parked inside a domain result, is the anti-pattern; only a documented, recoverable refusal rides the rail.
 - Reject: reminting a captured failure from its `Message`; a bare `try`/`catch` wrapping a rail transform; a blanket `MapFail` onto a typed fault, which destroys type, stack, and cause for every unknown failure at once.
 
 ```csharp
@@ -73,10 +76,11 @@ Traversal is rail policy: the collection shape and the sequencing operator toget
 - Law: conversion arrows are outbound-only — `where F : Natural<F, Seq>` is satisfied by `Arr`, `Iterable`, and `Iterator` but never by `Seq` itself, so a `Seq`-typed input needs a direct branch.
 - Law: `Count`, `AsSpan()`, and `Add` force complete evaluation of a lazy backing; incremental build is `Cons`-then-reverse, never repeated `Add`.
 - Use: `.Strict()` before boundary transfer when lazy traversal outlives its owner or re-pays O(n) per enumeration over a concat backing.
+- Law: `Iterable<T>.FromSpan(span)` copies the span, since a span cannot cross a lambda, so the allocation-free property of a `params ReadOnlySpan<T>` entry ends at that hop; `IterableNE<T>` is the non-empty carrier whose `Head` is total, so a gate that proved non-emptiness hands it on instead of re-probing `Seq.Head`.
 - Reject: lazy flow over disposed, borrowed, UI, native, or host-owned resources.
 
 [RAIL_TRAVERSAL]:
-- Use: `.TraverseM(f).As()` to abort on the first failure; `.Traverse(f).As()` to accumulate every failure — the operator is the sequencing policy, not a performance tuning.
+- Use: `.TraverseM(f).As()` to abort on the first failure; `.Traverse(f).As()` to accumulate every failure under an accumulating applicative such as `Validation` (over `Fin` it still short-circuits) — the operator is the sequencing policy, not a performance tuning.
 - Law: traversal and fold combinators live on the trait carriers alone — a bare array, `FrozenSet`, or other BCL collection owns no `TraverseM`/`Traverse`/`Fold` instance, so `toSeq(...)` lifts at the pipeline head and a traversal member spelled on the raw collection is a compile fiction.
 - Law: `TraverseM`'s trait-default body delegates to applicative `traverse`, so an un-overridden foldable accumulates under a monadic name; assuming abort-on-first-failure from an arbitrary kind is a latent correctness bug.
 - Law: over an effect carrier `Apply` launches both operands before awaiting while `Bind` is sequential, so `TraverseM` over independent effects serializes them.
@@ -289,6 +293,9 @@ public static IO<State> Converge(Atom<State> cell, Func<State, State> advance) =
 |  [09]   | `&`                   | `Validation`             | applicative product, fault append |
 |  [10]   | `+`                   | `Error`, monoidal `E`    | failure append                    |
 |  [11]   | `+`                   | `ScheduleTransformer`    | transformer composition           |
+|  [12]   | `<<`                  | `K<F,A>` with `Memo<F,B>` | sequence, discard second          |
+|  [13]   | `\| Pure(v)`           | `Choice` carrier         | alternative on failure            |
+|  [14]   | `\| Fail(e)`, `\| catch` | `Fallible` carrier       | direct failure, typed catch       |
 
 - Rule: the same glyph is a different algebra per carrier, so a non-local type reaches for the named method (`union`/`intersect` on `Schedule` are Prelude functions, schedule intersect is not `&`); `|` on `Validation` is first-success choice while on `Fallible` it is catch-wrapping, so an ambiguous receiver is `.As()`-anchored before the operator.
 - Reject: a `[Flags]` enum bitwise `|` standing in for combinable capability, which shapes.md replaces with frozen-set membership and a fold; a domain owner defining `+`/`|` whose algebra is not the rail's, which collides with the carrier overloads at one call site.

@@ -80,6 +80,8 @@ Run this scan on every edit. Any signal triggers the move; the move is refused o
 |  [09]   | the same 2-4 wrappers recur together              | one parameterized aspect                 |
 |  [10]   | dispatch nests inside a dispatch arm              | one flattened joint pattern or table     |
 |  [11]   | a consumer sequences a module's internals         | internalize the flow into the entrypoint |
+|  [12]   | two-row vocabulary with no behavior column        | one bool column on the owner             |
+|  [13]   | roster mirrors a union's cases or a producer bool | delete; the case is the identity         |
 
 ## [04]-[RULE_ENFORCEMENT]
 

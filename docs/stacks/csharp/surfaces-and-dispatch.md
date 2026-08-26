@@ -13,7 +13,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 |  [03]   | consumer owns logic, vocabulary owns coverage | state-threaded `Switch`                           | distributed `_`-armed `switch`    |
 |  [04]   | vocabulary item is the behavior               | `[UseDelegateFromConstructor]` row                | repeated full-coverage `Switch`   |
 |  [05]   | key is a value, result is static data         | `Lazy<FrozenDictionary>` index                    | dictionary restating rows         |
-|  [06]   | dependent dispatch loops to a fixpoint        | closed continue-or-done `[Union]` + `repeatWhile` | `Recur`/open recursion/`while`    |
+|  [06]   | dependent dispatch loops to a fixpoint        | `Monad.recur` over `Next<A,B>`                    | step union/open recursion/`while` |
 |  [07]   | receiver is foreign, behavior is local        | extension block                                   | wrapper that renames receiver     |
 |  [08]   | input shape, not nominal type, discriminates  | structural pattern                                | `is`-chain over open input        |
 |  [09]   | one body serving every carrier                | `K<F,A>` trait-constrained arrow                  | `RunFin`/`RunEff` sibling family  |
@@ -85,7 +85,7 @@ public static class RequestSurface {
 ## [03]-[MODAL_ARITY]
 
 [ARITY_ABSORPTION]:
-- Law: singular, multi-item, and empty call sites collapse into one `params ReadOnlySpan<T>` signature; the compiler promotes constant primitive elements to the data segment and stack-allocates dynamic literals, so the allocation-free property is the target type's, not the call's.
+- Law: singular, multi-item, and empty call sites collapse into one `params ReadOnlySpan<T>` signature; the compiler promotes constant primitive elements to the data segment and stack-allocates dynamic literals, so the allocation-free property is the target type's, not the call's, and it ends at `Iterable<T>.FromSpan`, which copies.
 - Law: a `params ReadOnlySpan<T>` parameter is implicitly `scoped`; the buffer cannot escape without `[UnscopedRef]`, and an override must restate `params` to preserve the bound.
 - Use: a collection-expression builder on the carrier so `[a, b, c]` routes through one type-level span-fed builder, making arity a property of the literal.
 - Reject: two collection-shaped entrypoints whose element types differ by a reference conversion — a covariant span beside a covariant array is a hard ambiguity; one span at the most-derived element type is the only ambiguity-free shape.
@@ -213,9 +213,8 @@ public static class MarkerBoundary {
 - Boundary: all slots share one `F` by construction, so failure semantics decide once; an expensive slot enters as `Memo` and a short-circuiting carrier leaves it unforced.
 
 [ITERATIVE_DISPATCH]:
-- Law: looping dependent dispatch is a closed continue-or-done `[Union]` step driven by `repeatWhile` — the step returns `Advance` or one terminal case distinguishing the settled fixpoint from each divergence cause, the `Func<Step, bool>` predicate halts the moment the advanced state leaves the `Advance` arm, and the rail-owned driver carries the loop with no growing stack and no mutable index.
-- Law: the iterative driver is the rail page's — `repeatWhile`/`RepeatWhile` over `MonadUnliftIO<M>` repeats a state-advancing effect until the advanced result fails the predicate, the optional `Schedule` bounding attempts — so this page chooses only the continue-or-done shape the step dispatches on and threads the advance through `Stateful.modify` plus `Stateful.get`, never a hand-spelled recursion or a `count` the terminal case already answers.
-- Law: the state advance is one total `Switch` over the closed step family, so the same arms run under every `Stateful`-over-effect stack the carrier admits and a new divergence cause is one terminal case that breaks the terminal projection at compile time.
+- Law: looping dependent dispatch is `Monad.recur<M, A, B>(seed, step)` — the step answers `Next.Loop<A,B>(next)` to continue or `Next.Done<A,B>(result)` to stop, the carrier drives the loop stack-safe with no mutable index, and a divergence cause rides the fault family inside the `Done` payload, never a second step union beside `Next`.
+- Law: a page-local continue-or-done `[Union]` survives only where its terminal cases carry distinct payloads a consumer switches on; a bounded pure fixpoint is `Range(0, cap).FoldUntil`, and a `Schedule` drives retry or repeat, never refinement.
 - Boundary: carrier changes are one structure-preserving `Natural.transform` arrow, never a match-and-rebuild bridge; mid-pipeline concretization defeats the polymorphism.
 
 ```csharp
@@ -234,34 +233,15 @@ public static class JoinSurface {
         .Apply(static (code, rank, key) => new Composite(code, rank, key));
 }
 
-[Union]
-public abstract partial record Step {
-    public sealed record Advance(int Seed) : Step;
-    public sealed record Settled(int Fixpoint) : Step;
-    public sealed record Diverged(int Cause) : Step;
-}
-
 public static class IterativeSurface {
-    public static K<M, Fin<int>> Driven<M>(int seed, int ceiling)
-        where M : Stateful<M, Step>, MonadUnliftIO<M> =>
-        repeatWhile(
-            Stateful.modify<M, Step>(state => state.Switch(
-                advance:  s => Advanced(s, ceiling),
-                settled:  static s => (Step)s,
-                diverged: static d => d)).Bind(static _ => Stateful.get<M, Step>()),
-            static step => step is Step.Advance)
-        .Map(static step => step.Switch(
-            advance:  static _ => Fin.Fail<int>(new Fault.Bounds("<unterminated>")),
-            settled:  static s => Fin.Succ(s.Fixpoint),
-            diverged: static d => Fin.Fail<int>(new Fault.Bounds($"<diverged:{d.Cause}>"))));
+    public static K<M, Fin<int>> Driven<M>(int seed, int ceiling) where M : Monad<M> =>
+        Monad.recur<M, int, Fin<int>>(seed, current => M.Pure(Collatz(current) switch {
+            _ when current <= 1     => Next.Done<int, Fin<int>>(current),
+            int folded when folded >= ceiling => Next.Done<int, Fin<int>>(new Fault.Bounds($"<diverged:{folded}>")),
+            int folded              => Next.Loop<int, Fin<int>>(folded),
+        }));
 
-    static Step Advanced(Step.Advance a, int ceiling) =>
-        a.Seed <= 1 ? new Step.Settled(a.Seed) : Next(a.Seed) switch {
-            int folded when folded >= ceiling => new Step.Diverged(folded),
-            int folded                        => new Step.Advance(folded),
-        };
-
-    static int Next(int seed) => (seed & 1) == 0 ? seed >> 1 : (3 * seed + 1) >> 1;
+    static int Collatz(int seed) => (seed & 1) == 0 ? seed >> 1 : (3 * seed + 1) >> 1;
 }
 ```
 
@@ -276,6 +256,7 @@ public static class IterativeSurface {
 
 [REACH_LIMIT]:
 - Law: an unresolved static abstract member is not a first-class value — no open delegate, no method group, no expression tree — so type-level static dispatch serves boundaries whose owner is resolved at compile time at the call site.
+- Law: a static-abstract surface is earned only where every conformance is closed-form and generated or incontrovertible — `IObjectFactory`, generic math, the exact-predicate carrier; a static conformance cannot close over a dependency, so a hand policy that may grow one is an instance floor or a delegate column.
 - Use: the generated static-abstract metadata surface for runtime-discovered owners, folded by a generic codec over the metadata's own generated dispatch, keeping the runtime-discovered case reflection-free.
 - Boundary: choosing the static-virtual form for runtime discovery reintroduces reflection through closed-generic invocation — the exact cost the generic factory exists to delete.
 

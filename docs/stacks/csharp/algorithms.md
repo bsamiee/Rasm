@@ -502,3 +502,10 @@ public static class SpectralOperator
 - Law: reconstruct scattered multi-dimensional fields as a radial-basis or polynomial design matrix into the rank-revealing regression route — no library surface exists, and a matrix-valued response reconstructs gradient and flux fields in one solve.
 - Boundary: wrap interpolant evaluation in an absence carrier; the step interpolant returns `NaN` at sample points and the rational interpolant returns `NaN` below ULP, poisoning a gradient accumulator silently.
 - Use: the serial kernel-density route for reproducibility; it parallelizes uncapped and is non-reproducible across schedules even when seeded.
+
+[GENERIC_KERNEL]:
+- Law: every generic numeric kernel constrains `where T : struct` beside its operator interfaces — a reference `T` shares one `__Canon` body the JIT never devirtualizes, so `INumber<T>` alone buys nothing.
+- Law: a kernel binds the narrowest operator interface its body reads (`IAdditionOperators<T,T,T>`, `IRootFunctions<T>`), never `INumber<T>` wholesale, and an operation family is one struct-functor `where TOp : struct, IBinaryOperator<T>` body, never a method per operator.
+- Law: fixed-width `Vector128<T>`/`Vector256<T>`/`Vector512<T>` is the first SIMD reach where `TensorPrimitives` has no member; `Vector<T>` serves only where width is irrelevant; `IsHardwareAccelerated` and `Count` are JIT constants read at the site, never cached.
+- Law: a `typeof(T) == typeof(float)` guard unblocks an intrinsic inside a generic body once, with generic-math fallthrough — an N-way type ladder exhausts the JIT inlining budget and is the deleted form.
+- Reject: `CreateChecked`/`CreateTruncating` inside a loop; `Half`, `decimal`, `Int128`, and `BigInteger` on a vector path, which fall silently to scalar; a `Vector<T>` field in an AOT-compiled owner.
