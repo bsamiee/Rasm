@@ -27,7 +27,6 @@ Kernel vocabulary arrives whole and is composed, never re-spelled: `ContentHash`
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System.Collections.Frozen;
-using System.IO.Hashing;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
@@ -531,7 +530,7 @@ flowchart LR
 - Cases: `ColorFrame` = Rostered | Icc — a kernel `(RgbProfile, RgbTransfer)` coordinate or the profile BYTES that are their own space; `DecodePlan` = Frame | Incremental.
 - Entry: `public static IO<VisualArtifact> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, ArtifactKind kind, string key, Option<SKPicture> record = default)` — IO effect, the optional sealed record the one draw-hash ingress; `public static IO<SKImage> Decode(ReadOnlyMemory<byte> payload, Option<int> frame = default)` — the inverse on the same effect, frame index the modality; `public Fin<SKColorF> Resolve(PerceptualColor pigment)` and its `Color` token twin — the one pigment egress every paint reads; `public static VisualArtifact Of(ArtifactKind kind, string format, ReadOnlySpan<byte> payload, …)` — the ONE artifact mint, which hashes the payload it is handed.
 - Output: `FrameHash` is the kernel `UInt128` content key over the encoded artifact bytes, minted INSIDE `VisualArtifact.Of` so no producer can return a key over different bytes; `DrawHash` keys sealed `SKPicture.Serialize` bytes when a recording exists; `Pixels` identifies tight top-left RGBA8 sRGB straight-alpha rows independently of encoding; `ColorSpace` retains encode-row provenance beside normalized pixel identity.
-- Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, System.IO.Hashing, Rasm.AppHost (project), Rasm (project — `ContentHash.Of`/`CanonicalWriter` under `EpsilonPolicy.ZeroTolerance`, the `RgbProfile`/`RgbTransfer`/`GamutPolicy` rows every `ColorFrame` names, the `PerceptualColor.OfRgb`/`ToRgb(profile, gamut, transfer)` admission-and-egress pair, `MonotonicTimeline`, `Redrive`), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
+- Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), Rasm (project — `ContentHash.Of`/`CanonicalWriter` under `EpsilonPolicy.ZeroTolerance`, the `RgbProfile`/`RgbTransfer`/`GamutPolicy` rows every `ColorFrame` names, the `PerceptualColor.OfRgb`/`ToRgb(profile, gamut, transfer)` admission-and-egress pair, `MonotonicTimeline`, `Redrive`), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row is a `(profile, transfer, domain, surface, tone)` coordinate over the kernel rows, so a gamut the kernel roster lacks lands THERE first; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorFrame.Icc` value from a profile-byte source — zero new surface.
 - Boundary: Decode and Encode are the named native-disposal boundary capsules — Decode admits through the `SKCodec.Create` result taxonomy (`Info`-gated allocation, `IncompleteInput` as partial success gated on the incremental arm's own rows-decoded count, the frame arm through `SKCodecOptions.FrameIndex` alone) and never an eager whole-image `SKBitmap.Decode`; `PriorFrame` is a PROMISE that the destination already holds that frame and this buffer is minted per call, so the codec resolves its own required-frame chain and a caller-named prior frame is the deleted form that composites over uninitialized memory; the intermediate `SKBitmap`, the minted reprojection, and the encoded `SKData` are scope-released so a failing later clause never leaks a native handle; Encode BORROWS the caller's image, disposing only the projection `Reproject` mints and never the pass-through original, so a walkthrough frame encoded per-frame survives to its later clip mux; per-format exporter classes are deleted with the encode rows as the absorbing axis; `VisualArtifact.Elapsed`, `Bytes`, and `FrameHash` project through `VisualRuntime.Publish` onto `AppUiFact.Render` at `AppUiPoint.Render`, so the producer returns the artifact while the hook dispatch owns durable observation; the blob write re-drives under the runtime's own `RedrivePolicy`, so a transient lane fault costs a bounded re-offer rather than a lost artifact and a terminal one refuses once; render-hash proof lanes compare `FrameHash` values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
 - Color law, float end to end:
@@ -612,10 +611,15 @@ public sealed record PixelIdentity {
             || !image.ReadPixels(pixels, 0, 0, SKImageCachingHint.Disallow)) {
             return Fin.Fail<PixelIdentity>(new VisualFault.EncodeFailed("pixels/canonical: readback refused"));
         }
-        CanonicalWriter frame = CanonicalWriter.Streaming(
-            tolerance: EpsilonPolicy.ZeroTolerance, accumulator: new XxHash128(seed: 0L));
-        ignore(frame.String(CanonicalVersion).Ordinal(info.Width).Ordinal(info.Height).Raw(canonical.GetPixelSpan()));
-        return Fin.Succ(new PixelIdentity(info.Width, info.Height, frame.Digest()));
+        UInt128 digest = ContentHash.Of(
+            (Info: info, Pixels: canonical),
+            static (state, writer) => writer
+                .String(CanonicalVersion)
+                .Ordinal(state.Info.Width)
+                .Ordinal(state.Info.Height)
+                .Raw(state.Pixels.GetPixelSpan()),
+            tolerance: EpsilonPolicy.ZeroTolerance);
+        return Fin.Succ(new PixelIdentity(info.Width, info.Height, digest));
     }
 }
 

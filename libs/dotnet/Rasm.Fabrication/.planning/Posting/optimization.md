@@ -970,7 +970,10 @@ internal static class PatternCensus {
         return rows;
     }
 
-    private static ulong Lane(UInt128 key) => ContentHash.Half(key, 0) ^ ContentHash.Half(key, 1);
+    private static ulong Lane(UInt128 key) {
+        (ulong low, ulong high) = ContentHash.Halves(key);
+        return low ^ high;
+    }
 
     private static int Saving(int occurrences, int length) => ((occurrences - 1) * length) - occurrences - 2;
 }

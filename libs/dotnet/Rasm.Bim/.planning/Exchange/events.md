@@ -68,15 +68,13 @@ public sealed partial class BimAnnounce {
 
     const string Domain = "bim";
 
-    const int Major = 1;
-
     public EventType Type { get; }
 
     static EventType Of(string subject, string fact) =>
-        EventType.Of(domain: Domain, subject: subject, fact: fact, major: Major);
+        EventType.Of(domain: Domain, subject: subject, fact: fact);
 
     public static Option<BimAnnounce> Resolve(string spelled) =>
-        toSeq(Items).Find(row => StringComparer.Ordinal.Equals(row.Type.Value, spelled));
+        toSeq(Items).Find(row => StringComparer.Ordinal.Equals(row.Type.ToValue(), spelled));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -198,9 +196,8 @@ public static class BimEventing {
         Instant at,
         Fin<(JsonElement Data, UInt128 Content)> body) =>
         from normalized in body
-        from id in EventId.Of(
-            value: Guid.CreateVersion7(at.ToDateTimeOffset()).ToString("N", CultureInfo.InvariantCulture),
-            key: fact.Key)
+        from id in fact.Key.AcceptValidated<EventId>(
+            Guid.CreateVersion7(at.ToDateTimeOffset()).ToString("N", CultureInfo.InvariantCulture))
         from envelope in RasmEventEnvelope.Mint(
             new RasmEventMint<global::Rasm.Contracts.Event.Extensions>(
                 Type: row.Type,

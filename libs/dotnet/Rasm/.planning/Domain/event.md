@@ -14,7 +14,7 @@ Bindings, filters, subscriptions, and `dataref` storage policy seat at their con
 ## [02]-[EVENT_GRAMMAR]
 
 - Owner: `EventType` owns `rasm.<domain>.<subject>.<fact>`; `EventSource` owns the producing capability URI-reference; `EventId` owns the operation identity scoped by that source. `ContentHash` remains the sole owner of the `subject` content-key spelling.
-- Entry: `EventType.Of` assembles the type; `EventSource.Of(domain, capability)` admits the independently stated producer coordinate; the Rasm profile proves domain agreement only. `EventId.Of(value, key)` admits the operation value; `ContentHash.Hex` and `.Admit` project the optional `subject` at the profile crossing.
+- Entry: `EventType.Of` assembles the type; `EventSource.Of(domain, capability)` admits the independently stated producer coordinate; the Rasm profile proves domain agreement only. `EventId` admits the operation value through generated admission via `key.AcceptValidated<EventId>`; `ContentHash.Hex` and `.Admit` project the optional `subject` at the profile crossing.
 - Law: `<fact>` reads past tense and carries the whole announced semantics, so a semantic break mints a fresh fact spelling rather than re-pointing the subscriptions keyed on the standing one. Payload-schema evolution stays independent: `dataschema` moves on its own axis and the type reads unchanged.
 - Law: `source` names the producing CAPABILITY and never a host, package, or deployment — a redeployment that re-authors the identity consumers keyed on is the failure the `rasm:` scheme and its two-segment path foreclose, since neither segment has a spelling an environment can move. It never derives from `type.subject`: source context and fact classification are independent CloudEvents attributes.
 - Law: `(source, id)` is the uniqueness composite every dedup reads. Producers sharing one capability source draw collision-resistant operation values from that source's namespace; `id` never repeats the capability as a prefix. The payload identity rides `subject`, while `dataref` is the storage URI-reference.
@@ -63,7 +63,7 @@ public readonly partial struct EventType {
     public string Subject => Part(index: 2);
     public string Fact => Part(index: 3);
 
-    private string Part(int index) => Value.Split('.')[index];
+    private string Part(int index) => ToValue().Split('.')[index];
 }
 
 [ValueObject<string>]
@@ -86,25 +86,19 @@ public readonly partial struct EventSource {
     public string Domain => Part(index: 0);
     public string Capability => Part(index: 1);
 
-    public Uri Reference => new(uriString: Value, uriKind: UriKind.Absolute);
+    public Uri Reference => new(uriString: ToValue(), uriKind: UriKind.Absolute);
 
-    private string Part(int index) => Value[Scheme.Length..].Split('/')[index];
+    private string Part(int index) => ToValue()[Scheme.Length..].Split('/')[index];
 }
 
-public readonly record struct EventId {
-    private EventId(string value) => Value = value;
-
-    public string Value { get; }
-
-    public static Fin<EventId> Of(string value, Op key) =>
-        value.Length > 0 && !value.Any(char.IsControl)
-            ? Fin.Succ(new EventId(value))
-            : Fin.Fail<EventId>(new KernelFault.InvalidValue(
-                Label: nameof(EventId), Requirement: "a non-empty control-free operation identity", Key: Some(key)));
-
-    public static Fin<EventId> Admit(string text, Op key) => Of(value: text, key: key);
-
-    public override string ToString() => Value;
+[ValueObject<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public readonly partial struct EventId {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Length > 0 && !value.Any(char.IsControl)
+            ? null
+            : new ValidationError(message: "a non-empty control-free operation identity");
 }
 ```
 
@@ -158,14 +152,14 @@ public sealed partial class DataGrade {
 - Auto: `CloudEvent.Validate()` throws on a malformed envelope, so construction, projected extension writes, and validation funnel through one `Op.Catch`; the first refused field is the verdict and no partly stamped instance escapes.
 - Law: the SDK indexer stamps IN PLACE, so a refused write leaves the instance partly stamped; what the result guarantees is that such an instance is UNREACHABLE — `Mint` holds the only reference until `Validate()` returns it, and a refusal returns no envelope at all. A result claiming the stronger "no half-stamped envelope exists" would be a law with no producer.
 - Law: the creation-time trace is the generated `event.Extensions` `traceparent`/`tracestate`/`baggage` triplet, stamped ONCE at `Publish` from the live span's `TraceCarrier` and projected descriptor-total by `EventExtensionContract<T>`; `sequence` carries the stamp's logical half and `recordedtime` the wall instant the mint read. The transport carrier remains the current-hop context, and no ingress re-stamps a creation-time slot — `Stamp` resolves each slot through `Descriptor.FindFieldByName`, so a generated contract missing one refuses typed instead of dropping the frame.
-- Law: `datacontenttype` and `dataschema` are row data off the serdes arrow that produced the body; both collapse to the SDK's nullable slot at this one crossing, exactly as optional `subject` does.
+- Law: `datacontenttype` and `dataschema` are row data off the serdes arrow that produced the body; both collapse to the SDK's nullable slot through the shared `Op.ToHostSlot`/`Op.ToHostNullable` projection at this one crossing, exactly as optional `subject` does.
 - Law: `time` is the occurrence stamp — the HLC physical half on every published profile event, so `(time, sequence)` IS the causal order — and `recordedtime` is when the producer created the CloudEvent. A receiver preserves both, records its own arrival time only in its interior delivery carrier, and measures skew from `recordedtime` against that arrival; re-stamping `recordedtime` at ingress erases the producer-to-receiver interval and violates the extension.
 - Law: the SDK's `DateTimeOffset` timestamp surface resolves 100-nanosecond ticks. Mint refuses a finer `Instant`, and descriptor projection refuses a generated `Timestamp` whose nanos are not tick-aligned; admission never rounds producer time silently.
 - Law: `subject` is OPTIONAL under a non-empty validator, so a fact whose payload carries no content key omits the slot — a required slot makes every lifecycle and topic producer fabricate an address, and the empty string such a producer reaches for is the one value the specification's own validator refuses.
 - Law: descriptor field number order is the sole projection walk. String fields carrying Protovalidate `uri` or `uri_ref` rules become the SDK's URI or URI-reference type; timestamps, integers, booleans, bytes, and ordinary strings map by generated field kind. Any unsupported field kind refuses at the contract bridge instead of silently degrading to a string.
 - Law: `EventCarrier` publishes absence on both halves. It resolves only attributes already declared on the envelope, so an unknown or over-ceiling peer field drops without this foundation inventing or mirroring a roster.
 - Law: the message envelope PROJECTS the producing operation's own result as `data` and adds address, trace, tenant, stamp, and handling facts alone; a parallel event ledger, header wire, or fact stream beside the results is the deleted form.
-- Packages: CloudNative.CloudEvents, Celly.Protovalidate, Google.Protobuf, Generator.Equals, LanguageExt.Core, NodaTime, BCL inbox (`System.Net.Mime`).
+- Packages: CloudNative.CloudEvents, Celly.Protovalidate, Google.Protobuf, LanguageExt.Core, NodaTime, BCL inbox (`System.Net.Mime`).
 - Growth: a new solution extension changes only the generated descriptor; the projection walk, declaration set, construction, and decode consume it automatically. A new unsupported protobuf field kind fails visibly until one CloudEvents abstract-type correspondence is added.
 
 ```csharp
@@ -174,7 +168,6 @@ using System.Net.Mime;
 using Buf.Validate;
 using Celly.Protovalidate;
 using CloudNative.CloudEvents;
-using Generator.Equals;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 using Google.Protobuf.WellKnownTypes;
@@ -183,8 +176,7 @@ using NodaTime;
 namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Equatable]
-public sealed partial record CloudEventMint(
+public sealed record CloudEventMint(
     string Type,
     Uri Source,
     string Id,
@@ -193,10 +185,9 @@ public sealed partial record CloudEventMint(
     Option<Uri> DataSchema,
     Option<string> DataContentType,
     object? Data,
-    [property: OrderedEquality] Seq<EventField> Extensions);
+    Seq<EventField> Extensions);
 
-[Equatable]
-public sealed partial record RasmEventMint<TExtensions>(
+public sealed record RasmEventMint<TExtensions>(
     EventType Type,
     EventSource Source,
     EventId Id,
@@ -226,28 +217,6 @@ public readonly record struct EventField(CloudEventAttribute Attribute, object V
         name.Length is > 0 and <= 20
             ? CloudEventAttribute.CreateExtension(name, type)
             : throw new ArgumentOutOfRangeException(nameof(name), name, "CloudEvents extension names carry at most twenty characters");
-
-    public static EventField Of(string name, CloudEventAttributeType type, object value) =>
-        new(Declare(name, type), value);
-
-    public static Fin<Option<T>> Read<T>(CloudEvent envelope, CloudEventAttribute attribute, Op key) =>
-        ReadCore<T>(envelope, attribute, key);
-
-    public Fin<Option<T>> Read<T>(CloudEvent envelope, Op key) =>
-        ReadCore<T>(envelope, Attribute, key);
-
-    static Fin<Option<T>> ReadCore<T>(CloudEvent envelope, CloudEventAttribute attribute, Op key) =>
-        key.Catch(() => envelope[attribute] switch {
-            null => Fin.Succ(Option<T>.None),
-            T held => Fin.Succ(Some(held)),
-            var foreign => Fin.Fail<Option<T>>(new KernelFault.InvalidValue(
-                Label: attribute.Name,
-                Requirement: $"a {attribute.Type.ClrType.Name} value, not {foreign.GetType().Name}",
-                Key: Some(key))),
-        });
-
-    public Fin<Unit> Write(CloudEvent envelope, Op key) =>
-        key.Catch(() => { envelope[Attribute] = Value; return Fin.Succ(unit); });
 }
 
 public sealed record EventExtensionContract<TExtensions>(
@@ -360,32 +329,28 @@ public sealed record EventExtensionContract<TExtensions>(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class EventEnvelope {
     public static Fin<CloudEvent> Mint(CloudEventMint request, Op key) =>
-        from _time in request.Time.Traverse(value => Aligned(value, key)).As()
+        from _time in request.Time.Traverse(value => guard(
+            Instant.FromDateTimeOffset(value.ToDateTimeOffset()) == value,
+            new KernelFault.InvalidValue(
+                Label: nameof(CloudEvent.Time),
+                Requirement: "an instant aligned to the CloudEvents SDK's 100-nanosecond precision",
+                Key: Some(key))).ToFin()).As()
         from envelope in key.Catch(() => Fin.Succ(new CloudEvent(
             CloudEventsSpecVersion.V1_0,
             request.Extensions.Map(static field => field.Attribute)) {
             Id = request.Id,
             Source = request.Source,
             Type = request.Type,
-            Subject = request.Subject.Match<string?>(Some: static held => held, None: static () => null),
-            Time = request.Time.Match(
-                Some: static value => (DateTimeOffset?)value.ToDateTimeOffset(),
-                None: static () => null),
-            DataSchema = request.DataSchema.Match<Uri?>(Some: static held => held, None: static () => null),
-            DataContentType = request.DataContentType.Match<string?>(Some: static held => held, None: static () => null),
+            Subject = Op.ToHostSlot(request.Subject),
+            Time = Op.ToHostNullable(request.Time.Map(static value => value.ToDateTimeOffset())),
+            DataSchema = Op.ToHostSlot(request.DataSchema),
+            DataContentType = Op.ToHostSlot(request.DataContentType),
             Data = request.Data,
         }))
-        from _extensions in request.Extensions.TraverseM(field => field.Write(envelope: envelope, key: key)).As()
+        from _extensions in request.Extensions.TraverseM(field => key.Catch(() =>
+            Fin.Succ(envelope[field.Attribute] = field.Value)).Map(static _ => unit)).As()
         from validated in key.Catch(() => Fin.Succ(envelope.Validate()))
         select validated;
-
-    private static Fin<Unit> Aligned(Instant instant, Op key) =>
-        Instant.FromDateTimeOffset(instant.ToDateTimeOffset()) == instant
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
-                Label: nameof(CloudEvent.Time),
-                Requirement: "an instant aligned to the CloudEvents SDK's 100-nanosecond precision",
-                Key: Some(key)));
 
     public static Fin<CloudEvent> Admit(CloudEvent envelope, Op key) =>
         key.Catch(() => Fin.Succ(envelope.Validate()));
@@ -402,7 +367,7 @@ public static partial class EventEnvelope {
             : key.Catch(() => Fin.Succ(attributes.Fold(
             new CloudEvent(CloudEventsSpecVersion.V1_0, declared) {
                 Data = data,
-                DataContentType = dataType.Map(static type => type.ToString()).Match<string?>(Some: static held => held, None: static () => null),
+                DataContentType = Op.ToHostSlot(dataType.Map(static type => type.ToString())),
             },
             static (held, row) => Admitted(envelope: held, name: row.Name, value: row.Value))))
             .Bind(envelope => Admit(envelope, key));
@@ -441,10 +406,8 @@ public static class RasmEventEnvelope {
         EventExtensionContract<TExtensions> contract,
         Op key)
         where TExtensions : class, IMessage<TExtensions> =>
-        from _domain in request.Source.Domain == request.Type.Domain
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
-                Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key)))
+        from _domain in guard(request.Source.Domain == request.Type.Domain, new KernelFault.InvalidValue(
+            Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key))).ToFin()
         from extensions in contract.Project(message: request.Extensions, key: key)
         from envelope in EventEnvelope.Mint(new CloudEventMint(
             Type: request.Type.ToString(),
@@ -481,11 +444,9 @@ public static class RasmEventEnvelope {
             Label: nameof(EventType), Requirement: "the generated EventType admission", Key: Some(key)))
         from source in key.AcceptValidated<EventSource>(admitted.Source!.ToString()).MapFail(_ => new KernelFault.InvalidValue(
             Label: nameof(EventSource), Requirement: "the generated EventSource admission", Key: Some(key)))
-        from id in EventId.Admit(text: admitted.Id!, key: key)
-        from _domain in source.Domain == type.Domain
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new KernelFault.InvalidValue(
-                Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key)))
+        from id in key.AcceptValidated<EventId>(admitted.Id!)
+        from _domain in guard(source.Domain == type.Domain, new KernelFault.InvalidValue(
+            Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key))).ToFin()
         from subject in Optional(admitted.Subject).Traverse(value => ContentHash.Admit(hex: value, key: key)
             .MapFail(_ => new KernelFault.InvalidValue(
                 Label: nameof(CloudEvent.Subject),
@@ -522,8 +483,8 @@ public static class EventCarrier {
 
 ## [05]-[FORMAT_CONTRACT]
 
-- Owner: `EventFormat` the closed row family over the three admitted event formats, each carrying its media-type suffix, batch reach, and the one formatter instance every binding shares; `EventFrame` carries encoded bytes beside framing; `EventEnvelope` owns bytes and official protobuf message crossings.
-- Cases: JSON and Protobuf each define a structured envelope and a distinct batch envelope; Avro defines structured mode alone. A protocol binding owns binary mode, where attributes ride transport metadata and already-encoded data rides the body; the formatter's binary-data helper is package mechanics rather than an event-format capability. Framing derives from `MimeUtilities.MediaType` and `BatchMediaType` with the row's suffix, so no literal media type is spelled anywhere.
+- Owner: `EventFormat` the closed row family over the three admitted event formats, each carrying its batch reach and the one formatter instance every binding shares, and the seat of the one JSON serializer options identity `EventFormat.JsonOptions`; `EventFrame` carries encoded bytes beside framing; `EventEnvelope` owns bytes and official protobuf message crossings.
+- Cases: JSON and Protobuf each define a structured envelope and a distinct batch envelope; Avro defines structured mode alone. A protocol binding owns binary mode, where attributes ride transport metadata and already-encoded data rides the body; the formatter's binary-data helper is package mechanics rather than an event-format capability. Framing derives from `MimeUtilities.MediaType` and `BatchMediaType` with `+` and the row's key, so no literal media type or suffix is spelled anywhere.
 - Entry: `EventEnvelope.Encode(format, key, envelopes)` discriminates on arity; generic `.Decode(frame, declared, key)` takes SDK declarations while the profile overload takes `EventExtensionContract<T>` and returns typed admitted extensions. `EventEnvelope.ToProtobuf` and `EventEnvelope.FromProtobuf` expose the formatter's official `CloudEvent` and `CloudEventBatch` messages for registry-framed legs.
 - Auto: the local encode convenience refuses an empty span because it carries no send intent. Decode preserves the specification's zero-or-more batch semantics for every batching format, so both JSON `[]` and an empty official protobuf `CloudEventBatch` return an empty sequence.
 - Law: structured Protobuf selects its official data `oneof` from the admitted SDK value: string to `text_data`, bytes to `binary_data`, and `IMessage` to `proto_data` packed as `Any`. Binary-mode bindings carry explicitly encoded body bytes and never ask an event-format row to decide transport placement.
@@ -533,13 +494,13 @@ public static class EventCarrier {
 - Law: the Avro formatter's schema is the package's own embedded `RecordSchema` read through the static `AvroSchema` property, and a custom `IGenericRecordSerializer` is the seat where a registry-framed Avro leg binds its own reader and writer — so a schema-registry frame joins the format at that seat and never by re-spelling the envelope schema.
 - Boundary: `EventFrame` equality is the CARRIER's — `ReadOnlyMemory<T>` is unreachable to every ordered-equality generator, so two frames compare by the memory's reference and range and never by content; a consumer wanting body identity addresses the bytes through `identity.md`'s `ContentHash` rather than comparing frames. The obsolete top-level `CloudNative.CloudEvents.AvroEventFormatter` never lands — it exists for backward compatibility, carries `[Obsolete]`, and derives from the namespaced formatter this page names; CBOR and XML are working drafts and take no row. A binding chooses structured, batch, or binary placement; this contract supplies event-format codecs only for structured and batch bodies, while binding headers and key mapping seat at the consuming owner.
 - Packages: CloudNative.CloudEvents, CloudNative.CloudEvents.SystemTextJson, CloudNative.CloudEvents.Protobuf, CloudNative.CloudEvents.Avro, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, NodaTime, NodaTime.Serialization.SystemTextJson, LanguageExt.Core, BCL inbox (`System.Net.Mime`, `System.Text.Json`).
-- Growth: a new event format is one `EventFormat` row carrying its suffix, columns, and formatter instance, and every encode, exact framing probe, and refusal reads it untouched; a typed payload lane binds `JsonEventFormatter<T>` against the same options identity.
+- Growth: a new event format is one `EventFormat` row carrying its columns and formatter instance — its media suffix derives from the key — and every encode, exact framing probe, and refusal reads it untouched; a typed payload lane binds `JsonEventFormatter<T>` against the same `EventFormat.JsonOptions` identity.
 
-| [INDEX] | [FORMAT]   | [SUFFIX]    | [STRUCTURED] | [BATCH] |
-| :-----: | :--------- | :---------- | :----------: | :-----: |
-|  [01]   | `json`     | `+json`     |     yes      |   yes   |
-|  [02]   | `protobuf` | `+protobuf` |     yes      |   yes   |
-|  [03]   | `avro`     | `+avro`     |     yes      |   no    |
+| [INDEX] | [FORMAT]   | [STRUCTURED] | [BATCH] |
+| :-----: | :--------- | :----------: | :-----: |
+|  [01]   | `json`     |     yes      |   yes   |
+|  [02]   | `protobuf` |     yes      |   yes   |
+|  [03]   | `avro`     |     yes      |   no    |
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -558,51 +519,39 @@ using ProtoCloudEventBatch = CloudNative.CloudEvents.V1.CloudEventBatch;
 
 namespace Rasm.Domain;
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-public static class EventJson {
-    public static readonly JsonDocumentOptions Documents = new() { AllowDuplicateProperties = false };
-
-    public static readonly JsonSerializerOptions Options = Configured();
-
-    private static JsonSerializerOptions Configured() {
-        JsonSerializerOptions options = new(JsonSerializerDefaults.Web) { AllowDuplicateProperties = false };
-        options.Converters.Add(new LanguageExtJsonConverterFactory());
-        options.Converters.Add(new ThinktectureJsonConverterFactory());
-        return options.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-    }
-}
-
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EventFormat {
+    public static readonly JsonSerializerOptions JsonOptions =
+        new JsonSerializerOptions(JsonSerializerDefaults.Web) {
+            AllowDuplicateProperties = false,
+            Converters = { new LanguageExtJsonConverterFactory(), new ThinktectureJsonConverterFactory() },
+        }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+
     public static readonly EventFormat Json = new(
-        "json", "+json", new JsonEventFormatter(EventJson.Options, EventJson.Documents), batches: true);
+        "json", new JsonEventFormatter(
+            JsonOptions, new JsonDocumentOptions { AllowDuplicateProperties = false }), batches: true);
 
     public static readonly EventFormat Protobuf = new(
-        "protobuf", "+protobuf", new ProtobufEventFormatter(ProtobufEventFormatter.DefaultTypeUrlPrefix), batches: true);
+        "protobuf", new ProtobufEventFormatter(ProtobufEventFormatter.DefaultTypeUrlPrefix), batches: true);
 
     public static readonly EventFormat Avro = new(
-        "avro", "+avro", new AvroEventFormatter(), batches: false);
-
-    public string Suffix { get; }
+        "avro", new AvroEventFormatter(), batches: false);
 
     public CloudEventFormatter Formatter { get; }
 
     public bool Batches { get; }
 
-    public string Structured => MimeUtilities.MediaType + Suffix;
+    public string Structured => MimeUtilities.MediaType + "+" + Key;
 
-    public string Batch => MimeUtilities.BatchMediaType + Suffix;
+    public string Batch => MimeUtilities.BatchMediaType + "+" + Key;
 
     public static Option<EventFormat> Of(ContentType framing) =>
         toSeq(Items).Find(row =>
             string.Equals(framing.MediaType, row.Structured, StringComparison.OrdinalIgnoreCase)
             || row.Batches && string.Equals(framing.MediaType, row.Batch, StringComparison.OrdinalIgnoreCase));
-
-    public static bool Batched(ContentType framing) =>
-        toSeq(Items).Exists(row => string.Equals(framing.MediaType, row.Batch, StringComparison.OrdinalIgnoreCase));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -616,26 +565,21 @@ public static partial class EventEnvelope {
                 Label: format.Key, Requirement: "at least one envelope to frame", Key: Some(key))),
             [_, _, ..] when !format.Batches => Fin.Fail<EventFrame>(new KernelFault.InvalidValue(
                 Label: format.Key, Requirement: "a batching event format", Key: Some(key))),
-            _ => Admitted(format: format, rows: envelopes.ToArray(), key: key),
+            _ => toSeq(envelopes.ToArray()).TraverseM(envelope => Admit(envelope, key)).As()
+                .Bind(admitted => key.Catch(() => {
+                    CloudEvent[] rows = admitted.ToArray();
+                    ContentType framing;
+                    ReadOnlyMemory<byte> body = rows is [CloudEvent single]
+                        ? format.Formatter.EncodeStructuredModeMessage(single, out framing)
+                        : format.Formatter.EncodeBatchModeMessage(rows, out framing);
+                    return Fin.Succ(new EventFrame(Body: body, Framing: framing));
+                })),
         };
-
-    private static Fin<EventFrame> Admitted(EventFormat format, CloudEvent[] rows, Op key) =>
-        toSeq(rows).TraverseM(envelope => Admit(envelope, key)).As()
-            .Bind(admitted => Framed(format: format, rows: admitted.ToArray(), key: key));
-
-    private static Fin<EventFrame> Framed(EventFormat format, CloudEvent[] rows, Op key) =>
-        key.Catch(() => {
-            ContentType framing;
-            ReadOnlyMemory<byte> body = rows is [CloudEvent single]
-                ? format.Formatter.EncodeStructuredModeMessage(single, out framing)
-                : format.Formatter.EncodeBatchModeMessage(rows, out framing);
-            return Fin.Succ(new EventFrame(Body: body, Framing: framing));
-        });
 
     public static Fin<Seq<CloudEvent>> Decode(EventFrame frame, Seq<CloudEventAttribute> declared, Op key) =>
         EventFormat.Of(frame.Framing)
             .ToFin(new KernelFault.InvalidValue(Label: frame.Framing.MediaType, Requirement: "an admitted event format", Key: Some(key)))
-            .Bind(format => key.Catch(() => Fin.Succ(EventFormat.Batched(frame.Framing)
+            .Bind(format => key.Catch(() => Fin.Succ(string.Equals(frame.Framing.MediaType, format.Batch, StringComparison.OrdinalIgnoreCase)
                     ? toSeq(format.Formatter.DecodeBatchModeMessage(frame.Body, frame.Framing, declared))
                     : Seq(format.Formatter.DecodeStructuredModeMessage(frame.Body, frame.Framing, declared))))
                 .Bind(rows => rows.TraverseM(envelope => Admit(envelope, key)).As()));
@@ -712,7 +656,7 @@ flowchart LR
     Key["UInt128 subject"] -->|ContentHash.Hex| Profile
     Contract["generated Extensions message"] -->|descriptor-total projection| Profile
     Contract -->|descriptor-derived declarations| Decode["EventEnvelope.Decode"]
-    Stamp["frame.md CausalStamp — trace · tenant · Hlc"] -->|"Stamp — five slots by descriptor name"| Publish["RasmEventEnvelope.Publish — ONE producer door"]
+    Stamp["frame.md CausalStamp — trace/baggage · Hlc"] -->|"Stamp — five slots by descriptor name"| Publish["RasmEventEnvelope.Publish — ONE producer door"]
     Publish -->|"time = physical half"| Profile
     Profile -->|CloudEventMint| Mint["EventEnvelope.Mint — ONE Validate funnel"]
     Mint -->|Fin CloudEvent| Format["EventFormat — json · protobuf · avro"]
@@ -752,7 +696,7 @@ One owner per axis; capability is a row, case, or column, never a sibling surfac
 |  [12]   | Creation-time stamp  | `CausalStamp` + `Contract.Stamp`      | five slots, once, at `Publish`         |
 |  [13]   | Propagation edge     | `EventCarrier`                        | `Option`-publishing accessor pair      |
 |  [14]   | Format rows          | `EventFormat`                         | structured/batch rows + one formatter  |
-|  [15]   | Codec options        | `EventJson`                           | one serializer + document identity     |
+|  [15]   | Codec options        | `EventFormat.JsonOptions`             | one serializer identity on the rows    |
 |  [16]   | Framing carriage     | `EventFrame`                          | body + chosen `ContentType`            |
 |  [17]   | Encode / decode      | `EventEnvelope`                       | bytes plus official proto messages     |
 

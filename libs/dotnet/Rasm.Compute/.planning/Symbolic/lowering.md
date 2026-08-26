@@ -190,8 +190,9 @@ public static class CompiledKey {
                 }
 
                 Span<byte> frame = stackalloc byte[24];
-                BinaryPrimitives.WriteUInt64LittleEndian(frame, ContentHash.Half(source.ContentKey, 0));
-                BinaryPrimitives.WriteUInt64LittleEndian(frame[8..], ContentHash.Half(source.ContentKey, 1));
+                (ulong low, ulong high) = ContentHash.Halves(source.ContentKey);
+                BinaryPrimitives.WriteUInt64LittleEndian(frame, low);
+                BinaryPrimitives.WriteUInt64LittleEndian(frame[8..], high);
                 BinaryPrimitives.WriteUInt64LittleEndian(frame[16..], XxHash3.HashToUInt64(symbols.WrittenSpan));
                 return Fin.Succ(XxHash128.HashToUInt128(frame));
             });

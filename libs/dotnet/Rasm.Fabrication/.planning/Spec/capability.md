@@ -1201,7 +1201,7 @@ public static class Capability {
         from stat in Stat<Scalar>.Of(
             series.ResidualMm.ToSeq().Map(static value => (Scalar)value), CapabilityOp)
         let banded = Tolerance.Of(ToleranceLane.Deviation, SpecHalfBand(tolerance, stat.Mean), CapabilityOp)
-            .Match(Succ: static band => StatContext.Band(band), Fail: static _ => StatContext.None)
+            .Map(static band => (StatContext)band).ToOption()
         from accepted in CapabilityOp.AcceptValue(value: stat with { Context = banded })
         select new CapabilityMoment(
             accepted.Mean,

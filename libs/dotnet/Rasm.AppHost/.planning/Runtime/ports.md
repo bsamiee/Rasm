@@ -160,7 +160,7 @@ public sealed record FaultContext(
     Seq<BadRequest.Types.FieldViolation> Violations) {
     public static FaultContext Of(CorrelationId correlation, (Instant Physical, ulong Logical) stamp, TenantContext tenant,
         Seq<BadRequest.Types.FieldViolation> violations = default) =>
-        new(correlation, HostWire.Stamp(stamp), tenant.Partitions ? Some(tenant.TenantId) : None, violations);
+        new(correlation, HostWire.Stamp(stamp), tenant.Key.Map(_ => tenant.TenantId), violations);
 }
 
 public sealed record RemoteFault(
@@ -503,8 +503,9 @@ public static partial class FaultWire {
 
     static Validation<Error, Option<TenantId>> Tenant(string wire) =>
         wire.Length == 0 ? Validation<Error, Option<TenantId>>.Success(None)
-        : TenantId.TryOf(wire)
-            .ToValidation<Error>(Violation(new WireViolation.Tenant(wire)))
+        : TenantId.Admit(wire)
+            .MapFail(_ => Violation(new WireViolation.Tenant(wire)))
+            .ToValidation()
             .Map(static tenant => Some(tenant));
 
     static Error Violation(WireViolation violation) => new HopFault.Malformed(WireBoundary.DetailAdmission, violation);

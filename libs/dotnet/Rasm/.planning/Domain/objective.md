@@ -7,7 +7,7 @@ Every admission here proves against ONE roster shape — the declaration keyset 
 ## [01]-[INDEX]
 
 - [02]-[INDICATOR]: `LevelBreach`, `Sli`, `SloSample` — the breach polarity column, the closed reliability-indicator family, and the window sample every rate divides.
-- [03]-[BURN]: `AlertPosture`, `AlertSeverity`, `BurnRow`, `Objective`, `BurnReading`, `BurnVerdict`, `SloVerdict`, `AlertSpec`, `Slo` — the routing posture, the severity ladder, the burn table, the objective admission, and the evaluation fold.
+- [03]-[BURN]: `AlertSeverity`, `BurnRow`, `Objective`, `BurnReading`, `BurnVerdict`, `SloVerdict`, `AlertSpec`, `Slo` — the severity ladder, the burn table, the objective admission, and the evaluation fold.
 - [04]-[BOARD]: `PanelKind`, `PanelSpec`, `BoardPack` — the board vocabulary and the one pack-wide admission.
 - [05]-[BENCH]: `BenchClaim`, `BenchLedger` — the typed speed-claim row and the duplicate-refusing fold the corpus gate reads.
 
@@ -57,9 +57,7 @@ public abstract partial record Sli {
     public sealed record Ratio(string Good, string Total) : Sli;
     public sealed record Partition(string Metric, string By, Seq<string> Good) : Sli;
     public sealed record Latency(string Metric, Duration Ceiling, double Quantile) : Sli;
-    public sealed record Saturation(string Metric, double Bound, LevelBreach Breach) : Sli {
-        public bool Breached(double reading) => Breach.Breaches(reading, Bound);
-    }
+    public sealed record Saturation(string Metric, double Bound, LevelBreach Breach) : Sli;
     public sealed record Freshness(string Metric, Duration Horizon) : Sli;
 
     public Seq<InstrumentKind> Admits => Switch(
@@ -75,13 +73,6 @@ public abstract partial record Sli {
         latency: static row => Seq(row.Metric),
         saturation: static row => Seq(row.Metric),
         freshness: static row => Seq(row.Metric));
-
-    public Seq<string> Breaks => Switch(
-        ratio: static _ => Seq<string>(),
-        partition: static row => Seq(row.By),
-        latency: static _ => Seq<string>(),
-        saturation: static _ => Seq<string>(),
-        freshness: static _ => Seq<string>());
 
     public bool Wellformed => Switch(
         ratio: static row => row.Good != row.Total,
@@ -101,16 +92,16 @@ public readonly record struct SloSample(long Breaching, long Total) : IValidityE
 
 ## [03]-[BURN]
 
-- Owner: `AlertPosture` is the routing pair — the Alertmanager label a contact row matches and the urgency its receiver reads — carried as ONE row; `AlertSeverity` is the one routing vocabulary the deploy plane's contact rows key on and the one severity ORDER both the escalation walk and the pack verdict read; `BurnRow` is the multi-window multi-burn-rate table; `Objective` binds one indicator to a target ratio and a compliance window with the error budget deriving; `BurnReading` is the long-and-short sample pair; `BurnVerdict` is the per-row outcome; `SloVerdict` the pack outcome; `AlertSpec` the compilation-ready row each burn row derives; `Slo` the evaluation and admission fold.
+- Owner: `AlertSeverity` is the one routing vocabulary the deploy plane's contact rows key on and the one severity ORDER both the escalation walk and the pack verdict read, each row carrying its routing pair — the Alertmanager posture label a contact row matches and the urgency its receiver reads — as its own columns; `BurnRow` is the multi-window multi-burn-rate table; `Objective` binds one indicator to a target ratio and a compliance window with the error budget deriving; `BurnReading` is the long-and-short sample pair; `BurnVerdict` is the per-row outcome; `SloVerdict` the pack outcome; `AlertSpec` the compilation-ready row each burn row derives; `Slo` the evaluation and admission fold.
 - Cases: four burn rows — two paging pairs at 14.4× and 6×, two ticketing pairs at 3× and 1×; two severities; three verdict cases — `Firing`, `Quiet`, and `Unread`, where a window pair that carried no rate is a CASE rather than a state column beside two absent options.
 - Entry: `Objective.Create(name, sli, target, window)` is the admission — a target outside the open unit interval, a blank or non-conforming name, and a window shorter than the longest burn row each refuse there, so a zero or negative budget has no construction path and no consumer guards one; `Slo.Evaluate(objective, readings)` folds one long-and-short sample pair per burn row into the verdict; `Slo.Specs(objective)` derives one spec per row; `Slo.Admit(roster, objective)` proves the indicator's own field domain, resolves every named series to a declared row of a kind the shape admits, and proves every partition key against that row's declared dimensions.
 - Auto: a verdict fires only when BOTH windows exceed the row's factor — the long window proves sustained burn and the short window proves it still burns now, so a resolved incident resets without paging for its own tail; the budget-share figure derives from factor, long window, and the objective's own window at derivation time, so the headline an operator reads cannot disagree with the thresholds that fired it. Compliance floor derives from the longest burn row rather than a literal, so a tuned row moves it with no edit here.
-- Law: every `AlertSeverity` column reaches the deploy plane through `Specs` — `Rank` orders the two extremum walks, `Hold` fills the spec's own dwell column, and the posture's key and urgency ride the annotation set — so a column the compile leg cannot read has no seat on this ladder.
+- Law: every `AlertSeverity` column reaches the deploy plane through `Specs` — `Rank` orders the two extremum walks, `Hold` fills the spec's own dwell column, and the posture and urgency columns ride the annotation set — so a column the compile leg cannot read has no seat on this ladder.
 - Law: the severity ORDER has one fold. `Stat.Extrema` is the branch's one banded extremum mint (`Rasm` RULINGS `[02]`), so escalation reads the least rank above a row and the pack verdict the greatest rank fired, and a row inserted into the ladder joins both walks with no edit. `Stride` is the band those folds carry: every ordinal this page folds is DECLARED with unit stride, so any band below one stride ties nothing and the fold reads exact; the residual lane's own floor is open, so a bare zero has no construction path.
 - Output: `SloVerdict` carries per-row burn verdicts and the dominant severity as data a caller routes on; emission, delivery routing, and rule provisioning belong to the consuming plane.
 - Packages: NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a tuned discipline is one `BurnRow` value edit every consumer re-derives; a new routing posture is one `AlertPosture` row and one `AlertSeverity` row naming it, joining both extremum walks by rank alone and reaching the deploy plane through the annotations `Specs` already writes.
-- Boundary: the severity roster is exactly `page` and `ticket` — the vocabulary the deploy plane's contact rows already key on — so the compile leg receives one dialect and a rank-ordered incident ladder rides the `Rank` and `Escalated` columns inside those two rows rather than a second severity type; delivery receivers, schedules, and escalation chains are deploy-plane configuration keyed by the severity row, never spec data. `AlertSpec` crosses a deploy plane whole, as data — annotation values are `string` because every one the derivation writes is a key or a name, and every declared severity column reaches that plane through them: the dwell rides `Hold`, the routing pair rides the posture annotations, so no column on the ladder is a policy nothing compiles.
+- Growth: a tuned discipline is one `BurnRow` value edit every consumer re-derives; a new routing posture is one `AlertSeverity` row spelling its posture and urgency, joining both extremum walks by rank alone and reaching the deploy plane through the annotations `Specs` already writes.
+- Boundary: the severity roster is exactly `page` and `ticket` — the vocabulary the deploy plane's contact rows already key on — so the compile leg receives one dialect and a rank-ordered incident ladder rides the `Rank` and `Escalated` columns inside those two rows rather than a second severity type; delivery receivers, schedules, and escalation chains are deploy-plane configuration keyed by the severity row, never spec data. `AlertSpec` crosses a deploy plane whole, as data — annotation values are `string` because every one the derivation writes is a key or a name, and every declared severity column reaches that plane through them: the dwell rides `Hold`, the routing pair rides the posture and urgency annotations, so no column on the ladder is a policy nothing compiles.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -124,19 +115,9 @@ namespace Rasm.Domain;
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class AlertPosture {
-    public static readonly AlertPosture Warning = new("warning", urgency: "queue");
-    public static readonly AlertPosture Critical = new("critical", urgency: "interrupt");
-
-    public string Urgency { get; }
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AlertSeverity {
-    public static readonly AlertSeverity Ticket = new("ticket", rank: 0, holdMinutes: 30, posture: AlertPosture.Warning);
-    public static readonly AlertSeverity Page = new("page", rank: 1, holdMinutes: 0, posture: AlertPosture.Critical);
+    public static readonly AlertSeverity Ticket = new("ticket", rank: 0, hold: Duration.FromMinutes(30), posture: "warning", urgency: "queue");
+    public static readonly AlertSeverity Page = new("page", rank: 1, hold: Duration.Zero, posture: "critical", urgency: "interrupt");
 
     internal static Tolerance Stride => StrideBand.Value;
     private static readonly Lazy<Tolerance> StrideBand = new(static () =>
@@ -144,11 +125,11 @@ public sealed partial class AlertSeverity {
 
     public int Rank { get; }
 
-    public int HoldMinutes { get; }
+    public Duration Hold { get; }
 
-    public AlertPosture Posture { get; }
+    public string Posture { get; }
 
-    public Duration Hold => Duration.FromMinutes(HoldMinutes);
+    public string Urgency { get; }
 
     public AlertSeverity Escalated =>
         Stat.Extrema(
@@ -169,27 +150,23 @@ public sealed partial class AlertSeverity {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BurnRow {
-    public static readonly BurnRow PageFast = new("page-fast", factor: 14.4d, longMinutes: 60, shortMinutes: 5, severity: AlertSeverity.Page);
-    public static readonly BurnRow PageSlow = new("page-slow", factor: 6d, longMinutes: 360, shortMinutes: 30, severity: AlertSeverity.Page);
-    public static readonly BurnRow TicketFast = new("ticket-fast", factor: 3d, longMinutes: 1_440, shortMinutes: 120, severity: AlertSeverity.Ticket);
-    public static readonly BurnRow TicketSlow = new("ticket-slow", factor: 1d, longMinutes: 4_320, shortMinutes: 360, severity: AlertSeverity.Ticket);
+    public static readonly BurnRow PageFast = new("page-fast", factor: 14.4d, @long: Duration.FromMinutes(60), @short: Duration.FromMinutes(5), severity: AlertSeverity.Page);
+    public static readonly BurnRow PageSlow = new("page-slow", factor: 6d, @long: Duration.FromMinutes(360), @short: Duration.FromMinutes(30), severity: AlertSeverity.Page);
+    public static readonly BurnRow TicketFast = new("ticket-fast", factor: 3d, @long: Duration.FromMinutes(1_440), @short: Duration.FromMinutes(120), severity: AlertSeverity.Ticket);
+    public static readonly BurnRow TicketSlow = new("ticket-slow", factor: 1d, @long: Duration.FromMinutes(4_320), @short: Duration.FromMinutes(360), severity: AlertSeverity.Ticket);
 
     public double Factor { get; }
 
-    public int LongMinutes { get; }
+    public Duration Long { get; }
 
-    public int ShortMinutes { get; }
+    public Duration Short { get; }
 
     public AlertSeverity Severity { get; }
-
-    public Duration Long => Duration.FromMinutes(LongMinutes);
-
-    public Duration Short => Duration.FromMinutes(ShortMinutes);
 
     public static Duration Floor =>
         Stat.Extrema(
             items: toSeq(Items),
-            projection: static row => row.LongMinutes,
+            projection: static row => row.Long.TotalSeconds,
             band: AlertSeverity.Stride,
             direction: ExtremumDirection.Maximum).Head.Match(Some: static row => row.Long, None: static () => Duration.Zero);
 }
@@ -210,7 +187,6 @@ public sealed partial class Objective {
         validationError =
             !string.IsNullOrWhiteSpace(name)
             && name.All(static ch => char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch) || ch is '.' or '-')
-            && sli is not null
             && target is > 0d and < 1d
             && window >= BurnRow.Floor
                 ? null
@@ -255,15 +231,15 @@ public static class Slo {
 
     public static double Burn(Objective objective, double errorRate) => errorRate / objective.Budget;
 
-    public static double Share(BurnRow row, Objective objective) =>
-        row.Factor * row.Long.TotalSeconds / objective.Window.TotalSeconds;
-
     public static SloVerdict Evaluate(Objective objective, Func<BurnRow, BurnReading> readings) {
         Seq<BurnVerdict> rows = toSeq(BurnRow.Items).Map(row => Verdict(objective, row, readings(row))).Strict();
         return new SloVerdict(
             Rows: rows,
             Severity: AlertSeverity.Dominant(
-                rows.Choose(static row => row is BurnVerdict.Firing fired ? Some(fired.At.Severity) : None).Strict()));
+                rows.Choose(static row => row.Switch(
+                    firing: static fired => Some(fired.At.Severity),
+                    quiet: static _ => Option<AlertSeverity>.None,
+                    unread: static _ => Option<AlertSeverity>.None)).Strict()));
     }
 
     public static Seq<AlertSpec> Specs(Objective objective) =>
@@ -274,28 +250,28 @@ public static class Slo {
             Hold: row.Severity.Hold,
             Sli: objective.Sli,
             Target: objective.Target,
-            Spend: Share(row, objective),
+            Spend: row.Factor * row.Long.TotalSeconds / objective.Window.TotalSeconds,
             Annotations: Seq(
                 new KeyValuePair<string, string>(ObjectiveSlot, objective.Name),
                 new KeyValuePair<string, string>(SeveritySlot, row.Severity.Key),
                 new KeyValuePair<string, string>(BurnSlot, row.Key),
-                new KeyValuePair<string, string>(PostureSlot, row.Severity.Posture.Key),
-                new KeyValuePair<string, string>(UrgencySlot, row.Severity.Posture.Urgency)))).Strict();
+                new KeyValuePair<string, string>(PostureSlot, row.Severity.Posture),
+                new KeyValuePair<string, string>(UrgencySlot, row.Severity.Urgency)))).Strict();
 
     public static Validation<Error, Objective> Admit(HashMap<string, InstrumentSpec> roster, Objective objective) =>
         objective.Sli is var sli
         && sli.Wellformed
-        && sli.Series.ForAll(name => roster.Find(name).Match(
-            Some: row => sli.Admits.Exists(kind => kind.Equals(row.Kind))
-                && sli.Breaks.ForAll(key => row.Dimensions.Exists(declared => declared == key))
-                && (sli is not Sli.Latency latency
-                    || (string.Equals(row.Unit, Buckets.Seconds, StringComparison.Ordinal)
-                        && row.Bounds.Exists(buckets => buckets.Bounds.Contains(latency.Ceiling.TotalSeconds)))),
-            None: static () => false))
-            ? Validation<Error, Objective>.Success(objective)
-            : Validation<Error, Objective>.Fail(new KernelFault.InvalidValue(
+        && sli.Series.ForAll(name => roster.Find(name).Exists(row =>
+            sli.Admits.Exists(kind => kind.Equals(row.Kind))
+            && (sli is not Sli.Partition partition
+                || row.Dimensions.Exists(declared => declared == partition.By))
+            && (sli is not Sli.Latency latency
+                || (string.Equals(row.Unit, Buckets.Seconds, StringComparison.Ordinal)
+                    && row.Bounds.Exists(buckets => buckets.Bounds.Contains(latency.Ceiling.TotalSeconds))))))
+            ? objective
+            : new KernelFault.InvalidValue(
                 Label: objective.Name,
-                Requirement: $"a wellformed indicator whose series declare as {string.Join(" or ", sli.Admits.Map(static kind => kind.Key))}, name every partition key, and pin a latency ceiling ON the declared seconds bucket ladder"));
+                Requirement: $"a wellformed indicator whose series declare as {string.Join(" or ", sli.Admits.Map(static kind => kind.Key))}, name every partition key, and pin a latency ceiling ON the declared seconds bucket ladder");
 
     private static BurnVerdict Verdict(Objective objective, BurnRow row, BurnReading reading) =>
         reading.Long.Rate.Bind(slow => reading.Short.Rate.Map(fast => (Slow: Burn(objective, slow), Fast: Burn(objective, fast))))
@@ -368,19 +344,14 @@ public sealed record PanelSpec(string Title, string Instrument, Seq<string> By, 
 public sealed record BoardPack(string Wire, Seq<PanelSpec> Panels, Seq<Objective> Objectives) {
     public Seq<AlertSpec> Alerts => Objectives.Bind(Slo.Specs).Strict();
 
-    public Fin<BoardPack> Admit(HashMap<string, InstrumentSpec> roster) {
-        BoardPack self = this;
-        return (Panels.Traverse(panel => panel.Admit(roster)).As(),
-                Objectives.Traverse(objective => Slo.Admit(roster, objective)).As(),
-                Named(Objectives))
-            .Apply((_, _, _) => self).As().ToFin();
-    }
-
-    private static Validation<Error, Unit> Named(Seq<Objective> objectives) =>
-        objectives.Collisions(static row => row.Name) is { IsEmpty: false } collided
+    public Fin<BoardPack> Admit(HashMap<string, InstrumentSpec> roster) =>
+        (Panels.Traverse(panel => panel.Admit(roster)).As(),
+         Objectives.Traverse(objective => Slo.Admit(roster, objective)).As(),
+         Objectives.Collisions(static row => row.Name) is { IsEmpty: false } collided
             ? Validation<Error, Unit>.Fail(new KernelFault.InvalidValue(
                 Label: string.Join(", ", collided), Requirement: "one objective per alert-namespace name"))
-            : Validation<Error, Unit>.Success(unit);
+            : Validation<Error, Unit>.Success(unit))
+        .Apply((_, _, _) => this).As().ToFin();
 }
 ```
 
@@ -422,7 +393,14 @@ public sealed class BenchLedger {
         HashMap<Op, int> census = rows.Fold(
             HashMap<Op, int>(),
             static (held, row) => held.AddOrUpdate(row.Claim, static seats => seats + 1, static () => 1));
-        return (rows.Traverse(Admitted).As(), rows.Traverse(row => Distinct(row, census)).As())
+        return (rows.Traverse(row => row.IsValid
+                    ? Validation<Error, BenchClaim>.Success(row)
+                    : Validation<Error, BenchClaim>.Fail(new KernelFault.InvalidValue(
+                        Label: row.Claim.ToString(), Requirement: "a positive speedup floor and non-blank lane spellings"))).As(),
+                rows.Traverse(row => census.Find(row.Claim).IfNone(0) > 1
+                    ? Validation<Error, Unit>.Fail(new KernelFault.InvalidValue(
+                        Label: row.Claim.ToString(), Requirement: "one ledger row per claim key"))
+                    : Validation<Error, Unit>.Success(unit)).As())
             .Apply(static (admitted, _) => new BenchLedger(rows: admitted)).As().ToFin();
     }
 
@@ -433,22 +411,8 @@ public sealed class BenchLedger {
                 proof.Claim,
                 seated => seated.IsSome ? seated : proof.Corpus,
                 () => proof.Corpus));
-        return Rows.Filter(row => index.Find(row.Claim).Match(
-            Some: corpus => row.Corpus.IsSome && corpus.IsNone,
-            None: static () => true));
+        return Rows.Filter(row => !index.Find(row.Claim).Exists(corpus => row.Corpus.IsNone || corpus.IsSome));
     }
-
-    private static Validation<Error, BenchClaim> Admitted(BenchClaim row) =>
-        row.IsValid
-            ? Validation<Error, BenchClaim>.Success(row)
-            : Validation<Error, BenchClaim>.Fail(new KernelFault.InvalidValue(
-                Label: row.Claim.ToString(), Requirement: "a positive speedup floor and non-blank lane spellings"));
-
-    private static Validation<Error, Unit> Distinct(BenchClaim row, HashMap<Op, int> census) =>
-        census.Find(row.Claim).IfNone(0) > 1
-            ? Validation<Error, Unit>.Fail(new KernelFault.InvalidValue(
-                Label: row.Claim.ToString(), Requirement: "one ledger row per claim key"))
-            : Validation<Error, Unit>.Success(unit);
 }
 ```
 

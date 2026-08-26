@@ -258,7 +258,7 @@ public static class CdcIngress {
     static Fin<EventId> Identified(CloudEvent envelope, Op key) =>
         Optional(envelope.Id)
             .ToFin(new IngressFault.InvalidEnvelope(None, "<absent-operation-id>"))
-            .Bind(id => EventId.Admit(id, key));
+            .Bind(id => key.AcceptValidated<EventId>(id));
 
     static Fin<IngressPayload> Payload(
         CloudEvent envelope, global::Rasm.Contracts.Event.Extensions extensions, string id, Op key) =>

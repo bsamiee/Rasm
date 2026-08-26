@@ -95,7 +95,7 @@ public static class SupportTriggerOps {
 - Owner: `SupportArtifact` the contributor factory row; `CaptureWindow` the per-capture context every producer reads; `ArtifactPayload` the produced bytes beside their masking tally; `MaskTally` the redaction monoid and `MaskLedger` the ONE masking owner every redacted column writes through; `TraceSession` the event-trace pump's own acquisition; the contributed-row carrier is `Runtime/ports#PORT_SURFACE` `SupportContributorPort`, which this owner folds and never re-declares.
 - Cases: seven standing rows — effective config, signal readings, phase commits, health reading, hook faults, determinism drift, the event trace — beside the two dump rows `[04]` mints; each is a factory over composition-supplied ports and none opens a capture window of its own.
 - Entry: each `SupportArtifact.<Row>(…)` returns the factory row; `Runtime/ports#PORT_SURFACE` `SupportContributorPort` carries a package's rows inward; `SupportArtifact.Folded(own, contributed)` is the ONE roster projection the runtime binds; `MaskLedger.Mask(object?)` returns the masked text and records its verdict, `MaskLedger.Tally` reads the accumulated count.
-- Law: redaction verdicts are kernel `Masked` cases and the tally is their MONOID fold. Three `ref int` counters threaded through every producer are the deleted form — they let two producers disagree on what counts and made a length-preserving redactor report zero over a fully masked bundle — so one ledger owns the verdict, one tally owns the count, and a producer that writes a byte cannot skip either.
+- Law: redaction verdicts are kernel `Masked` values and the tally is their MONOID fold. Three `ref int` counters threaded through every producer are the deleted form — they let two producers disagree on what counts and made a length-preserving redactor report zero over a fully masked bundle — so one ledger owns the verdict, one tally owns the count, and a producer that writes a byte cannot skip either.
 - Auto: `IncidentBuffers.Flush` replays both held scopes into the frozen window before contributor fan-in and counts the scopes it drained; the `DeadlineClass.SupportWindow` row bounds the capture run on the cancel spine; the dispatcher's parked subscriber faults drain here rather than through a second retention plane, because `FaultCell` is the bounded custody the bus already keeps and a capture is exactly when a late panel gets read; the determinism campaign's placement fold runs as a contributor, so a pulled bundle carries the drift evidence naming any strategy that swallowed an injection.
 - Output: per-artifact written bytes, truncated bytes, redaction counts, and each written member's content key land as `SupportManifest.Entry` rows.
 - Packages: Rasm (kernel `Dimension`, `Masked`, `InstrumentTally`/`InstrumentReading`/`ReadingCell`, `FaultCell`), Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
@@ -116,7 +116,7 @@ public readonly record struct ArtifactPayload(ReadOnlyMemory<byte> Bytes, MaskTa
 public readonly record struct MaskTally(int Masked) : Monoid<MaskTally> {
     public static MaskTally Empty => new(0);
     public static MaskTally Of(Masked verdict) =>
-        new(verdict.Switch(unchanged: static _ => 0, redacted: static _ => 1));
+        new(verdict.Changed ? 1 : 0);
     public MaskTally Combine(MaskTally rhs) => new(Masked + rhs.Masked);
 }
 

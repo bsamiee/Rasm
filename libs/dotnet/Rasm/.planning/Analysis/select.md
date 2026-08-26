@@ -278,7 +278,7 @@ public abstract partial record Curves {
         _ => Fin.Fail<Seq<Curve>>(op.InvalidInput()),
     };
     internal static Fin<CurveForm> Classify(TopologyProjection projection, Context context, Op op) =>
-        projection.As<Curve>(key: op).Bind(curve => Normalization.CurveFormOf(curve: curve, context: context));
+        projection.As<Curve>(key: op).Map(curve => Normalization.CurveFormOf(curve: curve, context: context));
 
     private static CurveFeature EdgeFeatureFor(Topology topology) =>
         topology == Topology.Curve ? CurveFeature.Input : topology == Topology.Surface ? CurveFeature.Boundary : CurveFeature.Edge;
@@ -584,8 +584,7 @@ public abstract partial record Points {
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: c.Key, state: c.Key,
                 evaluator: static (op, geometry) =>
-                    from answer in geometry.Evaluate(request: new EvaluationRequest.Vertices(), key: op).ToEff()
-                    from points in answer.Sites(key: op).ToEff()
+                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: op).ToEff()
                     from result in op.Accept(values: points).ToEff()
                     select result).As<TGeometry, TOut>(key: c.Key)
             : c.Key.Unsupported<TGeometry, TOut>(),
@@ -602,8 +601,7 @@ public abstract partial record Points {
                 key: s.Key, requiresContext: true, state: (Key: s.Key, s.Aspect),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from answer in geometry.Evaluate(request: new EvaluationRequest.Vertices(), key: state.Key).ToEff()
-                    from points in answer.Sites(key: state.Key).ToEff()
+                    from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: state.Key).ToEff()
                     from fitted in state.Aspect.Fit(points: points, geometry: geometry, context: context, op: state.Key).ToEff()
                     from result in state.Aspect.Output.Admit<TOut>(values: fitted, key: state.Key).ToEff()
                     select result)

@@ -96,13 +96,12 @@ public abstract partial record ModelSource {
 }
 
 public static class RosterFingerprint {
-    public static ulong Of(IEnumerable<KeyValuePair<string, string>> rows) => ContentHash.Half(
+    public static ulong Of(IEnumerable<KeyValuePair<string, string>> rows) => ContentHash.Halves(
         ContentHash.Of(toSeq(rows), static (roster, writer) => writer.Sorted(
             roster,
             static row => row.Key,
             StringComparer.Ordinal,
-            static (row, framed) => framed.String(row.Key).String(row.Value))),
-        Lane.Low);
+            static (row, framed) => framed.String(row.Key).String(row.Value)))).Low;
 }
 
 [Union]

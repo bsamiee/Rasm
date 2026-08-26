@@ -13,9 +13,9 @@
 ## [02]-[TAXONOMY]
 
 - Owner: `Topology` is the topological-stratum discriminant AND the form-recovery row — each stratum answers once how a value of that stratum becomes a `Lease<GeometryBase>`, so `GeometryForm` is a row read and a new stratum is one row that cannot compile without its recovery. `Kind` binds each Rhino `Type` to a `Topology`, declares its capability membership, names its `Rhino.DocObjects.ObjectType` where one exists, and answers its own bounds. `Capability` is the vocabulary those memberships draw from and the type-level admission predicate over erased ingress; `CurveForm` carries analytic classification with case-specific evidence over one universal closedness column.
-- Owner: `Kind.Capabilities` is the ONE membership authority — every type roster (`CurvePrimitives`, `SurfacePrimitives`), the `ByType`/`ByObjectType` indexes, and every `Capability` row's kind arm derive from it through `Items`. Parallel `FrozenSet<Type>` rosters beside the rows are the deleted form: they admit a row edit that nothing breaks.
+- Owner: `Kind.Capabilities` is the ONE membership authority — the `ByType`/`ByObjectType` indexes and every `Capability` row's kind arm derive from it through `Items`, and analytic coercion reads the `AnalyticForm.Lane` correspondence directly. Parallel `FrozenSet<Type>` rosters beside the rows are the deleted form: they admit a row edit that nothing breaks.
 - Entry: `Kind.Of` resolves type identity, `Capability.Admits` type admission, `Capability.Coercible`/`Capability.Native` the pairwise relations, and `Topology.Recover` the stratum form recovery.
-- Cases: `Capability` rows split by what answers them — membership rows (`CurveForm`, `SurfaceForm`, `BrepForm`, `Analytic`, `Bound`, `OrientedBound`, `ReadVertices`, `ReadControlPoints`, `ReadEdges`) are declared on `Kind` and read through the set; composite rows (`Form`, `DecomposeFaces`, `EvaluateTopology`, `Closest`, `ClosestNormal`, `ClosestTangent`, `ClosestFrame`, `SignedDistance`) are unions over sibling rows and carry their reach as a delegate. Both answer through one `Admits` body.
+- Cases: `Capability` rows split by what answers them — membership rows (`CurveForm`, `SurfaceForm`, `BrepForm`, `Bound`, `OrientedBound`, `ReadVertices`, `ReadControlPoints`, `ReadEdges`) are declared on `Kind` and read through the set; composite rows (`Form`, `DecomposeFaces`, `EvaluateTopology`, `Closest`, `ClosestNormal`, `ClosestTangent`, `ClosestFrame`, `SignedDistance`) are unions over sibling rows and carry their reach as a delegate. Both answer through one `Admits` body.
 - Auto: `Universal` holds erased `object`/`GeometryBase` ingress open until the runtime value refines it, and `SignedDistance` is the one row that does NOT — a signed answer needs a solid whose inside is decidable, which no erased ingress promises. Keyless composite reach binds through predicate delegates, so composite admission reads settled behavior free of smart-enum initialization-order coupling.
 - Growth: a Rhino geometry kind lands as a `Kind` row with its capability memberships, its native object type, and its bounds; a type-level capability as a `Capability` row with its natives and reach; an analytic classification as a `CurveForm` case; a topological stratum as a `Topology` row with its recovery.
 - Boundary: `ByObjectType` is the sole `Rhino.DocObjects.ObjectType` conversion; `Capability` answers type admission, `OpAcceptance` value validity, and `Requirement` readiness.
@@ -38,19 +38,18 @@ namespace Rasm.Domain;
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Topology {
-    public static readonly Topology Unknown = new(key: 0, recover: static (source, key) => Normalization.UnsupportedGeometry(source: source, key: key));
-    public static readonly Topology Point = new(key: 1, recover: static (source, key) => source switch {
+    public static readonly Topology Point = new(key: 0, recover: static (source, key) => source switch {
         Point3d point => Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Owned(Value: new RhinoPoint(location: point))),
         _ => Normalization.BorrowedGeometry(source: source, key: key),
     });
-    public static readonly Topology Curve = new(key: 2, recover: static (source, key) => Normalization.CurveForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
-    public static readonly Topology Surface = new(key: 3, recover: static (source, key) => Normalization.SurfaceForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
-    public static readonly Topology Brep = new(key: 4, recover: static (source, key) => Normalization.BrepForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
-    public static readonly Topology Mesh = new(key: 5, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology SubD = new(key: 6, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology PointCloud = new(key: 7, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology Hatch = new(key: 8, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
-    public static readonly Topology Extrusion = new(key: 9, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
+    public static readonly Topology Curve = new(key: 1, recover: static (source, key) => Normalization.CurveForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
+    public static readonly Topology Surface = new(key: 2, recover: static (source, key) => Normalization.SurfaceForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
+    public static readonly Topology Brep = new(key: 3, recover: static (source, key) => Normalization.BrepForm(source: source, key: key).Map(static lease => Normalization.Widen(lease: lease)));
+    public static readonly Topology Mesh = new(key: 4, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
+    public static readonly Topology SubD = new(key: 5, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
+    public static readonly Topology PointCloud = new(key: 6, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
+    public static readonly Topology Hatch = new(key: 7, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
+    public static readonly Topology Extrusion = new(key: 8, recover: static (source, key) => Normalization.BorrowedGeometry(source: source, key: key));
     [UseDelegateFromConstructor]
     internal partial Fin<Lease<GeometryBase>> Recover(object source, Op key);
 }
@@ -65,40 +64,40 @@ public sealed partial class Kind {
             _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
         });
     public static readonly Kind Line = new(1, typeof(Line), Topology.Curve,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.CurveForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.CurveForm), Option<ObjectType>.None,
         static (value, _) => Fin.Succ(((Line)value).BoundingBox));
     public static readonly Kind Polyline = new(2, typeof(Polyline), Topology.Curve,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.CurveForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.CurveForm), Option<ObjectType>.None,
         static (value, _) => Fin.Succ(((Polyline)value).BoundingBox));
     public static readonly Kind Circle = new(3, typeof(Circle), Topology.Curve,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.CurveForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.CurveForm), Option<ObjectType>.None,
         static (value, _) => Fin.Succ(((Circle)value).BoundingBox));
     public static readonly Kind Arc = new(4, typeof(Arc), Topology.Curve,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.CurveForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.CurveForm), Option<ObjectType>.None,
         static (value, _) => Fin.Succ(((Arc)value).BoundingBox()));
     public static readonly Kind Ellipse = new(5, typeof(Ellipse), Topology.Curve,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.CurveForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.CurveForm), Option<ObjectType>.None,
         static (value, key) => Normalization.CurveForm(source: value, key: key).Map(static lease => lease.Use(static curve => curve.GetBoundingBox(accurate: true))));
     public static readonly Kind Curve = new(6, typeof(Curve), Topology.Curve,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.CurveForm), Some(ObjectType.Curve), NativeBounds);
     public static readonly Kind Surface = new(7, typeof(Surface), Topology.Surface,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm), Some(ObjectType.Surface), NativeBounds);
     public static readonly Kind Plane = new(8, typeof(Plane), Topology.Surface,
-        CapabilitySet<Capability>.Of(Capability.ReadControlPoints, Capability.SurfaceForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.ReadControlPoints, Capability.SurfaceForm), Option<ObjectType>.None,
         static (_, key) => Fin.Fail<BoundingBox>(key.Unsupported(inputType: typeof(Plane), outputType: typeof(BoundingBox))));
     public static readonly Kind Sphere = new(9, typeof(Sphere), Topology.Surface,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm), Option<ObjectType>.None,
         static (value, _) => Fin.Succ(((Sphere)value).BoundingBox));
     public static readonly Kind Cylinder = new(10, typeof(Cylinder), Topology.Surface,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm, Capability.Analytic), Option<ObjectType>.None, SolidBounds);
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm), Option<ObjectType>.None, SolidBounds);
     public static readonly Kind Cone = new(11, typeof(Cone), Topology.Surface,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm, Capability.Analytic), Option<ObjectType>.None, SolidBounds);
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm), Option<ObjectType>.None, SolidBounds);
     public static readonly Kind Torus = new(12, typeof(Torus), Topology.Surface,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm, Capability.Analytic), Option<ObjectType>.None, SolidBounds);
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadControlPoints, Capability.SurfaceForm, Capability.BrepForm), Option<ObjectType>.None, SolidBounds);
     public static readonly Kind Brep = new(13, typeof(Brep), Topology.Brep,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.BrepForm), Some(ObjectType.Brep), NativeBounds);
     public static readonly Kind Box = new(14, typeof(Box), Topology.Brep,
-        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.BrepForm, Capability.Analytic), Option<ObjectType>.None,
+        CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.BrepForm), Option<ObjectType>.None,
         static (value, _) => Fin.Succ(((Box)value).BoundingBox));
     public static readonly Kind BoundingBox = new(15, typeof(BoundingBox), Topology.Brep,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.ReadControlPoints, Capability.ReadEdges, Capability.BrepForm), Option<ObjectType>.None,
@@ -113,15 +112,13 @@ public sealed partial class Kind {
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices, Capability.BrepForm), Some(ObjectType.Extrusion), NativeBounds);
     public static readonly Kind Hatch = new(20, typeof(Hatch), Topology.Hatch,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound), Some(ObjectType.Hatch), NativeBounds);
-    private static Fin<BoundingBox> NativeBounds(object value, Op key) =>
-        guard(((GeometryBase)value).IsValid, key.InvalidInput()).ToFin().Map(_ => ((GeometryBase)value).GetBoundingBox(accurate: true));
+    private static Fin<BoundingBox> NativeBounds(object value, Op _) =>
+        Fin.Succ(((GeometryBase)value).GetBoundingBox(accurate: true));
     private static Fin<BoundingBox> SolidBounds(object value, Op key) =>
         Normalization.BrepForm(source: value, key: key).Map(static lease => lease.Use(static brep => brep.GetBoundingBox(accurate: true)));
     private static readonly Lazy<FrozenDictionary<Type, Kind>> ByType = new(static () => Items.ToFrozenDictionary(static row => row.Type));
     internal static readonly Lazy<FrozenDictionary<ObjectType, Kind>> ByObjectType =
         new(static () => toSeq(Items).Choose(static row => row.Native.Map(native => (Native: native, Row: row))).ToFrozenDictionary(static pair => pair.Native, static pair => pair.Row));
-    private static readonly Lazy<FrozenSet<Type>> CurvePrimitives = TypesHolding(CapabilitySet<Capability>.Of(Capability.CurveForm, Capability.Analytic));
-    private static readonly Lazy<FrozenSet<Type>> SurfacePrimitives = TypesHolding(CapabilitySet<Capability>.Of(Capability.SurfaceForm, Capability.Analytic));
     public Type Type { get; }
     public Topology Topology { get; }
     internal CapabilitySet<Capability> Capabilities { get; }
@@ -132,8 +129,10 @@ public sealed partial class Kind {
         target.IsAssignableFrom(c: Type)
         || (target == typeof(Box) && Type == typeof(Brep))
         || (target == typeof(Curve) && Capabilities.Admits(Capability.CurveForm))
-        || (CurvePrimitives.Value.Contains(target) && Type == typeof(Curve))
-        || (SurfacePrimitives.Value.Contains(target) && (Type == typeof(Brep) || Type == typeof(Surface)))
+        || (Type == typeof(Curve) && AnalyticForm.Lane(topology: Topology.Curve)
+            .Exists(row => row.Kind.Type == target))
+        || ((Type == typeof(Brep) || Type == typeof(Surface)) && AnalyticForm.Lane(topology: Topology.Surface)
+            .Exists(row => row.Kind.Type == target))
         || (target == typeof(Brep) && Capabilities.Admits(Capability.BrepForm));
     public static Option<Kind> Of(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
@@ -143,8 +142,6 @@ public sealed partial class Kind {
     }
     private static Option<Type> InheritsBase(Type type) =>
         Optional(type.BaseType).Bind(static seat => ByType.Value.ContainsKey(key: seat) ? Some(seat) : InheritsBase(type: seat));
-    private static Lazy<FrozenSet<Type>> TypesHolding(CapabilitySet<Capability> required) =>
-        new(() => Items.Where(row => row.Capabilities.AdmitsAll(required: required)).Select(static row => row.Type).ToFrozenSet());
 }
 
 [SmartEnum<string>]
@@ -155,16 +152,15 @@ internal sealed partial class Capability : ICapability<Capability> {
     public static readonly Capability BrepForm = new("brep-form", Set(typeof(Brep)), Universal);
     public static readonly Capability Form = new("form", FrozenSet<Type>.Empty,
         static type => Universal(type: type) || CurveForm.Admits(type: type) || SurfaceForm.Admits(type: type) || Coercible(source: type, target: typeof(Brep)));
-    public static readonly Capability Analytic = new("analytic", FrozenSet<Type>.Empty, Universal);
     public static readonly Capability Bound = new("bound", Set(typeof(GeometryBase)), Universal);
     public static readonly Capability OrientedBound = new("oriented-bound", Set(typeof(GeometryBase)), Universal);
     public static readonly Capability ReadVertices = new("read-vertices", FrozenSet<Type>.Empty, Universal);
     public static readonly Capability ReadControlPoints = new("read-control-points", FrozenSet<Type>.Empty, Universal);
     public static readonly Capability ReadEdges = new("read-edges", FrozenSet<Type>.Empty, Universal);
     public static readonly Capability DecomposeFaces = new("decompose-faces", Set(typeof(BrepFace)),
-        static type => Universal(type: type) || KindAdmits(type: type, predicate: static kind => kind.CanCoerceTo(target: typeof(Brep))));
+        static type => Universal(type: type) || Kind.Of(type: type).Exists(static kind => kind.CanCoerceTo(target: typeof(Brep))));
     public static readonly Capability EvaluateTopology = new("evaluate-topology", Set(typeof(Mesh), typeof(Brep)),
-        static type => Universal(type: type) || KindAdmits(type: type, predicate: static kind =>
+        static type => Universal(type: type) || Kind.Of(type: type).Exists(static kind =>
             kind.Topology.Equals(Topology.Mesh) || kind.Topology.Equals(Topology.Brep) || kind.CanCoerceTo(target: typeof(Brep))));
     public static readonly Capability Closest = new("closest", Set(typeof(RhinoPoint), typeof(PointCloud), typeof(Brep), typeof(Mesh)),
         static type => Universal(type: type) || type == typeof(Point3d) || type == typeof(Box) || type == typeof(BoundingBox)
@@ -177,9 +173,6 @@ internal sealed partial class Capability : ICapability<Capability> {
         static type => Universal(type: type) || ClosestTangent.Admits(type: type) || SurfaceForm.Admits(type: type));
     public static readonly Capability SignedDistance = new("signed-distance", FrozenSet<Type>.Empty,
         static type => type == typeof(Plane) || type == typeof(Sphere) || type == typeof(Box) || type == typeof(BoundingBox) || ClosestNormal.Admits(type: type));
-    public int Rank => RankIndex.Value[Key];
-    private static readonly Lazy<FrozenDictionary<string, int>> RankIndex = new(static () =>
-        Items.Select(static (row, index) => (row.Key, Index: index)).ToFrozenDictionary(static pair => pair.Key, static pair => pair.Index, StringComparer.Ordinal));
     private FrozenSet<Type> Natives { get; }
     [UseDelegateFromConstructor]
     private partial bool Reach(Type type);
@@ -196,7 +189,6 @@ internal sealed partial class Capability : ICapability<Capability> {
         }
         return false;
     }
-    private static bool KindAdmits(Type type, Func<Kind, bool> predicate) => Kind.Of(type: type).Exists(predicate);
     private static FrozenSet<Type> Set(params ReadOnlySpan<Type> natives) => natives.ToArray().ToFrozenSet();
 }
 
@@ -342,9 +334,7 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
             Admitted(value: lease, source: source, reversed: reversed, detachedSingleFace: false));
     private static Fin<TopologyProjection> Admitted(Lease<GeometryBase> value, ComponentIndex source, bool reversed, bool detachedSingleFace) {
         TopologyProjection projection = new(value: value, source: source, reversed: reversed, detachedSingleFace: detachedSingleFace);
-        if (projection.IsValid) { return Fin.Succ(projection); }
-        projection.Dispose();
-        return Fin.Fail<TopologyProjection>(Key.InvalidInput());
+        return Key.AcceptInput(value: projection).Rollback(projection);
     }
     public GeometryBase Value => value.Resource;
     public ComponentIndex Source { get; }
@@ -387,39 +377,31 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
             _ => Fin.Succ(this),
         };
     }
-    public bool Yields(Type outputType) {
-        ArgumentNullException.ThrowIfNull(argument: outputType);
-        return outputType.IsAssignableFrom(typeof(TopologyProjection))
-            || (Value is Curve curve && outputType.IsInstanceOfType(curve))
-            || (Value is Brep or BrepFace && outputType.IsAssignableFrom(typeof(Brep)));
-    }
-    public bool Transfers(object? output) =>
-        Optional(output).Exists(present => present switch {
-            TopologyProjection projection => SameAs(other: projection),
-            GeometryBase geometry => ReferenceEquals(objA: Value, objB: geometry) || (Value, geometry) switch {
-                (Brep brep, BrepFace face) => ReferenceEquals(objA: brep, objB: face.Brep),
-                (BrepFace face, Brep brep) => ReferenceEquals(objA: face.Brep, objB: brep),
-                (BrepFace source, BrepFace face) => ReferenceEquals(objA: source.Brep, objB: face.Brep),
-                _ => false,
-            },
+    private bool Transfers(object? output) =>
+        output switch {
+            TopologyProjection projection => ReferenceEquals(objA: Value, objB: projection.Value) && Source.Equals(projection.Source),
+            GeometryBase geometry => ReferenceEquals(objA: Value, objB: geometry)
+                || faceBrep.Exists(held => ReferenceEquals(objA: held.Resource, objB: geometry))
+                || (Value, geometry) switch {
+                    (Brep brep, BrepFace face) => ReferenceEquals(objA: brep, objB: face.Brep),
+                    (BrepFace face, Brep brep) => ReferenceEquals(objA: face.Brep, objB: brep),
+                    (BrepFace source, BrepFace face) => ReferenceEquals(objA: source.Brep, objB: face.Brep),
+                    _ => false,
+                },
             _ => false,
-        });
+        };
     public void Dispose() {
         _ = value.Dispose();
         _ = faceBrep.Iter(static owned => owned.Dispose());
     }
     private Option<Brep> FaceBrep(BrepFace face) {
-        Option<Brep> held = faceBrep.Map(static lease => lease.Resource);
-        if (held.IsSome) { return held; }
-        Option<Brep> minted = Optional(face.DuplicateFace(duplicateMeshes: false));
-        faceBrep = minted.Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep));
-        return minted;
+        if (faceBrep is { IsSome: true, Case: Lease<Brep> held }) { return Some(held.Resource); }
+        faceBrep = Optional(face.DuplicateFace(duplicateMeshes: false)).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep));
+        return faceBrep.Map(static lease => lease.Resource);
     }
-    private bool SameAs(TopologyProjection? other) =>
-        other switch { TopologyProjection p => ReferenceEquals(objA: Value, objB: p.Value) && Source.Equals(p.Source), _ => false };
     internal static Fin<Seq<TValue>> Project<TValue>(Seq<TopologyProjection> all, Seq<TopologyProjection> chosen, Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
         Fin<Seq<TValue>> result = Key.Catch(body: () => project(arg: chosen));
-        _ = all.Filter(v => !result.IsSucc || !chosen.Exists(c => c.SameAs(other: v) && c.Yields(outputType: typeof(TValue)))).Iter(static v => v.Dispose());
+        _ = all.Filter(item => !result.Exists(values => values.Exists(output => item.Transfers(output)))).Iter(static item => item.Dispose());
         return result;
     }
 }
@@ -442,11 +424,11 @@ internal static class Normalization {
             });
         public Fin<BoundingBox> BoundsOf(Op key) =>
             Optional(geometry).ToFin(key.InvalidInput()).Bind(source =>
-                guard(OpAcceptance.ValidityOf(source: source).Exists(static valid => valid), key.InvalidInput()).ToFin().Bind(_ => Kind.Of(type: source.GetType()).Case switch {
-                    Kind kind => kind.Bounds(value: source, key: key),
-                    _ => source is GeometryBase native
-                        ? guard(native.IsValid, key.InvalidInput()).ToFin().Map(_ => native.GetBoundingBox(accurate: true))
-                        : Fin.Fail<BoundingBox>(key.Unsupported(inputType: source.GetType(), outputType: typeof(BoundingBox))),
+                key.AcceptInput(value: source).Bind(admitted => Kind.Of(type: admitted.GetType()).Case switch {
+                    Kind kind => kind.Bounds(value: admitted, key: key),
+                    _ => admitted is GeometryBase native
+                        ? Fin.Succ(native.GetBoundingBox(accurate: true))
+                        : Fin.Fail<BoundingBox>(key.Unsupported(inputType: admitted.GetType(), outputType: typeof(BoundingBox))),
                 }));
         public Fin<TTarget> CoerceTo<TTarget>(Context context, Op key) where TTarget : notnull =>
             Optional(geometry).ToFin(key.InvalidInput()).Bind(s => s switch {
@@ -502,18 +484,25 @@ internal static class Normalization {
             : UnsupportedGeometry(source: source, key: key);
     internal static Fin<Lease<GeometryBase>> UnsupportedGeometry(object source, Op key) =>
         Fin.Fail<Lease<GeometryBase>>(key.Unsupported(inputType: source.GetType(), outputType: typeof(GeometryBase)));
-    internal static Fin<CurveForm> CurveFormOf(Curve curve, Context context) =>
-        Fin.Succ(AnalyticForm.Lane(topology: Topology.Curve)
+    internal static CurveForm CurveFormOf(Curve curve, Context context) =>
+        AnalyticForm.Lane(topology: Topology.Curve)
             .Choose(row => row.Raise(native: curve, context: context))
             .Head
-            .Bind(primitive => Classified(primitive: primitive, closed: curve.IsClosed))
+            .Bind(primitive => primitive switch {
+                Line line => Some<CurveForm>(new CurveForm.LineCase(Value: line)),
+                Circle circle => Some<CurveForm>(new CurveForm.CircleCase(Value: circle)),
+                Arc arc => Some<CurveForm>(new CurveForm.ArcCase(Value: arc)),
+                Ellipse ellipse => Some<CurveForm>(new CurveForm.EllipseCase(Value: ellipse)),
+                Polyline polyline => Some<CurveForm>(new CurveForm.PolylineCase(Value: polyline, IsClosed: curve.IsClosed)),
+                _ => Option<CurveForm>.None,
+            })
             .IfNone(() => new CurveForm.NurbsCase(
                 Degree: curve.Degree,
                 IsClosed: curve.IsClosed,
                 IsPlanar: curve.IsPlanar(tolerance: context.Absolute.Value),
                 IsPeriodic: curve.IsPeriodic,
                 SpanCount: curve.SpanCount,
-                Dimension: curve.Dimension)));
+                Dimension: curve.Dimension));
     internal static Option<object> PrimitiveOf(Kind kind, object source, Context context, Op key) =>
         (kind.Type, source) switch {
             (Type t, RhinoPoint point) when t == typeof(Point3d) => Some((object)point.Location),
@@ -531,15 +520,6 @@ internal static class Normalization {
         };
     private static Option<Kind> Inferred(Seq<AnalyticForm> rows, GeometryBase native, Context context) =>
         rows.Choose(row => row.Raise(native: native, context: context).Map(_ => row.Kind)).Head;
-    private static Option<CurveForm> Classified(object primitive, bool closed) =>
-        primitive switch {
-            Line line => Some<CurveForm>(new CurveForm.LineCase(Value: line)),
-            Circle circle => Some<CurveForm>(new CurveForm.CircleCase(Value: circle)),
-            Arc arc => Some<CurveForm>(new CurveForm.ArcCase(Value: arc)),
-            Ellipse ellipse => Some<CurveForm>(new CurveForm.EllipseCase(Value: ellipse)),
-            Polyline polyline => Some<CurveForm>(new CurveForm.PolylineCase(Value: polyline, IsClosed: closed)),
-            _ => Option<CurveForm>.None,
-        };
     private static Option<Kind> NativeKind(object geometry) =>
         geometry is GeometryBase native
             ? Optional(Kind.ByObjectType.Value.GetValueOrDefault(native.ObjectType)) | (native.HasBrepForm ? Some(Kind.Brep) : Option<Kind>.None)
@@ -589,7 +569,7 @@ One owner per axis; capability is a row, case, or set member, never a sibling su
 |  [01]   | `Topology`           | `[SmartEnum<int>]` + recovery row          | `Fin<Lease<GeometryBase>>`             |
 |  [02]   | `Kind`               | `[SmartEnum<int>]` + capability set column | `Kind.Of → Option<Kind>`               |
 |  [03]   | `Capability`         | `[SmartEnum<string>]` `ICapability` row    | `Admits → bool`                        |
-|  [04]   | `CurveForm`          | analytic `[Union]` over one closed column  | `CurveFormOf → Fin<CurveForm>`         |
+|  [04]   | `CurveForm`          | analytic `[Union]` over one closed column  | `CurveFormOf → CurveForm`         |
 |  [05]   | `AnalyticForm`       | forward and inverse correspondence rows    | `Fin<GeometryBase>` / `Option<object>` |
 |  [06]   | `Normalization`      | receiver ingress + three lane entries      | `Fin<T>` / `Fin<Lease<T>>`             |
 |  [07]   | `TopologyProjection` | component-aware `IValidityEvidence` lease  | `Fin<TopologyProjection>` / `As<T>`    |

@@ -28,7 +28,6 @@ Each lane returns its canonical domain result, carrying a content key or measure
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.IO.Hashing;
 using System.Text;
 using System.Threading;
 using LanguageExt;
@@ -512,13 +511,13 @@ public sealed partial class FabricationRuntime {
 
 - Owner: `FabricationCanon` owns the ONE facade over `CanonicalWriter` every fabrication preimage composes — its framing family and its two closes alike; `QuantityArrow` owns the one dimension-text entry a plane outside `Process` reaches; `Fabrication` owns the run spine, the provenance fold, and the lineage projection.
 - Law: `CanonicalWriter` is mutable-fluent — every primitive mutates the bound buffer and returns the SAME writer — so a call site chains or discards the return interchangeably and no fold copies a writer. `Discriminant` writes a generated owner's own key length-framed, so a preimage never carries a provider enum ordinal that a library reorder silently re-keys, and `Rows` writes the count before its rows so the layout stays self-delimiting.
-- Law: the writer's constructor is PRIVATE and its two mints answer two different closes, so the facade owns both — `Keyed` opens `Retaining` and closes on the `Fin` result, `Ordered` opens `Streaming` and closes on the digest. A lane spelling either mint itself carries the close's refusal as its own concern, and a lane spelling `new CanonicalWriter(...)` names no member at all.
+- Law: the writer's constructor never leaves the kernel and `Retaining` is its one public mint, so the facade owns both closes — `Keyed` opens `Retaining` and closes on the `Fin` result, `Ordered` composes `ContentHash.Of` and closes on the digest. A lane spelling either close itself carries the refusal as its own concern, and a lane spelling `new CanonicalWriter(...)` names no member at all.
 - Entry: `QuantityArrow(axis, raised, locus).Admit(text)` routes to `ProcessPhysics.Admit`, the one textual boundary, and re-raises on the CALLER's plane — a `PhysicsQuantity.<axis>.Admit` at a consuming page is a second text boundary answering on a foreign plane and is the deleted form.
 - Auto: provenance fails ITS OWN acyclicity before any traversal. A content-addressed key covers its own descendants, so a cycle in child-to-parent lineage is a FORGED key rather than a modelling mistake, and the gate answers `PolicyInadmissible` at the forgery rather than letting a sort throw.
 - Output: the walk's outputs land as NAMED columns — `RunProvenance.Roots` and `RunProvenance.Generation` — and the graph container never leaves the fold.
 - Boundary: only the nest arm is genuinely asynchronous, so `Sync` is the one lift the other nine arms take and no arm hand-spells a completed task. `Fired` dispatches through the generated total `Switch`, so a new result case cannot silently lose its hook point, and each fired result is folded rather than discarded.
 - Law: `Raised` is the ONE refusal-only raise and carries four of the five points, proving the admitted fact equals the fired one — an egress-mint gate rewriting a content key forges an identity nothing produced, exactly as a lineage cycle does, and an observe or replay point holds no gate to move it. `Admission` alone takes the kernel's guarded arity, because rewriting the request is what an admission veto exists for; no site spells a point, since `At` is the fact's own column.
-- Packages: `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `Sinks`, `BreadthFirstSearchAlgorithm`, `VertexDistanceRecorderObserver`), `Rasm.Element` `CanonicalWriter`, `System.IO.Hashing` (`XxHash128` at the streaming close), LanguageExt.Core result types.
+- Packages: `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `Sinks`, `BreadthFirstSearchAlgorithm`, `VertexDistanceRecorderObserver`), `Rasm.Element` `CanonicalWriter` (kernel `ContentHash.Of` at the digest close), LanguageExt.Core result types.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -562,7 +561,7 @@ public static class FabricationCanon {
         Sealed(kind, grid, frame, key).Map(closed => closed.Key);
 
     public static UInt128 Ordered(double grid, Func<CanonicalWriter, CanonicalWriter> frame) =>
-        frame(CanonicalWriter.Streaming(grid, new XxHash128(seed: 0L))).Digest();
+        ContentHash.Of(frame, static (emit, writer) => emit(writer), tolerance: grid);
 
     public static Fin<ContentKey> Keyed(
         EgressKind kind, Context tolerance, Func<CanonicalWriter, CanonicalWriter> frame, Op key) =>

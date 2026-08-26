@@ -8,14 +8,14 @@ Rebuilds compose these boundaries unchanged: `ClosestHit` conforms to the `Domai
 
 - [02]-[HIT]: `ClosestHit` — the typed closest-point hit, its facet admissions, and the typed projection rows.
 - [03]-[ROSTER]: `ClosestForm` — the ordered recovery roster, one row per admissible form.
-- [04]-[EVALUATION]: `EvaluationRequest` + `EvaluationResult` + `Evaluation` — the one verb union, its total dispatch, and the surface-typed members.
+- [04]-[EVALUATION]: `EvaluationRequest` + `Evaluation` — the one verb union, its total dispatch, and the typed `Evaluate<TOut>` egress.
 
 ## [02]-[HIT]
 
 - Owner: `ClosestHit` `readonly record struct` mints the typed closest-point hit — a recovered `Point` and `Option` facets each present exactly when the form admits it, `IsValid` a per-facet fold on the kernel's `ValidityClaim.WhenPresent` arm where an absent facet never invalidates and a present-but-degenerate one always does; `Distance` is the one facet `At` always computes, so its absence refuses.
 - Owner: `Sense` and `Basis` are the ONE facet admissions — a direction facet holds when the vector is valid and above the zero band, a frame facet when the plane is valid — and `IsValid` reads the same two members every recovery arm constructs through, so a facet cannot be admitted under one band and validated under another.
 - Law: `ClosestHit` is the one evidence carrier for every arm; a per-form `CurveHit`/`MeshHit`/`BrepHit` family is the rejected proliferation, an absent facet is `Option.None` never a `double.NaN` or `Point2d.Unset` sentinel, and the hit's own `IValidityEvidence` conformance retires the acceptance oracle's hand-enumerated arm under the one-oracle law.
-- Law: `At` computes `Distance` from the query target, so a caller-supplied distance is the rejected trust hole; `SignedDistanceFrom` reads the recovered normal and is the one sign convention.
+- Law: `At` computes `Distance` from the query target, so a caller-supplied distance is the rejected trust hole.
 - Growth: a new hit facet is one `Option` field, one `ProjectionRow`, and one `IsValid` conjunct, every existing arm compiling unchanged because an absent facet is `None`.
 - Boundary: projection is `ProjectionRow` data through the one `AtomProjection.Rows` fold, so hit and atom projection share one dispatch; distance is the `double` projection at this altitude while parameter, span, signed, and containment facet selection is `Spatial/support` `SupportProjection`'s row vocabulary over the same hit fields, which is the only path to the tangent and parameter facets the CLR-type-keyed projection cannot discriminate.
 - Packages: RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`/`ProjectionRow`, LanguageExt.Core types, and the Foundation contract.
@@ -81,20 +81,15 @@ public readonly record struct ClosestHit(
             ProjectionRow.Of<ComponentIndex>(() => Facet(facet: hit.Component)),
             ProjectionRow.Of<MeshPoint>(() => Facet(facet: hit.MeshPoint)));
     }
-    internal Fin<double> SignedDistanceFrom(Point3d sample, Op key) {
-        ClosestHit hit = this;
-        return hit.Distance.ToFin(Fail: key.InvalidResult()).Bind(distance =>
-            hit.Normal.ToFin(Fail: key.InvalidResult()).Map(normal => ((sample - hit.Point) * normal) >= 0.0 ? distance : -distance));
-    }
 }
 ```
 
 ## [03]-[ROSTER]
 
-- Owner: `ClosestForm` is the closest-point recovery roster — one row per admissible form, each carrying the type it names, the `TypeMatch` row saying how a runtime type must meet it, and the recovery that mints its `ClosestHit`. Rows carry the roster as data, so a new evaluatable form lands as one row and no consumer's dispatch changes.
-- Owner: `TypeMatch` is the admission correspondence — `Exact` and `Assignable` are the two shapes the whole roster uses, so a row states its own as a column and carries no predicate body; `Admits` is one derived member reading both columns.
+- Owner: `ClosestForm` is the closest-point recovery roster — one row per admissible form, each carrying the type it names and the recovery that mints its `ClosestHit`. Rows carry the roster as data, so a new evaluatable form lands as one row and no consumer's dispatch changes.
+- Owner: admission is the one `Native.IsAssignableFrom(runtimeType)` correspondence — a value-type native admits only its own boxed type, a reference-base native admits every derived runtime form, so `Native` alone carries the matching policy.
 
-- Law: DECLARATION ORDER is the roster order and it is load-bearing. `BrepFace` precedes `Surface` because `BrepFace : Surface`, and routing a trimmed face to the untrimmed surface row silently answers off the trim. `Curve`, `Surface`, and `Brep` rows precede nothing analytic because a native reaching this roster has already exhausted every shape above it; their host reads refuse typed rather than falling through to a form recovery that leases the same object and re-enters forever.
+- Law: DECLARATION ORDER is the roster order and it is load-bearing. The `Surface` row probes `BrepFace` first internally — `BrepFace : Surface`, and routing a trimmed face to the untrimmed surface probe silently answers off the trim. `Curve`, `Surface`, and `Brep` rows precede nothing analytic because a native reaching this roster has already exhausted every shape above it; their host reads refuse typed rather than falling through to a form recovery that leases the same object and re-enters forever.
 - Law: `Capability.Closest` is the WHOLE-roster gate the dispatch prologue reads, and the rows are the per-form recovery; the gate answers whether a type admits evaluation at all, a row answers how. Neither restates the other.
 - Auto: the `Brep` row is the only two-axis recovery — the host answers a component index and the row dispatches face against edge over one joint pattern, its frame slot falling from the edge's perpendicular frame to a tangent-built basis to absence in one priority list.
 - Exemption: `Point3d` and `Rhino.Geometry.Point` are two rows because the roster keys on the runtime type and the value shape and its native wrapper are two types carrying one identity.
@@ -113,25 +108,16 @@ using RhinoPoint = Rhino.Geometry.Point;
 namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-internal sealed partial class TypeMatch {
-    public static readonly TypeMatch Exact = new(key: "exact", holds: static (candidate, native) => candidate == native);
-    public static readonly TypeMatch Assignable = new(key: "assignable", holds: static (candidate, native) => native.IsAssignableFrom(c: candidate));
-    [UseDelegateFromConstructor]
-    internal partial bool Holds(Type candidate, Type native);
-}
-
 [SmartEnum]
 internal sealed partial class ClosestForm {
     public static readonly ClosestForm Point = new(
-        native: typeof(Point3d), match: TypeMatch.Exact,
+        native: typeof(Point3d),
         recover: static (value, target, _) => Fin.Succ(ClosestHit.At(target: target, point: (Point3d)value)));
     public static readonly ClosestForm NativePoint = new(
-        native: typeof(RhinoPoint), match: TypeMatch.Assignable,
+        native: typeof(RhinoPoint),
         recover: static (value, target, _) => Fin.Succ(ClosestHit.At(target: target, point: ((RhinoPoint)value).Location)));
     public static readonly ClosestForm Cloud = new(
-        native: typeof(PointCloud), match: TypeMatch.Assignable,
+        native: typeof(PointCloud),
         recover: static (value, target, key) => ((PointCloud)value) switch {
             PointCloud cloud => cloud.ClosestPoint(testPoint: target) switch {
                 int index when index >= 0 && index < cloud.Count => Fin.Succ(ClosestHit.At(
@@ -143,7 +129,7 @@ internal sealed partial class ClosestForm {
             },
         });
     public static readonly ClosestForm Line = new(
-        native: typeof(Line), match: TypeMatch.Exact,
+        native: typeof(Line),
         recover: static (value, target, _) => {
             Line line = (Line)value;
             Point3d closest = line.ClosestPoint(testPoint: target, limitToFiniteSegment: true);
@@ -155,7 +141,7 @@ internal sealed partial class ClosestForm {
                 frame: ClosestHit.Basis(origin: closest, normal: line.UnitTangent)));
         });
     public static readonly ClosestForm Polyline = new(
-        native: typeof(Polyline), match: TypeMatch.Exact,
+        native: typeof(Polyline),
         recover: static (value, target, _) => {
             Polyline polyline = (Polyline)value;
             double parameter = polyline.ClosestParameter(testPoint: target);
@@ -169,7 +155,7 @@ internal sealed partial class ClosestForm {
                 frame: tangent.Bind(sensed => ClosestHit.Basis(origin: closest, normal: sensed))));
         });
     public static readonly ClosestForm Plane = new(
-        native: typeof(Plane), match: TypeMatch.Exact,
+        native: typeof(Plane),
         recover: static (value, target, key) => ((Plane)value) switch {
             Plane plane when plane.ClosestParameter(testPoint: target, s: out double s, t: out double t) => Fin.Succ(ClosestHit.At(
                 target: target,
@@ -180,17 +166,19 @@ internal sealed partial class ClosestForm {
             _ => Fin.Fail<ClosestHit>(key.InvalidResult()),
         });
     public static readonly ClosestForm Sphere = new(
-        native: typeof(Sphere), match: TypeMatch.Exact,
+        native: typeof(Sphere),
         recover: static (value, target, key) => Normalization.SurfaceForm(source: (Sphere)value, key: key)
-            .Bind(lease => lease.Use((Target: target, Key: key), static (state, surface) => Lifted(surface: surface, target: state.Target, key: state.Key))));
+            .Bind(lease => lease.Use((Target: target, Key: key), static (state, surface) =>
+                Of(surface.GetType()).ToFin(state.Key.Unsupported(inputType: surface.GetType(), outputType: typeof(ClosestHit)))
+                    .Bind(row => row.Recover(value: surface, target: state.Target, key: state.Key)))));
     public static readonly ClosestForm Box = new(
-        native: typeof(Box), match: TypeMatch.Exact,
+        native: typeof(Box),
         recover: static (value, target, _) => Fin.Succ(ClosestHit.At(target: target, point: ((Box)value).ClosestPoint(point: target, includeInterior: false))));
     public static readonly ClosestForm Bounds = new(
-        native: typeof(BoundingBox), match: TypeMatch.Exact,
+        native: typeof(BoundingBox),
         recover: static (value, target, _) => Fin.Succ(ClosestHit.At(target: target, point: ((BoundingBox)value).ClosestPoint(point: target, includeInterior: false))));
     public static readonly ClosestForm Curve = new(
-        native: typeof(Curve), match: TypeMatch.Assignable,
+        native: typeof(Curve),
         recover: static (value, target, key) => ((Curve)value) switch {
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) => Fin.Succ(ClosestHit.At(
                 target: target,
@@ -203,33 +191,26 @@ internal sealed partial class ClosestForm {
                 })),
             _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
         });
-    public static readonly ClosestForm Face = new(
-        native: typeof(BrepFace), match: TypeMatch.Assignable,
-        recover: static (value, target, key) => ((BrepFace)value) switch {
-            BrepFace face when face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) =>
-                Evaluation.NormalAt(surface: face, uv: new Point2d(x: u, y: v), key: key).Map(normal => ClosestHit.At(
-                    target: target,
-                    point: face.PointAt(u: u, v: v),
-                    uv: Some(new Point2d(x: u, y: v)),
-                    normal: Some(normal),
-                    component: face.FaceIndex >= 0 ? Some(new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)) : Option<ComponentIndex>.None,
-                    frame: Evaluation.FrameAt(surface: face, uv: new Point2d(x: u, y: v), key: key).ToOption())),
-            _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
-        });
     public static readonly ClosestForm Surface = new(
-        native: typeof(Surface), match: TypeMatch.Assignable,
-        recover: static (value, target, key) => ((Surface)value) switch {
-            Surface surface when surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) =>
-                Evaluation.NormalAt(surface: surface, uv: new Point2d(x: u, y: v), key: key).Map(normal => ClosestHit.At(
-                    target: target,
-                    point: surface.PointAt(u: u, v: v),
-                    uv: Some(new Point2d(x: u, y: v)),
+        native: typeof(Surface),
+        recover: static (value, target, key) => {
+            Fin<ClosestHit> Hit(Surface surface, Point2d uv) =>
+                Evaluation.NormalAt(surface: surface, uv: uv, key: key).Map(normal => ClosestHit.At(
+                    target: target, point: surface.PointAt(u: uv.X, v: uv.Y), uv: Some(uv),
                     normal: Some(normal),
-                    frame: Evaluation.FrameAt(surface: surface, uv: new Point2d(x: u, y: v), key: key).ToOption())),
-            _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
+                    component: surface is BrepFace { FaceIndex: >= 0 } face
+                        ? Some(new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)) : Option<ComponentIndex>.None,
+                    frame: Evaluation.FrameAt(surface: surface, uv: uv, key: key).ToOption()));
+            return ((Surface)value) switch {
+                BrepFace face when face.ClosestPointOnFace(target, out double u, out double v, 0.0) =>
+                    Hit(face, new Point2d(x: u, y: v)),
+                Surface surface when surface is not BrepFace && surface.ClosestPoint(target, out double u, out double v) =>
+                    Hit(surface, new Point2d(x: u, y: v)),
+                _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
+            };
         });
     public static readonly ClosestForm Brep = new(
-        native: typeof(Brep), match: TypeMatch.Assignable,
+        native: typeof(Brep),
         recover: static (value, target, key) => ((Brep)value) switch {
             Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double u, out double v, 0.0, out Vector3d hitVector) =>
                 (component, brep) switch {
@@ -257,7 +238,7 @@ internal sealed partial class ClosestForm {
             _ => Fin.Fail<ClosestHit>(key.InvalidInput()),
         });
     public static readonly ClosestForm Mesh = new(
-        native: typeof(Mesh), match: TypeMatch.Assignable,
+        native: typeof(Mesh),
         recover: static (value, target, key) => {
             Mesh mesh = (Mesh)value;
             return Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult()).Map(meshPoint => {
@@ -272,30 +253,23 @@ internal sealed partial class ClosestForm {
             });
         });
     internal Type Native { get; }
-    internal TypeMatch Match { get; }
     [UseDelegateFromConstructor]
     internal partial Fin<ClosestHit> Recover(object value, Point3d target, Op key);
-    internal bool Admits(Type type) => Match.Holds(candidate: type, native: Native);
-    private static readonly Atom<HashMap<Type, Option<ClosestForm>>> Resolved = Atom(HashMap<Type, Option<ClosestForm>>());
-    internal static Option<ClosestForm> Of(Type type) =>
-        Cell.Claim(cell: Resolved, key: type, mint: () => toSeq(Items).Find(row => row.Admits(type: type))).Current[type];
-
-    private static Fin<ClosestHit> Lifted(Surface surface, Point3d target, Op key) =>
-        Of(type: surface.GetType()).ToFin(key.Unsupported(inputType: surface.GetType(), outputType: typeof(ClosestHit)))
-            .Bind(row => row.Recover(value: surface, target: target, key: key));
+    internal static readonly Func<Type, Option<ClosestForm>> Of =
+        memo((Type type) => toSeq(Items).Find(row => row.Native.IsAssignableFrom(c: type)));
 }
 ```
 
 ## [04]-[EVALUATION]
 
-- Owner: `EvaluationRequest` is the ONE verb union — closest point, signed distance, surface sampling, and vertex reading are four cases under one total `Switch`, each verb's former preamble now its case constructor and the shared null gate the dispatch prologue. `EvaluationResult` carries the three answer shapes one projection fold collapses.
-- Entry: `geometry.Evaluate(request, key) : Fin<EvaluationResult>` is the one polymorphic entry; `Analysis/query`'s `AnalysisQuery` forwards its cases here rather than re-wrapping four sibling members, and a new verb breaks every dispatch site at compile time instead of growing a fifth entry.
+- Owner: `EvaluationRequest` is the ONE verb union — closest point, signed distance, surface sampling, and vertex reading are four cases under one total `Switch`, each verb's former preamble now its case constructor and the shared null gate the dispatch prologue; each verb's answer lands directly on the caller's requested type, so no transient result carrier survives the dispatch.
+- Entry: `geometry.Evaluate<TOut>(request, key) : Fin<TOut>` is the one polymorphic entry; `Analysis/query`'s `AnalysisQuery` forwards its cases here rather than re-wrapping four sibling members, and a new verb breaks every dispatch site at compile time instead of growing a fifth entry.
 - Auto: capability admission rides the `Capability` rows so no arm re-derives type admissibility, and `Recovered` is the ONE form-resolve ladder every verb shares — a value shape leases its native, re-enters the same request, and disposes at `Use` scope exit, recursion bounded at two hops because a native never enters the ladder. Sampling is metric-honest: `Sample(n)` yields n arc-length curve samples and an n×n uv grid, and `SurfaceSampleUv` pulls exterior grid samples back onto trimmed faces, failing only when no sample survives the trim.
-- Law: signed distance derives its own hit. Callers hand none in, so a hit from a DIFFERENT geometry never pairs with a sample and answers without refusal; a caller already holding a hit reads `ClosestHit.SignedDistanceFrom` directly.
+- Law: signed distance derives its own hit and owns the one sign convention — the recovered normal against the sample-to-point offset decides the sign. Callers hand none in, so a hit from a DIFFERENT geometry never pairs with a sample and answers without refusal.
 - Law: `SurfaceDomain` is the ONE surface-domain usability answer — both intervals valid and each longer than the model tolerance. `SurfaceUv`, `SurfaceSampleUv`, and `Domain/validation`'s domain readiness row all read it, so a degenerate-domain surface is refused identically at every altitude; the collapse TIGHTENS the two sampling members, which previously admitted a zero-length domain that produced a degenerate grid.
 - Law: `NormalAt` flips for `BrepFace.OrientationIsReversed` and `FrameAt` re-handeds the frame to agree, so the hit never carries a frame/normal disagreement.
-- Output: `EvaluationResult.Project<TOut>` is the one typed egress — a hit projects through its own facet rows, a distance and a point sequence through the `AtomProjection` value and sequence rows.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]` request/result with generated total `Switch`), RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`, LanguageExt.Core types.
+- Output: `Evaluate<TOut>` is the one typed egress — a hit projects through its own facet rows, a distance and a point sequence through the `AtomProjection` value and sequence rows.
+- Packages: Thinktecture.Runtime.Extensions (`[Union]` request with generated total `Switch`), RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`, LanguageExt.Core types.
 - Growth: a new verb is one `EvaluationRequest` case and one `Switch` arm; a new evaluatable form is one `ClosestForm` row or one arm in the verb's own roster.
 - Boundary: `Evaluation` preserves every recovery the mature kernel performed; the recursion ordering fixes change no terminating input's result, and the `BrepFace` totalization trades one silently-untrimmed underlying-surface point for a typed refusal.
 
@@ -322,37 +296,23 @@ public abstract partial record EvaluationRequest {
     public sealed record Vertices : EvaluationRequest;
 }
 
-[Union]
-public abstract partial record EvaluationResult {
-    private EvaluationResult() { }
-    public sealed record Hit(ClosestHit Value) : EvaluationResult;
-    public sealed record Distance(double Value) : EvaluationResult;
-    public sealed record Points(Seq<Point3d> Value) : EvaluationResult;
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        Switch(
-            state: key,
-            hit: static (op, result) => result.Value.Project<TOut>(key: op),
-            distance: static (op, result) => AtomProjection.Value<double, TOut>(value: result.Value, key: op, owner: typeof(EvaluationResult)),
-            points: static (op, result) => AtomProjection.Values<Point3d, TOut>(values: result.Value, key: op, owner: typeof(EvaluationResult)));
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Evaluation {
     extension(object? geometry) {
-        public Fin<EvaluationResult> Evaluate(EvaluationRequest request, Op key) =>
+        public Fin<TOut> Evaluate<TOut>(EvaluationRequest request, Op key) =>
             from source in Optional(geometry).ToFin(key.InvalidInput())
             from result in request.Switch(
                 state: (Source: source, Key: key),
-                closest: static (state, verb) => Closest(source: state.Source, target: verb.Target, key: state.Key).Map(static hit => (EvaluationResult)new EvaluationResult.Hit(Value: hit)),
-                signed: static (state, verb) => Signed(source: state.Source, sample: verb.Sample, key: state.Key).Map(static distance => (EvaluationResult)new EvaluationResult.Distance(Value: distance)),
-                sample: static (state, verb) => Sampled(source: state.Source, count: verb.Count, context: verb.Model, key: state.Key).Map(static points => (EvaluationResult)new EvaluationResult.Points(Value: points)),
-                vertices: static (state, _) => Vertices(source: state.Source, key: state.Key).Map(static points => (EvaluationResult)new EvaluationResult.Points(Value: points)))
+                closest: static (state, verb) => Closest(source: state.Source, target: verb.Target, key: state.Key).Bind(hit => hit.Project<TOut>(key: state.Key)),
+                signed: static (state, verb) => Signed(source: state.Source, sample: verb.Sample, key: state.Key).Bind(value => AtomProjection.Value<double, TOut>(value, state.Key, typeof(Evaluation))),
+                sample: static (state, verb) => Sampled(source: state.Source, count: verb.Count, context: verb.Model, key: state.Key).Bind(values => AtomProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))),
+                vertices: static (state, _) => Vertices(source: state.Source, key: state.Key).Bind(values => AtomProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))))
             select result;
     }
     private static Fin<ClosestHit> Closest(object source, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput()).ToFin()
         from __ in guard(!Capability.Closest.Admits(type: source.GetType()) || OpAcceptance.ValidityOf(source: source).Exists(static valid => valid), key.InvalidInput()).ToFin()
-        from hit in ClosestForm.Of(type: source.GetType()).Case switch {
+        from hit in ClosestForm.Of(source.GetType()).Case switch {
             ClosestForm row => row.Recover(value: source, target: target, key: key),
             _ => Recovered(source: source, key: key, verb: (value, op) => Closest(source: value, target: target, key: op)),
         }
@@ -365,14 +325,17 @@ internal static class Evaluation {
             Box box => key.AcceptValue(value: (box.Contains(point: point, strict: false) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
             BoundingBox box => key.AcceptValue(value: (box.Contains(point: point) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
             object value when Capability.ClosestNormal.Admits(type: value.GetType()) =>
-                Closest(source: value, target: point, key: key).Bind(hit => hit.SignedDistanceFrom(sample: point, key: key)),
+                Closest(source: value, target: point, key: key).Bind(hit =>
+                    hit.Distance.ToFin(Fail: key.InvalidResult()).Bind(distance =>
+                        hit.Normal.ToFin(Fail: key.InvalidResult()).Map(normal => ((point - hit.Point) * normal) >= 0.0 ? distance : -distance))),
             _ => Fin.Fail<double>(key.Unsupported(inputType: source.GetType(), outputType: typeof(double))),
         }
         select distance;
     private static Fin<Seq<Point3d>> Sampled(object source, int count, Context context, Op key) =>
         guard(count > 0, key.InvalidInput()).ToFin().Bind(_ => source switch {
             Curve curve => CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
-            Surface surface => SurfaceSamplePoints(surface: surface, count: count, context: context, key: key),
+            Surface surface => SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
+                .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y))),
             object value when Capability.CurveForm.Admits(type: value.GetType()) || Capability.SurfaceForm.Admits(type: value.GetType()) =>
                 Recovered(source: value, key: key, verb: (inner, op) => Sampled(source: inner, count: count, context: context, key: op)),
             object value when Capability.ReadVertices.Admits(type: value.GetType()) => Vertices(source: value, key: key),
@@ -438,9 +401,6 @@ internal static class Evaluation {
                     },
                     _ => Fin.Succ(samples),
                 }));
-    internal static Fin<Seq<Point3d>> SurfaceSamplePoints(Surface surface, int count, Context context, Op key) =>
-        SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
-            .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y)));
     internal static Fin<Vector3d> NormalAt(Surface surface, Point2d uv, Op key) =>
         ClosestHit.Sense(value: surface.NormalAt(u: uv.X, v: uv.Y))
             .Map(normal => surface is BrepFace { OrientationIsReversed: true } ? -normal : normal)
@@ -477,7 +437,7 @@ config:
 ---
 flowchart LR
     accTitle: Evaluation request dispatch and recovery spine
-    accDescr: One request union dispatching four verbs over admitted geometry, the closest verb reading the ordered recovery roster into a nine-field hit, every verb sharing one form-resolve ladder for value shapes, and one result union fanning into the typed projection rows.
+    accDescr: One request union dispatching four verbs over admitted geometry, the closest verb reading the ordered recovery roster into a nine-field hit, every verb sharing one form-resolve ladder for value shapes, and the typed Evaluate TOut egress fanning into the projection rows.
     Raw["object? geometry + EvaluationRequest"] --> Dispatch{"total Switch over the verb union"}
     Dispatch -->|Closest| Gate["Capability.Closest gate + oracle"]
     Gate --> Roster{"ClosestForm row for the runtime type?"}
@@ -490,11 +450,10 @@ flowchart LR
     VertexRows -.-> Ladder
     Signed --> Hit
     Ladder -->|"Lease recovery ≤2 deep"| Dispatch
-    Hit --> Result["EvaluationResult"]
-    Sampling --> Result
-    VertexRows --> Result
-    Result -->|Project TOut| Typed["AtomProjection rows · value · sequence"]
-    Result -->|fields read by rows| Support["Spatial/support SupportProjection facets"]
+    Hit --> Typed["Evaluate TOut · AtomProjection rows · value · sequence"]
+    Sampling --> Typed
+    VertexRows --> Typed
+    Hit -->|fields read by rows| Support["Spatial/support SupportProjection facets"]
 ```
 
 ## [05]-[RESEARCH]

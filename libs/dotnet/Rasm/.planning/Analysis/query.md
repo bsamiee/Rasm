@@ -328,15 +328,14 @@ public abstract partial record AnalysisQuery {
         Operation<TGeometry, Rasm.Domain.CurveForm>.Build(key: key, requirement: Some(Requirement.Basic), requiresContext: true, state: key,
             evaluator: static (op, geometry) =>
                 from context in Env.Asks
-                from form in Normalization.CurveForm(source: geometry, key: op).Bind(lease => lease.Use(curve => Normalization.CurveFormOf(curve: curve, context: context))).ToEff()
+                from form in Normalization.CurveForm(source: geometry, key: op).Map(lease => lease.Use(curve => Normalization.CurveFormOf(curve: curve, context: context))).ToEff()
                 from admitted in new AnalysisOutput<Rasm.Domain.CurveForm>(Key: op).One(value: form).ToEff()
                 select admitted)
             .As<TGeometry, TOut>(key: key);
     private static Operation<TGeometry, TOut> Nodes<TGeometry, TOut>(Op key) where TGeometry : notnull where TOut : notnull =>
         Operation<TGeometry, Point3d>.Build(key: key, state: key,
             evaluator: static (op, geometry) =>
-                from answer in geometry.Evaluate(request: new EvaluationRequest.Vertices(), key: op).ToEff()
-                from points in answer.Sites(key: op).ToEff()
+                from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Vertices(), key: op).ToEff()
                 from admitted in new AnalysisOutput<Point3d>(Key: op).Many(values: points).ToEff()
                 select admitted)
             .As<TGeometry, TOut>(key: key);
@@ -344,8 +343,7 @@ public abstract partial record AnalysisQuery {
         Operation<TGeometry, Point3d>.Build(key: key, requiresContext: true, state: (Key: key, Count: count),
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
-                from answer in geometry.Evaluate(request: new EvaluationRequest.Sample(Count: state.Count, Model: context), key: state.Key).ToEff()
-                from points in answer.Sites(key: state.Key).ToEff()
+                from points in geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: state.Count, Model: context), key: state.Key).ToEff()
                 from admitted in new AnalysisOutput<Point3d>(Key: state.Key).Many(values: points).ToEff()
                 select admitted)
             .As<TGeometry, TOut>(key: key);
@@ -360,16 +358,14 @@ public abstract partial record AnalysisQuery {
     private static Operation<TGeometry, TOut> Nearest<TGeometry, TOut>(Point3d target, Op key) where TGeometry : notnull where TOut : notnull =>
         Operation<TGeometry, ClosestHit>.Build(key: key, state: (Key: key, Target: target),
             evaluator: static (state, geometry) =>
-                from answer in geometry.Evaluate(request: new EvaluationRequest.Closest(Target: state.Target), key: state.Key).ToEff()
-                from hit in answer.Hit(key: state.Key).ToEff()
+                from hit in geometry.Evaluate<ClosestHit>(request: new EvaluationRequest.Closest(Target: state.Target), key: state.Key).ToEff()
                 from admitted in new AnalysisOutput<ClosestHit>(Key: state.Key).One(value: hit).ToEff()
                 select admitted)
             .As<TGeometry, TOut>(key: key);
     private static Operation<TGeometry, TOut> Signed<TGeometry, TOut>(Point3d sample, Op key) where TGeometry : notnull where TOut : notnull =>
         Operation<TGeometry, double>.Build(key: key, state: (Key: key, Sample: sample),
             evaluator: static (state, geometry) =>
-                from answer in geometry.Evaluate(request: new EvaluationRequest.Signed(Sample: state.Sample), key: state.Key).ToEff()
-                from distance in answer.Span(key: state.Key).ToEff()
+                from distance in geometry.Evaluate<double>(request: new EvaluationRequest.Signed(Sample: state.Sample), key: state.Key).ToEff()
                 from admitted in new AnalysisOutput<double>(Key: state.Key).One(value: distance).ToEff()
                 select admitted)
             .As<TGeometry, TOut>(key: key);
@@ -398,7 +394,7 @@ public abstract partial record AnalysisQuery {
 - Law: `Charge` is ONE member reading ONE exit value — `Match` collapses both legs of the fold onto that `Fin` and the outcome row and fault payload both derive from it, so cost evidence and fault evidence cannot name different verdicts for one call. Per-item evaluation distributes over input concatenation on the VALUE channel alone, because `Apply`'s cost capsule is an aggregation point billing one `OpCost` per call.
 - Law: a sink refusal PARKS on the composition's own bounded evidence cell at the fact's declared seat, never `ignore`d (branch RULINGS `[02]`) — telemetry can no more fail the analysis than it can vanish, and a full ring counts the loss as a number.
 - Output: `Validation<Error, Seq<TOut>>` is the public result carrier; faults accumulate the `Domain/results` `Fault` union, `KernelFault.Unsupported` the host probe discriminant.
-- Packages: LanguageExt.Core (the `Validation`/`Fin` types and `TraverseM`), Thinktecture.Runtime.Extensions (the `Body` `[Union]` and generated `Switch`), `Rasm.Domain` (`Context.Of` builders, `Requirement.Apply`, `TelemetrySink`/`SignalFact`/`CostMark`/`Outcome`, the `Op`/`Fault` types), RhinoCommon (`RhinoDoc` at the one `From` adapter, `UnitSystem`).
+- Packages: LanguageExt.Core (the `Validation`/`Fin` types and `TraverseM`), Thinktecture.Runtime.Extensions (the `Body` `[Union]` and generated `Switch`), `Rasm.Domain` (`Context.Of` builders, `Requirement.Apply`, `TelemetrySink`/`SignalFact`/`CostMark`, the `Op`/`Fault` types), RhinoCommon (`RhinoDoc` at the one `From` adapter, `UnitSystem`).
 - Growth: a new execution modality is one `Body` case with one constructor on the same owner, never a second operation class; a new scope source is one `In`/`From` overload minting a `Context`; a new runtime capability is one field on `Env` threaded by the reader with zero operation edits.
 - Boundary: `Analyze.From(RhinoDoc)` is the one document-coupled adapter in the folder, so a second `RhinoDoc` reach anywhere in the analysis surface is the boundary violation; a folder-local `ValidityOf` switch re-declaring result arms beside `Op.AcceptValue` is the killed parallel oracle; `Build` and `Service` evaluators receive state by value through `static` lambdas over an explicit state record, keeping operations allocation-lean and referentially transparent; the `As` object-lift is the sanctioned type-erasure bridge, rejecting onto `KernelFault.Unsupported` rather than casting unsafely; `OperationLift` is the one host for the type bridges C# cannot declare inside a generic owner, and host machinery that throws is wrapped at its owning boundary through `Op.Catch`.
 
@@ -507,10 +503,10 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     private static Seq<SignalFact> Facts(Op key, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
         Seq(
             Some(SignalFact.Cost(cost: mark.Stop(key: key, domain: KernelDomain.Analysis, items: items,
-                outcome: exit.IsSucc ? Outcome.Succeeded : Outcome.Failed))),
+                succeeded: exit.IsSucc))),
             exit.Match(
                 Succ: static _ => Option<SignalFact>.None,
-                Fail: error => Some(SignalFact.Fault(domain: KernelDomain.Analysis, key: key, fault: error))))
+                Fail: error => Some(SignalFact.Fault(domain: KernelDomain.Analysis, fault: error))))
         .Choose(static candidate => candidate);
     private Eff<Env, Seq<TOut>> Folded(Seq<TGeometry> geometry) =>
         Execution.Switch(
@@ -613,23 +609,6 @@ internal static class OperationLift {
             Operation<TGeometry, TOut> typed => typed,
             _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(inputType: typeof(TGeometry), outputType: typeof(TOut))),
         };
-    }
-    extension(EvaluationResult result) {
-        internal Fin<ClosestHit> Hit(Op key) => result.Switch(
-            state: key,
-            hit: static (_, value) => Fin.Succ(value.Value),
-            distance: static (op, _) => Fin.Fail<ClosestHit>(op.InvalidResult()),
-            points: static (op, _) => Fin.Fail<ClosestHit>(op.InvalidResult()));
-        internal Fin<double> Span(Op key) => result.Switch(
-            state: key,
-            hit: static (op, _) => Fin.Fail<double>(op.InvalidResult()),
-            distance: static (_, value) => Fin.Succ(value.Value),
-            points: static (op, _) => Fin.Fail<double>(op.InvalidResult()));
-        internal Fin<Seq<Point3d>> Sites(Op key) => result.Switch(
-            state: key,
-            hit: static (op, _) => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
-            distance: static (op, _) => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
-            points: static (_, value) => Fin.Succ(value.Value));
     }
 }
 ```

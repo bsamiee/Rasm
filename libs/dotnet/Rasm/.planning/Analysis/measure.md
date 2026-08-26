@@ -581,8 +581,7 @@ public abstract partial record Bounds {
     private static Fin<(Seq<Point3d> Sites, SampleSource Source)> Enclosing<TGeometry>(TGeometry geometry, Option<int> count, CapabilitySet<SampleSource> sources, Context context, Op key) where TGeometry : notnull =>
         geometry.BoundsOf(key: key)
             .Bind(box => guard(box.IsValid, key.InvalidInput()).ToFin().Map(_ => box))
-            .Bind(box => geometry.Evaluate(request: new EvaluationRequest.Sample(Count: count.IfNone(() => Budget(box: box, context: context)), Model: context), key: key)
-                .Bind(answer => answer.Sites(key: key))
+            .Bind(box => geometry.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: count.IfNone(() => Budget(box: box, context: context)), Model: context), key: key)
                 .Map(static sites => (Sites: sites, Source: SampleSource.Measured))
                 .BindFail(error => (error, sources.Admits(capability: SampleSource.BoxCorners)) switch {
                     (KernelFault.Unsupported, true) => Fin.Succ((Sites: toSeq(box.GetCorners()), Source: SampleSource.BoxCorners)),
@@ -705,12 +704,12 @@ public sealed partial class ConformanceMetric {
             _ => Fin.Fail<Tolerance>(key.InvalidInput()),
         };
     private static Fin<Stat<Scalar>> Moments(Seq<ResidualSample> samples, Tolerance band, Op key) =>
-        Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Distance), key: key, context: Some(StatContext.Band(band: band)));
+        Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Distance), key: key, context: Some((StatContext)band));
     private static Fin<ResidualSample> Worst(Seq<ResidualSample> samples, Tolerance band, Op key) =>
         Stat.Extrema(items: samples, projection: static sample => Math.Abs(sample.Distance), band: band, direction: ExtremumDirection.Maximum)
             .Head.ToFin(key.InvalidResult());
     private static Fin<Distribution<Scalar>> Spread(Seq<ResidualSample> samples, Seq<double> percentiles, Tolerance band, Op key) =>
-        Distribution<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Distance), percentiles: percentiles, key: key, context: Some(StatContext.Band(band: band)));
+        Distribution<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Distance), percentiles: percentiles, key: key, context: Some((StatContext)band));
     private static bool Admits(ConformanceMetric metric, Type geometry, Type target) =>
         Capability.Universal(type: geometry) || Capability.Universal(type: target)
         || (Capability.CurveForm.Admits(type: geometry) && metric.AcceptsTarget(geometry: geometry, target: target))
@@ -736,11 +735,11 @@ public sealed partial class ConformanceMetric {
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Band: d.Band))))))),
             (object curveLike, _) when Capability.CurveForm.Admits(type: curveLike.GetType()) =>
                 Normalization.CurveForm(source: curveLike, key: key).Bind(lease => lease.Use(curve => Residuals(curve, target, count, context, key, cancel,
-                    sampler: static (c, n, ctx, op) => c.Evaluate(request: new EvaluationRequest.Sample(Count: n, Model: ctx), key: op).Bind(answer => answer.Sites(key: op)),
+                    sampler: static (c, n, ctx, op) => c.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: n, Model: ctx), key: op),
                     distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model, key: key)))),
             (object surfaceLike, _) when Capability.SurfaceForm.Admits(type: surfaceLike.GetType()) =>
                 Normalization.SurfaceForm(source: surfaceLike, key: key).Bind(lease => lease.Use(surface => Residuals(surface, target, count, context, key, cancel,
-                    sampler: static (s, n, ctx, op) => s.Evaluate(request: new EvaluationRequest.Sample(Count: n, Model: ctx), key: op).Bind(answer => answer.Sites(key: op)),
+                    sampler: static (s, n, ctx, op) => s.Evaluate<Seq<Point3d>>(request: new EvaluationRequest.Sample(Count: n, Model: ctx), key: op),
                     distance: (t, pt, model) => DistanceTo(metric: metric, target: t, point: pt, context: model, key: key)))),
             _ => Fin.Fail<Seq<ResidualSample>>(key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };

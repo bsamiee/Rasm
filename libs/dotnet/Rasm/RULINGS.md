@@ -17,7 +17,6 @@ Every reopen predicate rides the license gate.
 ## [02]-[SHAPE]
 
 - `Domain/hooks` mints the ONE hook capsule type and `HookSet` its one mechanism — an effect-typed caller lifts `Fire` at its own boundary.
-- `SignalHooks` governs EMISSION alone — `SignalFact` holds evidence, so a gate guarding an action declares its own `HookPoint<TFact>`.
 - `SpanEdge` is the ONE bracket carriage — kind, adopted parent, and fan-in links ride one value, so a new coordinate is one column, never a knob.
 - `FaultId.Case` is the generator's `nameof` — span tag and log field alone, `[JsonIgnore]` and declared equality keeping it off key and wire column.
 - `Retriability.Key` is the ONE posture spelling — a consumer `Switch` returning the three literals forks one vocabulary per emitter.
@@ -89,7 +88,7 @@ Every reopen predicate rides the license gate.
 - `CanonicalWriter` reads zero tolerance as no-snap identity — `EpsilonPolicy.ZeroTolerance` stays the content quantum, `Bits` the bit framing.
 - `ContentHash.Wire`/`Admit(bytes)` are the ONE 16-byte big-endian key crossing — a boundary spelling `WriteUInt128BigEndian` forks the byte order.
 - `ArtifactContent` is the ONE native stored-payload coordinate: SHA-256 with positive extent; `ArtifactRef` rides the wire, XXH never substituting.
-- `EventGrammar` is the ONE profile admission — hyphenated lowercase-alphanumeric words and a positive major; `EventSource` axes ignore `EventType`.
+- `EventGrammar` is the ONE profile admission — hyphenated lowercase-alphanumeric words, no version segment; `EventSource` axes ignore `EventType`.
 - `LevelCells.Reader<T>` is the ONE pulled projection — a sibling pull surface forks the level read from its owner's lifetime binding.
 - `AlertSeverity` is the one routing vocabulary contact rows key on — a second severity ladder forks alert routing at the sink boundary.
 - `PanelSpec`'s constructor is the ONE board-descriptor spelling — a hand-built descriptor bypasses the vocabulary the board compile validates.

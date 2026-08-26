@@ -114,7 +114,7 @@ public sealed record IdentityWriter(string Sql, Func<ElementIdentity, object?[]>
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class ConverterOptions {
     public static readonly ValueConverter<TenantId, string> Tenant = new(
-        static tenant => tenant.Text, static text => TenantId.Of(text));
+        static tenant => tenant.Text, static text => TenantId.Admit(text).ThrowIfFail());
 
     public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options, StoreBinding binding) =>
         binding.Switch(

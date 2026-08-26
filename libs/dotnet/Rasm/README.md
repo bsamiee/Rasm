@@ -158,7 +158,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Google.Protobuf` — Generated event messages, descriptor reflection, and strict protobuf encode/decode substrate.
 
 [RUNTIME_INBOX]:
-- `System.Text.Json` — One event-format serializer-options identity behind `EventJson`.
+- `System.Text.Json` — One event-format serializer-options identity behind `EventFormat.JsonOptions`.
 
 [DEPENDENCY_FLOORS]:
 - `System.Drawing.Common` — Host colour adapter `PerceptualColor` crosses at egress, arriving with the same classification.

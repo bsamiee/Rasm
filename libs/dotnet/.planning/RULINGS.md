@@ -124,7 +124,7 @@
 - Kernel `FieldNoise` and Materials `ProceduralNoise` stay two-formed — differentiability-gating versus byte-parity is the whole discriminant.
 - `ImportedGeometry` is the ONE decoded-geometry carrier at the boundary — an absent lane is a missing descriptor, never an empty buffer.
 - Colour vocabulary has ONE branch owner — `Configuration` short-circuits on reference equality; space, hue, and view ride THREE axes, not a product.
-- `UInt128` extraction composes `ContentHash.Half` with `ContentHash.Wire` and `Admit`; those owners fix byte order for every boundary.
+- `UInt128` extraction composes `ContentHash.Halves` with `ContentHash.Wire` and `Admit`; those owners fix byte order for every boundary.
 - Folder claim rosters stay plural under one `BenchmarkGate` — folding them into a parameterized row erases each closed-roster guard.
 - `BenchClaim.Corpus` spells realization by prefix — `corpus-<row.Key>` a committed fixture, `forge-<grade.Key>` a minted Element grade; no literal.
 - Perceptual colour has ONE interaction owner, the kernel `Interaction/paint` band — each boundary quantizes to its host colour type at its own edge.

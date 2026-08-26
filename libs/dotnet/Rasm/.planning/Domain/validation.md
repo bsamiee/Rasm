@@ -47,8 +47,7 @@ public sealed partial record Requirement {
     public static readonly Requirement SolidTopology = Basic + Single(check: Check.BrepIntegrity) + Single(check: Check.MeshManifoldReadiness) + Single(check: Check.BrepSolidReadiness) + Single(check: Check.MeshRhinoCheck);
     public static readonly Requirement VolumeMass = SolidTopology + Single(check: Check.SurfaceSolidReadiness);
     public static readonly Requirement SurfaceEvaluation = Basic + Single(check: Check.SurfaceDomainReadiness);
-    public static Requirement operator +(Requirement left, Requirement right) => Add(left: left, right: right);
-    public static Requirement Add(Requirement left, Requirement right) {
+    public static Requirement operator +(Requirement left, Requirement right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
         return new(checks: left.checks.Union(right.checks));
@@ -56,15 +55,14 @@ public sealed partial record Requirement {
     public Requirement Continuous => this + Single(check: Check.ContinuityReadiness);
     public Validation<Error, T> Apply<T>(Context? context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
-            (null, _, _) => Fin.Fail<T>(error: new KernelFault.MissingGeometry()).ToValidation(),
+            (null, _, _) => new KernelFault.MissingGeometry(),
             (T candidate, _, Requirement { IsEmpty: true }) => Operand.AcceptInput(value: candidate).ToValidation(),
             (T candidate, Context ctx, Requirement req) => RunChecks(checks: req.checks, context: ctx, original: candidate, cancel: cancel),
-            _ => Fin.Fail<T>(error: new KernelFault.MissingContext(Key: Operand)).ToValidation(),
+            _ => new KernelFault.MissingContext(Key: Operand),
         };
     public static Requirement ForKind(Kind kind) {
         ArgumentNullException.ThrowIfNull(argument: kind);
         return kind.Topology.Map(
-            unknown: Basic,
             point: None,
             curve: CurveLength,
             surface: SurfaceEvaluation,
@@ -85,8 +83,9 @@ public sealed partial record Requirement {
     private static Validation<Error, T> RunChecks<T>(Set<Check> checks, Context context, T original, CancellationToken cancel) where T : notnull =>
         original switch {
             GeometryBase geometry => RunChecks(checks: checks, context: context, geometry: geometry, original: original, cancel: cancel),
-            object value when Capability.Form.Admits(type: value.GetType()) =>
-                RunLeaseChecks(lease: value.GeometryForm(key: Operand), checks: checks, context: context, original: original, cancel: cancel),
+            object value when Capability.Form.Admits(type: value.GetType()) => value.GeometryForm(key: Operand).ToValidation()
+                .Bind(native => native.Use(geometry => RunChecks(
+                    checks: checks, context: context, geometry: geometry, original: original, cancel: cancel))),
             _ => Operand.AcceptInput(value: original).ToValidation(),
         };
     private static Validation<Error, T> RunChecks<T>(Set<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
@@ -94,10 +93,6 @@ public sealed partial record Requirement {
             .Traverse(check => check.Apply(context: context, geometry: geometry, cancel: cancel).ToValidation())
             .As()
             .Map(_ => original);
-    private static Validation<Error, T> RunLeaseChecks<T>(Fin<Lease<GeometryBase>> lease, Set<Check> checks, Context context, T original, CancellationToken cancel)
-        where T : notnull =>
-        lease.ToValidation()
-            .Bind(native => native.Use(geometry => RunChecks(checks: checks, context: context, geometry: geometry, original: original, cancel: cancel)));
     private static Fin<Unit> CurveSelfIntersectionReport(Check check, Curve curve, double tolerance) {
         using CurveIntersections? hits = Intersection.CurveSelf(curve: curve, tolerance: tolerance);
         return Optional(hits).Match(
@@ -146,15 +141,13 @@ public sealed partial record Requirement {
         [UseDelegateFromConstructor]
         private partial Fin<Unit> Run(Check check, Context context, GeometryBase geometry);
         internal Fin<Unit> Demand(GeometryBase geometry, bool condition, string log) =>
-            condition switch {
-                true => Fin.Succ(unit),
-                false => Fin.Fail<Unit>(error: new KernelFault.InvalidGeometry(Shape: geometry.GetType(), Check: Key, Log: log)),
-            };
+            condition
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(error: new KernelFault.InvalidGeometry(Shape: geometry.GetType(), Check: Key, Log: log));
         internal Fin<Unit> Apply(Context context, GeometryBase geometry, CancellationToken cancel) =>
-            cancel.IsCancellationRequested switch {
-                true => Fin.Fail<Unit>(error: Errors.Cancelled),
-                false => Applies(geometry: geometry) ? Run(check: this, context: context, geometry: geometry) : Fin.Succ(unit),
-            };
+            cancel.IsCancellationRequested
+                ? Fin.Fail<Unit>(error: Errors.Cancelled)
+                : Applies(geometry: geometry) ? Run(check: this, context: context, geometry: geometry) : Fin.Succ(unit);
     }
     private static bool HasUsableDomain(Surface surface, Context context) =>
         Evaluation.SurfaceDomain(surface: surface, context: context).IsSome;
@@ -222,14 +215,10 @@ internal static partial class OpAcceptance {
         internal Fin<T> AcceptValue<T>(T value) =>
             value switch {
                 null => Fin.Fail<T>(error: new KernelFault.InvalidResult(Key: key)),
-                Enum => Fin.Succ(value),
-                _ => ValidityOf(source: value).Case switch {
-                    bool ok => key.Demand(condition: ok, value: value),
-                    _ => Fin.Fail<T>(error: new KernelFault.InvalidResult(Key: key)),
-                },
+                _ => ValidityOf(source: value).Exists(static valid => valid)
+                    ? Fin.Succ(value)
+                    : Fin.Fail<T>(error: new KernelFault.InvalidResult(Key: key)),
             };
-        private Fin<T> Demand<T>(bool condition, T value) =>
-            condition ? Fin.Succ(value) : Fin.Fail<T>(error: new KernelFault.InvalidResult(Key: key));
     }
     internal static Option<bool> ValidityOf(object? source) =>
         source switch {
@@ -297,10 +286,6 @@ public sealed class AdmissionProjection<TRaw, TModel>
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AdmissionProjection {
-    public delegate bool SmartEnumLookup<TRaw, TModel>(TRaw? key, out TModel? item)
-        where TRaw : notnull
-        where TModel : class, ISmartEnum<TRaw>;
-
     public static Fin<AdmissionProjection<TRaw, TModel>> Generated<TRaw, TModel>(Op? key = null)
         where TRaw : struct, INumber<TRaw>
         where TModel : notnull, IObjectFactory<TModel, TRaw, ValidationError>, IConvertible<TRaw> {
@@ -311,19 +296,16 @@ public static class AdmissionProjection {
             key: op);
     }
 
-    public static Fin<AdmissionProjection<TRaw, TModel>> SmartEnum<TRaw, TModel>(
-        SmartEnumLookup<TRaw, TModel>? lookup,
-        Op? key = null)
+    public static Fin<AdmissionProjection<TRaw, TModel>> SmartEnum<TRaw, TModel>(Op? key = null)
         where TRaw : notnull
-        where TModel : class, ISmartEnum<TRaw> {
+        where TModel : class, ISmartEnum<TRaw, TModel, ValidationError>, IConvertible<TRaw> {
         Op op = key.OrDefault();
-        return Optional(lookup).ToFin(op.InvalidInput()).Bind(valid =>
-            AdmissionProjection<TRaw, TModel>.Of(
-                render: static model => model.ToValue(),
-                admit: raw => valid(key: raw, item: out TModel? item) && item is TModel admitted
-                    ? Fin.Succ(admitted)
-                    : Fin.Fail<TModel>(error: op.InvalidInput()),
-                key: op));
+        return AdmissionProjection<TRaw, TModel>.Of(
+            render: static model => model.ToValue(),
+            admit: raw => TModel.TryGet(raw, out TModel? item) && item is TModel admitted
+                ? Fin.Succ(admitted)
+                : Fin.Fail<TModel>(error: op.InvalidInput()),
+            key: op);
     }
 }
 
@@ -379,12 +361,6 @@ public static class OpExtensions {
             where TRow : class, ISmartEnum<int, TRow, ValidationError> =>
             Enum.IsDefined(candidate) ? op.Row<int, TRow>(ordinal(arg: candidate)) : Fin.Fail<TRow>(error: op.InvalidResult(detail: $"{typeof(THostEnum).Name} {candidate}"));
         public Fin<TVO> AcceptValidated<TVO>(ValidationError? fault, object? admitted) where TVO : notnull =>
-            (fault, admitted) switch {
-                (null, TVO owner) => Fin.Succ(value: owner),
-                (ValidationError refusal, _) => Fin.Fail<TVO>(error: InvalidValueOf<TVO>(op: op, refusal: refusal)),
-                _ => Fin.Fail<TVO>(error: op.InvalidResult()),
-            };
-        public Fin<TVO> AcceptValidated<TVO>(ValidationError? fault, TVO? admitted) where TVO : class =>
             (fault, admitted) switch {
                 (null, TVO owner) => Fin.Succ(value: owner),
                 (ValidationError refusal, _) => Fin.Fail<TVO>(error: InvalidValueOf<TVO>(op: op, refusal: refusal)),
@@ -625,10 +601,10 @@ public sealed record CapabilityLaw<TCapability>(Seq<CapabilitySet<TCapability>> 
 
 ## [08]-[VERDICT_CARRIERS]
 
-- Owner: `Quality` is the ONE three-state verdict on an externally-measured value — `Good`, `Uncertain(Symbol)`, `Bad(Symbol)` — and `Symbol` its admitted reason token; `Masked` is the ONE verdict for a transform that must report whether it changed its input — `Unchanged(Value)` or `Redacted(Value)` — so "did redaction touch this" is a case read, never a length compare or a `(string, bool)` tuple; `Evidence<T>` is the ONE three-state probe verdict on a measurement column — `Measured(T)` a probe ran and answered, `Refused(Error)` a probe ran and rejected carrying its own cause, `Absent` no probe ran — and `Evidence` its static mint folding a probe's `Fin<T>` outcome or a scan's `Option<T>` presence onto the cases.
+- Owner: `Quality` is the ONE three-state verdict on an externally-measured value — `Good`, `Uncertain(Symbol)`, `Bad(Symbol)` — and `Symbol` its admitted reason token; `Masked` is the ONE verdict for a transform that must report whether it changed its input — one `Value` beside its `Changed` verdict column — so "did redaction touch this" is a stored column read, never a length compare or a raw `(string, bool)` tuple; `Evidence<T>` is the ONE three-state probe verdict on a measurement column — `Measured(T)` a probe ran and answered, `Refused(Error)` a probe ran and rejected carrying its own cause, `Absent` no probe ran — and `Evidence` its static mint folding a probe's `Fin<T>` outcome or a scan's `Option<T>` presence onto the cases.
 - Entry: producers mint the case at the boundary where the foreign status is in hand (an OPC-UA `StatusCode`, a decode reason, a status-flag word, a parse refusal) and consumers discriminate on the generated total `Switch`; `Symbol.Validate` admits the reason token once; `Evidence.Of(Fin<T>)` admits a probe that ran (failure IS refusal), `Evidence.Of(Option<T>)` admits a presence scan (absence IS absent), and `evidence.Value()` is the one stated collapse onto `Option<T>` for a boundary column admitting only presence.
 - Law: a measurement quality crushed to one `bool Good` erases WHICH degradation admitted — four independent protocol boundaries proved the loss — and a `0d`-sentinel fill on the not-good arm forges a reading; the value column beside a `Quality` rides `Option<T>` where `Bad` carries no reading.
-- Law: `Masked` carries the VALUE on both arms so a consumer never re-derives change by comparing texts whose equality is not the question; the transform's verdict is authored where the transform ran.
+- Law: `Masked` carries the VALUE beside its `Changed` verdict so a consumer never re-derives change by comparing texts whose equality is not the question; the transform's verdict is authored where the transform ran.
 - Law: `Evidence<T>` and `Quality` split on WHAT is graded — `Evidence` carries whether a measurement HAPPENED, the value riding inside `Measured` and a refusal carrying the probe's own `Error`, while `Quality` grades the trustworthiness a foreign status word declares on a PRESENT reading — so neither absorbs the other; an `Option<T>` measurement column that lets a refused probe and a never-run probe both read `None` is the deleted form (the `FORGED_ZERO` boundary at result grain), and `ValidityClaim.Evidence` (`results.md`) stays the distinct validity fold over a nested result, never this carrier.
 - Growth: a new quality regime is a new reason `Symbol` at the producing boundary, never a fourth case; a new masking transform reuses `Masked` whole; a new probe whose refusal and absence differ is one `Evidence<T>` column at its own result, never a presence flag beside an error string and never a fourth case.
 - Packages: Thinktecture.Runtime.Extensions generates the closed unions and the `Symbol` admission; LanguageExt.Core carries the `Fin`/`Option` probe outcomes and the `Error` a refusal parks.
@@ -660,13 +636,7 @@ public abstract partial record Quality {
     public sealed record Bad(Symbol Reason) : Quality;
 }
 
-[Union]
-public abstract partial record Masked {
-    private Masked() { }
-    public sealed record Unchanged(string Value) : Masked;
-    public sealed record Redacted(string Value) : Masked;
-    public string Value => Switch(unchanged: static row => row.Value, redacted: static row => row.Value);
-}
+public sealed record Masked(string Value, bool Changed);
 
 [Union]
 public abstract partial record Evidence<T> {
@@ -744,16 +714,15 @@ internal static class Admit {
         double tolerance = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: scale * EpsilonPolicy.SqrtEpsilon);
         return Holds(values: diagonal, claim: entry => Math.Abs(value: entry.Imaginary) <= tolerance);
     }
-    internal static ValidityClaim Frame(Plane basis) =>
-        ValidityClaim.All(
+    internal static Fin<Plane> Plane(Plane basis, Op key) =>
+        guard(ValidityClaim.All(
             basis.IsValid,
             ValidityClaim.Finite(basis.Origin),
             ValidityClaim.Finite(basis.XAxis),
             ValidityClaim.Finite(basis.YAxis),
             ValidityClaim.Finite(basis.ZAxis),
             Vector3d.AreOrthonormal(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis),
-            Vector3d.AreRighthanded(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis));
-    internal static Fin<Plane> Plane(Plane basis, Op key) => guard(Frame(basis: basis), key.InvalidInput()).ToFin().Map(_ => basis);
+            Vector3d.AreRighthanded(x: basis.XAxis, y: basis.YAxis, z: basis.ZAxis)), key.InvalidInput()).ToFin().Map(_ => basis);
     internal static Fin<Vector3d> Directional(Vector3d value, double tolerance, Op key) =>
         guard(ValidityClaim.All(ValidityClaim.Finite(value), value.Length > tolerance), key.InvalidInput()).ToFin().Map(_ => value);
     internal static Fin<Unit> Cone(Point3d apex, Vector3d axis, double halfAngle, Op key) =>
@@ -791,7 +760,7 @@ One owner per concern, each extended by a row.
 |  [06]   | Pair readiness       | `RequirementContext`  | context extension combinator | `Validation<Error, (A,B,Kind,Kind)>` |
 |  [07]   | Capability column    | `CapabilitySet`       | frozen-set membership owner  | `bool` / `Fin<CapabilitySet<T>>`     |
 |  [08]   | Quality verdict      | `Quality`             | closed three-case union      | case read via total `Switch`         |
-|  [09]   | Masked verdict       | `Masked`              | closed two-case union        | case read via total `Switch`         |
+|  [09]   | Masked verdict       | `Masked`              | sealed record verdict column | `Value` + `Changed` column read      |
 |  [10]   | Probe evidence       | `Evidence<T>`         | closed generic union + mint  | `Of(Fin<T>)` / `Of(Option<T>)`       |
 |  [11]   | Admission vocabulary | `Admit`               | shape and collection guards  | `Fin<Unit>` / `Fin<T>`               |
 

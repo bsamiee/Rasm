@@ -2,7 +2,7 @@
 
 `SupportSpace` and `SupportProjection` own the corpus proximity gate: one closed `[Union]` over every closest-point-capable host shape, discriminated ONCE at admission by the proximity regime its reads need, and one `[SmartEnum<int>]` owning the closest-hit output modalities behind a single capability-gated `Project<TOut>`. Each new proximity answer is one vocabulary row carrying its required capability and its projection. Every proximity read in the corpus routes through this gate.
 
-This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit`, the `EvaluationRequest`/`EvaluationResult` algebra this adapter drives, and the one erased `extension(object? geometry) { Evaluate(request, key) }` ingress that algebra publishes; `normalization.md` owns the `Capability` admission rows whose verdicts gate admission once and every projection after; `validation.md` owns `ICapability`/`CapabilitySet` and `atoms.md` the `AtomProjection` raw→typed fold its canonical carriers (`ClosestHit`, `Direction`, `VectorSpan`) project through. Parametric `(u,v)` evaluation homes at `Parametric/projections.md`; this page owns proximity alone.
+This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit`, the `EvaluationRequest` algebra this adapter drives, and the one erased `extension(object? geometry) { Evaluate<TOut>(request, key) }` typed ingress that algebra publishes; `normalization.md` owns the `Capability` admission rows whose verdicts gate admission once and every projection after; `validation.md` owns `ICapability`/`CapabilitySet` and `atoms.md` the `AtomProjection` raw→typed fold its canonical carriers (`ClosestHit`, `Direction`, `VectorSpan`) project through. Parametric `(u,v)` evaluation homes at `Parametric/projections.md`; this page owns proximity alone.
 
 ## [01]-[INDEX]
 
@@ -50,7 +50,7 @@ public sealed partial class SupportCapability : ICapability<SupportCapability> {
 - Cases: `Analytic` carries an `AnalyticShape` `[Union]` rather than an `object`, because its admitted set is CLOSED — `Plane`, `Sphere`, `Box`, `BoundingBox` — and a closed set of host value structs with no common base is what a union is for; only the `Form` arm keeps `object`, and it keeps it because `Capability.Closest` is an open predicate over types `normalization.md` widens without editing this page. `Region` carries its containment probe as a `ContainProbe` ROW, so the `Brep`-versus-`Mesh` split resolves once at the factory, no read re-tests the host type, and the case stays value-comparable — a captured `Func` compares by reference, so two `Region` values over one `Brep` would never key, hash, or memoize alike. `Sheet` exists precisely to keep an open `Brep`/`Mesh` from falling through to a signed answer reporting a containment its geometry cannot decide.
 - Law: the case is decided ONCE, at `Of`. Every read after — `SignedReach`, `ContainReach`, `Closest`, `ContainmentDistance` — is a generated total `Switch` over that case, so the runtime type is never probed twice and no arm can drift from another.
 - Entry: `Of(object?, Op?)` is the ONE admission — a `ClusterCase` admits by construction (`cloud.md`'s factory proved its vertices, dedup, and mass); any other candidate admits by `Capability.Closest.Admits` on the runtime type (`object` roots refused) and the `OpAcceptance.ValidityOf` oracle (`Domain/validation.md`, whose compiled-lambda table covers the value structs), then routes to its regime and captures its capability set.
-- Auto: `Closest` dispatches the cluster arm to `ClusterCase.ClosestVertex` and every other regime to `geometry.Evaluate(new EvaluationRequest.Closest(target), key)`, projecting the returned `EvaluationResult` through its own `Project<ClosestHit>`; `SignedDistance` composes `EvaluationRequest.Signed(sample)` the same way; `ContainmentDistance` signs the hit distance on `Region` through its captured probe and refuses on `Sheet`.
+- Auto: `Closest` dispatches the cluster arm to `ClusterCase.ClosestVertex` and every other regime to `geometry.Evaluate<ClosestHit>(new EvaluationRequest.Closest(target), key)`, the typed egress landing the hit directly; `SignedDistance` composes `EvaluationRequest.Signed(sample)` the same way; `ContainmentDistance` signs the hit distance on `Region` through its captured probe and refuses on `Sheet`.
 - Packages: RhinoCommon (`Brep.IsPointInside`/`Mesh.IsPointInside`/`Brep.IsSolid`/`Mesh.IsSolid`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a newly closest-capable Rhino kind is one `normalization.md` capability-row membership, changing zero lines here; a new proximity regime is one case with its arms; a new analytic species is one `AnalyticShape` case and one `Of` arm; a new solid containment host is one `ContainProbe` row and one `Of` arm.
 - Boundary: `SupportSpace` is the ONE proximity adapter, and `Domain/evaluation`'s landed ingress is `extension(object? geometry)`, so every regime hands it the boxed payload and the case NAME carries the regime the payload's type never carries. NAMED LOSS on `SignedDistance`: `EvaluationRequest.Signed` re-solves the closest hit inside `evaluation.md`, so the caller's already-computed `ClosestHit` is not reused and a signed read costs one extra closest solve — the price of one evaluation ingress instead of two, paid where the hit is cheap and the second entrypoint was not. Its cluster arm composes `cloud.md`'s indexed closest-vertex probe; a second `PointCloud` index minted here doubles the `ClusterCase` cache. Admission runs once and crosses pages, so no read re-validates the factory-proven payload.
@@ -157,13 +157,11 @@ public abstract partial record SupportSpace {
     internal Fin<ClosestHit> Closest(Point3d sample, Op key) => SwitchPartially(
         state: (Sample: sample, Key: key),
         @default: static (s, space) => space.Payload
-            .Evaluate(request: new EvaluationRequest.Closest(Target: s.Sample), key: s.Key)
-            .Bind(result => result.Project<ClosestHit>(key: s.Key)),
+            .Evaluate<ClosestHit>(request: new EvaluationRequest.Closest(Target: s.Sample), key: s.Key),
         cluster: static (s, c) => c.Value.ClosestVertex(sample: s.Sample, key: s.Key));
 
     internal Fin<double> SignedDistance(Point3d sample, Op key) =>
-        Payload.Evaluate(request: new EvaluationRequest.Signed(Sample: sample), key: key)
-            .Bind(result => result.Project<double>(key: key));
+        Payload.Evaluate<double>(request: new EvaluationRequest.Signed(Sample: sample), key: key);
 
     internal Fin<double> ContainmentDistance(ClosestHit hit, Point3d sample, Context context, Op key) => SwitchPartially(
         state: (Hit: hit, Sample: sample, Context: context, Key: key),

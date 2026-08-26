@@ -548,8 +548,7 @@ internal static class SampleKernel {
 
     private static Fin<SampleResult> SampleGeneratedSupport(SampleKind kind, SupportSpace space, Context context, Op key) =>
         kind.Facts.Count.ToFin(Fail: key.Unsupported(inputType: kind.GetType(), outputType: typeof(SampleResult))).Bind(count =>
-            from evaluated in space.Payload.Evaluate(new EvaluationRequest.Sample(Count: (int)Math.Ceiling(a: count * Math.Max(1.0, kind.Facts.CandidateScale)), Model: context), key)
-            from points in evaluated.Project<Seq<Point3d>>(key: key)
+            from points in space.Payload.Evaluate<Seq<Point3d>>(new EvaluationRequest.Sample(Count: (int)Math.Ceiling(a: count * Math.Max(1.0, kind.Facts.CandidateScale)), Model: context), key)
             from sampled in SampleOnCandidates(kind: kind, candidates: points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), admitsPoisson: false, domainMeasure: Option<(SpatialRank Rank, double Measure)>.None, context: context, key: key)
             select sampled);
     private static Fin<SampleResult> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {

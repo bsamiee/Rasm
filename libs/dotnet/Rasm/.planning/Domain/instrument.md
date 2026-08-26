@@ -6,10 +6,10 @@ Every write addresses by ROW, never by name. `InstrumentSpec` is in scope at eve
 
 ## [01]-[INDEX]
 
-- [02]-[SPEC]: `Buckets`, `InstrumentKind`, `ReadingFold`, `MeasureForm`, `InstrumentSpec` — the advice roster, the family and measurement-type axes, and the one declaration row every sink composes.
-- [03]-[MOUNT]: `TelemetryIdentity`, `LevelProbe`, `LevelCells`, `Mounted` — the metered scope, the pulled cell store with its registered probes, and the row-and-handle pair a mount answers.
+- [02]-[SPEC]: `Buckets`, `InstrumentKind`, `MeasureForm`, `InstrumentSpec` — the advice roster, the family and measurement-type axes, and the one declaration row every sink composes.
+- [03]-[MOUNT]: `TelemetryIdentity`, `LevelProbe`, `LevelCells` — the metered scope and the pulled cell store with its registered probes.
 - [04]-[WRITE]: `InstrumentSet` — the mounted roster with its two derived indexes and the pushed, pulled, and registered measurement entries.
-- [05]-[TALLY]: `Series`, `ReadingCell`, `InstrumentReading`, `TallyState`, `InstrumentTally` — the diagnostic read plane over a mounted set.
+- [05]-[TALLY]: `ReadingCell`, `InstrumentReading`, `TallyState`, `InstrumentTally` — the diagnostic read plane over a mounted set.
 
 ## [02]-[SPEC]
 
@@ -105,8 +105,6 @@ public sealed partial class InstrumentKind {
     public bool Pulled { get; }
 }
 
-internal delegate void ReadingFold(Instrument instrument, double measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags);
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -118,11 +116,11 @@ public sealed partial class MeasureForm {
     public partial Instrument Mint(InstrumentSpec row, Meter meter, LevelCells cells);
 
     [UseDelegateFromConstructor]
-    internal partial void Heard(MeterListener listener, ReadingFold fold);
+    internal partial void Heard(MeterListener listener, MeasurementCallback<double> fold);
 
-    private static void Heard<T>(MeterListener listener, ReadingFold fold) where T : struct, INumberBase<T> =>
-        listener.SetMeasurementEventCallback<T>(
-            (instrument, measurement, tags, _) => fold(instrument, double.CreateSaturating(measurement), tags));
+    private static void Heard<T>(MeterListener listener, MeasurementCallback<double> fold) where T : struct, INumberBase<T> =>
+        listener.SetMeasurementEventCallback<T>((instrument, measurement, tags, state) =>
+            fold(instrument, double.CreateSaturating(measurement), tags, state));
 
     private static Instrument Bound<T>(InstrumentSpec row, Meter meter, LevelCells cells)
         where T : struct, INumberBase<T> =>
@@ -169,12 +167,11 @@ public sealed partial class InstrumentSpec {
             && !dimensions.Exists(string.IsNullOrWhiteSpace)
             && dimensions.Distinct().Count == dimensions.Count
             && (bounds.IsNone || kind.Equals(InstrumentKind.Distribution))
-            && bounds.Map(row =>
-                string.Equals(row.Unit, unit, StringComparison.Ordinal)
-                || (string.Equals(row.Unit, Buckets.Dimensionless, StringComparison.Ordinal) && unit.StartsWith('{')))
-                .IfNone(true)
+            && !bounds.Exists(row =>
+                !string.Equals(row.Unit, unit, StringComparison.Ordinal)
+                && !(string.Equals(row.Unit, Buckets.Dimensionless, StringComparison.Ordinal) && unit.StartsWith('{')))
             && tag.IsSome == kind.Equals(InstrumentKind.Levels)
-            && ceiling.Map(static bound => bound > 0).IfNone(true)
+            && !ceiling.Exists(static bound => bound <= 0)
                 ? null
                 : new ValidationError(message:
                     $"InstrumentSpec requires a named row, a distinct dimension set, bounds only on a distribution "
@@ -185,7 +182,7 @@ public sealed partial class InstrumentSpec {
 
 ## [03]-[MOUNT]
 
-- Owner: `TelemetryIdentity` mints the metered scope under the branch's one semantic-convention pin; `LevelProbe` pairs one registered read with the tag set that read reports under; `LevelCells` is the raw pulled store holding pushed cells beside registered probes; `Mounted` is the row-and-handle pair a mount answers and the only value the write plane addresses through.
+- Owner: `TelemetryIdentity` mints the metered scope under the branch's one semantic-convention pin; `LevelProbe` pairs one registered read with the tag set that read reports under; `LevelCells` is the raw pulled store holding pushed cells beside registered probes.
 - Entry: `Metered` is the meter-only mint for a scope whose spans ride the signal capsule's band, `Mint` the pair form for a scope owning its own `ActivitySource`; `LevelCells.Reader<T>` is the ONE pulled projection for both cell shapes; `Bind` registers one owner's `Func<double>` read and returns the scope that retires exactly that registration.
 - Auto: registration is a SET per row, not a slot — a bound row carries every live owner's read, so a lane limiter, a worker pool, and a durable intake each publish their own point under their own tags instead of the last registration silently deleting the readings before it; retiring the LAST probe drops the slot rather than leaving an empty sequence, because an empty bound slot still takes the probe arm and publishes nothing while the cell fallback stays unreachable. Bound probes win over the raw cell on the scalar shape and a keyed family UNIONS both, since a producer pushing per-key levels and a bounded owner registering its own key fill one family and neither earns a second instrument.
 - Auto: one cell store keyed `(row, Option<string> key)` — a scalar level and a family's UNPARTITIONED entry are the same cell reached by the same write, and the mounted row's `InstrumentKind`, never a second store, decides whether the reader projects that cell tagged or bare. Present keys emit one tagged `Measurement<T>`, an absent one emits the same value with ZERO tags, so per-key cardinality and an unpartitioned composition report the identical series on ONE instrument; that absent key mirrors the settled tenancy arm exactly, where `TenantContext.Key` is `None` and `Tags` is empty.
@@ -197,7 +194,7 @@ public sealed partial class InstrumentSpec {
 - Output: `Bind` returns the scope that ENDS a reading, because a level whose owner retired and whose value freezes at that owner's last write is indistinguishable at every collection from a live level nothing is moving.
 - Packages: LanguageExt.Core, BCL inbox (`System.Diagnostics`, `System.Diagnostics.Metrics`, `System.Numerics`).
 - Growth: a new bounded owner reporting its own saturation is one `Bind` scope over that owner's lifetime under its own tags, its probe joining the declared row's series and leaving with it.
-- Boundary: every write and registration member on `LevelCells` is assembly-internal, so `InstrumentSet` is the only reachable pulled entry from any consuming package and an ungated cell write has no spelling outside this assembly. Cells hold `double` at either key half, so the whole (kind × form) product carries its declared measurement type and a keyed real-valued level never truncates.
+- Boundary: every read, write, registration, and refusal member on `LevelCells` is assembly-internal — the cell store stays publicly constructible for composition — so `InstrumentSet` is the only reachable pulled entry from any consuming package and an ungated cell write has no spelling outside this assembly. Cells hold `double` at either key half, so the whole (kind × form) product carries its declared measurement type and a keyed real-valued level never truncates.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -230,67 +227,52 @@ internal sealed record LevelProbe(KeyValuePair<string, object?>[] Tags, Func<dou
 
 public sealed class LevelCells {
     private static readonly Op PullOp = Op.Of(name: "instrument.pull");
-    private readonly Atom<HashMap<(InstrumentSpec Row, Option<string> Key), double>> cells =
-        Atom(HashMap<(InstrumentSpec Row, Option<string> Key), double>());
-    private readonly Atom<HashMap<InstrumentSpec, Seq<LevelProbe>>> probes =
-        Atom(HashMap<InstrumentSpec, Seq<LevelProbe>>());
-    private readonly Atom<HashMap<InstrumentSpec, Error>> raised = Atom(HashMap<InstrumentSpec, Error>());
+    private readonly AtomHashMap<(InstrumentSpec Row, Option<string> Key), double> cells =
+        AtomHashMap(HashMap<(InstrumentSpec Row, Option<string> Key), double>());
+    private readonly AtomHashMap<InstrumentSpec, Seq<LevelProbe>> probes =
+        AtomHashMap(HashMap<InstrumentSpec, Seq<LevelProbe>>());
+    private readonly AtomHashMap<InstrumentSpec, Error> raised = AtomHashMap(HashMap<InstrumentSpec, Error>());
 
-    internal Unit Level(InstrumentSpec row, Option<string> key, double value) =>
-        ignore(cells.Swap(held => held.AddOrUpdate((row, key), value)));
+    internal Unit Level(InstrumentSpec row, Option<string> key, double value) => cells.AddOrUpdate((row, key), value);
 
     internal Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, KeyValuePair<string, object?>[] tags, Op key) =>
-        key.Need(read).Map(admitted => Attached(row: row, probe: new LevelProbe(Tags: tags, Read: admitted)));
+        key.Need(read).Map(admitted => {
+            LevelProbe probe = new(Tags: tags, Read: admitted);
+            probes.AddOrUpdate(row, live => live.Add(probe), () => Seq(probe));
+            return (IDisposable)new HookDetacher(Detach: () => probes.SwapKey(row, live => live
+                .Map(rows => rows.Filter(entry => !ReferenceEquals(entry, probe)).Strict())
+                .Filter(rows => !rows.IsEmpty)));
+        });
 
-    public Option<Error> Raised(InstrumentSpec row) => raised.Value.Find(row);
+    internal Option<Error> Raised(InstrumentSpec row) => raised.Find(row);
 
-    public Func<IEnumerable<Measurement<T>>> Reader<T>(InstrumentSpec row, Option<string> tag = default)
+    internal Func<IEnumerable<Measurement<T>>> Reader<T>(InstrumentSpec row, Option<string> tag = default)
         where T : struct, INumberBase<T> =>
         () => tag.Match(
-            Some: key => Keyed<T>(row, key) + Probed<T>(row),
-            None: () => probes.Value.ContainsKey(row) ? Probed<T>(row) : Cell<T>(row));
+            Some: tag => cells.AsIterable()
+                .Filter(pair => pair.Key.Row.Equals(row))
+                .Map(pair => pair.Key.Key.Match(
+                    Some: key => new Measurement<T>(
+                        T.CreateSaturating(pair.Value), new KeyValuePair<string, object?>(tag, key)),
+                    None: () => new Measurement<T>(T.CreateSaturating(pair.Value))))
+                .ToSeq() + probes.Find(row)
+                    .Map(live => Probed<T>(row, live)).IfNone(Seq<Measurement<T>>()),
+            None: () => probes.Find(row).Match(
+                Some: live => Probed<T>(row, live),
+                None: () => cells.Find((row, Option<string>.None))
+                    .Map(held => new Measurement<T>(T.CreateSaturating(held))).ToSeq()));
 
-    private IDisposable Attached(InstrumentSpec row, LevelProbe probe) {
-        ignore(probes.Swap(held => held.AddOrUpdate(row, live => live.Add(probe), () => Seq(probe))));
-        return new HookDetacher(Detach: () => ignore(probes.Swap(held => Retired(held, row, probe))));
-    }
-
-    private static HashMap<InstrumentSpec, Seq<LevelProbe>> Retired(
-        HashMap<InstrumentSpec, Seq<LevelProbe>> held, InstrumentSpec row, LevelProbe probe) =>
-        held.Find(row).Map(live => live.Filter(entry => !ReferenceEquals(entry, probe)).Strict()).Match(
-            Some: live => live.IsEmpty ? held.Remove(row) : held.AddOrUpdate(row, live),
-            None: () => held);
-
-    private Seq<Measurement<T>> Keyed<T>(InstrumentSpec row, string tag) where T : struct, INumberBase<T> =>
-        cells.Value.AsIterable().Filter(pair => pair.Key.Row.Equals(row))
-            .Map(pair => pair.Key.Key.Match(
-                Some: key => new Measurement<T>(T.CreateSaturating(pair.Value), new KeyValuePair<string, object?>(tag, key)),
-                None: () => new Measurement<T>(T.CreateSaturating(pair.Value))));
-
-    private Seq<Measurement<T>> Probed<T>(InstrumentSpec row) where T : struct, INumberBase<T> =>
-        probes.Value.Find(row).Map(live => live.Bind(probe => Held<T>(row, probe)).Strict())
-            .IfNone(Seq<Measurement<T>>());
-
-    private Seq<Measurement<T>> Held<T>(InstrumentSpec row, LevelProbe probe) where T : struct, INumberBase<T> =>
-        PullOp.Catch(() => Fin.Succ(Seq(new Measurement<T>(T.CreateSaturating(probe.Read()), probe.Tags)))).Match(
-            Succ: static held => held,
-            Fail: cause => (ignore(raised.Swap(held => held.AddOrUpdate(row, seat => seat + cause, () => cause))),
-                Seq<Measurement<T>>()).Item2);
-
-    private Seq<Measurement<T>> Cell<T>(InstrumentSpec row) where T : struct, INumberBase<T> =>
-        cells.Value.Find((row, Option<string>.None)).Match(
-            Some: held => Seq(new Measurement<T>(T.CreateSaturating(held))),
-            None: static () => Seq<Measurement<T>>());
+    private Seq<Measurement<T>> Probed<T>(InstrumentSpec row, Seq<LevelProbe> live) where T : struct, INumberBase<T> =>
+        live.Bind(probe => PullOp.Catch(() =>
+                Fin.Succ(Seq(new Measurement<T>(T.CreateSaturating(probe.Read()), probe.Tags))))
+            .IfFail(cause => (raised.AddOrUpdate(row, seat => seat + cause, () => cause),
+                Seq<Measurement<T>>()).Item2)).Strict();
 }
-
-// --- [MODELS] --------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Mounted(InstrumentSpec Row, Instrument Handle);
 ```
 
 ## [04]-[WRITE]
 
-- Owner: `InstrumentSet` is the mounted roster — one `Seq<Mounted>` authority with two DERIVED frozen indexes, the pushed `Write`, the pulled `Level`, the registered `Bind`, the `Tags` projection every arm consumes, and the `Enabled` listener gate an emitting fold reads before that projection.
+- Owner: `InstrumentSet` is the mounted roster — one row-and-handle pair sequence as the authority with two DERIVED frozen indexes, the pushed `Write`, the pulled `Level`, the registered `Bind`, the `Tags` projection every arm consumes, and the `Enabled` listener gate an emitting fold reads before that projection.
 - Entry: `Of` mounts any number of `(meter, rows)` pairs against one cell store, so a one-meter root is its one-element call, and it returns the typed result — a row declared twice across two meters binds a second handle for one name, which is the defect the roster proof already legislates and the mount now refuses BEFORE any handle is created. `Write` and `Level` are the pushed and pulled measurement entries; `Level` carries one optional key so a scalar cell, a partitioned family entry, and an unpartitioned one ride one signature; `Bind` is `Level`'s registered peer.
 - Auto: `Write` dispatches through `row.Form.Switch` and then `row.Kind.Switch` — the two generated total folds over the axes the declaration already closes — so the four pulled arms ARE the polarity refusal, no separate polarity test precedes them, and the instrument cast is total because the mint built exactly that (form × kind) pair. Both discriminants read off the declaration rather than off the bound handle's shape, so a polarity breach the row declares files as itself instead of under the type-mismatch verdict.
 - Auto: both indexes derive from the one roster, so no pair can disagree: `Seats` answers a declared row's mount for the write plane, and `Declared` answers a published handle's row for the listener plane. Handle identity IS the listener index's key comparison, so the reference probe a tally hand-wrote beside a name lookup has no reason to exist.
@@ -313,16 +295,14 @@ using System.Numerics;
 namespace Rasm.Domain;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
-    private FrozenDictionary<InstrumentSpec, Mounted> Seats { get; } =
+public sealed record InstrumentSet(Seq<(InstrumentSpec Row, Instrument Handle)> Mounts, LevelCells Cells) {
+    private FrozenDictionary<InstrumentSpec, (InstrumentSpec Row, Instrument Handle)> Seats { get; } =
         Mounts.ToFrozenDictionary(static seat => seat.Row);
 
     private FrozenDictionary<Instrument, InstrumentSpec> Declared { get; } =
         Mounts.ToFrozenDictionary(static seat => seat.Handle, static seat => seat.Row);
 
-    public Seq<InstrumentSpec> Rows => Mounts.Map(static seat => seat.Row);
-
-    public Option<InstrumentSpec> Published(Instrument handle) =>
+    internal Option<InstrumentSpec> Published(Instrument handle) =>
         Declared.TryGetValue(handle, out InstrumentSpec? row) ? Some(row) : None;
 
     public static Fin<InstrumentSet> Of(
@@ -332,7 +312,7 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
         Seq<InstrumentSpec> collided = declared.Collisions(static pair => pair.Row);
         return collided.IsEmpty
             ? Fin.Succ(new InstrumentSet(
-                Mounts: declared.Map(pair => new Mounted(
+                Mounts: declared.Map(pair => (
                     Row: pair.Row, Handle: pair.Row.Form.Mint(pair.Row, pair.Meter, cells))).Strict(),
                 Cells: cells))
             : Fin.Fail<InstrumentSet>(new KernelFault.InvalidValue(
@@ -340,13 +320,12 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
                 Requirement: "one mount per declaration row across every contributed meter"));
     }
 
-    public Fin<Unit> Write(InstrumentSpec row, double measurement, in TagList tags = default) {
-        if (!Seats.TryGetValue(row, out Mounted seat)) { return Fin.Fail<Unit>(Unmounted(row)); }
-        return row.Form.Switch(
-            state: (Seat: seat, Value: measurement, Tags: tags),
-            whole: static bind => Pushed(bind.Seat, long.CreateSaturating(bind.Value), in bind.Tags),
-            real: static bind => Pushed(bind.Seat, bind.Value, in bind.Tags));
-    }
+    public Fin<Unit> Write(InstrumentSpec row, double measurement, in TagList tags = default) =>
+        !Seats.TryGetValue(row, out (InstrumentSpec Row, Instrument Handle) seat) ? Fin.Fail<Unit>(Unmounted(row))
+            : row.Form.Switch(
+                state: (Seat: seat, Value: measurement, Tags: tags),
+                whole: static bind => Pushed(bind.Seat, long.CreateSaturating(bind.Value), in bind.Tags),
+                real: static bind => Pushed(bind.Seat, bind.Value, in bind.Tags));
 
     public Fin<Unit> Level(InstrumentSpec row, double value, Option<string> key = default) =>
         Pulled(row, key).Map(admitted => Cells.Level(admitted, key, value));
@@ -358,7 +337,7 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
     }
 
     public bool Enabled(Seq<InstrumentSpec> rows) =>
-        rows.Exists(row => !Seats.TryGetValue(row, out Mounted seat) || seat.Handle.Enabled);
+        rows.Exists(row => !Seats.TryGetValue(row, out (InstrumentSpec Row, Instrument Handle) seat) || seat.Handle.Enabled);
 
     public static TagList Tags(TenantContext tenant, params ReadOnlySpan<(string Slot, object? Value)> facts) {
         TagList row = Tags(facts: facts);
@@ -379,7 +358,7 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
             Label: row.Name, Requirement: "a keyed levels family"))
         : Fin.Succ(row);
 
-    private static Fin<Unit> Pushed<T>(Mounted seat, T value, in TagList tags) where T : struct, INumberBase<T> =>
+    private static Fin<Unit> Pushed<T>((InstrumentSpec Row, Instrument Handle) seat, T value, in TagList tags) where T : struct, INumberBase<T> =>
         seat.Row.Kind.Switch(
             state: (Seat: seat, Value: value, Tags: tags),
             count: static bind => {
@@ -413,7 +392,7 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
 
 ## [05]-[TALLY]
 
-- Owner: `Series` keys one accumulator by row and a framed digest of its tag set; `ReadingCell` is the one measured shape, nesting the branch's `Stat` recurrence and adding the two columns `Stat` cannot express; `InstrumentReading` is the per-row projection with its three read states; `TallyState` is the one fold state cells, census, and refusals advance in together; `InstrumentTally` is the backend-free read plane over a mounted set.
+- Owner: `ReadingCell` is the one measured shape — one accumulator per `(row, digest)` pair, the digest framing its tag set — nesting the branch's `Stat` recurrence and adding the two columns `Stat` cannot express; `InstrumentReading` is the per-row projection with its three read states; `TallyState` is the one fold state cells, census, and refusals advance in together; `InstrumentTally` is the backend-free read plane over a mounted set.
 - Cases: three read states, never two — a row carrying cells is MEASURED, a row with neither cells nor a refusal is QUIET, and a row whose probe or measurement refused is BROKEN. QUIET and BROKEN stay distinct, so a doctor archive separates a producer that never ran from one that raised on every collection.
 - Entry: `Of(set, ceiling)` opens the read plane under its distinct-series bound and `Read(key)` is its one entry, driving the observables then projecting every declared row.
 - Auto: admission is HANDLE identity through the set's own listener index, so a foreign instrument sharing a declared name never enters the read. Pushed measurements ACCUMULATE their sum and pulled ones REPLACE it, because an observable republishes its whole value each collection and accumulating one compounds a level into a total no producer measured; count, minimum, and maximum ride `Stat` on both arms.
@@ -434,28 +413,26 @@ namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct Series(InstrumentSpec Row, UInt128 Key);
-
-[StructLayout(LayoutKind.Auto)]
 public readonly record struct ReadingCell(
     Seq<KeyValuePair<string, object?>> Tags, Stat<Scalar> Summary, double Sum, double Last) {
-    public static Fin<ReadingCell> Of(Seq<KeyValuePair<string, object?>> tags, double measurement, Op key) =>
-        Scalar.From(measurement).Bind(sample => Stat<Scalar>.Of(values: Seq(sample), key: key))
-            .Map(summary => new ReadingCell(Tags: tags, Summary: summary, Sum: measurement, Last: measurement));
-
-    public Fin<ReadingCell> Advance(double measurement, InstrumentKind kind, Op key) =>
-        Scalar.From(measurement).Bind(sample => Stat<Scalar>.Update(prior: Summary, sample: sample, key: key))
-            .Map(summary => this with {
-                Summary = summary,
-                Sum = kind.Pulled ? measurement : Sum + measurement,
-                Last = measurement,
-            });
+    internal static Fin<ReadingCell> Advance(
+        Option<ReadingCell> prior, Seq<KeyValuePair<string, object?>> tags,
+        double measurement, InstrumentKind kind, Op key) =>
+        Scalar.From(measurement).Bind(sample => prior.Match(
+            Some: cell => Stat<Scalar>.Update(prior: cell.Summary, sample: sample, key: key)
+                .Map(summary => cell with {
+                    Summary = summary,
+                    Sum = kind.Pulled ? measurement : cell.Sum + measurement,
+                    Last = measurement,
+                }),
+            None: () => Stat<Scalar>.Of(values: Seq(sample), key: key)
+                .Map(summary => new ReadingCell(Tags: tags, Summary: summary, Sum: measurement, Last: measurement))));
 }
 
 public sealed record InstrumentReading(InstrumentSpec Row, Seq<ReadingCell> Cells, Option<Error> Refused);
 
 internal readonly record struct TallyState(
-    HashMap<Series, ReadingCell> Cells,
+    HashMap<(InstrumentSpec Row, UInt128 Key), ReadingCell> Cells,
     HashMap<InstrumentSpec, int> Census,
     HashMap<InstrumentSpec, Error> Refused);
 
@@ -464,15 +441,13 @@ public sealed class InstrumentTally : IDisposable {
     private static readonly Op TallyOp = Op.Of(name: "instrument.tally");
     public const string OverflowSlot = "otel.metric.overflow";
 
-    private const int DefaultCeiling = 2048;
-
     private static readonly Seq<KeyValuePair<string, object?>> Overflow =
         Seq(new KeyValuePair<string, object?>(OverflowSlot, true));
 
     private static readonly UInt128 OverflowKey = Keyed(tags: Overflow);
 
     private readonly Atom<TallyState> plane = Atom(new TallyState(
-        Cells: HashMap<Series, ReadingCell>(),
+        Cells: HashMap<(InstrumentSpec Row, UInt128 Key), ReadingCell>(),
         Census: HashMap<InstrumentSpec, int>(),
         Refused: HashMap<InstrumentSpec, Error>()));
 
@@ -482,7 +457,7 @@ public sealed class InstrumentTally : IDisposable {
 
     private InstrumentTally(InstrumentSet mounted, int bound) => (set, ceiling) = (mounted, bound);
 
-    public static InstrumentTally Of(InstrumentSet set, int ceiling = DefaultCeiling) {
+    public static InstrumentTally Of(InstrumentSet set, int ceiling = 2048) {
         InstrumentTally tally = new(set, ceiling);
         tally.listener.InstrumentPublished = (instrument, listening) => {
             if (set.Published(instrument).IsSome) { listening.EnableMeasurementEvents(instrument, state: null); }
@@ -496,7 +471,17 @@ public sealed class InstrumentTally : IDisposable {
         TallyState settled = plane.Value;
         return key.Catch(listener.RecordObservableInstruments)
             .MapFail(cause => (ignore(plane.Swap(_ => settled)), cause).Item2)
-            .Map(_ => Projected(plane.Value));
+            .Map(_ => {
+                TallyState held = plane.Value;
+                HashMap<InstrumentSpec, Seq<ReadingCell>> byRow = held.Cells.AsIterable().Fold(
+                    HashMap<InstrumentSpec, Seq<ReadingCell>>(),
+                    static (rows, pair) => rows.AddOrUpdate(pair.Key.Row, cell => pair.Value.Cons(cell), () => [pair.Value]));
+                return set.Mounts.Map(seat => new InstrumentReading(
+                    Row: seat.Row,
+                    Cells: byRow.Find(seat.Row).IfNone(Seq<ReadingCell>()),
+                    Refused: Seq(held.Refused.Find(seat.Row), set.Cells.Raised(seat.Row)).Somes()
+                        .Fold(Option<Error>.None, static (seat, cause) => Some(seat.Match(Some: first => first + cause, None: () => cause)))));
+            });
     }
 
     public void Dispose() => listener.Dispose();
@@ -508,23 +493,21 @@ public sealed class InstrumentTally : IDisposable {
             order: StringComparer.Ordinal,
             field: static (tag, framed) => framed.String(tag.Key).String(tag.Value?.ToString() ?? string.Empty)));
 
-    private void Fold(Instrument instrument, double measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags) {
+    private void Fold(Instrument instrument, double measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? _) {
         if (set.Published(instrument) is not { IsSome: true, Case: InstrumentSpec declared }) { return; }
         Seq<KeyValuePair<string, object?>> row = toSeq(tags.ToArray());
-        Series at = new(Row: declared, Key: Keyed(tags: row));
+        (InstrumentSpec Row, UInt128 Key) at = (declared, Keyed(tags: row));
         ignore(plane.Swap(held => Seated(held, at, row, measurement)));
     }
 
     private TallyState Seated(
-        TallyState held, Series at, Seq<KeyValuePair<string, object?>> tags, double measurement) {
+        TallyState held, (InstrumentSpec Row, UInt128 Key) at, Seq<KeyValuePair<string, object?>> tags, double measurement) {
         bool standing = held.Cells.ContainsKey(at);
         bool seatable = held.Cells.Count < ceiling && held.Census.Find(at.Row).IfNone(0) < at.Row.Ceiling.IfNone(ceiling);
-        Series key = standing || seatable ? at : new Series(Row: at.Row, Key: OverflowKey);
-        return held.Cells.Find(key)
-            .Match(
-                Some: cell => cell.Advance(measurement: measurement, kind: key.Row.Kind, key: TallyOp),
-                None: () => ReadingCell.Of(
-                    tags: standing || seatable ? tags : Overflow, measurement: measurement, key: TallyOp))
+        (InstrumentSpec Row, UInt128 Key) key = standing || seatable ? at : (at.Row, OverflowKey);
+        return ReadingCell.Advance(
+                prior: held.Cells.Find(key), tags: standing || seatable ? tags : Overflow,
+                measurement: measurement, kind: key.Row.Kind, key: TallyOp)
             .Match(
                 Succ: cell => held with {
                     Cells = held.Cells.AddOrUpdate(key, cell),
@@ -533,17 +516,6 @@ public sealed class InstrumentTally : IDisposable {
                 Fail: cause => held with {
                     Refused = held.Refused.AddOrUpdate(key.Row, seat => seat + cause, () => cause),
                 });
-    }
-
-    private Seq<InstrumentReading> Projected(TallyState held) {
-        HashMap<InstrumentSpec, Seq<ReadingCell>> byRow = held.Cells.AsIterable().Fold(
-            HashMap<InstrumentSpec, Seq<ReadingCell>>(),
-            static (rows, pair) => rows.AddOrUpdate(pair.Key.Row, cell => pair.Value.Cons(cell), () => [pair.Value]));
-        return set.Rows.Map(row => new InstrumentReading(
-            Row: row,
-            Cells: byRow.Find(row).IfNone(Seq<ReadingCell>()),
-            Refused: toSeq(Seq(held.Refused.Find(row), set.Cells.Raised(row)).Somes())
-                .Fold(Option<Error>.None, static (seat, cause) => Some(seat.Match(Some: first => first + cause, None: () => cause)))));
     }
 }
 ```

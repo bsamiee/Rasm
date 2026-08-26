@@ -384,7 +384,7 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
   - The local peer's own slot is excluded from the projection, because rendering a caret at the user's own cursor duplicates the one the editor already draws; liveness is the channel's own answer through its own sweep, so `Marks` sweeps before it reads and a lapsed peer contributes no mark.
   - The mark shape is the PLANE ROW's answer, so a structural ladder over the decoded slot — whose default arm would swallow a newly admitted plane — is the rejected form. `Marks` is the ONE read every plane surface binds: the text editor, the graph canvas, and the viewport each ask this owner for their own plane's marks rather than each decoding the slot themselves.
   - Serialization crosses the package's ONE options owner — `Diagnostics/evidence#EVIDENCE_UNION` `EvidenceOps.Wire`, the composition-seated merged suite — so no member here takes a `JsonSerializerOptions` parameter. A codec knob threaded through four signatures is a value the codec owner already holds, and threading it let one publisher encode under a different resolver than the reader that decodes it.
-  - The tint quantizes at the ONE colour edge the package already declares: `Theme/tokens#COLORMAP_CATALOG` `Colormap.Sample` admits through the tokens page's perceptual edge and answers the host carrier, so this owner composes that sampler and performs no colour arithmetic of its own. The unit projection folds the digest by its own width through the kernel `ContentHash.Half` lane row, so the projection carries no modulus and no consumer spells the shift.
+  - The tint quantizes at the ONE colour edge the package already declares: `Theme/tokens#COLORMAP_CATALOG` `Colormap.Sample` admits through the tokens page's perceptual edge and answers the host carrier, so this owner composes that sampler and performs no colour arithmetic of its own. The unit projection folds the digest by its own width through the kernel `ContentHash.Halves` `High` word, so the projection carries no modulus and no consumer spells the shift.
   - Follow is display and NEVER authority: it takes no capability read, grants nothing, and a follow arm gated on a role would be asserting that watching a published camera is a privilege the ruling already denies. The lease TRANSITION is the answer — a follow that lost the seat to a concurrent request and a follow that landed are different facts, and a swap whose verdict is discarded reports success to both. The follow banner materializes as one `Shell/controls#CONTROL_INTENT` `ControlIntent.Banner`, so the persistent who-am-I-following condition takes the banner family every persistent condition takes.
   - The break is on the INTENT, never on a camera delta: a followed camera moves the local camera on every frame, so a positional threshold cannot separate the user's own nudge from the target's travel and would either break on the target's motion or never break at all.
 
@@ -434,7 +434,7 @@ public static class PeerTint {
     public static Fin<Color> Of(ulong peer) =>
         Colormap.Tableau.Sample(Unit(ContentHash.Of(BitConverter.GetBytes(peer))));
 
-    private static double Unit(UInt128 digest) => (double)ContentHash.Half(digest, Lane.High) / ulong.MaxValue;
+    private static double Unit(UInt128 digest) => (double)ContentHash.Halves(digest).High / ulong.MaxValue;
 }
 
 public sealed record PresenceOverlay(Presence Presence, CollabDoc Document) {
@@ -547,7 +547,7 @@ flowchart LR
     Slot -->|Located decode| PeerLocation
     PeerLocation --> PresencePlane
     PresencePlane -->|Shape row column| PresenceMark
-    PeerTint -->|"ContentHash.Half(Lane.High) -> Colormap.Tableau"| PresenceMark
+    PeerTint -->|"ContentHash.Halves(digest).High -> Colormap.Tableau"| PresenceMark
     PresenceOverlay -->|Marks| Planes["text editor · graph canvas · viewport"]
     PresenceFollow -->|"Cell.Commit / Cell.Take transition"| FollowLease
     PresenceFollow -->|Mirrored| Viewpoint

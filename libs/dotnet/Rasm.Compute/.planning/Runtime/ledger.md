@@ -134,7 +134,7 @@ public sealed class Charges(CostPolicy rates, EventExtensionContract<Extensions>
 
     public Fin<Option<CloudEvent>> Settle(Charge charge, Op key) =>
         charge.Vector.Total > 0d
-            ? EventId.Of(key.ToString(), key)
+            ? key.AcceptValidated<EventId>(key.ToString())
                 .Bind(id => RasmEventEnvelope.Publish(
                     new RasmEventMint<Extensions>(
                         Type: Priced, Source: Source, Id: id, Subject: None, Time: clock.Wall,

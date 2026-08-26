@@ -48,7 +48,6 @@ public readonly record struct PayloadFrame(
     DataGrade Grade,
     string ContentType,
     Option<Uri> DataSchema,
-    int EventMajor,
     global::Rasm.Contracts.Event.Extensions Extensions,
     Option<Uri> Placement = default);
 
@@ -581,11 +580,10 @@ public static class Egress {
 
     static Fin<CloudEvent> Minted(OpLogEntry row, Subscription sink, EgressPorts ports, PayloadFrame framed) {
         Op key = Op.Of(name: nameof(Egress));
-        EventType type = EventType.Of(
-            Domain, subject: row.Family.Key, fact: row.Kind.Fact, major: framed.EventMajor);
+        EventType type = EventType.Of(Domain, subject: row.Family.Key, fact: row.Kind.Fact);
         EventSource source = EventSource.Of(domain: Domain, capability: "oplog");
         return
-            from id in EventId.Of(value: row.Id.Wire, key: key)
+            from id in key.AcceptValidated<EventId>(row.Id.Wire)
             from extensions in EgressEventExtensions.Of(
                 row, sink, framed, row.Trace.Continue().Map(ports.Carrier).IfNone(default(TraceCarrier)), key)
             from envelope in RasmEventEnvelope.Mint(

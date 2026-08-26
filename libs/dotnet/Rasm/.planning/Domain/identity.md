@@ -12,19 +12,19 @@ Identity and derivation never cross: a content key built from a `Deterministic` 
 ## [02]-[CONTENT_KEY]
 
 - Owner: one capsule, two owners with one boundary — `CanonicalWriter` owns FRAMING (how fields become bytes), `ContentHash` owns the DIGEST (how bytes become the `UInt128` currency) and its two text projections. `CanonicalWriter` is the only public way to emit a multi-field preimage, so the caller's obligation collapses from "produce canonical bytes" to "name the fields in order".
-- Entry: `ContentHash.Of` is one name over three ingress shapes — `Of(ReadOnlySpan<byte>)` for a payload already canonical in one span, `Of(Stream)` for a source no span holds, `Of<TState>(TState, Action<TState, CanonicalWriter>)` for a field stream the caller emits through the writer. `CanonicalWriter.Streaming(tolerance, accumulator)` binds a writer to an accumulator the caller already owns (the dual-digest pass that folds `XxHash128` beside a `Crc32` frame check in one traversal); `Retaining(tolerance)` is the mint for callers that store or wire the canonical bytes themselves.
+- Entry: `ContentHash.Of` is one name over three ingress shapes — `Of(ReadOnlySpan<byte>)` for a payload already canonical in one span, `Of(Stream)` for a source no span holds, `Of<TState>(TState, Action<TState, CanonicalWriter>, tolerance)` for a field stream the caller emits through the writer — exact-grid by default and caller-grid when a quantum is passed, the one entry owning the zero-seeded accumulator and the close for every digest-only stream. `Retaining(tolerance)` is the one public writer mint, for callers that store or wire the canonical bytes themselves.
 - Cases: members by field shape — fixed-width (`Bool`, `Ordinal`, `I64`, `U128`, `Single`, `Double`, and the bit-exact `Bits`) concatenate injectively and carry NO frame; variable-width (`String`) is ALWAYS int32-LE length-framed UTF-8; collections (`Rows<T>`, `Doubles`, and the order-publishing `Sorted<T,TKey>`) are count-framed; absence (`Optional<T>`) is presence-prefixed; `Raw` is the one named exemption. `Double` and `Bits` are two identities: the quantized leg keys a tolerance-banded geometry, the exact leg a replay or chaos chain that must re-derive bit-exact.
 - Law: `String` has exactly one spelling and it frames — the int32-LE UTF-8 byte count precedes the bytes, so `("ab","c")` and `("a","bc")` cannot key alike, and because no member writes text any other way the `MemoryMarshal.AsBytes(string.AsSpan())` shape (machine-endian UTF-16, which keys differently on a big-endian partner) is unspellable on this surface rather than merely discouraged.
 - Law: `Rows<T>` writes its count before its rows, so two adjacent collections whose concatenations agree still key apart; it takes `Seq<T>` because ORDER is part of the preimage and only an ordered carrier can carry it.
 - Law: `Optional<T>` writes a presence byte before the value, so an absent column can never alias a written default — the chain-hash defect where `None` and a zero-prefixed present value are one digest.
 - Law: `Double`/`Single` canonicalize before their bits leave — every NaN payload collapses to one quiet pattern and `-0.0` to `+0.0`, so two values that compare equal key equal.
 - Law: `tolerance` is the double-quantization quantum and is PART OF THE KEY — a coordinate snaps to the grid before its bits are written, so two tolerances address two identity spaces rather than near-misses of one. Model-space callers pass `Context.Absolute.Value`; a grid-free caller (a schema key, an environment fingerprint, a plan shape) passes `EpsilonPolicy.ZeroTolerance`, which `ContentHash.Of<TState>` supplies. A LITERAL `0.0` tolerance is the exact-grid lane and quantizes NOTHING — `Quantize` reads zero as identity (signed zero still folds), so an exact-grid consumer never rides the division whose zero denominator keyed every finite double as NaN.
-- Law: seed zero is the federation contract — `Of` mints its own accumulator at `seed: 0L` and there is NO seeded overload, because a computed seed IS a preimage (`[PREIMAGE_FRAMING]` line 31) and belongs in the field stream; a seeded reproducible LANE is `Deterministic.Stream`, a different concern on a different owner. `Streaming` takes the accumulator only so one traversal can feed two algorithms, and a caller minting a non-zero-seeded accumulator forks the seed every partner reproduces.
+- Law: seed zero is the federation contract — `Of` mints its own accumulator at `seed: 0L` and there is NO seeded overload, because a computed seed IS a preimage (`[PREIMAGE_FRAMING]` line 31) and belongs in the field stream; a seeded reproducible LANE is `Deterministic.Stream`, a different concern on a different owner. `Of<TState>` owns the accumulator outright — no entry takes one — so a non-zero-seeded accumulator forking the seed every partner reproduces is unspellable.
 - Law: the digest RENDERS here. `Hex` is 32 lowercase hex (`:x32`) and `Admit` refuses uppercase, so one key has one text and a round trip is stable; the deleted form is a consumer admitting either case and rendering one, which reads correct in isolation and forks the moment a second reader compares texts.
 - Law: the digest CROSSES here too. `Wire` is the 16 big-endian bytes and `Admit(ReadOnlySpan<byte>, Op)` its one inverse, refusing any width but sixteen — so every `bytes` key column on every generated message composes this pair, the text form composes `Hex`, and no consumer spells `WriteUInt128BigEndian`, a hex format string, or a lane shift beside the owner. The little-endian `I64` halves `U128` writes stay HASH INPUT and never leave the process.
-- Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` one-shot, `XxHash128(long)` seeded construction, `Append(ReadOnlySpan<byte>)`, `Append(Stream)`, `GetCurrentHashAsUInt128`; MIT, managed, no native asset), `System.Buffers` (`ArrayBufferWriter<byte>`, `ArrayPool<byte>`), `System.Buffers.Binary` (`BinaryPrimitives` little-endian preimage writes, the one big-endian pair under `Wire`/`Admit`), Google.Protobuf (`ByteString.CopyFrom(ReadOnlySpan<byte>)` — the carrier every generated `bytes` column holds, so the wire projection lands once here and `Rasm.csproj` carries the direct row), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`).
+- Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` one-shot, `XxHash128(long)` seeded construction, `Append(ReadOnlySpan<byte>)`, `Append(Stream)`, `GetCurrentHashAsUInt128`; MIT, managed, no native asset), `System.Buffers` (`ArrayBufferWriter<byte>`, `ArrayPool<byte>`), `System.Buffers.Binary` (`BinaryPrimitives` little-endian preimage writes, the one big-endian pair under `Wire`/`Admit`), Google.Protobuf (`ByteString.CopyFrom(ReadOnlySpan<byte>)` — the carrier every generated `bytes` column holds, so the wire projection lands once here and `Rasm.csproj` carries the direct row).
 - Growth: a new FIELD shape is one member on the writer; a new INGRESS shape is one overload on `Of`. Any second hashing owner beside either forks the federation seed.
-- Boundary: `UInt128` is the identity currency, `Half` its one lane split, `Hex`/`Admit(text)` its one text correspondence, `Wire`/`Admit(bytes)` its one byte correspondence. `Raw` admits bytes the caller already framed — a fixed-width block or a whole-payload leaf — and a caller placing two variable-width `Raw` writes side by side owes the count itself; every other member frames for it. `Rasm.Element` owns the dimensioned leg: `MeasureValue` is the branch's dimensioned carrier, so its `Measure` member stays an `extension(CanonicalWriter)` block at Element composing `String`/`Double`/`Ordinal`/`Optional`.
+- Boundary: `UInt128` is the identity currency, `Halves` its one `(Low, High)` decomposition, `Hex`/`Admit(text)` its one text correspondence, `Wire`/`Admit(bytes)` its one byte correspondence. `Raw` admits bytes the caller already framed — a fixed-width block or a whole-payload leaf — and a caller placing two variable-width `Raw` writes side by side owes the count itself; every other member frames for it. `Rasm.Element` owns the dimensioned leg: `MeasureValue` is the branch's dimensioned carrier, so its `Measure` member stays an `extension(CanonicalWriter)` block at Element composing `String`/`Double`/`Ordinal`/`Optional`.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -38,19 +38,11 @@ using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Numerics;
-using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class Lane {
-    public static readonly Lane Low = new(key: 0);
-    public static readonly Lane High = new(key: 1);
-    internal int Shift => Key * 64;
-}
-
 public sealed record ArtifactContent {
     public const ulong MaxBytes = 1_073_741_824UL;
 
@@ -75,14 +67,12 @@ public sealed class CanonicalWriter {
     private readonly XxHash128 accumulator;
     private readonly Option<ArrayBufferWriter<byte>> retained;
 
-    private CanonicalWriter(double tolerance, XxHash128 accumulator, Option<ArrayBufferWriter<byte>> retained) {
+    internal CanonicalWriter(double tolerance, XxHash128 accumulator, Option<ArrayBufferWriter<byte>> retained) {
         Tolerance = tolerance;
         this.accumulator = accumulator;
         this.retained = retained;
     }
 
-    public static CanonicalWriter Streaming(double tolerance, XxHash128 accumulator) =>
-        new(tolerance: tolerance, accumulator: accumulator, retained: None);
     public static CanonicalWriter Retaining(double tolerance) =>
         new(tolerance: tolerance, accumulator: new XxHash128(seed: 0L), retained: Some(new ArrayBufferWriter<byte>()));
 
@@ -109,9 +99,10 @@ public sealed class CanonicalWriter {
         return Emit(bytes: word);
     }
 
-    public CanonicalWriter U128(UInt128 value) =>
-        U64(value: ContentHash.Half(digest: value, lane: Lane.Low))
-            .U64(value: ContentHash.Half(digest: value, lane: Lane.High));
+    public CanonicalWriter U128(UInt128 value) {
+        (ulong low, ulong high) = ContentHash.Halves(digest: value);
+        return U64(value: low).U64(value: high);
+    }
 
     public CanonicalWriter Single(float value) {
         Span<byte> word = stackalloc byte[sizeof(float)];
@@ -172,7 +163,7 @@ public sealed class CanonicalWriter {
     }
 
     // --- [CLOSE]
-    public UInt128 Digest() => accumulator.GetCurrentHashAsUInt128();
+    internal UInt128 Digest() => accumulator.GetCurrentHashAsUInt128();
 
     public Fin<ReadOnlyMemory<byte>> ToBytes(Op? key = null) =>
         retained.Map(static buffer => buffer.WrittenMemory)
@@ -204,13 +195,14 @@ public static class ContentHash {
         return accumulator.GetCurrentHashAsUInt128();
     }
 
-    public static UInt128 Of<TState>(TState state, Action<TState, CanonicalWriter> chunks) {
-        CanonicalWriter writer = CanonicalWriter.Streaming(tolerance: EpsilonPolicy.ZeroTolerance, accumulator: new XxHash128(seed: 0L));
+    public static UInt128 Of<TState>(TState state, Action<TState, CanonicalWriter> chunks, double tolerance = EpsilonPolicy.ZeroTolerance) {
+        CanonicalWriter writer = new(tolerance, new XxHash128(seed: 0L), None);
         chunks(state, writer);
         return writer.Digest();
     }
 
-    public static ulong Half(UInt128 digest, Lane lane) => unchecked((ulong)(digest >> lane.Shift));
+    public static (ulong Low, ulong High) Halves(UInt128 digest) =>
+        (unchecked((ulong)digest), unchecked((ulong)(digest >> 64)));
 
     public static string Hex(UInt128 digest) => digest.ToString(format: "x32", provider: CultureInfo.InvariantCulture);
 
@@ -269,8 +261,6 @@ public static class Deterministic {
     private const ulong Gamma = 0x9E3779B97F4A7C15UL;
     private const int SaltPrime = 16_777_619;
     private const double UnitScale = 1.0 / 9_007_199_254_740_992.0;
-    private const float SingleScale = 1.0f / 16_777_216.0f;
-    private const double RadicalScale = 1.0 / 4_294_967_296.0;
 
     private static ulong Mix(ulong state) {
         ulong z = state;
@@ -295,7 +285,7 @@ public static class Deterministic {
     public static Complex NextSignedComplexUnit(ref ulong state) => new(real: NextSignedUnit(state: ref state), imaginary: NextSignedUnit(state: ref state));
     public static ulong OrderKey(Point3d point, int seed = 0) => OrderKey(coordinates: [point.X, point.Y, point.Z], seed: seed);
     public static ulong OrderKey(ReadOnlySpan<double> coordinates, int seed = 0) =>
-        Fold(lanes: coordinates, bits: Bits, seed: unchecked((uint)seed));
+        Fold(lanes: coordinates, bits: static value => BitConverter.DoubleToUInt64Bits(value == 0.0 ? 0.0 : value), seed: unchecked((uint)seed));
     public static double UnitInterval(Point3d point, long salt, int seed = 0) =>
         Open(word: OrderKey(point: point, seed: unchecked((int)(((long)seed * SaltPrime) + salt))));
     public static ulong Stream(ReadOnlySpan<long> lanes, long seed = 0L) =>
@@ -340,7 +330,7 @@ public static class Deterministic {
         bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
         return ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
     }
-    public static double RadicalInverse(uint bits) => ReverseBits(bits: bits) * RadicalScale;
+    public static double RadicalInverse(uint bits) => Math.ScaleB(ReverseBits(bits), -32);
     public static double RadicalInverse(uint index, int radix) {
         radix = Math.Max(val1: radix, val2: 2);
         double inverse = 0.0, fraction = 1.0 / radix;
@@ -365,7 +355,7 @@ public static class Deterministic {
         public override int Next(int maxValue) => maxValue == 0 ? 0 : NextBelow(state: ref state, exclusiveCeiling: maxValue);
         public override int Next(int minValue, int maxValue) => (int)(minValue + (long)Draw(state: ref state, extent: Extent(floor: minValue, ceiling: maxValue)));
         public override double NextDouble() => NextUnit(state: ref state);
-        public override float NextSingle() => (float)(Advance(state: ref state) >> 40) * SingleScale;
+        public override float NextSingle() => MathF.ScaleB((float)(Advance(state: ref state) >> 40), -24);
         public override long NextInt64() => (long)Draw(state: ref state, extent: (ulong)long.MaxValue);
         public override long NextInt64(long maxValue) => (long)Draw(state: ref state, extent: Extent(floor: 0L, ceiling: maxValue));
         public override long NextInt64(long minValue, long maxValue) => unchecked(minValue + (long)Draw(state: ref state, extent: Extent(floor: minValue, ceiling: maxValue)));
@@ -375,12 +365,12 @@ public static class Deterministic {
         }
         public override void NextBytes(Span<byte> buffer) {
             while (buffer.Length >= sizeof(ulong)) {
-                BitConverter.TryWriteBytes(destination: buffer, value: Advance(state: ref state));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(buffer, Advance(state: ref state));
                 buffer = buffer[sizeof(ulong)..];
             }
             if (!buffer.IsEmpty) {
                 Span<byte> tail = stackalloc byte[sizeof(ulong)];
-                BitConverter.TryWriteBytes(destination: tail, value: Advance(state: ref state));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(tail, Advance(state: ref state));
                 tail[..buffer.Length].CopyTo(destination: buffer);
             }
         }
@@ -390,8 +380,6 @@ public static class Deterministic {
         }
         private static ulong Draw(ref ulong state, ulong extent) => extent == 0UL ? 0UL : NextBelow(state: ref state, exclusiveCeiling: extent);
     }
-
-    private static ulong Bits(double value) => BitConverter.DoubleToUInt64Bits(value: value == 0.0 ? 0.0 : value);
 }
 ```
 

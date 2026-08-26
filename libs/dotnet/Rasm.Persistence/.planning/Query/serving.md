@@ -642,7 +642,7 @@ public static class BackendLanding {
                 await using NpgsqlConnection lane = await store.OpenConnectionAsync(token).ConfigureAwait(false);
                 await using NpgsqlBinaryImporter importer = await lane.BeginBinaryImportAsync(
                     $"COPY {Backend.Series.Quote(schema.Table)} ({columns}) FROM STDIN (FORMAT BINARY)", token).ConfigureAwait(false);
-                byte[] tenant = ColumnCell.Packed(frame.Tenant.TenantId.Value);
+                byte[] tenant = ColumnCell.Packed(frame.Tenant.TenantId.ToValue());
                 Instant landedAt = frame.Now();
                 ColumnCell stamp = new ColumnCell.Moment(landedAt);
                 foreach (Seq<ColumnCell> row in rows) {

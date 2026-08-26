@@ -136,7 +136,7 @@
 - ONE presigner keyed by dialed ENDPOINT — S3 and self-hosted share `GrantSigner`, so no row mints a per-provider signer.
 - `RetentionSweep.Execute` evicts SET-SHAPED through one arrow — a per-key arrow degrades retention lanes to round trips and strands `EraseMany`.
 - `BudgetCredit` IS the seed — its `ON CONFLICT` establishes an absent unit, so a seeding case beside it is the deleted twin of one write.
-- Merkle, chain, and subtree digests fold on `ContentHash.Of`/`CanonicalWriter.Streaming` — no raw `XxHash128` append site survives in this folder.
+- Merkle, chain, and subtree digests fold on `ContentHash.Of` — no raw `XxHash128` append site survives in this folder.
 - Analytics backend, lakehouse landing, serving, and dataset rosters stay SEPARATE owners — one page holding all hides what an ordinal binds.
 
 ## [04]-[STRUCTURE]

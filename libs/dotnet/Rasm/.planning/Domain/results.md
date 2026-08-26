@@ -68,27 +68,23 @@ public readonly partial struct Op {
         claim
             ? Fin.Succ(value: value)
             : Fin.Fail<T>(error: new KernelFault.OutOfRange(Label: label, Scalar: double.CreateSaturating(value: value), Requirement: requirement, Key: Some(this)));
-    private static Error Captured(Exception raised, CancellationToken token) {
+    private Error Classify<TFault>(Exception raised, CancellationToken token, Func<Error, Option<TFault>> provider)
+        where TFault : Fault, ICausedFault {
+        Error captured = Capture(raised: raised, token: token);
+        return captured is KernelFault.Cancelled ? captured
+            : provider(captured).Map(static fault => (Error)fault).IfNone(captured);
+    }
+    public Error Capture(Exception raised, CancellationToken token = default) {
+        ArgumentNullException.ThrowIfNull(raised);
         Error captured = Error.New(raised.Message, raised);
         return raised is OperationCanceledException && token.IsCancellationRequested
             ? new KernelFault.Cancelled(Cause: captured)
             : captured;
     }
-    private static Error Classify<TFault>(Exception raised, CancellationToken token, Func<Error, Option<TFault>> provider)
-        where TFault : Fault, ICausedFault {
-        Error captured = Error.New(raised.Message, raised);
-        return raised is OperationCanceledException && token.IsCancellationRequested
-            ? new KernelFault.Cancelled(Cause: captured)
-            : provider(captured).Map(static fault => (Error)fault).IfNone(captured);
-    }
-    public Error Capture(Exception raised, CancellationToken token = default) {
-        ArgumentNullException.ThrowIfNull(raised);
-        return Captured(raised: raised, token: token);
-    }
     public Fin<T> Catch<T>(Func<Fin<T>> body, CancellationToken token = default) {
         if (body is null) { return Fin.Fail<T>(this.InvalidInput()); }
         try { return body(); }
-        catch (Exception raised) { return Fin.Fail<T>(Captured(raised: raised, token: token)); }
+        catch (Exception raised) { return Fin.Fail<T>(Capture(raised: raised, token: token)); }
     }
     public Fin<T> Catch<T, TFault>(Func<Fin<T>> body, Func<Error, Option<TFault>> provider, CancellationToken token = default)
         where TFault : Fault, ICausedFault {
@@ -99,7 +95,7 @@ public readonly partial struct Op {
     public async ValueTask<Fin<T>> Catch<T>(Func<CancellationToken, ValueTask<Fin<T>>> body, CancellationToken token = default) {
         if (body is null) { return Fin.Fail<T>(this.InvalidInput()); }
         try { return await body(token).ConfigureAwait(false); }
-        catch (Exception raised) { return Fin.Fail<T>(Captured(raised: raised, token: token)); }
+        catch (Exception raised) { return Fin.Fail<T>(Capture(raised: raised, token: token)); }
     }
     public async ValueTask<Fin<T>> Catch<T, TFault>(
         Func<CancellationToken, ValueTask<Fin<T>>> body,
@@ -119,10 +115,8 @@ public readonly partial struct Op {
         if (outcome.Case is T value) { slot = value; return true; }
         return false;
     }
-    public Fin<Unit> Catch(Action body) {
-        Op self = this;
-        return Optional(body).ToFin(Fail: self.InvalidInput()).Bind(valid => self.Catch(() => Fin.Succ(value: Side(action: valid))));
-    }
+    public Fin<Unit> Catch(Action body) =>
+        body is null ? Fin.Fail<Unit>(error: InvalidInput()) : Catch(() => Fin.Succ(value: Side(action: body)));
     public static Unit Side(Action action) {
         ArgumentNullException.ThrowIfNull(argument: action);
         action();
@@ -341,8 +335,7 @@ public sealed partial class FaultBand {
             : throw new ArgumentOutOfRangeException(paramName: nameof(offset), actualValue: offset,
                 message: string.Create(provider: CultureInfo.InvariantCulture, $"Band {Owner.Key}@{Key} spans {Span}."));
 
-    public static Option<FaultBand> OwnerOf(BandKind kind, int code) =>
-        toSeq(Items).Filter(band => band.Kind == kind && code >= band.Key && code < band.Key + band.Span).Head;
+    public static Option<FaultBand> OwnerOf(BandKind kind, int code) => toSeq(Items).Find(band => band.Kind == kind && code >= band.Key && code < band.Key + band.Span);
 
     public static Unit Disjoint => DisjointProof.Value;
 
@@ -399,10 +392,7 @@ public abstract record Fault : Error {
     public sealed override bool IsExpected => true;
     public sealed override bool IsExceptional => false;
     public sealed override bool Is(Error error) => error is Fault fault && Identity == fault.Identity;
-    public sealed override Option<Error> Inner => this switch {
-        ICausedFault caused => Some(caused.Cause),
-        _ => None,
-    };
+    public sealed override Option<Error> Inner => this is ICausedFault caused ? Some(caused.Cause) : None;
     public sealed override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
 
     public virtual Retriability Retriability => Retriability.Terminal;
@@ -563,7 +553,7 @@ public static class Redrive {
 - Law: the state-threaded `Use` overload keeps projections closure-free — state rides the fold, lambdas stay `static`.
 - Law: release brackets ACQUISITION here, not outcome — `using` scopes the value for the whole projection and runs on every exit path, failed result included, so the success-arm-release regression cannot occur and no failure branch owes cleanup evidence. Effect-typed brackets are the substrate form for an asynchronous or `Fin`-shaped acquisition; a synchronous host handle whose whole contract is one lexical window composes `using` directly and lifts nothing.
 - Law: posture follows CUSTODY, never style — `Rollback` serves the acquire chain whose success value takes ownership; `Settled` serves an already-run primary still holding a fallible resource roster; `Bracket` captures scratch whose custody never transfers. Cleanup faults AGGREGATE into the primary outcome on every posture — a leaking release never silently replaces the fault that caused it, and a primary success under a failed release reads as the release fault. Folder-local release folds and domain-flow `try`/`finally` releases both delete onto this owner.
-- Boundary: `Owned.Project`'s `using` is the platform-forced disposal boundary.
+- Boundary: the owned arms of `Lease<T>.Use` hold the `using` boundary — the platform-forced disposal boundary.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -573,10 +563,7 @@ namespace Rasm.Domain;
 [Union]
 public abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
-    public sealed record Owned(T Value) : Lease<T> {
-        internal TResult Project<TResult>(Func<T, TResult> project) { using T owned = Value; return project(arg: owned); }
-        internal TResult Project<TState, TResult>(TState state, Func<TState, T, TResult> project) { using T owned = Value; return project(arg1: state, arg2: owned); }
-    }
+    public sealed record Owned(T Value) : Lease<T>;
     public sealed record Borrowed(T Value) : Lease<T>;
     public static Fin<Lease<T>> Acquire(Func<T> mint, Op key) =>
         key.Catch(() => Fin.Succ<Lease<T>>(new Owned(Value: mint())));
@@ -585,9 +572,9 @@ public abstract partial record Lease<T> where T : class, IDisposable {
             owned: static (use, owned) => use.Key.Catch(() => use.Body(arg: owned.Value))
                 .Settled(release: () => { owned.Value.Dispose(); return Fin.Succ(unit); }, key: use.Key),
             borrowed: static (use, borrowed) => use.Key.Catch(() => use.Body(arg: borrowed.Value)));
-    public TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
+    public TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => { using T resource = owned.Value; return use(resource); }, borrowed: static (use, borrowed) => use(borrowed.Value));
     public TResult Use<TState, TResult>(TState state, Func<TState, T, TResult> project) =>
-        Switch(state: (State: state, Project: project), owned: static (use, owned) => owned.Project(state: use.State, project: use.Project), borrowed: static (use, borrowed) => use.Project(arg1: use.State, arg2: borrowed.Value));
+        Switch(state: (State: state, Project: project), owned: static (use, owned) => { using T resource = owned.Value; return use.Project(use.State, resource); }, borrowed: static (use, borrowed) => use.Project(use.State, borrowed.Value));
     public T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
     public Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
 }
@@ -821,10 +808,8 @@ public readonly record struct ValidityClaim(bool Holds) {
     public static ValidityClaim Ordered(double lower, double upper) => new(Holds: RhinoMath.IsValidDouble(x: lower) && RhinoMath.IsValidDouble(x: upper) && lower <= upper);
     public static ValidityClaim CountAtLeast(int count, int floor) => new(Holds: count >= floor);
     public static ValidityClaim CountExactly(int count, int expected) => new(Holds: count == expected);
-    public static ValidityClaim Evidence<T>(Option<T> evidence) where T : IValidityEvidence =>
-        new(Holds: evidence.Map(static value => value.IsValid).IfNone(noneValue: true));
-    public static ValidityClaim WhenPresent<T>(Option<T> facet, Func<T, ValidityClaim> claim) =>
-        new(Holds: facet.Map(claim).IfNone(noneValue: true));
+    public static ValidityClaim Evidence<T>(Option<T> evidence) where T : IValidityEvidence => WhenPresent(evidence, static value => value.IsValid);
+    public static ValidityClaim WhenPresent<T>(Option<T> facet, Func<T, ValidityClaim> claim) => facet.Map(claim).IfNone(true);
     public static ValidityClaim All(params ReadOnlySpan<ValidityClaim> claims) {
         foreach (ValidityClaim claim in claims) {
             if (!claim.Holds) { return new(Holds: false); }
@@ -891,18 +876,16 @@ public sealed class LanguageExtJsonConverterFactory : JsonConverterFactory {
         [typeof(HashMap<,>)] = CarrierRow.Shaped(converter: typeof(HashMapJsonConverter<,>)),
     }.ToFrozenDictionary();
 
-    static readonly Atom<HashMap<Type, JsonConverter>> Minted = Atom(HashMap<Type, JsonConverter>());
+    static readonly Atom<HashMap<Type, Lazy<JsonConverter>>> Minted = Atom(HashMap<Type, Lazy<JsonConverter>>());
 
     public override bool CanConvert(Type type) =>
         type.IsGenericType && Carriers.ContainsKey(type.GetGenericTypeDefinition());
 
     public override JsonConverter CreateConverter(Type type, JsonSerializerOptions options) =>
-        Cell.Claim(cell: Minted, key: type, mint: () => Mint(type: type)).Current[type];
-
-    static JsonConverter Mint(Type type) {
-        CarrierRow row = Carriers[type.GetGenericTypeDefinition()];
-        return (JsonConverter)Activator.CreateInstance(type: row.Converter.MakeGenericType(row.Close(type)))!;
-    }
+        Cell.Claim(cell: Minted, key: type, mint: () => new(valueFactory: () => {
+            CarrierRow row = Carriers[type.GetGenericTypeDefinition()];
+            return (JsonConverter)Activator.CreateInstance(type: row.Converter.MakeGenericType(row.Close(type)))!;
+        }, mode: LazyThreadSafetyMode.ExecutionAndPublication)).Current[type].Value;
 
     readonly record struct CarrierRow(Type Converter, Func<Type, Type[]> Close) {
         public static readonly CarrierRow Collection =

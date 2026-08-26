@@ -239,9 +239,9 @@ public static class SloTiles {
             burn);
 
     static Fin<Severity> Inked(BurnRow row) =>
-        toSeq(Severity.Items).Find(rank => rank.Key == row.Severity.Posture.Key)
+        toSeq(Severity.Items).Find(rank => rank.Key == row.Severity.Posture)
             .ToFin(Fail: (Error)new ChartFault.SpecRejected(
-                $"burn/{row.Key}: posture {row.Severity.Posture.Key} names no severity"));
+                $"burn/{row.Key}: posture {row.Severity.Posture} names no severity"));
 
     static Fin<ThresholdList> Steps(WatchBound bound, Severity severity) =>
         ThresholdList.Admit(

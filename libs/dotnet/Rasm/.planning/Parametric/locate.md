@@ -481,7 +481,7 @@ internal static class Locate {
                 key.AcceptResults<double, TOut>(values: samples.Map(static sample => sample.Curvature)))
         : typeof(TOut) == typeof(Stat<Scalar>)
             ? Some<Func<Op, Seq<CurvatureSample>, Context, Fin<Seq<TOut>>>>((key, samples, _) =>
-                Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Curvature), key: key, context: Some(StatContext.Metric(metric: metric)))
+                Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Curvature), key: key, context: Some((StatContext)metric))
                     .Bind(stat => key.AcceptResults<Stat<Scalar>, TOut>(values: Seq(stat))))
         : Option<Func<Op, Seq<CurvatureSample>, Context, Fin<Seq<TOut>>>>.None;
 
@@ -534,7 +534,7 @@ internal static class Locate {
             .Bind(rows => toSeq(Enumerable.Range(start: 0, count: metrics.Count))
                 .TraverseM(index => Stat<Scalar>.Of(
                     values: rows.Map(row => (Scalar)row[index]), key: key,
-                    context: Some(StatContext.Metric(metric: metrics[index])))).As());
+                    context: Some((StatContext)metrics[index]))).As());
 }
 ```
 

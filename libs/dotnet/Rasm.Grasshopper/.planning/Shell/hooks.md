@@ -98,7 +98,7 @@ public abstract partial record HookSignal : IHookFact<GrasshopperPoint> {
         eventCase: static (row, _) => Replayable(at: row),
         intentCase: static (_, _) => true);
 
-    private static bool Replayable(GrasshopperPoint at) => at.Modalities.Held.Exists(static row => row.Retains);
+    private static bool Replayable(GrasshopperPoint at) => at.Modalities.Held.Exists(static row => row.Retention.IsSome);
 }
 ```
 

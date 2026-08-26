@@ -13,11 +13,11 @@
 
 ## [02]-[HOOK_POINT]
 
-- Owner: `HookId` keys points under the solution grammar `rasm.<pkg>.<domain>.<point>`; `TraceScope` is the `rasm.<package>.<plane>` plane identity a hook roster row, an instrument mount, and a span bracket all read — seated HERE because this page is the lowest of its three readers, so the causal frame above and the span band above both point down; `HookModality` is the delivery-capability vocabulary carrying `CanVeto`, `Retains`, and its retention depth as row data, so veto admission and replay retention are the modality's own columns and a held set is a `CapabilitySet<HookModality>`; `IsolatedFault` is the point-attributed, clock-stamped evidence a shielded subscriber parks — the cell stamps arrival off its own `TimeProvider`, so a parked fault is orderable evidence and never a bare pair; `HookDetacher` is the detach value every attach returns; `IHookPoint` is the untyped census view a registry freezes; `HookPoint<TFact>` is the capsule holding one seat's vetoes, taps, and retention buffer.
+- Owner: `HookId` keys points under the solution grammar `rasm.<pkg>.<domain>.<point>`; `TraceScope` is the `rasm.<package>.<plane>` plane identity a hook roster row, an instrument mount, and a span bracket all read — seated HERE because this page is the lowest of its three readers, so the causal frame above and the span band above both point down; `HookModality` is the delivery-capability vocabulary carrying `CanVeto` and its option-shaped `Retention` depth as row data, so veto admission and replay retention are the modality's own columns and a held set is a `CapabilitySet<HookModality>`; `IsolatedFault` is the point-attributed, clock-stamped evidence a shielded subscriber parks — the cell stamps arrival off its own `TimeProvider`, so a parked fault is orderable evidence and never a bare pair; `HookDetacher` is the detach value every attach returns; `IHookPoint` is the untyped census view a registry freezes; `HookPoint<TFact>` is the INTERNAL capsule holding one seat's vetoes, taps, and retention buffer — only the bus constructs and fires it, and an external consumer reads the untyped census alone.
 - Cases: `Veto` transforms or refuses, `Observe` taps fault-isolated, `Replay` buffers for late drain. Each roster row declares a SET of modalities and both admission gates read the set's own COLUMNS, so a point that both vetoes and retains is one row rather than two seats — a row-identity probe against `Replay` is the deleted form, and so is a second `Admits` member beside `CapabilitySet.Admits`.
 - Entry: `Fire` discriminates by call shape — unary publishes a settled fact, the guarded form hands its body the ADMITTED fact so a veto transform reaches the point it guards and runs observe taps only from its success path; `Veto`, `Observe`, and `Drain` are the subscriber entries, and `Observe` discriminates its arm's result shape so an effectful tap and a typed-result projection reach one entry. Every delegate admission refuses on the typed result through `Op.Need`, so no null reaches mount or dispatch and no argument contract survives beside the bus on one owner.
 - Auto: fire order is law — retention first so replay truth is the last fact even under a veto refusal; the veto left-fold second in ATTACH order, its first refusal the verdict parked beside the return; observe taps last, each forked before its shielded run so the synchronous path returns without waiting. Veto gates fold INSIDE `Op.Catch`, so a throwing gate parks as evidence instead of escaping into the host callback that fired it. Fork refusals and throwing taps park as `IsolatedFault` while delivery continues; a replay point prunes its buffer oldest-first per fire and hands a fresh subscriber the held window on attach.
-- Law: retention depth is the MODALITY's column, not a capsule constructor knob — `Retains` is false on two of three rows, so a depth beside a non-retaining point is a dead parameter the row already answers.
+- Law: retention is the MODALITY's one option-shaped column, not a capsule constructor knob — `Retention` is `None` on a non-retaining row and a positive bounded `Dimension` on a retaining one, so a depth beside a non-retaining point is unrepresentable rather than a dead parameter.
 - Law: `CanVeto` is the delivery discriminant BOTH gates read — `Veto` admits a point holding any vetoing row, `Observe` a point holding any non-vetoing one — so neither gate names `Veto`, `Observe`, or `Replay` by identity and a fourth delivery semantics joins both gates by declaring its column alone.
 - Law: every capture funnels through `Op.Catch`, so a cancelled subscriber keeps `KernelFault.Cancelled` instead of parking as an ordinary isolated fault; a bare `Try.lift(...).Run().Match` on this capsule is the deleted form.
 - Law: a point mints nothing — the fire IS the evidence event and the emitter's typed result already carries the fact; the shared `FaultCell` records veto refusals and shielded tap faults point-attributed.
@@ -27,6 +27,7 @@
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
+using Rasm.Numerics;
 using Thinktecture;
 
 namespace Rasm.Domain;
@@ -60,15 +61,13 @@ public readonly partial struct TraceScope {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HookModality : ICapability<HookModality> {
-    public static readonly HookModality Veto = new("veto", canVeto: true, retains: false, depth: 0);
-    public static readonly HookModality Observe = new("observe", canVeto: false, retains: false, depth: 0);
-    public static readonly HookModality Replay = new("replay", canVeto: false, retains: true, depth: 64);
+    public static readonly HookModality Veto = new("veto", canVeto: true, retention: None);
+    public static readonly HookModality Observe = new("observe", canVeto: false, retention: None);
+    public static readonly HookModality Replay = new("replay", canVeto: false, retention: Some(Dimension.Create(value: 64)));
 
     public bool CanVeto { get; }
 
-    public bool Retains { get; }
-
-    public int Depth { get; }
+    public Option<Dimension> Retention { get; }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -86,17 +85,12 @@ public interface IHookPoint {
     CapabilitySet<HookModality> Modalities { get; }
 }
 
-public sealed class HookPoint<TFact> : IHookPoint {
+internal sealed class HookPoint<TFact>(HookId id, CapabilitySet<HookModality> modalities, FaultCell faults) : IHookPoint {
     private readonly Atom<Seq<Func<TFact, Fin<TFact>>>> vetoes = Atom(Seq<Func<TFact, Fin<TFact>>>());
     private readonly Atom<Seq<Func<TFact, IO<Unit>>>> taps = Atom(Seq<Func<TFact, IO<Unit>>>());
     private readonly Atom<Seq<TFact>> buffer = Atom(Seq<TFact>());
-    private readonly FaultCell faults;
-
-    public HookPoint(HookId id, CapabilitySet<HookModality> modalities, FaultCell faults) =>
-        (Id, Modalities, this.faults) = (id, modalities, faults);
-
-    public HookId Id { get; }
-    public CapabilitySet<HookModality> Modalities { get; }
+    public HookId Id { get; } = id;
+    public CapabilitySet<HookModality> Modalities { get; } = modalities;
 
     public Fin<TFact> Fire(TFact fact, Op key) => Fire(fact: fact, key: key, body: Fin.Succ);
 
@@ -105,22 +99,18 @@ public sealed class HookPoint<TFact> : IHookPoint {
         from _ in Fin.Succ(Retain(fact: fact))
         from admitted in Admitted(fact: fact, key: key)
         from value in guarded(admitted)
-        select (Dispatch(fact: admitted, key: key), value).Item2;
+        select (taps.Value.Iter(tap => Forked(fact: admitted, tap: tap, key: key)), value).Item2;
 
     public Fin<IDisposable> Veto(Func<TFact, Fin<TFact>> gate, Op key) =>
         from admitted in key.Need(gate)
-        from _ in guard(Modalities.Held.Exists(static row => row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToString(), Requirement: "a veto-capable point")).ToFin()
+        from _ in guard(Modalities.Held.Exists(static row => row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "a veto-capable point")).ToFin()
         select Attach(cell: vetoes, row: admitted);
 
     public Fin<IDisposable> Observe(Func<TFact, IO<Unit>> tap, Op key) =>
         from admitted in key.Need(tap)
-        from _ in guard(Modalities.Held.Exists(static row => !row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToString(), Requirement: "an observable point")).ToFin()
-        select Seated(admitted: admitted, key: key);
-
-    private IDisposable Seated(Func<TFact, IO<Unit>> admitted, Op key) {
-        IDisposable detach = Attach(cell: taps, row: admitted);
-        return (ignore(buffer.Value.Iter(held => Forked(fact: held, tap: admitted, key: key))), detach).Item2;
-    }
+        from _ in guard(Modalities.Held.Exists(static row => !row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "an observable point")).ToFin()
+        select (Attach(cell: taps, row: admitted),
+            buffer.Value.Iter(held => Forked(fact: held, tap: admitted, key: key))).Item1;
 
     public Fin<IDisposable> Observe(Func<TFact, Fin<Unit>> arm, Op key) =>
         Observe(tap: fact => IO.lift(() => arm(fact)), key: key);
@@ -132,20 +122,16 @@ public sealed class HookPoint<TFact> : IHookPoint {
             .MapFail(refusal => (faults.Park(point: Id, cause: refusal), refusal).Item2);
 
     private Unit Retain(TFact fact) =>
-        toSeq(Modalities.Held).Find(static row => row.Retains).Iter(
-            row => ignore(buffer.Swap(held => held.Add(fact) is var next && next.Count > row.Depth
-                ? next.Skip(next.Count - row.Depth).Strict()
+        toSeq(Modalities.Held).Choose(static row => row.Retention).Head.Iter(
+            depth => ignore(buffer.Swap(held => held.Add(fact) is var next && next.Count > depth.Value
+                ? next.Skip(next.Count - depth.Value).Strict()
                 : next)));
 
-    private Unit Dispatch(TFact fact, Op key) => ignore(taps.Value.Iter(tap => Forked(fact: fact, tap: tap, key: key)));
-
     private Unit Forked(TFact fact, Func<TFact, IO<Unit>> tap, Op key) =>
-        key.Catch(() => IO.lift(() => Shielded(fact: fact, tap: tap, key: key)).Fork(None).Run().Map(static _ => unit))
-            .Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Id, cause: cause)));
-
-    private Unit Shielded(TFact fact, Func<TFact, IO<Unit>> tap, Op key) =>
-        key.Catch(() => tap(fact).Run())
-            .Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Id, cause: cause)));
+        key.Catch(() => IO.lift(() => key.Catch(() => tap(fact).Run())
+                .IfFail(cause => ignore(faults.Park(point: Id, cause: cause))))
+            .Fork(None).Run().Map(static _ => unit))
+        .IfFail(cause => ignore(faults.Park(point: Id, cause: cause)));
 
     private static IDisposable Attach<T>(Atom<Seq<T>> cell, T row) {
         ignore(cell.Swap(held => held.Add(row)));
@@ -211,18 +197,14 @@ public abstract partial record RingSettlement<T> {
     public sealed record Refused(Seq<T> State, Error Cause) : RingSettlement<T>;
 }
 
-public sealed class Ring<T> {
+public sealed class Ring<T>(Dimension cap) {
     private sealed record RingState(long Version, Seq<T> Items);
 
     private static readonly Op Boundary = Op.Of(name: nameof(Ring<T>));
     private readonly Atom<RingState> held = Atom(new RingState(Version: 0L, Items: Seq<T>()));
     private readonly Atom<long> shed = Atom(0L);
     private readonly Atom<long> lost = Atom(0L);
-    private readonly Dimension cap;
 
-    public Ring(Dimension cap) => this.cap = cap;
-
-    public Dimension Cap => cap;
     public Seq<T> Parked => held.Value.Items;
     public long Shed => shed.Value;
     public long Lost => lost.Value;
@@ -231,7 +213,6 @@ public sealed class Ring<T> {
 
     public RingSettlement<T> Park(T item, Func<T, Fin<Unit>> release, Op key) {
         ArgumentNullException.ThrowIfNull(release);
-        ArgumentNullException.ThrowIfNull(key);
         return Park(item: item, release: Some(release), key: key);
     }
 
@@ -250,6 +231,11 @@ public sealed class Ring<T> {
             declined: new KernelFault.InvalidValue(
                 Label: nameof(Ring<T>), Requirement: "a ring version below Int64.MaxValue", Key: Some(key)));
 
+        static RingSettlement<T> Missed(Atom<long> lost, RingSettlement<T> settlement) {
+            ignore(lost.Swap(static count => Saturating(count: count, delta: 1L)));
+            return settlement;
+        }
+
         return transition.Switch(
             state: (Evicted: evicted, Release: release, Key: key, Shed: shed, Lost: lost),
             committed: static (state, committed) => {
@@ -259,36 +245,24 @@ public sealed class Ring<T> {
                     None: static () => Fin.Succ(unit));
                 return (RingSettlement<T>)new RingSettlement<T>.Landed(State: committed.State.Items, Cleanup: cleanup);
             },
-            ceded: static (state, ceded) => {
-                ignore(state.Lost.Swap(static count => Saturating(count: count, delta: 1L)));
-                return new RingSettlement<T>.Ceded(State: ceded.State.Items);
-            },
-            refused: static (state, refused) => {
-                ignore(state.Lost.Swap(static count => Saturating(count: count, delta: 1L)));
-                return new RingSettlement<T>.Refused(State: refused.State.Items, Cause: refused.Cause);
-            },
-            contended: static (state, contended) => {
-                ignore(state.Lost.Swap(static count => Saturating(count: count, delta: 1L)));
-                return new RingSettlement<T>.Ceded(State: contended.State.Items);
-            });
+            ceded: static (state, row) => Missed(state.Lost, new RingSettlement<T>.Ceded(row.State.Items)),
+            refused: static (state, row) => Missed(state.Lost, new RingSettlement<T>.Refused(row.State.Items, row.Cause)),
+            contended: static (state, row) => Missed(state.Lost, new RingSettlement<T>.Ceded(row.State.Items)));
     }
 
     private static long Saturating(long count, long delta) =>
         count >= long.MaxValue - delta ? long.MaxValue : count + delta;
 }
 
-public sealed class FaultCell {
-    private readonly TimeProvider clock;
+public sealed class FaultCell(Dimension cap, TimeProvider clock) {
+    private readonly Ring<IsolatedFault> ring = new(cap: cap);
 
-    public FaultCell(Dimension cap, TimeProvider clock) => (Ring, this.clock) = (new Ring<IsolatedFault>(cap: cap), clock);
-
-    public Ring<IsolatedFault> Ring { get; }
-    public Seq<IsolatedFault> Parked => Ring.Parked;
-    public long Shed => Ring.Shed;
-    public long Lost => Ring.Lost;
+    public Seq<IsolatedFault> Parked => ring.Parked;
+    public long Shed => ring.Shed;
+    public long Lost => ring.Lost;
 
     public RingSettlement<IsolatedFault> Park(HookId point, Error cause) =>
-        Ring.Park(item: new IsolatedFault(Point: point, Cause: cause, At: clock.GetUtcNow()));
+        ring.Park(item: new IsolatedFault(Point: point, Cause: cause, At: clock.GetUtcNow()));
 }
 
 public sealed class HookSet<TPoint, TFact, TOwner>
@@ -316,7 +290,7 @@ public sealed class HookSet<TPoint, TFact, TOwner>
         Seq<(Option<TOwner> Owner, Func<Fin<IDisposable>> Attach)> plan =
             gates.Map(gate => (gate.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: gate.Point, key: key).Bind(seat => seat.Veto(gate: gate.Admit, key: key)))))
             + taps.Bind(tap => tap.Scope.IfNone(toSeq(TPoint.Items)).Map(point =>
-                (tap.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: point, key: key).Bind(seat => seat.Observe(arm: tap.Observe, key: key))))));
+                (tap.Owner, Attach: new Func<Fin<IDisposable>>(() => hooks.Seat(at: point, key: key).Bind(seat => seat.Observe(arm: tap.Observe, key: tap.Name))))));
         return plan.Fold(Fin.Succ(Seq<(Option<TOwner> Owner, IDisposable Detach)>()), (held, row) => held.Bind(taken =>
                 row.Attach().Match(
                     Succ: detach => Fin.Succ(taken.Add((row.Owner, detach))),
@@ -336,16 +310,12 @@ public sealed class HookSet<TPoint, TFact, TOwner>
     public Seq<TFact> Drain(TPoint at) => seats.Find(at).Map(static seat => seat.Drain()).IfNone(Seq<TFact>());
 
     public Fin<Unit> Replay(TPoint at, Seq<TFact> captured, Op key) =>
-        at.Modalities.Held.Exists(static row => row.Retains)
+        at.Modalities.Held.Exists(static row => row.Retention.IsSome)
             ? captured.TraverseM(fact => Fire(at: at, fact: fact, key: key)).As().Map(static _ => unit)
-            : Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: at.Id.ToString(), Requirement: "a retaining point"));
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: at.Id.ToValue(), Requirement: "a retaining point"));
 
-    public Fin<Unit> Detach() {
-        Seq<(Option<TOwner> Owner, IDisposable Detach)> snapshot = subscriptions.Value;
-        Fin<Unit> released = Unwind(taken: snapshot, key: Op.Of());
-        ignore(subscriptions.Swap(held => held.Filter(row => !snapshot.Exists(taken => ReferenceEquals(taken.Detach, row.Detach))).Strict()));
-        return released;
-    }
+    public Fin<Unit> Detach() =>
+        Unwind(taken: Cell.Take(cell: subscriptions).Current, key: Op.Of());
 
     public Fin<Unit> Release(TOwner scope, Op key) {
         Seq<(Option<TOwner> Owner, IDisposable Detach)> mine = subscriptions.Value.Filter(row => row.Owner.Exists(owner => owner.Equals(scope))).Strict();
@@ -357,7 +327,7 @@ public sealed class HookSet<TPoint, TFact, TOwner>
 
     private Fin<HookPoint<TFact>> Seat(TPoint at, Op key) => seats.Find(at).ToFin(key.InvalidInput());
     private static Fin<TFact> Seated(TPoint at, TFact fact, Op key) =>
-        fact.Seats(at) ? Fin.Succ(fact) : Fin.Fail<TFact>(key.InvalidInput(at.Id.ToString()));
+        fact.Seats(at) ? Fin.Succ(fact) : Fin.Fail<TFact>(key.InvalidInput(at.Id.ToValue()));
     private Fin<T> Traced<T>(TPoint at, Op key, Func<Fin<T>> body) =>
         (span, at.Plane) switch {
             ({ IsSome: true, Case: IHookSpan bracket }, { IsSome: true, Case: TraceScope plane }) => bracket.Traced(plane: plane, key: key, body: body),
@@ -370,7 +340,7 @@ public sealed class HookSet<TPoint, TFact, TOwner>
 
 ## [04]-[HOOK_MOUNT]
 
-- Owner: `IHookBinding<TPoint,TOwner>` the internal floor that lets a heterogeneous binding roster live in one census without erasing its ask and grant types; `HookBinding<TPoint,TOwner,TAsk,TGrant>` the typed seat a rider claims; `HookMounts<TPoint,TOwner>` the seat table with rider custody, partial-mount rollback, and the bind entry.
+- Owner: `IHookBinding<TPoint,TOwner>` the public heterogeneous floor that lets a binding roster live in one census without erasing its ask and grant types; `HookBinding<TPoint,TOwner,TAsk,TGrant>` the typed seat a rider claims; `HookMounts<TPoint,TOwner>` the seat table with rider custody, partial-mount rollback, and the bind entry.
 - Entry: `Mount` seats one binding and returns its `Lease<IDisposable>`; `MountAll` folds a roster and rolls back every seated binding on the first refusal, so a partial mount never survives; `Bind` resolves one point's grant for one owner.
 - Auto: seat transitions ride `Cell.Claim`, so a losing contender reads `Ceded` and drops what it staged against the winner's identity rather than re-deriving the outcome from a state both hold — the three-way reference probe a host registry hand-rolls today is the deleted form.
 - Law: ask and grant stay TYPED — the census holds `IHookBinding<TPoint,TOwner>` and each row keeps its `TAsk`/`TGrant`, so no `object`/`Type` erasure pair enters the mechanism and a mismatched claim fails at the call site rather than at a cast.
@@ -385,7 +355,7 @@ public sealed class HookSet<TPoint, TFact, TOwner>
 namespace Rasm.Domain;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal interface IHookBinding<TPoint, TOwner>
+public interface IHookBinding<TPoint, TOwner>
     where TPoint : IHookRoster<TPoint>
     where TOwner : notnull {
     TPoint Point { get; }
@@ -418,7 +388,7 @@ public sealed class HookMounts<TPoint, TOwner>
 
     public Fin<Seq<Lease<IDisposable>>> MountAll(Seq<IHookBinding<TPoint, TOwner>> bindings, Op key) =>
         bindings.Fold(Fin.Succ(Seq<Lease<IDisposable>>()), (held, binding) => held.Bind(taken =>
-            Seat(binding: binding, key: key).Match(
+            binding.Mount(mounts: this, key: key).Match(
                 Succ: lease => Fin.Succ(taken.Add(lease)),
                 Fail: refusal => Fin.Fail<Seq<Lease<IDisposable>>>(refusal)
                     .Rollback(held: taken, release: static lease => Fin.Succ(lease.Dispose()), key: key))));
@@ -428,15 +398,12 @@ public sealed class HookMounts<TPoint, TOwner>
             HookBinding<TPoint, TOwner, TAsk, TGrant> typed => typed.Bind(arg: ask),
             _ => Fin.Fail<TGrant>(new KernelFault.InvalidValue(Label: $"{point.Id}/{owner}", Requirement: $"a binding from {typeof(TAsk).Name} to {typeof(TGrant).Name}")),
         });
-
-    private Fin<Lease<IDisposable>> Seat(IHookBinding<TPoint, TOwner> binding, Op key) =>
-        binding.Mount(mounts: this, key: key);
 }
 ```
 
 ## [05]-[HOOK_REGISTRY]
 
-- Owner: `HookRegistry` — the composition's ONE frozen point census, minted by folding every contributing bus's `Points`.
+- Owner: `HookRegistry` — the composition's ONE frozen `HookId` census, minted by folding every contributing bus's `Points`; the key is the generated owner, so collision, equality, and lookup ride its declared ordinal comparer and no formatting round-trip enters.
 - Entry: `Mount(params ReadOnlySpan<IHookPoint>)` is that one freeze, returning `Fin` so a duplicate id names both owners instead of throwing at a frozen-dictionary merge.
 - Law: the freeze is the composition's alone — a peer reaching `HookRegistry.Mount` itself splits the audit into partial tables, so every contributing bus hands its census IN and calls nothing (branch RULINGS `[02]`).
 - Law: a fired id outside the frozen table is unreachable by construction, because firing takes a declared roster VALUE and the roster is the type parameter.
@@ -450,13 +417,13 @@ using System.Collections.Frozen;
 namespace Rasm.Domain;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public sealed record HookRegistry(FrozenDictionary<string, IHookPoint> Points) {
+public sealed record HookRegistry(FrozenDictionary<HookId, IHookPoint> Points) {
     public static Fin<HookRegistry> Mount(params ReadOnlySpan<IHookPoint> points) {
         Seq<IHookPoint> rows = Iterable<IHookPoint>.FromSpan(points).ToSeq();
-        Seq<string> collided = rows.Collisions(static row => row.Id.ToString());
+        Seq<HookId> collided = rows.Collisions(static row => row.Id);
         return collided.IsEmpty
-            ? Fin.Succ(new HookRegistry(Points: rows.ToFrozenDictionary(static row => row.Id.ToString(), static row => row, StringComparer.Ordinal)))
-            : Fin.Fail<HookRegistry>(new KernelFault.InvalidValue(Label: string.Join(", ", collided), Requirement: "one point per id across every contributing bus"));
+            ? Fin.Succ(new HookRegistry(Points: rows.ToFrozenDictionary(static row => row.Id, static row => row)))
+            : Fin.Fail<HookRegistry>(new KernelFault.InvalidValue(Label: string.Join(", ", collided.Map(static id => id.ToValue())), Requirement: "one point per id across every contributing bus"));
     }
 }
 ```

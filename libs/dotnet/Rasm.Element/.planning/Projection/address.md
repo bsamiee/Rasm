@@ -16,13 +16,12 @@ Graph addressing folds the semantic `Header`, excludes provenance, sorts node an
 - Entry: `ContentAddress` entries own graph identity and verification. Artifact admission stays at the kernel owner.
 - Auto: `Of(Node)` writes the id before the node's canonical fold, so two occurrences with identical content stay distinct by id — DISTINCT from the id-EXCLUSIVE `NodeId` content mint, which digests the content alone because there the id derives from it. `OfGraph` folds `Header.CanonicalBytes`, then the sorted node digests, then the sorted edge digests, each run count-framed by the kernel `Sorted`/`Rows` composite. `Verify` reads `node.Seed(tolerance)` — the `NodeSeed` mint-regime witness `Graph/element#ELEMENT_GRAPH` publishes — and re-mints through the ONE `NodeId.Of(NodeSeed)` entry: a `Placement` seed verifies vacuously (a random Guid-v7 has no content preimage), every other regime re-derives and compares.
 - Output: a `ContentAddress` is the stable cross-runtime shared content key — a content-derived `NodeId`'s preimage, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id.
-- Packages: `Rasm` (kernel `ContentHash`, `CanonicalWriter`, `Op`), System.IO.Hashing (`XxHash128` the streaming accumulator each fold seeds at zero), Thinktecture.Runtime.Extensions (`[ValueObject<UInt128>]`/`[ObjectFactory<string>]`), LanguageExt.Core (`Fin`, `Validation`, `Error`, `Seq.Traverse`, `.As()`).
+- Packages: `Rasm` (kernel `ContentHash`, `CanonicalWriter`, `Op`), Thinktecture.Runtime.Extensions (`[ValueObject<UInt128>]`/`[ObjectFactory<string>]`), LanguageExt.Core (`Fin`, `Validation`, `Error`, `Seq.Traverse`, `.As()`).
 - Growth: a new structural identity adds one input-shaped `Of` or `Verify` overload; a precomputed key composes `Of(UInt128)`; a new by-reference payload kind composes `BlobKey`; canonical vocabulary grows only on the KERNEL writer, and the dimensioned leg on `Properties/quantity#MEASURE_CANON`.
 - Boundary: the WIRE face is the x32 lowercase hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so serializers admit through the `[ObjectFactory<string>]` factory via `ContentHash.Admit` and render through `ContentHash.Hex`; generated `ToValue()` remains the raw-key projection. The generated `NodeWire.content_address`, `NodeId` render, and store columns read that one interior spelling.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using System.IO.Hashing;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
@@ -40,11 +39,8 @@ namespace Rasm.Element.Projection;
 public sealed partial class ContentAddress {
  public static ContentAddress Of(ReadOnlySpan<byte> canonicalBytes) => Create(ContentHash.Of(canonicalBytes));
 
- public static ContentAddress Of<TState>(TState state, double tolerance, Action<TState, CanonicalWriter> fold) {
-  CanonicalWriter writer = CanonicalWriter.Streaming(tolerance: tolerance, accumulator: new XxHash128(seed: 0L));
-  fold(state, writer);
-  return Create(writer.Digest());
- }
+ public static ContentAddress Of<TState>(TState state, double tolerance, Action<TState, CanonicalWriter> fold) =>
+  Create(ContentHash.Of(state, fold, tolerance));
 
  public static ContentAddress Of(Node node, double tolerance) =>
   Of(node, tolerance, static (n, w) => { w.String(n.Id.ToValue()); n.CanonicalBytes(w); });
@@ -205,7 +201,7 @@ public sealed partial class ContentAddress {
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-- [ONE_HASHER]: every address on this contract composes the KERNEL seed-zero `XxHash128` through `ContentHash.Of` or a seed-zero `CanonicalWriter.Streaming` fold, because a fork in that kernel-shared cross-runtime content space stays invisible until two runtimes disagree on one node's id; a second hasher, a non-zero seed, or a locally-spelled digest is the named defect. `GetHashCode` is process-salted in-memory state, never persisted, wire-compared, or read as identity; `Generator.Equals` stays an orthogonal field diff over the same member set.
+- [ONE_HASHER]: every address on this contract composes the KERNEL seed-zero `XxHash128` through `ContentHash.Of`, because a fork in that kernel-shared cross-runtime content space stays invisible until two runtimes disagree on one node's id; a second hasher, a non-zero seed, or a locally-spelled digest is the named defect. `GetHashCode` is process-salted in-memory state, never persisted, wire-compared, or read as identity; `Generator.Equals` stays an orthogonal field diff over the same member set.
 - [THREE_PROJECTIONS]: three distinct projections share the ONE kernel writer and never conflate — an id-INCLUSIVE node address writes the id ahead of the node's canonical fold so graph dedup distinguishes two occurrences of identical content, an id-EXCLUSIVE `NodeId` content mint digests the content alone because there the id DERIVES from it, and a GRAPH address folds the header with the sorted member digests. Every call site names which of the three it reaches.
 - [ORDER_INDEPENDENCE]: `OfGraph` SORTS the snapshot address — node and edge digests both ascending `UInt128` through the kernel `Sorted`, each run count-framed — so the layout is self-delimiting and identical content addresses identically in any arrival order. The graph key is a digest-of-digests on BOTH member axes (the node axis always was), so no raw member byte run enters the graph preimage and the collision posture is the digest's own 128 bits on every axis. Sorting, never a commutative hash, stays the mechanism: a commutative fold buys cheap incrementality, loses the section framing, admits multiset collisions, and re-keys every persisted address.
 - [PROVENANCE_EXCLUSION]: `OfGraph` folds the SEMANTIC header (schema, model view, tolerance, georeference) and EXCLUDES `StepHeader`/`Instant` provenance — the graph-altitude mirror of the node-level `OwnerHistory` exclusion — so a re-export under a new timestamp or author addresses identically while a schema, view, georeference, or tolerance change forks identity honestly. `Object.Placement` rides that same node-level exclusion, so a rigid move is a `Moved` verdict, never a re-key.

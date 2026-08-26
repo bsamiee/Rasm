@@ -29,7 +29,7 @@ using Thinktecture;
 namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TelemetrySource {
@@ -64,9 +64,9 @@ public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormat
 - Owner: `TenantId` is the tenancy value whose text is the branch's one identity render; `TenantMirror` is an ambient-store row a scope threads; `TenantContext` binds the pair with `TenantSlot` — the one GUC, baggage, and meter-tag key spelling — and `Key` the one optional partition read every consumer folds; `SessionCoordinate` is the four-coordinate `rasm.*` session namespace as a keyed vocabulary.
 - Cases: three ambient stores partition by owner — the kernel `AsyncLocal` tenancy slot and the BCL `Activity` baggage store are the rows this assembly reaches, and the OpenTelemetry baggage store registers as one composition-supplied row at the app platform, so no OpenTelemetry type enters this assembly. `TenantContext.Root` is the single-tenant ambient default; a multi-tenant host mints one row per admitted tenant at boot.
 - Entry: `Stamp(params ReadOnlySpan<TenantMirror>)` returns `Fin<Lease<IDisposable>>` — the restoring scope over the ambient slot and every mirror row — so a partial stamp reports in the result rather than throwing past the boundary the caller crossed to reach it.
-- Auto: the absent-tenant arm is structural and reads through ONE member — `Key` is the optional entry `Partitions` decides, so `Tags` projects it, `Stamp` writes it, and every consuming store, GUC, partition predicate, and series key folds that `Option` rather than re-deriving a `Partitions ? Entry : absent` ternary. `Text` and `Admits` compose the ONE hex projection `Domain/identity` seats, so the alphabet, the width, and the case are decided once for the whole federation.
+- Auto: the absent-tenant arm is structural and reads through ONE member — `Key` is the one optional partition entry, so `Tags` projects it, `Stamp` writes it, and every consuming store, GUC, partition predicate, and series key folds that `Option` rather than re-deriving a partitioned-or-absent ternary. `Text` and `Admit` compose the ONE hex projection `Domain/identity` seats, so the alphabet, the width, and the case are decided once for the whole federation.
 - Law: the tenant text is `ContentHash.Hex` — thirty-two LOWERCASE hex digits — and admission is `ContentHash.Admit`, which REFUSES uppercase. One alphabet both renders and admits, so a value admitted at one boundary renders back the identical spelling and every equality against an ambient entry, an RLS predicate, an object prefix, or a meter tag holds. Both directions read one owner and the round trip is exact.
-- Law: admission splits by the CALLER's evidence, never by a second rule — trusted text (a boot roster row, a re-read of text this owner already rendered) takes `Of` and a violation is a program defect the argument contract names, while untrusted text (a wire claim, a request header, a config cell) takes `TryOf` and folds `None` onto the caller's own refusal path.
+- Law: admission is ONE typed rail — `Admit` answers `Fin<TenantId>` and the CALLER lowers the carrier by its own evidence, never a second owner entrypoint: a trusted persistence edge takes `ThrowIfFail`, a best-effort ambient read takes `ToOption`, and a validating wire edge maps the fault into its own wire vocabulary.
 - Law: `SessionCoordinate` is the C# transcription of the cross-branch `[SESSION_GUC]` law — the four coordinates every RLS predicate and session `set_config` read VERBATIM and byte-share with the TypeScript spine, since disagreeing `SET` and predicate spellings read zero rows fail-closed under FORCE RLS. `Tenant` composes `TenantSlot`, so the telemetry dimension and the session pin stay one vocabulary; `Maintenance` is `Plane`'s sole admitted value, and the maintenance-plane posture pins transaction-locally through a STATED arm, never a role accident.
 - Law: stamping is ALL-OR-NOTHING and the restore fold is ONE body both the failed stamp and disposal read — every row is attempted in reverse admission order even when one raises, so a single raising mirror never strands its siblings under the retiring tenant, and each restoration failure appends onto the error the fold carries in.
 - Law: disposal residue PARKS on the composition's evidence cell and never throws from `Dispose` — a typed fault a consumer boundary cannot carry outward is parked, never `ignore`d and never re-raised out of a using-block exit (branch RULINGS `[02]`).
@@ -84,19 +84,17 @@ namespace Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<UInt128>(
-    KeyMemberName = "Value",
-    KeyMemberAccessModifier = AccessModifier.Public,
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit,
-    ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
+    ConversionFromKeyMemberType = ConversionOperatorsGeneration.None,
+    SkipIParsable = true, SkipIFormattable = true, SkipToString = true)]
 public readonly partial struct TenantId {
-    public string Text => ContentHash.Hex(Value);
+    public string Text => ContentHash.Hex(ToValue());
+    public override string ToString() => Text;
 
-    public static TenantId Of(ReadOnlySpan<char> text) => Create(ContentHash.Admit(text, Op.Of()).ThrowIfFail());
-
-    public static Option<TenantId> TryOf(ReadOnlySpan<char> text) => ContentHash.Admit(text, Op.Of()).ToOption().Map(Create);
+    public static Fin<TenantId> Admit(ReadOnlySpan<char> text, Op? key = null) => ContentHash.Admit(text, key.OrDefault()).Map(Create);
 }
 
-[SmartEnum<string>]
+[SmartEnum<string>(KeyMemberName = "Guc", SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SessionCoordinate {
@@ -114,8 +112,7 @@ public sealed record TenantMirror(string Store, Func<Option<string>> Read, Actio
         Store: nameof(Activity),
         Read: static () => Optional(Activity.Current?.GetBaggageItem(TenantContext.TenantSlot)),
         Write: static entry => ignore(Activity.Current?.SetBaggage(
-            TenantContext.TenantSlot,
-            entry.Match<string?>(Some: static held => held, None: static () => null))));
+            TenantContext.TenantSlot, Op.ToHostSlot(entry))));
 }
 
 public sealed record TenantContext(TenantId TenantId, string Slug) {
@@ -127,14 +124,12 @@ public sealed record TenantContext(TenantId TenantId, string Slug) {
 
     public static TenantContext Current => Ambient.Value ?? Root;
 
-    public bool Partitions => !Equals(Root);
-
     public string Entry => TenantId.Text;
 
-    public Option<string> Key => Partitions ? Some(Entry) : None;
+    public Option<string> Key => !Equals(Root) ? Some(Entry) : None;
 
-    public Seq<KeyValuePair<string, object?>> Tags =>
-        Key.Map(static entry => Seq(new KeyValuePair<string, object?>(TenantSlot, entry))).IfNone(Seq<KeyValuePair<string, object?>>());
+    public Seq<KeyValuePair<string, object?>> Tags => Key.Map(
+        static entry => new KeyValuePair<string, object?>(TenantSlot, entry)).ToSeq();
 
     public Fin<Lease<IDisposable>> Stamp(FaultCell residue, params ReadOnlySpan<TenantMirror> mirrors);
     private static readonly HookId StampPoint = HookId.Create(value: "rasm.domain.frame.stamp");
@@ -145,7 +140,7 @@ public sealed record TenantContext(TenantId TenantId, string Slug) {
 
 ## [04]-[STAMP]
 
-- Owner: `HlcStamp` the hybrid-logical stamp — physical `Instant` and logical `ulong` halves, `Packed` the shared `UInt128` layout, `Sequence` the D20 spelling of the logical half; `Hlc` the one per-composition cell over an `IClock`; `CausalStamp` the causal frame a durable fact publishes under — creation-time `TraceCarrier`, ambient tenant, stamp, and the wall instant the mint read — with the five extension slot names it fills.
+- Owner: `HlcStamp` the hybrid-logical stamp — physical `Instant` and logical `ulong` halves, `Packed` the shared `UInt128` layout, `Sequence` the D20 spelling of the logical half; `Hlc` the one per-composition cell over an `IClock`; `CausalStamp` the causal frame a durable fact publishes under — the creation-time `TraceCarrier` carrying tenancy in its baggage, stamp, and the wall instant the mint read — with the five extension slot names it fills.
 - Entry: `Hlc.Stamp(wall, seen)` advances the cell on a send and folds a received peer stamp on a receive through one body; `CausalStamp.Now(clock)` captures the live span, `TenantContext.Current`, and a fresh stamp; `RasmEventEnvelope.Publish` (`event.md` `[04]`) is the one publish door that consumes it.
 - Auto: `Advance` is the one hybrid-logical mint — the greater of the held and the seen stamp is the floor, the logical half resets to zero on a physical advance and increments on a same-instant repeat; the counter is BOUNDED, so an exhausted one advances the physical half by the WIRE quantum and restarts rather than wrapping, because a wrap re-issues a stamp the stream already carried and every causal comparison after it reads reversed. The escape steps by the packed half's own resolution rather than by the clock's smallest representable step, since a step below the pack quantum re-issues the exact stamp it escaped.
 - Law: the half order and its UNIT are FIXED and load-bearing — physical half first as the NodaTime `Instant` Unix-tick `long` at one tick per hundred nanoseconds (I63 inside the `uint64` slot), logical half second as the monotone `ulong`, packed `physical_ticks << 64 | logical`, byte-identical to the compute interchange identity, so a content key and a causal stamp seal one frame every peer re-derives and an off-by-one-half pack corrupts the whole causal order.
@@ -165,8 +160,6 @@ namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct HlcStamp(Instant Physical, ulong Logical) {
-    private const long TickQuantum = 1L;
-
     public static readonly HlcStamp Origin = new(Instant.FromUnixTimeTicks(0L), 0UL);
 
     public UInt128 Packed => ((UInt128)(ulong)Physical.ToUnixTimeTicks() << 64) | Logical;
@@ -176,33 +169,27 @@ public readonly record struct HlcStamp(Instant Physical, ulong Logical) {
     public static HlcStamp Advance(HlcStamp last, Instant wall, Option<HlcStamp> seen = default) {
         HlcStamp top = seen.Filter(remote => remote.Packed > last.Packed).IfNone(last);
         return wall > top.Physical ? new(wall, 0UL)
-            : top.Logical == ulong.MaxValue ? new(top.Physical + Duration.FromTicks(TickQuantum), 0UL)
+            : top.Logical == ulong.MaxValue ? new(top.Physical + Duration.FromTicks(1L), 0UL)
             : new(top.Physical, top.Logical + 1UL);
     }
 }
 
-public sealed record CausalStamp(TraceCarrier Trace, TenantContext Tenant, HlcStamp Clock, Instant Recorded) {
-    public const string TraceparentSlot = "traceparent";
-    public const string TracestateSlot = "tracestate";
-    public const string BaggageSlot = "baggage";
-    public const string SequenceSlot = "sequence";
-    public const string RecordedtimeSlot = "recordedtime";
-
+public sealed record CausalStamp(TraceCarrier Trace, HlcStamp Clock, Instant Recorded) {
     public static CausalStamp Now(Hlc clock) {
-        TenantContext tenant = TenantContext.Current;
         Instant wall = clock.Wall;
         TraceCarrier trace = Activity.Current is { } span
             ? TraceCarrier.Of(span)
-            : TraceCarrier.Admit(null, null, tenant.Key.Map(entry => $"{TenantContext.TenantSlot}={entry}").Match<string?>(Some: static held => held, None: static () => null));
-        return new(Trace: trace, Tenant: tenant, Clock: clock.Stamp(wall), Recorded: wall);
+            : TraceCarrier.Admit(null, null, Op.ToHostSlot(TenantContext.Current.Key.Map(
+                static entry => $"{TenantContext.TenantSlot}={entry}")));
+        return new(Trace: trace, Clock: clock.Stamp(wall), Recorded: wall);
     }
 
     public Seq<(string Slot, Option<object> Value)> Slots => Seq(
-        (TraceparentSlot, Optional(Trace.TraceParent).Map(static held => (object)held)),
-        (TracestateSlot, Optional(Trace.TraceState).Map(static held => (object)held)),
-        (BaggageSlot, Trace.Baggage.Map(static held => (object)held.Value)),
-        (SequenceSlot, Some((object)Clock.Sequence)),
-        (RecordedtimeSlot, Some((object)Recorded.ToDateTimeOffset())));
+        ("traceparent", Optional(Trace.TraceParent).Map(static held => (object)held)),
+        ("tracestate", Optional(Trace.TraceState).Map(static held => (object)held)),
+        ("baggage", Trace.Baggage.Map(static held => (object)held.Value)),
+        ("sequence", Some((object)Clock.Sequence)),
+        ("recordedtime", Some((object)Recorded.ToDateTimeOffset())));
 }
 
 public sealed class Hlc(IClock clock) {
@@ -218,7 +205,7 @@ public sealed class Hlc(IClock clock) {
 ## [05]-[PACKAGE_IDENTITY]
 
 - Owner: `PackageIdentity<TKey,THostFact>` — the one plugin-identity resolve. `TKey` is the host's own typed key (`PluginKey` at the Rhino boundary, `HookScope` at the Grasshopper boundary), so a raw-string plugin parameter cannot enter and the key spaces stay each boundary's; `THostFact` is the host-package evidence the kernel cannot name, carried as an `Option` column rather than forcing a wrapper record at one boundary and not the other.
-- Entry: `Resolve(pluginRoot, plugin, host, key)` reads the load context and the assembly version off the plugin root, folds the optional host probe, and lands the identity in the result; `ContentRoot(Assembly)` is the ONE spelling of the directory read both boundaries hand-wrote byte-identically.
+- Entry: `Resolve(pluginRoot, plugin, host, key)` reads the load context and the assembly version off the plugin root, folds the optional host probe, and lands the identity in the result; `RootOf(Assembly)` is the ONE spelling of the directory read both boundaries hand-wrote byte-identically.
 - Law: `PluginSlot` is the owner-declared dimension key beside `CorrelationId.Slot` and `TenantContext.TenantSlot` — a bare noun at an emitting boundary forks the dimension vocabulary (branch RULINGS `[02]`).
 - Law: package self-identity homes at the kernel causal frame, so a distant emitter never hand-spells a string-typed scope for a meter, a span, or an event source.
 - Law: this owner resolves identity and mints no meter — the metered identity is `Domain/instrument`'s `TelemetryIdentity`, and merging them puts a semantic-convention pin on a value the host resolves at load time.
@@ -250,7 +237,7 @@ public sealed record PackageIdentity<TKey, THostFact>(
         Option<Func<Op, Fin<Option<THostFact>>>> host = default,
         Op? key = null);
 
-    public static string ContentRoot(Assembly pluginRoot) =>
+    private static string RootOf(Assembly pluginRoot) =>
         Path.GetDirectoryName(pluginRoot.Location) is { Length: > 0 } held ? held : AppContext.BaseDirectory;
 }
 ```

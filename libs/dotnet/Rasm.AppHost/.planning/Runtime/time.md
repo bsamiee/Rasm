@@ -190,9 +190,8 @@ public sealed record ScheduleEntry(
     RedrivePolicy Redrive,
     Func<IO<Unit>> Work) {
     public static int Seed(string key) =>
-        unchecked((int)ContentHash.Half(
-            digest: ContentHash.Of(key, static (text, writer) => writer.String(text)),
-            lane: Lane.Low));
+        unchecked((int)ContentHash.Halves(
+            ContentHash.Of(key, static (text, writer) => writer.String(text))).Low);
 
     public static Fin<ScheduleEntry> Spread(
         string key,

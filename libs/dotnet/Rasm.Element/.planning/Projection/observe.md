@@ -197,7 +197,7 @@ public static class ElementTap {
  public static ElementObserver Events(EventExtensionContract<Extensions> contract, Hlc clock, Func<CloudEvent, Fin<Unit>> binding) {
   Op key = Op.Of(name: "rasm.element.events");
   return new(key, fact =>
-   from id in EventId.Of(Guid.CreateVersion7().ToString("N"), key)
+   from id in key.AcceptValidated<EventId>(Guid.CreateVersion7().ToString("N"))
    from envelope in RasmEventEnvelope.Publish(
     new RasmEventMint<Extensions>(fact.Point.Type, fact.Point.Source, id, fact.Subject, clock.Wall, None, None, null, new Extensions()),
     contract, clock, key)

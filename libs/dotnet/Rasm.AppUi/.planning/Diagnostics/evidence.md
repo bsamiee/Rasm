@@ -183,7 +183,7 @@ public abstract partial record AppUiFact : IHookFact<AppUiPoint> {
     };
 
     public Fin<RasmEventMint<Extensions>> Event(EventSource source, Op key) =>
-        EventId.Of(Guid.CreateVersion7().ToString("N", CultureInfo.InvariantCulture), key).Map(id =>
+        key.AcceptValidated<EventId>(Guid.CreateVersion7().ToString("N", CultureInfo.InvariantCulture)).Map(id =>
             new RasmEventMint<Extensions>(
                 Type: At.Type, Source: source, Id: id, Subject: Subject, Time: Instant.MinValue,
                 DataSchema: None, DataContentType: None, Data: EvidenceMap.Lower(this), Extensions: new Extensions()));

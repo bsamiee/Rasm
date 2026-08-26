@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [02]-[TOLERANCE_LANES]: `ToleranceLane` rows and the `Tolerance` carrier admitted through each row's `Band`.
-- [03]-[MODEL_CONTEXT]: `ModelUnit`, `Context`, the polymorphic `Of` family, the lane read, the override ingress, and the UnitsNet unit-bridge adapter.
+- [03]-[MODEL_CONTEXT]: `ModelUnit`, `Context`, the polymorphic `Of` family, the lane read, and the override ingress.
 - [04]-[DENSITY_BAR]: owner-per-concern partition.
 
 ## [02]-[TOLERANCE_LANES]
@@ -15,7 +15,7 @@
 - Owner: `ToleranceLane`, a `[SmartEnum<string>]` under an ordinal key policy, is the ONE tolerance vocabulary in the branch; `Tolerance` is the admitted `(lane, value)` pair every consumer reads. Rows absorb the three `[ValueObject<double>]` scalar kinds this page carried — they shared identity regime, admission path, payload timing, and consumer, and their only distinction was a RANGE, which is a policy value that belongs in a row.
 - Cases: rows partition by `Band` — model-space distances on `Band.Length`, angular gates on `Band.Angle`, dimensionless fractions on `Band.Ratio`, unbounded convergence residuals and degeneracy elections on `Band.Residual`, device-space gates on `Band.Device`. `Numerics/atoms` owns those bands as range-guard rows; this page composes `Admits`/`Refuse` and declares no bound of its own.
 - Entry: `Tolerance.Of(lane, value, key)` is the ONE admission, gating through `lane.Band` and refusing as `KernelFault.OutOfRange` carrying the lane key, the rejected scalar, and the band's own requirement text. `Tolerance` is a `readonly record struct`, NOT a Thinktecture value object, because a generated value object admits one raw key and cannot see the lane whose band decides the range.
-- Law: a lane's `Derive` returns the DEFAULT for a context that carries no override, and it derives from an anchor — `Context.Absolute`, `Context.Relative`, `Context.Angle`, or an `EpsilonPolicy` row (`SqrtEpsilon`, `ZeroTolerance`, `CbrtEpsilon`) where the gate is numeric rather than model-scaled — never from a bare magnitude. `Relative` is a model PERCENT, so a lane multiplying by it scales a model distance; the six solver-residual lanes read the numeric anchor directly because a percent of a percent lands under `Band.Residual`'s floor and hands every consumer refusing evidence. Standards-table figures (an ISO 286 grade, an ASTM C216 size class, a shop assembly gate, a perceptual ΔE budget) carry PROVENANCE their own owner holds and enter through `Context.Overrides`; freezing one as a lane default plants a Materials or Fabrication constant in the kernel where no consumer can move it.
+- Law: a lane's `Derive` returns the DEFAULT for a context that carries no override, and it derives from an anchor — `Context.Absolute`, `Context.Relative`, `Context.Angle`, or an `EpsilonPolicy` row (`SqrtEpsilon`, `ZeroTolerance`, `CbrtEpsilon`) where the gate is numeric rather than model-scaled — never from a bare magnitude. `Relative` is a model PERCENT, so a lane multiplying by it scales a model distance; the six solver-residual lanes read the numeric anchor directly because a percent of a percent lands under `Band.Residual`'s floor and hands every consumer refusing evidence. Standards-table figures (an ISO 286 grade, an ASTM C216 size class, a shop assembly gate, a perceptual ΔE budget) carry PROVENANCE their own owner holds and enter through `Context.Override`; freezing one as a lane default plants a Materials or Fabrication constant in the kernel where no consumer can move it.
 - Law: two lanes sharing a derivation are not duplicates. Each lane keys the OVERRIDE and names the vocabulary entry, so a project that tightens `Join` leaves `Closure` untouched — identical defaults under distinct keys move independently.
 - Law: absolute-versus-relative MODE is the lane's `Band` fact, never a carrier axis: a `Band.Ratio` lane's value is a FRACTION the consumer multiplies by its own magnitude (`Relative` scales a model distance, `Probe` scales a probe magnitude into a stencil step), a `Band.Length` lane's value IS the absolute model gate, so the carrier stays `(lane, value)` and a mode discriminant on `Tolerance` re-asserts what `Lane.Band` already declares. `Identity` elects frame identity on the degeneracy anchor rather than the solver anchor because an identity residual is arithmetic noise, not a convergence target; a page-local frame-epsilon or probe-step literal beside either row is the deleted form.
 - Law: a device lane with no override derives `0.0`, which sits BELOW its band's closed floor, so the minted `Tolerance` answers `IsValid` false and visibly refuses rather than hand back a plausible-looking radius nobody chose — deriving the floor value itself admits. Hosts that forget to seed their pick radius meet that refusal, and the device pitch is knowledge only the boundary holds.
@@ -115,28 +115,25 @@ public readonly record struct Tolerance(ToleranceLane Lane, double Value) : IVal
     public bool IsValid => ValidityClaim.All(Lane.Band.Admits(value: Value));
 
     public static Fin<Tolerance> Of(ToleranceLane lane, double value, Op key) =>
-        lane.Band.Admits(value: value)
-            ? Fin.Succ(value: new Tolerance(Lane: lane, Value: value))
-            : Fin.Fail<Tolerance>(error: new KernelFault.OutOfRange(
-                Label: lane.Key,
-                Scalar: value,
-                Requirement: lane.Band.Refuse(label: lane.Key, value: value).Message,
-                Key: Some(key)));
+        lane.Band.Admits(value)
+            ? new Tolerance(lane, value)
+            : new KernelFault.OutOfRange(
+                lane.Key, value, lane.Band.Refuse(lane.Key, value).Message, Some(key));
 }
 ```
 
 ## [03]-[MODEL_CONTEXT]
 
-- Owner: `ModelUnit` is the admitted unit regime — defined `UnitSystem`, positive finite meters per unit, required custom name, and the `BaseDimensions` signature the branch federates unit identity on; `Context` binds one `ModelUnit` to the admitted root triad and the lane overrides layered over it.
-- Entry: the `Context.Of` family accepts scalar tolerances with `UnitSystem` or `LengthUnit` and derives defaults from either unit carrier, and `Context.Canonical` is the ONE total arm — the millimetre bundle over kernel-owned anchors alone, accessor-backed so its proof runs at first read and a refusal throws at type init (the branch's own registry-proof idiom), which is what a consumer holding no scalars composes instead of an argued unreachable throw; `For(lane)` is the ONE tolerance read; `Override(lane, value, unit)` is the ONE override ingress; `ScaleTo(Context)` divides the admitted meters-per-unit values after admitting the target. `ModelUnit.Convert(value, from, to, key)` is the ONE dynamic-conversion bridge onto the UnitsNet vocabulary (guarded `UnitConverter.TryConvert`, typed refusal on an unregistered pair) and `ModelUnit.Converter<TQuantity>(from, to, key)` its hot-path row resolving one delegate per pair onto that same result.
+- Owner: `ModelUnit` is the admitted unit regime — defined `UnitSystem`, positive finite meters per unit, and required custom name; `Context` binds one `ModelUnit` to the admitted root triad and the lane overrides layered over it.
+- Entry: the `Context.Of` family accepts scalar tolerances with `UnitSystem` or `LengthUnit` and derives defaults from either unit carrier, and `Context.Canonical` is the ONE total arm — the millimetre bundle over kernel-owned anchors alone, accessor-backed so its proof runs at first read and a refusal throws at type init (the branch's own registry-proof idiom), which is what a consumer holding no scalars composes instead of an argued unreachable throw; `For(lane)` is the ONE tolerance read; `Override(lane, value, unit)` is the ONE override ingress; internal `ModelUnit.ScaleTo(ModelUnit, Op)` is the consumed cross-regime operation, dividing the admitted meters-per-unit values.
 - Cases: `UnitSystem` ingress admits defined built-in rows; `LengthUnit` ingress admits built-in and custom rows, preserving custom name and scale; incomplete `CustomUnits`, `Unset`, `None`, and undefined ordinals fail before context construction.
-- Law: `Override` is where `Convert` earns its consumer. Authoring surfaces publish a lane value in THEIR OWN unit — an ISO 286 grade in micrometres, a shop gate in millimetres — and admission converts into model units through the units registry, gated on `lane.Dimension.Equals(Unit.Dimension)` so a dimensionless lane takes its value raw and a length lane converts. That gate is the branch ruling's federation point made READABLE: both `Dimension` columns have a reader, and the alternative is every consumer hand-multiplying a scale factor beside a quantity enum. `Converter<TQuantity>` serves the per-sample projection Fabrication's GD&T stackup runs, where the registry probe must leave the loop.
+- Law: `Override` is the ONE dynamic-conversion consumer. Authoring surfaces publish a lane value in THEIR OWN unit — an ISO 286 grade in micrometres, a shop gate in millimetres — and admission composes the guarded `UnitConverter.TryConvert` directly, gated on `lane.Dimension.Equals(UnitsNet.Length.BaseDimensions)` so a dimensionless lane takes its value raw and a length lane converts.
 - Law: conversion resolves through METRES and the admitted `MetersPerUnit`, never a Rhino-to-UnitsNet unit roster. UnitsNet answers "how many metres is this", the admitted scale answers "how many model units is a metre", and no hand-kept correspondence between two unit vocabularies exists to drift.
 - Auto: `Fractional` (the arc-length tolerance feeding `Curve.GetLength`/`NormalizedLengthParameters`) reads `For(ToleranceLane.Fraction)`, so the zero-as-absence ternary this member used to carry dies at the lane's band guard — `Band.Ratio` decides whether zero is admissible once, at admission, instead of every read re-deciding what a stored zero meant.
 - Law: `Of(RhinoDoc?)` is the document-coupled boundary adapter, projecting the document tolerances and units so custom scale and name survive unchanged; it seeds exactly the three ROOT lanes and no override.
 - Law: `Canonical` is total because it admits NO caller value — every input is a kernel-owned anchor already band-proved, so the `Validation` its `Of` sibling returns has nothing left to report. Callers supplying any value of their own take `Of` and gate; a caller wanting a canonical bundle with one axis moved takes `Canonical.Override(lane, …)`. Re-minting a general unit-named factory over caller arguments (the deleted `Context.Millimeters()`) is the refused form.
 - Law: `Build` accumulates. Three scalars and the unit admit INDEPENDENTLY, so a caller with two bad axes learns both — the applicative `.Apply` fan-in, never a bind chain that reports the first defect and hides the rest. `Default` sequences its unit-scale chain on `Fin` because those steps genuinely depend on each other, and crosses to `Validation` exactly once at the fan-in.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` rows), LanguageExt.Core (`Validation`, `Fin`, applicative `Apply`, `HashMap`), `Numerics/atoms` (`Band`, `EpsilonPolicy`), RhinoCommon (`LengthUnit`, `UnitSystem`, `RhinoDoc`, `RhinoMath` host defaults, `Intersection`), UnitsNet (`UnitConverter`, `ConversionFunction`, `IQuantity`, `BaseDimensions`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` rows), LanguageExt.Core (`Validation`, `Fin`, applicative `Apply`, `HashMap`), `Numerics/atoms` (`Band`, `EpsilonPolicy`), RhinoCommon (`LengthUnit`, `UnitSystem`, `RhinoDoc`, `RhinoMath` host defaults, `Intersection`), UnitsNet (`UnitConverter`, `BaseDimensions`).
 - Growth: a new model-space fact (a grid-resolution policy, a document epoch) is one validated slot on the scalar floor, inherited by every derived factory; a new GATE is a `ToleranceLane` row and touches nothing here.
 - Boundary: `Context` threads explicitly — a parameter on synchronous owners, inside `Env` on `Eff` pipelines (`results.md` Op law), never a global default; `Analyze.From`/`Analyze.In` (`Analysis/query.md`) forward over the `Of` family, `Env` carrying the constructed `Context`. `Absolute`/`Relative`/`Angle` survive as stored accessors returning `Tolerance`, so every `.Value` read across the kernel and the host plane compiles unchanged while the three deleted value-object TYPES disappear from every signature.
 
@@ -158,16 +155,12 @@ public sealed record ModelUnit {
     public UnitSystem System { get; }
     public double MetersPerUnit { get; }
     public Option<string> Name { get; }
-    public UnitsNet.BaseDimensions Dimension => UnitsNet.Length.BaseDimensions;
 
     public static Fin<ModelUnit> Of(UnitSystem value, Op key) => value switch {
-        var unknown when !Enum.IsDefined(value: unknown) =>
-            Fin.Fail<ModelUnit>(error: new KernelFault.InvalidUnitSystem(Units: unknown, Requirement: "must be a defined unit system")),
-        UnitSystem.Unset or UnitSystem.None =>
-            Fin.Fail<ModelUnit>(error: new KernelFault.InvalidUnitSystem(Units: value, Requirement: "must be a model unit system")),
-        UnitSystem.CustomUnits =>
-            Fin.Fail<ModelUnit>(error: new KernelFault.InvalidUnitSystem(Units: value, Requirement: "must carry custom name and scale")),
-        _ => key.Catch(() => Of(value: LengthUnit.FromKnownUnitSystem(knownUnitSystem: value), key: key)),
+        var unknown when !Enum.IsDefined(unknown) => new KernelFault.InvalidUnitSystem(unknown, "must be a defined unit system"),
+        UnitSystem.Unset or UnitSystem.None => new KernelFault.InvalidUnitSystem(value, "must be a model unit system"),
+        UnitSystem.CustomUnits => new KernelFault.InvalidUnitSystem(value, "must carry custom name and scale"),
+        _ => key.Catch(() => Of(LengthUnit.FromKnownUnitSystem(value), key)),
     };
 
     public static Fin<ModelUnit> Of(LengthUnit value, Op key) => key.Catch(() => {
@@ -188,27 +181,11 @@ public sealed record ModelUnit {
                     Requirement: "must carry positive finite scale and custom identity"));
     });
 
-    internal Fin<double> ScaleTo(ModelUnit? target, Op key) =>
-        from destination in Optional(target).ToFin(Fail: key.MissingContext())
-        let scale = MetersPerUnit / destination.MetersPerUnit
-        from admitted in double.IsFinite(d: scale) && scale > 0d
-            ? Fin.Succ(value: scale)
-            : Fin.Fail<double>(error: key.InvalidResult())
-        select admitted;
-
-    // --- [UNIT_BRIDGE]
-    internal Fin<double> In(double value, Enum unit, Op key) =>
-        Convert(value: value, from: unit, to: UnitsNet.Units.LengthUnit.Meter, key: key)
-            .Map(metres => metres / MetersPerUnit);
-
-    public static Fin<double> Convert(double value, Enum from, Enum to, Op? key = null) =>
-        UnitsNet.UnitConverter.TryConvert(value, from, to, out double converted) && double.IsFinite(d: converted)
-            ? Fin.Succ(value: converted)
-            : Fin.Fail<double>(error: key.OrDefault().InvalidInput());
-    public static Fin<Func<TQuantity, TQuantity>> Converter<TQuantity>(Enum from, Enum to, Op? key = null) where TQuantity : UnitsNet.IQuantity =>
-        UnitsNet.UnitConverter.Default.TryGetConversionFunction<TQuantity>(from, to, out UnitsNet.ConversionFunction? conversion)
-            ? Fin.Succ<Func<TQuantity, TQuantity>>(value: quantity => (TQuantity)conversion(quantity))
-            : Fin.Fail<Func<TQuantity, TQuantity>>(error: key.OrDefault().InvalidInput());
+    internal Fin<double> ScaleTo(ModelUnit target, Op key) =>
+        (MetersPerUnit / target.MetersPerUnit) switch {
+            double scale when double.IsFinite(scale) && scale > 0d => scale,
+            _ => key.InvalidResult(),
+        };
 }
 
 public sealed record Context {
@@ -234,9 +211,7 @@ public sealed record Context {
         Default(unit: ModelUnit.Of(value: units, key: Key));
 
     public static Context Canonical => Whole.Value;
-    private static readonly Lazy<Context> Whole = new(
-        static () => Of(units: UnitSystem.Millimeters).ToFin().ThrowIfFail(),
-        LazyThreadSafetyMode.ExecutionAndPublication);
+    private static readonly Lazy<Context> Whole = new(static () => Of(UnitSystem.Millimeters).ToFin().ThrowIfFail());
 
     public static Validation<Error, Context> Of(RhinoDoc? doc) =>
         Optional(doc).ToValidation<Error>(Fail: new KernelFault.MissingContext(Key: Key))
@@ -250,29 +225,23 @@ public sealed record Context {
     public Tolerance Relative { get; }
     public Tolerance Angle { get; }
     public ModelUnit Unit { get; }
-    public UnitSystem Units => Unit.System;
-    public HashMap<ToleranceLane, Tolerance> Overrides { get; init; } = HashMap<ToleranceLane, Tolerance>.Empty;
+    private HashMap<ToleranceLane, Tolerance> Overrides { get; init; } = HashMap<ToleranceLane, Tolerance>.Empty;
 
     public Tolerance For(ToleranceLane lane) =>
         Overrides.Find(key: lane).IfNone(() => new Tolerance(Lane: lane, Value: lane.Derive(context: this)));
 
     public Fin<Context> Override(ToleranceLane lane, double value, Enum unit, Op? key = null) {
         Op op = key.OrDefault();
-        Context self = this;
-        return from converted in lane.Dimension.Equals(Unit.Dimension)
-                   ? Unit.In(value: value, unit: unit, key: op)
-                   : Fin.Succ(value: value)
-               from admitted in Tolerance.Of(lane: lane, value: converted, key: op)
-               select self with { Overrides = self.Overrides.AddOrUpdate(key: lane, value: admitted) };
+        return from converted in !lane.Dimension.Equals(UnitsNet.Length.BaseDimensions)
+                   ? Fin.Succ(value)
+                   : UnitsNet.UnitConverter.TryConvert(value, unit, UnitsNet.Units.LengthUnit.Meter, out double metres)
+                     && double.IsFinite(metres)
+                       ? Fin.Succ(metres / Unit.MetersPerUnit) : Fin.Fail<double>(op.InvalidInput())
+               from admitted in Tolerance.Of(lane, converted, op)
+               select this with { Overrides = Overrides.AddOrUpdate(lane, admitted) };
     }
 
     public double Fractional => For(lane: ToleranceLane.Fraction).Value;
-
-    public Fin<double> ScaleTo(Context? target) {
-        Op op = Op.Of(name: nameof(ScaleTo));
-        return Optional(target).ToFin(Fail: op.MissingContext())
-            .Bind(destination => Unit.ScaleTo(target: destination.Unit, key: op));
-    }
 
     private static Validation<Error, Context> Build(double absolute, double relative, double angle, Fin<ModelUnit> unit) =>
         (Tolerance.Of(lane: ToleranceLane.Distance, value: absolute, key: Key).ToValidation(),
@@ -308,7 +277,7 @@ One lane vocabulary, one admitted unit regime, and one context factory family ow
 | :-----: | :-------------- | :-------------- | :------------------------------------------------- |
 |  [01]   | tolerance gates | `ToleranceLane` | keyed rows carrying band, dimension, derivation    |
 |  [02]   | admitted scalar | `Tolerance`     | band-gated `(lane, value)` pair with evidence fold |
-|  [03]   | unit regime     | `ModelUnit`     | built-in/custom identity, metric scale, dimension  |
+|  [03]   | unit regime     | `ModelUnit`     | built-in/custom identity, metric scale             |
 |  [04]   | model context   | `Context`       | polymorphic factory, lane read, override ingress   |
 
 ## [05]-[RESEARCH]

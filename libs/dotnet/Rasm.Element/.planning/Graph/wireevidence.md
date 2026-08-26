@@ -183,7 +183,7 @@ internal static partial class WireCodec {
      from high in Scalar.From(maximum.Si)
      from stat in Rebuilt(new Stat<Scalar>(
        checked((int)w.Moments.Count), checked((int)w.Moments.Rejected), w.Moments.Mass,
-       low, high, mean.Si, w.Moments.M2, w.Moments.M3, w.Moments.M4, StatContext.None), key)
+       low, high, mean.Si, w.Moments.M2, w.Moments.M3, w.Moments.M4, Option<StatContext>.None), key)
      select Some(new MeasureStat(quantity, stat));
 
  static Fin<Stat<Scalar>> Rebuilt(Stat<Scalar> stat, Op key) =>

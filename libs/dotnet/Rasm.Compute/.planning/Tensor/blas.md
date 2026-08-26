@@ -65,8 +65,9 @@ public sealed partial class LinearProvider {
         byte[] tag = Encoding.UTF8.GetBytes(DeterminismTag);
         byte[] frame = GC.AllocateUninitializedArray<byte>(tag.Length + 16);
         tag.CopyTo(frame, 0);
-        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length), ContentHash.Half(problemDigest, 0));
-        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length + 8), ContentHash.Half(problemDigest, 1));
+        (ulong low, ulong high) = ContentHash.Halves(problemDigest);
+        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length), low);
+        BinaryPrimitives.WriteUInt64LittleEndian(frame.AsSpan(tag.Length + 8), high);
         return XxHash128.HashToUInt128(frame);
     }
 }

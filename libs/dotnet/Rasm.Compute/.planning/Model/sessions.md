@@ -93,7 +93,7 @@ public sealed record SessionPolicy(
          SessionTrait.Law.Admit(Posture).ToValidation().Map(static _ => unit)))
         .ToFin();
 
-    public ulong Fingerprint(ExecutionProvider ep) => ContentHash.Half(
+    public ulong Fingerprint(ExecutionProvider ep) => ContentHash.Halves(
         ContentHash.Of((Policy: this, Ep: ep), static (state, writer) => writer
             .String(state.Ep.Key)
             .I64(unchecked((long)RosterFingerprint.Of(state.Ep.OptionsFor(state.Policy.Precision))))
@@ -106,8 +106,7 @@ public sealed record SessionPolicy(
             .Sorted(state.Policy.FreeDims, static dim => dim.Dim, StringComparer.Ordinal,
                 static (dim, rows) => rows.String(dim.Dim).I64(dim.Value))
             .Sorted(state.Policy.Initializers, static slot => slot.Name, StringComparer.Ordinal,
-                static (slot, rows) => rows.String(slot.Name).U128(slot.ContentKey))),
-        Lane.Low);
+                static (slot, rows) => rows.String(slot.Name).U128(slot.ContentKey)))).Low;
 
     public sealed record Initializer(string Name, OrtValue Value, UInt128 ContentKey);
 
