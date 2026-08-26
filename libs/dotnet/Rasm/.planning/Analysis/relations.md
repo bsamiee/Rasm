@@ -530,7 +530,7 @@ internal static partial class Relations {
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) =>
                     from runtime in Env.EnvAsks
-                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToEff()
+                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToFin().ToEff()
                     from deviation in DeviationOf(left: resolved.A, right: resolved.B, context: runtime.Context, op: op).ToEff()
                     from result in new AnalysisOutput<TOut>(Key: op).Many(values: Seq(deviation)).ToEff()
                     select result)
@@ -552,7 +552,7 @@ internal static partial class Relations {
                 evaluator: static (state, geometry) =>
                     from runtime in Env.EnvAsks
                     from ray in state.Key.AcceptInput(value: state.Query).ToEff()
-                    from ready in Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToEff()
+                    from ready in Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin().ToEff()
                     from result in IntersectionOf(left: ray, right: ready, env: runtime, op: state.Key, order: PairOrder.Ordered).ToEff()
                     from typed in result.Project<TOut>(key: state.Key).ToEff()
                     select typed)

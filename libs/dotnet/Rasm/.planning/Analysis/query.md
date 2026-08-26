@@ -535,7 +535,7 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         from ready in Optional(geometry).ToFin(new KernelFault.MissingGeometry()).ToEff()
         from validated in requirement.IsEmpty && ready is not GeometryBase
             ? Fin.Succ(ready).ToEff()
-            : requirement.Apply(context: runtime.Context, value: ready, cancel: runtime.Cancellation).ToEff().Map(_ => ready)
+            : requirement.Apply(context: runtime.Context, value: ready, cancel: runtime.Cancellation).ToFin().ToEff().Map(_ => ready)
         select validated;
 }
 
@@ -633,9 +633,6 @@ internal static class OperationLift {
             hit: static (op, _) => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
             distance: static (op, _) => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
             points: static (_, value) => Fin.Succ(value.Value));
-    }
-    extension(Validation<Error, T> validation) {
-        internal Eff<Env, T> ToEff<T>() => validation.ToFin();
     }
 }
 ```

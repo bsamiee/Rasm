@@ -751,7 +751,7 @@ public sealed partial class ConformanceMetric {
                 from runtime in Env.EnvAsks
                 from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, op: state.Key, requirements: (op, kindG, kindT) =>
                     guard(kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface, op.Unsupported(inputType: kindG.Type, outputType: typeof(ResidualSample))).ToFin()
-                        .Map(_ => (A: Requirement.ForKind(kind: kindG), B: state.Metric.TargetRequirement(kind: kindT))), cancel: runtime.Cancellation).ToEff()
+                        .Map(_ => (A: Requirement.ForKind(kind: kindG), B: state.Metric.TargetRequirement(kind: kindT))), cancel: runtime.Cancellation).ToFin().ToEff()
                 from residuals in Sample(metric: state.Metric, count: state.Count, geometry: resolved.A, target: resolved.B, context: runtime.Context, key: state.Key, cancel: runtime.Cancellation).ToEff()
                 from result in state.Metric.Project<TValue>(residuals: residuals, percentiles: state.Percentiles, key: state.Key).ToEff()
                 select result);
