@@ -100,7 +100,7 @@ public sealed partial class ReadPhase {
 [ValidationError]
 public readonly partial struct GraphQlDocument {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) { validationError = new ValidationError(string.Join(" | ", new object?[] { "<document>" })); }
+        if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) { validationError = ValidationError.Create("<document>"); }
     }
 }
 
@@ -127,12 +127,12 @@ public static class ReadRouter {
                 long start = Stopwatch.GetTimestamp();
                 await daemon.WaitForNonStaleData(budget.ToTimeSpan()).ConfigureAwait(false);
                 return Fin<Duration>.Succ(Duration.FromTimeSpan(Stopwatch.GetElapsedTime(start)));
-            }).ConfigureAwait(false)).Bind(IO.liftFin),
+            }).ConfigureAwait(false)).Bind(IO.lift),
             None: static () => IO.pure(Duration.Zero));
 
     public static IO<T> Observed<T>(ILatencyContextProvider pool, ILatencyDataExporter drain, ReadLedger ledger,
                                     IProjectionDaemon daemon, ReadRequest request, Func<QueryLane, IO<T>> read) =>
-        IO.lift(() => Op.Of().Catch(() => Fin.Succ(pool.CreateContext()))).Bind(IO.liftFin).Bracket(
+        IO.lift(() => Op.Of().Catch(() => Fin.Succ(pool.CreateContext()))).Bracket(
             Use: cell => Phased(cell, drain, ledger, daemon, Route(request), read),
             Fin: static cell => Captured(() => { cell.Dispose(); return unit; }));
 
@@ -154,10 +154,10 @@ public static class ReadRouter {
             .Bind(_ => IO.liftAsync(async () => await Op.Of().Catch(async _ => {
                 await drain.ExportAsync(cell.LatencyData, CancellationToken.None).ConfigureAwait(false);
                 return Fin<Unit>.Succ(unit);
-            }).ConfigureAwait(false)).Bind(IO.liftFin));
+            }).ConfigureAwait(false)).Bind(IO.lift));
 
     static IO<T> Captured<T>(Func<T> crossing) =>
-        IO.lift(() => Op.Of().Catch(() => Fin<T>.Succ(crossing()))).Bind(IO.liftFin);
+        IO.lift(() => Op.Of().Catch(() => Fin<T>.Succ(crossing())));
 
     public static StalenessWatermark Measure(EventStoreStatistics head, ShardState projection) =>
         new(head.EventSequenceNumber, projection.Sequence);
@@ -176,7 +176,7 @@ public static class ReadRouter {
             return Fin<StalenessWatermark>.Succ(toSeq(progress).Find(s => s.ShardName == shard.Identity).Match(
                 Some: state => Measure(stats, state),
                 None: () => new StalenessWatermark(stats.EventSequenceNumber, 0L)));
-        }).ConfigureAwait(false)).Bind(IO.liftFin);
+        }).ConfigureAwait(false)).Bind(IO.lift);
 }
 
 public static class ReflectedRead {
@@ -277,7 +277,7 @@ public readonly partial struct SetPath {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (value.Length == 0 || value.Contains('\0')) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<set-path>" }));
+            validationError = ValidationError.Create("<set-path>");
         }
     }
 }
@@ -288,7 +288,7 @@ public readonly partial struct RuleId {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
         if (value.Length == 0 || value.Contains('\0')) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<rule-id>" }));
+            validationError = ValidationError.Create("<rule-id>");
         }
     }
 }
@@ -325,7 +325,7 @@ public readonly record struct SetKey(ModelId Model, NodeId Node) : IComparable<S
         Model.Value.TryWriteBytes(mine, bigEndian: true, out _);
         other.Model.Value.TryWriteBytes(theirs, bigEndian: true, out _);
         int byModel = mine.SequenceCompareTo(theirs);
-        return byModel != 0 ? byModel : string.CompareOrdinal(Node.Value, other.Node.Value);
+        return byModel != 0 ? byModel : string.CompareOrdinal(Node.ToValue(), other.Node.ToValue());
     }
 }
 
@@ -389,19 +389,17 @@ public static class Selections {
         foreach (SetKey key in sortedKeys) {
             key.Model.Value.TryWriteBytes(buffer.GetSpan(16), bigEndian: true, out _);
             buffer.Advance(16);
-            int bytes = Encoding.UTF8.GetByteCount(key.Node.Value);
+            int bytes = Encoding.UTF8.GetByteCount(key.Node.ToValue());
             BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4), bytes);
             buffer.Advance(4);
-            Encoding.UTF8.GetBytes(key.Node.Value, buffer.GetSpan(bytes));
+            Encoding.UTF8.GetBytes(key.Node.ToValue(), buffer.GetSpan(bytes));
             buffer.Advance(bytes);
         }
         return buffer.WrittenMemory;
     }
 
     public static Fin<WalkDepth> Depth(int bound) =>
-        WalkDepth.Validate(bound, null, out WalkDepth admitted) is null
-            ? Fin.Succ(admitted)
-            : Fin.Fail<WalkDepth>(new SelectionFault.Depth(bound));
+        Op.Of().AcceptValidated<WalkDepth>(bound).MapFail(_ => new SelectionFault.Depth(bound));
 
     public static Fin<Option<double>> Operand(bool argued, Option<double> carried, string row) =>
         argued == carried.IsSome
@@ -415,7 +413,7 @@ public static class Selections {
         any:     static (s, node) => Disjoined(node.Operands, s.Scope, s.Resolve),
         not:     static (_, _) => Fin.Fail<KeySelection>(new SelectionFault.Rejected("<unbounded:complement>")),
         closure: static (s, node) => Evaluate(node.Seed, s.Scope, s.Resolve)
-            .Bind(seed => Walked(seed.Keys, seed.Keys, node.Depth.Value, s.Scope, s.Resolve.Expand))
+            .Bind(seed => Walked(seed.Keys, seed.Keys, node.Depth.ToValue(), s.Scope, s.Resolve.Expand))
             .Map(reached => KeySelection.Of(reached, s.Scope)));
 
     static Fin<KeySelection> Leafed(SetPredicate leaf, SetScope scope, SetResolve resolve) =>
@@ -449,11 +447,8 @@ public static class Selections {
     static Fin<KeySelection> Disjoined(Seq<SetQuery> operands, SetScope scope, SetResolve resolve) {
         (Seq<SetQuery> held, Seq<SetQuery> cut) = Split(operands);
         return cut.IsEmpty
-            ? held.Fold(Fin.Succ(Seq<SetKey>()), (acc, operand) =>
-                    from carried in acc
-                    from one in Evaluate(operand, scope, resolve)
-                    select carried + one.Keys)
-                .Map(keys => KeySelection.Of(keys, scope))
+            ? held.TraverseM(operand => Evaluate(operand, scope, resolve).Map(static one => one.Keys)).As()
+                .Map(rows => KeySelection.Of(rows.Bind(identity), scope))
             : Fin.Fail<KeySelection>(new SelectionFault.Rejected("<unbounded:complement>"));
     }
 

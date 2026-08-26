@@ -413,34 +413,34 @@ public abstract partial record CanvasOp : IValidityEvidence {
         navigateCase: static (state, command) => command.Target.Steer(surface: state.Surface, key: state.Key)
             .Map(static _ => NavigateCase.SelfOp),
         projectionCase: static (state, command) => state.Key.Catch(() =>
-            Fin.Succ(Op.Side(() => state.Surface.Projection = command.Next))).Map(static _ => ProjectionCase.SelfOp),
+            state.Surface.Projection = command.Next).Map(static _ => ProjectionCase.SelfOp),
         dwellCase: static (state, command) => state.Key.Catch(() =>
-            Fin.Succ(Op.Side(() => state.Surface.MouseDwellDelay = command.Delay))).Map(static _ => DwellCase.SelfOp),
+            state.Surface.MouseDwellDelay = command.Delay).Map(static _ => DwellCase.SelfOp),
         sparkleCase: static (state, command) => state.Key.Catch(() =>
-            Fin.Succ(Op.Side(() => state.Surface.AddSparkle(command.Spec.Mint())))).Map(static _ => SparkleCase.SelfOp),
-        marqueeOpenCase: static (state, _) => state.Key.Catch(() =>
-            Fin.Succ(Op.Side(state.Surface.BeginWindowSelect))).Map(static _ => MarqueeOpenCase.SelfOp),
-        marqueeCloseCase: static (state, _) => state.Key.Catch(() =>
-            Fin.Succ(Op.Side(state.Surface.EndWindowSelect))).Map(static _ => MarqueeCloseCase.SelfOp),
-        gatesCase: static (state, command) => state.Key.Catch(() => Fin.Succ(Op.Side(() => {
+            state.Surface.AddSparkle(command.Spec.Mint())).Map(static _ => SparkleCase.SelfOp),
+        marqueeOpenCase: static (state, _) => state.Key.Catch(
+            state.Surface.BeginWindowSelect).Map(static _ => MarqueeOpenCase.SelfOp),
+        marqueeCloseCase: static (state, _) => state.Key.Catch(
+            state.Surface.EndWindowSelect).Map(static _ => MarqueeCloseCase.SelfOp),
+        gatesCase: static (state, command) => state.Key.Catch(() => {
                 state.Surface.WindowSelectObjects = command.Gates.Admits(SelectAxis.Objects);
                 state.Surface.WindowSelectWires = command.Gates.Admits(SelectAxis.Wires);
                 state.Surface.WindowSelectGroups = command.Gates.Admits(SelectAxis.Groups);
-            }))).Map(static _ => GatesCase.SelfOp),
-        policyCase: static (state, command) => state.Key.Catch(() => Fin.Succ(Op.Side(() => {
+            }).Map(static _ => GatesCase.SelfOp),
+        policyCase: static (state, command) => state.Key.Catch(() => {
                 CanvasActions actions = state.Surface.AllowedActions;
                 toSeq(ActionGate.Items).Iter(gate => gate.Write(actions: actions, allowed: command.Allowed.Admits(gate)));
                 command.Filters.Iter(filters => {
                     actions.MakeWireFilter = Op.ToHostSlot(filters.Make);
                     actions.DeleteWireFilter = Op.ToHostSlot(filters.Delete);
                 });
-            }))).Map(static _ => PolicyCase.SelfOp),
-        editCase: static (state, command) => state.Key.Catch(() => Fin.Succ(Op.Side(() =>
+            }).Map(static _ => PolicyCase.SelfOp),
+        editCase: static (state, command) => state.Key.Catch(() =>
             state.Surface.ShowInlineEditor(
                 command.Prompt.Frame,
                 command.Prompt.Seed,
                 text => command.Prompt.Apply(text: text, key: state.Key),
-                Op.ToHostSlot(command.Prompt.Cancellation(key: state.Key)))))).Map(static _ => EditCase.SelfOp));
+                Op.ToHostSlot(command.Prompt.Cancellation(key: state.Key)))).Map(static _ => EditCase.SelfOp));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -465,13 +465,11 @@ public sealed record InlinePrompt(
 
     internal IResult Apply(string text, Op key) => key.Catch(() =>
             key.Need(value: text).Bind(input => Optional(Parse(input)).ToFin(Fail: key.InvalidResult())))
-        .Match(
-            Succ: static result => result,
-            Fail: error => Grasshopper2.Parsing.Result<Unit>.Fail(
-                error: error.Message, underlying: text, start: 0, after: text.Length));
+        .IfFail(error => Grasshopper2.Parsing.Result<Unit>.Fail(
+            error: error.Message, underlying: text, start: 0, after: text.Length));
 
     internal Option<Action> Cancellation(Op key) => Cancel.Map(callback =>
-        (Action)(() => key.Catch(() => Fin.Succ(Op.Side(action: callback)))
+        (Action)(() => key.Catch(callback)
             .IfFail(cause => ignore(Faults.Park(point: Hook, cause: cause)))));
 }
 
@@ -504,13 +502,13 @@ public static class CanvasOperator {
     public static Fin<Unit> FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null) {
         Op op = key.OrDefault();
         return from live in op.Need(value: surface)
-               from admitted in delay.Match(
-                   Some: span => guard(span >= TimeSpan.Zero, op.InvalidInput()).ToFin().Map(_ => Some(span)),
-                   None: () => Fin.Succ(Option<TimeSpan>.None))
+               from admitted in delay
+                   .TraverseM(span => guard(span >= TimeSpan.Zero, op.InvalidInput()).ToFin().Map(_ => span))
+                   .As()
                from _ in UiThread.Run(
-                   new UiDispatch<Unit>.Blocking(() => op.Catch(() => Fin.Succ(Op.Side(() => admitted.Match(
+                   new UiDispatch<Unit>.Blocking(() => op.Catch(() => admitted.Match(
                        Some: span => live.ScheduleRedraw(span),
-                       None: live.ScheduleRedraw))))),
+                       None: live.ScheduleRedraw))),
                    DispatchLane.Immediate, op)
                select unit;
     }

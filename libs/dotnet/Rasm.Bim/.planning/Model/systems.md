@@ -162,11 +162,11 @@ public sealed record DistributionSystem(
     Seq<NodeId> Served) {
     public (UInt128 MembershipKey, UInt128 TopologyKey) Identity { get; } = (
         ContentHash.Of(Members, static (rows, canon) => canon.Sorted(
-            rows, static id => id.Value, StringComparer.Ordinal, static (id, w) => w.String(id.Value))),
+            rows, static id => id.ToValue(), StringComparer.Ordinal, static (id, w) => w.String(id.ToValue()))),
         ContentHash.Of(
-            Flow.Map(static f => string.CompareOrdinal(f.From.Value, f.To.Value) <= 0
-                ? (Low: f.From.Value, High: f.To.Value)
-                : (Low: f.To.Value, High: f.From.Value)),
+            Flow.Map(static f => string.CompareOrdinal(f.From.ToValue(), f.To.ToValue()) <= 0
+                ? (Low: f.From.ToValue(), High: f.To.ToValue())
+                : (Low: f.To.ToValue(), High: f.From.ToValue())),
             static (rows, canon) => canon.Sorted(
                 rows, static pair => $"{pair.Low}{pair.High}", StringComparer.Ordinal,
                 static (pair, w) => w.String(pair.Low).String(pair.High))));
@@ -199,7 +199,7 @@ public static class DistributionNetwork {
         Seq<FlowEdge> flow = FlowEdgesOf(graph, toHashSet(ports.Map(static p => p.Id)));
         return new DistributionSystem(
             system.Id, system.ExternalId, system.Name,
-            DistributionSystemKind.Of(system.PredefinedType.Token),
+            DistributionSystemKind.Of(system.PredefinedType.ToValue()),
             members, circuits, ports, flow, ServedOf(graph, system.Id));
     }
 
@@ -228,7 +228,7 @@ public static class DistributionNetwork {
             .Bind(port => toSeq(graph.EdgesAt(port)))
             .Choose(e => e is Relationship.Connect c && c.SubKind == ConnectKind.Port && ports.Contains(c.From) && ports.Contains(c.To)
                 ? Some(new FlowEdge(c.From, c.To, c.Realizing)) : None)
-            .DistinctBy(static f => string.CompareOrdinal(f.From.Value, f.To.Value) <= 0 ? (f.From.Value, f.To.Value) : (f.To.Value, f.From.Value)));
+            .DistinctBy(static f => string.CompareOrdinal(f.From.ToValue(), f.To.ToValue()) <= 0 ? (f.From.ToValue(), f.To.ToValue()) : (f.To.ToValue(), f.From.ToValue())));
 
     private static Seq<NodeId> ServedOf(ElementGraph graph, NodeId system) =>
         toSeq(graph.EdgesAt(system))
@@ -238,7 +238,7 @@ public static class DistributionNetwork {
     public static BrickGraph BrickProjection(ElementGraph graph, Seq<DistributionSystem> systems, BrickBinding binding) {
         BrickSchemaManager brick = new();
         BrickLedger ledger = systems.Fold(BrickLedger.Empty, (held, system) => Lower(graph, brick, binding, held, system));
-        return new BrickGraph(brick, ledger.Unbound.Distinct().ToSeq());
+        return new BrickGraph(brick, ledger.Unbound.Distinct());
     }
 
     private readonly record struct BrickLedger(Map<NodeId, string> Minted, Seq<NodeId> Unbound) {
@@ -250,7 +250,7 @@ public static class DistributionNetwork {
 
     private static BrickLedger Lower(
         ElementGraph graph, BrickSchemaManager brick, BrickBinding binding, BrickLedger held, DistributionSystem system) {
-        BrickSystem collection = brick.AddEntity<BrickSystem>(system.Id.Value, system.Name);
+        BrickSystem collection = brick.AddEntity<BrickSystem>(system.Id.ToValue(), system.Name);
         system.ExternalId.Iter(external => collection.AddOrUpdateProperty(nameof(Node.Object.ExternalId), external));
         collection.AddOrUpdateProperty(nameof(DistributionSystem.Kind), system.Kind.Key);
         collection.AddOrUpdateProperty(nameof(DistributionSystemKind.Medium), system.Kind.Medium.Key);
@@ -258,7 +258,7 @@ public static class DistributionNetwork {
             state.Minted.Find(member).Match(
                 Some: entity => Related<PartOf>(brick, entity, collection.Id, state),
                 None: () => (system.Circuits.Contains(member)
-                        ? graph.Find<Node.Object>(member).Map(o => (BrickEntity)brick.AddEntity<BrickSystem>(o.Id.Value, o.Name))
+                        ? graph.Find<Node.Object>(member).Map(o => (BrickEntity)brick.AddEntity<BrickSystem>(o.Id.ToValue(), o.Name))
                         : graph.Find<Node.Object>(member).Bind(o => binding.Equipment(brick, o)))
                     .Match(
                         Some: entity => Related<PartOf>(brick, entity.Id, collection.Id, state.Mint(member, entity.Id)),
@@ -286,7 +286,7 @@ public static class DistributionNetwork {
                  select (Feeder: feeder, Fed: fed))
                     .Iter(pair => Related<Fedby>(brick, pair.Fed, pair.Feeder, withPorts)));
         return system.Served.Fold(withPorts, (state, served) => graph.Find<Node.Object>(served).Match(
-            Some: o => Related<LocationOf>(brick, collection.Id, brick.AddEntity<BrickSpace>(o.Id.Value, o.Name).Id, state),
+            Some: o => Related<LocationOf>(brick, collection.Id, brick.AddEntity<BrickSpace>(o.Id.ToValue(), o.Name).Id, state),
             None: () => state));
     }
 
@@ -432,7 +432,7 @@ public sealed record SystemTrace(NodeId Seed, TraceMode Mode, Seq<TraceHop> Elem
                         .As()
                         .Map(weights => weights.IsEmpty ? 1.0 : weights.Fold(0.0, static (total, si) => total + si))
                         .Bind(weight => weight < 0d
-                            ? Fin.Fail<(NodeId Id, double Weight)>(ElementFault.ValueRejected(key, $"<route-weight-negative:{id.Value}:{weight:R}>"))
+                            ? Fin.Fail<(NodeId Id, double Weight)>(ElementFault.ValueRejected(key, $"<route-weight-negative:{id.ToValue()}:{weight:R}>"))
                             : Fin.Succ((Id: id, Weight: weight)))))
             .As()
             .Map(rows => {
@@ -568,13 +568,11 @@ public static class InterferenceCheck {
     public static Fin<ClashIndex> Build(ElementGraph graph, GeometryProximity proximity, Op key) =>
         graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Occurrence)
-            .ToSeq()
             .TraverseM(o => IfcClass.TryGet(o.Classification.Code)
                 .Bind(c => o.Representations.Body.Map(body => (Class: c, Body: body)))
-                .Match(
-                    Some: row => ClearanceOf(graph, o.Id, key).Map(clearance =>
-                        Some(new ClashCandidate(o.Id, row.Class.Domain, row.Body, RolesOf(row.Class.Domain), clearance))),
-                    None: static () => Fin.Succ<Option<ClashCandidate>>(None)))
+                .TraverseM(row => ClearanceOf(graph, o.Id, key).Map(clearance =>
+                    new ClashCandidate(o.Id, row.Class.Domain, row.Body, RolesOf(row.Class.Domain), clearance)))
+                .As())
             .As()
             .Bind(members => members.Somes()
                 .TraverseM(member => proximity.Bounds(member.Body).Map(bounds => (Member: member, Bounds: bounds)))

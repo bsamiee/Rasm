@@ -157,17 +157,17 @@ public sealed partial class SemanticProjector {
 
     static LanguageExt.HashSet<NodeId> Closure(ElementGraph graph, Seq<NodeId> selected) {
         Seq<NodeId> ancestors = selected.Bind(id => AncestorChain(graph, id, Seq<NodeId>()));
-        Seq<NodeId> types = selected.Bind(id => graph.EdgesAt(id)
+        Seq<NodeId> types = selected.Bind(id => toSeq(graph.EdgesAt(id))
             .Choose(e => e is Relationship.Assign { SubKind: var kind } assign && kind == AssignKind.TypeDefinition && assign.Subject == id
-                ? Some(assign.Definition) : None).ToSeq());
+                ? Some(assign.Definition) : None));
         return toHashSet(selected).TryAddRange(ancestors).TryAddRange(types);
     }
 
     static Seq<NodeId> AncestorChain(ElementGraph graph, NodeId node, Seq<NodeId> seen) =>
-        graph.EdgesAt(node)
+        toSeq(graph.EdgesAt(node))
             .Choose(e => e is Relationship.Compose compose && compose.Part == node
                 && (compose.SubKind == ComposeKind.Contain || compose.SubKind == ComposeKind.Aggregate) ? Some(compose.Whole) : None)
-            .ToSeq().Head
+            .Head
             .Filter(parent => !seen.Contains(parent))
             .Map(parent => parent.Cons(AncestorChain(graph, parent, seen.Add(parent))))
             .IfNone(Seq<NodeId>());
@@ -188,9 +188,8 @@ public sealed partial class SemanticProjector {
             .Traverse(obj => (Author(target, obj, graph.Header.Schema, graph.Header.Tolerance, key, prior, histories)).ToValidation()
                 .Map(entity => (Id: obj.Id, Entity: entity)))
             .As()
-            .Match(
-                Succ: rows => Fin.Succ(rows.Fold(Map<NodeId, IfcObjectDefinition>(), static (map, row) => map.AddOrUpdate(row.Id, row.Entity))),
-                Fail: errors => Fin.Fail<Map<NodeId, IfcObjectDefinition>>(errors));
+            .Map(rows => rows.Fold(Map<NodeId, IfcObjectDefinition>(), static (map, row) => map.AddOrUpdate(row.Id, row.Entity)))
+            .ToFin();
     }
 
     static Map<IfcChangeActionEnum, IfcOwnerHistory> Histories(DatabaseIfc target) {
@@ -211,7 +210,7 @@ public sealed partial class SemanticProjector {
         DatabaseIfc target, Node.Object obj, ReleaseVersion schema, double tolerance, Op key,
         PriorIndex prior, Map<IfcChangeActionEnum, IfcOwnerHistory> histories) =>
         IfcClass.Resolve(obj.Classification.Code, key)
-            .Bind(cls => cls.AdmitPredefined(obj.PredefinedType.Token, obj.ObjectType.IfNone(""), schema, key)
+            .Bind(cls => cls.AdmitPredefined(obj.PredefinedType.ToValue(), obj.ObjectType.IfNone(""), schema, key)
                 .Bind(token => {
                     var entity = (IfcObjectDefinition)(cls == IfcClass.Project
                         ? new IfcProject(target, obj.Name)
@@ -226,7 +225,7 @@ public sealed partial class SemanticProjector {
 
     static Guid ContentGuid(Node.Object obj, double tolerance) {
         Span<byte> address = stackalloc byte[16];
-        BinaryPrimitives.WriteUInt128BigEndian(address, ContentAddress.Of(obj, tolerance).Value);
+        BinaryPrimitives.WriteUInt128BigEndian(address, ContentAddress.Of(obj, tolerance).ToValue());
         return new Guid(address, bigEndian: true);
     }
 
@@ -317,10 +316,9 @@ public sealed partial class SemanticProjector {
 
     WriterT<FidelityLog, Fin, Unit> ReauthorMaterials(EmitFrame frame) =>
         Fidelity.Lift(frame.Graph.Nodes.Values.Choose(static n => n is Node.Material material ? Some(material) : None)
-            .Map(material => (Material: material, Usages: frame.Graph.EdgesAt(material.Id)
+            .Map(material => (Material: material, Usages: toSeq(frame.Graph.EdgesAt(material.Id))
                 .Choose(e => e is Relationship.Associate associate && associate.Resource == material.Id
-                    && frame.Authored.ContainsKey(associate.Subject) ? Some(associate) : None)
-                .ToSeq()))
+                    && frame.Authored.ContainsKey(associate.Subject) ? Some(associate) : None)))
             .Filter(static row => !row.Usages.IsEmpty)
             .TraverseM(row => MaterialProjection.AuthorComposition(frame.Target, row.Material, profiles,
                     ProfileSubtypeOf(frame.Graph, row.Material.Id), frame.Scale)
@@ -331,15 +329,14 @@ public sealed partial class SemanticProjector {
             .As().Map(static _ => unit));
 
     static Option<string> ProfileSubtypeOf(ElementGraph graph, NodeId materialId) =>
-        graph.EdgesAt(materialId)
+        toSeq(graph.EdgesAt(materialId))
             .Choose(e => e is Relationship.Associate associate && associate.Resource == materialId ? Some(associate.Subject) : None)
-            .Bind(subject => graph.EdgesAt(subject)
+            .Bind(subject => toSeq(graph.EdgesAt(subject))
                 .Choose(e => e is Relationship.Assign assign && assign.SubKind == AssignKind.PropertyDefinition && assign.Subject == subject
                     ? Some(assign.Definition) : None))
             .Choose(definition => graph.Nodes.Find(definition).Case is Node.PropertySet { Bag: var bag } && bag.SetName == DetailSchema.Realization.SetName
                 ? bag.Find(DetailSchema.ProfileSubtype).Bind(static v => v is PropertyValue.Text text ? Some(text.Value) : Option<string>.None)
                 : Option<string>.None)
-            .ToSeq()
             .Head;
 
     // --- [BAG_LEG]
@@ -364,7 +361,7 @@ public sealed partial class SemanticProjector {
             .Choose(static n => n is Node.PropertySet { Bag.SetName: var set } bag && set == PositioningAttributeSet ? Some(bag) : None)
             .Filter(bag => frame.Edges.Attachments.Find(bag.Id).Exists(edges => edges.Exists(a => frame.Authored.ContainsKey(a.Subject))))
             .ToSeq()
-            .TraverseM(bag => Fidelity.Drop(FidelityDrop.LinearPlacement, bag.Id.Value, unit)).As()
+            .TraverseM(bag => Fidelity.Drop(FidelityDrop.LinearPlacement, bag.Id.ToValue(), unit)).As()
             .Map(static _ => unit);
 
     static WriterT<FidelityLog, Fin, Unit> Bind(EmitFrame frame, Seq<(NodeId Id, IfcPropertySetDefinition Set)> rows) {
@@ -381,7 +378,7 @@ public sealed partial class SemanticProjector {
     WriterT<FidelityLog, Fin, Unit> ReauthorClassifications(EmitFrame frame) =>
         Fidelity.Lift(frame.Graph.Nodes.Values.Choose(static n => n is Node.Object obj ? Some(obj) : None)
             .Bind(obj => frame.Authored.Find(obj.Id)
-                .Map(entity => obj.Classifications.Add(obj.Classification).ToSeq().Map(row => (Entity: entity, Row: row)))
+                .Map(entity => obj.Classifications.Add(obj.Classification).Map(row => (Entity: entity, Row: row)))
                 .IfNone(Seq<(IfcObjectDefinition Entity, Classification Row)>()))
             .AsIterable().ToSeq()
             .TraverseM(pair => ClassificationSystem.Author(frame.Target, (IfcDefinitionSelect)pair.Entity, pair.Row, pins)
@@ -410,7 +407,7 @@ public sealed partial class SemanticProjector {
 
     static Seq<Relationship.Generic> Ordered(Seq<Relationship.Generic> nests) =>
         toSeq(nests.Choose(static nest => OrdinalOf(nest).Map(ordinal => (Edge: nest, Ordinal: ordinal)))
-                   .OrderBy(static row => row.Ordinal).Map(static row => row.Edge))
+                   .OrderBy(static row => row.Ordinal)).Map(static row => row.Edge)
         + nests.Filter(static nest => OrdinalOf(nest).IsNone);
 
     static Option<BigInteger> OrdinalOf(Relationship.Generic edge) =>
@@ -448,7 +445,7 @@ public sealed partial class SemanticProjector {
     static WriterT<FidelityLog, Fin, Unit> Skipped(EmitFrame frame, Relationship edge) =>
         edge is Relationship.Assign { SubKind: var assigned } assessment && assigned == AssignKind.Assessment
             && frame.Authored.ContainsKey(assessment.Subject)
-                ? Fidelity.Drop(FidelityDrop.AssessmentSkipped, assessment.Definition.Value, unit)
+                ? Fidelity.Drop(FidelityDrop.AssessmentSkipped, assessment.Definition.ToValue(), unit)
                 : Fidelity.Clean(unit);
 
     static Option<(IfcObjectDefinition Relating, IfcObjectDefinition Related)> Endpoints(EmitFrame frame, Relationship edge, IfcRelKind kind) =>
@@ -464,7 +461,7 @@ public sealed partial class SemanticProjector {
             : None;
         Option<IfcConnectionGeometry> constraint = eccentric.Bind(profiles.Find<IfcConnectionGeometry>);
         WriterT<FidelityLog, Fin, Unit> degrade = eccentric.IsSome && constraint.IsNone
-            ? Fidelity.Drop(FidelityDrop.EccentricityDegraded, edge.Relating.Value, unit)
+            ? Fidelity.Drop(FidelityDrop.EccentricityDegraded, edge.Relating.ToValue(), unit)
             : Fidelity.Clean(unit);
         Option<string> refined = Refined(kind, edge).Filter(_ => eccentric.IsNone || constraint.IsSome);
         return degrade.Bind(_ => Fidelity.Lift(InterfaceOf(InterfaceKeyOf(edge), frame.Key)
@@ -505,11 +502,9 @@ public sealed partial class SemanticProjector {
             : Option<UInt128>.None;
 
     Fin<Option<IfcConnectionGeometry>> InterfaceOf(Option<UInt128> content, Op key) =>
-        content.Match(
-            None: static () => Fin.Succ(Option<IfcConnectionGeometry>.None),
-            Some: address => profiles.Find<IfcConnectionGeometry>(address)
-                .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "connection-interface-miss", address })))
-                .Map(Some));
+        content.TraverseM(address => profiles.Find<IfcConnectionGeometry>(address)
+                .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "connection-interface-miss", address }))))
+            .As();
 
     static Option<IfcRelKind> RelKindOf(Relationship edge) => edge switch {
         Relationship.Compose compose => IfcRelKind.ForNeutral(RelationshipKind.Compose, compose.SubKind.Key),
@@ -528,7 +523,7 @@ public sealed partial class SemanticProjector {
     WriterT<FidelityLog, Fin, Unit> ReauthorStructural(EmitFrame frame) =>
         Restamped(frame, StructuralDefinitionSet)
             .TraverseM(row => Fidelity.Lift(StructuralProjection.Author(frame.Target, row.Entity, row.Bag.Values, frame.Key))
-                .Bind(residue => residue.TraverseM(_ => Fidelity.Drop(FidelityDrop.StructuralResidue, row.Subject.Value, unit)).As()
+                .Bind(residue => residue.TraverseM(_ => Fidelity.Drop(FidelityDrop.StructuralResidue, row.Subject.ToValue(), unit)).As()
                     .Map(static _ => unit)))
             .As().Map(static _ => unit);
 
@@ -545,11 +540,10 @@ public sealed partial class SemanticProjector {
     }
 
     static Seq<(NodeId Subject, IfcObjectDefinition Entity, PropertyBag Bag)> Restamped(EmitFrame frame, PropertyName set) =>
-        toSeq(frame.Edges.Attachments.Values).Flatten()
+        toSeq(toSeq(frame.Edges.Attachments.Values).Flatten())
             .Choose(attachment => frame.Graph.Nodes.Find(attachment.Definition).Case is Node.PropertySet { Bag: var bag } && bag.SetName == set
                 ? frame.Authored.Find(attachment.Subject).Map(entity => (Subject: attachment.Subject, Entity: entity, Bag: bag))
-                : None)
-            .ToSeq();
+                : None);
 
     static WriterT<FidelityLog, Fin, Unit> ReauthorHeader(EmitFrame frame) =>
         Fidelity.Clean(ignore(StepHeaderMapper.Restore(frame.Graph.Header.Step, frame.Target.OriginatingFileInformation)));

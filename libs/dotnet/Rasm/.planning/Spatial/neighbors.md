@@ -64,7 +64,7 @@ public abstract partial record NeighborQuery {
             .Map(_ => (NeighborQuery)new NearestCase(K: k, Metric: metric.IfNone(NeighborMetric.Euclidean)));
     public static Fin<NeighborQuery> Radius(double r, Option<int> cap = default, Option<NeighborMetric> metric = default, Op? key = null) =>
         from magnitude in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: r)
-        from bound in cap.Match(Some: c => key.OrDefault().AcceptValidated<Dimension>(candidate: c).Map(Some), None: static () => Fin.Succ(Option<Dimension>.None))
+        from bound in cap.TraverseM(c => key.OrDefault().AcceptValidated<Dimension>(candidate: c)).As()
         select (NeighborQuery)new RadiusCase(R: magnitude, Cap: bound, Metric: metric.IfNone(NeighborMetric.Euclidean));
 
     internal Fin<(NeighborQuery Query, Point3d Anchor)> SearchProbe(Op key) => this switch {
@@ -556,7 +556,7 @@ internal static partial class NeighborKernel {
                 AcceptedSampleCount: samples.Count,
                 Kind: samples.IsEmpty
                     ? CurvatureRangeKind.Empty
-                    : CurvatureRangeKind.Items.Find(row => Counted(row) == samples.Count).IfNone(CurvatureRangeKind.Mixed),
+                    : toSeq(CurvatureRangeKind.Items).Find(row => Counted(row) == samples.Count).IfNone(CurvatureRangeKind.Mixed),
                 PlaneLikeCount: Counted(CurvatureRangeKind.Plane), SphereLikeCount: Counted(CurvatureRangeKind.Sphere),
                 SaddleLikeCount: Counted(CurvatureRangeKind.Saddle), MixedCount: Counted(CurvatureRangeKind.Mixed),
                 Bands: bands, Tolerance: EpsilonPolicy.SqrtEpsilon));

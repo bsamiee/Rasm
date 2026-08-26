@@ -186,7 +186,7 @@ internal sealed partial class Capability : ICapability<Capability> {
     internal bool Admits(Type type) =>
         Natives.Any(native => native.IsAssignableFrom(c: type))
         || Reach(type: type)
-        || Kind.Of(type: type).Map(kind => kind.Capabilities.Admits(capability: this)).IfNone(noneValue: false);
+        || Kind.Of(type: type).Exists(kind => kind.Capabilities.Admits(capability: this));
     internal static bool Universal(Type type) => type == typeof(object) || type == typeof(GeometryBase);
     internal static bool Coercible(Type source, Type target) =>
         Universal(type: source) || Kind.Of(type: source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(c: source));
@@ -196,7 +196,7 @@ internal sealed partial class Capability : ICapability<Capability> {
         }
         return false;
     }
-    private static bool KindAdmits(Type type, Func<Kind, bool> predicate) => Kind.Of(type: type).Map(predicate).IfNone(noneValue: false);
+    private static bool KindAdmits(Type type, Func<Kind, bool> predicate) => Kind.Of(type: type).Exists(predicate);
     private static FrozenSet<Type> Set(params ReadOnlySpan<Type> natives) => natives.ToArray().ToFrozenSet();
 }
 
@@ -394,7 +394,7 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
             || (Value is Brep or BrepFace && outputType.IsAssignableFrom(typeof(Brep)));
     }
     public bool Transfers(object? output) =>
-        Optional(output).Map(present => present switch {
+        Optional(output).Exists(present => present switch {
             TopologyProjection projection => SameAs(other: projection),
             GeometryBase geometry => ReferenceEquals(objA: Value, objB: geometry) || (Value, geometry) switch {
                 (Brep brep, BrepFace face) => ReferenceEquals(objA: brep, objB: face.Brep),
@@ -403,7 +403,7 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
                 _ => false,
             },
             _ => false,
-        }).IfNone(noneValue: false);
+        });
     public void Dispose() {
         _ = value.Dispose();
         _ = faceBrep.Iter(static owned => owned.Dispose());
@@ -442,7 +442,7 @@ internal static class Normalization {
             });
         public Fin<BoundingBox> BoundsOf(Op key) =>
             Optional(geometry).ToFin(key.InvalidInput()).Bind(source =>
-                guard(OpAcceptance.ValidityOf(source: source).IfNone(noneValue: false), key.InvalidInput()).ToFin().Bind(_ => Kind.Of(type: source.GetType()).Case switch {
+                guard(OpAcceptance.ValidityOf(source: source).Exists(static valid => valid), key.InvalidInput()).ToFin().Bind(_ => Kind.Of(type: source.GetType()).Case switch {
                     Kind kind => kind.Bounds(value: source, key: key),
                     _ => source is GeometryBase native
                         ? guard(native.IsValid, key.InvalidInput()).ToFin().Map(_ => native.GetBoundingBox(accurate: true))

@@ -180,13 +180,12 @@ public abstract partial record ExtensionAdmission {
     public sealed record AccessMethod(string Method) : ExtensionAdmission;
     public sealed record Standalone(string Reason) : ExtensionAdmission;
 
-    public bool Admissible(IReadOnlySet<string> preloaded, CapabilitySet<ServerExtension> created) => this switch {
-        Preload p    => preloaded.Contains(p.Library),
-        BaseType b   => created.Admits(b.Extension),
-        AccessMethod => true,
-        Standalone   => true,
-        _            => false,
-    };
+    public bool Admissible(IReadOnlySet<string> preloaded, CapabilitySet<ServerExtension> created) =>
+        this.Switch(
+            preload: p => preloaded.Contains(p.Library),
+            baseType: b => created.Admits(b.Extension),
+            accessMethod: static _ => true,
+            standalone: static _ => true);
     public Option<string> PreloadLibrary => this is Preload p ? Some(p.Library) : None;
     public int Depth => this is BaseType b ? b.Extension.Rank + 1 : 0;
 }
@@ -454,7 +453,7 @@ public static class ClusterProvision {
                 Settings: toHashMap(await Next(reader, static row => (row.GetString(0), row.GetString(1))).ConfigureAwait(false)),
                 SlotLag: await NextScalar(reader, static row => row.GetInt64(0), "slot-lag").ConfigureAwait(false),
                 InvalidIndexes: await NextScalar(reader, static row => row.GetInt64(0), "invalid-indexes").ConfigureAwait(false)));
-        }).ConfigureAwait(false)).Bind(IO.liftFin)
+        }).ConfigureAwait(false)).Bind(IO.lift)
         | @catch<IO, ProvisionVerdict>(static _ => true,
             error => IO.pure((ProvisionVerdict)new ProvisionVerdict.Faulted(ServerFault.Lift(error), demand.Epoch)));
 
@@ -490,7 +489,7 @@ public static class ClusterProvision {
         Seq<Error> readiness =
             (read.SlotLag > 0 ? Seq<Error>(new ServerFault.SlotLag(read.SlotLag)) : Seq<Error>())
             + (read.InvalidIndexes > 0 ? Seq<Error>(new ServerFault.InvalidIndex(read.InvalidIndexes)) : Seq<Error>())
-            + demand.Floors.ToSeq().Choose(floor => read.Versions.Find(floor.Key)
+            + demand.Floors.AsIterable().ToSeq().Choose(floor => read.Versions.Find(floor.Key)
                 .Filter(held => !floor.Value.Satisfied(held, floor.Value.Minimum))
                 .Map(held => (Error)new ServerFault.Evidence(floor.Key, $"version:{held}<{floor.Value.Minimum}")));
         (CapabilitySet<ServerExtension> Held, Seq<Error> Faults, Seq<ServerExtension> Absent) fold = demand.Ordered.Fold(
@@ -516,7 +515,7 @@ public static class ClusterProvision {
             await source.ReloadTypesAsync().ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
         }).ConfigureAwait(false)).MapFail(ServerFault.Lift))
-        .Bind(IO.liftFin);
+        .Bind(IO.lift);
 
     public static IO<Fin<Unit>> Register(StoreProfile profile, IDocumentSession session, MaintenanceJob job, ProvisionVerdict.Provisioned cluster) =>
         Queued(session, job.RegisterSql,
@@ -664,9 +663,8 @@ public static class EmbeddedStore {
 
     public static Fin<Seq<RitualStep>> Open(SqliteConnection store, EmbeddedRitual ritual, Option<ReadOnlyMemory<byte>> dek, Action<SqliteConnection, SqliteTransaction, long> materialize) =>
         HandleBridge.Opened(store, handle => {
-            Fin<Unit> keyed = dek.Match(
-                Some: key => HandleBridge.Status(raw.sqlite3_key(handle, key.Span), "<key-refused>"),
-                None: static () => Fin.Succ(unit));
+            Fin<Unit> keyed = dek.TraverseM(key =>
+                HandleBridge.Status(raw.sqlite3_key(handle, key.Span), "<key-refused>")).As().Map(static _ => unit);
             if (keyed.IsFail) { return keyed.Map(static _ => Seq<RitualStep>()); }
             return ritual.Capabilities.TraverseM(row =>
                 row.Grant(store).Map(_ => new RitualStep(row.Row, None))).As().Bind(facts => {
@@ -1080,10 +1078,10 @@ public static class HandleBridge {
     public static Fin<T> Opened<T>(SqliteConnection store, Func<sqlite3, Fin<T>> body) =>
         Lifted(fun(store.Open))
             .Bind(_ => Crossed(store, body))
-            .Match(Succ: Fin<T>.Succ, Fail: fault => Disposed<T>(store, fault));
-
-    static Fin<T> Disposed<T>(SqliteConnection store, Error fault) =>
-        (fun(store.Dispose)(), Fin<T>.Fail(fault)).Item2;
+            .BindFail(fault => {
+                store.Dispose();
+                return Fin<T>.Fail(fault);
+            });
 
     public static Fin<T> Status<T>(int status, string detail, Func<T> value) =>
         status == raw.SQLITE_OK ? Fin.Succ(value()) : Fin.Fail<T>(EmbeddedFault.FromStatus(status, detail));
@@ -1133,7 +1131,7 @@ public static class EngineOps {
         });
 
     public static IO<Fin<BackupState>> Backup(SqliteConnection source, string destinationPath, BackupPolicy policy, ProjectionContext frame) =>
-        IO.lift(() =>
+        IO.lift<Fin<BackupState>>(() =>
             from expected in policy.Identity(source)
             from sourceHandle in HandleBridge.Of(source)
             from fact in Paged(EmbeddedStore.Dialed(destinationPath), sourceHandle, expected, policy, frame)
@@ -1141,9 +1139,8 @@ public static class EngineOps {
 
     static Fin<BackupState> Paged(SqliteConnection destination, sqlite3 source, ContentAddress expected, BackupPolicy policy, ProjectionContext frame) =>
         HandleBridge.Opened(destination, handle =>
-            from _keyed in policy.Dek.Match(
-                Some: key => HandleBridge.Status(raw.sqlite3_key(handle, key.Span), "<backup-key-refused>"),
-                None: static () => Fin.Succ(unit))
+            from _keyed in policy.Dek.TraverseM(key =>
+                HandleBridge.Status(raw.sqlite3_key(handle, key.Span), "<backup-key-refused>")).As()
             from fact in Stepped(handle, source, expected, destination, policy, frame)
             select fact);
 
@@ -1166,7 +1163,7 @@ public static class EngineOps {
     }
 
     public static IO<Fin<long>> WriteBlob(SqliteConnection store, BlobBinding binding, long rowid, ReadOnlyMemory<byte> payload) =>
-        IO.lift(() => HandleBridge.Lifted(() => {
+        IO.lift<Fin<long>>(() => HandleBridge.Lifted(() => {
             using SqliteCommand command = store.CreateCommand();
             command.CommandText = binding.PreallocateSql;
             command.Parameters.Add(new SqliteParameter("rowid", SqliteType.Integer) { Value = rowid });
@@ -1285,7 +1282,7 @@ public static class KvFloor {
                             unlink: static (t, w) => t.Txn.Delete(t.Db, t.Key.Span, w.Owner.Span),
                             drop:   static (t, _) => t.Txn.Delete(t.Db, t.Key.Span)));
                         Option<MDBResultCode> refused = statuses.Find(static status => status != MDBResultCode.Success && status != MDBResultCode.NotFound);
-                        return refused.IsSome ? refused.ValueUnsafe() : transaction.Commit();
+                        return refused.IfNone(transaction.Commit);
                     }).Bind(Mdb));
 
     public static Fin<Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)>> Scan(KvEngine engine, KvSpace space, ReadOnlyMemory<byte> prefix) =>
@@ -1357,17 +1354,14 @@ public static class KvFloor {
     static LightningDatabase Db(KvEngine.Mmap engine, KvSpace space) => engine.Spaces[space];
 
     static Fin<Option<ReadOnlyMemory<byte>>> Opened(KvVault vault, KvSpace space, ReadOnlyMemory<byte> key, Option<byte[]> held) =>
-        held.Match(
-            Some: value => vault.Unwrap(space, key.Span, value).Map(static opened => Some(opened)),
-            None: () => Fin.Succ<Option<ReadOnlyMemory<byte>>>(None));
+        held.TraverseM(value => vault.Unwrap(space, key.Span, value)).As();
 
     static Fin<Seq<ReadOnlyMemory<byte>>> Opened(KvVault vault, KvSpace space, ReadOnlyMemory<byte> key, Seq<ReadOnlyMemory<byte>> members) =>
-        members.Fold(Fin.Succ(Seq<ReadOnlyMemory<byte>>()), (held, member) =>
-            held.Bind(opened => vault.Unwrap(space, key.Span, member).Map(value => opened.Add(value))));
+        members.TraverseM(member => vault.Unwrap(space, key.Span, member)).As();
 
     static Fin<Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)>> Opened(KvVault vault, KvSpace space, Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)> rows) =>
-        rows.Fold(Fin.Succ(Seq<(ReadOnlyMemory<byte> Key, ReadOnlyMemory<byte> Value)>()), (held, row) =>
-            held.Bind(opened => vault.Unwrap(space, row.Key.Span, row.Value).Map(value => opened.Add((row.Key, value)))));
+        rows.TraverseM(row => vault.Unwrap(space, row.Key.Span, row.Value)
+            .Map(value => (Key: row.Key, Value: value))).As();
 
     static Seq<ReadOnlyMemory<byte>> Paged(LightningCursor cursor, ReadOnlyMemory<byte> key, int width) {
         Seq<ReadOnlyMemory<byte>> members = default;

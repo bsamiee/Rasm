@@ -71,7 +71,7 @@ public static partial class HistoryLedger {
     public static Fin<Unit> Seal(History ledger, ActionList actions, VerbNoun label, Op key) =>
         from live in Optional(ledger).ToFin(key.MissingContext())
         from filled in Optional(actions).ToFin(key.InvalidInput())
-        from _ in key.Catch(body: () => Fin.Succ(Op.Side(action: () => live.Do(label, filled))))
+        from _ in key.Catch(() => live.Do(label, filled))
         select unit;
 
     public static Fin<Record> Bank(ActionList actions, VerbNoun label, Op? key = null) {
@@ -110,13 +110,13 @@ public static partial class HistoryLedger {
 
     private static Fin<Unit> Replayed(
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks, Op op, HostDocument document, Op key) =>
-        hooks.Match(
-            Some: live => live.Fire(
-                    at: GrasshopperPoint.HistoryReplay,
-                    fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)),
-                    key: key)
-                .Map(static _ => unit),
-            None: () => Fin.Succ(unit));
+        hooks
+            .TraverseM(live => live.Fire(
+                at: GrasshopperPoint.HistoryReplay,
+                fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)),
+                key: key))
+            .As()
+            .Map(static _ => unit);
 
     private static Fin<GateOutcome> Free(Op key, Func<Unit> act) =>
         key.Catch(body: () => Fin.Succ((act(), (GateOutcome)new GateOutcome.SettledCase()).Item2));

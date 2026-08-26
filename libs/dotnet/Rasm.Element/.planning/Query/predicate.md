@@ -25,7 +25,6 @@ Stored `Func<…, bool>` query filters are banned because a delegate is opaque t
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Generator.Equals;
@@ -108,13 +107,11 @@ public abstract partial record ValueMatch {
   public string Expression { get; }
 
   public static Fin<ValueMatch> Of(string expression, Op key) =>
-   key.Catch(() => Fin.Succ(CompiledPatterns.GetOrAdd(expression, static pattern =>
-     new Regex($@"\A(?:{pattern})\z", RegexOptions.NonBacktracking | RegexOptions.CultureInvariant))))
+   key.Catch(() => Fin.Succ(Compiled(expression)))
     .Map(_ => (ValueMatch)new Pattern(expression));
 
-  private static readonly ConcurrentDictionary<string, Regex> CompiledPatterns = new();
-
-  internal static Regex Compiled(string expression) => CompiledPatterns[expression];
+  internal static readonly Func<string, Regex> Compiled = memo(static pattern =>
+   new Regex($@"\A(?:{pattern})\z", RegexOptions.NonBacktracking | RegexOptions.CultureInvariant));
  }
 
  public sealed record Range(Option<RangeBound> Lower, Option<RangeBound> Upper) : ValueMatch;
@@ -254,7 +251,7 @@ public abstract partial record ElementLeaf {
    wr.Ordinal(6).Optional(m.Kind, static (k, x) => x.String(k.Key)); PredicateKey.Node(m.Other, wr);
   },
   byVoided: static (wr, m) => { wr.Ordinal(7).String(m.SubKind.Key); PredicateKey.Node(m.Other, wr); },
-  byGeneric: static (wr, m) => { wr.Ordinal(8).String(m.Wire.Value); PredicateKey.Node(m.Other, wr); },
+  byGeneric: static (wr, m) => { wr.Ordinal(8).String(m.Wire.ToValue()); PredicateKey.Node(m.Other, wr); },
   byAssessment: static (wr, m) => {
    wr.Ordinal(9).String(m.Discipline.Key).Optional(m.Outcome, static (o, x) => x.String(o.Key));
   },
@@ -295,12 +292,12 @@ public static class PredicateKey {
    all: static (s, all) => { s.Writer.Ordinal(1).Rows(all.Operands, (p, x) => Write(p, s.Leaf, x)); },
    any: static (s, any) => { s.Writer.Ordinal(2).Rows(any.Operands, (p, x) => Write(p, s.Leaf, x)); },
    not: static (s, not) => { s.Writer.Ordinal(3); Write(not.Operand, s.Leaf, s.Writer); },
-   closure: static (s, walk) => { s.Writer.Ordinal(4).Ordinal(walk.Depth.Value); Write(walk.Seed, s.Leaf, s.Writer); });
+   closure: static (s, walk) => { s.Writer.Ordinal(4).Ordinal(walk.Depth.ToValue()); Write(walk.Seed, s.Leaf, s.Writer); });
 
  internal static void Node(NodeMatch<ElementLeaf> match, CanonicalWriter w) =>
   match.Switch(
    state: w,
-   exact: static (wr, exact) => { wr.Ordinal(0).String(exact.Id.Value); },
+   exact: static (wr, exact) => { wr.Ordinal(0).String(exact.Id.ToValue()); },
    where: static (wr, where) => { wr.Ordinal(1); Write(where.Pattern, static (v, x) => v.CanonicalBytes(x), wr); });
 }
 ```

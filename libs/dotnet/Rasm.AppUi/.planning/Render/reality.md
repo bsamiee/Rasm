@@ -714,7 +714,7 @@ public sealed record CaptureClip(string Key, Seq<CaptureEpoch> Epochs) {
         Epochs.Head.Match(
             None: () => Fin.Fail<Track>(new CaptureFault.PayloadMalformed($"clip/empty:{Key}")),
             Some: head => Track.OfFieldIndex(key, Epochs.Map(epoch => new Keyframe<int>(
-                epoch.At - head.At, epoch.Index, MotionToken.Standard)).ToSeq()));
+                epoch.At - head.At, epoch.Index, MotionToken.Standard))));
 }
 ```
 

@@ -912,9 +912,7 @@ public sealed partial class Colormap {
                     var lo => (Stops.At(lo), Stops.At(lo + 1))
                         .Apply((left, right) => (Left: left, Right: right))
                         .ToFin(Fail: new ThemeFault.PaletteRejected($"segment {lo} of {Key}"))
-                        .Bind(pair => UnitInterval.TryCreate(scaled - lo, out UnitInterval? amount)
-                            ? Mix(pair.Left, pair.Right, amount, Class.Path)
-                            : Fin.Fail<Color>(new ThemeFault.PaletteRejected($"amount {scaled - lo}"))),
+                        .Bind(pair => Mix(pair.Left, pair.Right, UnitInterval.Create(scaled - lo), Class.Path)),
                 },
             };
 

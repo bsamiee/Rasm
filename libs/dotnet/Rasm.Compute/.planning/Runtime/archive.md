@@ -126,7 +126,7 @@ public static class HdfArchive {
     }
 
     public static IO<Fin<A>> Session<A>(HdfSource source, HdfArchivePolicy policy, Func<HdfHandle, IO<Fin<A>>> read) =>
-        IO.lift(() => Open(source, policy)).Bind(opened => opened.Match(
+        IO.lift<Fin<HdfHandle>>(() => Open(source, policy)).Bind(opened => opened.Match(
             Succ: handle => IO.lift(() => handle).Bracket(read, static handle => IO.lift(() => { handle.Dispose(); return unit; })),
             Fail: error => IO.pure(Fin<A>.Fail(error))));
 

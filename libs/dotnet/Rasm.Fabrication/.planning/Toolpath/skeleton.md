@@ -305,8 +305,7 @@ public static class Skeleton {
             : Fin.Fail<ProcessBudget.Subtractive>(new KernelFault.InvalidValue("skeleton", "skeleton:budget"))
         let cutterRadius = demand.Cutter.Diameter / 2.0
         from passes in Range(0, demand.Topology.ComponentCount).ToSeq()
-            .Map(component => Component(demand, budget, cutterRadius, scallop.StepMm, component))
-            .TraverseM(identity)
+            .TraverseM(component => Component(demand, budget, cutterRadius, scallop.StepMm, component))
             .As()
         let walked = new SkeletonWalk(
             passes,

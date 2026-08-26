@@ -107,12 +107,12 @@ public static class TileSynth {
                from plan in key.Catch(() => Fin.Succ(
                    policy.Strategy.Solve(image.Levels[0].AsMemory2D(guide.Base.Height.Value, guide.Base.Width.Value), policy, policy.Seed)))
                from channels in PairingOrder(set.Channels)
-                   .Fold(Fin.Succ(HashMap<TextureChannel, TexturePyramid>.Empty), (acc, row) =>
-                       acc.Bind(map => set.Channels.Find(row).ToFin(new RasterFault.Tile(key, $"<tile-channel-lost:{row.Key}>"))
+                   .FoldM(HashMap<TextureChannel, TexturePyramid>.Empty, (map, row) =>
+                       set.Channels.Find(row).ToFin(new RasterFault.Tile(key, $"<tile-channel-lost:{row.Key}>"))
                            .Bind(pyramid => Apply(plan, pyramid, key, Companion(row, set.Channels).Bind(map.Find))
-                               .Map(tiled => map.Add(row, tiled)))))
-               from packs in set.Packs.Fold(Fin.Succ(Seq<ChannelPackPlane>()), (acc, pack) =>
-                   acc.Bind(rows => Apply(plan, pack.Plane, key).Map(tiled => rows.Add(pack with { Plane = tiled }))))
+                               .Map(tiled => map.Add(row, tiled)))).As()
+               from packs in set.Packs.TraverseM(pack =>
+                   Apply(plan, pack.Plane, key).Map(tiled => pack with { Plane = tiled })).As()
                from regraded in channels.Find(policy.Guide).ToFin(new RasterFault.Tile(key, "<tile-guide-lost>"))
                let scored = TileProof.Grade(regraded, policy, key)
                let graded = Evidence.Of(scored)

@@ -480,9 +480,8 @@ public sealed class HostPage : IMount, IDisposable {
             });
         }
         return primary.Settled(
-            release: () => exited.Bind(release => release.Match(
-                Some: children => ReleaseTree(children: children, key: op),
-                None: static () => Fin.Succ(unit))),
+            release: () => exited.Bind(release => release
+                .TraverseM(children => ReleaseTree(children, op)).As().Map(static _ => unit)),
             key: op);
     }
 
@@ -516,9 +515,7 @@ public sealed class HostPage : IMount, IDisposable {
         if (owner != claim.Value) return Fin.Fail<Unit>(error: Contested(Key));
         Option<Seq<IMount>> release;
         lock (sync) { (custody, release) = custody.Closed(); }
-        return release.Match(
-            Some: children => ReleaseTree(children: children, key: Key),
-            None: static () => Fin.Succ(unit));
+        return release.TraverseM(children => ReleaseTree(children, Key)).As().Map(static _ => unit);
     }
 
     private Fin<Unit> ReleaseTree(Seq<IMount> children, Op key) =>

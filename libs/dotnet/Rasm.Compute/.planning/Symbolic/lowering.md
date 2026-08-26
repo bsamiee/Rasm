@@ -127,29 +127,22 @@ public static class CompileCapsule {
                         .Map(evaluator => Carry(source, proof, symbolOrder, new CompiledBody.Lowered(arity, evaluator)))));
 
     static Fin<Entity> Admit(SymbolicExpr source, DimensionVerdict proof, Seq<SymbolName> symbolOrder) =>
-        (source.Tree.Match(Succ: Success<Error, Entity>, Fail: static error => Fail<Error, Entity>(error)),
-         Proven(source, proof),
-         Distinct(symbolOrder),
+        (source.Tree.ToValidation(),
+         AdmissionSlots.Gate(
+             proof.Proved == source.ContentKey,
+             new ComputeFault.DimensionMismatch($"<compile-unproven:{source.ContentKey:x32}≠{proof.Proved:x32}>")),
+         AdmissionSlots.Gate(
+             symbolOrder.Distinct().Count == symbolOrder.Count,
+             new ComputeFault.ParseRejected("<symbol-order-duplicate>")),
          Covering(source, symbolOrder))
             .Apply(static (tree, _, _, _) => tree)
             .As()
             .ToFin();
 
-    static Validation<Error, Unit> Proven(SymbolicExpr source, DimensionVerdict proof) =>
-        proof.Proved == source.ContentKey
-            ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(new ComputeFault.DimensionMismatch(
-                $"<compile-unproven:{source.ContentKey:x32}≠{proof.Proved:x32}>"));
-
-    static Validation<Error, Unit> Distinct(Seq<SymbolName> symbolOrder) =>
-        symbolOrder.Distinct().Count == symbolOrder.Count
-            ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(new ComputeFault.ParseRejected("<symbol-order-duplicate>"));
-
     static Validation<Error, Unit> Covering(SymbolicExpr source, Seq<SymbolName> symbolOrder) =>
         source.FreeSymbols.Filter(symbol => !symbolOrder.Contains(symbol)) is { IsEmpty: false } missing
             ? Fail<Error, Unit>(new ComputeFault.SymbolUndefined(
-                $"<symbol-order-missing:{string.Join(",", missing.Map(static s => s.Value))}>"))
+                $"<symbol-order-missing:{string.Join(",", missing.Map(static s => s.ToValue()))}>"))
             : Success<Error, Unit>(unit);
 
     static CompiledExpr Carry(SymbolicExpr source, DimensionVerdict proof, Seq<SymbolName> symbolOrder, CompiledBody body) =>
@@ -189,7 +182,7 @@ public static class CompiledKey {
         Captured.Of(() => {
                 ArrayBufferWriter<byte> symbols = new();
                 foreach (SymbolName symbol in symbolOrder) {
-                    byte[] encoded = Encoding.UTF8.GetBytes(symbol.Value);
+                    byte[] encoded = Encoding.UTF8.GetBytes(symbol.ToValue());
                     Span<byte> slot = symbols.GetSpan(4 + encoded.Length);
                     BinaryPrimitives.WriteInt32LittleEndian(slot, encoded.Length);
                     encoded.CopyTo(slot[4..]);

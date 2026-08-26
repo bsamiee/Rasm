@@ -433,8 +433,7 @@ public sealed partial class CloudHullRejection {
     public static readonly CloudHullRejection Unknown = new(key: (int)ConvexHullCreationResultOutcome.UnknownError);
     internal static Fin<Option<CloudHullRejection>> Of(ConvexHullCreationResultOutcome outcome, Op key) =>
         outcome is ConvexHullCreationResultOutcome.Success ? Fin.Succ(Option<CloudHullRejection>.None)
-        : TryGet((int)outcome, out CloudHullRejection? row) ? Fin.Succ(Some(row!))
-        : Fin.Fail<Option<CloudHullRejection>>(key.InvalidResult());
+        : key.Row<int, CloudHullRejection>((int)outcome).Map(Some).MapFail(_ => key.InvalidResult());
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -453,9 +452,7 @@ public readonly record struct CloudHullPolicy(
                select new CloudHullPolicy(Tolerance: admittedTolerance, AngleTolerance: admittedAngle, Alpha: admittedAlpha, Lambda: admittedLambda);
     }
     private static Fin<Option<PositiveMagnitude>> AdmitMagnitude(Option<PositiveMagnitude> value, Op key) =>
-        value.Match(
-            Some: magnitude => key.AcceptValidated<PositiveMagnitude>(candidate: magnitude.Value).Map(static admitted => Some(admitted)),
-            None: static () => Fin.Succ(Option<PositiveMagnitude>.None));
+        value.TraverseM(magnitude => key.AcceptValidated<PositiveMagnitude>(candidate: magnitude.Value)).As();
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -611,9 +608,9 @@ public readonly record struct CloudVoronoiCell(
         Vertices.ForAll(static v => v >= 0),
         Neighbors.ForAll(neighbor => neighbor >= 0 && neighbor != Site),
         Bound.Equals(CloudCellBound.Bounded)
-            ? Volume.Map(static v => ValidityClaim.Positive(v).Holds).IfNone(false)
-              && Centroid.Map(static c => ValidityClaim.Finite(c).Holds).IfNone(false)
-              && Extent.Map(static e => ValidityClaim.Positive(e).Holds).IfNone(false)
+            ? Volume.Exists(static v => ValidityClaim.Positive(v).Holds)
+              && Centroid.Exists(static c => ValidityClaim.Finite(c).Holds)
+              && Extent.Exists(static e => ValidityClaim.Positive(e).Holds)
             : Volume.IsNone && Centroid.IsNone && Extent.IsNone);
 }
 

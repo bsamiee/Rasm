@@ -107,14 +107,10 @@ public sealed record TimeTravel(
     public Fin<DiffBatch> Changes(Frontiers from, Frontiers to) => CollabDoc.Lift(() => Document.Doc.Diff(from, to));
 
     public Fin<CollabDoc> Fork(Frontiers cut) =>
-        from key in Branched(Document.Key)
+        from key in Op.Of(name: "appui.compare.branch")
+            .AcceptValidated<DocumentKey>($"{Document.Key.Value}/fork/{Guid.CreateVersion7():N}")
         from forked in CollabDoc.Lift(() => Document.Doc.ForkAt(cut))
         select CollabDoc.Of(forked, key);
-
-    static Fin<DocumentKey> Branched(DocumentKey parent) =>
-        DocumentKey.Validate($"{parent.Value}/fork/{Guid.CreateVersion7():N}", null, out DocumentKey? branch) is { } refused
-            ? Fin.Fail<DocumentKey>(refused)
-            : Fin.Succ(branch.Value);
 }
 ```
 
@@ -280,7 +276,7 @@ public sealed record DiffSurface(
         };
 
     Seq<ControlIntent> Panes(VirtualWindowSpec window) =>
-        Range(0, Layout.Panes).AsIterable().ToSeq().Map(ordinal => (ControlIntent)new ControlIntent.Tree(
+        toSeq(Enumerable.Range(0, Layout.Panes)).Map(ordinal => (ControlIntent)new ControlIntent.Tree(
             PaneKey(ordinal),
             new ControlIntent.Label(
                 $"{PaneKey(ordinal)}.hunk", $"{SessionKey}.hunk.{Layout.Side(ordinal).Key}", TypographyRole.Code,
@@ -462,11 +458,9 @@ public sealed class CompareSession : IDisposable {
         from ordered in Schema.Comparer(admitted)
         from grouped in Schema.Grouping(admitted)
             .ToFin(new CollabFault.Gated($"compare/ungrouped-view:{admitted.Saved}"))
-        select toSeq(Visible().Filter(predicate).OrderBy(static row => row, ordered))
-            .GroupBy(grouped)
-            .AsIterable()
-            .Map(static group => new ChangeGroup(group.Key, toSeq(group)))
-            .ToSeq();
+        select toSeq(toSeq(Visible().Filter(predicate).OrderBy(static row => row, ordered))
+            .GroupBy(grouped))
+            .Map(static group => new ChangeGroup(group.Key, toSeq(group)));
 
     Seq<ChangeRow> Visible() => classify().Filter(row => Legend.Value.Shows(row.Class));
 

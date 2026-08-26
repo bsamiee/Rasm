@@ -123,7 +123,7 @@ public sealed record PortAxes(
 - Entry: `PinPlan.Realize(IParameter)` admits one trim, projects its exact host property types, and assigns only carrier-compatible persistent tree data.
 - Law: a refused trim-to-parameter pairing is `GhFault.ContractRefused(GhContract.Pin, evidence)` naming both shapes.
 - Growth: a new writable parameter policy is one trim case and one row capability; a new adder shape is one `PortBinding` case.
-- Boundary: policy assignment crosses through `HostCall.Run`; an incompatible trim fails by exact case and host type before any property is written. Every column a trim writes is a `public { get; set; }` auto-property on the concrete parameter, so a trim is a post-declaration write and never a declaration argument.
+- Boundary: policy assignment crosses through `Op.Catch`; an incompatible trim fails by exact case and host type before any property is written. Every column a trim writes is a `public { get; set; }` auto-property on the concrete parameter, so a trim is a post-declaration write and never a declaration argument.
 - Boundary: `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the base's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol — so `AngleEnforcement` is the owner that types those four wire constants and its `int Host` column is the host's own value, not a hand-numbered stand-in for an enum ordinal.
 
 ```csharp
@@ -185,7 +185,7 @@ public sealed partial class AngleEnforcement {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PinTrim {
+public abstract partial record PinTrim : IValidityEvidence {
     private PinTrim() { }
 
     public sealed record Vector(bool Unitise, bool Reverse) : PinTrim;
@@ -224,17 +224,17 @@ public abstract partial record PinTrim {
         textPattern: static trim => Enum.IsDefined(trim.Kind));
 
     internal Fin<Unit> Apply(IParameter parameter, Op key) => (this, parameter) switch {
-        (Vector trim, VectorParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Angle trim, AngleParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Boolean trim, BooleanParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Connection trim, ConnectionParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Integer trim, IntegerParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Number trim, NumberParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Numeric trim, NumericParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Curve trim, CurveParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Surface trim, SurfaceParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (Text trim, TextParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
-        (TextPattern trim, TextPatternParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
+        (Vector trim, VectorParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Angle trim, AngleParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Boolean trim, BooleanParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Connection trim, ConnectionParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Integer trim, IntegerParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Number trim, NumberParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Numeric trim, NumericParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Curve trim, CurveParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Surface trim, SurfaceParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (Text trim, TextParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
+        (TextPattern trim, TextPatternParameter host) => key.Catch(() => TrimMap.Write(trim, host)),
         _ => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, $"{GetType().Name}:{parameter.GetType().Name}"))),
     };
 }
@@ -341,17 +341,24 @@ public sealed record PinPlan {
     internal IParameter Mint(Func<string, string, string, Access, IParameter> bare) =>
         bare((string)Name, (string)Nick, Info, Access.Host);
 
-    public Fin<Unit> Realize(IParameter parameter, Op? key = null) =>
-        Trim.Match(
-                Some: trim => trim.IsValid
-                    ? trim.Apply(parameter, key.OrDefault())
-                    : Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key.OrDefault(), $"{nameof(PinTrim)}:{trim.GetType().Name}"))),
-                None: static () => Fin.Succ(unit))
-            .Bind(_ => Persistent.Match(
-                Some: held => Kind is not null && Kind.Family.Accepts(Kind.Carrier, held.Type)
-                    ? HostCall.Run(() => { parameter.PersistentDataWeak = held; }, key.OrDefault())
-                    : Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key.OrDefault(), $"{nameof(Persistent)}:{held.Type.Name}"))),
-                None: static () => Fin.Succ(unit)));
+    public Fin<Unit> Realize(IParameter parameter, Op? key = null) {
+        Op op = key.OrDefault();
+        return Trim
+            .TraverseM(trim => op.AcceptValue(trim)
+                .MapFail(_ => new GhFault.ContractRefused(
+                    GhContract.Pin,
+                    new GhEvidence(op, $"{nameof(PinTrim)}:{trim.GetType().Name}")))
+                .Bind(valid => valid.Apply(parameter, op)))
+            .As()
+            .Bind(_ => Persistent
+                .TraverseM(held => Kind is not null && Kind.Family.Accepts(Kind.Carrier, held.Type)
+                    ? op.Catch(() => { parameter.PersistentDataWeak = held; })
+                    : Fin.Fail<Unit>(new GhFault.ContractRefused(
+                        GhContract.Pin,
+                        new GhEvidence(op, $"{nameof(Persistent)}:{held.Type.Name}"))))
+                .As())
+            .Map(static _ => unit);
+    }
 }
 ```
 
@@ -394,14 +401,14 @@ internal abstract partial record PortBinding {
         outputCase: static _ => CapabilitySet<PinSide>.Of(PinSide.Output));
 
     public Fin<IParameter> Bind(ModularInputAdder adder, PinPlan plan, Op key) => Switch(
-        bothCase: row => HostCall.Run(() => row.Input(adder, plan), key),
-        inputCase: row => HostCall.Run(() => row.Value(adder, plan), key),
+        bothCase: row => key.Catch(() => Fin.Succ(row.Input(adder, plan))),
+        inputCase: row => key.Catch(() => Fin.Succ(row.Value(adder, plan))),
         outputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, nameof(PinSide.Input)))));
 
     public Fin<IParameter> Bind(ModularOutputAdder adder, PinPlan plan, Op key) => Switch(
-        bothCase: row => HostCall.Run(() => row.Output(adder, plan), key),
+        bothCase: row => key.Catch(() => Fin.Succ(row.Output(adder, plan))),
         inputCase: _ => Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(key, nameof(PinSide.Output)))),
-        outputCase: row => HostCall.Run(() => row.Value(adder, plan), key));
+        outputCase: row => key.Catch(() => Fin.Succ(row.Value(adder, plan))));
 }
 
 [SmartEnum<string>]
@@ -588,9 +595,9 @@ public sealed partial class PortRow {
         };
 
     private bool AdmitsTrim(PinTrim trim, PinSide side) =>
-        trim is { IsValid: true } && Axes.Trim.Map(axis => axis.Sides.Admits(side) && axis.Type.IsInstanceOfType(trim)
+        trim is { IsValid: true } && Axes.Trim.Exists(axis => axis.Sides.Admits(side) && axis.Type.IsInstanceOfType(trim)
             && (this != Index || trim is not PinTrim.Integer { Posture: IndexPosture.Plain })
-            && (this != Integer || trim is not PinTrim.Integer { Posture: IndexPosture.Indexed })).IfNone(false);
+            && (this != Integer || trim is not PinTrim.Integer { Posture: IndexPosture.Indexed }));
 
     private static PortBinding Both(
         Func<ModularInputAdder, PinPlan, IParameter> input,
@@ -636,9 +643,9 @@ public static class Ports {
         string category = plan.Category.IfNone("");
         Eto.Drawing.Color colour = plan.Colour.IfNone(Eto.Drawing.Colors.Transparent);
         return EnumType<T>(op).Bind(_ => plan.Kind == PortRow.Integer
-            ? plan.Kind.Accepts(plan, PinSide.Input, op).Bind(_ => HostCall.Run<IParameter>(() => plan.Visibility == PinVisibility.Shown
+            ? plan.Kind.Accepts(plan, PinSide.Input, op).Bind(_ => op.Catch(() => Fin.Succ<IParameter>(plan.Visibility == PinVisibility.Shown
                     ? adder.AddEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host)
-                    : adder.AddHiddenEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host), op))
+                    : adder.AddHiddenEnum((string)plan.Name, (string)plan.Nick, plan.Info, category, colour, seed, plan.Access.Host, plan.Presence.Host))))
                 .Bind(parameter => plan.Realize(parameter, op).Map(_ => parameter))
             : Fin.Fail<IParameter>(new GhFault.ContractRefused(GhContract.Pin, new GhEvidence(op, $"{plan.Kind.Key}:{nameof(DeclareEnum)}"))));
     }
@@ -647,18 +654,18 @@ public static class Ports {
         Op op = key.OrDefault();
         return EnumType<T>(op)
             .Bind(_ => AcceptsOutputEnum(plan, op))
-            .Bind(_ => HostCall.Run<IParameter>(() => adder.RegularAdder.AddEnum<T>(
-                (string)plan.Name, (string)plan.Nick, plan.Info, plan.Access.Host), op))
+            .Bind(_ => op.Catch(() => Fin.Succ<IParameter>(adder.RegularAdder.AddEnum<T>(
+                (string)plan.Name, (string)plan.Nick, plan.Info, plan.Access.Host))))
             .Bind(parameter => plan.Realize(parameter, op).Map(_ => parameter));
     }
 
     public static Validation<Error, Unit> Realize(ComponentParameters parameters, Seq<PinPlan> inputs, Seq<PinPlan> outputs, Op? key = null) {
         Op op = key.OrDefault();
         return (inputs.Map(static (plan, index) => (Plan: plan, Index: index))
-                .Traverse(row => HostCall.Run<IParameter>(() => parameters.Input(row.Index), op)
+                .Traverse(row => op.Catch(() => Fin.Succ<IParameter>(parameters.Input(row.Index)))
                     .Bind(parameter => row.Plan.Realize(parameter, op)).ToValidation()).As(),
             outputs.Map(static (plan, index) => (Plan: plan, Index: index))
-                .Traverse(row => HostCall.Run<IParameter>(() => parameters.Output(row.Index), op)
+                .Traverse(row => op.Catch(() => Fin.Succ<IParameter>(parameters.Output(row.Index)))
                     .Bind(parameter => row.Plan.Realize(parameter, op)).ToValidation()).As())
             .Apply(static (_, _) => unit)
             .As();

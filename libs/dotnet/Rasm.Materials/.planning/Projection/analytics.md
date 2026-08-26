@@ -278,7 +278,7 @@ public static class AnalyticsProjection {
         rows.Bind(entry => PropertyColumn.Rows.Choose(column => entry.Admitted
             .Choose(set => column.Central(Seq(set)).Map(central => (Central: central, set.Evidence)))
             .Head
-            .Map(read => new PropertyAnalyticsRow(entry.Id.Value, column.Property, column.Unit, read.Central,
+            .Map(read => new PropertyAnalyticsRow(entry.Id.ToValue(), column.Property, column.Unit, read.Central,
                 read.Evidence.Source, read.Evidence.ValidUntil, frame.At))));
 
     public static Seq<SustainabilityAnalyticsRow> Sustainability(
@@ -287,7 +287,7 @@ public static class AnalyticsProjection {
             .Choose(static set => set as MaterialPropertySet.Environmental)
             .Bind(environmental => toSeq(LifecycleStage.Items).Map(stage =>
                 new SustainabilityAnalyticsRow(
-                    entry.Id.Value, environmental.Basis.Key, stage.Key, environmental.StageAt(stage),
+                    entry.Id.ToValue(), environmental.Basis.Key, stage.Key, environmental.StageAt(stage),
                     environmental.RecycledContent, environmental.EndOfLifeRecovery,
                     entry.Classification.Map(static c => c.System),
                     entry.Classification.Map(static c => c.Code),
@@ -298,7 +298,7 @@ public static class AnalyticsProjection {
         Func<MaterialId, Op, Fin<AppearanceSummary>> lookup) =>
         materials.TraverseM(id => lookup(id, frame.Key).Map(summary =>
             new LibrarySummaryRow(
-                id.Value, summary.AppearanceKey.ToString("X32"), summary.BaseColorR, summary.BaseColorG,
+                id.ToValue(), summary.AppearanceKey.ToString("X32"), summary.BaseColorR, summary.BaseColorG,
                 summary.BaseColorB, summary.Metallic, summary.Roughness, summary.Opacity,
                 summary.Transmissive, frame.At))).As();
 
@@ -360,7 +360,7 @@ public static class AnalyticsProjection {
     public static Fin<Seq<TextureSetAnalyticsRow>> TextureSets(
         Seq<(Wire.Set Set, Option<TileRun> Tile)> sets, ProjectionContext frame, Op key) =>
         sets.Traverse(entry => Surface(entry.Set, key).Map(surface => surface.Map(value => {
-            Option<TileScore> score = Scored(entry.Tile);
+            Option<TileScore> score = entry.Tile.Bind(static run => run.Score.Value());
             Option<Wire.Press> press = value.Baked.Bind(static baked => Optional(baked.Press));
             return new TextureSetAnalyticsRow(
                 Set: Hex(value.Set.Key), Appearance: value.Baked.Map(static baked => Hex(baked.AppearanceKey)),
@@ -376,8 +376,6 @@ public static class AnalyticsProjection {
                 FaultedTexels: press.Map(static wire => checked((long)wire.FaultedTexels)),
                 Observed: frame.At);
         }))).As().Map(static rows => rows.Choose(static row => row));
-
-    static Option<TileScore> Scored(Option<TileRun> tile) => tile.Bind(static run => run.Score.Value());
 
     public static Fin<Seq<EnvironmentProductRow>> Environments(
         Seq<Wire.Set> sets, ProjectionContext frame, Op key) =>

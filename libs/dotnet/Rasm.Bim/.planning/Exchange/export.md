@@ -369,7 +369,7 @@ public sealed record ElementScene {
     public Fin<ImportedGeometry> Soup(Op key) => Pooled(key).Bind(pooled => pooled.Bake(key));
 
     public Fin<ImportedGeometry> Pooled(Op key) {
-        var lead = Pool.Values.Head();
+        var lead = Pool.Values.ToSeq()[0];
         var keys = Pool.Keys.ToSeq();
         var ordinals = keys.Select(static (k, i) => (k, i)).ToMap();
         int vertexTotal = Pool.Values.Sum(static m => m.VertexCount);
@@ -382,7 +382,7 @@ public sealed record ElementScene {
         var (vBase, iBase, slot) = (0, 0, 0);
         foreach (var pooled in keys) {
             var mesh = Pool[pooled];
-            var entry = mesh.Blocks.Head();
+            var entry = mesh.Blocks[0];
             foreach (var lane in lanes) {
                 if (entry.Declared.Contains(lane.Channel) && BimExport.Lane(mesh, lane.Channel).Case is float[] source) {
                     source.CopyTo(lane.Raw.AsSpan(vBase * lane.Channel.Arity));
@@ -595,9 +595,9 @@ public static partial class BimExport {
     public static Fin<ExportArtifact> ExportIfc(
         InterchangeFormat format, ElementGraph graph, SemanticProjector projector,
         InterchangePolicy policy, IClock clock, Option<EmitContext> context, Op key) =>
-        InterchangeFormat.Admitted(format, InterchangeCapability.Export, key).Bind(row => row.Serialization.Match(
-            None: () => Fin.Fail<ExportArtifact>(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-codec-miss", format.Key }))),
-            Some: form => projector.Emit(graph, form, key, context)
+        InterchangeFormat.Admitted(format, InterchangeCapability.Export, key).Bind(row => row.Serialization
+            .ToFin(new BimFault.Refused(key, BimScope.Export, BimReason.Codec, string.Join(':', new object?[] { "ifc-export-codec-miss", format.Key })))
+            .Bind(form => projector.Emit(graph, form, key, context)
                 .Map(bytes => Sealed(row, bytes, policy, clock.GetCurrentInstant()))));
 
     static Fin<byte[]> GlbBytes(ExportPayload payload, InterchangePolicy policy, Op key) =>
@@ -994,7 +994,7 @@ public static class BimLod {
                     verts, vertexStride);
             }
         }
-        var lead = geometry.Blocks.Head();
+        var lead = geometry.Blocks[0];
         return toSeq(meshlets.AsSpan(0, (int)count).ToArray().Select((meshlet, m) => new MeshletBand(
             new MeshBlock(
                 (int)meshlet.vertex_offset, (int)meshlet.vertex_count,
@@ -1302,9 +1302,9 @@ public static class CobieEmit {
                 return Parts(graph, storey.Id, IfcClass.Space).Fold(held, (inner, space) =>
                     inner.Add(space.Id, model.Instances.New<CobieSpace>(s => { Named(s, space); s.Floor = floor; })));
             });
-        Seq<Node.Object> occurrences = graph.ObjectNodes.Filter(static o => o.Kind == ObjectKind.Occurrence).ToSeq();
+        Seq<Node.Object> occurrences = graph.ObjectNodes.Filter(static o => o.Kind == ObjectKind.Occurrence);
         Map<(string Code, string Token), Map<string, PropertyTemplate>> templates =
-            occurrences.Map(static o => (o.Classification.Code, o.PredefinedType.Token)).Distinct()
+            occurrences.Map(static o => (o.Classification.Code, o.PredefinedType.ToValue())).Distinct()
                 .Fold(Map<(string, string), Map<string, PropertyTemplate>>(), (acc, pair) =>
                     IfcClass.TryGet(pair.Code).Match(
                         None: () => acc,
@@ -1342,7 +1342,7 @@ public static class CobieEmit {
             Some: type => { component.Type = type; return log; },
             None: () => log.Add(new CobieDegrade(CobieReason.TypeUnresolved, Identity(node))));
         Map<string, PropertyTemplate> resolved = templates
-            .Find((node.Classification.Code, node.PredefinedType.Token))
+            .Find((node.Classification.Code, node.PredefinedType.ToValue()))
             .IfNone(Map<string, PropertyTemplate>());
         return baked.Properties.Fold(typed, (held, bag) => Attributes(model, component, bag, resolved, held));
     }
@@ -1354,16 +1354,16 @@ public static class CobieEmit {
     }
 
     static string Identity(Node.Object node) =>
-        node.ExternalId.IfNone(node.Id.Value.ToString());
+        node.ExternalId.IfNone(node.Id.ToValue());
 
     static Option<CobieSpace> Host(ElementGraph graph, Node.Object node, HashMap<NodeId, CobieSpace> spaces) =>
-        graph.EdgesAt(node.Id).Choose(e =>
+        toSeq(graph.EdgesAt(node.Id)).Choose(e =>
             e is Relationship.Compose c && c.Part == node.Id && c.SubKind != ComposeKind.Reference
                 ? spaces.Find(c.Whole)
                 : None).Head;
 
     static Option<CobieType> TypeOf(CobieModel model, ElementGraph graph, Node.Object node, Dictionary<NodeId, CobieType> held) =>
-        graph.EdgesAt(node.Id).Choose(e =>
+        toSeq(graph.EdgesAt(node.Id)).Choose(e =>
             e is Relationship.Assign { SubKind: var k } a && k == AssignKind.TypeDefinition && a.Subject == node.Id
                 ? graph.Find<Node.Object>(a.Definition)
                 : None).Head
@@ -1403,10 +1403,10 @@ public static class CobieEmit {
     }
 
     static Seq<Node.Object> Parts(ElementGraph graph, NodeId whole, IfcClass @class) =>
-        graph.EdgesAt(whole).Choose(e =>
+        toSeq(graph.EdgesAt(whole)).Choose(e =>
             e is Relationship.Compose c && c.Whole == whole && c.SubKind != ComposeKind.Reference
                 ? graph.Find<Node.Object>(c.Part).Filter(o => o.Classification.Code == @class.Key)
-                : None).ToSeq();
+                : None);
 }
 ```
 

@@ -240,7 +240,7 @@ public sealed partial class StrokeDef {
         from _ in guard(!linetype.HasShapes && Optional(linetype.GetTaperPoints()).Map(static rows => rows.Length).IfNone(0) is 0,
             key.Unsupported(valueType: typeof(Linetype), outputType: typeof(StrokeDef))).ToFin()
         from name in key.AcceptValidated<ResourceName>(candidate: linetype.Name)
-        from segments in toSeq(Range(from: 0, count: linetype.SegmentCount))
+        from segments in toSeq(Enumerable.Range(start: 0, count: linetype.SegmentCount))
             .TraverseM(index => LinetypeOp.Segment(linetype: linetype, index: index, key: key)).As()
         from cap in key.AcceptValidated<LinetypeCap>(candidate: (int)linetype.LineCapStyle)
         from join in key.AcceptValidated<LinetypeJoin>(candidate: (int)linetype.LineJoinStyle)
@@ -366,8 +366,8 @@ public abstract partial record LinetypeOp {
         Mint: static (document, def, key) =>
             from shaped in key.Catch(() => Fin.Succ(value: new Linetype()))
             from _ in def.Apply(document: document, linetype: shaped, key: key)
-                .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key))
+                .Rollback(
+                    release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
             select shaped,
         Revise: static (document, copy, def, key) => def.Apply(document: document, linetype: copy, key: key),
         Retitle: static (copy, name, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => copy.Name = name.Value))),
@@ -530,7 +530,7 @@ public abstract partial record LinetypeAsk {
         state: static (context, ask) => context.Op.Catch(() =>
             from linetype in ask.Target.Resolve(document: context.Document, lens: LinetypeOp.Lens, key: context.Op)
             from name in context.Op.AcceptValidated<ResourceName>(candidate: linetype.Name)
-            from segments in toSeq(Range(from: 0, count: linetype.SegmentCount))
+            from segments in toSeq(Enumerable.Range(start: 0, count: linetype.SegmentCount))
                 .TraverseM(index => LinetypeOp.Segment(linetype: linetype, index: index, key: context.Op)).As()
             from cap in context.Op.AcceptValidated<LinetypeCap>(candidate: (int)linetype.LineCapStyle)
             from join in context.Op.AcceptValidated<LinetypeJoin>(candidate: (int)linetype.LineJoinStyle)

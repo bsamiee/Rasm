@@ -173,7 +173,7 @@ public static class CdcIngress {
     }
 
     public static IO<Fin<Unit>> Close(IConsumer<string, byte[]> consumer, IngressSource source, Op key) =>
-        IO.lift(() => key.Catch(() => { consumer.Close(); return Fin.Succ(unit); })
+        IO.lift<Fin<Unit>>(() => key.Catch(() => { consumer.Close(); return Fin.Succ(unit); })
             .MapFail(error => IngressFault.Lift(error,
                 static raised => raised is KafkaException or ObjectDisposedException,
                 cause => new IngressFault.CloseAbandoned(source.Group, cause))));
@@ -206,7 +206,7 @@ public static class CdcIngress {
                 None: () => Fin.Succ(settled.IfNone(() => Positioned(offered)).Count(tally)));
         }).ConfigureAwait(false)).MapFail(error => IngressFault.Lift(error,
             static raised => raised is KafkaException,
-            cause => new IngressFault.EnvelopeRejected(None, cause))))).Bind(IO.liftFin)).As()
+            cause => new IngressFault.EnvelopeRejected(None, cause))))).Bind(IO.lift)).As()
         from committed in IO.lift(() => {
             token.ThrowIfCancellationRequested();
             return key.Catch(() => { consumer.Commit(); return Fin.Succ(unit); })

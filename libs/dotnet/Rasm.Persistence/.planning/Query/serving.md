@@ -125,11 +125,9 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
         Named(readRelation, state).Map(relation => $"SELECT * FROM {relation} WHERE {state.Scope}");
 
     static Fin<string> Named(ReadRelation readRelation, BackendScope state) =>
-        toSeq(readRelation.NamedTable?.Names ?? []).Last.Match(
-            Some: name => Identifier.Validate(name, null, out Identifier admitted) is { } fault
-                ? Fin.Fail<string>(fault)
-                : Fin.Succ(state.Backend.Quote(admitted)),
-            None: () => Fin.Fail<string>(new BackendFault.Unlowerable(state.Backend.Key, "<unnamed-relation>")));
+        toSeq(readRelation.NamedTable?.Names ?? []).Last
+            .ToFin(new BackendFault.Unlowerable(state.Backend.Key, "<unnamed-relation>"))
+            .Bind(name => Op.Of().AcceptValidated<Identifier>(name).Map(state.Backend.Quote));
 
     public override Fin<string> VisitFilterRelation(FilterRelation filterRelation, BackendScope state) =>
         from inner in Visit(filterRelation.Input, state)
@@ -178,10 +176,8 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
 
     public override Fin<string> VisitRootRelation(RootRelation rootRelation, BackendScope state) =>
         from inner in Visit(rootRelation.Input, state)
-        from names in toSeq(rootRelation.Names).TraverseM(name =>
-            Identifier.Validate(name, null, out Identifier admitted) is { } fault
-                ? Fin.Fail<string>(fault)
-                : Fin.Succ(state.Backend.Quote(admitted))).As()
+        from names in toSeq(rootRelation.Names)
+            .TraverseM(name => Op.Of().AcceptValidated<Identifier>(name).Map(state.Backend.Quote)).As()
         select $"SELECT {string.Join(", ", names.Map(static (name, index) => $"{Slot(index)} AS {name}"))} FROM ({inner}) AS root";
 
     // --- [EXPRESSIONS]
@@ -253,12 +249,12 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
             : Fin.Fail<double>(new BackendFault.Unlowerable(state.Backend.Key, $"<backend-fold:{TailFold}:{arguments.Count}>"));
 
     static Fin<Unit> Convention(string token, BackendScope state) =>
-        QuantileRule.Validate(token, null, out QuantileRule? asked) is not null
-            ? Fin.Fail<Unit>(new BackendFault.Unlowerable(state.Backend.Key, $"<quantile-rule:{token}>"))
-            : asked == QuantileRule.Interpolated
+        Op.Of().Row<string, QuantileRule>(token)
+            .MapFail(_ => new BackendFault.Unlowerable(state.Backend.Key, $"<quantile-rule:{token}>"))
+            .Bind(asked => asked == QuantileRule.Interpolated
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new BackendFault.Unanswerable(state.Backend.Key, BackendProjection.Quantile.Key,
-                    $"every backend quantile spelling answers {QuantileRule.Interpolated.Key} alone"));
+                    $"every backend quantile spelling answers {QuantileRule.Interpolated.Key} alone")));
 
     static Fin<double> Fraction(double fraction, BackendScope state) =>
         fraction is >= 0 and <= 1
@@ -398,9 +394,9 @@ public sealed class BackendPlan : RelationVisitor<Fin<string>, BackendScope> {
             ? Fin.Fail<string>(new BackendFault.ReadRefused(scope.Backend.Key, new EngineFault("<read-window>", $"{scope.Window.From}..{scope.Window.Until}")))
             : !scope.Backend.Answers(projection)
                 ? Fin.Fail<string>(new BackendFault.Unanswerable(scope.Backend.Key, projection.Key, scope.Backend.Degrade))
-                : toSeq(plan.Relations).Last.Match(
-                    Some: root => new BackendPlan().Visit(root, scope),
-                    None: () => Fin.Fail<string>(new BackendFault.Unlowerable(scope.Backend.Key, "<empty-plan>")));
+                : toSeq(plan.Relations).Last
+                    .ToFin(new BackendFault.Unlowerable(scope.Backend.Key, "<empty-plan>"))
+                    .Bind(root => new BackendPlan().Visit(root, scope));
 }
 ```
 
@@ -532,7 +528,7 @@ public static class BackendRead {
     static Fin<BackendHealth> Shape(Backend backend, AnalyticsSchema schema, BackendRow row) =>
         row.Whole(backend, 2).Bind(rows => rows == 0
             ? Fin.Succ(new BackendHealth(backend.Key, (string)schema.Table, None, None, rows))
-            : (row.At(backend, 0).ToValidation<Error>(), row.At(backend, 1).ToValidation<Error>())
+            : (row.At(backend, 0).ToValidation(), row.At(backend, 1).ToValidation())
                 .Apply((oldest, newest) => new BackendHealth(
                     backend.Key, (string)schema.Table, Some(oldest), Some(newest), rows)).As().ToFin());
 
@@ -631,10 +627,9 @@ public static class BackendLanding {
     static Validation<Error, Option<(Identifier Name, NpgsqlDbType Wire)>> Landed(AnalyticsSchema schema) =>
         schema.Spine == TimeSpine.Event
             ? Success<Error, Option<(Identifier, NpgsqlDbType)>>(None)
-            : schema.Columns.Find(column => column.Name == schema.Time).Match(
-                Some: column => column.Type.Wire.ToValidation<Error>().Map(wire => Some((schema.Time, wire))),
-                None: () => Fail<Error, Option<(Identifier, NpgsqlDbType)>>(
-                    new BackendFault.Unprovisioned($"<schema-spine:{schema.Dataset}>")));
+            : schema.Columns.Find(column => column.Name == schema.Time)
+                .ToValidation((Error)new BackendFault.Unprovisioned($"<schema-spine:{schema.Dataset}>"))
+                .Bind(column => column.Type.Wire.ToValidation().Map(wire => Some((schema.Time, wire))));
 
     public static IO<Fin<BackendWrite>> Stage(
         NpgsqlDataSource store, AnalyticsSchema schema, Seq<Seq<ColumnCell>> rows, ProjectionContext frame) =>
@@ -671,8 +666,8 @@ public static class BackendLanding {
             ? Fail<Error, Seq<(ColumnRow, NpgsqlDbType)>>(new BackendFault.IngestRefused(
                 Backend.Series.Key, new EngineFault("<row-arity>", schema.Dataset)))
             : (rows.Traverse(row => row.Zip(supplied)
-                    .Traverse(pair => pair.Item2.Admits(pair.Item1).ToValidation<Error>()).As()).As(),
-               supplied.Traverse(column => column.Type.Wire.ToValidation<Error>().Map(wire => (column, wire))).As())
+                    .Traverse(pair => pair.Item2.Admits(pair.Item1).ToValidation()).As()).As(),
+               supplied.Traverse(column => column.Type.Wire.ToValidation().Map(wire => (column, wire))).As())
                 .Apply(static (_, bound) => bound).As();
 
     static Task Bind(ColumnShape shape, ColumnCell cell, NpgsqlBinaryImporter importer, NpgsqlDbType wire) => shape.Switch(

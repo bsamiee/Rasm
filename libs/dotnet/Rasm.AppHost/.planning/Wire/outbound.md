@@ -53,7 +53,7 @@ public sealed partial class HopKey {
     public static HopKey Of<TCase>() where TCase : OutboundHop => Create(Head + typeof(TCase).Name);
 
     public static Option<HopKey> Named(string? reported) =>
-        Validate(reported, out HopKey? key) is null ? Optional(key) : None;
+        Op.Of().AcceptValidated<HopKey>(reported).ToOption();
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (!(value ?? string.Empty).StartsWith(Head, StringComparison.Ordinal)) {
@@ -254,9 +254,7 @@ public static class HopRows {
         HttpApi, Grpc, ServerStream, CompanionSpawn, LocalIpc, WebhookPost, UpdateCheck, ObjectStore, WideColumn);
 
     public static Fin<Seq<HopPolicy>> Admitted =>
-        Items.Traverse(static row => Corner(row).Match(
-                Succ: Validation<Error, HopPolicy>.Success,
-                Fail: Validation<Error, HopPolicy>.Fail))
+        Items.Traverse(static row => Corner(row).ToValidation())
             .As()
             .ToFin();
 
@@ -773,9 +771,7 @@ public static class OutboundSurface {
     public static Fin<Unit> Seat(OutboundRuntime runtime) =>
         from rows in HopRows.Admitted
         from _claimed in rows
-            .Traverse(row => Claim(runtime, row, RetryOwner.Pipeline).Match(
-                Succ: static _ => Validation<Error, Unit>.Success(unit),
-                Fail: static conflict => Validation<Error, Unit>.Fail(conflict)))
+            .Traverse(row => Claim(runtime, row, RetryOwner.Pipeline).ToValidation().Map(static _ => unit))
             .As()
             .Map(static _ => unit)
             .ToFin()
@@ -1020,15 +1016,13 @@ public static class Discovery {
         from child in Started(spec)
         from manifest in OutboundSurface.Redriven(
             runtime, HopRows.CompanionSpawn, attach,
-            IO.lift(() => manifestOf(child.Id))
-                .Bind(static read => read.Match(Succ: IO.pure, Fail: IO.fail<DiscoveryManifest>)))
+            IO.lift(() => manifestOf(child.Id)))
         select new CompanionChild(child, manifest, cancel => drainFan(manifest, cancel));
 
     static IO<Process> Started(ProcessStartInfo spec) =>
         IO.lift(() => Op.Of().Catch(() => Fin.Succ(Optional(Process.Start(spec))))
                 .MapFail(static error => HopFault.Of(error))
-                .Bind(child => child.ToFin(new HopFault.SpawnRejected(spec.FileName))))
-            .Bind(static started => started.Match(Succ: IO.pure, Fail: IO.fail<Process>));
+                .Bind(child => child.ToFin(new HopFault.SpawnRejected(spec.FileName))));
 
     public static Func<DiscoveryManifest, CancellationToken, IO<Unit>> FanOf(
         OutboundRuntime runtime, ILatencyContext latency, Duration cooperative, string reason) =>

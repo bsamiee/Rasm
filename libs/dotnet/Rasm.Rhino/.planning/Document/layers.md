@@ -64,7 +64,7 @@ public readonly partial struct LayerPath : IDetachedDocumentResult {
         value = string.Join(Layer.PathSeparator, segments);
         validationError = raw.Length is 0
             ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(LayerPath) }))
-            : toSeq(segments).Choose(static segment => Optional(LeafName.Refusal(value: segment))).Head.IfNoneUnsafe(default(ValidationError));
+            : toSeq(segments).Choose(static segment => Optional(LeafName.Refusal(value: segment))).Head.IfNone(default(ValidationError));
     }
 
     public Fin<Seq<LeafName>> Segments(Op? key = null) {
@@ -1021,14 +1021,10 @@ public abstract partial record LayerOp {
                     moves: moves.Filter(move => landed.Exists(id => id == move.ObjectId)),
                     op: op),
                 release: _ => op.Confirm(success: document.Layers.Delete(layerIndex: sourceIndex, quiet: true)))
-            .BiBind(
-                Succ: _ => Release(moves: moves, op: op).Fold(
-                    Fin.Succ(value: unit),
-                    static (state, cleanup) => state.Match(
-                        Succ: _ => Fin.Fail<Unit>(error: cleanup),
-                        Fail: fault => Fin.Fail<Unit>(error: fault + cleanup))),
-                Fail: primary => Fin.Fail<Unit>(error: Release(moves: moves, op: op)
-                    .Fold(primary, static (fault, cleanup) => fault + cleanup)))
+            .Settled(
+                release: () => Custody.Dispose(moves.Map(static move => move.Original), op),
+                key: op)
+            .Map(static _ => unit)
         select merged;
 
     private static Fin<Seq<LayerMove>> StagedMoves(RhinoDoc document, int sourceIndex, Op op) =>
@@ -1069,10 +1065,6 @@ public abstract partial record LayerOp {
         .ToFin()
         .Map(static _ => unit);
 
-    private static Seq<Error> Release(Seq<LayerMove> moves, Op op) => moves
-        .Choose(move => op.Catch(() => Fin.Succ(value: Op.Side(move.Original.Dispose))).Match(
-            Succ: static _ => Option<Error>.None,
-            Fail: static error => Some(error)));
 }
 ```
 
@@ -1217,11 +1209,9 @@ public static partial class Layers {
             residents: residents,
             authority: authority,
             op: op)
-        from current in currentKey.Match(
-            Some: _ => projected.Choose(static row => row.Current).Head
-                .ToFin(op.InvalidResult())
-                .Map(Some),
-            None: static () => Fin.Succ(Option<EntityPath>.None))
+        from current in currentKey
+            .TraverseM(_ => projected.Choose(static row => row.Current).Head.ToFin(op.InvalidResult()))
+            .As()
         from fact in OrganizationAdmit.Admit(new OrganizationFact(
             Source: authority.Source,
             Authority: issuer,

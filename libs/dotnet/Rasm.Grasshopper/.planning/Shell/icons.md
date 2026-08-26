@@ -182,12 +182,12 @@ public static class IconOwner {
                from settled in UiThread.Run(new UiDispatch<Unit>.Blocking(() => valid.Switch(
                    state: (Icon: target, Key: op),
                    jumpCase: static (s, c) => Gate(icon: s.Icon, state: c.State, key: s.Key)
-                       .Bind(_ => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Icon.SetState(c.Value, Named(state: c.State)))))),
+                       .Bind(_ => s.Key.Catch(() => s.Icon.SetState(c.Value, Op.ToHostSlot(c.State)))),
                    glideCase: static (s, c) => Gate(icon: s.Icon, state: c.State, key: s.Key)
-                       .Bind(_ => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Icon.MoveState(
-                           c.Value, Named(state: c.State),
-                           c.Span.Match<Duration?>(Some: static span => span, None: static () => null),
-                           c.Curve.Match<Motion?>(Some: static curve => curve, None: static () => null)))))))),
+                       .Bind(_ => s.Key.Catch(() => s.Icon.MoveState(
+                           c.Value, Op.ToHostSlot(c.State),
+                           Op.ToHostNullable(c.Span),
+                           Op.ToHostNullable(c.Curve))))),
                    DispatchLane.Interactive, op)
                select settled;
     }
@@ -219,7 +219,7 @@ public static class IconOwner {
                from valid in op.Need(plan)
                from output in UiThread.Run(new UiDispatch<IconProduct>.Blocking(() => valid.Switch(
                    state: (Icon: target, Key: op),
-                   surfaceCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Icon.Draw(c.Target))))
+                   surfaceCase: static (s, c) => s.Key.Catch(() => s.Icon.Draw(c.Target))
                        .Map(static _ => (IconProduct)new IconProduct.DrawnCase()),
                    rasterCase: static (s, c) => s.Key.Catch(body: () =>
                        Optional(s.Icon.DrawToBitmap(c.Extent, c.Padding, c.Backdrop)).ToFin(s.Key.InvalidResult()))
@@ -249,13 +249,12 @@ public static class IconOwner {
                 separator: "; ",
                 values: notes.Errors.Map(static row => $"{row.Description} ({row.Line},{row.Column})"))));
 
-    private static string? Named(Option<string> state) =>
-        state.Match<string?>(Some: static name => name, None: static () => null);
-
     private static Fin<Unit> Gate(IIcon icon, Option<string> state, Op key) =>
-        state.Match(
-            Some: name => key.Catch(body: () => Optional(icon.FindState(name)).ToFin(key.InvalidResult(detail: name)).Map(static _ => unit)),
-            None: () => Fin.Succ(unit));
+        state
+            .TraverseM(name => key.Catch(
+                body: () => Optional(icon.FindState(name)).ToFin(key.InvalidResult(detail: name)).Map(static _ => unit)))
+            .As()
+            .Map(static _ => unit);
 
     private static Color Quantized(PerceptualColor colour);
     private static PerceptualColor Perceptual(Color colour);

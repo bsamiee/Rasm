@@ -68,7 +68,6 @@ public abstract partial record MotionTiming(Duration Duration, Func<double, doub
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject]
-[ValidationError]
 public readonly partial struct SpringValue {
     public static readonly SettleBand UnitProgress = new(Position: 1d / 512d, Velocity: 1d / 512d);
 
@@ -92,7 +91,7 @@ public readonly partial struct SpringValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float response, ref float dampingFraction) {
         (float r, float d) = (response, dampingFraction);
         validationError = SpringShape.OfResponse(response: r, dampingFraction: d).Match(
-            Succ: static _ => (MotionFault?)null,
+            Succ: static _ => (ValidationError?)null,
             Fail: _ => new ValidationError(string.Join(" | ", new object?[] { $"response {r} damping-fraction {d}" })));
     }
 }
@@ -237,7 +236,7 @@ public sealed partial class MotionAxis {
         };
 
     public static IO<Fin<Unit>> Seat(Animatable target, Seq<(MotionAxis Axis, AvaloniaProperty Property, MotionToken Token)> rows) =>
-        IO.lift(() => rows.Traverse(row => row.Axis.Bind(row.Property, row.Token)).As()
+        IO.lift<Fin<Unit>>(() => rows.Traverse(row => row.Axis.Bind(row.Property, row.Token)).As()
             .Map(bound => Mounted(target, bound.Somes())));
 
     static Unit Mounted(Animatable target, Seq<ITransition> bound) {

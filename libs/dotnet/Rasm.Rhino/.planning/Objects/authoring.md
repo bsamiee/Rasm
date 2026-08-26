@@ -189,7 +189,7 @@ public static partial class ObjectsTelemetry {
         [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] HostLogFact fact,
         [LogProperties(OmitReferenceName = true)] HostStaticFact host);
 
-    public static Seq<Error> Drain() => EgressFaults.Swap(static _ => Seq<Error>());
+    public static Seq<Error> Drain() => Cell.Take(EgressFaults).Current;
 
     internal static TelemetryFan Publish(FaultSite site, Error error) =>
         Fan(sink => Faulted(
@@ -216,7 +216,7 @@ public static partial class ObjectsTelemetry {
         Fan(sink => Streamed(sink, level: level, fact: fact, host: HostStaticEnricher.Current));
 
     private static TelemetryFan Fan(Action<ILogger> emit) {
-        Seq<ILogger> sinks = toSeq(Sinks.Value).Map(static row => row.Value);
+        Seq<ILogger> sinks = Sinks.Value.Values.ToSeq();
         Seq<ILogger> live = sinks.IsEmpty ? Seq<ILogger>(NullLogger.Instance) : sinks;
         TelemetryFan settled = live.Fold(
             TelemetryFan.Empty,
@@ -732,12 +732,10 @@ public abstract class RasmGrips : CustomObjectGrips {
                    .Strict()
                    .TraverseM(grip => op.Catch(() => AddGrip(grip: grip))).As()
                    .Map(static _ => unit))
-                   .MapFail(primary => op.Catch(() => {
+                   .Rollback(release: () => {
                        Dispose();
-                       return Fin.Succ(value: unit);
-                   }).Match(
-                       Succ: _ => primary,
-                       Fail: cleanup => primary + cleanup))
+                       return Fin.Succ(unit);
+                   }, key: op)
                select unit;
     }
 
@@ -835,10 +833,9 @@ public static class GripRig {
     private static void Enable<TGrips>(Func<RhinoObject, Option<TGrips>> factory, RhinoObject candidate)
         where TGrips : CustomObjectGrips {
         Op key = Op.Of(name: nameof(GripRig));
-        _ = key.Catch(() => factory(candidate).Match(
-                Some: grips => key.Confirm(success: candidate.EnableCustomGrips(customGrips: grips))
-                    .Rollback(grips),
-                None: () => Fin.Succ(value: unit)))
+        _ = key.Catch(() => factory(candidate)
+                .TraverseM(grips => key.Confirm(success: candidate.EnableCustomGrips(customGrips: grips))
+                    .Rollback(grips)).As().Map(static _ => unit))
             .Reported(FaultSite.GripRegistration);
     }
 }

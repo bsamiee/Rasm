@@ -455,7 +455,7 @@ public static partial class StructuralAnalysis {
             from flexureMajor in Capacity(code, LimitState.FlexureMajor, ctx)
             from flexureMinor in Capacity(code, LimitState.FlexureMinor, ctx)
             select new MemberCapacity(tension, compression, flexureMajor, flexureMinor);
-        return LimitState.Items.ToSeq().Filter(state => state.Applies(code)).Map(state => {
+        return toSeq(LimitState.Items).Filter(state => state.Applies(code)).Map(state => {
             Option<double> capacity = Capacity(code, state, ctx);
             Option<double> demand = state.Demand(response);
             Option<double> util =
@@ -472,7 +472,7 @@ public static partial class StructuralAnalysis {
         Option<(ReadOnlyMemory<double> Shapes, int Modes, int Dofs, Seq<double> Periods)> modal) {
         double Q(double value) => Math.Round(value / quantum.Value) * quantum.Value;
         Seq<(NodeId Id, MemberResponse Response)> ordered =
-            toSeq(responses.OrderBy(static row => row.Key.Value, StringComparer.Ordinal)).Map(static row => (Id: row.Key, Response: row.Value));
+            toSeq(responses.OrderBy(static row => row.Key.ToValue(), StringComparer.Ordinal)).Map(static row => (Id: row.Key, Response: row.Value));
         double[,] demands = new double[ordered.Count, MemberResponse.Columns];
         Span2D<double> block = demands.AsSpan2D();
         for (int row = 0; row < ordered.Count; row++) {
@@ -485,7 +485,7 @@ public static partial class StructuralAnalysis {
 
         H5DatasetCreation creation = HdfArchivePolicy.Interchange.Creation();
         H5File graph = new() { ["demands"] = new H5Dataset<double[,]>(demands, chunks: [1u, (uint)MemberResponse.Columns], datasetCreation: creation) };
-        graph.Attributes["members"] = ordered.Map(static row => row.Id.Value).ToArray();
+        graph.Attributes["members"] = ordered.Map(static row => row.Id.ToValue()).ToArray();
         Option<(H5Dataset<double[]> Slot, ChunkGrid Grid)> modeSlot = modal.Map(m => {
             ulong[] fileDims = [(ulong)m.Modes, (ulong)m.Dofs];
             uint[] chunkShape = [1u, (uint)m.Dofs];

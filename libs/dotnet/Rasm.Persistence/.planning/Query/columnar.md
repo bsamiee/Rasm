@@ -52,7 +52,7 @@ namespace Rasm.Persistence.Query;
 public readonly partial struct Identifier {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (value is not [_, ..] || char.IsAsciiDigit(value[0]) || !value.All(static c => char.IsAsciiLetterOrDigit(c) || c == '_')) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { $"<identifier:{value}>" }));
+            validationError = ValidationError.Create($"<identifier:{value}>");
         }
     }
 }
@@ -63,7 +63,7 @@ public readonly partial struct StorePath {
     static readonly SearchValues<char> Hostile = SearchValues.Create("'\";");
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (value is not [_, ..] || value.AsSpan().ContainsAny(Hostile) || value.Any(char.IsControl)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { $"<store-path:{value}>" }));
+            validationError = ValidationError.Create($"<store-path:{value}>");
         }
     }
 }
@@ -72,7 +72,7 @@ public readonly partial struct StorePath {
 [ValidationError]
 public readonly partial struct ExecutionThreads {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
-        if (value < 1) validationError = new ValidationError(string.Join(" | ", new object?[] { "execution-threads", value.ToString(CultureInfo.InvariantCulture) }));
+        if (value < 1) validationError = ValidationError.Create($"execution-threads | {value.ToString(CultureInfo.InvariantCulture)}");
     }
 }
 
@@ -80,7 +80,7 @@ public readonly partial struct ExecutionThreads {
 [ValidationError]
 public readonly partial struct AdbcSql {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) validationError = new ValidationError(string.Join(" | ", new object?[] { "<adbc-sql>" }));
+        if (string.IsNullOrWhiteSpace(value) || value.Contains('\0')) validationError = ValidationError.Create("<adbc-sql>");
     }
 }
 
@@ -249,7 +249,7 @@ public static class ColumnarLane {
             return Fin<ColumnarSession>.Succ(new ColumnarSession(anchor, profile, loaded));
         }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
-        .Bind(IO.liftFin)
+        .Bind(IO.lift)
         .Bind(static session => AdmitLoaded(session));
 
     static IO<ColumnarSession> AdmitLoaded(ColumnarSession session) {
@@ -269,8 +269,7 @@ public static class ColumnarLane {
             });
             return Fin<Unit>.Succ(unit);
         }).MapFail(error => ColumnarFault.Lift(error,
-            static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
-        .Bind(IO.liftFin);
+            static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))));
 
     public static IO<Seq<T>> Query<T>(ColumnarSession session, FormattableString sql, Func<DuckDBDataReader, T> shape) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
@@ -287,7 +286,7 @@ public static class ColumnarLane {
             }
         }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
-        .Bind(IO.liftFin);
+        .Bind(IO.lift);
 
     public static IO<long> Append<T, TMap>(ColumnarSession session, Identifier table, Seq<T> rows) where TMap : DuckDBAppenderMap<T>, new() =>
         IO.lift(() => Op.Of().Catch(() => {
@@ -297,8 +296,7 @@ public static class ColumnarLane {
             appender.Close();
             return Fin<long>.Succ(rows.Count);
         }).MapFail(error => ColumnarFault.Lift(error,
-            (cause, engine) => new ColumnarFault.AppendRefused(table, engine.ErrorType, cause))))
-        .Bind(IO.liftFin);
+            (cause, engine) => new ColumnarFault.AppendRefused(table, engine.ErrorType, cause))));
 
     public static IO<Fin<Unit>> Mount(ColumnarSession session, Identifier alias, StorePath store, ColumnarExtension typed) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
@@ -328,10 +326,10 @@ public static class ColumnarLane {
             request.Apply(statement);
             QueryResult result = await statement.ExecuteQueryAsync().ConfigureAwait(false);
             return Fin<T>.Succ(await drain(result).ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.liftFin);
+        }).ConfigureAwait(false)).Bind(IO.lift);
 
     public static IO<Fin<ArrowPartitions>> ArrowPartitions(AdbcConnection adbc, AdbcRequest request) =>
-        IO.lift(() => Op.Of().Catch(() => {
+        IO.lift<Fin<ArrowPartitions>>(() => Op.Of().Catch(() => {
             using AdbcStatement statement = adbc.CreateStatement();
             request.Apply(statement);
             PartitionedResult split = statement.ExecutePartitioned();
@@ -341,7 +339,7 @@ public static class ColumnarLane {
 
 public sealed record ArrowPartitions(AdbcConnection Connection, Schema Schema, long AffectedRows, Seq<PartitionDescriptor> Descriptors) {
     public IO<Fin<IArrowArrayStream>> Redeem(PartitionDescriptor descriptor) =>
-        IO.lift(() => Op.Of().Catch(() => Fin.Succ(Connection.ReadPartition(descriptor))));
+        IO.lift<Fin<IArrowArrayStream>>(() => Op.Of().Catch(() => Fin.Succ(Connection.ReadPartition(descriptor))));
 }
 
 [SmartEnum<string>]
@@ -359,7 +357,7 @@ public sealed partial class WarehouseDriver {
 
 public static class AdbcWarehouse {
     public static IO<Fin<AdbcConnection>> Open(WarehouseDriver driver, HashMap<string, string> parameters) =>
-        IO.lift(() => Op.Of().Catch(() => parameters.IsEmpty || parameters.Keys.Exists(string.IsNullOrWhiteSpace)
+        IO.lift<Fin<AdbcConnection>>(() => Op.Of().Catch(() => parameters.IsEmpty || parameters.Keys.Exists(string.IsNullOrWhiteSpace)
             ? Fin<AdbcConnection>.Fail(new ColumnarFault.PolicyRefused("adbc-parameters", driver.Key))
             : Fin<AdbcConnection>.Succ(driver.Open(parameters.ToDictionary(static p => p.Key, static p => p.Value)).Connect(new Dictionary<string, string>()))));
 
@@ -367,7 +365,7 @@ public static class AdbcWarehouse {
         Open(driver, parameters).Bind(opened => opened.Match(
             Succ: adbc => IO.pure(adbc).Bracket(
                 connection => ColumnarLane.ArrowStream(connection, request, Batches).Map(Fin.Succ),
-                static connection => IO.lift(() => Op.Of().Catch(() => { connection.Dispose(); return Fin<Unit>.Succ(unit); })).Bind(IO.liftFin)),
+                static connection => IO.lift(() => Op.Of().Catch(() => { connection.Dispose(); return Fin<Unit>.Succ(unit); }))),
             Fail: error => IO.pure(Fin<Seq<RecordBatch>>.Fail(error))));
 
     static ValueTask<Seq<RecordBatch>> Batches(QueryResult result) =>
@@ -522,7 +520,7 @@ public static class ArtifactEgress {
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Map(captured => captured.Bind(stamp => stamp
             .Bind(static held => ParseStamp(held))
-            .Match(Some: Fin<UInt128>.Succ, None: () => Fin<UInt128>.Fail(new ColumnarFault.UnstampedArtifact(artifact)))));
+            .ToFin(new ColumnarFault.UnstampedArtifact(artifact))));
 
     static Option<UInt128> ParseStamp(string held) {
         bool parsed = UInt128.TryParse(held, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out UInt128 key);

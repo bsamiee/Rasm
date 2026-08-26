@@ -430,10 +430,10 @@ public static partial class RasterCodec {
         from == to
             ? Fin.Succ(chain)
             : chain.Levels
-                .Fold(Fin.Succ(Seq<TexturePlane>()), (state, level) => state.Bind(converted =>
-                    level.ToAlpha(to, key)
-                        .Map(converted.Add)
-                        .Rollback([.. converted])))
+                .FoldM(Seq<TexturePlane>(), (converted, level) => level.ToAlpha(to, key)
+                    .Map(converted.Add)
+                    .Rollback([.. converted]))
+                .As()
                 .Map(levels => chain with { Levels = levels });
 
 }
@@ -525,8 +525,7 @@ public static partial class RasterCodec {
 
     private static Fin<TexturePyramid> Tiled(Part part, Op key) =>
         toSeq(part.Levels)
-            .Fold(Fin.Succ(Seq<TexturePlane>()), (state, level) => state.Bind(levels =>
-                Level(level, part.Header, key).Map(levels.Add)))
+            .TraverseM(level => Level(level, part.Header, key)).As()
             .Map(levels => new TexturePyramid(levels, levels.Count > 1 ? MipPolicy.Box : MipPolicy.None, Coupled: false));
 
     private static Fin<TexturePlane> Level(PartLevel level, Header header, Op key) {
@@ -625,8 +624,8 @@ public static partial class RasterCodec {
         int part = writer.AddPart(header);
         return Sealed(writer.Begin(), key, "exr-tiled-begin")
             .Bind(_ => toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
-                .Fold(Fin.Succ(unit), (state, slot) => state.Bind(_ =>
-                    WriteLevelTiles(writer, part, slot.Index, slot.Level, format, names, key))))
+                .FoldM(unit, (_, slot) => WriteLevelTiles(writer, part, slot.Index, slot.Level, format, names, key))
+                .As())
             .Bind(_ => Sealed(writer.End(), key, "exr-tiled-end"))
             .Map(_ => (ReadOnlyMemory<byte>)sink.ToArray());
     }
@@ -641,7 +640,7 @@ public static partial class RasterCodec {
         using MemoryOwner<float> tile = MemoryOwner<float>.Allocate(tw * th * channels);
         using MemoryOwner<float> planar = MemoryOwner<float>.Allocate(tw * th);
         return toSeq(Enumerable.Range(0, across * down))
-            .Fold(Fin.Succ(unit), (state, slot) => state.Bind(_ => {
+            .FoldM(unit, (_, slot) => {
                 (int tx, int ty) = (slot % across, slot / across);
                 int spanX = Math.Min(tw, level.Width.Value - (tx * tw));
                 int spanY = Math.Min(th, level.Height.Value - (ty * th));
@@ -657,7 +656,8 @@ public static partial class RasterCodec {
                     return new ChannelBuffer(names[c], PixelType.Float, MemoryMarshal.AsBytes(planar.Span[..texels]));
                 }).ToList());
                 return Sealed(writer.WriteTile(part, tx, ty, index, index, buffers), key, $"exr-tile:{index}:{tx}:{ty}");
-            }));
+            })
+            .As();
     }
 
     private static Fin<Unit> Sealed(WriterResult result, Op key, string at) =>
@@ -801,8 +801,7 @@ internal static class KtxGate {
         PlaneTransfer transfer = SrgbDeclared(declared) ? PlaneTransfer.Srgb : PlaneTransfer.Linear;
         PlaneFormat storage = FloatDeclared(declared) ? PlaneFormat.Rgba32F : PlaneFormat.Rgba16F;
         return toSeq(Enumerable.Range(0, container.Texture.MipLevelCount))
-            .Fold(Fin.Succ(Seq<TexturePlane>()), (state, level) => state.Bind(levels =>
-                Level(container, coder, level, storage, transfer, key).Map(levels.Add)))
+            .TraverseM(level => Level(container, coder, level, storage, transfer, key)).As()
             .Map(levels => new TexturePyramid(levels,
                 container.Texture.MipLevelCount > 1 ? MipPolicy.Box : MipPolicy.None, Coupled: false));
     }
@@ -862,8 +861,8 @@ internal static class KtxGate {
     private static Fin<Seq<TextureSubresource>> Slots(
         TexturePyramid chain, ITextureCoder coder, TextureFormat format, int layers, int faces, Op key) =>
         toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
-            .Fold(Fin.Succ(Seq<TextureSubresource>()), (state, slot) => state.Bind(built =>
-                toSeq(Enumerable.Range(0, layers)).Fold(Fin.Succ(built), (inner, layer) => inner.Bind(rows =>
+            .FoldM(Seq<TextureSubresource>(), (built, slot) =>
+                toSeq(Enumerable.Range(0, layers)).FoldM(built, (rows, layer) =>
                     slot.Level.Layer(layer, key).Map(face => {
                         using MemoryOwner<byte> payload =
                             MemoryOwner<byte>.Allocate(format.GetByteCount(face.Width.Value, face.Height.Value));
@@ -871,7 +870,7 @@ internal static class KtxGate {
                         return rows.Add(new TextureSubresource(slot.Index,
                             faces is 6 ? 0 : layer, faces is 6 ? layer : 0,
                             face.Width.Value, face.Height.Value, payload.Span.ToArray()));
-                    }))));
+                    })).As()).As();
 
     private static Fin<ReadOnlyMemory<byte>> InProcess(TexturePyramid chain, EncodePolicy policy, Op key) {
         PlaneTransfer transfer = chain.Base.Transfer;
@@ -959,14 +958,14 @@ internal static class KtxGate {
         Staged("create", stage => {
             string sink = Path.Combine(stage, "out.ktx2");
             return toSeq(chain.Levels.Select((level, index) => (Level: level, Index: index)))
-                .Fold(Fin.Succ(Seq<string>()), (state, slot) => state.Bind(leaves =>
+                .TraverseM(slot =>
                     RasterCodec.Encode(new TexturePyramid(Seq(slot.Level), MipPolicy.None, Coupled: false),
                             RasterFormat.Exr, policy, key)
                         .Map(bytes => {
                             string leaf = Path.Combine(stage, $"level{slot.Index:D2}.exr");
                             File.WriteAllBytes(leaf, bytes.Span);
-                            return leaves.Add(leaf);
-                        })))
+                            return leaf;
+                        })).As()
                 .Bind(leaves => Run(CreateArgs(chain, policy, leaves, sink), key))
                 .Map(_ => (ReadOnlyMemory<byte>)File.ReadAllBytes(sink));
         }, key);

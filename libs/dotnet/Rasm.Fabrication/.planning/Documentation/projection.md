@@ -370,11 +370,10 @@ internal static class Hlr {
          from projection in View.Apply(operation, HlrOp)
          from hatch in policy.Hatching
              .Find(view.Key)
-             .Match(
-                 Some: plan => Hatching
-                     .Apply(new HatchOp.Projection(projection, plan, HatchLane(policy)), HlrOp)
-                     .Map(static wire => Optional(wire)),
-                 None: static () => Fin.Succ(Option<HatchResult>.None))
+             .TraverseM(plan => Hatching.Apply(
+                 new HatchOp.Projection(projection, plan, HatchLane(policy)),
+                 HlrOp))
+             .As()
          select (new ProjectionRun(view.Key, lowered.Pose, view.Kind, projection, hatch), lowered.Camera))
         .ToValidation();
 

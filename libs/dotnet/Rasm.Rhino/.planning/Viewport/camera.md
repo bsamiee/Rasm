@@ -458,10 +458,8 @@ public sealed partial class CameraDof {
         Op op = key.OrDefault();
         CameraDof self = this;
         return op.Need(value: view).Bind(target => Read(view: target, key: op).Bind(prior =>
-            Apply(target: target, value: self, key: op).BindFail(primary =>
-                Restore(target: target, value: prior, key: op).Match(
-                    Succ: _ => Fin.Fail<Unit>(error: primary),
-                    Fail: cleanup => Fin.Fail<Unit>(error: primary + cleanup)))));
+            Apply(target: target, value: self, key: op)
+                .Rollback(release: () => Restore(target, prior, op), key: op)));
     }
 
     private static Fin<Unit> Apply(ViewInfo target, CameraDof value, Op key) =>

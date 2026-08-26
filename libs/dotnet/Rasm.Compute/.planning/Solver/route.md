@@ -613,17 +613,17 @@ public static class SolveRoutes {
     public static Fin<SolveResult> Condensed(RouteRequest request, SolveRoute.Condensed row) =>
         OperatorAssembly.Lumped(request.Mesh, request.Problem).Bind(mass =>
             Partition(mass, request.System.Constrained, OperatorAssembly.InertiaFloor(mass)).Bind(split =>
-                Seq(
-                    Claim(split.Masters.Length >= row.Pairs.Value, new ComputeViolation.Capacity(
+                AdmissionSlots.Accumulate(Seq(
+                    Refusal.Unless(split.Masters.Length >= row.Pairs.Value, ComputeArea.Solver, new ComputeViolation.Capacity(
                         CapacityRequirement.Sufficient,
                         new CapacityEvidence.Count(split.Masters.Length, row.Pairs.Value))),
-                    Claim(split.Masters.Length <= row.Reduction.MaxRetained.Value, new ComputeViolation.Capacity(
+                    Refusal.Unless(split.Masters.Length <= row.Reduction.MaxRetained.Value, ComputeArea.Solver, new ComputeViolation.Capacity(
                         CapacityRequirement.WithinLimit,
                         new CapacityEvidence.Count(split.Masters.Length, row.Reduction.MaxRetained.Value))),
-                    Claim(split.TransformBytes <= row.Reduction.MaxTransformBytes, new ComputeViolation.Capacity(
+                    Refusal.Unless(split.TransformBytes <= row.Reduction.MaxTransformBytes, ComputeArea.Solver, new ComputeViolation.Capacity(
                         CapacityRequirement.WithinLimit,
-                        new CapacityEvidence.Count(split.TransformBytes, row.Reduction.MaxTransformBytes))))
-                    .Traverse(static claim => claim).As().ToFin()
+                        new CapacityEvidence.Count(split.TransformBytes, row.Reduction.MaxTransformBytes)))))
+                    .ToFin()
                     .Bind(_ => Reduce(request.System.Operator, mass, split, row.Reduction.ResidualCap.Value))
                     .Bind(reduced => Spectrum(reduced, row.Pairs.Value)
                         .Bind(spectrum => Sealed(request, Reported(request, split, mass, reduced, spectrum))))));
@@ -653,10 +653,10 @@ public static class SolveRoutes {
             if (mass[dof] > floor) { masterOf[dof] = masters.Count; masters.Add(dof); }
             else { slaveOf[dof] = slaves.Count; slaves.Add(dof); }
         }
-        return Seq(
-            Claim(masters.Count > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(masters.Count, 1L))),
-            Claim(slaves.Count > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(slaves.Count, 1L))))
-            .Traverse(static claim => claim).As().ToFin()
+        return AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(masters.Count > 0, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(masters.Count, 1L))),
+            Refusal.Unless(slaves.Count > 0, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(slaves.Count, 1L)))))
+            .ToFin()
             .Map(_ => new DofSplit([.. masters], [.. slaves], masterOf, slaveOf));
     }
 
@@ -895,8 +895,6 @@ public static class SolveRoutes {
         return flat.AsMemory();
     }
 
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 ```
 

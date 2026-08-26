@@ -427,20 +427,20 @@ public static class QuantityDerivation {
         Option<MeasureValue> massDensity, Map<PropertyName, MeasureValue> occurrence, Op key) =>
         PropertyCatalog.BaseQuantitySet(cls, predefined, schema, scope).Match(
             None: () => Fin.Succ(occurrence),
-            Some: set => set.Quantities.Distinct().Fold(Fin.Succ(occurrence), (result, member) =>
-                result.Bind(acc => Derivations.TryGetValue((member.Dimension, member.Name), out var row)
+            Some: set => set.Quantities.Distinct().FoldM(occurrence, (acc, member) =>
+                Derivations.TryGetValue((member.Dimension, member.Name), out var row)
                     ? row.Project(measures, massDensity, key).Match(
                         Some: derived => derived.Map(value => acc.AddOrUpdate(PropertyCategory.Neutral.Row(member.Name), value)),
                         None: () => Fin.Succ(acc))
-                    : Fin.Succ(acc))));
+                    : Fin.Succ(acc)).As());
 
     public static Fin<Map<MaterialId, MeasureValue>> Decompose(
         MeasureBundle measures, Seq<BakedMaterial> materials, Func<ProfileRef, Option<SectionProperties>> sections, Op key) =>
         materials.TraverseM(baked => Shares(measures, baked.Material.Composition, sections, key)).As()
-            .Bind(rows => rows.Flatten().Fold(Fin.Succ(Map<MaterialId, MeasureValue>()), (result, row) =>
-                result.Bind(acc => acc.Find(row.Material).Match(
+            .Bind(rows => toSeq(rows.Flatten()).FoldM(Map<MaterialId, MeasureValue>(), (acc, row) =>
+                acc.Find(row.Material).Match(
                     Some: existing => MeasureValue.Sum(Seq(existing, row.Share), key).Map(sum => acc.SetItem(row.Material, sum)),
-                    None: () => Fin.Succ(acc.Add(row.Material, row.Share))))));
+                    None: () => Fin.Succ(acc.Add(row.Material, row.Share))).As());
 
     static Fin<Seq<(MaterialId Material, MeasureValue Share)>> Shares(
         MeasureBundle measures, MaterialComposition composition, Func<ProfileRef, Option<SectionProperties>> sections, Op key) =>
@@ -480,7 +480,7 @@ public static class QuantityDerivation {
 ## [04]-[TEMPLATE_AUDIT]
 
 - Owner: `TemplateAudit` the graph-wide standard-template conformance fold — the first model-quality question every project asks spec-free ("does each element carry its standard Pset with correctly-typed, in-range values") answered directly against the buildingSMART ground truth this page already resolves, with no authored IDS document; `TemplateVerdict` the `[SmartEnum<string>]` closed verdict vocabulary (`Missing`/`KindMismatch`/`DataTypeMismatch`/`NotAllowed`/`OutOfBounds`/`PatternReject`/`WrongDimension` — one row per constraint axis the `PropertyTemplate` carries, so a new template constraint axis is one verdict row and one `Verdict` arm); `TemplateFinding` the typed per-element finding row a report renders and a fix pass keys on.
-- Entry: `TemplateAudit.Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary, Op key)` audits every entity-type-classified occurrence `Object` node (the `ClassificationSystem.IfcSystem` row key compared in the roster's own `OrdinalIgnoreCase` space, never a bare token literal) against its resolved templates — templates resolve ONCE per distinct `(Classification.Code, PredefinedType.Token)` pair through `PropertyKey.Resolve` (the catalogue floor ∪ live dictionary union, `graph.Header.Schema` the schema, the caller's `scope` the definition set — a `Handover` audit grades COBie completeness on the same fold that grades the standard sets, the injected `dictionary` the per-class live evidence a caller supplies or leaves `None` for the offline-only audit) and every element of that pair checks against the SAME resolved map, never a per-element re-resolution; `Fin<T>` carries only the shared `Bake` result (an absent root or cyclic compose is the graph's fault, never this fold's) and the audit itself is total — a clean model returns the empty finding set.
+- Entry: `TemplateAudit.Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary, Op key)` audits every entity-type-classified occurrence `Object` node (the `ClassificationSystem.IfcSystem` row key compared in the roster's own `OrdinalIgnoreCase` space, never a bare token literal) against its resolved templates — templates resolve ONCE per distinct `(Classification.Code, PredefinedType.ToValue())` pair through `PropertyKey.Resolve` (the catalogue floor ∪ live dictionary union, `graph.Header.Schema` the schema, the caller's `scope` the definition set — a `Handover` audit grades COBie completeness on the same fold that grades the standard sets, the injected `dictionary` the per-class live evidence a caller supplies or leaves `None` for the offline-only audit) and every element of that pair checks against the SAME resolved map, never a per-element re-resolution; `Fin<T>` carries only the shared `Bake` result (an absent root or cyclic compose is the graph's fault, never this fold's) and the audit itself is total — a clean model returns the empty finding set.
 - Auto: per element the merged `Bake`-derived `element.Properties`/`element.Quantities` bags (type→occurrence precedence already applied by the stamped `InheritanceMode`) probe each template row — an absent value on a template whose `Traits` admit `Required` lands `Missing`; a present value decides per axis: a `Text`/`Enumerated` value outside a non-empty `AllowedValues` lands `NotAllowed`, a `Text` failing the whole-value-anchored `Pattern` lands `PatternReject`, a `Measure` whose `Dimension` disagrees with `SiDimension` lands `WrongDimension`, a `Measure`, `Integer`, or `Number` outside `Bounds` lands `OutOfBounds` (the bSDD `ClassPropertyContract.v1` min/max carry for Integer and Real properties, not only dimensioned measures), and a shared case irreconcilable with the template `Kind` (a `Complex` where the kind is `Single`) lands `KindMismatch` — the verdict axes are the SAME constraint family the `Review/validation#IDS_FACETS` facet narrows into its `ValueConstraint`, decided here with the failing AXIS named because a QA report acts per axis where a facet needs only pass/fail.
 - Output: the `Seq<TemplateFinding>` is the baseline-tier evidence — composed WHOLE as the `Review/validation#MODEL_HEALTH` `ModelFinding.Baseline` case beneath the authored IDS audits, so `Rasm.AppUi` and the review pipeline read the ONE `ModelHealth` verdict surface, never this stream directly; each row carries the element `NodeId`, the `{Set}.{Code}` template coordinate, the verdict, and the actual value so a fix pass addresses the exact property.
 - Packages: Xbim.Properties, ids-lib, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -509,10 +509,9 @@ public static class TemplateAudit {
     public static Fin<Seq<TemplateFinding>> Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary, Op key) {
         Seq<Node.Object> occurrences = graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Occurrence
-                && string.Equals(o.Classification.System, ClassificationSystem.IfcSystem.Key, StringComparison.OrdinalIgnoreCase))
-            .ToSeq();
+                && string.Equals(o.Classification.System, ClassificationSystem.IfcSystem.Key, StringComparison.OrdinalIgnoreCase));
         Map<(string Code, string Token), Map<string, (PropertyTemplate Template, Option<Regex> Pattern)>> resolved =
-            occurrences.Map(static o => (o.Classification.Code, o.PredefinedType.Token)).Distinct()
+            occurrences.Map(static o => (o.Classification.Code, o.PredefinedType.ToValue())).Distinct()
                 .Fold(Map<(string, string), Map<string, (PropertyTemplate, Option<Regex>)>>(), (acc, pair) =>
                     IfcClass.TryGet(pair.Code).Match(
                         None: () => acc,
@@ -520,11 +519,11 @@ public static class TemplateAudit {
                             .Map(static t => (t, t.Pattern.Map(static p => new Regex($"^(?:{p})$", RegexOptions.NonBacktracking | RegexOptions.CultureInvariant)))))));
         return occurrences
             .TraverseM(node => graph.Bake(node.Id, key).Map(element =>
-                resolved.Find((node.Classification.Code, node.PredefinedType.Token))
+                resolved.Find((node.Classification.Code, node.PredefinedType.ToValue()))
                     .Map(templates => Check(node.Id, templates, element))
                     .IfNone(Seq<TemplateFinding>())))
             .As()
-            .Map(static findings => findings.Flatten().ToSeq());
+            .Map(static findings => toSeq(findings.Flatten()));
     }
 
     static Option<string> Token(string token) => Optional(token).Filter(static t => t.Length > 0 && t != PredefinedType.NotDefined.Token);

@@ -252,16 +252,19 @@ public static class GhInstruments {
         1L,
         InstrumentSet.Tags(
             (PointSlot, fault.Point.ToString()),
-            (KernelInstrument.OwnerSlot, fault.Cause.Owner.Match<object?>(Some: static owner => owner.Key, None: static () => null)),
+            (KernelInstrument.OwnerSlot, Op.ToHostSlot(fault.Cause.Owner.Map(static owner => (object)owner.Key))),
             (KernelInstrument.PostureSlot, Redrive.Posture(fault.Cause).Key))));
 
     private static Fin<Unit> Write(Func<InstrumentSet, Fin<Unit>> write) =>
-        GhTelemetry.Seat.Value.Match(Some: held => write(held.Instruments), None: static () => Fin.Succ(unit));
+        GhTelemetry.Seat.Value
+            .TraverseM(held => write(held.Instruments))
+            .As()
+            .Map(static _ => unit);
 
     private static string Doc(Guid document) => document.ToString("N");
 
     private static object? Doc(Option<Guid> document) =>
-        document.Match<object?>(Some: static held => held.ToString("N"), None: static () => null);
+        Op.ToHostSlot(document.Map(static held => held.ToString("N")));
 }
 
 public static class GhLog {
@@ -293,7 +296,7 @@ public sealed class GhTelemetry : IDisposable {
                from telemetry in op.Catch(body: () => {
                    ILoggerFactory admitted = logs.IfNone(NullLoggerFactory.Instance);
                    InstrumentSet instruments = InstrumentSet.Of(new LevelCells(), (owner.Create(new MeterOptions(GhInstruments.MeterName) {
-                       Version = version.Match<string?>(Some: static held => held, None: static () => null),
+                       Version = Op.ToHostSlot(version),
                        Tags = [new KeyValuePair<string, object?>("gh.plugin", (string)identity)],
                    }), GhInstruments.Rows));
                    object token = new();

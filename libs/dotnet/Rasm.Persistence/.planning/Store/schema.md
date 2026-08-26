@@ -40,7 +40,7 @@ public readonly partial struct ContractKey {
         if (value is not [_, ..]
             || char.IsAsciiDigit(value[0])
             || !value.All(static ch => char.IsAsciiLetterOrDigit(ch) || ch is '.' or '-')) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { value }));
+            validationError = ValidationError.Create(value);
         }
     }
 }
@@ -57,7 +57,7 @@ public readonly partial struct ArtifactPath {
             || owner.Length == 0
             || artifact.Length == 0
             || !value.All(static ch => char.IsAsciiLetterOrDigit(ch) || ch is '/' or '.' or '-')) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { value }));
+            validationError = ValidationError.Create(value);
         }
     }
 }

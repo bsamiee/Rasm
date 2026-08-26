@@ -131,9 +131,9 @@ public static class GhSession {
                 body: () => valid.Switch(
                     state: active,
                     revealCase: static (k, c) => UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                        k.Catch(body: () => Fin.Succ(Op.Side(action: () => Editor.ShowEditor(
+                        k.Catch(() => Editor.ShowEditor(
                             createVisible: true,
-                            layoutRules: c.Layout.Match<string?>(Some: static rules => rules, None: static () => null)))))),
+                            layoutRules: Op.ToHostSlot(c.Layout))),
                         DispatchLane.Interactive, k)
                         .Map(_ => (Operation: c.SelfOp, Deferred: false)),
                     executeCase: static (k, c) =>
@@ -161,11 +161,11 @@ public static class GhSession {
                             target: ScopeTarget.CanvasHost,
                             body: scope => scope.Canvas.ToFin(k.MissingContext()).Bind(surface => c.Plan.Switch(
                                 state: (Surface: surface, Key: k),
-                                invalidateCase: static (s, _) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Surface.Invalidate()))),
-                                scheduledCase: static (s, _) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Surface.ScheduleRedraw()))),
+                                invalidateCase: static (s, _) => s.Key.Catch(() => s.Surface.Invalidate()),
+                                scheduledCase: static (s, _) => s.Key.Catch(() => s.Surface.ScheduleRedraw()),
                                 deferredCase: static (s, p) =>
                                     from admitted in guard(p.Delay >= TimeSpan.Zero, (Error)s.Key.InvalidInput()).ToFin()
-                                    from painted in s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Surface.ScheduleRedraw(p.Delay))))
+                                    from painted in s.Key.Catch(() => s.Surface.ScheduleRedraw(p.Delay))
                                     select painted)),
                             key: k)),
                             DispatchLane.Interactive, k)
@@ -173,13 +173,13 @@ public static class GhSession {
                     styleCase: static (k, c) =>
                         from surface in k.Need(c.Surface)
                         from styled in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                            k.Catch(body: () => Fin.Succ(Op.Side(action: surface.UseRhinoStyle)))),
+                            k.Catch(surface.UseRhinoStyle)),
                             DispatchLane.Interactive, k)
                         select (Operation: c.SelfOp, Deferred: false),
                     focusCase: static (k, c) =>
                         from surface in k.Need(c.Surface)
                         from focused in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
-                            k.Catch(body: () => Fin.Succ(Op.Side(action: surface.Focus)))),
+                            k.Catch(surface.Focus)),
                             DispatchLane.Interactive, k)
                         select (Operation: c.SelfOp, Deferred: false),
                     releaseCase: static (k, c) =>

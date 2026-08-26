@@ -647,11 +647,8 @@ public static class EvidenceJoin {
             .Choose(row => Trace(row).Map(trace => (Trace: trace, Row: row)))
             .TraverseM(held => EvidenceMap.Decode(held.Row, JoinOp).Map(fact => (held.Trace, Stamp: Stamp(held.Row), Band: SkewBand.Of(held.Row), Fact: fact)))
             .As()
-            .Map(rows => rows
-                .GroupBy(static row => row.Trace)
-                .AsIterable()
-                .Map(group => new EvidenceTimeline(group.Key, Ordered(group)))
-                .ToSeq());
+            .Map(rows => toSeq(rows.GroupBy(static row => row.Trace))
+                .Map(group => new EvidenceTimeline(group.Key, Ordered(group))));
 
     public static Option<ActivityTraceId> Trace(RasmEvent<Extensions> row) =>
         row.Extensions.HasTraceparent
@@ -716,10 +713,7 @@ public static class TenantUsageFold {
                 .Filter(static row => row.Source.Domain == AppUiPoint.Domain)
                 .TraverseM(row => EvidenceMap.Decode(row, UsageOp).Map(fact => (Tenant: Tenant(row), row.Time, Fact: fact)))
                 .As()
-                .Bind(rows => rows
-                    .GroupBy(row => (row.Tenant, Bucket: Floor(row.Time, window)))
-                    .AsIterable()
-                    .ToSeq()
+                .Bind(rows => toSeq(rows.GroupBy(row => (row.Tenant, Bucket: Floor(row.Time, window))))
                     .TraverseM(group => group.Fold(
                         Fin.Succ(TenantUsage.Empty(group.Key.Tenant, group.Key.Bucket, window)),
                         static (usage, row) => usage.Bind(held => Accrue(held, row.Fact))))

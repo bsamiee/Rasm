@@ -70,9 +70,9 @@ public sealed partial class PayloadPresence {
     public static readonly PayloadPresence Optional = new(key: 0,
         settle: static (found, _, _) => Fin.Succ(found));
     public static readonly PayloadPresence Required = new(key: 1,
-        settle: static (found, wanted, key) => found.Match(
-            Some: static slot => Fin.Succ(Some(slot)),
-            None: () => Fin.Fail<Option<PayloadSlot>>(new UiFault.AbsentPayload(Key: key, Wanted: wanted))));
+        settle: static (found, wanted, key) => found
+            .ToFin(new UiFault.AbsentPayload(Key: key, Wanted: wanted))
+            .Map(Some));
 
     [UseDelegateFromConstructor]
     internal partial Fin<Option<PayloadSlot>> Settle(Option<PayloadSlot> found, Mime wanted, Op key);
@@ -212,7 +212,7 @@ public abstract partial record TransferOutcome {
     public sealed record Written(Seq<TransferWriteFact> Slots) : TransferOutcome {
         public int Count => Slots.Count(static fact => fact.IsValid);
         public Option<Error> Failure =>
-            Slots.Choose(static fact => fact is TransferWriteFact.Rejected row ? Some(row.Cause) : None).HeadOrNone();
+            Slots.Choose(static fact => fact is TransferWriteFact.Rejected row ? Some(row.Cause) : None).Head;
     }
 }
 

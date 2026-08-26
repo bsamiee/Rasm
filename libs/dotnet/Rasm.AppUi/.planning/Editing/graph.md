@@ -318,10 +318,8 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
 
     public static AdjacencyGraph<string, SEdge<string>> Graph(
         Seq<string> vertices, Seq<(string From, string To)> edges, bool allowParallelEdges) =>
-        edges.Map(static edge => new SEdge<string>(edge.From, edge.To))
-            .GroupBy(static edge => edge.Source)
-            .AsIterable()
-            .ToSeq()
+        toSeq(edges.Map(static edge => new SEdge<string>(edge.From, edge.To))
+            .GroupBy(static edge => edge.Source))
             .Fold(HashMap<string, Seq<SEdge<string>>>(), static (held, group) => held.Add(group.Key, toSeq(group)))
             switch {
             var outgoing => vertices.AsIterable().ToAdjacencyGraph(
@@ -390,7 +388,7 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
                 None: () => node.Pins.Exists(pin => !Policy.RequireDirectionalConnections || pin.Direction == expected)));
 
     static Option<TKey> Repeated<TKey>(Seq<TKey> keys) where TKey : notnull =>
-        keys.GroupBy(static key => key).AsIterable().Filter(static group => group.Count() > 1).ToSeq().Head.Map(static group => group.Key);
+        toSeq(keys.GroupBy(static key => key)).Filter(static group => group.Count() > 1).Head.Map(static group => group.Key);
 }
 ```
 
@@ -580,7 +578,7 @@ public sealed class GraphCamera(ZoomBorder border) {
     }
 
     public IO<Fin<Unit>> Navigate(GraphNav verb) =>
-        IO.lift(() => Admit(verb).Bind(admitted => Op.Of(name: "appui.graph.navigate").Catch(() => Fin.Succ(ignore(admitted.Switch(
+        IO.lift<Fin<Unit>>(() => Admit(verb).Bind(admitted => Op.Of(name: "appui.graph.navigate").Catch(() => Fin.Succ(ignore(admitted.Switch(
                 state: this,
                 fit: static (camera, _) => fun(() => camera.Border.Uniform(false))(),
                 fitTo: static (camera, v) => fun(() => camera.Border.ZoomToRectangle(v.Content, null, true))(),
@@ -629,11 +627,11 @@ public static class GraphVerbs {
 
     public static Seq<CommandRow> Rows(
         IDrawingNode drawing, GraphCamera camera, GraphFind find, Func<Seq<GraphNodeRow>> selected) =>
-        Enum.GetValues<NodeAlignment>().AsIterable().ToSeq().Map(value =>
+        toSeq(Enum.GetValues<NodeAlignment>()).Map(value =>
             Raise($"align.{Key(value)}", () => drawing.AlignSelectedNodes(value), WithSelection))
-        + Enum.GetValues<NodeDistribution>().AsIterable().ToSeq().Map(value =>
+        + toSeq(Enum.GetValues<NodeDistribution>()).Map(value =>
             Raise($"distribute.{Key(value)}", () => drawing.DistributeSelectedNodes(value), WithSelection))
-        + Enum.GetValues<NodeOrder>().AsIterable().ToSeq().Map(value =>
+        + toSeq(Enum.GetValues<NodeOrder>()).Map(value =>
             Raise($"order.{Key(value)}", () => drawing.OrderSelectedNodes(value), WithSelection))
         + Seq(
             Raise("lock", drawing.LockSelection, WithSelection),
@@ -925,7 +923,7 @@ public sealed record GraphCoEdit(
     Func<LoroTree, Fin<Seq<GraphNodeRow>>> ReadNodes,
     Func<LoroMap, Fin<Seq<GraphEdge>>> ReadEdges) {
     public IO<Fin<GraphBinding>> Bind(CollabDoc doc, GraphCanvas canvas) =>
-        IO.lift(() =>
+        IO.lift<Fin<GraphBinding>>(() =>
             from containers in Open(doc)
             let binding = new GraphBinding(this, doc, canvas, containers.Tree, containers.Edges)
             from live in Seated(doc, binding)

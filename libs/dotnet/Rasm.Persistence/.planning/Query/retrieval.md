@@ -307,7 +307,7 @@ public abstract partial record RetrievalFault : Fault {
 [ValidationError]
 public readonly partial struct RetrievalLimit {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
-        if (value <= 0) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"<retrieval-limit:{value}>" })); }
+        if (value <= 0) { validationError = ValidationError.Create($"<retrieval-limit:{value}>"); }
     }
 }
 
@@ -315,7 +315,7 @@ public readonly partial struct RetrievalLimit {
 [ValidationError]
 public readonly partial struct TrainingPasses {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
-        if (value <= 0) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"<training-passes:{value}>" })); }
+        if (value <= 0) { validationError = ValidationError.Create($"<training-passes:{value}>"); }
     }
 }
 
@@ -323,7 +323,7 @@ public readonly partial struct TrainingPasses {
 [ValidationError]
 public readonly partial struct QuantizationScale {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) {
-        if (!float.IsFinite(value) || value <= 0) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"<quantization-scale:{value}>" })); }
+        if (!float.IsFinite(value) || value <= 0) { validationError = ValidationError.Create($"<quantization-scale:{value}>"); }
     }
 }
 
@@ -404,9 +404,8 @@ public readonly record struct VectorRow(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class VectorCodebook {
     public static Fin<ProductCodebook> Train(Seq<ReadOnlyMemory<float>> corpus, int subspaces, int codesPerSubspace, TrainingPasses passes) =>
-        corpus.Head.Match(
-            Some: first => Fitted(corpus, first.Length, subspaces, codesPerSubspace, passes),
-            None: static () => Fin.Fail<ProductCodebook>(new RetrievalFault.EmptyCorpus()));
+        corpus.Head.ToFin(new RetrievalFault.EmptyCorpus())
+            .Bind(first => Fitted(corpus, first.Length, subspaces, codesPerSubspace, passes));
 
     static Fin<ProductCodebook> Fitted(Seq<ReadOnlyMemory<float>> corpus, int dimension, int subspaces, int codesPerSubspace, TrainingPasses passes) =>
         AdmissionSlots.Accumulate(Seq(
@@ -463,12 +462,12 @@ public static class VectorCodebook {
     }
 
     static Fin<Unit> Coherent(ProductCodebook codebook, Seq<VectorRow> coded) =>
-        coded.Fold(Fin.Succ(unit), (held, row) => held.Bind(_ =>
+        coded.TraverseM(row =>
             row.CodebookId != codebook.Id
                 ? Fin.Fail<Unit>(new RetrievalFault.Mismatched("codebook-id", codebook.Id.ToString("x32", CultureInfo.InvariantCulture), row.CodebookId.ToString("x32", CultureInfo.InvariantCulture)))
             : row.Codes.Length != codebook.Subspaces
                 ? Fin.Fail<Unit>(new RetrievalFault.Mismatched("codes-length", codebook.Subspaces.ToString(CultureInfo.InvariantCulture), row.Codes.Length.ToString(CultureInfo.InvariantCulture)))
-            : Ranged(codebook, row.Codes.Span)));
+            : Ranged(codebook, row.Codes.Span)).As().Map(static _ => unit);
 
     static Fin<Unit> Ranged(ProductCodebook codebook, ReadOnlySpan<byte> codes) {
         foreach (byte code in codes) {
@@ -589,7 +588,7 @@ public static class ResultCache {
             produce,
             new HybridCacheEntryOptions { Expiration = policy.TimeToLive.ToTimeSpan() },
             tags: [$"elementset:{subjectKey}"],
-            cancellationToken: token).ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.liftFin);
+            cancellationToken: token).ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.lift);
     }
 }
 
@@ -706,18 +705,17 @@ public static class DocumentCorpus {
         !store.Admits(Lane.Search)
         ? Fin.Fail<string>(new RetrievalFault.Mismatched("store-lane", Lane.Search.Key, store.Key))
         : (from admitted in Admit(query)
-           from predicate in (DocumentPredicate.TryGet(admitted.Predicate, out DocumentPredicate? row)
-                   ? Fin.Succ(row)
-                   : Fin.Fail<DocumentPredicate>(new RetrievalFault.Mismatched(
-                       "document-predicate", string.Join("|", DocumentPredicate.Items.Select(static p => p.Key)), admitted.Predicate)))
+           from predicate in Op.Of().Row<string, DocumentPredicate>(admitted.Predicate)
+               .MapFail(_ => new RetrievalFault.Mismatched(
+                   "document-predicate", string.Join("|", DocumentPredicate.Items.Select(static p => p.Key)), admitted.Predicate))
            select Composed(admitted, predicate, rank));
 
     public static Fin<DocumentHit> Shape(
         CorpusKind kind, string subject, Option<string> member, string title, string snippet,
         Seq<(int Start, int Length)> positions, double score) =>
-        positions.Head.Match(
-            Some: first => Fin.Succ(new DocumentHit(kind.Key, subject, member, title, first.Start, first.Length, snippet, score)),
-            None: static () => Fin.Fail<DocumentHit>(new RetrievalFault.Mismatched("snippet-positions", "at least one match position", "none")));
+        positions.Head
+            .ToFin(new RetrievalFault.Mismatched("snippet-positions", "at least one match position", "none"))
+            .Map(first => new DocumentHit(kind.Key, subject, member, title, first.Start, first.Length, snippet, score));
 
     static string Composed(DocumentQuery query, DocumentPredicate predicate, LexicalRank rank) =>
         $"""

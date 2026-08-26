@@ -665,7 +665,7 @@ public static class Linking {
                 run.KeepOutBySheet.Find(row.Key).IfNone(Seq<Loop>()),
                 policy).ToValidation())
             .As().ToFin()
-            .Map(static rows => rows.Choose(identity));
+            .Map(static rows => rows.Somes());
 
     private static Fin<Option<WasteRow>> Partition(
         int sheet,

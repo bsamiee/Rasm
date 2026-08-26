@@ -274,7 +274,7 @@ public sealed record ChartSpec(
         new(key, toSeq(layers), Seq(ChartAxis.Time), Seq(ChartAxis.Value),
             Seq<ChartSection>(), Seq<ChartAnnotation>(), None, None, None, 0d, policy);
 
-    public ChartCanvas Canvas => Layers.Head.Kind.Canvas;
+    public ChartCanvas Canvas => Layers[0].Kind.Canvas;
 
     public static Fin<ChartSpec> Admit(ChartSpec candidate) =>
         candidate.Layers.IsEmpty
@@ -393,18 +393,25 @@ public sealed record ChartSyncGroups(FrozenDictionary<string, object> Locks) {
 
 public static class ChartSync {
     public static Fin<object> Mount(ChartSyncGroups groups, ChartPolicy policy, IChartView chart) =>
-        groups.For(policy.ScaleGroup).Map(shared => {
-            chart.SyncContext = shared;
-            return shared;
-        });
+        groups.For(policy.ScaleGroup).Bind(shared =>
+            Op.Of(name: "appui.chart.mount").Catch(() => {
+                chart.SyncContext = shared;
+                return Fin.Succ(shared);
+            }));
 
     public static Fin<Unit> Pair(Seq<ICartesianAxis> group) =>
         group.Count < 2
             ? Fin.Succ(unit)
-            : Fin.Succ(group.Fold(unit, (_, axis) => { axis.SharedWith = group.Filter(peer => !ReferenceEquals(peer, axis)); return unit; }));
+            : Op.Of(name: "appui.chart.pair").Catch(() => {
+                Unit paired = group.Fold(unit, (_, axis) => {
+                    axis.SharedWith = group.Filter(peer => !ReferenceEquals(peer, axis));
+                    return unit;
+                });
+                return Fin.Succ(paired);
+            });
 
     public static Fin<Unit> Apply(SourceGenCartesianChart chart, ChartPolicy policy, ChartInk ink) =>
-        Fin.Succ(unit).Map(_ => {
+        Op.Of(name: "appui.chart.apply").Catch(() => {
             chart.ZoomMode = policy.Nav.Mode;
             chart.FindingStrategy = policy.Find.Strategy;
             chart.TooltipPosition = policy.Tooltip.Tooltip;
@@ -422,7 +429,7 @@ public static class ChartSync {
                 Stroke = ink.Paint(ChartChrome.FrameStroke),
                 Fill = ink.Paint(ChartChrome.FrameFill),
             }.Value;
-            return unit;
+            return Fin.Succ(unit);
         });
 }
 ```

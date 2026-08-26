@@ -353,7 +353,7 @@ public static class Slicing {
                 });
 
         return toSeq(Enumerable.Range(0, layers))
-            .Fold(Fin.Succ(unit), (state, k) => state.Bind(_ => Layer(k)))
+            .TraverseM(Layer).As().Map(_ => unit)
             .Bind(_ => {
                 int contours = contourPtr.Count - 1;
                 int[] childPtr = new int[contours + 1];

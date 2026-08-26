@@ -99,14 +99,13 @@ public sealed partial class ClassificationSystem {
             | ByUri(PropertyLowering.Stated(dictionary?.Specification).IfNone(""), pins)
             | ByUri(PropertyLowering.Stated(reference.Location).IfNone(""), pins))
             .Bind(system => Optional(CodeOf(reference)).Filter(static code => code.Length > 0).Map(code => (system, code)))
-            .Match(
-                Some: found => Classification.Of(
+            .TraverseM(found => Classification.Of(
                     found.system.Key, found.code, key,
                     edition: PropertyLowering.Stated(dictionary?.Edition).IfNone("").Trim(),
                     source: SourceOf(dictionary),
                     editionDate: EditionDateOf(dictionary),
-                    title: TitleOf(reference)).Map(Some),
-                None: static () => Fin.Succ(Option<Classification>.None));
+                    title: TitleOf(reference)))
+            .As();
     }
 
     static IfcClassification? RootSource(IfcClassificationReference reference) {
@@ -270,7 +269,7 @@ public sealed partial record BsddClass(
                   response.Code, response.Name, BsddWire.Text(response.ClassType), BsddWire.Text(response.Definition), response.Uri,
                   properties, status, BsddWire.Rows(response.RelatedIfcEntityNames), relations, reverse,
                   Optional(response.ParentClassReference).Map(BsddWire.Ref),
-                  BsddWire.Rows(response.Hierarchy).OrderBy(static item => item.Level).Map(BsddWire.Ref).ToSeq(),
+                  toSeq(BsddWire.Rows(response.Hierarchy).OrderBy(static item => item.Level)).Map(BsddWire.Ref),
                   BsddWire.Rows(response.ChildClassReferences).Map(BsddWire.Ref),
                   BsddWire.Rows(response.ReplacedObjectCodes),
                   BsddWire.Rows(response.ReplacingObjectCodes),
@@ -462,7 +461,7 @@ public static class BsddResolution {
                         .As()
                         .Map(static grouped => grouped.Flatten())))
             .As()
-            .Map(static rows => rows.Flatten().Filter(static row => !row.Candidates.IsEmpty).ToSeq());
+            .Map(static rows => toSeq(rows.Flatten()).Filter(static row => !row.Candidates.IsEmpty));
 
     static bool Decisive(Seq<BsddHit> coarse, Seq<ClassificationSystem> targets) =>
         targets.ForAll(target => coarse.Count(hit => hit.System == target) <= 1);

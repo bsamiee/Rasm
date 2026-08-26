@@ -487,7 +487,7 @@ public sealed class InstrumentTally : IDisposable {
         tally.listener.InstrumentPublished = (instrument, listening) => {
             if (set.Published(instrument).IsSome) { listening.EnableMeasurementEvents(instrument, state: null); }
         };
-        ignore(MeasureForm.Items.AsIterable().Map(form => { form.Heard(tally.listener, tally.Fold); return unit; }).Strict());
+        MeasureForm.Items.AsIterable().Iter(form => form.Heard(tally.listener, tally.Fold));
         tally.listener.Start();
         return tally;
     }
@@ -536,7 +536,7 @@ public sealed class InstrumentTally : IDisposable {
     }
 
     private Seq<InstrumentReading> Projected(TallyState held) {
-        HashMap<InstrumentSpec, Seq<ReadingCell>> byRow = held.Cells.Fold(
+        HashMap<InstrumentSpec, Seq<ReadingCell>> byRow = held.Cells.AsIterable().Fold(
             HashMap<InstrumentSpec, Seq<ReadingCell>>(),
             static (rows, pair) => rows.AddOrUpdate(pair.Key.Row, cell => pair.Value.Cons(cell), () => [pair.Value]));
         return set.Rows.Map(row => new InstrumentReading(

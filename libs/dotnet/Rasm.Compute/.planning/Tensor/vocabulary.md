@@ -73,9 +73,9 @@ public sealed partial class TensorDtype {
         : Some((0L, (1L << StorageBits) - 1));
 
     public Fin<int> ElementCount(long sizeInBytes) =>
-        OrtElementBytes.Match(
-            None: () => TensorReason.ByteStrideAbsent.Fail<int>("no-byte-stride", Key),
-            Some: stride =>
+        OrtElementBytes
+            .ToFin(TensorReason.ByteStrideAbsent.Fault("no-byte-stride", Key))
+            .Bind(stride =>
                 sizeInBytes < 0 ? TensorReason.ByteSpanMisaligned.Fail<int>("negative-byte-span", Key, sizeInBytes.ToString(CultureInfo.InvariantCulture))
                 : sizeInBytes % stride != 0 ? TensorReason.ByteSpanMisaligned.Fail<int>("misaligned-byte-span", Key, $"{sizeInBytes}%{stride}")
                 : sizeInBytes / stride > int.MaxValue ? TensorReason.ExtentOverflow.Fail<int>("element-count-overflow", Key, sizeInBytes.ToString(CultureInfo.InvariantCulture))
@@ -109,9 +109,9 @@ public abstract partial record QuantizationPolicy {
     public sealed partial record Blocked(int Axis, int BlockSize, [property: OrderedEquality] ImmutableArray<PositiveScale> Scales, [property: OrderedEquality] ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
 
     public Fin<QuantizationPolicy> Admit(TensorDtype row, ReadOnlyMemory<long> shape) =>
-        row.ZeroPointDomain.Match(
-            None: () => TensorReason.QuantizationInvalid.Fail<QuantizationPolicy>("quantization-on-unquantized-row", row.Key),
-            Some: domain => this.Switch<Fin<QuantizationPolicy>>(
+        row.ZeroPointDomain
+            .ToFin(TensorReason.QuantizationInvalid.Fault("quantization-on-unquantized-row", row.Key))
+            .Bind(domain => this.Switch<Fin<QuantizationPolicy>>(
                 perTensor: p => ZeroGate(row, domain, p.ZeroPoint).As().ToFin().Map(_ => (QuantizationPolicy)p),
                 perAxis: a => Axial(row, domain, shape, a.Axis, new Granularity.Whole(), a.Scales, a.ZeroPoints).Map(_ => (QuantizationPolicy)a),
                 blocked: b => Axial(row, domain, shape, b.Axis, new Granularity.Blocks(b.BlockSize), b.Scales, b.ZeroPoints).Map(_ => (QuantizationPolicy)b)));
@@ -225,22 +225,22 @@ public static class TensorVocabulary {
                 : Floating(left, right, Math.Max(pair.Left.Precision, pair.Right.Precision), Math.Max(pair.Left.Exponent, pair.Right.Exponent)));
 
     private static Fin<TensorDtype> Floating(TensorDtype left, TensorDtype right, int precision, int exponent) =>
-        toSeq(TensorDtype.Items)
+        toSeq(toSeq(TensorDtype.Items)
             .Filter(static row => row.Numeric && !row.Integral && row != TensorDtype.Complex128 && row.Reach == Reach.Span)
-            .OrderBy(static row => row.StorageBits)
+            .OrderBy(static row => row.StorageBits))
             .Find(row => row.NumericDomain.Map(domain => domain.Precision >= precision && domain.Exponent >= exponent).IfNone(false))
-            .Match(Some: Fin.Succ, None: () => TensorReason.DtypeMismatch.Fail<TensorDtype>("promotion-exhausted", $"{left.Key}+{right.Key}", $"precision={precision}:exponent={exponent}"));
+            .ToFin(TensorReason.DtypeMismatch.Fault("promotion-exhausted", $"{left.Key}+{right.Key}", $"precision={precision}:exponent={exponent}"));
 
     private static readonly TensorDtype MixedSignFloor = TensorDtype.Float64;
 
     private static Fin<TensorDtype> Integral(TensorDtype left, TensorDtype right) {
         bool signed = left.Signed || right.Signed;
         int demanded = Math.Max(left.StorageBits, right.StorageBits) + (left.Signed == right.Signed ? 0 : 1);
-        return toSeq(TensorDtype.Items)
+        return Fin.Succ(toSeq(toSeq(TensorDtype.Items)
             .Filter(row => row.Integral && row.Signed == signed && row.StorageBits >= demanded)
-            .OrderBy(static row => row.StorageBits)
+            .OrderBy(static row => row.StorageBits))
             .Head
-            .Match(Some: Fin.Succ, None: () => Fin.Succ(MixedSignFloor));
+            .IfNone(MixedSignFloor));
     }
 
     private static Fin<TensorDtype> NonNumeric(TensorDtype left, TensorDtype right) =>
@@ -259,7 +259,7 @@ public static class TensorVocabulary {
 
     private static Fin<TensorDtype> Derived(Func<TensorDtype, bool> admits, string slug, int size) =>
         toSeq(TensorDtype.Items).Find(admits)
-            .Match(Some: Fin.Succ, None: () => slug.Fail<TensorDtype>(size.ToString(CultureInfo.InvariantCulture)));
+            .ToFin(slug.Fault(size.ToString(CultureInfo.InvariantCulture)));
 
     public static Fin<TensorDtype> Admit(TensorElementType element, Option<QuantizationPolicy> quantization, ReadOnlyMemory<long> shape) =>
         Admit(element).Bind(row => quantization.Match(

@@ -117,7 +117,7 @@ public sealed partial class ElementSource {
         ref ElementGraph graph,
         ref Seq<ElementSubject> subjects,
         ref Op key) {
-        if (subjects.IsEmpty || subjects.Map(static subject => subject.Id.Value).Distinct().Count != subjects.Count)
+        if (subjects.IsEmpty || subjects.Map(static subject => subject.Id.ToValue()).Distinct().Count != subjects.Count)
             validationError = new ValidationError("element-source:subjects");
     }
 
@@ -321,16 +321,16 @@ public static class ElementColumns {
         nameof(Element.Assessments), nameof(Element.Coverages), nameof(Element.Appearance),
         nameof(Element.History), nameof(Element.Type), nameof(Element.Observations))]
     public static readonly Seq<FactColumn<Element>> Identity = Seq(
-        Sym<Element>("Element.Id", static row => row.Id.Value),
+        Sym<Element>("Element.Id", static row => row.Id.ToValue()),
         Sym<Element>("Element.Kind", static row => row.Kind.Key),
-        Sym<Element>("Element.PredefinedType", static row => row.PredefinedType.Key),
+        Sym<Element>("Element.PredefinedType", static row => row.PredefinedType.ToValue()),
         Sym<Element>("Element.Name", static row => row.Name),
         Sym<Element>("Element.Tag", static row => row.Tag),
         Sym<Element>("Element.Classification.System", static row => row.Classification.System),
         Sym<Element>("Element.Classification.Code", static row => row.Classification.Code),
         Sym<Element>("Element.Classification.Edition", static row => row.Classification.Edition),
         SymOpt<Element>("Element.ExternalId", static row => row.ExternalId),
-        SymOpt<Element>("Element.TypeId", static row => row.TypeId.Map(static id => id.Value)));
+        SymOpt<Element>("Element.TypeId", static row => row.TypeId.Map(static id => id.ToValue())));
 
     public static readonly Seq<FactColumn<Classification>> Classification = Seq(
         Sym<Classification>("System", static row => row.System),
@@ -443,7 +443,7 @@ public static class ElementColumns {
         Num<MaterialPropertySet.Cost>("InstallPerUnit", static row => row.InstallPerUnit),
         Num<MaterialPropertySet.Cost>("LifecyclePerUnit", static row => row.LifecyclePerUnit),
         Sym<MaterialPropertySet.Cost>("Basis", static row => row.Basis.Key),
-        Sym<MaterialPropertySet.Cost>("Currency", static row => row.Currency.Value));
+        Sym<MaterialPropertySet.Cost>("Currency", static row => row.Currency.ToValue()));
 
     public static readonly Seq<FactColumn<MaterialPropertySet.Damping>> Damping = Seq(
         Num<MaterialPropertySet.Damping>("DampingRatio", static row => row.DampingRatio),
@@ -516,40 +516,40 @@ public static class ElementColumns {
         Sym<PropertyBag>("Source", static row => row.Source.Token));
 
     public static readonly Seq<FactColumn<Relationship.Compose>> Compose = Seq(
-        Sym<Relationship.Compose>("Whole", static row => row.Whole.Value),
-        Sym<Relationship.Compose>("Part", static row => row.Part.Value),
+        Sym<Relationship.Compose>("Whole", static row => row.Whole.ToValue()),
+        Sym<Relationship.Compose>("Part", static row => row.Part.ToValue()),
         Sym<Relationship.Compose>("Kind", static row => row.SubKind.Key),
         Opt<Relationship.Compose>("Ordinal", static row => row.Ordinal.Map(static value => (double)value)));
 
     public static readonly Seq<FactColumn<Relationship.Assign>> Assign = Seq(
-        Sym<Relationship.Assign>("Subject", static row => row.Subject.Value),
-        Sym<Relationship.Assign>("Definition", static row => row.Definition.Value),
+        Sym<Relationship.Assign>("Subject", static row => row.Subject.ToValue()),
+        Sym<Relationship.Assign>("Definition", static row => row.Definition.ToValue()),
         Sym<Relationship.Assign>("Kind", static row => row.SubKind.Key));
 
     public static readonly Seq<FactColumn<Relationship.Associate>> Associate = Seq(
-        Sym<Relationship.Associate>("Subject", static row => row.Subject.Value),
-        Sym<Relationship.Associate>("Resource", static row => row.Resource.Value));
+        Sym<Relationship.Associate>("Subject", static row => row.Subject.ToValue()),
+        Sym<Relationship.Associate>("Resource", static row => row.Resource.ToValue()));
 
     public static readonly Seq<FactColumn<Relationship.Connect>> Connect = Seq(
-        Sym<Relationship.Connect>("From", static row => row.From.Value),
-        Sym<Relationship.Connect>("To", static row => row.To.Value),
+        Sym<Relationship.Connect>("From", static row => row.From.ToValue()),
+        Sym<Relationship.Connect>("To", static row => row.To.ToValue()),
         Sym<Relationship.Connect>("Kind", static row => row.SubKind.Key),
-        SymOpt<Relationship.Connect>("Realizing", static row => row.Realizing.Map(static node => node.Value)),
+        SymOpt<Relationship.Connect>("Realizing", static row => row.Realizing.Map(static node => node.ToValue())),
         SymOpt<Relationship.Connect>("Interface", static row => row.Interface.Map(static key => key.ToString())));
 
     public static readonly Seq<FactColumn<Relationship.Void>> Opening = Seq(
-        Sym<Relationship.Void>("Host", static row => row.Host.Value),
-        Sym<Relationship.Void>("Feature", static row => row.Feature.Value),
+        Sym<Relationship.Void>("Host", static row => row.Host.ToValue()),
+        Sym<Relationship.Void>("Feature", static row => row.Feature.ToValue()),
         Sym<Relationship.Void>("Kind", static row => row.SubKind.Key));
 
     public static readonly Seq<FactColumn<Relationship.Generic>> Generic = Seq(
-        Sym<Relationship.Generic>("WireName", static row => row.WireName),
-        Sym<Relationship.Generic>("Source", static row => row.Source.Value),
-        Sym<Relationship.Generic>("Target", static row => row.Target.Value));
+        Sym<Relationship.Generic>("WireName", static row => row.WireName.ToValue()),
+        Sym<Relationship.Generic>("Source", static row => row.Source.ToValue()),
+        Sym<Relationship.Generic>("Target", static row => row.Target.ToValue()));
 
     public static readonly Seq<FactColumn<RelationshipParticipant>> Participant = Seq(
-        Sym<RelationshipParticipant>("Node", static row => row.Node.Value),
-        Sym<RelationshipParticipant>("Role", static row => row.Role),
+        Sym<RelationshipParticipant>("Node", static row => row.Node.ToValue()),
+        Sym<RelationshipParticipant>("Role", static row => row.Role.ToValue()),
         Opt<RelationshipParticipant>("Ordinal", static row => row.Ordinal.Map(static value => (double)value)));
 
     private static FactColumn<TSource> Num<TSource>(string name, Func<TSource, double> read) =>
@@ -645,8 +645,7 @@ public static class ElementImport {
         payload.Parts
             .Traverse(part => baked.Representations.At(part.Slot)
                 .Map(key => (Slot: part.Slot.Key, Key: key))
-                .ToFin(fault)
-                .ToValidation())
+                .ToValidation(fault))
             .As()
             .ToFin()
             .Map(rows => FabricationCanon.Ordered(tolerance, writer => rows
@@ -656,12 +655,12 @@ public static class ElementImport {
         toSeq(toSeq(edges).OrderBy(OrderKey, StringComparer.Ordinal));
 
     private static string OrderKey(Relationship relation) => relation.Switch(
-        compose: static row => Join(nameof(Relationship.Compose), row.Whole.Value, row.Part.Value, row.SubKind.Key),
-        assign: static row => Join(nameof(Relationship.Assign), row.Subject.Value, row.Definition.Value, row.SubKind.Key),
-        associate: static row => Join(nameof(Relationship.Associate), row.Subject.Value, row.Resource.Value, string.Empty),
-        connect: static row => Join(nameof(Relationship.Connect), row.From.Value, row.To.Value, row.SubKind.Key),
-        @void: static row => Join(nameof(Relationship.Void), row.Host.Value, row.Feature.Value, row.SubKind.Key),
-        generic: static row => Join(nameof(Relationship.Generic), row.Source.Value, row.Target.Value, row.WireName));
+        compose: static row => Join(nameof(Relationship.Compose), row.Whole.ToValue(), row.Part.ToValue(), row.SubKind.Key),
+        assign: static row => Join(nameof(Relationship.Assign), row.Subject.ToValue(), row.Definition.ToValue(), row.SubKind.Key),
+        associate: static row => Join(nameof(Relationship.Associate), row.Subject.ToValue(), row.Resource.ToValue(), string.Empty),
+        connect: static row => Join(nameof(Relationship.Connect), row.From.ToValue(), row.To.ToValue(), row.SubKind.Key),
+        @void: static row => Join(nameof(Relationship.Void), row.Host.ToValue(), row.Feature.ToValue(), row.SubKind.Key),
+        generic: static row => Join(nameof(Relationship.Generic), row.Source.ToValue(), row.Target.ToValue(), row.WireName.ToValue()));
 
     private static string Join(string discriminant, string first, string second, string qualifier) =>
         string.Join(Field, discriminant, first, second, qualifier);
@@ -670,7 +669,7 @@ public static class ElementImport {
         topology.Choose(static relation => relation is Relationship.Connect connect
             ? connect.Realizing.Bind(realizing => connect.Interface.Map(key => new ComponentConnection(
                 PropertyCategory.Fabrication.Row(key.ToString(CultureInfo.InvariantCulture)),
-                PropertyCategory.Fabrication.Row(realizing.Value),
+                PropertyCategory.Fabrication.Row(realizing.ToValue()),
                 Option<Edge3>.None)))
             : None).ToArr();
 
@@ -680,7 +679,7 @@ public static class ElementImport {
             layerSet: static set => set.Layers.Map(static layer => new ComponentLayer(
                 layer.LayerName,
                 Length.FromMeters(layer.Thickness.Si).Millimeters,
-                PropertyCategory.Fabrication.Row(layer.Material.Value))),
+                PropertyCategory.Fabrication.Row(layer.Material.ToValue()))),
             profileSet: static _ => Seq<ComponentLayer>(),
             constituentSet: static _ => Seq<ComponentLayer>())).ToArr();
 
@@ -719,7 +718,7 @@ public static class ElementImport {
                 : Some(Fin.Fail<Unit>(Translation(
                     LocusOf(baked.Id, group.Path, tolerance), "element:fact-conflict")).ToValidation()))
             + baked.Properties.Bind(static bag => bag.Values.Pairs)
-                .Choose(pair => pair.Key.Value == ElementColumns.MaterialRow && pair.Value is not PropertyValue.Text
+                .Choose(pair => pair.Key.ToValue() == ElementColumns.MaterialRow && pair.Value is not PropertyValue.Text
                     ? Some(Fin.Fail<Unit>(Translation(LocusOf(baked.Id,
                         FactScope.Root.Row(ElementColumns.MaterialRow), tolerance), "element:material-row")).ToValidation())
                     : None);
@@ -731,10 +730,10 @@ public static class ElementImport {
     }
 
     private static UInt128 LocusOf(NodeId id, PropertyName path, double tolerance) =>
-        FabricationCanon.Ordered(tolerance, writer => writer.String(id.Value).String(path.Value));
+        FabricationCanon.Ordered(tolerance, writer => writer.String(id.ToValue()).String(path.ToValue()));
 
     private static Seq<ElementFact> MaterialRows(BakedMaterial material) {
-        string key = material.Material.MaterialKey.Value;
+        string key = material.Material.MaterialKey.ToValue();
         FactScope root = FactScope.Root.Then("Material").Then(key);
         FactScope composition = root.Then("Composition");
         return material.Material.Composition.Switch(
@@ -814,7 +813,7 @@ public static class ElementImport {
     }
 
     private static Seq<ElementFact> MaterialFallback(Element baked) {
-        Seq<string> candidates = baked.Materials.Map(static row => row.Material.MaterialKey.Value).Distinct();
+        Seq<string> candidates = baked.Materials.Map(static row => row.Material.MaterialKey.ToValue()).Distinct();
         Option<string> elected = baked.Properties
             .Bind(static bag => bag.Values.Pairs)
             .Choose(static pair => pair.Key.Value == ElementColumns.MaterialRow && pair.Value is PropertyValue.Text text
@@ -860,7 +859,7 @@ public static class ElementImport {
         writer.Ordinal(bags.Count);
         foreach (PropertyBag bag in bags) {
             writer.String(bag.SetName).Ordinal(bag.Values.Count);
-            foreach ((PropertyName name, PropertyValue value) in bag.Values.Pairs.OrderBy(static pair => pair.Key.Value, StringComparer.Ordinal)) {
+            foreach ((PropertyName name, PropertyValue value) in bag.Values.Pairs.OrderBy(static pair => pair.Key.ToValue(), StringComparer.Ordinal)) {
                 writer.String(name.Value);
                 value.CanonicalBytes(writer);
             }

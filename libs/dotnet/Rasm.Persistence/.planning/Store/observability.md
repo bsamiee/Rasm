@@ -101,7 +101,7 @@ public static class PgStatHarvest {
     static IO<T> Captured<T>(string engine, Func<Task<T>> crossing) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
             .MapFail(error => StatFault.Lift(engine, error, static raised => raised is NpgsqlException)))
-        .Bind(IO.liftFin);
+        .Bind(IO.lift);
 }
 ```
 
@@ -154,7 +154,7 @@ public static class DuckProfileHarvest {
             }
         }).ConfigureAwait(false)).MapFail(error => StatFault.Lift("duckdb-profile", error,
             static raised => raised is DuckDBException or IOException or JsonException)))
-        .Bind(IO.liftFin);
+        .Bind(IO.lift);
 
     static DuckProfile Decode(JsonElement root, ProjectionContext frame) {
         var operators = toSeq(Operators(root).OrderByDescending(static row => row.TimingSeconds).Take(8)).Strict();
@@ -352,7 +352,7 @@ public static class PlanProfile {
     static IO<T> Captured<T>(string engine, Func<Exception, bool> recognizes, Func<Task<T>> crossing) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
             .MapFail(error => StatFault.Lift(engine, error, recognizes)))
-        .Bind(IO.liftFin);
+        .Bind(IO.lift);
 
     static readonly ImmutableArray<string> PgFacets = ["Node Type", "Join Type", "Relation Name", "Index Name"];
     static readonly ImmutableArray<string> DuckFacets = ["name"];
@@ -440,9 +440,7 @@ public static class StoreUsage {
             new ColumnCell.Whole(row.Bytes), new ColumnCell.Whole(row.Objects),
             new ColumnCell.Whole(row.Deliveries), new ColumnCell.Moment(row.At));
 
-    public static Fin<RecordBatch> Batch(Seq<UsageRow> rows, ProjectionContext frame) => Batched(rows, frame);
-
-    static Fin<RecordBatch> Batched(Seq<UsageRow> rows, ProjectionContext frame) =>
+    public static Fin<RecordBatch> Batch(Seq<UsageRow> rows, ProjectionContext frame) =>
         ArrowLanding.Build(Dataset, rows, Cells, Seq(
             ("dataset", (string)Dataset.Dataset),
             ("at", InstantPattern.ExtendedIso.Format(frame.Now())),

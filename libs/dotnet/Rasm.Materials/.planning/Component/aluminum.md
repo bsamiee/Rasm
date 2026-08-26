@@ -107,9 +107,8 @@ public readonly record struct DieRow(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AluminumDetail {
     public static Fin<PropertyBag> Of(DieRow die) =>
-        from pocket in die.GlazingPocketMm.Match(
-            Some: static mm => ComponentDetail.Measured(DetailSchema.GlazingPocket, Dimension.LengthDim, mm * 1e-3).Map(Some),
-            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from pocket in die.GlazingPocketMm.TraverseM(mm =>
+            ComponentDetail.Measured(DetailSchema.GlazingPocket, Dimension.LengthDim, mm * 1e-3)).As()
         from sheet in die.Role == ExtrusionRole.Panel
             ? ComponentDetail.Measured(DetailSchema.PanelThickness, Dimension.LengthDim, die.ElementMm * 1e-3).Map(Some)
             : Fin.Succ(Option<(PropertyName, PropertyValue)>.None)
@@ -130,7 +129,7 @@ public static class AluminumDetail {
 
 // --- [POLICIES] ------------------------------------------------------------------------
 public static class AluminumSeed {
-    static readonly MaterialId Render = MaterialId.Of("metal.aluminum");
+    static readonly MaterialId Render = MaterialId.Create("metal.aluminum");
 
     public static readonly Seq<DieRow> Roster = Seq(
         new DieRow("aluminum.mullion-50x120", ExtrusionRole.Mullion, MaterialGrade.A6063T5, ExtrusionForm.Profile, 3.0,
@@ -165,14 +164,14 @@ public static class AluminumSeed {
         ifc: static die => die.Role.Ifc);
 
     static Validation<Error, Unit> Coherence(DieRow die, Op key) =>
-        (guard(die.Grade.Family == ComponentFamily.Aluminum,
-             new ComponentFault.GradeFamilyMismatch(key, die.Grade, ComponentFamily.Aluminum)).ToValidation(),
-         guard(die.Grade.AluminumArm.IsSome,
-             new ComponentFault.GradeBodyMissing(key, die.Grade, ComponentFamily.Aluminum)).ToValidation(),
-         die.Grade.AluminumArm
-             .Map(arm => arm.Strengths(die.Form, die.ElementMm, key).ToValidation().Map(static _ => unit))
-             .IfNone(Validation<Error, Unit>.Success(unit)))
-            .Apply(static (_, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(die.Grade.Family == ComponentFamily.Aluminum,
+                new ComponentFault.GradeFamilyMismatch(key, die.Grade, ComponentFamily.Aluminum)),
+            AdmissionSlots.Gate(die.Grade.AluminumArm.IsSome,
+                new ComponentFault.GradeBodyMissing(key, die.Grade, ComponentFamily.Aluminum)),
+            die.Grade.AluminumArm
+                .Traverse(arm => arm.Strengths(die.Form, die.ElementMm, key).ToValidation().Map(static _ => unit)).As()
+                .Map(static _ => unit)));
 
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, DieRow>>> Table =
         SeedJoin.Of(Roster, static die => die.Designation);

@@ -65,7 +65,7 @@ public static class FlatTableEgress {
             await using IProjectionDaemon daemon = await store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
             return Fin<Duration>.Succ(await ReadRouter.AwaitNonStale(daemon, QueryLane.Columnar).RunAsync().ConfigureAwait(false));
-        }).ConfigureAwait(false)).Bind(IO.liftFin);
+        }).ConfigureAwait(false)).Bind(IO.lift);
 
     public static IO<long> WriteFrames(ColumnarSession session, BimData frames) =>
         IO.lift(() => Op.Of().Catch(() => {
@@ -90,8 +90,7 @@ public static class FlatTableEgress {
             }
             return Fin<long>.Succ(written);
         }).MapFail(error => ColumnarFault.Lift(error,
-            static (cause, engine) => new ColumnarFault.AppendRefused("<bim-frames>", engine.ErrorType, cause))))
-        .Bind(IO.liftFin);
+            static (cause, engine) => new ColumnarFault.AppendRefused("<bim-frames>", engine.ErrorType, cause))));
 
     static IDuckDBAppenderRow Cell(IDuckDBAppenderRow row, object? value) => value switch {
         null => row.AppendNullValue(),
@@ -185,9 +184,9 @@ public static class FlatTableEgress {
         Ordered(declaration, sorted).Match(
             Succ: order => IO.lift<Fin<long>>(() => {
                 string published = (string)path;
-                return Optional(Path.GetDirectoryName(published)).Match(
-                    Some: directory => Publish(batches, published, directory, declaration.Fields(metadata), order, custody),
-                    None: () => Fin.Fail<long>(new ColumnarFault.PolicyRefused("generation-directory", published)));
+                return Optional(Path.GetDirectoryName(published))
+                    .ToFin(new ColumnarFault.PolicyRefused("generation-directory", published))
+                    .Bind(directory => Publish(batches, published, directory, declaration.Fields(metadata), order, custody));
             }),
             Fail: error => IO.pure(Fin<long>.Fail(error)));
 
@@ -259,7 +258,7 @@ public static class FlatTableEgress {
                 Directory.Delete(generation);
             }
             return Fin<Unit>.Succ(unit);
-        })).Bind(IO.liftFin);
+        }));
 }
 
 // --- [TABLES] --------------------------------------------------------------------------

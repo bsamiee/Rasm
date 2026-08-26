@@ -232,12 +232,11 @@ public static class SolverHost {
 
     static IO<Validation<Error, HostedSolver>> Loaded(
         SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope, Negotiation negotiation, Op key) =>
-        (from artifact in runtime.Resolve(manifest)
+        (from artifact in IO.lift(runtime.Resolve(manifest)
             .Bind(resolved => resolved.ContractRange == manifest.ContractRange
                 ? Fin.Succ(resolved)
                 : Fin.Fail<PluginArtifact>(new SolverFault.ContractRejected(
-                    $"{manifest.PluginId}: {manifest.ContractRange} != {resolved.ContractRange}")))
-            .Match(Succ: IO.pure, Fail: IO.fail<PluginArtifact>)
+                    $"{manifest.PluginId}: {manifest.ContractRange} != {resolved.ContractRange}"))))
         from instance in SandboxRows.Load(runtime.Row, artifact, scope, runtime.Sandbox, key)
         from hosted in Projected(runtime, manifest, negotiation, instance).Catch(error =>
             QuotaControl.Evict(runtime.Sandbox, instance, new EvictionCause.CommandedCase(nameof(SolverHost)))

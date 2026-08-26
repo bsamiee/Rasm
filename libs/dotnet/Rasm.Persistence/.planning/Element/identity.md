@@ -15,7 +15,7 @@ Rasm.Persistence anchors every persisted `ElementGraph` to one relational identi
 
 - Owner: `ElementIdentity` the per-model identity row carrying the `ModelId` PK beside the `Tenant`/`Roots`/`GlobalIds`/`Cell`/`Bounds`/`Embedding`/`Acl`/`Classification`/`At` join columns; `NodeCell` the per-ELEMENT fine-cell routing-vertex row (`Model`/`Node`/`Tenant`/`Cell`) the `Query/cypher#GRAPH_QUERY` `pgrouting` `network_edge` source/target carries and the `#STORE_OPERATION_BRACKET` `Route` op resolves; `StoreBinding` the `[Union]` provider row (`Postgres(NpgsqlDataSource)` / `Embedded(DbConnection)`) the one converter composition discriminates; `ConverterOptions` the ONE options composition mounting the generated Thinktecture converters, the snake-case naming convention, and the provider plugin stack (the postgres row mounts `UseNetTopologySuite()` + `UseNodaTime()` + `UseVector()` so the geometry, `Instant`, and `vector(N)` columns all map through the one options entry); `IdentityShapeRow` the `[SmartEnum<string>]` provider-divergence axis carrying the JSON column type, the geometry column with its index method, and the vector column as OPTION-TYPED slots, keyed alongside `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` so the two axes join through one generated lookup; `IdentityContext` the one `DbContext` whose `OnModelCreating` reads the shape row its constructor carried and never probes the provider; `IdentityShape`/`NodeCellShape` the `IEntityTypeConfiguration` mappings carrying ONLY what the conventions cannot derive — the LanguageExt carrier conversions, the JSON columns, the geometry column, and the indexes including the keyset page's covering `(Tenant, At, Model)` prefix; `IdentityDesignFactory` the per-profile `IDesignTimeDbContextFactory<IdentityContext>` entrypoint every scaffold, `Optimize`, and idempotent script runs through; `IdentityStore` the static surface owning the co-transactional model-derived upsert stamp (`Bind` derives the statement from the profile row's compiled model; `Stamp` queues it on the Marten session) and the spatial cell and bounds mints.
 - Cases: `Roots` is the set of rooted `NodeId`s the model owns (the `IfcRoot` mirror nodes), `GlobalIds` the 1:1 map from rooted `NodeId` to the compressed IFC GlobalId string projected from each contract `Node.Object.ExternalId` (the rooted `NodeId` is the neutral kernel-minted durable key, the IFC GlobalId is the `ExternalId` projection the `Version/merge#STRUCTURAL_DIFF` re-ingest `Reconcile` correlates on, never the key), `Cell` the Uber-H3 cell over the model bounding-envelope centroid (bucket-equality joins), `Bounds` the `Envelope`-derived `geometry(Polygon, 4326)` PostGIS column beside the `ZMin`/`ZMax` vertical span (the three rows on the ONE spatial-key axis: cells for bucket joins, geometry for exact XY predicates, z-span for storey banding), `Embedding` the optional pgvector reference keying the ANN lane — the per-model bounding-envelope locator, distinct in grain from the corpus-grain retrieval index (`Query/retrieval`), `Acl` the `Element/authority` `ObjectAcl` grant, `Classification` the `DataClassification` ceiling.
-- Entry: `IdentityStore.Bind(StoreProfile)` ADMITS that profile's compiled model onto the typed result and derives an immutable `IdentityWriter` from it, accumulating every absent metadata slot into one `IdentityFault.ModelIncomplete`; `Stamp(IDocumentSession, ElementIdentity, IdentityWriter)` queues it on the event session. `Cell(Envelope, int)` mints either model or element cells without a forwarding sibling, and `BoundsOf(Envelope)` mints the exact footprint. `IdentityShapeRow.Of(StoreProfile)` resolves the divergence row; `IdentityDesignFactory.CreateDbContext(string[])` reads the profile key off the design-time arguments.
+- Entry: `IdentityStore.Bind(StoreProfile)` ADMITS that profile's compiled model onto the typed result and derives an immutable `IdentityWriter` from it, accumulating every absent metadata slot into one `IdentityFault.ModelIncomplete`; `Stamp(IDocumentSession, ElementIdentity, IdentityWriter)` queues it on the event session. `Cell(Envelope, int)` mints either model or element cells without a forwarding sibling, and `BoundsOf(Envelope)` mints the exact footprint. `IdentityShapeRow.Get(profile.Key)` resolves the divergence row; `IdentityDesignFactory.CreateDbContext(string[])` reads the profile key off the design-time arguments.
 - Auto: the identity row rides the one `IDocumentSession` the `Element/graph#STORE_HOOKS` write op uses. `IdentityWriter` captures the profile's table, schema, primary key, relational casts, and value converters at composition off `StoreProfile.Model()`, so the writer's model SOURCE is the profile row and no process-global writer can reuse a PostgreSQL model for SQLite. `UseThinktectureValueConverters(Configuration.Default)` converts generated owners, while Persistence-owned conversions cover LanguageExt carriers, recursive ACL JSON, geometry, and — as ONE `ConverterOptions.Tenant` pair both tenant-bearing relations bind — the `TenantId` column over the kernel's `Text`/`Of` inverse. `H3Index.FromPoint` mints cells and rejects `H3Index.Invalid`. RLS compares that canonical tenant text with `current_setting('rasm.tenant', true)` on the two-arm `[SESSION_GUC]` policy without a fictional `UInt128`→`uuid` provider mapping.
 - Packages: Marten (`IDocumentSession.QueueSqlCommand`), Npgsql.EntityFrameworkCore.PostgreSQL (`UseNpgsql`), Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite (`UseNetTopologySuite` + `IsWithinDistance`/`DistanceKnn`), Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime (`Instant`), Thinktecture.Runtime.Extensions.EntityFrameworkCore10 (`UseThinktectureValueConverters`), EFCore.NamingConventions (`UseSnakeCaseNamingConvention`), Microsoft.EntityFrameworkCore.Sqlite (`UseSqlite`), Microsoft.EntityFrameworkCore (`DbContextOptionsBuilder.UseModel`, `PooledDbContextFactory<TContext>`, `IDbContextFactory<TContext>`), Microsoft.EntityFrameworkCore.Design (`IDesignTimeDbContextFactory<TContext>.CreateDbContext(string[])`), Pgvector.EntityFrameworkCore (`UseVector`), pocketken.H3 (`H3Index.FromPoint`), NetTopologySuite, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new identity join column is one field on `ElementIdentity` — the conventions derive its mapping unless it is a LanguageExt carrier or a geometry, in which case ONE `IdentityShape` clause joins the residual set; a new spatial resolution is one H3 cell policy; a new engine is one `StoreBinding` case, one `IdentityShapeRow` row under the matching profile key, and one compiled model; a new provider divergence is one COLUMN on `IdentityShapeRow`; zero new surface — a separate identity transaction, a second identity ORM committing apart from the event, a parallel `NodeId`-keyed identity table, a hand ADO mapping beside the generated surface, an `IModelCacheKeyFactory` replacement, a per-profile context TYPE, a boolean shape argument deciding three unrelated columns, or an EF-versus-Marten atomicity dance is the deleted form.
@@ -83,8 +83,6 @@ public sealed partial class IdentityShapeRow {
     private IdentityShapeRow(string key, string json, Option<(string Column, string Index)> geometry, Option<string> vector,
         string emission, Func<DbContextOptionsBuilder<IdentityContext>, DbContextOptionsBuilder> design) : this(key) =>
         (Json, Geometry, Vector, Emission, Design) = (json, geometry, vector, emission, design);
-
-    public static IdentityShapeRow Of(StoreProfile profile) => Get(profile.Key);
 }
 
 public static class CompiledModels {
@@ -1080,8 +1078,6 @@ public static class IdentityDdl {
         $"CREATE POLICY node_cell_tenant ON node_cell USING (tenant = current_setting('{SessionCoordinate.Tenant.Guc}', true) OR current_setting('{SessionCoordinate.Plane.Guc}', true) = '{SessionCoordinate.Maintenance}') WITH CHECK (tenant = current_setting('{SessionCoordinate.Tenant.Guc}', true) OR current_setting('{SessionCoordinate.Plane.Guc}', true) = '{SessionCoordinate.Maintenance}')",
     });
 
-    public static Seq<string> Extensions(Seq<ServerExtension> required) => required.Map(static ext => ext.CreateSql);
-
     public static Seq<string> Stamp(UInt128 digest) => toSeq(new[] {
         "CREATE TABLE IF NOT EXISTS schema_generation (digest TEXT PRIMARY KEY)",
         $"INSERT INTO schema_generation (digest) VALUES ('{digest:x32}')",
@@ -1110,9 +1106,8 @@ public static class SchemaGate {
 
     static Fin<SchemaVerdict> Materialized(DbContext store) =>
         Op.Of().Catch(() => Fin.Succ(fun(() => store.GetService<IRelationalDatabaseCreator>().CreateTables())))
-            .Match(
-                Succ: _ => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving()),
-                Fail: error => Fin<SchemaVerdict>.Fail(new IdentityFault.ApplyFailed(error)));
+            .Map(static _ => (SchemaVerdict)new SchemaVerdict.Serving())
+            .MapFail(static error => new IdentityFault.ApplyFailed(error));
 
     public static IO<SchemaVerdict> AdmitMarten(IDocumentStore store, Placement placement) =>
         placement.Held.Admits(PlacementAxis.Materializes)
@@ -1121,9 +1116,7 @@ public static class SchemaGate {
                 await store.Advanced.ApplyRollingPartitionsAsync().ConfigureAwait(false);
                 return Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving());
             }).ConfigureAwait(false))
-                .Bind(result => result.Match(
-                    Succ: IO.pure,
-                    Fail: error => IO.fail<SchemaVerdict>(new IdentityFault.ApplyFailed(error))))
+                .Bind(result => IO.lift(result.MapFail(static error => new IdentityFault.ApplyFailed(error))))
             : IO.pure<SchemaVerdict>(new SchemaVerdict.Serving());
 }
 ```

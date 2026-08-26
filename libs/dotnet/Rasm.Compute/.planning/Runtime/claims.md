@@ -116,9 +116,9 @@ public sealed partial class BenchmarkInput {
 
     static Validation<Error, Unit> Extent(Seq<long> shape) =>
         Op.Of(name: "benchmark.extent").Catch(() => Fin.Succ(shape.Fold(1L, static (extent, dimension) => checked(extent * dimension))))
-            .Match(
-                Succ: static _ => Success<Error, Unit>(unit),
-                Fail: static _ => Fail<Error, Unit>(Rejected("extent", "overflow")));
+            .Map(static _ => unit)
+            .MapFail(static _ => Rejected("extent", "overflow"))
+            .ToValidation();
 
     static Error Rejected<T>(string slot, T value) =>
         new ComputeFault.PayloadOverBounds($"<{slot}:{value}>");
@@ -317,9 +317,9 @@ public static partial class ClaimWireMap {
     }
 
     public static ProfileArtifactWire Artifact(ProfileArtifact artifact) => artifact.Switch(
-        chromeTrace: static trace => new ProfileArtifactWire { ChromeTrace = new ChromeTraceWire { Content = ContentHash.Wire(trace.Content.Value), StartNs = trace.StartNs } },
-        benchmarkExport: static export => new ProfileArtifactWire { BenchmarkExport = new BenchmarkExportWire { Content = ContentHash.Wire(export.Content.Value), Exporter = export.Exporter } },
-        epContext: static context => new ProfileArtifactWire { EpContext = new EpContextWire { Content = ContentHash.Wire(context.Content.Value), Ep = context.Ep } });
+        chromeTrace: static trace => new ProfileArtifactWire { ChromeTrace = new ChromeTraceWire { Content = ContentHash.Wire(trace.Content.ToValue()), StartNs = trace.StartNs } },
+        benchmarkExport: static export => new ProfileArtifactWire { BenchmarkExport = new BenchmarkExportWire { Content = ContentHash.Wire(export.Content.ToValue()), Exporter = export.Exporter } },
+        epContext: static context => new ProfileArtifactWire { EpContext = new EpContextWire { Content = ContentHash.Wire(context.Content.ToValue()), Ep = context.Ep } });
 
     [UserMapping] private static string CaseText(CacheToken token) => (string)token;
     [UserMapping] private static string SubstrateKey(Substrate substrate) => substrate.Key;

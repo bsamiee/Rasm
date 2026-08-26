@@ -515,9 +515,10 @@ public static class MaterialsTap {
                 return bind.Rows.Write(MaterialsInstrument.CapacityChecks.Row, 1L,
                         Keyed(scope, MaterialsInstrument.AdequacySlot,
                             f.Verdict.Adequate ? MaterialsInstrument.Adequate : MaterialsInstrument.Inadequate))
-                    .Bind(_ => f.Verdict.Ratio.Match(
-                        Some: value => bind.Rows.Write(MaterialsInstrument.CapacityUtilisation.Row, value, scope),
-                        None: static () => Fin.Succ(unit)));
+                    .Bind(_ => f.Verdict.Ratio
+                        .TraverseM(value => bind.Rows.Write(MaterialsInstrument.CapacityUtilisation.Row, value, scope))
+                        .As()
+                        .Map(static _ => unit));
             },
             graphCompile: static (bind, f) => Paired(bind.Rows,
                 MaterialsInstrument.GraphNodes, f.Nodes, MaterialsInstrument.GraphDuration, f.Elapsed,
@@ -525,7 +526,7 @@ public static class MaterialsTap {
             acquisitionFit: static (bind, f) => {
                 TagList method = InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Provenance.Method.Key));
                 return f.Provenance.Assessment
-                    .Map(assessment => assessment.Switch(
+                    .TraverseM(assessment => assessment.Switch(
                         state: (Rows: bind.Rows, Method: method),
                         fit: static (state, fit) => state.Rows.Write(MaterialsInstrument.AcquisitionFits.Row, 1L,
                                 Keyed(state.Method, MaterialsInstrument.RankSlot,
@@ -533,8 +534,8 @@ public static class MaterialsTap {
                                         ? MaterialsInstrument.FullRank
                                         : MaterialsInstrument.RankDeficient))
                             .Bind(_ => state.Rows.Write(MaterialsInstrument.AcquisitionResidual.Row, fit.Residual, state.Method)),
-                        inference: static (_, _) => Fin.Succ(unit)))
-                    .IfNone(Fin.Succ(unit));
+                        inference: static (_, _) => Fin.Succ(unit))).As()
+                    .Map(static _ => unit);
             },
             wireMint: static (bind, f) => bind.Rows.Write(MaterialsInstrument.WireMints.Row, 1L,
                 InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Provenance.Method))),
@@ -558,17 +559,19 @@ public static class MaterialsTap {
                         bind.Rows.Write(MaterialsInstrument.PressFaulted.Row,
                             (long)ulong.Min(row.Value, (ulong)long.MaxValue),
                             Keyed(backend, MaterialsInstrument.ChannelSlot, row.Key.Key))).As())
-                    .Bind(_ => f.Run.GpuDeltaMax.Match(
-                        Some: delta => bind.Rows.Write(MaterialsInstrument.PressGpuDelta.Row, delta, backend),
-                        None: static () => Fin.Succ(unit)))
-                    .Bind(_ => f.Run.Aging.Match(
-                        Some: coverage => bind.Rows.Write(MaterialsInstrument.PressAgeCoverage.Row,
+                    .Bind(_ => f.Run.GpuDeltaMax
+                        .TraverseM(delta => bind.Rows.Write(MaterialsInstrument.PressGpuDelta.Row, delta, backend))
+                        .As()
+                        .Map(static _ => unit))
+                    .Bind(_ => f.Run.Aging
+                        .TraverseM(coverage => bind.Rows.Write(MaterialsInstrument.PressAgeCoverage.Row,
                                 coverage.AgeRungsVisited / (double)coverage.AgeRungs,
                                 Keyed(backend, MaterialsInstrument.AxisSlot, "age"))
                             .Bind(_ => bind.Rows.Write(MaterialsInstrument.PressAgeCoverage.Row,
                                 coverage.CavityRungsVisited / (double)coverage.CavityRungs,
-                                Keyed(backend, MaterialsInstrument.AxisSlot, "cavity"))),
-                        None: static () => Fin.Succ(unit)));
+                                Keyed(backend, MaterialsInstrument.AxisSlot, "cavity"))))
+                        .As()
+                        .Map(static _ => unit));
             },
             tileSynth: static (bind, f) => {
                 TagList plan = InstrumentSet.Tags(bind.Tenant,
@@ -579,11 +582,11 @@ public static class MaterialsTap {
                             score.IsSome ? MaterialsInstrument.Measured : MaterialsInstrument.Unmeasured))
                     .Bind(_ => bind.Rows.Write(MaterialsInstrument.TileDuration.Row, f.Run.ElapsedMs / 1000.0,
                         InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.StrategySlot, f.Strategy.Key))))
-                    .Bind(_ => score.Match(
-                        Some: measured => ScoreComponents.TraverseM(row =>
+                    .Bind(_ => score.TraverseM(measured => ScoreComponents.TraverseM(row =>
                             bind.Rows.Write(MaterialsInstrument.TileScoreSignal.Row, row.Read(measured),
-                                Keyed(plan, MaterialsInstrument.ComponentSlot, row.Value))).As().Map(static _ => unit),
-                        None: static () => Fin.Succ(unit)));
+                                Keyed(plan, MaterialsInstrument.ComponentSlot, row.Value))).As().Map(static _ => unit))
+                        .As()
+                        .Map(static _ => unit));
             },
             tileGrade: static (bind, f) => {
                 TagList plan = InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.StrategySlot, f.Strategy.Key));
@@ -592,9 +595,10 @@ public static class MaterialsTap {
                         Keyed(plan, MaterialsInstrument.VerdictSlot, proof.Match(
                             Some: static minted => minted.Accepted ? MaterialsInstrument.Accepted : MaterialsInstrument.Rejected,
                             None: static () => MaterialsInstrument.Unmeasured)))
-                    .Bind(_ => proof.Match(
-                        Some: minted => bind.Rows.Write(MaterialsInstrument.GradeScore.Row, minted.Score.Value, plan),
-                        None: static () => Fin.Succ(unit)));
+                    .Bind(_ => proof
+                        .TraverseM(minted => bind.Rows.Write(MaterialsInstrument.GradeScore.Row, minted.Score.Value, plan))
+                        .As()
+                        .Map(static _ => unit));
             },
             pyramidBuild: static (bind, f) => Paired(bind.Rows,
                 MaterialsInstrument.PyramidLevels, f.Levels, MaterialsInstrument.PyramidDuration, f.Elapsed,

@@ -162,7 +162,7 @@ public sealed partial class ModelPrecision {
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static Option<ModelPrecision> FromWire(string wire) =>
-        toSeq(Items).Find(row => row.WireKey.Case is string key && StringComparer.Ordinal.Equals(key, wire));
+        toSeq(Items).Find(row => row.WireKey.Exists(key => StringComparer.Ordinal.Equals(key, wire)));
 
     static FrozenDictionary<string, string> Qdq(CapabilitySet<NumericTrait> posture) =>
         posture.Admits(NumericTrait.QuantizedGraph)
@@ -383,7 +383,7 @@ public sealed partial class ExecutionProvider {
 
     public static ExecutionProvider FromWire(string wire) =>
         toSeq(Items)
-            .Find(row => row.WireKey.Case is string key && StringComparer.Ordinal.Equals(key, wire))
+            .Find(row => row.WireKey.Exists(key => StringComparer.Ordinal.Equals(key, wire)))
             .Match(Some: static row => Resolve(row.Key), None: static () => Floor);
 
     public string ReportKey => WireKey.IfNone(Key);

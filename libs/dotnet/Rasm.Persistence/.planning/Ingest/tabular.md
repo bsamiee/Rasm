@@ -94,7 +94,7 @@ public sealed partial class RowWindow {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string startCell, ref string endCell) {
         if (string.IsNullOrWhiteSpace(startCell) || string.IsNullOrWhiteSpace(endCell)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-window-cell>" }));
+            validationError = ValidationError.Create("<tabular-window-cell>");
         }
     }
 }
@@ -114,7 +114,7 @@ public sealed partial class TabularWorkbook {
         ref ValidationError? validationError, ref int freezeRows, ref int freezeColumns, ref bool autoFilter,
         ref TableStyles tables, ref bool autoWidth, ref double minWidth, ref double maxWidth, ref Seq<DynamicExcelSheet> sheets) {
         if (freezeRows < 0 || freezeColumns < 0 || minWidth < 0d || maxWidth < minWidth) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-workbook-policy>" }));
+            validationError = ValidationError.Create("<tabular-workbook-policy>");
         }
     }
 }
@@ -137,13 +137,13 @@ public sealed partial class TabularSpec {
         ref bool headerRow, ref Option<RowWindow> window, ref Seq<string> wireColumns, ref Option<OpenXmlStyleOptions> style,
         ref Option<TabularWorkbook> workbook) {
         if (source is Origin.FromPath { Path: string path } && string.IsNullOrWhiteSpace(path)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-path>" }));
+            validationError = ValidationError.Create("<tabular-spec-path>");
         } else if (sheet.Map(string.IsNullOrWhiteSpace).IfNone(false)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-sheet>" }));
+            validationError = ValidationError.Create("<tabular-spec-sheet>");
         } else if (wireColumns.Exists(string.IsNullOrWhiteSpace) || wireColumns.Distinct().Count != wireColumns.Count) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-wire-columns>" }));
+            validationError = ValidationError.Create("<tabular-spec-wire-columns>");
         } else if ((style.IsSome || workbook.IsSome) && !format.Capabilities.Admits(TabularCapability.Styled)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<tabular-spec-openxml-policy>" }));
+            validationError = ValidationError.Create("<tabular-spec-openxml-policy>");
         }
     }
 
@@ -259,12 +259,7 @@ public readonly record struct RedactionPlan(IRedactorProvider Provider, HashMap<
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class TabularSource {
-    public static IO<Validation<Error, TabularYield>> Run(TabularOp op) => Executed(op);
-
-    public static IO<Validation<Error, Seq<T>>> Read<T>(TabularSpec spec) =>
-        IO.lift(() => Capture(() => Sourced(spec)).Bind(TabularWire.Project<T>));
-
-    static IO<Validation<Error, TabularYield>> Executed(TabularOp op) => op.Switch(
+    public static IO<Validation<Error, TabularYield>> Run(TabularOp op) => op.Switch(
         scan:      static s => IO.lift(() => Capture(() => (TabularYield)new TabularYield.Rows(Sourced(s.Spec)))),
         stream:    static s => IO.lift(() => Capture(() => (TabularYield)new TabularYield.Reader(s.Spec.Source.Read(
                        path:   p => MiniExcel.GetReader(p, s.Spec.HeaderRow, s.Spec.Sheet.ValueUnsafe(), s.Spec.Format.Excel, s.Spec.StartCell, s.Spec.Policy()),
@@ -306,6 +301,9 @@ public static class TabularSource {
                            path:   p => { MiniExcel.AddPicture(p, [.. images.Images]); return (TabularYield)new TabularYield.Done(); },
                            stream: source => { MiniExcel.AddPicture(source, [.. images.Images]); return new TabularYield.Done(); }))))));
 
+    public static IO<Validation<Error, Seq<T>>> Read<T>(TabularSpec spec) =>
+        IO.lift(() => Capture(() => Sourced(spec)).Bind(TabularWire.Project<T>));
+
     static IO<Validation<Error, TabularYield>> Gated(TabularSpec spec, TabularCapability required, Func<IO<Validation<Error, TabularYield>>> run) =>
         spec.Format.Capabilities.Admits(required)
             ? run()
@@ -329,9 +327,7 @@ public static class TabularSource {
                 stream: s => s.Query(spec.HeaderRow, spec.Sheet.ValueUnsafe(), spec.Format.Excel, spec.StartCell, spec.Policy()))));
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Op.Of().Catch(() => Fin.Succ(codec())).Match(
-            Succ: static value => (Validation<Error, TValue>)value,
-            Fail: static e => (Validation<Error, TValue>)TabularFault.Lift(e));
+        Op.Of().Catch(() => Fin.Succ(codec())).MapFail(TabularFault.Lift).ToValidation();
 
     static object Redact(object value, RedactionPlan plan) => value switch {
         DataTable table => table.Rows.Cast<DataRow>().Select(row => table.Columns.Cast<DataColumn>()
@@ -364,11 +360,10 @@ public static class TabularWire {
     public static Validation<Error, T> Bind<T>(TabularRow row) =>
         Op.Of().Catch(() => Fin.Succ(JsonSerializer.Deserialize<T>(
                 JsonSerializer.SerializeToUtf8Bytes(row.Cells.ToDictionary(static cell => cell.Key, static cell => cell.Value), Options), Options)))
-            .Match(
-                Succ: bound => Optional(bound).Match(
-                    Some: static value => (Validation<Error, T>)value,
-                    None: () => new TabularFault.CellCast(None, row.At, Some(typeof(T).Name))),
-                Fail: e => (Validation<Error, T>)TabularFault.Lift(e));
+            .MapFail(TabularFault.Lift)
+            .ToValidation()
+            .Bind(bound => Optional(bound).ToValidation(
+                (Error)new TabularFault.CellCast(None, row.At, Some(typeof(T).Name))));
 
     public static DynamicExcelColumn Wire(string column) => new(column) { CustomFormatter = Scalar };
 
@@ -538,9 +533,8 @@ public static class TabularBulk {
     static IO<Validation<Error, BulkCopyRowsCopied>> Copied(Func<Task<BulkCopyRowsCopied>> copy) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ =>
             Fin.Succ(await copy().ConfigureAwait(false))).ConfigureAwait(false))
-            .Match(
-                Succ: static copied => (Validation<Error, BulkCopyRowsCopied>)copied,
-                Fail: static error => (Validation<Error, BulkCopyRowsCopied>)new TabularFault.BulkRefused(error)));
+            .MapFail(static error => new TabularFault.BulkRefused(error))
+            .ToValidation());
 }
 ```
 

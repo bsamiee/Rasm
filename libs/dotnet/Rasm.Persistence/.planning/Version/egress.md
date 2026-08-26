@@ -67,7 +67,7 @@ public sealed record DrainLane(SinkKey Sink, Channel<OpLogEntry> Rows) {
         IO.liftAsync(async env => await Op.Of().Catch(async token => {
             await Rows.Writer.WriteAsync(row, token).ConfigureAwait(false);
             return Fin<Unit>.Succ(unit);
-        }, env.Token).ConfigureAwait(false)).Bind(IO.liftFin);
+        }, env.Token).ConfigureAwait(false)).Bind(IO.lift);
 
     public IO<Unit> Flush() => IO.lift(() => { Rows.Writer.TryComplete(); return unit; });
 }
@@ -189,7 +189,7 @@ public static class EgressPump {
                 ? IO.pure(state with { Held = state.Held + 1 })
                 : Egress.Envelope(row, sink, ports).Bind(minted => minted.Match(
                     Fail: error => Lettered(row, sink, ports, frame, error)
-                        .Bind(IO.liftFin)
+                        .Bind(IO.lift)
                         .Map(committed => state with {
                             Through = committed.Sequence,
                             Committed = committed.Sequence,
@@ -202,7 +202,7 @@ public static class EgressPump {
                             indeterminate: _  => IO.pure(state with { Held = state.Held + 1, Open = false }),
                             refused:       rf => Lettered(row, sink, ports, frame,
                                 new EgressFault.SinkRefused(sink.Bind.Key, rf.Detail))
-                                .Bind(IO.liftFin)
+                                .Bind(IO.lift)
                                 .Map(committed => state with {
                                     Through = committed.Sequence,
                                     Committed = committed.Sequence,
@@ -217,7 +217,7 @@ public static class EgressPump {
         select advance.Map(_ => settled);
 
     static IO<Unit> Measured(Settlement settled, Duration elapsed, ProjectionContext frame) =>
-        IO.liftFin(
+        IO.lift(
             from carrier in Fin.Succ(InstrumentSet.Tags((StoreInstruments.SinkSlot, settled.Sink.Value), (StoreInstruments.LaneSlot, settled.Window.Lane)))
             from _ in Seq((StoreInstruments.DeliveredOutcome, settled.Delivered), (StoreInstruments.DuplicateOutcome, settled.Duplicates),
                     (StoreInstruments.HeldOutcome, settled.Held), (StoreInstruments.DeadOutcome, settled.DeadLettered))
@@ -226,7 +226,7 @@ public static class EgressPump {
             select done);
 
     static IO<Unit> Attempted(SinkKey sink, int attempts, ProjectionContext frame) =>
-        IO.liftFin(frame.Instruments.Write(StoreInstruments.EgressDeadLetterAttempts.Spec, attempts,
+        IO.lift(frame.Instruments.Write(StoreInstruments.EgressDeadLetterAttempts.Spec, attempts,
             InstrumentSet.Tags((StoreInstruments.SinkSlot, sink.Value))));
 
     static IO<Fin<OutboxCursor>> Lettered(

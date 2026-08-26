@@ -191,7 +191,7 @@ public sealed class ThemeCell(
                         ignore(Seed.Swap(_ => step.Candidate));
                         return Current.Swap(_ => next);
                     })
-                    .Bind(committed => Rebuilt().Bind(_ => IO.lift(() => Hooks.Fire(
+                    .Bind(committed => Rebuilt().Bind(_ => IO.lift<Fin<ResolvedTheme>>(() => Hooks.Fire(
                         AppUiPoint.Theme,
                         new AppUiFact.Theme(committed.Variant.Key, committed.Density.Key, request.Trigger.Key, Diff(step.Previous, committed)),
                         Op.Of(name: "appui.theme.swap"),
@@ -353,7 +353,7 @@ public static class ThemeGate {
         ((IStyle)floor).Cons(SkinChain.Map(mint => mint(locale)));
 
     public static IO<Fin<Unit>> Mount(Application application, Seq<IStyle> chain, FluentTheme floor, ResourceDictionary emitted, ResolvedTheme resolved) =>
-        IO.lift(() => SemiCorrespondence.SemiMints(resolved).Map(_ => {
+        IO.lift<Fin<Unit>>(() => SemiCorrespondence.SemiMints(resolved).Map(_ => {
             chain.Iter(application.Styles.Add);
             application.Resources.MergedDictionaries.Insert(0, emitted);
             application.RequestedThemeVariant = resolved.Variant.Variant;
@@ -362,7 +362,7 @@ public static class ThemeGate {
         }));
 
     public static Func<ResolvedTheme, IO<Fin<Unit>>> ApplyTo(Application application, FluentTheme floor, Func<ResolvedTheme, Fin<ResourceDictionary>> emit) =>
-        resolved => IO.lift(() => emit(resolved).Map(dictionary => {
+        resolved => IO.lift<Fin<Unit>>(() => emit(resolved).Map(dictionary => {
             floor.DensityStyle = resolved.Density.Style;
             application.RequestedThemeVariant = resolved.Variant.Variant;
             application.Resources.MergedDictionaries[0] = dictionary;

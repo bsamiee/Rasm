@@ -8,7 +8,7 @@ Validation composes `normalization.md`'s `Kind` roster, `Capability` rows, and `
 
 - [02]-[READINESS_ALGEBRA]: `Requirement` + `Check` — the composable readiness matrix, `ForKind` topology dispatch, lease-aware execution.
 - [03]-[ACCEPTANCE_ORACLE]: `OpAcceptance` — the single validity oracle and result-acceptance gate, `IValidityEvidence` registration law.
-- [04]-[FACTORY_BRIDGE]: `TryCreateValidated` + `OpExtensions` + `AdmissionProjection` — generated factory admission, optional-key resolution, bidirectional projection.
+- [04]-[FACTORY_BRIDGE]: `OpExtensions` + `AdmissionProjection` — generated factory admission, optional-key resolution, bidirectional projection.
 - [05]-[ADMISSION_SLOTS]: `AdmissionSlots` — the reusable applicative slot fold, scalar-band gates, and recursive accumulated-error reader.
 - [06]-[PAIR_COMBINATOR]: `RequirementContext.Pair` — the two-operand kind-resolve-then-validate combinator.
 - [07]-[CAPABILITY]: `ICapability` + `CapabilitySet` + `CapabilityLaw` — the one combinable-capability column and its legal-corner admission.
@@ -90,21 +90,14 @@ public sealed partial record Requirement {
             _ => Operand.AcceptInput(value: original).ToValidation(),
         };
     private static Validation<Error, T> RunChecks<T>(Set<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
-        (checks.Fold(
-                (Value: Fin.Succ(unit).ToValidation(), Context: context, Geometry: geometry, Cancel: cancel),
-                static (acc, check) => acc with { Value = (acc.Value, check.Apply(context: acc.Context, geometry: acc.Geometry, cancel: acc.Cancel).ToValidation()).Apply(static (_, _) => unit).As() })
-            .Value,
-         Fin.Succ(original).ToValidation())
-            .Apply(static (_, item) => item).As();
+        toSeq(checks)
+            .Traverse(check => check.Apply(context: context, geometry: geometry, cancel: cancel).ToValidation())
+            .As()
+            .Map(_ => original);
     private static Validation<Error, T> RunLeaseChecks<T>(Fin<Lease<GeometryBase>> lease, Set<Check> checks, Context context, T original, CancellationToken cancel)
         where T : notnull =>
-        (Fin.Succ((Checks: checks, Context: context, Original: original, Cancel: cancel)).ToValidation(),
-         lease.ToValidation())
-            .Apply(static (state, native) => native.Use(
-                state: state,
-                project: static (state, geometry) => RunChecks(checks: state.Checks, context: state.Context, geometry: geometry, original: state.Original, cancel: state.Cancel)))
-            .Bind(static validation => validation)
-            .As();
+        lease.ToValidation()
+            .Bind(native => native.Use(geometry => RunChecks(checks: checks, context: context, geometry: geometry, original: original, cancel: cancel)));
     private static Fin<Unit> CurveSelfIntersectionReport(Check check, Curve curve, double tolerance) {
         using CurveIntersections? hits = Intersection.CurveSelf(curve: curve, tolerance: tolerance);
         return Optional(hits).Match(
@@ -260,11 +253,10 @@ internal static partial class OpAcceptance {
 
 ## [04]-[FACTORY_BRIDGE]
 
-- Owner: the receiver-generic `TryCreateValidated<TVO>` bridge sits on `OpAcceptance`; `OpExtensions` carries `OrDefault`, the optional-key resolver of the `results.md` threading law, and the `AcceptValidated<TVO>` key-shaped receivers.
+- Owner: `OpExtensions` carries `OrDefault`, the optional-key resolver of the `results.md` threading law, and the `AcceptValidated<TVO>` key-shaped receivers.
 - Owner: `AdmissionProjection<TRaw, TModel>` holds one admitted `Op`, a model-to-raw render delegate, and a `Fin`-gated raw-to-model admit delegate; `Render` and `Admit` run through the held key's `Catch` funnel, and `SmartEnum`'s false or nullable lookup lands a typed refusal there.
 - Law: ONE `Validate` body serves every admission tier — the refusal is a policy value the caller hands in, so the numeric tier lands a `KernelFault.OutOfRange` carrying the saturated scalar and the general tier a `KernelFault.InvalidValue`, and both stamp the demanding `Op` at construction rather than rewriting a fault after the fact.
 - Law: one generic-math body over `TRaw : struct, INumber<TRaw>` admits every numeric width; `Validate` runs under `CultureInfo.InvariantCulture`.
-- Law: lowering fixes the invocation spelling — the extension-form call supplies the combined type-argument list receiver-first (`absolute.TryCreateValidated<double, Tolerance>()`); C# has no partial type-argument inference, so the member-only one-argument form cannot compile there, and the width-elided one-argument call is what the key-fronted `AcceptValidated<TVO>` receivers exist for.
 - Law: `AcceptValidated` spans two admission tiers and one type-erased outcome lifter, selected by input shape; the lifter exists because multi-member `[ComplexValueObject]` admission has no static `Validate` contract spanning its arities, so the caller spells `Validate` and this row owns the lift.
 - Law: `OrDefault` resolves a null `Op` to `Op.Of(callerMemberName)`, so public polymorphic surfaces stay knob-free while internal kernels demand the key.
 - Exemption: `AdmissionProjection` carries `render`/`admit` as runtime delegates and refuses the Mapperly `[Mapper]` rung — there is no member-to-member DTO correspondence to generate, only two opaque total functions between a raw carrier and a generated owner that already proves its own admission; a `[Mapper]` here generates nothing and proves nothing.
@@ -304,17 +296,6 @@ public sealed class AdmissionProjection<TRaw, TModel>
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static partial class OpAcceptance {
-    extension<TRaw>(TRaw candidate) where TRaw : struct, INumber<TRaw> {
-        internal Validation<Error, TVO> TryCreateValidated<TVO>() where TVO : IObjectFactory<TVO, TRaw, ValidationError> =>
-            OpExtensions.Admitted<TRaw, TVO>(
-                op: Op.Of(),
-                candidate: candidate,
-                refuse: refusal => new KernelFault.OutOfRange(Label: typeof(TVO).Name, Scalar: double.CreateSaturating(candidate), Requirement: refusal.Message))
-                .ToValidation();
-    }
-}
-
 public static class AdmissionProjection {
     public delegate bool SmartEnumLookup<TRaw, TModel>(TRaw? key, out TModel? item)
         where TRaw : notnull
@@ -506,10 +487,7 @@ public static class AdmissionSlots {
         Band band,
         string label,
         Op key) =>
-        value.Filter(scalar => !band.Admits(scalar)).Match(
-            Some: offending => Fail<Error, Option<double>>(
-                new KernelFault.OutOfRange(label, offending, $"fall inside {band.Key}", Some(key))),
-            None: () => Success<Error, Option<double>>(value));
+        value.TraverseM(scalar => In(scalar, band, label, key)).As();
 
     public static Validation<Error, Unit> Finite(
         Op key,
@@ -537,7 +515,7 @@ public static class AdmissionSlots {
 
     public static Seq<Error> Unpack(Error fault) =>
         fault is ManyErrors many
-            ? many.Errors.Bind(static member => Unpack(member)).ToSeq().Strict()
+            ? many.Errors.Bind(static member => Unpack(member)).Strict()
             : Seq(fault);
 }
 ```
@@ -713,7 +691,7 @@ public static class Evidence {
 
 ## [09]-[ADMISSION_VOCABULARY]
 
-- Owner: `Admit` internal static owns SHAPE and COLLECTION admission above a scalar — count agreement, span and sequence gates, frames, cones, and the kernel-input guards, plus the ONE accumulating clause combinator `Claim`/`Claims` every multi-column entry across the kernel composes.
+- Owner: `Admit` internal static owns SHAPE and COLLECTION admission above a scalar — count agreement, span and sequence gates, frames, cones, and the kernel-input guards, plus the ONE accumulating clause combinator `Claims` every multi-column entry across the kernel composes.
 - Law: predicate policy has ONE owner and one guard per result. `ValidityClaim` rows (`results.md`) state every predicate; `Op.Demand(claim, value, requirement)` is the ONE scalar guard, refusing as keyed `KernelFault.OutOfRange` with the rejected number and its requirement on the payload, and `Op.Finite`/`Op.Positive` are its named rows. `Admit` declares no scalar predicate and no bound of its own — it composes claim rows over shapes and collections and `Band` rows over every range, the ONE range guard, and refuses as `KernelFault.InvalidInput`. `Fin<Unit>` and `bool` restatements of a claim row are the deleted form.
 - Law: emptiness is a count floor, never a flag — `All` takes the floor as data and composes `ValidityClaim.CountAtLeast`, so a caller admitting an empty sequence and one demanding at least one element differ by a number, not by a body.
 - Law: `HermitianDiagonalReal` derives its tolerance from the diagonal's own scale, never an absolute literal.
@@ -735,10 +713,10 @@ namespace Rasm.Domain;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Admit {
-    internal static Validation<Error, Unit> Claim(bool held, string axis, Op key) =>
-        held ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail(key.InvalidInput(axis: axis));
     internal static Fin<Unit> Claims(Op key, params (bool Held, string Axis)[] clauses) =>
-        toSeq(clauses).Traverse(clause => Claim(held: clause.Held, axis: clause.Axis, key: key)).As().Map(static _ => unit).ToFin();
+        AdmissionSlots.Accumulate(
+            toSeq(clauses).Map(clause => AdmissionSlots.Gate(clause.Held, key.InvalidInput(axis: clause.Axis))))
+            .ToFin();
 
     internal static Fin<T> NotNull<T>(T? value, Op key) where T : class => Optional(value).ToFin(key.InvalidInput());
     internal static Fin<T> NotNull<T>(T? value, Error error) where T : class => Optional(value).ToFin(error);
@@ -808,7 +786,7 @@ One owner per concern, each extended by a row.
 |  [01]   | Readiness rows       | `Requirement`         | record + `Set<Check>` monoid | `Validation<Error, T>`               |
 |  [02]   | Check matrix         | `Requirement.Check`   | smart-enum delegate rows     | `Fin<Unit>`                          |
 |  [03]   | Validity oracle      | `OpAcceptance`        | derived frozen table         | `Fin<T>` / `Option<bool>`            |
-|  [04]   | Factory bridge       | `OpAcceptance`        | generic generated admission  | `Validation<Error, TVO>` / `Fin`     |
+|  [04]   | Factory bridge       | `OpExtensions`        | generated admission methods  | `Validation<Error, TVO>` / `Fin`     |
 |  [05]   | Admission projection | `AdmissionProjection` | sealed bidirectional owner   | `Render` / `Admit → Fin<T>`          |
 |  [06]   | Pair readiness       | `RequirementContext`  | context extension combinator | `Validation<Error, (A,B,Kind,Kind)>` |
 |  [07]   | Capability column    | `CapabilitySet`       | frozen-set membership owner  | `bool` / `Fin<CapabilitySet<T>>`     |

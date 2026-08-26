@@ -470,12 +470,11 @@ internal static class GraphFold {
             graph.CondensateStronglyConnected<TVertex, SEdge<TVertex>, AdjacencyGraph<TVertex, SEdge<TVertex>>>();
         IComparer<TVertex> rank = order ?? Comparer<TVertex>.Default;
         Seq<(AdjacencyGraph<TVertex, SEdge<TVertex>> Component, Seq<TVertex> Members)> ranked =
-            toSeq(condensed.Vertices)
+            toSeq(toSeq(condensed.Vertices)
                 .Map(component => (Component: component, Members: toSeq(component.Vertices.OrderBy(
                     keySelector: static vertex => vertex, comparer: rank))))
-                .OrderBy(keySelector: static row => row.Members[0], comparer: rank)
-                .ToSeq()
-                .Strict();
+                .OrderBy(keySelector: static row => row.Members[0], comparer: rank))
+            .Strict();
         Dictionary<AdjacencyGraph<TVertex, SEdge<TVertex>>, int> ranks = ranked
             .Map(static (row, index) => (row.Component, Index: index))
             .ToDictionary(static pair => pair.Component, static pair => pair.Index);

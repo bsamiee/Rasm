@@ -156,17 +156,21 @@ public static class TimberSeed {
         detail: Option<Func<TimberRow, SectionProfile, Op, Fin<PropertyBag>>>.None);
 
     static Validation<Error, Unit> Coherence(TimberRow row, Op key) =>
-        (guard(row.Grade.Family == ComponentFamily.Timber,
-             new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Timber)).ToValidation(),
-         guard(row.Grade.TimberArm.IsSome,
-             new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Timber)).ToValidation(),
-         guard(row.Form.CrossPly
-                 || Math.Abs(row.BuildMm.Sum() - row.DMm) <= BuildClosureMm
-                 || Math.Abs(row.BuildMm.Sum() - row.WMm) <= BuildClosureMm,
-             new KernelFault.InvalidValue(nameof(row.BuildMm), "a build closing on the form's declared axis", Some(key))).ToValidation(),
-         guard(row.FmEdgeKMpa.ForAll(static edge => double.IsFinite(edge) && edge > 0.0) && (row.Form.CrossPly || row.FmEdgeKMpa.IsNone),
-             new KernelFault.InvalidValue(nameof(row.FmEdgeKMpa), "edgewise strength only for cross-ply forms", Some(key))).ToValidation())
-            .Apply(static (_, _, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                row.Grade.Family == ComponentFamily.Timber,
+                new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Timber)),
+            AdmissionSlots.Gate(
+                row.Grade.TimberArm.IsSome,
+                new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Timber)),
+            AdmissionSlots.Gate(
+                row.Form.CrossPly
+                    || Math.Abs(row.BuildMm.Sum() - row.DMm) <= BuildClosureMm
+                    || Math.Abs(row.BuildMm.Sum() - row.WMm) <= BuildClosureMm,
+                new KernelFault.InvalidValue(nameof(row.BuildMm), "a build closing on the form's declared axis", Some(key))),
+            AdmissionSlots.Gate(
+                row.FmEdgeKMpa.ForAll(static edge => double.IsFinite(edge) && edge > 0.0) && (row.Form.CrossPly || row.FmEdgeKMpa.IsNone),
+                new KernelFault.InvalidValue(nameof(row.FmEdgeKMpa), "edgewise strength only for cross-ply forms", Some(key)))));
 
     const double BuildClosureMm = 0.5;
 

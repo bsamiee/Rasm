@@ -290,7 +290,7 @@ public static class CmuSeed {
     public const double WebFloorMm = 19.0;
     public const double NormalizedWebAreaFloorMm2PerM2 = 45140.0;
 
-    static readonly MaterialId ConcreteCmu = MaterialId.Of("concrete.cmu");
+    static readonly MaterialId ConcreteCmu = MaterialId.Create("concrete.cmu");
 
     static readonly Seq<(double NominalWidthMm, double FloorMm)> FaceShellFloors = Seq(
         (102.0, 19.0),
@@ -331,29 +331,36 @@ public static class CmuSeed {
         voids: static r => CmuPhysics.CoringOf(r.WMm, r.LMm, Lattice(r)));
 
     static Validation<Error, Unit> Coherence(CmuRow r, Op key) =>
-        (guard(r.Strength.Family == ComponentFamily.Cmu,
-             new ComponentFault.GradeFamilyMismatch(key, r.Strength, ComponentFamily.Cmu)).ToValidation(),
-         guard(r.Strength.Columns is GradeProperties.Cmu,
-             new ComponentFault.GradeBodyMissing(key, r.Strength, ComponentFamily.Cmu)).ToValidation(),
-         guard((r.Grade == CmuGrade.Hollow) == (r.Cells > 0),
-             new KernelFault.InvalidValue(nameof(r.Grade), "hollow exactly when the row declares cells", Some(key))).ToValidation(),
-         guard(r.Cells >= 0
-                 && r.GroutedCells >= 0 && r.GroutedCells <= r.Cells
-                 && r.ReinforcedCells >= 0 && r.ReinforcedCells <= r.Cells
-                 && double.IsFinite(r.RebarBarMm)
-                 && (r.ReinforcedCells == 0 ? r.RebarBarMm == 0.0 : r.RebarBarMm > 0.0),
-             new KernelFault.InvalidValue(nameof(r.ReinforcedCells), "cell, fill, and bar declarations that agree", Some(key))).ToValidation(),
-         guard(r.FaceShellMm >= FaceShellFloorMm(r.WModuleMm)
-                 && r.EndWebMm >= WebFloorMm && r.CrossWebMm >= WebFloorMm
-                 && r.EffectiveFaceShellMm >= CmuFinish.SplitResidualFloorMm,
-             new KernelFault.InvalidValue(nameof(r.FaceShellMm), "published face-shell and effective-shell floors", Some(key))).ToValidation(),
-         guard(r.NormalizedWebAreaMm2PerM2.ForAll(static anw => anw >= NormalizedWebAreaFloorMm2PerM2),
-             new KernelFault.InvalidValue(nameof(r.NormalizedWebAreaMm2PerM2), "the published normalized web-area floor", Some(key))).ToValidation(),
-         guard(r.Density.Holds(r.Density.OvenDryKgPerM3)
-                 && r.Density.OvenDryKgPerM3 >= CmuDensity.PopulationFloorKgPerM3
-                 && r.Density.OvenDryKgPerM3 <= CmuDensity.PopulationCeilingKgPerM3,
-             new KernelFault.InvalidValue(nameof(r.Density), "a density inside the published population band", Some(key))).ToValidation())
-            .Apply(static (_, _, _, _, _, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                r.Strength.Family == ComponentFamily.Cmu,
+                new ComponentFault.GradeFamilyMismatch(key, r.Strength, ComponentFamily.Cmu)),
+            AdmissionSlots.Gate(
+                r.Strength.Columns is GradeProperties.Cmu,
+                new ComponentFault.GradeBodyMissing(key, r.Strength, ComponentFamily.Cmu)),
+            AdmissionSlots.Gate(
+                (r.Grade == CmuGrade.Hollow) == (r.Cells > 0),
+                new KernelFault.InvalidValue(nameof(r.Grade), "hollow exactly when the row declares cells", Some(key))),
+            AdmissionSlots.Gate(
+                r.Cells >= 0
+                    && r.GroutedCells >= 0 && r.GroutedCells <= r.Cells
+                    && r.ReinforcedCells >= 0 && r.ReinforcedCells <= r.Cells
+                    && double.IsFinite(r.RebarBarMm)
+                    && (r.ReinforcedCells == 0 ? r.RebarBarMm == 0.0 : r.RebarBarMm > 0.0),
+                new KernelFault.InvalidValue(nameof(r.ReinforcedCells), "cell, fill, and bar declarations that agree", Some(key))),
+            AdmissionSlots.Gate(
+                r.FaceShellMm >= FaceShellFloorMm(r.WModuleMm)
+                    && r.EndWebMm >= WebFloorMm && r.CrossWebMm >= WebFloorMm
+                    && r.EffectiveFaceShellMm >= CmuFinish.SplitResidualFloorMm,
+                new KernelFault.InvalidValue(nameof(r.FaceShellMm), "published face-shell and effective-shell floors", Some(key))),
+            AdmissionSlots.Gate(
+                r.NormalizedWebAreaMm2PerM2.ForAll(static anw => anw >= NormalizedWebAreaFloorMm2PerM2),
+                new KernelFault.InvalidValue(nameof(r.NormalizedWebAreaMm2PerM2), "the published normalized web-area floor", Some(key))),
+            AdmissionSlots.Gate(
+                r.Density.Holds(r.Density.OvenDryKgPerM3)
+                    && r.Density.OvenDryKgPerM3 >= CmuDensity.PopulationFloorKgPerM3
+                    && r.Density.OvenDryKgPerM3 <= CmuDensity.PopulationCeilingKgPerM3,
+                new KernelFault.InvalidValue(nameof(r.Density), "a density inside the published population band", Some(key)))));
 
     static Fin<PropertyBag> Detail(CmuRow r, SectionProfile profile, Op key) =>
         profile is SectionProfile.CellularRectangle lattice
@@ -391,8 +398,8 @@ public static class CmuSeed {
             vapourResistanceFactor: ConcreteVapourMu, key)
         from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2, key)
         from fire in physics.FireRating
-            .Map(period => FireResistance.I(period.Key, key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r))))
-            .IfNone(Fin.Succ(Seq<MaterialPropertySet>()))
+            .TraverseM(period => FireResistance.Of(FireCoverage.I, period.Key, key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r)))).As()
+            .Map(static rows => rows.IfNone(Seq<MaterialPropertySet>()))
         select Seq(thermal, MaterialPropertySet.OfAcoustic(spectrum)) + fire;
 
     public static Fin<ComponentUnit> Module(CmuRow row, Op key) =>

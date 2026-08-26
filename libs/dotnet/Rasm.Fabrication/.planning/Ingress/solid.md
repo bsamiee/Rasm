@@ -331,8 +331,8 @@ public sealed partial class SolidFormat {
     private static Fin<Seq<SolidMesh>> Geometry(R3Object row, SolidPath path) => row.Geometry switch {
         R3Mesh mesh => Fin.Succ(Seq(SolidImport.FromThreeDm(mesh))),
         R3Brep brep => toSeq(brep.Faces).Traverse(face => Optional(face.GetMesh(R3MeshType.Any))
-            .ToFin(SolidImport.Unfit(path, "solid-3dm:brep-face-unmeshed"))
-            .Map(SolidImport.FromThreeDm).ToValidation()).As().ToFin(),
+            .Map(SolidImport.FromThreeDm)
+            .ToValidation(SolidImport.Unfit(path, "solid-3dm:brep-face-unmeshed"))).As().ToFin(),
         _ => Fin.Succ(Seq<SolidMesh>()),
     };
 

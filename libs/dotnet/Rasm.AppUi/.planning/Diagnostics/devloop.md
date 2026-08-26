@@ -268,7 +268,6 @@ public static class DevLoop {
                 AppUiPoint.PreCommit,
                 new AppUiFact.PreCommit(fact.DocumentKey, fact.Lamport, fact.Ops, fact.Origin, fact.Message),
                 Op.Of(name: "appui.devloop.pre-commit")))
-                .Bind(static settled => IO.lift(settled))
                 .Map(static _ => unit)));
 
     public static Fin<string> CollabJson(Func<VersionVector, VersionVector, Fin<string>> export, VersionVector from, VersionVector to) =>
@@ -456,7 +455,7 @@ public abstract partial record ReplBlock(long Ordinal, Instant At, string Query)
                 Succ: outcome => Label(block.Ordinal, "outcome", outcome.Outcome.Kind, PaintRole.TextMuted),
                 Fail: fault => Label(block.Ordinal, "fault", fault.Message, PaintRole.ErrorText)))),
         log:     static (_, block) => Panel(block.Ordinal,
-            block.Lines.Map((line, index) => Label(block.Ordinal, index.ToString(CultureInfo.InvariantCulture), line, PaintRole.TextMuted)).ToSeq()),
+            block.Lines.Map((line, index) => Label(block.Ordinal, index.ToString(CultureInfo.InvariantCulture), line, PaintRole.TextMuted))),
         timeline: static (h, block) => new ControlIntent.Grid(
             $"{DevLoopSurfaces.BlockKey}.{block.Ordinal}",
             EvidenceReport.Blocks(block.Value)
@@ -536,7 +535,7 @@ public static class DiagnosticsChrome {
             Path: DevLoopSurfaces.BlockKey,
             Rank: fact.ChromeRank,
             Visible: static _ => true,
-            Content: new ChromeContent.Chip(Corner, fact.Key))).ToSeq().Strict();
+            Content: new ChromeContent.Chip(Corner, fact.Key))).Strict();
 
     public static Seq<(string Fact, string Value)> Facts(HudSample hud, GovernorReadout quality) =>
         toSeq(HudFact.Items).Map(fact => (fact.Key, fact.Read(hud, quality))).Strict();

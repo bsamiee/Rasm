@@ -440,7 +440,7 @@ public static class AppearanceProjection {
         };
         IfcSurfaceStyle style = new(
             rendering,
-            lighting.Match(Some: row => row.Author(db), None: static () => (IfcSurfaceStyleLighting?)null),
+            Op.ToHostSlot(lighting.Map(row => row.Author(db))),
             textures.IsEmpty ? null : new IfcSurfaceStyleWithTextures([.. textures.Map(texture => texture.Author(db))]),
             null,
             transmissive ? new IfcSurfaceStyleRefraction(db) { RefractionIndex = DefaultRefractionIndex } : null) {
@@ -473,9 +473,7 @@ public static class AppearanceProjection {
 
     static Fin<Option<IfcIndexedColourMap>> Coloured(IfcTriangulatedFaceSet faceSet, float[] lane, long[] corners, long reach, Op key) =>
         Indexable(lane, reach, arity: 4)
-            ? IndexedColour.Of(lane, corners, key).Match(
-                Some: colour => colour.Author(faceSet, key).Map(Some),
-                None: static () => Fin.Succ(Option<IfcIndexedColourMap>.None))
+            ? IndexedColour.Of(lane, corners, key).TraverseM(colour => colour.Author(faceSet, key)).As()
             : Fin.Succ(Option<IfcIndexedColourMap>.None);
 
     static bool Indexable(float[] lane, long reach, int arity) =>

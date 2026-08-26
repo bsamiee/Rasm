@@ -169,7 +169,7 @@ public static class Membership {
         from start in Stamp(runtime)
         from graded in member.Route.Grade(runtime, member)
         from finish in Stamp(runtime)
-        from span in runtime.Clocks.Line.Elapsed(start, finish).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
+        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, finish))
         select graded.Map(status => member with {
             LastProbe = now,
             Elapsed = Duration.FromTimeSpan(span),
@@ -181,7 +181,7 @@ public static class Membership {
         });
 
     static IO<MonotonicStamp> Stamp(Runtime runtime) =>
-        runtime.Clocks.Line.Capture().Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>);
+        IO.lift(runtime.Clocks.Line.Capture());
 
     public static IO<Validation<Error, MembershipView>> Fold(Runtime runtime, MemberRecord probed) =>
         IO.lift(() => Cell.Commit(runtime.View, view => view.Advance(probed)))
@@ -230,9 +230,7 @@ public static class Membership {
             .Map(static graded => graded.Fold(
                 Success<Error, Unit>(unit),
                 static (held, row) => (held, row).Apply(static (_, _) => unit).As()))
-            .Bind(outcome => outcome.Match(
-                Succ: static _ => IO.pure(unit),
-                Fail: IO.fail<Unit>));
+            .Bind(outcome => IO.lift(outcome.ToFin()));
 
     static IO<Validation<Error, MembershipView>> Graded(Runtime runtime, MemberRecord member) =>
         Probe(runtime, member, runtime.Clocks.Now)
@@ -339,9 +337,9 @@ public static class RoleElection {
         FencedLease<LeaseKey>.Fenced(runtime, held, verb).Map(Settled);
 
     internal static Validation<Error, FenceHolding<LeaseKey>> Settled(Fin<FenceStep<LeaseKey>> step) =>
-        step.Match(
-            Succ: landed => Success<Error, FenceHolding<LeaseKey>>(landed.Holding),
-            Fail: error => Fail<Error, FenceHolding<LeaseKey>>(CoordinationFault.Of(error)));
+        step.Map(static landed => landed.Holding)
+            .MapFail(CoordinationFault.Of)
+            .ToValidation();
 }
 ```
 
@@ -420,9 +418,9 @@ public static class DistributedLock {
 
     public static IO<Validation<Error, A>> Guard<A>(FencedRuntime runtime, FenceHolding<LeaseKey> held, IO<A> section) =>
         FencedLease<LeaseKey>.Guard(runtime, held, section)
-            .Map(outcome => outcome.Match(
-                Succ: Success<Error, A>,
-                Fail: error => Fail<Error, A>(new CoordinationFault.FenceRejected(held.Key, error))));
+            .Map(outcome => outcome
+                .MapFail(error => new CoordinationFault.FenceRejected(held.Key, error))
+                .ToValidation());
 
     public static IO<Validation<Error, FenceHolding<LeaseKey>>> Release(
         FencedRuntime runtime, FenceHolding<LeaseKey> held) =>

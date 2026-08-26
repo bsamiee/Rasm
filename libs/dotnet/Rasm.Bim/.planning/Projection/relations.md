@@ -134,7 +134,7 @@ public sealed partial class IfcRelKind {
     static readonly (FrozenSet<IfcRelKind> Inverted, FrozenDictionary<(RelationshipKind, string), IfcRelKind> ByNeutral) Probed = Probe();
 
     static (FrozenSet<IfcRelKind>, FrozenDictionary<(RelationshipKind, string), IfcRelKind>) Probe() {
-        Seq<(IfcRelKind Row, Relationship Edge)> rows = Items.AsIterable().ToSeq().Map(static row => (Row: row, Edge: row.Edge(ProbeRelating, ProbeRelated)));
+        Seq<(IfcRelKind Row, Relationship Edge)> rows = toSeq(Items).Map(static row => (Row: row, Edge: row.Edge(ProbeRelating, ProbeRelated)));
         return (rows.Filter(static probe => probe.Edge is Relationship.Assign).Map(static probe => probe.Row).ToFrozenSet(),
             rows.Filter(static probe => probe.Row != ConnectsRealizing)
                 .Choose(static probe => NeutralKey(probe.Edge).Map(neutral => (Neutral: neutral, probe.Row)))
@@ -156,7 +156,7 @@ public sealed partial class IfcRelKind {
             generic:   static _ => Option<(RelationshipKind Kind, string SubKind)>.None);
 
     static readonly Lazy<FrozenDictionary<IfcRelKind, RelSlots>> Census = new(static () =>
-        Items.AsIterable().Choose(static row => RelSlots.Of(row).Map(slots => (Row: row, Slots: slots)))
+        toSeq(Items).Choose(static row => RelSlots.Of(row).Map(slots => (Row: row, Slots: slots)))
              .ToFrozenDictionary(static probe => probe.Row, static probe => probe.Slots));
 
     public static Fin<RelSlots> SlotsOf(IfcRelKind row, Op key) =>
@@ -193,7 +193,7 @@ public static class EdgeProjection {
                 .Concat(DefinesProperties(project, rooted, key))
                 .Concat(Structural(project, rooted, scale, eurocode, profiles, key))
                 .Concat(SpatialBoundaries(project, rooted, profiles, key))
-                .Traverse(identity).As().Map(static groups => groups.Flatten().ToSeq())).ToFin())
+                .Traverse(identity).As().Map(static groups => toSeq(groups.Flatten()))).ToFin())
         from factors in GroupFactors(project)
         from materials in MaterialEdges(project, rooted, tolerance, scale, templates, profiles, key)
         select rows + materials;
@@ -217,9 +217,10 @@ public static class EdgeProjection {
     static Validation<Error, Seq<Relationship>> Landed(Seq<Validation<Error, Relationship>> rows) => rows.Traverse(identity).As();
 
     static Validation<Error, NodeId> Endpoint(Map<string, NodeId> rooted, Option<string> globalId, string relationship, string attribute, Op key) =>
-        (globalId.Match(
-            None: () => Fin.Fail<NodeId>(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "edge-endpoint-absent", relationship, attribute }))),
-            Some: id => rooted.Find(id).ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "edge-endpoint-miss", relationship, attribute, id }))))).ToValidation();
+        globalId
+            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "edge-endpoint-absent", relationship, attribute })))
+            .Bind(id => rooted.Find(id).ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "edge-endpoint-miss", relationship, attribute, id }))))
+            .ToValidation();
 
     // --- [ARM_GROUPS]
 
@@ -256,9 +257,9 @@ public static class EdgeProjection {
         Landed(toSeq(project.Extract<IfcRelConnectsPorts>().AsIterable()).Map(rel =>
             from a in Endpoint(rooted, Stated(rel.RelatingPort?.GlobalId), IfcRelKind.ConnectsPorts.Key, IfcRelKind.ConnectsPorts.Relating, key)
             from b in Endpoint(rooted, Stated(rel.RelatedPort?.GlobalId), IfcRelKind.ConnectsPorts.Key, IfcRelKind.ConnectsPorts.Related, key)
-            from r in Optional(rel.RealizingElement).Match(
-                Some: element => Endpoint(rooted, Stated(element.GlobalId), IfcRelKind.ConnectsPorts.Key, "RealizingElement", key).Map(Some),
-                None: static () => (Fin.Succ(Option<NodeId>.None)).ToValidation())
+            from r in Optional(rel.RealizingElement)
+                .TraverseM(element => Endpoint(rooted, Stated(element.GlobalId), IfcRelKind.ConnectsPorts.Key, "RealizingElement", key))
+                .As()
             select (Relationship)new Relationship.Connect(a, b, ConnectKind.Port, r, Option<UInt128>.None))),
         Rows(project.Extract<IfcRelConnectsPortToElement>(), IfcRelKind.ConnectsPortToElement, rooted, key),
         Rows(project.Extract<IfcRelConnectsPathElements>(), IfcRelKind.ConnectsPathElements, rooted, key),
@@ -352,7 +353,7 @@ public static class EdgeProjection {
                     .Concat(bags.Map(bag => (Relationship)new Relationship.Assign(
                         material, SemanticProjector.PropertySetNode(bag, tolerance).Id, AssignKind.PropertyDefinition))).ToSeq())
             .As()
-            .Map(static rows => rows.Flatten().ToSeq());
+            .Map(static rows => toSeq(rows.Flatten()));
 
     // --- [USAGE_ADMISSION]
 

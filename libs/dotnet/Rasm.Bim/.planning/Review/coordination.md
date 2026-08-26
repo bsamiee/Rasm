@@ -193,7 +193,7 @@ public static class Coordination {
 
     public static ImpactReport Between(ElementGraph graph, ModelDiff before, ModelDiff after, ScheduleNetwork schedule, CostSchedule cost, CoordinationPolicy policy) {
         var touched = toHashSet(after.Changes.Map(static c => c.GlobalId));
-        var contested = before.Changes.Map(static c => c.GlobalId).Filter(touched.Contains).Distinct().ToSeq();
+        var contested = before.Changes.Map(static c => c.GlobalId).Filter(touched.Contains).Distinct();
         var byExternal = graph.ObjectNodes.Choose(static o => o.ExternalId.Map(e => (e, o.Id))).ToHashMap();
         var seeds = toHashSet(contested.Choose(byExternal.Find));
         Seq<(DistributionSystem View, LanguageExt.HashSet<NodeId> Members)> systems = Systems(graph);
@@ -211,17 +211,17 @@ public static class Coordination {
         var affectedSet = toHashSet(elements.Map(static row => row.GlobalId));
         var assigned = schedule.Assignments
             .Filter(a => a.ElementGlobalIds.Exists(affectedSet.Contains))
-            .Map(static a => a.TaskGlobalId).Distinct().ToSeq();
+            .Map(static a => a.TaskGlobalId).Distinct();
         var priced = cost.Items
             .Filter(i => i.PricedGlobalIds.Exists(affectedSet.Contains))
-            .Map(static i => i.GlobalId).Distinct().ToSeq();
+            .Map(static i => i.GlobalId).Distinct();
         return new ImpactReport(
             contested,
             elements,
             Downstream(schedule.Dependencies.Map(static d => (d.PredecessorGlobalId, d.SuccessorGlobalId)), assigned, policy),
             Downstream(cost.Items.Choose(static i => i.ParentGlobalId.Map(parent => (i.GlobalId, parent))), priced, policy),
             systems.Filter(entry => entry.Members.Exists(affectedNodes.Contains))
-                .Choose(static entry => entry.View.ExternalId).Distinct().ToSeq());
+                .Choose(static entry => entry.View.ExternalId).Distinct());
     }
 
     static Fin<CoordinationRule> Validate(CoordinationRule rule, Op key) => rule.Switch(
@@ -296,10 +296,10 @@ public static class Coordination {
             $"ids-{a.Spec}", $"IDS non-conformance: {a.Specification}#{a.Spec}",
             BcfStatus.Open, "IDS", "Normal", author, at,
             a.Verdicts.Filter(static v => !v.Failed.IsEmpty).Map(v => new BcfComment(
-                $"ids-{a.Spec}-{v.Key.Value:X32}", author,
-                $"{v.Key.Value:X32}: {v.Failed.Count} failed", Option<string>.None, at)),
+                $"ids-{a.Spec}-{v.Key.ToValue():X32}", author,
+                $"{v.Key.ToValue():X32}: {v.Failed.Count} failed", Option<string>.None, at)),
             Seq(new BcfViewpoint($"vp-ids-{a.Spec}", Option<BcfCamera>.None,
-                a.Verdicts.Bind(static v => v.Failed).Distinct().ToSeq(), BcfVisibility.Everything, Option<ReadOnlyMemory<byte>>.None))));
+                a.Verdicts.Bind(static v => v.Failed).Distinct(), BcfVisibility.Everything, Option<ReadOnlyMemory<byte>>.None))));
 
     static Option<BcfTopic> TopicOf(ElementGraph graph, Interference clash, string author, Instant at) =>
         from first in ExternalOf(graph, clash.First)

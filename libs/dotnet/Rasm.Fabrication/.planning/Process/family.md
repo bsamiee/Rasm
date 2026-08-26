@@ -1147,7 +1147,7 @@ public sealed class ProcessFamily {
         state: this,
         select: static (family, value) => family.Select(value.Value),
         route: static (family, value) => family.Route(value),
-        order: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Order(family._graph.TopologicalSort().ToSeq())),
+        order: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Order(toSeq(family._graph.TopologicalSort()))),
         components: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Components(family.Components())),
         allocate: static (family, value) => family.Allocate(value.Demand));
 

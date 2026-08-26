@@ -378,9 +378,9 @@ public sealed partial class JoinProcess {
 
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => writer
         .Discriminant(Method).Ordinal(Method.Class.Code)
-        .Rows(toSeq(Texts).OrderBy(static row => row.Key.Key, StringComparer.Ordinal).ToSeq(),
+        .Rows(toSeq(toSeq(Texts).OrderBy(static row => row.Key.Key, StringComparer.Ordinal)),
             static (held, row) => held.Discriminant(row.Key).String(row.Value))
-        .Rows(toSeq(Metrics).OrderBy(static row => row.Key.Key, StringComparer.Ordinal).ToSeq(),
+        .Rows(toSeq(toSeq(Metrics).OrderBy(static row => row.Key.Key, StringComparer.Ordinal)),
             static (held, row) => held.Discriminant(row.Key).Double(row.Value));
 }
 
@@ -410,9 +410,9 @@ public sealed record JoinSpecification(
         .Rows(Access, static (held, access) => access.CanonicalBytes(held))
         .Rows(Resources, static (held, resource) => held.String(resource))
         .Rows(FixtureKeys, static (held, fixture) => held.Ordinal(fixture))
-        .Rows(toSeq(Durations)
+        .Rows(toSeq(toSeq(Durations)
                 .OrderBy(static row => row.Key.Program.Key, StringComparer.Ordinal)
-                .ThenBy(static row => row.Key.Phase.Rank).ToSeq(),
+                .ThenBy(static row => row.Key.Phase.Rank)),
             static (held, row) => held.Discriminant(row.Key.Program).Ordinal(row.Key.Phase.Rank)
                 .Double(row.Value.As(DurationUnit.Second)))
         .Maybe(GrooveIncludedAngle, static (held, angle) => held.Double(angle.As(AngleUnit.Radian)))
@@ -438,7 +438,7 @@ public sealed record AssemblyJoint(
 - Law: `IAssemblyEvidenceSource.Evaluate` proves connected support, capacity, center-of-gravity margin, temporary fixture custody, load-path continuity, fit, sight, and robot placement once per join; `JoinMeasure` retains that boundary evidence WHOLE rather than spreading it across columns a construction site re-spells, so a fifth boundary column reaches every consumer with no arm that forgot to carry it.
 - Law: the boundary reports sight as `BlockedCorridor` rows — the same shape the analytic corridor kernel publishes — so an occluded sight line names its occluder and the two censuses correlate without a positional decode. `JoinRejection.Visibility` names a MALFORMED census (a row addressing a corridor outside the joint's own roster); `JoinRejection.Sight` names a corridor demanding line of sight that a row occludes.
 - Law: fit and datum errors fold along component paths, and a join fails admission when gap, interference, alignment, or accumulated closure exceeds its carried requirement. The `Joining/sequence` `DistortionField` spends the joint's own alignment budget through `workholding#FIXTURE` `DatumTransfer` before that comparison, so a distortion the weld plane measured narrows the fit a joint may claim rather than arriving as a second estimate here.
-- Law: every approach and retract corridor composes `Workholding.Apply` at the phase's `FixtureState`; analytic cone occlusion checks every potential neighbour over the full axial interval.
+- Law: every approach and retract corridor composes the typed `Fixtures.Clear` kernel at the phase's `FixtureState`; analytic cone occlusion checks every potential neighbour over the full axial interval.
 - Law: source-first order respects resource exclusivity, dwell, cool, inspection, and lane policy; each step carries typed start, finish, fixture, resources, and stability evidence, and every result resolves by joint key through a TOTAL read — an absent subassembly label, joint, or result refuses typed rather than throwing out of an indexer on a non-`Fin` path.
 - Law: disassembly reverses the proven precedence through `SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)`, so an occlusion or thermal edge that gated a join gates its removal; a reversed roster and a reversed order sequence both ignore those edges.
 - Law: removing a completed or blocked joint re-proves every surviving result against the residual assembly through the same evidence boundary, because removal moves the load path the original results measured.
@@ -812,12 +812,10 @@ internal static partial class Assemblies {
         return (policy.Evidence.Evaluate(joint,
                     members.Filter(member => joint.Specification.Components.Contains(member.Key)), fixtures, policy).ToValidation(),
                 fixtures.Traverse(fixture => joint.Specification.Access.Traverse(access =>
-                    Workholding.Apply(new WorkholdingOp.Clear(fixture, FixtureState.Clamp, Corridor(
-                            joint.At, access, joint.Specification.GrooveIncludedAngle, policy.CorridorClearance)))
-                        .Bind(static result => result switch {
-                            WorkholdingResult.Clearance result => Fin.Succ(result),
-                            _ => throw new InvalidOperationException("Workholding.Clear returned a non-clearance result."),
-                        }).ToValidation())).As())
+                    Fixtures.Clear(fixture, FixtureState.Clamp, Corridor(
+                            joint.At, access, joint.Specification.GrooveIncludedAngle, policy.CorridorClearance))
+                        .Map(static blocked => new WorkholdingResult.Clearance(blocked))
+                        .ToValidation())).As())
             .Apply(static (boundary, rows) => (boundary, Clearance: rows.Bind(identity)))
             .As().ToFin()
             .Bind(result => Admissible(result.boundary, result.Clearance, joint, fixtures, policy)
@@ -939,8 +937,8 @@ internal static partial class Assemblies {
         Map<int, JoinMeasure> results,
         Map<AssemblyMemberKey, int> components,
         int joint) =>
-        (index.ByKey.Find(joint).ToFin(Absent(joint, index.Joints.Count, 0)).ToValidation(),
-         results.Find(joint).ToFin(Absent(joint, index.Joints.Count, results.Count)).ToValidation())
+        (index.ByKey.Find(joint).ToValidation(Absent(joint, index.Joints.Count, 0)),
+         results.Find(joint).ToValidation(Absent(joint, index.Joints.Count, results.Count)))
             .Apply(static (row, result) => (row, result))
             .As().ToFin()
             .Bind(pair => components.Find(pair.row.Specification.Components[0])
@@ -1112,7 +1110,7 @@ internal static partial class Assemblies {
             embedded: static (held, source) => held.String(nameof(CellSource.Embedded)).String(source.Xml))
         .Pose(candidate.Cell.BaseFrame).Pose(candidate.Cell.ToolFrame).Pose(candidate.NormalizedBaseFrame)
         .Rows(candidate.Joints, static (held, joints) => held.Rows(joints.ToSeq(), static (row, value) => row.Double(value)))
-        .Rows(toSeq(candidate.Metrics).OrderBy(static row => row.Key.Key, StringComparer.Ordinal).ToSeq(),
+        .Rows(toSeq(toSeq(candidate.Metrics).OrderBy(static row => row.Key.Key, StringComparer.Ordinal)),
             static (held, metric) => held.Discriminant(metric.Key).Double(metric.Value))
         .Double(candidate.Score);
 

@@ -709,11 +709,10 @@ public static partial class Dialect {
             .Bind(static parameter => parameter.Value.Scalar)
             .Filter(static value => value is > 0.0 and <= int.MaxValue && value == Math.Truncate(value))
             .Map(static value => checked((int)value))
-            .Match(
-                Some: value => command == GCommand.WcsExtended
+            .ToFin(new FabricationFault.DialectUnsupported(dialect, WcsSubject))
+            .Bind(value => command == GCommand.WcsExtended
                     ? Spelling(dialect, CommandKeys.WcsExtended, WcsSubject).Bind(code => Extended(dialect, code, value))
-                    : Base(dialect, value),
-                None: () => Fin.Fail<GWord>(new FabricationFault.DialectUnsupported(dialect, WcsSubject)));
+                    : Base(dialect, value));
 }
 ```
 

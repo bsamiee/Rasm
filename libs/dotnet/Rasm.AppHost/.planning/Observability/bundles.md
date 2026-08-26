@@ -115,7 +115,8 @@ public readonly record struct ArtifactPayload(ReadOnlyMemory<byte> Bytes, MaskTa
 
 public readonly record struct MaskTally(int Masked) : Monoid<MaskTally> {
     public static MaskTally Empty => new(0);
-    public static MaskTally Of(Masked verdict) => new(verdict is Masked.Redacted ? 1 : 0);
+    public static MaskTally Of(Masked verdict) =>
+        new(verdict.Switch(unchanged: static _ => 0, redacted: static _ => 1));
     public MaskTally Combine(MaskTally rhs) => new(Masked + rhs.Masked);
 }
 
@@ -154,10 +155,9 @@ public sealed record SupportArtifact(
         Name: "signal-readings",
         Classification: DataClassification.HostIdentity,
         EstimatedBytes: 256 << 10,
-        Produce: _ => IO.lift(tally.Read).Bind(readings => readings.Match(
-            Succ: rows => IO.pure(Rendered(rows, new MaskLedger(redactor))),
-            Fail: fault => IO.fail<ArtifactPayload>(
-                (Error)new SupportFault.ContributorFaulted("signal-readings", fault.Message, fault)))));
+        Produce: _ => IO.lift(() => tally.Read(Op.Of())
+                .MapFail(fault => new SupportFault.ContributorFaulted("signal-readings", fault.Message, fault)))
+            .Map(rows => Rendered(rows, new MaskLedger(redactor))));
 
     static ArtifactPayload Rendered(Seq<InstrumentReading> readings, MaskLedger ledger) =>
         ArtifactPayload.Of(
@@ -384,14 +384,10 @@ public static class DumpArtifacts {
             return Fin.Succ(new ArtifactPayload(
                 new ReadOnlyMemory<byte>(await File.ReadAllBytesAsync(path, token).ConfigureAwait(false)),
                 MaskTally.Empty));
-        }, envIO.Token)).Bind(static captured => captured.Match(
-            Succ: IO.pure,
-            Fail: IO.fail<ArtifactPayload>));
+        }, envIO.Token)).Bind(static captured => IO.lift(captured));
 
     static IO<ArtifactPayload> Walked(DumpPolicy policy, string captureRoot, JsonTypeInfo<DumpTriage> contract) =>
-        IO.lift(() => DumpTriage.Walk(DumpTriage.Path(captureRoot), policy)).Bind(static walked => walked.Match(
-            Succ: rows => IO.pure(rows),
-            Fail: IO.fail<DumpTriage>))
+        IO.lift(() => DumpTriage.Walk(DumpTriage.Path(captureRoot), policy))
             .Map(rows => new ArtifactPayload(
                 new ReadOnlyMemory<byte>(JsonSerializer.SerializeToUtf8Bytes(rows, contract)), MaskTally.Empty));
 }
@@ -526,15 +522,13 @@ public static class SupportCapture {
             .Filter(static entry => entry.Redactions > 0)
             .TraverseM(entry => runtime.Signals.Write(AppHostMeasure.RedactionTags.Row, entry.Redactions,
                 InstrumentSet.Tags((AppHostSlot.Class, entry.Classification.Key)))).As())
-            .Bind(static written => written.Match(Succ: static _ => IO.pure(unit), Fail: IO.fail<Unit>))
         select (SupportOutcome)exported;
 
     static DumpPolicy Completeness(SupportRuntime runtime, SupportTriggerKind kind) =>
         (kind.Dump | runtime.Watchdog.Map(static held => held.Policy)).IfNone(DumpPolicy.Snapshot);
 
     static IO<MonotonicStamp> Stamped(SupportRuntime runtime) =>
-        IO.lift(() => runtime.Clocks.Line.Capture(CaptureWork))
-            .Bind(static captured => captured.Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>));
+        IO.lift(() => runtime.Clocks.Line.Capture(CaptureWork));
 
     static IO<ArtifactRow> Produced(SupportArtifact row, CaptureWindow window, SupportPolicy policy) =>
         (row.Produce(window).Map(payload => Written(row, payload, policy))
@@ -549,7 +543,7 @@ public static class SupportCapture {
     static Seq<ArtifactRow> Refusal(Seq<ArtifactRow> faults, SupportArtifact row) =>
         row.Cleanup.Match(
             None: () => faults,
-            Some: release => Op.Of().Catch(() => Fin.Succ(release())).Bind(static outcome => outcome).Match(
+            Some: release => Op.Of().Catch(release).Match(
                 Succ: _ => faults,
                 Fail: error => faults.Add(Refused(
                     $"{row.Name}-cleanup", row.Classification,
@@ -692,8 +686,7 @@ public static class SupportLedger {
 
     static IO<TimeSpan> Spanned(ClockPolicy clocks, MonotonicStamp opened) =>
         IO.lift(() => clocks.Line.Capture(BundleWork)
-                .Bind(closed => clocks.Line.Elapsed(opened, closed, BundleWork)))
-            .Bind(static measured => measured.Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>));
+                .Bind(closed => clocks.Line.Elapsed(opened, closed, BundleWork)));
 
     static string Written(SupportRuntime runtime, SupportManifest manifest, Seq<ArtifactRow> rows) {
         string path = Path.Join(runtime.StorageRoot, $"{manifest.Correlation}.zip");

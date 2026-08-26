@@ -121,13 +121,16 @@ public static class ConcreteSeed {
         ifc: static row => row.Role.Ifc);
 
     static Validation<Error, Unit> Coherence(MemberRow row, Op key) =>
-        (guard(row.Grade.Family == ComponentFamily.Concrete,
-             new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Concrete)).ToValidation(),
-         guard(row.Grade.ConcreteArm.IsSome,
-             new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Concrete)).ToValidation(),
-         guard(!row.Role.Strip || row.WMm == DesignStripMm,
-             new KernelFault.InvalidValue(nameof(row.WMm), "the declared one-metre design strip width", Some(key))).ToValidation())
-            .Apply(static (_, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                row.Grade.Family == ComponentFamily.Concrete,
+                new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Concrete)),
+            AdmissionSlots.Gate(
+                row.Grade.ConcreteArm.IsSome,
+                new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Concrete)),
+            AdmissionSlots.Gate(
+                !row.Role.Strip || row.WMm == DesignStripMm,
+                new KernelFault.InvalidValue(nameof(row.WMm), "the declared one-metre design strip width", Some(key)))));
 
     const double DesignStripMm = 1000.0;
 
@@ -168,7 +171,7 @@ public sealed partial class StructuralClass {
     public static readonly StructuralClass S6 = new("s6", ordinal: 5);
     public int Ordinal { get; }
 
-    static readonly Seq<StructuralClass> Ladder = toSeq(Items).OrderBy(static row => row.Ordinal).ToSeq();
+    static readonly Seq<StructuralClass> Ladder = toSeq(Items.OrderBy(static row => row.Ordinal));
     static readonly int FloorOrdinal = Items.Min(static row => row.Ordinal);
     static readonly int CeilingOrdinal = Items.Max(static row => row.Ordinal);
 

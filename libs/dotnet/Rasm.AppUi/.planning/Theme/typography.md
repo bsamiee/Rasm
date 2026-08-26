@@ -522,7 +522,7 @@ public sealed class FaceInstance : IDisposable {
 
     static Option<int> ElectPalette(Face face, PalettePosture posture) =>
         face.HasPalettes && posture != PalettePosture.Unset
-            ? Enumerable.Range(0, face.PaletteCount).AsIterable().ToSeq().Find(index => face.GetPaletteFlags(index) == posture.Flags)
+            ? toSeq(Enumerable.Range(0, face.PaletteCount)).Find(index => face.GetPaletteFlags(index) == posture.Flags)
             : None;
 
     static Fin<CapabilitySet<FeatureIntent>> Probe(Font font) =>
@@ -1249,7 +1249,7 @@ public static class DecorationGeometry {
         text.Runs.Bind(run => (toSeq(run.Blob.GetIntercepts(band.Offset, band.Offset + band.Thickness))
                 .Prepend(run.Origin.X)
                 .Add(run.Origin.X + run.Advance.X)) switch {
-            var edges => Enumerable.Range(0, edges.Count / 2).AsIterable().ToSeq()
+            var edges => toSeq(Enumerable.Range(0, edges.Count / 2))
                 .Map(index => (Start: edges[index * 2], End: edges[(index * 2) + 1]))
                 .Filter(static span => span.End > span.Start)
                 .Map(span => new SKRect(span.Start, band.Offset, span.End, band.Offset + band.Thickness)),
@@ -1261,10 +1261,9 @@ public static class CaretGeometry {
         run.Clusters.ToSeq().Map(mark => (mark.Source, Offset: (double)(run.Origin.X + mark.Offset)));
 
     public static Option<double> Caret(ShapedText text, int source) =>
-        text.Runs.Bind(Marks)
+        toSeq(text.Runs.Bind(Marks)
             .Filter(cell => cell.Source <= source)
-            .OrderByDescending(static cell => cell.Source)
-            .AsIterable().ToSeq().Head
+            .OrderByDescending(static cell => cell.Source)).Head
             .Map(static cell => cell.Offset);
 
     public static Seq<(double Start, double End)> Selection(ShapedText text, Range source) =>
@@ -1272,7 +1271,7 @@ public static class CaretGeometry {
             var marks => marks.Filter(mark => mark.Source >= source.Start.Value && mark.Source < source.End.Value) switch {
                 var covered when covered.IsEmpty => None,
                 var covered => Some((
-                    covered.OrderBy(static mark => mark.Source).AsIterable().ToSeq().Head.Map(static mark => mark.Offset).IfNone(run.Origin.X),
+                    toSeq(covered.OrderBy(static mark => mark.Source)).Head.Map(static mark => mark.Offset).IfNone(run.Origin.X),
                     marks.Find(mark => mark.Source >= source.End.Value).Map(static mark => mark.Offset).IfNone(run.Origin.X + run.Advance.X))),
             },
         });

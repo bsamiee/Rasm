@@ -407,7 +407,7 @@ public sealed record NotebookCoedit(CollabDoc Document, IntentLedger Ledger) {
             .Bind(ids => ids.TraverseM(decode).As())
             .Bind(rows => Notebook.Of(
                 Document.Key,
-                rows.Map(static row => row.Cell).ToSeq(),
+                rows.Map(static row => row.Cell),
                 toHashMap(rows.Map(static row => (row.Cell.Id, row.Metadata)))));
 }
 ```
@@ -478,7 +478,7 @@ public sealed record ReplayManifest {
                     .Map(static candidate => candidate.OutputHash)
                     .ToFin(new NotebookFault.MissingUpstream($"replay/dependency-output-absent:{cellId}<-{input}")))
                 .As()
-                .Map(hashes => new Rasm.AppHost.Runtime.RecomputeNode(row.OutputHash, cellId, hashes.ToSeq())));
+                .Map(hashes => new Rasm.AppHost.Runtime.RecomputeNode(row.OutputHash, cellId, hashes)));
 }
 
 public sealed record ReplayBundle(ReplayManifest Manifest, Notebook Notebook, HashMap<string, ReadOnlyMemory<byte>> Blobs) {

@@ -292,7 +292,7 @@ public static class GraphStore {
                 model.Value,
                 version: cut.StreamVersion.Match<long?>(Some: static version => version, None: static () => null),
                 timestamp: cut.StreamVersion.IsSome ? (DateTimeOffset?)null : cut.At.ToDateTimeOffset(),
-                token: token).ConfigureAwait(false))), cancellationToken).ConfigureAwait(false)).Bind(IO.liftFin);
+                token: token).ConfigureAwait(false))), cancellationToken).ConfigureAwait(false)).Bind(IO.lift);
 
     static IO<Fin<StreamHead>> Stage(IDocumentSession session, ElementIdentity identity, GraphWriteStamp stamp, ModelId model, GraphDelta delta, long expected, Option<NameLineage> lineage, Func<Unit, StreamAction> stage, ProjectionContext frame, CancellationToken cancellationToken) =>
         IO.liftAsync(async () => await Op.Of().Catch(async token => {
@@ -340,7 +340,7 @@ public static class GraphStore {
     static IO<Fin<StreamHead>> ReadGraph(IDocumentSession session, ModelId model, ProjectionContext frame, CancellationToken cancellationToken) =>
         IO.liftAsync(async () => await Op.Of().Catch(async token => Fin<Option<GraphProjection>>.Succ(Optional(
             await session.Events.FetchLatest<GraphProjection>(model.Value, token).ConfigureAwait(false))), cancellationToken).ConfigureAwait(false))
-            .Bind(IO.liftFin)
+            .Bind(IO.lift)
             .Map(p => Received(model, p,
                 static g => (Some(g.Version), Some(g.Graph.Nodes.Count), Some(g.Graph.Edges.Length))));
 
@@ -352,7 +352,7 @@ public static class GraphStore {
     static IO<Fin<StreamHead>> ReadState(IDocumentSession session, ModelId model, ProjectionContext frame, CancellationToken cancellationToken) =>
         IO.liftAsync(async () => await Op.Of().Catch(async token => Fin<Option<StreamState>>.Succ(Optional(
             await session.Events.FetchStreamStateAsync(model.Value, token).ConfigureAwait(false))), cancellationToken).ConfigureAwait(false))
-            .Bind(IO.liftFin)
+            .Bind(IO.lift)
             .Map(s => Received(model, s, static state => (Some(state.Version), Option<int>.None, Option<int>.None)));
 
     static Fin<StreamHead> Received<T>(ModelId model, Option<T> found, Func<T, (Option<long> Version, Option<int> Nodes, Option<int> Edges)> read) =>
@@ -367,7 +367,7 @@ public static class GraphStore {
                 ? expected.Match(
                     Some: guard => IO.liftAsync(async () => await Op.Of().Catch(async token => Fin<Option<StreamState>>.Succ(Optional(
                         await session.Events.FetchStreamStateAsync(model.Value, token).ConfigureAwait(false)), cancellationToken).ConfigureAwait(false))
-                        .Bind(IO.liftFin)
+                        .Bind(IO.lift)
                         .Map(state => state.Match(
                             Some: s => Fin<StreamHead>.Fail(new GraphFault.StreamVersionConflict(model, guard, s.Version, error)),
                             None: () => Fin<StreamHead>.Fail(error))),

@@ -423,8 +423,7 @@ public static class BendSequence {
                     ? None
                     : Some<BrakeRejection>(new BrakeRejection.Collision(bend.Index, tool.Key)),
                 support.Accepted.IsSome ? None : Some<BrakeRejection>(new BrakeRejection.Support(bend.Index, supportDemand.OverhangMm, supportDemand.MomentNmm)))
-            .Choose(identity)
-            .ToSeq()
+            .Somes()
         let ready = (gaugeContact, support.Accepted)
             .Apply(static (gauge, mode) => (Gauge: gauge, Mode: mode))
             .As()
@@ -561,7 +560,7 @@ public static class BendSequence {
                         .ToValidation();
                 }).As().ToFin().Bind(static witnesses => (
                         witnesses.Map(static row => row.MaximumHeightMm).Head,
-                        Some(witnesses.Map(static row => row.MinimumClearanceMm).Choose(identity).ToSeq()))
+                        Some(witnesses.Map(static row => row.MinimumClearanceMm).Somes()))
                     .Apply(static (seed, clearances) => new SweepWitness(
                         clearances.Head.Map(low => clearances.Fold(low, Math.Min)),
                         witnesses.Map(static row => row.MaximumHeightMm).Fold(seed, Math.Max)))
@@ -631,7 +630,7 @@ public static class BendSequence {
                     .ToValidation()).As()
                 .Map(static distances => distances.Head.Map(low => distances.Fold(low, Math.Min)))).As()
             .ToFin()
-            .Map(static rows => rows.Choose(identity).ToSeq())
+            .Map(static rows => rows.Somes())
             .Bind(static nearest => nearest.Head
                 .Map(low => nearest.Fold(low, Math.Min))
                 .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "bend-sequence:clearance-empty")));

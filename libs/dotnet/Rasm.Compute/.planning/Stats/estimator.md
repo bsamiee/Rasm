@@ -63,7 +63,6 @@ public readonly partial struct WindowCapacity {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 8 ? null : new ValidationError($"<window-capacity:{value}>");
 
-    public static Fin<WindowCapacity> From(int repr) => Validate(repr, null, out WindowCapacity value) is { } fault ? Fin.Fail<WindowCapacity>(fault) : value;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -74,7 +73,7 @@ public sealed record ResidualWindow(Seq<double> Values, WindowCapacity Capacity)
     public int Count => Values.Count;
 
     public ResidualWindow Push(double value) =>
-        this with { Values = (Values.Count >= Capacity.Value ? Values.Tail : Values).Add(value) };
+        this with { Values = (Values.Count >= Capacity.ToValue() ? Values.Tail : Values).Add(value) };
 
     public Matrix<double> Evidence => Matrix<double>.Build.Dense(Values.Count, 1, (row, _) => Values[row]);
 }
@@ -182,6 +181,7 @@ public sealed record FitBudget(Dimension MaxIterations, Tolerance Stop) {
         (Fin<Dimension>.Succ(Dimension.Create(value: Math.Max(1, iterations))).ToValidation(),
          Tolerance.Of(ToleranceLane.Convergence, stop, Op.Of(name: nameof(FitBudget))).ToValidation())
             .Apply(static (cap, band) => new FitBudget(cap, band))
+            .As()
             .ToFin();
 
     private static FitBudget Of(int iterations, double stop) =>
@@ -218,22 +218,22 @@ public abstract partial record EstimatorPolicy {
             Range(p.Regularization >= 0.0, "regularization", p.Regularization).ToValidation(),
             Range(p.LearningRate > 0.0, "learning-rate", p.LearningRate).ToValidation(),
             Range(p.Weight > 0.0, "weight", p.Weight).ToValidation())
-            .Apply(static (_, _, _) => unit).ToFin(),
+            .Apply(static (_, _, _) => unit).As().ToFin(),
         reduction: static p => (
             Range(p.EnergyFraction is > 0.0 and <= 1.0, "energy-fraction", p.EnergyFraction).ToValidation(),
             p.Parameters.Admit().ToValidation())
-            .Apply(static (_, _) => unit).ToFin(),
+            .Apply(static (_, _) => unit).As().ToFin(),
         grouping: static p => (
             Range(p.Radius > 0.0, "radius", p.Radius).ToValidation(),
             Range(p.Ridge > 0.0, "ridge", p.Ridge).ToValidation(),
             Range(p.Neighbors >= 1, "neighbors", p.Neighbors).ToValidation())
-            .Apply(static (_, _, _) => unit).ToFin(),
+            .Apply(static (_, _, _) => unit).As().ToFin(),
         classification: static p => (
             Range(p.Regularization > 0.0, "regularization", p.Regularization).ToValidation(),
             Range(p.Box > 0.0, "box", p.Box).ToValidation(),
             Range(p.Neighbors >= 1, "neighbors", p.Neighbors).ToValidation(),
             p.Parameters.Admit().ToValidation())
-            .Apply(static (_, _, _, _) => unit).ToFin(),
+            .Apply(static (_, _, _, _) => unit).As().ToFin(),
         temporal: static _ => Fin.Succ(unit));
 
     private static Fin<Unit> Range(bool holds, string gate, double value) =>
@@ -259,6 +259,7 @@ public sealed record Design {
          Aligned(features, targets).ToValidation(),
          targets.Match(Some: y => Finite(y.AsArray() ?? y.ToArray(), "targets"), None: static () => Fin.Succ(unit)).ToValidation())
             .Apply((_, _, _, _) => new Design(features, targets))
+            .As()
             .ToFin();
 
     private static Fin<Unit> Shape(Matrix<double> features) =>
@@ -464,10 +465,8 @@ public static class EstimatorFold {
     internal static Fin<Unit> RegularizedResponse(FitContext context) =>
         RealResponse(context).Bind(_ => context.Case<EstimatorPolicy.Regression>()).Map(static _ => unit);
 
-    internal static Fin<Unit> IterativeResponse(FitContext context) => RegularizedResponse(context);
-
     internal static Fin<Unit> GlmResponse(FitContext context) =>
-        IterativeResponse(context).Bind(_ => context.Family.Admit(context.Design));
+        RegularizedResponse(context).Bind(_ => context.Family.Admit(context.Design));
 
     internal static Fin<Unit> ReductionDesign(FitContext context) =>
         context.Case<EstimatorPolicy.Reduction>().Map(static _ => unit);
@@ -482,8 +481,6 @@ public static class EstimatorFold {
 
     internal static Fin<Unit> GroupingDesign(FitContext context) =>
         context.Groups().Bind(_ => context.Case<EstimatorPolicy.Grouping>()).Map(static _ => unit);
-
-    internal static Fin<Unit> MixtureDesign(FitContext context) => GroupingDesign(context);
 
     internal static Fin<Unit> LinkageDesign(FitContext context) =>
         context.Groups().Bind(_ => ScaleCeiling.Cubic.Admit(context.Rows));

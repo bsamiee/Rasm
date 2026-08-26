@@ -207,7 +207,7 @@ public sealed record GovernorCell(GovernorState State, QualityVerdict Verdict, S
                 stepped.Next.Active.Rank == State.Active.Rank
                     ? Recent
                     : new TierTransition(State.Active, stepped.Next.Active, stepped.Verdict.Breach, sample.At)
-                        .Cons(Recent).Take(policy.HistoryDepth).ToSeq().Strict()),
+                        .Cons(Recent).Take(policy.HistoryDepth).Strict()),
         };
 }
 
@@ -375,7 +375,7 @@ public sealed record GpuTimingPass(Seq<string> PassBoundaries, double PeriodNs) 
             var (begin, end) => (int)end < resolvedTicks.Length && resolvedTicks.Span[(int)end] >= resolvedTicks.Span[(int)begin]
                 ? timing with { Measured = Some(Duration.FromNanoseconds((resolvedTicks.Span[(int)end] - resolvedTicks.Span[(int)begin]) * PeriodNs)) }
                 : timing,
-        }).ToSeq();
+        });
 
     public Seq<PipelineStat> ResolveStats(ReadOnlyMemory<ulong> resolvedCounters) =>
         PassBoundaries
@@ -388,7 +388,7 @@ public sealed record GpuTimingPass(Seq<string> PassBoundaries, double PeriodNs) 
                 (long)resolvedCounters.Span[row.Offset + 2],
                 (long)resolvedCounters.Span[row.Offset + 3],
                 (long)resolvedCounters.Span[row.Offset + 4]))
-            .ToSeq().Strict();
+            .Strict();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

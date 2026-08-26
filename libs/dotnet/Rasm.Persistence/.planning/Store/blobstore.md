@@ -196,7 +196,7 @@ public sealed partial class ObjectStore {
         return handle.Codec == ObjectCodec.Identity
             ? Opened(range)
             : from present in Head(client, handle)
-              from resident in present.Match(Some: IO.pure, None: () => IO.fail<BlobPlacement>(new RemoteStoreFault.NotFound(handle.Key)))
+              from resident in IO.lift(present.ToFin(new RemoteStoreFault.NotFound(handle.Key)))
               let frame = ObjectCodec.CodecFrame.Of(Chunking, resident.Extent.Plain)
               let window = range.IfNone((Start: 0L, End: resident.Extent.Plain - 1))
               from bounded in window is { Start: >= 0 } && window.End >= window.Start && window.End < resident.Extent.Plain
@@ -212,16 +212,15 @@ public sealed partial class ObjectStore {
     }
 
     static IO<ReadOnlyMemory<byte>> Proven(BlobHandle handle, Option<(long Start, long End)> range, ReadOnlyMemory<byte> plain) =>
-        range.IsSome || ContentAddress.Of(ContentHash.Of(plain, static (bytes, hash) => hash.Append(bytes.Span))) == handle.Key
+        range.IsSome || ContentAddress.Create(ContentHash.Of(plain, static (bytes, hash) => hash.Append(bytes.Span))) == handle.Key
             ? IO.pure(plain)
             : IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach(handle.Key, "content-key"));
 
     public IO<BlobPlacement> Put(ObjectClient client, BlobHandle handle, BlobPlacement placement, ChunkManifest manifest, ReadOnlySequence<byte> source, Instant now) =>
         (ObjectIo.For(client).Multipart(this, Tier, handle, placement, manifest, source, now)
             | @catch<IO, BlobPlacement>(static e => e is RemoteStoreFault.Conflict or RemoteStoreFault.ProviderConflict, _ => Head(client, handle)
-                .Bind(present => present.Match(
-                    Some: existing => IO.pure(existing with { Parts = 0 }),
-                    None: () => IO.fail<BlobPlacement>(new RemoteStoreFault.NotFound(handle.Key)))))).As();
+                .Bind(present => IO.lift(present.ToFin(new RemoteStoreFault.NotFound(handle.Key))
+                    .Map(existing => existing with { Parts = 0 }))))).As();
 
     public IO<Stream> Fetch(ObjectClient client, BlobHandle handle, Option<(long Start, long End)> range) =>
         ObjectIo.For(client).Fetch(this, handle, range);
@@ -249,7 +248,8 @@ public sealed partial class ObjectStore {
         RetentionClass cls = kind.Retention;
         BlobHandle Named(ContentAddress key, long plain) => BlobName.Handle(key, client.Tenant, cls, codec, plain);
         IO<BlobHandle> Resolved(ContentAddress key) => Head(client, Named(key, 0L))
-            .Bind(present => present.Match(Some: r => IO.pure(Named(key, r.Extent.Plain) with { Codec = r.Codec }), None: () => IO.fail<BlobHandle>(new RemoteStoreFault.NotFound(key))));
+            .Bind(present => IO.lift(present.ToFin(new RemoteStoreFault.NotFound(key))
+                .Map(r => Named(key, r.Extent.Plain) with { Codec = r.Codec })));
         return new(
             Put: (admitted, stream) => ObjectIo.Drain(stream, source =>
                 BlobGc.WriteBlobFirst(this, client, admitted, kind, codec, source, ledger, frame).Map(static placement => placement.Key)),
@@ -280,7 +280,7 @@ public readonly record struct ContentBlobPort(
     Func<ContentAddress, IO<ReadOnlyMemory<byte>>> Get) {
     public static ContentBlobPort Of(BlobRemote remote, DataClassification classification) => new(
         Put: bytes => {
-            ContentAddress key = ContentAddress.Of(ContentHash.Of(bytes, static (held, hash) => hash.Append(held.Span)));
+            ContentAddress key = ContentAddress.Create(ContentHash.Of(bytes, static (held, hash) => hash.Append(held.Span)));
             return remote.Put(new BlobAdmission(key, bytes.Length, classification, None, None), new MemoryStream(bytes.ToArray()));
         },
         Get: key => remote.Get(key, None)
@@ -352,9 +352,9 @@ public readonly record struct ObjectLeg(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 static class BlobName {
     public static BlobHandle Handle(ContentAddress key, TenantId tenant, RetentionClass cls, ObjectCodec codec, long plain) =>
-        new(key, $"{Prefix(tenant, cls)}{key.Value:x32}", codec, plain);
+        new(key, $"{Prefix(tenant, cls)}{key.ToValue():x32}", codec, plain);
     public static string Prefix(TenantId tenant, RetentionClass cls) => $"{cls.Key}/{tenant.Text}/";
-    public static ContentAddress OfName(string name) => ContentAddress.Of(UInt128.Parse(name.AsSpan(name.LastIndexOf('/') + 1), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+    public static ContentAddress OfName(string name) => ContentAddress.Create(UInt128.Parse(name.AsSpan(name.LastIndexOf('/') + 1), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
 }
 
 public static class MultipartTransfer {
@@ -411,7 +411,7 @@ public static class ObjectIo {
     static Option<ContentAddress> Verified(ObjectStore provider, BlobHandle handle, ReadOnlySequence<byte> source, Seq<TransferPart> windows, int resumed) =>
         resumed > 0 || provider.Claim(handle) is PlacementClaim.Framed
             ? None
-            : Some(ContentAddress.Of(ContentHash.Of(
+            : Some(ContentAddress.Create(ContentHash.Of(
                 (Source: source, Windows: windows),
                 static (state, hash) => state.Windows.Iter(row => hash.Append(state.Source.Slice(row.Offset, row.Length).AsStream())))));
 
@@ -433,18 +433,18 @@ public static class ObjectIo {
             Use: writer => IO.liftAsync(async () => await Op.Of().Catch(async _ => {
                 await source.CopyToAsync(writer.AsStream()).ConfigureAwait(false);
                 return Fin<ReadOnlySequence<byte>>.Succ(new ReadOnlySequence<byte>(writer.WrittenMemory));
-            }).ConfigureAwait(false)).Bind(IO.liftFin).Bind(use),
+            }).ConfigureAwait(false)).Bind(IO.lift).Bind(use),
             Fin: writer => IO.lift(() => Op.Of().Catch(() => {
                 writer.Dispose();
                 source.Dispose();
                 return Fin<Unit>.Succ(unit);
-            })).Bind(IO.liftFin));
+            })));
 
     internal static IO<T> Bound<T>(ObjectClient client, string provider, ObjectVerb verb, ContentAddress key, Func<Task<T>> call) =>
         client.Redrive.Carry(new StoreHop.Object(verb), provider,
             IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false))
                 .MapFail(error => RemoteStoreFault.Lift(provider, verb, key, error)))
-            .Bind(IO.liftFin));
+            .Bind(IO.lift));
 
     static IO<HttpResponseMessage> Sent(ObjectClient client, ObjectVerb verb, ContentAddress key, Func<Task<HttpResponseMessage>> call) =>
         Bound(client, "presigned", verb, key, call).Bind(response => response.IsSuccessStatusCode
@@ -610,7 +610,7 @@ public static class ObjectIo {
                 _ = range.Map(w => request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(w.Start, w.End));
                 return r.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             })).Bind(static response => IO.liftAsync(async () => await Op.Of().Catch(async _ =>
-                Fin<Stream>.Succ(await response.Content.ReadAsStreamAsync().ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.liftFin)),
+                Fin<Stream>.Succ(await response.Content.ReadAsStreamAsync().ConfigureAwait(false))).ConfigureAwait(false)).Bind(IO.lift)),
         Head: (store, key) => r.Roster(Some(key.Key)).Map(rows =>
             rows.Find(s => s.Key == key.Key).Map(s => BlobPlacement.From(key.Key, Extent.Passthrough(s.Length), new Rung.Assumed(store.Tier), ObjectCodec.Identity))),
         Erase: key => r.Minter(new GrantRequest.Erase(key.Key)).Bind(grant =>

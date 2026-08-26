@@ -334,7 +334,7 @@ public static class Flatten {
                     ? Fin.Succ(new Solved(state.U, state.V, state.Iterations, state.Residual, Some(system.FactorNonZeros), Option<double>.None))
                     : Fin.Fail<Solved>(new GeometryFault.ParameterizationFault(Option<ChartId>.None, state.Residual.IfNone(0.0))));
 
-                bool Settled(Option<double> residual) => residual.Map(value => value <= tolerance).IfNone(false);
+                bool Settled(Option<double> residual) => residual.Exists(value => value <= tolerance);
 
                 Fin<ArapState> Step(ArapState state) =>
                     dec.LocalRotations(state.U, state.V, key).Bind(rotations => {

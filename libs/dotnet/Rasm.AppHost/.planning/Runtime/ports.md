@@ -503,9 +503,9 @@ public static partial class FaultWire {
 
     static Validation<Error, Option<TenantId>> Tenant(string wire) =>
         wire.Length == 0 ? Validation<Error, Option<TenantId>>.Success(None)
-        : TenantId.TryOf(wire).Match(
-            Some: static tenant => Validation<Error, Option<TenantId>>.Success(Some(tenant)),
-            None: () => Violation(new WireViolation.Tenant(wire)));
+        : TenantId.TryOf(wire)
+            .ToValidation<Error>(Violation(new WireViolation.Tenant(wire)))
+            .Map(static tenant => Some(tenant));
 
     static Error Violation(WireViolation violation) => new HopFault.Malformed(WireBoundary.DetailAdmission, violation);
 }

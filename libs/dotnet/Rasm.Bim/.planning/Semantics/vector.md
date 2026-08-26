@@ -29,7 +29,6 @@ using System.Text.Json;
 using FlatGeobuf.Index;
 using GISBlox.IO.GeoParquet.Extensions;
 using LanguageExt;
-using LanguageExt.UnsafeValueAccess;
 using NetTopologySuite.Features;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
@@ -156,8 +155,7 @@ public static class GeoKml {
             KmlFile file;
             if (bytes.Span is [0x50, 0x4B, ..]) { using var kmz = KmzFile.Open(stream); file = kmz.GetDefaultKmlFile(); }
             else { file = KmlFile.Load(stream); }
-            Option<ProjectedCrs> crs = ProjectedCrs.Of("EPSG:4326", "", "", "", key)
-                .Match(Succ: static c => Some(c), Fail: static _ => Option<ProjectedCrs>.None);
+            Option<ProjectedCrs> crs = ProjectedCrs.Of("EPSG:4326", "", "", "", key).ToOption();
             return Optional(file.Root switch { KmlDom.Kml k => k.Feature, KmlDom.Feature f => f, _ => null })
                 .Match(Some: root => Walk(root, crs), None: static () => Seq<GeoFeature>());
         });
@@ -275,7 +273,7 @@ public static class GeoKml {
         var mark = new KmlDom.Placemark {
             Name = feature.Text("name").IfNone(""),
             Geometry = Raise(feature.Geometry, elevation),
-            StyleUrl = styleId.Map(static id => new Uri($"#{id}", UriKind.Relative)).ValueUnsafe(),
+            StyleUrl = Op.ToHostSlot(styleId.Map(static id => new Uri($"#{id}", UriKind.Relative))),
         };
         var data = new KmlDom.ExtendedData();
         feature.Attributes.GetNames().AsIterable()
@@ -407,8 +405,7 @@ public static class GeoVector {
             .Bind(crs => crs.Code > 0
                 ? Some(($"EPSG:{crs.Code}", ""))
                 : Optional(crs.Wkt).Filter(static wkt => wkt.Length > 0).Map(static wkt => ("", wkt)))
-            .Bind(pair => ProjectedCrs.Of(pair.Item1, "", "", pair.Item2, key)
-                .Match(Succ: static c => Some(c), Fail: static _ => Option<ProjectedCrs>.None));
+            .Bind(pair => ProjectedCrs.Of(pair.Item1, "", "", pair.Item2, key).ToOption());
 
     public static Fin<Seq<GeoFeature>> Stream(PackedRTree.ReadNode fetch, Envelope window, Op key) =>
         key.Catch(() => {
@@ -487,8 +484,7 @@ public static class GeoVector {
             };
             Option<ProjectedCrs> crs = parts.Prj.Length == 0
                 ? Option<ProjectedCrs>.None
-                : ProjectedCrs.Of("", "", "", parts.Prj, key)
-                    .Match(Succ: static c => Some(c), Fail: static _ => Option<ProjectedCrs>.None);
+                : ProjectedCrs.Of("", "", "", parts.Prj, key).ToOption();
             using var shp = new MemoryStream(parts.Shp);
             using Stream dbf = parts.Dbf.Match(Some: static buffer => new MemoryStream(buffer), None: static () => Stream.Null);
             using var reader = NetTopologySuite.IO.Esri.Shapefile.OpenRead(shp, dbf, options);
@@ -510,10 +506,10 @@ public static class GeoVector {
                         });
                 return (Shp: Entry(".shp"), Dbf: Entry(".dbf"), Prj: Entry(".prj").Map(Encoding.UTF8.GetString).IfNone(""));
             })
-            .Bind(parts => parts.Shp.Match(
-                Some: shp => Fin.Succ((shp, parts.Dbf, parts.Prj)),
-                None: () => Fin.Fail<(byte[], Option<byte[]>, string)>(
-                    new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", "shapefile", "zip-missing-shp" })))));
+            .Bind(parts => parts.Shp
+                .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec,
+                    string.Join(':', new object?[] { "geo-format-lane", "vector", "shapefile", "zip-missing-shp" })))
+                .Map(shp => (shp, parts.Dbf, parts.Prj)));
 
     // --- [CITYJSON]
     internal static Fin<Seq<GeoFeature>> CityJson(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
@@ -641,7 +637,7 @@ public static class GeoVector {
                 .ToSeq();
             using (var driver = OSGeo.OGR.Ogr.GetDriverByName(ogrDriver))
             using (var data = driver.CreateDataSource(path, [])) {
-                using var srs = crs.Match(Some: SpatialRef, None: () => (OSGeo.OSR.SpatialReference?)null);
+                using var srs = Op.ToHostSlot(crs.Map(SpatialRef));
                 using var layer = data.CreateLayer("features", srs, OSGeo.OGR.wkbGeometryType.wkbUnknown, []);
                 columns.Iter(column => {
                     using var defn = new OSGeo.OGR.FieldDefn(column.Name, column.Type);
@@ -702,8 +698,7 @@ public sealed record CityJsonHeader(Option<ProjectedCrs> Crs, Seq<SurfaceTexture
         new(Optional(document.Metadata)
                 .Bind(static meta => Optional(meta.ReferenceSystem))
                 .Filter(static system => system.Length > 0)
-                .Bind(system => ProjectedCrs.Of(system, "", "", "", key)
-                    .Match(Succ: static c => Some(c), Fail: static _ => Option<ProjectedCrs>.None)),
+                .Bind(system => ProjectedCrs.Of(system, "", "", "", key).ToOption()),
             Textures(document));
 
     static Seq<SurfaceTexture> Textures(CityJSON.CityJsonDocument document) =>

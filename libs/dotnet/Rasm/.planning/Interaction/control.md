@@ -693,7 +693,7 @@ public sealed record FieldPort(FieldTag Tag, Control Editor, Func<Fin<FieldValue
 
 public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Values, HashMap<FieldTag, FieldGuard> Guards) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Guards.ForAll((tag, guard) =>
-        Values.Find(tag).Map(value => guard.Admit(value).IsSucc).IfNone(false)));
+        Values.Find(tag).Exists(value => guard.Admit(value).IsSucc)));
 
     public Option<FieldValue> Value(FieldTag tag) => Values.Find(tag);
 }

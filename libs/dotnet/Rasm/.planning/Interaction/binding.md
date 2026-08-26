@@ -152,10 +152,10 @@ public abstract partial record BindSource<TValue> {
     public static BindSource<TValue> State<TState>(StateCell<TState> cell, Lens<TState, TValue> lens, Op key) =>
         new FromState(Channel: cell.Channel(lens, key));
 
-    public Fin<BindSource<TNext>> Drill<TNext>(Expression<Func<TValue, TNext>> path, Op key) => Lower().Match(
-        Some: parent => Fin.Succ<BindSource<TNext>>(new BindSource<TNext>.FromContext(Path: parent.Child(path))),
-        None: () => Fin.Fail<BindSource<TNext>>(new UiFault.Rejected(
-            Key: key, Field: FieldTag.Create(value: nameof(path)), Reason: RejectReason.NoChildPath)));
+    public Fin<BindSource<TNext>> Drill<TNext>(Expression<Func<TValue, TNext>> path, Op key) => Lower()
+        .ToFin(new UiFault.Rejected(
+            Key: key, Field: FieldTag.Create(value: nameof(path)), Reason: RejectReason.NoChildPath))
+        .Map(parent => (BindSource<TNext>)new BindSource<TNext>.FromContext(Path: parent.Child(path)));
 
     internal Option<IndirectBinding<TValue>> Lower() => Switch(
         fromState: static _ => Option<IndirectBinding<TValue>>.None,

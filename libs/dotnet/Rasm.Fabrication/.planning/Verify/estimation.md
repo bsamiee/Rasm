@@ -845,7 +845,7 @@ public static class Estimate {
         from estimate in Unit(result, basis)
         let allocated = estimate.Money
             .Map(row => (EstimateRow.Money)row.Allocate(policy.Quantity.Value, policy.Batches)).ToSeq()
-        let ladder = toSeq(CommercialLoad.Items).OrderBy(static load => load.Rank).ToSeq()
+        let ladder = toSeq(toSeq(CommercialLoad.Items).OrderBy(static load => load.Rank))
             .Fold(allocated, (rows, load) => rows.Concat(Scale(
                 rows.Filter(row => load.Prices(row.Kind.Allocation) && load.Over.Contains(row.Stage)), load, policy)))
         let money = ladder.Concat(Risk(ladder, basis.Uncertainty, policy.Confidence))

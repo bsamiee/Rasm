@@ -393,7 +393,7 @@ public sealed class ShellDockFactory(
         Seq<IDockable> column = vertical.Map(static pair => (IDockable)pair.Dock);
         Option<(int Rank, IDockable Dockable)> inner = column.IsEmpty
             ? None
-            : Some((vertical.Head.Region.Rank, column.Count == 1 ? column[0] : (IDockable)Split(Orientation.Vertical, column)));
+            : Some((vertical[0].Region.Rank, column.Count == 1 ? column[0] : (IDockable)Split(Orientation.Vertical, column)));
         Seq<(int Rank, IDockable Dockable)> band =
             horizontal.Map(static pair => (pair.Region.Rank, Dockable: (IDockable)pair.Dock)) + inner.ToSeq();
         Seq<IDockable> ordered = toSeq(band.OrderBy(static entry => entry.Rank)).Map(static entry => entry.Dockable);
@@ -932,11 +932,12 @@ public static class ShellChrome {
                 })
             : control;
 
-    static (Option<BadgeMark> Badge, OverflowMode Overflow)? Adorned(ChromeRow row) => row.Content switch {
-        ChromeContent.Entry entry => (entry.Badge, entry.Overflow),
-        ChromeContent.Pane pane => (pane.Badge, OverflowMode.Never),
-        _ => null,
-    };
+    static (Option<BadgeMark> Badge, OverflowMode Overflow)? Adorned(ChromeRow row) =>
+        row.Content.Switch<(Option<BadgeMark>, OverflowMode)?>(
+            entry: entry => (entry.Badge, entry.Overflow),
+            pane: pane => (pane.Badge, OverflowMode.Never),
+            chip: _ => null,
+            items: _ => null);
 
     public static Func<object, Fin<string>> Readout(ChromeRow row, ResolvedLocale locale) =>
         row.Content is ChromeContent.Pane { Measure.Case: MeasureRole role }

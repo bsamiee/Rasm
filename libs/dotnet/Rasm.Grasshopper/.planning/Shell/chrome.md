@@ -255,8 +255,8 @@ public static class Chrome {
         return active.Need(intent).Bind(valid => UiThread.Run(new UiDispatch<ChromeOutcome>.Blocking(() => valid.Switch(
             state: active,
             barCase: static (k, c) => k.Need(c.Target).Bind(bar => {
-                var (fails, done) = c.Items.Map(item => k.Catch(body: () =>
-                    Fin.Succ(Op.Side(action: () => Append(bar: bar, item: item))))).Partition();
+                var (fails, done) = c.Items.Map(item => k.Catch(() =>
+                    Append(bar: bar, item: item))).Partition();
                 return fails.IsEmpty
                     ? Fin.Succ((ChromeOutcome)new ChromeOutcome.BuiltCase(Count: done.Count))
                     : Fin.Fail<ChromeOutcome>(Error.Many([.. fails]));
@@ -278,17 +278,17 @@ public static class Chrome {
                         .Map(static item => (ChromeOutcome)new ChromeOutcome.FoundItemCase(Value: item)))),
             barMutateCase: static (k, c) => c.Change.Switch(
                 state: k,
-                radioSwing: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () => m.Target.Match(
+                radioSwing: static (op, m) => op.Catch(() => m.Target.Match(
                     Some: value => m.Item.SetState(state: value),
-                    None: () => m.Item.Toggle())))),
-                radioDress: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () => {
+                    None: () => m.Item.Toggle())),
+                radioDress: static (op, m) => op.Catch(() => {
                     m.OnText.Iter(value => m.Item.OnText = value);
                     m.OffText.Iter(value => m.Item.OffText = value);
                     m.Optional.Iter(value => m.Item.Optional = value);
-                }))),
-                fieldWrite: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () => m.Item.SetText(text: m.Text)))),
-                fieldDress: static (op, m) => op.Catch(body: () => Fin.Succ(Op.Side(action: () =>
-                    m.Placeholder.Iter(value => m.Item.Placeholder = value)))))
+                }),
+                fieldWrite: static (op, m) => op.Catch(() => m.Item.SetText(text: m.Text)),
+                fieldDress: static (op, m) => op.Catch(() =>
+                    m.Placeholder.Iter(value => m.Item.Placeholder = value))
                 .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: k)),
             colourBarsCase: static (k, c) => k.Catch(body: () => {
                 Bar.CreateStandardColourBars(c.Label, c.Seed, c.Changed, out Bar life, out Bar cool, out Bar warm);
@@ -301,7 +301,7 @@ public static class Chrome {
                 hideCase: static (op, _) => Passed(key: op, verb: op, action: Frame.Hide),
                 invalidateCase: static (op, _) => Passed(key: op, verb: op, action: Frame.Invalidate),
                 captureCase: static (op, t) => Passed(key: op, verb: op, action: () =>
-                    Frame.ScreencapFolder = t.Folder.Match<string?>(Some: static folder => folder, None: static () => null))),
+                    Frame.ScreencapFolder = Op.ToHostSlot(t.Folder))),
             floatCase: static (k, c) => k.Need(c.Target).Bind(floats => Settle(floats: floats, verb: c.Verb, key: k)))),
             DispatchLane.Interactive, active));
     }
@@ -309,7 +309,7 @@ public static class Chrome {
     public static Fin<Lease<ChromeSeat>> Mount(Seq<ChromeIntent> standing, Op? key = null);
 
     private static Fin<ChromeOutcome> Passed(Op key, Op verb, Action action) =>
-        key.Catch(body: () => Fin.Succ(Op.Side(action: action)))
+        key.Catch(action)
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: verb));
 
     private static Unit Append(Bar bar, BarItemSpec item) => item.Switch(
@@ -372,31 +372,31 @@ public static class Chrome {
 
     private static Fin<ChromeOutcome> Settle(FloatingButtonCollection floats, FloatOp verb, Op key) => verb.Switch(
         state: (Floats: floats, Key: key),
-        addCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => c.Spec.Anchor.Switch(
+        addCase: static (s, c) => s.Key.Catch(() => c.Spec.Anchor.Switch(
                 state: (s.Floats, c.Spec),
                 cornerCase: static (held, a) => Op.Side(action: () => held.Floats.Add(
-                    a.Corner, (string)held.Spec.Name, Flat(held.Spec.Info), Tinted(held.Spec.Tint), Flat(held.Spec.Icon),
-                    Flat(held.Spec.Click), Flat(held.Spec.MouseDown), Flat(held.Spec.MouseUp))),
+                    a.Corner, (string)held.Spec.Name, Op.ToHostSlot(held.Spec.Info), Op.ToHostNullable(held.Spec.Tint), Op.ToHostSlot(held.Spec.Icon),
+                    Op.ToHostSlot(held.Spec.Click), Op.ToHostSlot(held.Spec.MouseDown), Op.ToHostSlot(held.Spec.MouseUp))),
                 pointCase: static (held, a) => Op.Side(action: () => held.Floats.AddAnchored(
-                    a.At, (string)held.Spec.Name, Flat(held.Spec.Info), Tinted(held.Spec.Tint), Flat(held.Spec.Icon),
-                    Flat(held.Spec.Click), Flat(held.Spec.MouseDown), Flat(held.Spec.MouseUp))))))
+                    a.At, (string)held.Spec.Name, Op.ToHostSlot(held.Spec.Info), Op.ToHostNullable(held.Spec.Tint), Op.ToHostSlot(held.Spec.Icon),
+                    Op.ToHostSlot(held.Spec.Click), Op.ToHostSlot(held.Spec.MouseDown), Op.ToHostSlot(held.Spec.MouseUp))))
             .Map(static _ => (ChromeOutcome)new ChromeOutcome.BuiltCase(Count: 1))),
-        showCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Floats.Show([.. c.Names.Map(static n => (string)n)]))))
+        showCase: static (s, c) => s.Key.Catch(() => s.Floats.Show([.. c.Names.Map(static n => (string)n)]))
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        hideCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Floats.Hide([.. c.Names.Map(static n => (string)n)]))))
+        hideCase: static (s, c) => s.Key.Catch(() => s.Floats.Hide([.. c.Names.Map(static n => (string)n)]))
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        closeCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => {
+        closeCase: static (s, c) => s.Key.Catch(() => {
                 if (c.Names.IsEmpty) { s.Floats.CloseAll(); } else { s.Floats.Close([.. c.Names.Map(static n => (string)n)]); }
-            })))
+            })
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        dressCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => {
+        dressCase: static (s, c) => s.Key.Catch(() => {
                 c.Dress.Info.Iter(value => s.Floats.ModifyInfo((string)c.Name, value));
                 c.Dress.Icon.Iter(value => s.Floats.ModifyIcon((string)c.Name, value));
                 c.Dress.Tint.Iter(value => s.Floats.ModifyColour((string)c.Name, value));
-            })))
+            })
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
-        moveCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () =>
-                s.Floats.ModifyAnchor((string)c.Name, c.At, c.Pace.Immediate))))
+        moveCase: static (s, c) => s.Key.Catch(() =>
+                s.Floats.ModifyAnchor((string)c.Name, c.At, c.Pace.Immediate))
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)),
         probeCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(c.Key.Match(
                 Left: name => Optional(s.Floats.FindByName((string)name)),
@@ -408,14 +408,9 @@ public static class Chrome {
             .Map(static count => (ChromeOutcome)new ChromeOutcome.CountCase(Value: count)),
         bindCase: static (s, c) => s.Key.Catch(body: () =>
                 Optional(s.Floats.FindByName((string)c.Name)).ToFin((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: (string)c.Name)))
-            .Bind(found => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => found.MakeNumeric(c.Channel, c.ValueKey)))))
+            .Bind(found => s.Key.Catch(() => found.MakeNumeric(c.Channel, c.ValueKey)))
             .Map(_ => (ChromeOutcome)new ChromeOutcome.PassedCase(Verb: c.SelfOp)));
 
-    private static T? Flat<T>(Option<T> slot) where T : class =>
-        slot.Match<T?>(Some: static value => value, None: static () => null);
-
-    private static Color? Tinted(Option<Color> slot) =>
-        slot.Match<Color?>(Some: static value => value, None: static () => null);
 }
 ```
 

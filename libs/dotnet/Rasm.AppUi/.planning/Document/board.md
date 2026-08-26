@@ -79,7 +79,6 @@ public readonly record struct BoardBox(Scalar X, Scalar Y, PositiveMagnitude Wid
 }
 
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class FrameCrop {
     public UnitInterval Left { get; }
     public UnitInterval Top { get; }
@@ -107,13 +106,11 @@ public sealed partial class FrameCrop {
 
     public static Fin<FrameCrop> Admit(
         UnitInterval left, UnitInterval top, UnitInterval right, UnitInterval bottom, PositiveMagnitude scale) =>
-        Validate(left, top, right, bottom, scale, out FrameCrop? crop) is { } fault
-            ? Fin.Fail<FrameCrop>(fault)
-            : Fin.Succ(crop!);
+        Op.Of(name: "appui.board.crop").AcceptValidated<FrameCrop>(
+            Validate(left, top, right, bottom, scale, out FrameCrop? crop), crop);
 }
 
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class MetricBinding {
     public string MetricKey { get; }
     public Option<string> OptionKey { get; }
@@ -155,10 +152,10 @@ public abstract partial record BoardItem(string Key, BoardBox Box) {
     public Fin<BoardItem> WithReference(Option<string> reference) => Switch(
         state: reference,
         viewFrame: static (key, frame) => Fin.Succ<BoardItem>(frame with { ViewKey = key }),
-        statCard: static (key, card) => MetricBinding.Validate(
-                card.Binding.MetricKey, key, card.Binding.Measure, out MetricBinding? bound) is { } fault
-            ? Fin.Fail<BoardItem>(fault)
-            : Fin.Succ<BoardItem>(card with { Binding = bound! }),
+        statCard: static (key, card) => Op.Of(name: "appui.board.reference")
+            .AcceptValidated<MetricBinding>(MetricBinding.Validate(
+                card.Binding.MetricKey, key, card.Binding.Measure, out MetricBinding? bound), bound)
+            .Map<BoardItem>(binding => card with { Binding = binding }),
         sheetFrame: static (key, sheet) => Fin.Succ<BoardItem>(sheet with { SheetKey = key }),
         textNote: static (key, note) => Unreferenced(key, note),
         ink: static (key, marks) => Unreferenced(key, marks));
@@ -465,7 +462,7 @@ public static class BoardTemplates {
          board.Items.Traverse(static item => item.WithReference(None).ToValidation()).As())
             .Apply((_, _, skeleton) => new BoardTemplate(
                 key, name,
-                skeleton.ToSeq(),
+                skeleton,
                 board.Items.Filter(static item => item.Reference.IsSome).Map(TemplateSlot.Of),
                 clock.GetCurrentInstant()))
             .As().ToFin();
@@ -475,7 +472,7 @@ public static class BoardTemplates {
         Resolved(template, bindings)
             .Bind(resolved => template.Skeleton
                 .Traverse(item => Bound(item, resolved).ToValidation()).As().ToFin())
-            .Bind(items => Board.Of(boardKey, title, items.ToSeq(), clock));
+            .Bind(items => Board.Of(boardKey, title, items, clock));
 
     static Fin<HashMap<string, string>> Resolved(BoardTemplate template, HashMap<string, string> bindings) =>
         template.Slots
@@ -484,7 +481,7 @@ public static class BoardTemplates {
                 .ToValidation()
                 .Map(binding => (slot.SlotKey, binding)))
             .As().ToFin()
-            .Map(static bound => toHashMap(bound.ToSeq()));
+            .Map(static bound => toHashMap(bound));
 
     static Fin<BoardItem> Bound(BoardItem item, HashMap<string, string> bindings) =>
         bindings.Find(item.Key).Match(
@@ -642,7 +639,7 @@ public static class BoardPublish {
                 .Bind(port => port.Print(item, run.Policy))
                 .ToValidation())
             .As().ToFin()
-            .Map(static blocks => blocks.ToSeq().Bind(static block => block));
+            .Map(static blocks => blocks.Bind(static block => block));
 
     static Fin<byte[]> Structure(Board board) =>
         PublishOp.Catch(() => Fin.Succ(JsonSerializer.SerializeToUtf8Bytes(board, EvidenceOps.Wire)));

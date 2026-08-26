@@ -102,8 +102,7 @@ public sealed class SpatialStructure {
         tree.AddVerticesAndEdgeRange(spatial);
         Seq<NodeId> roots = graph.ObjectNodes
             .Filter(static node => SpatialClass.TryGet(node.Classification.Code).Exists(static spatialClass => spatialClass.IsRoot))
-            .Map(static node => node.Id)
-            .ToSeq();
+            .Map(static node => node.Id);
         tree.AddVertexRange(roots);
         Seq<NodeId> ambiguous = toSeq(spatial.GroupBy(static leg => leg.Target))
             .Filter(static group => group.Select(static leg => leg.Source).Distinct().Count() > 1)
@@ -116,7 +115,7 @@ public sealed class SpatialStructure {
         Validation<Error, Map<NodeId, NodeId>> parents = ambiguous.IsEmpty
             ? Success<Error, Map<NodeId, NodeId>>(spatial.Filter(static leg => Flavour(leg, ComposeKind.Contain))
                 .Fold(Map<NodeId, NodeId>(), static (map, leg) => map.AddOrUpdate(leg.Target, leg.Source)))
-            : Fail<Error, Map<NodeId, NodeId>>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-parent-ambiguous", string.Join(',', ambiguous.Map(static id => id.Value)) })));
+            : Fail<Error, Map<NodeId, NodeId>>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-parent-ambiguous", string.Join(',', ambiguous.Map(static id => id.ToValue())) })));
         Map<NodeId, Seq<NodeId>> boundaries = toSeq(graph.Edges)
             .Choose(static e => e is Relationship.Generic g
                     && string.Equals(g.WireName, IfcRelKind.SpaceBoundary.Key, StringComparison.Ordinal)
@@ -142,7 +141,7 @@ public sealed class SpatialStructure {
             : Seq<NodeId>();
         Validation<Error, Unit> connectivity = disconnected.IsEmpty
             ? Success<Error, Unit>(unit)
-            : Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-disconnected", string.Join(',', disconnected.Map(static id => id.Value)) })));
+            : Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-disconnected", string.Join(',', disconnected.Map(static id => id.ToValue())) })));
         return (root, parents, hierarchy, rootParent, connectivity)
             .Apply((admittedRoot, admittedParents, _, _, _) => new SpatialStructure(graph, tree, admittedRoot, admittedParents, boundaries))
             .As();

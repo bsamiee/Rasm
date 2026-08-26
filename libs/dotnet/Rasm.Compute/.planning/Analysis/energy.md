@@ -21,22 +21,21 @@ Result vocabulary is TRANSCRIBED, not referenced: Compute holds no `Rasm.Bim` pr
 - Auto: `VersionGate` checks the binary's self-reported `energyplus --version` banner against the policy expected version BEFORE any model build or subprocess launch (the binary is the version authority, never its path) — a REPORTED mismatch fails `ToolchainUnresolved`, so a version-skewed binary never consumes the translated IDF and never produces a run result; only an UNDETERMINED probe (a launch failure, an empty banner) degrades to a warning fact riding the result, so an air-gapped or sandboxed probe stays runnable while a real skew gates.
 - Law: a version has THREE outcomes and they ride three cases, never one string. `VersionProbe` is `Reported(banner)` | `Unreported` | `Failed(Error)`, so the gate SWITCHES on the outcome the probe already determined rather than re-parsing a `"<version-…>"` marker it minted itself two frames earlier — a channel where a real banner that happened to contain the marker prefix read as a failure, and where the probe's own exception message was discarded before anyone could read it.
 - Law: the version comparison is EXACT over the parsed segment, never a substring of the raw banner. `"25.1"` is a substring of `"25.10"`, so a substring test admits a solver one minor release ahead of the IDF it is about to consume — the same defect the cloud arm's terminal gate already names and fixes by parsing before comparing.
-- Packages: LanguageExt.Core, NREL.OpenStudio.macOS-arm64 (the SWIG SDK whose version the toolchain locks EnergyPlus to — it bundles no solver, and the resolver touches no OpenStudio API), Thinktecture.Runtime.Extensions (`[Union]`, `[ObjectFactory<string>]`), Rasm (kernel — `Op`), BCL inbox (`Environment`/`Path`/`File`/`AppContext`/`RuntimeInformation` for the probes, `System.Diagnostics.Process` for the `--version` self-report).
+- Packages: LanguageExt.Core, NREL.OpenStudio.macOS-arm64 (the SWIG SDK whose version the toolchain locks EnergyPlus to — it bundles no solver, and the resolver touches no OpenStudio API), Thinktecture.Runtime.Extensions (`[ValueObject<string>]`, `[Union]`), Rasm (kernel — `Op`), BCL inbox (`Environment`/`Path`/`File`/`AppContext`/`RuntimeInformation` for the probes, `System.Diagnostics.Process` for the `--version` self-report).
 - Growth: a new discovery source is one probe in the chain; a new platform the executable-name column; a new simulation knob (ventilation rate, infiltration default, sized HVAC plant selector) one `EnergyPolicy` column; a new execution provider one `EnergyRoute` case on `[05]` — resolver widens by probe, scenario by column, provider by row, never a parallel discovery method per host.
 - Boundary: a shipped app owns its EnergyPlus provisioning (a bundled RID-native binary or `ENERGYPLUS_EXE`), so the last-resort probe resolves the app's own `runtimes/<rid>/native` location off `RuntimeInformation.RuntimeIdentifier` and never assumes a developer machine or a literal RID. Version-lock is load-bearing: OpenStudio forward-translates an IDF only the version-matched EnergyPlus consumes, so a dev box points `OPENSTUDIO_ENERGYPLUSDIR` at the OpenStudio-bundled solver, not a mismatched standalone; the resolver applies no version filter, so a mismatched binary IS selected — and `VersionGate` then REFUSES it before the run, the expected-version policy governing execution rather than annotating it. The expected version is DERIVED, never declared here: the `assessment#ROUTE_AXIS` `AssessmentRoute.EnergyPlus` `SolverVersion` pin is its one owner and `SolverPin` admits that token's `<tool>-<version>` grammar so a route whose pin lacks the tool prefix refuses instead of yielding a silently sliced garbage version. Because the value derives, it does NOT fold the assessment content key — `assessment#REQUEST_FAMILY` states that law at the key's own owner, and folding a derived spelling beside its source keys one fact twice. Conditioning and internal-load defaults are explicit `EnergyPolicy` knobs, never ambient constants, so a consumer re-targets a climate or building type without an interior edit; an unresolved binary fails `ToolchainUnresolved`, never a default that fails opaquely.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-[ObjectFactory<string>]
 [ValueObject<string>]
 public sealed partial class SolverPin {
     public const string EnergyPlusPrefix = "energyplus-";
 
-    public string Version => Value[EnergyPlusPrefix.Length..];
+    public string Version => ToValue()[EnergyPlusPrefix.Length..];
 
-    static Validation<string> ValidateFactoryArguments(ref string value) =>
-        value.StartsWith(EnergyPlusPrefix, StringComparison.Ordinal) && value.Length > EnergyPlusPrefix.Length
-            ? Validation.Ok
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.StartsWith(EnergyPlusPrefix, StringComparison.Ordinal) && value.Length > EnergyPlusPrefix.Length
+            ? null
             : new ValidationError(message: $"<solver-pin-grammar:{value}>");
 }
 
@@ -238,7 +237,7 @@ public static partial class EnergySimulation {
         osSpace.setSpaceType(spaceType);
         OpenStudio.ThermalZone zone = new(model);
         osSpace.setThermalZone(zone);
-        zone.setName($"{ZonePrefix}{space.Id.Value}");
+        zone.setName($"{ZonePrefix}{space.Id.ToValue()}");
         ZoneTarget target = new(
             zone.nameString().ToUpperInvariant(),
             space.ExternalId.Match(
@@ -246,7 +245,7 @@ public static partial class EnergySimulation {
                 None: () => new ResultScope.Zone(zone.nameString())));
         ConditioningClaim claim = graph.ConditioningOf(space.Id);
         if (claim.Conditions) { Condition(model, zone, setpoints.Heating, setpoints.Cooling); }
-        return from _ in Reads.Noting(AssessmentFact.Text($"{space.Id.Value}/conditioning", claim.Key), unit)
+        return from _ in Reads.Noting(AssessmentFact.Text($"{space.Id.ToValue()}/conditioning", claim.Key), unit)
                from surfaces in graph.SurfacesOf(space.Id)
                    .TraverseM(surface => BuildSurface(model, osSpace, space.Id, surface, graph, geometry)).As()
                select target;
@@ -331,7 +330,7 @@ public static partial class EnergySimulation {
 
     static WriterT<ReadLog, Fin, Unit> BuildSurface(OpenStudio.Model model, OpenStudio.Space space, NodeId spaceId, Node.Object surface, ElementGraph graph, GeometrySource geometry) =>
         from footprint in Reads.Lift(geometry.Footprint(surface.Representations)
-            .ToFin(Missing(AssessmentInputReason.MeasureAbsent, surface.Id.Value)))
+            .ToFin(Missing(AssessmentInputReason.MeasureAbsent, surface.Id.ToValue())))
         let osSurface = Seated(model, space, footprint)
         from construction in Reads.Lift(graph.LayerSetOf(surface.Id).Bind(set => BuildConstruction(model, set, graph)))
         let _ = Bind(osSurface, construction)
@@ -354,7 +353,7 @@ public static partial class EnergySimulation {
         graph.OpeningsOf(spaceId, hostIdentifier)
             .TraverseM(opening =>
                 from ring in Reads.Lift(geometry.Footprint(opening.Representations)
-                    .ToFin(Missing(AssessmentInputReason.MeasureAbsent, opening.Id.Value)))
+                    .ToFin(Missing(AssessmentInputReason.MeasureAbsent, opening.Id.ToValue())))
                 let sub = Seated(model, host, ring, OpeningType.Of(opening.Classification.Code).On(host.surfaceType()))
                 from construction in Reads.Lift(graph.LayerSetOf(opening.Id).Bind(set => BuildConstruction(model, set, graph)))
                 select Bind(sub, construction))
@@ -376,11 +375,11 @@ public static partial class EnergySimulation {
     static Fin<OpenStudio.Construction> BuildConstruction(OpenStudio.Model model, MaterialComposition.LayerSet set, ElementGraph graph) =>
         set.Layers
             .TraverseM(layer => graph.Material(layer.Material)
-                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
+                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.ToValue()))
                 .Map(node => (Layer: layer, Props: node.Properties))).As()
             .Bind(rows => rows.Exists(static r => r.Props.Optical.IsSome) && !rows.ForAll(static r => r.Props.Optical.IsSome)
                 ? Fin.Fail<Seq<(MaterialLayer Layer, Seq<MaterialPropertySet> Props)>>(
-                    Missing(AssessmentInputReason.CompositionShape, set.Layers.Head.Map(static l => l.Material.Value).IfNone(string.Empty)))
+                    Missing(AssessmentInputReason.CompositionShape, set.Layers.Head.Map(static l => l.Material.ToValue()).IfNone(string.Empty)))
                 : Fin.Succ(rows))
             .Bind(rows => rows.TraverseM(r => Layer(model, r.Layer, r.Props)).As())
             .Map(materials => {
@@ -393,7 +392,7 @@ public static partial class EnergySimulation {
     static Fin<OpenStudio.Material> Layer(OpenStudio.Model model, MaterialLayer layer, Seq<MaterialPropertySet> props) =>
         props.Optical.Match(
             Some: optical => props.Thermal
-                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
+                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.ToValue()))
                 .Map(thermal => {
                     OpenStudio.StandardGlazing glass = new(model, GlazingSpectral, layer.Thickness.Si);
                     GlazingWire.Update(optical, glass);
@@ -401,8 +400,8 @@ public static partial class EnergySimulation {
                     return (OpenStudio.Material)glass;
                 }),
             None: () =>
-                from thermal in props.Thermal.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
-                from mechanical in props.Mechanical.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value))
+                from thermal in props.Thermal.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.ToValue()))
+                from mechanical in props.Mechanical.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.ToValue()))
                 select (OpenStudio.Material)new OpenStudio.StandardOpaqueMaterial(model, OpaqueRoughness,
                     layer.Thickness.Si, thermal.Conductivity.Si, mechanical.Density.Si, thermal.SpecificHeat.Si));
 
@@ -647,7 +646,7 @@ public static partial class EnergySimulation {
                 };
             });
         return from _ in Reads.Writing(notes, unit)
-               from rows in Reads.Lift(toSeq(cells).TraverseM(cell => Rows(context, ResultScope.Whole, Points(cell.Key, cell.Value))).As())
+               from rows in Reads.Lift(cells.AsIterable().TraverseM(cell => Rows(context, ResultScope.Whole, Points(cell.Key, cell.Value))).As())
                select rows.Bind(static row => row);
     }
 
@@ -695,7 +694,7 @@ public static partial class EnergySimulation {
     static Fin<Seq<AssessmentRow>> Rows(ResultContext context, ResultScope scope, Seq<ResultPoint> points) =>
         points.Traverse(p =>
                 p.Measure.Admit(p.Si, RunKey)
-                    .Map(value => new AssessmentRow(context.Key.Value, Discipline.Energy,
+                    .Map(value => new AssessmentRow(context.Key.ToValue(), Discipline.Energy,
                         Seq(p.Measure.Key, p.Fuel.Key, p.Use.Key) + scope.Facets,
                         AssessmentFact.Measure($"{ModelPrefix}{context.Model:x32}", value)))
                     .ToValidation())
@@ -717,7 +716,7 @@ public static partial class EnergySimulation {
 
     static Option<double> GoverningEui(Seq<AssessmentFact> facts, EnergyPolicy policy) =>
         from target in policy.TargetEui.Filter(static value => value > 0.0)
-        from euiSi in facts.Choose(static f => f.Name.Value == EuiFact && f.Value is PropertyValue.Measure m ? Some(m.Value.Si) : None).Head
+        from euiSi in facts.Choose(static f => f.Name.ToValue() == EuiFact && f.Value is PropertyValue.Measure m ? Some(m.Value.Si) : None).Head
         select UnitsNet.Energy.FromJoules(euiSi).KilowattHours / target;
 
     static Option<double> Lower(OpenStudio.OptionalDouble optional) { using (optional) { return optional.is_initialized() ? Some(optional.get()) : None; } }
@@ -878,7 +877,7 @@ public static class BoundaryReads {
 
         Fin<double> NetFloorAreaM2(NodeId space) =>
             graph.Quantity(space, QuantityRows.NetFloorArea, Some(QuantityRows.SpaceBaseQuantities)).Map(static m => m.Si)
-                .ToFin((Error)new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MeasureAbsent, space.Value));
+                .ToFin((Error)new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MeasureAbsent, space.ToValue()));
 
         public Fin<MaterialComposition.LayerSet> LayerSetOf(NodeId node) =>
             graph.CompositionOf(node)
@@ -889,7 +888,7 @@ public static class BoundaryReads {
             Seq<NodeId> frontier = Seq(root);
             HashSet<NodeId> seen = HashSet<NodeId>();
             Seq<NodeId> reached = Seq<NodeId>();
-            while (frontier.Head.Case is NodeId node) {
+            while (frontier.Head is { IsSome: true, Case: NodeId node }) {
                 frontier = frontier.Tail;
                 if (seen.Contains(node)) { continue; }
                 seen = seen.Add(node);

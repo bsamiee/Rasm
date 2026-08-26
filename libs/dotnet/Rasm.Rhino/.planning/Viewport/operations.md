@@ -699,11 +699,12 @@ public sealed partial class ApplyPolicy {
 
     internal ApplyPolicy PerFrame() => Create(redraw: RedrawWhat.None, details: Details, active: Active);
 
-    internal Fin<Unit> CommitDetail(ViewportRef row, Op key) => row.Detail.Match(
-        Some: detail => Details.Commits
+    internal Fin<Unit> CommitDetail(ViewportRef row, Op key) => row.Detail
+        .TraverseM(detail => Details.Commits
             ? key.Catch(() => key.Confirm(success: detail.CommitViewportChanges()))
-            : Fin.Succ(value: unit),
-        None: static () => Fin.Succ(value: unit));
+            : Fin.Succ(value: unit))
+        .As()
+        .Map(static _ => unit);
 }
 
 public readonly record struct RowEvidence(uint Before, uint After, CameraOutcome Outcome);
@@ -768,11 +769,12 @@ internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> Pinn
                 select unit,
             key: key);
 
-    private Fin<Unit> Addressed(RhinoDoc document, Op key) => PinnedActive.Match(
-        Some: id => guard(
+    private Fin<Unit> Addressed(RhinoDoc document, Op key) => PinnedActive
+        .TraverseM(id => guard(
             Optional(document.Views.ActiveView).Map(view => view.ActiveViewport.Id == id).IfNone(noneValue: false),
-            key.InvalidContext()).ToFin(),
-        None: static () => Fin.Succ(value: unit));
+            key.InvalidContext()).ToFin())
+        .As()
+        .Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -638,7 +638,6 @@ public sealed record SurfaceScheduler(
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RuntimeId {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>

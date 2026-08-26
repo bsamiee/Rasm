@@ -124,25 +124,24 @@ public sealed record MeshPolicy {
         MeshAlgorithm algorithm, ElementClass element, CellQuality metric, double targetEdgeLength, double gradingRatio,
         int boundaryLayerCount, double boundaryLayerGrowth, double firstLayerThickness, double refineFraction,
         RefineKind refineAxis, int maxRefineLevel, double qualityFloor, Option<MortarPolicy> mortar) =>
-        Seq(
-            Claim(element == algorithm.BaseElement, new ComputeViolation.Contract(
+        AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(element == algorithm.BaseElement, ComputeArea.Solver, new ComputeViolation.Contract(
                 ComputeContract.Compatible,
                 new ContractEvidence.Keys(element.Key, algorithm.BaseElement.Key))),
-            element.Quadrature.Match(Succ: static _ => Success<Error, Unit>(unit), Fail: static fault => Fail<Error, Unit>(fault)),
+            element.Quadrature.Map(static _ => unit).ToValidation(),
             Finite(targetEdgeLength),
-            Claim(targetEdgeLength > 0.0, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(targetEdgeLength))),
+            Refusal.Unless(targetEdgeLength > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(targetEdgeLength))),
             Finite(gradingRatio),
-            Claim(gradingRatio >= 1.0, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(gradingRatio, 1.0, double.PositiveInfinity))),
-            Claim(boundaryLayerCount >= 0, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Value(boundaryLayerCount))),
+            Refusal.Unless(gradingRatio >= 1.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(gradingRatio, 1.0, double.PositiveInfinity))),
+            Refusal.Unless(boundaryLayerCount >= 0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Value(boundaryLayerCount))),
             Finite(boundaryLayerGrowth),
-            Claim(boundaryLayerGrowth >= 1.0, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(boundaryLayerGrowth, 1.0, double.PositiveInfinity))),
+            Refusal.Unless(boundaryLayerGrowth >= 1.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(boundaryLayerGrowth, 1.0, double.PositiveInfinity))),
             Finite(firstLayerThickness),
-            Claim(firstLayerThickness > 0.0, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(firstLayerThickness))),
+            Refusal.Unless(firstLayerThickness > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(firstLayerThickness))),
             Finite(refineFraction),
-            Claim(refineFraction is > 0.0 and <= 1.0, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(refineFraction, 0.0, 1.0))),
-            Claim(maxRefineLevel >= 0, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Value(maxRefineLevel))),
-            Finite(qualityFloor))
-            .Traverse(static claim => claim).As()
+            Refusal.Unless(refineFraction is > 0.0 and <= 1.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(refineFraction, 0.0, 1.0))),
+            Refusal.Unless(maxRefineLevel >= 0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Value(maxRefineLevel))),
+            Finite(qualityFloor)))
             .Map(_ => new MeshPolicy(algorithm, element, metric, targetEdgeLength, gradingRatio, boundaryLayerCount,
                 boundaryLayerGrowth, firstLayerThickness, refineFraction, refineAxis, maxRefineLevel, qualityFloor, mortar))
             .ToFin();
@@ -163,11 +162,8 @@ public sealed record MeshPolicy {
             ? Success<Error, T>(row)
             : Fail<Error, T>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Keys(axis, key))));
 
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
-
     static Validation<Error, Unit> Finite(double value) =>
-        Claim(double.IsFinite(value), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(value)));
+        Refusal.Unless(double.IsFinite(value), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(value)));
 }
 
 public sealed record BoundaryShell {
@@ -190,15 +186,15 @@ public sealed record BoundaryShell {
         Aabb bounds = Aabb.Of(vertices.Span);
         double area = Math.Max(bounds.Span.LengthSquared(), EpsilonPolicy.ZeroTolerance) * EpsilonPolicy.SqrtEpsilon;
         BoundaryShell candidate = new(vertices, triangles, bounds);
-        return Seq(
-            Claim(vertices.Length >= 12, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(vertices.Length, 12L))),
-            Claim(vertices.Length % 3 == 0, new ComputeViolation.Shape(ShapeRequirement.Dimensions, new ShapeEvidence.Alignment(vertices.Length, 3L))),
-            Claim(triangles.Length >= 12, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(triangles.Length, 12L))),
-            Claim(triangles.Length % 3 == 0, new ComputeViolation.Shape(ShapeRequirement.Dimensions, new ShapeEvidence.Alignment(triangles.Length, 3L))),
-            Claim(TensorPrimitives.IsFiniteAll<float>(vertices.Span), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(vertices.Length))),
+        return AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(vertices.Length >= 12, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(vertices.Length, 12L))),
+            Refusal.Unless(vertices.Length % 3 == 0, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Dimensions, new ShapeEvidence.Alignment(vertices.Length, 3L))),
+            Refusal.Unless(triangles.Length >= 12, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(triangles.Length, 12L))),
+            Refusal.Unless(triangles.Length % 3 == 0, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Dimensions, new ShapeEvidence.Alignment(triangles.Length, 3L))),
+            Refusal.Unless(TensorPrimitives.IsFiniteAll<float>(vertices.Span), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(vertices.Length))),
             candidate.Facets(area),
-            candidate.Manifold())
-            .Traverse(static claim => claim).As().Map(_ => candidate).ToFin();
+            candidate.Manifold()))
+            .Map(_ => candidate).ToFin();
     }
 
     Validation<Error, Unit> Facets(double areaFloor) =>
@@ -209,8 +205,8 @@ public sealed record BoundaryShell {
                 ? Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Range(
                     RangeRequirement.WithinBounds,
                     new ScalarEvidence.Value((uint)a >= VertexCount ? a : (uint)b >= VertexCount ? b : c))))
-                : Claim(a != b && b != c && c != a
-                        && Vector3.Cross(Vertex(b) - Vertex(a), Vertex(c) - Vertex(a)).LengthSquared() > areaFloor,
+                : Refusal.Unless(a != b && b != c && c != a
+                        && Vector3.Cross(Vertex(b) - Vertex(a), Vertex(c) - Vertex(a)).LengthSquared() > areaFloor, ComputeArea.Solver,
                     new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Index(facet, TriangleCount)));
         }).As().Map(static _ => unit);
 
@@ -221,8 +217,8 @@ public sealed record BoundaryShell {
             (int a, int b, int c) = (triangles[offset], triangles[offset + 1], triangles[offset + 2]);
             Tally(edges, a, b); Tally(edges, b, c); Tally(edges, c, a);
         }
-        return toSeq(edges).Traverse(static edge => Claim(
-                edge.Value.Count == 2 && edge.Value.Balance == 0,
+        return toSeq(edges).Traverse(static edge => Refusal.Unless(
+                edge.Value.Count == 2 && edge.Value.Balance == 0, ComputeArea.Solver,
                 new ComputeViolation.Contract(ComputeContract.Consistent, new ContractEvidence.Counts(edge.Value.Count, edge.Value.Balance, 0L))))
             .As().Map(static _ => unit);
 
@@ -233,8 +229,6 @@ public sealed record BoundaryShell {
         }
     }
 
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 
 public sealed class ShellIndex {
@@ -656,8 +650,6 @@ public sealed partial class RefineTemplate {
     public int FaceNodes { get; }
     public bool Interior { get; }
 
-    public static Option<RefineTemplate> For(ElementClass element) =>
-        TryGet(element.Key, out RefineTemplate? row) ? Some(row) : None;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -774,7 +766,7 @@ public static partial class MeshLane {
     }
 
     internal static MeshBuild Subdivide(DiscreteMesh mesh, Set<int> marked, MeshPolicy policy) {
-        if (RefineTemplate.For(mesh.Element).Case is not RefineTemplate template) { return Carry(mesh, policy); }
+        if (!RefineTemplate.TryGet(mesh.Element.Key, out RefineTemplate? template)) { return Carry(mesh, policy); }
         Set<int> closed = policy.Mortar.IsSome ? marked : Closed(mesh, marked);
         Refinement refine = new(mesh.Coordinates, mesh.NodeCount);
         ReadOnlySpan<long> conn = mesh.Indices;

@@ -289,9 +289,9 @@ public static class IfcVocabularyEmitter {
                 .Where(t => typeof(IfcObjectDefinition).IsAssignableFrom(t) && !t.IsGenericType && vocabulary.Spans.ContainsKey(t.Name))))
             .Bind(roster => (Census(roster, vocabulary, key)).ToFin().Map(_ => roster))
             .Bind(roster => DomainAtlas(roster, vocabulary.Claims, key)
-                .Bind(domains => roster.AsIterable()
+                .Bind(domains => roster
                     .Traverse(entity => RowOf(entity, domains, vocabulary, key)).As()
-                    .Bind(rows => (Audit(rows.ToSeq(), stamps, vocabulary, key)).ToFin())
+                    .Bind(rows => (Audit(rows, stamps, vocabulary, key)).ToFin())
                     .Map(rows => Render(rows.OrderBy(static row => row.Entity, StringComparer.Ordinal)))));
 
     // --- [CENSUS]

@@ -939,11 +939,11 @@ public static class Cam {
             .Map(static (loop, index) => (Index: index, loop.Closed))
             .Filter(static profile => !profile.Closed)
             .Map(static profile => (Error)new FabricationFault.OpenLoop(FabConcern.Toolpath, profile.Index));
-        return open.IsEmpty ? Fin.Succ(unit) : Fin.Fail<Unit>(Error.Many([.. open]));
+        return open.IsEmpty ? Fin.Succ(unit) : Fin.Fail<Unit>(Error.Many(open));
     }
 
     private static Fin<FabricationResult.Motion> Commit(MotionRun run, Seq<Move> linked, Seq<MotionDirective> directives) =>
-        from conditioned in Condition(run, linked)
+        from conditioned in Fixtures.Condition(run.Mounts.Fixture, run.Mounts.State, linked)
         from guarded in Cleared(run, conditioned, run.Engagement.Route.Home)
         from solved in run.Policy.Robot.Match(
             Some: cell =>
@@ -952,9 +952,9 @@ public static class Cam {
                     ? Fin.Succ(completed.Value)
                     : Fin.Fail<FabricationResult.Motion>(new KernelFault.InvalidValue("motion", "cam:cell-motion"))
                 select motion,
-            None: () => run.Mounts.Kinematics.Match(
-                Some: kinematics => MachineTool.Solve(kinematics, guarded).Map(static solution => solution.Motion),
-                None: () => Fin.Fail<FabricationResult.Motion>(new KernelFault.InvalidValue("motion", "cam:motion-evidence-unavailable"))))
+            None: () => run.Mounts.Kinematics
+                .ToFin(new KernelFault.InvalidValue("motion", "cam:motion-evidence-unavailable"))
+                .Bind(kinematics => MachineTool.Solve(kinematics, guarded).Map(static solution => solution.Motion)))
         from evidence in MotionEvidence.Admit(
             solved.Evidence.Joints,
             solved.Evidence.SegmentDurations,
@@ -967,17 +967,11 @@ public static class Cam {
             Subjects = (run.Input.Sources + run.Input.ParentRuns).Distinct(),
         };
 
-    private static Fin<Seq<Move>> Condition(MotionRun run, Seq<Move> moves) =>
-        Workholding.Apply(new WorkholdingOp.Condition(run.Mounts.Fixture, run.Mounts.State, moves)).Bind(result =>
-            result is WorkholdingResult.Conditioned conditioned
-                ? Fin.Succ(conditioned.Moves)
-                : Fin.Fail<Seq<Move>>(new KernelFault.InvalidValue("motion", "cam:workholding")));
-
     private static Fin<Seq<Move>> Cleared(MotionRun run, Seq<Move> moves, Point3d home) {
         (Point3d Cursor, Seq<Error> Faults) walked = moves.Fold(
             (Cursor: home, Faults: Seq<Error>()),
             (state, move) => (move.Target, state.Faults + Hazards(run, state.Cursor, move)));
-        return walked.Faults.IsEmpty ? Fin.Succ(moves) : Fin.Fail<Seq<Move>>(Error.Many([.. walked.Faults]));
+        return walked.Faults.IsEmpty ? Fin.Succ(moves) : Fin.Fail<Seq<Move>>(Error.Many(walked.Faults));
     }
 
     private static Fin<Seq<Move>> Lower(MotionRun run, Seq<Point3d> points, RetractKind kind) =>
@@ -1108,17 +1102,16 @@ public static class Cam {
             center.X + (radius * Math.Cos(quarter * Math.PI * 0.5)),
             center.Y + (radius * Math.Sin(quarter * Math.PI * 0.5)),
             center.Z - Math.Min(depth, depth * quarter / (turns * 4.0))));
-        return stations.Head.Match(
-            Some: first => Move.Rapid.Of(AtZ(first, first.Z + clearanceMm)).Bind(entry => stations.Tail
-                .Map(station => Move.Circular.Of(
+        return stations.Head
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:helix-stations"))
+            .Bind(first => Move.Rapid.Of(AtZ(first, first.Z + clearanceMm)).Bind(entry => stations.Tail
+                .TraverseM(station => Move.Circular.Of(
                     station,
                     feed,
                     new ArcCenter(new Point3d(center.X, center.Y, station.Z), RotationSense.Counterclockwise),
                     Math.PI * 0.5))
-                .TraverseM(identity)
                 .As()
-                .Map(arcs => entry.Cons(arcs))),
-            None: () => Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, None, "cam:helix-stations")));
+                .Map(arcs => entry.Cons(arcs))));
     }
 
     private static Fin<Seq<CutElement>> Pocket(MotionRun run) =>
@@ -1230,8 +1223,9 @@ public static class Cam {
         run.Input.Preparations.IsEmpty ? Contour(run) : Prepared(run);
 
     private static Fin<Seq<CutElement>> Prepared(MotionRun run) =>
-        run.Engagement.Bevel.Match(
-            Some: policy =>
+        run.Engagement.Bevel
+            .ToFin(new KernelFault.InvalidValue("motion", "cam:bevel-demand-unpolicied"))
+            .Bind(policy =>
                 from _ in policy.Budget.Serves(run.Engagement.Budget)
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(new KernelFault.InvalidValue("motion", $"cam:bevel-budget:{run.Pair.Modality.Key}"))
@@ -1246,8 +1240,7 @@ public static class Cam {
                         from element in Element(run, row.Occurrence, beveled.Moves, beveled.Directives)
                         select element)
                     .As()
-                select elements,
-            None: () => Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("motion", "cam:bevel-demand-unpolicied")));
+                select elements);
 
     private static Fin<Move> Lower(BevelPoint point) => Move.Linear.Of(point.Point, point.FeedMmPerMin);
 
@@ -1402,8 +1395,7 @@ public static class Cam {
         int layer) {
         int seam = SeamIndex(run, loop, layer);
         return from perimeter in Range(0, loop.Count + 1).ToSeq()
-                   .Map(index => LayerMove(loop.At(seam + index), layer, run.StepDown, run.Feed))
-                   .TraverseM(identity).As()
+                   .TraverseM(index => LayerMove(loop.At(seam + index), layer, run.StepDown, run.Feed)).As()
                from perimeterElement in Element(run, occurrence, perimeter)
                from fill in partition.Inside.Traverse(edge =>
                    Trail(
@@ -1509,13 +1501,12 @@ public static class Cam {
         int seam = SeamIndex(run, ccw, layer);
         int sense = run.Engagement.Contour.Sense == CutSense.Climb ? 1 : -1;
         return Range(0, ccw.Count + 1).ToSeq()
-            .Map(index => Move.Linear.Of(ccw.At(seam + (sense * index)), feed))
-            .TraverseM(identity)
+            .TraverseM(index => Move.Linear.Of(ccw.At(seam + (sense * index)), feed))
             .As();
     }
 
     private static Fin<Seq<Move>> AtDepth(Seq<Move> moves, double depth) =>
-        moves.Map(move => move.Switch(
+        moves.TraverseM(move => move.Switch(
                 state: depth,
                 rapid: static (value, row) => Move.Rapid.Of(AtZ(row.Target, row.Target.Z - value), row.Orientation),
                 linear: static (value, row) => Move.Linear.Of(AtZ(row.Target, row.Target.Z - value), row.Feed, row.Orientation),
@@ -1525,7 +1516,6 @@ public static class Cam {
                     new ArcCenter(AtZ(row.Arc.Center, row.Arc.Center.Z - value), row.Arc.Sense),
                     row.SweepRadians,
                     row.Orientation)))
-            .TraverseM(identity)
             .As();
 
     private static Fin<CutElement> AtDepth(CutElement element, double depth) {

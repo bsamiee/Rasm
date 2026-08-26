@@ -184,8 +184,8 @@ public sealed record ModelDiff(
     public static Fin<ModelDiffWire> Seal(ModelDiff diff, Op key) {
         if (diff.UnchangedCount < 0) { return Rejected<ModelDiffWire>(key, "diff-unchanged-count-negative"); }
         ModelDiffWire wire = new() {
-            Baseline = ToWire(diff.Baseline.Value),
-            Revision = ToWire(diff.Revision.Value),
+            Baseline = ToWire(diff.Baseline.ToValue()),
+            Revision = ToWire(diff.Revision.ToValue()),
             UnchangedCount = (uint)diff.UnchangedCount,
         };
         wire.Changes.AddRange(diff.Changes.Map(SealChange));
@@ -200,7 +200,7 @@ public sealed record ModelDiff(
               ? Fin.Succ((int)wire.UnchangedCount)
               : Rejected<int>(key, "diff-unchanged-count-overflow")
           from changes in toSeq(wire.Changes).TraverseM(change => AdmitChange(change, key)).As()
-          select new ModelDiff(ContentAddress.Of(baseline), ContentAddress.Of(revision), changes, unchanged);
+          select new ModelDiff(ContentAddress.Create(baseline), ContentAddress.Create(revision), changes, unchanged);
 
     static ElementChangeWire SealChange(ElementChange change) => change.Switch(
         added: static value => new ElementChangeWire { Added = SealEnd(value.GlobalId, value.Class, value.Predefined, value.Content) },
@@ -213,17 +213,17 @@ public sealed record ModelDiff(
     static DiffEndWire SealEnd(string globalId, Classification classification, PredefinedType predefined, ContentAddress content) => new() {
         GlobalId = globalId,
         Classification = ToWire(classification),
-        Predefined = predefined.Token,
-        Content = ToWire(content.Value),
+        Predefined = predefined.ToValue(),
+        Content = ToWire(content.ToValue()),
     };
 
     static ElementChangeWire SealModified(ElementChange.Modified value) {
         DiffModifiedWire wire = new() {
             GlobalId = value.GlobalId,
-            BaselineContent = ToWire(value.BaselineContent.Value),
-            RevisionContent = ToWire(value.RevisionContent.Value),
-            BaselinePlacement = ToWire(value.BaselinePlacement.Value),
-            RevisionPlacement = ToWire(value.RevisionPlacement.Value),
+            BaselineContent = ToWire(value.BaselineContent.ToValue()),
+            RevisionContent = ToWire(value.RevisionContent.ToValue()),
+            BaselinePlacement = ToWire(value.BaselinePlacement.ToValue()),
+            RevisionPlacement = ToWire(value.RevisionPlacement.ToValue()),
         };
         wire.Deltas.AddRange(value.Deltas.Select(SealDelta));
         return new ElementChangeWire { Modified = wire };
@@ -232,8 +232,8 @@ public sealed record ModelDiff(
     static ElementChangeWire SealMoved(ElementChange.Moved value) {
         DiffMovedWire wire = new() {
             GlobalId = value.GlobalId,
-            BaselinePlacement = ToWire(value.BaselinePlacement.Value),
-            RevisionPlacement = ToWire(value.RevisionPlacement.Value),
+            BaselinePlacement = ToWire(value.BaselinePlacement.ToValue()),
+            RevisionPlacement = ToWire(value.RevisionPlacement.ToValue()),
         };
         value.BaselinePose.IfSome(pose => wire.BaselinePose = ToWire(pose));
         value.RevisionPose.IfSome(pose => wire.RevisionPose = ToWire(pose));
@@ -242,7 +242,7 @@ public sealed record ModelDiff(
 
     static ElementChangeWire SealRegroup(
         string globalId, ContentAddress content, ImmutableArray<string> counterparts, bool split) {
-        DiffRegroupWire wire = new() { GlobalId = globalId, Content = ToWire(content.Value) };
+        DiffRegroupWire wire = new() { GlobalId = globalId, Content = ToWire(content.ToValue()) };
         wire.Counterparts.AddRange(counterparts);
         return split ? new ElementChangeWire { Split = wire } : new ElementChangeWire { Merged = wire };
     }
@@ -262,7 +262,7 @@ public sealed record ModelDiff(
 
     static DeltaValueWire SealDeltaValue(DeltaValue value) => value.Switch(
         measure: static item => new DeltaValueWire { Measure = ToWire(item.Value) },
-        address: static item => new DeltaValueWire { Address = ToWire(item.Value.Value) },
+        address: static item => new DeltaValueWire { Address = ToWire(item.Value.ToValue()) },
         label: static item => new DeltaValueWire { Label = item.Value },
         absent: static _ => new DeltaValueWire { Absent = new Empty() });
 
@@ -287,7 +287,7 @@ public sealed record ModelDiff(
         ? Rejected<(string, Classification, PredefinedType, ContentAddress)>(key, "diff-end-message-absent")
         : from classification in ToClassification(wire.Classification, key)
           from content in ToKey(wire.Content, key)
-          select (wire.GlobalId, classification, PredefinedType.Create(wire.Predefined), ContentAddress.Of(content));
+          select (wire.GlobalId, classification, PredefinedType.Create(wire.Predefined), ContentAddress.Create(content));
 
     static Fin<ElementChange> AdmitModified(DiffModifiedWire? wire, Op key) => wire is null
         ? Rejected<ElementChange>(key, "diff-modified-message-absent")
@@ -297,8 +297,8 @@ public sealed record ModelDiff(
           from revisionPlacement in ToKey(wire.RevisionPlacement, key)
           from deltas in toSeq(wire.Deltas).TraverseM(delta => AdmitDelta(delta, key)).As()
           select (ElementChange)new ElementChange.Modified(
-              wire.GlobalId, ContentAddress.Of(baselineContent), ContentAddress.Of(revisionContent),
-              ContentAddress.Of(baselinePlacement), ContentAddress.Of(revisionPlacement), [.. deltas]);
+              wire.GlobalId, ContentAddress.Create(baselineContent), ContentAddress.Create(revisionContent),
+              ContentAddress.Create(baselinePlacement), ContentAddress.Create(revisionPlacement), [.. deltas]);
 
     static Fin<ElementChange> AdmitMoved(DiffMovedWire? wire, Op key) => wire is null
         ? Rejected<ElementChange>(key, "diff-moved-message-absent")
@@ -307,14 +307,14 @@ public sealed record ModelDiff(
           from baselinePose in Optional(wire.BaselinePose).Traverse(pose => ToPlacement(pose, key)).As()
           from revisionPose in Optional(wire.RevisionPose).Traverse(pose => ToPlacement(pose, key)).As()
           select (ElementChange)new ElementChange.Moved(
-              wire.GlobalId, ContentAddress.Of(baselinePlacement), ContentAddress.Of(revisionPlacement),
+              wire.GlobalId, ContentAddress.Create(baselinePlacement), ContentAddress.Create(revisionPlacement),
               baselinePose, revisionPose);
 
     static Fin<(string GlobalId, ContentAddress Content, ImmutableArray<string> Counterparts)> AdmitRegroup(
         DiffRegroupWire? wire, Op key) => wire is null
         ? Rejected<(string, ContentAddress, ImmutableArray<string>)>(key, "diff-regroup-message-absent")
         : ToKey(wire.Content, key).Map(content =>
-            (wire.GlobalId, ContentAddress.Of(content), wire.Counterparts.ToImmutableArray()));
+            (wire.GlobalId, ContentAddress.Create(content), wire.Counterparts.ToImmutableArray()));
 
     static Fin<AspectDelta> AdmitDelta(AspectDeltaWire? wire, Op key) => wire is null
         ? Rejected<AspectDelta>(key, "diff-delta-message-absent")
@@ -339,7 +339,7 @@ public sealed record ModelDiff(
             DeltaValueWire.ValueOneofCase.Measure => ToMeasure(wire.Measure, key)
                 .Map(static DeltaValue (value) => new DeltaValue.Measure(value)),
             DeltaValueWire.ValueOneofCase.Address => ToKey(wire.Address, key)
-                .Map(static DeltaValue (value) => new DeltaValue.Address(ContentAddress.Of(value))),
+                .Map(static DeltaValue (value) => new DeltaValue.Address(ContentAddress.Create(value))),
             DeltaValueWire.ValueOneofCase.Label => Fin.Succ<DeltaValue>(new DeltaValue.Label(wire.Label)),
             DeltaValueWire.ValueOneofCase.Absent => Fin.Succ<DeltaValue>(new DeltaValue.Absent()),
             _ => Rejected<DeltaValue>(key, "diff-delta-value-unset"),
@@ -349,12 +349,11 @@ public sealed record ModelDiff(
         Fin.Fail<T>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, detail));
 
     public static ElementFingerprint Fingerprint(ElementGraph graph, Node.Object node) =>
-        new(node.ExternalId.IfNone(node.Id.Value), ContentKey(graph, node), PlacementKey(node, graph.Header.Tolerance));
+        new(node.ExternalId.IfNone(node.Id.ToValue()), ContentKey(graph, node), PlacementKey(node, graph.Header.Tolerance));
 
     static Fin<Map<string, (Node.Object Obj, ElementFingerprint Fp)>> Federate(ElementGraph graph, Op key) {
         Seq<(string GlobalId, (Node.Object Obj, ElementFingerprint Fp) Entry)> rows = graph.ObjectNodes
-            .Choose(node => node.ExternalId.Map(globalId => (globalId, (Obj: node, Fp: Fingerprint(graph, node)))))
-            .ToSeq();
+            .Choose(node => node.ExternalId.Map(globalId => (globalId, (Obj: node, Fp: Fingerprint(graph, node)))));
         Seq<string> collided = toSeq(rows.Map(static r => r.GlobalId).GroupBy(identity)).Filter(g => g.Count() > 1).Map(static g => g.Key);
         return collided.IsEmpty
             ? Fin.Succ(rows.Map(static r => (r.GlobalId, r.Entry)).ToMap())
@@ -374,9 +373,9 @@ public sealed record ModelDiff(
             .Filter(edge => edge.Relating == node.Id)
             .Map(edge => BoundContribution(graph, node.Id, edge, tolerance))
             .OrderBy(static contribution => contribution));
-        return ContentAddress.Of(ContentHash.Of((Node: node, Contributions: contributions), static (state, w) => {
+        return ContentAddress.Create(ContentHash.Of((Node: node, Contributions: contributions), static (state, w) => {
             w.String(state.Node.Kind.Key).String(state.Node.Classification.System).String(state.Node.Classification.Code)
-                .String(state.Node.PredefinedType.Token).String(state.Node.Name).String(state.Node.Tag)
+                .String(state.Node.PredefinedType.ToValue()).String(state.Node.Name).String(state.Node.Tag)
                 .Ordinal(state.Contributions.Count);
             foreach (UInt128 contribution in state.Contributions) { w.U128(contribution); }
         }));
@@ -384,8 +383,8 @@ public sealed record ModelDiff(
 
     static UInt128 BoundContribution(ElementGraph graph, NodeId self, Relationship edge, double tolerance) {
         NodeId far = edge.Relating == self ? edge.Related : edge.Relating;
-        Option<UInt128> bound = graph.Find(far).Bind(node => node is not Node.Object ? Some(ContentAddress.Of(node, tolerance).Value) : None);
-        return ContentHash.Of((Edge: ContentAddress.Of(edge, tolerance).Value, Bound: bound), static (state, w) => {
+        Option<UInt128> bound = graph.Find(far).Bind(node => node is not Node.Object ? Some(ContentAddress.Of(node, tolerance).ToValue()) : None);
+        return ContentHash.Of((Edge: ContentAddress.Of(edge, tolerance).ToValue(), Bound: bound), static (state, w) => {
             w.U128(state.Edge).Bool(state.Bound.IsSome);
             state.Bound.IfSome(value => w.U128(value));
         });
@@ -452,7 +451,7 @@ public readonly record struct AuditEntry(
 
 public sealed record AuditTrail(Seq<AuditEntry> Entries) {
     public static readonly AuditTrail Empty = new(Seq<AuditEntry>());
-    static readonly ContentAddress Genesis = ContentAddress.Of(UInt128.Zero);
+    static readonly ContentAddress Genesis = ContentAddress.Create(UInt128.Zero);
 
     public static AuditTrail Fold(Seq<(AuditVersion Version, ModelDiff Diff)> history) =>
         new(history.Fold((Prior: Genesis, Rows: Seq<AuditEntry>()), static (state, step) =>
@@ -489,9 +488,9 @@ public sealed record AuditTrail(Seq<AuditEntry> Entries) {
         merged:   static c => (Genesis, c.Content));
 
     static ContentAddress EntryKey(ContentAddress prior, string globalId, ChangeKind kind, ContentAddress baseline, ContentAddress revision, string versionId, string author, Instant at) =>
-        ContentAddress.Of(ContentHash.Of(
+        ContentAddress.Create(ContentHash.Of(
             (Prior: prior, GlobalId: globalId, Kind: kind, Baseline: baseline, Revision: revision, VersionId: versionId, Author: author, At: at),
-            static (s, w) => w.U128(s.Prior.Value).String(s.GlobalId).String(s.Kind.Key).U128(s.Baseline.Value).U128(s.Revision.Value)
+            static (s, w) => w.U128(s.Prior.ToValue()).String(s.GlobalId).String(s.Kind.Key).U128(s.Baseline.ToValue()).U128(s.Revision.ToValue())
                 .String(s.VersionId).String(s.Author).I64(s.At.ToUnixTimeTicks())));
 }
 ```

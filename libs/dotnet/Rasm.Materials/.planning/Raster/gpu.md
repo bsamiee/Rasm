@@ -216,8 +216,9 @@ public sealed unsafe class PressDevice : IDisposable {
         binding.Buffers.Count != kernel.Layout.Count || !binding.Buffers.Zip(kernel.Layout).ForAll(static pair => pair.Item1.Kind == pair.Item2)
             ? Fin.Fail<Unit>(new RasterFault.Device(key, $"<kernel-layout-mismatch:{kernel.Key}>"))
             : Ceilings(kernel, binding).Find(static ceiling => ceiling.Reached > ceiling.Granted)
-                .Map(ceiling => (Error)new RasterFault.Device(key, $"<{ceiling.Name}-ceiling:{kernel.Key}:{ceiling.Reached}:{ceiling.Granted}>"))
-                .Match(Some: Fin.Fail<Unit>, None: static () => Fin.Succ(unit));
+                .TraverseM(ceiling => Fin.Fail<Unit>(new RasterFault.Device(key,
+                    $"<{ceiling.Name}-ceiling:{kernel.Key}:{ceiling.Reached}:{ceiling.Granted}>"))).As()
+                .Map(static _ => unit);
 
     // --- [DISPATCH_CEILING]
     Seq<(string Name, ulong Reached, ulong Granted)> Ceilings(WgslKernel kernel, KernelBinding binding) =>
@@ -1408,9 +1409,11 @@ public static class Oracle {
 
     public static Fin<Unit> Prove(PressDevice device, WgslKernel kernel, Op key) =>
         WgslOpCode.Total(key).Bind(_ =>
-            kernel.Oracle.Fold(Fin.Succ(unit), (acc, fixture) =>
-                acc.Bind(__ => device.Dispatch(kernel, Bind(kernel, fixture, kernel.Groups(fixture.Width, fixture.Height, fixture.Layers)), key)
-                    .Bind(readback => Compare(kernel, fixture, readback, key)))));
+            kernel.Oracle
+                .TraverseM(fixture => device.Dispatch(kernel, Bind(kernel, fixture, kernel.Groups(fixture.Width, fixture.Height, fixture.Layers)), key)
+                    .Bind(readback => Compare(kernel, fixture, readback, key)))
+                .As()
+                .Map(static _ => unit));
 
     static KernelBinding Bind(WgslKernel kernel, OracleVector fixture, (uint X, uint Y, uint Z) groups) =>
         new(fixture.Input.Fold(Seq(fixture.Uniform.Block), static (buffers, plane) => buffers.Add(new KernelBuffer.Read(plane)))
@@ -1535,15 +1538,15 @@ public sealed partial class PressDevice {
     public Fin<KernelReadback> Dispatch(ChainPlan plan, Dimension width, Dimension height, Dimension layers, Op key) =>
         from _ in WgslOpCode.Total(key)
         from __ in plan.Admits((long)width.Value * height.Value * layers.Value, key)
-        from pipelines in plan.Steps.Fold(Fin.Succ(Seq<nint>()), (acc, step) =>
-            acc.Bind(built => Pipeline(step.Kernel, key).Map(built.Add)))
+        from pipelines in plan.Steps.TraverseM(step => Pipeline(step.Kernel, key)).As()
         from output in RunChain(plan, pipelines, width, height, layers, key)
         select output;
 
     Fin<KernelReadback> RunChain(ChainPlan plan, Seq<nint> pipelines, Dimension width, Dimension height, Dimension layers, Op key) =>
         Pooled(plan, width, height, layers, key, (pool, encoder) =>
-            plan.Steps.Fold(Fin.Succ(0), (acc, step) => acc.Bind(index =>
-                Record(pool, encoder, pipelines[index], step, width, height, layers, key).Map(_ => index + 1))));
+            plan.Steps
+                .FoldM(0, (index, step) => Record(pool, encoder, pipelines[index], step, width, height, layers, key).Map(_ => index + 1))
+                .As());
 
     Fin<KernelReadback> Pooled(
         ChainPlan plan, Dimension width, Dimension height, Dimension layers, Op key,

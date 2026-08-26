@@ -194,8 +194,8 @@ public abstract partial record PropertyDomain {
     public static PropertyDomain Of(Seq<string> values) =>
         values.Choose(static value => Magnitude(value).Map(magnitude => (Text: value, Magnitude: magnitude))) switch {
             var parsed when !values.IsEmpty && parsed.Count == values.Count => new Sequential(
-                parsed.Map(static row => row.Magnitude).Min(),
-                parsed.Map(static row => row.Magnitude).Max(),
+                parsed.Map(static row => row.Magnitude).Min(double.PositiveInfinity),
+                parsed.Map(static row => row.Magnitude).Max(double.NegativeInfinity),
                 parsed.ToHashMap(static row => row.Text, static row => row.Magnitude)),
             _ => new Categorical(toSeq(values.Distinct())),
         };
@@ -237,16 +237,16 @@ public abstract partial record DisplayPosture(string Key) {
 
     public Fin<Seq<VisibilityOverride>> Project(Seq<(string ElementId, string Value)> scene) => Switch(
         state: scene,
-        colorBy: static (rows, posture) => rows
-            .Map(row => posture.Domain.Palette.Sample(posture.Domain.Position(row.Value))
+        colorBy: static (rows, posture) => rows.Traverse(row =>
+            posture.Domain.Palette.Sample(posture.Domain.Position(row.Value))
                 .Map(colour => new VisibilityOverride(row.ElementId, new OverrideState.Tinted(Argb(colour), 0d))))
-            .Traverse(static row => row).As().Map(static rows => rows.ToSeq()),
-        participation: static (rows, _) => rows
-            .Map(static row => OverrideRole.TryGet(row.Value, out OverrideRole? role)
+            .As(),
+        participation: static (rows, _) => rows.Traverse(static row =>
+            OverrideRole.TryGet(row.Value, out OverrideRole? role)
                 && role is { Family: OverrideRole.Participation }
                 ? Fin.Succ(new VisibilityOverride(row.ElementId, role.State))
                 : Fin.Fail<VisibilityOverride>(new ViewportFault.ContextUnavailable($"posture/role:{row.Value}")))
-            .Traverse(static row => row).As().Map(static rows => rows.ToSeq()),
+            .As(),
         wireframe: static (rows, posture) => Fin.Succ(
             rows.Map(row => new VisibilityOverride(row.ElementId, new OverrideState.Ghosted(posture.Ghost)))));
 
@@ -441,7 +441,6 @@ public static class ViewpointCodec {
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError]
 public readonly partial struct ViewKey {
     public const string LinkPrefix = "view/";
 
@@ -538,9 +537,9 @@ public readonly record struct ViewRing(Seq<ViewKey> Keys, int Cursor, int Capaci
     public static ViewRing Of(int capacity) => new(Seq<ViewKey>(), -1, Math.Max(capacity, 1));
 
     public ViewRing Visit(ViewKey key) =>
-        Keys.Take(Cursor + 1).ToSeq().Add(key) switch {
+        Keys.Take(Cursor + 1).Add(key) switch {
             var walked => walked.Count > Capacity
-                ? new ViewRing(walked.Skip(walked.Count - Capacity).ToSeq(), Capacity - 1, Capacity)
+                ? new ViewRing(walked.Skip(walked.Count - Capacity), Capacity - 1, Capacity)
                 : new ViewRing(walked, walked.Count - 1, Capacity),
         };
 

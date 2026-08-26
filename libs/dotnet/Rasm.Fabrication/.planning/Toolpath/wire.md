@@ -609,13 +609,12 @@ public static class WireEdm {
 
     public static Fin<(Seq<Move> Moves, MotionDirective Directive)> Lower(WireProgram program) =>
         program.Blocks
-            .Map(static block => block.Action.Switch(
+            .TraverseM(static block => block.Action.Switch(
                 state: block.Lower.Point,
                 access: static (point, _) => Move.Rapid.Of(point),
                 cut: static (point, row) => Move.Linear.Of(point, row.Process.FeedMmPerMin),
                 bridge: static (point, row) => Move.Linear.Of(point, row.FeedMmPerMin),
                 handoff: static (point, _) => Move.Rapid.Of(point)))
-            .TraverseM(identity)
             .As()
             .Map(moves => (moves, program.SpecializedDirective));
 

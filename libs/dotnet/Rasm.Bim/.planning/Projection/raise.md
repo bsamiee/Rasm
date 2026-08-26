@@ -147,42 +147,42 @@ internal static class ValueRaise {
                 from selected in e.Selected.Traverse(v => RaiseValue(v, s.Scale, s.Key)).As()
                 from allowed in e.Allowed.Traverse(v => RaiseValue(v, s.Scale, s.Key)).As()
                 select (IfcProperty)(e.Allowed.IsEmpty
-                    ? new IfcPropertyEnumeratedValue(s.Db, s.Name.Value, selected)
-                    : new IfcPropertyEnumeratedValue(s.Name.Value, selected, new IfcPropertyEnumeration(s.Db, s.Name.Value, allowed))),
+                    ? new IfcPropertyEnumeratedValue(s.Db, s.Name.ToValue(), selected)
+                    : new IfcPropertyEnumeratedValue(s.Name.ToValue(), selected, new IfcPropertyEnumeration(s.Db, s.Name.ToValue(), allowed))),
             reference:  static (s, r) => Fidelity.Clean(Reference(s.Db, s.Authored, s.Name, r)),
             bounded:    static (s, b) => Bounded(s.Db, s.Name, b, s.Scale).Map(IfcProperty (raised) => raised),
             list:       static (s, l) => l.Values.Traverse(v => RaiseValue(v, s.Scale, s.Key)).As()
-                .Map(values => (IfcProperty)new IfcPropertyListValue(s.Db, s.Name.Value, values)),
+                .Map(values => (IfcProperty)new IfcPropertyListValue(s.Db, s.Name.ToValue(), values)),
             table:      static (s, t) => Table(s.Db, s.Name, t, s.Scale, s.Key).Map(IfcProperty (raised) => raised),
             complex:    static (s, c) => c.Properties.AsIterable().ToSeq()
                 .Traverse(kv => RaiseProperty(s.Db, s.Authored, kv.Key, kv.Value, s.Scale, s.Key)).As()
-                .Map(members => (IfcProperty)new IfcComplexProperty(s.Db, s.Name.Value, c.UsageName, members)));
+                .Map(members => (IfcProperty)new IfcComplexProperty(s.Db, s.Name.ToValue(), c.UsageName, members)));
 
     static WriterT<FidelityLog, Fin, IfcProperty> Single(
         (DatabaseIfc Db, Map<NodeId, IfcObjectDefinition> Authored, PropertyName Name, UnitScheme Scale, Op Key) s, PropertyValue value) =>
-        RaiseValue(value, s.Scale, s.Key).Map(raised => (IfcProperty)new IfcPropertySingleValue(s.Db, s.Name.Value, raised));
+        RaiseValue(value, s.Scale, s.Key).Map(raised => (IfcProperty)new IfcPropertySingleValue(s.Db, s.Name.ToValue(), raised));
 
     static IfcPropertyReferenceValue Reference(
         DatabaseIfc db, Map<NodeId, IfcObjectDefinition> authored, PropertyName name, PropertyValue.Reference reference) {
-        IfcPropertyReferenceValue raised = new(db, name.Value) { UsageName = reference.UsageName.IfNone("") };
+        IfcPropertyReferenceValue raised = new(db, name.ToValue()) { UsageName = reference.UsageName.IfNone("") };
         authored.Find(reference.Target).Iter(entity => { if (entity is IfcObjectReferenceSelect select) { raised.PropertyReference = select; } });
         return raised;
     }
 
     static WriterT<FidelityLog, Fin, IfcPropertyBoundedValue> Bounded(
         DatabaseIfc target, PropertyName name, PropertyValue.Bounded bounded, UnitScheme scale) =>
-        BoundSlot.Items.AsIterable().ToSeq()
+        toSeq(BoundSlot.Items)
             .Traverse(slot => slot.Read(bounded).Match(
                 Some: measure => RaiseMeasure(measure, scale).Map(bound => (Slot: slot, Bound: Some(bound))),
                 None: () => Fidelity.Clean((Slot: slot, Bound: Option<IfcValue>.None)))).As()
-            .Map(rows => rows.Fold(new IfcPropertyBoundedValue(target, name.Value),
+            .Map(rows => rows.Fold(new IfcPropertyBoundedValue(target, name.ToValue()),
                 static (raised, row) => row.Bound.Match(Some: bound => row.Slot.Bind(raised, bound), None: () => raised)));
 
     static WriterT<FidelityLog, Fin, IfcPropertyTableValue> Table(
         DatabaseIfc target, PropertyName name, PropertyValue.Table table, UnitScheme scale, Op key) =>
         from defining in table.Rows.Traverse(r => RaiseValue(r.Defining, scale, key)).As()
         from defined in table.Rows.Traverse(r => RaiseValue(r.Defined, scale, key)).As()
-        select Filled(new IfcPropertyTableValue(target, name.Value) { CurveInterpolation = Interp(table.Interp) }, defining, defined);
+        select Filled(new IfcPropertyTableValue(target, name.ToValue()) { CurveInterpolation = Interp(table.Interp) }, defining, defined);
 
     static IfcPropertyTableValue Filled(IfcPropertyTableValue raised, Seq<IfcValue> defining, Seq<IfcValue> defined) {
         raised.DefiningValues.AddRange(defining);
@@ -215,9 +215,9 @@ internal static class ValueRaise {
 
     static WriterT<FidelityLog, Fin, IfcValue> RaiseMeasure(MeasureValue measure, UnitScheme scale) =>
         scale.Render(measure).Value is var declared
-        && Elect(measure.Type.Value, measure.Dimension, MeasureMints, CanonicalMeasures).Case is Func<double, IfcValue> mint
+        && Elect(measure.Type.ToValue(), measure.Dimension, MeasureMints, CanonicalMeasures).Case is Func<double, IfcValue> mint
             ? Fidelity.Clean(mint(declared))
-            : Fidelity.Drop<IfcValue>(FidelityDrop.MeasureFlattened, measure.Type.Value, new IfcReal(declared));
+            : Fidelity.Drop<IfcValue>(FidelityDrop.MeasureFlattened, measure.Type.ToValue(), new IfcReal(declared));
 
     static IfcLogicalEnum Logical(Option<bool> logical) =>
         logical.Match(Some: static flag => flag ? IfcLogicalEnum.TRUE : IfcLogicalEnum.FALSE, None: static () => IfcLogicalEnum.UNKNOWN);
@@ -244,12 +244,12 @@ internal static class ValueRaise {
     static Fin<(string Owner, IfcPhysicalQuantity Quantity)> Member(
         DatabaseIfc target, Map<string, GroupIdentity> groups, PropertyName name, MeasureValue measure, UnitScheme scale, Op key) =>
         from owner in Fin.Succ(OwnerOf(groups, name))
-        from quantity in Quantity(target, owner.Length == 0 ? name : PropertyCategory.Neutral.Row(Leaf(name.Value)), measure, scale, key)
+        from quantity in Quantity(target, owner.Length == 0 ? name : PropertyCategory.Neutral.Row(Leaf(name.ToValue())), measure, scale, key)
         select (Owner: owner, Quantity: quantity);
 
     static string OwnerOf(Map<string, GroupIdentity> groups, PropertyName name) =>
         toSeq(toSeq(groups.Keys)
-            .Filter(prefix => name.Value.StartsWith($"{prefix}.", StringComparison.Ordinal))
+            .Filter(prefix => name.ToValue().StartsWith($"{prefix}.", StringComparison.Ordinal))
             .OrderByDescending(static prefix => prefix.Length))
             .Head.IfNone("");
 
@@ -270,8 +270,8 @@ internal static class ValueRaise {
     public static Fin<IfcPhysicalQuantity> Quantity(
         DatabaseIfc target, PropertyName name, MeasureValue measure, UnitScheme scale, Op key) =>
         Elect(measure.Type, measure.Dimension, QuantityMints, CanonicalQuantities)
-            .Map(mint => mint(target, name.Value, scale.Render(measure).Value))
-            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-type-unmapped", name.Value, measure.Type.Value })));
+            .Map(mint => mint(target, name.ToValue(), scale.Render(measure).Value))
+            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-type-unmapped", name.ToValue(), measure.Type.ToValue() })));
 }
 ```
 

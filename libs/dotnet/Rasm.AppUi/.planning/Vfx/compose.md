@@ -217,7 +217,6 @@ public abstract partial record ComposeSpan {
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class ComposeTrack {
     public static readonly AnimationStopBehavior Settle = AnimationStopBehavior.SetToFinalValue;
 
@@ -230,11 +229,7 @@ public sealed partial class ComposeTrack {
     public ComposeValue Terminal => Frames[Frames.Count - 1].Value;
 
     public static Fin<ComposeTrack> Of(ComposeSlot slot, Seq<(float Cue, ComposeValue Value)> frames) =>
-        (Validate(slot, frames, out ComposeTrack? admitted), admitted) switch {
-            (null, ComposeTrack track) => Fin.Succ(track),
-            (ComposeFault refusal, _) => Fin.Fail<ComposeTrack>(refusal),
-            _ => Fin.Fail<ComposeTrack>(new ComposeFault.TrackRefused($"{slot.Key}: unadmitted track")),
-        };
+        Play.AcceptValidated<ComposeTrack>(Validate(slot, frames, out ComposeTrack? admitted), admitted);
 
     public Fin<Unit> Start(
         VisualMount mount,
@@ -242,10 +237,9 @@ public sealed partial class ComposeTrack {
         HookSet<AppUiPoint, AppUiFact, TelemetrySource> hooks,
         Op key) =>
         from span in ComposeSpan.Of(token).Bind(resolved => resolved.Admits(Slot.Axis))
-        from outcome in span switch {
-            ComposeSpan.Running run => Run(mount, run),
-            _ => Slot.Write(mount.Backing, Terminal).Map(static _ => RunOutcome.Assigned),
-        }
+        from outcome in span.Switch(
+            running: run => Run(mount, run),
+            collapsed: _ => Slot.Write(mount.Backing, Terminal).Map(static _ => RunOutcome.Assigned))
         from fired in hooks.Fire(
             at: AppUiPoint.Effect,
             fact: new AppUiFact.Effect(
@@ -287,7 +281,7 @@ public sealed partial class ComposeTrack {
             .Apply(static (_, _, _) => unit)
             .As()
             .Match(
-                Succ: static _ => (ComposeFault?)null,
+                Succ: static _ => (ValidationError?)null,
                 Fail: errors => new ValidationError(string.Join(" | ", new object?[] { string.Join("; ", errors.Map(static defect => defect.Message)) })));
     }
 
@@ -379,10 +373,9 @@ public abstract partial record VfxMessage {
     public sealed record Halt() : VfxMessage;
 
     public static Fin<VfxMessage> Advancing(MotionToken token) =>
-        ComposeSpan.Of(token).Bind(span => span.Admits(MotionAxis.Effect)).Map(static span => span switch {
-            ComposeSpan.Running run => (VfxMessage)new Advance(run.Resolved, run.Span),
-            _ => new Halt(),
-        });
+        ComposeSpan.Of(token).Bind(span => span.Admits(MotionAxis.Effect)).Map(static span => span.Switch(
+            running: static run => (VfxMessage)new Advance(run.Resolved, run.Span),
+            collapsed: static _ => new Halt()));
 }
 
 public readonly record struct VfxRun(MotionToken Token, TimeSpan Span, MonotonicStamp Origin) {

@@ -58,12 +58,12 @@ public readonly record struct ClosestHit(
     internal static Option<Plane> Basis(Point3d origin, Vector3d normal) => Basis(basis: new Plane(origin: origin, normal: normal));
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Point),
-        Distance.Map(static d => ValidityClaim.Nonnegative(d).Holds).IfNone(noneValue: false),
+        Distance.Exists(static d => ValidityClaim.Nonnegative(d).Holds),
         ValidityClaim.WhenPresent(Parameter, static t => ValidityClaim.Finite(t)),
         ValidityClaim.WhenPresent(Uv, static uv => uv.IsValid),
         ValidityClaim.WhenPresent(Normal, static n => Sense(value: n).IsSome),
         ValidityClaim.WhenPresent(Component, static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0),
-        ValidityClaim.WhenPresent(MeshPoint, static m => OpAcceptance.ValidityOf(source: m).IfNone(noneValue: false)),
+        ValidityClaim.WhenPresent(MeshPoint, static m => OpAcceptance.ValidityOf(source: m).Exists(static valid => valid)),
         ValidityClaim.WhenPresent(Tangent, static v => Sense(value: v).IsSome),
         ValidityClaim.WhenPresent(Frame, static p => p.IsValid));
     internal Fin<TOut> Project<TOut>(Op key) {
@@ -351,7 +351,7 @@ internal static class Evaluation {
     }
     private static Fin<ClosestHit> Closest(object source, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput()).ToFin()
-        from __ in guard(!Capability.Closest.Admits(type: source.GetType()) || OpAcceptance.ValidityOf(source: source).IfNone(noneValue: false), key.InvalidInput()).ToFin()
+        from __ in guard(!Capability.Closest.Admits(type: source.GetType()) || OpAcceptance.ValidityOf(source: source).Exists(static valid => valid), key.InvalidInput()).ToFin()
         from hit in ClosestForm.Of(type: source.GetType()).Case switch {
             ClosestForm row => row.Recover(value: source, target: target, key: key),
             _ => Recovered(source: source, key: key, verb: (value, op) => Closest(source: value, target: target, key: op)),

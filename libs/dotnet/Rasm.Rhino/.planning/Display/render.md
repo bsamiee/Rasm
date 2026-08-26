@@ -343,8 +343,6 @@ internal static class FramebufferRow {
     internal static readonly HostRow<bool> WithWireframe = new(Key: "with-wireframe", Native: true);
     internal static readonly HostRow<bool> PipelineSource = new(Key: "pipeline-source", Native: false);
     internal static readonly HostRow<bool> RenderSource = new(Key: "render-source", Native: true);
-    internal static readonly HostRow<bool> ViewportIntent = new(Key: "viewport-intent", Native: false);
-    internal static readonly HostRow<bool> CaptureIntent = new(Key: "capture-intent", Native: true);
 }
 
 [SmartEnum<int>]
@@ -474,10 +472,10 @@ internal sealed class JobAsync : AsyncRenderContext {
                    from started in key.Catch(() => key.Confirm(success: StartRenderThread(
                            threadStart: () => Settled(window: window, port: opened),
                            threadName: program.ThreadName)))
-                       .BindFail(failure => (
+                       .MapFail(failure => (
                            Op.Side(() => lifecycle = new JobAsyncLifecycle.Idle()),
                            opened.Close(),
-                           Fin.Fail<Unit>(failure)).Item3)
+                           failure).Item3)
                    select unit;
         }
     }
@@ -503,7 +501,7 @@ internal sealed class JobAsync : AsyncRenderContext {
                             idle: static _ => unit,
                             running: static row => row.Port.Close(),
                             stopped: static _ => unit))),
-                        () => program.Stopped.Match(Some: hook => key.Catch(hook), None: static () => Fin.Succ(value: unit)),
+                        () => program.Stopped.TraverseM(hook => key.Catch(hook)).As().Map(static _ => unit),
                         () => key.Catch(() => base.StopRendering())),
                     key: key)
                 .IfFail(record);
@@ -690,8 +688,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                 return Fin.Succ(replacement);
             }).Bind(replacement => Arm(replacement, op).Map(_ => replacement)));
 
-    private Fin<Unit> Arm(JobPipeline current, Op op) => decide.Match(
-        Some: predicate => WithWindow(
+    private Fin<Unit> Arm(JobPipeline current, Op op) => decide.TraverseM(predicate => WithWindow(
             current,
             new FramebufferScope.SessionCase(Wireframe: FramebufferRow.OmitWireframe, Source: FramebufferRow.PipelineSource),
             window => op.Catch(() => {
@@ -700,8 +697,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                 gate = armed;
                 return Fin.Succ(value: unit);
             }),
-            op),
-        None: static () => Fin.Succ(unit));
+            op)).As().Map(static _ => unit);
 
     private Fin<RenderOutcome> Run(JobPipeline current, RenderRun scope, Op key) {
         RenderJob self = this;
@@ -1298,9 +1294,8 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         _ = Observe(
             from frame in key.Catch(() => Fin.Succ(new ViewFrame(View: view.Viewport.Id, Crc: ComputeViewportCrc(view))))
             from _ in Fin.Succ(ignore(viewed.Swap(_ => Some(frame))))
-            from bound in bound.Bind(static plan => plan.Program.Viewed).Match(
-                Some: seat => key.Catch(() => seat(frame)),
-                None: static () => Fin.Succ(unit))
+            from bound in bound.Bind(static plan => plan.Program.Viewed)
+                .TraverseM(seat => key.Catch(() => seat(frame))).As().Map(static _ => unit)
             select bound);
     }
 
@@ -1388,13 +1383,11 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private Transition<RealtimeLifecycle> Step(Func<RealtimeLifecycle, Option<RealtimeLifecycle>> step) =>
         Cell.Step(lifecycle, step, key.InvalidContext());
 
-    private Fin<Unit> Released(RealtimeLifecycle prior) => prior.Held.Match(
-        Some: held => Custody.Release(
+    private Fin<Unit> Released(RealtimeLifecycle prior) => prior.Held.TraverseM(held => Custody.Release(
             Seq<Func<Fin<Unit>>>(
                 () => Fin.Succ(held.Pixels.Close()),
                 () => held.Sprites.Release(key)),
-            key),
-        None: static () => Fin.Succ(unit));
+            key)).As().Map(static _ => unit);
 
     private Fin<Unit> Release(RealtimeLifecycle.Priming primed) => Custody.Release(
         Seq<Func<Fin<Unit>>>(
@@ -1412,13 +1405,13 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 
 public static class LightAuthorities {
     private static readonly SeatRegistry<LightAuthorityProgram> Seats = new(Op.Of(name: nameof(LightAuthorities)));
-    private static readonly Atom<HashMap<Guid, LightAuthorityHost>> Hosts = Atom(HashMap<Guid, LightAuthorityHost>());
+    private static readonly AtomHashMap<Guid, LightAuthorityHost> Hosts = AtomHashMap(HashMap<Guid, LightAuthorityHost>());
 
     public static Seq<Error> Faults => Seats.Faults;
     public static long Shed => Seats.Shed;
 
     internal static Unit Seat(Guid engine, LightAuthorityHost host) =>
-        ignore(Hosts.Swap(rows => rows.AddOrUpdate(engine, host)));
+        Hosts.AddOrUpdate(engine, host);
 
     public static Fin<SeatToken> Register(Guid engine, LightAuthorityProgram program, PlugIn owner, Op? key = null) {
         Op op = key.OrDefault();
@@ -1431,14 +1424,14 @@ public static class LightAuthorities {
 
     public static Fin<Unit> Unregister(Guid engine, SeatToken token, Op? key = null) {
         Op op = key.OrDefault();
-        return Seats.Retire(engine, token, () => Fin.Succ(ignore(Hosts.Swap(rows => rows.Remove(engine)))), op);
+        return Seats.Retire(engine, token, () => Fin.Succ(Hosts.Remove(engine)), op);
     }
 
     public static Fin<Unit> Notify(DocumentSession session, Guid engine, LightChange change, Op? key = null) {
         Op op = key.OrDefault();
         return from source in Optional(session).ToFin(Fail: op.MissingContext())
                from move in op.Need(change)
-               from host in Hosts.Value.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Key: op, Engine: engine))
+               from host in Hosts.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Key: op, Engine: engine))
                from _ in source.Demand(
                    use: document => op.Catch(() => {
                        Light unread = default;
@@ -2936,9 +2929,9 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                            digest: static (_, row) => Fin.Succ(row.Value),
                            reconciled: static (op, _) => Fin.Fail<GeometryHash>(op.InvalidResult(detail: nameof(ReconcileAnswer.Reconciled))),
                            topology: static (op, _) => Fin.Fail<GeometryHash>(op.InvalidResult(detail: nameof(ReconcileAnswer.Topology))))
-                       from residency in policy.Residency.Match(
-                           Some: pack => Encode.Apply(new PackOp.MeshPatch(Source: space, Policy: pack), key).Map(Some),
-                           None: static () => Fin.Succ(Option<EncodedGeometry>.None))
+                       from residency in policy.Residency
+                           .TraverseM(pack => Encode.Apply(new PackOp.MeshPatch(Source: space, Policy: pack), key))
+                           .As()
                        select new MeshPatch(Content: digest, Geometry: geometry, Residency: residency))
             .Rollback(() => Fin.Succ(geometry.Dispose()), key)
         select patch;

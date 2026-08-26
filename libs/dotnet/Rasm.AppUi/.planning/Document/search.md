@@ -132,7 +132,7 @@ public sealed partial class SearchQuery {
     }
 
     internal static Validation<Error, Unit> Gate(bool holds, string detail) =>
-        holds ? unit : (Validation<Error, Unit>)(Error)new ValidationError(string.Join(" | ", new object?[] { detail }));
+        holds ? unit : Validation<Error, Unit>.Fail(new KernelFault.InvalidValue(nameof(SearchQuery), detail));
 }
 
 public sealed record SearchRun(SearchQuery Query, ISearchStrategy Strategy) {
@@ -352,7 +352,7 @@ public static class SearchScope {
     public static readonly FilterSchema<SearchResult> Schema = new(Seq(
         new FilterField<SearchResult>(
             new FilterProperty(PropertyName.Create("source"), "search.property.source", FilterKind.Text,
-                SearchSource.Items.Map(static row => (PropertyValue)new PropertyValue.Text(row.Key)).ToSeq()),
+                toSeq(SearchSource.Items).Map(static row => (PropertyValue)new PropertyValue.Text(row.Key))),
             static hit => Seq<PropertyValue>(new PropertyValue.Text(hit.Source.Key))),
         new FilterField<SearchResult>(
             new FilterProperty(PropertyName.Create("subject"), "search.property.subject", FilterKind.Text, Seq<PropertyValue>()),

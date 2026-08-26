@@ -62,17 +62,11 @@ internal static class RedrawScope {
             enable: prior,
             redrawDocument: redraw.Traits.Admits(capability: RedrawAxis.RepaintsDocument),
             redrawLayers: redraw.Traits.Admits(capability: RedrawAxis.RepaintsLayers)))))
-        from value in Append(primary: outcome, side: restored)
+        from value in outcome.Settled(release: () => restored, key: key)
         from _ in key.Catch(() => Fin.Succ(value: Op.SideWhen(
             redraw.Traits.Admits(capability: RedrawAxis.Enabled),
             () => document.Views.Redraw(deferred: redraw.Traits.Admits(capability: RedrawAxis.Defers)))))
         select value;
-
-    private static Fin<T> Append<T>(Fin<T> primary, Fin<Unit> side) => primary.BiBind(
-        Succ: value => side.Map(_ => value),
-        Fail: error => side.Match(
-            Succ: _ => Fin.Fail<T>(error: error),
-            Fail: fault => Fin.Fail<T>(error: error + fault)));
 }
 ```
 

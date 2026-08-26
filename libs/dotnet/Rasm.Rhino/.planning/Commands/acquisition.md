@@ -902,13 +902,8 @@ public abstract partial record AcquireIntent {
         state: column,
         interactive: static (_, _) => true,
         objects: static (held, _) => held != RequestColumn.Drag,
-        transform: static (held, _) => held != RequestColumn.Options && held != RequestColumn.PromptDefault
-            || held == RequestColumn.Options || held == RequestColumn.PromptDefault,
-        modal: static (_, _) => false) && this switch {
-        Transform when column == RequestColumn.Drag => true,
-        Transform => true,
-        _ => true,
-    };
+        transform: static (_, _) => true,
+        modal: static (_, _) => false);
 
     internal bool NeedsDrag =>
         this is Interactive row && row.Point.Feedback.Exists(static feed => feed is PointFeedback.Pose);
@@ -1038,12 +1033,11 @@ public sealed record Acquire {
                    (drag.IsNone || admittedIntent.Admits(RequestColumn.Drag)) && (!admittedIntent.NeedsDrag || drag.IsSome),
                    op.InvalidInput()).ToFin()
                from _____ in guard(admittedAccept.Rules.ForAll(rule => admittedIntent.Accepts(rule)), op.InvalidInput()).ToFin()
-               from ______ in promptDefault.Match(
-                   Some: value => op.AcceptText(value).Map(static _ => unit),
-                   None: static () => Fin.Succ(unit))
-               from _______ in @default.Match(
-                   Some: value => value.Admit(op).Bind(_ => guard(admittedIntent.Accepts(value), op.InvalidInput()).ToFin()),
-                   None: static () => Fin.Succ(unit))
+               from ______ in promptDefault.TraverseM(value => op.AcceptText(value).Map(static _ => unit)).As()
+                   .Map(static _ => unit)
+               from _______ in @default.TraverseM(value => value.Admit(op)
+                       .Bind(_ => guard(admittedIntent.Accepts(value), op.InvalidInput()).ToFin())).As()
+                   .Map(static _ => unit)
                from complete in admittedAccept.Requiring(terminals: admittedIntent.Terminals, key: op)
                select new Acquire(
                    admittedIntent, admittedPrompt, complete, promptDefault, @default, options, drag);
@@ -1265,9 +1259,10 @@ internal static class GetterDrive {
                      _ = request.PromptDefault.Iter(value => getter.SetCommandPromptDefault(value));
                      return Fin.Succ(unit);
                  })
-                 from __ in request.Default.Match(
-                     Some: value => value.Apply(getter, op),
-                     None: static () => Fin.Succ(unit))
+                 from __ in request.Default
+                     .TraverseM(value => value.Apply(getter, op))
+                     .As()
+                     .Map(static _ => unit)
                  from ___ in request.Accept.Apply(getter, op)
                  from ____ in prepare(getter)
                  from outcome in Dragged(request.Drag, op, dragging =>
@@ -1306,13 +1301,13 @@ internal static class GetterDrive {
         OptionLease lease,
         Op op)
         where TGetter : GetBaseClass =>
-        toSeq(Enumerable.Range(0, request.Accept.OptionBudget + 1))
-            .foldUntil(
+        Prelude.Range(0, request.Accept.OptionBudget + 1)
+            .FoldUntil(
                 Fin.Succ(new GetterCycle(Choices: [], Terminal: None)),
                 (state, _) => state.Bind(cycle => receive(getter, dragging).Bind(raw => raw is GetResult.Option
                     ? lease.Selected(getter, op).Map(choice => cycle with { Choices = cycle.Choices.Add(choice) })
                     : Fin.Succ(cycle with { Terminal = Some(raw) }))),
-                state => state.Match(Succ: static cycle => cycle.Terminal.IsSome, Fail: static _ => true))
+                pair => pair.State.Match(Succ: static cycle => cycle.Terminal.IsSome, Fail: static _ => true))
             .Bind(cycle => cycle.Terminal.ToFin(Fail: op.InvalidResult(detail: nameof(AcceptPlan.OptionBudget)))
                 .Bind(raw => TerminalRow.TryGet(raw, out TerminalRow? row)
                     ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging, op)
@@ -1329,9 +1324,7 @@ internal static class GetterDrive {
         Option<DragBuffer> dragging,
         Op op) =>
         from settled in lease.Snapshot(op)
-        from census in dragging.Match(
-            Some: buffer => buffer.Census(op).Map(Some),
-            None: static () => Fin.Succ(Option<DragCensus>.None))
+        from census in dragging.TraverseM(buffer => buffer.Census(op)).As()
         select new AcquireOutcome(
             Terminal: terminal,
             Options: choices,

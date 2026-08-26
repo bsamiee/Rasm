@@ -960,7 +960,7 @@ public static partial class Removal {
     private static Option<Error> Invalidating(
         Seq<RemovalFinding> findings, RemovalBands bands, CollisionZone zone) {
         Seq<Error> errors = findings.Choose(finding => finding.Fault(bands, zone));
-        return errors.Head.Map(first => errors.Tail.Fold(first, static (combined, error) => combined + error));
+        return errors.Head.Map(_ => Error.Many(errors));
     }
 
     private static int ClosestMove(VerifyPolicy policy, SetupWindow window, Point3d point) {

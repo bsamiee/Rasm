@@ -18,12 +18,12 @@
 - Law: the selection IS the policy roster. A `Set<OptimizePass>` beside per-pass policy columns made the two able to disagree, and the hand agreement check that guarded ONE of those pairings could not have guarded the rest — the four required policies forced a caller selecting only compaction to supply a cutting model, an engagement map, and a spindle envelope it never reads. `Seq<PassPolicy>` makes the disagreement unrepresentable and the distinctness gate is the only invariant left.
 - Law: the machine envelope is CONTEXT, never a pass column. The stability pass prices its power ceiling on the same feed range, spindle range, tool, and nominal engagement the feed pass reads, so a pass reaching into a sibling pass's policy for them was a coupling the split removes.
 - Law: controller ranges cross as the package's OWN `ProcessRange`. `Tooling/magazine#TOOL_ASSET` admits the MTConnect `ProcessFeedRate` and `ProcessSpindleSpeed` envelopes once, into `Option<double>` columns with a declared `Resolve`; the raw asset types reaching this page put twelve null-coalescing reads over provider-nullable fields inside admission, which is foreign material crossing an admission boundary unadmitted.
-- Law: `OptimizeMap` is the ONE unit lift. A millimetre double becoming a `Length` is a mapping, so it rides the generated mapper and the hand-written constructor fan that spelled every conversion at a call site is the deleted form.
+- Law: `OptimizeMap` is the ONE unit lift. Raw dimensional doubles cross through its named conversions, and the hand-written constructor fan that spelled every conversion at a call site is the deleted form.
 - Cases: `Feed` carries engagement evidence and its minimum fraction; `Smooth` geometry preservation; `Compact` collinear and co-circular tolerances; `Pattern` the pattern window, its occurrence floor, its first label, and its occurrence BUDGET; `Stability` the chatter lobes with the depth they are relative to and the margin floor a point must clear.
 - Entry: `Optimize.Apply(CutProgram, OptimizationIngress, OptimizationEgress)` is the only public operation; `OptimizationEgress.Measurement` derives the final codec, termination, and framing with `BlockLimit.Observe`, while `Final` retains `BlockLimit.Enforce`.
 - Auto: independent raw-policy failures accumulate through `Validation<Error, _>` before the `Fin<_>` execution stage; each policy admits through its generated `Validate` and the one `Admitted` bridge.
 - Result: every admitted column carries its `UnitsNet` quantity past admission.
-- Packages: `UnitsNet` supplies `Speed`, `RotationalSpeed`, `Length`, `Angle`, `Power`, `Ratio`, and `Duration`; `Process/physics#EQUIPMENT` `ProcessRange` supplies controller bounds; `Riok.Mapperly` owns the unit lift; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, `Fin<_>`, and the equality-keyed `HashMap` carrier `BlockLocus` requires.
+- Packages: `UnitsNet` supplies `Speed`, `RotationalSpeed`, `Length`, `Angle`, `Power`, `Ratio`, and `Duration`; `Process/physics#EQUIPMENT` `ProcessRange` supplies controller bounds; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, `Fin<_>`, and the equality-keyed `HashMap` carrier `BlockLocus` requires.
 - Boundary: raw dimensional doubles, provider range types, and page-local cutting-force equations never cross admission; the ordered `Map` carrier never keys on a `[ComplexValueObject]`, which owns structural equality and no comparer.
 
 ```csharp
@@ -32,12 +32,12 @@ using System;
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
 using Rasm.Element.Projection;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Tooling;
 using Rhino.Geometry;
-using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
@@ -328,40 +328,12 @@ public sealed partial class OptimizationEgress {
     }
 }
 
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-internal static partial class OptimizeMap {
-    [MapProperty(nameof(PassIngress.Smooth.MaximumDeviationMm), nameof(SmoothPolicy.MaximumDeviation), Use = nameof(Mm))]
-    [MapProperty(nameof(PassIngress.Smooth.MinimumTurnRadians), nameof(SmoothPolicy.MinimumTurn), Use = nameof(Rad))]
-    [MapProperty(nameof(PassIngress.Smooth.MinimumRadiusMm), nameof(SmoothPolicy.MinimumRadius), Use = nameof(Mm))]
-    [MapProperty(nameof(PassIngress.Smooth.GeometryToleranceMm), nameof(SmoothPolicy.GeometryTolerance), Use = nameof(Mm))]
-    public static partial SmoothPolicy Smooth(PassIngress.Smooth source);
-
-    [MapProperty(nameof(PassIngress.Compact.CollinearToleranceMm), nameof(CompactPolicy.CollinearTolerance), Use = nameof(Mm))]
-    [MapProperty(nameof(PassIngress.Compact.CocircularToleranceMm), nameof(CompactPolicy.CocircularTolerance), Use = nameof(Mm))]
-    public static partial CompactPolicy Compact(PassIngress.Compact source);
-
-    [MapProperty(nameof(PassIngress.Pattern.MinimumLength), nameof(PatternPolicy.MinimumLength), Use = nameof(Segments))]
-    [MapProperty(nameof(PassIngress.Pattern.MaximumLength), nameof(PatternPolicy.MaximumLength), Use = nameof(Segments))]
-    public static partial PatternPolicy Pattern(PassIngress.Pattern source);
-
-    [MapProperty(nameof(PassIngress.Feed.MinimumEngagementFraction), nameof(FeedPolicy.MinimumEngagement), Use = nameof(Fraction))]
-    public static partial FeedPolicy Feed(PassIngress.Feed source);
-
-    [MapProperty(nameof(PassIngress.Stability.RequestedDepthMm), nameof(StabilityGate.RequestedDepth), Use = nameof(Mm))]
-    [MapProperty(nameof(PassIngress.Stability.MinimumMargin), nameof(StabilityGate.MinimumMargin), Use = nameof(Fraction))]
-    public static partial StabilityGate Stability(PassIngress.Stability source);
-
-    [UserMapping]
+internal static class OptimizeMap {
     internal static Length Mm(double value) => Length.FromMillimeters(value);
 
-    [UserMapping]
     internal static Angle Rad(double value) => Angle.FromRadians(value);
 
-    [UserMapping]
     internal static Ratio Fraction(double value) => Ratio.FromDecimalFractions(value);
-
-    [UserMapping]
-    internal static PatternLength Segments(int value) => PatternLength.Create(value);
 }
 ```
 
@@ -455,10 +427,12 @@ public static partial class Optimize {
         compact: static row => CompactPolicy.Validate(OptimizeMap.Mm(row.CollinearToleranceMm),
                 OptimizeMap.Mm(row.CocircularToleranceMm), out CompactPolicy policy)
             .Admitted(policy).Map<PassPolicy>(static value => new PassPolicy.Compact(value)).ToValidation(),
-        pattern: static row => PatternPolicy.Validate(OptimizeMap.Segments(row.MinimumLength),
-                OptimizeMap.Segments(row.MaximumLength), row.MinimumOccurrences, row.FirstLabel,
-                row.OccurrenceBudget, out PatternPolicy policy)
-            .Admitted(policy).Map<PassPolicy>(static value => new PassPolicy.Pattern(value)).ToValidation());
+        pattern: static row => (from minimum in Op.Of().AcceptValidated<PatternLength>(row.MinimumLength)
+                                from maximum in Op.Of().AcceptValidated<PatternLength>(row.MaximumLength)
+                                from policy in PatternPolicy.Validate(
+                                        minimum, maximum, row.MinimumOccurrences, row.FirstLabel,
+                                        row.OccurrenceBudget, out PatternPolicy policy).Admitted(policy)
+                                select (PassPolicy)new PassPolicy.Pattern(policy)).ToValidation());
 
     private static Fin<Unit> Numeric(Seq<GNode> nodes) =>
         NodeWalk.Collect(nodes, Seq<int>(), static (_, node) => node switch {
@@ -839,7 +813,7 @@ internal static class OptimizationCore {
 
     private static (Seq<GNode> Rows, Point3d Start, Point3d Cursor) Merge(
         (Seq<GNode> Rows, Point3d Start, Point3d Cursor) state, GNode node, CompactPolicy policy) {
-        if (state.Rows.Last.Case is not GNode.Word previous || node is not GNode.Word current)
+        if (state.Rows.Last is not { IsSome: true, Case: GNode.Word previous } || node is not GNode.Word current)
             return (state.Rows.Add(node), state.Cursor,
                 node is GNode.Word word ? Point(word, state.Cursor) : state.Cursor);
         Point3d end = Point(current, state.Cursor);

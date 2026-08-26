@@ -933,9 +933,10 @@ public static class Archives {
     private static Fin<ArchiveOutcome> InspectPath(DocumentPath path, Op op) =>
         from anchor in op.Catch(() => {
             using EarthAnchorPoint? held = File3dm.ReadEarthAnchorPoint(path: path.Value);
-            return Optional(held).Match(
-                Some: live => EarthAnchor.Located(anchor: live, op: op),
-                None: static () => Fin.Succ(Option<GeoPoint>.None));
+            return Optional(held)
+                .TraverseM(live => EarthAnchor.Located(anchor: live, op: op))
+                .As()
+                .Map(static located => located.Bind(static point => point));
         })
         from outcome in op.Catch(() => {
             bool hasRevision = File3dm.ReadRevisionHistory(

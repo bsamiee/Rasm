@@ -669,9 +669,8 @@ public sealed class AttributeProgram {
     }
 
     public Fin<AttributeChange> Change =>
-        AttributeChange.Validate(Apply, out AttributeChange? admitted) is null && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<AttributeChange>(error: Op.Of(name: nameof(AttributeProgram)).InvalidInput());
+        Op.Of(name: nameof(AttributeProgram)).AcceptValidated<AttributeChange>(
+            AttributeChange.Validate(Apply, out AttributeChange? admitted), admitted);
 
     internal Fin<Unit> Apply(ObjectAttributes attributes) {
         Op op = Op.Of(name: nameof(AttributeProgram));

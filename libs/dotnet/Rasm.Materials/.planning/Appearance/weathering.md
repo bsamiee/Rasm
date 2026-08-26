@@ -342,11 +342,10 @@ public static class Weathering {
         current.Lerp(target.IfNone(current), f);
 
     static Unicolour LerpColorUni(Unicolour current, Option<RgbSpectrum> target, double f) =>
-        target.Match(
-            Some: tint => Mapped(current.Mix(
+        target.Map(tint => Mapped(current.Mix(
                 new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, tint.R, tint.G, tint.B),
-                ColourSpace.RgbLinear, f, premultiplyAlpha: false)),
-            None: () => current);
+                ColourSpace.RgbLinear, f, premultiplyAlpha: false)))
+            .IfNone(current);
 }
 ```
 

@@ -15,9 +15,9 @@ One `Tabulate` fold flattens a frozen `ElementGraph` into ten typed row families
 - Owner: `TableRow` — the closed `[Union]` whose ten cases ARE the ten datasets, each carrying its flat column payload and the snapshot address, and each owning the ordered `Cells` projection its dataset's column declaration reads; `TableSnapshot` — the fold product pairing the graph `ContentAddress` with every emitted row.
 - Cases: `Classification` (one co-applied standard reference — the system, code, and edition triple keying it, beside the source, edition date, and title annotations; the PRIMARY entity-class triple stays denormalized on the object row because it keys that grain, so this family carries the secondary refs the object row cannot hold) · `Object` (one baked element — identity, kind, external id, the primary classification triple, predefined token, name, tag, type binding, container, containment depth, appearance key, part count) · `Property` (one bag entry — set, name, value kind, rendered text, the measure magnitude and quantity type where the entry is measured, source rank, inheritance mode) · `Quantity` (one quantity entry — set, name, quantity type, SI magnitude, canonical unit, the seven `Dimension` exponents, the optional uncertainty band) · `Material` (one material binding — material key, composition and usage tokens, the inheritance flag, layer count and buildup depth, the profile reference and baked section area) · `Section` (one baked profile-set section — the whole S-E1 algebra: profile key, LTB route token, the nineteen SI design columns, mono-symmetry, centroid, and the optional forming-shape witness — where the material row carries only the takeoff area) · `Edge` (one relationship — the edge content address, neutral kind, sub-kind, endpoints, realizing intermediary, nest ordinal, passthrough wire name, member count, containment predicate) · `Assessment` (one computed assessment — discipline, route, input key, outcome with its three behavior columns, provenance, the typed diagnostic, the result blob, the dependency and result counts) · `Observation` (one measured series — sensor deployment, observed aspect, quantity triple, sampling algebra, cadence, window bounds, chunk and sample counts, the graded census shares, the four summary magnitudes, the instrument audit) · `Coverage` (one raster band — raster key, coverage kind, CRS identity, the twelve index-to-world affine coefficients and the three-axis census, band index with its role, sample type, units, decode scale pair, pyramid depth, timeline depth, uncompressed byte length).
 - Entry: `row.Family` projects the dataset token through the generated `Map` over precomputed rows; `row.Cells` projects the ordered `Option<PropertyValue>` sequence the family's column declaration binds positionally, an absent cell reading `None` so a nullable column carries real absence rather than a sentinel; `TableSnapshot.Batches(key)` admits the whole row set through `TableFamily.Admit` and then groups every row under its family in roster order, the one value crossing the boundary.
-- Auto: declaration order of a case's payload IS the column order its `Cells` arm emits and the order `TableFamily` declares, so a column edit and its field edit are one edit at one site; the event-time payload closes on its own instant, so `element.assessments` trails on the column its `Spine` names; the private lifts (`Text`/`Real`/`Whole`/`Big`/`Flag`/`Moment`/`Day`) are the only cell constructors, so every cell's `PropertyValue` case is fixed at the projection rather than chosen per column; a content key — the snapshot address, an edge address, an assessment input key, a result blob, an appearance key, a raster key — crosses as `Text` through `ContentAddress.ToValue`, the canonical X32 spelling `Projection/address#CONTENT_ADDRESS` already owns as the cross-runtime wire form.
+- Auto: declaration order of a case's payload IS the column order its `Cells` arm emits and the order `TableFamily` declares, so a column edit and its field edit are one edit at one site; the event-time payload closes on its own instant, so `element.assessments` trails on the column its `Spine` names; the private lifts (`Text`/`Real`/`Whole`/`Big`/`Flag`/`Moment`/`Day`) are the only cell constructors, so every cell's `PropertyValue` case is fixed at the projection rather than chosen per column; a content key — the snapshot address, an edge address, an assessment input key, a result blob, an appearance key, a raster key — crosses as `Text` through kernel `ContentHash.Hex`, the canonical x32 spelling `Projection/address#CONTENT_ADDRESS` composes as the cross-runtime wire form.
 - Output: `TableSnapshot.Rows` is the flat typed read a consumer folds directly; `TableSnapshot.Batches(key)` is the admitted, erased per-family cell projection the columnar custodian lands.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`/`Map`), LanguageExt.Core (`Seq`/`Option`/`Map`), NodaTime (`Instant` the assessment and window stamps, `LocalDate` the calibration stamp), `Rasm` (the kernel `Op` the admission gates thread), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.ToValue` the content-key cell spelling), BCL inbox (`BigInteger` the whole-number cell payload).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`/`Map`), LanguageExt.Core (`Seq`/`Option`/`Map`), NodaTime (`Instant` the assessment and window stamps, `LocalDate` the calibration stamp), `Rasm` (the kernel `Op` and `ContentHash.Hex` content-key spelling), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.ToValue()` raw-key projection), BCL inbox (`BigInteger` the whole-number cell payload).
 - Growth: a new dataset is one `TableRow` case declaring its temporal category, with its `Cells` arm, its `TableFamily` row, and its projection in `[04]`; a new column is one payload field with its cell in the same arm and its `TableColumn` in the same row; never a sibling row type beside the union and never a dataset whose columns live apart from its payload.
 - Boundary: `TableRow.Object` shadows the simple name `Object` inside the union body exactly as `Node.Object` does at its own owner, and `TableRow.Classification` shadows the shared classification type the same way, so every construction spells the nested case and the generated arms read `@object:` and `classification:`; the row is a DERIVED projection carrying zero authority — the graph and its delta stream own truth, a dropped dataset rebuilds by re-tabulating, and writing a table row back into the graph is the deleted inversion; `Cells` carries no storage type, so a physical width, a nullability dialect, and a partition expression stay the custodian's; heavy payloads never enter a row — geometry, result artifacts, and raster coverages ride their content keys, which cross as text.
 
@@ -519,7 +519,7 @@ public readonly record struct TableBatch(TableDeclaration Declaration, Seq<Seq<O
 - Entry: `GraphTable.Tabulate(graph, key, roots)` folds the whole snapshot by default and a named root set when supplied, refusing `ElementFault.NodeAbsent` on a root the graph does not declare and lifting every `Bake` failure — an absent root, a cyclic `Compose` ancestry — unchanged onto its own result.
 - Auto: the fold reaches no clock at all — every snapshot family is landing-timed, so nothing here stamps an instant and `element.assessments` carries the one the assessment payload already holds; element, classification, property, quantity, material, assessment, observation, and coverage rows all project from the `Bake`-derived `Element`, so the named type→occurrence inheritance is applied exactly once and a table row can never disagree with what a consumer reads off the same baked element; edge rows project from `graph.Edges` directly because an edge carries no inheritance and needs no bake; the snapshot address mints once through `ContentAddress.OfGraph` and stamps every row, so one fold pays one graph hash; a scoped fold narrows edges to those whose `Members` touch the selected set, so a partial re-tabulation after a delta emits exactly the rows its roots own.
 - Output: a `TableSnapshot` whose `Rows` a consumer folds typed and whose admitted `Batches(key)` the columnar custodian lands.
-- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option` + `TraverseM`/`Choose`/`Bind`/`Fold`/`Exists`), QuikGraph (`BidirectionalGraph`/`TryFunc` + `AlgorithmExtensions.TreeBreadthFirstSearch` over the graph's own `View(EdgeFilter.Spatial, EdgeOrientation.Ascending)` — the object row's two spatial columns, never a view this page builds), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.OfGraph`/`Of`/`ToValue`), `Projection/fault#FAULT_BAND` (`ElementFault.NodeAbsent`), `Assessment/observation#SERIES_STATISTICS` (`Completeness`/`Observed`/`Consumable` + `Expected`), `Geospatial/coverage#COVERAGE_NODE` (`ByteLength`/`Grid`/`Bands`), NodaTime (`Duration.TotalSeconds`).
+- Packages: LanguageExt.Core (`Fin`/`Seq`/`Option` + `TraverseM`/`Choose`/`Bind`/`Fold`/`Exists`), QuikGraph (`BidirectionalGraph`/`TryFunc` + `AlgorithmExtensions.TreeBreadthFirstSearch` over the graph's own `View(EdgeFilter.Spatial, EdgeOrientation.Ascending)` — the object row's two spatial columns, never a view this page builds), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.OfGraph`/`Of` plus generated raw-key `ToValue()`), `Rasm` (`ContentHash.Hex`), `Projection/fault#FAULT_BAND` (`ElementFault.NodeAbsent`), `Assessment/observation#SERIES_STATISTICS` (`Completeness`/`Observed`/`Consumable` + `Expected`), `Geospatial/coverage#COVERAGE_NODE` (`ByteLength`/`Grid`/`Bands`), NodaTime (`Duration.TotalSeconds`).
 - Growth: a new dataset is one projection member returning its `TableRow` case; a new column on an existing dataset is one argument in the projection that already builds its case; a scoped variant is a root set, never a second entrypoint.
 - Boundary: `Tabulate` is PURE over an already-frozen snapshot — it opens no store, resolves no geometry through `GeometrySource`, and reaches no ambient registry, so a caller supplies the graph and receives rows; heavy payloads stay behind their content keys, so a representation hash, a result blob, and a raster key cross as text and the artifact itself never enters a row; the edge row keys on the edge's own content address, so two structurally identical edges address as the one edge they are — the positional array index keying them apart is the deleted form, because array order is a snapshot artifact no consumer may join on; a family's row count is the graph's, never capped — the columnar stores carry no cardinality ceiling and a truncating fold silently under-reports a takeoff.
 
@@ -535,13 +535,12 @@ public static class GraphTable {
         roots.Match(
             None: () => Fin.Succ(graph.ObjectNodes),
             Some: ids => toSeq(ids.ToFrozenSet())
-                .TraverseM(id => graph.Find<Node.Object>(id).Match(
-                    Some: Fin.Succ,
-                    None: () => Fin.Fail<Node.Object>(new ElementFault.NodeAbsent(key, $"<tabulate-root-absent:{id.Value}>")))).As());
+                .TraverseM(id => graph.Find<Node.Object>(id)
+                    .ToFin(new ElementFault.NodeAbsent(key, $"<tabulate-root-absent:{id.ToValue()}>"))).As());
 
     static TableSnapshot Project(ElementGraph graph, Seq<Element> elements, bool scoped) {
         ContentAddress address = ContentAddress.OfGraph(graph);
-        string snapshot = address.ToValue();
+        string snapshot = ContentHash.Hex(address.ToValue());
         double tolerance = graph.Header.Tolerance;
         FrozenSet<NodeId> scope = elements.Map(static element => element.Id).ToFrozenSet();
         return new TableSnapshot(address, elements.Bind(element => Rows(graph, element, snapshot)) + Edges(graph, scope, scoped, snapshot, tolerance));
@@ -561,12 +560,12 @@ public static class GraphTable {
     static TableRow Object(ElementGraph graph, Element element, string snapshot) {
         (Option<NodeId> container, int depth) = Ancestry(graph, element.Id);
         return new TableRow.Object(
-            snapshot, element.Id.Value, element.Kind.Key, element.ExternalId,
+            snapshot, element.Id.ToValue(), element.Kind.Key, element.ExternalId,
             element.Classification.System, element.Classification.Code, element.Classification.Edition,
-            element.PredefinedType.Token, element.Name, element.Tag,
-            element.TypeId.Map(static id => id.Value),
-            container.Map(static id => id.Value), depth,
-            element.Appearance.Map(static summary => ContentAddress.Of(summary.AppearanceKey).ToValue()),
+            element.PredefinedType.ToValue(), element.Name, element.Tag,
+            element.TypeId.Map(static id => id.ToValue()),
+            container.Map(static id => id.ToValue()), depth,
+            element.Appearance.Map(static summary => ContentHash.Hex(ContentAddress.Create(summary.AppearanceKey).ToValue())),
             element.Parts.Count);
     }
 
@@ -582,15 +581,15 @@ public static class GraphTable {
 
     static Seq<TableRow> Classifications(Element element, string snapshot) =>
         element.Classifications.Map(reference => (TableRow)new TableRow.Classification(
-            snapshot, element.Id.Value, reference.System, reference.Code, reference.Edition,
+            snapshot, element.Id.ToValue(), reference.System, reference.Code, reference.Edition,
             reference.Source, reference.EditionDate, reference.Title));
 
     static Seq<TableRow> Properties(PropertyBag bag, Element element, string snapshot) =>
         toSeq(bag.Values).Map(entry => (TableRow)new TableRow.Property(
-            snapshot, element.Id.Value, bag.SetName, entry.Key.Value,
+            snapshot, element.Id.ToValue(), bag.SetName, entry.Key.ToValue(),
             Kind(entry.Value), entry.Value.Render(),
             entry.Value is PropertyValue.Measure measured ? Some(measured.Value.Si) : Option<double>.None,
-            entry.Value is PropertyValue.Measure typed ? Some(typed.Value.Type.Value) : Option<string>.None,
+            entry.Value is PropertyValue.Measure typed ? Some(typed.Value.Type.ToValue()) : Option<string>.None,
             bag.Source.Token, bag.Inheritance.Key));
 
     static string Kind(PropertyValue value) => value.Map(
@@ -600,8 +599,8 @@ public static class GraphTable {
 
     static Seq<TableRow> Quantities(QuantityBag bag, Element element, string snapshot) =>
         toSeq(bag.Values).Map(entry => (TableRow)new TableRow.Quantity(
-            snapshot, element.Id.Value, bag.SetName, entry.Key.Value,
-            entry.Value.Type.Value, entry.Value.Si, entry.Value.CanonicalUnit,
+            snapshot, element.Id.ToValue(), bag.SetName, entry.Key.ToValue(),
+            entry.Value.Type.ToValue(), entry.Value.Si, entry.Value.CanonicalUnit,
             entry.Value.Dimension.Length, entry.Value.Dimension.Mass, entry.Value.Dimension.Time,
             entry.Value.Dimension.Current, entry.Value.Dimension.Temperature,
             entry.Value.Dimension.Amount, entry.Value.Dimension.LuminousIntensity,
@@ -611,11 +610,11 @@ public static class GraphTable {
 
     static Seq<TableRow> Materials(Element element, string snapshot) {
         Seq<string> inherited = element.Type.Map(static binding =>
-            binding.Materials.Map(static baked => baked.Material.MaterialKey.Value)).IfNone(Seq<string>());
+            binding.Materials.Map(static baked => baked.Material.MaterialKey.ToValue())).IfNone(Seq<string>());
         return element.Materials.Map(baked => (TableRow)new TableRow.Material(
-            snapshot, element.Id.Value, baked.Material.MaterialKey.Value,
+            snapshot, element.Id.ToValue(), baked.Material.MaterialKey.ToValue(),
             Composition(baked.Material.Composition), Usage(baked.Usage),
-            inherited.Exists(id => id == baked.Material.MaterialKey.Value),
+            inherited.Exists(id => id == baked.Material.MaterialKey.ToValue()),
             baked.Material.Composition is MaterialComposition.LayerSet layers ? layers.Layers.Count : 0,
             baked.Material.Composition is MaterialComposition.LayerSet depth ? Some(depth.TotalThickness) : Option<double>.None,
             baked.Material.Composition is MaterialComposition.ProfileSet standard ? Some(standard.Profile.Standard) : Option<string>.None,
@@ -629,7 +628,7 @@ public static class GraphTable {
         element.Materials.Bind(baked => baked.Material.Composition is MaterialComposition.ProfileSet
             { Section: { IsSome: true, Case: SectionProperties section }, Profile: var profile }
             ? Seq<TableRow>(new TableRow.Section(
-                snapshot, element.Id.Value, baked.Material.MaterialKey.Value,
+                snapshot, element.Id.ToValue(), baked.Material.MaterialKey.ToValue(),
                 profile.Standard, profile.Designation, section.Ltb.Key,
                 section.Area.Si, section.Iyy.Si, section.Izz.Si, section.J.Si, section.Iw.Si,
                 section.Wely.Si, section.Welz.Si, section.Wply.Si, section.Wplz.Si,
@@ -658,18 +657,18 @@ public static class GraphTable {
                 compose:   static e => (Some(e.SubKind.Key), Option<string>.None, e.Ordinal, Option<string>.None),
                 assign:    static e => (Some(e.SubKind.Key), Option<string>.None, Option<int>.None, Option<string>.None),
                 associate: static _ => (Option<string>.None, Option<string>.None, Option<int>.None, Option<string>.None),
-                connect:   static e => (Some(e.SubKind.Key), e.Realizing.Map(static node => node.Value), Option<int>.None, Option<string>.None),
+                connect:   static e => (Some(e.SubKind.Key), e.Realizing.Map(static node => node.ToValue()), Option<int>.None, Option<string>.None),
                 @void:     static e => (Some(e.SubKind.Key), Option<string>.None, Option<int>.None, Option<string>.None),
-                generic:   static e => (Option<string>.None, Option<string>.None, Option<int>.None, Some(e.WireName.Value)));
+                generic:   static e => (Option<string>.None, Option<string>.None, Option<int>.None, Some(e.WireName.ToValue())));
         return new TableRow.Edge(
-            snapshot, ContentAddress.Of(edge, tolerance).ToValue(), edge.Kind.Key, subKind,
-            edge.Relating.Value, edge.Related.Value, realizing, ordinal, wireName,
+            snapshot, ContentHash.Hex(ContentAddress.Of(edge, tolerance).ToValue()), edge.Kind.Key, subKind,
+            edge.Relating.ToValue(), edge.Related.ToValue(), realizing, ordinal, wireName,
             edge.Members.Count, edge.IsContainment);
     }
 
     static TableRow Assessment(AssessmentPayload payload, Element element, string snapshot) => new TableRow.Assessment(
-        snapshot, element.Id.Value, payload.Discipline.Key, payload.Route.Value,
-        ContentAddress.Of(payload.InputKey).ToValue(),
+        snapshot, element.Id.ToValue(), payload.Discipline.Key, payload.Route.Value,
+        ContentHash.Hex(ContentAddress.Create(payload.InputKey).ToValue()),
         payload.Outcome.Key,
         payload.Outcome.Capabilities.Admits(OutcomeCapability.Consumable),
         payload.Outcome.Capabilities.Admits(OutcomeCapability.Settled),
@@ -685,8 +684,8 @@ public static class GraphTable {
 
     static TableRow Observation(ObservationSeries series, Element element, string snapshot) =>
         new TableRow.Observation(
-            snapshot, element.Id.Value, series.Sensor.Value, series.Aspect.Value,
-            series.Observed.Value, series.CanonicalUnit, series.Sampling.Key,
+            snapshot, element.Id.ToValue(), series.Sensor.Value, series.Aspect.Value,
+            series.Observed.ToValue(), series.CanonicalUnit, series.Sampling.Key,
             series.Cadence.Map(static cadence => cadence.TotalSeconds),
             series.Window.Start, series.Window.End,
             series.Chunks.Count, series.SampleCount, series.Statistics.Span.TotalSeconds,
@@ -703,7 +702,7 @@ public static class GraphTable {
 
     static Seq<TableRow> Coverages(CoverageGrid grid, Element element, string snapshot) =>
         grid.Bands.Map(band => (TableRow)new TableRow.Coverage(
-            snapshot, element.Id.Value, grid.Raster.Sha256, checked((long)grid.Raster.Bytes), grid.Kind.Key,
+            snapshot, element.Id.ToValue(), grid.Raster.Sha256, checked((long)grid.Raster.Bytes), grid.Kind.Key,
             grid.Crs.Resolution.Key, grid.Crs.Epsg, grid.Crs.GeodeticDatum,
             toSeq<double>([.. grid.Grid.Affine]),
             grid.Grid.Columns.Value, grid.Grid.Rows.Value, grid.Grid.Layers.Value,
@@ -719,7 +718,7 @@ public static class GraphTable {
 - [TEMPORAL_CATEGORY]: each family declares a temporal category, never a spine convenience. `element.assessments` is event-time and stamps the instant its work ran; every snapshot family is landing-time, since re-tabulating one frozen graph reproduces identical facts and the snapshot address already carries the version identity a consumer joins on. Tabulation instants on a snapshot re-date immutable evidence, and an assessment's arrival read as its work time inverts the same error.
 - [ELEMENT_MODALITY_CLOSURE]: every `Seq` a baked `Element` carries reaches a dataset — co-applied classification references, property and quantity bags, material bindings, computed assessments, measured observation series, coverage bands — so no consumer re-folds the graph for a modality the egress skipped. `Parts` is the one exception the object row already answers, carrying the part count while each part tabulates as its own element. `Graph/element#NODE_MODEL` admitting a node case lands its row family here in the same pass; scalar element columns stay on the object row, needing no grain of their own.
 - [PRODUCER_HALF]: `Rasm.Persistence` owns the branch's columnar plane, so this page hands a wire schema with typed rows and owns nothing physical. `TableType` mirrors the custodian's neutral token roster — token and the `Admits` predicate over `PropertyValue`, never a dialect spelling, an Arrow field, a binary-COPY wire type, or a plan literal.
-- [CELL_CURRENCY]: `PropertyValue` carries every cell because the contract already owns it, so no second value vocabulary enters. Content keys cross as `Text` through `ContentAddress.ToValue`, the canonical X32 form the address owner fixes as the cross-runtime wire spelling, because a raw 128-bit number loses precision at a JSON boundary.
+- [CELL_CURRENCY]: `PropertyValue` carries every cell because the contract already owns it, so no second value vocabulary enters. Content keys cross as `Text` through `ContentHash.Hex(address.ToValue())`, the canonical x32 form the kernel fixes as the cross-runtime wire spelling, because a raw 128-bit number loses precision at a JSON boundary.
 - [VERSION_PINNED_ROW]: every row leads with the snapshot `ContentAddress` and every family keys on it, so an analytic answer pins the model version it was computed over, a lake holds many versions of one model with no second identity axis, and a cross-family join resolves within one version by construction. Edge rows key on the edge's own content address rather than array position, so two structurally identical edges address as the one edge they are and array order never becomes a join key.
 - [DERIVED_TABLE]: row families carry ZERO authority — graph and delta stream own truth, a dropped dataset rebuilds at re-tabulation cost, and no path writes a row back into the graph. `Tabulate` runs pure over an already-frozen snapshot, `Bake` supplying every element-scoped row so type→occurrence inheritance applies exactly once and a table never disagrees with the element a consumer reads, while edges project raw because an edge inherits nothing.
 

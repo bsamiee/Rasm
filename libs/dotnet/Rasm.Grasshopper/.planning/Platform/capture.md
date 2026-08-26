@@ -330,7 +330,7 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                         from bearing in pane.ToFin(op.InvalidResult())
                         from _ in bearing.Raster.ToFin(op.InvalidResult())
                         select new CaptureStill(Pane: bearing, Captured: stamp);
-                    Fin<Unit> released = op.Catch(body: () => Fin.Succ(Op.Side(action: buffer.Dispose)));
+                    Fin<Unit> released = op.Catch(buffer.Dispose);
                     return projected.Settled(release: () => released, key: op);
                 });
                 Fin<Unit> released = ReleaseAll(key: op, streamConfig.Dispose, minted.Dispose);
@@ -411,19 +411,19 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
 
     private static Fin<Unit> Admitted(CapturePlan plan, bool requireQueue, Op key) =>
         (
-            guard(double.IsFinite((double)plan.Pace) && (double)plan.Pace > 0.0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Pace))).ToValidation(),
-            guard(!requireQueue || plan.Queue > 0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Queue))).ToValidation(),
-            guard(!requireQueue || plan.Capacity > 0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Capacity))).ToValidation(),
+            guard(CapturePace.TryCreate((double)plan.Pace, out _), (Error)key.InvalidInput(axis: nameof(CapturePlan.Pace))).ToFin().ToValidation(),
+            guard(!requireQueue || plan.Queue > 0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Queue))).ToFin().ToValidation(),
+            guard(!requireQueue || plan.Capacity > 0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Capacity))).ToFin().ToValidation(),
             guard(ValidityClaim.WhenPresent(facet: plan.Extent, claim: static extent => extent.Width > 0 && extent.Height > 0),
-                (Error)key.InvalidInput(axis: nameof(CapturePlan.Extent))).ToValidation()
+                (Error)key.InvalidInput(axis: nameof(CapturePlan.Extent))).ToFin().ToValidation()
         ).Apply(static (_, _, _, _) => unit).As().ToFin();
 
     private static async Task<Fin<Unit>> Complete(Action<Action<NSError>?> begin, Op key) {
         TaskCompletionSource<Fin<Unit>> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        Fin<Unit> started = key.Catch(body: () => Fin.Succ(Op.Side(action: () => begin(
-            refusal => completion.TrySetResult(result: Optional(refusal).Match(
-                Some: fault => Fin.Fail<Unit>(error: NativeFailure(fault)),
-                None: static () => Fin.Succ(unit)))))));
+        Fin<Unit> started = key.Catch(() => begin(
+            refusal => completion.TrySetResult(result: refusal is { } fault
+                ? Fin.Fail<Unit>(NativeFailure(fault))
+                : Fin.Succ(unit))));
         return started.IsFail ? started : await completion.Task;
     }
 
@@ -536,7 +536,7 @@ public static class CaptureScout {
             Fin<CaptureInventory> projected = op.Catch(body: () => Fin.Succ(new CaptureInventory(
                 Displays: toSeq(shareable.Displays).Map(CaptureMap.Display).Strict(),
                 Windows: toSeq(shareable.Windows).Map(CaptureMap.Window).Strict())));
-            Fin<Unit> released = op.Catch(body: () => Fin.Succ(Op.Side(action: shareable.Dispose)));
+            Fin<Unit> released = op.Catch(shareable.Dispose);
             return projected.Settled(release: () => released, key: op);
         });
     }

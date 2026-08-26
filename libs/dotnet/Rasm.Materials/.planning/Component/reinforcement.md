@@ -369,24 +369,20 @@ public abstract partial record ReinforcementRow {
 
     public MaterialId Appearance => Switch(
         bar: static row => row.Grade.Appearance.IfNone(row.Grade.Substance),
-        tendon: static _ => MaterialId.Of("metal.steel"));
+        tendon: static _ => MaterialId.Create("metal.steel"));
 
     public Option<(double DiameterMm, double AreaMm2)> Section => Switch(
         bar: static row => Some((row.Size.NominalDiameterMm, row.Size.NominalAreaMm2)),
         tendon: static row => row.Strand.StrandArm.Map(static arm => (arm.DiameterMm, arm.AreaMm2)));
 
     public Validation<Error, Unit> Coherence(Op key) => Switch(
-        bar: row => (
-            Prove(row.Grade.Family == ComponentFamily.Reinforcement, new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Reinforcement)),
-            Prove(row.Grade.RebarArm.IsSome, new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Reinforcement)),
-            Prove(row.Grade.Admits(row.Size), new KernelFault.InvalidValue(nameof(row.Size), "a size admitted by its grade system", Some(key))))
-            .Apply(static (_, _, _) => unit).As(),
-        tendon: row => (
-            Prove(row.Strand.Family == ComponentFamily.Reinforcement, new ComponentFault.GradeFamilyMismatch(key, row.Strand, ComponentFamily.Reinforcement)),
-            Prove(row.Strand.StrandArm.IsSome, new ComponentFault.GradeBodyMissing(key, row.Strand, ComponentFamily.Reinforcement)))
-            .Apply(static (_, _) => unit).As());
-
-    static Validation<Error, Unit> Prove(bool held, Error fault) => guard(held, fault).ToValidation();
+        bar: row => AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(row.Grade.Family == ComponentFamily.Reinforcement, new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Reinforcement)),
+            AdmissionSlots.Gate(row.Grade.RebarArm.IsSome, new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Reinforcement)),
+            AdmissionSlots.Gate(row.Grade.Admits(row.Size), new KernelFault.InvalidValue(nameof(row.Size), "a size admitted by its grade system", Some(key))))),
+        tendon: row => AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(row.Strand.Family == ComponentFamily.Reinforcement, new ComponentFault.GradeFamilyMismatch(key, row.Strand, ComponentFamily.Reinforcement)),
+            AdmissionSlots.Gate(row.Strand.StrandArm.IsSome, new ComponentFault.GradeBodyMissing(key, row.Strand, ComponentFamily.Reinforcement)))));
 }
 
 public static class ReinforcementDetail {
@@ -400,19 +396,17 @@ public static class ReinforcementDetail {
 
     static Fin<Seq<(PropertyName, PropertyValue)>> Extension(ReinforcementRow row, Op key) => row.Switch(
         bar: item =>
-            from bend in item.Bend.Match(
-                Some: policy => RebarSchedule.StandardHook(item.Size, item.Usage, policy.Kind, policy.Hook, key).Map(Some),
-                None: static () => Fin.Succ(Option<RebarBend>.None))
-            from schedule in bend.Match(Some: b => BendRow(b).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+            from bend in item.Bend.TraverseM(policy =>
+                RebarSchedule.StandardHook(item.Size, item.Usage, policy.Kind, policy.Hook, key)).As()
+            from schedule in bend.TraverseM(BendRow).As()
             select Seq(
                 ComponentDetail.Token(DetailSchema.BarType, item.Usage.IfcPredefinedType),
                 ComponentDetail.Token(DetailSchema.BendShapeCode, bend.Map(static b => b.Shape.Key).IfNone(ShapeCodes.Straight.Key)))
                 + schedule.ToSeq(),
         tendon: item => item.Post.Match(
             Some: post =>
-                from duct in post.Duct.InnerDiameterMm.Match(
-                    Some: mm => ComponentDetail.Measured(DetailSchema.DuctDiameter, Dimension.LengthDim, mm * 1e-3).Map(Some),
-                    None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+                from duct in post.Duct.InnerDiameterMm.TraverseM(mm =>
+                    ComponentDetail.Measured(DetailSchema.DuctDiameter, Dimension.LengthDim, mm * 1e-3)).As()
                 select Seq(
                     ComponentDetail.Token(DetailSchema.AnchorageType, post.Anchorage.Key),
                     ComponentDetail.Token(DetailSchema.TendonProfile, post.Profile.Key))
@@ -630,21 +624,21 @@ public static class RcSectionBuilder {
             admittedLayout.Choose(static item => item.Face).ToFrozenSet());
 
     static Fin<RebarLayout> ValidateLayout(RebarLayout layout, MaterialGrade grade, Op key) =>
-        (guard(grade.Admits(layout.Bar), new KernelFault.InvalidValue(nameof(layout.Bar), "a layout bar admitted by its grade system", Some(key))).ToValidation(),
-         Shape(layout, key))
-            .Apply(static (_, _) => unit).As().ToFin().Map(_ => layout);
+        AdmissionSlots.Accumulate(Seq(
+                AdmissionSlots.Gate(grade.Admits(layout.Bar),
+                    new KernelFault.InvalidValue(nameof(layout.Bar), "a layout bar admitted by its grade system", Some(key))),
+                Shape(layout, key)))
+            .ToFin().Map(_ => layout);
 
     static Validation<Error, Unit> Shape(RebarLayout layout, Op key) => layout.Switch(
-        faceCount: item => Prove(item.Count > 0, new KernelFault.OutOfRange(nameof(item.Count), item.Count, "positive", Some(key))),
-        faceSpacing: item => Prove(double.IsFinite(item.MaxSpacingMm) && item.MaxSpacingMm > 0.0,
+        faceCount: item => AdmissionSlots.Gate(item.Count > 0, new KernelFault.OutOfRange(nameof(item.Count), item.Count, "positive", Some(key))),
+        faceSpacing: item => AdmissionSlots.Gate(double.IsFinite(item.MaxSpacingMm) && item.MaxSpacingMm > 0.0,
             new KernelFault.OutOfRange(nameof(item.MaxSpacingMm), item.MaxSpacingMm, "finite and positive", Some(key))),
-        perimeterCount: item => Prove(item.Count > 0, new KernelFault.OutOfRange(nameof(item.Count), item.Count, "positive", Some(key))),
-        perimeterSpacing: item => Prove(double.IsFinite(item.MaxSpacingMm) && item.MaxSpacingMm > 0.0,
+        perimeterCount: item => AdmissionSlots.Gate(item.Count > 0, new KernelFault.OutOfRange(nameof(item.Count), item.Count, "positive", Some(key))),
+        perimeterSpacing: item => AdmissionSlots.Gate(double.IsFinite(item.MaxSpacingMm) && item.MaxSpacingMm > 0.0,
             new KernelFault.OutOfRange(nameof(item.MaxSpacingMm), item.MaxSpacingMm, "finite and positive", Some(key))),
-        placed: item => Prove(double.IsFinite(item.YMm) && double.IsFinite(item.ZMm),
+        placed: item => AdmissionSlots.Gate(double.IsFinite(item.YMm) && double.IsFinite(item.ZMm),
             new KernelFault.InvalidValue(nameof(RebarLayout.Placed), "finite section-plane coordinates", Some(key))));
-
-    static Validation<Error, Unit> Prove(bool held, Error fault) => guard(held, fault).ToValidation();
 
     static ConcreteSection Build(IProfile profile, EnConcreteMaterial concrete, EnRebarMaterial rebar, BarRow link, Seq<RebarLayout> layout, double coverMm) {
         Seq<RebarPlacement> placements = layout.Map(l => PlacementOf(l, rebar));

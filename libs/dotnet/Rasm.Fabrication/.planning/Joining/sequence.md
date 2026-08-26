@@ -832,8 +832,8 @@ public static class Sequence {
         if (!joints.IsDirectedAcyclicGraph()) {
             _ = joints.StronglyConnectedComponents(out IDictionary<int, int> components);
             return Fin.Fail<JointPrecedence>(new FabricationFault.AssemblyPrecedenceCyclic(
-                toSeq(components)
-                    .GroupBy(static row => row.Value)
+                toSeq(toSeq(components)
+                    .GroupBy(static row => row.Value))
                     .Filter(static group => group.Count() > 1)
                     .Bind(static group => toSeq(group).Map(static row => row.Key))
                     .ToArr()));
@@ -853,7 +853,7 @@ public static class Sequence {
     private static Fin<Seq<WeldSegment>> Segments(WeldPlan plan, Map<int, int> level) =>
         plan.Passes
             .Bind(pass => pass.Segments.Map(segment => (Pass: pass, Segment: segment)))
-            .Map(row => row.Segment
+            .Traverse(row => row.Segment
                 .Window(0.0, 1.0, row.Pass.CommandedFeedMmMin)
                 .Map(path => new WeldSegment(
                     row.Pass,
@@ -867,7 +867,6 @@ public static class Sequence {
                     ToFraction: 1.0,
                     path,
                     row.Segment.Frames)))
-            .Traverse(identity)
             .As()
             .Map(static rows => toSeq(rows.OrderBy(static segment => segment.Precedence))
                 .Map(static (segment, index) => segment with { Sequence = index }));
@@ -878,7 +877,7 @@ public static class Sequence {
                 int count = Math.Max(1, (int)Math.Ceiling(segment.Length / maximum));
                 return toSeq(Range(0, count)).Map(index => (Segment: segment, Index: index, Count: count));
             })
-            .Map(row => {
+            .Traverse(row => {
                 double from = row.Segment.FromFraction
                     + ((row.Segment.ToFraction - row.Segment.FromFraction) * row.Index / row.Count);
                 double to = row.Segment.FromFraction
@@ -894,7 +893,6 @@ public static class Sequence {
                         Frames = Seq(row.Segment.Source.FrameAt(from), row.Segment.Source.FrameAt(to)),
                     });
             })
-            .Traverse(identity)
             .As()
             .Map(static rows => rows.Map(static (segment, index) => segment with { Sequence = index }));
 
@@ -998,7 +996,7 @@ public static class Sequence {
                 angular > limits.AngularDistortion
                     ? Some<CandidateRejection>(new CandidateRejection.AngularDistortion(angular, limits.AngularDistortion))
                     : Option<CandidateRejection>.None)
-            .Choose(identity);
+            .Somes();
     }
 
     private const int MemberDegrees = 5;

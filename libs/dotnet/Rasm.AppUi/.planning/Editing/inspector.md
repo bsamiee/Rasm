@@ -407,7 +407,6 @@ public sealed partial class Presenter {
 }
 
 [SmartEnum<string>]
-[ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class EditorFactory {

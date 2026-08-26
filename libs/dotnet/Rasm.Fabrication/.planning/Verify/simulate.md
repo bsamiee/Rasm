@@ -721,8 +721,11 @@ public static class Simulate {
         macro: static (at, value) => Flatten(value.Body.ToSeq(), at.Locus.Path, at.Policy),
         subprogram: static (at, value) => value.Repeats > 0
             ? Range(0, value.Repeats).ToSeq()
-                .Map(index => Flatten(value.Body.ToSeq(), at.Locus.Path.Init.Add(new ProgramPathStep(at.Locus.Block, Some(index))), at.Policy))
-                .TraverseM(identity).As()
+                .TraverseM(index => Flatten(
+                    value.Body.ToSeq(),
+                    at.Locus.Path.Init.Add(new ProgramPathStep(at.Locus.Block, Some(index))),
+                    at.Policy))
+                .As()
                 .Map(static groups => groups.Fold(Seq<(ProgramLocus, GNode)>(), static (all, group) => all.Concat(group)))
             : Fin.Fail<Seq<(ProgramLocus, GNode)>>(new KernelFault.InvalidValue("simulate", "simulate:subprogram-repeats")),
         additiveLayer: static (at, value) => Fin.Succ(Seq((at.Locus, (GNode)value))),
@@ -938,9 +941,7 @@ public static class Simulate {
             .ToFin(new KernelFault.InvalidValue("simulate", locus));
 
     internal static Fin<Option<int>> OptionalOrdinal(Option<double> raw, string locus, Func<int, bool> admitted) =>
-        raw.Match(
-            None: () => Fin.Succ<Option<int>>(None),
-            Some: _ => Ordinal(raw, locus, admitted).Map(Some));
+        raw.TraverseM(value => Ordinal(Some(value), locus, admitted)).As();
 
     // --- [ROTARY_SPAN]
     private static Fin<(Duration Elapsed, Map<MachineAxis, double> Targets)> RotarySpan(
@@ -1162,9 +1163,9 @@ public static class Simulate {
             .ToValidation();
 
     internal static ValidationError? Folded(Seq<K<Validation<Error>, Unit>> slots) =>
-        AdmissionSlots.Accumulate(slots).ToFin().Match(
-            Succ: static _ => null,
-            Fail: static _ => new ValidationError("simulate:admission"));
+        AdmissionSlots.Accumulate(slots).Match(
+            Fail: static _ => new ValidationError("simulate:admission"),
+            Succ: static _ => (ValidationError?)null);
 
     // --- [CLOCK_KERNEL]
     private const double SecondsPerMinute = 60.0;

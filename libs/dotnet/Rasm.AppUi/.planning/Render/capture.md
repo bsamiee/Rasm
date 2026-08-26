@@ -487,7 +487,6 @@ public sealed record VisualRuntime(
                     artifact.Kind.Value, artifact.Format, artifact.FrameHash, artifact.DrawHash, artifact.Pixels,
                     (ulong)artifact.Bytes, artifact.Elapsed, artifact.ColorSpace, artifact.Destination),
                 key: FactOp))
-            .Bind(static fired => IO.lift(fired))
             .Map(_ => artifact);
 }
 

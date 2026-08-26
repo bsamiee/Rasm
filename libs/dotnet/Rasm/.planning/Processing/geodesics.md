@@ -444,7 +444,7 @@ internal static partial class GeodesicKernel {
                 continue;
             }
             int edgeIndex = imesh.IndexOfEdge(lo: ea, hi: eb);
-            if (edgeIndex >= 0 && policy.Barrier.Map(barrier => barrier.Contains(edgeIndex)).IfNone(false)) {
+            if (edgeIndex >= 0 && policy.Barrier.Exists(barrier => barrier.Contains(edgeIndex))) {
                 traversed += tHit; endX = qx + (tHit * dx); endY = qy + (tHit * dy); arrivalFace = face; stop = GeodesicStopKind.BarrierHit; break;
             }
             int across = edgeIndex < 0 ? -1 : imesh.FaceAcrossEdge(faceIdx: face, i: ea, j: eb);

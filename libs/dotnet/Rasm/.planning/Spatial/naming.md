@@ -216,9 +216,9 @@ public static class Naming {
     }
 
     static Fin<NameEntry> Survive(NameTable prior, TopoName name, TopoSignature signature, Seq<TopoName> boundary, Generation next, RebuiltEntity entity) =>
-        prior.Entries.Find(name).Match(
-            Some: prev => Fin.Succ(prev with { LastSeen = next, Signature = signature, Boundary = boundary, Canonical = entity.Canonical }),
-            None: () => Fin.Fail<NameEntry>(new GeometryFault.NameCollision(name, entity.Kind)));
+        prior.Entries.Find(name)
+            .ToFin(new GeometryFault.NameCollision(name, entity.Kind))
+            .Map(prev => prev with { LastSeen = next, Signature = signature, Boundary = boundary, Canonical = entity.Canonical });
 
     static Fin<NameEntry> MigrateOrBirth(NameTable prior, RebuiltEntity entity, TopoSignature signature, Seq<TopoName> boundary, Generation next, NamingPolicy policy) {
         Option<TopoName> parent = OverlapParent(prior, entity.Kind, boundary, policy);

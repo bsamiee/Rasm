@@ -142,7 +142,7 @@ public sealed partial class SheetSeries {
             ? int.TryParse(suffix, NumberStyles.None, CultureInfo.InvariantCulture, out int index) && index >= Bounds.Floor && index <= Bounds.Ceiling
                 ? Fin.Succ(index)
                 : Fin.Fail<int>(key.InvalidInput())
-            : Suffixes.Zip(Range(0, Suffixes.Count)).Find(pair => string.Equals(pair.Item1, suffix, StringComparison.Ordinal))
+            : Suffixes.Map(static (suffix, index) => (suffix, index)).Find(pair => string.Equals(pair.Item1, suffix, StringComparison.Ordinal))
                 .Map(static pair => pair.Item2).ToFin(key.InvalidInput());
 
     private static (Length Width, Length Height) Mm(double width, double height) => (Length.FromMillimeters(width), Length.FromMillimeters(height));
@@ -235,7 +235,7 @@ public abstract partial record SheetSize : IValidityEvidence {
         custom: static row => (row.Width, row.Height));
     private static readonly Lazy<FrozenDictionary<(SheetSeries Series, int Index), (Length Width, Length Height)>> Ladder =
         new(static () => toSeq(SheetSeries.Items)
-            .Bind(static series => toSeq(Range(series.Bounds.Floor, series.Bounds.Ceiling - series.Bounds.Floor + 1)).Map(index => (Series: series, Index: index)))
+            .Bind(static series => Range(series.Bounds.Floor, series.Bounds.Ceiling - series.Bounds.Floor + 1).ToSeq().Map(index => (Series: series, Index: index)))
             .Choose(static seat => seat.Series.Extent(seat.Index, Op.Of()).ToOption().Map(extent => (Seat: seat, Extent: extent)))
             .ToFrozenDictionary(static row => row.Seat, static row => row.Extent));
     public SheetStandard Standard => Switch(rostered: static row => row.Series.Standard, custom: static row => row.Standard);
@@ -854,7 +854,7 @@ public sealed partial class NamingStandard {
     private static readonly SearchValues<char> Digits = SearchValues.Create("0123456789");
 
     internal string Render(Seq<(NamingField Field, string Value)> fields) =>
-        Sequence.Zip(Range(0, Sequence.Count)).Fold(string.Empty, (held, pair) =>
+        Sequence.Map(static (field, index) => (field, index)).Fold(string.Empty, (held, pair) =>
             string.Concat(held, pair.Item2 == 0 || Fused.Contains(pair.Item2 - 1) ? string.Empty : Delimiter, Value(fields, pair.Item1)));
 
     private static Validation<Error, (NamingField Field, string Value)> Field(Seq<(NamingField Field, string Value)> fields, NamingField field, Func<string, bool> admits, Op key, string requirement) =>
@@ -1064,7 +1064,7 @@ public sealed partial class LayerName {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HostLayerScheme {
-    public static readonly HostLayerScheme RhinoPath = new(key: "rhino-path", project: static name => name.Fields.Map(static pair => pair.Value).ToSeq(), separator: Some("::"));
+    public static readonly HostLayerScheme RhinoPath = new(key: "rhino-path", project: static name => name.Fields.Map(static pair => pair.Value), separator: Some("::"));
     public static readonly HostLayerScheme AutoCadFlat = new(key: "autocad-flat", project: static name => Seq(name.Text), separator: None);
     public static readonly HostLayerScheme IfcPresentation = new(key: "ifc-presentation", project: static name => Seq(name.Text), separator: None);
     public static readonly HostLayerScheme Pdf = new(key: "pdf-ocg", project: static name => Seq(name.Text), separator: None);
@@ -1642,12 +1642,8 @@ public sealed record PlotPolicy : IValidityEvidence {
                 ScaleLadder.For(size.Standard).Admits(scale)
                     ? Validation<Error, DrawingScale>.Success(scale)
                     : Validation<Error, DrawingScale>.Fail(new KernelFault.InvalidValue(Label: nameof(scale), Requirement: "a rung of the standard's scale ladder", Key: Some(op))),
-                LineGroup.For(size: size, key: op).Match(
-                    Succ: static group => Validation<Error, LineGroup>.Success(group),
-                    Fail: static error => Validation<Error, LineGroup>.Fail(error)),
-                PdfTrait.Law.Admit(conformance).Match(
-                    Succ: static held => Validation<Error, CapabilitySet<PdfTrait>>.Success(held),
-                    Fail: static error => Validation<Error, CapabilitySet<PdfTrait>>.Fail(error)))
+                LineGroup.For(size: size, key: op).ToValidation(),
+                PdfTrait.Law.Admit(conformance).ToValidation())
             .Apply((admittedSize, admittedScale, group, traits) => new PlotPolicy(
                 size: admittedSize, orientation: orientation, frame: SheetFrame.For(admittedSize.Standard), scale: admittedScale, group: group,
                 styles: styles, posture: posture, resolution: resolution, emission: emission, conformance: traits))

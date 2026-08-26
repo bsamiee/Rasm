@@ -1154,7 +1154,7 @@ public sealed partial record JacobianColoring(int Rows, int Columns, Seq<(int Ro
         HashMap<int, int> assigned = toSeq(Enumerable.Range(0, columns).OrderByDescending(graph.AdjacentDegree))
             .Fold(HashMap<int, int>(), (held, column) => held.Add(column, Lowest(toSeq(graph.AdjacentVertices(column)).Choose(held.Find))));
         return Fin.Succ(new JacobianColoring(rows, columns, pattern,
-            [.. Enumerable.Range(0, columns).Map(column => assigned.Find(column).IfNone(0))],
+            [.. Enumerable.Range(0, columns).Select(column => assigned.Find(column).IfNone(0))],
             assigned.Values.Distinct().Count()));
     }
 

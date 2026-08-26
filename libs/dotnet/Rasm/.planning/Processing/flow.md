@@ -487,10 +487,11 @@ internal static class MorseAtlas {
         VectorField source, FlowPartition partition, PositiveMagnitude initialStep, FieldIntegrator integrator,
         TopologyPolicy policy, Context context, Op key, Option<TracePolicy> tracePolicy = default) =>
         from horizon in Termination.Steps(count: policy.TransitionSteps.Value, key: key)
-        from arcs in Ordinals(partition: partition).Fold(Fin.Succ(Seq<SEdge<int>>()), (acc, cell) => acc.Bind(rows =>
+        from arcs in Ordinals(partition: partition).TraverseM(cell =>
             Visited(source: source, partition: partition, seed: partition.Representative(arg: cell), initialStep: initialStep,
                     integrator: integrator, termination: horizon, context: context, key: key, policy: tracePolicy)
-                .Map(visited => rows + Transitions(cell: cell, visited: visited))))
+                .Map(visited => Transitions(cell: cell, visited: visited))).As()
+            .Map(chunks => chunks.Bind(static chunk => chunk))
         from labelled in Label(arcs: arcs, cells: partition.Cells.Value, key: key)
         let census = Census(component: labelled.Component, nodes: labelled.Count,
             trapped: toHashSet(arcs.Filter(static arc => arc.Source == arc.Target).Map(static arc => arc.Source)))

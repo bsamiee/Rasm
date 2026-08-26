@@ -18,11 +18,10 @@ Graph addressing folds the semantic `Header`, excludes provenance, sorts node an
 - Output: a `ContentAddress` is the stable cross-runtime shared content key — a content-derived `NodeId`'s preimage, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id.
 - Packages: `Rasm` (kernel `ContentHash`, `CanonicalWriter`, `Op`), System.IO.Hashing (`XxHash128` the streaming accumulator each fold seeds at zero), Thinktecture.Runtime.Extensions (`[ValueObject<UInt128>]`/`[ObjectFactory<string>]`), LanguageExt.Core (`Fin`, `Validation`, `Error`, `Seq.Traverse`, `.As()`).
 - Growth: a new structural identity adds one input-shaped `Of` or `Verify` overload; a precomputed key composes `Of(UInt128)`; a new by-reference payload kind composes `BlobKey`; canonical vocabulary grows only on the KERNEL writer, and the dimensioned leg on `Properties/quantity#MEASURE_CANON`.
-- Boundary: the WIRE face is the X32 hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so serializers render and admit through the `[ObjectFactory<string>]` factory. Admission is upper-case-strict: exactly the 32 characters `ToValue` emits. The generated `NodeWire.content_address`, `NodeId` render, and store columns read that one interior spelling.
+- Boundary: the WIRE face is the x32 lowercase hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so serializers admit through the `[ObjectFactory<string>]` factory via `ContentHash.Admit` and render through `ContentHash.Hex`; generated `ToValue()` remains the raw-key projection. The generated `NodeWire.content_address`, `NodeId` render, and store columns read that one interior spelling.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using System.Globalization;
 using System.IO.Hashing;
 using LanguageExt;
 using LanguageExt.Common;
@@ -36,20 +35,10 @@ using static Rasm.Domain.AdmissionSlots;
 namespace Rasm.Element.Projection;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-file static class Hex {
- internal static UInt128? Admit(string? value) =>
-  value is { Length: 32 } candidate
-  && !candidate.AsSpan().ContainsAnyInRange(lowInclusive: 'a', highInclusive: 'f')
-  && UInt128.TryParse(candidate, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out UInt128 parsed)
-   ? parsed : null;
-}
-
-[ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValueObject<UInt128>]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.All)]
 public sealed partial class ContentAddress {
  public static ContentAddress Of(ReadOnlySpan<byte> canonicalBytes) => Create(ContentHash.Of(canonicalBytes));
-
- public static ContentAddress Of(UInt128 contentHash) => Create(contentHash);
 
  public static ContentAddress Of<TState>(TState state, double tolerance, Action<TState, CanonicalWriter> fold) {
   CanonicalWriter writer = CanonicalWriter.Streaming(tolerance: tolerance, accumulator: new XxHash128(seed: 0L));
@@ -58,15 +47,15 @@ public sealed partial class ContentAddress {
  }
 
  public static ContentAddress Of(Node node, double tolerance) =>
-  Of(node, tolerance, static (n, w) => { w.String(n.Id.Value); n.CanonicalBytes(w); });
+  Of(node, tolerance, static (n, w) => { w.String(n.Id.ToValue()); n.CanonicalBytes(w); });
 
  public static ContentAddress Of(Relationship edge, double tolerance) =>
   Of(edge, tolerance, static (e, w) => e.CanonicalBytes(w));
 
  public static ContentAddress OfGraph(ElementGraph graph) =>
   OfGraph(graph.Header,
-          toSeq(graph.Nodes.Values).Map(node => Of(node, graph.Header.Tolerance).Value),
-          graph.Edges.Map(edge => Of(edge, graph.Header.Tolerance).Value));
+          toSeq(graph.Nodes.Values).Map(node => Of(node, graph.Header.Tolerance).ToValue()),
+          graph.Edges.Map(edge => Of(edge, graph.Header.Tolerance).ToValue()));
 
  static ContentAddress OfGraph(Header header, Seq<UInt128> nodes, Seq<UInt128> edges) =>
   Of((header, nodes, edges), header.Tolerance, static (s, w) => {
@@ -76,11 +65,12 @@ public sealed partial class ContentAddress {
   });
 
  public static ValidationError? Validate(string? value, IFormatProvider? provider, out ContentAddress? item) {
-  item = Hex.Admit(value) is UInt128 parsed ? Create(parsed) : null;
+  item = value is not null
+   && ContentHash.Admit(value, Op.Of()).ToOption() is { IsSome: true, Case: UInt128 parsed }
+    ? Create(parsed)
+    : null;
   return item is null ? ValidationError.Create($"<content-address-hex-invalid:{value}>") : null;
  }
-
- public string ToValue() => Value.ToString("X32", CultureInfo.InvariantCulture);
 
  public static Fin<Unit> Verify(Node node, double tolerance, Op key) =>
   node.Seed(tolerance).Switch<Fin<Unit>>(
@@ -92,7 +82,7 @@ public sealed partial class ContentAddress {
  private static Fin<Unit> Remint(NodeSeed seed, NodeId stored, Op key) =>
   NodeId.Of(seed) == stored
    ? Fin.Succ(unit)
-   : new ElementFault.AddressUnstable(key, $"<node-id-mismatch:{stored.Value}>");
+   : new ElementFault.AddressUnstable(key, $"<node-id-mismatch:{stored.ToValue()}>");
 
  public static Validation<Error, Unit> Verify(ElementGraph graph, Op key) =>
   toSeq(graph.Nodes.Values)
@@ -101,18 +91,18 @@ public sealed partial class ContentAddress {
    .Map(static _ => unit);
 }
 
-[ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValueObject<UInt128>]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.All)]
 public sealed partial class BlobKey {
  public static BlobKey Of(ReadOnlySpan<byte> payload) => Create(ContentHash.Of(payload));
- public static BlobKey Of(UInt128 digest) => Create(digest);
 
  public static ValidationError? Validate(string? value, IFormatProvider? provider, out BlobKey? item) {
-  item = Hex.Admit(value) is UInt128 parsed ? Create(parsed) : null;
+  item = value is not null
+   && ContentHash.Admit(value, Op.Of()).ToOption() is { IsSome: true, Case: UInt128 parsed }
+    ? Create(parsed)
+    : null;
   return item is null ? ValidationError.Create($"<blob-key-hex-invalid:{value}>") : null;
  }
-
- public string ToValue() => Value.ToString("X32", CultureInfo.InvariantCulture);
 }
 
 ```
@@ -182,7 +172,7 @@ public sealed record GraphMembers {
  static Validation<Error, HashMap<NodeId, ContentAddress>> Drop(HashMap<NodeId, ContentAddress> held, Seq<NodeId> removals, Op key) =>
   Accumulate(removals.Map(id => held.ContainsKey(id)
     ? Success<Error, Unit>(unit)
-    : Fail<Error, Unit>(new ElementFault.NodeAbsent(key, $"<members-remove-absent:{id.Value}>"))))
+    : Fail<Error, Unit>(new ElementFault.NodeAbsent(key, $"<members-remove-absent:{id.ToValue()}>"))))
    .Map(_ => removals.Fold(held, static (map, id) => map.Remove(id)));
 
  static Validation<Error, HashMap<ContentAddress, int>> Retire(
@@ -192,7 +182,7 @@ public sealed record GraphMembers {
    (map, edge) => map.AddOrUpdate(ContentAddress.Of(edge, tolerance), static count => count + 1, () => 1));
   return Accumulate(toSeq(demanded).Map(pair => held.Find(pair.Key).IfNone(0) >= pair.Value
     ? Success<Error, Unit>(unit)
-    : Fail<Error, Unit>(new ElementFault.DeltaConflict(key, $"<members-edge-absent:{pair.Key.ToValue()}>"))))
+    : Fail<Error, Unit>(new ElementFault.DeltaConflict(key, $"<members-edge-absent:{ContentHash.Hex(pair.Key.ToValue())}>"))))
    .Map(_ => toSeq(demanded).Fold(held, static (map, pair) =>
     map.Find(pair.Key).IfNone(0) - pair.Value switch {
      > 0 and var remaining => map.AddOrUpdate(pair.Key, remaining),
@@ -208,8 +198,8 @@ public sealed record GraphMembers {
 public sealed partial class ContentAddress {
  public static ContentAddress OfGraph(GraphMembers members) =>
   OfGraph(members.Header,
-          toSeq(members.Nodes.Values).Map(static address => address.Value),
-          toSeq(members.Edges).Bind(static pair => toSeq(Enumerable.Repeat(pair.Key.Value, pair.Value))));
+          toSeq(members.Nodes.Values).Map(static address => address.ToValue()),
+          toSeq(members.Edges).Bind(static pair => toSeq(Enumerable.Repeat(pair.Key.ToValue(), pair.Value))));
 }
 ```
 

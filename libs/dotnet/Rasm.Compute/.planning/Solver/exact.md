@@ -70,8 +70,9 @@ public sealed class BoundStream(ProgressCell cell) : SolutionCallback {
 
 public static class ExactLane {
     internal static Fin<KernelRun> SolveCpSat(DesignProblem problem, OptimizerPolicy policy, SearchContext search, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
-        problem.Exact.Match(
-            Some: model => {
+        problem.Exact
+            .ToFin(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource)))
+            .Bind(model => {
                 CpModel cp = new();
                 long q = DesignProblem.Scale(policy.IntegerStep);
                 IntVar[] vars = [.. Enumerable.Range(0, problem.Dimension).Select(slot =>
@@ -113,8 +114,7 @@ public static class ExactLane {
                             Reduced: Seq<(string, double)>(),
                             Wall: Duration.FromSeconds(solver.WallTime()))))
                     : Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())));
-            },
-            None: () => Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource))));
+            });
 
     static void Reify(CpModel cp, DesignProblem problem, IntVar[] vars, long q) {
         for (int axis = 0; axis < problem.Activation.Count; axis++) {
@@ -146,11 +146,11 @@ public static class ExactLane {
             : (long)Math.Round(variable.Clamp(physical));
 
     internal static Fin<KernelRun> SolveMilp(DesignProblem problem, OptimizerPolicy policy, SearchContext search, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
-        problem.Exact.Match(
-            Some: model => Representable(problem, model).Match(
+        problem.Exact
+            .ToFin(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource)))
+            .Bind(model => Representable(problem, model).Match(
                 Some: Fin.Fail<KernelRun>,
-                None: () => Scip(problem, policy, search, oracle, seed, model)),
-            None: () => Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource))));
+                None: () => Scip(problem, policy, search, oracle, seed, model)));
 
     static Option<Error> Representable(DesignProblem problem, LinearModel model) =>
         model.Rows.Find(static row => !row.Contiguous) is { IsSome: true, Case: LinearRow banded }
@@ -274,11 +274,11 @@ public sealed record RoutingResult(Seq<Seq<int>> Sequences, long TotalCost, Seq<
 
 public static class RoutingSearch {
     public static Fin<KernelRun> Solve(DesignProblem problem, OptimizerPolicy policy, SearchContext search, ParetoFront seed) =>
-        problem.Routing.Match(
-            Some: model => policy.Routing.Invalid
+        problem.Routing
+            .ToFin(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource)))
+            .Bind(model => policy.Routing.Invalid
                 ? Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
-                : model.Validate().Bind(_ => Lower(model, policy, search, seed)),
-            None: () => Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource))));
+                : model.Validate().Bind(_ => Lower(model, policy, search, seed)));
 
     static Fin<KernelRun> Lower(RoutingProblem model, OptimizerPolicy policy, SearchContext search, ParetoFront seed) =>
         Op.Of(name: "routing.solve").Catch(() => {
@@ -288,7 +288,7 @@ public static class RoutingSearch {
             int[] callbacks = [.. model.Transit.Map(cost => routing.RegisterTransitCallback(
                 (long from, long to) => cost(Node(manager, from), Node(manager, to))))];
             routing.SetArcCostEvaluatorOfAllVehicles(callbacks[0]);
-            model.Dimensions.Iter((spec, index) => routing.AddDimensionWithVehicleCapacity(
+            model.Dimensions.Iter((index, spec) => routing.AddDimensionWithVehicleCapacity(
                 callbacks[index + 1], spec.Slack, [.. model.Vehicles.Map(static v => v.Capacity)], fix_start_cumul_to_zero: true, spec.Name));
             return Harvest(manager, routing, model, policy, search, seed);
         });

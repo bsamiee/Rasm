@@ -121,12 +121,10 @@ public sealed partial class CfEpoch {
     public LocalDate Epoch { get; }
 
     public static Validation<Error, CfEpoch> Admit(string units, string calendar) =>
-        (Calendar(calendar), Origin(units)).Apply(static (_, epoch) => new CfEpoch(epoch)).As();
-
-    static Validation<Error, Unit> Calendar(string calendar) =>
-        Calendars.Contains(calendar)
-            ? unit
-            : new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-gridded-calendar:{calendar}>");
+        (AdmissionSlots.Gate(
+             Calendars.Contains(calendar),
+             new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-gridded-calendar:{calendar}>")),
+         Origin(units)).Apply(static (_, epoch) => new CfEpoch(epoch)).As();
 
     static Validation<Error, LocalDate> Origin(string units) =>
         units.StartsWith(Prefix, StringComparison.Ordinal)
@@ -236,7 +234,13 @@ public static class DaylightAnalysis {
     const string Unmeasured = "unmeasured";
 
     public static Fin<AssessmentResult> Run(ElementGraph graph, AssessmentRequest.Daylight request, GeometrySource geometry, AssessmentSink sink, ContentAddress key, IClock clock) =>
-        from _ in (DesignDays(request), Requirement(request)).Apply(static (_, _) => unit).As().ToFin()
+        from _ in (AdmissionSlots.Gate(
+                       !request.DesignDays.IsEmpty,
+                       new ComputeFault.AssessmentInputMissing(AssessmentInputReason.DesignDaysEmpty, request.Route.Key)),
+                   AdmissionSlots.Gate(
+                       double.IsFinite(request.RequiredSunHours) && request.RequiredSunHours >= 0.0,
+                       new ComputeFault.AssessmentInputMissing(AssessmentInputReason.PolicyInvalid, $"{request.RequiredSunHours:R}")))
+            .Apply(static (_, _) => unit).As().ToFin()
         from scene in DaylightScene.Of(graph, request, geometry)
         from weather in request.Weather.Match(
             Some: source => WeatherIngress.Read(source, request.Site).Map(static value => Some(value)),
@@ -251,9 +255,9 @@ public static class DaylightAnalysis {
                 None: () => request.RequiredSunHours / f.WorstDaySunHours)))
             : Option<double>.None
         from perTarget in findings.TraverseM(f => AssessmentFact.Rows(
-            AssessmentFact.Measure($"{f.Target.Value}/worst-day-sun-hours", Dimension.DurationDim, f.WorstDaySunHours * 3600.0),
+            AssessmentFact.Measure($"{f.Target.ToValue()}/worst-day-sun-hours", Dimension.DurationDim, f.WorstDaySunHours * 3600.0),
             Shadow(f),
-            AssessmentFact.Ratio($"{f.Target.Value}/sky-view-factor", f.SkyViewFactor))).As()
+            AssessmentFact.Ratio($"{f.Target.ToValue()}/sky-view-factor", f.SkyViewFactor))).As()
         from skyFacts in weather.Match(
             Some: w => findings.TraverseM(f => Irradiance(f)).As()
                 .Map(perez => Seq(AssessmentFact.Text("sky-state", $"perez:{Dominant(w.Hours).Key}"))
@@ -272,25 +276,15 @@ public static class DaylightAnalysis {
             resultArtifact: matrix)
         select result;
 
-    static Validation<Error, Unit> DesignDays(AssessmentRequest.Daylight request) =>
-        request.DesignDays.IsEmpty
-            ? new ComputeFault.AssessmentInputMissing(AssessmentInputReason.DesignDaysEmpty, request.Route.Key)
-            : unit;
-
-    static Validation<Error, Unit> Requirement(AssessmentRequest.Daylight request) =>
-        double.IsFinite(request.RequiredSunHours) && request.RequiredSunHours >= 0.0
-            ? unit
-            : new ComputeFault.AssessmentInputMissing(AssessmentInputReason.PolicyInvalid, $"{request.RequiredSunHours:R}");
-
     static Fin<AssessmentFact> Shadow(DaylightFinding finding) =>
         finding.MeanShadowFraction.Value().Match(
-            Some: share => AssessmentFact.Ratio($"{finding.Target.Value}/mean-shadow-fraction", share),
-            None: () => Fin.Succ(AssessmentFact.Text($"{finding.Target.Value}/mean-shadow-fraction", Unmeasured)));
+            Some: share => AssessmentFact.Ratio($"{finding.Target.ToValue()}/mean-shadow-fraction", share),
+            None: () => Fin.Succ(AssessmentFact.Text($"{finding.Target.ToValue()}/mean-shadow-fraction", Unmeasured)));
 
     static Fin<AssessmentFact> Irradiance(DaylightFinding finding) =>
         finding.PerezDiffuseWm2.Value().Match(
-            Some: wm2 => AssessmentFact.Measure($"{finding.Target.Value}/perez-diffuse-irradiance", Dimension.IrradianceDim, wm2),
-            None: () => Fin.Succ(AssessmentFact.Text($"{finding.Target.Value}/perez-diffuse-irradiance", Unmeasured)));
+            Some: wm2 => AssessmentFact.Measure($"{finding.Target.ToValue()}/perez-diffuse-irradiance", Dimension.IrradianceDim, wm2),
+            None: () => Fin.Succ(AssessmentFact.Text($"{finding.Target.ToValue()}/perez-diffuse-irradiance", Unmeasured)));
 
     static Seq<SkyState> Probed(Seq<SkyState> hours, DaylightPolicy policy) =>
         toSeq(Enumerable.Range(0, hours.Count).Where(index => index % policy.OcclusionCadenceHours == 0).Select(index => hours[index]));
@@ -301,7 +295,7 @@ public static class DaylightAnalysis {
                 ArchiveSlot<double> slot = new("irradiance", grid);
                 using MemoryStream staged = new();
                 return ArchiveSession.Write(staged, HdfArchivePolicy.Interchange, Seq<IArchiveSlot>(slot),
-                        Seq((MatrixTargets, (ArchiveAttribute)new ArchiveAttribute.Text(string.Join(' ', findings.Map(static f => f.Target.Value)))),
+                        Seq((MatrixTargets, (ArchiveAttribute)new ArchiveAttribute.Text(string.Join(' ', findings.Map(static f => f.Target.ToValue())))),
                             (MatrixCadence, new ArchiveAttribute.Whole(request.Policy.OcclusionCadenceHours)),
                             (MatrixHours, new ArchiveAttribute.Whole(probed.Count))),
                         session => IO.lift(() => session.Cursor(slot)
@@ -311,7 +305,7 @@ public static class DaylightAnalysis {
                     .Bind(_ => sink.Store(staged.ToArray()).Run())
                     .Bind(blob => sink.Series(findings.Bind(finding => probed
                             .Zip(toSeq(finding.HourlyPlaneWm2))
-                            .Map(pair => new SeriesPoint(key.Value, pair.First.At, pair.Second, Seq(finding.Target.Value)))))
+                            .Map(pair => new SeriesPoint(key.ToValue(), pair.First.At, pair.Second, Seq(finding.Target.ToValue())))))
                         .Run()
                         .Map(_ => blob));
             });
@@ -409,7 +403,7 @@ public sealed record DaylightScene(Seq<NodeId> Targets, Map<NodeId, Vector3> Sam
                 .Bind(o => geometry.Footprint(o.Representations))
                 .Filter(static f => !f.IsEmpty)
                 .Bind(footprint => Centroid(footprint).Map(point => (Id: id, Point: point)))
-                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-target-unresolved:{id.Value}>")))
+                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<daylight-target-unresolved:{id.ToValue()}>")))
             .As()
             .Bind(points => Diameter(request.Scene.Index)
                 .Filter(_ => request.Scene.Key != UInt128.Zero && !request.Scene.Triangles.IsEmpty)

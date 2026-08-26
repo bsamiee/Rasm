@@ -42,7 +42,7 @@ public sealed class TopologyView {
     public ElementGraph Graph { get; }
     public UInt128 Address { get; }
 
-    private TopologyView(ModelId model, ElementGraph graph) => (Model, Graph, Address) = (model, graph, ContentAddress.OfGraph(graph).Value);
+    private TopologyView(ModelId model, ElementGraph graph) => (Model, Graph, Address) = (model, graph, ContentAddress.OfGraph(graph).ToValue());
 
     public static TopologyView Of(ModelId model, ElementGraph graph) => new(model, graph);
 
@@ -192,8 +192,8 @@ public abstract partial record TopologyFault : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Traversals {
     public static Fin<TopologyResult> Run(TopologyView view, TopologyQuery query) => query.Switch(
-        ancestry:   a => Rooted(view, a.Node, () => new TopologyResult.Reached(Walk(view, EdgeFilter.Spatial, EdgeOrientation.Ascending, a.Node.Node, a.Depth.Value))),
-        descent:    d => Rooted(view, d.Node, () => new TopologyResult.Reached(Walk(view, EdgeFilter.Spatial, EdgeOrientation.Forward, d.Node.Node, d.Depth.Value))),
+        ancestry:   a => Rooted(view, a.Node, () => new TopologyResult.Reached(Walk(view, EdgeFilter.Spatial, EdgeOrientation.Ascending, a.Node.Node, a.Depth.ToValue()))),
+        descent:    d => Rooted(view, d.Node, () => new TopologyResult.Reached(Walk(view, EdgeFilter.Spatial, EdgeOrientation.Forward, d.Node.Node, d.Depth.ToValue()))),
         neighbors:  n => Rooted(view, n.Node, () => new TopologyResult.Reached(Neighbors(view, n.Node.Node, n.Kind))),
         ancestor:   a => Paired(view, a.Left, a.Right, () => Lca(view, a.Left.Node, a.Right.Node)),
         path:       p => Paired(view, p.From, p.To, () => Fin.Succ(Shortest(view, p.From.Node, p.To.Node))),
@@ -207,11 +207,11 @@ public static class Traversals {
     static Fin<TopologyResult> Rooted(TopologyView view, SetKey root, Func<TopologyResult> run) =>
         root.Model == view.Model && view.Graph.Nodes.ContainsKey(root.Node)
             ? Fin.Succ(run())
-            : Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(root.Node.Value));
+            : Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(root.Node.ToValue()));
 
     static Fin<TopologyResult> Paired(TopologyView view, SetKey left, SetKey right, Func<Fin<TopologyResult>> run) =>
-        left.Model != view.Model || !view.Graph.Nodes.ContainsKey(left.Node) ? Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(left.Node.Value))
-        : right.Model != view.Model || !view.Graph.Nodes.ContainsKey(right.Node) ? Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(right.Node.Value))
+        left.Model != view.Model || !view.Graph.Nodes.ContainsKey(left.Node) ? Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(left.Node.ToValue()))
+        : right.Model != view.Model || !view.Graph.Nodes.ContainsKey(right.Node) ? Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(right.Node.ToValue()))
         : run();
 
     static KeySelection Walk(TopologyView view, EdgeFilter filter, EdgeOrientation orientation, NodeId root, int depth) {
@@ -244,7 +244,7 @@ public static class Traversals {
         }
         Option<NodeId> ambiguous = toSeq(tree.Vertices).Find(vertex => tree.InDegree(vertex) > 1);
         return ambiguous.Match(
-            Some: node => Fin.Fail<TopologyResult>(new TopologyFault.NotForest(node.Value)),
+            Some: node => Fin.Fail<TopologyResult>(new TopologyFault.NotForest(node.ToValue())),
             None: () => toSeq(tree.Roots()).Fold(Option<NodeId>.None, (held, root) =>
                     held.IsSome
                         ? held

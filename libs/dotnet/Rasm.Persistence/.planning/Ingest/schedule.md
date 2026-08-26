@@ -48,11 +48,6 @@ public sealed partial class ScheduleDirection {
     public static readonly ScheduleDirection Backward = new("backward", ScheduleFrom.Finish);
     public ScheduleFrom Wire { get; }
     private ScheduleDirection(string key, ScheduleFrom wire) : this(key) => Wire = wire;
-    public static Option<ScheduleDirection> Of(ScheduleFrom? wire) => wire switch {
-        ScheduleFrom.Start => Some(Forward),
-        ScheduleFrom.Finish => Some(Backward),
-        _ => None,
-    };
 }
 
 [SmartEnum<string>]
@@ -64,12 +59,6 @@ public sealed partial class CalendarKind {
     public static readonly CalendarKind Resource = new("resource", CalendarType.Resource);
     public CalendarType Wire { get; }
     private CalendarKind(string key, CalendarType wire) : this(key) => Wire = wire;
-    public static Option<CalendarKind> Of(CalendarType? wire) => wire switch {
-        CalendarType.Global => Some(Global),
-        CalendarType.Project => Some(Project),
-        CalendarType.Resource => Some(Resource),
-        _ => None,
-    };
 }
 
 [SmartEnum<string>]
@@ -82,13 +71,6 @@ public sealed partial class ResourceKind {
     public static readonly ResourceKind NonLabor = new("non-labor", ResourceType.NonLabor);
     public ResourceType Wire { get; }
     private ResourceKind(string key, ResourceType wire) : this(key) => Wire = wire;
-    public static Option<ResourceKind> Of(ResourceType? wire) => wire switch {
-        ResourceType.Material => Some(Material),
-        ResourceType.Work => Some(Work),
-        ResourceType.Cost => Some(Cost),
-        ResourceType.NonLabor => Some(NonLabor),
-        _ => None,
-    };
 }
 
 [SmartEnum<string>]
@@ -101,12 +83,6 @@ public sealed partial class RecurrenceKind {
     public static readonly RecurrenceKind Yearly = new("yearly", RecurrenceType.Yearly);
     public RecurrenceType Wire { get; }
     private RecurrenceKind(string key, RecurrenceType wire) : this(key) => Wire = wire;
-    public static RecurrenceKind Of(RecurrenceType? wire) => wire switch {
-        RecurrenceType.Weekly => Weekly,
-        RecurrenceType.Monthly => Monthly,
-        RecurrenceType.Yearly => Yearly,
-        _ => Daily,
-    };
 }
 
 [SmartEnum<string>]
@@ -118,11 +94,6 @@ public sealed partial class DayKind {
     public static readonly DayKind Inherited = new("inherited", DayType.Default);
     public DayType Wire { get; }
     private DayKind(string key, DayType wire) : this(key) => Wire = wire;
-    public static DayKind Of(DayType? wire) => wire switch {
-        DayType.Working => Working,
-        DayType.NonWorking => NonWorking,
-        _ => Inherited,
-    };
 }
 
 [SmartEnum<string>]
@@ -135,13 +106,6 @@ public sealed partial class DependencyKind {
     public static readonly DependencyKind StartFinish = new("start-finish", RelationType.StartFinish);
     public RelationType Wire { get; }
     private DependencyKind(string key, RelationType wire) : this(key) => Wire = wire;
-
-    public static DependencyKind Of(RelationType? wire) => wire switch {
-        RelationType.StartStart => StartStart,
-        RelationType.FinishFinish => FinishFinish,
-        RelationType.StartFinish => StartFinish,
-        _ => FinishStart,
-    };
 }
 
 [SmartEnum<string>]
@@ -160,12 +124,6 @@ public sealed partial class ConstraintKind {
     public static readonly ConstraintKind FinishOn = new("finish-on", ConstraintType.FinishOn);
     public ConstraintType Wire { get; }
     private ConstraintKind(string key, ConstraintType wire) : this(key) => Wire = wire;
-
-    static readonly Lazy<FrozenDictionary<ConstraintType, ConstraintKind>> ByWire =
-        new(static () => Items.ToFrozenDictionary(static row => row.Wire));
-
-    public static Option<ConstraintKind> Of(ConstraintType? wire) =>
-        wire is { } value && ByWire.Value.TryGetValue(value, out ConstraintKind? row) ? Optional(row) : None;
 }
 
 [SmartEnum<string>]
@@ -190,19 +148,14 @@ public sealed partial class ScheduleUnit {
     public TimeUnit Wire { get; }
 
     private ScheduleUnit(string key, TimeUnit wire) : this(key) => Wire = wire;
-
-    static readonly Lazy<FrozenDictionary<TimeUnit, ScheduleUnit>> ByWire =
-        new(static () => Items.ToFrozenDictionary(static row => row.Wire));
-
-    public static ScheduleUnit Of(TimeUnit? wire) =>
-        wire is { } value && ByWire.Value.TryGetValue(value, out ScheduleUnit? unit) ? unit : Days;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ScheduleSpan(double Magnitude, ScheduleUnit Unit) {
     public static Option<ScheduleSpan> From(MpxjDuration? span) =>
-        span is null ? None : Some(new ScheduleSpan(span.DurationValue, ScheduleUnit.Of(span.Units)));
+        span is null ? None : Some(new ScheduleSpan(span.DurationValue,
+            toSeq(ScheduleUnit.Items).Find(row => row.Wire == span.Units).IfNone(ScheduleUnit.Days)));
     public MpxjDuration Wire => MpxjDuration.GetInstance(Magnitude, Unit.Wire);
 }
 
@@ -321,9 +274,9 @@ public sealed partial class ScheduleSpec {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Origin source, ref Option<string> project) {
         if (source is Origin.FromPath { Path: string path } && string.IsNullOrWhiteSpace(path)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<schedule-spec-path>" }));
+            validationError = ValidationError.Create("<schedule-spec-path>");
         } else if (project.Map(string.IsNullOrWhiteSpace).IfNone(false)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<schedule-spec-project>" }));
+            validationError = ValidationError.Create("<schedule-spec-project>");
         }
     }
 
@@ -433,9 +386,7 @@ public static class ScheduleSource {
     static Option<string> Dialect(Seq<ScheduleProject> rows) => rows.Head.Bind(static r => r.Anchor.Dialect);
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Op.Of().Catch(() => Fin.Succ(codec())).Match(
-            Succ: static value => (Validation<Error, TValue>)value,
-            Fail: static e => (Validation<Error, TValue>)ScheduleFault.Lift(e));
+        Op.Of().Catch(() => Fin.Succ(codec())).MapFail(ScheduleFault.Lift).ToValidation();
 }
 ```
 
@@ -481,16 +432,15 @@ public static class ProjectRows {
     }
 
     static Validation<Error, int> Keyed(string row, int? key, Option<string> detail) =>
-        Optional(key).Match(
-            Some: static value => (Validation<Error, int>)value,
-            None: () => new ScheduleFault.RowUnkeyed(row, detail.IfNone("<unnamed>")));
+        Optional(key).ToValidation(
+            (Error)new ScheduleFault.RowUnkeyed(row, detail.IfNone("<unnamed>")));
 
     internal static Option<string> Text(string? value) =>
         Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(text));
 
     static ScheduleAnchor Anchor(ProjectProperties properties) => new(
         Text(properties.FileType), Text(properties.FileApplication), Text(properties.ProjectTitle),
-        ScheduleDirection.Of(properties.ScheduleFrom),
+        toSeq(ScheduleDirection.Items).Find(row => row.Wire == properties.ScheduleFrom),
         Local(properties.StartDate), Local(properties.FinishDate),
         Local(properties.StatusDate), Local(properties.CurrentDate), Text(properties.CurrencyCode),
         Optional(properties.DefaultCalendarUniqueID), Optional(properties.MinutesPerDay), Optional(properties.DaysPerMonth));
@@ -519,7 +469,7 @@ public static class ProjectRows {
             ScheduleSpan.From(t.PlannedDuration), ScheduleSpan.From(t.PlannedWork), Optional(t.PlannedCost),
             ScheduleSpan.From(t.RemainingDuration), ScheduleSpan.From(t.RemainingWork), Optional(t.RemainingCost),
             ScheduleSpan.From(t.TotalSlack), ScheduleSpan.From(t.FreeSlack),
-            ConstraintKind.Of(t.ConstraintType), Local(t.ConstraintDate)));
+            toSeq(ConstraintKind.Items).Find(row => row.Wire == t.ConstraintType), Local(t.ConstraintDate)));
 
     static Validation<Error, Seq<TaskRelation>> Relations(ProjectFile file) =>
         toSeq(file.Tasks).Bind(static t => toSeq(t.Predecessors)).Traverse(Edge).As();
@@ -527,7 +477,8 @@ public static class ProjectRows {
     static Validation<Error, TaskRelation> Edge(Relation r) =>
         (Keyed("relation-predecessor", r.PredecessorTask?.UniqueID, Text(r.SuccessorTask?.Name)),
          Keyed("relation-successor", r.SuccessorTask?.UniqueID, Text(r.PredecessorTask?.Name)))
-        .Apply((predecessor, successor) => new TaskRelation(predecessor, successor, DependencyKind.Of(r.Type), ScheduleSpan.From(r.Lag)))
+        .Apply((predecessor, successor) => new TaskRelation(predecessor, successor,
+            toSeq(DependencyKind.Items).Find(row => row.Wire == r.Type).IfNone(DependencyKind.FinishStart), ScheduleSpan.From(r.Lag)))
         .As();
 
     static Validation<Error, Seq<WorkCalendarRow>> Calendars(ProjectFile file) =>
@@ -535,7 +486,7 @@ public static class ProjectRows {
 
     static Validation<Error, WorkCalendarRow> Calendar(ProjectCalendar calendar) =>
         Keyed("calendar", calendar.UniqueID, Text(calendar.Name)).Map(key => new WorkCalendarRow(
-            key, Text(calendar.Name), CalendarKind.Of(calendar.Type),
+            key, Text(calendar.Name), toSeq(CalendarKind.Items).Find(row => row.Wire == calendar.Type),
             toSeq(WeekDays).Map(day => Day(calendar, day)),
             toSeq(calendar.WorkWeeks).Map(week => new WeekRow(
                 Text(week.Name), Date(week.DateRange?.Start), Date(week.DateRange?.End),
@@ -550,7 +501,7 @@ public static class ProjectRows {
 
     static Validation<Error, ResourceRow> Resource(MPXJ.Net.Resource r) =>
         Keyed("resource", r.UniqueID, Text(r.Name)).Map(key => new ResourceRow(
-            key, Text(r.Name), Text(r.Group), ResourceKind.Of(r.Type),
+            key, Text(r.Name), Text(r.Group), toSeq(ResourceKind.Items).Find(row => row.Wire == r.Type),
             Optional(r.PeakUnits), toSeq(r.Availability).Map(static a => new ResourceAvailabilityRow(
                 Local(a.Range.Start), Local(a.Range.End), Optional(a.Units))),
             Optional(r.Calendar?.UniqueID), Optional(r.Cost), Optional(r.ActualCost), Optional(r.OvertimeCost)));
@@ -569,7 +520,7 @@ public static class ProjectRows {
         .As();
 
     static CalendarRecurrence Recurrence(RecurringData recurrence) => new(
-        RecurrenceKind.Of(recurrence.RecurrenceType),
+        toSeq(RecurrenceKind.Items).Find(row => row.Wire == recurrence.RecurrenceType).IfNone(RecurrenceKind.Daily),
         Date(recurrence.StartDate),
         RecurrenceEnd.Of(recurrence.UseEndDate, Date(recurrence.FinishDate), Optional(recurrence.Occurrences)),
         recurrence.WorkingDaysOnly,
@@ -581,7 +532,8 @@ public static class ProjectRows {
         toSeq(WeekDays).Filter(recurrence.GetWeeklyDay));
 
     static DayRow Day(ProjectCalendarDays days, DayOfWeek day) =>
-        new(day, DayKind.Of(days.GetCalendarDayType(day)), Shifts(days.GetCalendarHours(day)));
+        new(day, toSeq(DayKind.Items).Find(row => row.Wire == days.GetCalendarDayType(day)).IfNone(DayKind.Inherited),
+            Shifts(days.GetCalendarHours(day)));
 
     static Seq<ShiftRow> Shifts(IEnumerable<TimeOnlyRange>? ranges) => ranges is null
         ? Seq<ShiftRow>()

@@ -224,14 +224,16 @@ public sealed partial class SettingKind {
     internal static Fin<SettingKind> For(ArchiveValue value, Op op) =>
         value.EnumEntry.IsSome
             ? Fin.Succ(value: Enum)
-            : Items.Find(kind => kind.Shape == value.Shape)
+            : toSeq(SettingKind.Items).Find(kind => kind.Shape == value.Shape)
                 .ToFin(Fail: op.Unsupported(inputType: value.Shape, outputType: typeof(SettingKind)));
 
     internal static Fin<SettingKind> For(Type type, Op op) =>
-        Items.Find(kind => kind.Accepts(type))
+        toSeq(SettingKind.Items).Find(kind => kind.Accepts(type))
             .ToFin(Fail: op.Unsupported(inputType: type, outputType: typeof(SettingKind)));
 
     private static KeyValuePair<string, string>[] TextMapRows(HashMap<string, string> map) => map
+        .AsIterable()
+        .ToSeq()
         .Map(static row => KeyValuePair.Create(row.Key, row.Value))
         .OrderBy(static row => row.Key, StringComparer.Ordinal)
         .ToArray();
@@ -317,17 +319,18 @@ public sealed partial class SettingKind {
             defaults,
             shape: shape ?? typeof(T),
             hostType: hostType ?? typeof(T),
-            read: (node, settingKey, legacy, op) => op.Catch(() => probe(node, settingKey.Value, legacy.Map(static row => row.Value)).Match(
-                Some: value => ArchiveValue.Of(value, op).Map(Some),
-                None: () => Fin.Succ(value: Option<ArchiveValue>.None))),
+            read: (node, settingKey, legacy, op) => op.Catch(() => probe(
+                node, settingKey.Value, legacy.Map(static row => row.Value))
+                .TraverseM(value => ArchiveValue.Of(value, op))
+                .As()),
             write: (node, settingKey, value, op) => value.Project<T>(op)
                 .Bind(typed => op.Catch(() => put(node, settingKey.Value, typed))),
             readDefault: probePreset is null
                 ? (_, _, op) => Fin.Fail<Option<ArchiveValue>>(error: op.Unsupported(
                     inputType: typeof(T), outputType: typeof(PersistentSettings)))
-                : (node, settingKey, op) => op.Catch(() => probePreset(node, settingKey.Value).Match(
-                    Some: value => ArchiveValue.Of(value, op).Map(Some),
-                    None: () => Fin.Succ(value: Option<ArchiveValue>.None))),
+                : (node, settingKey, op) => op.Catch(() => probePreset(node, settingKey.Value)
+                    .TraverseM(value => ArchiveValue.Of(value, op))
+                    .As()),
             writeDefault: putPreset is null
                 ? (_, _, _, op) => Fin.Fail<Unit>(error: op.Unsupported(
                     inputType: typeof(T), outputType: typeof(PersistentSettings)))
@@ -681,9 +684,9 @@ public static class SettingStore {
                 admitted,
                 static (path, key, guard) => new SettingOperation.GuardCase(path, key, guard),
                 op)),
-        changedCase: static (op, changed) => changed.CompareWith.Match(
-                Some: path => Admit(path, op).Map(Some),
-                None: static () => Fin.Succ(value: Option<SettingPath>.None))
+        changedCase: static (op, changed) => changed.CompareWith
+            .TraverseM(path => Admit(path, op))
+            .As()
             .Bind(compare => At(
                 changed.Path,
                 compare,
@@ -879,9 +882,10 @@ public static class SettingStore {
     private static Fin<SettingKind> AdmitTarget(PersistentSettings node, SettingKey key, ArchiveValue value, Op op) =>
         from kind in SettingKind.For(value, op)
         from existing in op.Catch(() => Fin.Succ(value: SeatedType(node, key)))
-        from _compatible in existing.Match(
-            Some: found => guard(kind.Accepts(found, value), op.InvalidInput()).ToFin(),
-            None: () => Fin.Succ(unit))
+        from _compatible in existing
+            .TraverseM(found => guard(kind.Accepts(found, value), op.InvalidInput()).ToFin())
+            .As()
+            .Map(static _ => unit)
         select kind;
 
     private static bool Same(Option<ArchiveValue> left, Option<ArchiveValue> right) => (left, right) switch {
@@ -983,25 +987,21 @@ public static class SettingStore {
                 committed: static (ctx, landed) => ValidatorWriter(ctx.Request.Guard.HostType, ctx.Op)
                     .Bind(write => write(ctx.Node, ctx.Request.Key.Value, ctx.Request.Guard, ctx.Op))
                     .Map(_ => (SettingAnswer)new SettingAnswer.GuardCase(landed.State[ctx.Seat]))
-                    .BindFail(error => Released(ctx.Seat, error, ctx.Op)),
+                    .Rollback(
+                        release: () => Cell.Step(
+                            cell: GuardSeats,
+                            step: held => held.ContainsKey(ctx.Seat) ? Some(held.Remove(ctx.Seat)) : None,
+                            declined: ctx.Op.InvalidContext())
+                            .Switch(
+                                committed: static _ => Fin.Succ(value: unit),
+                                ceded: _ => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()),
+                                refused: static row => Fin.Fail<Unit>(error: row.Cause),
+                                contended: _ => Fin.Fail<Unit>(error: ctx.Op.InvalidResult())),
+                        key: ctx.Op),
                 ceded: static (ctx, _) => Fin.Fail<SettingAnswer>(error: ctx.Op.InvalidResult(
                     detail: $"Settings validator '{ctx.Request.Key.Value}' is already seated.")),
                 refused: static (_, declined) => Fin.Fail<SettingAnswer>(error: declined.Cause),
                 contended: static (ctx, _) => Fin.Fail<SettingAnswer>(error: ctx.Op.InvalidResult()));
-    }
-
-    private static Fin<SettingAnswer> Released((SettingPath Path, SettingKey Key) seat, Error primary, Op op) {
-        Transition<HashMap<(SettingPath Path, SettingKey Key), SettingGuardSeat>> released = Cell.Step(
-            cell: GuardSeats,
-            step: held => held.ContainsKey(seat) ? Some(held.Remove(seat)) : None,
-            declined: op.InvalidContext());
-        return released switch {
-            Transition<HashMap<(SettingPath Path, SettingKey Key), SettingGuardSeat>>.Committed =>
-                Fin.Fail<SettingAnswer>(error: primary),
-            Transition<HashMap<(SettingPath Path, SettingKey Key), SettingGuardSeat>>.Refused row =>
-                Fin.Fail<SettingAnswer>(error: primary + row.Cause),
-            _ => Fin.Fail<SettingAnswer>(error: primary + op.InvalidResult()),
-        };
     }
 
     private static Fin<Unit> RegisterTyped<T>(PersistentSettings node, string key, ISettingGuard guard, Op op) =>

@@ -397,7 +397,7 @@ public static class Remeshing {
     }
 
     static Fin<Unit> Project(MeshEdit arena, Source source, RemeshPolicy policy, Op key) =>
-        Range(0, arena.VertexCount).Fold(Fin.Succ(unit), (acc, v) => acc.Bind(_ => {
+        Range(0, arena.VertexCount).ToSeq().TraverseM(v => {
             Point3d p = arena.Position(v);
             return Spatial.Apply(new SpatialOp.Query(source.Index, new SpatialQuery.Nearest(p, policy.ProjectCandidates.Value)), key)
                 .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest hits }
@@ -413,7 +413,7 @@ public static class Remeshing {
                     arena.SetPosition(v, at);
                     return unit;
                 });
-        }));
+        }).As().Map(_ => unit);
 
     static Fin<Stat<Scalar>> Deviation(MeshEdit arena, Func<Point3d, double> targetAt, Op key) {
         Seq<Scalar> deviations = [];

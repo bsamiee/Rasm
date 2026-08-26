@@ -111,8 +111,7 @@ public sealed partial class PatternDef {
     internal Fin<HatchPattern> Mint(Op key) =>
         from pattern in key.Catch(() => Fin.Succ(value: new HatchPattern()))
         from _ in Apply(pattern: pattern, key: key)
-            .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                release: () => Custody.Dispose(held: Seq(pattern), key: key), key: key))
+            .Rollback(release: () => Custody.Dispose(held: Seq(pattern), key: key), key: key)
         select pattern;
 
     internal Fin<Unit> Apply(HatchPattern pattern, Op key) =>
@@ -396,8 +395,7 @@ public abstract partial record HatchProgram {
                 .Map(static patterns => toSeq(patterns).Strict())
                 .ToFin(Fail: key.InvalidResult()))
             from canonical in raw.TraverseM(pattern => PatternDef.Canonical(pattern: pattern, key: key)).As()
-                .BindFail(primary => Fin.Fail<Seq<HatchPattern>>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: raw, key: key), key: key))
+                .Rollback(release: () => Custody.Dispose(held: raw, key: key), key: key)
             from _ in Custody.Dispose(held: raw, key: key)
             select canonical,
         Emit: static (path, patterns, key) => key.Confirm(success: HatchPattern.WriteToFile(
@@ -412,8 +410,7 @@ public abstract partial record HatchProgram {
                 .Find(candidate => string.Equals(candidate.Name, edit.Name.Value, StringComparison.OrdinalIgnoreCase))
                 .ToFin(Fail: context.Op.MissingContext())
                 .Bind(source => PatternDef.Read(pattern: source, key: context.Op))
-                .BindFail(primary => Fin.Fail<PatternDef>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: stock, key: context.Op), key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: stock, key: context.Op), key: context.Op)
             from _ in Custody.Dispose(held: stock, key: context.Op)
             from __ in new TableOp<HatchPattern, PatternDef>.Author(Def: definition, Interaction: edit.Interaction)
                 .Apply(grip: Grip, document: context.Document, op: context.Op)
@@ -491,11 +488,9 @@ public abstract partial record HatchProgram {
             from source in op.Need(native.Geometry as Hatch)
             from original in op.Catch(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: op.InvalidResult()))
             from revised in op.Catch(() => Optional(source.Duplicate() as Hatch).ToFin(Fail: op.InvalidResult()))
-                .BindFail(primary => Fin.Fail<Hatch>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: Seq(original), key: op), key: op))
+                .Rollback(release: () => Custody.Dispose(held: Seq(original), key: op), key: op)
             from _ in change(revised, op)
-                .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: Seq(original, revised), key: op), key: op))
+                .Rollback(release: () => Custody.Dispose(held: Seq(original, revised), key: op), key: op)
             select new HatchRevision(Id: id, Original: original, Revised: revised);
 }
 
@@ -590,8 +585,7 @@ public abstract partial record HatchAsk {
         defaults: static (context, _) =>
             from stock in context.Op.Catch(() => Fin.Succ(value: toSeq(HatchPattern.GetDefaultHatchPatterns()).Strict()))
             from definitions in stock.TraverseM(pattern => PatternDef.Read(pattern: pattern, key: context.Op)).As()
-                .BindFail(primary => Fin.Fail<Seq<PatternDef>>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: stock, key: context.Op), key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: stock, key: context.Op), key: context.Op)
             from _ in Custody.Dispose(held: stock, key: context.Op)
             select (HatchAnswer)new HatchAnswer.Definitions(
                 definitions, ResourceIndex.Create(context.Document.HatchPatterns.CurrentHatchPatternIndex)),
@@ -629,8 +623,7 @@ public abstract partial record HatchAsk {
             from bounds in DraftCrossing.Crossed(products: raw.Bounds, op: context.Op)
             from solid in raw.Solid
                 .Traverse(brep => DraftCrossing.Crossed(products: Seq(brep), op: context.Op)).As()
-                .BindFail(primary => Fin.Fail<Option<Seq<GeometryHandle>>>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: bounds, key: context.Op), key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: bounds, key: context.Op), key: context.Op)
             select (HatchAnswer)new HatchAnswer.Drawable(new HatchDisplay(
                 Bounds: bounds,
                 Lines: raw.Lines,

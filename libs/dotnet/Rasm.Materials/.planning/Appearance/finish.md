@@ -228,9 +228,8 @@ public static class Finish {
 
     static Fin<Seq<FinishLayer>> AdmitStack(Seq<FinishLayer> stack, Op key) =>
         stack.Find(static layer => !layer.Admissible)
-            .Match(
-                Some: bad => Fin.Fail<Seq<FinishLayer>>(new MaterialFault.Parameter(key, $"<finish-layer-out-of-unit:{bad.Role}>")),
-                None: () => Fin.Succ(stack));
+            .TraverseM(bad => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<finish-layer-out-of-unit:{bad.Role}>"))).As()
+            .Map(_ => stack);
 
     static Fin<Unicolour> Admit(Unicolour composed, Unicolour mix, FinishHandling handling, Op key) =>
         from drift in Tolerance.Of(ToleranceLane.Spectral, handling.DriftTolerance, key)

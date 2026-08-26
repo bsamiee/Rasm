@@ -423,7 +423,7 @@ public static class Coordinate {
         if (applied.Find(static row => row.Value.IsNone) is { IsSome: true, Case: CoordRow malformed }) {
             return Fin<Seq<CoordRow>>.Fail(new CoordinationFault.Refused($"<budget-result-missing:{malformed.Key}>"));
         }
-        return toSeq(amounts).Filter(request => !applied.Exists(row => row.Key == request.Key)).Head.Match(
+        return amounts.AsIterable().ToSeq().Filter(request => !applied.Exists(row => row.Key == request.Key)).Head.Match(
             Some: request => rows.Find(row => row.State == "current" && row.Key == request.Key).Match(
                 Some: truth => held.Exists(token => truth.Fence > token.Value)
                     ? Fin<Seq<CoordRow>>.Fail(new CoordinationFault.LeaseFenced(held, Some(truth.Fence)))
@@ -518,7 +518,7 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
     const string CreditSql = "INSERT INTO budget_ledger(tenant,unit,balance,fence) SELECT @tenant,r.unit,r.amount,@token FROM unnest(@units,@amounts) AS r(unit,amount) ORDER BY r.unit ON CONFLICT(tenant,unit) DO UPDATE SET balance=budget_ledger.balance+excluded.balance,fence=excluded.fence WHERE budget_ledger.fence<=@token RETURNING unit,'applied',fence,balance,'epoch'::timestamptz,NULL::jsonb";
 
     static CaseSql Budget(HashMap<string, long> amounts, string guarded) {
-        Seq<(string Key, long Value)> ordered = toSeq(amounts).OrderBy(static row => row.Key, StringComparer.Ordinal).ToSeq();
+        Seq<(string Key, long Value)> ordered = toSeq(amounts.AsIterable().OrderBy(static row => row.Key, StringComparer.Ordinal));
         string[] units = ordered.Map(static row => row.Key).ToArray();
         long[] values = ordered.Map(static row => row.Value).ToArray();
         return Ledger(guarded,

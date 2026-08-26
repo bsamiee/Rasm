@@ -64,9 +64,9 @@ public readonly record struct Erection(Option<string> LiftingInsert, Option<doub
     public static readonly Erection Undeclared = new(None, None, None);
 
     public Fin<Seq<(PropertyName, PropertyValue)>> Rows(Op key) =>
-        from bearing in BearingLengthMm.Match(
-            Some: mm => ComponentDetail.Measured(DetailSchema.BearingLength, Dimension.LengthDim, mm * 1e-3).Map(Some),
-            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from bearing in BearingLengthMm
+            .TraverseM(mm => ComponentDetail.Measured(DetailSchema.BearingLength, Dimension.LengthDim, mm * 1e-3))
+            .As()
         select LiftingInsert.Map(static token => ComponentDetail.Token(DetailSchema.LiftingInsert, token)).ToSeq()
             + bearing.ToSeq()
             + JointGrout.Map(static token => ComponentDetail.Token(DetailSchema.JointGrout, token)).ToSeq();
@@ -95,7 +95,7 @@ public readonly record struct PrecastRow(
 public static class PrecastSeed {
     static readonly ComponentStandard Us =
         new(ComponentAuthority.Astm.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Astm);
-    static readonly MaterialId Substance = MaterialId.Of("concrete.c50_60");
+    static readonly MaterialId Substance = MaterialId.Create("concrete.c50_60");
     static readonly PropertyName SectionBasis    = PropertyCategory.Materials.Row("SectionBasis");
     static readonly PropertyName FlangeThickness = PropertyCategory.Materials.Row("FlangeThickness");
     static readonly PropertyName StemSpacing     = PropertyCategory.Materials.Row("StemSpacing");
@@ -130,13 +130,16 @@ public static class PrecastSeed {
         detail: Some<Func<PrecastRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
         ifc: static r => r.Kind.Ifc.IfNone(ComponentFamily.Precast.Ifc));
     static Validation<Error, Unit> Coherence(PrecastRow r, Op key) =>
-        (guard(r.Kind.Admits(r.Interior),
-             new KernelFault.InvalidValue(nameof(r.Interior), "an interior admitted by the precast kind", Some(key))).ToValidation(),
-         guard(r.Kind.Ifc.IsSome,
-             new KernelFault.InvalidValue(nameof(r.Kind.Ifc), "a bound IFC precast kind", Some(key))).ToValidation(),
-         guard(double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.DepthMm) && r.DepthMm > 0.0,
-             new KernelFault.InvalidValue(nameof(PrecastRow), "positive finite width and depth", Some(key))).ToValidation())
-            .Apply(static (_, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                r.Kind.Admits(r.Interior),
+                new KernelFault.InvalidValue(nameof(r.Interior), "an interior admitted by the precast kind", Some(key))),
+            AdmissionSlots.Gate(
+                r.Kind.Ifc.IsSome,
+                new KernelFault.InvalidValue(nameof(r.Kind.Ifc), "a bound IFC precast kind", Some(key))),
+            AdmissionSlots.Gate(
+                double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.DepthMm) && r.DepthMm > 0.0,
+                new KernelFault.InvalidValue(nameof(PrecastRow), "positive finite width and depth", Some(key)))));
 
     static Fin<SectionProfile> Profile(PrecastRow r, Op key) =>
         (r.Interior is PrecastInterior.Cored cored ? cored.Cores : Option<Seq<VoidCell>>.None).Match(

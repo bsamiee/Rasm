@@ -335,7 +335,7 @@ public readonly record struct PowerCcvtSolution(
     PowerCellFragmentFacts Fragments, Option<LinearSolution> DualSolve = default, Option<SamplingSpectrum> Spectrum = default) : IValidityEvidence {
     public bool MeanZeroGaugeApplied =>
         Gauge.Equals(PowerCcvtGauge.ZeroMean)
-        && DualSolve.Bind(static solve => solve.Gauge).Map(static gauge => gauge.PostShiftApplied.Equals(GaugeShift.MeanZero)).IfNone(noneValue: false);
+        && DualSolve.Bind(static solve => solve.Gauge).Exists(static gauge => gauge.PostShiftApplied.Equals(GaugeShift.MeanZero));
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(SiteCount, 1), ValidityClaim.Positive(TargetMass),
         ValidityClaim.Nonnegative(CapacityResidualInf), ValidityClaim.Nonnegative(CapacityResidualL1),
@@ -459,7 +459,7 @@ internal static class Spacing {
     internal static Fin<double> NormalizedPoissonRadius(Seq<Point3d> points, double measure, Op key) =>
         Nearest(points: points, key: key).Map(nearest => {
             if (nearest.IsEmpty) return 0.0;
-            double minSpacing = nearest.Min();
+            double minSpacing = nearest.Min(double.PositiveInfinity);
             double reference = Hexagonal(measure: measure, count: points.Count);
             return double.IsFinite(minSpacing) && double.IsFinite(reference) && reference > EpsilonPolicy.ZeroTolerance
                 ? Math.Clamp(value: minSpacing / reference, min: 0.0, max: 1.0)
@@ -834,7 +834,7 @@ internal static class SampleKernel {
                                Kind: SampleAlgorithmKind.ContinuousPowerCcvt,
                                Assurances: CapabilitySet<SampleAssurance>.Of([
                                    .. terminal.Converged ? (SampleAssurance[])[SampleAssurance.CapacityResidual] : [],
-                                   .. !lifted.IsEmpty && terminal.DualSolve.Map(static solve => solve.IsValid).IfNone(noneValue: false)
+                                   .. !lifted.IsEmpty && terminal.DualSolve.Exists(static solve => solve.IsValid)
                                        ? (SampleAssurance[])[SampleAssurance.TransportAssignment] : []]),
                                Seed: Some(policy.Seed), TargetCount: Some(count.Value),
                                CapacityResidual: Some(terminal.Residual.Inf),
@@ -913,7 +913,7 @@ internal static class SampleKernel {
         }
         let sampled = toSeq(selection.Points)
         let rejected = selection.DensityRejected.IfNone(Math.Max(val1: 0, val2: candidates.Count - selection.Points.Length))
-        let capacityLimited = selection.Algorithm.Map(static algorithm => algorithm.Kind.Equals(SampleAlgorithmKind.CapacityLimitedLloydCandidate) && !algorithm.Assurances.Admits(SampleAssurance.CapacityResidual)).IfNone(noneValue: false)
+        let capacityLimited = selection.Algorithm.Exists(static algorithm => algorithm.Kind.Equals(SampleAlgorithmKind.CapacityLimitedLloydCandidate) && !algorithm.Assurances.Admits(SampleAssurance.CapacityResidual))
         select new SampleResult(
             Points: sampled, Mass: selection.Mass,
             Tally: TallyOf(attempted: candidates.Count, emitted: sampled, rejected: rejected, candidates: Some(candidates.Count), iterations: kind.Facts.Iterations,
@@ -1269,9 +1269,9 @@ internal static class SampleKernel {
         int[] fill = new int[sites.Length];
         (int assigned, int rejected) = (0, 0);
         for (int i = 0; i < candidates.Count; i++) {
-            Option<(int Site, double Distance)> nearest = Enumerable.Range(start: 0, count: sites.Length)
+            Option<(int Site, double Distance)> nearest = toSeq(Enumerable.Range(start: 0, count: sites.Length)
                 .Where(s => fill[s] < limit)
-                .Select(s => (Site: s, Distance: candidates[index: i].Point.DistanceToSquared(other: candidates[index: sites[s]].Point)))
+                .Select(s => (Site: s, Distance: candidates[index: i].Point.DistanceToSquared(other: candidates[index: sites[s]].Point))))
                 .Fold(Option<(int Site, double Distance)>.None, static (best, item) => best.Map(held => item.Distance < held.Distance ? item : held).IfNone(item));
             (hits[i], assigned, rejected) = nearest.Match(
                 Some: hit => { fill[hit.Site]++; return (hit.Site, assigned + 1, rejected); },
@@ -1284,7 +1284,7 @@ internal static class SampleKernel {
             Option<CapacityAssignment> assignment = AssignUnderCapacity(candidates: candidates, sites: relaxed.Indices, limit: limit);
             return SelectionOf(candidates: candidates, indices: relaxed.Indices,
                 algorithm: Some(new SampleAlgorithm(Kind: SampleAlgorithmKind.CapacityLimitedLloydCandidate,
-                    Assurances: assignment.Map(held => held.Unassigned == 0 && held.Residual <= tolerance).IfNone(noneValue: false)
+                    Assurances: assignment.Exists(held => held.Unassigned == 0 && held.Residual <= tolerance)
                         ? CapabilitySet<SampleAssurance>.Of(SampleAssurance.CapacityResidual)
                         : CapabilitySet<SampleAssurance>.None,
                     TargetCount: Some(count), CapacityResidual: assignment.Map(static held => held.Residual),

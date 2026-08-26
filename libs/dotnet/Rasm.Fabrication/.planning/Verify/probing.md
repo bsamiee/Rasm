@@ -997,9 +997,9 @@ public static class Probe {
                     : Some(cycles.Choose(static cycle => cycle.Outcome.Fault).Head
                         .IfNone(FabricationFault.Inadmissible(FabConcern.Verify, "probe:required-contact")));
             });
-        return errors.Head.Match(
-            None: static () => Fin.Succ(unit),
-            Some: first => Fin.Fail<Unit>(errors.Tail.Fold(first, static (combined, error) => combined + error)));
+        return errors.IsEmpty
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Error.Many(errors));
     }
 
     private static Fin<ProbeDatum> Reconcile(
@@ -1113,9 +1113,8 @@ public static class Probe {
                 FabricationFault.Inadmissible(FabConcern.Verify, "probe:residual-census")));
 
     private static Fin<Seq<MeasuredFeature>> Fits(Seq<MeasuredFeature> features, FitPolicy policy, Context context) =>
-        toSeq(Index(features, static feature => feature.Plan.Key))
-            .OrderBy(static entry => entry.Key.Value)
-            .ToSeq()
+        toSeq(toSeq(Index(features, static feature => feature.Plan.Key))
+            .OrderBy(static entry => entry.Key.Value))
             .TraverseM(entry => Fitted(entry.Value, policy, context).Map(fitted => (entry.Key, Fit: fitted)))
             .As()
             .Map(static rows => toMap(rows))

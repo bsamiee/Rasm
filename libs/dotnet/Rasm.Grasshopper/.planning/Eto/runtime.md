@@ -44,7 +44,7 @@ public sealed class TimerHold : IDisposable {
     internal TimerHold(UITimer timer, EventHandler<EventArgs> handler, FaultCell faults, HookId point, Op key) =>
         release = new Lazy<Unit>(() => UiThread.Run(
                 new UiDispatch<Unit>.Blocking(() => Release(timer, handler, key)), DispatchLane.Interactive, key)
-                .Match(Succ: static _ => unit, Fail: fault => ignore(faults.Park(point: point, cause: fault))),
+                .IfFail(fault => ignore(faults.Park(point: point, cause: fault))),
             LazyThreadSafetyMode.ExecutionAndPublication);
 
     public void Dispose() => ignore(release.Value);

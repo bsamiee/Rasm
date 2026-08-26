@@ -219,9 +219,7 @@ public static class EventBus {
         Runtime runtime,
         params ReadOnlySpan<(Topic Topic, Seq<(string Name, Func<DomainEvent, IO<Unit>> Consume)> Subscribers)> rows) =>
         toSeq(rows.ToArray())
-            .Traverse(row => Mounted(runtime, row).Match(
-                Succ: Validation<Error, (TopicHead Head, Seq<Subscription> Subs)>.Success,
-                Fail: Validation<Error, (TopicHead Head, Seq<Subscription> Subs)>.Fail))
+            .Traverse(row => Mounted(runtime, row).ToValidation())
             .As()
             .ToFin()
             .Map(mounted => new Cell(
@@ -256,7 +254,6 @@ public static class EventBus {
                         AppHostMeasure.BusDropped.Row,
                         1L,
                         InstrumentSet.Tags((AppHostSlot.Topic, head.Topic.Key), (AppHostSlot.Class, DropClass.Shed.Key))))
-                    .Bind(static written => written.Match(Succ: IO.pure, Fail: IO.fail<Unit>))
                 : TopicFabric.Publish(head, evt),
             None: () => IO.fail<Unit>(new BusFault.TopicUnknown($"{evt.Topic.Key}")));
 

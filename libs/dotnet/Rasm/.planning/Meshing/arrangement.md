@@ -293,8 +293,8 @@ public static class Arrangement {
         int shells = graph.ConnectedComponents(label);
         List<int>[] buckets = [.. Enumerable.Range(0, shells).Select(static _ => new List<int>())];
         for (int f = 0; f < welded.FaceCount; f++) { (int a, _, _) = welded.Face(f); buckets[label[a]].Add(f); }
-        return toSeq(buckets).Map(bucket => Shell(welded, bucket, solid.Tolerance, policy, key))
-            .TraverseM(identity).As().Map(static shells => shells.Strict());
+        return toSeq(buckets).TraverseM(bucket => Shell(welded, bucket, solid.Tolerance, policy, key)).As()
+            .Map(static shells => shells.Strict());
     }
 
     static Fin<MeshSpace> Shell(MeshEdit welded, List<int> bucket, Context context, ArrangementPolicy policy, Op key) {
@@ -625,8 +625,8 @@ file static partial class ManifoldGate {
         nint vec = manifold_decompose(manifold_alloc_manifold_vec(), result);
         try {
             int count = (int)manifold_manifold_vec_length(vec);
-            return toSeq(Enumerable.Range(0, count)).Map(at => Lower(vec, at, context, policy, key))
-                .TraverseM(identity).As().Map(solids => (Solids: solids.Strict(), ShellCount: count));
+            return toSeq(Enumerable.Range(0, count)).TraverseM(at => Lower(vec, at, context, policy, key)).As()
+                .Map(solids => (Solids: solids.Strict(), ShellCount: count));
         }
         finally { manifold_delete_manifold_vec(vec); }
     }

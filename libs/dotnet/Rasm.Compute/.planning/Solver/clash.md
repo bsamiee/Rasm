@@ -574,7 +574,7 @@ public static class DigitalTwin {
         if (!mismatched.IsEmpty) {
             return Fin.Fail<Seq<(int, int, double)>>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Shape(
                 ShapeRequirement.Arity,
-                new ShapeEvidence.Count(mismatched.Head.Computed, mismatched.Head.Measured))));
+                new ShapeEvidence.Count(mismatched[0].Computed, mismatched[0].Measured))));
         }
         Seq<(int MeasuredIndex, int ComputedIndex, double Mac)> ranked = toSeq(
             from m in Enumerable.Range(0, measured.Count)
@@ -648,7 +648,7 @@ public sealed class TwinLoop {
         Option<(Func<Stream> Sink, HdfArchivePolicy Policy)> archive = default) =>
         policy.Invalid
             ? Fin.Fail<TwinLoop>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
-            : WindowCapacity.From(policy.Scoring.WindowCapacity)
+            : Op.Of(name: nameof(Of)).AcceptValidated<WindowCapacity>(policy.Scoring.WindowCapacity)
                 .Map(capacity => new TwinLoop(baseline, detector, policy, capacity, suggested, clock, archive));
 
     public IO<Fin<bool>> ClaimRecalibration() {
@@ -700,7 +700,6 @@ public sealed class TwinLoop {
 
     private IO<Fin<TwinVerdict>> Score(TwinSignal signal, int weight) =>
         IO.lift(() => Attempt(signal, weight))
-            .Bind(static settled => settled.Match(Succ: IO.pure, Fail: IO.fail<TwinVerdict>))
             .RetryWhile(Schedule.recurs(Math.Max(1, policy.CommitAttempts) - 1), static error => error is ComputeFault.RetryOwnerConflict)
             .Try()
             .Map(settled => settled.Bind(won => won.Anomaly ? suggested(won) : Fin.Succ(won)));
@@ -713,7 +712,7 @@ public sealed class TwinLoop {
                 state => state.Revision == snapshot.Revision
                     ? Some(state with {
                         Window = scored.Window,
-                        Segment = state.Segment.Add((scored.Window.Residuals.Last, scored.Verdict.Anomaly)),
+                        Segment = state.Segment.Add((scored.Verdict.Residual, scored.Verdict.Anomaly)),
                         Scored = state.Scored + weight,
                         Claimed = false,
                         Revision = state.Revision + 1L,

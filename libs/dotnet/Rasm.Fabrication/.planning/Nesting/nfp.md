@@ -947,7 +947,7 @@ public static class Nest {
                         new UnplacedReason.Exclusion(candidate.Part.PartId, candidate.Part.Ordinal, scope.Stock.Identity)),
                     constraints.Find(static verdict => verdict.Blocking).Map<UnplacedReason>(verdict =>
                         new UnplacedReason.Constraint(candidate.Part.PartId, candidate.Part.Ordinal, verdict.Constraint)))
-                    .Choose(identity).Head
+                    .Somes().Head
                 let accepted = new Placed(candidate.Part, scope.Variant, scope.Stock, transform, shape, envelope)
                 from decision in rejected.Match(
                     Some: reason => Fin.Succ<PlacementDecision>(new PlacementDecision.Rejected(reason)),
@@ -1236,12 +1236,13 @@ public static class Nest {
                 .Map(mirrored => (Rule: rule, Angle: angle, Mirrored: mirrored))))
             .TraverseM(row => Seated(parts[row.Rule.PartId], row.Angle, row.Mirrored)
                 .Bind(shape => ArcShapeOffset(Seq(shape), 0.5 * (policy.Clearance + policy.Kerf))
-                .Bind(collision => collision.Count == 1 ? collision.Head.Match(
-                    Some: envelope => Fin.Succ(new Variant(row.Rule.PartId, row.Angle, row.Mirrored,
+                .Bind(collision => collision.Count == 1
+                    ? collision.Head
+                        .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:clearance-topology"))
+                        .Map(envelope => new Variant(row.Rule.PartId, row.Angle, row.Mirrored,
                         parts[row.Rule.PartId], shape, envelope,
                         Identity(collision, parts[row.Rule.PartId].Tolerance,
-                            salt => Mould(salt, row.Rule, inventory).Double(row.Angle).Bool(row.Mirrored)))),
-                    None: () => Fin.Fail<Variant>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:clearance-topology")))
+                            salt => Mould(salt, row.Rule, inventory).Double(row.Angle).Bool(row.Mirrored))))
                     : Fin.Fail<Variant>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:clearance-topology"))))).As()
             .Map(rows => toHashMap(rows.Map(static row =>
                 ((row.PartId, BitConverter.DoubleToInt64Bits(row.Rotation), row.Mirrored), row))));
@@ -1545,7 +1546,7 @@ internal static class PairTable {
                             policy.Kerf, locus.Count, locus.Count(static loop => loop.Winding() == Sign.Negative)))
                             .Map(Some)
                     select admitted)).As()
-            .Map(static rows => rows.Choose(identity).ToSeq());
+            .Map(static rows => rows.Somes());
 
     internal static Fin<NoFitPolygon> Admit(Seq<Loop> locus, UInt128 identity, NfpWitness witness) =>
         NoFitPolygon.Validate(locus, identity, witness, out NoFitPolygon polygon).Admitted(polygon);

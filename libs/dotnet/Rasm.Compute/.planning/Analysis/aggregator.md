@@ -121,8 +121,8 @@ public static class AssemblyAggregator {
     public static Fin<AssemblyProperty> Aggregate(MaterialComposition composition, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve) =>
         composition.Switch(
             resolve,
-            single:         static (_, s) => Fin.Fail<AssemblyProperty>(Missing(AssessmentInputReason.CompositionShape, s.Material.Value)),
-            profileSet:     static (_, s) => Fin.Fail<AssemblyProperty>(Missing(AssessmentInputReason.CompositionShape, s.Material.Value)),
+            single:         static (_, s) => Fin.Fail<AssemblyProperty>(Missing(AssessmentInputReason.CompositionShape, s.Material.ToValue())),
+            profileSet:     static (_, s) => Fin.Fail<AssemblyProperty>(Missing(AssessmentInputReason.CompositionShape, s.Material.ToValue())),
             layerSet:       static (r, set) => AggregateLayers(set, r),
             constituentSet: static (r, set) => AggregateConstituents(set, r));
 
@@ -177,7 +177,7 @@ public static class AssemblyAggregator {
         (MaterialId Material, double VolumeM3) ply, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve,
         Seq<PlyQuantity> overrides, ElementTakeoff geometry) =>
         from props in Plies.Lift(resolve(ply.Material))
-        from env in Plies.Lift(props.Environmental.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, ply.Material.Value)))
+        from env in Plies.Lift(props.Environmental.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, ply.Material.ToValue())))
         from quantity in Plies.Lift(Quantity(env.Basis, ply, overrides, props, geometry))
         from density in Plies.Reading(ply.Material, PlyDiscipline.Mechanical, props.Mechanical.Map(static m => m.Density.Si))
         select new CarbonPly(env.StageGwp, quantity,
@@ -188,7 +188,7 @@ public static class AssemblyAggregator {
         (MaterialId Material, double VolumeM3) ply, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve,
         Seq<PlyQuantity> overrides, ElementTakeoff geometry) =>
         from props in Plies.Lift(resolve(ply.Material))
-        from cost in Plies.Lift(props.Cost.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, ply.Material.Value)))
+        from cost in Plies.Lift(props.Cost.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, ply.Material.ToValue())))
         from quantity in Plies.Lift(Quantity(cost.Basis, ply, overrides, props, geometry))
         select (cost, quantity);
 
@@ -210,18 +210,18 @@ public static class AssemblyAggregator {
     private static Fin<double> DeclaredQuantity(MeasurementBasis basis, double volumeM3, ElementTakeoff geometry, Option<double> density, MaterialId material) =>
         basis.Switch(
             (volumeM3, geometry, density, material),
-            perM3:   static s => s.volumeM3 > 0.0 ? Fin.Succ(s.volumeM3) : Fin.Fail<double>(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.Value)),
-            perM2:   static s => s.geometry.EffectiveArea.Filter(static area => area > 0.0).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.Value)),
+            perM3:   static s => s.volumeM3 > 0.0 ? Fin.Succ(s.volumeM3) : Fin.Fail<double>(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.ToValue())),
+            perM2:   static s => s.geometry.EffectiveArea.Filter(static area => area > 0.0).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.ToValue())),
             perItem: static _ => Fin.Succ(1.0),
             perKg:   static s => s.volumeM3 > 0.0
-                ? s.density.Map(d => s.volumeM3 * d).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.Value))
-                : Fin.Fail<double>(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.Value)));
+                ? s.density.Map(d => s.volumeM3 * d).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.ToValue()))
+                : Fin.Fail<double>(Missing(AssessmentInputReason.DeclaredUnitBasis, s.material.ToValue())));
 
     private static Fin<Seq<(MaterialId Material, double VolumeM3)>> PliesByVolume(MaterialComposition composition, ElementTakeoff geometry) =>
         composition.Switch(
             geometry,
-            single:         static (g, s) => g.Volume.Map(v => Seq((s.Material, v))).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.Material.Value)),
-            profileSet:     static (g, s) => g.Volume.Map(v => Seq((s.Material, v))).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.Material.Value)),
+            single:         static (g, s) => g.Volume.Map(v => Seq((s.Material, v))).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.Material.ToValue())),
+            profileSet:     static (g, s) => g.Volume.Map(v => Seq((s.Material, v))).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, s.Material.ToValue())),
             layerSet:       static (g, s) => g.EffectiveArea.Map(a => s.Layers.Map(l => (l.Material, l.Thickness.Si * a))).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, nameof(MassKind.Area))),
             constituentSet: static (g, s) => g.Volume.Map(v => s.Constituents.Map(c => (c.Material, c.Fraction * v))).ToFin(Missing(AssessmentInputReason.DeclaredUnitBasis, nameof(MassKind.Volume))))
         .Map(Coalesce);
@@ -254,7 +254,7 @@ public static class AssemblyAggregator {
     }
 
     private static AssemblyLifecycle Carbon(Seq<CarbonPly> plies, ElementTakeoff geometry, Seq<PlyGap> gaps) {
-        using MemoryOwner<double> scratch = MemoryOwner<double>.Allocate(LifecycleStage.Count, AllocationMode.Clear);
+        using MemoryOwner<double> scratch = MemoryOwner<double>.Allocate(LifecycleStage.Items.Count, AllocationMode.Clear);
         Span<double> stages = scratch.Span;
         foreach (CarbonPly ply in plies) { TensorPrimitives.MultiplyAdd(ply.StageGwp.AsSpan(), ply.Quantity, stages, stages); }
         double wholeLife = TensorPrimitives.Sum(stages);

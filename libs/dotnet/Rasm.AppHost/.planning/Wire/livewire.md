@@ -92,7 +92,7 @@ public static class WireReason {
     public static readonly Symbol ReadRefused = Symbol.Create("read-refused");
 
     public static Symbol Named(string text, Symbol fallback) =>
-        Symbol.Validate(text, out Symbol? row) is null && row is { } named ? named : fallback;
+        Op.Of().AcceptValidated<Symbol>(text).IfFail(_ => fallback);
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -391,8 +391,7 @@ public sealed record SubscriptionLane(
                 ignore(runtime.Instruments.Write(AppHostMeasure.WireRejections.Row, 1L))))
             .Bind(queue => queue.Switch(
                 pipe: q => Fin.Succ(new SubscriptionLane(queue, q.Channel.Writer, detach, client)),
-                network: static n => Fin.Fail<SubscriptionLane>(new DrainFault.TopologyMismatch(n.Spec.Name, DrainKind.Pipe.Key)))))
-            .Bind(static admitted => admitted.Match(Succ: IO.pure, Fail: IO.fail<SubscriptionLane>));
+                network: static n => Fin.Fail<SubscriptionLane>(new DrainFault.TopologyMismatch(n.Spec.Name, DrainKind.Pipe.Key)))));
 
     public static IO<ExternalValue> Drain(SubscriptionLane lane, CancellationToken token) =>
         lane.Queue.Switch(
@@ -521,7 +520,7 @@ public static class WireRecovery {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class OpcUaLane {
     public static IO<SubscriptionLane> Subscribe(LiveWireRuntime runtime, BindingSpec spec) =>
-        from seat in runtime.Seat<TransportSeat.Opc>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Opc>)
+        from seat in IO.lift(runtime.Seat<TransportSeat.Opc>(spec.Transport))
         from session in IO.liftAsync(() => Session.CreateAsync(
             seat.Configuration, seat.ReverseConnect, seat.Endpoint(spec.ExternalAddress),
             updateBeforeConnect: false, checkDomain: false, sessionName: spec.BindingId,
@@ -532,7 +531,7 @@ public static class OpcUaLane {
             KeepAliveCount = seat.KeepAliveCount,
             LifetimeCount = seat.LifetimeCount,
         }
-        from filter in seat.Sampling.Filter().Match(Succ: IO.pure, Fail: IO.fail<DataChangeFilter>)
+        from filter in IO.lift(seat.Sampling.Filter())
         let item = new MonitoredItem(seat.Telemetry) {
             StartNodeId = NodeId.Parse(spec.ExternalAddress),
             AttributeId = Attributes.Value,
@@ -559,11 +558,11 @@ public static class OpcUaLane {
             : IO.pure(unit);
 
     public static IO<EchoDiscriminator> Write(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) =>
-        from client in runtime.Client(spec.BindingId).Match(Succ: IO.pure, Fail: IO.fail<LiveClient>)
+        from client in IO.lift(runtime.Client(spec.BindingId))
         from held in client is LiveClient.Opc { Binding: var binding }
             ? IO.pure(binding)
             : IO.fail<OpcUaBinding>(new WireFault.ConnectRejected($"opc-ua-client-mismatch:{spec.BindingId}"))
-        from reading in value.Reading.Match(Some: IO.pure, None: () => IO.fail<double>(new WireFault.WriteRejected($"opc-ua-no-reading:{value.Reason.Value}")))
+        from reading in IO.lift(value.Reading.ToFin(new WireFault.WriteRejected($"opc-ua-no-reading:{value.Reason.Value}")))
         from echo in Written(runtime, spec, value, reading, held)
         select echo;
 
@@ -610,7 +609,7 @@ public static class OpcUaLane {
 
 public static class MqttLane {
     public static IO<SubscriptionLane> Subscribe(LiveWireRuntime runtime, BindingSpec spec) =>
-        from seat in runtime.Seat<TransportSeat.Mqtt>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Mqtt>)
+        from seat in IO.lift(runtime.Seat<TransportSeat.Mqtt>(spec.Transport))
         from client in IO.lift(() => seat.Factory.CreateMqttClient())
         from lane in SubscriptionLane.Open(runtime, spec, () => IO.liftAsync(() => client.DisconnectAsync()).Map(static _ => unit), new LiveClient.Mqtt(client))
         let options = seat.Factory.CreateClientOptionsBuilder()
@@ -637,12 +636,12 @@ public static class MqttLane {
         select lane;
 
     public static IO<EchoDiscriminator> Write(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) =>
-        from seat in runtime.Seat<TransportSeat.Mqtt>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Mqtt>)
-        from client in runtime.Client(spec.BindingId).Match(Succ: IO.pure, Fail: IO.fail<LiveClient>)
+        from seat in IO.lift(runtime.Seat<TransportSeat.Mqtt>(spec.Transport))
+        from client in IO.lift(runtime.Client(spec.BindingId))
         from held in client is LiveClient.Mqtt { Client: var mqtt }
             ? IO.pure(mqtt)
             : IO.fail<IMqttClient>(new WireFault.ConnectRejected($"mqtt-client-mismatch:{spec.BindingId}"))
-        from reading in value.Reading.Match(Some: IO.pure, None: () => IO.fail<double>(new WireFault.WriteRejected($"mqtt-no-reading:{value.Reason.Value}")))
+        from reading in IO.lift(value.Reading.ToFin(new WireFault.WriteRejected($"mqtt-no-reading:{value.Reason.Value}")))
         from echo in Published(runtime, seat, spec, value, reading, held)
         select echo;
 
@@ -697,11 +696,11 @@ public static class MqttLane {
 
 public static class PubSubLane {
     public static IO<SubscriptionLane> Subscribe(LiveWireRuntime runtime, BindingSpec spec) =>
-        from seat in runtime.Seat<TransportSeat.PubSub>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.PubSub>)
+        from seat in IO.lift(runtime.Seat<TransportSeat.PubSub>(spec.Transport))
         from app in IO.lift(seat.Held)
-        from reader in seat.Configure(app, spec, spec.Protocol).Match(Succ: IO.pure, Fail: IO.fail<uint>)
+        from reader in IO.lift(seat.Configure(app, spec, spec.Protocol))
         from lane in SubscriptionLane.Open(runtime, spec,
-            () => seat.Remove(app, reader).Match(Succ: IO.pure, Fail: IO.fail<Unit>),
+            () => IO.lift(seat.Remove(app, reader)),
             new LiveClient.PubSub(app, reader))
         from _ in IO.lift(() => Attach(app, spec, lane.Sink))
         select lane;
@@ -733,7 +732,7 @@ public static class PubSubLane {
 public static class SerialLane {
     public static IO<SubscriptionLane> Attach(LiveWireRuntime runtime, BindingSpec spec) =>
         spec.Poll is PollPolicy.Line { Framing: var framing }
-            ? from seat in runtime.Seat<TransportSeat.Serial>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Serial>)
+            ? from seat in IO.lift(runtime.Seat<TransportSeat.Serial>(spec.Transport))
               from port in IO.lift(() => seat.Open(spec.BindingId, framing))
               from lane in SubscriptionLane.Open(runtime, spec, () => IO.lift(() => { port.Close(); return unit; }), new LiveClient.Serial(port))
               from _ in IO.lift(() => Wire(port, spec, lane.Sink, runtime))
@@ -743,11 +742,11 @@ public static class SerialLane {
 
     public static IO<EchoDiscriminator> Write(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) =>
         spec.Poll is PollPolicy.Line { Framing.Line: var line } && line.Admits(LineCapability.LineFramed)
-            ? from client in runtime.Client(spec.BindingId).Match(Succ: IO.pure, Fail: IO.fail<LiveClient>)
+            ? from client in IO.lift(runtime.Client(spec.BindingId))
               from port in client is LiveClient.Serial { Port: var held }
                   ? IO.pure(held)
                   : IO.fail<SerialPort>(new WireFault.ConnectRejected($"serial-client-mismatch:{spec.BindingId}"))
-              from reading in value.Reading.Match(Some: IO.pure, None: () => IO.fail<double>(new WireFault.WriteRejected($"serial-no-reading:{value.Reason.Value}")))
+              from reading in IO.lift(value.Reading.ToFin(new WireFault.WriteRejected($"serial-no-reading:{value.Reason.Value}")))
               from echo in OutboundSurface.Carry(runtime.Outbound, spec.Transport.Row.Hop(runtime, spec), _ => {
                   try {
                       port.WriteLine(reading.ToString(CultureInfo.InvariantCulture));
@@ -786,7 +785,7 @@ public static class SerialLane {
 public static class BacnetLane {
     public static IO<SubscriptionLane> Subscribe(LiveWireRuntime runtime, BindingSpec spec) =>
         spec.Poll is PollPolicy.Point { Map: var point }
-            ? from seat in runtime.Seat<TransportSeat.Bacnet>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Bacnet>)
+            ? from seat in IO.lift(runtime.Seat<TransportSeat.Bacnet>(spec.Transport))
               from client in IO.lift(() => seat.Open(spec.BindingId))
               let address = seat.Address(spec.ExternalAddress)
               from lane in SubscriptionLane.Open(runtime, spec,
@@ -838,7 +837,7 @@ public static class BacnetLane {
 
     public static IO<ExternalValue> Recover(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
         spec.Poll is PollPolicy.Point { Map: var point }
-            ? from seat in runtime.Seat<TransportSeat.Bacnet>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Bacnet>)
+            ? from seat in IO.lift(runtime.Seat<TransportSeat.Bacnet>(spec.Transport))
               from value in point.TrendLog.Match(
                   Some: log => Backfill(runtime, seat, spec, point, log, token),
                   None: () => Current(runtime, seat, spec, point, token))
@@ -852,7 +851,7 @@ public static class BacnetLane {
                 : Fin.Fail<BacnetClient>(new WireFault.ConnectRejected($"bacnet-client-mismatch:{spec.BindingId}")));
 
     static IO<ExternalValue> Current(LiveWireRuntime runtime, TransportSeat.Bacnet seat, BindingSpec spec, BacnetPoint point, CancellationToken token) =>
-        Client(runtime, spec).Match(Succ: IO.pure, Fail: IO.fail<BacnetClient>)
+        IO.lift(Client(runtime, spec))
             .Bind(client => IO.liftAsync(async () =>
                 await client.ReadPropertyAsync(seat.Address(spec.ExternalAddress), point.Object, point.Property, cancellationToken: token)
                         .ConfigureAwait(false) is [{ } head, ..]
@@ -869,14 +868,13 @@ public static class BacnetLane {
         | WireRecovery.Present(() => Current(runtime, seat, spec, point, token));
 
     static IO<BacnetPage> Page(LiveWireRuntime runtime, TransportSeat.Bacnet seat, BindingSpec spec, BacnetObjectId log, CancellationToken token) =>
-        from client in Client(runtime, spec).Match(Succ: IO.pure, Fail: IO.fail<BacnetClient>)
+        from client in IO.lift(Client(runtime, spec))
         from window in IO.liftAsync(() => client.ReadRangeAsync(
             seat.Address(spec.ExternalAddress), log, seat.Watermark(spec.BindingId).ToDateTimeUtc(),
             (uint)seat.BackfillPage.Value, cancellationToken: token))
         from samples in IO.lift(() => seat.DecodeTrend(spec.BindingId, window.Range, window.ItemCount))
-        from newest in samples.Last.Match(
-            Some: IO.pure,
-            None: () => IO.fail<ExternalValue>(new WireFault.StaleSource($"bacnet-trend-empty:{spec.BindingId}")))
+        from newest in IO.lift(samples.Last.ToFin(
+            new WireFault.StaleSource($"bacnet-trend-empty:{spec.BindingId}")))
         from _ in IO.lift(() => {
             ChannelWriter<ExternalValue> sink = runtime.Lane(spec.BindingId).Sink;
             samples.Iter(sample => ignore(SubscriptionLane.Submit(sink, sample)));
@@ -887,8 +885,8 @@ public static class BacnetLane {
 
     public static IO<EchoDiscriminator> Write(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) =>
         spec.Poll is PollPolicy.Point { Map: var point }
-            ? from seat in runtime.Seat<TransportSeat.Bacnet>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Bacnet>)
-              from client in Client(runtime, spec).Match(Succ: IO.pure, Fail: IO.fail<BacnetClient>)
+            ? from seat in IO.lift(runtime.Seat<TransportSeat.Bacnet>(spec.Transport))
+              from client in IO.lift(Client(runtime, spec))
               from echo in OutboundSurface.Carry(runtime.Outbound, spec.Transport.Row.Hop(runtime, spec), async ct => {
                   byte invoke = seat.Invoke(spec.BindingId);
                   try {
@@ -1016,11 +1014,11 @@ public sealed partial class ModbusElement {
 
     static IO<double> Read<T>(ModbusClient c, ModbusWindow w, CancellationToken t) where T : unmanaged, INumber<T> =>
         IO.liftAsync(async () => Head(await c.ReadHoldingRegistersAsync<T>(w.UnitId, w.StartAddress, w.Count, t).ConfigureAwait(false), w))
-            .Bind(static read => read.Match(Succ: IO.pure, Fail: IO.fail<double>));
+            .Bind(static read => IO.lift(read));
 
     static IO<double> ReadInput<T>(ModbusClient c, ModbusWindow w, CancellationToken t) where T : unmanaged, INumber<T> =>
         IO.liftAsync(async () => Head(await c.ReadInputRegistersAsync<T>(w.UnitId, w.StartAddress, w.Count, t).ConfigureAwait(false), w))
-            .Bind(static read => read.Match(Succ: IO.pure, Fail: IO.fail<double>));
+            .Bind(static read => IO.lift(read));
 
     static Fin<double> Head<T>(Memory<T> window, ModbusWindow w) where T : unmanaged, INumber<T> =>
         window.Span is [var head, ..]
@@ -1084,7 +1082,7 @@ public static class HttpPoll {
 public static class ModbusLane {
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
         spec.Poll is PollPolicy.Register { Window: var w }
-            ? from seat in runtime.Seat<TransportSeat.Modbus>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Modbus>)
+            ? from seat in IO.lift(runtime.Seat<TransportSeat.Modbus>(spec.Transport))
               from raw in OutboundSurface.Carry(runtime.Outbound, spec.Transport.Row.Hop(runtime, spec), async ct =>
                   ((HopOutcome)new HopOutcome.Delivered(),
                    await w.Space.Read(seat.Held(spec.BindingId), w, ct).RunAsync().ConfigureAwait(false)),
@@ -1094,8 +1092,8 @@ public static class ModbusLane {
 
     public static IO<EchoDiscriminator> Write(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) =>
         spec.Poll is PollPolicy.Register { Window: var w }
-            ? from seat in runtime.Seat<TransportSeat.Modbus>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Modbus>)
-              from reading in value.Reading.Match(Some: IO.pure, None: () => IO.fail<double>(new WireFault.WriteRejected($"modbus-no-reading:{value.Reason.Value}")))
+            ? from seat in IO.lift(runtime.Seat<TransportSeat.Modbus>(spec.Transport))
+              from reading in IO.lift(value.Reading.ToFin(new WireFault.WriteRejected($"modbus-no-reading:{value.Reason.Value}")))
               from echo in OutboundSurface.Carry(runtime.Outbound, spec.Transport.Row.Hop(runtime, spec), async ct => {
                   try {
                       await w.Space.Write(seat.Held(spec.BindingId), w, reading, ct).RunAsync().ConfigureAwait(false);
@@ -1121,7 +1119,7 @@ public static class ModbusLane {
 
 public static class MtconnectLane {
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
-        from seat in runtime.Seat<TransportSeat.Mtconnect>(spec.Transport).Match(Succ: IO.pure, Fail: IO.fail<TransportSeat.Mtconnect>)
+        from seat in IO.lift(runtime.Seat<TransportSeat.Mtconnect>(spec.Transport))
         from body in OutboundSurface.Carry(runtime.Outbound, spec.Transport.Row.Hop(runtime, spec), async ct => {
             using var response = await runtime.Http(spec.BindingId)
                 .GetAsync($"{spec.ExternalAddress}/sample?from={seat.Cursor(spec.BindingId).LastSequence + 1}", ct)
@@ -1135,12 +1133,11 @@ public static class MtconnectLane {
 
     static IO<ExternalValue> Drain(TransportSeat.Mtconnect seat, BindingSpec spec, string body) =>
         IO.lift(() => seat.Decode(spec.BindingId, body))
-            .Bind(observations => observations.Last.Match(
-                Some: newest => IO.lift(() => {
+            .Bind(observations => IO.lift(observations.Last.ToFin(
+                new WireFault.StaleSource($"mtconnect-empty:{spec.BindingId}"))).Bind(newest => IO.lift(() => {
                     seat.Advance(spec.BindingId, newest.Sequence, newest.InstanceId);
                     return newest.Value;
-                }),
-                None: () => IO.fail<ExternalValue>(new WireFault.StaleSource($"mtconnect-empty:{spec.BindingId}"))));
+                })));
 }
 ```
 
@@ -1246,16 +1243,14 @@ public sealed record LiveWireRuntime(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LiveWire {
     public static Fin<Coercion> Coerce(BindingSpec spec, ExternalValue value, UnitPolicy policy, CorrelationId correlation) =>
-        value.Reading.Match(
-            Some: reading => spec.Family.Admit(new QuantityInput.Abbreviated(reading, value.Unit), policy, correlation).Match(
-                Succ: evidence => Fin.Succ(new Coercion(evidence.CanonicalValue, spec.Family.Canonical.ToString(), value.Unit, evidence, value.SourceAt)),
-                Fail: error => Fin.Fail<Coercion>(error)),
-            None: () => Fin.Fail<Coercion>(new WireFault.StaleSource($"{value.Reason.Value}@{value.SourceAt}")));
+        value.Reading
+            .ToFin(new WireFault.StaleSource($"{value.Reason.Value}@{value.SourceAt}"))
+            .Bind(reading => spec.Family
+                .Admit(new QuantityInput.Abbreviated(reading, value.Unit), policy, correlation)
+                .Map(evidence => new Coercion(evidence.CanonicalValue, spec.Family.Canonical.ToString(), value.Unit, evidence, value.SourceAt)));
 
     public static IO<BindingHandle> Bind(LiveWireRuntime runtime, BindingSpec spec) =>
-        Admit(spec).Match(
-            Succ: admitted => IO.pure(Seated(runtime, admitted)),
-            Fail: errors => IO.fail<BindingHandle>(Error.Many(errors)));
+        IO.lift(Admit(spec).ToFin()).Map(admitted => Seated(runtime, admitted));
 
     static Validation<Error, BindingSpec> Admit(BindingSpec spec) =>
         (Mapping(spec), Legs(spec), Shape(spec)).Apply((_, _, _) => spec).As();
@@ -1395,7 +1390,7 @@ public sealed record WriteAttempt(WriteVerdict Verdict, Option<double> Rendered,
 public static class WriteBackSurface {
     public static IO<Host.WriteOutcomeWire> Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue) =>
         from key in IO.pure(Op.Of())
-        from start in runtime.Clocks.Line.Capture(key).Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
+        from start in IO.lift(runtime.Clocks.Line.Capture(key))
         from attempt in Conduct(runtime, spec, canonicalValue) | WireRecovery.Refused()
         from remembered in IO.lift(() => Remember(runtime, spec.BindingId, attempt.Verdict))
         from outcome in Sealed(runtime, spec, canonicalValue, attempt, start, key)
@@ -1403,14 +1398,11 @@ public static class WriteBackSurface {
 
     static IO<WriteAttempt> Conduct(LiveWireRuntime runtime, BindingSpec spec, double canonical) =>
         from prior in Prior(runtime, spec)
-        from admitted in prior.Reading.Match(
-            Some: _ => IO.pure(prior),
-            None: () => IO.fail<ExternalValue>(new WireFault.StaleSource($"{prior.Reason.Value}@{prior.SourceAt}")))
-        from target in spec.Family.Resolve(admitted.Unit, runtime.Units).Match(
-            Some: IO.pure,
-            None: () => IO.fail<Enum>(new WireFault.UnitRejected($"{spec.Family.Key}:{admitted.Unit}")))
+        from admitted in IO.lift(prior.Reading.ToFin(
+            new WireFault.StaleSource($"{prior.Reason.Value}@{prior.SourceAt}"))).Map(_ => prior)
+        from target in IO.lift(spec.Family.Resolve(admitted.Unit, runtime.Units).ToFin(
+            new WireFault.UnitRejected($"{spec.Family.Key}:{admitted.Unit}")))
         from rendered in IO.lift(() => UnitAlgebra.Numeric(canonical, spec.Family.Canonical, target))
-            .Bind(static fin => fin.Match(Succ: IO.pure, Fail: IO.fail<double>))
         let value = ExternalValue.Graded(rendered, Quality.Good, spec, runtime.Clocks.Now, EchoDiscriminator.Unproven, Some(admitted.Unit))
         from disposition in Attempt(runtime, spec, value, admitted)
         select new WriteAttempt(disposition, Some(rendered), Some(admitted.Unit));
@@ -1443,8 +1435,8 @@ public static class WriteBackSurface {
     static IO<Host.WriteOutcomeWire> Sealed(
         LiveWireRuntime runtime, BindingSpec spec, double canonical, WriteAttempt attempt,
         MonotonicStamp start, Op key) =>
-        from end in runtime.Clocks.Line.Capture(key).Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
-        from span in runtime.Clocks.Line.Elapsed(start, end, key).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
+        from end in IO.lift(runtime.Clocks.Line.Capture(key))
+        from span in IO.lift(runtime.Clocks.Line.Elapsed(start, end, key))
         select LiveWireContract.Outcome(
             spec.BindingId, canonical, attempt, Duration.FromTimeSpan(span));
 
@@ -1491,10 +1483,10 @@ public static class BindingHealth {
         from stepped in IO.lift(() => Cell.Step(handle.State, held => held.Admits(next) ? Some(next) : None,
             new WireFault.ProtocolRefused($"binding-state:{handle.Spec.BindingId}:{handle.State.Value.Key}->{next.Key}")))
         from _ in stepped.Switch(
-            committed: row => Levelled(runtime).Bind(_ => runtime.Hooks.Fire(
+            committed: row => Levelled(runtime).Bind(_ => IO.lift(runtime.Hooks.Fire(
                 at: AppHostPoint.Binding,
                 fact: new AppHostFact.Binding(LiveWireContract.Status(handle, row.State)),
-                key: Op.Of()).Match(Succ: IO.pure, Fail: IO.fail<Unit>)),
+                key: Op.Of()))),
             ceded: _ => IO.fail<Unit>(new KernelFault.InvalidResult(Op.Of(), Some("Cell.Step returned Ceded"))),
             refused: refused => IO.fail<Unit>(refused.Cause),
             contended: row => IO.fail<Unit>(new KernelFault.InvalidResult(

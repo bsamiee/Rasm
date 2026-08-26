@@ -142,11 +142,11 @@ public abstract partial record PropertyValue {
   number: static p => p.Value.ToString("R", CultureInfo.InvariantCulture),
   binary: static p => Convert.ToHexString(p.Value.ToArray()),
   enumerated: static p => string.Join(',', p.Selected.Map(static v => v.Render())),
-  reference: static p => p.Target.Value,
+  reference: static p => p.Target.ToValue(),
   bounded: static p => $"[{Bound(p.Lower)}, {Bound(p.Upper)}, {Bound(p.SetPoint)}]",
   list: static p => string.Join(';', p.Values.Map(static v => v.Render())),
   table: static p => string.Join(';', p.Rows.Map(static r => $"{r.Defining.Render()}={r.Defined.Render()}")),
-  complex: static p => $"{p.UsageName}{{{string.Join(';', p.Properties.OrderBy(static e => e.Key.Value, StringComparer.Ordinal).Select(static e => $"{e.Key.Value}={e.Value.Render()}"))}}}",
+  complex: static p => $"{p.UsageName}{{{string.Join(';', p.Properties.OrderBy(static e => e.Key.ToValue(), StringComparer.Ordinal).Select(static e => $"{e.Key.ToValue()}={e.Value.Render()}"))}}}",
   temporal: static p => p.Value.Iso());
 
  public void CanonicalBytes(CanonicalWriter w) => Switch(
@@ -157,7 +157,7 @@ public abstract partial record PropertyValue {
   enumerated: v => w.Ordinal(4)
    .Rows(v.Selected, static (member, run) => member.CanonicalBytes(run))
    .Rows(v.Allowed, static (member, run) => member.CanonicalBytes(run)),
-  reference: v => w.Ordinal(5).Optional(v.UsageName, static (u, run) => run.String(u)).String(v.Target.Value),
+  reference: v => w.Ordinal(5).Optional(v.UsageName, static (u, run) => run.String(u)).String(v.Target.ToValue()),
   bounded: v => w.Ordinal(6)
    .Optional(v.Lower, static (m, run) => run.Measure(m))
    .Optional(v.Upper, static (m, run) => run.Measure(m))
@@ -166,8 +166,8 @@ public abstract partial record PropertyValue {
   table: v => w.Ordinal(8).String(v.Interp.Key)
    .Rows(v.Rows, static (row, run) => { row.Defining.CanonicalBytes(run); row.Defined.CanonicalBytes(run); }),
   complex: v => w.Ordinal(9).String(v.UsageName)
-   .Sorted(toSeq(v.Properties), static e => e.Key.Value, StringComparer.Ordinal,
-    static (e, run) => { run.String(e.Key.Value); e.Value.CanonicalBytes(run); }),
+   .Sorted(toSeq(v.Properties), static e => e.Key.ToValue(), StringComparer.Ordinal,
+    static (e, run) => { run.String(e.Key.ToValue()); e.Value.CanonicalBytes(run); }),
   temporal: v => w.Ordinal(10).Ordinal(v.Value.CaseOrdinal).String(v.Value.Iso()),
   integer: v => WriteBytes(w.Ordinal(11), v.Value.ToByteArray(isUnsigned: false, isBigEndian: true)),
   number: v => w.Ordinal(12).Double(v.Value),
@@ -224,7 +224,7 @@ public abstract partial record PropertyValue {
  }
 
  private static bool Inverted(Option<MeasureValue> low, Option<MeasureValue> high) =>
-  low.Match(Some: lo => high.Match(Some: hi => lo.Si > hi.Si, None: static () => false), None: static () => false);
+  low.Bind(lo => high.Map(hi => lo.Si > hi.Si)).IfNone(false);
 
  private static CanonicalWriter WriteBytes(CanonicalWriter writer, ReadOnlySpan<byte> bytes) =>
   writer.Ordinal(bytes.Length).Raw(bytes);

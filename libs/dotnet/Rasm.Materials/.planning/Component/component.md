@@ -746,9 +746,10 @@ public static class SectionSolver {
                     .As()
                     .Bind(head =>
                         (Section(s.Avy, key), Section(s.Avz, key), Section(p.Perim, key),
-                         Gate(s.Iw >= 0.0 && double.IsFinite(s.Iw) && double.IsFinite(s.ShearCentreY)
-                              && double.IsFinite(s.ShearCentreZ) && double.IsFinite(s.Monosymmetry),
-                             key, source.GetType()))
+                         AdmissionSlots.Gate(
+                             s.Iw >= 0.0 && double.IsFinite(s.Iw) && double.IsFinite(s.ShearCentreY)
+                             && double.IsFinite(s.ShearCentreZ) && double.IsFinite(s.Monosymmetry),
+                             new ComponentFault.SectionIncoherent(key, source.GetType())))
                         .Apply((avy, avz, perim, _) => new ComputedSection(
                             head.area, head.ix, head.iy, head.sx, head.sy, head.rx, head.ry, head.zx, head.zy, head.jj,
                             IwMm6: s.Iw, avy, avz,
@@ -762,9 +763,6 @@ public static class SectionSolver {
     static Validation<Error, PositiveMagnitude> Section(double mm, Op key) =>
         key.AcceptValidated<PositiveMagnitude>(candidate: mm)
             .ToValidation();
-
-    static Validation<Error, Unit> Gate(bool holds, Op key, Type profile) =>
-        holds ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComponentFault.SectionIncoherent(key, profile));
 
     // --- [CURVES]
     internal static class Curves {
@@ -1321,8 +1319,7 @@ public sealed record ComponentCatalogue(
                 from standing in Standing(candidate, seed)
                 from attributable in Attributable(seed)
                 select (Family: family, Seed: seed))
-            .Match(
-                Some: election => Component.Of(
+            .TraverseM(election => Component.Of(
                         election.Family,
                         $"{election.Family.Key}.{Tail(candidate)}",
                         election.Seed.Item.Profile,
@@ -1333,8 +1330,8 @@ public sealed record ComponentCatalogue(
                         election.Seed.Item.AppearanceId,
                         Detail(election.Family, candidate),
                         key)
-                    .Map(item => Some(new ComponentRow(item, EvidenceGrade.Import))),
-                None: static () => Fin.Succ(Option<ComponentRow>.None));
+                    .Map(item => new ComponentRow(item, EvidenceGrade.Import)))
+            .As();
     }
 
     static HashMap<IfcBinding, Seq<ComponentFamily>> Claims(Seq<(ComponentFamily Family, Seq<ComponentRow> Rows)> seeded) =>
@@ -1664,8 +1661,8 @@ public sealed partial class MaterialGrade {
     public string SubstanceId { get; }
     public Option<string> AppearanceId { get; }
     public GradeProperties Columns { get; }
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public Option<MaterialId> Appearance => AppearanceId.Map(MaterialId.Of);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
+    public Option<MaterialId> Appearance => AppearanceId.Map(MaterialId.Create);
 
     // --- [MINTS]
     static MaterialGrade Steel(string key, ComponentAuthority authority, double nominalYieldMpa, string substanceId,
@@ -1782,14 +1779,14 @@ public sealed record SeedLaw<TRow>(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ComponentSeed {
     public static Fin<Seq<ComponentRow>> Rows<TRow>(Context context, Seq<TRow> roster, SeedLaw<TRow> law) =>
-        roster.Map(row => RowOf(context, row, law).ToValidation()).Sequence().As().ToFin();
+        roster.Traverse(row => RowOf(context, row, law).ToValidation()).As().ToFin();
 
     static Fin<ComponentRow> RowOf<TRow>(Context context, TRow row, SeedLaw<TRow> law) =>
         from proven in law.Coherence(row, context.Key).ToFin()
         from profile in law.Profile(row, context.Key)
-        from detail in law.Detail.Match(
-            Some: fold => fold(row, profile, context.Key).Map(Some),
-            None: static () => Fin.Succ(Option<PropertyBag>.None))
+        from detail in law.Detail
+            .TraverseM(fold => fold(row, profile, context.Key))
+            .As()
         from item in Component.Of(
             law.Family, law.Designation(row), profile, law.Ifc(row), law.Voids(row), law.Standard(row),
             substanceId: law.Substance(row), appearanceId: law.Appearance(row), detail, context.Key)

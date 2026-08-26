@@ -518,9 +518,8 @@ public static class Remnants {
             .Traverse(hole => hole.Parent
                 .Bind(byIndex.Find)
                 .Filter(static owner => !owner.IsHole)
-                .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, hole.Index, "remnant:orphan-hole"))
                 .Map(owner => (Hole: hole, Owner: owner.Index))
-                .ToValidation())
+                .ToValidation(new GeometryFault.DegenerateInput(Kind.Polyline, hole.Index, "remnant:orphan-hole")))
             .As().ToFin()
             .Map(assignments => Ordered(topology.Nodes
                 .Filter(static node => !node.IsHole)
@@ -803,8 +802,8 @@ public static class Remnants {
         Error?[] faults = new Error?[rows.Length];
         ParallelHelper.For(0, rows.Length, new InventoryGate(inventory, rows, faults));
         Fin<Unit> rowGate = toSeq(faults).Traverse(error => error is null
-                ? Fin.Succ(unit).ToValidation()
-                : Fin.Fail<Unit>(error).ToValidation())
+                ? Validation<Error, Unit>.Success(unit)
+                : Validation<Error, Unit>.Fail(error))
             .As().ToFin().Map(static _ => unit);
         return rowGate.Bind(_ => AdmitLineage(inventory, rows));
     }

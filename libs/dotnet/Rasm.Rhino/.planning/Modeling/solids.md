@@ -216,10 +216,9 @@ internal static class ModelGate {
             .Settled(
                 release: () => Custody.Dispose(held: Optional(source).ToSeq(), key: key),
                 key: key)
-            .BindFail(primary => Optional(detached).Match(
-                Some: copy => Fin.Fail<GeometryBase>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: Seq(copy), key: key), key: key),
-                None: () => Fin.Fail<GeometryBase>(error: primary)));
+            .Rollback(
+                release: () => Custody.Dispose(held: Optional(detached).ToSeq(), key: key),
+                key: key);
     }
 
     internal static Fin<Seq<GeometryBase>> DetachedMany(IEnumerable<GeometryBase>? source, Op key) =>
@@ -252,9 +251,10 @@ internal static class ModelGate {
                     key: op));
         return from rows in captured
                let products = rows.Bind(static stage => stage)
-               from _ in success.Match(
-                       Some: verdict => op.Confirm(success: verdict),
-                       None: static () => Fin.Succ(unit))
+               from _ in success
+                   .TraverseM(verdict => op.Confirm(success: verdict))
+                   .As()
+                   .Map(static _ => unit)
                    .Rollback(release: () => Custody.Dispose(held: products, key: op), key: op)
                select products;
     }

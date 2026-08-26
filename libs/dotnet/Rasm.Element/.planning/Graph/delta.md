@@ -170,14 +170,14 @@ public sealed record GraphDelta(
  public int EdgeCount => AddedEdges.Count + RemovedEdges.Count;
 
  static void Written(GraphDelta delta, double tolerance, CanonicalWriter w) {
-  w.Sorted(delta.AddedNodes, static n => n.Id.Value, StringComparer.Ordinal,
-   static (n, run) => { run.String(n.Id.Value); n.CanonicalBytes(run); });
-  w.Sorted(delta.RevisedNodes, static r => r.After.Id.Value, StringComparer.Ordinal,
-   static (r, run) => { run.String(r.After.Id.Value); r.After.CanonicalBytes(run); });
-  w.Sorted(delta.RemovedNodes, static id => id.Value, StringComparer.Ordinal,
-   static (id, run) => run.String(id.Value));
-  w.Sorted(delta.AddedEdges.Map(e => ContentAddress.Of(e, tolerance).Value), static a => a, Comparer<UInt128>.Default, static (a, run) => run.U128(a));
-  w.Sorted(delta.RemovedEdges.Map(e => ContentAddress.Of(e, tolerance).Value), static a => a, Comparer<UInt128>.Default, static (a, run) => run.U128(a));
+  w.Sorted(delta.AddedNodes, static n => n.Id.ToValue(), StringComparer.Ordinal,
+   static (n, run) => { run.String(n.Id.ToValue()); n.CanonicalBytes(run); });
+  w.Sorted(delta.RevisedNodes, static r => r.After.Id.ToValue(), StringComparer.Ordinal,
+   static (r, run) => { run.String(r.After.Id.ToValue()); r.After.CanonicalBytes(run); });
+  w.Sorted(delta.RemovedNodes, static id => id.ToValue(), StringComparer.Ordinal,
+   static (id, run) => run.String(id.ToValue()));
+  w.Sorted(delta.AddedEdges.Map(e => ContentAddress.Of(e, tolerance).ToValue()), static a => a, Comparer<UInt128>.Default, static (a, run) => run.U128(a));
+  w.Sorted(delta.RemovedEdges.Map(e => ContentAddress.Of(e, tolerance).ToValue()), static a => a, Comparer<UInt128>.Default, static (a, run) => run.U128(a));
   w.Optional(delta.Header, static (h, run) => h.CanonicalBytes(run));
  }
 
@@ -260,7 +260,7 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
     ? s.Graph.Erase(m.Id) switch {
        var (next, cascaded) => Fin.Succ((next, GraphDelta.Empty with { RemovedNodes = [m.Id], RemovedEdges = cascaded })),
       }
-    : new ElementFault.DeltaConflict(s.Key, $"<drop-absent-node:{m.Id.Value}>"),
+    : new ElementFault.DeltaConflict(s.Key, $"<drop-absent-node:{m.Id.ToValue()}>"),
    link: static (s, m) => LegalLink(m.Edge, s.Graph.Nodes, s.Key)
     .Bind(_ => s.Graph.Edges.Contains(m.Edge)
      ? new ElementFault.DeltaConflict(s.Key, "<duplicate-link>")
@@ -279,12 +279,12 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
  static Fin<Unit> LegalLink(Relationship edge, HashMap<NodeId, Node> nodes, Op key) {
   (NodeId relating, NodeId related) = edge.Endpoints;
   return edge.Members.Find(member => !nodes.ContainsKey(member)).Match(
-   Some: member => new ElementFault.NodeAbsent(key, $"<link-member-absent:{member.Value}>"),
+   Some: member => new ElementFault.NodeAbsent(key, $"<link-member-absent:{member.ToValue()}>"),
    None: () => LegalPresent(edge, relating, related, nodes, key));
  }
 
  static Fin<Unit> LegalPresent(Relationship edge, NodeId relating, NodeId related, HashMap<NodeId, Node> nodes, Op key) =>
-   relating == related && edge is not Relationship.Generic ? new ElementFault.RelationshipInvalid(key, $"<link-self-loop:{relating.Value}>")
+   relating == related && edge is not Relationship.Generic ? new ElementFault.RelationshipInvalid(key, $"<link-self-loop:{relating.ToValue()}>")
    : edge.Switch<(Node Relating, Node Related, HashMap<NodeId, Node> Nodes, Op Key), Fin<Unit>>(
     (nodes[relating], nodes[related], nodes, key),
     compose: static (s, _) => BothObjects(s.Relating, s.Related, s.Key, "<compose-endpoints-must-be-objects>"),
@@ -299,10 +299,10 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
    .Bind(_ => c.Realizing.Match(
      None: () => Fin.Succ(unit),
      Some: realizing => realizing == c.From || realizing == c.To
-      ? new ElementFault.RelationshipInvalid(key, $"<connect-realizing-must-be-distinct:{realizing.Value}>")
-      : nodes.Find(realizing).Match(
-        Some: n => n is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<connect-realizing-must-be-object>"),
-        None: () => Fin.Fail<Unit>(new ElementFault.NodeAbsent(key, $"<connect-realizing-absent:{realizing.Value}>")))));
+      ? new ElementFault.RelationshipInvalid(key, $"<connect-realizing-must-be-distinct:{realizing.ToValue()}>")
+      : nodes.Find(realizing)
+       .ToFin(new ElementFault.NodeAbsent(key, $"<connect-realizing-absent:{realizing.ToValue()}>"))
+       .Bind(n => n is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<connect-realizing-must-be-object>"))));
 
  static Fin<Unit> LegalAssign(Relationship.Assign a, Node subject, Node definition, Op key) =>
   subject is not Node.Object ? new ElementFault.RelationshipInvalid(key, "<assign-subject-must-be-object>")

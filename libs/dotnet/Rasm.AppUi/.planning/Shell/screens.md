@@ -296,7 +296,7 @@ public sealed partial class ProductScreen {
     }
 
     private IO<Unit> DisposedEvidence(int disposables) =>
-        IO.lift(() =>
+        IO.lift<Fin<Duration>>(() =>
                 from start in mark.ToFin(Fail: (Error)new ScreenFault.Rejected("dispose", "activation was never marked"))
                 from end in Runtime.Line.Capture(ScreenOp)
                 from span in Runtime.Line.Elapsed(start, end, ScreenOp)
@@ -1030,12 +1030,10 @@ public static class ScreenMap {
         ControlIntentWire wireRoot = ControlMap.Emit(root);
         (Seq<ControlIntentWire> Controls, Seq<string> Layouts) census = Census(wireRoot);
         Seq<string> identities = census.Controls.Map(static control => control.Key);
-        Seq<string> duplicated = identities
-            .GroupBy(static identity => identity)
-            .AsIterable()
+        Seq<string> duplicated = toSeq(identities
+            .GroupBy(static identity => identity))
             .Filter(static group => group.Count() > 1)
-            .Map(static group => group.Key)
-            .ToSeq();
+            .Map(static group => group.Key);
         if (!duplicated.IsEmpty) {
             return Fin<AppUiSurfaceProgram>.Fail(
                 new ScreenFault.Rejected("surface-program", $"duplicate control keys: {string.Join(", ", duplicated)}"));

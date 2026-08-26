@@ -63,8 +63,8 @@ public sealed partial class VectorOrder {
 public readonly record struct VersionVector(HashMap<Guid, long> Slots) {
     public static readonly VersionVector Empty = new(HashMap<Guid, long>());
     public VersionVector Advance(Guid origin, long count) => new(Slots.AddOrUpdate(origin, e => e + count, count));
-    public VersionVector Join(VersionVector other) => new(other.Slots.Fold(Slots, static (acc, s) => acc.AddOrUpdate(s.Key, e => long.Max(e, s.Value), s.Value)));
-    public bool Dominates(VersionVector other) => other.Slots.ForAll(s => Slots.Find(s.Key).IfNone(0L) >= s.Value);
+    public VersionVector Join(VersionVector other) => new(other.Slots.AsIterable().Fold(Slots, static (acc, s) => acc.AddOrUpdate(s.Key, e => long.Max(e, s.Value), s.Value)));
+    public bool Dominates(VersionVector other) => other.Slots.AsIterable().ForAll(s => Slots.Find(s.Key).IfNone(0L) >= s.Value);
     public long At(Guid origin) => Slots.Find(origin).IfNone(0L);
     public Seq<(Guid Origin, long Seq)> Ordered =>
         toSeq(Slots.AsIterable().OrderBy(static slot => slot.Key.ToString("N"), StringComparer.Ordinal).Select(static slot => (slot.Key, slot.Value)));
@@ -358,7 +358,7 @@ public static class Crdt {
             AntiChain(l.Values + r.Values).Map<CrdtField>(static values => new CrdtField.MvRegister(values)),
         (CrdtField.OrSet l, CrdtField.OrSet r) => Fin.Succ<CrdtField>(Observed(l, r)),
         (CrdtField.PnCounter l, CrdtField.PnCounter r) =>
-            r.Origins.Fold(Fin.Succ(l), static (acc, row) => acc.Bind(held => Counter(held, row.Key, row.Value)))
+            r.Origins.AsIterable().FoldM(l, static (held, row) => Counter(held, row.Key, row.Value)).As()
                 .Map<CrdtField>(static held => held),
         (CrdtField.RgaSequence l, CrdtField.RgaSequence r) =>
             Weave(l.Cells, r.Cells).Map<CrdtField>(cells => {
@@ -801,7 +801,7 @@ public static class ContentParityCorpus {
         ops.IsEmpty
             ? Fin.Fail<ParityVector>(new CommitFault.ParityDrift(ParitySlot.CrdtOpSet.Key, "<empty-op-set>"))
             : Permutations(ops)
-                .Map(order => Crdt.Seed(ops[0].Op)
+                .TraverseM(order => Crdt.Seed(ops[0].Op)
                     .Bind(seed => order.Fold(
                         Fin.Succ(seed),
                         (acc, row) => acc.Bind(state => Crdt.Apply(state, row.Id, row.Op)))
@@ -809,7 +809,7 @@ public static class ContentParityCorpus {
                             Fin.Succ(state),
                             (acc, row) => acc.Bind(held => Crdt.Apply(held, row.Id, row.Op)))))
                     .Bind(state => Retained(ParitySlot.CrdtOpSet, state, Canonical)))
-                .TraverseM(identity).As()
+                .As()
                 .Bind(folds => folds.Map(static vector => vector.Digest).Distinct().Count() == 1
                     ? Fin.Succ(folds[0])
                     : Fin.Fail<ParityVector>(new CommitFault.ParityDrift(ParitySlot.CrdtOpSet.Key, "<divergent-delivery-fold>")));

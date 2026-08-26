@@ -206,13 +206,13 @@ public static class MemberDiff {
 public static class EditWire {
     public static Fin<Host.EntityEditWire> Wire(EntityEdit edit, Op key) => edit.Switch(
         tombstone: row => Address(row.Key, key).Map(id => new Host.EntityEditWire {
-            Tombstone = new Host.EditTombstone { Key = id, Base = ContentHash.Wire(row.Base.Value) },
+            Tombstone = new Host.EditTombstone { Key = id, Base = ContentHash.Wire(row.Base.ToValue()) },
         }),
         members: row => Address(row.Key, key).Map(id => new Host.EntityEditWire {
-            Members = new Host.EditMembers { Key = id, Base = ContentHash.Wire(row.Base.Value), Patch = { Ops(row.Patch) } },
+            Members = new Host.EditMembers { Key = id, Base = ContentHash.Wire(row.Base.ToValue()), Patch = { Ops(row.Patch) } },
         }));
 
-    static Fin<ByteString> Address(NodeId id, Op key) => ContentHash.Admit(id.Value, key).Map(ContentHash.Wire);
+    static Fin<ByteString> Address(NodeId id, Op key) => ContentHash.Admit(id.ToValue(), key).Map(ContentHash.Wire);
 
     static Seq<Control.PatchOp> Ops(MemberPatch patch) =>
         toSeq(patch.Mask.Paths).Map(path => Op(patch, toSeq(path.Split('.'))));
@@ -263,7 +263,7 @@ public static class StructuralMerge {
             o.Id,
             NodeRole.Of(o.Kind, containerWholes.Contains(o.Id), !o.Representations.ByIdentifier.IsEmpty),
             parentByKey.Find(o.Id), ordinalByKey.Find(o.Id).IfNone(0),
-            GeometryDigest(o.Representations), ContentAddress.Of(o.ToCanonicalBytes(graph.Header.Tolerance).Span).Value, UInt128.Zero,
+            GeometryDigest(o.Representations), ContentAddress.Of(o.ToCanonicalBytes(graph.Header.Tolerance).Span).ToValue(), UInt128.Zero,
             childrenByParent.Find(o.Id).IfNone(Seq<NodeId>())))));
         return nodes.Values.Filter(static node => node.Parent.IsNone).Bind(root => Seal(root, nodes));
     }
@@ -271,7 +271,7 @@ public static class StructuralMerge {
     public static HashMap<NodeId, GraphNode> ContentNodes(ElementGraph graph) =>
         toHashMap(toSeq(graph.Nodes.Values).Filter(static n => n is not Node.Object).Map(n => (n.Id, new GraphNode(
             n.Id, ContentRole(n), Option<NodeId>.None, 0, UInt128.Zero,
-            ContentAddress.Of(n.ToCanonicalBytes(graph.Header.Tolerance).Span).Value, UInt128.Zero, Seq<NodeId>()))));
+            ContentAddress.Of(n.ToCanonicalBytes(graph.Header.Tolerance).Span).ToValue(), UInt128.Zero, Seq<NodeId>()))));
 
     public static Seq<EditOp> Diff(Seq<GraphNode> from, Seq<GraphNode> to) {
         HashMap<NodeId, GraphNode> fromByKey = toHashMap(from.Map(static n => (n.Key, n)));
@@ -316,24 +316,24 @@ public static class StructuralMerge {
     static Fin<Option<EntityEdit>> Edit(
         NodeId subject, Seq<EditOp> ops, ElementGraph @base, ElementGraph target, PatchPolicy policy, Op key) =>
         (ops.Exists(static op => op is EditOp.Delete), ops.Exists(static op => op is EditOp.Insert)) switch {
-            (true, true) => ElementFault.DeltaConflict(key, $"<merge-edit-existence-conflict:{subject.Value}>"),
+            (true, true) => ElementFault.DeltaConflict(key, $"<merge-edit-existence-conflict:{subject.ToValue()}>"),
             (true, false) when target.Find(subject).IsSome =>
-                ElementFault.DeltaConflict(key, $"<merge-tombstone-target-present:{subject.Value}>"),
+                ElementFault.DeltaConflict(key, $"<merge-tombstone-target-present:{subject.ToValue()}>"),
             (true, false) => @base.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-tombstone-base-absent:{subject.Value}>"))
+                .ToFin(ElementFault.NodeAbsent(key, $"<merge-tombstone-base-absent:{subject.ToValue()}>"))
                 .Map(node => Some<EntityEdit>(new EntityEdit.Tombstone(
                     subject, ContentAddress.Of(node, @base.Header.Tolerance)))),
             (false, true) when @base.Find(subject).IsSome =>
-                ElementFault.DeltaConflict(key, $"<merge-insert-base-present:{subject.Value}>"),
+                ElementFault.DeltaConflict(key, $"<merge-insert-base-present:{subject.ToValue()}>"),
             (false, true) when ops.Exists(static op => op is not EditOp.Insert and not EditOp.Match) =>
-                ElementFault.DeltaConflict(key, $"<merge-insert-mixed-edit:{subject.Value}>"),
+                ElementFault.DeltaConflict(key, $"<merge-insert-mixed-edit:{subject.ToValue()}>"),
             (false, true) => target.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-insert-target-absent:{subject.Value}>"))
+                .ToFin(ElementFault.NodeAbsent(key, $"<merge-insert-target-absent:{subject.ToValue()}>"))
                 .Map(static _ => Option<EntityEdit>.None),
             _ => @base.Find(subject)
-                .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-base-absent:{subject.Value}>"))
+                .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-base-absent:{subject.ToValue()}>"))
                 .Bind(before => target.Find(subject)
-                    .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-target-absent:{subject.Value}>"))
+                    .ToFin(ElementFault.NodeAbsent(key, $"<merge-members-target-absent:{subject.ToValue()}>"))
                     .Bind(after => ElementWire.Encode(before, @base.Header.Tolerance, key).Bind(beforeWire =>
                         ElementWire.Encode(after, target.Header.Tolerance, key).Bind(afterWire =>
                             MemberPatch.Between(beforeWire, afterWire, policy, key)
@@ -343,7 +343,7 @@ public static class StructuralMerge {
 
     public static Conflict Project(MergeConflict conflict, ModelId model) {
         (Option<ConflictSide> held, Option<ConflictSide> incoming) = conflict.Evidence;
-        return new(model, conflict.Subject.Value, conflict.Family, held, incoming);
+        return new(model, conflict.Subject.ToValue(), conflict.Family, held, incoming);
     }
 
     public static (ElementGraph Aligned, HashMap<NodeId, NodeId> Remap) Reconcile(ElementGraph persisted, ElementGraph ingested) {
@@ -379,7 +379,7 @@ public static class StructuralMerge {
         representations.ByIdentifier.IsEmpty
             ? UInt128.Zero
             : ContentHash.Of(representations, static (r, w) => {
-                w.Sorted(r.ByIdentifier.ToSeq(), static pair => pair.Key.Key, Comparer<int>.Default,
+                w.Sorted(r.ByIdentifier.AsIterable().ToSeq(), static pair => pair.Key.Key, Comparer<int>.Default,
                     static (pair, x) => { x.Ordinal(pair.Key.Key).U128(pair.Value); });
             });
 

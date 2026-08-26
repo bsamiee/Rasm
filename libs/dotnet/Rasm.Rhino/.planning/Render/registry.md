@@ -1671,7 +1671,7 @@ public sealed partial class ContentPulse {
                 EnvironmentRole.Of(args.EnvironmentUsageEx, Op.Of(name: nameof(ContentPulse))).ToOption()
                     .Bind(role => Gate(pulse: pulse, scope: scope, document: args.Document,
                         signal: new ContentSignal.EnvironmentFlip(Usage: role)))
-                    .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
+                    .TraverseM(deliver).As().Map(static _ => unit))));
     public static readonly ContentPulse Changed = new(key: 8, affinity: ScopeAffinity.EitherScope, bind: (pulse, scope, filter, deliver) =>
         Subscription.Attach<EventHandler<RenderContentChangedEventArgs>>(
             subscribe: static h => RenderContent.ContentChanged += h,
@@ -1685,7 +1685,7 @@ public sealed partial class ContentPulse {
                          Content: content, Reason: reason,
                          Old: Optional(args.OldContent).Bind(static old => ResourceId.Maybe(old.Id))))
                  select fact)
-                .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
+                .TraverseM(deliver).As().Map(static _ => unit))));
     public static readonly ContentPulse FieldChanged = new(key: 9, affinity: ScopeAffinity.EitherScope, bind: (pulse, scope, filter, deliver) =>
         Subscription.Attach<EventHandler<RenderContentFieldChangedEventArgs>>(
             subscribe: static h => RenderContent.ContentFieldChanged += h,
@@ -1697,7 +1697,7 @@ public sealed partial class ContentPulse {
                  from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
                      signal: new ContentSignal.FieldChanged(Content: content, Field: args.FieldName, Reason: reason))
                  select fact)
-                .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
+                .TraverseM(deliver).As().Map(static _ => unit))));
     public static readonly ContentPulse PreviewReady = new(key: 10, affinity: ScopeAffinity.AnyDocumentOnly, bind: (pulse, _, _, deliver) =>
         Subscription.Attach<EventHandler<PreviewRenderedEventArgs>>(
             subscribe: static h => RenderContent.PreviewRendered += h,
@@ -1715,7 +1715,7 @@ public sealed partial class ContentPulse {
                                   width: signature.ImageWidth(), height: signature.ImageHeight(),
                                   key: Op.Of(name: nameof(ContentPulse))).ToOption()),
                           Quality: quality)))
-                .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
+                .TraverseM(deliver).As().Map(static _ => unit))));
 
     internal ScopeAffinity Affinity { get; }
 
@@ -1735,7 +1735,7 @@ public sealed partial class ContentPulse {
                  from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
                      signal: new ContentSignal.Lifecycle(Content: content, Reason: reason))
                  select fact)
-                .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
+                .TraverseM(deliver).As().Map(static _ => unit))));
 
     private static Option<ContentFact> Gate(ContentPulse pulse, EventScope scope, RhinoDoc? document, ContentSignal signal) =>
         Optional(document)

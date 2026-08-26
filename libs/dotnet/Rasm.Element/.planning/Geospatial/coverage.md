@@ -149,11 +149,9 @@ public sealed partial record CoverageBand {
    .ToFin();
 
  private static Validation<Error, Unit> AdmittedRange(Option<(double Min, double Max)> range, int index, Op key) =>
-  range.Match(
-   Some: bounds => (Finite(key, ($"coverage-band[{index}].range.min", bounds.Min), ($"coverage-band[{index}].range.max", bounds.Max)),
+  range.Traverse(bounds => (Finite(key, ($"coverage-band[{index}].range.min", bounds.Min), ($"coverage-band[{index}].range.max", bounds.Max)),
     Gate(bounds.Min <= bounds.Max, key, $"<coverage-band-range-inverted:{index}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))
-    .Apply(static (_, _) => unit).As(),
-   None: () => Success<Error, Unit>(unit));
+    .Apply(static (_, _) => unit).As()).As().Map(static _ => unit);
 
  public double Real(double raw) => Offset + (Scale * raw);
 
@@ -209,16 +207,15 @@ public sealed partial record CoverageGrid {
    .ToFin();
 
  private static Validation<Error, Unit> AdmittedBlocks(Seq<OverviewLevel> levels, Op key) =>
-  Accumulate(levels.Map((level, index) => level.Block.Match(
-   Some: block => (In(block.X, Band.Positive, $"coverage-level[{index}].block.x", key),
-    In(block.Y, Band.Positive, $"coverage-level[{index}].block.y", key)).Apply(static (_, _) => unit).As(),
-   None: () => Success<Error, Unit>(unit))).Strict());
+  Accumulate(levels.Map((level, index) => level.Block.Traverse(block =>
+   (In(block.X, Band.Positive, $"coverage-level[{index}].block.x", key),
+    In(block.Y, Band.Positive, $"coverage-level[{index}].block.y", key)).Apply(static (_, _) => unit).As())
+   .As().Map(static _ => unit)).Strict());
 
  private static Validation<Error, Unit> Coarsens(Seq<OverviewLevel> levels, Op key) =>
   Accumulate(levels.Zip(levels.Tail).Map(pair =>
-   pair.Item1.Grid.Coarsen(key).Match(
-    Succ: next => Gate(next == pair.Item2.Grid, key, "<coverage-level-off-coarsen-chain>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
-    Fail: refusal => Gate(false, refusal))).Strict());
+   pair.Item1.Grid.Coarsen(key).ToValidation().Bind(next =>
+    Gate(next == pair.Item2.Grid, key, "<coverage-level-off-coarsen-chain>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)))).Strict());
 
  public Option<CoverageBand> BandAt(int index) => Bands.Find(b => b.Index == index);
 

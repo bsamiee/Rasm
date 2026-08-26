@@ -416,10 +416,9 @@ public sealed partial class ProjectionDir {
     }
 
     public static Fin<ProjectionDir> Of(Vector3d forward) =>
-        Basis(forward).Match(
-            Some: basis => Validate(basis.Forward, basis.ScreenU, basis.ScreenV, out ProjectionDir view).Admitted(view),
-            None: () => Fin.Fail<ProjectionDir>(
-                new GeometryFault.DegenerateInput(Kind.Plane, None, "projection-dir:forward")));
+        Basis(forward)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Plane, None, "projection-dir:forward"))
+            .Bind(basis => Validate(basis.Forward, basis.ScreenU, basis.ScreenV, out ProjectionDir view).Admitted(view));
 
     public Point3d Project(Point3d point) {
         Vector3d radius = point - Point3d.Origin;
@@ -1037,7 +1036,7 @@ public sealed partial class CutterForm {
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => writer
         .Discriminant(Family)
         .Double(Diameter).Double(CornerRadius).Double(TaperAngle).Double(FluteLength)
-        .Rows(toSeq(Metrics).OrderBy(static row => row.Key.Key).ToSeq(),
+        .Rows(toSeq(toSeq(Metrics).OrderBy(static row => row.Key.Key)),
             static (row, metric) => row.Discriminant(metric.Key).Double(metric.Value));
 }
 ```
@@ -1182,7 +1181,7 @@ public sealed partial class PlannedStep {
         if (order < 0 || setup < 0
             || operations.IsEmpty
             || !operations.ForAll(static value => ValidityClaim.Nonnegative(value).Holds)
-            || operations.Distinct().Count != operations.Count
+            || toSeq(operations).Distinct().Count != operations.Count
             || !machine.Admits(process)
             || !program.Map(static key => key.Kind == EgressKind.CutProgram).IfNone(true))
             validationError = new ValidationError("planned-step");

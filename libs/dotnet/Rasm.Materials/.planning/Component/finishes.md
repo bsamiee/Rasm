@@ -168,7 +168,7 @@ public sealed partial class CoveringKind {
     public IfcBinding Ifc { get; }
     public string SubstanceId { get; }
     public ComponentAuthority Authority { get; }
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
     public ComponentStandard Standard => new(Authority.Region, StandardJointThicknessMm: 0.0, Authority);
 
     [UseDelegateFromConstructor]
@@ -203,16 +203,14 @@ public abstract partial record CoveringSpecification {
         tile:        static _ => Success<Error, Unit>(unit),
         resilient:   static _ => Success<Error, Unit>(unit),
         carpet:      static _ => Success<Error, Unit>(unit),
-        ceiling:     row => Prove(
+        ceiling:     row => AdmissionSlots.Gate(
             row.Seismic.Match(Some: category => category.Admits(row.Grid), None: true),
             new KernelFault.InvalidValue(nameof(row.Grid), "a grid admitted by the seismic category", Some(key))),
         stone:       static _ => Success<Error, Unit>(unit),
-        sfrm:        row => Prove(
+        sfrm:        row => AdmissionSlots.Gate(
             row.DensityKgM3.Match(Some: row.Density.Admits, None: true),
             new KernelFault.InvalidValue(nameof(row.DensityKgM3), "a measurement inside its SFRM density class", Some(key))),
         intumescent: static _ => Success<Error, Unit>(unit));
-
-    static Validation<Error, Unit> Prove(bool held, Error fault) => guard(held, fault).ToValidation();
 }
 
 public readonly record struct CoveringRow(
@@ -243,9 +241,8 @@ public static class CoveringRows {
 public static class CoveringDetail {
     public static Fin<PropertyBag> Of(CoveringRow row, PositiveMagnitude thicknessMm, Op key) =>
         from thickness in ComponentDetail.Measured(ThicknessRow(row.Kind.Family), Dimension.LengthDim, thicknessMm.Value * 1e-3)
-        from length in row.ModuleMm.Match(
-            Some: module => ComponentDetail.Measured(DetailSchema.BoardLength, Dimension.LengthDim, module.LengthMm * 1e-3).Map(Some),
-            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from length in row.ModuleMm.TraverseM(module =>
+            ComponentDetail.Measured(DetailSchema.BoardLength, Dimension.LengthDim, module.LengthMm * 1e-3)).As()
         from payload in PayloadRows(row.Specification)
         select Bag(row.Kind.Family.Lane, [
             ComponentDetail.Sourced(row.Source),
@@ -292,9 +289,9 @@ public static class CoveringDetail {
         intumescent: static _ => Fin.Succ(Seq<(PropertyName, PropertyValue)>()));
 
     static Fin<Seq<(PropertyName Name, PropertyValue Value)>> Bounded(PropertyName name, Dimension dim, double toSi, Option<double> value) =>
-        value.Match(
-            Some: bound => ComponentDetail.Measured(name, dim, bound * toSi).Map(static row => Seq(row)),
-            None: static () => Fin.Succ(Seq<(PropertyName, PropertyValue)>()));
+        value.TraverseM(bound => ComponentDetail.Measured(name, dim, bound * toSi))
+            .As()
+            .Map(static row => row.ToSeq());
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -334,12 +331,14 @@ public static class Covering {
         ifc: static row => row.Kind.Ifc);
 
     static Validation<Error, Unit> Coherence(CoveringRow row, Op key) =>
-        (guard(row.Kind.Admits(row.Specification),
-             new KernelFault.InvalidValue(nameof(row.Specification), "a specification admitted by the covering kind", Some(key))).ToValidation(),
-         guard(row.ModuleMm.IsSome == row.Specification.Laid,
-             new KernelFault.InvalidValue(nameof(row.ModuleMm), "present exactly for laid coverings", Some(key))).ToValidation(),
-         row.Specification.Certified(key))
-            .Apply(static (_, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                row.Kind.Admits(row.Specification),
+                new KernelFault.InvalidValue(nameof(row.Specification), "a specification admitted by the covering kind", Some(key))),
+            AdmissionSlots.Gate(
+                row.ModuleMm.IsSome == row.Specification.Laid,
+                new KernelFault.InvalidValue(nameof(row.ModuleMm), "present exactly for laid coverings", Some(key))),
+            row.Specification.Certified(key)));
 
     static Fin<SectionProfile> ProfileOf(CoveringRow row, Op key) =>
         row.ModuleMm.Match(

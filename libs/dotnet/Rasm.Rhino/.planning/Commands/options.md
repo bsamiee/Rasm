@@ -561,11 +561,8 @@ public sealed partial record OptionSet {
                             });
                         }),
                 key: op))
-            .Match(
-                Succ: _ => Fin.Succ(lease),
-                Fail: error => lease.Release(op).Match(
-                    Succ: _ => Fin.Fail<OptionLease>(error),
-                    Fail: cleanup => Fin.Fail<OptionLease>(error + cleanup)));
+            .Map(_ => lease)
+            .Rollback(release: () => lease.Release(op), key: op);
     }
 
     public Fin<OptionSet> Seeded(Seq<OptionAssignment> assignments, Op? key = null) {

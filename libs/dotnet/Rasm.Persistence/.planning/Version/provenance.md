@@ -82,7 +82,7 @@ public sealed partial class AgentClass {
     public static readonly AgentClass SoftwareAgent = new("software", "prov:SoftwareAgent");
     public static readonly AgentClass Organization = new("organization", "prov:Organization");
     public string ClassIri { get; }
-    public static AgentClass Of(StoreActor actor) => Items.Find(cls => actor.Roles.Contains(cls.Key)).IfNone(Person);
+    public static AgentClass Of(StoreActor actor) => toSeq(Items).Find(cls => actor.Roles.Contains(cls.Key)).IfNone(Person);
     private AgentClass(string key, string classIri) : this(key) => ClassIri = classIri;
 }
 
@@ -133,11 +133,11 @@ public abstract partial record ProvNode {
 
     public static ProvNode Of(ContentAddress address, (ProvKind Kind, EntitySubclass Subclass) row) =>
         row.Kind.Class == ProvClass.Activity
-            ? new Activity(address.Value, row.Kind, Instant.MinValue, Instant.MinValue)
+            ? new Activity(address.ToValue(), row.Kind, Instant.MinValue, Instant.MinValue)
             : new Entity(address, row.Kind, row.Subclass, Instant.MinValue);
 
     public UInt128 Identity => Switch(
-        entity: static e => e.Address.Value,
+        entity: static e => e.Address.ToValue(),
         activity: static a => a.Id,
         agent: static g => CausalDag.AgentKey(g.Actor));
 
@@ -215,9 +215,9 @@ public static class CausalDag {
         UInt128 activity = ContentHash.Of(runId, static (id, writer) => writer.String(id));
         UInt128 agent = AgentKey(actor);
         UInt128 planKey = ContentHash.Of(plan, static (segments, writer) => writer.Rows(segments, static (segment, w) => w.String(segment)));
-        return used.Map(key => ProvEdge.Of(ProvRelation.Used, activity, key.Value, started))
-            + generated.Map(key => ProvEdge.Of(ProvRelation.WasGeneratedBy, key.Value, activity, ended))
-            + generated.Map(key => ProvEdge.Of(ProvRelation.WasAttributedTo, key.Value, agent, ended))
+        return used.Map(key => ProvEdge.Of(ProvRelation.Used, activity, key.ToValue(), started))
+            + generated.Map(key => ProvEdge.Of(ProvRelation.WasGeneratedBy, key.ToValue(), activity, ended))
+            + generated.Map(key => ProvEdge.Of(ProvRelation.WasAttributedTo, key.ToValue(), agent, ended))
             + Seq(
                 ProvEdge.Of(ProvRelation.WasAssociatedWith, activity, agent, ended).Qualified(kind.AssociationRole, Some(planKey)),
                 ProvEdge.Of(ProvRelation.ActedOnBehalfOf, agent, AgentKey(principal), ended));
@@ -242,7 +242,7 @@ public static class CausalDag {
         using (depths.Attach(search)) { search.Compute(walk.Root.Value); }
         return toSeq(depths.Distances)
             .Filter(reached => (reached.Value <= walk.Depth) && (reached.Key != walk.Root.Value))
-            .Map(reached => ProvNode.Of(ContentAddress.Of(reached.Key), kindOf(reached.Key)));
+            .Map(reached => ProvNode.Of(ContentAddress.Create(reached.Key), kindOf(reached.Key)));
     }
 
     public static Seq<ProvNode> Derivations(ContentAddress root, int depth, IBidirectionalGraph<UInt128, ProvEdge> lineage, Func<UInt128, (ProvKind Kind, EntitySubclass Subclass)> kindOf) =>
@@ -280,9 +280,9 @@ public static class CausalDag {
                 .Add((ProvClass.Entity, Iri(bundle.Id), BundleMembers(bundle)))
                 .Add((ProvClass.Agent, Iri(authorityKey), NodeMembers(bundle.Asserter)));
         return JsonSerializer.SerializeToElement(
-            nodes.GroupBy(static node => node.Class.Key)
+            toSeq(nodes.GroupBy(static node => node.Class.Key))
                 .Map(static byClass => (byClass.Key, Value: (object)byClass.ToFrozenDictionary(static n => n.Iri, static n => n.Members)))
-                .Append(edges.GroupBy(static edge => edge.Relation.Key)
+                .Append(toSeq(edges.GroupBy(static edge => edge.Relation.Key))
                     .Map(static byRelation => (byRelation.Key, Value: (object)byRelation
                         .Select(static (edge, ordinal) => (Key: $"_:e{ordinal}", Members: EdgeMembers(edge)))
                         .ToFrozenDictionary(static influence => influence.Key, static influence => influence.Members))))
@@ -299,15 +299,15 @@ public static class CausalDag {
             activity: static a => new Dictionary<string, object?> { ["prov:type"] = a.ClassIri, ["prov:startedAtTime"] = a.Started.ToString(), ["prov:endedAtTime"] = a.Ended.ToString() },
             agent: static g => new Dictionary<string, object?> {
                 ["prov:type"] = g.ClassIri, ["rasm:id"] = g.Actor,
-                ["rasm:attestation"] = g.Attested.Map(Iri).IfNoneUnsafe(() => null),
+                ["rasm:attestation"] = g.Attested.Match<string?>(Some: Iri, None: static () => null),
             });
 
         static object EdgeMembers(ProvEdge edge) => new Dictionary<string, object?> {
             [$"prov:{edge.Relation.Endpoint.FromProperty}"] = Iri(edge.From),
             [$"prov:{edge.Relation.Endpoint.ToProperty}"] = Iri(edge.To),
             ["rasm:atTime"] = edge.Cell.Physical.ToString(),
-            ["prov:hadRole"] = edge.Role.Map(static role => role.Key).IfNoneUnsafe(() => null),
-            ["prov:hadPlan"] = edge.Plan.Map(Iri).IfNoneUnsafe(() => null),
+            ["prov:hadRole"] = edge.Role.Match<string?>(Some: static role => role.Key, None: static () => null),
+            ["prov:hadPlan"] = edge.Plan.Match<string?>(Some: Iri, None: static () => null),
         };
     }
 
@@ -437,7 +437,7 @@ public static class AttestedLedger {
         new(older.Leaves, newer.Leaves, older.Root, newer.Root);
 
     public static IO<WitnessedHead> Witness(MerkleAudit audit, Func<ReadOnlyMemory<byte>, IO<Option<SignedAuthorship>>> sign, Instant at) =>
-        IO.liftFin(WitnessedHead.Canonical(audit.Root, audit.Leaves, at, Op.Of()))
+        IO.lift(WitnessedHead.Canonical(audit.Root, audit.Leaves, at, Op.Of()))
             .Bind(sign)
             .Map(signature => new WitnessedHead(audit.Root, audit.Leaves, signature, at));
 

@@ -179,7 +179,7 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
             .Bind(Transition);
 
     public IO<T> Captured<T>(IO<T> body) =>
-        from entered in Lifted(Transition(new PhaseTrigger.CaptureStarted()))
+        from entered in IO.lift(Transition(new PhaseTrigger.CaptureStarted()))
         from held in body.Bracket(
             Use: static value => IO.pure(value),
             Fin: _ => IO.lift(() => ignore(Transition(new PhaseTrigger.CaptureCompleted(entered.From)))))
@@ -209,8 +209,6 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
         var stopped = lifetime.ApplicationStopped.Register(() => ignore(Transition(new PhaseTrigger.Stopped([]))));
         return new PhaseSubscription([started.Dispose, stopping.Dispose, stopped.Dispose]);
     }
-
-    internal IO<T> Lifted<T>(Fin<T> settled) => settled.Match(Succ: IO.pure, Fail: IO.fail<T>);
 
     Func<PhaseCommit, Option<PhaseCommit>> Candidate(PhaseTrigger trigger, Instant at) =>
         held => trigger.Step.Next(at: held.To, trigger: trigger)
@@ -324,10 +322,9 @@ public static class FaultSpine {
     public static IO<(Seq<FaultSource> Crashes, Option<PhaseTrigger> Upgrade)> ProbeMarkers(string supportRoot, Version current, JsonTypeInfo<BootMarker> codec, Seq<string> hostMarkers = default) =>
         from path in IO.pure(Path.Join(supportRoot, MarkerFile))
         from own in IO.lift(() => File.Exists(path)
-            ? Op.Of(nameof(ProbeMarkers)).Catch(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllText(path), codec))))
+            ? Some(Op.Of(nameof(ProbeMarkers)).Catch(() => Fin.Succ(Optional(JsonSerializer.Deserialize(File.ReadAllText(path), codec))))
                 .Match(Succ: marker => (Crash: (FaultSource)new FaultSource.HostCrashMarker(path, marker), Marker: marker),
-                       Fail: cause => (Crash: new FaultSource.MarkerDrifted(path, FaultWire.Observe(cause)), Marker: Option<BootMarker>.None))
-                .Apply(Some)
+                       Fail: cause => (Crash: new FaultSource.MarkerDrifted(path, FaultWire.Observe(cause)), Marker: Option<BootMarker>.None)))
             : Option<(FaultSource Crash, Option<BootMarker> Marker)>.None)
         from foreign in IO.lift(() => hostMarkers.Filter(File.Exists).Map(static found => (FaultSource)new FaultSource.HostCrashMarker(found)))
         select (own.Map(static probed => probed.Crash).ToSeq() + foreign,
@@ -393,14 +390,14 @@ public readonly record struct BandFact(string Name, DrainBand Band, GaugedSpan<D
 public static class DrainConductor {
     extension(Lifecycle host) {
         public IO<PhaseCommit> Drain(Seq<DrainRow> rows, ILatencyContext latency, CheckpointToken checkpoint, InstrumentSet instruments, Duration inherited) =>
-            from fence in host.Lifted(Fence(host))
+            from fence in IO.lift(Fence(host))
             let cooperative = inherited < DeadlineClass.DrainCooperative.Allotted
                 ? inherited
                 : DeadlineClass.DrainCooperative.Allotted
             from bands in toSeq(rows.OrderBy(static row => row.Band.Key).ThenBy(static row => row.Rank))
                 .TraverseM(row => Step(row, host, instruments, cooperative)).As()
             from marked in IO.lift(() => LatencySpine.Mark(latency, checkpoint))
-            from closed in host.Lifted(host.Transition(new PhaseTrigger.Stopped(bands.Strict())))
+            from closed in IO.lift(host.Transition(new PhaseTrigger.Stopped(bands.Strict())))
             select closed;
     }
 
@@ -409,7 +406,7 @@ public static class DrainConductor {
 
     static IO<BandFact> Step(DrainRow row, Lifecycle host, InstrumentSet instruments, Duration cooperative) =>
         from work in IO.pure(Op.Of(row.Name))
-        from start in host.Lifted(host.Clocks.Line.Capture(work))
+        from start in IO.lift(host.Clocks.Line.Capture(work))
         from lane in IO.lift(() => host.Spine.Derive(work, host.Clocks, DeadlineClass.DrainCooperative, cooperative)).Bracket(
             Use: scope => row.Drain(scope.Token)
                 .Map(static _ => DeadlineClass.DrainCooperative)
@@ -417,14 +414,14 @@ public static class DrainConductor {
                 .Timeout(cooperative.ToTimeSpan() + DeadlineClass.DrainForced.Bound)
                 .Catch(static error => error.Is(Errors.TimedOut) || error.Is(Errors.Cancelled), static _ => IO.pure(DeadlineClass.DrainForced)),
             Fin: static scope => IO.lift(fun(scope.Dispose)))
-        from finish in host.Lifted(host.Clocks.Line.Capture(work))
-        from elapsed in host.Lifted(host.Clocks.Line.Elapsed(start, finish, work))
+        from finish in IO.lift(host.Clocks.Line.Capture(work))
+        from elapsed in IO.lift(host.Clocks.Line.Elapsed(start, finish, work))
         let bound = lane == DeadlineClass.DrainCooperative
             ? cooperative.ToTimeSpan()
             : cooperative.ToTimeSpan() + DeadlineClass.DrainForced.Bound
         let fact = new BandFact(row.Name, row.Band,
             new GaugedSpan<DeadlineClass>(Lane: lane, Work: work, Elapsed: elapsed, Bound: bound))
-        from written in host.Lifted(instruments.Write(
+        from written in IO.lift(instruments.Write(
             AppHostMeasure.DrainDuration, fact.Consumed.TotalSeconds,
             InstrumentSet.Tags((AppHostSlot.Band, fact.Band.Key.ToString(CultureInfo.InvariantCulture)))))
         select fact;

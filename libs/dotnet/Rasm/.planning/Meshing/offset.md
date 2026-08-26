@@ -359,7 +359,7 @@ public static class Offsetting {
             if (fired++ > policy.MaxEvents.Value) { return Fin.Fail<Trace>(new GeometryFault.SkeletonStalled(queue.Count, Some(queue.Peek().Time))); }
             OffsetEvent ev = queue.Dequeue();
             if (ev.Time > policy.TimeBudget.Value) { return Fin.Fail<Trace>(new GeometryFault.SkeletonStalled(queue.Count, Some(ev.Time))); }
-            sameTime = lastTime.Map(prior => ev.Time == prior).IfNone(false) ? sameTime + 1 : 0;
+            sameTime = lastTime.Exists(prior => ev.Time == prior) ? sameTime + 1 : 0;
             if (sameTime > store.Count * policy.SameTimeMultiple.Value) {
                 return Fin.Fail<Trace>(new GeometryFault.CollapseStalled(fired, ev.Time - lastTime.IfNone(ev.Time)));
             }

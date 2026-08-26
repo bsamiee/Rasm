@@ -106,7 +106,7 @@ public sealed partial class DeriveFault : IWitnessKind<DeriveWitness> {
     public static readonly DeriveFault LotInadmissible = Of<DeriveWitness.LotInadmissible>(
         "lot-inadmissible", static row => row.Quantity < 1 || row.BatchSize < 1 || row.BatchSize > row.Quantity
             || row.Due < row.Release || row.TransferBuffer < Duration.Zero
-            || row.Predecessors.Distinct().Count != row.Predecessors.Count || row.Predecessors.Contains(UInt128.Zero));
+            || toSeq(row.Predecessors).Distinct().Count != row.Predecessors.Count || row.Predecessors.Contains(UInt128.Zero));
     public static readonly DeriveFault LotOverdue = Of<DeriveWitness.LotOverdue>(
         "lot-overdue", static row => row.Completion > row.Due);
     public static readonly DeriveFault LotUnschedulable = Of<DeriveWitness.LotUnschedulable>(

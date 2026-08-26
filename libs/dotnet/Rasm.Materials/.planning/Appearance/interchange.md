@@ -213,7 +213,7 @@ public static class AppearanceEgress {
         }, press);
 
     static Wire.SurfaceSet Fill(Wire.SurfaceSet wire, TextureSet set) {
-        set.Material.Iter(id => wire.MaterialId = id.Value);
+        set.Material.Iter(id => wire.MaterialId = id.ToValue());
         set.Conductor.Iter(metal => wire.Conductor = metal.Key);
         set.HeightScaleMm.Iter(mm => wire.HeightScaleMm = mm);
         return wire;
@@ -691,8 +691,8 @@ public static class Mtlx {
                 MtlxPorts.Of(m.Op, m.Operands.Count)
                     .Map((slot, index) => Edge(slot, m.Operands[index], s.Ports)))),
             mix:        static (s, x) => s.Ports[x.Id].Mix
-                            .Map(row => Fin.Succ(MixNodes(x, row, s.Ports)))
-                            .IfNone(() => Fin.Fail<Seq<MtlxNode>>(new MaterialFault.Graph(s.Key, $"<mtlx-mix-unresolved:{x.Id.Value}>"))),
+                            .ToFin(new MaterialFault.Graph(s.Key, $"<mtlx-mix-unresolved:{x.Id.Value}>"))
+                            .Map(row => MixNodes(x, row, s.Ports)),
             normal:     static (s, n) => Fin.Succ(One(n.Id, s.Ports, Seq(Edge("in", n.Source, s.Ports), Value("scale", MtlxPort.Float, n.Strength)))),
             bsdfOutput: static (s, o) => Fin.Succ(One(o.Id, s.Ports, Seq(
                 Edge("base_color", o.BaseColor, s.Ports, Some(MtlxPort.Color3)),
@@ -909,7 +909,7 @@ public static class StageWire {
         from outputs in toSeq(message.Outputs).Traverse(output => Output(output, key)).As()
         from scores in toSeq(message.Scores).Traverse(score =>
             Product(score.Role, key).Map(product => new StageScore(product, score.Value))).As()
-        from echoed in key.AcceptValidated<ModelCardId>(ModelCardId.Validate(message.ModelCardId, null, out ModelCardId id), id)
+        from echoed in key.AcceptValidated<ModelCardId>(message.ModelCardId)
         from admitted in StageResult.Admit(
             new StageResult(stage, echoed, artefact, outputs, scores, provider,
                 checked((int)message.PartitionCount), message.Elapsed.ToNodaDuration().TotalMilliseconds,
@@ -1058,7 +1058,7 @@ public static partial class AppearanceWireMap {
 
     // --- [STAGE_PRODUCTS]
     public static StageInputWire Input(StageInput input) => input.Switch<StageInputWire>(
-        source: static row => new StageInputWire { Source = new StageInputWire.Types.Source { Key = ContentHash.Wire(row.Key.Value) } },
+        source: static row => new StageInputWire { Source = new StageInputWire.Types.Source { Key = ContentHash.Wire(row.Key.ToValue()) } },
         produced: static row => new StageInputWire {
             Produced = new StageInputWire.Types.Produced { Stage = Stage(row.Stage), Product = Product(row.Product) },
         });

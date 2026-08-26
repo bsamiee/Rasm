@@ -63,10 +63,10 @@ public sealed partial class NearKind {
 public sealed partial class GripSearch {
     public static readonly GripSearch Inlet = new(key: 0, probe: static (objects, at) =>
         new GraphAnswer.GripCase(Hit: Optional(objects.FindByInlet(at))
-            .Map(pin => new GripHit(Pin: pin, Sides: CapabilitySet<PinSide>.Of(PinSide.Inlet)))));
+            .Map(pin => new GripHit(Pin: pin, Sides: CapabilitySet<PinSide>.Of(PinSide.Input)))));
     public static readonly GripSearch Outlet = new(key: 1, probe: static (objects, at) =>
         new GraphAnswer.GripCase(Hit: Optional(objects.FindByOutlet(at))
-            .Map(pin => new GripHit(Pin: pin, Sides: CapabilitySet<PinSide>.Of(PinSide.Outlet)))));
+            .Map(pin => new GripHit(Pin: pin, Sides: CapabilitySet<PinSide>.Of(PinSide.Output)))));
     public static readonly GripSearch Exposed = new(key: 2, probe: static (objects, at) =>
         Exposure(hit: objects.FindByInletOrOutlet(at)));
     [UseDelegateFromConstructor] internal partial GraphAnswer Probe(ObjectList objects, PointF at);
@@ -74,8 +74,8 @@ public sealed partial class GripSearch {
         new GraphAnswer.GripCase(Hit: Optional(hit.parameter).Map(pin => new GripHit(
             Pin: pin,
             Sides: CapabilitySet<PinSide>.Of(
-                [.. Seq(hit.inletWithinRange ? Some(PinSide.Inlet) : None,
-                        hit.outletWithinRange ? Some(PinSide.Outlet) : None).Somes()]))));
+                [.. Seq(hit.inletWithinRange ? Some(PinSide.Input) : None,
+                        hit.outletWithinRange ? Some(PinSide.Output) : None).Somes()]))));
 }
 
 [SmartEnum<int>]
@@ -332,13 +332,13 @@ public static partial class GraphScope {
 
     private static Fin<Unit> Vetoed(
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks, Op op, HostDocument document, Op key) =>
-        hooks.Match(
-            Some: live => live.Fire(
-                    at: GrasshopperPoint.DocumentMutate,
-                    fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)),
-                    key: key)
-                .Map(static _ => unit),
-            None: () => Fin.Succ(unit));
+        hooks
+            .TraverseM(live => live.Fire(
+                at: GrasshopperPoint.DocumentMutate,
+                fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)),
+                key: key))
+            .As()
+            .Map(static _ => unit);
 
     private static Fin<GateOutcome> Free(Op key, Func<GateOutcome> settle) =>
         key.Catch(body: () => Fin.Succ(settle()));

@@ -207,7 +207,7 @@ public sealed record DashboardLayout(string Key, Seq<TilePlacement> Placements, 
                  && placement.Column >= 0 && placement.Row >= 0
                  && placement.ColumnSpan > 0 && placement.RowSpan > 0),
              $"{key}: degenerate placement"),
-         placements.GroupBy(static placement => placement.At).AsIterable().ToSeq()
+         toSeq(placements.GroupBy(static placement => placement.At))
              .Traverse(tier => Tier(key, toSeq(tier))).Map(static _ => unit).As())
             .Apply((_, _, _) => new DashboardLayout(key, placements, canvasState)).As().ToFin();
 

@@ -236,7 +236,7 @@ public sealed class CanvasPacer : IDisposable {
         Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in guard(!drives.IsEmpty, op.InvalidInput()).ToFin()
-               from scripts in drives.Map(row => MotionDrive.Admit(script: row.Script, key: op).Map(_ => row)).TraverseM(identity).As()
+               from scripts in drives.TraverseM(row => MotionDrive.Admit(script: row.Script, key: op).Map(_ => row)).As()
                let pacer = new CanvasPacer(drives: scripts.Strict(), posture: posture, faults: faults, operation: op)
                let weakPacer = new WeakReference<CanvasPacer>(pacer)
                from owned in UiClock.Of(
@@ -267,7 +267,7 @@ public sealed class CanvasPacer : IDisposable {
         if (active.IsEmpty) { return Stop(); }
         (Seq<Error> faulted, Seq<((MotionScript Script, Action<MotionSample> Apply) Row, bool Continues)> stepped) = active
             .Map(row => MotionDrive.Step(script: row.Script, beat: beat.Evidence, posture: posture, key: operation)
-                .Bind(step => operation.Catch(() => Fin.Succ(Op.Side(() => row.Apply(step.Sample))))
+                .Bind(step => operation.Catch(() => row.Apply(step.Sample))
                     .Map(_ => (Row: row, step.Continues))))
             .Partition();
         Seq<(MotionScript Script, Action<MotionSample> Apply)> continuing =

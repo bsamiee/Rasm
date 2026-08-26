@@ -346,7 +346,7 @@ public abstract partial record ScalarField {
 
     public static ScalarField operator +(ScalarField left, ScalarField right) =>
         new BlendCase(Fields: (left is BlendCase { Mode: var lm } lb && lm.Equals(FieldBlend.Sum) ? lb.Fields : Seq(left))
-            .Concat(right is BlendCase { Mode: var rm } rb && rm.Equals(FieldBlend.Sum) ? rb.Fields : Seq(right)).ToSeq(), Mode: FieldBlend.Sum);
+            .Concat(right is BlendCase { Mode: var rm } rb && rm.Equals(FieldBlend.Sum) ? rb.Fields : Seq(right)), Mode: FieldBlend.Sum);
     public static ScalarField operator -(ScalarField left, ScalarField right) => left + (-right);
     public static ScalarField operator -(ScalarField field) => new ScaledCase(Source: field, Scale: -1.0);
     public static ScalarField operator *(ScalarField field, double scale) => new ScaledCase(Source: field, Scale: scale);

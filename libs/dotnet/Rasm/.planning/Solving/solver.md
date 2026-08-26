@@ -456,9 +456,7 @@ public static class Lm {
             .Map(spectrum => spectrum.Fold(0.0, Math.Max) is var radius && radius <= 0.0
                 ? 0
                 : spectrum.Count(v => v > EpsilonPolicy.SqrtEpsilon * radius))
-            .Match(
-                Succ: rank => Fin.Fail<LmPass>(new GeometryFault.SingularSystem(rank, dof)),
-                Fail: Fin.Fail<LmPass>);
+            .Bind(rank => Fin.Fail<LmPass>(new GeometryFault.SingularSystem(rank, dof)));
 
     static Fin<LmNormal> Linearize(ILmModel model, double[] parameters, int dof, Op key) =>
         key.Catch(() => {
@@ -914,7 +912,7 @@ public sealed record ConstraintSystem(
             + toSeq(constraints.CountBy(static constraint => constraint))
                 .Filter(static group => group.Value > 1)
                 .Map(group => (Validation<Error, Unit>)new GeometryFault.DegenerateInput(Kind.Point, None, $"duplicate-constraint:x{group.Value}"));
-        return probes.Traverse(identity).As()
+        return AdmissionSlots.Accumulate(probes)
             .Map(_ => new ConstraintSystem(placed, constraints, new Arr<double>(seed), offset))
             .ToFin();
     }

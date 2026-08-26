@@ -124,7 +124,7 @@ public sealed partial class MediaCodecRow {
     public static readonly MediaCodecRow Vector = new(
         "svg", visual: true, timed: false,
         Seq(".svg"),
-        static (key, source) => Admitting.AcceptValidated<AssetKey, ValidationError>(source)
+        static (key, source) => Admitting.AcceptValidated<AssetKey>(source)
             .Map<MediaSurface>(asset => new MediaSurface.Svg(key, source, asset))
             .MapFail(_ => (Error)new ContentFault.CodecAbsent($"media/vector: {source} is not an admitted asset")));
     public static readonly MediaCodecRow Video = new(
@@ -812,7 +812,7 @@ public static class MediaSurfaces {
                 None: () => Fin.Fail<MediaLease>(new ContentFault.DecodeFailed($"media/raster: {row.Source}"))));
 
     static IO<Fin<MediaLease>> Vector(MediaRuntime runtime, MediaSurface.Svg row) =>
-        IO.lift(() => runtime.Assets.Svg.Load(row.Asset, SvgPosture.PictureOnly, None)
+        IO.lift<Fin<MediaLease>>(() => runtime.Assets.Svg.Load(row.Asset, SvgPosture.PictureOnly, None)
             .Bind(lease => runtime.Assets.Svg.Image(row.Asset, Colors.Transparent)
                 .Map(image => MediaLease.Of(
                     Some<Control>(new Image { Source = image, Stretch = Stretch.Uniform }),
@@ -831,7 +831,6 @@ public static class MediaSurfaces {
                         Succ: static _ => None,
                         Fail: static error => Some(FaultWire.Observe(error)))),
                 key: runtime.Visual.FactOp))
-            .Bind(static fired => IO.lift(fired))
             .Map(_ => outcome));
 
     static IO<Fin<MediaLease>> Wired(MediaSurface surface, PlaybackPolicy policy) =>

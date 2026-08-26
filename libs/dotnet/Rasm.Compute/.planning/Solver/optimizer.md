@@ -451,7 +451,7 @@ public sealed record DesignProblem(
             symbolic: static tape => !tape.Tape.IsDegenerate);
 
     public Fin<Unit> Validate() =>
-        Seq(
+        AdmissionSlots.Accumulate(Seq(
             Refusal.Unless(!Variables.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(Variables.Count, 1L))),
             Refusal.Unless(!Variables.Exists(static variable => variable.Malformed), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())),
             Refusal.Unless(!Variables.Exists((variable, axis) => variable is DesignVariable.Linked link && (link.Source >= axis || link.Source >= Variables.Count)), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Reachable, new ContractEvidence.None())),
@@ -465,8 +465,8 @@ public sealed record DesignProblem(
             Refusal.Unless(Constraints >= 0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Value(Constraints))),
             Refusal.Unless(!Exact.Exists(model => model.Objective.Length != Dimension
                 || model.Rows.Exists(row => row.Invalid(Dimension))
-                || model.Rows.Map(static row => row.Name).ToFrozenSet(StringComparer.Ordinal).Count != model.Rows.Count), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
-        .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
+                || model.Rows.Map(static row => row.Name).ToFrozenSet(StringComparer.Ordinal).Count != model.Rows.Count), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None()))))
+        .ToFin();
 
     public ImmutableArray<double> Resolve(ImmutableArray<double> raw) {
         double[] resolved = new double[Dimension];
@@ -542,7 +542,7 @@ public sealed record OptimizerPolicy(
         (nameof(Parallelism), Parallelism), (nameof(HypervolumeSamples), HypervolumeSamples));
 
     public Fin<Unit> Validate() =>
-        (PositiveColumns.Map(static row => Refusal.Unless(double.IsFinite(row.Value) && row.Value > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(row.Value))))
+        AdmissionSlots.Accumulate(PositiveColumns.Map(static row => Refusal.Unless(double.IsFinite(row.Value) && row.Value > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(row.Value))))
             + UnitColumns.Map(static row => Refusal.Unless(double.IsFinite(row.Value) && row.Value is >= 0.0 and <= 1.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(row.Value, 0.0, 1.0))))
             + CountColumns.Map(static row => Refusal.Unless(row.Value > 0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(row.Value))))
             + Seq(
@@ -552,7 +552,7 @@ public sealed record OptimizerPolicy(
                 Refusal.Unless(!Reference.Exists(static point => point.IsDefaultOrEmpty), ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Input)),
                 Refusal.Unless(!Reference.Exists(static point => !point.All(double.IsFinite)), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(Reference.Map(static point => point.Length).IfNone(0)))),
                 Refusal.Unless(StallFloor < Tolerance, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(StallFloor, 0.0, Tolerance)))))
-        .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
+        .ToFin();
 }
 
 [Equatable]
@@ -836,8 +836,8 @@ public static class Optimizer {
         return rows.Count != problem.Objectives.Count + problem.Constraints
             ? Fin.Fail<Func<DesignPoint, Fin<Seq<double>>>>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(rows.Count, problem.Objectives.Count + problem.Constraints))))
             : rows.Traverse(row => row.SymbolOrder
-                    .Traverse(symbol => slots.Find(symbol.Value)
-                        .ToValidation<Error>(new ComputeFault.SymbolUndefined($"<analytic-unbound:{symbol.Value}>")))
+                    .Traverse(symbol => slots.Find(symbol.ToValue())
+                        .ToValidation<Error>(new ComputeFault.SymbolUndefined($"<analytic-unbound:{symbol.ToValue()}>")))
                     .Map(bound => (Row: row, Bound: bound)))
                 .As().ToFin()
                 .Map(bound => (Func<DesignPoint, Fin<Seq<double>>>)(point =>

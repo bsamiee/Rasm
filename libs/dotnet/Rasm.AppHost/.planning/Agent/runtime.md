@@ -25,10 +25,7 @@ This page declares the front door, its veto path, and the tool-adoption boundary
 public sealed record CommandIntent(
     string Descriptor,
     CommandArguments Arguments,
-    CallerModality Caller) {
-    public static CommandIntent Of(string descriptor, CommandArguments arguments, CallerModality caller) =>
-        new(descriptor, arguments, caller);
-}
+    CallerModality Caller);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record DispatchRuntime(
@@ -54,29 +51,27 @@ public static class CommandDispatch {
             Succ: passed => CommandAlgebra.Run(runtime.Command, passed.Descriptor, passed.Arguments),
             Fail: refusal => CommandAlgebra.Refuse(runtime.Command, intent.Descriptor, new CommandFault.Vetoed(refusal.Message, refusal), intent.Arguments))
         from _chained in Chain(runtime, result, intent.Arguments)
-        from _admission in runtime.Instruments.Write(
+        from _admission in IO.lift(runtime.Instruments.Write(
                 AppHostMeasure.CommandAdmissions.Row,
                 1d,
                 InstrumentSet.Tags(result.Tenant, (AppHostSlot.Txn.Key, result.Txn.Map(
                     committed: static _ => nameof(CommandTxn.Committed),
                     rolledBack: static _ => nameof(CommandTxn.RolledBack),
                     compensated: static _ => nameof(CommandTxn.Compensated),
-                    refused: static _ => nameof(CommandTxn.Refused)))))
-            .Match(Succ: IO.pure, Fail: IO.fail<Unit>)
-        from _spend in toSeq(result.Charged.Units.AsIterable())
+                    refused: static _ => nameof(CommandTxn.Refused))))))
+        from _spend in IO.lift(toSeq(result.Charged.Units.AsIterable())
             .TraverseM(row => runtime.Instruments.Write(
                 AppHostMeasure.Spend(row.Key),
                 row.Value,
                 InstrumentSet.Tags(result.Tenant)))
-            .As()
-            .Match(Succ: IO.pure, Fail: IO.fail<Unit>)
+            .As())
         select result;
 
     static IO<Unit> Chain(DispatchRuntime runtime, CommandResult result, CommandArguments arguments) =>
         result.Txn is CommandTxn.Committed or CommandTxn.Compensated
             ? from at in IO.lift(() => runtime.Command.Clocks.Now)
-              from entry in Advanced(runtime, result, arguments, at).Match(Succ: IO.pure, Fail: IO.fail<LogEntry>)
-              from published in runtime.Changefeed.Publish(entry).Match(Succ: IO.pure, Fail: IO.fail<Unit>)
+              from entry in IO.lift(Advanced(runtime, result, arguments, at))
+              from published in IO.lift(runtime.Changefeed.Publish(entry))
               select published
             : IO.pure(unit);
 
@@ -145,7 +140,7 @@ IMcpServerBuilder server = services.AddMcpServer()
 Seq<AITool> agentTools = adopted.Tools.Map(static row => (AITool)row.Function);
 
 Func<string, CommandArguments, IO<CommandResult>> pluginDispatch =
-    (descriptor, arguments) => CommandDispatch.Run(dispatchRuntime, CommandIntent.Of(descriptor, arguments, CallerModality.Plugin));
+    (descriptor, arguments) => CommandDispatch.Run(dispatchRuntime, new CommandIntent(descriptor, arguments, CallerModality.Plugin));
 ```
 
 ## [04]-[RESEARCH]

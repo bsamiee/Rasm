@@ -78,7 +78,7 @@ public sealed partial class TimeCut {
 public readonly record struct AsOfQuery(TimeCut Cut, Option<string> Branch, Option<NodeId> NodeKeyPrefix) {
     public static AsOfQuery At(Instant cut) => new(TimeCut.Of(cut), None, None);
     public static AsOfQuery AtVersion(long version, Hlc ceiling) => new(TimeCut.AtVersion(version, ceiling), None, None);
-    public bool Selects(NodeId key) => NodeKeyPrefix.Map(p => key.Value.StartsWith(p.Value, StringComparison.Ordinal)).IfNone(true);
+    public bool Selects(NodeId key) => NodeKeyPrefix.Map(p => key.ToValue().StartsWith(p.Value, StringComparison.Ordinal)).IfNone(true);
 }
 
 public readonly record struct Checkpoint(Hlc At, long Version, ContentAddress Address, UInt128 Hash, Option<UInt128> Prior) {
@@ -88,10 +88,10 @@ public readonly record struct Checkpoint(Hlc At, long Version, ContentAddress Ad
 public readonly record struct KeyDelta(NodeId Node, string Member, BlameAxis Axis, ChangeKind Kind, Option<UInt128> From, Option<UInt128> To);
 
 public readonly record struct RangeDiff(TimeCut From, TimeCut To, Seq<KeyDelta> Deltas) {
-    public Seq<NodeId> Added => Deltas.Filter(static d => d.Axis == BlameAxis.Node && d.Kind == ChangeKind.Added).Map(static d => d.Node).Distinct().ToSeq();
-    public Seq<NodeId> Removed => Deltas.Filter(static d => d.Axis == BlameAxis.Node && d.Kind == ChangeKind.Removed).Map(static d => d.Node).Distinct().ToSeq();
-    public Seq<NodeId> Changed => Deltas.Filter(static d => d.Axis == BlameAxis.Node && d.Kind == ChangeKind.Replaced).Map(static d => d.Node).Distinct().ToSeq();
-    public Seq<NodeId> EdgesChanged => Deltas.Filter(static d => d.Axis == BlameAxis.Edge).Map(static d => d.Node).Distinct().ToSeq();
+    public Seq<NodeId> Added => Deltas.Filter(static d => d.Axis == BlameAxis.Node && d.Kind == ChangeKind.Added).Map(static d => d.Node).Distinct();
+    public Seq<NodeId> Removed => Deltas.Filter(static d => d.Axis == BlameAxis.Node && d.Kind == ChangeKind.Removed).Map(static d => d.Node).Distinct();
+    public Seq<NodeId> Changed => Deltas.Filter(static d => d.Axis == BlameAxis.Node && d.Kind == ChangeKind.Replaced).Map(static d => d.Node).Distinct();
+    public Seq<NodeId> EdgesChanged => Deltas.Filter(static d => d.Axis == BlameAxis.Edge).Map(static d => d.Node).Distinct();
 }
 
 public readonly record struct BlameContributor(string Actor, Guid Origin, Hlc Cell, long Version);
@@ -152,7 +152,7 @@ public static class TimeTravel {
 
     static UInt128 ChainHash(Option<UInt128> prior, ContentAddress address) =>
         ContentHash.Of((Prior: prior, Address: address), static (link, w) =>
-            w.Optional(link.Prior, static (held, x) => { x.U128(held); }).U128(link.Address.Value));
+            w.Optional(link.Prior, static (held, x) => { x.U128(held); }).U128(link.Address.ToValue()));
 
     public static IO<RangeDiff> Diff(AsOfQuery from, AsOfQuery to, TimeLog log) =>
         from a in log.Reconstruct(from)
@@ -168,15 +168,15 @@ public static class TimeTravel {
                         (true, false) => ChangeKind.Removed,
                         _ => ChangeKind.Replaced,
                     },
-                    a.Find(cell.Node).Map(n => ContentAddress.Of(n, a.Header.Tolerance).Value),
-                    b.Find(cell.Node).Map(n => ContentAddress.Of(n, b.Header.Tolerance).Value))))
+                    a.Find(cell.Node).Map(n => ContentAddress.Of(n, a.Header.Tolerance).ToValue()),
+                    b.Find(cell.Node).Map(n => ContentAddress.Of(n, b.Header.Tolerance).ToValue()))))
             .GroupBy(static d => (d.Node, d.Member))
             .Select(static g => g.First()))
             + EdgeDeltas(query, a, b);
 
     static Seq<KeyDelta> EdgeDeltas(AsOfQuery query, ElementGraph a, ElementGraph b) {
-        HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (ContentAddress.Of(e, a.Header.Tolerance).Value, e)));
-        HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (ContentAddress.Of(e, b.Header.Tolerance).Value, e)));
+        HashMap<UInt128, Relationship> fromEdges = toHashMap(a.Edges.Select(e => (ContentAddress.Of(e, a.Header.Tolerance).ToValue(), e)));
+        HashMap<UInt128, Relationship> toEdges = toHashMap(b.Edges.Select(e => (ContentAddress.Of(e, b.Header.Tolerance).ToValue(), e)));
         Seq<(Relationship Edge, ChangeKind Kind, Option<UInt128> Key)> changed =
             toSeq(toEdges.Filter((key, _) => !fromEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Added, Some(key))).Values)
             + toSeq(fromEdges.Filter((key, _) => !toEdges.ContainsKey(key)).Map(static (key, e) => (e, ChangeKind.Removed, Some(key))).Values);
@@ -186,7 +186,7 @@ public static class TimeTravel {
     }
 
     public static IO<Seq<BlameRow>> Blame(AsOfQuery query, TimeLog log) =>
-        log.Events(query.Cut).Bind(events => IO.liftFin(toSeq(events
+        log.Events(query.Cut).Bind(events => IO.lift(toSeq(events
             .Bind(e => Touched(e).Filter(cell => query.Selects(cell.Node)).Map(cell => (Cell: cell, Event: e)))
             .GroupBy(static row => (row.Cell.Node, row.Cell.Member, row.Cell.Axis))
             .Select(group => {
@@ -206,7 +206,7 @@ public static class TimeTravel {
         from events in log.Events(query.Cut)
         let windowed = toSeq(events.Filter(e => window.Includes(Instant.FromDateTimeOffset(e.Timestamp))).OrderBy(static e => e.Version))
         from seeded in log.ReconstructAt(windowed.Head.Map(static e => e.Version - 1L).IfNone(0L))
-        from reel in IO.liftFin(windowed.Fold(
+        from reel in IO.lift(windowed.Fold(
             Fin.Succ((Frames: Seq<ScrubFrame>(), Graph: seeded, Members: GraphMembers.Of(seeded), Address: ContentAddress.OfGraph(seeded))),
             (held, e) => held.Bind(acc => {
                 ElementGraph next = e.Data.Body.ReplayOnto(acc.Graph);
@@ -216,7 +216,7 @@ public static class TimeTravel {
                         ContentAddress nextAddress = ContentAddress.OfGraph(members);
                         return (acc.Frames.Add(new ScrubFrame(acc.Frames.Count, e.Version, e.Data.Lifecycle,
                             new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), author.Actor,
-                            acc.Address.Value, nextAddress.Value)), next, members, nextAddress);
+                            acc.Address.ToValue(), nextAddress.ToValue())), next, members, nextAddress);
                     }));
             })))
         select new ScrubReel(window.Direction.Lay(reel.Frames), reel.Graph, window.Span);
@@ -240,7 +240,7 @@ public static class TimeTravel {
             : Search(0, versions.Count, 0L).Bind(found => found.Flip < versions.Count && byVersion.Find(versions[found.Flip]) is { IsSome: true, Case: IEvent<GraphEvent> flipEvent }
                 ? from before in log.ReconstructAt(versions[found.Flip] - 1L)
                   from after in log.ReconstructAt(versions[found.Flip])
-                  from frame in IO.liftFin(FlipFrame(found.Flip, flipEvent, before, after, log.Frame.Key))
+                  from frame in IO.lift(FlipFrame(found.Flip, flipEvent, before, after, log.Frame.Key))
                   select new BisectOutcome(new BisectVerdict.Flipped(frame), found.Probes)
                 : IO.pure(new BisectOutcome(new BisectVerdict.NeverFlipped(), found.Probes)));
     }
@@ -253,7 +253,7 @@ public static class TimeTravel {
                let afterAddress = ContentAddress.OfGraph(step.Resolve(_ => GraphMembers.Of(after)))
                select new ScrubFrame(index, e.Version, e.Data.Lifecycle,
                    new Hlc(Instant.FromDateTimeOffset(e.Timestamp), (ulong)e.Version), author.Actor,
-                   priorAddress.Value, afterAddress.Value);
+                   priorAddress.ToValue(), afterAddress.ToValue());
     }
 
     public static IO<BranchRef> BranchFromPast(AsOfQuery query, string newBranch, GrantSet acl, Guid origin, TimeLog log, Func<string, Guid, ContentAddress, CommitMessage, IO<CommitNode>> mintBranchCommit) =>
@@ -265,7 +265,7 @@ public static class TimeTravel {
     static IO<(ElementGraph Graph, Reconstruction Settled)> Folded(AsOfQuery query, TimeLog log) =>
         from reconstructed in log.Reconstruct(query)
         from events in log.Events(query.Cut)
-        select (reconstructed.Graph, new Reconstruction(query.Cut, reconstructed.Version, events.Count, reconstructed.Floor, ContentAddress.OfGraph(reconstructed.Graph).Value));
+        select (reconstructed.Graph, new Reconstruction(query.Cut, reconstructed.Version, events.Count, reconstructed.Floor, ContentAddress.OfGraph(reconstructed.Graph).ToValue()));
 
     static Option<(NodeId Node, string Member)> CellOf(MemberPath path) =>
         toSeq(path.Segments).Choose(static seg => seg.Value is NodeId key ? Some(key) : None).Head

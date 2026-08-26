@@ -179,18 +179,15 @@ public static class SandboxRows {
 
     public static IO<PluginInstance> Load(SandboxRow row, PluginArtifact artifact, GrantScope scope, SandboxRuntime runtime, Op key) =>
         from admitted in SupplyChainGate.Admit(runtime.Gate, new AdmissionSubject.Plugin(artifact), runtime.Spine.Token)
-        from _proven in admitted.Match(
-            Succ: IO.pure,
-            Fail: faults => IO.fail<SupplyChainAdmission>(faults.Map(static fault => (Error)fault).Reduce(static (all, next) => all + next)))
-        from provider in runtime.Vehicles.Find(row.Isolation)
+        from _proven in IO.lift(admitted.ToFin())
+        from provider in IO.lift(runtime.Vehicles.Find(row.Isolation)
             .ToFin(new SandboxFault.AxisUnsupported(new AxisEvidence(
-                ProfileAxis.Isolation, row.Isolation.Key, "no vehicle provider seated at this composition")))
-            .Match(Succ: IO.pure, Fail: IO.fail<VehicleProvider>)
+                ProfileAxis.Isolation, row.Isolation.Key, "no vehicle provider seated at this composition"))))
         from vehicle in provider.Switch(
             state: (Row: row, Artifact: artifact, Scope: scope, Runtime: runtime),
             wasmCase: static (seat, wasm) => Capsule(seat.Row, seat.Artifact, seat.Scope, seat.Runtime, wasm).Map(static capsule => (Vehicle)new Vehicle.WasmCase(capsule)),
             childCase: static (seat, child) => child.Spawn(seat.Artifact, seat.Scope).Map(peer => (Vehicle)new Vehicle.ChildCase(peer, child)))
-        from opened in QuotaCell.Open(row.Quota, runtime.Clocks, key).Match(Succ: IO.pure, Fail: IO.fail<QuotaCell>)
+        from opened in IO.lift(QuotaCell.Open(row.Quota, runtime.Clocks, key))
         select new PluginInstance(
             artifact.PluginId, artifact, scope, opened, vehicle,
             Atom<Quarantine>(new Quarantine.Active()),
@@ -200,12 +197,12 @@ public static class SandboxRows {
         plugin.Vehicle.Switch(
             state: (Body: call, Plugin: plugin),
             wasmCase: static (seat, wasm) =>
-                from held in IO.lift(() => Op.Of().Catch(
+                from held in IO.lift<Fin<T>>(() => Op.Of().Catch(
                     body: () => Fin.Succ(seat.Body(wasm.Capsule.Instance)),
                     token: seat.Plugin.Spine.Token))
                 from result in held.Match(
                     Succ: IO.pure,
-                    Fail: error => error.Exception.Case is TrapException trap
+                    Fail: error => error.Exception is { IsSome: true, Case: TrapException trap }
                         ? IO.fail<T>(TrapDisposition.Of(TrapDisposition.Seat(wasm.Capsule, trap.Type), wasm.Capsule, seat.Plugin.Quota.Shape))
                         : IO.fail<T>(error))
                 select result,
@@ -233,8 +230,7 @@ public static class SandboxRows {
                 module.Dispose();
                 throw;
             }
-        }, token: runtime.Spine.Token))
-        .Bind(static minted => minted.Match(Succ: IO.pure, Fail: IO.fail<WasmCapsule>));
+        }, token: runtime.Spine.Token));
 
     static ulong Ticks(TimeSpan bound, Duration period) =>
         (ulong)long.Max(1L, (long)Math.Ceiling(bound.TotalNanoseconds / period.TotalNanoseconds));
@@ -280,7 +276,7 @@ public static class GrantHandleSurface {
     public static IO<CommandResult> Invoke(
         SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle,
         string descriptorId, CommandArguments arguments, Op key) =>
-        from breach in plugin.Quota.Breach(runtime.Clocks, key).Match(Succ: IO.pure, Fail: IO.fail<Option<Breach>>)
+        from breach in IO.lift(plugin.Quota.Breach(runtime.Clocks, key))
         from result in breach.Match(
             Some: hit => Refused(runtime, descriptorId, arguments, new SandboxFault.QuotaExceeded(hit)),
             None: () => runtime.Command.Registry.Resolve(descriptorId).Match(
@@ -407,7 +403,7 @@ public abstract partial record Quarantine {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TrapDisposition {
     public static TrapCode Seat(WasmCapsule capsule, TrapCode observed) =>
-        Cell.Seat(capsule.Trapped, () => observed) is Transition<Option<TrapCode>>.Ceded { State.Case: TrapCode held }
+        Cell.Seat(capsule.Trapped, () => observed) is Transition<Option<TrapCode>>.Ceded { State: { IsSome: true, Case: TrapCode held } }
             ? held
             : observed;
 
@@ -427,7 +423,7 @@ public static class QuotaControl {
 
     public static IO<Option<Breach>> Enforce(SandboxRuntime runtime, PluginInstance plugin, Op key) =>
         from _charged in IO.lift(() => plugin.Quota.Charge(Observed(plugin)))
-        from breach in plugin.Quota.Breach(runtime.Clocks, key).Match(Succ: IO.pure, Fail: IO.fail<Option<Breach>>)
+        from breach in IO.lift(plugin.Quota.Breach(runtime.Clocks, key))
         select breach;
 
     public static IO<Unit> Evict(SandboxRuntime runtime, PluginInstance plugin, EvictionCause cause) =>

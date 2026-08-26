@@ -557,14 +557,12 @@ public static class ArcAlgebra {
                 nearest.Filter(best => best.Result.Distance <= row.Result!.Value.Distance).IsSome
                     ? nearest
                     : Some((row.Loop, row.Result!.Value)))
-            .Match(
-                Some: row => Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Near(
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-inspect:empty-near"))
+            .Map<ArcTrace>(row => new ArcTrace.Inspection(new ArcInspection.Near(
                     new Point3d(row.Result.SegPoint.X, row.Result.SegPoint.Y, forest.Plane),
                     row.Result.Distance,
                     row.Result.SegStartIndex,
-                    row.Loop))),
-                None: () => Fin.Fail<ArcTrace>(
-                    new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-inspect:empty-near")));
+                    row.Loop)));
 
     private static Fin<ArcTrace> Pair(Loop first, Loop second) {
         ArcRelation projected = ArcRelation.Of(PlineContains.PolylineContains(

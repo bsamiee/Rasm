@@ -53,16 +53,15 @@ public static class ConnectionProjection {
         UnitScheme scale,
         Op key) =>
         (project.Extract<IfcElement>().AsIterable().ToSeq()
-            .Traverse(realizing => (BagOf(realizing, scale, key).Bind(detail => detail.Match(
-                None: static () => Fin.Succ(Option<(Node Bag, Relationship Edge)>.None),
-                Some: bag => rooted.Find(realizing.GlobalId)
+            .Traverse(realizing => (BagOf(realizing, scale, key).Bind(detail => detail.TraverseM(bag =>
+                rooted.Find(realizing.GlobalId)
                     .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.DanglingReference, string.Join(':', new object?[] { "connection-detail-root-miss", realizing.GlobalId })))
                     .Map(node => {
                         Node.PropertySet minted = Mint(bag, tolerance);
-                        return Some(((Node)minted, (Relationship)new Relationship.Assign(node, minted.Id, AssignKind.PropertyDefinition)));
-                    })))).ToValidation())
+                        return ((Node)minted, (Relationship)new Relationship.Assign(node, minted.Id, AssignKind.PropertyDefinition));
+                    })).As())).ToValidation())
             .As()
-            .Map(static details => details.Choose(identity).ToSeq())).ToFin();
+            .Map(static details => details.Choose(identity))).ToFin();
 
     static Node.PropertySet Mint(PropertyBag bag, double tolerance) {
         var draft = new Node.PropertySet(NodeId.Of(new NodeSeed.Placement()), bag);
@@ -174,11 +173,10 @@ public static class ConnectionProjection {
     public static Fin<Option<PropertyBag>> BagOf(IfcElement realizing, UnitScheme scale, Op key) =>
         Optional(Realizing.Value.GetValueOrDefault(realizing.GetType()))
             .Bind(row => row.Joint(realizing).Map(kind => (Row: row, Kind: kind)))
-            .Match(
-                None: static () => Fin.Succ(Option<PropertyBag>.None),
-                Some: hit => Rows(Seq(Joint(hit.Kind, key))
-                    + hit.Row.Values.Map(column => Lift(column.Name, column.Read(realizing)))
-                    + hit.Row.Measures.Map(column => Measured(column.Name, column.Dimension, column.Read(realizing), scale, key))));
+            .TraverseM(hit => Rows(Seq(Joint(hit.Kind, key))
+                + hit.Row.Values.Map(column => Lift(column.Name, column.Read(realizing)))
+                + hit.Row.Measures.Map(column => Measured(column.Name, column.Dimension, column.Read(realizing), scale, key))))
+            .As();
 
     // --- [ROWS]
     static Fin<Option<(PropertyName Name, PropertyValue Value)>> Joint(string kind, Op key) =>
@@ -193,10 +191,10 @@ public static class ConnectionProjection {
                 .Map(value => Some((name, (PropertyValue)new PropertyValue.Measure(value))))
             : Fin.Succ(Option<(PropertyName, PropertyValue)>.None);
 
-    static Fin<Option<PropertyBag>> Rows(Seq<Fin<Option<(PropertyName Name, PropertyValue Value)>>> rows) =>
+    static Fin<PropertyBag> Rows(Seq<Fin<Option<(PropertyName Name, PropertyValue Value)>>> rows) =>
         (rows.Traverse(static row => row.ToValidation()).As()
-            .Map(static values => Some(values.Choose(identity)
-                .Fold(DetailSchema.Realization.Bag(), static (bag, row) => bag.With(row.Name, row.Value))))).ToFin();
+            .Map(static values => values.Choose(identity)
+                .Fold(DetailSchema.Realization.Bag(), static (bag, row) => bag.With(row.Name, row.Value)))).ToFin();
 
     // --- [PROFILE_DIAMETER]
     static Option<double> DiameterOf(IfcElement element) =>

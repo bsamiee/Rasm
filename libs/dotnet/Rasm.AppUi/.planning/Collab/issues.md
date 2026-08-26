@@ -260,10 +260,9 @@ public static class CommentLens {
             : Fin.Fail<Guid>(new IssueFault.CommentConflict($"comment identity {value} is not a GUID"));
 
     static Seq<CommentEntry> ReadEntries(LoroMap thread) =>
-        thread.Keys().AsIterable()
+        toSeq(thread.Keys())
             .Map(key => Read(thread, key))
-            .Somes()
-            .ToSeq();
+            .Somes();
 
     static Option<CommentEntry> Read(LoroMap thread, string key) =>
         thread.Level(key, live => EntryOf(thread, key, live));
@@ -305,7 +304,7 @@ public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
         doc.Read(
             CollabPath.Root(CollabRoot.Notifications).Key(ContainerKey.Of(peer)),
             Seq<CommentNotice>(),
-            inbox => CollabDoc.Lift(() => inbox.Keys().AsIterable().Choose(key => Notice(inbox, key)).ToSeq()));
+            inbox => CollabDoc.Lift(() => toSeq(inbox.Keys()).Choose(key => Notice(inbox, key))));
 
     static Option<CommentNotice> Notice(LoroMap inbox, string key) =>
         Guid.TryParseExact(key, "N", out Guid comment)
@@ -367,7 +366,7 @@ public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
     public static Fin<TriageBoard> Load(
         Seq<Rasm.Bim.Coordination.BcfTopic> topics, Func<string, int> revision, IClock clock) =>
         topics.Traverse(topic => Issue.FromTopic(topic, revision, clock)).As()
-            .Map(issues => new TriageBoard("coordination", issues.ToSeq()));
+            .Map(issues => new TriageBoard("coordination", issues));
 
     public Seq<Rasm.Bim.Coordination.BcfTopic> Save() =>
         Issues.Map(static issue => issue.ToTopic());
@@ -389,7 +388,7 @@ public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
             from comments in CommentLens.Project(doc, ContainerKey.Of(issue.Guid))
             from triage in IssueRegister.Read(doc, issue.Guid)
             select triage.Onto(issue with { Comments = comments })).As()
-            .Map(issues => this with { Issues = issues.ToSeq() });
+            .Map(issues => this with { Issues = issues });
 
     public Fin<TriageBoard> Markup(System.Guid issueGuid, string viewpointGuid, Seq<ViewpointMarkup> markup) =>
         from issue in Issues.Find(row => row.Guid == issueGuid)

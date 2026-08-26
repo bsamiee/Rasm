@@ -33,7 +33,6 @@ public readonly partial struct MonitorKey {
         validationError = value.Length > 0 ? null : new ValidationError("<monitor-id-blank>");
     }
 
-    public static Fin<MonitorKey> From(string repr) => Validate(repr, null, out MonitorKey value) is { } fault ? Fin.Fail<MonitorKey>(fault) : value;
 }
 
 [ValueObject<double>]
@@ -43,7 +42,6 @@ public readonly partial struct Smoothing {
             ? null
             : new ValidationError($"<monitor-lambda:{value:R}>");
 
-    public static Fin<Smoothing> From(double repr) => Validate(repr, null, out Smoothing value) is { } fault ? Fin.Fail<Smoothing>(fault) : value;
 }
 
 [ValueObject<double>]
@@ -53,9 +51,7 @@ public readonly partial struct FalseAlarm {
             ? null
             : new ValidationError($"<monitor-false-alarm:{value:R}>");
 
-    public static Fin<FalseAlarm> From(double repr) => Validate(repr, null, out FalseAlarm value) is { } fault ? Fin.Fail<FalseAlarm>(fault) : value;
-
-    public double ControlLimit => Multiplier(Value);
+    public double ControlLimit => Multiplier(ToValue());
 
     private static double Multiplier(double rate) => Normal.InvCDF(0d, 1d, 1d - rate / 2d);
 }
@@ -65,7 +61,6 @@ public readonly partial struct Warmup {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 2 ? null : new ValidationError($"<monitor-warmup:{value}>");
 
-    public static Fin<Warmup> From(int repr) => Validate(repr, null, out Warmup value) is { } fault ? Fin.Fail<Warmup>(fault) : value;
 }
 
 [ValueObject<double>]
@@ -73,7 +68,6 @@ public readonly partial struct Threshold {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = double.IsFinite(value) ? null : new ValidationError($"<monitor-threshold:{value:R}>");
 
-    public static Fin<Threshold> From(double repr) => Validate(repr, null, out Threshold value) is { } fault ? Fin.Fail<Threshold>(fault) : value;
 }
 
 [SmartEnum<string>]
@@ -102,28 +96,31 @@ public abstract partial record StreamMonitor {
         detector: static monitor => monitor.Id);
 
     public static Fin<StreamMonitor> OfEwma(string monitorId, double lambda, double falseAlarm, int warmup) =>
-        (MonitorKey.From(monitorId).ToValidation(),
-         Smoothing.From(lambda).ToValidation(),
-         FalseAlarm.From(falseAlarm).ToValidation(),
-         Warmup.From(warmup).ToValidation())
+        (Op.Of(name: nameof(OfEwma)).AcceptValidated<MonitorKey>(monitorId).ToValidation(),
+         Op.Of(name: nameof(OfEwma)).AcceptValidated<Smoothing>(lambda).ToValidation(),
+         Op.Of(name: nameof(OfEwma)).AcceptValidated<FalseAlarm>(falseAlarm).ToValidation(),
+         Op.Of(name: nameof(OfEwma)).AcceptValidated<Warmup>(warmup).ToValidation())
             .Apply(static (id, smoothing, alarm, warm) => (StreamMonitor)new Ewma(
                 id, smoothing, alarm.ControlLimit, warm, Level: 0d, Baseline: new Evidence<Stat<Scalar>>.Absent(), Count: 0L))
+            .As()
             .ToFin();
 
     public static Fin<StreamMonitor> OfQuantile(string monitorId, double probability, double limit) =>
-        (MonitorKey.From(monitorId).ToValidation(),
-         Threshold.From(limit).ToValidation(),
+        (Op.Of(name: nameof(OfQuantile)).AcceptValidated<MonitorKey>(monitorId).ToValidation(),
+         Op.Of(name: nameof(OfQuantile)).AcceptValidated<Threshold>(limit).ToValidation(),
          QuantileSketch.Of(probability, Op.Of(name: nameof(OfQuantile))).ToValidation())
             .Apply(static (id, bound, sketch) => (StreamMonitor)new Quantile(id, bound, sketch))
+            .As()
             .ToFin();
 
     public static Fin<StreamMonitor> OfDetector(string monitorId, int capacity, FittedModel detector) =>
-        (MonitorKey.From(monitorId).ToValidation(),
-         WindowCapacity.From(capacity).ToValidation(),
+        (Op.Of(name: nameof(OfDetector)).AcceptValidated<MonitorKey>(monitorId).ToValidation(),
+         Op.Of(name: nameof(OfDetector)).AcceptValidated<WindowCapacity>(capacity).ToValidation(),
          (detector.Carrier is EstimatorModel.Detector
              ? Fin.Succ(detector)
              : Fin.Fail<FittedModel>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Type(detector.Carrier.GetType()))))).ToValidation())
             .Apply(static (id, capacity, model) => (StreamMonitor)new Detector(id, ResidualWindow.Of(capacity), model))
+            .As()
             .ToFin();
 }
 
@@ -179,11 +176,11 @@ public static class MonitorLane {
             outcome is Prediction.Anomaly anomaly && anomaly.Scores.Count == next.Window.Count && anomaly.Changes.Length == next.Window.Count
                 ? Fin.Succ(((StreamMonitor)next, new MonitorVerdict(
                     next.Id, MonitorStatistic.DetectorScore, anomaly.Scores[^1], None, anomaly.Changes[^1], next.Window.Count, at)))
-                : Fin.Fail<(StreamMonitor, MonitorVerdict)>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(next.Id.Value)))));
+                : Fin.Fail<(StreamMonitor, MonitorVerdict)>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(next.Id.ToValue())))));
     }
 
     static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Smoothed(StreamMonitor.Ewma held, Scalar sample, Instant at, Op key) {
-        bool warm = held.Count >= held.Warmup.Value;
+        bool warm = held.Count >= held.Warmup.ToValue();
         Evidence<Stat<Scalar>> advanced = warm
             ? held.Baseline
             : held.Baseline.Switch(
@@ -197,10 +194,10 @@ public static class MonitorLane {
             measured: baseline => {
                 long count = held.Count + 1L;
                 double mean = baseline.Value.Mean;
-                double level = warm ? held.Lambda.Value * sample.To() + (1d - held.Lambda.Value) * held.Level : mean;
+                double level = warm ? held.Lambda.ToValue() * sample.To() + (1d - held.Lambda.ToValue()) * held.Level : mean;
                 Option<double> band = warm
                     ? Some(held.ControlL * baseline.Value.Deviation(MomentNormalizer.Sample) * Math.Sqrt(
-                        held.Lambda.Value / (2d - held.Lambda.Value) * (1d - Math.Pow(1d - held.Lambda.Value, 2d * (count - held.Warmup.Value)))))
+                        held.Lambda.ToValue() / (2d - held.Lambda.ToValue()) * (1d - Math.Pow(1d - held.Lambda.ToValue(), 2d * (count - held.Warmup.ToValue())))))
                     : None;
                 return Fin.Succ((
                     (StreamMonitor)(held with { Level = level, Baseline = advanced, Count = count }),
@@ -214,11 +211,11 @@ public static class MonitorLane {
 
     static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Sketched(StreamMonitor.Quantile held, Scalar sample, Instant at, Op key) =>
         QuantileSketch.Update(held.Sketch, sample.To(), key).Bind(advanced => advanced.Estimate()
-            .ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(held.Id.Value))))
+            .ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(held.Id.ToValue()))))
             .Map(estimate => (
                 (StreamMonitor)(held with { Sketch = advanced }),
                 new MonitorVerdict(
-                    held.Id, MonitorStatistic.P2Quantile, estimate, Some(held.Limit.Value),
-                    estimate > held.Limit.Value, Windowed(advanced.Count), at))));
+                    held.Id, MonitorStatistic.P2Quantile, estimate, Some(held.Limit.ToValue()),
+                    estimate > held.Limit.ToValue(), Windowed(advanced.Count), at))));
 }
 ```

@@ -441,17 +441,17 @@ public abstract partial record PlaneOp {
     }
 
     private static Fin<Seq<PlaneStage>> Schedule(PlaneShape input, Seq<PlaneOp> ops, Op key) =>
-        ops.Fold(Fin.Succ((Shape: input, Stages: Seq<PlaneStage>.Empty)), (state, op) => state.Bind(carry =>
+        ops.FoldM((Shape: input, Stages: Seq<PlaneStage>.Empty), (carry, op) =>
             op.Project(carry.Shape, key).Map(shape => (
                 Shape: shape,
                 Stages: !carry.Stages.IsEmpty && carry.Stages[^1].Kind.Fuses && op.Stage.Fuses
                     ? carry.Stages.Init.Add(carry.Stages[^1] with { Ops = carry.Stages[^1].Ops.Add((op, shape)), Shape = shape })
-                    : carry.Stages.Add(new PlaneStage(op.Stage, Seq((op, shape)), shape, op.Halo(carry.Shape)))))))
+                    : carry.Stages.Add(new PlaneStage(op.Stage, Seq((op, shape)), shape, op.Halo(carry.Shape)))))).As()
         .Map(static carry => carry.Stages);
 
     private static Fin<(TexturePlane, PlaneTrace)> Run(
         TexturePlane source, Seq<PlaneStage> stages, Seq<PlaneOp> ops, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
-        stages.Fold(Fin.Succ((Plane: source, Evidence: Option<HeightEvidence>.None, Done: 0)), (state, stage) => state.Bind(carry =>
+        stages.FoldM((Plane: source, Evidence: Option<HeightEvidence>.None, Done: 0), (carry, stage) =>
             governance.Opened(carry.Done / (double)stages.Count).Match(
                 Some: abandoned => ReferenceEquals(carry.Plane, source)
                     ? Fin.Fail<(TexturePlane Plane, Option<HeightEvidence> Evidence, int Done)>(abandoned)
@@ -464,7 +464,7 @@ public abstract partial record PlaneOp {
                             : Custody.Bracket(
                                 () => Fin.Succ((Plane: destination, Evidence: evidence.IfNone(() => carry.Evidence), Done: carry.Done + 1)),
                                 carry.Plane))
-                        .Rollback(destination)))))
+                        .Rollback(destination)))).As()
         .Map(carry => {
             governance.Progress.Iter(static sink => sink.Report(1.0));
             return (carry.Plane, new PlaneTrace(

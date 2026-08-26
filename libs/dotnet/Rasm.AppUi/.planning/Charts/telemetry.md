@@ -172,7 +172,7 @@ public static class TelemetryBoard {
     static Fin<DashboardLayout> Layout(Seq<string> sloKeys) =>
         PlacementFlow.Layout(Key,
             Seq((Seq(FramePace.Key, FrameHeat.Key), 2), (sloKeys, 1))
-                + toSeq(StatBand.Items).OrderBy(static band => band.Rank).AsIterable().ToSeq()
+                + toSeq(toSeq(StatBand.Items).OrderBy(static band => band.Rank))
                     .Map(band => (Stats.Filter(row => row.Band == band).Map(static row => row.Key), 1))
                 + Seq(
                     (Seq(StoreProfileTrack.OperatorKey, EvidenceTrack.TrackKey), 2),

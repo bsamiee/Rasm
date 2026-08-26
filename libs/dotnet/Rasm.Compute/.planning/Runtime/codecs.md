@@ -433,9 +433,7 @@ public abstract partial record LakeDataset {
     static readonly LocalDatePattern MonthSegment = LocalDatePattern.CreateWithInvariantCulture("'m'uuuu'_'MM");
 
     internal static Validation<Error, Identifier> Admitted(string raw) =>
-        Identifier.Validate(raw.Replace('-', '_'), null, out Identifier? admitted) is { } error
-            ? Fail<Error, Identifier>(error)
-            : Success<Error, Identifier>(admitted!);
+        Op.Of(name: nameof(Admitted)).AcceptValidated<Identifier>(raw.Replace('-', '_')).ToValidation();
 }
 
 public readonly record struct LakeLanding(

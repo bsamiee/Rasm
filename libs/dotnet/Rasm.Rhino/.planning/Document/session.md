@@ -1116,12 +1116,10 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                 mode: lane,
                 lease: acquired,
                 granted: granted));
-        return admitted.BindFail(error => op.Catch(() => {
+        return admitted.Rollback(release: () => {
             acquired.Dispose();
             return Fin.Succ(value: unit);
-        }).BiBind(
-            Succ: _ => Fin.Fail<DocumentSession>(error: error),
-            Fail: cleanup => Fin.Fail<DocumentSession>(error: error + cleanup)));
+        }, key: op);
     }
 
     private sealed record DetachedContext(Rasm.Domain.Context Value) : IDetachedDocumentResult;
@@ -1379,15 +1377,14 @@ public abstract partial record RegimeChange {
         UnitRegime before,
         Option<UnitScaling> scaling,
         Op op) {
-        K<Validation<Error>, Unit> units = scaling.Match(
-            Some: policy => op.Catch(() => document.AdjustLengthUnits(
+        K<Validation<Error>, Unit> units = scaling.TraverseM(policy => op.Catch(() => document.AdjustLengthUnits(
                     modelUnits: space.ModelUnits,
                     units: before.Native,
                     scale: policy.HostScale)
                 ? Fin.Succ(value: unit)
                 : Fin.Fail<Unit>(new DraftFault.HostRefused(
-                    Key: op, Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "restore answered false"))),
-            None: () => Fin.Succ(value: unit)).ToValidation();
+                    Key: op, Member: nameof(RhinoDoc.AdjustLengthUnits), Detail: "restore answered false"))))
+            .As().Map(static _ => unit).ToValidation();
         K<Validation<Error>, Unit> tolerances = op.Catch(() => Fin.Succ(value: space.SetTolerances(
             document: document,
             context: before.Space))).ToValidation();

@@ -17,7 +17,7 @@ One typed `HttpClient` rides the shared `CacheLane` under a framed content key, 
 - Auto: the five legs share ONE polymorphic `Cached<T>` fold parameterized by the decode shape (`Unwrap<T>` for the `{payload, meta}` message envelope, `Bare<T>` for the by-identity documents); the cache stores a `Cached<Fin<T>>` envelope so a SUCCESS holds for the provider's revision cadence while a DETERMINISTIC refusal holds only for the lane's negative window and a transient one is never written at all — the boundary-crossing exception carrier this replaces existed solely to make `HybridCache` skip a write. The slot derives through the kernel `ContentHash.Of<TState>` over the leg's own framed fields beside the response `meta.mf_hash` the server resolved the filter to, so two OMF strings the server normalizes to one filter share a slot and a length-framed key cannot collide two legs whose colon-joined concatenation once did. Every module a declaration carries bands onto the contract `LifecycleStage` roster and every indicator onto `ImpactCategory` through generated projections keyed by row, so the wire's members map by data rather than by a hand-summed fixed-slot literal, and a row the contract does not carry lands a NAMED degrade rather than a silent zero.
 - Law: KEY PRESENCE is the coverage census. An openEPD scope member the wire never declared is UNDECLARED ABSENCE, never a zero — the `?? 0.0` collapse this replaces erased the census before the sum, so a partial EPD and a genuinely zero-impact module published the same number and the contract matrix then zero-filled every undeclared indicator with nothing left to say which. Every declared cell rides `EpdDeclaration.Impacts` as an `(indicator, stage)` KEY, and the coverage a consumer reads DERIVES from that key set.
 - Law: the reference study period is the B-stage's own scale. `product_service_life_years` and each scope's `Bn_years` are the two columns EN 15978 B1–B7 arithmetic needs — a use-stage value declared over one year and summed straight into a sixty-year study reports a building's whole maintenance and operational carbon as a single year of it, and a product whose service life is shorter than the study period is REPLACED, its product stage re-incurred at B4. Absent either column the B stages carry their declared magnitude and the result states the unscaled basis rather than fabricating a period.
-- Packages: `System.Net.Http` (typed client + `ReadFromJsonAsync(Type, JsonSerializerContext)`), `System.Text.Json` (source-generated context, AOT-safe), Microsoft.Extensions.Caching.Hybrid (reached through the `Rasm.AppHost` `Runtime/resources#CACHE_LANES` `CacheSurface`, never a cache instance), Riok.Mapperly (`[Mapper]`, `[MapProperty(Use = …)]`, `[MapValue]`, `[UserMapping]`, `[NamedMapping]`, `[UseStaticMapper]`, `[MapperIgnoreSource]` — the reader-free wire lowering), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[Union]`, `[ObjectFactory<string>]`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`HashMap`/`Validation`), Generator.Equals (`[Equatable]` — the impact-map and stage-vector reference-equality repair), NodaTime (`Instant`/`Duration`), Rasm (kernel — `ContentHash.Of<TState>`/`CanonicalWriter` the framed slot key, `Retriability` the published posture, `Op`), Rasm.Element (project — `LifecycleStage`/`ImpactCategory` the banding projections are generated over, `MeasurementBasis`, `PropertyEvidence`/`EvidenceGrade`), Rasm.AppHost (project — the `CacheLane` descriptor and its `CacheSurface`), BCL inbox; no NuGet SDK to pin (REST integration).
+- Packages: `System.Net.Http` (typed client + `ReadFromJsonAsync(Type, JsonSerializerContext)`), `System.Text.Json` (source-generated context, AOT-safe), Microsoft.Extensions.Caching.Hybrid (reached through the `Rasm.AppHost` `Runtime/resources#CACHE_LANES` `CacheSurface`, never a cache instance), Riok.Mapperly (`[Mapper]`, `[MapProperty(Use = …)]`, `[MapValue]`, `[UserMapping]`, `[NamedMapping]`, `[UseStaticMapper]`, `[MapperIgnoreSource]` — the reader-free wire lowering), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[ValueObject<string>]`, `[Union]`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`HashMap`/`Validation`), Generator.Equals (`[Equatable]` — the impact-map and stage-vector reference-equality repair), NodaTime (`Instant`/`Duration`), Rasm (kernel — `ContentHash.Of<TState>`/`CanonicalWriter` the framed slot key, `Retriability` the published posture, `Op`), Rasm.Element (project — `LifecycleStage`/`ImpactCategory` the banding projections are generated over, `MeasurementBasis`, `PropertyEvidence`/`EvidenceGrade`), Rasm.AppHost (project — the `CacheLane` descriptor and its `CacheSurface`), BCL inbox; no NuGet SDK to pin (REST integration).
 - Growth: a new LCIA method is one `LciaMethod` row carrying its citation and wire spellings; a new decoded openEPD member is one source-gen context property and one banding entry; a new lifecycle module is one contract `LifecycleStage` row with one banding entry here, a new EN 15804 indicator one contract `ImpactCategory` row with one `ImpactIndicator` row; a new ladder rung is one `EpdQuery` case the descent's own roster orders; a SECOND carbon provider is one type satisfying the resolver contract with zero edit to the folds — the boundary widens by row and by adapter, never by a second HTTP client and never a per-endpoint cache path.
 - Boundary: the carbon folds take the RESOLVER, never this class — an assessment that names its provider cannot be run against a second catalogue, a fixture, or a cached corpus without editing the fold. Only the GET read surface is consumed (Rasm is a carbon consumer, never a publisher), and the openEPD wire family stays adapter-local: `Epd`/`ScopeSet`/`Amount` never cross the resolver contract, `EpdDeclaration` carrying the declared indicator cells, the two basis witnesses, the service life, and the `PropertyEvidence` the folds read. Cache tags reach `HybridCache` only through `CacheLane.Tag` and entry lifetime only through the lane's own `Entry` — this lane names an owner key and the lane frames it, where a page-local `HybridCacheEntryOptions` beside raw string tags was a THIRD cache authority against the folder's one-owner ruling and a tag space no `Invalidate` could reach. GWP `Measurement.Mean` is kgCO2e per declared unit and is not a `UnitsNet` quantity — it crosses interior signatures as a raw `double` and lands as a dimensionless `MeasureValue` labeled `kgCO2e` through `DomainMeasure`, never `UnitsNet.Mass` and never the abbreviation-resolving `MeasureValue.Of` (which rejects `kgCO2e`). `LciaMethod` carries its wire spelling as its OWN column (the `Model/providers#EP_AXIS` `WireKey` precedent): the citation a report renders and the token `impacts[method]` and `lcia_method=` are keyed by are two facts, and one string serving both makes a renamed citation silently miss every impact lookup. `LciaMethod` stays CLOSED and absence rides `Option` at the read — the wire's own `Unknown LCIA` bucket is a REFUSAL here, because a declaration whose method nothing named cannot be compared against one whose method the route pinned. `doctype`/`openepd_version` gate the decoder before any impact read, so a re-shaped future document refuses rather than decoding half. Provenance is the declaration's own orgs — `manufacturer`, `program_operator`, `third_party_verifier` and the `compliance` standards — never the `"epd"` literal a `[MapValue]` constant once stamped on every row alike. Hyphenated LCIA scope and indicator keys (`A1A2A3`, `B1`…`B7`, `C1`…`C4`, `gwp-fossil`, `ADP-mineral`, `ETP-fw`, `HTP-c`) require `[JsonPropertyName]` aliases; the `fields` query mask trims each leg to its own projection, so a category page carries candidate identity and basis alone and the winner's impacts are fetched once by identity rather than for every row the page returned; `meta.warnings[]` fold into the result as soft notes and `meta.paging` states whether the one probed page WAS the whole candidate set, because a freshest-of-100 pick silently presented as a freshest-of-all is the selection defect no downstream number reveals.
 
@@ -94,12 +94,11 @@ public sealed partial class DeclaredUnit {
     public static Option<DeclaredUnit> Of(string token) => toSeq(Items).Find(row => row.Key == token);
 }
 
-[ObjectFactory<string>]
 [ValueObject<string>]
 public sealed partial class Omf {
-    static Validation<string> ValidateFactoryArguments(ref string value) =>
-        value is { Length: > 0 } filter && filter.StartsWith(OmfPrefix, StringComparison.Ordinal) && filter.Contains(OmfPragma, StringComparison.Ordinal)
-            ? Validation.Ok
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value is { Length: > 0 } filter && filter.StartsWith(OmfPrefix, StringComparison.Ordinal) && filter.Contains(OmfPragma, StringComparison.Ordinal)
+            ? null
             : new ValidationError(message: $"<omf-grammar:{value}>");
 
     const string OmfPrefix = "!EC3 ";
@@ -245,7 +244,7 @@ public sealed class Ec3Service(HttpClient http, CacheRuntime cache, JsonSerializ
 
     public async Task<Fin<EpdAnswer>> Resolve(EpdQuery query) => await query.Switch(
         products: async p => (await Cached<Epd[]>(query,
-                $"/v2/epds/search?omf={Uri.EscapeDataString(p.Omf.Value)}&page_number=1&page_size={SearchPageSize}&fields={CandidateFields}",
+                $"/v2/epds/search?omf={Uri.EscapeDataString(p.Omf.ToValue())}&page_number=1&page_size={SearchPageSize}&fields={CandidateFields}",
                 Unwrap<Epd[]>))
             .Map(page => Ec3Wire.Candidates(page, p.Method)),
         document: async d => (await Cached<Epd>(query, Identity("/epds", d.Uuid, DocumentFields), Bare<Epd>))
@@ -255,7 +254,7 @@ public sealed class Ec3Service(HttpClient http, CacheRuntime cache, JsonSerializ
         generic: async g => (await Cached<Epd>(query, Identity("/generic_estimates", g.Uuid, DocumentFields), Bare<Epd>))
             .Map(row => Ec3Wire.Declared(row, g.Method)),
         statistic: async s => (await Cached<StatisticsDto>(query,
-                $"/v2/epds/statistics?omf={Uri.EscapeDataString(s.Omf.Value)}&lcia_method={Uri.EscapeDataString(s.Method.WireKey)}",
+                $"/v2/epds/statistics?omf={Uri.EscapeDataString(s.Omf.ToValue())}&lcia_method={Uri.EscapeDataString(s.Method.WireKey)}",
                 Unwrap<StatisticsDto>))
             .Map(page => Ec3Wire.Substitution(page)));
 
@@ -297,11 +296,11 @@ public sealed class Ec3Service(HttpClient http, CacheRuntime cache, JsonSerializ
 
     static UInt128 Slot(EpdQuery query) =>
         ContentHash.Of(query, static (q, w) => q.Switch(
-            products:  p => w.Ordinal(0).String(p.Omf.Value).String(p.Method.WireKey),
+            products:  p => w.Ordinal(0).String(p.Omf.ToValue()).String(p.Method.WireKey),
             document:  d => w.Ordinal(1).String(d.Uuid).String(d.Method.WireKey),
             industry:  i => w.Ordinal(2).String(i.Uuid).String(i.Method.WireKey),
             generic:   g => w.Ordinal(3).String(g.Uuid).String(g.Method.WireKey),
-            statistic: s => w.Ordinal(4).String(s.Omf.Value).String(s.Method.WireKey)));
+            statistic: s => w.Ordinal(4).String(s.Omf.ToValue()).String(s.Method.WireKey)));
 
     static async ValueTask<Option<(T Payload, Option<Meta> Meta)>> Unwrap<T>(HttpContent content, JsonSerializerContext json) where T : notnull =>
         Optional((Envelope<T>?)await content.ReadFromJsonAsync(typeof(Envelope<T>), json))
@@ -427,7 +426,7 @@ public static partial class LifecycleAssessment {
         Func<double, Option<double>, Option<double>> acceptance) =>
         targets
             .TraverseM(id =>
-                from composition in graph.CompositionOf(id).ToFin(Missing(AssessmentInputReason.CompositionShape, id.Value))
+                from composition in graph.CompositionOf(id).ToFin(Missing(AssessmentInputReason.CompositionShape, id.ToValue()))
                 from takeoff in graph.TakeoffOf(id)
                 from result in aggregate(composition, takeoff)
                 from _ in admit(result)
@@ -444,15 +443,15 @@ public static partial class LifecycleAssessment {
         Rollup(graph, request.Route, request.Targets, CarbonKey, clock,
             aggregate: (composition, takeoff) => AssemblyAggregator.AggregateEnvironmental(composition, Resolver(graph), Seq<PlyQuantity>(), takeoff),
             project: static (id, lifecycle) =>
-                from whole in DomainMeasure($"{id.Value}/whole-life-gwp", lifecycle.WholeLifeGwpKgCo2e, Kilograms)
+                from whole in DomainMeasure($"{id.ToValue()}/whole-life-gwp", lifecycle.WholeLifeGwpKgCo2e, Kilograms)
                 from intensity in Optional(lifecycle.EmbodiedCarbonIntensityKgCo2eM2)
-                    .Map(value => DomainMeasure($"{id.Value}/embodied-carbon-intensity", value, KilogramsPerSquareMetre).Map(static fact => Seq(fact)))
+                    .Map(value => DomainMeasure($"{id.ToValue()}/embodied-carbon-intensity", value, KilogramsPerSquareMetre).Map(static fact => Seq(fact)))
                     .IfNone(Fin.Succ(Seq<AssessmentFact>()))
                 from recycled in Optional(lifecycle.RecycledContentFraction)
-                    .Map(value => AssessmentFact.Ratio($"{id.Value}/recycled-content", value).Map(static fact => Seq(fact)))
+                    .Map(value => AssessmentFact.Ratio($"{id.ToValue()}/recycled-content", value).Map(static fact => Seq(fact)))
                     .IfNone(Fin.Succ(Seq<AssessmentFact>()))
                 from stages in StageFacts(id, lifecycle.StageGwp)
-                let gaps = lifecycle.Gaps.Map(gap => AssessmentFact.Text($"{id.Value}/ply-gap", $"{gap.Material.Value}:{gap.Discipline.Key}"))
+                let gaps = lifecycle.Gaps.Map(gap => AssessmentFact.Text($"{id.ToValue()}/ply-gap", $"{gap.Material.ToValue()}:{gap.Discipline.Key}"))
                 select Seq(whole) + intensity + recycled + stages + gaps,
             admit: static _ => Fin.Succ(unit),
             measure: static lifecycle => lifecycle.WholeLifeGwpKgCo2e,
@@ -479,10 +478,10 @@ public static partial class LifecycleAssessment {
 
     static async Task<Fin<MaterialPropertySet>> Descend(
         Func<EpdQuery, Task<Fin<EpdAnswer>>> epds, CarbonQuery query, Node.Material material, Instant now, Op key) {
-        Omf omf = query.OmfByMaterial.Find(material.MaterialKey.Value).IfNone(query.Omf);
+        Omf omf = query.OmfByMaterial.Find(material.MaterialKey.ToValue()).IfNone(query.Omf);
         Fin<EpdAnswer> page = await epds(new EpdQuery.Products(omf, query.Method));
         if (Aborts(page)) { return Fin.Fail<MaterialPropertySet>(page.Match(Succ: static _ => Error.Empty, Fail: static e => e)); }
-        Option<string> winner = page.Match(Succ: answer => Freshest(answer.Rows, now).Bind(static row => row.Evidence.Reference), Fail: static _ => None);
+        Option<string> winner = page.ToOption().Bind(answer => Freshest(answer.Rows, now).Bind(static row => row.Evidence.Reference));
         foreach (EpdQuery rung in Rungs(winner, omf, query.Method)) {
             Fin<EpdAnswer> answer = await epds(rung);
             if (Aborts(answer)) { return Fin.Fail<MaterialPropertySet>(answer.Match(Succ: static _ => Error.Empty, Fail: static e => e)); }
@@ -491,7 +490,7 @@ public static partial class LifecycleAssessment {
                 .Bind(row => ToEnvironmental(row, query, key).ToOption());
             if (admitted.Case is MaterialPropertySet resolved) { return Fin.Succ(resolved); }
         }
-        return Fin.Fail<MaterialPropertySet>(Missing(AssessmentInputReason.PlyPropertyAbsent, material.MaterialKey.Value));
+        return Fin.Fail<MaterialPropertySet>(Missing(AssessmentInputReason.PlyPropertyAbsent, material.MaterialKey.ToValue()));
     }
 
     static Seq<EpdQuery> Rungs(Option<string> winner, Omf omf, LciaMethod method) =>
@@ -510,7 +509,7 @@ public static partial class LifecycleAssessment {
             .Distinct();
 
     static Func<MaterialId, Fin<Seq<MaterialPropertySet>>> Resolver(ElementGraph graph) =>
-        mid => graph.Material(mid).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, mid.Value));
+        mid => graph.Material(mid).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, mid.ToValue()));
 
     static Option<EpdDeclaration> Freshest(Seq<EpdDeclaration> rows, Instant now) {
         LocalDate today = now.InUtc().Date;
@@ -533,7 +532,7 @@ public static partial class LifecycleAssessment {
 
     static ImmutableArray<double> Matrix(Seq<IndicatorCell> cells) {
         double[] matrix = new double[MaterialPropertySet.Environmental.MatrixArity];
-        cells.Iter(cell => matrix[(cell.Category.Key * LifecycleStage.Count) + cell.Stage.Index] = cell.PerDeclaredUnit);
+        cells.Iter(cell => matrix[(cell.Category.Key * LifecycleStage.Items.Count) + cell.Stage.Key] = cell.PerDeclaredUnit);
         return [.. matrix];
     }
 
@@ -564,7 +563,7 @@ public static partial class LifecycleAssessment {
                 declaration.DeclaredUnit.Map(static d => d.Unit.Key).IfNone(string.Empty)));
 
     static Fin<Seq<AssessmentFact>> StageFacts(NodeId id, ImmutableArray<double> stageGwp) =>
-        toSeq(LifecycleStage.Items).TraverseM(stage => DomainMeasure($"{id.Value}/gwp-{stage.Module}", stageGwp[stage.Index], Kilograms)).As();
+        toSeq(LifecycleStage.Items).TraverseM(stage => DomainMeasure($"{id.ToValue()}/gwp-{stage.Module}", stageGwp[stage.Key], Kilograms)).As();
 
     static Fin<AssessmentFact> DomainMeasure(string name, double si, string unit) =>
         MeasureValue.OfSi(QuantityType.Scalar, Dimension.Dimensionless, si, Some(UnitProvenance.Label(unit))).Map(value => AssessmentFact.Measure(name, value));
@@ -584,7 +583,7 @@ public static class LifecycleGraphReads {
                 is { IsEmpty: false } held
                 ? MeasureBundle.Of(held, TakeoffKey).ToFin()
                     .Map(measures => new ElementTakeoff(measures, graph.Magnitude(element, QuantityRows.NestWasteArea)))
-                : Fin.Fail<ElementTakeoff>(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MeasureAbsent, element.Value));
+                : Fin.Fail<ElementTakeoff>(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MeasureAbsent, element.ToValue()));
     }
 
     static readonly Op TakeoffKey = Op.Of(name: nameof(LifecycleGraphReads));
@@ -605,9 +604,9 @@ public static partial class LifecycleAssessment {
         Rollup(graph, request.Route, request.Targets, CostKey, clock,
             aggregate: (composition, takeoff) => AssemblyAggregator.AggregateCost(composition, Resolver(graph), Seq<PlyQuantity>(), takeoff),
             project: static (id, cost) => AssessmentFact.Rows(
-                DomainMeasure($"{id.Value}/supply-total", cost.SupplyTotal, cost.Currency.Key),
-                DomainMeasure($"{id.Value}/install-total", cost.InstallTotal, cost.Currency.Key),
-                DomainMeasure($"{id.Value}/in-place-total", cost.TotalInPlace, cost.Currency.Key)),
+                DomainMeasure($"{id.ToValue()}/supply-total", cost.SupplyTotal, cost.Currency.Key),
+                DomainMeasure($"{id.ToValue()}/install-total", cost.InstallTotal, cost.Currency.Key),
+                DomainMeasure($"{id.ToValue()}/in-place-total", cost.TotalInPlace, cost.Currency.Key)),
             admit: cost => cost.Currency.Key == request.Currency
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(Missing(AssessmentInputReason.CurrencyMismatch, $"{cost.Currency.Key}<>{request.Currency}")),

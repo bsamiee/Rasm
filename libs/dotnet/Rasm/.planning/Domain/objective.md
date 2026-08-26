@@ -360,10 +360,9 @@ public sealed record PanelSpec(string Title, string Instrument, Seq<string> By, 
 
     public Validation<Error, PanelKind> Admit(HashMap<string, InstrumentSpec> roster) =>
         roster.Find(Instrument).Filter(row => By.ForAll(key => row.Dimensions.Exists(declared => declared == key)))
-            .Match(
-                Some: row => Validation<Error, PanelKind>.Success(Widget.IfNone(PanelKind.For(row.Kind))),
-                None: () => Validation<Error, PanelKind>.Fail(new KernelFault.InvalidValue(
-                    Label: Title, Requirement: $"a declared {Instrument} row naming every break key")));
+            .ToValidation((Error)new KernelFault.InvalidValue(
+                Label: Title, Requirement: $"a declared {Instrument} row naming every break key"))
+            .Map(row => Widget.IfNone(PanelKind.For(row.Kind)));
 }
 
 public sealed record BoardPack(string Wire, Seq<PanelSpec> Panels, Seq<Objective> Objectives) {

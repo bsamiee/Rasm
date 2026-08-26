@@ -797,7 +797,6 @@ public sealed class RasterAssets : IDisposable {
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
-[ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AssetKind {

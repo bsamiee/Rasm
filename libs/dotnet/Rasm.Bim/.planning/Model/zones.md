@@ -70,7 +70,7 @@ public sealed partial class BimZoneKind {
     public bool IsSpatial => Family == BimGroupFamily.Spatial;
 
     private static readonly Lazy<FrozenDictionary<string, IfcClass>> Rostered = new(
-        static () => Items.Choose(static row => IfcClass.TryGet(row.Key).Map(taxonomy => (row.Key, Taxonomy: taxonomy)))
+        static () => toSeq(Items).Choose(static row => IfcClass.TryGet(row.Key).Map(taxonomy => (row.Key, Taxonomy: taxonomy)))
             .ToFrozenDictionary(static hit => hit.Key, static hit => hit.Taxonomy, StringComparer.OrdinalIgnoreCase),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -155,7 +155,7 @@ public static class ZoneProjection {
 
     public static Seq<NodeId> Uncovered(ElementGraph graph, BimZoneKind kind, BimTerm candidate) {
         LanguageExt.HashSet<NodeId> covered = toHashSet(All(graph).Filter(zone => zone.Kind == kind).Bind(zone => Closure(graph, zone)));
-        return ElementQuery.Query(graph, candidate).Ids.Filter(id => !covered.Contains(id)).ToSeq();
+        return ElementQuery.Query(graph, candidate).Ids.Filter(id => !covered.Contains(id));
     }
 
     public static Seq<(NodeId ZoneA, NodeId ZoneB, NodeId Separator)> Adjacencies(
@@ -173,8 +173,7 @@ public static class ZoneProjection {
                 from second in byMember.Find(separation.SpaceB).IfNone(Seq<NodeId>())
                 where string.CompareOrdinal(first.Value, second.Value) < 0
                 select (ZoneA: first, ZoneB: second, Separator: separation.Separator))
-            .Distinct()
-            .ToSeq();
+            .Distinct();
     }
 }
 ```

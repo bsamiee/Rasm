@@ -16,7 +16,6 @@
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
@@ -40,11 +39,11 @@ internal static partial class WireCodec {
    Discipline = ToWire(payload.Discipline), Route = payload.Route.Value, InputKey = ToWire(payload.InputKey),
    Outcome = ToWire(payload.Outcome), Provenance = ToWire(payload.Provenance),
   };
-  w.Results.AddRange(payload.Results.OrderBy(static pair => pair.Key.Value, StringComparer.Ordinal)
-   .Select(static pair => new NamedValueWire { Name = pair.Key.Value, Value = ToWire(pair.Value) }));
+  w.Results.AddRange(payload.Results.OrderBy(static pair => pair.Key.ToValue(), StringComparer.Ordinal)
+   .Select(static pair => new NamedValueWire { Name = pair.Key.ToValue(), Value = ToWire(pair.Value) }));
   payload.Diagnostic.IfSome(value => w.Diagnostic = ToWire(value));
   payload.ResultArtifact.IfSome(value => w.ResultArtifact = ToWire(value));
-  w.DependsOn.AddRange(payload.DependsOn.OrderBy(static id => id.Value, StringComparer.Ordinal).Select(ToWire));
+  w.DependsOn.AddRange(payload.DependsOn.OrderBy(static id => id.ToValue(), StringComparer.Ordinal).Select(ToWire));
   return w;
  }
 
@@ -69,7 +68,7 @@ internal static partial class WireCodec {
   ObservationWire w = new() {
    Sensor = series.Sensor.Value, Aspect = series.Aspect.Value,
    Dimension = new DimensionWire {
-    QuantityType = series.Observed.Value,
+    QuantityType = series.Observed.ToValue(),
     Length = series.Signature.Length, Mass = series.Signature.Mass, Time = series.Signature.Time,
     Current = series.Signature.Current, Temperature = series.Signature.Temperature,
     Amount = series.Signature.Amount, LuminousIntensity = series.Signature.LuminousIntensity,
@@ -111,7 +110,7 @@ internal static partial class WireCodec {
 
  static Fin<global::Rasm.Element.Assessment.AssessmentPayload> ToAssessment(AssessmentWire w, Op key) =>
   from discipline in ToDiscipline(w.Discipline, key)
-  from route in AnalysisRoute.Of(w.Route, key)
+  from route in key.AcceptValidated<AnalysisRoute>(w.Route)
   from input in ToKey(w.InputKey, key)
   from outcome in ToOutcome(w.Outcome, key)
   from results in ToValueMap(w.Results, key)
@@ -134,7 +133,7 @@ internal static partial class WireCodec {
     : PayloadContent.Results(results, artifact, key));
 
  static Fin<global::Rasm.Element.Assessment.ObservationSeries> ToObservation(ObservationWire w, Op key) =>
-  from sensor in SensorId.Of(w.Sensor, key)
+  from sensor in key.AcceptValidated<SensorId>(w.Sensor)
   from sampling in ToSampling(w.Sampling, key)
   from quantity in ToSignature(w, key)
   from window in ToInterval(w.WindowStart, w.WindowEnd, "observation.window", key)
@@ -224,24 +223,24 @@ internal static partial class WireCodec {
   select reference;
 
  static Rasm.Contracts.Element.Discipline ToWire(global::Rasm.Element.Classification.Discipline value) =>
-  value == global::Rasm.Element.Classification.Discipline.Structural ? Rasm.Contracts.Element.Discipline.Structural
-  : value == global::Rasm.Element.Classification.Discipline.Seismic ? Rasm.Contracts.Element.Discipline.Seismic
-  : value == global::Rasm.Element.Classification.Discipline.Wind ? Rasm.Contracts.Element.Discipline.Wind
-  : value == global::Rasm.Element.Classification.Discipline.Dynamic ? Rasm.Contracts.Element.Discipline.Dynamic
-  : value == global::Rasm.Element.Classification.Discipline.Thermal ? Rasm.Contracts.Element.Discipline.Thermal
-  : value == global::Rasm.Element.Classification.Discipline.Hygrothermal ? Rasm.Contracts.Element.Discipline.Hygrothermal
-  : value == global::Rasm.Element.Classification.Discipline.Energy ? Rasm.Contracts.Element.Discipline.Energy
-  : value == global::Rasm.Element.Classification.Discipline.Daylight ? Rasm.Contracts.Element.Discipline.Daylight
-  : value == global::Rasm.Element.Classification.Discipline.Acoustic ? Rasm.Contracts.Element.Discipline.Acoustic
-  : value == global::Rasm.Element.Classification.Discipline.Fire ? Rasm.Contracts.Element.Discipline.Fire
-  : value == global::Rasm.Element.Classification.Discipline.Circulation ? Rasm.Contracts.Element.Discipline.Circulation
-  : value == global::Rasm.Element.Classification.Discipline.Water ? Rasm.Contracts.Element.Discipline.Water
-  : value == global::Rasm.Element.Classification.Discipline.Electrical ? Rasm.Contracts.Element.Discipline.Electrical
-  : value == global::Rasm.Element.Classification.Discipline.Durability ? Rasm.Contracts.Element.Discipline.Durability
-  : value == global::Rasm.Element.Classification.Discipline.Circularity ? Rasm.Contracts.Element.Discipline.Circularity
-  : value == global::Rasm.Element.Classification.Discipline.Environmental ? Rasm.Contracts.Element.Discipline.Environmental
-  : value == global::Rasm.Element.Classification.Discipline.Cost ? Rasm.Contracts.Element.Discipline.Cost
-  : throw new UnreachableException($"unseated discipline {value.Key}");
+  value.Switch(
+   structural: static () => Rasm.Contracts.Element.Discipline.Structural,
+   seismic: static () => Rasm.Contracts.Element.Discipline.Seismic,
+   wind: static () => Rasm.Contracts.Element.Discipline.Wind,
+   dynamic: static () => Rasm.Contracts.Element.Discipline.Dynamic,
+   thermal: static () => Rasm.Contracts.Element.Discipline.Thermal,
+   hygrothermal: static () => Rasm.Contracts.Element.Discipline.Hygrothermal,
+   energy: static () => Rasm.Contracts.Element.Discipline.Energy,
+   daylight: static () => Rasm.Contracts.Element.Discipline.Daylight,
+   acoustic: static () => Rasm.Contracts.Element.Discipline.Acoustic,
+   fire: static () => Rasm.Contracts.Element.Discipline.Fire,
+   circulation: static () => Rasm.Contracts.Element.Discipline.Circulation,
+   water: static () => Rasm.Contracts.Element.Discipline.Water,
+   electrical: static () => Rasm.Contracts.Element.Discipline.Electrical,
+   durability: static () => Rasm.Contracts.Element.Discipline.Durability,
+   circularity: static () => Rasm.Contracts.Element.Discipline.Circularity,
+   environmental: static () => Rasm.Contracts.Element.Discipline.Environmental,
+   cost: static () => Rasm.Contracts.Element.Discipline.Cost);
 
  static Fin<global::Rasm.Element.Classification.Discipline> ToDiscipline(Rasm.Contracts.Element.Discipline value, Op key) => value switch {
   Rasm.Contracts.Element.Discipline.Structural => Fin.Succ(global::Rasm.Element.Classification.Discipline.Structural),
@@ -265,13 +264,13 @@ internal static partial class WireCodec {
  };
 
  static Rasm.Contracts.Element.SamplingKind ToWire(global::Rasm.Element.Assessment.SamplingKind value) =>
-  value == global::Rasm.Element.Assessment.SamplingKind.Instantaneous ? Rasm.Contracts.Element.SamplingKind.Instantaneous
-  : value == global::Rasm.Element.Assessment.SamplingKind.Averaged ? Rasm.Contracts.Element.SamplingKind.Averaged
-  : value == global::Rasm.Element.Assessment.SamplingKind.Total ? Rasm.Contracts.Element.SamplingKind.Total
-  : value == global::Rasm.Element.Assessment.SamplingKind.Cumulative ? Rasm.Contracts.Element.SamplingKind.Cumulative
-  : value == global::Rasm.Element.Assessment.SamplingKind.Minimum ? Rasm.Contracts.Element.SamplingKind.Minimum
-  : value == global::Rasm.Element.Assessment.SamplingKind.Maximum ? Rasm.Contracts.Element.SamplingKind.Maximum
-  : throw new UnreachableException($"unseated sampling kind {value.Key}");
+  value.Switch(
+   instantaneous: static () => Rasm.Contracts.Element.SamplingKind.Instantaneous,
+   averaged: static () => Rasm.Contracts.Element.SamplingKind.Averaged,
+   total: static () => Rasm.Contracts.Element.SamplingKind.Total,
+   cumulative: static () => Rasm.Contracts.Element.SamplingKind.Cumulative,
+   minimum: static () => Rasm.Contracts.Element.SamplingKind.Minimum,
+   maximum: static () => Rasm.Contracts.Element.SamplingKind.Maximum);
 
  static Fin<global::Rasm.Element.Assessment.SamplingKind> ToSampling(Rasm.Contracts.Element.SamplingKind value, Op key) => value switch {
   Rasm.Contracts.Element.SamplingKind.Instantaneous => Fin.Succ(global::Rasm.Element.Assessment.SamplingKind.Instantaneous),
@@ -284,12 +283,12 @@ internal static partial class WireCodec {
  };
 
  static Rasm.Contracts.Element.ObservationGrade ToWire(global::Rasm.Element.Assessment.ObservationGrade value) =>
-  value == global::Rasm.Element.Assessment.ObservationGrade.Measured ? Rasm.Contracts.Element.ObservationGrade.Measured
-  : value == global::Rasm.Element.Assessment.ObservationGrade.Validated ? Rasm.Contracts.Element.ObservationGrade.Validated
-  : value == global::Rasm.Element.Assessment.ObservationGrade.Substituted ? Rasm.Contracts.Element.ObservationGrade.Substituted
-  : value == global::Rasm.Element.Assessment.ObservationGrade.Suspect ? Rasm.Contracts.Element.ObservationGrade.Suspect
-  : value == global::Rasm.Element.Assessment.ObservationGrade.Missing ? Rasm.Contracts.Element.ObservationGrade.Missing
-  : throw new UnreachableException($"unseated observation grade {value.Key}");
+  value.Switch(
+   measured: static () => Rasm.Contracts.Element.ObservationGrade.Measured,
+   validated: static () => Rasm.Contracts.Element.ObservationGrade.Validated,
+   substituted: static () => Rasm.Contracts.Element.ObservationGrade.Substituted,
+   suspect: static () => Rasm.Contracts.Element.ObservationGrade.Suspect,
+   missing: static () => Rasm.Contracts.Element.ObservationGrade.Missing);
 
  static Fin<global::Rasm.Element.Assessment.ObservationGrade> ToGrade(Rasm.Contracts.Element.ObservationGrade value, Op key) => value switch {
   Rasm.Contracts.Element.ObservationGrade.Measured => Fin.Succ(global::Rasm.Element.Assessment.ObservationGrade.Measured),
@@ -301,15 +300,15 @@ internal static partial class WireCodec {
  };
 
  static Rasm.Contracts.Element.AssessmentOutcome ToWire(global::Rasm.Element.Assessment.AssessmentOutcome value) =>
-  value == global::Rasm.Element.Assessment.AssessmentOutcome.Pending ? Rasm.Contracts.Element.AssessmentOutcome.Pending
-  : value == global::Rasm.Element.Assessment.AssessmentOutcome.Queued ? Rasm.Contracts.Element.AssessmentOutcome.Queued
-  : value == global::Rasm.Element.Assessment.AssessmentOutcome.Running ? Rasm.Contracts.Element.AssessmentOutcome.Running
-  : value == global::Rasm.Element.Assessment.AssessmentOutcome.Computed ? Rasm.Contracts.Element.AssessmentOutcome.Computed
-  : value == global::Rasm.Element.Assessment.AssessmentOutcome.Failed ? Rasm.Contracts.Element.AssessmentOutcome.Failed
-  : value == global::Rasm.Element.Assessment.AssessmentOutcome.Cancelled ? Rasm.Contracts.Element.AssessmentOutcome.Cancelled
-  : value == global::Rasm.Element.Assessment.AssessmentOutcome.Stale ? Rasm.Contracts.Element.AssessmentOutcome.Stale
-  : value == global::Rasm.Element.Assessment.AssessmentOutcome.Superseded ? Rasm.Contracts.Element.AssessmentOutcome.Superseded
-  : throw new UnreachableException($"unseated assessment outcome {value.Key}");
+  value.Switch(
+   pending: static () => Rasm.Contracts.Element.AssessmentOutcome.Pending,
+   queued: static () => Rasm.Contracts.Element.AssessmentOutcome.Queued,
+   running: static () => Rasm.Contracts.Element.AssessmentOutcome.Running,
+   computed: static () => Rasm.Contracts.Element.AssessmentOutcome.Computed,
+   failed: static () => Rasm.Contracts.Element.AssessmentOutcome.Failed,
+   cancelled: static () => Rasm.Contracts.Element.AssessmentOutcome.Cancelled,
+   stale: static () => Rasm.Contracts.Element.AssessmentOutcome.Stale,
+   superseded: static () => Rasm.Contracts.Element.AssessmentOutcome.Superseded);
 
  static Fin<global::Rasm.Element.Assessment.AssessmentOutcome> ToOutcome(Rasm.Contracts.Element.AssessmentOutcome value, Op key) => value switch {
   Rasm.Contracts.Element.AssessmentOutcome.Pending => Fin.Succ(global::Rasm.Element.Assessment.AssessmentOutcome.Pending),
@@ -324,11 +323,11 @@ internal static partial class WireCodec {
  };
 
  static Rasm.Contracts.Element.SolvePhase ToWire(global::Rasm.Element.Assessment.SolvePhase value) =>
-  value == global::Rasm.Element.Assessment.SolvePhase.Admission ? Rasm.Contracts.Element.SolvePhase.Admission
-  : value == global::Rasm.Element.Assessment.SolvePhase.Solve ? Rasm.Contracts.Element.SolvePhase.Solve
-  : value == global::Rasm.Element.Assessment.SolvePhase.Extraction ? Rasm.Contracts.Element.SolvePhase.Extraction
-  : value == global::Rasm.Element.Assessment.SolvePhase.Publication ? Rasm.Contracts.Element.SolvePhase.Publication
-  : throw new UnreachableException($"unseated solve phase {value.Key}");
+  value.Switch(
+   admission: static () => Rasm.Contracts.Element.SolvePhase.Admission,
+   solve: static () => Rasm.Contracts.Element.SolvePhase.Solve,
+   extraction: static () => Rasm.Contracts.Element.SolvePhase.Extraction,
+   publication: static () => Rasm.Contracts.Element.SolvePhase.Publication);
 
  static Fin<global::Rasm.Element.Assessment.SolvePhase> ToSolvePhase(Rasm.Contracts.Element.SolvePhase value, Op key) => value switch {
   Rasm.Contracts.Element.SolvePhase.Admission => Fin.Succ(global::Rasm.Element.Assessment.SolvePhase.Admission),
@@ -339,13 +338,13 @@ internal static partial class WireCodec {
  };
 
  static Rasm.Contracts.Element.FailureKind ToWire(global::Rasm.Element.Assessment.FailureKind value) =>
-  value == global::Rasm.Element.Assessment.FailureKind.Input ? Rasm.Contracts.Element.FailureKind.Input
-  : value == global::Rasm.Element.Assessment.FailureKind.Numeric ? Rasm.Contracts.Element.FailureKind.Numeric
-  : value == global::Rasm.Element.Assessment.FailureKind.Resource ? Rasm.Contracts.Element.FailureKind.Resource
-  : value == global::Rasm.Element.Assessment.FailureKind.Timeout ? Rasm.Contracts.Element.FailureKind.Timeout
-  : value == global::Rasm.Element.Assessment.FailureKind.Aborted ? Rasm.Contracts.Element.FailureKind.Aborted
-  : value == global::Rasm.Element.Assessment.FailureKind.Foreign ? Rasm.Contracts.Element.FailureKind.Foreign
-  : throw new UnreachableException($"unseated failure kind {value.Key}");
+  value.Switch(
+   input: static () => Rasm.Contracts.Element.FailureKind.Input,
+   numeric: static () => Rasm.Contracts.Element.FailureKind.Numeric,
+   resource: static () => Rasm.Contracts.Element.FailureKind.Resource,
+   timeout: static () => Rasm.Contracts.Element.FailureKind.Timeout,
+   aborted: static () => Rasm.Contracts.Element.FailureKind.Aborted,
+   foreign: static () => Rasm.Contracts.Element.FailureKind.Foreign);
 
  static Fin<global::Rasm.Element.Assessment.FailureKind> ToFailureKind(Rasm.Contracts.Element.FailureKind value, Op key) => value switch {
   Rasm.Contracts.Element.FailureKind.Input => Fin.Succ(global::Rasm.Element.Assessment.FailureKind.Input),

@@ -98,9 +98,9 @@ public sealed partial class ResolvePass {
     private static readonly Lazy<FrozenDictionary<int, ResolvePass>> Ladder = new(static () =>
         QualityTier.Items.ToFrozenDictionary(
             static tier => tier.Rank,
-            static tier => toSeq(Items)
+            static tier => toSeq(toSeq(Items)
                 .Filter(row => row.MinRank <= tier.Rank)
-                .OrderByDescending(static row => row.MinRank)
+                .OrderByDescending(static row => row.MinRank))
                 .Head
                 .IfNone(() => throw new InvalidOperationException(
                     $"ResolvePass rows must cover QualityTier rank {tier.Rank}."))));
@@ -276,51 +276,25 @@ public sealed record WgpuFrameEvidence(Func<Fin<Duration>> Measure);
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GpuBackend {
-    public static readonly GpuBackend Metal = new("metal", Ganesh, GaneshTarget);
-    public static readonly GpuBackend Vulkan = new("vulkan", Ganesh, GaneshTarget);
-    public static readonly GpuBackend OpenGl = new("opengl", Ganesh, GaneshTarget);
-    public static readonly GpuBackend Software = new("software", Raster, RasterTarget);
-    public static readonly GpuBackend Wgpu = new("wgpu", Native, WgpuTarget);
-    public static readonly GpuBackend WebGpu = new("webgpu", Native, BrowserTarget);
+    public static readonly GpuBackend Metal = new("metal", Ganesh);
+    public static readonly GpuBackend Vulkan = new("vulkan", Ganesh);
+    public static readonly GpuBackend OpenGl = new("opengl", Ganesh);
+    public static readonly GpuBackend Software = new("software", Raster);
+    public static readonly GpuBackend Wgpu = new("wgpu", Native);
+    public static readonly GpuBackend WebGpu = new("webgpu", Native);
 
     private static CapabilitySet<GpuTrait> Ganesh => CapabilitySet<GpuTrait>.Of(GpuTrait.Accelerated, GpuTrait.SkiaCanvas);
     private static CapabilitySet<GpuTrait> Raster => CapabilitySet<GpuTrait>.Of(GpuTrait.SkiaCanvas);
     private static CapabilitySet<GpuTrait> Native => CapabilitySet<GpuTrait>.Of(GpuTrait.Accelerated, GpuTrait.NativePipeline);
 
     public CapabilitySet<GpuTrait> Traits { get; }
-
-    [UseDelegateFromConstructor]
-    public partial Fin<RenderTarget> Target(GpuBinding binding, RenderTargetRequest request);
-
-    private static Fin<RenderTarget> GaneshTarget(GpuBinding binding, RenderTargetRequest request) => binding switch {
-        GpuBinding.Ganesh ganesh => ganesh.Lease(request),
-        _ => Fin.Fail<RenderTarget>(new ViewportFault.BackendUnsupported($"{binding.Backend.Key}: not a Ganesh binding")),
-    };
-
-    private const int RasterSamples = 1;
-
-    private static Fin<RenderTarget> RasterTarget(GpuBinding binding, RenderTargetRequest request) => binding switch {
-        GpuBinding.Raster => SKSurface.Create(request.Info) switch {
-            { } surface => Fin.Succ(new RenderTarget(Software, Some(surface), None, request, RasterSamples, surface)),
-            _ => Fin.Fail<RenderTarget>(new ViewportFault.ContextUnavailable("software: raster surface allocation failed")),
-        },
-        _ => Fin.Fail<RenderTarget>(new ViewportFault.BackendUnsupported($"{binding.Backend.Key}: not the raster floor")),
-    };
-
-    private static Fin<RenderTarget> WgpuTarget(GpuBinding binding, RenderTargetRequest request) => binding switch {
-        GpuBinding.Wgpu wgpu => wgpu.Acquire(wgpu.Presentation, request),
-        _ => Fin.Fail<RenderTarget>(new ViewportFault.BackendUnsupported($"{binding.Backend.Key}: not a wgpu binding")),
-    };
-
-    private static Fin<RenderTarget> BrowserTarget(GpuBinding binding, RenderTargetRequest request) => binding switch {
-        GpuBinding.Browser browser => browser.Acquire(browser.Surface, request),
-        _ => Fin.Fail<RenderTarget>(new ViewportFault.BackendUnsupported($"{binding.Backend.Key}: not a browser binding")),
-    };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GpuBinding {
     private GpuBinding() { }
+
+    private const int RasterSamples = 1;
 
     public sealed record Ganesh : GpuBinding {
         private Ganesh(GpuBackend row, Func<RenderTargetRequest, Fin<RenderTarget>> lease) { Row = row; Lease = lease; }
@@ -342,14 +316,23 @@ public abstract partial record GpuBinding {
 
     public sealed record Browser(nint Surface, Func<nint, RenderTargetRequest, Fin<RenderTarget>> Acquire) : GpuBinding;
 
-    public GpuBackend Backend => this switch {
-        Ganesh ganesh => ganesh.Row,
-        Wgpu => GpuBackend.Wgpu,
-        Browser => GpuBackend.WebGpu,
-        _ => GpuBackend.Software,
-    };
+    public GpuBackend Backend => Switch(
+        ganesh: static ganesh => ganesh.Row,
+        raster: static _ => GpuBackend.Software,
+        wgpu: static _ => GpuBackend.Wgpu,
+        browser: static _ => GpuBackend.WebGpu);
 
-    public Fin<RenderTarget> Target(RenderTargetRequest request) => Backend.Target(this, request);
+    public Fin<RenderTarget> Target(RenderTargetRequest request) => Switch(
+        state: request,
+        ganesh: static (target, ganesh) => ganesh.Lease(target),
+        raster: static (target, _) => SKSurface.Create(target.Info) switch {
+            { } surface => Fin.Succ(new RenderTarget(
+                GpuBackend.Software, Some(surface), None, target, RasterSamples, surface)),
+            _ => Fin.Fail<RenderTarget>(new ViewportFault.ContextUnavailable(
+                "software: raster surface allocation failed")),
+        },
+        wgpu: static (target, wgpu) => wgpu.Acquire(wgpu.Presentation, target),
+        browser: static (target, browser) => browser.Acquire(browser.Surface, target));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -379,17 +362,16 @@ public abstract partial record WgpuPresentation {
                 interop, surface, interop.ImportImage(sharedTexture, shape), SyncArm.Of(probe), semaphores(probe)),
         };
 
-    public IO<Unit> Present((uint Acquire, uint Release) indices, (ulong Wait, ulong Signal) values) => this switch {
-        Composited c =>
+    public IO<Unit> Present((uint Acquire, uint Release) indices, (ulong Wait, ulong Signal) values) => Switch(
+        composited: c =>
             IO.liftAsync(async () => {
                 await c.Image.ImportCompleted;
                 return c.Interop.IsLost || c.Image.IsLost || c.Semaphores.Exists(static pair => pair.Wait.IsLost || pair.Signal.IsLost);
             }).Bind(lost => lost
                 ? IO.fail<Unit>((Error)new ViewportFault.LeaseRejected("wgpu/present: compositor import lost"))
                 : IO.liftAsync(async () => { await c.Sync.Update(c, indices, values); return unit; })),
-        Swapchain swapchain => swapchain.Submit(swapchain.WgpuSurface),
-        Headless => IO.pure(unit),
-    };
+        swapchain: swapchain => swapchain.Submit(swapchain.WgpuSurface),
+        headless: static _ => IO.pure(unit));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1109,7 +1091,7 @@ public static class ResidencyMap {
 
 ## [05]-[GPU_AND_WIRE_BOUNDARY]
 
-- [VIEWPORT_GPU]: `GpuBackend.Target` absorbs Ganesh, raster, Wgpu, and browser target construction over the closed `GpuBinding` union, every arm reading the one `RenderTargetRequest` the resolve row derived and answering the sample count its allocation GRANTED, while `GpuBackend.Traits` states what each substrate can run so a pass roster narrows on set algebra rather than a case list. `RenderGraph` proves its pass order once at composition, advances `ResolveState` through the kernel commit, brackets one leased target at the requested extent, threads one `FrameView` into the cull and geometry arms, executes the proved order over one fold-carried cut, and seals measured `WgpuFrameEvidence`; meshlet, path-trace, resolve, and simulation acceleration remain pass delegates under that lease and create no parallel device or target owner.
+- [VIEWPORT_GPU]: `GpuBinding.Target` absorbs Ganesh, raster, Wgpu, and browser target construction over the closed `GpuBinding` union, every arm reading the one `RenderTargetRequest` the resolve row derived and answering the sample count its allocation GRANTED, while `GpuBackend.Traits` states what each substrate can run so a pass roster narrows on set algebra rather than a case list. `RenderGraph` proves its pass order once at composition, advances `ResolveState` through the kernel commit, brackets one leased target at the requested extent, threads one `FrameView` into the cull and geometry arms, executes the proved order over one fold-carried cut, and seals measured `WgpuFrameEvidence`; meshlet, path-trace, resolve, and simulation acceleration remain pass delegates under that lease and create no parallel device or target owner.
 - [WGPU_BACKEND]: `WgpuPresentation` discriminates exclusive swapchain presentation from compositor import; its composited arm elects its `SyncArm` row ONCE from `GetSynchronizationCapabilities`, awaits `ImportCompleted`, answers a transient refusal on every `IsLost` state, and submits through the row's own `UpdateWith*Async` member. Timestamp resolve, buffer map, queue submission, and device polling retire through the one `WgpuFrameEvidence` lane, and `WgpuErrorScope` brackets every accelerated pass encoding inside the frame fold.
 - [WEB_RESIDENCY]: `ResidencyMap.Mint` projects Compute `ResidencyPayload` stream spans, meshlet hierarchy, bounds, content keys, and admitted splat tiles directly into generated `Render.GeometryResidency`; the browser imports the same generated schema, and ProtoJSON crosses through AppHost `WireJson.Formatter` with no hand manifest, interface, or codec posture beside it.
 

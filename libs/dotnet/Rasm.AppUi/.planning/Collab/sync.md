@@ -154,7 +154,6 @@ public sealed partial class CollabColumn {
 }
 
 [ValueObject<string>]
-[ValidationError]
 public readonly partial struct DocumentKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
@@ -792,14 +791,12 @@ public static class GraphRegister {
          cell.Read(CollabColumn.Y, static leaf => leaf.Real)).Apply(static (x, y) => (X: x, Y: y));
 
     static Seq<A> Ordered<A>(LoroMap owner, CollabColumn hop, Func<LoroMap, Option<A>> read) =>
-        owner.Level(hop, held => Some(toSeq(held.Keys())
+        owner.Level(hop, held => Some(toSeq(toSeq(held.Keys())
                 .Choose(static key => uint.TryParse(key, CultureInfo.InvariantCulture, out uint ordinal)
                     ? Some((Ordinal: ordinal, Key: key))
                     : None)
-                .OrderBy(static slot => slot.Ordinal)
-                .AsIterable()
-                .Choose(slot => held.Level(slot.Key, read))
-                .ToSeq()))
+                .OrderBy(static slot => slot.Ordinal))
+                .Choose(slot => held.Level(slot.Key, read))))
             .IfNone(Seq<A>());
 }
 ```

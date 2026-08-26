@@ -331,9 +331,9 @@ public static class AtenDense {
 
     static Fin<Vector<double>> SymmetricIndefinite(Tensor a, Tensor b) {
         (Tensor ld, Tensor? pivots, Tensor? info) = torch.linalg.ldl_factor_ex(a, hermitian: true, check_errors: false);
-        return Gated(TensorReason.NativeRejected, "aten-ldl-singular", Optional(info), () => Optional(pivots).Match(
-            Some: p => Fin.Succ(torch.linalg.ldl_solve(ld, p, b, hermitian: true)),
-            None: () => TensorReason.NativeRejected.Fail<Tensor>("aten-ldl-no-pivots")));
+        return Gated(TensorReason.NativeRejected, "aten-ldl-singular", Optional(info), () => Optional(pivots)
+            .Map(p => torch.linalg.ldl_solve(ld, p, b, hermitian: true))
+            .ToFin(TensorReason.NativeRejected.Fault("aten-ldl-no-pivots")));
     }
 
     static Fin<Vector<double>> General(Tensor a, Tensor b) {
@@ -673,9 +673,9 @@ public sealed record BasisArtifact(
 
     public static IO<Fin<A>> Write<A>(StreamPool pool, CorrelationId correlation, HdfArchivePolicy policy, BasisArtifact artifact, Func<RecyclableMemoryStream, Fin<A>> read) =>
         IO.bracket(
-            acquire: IO.lift(() => pool.Get(correlation, new StreamGrant.Open())),
+            acquire: IO.lift<Fin<RecyclableMemoryStream>>(() => pool.Get(correlation, new StreamGrant.Open())),
             release: static staged => staged.Iter(static stream => stream.Dispose()),
-            use: staged => IO.lift(() => staged.Bind(stream => Encode(stream, policy, artifact).Bind(read))));
+            use: staged => IO.lift<Fin<A>>(() => staged.Bind(stream => Encode(stream, policy, artifact).Bind(read))));
 
     static Fin<RecyclableMemoryStream> Encode(RecyclableMemoryStream staged, HdfArchivePolicy policy, BasisArtifact artifact) =>
         Op.Of(name: "hdf5.basis-write").Catch(() => {

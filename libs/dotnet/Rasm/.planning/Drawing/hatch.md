@@ -184,7 +184,7 @@ public sealed partial record HatchResult(
         Census.Crossings.Map(static census => census >= 0).IfNone(true),
         Census.Grazed.Map(static census => census >= 0).IfNone(true),
         Census.Instances.Match(
-            Some: total => Census.Culled.Map(culled => culled <= total).IfNone(false),
+            Some: total => Census.Culled.Exists(culled => culled <= total),
             None: () => Census.Culled.IsNone));
 
     public Seq<Line> ToSegments() => toSeq(Enumerable.Range(0, Start.Count).Select(i => new Line(Start[i], End[i])));

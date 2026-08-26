@@ -4,16 +4,16 @@
 
 ## [01]-[INDEX]
 
-- [02]-[FAULT_AND_NOTICE]: `GhFault` family, the `HostCall` funnel, and the `Severity`/`Notice` diagnostic vocabulary
+- [02]-[FAULT_AND_NOTICE]: `GhFault` family and the `Severity`/`Notice` diagnostic vocabulary
 - [03]-[TRANSFER]: topology transfer, array and assistant ingress, metadata retagging, and typed `Garden` folds
 - [04]-[CONVERSION]: scope-ranked broker rows, leased participation, typed conversion, and geometry discriminants
 - [05]-[HOST_CONTEXT]: tolerance and unit capture projected into the canonical domain context
 
 ## [02]-[FAULT_AND_NOTICE]
 
-- Owner: `GhFault` is the direct Components boundary family; `HostCall` composes the kernel capture funnel, and `Notice` recursively projects standard `ManyErrors` onto `IDataAccess`.
+- Owner: `GhFault` is the direct Components boundary family, and `Notice` recursively projects standard `ManyErrors` onto `IDataAccess`.
 - Cases: `Absent | ContractRefused | Conversion | Registration | Overdue`, carrying the compact `[FaultCase]` ordinals `0..4` on `FaultBand.Grasshopper`.
-- Entry: `HostCall.Run` absorbs value-returning and void host calls and threads the exact execution token when cancellation is possible; `Notice.Fan(Error)` emits each `ManyErrors` leaf with its optional generated code.
+- Entry: `Op.Catch` absorbs value-returning and void host calls and threads the exact execution token when cancellation is possible; `Notice.Fan(Error)` emits each `ManyErrors` leaf with its optional generated code.
 - Packages: `Rasm.Domain` (`Fault`, `KernelFault`, `Op`, `OrDefault()`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new crossing cause is one fault case; a new document message channel is one `Severity` row.
 - Boundary: `Op.Catch` preserves unknown host exceptions and recognizes cancellation only from its requested execution token.
@@ -64,22 +64,6 @@ public abstract partial record GhFault : Fault {
     [FaultCase(4)]
     public sealed partial record Overdue(Op Key, string Detail)
         : GhFault($"grasshopper operation overdue during {Key.Key}: {Detail}");
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-public static class HostCall {
-    public static Fin<T> Run<T>(Func<T> call, Op? key = null) =>
-        key.OrDefault().Catch(body: () => Fin.Succ(call()));
-
-    public static Fin<T> Run<T>(Func<T> call, CancellationToken token, Op? key = null) =>
-        key.OrDefault().Catch(body: () => Fin.Succ(call()), token: token);
-
-    public static Fin<Unit> Run(Action call, Op? key = null) =>
-        Run(() => { call(); return unit; }, key);
-
-    public static Fin<Unit> Run(Action call, CancellationToken token, Op? key = null) =>
-        Run(() => { call(); return unit; }, token, key);
 }
 
 [SmartEnum]
@@ -228,47 +212,47 @@ public static class GardenData {
     public static Fin<Unit> Write<T>(IDataAccess access, int pin, Transfer<T> payload, Retention retention, Op? key = null) =>
         payload.Switch(
             state: (Access: access, Pin: pin, Retention: retention, Key: key.OrDefault()),
-            item: static (held, item) => HostCall.Run(() => held.Access.SetItem(held.Pin, item.Value!, held.Retention.Applied(item.Meta)), held.Key),
-            ofPear: static (held, row) => HostCall.Run(() => held.Access.SetPear(held.Pin, Retag(row.Pear, held.Retention)), held.Key),
-            ofTwig: static (held, row) => HostCall.Run(() => held.Access.SetTwig(
+            item: static (held, item) => held.Key.Catch(() => held.Access.SetItem(held.Pin, item.Value!, held.Retention.Applied(item.Meta))),
+            ofPear: static (held, row) => held.Key.Catch(() => held.Access.SetPear(held.Pin, Retag(row.Pear, held.Retention))),
+            ofTwig: static (held, row) => held.Key.Catch(() => held.Access.SetTwig(
                 held.Pin,
                 held.Retention is Retention.Preserve
                     ? row.Twig
-                    : Garden.TwigFromPears(row.Twig.Pears.Select(pear => Retag(pear, held.Retention)))), held.Key),
-            ofTree: static (held, row) => HostCall.Run(() => held.Access.SetTree(
+                    : Garden.TwigFromPears(row.Twig.Pears.Select(pear => Retag(pear, held.Retention))))),
+            ofTree: static (held, row) => held.Key.Catch(() => held.Access.SetTree(
                 held.Pin,
                 held.Retention is Retention.Preserve
                     ? row.Tree
-                    : Garden.PearWiseOp(row.Tree, pear => Retag(pear, held.Retention), CancellationToken.None)), held.Key));
+                    : Garden.PearWiseOp(row.Tree, pear => Retag(pear, held.Retention), CancellationToken.None))));
 
     public static Fin<Tree<T>> AsTree<T>(Transfer<T> payload, Op? key = null) =>
         payload.Switch(
             state: key.OrDefault(),
-            item: static (op, row) => HostCall.Run(() => Garden.TreeFromPears([Pear<T>.Create(row.Value, row.Meta)]), op),
-            ofPear: static (op, row) => HostCall.Run(() => Garden.TreeFromPears([row.Pear]), op),
-            ofTwig: static (op, row) => HostCall.Run(() => Garden.TreeFromTwigs([row.Twig]), op),
+            item: static (op, row) => op.Catch(() => Fin.Succ(Garden.TreeFromPears([Pear<T>.Create(row.Value, row.Meta)]))),
+            ofPear: static (op, row) => op.Catch(() => Fin.Succ(Garden.TreeFromPears([row.Pear]))),
+            ofTwig: static (op, row) => op.Catch(() => Fin.Succ(Garden.TreeFromTwigs([row.Twig]))),
             ofTree: static (_, row) => Fin.Succ(row.Tree));
 
     public static Fin<Tree<TOut>> Zip<TLeft, TRight, TOut>(
         Tree<TLeft> left, Tree<TRight> right, Func<TLeft, TRight, TOut> merge, CancellationToken cancel, Op? key = null) =>
-        HostCall.Run(() => Garden.PairWiseOp(left, right, merge, cancel), cancel, key.OrDefault());
+        key.OrDefault().Catch(() => Fin.Succ(Garden.PairWiseOp(left, right, merge, cancel)), cancel);
 
     public static Fin<Tree<T>> Amend<T>(Tree<T> tree, Func<Pear<T>, Pear<T>> project, CancellationToken cancel, Op? key = null) =>
-        HostCall.Run(() => Garden.PearWiseOp(tree, project, cancel), cancel, key.OrDefault());
+        key.OrDefault().Catch(() => Fin.Succ(Garden.PearWiseOp(tree, project, cancel)), cancel);
 
     public static Fin<(Twig<T> Twig, Grasshopper2.Data.IExpressionReport Report)> Evaluate<T>(
         Twig<T> twig,
         Grasshopper2.Expressions.Expression expression,
         Grasshopper2.Expressions.Resolver resolver,
         Op? key = null) =>
-        HostCall.Run(() => (
+        key.OrDefault().Catch(() => Fin.Succ((
             Twig: twig.Apply(expression, resolver, out Grasshopper2.Data.IExpressionReport report),
-            Report: report), key.OrDefault());
+            Report: report)));
 
     public static Fin<Twig<TOut>> ConvertTwig<TIn, TOut>(
         Twig<TIn> twig, Grasshopper2.Types.Conversion.ConversionDelegate<TIn, TOut> convert,
         CancellationToken cancel, Grasshopper2.Data.ConversionRecord record, Op? key = null) =>
-        HostCall.Run(() => twig.Convert(convert, cancel, record), cancel, key.OrDefault());
+        key.OrDefault().Catch(() => Fin.Succ(twig.Convert(convert, cancel, record)), cancel);
 
     private static Pear<T> Retag<T>(Pear<T> pear, Retention retention) =>
         pear is null ? pear : Pear<T>.Create(pear.Item, retention.Applied(pear.Meta));
@@ -315,8 +299,8 @@ public sealed record ConversionScope(Option<Guid> Document, Option<Guid> Plugin)
 
     public bool Admits(BrokerScope scope) => scope.Switch(
         state: this,
-        document: static (held, row) => held.Document.Map(id => id == row.DocumentId).IfNone(false),
-        plugin: static (held, row) => held.Plugin.Map(id => id == row.PluginId).IfNone(false));
+        document: static (held, row) => held.Document.Exists(id => id == row.DocumentId),
+        plugin: static (held, row) => held.Plugin.Exists(id => id == row.PluginId));
 }
 
 public sealed class BrokerRegistration : IDisposable {
@@ -367,7 +351,7 @@ public sealed class BrokerLedger {
     internal Unit Revoke(Guid row) => ignore(rows.Remove(row));
 
     public Seq<BrokerRow> Resolved(Type source, Type target, ConversionScope scope) =>
-        toSeq(rows.Value.Values
+        toSeq(rows.ToSeq()
             .Filter(entry => entry.Row.Source.IsAssignableFrom(source) && target.IsAssignableFrom(entry.Row.Target) && scope.Admits(entry.Row.Scope))
             .OrderBy(static entry => (entry.Row.Scope.Precedence, entry.Row.Rank.Value, entry.Ordinal)))
             .Map(static entry => entry.Row);

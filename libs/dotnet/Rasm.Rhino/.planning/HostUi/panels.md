@@ -1211,13 +1211,13 @@ public static class PanelSections {
                     () => owned.SetFullHeightSection(sec: leaf));
             });
             return Fin.Succ(value: new PanelSectionMount(host: owned, contents: contents, faults: faults, op: op));
-        }).MapFail(fault => HostThread.Release(
-            releases: contents.Rev()
-                .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
-                .Add(() => op.Catch(() => Fin.Succ(value: Op.SideWhen(holder is not null, () => holder!.Dispose())))),
-            key: op).Match(
-                Succ: _ => fault,
-                Fail: cleanup => fault + cleanup));
+        }).Rollback(
+            release: () => HostThread.Release(
+                releases: contents.Rev()
+                    .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
+                    .Add(() => op.Catch(() => Fin.Succ(value: Op.SideWhen(holder is not null, () => holder!.Dispose())))),
+                key: op),
+            key: op);
     }
 }
 ```
@@ -1500,8 +1500,8 @@ public abstract partial record HostControl {
                     row.Caption.Resolve(), field.Host.Resource, true, row.Gap.Key))
                 with { Children = Seq(field) }))),
         dividerLine: static (held, row) => row.Colour
-            .Map(colour => colour.ToEto())
-            .Sequence()
+            .Traverse(colour => colour.ToEto())
+            .As()
             .Bind(ink => held.Op.Catch(() => {
                 Divider line = new();
                 _ = ink.Iter(colour => line.Color = colour);

@@ -193,8 +193,8 @@ public static class AssessmentAdmission {
     public static Fin<Assessed> Admit(AssessmentRecord record, Op key) => record.Switch(
         state: key,
         measured: static (k, r) => AdmissionSlots
-            .Gate(Band.Positive.Admits(r.SiValue), k,
-                $"<assessment-measured-nonpositive:{r.Material.Value}:{r.Property.Key}:{r.SiValue:R}>")
+            .Gate(Band.Positive.Admits(r.SiValue), new ElementFault.ValueRejected(k,
+                $"<assessment-measured-nonpositive:{r.Material.ToValue()}:{r.Property.Key}:{r.SiValue:R}>"))
             .Map(_ => Column(Identity(r.Material, r.Modality, r.Reference, r.Taken, r.ValidUntil), r.Property, r.SiValue))
             .As().ToFin(),
         graded: static (k, r) => Fin.Succ<Assessed>(new Assessed.Retention(
@@ -207,7 +207,7 @@ public static class AssessmentAdmission {
              Some: static basis => Success<Error, MeasurementBasis>(basis),
              None: () => Fail<Error, MeasurementBasis>(
                  new ElementFault.ValueRejected(key, $"<declaration-unit-unseated:{epd.DeclaredUnit}>"))),
-         AdmissionSlots.Gate(material.Value.Length > 0, key, $"<epd-material-blank:{epd.Reference}>"),
+         AdmissionSlots.Gate(material.ToValue().Length > 0, new ElementFault.ValueRejected(key, $"<epd-material-blank:{epd.Reference}>")),
          AdmissionSlots.Optional(epd.RecycledContent, Band.Unit, "epd-recycled-content", key),
          AdmissionSlots.Optional(epd.EndOfLifeRecovery, Band.Unit, "epd-end-of-life-recovery", key))
             .Apply((_, basis, _, recycled, recovery) => Lifecycle(
@@ -218,11 +218,12 @@ public static class AssessmentAdmission {
 
     static Validation<Error, Unit> Arity(EpdRow epd, Op key) => epd.Impacts.Switch(
         carbon: c => AdmissionSlots.Gate(
-            c.Modules.Length == LifecycleStage.Count && c.Coverage.Length == LifecycleStage.Count, key,
-            $"<epd-module-arity:{epd.Reference}:{c.Modules.Length}:{c.Coverage.Length}:expected={LifecycleStage.Count}>"),
+            c.Modules.Length == LifecycleStage.Items.Count && c.Coverage.Length == LifecycleStage.Items.Count,
+            new ElementFault.ValueRejected(key,
+                $"<epd-module-arity:{epd.Reference}:{c.Modules.Length}:{c.Coverage.Length}:expected={LifecycleStage.Items.Count}>")),
         full: f => DeclarationProfile.MatrixArity(epd.Standard).Match(
-            Some: arity => AdmissionSlots.Gate(f.Matrix.Length == arity, key,
-                $"<epd-matrix-arity:{epd.Reference}:{f.Matrix.Length}:expected={arity}>"),
+            Some: arity => AdmissionSlots.Gate(f.Matrix.Length == arity, new ElementFault.ValueRejected(key,
+                $"<epd-matrix-arity:{epd.Reference}:{f.Matrix.Length}:expected={arity}>")),
             None: () => Fail<Error, Unit>(new ElementFault.ValueRejected(key,
                 $"<epd-matrix-under-standard:{epd.Reference}:{epd.Standard}>"))));
 
@@ -252,7 +253,7 @@ public static class DeclarationWire {
                     record.AsStream(), WireLimits.Declaration.SizeLimit, WireLimits.Declaration.RecursionLimit))))
             .Bind(admitted => WireAdmission.Admit(admitted, WireBoundary.InboundPayload, key))
             .Map(admitted => (AssessmentRecord)new AssessmentRecord.Declared(
-                MaterialId.Of(admitted.MaterialKey), ToEpd(admitted, Banded(admitted.Cells))));
+                MaterialId.Create(admitted.MaterialKey), ToEpd(admitted, Banded(admitted.Cells))));
 
     static EpdRow ToEpd(DeclarationRecord wire, DeclaredImpacts impacts) => new(
         wire.Issuer,
@@ -273,14 +274,14 @@ public static class DeclarationWire {
         foreach (ImpactCell cell in cells) {
             int category = (int)cell.Category - 1;
             int stage = Band(cell.Stage);
-            int at = (category * LifecycleStage.Count) + stage;
+            int at = (category * LifecycleStage.Items.Count) + stage;
             matrix[at] += cell.Value;
             covered[at] = true;
         }
         return covered.AsSpan().IndexOf(false) < 0
             ? new DeclaredImpacts.Full([.. matrix])
             : new DeclaredImpacts.Carbon(
-                matrix.AsMemory(0, LifecycleStage.Count), covered.AsMemory(0, LifecycleStage.Count));
+                matrix.AsMemory(0, LifecycleStage.Items.Count), covered.AsMemory(0, LifecycleStage.Items.Count));
     }
 
     static int Band(Module stage) => (int)stage switch {
@@ -333,10 +334,10 @@ public static class AssessmentResolution {
     static Fin<Seq<MaterialPropertySet>> Overlay(Seq<MaterialPropertySet> published, Seq<Assessed> live, Op key) =>
         live.IsEmpty
             ? Fin.Succ(published)
-            : live.Fold(Fin.Succ((Sets: published, Claimed: Set<string>.Empty)), (state, record) => state.Bind(carried =>
+            : live.FoldM((Sets: published, Claimed: Set<string>.Empty), (carried, record) =>
                     carried.Claimed.Contains(record.Axis)
                         ? Fin.Succ(carried)
-                        : Apply(carried.Sets, record, key).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))))
+                        : Apply(carried.Sets, record, key).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))).As()
                 .Map(static carried => carried.Sets);
 
     static Fin<Seq<MaterialPropertySet>> Apply(Seq<MaterialPropertySet> sets, Assessed record, Op key) =>
@@ -412,9 +413,10 @@ public static class AssessmentResolution {
     static Fin<Seq<MaterialPropertySet>> Rebuild<TCase>(
         Seq<MaterialPropertySet> sets, Func<MaterialPropertySet, TCase?> select,
         Func<TCase, Fin<MaterialPropertySet>> rebuild, Op key) where TCase : MaterialPropertySet =>
-        sets.Choose(set => Optional(select(set))).Head.Match(
-            Some: held => rebuild(held).Map(replaced => sets.Filter(set => !ReferenceEquals(set, held)).Add(replaced)),
-            None: () => Fin.Succ(sets));
+        sets.Choose(set => Optional(select(set))).Head
+            .TraverseM(held => rebuild(held).Map(replaced => sets.Filter(set => !ReferenceEquals(set, held)).Add(replaced)))
+            .As()
+            .Map(result => result.IfNone(sets));
 }
 ```
 

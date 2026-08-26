@@ -691,8 +691,7 @@ public sealed partial class OutlineSpec {
                     Crc: item.DataCRC(currentRemainder: 0u),
                     Bounds: item.GetBoundingBox(accurate: true))).Strict()).Strict(),
                 custody.Map(static item => (GeometryBase)item))))
-            .BindFail(primary => Fin.Fail<OutlineProduct>(error: primary).Rollback(
-                release: () => Custody.Dispose(held: custody, key: key), key: key));
+            .Rollback(release: () => Custody.Dispose(held: custody, key: key), key: key);
     }
 }
 ```

@@ -72,7 +72,7 @@ public static class RouteStyle {
                        faults: faults, operation: op)));
                }).Rollback(
                    release: () => ReferenceEquals(WireShape.ShapeType, candidate)
-                       ? op.Catch(() => Fin.Succ(Op.Side(static () => WireShape.ShapeType = null)))
+                       ? op.Catch(static () => WireShape.ShapeType = null)
                        : Fin.Succ(unit),
                    key: op)
                select seated;
@@ -186,11 +186,11 @@ public static class WirePass {
         WireSkin skin, Seq<(WireRoute Route, EndSelection Ends)> wires, float detailing, Op? key = null) {
         Op op = key.OrDefault();
         return wires
-            .Map(row => row.Ends.Pens(skin: skin, key: op).Map(pens =>
+            .Traverse(row => row.Ends.Pens(skin: skin, key: op).Map(pens =>
                 new GhMark.WireCase(
                     Route: row.Route.Shape,
                     Ink: detailing > 0f ? pens : pens with { Inner = Option<EdgeDescription>.None }) as GhMark))
-            .Sequence().As()
+            .As()
             .Map(static marks => new GhPlan(Marks: marks));
     }
 }

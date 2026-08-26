@@ -171,14 +171,14 @@ public sealed partial class OptimDriver {
 public sealed partial class EstimatorKind {
     public static readonly EstimatorKind Ols = new("ols", EstimatorFamily.Regression, FitMetric.R2, OptimDriver.Adam, EstimatorKernels.Ordinary, EstimatorFold.RealResponse);
     public static readonly EstimatorKind Ridge = new("ridge", EstimatorFamily.Regression, FitMetric.R2, OptimDriver.Adam, EstimatorKernels.Ridged, EstimatorFold.RegularizedResponse);
-    public static readonly EstimatorKind Lasso = new("lasso", EstimatorFamily.Regression, FitMetric.R2, OptimDriver.Adam, EstimatorKernels.Penalized, EstimatorFold.IterativeResponse);
+    public static readonly EstimatorKind Lasso = new("lasso", EstimatorFamily.Regression, FitMetric.R2, OptimDriver.Adam, EstimatorKernels.Penalized, EstimatorFold.RegularizedResponse);
     public static readonly EstimatorKind Glm = new("glm", EstimatorFamily.Regression, FitMetric.DevianceExplained, OptimDriver.LBfgs,
         static ctx => EstimatorKernels.Deviance(ctx, ctx.Family.Loss(ctx.Link)), EstimatorFold.GlmResponse);
     public static readonly EstimatorKind Pca = new("pca", EstimatorFamily.Reduction, FitMetric.ExplainedEnergy, OptimDriver.Adam, EstimatorKernels.Principal, EstimatorFold.ReductionDesign);
     public static readonly EstimatorKind KernelPca = new("kernel-pca", EstimatorFamily.Reduction, FitMetric.ExplainedEnergy, OptimDriver.Adam, EstimatorKernels.KernelPrincipal, EstimatorFold.KernelReductionDesign);
     public static readonly EstimatorKind Nmf = new("nmf", EstimatorFamily.Reduction, FitMetric.ReconstructionError, OptimDriver.Adam, EstimatorKernels.NonNegative, EstimatorFold.NonNegativeReductionDesign);
     public static readonly EstimatorKind KMeans = new("kmeans", EstimatorFamily.Cluster, FitMetric.Inertia, OptimDriver.Adam, EstimatorKernels.Lloyd, EstimatorFold.GroupingDesign);
-    public static readonly EstimatorKind Gmm = new("gmm", EstimatorFamily.Cluster, FitMetric.LogLikelihood, OptimDriver.Adam, EstimatorKernels.ExpectationMaximization, EstimatorFold.MixtureDesign);
+    public static readonly EstimatorKind Gmm = new("gmm", EstimatorFamily.Cluster, FitMetric.LogLikelihood, OptimDriver.Adam, EstimatorKernels.ExpectationMaximization, EstimatorFold.GroupingDesign);
     public static readonly EstimatorKind Dbscan = new("dbscan", EstimatorFamily.Cluster, FitMetric.ClusterCount, OptimDriver.Adam, EstimatorKernels.Reachability, EstimatorFold.DensityDesign);
     public static readonly EstimatorKind Hierarchical = new("hierarchical", EstimatorFamily.Cluster, FitMetric.Inertia, OptimDriver.Adam, EstimatorKernels.Agglomerative, EstimatorFold.LinkageDesign);
     public static readonly EstimatorKind Knn = new("knn", EstimatorFamily.Classify, FitMetric.Accuracy, OptimDriver.Adam, EstimatorKernels.Neighborhood, EstimatorFold.NeighborhoodDesign);
@@ -269,17 +269,17 @@ public abstract partial record DetectorSpec {
             Prefix(spec.Warmup, s.Rows, s.Columns).ToValidation(),
             Band(spec.Drift >= 0.0 && double.IsFinite(spec.Drift), "cusum-drift", spec.Drift).ToValidation(),
             Band(spec.Threshold > 0.0 && double.IsFinite(spec.Threshold), "cusum-threshold", spec.Threshold).ToValidation())
-            .Apply(static (_, _, _) => unit).ToFin(),
+            .Apply(static (_, _, _) => unit).As().ToFin(),
         bayesianOnline: static (s, spec) => (
             Prefix(spec.Warmup, s.Rows, s.Columns).ToValidation(),
             Band(spec.Hazard is > 0.0 and < 1.0, "bayesian-hazard", spec.Hazard).ToValidation(),
             Band(spec.Threshold is > 0.0 and < 1.0, "bayesian-threshold", spec.Threshold).ToValidation())
-            .Apply(static (_, _, _) => unit).ToFin(),
+            .Apply(static (_, _, _) => unit).As().ToFin(),
         correlatedResidual: static (s, spec) => (
             Prefix(spec.Warmup, s.Rows, s.Columns).ToValidation(),
             Band(spec.FalsePositiveRate is > 0.0 and < 1.0, "correlated-false-positive", spec.FalsePositiveRate).ToValidation(),
             Band(spec.Ridge > 0.0 && double.IsFinite(spec.Ridge), "correlated-ridge", spec.Ridge).ToValidation())
-            .Apply(static (_, _, _) => unit).ToFin());
+            .Apply(static (_, _, _) => unit).As().ToFin());
 
     private static Fin<Unit> Prefix(int warmup, int rows, int columns) =>
         warmup >= Math.Max(4, columns + 1) && rows > warmup

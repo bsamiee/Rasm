@@ -756,7 +756,7 @@ public static class Turning {
                 closed: false,
                 demand.Profile.Bulges,
                 demand.Profile.Tolerance)
-            : Fin.Fail<Loop>(Error.Many([.. gouges]));
+            : Fin.Fail<Loop>(Error.Many(gouges));
     }
 
     private static Point3d Compensated(Loop profile, TurnInsert insert, Point3d point, int index) {
@@ -1145,11 +1145,10 @@ public static class Turning {
                 ? from _ in guard(
                       !spans.IsEmpty,
                       (Error)new KernelFault.InvalidValue("turning", "turning:cutting-span")).ToFin()
-                  from loads in spans.Map(span =>
+                  from loads in spans.TraverseM(span =>
                           from intent in Intent(demand, span, chipWidth, axialDepth, radialDepth)
                           from load in demand.Cutting.Evaluate(intent)
                           select load)
-                      .TraverseM(identity)
                       .As()
                   select new TurnPass(
                       index, step.Spindle, step.Channel, step.Operation, projected, resolved,

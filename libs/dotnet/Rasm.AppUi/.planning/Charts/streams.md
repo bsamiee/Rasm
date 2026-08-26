@@ -228,12 +228,12 @@ public static class TransformChain {
         toSeq(rows.GroupBy(static datum => datum.Group, StringComparer.Ordinal))
             .Map(static (group, index) => (Index: index, Key: group.Key, Rows: toSeq(group)))
             .TraverseM(cell => GroupSpread.Of(cell.Rows, Seq(tau)).Map(spread => ChartDatum.Of(
-                x: cell.Rows.Head.X is var first && double.IsFinite(first) ? first : cell.Index,
+                x: cell.Rows[0].X is var first && double.IsFinite(first) ? first : cell.Index,
                 value: reducer.Reduce(spread, tau),
                 arity: reducer.Arity,
                 weight: spread.Mass,
                 group: cell.Key,
-                stamp: cell.Rows.Head.Stamp)))
+                stamp: cell.Rows[0].Stamp)))
             .As();
 
     static Fin<Seq<ChartDatum>> Rolled(Seq<ChartDatum> rows, int span, ChartReducer reducer, double tau) =>
@@ -249,7 +249,7 @@ public static class TransformChain {
             .GroupBy(row => axis.Group(row.Civil), StringComparer.Ordinal))
             .Map(static group => (Key: group.Key, Rows: toSeq(group)))
             .TraverseM(cell => GroupSpread.Of(cell.Rows.Map(static row => row.Datum), Seq(tau))
-                .Map(spread => axis.Cell(cell.Rows.Head.Civil) switch {
+                .Map(spread => axis.Cell(cell.Rows[0].Civil) switch {
                     var at => ChartDatum.Of(
                         x: at.Column,
                         value: axis.Matrix
@@ -258,7 +258,7 @@ public static class TransformChain {
                         arity: axis.Matrix ? 2 : reducer.Arity,
                         weight: spread.Mass,
                         group: cell.Key,
-                        stamp: cell.Rows.Head.Datum.Stamp),
+                        stamp: cell.Rows[0].Datum.Stamp),
                 }))
             .As();
 

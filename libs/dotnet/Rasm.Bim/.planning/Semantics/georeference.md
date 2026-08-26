@@ -351,7 +351,7 @@ public static class GeoTransform {
                     using CoordinateTransformation inverse = pipeline.GetInverse();
                     inverse.TransformPoints(1, rx, ry, rz);
                     return Hypot(rx[0] - ox, ry[0] - oy, rz[0] - oz);
-                }).Match(Succ: Some, Fail: static _ => Option<double>.None);
+                }).ToOption();
                 var (scale, convergence) = Distortion((x, y) => { double[] p = [x, y, oz]; pipeline.TransformPoint(p); return (p[0], p[1]); }, ox, oy, key);
                 return (roundTrip, scale, convergence, epoch);
             });
@@ -383,7 +383,7 @@ public static class GeoTransform {
             (double x, double y, double z) = (sx, sy, sz);
             forward.Inverse().Transform(ref x, ref y, ref z);
             return Hypot(x - ox, y - oy, z - oz);
-        }).Match(Succ: Some, Fail: static _ => Option<double>.None);
+        }).ToOption();
     }
 
     static (Option<double> Scale, Option<double> Convergence) Distortion(Func<double, double, (double X, double Y)> map, double ox, double oy, Op key) =>
@@ -429,13 +429,14 @@ public static class GeoTransform {
         toSeq(from i in Enumerable.Range(0, frames.Count)
               from j in Enumerable.Range(i + 1, frames.Count - i - 1)
               select (Source: frames[i], Target: frames[j]))
-            .Fold(
-                Fin.Succ((Memo: Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)>(), Rows: Seq<FrameAlignment>())),
-                (held, pair) => held.Bind(state => token.IsCancellationRequested
+            .FoldM(
+                (Memo: Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)>(), Rows: Seq<FrameAlignment>()),
+                (state, pair) => token.IsCancellationRequested
                     ? Fin.Fail<(Map<(string Source, string Target), (Fin<Reprojection> Run, Option<double> Shift)> Memo, Seq<FrameAlignment> Rows)>(Errors.Cancelled)
                     : Align(pair.Source, pair.Target, anchor, state.Memo, key) switch {
                         var (memo, row) => Fin.Succ((memo, state.Rows.Add(row))),
-                    }))
+                    })
+            .As()
             .Map(static state => state.Rows);
 
     static string FrameKey(GeoReference frame) =>

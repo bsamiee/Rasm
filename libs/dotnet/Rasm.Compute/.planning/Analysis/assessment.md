@@ -2,7 +2,7 @@
 
 Rasm.Compute assessment algebra: the C#-first discipline-analysis vocabulary that reads the concrete `Rasm.Element` `ElementGraph` directly — above the boundary, no `IElementProjection`, Compute being app-platform consuming the AEC-domain contract upward. One polymorphic `AssessmentRequest` routes over the contract `Discipline` to a discipline runner that folds its discipline-specific input into ONE uniform `AssessmentResult` fact stream; `AnalysisReads` is the one baked-bag, edge-attribute, and analytical-footprint read owner every runner composes. The `Analysis/dispatch` sibling owns what happens to that stream — the content key, the lifecycle-aware cache dispatch, the write-back, the supersede close-out, and the sweep — so this page owns the ALGEBRA and dispatch owns the SPINE; `Analysis.Commission` stays here because the commissioning gate ladder is a fold over this page's own fact and verdict vocabulary rather than a dispatch modality.
 
-Contract vocabulary arrives settled from `Rasm.Element` — the `Discipline`, the typed `PropertyValue` family, `AssessmentPayload` with its ONE `Open` admission and ONE `Land` outcome landing, `PayloadContent`, `EvidenceRun`, `AnalysisRoute.Of`, `BlobKey`, `GraphDelta`, the `Assign` edge, `CanonicalWriter`, and `ContentAddress`; Compute decodes and writes, never re-mints them. Absence is `Option` on every result column — a governing ratio a runner could not compute is `None`, not a `0.0` the verdict band reads as a clean pass.
+Contract vocabulary arrives settled from `Rasm.Element` — the `Discipline`, the typed `PropertyValue` family, `AssessmentPayload` with its ONE `Open` admission and ONE `Land` outcome landing, `PayloadContent`, `EvidenceRun`, `AnalysisRoute`, `BlobKey`, `GraphDelta`, the `Assign` edge, `CanonicalWriter`, and `ContentAddress`; Compute decodes and writes, never re-mints them. Absence is `Option` on every result column — a governing ratio a runner could not compute is `None`, not a `0.0` the verdict band reads as a clean pass.
 
 ## [01]-[INDEX]
 
@@ -200,7 +200,7 @@ public abstract partial record AssessmentRequest {
                 .Double(r.Policy.MinimumClearWidthM).Double(r.Policy.CapacityPerMetreWidth)
                 .Double(r.Policy.UnimpededSpeedMPerS).Double(r.Policy.SpecificFlowPersonsPerMS).Optional(r.Policy.AllowableRsetMinutes, static (m, k) => k.Double(m))
                 .Ordinal(r.Occupancies.Count);
-            foreach ((NodeId space, OccupancyClass occupancy) in r.Occupancies.OrderBy(static p => p.Key.Value, StringComparer.Ordinal)) { w.String(space.Value).String(occupancy.Key); }
+            foreach ((NodeId space, OccupancyClass occupancy) in r.Occupancies.OrderBy(static p => p.Key.ToValue(), StringComparer.Ordinal)) { w.String(space.ToValue()).String(occupancy.Key); }
             return w;
         },
         daylight: r => {
@@ -297,7 +297,7 @@ public static class AnalysisReads {
 - Entry: `Commission(graph, element, ask, correlation, clock)` returns `Fin<Commissioned>` — the baked `Element` carries both evidence kinds flat so the comparison reads two values off ONE `Bake`, and the graph rides beside it for the header tolerance, the predecessor rows, and the supersede close-out. ONE `PropertyName` selects both sides: the series' observed `Aspect` and the assessment's `ResultMeasure` name are the same key, so a comparison can never pair a metered aspect against an unrelated result entry. `Analysis/dispatch#SWEEP` `Sweep` folds every `SweepContext.Commissionings` ask through this entry in the same reconciliation pass whose staleness closure flips the verdicts, so the third pipeline entry is reachable from the same driver the other two ride and a commissioning verdict is re-derived exactly when either upstream drifts.
 - Auto: the gates run in ORDER and each is a typed refusal carrying its `AssessmentInputReason` row — policy admission is gone (the `[ComplexValueObject]` cannot construct invalid), window boundedness (NodaTime `Interval.Start`/`End` THROW on an unbounded side, so this crosses before any endpoint read), the consumable prediction, the covering series, the quantity-triple agreement, the completeness floor, then the representative figure and the residual. Verdicts band onto the ONE `AssessmentVerdict.FromRatio` axis rather than a parallel commissioning vocabulary: the ratio is the residual's worst-case banded magnitude over the policy tolerance of the predicted magnitude, so `>1.0` is `exceeded`, `≥0.95` `marginal`, finite-below `satisfied`, and an ABSENT ratio — the honest answer where a prediction carries no scale to band against — `not-applicable`.
 - Result: `AssessmentPayload` carries the derived commissioning route, deviation ratio on `GoverningRatio`, measured elapsed time, and result rows; `Commissioned` carries the same three magnitudes and coverage from that one computation.
-- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]` + `ValidateFactoryArguments`), LanguageExt.Core (`Seq`/`Option`/`Fin` and the `Fin` query-expression sequencing the gate ladder rides), NodaTime (`Instant`/`Duration`/`Interval`), Rasm.Element (project — `Element` with its flat `Observations`/`Assessments`, `ObservationSeries`/`SeriesStatistics`/`SamplingKind`, `Node.Observation`, `AssessmentPayload`/`.ResultMeasure`/`.Open`, `PayloadContent.Results`, `EvidenceRun`, `OutcomeCapability`, `AnalysisRoute.Of`, `MeasureValue`/`MeasureBand`/`Dimension`, `GraphDelta`/`Relationship.Assign`/`AssignKind`, `ContentAddress.Of<TState>`, `NodeId.Of`/`NodeSeed.Content`), Rasm (kernel — the `Op` op-key), BCL inbox.
+- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]` + `ValidateFactoryArguments`), LanguageExt.Core (`Seq`/`Option`/`Fin` and the `Fin` query-expression sequencing the gate ladder rides), NodaTime (`Instant`/`Duration`/`Interval`), Rasm.Element (project — `Element` with its flat `Observations`/`Assessments`, `ObservationSeries`/`SeriesStatistics`/`SamplingKind`, `Node.Observation`, `AssessmentPayload`/`.ResultMeasure`/`.Open`, `PayloadContent.Results`, `EvidenceRun`, `OutcomeCapability`, `AnalysisRoute`, `MeasureValue`/`MeasureBand`/`Dimension`, `GraphDelta`/`Relationship.Assign`/`AssignKind`, `ContentAddress.Of<TState>`, `NodeId.Of`/`NodeSeed.Content`), Rasm (kernel — the `Op` op-key and `AcceptValidated`), BCL inbox.
 - Growth: a new acceptance stance is one `CommissioningPolicy` value; a new commissioned discipline is FREE — the route derives from the assessed row, so no `AssessmentRoute` row, no `Discipline` edit, and no `Probe` change follows; a new commissioning fact is one entry in the `Land` bag; a verdict-rule or residual-rule revision is one bumped `CommissioningRevision`; never a parallel commissioning verdict vocabulary, never a per-discipline commissioning entry.
 - Boundary: the commissioning `AnalysisRoute` DERIVES from `(assessed route, element id, aspect)` and occupies no `AssessmentRoute` row — commissioning is not a discipline, so a single row has no `Discipline` column to carry and a row-per-discipline family forks every future route in two; folding the element and the aspect into the token is what makes the contract's one-usable-node law hold PER MEASURED STREAM, since `Supersede` keys on `(discipline, route)` and a route shared across aspects or elements flips a neighbour's verdict `Superseded`. Comparisons never COERCE: a quantity-triple disagreement is a binding defect, never a unit conversion away from meaning something, and a predicted measure whose `CanonicalUnit` the registry cannot name refuses too, because agreement the contract cannot state is not agreement. Completeness screening refuses an UNANSWERABLE denominator (an event-driven stream carries no cadence, an unbounded window no duration) rather than reading a silent sensor as full coverage. Commissioning refusals stay RESULT-ONLY and never mint a `Failed` node: the fold is closed-form and deterministic over evidence a binding repair or a fresh flush changes, so a cached failure outlives the repair that fixes it — the failure-caching path is the dispatch's, for a foreign solver whose failure is expensive to reproduce. Measured-evidence node ids are a PURE FUNCTION of the series, the same projection `Runtime/observation#OBSERVATION_LANE` mints them from, so the `DependsOn` entry derives with no graph lookup and the two legs cannot disagree about which node the verdict depends on; recording the predicted node beside it puts the commissioning verdict on the recorded analysis DAG as a contract `Set<NodeId>` whose distinctness is the TYPE's, so the sweep's staleness closure flips it the moment either upstream drifts. Sampling algebra, statistics, and uncertainty propagation stay contract-owned — a lane-local downsample, a re-derived completeness, or a call-site `measured.Si - predicted.Si` is the deleted form.
 
@@ -340,7 +340,7 @@ public static partial class Analysis {
     static readonly Op CommissioningKey = Op.Of(name: nameof(Commission));
 
     public static Fin<AnalysisRoute> CommissioningRoute(AssessmentRoute assessed, NodeId element, PropertyName aspect) =>
-        AnalysisRoute.Of($"{assessed.Key}{CommissionedSuffix}:{element.Value}:{(string)aspect}", CommissioningKey);
+        CommissioningKey.AcceptValidated<AnalysisRoute>($"{assessed.Key}{CommissionedSuffix}:{element.ToValue()}:{(string)aspect}");
 
     public static Fin<Commissioned> Commission(
         ElementGraph graph, Element element, CommissioningAsk ask, CorrelationId correlation, IClock clock) {
@@ -369,12 +369,12 @@ public static partial class Analysis {
             : Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.WindowUnbounded, string.Empty));
 
     static Fin<(AssessmentPayload Payload, MeasureValue Measure)> Predicted(Element element, CommissioningAsk ask) =>
-        AnalysisRoute.Of(ask.Assessed.Key, CommissioningKey)
+        CommissioningKey.AcceptValidated<AnalysisRoute>(ask.Assessed.Key)
             .Bind(route => element.Assessments
                 .Find(row => row.Discipline == ask.Assessed.Discipline && row.Route == route
                     && row.Outcome.Capabilities.Admits(OutcomeCapability.Consumable))
                 .ToFin(new ComputeFault.AssessmentInputMissing(
-                    AssessmentInputReason.AssessmentUnusable, $"{ask.Assessed.Key}:{element.Id.Value}")))
+                    AssessmentInputReason.AssessmentUnusable, $"{ask.Assessed.Key}:{element.Id.ToValue()}")))
             .Bind(payload => payload.ResultMeasure(ask.Aspect)
                 .ToFin(new ComputeFault.AssessmentInputMissing(
                     AssessmentInputReason.MeasureAbsent, $"{(string)ask.Aspect}:{ask.Assessed.Key}"))
@@ -387,7 +387,7 @@ public static partial class Analysis {
             .Fold(Option<ObservationSeries>.None, static (latest, series) =>
                 latest.Filter(held => held.Window.Start >= series.Window.Start).IfNone(series))
             .ToFin(new ComputeFault.AssessmentInputMissing(
-                AssessmentInputReason.SeriesAbsent, $"{(string)ask.Aspect}:{element.Id.Value}"));
+                AssessmentInputReason.SeriesAbsent, $"{(string)ask.Aspect}:{element.Id.ToValue()}"));
 
     static Fin<Unit> Agreed(ObservationSeries series, MeasureValue predicted) =>
         series.Observed == predicted.Type
@@ -397,7 +397,7 @@ public static partial class Analysis {
             None: static () => false)
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new ComputeFault.AssessmentInputMissing(
-                AssessmentInputReason.QuantityDisagreement, $"{series.Observed.Value}:{predicted.Type.Value}"));
+                AssessmentInputReason.QuantityDisagreement, $"{series.Observed.ToValue()}:{predicted.Type.ToValue()}"));
 
     static Fin<double> Covered(ObservationSeries series, CommissioningAsk ask) =>
         series.Statistics.Completeness(series.Expected(ask.Window))

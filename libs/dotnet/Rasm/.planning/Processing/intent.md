@@ -90,9 +90,7 @@ public abstract partial record VectorIntent {
     public static Fin<VectorIntent> Axis(SignedAxis axis, Option<Plane> frame = default, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Admit.NotNull(value: axis, key: op)
-               from basis in frame.Match(
-                   Some: plane => Admit.Plane(basis: plane, key: op).Map(static admitted => Some(admitted)),
-                   None: () => Fin.Succ(Option<Plane>.None))
+               from basis in frame.TraverseM(plane => Admit.Plane(basis: plane, key: op)).As()
                select (VectorIntent)new AxisCase(Value: active, Basis: basis);
     }
     public static VectorIntent Direction(Vector3d value) => new DirectionCase(Value: value);

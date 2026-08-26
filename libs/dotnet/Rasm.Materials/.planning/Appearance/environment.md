@@ -869,11 +869,11 @@ public static class IblPrefilter {
         from irradiance in device.Dispatch(WgslKernel.IrradianceSh, ShBinding(map), key)
             .Bind(readback => Sh9.Of(Widen(readback.Output), key))
         from specular in toSeq(Enumerable.Range(0, policy.Mips))
-            .Fold(Fin.Succ(Seq<TexturePlane>()), (acc, mip) => acc.Bind(levels =>
+            .FoldM(Seq<TexturePlane>(), (levels, mip) =>
                 device.Dispatch(WgslKernel.PrefilterSpecular, LevelBinding(map, policy, mip), key)
                     .Bind(readback => Decode(policy, mip, readback.Output, key))
                     .Map(level => levels.Add(level))
-                    .Rollback([.. levels])))
+                    .Rollback([.. levels])).As()
         select (IblProduct)new IblProduct.Preview(irradiance, specular.Strict(),
             toSeq(Enumerable.Range(0, policy.Mips).Select(policy.RoughnessAt)));
 
@@ -944,12 +944,12 @@ public static class IblPrefilter {
 
     static Fin<Seq<TexturePlane>> Specular(EnvironmentMap map, IblPolicy policy, RenderBudget budget, Op key) =>
         toSeq(Enumerable.Range(0, policy.Mips))
-            .Fold(Fin.Succ(Seq<TexturePlane>()), (acc, mip) => acc.Bind(levels =>
+            .FoldM(Seq<TexturePlane>(), (levels, mip) =>
                 budget.Opened(mip, policy.Mips).Match(
                     Some: abandoned => Fin.Fail<Seq<TexturePlane>>(abandoned).Rollback([.. levels]),
                     None: () => Level(map, policy, mip, budget, key)
                         .Map(level => levels.Add(level))
-                        .Rollback([.. levels])))
+                        .Rollback([.. levels]))).As()
             .Map(static levels => levels.Strict());
 
     static Fin<TexturePlane> Level(EnvironmentMap map, IblPolicy policy, int mip, RenderBudget budget, Op key) {

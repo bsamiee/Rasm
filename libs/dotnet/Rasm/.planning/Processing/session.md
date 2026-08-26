@@ -37,11 +37,8 @@ public readonly record struct ManifoldStatus(
     public static ManifoldStatus Of((int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus) projection) =>
         new(projection.Euler, projection.BoundaryComponents, projection.IsManifold, projection.IsOriented, projection.NonManifoldEdges, projection.Genus);
 
-    public bool GenusClosed =>
-        Genus.Match(
-            Some: genus => IsManifold && BoundaryComponents == 0 && NonManifoldEdges == 0
-                && EulerCharacteristic == 2 - (2 * genus),
-            None: static () => false);
+    public bool GenusClosed => Genus.Exists(genus => IsManifold && BoundaryComponents == 0 && NonManifoldEdges == 0
+        && EulerCharacteristic == 2 - (2 * genus));
 }
 
 internal readonly record struct StepSeed(

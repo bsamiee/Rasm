@@ -53,7 +53,7 @@ public sealed partial class MaskSource {
     public static readonly MaskSource Alpha = new(0x04);
     public static readonly MaskSource NoData = new(0x08);
 
-    public static Seq<MaskSource> Of(int flags) => Items.AsIterable().Filter(row => (flags & row.Key) != 0).ToSeq();
+    public static Seq<MaskSource> Of(int flags) => toSeq(Items).Filter(row => (flags & row.Key) != 0);
 }
 
 [SmartEnum<string>]
@@ -206,7 +206,7 @@ public static class GeoRaster {
     static Option<ProjectedCrs> SourceFrame(string wkt, Op key) =>
         wkt.Length == 0
             ? Option<ProjectedCrs>.None
-            : ProjectedCrs.Of("", "", "", wkt, key).Match(Succ: static c => Some(c), Fail: static _ => Option<ProjectedCrs>.None);
+            : ProjectedCrs.Of("", "", "", wkt, key).ToOption();
 
     // --- [COVERAGE_PROJECTION]
     public static Fin<Node.Coverage> ToCoverage(
@@ -248,13 +248,14 @@ public static class GeoRaster {
     static Fin<Seq<OverviewLevel>> Pyramid(
         CellLattice basis, RasterTile tile, ArtifactContent raster,
         Func<int, ArtifactContent> overview, Op key) =>
-        tile.Overviews.Fold(
-            Fin.Succ((Grid: basis, Levels: Seq(new OverviewLevel(basis, raster, Blocked(tile.BaseBlockX, tile.BaseBlockY))))),
-            (state, level) => state.Bind(carried => carried.Grid.Coarsen(key).Bind(next =>
+        tile.Overviews.FoldM(
+            (Grid: basis, Levels: Seq(new OverviewLevel(basis, raster, Blocked(tile.BaseBlockX, tile.BaseBlockY)))),
+            (carried, level) => carried.Grid.Coarsen(key).Bind(next =>
                 next.Columns.Value == level.Width && next.Rows.Value == level.Height
                     ? Fin.Succ((Grid: next, Levels: carried.Levels.Add(
                         new OverviewLevel(next, overview(level.Level), Blocked(level.BlockX, level.BlockY)))))
-                    : Fin.Fail<(CellLattice, Seq<OverviewLevel>)>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-pyramid-offchain", level.Level.ToString(CultureInfo.InvariantCulture), string.Create(provider: CultureInfo.InvariantCulture, $"{level.Width}x{level.Height}") }))))))
+                    : Fin.Fail<(CellLattice, Seq<OverviewLevel>)>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-raster-pyramid-offchain", level.Level.ToString(CultureInfo.InvariantCulture), string.Create(provider: CultureInfo.InvariantCulture, $"{level.Width}x{level.Height}") })))))
+            .As()
             .Map(static carried => carried.Levels);
 
     static Option<(int X, int Y)> Blocked(int x, int y) => x > 0 && y > 0 ? Some((x, y)) : None;

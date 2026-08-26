@@ -613,7 +613,7 @@ public static class FrameEdge {
                     }
                     await call.RequestStream.CompleteAsync().ConfigureAwait(false);
                     PutResponse response = await call.ResponseAsync.ConfigureAwait(false);
-                    ArtifactRef expected = admitted.Head.Artifact;
+                    ArtifactRef expected = admitted[0].Artifact;
                     return ParseGuard.Validated(response).Bind(valid =>
                         valid.Artifact.Sha256 == expected.Sha256
                         && valid.Artifact.ArtifactBytes == expected.ArtifactBytes
@@ -624,12 +624,12 @@ public static class FrameEdge {
 
     public static Fin<T> Reassemble<T>(StreamPool pool, CorrelationId correlation, MessageParser<T> parser, Seq<ArtifactFrame> frames) where T : class, IMessage<T> =>
         Admit(frames).Bind(ordered => Drain(
-            pool, correlation, ordered.Head.Artifact.Sha256, ordered,
+            pool, correlation, ordered[0].Artifact.Sha256, ordered,
             staged => pool.Read(staged, parser, WireLimits.Artifact)));
 
     public static Fin<FrameCopy> Bytes(StreamPool pool, CorrelationId correlation, Seq<ArtifactFrame> frames) =>
         Admit(frames).Bind(ordered => Drain(
-            pool, correlation, ordered.Head.Artifact.Sha256, ordered,
+            pool, correlation, ordered[0].Artifact.Sha256, ordered,
             staged => Copy(staged, correlation)));
 
     public static Fin<FramePartition> Frames(ReadOnlyMemory<byte> payload) {
@@ -700,7 +700,7 @@ public static class FrameEdge {
         ByteString sha256,
         Seq<ArtifactFrame> ordered,
         Func<RecyclableMemoryStream, Fin<T>> project) =>
-        pool.Get(correlation, new StreamGrant.Sized((long)ordered.Head.Artifact.ArtifactBytes)).Bind(staged => {
+        pool.Get(correlation, new StreamGrant.Sized((long)ordered[0].Artifact.ArtifactBytes)).Bind(staged => {
             using (staged) {
                 using IncrementalHash digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
                 ordered.Iter(frame => {

@@ -90,7 +90,7 @@ public static partial class BuildingPhysics {
             None: () => Envelope(graph, request, id, state)));
 
     static Func<MaterialId, Fin<Seq<MaterialPropertySet>>> Resolver(ElementGraph graph) =>
-        mid => graph.Material(mid).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, mid.Value));
+        mid => graph.Material(mid).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, mid.ToValue()));
 
     static ComputeFault Missing(AssessmentInputReason reason, string witness) =>
         new ComputeFault.AssessmentInputMissing(reason, witness);
@@ -101,36 +101,36 @@ public static partial class BuildingPhysics {
         from glazed in Transmittance(id, "glazed-u", w.UgWM2K)
         from frame in Transmittance(id, "frame-u", w.UfWM2K)
         from edge in MeasureValue.OfSi(QuantityType.OfDimension(EdgeBridgeDim), EdgeBridgeDim, w.EdgeBridgeW_K, Some(UnitProvenance.Label("W/K")))
-        from fraction in AssessmentFact.Ratio($"{id.Value}/glazed-fraction", w.GlazedFraction)
+        from fraction in AssessmentFact.Ratio($"{id.ToValue()}/glazed-fraction", w.GlazedFraction)
         let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? w.UwWM2K / request.Climate.TargetUValueWM2K : double.NaN
         select (Facts: state.Facts
-                .Add(AssessmentFact.Measure($"{id.Value}/whole-window-u", uw))
-                .Add(AssessmentFact.Measure($"{id.Value}/edge-bridge", edge))
+                .Add(AssessmentFact.Measure($"{id.ToValue()}/whole-window-u", uw))
+                .Add(AssessmentFact.Measure($"{id.ToValue()}/edge-bridge", edge))
                 .Add(fraction) + glazed + frame,
             Governing: Math.Max(state.Governing, uRatio));
 
     static Fin<Seq<AssessmentFact>> Transmittance(NodeId id, string name, Option<double> value) =>
         value.Traverse(si => MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, si)
-            .Map(measure => AssessmentFact.Measure($"{id.Value}/{name}", measure))).As().Map(static fact => fact.ToSeq());
+            .Map(measure => AssessmentFact.Measure($"{id.ToValue()}/{name}", measure))).As().Map(static fact => fact.ToSeq());
 
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> Envelope(ElementGraph graph, AssessmentRequest.Thermal request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
-        from composition in graph.CompositionOf(id).ToFin(Missing(AssessmentInputReason.CompositionShape, id.Value))
+        from composition in graph.CompositionOf(id).ToFin(Missing(AssessmentInputReason.CompositionShape, id.ToValue()))
         from folded in Series(composition, Resolver(graph), request.Climate)
         let u = folded.U
         let glaser = folded.Glaser
         from uMeasure in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, u)
-        from vapour in AssessmentFact.Ratio($"{id.Value}/vapour-utilization", glaser.VapourUtilization)
+        from vapour in AssessmentFact.Ratio($"{id.ToValue()}/vapour-utilization", glaser.VapourUtilization)
         from rate in MeasureValue.OfSi(QuantityType.OfDimension(VapourFluxDim), VapourFluxDim, glaser.CondensationRateKgM2S, Some(UnitProvenance.Label("kg/(m2.s)")))
         from profile in glaser.Profile.TraverseM(step =>
             MeasureValue.OfSi(Dimension.TemperatureDim, step.TempC + 273.15)
                 .Map(static value => (PropertyValue)new PropertyValue.Measure(value))).As()
         let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? u / request.Climate.TargetUValueWM2K : double.NaN
         select (Facts: state.Facts
-                .Add(AssessmentFact.Measure($"{id.Value}/u-value", uMeasure))
+                .Add(AssessmentFact.Measure($"{id.ToValue()}/u-value", uMeasure))
                 .Add(vapour)
-                .Add(AssessmentFact.Measure($"{id.Value}/condensation-rate", rate))
-                .Add(AssessmentFact.List($"{id.Value}/interface-temperatures", profile))
-                + glaser.Plane.Map(plane => AssessmentFact.Text($"{id.Value}/condensation-plane", plane.Label)).ToSeq(),
+                .Add(AssessmentFact.Measure($"{id.ToValue()}/condensation-rate", rate))
+                .Add(AssessmentFact.List($"{id.ToValue()}/interface-temperatures", profile))
+                + glaser.Plane.Map(plane => AssessmentFact.Text($"{id.ToValue()}/condensation-plane", plane.Label)).ToSeq(),
             Governing: Math.Max(state.Governing, Math.Max(uRatio, glaser.VapourUtilization)));
 
     static Fin<(double U, GlaserResult Glaser)> Series(MaterialComposition composition, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve, BoundaryClimate climate) =>
@@ -143,9 +143,9 @@ public static partial class BuildingPhysics {
             single: s => resolve(s.Material).Bind(props => props.Thermal
                 .Bind(static t => t.UValue)
                 .Map(static u => (U: u.Si, Glaser: GlaserResult.NoInternalInterface))
-                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, s.Material.Value))),
-            profileSet: static s => Fin.Fail<(double, GlaserResult)>(Missing(AssessmentInputReason.CompositionShape, s.Material.Value)),
-            constituentSet: static s => Fin.Fail<(double, GlaserResult)>(Missing(AssessmentInputReason.CompositionShape, s.PrimaryMaterial.Value)));
+                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, s.Material.ToValue()))),
+            profileSet: static s => Fin.Fail<(double, GlaserResult)>(Missing(AssessmentInputReason.CompositionShape, s.Material.ToValue())),
+            constituentSet: static s => Fin.Fail<(double, GlaserResult)>(Missing(AssessmentInputReason.CompositionShape, s.PrimaryMaterial.ToValue())));
 
     // --- [WINDOW_ASSEMBLY] -------------------------------------------------------------
     public static class WindowRole {
@@ -175,7 +175,7 @@ public static partial class BuildingPhysics {
 
         static Fin<double> PartU(ElementGraph graph, NodeId part, string role) =>
             graph.PropertiesOf(part).Thermal.Bind(static thermal => thermal.UValue).Map(static u => u.Si)
-                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, $"{role}:{part.Value}"));
+                .ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, $"{role}:{part.ToValue()}"));
 
         static Seq<NodeId> Members(ElementGraph graph, NodeId window) =>
             toSeq(graph.EdgesAt(window))
@@ -186,7 +186,7 @@ public static partial class BuildingPhysics {
     // --- [GLASER_TANGENT] --------------------------------------------------------------
     static Fin<GlaserResult> GlaserOf(MaterialComposition.LayerSet set, double uValueWM2K, double vapourSdM, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve, BoundaryClimate climate) =>
         from steps in set.Layers.TraverseM(layer => resolve(layer.Material)
-            .Bind(props => props.Thermal.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.Value)))
+            .Bind(props => props.Thermal.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, layer.Material.ToValue())))
             .Map(thermal => new LayerResistance(
                 R: layer.Thickness.Si / Math.Max(thermal.Conductivity.Si, EpsilonPolicy.BandUlp),
                 Z: thermal.VapourResistanceFactor * layer.Thickness.Si / VapourPermeabilityAir,
@@ -274,7 +274,7 @@ public static partial class BuildingPhysics {
         RouteTable.Run(AcousticRoutes, graph, request, request.Route, request.Targets, AcousticKey, clock);
 
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> Transmission(ElementGraph graph, AssessmentRequest.Acoustic request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
-        graph.CompositionOf(id).ToFin(Missing(AssessmentInputReason.CompositionShape, id.Value))
+        graph.CompositionOf(id).ToFin(Missing(AssessmentInputReason.CompositionShape, id.ToValue()))
             .Bind(composition => composition.Switch(
                 layerSet: set => AssemblyAggregator.Aggregate(set, Resolver(graph))
                     .Bind(property => RateAcoustic(id, property.StcWeighted, None, request, state)),
@@ -283,19 +283,19 @@ public static partial class BuildingPhysics {
                 constituentSet: s => Material(graph, s.PrimaryMaterial, id, request, state)));
 
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> Material(ElementGraph graph, MaterialId material, NodeId id, AssessmentRequest.Acoustic request, (Seq<AssessmentFact> Facts, double Governing) state) =>
-        graph.Material(material).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, material.Value))
+        graph.Material(material).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, material.ToValue()))
             .Bind(props => RateAcoustic(id, props.Acoustic.Map(static a => a.Rw), props.Acoustic.Map(static a => a.Nrc), request, state));
 
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> Room(ElementGraph graph, AssessmentRequest.Acoustic request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
-        from volume in graph.Magnitude(id, QuantityRows.NetVolume).Filter(static v => v > 0.0).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"net-volume:{id.Value}"))
+        from volume in graph.Magnitude(id, QuantityRows.NetVolume).Filter(static v => v > 0.0).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"net-volume:{id.ToValue()}"))
         from panels in graph.BoundingSurfacesOf(id).TraverseM(surface =>
             from area in graph.Magnitude(surface.Id, QuantityRows.SurfaceArea)
-                .Filter(static a => a > 0.0).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"surface-area:{surface.Id.Value}"))
-            from composition in graph.CompositionOf(surface.Id).ToFin(Missing(AssessmentInputReason.CompositionShape, surface.Id.Value))
-            from props in graph.Material(composition.PrimaryMaterial).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, surface.Id.Value))
-            from acoustic in props.Acoustic.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, $"absorption:{surface.Id.Value}"))
+                .Filter(static a => a > 0.0).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"surface-area:{surface.Id.ToValue()}"))
+            from composition in graph.CompositionOf(surface.Id).ToFin(Missing(AssessmentInputReason.CompositionShape, surface.Id.ToValue()))
+            from props in graph.Material(composition.PrimaryMaterial).Map(static m => m.Properties).ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, surface.Id.ToValue()))
+            from acoustic in props.Acoustic.ToFin(Missing(AssessmentInputReason.PlyPropertyAbsent, $"absorption:{surface.Id.ToValue()}"))
             select (AreaM2: area, Absorber: acoustic)).As()
-        from _ in panels.IsEmpty ? Fin.Fail<Unit>(Missing(AssessmentInputReason.CompositionEmpty, $"bounding-surfaces:{id.Value}")) : Fin.Succ(unit)
+        from _ in panels.IsEmpty ? Fin.Fail<Unit>(Missing(AssessmentInputReason.CompositionEmpty, $"bounding-surfaces:{id.ToValue()}")) : Fin.Succ(unit)
         let surfaceArea = panels.Sum(static p => p.AreaM2)
         let absorptionMid = panels.Sum(p => p.AreaM2 * (p.Absorber.At(AcousticBand.Hz500) + p.Absorber.At(AcousticBand.Hz1000)) / 2.0)
         let meanAlpha = absorptionMid / Math.Max(surfaceArea, EpsilonPolicy.BandUlp)
@@ -303,20 +303,20 @@ public static partial class BuildingPhysics {
         let eyringMid = meanAlpha < 1.0
             ? Some(SabineConstant * volume / Math.Max(-surfaceArea * Math.Log(1.0 - meanAlpha), EpsilonPolicy.BandUlp))
             : Option<double>.None
-        from sabineFact in AssessmentFact.Measure($"{id.Value}/reverberation-time-mid", Dimension.DurationDim, sabineMid)
-        from eyringFact in eyringMid.Traverse(t => AssessmentFact.Measure($"{id.Value}/reverberation-time-eyring", Dimension.DurationDim, t)).As()
-        from alphaFact in AssessmentFact.Ratio($"{id.Value}/mean-absorption-mid", meanAlpha)
+        from sabineFact in AssessmentFact.Measure($"{id.ToValue()}/reverberation-time-mid", Dimension.DurationDim, sabineMid)
+        from eyringFact in eyringMid.Traverse(t => AssessmentFact.Measure($"{id.ToValue()}/reverberation-time-eyring", Dimension.DurationDim, t)).As()
+        from alphaFact in AssessmentFact.Ratio($"{id.ToValue()}/mean-absorption-mid", meanAlpha)
         let ratio = request.TargetReverberationS.Filter(static t => t > 0.0).Map(t => sabineMid / t).IfNone(double.NaN)
         select (state.Facts.Add(sabineFact).Add(alphaFact) + eyringFact.ToSeq(), Math.Max(state.Governing, ratio));
 
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> RateAcoustic(NodeId id, Option<int> rating, Option<double> nrc, AssessmentRequest.Acoustic request, (Seq<AssessmentFact> Facts, double Governing) state) =>
         rating.Match(
-            None: () => Fin.Succ((state.Facts.Add(AssessmentFact.Text($"{id.Value}/acoustic", "absent")), Math.Max(state.Governing, double.NaN))),
+            None: () => Fin.Succ((state.Facts.Add(AssessmentFact.Text($"{id.ToValue()}/acoustic", "absent")), Math.Max(state.Governing, double.NaN))),
             Some: value =>
                 from sri in MeasureValue.OfSi(QuantityType.Scalar, Dimension.Dimensionless, value, Some(UnitProvenance.Label("dB")))
-                from nrcFact in nrc.Traverse(n => AssessmentFact.Ratio($"{id.Value}/nrc", n)).As()
+                from nrcFact in nrc.Traverse(n => AssessmentFact.Ratio($"{id.ToValue()}/nrc", n)).As()
                 let ratio = request.RequiredRw > 0.0 ? request.RequiredRw / Math.Max(value, EpsilonPolicy.BandUlp) : double.NaN
-                select (state.Facts.Add(AssessmentFact.Measure($"{id.Value}/sound-reduction-index", sri)) + nrcFact.ToSeq(),
+                select (state.Facts.Add(AssessmentFact.Measure($"{id.ToValue()}/sound-reduction-index", sri)) + nrcFact.ToSeq(),
                     Math.Max(state.Governing, ratio)));
 }
 ```
@@ -382,7 +382,7 @@ public sealed partial class FireMemberClass {
     public static Fin<FireMemberClass> Of(ElementGraph graph, NodeId id) =>
         graph.Find<Node.Object>(id).Map(static o => o.Classification.Code)
             .Bind(static code => TryGet(code, out FireMemberClass row) ? Some(row) : None)
-            .ToFin(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MemberClassUnhandled, $"fire-member-class:{id.Value}"));
+            .ToFin(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MemberClassUnhandled, $"fire-member-class:{id.ToValue()}"));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -414,14 +414,14 @@ public static partial class BuildingPhysics {
         RouteTable.Run(FireRoutes, graph, request, request.Route, request.Targets, FireKey, clock);
 
     static Fin<SectionProperties> MemberSection(ElementGraph graph, NodeId id) =>
-        graph.SectionOf(id).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"section:{id.Value}"));
+        graph.SectionOf(id).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"section:{id.ToValue()}"));
 
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> SteelFire(ElementGraph graph, AssessmentRequest.Fire request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
         from section in MemberSection(graph, id)
         from utilization in request.Utilization is > 0.013 and < 1.0
             ? Fin.Succ(request.Utilization)
             : Fin.Fail<double>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input,
-                $"<fire-utilization-out-of-band:{id.Value}:{request.Utilization:R}>"))
+                $"<fire-utilization-out-of-band:{id.ToValue()}:{request.Utilization:R}>"))
         let sectionFactor = request.Exposure.ExposedPerimeterM(section).Over(section.Area.Si)
         let criticalTempC = CriticalTemperature(utilization)
         let cap = request.RequiredMinutes + CapMarginMinutes
@@ -430,18 +430,18 @@ public static partial class BuildingPhysics {
         from critical in MeasureValue.OfSi(Dimension.TemperatureDim, criticalTempC + 273.15)
         from factor in MeasureValue.OfSi(QuantityType.OfDimension(PerLengthDim), PerLengthDim, sectionFactor, Some(UnitProvenance.Label("1/m")))
         select (Facts: state.Facts
-                .Add(AssessmentFact.Measure($"{id.Value}/critical-temperature", critical))
-                .Add(AssessmentFact.Measure($"{id.Value}/section-factor", factor)) + resistance.Facts,
+                .Add(AssessmentFact.Measure($"{id.ToValue()}/critical-temperature", critical))
+                .Add(AssessmentFact.Measure($"{id.ToValue()}/section-factor", factor)) + resistance.Facts,
             Governing: Math.Max(state.Governing, request.RequiredMinutes.Over(resistance.Minutes)));
 
     static Fin<(Seq<AssessmentFact> Facts, double Minutes)> Resistance(NodeId id, SteelFireState march, double cap) =>
         march.Verdict.Switch(
             converged: _ => MeasureValue.OfSi(Dimension.DurationDim, march.Minutes * 60.0)
-                .Map(value => (Seq(AssessmentFact.Measure($"{id.Value}/fire-resistance-minutes", value)), march.Minutes)),
+                .Map(value => (Seq(AssessmentFact.Measure($"{id.ToValue()}/fire-resistance-minutes", value)), march.Minutes)),
             exhausted: budget => MeasureValue.OfSi(Dimension.DurationDim, march.Minutes * 60.0)
-                .Map(value => (Seq(AssessmentFact.Measure($"{id.Value}/fire-resistance-floor", value)), (double)budget.Budget)),
+                .Map(value => (Seq(AssessmentFact.Measure($"{id.ToValue()}/fire-resistance-floor", value)), (double)budget.Budget)),
             stalled: _ => Fin.Fail<(Seq<AssessmentFact>, double)>(new ComputeFault.AnalysisFailed(
-                SolvePhase.Extraction, FailureKind.Numeric, $"<steel-fire-march-stalled:{id.Value}:cap={cap:R}>")));
+                SolvePhase.Extraction, FailureKind.Numeric, $"<steel-fire-march-stalled:{id.ToValue()}:cap={cap:R}>")));
 
     static SteelFireState March(FireExposure exposure, SectionProperties section, double sectionFactor, double criticalTempC, double capMinutes) {
         double steelTempC = 20.0, minutes = 0.0, shadow = ShadowFactor(section);
@@ -481,11 +481,11 @@ public static partial class BuildingPhysics {
                from requiredAxis in MeasureValue.OfSi(Dimension.LengthDim, limits.AxisDistanceM)
                from axis in MeasureValue.OfSi(Dimension.LengthDim, axisM)
                select (Facts: state.Facts
-                    .Add(AssessmentFact.Measure($"{id.Value}/fire-resistance-minutes", minutes))
-                    .Add(AssessmentFact.Measure($"{id.Value}/required-min-dimension", requiredDim))
-                    .Add(AssessmentFact.Measure($"{id.Value}/least-dimension", least))
-                    .Add(AssessmentFact.Measure($"{id.Value}/required-axis-distance", requiredAxis))
-                    .Add(AssessmentFact.Measure($"{id.Value}/axis-distance", axis)),
+                    .Add(AssessmentFact.Measure($"{id.ToValue()}/fire-resistance-minutes", minutes))
+                    .Add(AssessmentFact.Measure($"{id.ToValue()}/required-min-dimension", requiredDim))
+                    .Add(AssessmentFact.Measure($"{id.ToValue()}/least-dimension", least))
+                    .Add(AssessmentFact.Measure($"{id.ToValue()}/required-axis-distance", requiredAxis))
+                    .Add(AssessmentFact.Measure($"{id.ToValue()}/axis-distance", axis)),
                 Governing: Math.Max(state.Governing, request.RequiredMinutes.Over(achieved)));
     }
 }

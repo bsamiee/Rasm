@@ -315,9 +315,8 @@ public sealed partial class EventFamily {
             EventHandler<TArgs> handler = (sender, args) => {
                 Op key = Op.Of(name: nameof(EventFamily));
                 Fin<Unit> outcome = key.Catch(() => project(sender, args, scope)).Match(
-                    Succ: projected => projected.Match(
-                        Some: fact => key.Catch(() => deliver(arg1: fact.Key, arg2: fact.Payload)),
-                        None: static () => Fin.Succ(value: unit)),
+                    Succ: projected => projected
+                        .TraverseM(fact => key.Catch(() => deliver(fact.Key, fact.Payload))).As().Map(static _ => unit),
                     Fail: error => {
                         reject(obj: error);
                         return Fin.Fail<Unit>(error: error);
@@ -1372,12 +1371,12 @@ public static class DocumentStream {
                 return Fin.Fail<Subscription>(error: primary).Rollback(
                     release: () => Custody.Release(
                         releases: Seq<Func<Fin<Unit>>>(
-                            () => Optional(timer).Match(
-                                Some: live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }),
-                                None: static () => Fin.Succ(unit)),
-                            () => Optional(watcher).Match(
-                                Some: live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }),
-                                None: static () => Fin.Succ(unit))),
+                            () => Optional(timer)
+                                .TraverseM(live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }))
+                                .As().Map(static _ => unit),
+                            () => Optional(watcher)
+                                .TraverseM(live => key.Catch(() => { live.Dispose(); return Fin.Succ(unit); }))
+                                .As().Map(static _ => unit)),
                         key: key),
                     key: key);
             }
@@ -1528,7 +1527,7 @@ public static class MountRegistry {
     private static readonly Atom<HashMap<string, PointSeat>> Seats = Atom(HashMap<string, PointSeat>());
 
     public static Seq<(RhinoPoint Point, PluginKey Owner, Seq<PluginKey> Riders)> Census =>
-        toSeq(Seats.Value).Choose(static row => RhinoPoint.TryGet(row.Key, out RhinoPoint? point)
+        Seats.Value.AsIterable().ToSeq().Choose(static row => RhinoPoint.TryGet(row.Key, out RhinoPoint? point)
             ? Some((Point: point!, Owner: row.Value.Owner, Riders: toSeq(row.Value.Riders.Keys).Map(PluginKey.Create).Strict()))
             : None);
 

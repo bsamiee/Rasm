@@ -64,7 +64,7 @@ public sealed partial class PanelKind {
     public ComponentAuthority Authority { get; }
     public Option<PlyRole> CoreRole { get; }
     public Option<(PlyRole Role, string MaterialId)> Facing { get; }
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
 
     [UseDelegateFromConstructor]
     public partial bool Admits(PanelSpecification specification);
@@ -392,9 +392,7 @@ public static class LateralShear {
     static Fin<double> Row<TRow>(
         Option<TRow> found, Func<TRow, Option<double>> cell,
         (WspGrade Grade, double ThicknessIn, SheathingNail Nail, double EdgeIn, double FramingIn, int LoadCase, Op Key) x) =>
-        found.Match(
-            Some: row => cell(row).ToFin(new ComponentFault.LateralCellMissing(x.Key, x.Grade, x.Nail, x.ThicknessIn)),
-            None: () => Fin.Fail<double>(new ComponentFault.LateralCellMissing(x.Key, x.Grade, x.Nail, x.ThicknessIn)));
+        found.Bind(cell).ToFin(new ComponentFault.LateralCellMissing(x.Key, x.Grade, x.Nail, x.ThicknessIn));
 
     static Option<double> Column(double spacingIn, ReadOnlySpan<(double SpacingIn, Option<double> Value)> columns) {
         Option<double> chosen = None;
@@ -454,9 +452,9 @@ public abstract partial record PanelSpecification {
 
     public Option<MaterialId> FacingMaterial(PanelKind kind) => Switch(
         state: kind,
-        gypsumBoard: static (k, _) => k.Facing.Map(static face => MaterialId.Of(face.MaterialId)),
-        facedBoard:  static (k, _) => k.Facing.Map(static face => MaterialId.Of(face.MaterialId)),
-        foamBoard:   static (_, s) => s.Facer.Faces > 0 ? Some(MaterialId.Of($"facer.{s.Facer.Key}")) : None,
+        gypsumBoard: static (k, _) => k.Facing.Map(static face => MaterialId.Create(face.MaterialId)),
+        facedBoard:  static (k, _) => k.Facing.Map(static face => MaterialId.Create(face.MaterialId)),
+        foamBoard:   static (_, s) => s.Facer.Faces > 0 ? Some(MaterialId.Create($"facer.{s.Facer.Key}")) : None,
         woodPanel:   static (_, _) => Option<MaterialId>.None,
         deckSheet:   static (_, _) => Option<MaterialId>.None,
         membrane:    static (_, _) => Option<MaterialId>.None);
@@ -469,9 +467,9 @@ public abstract partial record PanelSpecification {
         from core in kind.CoreRole
         from remainder in Some(thickness.Value - 2.0 * BoardFacingMm).Filter(static left => left > 0.0)
         select Seq(
-            new Ply(MaterialId.Of(face.MaterialId), PositiveMagnitude.Create(BoardFacingMm), face.Role),
+            new Ply(MaterialId.Create(face.MaterialId), PositiveMagnitude.Create(BoardFacingMm), face.Role),
             new Ply(kind.Substance, PositiveMagnitude.Create(remainder), core),
-            new Ply(MaterialId.Of(face.MaterialId), PositiveMagnitude.Create(BoardFacingMm), face.Role));
+            new Ply(MaterialId.Create(face.MaterialId), PositiveMagnitude.Create(BoardFacingMm), face.Role));
 
     static Option<Seq<Ply>> Mono(PanelKind kind, PositiveMagnitude thickness) =>
         kind.CoreRole.Map(role => Seq(new Ply(kind.Substance, thickness, role)));
@@ -481,7 +479,7 @@ public abstract partial record PanelSpecification {
             ? Mono(kind, thickness)
             : from role in kind.CoreRole
               from remainder in Some(thickness.Value - FoamFacingMm * facer.Faces).Filter(static left => left > 0.0)
-              let skin = new Ply(MaterialId.Of($"facer.{facer.Key}"), PositiveMagnitude.Create(FoamFacingMm), facer.Role)
+              let skin = new Ply(MaterialId.Create($"facer.{facer.Key}"), PositiveMagnitude.Create(FoamFacingMm), facer.Role)
               let centre = new Ply(kind.Substance, PositiveMagnitude.Create(remainder), role)
               select facer.Faces >= 2 ? Seq(skin, centre, skin) : Seq(skin, centre);
 
@@ -492,9 +490,8 @@ public abstract partial record PanelSpecification {
         woodPanel: specification =>
             from supported in ComponentDetail.Measured(DetailSchema.RoofSpan, Dimension.LengthDim, specification.Span.RoofEdgeSupportedMm * 1e-3)
             from unsupported in ComponentDetail.Measured(DetailSchema.RoofSpanUnsupported, Dimension.LengthDim, specification.Span.RoofUnsupportedMm * 1e-3)
-            from floor in specification.Span.FloorSpanMm.Match(
-                Some: span => ComponentDetail.Measured(DetailSchema.FloorSpan, Dimension.LengthDim, span * 1e-3).Map(Some),
-                None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from floor in specification.Span.FloorSpanMm.TraverseM(span =>
+            ComponentDetail.Measured(DetailSchema.FloorSpan, Dimension.LengthDim, span * 1e-3)).As()
             select Seq(
                 ComponentDetail.Token(DetailSchema.SpanRating, specification.Span.Key),
                 ComponentDetail.Token(DetailSchema.BondClass, specification.Bond.Key),
@@ -542,9 +539,8 @@ public static class PanelDetail {
         from edgeSpacing in ComponentDetail.Measured(DetailSchema.EdgeSpacing, Dimension.LengthDim, fastening.EdgeSpacingMm * 1e-3)
         from length in ComponentDetail.Measured(DetailSchema.BoardLength, Dimension.LengthDim, lengthMm.Value * 1e-3)
         from payloadRows in specification.DetailRows(thicknessMm, fastening.Fastener)
-        from shank in fastening.Fastener.ShankDiameterMm.Match(
-            Some: mm => ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, mm * 1e-3).Map(Some),
-            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from shank in fastening.Fastener.ShankDiameterMm.TraverseM(mm =>
+            ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, mm * 1e-3)).As()
         select ComponentDetail.ProductRows([
             ComponentDetail.Token(DetailSchema.EdgeProfile, edge.Key),
             ComponentDetail.Sourced(source),
@@ -642,23 +638,24 @@ public static class PanelSeed {
         ifc: static r => IfcBinding.Of(r.Kind.IfcEntity, r.Kind.IfcPredefinedType));
 
     static Validation<Error, Unit> Coherence(PanelRow r, Op key) =>
-        (guard(r.Kind.Admits(r.Specification),
-             new KernelFault.InvalidValue(nameof(r.Specification), "a specification admitted by the panel kind", Some(key))).ToValidation(),
-         guard(r.Specification.Coherent(),
-             new KernelFault.InvalidValue(nameof(r.Specification), "a coherent panel payload", Some(key))).ToValidation(),
-         guard(double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.LengthMm) && r.LengthMm > 0.0
-                 && double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0,
-             new KernelFault.InvalidValue(nameof(PanelRow), "positive finite width, length, and thickness", Some(key))).ToValidation(),
-         FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key).ToValidation().Map(static _ => unit),
-         DeckDrift(r, key))
-            .Apply(static (_, _, _, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(r.Kind.Admits(r.Specification),
+                new KernelFault.InvalidValue(nameof(r.Specification), "a specification admitted by the panel kind", Some(key))),
+            AdmissionSlots.Gate(r.Specification.Coherent(),
+                new KernelFault.InvalidValue(nameof(r.Specification), "a coherent panel payload", Some(key))),
+            AdmissionSlots.Gate(
+                double.IsFinite(r.WidthMm) && r.WidthMm > 0.0 && double.IsFinite(r.LengthMm) && r.LengthMm > 0.0
+                && double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0,
+                new KernelFault.InvalidValue(nameof(PanelRow), "positive finite width, length, and thickness", Some(key))),
+            FastenPattern.Of(r.FieldMm, r.EdgeMm, r.EdgeDistMm, r.Fastener, key).ToValidation().Map(static _ => unit),
+            DeckDrift(r, key)));
 
     static Validation<Error, Unit> DeckDrift(PanelRow r, Op key) =>
         Tolerance.Of(ToleranceLane.Match, DeckDriftMm, key).ToValidation()
-            .Bind(band => guard(r.Specification.Deck.ForAll(deck =>
+            .Bind(band => AdmissionSlots.Gate(r.Specification.Deck.ForAll(deck =>
                     Math.Abs(r.ThicknessMm - deck.Rib.RibDepthMm) <= band.Value
                     && Math.Abs(r.WidthMm - deck.Rib.CoverageMm) <= band.Value),
-                new KernelFault.InvalidValue(nameof(r.ThicknessMm), "deck gauge thickness and rib coverage", Some(key))).ToValidation());
+                new KernelFault.InvalidValue(nameof(r.ThicknessMm), "deck gauge thickness and rib coverage", Some(key))));
 
     static MaterialId Substance(PanelRow r) =>
         r.Specification.Deck.Map(static deck => deck.Gauge.Substance).IfNone(r.Kind.Substance);

@@ -962,7 +962,7 @@ public sealed record Selection<TItem>(
                 });
 
     Validation<Error, string> Signature(TItem item, CapabilitySet<SelectionFacet> facets) =>
-        toSeq(facets.Held).OrderBy(static row => row.Key, StringComparer.Ordinal).AsIterable().ToSeq()
+        toSeq(toSeq(facets.Held).OrderBy(static row => row.Key, StringComparer.Ordinal))
             .Traverse(facet => Facet(item, facet)
                 .ToFin(new FormFault.FieldInvalid("selection-similar", $"{Identity(item)}: {facet.Key} absent"))
                 .ToValidation())

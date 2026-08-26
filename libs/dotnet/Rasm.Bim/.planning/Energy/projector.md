@@ -207,7 +207,7 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     static Seq<T> Rows<T>(IEnumerable<T>? values) => values is null ? Seq<T>() : toSeq(values);
 
     Fin<RaiseScope> RaiseRooms(RaiseScope scope, EnergyLibrary library, Seq<Hb.Room> rooms, ProjectionContext ctx) =>
-        rooms.Fold(Fin.Succ(scope), (acc, room) => acc.Bind(s => RaiseRoom(s, library, room, ctx)));
+        rooms.FoldM(scope, (s, room) => RaiseRoom(s, library, room, ctx)).As();
 
     Fin<RaiseScope> RaiseRoom(RaiseScope scope, EnergyLibrary library, Hb.Room room, ProjectionContext ctx) {
         NodeId spaceId = NodeId.Of(new NodeSeed.Placement());
@@ -221,8 +221,8 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             ? MultiplierEvidence(room.Multiplier, ctx.Header.Tolerance, ctx.Key).Map(evidence => Assigned(grouped, spaceId, evidence))
             : Fin.Succ(grouped);
         return seeded
-            .Bind(state => Rows(room.Faces).Fold(
-                Fin.Succ(state), (acc, face) => acc.Bind(s => RaiseFace(s, library, spaceId, face, ctx))))
+            .Bind(state => Rows(room.Faces).FoldM(
+                state, (s, face) => RaiseFace(s, library, spaceId, face, ctx)).As())
             .Map(state => scope with { State = state, Spine = spine, Zones = zones });
     }
 
@@ -243,11 +243,11 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             Rows(face.Apertures).Map(a => (a.Identifier, a.Geometry.Boundary, a.Properties?.Energy?.Construction, IfcClass.Window))
             + Rows(face.Doors).Map(d => (d.Identifier, d.Geometry.Boundary, d.Properties?.Energy?.Construction, IfcClass.Door));
         return rows
-            .Fold(Fin.Succ(seed), (acc, o) => acc.Bind(s => {
+            .FoldM(seed, (s, o) => {
                 (RaiseState opened, NodeId openingId) = Opening(s, spaceId, face.Identifier, o.Class, o.Identifier,
                     Ring(o.Ring.Count, index => Point(o.Ring[index], 0.0)), ctx);
                 return Composition(library, o.Construction, ctx).Map(set => Associate(opened, openingId, set));
-            }))
+            }).As()
             .Bind(s => Composition(library, face.Properties?.Energy?.Construction, ctx).Map(set => Associate(s, surfaceId, set)));
     }
 
@@ -279,31 +279,29 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     Validation<Error, Option<(Node.Material Node, MaterialLayer Layer)>> NodeMaterial(EnergyLibrary library, string materialId, ProjectionContext ctx) =>
         library.Materials
             .Find(m => m.Identifier == materialId)
-            .Match(
-                None: () => Success<Error, Option<(Node.Material, MaterialLayer)>>(None),
-                Some: m => MaterialPropertySet
-                    .OfThermal(m.Conductivity, m.SpecificHeat, LayerConductance(m.Conductivity, m.Thickness), VapourOpen, ctx.Key)
-                    .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.Thickness, ctx.Key).Map(thickness => (thermal, thickness)))
-                    .ToValidation()
-                    .Map(pair => Some((
-                        Mint(m.Identifier, MaterialComposition.OfSingle(MaterialId.Create(m.Identifier)), Seq(pair.thermal), ctx.Header.Tolerance),
-                        new MaterialLayer(MaterialId.Create(m.Identifier), pair.thickness, m.Identifier)))));
+            .TraverseM(m => MaterialPropertySet
+                .OfThermal(m.Conductivity, m.SpecificHeat, LayerConductance(m.Conductivity, m.Thickness), VapourOpen, ctx.Key)
+                .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.Thickness, ctx.Key).Map(thickness => (thermal, thickness)))
+                .ToValidation()
+                .Map(pair => (
+                    Mint(m.Identifier, MaterialComposition.OfSingle(MaterialId.Create(m.Identifier)), Seq(pair.thermal), ctx.Header.Tolerance),
+                    new MaterialLayer(MaterialId.Create(m.Identifier), pair.thickness, m.Identifier))))
+            .As();
 
     Validation<Error, Option<(Node.Material Node, MaterialLayer Layer)>> NodeGlazing(EnergyLibrary library, string materialId, ProjectionContext ctx) =>
         library.Glazings
             .Find(g => g.Identifier == materialId)
-            .Match(
-                None: () => Success<Error, Option<(Node.Material, MaterialLayer)>>(None),
-                Some: g => MaterialPropertySet
-                    .OfOptical(
-                        g.VisibleTransmittance, g.VisibleReflectance, Alt(g.VisibleReflectanceBack, g.VisibleReflectance),
-                        g.SolarTransmittance, g.SolarReflectance, Alt(g.SolarReflectanceBack, g.SolarReflectance),
-                        g.InfraredTransmittance, g.Emissivity, g.EmissivityBack, ctx.Key)
-                    .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.Thickness, ctx.Key).Map(thickness => (optical, thickness)))
-                    .ToValidation()
-                    .Map(pair => Some((
-                        Mint(g.Identifier, MaterialComposition.OfSingle(MaterialId.Create(g.Identifier)), Seq(pair.optical), ctx.Header.Tolerance),
-                        new MaterialLayer(MaterialId.Create(g.Identifier), pair.thickness, g.Identifier)))));
+            .TraverseM(g => MaterialPropertySet
+                .OfOptical(
+                    g.VisibleTransmittance, g.VisibleReflectance, Alt(g.VisibleReflectanceBack, g.VisibleReflectance),
+                    g.SolarTransmittance, g.SolarReflectance, Alt(g.SolarReflectanceBack, g.SolarReflectance),
+                    g.InfraredTransmittance, g.Emissivity, g.EmissivityBack, ctx.Key)
+                .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.Thickness, ctx.Key).Map(thickness => (optical, thickness)))
+                .ToValidation()
+                .Map(pair => (
+                    Mint(g.Identifier, MaterialComposition.OfSingle(MaterialId.Create(g.Identifier)), Seq(pair.optical), ctx.Header.Tolerance),
+                    new MaterialLayer(MaterialId.Create(g.Identifier), pair.thickness, g.Identifier))))
+            .As();
 
     static double Alt(Hb.AnyOf<Hb.Autocalculate, double> value, double front) => value?.Obj is double d ? d : front;
 
@@ -320,9 +318,10 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             .Bind(model => model is null
                 ? Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:type-mismatch"))
                 : Library(model) is var library
-                    ? Rows(model.Buildings).Fold(
-                            Fin.Succ(Seeded(ctx, model.Identifier)),
-                            (acc, building) => acc.Bind(s => RaiseBuilding(s, library, building, ctx)))
+                    ? Rows(model.Buildings).FoldM(
+                            Seeded(ctx, model.Identifier),
+                            (state, building) => RaiseBuilding(state, library, building, ctx))
+                        .As()
                         .Map(static scope => scope.State)
                     : Fin.Fail<RaiseState>(new BimFault.Refused(ctx.Key, BimScope.Energy, BimReason.Rejected, "energy-decode:library")));
 
@@ -332,11 +331,12 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         RaiseState seed = scope.State
             .Put(Element(buildingId, IfcClass.Building, "", building.Identifier))
             .Link(new Relationship.Compose(scope.Spine.Site, buildingId, ComposeKind.Aggregate));
-        Fin<RaiseScope> massing = Rows(building.UniqueStories).Fold(
-            Fin.Succ(scope with { State = seed, Spine = spine }),
-            (acc, story) => acc.Bind(held => RaiseStory(held, story, ctx)));
-        return Rows(building.Room3ds).Fold(massing,
-            (acc, room) => acc.Bind(held => RaiseRoom(held, library, room, ctx)));
+        Fin<RaiseScope> massing = Rows(building.UniqueStories)
+            .FoldM(scope with { State = seed, Spine = spine }, (state, story) => RaiseStory(state, story, ctx))
+            .As();
+        return massing.Bind(state => Rows(building.Room3ds)
+            .FoldM(state, (held, room) => RaiseRoom(held, library, room, ctx))
+            .As());
     }
 
     Fin<RaiseScope> RaiseStory(RaiseScope scope, Df.Story story, ProjectionContext ctx) {
@@ -344,9 +344,9 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
         Fin<RaiseState> seeded = story.Multiplier > 1
             ? MultiplierEvidence(story.Multiplier, ctx.Header.Tolerance, ctx.Key).Map(evidence => Assigned(levelled, storeyId, evidence))
             : Fin.Succ(levelled);
-        return Rows(story.Room2ds).Fold(
-            seeded.Map(state => scope with { State = state, Spine = spine }),
-            (acc, room) => acc.Bind(held => RaisePlate(held, storeyId, room, ctx)));
+        return seeded.Bind(state => Rows(story.Room2ds)
+            .FoldM(scope with { State = state, Spine = spine }, (held, room) => RaisePlate(held, storeyId, room, ctx))
+            .As());
     }
 
     Fin<RaiseScope> RaisePlate(RaiseScope scope, NodeId storeyId, Df.Room2D room, ProjectionContext ctx) {

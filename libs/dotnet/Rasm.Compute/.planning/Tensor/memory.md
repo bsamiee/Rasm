@@ -83,7 +83,7 @@ public sealed partial class AllocationClass {
                 : TensorReason.StagingOverBound.Fault("class-stack-cap", Key, $"{request.RequestedBytes}>{cap}"));
 
     private Validation<Error, Unit> Copy(AllocationRequest request) =>
-        !CopyReasoned || request.CopyReason.Match(Some: static reason => !string.IsNullOrWhiteSpace(reason), None: static () => false)
+        !CopyReasoned || request.CopyReason.Exists(static reason => !string.IsNullOrWhiteSpace(reason))
             ? unit
             : TensorReason.PolicyInvalid.Fault("class-copy-reason", Key);
 

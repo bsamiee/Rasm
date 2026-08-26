@@ -346,10 +346,10 @@ public static class Acquisition {
 
     static Fin<AcquiredMaterial> Calibrate(AcquiredMaterial acquired, Option<CaptureCalibration> calibration, Op key) =>
         calibration
-            .Map(chart => Solve(chart, key).Map(fit => acquired with {
+            .TraverseM(chart => Solve(chart, key).Map(fit => acquired with {
                 Row = acquired.Row with { BaseColor = Correct(acquired.Row.BaseColor, fit.Matrix) },
-                Provenance = acquired.Provenance with { Calibrated = true, CalibrationDeltaE = Some(fit.DeltaE) } }))
-            .IfNone(Fin.Succ(acquired));
+                Provenance = acquired.Provenance with { Calibrated = true, CalibrationDeltaE = Some(fit.DeltaE) } })).As()
+            .Map(result => result.IfNone(acquired));
 
     static Fin<(Matrix<double> Matrix, double DeltaE)> Solve(CaptureCalibration chart, Op key) {
         Seq<Unicolour> reference = toSeq(Macbeth.All).Map(static patch => patch.ConvertToConfiguration(PortValue.SceneLinear));
@@ -399,13 +399,13 @@ public static class Acquisition {
 
     static Fin<ReadOnlyMemory<double>> Samples(Part part, Op key) =>
         part.GetLevel(0, 0) switch {
-            var level => toSeq(level.Channels)
+            var level => toSeq(toSeq(level.Channels)
                 .Filter(Spectral.IsSpectralChannel)
                 .Choose(name => Spectral.TryParseChannelWavelength(name, out float nm)
                              && Spectral.TryGetStokesComponent(name, out int stokes) && stokes == 0
                                 ? Some((Nm: nm, Name: name))
                                 : Option<(float Nm, string Name)>.None)
-                .OrderBy(static channel => channel.Nm)
+                .OrderBy(static channel => channel.Nm))
                 .Map(channel => (double)MemoryMarshal.Cast<byte, float>(level.GetChannel(channel.Name).Data.Span)[0]) switch {
                 var samples => samples.IsEmpty
                     ? Fin.Fail<ReadOnlyMemory<double>>(new MaterialFault.Parameter(key, "<spectral-thaw-no-channels>"))

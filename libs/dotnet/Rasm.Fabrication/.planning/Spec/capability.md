@@ -1206,7 +1206,7 @@ public static class Capability {
         select new CapabilityMoment(
             accepted.Mean,
             tolerance.Control.SubgroupSize == 1
-                ? Mean(series.Ranges) / ControlConstant.Get(2).RangeMean
+                ? Mean(series.Ranges) / ControlConstant.N2.RangeMean
                 : Mean(series.Sigmas) / C4(tolerance.Control.SubgroupSize),
             accepted.Deviation(MomentNormalizer.Sample),
             accepted.Minimum.To(),

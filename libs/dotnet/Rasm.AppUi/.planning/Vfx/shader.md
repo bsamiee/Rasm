@@ -246,7 +246,7 @@ public sealed partial record EffectProgram(
             .Rollback(effect);
 
     static Validation<Error, Unit> Agrees(Seq<string> declared, Seq<string> source, Func<Seq<string>, EffectFault> refuse) =>
-        (declared.Except(source).ToSeq() + source.Except(declared).ToSeq()).Strict() switch {
+        (toSeq(declared.Except(source)) + toSeq(source.Except(declared))).Strict() switch {
             { IsEmpty: true } => Validation<Error, Unit>.Success(unit),
             var diverged => Validation<Error, Unit>.Fail((Error)refuse(diverged)),
         };
@@ -441,10 +441,10 @@ public abstract partial record PathRow {
         stamp: static row => Minted(SKPathEffect.Create1DPath(
             row.Glyph, (float)row.Advance.Value, (float)row.Phase.Value * (float)row.Advance.Value, row.Style),
             $"stamp advance {row.Advance.Value}"),
-        tiled: static row => Minted(row.Mark switch {
-            TileMark.Cell cell => SKPathEffect.Create2DPath(row.Tiling, cell.Path),
-            var mark => SKPathEffect.Create2DLine((float)((TileMark.Rule)mark).Width.Value, row.Tiling),
-        }, $"tiled {row.Tiling}"));
+        tiled: static row => Minted(row.Mark.Switch(
+            cell: cell => SKPathEffect.Create2DPath(row.Tiling, cell.Path),
+            rule: rule => SKPathEffect.Create2DLine((float)rule.Width.Value, row.Tiling)),
+            $"tiled {row.Tiling}"));
 
     static Fin<FxEffect> Minted(SKPathEffect? native, string detail) =>
         native is { } effect

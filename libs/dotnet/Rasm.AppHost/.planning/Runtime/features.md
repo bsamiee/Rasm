@@ -14,7 +14,7 @@ One feature-flag, progressive-rollout, and experimentation owner for the runtime
 
 - Owner: `FlagKey` `[ValueObject<string>]` is the bucketing-stable identity; `Variant` `[ValueObject<string>]` is the assigned arm with its `Absent` fallback; `FlagReason` `[SmartEnum<string>]` is keyed by the OpenFeature constant and carries the generated protobuf enum; `RolloutSegment` is the `[0,100)` exposure band; `TargetingRule` `[Union]` is the closed match family; `FlagDefinition` is the per-flag row and `FlagRegistry` the frozen provider input.
 - Cases: `TargetingRule` = `All` (unconditional match seating the rollout segments) | `TenantIn` (a `FrozenSet<string>` slug allow-list) | `AttributeEquals` (a targeting-attribute key-equals-value match) | `SegmentBand` (a `RolloutSegment` percentage gate) — each rule case carries the `Variant` it seats and breaks every rule-fold arm; rules evaluate in declared order and the first match wins.
-- Entry: `Compile(FlagRegistry registry, OperatorOverride forcing)` returns `IO<Fin<InMemoryProvider>>` — proves every forced-off key resolves a definition, folds each `FlagDefinition` through `KillSwitchFold.Fold` against the live override, then folds the forced rows into one `Dictionary<string, OpenFeature.Providers.Memory.Flag>` whose `Flag<Value>` carries the variant map and the `Func<EvaluationContext, string>` context evaluator the bucketing seats, and constructs the provider; `Register(FeaturesRuntime runtime, FlagRegistry registry, OperatorOverride forcing, string domain)` returns `IO<Fin<InMemoryProvider>>` seating the `SpineHook` through `Api.Instance.AddHooks`, the cross-cutting ambient context through `Api.Instance.SetContext`, the three `Api.Instance.AddHandler(ProviderEventTypes, EventHandlerDelegate)` observations, and the compiled provider through `Api.Instance.SetProviderAsync(domain, provider)` so awaiting it observes provider readiness, RETURNING the provider handle the reload leg needs; `Reload(InMemoryProvider provider, FlagRegistry registry, OperatorOverride forcing)` returns `IO<Fin<Unit>>` — re-folds the registry under the new override and replays `InMemoryProvider.UpdateFlagsAsync(flags)` over the same provider.
+- Entry: `Compile(FlagRegistry registry, OperatorOverride forcing)` returns `IO<InMemoryProvider>` — proves every forced-off key resolves a definition, folds each `FlagDefinition` through `KillSwitchFold.Fold` against the live override, then folds the forced rows into one `Dictionary<string, OpenFeature.Providers.Memory.Flag>` whose `Flag<Value>` carries the variant map and the `Func<EvaluationContext, string>` context evaluator the bucketing seats, and constructs the provider; `Register(FeaturesRuntime runtime, FlagRegistry registry, OperatorOverride forcing, string domain)` returns `IO<InMemoryProvider>` seating the `SpineHook` through `Api.Instance.AddHooks`, the cross-cutting ambient context through `Api.Instance.SetContext`, the three `Api.Instance.AddHandler(ProviderEventTypes, EventHandlerDelegate)` observations, and the compiled provider through `Api.Instance.SetProviderAsync(domain, provider)` so awaiting it observes provider readiness, RETURNING the provider handle the reload leg needs; `Reload(InMemoryProvider provider, FlagRegistry registry, OperatorOverride forcing)` returns `IO<Unit>` — re-folds the registry under the new override and replays `InMemoryProvider.UpdateFlagsAsync(flags)` over the same provider.
 - Auto: each `FlagDefinition` compiles to exactly one `Flag<Value>` — the variant map is the `IDictionary<string, Value>` keyed by `Variant`, the default variant is the row's `Default`, and the `Func<EvaluationContext, string>` evaluator is the `STICKY_BUCKETING` `Assign` closure folding the ordered `TargetingRule` rows over the `EvaluationContext` so the variant pick lives in the flag's own evaluator and never in calling code; the `disabled` flag maps from `FlagDefinition.Disabled` onto the `Flag<T>` `disabled:` constructor parameter AFTER the `KILL_SWITCH_FOLD` has flipped it against the live override, so the operator force reaches the provider's own disabled branch — a compile over the raw registry leaves the fold with no caller and the switch unreachable at the one seat that could honor it; the forced-key proof runs first because `OperatorOverride.ForceFlagsOff` carries free text a config edit typed, and a key naming no definition would force nothing while reading as armed; the provider is the single `InMemoryProvider` per domain registered through `SetProviderAsync` whose `InitializeAsync` completes before the registration task so the features provider is ready-gated like every other boot owner; a flag-set or override reload re-folds the registry and replays `InMemoryProvider.UpdateFlagsAsync(flags)` over the handle `Register` returned, so a targeting-rule edit or a kill-switch flip lands live on the next evaluation without a second provider, fanning one `ProviderEventTypes.ProviderConfigurationChanged` whose registered handler reads `ProviderEventPayload.FlagsChanged` onto the `SpineLog.FlagsChanged` stride — the fan is an observation because a handler is registered for it, and the `ProviderReady`/`ProviderError` handlers beside it seat the boot-readiness event and the `FeatureFault.ProviderNotReady` case the payload's own `ErrorType` classifies.
 - Auto: a flag-set compile logs one `SpineLog` event inside the `FaultBand.SpineEvents` stride carrying the flag count and the domain; a live `UpdateFlagsAsync` rides the same event stream carrying the changed-flag keys.
 - Packages: OpenFeature, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
@@ -99,8 +99,8 @@ public sealed class FlagRegistry {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FlagCompilation {
-    public static IO<Fin<InMemoryProvider>> Compile(FlagRegistry registry, OperatorOverride forcing) =>
-        IO.lift(() => Forced(registry, forcing).Map(flags => new InMemoryProvider(flags)));
+    public static IO<InMemoryProvider> Compile(FlagRegistry registry, OperatorOverride forcing) =>
+        IO.lift(Forced(registry, forcing).Map(flags => new InMemoryProvider(flags)));
 
     static Fin<Dictionary<string, OpenFeature.Providers.Memory.Flag>> Forced(FlagRegistry registry, OperatorOverride forcing) =>
         forcing.Switch(
@@ -108,7 +108,7 @@ public static class FlagCompilation {
                 forceLevel: static (_, _) => Validation<Error, Unit>.Success(unit),
                 forceFlagsOff: static (held, row) => toSeq(row.Flags)
                     .Traverse(key => held.Resolve(FlagKey.Create(key))
-                        .ToValidation<Error, FlagDefinition>(new KernelFault.InvalidValue(Label: key, Requirement: "<a declared flag row>")))
+                        .ToValidation<Error>(new KernelFault.InvalidValue(Label: key, Requirement: "<a declared flag row>")))
                     .As()
                     .Map(static _ => unit),
                 release: static (_, _) => Validation<Error, Unit>.Success(unit))
@@ -125,9 +125,8 @@ public static class FlagCompilation {
             contextEvaluator: ctx => (string)Bucketing.Assign(flag, ctx),
             disabled: flag.Disabled), map).Item2;
 
-    public static IO<Fin<InMemoryProvider>> Register(FeaturesRuntime runtime, FlagRegistry registry, OperatorOverride forcing, string domain) =>
-        Compile(registry, forcing).Bind(compiled => compiled.Match(
-            Succ: provider => IO.liftAsync(async () => {
+    public static IO<InMemoryProvider> Register(FeaturesRuntime runtime, FlagRegistry registry, OperatorOverride forcing, string domain) =>
+        Compile(registry, forcing).Bind(provider => IO.liftAsync(async () => {
                 Api.Instance.AddHooks(new SpineHook(runtime));
                 Api.Instance.SetContext(EvaluationContext.Builder()
                     .Set("tenant", TenantContext.Current.Slug)
@@ -140,17 +139,14 @@ public static class FlagCompilation {
                 Api.Instance.AddHandler(ProviderEventTypes.ProviderError, payload =>
                     ignore(runtime.Fault(Features.Classify(payload?.ErrorType ?? ErrorType.ProviderNotReady, payload?.Message))));
                 await Api.Instance.SetProviderAsync(domain, provider);
-                return Fin.Succ(provider);
-            }),
-            Fail: error => IO.pure(Fin.Fail<InMemoryProvider>(error))));
+                return provider;
+            }));
 
-    public static IO<Fin<Unit>> Reload(InMemoryProvider provider, FlagRegistry registry, OperatorOverride forcing) =>
-        IO.lift(() => Forced(registry, forcing)).Bind(flags => flags.Match(
-            Succ: compiled => IO.liftAsync(async () => {
-                await provider.UpdateFlagsAsync(compiled);
-                return Fin.Succ(unit);
-            }),
-            Fail: error => IO.pure(Fin.Fail<Unit>(error))));
+    public static IO<Unit> Reload(InMemoryProvider provider, FlagRegistry registry, OperatorOverride forcing) =>
+        IO.lift(Forced(registry, forcing)).Bind(compiled => IO.liftAsync(async () => {
+            await provider.UpdateFlagsAsync(compiled);
+            return unit;
+        }));
 }
 ```
 
@@ -181,13 +177,11 @@ public static class Bucketing {
                 .Map(static rule => rule.Seats)
                 .IfNone(flag.Default);
 
-    static bool Matches(FlagDefinition flag, TargetingRule rule, EvaluationContext context) => rule switch {
-        TargetingRule.All => true,
-        TargetingRule.TenantIn r => r.Slugs.Contains(Slug(context)),
-        TargetingRule.AttributeEquals r => context.TryGetValue(r.Key, out var value) && value.AsString == r.Expected,
-        TargetingRule.SegmentBand r => r.Upper.Holds(BucketOf(flag.Key, context.TargetingKey ?? Slug(context))),
-        _ => false,
-    };
+    static bool Matches(FlagDefinition flag, TargetingRule rule, EvaluationContext context) => rule.Switch(
+        all: static _ => true,
+        tenantIn: r => r.Slugs.Contains(Slug(context)),
+        attributeEquals: r => context.TryGetValue(r.Key, out var value) && value.AsString == r.Expected,
+        segmentBand: r => r.Upper.Holds(BucketOf(flag.Key, context.TargetingKey ?? Slug(context))));
 
     static string Slug(EvaluationContext context) =>
         context.TryGetValue("tenant", out var value) && value.AsString is { } slug ? slug : TenantContext.Root.Slug;
@@ -233,7 +227,7 @@ public abstract partial record FeatureFault : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Features {
     public static EvaluationContext Context(FlagSubject subject) =>
-        subject.Attributes.Fold(
+        subject.Attributes.AsIterable().Fold(
             EvaluationContext.Builder().SetTargetingKey(subject.Identity).Set("tenant", subject.Tenant.Slug),
             static (builder, attr) => builder.Set(attr.Key, attr.Value)).Build();
 

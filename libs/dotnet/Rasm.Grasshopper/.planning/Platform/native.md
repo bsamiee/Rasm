@@ -233,10 +233,10 @@ public sealed record NativeMonitor(NSObject Token, MonitorPlan Plan) {
 }
 
 public sealed record GestureBinding(NSView View, GestureKind Kind, NSGestureRecognizer Recognizer, GesturePlan Plan) {
-    internal void Receive(Op key) => key.Catch(body: () => Fin.Succ(Op.Side(action: () => Plan.Publish(obj: new GestureInput(
+    internal void Receive(Op key) => key.Catch(() => Plan.Publish(obj: new GestureInput(
         Kind: Kind,
         State: Recognizer.State,
-        Location: Recognizer.LocationInView(view: View)))))).IfFail(error => NativeMonitor.Park(cell: Plan.Faults, error: error));
+        Location: Recognizer.LocationInView(view: View)))).IfFail(error => NativeMonitor.Park(cell: Plan.Faults, error: error));
 }
 
 public sealed record PressureBinding(NSView View, Option<NSPressureConfiguration> Prior, NSPressureConfiguration Configuration);
@@ -246,8 +246,8 @@ public sealed record WorkspaceWatch(MacAnchor Anchor, Action<WorkspaceFact> Publ
         from concessions in NativeLayer.ReadConcessions(key: Operation)
         from bounds in NativeLayer.ReadPace(anchor: Anchor, key: Operation)
         from appearance in Operation.Catch(body: () => Fin.Succ(AppearanceRow.Of(dark: Anchor.View.HasDarkTheme())))
-        from emitted in Operation.Catch(body: () => Fin.Succ(Op.Side(action: () =>
-            Publish(obj: new WorkspaceFact(Concessions: concessions, Pace: bounds, Appearance: appearance)))))
+        from emitted in Operation.Catch(() =>
+            Publish(obj: new WorkspaceFact(Concessions: concessions, Pace: bounds, Appearance: appearance)))
         select emitted;
 
     internal void RefreshDeferred() => Operation.Catch(body: Refresh)
@@ -261,7 +261,7 @@ public sealed class NativeHold<T> : IDisposable {
         Value = value;
         release = new Lazy<Unit>(() => UiThread.Run(new UiDispatch<Unit>.Blocking(() => key.Catch(inverse)),
                 DispatchLane.Interactive, key)
-            .Match(Succ: static _ => unit, Fail: error => NativeMonitor.Park(cell: faults, error: error)),
+            .IfFail(error => NativeMonitor.Park(cell: faults, error: error)),
             LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -317,11 +317,11 @@ public static class NativeLayer {
                     () => { NSEvent.RemoveMonitor(eventMonitor: active); return Fin.Succ(unit); },
                     () => { active.Dispose(); return Fin.Succ(unit); }), op))));
             },
-            unwind: () => Optional(token).Match(
-                Some: active => Custody.Release(Seq<Func<Fin<Unit>>>(
+            unwind: () => token is { } active
+                ? Custody.Release(Seq<Func<Fin<Unit>>>(
                     () => { NSEvent.RemoveMonitor(eventMonitor: active); return Fin.Succ(unit); },
-                    () => { active.Dispose(); return Fin.Succ(unit); }), op),
-                None: static () => Fin.Succ(unit))));
+                    () => { active.Dispose(); return Fin.Succ(unit); }), op)
+                : Fin.Succ(unit)));
     }
 
     public static Fin<Lease<NativeHold<GestureBinding>>> Gesture(MacAnchor anchor, GesturePlan plan, Op? key = null) {
@@ -344,11 +344,11 @@ public static class NativeLayer {
                             () => { active.View.RemoveGestureRecognizer(gestureRecognizer: minted); return Fin.Succ(unit); },
                             () => { minted.Dispose(); return Fin.Succ(unit); }), op))));
                     },
-                    unwind: () => Optional(recognizer).Match(
-                        Some: minted => Custody.Release(Seq<Func<Fin<Unit>>>(
+                    unwind: () => recognizer is { } minted
+                        ? Custody.Release(Seq<Func<Fin<Unit>>>(
                             () => { Op.SideWhen(condition: attached, action: () => active.View.RemoveGestureRecognizer(gestureRecognizer: minted)); return Fin.Succ(unit); },
-                            () => { minted.Dispose(); return Fin.Succ(unit); }), op),
-                        None: static () => Fin.Succ(unit)))
+                            () => { minted.Dispose(); return Fin.Succ(unit); }), op)
+                        : Fin.Succ(unit))
                 select lease);
     }
 
@@ -367,18 +367,16 @@ public static class NativeLayer {
                 PressureBinding binding = new(View: active.View, Prior: prior, Configuration: minted);
                 return Fin.Succ((Value: binding, Release: (Func<Fin<Unit>>)(() => Custody.Release(Seq<Func<Fin<Unit>>>(
                     () => guard(ReferenceEquals(active.View.PressureConfiguration, minted), op.InvalidContext()).ToFin()
-                        .Map(_ => Op.Side(() => active.View.PressureConfiguration = prior.Match<NSPressureConfiguration>(
-                            Some: static held => held, None: static () => null!))),
+                        .Map(_ => Op.Side(() => active.View.PressureConfiguration = Op.ToHostSlot(prior)!)),
                     () => { minted.Dispose(); return Fin.Succ(unit); }), op))));
             },
-            unwind: () => Optional(configuration).Match(
-                Some: minted => Custody.Release(Seq<Func<Fin<Unit>>>(
+            unwind: () => configuration is { } minted
+                ? Custody.Release(Seq<Func<Fin<Unit>>>(
                     () => ReferenceEquals(active.View.PressureConfiguration, minted)
-                        ? op.Catch(() => Fin.Succ(Op.Side(() => active.View.PressureConfiguration =
-                            prior.Match<NSPressureConfiguration>(Some: static held => held, None: static () => null!))))
+                        ? op.Catch(() => active.View.PressureConfiguration = Op.ToHostSlot(prior)!)
                         : Fin.Succ(unit),
-                    () => { minted.Dispose(); return Fin.Succ(unit); }), op),
-                None: static () => Fin.Succ(unit))));
+                    () => { minted.Dispose(); return Fin.Succ(unit); }), op)
+                : Fin.Succ(unit)));
     }
 
     public static Fin<CGPoint> Convert(MacAnchor anchor, CGPoint point, Option<NSView> source, Op? key = null) {
@@ -387,7 +385,7 @@ public static class NativeLayer {
                from view in op.Need(anchor).Map(static active => active.View)
                from projected in UiThread.Run(new UiDispatch<CGPoint>.Blocking(() => op.Catch(body: () => Fin.Succ(view.ConvertPointFromView(
                    point: point,
-                   view: source.Match<NSView>(Some: static origin => origin, None: static () => null!))))), DispatchLane.Interactive, op)
+                   view: Op.ToHostSlot(source)!)))), DispatchLane.Interactive, op)
                select projected;
     }
 

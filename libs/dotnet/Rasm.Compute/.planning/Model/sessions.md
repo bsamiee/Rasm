@@ -72,29 +72,26 @@ public sealed record SessionPolicy(
     public bool Holds(SessionTrait trait) => Posture.Admits(trait);
 
     public Fin<Unit> Conforms() =>
-        Seq(
-         Guarded(ResidentSessions > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(ResidentSessions, 1L))),
-         Guarded(WarmBuckets > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(WarmBuckets, 1L))),
-         Guarded(IdleUnload > Duration.Zero, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.DurationValue(IdleUnload))),
-         Guarded(WarmupSweep > Duration.Zero, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.DurationValue(WarmupSweep))),
-         Guarded(FreeDims.ForAll(static dim => dim.Dim.Length > 0 && dim.Value > 0),
+        AdmissionSlots.Accumulate(Seq(
+         Refusal.Unless(ResidentSessions > 0, ComputeArea.Model, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(ResidentSessions, 1L))),
+         Refusal.Unless(WarmBuckets > 0, ComputeArea.Model, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(WarmBuckets, 1L))),
+         Refusal.Unless(IdleUnload > Duration.Zero, ComputeArea.Model, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.DurationValue(IdleUnload))),
+         Refusal.Unless(WarmupSweep > Duration.Zero, ComputeArea.Model, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.DurationValue(WarmupSweep))),
+         Refusal.Unless(FreeDims.ForAll(static dim => dim.Dim.Length > 0 && dim.Value > 0), ComputeArea.Model,
              new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())),
-         Guarded(FreeDims.Map(static dim => dim.Dim).ToFrozenSet(StringComparer.Ordinal).Count == FreeDims.Count,
+         Refusal.Unless(FreeDims.Map(static dim => dim.Dim).ToFrozenSet(StringComparer.Ordinal).Count == FreeDims.Count, ComputeArea.Model,
              new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(
                  FreeDims.Map(static dim => dim.Dim).ToFrozenSet(StringComparer.Ordinal).Count, FreeDims.Count))),
-         Guarded(Initializers.ForAll(static slot => slot.Name.Length > 0 && slot.ContentKey != UInt128.Zero),
+         Refusal.Unless(Initializers.ForAll(static slot => slot.Name.Length > 0 && slot.ContentKey != UInt128.Zero), ComputeArea.Model,
              new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.None())),
-         Guarded(Initializers.Map(static slot => slot.Name).ToFrozenSet(StringComparer.Ordinal).Count == Initializers.Count,
+         Refusal.Unless(Initializers.Map(static slot => slot.Name).ToFrozenSet(StringComparer.Ordinal).Count == Initializers.Count, ComputeArea.Model,
              new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(
                  Initializers.Map(static slot => slot.Name).ToFrozenSet(StringComparer.Ordinal).Count, Initializers.Count))),
-         Guarded(CustomOpLibraries.Map(static library => library.Identity).ToFrozenSet(StringComparer.Ordinal).Count == CustomOpLibraries.Count,
+         Refusal.Unless(CustomOpLibraries.Map(static library => library.Identity).ToFrozenSet(StringComparer.Ordinal).Count == CustomOpLibraries.Count, ComputeArea.Model,
              new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(
                  CustomOpLibraries.Map(static library => library.Identity).ToFrozenSet(StringComparer.Ordinal).Count, CustomOpLibraries.Count))),
-         SessionTrait.Law.Admit(Posture).ToValidation().Map(static _ => unit))
-        .Traverse(static claim => claim).As().ToFin();
-
-    static Validation<Error, Unit> Guarded(bool held, ComputeViolation evidence) =>
-        guard(held, (Error)new ComputeFault.Violation(ComputeArea.Model, evidence));
+         SessionTrait.Law.Admit(Posture).ToValidation().Map(static _ => unit)))
+        .ToFin();
 
     public ulong Fingerprint(ExecutionProvider ep) => ContentHash.Half(
         ContentHash.Of((Policy: this, Ep: ep), static (state, writer) => writer
@@ -231,7 +228,7 @@ public sealed class ResidentPool<TKey, THandle>
     public int Count => residents.Count;
 
     public Seq<(TKey Key, THandle Held)> Seated() =>
-        residents.ToSeq().Map(static pair => (Key: pair.Key, Held: pair.Value.Held));
+        residents.AsIterable().Map(static pair => (Key: pair.Key, Held: pair.Value.Held));
 
     public Fin<Lease> Hold(TKey key, Option<int> cap, Func<Fin<THandle>> build, IClock clock, CancelScope scope) =>
         Acquire(key, clock).Match(
@@ -270,7 +267,7 @@ public sealed class ResidentPool<TKey, THandle>
             None: () => Fin.Succ(unit));
 
     Seq<(TKey Key, THandle Held)> Evict(int take, Func<Row, bool> admits) =>
-        toSeq(residents.ToSeq()
+        toSeq(residents.AsIterable()
                 .Filter(pair => pair.Value.Leases is 0 && admits(pair.Value))
                 .OrderBy(static pair => pair.Value.LastUsed)
                 .Take(take))
@@ -476,9 +473,7 @@ public static class ModelSessions {
 
     public static DrainParticipantPort DrainRow() =>
         new("compute-model-sessions", DrainBand.Compute, Rank: 10, _ =>
-            IO.lift(Drain).Bind(static drained => drained.Match(
-                Succ: static _ => IO.pure(unit),
-                Fail: IO.fail<Unit>)));
+            IO.lift(Drain).Map(static _ => unit));
 
     public static ScheduleEntry SweepRow(SessionPolicy policy, IClock clock, Func<IO<Unit>> warm) =>
         new("compute-model-warmup", new OccurrenceSpec.Every(policy.WarmupSweep), DeadlineClass.Startup, Option<LeasePolicy>.None,

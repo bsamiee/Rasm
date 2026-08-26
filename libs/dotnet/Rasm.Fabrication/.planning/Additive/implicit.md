@@ -1126,9 +1126,7 @@ public static partial class Sdf {
         steps.Fold(Fin.Succ(voxels), (result, step) => result.Bind(held => step.Apply(held, policy)));
 
     private static Fin<Option<T>> Acquire<T>(Option<Func<Fin<T>>> source) where T : class, IDisposable =>
-        Op.Of(name: "implicit-driver").Catch(() => source.Match(
-                None: static () => Fin.Succ(Option<T>.None),
-                Some: static factory => factory().Map(Some)));
+        Op.Of(name: "implicit-driver").Catch(() => source.TraverseM(static factory => factory()).As());
 
     private static VoxelMetrics Measure(Rasterized raster, ContentKey field) {
         raster.Voxels.CalculateProperties(out float cubicMillimeters, out BBox3 properties);

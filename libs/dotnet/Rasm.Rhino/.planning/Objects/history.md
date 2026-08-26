@@ -515,9 +515,9 @@ public abstract partial record ReplayRoster {
     internal Fin<Seq<int>> Staging(int existing, Op op) =>
         guard(existing >= 0, op.InvalidInput()).ToFin().Bind(_ => Switch(
             (Existing: existing, Op: op),
-            preserve: static (context, _) => Fin.Succ(Range(count: context.Existing)),
+            preserve: static (context, _) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: context.Existing))),
             append: static (context, value) => context.Op.Catch(() =>
-                Fin.Succ(Range(count: checked(context.Existing + value.Count)))),
+                Fin.Succ(toSeq(Enumerable.Range(start: 0, count: checked(context.Existing + value.Count))))),
             retain: static (context, value) => guard(
                 value.Indices.ForAll(index => index < context.Existing),
                 context.Op.MissingContext()).ToFin().Map(_ => value.Indices)));
@@ -527,7 +527,7 @@ public abstract partial record ReplayRoster {
         Fin<Unit> mutation = Switch(
             (Data: data, Op: op),
             preserve: static (_, _) => Fin.Succ(unit),
-            append: static (context, value) => Enumerable.Range(0, value.Count).AsIterable().ToSeq()
+            append: static (context, value) => toSeq(Enumerable.Range(start: 0, count: value.Count))
                 .TraverseM(_ => context.Op.Catch(() => Optional(context.Data.AppendHistoryResult())
                     .ToFin(Fail: context.Op.InvalidResult()).Map(static _ => unit))).As()
                 .Map(static _ => unit),
@@ -541,16 +541,11 @@ public abstract partial record ReplayRoster {
                         return unit;
                     });
             }));
-        return mutation.BindFail(primary => op.Catch(() => {
+        return mutation.Rollback(release: () => {
             data.UpdateResultArray(newResults: prior);
             return Fin.Succ(value: unit);
-        }).Match(
-            Succ: _ => Fin.Fail<Unit>(error: primary),
-            Fail: cleanup => Fin.Fail<Unit>(error: primary + cleanup)));
+        }, key: op);
     });
-
-    private static Seq<int> Range(int count) =>
-        Enumerable.Range(start: 0, count: count).AsIterable().ToSeq();
 }
 
 public readonly ref struct ReplayFrame {
@@ -599,9 +594,8 @@ public sealed class ReplayProgram {
     }
 
     public Fin<ReplayHook> Hook =>
-        ReplayHook.Validate(Delegate, out ReplayHook? admitted) is null && admitted is not null
-            ? Fin.Succ(value: admitted)
-            : Fin.Fail<ReplayHook>(error: Op.Of(name: nameof(ReplayProgram)).InvalidInput());
+        Op.Of(name: nameof(ReplayProgram)).AcceptValidated<ReplayHook>(
+            ReplayHook.Validate(Delegate, out ReplayHook? admitted), admitted);
 
     internal Func<ReplayHistoryData, bool> Delegate => data => {
         Op op = Op.Of(name: nameof(ReplayProgram));
@@ -782,15 +776,9 @@ public sealed partial class HistoryConduct {
     });
 
     internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body, Op op) =>
-        Read(op).Bind(prior => Write(value: signal, op: op).Bind(_ => {
-            Fin<T> primary = op.Catch(body);
-            Fin<Unit> cleanup = Write(value: prior, op: op);
-            return cleanup.Match(
-                Succ: _ => primary,
-                Fail: restore => primary.Match(
-                    Succ: _ => Fin.Fail<T>(error: restore),
-                    Fail: fault => Fin.Fail<T>(error: fault + restore)));
-        }));
+        Read(op).Bind(prior => Write(value: signal, op: op)
+            .Bind(_ => op.Catch(body)
+                .Settled(release: () => Write(value: prior, op: op), key: op)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

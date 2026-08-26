@@ -382,7 +382,7 @@ public sealed class GeoModel {
         GeoServices.Wgs84
             .Bind(frame => Features.Traverse(f => f.Reproject(frame, key)).As())
             .Bind(wgs => {
-                var zooms = wgs.Bind(f => route(f).Map(static slot => slot.Zoom)).Distinct().ToSeq();
+                var zooms = wgs.Bind(f => route(f).Map(static slot => slot.Zoom)).Distinct();
                 return zooms.Traverse(zoom => Simplified(wgs, policy.ToleranceAt(zoom), key).Map(placed => (zoom, placed))).As()
                     .Map(byZoom => {
                         var lod = byZoom.ToMap();
@@ -429,12 +429,12 @@ public sealed class GeoModel {
         double reach, CancellationToken token, ProjectionContext ctx) =>
         Corridors(reference, schema, source, reach, ctx.Key).Bind(corridors =>
             Features.Map(static (f, ordinal) => (Ordinal: ordinal, Feature: f))
-                .Fold(Fin.Succ(GeoImport.Empty), (held, row) => held.Bind(import =>
+                .FoldM(GeoImport.Empty, (import, row) =>
                     token.IsCancellationRequested
                         ? Fin.Fail<GeoImport>(Errors.Cancelled)
                         : Fin.Succ(row.Feature.ToObject(reference, schema, source, ctx, corridors).Match(
                             Succ: import.Accept,
-                            Fail: fault => import.Refuse(row.Ordinal, fault))))));
+                            Fail: fault => import.Refuse(row.Ordinal, fault)))).As());
 }
 ```
 

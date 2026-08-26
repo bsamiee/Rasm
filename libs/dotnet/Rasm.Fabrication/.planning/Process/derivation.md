@@ -106,7 +106,7 @@ public sealed partial class LotPolicy {
         ref Duration transferBuffer,
         ref Arr<UInt128> predecessors) {
         if (quantity < 1 || batchSize < 1 || batchSize > quantity || due < release
-            || transferBuffer < Duration.Zero || predecessors.Distinct().Count != predecessors.Count
+            || transferBuffer < Duration.Zero || toSeq(predecessors).Distinct().Count != predecessors.Count
             || predecessors.Contains(UInt128.Zero))
             validationError = new ValidationError("derive:lot");
     }
@@ -154,10 +154,9 @@ public sealed partial class LotSchedule {
     public Duration Queue => Lead - Chain;
     public Duration Slack => Work - Chain;
 
-    public Seq<(MachineInstanceKey Instance, Duration Held)> Contention => Reservations
-        .GroupBy(static row => row.Instance)
-        .Map(static group => (group.Key, group.Fold(Duration.Zero, static (held, row) => held + row.Held)))
-        .ToSeq();
+    public Seq<(MachineInstanceKey Instance, Duration Held)> Contention => toSeq(Reservations
+        .GroupBy(static row => row.Instance))
+        .Map(static group => (group.Key, toSeq(group).Fold(Duration.Zero, static (held, row) => held + row.Held)));
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -386,9 +385,9 @@ public abstract partial record DerivePolicy(LotPolicy Lot, DfmRequest Dfm) {
                 .ToSeq()
             + Pairing(row.PreferProcess, row.PreferMachine).ToSeq());
 
-    private static Option<int> Duplicate(Seq<OperationDemand> operations) => operations
+    private static Option<int> Duplicate(Seq<OperationDemand> operations) => toSeq(operations
         .Map(static demand => demand.Id)
-        .GroupBy(static id => id)
+        .GroupBy(static id => id))
         .Filter(static group => group.Count() > 1)
         .Map(static group => group.Key)
         .Head;
@@ -570,11 +569,10 @@ public static class Derivation {
             .Map(predecessor => new SEdge<int>(predecessor, demand.Id))));
         if (!graph.IsDirectedAcyclicGraph()) {
             _ = graph.StronglyConnectedComponents(out IDictionary<int, int> components);
-            Seq<int> cycle = toSeq(components)
-                .GroupBy(static row => row.Value)
+            Seq<int> cycle = toSeq(toSeq(components)
+                .GroupBy(static row => row.Value))
                 .Filter(static group => group.Count() > 1)
-                .Bind(static group => group.Map(static row => row.Key))
-                .ToSeq();
+                .Bind(static group => toSeq(group).Map(static row => row.Key));
             return Fin.Fail<OperationTopology>(Reject(
                 new DeriveWitness.OperationCycle(cycle.ToArr()), DerivationStage.Operations));
         }
@@ -692,13 +690,12 @@ public static class Derivation {
             topology.Ordered.Filter(demand => forward.OutDegree(demand.Id) == 0).Map(static demand => demand.Id));
 
         return topology.Ordered
-            .Map(demand =>
+            .Traverse(demand =>
                 from start in early.Find(demand.Id).ToFin(Derivation.Reject(
                     new DeriveWitness.LotUnschedulable(demand.Id, lot.Release, demand.DurationFor(lot))))
                 from slack in tail.Find(demand.Id).ToFin(Derivation.Reject(
                     new DeriveWitness.LotUnschedulable(demand.Id, lot.Release, demand.DurationFor(lot))))
                 select (Demand: demand, Early: start, Tail: slack))
-            .Traverse(identity)
             .As()
             .Map(rows => {
                 double span = rows.Fold(0.0, (longest, row) =>
@@ -749,21 +746,20 @@ public static class Derivation {
     private static Fin<Option<SetupSchedule>> SetupsOf(Option<SetupPlan> policy, OperationTopology topology) =>
         topology.IsEmpty
             ? Fin.Succ(Option<SetupSchedule>.None)
-            : policy.Match(
-                Some: plan => SetupSchedule.Apply(new SetupOp.Schedule(plan))
+            : policy.TraverseM(plan => SetupSchedule.Apply(new SetupOp.Schedule(plan))
                     .Bind(result => result is SetupResult.Scheduled(var schedule)
                         ? Covers(schedule, topology)
-                            ? Fin.Succ(Some(schedule))
-                            : Fin.Fail<Option<SetupSchedule>>(Reject(new DeriveWitness.SetupCoverage(
+                            ? Fin.Succ(schedule)
+                            : Fin.Fail<SetupSchedule>(Reject(new DeriveWitness.SetupCoverage(
                                 schedule.Setups.Bind(static setup => setup.Operations).Count, topology.Count),
                                 DerivationStage.Setup))
-                        : Fin.Fail<Option<SetupSchedule>>(Reject(
-                            new DeriveWitness.SetupCoverage(0, topology.Count), DerivationStage.Setup))),
-                None: () => Fin.Succ(Option<SetupSchedule>.None));
+                        : Fin.Fail<SetupSchedule>(Reject(
+                            new DeriveWitness.SetupCoverage(0, topology.Count), DerivationStage.Setup))))
+                .As();
 
     private static bool Covers(SetupSchedule schedule, OperationTopology topology) {
         Arr<int> assigned = schedule.Setups.Bind(static setup => setup.Operations).ToArr();
-        return assigned.Count == topology.Count && assigned.Distinct().Count == assigned.Count
+        return assigned.Count == topology.Count && toSeq(assigned).Distinct().Count == assigned.Count
             && assigned.ForAll(topology.ById.ContainsKey);
     }
 
@@ -844,11 +840,10 @@ public static class Derivation {
             .Bind(step => toSeq(step.Operations)
                 .Bind(id => topology.ById.Find(id).Map(demand => demand.Predecessors).IfNone(Arr<int>()).ToSeq())
                 .Map(predecessor => (Step: step.Order, Predecessor: predecessor)))
-            .Map(row => AdmissionSlots.Gate(
+            .Traverse(row => AdmissionSlots.Gate(
                 stepOf.Find(row.Predecessor).ForAll(producer => producer <= row.Step),
                 new FabricationFault.RoutingInfeasible(
                     component.RepresentationKey, new FaultSubject.Stage(DerivationStage.Operations.Key))))
-            .Traverse(identity)
             .As()
             .ToFin()
             .Map(static _ => unit);

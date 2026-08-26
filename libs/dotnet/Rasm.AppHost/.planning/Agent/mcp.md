@@ -209,7 +209,7 @@ public sealed class CommandAIFunction(McpRuntime runtime, McpTool tool) : AIFunc
                     None: () => new CommandArguments((JsonElement)arguments["payload"]!, TenantContext.Current, Correlation.Mint())))
                 .RunAsync(EnvIO.New(token: cancellationToken));
         }
-        catch (ErrorException raised) when (raised.ToError().Exception.Case is InputRequiredException suspension) {
+        catch (ErrorException raised) when (raised.ToError().Exception is { IsSome: true, Case: InputRequiredException suspension }) {
             throw suspension;
         }
     }

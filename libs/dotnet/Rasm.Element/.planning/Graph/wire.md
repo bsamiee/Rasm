@@ -33,7 +33,6 @@ The corpus owns every field number. The only envelope bracket this projection mu
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
 using System.Globalization;
-using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
@@ -73,8 +72,8 @@ public sealed partial class CrossingFamily {
 public static partial class BoundaryConverters {
  // --- [KEY_CODECS]
  [UserMapping] public static ByteString ToWire(NodeId id) =>
-  ContentHash.Wire(UInt128.Parse(id.Value, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
- [UserMapping] public static string ToWire(MaterialId id) => id.Value;
+  ContentHash.Wire(UInt128.Parse(id.ToValue(), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
+ [UserMapping] public static string ToWire(MaterialId id) => id.ToValue();
  [UserMapping] public static ByteString ToWire(UInt128 key) => ContentHash.Wire(key);
 
  public static Fin<UInt128> ToKey(ByteString wire, Op key) => ContentHash.Admit(wire.Span, key);
@@ -91,7 +90,7 @@ public static partial class BoundaryConverters {
  [UserMapping] public static MeasureValueWire ToWire(MeasureValue m) {
   MeasureValueWire w = new() {
    Dimension = new DimensionWire {
-    QuantityType = m.Type.Value,
+    QuantityType = m.Type.ToValue(),
     Length = m.Dimension.Length, Mass = m.Dimension.Mass, Time = m.Dimension.Time,
     Current = m.Dimension.Current, Temperature = m.Dimension.Temperature,
     Amount = m.Dimension.Amount, LuminousIntensity = m.Dimension.LuminousIntensity,
@@ -129,17 +128,12 @@ public static partial class BoundaryConverters {
   band.StandardDeviationSi.IfSome(sd => w.StandardDeviationSi = sd); band.CoverageFactor.IfSome(k => w.CoverageFactor = k); return w;
  }
 
- static Rasm.Contracts.Element.UncertaintyKind ToWire(UncertaintyKind value) => value == UncertaintyKind.Exact
-  ? Rasm.Contracts.Element.UncertaintyKind.Exact
-  : value == UncertaintyKind.Absolute
-   ? Rasm.Contracts.Element.UncertaintyKind.Absolute
-   : value == UncertaintyKind.Relative
-    ? Rasm.Contracts.Element.UncertaintyKind.Relative
-    : value == UncertaintyKind.Interval
-     ? Rasm.Contracts.Element.UncertaintyKind.Interval
-     : value == UncertaintyKind.Normal
-      ? Rasm.Contracts.Element.UncertaintyKind.Normal
-      : throw new UnreachableException();
+ static Rasm.Contracts.Element.UncertaintyKind ToWire(UncertaintyKind value) => value.Switch(
+  exact: static () => Rasm.Contracts.Element.UncertaintyKind.Exact,
+  absolute: static () => Rasm.Contracts.Element.UncertaintyKind.Absolute,
+  relative: static () => Rasm.Contracts.Element.UncertaintyKind.Relative,
+  interval: static () => Rasm.Contracts.Element.UncertaintyKind.Interval,
+  normal: static () => Rasm.Contracts.Element.UncertaintyKind.Normal);
 
  public static Fin<MeasureBand> ToMeasureBand(MeasureBandWire? w, Op key) =>
   w is null
@@ -251,7 +245,7 @@ internal static partial class WireCodec {
  static Fin<Map<PropertyName, T>> Named<T>(Seq<(PropertyName Name, T Value)> pairs, Op key) =>
   pairs.Fold(Fin.Succ(Map<PropertyName, T>()), (acc, pair) => acc.Bind(m => m.ContainsKey(pair.Name)
    ? new KernelFault.InvalidValue(
-      "element-wire.property-name", $"remain unique after ordinal-ignore-case admission; duplicate {pair.Name.Value}", Some(key))
+      "element-wire.property-name", $"remain unique after ordinal-ignore-case admission; duplicate {pair.Name.ToValue()}", Some(key))
    : Fin.Succ(m.Add(pair.Name, pair.Value))));
 
 }

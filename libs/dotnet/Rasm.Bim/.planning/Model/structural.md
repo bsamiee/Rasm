@@ -22,7 +22,6 @@ An idealized analytical line is no payload this reader produces: it content-keys
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System;
-using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using GeometryGym.Ifc;
@@ -118,9 +117,6 @@ internal sealed partial class LoadFamily {
 
     private static readonly Seq<(PropertyName, Option<string>, double)> Empty = Seq<(PropertyName, Option<string>, double)>();
 
-    private static readonly FrozenDictionary<string, LoadFamily> ByEntity =
-        Items.ToFrozenDictionary(static row => row.Key, static row => row, StringComparer.Ordinal);
-
     public string Kind { get; }
 
     [UseDelegateFromConstructor]
@@ -129,7 +125,7 @@ internal sealed partial class LoadFamily {
     internal static Option<LoadFamily> Of(IfcStructuralLoad load) => Token(load.GetType().Name);
 
     internal static Option<LoadFamily> Token(string key) =>
-        ByEntity.TryGetValue(key, out LoadFamily? row) && row is { } hit ? Some(hit) : None;
+        TryGet(key, out LoadFamily? row) && row is { } hit ? Some(hit) : None;
 
     private static Option<string> Named<TMeasure>() where TMeasure : IfcValue => Some(typeof(TMeasure).Name);
 
@@ -160,7 +156,7 @@ public static class StructuralProjection {
     private static readonly Map<string, PropertyName> SelfWeight = StructuralRows.Family("SelfWeight");
     private static readonly Map<string, PropertyName> LocalAxis = StructuralRows.Family("LocalAxis");
 
-    private static readonly Seq<string> LoadKinds = LoadFamily.Items.Map(static row => row.Key).ToSeq();
+    private static readonly Seq<string> LoadKinds = toSeq(LoadFamily.Items).Map(static row => row.Key);
     private static readonly Seq<string> LoadGroupKinds = toSeq(Enum.GetNames<IfcLoadGroupTypeEnum>());
     private static readonly Seq<string> TheoryKinds = toSeq(Enum.GetNames<IfcAnalysisTheoryTypeEnum>());
     private static readonly Seq<string> ModelKinds = toSeq(Enum.GetNames<IfcAnalysisModelTypeEnum>());
@@ -265,21 +261,21 @@ public static class StructuralProjection {
         && Seq(axis.DirectionRatioX, axis.DirectionRatioY, axis.DirectionRatioZ,
                reference.DirectionRatioX, reference.DirectionRatioY, reference.DirectionRatioZ) is var ratios
         && ratios.ForAll(double.IsFinite)
-            ? Accumulated(ratios.Traverse(ratio => (PropertyValue.Of(new PropertyValue.Number(ratio), key)).ToValidation()).As())
+            ? ratios.Traverse(ratio => (PropertyValue.Of(new PropertyValue.Number(ratio), key)).ToValidation()).As().ToFin()
                 .Map(values => Map((StructuralRows.Frame, (PropertyValue)new PropertyValue.List(values))))
             : Fin.Succ(Map<PropertyName, PropertyValue>());
 
     private static Fin<Map<PropertyName, PropertyValue>> SixDof(
         (object? X, object? Y, object? Z) translation, (object? X, object? Y, object? Z) rotation,
         Option<string> translationMeasure, Option<string> rotationMeasure, RestraintFamily family, UnitScheme scale, Op key) =>
-        Accumulated(Seq(
+        Seq(
             (family.Translation["X"], translation.X, translationMeasure),
             (family.Translation["Y"], translation.Y, translationMeasure),
             (family.Translation["Z"], translation.Z, translationMeasure),
             (family.Rotation["X"],    rotation.X,    rotationMeasure),
             (family.Rotation["Y"],    rotation.Y,    rotationMeasure),
             (family.Rotation["Z"],    rotation.Z,    rotationMeasure))
-            .Traverse(degree => (Verdict(degree.Item1, Dof(degree.Item2), degree.Item3, scale, key)).ToValidation()).As())
+            .Traverse(degree => (Verdict(degree.Item1, Dof(degree.Item2), degree.Item3, scale, key)).ToValidation()).As().ToFin()
         .Map(static rows => rows.Fold(Map<PropertyName, PropertyValue>(), static (map, row) => map.Add(row.Name, row.Value)));
 
     private static Fin<(PropertyName Name, PropertyValue Value)> Verdict(
@@ -330,9 +326,9 @@ public static class StructuralProjection {
 
     internal static Fin<Map<PropertyName, PropertyValue>> Measures(
         Seq<(PropertyName Name, Option<string> Measure, double Native)> rows, UnitScheme scale, Op key) =>
-        Accumulated(rows.Filter(static row => double.IsFinite(row.Native))
+        rows.Filter(static row => double.IsFinite(row.Native))
             .Traverse(row => (Admit(row.Measure, row.Native, scale, key)).ToValidation()
-                .Map(value => (Name: row.Name, Value: (PropertyValue)new PropertyValue.Measure(value)))).As())
+                .Map(value => (Name: row.Name, Value: (PropertyValue)new PropertyValue.Measure(value)))).As().ToFin()
             .Map(static admitted => admitted.Fold(
                 Map<PropertyName, PropertyValue>(),
                 static (map, row) => map.Add(row.Name, row.Value)));
@@ -341,8 +337,6 @@ public static class StructuralProjection {
         new PropertyValue.Enumerated(
             Seq<PropertyValue>(new PropertyValue.Text(selected)),
             allowed.Map(static value => (PropertyValue)new PropertyValue.Text(value)));
-
-    private static Fin<A> Accumulated<A>(Validation<Error, A> accumulated) => (accumulated).ToFin();
 
     // --- [LOAD]
 

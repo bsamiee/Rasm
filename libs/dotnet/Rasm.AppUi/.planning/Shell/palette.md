@@ -294,7 +294,7 @@ public sealed record PaletteSession(
         count > 0 ? new PaletteVerdict.Populated(count)
         : toSeq(statuses.Values).Exists(static status => status.Working) ? new PaletteVerdict.Loading()
         : toSeq(statuses).Filter(static entry => entry.Value is PaletteStatus.Refused).Map(static entry => entry.Key) switch {
-            { IsEmpty: false } broken => new PaletteVerdict.Broken(broken.ToSeq()),
+            { IsEmpty: false } broken => new PaletteVerdict.Broken(broken),
             _ => new PaletteVerdict.Empty(),
         };
 }

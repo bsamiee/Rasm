@@ -156,11 +156,14 @@ public sealed record RelayEntry(
     public string Dedup => $"{Envelope.Source}\0{Envelope.Id}";
 
     public static Fin<RelayEntry> Admit(PendingRelay pending, Op key) =>
-        from state in pending.State switch {
-            RelayState.Pending { } when pending.State.Attempt == 0 => Fin.Succ(pending.State),
-            RelayState.Deferred { Attempt: > 0 } => Fin.Succ(pending.State),
-            _ => Fin.Fail<RelayState>(key.InvalidInput(nameof(PendingRelay.State))),
-        }
+        from state in pending.State.Switch(
+            pending: state => state.Attempt == 0
+                ? Fin.Succ<RelayState>(state)
+                : Fin.Fail<RelayState>(key.InvalidInput(nameof(PendingRelay.State))),
+            deferred: state => state.Attempt > 0
+                ? Fin.Succ<RelayState>(state)
+                : Fin.Fail<RelayState>(key.InvalidInput(nameof(PendingRelay.State))),
+            deadLettered: _ => Fin.Fail<RelayState>(key.InvalidInput(nameof(PendingRelay.State))))
         from admitted in OutboxEventExtensions.Admit(pending.Envelope, key)
         let extensions = admitted.Extensions
         from sequence in extensions.HasSequence
@@ -275,9 +278,8 @@ public static class OutboxRelay {
             : Barred(runtime, tenant, row);
 
     static IO<RelayResult> Barred(Runtime runtime, TenantContext tenant, RelayEntry row) =>
-        IO.lift(() => (Error)new OutboxFault.ClassificationBarred(
-                $"{row.Grade.Key}@{runtime.Trust.Key}:{row.Dedup}"))
-            .Bind(cause => Settle(runtime, tenant, row, cause));
+        Settle(runtime, tenant, row, new OutboxFault.ClassificationBarred(
+            $"{row.Grade.Key}@{runtime.Trust.Key}:{row.Dedup}"));
 
     static IO<RelayResult> Dialled(Runtime runtime, TenantContext tenant, RelayEntry row) =>
         from settled in OutboundSurface.Dispatch<Unit>(runtime.Outbound, runtime.Hop,
@@ -285,11 +287,10 @@ public static class OutboxRelay {
         from result in settled.Carried.IsSucc
             ? IO.lift(() => runtime.Fence(tenant.TenantId)
                   .Bind(token => runtime.Advance(runtime.Consumer, row.Ordinal.Sequence, (ulong)token)))
-              .Bind(fenced => fenced.Match(
-                  Succ: cursor => IO.pure(new RelayResult(
+              .Map(cursor => new RelayResult(
                       Option<RelayEntry>.None,
-                      Some(cursor))),
-                  Fail: fault => Settle(runtime, tenant, row, fault)))
+                      Some(cursor)))
+              .Catch(static _ => true, fault => Settle(runtime, tenant, row, fault))
             : Settle(runtime, tenant, row, settled.Carried.Match(
                   Succ: _ => new OutboxFault.RelayRejected(row.Dedup),
                   Fail: static error => error))
@@ -301,11 +302,11 @@ public static class OutboxRelay {
         RelayEntry row,
         Error cause) =>
         IO.lift(() => row.Settled(runtime.Redrive, cause, runtime.Clocks.Now)).Bind(settled =>
-            settled.State switch {
-                RelayState.Deferred _ => IO.lift(() => Parked(runtime, settled)).Bind(parked => parked.Match(
-                    Succ: _ => IO.pure(new RelayResult(Some(settled), Option<OutboxOrdinal>.None)),
-                    Fail: IO.fail<RelayResult>)),
-                RelayState.DeadLettered dead => IO.lift(() => runtime.Fence(tenant.TenantId).Bind(token =>
+            settled.State.Switch(
+                pending: _ => IO.fail<RelayResult>(new OutboxFault.RelayRejected(row.Dedup)),
+                deferred: _ => IO.lift(() => Parked(runtime, settled))
+                    .Map(_ => new RelayResult(Some(settled), Option<OutboxOrdinal>.None)),
+                deadLettered: dead => IO.lift(() => runtime.Fence(tenant.TenantId).Bind(token =>
                     runtime.DeadLetter(
                         ContentHash.Of(
                             (Consumer: runtime.Consumer, Dedup: row.Dedup),
@@ -315,11 +316,7 @@ public static class OutboxRelay {
                         FaultWire.Observe(dead.Cause),
                         dead.Attempt,
                         (ulong)token)))
-                    .Bind(fenced => fenced.Match(
-                        Succ: cursor => IO.pure(new RelayResult(Some(settled), Some(cursor))),
-                        Fail: IO.fail<RelayResult>)),
-                _ => IO.fail<RelayResult>(new OutboxFault.RelayRejected(row.Dedup)),
-            });
+                    .Map(cursor => new RelayResult(Some(settled), Some(cursor)))));
 
     static Fin<Unit> Parked(Runtime runtime, RelayEntry settled) =>
         settled.State.Switch(

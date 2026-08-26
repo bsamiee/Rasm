@@ -48,10 +48,9 @@ public sealed partial class TrackClass {
         element.Match(Some: member => $"{Prefix}{name.Value}@{member.Value}", None: () => $"{Prefix}{name.Value}");
 
     public static TrackClass Of(string literal) =>
-        Items.Filter(row => row.Prefix.Length > 0 && literal.StartsWith(row.Prefix, StringComparison.Ordinal))
-            .OrderByDescending(static row => row.Prefix.Length)
-            .HeadOrNone()
-            .IfNone(Rule);
+        toSeq(toSeq(Items).Filter(row => row.Prefix.Length > 0 && literal.StartsWith(row.Prefix, StringComparison.Ordinal))
+            .OrderByDescending(static row => row.Prefix.Length))
+            .Head.IfNone(Rule);
 
     public Option<TrackedName> Parse(string literal) {
         if (!ReferenceEquals(this, Rule)) { return None; }
@@ -253,41 +252,37 @@ public static partial class RuleSatisfaction {
     static Fin<Unit> Admit(
         Seq<ComplianceRule> rules, Map<TrackedName, (double Lower, double Upper)> bounds, SatisfyPolicy policy,
         Seq<CoverageFact> coverage) =>
-        (Seq(
-            Claim(!rules.IsEmpty, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(rules.Count, 1L))),
-            Claim(toSet(rules.Map(static rule => rule.Name)).Count == rules.Count, new ComputeViolation.Contract(
+        AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(!rules.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(rules.Count, 1L))),
+            Refusal.Unless(toSet(rules.Map(static rule => rule.Name)).Count == rules.Count, ComputeArea.Solver, new ComputeViolation.Contract(
                 ComputeContract.Unique,
                 new ContractEvidence.Count(toSet(rules.Map(static rule => rule.Name)).Count, rules.Count))),
-            Claim(!policy.Rights.Admits(SatisfyRight.RequireCoverage) || coverage.ForAll(static fact => fact.Complete),
+            Refusal.Unless(!policy.Rights.Admits(SatisfyRight.RequireCoverage) || coverage.ForAll(static fact => fact.Complete), ComputeArea.Solver,
                 new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.Count(coverage.Filter(static fact => fact.Complete).Count, coverage.Count))))
-         + toSeq(bounds.AsIterable()).Map(static pair => Claim(
-             double.IsFinite(pair.Value.Lower) && double.IsFinite(pair.Value.Upper) && pair.Value.Lower <= pair.Value.Upper,
+         + toSeq(bounds.AsIterable()).Map(static pair => Refusal.Unless(
+             double.IsFinite(pair.Value.Lower) && double.IsFinite(pair.Value.Upper) && pair.Value.Lower <= pair.Value.Upper, ComputeArea.Solver,
              new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(pair.Key.Value))))
          + rules.Map(rule => AdmitRule(rule, bounds)))
-            .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
+            .ToFin();
 
     static Validation<Error, Unit> AdmitRule(ComplianceRule rule, Map<TrackedName, (double Lower, double Upper)> bounds) {
         Seq<string> symbols = toSeq(rule.Constraint.Entity.Vars).Map(static variable => variable.Name);
         Seq<TrackedName> free = symbols.Choose(SymbolName);
-        return (Seq(
-            Claim(!string.IsNullOrWhiteSpace(rule.Citation), new ComputeViolation.Required(ComputeSubject.Input)),
-            Claim(free.Count == symbols.Count, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(free.Count, symbols.Count))),
-            Claim(!rule.Grounding.IsEmpty || free.ForAll(bounds.ContainsKey), new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.Count(free.Filter(bounds.ContainsKey).Count, free.Count))),
-            Claim(toSet(rule.Grounding.Map(static ground => ground.Element)).Count == rule.Grounding.Count, new ComputeViolation.Contract(
+        return AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(!string.IsNullOrWhiteSpace(rule.Citation), ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Input)),
+            Refusal.Unless(free.Count == symbols.Count, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(free.Count, symbols.Count))),
+            Refusal.Unless(!rule.Grounding.IsEmpty || free.ForAll(bounds.ContainsKey), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.Count(free.Filter(bounds.ContainsKey).Count, free.Count))),
+            Refusal.Unless(toSet(rule.Grounding.Map(static ground => ground.Element)).Count == rule.Grounding.Count, ComputeArea.Solver, new ComputeViolation.Contract(
                 ComputeContract.Unique,
                 new ContractEvidence.Count(toSet(rule.Grounding.Map(static ground => ground.Element)).Count, rule.Grounding.Count))))
-         + rule.Grounding.Map(ground => Seq(
-             Claim(free.ForAll(name => bounds.ContainsKey(name) || ground.Bindings.ContainsKey(name)),
+         + rule.Grounding.Map(ground => AdmissionSlots.Accumulate(Seq(
+             Refusal.Unless(free.ForAll(name => bounds.ContainsKey(name) || ground.Bindings.ContainsKey(name)), ComputeArea.Solver,
                  new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.Count(
                      free.Filter(name => bounds.ContainsKey(name) || ground.Bindings.ContainsKey(name)).Count, free.Count))),
-             Claim(ground.Bindings.Values.ForAll(double.IsFinite),
-                 new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(ground.Bindings.Count))))
-             .Traverse(static claim => claim).As().Map(static _ => unit)))
-            .Traverse(static claim => claim).As().Map(static _ => unit);
+             Refusal.Unless(ground.Bindings.Values.ForAll(double.IsFinite), ComputeArea.Solver,
+                 new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(ground.Bindings.Count))))))
+            );
     }
-
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 
     static Option<TrackedName> SymbolName(string text) =>
         TrackedName.TryCreate(text, out TrackedName admitted) ? Some(admitted) : None;
@@ -475,7 +470,7 @@ public static partial class RuleSatisfaction {
                 .TraverseM(node => graph.Bake(node.Id, GroundKey).Map(member => (Id: node.Id, Member: member))).As()
                 .Map(members => template with {
                     Grounding = members.Choose(pair =>
-                        from element in SymbolName(pair.Id.Value)
+                        from element in SymbolName(pair.Id.ToValue())
                         from bindings in selector.Bind(pair.Member)
                         select new RuleGrounding(element, bindings)),
                 });
@@ -508,8 +503,8 @@ public static partial class RuleSatisfaction {
     public static CoverageFact Coverage(ElementGraph graph, NodeClassSelector selector, ComplianceRule rule) {
         Set<TrackedName> grounded = toSet(rule.Grounding.Map(static ground => ground.Element));
         (Seq<Node.Object> bound, Seq<Node.Object> missing) =
-            Population(graph, selector).Partition(node => SymbolName(node.Id.Value).Exists(grounded.Contains));
-        return new CoverageFact(bound.Count + missing.Count, bound.Count, missing.Map(static node => node.Id.Value));
+            Population(graph, selector).Partition(node => SymbolName(node.Id.ToValue()).Exists(grounded.Contains));
+        return new CoverageFact(bound.Count + missing.Count, bound.Count, missing.Map(static node => node.Id.ToValue()));
     }
 }
 ```

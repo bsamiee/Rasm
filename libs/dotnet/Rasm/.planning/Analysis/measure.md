@@ -244,7 +244,7 @@ public sealed partial class MassKind : ICapability<MassKind> {
             .Bracket(
                 Use: batch => IO.lift(() => Summed(batch: batch, mass: mass, op: op, sum: sum)
                     .Map(active => { _ = transferred.Swap(f: _ => Some(active)); return active; })),
-                Catch: static (Error error) => IO.pure(Fin.Fail<IDisposable>(error)),
+                Catch: static (Error error) => IO.fail<IDisposable>(error),
                 Fin: batch => IO.lift(() => {
                     batch.Owned
                         .Filter(resource => transferred.Value.Map(active => !ReferenceEquals(objA: active, objB: resource)).IfNone(noneValue: true))
@@ -359,12 +359,12 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
 
     public static Fin<MeasureBundle> Of(GeometryBase geometry, CapabilitySet<MassKind> kinds, Context context, Op? key = null) {
         Op op = key.OrDefault();
-        return toSeq(MassKind.Items).Filter(kinds.Admits).Fold(
-                Fin.Succ(Seq<(MassKind Kind, double Magnitude)>()),
-                (rows, kind) => rows.Bind(held => kind
-                    .Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.None, op: op)
-                    .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass => kind.MomentsOf(handle: mass, key: op).Map(static moments => moments.Magnitude)))
-                    .Map(magnitude => held.Add((kind, magnitude)))))
+        return toSeq(MassKind.Items).Filter(kinds.Admits)
+            .TraverseM(kind => kind
+                .Aggregate(geometry: [geometry], context: context, demands: CapabilitySet<MomentDemand>.None, op: op)
+                .Bind(handle => new Lease<IDisposable>.Owned(Value: handle).Use(mass => kind.MomentsOf(handle: mass, key: op).Map(static moments => moments.Magnitude)))
+                .Map(magnitude => (kind, magnitude)))
+            .As()
             .Bind(rows => Of(measures: rows, key: op));
     }
 }

@@ -309,9 +309,10 @@ public static class ElementClassifier {
 public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, ReconstructionContext context) : IElementProjection {
     public Fin<GraphDelta> Project(ProjectionContext ctx) =>
         segments.Filter(static s => ReconstructionContext.BiasOf(s.DominantClass) is AsprsBias.Constructed)
-            .Fold(
-                Fin.Succ(GraphDelta.Empty.Reheader(ctx.Header)),
-                (acc, segment) => acc.Bind(delta => Author(segment, ctx).Map(delta.Merge)));
+            .FoldM(
+                GraphDelta.Empty.Reheader(ctx.Header),
+                (delta, segment) => Author(segment, ctx).Map(delta.Merge))
+            .As();
 
     Fin<GraphDelta> Author(SegmentedCloud segment, ProjectionContext ctx) =>
         segment.Geometry.IsPending
@@ -351,7 +352,7 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
             (ReconstructionRows.Total,          new PropertyValue.Measure(total)),
             (ReconstructionRows.AsprsClass,     new PropertyValue.Measure(asprs)),
             (ReconstructionRows.NeedsReview,    new PropertyValue.Boolean(primitive.Confidence.IsBelow(context.ConfidenceFloor))),
-            (ReconstructionRows.PrimitiveShape, new PropertyValue.Enumerated(Seq(primitive.Analytic.Shape.Key), PrimitiveShape.Items.AsIterable().Map(static s => s.Key).ToSeq())),
+            (ReconstructionRows.PrimitiveShape, new PropertyValue.Enumerated(Seq(primitive.Analytic.Shape.Key), toSeq(PrimitiveShape.Items).Map(static s => s.Key))),
             (ReconstructionRows.SourceSegment,  new PropertyValue.Text(segment.SegmentId.ToString(CultureInfo.InvariantCulture))),
             (ReconstructionRows.SourceCloud,    new PropertyValue.Text(segment.Capture.Value.ToString("X32", CultureInfo.InvariantCulture))),
             (ReconstructionRows.ReconstructionRun, new PropertyValue.Text(primitive.Key.Value.ToString("X32", CultureInfo.InvariantCulture)))),

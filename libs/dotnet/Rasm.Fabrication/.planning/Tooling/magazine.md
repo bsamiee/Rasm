@@ -451,7 +451,7 @@ public sealed partial class ToolSnapshot {
         ref Length lengthWear, ref Length radiusWear, ref Instant observedAt, ref UInt128 content) =>
         validationError = status.IsEmpty || content == UInt128.Zero || reconditionCount < 0
             || reconditionLimit.Exists(limit => limit < reconditionCount)
-            || edges.Map(static edge => edge.Key).Distinct().Count != edges.Count
+            || toSeq(edges).Map(static edge => edge.Key).Distinct().Count != edges.Count
             || metrics.Map(static row => row.Kind).Distinct().Count != metrics.Count
             ? ToolKey.Validation("tool-snapshot") : null;
 
@@ -1140,8 +1140,9 @@ public static class ToolCatalog {
 
     private static Fin<ProcessRange> Range(Option<double> minimum, Option<double> maximum, Option<double> nominal,
         Option<double> current, CuttingToolAsset asset, string axis) =>
-        Optional(ProcessRange.Create(minimum, maximum, nominal, current))
-            .ToFin(Asset(asset, $"{axis}-range"));
+        ProcessRange.TryCreate(minimum, maximum, nominal, current, out ProcessRange range)
+            ? Fin.Succ(range)
+            : Fin.Fail<ProcessRange>(Asset(asset, $"{axis}-range"));
 
     private static FabricationFault Asset(CuttingToolAsset asset, string axis) =>
         new FabricationFault.ToolAssetInadmissible(Optional(asset.ToolId), axis);

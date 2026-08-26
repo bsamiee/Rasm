@@ -183,7 +183,6 @@ namespace Rasm.AppHost.Runtime;
     ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
 public readonly partial struct ChainHash {
     public static readonly ChainHash Genesis = Create(UInt128.Zero);
-    public static ChainHash Of(UInt128 digest) => Create(digest);
     public string Hex => ContentHash.Hex(this);
 }
 
@@ -258,7 +257,7 @@ public static class EventLog {
     }
 
     public static ChainHash Mint(ChainHash predecessor, LogBody body, UInt128 determinismDigest, long sequence) =>
-        ChainHash.Of(ContentHash.Of(
+        ChainHash.Create(ContentHash.Of(
             (predecessor, body, determinismDigest, sequence),
             static (state, writer) => writer
                 .U128(state.predecessor)
@@ -336,7 +335,7 @@ public static class DeterminismLogCodec {
             .As()
             .ToFin()
             .Bind(parsed => Body(row, parsed.digest).Map(body => new LogEntry(
-                row.Sequence, ChainHash.Of(parsed.hash), ChainHash.Of(parsed.pred),
+                row.Sequence, ChainHash.Create(parsed.hash), ChainHash.Create(parsed.pred),
                 body, parsed.det, row.Physical, row.Logical)));
 
     static Fin<LogBody> Body(DeterminismLogRow row, UInt128 digest) => row switch {
@@ -346,9 +345,9 @@ public static class DeterminismLogCodec {
     };
 
     static Validation<Error, UInt128> Admit(string text, DeterminismLogRow row) =>
-        ContentHash.Admit(text, Op.Of()).Match(
-            Succ: Validation<Error, UInt128>.Success,
-            Fail: _ => new ReplayFault.ChainBroken(row.Sequence, "row-decode"));
+        ContentHash.Admit(text, Op.Of())
+            .MapFail(_ => new ReplayFault.ChainBroken(row.Sequence, "row-decode"))
+            .ToValidation();
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -535,7 +534,7 @@ public sealed partial record Macro(
     [property: OrderedEquality] Seq<MacroParameter> Parameters) {
     public static Macro Record(string macroId, Seq<LogEntry> entries, Seq<MacroParameter> parameters) =>
         new(macroId,
-            ChainHash.Of(ContentHash.Of(entries, static (rows, writer) =>
+            ChainHash.Create(ContentHash.Of(entries, static (rows, writer) =>
                 writer.Rows(rows, static (entry, inner) => inner.U128(entry.Hash)))),
             entries, parameters);
 }
@@ -545,14 +544,13 @@ public static class MacroEngine {
     public sealed record Runtime(CommandRuntime Command, Func<LogEntry, HashMap<string, JsonElement>, CommandArguments> Substitute);
 
     public static IO<Seq<CommandResult>> Play(Runtime runtime, Macro macro, HashMap<string, JsonElement> bindings) =>
-        macro.Commands
-            .TraverseM(entry => entry.Body is LogBody.Command command
-                ? Fin.Succ((command.Descriptor, runtime.Substitute(entry, bindings)))
-                : Fin.Fail<(string Descriptor, CommandArguments Arguments)>(new ReplayFault.ChainBroken(entry.Sequence, "macro-injection")))
-            .As()
-            .Match(
-                Succ: steps => CommandAlgebra.Batch(runtime.Command, steps),
-                Fail: IO.fail<Seq<CommandResult>>);
+        IO.lift(macro.Commands
+            .TraverseM(entry => entry.Body.Switch(
+                command: command => Fin.Succ((command.Descriptor, runtime.Substitute(entry, bindings))),
+                chaos: _ => Fin.Fail<(string Descriptor, CommandArguments Arguments)>(
+                    new ReplayFault.ChainBroken(entry.Sequence, "macro-injection"))))
+            .As())
+            .Bind(steps => CommandAlgebra.Batch(runtime.Command, steps));
 }
 ```
 
@@ -585,7 +583,7 @@ public sealed partial record RecomputeNode(
     string Descriptor,
     [property: OrderedEquality] Seq<ChainHash> Inputs) {
     public static ChainHash Identity(string descriptor, UInt128 argumentsDigest, Seq<ChainHash> inputs) =>
-        ChainHash.Of(ContentHash.Of((descriptor, argumentsDigest, inputs), static (state, writer) => writer
+        ChainHash.Create(ContentHash.Of((descriptor, argumentsDigest, inputs), static (state, writer) => writer
             .String(state.descriptor)
             .U128(state.argumentsDigest)
             .Rows(state.inputs, static (input, inner) => inner.U128(input))));

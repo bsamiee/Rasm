@@ -289,7 +289,7 @@ public static class ProofLaw {
             first.Map(static outcome => outcome.PayloadDigest),
             second.Map(static outcome => outcome.PayloadDigest)) switch {
             { IsEmpty: true } => IO.pure(unit),
-            var indices => IO.fail<Unit>(new ProofFault.ReplayDiverged(indices.Head)),
+            var indices => IO.fail<Unit>(new ProofFault.ReplayDiverged(indices[0])),
         }
         select unit;
 
@@ -423,7 +423,7 @@ public static class SkewGuards {
         };
 
     public static IO<Fin<Unit>> SkiaBoundary(ImmediateDrawingContext context) =>
-        IO.lift(() => context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out ISkiaSharpApiLeaseFeature? feature) && feature is not null
+        IO.lift<Fin<Unit>>(() => context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out ISkiaSharpApiLeaseFeature? feature) && feature is not null
             ? Custody.Bracket(
                 acquire: () => feature.Lease(),
                 project: static lease =>

@@ -78,14 +78,6 @@ public sealed partial class ElementPoint : IHookRoster<ElementPoint> {
  public static Seq<ElementPoint> Durable => Seq(DeltaApplied, Frozen, Audited, Graded);
 }
 
-[SmartEnum<string>]
-public sealed partial class WaiverMark {
- public static readonly WaiverMark Waived = new("waived");
- public static readonly WaiverMark Unwaived = new("unwaived");
-
- public static WaiverMark Of(Option<ConstraintWaiver> waiver) => waiver.IsSome ? Waived : Unwaived;
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AssessmentTouch(Discipline Discipline, AnalysisRoute Route, AssessmentOutcome Outcome);
 
@@ -118,19 +110,19 @@ public abstract partial record ElementFact : IHookFact<ElementPoint> {
  public bool Seats(ElementPoint at) => at == Point;
 
  public Option<UInt128> Subject => Switch(
-  deltaApplied: static f => Some(f.Delta.Value),
-  frozen: static f => Some(f.Snapshot.Value),
+  deltaApplied: static f => Some(f.Delta.ToValue()),
+  frozen: static f => Some(f.Snapshot.ToValue()),
   baked: static _ => Option<UInt128>.None,
-  audited: static f => Some(f.Snapshot.Value),
-  assembled: static f => Some(f.Delta.Value),
-  graded: static f => Some(f.FindingKey.Value));
+  audited: static f => Some(f.Snapshot.ToValue()),
+  assembled: static f => Some(f.Delta.ToValue()),
+  graded: static f => Some(f.FindingKey.ToValue()));
 
  public Seq<(string Slot, object? Value)> Marks => Switch(
-  deltaApplied: static f => Seq<(string Slot, object? Value)>((ElementInstrument.DeltaSlot, f.Delta.ToValue())),
-  frozen: static f => Seq<(string Slot, object? Value)>((ElementInstrument.SnapshotSlot, f.Snapshot.ToValue())),
-  baked: static f => Seq<(string Slot, object? Value)>((ElementInstrument.RootSlot, f.Root.Value)),
-  audited: static f => Seq<(string Slot, object? Value)>((ElementInstrument.SnapshotSlot, f.Snapshot.ToValue())),
-  assembled: static f => Seq<(string Slot, object? Value)>((ElementInstrument.DeltaSlot, f.Delta.ToValue())),
+  deltaApplied: static f => Seq<(string Slot, object? Value)>((ElementInstrument.DeltaSlot, ContentHash.Hex(f.Delta.ToValue()))),
+  frozen: static f => Seq<(string Slot, object? Value)>((ElementInstrument.SnapshotSlot, ContentHash.Hex(f.Snapshot.ToValue()))),
+  baked: static f => Seq<(string Slot, object? Value)>((ElementInstrument.RootSlot, f.Root.ToValue())),
+  audited: static f => Seq<(string Slot, object? Value)>((ElementInstrument.SnapshotSlot, ContentHash.Hex(f.Snapshot.ToValue()))),
+  assembled: static f => Seq<(string Slot, object? Value)>((ElementInstrument.DeltaSlot, ContentHash.Hex(f.Delta.ToValue()))),
   graded: static _ => Seq<(string Slot, object? Value)>());
 
  public static ElementFact Of(Op key, GraphDelta delta, Header seed) => new DeltaApplied(
@@ -353,7 +345,7 @@ public static class GraphInstrument {
   graded: static (state, f) => state.Rows.Write(ElementInstrument.Findings.Row, 1L, InstrumentSet.Tags(state.Tenant,
    (KernelInstrument.CodeSlot, f.Code.Match<object?>(Some: static code => code, None: static () => null)),
    (ElementInstrument.SeveritySlot, f.Severity.Key),
-   (ElementInstrument.WaivedSlot, WaiverMark.Of(f.Waiver).Key))));
+   (ElementInstrument.WaivedSlot, f.Waiver.IsSome ? "waived" : "unwaived"))));
 }
 ```
 

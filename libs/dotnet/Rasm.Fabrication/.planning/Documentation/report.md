@@ -1169,13 +1169,16 @@ public abstract partial record QualityRecord {
         Seq<SampleReading> readings,
         Seq<InspectionFeature> features) =>
         from _ in (
-            QualityEvidence.Gate(!readings.IsEmpty && readings.Count <= lot.Plan.SampleSize, RecordRefusal.Sampling),
-            QualityEvidence.Gate(readings.ForAll(reading => lot.Subjects.Find(reading.Index).IsSome), RecordRefusal.Subject),
-            QualityEvidence.Gate(readings.Map(static reading => reading.Index).Distinct().Count == readings.Count, RecordRefusal.Subject))
+            AdmissionSlots.Gate(!readings.IsEmpty && readings.Count <= lot.Plan.SampleSize,
+                QualityEvidence.Refused(RecordRefusal.Sampling)),
+            AdmissionSlots.Gate(readings.ForAll(reading => lot.Subjects.Find(reading.Index).IsSome),
+                QualityEvidence.Refused(RecordRefusal.Subject)),
+            AdmissionSlots.Gate(readings.Map(static reading => reading.Index).Distinct().Count == readings.Count,
+                QualityEvidence.Refused(RecordRefusal.Subject)))
             .Apply(static (_, _, _) => unit)
             .As()
             .ToFin()
-        from rows in readings.Map(reading =>
+        from rows in readings.Traverse(reading =>
                 from subject in lot.Subjects.Find(reading.Index).ToFin(QualityEvidence.Refused(RecordRefusal.Subject))
                 from measurement in Measurement.Admit(
                     reading.Nominal,
@@ -1191,9 +1194,7 @@ public abstract partial record QualityRecord {
                     measurement,
                     lot.Mrb.Find(reading.Index).IfNone(Disposition.PendingReview),
                     lot.Chains.Find(reading.Index))
-                select row)
-            .Traverse(identity)
-            .As()
+                select row).As()
         from evidence in InspectionEvidence.Validate(
                 lot.Report,
                 lot.Product,
@@ -1320,9 +1321,6 @@ public static class QualityEvidence {
 
     internal static FabricationFault Refusal(string locus) =>
         FabricationFault.Inadmissible(FabConcern.Documentation, $"quality:{locus}");
-
-    internal static K<Validation<Error>, Unit> Gate(bool condition, RecordRefusal reason) =>
-        AdmissionSlots.Gate(condition, Refused(reason));
 
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Key(ContentKey key) => key.CanonicalBytes(sink);

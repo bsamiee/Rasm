@@ -102,7 +102,7 @@ public readonly partial struct SelectionSnapshot {
     public static readonly SelectionSnapshot None = Create(0, Seq<string>());
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int count, ref Seq<string> kinds) {
-        kinds = kinds.Distinct().OrderBy(static kind => kind, StringComparer.Ordinal).ToSeq();
+        kinds = toSeq(kinds.Distinct().OrderBy(static kind => kind, StringComparer.Ordinal));
         validationError = count >= kinds.Count && (count > 0 || kinds.Count == 0)
             ? validationError
             : new ValidationError($"selection count {count} cannot carry {kinds.Count} kinds");
@@ -712,7 +712,6 @@ public static class CommandExecution {
                 new AppUiFact.Command(result),
                 RunKey,
                 body: _ => Fin.Succ(result)))
-                .Bind(static settled => IO.lift(settled))
             select fired;
     }
 

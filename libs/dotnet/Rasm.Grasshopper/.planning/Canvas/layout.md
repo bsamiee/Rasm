@@ -201,10 +201,11 @@ public readonly record struct SnapGrid {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StretchPlan {
     public static Fin<StretchVerdict> Solve(Seq<StretchRow> rows, float target, RoundingPosture rounding, Op key) =>
-        from admitted in rows.Zip(toSeq(Range(0, rows.Count))).Traverse(pair => pair.Item1.IsValid
-                ? Validation<Error, StretchRow>.Success(pair.Item1)
-                : Validation<Error, StretchRow>.Fail(new KernelFault.InvalidValue(
-                    Label: $"row[{pair.Item2}]", Requirement: "Min <= Ideal <= Max", Key: Some(key))))
+        from admitted in rows.Map((row, index) => (Row: row, Index: index)).Traverse(pair =>
+                key.AcceptValue(pair.Row)
+                    .MapFail(_ => new KernelFault.InvalidValue(
+                        Label: $"row[{pair.Index}]", Requirement: "Min <= Ideal <= Max", Key: Some(key)))
+                    .ToValidation())
             .As().ToFin()
         from verdict in key.Catch(() => {
             StretchLayoutSolver solver = new();
@@ -297,10 +298,10 @@ public static class CanvasLayout {
             alignCase: static (s, c) =>
                 from rows in Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
                 from anchor in rows.Head.ToFin(s.Key.InvalidInput())
-                from moves in rows.Tail.Map(row => c.Edge.Mint(
+                from moves in rows.Tail.TraverseM(row => c.Edge.Mint(
                         payload: new CandidatePayload.AlignCase(Source: row.Bounds, Target: anchor.Bounds), key: s.Key)
                         .Map(action => (Target: row, Dx: action.ΔX, Dy: action.ΔY)))
-                    .TraverseM(identity).As()
+                    .As()
                 select moves.Strict(),
             distributeCase: static (s, c) =>
                 Resolve(graph: s.Graph, objects: c.Objects, key: s.Key).Map(rows => {
@@ -319,9 +320,9 @@ public static class CanvasLayout {
             gridCase: static (s, c) =>
                 from rows in Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
                 from grid in SnapGrid.Orthogonal(originX: c.Origin.X, originY: c.Origin.Y, sizeX: c.CellWidth, sizeY: Some(c.CellHeight), key: s.Key)
-                from moves in rows.Map(row => grid.Fix(x: row.Pivot.X, y: row.Pivot.Y, cutoff: Option<double>.None, key: s.Key)
+                from moves in rows.TraverseM(row => grid.Fix(x: row.Pivot.X, y: row.Pivot.Y, cutoff: Option<double>.None, key: s.Key)
                         .Map(verdict => (Target: row, Dx: (float)(verdict.X - row.Pivot.X), Dy: (float)(verdict.Y - row.Pivot.Y))))
-                    .TraverseM(identity).As()
+                    .As()
                 select moves.Strict(),
             nudgeCase: static (s, c) =>
                 Resolve(graph: s.Graph, objects: c.Objects, key: s.Key)
@@ -336,8 +337,8 @@ public static class CanvasLayout {
                 select Seq((Target: (IAttributes)owner, Dx: action.ΔX, Dy: action.ΔY)));
 
     private static Fin<Seq<IAttributes>> Resolve(Document graph, Seq<Guid> objects, Op key) =>
-        objects.Map(id => Optional(graph.Objects.Find(id)).Bind(static obj => Optional(obj.Attributes)).ToFin(key.InvalidInput()))
-            .TraverseM(identity).As().Map(static rows => rows.Strict());
+        objects.TraverseM(id => Optional(graph.Objects.Find(id)).Bind(static obj => Optional(obj.Attributes)).ToFin(key.InvalidInput()))
+            .As().Map(static rows => rows.Strict());
 
     private static Fin<ArrangeFacts> Commit(
         Document graph, VerbNoun label, Seq<(IAttributes Target, float Dx, float Dy)> moves, Tolerance step, Op key) {

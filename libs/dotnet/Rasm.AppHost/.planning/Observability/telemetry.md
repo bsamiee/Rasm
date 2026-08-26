@@ -430,9 +430,9 @@ public sealed partial class TelemetryDomain {
     static string Qualified(string lowered) => lowered.StartsWith(Prefix, StringComparison.Ordinal) ? lowered : Prefix + lowered;
 
     public static Fin<TelemetryDomain> Resolve(string name) =>
-        toSeq(Items).Find(row => name.StartsWith(row.Head, StringComparison.Ordinal)).Match(
-            Some: static row => Fin.Succ(row),
-            None: () => Fin.Fail<TelemetryDomain>(new TelemetryFault.Unrostered(name)));
+        toSeq(Items)
+            .Find(row => name.StartsWith(row.Head, StringComparison.Ordinal))
+            .ToFin(new TelemetryFault.Unrostered(name));
 }
 
 [SmartEnum<string>]
@@ -544,14 +544,14 @@ public sealed class TelemetryComposition : IDisposable {
     static Fin<TelemetryComposition> Opened(ResolvedProfile resolved, CorrelationId root, DeterminismContext determinism,
         Seq<TelemetryContributorPort> contributors, Seq<LatencyRoster> latency, OtlpOfflinePolicy offline,
         ClockPolicy clocks, IConfigurationSection hmacKeys, Func<DegradationLevel> level, ServiceProvider meters, LevelCells cells) =>
-        InstrumentMount.Mount(meters.GetRequiredService<IMeterFactory>(), root, cells, [.. contributors]).Match(
-            Succ: signals => Fin.Succ(new TelemetryComposition(resolved, root, determinism, contributors, latency,
+        InstrumentMount.Mount(meters.GetRequiredService<IMeterFactory>(), root, cells, [.. contributors])
+            .Map(signals => new TelemetryComposition(resolved, root, determinism, contributors, latency,
                 contributors.Filter(static port => !port.Classifications.IsEmpty)
                     .Map(static port => new ClassificationRoster(port.Scope, port.Classifications.Map(static row => (row.Taxonomy, row.Value)))),
                 offline, clocks, hmacKeys, level, meters, cells, signals,
                 offline.Open(signals, clocks.Line),
-                SpanBand.Of(resolved.ServiceVersion, [.. contributors.Bind(static port => port.Planes)]))),
-            Fail: refused => (fun(meters.Dispose)(), Fin.Fail<TelemetryComposition>(refused)).Item2);
+                SpanBand.Of(resolved.ServiceVersion, [.. contributors.Bind(static port => port.Planes)])))
+            .MapFail(refused => (fun(meters.Dispose)(), refused).Item2);
 
     internal HttpClient Transport(Func<HttpClient> mint) {
         HttpClient client = mint();

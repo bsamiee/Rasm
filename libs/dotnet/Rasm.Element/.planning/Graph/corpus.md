@@ -46,25 +46,17 @@ using LatticeAxis = Rasm.Numerics.Dimension;
 namespace Rasm.Element.Graph;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class LaneUse {
- public static readonly LaneUse Id = new("id");
- public static readonly LaneUse Draw = new("draw");
-}
-
 [SmartEnum<int>]
 public sealed partial class CorpusLane {
- public static readonly CorpusLane Material = new(0, LaneUse.Id);
- public static readonly CorpusLane Type = new(1, LaneUse.Id);
- public static readonly CorpusLane Occurrence = new(2, LaneUse.Id);
- public static readonly CorpusLane AssessmentInput = new(3, LaneUse.Id);
- public static readonly CorpusLane Adjacency = new(4, LaneUse.Draw);
- public static readonly CorpusLane Value = new(5, LaneUse.Draw);
- public static readonly CorpusLane Observation = new(6, LaneUse.Draw);
- public static readonly CorpusLane Grid = new(7, LaneUse.Id);
- public static readonly CorpusLane Interface = new(8, LaneUse.Id);
-
- public LaneUse Use { get; }
+ public static readonly CorpusLane Material = new(0);
+ public static readonly CorpusLane Type = new(1);
+ public static readonly CorpusLane Occurrence = new(2);
+ public static readonly CorpusLane AssessmentInput = new(3);
+ public static readonly CorpusLane Adjacency = new(4);
+ public static readonly CorpusLane Value = new(5);
+ public static readonly CorpusLane Observation = new(6);
+ public static readonly CorpusLane Grid = new(7);
+ public static readonly CorpusLane Interface = new(8);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -132,7 +124,7 @@ public static class GraphForge {
   int typeCount = profile.TypeSlots;
   return Classification.Of("corpus", "component", key).Bind(typeClass =>
    Classification.Of("corpus", "occurrence", key).Bind(occClass =>
-    AnalysisRoute.Of("corpus.forge", key).Bind(route =>
+    key.AcceptValidated<AnalysisRoute>("corpus.forge").Bind(route =>
      Assessments(profile, route, key).Bind(payloads =>
       Bags(profile, key).Bind(bags =>
        Series(profile, key).Bind(series =>
@@ -153,7 +145,7 @@ public static class GraphForge {
   QuantitySignature quantity = QuantitySignature.Create(
    QuantityType.Create("Temperature"), Dimension.Create(0, 0, 0, 0, 1, 0, 0), Some("K"));
   return toSeq(Enumerable.Range(0, profile.Nodes)).Filter(i => i % profile.ObservationStride == 0).TraverseM(i =>
-   SensorId.Of($"corpus-sensor-{i}", key).Bind(sensor =>
+   key.AcceptValidated<SensorId>($"corpus-sensor-{i}").Bind(sensor =>
     ObservationSeries.Open(
       sensor, PropertyName.Create("corpus-aspect"), quantity, SamplingKind.Averaged, Some(CorpusCadence),
       CorpusInstant, Some(new SensorProvenance("corpus", "GraphForge", $"{i}")), key)
@@ -260,7 +252,7 @@ public static class GraphForge {
 
  static Fin<Seq<Node>> Materials(CorpusProfile profile, int typeCount, double tol, Op key) =>
   toSeq(Enumerable.Range(0, typeCount)).TraverseM(t => {
-   MaterialId material = MaterialId.Of($"corpus-material-{t}");
+   MaterialId material = MaterialId.Create($"corpus-material-{t}");
    return Composed(material, t, key).Bind(composition =>
     Properties(t, key).Map(properties =>
      Contented(new Node.Material(Seeded(profile.Seed, CorpusLane.Material, t), material, composition, properties), tol)));
@@ -306,8 +298,8 @@ public static class GraphForge {
    4 => FireResistance.Of(Some(60), Some(90), Some(30), key)
     .Map(resistance => MaterialPropertySet.OfFire(FireRating.A1, resistance, evidence)),
    5 => MaterialPropertySet.OfEnvironmental(
-    MeasurementBasis.PerM3, [.. Enumerable.Repeat(scale, ImpactCategory.Count * LifecycleStage.Count)], 0.3, 0.6, key, evidence),
-   6 => Currency.Parse("EUR", key).Bind(currency =>
+    MeasurementBasis.PerM3, [.. Enumerable.Repeat(scale, ImpactCategory.Items.Count * LifecycleStage.Items.Count)], 0.3, 0.6, key, evidence),
+   6 => key.AcceptValidated<Currency>("EUR").Bind(currency =>
     MaterialPropertySet.OfCost(MeasurementBasis.PerM2, currency, 12.0 * scale, 8.0 * scale, 25.0 * scale, key, evidence)),
    7 => MaterialPropertySet.OfDamping(0.02 * scale, Some((0.5, 0.001)), key, evidence),
    8 => MaterialPropertySet.OfHygrothermal(0.18, 45.0 * scale, 180.0 * scale, Some(0.02), key, evidence),
@@ -328,7 +320,7 @@ public static class GraphForge {
      validUntil: ordinal % 2 == 0 ? Some(CorpusInstant.InUtc().Date.PlusYears(1)) : None,
      attested: ordinal % 4 == 3
       ? Some(new Attestation(AttestationRole.Items[slot % AttestationRole.Items.Count], "corpus-cert",
-         ContentAddress.Of(Seed(0, CorpusLane.Interface, ordinal)), CorpusInstant))
+         ContentAddress.Create(Seed(0, CorpusLane.Interface, ordinal)), CorpusInstant))
       : None,
      run: run));
 
@@ -343,7 +335,7 @@ public static class GraphForge {
    new Vector3(75.0, 150.0, 0.0), Some(new SectionForm(12, 4, 0.35, perimeter)), key));
  }
 
- static double[] Bands(Func<int, double> shape) => [.. Enumerable.Range(0, AcousticBand.Count).Select(shape)];
+ static double[] Bands(Func<int, double> shape) => [.. Enumerable.Range(0, AcousticBand.Items.Count).Select(shape)];
 
  static Fin<(Node Appearance, Node Coverage)> Witnesses(Header header, double tol, Op key) =>
   AppearanceSummary.Of(AppearanceVector.Create(0.5, 0.5, 0.5, 0.0, 0.5, 1.0, transmissive: false), key).Bind(summary =>
@@ -452,7 +444,7 @@ public static class GraphForge {
 - Owner: `CorpusGrade` the `[SmartEnum<string>]` size roster; `CorpusOp` the `[SmartEnum<string>]` hot-path vocabulary with a witness-returning run column; `CorpusModel` the minted carrier with its snapshot fingerprint; `CorpusWitness` the operation evidence; `CorpusGate` the mint/determinism capability.
 - Cases: `CorpusGrade` rows `S`/`M`/`L`/`XL`; `CorpusOp` rows `Bake`, native `Freeze`, `CanonicalBytes`, `EncodeNode`, `DecodeNode`, and `Tabulate`. Node encoding exercises the generated support closure without inventing a graph actor.
 - Entry: `CorpusGate.Mint(grade, key)` forges once and stamps its native snapshot fingerprint. `Stable(grade, key)` proves integer-wire canonicality, forges twice, and rejects native-address drift. Each `CorpusOp.Run` returns a witness; node decode rejects content-address drift against the selected native node.
-- Output: `CorpusWitness` proves traversal and binds each operation result to its input fingerprint. Timing maps it into AppHost `Benchmark`: `Suite = "Rasm.Element"`, `Case = $"{grade}/{op}"`, `Corpus = Some(witness.Snapshot.Value)`, and `Operations = witness.Magnitude`; AppHost owns host evidence, timing, allocation, verdict, artifact key, and correlation.
+- Output: `CorpusWitness` proves traversal and binds each operation result to its input fingerprint. Timing maps it into AppHost `Benchmark`: `Suite = "Rasm.Element"`, `Case = $"{grade}/{op}"`, `Corpus = Some(witness.Snapshot.ToValue())`, and `Operations = witness.Magnitude`; AppHost owns host evidence, timing, allocation, verdict, artifact key, and correlation.
 - Packages: Google.Protobuf writes and parses generated node messages; CommunityToolkit.HighPerformance supplies the pooled encode sink; `Rasm` supplies `Op.Catch`. CsCheck consumes this roster from tests.
 - Growth: a new scale is one `CorpusGrade` row; a new hot path is one `CorpusOp` row and witness arm. Benchmarks reuse one minted model per grade.
 - Boundary: Element owns models, operation vocabulary, and semantic witnesses. AppHost owns benchmark measurement and regression verdicts. `XL` belongs to benchmark hosts, never unit defaults. This corpus is branch-local test data, not a manifest actor or a hand-maintained cross-language mirror; `CorpusGate.Stable` proves native repeatability.
@@ -480,9 +472,8 @@ public sealed partial class CorpusGrade {
  public CorpusProfile Profile { get; }
 
  static CorpusProfile Row(int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed) =>
-  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, Op.Of(name: nameof(CorpusGrade))).Match(
-   Succ: static profile => profile,
-   Fail: static _ => throw new InvalidOperationException("Corpus grade declaration violates CorpusProfile admission."));
+  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, Op.Of(name: nameof(CorpusGrade)))
+   .IfFail(static _ => throw new InvalidOperationException("Corpus grade declaration violates CorpusProfile admission."));
 }
 
 [SmartEnum<string>]
@@ -511,7 +502,7 @@ public sealed partial class CorpusOp {
    Witness(model, CanonicalBytes, bytes.Length, ContentAddress.Of(bytes.Span), key));
 
  static Node Selected(CorpusModel model) =>
-  model.Graph.Nodes.Values.OrderBy(static node => node.Id.Value, StringComparer.Ordinal).First();
+  model.Graph.Nodes.Values.OrderBy(static node => node.Id.ToValue(), StringComparer.Ordinal).First();
 
  static Fin<CorpusWitness> RunEncodeNode(CorpusModel model, Op key) {
   Node node = Selected(model);

@@ -115,7 +115,7 @@ public sealed partial class ConfigSource {
                     .Map(_ => manager),
         };
 
-    static Seq<ConfigSource> Ranked(ReadOnlySpan<ConfigSource> sources) => toSeq(sources.ToArray()).OrderBy(static row => row.Rank).ToSeq();
+    static Seq<ConfigSource> Ranked(ReadOnlySpan<ConfigSource> sources) => toSeq(sources.ToArray().OrderBy(static row => row.Rank));
 
     private static IConfigurationBuilder MountJson(IConfigurationBuilder builder, ConfigLayer layer) =>
         builder
@@ -286,7 +286,7 @@ public static class OptionsAdmission {
             .ValidateOnStart();
 
     public static Validation<Error, T> Refine<T>(T policy, IValidator<T> validator, Option<Seq<string>> ruleSets = default) where T : notnull =>
-        (ruleSets.Case is Seq<string> sets
+        (ruleSets is { IsSome: true, Case: Seq<string> sets }
                 ? validator.Validate(ValidationContext<T>.CreateWithOptions(policy, options => options.IncludeRuleSets([.. sets])))
                 : validator.Validate(policy))
             .Errors.AsIterable()
@@ -303,7 +303,7 @@ public static class OptionsAdmission {
     public static Fin<Unit> Sweep(IStartupValidator validator) => Op.Of().Catch(validator.Validate);
 
     public static Unit Invalidate<T>(IOptionsMonitorCache<T> cache, Option<string> name = default) where T : class =>
-        name.Case is string named ? ignore(cache.TryRemove(named)) : (cache.Clear(), unit).Item2;
+        name is { IsSome: true, Case: string named } ? ignore(cache.TryRemove(named)) : (cache.Clear(), unit).Item2;
 
     public static Validation<Error, (JsonObject Admitted, ReloadOutcome Outcome)> PatchSection(JsonObject live, string section, ReloadClass reload, JsonPatchDocument patch, Func<JsonObject, Validation<Error, Unit>> revalidate) =>
         reload == ReloadClass.Frozen

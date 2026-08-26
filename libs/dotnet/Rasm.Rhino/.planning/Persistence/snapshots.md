@@ -165,14 +165,17 @@ public static class Snapshots {
         return from body in op.Need(value: use)
                from sentinel in op.AcceptValidated<SnapshotName>(candidate: $"rasm-{Guid.NewGuid():N}")
                from _captured in Scripted(session: session, name: sentinel, verb: SnapshotVerb.Capture, key: op)
-               from outcome in Settled(
-                   body: op.Catch(() =>
+               from outcome in op.Catch(() =>
                        from _restored in Scripted(session: session, name: target, verb: SnapshotVerb.Restore, key: op)
                        from value in body()
-                       select value),
-                   finalizers: Seq(
-                       () => Scripted(session: session, name: sentinel, verb: SnapshotVerb.Restore, key: op),
-                       () => Scripted(session: session, name: sentinel, verb: SnapshotVerb.Delete, key: op)))
+                       select value)
+                   .Settled(
+                       release: () => Custody.Release(
+                           Seq<Func<Fin<Unit>>>(
+                               () => Scripted(session: session, name: sentinel, verb: SnapshotVerb.Restore, key: op),
+                               () => Scripted(session: session, name: sentinel, verb: SnapshotVerb.Delete, key: op)),
+                           op),
+                       key: op)
                select outcome;
     }
 
@@ -180,14 +183,6 @@ public static class Snapshots {
         from operation in SnapshotOperation.Of(name: name, verb: verb, key: key)
         from _answer in Commit(session: session, operation: operation, key: key)
         select unit;
-
-    private static Fin<T> Settled<T>(Fin<T> body, Seq<Func<Fin<Unit>>> finalizers) =>
-        finalizers.Fold(body, static (state, final) => state.Match(
-            Succ: value => final().Map(_ => value),
-            Fail: primary => final().Match(
-                Succ: _ => Fin.Fail<T>(error: primary),
-                Fail: secondary => Fin.Fail<T>(error: primary + secondary))));
-
     private static Fin<SnapshotMutation> Run(RhinoDoc document, SnapshotName name, SnapshotVerb verb, Op key) =>
         from before in Roster(document: document, key: key)
         from _precondition in Proved(
@@ -425,17 +420,17 @@ public sealed class SnapshotParticipant : SnapShotsClient {
                    ? Fin.Succ(value: unit)
                    : Fin.Fail<Unit>(error: new PersistenceFault.Resident(Key: op, Subject: admitted.ClientId.ToString()))
                from _resident in op.Catch(() => op.Confirm(success: RegisterSnapShotClient(new SnapshotParticipant(spec: admitted))))
-                   .BindFail(primary => {
-                       Transition<HashMap<Guid, SnapshotCategory>> released = Cell.Step(
+                   .Rollback(
+                       release: () => Cell.Step(
                            cell: Registered,
                            step: state => state.Find(admitted.ClientId).Map(_ => state.Remove(admitted.ClientId)),
-                           declined: op.InvalidContext());
-                       return released switch {
-                           Transition<HashMap<Guid, SnapshotCategory>>.Committed => Fin.Fail<Unit>(error: primary),
-                           Transition<HashMap<Guid, SnapshotCategory>>.Refused row => Fin.Fail<Unit>(error: primary + row.Cause),
-                           _ => Fin.Fail<Unit>(error: primary + op.InvalidResult()),
-                       };
-                   })
+                           declined: op.InvalidContext())
+                           .Switch(
+                               committed: static _ => Fin.Succ(value: unit),
+                               ceded: _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                               refused: static row => Fin.Fail<Unit>(error: row.Cause),
+                               contended: _ => Fin.Fail<Unit>(error: op.InvalidResult())),
+                       key: op)
                select unit;
     }
 
@@ -633,9 +628,10 @@ public sealed class SnapshotParticipant : SnapShotsClient {
     private Fin<Transform> ObjectState(Func<Fin<SnapshotObjectState>> use, Option<BinaryArchiveWriter> writer, Op key) =>
         from state in use()
         from admitted in key.AcceptValue(value: state.Transform)
-        from _written in writer.Match(
-            Some: archive => spec.Codec.Write(archive, state.Payload, key),
-            None: static () => Fin.Succ(value: unit))
+        from _written in writer
+            .TraverseM(archive => spec.Codec.Write(archive, state.Payload, key))
+            .As()
+            .Map(static _ => unit)
         select admitted;
 
     private Fin<(ArchiveMap Start, ArchiveMap Stop)> Maps(BinaryArchiveReader start, BinaryArchiveReader stop, Op key) =>
@@ -648,15 +644,15 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         SimpleArrayBinaryArchiveReader archiveArray,
         Op key) =>
         from current in spec.Codec.Read(archive, key)
-        from snapshots in toSeq(Range(0, archiveArray.Count))
+        from snapshots in toSeq(Enumerable.Range(0, archiveArray.Count))
             .TraverseM(index => spec.Codec.Read(archiveArray.Get(index), key))
             .As()
         select (current, snapshots);
 
     private Fin<T> Reported<T>(Fin<T> outcome) =>
-        outcome.BindFail(error => {
+        outcome.MapFail(error => {
             spec.Report(error);
-            return Fin.Fail<T>(error: error);
+            return error;
         });
 
     private bool Landed(Fin<bool> outcome) => Reported(outcome).IfFail(false);

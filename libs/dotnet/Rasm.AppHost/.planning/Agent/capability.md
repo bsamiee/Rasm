@@ -85,10 +85,10 @@ public readonly record struct MeterVector(HashMap<CostUnit, long> Units) {
     public static readonly MeterVector Zero = new(HashMap<CostUnit, long>.Empty);
 
     public MeterVector Add(MeterVector other) =>
-        new(other.Units.Fold(Units, static (acc, kv) => acc.AddOrUpdate(kv.Key, existing => existing + kv.Value, kv.Value)));
+        new(other.Units.AsIterable().Fold(Units, static (acc, kv) => acc.AddOrUpdate(kv.Key, existing => existing + kv.Value, kv.Value)));
 
     public MeterVector Subtract(MeterVector other) =>
-        new(other.Units.Fold(Units, static (acc, kv) => acc.AddOrUpdate(kv.Key, existing => long.Max(existing - kv.Value, 0L), 0L)));
+        new(other.Units.AsIterable().Fold(Units, static (acc, kv) => acc.AddOrUpdate(kv.Key, existing => long.Max(existing - kv.Value, 0L), 0L)));
 
     public long Of(CostUnit unit) => Units.Find(unit).IfNone(0L);
 
@@ -281,13 +281,13 @@ public sealed class CapabilityRegistry {
     public Seq<CapabilityMatch> Discover(DiscoveryQuery query) =>
         Project(query.Switch(
             byId: q => Resolve(q.Id).ToSeq(),
-            bySurface: q => bySurface[q.Surface].ToSeq(),
-            byEffect: q => byId.Values.Where(row => row.Effect == q.Effect).ToSeq(),
-            permitting: q => byId.Values.Where(row => Admits(q.Level, row.Effect)).ToSeq(),
+            bySurface: q => toSeq(bySurface[q.Surface]),
+            byEffect: q => toSeq(byId.Values.Where(row => row.Effect == q.Effect)),
+            permitting: q => toSeq(byId.Values.Where(row => Admits(q.Level, row.Effect))),
             byIntent: q => byIntent.Match(
-                Some: rank => rank(q.Intent).Map(Resolve).Somes().ToSeq(),
+                Some: rank => rank(q.Intent).Map(Resolve).Somes(),
                 None: () => Seq<CapabilityDescriptor>()),
-            all: _ => byId.Values.ToSeq()));
+            all: _ => toSeq(byId.Values)));
 
     static bool Admits(DegradationLevel level, EffectClass effect) =>
         level.Retains.Admits(Gate(effect))
@@ -433,7 +433,7 @@ public static class CommandAlgebra {
         select result;
 
     static IO<MonotonicStamp> Marked(CommandRuntime runtime) =>
-        runtime.Clocks.Line.Capture().Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>);
+        IO.lift(runtime.Clocks.Line.Capture());
 
     static IO<CommandResult> Brokered(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, MonotonicStamp mark) =>
         runtime.Broker.Admit(descriptor, arguments, DrawMode.Live).Match(
@@ -444,20 +444,18 @@ public static class CommandAlgebra {
 
     static IO<CommandResult> Dispatch(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, MeterVector charged, MonotonicStamp mark) =>
         descriptor.Compile(arguments).Match(
-            Succ: body => Posture(descriptor) switch {
-                var spec =>
-                    from dispatched in Governed(runtime, spec, body, arguments)
-                    from txn in dispatched.Match(
-                        Succ: result => IO.pure<CommandTxn>(new CommandTxn.Committed(result)),
-                        Fail: error => error is LaneFault refusal
-                            ? IO.pure(CommandTxn.Rejected(new CommandFault.LaneRefused(refusal)))
-                            : Compensate(runtime, descriptor, arguments, error))
-                    from settled in txn is CommandTxn.Committed
-                        ? IO.pure(charged)
-                        : IO.lift(() => runtime.Broker.Refund(arguments.Tenant, charged)).Map(static _ => MeterVector.Zero)
-                    from minted in Mint(runtime, descriptor.Id, txn, settled, Dispatched(txn), arguments, mark)
-                    select minted,
-            },
+            Succ: body =>
+                from dispatched in Governed(runtime, Posture(descriptor), body, arguments)
+                from txn in dispatched.Match(
+                    Succ: result => IO.pure<CommandTxn>(new CommandTxn.Committed(result)),
+                    Fail: error => error is LaneFault refusal
+                        ? IO.pure(CommandTxn.Rejected(new CommandFault.LaneRefused(refusal)))
+                        : Compensate(runtime, descriptor, arguments, error))
+                from settled in txn is CommandTxn.Committed
+                    ? IO.pure(charged)
+                    : IO.lift(() => runtime.Broker.Refund(arguments.Tenant, charged)).Map(static _ => MeterVector.Zero)
+                from minted in Mint(runtime, descriptor.Id, txn, settled, Dispatched(txn), arguments, mark)
+                select minted,
             Fail: error =>
                 from _returned in IO.lift(() => runtime.Broker.Refund(arguments.Tenant, charged))
                 from minted in Mint(runtime, descriptor.Id,
@@ -502,15 +500,15 @@ public static class CommandAlgebra {
             var lane => new(lane.Attempt, lane, Spec.PooledAllocation, Spec.BypassCache, Progress: descriptor.Progress),
         };
 
-    static Option<DispatchResult> Dispatched(CommandTxn txn) => txn switch {
-        CommandTxn.Committed c => Some(c.Dispatch),
-        CommandTxn.Compensated c => Some(c.Compensation),
-        _ => None,
-    };
+    static Option<DispatchResult> Dispatched(CommandTxn txn) => txn.Switch(
+        committed: static row => Some(row.Dispatch),
+        rolledBack: static _ => None,
+        compensated: static row => Some(row.Compensation),
+        refused: static _ => None);
 
     static IO<CommandResult> Mint(CommandRuntime runtime, string descriptor, CommandTxn txn, MeterVector charged, Option<DispatchResult> dispatch, CommandArguments arguments, MonotonicStamp mark) =>
         from settled in Marked(runtime)
-        from span in runtime.Clocks.Line.Elapsed(mark, settled).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
+        from span in IO.lift(runtime.Clocks.Line.Elapsed(mark, settled))
         select new CommandResult(
             descriptor, txn, charged, Duration.FromTimeSpan(span),
             arguments.Correlation, arguments.Tenant, runtime.Clocks.Now, dispatch);
@@ -666,9 +664,9 @@ public sealed record GrantBroker(
     }
 
     public Seq<(string Id, Fin<MeterVector>)> Simulate(CapabilityRegistry registry, Seq<(string Id, CommandArguments Args)> plan) =>
-        plan.Map(step => (step.Id, registry.Resolve(step.Id).Match(
-            Some: descriptor => Admit(descriptor, step.Args, DrawMode.Priced),
-            None: () => Fin.Fail<MeterVector>(new GrantFault.OutOfScope(step.Id)))));
+        plan.Map(step => (step.Id, registry.Resolve(step.Id)
+            .ToFin(new GrantFault.OutOfScope(step.Id))
+            .Bind(descriptor => Admit(descriptor, step.Args, DrawMode.Priced))));
 
     public Fin<MeterVector> Refund(TenantContext tenant, MeterVector charged) =>
         Move(Flow.Credit, tenant.TenantId, None, charged, DrawMode.Live);

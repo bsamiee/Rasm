@@ -334,8 +334,8 @@ public sealed partial class DatumSystem {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<DatumReference> references) {
         references = toSeq(references.OrderBy(static row => row.Precedence.Order)).ToArr();
         validationError = references.Count <= 3
-            && references.Map(static row => row.Label).Distinct().Count == references.Count
-            && references.Map(static row => row.Precedence).Distinct().Count == references.Count
+            && toSeq(references).Map(static row => row.Label).Distinct().Count == references.Count
+            && toSeq(references).Map(static row => row.Precedence).Distinct().Count == references.Count
             && references.ForAll(row => row.Precedence.Order <= references.Count)
             ? null : ToleranceSpec.Validation("datum-system");
     }
@@ -372,8 +372,8 @@ public sealed partial class FrameExtension {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<BasicDimension> basics,
         ref Arr<DatumTarget> targets, ref Option<CompositeSegment> composite) =>
-        validationError = basics.Map(static row => row.Label).Distinct().Count == basics.Count
-            && targets.Map(static row => row.Label).Distinct().Count == targets.Count
+        validationError = toSeq(basics).Map(static row => row.Label).Distinct().Count == basics.Count
+            && toSeq(targets).Map(static row => row.Label).Distinct().Count == targets.Count
             && targets.ForAll(ValidTarget)
                 ? null : ToleranceSpec.Validation("frame-extension");
 
@@ -501,8 +501,8 @@ public sealed partial class FeatureFrame {
         + (Control.Material == MaterialCondition.Regardless
             ? Seq<FrameSymbolRow>()
             : Seq(new FrameSymbolRow(FrameCompartment.Material, Control.Material.Symbol, 0)))
-        + Modifiers.Map(static (modifier, index) => new FrameSymbolRow(FrameCompartment.Modifier, modifier.Symbol, index)).ToSeq()
-        + Datums.Map(static (datum, index) => new FrameSymbolRow(FrameCompartment.Datum, datum.Label.Text, index)).ToSeq();
+        + toSeq(Modifiers).Map(static (modifier, index) => new FrameSymbolRow(FrameCompartment.Modifier, modifier.Symbol, index))
+        + toSeq(Datums).Map(static (datum, index) => new FrameSymbolRow(FrameCompartment.Datum, datum.Label.Text, index));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref FeatureControl control) =>
         validationError = control is null ? ToleranceSpec.Validation("feature-frame") : null;

@@ -190,9 +190,7 @@ public sealed partial record EncodedGeometry(
         Witness.ChannelError.Values.AsIterable().ForAll(static error => double.IsFinite(error) && error >= 0.0),
         Lossless);
 
-    public bool Lossless => Descriptors.ForAll(d => Witness.ChannelError.Find(d.Channel).Match(
-        Some: error => error <= d.Dtype.Tolerance,
-        None: static () => false));
+    public bool Lossless => Descriptors.ForAll(d => Witness.ChannelError.Find(d.Channel).Exists(error => error <= d.Dtype.Tolerance));
 
     public Option<ReadOnlyMemory<byte>> Channel(EncodingChannel channel) =>
         Descriptors.Find(d => d.Channel == channel).Map(d => Payload.Slice(d.ByteOffset, d.Bytes));

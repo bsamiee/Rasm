@@ -366,9 +366,9 @@ public sealed class BlockVault {
             ceded: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: held.Op.InvalidResult()),
             refused: static (_, _) => Fin.Succ(Option<DocEnrolment>.None),
             contended: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: held.Op.InvalidResult()))
-        from closed in discharged.Match(
-            Some: held => Closed(watch: held.Observation, op: op),
-            None: static () => Fin.Succ(value: unit))
+        from closed in discharged
+            .TraverseM(held => Closed(watch: held.Observation, op: op)).As()
+            .Map(static _ => unit)
         select unit;
 
     internal Fin<Watch> WatchLinked(

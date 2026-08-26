@@ -327,36 +327,37 @@ public static class ModelRegistry {
         .ToFrozenDictionary(static card => card.Id);
 
     public static Validation<Error, Unit> Census() =>
-        toSeq(PbrStage.Items).Traverse(Stage).Map(static _ => unit)
-            .Apply(toSeq(Rows.Values).Traverse(Card).Map(static _ => unit), static (_, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            toSeq(PbrStage.Items).Traverse(Stage).Map(static _ => unit),
+            toSeq(Rows.Values).Traverse(Card).Map(static _ => unit)));
 
     static Validation<Error, Unit> Stage(PbrStage stage) =>
-        Breach(Rows.Values.Any(card => card.Stage == stage), $"<stage-uncarded:{stage.Key}>")
-            .Apply(Breach(stage.Consumes().ForAll(product =>
+        AdmissionSlots.Accumulate(Seq(
+            Breach(Rows.Values.Any(card => card.Stage == stage), $"<stage-uncarded:{stage.Key}>"),
+            Breach(stage.Consumes().ForAll(product =>
                     StageRelation.Emitters(product).Exists(prior =>
                         prior.Ordinal < stage.Ordinal && prior.Selection == StageSelection.Cover)),
-                $"<stage-forward-consumes:{stage.Key}>"), static (_, _) => unit).As();
+                $"<stage-forward-consumes:{stage.Key}>")));
 
     static Validation<Error, Unit> Card(ModelCard card) =>
-        Breach(card.Contract.Outputs.ForAll(binding => StageRelation.Emits(card.Stage, binding.Product)),
-                $"<stage-contract-overemits:{card.Id.Value}>")
-            .Apply(Breach(card.Contract.Inputs.Count == Math.Max(1, card.Stage.Consumes().Count),
-                $"<stage-contract-arity:{card.Id.Value}:{card.Contract.Inputs.Count}>"), static (_, _) => unit).As()
-            .Apply(Breach(card.Contract.Overlap is >= FeatherFloor and <= FeatherCeiling,
-                $"<model-overlap-band:{card.Id.Value}:{card.Contract.Overlap}>"), static (_, _) => unit).As()
-            .Apply(Breach(card.Contract.Buckets.Count <= 1
+        AdmissionSlots.Accumulate(Seq(
+            Breach(card.Contract.Outputs.ForAll(binding => StageRelation.Emits(card.Stage, binding.Product)),
+                $"<stage-contract-overemits:{card.Id.Value}>"),
+            Breach(card.Contract.Inputs.Count == Math.Max(1, card.Stage.Consumes().Count),
+                $"<stage-contract-arity:{card.Id.Value}:{card.Contract.Inputs.Count}>"),
+            Breach(card.Contract.Overlap is >= FeatherFloor and <= FeatherCeiling,
+                $"<model-overlap-band:{card.Id.Value}:{card.Contract.Overlap}>"),
+            Breach(card.Contract.Buckets.Count <= 1
                     || !card.Contract.Outputs.Exists(static binding => binding.Product is StageProduct.Measure),
-                $"<model-measure-multi-bucket:{card.Id.Value}:{card.Contract.Buckets.Count}>"), static (_, _) => unit).As()
-            .Apply(Breach(card.Contract.Latent.ForAll(seeded =>
+                $"<model-measure-multi-bucket:{card.Id.Value}:{card.Contract.Buckets.Count}>"),
+            Breach(card.Contract.Latent.ForAll(seeded =>
                     card.Contract.Buckets.ForAll(b => b.Width.Value % seeded.Downscale == 0 && b.Height.Value % seeded.Downscale == 0)),
-                $"<model-latent-bucket:{card.Id.Value}>"), static (_, _) => unit).As()
-            .Apply(Breach(card.Weights == WeightPolicy.Redistributable == card.Artefact.IsSome,
-                $"<model-weight-artefact:{card.Id.Value}:{card.Weights.Key}>"), static (_, _) => unit).As();
+                $"<model-latent-bucket:{card.Id.Value}>"),
+            Breach(card.Weights == WeightPolicy.Redistributable == card.Artefact.IsSome,
+                $"<model-weight-artefact:{card.Id.Value}:{card.Weights.Key}>")));
 
     static Validation<Error, Unit> Breach(bool held, string token) =>
-        held
-            ? Validation<Error, Unit>.Success(unit)
-            : Validation<Error, Unit>.Fail(new MaterialFault.Parameter(Op.Of(name: "model-registry"), token));
+        AdmissionSlots.Gate(held, new MaterialFault.Parameter(Op.Of(name: "model-registry"), token));
 
     const int FeatherFloor = 8, FeatherCeiling = 32;
 
@@ -636,22 +637,21 @@ public static class StagePlan {
     }
 
     static Fin<Seq<StageStep>> Thread(Seq<PbrStage> ordered, StageIntent intent, Option<StageReplay> replay, Op key) =>
-        ordered.Fold(
-            Fin.Succ((Steps: Seq<StageStep>(), Prefix: Seq<PbrStage>(), Width: intent.Width, Height: intent.Height)),
-            (state, stage) => state.Bind(carried =>
+        ordered.FoldM(
+            (Steps: Seq<StageStep>(), Prefix: Seq<PbrStage>(), Width: intent.Width, Height: intent.Height),
+            (carried, stage) =>
                 from card in ModelRegistry.Select(stage, intent.Policy, key)
                 from tiles in InferenceTiling.Of(carried.Width, carried.Height, card.Contract, key)
                 from request in StageRequest.Of(card, intent, carried.Prefix, carried.Width, carried.Height, tiles, key)
                 from held in Consulted(replay, request, card, key)
                 select (Steps: carried.Steps.Add(new StageStep(request, held)), Prefix: carried.Prefix.Add(stage),
-                        Width: request.OutputWidth, Height: request.OutputHeight)))
+                        Width: request.OutputWidth, Height: request.OutputHeight))
+        .As()
         .Map(static carried => carried.Steps.Strict());
 
     static Fin<Option<StageResult>> Consulted(Option<StageReplay> replay, StageRequest request, ModelCard card, Op key) =>
         replay.Bind(port => port(request))
-            .Match(
-                Some: held => StageResult.Admit(held, card, request, key).Map(Some),
-                None: () => Fin.Succ(Option<StageResult>.None));
+            .TraverseM(held => StageResult.Admit(held, card, request, key)).As();
 }
 ```
 

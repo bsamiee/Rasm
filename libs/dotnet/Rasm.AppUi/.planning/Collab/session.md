@@ -200,7 +200,7 @@ public static class MemberRegister {
 
     public static Fin<Seq<MemberRow>> Roster(CollabDoc doc) =>
         doc.Read(CollabPath.Root(CollabRoot.Members), Seq<MemberRow>(), members =>
-            CollabDoc.Lift(() => members.Keys().AsIterable().Choose(key => Seated(members, key)).ToSeq()));
+            CollabDoc.Lift(() => toSeq(members.Keys()).Choose(key => Seated(members, key))));
 
     public static ulong Subject(MembershipOp op) => op.Switch(
         invite: static i => i.Peer,

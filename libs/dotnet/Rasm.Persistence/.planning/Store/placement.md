@@ -55,7 +55,7 @@ public sealed partial class ObjectChecksum {
 
     public Option<string> Wire(ContentAddress key) {
         byte[] digest = new byte[16];
-        BinaryPrimitives.WriteUInt128BigEndian(digest, key.Value);
+        BinaryPrimitives.WriteUInt128BigEndian(digest, key.ToValue());
         return this == XxHash128 ? Some(Convert.ToBase64String(digest)) : None;
     }
 
@@ -138,7 +138,7 @@ public sealed partial class ObjectCodec {
                     at += wrote;
                 }
                 return Fin<ReadOnlySequence<byte>>.Succ(new ReadOnlySequence<byte>(packed.AsMemory(0, (int)at)));
-            })).Bind(IO.liftFin);
+            }));
 
     public IO<ReadOnlyMemory<byte>> Unpack(ChunkPolicy policy, long plain, ReadOnlyMemory<byte> directory, long ordinal, ReadOnlySequence<byte> run) =>
         this == Identity
@@ -157,7 +157,7 @@ public sealed partial class ObjectCodec {
                     (read, wrote) = (read + span, wrote + frame.Span(index));
                 }
                 return Fin<ReadOnlyMemory<byte>>.Succ(opened.AsMemory(0, (int)wrote));
-            })).Bind(IO.liftFin);
+            }));
 }
 
 [SmartEnum<string>]
@@ -251,7 +251,7 @@ public abstract partial record ObjectEncryption {
                         long at = ordinal * frame.Stride;
                         int span = (int)long.Min(frame.Stride, plain.Length - at);
                         Span<byte> slot = framed.AsSpan((int)(ordinal * (frame.Stride + SealFrame.Overhead)));
-                        BinaryPrimitives.WriteUInt64BigEndian(slot[..8], ContentHash.Half(key.Value, 1));
+                        BinaryPrimitives.WriteUInt64BigEndian(slot[..8], ContentHash.Half(key.ToValue(), 1));
                         BinaryPrimitives.WriteUInt32BigEndian(slot.Slice(8, 4), (uint)ordinal);
                         plain.Slice(at, span).CopyTo(slot.Slice(SealFrame.Overhead, span));
                         aead.Encrypt(slot[..12], slot.Slice(SealFrame.Overhead, span), slot.Slice(SealFrame.Overhead, span), slot.Slice(12, 16));
@@ -268,12 +268,12 @@ public abstract partial record ObjectEncryption {
         (this, dek) switch {
             (ClientSealed, { IsNone: true }) => IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach(content, "client-seal-envelope")),
             (ClientSealed, _) when framed.Length < SealFrame.Overhead => IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach(content, "client-seal-frame")),
-            (ClientSealed sealed_, { IsSome: true }) => sealed_.Keyring.Unwrap(dek.ValueUnsafe(), sealed_.Aad).Map(key => {
+            (ClientSealed sealed_, { IsSome: true, Case: WrappedKey key }) => sealed_.Keyring.Unwrap(key, sealed_.Aad).Map(opened => {
                 SealFrame frame = SealFrame.Of(policy);
                 byte[] run = framed.ToArray();
                 byte[] plain = new byte[frame.Plain(run.LongLength)];
                 try {
-                    using System.Security.Cryptography.AesGcm aead = new(key.Span, tagSizeInBytes: 16);
+                    using System.Security.Cryptography.AesGcm aead = new(opened.Span, tagSizeInBytes: 16);
                     for (long index = 0; index * (frame.Stride + SealFrame.Overhead) < run.LongLength; index++) {
                         int at = (int)(index * (frame.Stride + SealFrame.Overhead));
                         int span = (int)long.Min(frame.Stride, run.LongLength - at - SealFrame.Overhead);
@@ -283,7 +283,7 @@ public abstract partial record ObjectEncryption {
                     }
                 }
                 finally {
-                    System.Security.Cryptography.CryptographicOperations.ZeroMemory(System.Runtime.InteropServices.MemoryMarshal.AsMemory(key).Span);
+                    System.Security.Cryptography.CryptographicOperations.ZeroMemory(System.Runtime.InteropServices.MemoryMarshal.AsMemory(opened).Span);
                 }
                 return (ReadOnlyMemory<byte>)plain;
             }),
@@ -301,7 +301,7 @@ public abstract partial record ObjectEncryption {
         (this, range) switch {
             (ClientSealed, { IsSome: true, Case: (long Start, long End) window }) =>
                 from present in stat(key)
-                from resident in present.Match(Some: IO.pure, None: () => IO.fail<BlobPlacement>(new RemoteStoreFault.NotFound(key)))
+                from resident in IO.lift(present.ToFin(new RemoteStoreFault.NotFound(key)))
                 let frame = SealFrame.Of(policy)
                 let plainLength = frame.Plain(resident.Extent.Stored)
                 from bounded in window is { Start: >= 0 } && window.End >= window.Start && window.End < plainLength

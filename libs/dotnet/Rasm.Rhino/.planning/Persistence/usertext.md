@@ -586,7 +586,7 @@ public static class UserTexts {
             objectCase: static (_, value) => Fin.Succ(value: value));
 
     private static Fin<DocumentTextSnapshot> ReadDocument(RhinoDoc document, Op key) =>
-        from rows in key.Catch(() => toSeq(Range(0, document.Strings.Count))
+        from rows in key.Catch(() => toSeq(Enumerable.Range(0, document.Strings.Count))
             .Traverse(index => Row(document: document, index: index, key: key).ToValidation())
             .As()
             .ToFin())

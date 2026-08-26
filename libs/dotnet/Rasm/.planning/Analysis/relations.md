@@ -107,7 +107,7 @@ public abstract partial record IntersectionHit : IValidityEvidence {
         pointCase: static p => ValidityClaim.Finite(p.Point),
         curveCase: static c => ValidityClaim.All(
             c.CurveKind.Equals(IntersectionKind.Curve) || c.CurveKind.Equals(IntersectionKind.Overlap),
-            Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(noneValue: false)),
+            Optional(c.Curve).Exists(static curve => curve.IsValid)),
         overlapCase: static o => ValidityClaim.All(
             ValidityClaim.Finite(o.Start),
             ValidityClaim.Finite(o.End),
@@ -381,9 +381,8 @@ internal static partial class Relations {
         (Optional(left).ToFin(op.InvalidInput()), Optional(right).ToFin(op.InvalidInput())).Apply(static (l, r) => (L: (object)l, R: (object)r)).As()
             .Bind(pair => order.Attempts(left: pair.L, right: pair.R).Fold(
                 initialState: Fin.Fail<IntersectionResult>(op.Unsupported(pair.L.GetType(), pair.R.GetType())),
-                f: (settled, attempt) => settled.Match(
-                    Succ: static value => Fin.Succ(value),
-                    Fail: cause => cause is KernelFault.Unsupported
+                f: (settled, attempt) => settled.BindFail(cause =>
+                    cause is KernelFault.Unsupported
                         ? Scan(left: attempt.Left, right: attempt.Right, env: env, op: op)
                         : Fin.Fail<IntersectionResult>(cause))));
     internal static Fin<IntersectionResult> ClassifiedOf<TL, TR>(TL left, TR right, Env env, Op op) where TL : notnull where TR : notnull =>

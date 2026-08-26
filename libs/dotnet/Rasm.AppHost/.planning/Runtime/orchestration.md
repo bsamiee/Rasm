@@ -288,13 +288,11 @@ public static class Orchestrator {
                 Fail: _ => IO.pure(unit)));
 
     public static IO<WorkflowInstance> Signal(OrchestrationRuntime runtime, string instanceId, string channel, JsonElement payload) =>
-        from loaded in IO.lift(() => runtime.Store.Load(instanceId))
-        from resumed in loaded.Match(
-            Succ: instance => IO.lift(() => runtime.Store.SignalPut(instanceId, channel, instance.Fence.Value, payload))
-                .Bind(persisted => persisted.Match(
-                    Succ: _ => Drive(runtime, instance),
-                    Fail: _ => IO.fail<WorkflowInstance>(new OrchestrationFault.ResumeBroken(instanceId)))),
-            Fail: _ => IO.fail<WorkflowInstance>(new OrchestrationFault.ResumeBroken(instanceId)))
+        from instance in IO.lift(runtime.Store.Load(instanceId)
+            .MapFail(_ => new OrchestrationFault.ResumeBroken(instanceId)))
+        from _stored in IO.lift(runtime.Store.SignalPut(instanceId, channel, instance.Fence.Value, payload)
+            .MapFail(_ => new OrchestrationFault.ResumeBroken(instanceId)))
+        from resumed in Drive(runtime, instance)
         select resumed;
 
     static IO<WorkflowInstance> Compensate(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep failed) =>
@@ -302,7 +300,7 @@ public static class Orchestrator {
             .Choose(committed => committed.Kind is StepKind.Activity a
                 ? from undo in runtime.Dispatch.Command.CompensationOf(a.Intent.Descriptor)
                   from charged in committed.Result.Map(static result => result.Charged)
-                  select (Intent: CommandIntent.Of(undo, a.Intent.Arguments, CallerModality.Operator), Charged: charged)
+                  select (Intent: new CommandIntent(undo, a.Intent.Arguments, CallerModality.Operator), Charged: charged)
                 : Option<(CommandIntent Intent, MeterVector Charged)>.None)
             .TraverseM(undo => CommandDispatch.Run(runtime.Dispatch, undo.Intent)
                 .Map(_ => ignore(runtime.Dispatch.Command.Broker.Refund(instance.Tenant, undo.Charged))))
@@ -434,19 +432,19 @@ public static class CrashResume {
             Succ: ids => ids.TraverseM(id => runtime.Store.Load(id).Match(
                 Succ: instance => Orchestrator.Drive(runtime, instance).Map(Some),
                 Fail: _ => IO.pure(Option<WorkflowInstance>.None))).As()
-                .Map(static instances => instances.Somes().ToSeq()),
+                .Map(static instances => instances.Somes()),
             Fail: _ => IO.pure(Seq<WorkflowInstance>()));
 
     public static IO<Seq<WorkflowInstance>> Reclaim(OrchestrationRuntime runtime, TenantContext tenant) =>
-        IO.lift(() => runtime.Store.Expired(runtime.Clocks.Now)).Bind(expired => expired.Match(
-            Succ: orphans => orphans.TraverseM(orphan =>
+        IO.lift(() => runtime.Store.Expired(runtime.Clocks.Now)
+            .IfFail(static _ => Seq<(string InstanceId, ulong LastFence)>())).Bind(orphans =>
+            orphans.TraverseM(orphan =>
                 LeaseElection.Acquire(runtime.Lease, orphan.InstanceId).Match(
                     Succ: fresh => runtime.Store.Load(orphan.InstanceId).Match(
                         Succ: instance => Orchestrator.Drive(runtime, instance with { Fence = fresh }).Map(Some),
                         Fail: _ => IO.pure(Option<WorkflowInstance>.None)),
                     Fail: _ => IO.pure(Option<WorkflowInstance>.None))).As()
-                .Map(static instances => instances.Somes().ToSeq()),
-            Fail: _ => IO.pure(Seq<WorkflowInstance>())));
+                .Map(static instances => instances.Somes()));
 }
 ```
 

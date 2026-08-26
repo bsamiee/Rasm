@@ -413,16 +413,12 @@ public static class MotionPump {
                 None: static () => Fin.Succ(unit));
             _ = mounted.Swap(static _ => None);
             _ = Cell.Step(gate, static held => held is DriveGate.Stopping ? Some<DriveGate>(new DriveGate.Released()) : None, key.InvalidContext());
-            Fin<Unit> settled = Append(Append(primary, pause), release);
+            Fin<Unit> settled = primary.Settled(
+                release: () => Custody.Release(Seq<Func<Fin<Unit>>>(() => pause, () => release), key),
+                key);
             _ = done.TrySetResult(settled);
             return settled;
         }
-
-        static Fin<Unit> Append(Fin<Unit> primary, Fin<Unit> side) => side.Match(
-            Succ: _ => primary,
-            Fail: fault => primary.Match(
-                Succ: _ => Fin.Fail<Unit>(error: fault),
-                Fail: first => Fin.Fail<Unit>(error: first + fault)));
     }
 
     private static void Tick(

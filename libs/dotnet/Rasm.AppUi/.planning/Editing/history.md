@@ -61,7 +61,6 @@ public abstract partial record HistoryFault : Fault {
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>]
-[ValidationError]
 public readonly partial struct ContentIdentity {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
@@ -70,7 +69,6 @@ public readonly partial struct ContentIdentity {
 }
 
 [ValueObject<string>]
-[ValidationError]
 public readonly partial struct ActorKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
@@ -79,7 +77,6 @@ public readonly partial struct ActorKey {
 }
 
 [ValueObject<int>]
-[ValidationError]
 public readonly partial struct RevertOrdinal {
     public static readonly RevertOrdinal Newest = Create(0);
 
@@ -246,7 +243,7 @@ public sealed record RevertPayload(string Target, RevertDelta Delta);
 public sealed partial class RevertArm {
     public static readonly RevertArm Client = new("client",
         static cursor => cursor with { ClientDepth = Dimension.Create(cursor.ClientDepth.Value + 1) },
-        static (scope, direction, cursor, identity) => IO.lift(() => scope.Log.Head(direction, cursor).Match(
+        static (scope, direction, cursor, identity) => IO.lift<Fin<(RevertibleOp, RevertCursor)>>(() => scope.Log.Head(direction, cursor).Match(
             Some: op => direction.Drive(scope.Recorder)
                 ? Fin.Succ((op, direction.After(Client, cursor)))
                 : Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.ApplyRejected(op.Target)),

@@ -273,8 +273,8 @@ public static partial class StructuralAnalysis {
     public static Fin<FrameModel> Project(ElementGraph graph, FrameInputs inputs, GeometrySource geometry) =>
         inputs.Targets.TraverseM(id =>
             from axis     in graph.AxisOf(id, geometry)
-            from strength in graph.PropertiesOf(id).Mechanical.ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"mechanical:{id.Value}"))
-            from section  in graph.SectionOf(id).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"section:{id.Value}"))
+            from strength in graph.PropertiesOf(id).Mechanical.ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"mechanical:{id.ToValue()}"))
+            from section  in graph.SectionOf(id).ToFin(Missing(AssessmentInputReason.MeasureAbsent, $"section:{id.ToValue()}"))
             let directional = graph.PropertiesOf(id).Orthotropic
             let shearLink = graph.ShearLinkOf(id)
             let buckling  = graph.BucklingOf(id)
@@ -310,7 +310,7 @@ public static class StructuralReads {
 
     public static Fin<AxisCurve> AxisOf(this ElementGraph graph, NodeId member, GeometrySource geometry) =>
         graph.Find<Node.Object>(member).Bind(o => geometry.Axis(o.Representations))
-            .ToFin(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MemberInputAbsent, $"axis:{member.Value}"));
+            .ToFin(new ComputeFault.AssessmentInputMissing(AssessmentInputReason.MemberInputAbsent, $"axis:{member.ToValue()}"));
 
     public static Option<RcShearLink> ShearLinkOf(this ElementGraph graph, NodeId member) =>
         from area in MeasuredRow(graph, member, StructuralRows.ShearLinkArea)
@@ -379,7 +379,7 @@ public static class StructuralReads {
                 .Map(readings => CapabilitySet<DofRelease>.Of([.. readings.Zip(end.Rows)
                     .Filter(static pair => pair.Item1 is DofRestraint.Free).Map(static pair => pair.Item2)]))
                 .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input,
-                    $"<frame-release-partial:{member.Value}:{end.Key}>"))
+                    $"<frame-release-partial:{member.ToValue()}:{end.Key}>"))
                 .Map(static column => Some(column));
     }
 
@@ -514,7 +514,7 @@ public static partial class StructuralAnalysis {
 
         static ComputeFault Unstated(StructuralMember m, MemberEnd end) =>
             new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input,
-                $"<frame-release-unstated:{m.Id.Value}:{end.Key}>");
+                $"<frame-release-unstated:{m.Id.ToValue()}:{end.Key}>");
 
         static double Offset(StructuralMember m, MemberEnd end) =>
             m.At(end).Bind(static s => s.Offset).Map(static o => o.X).IfNone(0.0);

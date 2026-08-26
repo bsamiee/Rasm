@@ -1104,7 +1104,7 @@ public static class Audit {
                     ? Fin.Succ(Thinnest(axis.Medial, ring, rings.Holes, admitted.Policy.Thresholds.MinWall))
                     : Fin.Fail<Option<(Length Thickness, Point3d At)>>(
                         new KernelFault.InvalidValue("audit", "audit:medial")))).As()
-            .Map(found => found.Choose(identity).Map(row => (AuditDefect)new AuditDefect.ThinWall(
+            .Map(found => found.Somes().Map(row => (AuditDefect)new AuditDefect.ThinWall(
                 layer, row.Thickness, admitted.Policy.Envelope.World(row.At))));
     }
 

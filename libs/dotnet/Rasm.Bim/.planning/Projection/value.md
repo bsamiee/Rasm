@@ -279,9 +279,7 @@ internal static class PropertyLowering {
             Coerce(scheme, AsDouble(measure.Value), measure.GetType().Name, dimension, declared), key: key);
 
     static Fin<Option<MeasureValue>> MeasureOpt(IfcValue? value, UnitScheme scheme, IfcUnit? declared, Op key) =>
-        Signature(value).Match(
-            Some: row => MeasureOf(value!, row, scheme, declared, key).Map(Some),
-            None: static () => Fin.Succ(Option<MeasureValue>.None));
+        Signature(value).TraverseM(row => MeasureOf(value!, row, scheme, declared, key)).As();
 
     internal static readonly QuantityType Number = QuantityType.Create("Number");
 

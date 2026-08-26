@@ -472,7 +472,7 @@ public sealed class BatchGate : IAsyncDisposable {
             if (window.IsEmpty) { return unit; }
             using MemoryOwner<float> packed = MemoryOwner<float>.Allocate(policy.MaxRows * rowWidth, AllocationMode.Clear);
             Span2D<float> rows = packed.Span.AsSpan2D(policy.MaxRows, rowWidth);
-            window.Iter((pending, row) => pending.Row.CopyTo(rows.GetRowSpan(row)));
+            window.Iter((row, pending) => pending.Row.CopyTo(rows.GetRowSpan(row)));
             Fin<Seq<float[]>> outcome = flow.Pulse(options, scope, new FlowPayload.Floats(packed.Memory), results => {
                 if (results.Count is 0) { return RunRefusal.OutputMissing.Fault<Seq<float[]>>(); }
                 ReadOnlySpan<float> scores = results.First().GetTensorDataAsSpan<float>();
@@ -485,7 +485,7 @@ public sealed class BatchGate : IAsyncDisposable {
                 for (int row = 0; row < window.Count; row++) { sliced[row] = fanned.GetRowSpan(row).ToArray(); }
                 return Fin.Succ(toSeq(sliced));
             });
-            window.Iter((pending, row) => pending.Reply.TrySetResult(outcome.Map(fanned => fanned[row])));
+            window.Iter((row, pending) => pending.Reply.TrySetResult(outcome.Map(fanned => fanned[row])));
             return unit;
         });
 
@@ -562,9 +562,7 @@ public static class CacheOps {
 
     public static Fin<Option<DriftVerdict>> Sentinel(
         Option<GraduationEnvelope> envelope, Seq<FeatureSample> serving, DriftPolicy policy) =>
-        envelope.Match(
-            Some: held => held.Drift(serving, policy).Map(static report => Some(report.Worst)),
-            None: static () => Fin.Succ(Option<DriftVerdict>.None));
+        envelope.TraverseM(held => held.Drift(serving, policy).Map(static report => report.Worst)).As();
 
     static Fin<T> Validated<T>(ModelResultKey key, Cached<Fin<T>> cached) =>
         StringComparer.Ordinal.Equals(cached.Echo, key.ModelChecksum)

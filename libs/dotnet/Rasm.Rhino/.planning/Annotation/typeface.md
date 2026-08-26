@@ -694,8 +694,8 @@ public abstract partial record SectionOp {
         Mint: static (document, def, key) =>
             from shaped in key.Catch(() => Fin.Succ(value: new SectionStyle()))
             from _ in def.Apply(style: shaped, document: document, key: key)
-                .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key))
+                .Rollback(
+                    release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
             select shaped,
         Revise: static (document, copy, def, key) => def.Apply(style: copy, document: document, key: key),
         Retitle: static (copy, name, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => copy.Name = name.Value))),
@@ -720,12 +720,12 @@ public abstract partial record SectionOp {
             from source in op.Need(value: pattern)
             from definition in PatternDef.Read(pattern: source, key: op)
             from canonical in definition.Mint(key: op)
-            from existing in Optional(document.HatchPatterns.FindName(name: canonical.Name)).Match(
-                Some: held =>
+            from existing in Optional(document.HatchPatterns.FindName(name: canonical.Name))
+                .TraverseM(held =>
                     from current in PatternDef.Read(pattern: held, key: op)
                     from _ in guard(definition == current, op.InvalidInput()).ToFin()
-                    select Some(ResourceIndex.Create(held.Index)),
-                None: static () => Fin.Succ(Option<ResourceIndex>.None))
+                    select ResourceIndex.Create(held.Index))
+                .As()
             select new PatternIntent(Source: source.Index, Pattern: canonical, Existing: existing);
     }
 
@@ -764,7 +764,7 @@ public abstract partial record SectionOp {
         from patterns in DocumentCommit.Compensated(
                 source: plan.Patterns,
                 land: intent => LandPattern(document: document, intent: intent, op: op),
-                rollback: landed => Rollback(landed: landed, op: op))
+                rollback: landed => Custody.Release(landed, row => row.Undo(op), op))
             .BindFail(primary => Drained<Seq<ImportLanding>>(primary: primary, spoil: owned, op: op))
         let targets = toHashMap(plan.Patterns.Zip(
             patterns, static (intent, landing) => (intent.Source, landing.Index)))
@@ -794,12 +794,12 @@ public abstract partial record SectionOp {
         from styles in spoil.Styles.Traverse(style => (
             from value in op.AcceptInput(value: style)
             from name in op.AcceptValidated<ResourceName>(candidate: value.Name)
-            from seat in Optional(document.SectionStyles.FindName(name: name.Value)).Match(
-                Some: held =>
+            from seat in Optional(document.SectionStyles.FindName(name: name.Value))
+                .TraverseM(held =>
                     from index in op.Catch(() => ResourceIndex.Admit(document.SectionStyles.Find(name: held.Name), op))
                     from original in op.Catch(() => Fin.Succ(value: new SectionStyle(held)))
-                    select Some(new ImportSeat(Index: index, Original: original)),
-                None: static () => Fin.Succ(Option<ImportSeat>.None))
+                    select new ImportSeat(Index: index, Original: original))
+                .As()
             select new SectionIntent(Style: value, Name: name, Seat: seat)).ToValidation()).As().ToFin()
         from ___ in Keyed(rows: styles, key: static row => row.Name, op: op)
         from ____ in guard(
@@ -830,9 +830,9 @@ public abstract partial record SectionOp {
                 source: plan,
                 land: intent => LandSection(
                     document: document, intent: intent, targets: targets, interaction: interaction, op: op),
-                rollback: landed => Rollback(landed: landed, op: op))
+                rollback: landed => Custody.Release(landed, row => row.Undo(op), op))
             .Map(static _ => unit)
-            .BindFail(primary => Reverted(primary: primary, runs: Seq(patterns), op: op));
+            .Rollback(Seq(patterns), run => Custody.Release(run, row => row.Undo(op), op), op);
 
     private static Fin<ImportLanding> LandSection(
         RhinoDoc document, SectionIntent intent, HashMap<int, ResourceIndex> targets,
@@ -859,19 +859,6 @@ public abstract partial record SectionOp {
                         index: index.Value, quiet: HostInteraction.Silent.IsQuiet))))))
         select landed;
 
-    private static Fin<Unit> Rollback(Seq<ImportLanding> landed, Op op) =>
-        toSeq(landed.AsIterable().Reverse()).Fold(
-            Fin.Succ(value: unit), (state, row) => Merge(prior: state, next: row.Undo(arg: op)));
-
-    private static Fin<T> Reverted<T>(Error primary, Seq<Seq<ImportLanding>> runs, Op op) =>
-        runs.Fold(Fin.Succ(value: unit), (state, run) => Merge(prior: state, next: Rollback(landed: run, op: op)))
-            .Match(Succ: _ => Fin.Fail<T>(error: primary), Fail: cleanup => Fin.Fail<T>(error: primary + cleanup));
-
-    private static Fin<Unit> Merge(Fin<Unit> prior, Fin<Unit> next) => prior.Match(
-        Succ: _ => next,
-        Fail: first => next.Match(
-            Succ: _ => Fin.Fail<Unit>(error: first),
-            Fail: second => Fin.Fail<Unit>(error: first + second)));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

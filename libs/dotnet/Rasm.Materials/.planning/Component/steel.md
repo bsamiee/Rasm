@@ -712,14 +712,16 @@ public static class SteelSeed {
         source: Source,
         standard: Standard,
         detail: Some<Func<SteelRowSeed, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
-        appearance: static _ => MaterialId.Of("metal.iron"));
+        appearance: static _ => MaterialId.Create("metal.iron"));
 
     static Validation<Error, Unit> Coherence(SteelRowSeed row, Op key) =>
-        (guard(row.Grade.Family == ComponentFamily.Steel,
-             new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Steel)).ToValidation(),
-         guard(row.Grade.SteelArm.IsSome,
-             new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Steel)).ToValidation())
-            .Apply(static (_, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                row.Grade.Family == ComponentFamily.Steel,
+                new ComponentFault.GradeFamilyMismatch(key, row.Grade, ComponentFamily.Steel)),
+            AdmissionSlots.Gate(
+                row.Grade.SteelArm.IsSome,
+                new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Steel))));
 
     static Fin<SectionProfile> ProfileOf(SteelRowSeed seed, Op key) =>
         seed.Source.Switch(

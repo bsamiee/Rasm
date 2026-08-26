@@ -81,7 +81,7 @@ public sealed partial class FeatureBand {
     public static FeatureBand Of(double value, double minimum, double maximum) {
         double span = Math.Max(1e-12, maximum - minimum);
         double fraction = Math.Clamp((value - minimum) / span, 0.0, 1.0);
-        return Items.Find(row => fraction <= row.UpperFraction).IfNone(Critical);
+        return toSeq(Items).Find(row => fraction <= row.UpperFraction).IfNone(Critical);
     }
 }
 

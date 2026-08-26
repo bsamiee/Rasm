@@ -72,11 +72,8 @@ public sealed partial class CostScheduleKind {
     public static readonly CostScheduleKind UserDefined              = new("USERDEFINED");
     public static readonly CostScheduleKind NotDefined               = new("NOTDEFINED");
 
-    public static Option<CostScheduleKind> TryGet(string key) =>
-        TryGet(key, out CostScheduleKind? row) && row is { } hit ? Some(hit) : None;
-
     public static CostScheduleKind Of(IfcCostScheduleTypeEnum kind) =>
-        TryGet(kind.ToString()).IfNone(NotDefined);
+        TryGet(kind.ToString(), out CostScheduleKind? row) ? row : NotDefined;
 }
 
 [SmartEnum<string>]
@@ -93,11 +90,8 @@ public sealed partial class ResourceKind {
 
     public IfcDomain Domain { get; }
 
-    public static Option<ResourceKind> TryGet(string key) =>
-        TryGet(key, out ResourceKind? row) && row is { } hit ? Some(hit) : None;
-
     public static ResourceKind Of(string entityType) =>
-        TryGet(entityType).IfNone(NotDefined);
+        TryGet(entityType, out ResourceKind? row) ? row : NotDefined;
 }
 
 [SmartEnum<string>]
@@ -112,11 +106,8 @@ public sealed partial class CostCategory {
     public static readonly CostCategory Contingency   = new("Contingency");
     public static readonly CostCategory NotDefined    = new("NotDefined");
 
-    public static Option<CostCategory> TryGet(string key) =>
-        TryGet(key, out CostCategory? row) && row is { } hit ? Some(hit) : None;
-
     public static CostCategory Of(string? category) =>
-        Optional(category).Map(static text => text.Trim()).Bind(TryGet).IfNone(NotDefined);
+        TryGet(category?.Trim(), out CostCategory? row) ? row : NotDefined;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -139,9 +130,10 @@ public static class CostMoney {
     public static Fin<Money> Reprice(Money value, Currency report, Seq<ExchangeRate> fx, Op key) =>
         value.Currency == report || value.Currency == Currency.NoCurrency
             ? Fin.Succ(value)
-            : fx.Find(rate => rate.BaseCurrency == value.Currency && rate.QuoteCurrency == report).Match(
-                Some: rate => Fin.Succ(rate.Convert(value)),
-                None: () => Fin.Fail<Money>(new BimFault.Refused(key, BimScope.Planning, BimReason.Codec, string.Join(':', new object?[] { "cost-currency", "unconvertible", value.Currency.Code, report.Code }))));
+            : fx.Find(rate => rate.BaseCurrency == value.Currency && rate.QuoteCurrency == report)
+                .ToFin(new BimFault.Refused(key, BimScope.Planning, BimReason.Codec,
+                    string.Join(':', new object?[] { "cost-currency", "unconvertible", value.Currency.Code, report.Code })))
+                .Map(rate => rate.Convert(value));
 }
 
 public sealed record CostValue(Money Applied, MeasureValue UnitBasis, CostCategory Category) {
@@ -388,9 +380,9 @@ public static class CostProjection {
             Optional(resource.Usage).Bind(static usage => usage.Completion is > 0d and <= 1d ? Some(usage.Completion) : None)));
 
     static Fin<Option<Money>> BaseCostOf(IfcConstructionResource resource, Currency model, Op key) =>
-        resource.BaseCosts.AsIterable().Head.Match(
-            Some: value => AmountOf(value, model, key).Map(Some),
-            None: () => Fin.Succ(Option<Money>.None));
+        resource.BaseCosts.AsIterable().Head
+            .TraverseM(value => AmountOf(value, model, key))
+            .As();
 
     static Option<string> SkillOf(IfcConstructionResource resource) => resource switch {
         IfcLaborResource labor => Some(labor.PredefinedType.ToString()),
@@ -451,10 +443,8 @@ public sealed partial class ChangeOrderStatus {
     public static readonly ChangeOrderStatus Rejected  = new("REJECTED");
     public static readonly ChangeOrderStatus Void      = new("VOID");
 
-    public static Option<ChangeOrderStatus> TryGet(string key) =>
-        TryGet(key, out ChangeOrderStatus? row) && row is { } hit ? Some(hit) : None;
-
-    public static ChangeOrderStatus Of(string status) => TryGet(status.Trim().ToUpperInvariant()).IfNone(Proposed);
+    public static ChangeOrderStatus Of(string status) =>
+        TryGet(status.Trim(), out ChangeOrderStatus? row) ? row : Proposed;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -530,12 +520,10 @@ public static class CostPerformance {
         Map<string, ConstructionResource> resourceById, Map<string, Money> actuals, Map<string, double> observed,
         Instant statusDate, Currency report, Seq<ExchangeRate> fx, Op key) =>
         from budget in CostMoney.Reprice(item.ValueOf(), report, fx, key)
-        from recorded in actuals.Find(item.GlobalId).Match(
-            Some: money => CostMoney.Reprice(money, report, fx, key).Map(Some),
-            None: () => Fin.Succ(Option<Money>.None))
-        from spent in item.ResourceGlobalId.Bind(resourceById.Find).Filter(static r => r.Completion.IsSome).Match(
-            Some: resource => CostMoney.Reprice(resource.Spent, report, fx, key).Map(Some),
-            None: () => Fin.Succ(Option<Money>.None))
+        from recorded in actuals.Find(item.GlobalId)
+            .TraverseM(money => CostMoney.Reprice(money, report, fx, key)).As()
+        from spent in item.ResourceGlobalId.Bind(resourceById.Find).Filter(static r => r.Completion.IsSome)
+            .TraverseM(resource => CostMoney.Reprice(resource.Spent, report, fx, key)).As()
         select item.PricedGlobalIds.Choose(taskByElement.Find).Head
             .Bind(taskById.Find)
             .Match(
@@ -637,13 +625,12 @@ public static class CarbonEstimate {
             perKg:   static (s, _) => s.Baked.Material.Properties
                 .Choose(static p => p is MaterialPropertySet.Mechanical m ? Some(m.Density) : Option<MeasureValue>.None)
                 .Head
-                .Match(
-                    Some: density => s.Share.Multiply(density, s.Key).Bind(mass => mass.WithType(QuantityType.Mass, s.Key)).Map(Some),
-                    None: static () => Fin.Succ(Option<MeasureValue>.None)),
+                .TraverseM(density => s.Share.Multiply(density, s.Key).Bind(mass => mass.WithType(QuantityType.Mass, s.Key)))
+                .As(),
             perM2:   static (s, _) => Thickness(s.Baked, s.Material, s.Key)
-                .Bind(thickness => thickness.Match(
-                    Some: admitted => s.Share.Divide(admitted, s.Key).Bind(area => area.WithType(QuantityType.Area, s.Key)).Map(Some),
-                    None: static () => Fin.Succ(Option<MeasureValue>.None))),
+                .Bind(thickness => thickness
+                    .TraverseM(admitted => s.Share.Divide(admitted, s.Key).Bind(area => area.WithType(QuantityType.Area, s.Key)))
+                    .As()),
             perItem: static (_, _) => Fin.Succ(Option<MeasureValue>.None));
 
     static Fin<Option<MeasureValue>> Thickness(BakedMaterial baked, MaterialId material, Op key) =>

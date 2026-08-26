@@ -303,10 +303,10 @@ internal static partial class SegmentKernel {
             DihedralRadians: double.IsFinite(x: rawAngle) ? Some(rawAngle) : None,
             SignedDihedralRadians: double.IsFinite(x: signedAngle) ? Some(signedAngle) : None,
             CurvatureSignal: edgeCurvature);
-        if (policy.FaceRegions.Match(Some: regions => regions[index: faces[0]] != regions[index: faces[1]], None: static () => false))
+        if (policy.FaceRegions.Exists(regions => regions[index: faces[0]] != regions[index: faces[1]]))
             return Some(Measured(MeshFeatureKind.RegionBoundary));
         if (!double.IsFinite(x: rawAngle)) return None;
-        bool highCurvature = edgeCurvature.Map(signal => signal >= policy.CurvatureThreshold.Value).IfNone(noneValue: false);
+        bool highCurvature = edgeCurvature.Exists(signal => signal >= policy.CurvatureThreshold.Value);
         if (highCurvature && Math.Abs(value: signedAngle) >= policy.DihedralThreshold.Value)
             return Some(Measured(signedAngle >= 0.0 ? MeshFeatureKind.Ridge : MeshFeatureKind.Valley));
         return rawAngle >= policy.DihedralThreshold.Value ? Some(Measured(MeshFeatureKind.Crease)) : None;
@@ -1095,7 +1095,7 @@ internal static partial class SegmentKernel {
     // --- [FLATTEN]
     internal static Fin<FlattenResult> ParameterizeFlattenDetailed(MeshSpace space, Op key, Option<MeshUnwrapMethod> method = default, Option<Plane> symmetryPlane = default) => key.Catch(() => {
         MeshUnwrapMethod unwrapMethod = method.IfNone(MeshUnwrapMethod.LSCM);
-        if (symmetryPlane.Map(static plane => !plane.IsValid).IfNone(noneValue: false))
+        if (symmetryPlane.Exists(static plane => !plane.IsValid))
             return Fin.Fail<FlattenResult>(error: key.InvalidInput());
         using Mesh mesh = space.Native.DuplicateMesh();
         using MeshUnwrapper unwrapper = new(mesh);
@@ -1107,7 +1107,7 @@ internal static partial class SegmentKernel {
 
     internal static Fin<Seq<FlattenResult>> ParameterizeFlattenDetailed(Seq<MeshSpace> spaces, Op key, Option<MeshUnwrapMethod> method = default, Option<Plane> symmetryPlane = default) => key.Catch(() => {
         MeshUnwrapMethod unwrapMethod = method.IfNone(MeshUnwrapMethod.LSCM);
-        if (spaces.IsEmpty || symmetryPlane.Map(static plane => !plane.IsValid).IfNone(noneValue: false))
+        if (spaces.IsEmpty || symmetryPlane.Exists(static plane => !plane.IsValid))
             return Fin.Fail<Seq<FlattenResult>>(error: key.InvalidInput());
         Mesh[] meshes = [.. spaces.Map(static part => part.Native.DuplicateMesh())];
         try {

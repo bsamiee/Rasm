@@ -449,9 +449,9 @@ public static class SparseOps {
 
     static Fin<Unit> Structural(CompressedColumnStorage<double> csc, FactorKind kind) {
         int order = Math.Min(csc.RowCount, csc.ColumnCount);
-        return Optional(DulmageMendelsohn.Generate(csc)).Match(
-            None: () => TensorReason.StructuralRank.Fail<Unit>("sparse-structural-matching", kind.Key, $"{csc.RowCount}x{csc.ColumnCount}"),
-            Some: dm => dm.StructuralRank == order
+        return Optional(DulmageMendelsohn.Generate(csc))
+            .ToFin(TensorReason.StructuralRank.Fault("sparse-structural-matching", kind.Key, $"{csc.RowCount}x{csc.ColumnCount}"))
+            .Bind(dm => dm.StructuralRank == order
                 ? Fin.Succ(unit)
                 : TensorReason.StructuralRank.Fail<Unit>("sparse-structural-rank", kind.Key,
                     StructuralDeficiency.Of(dm, csc, order).Witness));

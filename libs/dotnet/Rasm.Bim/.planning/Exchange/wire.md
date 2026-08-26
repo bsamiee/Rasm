@@ -69,7 +69,7 @@ public sealed partial record IfcWire {
             .Apply((row, payload) => new IfcWire(row.Key, payload, schema, content, at)).As().ToFin();
 
     static Validation<Error, InterchangeFormat> Rostered(string value, Op key) =>
-        InterchangeFormat.Items.Find(row => StringComparer.Ordinal.Equals(value, row.Key))
+        toSeq(InterchangeFormat.Items).Find(row => StringComparer.Ordinal.Equals(value, row.Key))
             .ToValidation<Error>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", value })));
 
     static Validation<Error, ReadOnlyMemory<byte>> Payload(ReadOnlyMemory<byte> bytes, string format, Op key) =>

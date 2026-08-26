@@ -294,7 +294,7 @@ public sealed partial record OutputPolicy {
             System.IO.Path.GetDirectoryName(path.Value) ?? string.Empty,
             System.IO.Path.GetFileNameWithoutExtension(path.Value));
         string extension = System.IO.Path.GetExtension(path.Value);
-        return Seq(path) + toSeq(Range(1, bound.Value)).Map(ordinal => DocumentPath.Create(value: $"{stem}-{ordinal}{extension}"));
+        return Seq(path) + toSeq(Enumerable.Range(1, bound.Value)).Map(ordinal => DocumentPath.Create(value: $"{stem}-{ordinal}{extension}"));
     }
 
     private DocumentPath Requested(DocumentPath target, Option<FileCodec> codec) =>
@@ -420,7 +420,7 @@ public sealed record BatchProgram<TOutcome> where TOutcome : IBatchYield {
 
     internal static BatchProgram<TOutcome> Withdrawn(int requested) => new(
         requested: requested,
-        steps: toSeq(Range(0, requested)).Map(static index => BatchStep<TOutcome>.Withdrawn(index: index)));
+        steps: toSeq(Enumerable.Range(0, requested)).Map(static index => BatchStep<TOutcome>.Withdrawn(index: index)));
 
     private static (bool Stopped, Seq<BatchStep<TOutcome>> Steps) Seated(
         (bool Stopped, Seq<BatchStep<TOutcome>> Steps) state, BatchStep<TOutcome> step, BatchPosture posture) => (

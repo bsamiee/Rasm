@@ -166,11 +166,9 @@ public sealed record TableGrip<TComponent, TDef>(
         let index = Index(live)
         from copy in op.Catch(() => Fin.Succ(value: Duplicate(live)))
         from _ in Bracketed(copy: copy, op: op, revise: revise)
-            .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                release: () => Custody.Dispose(held: Seq(copy), key: op), key: op))
+            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op), key: op)
         from __ in Modify(document, copy, index, interaction, op)
-            .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                release: () => Custody.Dispose(held: Seq(copy), key: op), key: op))
+            .Rollback(release: () => Custody.Dispose(held: Seq(copy), key: op), key: op)
         from ___ in Custody.Dispose(held: Seq(copy), key: op)
         select unit;
 
@@ -236,15 +234,13 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
                 valueType: typeof(DraftPath), outputType: typeof(Seq<TComponent>)))
             from read in ingest(edit.Path, edit.Interaction, context.Op)
             from titles in read.TraverseM(native => context.Grip.Title(native, context.Op)).As()
-                .BindFail(primary => Fin.Fail<Seq<ResourceName>>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op)
             from _ in guard(
                 !read.IsEmpty
                 && titles.Distinct().Count == titles.Count
                 && !titles.Exists(title => context.Grip.Occupied(context.Document, title)),
                 context.Op.InvalidInput()).ToFin()
-                .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op))
+                .Rollback(release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op)
             from __ in DocumentCommit.Compensated(
                 source: read,
                 land: native => context.Grip.Seat(context.Document, native, context.Op),
@@ -692,11 +688,9 @@ public sealed record StylePatch {
         from child in key.Catch(() => Fin.Succ(value: parent.Duplicate(
             newName: string.Empty, newId: Guid.Empty, newParentId: annotation.DimensionStyleId)))
         from _ in Apply(style: child, key: key)
-            .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                release: () => Custody.Dispose(held: Seq(child), key: key), key: key))
+            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key), key: key)
         from attached in key.Confirm(success: annotation.SetOverrideDimStyle(overrideStyle: child))
-            .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                release: () => Custody.Dispose(held: Seq(child), key: key), key: key))
+            .Rollback(release: () => Custody.Dispose(held: Seq(child), key: key), key: key)
         select child;
 }
 
@@ -796,8 +790,7 @@ public abstract partial record StyleOp {
         Mint: static (_, def, key) =>
             from shaped in key.Catch(() => Fin.Succ(value: new DimensionStyle()))
             from _ in def.Apply(style: shaped, key: key)
-                .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
-                    release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key))
+                .Rollback(release: () => Custody.Dispose(held: Seq(shaped), key: key), key: key)
             select shaped,
         Revise: static (_, copy, def, key) => def.Apply(style: copy, key: key),
         Retitle: static (copy, name, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => copy.Name = name.Value))),

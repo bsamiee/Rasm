@@ -354,12 +354,11 @@ public static class TessellationWire {
     }
 
     static Seq<global::Rasm.Contracts.Compute.GeomSetting> SelectedSettings(TessellationSettings settings) =>
-        GeomSetting.Items
+        toSeq(GeomSetting.Items
             .Where(settings.Flags.Admits)
             .Select(Setting)
             .Distinct()
-            .OrderBy(static setting => (int)setting)
-            .ToSeq();
+            .OrderBy(static setting => (int)setting));
 
     static Fin<global::Rasm.Contracts.Compute.Dimensionality> Dimension(
         Dimensionality dimensionality, Op key) => dimensionality switch {
@@ -401,10 +400,10 @@ public static class TessellationWire {
     }
 
     static Seq<string> Ordered(IEnumerable<string> raw) =>
-        raw.Distinct(StringComparer.Ordinal).OrderBy(static token => token, StringComparer.Ordinal).ToSeq();
+        toSeq(raw.Distinct(StringComparer.Ordinal).OrderBy(static token => token, StringComparer.Ordinal));
 
     static CanonicalWriter WriteTokens(CanonicalWriter writer, IEnumerable<string> ordered) {
-        var rows = ordered.ToSeq();
+        var rows = toSeq(ordered);
         return rows.Fold(writer.Ordinal(rows.Count), static (state, token) => state.String(token));
     }
 }

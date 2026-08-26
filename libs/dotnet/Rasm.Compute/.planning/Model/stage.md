@@ -63,8 +63,6 @@ public sealed partial class LicenseClass {
     private LicenseClass(string key, bool grants) : this(key) => Grants = grants;
 
     public bool Grants { get; }
-
-    public static Option<LicenseClass> FromWire(string wire) => TryGet(wire, out LicenseClass? row) ? Some(row!) : None;
 }
 
 [SmartEnum<string>]
@@ -97,7 +95,8 @@ public sealed record StageRequest(
 
     public Option<ModelPrecision> SelectedPrecision => ModelPrecision.FromWire(Precision);
 
-    public Option<LicenseClass> SelectedLicense => LicenseClass.FromWire(License);
+    public Option<LicenseClass> SelectedLicense =>
+        LicenseClass.TryGet(License, out LicenseClass? row) ? Some(row!) : None;
 
     public Option<int> Scale =>
         InputWidth > 0 && InputHeight > 0
@@ -615,7 +614,7 @@ public static partial class StageRun {
     static readonly Atom<long> ParityTick = Atom(0L);
 
     static string ParityKey(StageRequest request, ExecutionProvider provider, ModelPrecision precision, ParityPort parity) =>
-        $"{request.ModelCardId}:{provider.ResultKey(OrtEnv.Instance().GetVersionString(), precision, provider.AutoSelect.HeadOrNone())}:{parity.Host}";
+        $"{request.ModelCardId}:{provider.ResultKey(OrtEnv.Instance().GetVersionString(), precision, provider.AutoSelect.Head)}:{parity.Host}";
 
     static Fin<(ParityVerdict Verdict, bool Fresh)> Assured(
         StageRequest request, StagePorts ports, PlaneStack stack,
@@ -656,9 +655,9 @@ public static partial class StageRun {
     static ParityVerdict Seat(string at, ParityVerdict verdict, ParityPort parity) {
         Parity.SwapKey(at, _ => Some(new ParityMemo(verdict, ParityTick.Swap(static tick => tick + 1L))));
         if (Parity.Count > parity.Capacity) {
-            Parity.ToSeq()
+            Parity.AsIterable()
                 .Fold(Option<(string Key, long Read)>.None, static (coldest, row) =>
-                    coldest.Case is (string _, long read) && read <= row.Value.Read ? coldest : Some((row.Key, row.Value.Read)))
+                    coldest is { IsSome: true, Case: (string _, long read) } && read <= row.Value.Read ? coldest : Some((row.Key, row.Value.Read)))
                 .Iter(oldest => Parity.Remove(oldest.Key));
         }
         return verdict;

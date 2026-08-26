@@ -160,7 +160,7 @@ public sealed class UpdateMachine {
         from _sealed in LatencySpine.Seal(drain.Exporter, drain.Latency)
         from _timed in IO.lift(() => rolloverDuration.Record(drained.Held.TotalSeconds, channel.Key))
         let rolling = (UpdateOutcome)new UpdateOutcome.Restarted(Target(asset))
-        from handed in IO.lift(() => Op.Of().Catch(() => {
+        from handed in IO.lift<Fin<Unit>>(() => Op.Of().Catch(() => {
             manager.ApplyUpdatesAndRestart(asset);
             return Fin.Succ(unit);
         }, token: host.Spine.Token))
@@ -309,7 +309,7 @@ public sealed partial class RollStrategy {
         : RollVerdict.Held;
 
     static Seq<Seq<MemberRecord>> Led(Seq<MemberRecord> nodes, RolloutSegment wave) =>
-        Seq(nodes.Take(wave.Cohort(nodes.Count)).ToSeq(), nodes.Skip(wave.Cohort(nodes.Count)).ToSeq())
+        Seq(nodes.Take(wave.Cohort(nodes.Count)), nodes.Skip(wave.Cohort(nodes.Count)))
             .Filter(static cohort => !cohort.IsEmpty);
 
     static Seq<Seq<MemberRecord>> Banded(Seq<MemberRecord> nodes, RolloutSegment wave) =>

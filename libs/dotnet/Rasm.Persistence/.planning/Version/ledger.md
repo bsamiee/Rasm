@@ -390,7 +390,7 @@ public sealed record SyncCursor(Guid OriginStoreId, long Sequence, Instant Physi
 public readonly record struct ReplayWindow(Option<Guid> Origin, Option<string> EntityKey, Option<ModelId> Model, Seq<ColumnFamily> Families, long AfterSequence, int Take) {
     public static ReplayWindow ForEntity(string entityKey, long afterSequence, int take) => new(None, Some(entityKey), None, Seq<ColumnFamily>(), afterSequence, take);
     public static ReplayWindow ForOrigin(Guid origin, long afterSequence, int take) => new(Some(origin), None, None, Seq<ColumnFamily>(), afterSequence, take);
-    public static ReplayWindow DurableOps(long afterSequence, int take) => new(None, None, None, toSeq(ColumnFamily.Items.Filter(static f => f.Durable)), afterSequence, take);
+    public static ReplayWindow DurableOps(long afterSequence, int take) => new(None, None, None, toSeq(ColumnFamily.Items).Filter(static f => f.Durable), afterSequence, take);
     public bool Admits(OpLogEntry entry) =>
         (entry.Sequence > AfterSequence)
         && Origin.Map(o => o == entry.OriginStoreId).IfNone(true)
@@ -986,32 +986,28 @@ public static class SyncPump {
 
     static IO<SyncOutcome> Exchange(SyncSession s, SyncTransport.HttpDelta row) =>
         from pulled in row.Flow.Pulls
-            ? Dialed(s.Pull(row.Peer, s.Cursor)).Bind(segment => segment.SchemaFingerprint == s.SchemaFingerprint
-                ? Lifted(OpLogWire.Decode(segment.Frames)).Bind(entries => SyncMerge.Apply(s, entries))
+            ? s.Pull(row.Peer, s.Cursor).Bind(IO.lift).Bind(segment => segment.SchemaFingerprint == s.SchemaFingerprint
+                ? IO.lift(OpLogWire.Decode(segment.Frames)).Bind(entries => SyncMerge.Apply(s, entries))
                     .Map(outcome => outcome with { Cursor = segment.Cursor })
                 : IO.fail<SyncOutcome>(new SyncFault.SchemaMismatch(s.SchemaFingerprint, segment.SchemaFingerprint)))
             : IO.pure(Idle(s))
         let pending = s.Pending(s.Acked)
         from outcome in row.Flow.Pushes
-            ? Lifted(OpLogWire.Encode(pending)).Bind(frames => Dialed(s.Push(row.Peer, frames)))
+            ? IO.lift(OpLogWire.Encode(pending)).Bind(frames => s.Push(row.Peer, frames).Bind(IO.lift))
                 .Map(acked => pulled with { Pushed = pending.Count, Acked = acked })
             : IO.pure(pulled)
         select outcome;
 
     static IO<SyncOutcome> Materialize(SyncSession s, SyncTransport.SubtreeCheckout row) =>
-        from frames in Dialed(s.Checkout(row.Peer, row.Root))
-        from entries in Lifted(OpLogWire.Decode(frames))
+        from frames in s.Checkout(row.Peer, row.Root).Bind(IO.lift)
+        from entries in IO.lift(OpLogWire.Decode(frames))
         from outcome in SyncMerge.Apply(s, entries)
-        from missing in Dialed(s.Missing(row.Peer, row.Root, Holdings(s, entries)))
+        from missing in s.Missing(row.Peer, row.Root, Holdings(s, entries)).Bind(IO.lift)
         select outcome with { Pushed = missing.Count };
 
     static Seq<UInt128> Holdings(SyncSession s, Seq<OpLogEntry> entries) =>
         toSeq(entries.Fold(Seq<UInt128>(), static (set, entry) => set + entry.Closure.Add(entry.ContentKey))
             .Distinct().Filter(s.Holds).OrderBy(static key => key));
-
-    static IO<T> Dialed<T>(IO<Fin<T>> dialed) => dialed.Bind(static held => Lifted(held));
-
-    static IO<T> Lifted<T>(Fin<T> held) => held.Match(Succ: IO.pure, Fail: IO.fail<T>);
 
     static IO<SyncOutcome> Offer(SyncSession s, SyncTransport.SpeckleLikeDiff row) =>
         from pending in IO.pure(s.Pending(s.Acked))

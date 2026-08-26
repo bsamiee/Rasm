@@ -394,7 +394,7 @@ public sealed record ElementForm(
         .Rows(Bodies, static (held, loop) => loop.CanonicalBytes(held))
         .Rows(Contacts, static (held, contact) => contact.CanonicalBytes(held))
         .Maybe(Anchor, static (held, plane) => held.Coords(plane.Origin).Coords(plane.XAxis).Coords(plane.YAxis).Coords(plane.ZAxis))
-        .Rows(toSeq(Metrics).OrderBy(static row => row.Key.Key, StringComparer.Ordinal).ToSeq(),
+        .Rows(toSeq(toSeq(Metrics).OrderBy(static row => row.Key.Key, StringComparer.Ordinal)),
             static (held, row) => held.Discriminant(row.Key).Double(row.Value));
 }
 
@@ -679,7 +679,7 @@ public sealed record ExclusionZone(
         .Ordinal(Operation).Ordinal(Element).Discriminant(Role).Discriminant(Kind)
         .Rows(Keepouts, static (held, loop) => loop.CanonicalBytes(held))
         .Double(Lower.As(LengthUnit.Millimeter)).Double(Upper.As(LengthUnit.Millimeter))
-        .Rows(toSeq(Active).OrderBy(static state => state.Key, StringComparer.Ordinal).ToSeq(),
+        .Rows(toSeq(toSeq(Active).OrderBy(static state => state.Key, StringComparer.Ordinal)),
             static (held, state) => held.Discriminant(state))
         .Double(ArcChordError.As(LengthUnit.Millimeter));
 }
@@ -1127,7 +1127,7 @@ internal static class Fixtures {
 
     internal static Fin<Seq<ExclusionZone>> Zones(FixtureSpec spec) =>
         spec.Elements.Traverse(element => Zone(spec, element).ToValidation()).As().ToFin()
-            .Map(static rows => rows.Choose(identity));
+            .Map(static rows => rows.Somes());
 
     private static Fin<Option<ExclusionZone>> Zone(FixtureSpec spec, FixtureElement element) {
         Seq<Loop> shape = element.Keepouts;

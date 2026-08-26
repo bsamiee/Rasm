@@ -72,13 +72,9 @@ public sealed partial class VectorEncoding {
 
     public static readonly VectorEncoding ProductQuantized = new(
         "product-quantized", hammingScored: false,
-        static (_, codebook) => codebook.Match(Some: static book => (long)book.Subspaces, None: static () => 0L),
-        static (unit, _, codebook) => codebook.Match(
-            Some: book => Fin.Succ(VectorOps.EncodeProduct(unit, book)),
-            None: static () => Fin.Fail<byte[]>(EmbedRefusal.CodebookMissing.Fault())),
-        static (components, _, codebook) => codebook.Match(
-            Some: book => Fin.Succ(VectorOps.Reconstruct(components, book)),
-            None: static () => Fin.Fail<float[]>(EmbedRefusal.CodebookMissing.Fault())));
+        static (_, codebook) => codebook.Map(static book => (long)book.Subspaces).IfNone(0L),
+        static (unit, _, codebook) => codebook.Map(book => VectorOps.EncodeProduct(unit, book)).ToFin(EmbedRefusal.CodebookMissing.Fault()),
+        static (components, _, codebook) => codebook.Map(book => VectorOps.Reconstruct(components, book)).ToFin(EmbedRefusal.CodebookMissing.Fault()));
 
     public bool HammingScored { get; }
 

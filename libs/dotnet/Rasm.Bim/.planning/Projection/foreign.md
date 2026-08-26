@@ -87,10 +87,9 @@ public sealed class ForeignProjector : IElementProjection {
             .Map(delta => delta.Reheader(ctx.Header));
 
     static Fin<GraphDelta> Lower(Base root, ProjectionContext ctx) =>
-        toSeq(root.TraverseWithPath(static _ => false))
+        toSeq(toSeq(root.TraverseWithPath(static _ => false))
             .Choose(static step => step.Item2 is DataObject data ? Some((Path: step.Item1, Data: data)) : None)
-            .OrderBy(static step => step.Path.Length)
-            .ToSeq()
+            .OrderBy(static step => step.Path.Length))
             .Traverse(step => Seat(ForeignMap.ToHost(step.Data), ctx).Map(seated => (step.Path, seated.Id, seated.Delta)))
             .As()
             .Map(static seats => Contained(seats))
@@ -285,18 +284,19 @@ public static class Reingest {
         select candidates;
 
     static Fin<TypeCandidate> Candidate(string library, Node.Object node, Seq<PropertyBag> bags, PropertyBag signature, Op key) =>
-        node.ExternalId.Match(
-            Some: globalId => Fin.Succ(new TypeCandidate(
+        node.ExternalId
+            .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected,
+                string.Join(':', new object?[] { "type-candidate-identity-missing", node.Id.ToValue() })))
+            .Map(globalId => new TypeCandidate(
                 SourceLibrary:      library,
                 GlobalId:           globalId,
                 IfcEntity:          node.Classification.Code,
-                PredefinedToken:    node.ObjectType.IfNone(node.PredefinedType.Token),
+                PredefinedToken:    node.ObjectType.IfNone(node.PredefinedType.ToValue()),
                 Name:               node.Name,
                 Properties:         Rows(bags),
                 MaterialName:       Text(signature, SemanticProjector.SignatureRows.MaterialName),
                 ProfileDesignation: Text(signature, SemanticProjector.SignatureRows.ProfileDesignation),
-                ProfileStandard:    Text(signature, SemanticProjector.SignatureRows.ProfileStandard))),
-            None: () => Fin.Fail<TypeCandidate>(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "type-candidate-identity-missing", node.Id.Value.ToString() }))));
+                ProfileStandard:    Text(signature, SemanticProjector.SignatureRows.ProfileStandard)));
 
     static Map<PropertyName, PropertyValue> Rows(Seq<PropertyBag> bags) =>
         bags.Filter(static bag => bag.SetName != SemanticProjector.TypeSignatureSet)

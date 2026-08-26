@@ -102,14 +102,14 @@ public abstract partial record GhFact : IUiFact {
 
 ## [03]-[SOURCES]
 
-- Owner: `GhSource` — one `IUiSource<GhFact>` row per GH2 host stream, every row a one-line seat over TWO generic folds: `Row<THost, TArgs>` names the host family and its typed args, `Wired<THost, TArgs>` carries the add-and-remove pair as one value so a subscription a row cannot undo is unspellable. Former seven per-anchor factories and eight per-args sub-folds are these two.
+- Owner: `GhSource` — one `IUiSource<GhFact>` row per GH2 host stream, every row a one-line seat over TWO generic folds: `Row<THost, TArgs>` names the host family and its typed args, `EventTable<THost, TArgs>` carries the add-and-remove pair as one value so a subscription a row cannot undo is unspellable. Former seven per-anchor factories and eight per-args sub-folds are these two.
 - Law: a GH2 SUBJECT rides its ROW — the kernel `EventAnchor` union is Eto-shaped and closed, so a row over a `Document`, `SolutionServer`, or `History` closes over the subject at its mint (`GhSource.Of(document)` answers that subject's row set) and admits `EventAnchor.Ambient` alone, the spelling that states no Eto surface is touched; the six canvas rows demand `OnControl` whose control IS the GH2 `Canvas` and refuse any other typed. Anchor agreement stays admission, never documentation.
 - Law: every wire spells its host delegate exactly — the flex-interface four carry typed args (`ProjectionChangedEventArgs`, `WindowSelectionEventArgs`, `MouseDwellEventArgs` with `ContentPoint`, `ControlDrawEventArgs`); the document three carry `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`BeforeAfterEventArgs<Document, IDocumentParent>`; the object-list ten carry the `ObjectEventArgs` family; the solution six carry `SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`; the undo seven carry `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`. Wire assuming a wrong delegate family fails at compile.
 - Law: the emit thunk publishes into the kernel drain through `UiEvents.Observe` — projection runs inside the drain's own admission, a refused projection counts on `Refused`, a dropped event on `Shed`, and the ordinal mints under the drain's one compare-and-swap. No row touches an ordinal, a fault cell, or a log; the loss accounting is the kernel's.
 - Law: subscription is `UiEvents.Observe(anchor, drain, Atomicity.AllOrNothing, key, rows)` — the folder's ruled posture: a refused row detaches every seated sibling and refuses whole, because the journal reading the drain is replayable only over a complete row set. Diagnostic consumer wanting partial attach names `Atomicity.Partial` at its own call site; both are kernel rows, not folder forks.
 - Boundary: native-monitor streams stay `Platform/native.md`'s — the platform owner projects its gated monitors into the same drain from above; the eight canvas paint fences are `Canvas/paint.md`'s executor and never rows here.
 - Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and args types), `Rasm.Interaction` (`IUiSource`, `EventAnchor`, `UiEvents`, `EvidenceDrain`, `Atomicity`), `Rasm.Domain` (`Op`, `Fault`).
-- Growth: a new host stream is one row through an existing fold; a new args family is one `Wired` instantiation — the roster's two folds and the kernel gate never change.
+- Growth: a new host stream is one row through an existing fold; a new args family is one `EventTable` instantiation — the roster's two folds and the kernel gate never change.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -118,102 +118,98 @@ using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal readonly record struct Wired<THost, TArgs>(
-    Action<THost, EventHandler<TArgs>> Add, Action<THost, EventHandler<TArgs>> Drop) where TArgs : EventArgs;
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFact>>>, Op, Fin<IDisposable>> Bind) : IUiSource<GhFact> {
     // --- [CANVAS]
     public static readonly GhSource CanvasDocumentChanged = Canvas(key: "canvas.document-changed",
-        wired: new Wired<Canvas, EventArgs>(Add: static (c, h) => c.DocumentChanged += h, Drop: static (c, h) => c.DocumentChanged -= h),
+        wired: new EventTable<Canvas, EventArgs>(Add: static (c, h) => c.DocumentChanged += h, Drop: static (c, h) => c.DocumentChanged -= h),
         project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.DocumentChanged, Location: None));
     public static readonly GhSource CanvasDocumentModified = Canvas(key: "canvas.document-modified",
-        wired: new Wired<Canvas, EventArgs>(Add: static (c, h) => c.DocumentModified += h, Drop: static (c, h) => c.DocumentModified -= h),
+        wired: new EventTable<Canvas, EventArgs>(Add: static (c, h) => c.DocumentModified += h, Drop: static (c, h) => c.DocumentModified -= h),
         project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.DocumentModified, Location: None));
     public static readonly GhSource CanvasProjectionChanged = Canvas(key: "canvas.projection-changed",
-        wired: new Wired<Canvas, ProjectionChangedEventArgs>(Add: static (c, h) => c.ProjectionChanged += h, Drop: static (c, h) => c.ProjectionChanged -= h),
+        wired: new EventTable<Canvas, ProjectionChangedEventArgs>(Add: static (c, h) => c.ProjectionChanged += h, Drop: static (c, h) => c.ProjectionChanged -= h),
         project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.ProjectionChanged, Location: None));
     public static readonly GhSource CanvasWindowSelection = Canvas(key: "canvas.window-selection",
-        wired: new Wired<Canvas, WindowSelectionEventArgs>(Add: static (c, h) => c.WindowSelection += h, Drop: static (c, h) => c.WindowSelection -= h),
+        wired: new EventTable<Canvas, WindowSelectionEventArgs>(Add: static (c, h) => c.WindowSelection += h, Drop: static (c, h) => c.WindowSelection -= h),
         project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.WindowSelection, Location: None));
     public static readonly GhSource CanvasMouseDwell = Canvas(key: "canvas.mouse-dwell",
-        wired: new Wired<Canvas, MouseDwellEventArgs>(Add: static (c, h) => c.MouseDwell += h, Drop: static (c, h) => c.MouseDwell -= h),
+        wired: new EventTable<Canvas, MouseDwellEventArgs>(Add: static (c, h) => c.MouseDwell += h, Drop: static (c, h) => c.MouseDwell -= h),
         project: static (_, args) => new GhFact.CanvasCase(Signal: CanvasSignal.MouseDwell, Location: Some(args.ContentPoint)));
     public static readonly GhSource CanvasDraw = Canvas(key: "canvas.draw",
-        wired: new Wired<Canvas, ControlDrawEventArgs>(Add: static (c, h) => c.Draw += h, Drop: static (c, h) => c.Draw -= h),
+        wired: new EventTable<Canvas, ControlDrawEventArgs>(Add: static (c, h) => c.Draw += h, Drop: static (c, h) => c.Draw -= h),
         project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.Draw, Location: None));
 
     public static Seq<GhSource> Of(Document graph) =>
-        Seq(Subject(graph, key: "document.modified", new Wired<Document, DocumentModifiedEventArgs>(Add: static (d, h) => d.ModifiedChanged += h, Drop: static (d, h) => d.ModifiedChanged -= h),
+        Seq(Subject(graph, key: "document.modified", new EventTable<Document, DocumentModifiedEventArgs>(Add: static (d, h) => d.ModifiedChanged += h, Drop: static (d, h) => d.ModifiedChanged -= h),
                 project: static (d, _) => new GhFact.DocumentCase(Signal: DocumentSignal.Modified, DocumentId: Some(d.Identity))),
-            Subject(graph, key: "document.state", new Wired<Document, DocumentStateEventArgs>(Add: static (d, h) => d.StateChanged += h, Drop: static (d, h) => d.StateChanged -= h),
+            Subject(graph, key: "document.state", new EventTable<Document, DocumentStateEventArgs>(Add: static (d, h) => d.StateChanged += h, Drop: static (d, h) => d.StateChanged -= h),
                 project: static (d, _) => new GhFact.DocumentCase(Signal: DocumentSignal.State, DocumentId: Some(d.Identity))),
-            Subject(graph, key: "document.parent", new Wired<Document, BeforeAfterEventArgs<Document, IDocumentParent>>(Add: static (d, h) => d.ParentChanged += h, Drop: static (d, h) => d.ParentChanged -= h),
+            Subject(graph, key: "document.parent", new EventTable<Document, BeforeAfterEventArgs<Document, IDocumentParent>>(Add: static (d, h) => d.ParentChanged += h, Drop: static (d, h) => d.ParentChanged -= h),
                 project: static (d, _) => new GhFact.DocumentCase(Signal: DocumentSignal.Parent, DocumentId: Some(d.Identity))),
-            Subject(graph, key: "graph.object-added", new Wired<Document, AfterAddObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectAdded += h, Drop: static (d, h) => d.Objects.ObjectAdded -= h),
+            Subject(graph, key: "graph.object-added", new EventTable<Document, AfterAddObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectAdded += h, Drop: static (d, h) => d.Objects.ObjectAdded -= h),
                 project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.ObjectAdded, SubjectId: Some(args.Object.InstanceId))),
-            Subject(graph, key: "graph.object-removed", new Wired<Document, AfterRemoveObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectRemoved += h, Drop: static (d, h) => d.Objects.ObjectRemoved -= h),
+            Subject(graph, key: "graph.object-removed", new EventTable<Document, AfterRemoveObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectRemoved += h, Drop: static (d, h) => d.Objects.ObjectRemoved -= h),
                 project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.ObjectRemoved, SubjectId: Some(args.Object.InstanceId))),
-            Listed(graph, key: "graph.selection", signal: GraphSignal.SelectionChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectSelectionChanged += h, Drop: static (d, h) => d.Objects.ObjectSelectionChanged -= h)),
-            Listed(graph, key: "graph.expired", signal: GraphSignal.Expired, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectExpired += h, Drop: static (d, h) => d.Objects.ObjectExpired -= h)),
-            Listed(graph, key: "graph.enabled", signal: GraphSignal.EnabledChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectEnabledChanged += h, Drop: static (d, h) => d.Objects.ObjectEnabledChanged -= h)),
-            Listed(graph, key: "graph.relevance", signal: GraphSignal.RelevanceChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectRelevanceChanged += h, Drop: static (d, h) => d.Objects.ObjectRelevanceChanged -= h)),
-            Listed(graph, key: "graph.layout", signal: GraphSignal.LayoutChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectLayoutChanged += h, Drop: static (d, h) => d.Objects.ObjectLayoutChanged -= h)),
-            Listed(graph, key: "graph.display", signal: GraphSignal.DisplayChanged, new Wired<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectDisplayChanged += h, Drop: static (d, h) => d.Objects.ObjectDisplayChanged -= h)),
-            Subject(graph, key: "graph.name-changed", new Wired<Document, ObjectNameEventArgs>(Add: static (d, h) => d.Objects.ObjectNameChanged += h, Drop: static (d, h) => d.Objects.ObjectNameChanged -= h),
+            Listed(graph, key: "graph.selection", signal: GraphSignal.SelectionChanged, new EventTable<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectSelectionChanged += h, Drop: static (d, h) => d.Objects.ObjectSelectionChanged -= h)),
+            Listed(graph, key: "graph.expired", signal: GraphSignal.Expired, new EventTable<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectExpired += h, Drop: static (d, h) => d.Objects.ObjectExpired -= h)),
+            Listed(graph, key: "graph.enabled", signal: GraphSignal.EnabledChanged, new EventTable<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectEnabledChanged += h, Drop: static (d, h) => d.Objects.ObjectEnabledChanged -= h)),
+            Listed(graph, key: "graph.relevance", signal: GraphSignal.RelevanceChanged, new EventTable<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectRelevanceChanged += h, Drop: static (d, h) => d.Objects.ObjectRelevanceChanged -= h)),
+            Listed(graph, key: "graph.layout", signal: GraphSignal.LayoutChanged, new EventTable<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectLayoutChanged += h, Drop: static (d, h) => d.Objects.ObjectLayoutChanged -= h)),
+            Listed(graph, key: "graph.display", signal: GraphSignal.DisplayChanged, new EventTable<Document, ObjectEventArgs>(Add: static (d, h) => d.Objects.ObjectDisplayChanged += h, Drop: static (d, h) => d.Objects.ObjectDisplayChanged -= h)),
+            Subject(graph, key: "graph.name-changed", new EventTable<Document, ObjectNameEventArgs>(Add: static (d, h) => d.Objects.ObjectNameChanged += h, Drop: static (d, h) => d.Objects.ObjectNameChanged -= h),
                 project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.NameChanged, SubjectId: Some(args.Owner.InstanceId))),
-            Subject(graph, key: "graph.instance-id", new Wired<Document, ObjectGuidEventArgs>(Add: static (d, h) => d.Objects.ObjectInstanceIdChanged += h, Drop: static (d, h) => d.Objects.ObjectInstanceIdChanged -= h),
+            Subject(graph, key: "graph.instance-id", new EventTable<Document, ObjectGuidEventArgs>(Add: static (d, h) => d.Objects.ObjectInstanceIdChanged += h, Drop: static (d, h) => d.Objects.ObjectInstanceIdChanged -= h),
                 project: static (_, args) => new GhFact.GraphCase(Signal: GraphSignal.InstanceIdChanged, SubjectId: Some(args.NewId))));
 
     public static Seq<GhSource> Of(SolutionServer server) =>
-        Seq(Subject(server, key: "solution.about-to-start", new Wired<SolutionServer, SolutionIdEventArgs>(Add: static (s, h) => s.SolutionAboutToStart += h, Drop: static (s, h) => s.SolutionAboutToStart -= h),
+        Seq(Subject(server, key: "solution.about-to-start", new EventTable<SolutionServer, SolutionIdEventArgs>(Add: static (s, h) => s.SolutionAboutToStart += h, Drop: static (s, h) => s.SolutionAboutToStart -= h),
                 project: static (_, args) => new GhFact.SolutionCase(Signal: SolutionSignal.AboutToStart, Id: Some(args.Id), Failure: None)),
-            Pulsed(server, key: "solution.started", signal: SolutionSignal.Started, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionStarted += h, Drop: static (s, h) => s.SolutionStarted -= h)),
-            Pulsed(server, key: "solution.stopped", signal: SolutionSignal.Stopped, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionStopped += h, Drop: static (s, h) => s.SolutionStopped -= h)),
-            Pulsed(server, key: "solution.cancelled", signal: SolutionSignal.Cancelled, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionCancelled += h, Drop: static (s, h) => s.SolutionCancelled -= h)),
-            Pulsed(server, key: "solution.completed", signal: SolutionSignal.Completed, new Wired<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionCompleted += h, Drop: static (s, h) => s.SolutionCompleted -= h)),
-            Subject(server, key: "solution.faulted", new Wired<SolutionServer, SolutionExceptionEventArgs>(Add: static (s, h) => s.SolutionFaulted += h, Drop: static (s, h) => s.SolutionFaulted -= h),
+            Pulsed(server, key: "solution.started", signal: SolutionSignal.Started, new EventTable<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionStarted += h, Drop: static (s, h) => s.SolutionStarted -= h)),
+            Pulsed(server, key: "solution.stopped", signal: SolutionSignal.Stopped, new EventTable<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionStopped += h, Drop: static (s, h) => s.SolutionStopped -= h)),
+            Pulsed(server, key: "solution.cancelled", signal: SolutionSignal.Cancelled, new EventTable<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionCancelled += h, Drop: static (s, h) => s.SolutionCancelled -= h)),
+            Pulsed(server, key: "solution.completed", signal: SolutionSignal.Completed, new EventTable<SolutionServer, SolutionEventArgs>(Add: static (s, h) => s.SolutionCompleted += h, Drop: static (s, h) => s.SolutionCompleted -= h)),
+            Subject(server, key: "solution.faulted", new EventTable<SolutionServer, SolutionExceptionEventArgs>(Add: static (s, h) => s.SolutionFaulted += h, Drop: static (s, h) => s.SolutionFaulted -= h),
                 project: static (_, args) => new GhFact.SolutionCase(
                     Signal: SolutionSignal.Faulted,
                     Id: Some(args.SolutionId),
                     Failure: Some(Error.New(args.Exception.Message, args.Exception)))));
 
     public static Seq<GhSource> Of(History ledger) =>
-        Seq(Sealed(ledger, key: "history.undone", signal: UndoSignal.Undone, new Wired<History, UndoEventArgs>(Add: static (l, h) => l.Undone += h, Drop: static (l, h) => l.Undone -= h)),
-            Sealed(ledger, key: "history.redone", signal: UndoSignal.Redone, new Wired<History, UndoEventArgs>(Add: static (l, h) => l.Redone += h, Drop: static (l, h) => l.Redone -= h)),
-            Sealed(ledger, key: "history.modified", signal: UndoSignal.Modified, new Wired<History, UndoEventArgs>(Add: static (l, h) => l.Modified += h, Drop: static (l, h) => l.Modified -= h)),
-            Sealed(ledger, key: "history.node-added", signal: UndoSignal.NodeAdded, new Wired<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeAdded += h, Drop: static (l, h) => l.NodeAdded -= h)),
-            Sealed(ledger, key: "history.node-removed", signal: UndoSignal.NodeRemoved, new Wired<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeRemoved += h, Drop: static (l, h) => l.NodeRemoved -= h)),
-            Sealed(ledger, key: "history.node-merged", signal: UndoSignal.NodeMerged, new Wired<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeMerged += h, Drop: static (l, h) => l.NodeMerged -= h)),
-            Sealed(ledger, key: "history.node-moved", signal: UndoSignal.NodeMoved, new Wired<History, UndoNodeMovedEventArgs>(Add: static (l, h) => l.NodeMoved += h, Drop: static (l, h) => l.NodeMoved -= h)));
+        Seq(Sealed(ledger, key: "history.undone", signal: UndoSignal.Undone, new EventTable<History, UndoEventArgs>(Add: static (l, h) => l.Undone += h, Drop: static (l, h) => l.Undone -= h)),
+            Sealed(ledger, key: "history.redone", signal: UndoSignal.Redone, new EventTable<History, UndoEventArgs>(Add: static (l, h) => l.Redone += h, Drop: static (l, h) => l.Redone -= h)),
+            Sealed(ledger, key: "history.modified", signal: UndoSignal.Modified, new EventTable<History, UndoEventArgs>(Add: static (l, h) => l.Modified += h, Drop: static (l, h) => l.Modified -= h)),
+            Sealed(ledger, key: "history.node-added", signal: UndoSignal.NodeAdded, new EventTable<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeAdded += h, Drop: static (l, h) => l.NodeAdded -= h)),
+            Sealed(ledger, key: "history.node-removed", signal: UndoSignal.NodeRemoved, new EventTable<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeRemoved += h, Drop: static (l, h) => l.NodeRemoved -= h)),
+            Sealed(ledger, key: "history.node-merged", signal: UndoSignal.NodeMerged, new EventTable<History, UndoNodeEventArgs>(Add: static (l, h) => l.NodeMerged += h, Drop: static (l, h) => l.NodeMerged -= h)),
+            Sealed(ledger, key: "history.node-moved", signal: UndoSignal.NodeMoved, new EventTable<History, UndoNodeMovedEventArgs>(Add: static (l, h) => l.NodeMoved += h, Drop: static (l, h) => l.NodeMoved -= h)));
 
     string IUiSource<GhFact>.Key => Key;
     public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<GhFact>>> emit, Op key) => Bind(anchor, emit, key);
 
-    private static GhSource Canvas<TArgs>(string key, Wired<Canvas, TArgs> wired, Func<Canvas, TArgs, GhFact> project)
+    private static GhSource Canvas<TArgs>(string key, EventTable<Canvas, TArgs> wired, Func<Canvas, TArgs, GhFact> project)
         where TArgs : EventArgs =>
         new(Key: key, Bind: (anchor, emit, op) => anchor switch {
             EventAnchor.OnControl { Value: Canvas surface } => op.Catch(() => Fin.Succ(Hook(surface, wired, project, emit))),
             _ => Fin.Fail<IDisposable>(op.InvalidInput()),
         });
 
-    private static GhSource Subject<THost, TArgs>(THost host, string key, Wired<THost, TArgs> wired, Func<THost, TArgs, GhFact> project)
+    private static GhSource Subject<THost, TArgs>(THost host, string key, EventTable<THost, TArgs> wired, Func<THost, TArgs, GhFact> project)
         where TArgs : EventArgs =>
         new(Key: key, Bind: (anchor, emit, op) => anchor switch {
             EventAnchor.Ambient => op.Catch(() => Fin.Succ(Hook(host, wired, project, emit))),
             _ => Fin.Fail<IDisposable>(op.InvalidInput()),
         });
 
-    private static GhSource Listed(Document graph, string key, GraphSignal signal, Wired<Document, ObjectEventArgs> wired) =>
+    private static GhSource Listed(Document graph, string key, GraphSignal signal, EventTable<Document, ObjectEventArgs> wired) =>
         Subject(graph, key, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
-    private static GhSource Pulsed(SolutionServer server, string key, SolutionSignal signal, Wired<SolutionServer, SolutionEventArgs> wired) =>
+    private static GhSource Pulsed(SolutionServer server, string key, SolutionSignal signal, EventTable<SolutionServer, SolutionEventArgs> wired) =>
         Subject(server, key, wired, project: (_, args) => new GhFact.SolutionCase(Signal: signal, Id: Some(args.SolutionId), Failure: None));
-    private static GhSource Sealed<TArgs>(History ledger, string key, UndoSignal signal, Wired<History, TArgs> wired) where TArgs : EventArgs =>
+    private static GhSource Sealed<TArgs>(History ledger, string key, UndoSignal signal, EventTable<History, TArgs> wired) where TArgs : EventArgs =>
         Subject(ledger, key, wired, project: (_, _) => new GhFact.UndoCase(Signal: signal));
 
     private static IDisposable Hook<THost, TArgs>(
-        THost host, Wired<THost, TArgs> wired, Func<THost, TArgs, GhFact> project, Action<Func<Fin<GhFact>>> emit)
+        THost host, EventTable<THost, TArgs> wired, Func<THost, TArgs, GhFact> project, Action<Func<Fin<GhFact>>> emit)
         where TArgs : EventArgs {
         EventHandler<TArgs> handler = (_, args) => emit(() => Fin.Succ(project(host, args)));
         wired.Add(host, handler);

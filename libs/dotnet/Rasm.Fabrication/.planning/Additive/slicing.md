@@ -1188,15 +1188,12 @@ public static partial class Slice {
 
     // --- [BOUNDARIES]
     private static Fin<Option<SupportPlan>> Grown(SliceStack stack, Option<SupportPolicy> policy) =>
-        policy.Match(
-            None: () => Fin.Succ(Option<SupportPlan>.None),
-            Some: row => Support.Grow(stack, row).Map(Some));
+        policy.TraverseM(row => Support.Grow(stack, row)).As();
 
     private static Fin<SliceStack> Sliced(FabricationInput input, LayerPlan plan, SlicePolicy slice) =>
-        input.Model.Match(
-            None: () => Fin.Fail<SliceStack>(
-                new KernelFault.InvalidValue("slicing", "slice:model-missing")),
-            Some: model => Slicing.Apply(new SliceOp(model, Plane.WorldXY, plan, slice)));
+        input.Model
+            .ToFin(new KernelFault.InvalidValue("slicing", "slice:model-missing"))
+            .Bind(model => Slicing.Apply(new SliceOp(model, Plane.WorldXY, plan, slice)));
 
     private static Fin<Seq<Loop>> OpenTraces(SliceStack stack, int layer, Context tolerance) =>
         stack.LayerAt(layer)

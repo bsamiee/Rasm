@@ -77,7 +77,7 @@ public sealed partial class IfcContainer {
     [UseDelegateFromConstructor]
     public partial Seq<IfcSerialization> Wraps();
 
-    static Seq<IfcSerialization> Every() => IfcSerialization.Items.AsIterable().ToSeq();
+    static Seq<IfcSerialization> Every() => toSeq(IfcSerialization.Items);
 
     static Seq<IfcSerialization> Texts() => Seq(IfcSerialization.Step, IfcSerialization.Xml);
 
@@ -205,7 +205,7 @@ public sealed record IfcWireForm {
 
     public IfcContainer Container { get; }
 
-    public static readonly Seq<IfcWireForm> Forms = IfcContainer.Items.AsIterable().ToSeq()
+    public static readonly Seq<IfcWireForm> Forms = toSeq(IfcContainer.Items)
         .Bind(container => container.Wraps().Map(serialization => new IfcWireForm(serialization, container)));
 
     static readonly FrozenDictionary<string, IfcWireForm> ByKey =

@@ -267,16 +267,12 @@ public sealed partial class InterchangeFormat {
         Items.GroupBy(static row => row.MediaType, StringComparer.OrdinalIgnoreCase)
             .ToFrozenDictionary(static group => group.Key, static group => group.MaxBy(static row => row.DetectRank)!, StringComparer.OrdinalIgnoreCase);
 
-    static readonly FrozenDictionary<string, InterchangeFormat> ByKey =
-        Items.ToFrozenDictionary(static row => row.Key, static row => row, StringComparer.OrdinalIgnoreCase);
-
     public static Fin<InterchangeFormat> Detect(string pathOrMediaTypeOrKey, Op key) =>
-        ByKey.TryGetValue(pathOrMediaTypeOrKey, out var byKey) ? Fin.Succ(byKey)
+        TryGet(pathOrMediaTypeOrKey, out InterchangeFormat? byKey) && byKey is { } keyed ? Fin.Succ(keyed)
         : ByMediaType.TryGetValue(pathOrMediaTypeOrKey, out var byType) ? Fin.Succ(byType)
         : ByExtension.TryGetValue(ExtensionOf(pathOrMediaTypeOrKey), out var byExt) ? Fin.Succ(byExt)
-        : CompoundSuffix(pathOrMediaTypeOrKey).Match(
-            Some: Fin.Succ,
-            None: () => Fin.Fail<InterchangeFormat>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", pathOrMediaTypeOrKey }))));
+        : CompoundSuffix(pathOrMediaTypeOrKey).ToFin(
+            new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", pathOrMediaTypeOrKey })));
 
     static string ExtensionOf(string input) =>
         Path.GetExtension(input) is { Length: > 0 } ext ? ext

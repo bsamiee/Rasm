@@ -7,7 +7,7 @@ Rasm.Persistence owns one content-addressed artifact index, model-result recency
 - [02]-[ARTIFACT_BLOB_INDEX]: `ArtifactIndexRow` admits content-keyed under the composed `Version/retention` asset-class axis, and `Project` folds the source-keyed family.
 - [03]-[MODEL_RESULT_INDEX]: `ModelResultKey` keys each call, `ModelResultIndex` owns the content-addressed recency/dedup horizon with its gate folded into the lookup, and the lookup/publish path carries reuse.
 - [04]-[BENCHMARK_INDEX]: `BenchmarkFamily` rosters the standing corpus, `BenchmarkRow` carries the durable claim, and `Claim` resolves fingerprint-gated and recency-bounded.
-- [05]-[SOLVER_MEMO]: `SolverMemoKind` rosters the content-exact solver producers by key prefix, `SolverMemoRow` persists each memo deadline-free under the `cache` class, and `SolverMemo` owns the band read/write.
+- [05]-[SOLVER_MEMO]: `SolverMemoKind` rosters the content-exact solver producers by key prefix, and `SolverMemoRow` persists each memo deadline-free under the `cache` class.
 - [06]-[L2_CONTRIBUTION]: `IBufferDistributedCache` stores the `Store`-keyed buffer contract, one `IHybridCacheSerializerFactory` mints the MessagePack codec, `TenantId` partitions the content-address key the AppHost cache port resolves over, `CacheLane.Store` gates the Redis invalidation backplane beside it, and the whole leg rides the `#INDEX_RESIDENCY` cache-lane gate.
 - [07]-[INDEX_RESIDENCY]: `IndexResidency` axes deployment (`marten-pg` default · `scylla-widecolumn` scale-out), `Admit` gates the whole cache lane at profile selection, `CacheProfile` closes the execution-profile roster, `WideColumnLane` binds the backend once and dials its two verbs across the re-drive boundary, LWT claims gate admission under a horizon-derived `CacheTtl`, the `PagingState` sweep pages one partition, and `CacheFault` folds `DriverException` inside the carried attempt.
 
@@ -140,7 +140,7 @@ public sealed record ArtifactIndexRow(
 
     public static HashMap<UInt128, Seq<ArtifactIndexRow>> Project(Seq<ArtifactIndexRow> rows) =>
         rows.Fold(HashMap<UInt128, Seq<ArtifactIndexRow>>(), static (acc, row) =>
-            acc.AddOrUpdate(row.SourceKey.IfNone(row.Content.Value), chain => chain.Add(row), Seq(row)));
+            acc.AddOrUpdate(row.SourceKey.IfNone(row.Content.ToValue()), chain => chain.Add(row), Seq(row)));
 }
 ```
 
@@ -297,9 +297,9 @@ public sealed record BenchmarkRow {
 
 ## [05]-[SOLVER_MEMO]
 
-- Owner: `SolverMemoKind` the closed producer roster carrying each lane's key prefix and producing identity; `SolverMemoRow` the durable content-keyed memo row; `SolverMemo` the band read/write.
+- Owner: `SolverMemoKind` the closed producer roster carrying each lane's key prefix and producing identity; `SolverMemoRow` the durable content-keyed memo row.
 - Cases: `Nfp` — the Fabrication pair-matrix polygons keyed by `PairTable.Key`/`InnerKey` over pair geometry, tolerance, rotation, clearance, kerf, and chord error; `Icp` — the registration fits keyed by `ProbeMemo.Key` over both point sets, the align kind, the policy columns, and the context tolerances; each row names its producer identity, so the band stores foreign solver truth without re-deriving it.
-- Entry: `SolverMemo.Get(SolverMemoKind kind, UInt128 identity)` is the synchronous-lane read a warm start blocks on; `Put(SolverMemoRow row)` upserts by identity, so a byte-identical re-publish is a no-op.
+- Entry: the injected `resolve(kind, identity)` delegate is the synchronous-lane read a warm start blocks on; the injected `record(row)` delegate upserts by identity, so a byte-identical re-publish is a no-op.
 - Auto: federation is the LANDED `HybridCache` path — the Fabrication memo lanes ride the branch `HybridCache` whose L2 is this folder's `#L2_CONTRIBUTION` `IBufferDistributedCache`, so the band opens NO cross-package dependency: the L2 store dispatches on the key prefix through `SolverMemoKind.Of`, a solver-memo key persists as a `SolverMemoRow` with no deadline while every other key keeps the capped-deadline row, and a cross-run or cross-process warm start is an ordinary L2 hit; solver truth is content-exact — the producer key folds EVERY input that shifts the result, so an input change IS a new key, staleness is unspellable, and no recency horizon applies.
 - Packages: Marten (`IDocumentStore`), MessagePack (`MessagePackSerializer`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new solver memo lane is one `SolverMemoKind` row — prefix and producer identity — beside the producer-side content key and cache ride; zero new surface here.
@@ -326,13 +326,6 @@ public sealed record SolverMemoRow(SolverMemoKind Kind, UInt128 Identity, ReadOn
     public RetentionClass Retention => RetentionClass.Cache;
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class SolverMemo {
-    public static IO<Option<SolverMemoRow>> Get(SolverMemoKind kind, UInt128 identity, Func<SolverMemoKind, UInt128, IO<Option<SolverMemoRow>>> resolve) =>
-        resolve(kind, identity);
-
-    public static IO<Unit> Put(SolverMemoRow row, Func<SolverMemoRow, IO<Unit>> record) => record(row);
-}
 ```
 
 | [INDEX] | [POLICY]        | [VALUE]                             | [BINDING]                                                |
@@ -489,7 +482,7 @@ public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCach
 
     static IO<T> Captured<T>(Func<Task<T>> crossing) =>
         IO.liftAsync(async () => await Op.Of().Catch(async _ => Fin<T>.Succ(await crossing().ConfigureAwait(false))).ConfigureAwait(false))
-            .Bind(IO.liftFin);
+            .Bind(IO.lift);
 
     string LogicalKey(string physical) {
         string prefix = $"{storeKey}:";
@@ -603,7 +596,7 @@ public sealed record WideColumnLane(Mapper Mapper, StoreRedrivePort Redrive, Cac
         Redrive.Carry(new StoreHop.WideColumn(verb), (string)Cluster,
             IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false))
                 .MapFail(CacheFault.Lift))
-            .Bind(IO.liftFin))
+            .Bind(IO.lift))
         .Map(Fin.Succ)
         | @catch<IO, Fin<T>>(static _ => true, static error => IO.pure(Fin<T>.Fail(error)));
 

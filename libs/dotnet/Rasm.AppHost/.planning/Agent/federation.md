@@ -269,12 +269,12 @@ public static class FederatedDispatch {
             None: () => IO.pure(Fin.Fail<DispatchResult>(new FederationFault.PeerUnavailable(call.Server))));
 
     static IO<Fin<DispatchResult>> Hopped(FederationRuntime runtime, FederatedServer server, FederatedCall call) =>
-        from mark in runtime.Clocks.Line.Capture().Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
+        from mark in IO.lift(runtime.Clocks.Line.Capture())
         from client in runtime.SessionOf(server)
         from latency in IO.lift(runtime.Latency)
         from _peer in OutboundSurface.Carry(runtime.Outbound, HopOf(server), ct => Peer(runtime, client, call, ct), Some(latency))
-        from settled in runtime.Clocks.Line.Capture().Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
-        from span in runtime.Clocks.Line.Elapsed(mark, settled).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
+        from settled in IO.lift(runtime.Clocks.Line.Capture())
+        from span in IO.lift(runtime.Clocks.Line.Elapsed(mark, settled))
         select Fin.Succ(new DispatchResult($"federated.{call.Server}{call.Verb.Key}", call.Op, Duration.FromTimeSpan(span)));
 
     static async Task<(HopOutcome Outcome, PeerAnswer Value)> Peer(FederationRuntime runtime, McpClient client, FederatedCall call, CancellationToken ct) {

@@ -148,12 +148,12 @@ public sealed record BakePolicy(
     public Grasshopper2.Bake.BakeContext Context(
         string process, Guid id, Rhino.RhinoDoc document, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
         new(name: process, id: id, document: document,
-            attributes: attributes.ValueUnsafe()!, user: Defaults, meta: Overrides);
+            attributes: Op.ToHostSlot(attributes)!, user: Defaults, meta: Overrides);
 
     public Grasshopper2.Bake.BakeContext Context(
         string process, Guid id, Rhino.FileIO.File3dm file, Option<Rhino.DocObjects.ObjectAttributes> attributes = default) =>
         new(name: process, id: id, file: file,
-            attributes: attributes.ValueUnsafe()!, user: Defaults, meta: Overrides);
+            attributes: Op.ToHostSlot(attributes)!, user: Defaults, meta: Overrides);
 }
 
 public sealed record Lifecycle(
@@ -253,9 +253,8 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     private static readonly Lazy<Fin<ComponentSpec>> definition =
         new(static () => TSelf.Spec.Admit().ToFin(), LazyThreadSafetyMode.ExecutionAndPublication);
 
-    private static ComponentSpec Admitted(FaultCell faults, HookId point) => definition.Value.Match(
-        Succ: identity,
-        Fail: fault => Panic<ComponentSpec>(fault, faults, point));
+    private static ComponentSpec Admitted(FaultCell faults, HookId point) =>
+        definition.Value.IfFail(fault => Panic<ComponentSpec>(fault, faults, point));
 
     private readonly ComponentSpec spec;
     private readonly FaultCell faults;
@@ -281,11 +280,11 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     protected override Grasshopper2.UI.Icon.IIcon IconInternal => spec.Icon.IfNone(base.IconInternal);
 
     protected override void AddInputs(ModularInputAdder inputs) =>
-        ignore(Ports.Declare(inputs, spec.Inputs, Op.Of()).Match(Succ: identity, Fail: Panic<Seq<IParameter>>));
+        ignore(Ports.Declare(inputs, spec.Inputs, Op.Of()).IfFail(Panic<Seq<IParameter>>));
 
     protected override void AddOutputs(ModularOutputAdder outputs) =>
         ignore(Ports.Declare(outputs, spec.Outputs.Map(static output => output.Plan).Strict(), Op.Of())
-            .Match(Succ: identity, Fail: Panic<Seq<IParameter>>));
+            .IfFail(Panic<Seq<IParameter>>));
 
     protected override void Process(IDataAccess access) =>
         ignore(Scope(access, access.Solution.Token, Op.Of()).Match(
@@ -313,10 +312,11 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             None: () => tree);
 
     public override void AppendToInputPanel(Grasshopper2.UI.InputPanel.InputPanel panel) =>
-        ignore(Track(HostCall.Run(() => base.AppendToInputPanel(panel), Op.Of())
-            .Bind(_ => spec.Panel.Match(
-                Some: append => HostCall.Run(() => append(panel), Op.Of()),
-                None: static () => Fin.Succ(unit)))));
+        ignore(Track(Op.Of().Catch(() => base.AppendToInputPanel(panel))
+            .Bind(_ => spec.Panel
+                .TraverseM(append => Op.Of().Catch(() => append(panel)))
+                .As()
+                .Map(static _ => unit))));
 
     protected override Grasshopper2.Doc.IAttributes CreateAttributes() =>
         spec.Chrome.Match(
@@ -326,14 +326,14 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     public override void VariableParameterMaintenance() =>
         ignore(state == MountState.Mounted
             ? Track(Maintained(Op.Of()))
-            : Maintained(Op.Of()).Match(Succ: identity, Fail: Panic<Unit>));
+            : Maintained(Op.Of()).IfFail(Panic<Unit>));
 
     public Fin<Unit> Flex(PinSide side, int index, PinVisibility visibility, Grasshopper2.Undo.ActionList undo, Op? key = null) {
         ModularList list = side.Switch(state: this, input: static self => self.ModularInputs, output: static self => self.ModularOutputs);
-        return HostCall.Run(() => visibility.Switch(
+        return key.OrDefault().Catch(() => visibility.Switch(
             state: (List: list, Index: index, Undo: undo),
             shown: static s => s.List.Show(s.Index, s.Undo),
-            hidden: static s => s.List.Hide(s.Index, s.Undo)), key.OrDefault());
+            hidden: static s => s.List.Hide(s.Index, s.Undo)));
     }
 
     private Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel, Op key) =>
@@ -351,21 +351,24 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     private static Fin<Unit> Stage(
         Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> stage,
         Grasshopper2.Doc.Solution solution,
-        Op key) => stage.Match(
-            Some: action => key.Catch(() => action(solution)),
-            None: static () => Fin.Succ(unit));
+        Op key) => stage
+            .TraverseM(action => key.Catch(() => action(solution)))
+            .As()
+            .Map(static _ => unit);
 
     private static Fin<Unit> Stage(
         Option<Func<Grasshopper2.Doc.Solution, Grasshopper2.Doc.FleetingCustomData, Fin<Unit>>> stage,
         Grasshopper2.Doc.Solution solution,
         Grasshopper2.Doc.FleetingCustomData data,
-        Op key) => stage.Match(
-            Some: action => key.Catch(() => action(solution, data)),
-            None: static () => Fin.Succ(unit));
+        Op key) => stage
+            .TraverseM(action => key.Catch(() => action(solution, data)))
+            .As()
+            .Map(static _ => unit);
 
-    private Fin<Unit> Maintained(Op key) => spec.Maintain.Match(
-            Some: maintain => key.Catch(() => maintain(Parameters)),
-            None: static () => Fin.Succ(unit))
+    private Fin<Unit> Maintained(Op key) => spec.Maintain
+        .TraverseM(maintain => key.Catch(() => maintain(Parameters)))
+        .As()
+        .Map(static _ => unit)
         .Bind(_ => Ports.Realize(
             Parameters,
             spec.Inputs,
@@ -373,9 +376,8 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             key).ToFin());
 
     private Unit HostIterations(IDataAccess[] iterations, CancellationToken token, Op key) =>
-        HostCall.Run(() => ProcessHost(iterations, token), token, key).Match(
-            Succ: identity,
-            Fail: fault => Capture(fault, None));
+        key.Catch(() => Fin.Succ(Op.Side(() => ProcessHost(iterations, token))), token)
+            .IfFail(fault => Capture(fault, None));
 
     private void ProcessHost(IDataAccess[] iterations, CancellationToken token) => base.Process(iterations, token);
 
@@ -386,34 +388,32 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 
     private Unit Complete(Seq<ProcessScope> scopes, Fin<Unit> result) =>
         (ignore(scopes.Map(scope => Warn(scope, None)).Strict()),
-            result.Match(Succ: identity, Fail: fault => Capture(fault, None))).Item2;
+            result.IfFail(fault => Capture(fault, None))).Item2;
 
     private Unit Complete(ProcessScope scope, Fin<Unit> result, Option<IDataAccess> access) =>
-        (Warn(scope, access), result.Match(Succ: identity, Fail: fault => Capture(fault, access))).Item2;
+        (Warn(scope, access), result.IfFail(fault => Capture(fault, access))).Item2;
 
     private static Unit Warn(ProcessScope scope, Option<IDataAccess> access) =>
         scope.Spec.Outputs.Filter(output => output.IsRequired && !scope.Emitted.Value.Contains(output)).Strict() is var missing
         && missing.IsEmpty
             ? unit
-            : access.Map(target => new Notice(
+            : access.Iter(target => new Notice(
                     Severity.Warning,
                     None,
                     nameof(OutputPlan.Required),
                     string.Join(",", missing.Map(static output => output.Plan.Nick)),
-                    []).Report(target))
-                .IfNone(unit);
+                    []).Report(target));
 
-    private Unit Track(Fin<Unit> result) => result.Match(Succ: identity, Fail: fault => Capture(fault, None));
+    private Unit Track(Fin<Unit> result) => result.IfFail(fault => Capture(fault, None));
 
-    private T Track<T>(Fin<T> result, T fallback) => result.Match(
-        Succ: identity,
-        Fail: fault => (Capture(fault, None), fallback).Item2);
+    private T Track<T>(Fin<T> result, T fallback) =>
+        result.IfFail(fault => (Capture(fault, None), fallback).Item2);
 
     private Unit Capture(Error fault, Option<IDataAccess> access) =>
         (ignore(faults.Park(point: faultPoint, cause: fault)), Report(fault, access)).Item2;
 
     private static Unit Report(Error fault, Option<IDataAccess> access) =>
-        access.Map(target => Notice.Fan(fault).Iter(notice => notice.Report(target))).IfNone(unit);
+        access.Iter(target => Notice.Fan(fault).Iter(notice => notice.Report(target)));
 
     private T Panic<T>(Error fault) {
         Capture(fault, None);

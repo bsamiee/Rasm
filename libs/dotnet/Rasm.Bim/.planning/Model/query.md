@@ -189,9 +189,9 @@ public sealed record ElementQuery {
         search.TreeEdge += edge => {
             int depth = level.Find(edge.Source).IfNone(0) + 1;
             level = level.AddOrUpdate(edge.Target, depth);
-            if (depth <= walk.Depth.Value) { within = within.Add(edge.Target); }
+            if (depth <= walk.Depth.ToValue()) { within = within.Add(edge.Target); }
         };
-        search.GrayTarget += edge => cycles = cycles.Add(new BimFault.Refused(Gate, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "query-closure-cyclic", edge.Target.Value })));
+        search.GrayTarget += edge => cycles = cycles.Add(new BimFault.Refused(Gate, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "query-closure-cyclic", edge.Target.ToValue() })));
         search.Compute(obj.Id);
 
         MatchVerdict reached = within
@@ -225,7 +225,7 @@ public sealed record ElementQuery {
                                                && row.Read(s.obj).Exists(v => l.Restriction.Matches(v)))),
         byProperty:       static (s, l) => MatchVerdict.Of(EffectiveValues(s.graph, s.obj.Id, l.Set, l.Name).Exists(v => l.Restriction.Matches(v))),
         byMaterial:       static (s, l) => MatchVerdict.Of(s.graph.MaterialsOf(s.obj.Id)
-                                               .Exists(m => m.Composition.Materials.Exists(id => l.Restriction.Matches(new PropertyValue.Text(id.Value))))),
+                                               .Exists(m => m.Composition.Materials.Exists(id => l.Restriction.Matches(new PropertyValue.Text(id.ToValue()))))),
         byComposed:       static (s, l) => Incident(s.graph, s.obj.Id, l.Whole, e =>
                                                e is Relationship.Compose c && c.SubKind == l.SubKind && c.Part == s.obj.Id ? Some(c.Whole) : None),
         byConnected:      static (s, l) => Incident(s.graph, s.obj.Id, l.Other, e =>
@@ -367,8 +367,8 @@ public static class StoreLowering {
             None: () => new StorePlan(EntityScan, Seq<object>(), residue));
     }
 
-    static (Option<Fragment> Store, Option<BimTerm> Residue) Split(BimTerm term) => term switch {
-        BimTerm.All all => all.Operands.Map(Split).Fold(
+    static (Option<Fragment> Store, Option<BimTerm> Residue) Split(BimTerm term) => term.Map(
+        all: all => all.Operands.Map(Split).Fold(
             (Store: Option<Fragment>.None, Residue: Option<BimTerm>.None),
             static (acc, part) => (
                 Store: acc.Store.Match(
@@ -377,22 +377,21 @@ public static class StoreLowering {
                 Residue: acc.Residue.Match(
                     Some: held => part.Residue.Map(held.And).IfNone(held),
                     None: () => part.Residue))),
-        BimTerm.Any any => any.Operands.Map(Split) is var parts
+        any: any => any.Operands.Map(Split) is var parts
             && parts.ForAll(static p => p.Store.IsSome && p.Residue.IsNone)
                 ? (parts.Choose(static p => p.Store).Fold(Option<Fragment>.None, static (acc, next) => acc.Match(
                     Some: held => Some(new Fragment($"({held.Where}) OR ({next.Where})", held.Parameters + next.Parameters, held.Total && next.Total)),
                     None: () => Some(next))), Option<BimTerm>.None)
                 : (Option<Fragment>.None, Some(term)),
-        BimTerm.Not not => Split(not.Operand) switch {
+        not: not => Split(not.Operand) switch {
             ({ IsSome: true } inner, { IsNone: true }) when inner.Case is Fragment { Total: true } fragment =>
                 (Some(new Fragment($"NOT ({fragment.Where})", fragment.Parameters, Total: true)), Option<BimTerm>.None),
             _ => (Option<Fragment>.None, Some(term)),
         },
-        BimTerm.Leaf leaf => Leaf(leaf.Value).Match(
+        leaf: leaf => Leaf(leaf.Value).Match(
             Some: fragment => (Some(fragment), Option<BimTerm>.None),
             None: () => (Option<Fragment>.None, Some(term))),
-        _ => (Option<Fragment>.None, Some(term)),
-    };
+        closure: _ => (Option<Fragment>.None, Some(term)));
 
     static Option<Fragment> Leaf(BimLeaf leaf) => leaf switch {
         BimLeaf.ByClass c => Some(new Fragment(CategoryEquals, Seq<object>(c.Class.Key), Total: false)),

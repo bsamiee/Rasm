@@ -348,8 +348,8 @@ public static class BcfArchive {
                 .SetTopicStatus(topic.StatusToken).SetPriority(topic.Priority).SetCreationAuthor(topic.Author)
                 .SetCreationDate(topic.CreationDate.ToDateTimeUtc())
                 .SetDescription(topic.Description).SetAssignedTo(topic.AssignedTo).SetStage(topic.Stage)
-                .SetDueDate(topic.DueDate.Match<DateTime?>(static d => d.ToDateTimeUtc(), static () => null))
-                .SetModifiedDate(topic.ModifiedDate.Match<DateTime?>(static d => d.ToDateTimeUtc(), static () => null));
+                .SetDueDate(Op.ToHostNullable(topic.DueDate.Map(static d => d.ToDateTimeUtc())))
+                .SetModifiedDate(Op.ToHostNullable(topic.ModifiedDate.Map(static d => d.ToDateTimeUtc())));
             topic.Index.IfSome(i => markup.SetIndex(i));
             if (topic.ModifiedAuthor.Length > 0) { markup.SetModifiedAuthor(topic.ModifiedAuthor); }
             if (topic.ServerAssignedId.Length > 0) { markup.SetServerAssignedId(topic.ServerAssignedId); }
@@ -370,8 +370,8 @@ public static class BcfArchive {
             }));
             topic.Comments.Iter(c => markup.AddComment(comment => {
                 comment.SetGuid(c.Guid).SetAuthor(c.Author).SetComment(c.Text).SetDate(c.Date.ToDateTimeUtc())
-                    .SetViewPointGuid(c.ViewpointGuid.Match<string?>(static g => g, static () => null))
-                    .SetModifiedDate(c.ModifiedDate.Match<DateTime?>(static d => d.ToDateTimeUtc(), static () => null));
+                    .SetViewPointGuid(Op.ToHostSlot(c.ViewpointGuid))
+                    .SetModifiedDate(Op.ToHostNullable(c.ModifiedDate.Map(static d => d.ToDateTimeUtc())));
                 if (c.ModifiedAuthor.Length > 0) { comment.SetModifiedAuthor(c.ModifiedAuthor); }
             }));
             topic.Viewpoints.Iter(v => markup.AddViewPoint(vp => AuthorViewpoint(vp, v)));
@@ -386,9 +386,10 @@ public static class BcfArchive {
         file.Topics
             .Bind(topic => topic.Viewpoints.Bind(static v => v.Bitmaps).Map(static b => b.Reference).Distinct()
                 .Map(reference => (Topic: topic.Guid, Reference: reference)))
-            .Traverse(part => file.Blobs.Find(part.Reference).Match(
-                Some: data => Fin.Succ((part.Topic, part.Reference, Data: data)),
-                None: () => Fin.Fail<(string Topic, string Reference, ReadOnlyMemory<byte> Data)>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "bcf-archive", "bitmap", part.Reference })))))
+            .Traverse(part => file.Blobs.Find(part.Reference)
+                .ToFin(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected,
+                    string.Join(':', new object?[] { "bcf-archive", "bitmap", part.Reference })))
+                .Map(data => (part.Topic, part.Reference, Data: data)))
             .As()
             .Map(parts => Parts(container, parts));
 
@@ -622,7 +623,7 @@ public static partial class BcfProjection {
 
     [UserMapping]
     static BcfCameraWire? Lens(Option<BcfCamera> camera) =>
-        camera.Match<BcfCameraWire?>(static value => Project(value), static () => null);
+        Op.ToHostSlot(camera.Map(static value => Project(value)));
 
     static BcfCameraWire Project(BcfCamera camera) => camera.Switch(
         perspective: static value => new BcfCameraWire {
@@ -653,29 +654,28 @@ public static partial class BcfProjection {
 
     [UserMapping]
     static BcfHintsWire? Hints(Option<CapabilitySet<BcfViewHint>> held) =>
-        held.Match<BcfHintsWire?>(
-            static set => new() {
+        Op.ToHostSlot(held.Map(
+            static set => new BcfHintsWire {
                 SpacesVisible = set.Admits(BcfViewHint.Spaces),
                 SpaceBoundariesVisible = set.Admits(BcfViewHint.SpaceBoundaries),
                 OpeningsVisible = set.Admits(BcfViewHint.Openings),
-            },
-            static () => null);
+            }));
 
     [UserMapping] static Rasm.Contracts.Spatial.Point3 Point(Vector3 value) => new() { XM = value.X, YM = value.Y, ZM = value.Z };
     [UserMapping] static Rasm.Contracts.Spatial.UnitDirection3 Direction(Vector3 value) => new() { X = value.X, Y = value.Y, Z = value.Z };
     [UserMapping] static Timestamp Stamp(Instant value) => Timestamp.FromDateTime(value.ToDateTimeUtc());
-    [UserMapping] static Timestamp? Stamp(Option<Instant> value) => value.Match<Timestamp?>(Stamp, static () => null);
+    [UserMapping] static Timestamp? Stamp(Option<Instant> value) => Op.ToHostSlot(value.Map(static instant => Stamp(instant)));
     [UserMapping] static BcfSnippetWire? Snippet(Option<BcfBimSnippet> value) =>
-        value.Match<BcfSnippetWire?>(static snippet => Project(snippet), static () => null);
+        Op.ToHostSlot(value.Map(static snippet => Project(snippet)));
     [UserMapping] static BcfBitmapFormat Format(string value) => value.ToUpperInvariant() switch {
         "PNG" => BcfBitmapFormat.Png,
         "JPG" or "JPEG" => BcfBitmapFormat.Jpg,
         _ => BcfBitmapFormat.Unspecified,
     };
 
-    static string? Text(Option<string> value) => value.Match<string?>(static v => v, static () => null);
-    static Instant? Moment(Option<Instant> value) => value.Match<Instant?>(static i => i, static () => null);
-    static int? Ordinal(Option<int> value) => value.Match<int?>(static i => i, static () => null);
+    static string? Text(Option<string> value) => Op.ToHostSlot(value);
+    static Instant? Moment(Option<Instant> value) => Op.ToHostNullable(value);
+    static int? Ordinal(Option<int> value) => Op.ToHostNullable(value);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
     [MapProperty(nameof(BcfTopic.StatusToken), nameof(BcfApiTopicBody.TopicStatus))]
@@ -695,30 +695,27 @@ public static partial class BcfProjection {
     public static partial BcfApiDocumentReferenceBody ToBody(BcfDocumentReference reference);
 
     [UserMapping] static BcfApiSnippetBody? ApiSnippet(Option<BcfBimSnippet> value) =>
-        value.Match<BcfApiSnippetBody?>(static s => ToBody(s), static () => null);
+        Op.ToHostSlot(value.Map(static snippet => ToBody(snippet)));
 
     public static BcfApiViewpointBody ToBody(BcfViewpoint viewpoint) => new(
         viewpoint.Guid,
         Ordinal(viewpoint.Index),
-        viewpoint.Camera.Match<BcfApiOrthogonalCameraBody?>(
-            Some: static lens => lens is BcfCamera.Orthogonal o
-                ? new BcfApiOrthogonalCameraBody(Point(o.Position), Point(o.Direction), Point(o.Up), o.ViewToWorldScale, o.AspectRatio) : null,
-            None: static () => null),
-        viewpoint.Camera.Match<BcfApiPerspectiveCameraBody?>(
-            Some: static lens => lens is BcfCamera.Perspective p
-                ? new BcfApiPerspectiveCameraBody(Point(p.Position), Point(p.Direction), Point(p.Up), p.FieldOfViewDeg, p.AspectRatio) : null,
-            None: static () => null),
+        Op.ToHostSlot(viewpoint.Camera.Bind(static lens => lens is BcfCamera.Orthogonal o
+            ? Some(new BcfApiOrthogonalCameraBody(Point(o.Position), Point(o.Direction), Point(o.Up), o.ViewToWorldScale, o.AspectRatio))
+            : None)),
+        Op.ToHostSlot(viewpoint.Camera.Bind(static lens => lens is BcfCamera.Perspective p
+            ? Some(new BcfApiPerspectiveCameraBody(Point(p.Position), Point(p.Direction), Point(p.Up), p.FieldOfViewDeg, p.AspectRatio))
+            : None)),
         [.. viewpoint.Lines.Map(static l => new BcfApiLineBody(Point(l.Start), Point(l.End)))],
         [.. viewpoint.ClippingPlanes.Map(static c => new BcfApiClippingPlaneBody(Point(c.Location), Point(c.Direction)))],
-        viewpoint.Snapshot.Match<BcfApiSnapshotBody?>(static bytes => new BcfApiSnapshotBody("png", Convert.ToBase64String(bytes.Span)), static () => null),
+        Op.ToHostSlot(viewpoint.Snapshot.Map(static bytes => new BcfApiSnapshotBody("png", Convert.ToBase64String(bytes.Span)))),
         new BcfApiComponentsBody(
             [.. viewpoint.SelectedGlobalIds.Map(static id => new BcfApiComponentBody(id))],
             [.. viewpoint.Coloring.Map(static c => new BcfApiColoringBody(c.Color, [.. c.GlobalIds.Map(static id => new BcfApiComponentBody(id))]))],
             new BcfApiVisibilityBody(
                 viewpoint.Visibility.Default,
-                viewpoint.Hints.Match<BcfApiViewSetupHintsBody?>(
-                    static held => new(held.Admits(BcfViewHint.Spaces), held.Admits(BcfViewHint.SpaceBoundaries), held.Admits(BcfViewHint.Openings)),
-                    static () => null),
+                Op.ToHostSlot(viewpoint.Hints.Map(static held =>
+                    new BcfApiViewSetupHintsBody(held.Admits(BcfViewHint.Spaces), held.Admits(BcfViewHint.SpaceBoundaries), held.Admits(BcfViewHint.Openings)))),
                 [.. viewpoint.Visibility.Exceptions.Map(static id => new BcfApiComponentBody(id))])));
 
     static BcfApiPointBody Point(Vector3 v) => new(v.X, v.Y, v.Z);

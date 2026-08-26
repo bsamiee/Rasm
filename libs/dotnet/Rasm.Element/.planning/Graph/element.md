@@ -69,7 +69,7 @@ public sealed partial class NodeId {
     precomputed: static s => Minted(s.Address));
 
     private static NodeId Minted(ContentAddress address) =>
-    Create(address.Value.ToString("X32", System.Globalization.CultureInfo.InvariantCulture));
+    Create(ContentHash.Hex(address.ToValue()).ToUpperInvariant());
 }
 
 [Union]
@@ -111,7 +111,6 @@ public sealed partial class ObjectKind {
 public sealed partial class PredefinedType {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) => value = value.Trim().ToUpperInvariant();
     public static readonly PredefinedType NotDefined = Create("NOTDEFINED");
-    public string Token => Value;
 }
 
 public readonly record struct StepHeader(
@@ -221,11 +220,10 @@ public readonly record struct GeometrySource(
     public Option<FootprintPolygon> Footprint(RepresentationContentHash representations) => representations.At(RepresentationSlot.FootPrint).Bind(ResolveFootprint);
 
     public Fin<Representation> ResolveRepresentation(Node.Object node, RepresentationSlot slot, Op key) =>
-        node.Representations.At(slot).Match(
-            Some: hash => slot.Decode(this, hash).Match(
-                Some: Fin.Succ,
-                None: () => Fin.Fail<Representation>(new ElementFault.ValueRejected(key, $"<representation-unresolvable:{slot.Key}:{node.Id.Value}>"))),
-            None: () => new ElementFault.ValueRejected(key, $"<representation-absent:{slot.Key}:{node.Id.Value}>"));
+        node.Representations.At(slot)
+            .ToFin(new ElementFault.ValueRejected(key, $"<representation-absent:{slot.Key}:{node.Id.ToValue()}>"))
+            .Bind(hash => slot.Decode(this, hash)
+                .ToFin(new ElementFault.ValueRejected(key, $"<representation-unresolvable:{slot.Key}:{node.Id.ToValue()}>")));
 }
 
 [ComplexValueObject]
@@ -271,7 +269,7 @@ public sealed record AppearanceSummary {
     private static AppearanceSummary Minted(AppearanceVector vector) =>
         new(ContentAddress.Of(vector, 0.0, static (v, w) =>
             w.Double(v.BaseColorR).Double(v.BaseColorG).Double(v.BaseColorB)
-             .Double(v.Metallic).Double(v.Roughness).Double(v.Opacity).Bool(v.Transmissive)).Value, vector);
+             .Double(v.Metallic).Double(v.Roughness).Double(v.Opacity).Bool(v.Transmissive)).ToValue(), vector);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -328,9 +326,9 @@ public abstract partial class Node {
     public void CanonicalBytes(CanonicalWriter w) =>
     Switch(
     @object: o => WriteObject(w, o),
-    material: m => { w.Ordinal(1); w.String(m.MaterialKey.Value); m.Composition.CanonicalBytes(w); w.Ordinal(m.Properties.Count); foreach (var p in m.Properties.OrderBy(static p => p.Discipline.Key, StringComparer.Ordinal).ThenBy(p => ContentAddress.Of(p, tolerance, static (row, k) => row.CanonicalBytes(k)).Value)) { p.CanonicalBytes(w); } },
-    propertySet: p => { w.Ordinal(2); w.String(p.Bag.SetName); w.String(p.Bag.Inheritance.Key); w.Ordinal(p.Bag.Source.Key); w.Ordinal(p.Bag.Values.Count); foreach (var (n, v) in p.Bag.Values.OrderBy(static e => e.Key.Value, StringComparer.Ordinal)) { w.String(n.Value); v.CanonicalBytes(w); } },
-    quantitySet: q => { w.Ordinal(3); w.String(q.Bag.SetName); w.String(q.Bag.Inheritance.Key); w.Ordinal(q.Bag.Source.Key); w.Ordinal(q.Bag.Values.Count); foreach (var (n, m) in q.Bag.Values.OrderBy(static e => e.Key.Value, StringComparer.Ordinal)) { w.String(n.Value); w.Measure(m); } w.Ordinal(q.Bag.Groups.Count); foreach (var (prefix, group) in q.Bag.Groups.OrderBy(static e => e.Key, StringComparer.Ordinal)) { w.String(prefix); w.Bool(group.Discrimination.IsSome); group.Discrimination.IfSome(d => w.String(d)); w.Bool(group.Quality.IsSome); group.Quality.IfSome(x => w.String(x)); w.Bool(group.Usage.IsSome); group.Usage.IfSome(u => w.String(u)); } },
+    material: m => { w.Ordinal(1); w.String(m.MaterialKey.ToValue()); m.Composition.CanonicalBytes(w); w.Ordinal(m.Properties.Count); foreach (var p in m.Properties.OrderBy(static p => p.Discipline.Key, StringComparer.Ordinal).ThenBy(p => ContentAddress.Of(p, tolerance, static (row, k) => row.CanonicalBytes(k)).ToValue())) { p.CanonicalBytes(w); } },
+    propertySet: p => { w.Ordinal(2); w.String(p.Bag.SetName); w.String(p.Bag.Inheritance.Key); w.Ordinal(p.Bag.Source.Key); w.Ordinal(p.Bag.Values.Count); foreach (var (n, v) in p.Bag.Values.OrderBy(static e => e.Key.ToValue(), StringComparer.Ordinal)) { w.String(n.ToValue()); v.CanonicalBytes(w); } },
+    quantitySet: q => { w.Ordinal(3); w.String(q.Bag.SetName); w.String(q.Bag.Inheritance.Key); w.Ordinal(q.Bag.Source.Key); w.Ordinal(q.Bag.Values.Count); foreach (var (n, m) in q.Bag.Values.OrderBy(static e => e.Key.ToValue(), StringComparer.Ordinal)) { w.String(n.ToValue()); w.Measure(m); } w.Ordinal(q.Bag.Groups.Count); foreach (var (prefix, group) in q.Bag.Groups.OrderBy(static e => e.Key, StringComparer.Ordinal)) { w.String(prefix); w.Bool(group.Discrimination.IsSome); group.Discrimination.IfSome(d => w.String(d)); w.Bool(group.Quality.IsSome); group.Quality.IfSome(x => w.String(x)); w.Bool(group.Usage.IsSome); group.Usage.IfSome(u => w.String(u)); } },
     assessment: a => { w.Ordinal(4); a.Payload.CanonicalBytes(w); },
     appearance: a => { w.Ordinal(5); w.U128(a.Summary.AppearanceKey); },
     coverage: c => { w.Ordinal(6); c.Grid.CanonicalBytes(w); },
@@ -356,7 +354,7 @@ public abstract partial class Node {
      .String(o.Classification.System).String(o.Classification.Code).String(o.Classification.Edition);
 
     static void IdentityMid(CanonicalWriter w, Node.Object o) =>
-    w.String(o.PredefinedType.Token)
+    w.String(o.PredefinedType.ToValue())
      .Optional(o.ObjectType, static (label, run) => run.String(label))
      .String(o.Name).String(o.Tag);
 
@@ -533,7 +531,7 @@ public sealed partial class ElementGraph {
     .Choose(e => e.Members.Find(m => !next.Nodes.ContainsKey(m)))
     .Head
     .Match(
-    Some: member => new ElementFault.NodeAbsent(key, $"<replay-edge-member-absent:{member.Value}>"),
+    Some: member => new ElementFault.NodeAbsent(key, $"<replay-edge-member-absent:{member.ToValue()}>"),
     None: () => Fin.Succ(next));
     }
 
@@ -599,19 +597,19 @@ public sealed partial class ElementGraph {
 
     Fin<Element> Bake(NodeId objectId, Op key, ImmutableHashSet<NodeId> ancestry) =>
     ancestry.Contains(objectId)
-    ? new ElementFault.RelationshipInvalid(key, $"<bake-compose-cycle:{objectId.Value}>")
+    ? new ElementFault.RelationshipInvalid(key, $"<bake-compose-cycle:{objectId.ToValue()}>")
     : bakeMemo.TryGetValue(objectId, out Element? cached)
     ? Fin.Succ(cached)
-    : Find<Node.Object>(objectId).Match(
-    Some: root => BakeObject(root, key, ancestry.Add(objectId)).Map(element => { bakeMemo[objectId] = element; return element; }),
-    None: () => Fin.Fail<Element>(new ElementFault.NodeAbsent(key, $"<bake-root-absent:{objectId.Value}>")));
+    : Find<Node.Object>(objectId)
+    .ToFin(new ElementFault.NodeAbsent(key, $"<bake-root-absent:{objectId.ToValue()}>"))
+    .Bind(root => BakeObject(root, key, ancestry.Add(objectId)).Map(element => { bakeMemo[objectId] = element; return element; }));
 
     Fin<Element> BakeObject(Node.Object root, Op key, ImmutableHashSet<NodeId> ancestry) {
     Gathered own = Gather(root.Id, GatherFamily.Occurrence);
     Option<(Node.Object Type, Gathered Data)> typeFold = TypeResolutionOf(root.Id);
     Seq<PropertyBag> properties = MergeBagSets(typeFold.Map(static t => t.Data.Properties).IfNone(Seq<PropertyBag>()), own.Properties);
     Seq<QuantityBag> quantities = MergeBagSets(typeFold.Map(static t => t.Data.Quantities).IfNone(Seq<QuantityBag>()), own.Quantities);
-    Seq<BakedMaterial> materials = Inherit(own.Materials, typeFold, static data => data.Materials, static b => b.Material.MaterialKey.Value);
+    Seq<BakedMaterial> materials = Inherit(own.Materials, typeFold, static data => data.Materials, static b => b.Material.MaterialKey.ToValue());
     Seq<AssessmentPayload> assessments = Inherit(own.Assessments, typeFold, static data => data.Assessments, static a => (a.Discipline.Key, a.Route.Value, a.InputKey));
     Seq<Classification> classifications = UnionBy(
         root.Classifications,
@@ -673,7 +671,7 @@ public sealed partial class ElementGraph {
     Fin<Seq<Element>> BakeParts(NodeId whole, Op key, ImmutableHashSet<NodeId> ancestry) =>
     toSeq(toSeq(EdgesAt(whole))
     .Choose(e => e is Relationship.Compose c && c.Whole == whole && c.SubKind != ComposeKind.Reference ? Some((c.Part, c.Ordinal)) : None)
-    .OrderBy(static p => p.Ordinal.IsSome ? 0 : 1).ThenBy(static p => p.Ordinal.IfNone(0)).ThenBy(static p => p.Part.Value, StringComparer.Ordinal))
+    .OrderBy(static p => p.Ordinal.IsSome ? 0 : 1).ThenBy(static p => p.Ordinal.IfNone(0)).ThenBy(static p => p.Part.ToValue(), StringComparer.Ordinal))
     .TraverseM(p => Bake(p.Part, key, ancestry)).As().Map(static parts => parts.ToSeq());
 }
 ```
@@ -740,7 +738,7 @@ public sealed partial class ElementGraph {
     static Validation<Error, Node> Unify(NodeId id, Seq<(string Tag, Node Node)> claims, Op key) =>
     claims.Tail.Find(claim => Collides(claims[0].Node, claim.Node)).Map(static claim => claim.Tag)
     is { IsSome: true, Case: string rival }
-    ? new ElementFault.DeltaConflict(key, $"<federate-node-collision:{id.Value}:{claims[0].Tag}:{rival}>")
+    ? new ElementFault.DeltaConflict(key, $"<federate-node-collision:{id.ToValue()}:{claims[0].Tag}:{rival}>")
     : claims[0].Node;
 
     static bool Collides(Node held, Node rival) => Replayed(held) || Diverged(held, rival);
@@ -775,7 +773,7 @@ public sealed partial class ElementGraph {
 
     public Fin<ElementGraph> Extract(Seq<NodeId> roots, Op key) =>
     roots.Find(root => !Nodes.ContainsKey(root)) is { IsSome: true, Case: NodeId absent }
-    ? new ElementFault.NodeAbsent(key, $"<extract-root-absent:{absent.Value}>")
+    ? new ElementFault.NodeAbsent(key, $"<extract-root-absent:{absent.ToValue()}>")
     : Sliced(roots, key);
 
     Fin<ElementGraph> Sliced(Seq<NodeId> roots, Op key) {

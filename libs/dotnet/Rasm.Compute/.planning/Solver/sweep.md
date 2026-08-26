@@ -367,7 +367,7 @@ public sealed record SweepGrid(Seq<SweepAxis> Axes, Seq<ObjectiveSense> Objectiv
     public Fin<Unit> Validate() {
         int basis = Axes.Count - Policy.FractionExponent;
         long generators = basis is > 0 and < 31 ? (1L << basis) - basis - 1L : 0L;
-        return Seq(
+        return AdmissionSlots.Accumulate(Seq(
             Refusal.Unless(!Axes.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(Axes.Count, 1L))),
             Refusal.Unless(Axes.Count < 31, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.WithinLimit, new CapacityEvidence.Count(Axes.Count, 30L))),
             Refusal.Unless(!Axes.Exists(static axis => axis.Invalid), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())),
@@ -384,8 +384,8 @@ public sealed record SweepGrid(Seq<SweepAxis> Axes, Seq<ObjectiveSense> Objectiv
                 || (Policy.FractionExponent >= 0 && Policy.FractionExponent < Axes.Count && generators >= Policy.FractionExponent), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Counts(Policy.FractionExponent, Axes.Count, generators))),
             Refusal.Unless(!Sensitivity.Exact || (Differentiable.IsSome && Axes.Exists(static axis => axis.Continuous)), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.None())),
             Refusal.Unless(Strategy.Family == DesignFamily.Factorial || !Axes.Exists(static axis => !axis.Continuous), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Compatible, new ContractEvidence.Keys(Strategy.Family.Key, Strategy.Key))),
-            Refusal.Unless(Cardinality <= Policy.MaxPoints, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.WithinLimit, new CapacityEvidence.Count(Cardinality, Policy.MaxPoints))))
-        .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
+            Refusal.Unless(Cardinality <= Policy.MaxPoints, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.WithinLimit, new CapacityEvidence.Count(Cardinality, Policy.MaxPoints)))))
+        .ToFin();
     }
 }
 
@@ -580,9 +580,9 @@ public static class SweepLane {
         };
 
     static Fin<IterativeField> BestSoFar(Atom<Option<IterativeField>> settled, IterationBudget budget) =>
-        settled.Value.Match(
-            Some: field => Fin.Succ(field with { Verdict = new Convergence.Exhausted(budget.MaxIterations) }),
-            None: static () => Fin.Fail<IterativeField>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Value))));
+        settled.Value
+            .Map(field => field with { Verdict = new Convergence.Exhausted(budget.MaxIterations) })
+            .ToFin(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Value)));
 
     static IO<(Fin<IterativeField> Best, bool Early)> Iterate(
         IterationBudget budget, Func<DesignPoint, int, IO<Fin<IterativeField>>> step, DesignPoint point, Atom<Option<IterativeField>> settled, IClock clock) {

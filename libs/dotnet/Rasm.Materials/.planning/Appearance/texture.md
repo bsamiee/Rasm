@@ -353,7 +353,6 @@ public readonly partial struct NoisePeriod {
     }
 
     public static readonly NoisePeriod Aperiodic = Create(0);
-    public static NoisePeriod Of(int value) => Create(value);
     public bool Periodic => Value > 0;
     public NoisePeriod Scaled(int lacunarity) =>
         Value > 0 ? Create((int)Math.Min((long)Value * Math.Max(1, lacunarity), int.MaxValue)) : this;
@@ -842,7 +841,7 @@ public static class PeriodProof {
         FractalMode? fractal = null, CellularParams? cellular = null, DomainWarp? warp = null, bool solid = false) =>
         key => TextureSource.Noise.Of(basis, frequency, key,
             octaves: octaves, lacunarity: lacunarity, fractal: fractal, cellular: cellular, warp: warp, solid: solid,
-            period: NoisePeriod.Of(period));
+            period: NoisePeriod.Create(period));
 
     public const double SeamTolerance = 1e-12;
     public const int SweepSamples = 512;
@@ -878,9 +877,8 @@ public static class PeriodProof {
             .Map(at => (At: at, Delta: Math.Abs(Field(source, at.U, at.V) - Field(source, at.U + row.ShiftU, at.V + row.ShiftV))))
             .Filter(probe => !(probe.Delta <= seam.Value))
             .Head
-            .Map(probe => Fin.Fail<Unit>(new MaterialFault.Parameter(key,
-                $"<period-oracle-seam:{row.Name}:{seam.Lane.Key}:u={probe.At.U:R}:v={probe.At.V:R}:delta={probe.Delta:R}>")))
-            .IfNone(Fin.Succ(unit))
+            .TraverseM(probe => Fin.Fail<Unit>(new MaterialFault.Parameter(key,
+                $"<period-oracle-seam:{row.Name}:{seam.Lane.Key}:u={probe.At.U:R}:v={probe.At.V:R}:delta={probe.Delta:R}>"))).As()
         select unit;
 
     static double Field(TextureSource.Noise source, double u, double v) =>

@@ -371,9 +371,7 @@ public abstract partial class RasmPlugIn {
                 from lease in op.Catch(() => Fin.Succ(value: Optional(row.Lease)))
                 from evidence in op.Catch(() => Fin.Succ(value: lease.Map(LeaseMap.Detach)))
                 from answer in op.Catch(() => program.LeaseChanged(lease: evidence, key: op))
-                from badged in answer.Match(
-                    Some: raster => Badge(raster, op).Map(Some),
-                    None: static () => Fin.Succ(value: Option<GdiIcon>.None))
+                from badged in answer.TraverseM(raster => Badge(raster, op)).As()
                 select badged)
                 .Match(Succ: static value => value, Fail: static _ => Option<GdiIcon>.None);
             icon = Op.ToHostSlot(badge)!;
@@ -468,10 +466,10 @@ public static class Licenses {
                 .As()
                 .Map<LicenseVerdict>(static rows => new LicenseVerdict.Rows(States: rows.Strict()))),
             one: static (held, row) => row.Product.Admit(held).Bind(_ => held.Catch(() =>
-                Optional(LicenseUtils.GetOneLicenseStatus(productid: row.Product.ToValue())).Match(
-                    Some: status => State(status, held).Map<LicenseVerdict>(static state =>
-                        new LicenseVerdict.Row(State: Some(state))),
-                    None: static () => Fin.Succ<LicenseVerdict>(value: new LicenseVerdict.Row(State: None))))),
+                Optional(LicenseUtils.GetOneLicenseStatus(productid: row.Product.ToValue()))
+                    .TraverseM(status => State(status, held))
+                    .As()
+                    .Map<LicenseVerdict>(state => new LicenseVerdict.Row(state)))),
             act: static (held, row) => row.Product.Admit(held)
                 .Bind(_ => held.Need(row.Verb))
                 .Bind(verb => held.Catch(() => Fin.Succ<LicenseVerdict>(value: new LicenseVerdict.Acted(

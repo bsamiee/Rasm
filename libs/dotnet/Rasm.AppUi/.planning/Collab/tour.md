@@ -52,7 +52,6 @@ public abstract partial record TourFault : Fault {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class TourStop {
     public const string UntitledKey = "tour.step.untitled";
 
@@ -88,7 +87,6 @@ public sealed partial class TourStop {
 }
 
 [ValueObject<string>]
-[ValidationError]
 public readonly partial struct TourKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
@@ -172,7 +170,6 @@ public sealed record ReviewTour {
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<long>]
-[ValidationError]
 public readonly partial struct FrameIndex {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long value) {
         if (value < 0L) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"presentation/negative-playhead:{value}" })); }
@@ -288,7 +285,7 @@ public sealed record TourFollow(
         CollabDoc.Lift(() => { Session.Presence.Viewport.RemoveOutdated(); return unit; })
             .Bind(_ => Session.Seats())
             .Map(seats => Ranked.Top(
-                    seats.Filter(Presenting).AsIterable().Choose(Seated),
+                    seats.Filter(Presenting).Choose(Seated),
                     keep: 1,
                     static row => row.Seat.Peer,
                     ExtremumDirection.Minimum)

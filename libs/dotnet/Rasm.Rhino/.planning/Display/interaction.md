@@ -443,8 +443,9 @@ public static class Gumballs {
         Op op = key.OrDefault();
         return guard(seat is not null && seat.Valid && space is not null && look is not null, op.InvalidInput()).ToFin()
             .Bind(_ => op.Catch(() => Fin.Succ(new GumballObject())).Bind(ball =>
-            op.Catch(() => Fin.Succ(new GumballDisplayConduit(space.Key))).BiBind(
-                Succ: pipe => {
+            op.Catch(() => Fin.Succ(new GumballDisplayConduit(space.Key)))
+                .Rollback(release: () => { ball.Dispose(); return Fin.Succ(unit); }, key: op)
+                .Bind(pipe => {
                     GumballRig rig = new(ball, pipe);
                     return (from _ in op.Catch(() => seat.Apply(ball, op))
                             from __ in op.Catch(() => {
@@ -452,15 +453,8 @@ public static class Gumballs {
                                 pipe.Enabled = true;
                                 return unit;
                             })
-                            select rig).BiBind(
-                                Succ: static mounted => Fin.Succ(mounted),
-                                Fail: failure => rig.Release(op).Match(
-                                    Succ: _ => Fin.Fail<GumballRig>(failure),
-                                    Fail: cleanup => Fin.Fail<GumballRig>(failure + cleanup)));
-                },
-                Fail: failure => op.Catch(() => { ball.Dispose(); return Fin.Succ(unit); }).Match(
-                    Succ: _ => Fin.Fail<GumballRig>(failure),
-                    Fail: cleanup => Fin.Fail<GumballRig>(failure + cleanup)))));
+                            select rig).Rollback(release: () => rig.Release(op), key: op);
+                })));
     }
 }
 ```
@@ -826,7 +820,7 @@ public sealed class WidgetHost : IDisposable {
     private static readonly HookId HookPoint = HookId.Create(value: "rasm.rhino.display.widget");
 
     private readonly Channel<WidgetFact> channel;
-    private readonly Atom<HashMap<WidgetId, WidgetMount>> mounted = Atom(HashMap<WidgetId, WidgetMount>());
+    private readonly AtomHashMap<WidgetId, WidgetMount> mounted = AtomHashMap(HashMap<WidgetId, WidgetMount>());
     private readonly FaultCell faults = DisplayFaults.Cell();
     private readonly Atom<long> submitted = Atom(0L);
     private readonly Atom<long> rejected;
@@ -886,13 +880,10 @@ public sealed class WidgetHost : IDisposable {
                            let value = new WidgetMount(widget, sink, retire)
                            from mountedId in SetPosture(value, posture, op)
                                .Bind(_ => op.Catch(() => {
-                                   _ = mounted.Swap(items => items.Add(identity, value));
+                                   _ = mounted.Add(identity, value);
                                    return Fin.Succ(identity);
-                               })).BiBind(
-                               Succ: static value => Fin.Succ(value),
-                               Fail: error => retire().Match(
-                                   Succ: _ => Fin.Fail<WidgetId>(error),
-                                   Fail: cleanup => Fin.Fail<WidgetId>(error + cleanup)))
+                               }))
+                               .Rollback(release: retire, key: op)
                            select mountedId;
                 }),
             refused: () => Fin.Fail<WidgetId>(op.InvalidContext()),
@@ -912,9 +903,9 @@ public sealed class WidgetHost : IDisposable {
                     op.Catch(() => Fin.Succ(State(identity, value))).Bind(prior =>
                         SetPosture(value, posture, op)
                             .Map(_ => (ignore(marks.Iter(value.Sink.Retarget)), State(identity, value)).Item2)
-                            .BindFail(primary => SetPosture(value, prior.Posture, op).Match(
-                                Succ: _ => Fin.Fail<WidgetState>(primary),
-                                Fail: cleanup => Fin.Fail<WidgetState>(primary + cleanup)))))),
+                            .Rollback(
+                                release: () => SetPosture(value, prior.Posture, op),
+                                key: op)))),
             refused: () => Fin.Fail<WidgetState>(op.InvalidContext()),
             key: op);
     }
@@ -975,10 +966,10 @@ public sealed class WidgetHost : IDisposable {
             key: op);
     }
 
-    private Fin<WidgetMount> Find(WidgetId identity, Op op) => mounted.Value.Find(identity).ToFin(op.InvalidInput());
+    private Fin<WidgetMount> Find(WidgetId identity, Op op) => mounted.Find(identity).ToFin(op.InvalidInput());
     private Fin<Unit> Retire(WidgetId identity, WidgetMount value, Op op) =>
         from _ in value.Retire()
-        from __ in op.Catch(() => Fin.Succ((mounted.Swap(items => items.Remove(identity)), unit).Item2))
+        from __ in op.Catch(() => Fin.Succ((mounted.Remove(identity), unit).Item2))
         select unit;
 
     private static WidgetState State(WidgetId identity, WidgetMount value) => new(
@@ -996,7 +987,7 @@ public sealed class WidgetHost : IDisposable {
         });
 
     private Fin<Unit> ReleaseAll(Op op) => Custody.Release(
-        releases: toSeq(mounted.Value)
+        releases: mounted.AsIterable().ToSeq()
             .Map(row => (Func<Fin<Unit>>)(() => Retire(identity: row.Key, value: row.Value, op: op)))
             .Add(() => op.Catch(() => Fin.Succ((channel.Writer.TryComplete(), unit).Item2))),
         key: op);

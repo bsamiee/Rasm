@@ -420,7 +420,6 @@ flowchart LR
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>]
-[ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct SlotKey {
@@ -844,7 +843,7 @@ public static class FilterLink {
 
     private static Fin<FilterTerm> Row<TRow>(string property, string sense, string[] operands, FilterSchema<TRow> schema)
         where TRow : notnull =>
-        Op.Of(name: nameof(PropertyName)).AcceptValidated<string, PropertyName>(property)
+        Op.Of(name: nameof(PropertyName)).AcceptValidated<PropertyName>(property)
             .Bind(key => schema.Field(key).ToFin(Fail: new LiveDataFault.Filter($"unknown property {property}")))
             .Bind(field => FilterSense.TryGet(sense, out FilterSense? row) && row is not null
                 ? toSeq(operands).Map(text => field.Property.Kind.Parse(Uri.UnescapeDataString(text))) switch {
@@ -1344,14 +1343,13 @@ public static class LiveDataOps {
 - Packages: DynamicData, System.Reactive, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, `Rasm.Element` (`PropertyName`, `PropertyValue`), Rasm (kernel `Op`)
 - Growth: a new option mutation is one `OptionVerb` case with its fold arm; a new measured column is one `OptionKpi` row over an existing `StatFold`; zero new surface.
 - Boundary: the option key JOINS the comparison vocabularies rather than minting a second one — `OptionSet.Variable` answers the `Charts/boards#BOARD_CONTEXT` `BoardVariable` whose domain IS the live option roster and whose arity is the `VariableArity.Multi` ROW the board declares, not a positional bool crossing the boundary, and it crosses that owner's own accumulating admission so a degenerate roster refuses at the boundary rather than rendering an empty dropdown; `Against` answers `CompareOffset.Scenario(VariableKey, member)`, so an option-versus-option read on a board is the same ghost machinery a period-versus-period read takes.
-- Boundary: identity is ADMITTED through the kernel bridge — `OptionKey` stamps `[ValidationError]` and untrusted text crosses `Op.AcceptValidated`, so a blank key refuses as a typed `LiveDataFault.Options` on the family's own band rather than as a bare `ValidationError` no probe, no band lookup, and no fault dimension can classify.
+- Boundary: identity is ADMITTED through the kernel bridge — `OptionKey` uses the generated default `ValidationError` contract and untrusted text crosses `Op.AcceptValidated`, so a blank key refuses as a typed `LiveDataFault.Options` on the family's own band rather than as bare validation evidence no probe, band lookup, or fault dimension can classify.
 - Boundary: PER-OPTION KPI columns fold through the live `Group` form, whose `IGroup` carries its own `Cache`, so editing one option's candidates re-emits that option's readings alone and every other column stands — `GroupWithImmutableState` would re-snapshot every group per delta and a per-option subscription roster would re-subscribe on every roster change. A candidate MISSING a KPI's metric contributes nothing rather than a zero, the same law the scorecard holds. A DUPLICATE and a REGENERATE both record their source on `DesignOption.Parent`, so lineage is one field; the preferred option is one key on the set, so preference is a total fact and two preferred options are unrepresentable.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(EmptyStringInFactoryMethodsYieldsNull = false)]
-[ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct OptionKey {
@@ -1359,9 +1357,6 @@ public readonly partial struct OptionKey {
         key = key.Trim();
         validationError = key.Length == 0 ? new ValidationError(string.Join(" | ", new object?[] { "<option-key-blank>" })) : validationError;
     }
-
-    public static Fin<OptionKey> Admit(string candidate) =>
-        Op.Of(name: nameof(OptionKey)).AcceptValidated<string, OptionKey>(candidate);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

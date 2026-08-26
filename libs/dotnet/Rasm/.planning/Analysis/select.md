@@ -164,7 +164,7 @@ public abstract partial record Curves {
 
     internal bool CanProject(Type type) =>
         Capability.Universal(type: type)
-        || Kind.Of(type: type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(noneValue: false);
+        || Kind.Of(type: type).Exists(kind => CanProject(topology: kind.Topology, type: type));
     private bool CanProject(Topology topology, Type type) => Switch(
         state: (Topology: topology, Type: type),
         edgesCase: static (state, e) => e.Kind.Case switch {
@@ -427,8 +427,8 @@ public abstract partial record Faces {
         Optional(geometry).ToFin(key.InvalidInput()).Bind(g => g switch {
             BrepFace face => TopologyProjection.Of(face: face).Map(static projection => Seq(projection)),
             object brepLike when Capability.BrepForm.Admits(type: brepLike.GetType()) => Normalization.BrepForm(source: brepLike, key: key).Bind(lease => lease.Switch(
-                borrowed: static borrowed => toSeq(borrowed.Value.Faces.Select(static face => TopologyProjection.Of(face: face)).ToArray()).TraverseM(identity).As(),
-                owned: static owned => owned.Project(static brep => toSeq(brep.Faces.Select(static face => TopologyProjection.Of(face: face)).ToArray()).TraverseM(identity).As()
+                borrowed: static borrowed => toSeq(borrowed.Value.Faces).TraverseM(face => TopologyProjection.Of(face: face)).As(),
+                owned: static owned => owned.Project(static brep => toSeq(brep.Faces).TraverseM(face => TopologyProjection.Of(face: face)).As()
                     .Bind(faces => faces.TraverseM(face => face.DetachFrom(source: brep)).As())))),
             _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
         });

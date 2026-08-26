@@ -36,7 +36,6 @@ public sealed partial class FlatCause {
 }
 
 [SmartEnum<int>]
-[ValidationError]
 public sealed partial class XrSessionPhase {
     public static readonly XrSessionPhase Unknown      = new((int)SessionState.Unknown,      renderable: false, Absent, Inert);
     public static readonly XrSessionPhase Idle         = new((int)SessionState.Idle,         renderable: false, Absent, Inert);
@@ -842,7 +841,7 @@ public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action H
 
         return actions
             .Traverse(declared => Created(session, core, set, declared))
-            .Map(bound => bound.ToSeq())
+            .As()
             .ToFin()
             .Bind(bound => Attached(session, core, set, bound));
     }
@@ -1262,8 +1261,7 @@ public static class XrSpatial {
                 ? Fin.Succ<XrEvent>(new XrEvent.Abandoned(row))
                 : Minted(session, row.Intent, row.Attempt + 1)
                     .Map(request => (XrEvent)new XrEvent.Redriven(request)))
-            .As()
-            .Map(static rows => rows.ToSeq());
+            .As();
     }
 
     private static unsafe Fin<SpatialRequest> Minted(ImmersiveSession session, SpatialIntent intent, int attempt) {
@@ -1610,7 +1608,7 @@ public static class XrChrome {
     public static Fin<HashMap<XrReviewVerb, CommandRow>> Verbs(CommandDeck deck) =>
         toSeq(XrReviewVerb.Items)
             .Traverse(verb => verb.Bound(deck).Map(intent => (verb, intent))).As()
-            .Map(static rows => rows.ToSeq().ToHashMap(static row => row.verb, static row => row.intent));
+            .Map(static rows => rows.ToHashMap(static row => row.verb, static row => row.intent));
 
     public static Fin<XrAnnotation> Annotate(
         ImmersiveSession session, SpatialOutcome outcome, Option<ViewMeasurement> measurement, Option<string> issueKey) =>
@@ -1684,7 +1682,7 @@ public sealed class ImmersiveDeck {
         Func<CommandRow, IO<Unit>> execute,
         Func<XrPanel, (double X, double Y), IO<Unit>> press,
         InstrumentSet set) =>
-        IO.lift(() =>
+        IO.lift<Fin<ImmersiveDeck>>(() =>
             from verbs in XrChrome.Verbs(deck)
             from _observed in ImmersiveSession.Observed(set, mode)
             from _bound in mode.Switch(

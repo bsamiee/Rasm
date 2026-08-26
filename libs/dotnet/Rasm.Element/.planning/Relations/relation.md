@@ -112,8 +112,6 @@ public sealed partial class CardinalPoint {
  public static readonly CardinalPoint ShearRight = new(18);
  public static readonly CardinalPoint ShearTop = new(19);
 
- public static Fin<CardinalPoint> Of(int reference, Op key) =>
-  key.Row<int, CardinalPoint>(reference);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -152,7 +150,7 @@ public abstract partial class MaterialUsage {
    (CardinalPoint, ReferenceExtent) = (cardinalPoint, referenceExtent);
 
   public static Fin<MaterialUsage> Of(Option<int> cardinalPoint, Option<MeasureValue> referenceExtent, Op key) =>
-   from point in cardinalPoint.TraverseM(reference => CardinalPoint.Of(reference, key)).As()
+   from point in cardinalPoint.TraverseM(reference => key.Row<int, CardinalPoint>(reference)).As()
    from _ in Length(referenceExtent, "reference-extent", key).ToFin()
    select (MaterialUsage)new ProfileSet(point, referenceExtent);
  }
@@ -246,18 +244,18 @@ public abstract partial class Relationship {
  public bool Touches(NodeId node) => touch.Value.Contains(node);
 
  public void CanonicalBytes(CanonicalWriter w) => Switch(
- compose: r => w.Ordinal(0).String(r.Whole.Value).String(r.Part.Value).String(r.SubKind.Key)
+ compose: r => w.Ordinal(0).String(r.Whole.ToValue()).String(r.Part.ToValue()).String(r.SubKind.Key)
   .Optional(r.Ordinal, static (ordinal, run) => run.Ordinal(ordinal)),
- assign: r => w.Ordinal(1).String(r.Subject.Value).String(r.Definition.Value).String(r.SubKind.Key),
- associate: r => { w.Ordinal(2).String(r.Subject.Value).String(r.Resource.Value); r.Usage.CanonicalBytes(w); return w; },
- connect: r => w.Ordinal(3).String(r.From.Value).String(r.To.Value).String(r.SubKind.Key)
-  .Optional(r.Realizing, static (node, run) => run.String(node.Value))
+ assign: r => w.Ordinal(1).String(r.Subject.ToValue()).String(r.Definition.ToValue()).String(r.SubKind.Key),
+ associate: r => { w.Ordinal(2).String(r.Subject.ToValue()).String(r.Resource.ToValue()); r.Usage.CanonicalBytes(w); return w; },
+ connect: r => w.Ordinal(3).String(r.From.ToValue()).String(r.To.ToValue()).String(r.SubKind.Key)
+  .Optional(r.Realizing, static (node, run) => run.String(node.ToValue()))
   .Optional(r.Interface, static (blob, run) => run.U128(blob)),
- @void: r => w.Ordinal(4).String(r.Host.Value).String(r.Feature.Value).String(r.SubKind.Key),
- generic: r => w.Ordinal(5).String(r.WireName.Value).String(r.Source.Value).String(r.Target.Value)
-  .Sorted(r.Attributes.ToSeq(), static pair => pair.Key.Value, StringComparer.Ordinal,
-   static (pair, run) => { run.String(pair.Key.Value); pair.Value.CanonicalBytes(run); })
-  .Rows(r.Participants, static (participant, run) => run.String(participant.Node.Value).String(participant.Role.Value)
+ @void: r => w.Ordinal(4).String(r.Host.ToValue()).String(r.Feature.ToValue()).String(r.SubKind.Key),
+ generic: r => w.Ordinal(5).String(r.WireName.ToValue()).String(r.Source.ToValue()).String(r.Target.ToValue())
+  .Sorted(r.Attributes.ToSeq(), static pair => pair.Key.ToValue(), StringComparer.Ordinal,
+   static (pair, run) => { run.String(pair.Key.ToValue()); pair.Value.CanonicalBytes(run); })
+  .Rows(r.Participants, static (participant, run) => run.String(participant.Node.ToValue()).String(participant.Role.ToValue())
    .Optional(participant.Ordinal, static (ordinal, inner) => inner.Ordinal(ordinal))));
 
  public Relationship Remap(Func<NodeId, NodeId> map) => Switch<Relationship>(

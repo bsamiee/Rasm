@@ -52,7 +52,9 @@ internal sealed class LifecycleGate {
         guard(settleWithin > TimeSpan.Zero, key.InvalidInput()).ToFin().Map(_ => new LifecycleGate(settleWithin));
 
     internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused, Op key) =>
-        TryClaim() ? Settle(Marked(body, key)) : key.Catch(refused);
+        TryClaim()
+            ? Marked(body, key).Settled(release: () => Fin.Succ(Release()), key: key)
+            : key.Catch(refused);
 
     internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) =>
         Begin(stop, settle, key).Bind(completion => Await(completion, key)).Bind(static outcome => outcome);
@@ -95,10 +97,6 @@ internal sealed class LifecycleGate {
         finally { _ = claiming.Swap(rows => rows.Remove(thread)); }
     }
 
-    private Fin<T> Settle<T>(Fin<T> outcome) => outcome.BiBind(
-        Succ: value => (Release(), Fin.Succ(value)).Item2,
-        Fail: failure => (Release(), Fin.Fail<T>(failure)).Item2);
-
     private Unit Release() => state.Swap(current => current.Switch(
         open: static row => (LeaseState)new LeaseState.Open(row.Claims - 1),
         closing: static row => new LeaseState.Closing(row.Claims - 1, row.Token, row.Quiesced, row.Completed),
@@ -137,7 +135,7 @@ internal sealed class LifecycleGate {
                 Fail: static failure => Some(failure)));
         Fin<Unit> outcome = trouble.IsEmpty
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(trouble.Fold(Errors.None, static (folded, failure) => folded + failure));
+            : Fin.Fail<Unit>(Error.Many(trouble));
         _ = state.Swap(current => current.Switch(
             open: static value => (LeaseState)value,
             closing: value => value.Token == row.Token

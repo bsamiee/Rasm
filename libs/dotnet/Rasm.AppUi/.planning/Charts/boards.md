@@ -219,10 +219,9 @@ public static class PlacementFlow {
     public static (Seq<TilePlacement> Placements, int Next) Flow(
         PlacementGrid grid, Seq<string> keys, SpanPolicy policy, int rowSpan, int from) {
         if (keys.IsEmpty) { return (Seq<TilePlacement>(), from); }
-        int span = policy switch {
-            SpanPolicy.Fixed fixedSpan => int.Clamp(fixedSpan.Span, 1, grid.Columns),
-            _ => int.Max(1, grid.Columns / keys.Count),
-        };
+        int span = policy.Switch(
+            @fixed: fixedSpan => int.Clamp(fixedSpan.Span, 1, grid.Columns),
+            equal: _ => int.Max(1, grid.Columns / keys.Count));
         int perRow = grid.Columns / span;
         return (
             keys.Map((key, index) => new TilePlacement(
@@ -440,7 +439,7 @@ public sealed class CrossFilter : IDisposable {
 
     public FilterState Current => state.Value;
 
-    public IO<Fin<Unit>> Push(string source, FilterDelta delta) => IO.lift(() =>
+    public IO<Fin<Unit>> Push(string source, FilterDelta delta) => IO.lift<Fin<Unit>>(() =>
         FilterState.Admit(delta.Apply(state.Value, source)).Map(admitted => fun(() => state.OnNext(admitted))()));
 
     public IObservable<Func<TRow, bool>> Predicate<TRow>(string tile, BrushLens<TRow> lens) =>

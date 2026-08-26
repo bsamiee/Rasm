@@ -426,7 +426,7 @@ public static class Inquiries {
                         from _ in guard(flag: seeds.Count <= 1, False: frame.Op.InvalidInput()).ToFin()
                         from answer in SelectLayer(
                             request: frame.Request, model: frame.Frame.Model, scope: scope,
-                            seed: seeds.HeadOrNone().IfNone(-1), op: frame.Op)
+                            seed: seeds.Head.IfNone(-1), op: frame.Op)
                         select answer,
                     many: static (frame, _) => Picked(request: frame.Request, model: frame.Frame.Model, op: frame.Op)
                         .Map<InquiryAnswer>(values => new InquiryAnswer.Layers(Indices: values)),

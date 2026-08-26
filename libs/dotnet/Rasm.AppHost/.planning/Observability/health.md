@@ -765,7 +765,7 @@ public static class AlertEngine {
             .TraverseM(rule => Observe(runtime, rule, cell.Held(rule.RuleId), reading, at)
                 .Map(step => (cell.Commit(rule.RuleId, step.State), step.Fired).Item2))
             .As()
-            .Map(static fired => fired.Somes().ToSeq());
+            .Map(static fired => fired.Somes());
 
     public static double Rank(HealthStatus status) => status switch {
         HealthStatus.Healthy => 1d,

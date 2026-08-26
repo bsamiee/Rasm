@@ -802,16 +802,15 @@ public static class Link {
                     state.Rejected,
                     state.Pruned));
             })));
-        Seq<Error> refusals = attempts.Choose(static attempt => attempt.Match(Succ: static _ => None, Fail: Some));
-        Seq<BeamState> candidates = attempts.Choose(static attempt => attempt.Match(Succ: Some, Fail: static _ => None));
-        int pruned = Math.Max(0, candidates.Count - job.Policy.BeamWidth);
-        return candidates.IsEmpty
-            ? Fin.Fail<Seq<BeamState>>(refusals.IsEmpty ? Blocked(job, states) : Error.Many([.. refusals]))
-            : Fin.Succ(toSeq(candidates
+        var (fails, succs) = attempts.Partition();
+        int pruned = Math.Max(0, succs.Count - job.Policy.BeamWidth);
+        return succs.IsEmpty
+            ? Fin.Fail<Seq<BeamState>>(fails.IsEmpty ? Blocked(job, states) : Error.Many(fails))
+            : Fin.Succ(toSeq(succs
                 .OrderBy(static state => state.Score)
                 .Take(job.Policy.BeamWidth)
                 .Select(state => state with {
-                    Rejected = state.Rejected + refusals.Count,
+                    Rejected = state.Rejected + fails.Count,
                     Pruned = state.Pruned + pruned,
                 })));
     }
@@ -819,22 +818,21 @@ public static class Link {
     private static Fin<Seq<BeamState>> Closed(
         LinkJob job, LinkCorridor corridor, List<int> scratch, Seq<BeamState> beam) {
         Seq<Fin<BeamState>> attempts = beam.Map(state => Close(job, corridor, scratch, state));
-        Seq<BeamState> closed = attempts.Choose(static attempt => attempt.Match(Succ: Some, Fail: static _ => None));
-        return closed.IsEmpty
-            ? Fin.Fail<Seq<BeamState>>(Error.Many([
-                .. attempts.Choose(static attempt => attempt.Match(Succ: static _ => None, Fail: Some))]))
-            : Fin.Succ(closed);
+        var (fails, succs) = attempts.Partition();
+        return succs.IsEmpty
+            ? Fin.Fail<Seq<BeamState>>(Error.Many(fails))
+            : Fin.Succ(succs);
     }
 
     private static Fin<BeamState> Close(LinkJob job, LinkCorridor corridor, List<int> scratch, BeamState state) =>
-        state.Current.Match(
-            Some: current => Transition(
+        state.Current
+            .ToFin(Blocked(job, Seq(state)))
+            .Bind(current => Transition(
                     job, corridor, scratch, current, LinkStation.Park(ParkLeg.Return, job.Start, current))
                 .Map(leg => state with {
                     Legs = state.Legs.Add(leg),
                     Score = state.Score + leg.ObjectiveScore,
-                }),
-            None: () => Fin.Fail<BeamState>(Blocked(job, Seq(state))));
+                }));
 
     private static Fin<(BeamState State, LinkSolver Solver)> Refine(
         LinkJob job,

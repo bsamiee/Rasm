@@ -736,9 +736,10 @@ public sealed class ProgressLease : IDisposable {
                     contended: static (ctx, _) => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()))
                 select seated);
 
-    private Fin<Unit> Restore() => Cell.Take(presence).State.Match(
-        Some: mount => op.Catch(() => Fin.Succ(value: mount.Dispose())),
-        None: static () => Fin.Succ(value: unit));
+    private Fin<Unit> Restore() => Cell.Take(presence).Current
+        .TraverseM(mount => op.Catch(() => Fin.Succ(value: mount.Dispose())))
+        .As()
+        .Map(static _ => unit);
 
     private UnitInterval Fraction(int position) => UnitInterval.Create(value: policy.Upper > policy.Lower
         ? Math.Clamp(
@@ -865,7 +866,7 @@ public sealed partial class WindowPolicy {
     internal partial Fin<Unit> Persist(Window window, Op key);
 
     internal Fin<Unit> Prepare(Window window, Op key) =>
-        Styler.Match(Some: dress => dress.Dress(arg1: window, arg2: key), None: static () => Fin.Succ(value: unit));
+        Styler.TraverseM(dress => dress.Dress(window, key)).As().Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -909,7 +910,7 @@ public static class ShellWindows {
                             select window)
                         .Rollback(
                             release: () => op.Catch(() => {
-                                _ = Cell.Take(attached).State.Iter(static row => row.Dispose());
+                                _ = Cell.Take(attached).Current.Iter(static row => row.Dispose());
                                 (window.Title, window.Location, window.WindowState) = prior;
                                 return Fin.Succ(value: unit);
                             }),
@@ -1992,7 +1993,7 @@ public sealed class NamedRegistry {
     public static NamedRegistry Of() => new();
 
     public Seq<(string Name, PluginKey Plugin)> Census =>
-        toSeq(names.Value).Map(static row => (Name: row.Key, Plugin: row.Value.Plugin)).Strict();
+        names.Value.AsIterable().ToSeq().Map(static row => (Name: row.Key, Plugin: row.Value.Plugin)).Strict();
 
     internal Fin<Guid> Claim(string name, PluginKey plugin, Op op) {
         Guid token = Guid.NewGuid();
@@ -2308,7 +2309,7 @@ public sealed class NoticeLease : IDisposable {
                     _ = HostNoticeCenter.Notifications.Remove(held);
                 }))),
             key: admitted)
-            .BindFail(failure => (faults.Park(item: failure), Fin.Fail<Unit>(error: failure)).Item2);
+            .MapFail(failure => (faults.Park(item: failure), failure).Item2);
     }
 
     public void Dispose() => _ = Release();
@@ -2356,16 +2357,15 @@ public static class Notices {
         Op? key = null) {
         ArgumentNullException.ThrowIfNull(body);
         Op op = key.OrDefault();
-        return outcome.Match(
-            Some: settled =>
+        return outcome.TraverseM(settled =>
                 from spec in NoticeSpec.OfRun(
                     outcome: settled, message: message, guards: guards,
                     confirmCaption: confirmCaption, alternateCaption: alternateCaption, key: op)
                 from answered in Use(
                     spec: spec, observer: observer, timeline: timeline,
                     body: lease => lease.Present(key: op).Bind(_ => body(lease)), key: op)
-                select Some(answered),
-            None: static () => Fin.Succ(value: Option<T>.None));
+                select answered)
+            .As();
     }
 
     private static Fin<NoticeLease> Mint(
@@ -2489,8 +2489,8 @@ public sealed class ShellCapsule : IDisposable {
                     : None,
                 declined: op.InvalidContext())
             is Transition<LeaseState<Seq<Func<Fin<Unit>>>>>.Committed
-            ? Custody.Release(releases: drained.Rev(), key: op).BindFail(failure =>
-                (teardown.Park(item: failure), Fin.Fail<Unit>(error: failure)).Item2)
+            ? Custody.Release(releases: drained.Rev(), key: op).MapFail(failure =>
+                (teardown.Park(item: failure), failure).Item2)
             : Fin.Succ(value: unit);
     }
 

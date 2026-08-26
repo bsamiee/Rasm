@@ -76,29 +76,29 @@ public readonly partial struct DimensionMonomial :
     public static DimensionMonomial From(BaseDimensions dims) =>
         Create(toSeq(SiAxis.Items).Map(axis => ERational.FromInt32(axis.Read(dims))));
 
-    public ERational this[SiAxis axis] => Value[axis.Key];
+    public ERational this[SiAxis axis] => ToValue()[axis.Key];
 
-    public bool IsDimensionless => Value.ForAll(static e => e.IsZero);
+    public bool IsDimensionless => ToValue().ForAll(static e => e.IsZero);
 
     public Option<Dimension> ToContract() =>
-        Value.Traverse(static e => e.IsInteger() ? Some(e.ToInt32Checked()) : Option<int>.None)
+        ToValue().Traverse(static e => e.IsInteger() ? Some(e.ToInt32Checked()) : Option<int>.None)
             .Map(static axes => Dimension.Create(axes[0], axes[1], axes[2], axes[3], axes[4], axes[5], axes[6]))
             .As();
 
     public static DimensionMonomial operator *(DimensionMonomial left, DimensionMonomial right) =>
-        Create(left.Value.Zip(right.Value, static (a, b) => a + b));
+        Create(left.ToValue().Zip(right.ToValue(), static (a, b) => a + b));
 
     public static DimensionMonomial operator /(DimensionMonomial left, DimensionMonomial right) =>
-        Create(left.Value.Zip(right.Value, static (a, b) => a - b));
+        Create(left.ToValue().Zip(right.ToValue(), static (a, b) => a - b));
 
     public static DimensionMonomial operator -(DimensionMonomial value) =>
-        Create(value.Value.Map(static e => e.Negate()));
+        Create(value.ToValue().Map(static e => e.Negate()));
 
     public DimensionMonomial Pow(ERational exponent) =>
-        Create(Value.Map(e => e * exponent));
+        Create(ToValue().Map(e => e * exponent));
 
     public string Format() =>
-        toSeq(SiAxis.Items).Zip(Value)
+        toSeq(SiAxis.Items).Zip(ToValue())
             .Filter(static t => !t.Right.IsZero)
             .Map(static t => t.Right.Equals(ERational.One) ? t.Left.Symbol : $"{t.Left.Symbol}^{t.Right}") is { IsEmpty: false } factors
                 ? string.Join(" ", factors)
@@ -128,15 +128,11 @@ public sealed record DimensionContext(Map<SymbolName, DimensionMonomial> Binding
             .As();
 
     public Validation<Error, DimensionMonomial> Resolve(SymbolName symbol) =>
-        Bindings.Find(symbol).Match(
-            Some: static m => Success<Error, DimensionMonomial>(m),
-            None: () => Fail<Error, DimensionMonomial>(
-                new ComputeFault.SymbolUndefined($"<undeclared-symbol:{symbol.Value}>")));
+        Bindings.Find(symbol).ToValidation(
+            new ComputeFault.SymbolUndefined($"<undeclared-symbol:{symbol.ToValue()}>"));
 
     static Validation<Error, SymbolName> Admit(string name) =>
-        SymbolName.Validate(name, null, out SymbolName symbol) is ComputeFault refusal
-            ? Fail<Error, SymbolName>(refusal)
-            : Success<Error, SymbolName>(symbol);
+        Op.Of(name: nameof(Admit)).AcceptValidated<SymbolName>(name).ToValidation();
 
     static Validation<Error, QuantityFamily> Family(string key) =>
         QuantityFamily.TryGet(key, out QuantityFamily? row)
@@ -301,7 +297,7 @@ public static class DimensionAdmission {
     static Validation<Error, Unit> Census(SymbolicExpr expr, DimensionContext context) =>
         expr.FreeSymbols.Filter(symbol => !context.Bindings.ContainsKey(symbol)) is { IsEmpty: false } undeclared
             ? Fail<Error, Unit>(new ComputeFault.SymbolUndefined(
-                $"<undeclared-symbols:{string.Join(",", undeclared.Map(static s => s.Value))}>"))
+                $"<undeclared-symbols:{string.Join(",", undeclared.Map(static s => s.ToValue()))}>"))
             : Success<Error, Unit>(unit);
 
     static DimensionVerdict Match(UInt128 subject, DimensionMonomial monomial) =>

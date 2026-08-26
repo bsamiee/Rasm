@@ -82,9 +82,7 @@ public readonly record struct CloudTransportPolicy(
         Op op = key.OrDefault();
         return from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)
                from cap in op.AcceptValidated<Dimension>(candidate: maxIterations)
-               from relax in massRelaxation.Match(
-                   Some: lambda => op.AcceptValidated<PositiveMagnitude>(candidate: lambda).Map(Some),
-                   None: static () => Fin.Succ(Option<PositiveMagnitude>.None))
+               from relax in massRelaxation.TraverseM(value => op.AcceptValidated<PositiveMagnitude>(candidate: value)).As()
                from tolerance in op.AcceptValidated<PositiveMagnitude>(
                    candidate: convergenceTolerance.IfNone(context.For(lane: ToleranceLane.Convergence).Value))
                from cutoff in op.AcceptValidated<PositiveMagnitude>(

@@ -50,17 +50,18 @@ public sealed partial class ConductorAlloy {
     [UseDelegateFromConstructor] public partial Option<(double C60, double C75, double C90)> NecCells(NecRow row);
     public string SubstanceId { get; }
     public string AppearanceId { get; }
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public MaterialId Appearance => MaterialId.Of(AppearanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
+    public MaterialId Appearance => MaterialId.Create(AppearanceId);
 
     public Option<ConductorMetal> AppearanceMetal =>
         AppearanceId.Split('.') is [string family, string name] ? ConductorMetal.Resolve(family, name) : None;
 
     public static readonly Lazy<Validation<Error, Unit>> AppearanceParity = new(static () =>
         toSeq(Items)
-            .Map(static alloy => guard(alloy.AppearanceMetal.IsSome,
-                new KernelFault.InvalidValue(nameof(alloy.AppearanceMetal), "a resolved conductor appearance", Some(Join))).ToValidation())
-            .Sequence().As().Map(static _ => unit));
+            .Traverse(static alloy => AdmissionSlots.Gate(
+                alloy.AppearanceMetal.IsSome,
+                new KernelFault.InvalidValue(nameof(alloy.AppearanceMetal), "a resolved conductor appearance", Some(Join))))
+            .As().Map(static _ => unit));
 
     static readonly Op Join = Op.Of(name: "conductor-appearance-parity");
 }
@@ -269,8 +270,8 @@ public sealed partial class ConduitSystem {
     public string SubstanceId { get; }
     public string AppearanceId { get; }
     public IfcBinding Ifc => IfcBinding.Of("IfcCableCarrierSegment", "CONDUITSEGMENT");
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public MaterialId Appearance => MaterialId.Of(AppearanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
+    public MaterialId Appearance => MaterialId.Create(AppearanceId);
 }
 
 [SmartEnum<string>]
@@ -373,9 +374,10 @@ public static class ElectricalSeed {
     public static readonly Lazy<Validation<Error, Unit>> RosterCensus = new(static () =>
         (ConductorAlloy.AppearanceParity.Value,
          toSeq(WireSystem.Items)
-             .Map(static system => guard(Roster.Exists(row => row.System == system),
-                 new KernelFault.InvalidValue(nameof(WireSystem), "at least one stocked conductor", Some(Proof))).ToValidation())
-             .Sequence().As().Map(static _ => unit))
+             .Traverse(static system => AdmissionSlots.Gate(
+                 Roster.Exists(row => row.System == system),
+                 new KernelFault.InvalidValue(nameof(WireSystem), "at least one stocked conductor", Some(Proof))))
+             .As().Map(static _ => unit))
         .Apply(static (_, _) => unit).As());
 
     public static readonly SeedLaw<WireRow> Law = SeedLaw<WireRow>.Of(
@@ -391,12 +393,14 @@ public static class ElectricalSeed {
         ifc: static _ => Conductor);
 
     static Validation<Error, Unit> Coherence(WireRow r, Op key) =>
-        (RosterCensus.Value,
-         guard(double.IsFinite(r.Amps) && r.Amps > 0.0,
-             new KernelFault.OutOfRange(nameof(r.Amps), r.Amps, "finite and positive", Some(key))).ToValidation(),
-         guard(double.IsFinite(r.DiameterMm) && r.DiameterMm > 0.0,
-             new KernelFault.OutOfRange(nameof(r.DiameterMm), r.DiameterMm, "finite and positive", Some(key))).ToValidation())
-            .Apply(static (_, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            RosterCensus.Value,
+            AdmissionSlots.Gate(
+                double.IsFinite(r.Amps) && r.Amps > 0.0,
+                new KernelFault.OutOfRange(nameof(r.Amps), r.Amps, "finite and positive", Some(key))),
+            AdmissionSlots.Gate(
+                double.IsFinite(r.DiameterMm) && r.DiameterMm > 0.0,
+                new KernelFault.OutOfRange(nameof(r.DiameterMm), r.DiameterMm, "finite and positive", Some(key)))));
 
     static Fin<PropertyBag> Detail(WireRow r, SectionProfile profile, Op key) =>
         from rating in ComponentDetail.Measured(Ampacity, Dimension.CurrentDim, r.Amps)

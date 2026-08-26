@@ -82,7 +82,7 @@ public abstract partial record RemoteStoreFault : Fault {
     [FaultCase(12)] public sealed partial record ProviderConflict(ContentAddress Key, string Condition, Error Cause) : RemoteStoreFault(), ICausedFault;
     [FaultCase(13)]
     public sealed partial record ProviderTransport(string Provider, ObjectVerb Verb, ContentAddress Key, Option<int> Status, string Code, Error Cause) : RemoteStoreFault(), ICausedFault {
-        public override Retriability Retriability => TransportPosture(Status, None);
+        public override Retriability Retriability => Status.Match(Some: status => TransportPosture(status, None), None: static () => Retriability.Transient);
         public override RetryShape Route => Retriability is Retriability.TerminalCase ? RetryShape.Terminal : RetryShape.Waited;
     }
     [FaultCase(14)] public sealed partial record ProviderDenied(ContentAddress Key, string Provider, string Code, Error Cause) : RemoteStoreFault(), ICausedFault;
@@ -99,23 +99,23 @@ public abstract partial record RemoteStoreFault : Fault {
         : Retriability.Terminal;
 
     public override string Message => Switch(
-        notFound:        static c => $"blob {c.Key.Value:x32} absent",
-        conflict:        static c => $"blob {c.Key.Value:x32} {c.Condition}",
-        aborted:         static c => $"blob {c.Key.Value:x32} aborted@{c.Parts}: {c.Cause.Message}",
-        transport:       static c => $"{c.Provider} {c.Verb.Key} {c.Key.Value:x32} {c.Status}:{c.Code}",
-        integrityBreach: static c => $"blob {c.Key.Value:x32} {c.Provider} checksum mismatch",
-        locked:          static c => $"blob {c.Key.Value:x32} WORM {c.Mode}",
-        denied:          static c => $"blob {c.Key.Value:x32} {c.Provider} denied: {c.Code}",
-        oversize:        static c => $"blob {c.Key.Value:x32} {c.Provider} oversize: {c.Code}",
-        grantExpired:    static c => $"blob {c.Key.Value:x32} grant expired",
-        invalidRange:    static c => $"blob {c.Key.Value:x32} range {c.Start}-{c.End}/{c.Length}",
-        frozen:            static c => $"blob {c.Key.Value:x32} {c.Provider} {c.Verb.Key} frozen",
-        providerNotFound:  static c => $"blob {c.Key.Value:x32} absent: {c.Cause.Message}",
-        providerConflict:  static c => $"blob {c.Key.Value:x32} {c.Condition}: {c.Cause.Message}",
-        providerTransport: static c => $"{c.Provider} {c.Verb.Key} {c.Key.Value:x32} {c.Status.Map(static status => status.ToString(CultureInfo.InvariantCulture)).IfNone("<no-status>")}:{c.Code}: {c.Cause.Message}",
-        providerDenied:    static c => $"blob {c.Key.Value:x32} {c.Provider} denied: {c.Code}: {c.Cause.Message}",
-        providerOversize:  static c => $"blob {c.Key.Value:x32} {c.Provider} oversize: {c.Code}: {c.Cause.Message}",
-        providerFrozen:    static c => $"blob {c.Key.Value:x32} {c.Provider} {c.Verb.Key} frozen: {c.Cause.Message}");
+        notFound:        static c => $"blob {c.Key.ToValue():x32} absent",
+        conflict:        static c => $"blob {c.Key.ToValue():x32} {c.Condition}",
+        aborted:         static c => $"blob {c.Key.ToValue():x32} aborted@{c.Parts}: {c.Cause.Message}",
+        transport:       static c => $"{c.Provider} {c.Verb.Key} {c.Key.ToValue():x32} {c.Status}:{c.Code}",
+        integrityBreach: static c => $"blob {c.Key.ToValue():x32} {c.Provider} checksum mismatch",
+        locked:          static c => $"blob {c.Key.ToValue():x32} WORM {c.Mode}",
+        denied:          static c => $"blob {c.Key.ToValue():x32} {c.Provider} denied: {c.Code}",
+        oversize:        static c => $"blob {c.Key.ToValue():x32} {c.Provider} oversize: {c.Code}",
+        grantExpired:    static c => $"blob {c.Key.ToValue():x32} grant expired",
+        invalidRange:    static c => $"blob {c.Key.ToValue():x32} range {c.Start}-{c.End}/{c.Length}",
+        frozen:            static c => $"blob {c.Key.ToValue():x32} {c.Provider} {c.Verb.Key} frozen",
+        providerNotFound:  static c => $"blob {c.Key.ToValue():x32} absent: {c.Cause.Message}",
+        providerConflict:  static c => $"blob {c.Key.ToValue():x32} {c.Condition}: {c.Cause.Message}",
+        providerTransport: static c => $"{c.Provider} {c.Verb.Key} {c.Key.ToValue():x32} {c.Status.Map(static status => status.ToString(CultureInfo.InvariantCulture)).IfNone("<no-status>")}:{c.Code}: {c.Cause.Message}",
+        providerDenied:    static c => $"blob {c.Key.ToValue():x32} {c.Provider} denied: {c.Code}: {c.Cause.Message}",
+        providerOversize:  static c => $"blob {c.Key.ToValue():x32} {c.Provider} oversize: {c.Code}: {c.Cause.Message}",
+        providerFrozen:    static c => $"blob {c.Key.ToValue():x32} {c.Provider} {c.Verb.Key} frozen: {c.Cause.Message}");
 
     // --- [ADMISSION]
     public static Error Lift(string provider, ObjectVerb verb, ContentAddress key, Error error) => error switch {
@@ -162,7 +162,7 @@ public abstract partial record RemoteStoreFault : Fault {
 
     static Option<Duration> Delay(HttpResponseMessage response) =>
         response.Headers.TryGetValues("Retry-After", out IEnumerable<string>? stated)
-            ? toSeq(stated).Head().Bind(static value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds) && seconds >= 0
+            ? toSeq(stated).Head.Bind(static value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds) && seconds >= 0
                 ? Some(Duration.FromSeconds(seconds))
                 : Option<Duration>.None)
             : None;

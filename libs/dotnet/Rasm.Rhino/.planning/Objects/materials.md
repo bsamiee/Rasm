@@ -464,10 +464,10 @@ public static class MaterialAsk {
         new(admit: _ => Fin.Succ(value: Free(read)), read: read);
 
     private static Fin<Option<RenderMeshPolicy>> Fresh(MeshingParameters? policy, Op key) =>
-        Optional(policy).Match(
-            Some: value => new Lease<MeshingParameters>.Owned(Value: value)
-                .Use(held => RenderMeshPolicy.Capture(held, key).Map(Some), key),
-            None: static () => Fin.Succ(value: Option<RenderMeshPolicy>.None));
+        Optional(policy)
+            .TraverseM(value => new Lease<MeshingParameters>.Owned(Value: value)
+                .Use(held => RenderMeshPolicy.Capture(held, key), key))
+            .As();
 
     private static Fin<Option<RenderMeshPolicy>> Stored(MeshingParameters? policy, Op key) =>
         Optional(policy).Traverse(value => RenderMeshPolicy.Capture(value, key)).As();

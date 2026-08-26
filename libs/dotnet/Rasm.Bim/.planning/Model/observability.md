@@ -95,8 +95,6 @@ public sealed partial class GlobalIdSet {
         value = toSeq(value.Distinct(StringComparer.Ordinal).OrderBy(static id => id, StringComparer.Ordinal));
     }
 
-    public static GlobalIdSet Of(Seq<string> ids) => Create(ids);
-
     public static Fin<GlobalIdSet> Admit(ImmutableArray<string> values, Op key) =>
         WireSet.Ordered(values) && TryCreate(toSeq(values), out GlobalIdSet? admitted) && admitted is { } set
             ? Fin.Succ(set)
@@ -112,7 +110,6 @@ public sealed partial class ContentKeySet {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<UInt128> value) =>
         value = toSeq(value.Distinct().OrderBy(static k => k));
 
-    public static ContentKeySet Of(Seq<UInt128> keys) => Create(keys);
 }
 
 static class WireSet {

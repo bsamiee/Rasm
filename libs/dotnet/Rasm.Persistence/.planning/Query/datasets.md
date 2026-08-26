@@ -110,7 +110,7 @@ public static class SeriesLane {
                 Seq(SeriesKind.SeriesColumn),
                 Seq((WeightedColumn, (BackendFold)new BackendFold.Weighted(SeriesKind.ValueColumn)))),
             reach, static (backend, row) =>
-                (row.Key(backend, 0).ToValidation<Error>(), row.Real(backend, 1).ToValidation<Error>())
+                (row.Key(backend, 0).ToValidation(), row.Real(backend, 1).ToValidation())
                 .Apply(static (series, weighted) => new SeriesWeight(series, weighted)).As().ToFin());
 
     public static IO<Fin<BackendResult<SeriesBucket>>> Bucketed(
@@ -127,10 +127,10 @@ public static class SeriesLane {
                     (SeriesBackend.Samples, new BackendFold.Plain(SeriesBackend.Samples))),
                 Seq(SeriesBackend.Bucket)),
             reach, static (backend, row) =>
-                (row.At(backend, 0).ToValidation<Error>(), row.Key(backend, 1).ToValidation<Error>(),
-                 row.Real(backend, 2).ToValidation<Error>(), row.Real(backend, 3).ToValidation<Error>(),
-                 row.Real(backend, 4).ToValidation<Error>(), row.Real(backend, 5).ToValidation<Error>(),
-                 row.Whole(backend, 6).ToValidation<Error>())
+                (row.At(backend, 0).ToValidation(), row.Key(backend, 1).ToValidation(),
+                 row.Real(backend, 2).ToValidation(), row.Real(backend, 3).ToValidation(),
+                 row.Real(backend, 4).ToValidation(), row.Real(backend, 5).ToValidation(),
+                 row.Whole(backend, 6).ToValidation())
                 .Apply(static (bucket, series, mean, tail, low, high, samples) =>
                     new SeriesBucket(bucket, series, mean, tail, low, high, samples)).As().ToFin());
 
@@ -207,10 +207,10 @@ public static class WarehouseSchema {
     public static string Columns => string.Join(", ", Dataset.Columns.Map(static column => (string)column.Name));
 
     public static Fin<WarehouseOpRow> Shape(Backend backend, BackendRow row) =>
-        (row.Text(backend, 0).ToValidation<Error>(), row.Text(backend, 1).ToValidation<Error>(),
-         row.Text(backend, 2).ToValidation<Error>(), row.At(backend, 3).ToValidation<Error>(),
-         row.Text(backend, 4).ToValidation<Error>(), row.Whole(backend, 5).ToValidation<Error>(),
-         row.Text(backend, 6).ToValidation<Error>())
+        (row.Text(backend, 0).ToValidation(), row.Text(backend, 1).ToValidation(),
+         row.Text(backend, 2).ToValidation(), row.At(backend, 3).ToValidation(),
+         row.Text(backend, 4).ToValidation(), row.Whole(backend, 5).ToValidation(),
+         row.Text(backend, 6).ToValidation())
         .Apply(static (id, source, type, time, partition, sequence, data) =>
             new WarehouseOpRow(id, source, type, time, partition, sequence, Encoding.UTF8.GetBytes(data))).As().ToFin();
 }
@@ -315,17 +315,17 @@ public static class AssessmentLane {
 
     // --- [FACT_PROJECTION]
     public static Validation<Error, Seq<ColumnCell>> Cells(FactRow row) =>
-        ElementWire.Encode(row.Value, Op.Of()).ToValidation<Error>().Map(json =>
+        ElementWire.Encode(row.Value, Op.Of()).ToValidation().Map(json =>
             Seq<ColumnCell>(new ColumnCell.Key(row.Key),
                 new ColumnCell.Text(row.Discipline.Key),
                 new ColumnCell.Items(ColumnType.Utf8, row.Facets),
-                new ColumnCell.Text(row.Name.Value),
+                new ColumnCell.Text(row.Name.ToValue()),
                 new ColumnCell.Text(row.Value.Kind))
             + Face(row.Value)
             + Seq<ColumnCell>(new ColumnCell.Text(json)));
 
     static Fin<Seq<Seq<ColumnCell>>> Staged<TRow>(Seq<TRow> rows, Func<TRow, FactRow> fact) =>
-        rows.Map(fact).Traverse(Cells).As().ToFin();
+        rows.Traverse(row => Cells(fact(row))).As().ToFin();
 
     static Seq<ColumnCell> Face(PropertyValue value) => value.Switch(
         text:       static v => Scalars(text: Some(v.Render())),
@@ -368,16 +368,16 @@ public static class AssessmentLane {
 
     // --- [FACT_INVERSE]
     public static Fin<FactRow> Shape(BackendScope scope, BackendRow row) {
-        AnalyticsSchema declaration = AssessmentDataset.Schema;
+                AnalyticsSchema declaration = AssessmentDataset.Schema;
         Op key = Op.Of();
-        return (row.Key(scope.Backend, declaration.Ordinal(AssessmentDataset.KeyColumn)).ToValidation<Error>(),
+        return (row.Key(scope.Backend, declaration.Ordinal(AssessmentDataset.KeyColumn)).ToValidation(),
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.DisciplineColumn))
-                    .Bind(token => Discipline.Parse(token, key)).ToValidation<Error>(),
-                row.Items(scope.Backend, declaration.Ordinal(AssessmentDataset.FacetsColumn)).ToValidation<Error>(),
+                    .Bind(token => key.AcceptValidated<Discipline>(token)).ToValidation(),
+                row.Items(scope.Backend, declaration.Ordinal(AssessmentDataset.FacetsColumn)).ToValidation(),
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.NameColumn))
-                    .Bind(token => key.AcceptValidated<PropertyName>(token)).ToValidation<Error>(),
+                    .Bind(token => key.AcceptValidated<PropertyName>(token)).ToValidation(),
                 row.Text(scope.Backend, declaration.Ordinal(AssessmentDataset.ValueColumn))
-                    .Bind(json => ElementWire.Decode(json, key)).ToValidation<Error>())
+                    .Bind(json => ElementWire.Decode(json, key)).ToValidation())
             .Apply(static (content, discipline, facets, name, value) =>
                 (Key: content, Discipline: discipline, Facets: facets, Name: name, Value: value))
             .As().ToFin();

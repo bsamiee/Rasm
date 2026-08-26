@@ -230,7 +230,7 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Se
     public override Fin<LoweringTarget> VisitRootRelation(RootRelation root, SetScope state) => Visit(root.Input, state);
 
     public override Fin<LoweringTarget> VisitSetRelation(SetRelation set, SetScope state) =>
-        toSeq(set.Inputs).Map(input => Visit(input, state)).TraverseM(identity).As().Map(lowered =>
+        toSeq(set.Inputs).TraverseM(input => Visit(input, state)).As().Map(lowered =>
             lowered.ForAll(static target => target is LoweringTarget.Keyed)
                 ? set.Operation switch {
                     SetOperation.UnionAll or SetOperation.UnionDistinct => (LoweringTarget)new LoweringTarget.Keyed(lowered.Map(static target => ((LoweringTarget.Keyed)target).Query).Reduce(static (left, right) => left.Or(right))),
@@ -317,10 +317,9 @@ public static class SetLowering {
     public static Fin<Seq<SetKey>> Keys(VirtualTableReadRelation literal, SetScope scope) =>
         scope.Models is [var model]
             ? toSeq(literal.Values.Expressions)
-                .Map(row => row.Fields is [StringLiteral key, ..]
+                .TraverseM(row => row.Fields is [StringLiteral key, ..]
                     ? Op.Of().Catch(() => Fin.Succ(new SetKey(model, NodeId.Create(key.Value))))
                     : Fin.Fail<SetKey>(new FederationFault.InvalidPlan("<virtual-key>")))
-                .TraverseM(identity)
                 .As()
             : Fin.Fail<Seq<SetKey>>(new FederationFault.InvalidPlan("<literal-model-ambiguous>"));
 
@@ -379,7 +378,7 @@ public sealed class PredicateLowering : ExpressionVisitor<SetQuery?, IReadOnlyLi
     static Option<SetPath> Path(DirectFieldReference field, IReadOnlyList<string> fields) =>
         field.ReferenceSegment is StructReferenceSegment { Field: >= 0, Child: null } segment
         && segment.Field < fields.Count
-        && SetPath.Validate(fields[segment.Field], null, out SetPath path) is null
+        && SetPath.TryCreate(fields[segment.Field], out SetPath path)
             ? Some(path)
             : None;
 }
@@ -396,7 +395,7 @@ public static class Federation {
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
 
     static IO<Fin<FederatedResult>> OneShot(FederationPlan plan, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
-        IO.lift(() => Op.Of().Catch(() =>
+        IO.lift<Fin<LoweringTarget>>(() => Op.Of().Catch(() =>
                 plan.Ir.Relations is [Relation root, ..]
                     ? new FederationLowering().Visit(root, ports.Scope)
                     : Fin.Fail<LoweringTarget>(new FederationFault.InvalidPlan("<empty-plan>")))
@@ -413,7 +412,7 @@ public static class Federation {
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
 
     static IO<Fin<FederatedResult>> Materialized(FederationPlan plan, FederationMode.Materialized mode, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
-        IO.lift(() => Op.Of().Catch(() => Fin.Succ(SubstraitToDifferentialCompute.Convert(
+        IO.lift<Fin<Plan>>(() => Op.Of().Catch(() => Fin.Succ(SubstraitToDifferentialCompute.Convert(
                 plan.Ir,
                 addWriteRelation: true,
                 (string)mode.View,
@@ -487,10 +486,10 @@ public sealed class FederatedResult : IValidityEvidence {
 
 ## [04]-[FLIGHT_RESULT_PLANE]
 
-- Owner: `FederationFlight` the `Apache.Arrow.Flight.Server` `FlightServer` subclass — the result half of the plan wire: a portable plan flows in through `#PLAN_INGRESS` and its batches flow back through zero-copy Arrow record streams; the ticket registry is one constructor-injected `Atom<HashMap<UInt128, FederatedResult>>` hold keyed by `ReplayKey`.
+- Owner: `FederationFlight` the `Apache.Arrow.Flight.Server` `FlightServer` subclass — the result half of the plan wire: a portable plan flows in through `#PLAN_INGRESS` and its batches flow back through zero-copy Arrow record streams; the ticket registry is one constructor-injected `AtomHashMap<UInt128, FederatedResult>` hold keyed by `ReplayKey`.
 - Cases: `GetFlightInfo` takes a COMMAND descriptor whose `Command` bytes are the protobuf plan wire — it admits through `FederationPlan.Admit(new PlanWire.Protobuf(...), source, new FederationMode.OneShot())`, executes through the ONE `Federation.Execute`, holds the result under its `ReplayKey`, and answers a `FlightInfo` carrying the result schema, ONE `FlightEndpoint` whose `FlightTicket` is the big-endian `ReplayKey` bytes, the honest `TotalRecords`, and `TotalBytes` `-1` — the held batches carry no serialized-byte figure, so the Flight unknown sentinel is the honest claim, never a fabricated total; `DoGet` redeems the 16-byte ticket against the hold and streams every batch through `FlightServerRecordBatchStreamWriter.WriteAsync` (the first write auto-emits the schema message); an unknown or expired ticket yields `FederationFault.TicketUnknown`.
 - Entry: `public override Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context)` admits the command plan and mints a `ReplayKey` ticket; `public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)` redeems that ticket. Every other base verb keeps its base throw because this plane is a read-only result producer.
-- Auto: the ticket is the content-addressed result identity — `ReplayKey` frames `(plan-digest·full-cut·watermark·source·mode)`, so a byte-identical plan re-described at the same cut redeems the same ticket; a keyed result projects through the ONE `Query/backend#COLUMN_VOCABULARY` `ArrowLanding.Build` fold over the declared `KeyProjection` schema, so the batch, its field order, and its metadata all derive from one declaration; the hold is an idempotent `Atom` swap whose eviction rides the `Query/cache` reuse cadence; every typed refusal leaves the error channel at the platform-forced verb edge through the AppHost `FaultWire.Raise(fault, context)` — the ONE producer fold packing `FaultDetail` beside the status, so a Flight consumer reads numeric identity where a status-plus-message once carried a string alone.
+- Auto: the ticket is the content-addressed result identity — `ReplayKey` frames `(plan-digest·full-cut·watermark·source·mode)`, so a byte-identical plan re-described at the same cut redeems the same ticket; a keyed result projects through the ONE `Query/backend#COLUMN_VOCABULARY` `ArrowLanding.Build` fold over the declared `KeyProjection` schema, so the batch, its field order, and its metadata all derive from one declaration; the hold is an idempotent `AtomHashMap` upsert whose eviction rides the `Query/cache` reuse cadence; every typed refusal leaves the error channel at the platform-forced verb edge through the AppHost `FaultWire.Raise(fault, context)` — the ONE producer fold packing `FaultDetail` beside the status, so a Flight consumer reads numeric identity where a status-plus-message once carried a string alone.
 - Law: the keyed projection declares MODEL beside id and rides the one landing fold. NAMED LOSS: none — the single-`id` `RecordBatch.Builder` assembly it replaces reached for a `SetKey.Value` member that does not exist, so it ships bare node ids no consumer resolves back to a model, beside a second hand-built `Schema` that agrees with the batch only by inspection and carries no metadata seat at all. WITNESS: `KeyProjection` declares `(model, id, at)`, `SetKey` supplies the first two, `TimeSpine.Landing` obliges the third, and `Facts` rides the metadata the fold requires — plan digest, replay key, source, and stamp, none of which a redeemed batch previously carried.
 - Growth: a new result consumer dials the host channel and redeems tickets; a new served identity axis is one `ReplayKey` preimage field; a discovery need is the `ListFlights` verb over the same hold. One held result serves every consumer through that ticket — a bespoke file drop, a second result wire, a session-keyed ticket, or a `DoPut` ingest arm is the deleted form.
 - Boundary: the SERVER half is this package's and the MOUNT is AppHost's — `FederationFlight : FlightServer` is the whole Persistence contribution, bound at the composition root by `services.AddGrpc().AddFlightServer<FederationFlight>()` and served by the NON-GENERIC `app.MapFlightEndpoint()`, with the gRPC channel, TLS, and credentials AppHost's throughout. Those two calls arrive as ONE `Rasm.AppHost/Wire/companion#SERVICE_HOST` served-plane row the shell supplies, so an armed registration and an unmapped endpoint cannot drift apart; neither this package nor the spine names the other, since the shell is the only tier reaching both and an unsupplied row leaves the host serving control and health alone rather than degrading. `FlightServer` is NOT itself a gRPC service: no `[BindServiceMethod]` sits anywhere in its hierarchy, so `MapGrpcService<FederationFlight>()` resolves no binder and fails at startup, and the subclass reaches gRPC only DI-resolved AS `FlightServer` into the transport package's internal `FlightService.FlightServiceBase` adapter — reachable through the `Apache.Arrow.Flight.AspNetCore` `InternalsVisibleTo` grant alone (`api-arrow-egress#IMPLEMENTATION_LAW`). `DoGet` streams held batches, never a live `QueryResult`; `DoPut` and `DoExchange` keep their base throws because this plane is the lake's READ end and a Flight landing door forks the `Query/lakehouse#FLAT_TABLE_EGRESS` write custody; the serving window bounds memory, an evicted result re-executes, and `Authority.Admit` gates demand at the caller.
@@ -509,11 +508,11 @@ using Rasm.Persistence.Element;
 namespace Rasm.Persistence.Query;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class FederationFlight(FederationPorts ports, SourceKind source, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) : FlightServer {
+public sealed class FederationFlight(FederationPorts ports, SourceKind source, ProjectionContext frame, AtomHashMap<UInt128, FederatedResult> hold) : FlightServer {
     public override Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context) =>
         Describe(new PlanWire.Protobuf(descriptor.Command.Memory), descriptor, source, ports, frame, hold);
 
-    internal static async Task<FlightInfo> Describe(PlanWire wire, FlightDescriptor descriptor, SourceKind source, FederationPorts ports, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) {
+    internal static async Task<FlightInfo> Describe(PlanWire wire, FlightDescriptor descriptor, SourceKind source, FederationPorts ports, ProjectionContext frame, AtomHashMap<UInt128, FederatedResult> hold) {
         Fin<FederatedResult> described = await FederationPlan
             .Admit(wire, source, new FederationMode.OneShot())
             .Match(
@@ -521,7 +520,7 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
                 Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault)))
             .RunAsync().ConfigureAwait(false);
         return described.Bind(result => Batches(result).Map(batches => {
-            _ = hold.Swap(held => held.AddOrUpdate(result.ReplayKey, result));
+            hold.AddOrUpdate(result.ReplayKey, result);
             return new FlightInfo(
                 batches.Head.Match(Some: static b => b.Schema, None: () => KeyProjection.Fields(Facts(result))),
                 descriptor,
@@ -534,10 +533,10 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
     public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) =>
         Redeem(ticket, responseStream, frame, hold);
 
-    internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) {
+    internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ProjectionContext frame, AtomHashMap<UInt128, FederatedResult> hold) {
         Fin<Seq<RecordBatch>> held =
             from key in ContentHash.Admit(ticket.Ticket.Span, Op.Of()).MapFail(_ => (Error)new FederationFault.TicketMalformed(ticket.Ticket.Length))
-            from result in hold.Value.Find(key).ToFin(new FederationFault.TicketUnknown(key))
+            from result in hold.Find(key).ToFin(new FederationFault.TicketUnknown(key))
             from batches in Batches(result)
             select batches;
         foreach (RecordBatch batch in held.Match(Succ: static batches => batches, Fail: fault => throw FaultWire.Raise(fault, Context(frame)))) {
@@ -574,7 +573,7 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
             None: () => ArrowLanding.Build(KeyProjection, result.Keys.Keys,
                     key => Seq<ColumnCell>(
                         new ColumnCell.Text(key.Model.Value.ToString("D", CultureInfo.InvariantCulture)),
-                        new ColumnCell.Text(key.Node.Value),
+                        new ColumnCell.Text(key.Node.ToValue()),
                         new ColumnCell.Moment(result.At)),
                     Facts(result))
                 .Map(static batch => Seq(batch)));
@@ -588,7 +587,7 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
 |  [02]   | verbs            | `GetFlightInfo` + `DoGet` only               | read-only result plane; `DoPut`/`DoExchange` stay base throws  |
 |  [03]   | keyed projection | `ArrowLanding.Build` over `KeyProjection`    | `(model, id, at)` declared once; metadata carries source facts |
 |  [04]   | hosting          | `AddFlightServer<T>` + `MapFlightEndpoint()` | AppHost mounts; `MapGrpcService<T>` fails at startup           |
-|  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`    | one serving window; eviction re-executes                       |
+|  [05]   | hold             | `AtomHashMap<UInt128, FederatedResult>`      | one serving window; eviction re-executes                       |
 |  [06]   | refusal          | `FaultWire.Raise(fault, Context(frame))`     | AppHost producer table; `FaultDetail` packs beside the status  |
 
 ## [05]-[PLAN_WIRE_SKEW]

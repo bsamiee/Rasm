@@ -171,7 +171,7 @@ public static class EditorShell {
                         from _ in c.Row.Write(scope: s.Scope, value: c.Intent.Target(current: current), key: s.Key)
                         select unit,
                     getterCase: static (s, c) => s.Key.Catch(body: () =>
-                        Editor.BeginRhinoGetter(doc: c.Target.Match<RhinoDoc?>(Some: static live => live, None: static () => null))
+                        Editor.BeginRhinoGetter(doc: Op.ToHostSlot(c.Target))
                             ? Fin.Succ(unit)
                             : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: nameof(Editor.BeginRhinoGetter)))))
                     .Bind(_ => Project(scope: scope, key: active)))),
@@ -189,7 +189,7 @@ public static class EditorShell {
                 .Map(engaged => engaged ? held.With(row) : held)))
         from facts in key.Catch(body: () => Fin.Succ(new ShellFacts(
             Shown: shown,
-            HasDocument: Optional(shell.Documents.Current).IsSome,
+            HasDocument: shell.Documents.Current is not null,
             RecentCount: shell.MostRecentCount)))
         select facts;
 }

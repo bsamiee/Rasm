@@ -132,11 +132,10 @@ public sealed class HookPoint<TFact> : IHookPoint {
             .MapFail(refusal => (faults.Park(point: Id, cause: refusal), refusal).Item2);
 
     private Unit Retain(TFact fact) =>
-        toSeq(Modalities.Held).Find(static row => row.Retains).Match(
-            Some: row => ignore(buffer.Swap(held => held.Add(fact) is var next && next.Count > row.Depth
+        toSeq(Modalities.Held).Find(static row => row.Retains).Iter(
+            row => ignore(buffer.Swap(held => held.Add(fact) is var next && next.Count > row.Depth
                 ? next.Skip(next.Count - row.Depth).Strict()
-                : next)),
-            None: static () => unit);
+                : next)));
 
     private Unit Dispatch(TFact fact, Op key) => ignore(taps.Value.Iter(tap => Forked(fact: fact, tap: tap, key: key)));
 
@@ -150,7 +149,7 @@ public sealed class HookPoint<TFact> : IHookPoint {
 
     private static IDisposable Attach<T>(Atom<Seq<T>> cell, T row) {
         ignore(cell.Swap(held => held.Add(row)));
-        return new HookDetacher(Detach: () => ignore(cell.Swap(held => held.Filter(entry => !ReferenceEquals(entry, row)).ToSeq().Strict())));
+        return new HookDetacher(Detach: () => ignore(cell.Swap(held => held.Filter(entry => !ReferenceEquals(entry, row)).Strict())));
     }
 }
 ```
@@ -344,15 +343,15 @@ public sealed class HookSet<TPoint, TFact, TOwner>
     public Fin<Unit> Detach() {
         Seq<(Option<TOwner> Owner, IDisposable Detach)> snapshot = subscriptions.Value;
         Fin<Unit> released = Unwind(taken: snapshot, key: Op.Of());
-        ignore(subscriptions.Swap(held => held.Filter(row => !snapshot.Exists(taken => ReferenceEquals(taken.Detach, row.Detach))).ToSeq().Strict()));
+        ignore(subscriptions.Swap(held => held.Filter(row => !snapshot.Exists(taken => ReferenceEquals(taken.Detach, row.Detach))).Strict()));
         return released;
     }
 
     public Fin<Unit> Release(TOwner scope, Op key) {
-        Seq<(Option<TOwner> Owner, IDisposable Detach)> mine = subscriptions.Value.Filter(row => row.Owner.Exists(owner => owner.Equals(scope))).ToSeq().Strict();
+        Seq<(Option<TOwner> Owner, IDisposable Detach)> mine = subscriptions.Value.Filter(row => row.Owner.Exists(owner => owner.Equals(scope))).Strict();
         if (mine.IsEmpty) { return Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: scope.ToString() ?? nameof(scope), Requirement: "an owner holding at least one subscription")); }
         Fin<Unit> released = Unwind(taken: mine, key: key);
-        ignore(subscriptions.Swap(held => held.Filter(row => !mine.Exists(taken => ReferenceEquals(taken.Detach, row.Detach))).ToSeq().Strict()));
+        ignore(subscriptions.Swap(held => held.Filter(row => !mine.Exists(taken => ReferenceEquals(taken.Detach, row.Detach))).Strict()));
         return released;
     }
 
@@ -408,9 +407,9 @@ public sealed class HookMounts<TPoint, TOwner>
         Atom(HashMap<(TPoint Point, TOwner Owner), (long Ordinal, IHookBinding<TPoint, TOwner> Binding)>());
     private readonly Atom<long> minted = Atom(0L);
 
-    public Seq<IHookBinding<TPoint, TOwner>> Census => toSeq(seats.Value.Values).OrderBy(static row => row.Ordinal).Map(static row => row.Binding).ToSeq().Strict();
+    public Seq<IHookBinding<TPoint, TOwner>> Census => toSeq(seats.Value.Values.OrderBy(static row => row.Ordinal).Select(static row => row.Binding)).Strict();
     public Seq<(TPoint Point, Seq<TOwner> Riders)> Riders =>
-        toSeq(TPoint.Items).Map(point => (Point: point, Riders: Census.Filter(row => row.Point.Equals(point)).Map(static row => row.Owner).ToSeq().Strict()));
+        toSeq(TPoint.Items).Map(point => (Point: point, Riders: Census.Filter(row => row.Point.Equals(point)).Map(static row => row.Owner).Strict()));
 
     public Fin<Lease<IDisposable>> Mount<TAsk, TGrant>(HookBinding<TPoint, TOwner, TAsk, TGrant> binding, Op key) =>
         Cell.Claim(cell: seats, key: (binding.Point, binding.Owner), mint: () => (Ordinal: minted.Swap(static n => n + 1), Binding: (IHookBinding<TPoint, TOwner>)binding)) is Transition<HashMap<(TPoint Point, TOwner Owner), (long Ordinal, IHookBinding<TPoint, TOwner> Binding)>>.Committed

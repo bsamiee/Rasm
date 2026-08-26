@@ -373,12 +373,12 @@ public sealed record ConduitProgram {
                 held.Criteria,
                 culls: held.Steps.Choose(static step => step is ConduitStep.Cull row ? Some(row) : None),
                 suppresses: held.Steps.Choose(static step => step is ConduitStep.Suppress row ? Some(row) : None),
-                bounds: held.Steps.Choose(static step => step is ConduitStep.Bounds row ? Some(row) : None)
-                    .GroupBy(static row => row.Phase).Fold(
+                bounds: toSeq(held.Steps.Choose(static step => step is ConduitStep.Bounds row ? Some(row) : None)
+                    .GroupBy(static row => row.Phase)).Fold(
                         HashMap<ConduitPhase, Seq<ConduitStep.Bounds>>(),
                         static (map, group) => map.Add(group.Key, toSeq(group))),
-                draws: held.Steps.Choose(static step => step is ConduitStep.Draw row ? Some(row) : None)
-                    .GroupBy(static row => row.Phase).Fold(
+                draws: toSeq(held.Steps.Choose(static step => step is ConduitStep.Draw row ? Some(row) : None)
+                    .GroupBy(static row => row.Phase)).Fold(
                         HashMap<ConduitPhase, Seq<ConduitStep.Draw>>(),
                         static (map, group) => map.Add(group.Key, toSeq(group)))));
     }
@@ -554,11 +554,8 @@ public static class Conduits {
                                   .Fold(unit, static (_, criterion) => criterion.Apply(adapter))))
                               from ___ in Bind(owner, adapter, admitted.Binding, op)
                               from ____ in op.Catch(() => Fin.Succ((adapter.Enabled = true, unit).Item2))
-                              select new ConduitLease(adapter, faults, op)).BiBind(
-                                  Succ: static value => Fin.Succ(value),
-                                  Fail: error => adapter.Release().Match(
-                                      Succ: _ => Fin.Fail<ConduitLease>(error),
-                                      Fail: cleanup => Fin.Fail<ConduitLease>(error + cleanup)))
+                              select new ConduitLease(adapter, faults, op))
+                                  .Rollback(release: adapter.Release, key: op)
                select lease;
     }
 
@@ -814,10 +811,10 @@ public sealed class RetainedOverlay : IDisposable {
                                     new RetainedState(
                                         ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
                                         Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)
-                                : Fin.Fail<RetainedState>(tally.Refused.Fold(Errors.None, static (folded, cause) => folded + cause)))
-                            .BindFail(failure => ctx.Self.Restore(prior, ctx.Op).Match(
-                                Succ: _ => Fin.Fail<RetainedState>(failure),
-                                Fail: cleanup => Fin.Fail<RetainedState>(failure + cleanup)));
+                                : Fin.Fail<RetainedState>(Error.Many(tally.Refused)))
+                            .Rollback(
+                                release: () => ctx.Self.Restore(prior, ctx.Op),
+                                key: ctx.Op);
                     },
                     visibility: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ((
                         ctx.Self.display.Enabled = row.Value.Key,

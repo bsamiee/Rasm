@@ -423,10 +423,8 @@ public sealed record Env(Context Context, Option<IProgress<double>> Progress, Ca
     public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
     public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
     public static readonly Eff<Env, Option<TelemetrySink>> Taps = Eff.runtime<Env>().Map(static env => env.Telemetry).As();
-    public static readonly Eff<Env, Unit> Live = EnvAsks.Bind(static runtime => (runtime.Cancellation.IsCancellationRequested switch {
-        true => Fin.Fail<Unit>(Errors.Cancelled),
-        false => Fin.Succ(unit),
-    }).ToEff()).As();
+    public static readonly Eff<Env, Unit> Live = EnvAsks.Bind(static runtime =>
+        guard(!runtime.Cancellation.IsCancellationRequested, Errors.Cancelled).ToFin().ToEff()).As();
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -500,13 +498,12 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         from result in exit.ToEff()
         select result;
     private static Unit Charge(Env runtime, Op key, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
-        runtime.Telemetry.Match(
-            Some: sink => Facts(key: key, mark: mark, items: items, exit: exit)
+        runtime.Telemetry.Iter(
+            sink => Facts(key: key, mark: mark, items: items, exit: exit)
                 .Choose(fact => sink.Tap(fact: fact, key: key).Match(
                     Succ: static _ => Option<(HookId Seat, Error Cause)>.None,
                     Fail: cause => Some((Seat: fact.At.Id, Cause: cause))))
-                .Iter(parked => ignore(sink.Signals.Hooks.Faults.Park(point: parked.Seat, cause: parked.Cause))),
-            None: static () => unit);
+                .Iter(parked => ignore(sink.Signals.Hooks.Faults.Park(point: parked.Seat, cause: parked.Cause))));
     private static Seq<SignalFact> Facts(Op key, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
         Seq(
             Some(SignalFact.Cost(cost: mark.Stop(key: key, domain: KernelDomain.Analysis, items: items,

@@ -498,7 +498,7 @@ public sealed partial class MasonryBody {
     public double VapourMu { get; }
     public Option<double> EqThick1HrMm { get; }
     public FlexuralStrengthEn EnGroup { get; }
-    public MaterialId Material => MaterialId.Of(Key);
+    public MaterialId Material => MaterialId.Create(Key);
 }
 
 [SmartEnum<string>]
@@ -798,7 +798,7 @@ public sealed partial class RatingPeriod {
     public static readonly RatingPeriod FourHour      = new(240);
     public double Hours => Key / 60.0;
 
-    static readonly Seq<RatingPeriod> Ladder = toSeq(Items).OrderBy(static row => row.Key).ToSeq();
+    static readonly Seq<RatingPeriod> Ladder = toSeq(Items.OrderBy(static row => row.Key));
 
     public static Option<RatingPeriod> Floor(double computedHours) =>
         double.IsFinite(computedHours)
@@ -841,8 +841,8 @@ public static class MasonryDetail {
             vapourResistanceFactor: body.VapourMu, key)
         from spectrum in WallAcoustics.Of(physics.ArealMassKgPerM2, key)
         from fire in physics.FireRating
-            .Map(period => FireResistance.I(period.Key, key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r))))
-            .IfNone(Fin.Succ(Seq<MaterialPropertySet>()))
+            .TraverseM(period => FireResistance.Of(FireCoverage.I, period.Key, key).Map(static r => Seq(MaterialPropertySet.OfFire(FireRating.A1, r)))).As()
+            .Map(static rows => rows.IfNone(Seq<MaterialPropertySet>()))
         select Seq(thermal, MaterialPropertySet.OfAcoustic(spectrum)) + fire;
 }
 
@@ -880,16 +880,15 @@ public static class MasonrySeed {
         voids: static r => MasonryVoids.Class(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm));
 
     static Validation<Error, Unit> Coherence(MasonryRow r, Op key) =>
-        (guard(Math.Abs(r.CourseMm - (r.HMm + r.JointMm)) <= CoursingClosureTolMm,
-             new KernelFault.InvalidValue(nameof(r.CourseMm), "unit height plus joint thickness", Some(key))).ToValidation(),
-         guard(r.Frog.Declared,
-             new KernelFault.InvalidValue(nameof(r.Frog), "all frog axes declared together or all absent", Some(key))).ToValidation(),
-         ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key).ToValidation().Map(static _ => unit),
-         MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm, key).ToValidation().Map(static _ => unit),
-         (r.Tolerance.MeanDeviation(r.LMm, declaredMm: 0.0, key).ToValidation().Map(static _ => unit),
-          r.Range.PermittedRange(r.LMm, key).ToValidation().Map(static _ => unit))
-             .Apply(static (_, _) => unit).As())
-            .Apply(static (_, _, _, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(Math.Abs(r.CourseMm - (r.HMm + r.JointMm)) <= CoursingClosureTolMm,
+                new KernelFault.InvalidValue(nameof(r.CourseMm), "unit height plus joint thickness", Some(key))),
+            AdmissionSlots.Gate(r.Frog.Declared,
+                new KernelFault.InvalidValue(nameof(r.Frog), "all frog axes declared together or all absent", Some(key))),
+            ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key).ToValidation().Map(static _ => unit),
+            MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm, key).ToValidation().Map(static _ => unit),
+            r.Tolerance.MeanDeviation(r.LMm, declaredMm: 0.0, key).ToValidation().Map(static _ => unit),
+            r.Range.PermittedRange(r.LMm, key).ToValidation().Map(static _ => unit)));
 
     static Fin<PropertyBag> Detail(MasonryRow r, SectionProfile profile, Op key) =>
         from unit in ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, key)

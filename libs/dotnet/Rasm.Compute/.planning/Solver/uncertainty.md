@@ -290,7 +290,7 @@ public sealed record UncertaintyPolicy(
         (nameof(FiniteDifferenceStep), FiniteDifferenceStep), (nameof(ReliabilityTolerance), ReliabilityTolerance));
 
     public Fin<Unit> Validate(Seq<RandomVariable> inputs) =>
-        (CountColumns.Map(static row => Refusal.Unless(
+        AdmissionSlots.Accumulate(CountColumns.Map(static row => Refusal.Unless(
                 row.Value > 0, ComputeArea.Solver,
                 new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(row.Value))))
             + PositiveColumns.Map(static row => Refusal.Unless(
@@ -313,7 +313,7 @@ public sealed record UncertaintyPolicy(
                 Refusal.Unless(!inputs.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(inputs.Count, 1L))),
                 Refusal.Unless(!inputs.Exists(static input => input.Invalid), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())),
                 Refusal.Unless(inputs.Map(static input => input.VariableName).Distinct().Count == inputs.Count, ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Unique, new ContractEvidence.Count(inputs.Map(static input => input.VariableName).Distinct().Count, inputs.Count)))))
-        .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
+        .ToFin();
 }
 
 public sealed record UncertaintyResult(

@@ -50,11 +50,8 @@ public sealed partial class TaskStatus {
     public static readonly TaskStatus Delayed       = new("DELAYED");
     public static readonly TaskStatus NotDefined    = new("NOTDEFINED");
 
-    public static Option<TaskStatus> TryGet(string key) =>
-        TryGet(key, out TaskStatus? row) && row is { } hit ? Some(hit) : None;
-
     public static TaskStatus Of(string? status) =>
-        Optional(status).Map(static text => text.Trim().ToUpperInvariant()).Bind(TryGet).IfNone(NotDefined);
+        TryGet(status?.Trim(), out TaskStatus? row) ? row : NotDefined;
 }
 
 [SmartEnum<string>]
@@ -66,11 +63,8 @@ public sealed partial class WorkScheduleKind {
     public static readonly WorkScheduleKind UserDefined = new("USERDEFINED");
     public static readonly WorkScheduleKind NotDefined  = new("NOTDEFINED");
 
-    public static Option<WorkScheduleKind> TryGet(string key) =>
-        TryGet(key, out WorkScheduleKind? row) && row is { } hit ? Some(hit) : None;
-
     public static WorkScheduleKind Of(IfcWorkScheduleTypeEnum kind) =>
-        TryGet(kind.ToString()).IfNone(NotDefined);
+        TryGet(kind.ToString(), out WorkScheduleKind? row) ? row : NotDefined;
 }
 
 [SmartEnum<string>]
@@ -91,11 +85,8 @@ public sealed partial class TaskKind {
     public static readonly TaskKind UserDefined  = new("USERDEFINED");
     public static readonly TaskKind NotDefined   = new("NOTDEFINED");
 
-    public static Option<TaskKind> TryGet(string key) =>
-        TryGet(key, out TaskKind? row) && row is { } hit ? Some(hit) : None;
-
     public static TaskKind Of(IfcTaskTypeEnum kind) =>
-        TryGet(kind.ToString()).IfNone(NotDefined);
+        TryGet(kind.ToString(), out TaskKind? row) ? row : NotDefined;
 }
 
 [SmartEnum<string>]
@@ -690,31 +681,31 @@ public static class ScheduleCpm {
         BidirectionalGraph<string, STaggedEdge<string, SequenceRel>> graph, Map<string, WorkCalendar> calendars,
         Map<string, Duration> duration, Instant projectStart, Op key) =>
         toSeq(graph.SourceFirstBidirectionalTopologicalSort())
-            .Fold(Fin.Succ(Map<string, (Instant Es, Instant Ef)>()), (carried, id) => carried.Bind(acc =>
+            .FoldM(Map<string, (Instant Es, Instant Ef)>(), (acc, id) =>
                 toSeq(graph.InEdges(id))
                     .TraverseM(edge => Shift(edge.Tag, acc, duration, calendars, key)).As()
                     .Bind(gates => {
                         var es = gates.Max(projectStart);
                         return calendars[id].Advance(es, duration[id], key).Map(ef => acc.Add(id, (es, ef)));
-                    })));
+                    })).As();
 
     static Fin<Map<string, (Instant Ls, Instant Lf)>> Backward(
         BidirectionalGraph<string, STaggedEdge<string, SequenceRel>> graph, Map<string, WorkCalendar> calendars,
         Map<string, Duration> duration, Instant projectFinish, Op key) =>
         toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward))
-            .Fold(Fin.Succ(Map<string, (Instant Ls, Instant Lf)>()), (carried, id) => carried.Bind(acc =>
+            .FoldM(Map<string, (Instant Ls, Instant Lf)>(), (acc, id) =>
                 toSeq(graph.OutEdges(id))
                     .TraverseM(edge => BackShift(edge.Tag, acc, duration, calendars, key)).As()
                     .Bind(gates => {
                         var lf = gates.Min(projectFinish);
                         return calendars[id].Recede(lf, duration[id], key).Map(ls => acc.Add(id, (ls, lf)));
-                    })));
+                    })).As();
 
     static Fin<Map<string, CriticalPath>> Paths(
         BidirectionalGraph<string, STaggedEdge<string, SequenceRel>> graph, ScheduleNetwork network,
         Map<string, WorkCalendar> calendars, Map<string, (Instant Es, Instant Ef)> forward,
         Map<string, (Instant Ls, Instant Lf)> backward, Map<string, Duration> duration, Op key) =>
-        network.Tasks.Fold(Fin.Succ(Map<string, CriticalPath>()), (carried, task) => carried.Bind(acc =>
+        network.Tasks.FoldM(Map<string, CriticalPath>(), (acc, task) =>
             toSeq(graph.OutEdges(task.GlobalId))
                 .TraverseM(edge => Shift(edge.Tag, forward, duration, calendars, key)
                     .Map(demand => forward[edge.Target].Es - demand)).As()
@@ -725,7 +716,7 @@ public static class ScheduleCpm {
                         Some: head => slack.Fold(head, static (min, d) => d < min ? d : min),
                         None: () => Duration.Zero);
                     return acc.Add(task.GlobalId, CriticalPath.Of(es, ef, ls, lf, free));
-                })));
+                })).As();
 
     static Fin<Instant> Shift(SequenceRel edge, Map<string, (Instant Es, Instant Ef)> forward, Map<string, Duration> duration, Map<string, WorkCalendar> calendars, Op key) {
         var (es, ef) = forward[edge.PredecessorGlobalId];

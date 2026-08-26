@@ -153,9 +153,9 @@ public static partial class BimEventWire {
 
 public static class EventCodec {
     public static string Hex(UInt128 contentKey) => ContentHash.Hex(contentKey);
-    public static string Hex(ContentAddress content) => content.ToValue();
+    public static string Hex(ContentAddress content) => ContentHash.Hex(content.ToValue());
     public static string Key(BimIssueMutation mutation) => mutation.Key;
-    public static string? Text(Option<string> value) => value.Match(static v => v, static () => (string?)null);
+    public static string? Text(Option<string> value) => Op.ToHostSlot(value);
     public static ImmutableArray<string> Keys(ContentKeySet keys) => [.. keys.Value.Map(Hex)];
     public static ImmutableArray<string> Texts(GlobalIdSet values) => [.. values.Value];
     public static long Nanos(Duration elapsed) => elapsed.ToInt64Nanoseconds();
@@ -168,7 +168,7 @@ public static class BimEventing {
     public static BimObserver Observe(BimEventPort port, IClock clock) =>
         new(Name: Op.Of(name: "rasm.bim.announce"),
             Observe: fact => Mint(fact: fact, port: port, at: clock.GetCurrentInstant())
-                .Bind(held => held.Match(Some: port.Emit, None: static () => Fin.Succ(unit))),
+                .Bind(held => held.TraverseM(port.Emit).As().Map(static _ => unit)),
             Scope: Some(Seq(BimPoint.Committed, BimPoint.IssueMutated, BimPoint.Verdict, BimPoint.Exported, BimPoint.Emitted)));
 
     public static Fin<Option<CloudEvent>> Mint(BimFact fact, BimEventPort port, Instant at) => fact.Switch(
@@ -373,7 +373,7 @@ public static class BimEventing {
 
     static Fin<ContentKeySet> ContentKeys(ImmutableArray<string> values, string slot, Op key) =>
         WireSet.Ordered(values)
-            ? toSeq(values).TraverseM(value => ContentHash.Admit(hex: value, key: key)).As().Map(ContentKeySet.Of)
+            ? toSeq(values).TraverseM(value => ContentHash.Admit(hex: value, key: key)).As().Map(ContentKeySet.Create)
             : Fin.Fail<ContentKeySet>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-set-malformed", slot })));
 
     static Fin<ContentAddress> Address(string? hex, Op key) =>

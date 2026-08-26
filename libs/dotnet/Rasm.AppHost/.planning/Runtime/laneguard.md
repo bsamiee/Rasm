@@ -55,7 +55,7 @@ public sealed partial class PipelineKey {
     public static PipelineKey Of(WorkLane lane) => Create(Head + lane.Key);
 
     public static Option<PipelineKey> Named(string? reported) =>
-        Validate(reported, out PipelineKey? key) is null ? Optional(key) : None;
+        Op.Of().AcceptValidated<PipelineKey>(reported).ToOption();
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         if (!(value ?? string.Empty).StartsWith(Head, StringComparison.Ordinal)) {

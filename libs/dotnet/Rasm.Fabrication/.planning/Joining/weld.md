@@ -1032,8 +1032,7 @@ public sealed partial class WeldPlan {
 public static class Weld {
     public static Fin<WeldPlan> Plan(WeldRequest request) =>
         from rows in toSeq(request.Joints.OrderBy(static joint => joint.Joint))
-            .Map(joint => PlanJoint(joint, request.Policy, request.Budget).ToValidation())
-            .Traverse(identity)
+            .Traverse(joint => PlanJoint(joint, request.Policy, request.Budget).ToValidation())
             .As()
             .ToFin()
         let passes = rows.Bind(static row => row.Passes)
@@ -1120,8 +1119,7 @@ public static class Weld {
                 Some: frame => Fin.Fail<Unit>(new FabricationFault.WeldAccessBlocked(joint.Joint, frame.WorkAngleDeg)),
                 None: static () => Fin.Succ(unit))
         from passes in Generate(joint, policy, budget, law, mode, frames)
-        from _access in policy.Access.Map(constraint => constraint.Check(joint, passes))
-            .Traverse(identity)
+        from _access in policy.Access.Traverse(constraint => constraint.Check(joint, passes))
             .As()
             .ToFin()
         let maximum = passes.Map(static pass => pass.HeatInputKjMm).Fold(0.0, Math.Max)
@@ -1134,9 +1132,8 @@ public static class Weld {
                 Math.Min(policy.Rules.HeatInputCapKjMm, mode.HeatInputHighKjMm)))
         from _floor in AdmissionSlots.Gate(minimum >= mode.HeatInputLowKjMm, joint.Joint, "heat-input-floor", Refusal).As().ToFin()
         from _cooling in passes
-            .Map(pass => AdmissionSlots.Gate(pass.Deposit.CoolingTimeS >= mode.CoolingLowS && pass.Deposit.CoolingTimeS <= mode.CoolingHighS,
+            .Traverse(pass => AdmissionSlots.Gate(pass.Deposit.CoolingTimeS >= mode.CoolingLowS && pass.Deposit.CoolingTimeS <= mode.CoolingHighS,
                 joint.Joint, "cooling-band", Refusal))
-            .Traverse(identity)
             .As()
             .ToFin()
         from demand in Demand(joint, policy, budget, passes, maximum)
@@ -1285,7 +1282,7 @@ public static class Weld {
                             .Of(run.Last.Map(static frame => frame.Pose.Origin).IfNone(Point3d.Origin), feedMmMin,
                                 fit.Arc, fit.SweepRadians, run.Last.Bind(static frame => frame.Orientation))
                             .Map(cut => Segment(joint, side, row.Index, run, cut, Some(fit))),
-                        None: () => Fin.Succ(Chain(joint, side, row.Index, run, feedMmMin)).Bind(identity));
+                        None: () => Chain(joint, side, row.Index, run, feedMmMin));
             })
             .Traverse(identity)
             .As()
@@ -1303,13 +1300,12 @@ public static class Weld {
     private static Fin<Seq<DepositSegment>> Chain(
         WeldJoint joint, int side, int span, Seq<TorchFrame> run, double feedMmMin) =>
         run.Zip(run.Tail)
-            .Map(pair => Move.Linear
+            .Traverse(pair => Move.Linear
                 .Of(pair.Item2.Pose.Origin, feedMmMin, pair.Item2.Orientation)
                 .Map(cut => new DepositSegment(
                     joint.Joint, side, Ordinal: 0, span,
                     pair.Item1.StationMm, pair.Item2.StationMm,
                     Seq(pair.Item1, pair.Item2), cut, Option<ArcFit>.None)))
-            .Traverse(identity)
             .As();
 
     private static Fin<Seq<Move>> Path(ArcProgram arc, Seq<DepositSegment> segments, double feedMmMin) =>
@@ -1431,11 +1427,10 @@ public static class Weld {
         Seq<WeldPass> passes,
         double maximum) =>
         policy.DemandBindings
-            .Map(binding => Op.Of(name: binding.Field.Key.Value)
+            .Traverse(binding => Op.Of(name: binding.Field.Key.Value)
                 .Catch(() => binding.Resolve(new WeldDemandBinding.Facts(joint, budget, passes, maximum)))
                 .Map(value => (binding.Field.Key, value))
                 .ToValidation())
-            .Traverse(identity)
             .As()
             .ToFin()
             .Bind(rows => WeldDemand.Admit(joint.Joint, rows.ToMap(), joint.QualificationContext, joint.Inspection));

@@ -282,8 +282,8 @@ public abstract partial record ColumnShape {
     }
 
     static IArrowArray Encoded(ColumnType element, Seq<ColumnCell> cells, MemoryAllocator? arena) {
-        Seq<ColumnCell> roster = cells.Distinct().ToSeq();
-        FrozenDictionary<ColumnCell, int> slots = roster.Zip(Range(0, roster.Count))
+        Seq<ColumnCell> roster = cells.Distinct();
+        FrozenDictionary<ColumnCell, int> slots = roster.Map((cell, index) => (cell, index))
             .ToFrozenDictionary(static pair => pair.Item1, static pair => pair.Item2);
         IArrowArray indices = new Int32Array.Builder().Reserve(cells.Count)
             .Append(cells.Map(cell => slots[cell]).ToArray().AsSpan()).Build(arena);
@@ -345,7 +345,7 @@ public static class ArrowLanding {
                 .Traverse(pair => Proven(pair.Item1, pair.Item2)).As();
 
     static Validation<Error, IArrowArray> Proven(ColumnRow column, Seq<ColumnCell> cells) =>
-        cells.Traverse(cell => column.Admits(cell).ToValidation<Error>()).As()
+        cells.Traverse(cell => column.Admits(cell).ToValidation()).As()
             .Map(_ => column.Type.Column(cells, null));
 
     static Seq<Seq<ColumnCell>> Pivot(Seq<Seq<ColumnCell>> rows, int arity) =>
@@ -579,16 +579,14 @@ public static class AnalyticsGate {
             ? Success<Error, BackendProjection>(projection)
             : Fail<Error, BackendProjection>(new BackendFault.Unanswerable(backend.Key, projection.Key, backend.Degrade))).As(),
         schema.Columns.Traverse(column => backend.Tenancy == BackendTenancy.SortKey
-            ? column.Type.Wire.ToValidation<Error>().Map(_ => column)
+            ? column.Type.Wire.ToValidation().Map(_ => column)
             : Success<Error, ColumnRow>(column)).As())
             .Apply(static (_, _) => unit).As()
             .Map(_ => new BackendCharter(backend.Key, backend.Fits, backend.Admit, backend.Lifetime,
                 backend.Cap ? Some(backend.Degrade) : None));
 
     static Validation<Error, TimeSpine> Category(string token) =>
-        TimeSpine.Validate(token, null, out TimeSpine? spine) is { } fault
-            ? Fail<Error, TimeSpine>(fault)
-            : Success<Error, TimeSpine>(spine!);
+        Op.Of().Row<string, TimeSpine>(token).ToValidation();
 
     static Validation<Error, AnalyticsSchema> Spined(
         string dataset, TimeSpine spine, Seq<ColumnRow> rows, Seq<Identifier> keys,
@@ -624,9 +622,7 @@ public static class AnalyticsGate {
         (Trusted(row.Name), Admitted(row.Type)).Apply((name, type) => new ColumnRow(name, type, row.Nullable)).As();
 
     static Validation<Error, Identifier> Trusted(string raw) =>
-        Identifier.Validate(raw, null, out Identifier admitted) is { } fault
-            ? Fail<Error, Identifier>(fault)
-            : Success<Error, Identifier>(admitted);
+        Op.Of().AcceptValidated<Identifier>(raw).ToValidation();
 
     static Validation<Error, ColumnShape> Admitted(string token) =>
         Wrapped(token, "list<") is { } element ? Admitted(element).Map(static shape => (ColumnShape)new ColumnShape.List(shape))
@@ -651,9 +647,9 @@ public static class AnalyticsGate {
             : Fail<Error, ColumnShape>(new BackendFault.Unprovisioned($"<column-type:fixed<{body}>>"));
 
     static Validation<Error, ColumnType> Scalar(string token) =>
-        ColumnType.Validate(token, null, out ColumnType? type) is { } fault
-            ? Fail<Error, ColumnType>(new BackendFault.Unprovisioned($"<column-type:{token}>"))
-            : Success<Error, ColumnType>(type!);
+        Op.Of().Row<string, ColumnType>(token)
+            .MapFail(_ => new BackendFault.Unprovisioned($"<column-type:{token}>"))
+            .ToValidation();
 }
 ```
 

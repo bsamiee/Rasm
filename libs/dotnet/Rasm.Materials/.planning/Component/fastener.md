@@ -254,13 +254,13 @@ public static class Fastening {
         double diameterMm, double fastenerUltimateMpa, double loadToGrainDeg,
         GradeProperties.Timber side1, double t1Mm, GradeProperties.Timber side2, double t2Mm,
         ServiceClass service, LoadDuration duration, Op key) =>
-        from admitted in (
+        from admitted in AdmissionSlots.Accumulate(Seq(
             Positive(diameterMm, "d", key),
             Positive(fastenerUltimateMpa, "fu", key),
             Positive(t1Mm, "t1", key),
             Positive(t2Mm, "t2", key),
-            guard(double.IsFinite(loadToGrainDeg), new KernelFault.OutOfRange(nameof(loadToGrainDeg), loadToGrainDeg, "finite", Some(key))).ToValidation())
-            .Apply(static (_, _, _, _, _) => unit).As().ToFin()
+            AdmissionSlots.Gate(double.IsFinite(loadToGrainDeg),
+                new KernelFault.OutOfRange(nameof(loadToGrainDeg), loadToGrainDeg, "finite", Some(key))))).ToFin()
         let d = diameterMm
         let alpha = loadToGrainDeg * Math.PI / 180.0
         let sin2 = Math.Pow(Math.Sin(alpha), 2.0)
@@ -281,15 +281,16 @@ public static class Fastening {
         select duration.KmodFor(service) * fvk / TimberPartialFactor.Connection * 1e-3;
 
     static Validation<Error, Unit> Positive(double value, string label, Op key) =>
-        guard(double.IsFinite(value) && value > 0.0,
-            new KernelFault.OutOfRange(label, value, "finite and positive", Some(key))).ToValidation();
+        AdmissionSlots.Gate(
+            double.IsFinite(value) && value > 0.0,
+            new KernelFault.OutOfRange(label, value, "finite and positive", Some(key)));
 }
 
 public static class FastenerDetail {
     public static Fin<PropertyBag> Of(FastenerKind kind, StockFacts facts, Option<ThreadRow> thread, EvidenceGrade source) =>
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, facts.DiameterMm * 1e-3)
         from length in ComponentDetail.Measured(DetailSchema.NominalLength, Dimension.LengthDim, facts.LengthMm * 1e-3)
-        from form in thread.Match(Some: t => FormRow(kind, t, facts.LengthMm).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from form in thread.TraverseM(t => FormRow(kind, t, facts.LengthMm)).As()
         select ComponentDetail.RealizationRows([
             ComponentDetail.Token(DetailSchema.FastenerType, kind.DetailToken),
             .. kind.Role == AnchorRole.None ? Seq<(PropertyName, PropertyValue)>() : Seq(ComponentDetail.Token(DetailSchema.AnchorType, kind.DetailToken)),
@@ -367,19 +368,15 @@ public abstract partial record StockRow {
     public Option<GradeProperties.Fastener> Arm => Grade.Bind(static grade => grade.FastenerArm);
 
     public Validation<Error, Unit> Coherence(Op key) => Switch(
-        threaded: row => (
-            Prove(row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a threaded stock kind", Some(key))),
-            Prove(row.Grade.Admits(row.Thread), new KernelFault.InvalidValue(nameof(row.Thread), "a thread admitted by its grade", Some(key))),
-            Prove(row.Grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Fastener)),
-            Prove(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive", Some(key))))
-            .Apply(static (_, _, _, _) => unit).As(),
-        plain: row => (
-            Prove(!row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a plain stock kind", Some(key))),
-            Prove(double.IsFinite(row.DiameterMm) && row.DiameterMm > 0.0, new KernelFault.OutOfRange(nameof(row.DiameterMm), row.DiameterMm, "finite and positive", Some(key))),
-            Prove(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive", Some(key))))
-            .Apply(static (_, _, _) => unit).As());
-
-    static Validation<Error, Unit> Prove(bool held, Error fault) => guard(held, fault).ToValidation();
+        threaded: row => AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a threaded stock kind", Some(key))),
+            AdmissionSlots.Gate(row.Grade.Admits(row.Thread), new KernelFault.InvalidValue(nameof(row.Thread), "a thread admitted by its grade", Some(key))),
+            AdmissionSlots.Gate(row.Grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(key, row.Grade, ComponentFamily.Fastener)),
+            AdmissionSlots.Gate(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive", Some(key))))),
+        plain: row => AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(!row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a plain stock kind", Some(key))),
+            AdmissionSlots.Gate(double.IsFinite(row.DiameterMm) && row.DiameterMm > 0.0, new KernelFault.OutOfRange(nameof(row.DiameterMm), row.DiameterMm, "finite and positive", Some(key))),
+            AdmissionSlots.Gate(double.IsFinite(row.LengthMm) && row.LengthMm > 0.0, new KernelFault.OutOfRange(nameof(row.LengthMm), row.LengthMm, "finite and positive", Some(key))))));
 }
 
 [Union]
@@ -419,10 +416,10 @@ public static class FastenerSeed {
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.In0750, MaterialGrade.F155436,  304.8),
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.In1000, MaterialGrade.F155455,  457.2),
         new StockRow.Threaded(FastenerKind.Anchor,  Threads.In1500, MaterialGrade.F1554105, 609.6),
-        new StockRow.Plain(FastenerKind.Nail,  "8d-common",  3.33, 63.5,  690.0, ComponentAuthority.Astm, MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
-        new StockRow.Plain(FastenerKind.Nail,  "10d-common", 3.76, 76.2,  690.0, ComponentAuthority.Astm, MaterialId.Of("steel.fastener-nail"),  MaterialId.Of("metal.iron")),
-        new StockRow.Plain(FastenerKind.Dowel, "dowel-20",  20.00, 100.0, 400.0, ComponentAuthority.En,   MaterialId.Of("steel.fastener-dowel"), MaterialId.Of("metal.steel")),
-        new StockRow.Plain(FastenerKind.Rivet, "rivet-0500", 12.70, 38.1, 415.0, ComponentAuthority.Astm, MaterialId.Of("steel.fastener-rivet"), MaterialId.Of("metal.iron")));
+        new StockRow.Plain(FastenerKind.Nail,  "8d-common",  3.33, 63.5,  690.0, ComponentAuthority.Astm, MaterialId.Create("steel.fastener-nail"),  MaterialId.Create("metal.iron")),
+        new StockRow.Plain(FastenerKind.Nail,  "10d-common", 3.76, 76.2,  690.0, ComponentAuthority.Astm, MaterialId.Create("steel.fastener-nail"),  MaterialId.Create("metal.iron")),
+        new StockRow.Plain(FastenerKind.Dowel, "dowel-20",  20.00, 100.0, 400.0, ComponentAuthority.En,   MaterialId.Create("steel.fastener-dowel"), MaterialId.Create("metal.steel")),
+        new StockRow.Plain(FastenerKind.Rivet, "rivet-0500", 12.70, 38.1, 415.0, ComponentAuthority.Astm, MaterialId.Create("steel.fastener-rivet"), MaterialId.Create("metal.iron")));
 
     static readonly EvidenceGrade Stock = EvidenceGrade.Catalogue;
 
@@ -575,18 +572,16 @@ public readonly record struct FastenerAssembly(
     public static Fin<FastenerAssembly> Of(
         ThreadRow thread, MaterialGrade grade, BoltCategory category, FayingSurface faying, HeadForm head,
         int gripPlies, int shearPlanes, Option<HexHardware> washer, Op key) =>
-        from proven in (
-            Prove(grade.Admits(thread), new KernelFault.InvalidValue(nameof(thread), "a thread admitted by its grade", Some(key))),
-            Prove(grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(key, grade, ComponentFamily.Fastener)),
-            Prove(!category.Preloaded || grade.FastenerArm.Exists(static a => a.Preloadable), new KernelFault.InvalidValue(nameof(grade), "a preloadable grade for a preloaded connection", Some(key))),
-            Prove(!category.Preloaded || faying != FayingSurface.None, new KernelFault.InvalidValue(nameof(faying), "a faying class for a preloaded connection", Some(key))))
-            .Apply(static (_, _, _, _) => unit).As().ToFin()
+        from proven in AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(grade.Admits(thread), new KernelFault.InvalidValue(nameof(thread), "a thread admitted by its grade", Some(key))),
+            AdmissionSlots.Gate(grade.FastenerArm.IsSome, new ComponentFault.GradeBodyMissing(key, grade, ComponentFamily.Fastener)),
+            AdmissionSlots.Gate(!category.Preloaded || grade.FastenerArm.Exists(static a => a.Preloadable), new KernelFault.InvalidValue(nameof(grade), "a preloadable grade for a preloaded connection", Some(key))),
+            AdmissionSlots.Gate(!category.Preloaded || faying != FayingSurface.None, new KernelFault.InvalidValue(nameof(faying), "a faying class for a preloaded connection", Some(key)))))
+            .ToFin()
         from arm in grade.FastenerArm.ToFin(new ComponentFault.GradeBodyMissing(key, grade, ComponentFamily.Fastener))
         from plies in key.AcceptValidated<Count>(candidate: gripPlies)
         from planes in key.AcceptValidated<Count>(candidate: shearPlanes)
         select new FastenerAssembly(thread, grade, arm, category, category.Preloaded ? faying : FayingSurface.None, head, plies, planes, washer);
-
-    static Validation<Error, Unit> Prove(bool held, Error fault) => guard(held, fault).ToValidation();
 
     public FastenerBand Band => Arm.At(Thread);
 

@@ -209,7 +209,7 @@ public sealed record CommandFlow<TState> {
         Op op = Op.Of(name: nameof(CommandFlow<>));
         Seq<(StageKey Key, Stage<TState> Stage)> candidates = toSeq(rows.ToArray());
         return from _ in guard(!candidates.IsEmpty, op.InvalidInput()).ToFin()
-               from admittedEntry in AdmitKey(entry, op)
+               from admittedEntry in op.AcceptValidated<StageKey>(candidate: entry.ToValue())
                from admitted in candidates
                    .Traverse(row => AdmitRow(row, op).ToValidation())
                    .As()
@@ -251,11 +251,11 @@ public sealed record CommandFlow<TState> {
         Op op = Op.Of();
         return op.Catch(() =>
             from active in op.Need(policy)
-            from cursor in Range(0, active.StageBudget.Value).AsIterable().ToSeq()
-                .foldUntil(
+            from cursor in Range(0, active.StageBudget.Value)
+                .FoldUntil(
                     Fin.Succ(value: new FlowCursor<TState>(Key: Entry, State: seed, Trail: [], Verdict: None)),
                     (held, _) => held.Bind(cursor => Step(session: session, held: cursor, op: op)),
-                    valueIs: static held => held.Match(
+                    static pair => pair.State.Match(
                         Succ: static cursor => cursor.Verdict.IsSome,
                         Fail: static _ => true))
             from verdict in cursor.Verdict.ToFin(Fail: op.InvalidResult(detail: nameof(CommandPolicy.StageBudget)))
@@ -277,18 +277,13 @@ public sealed record CommandFlow<TState> {
                 _ => Fin.Fail<FlowCursor<TState>>(error: op.InvalidResult()),
             })));
 
-    private static Fin<StageKey> AdmitKey(StageKey candidate, Op op) => op.Catch(() =>
-        StageKey.Validate(value: candidate.ToValue(), provider: null, out StageKey? admitted) is null && admitted is { } value
-            ? Fin.Succ(value: value)
-            : Fin.Fail<StageKey>(error: op.InvalidInput()));
-
     private static Fin<(StageKey Key, Stage<TState> Stage)> AdmitRow(
         (StageKey Key, Stage<TState> Stage) row,
         Op op) =>
         from stage in op.Need(row.Stage)
-        from key in AdmitKey(row.Key, op)
+        from key in op.AcceptValidated<StageKey>(candidate: row.Key.ToValue())
         from _ in stage.Admit(op)
-        from __ in stage.Successors.TraverseM(next => AdmitKey(next, op)).As()
+        from __ in stage.Successors.TraverseM(next => op.AcceptValidated<StageKey>(candidate: next.ToValue())).As()
         select (Key: key, Stage: stage);
 }
 ```

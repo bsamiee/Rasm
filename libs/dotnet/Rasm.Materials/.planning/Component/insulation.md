@@ -58,7 +58,7 @@ public sealed partial class InsulationProduct {
     public string SubstanceId { get; }
     public Option<(double Lo, double Hi)> RPerInch { get; }
     public Option<(double Lo, double Hi)> LambdaWMK { get; }
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
 
     public Option<double> RValueSi(double thicknessMm) =>
         RPerInch.Map(band => band.Lo * (thicknessMm / InchToMm) * RValueIpToSi);
@@ -103,15 +103,17 @@ public static class InsulationSeed {
         source: static r => r.Source,
         standard: static _ => Astm,
         detail: Some<Func<InsulationRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
-        appearance: static r => r.Facer == Facer.None ? r.Product.Substance : MaterialId.Of($"facer.{r.Facer.Key}"));
+        appearance: static r => r.Facer == Facer.None ? r.Product.Substance : MaterialId.Create($"facer.{r.Facer.Key}"));
 
     static Validation<Error, Unit> Coherence(InsulationRow r, Op key) =>
-        (guard(r.ExtentMm.IsSome == r.Form.Formed,
-             new KernelFault.InvalidValue(nameof(r.ExtentMm), "present exactly for formed insulation", Some(key))).ToValidation(),
-         guard(double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0
-                 && r.ExtentMm.ForAll(static e => double.IsFinite(e.WidthMm) && e.WidthMm > 0.0 && double.IsFinite(e.LengthMm) && e.LengthMm > 0.0),
-             new KernelFault.InvalidValue(nameof(InsulationRow), "positive finite thickness and formed extents", Some(key))).ToValidation())
-            .Apply(static (_, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                r.ExtentMm.IsSome == r.Form.Formed,
+                new KernelFault.InvalidValue(nameof(r.ExtentMm), "present exactly for formed insulation", Some(key))),
+            AdmissionSlots.Gate(
+                double.IsFinite(r.ThicknessMm) && r.ThicknessMm > 0.0
+                    && r.ExtentMm.ForAll(static e => double.IsFinite(e.WidthMm) && e.WidthMm > 0.0 && double.IsFinite(e.LengthMm) && e.LengthMm > 0.0),
+                new KernelFault.InvalidValue(nameof(InsulationRow), "positive finite thickness and formed extents", Some(key)))));
 
     static Fin<SectionProfile> Profile(InsulationRow r, Op key) =>
         r.ExtentMm.Match(
@@ -120,12 +122,10 @@ public static class InsulationSeed {
 
     static Fin<PropertyBag> Detail(InsulationRow r, SectionProfile profile, Op key) =>
         from thickness in ComponentDetail.Measured(DetailSchema.PanelThickness, Dimension.LengthDim, r.ThicknessMm * 1e-3)
-        from length in r.ExtentMm.Match(
-            Some: extent => ComponentDetail.Measured(DetailSchema.BoardLength, Dimension.LengthDim, extent.LengthMm * 1e-3).Map(Some),
-            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
-        from thermal in r.Product.RValueSi(r.ThicknessMm).Match(
-            Some: si => ComponentDetail.Measured(DetailSchema.ThermalResistance, Dimension.Create(0, -1, 3, 0, 1, 0, 0), si).Map(Some),
-            None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from length in r.ExtentMm.TraverseM(extent =>
+            ComponentDetail.Measured(DetailSchema.BoardLength, Dimension.LengthDim, extent.LengthMm * 1e-3)).As()
+        from thermal in r.Product.RValueSi(r.ThicknessMm).TraverseM(si =>
+            ComponentDetail.Measured(DetailSchema.ThermalResistance, Dimension.Create(0, -1, 3, 0, 1, 0, 0), si)).As()
         select ComponentDetail.ProductRows([
             ComponentDetail.Sourced(r.Source),
             ComponentDetail.Token(DetailSchema.InstallMethod, r.Form.Install),

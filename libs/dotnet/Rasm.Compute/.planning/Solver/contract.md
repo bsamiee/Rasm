@@ -337,29 +337,27 @@ public sealed record LanePolicy {
     public CancellationToken Cancel { get; init; }
 
     public Fin<Unit> Admits(SolveProblem problem, SolveRoute route) =>
-        Seq(
-            Claim(problem.Physics.Regime == route.Regime, new ComputeViolation.Contract(
+        AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(problem.Physics.Regime == route.Regime, ComputeArea.Solver, new ComputeViolation.Contract(
                 ComputeContract.Compatible,
                 new ContractEvidence.Keys(problem.Physics.Regime.Key, route.Regime.Key))),
-            Claim(problem.Physics.Symmetry.Admits(Method.Kind), new ComputeViolation.Contract(
+            Refusal.Unless(problem.Physics.Symmetry.Admits(Method.Kind), ComputeArea.Solver, new ComputeViolation.Contract(
                 ComputeContract.Supported,
                 new ContractEvidence.Keys(problem.Physics.Symmetry.Key, Method.Kind.Key))),
-            Claim(Deadline > Duration.Zero, new ComputeViolation.Range(
+            Refusal.Unless(Deadline > Duration.Zero, ComputeArea.Solver, new ComputeViolation.Range(
                 RangeRequirement.Positive,
                 new ScalarEvidence.DurationValue(Deadline))),
-            Claim(route is not (SolveRoute.Nonlinear or SolveRoute.Continuation) || Method.Krylov.IsSome,
+            Refusal.Unless(route is not (SolveRoute.Nonlinear or SolveRoute.Continuation) || Method.Krylov.IsSome, ComputeArea.Solver,
                 new ComputeViolation.Unsupported(ComputeCapability.IterativeSolver)),
-            Claim(Constraint != ConstraintMethod.Lagrange
-                || route is SolveRoute.Direct or SolveRoute.Iterative or SolveRoute.Nonlinear && Method.Kind != FactorizationKind.Cholesky,
-                new ComputeViolation.Contract(ComputeContract.Compatible, new ContractEvidence.Keys(Constraint.Key, Method.Kind.Key))))
-            .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
+            Refusal.Unless(Constraint != ConstraintMethod.Lagrange
+                || route is SolveRoute.Direct or SolveRoute.Iterative or SolveRoute.Nonlinear && Method.Kind != FactorizationKind.Cholesky, ComputeArea.Solver,
+                new ComputeViolation.Contract(ComputeContract.Compatible, new ContractEvidence.Keys(Constraint.Key, Method.Kind.Key)))))
+            .ToFin();
 
     public IterationPolicy Iteration(IClock clock) =>
         IterationPolicy.Of(clock, Deadline, Cancel)
             with { Tolerance = Tolerance.Value, MaxIterations = MaxIterations.Value, Preconditioner = Method.Preconditioner.Build };
 
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -399,13 +397,11 @@ public abstract partial record MaterialField {
 
     public Fin<Unit> Validate(long cells, MaterialForm form) {
         bool elastic = form == MaterialForm.Elasticity;
-        bool valid = this switch {
-            UniformElastic assignment => elastic && Positive(assignment.Young) && PoissonValid(assignment.Poisson) && Positive(assignment.Density),
-            UniformScalar assignment => !elastic && Positive(assignment.Scale) && Positive(assignment.Capacity),
-            PerCellElastic assignment => elastic && assignment.Young.Length == cells && assignment.Poisson.Length == cells && assignment.Density.Length == cells && assignment.Young.All(Positive) && assignment.Poisson.All(PoissonValid) && assignment.Density.All(Positive),
-            PerCellScalar assignment => !elastic && assignment.Scale.Length == cells && assignment.Capacity.Length == cells && assignment.Scale.All(Positive) && assignment.Capacity.All(Positive),
-            _ => false,
-        };
+        bool valid = Switch(
+            uniformElastic: assignment => elastic && Positive(assignment.Young) && PoissonValid(assignment.Poisson) && Positive(assignment.Density),
+            uniformScalar: assignment => !elastic && Positive(assignment.Scale) && Positive(assignment.Capacity),
+            perCellElastic: assignment => elastic && assignment.Young.Length == cells && assignment.Poisson.Length == cells && assignment.Density.Length == cells && assignment.Young.All(Positive) && assignment.Poisson.All(PoissonValid) && assignment.Density.All(Positive),
+            perCellScalar: assignment => !elastic && assignment.Scale.Length == cells && assignment.Capacity.Length == cells && assignment.Scale.All(Positive) && assignment.Capacity.All(Positive));
         return valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())));
     }
 
@@ -462,16 +458,16 @@ public sealed partial record SolveProblem(
         Option<(ConstitutiveModel Model, ConstitutiveParameters Law)> material) {
         bool frame = mesh.Element.Family == ShapeFamily.Frame;
         int dof = frame ? 6 : physics.Dof, nodes = checked((int)mesh.NodeCount);
-        return Seq(
-            Claim(!frame || members.Length == mesh.ElementCount, new ComputeViolation.Shape(
+        return AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(!frame || members.Length == mesh.ElementCount, ComputeArea.Solver, new ComputeViolation.Shape(
                 ShapeRequirement.Arity,
                 new ShapeEvidence.Count(members.Length, mesh.ElementCount))),
-            Claim(!physics.Operator.Dense || nodes <= MaxDenseNetworkNodes.Value, new ComputeViolation.Capacity(
+            Refusal.Unless(!physics.Operator.Dense || nodes <= MaxDenseNetworkNodes.Value, ComputeArea.Solver, new ComputeViolation.Capacity(
                 CapacityRequirement.WithinLimit,
                 new CapacityEvidence.Count(nodes, MaxDenseNetworkNodes.Value))),
             physics.Operator.Admits(payload, mesh.ElementCount, nodes).ToValidation(),
-            field.Validate(mesh.ElementCount, physics.Form).ToValidation())
-            .Traverse(static claim => claim).As().ToFin()
+            field.Validate(mesh.ElementCount, physics.Form).ToValidation()))
+            .ToFin()
             .Map(_ => new SolveProblem(
                 physics, mesh.Element, conditions,
                 mesh.FieldOf(FieldStation.Nodal, dof == 1 ? FieldRank.Scalar : FieldRank.Vector, dof),
@@ -500,8 +496,6 @@ public sealed partial record SolveProblem(
                 });
             });
 
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 
 public readonly record struct ModalParticipation(double X, double Y, double Z);

@@ -158,7 +158,7 @@ internal static class DecAssembly {
         from topology in MeshKernel.TopologyDetailed(space: space)
         from dec in Operators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
         let transport = Evidence.Of(MeshKernel.SignpostTransportOf(space: space, imesh: imesh, key: key))
-        from harmonic in topology.Genus.Map(genus => ((2 * genus) + Math.Max(0, topology.BoundaryComponents - 1)) > 0).IfNone(noneValue: false)
+        from harmonic in topology.Genus.Exists(genus => ((2 * genus) + Math.Max(0, topology.BoundaryComponents - 1)) > 0)
             ? HarmonicForms(calculus: dec, topology: topology, context: space.Tolerance, key: key).Map(Some)
             : Fin.Succ(Option<HarmonicOneFormBasis>.None)
         let calculus = dec with { Transport = transport, Harmonic = harmonic }

@@ -143,8 +143,7 @@ public static class SupplyChainGate {
                         : Fin.Fail<ITrustRootProvider>(new SupplyChainFault.TrustRootUnavailable(row.Root.FullName)),
                     tufCase: static row => Fin.Succ<ITrustRootProvider>(new TufTrustRootProvider(row.Repository, row.Options)))
                 .Map(provider => new Runtime(
-                    new SigstoreVerifier(provider, null), policyOf, staging, hostContractVersion, clocks)))
-                .Bind(static admitted => admitted);
+                    new SigstoreVerifier(provider, null), policyOf, staging, hostContractVersion, clocks)));
     }
 
     public static IO<Validation<Error, SupplyChainAdmission>> Admit(Runtime gate, AdmissionSubject subject, CancellationToken token) =>

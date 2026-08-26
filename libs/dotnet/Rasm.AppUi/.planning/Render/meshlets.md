@@ -37,7 +37,7 @@ public sealed partial class BindlessChannel {
 
 public static class BindlessTable {
     private static readonly FrozenDictionary<BindlessChannel, int> Slots =
-        toSeq(BindlessChannel.Items).Map(static (index, row) => (Row: row, Index: index))
+        toSeq(BindlessChannel.Items).Map(static (row, index) => (Row: row, Index: index))
             .ToFrozenDictionary(static slot => slot.Row, static slot => slot.Index);
 
     public static int Slot(BindlessChannel channel) => Slots[channel];
@@ -144,9 +144,9 @@ public readonly record struct DrawCut(MeshletCluster Cluster, Seq<ResidencyMeshl
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ClusterCull {
     public static Seq<RenderPass> DrawRows(string key, Func<RenderTarget, FrameView, DrawCut, Fin<long>> submit) =>
-        toSeq(CutPhase.Items)
+        toSeq(toSeq(CutPhase.Items)
             .Choose(phase => phase.Step.Map(step => (Step: step, Phase: phase)))
-            .OrderBy(static row => row.Step).ToSeq()
+            .OrderBy(static row => row.Step))
             .Map(row => (RenderPass)new RenderPass.Geometry(
                 $"{key}/{row.Phase.Key}", row.Phase, static cut => cut.Triangles, submit));
 

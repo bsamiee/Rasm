@@ -189,9 +189,7 @@ public static class ModalityRows {
             ? Discovery.Spawn(outbound, spec, attach, pid => manifestOf(Some(pid)), drain)
                 .Bind(child => IO.pure(new CompanionPeer(row.Topology, child, Discovery.Connect(child.Manifest, policy), child.Manifest)))
             : IO.lift(() => manifestOf(None))
-                .Bind(read => read.Match(
-                    Succ: manifest => IO.pure(new CompanionPeer(row.Topology, None, Discovery.Connect(manifest, policy), manifest)),
-                    Fail: fault => IO.fail<CompanionPeer>(fault)));
+                .Map(manifest => new CompanionPeer(row.Topology, None, Discovery.Connect(manifest, policy), manifest));
 }
 
 public sealed record RosterEntry(
@@ -223,7 +221,7 @@ public sealed record PeerRoster(
                         Fail: error => IO.pure(Fin.Fail<RosterEntry>(error))),
                     None: () => IO.pure(Fin.Fail<RosterEntry>(new CompanionFault.Credential($"{Service}:no-accepted-socket")))));
 
-    public IO<Fin<RosterEntry>> Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now) => IO.lift(() =>
+    public IO<Fin<RosterEntry>> Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now) => IO.lift<Fin<RosterEntry>>(() =>
         Cell.Step(Peers, held => Some((
                 held.Entries.AddOrUpdate(credential.Pid, new RosterEntry(
                     credential.Pid, credential.Uid, manifest, held.Epoch + 1UL, now,
@@ -237,7 +235,7 @@ public sealed record PeerRoster(
                 refused: declined => Fin.Fail<RosterEntry>(CompanionFault.Of(declined.Cause)),
                 contended: _ => Fin.Fail<RosterEntry>(new CompanionFault.Unattached(credential.Pid))));
 
-    public IO<Fin<RosterEntry>> Renew(int pid, Instant now) => IO.lift(() =>
+    public IO<Fin<RosterEntry>> Renew(int pid, Instant now) => IO.lift<Fin<RosterEntry>>(() =>
         Cell.Step(Peers, held => held.Entries.Find(pid).Map(entry => (
                 held.Entries.SetItem(pid, entry with { LeaseUntil = now + LeasePolicy.Maintenance.CrashStaleness }),
                 held.Epoch)), new CompanionFault.Unattached(pid))
@@ -247,7 +245,7 @@ public sealed record PeerRoster(
                 refused: declined => Fin.Fail<RosterEntry>(CompanionFault.Of(declined.Cause)),
                 contended: _ => Fin.Fail<RosterEntry>(new CompanionFault.Unattached(pid))));
 
-    public IO<Fin<Unit>> Drop(int pid, Instant now) => IO.lift(() =>
+    public IO<Fin<Unit>> Drop(int pid, Instant now) => IO.lift<Fin<Unit>>(() =>
         Cell.Step(Peers, held => held.Entries.ContainsKey(pid)
                 ? Some((held.Entries.Remove(pid), held.Epoch + 1UL))
                 : None, new CompanionFault.Unattached(pid))
@@ -600,7 +598,7 @@ public static class PeerAdmission {
 
 - Owner: `HostBinding` static acquisition surface folding the OS, the activation source, and the address shape into one serving-endpoint claim binding through `ServiceHost.Bind`; `HostOs` `[SmartEnum<string>]` and `AddressKind` `[SmartEnum<string>]` the two axes the policy key needs beside the source; `BindAddress` `[Union]` the three address shapes; `BindOrigin` `[SmartEnum]` the three provenance cases; `ActivationSource` `[SmartEnum<string>]` the three socket-activation rows, each binding its own inheritance arm as a delegate column; `ReusePolicy` `[SmartEnum<string>]` the port-reuse semantics axis; `PortOverride` the explicit-port value record; `BindRequest` the acquisition input; `BoundEndpoint` the resolved listener artifact; `HostBindPolicy` the per-row policy record carrying its own key triple; `HostBindRows` the frozen keyed table; the boundary [LibraryImport]/env adapters `SystemdActivation`, `LaunchdActivation`, `SecretAcquisition`, and `ReusePort`.
 - Cases: three address shapes — unix-path for the credential-gated control plane, loopback-tcp for a host without a UDS budget, inherited-fd for a socket-activated listener; three provenance cases — fresh on a self-bound socket, inherited on a manager-passed fd, reclaimed on a stale-file takeover; three activation sources — systemd-socket reads the `LISTEN_FDS` env protocol, launchd-socket calls `launch_activate_socket`, fresh-bind inherits nothing; three reuse policies — load-balance on Linux `SO_REUSEPORT`, last-wins on macOS `SO_REUSEPORT`, none where reuse is rejected; twelve policy rows over the `(HostOs, ActivationSource, AddressKind)` cross-product each platform admits, so a Linux row asking for launchd activation is an unrostered key that REFUSES rather than a ternary's fall-through.
-- Entry: `Acquire(BindRequest request)` returns `IO<Fin<BoundEndpoint>>` — resolves the policy row by its key triple, runs the source's own inheritance arm, and settles the acquisition on the descriptors it returned or falls to a fresh bind when it returned none, applying the `ReusePolicy` through `ReusePort.Apply` on each held socket before bind; `Release(BoundEndpoint endpoint)` returns `IO<Unit>` unlinking a fresh-bound or reclaimed unix path and disposing every held socket exactly once, never an accepted socket.
+- Entry: `Acquire(BindRequest request)` returns `IO<BoundEndpoint>` — resolves the policy row by its key triple, runs the source's own inheritance arm, and settles the acquisition on the descriptors it returned or falls to a fresh bind when it returned none, applying the `ReusePolicy` through `ReusePort.Apply` on each held socket before bind; `Release(BoundEndpoint endpoint)` returns `IO<Unit>` unlinking a fresh-bound or reclaimed unix path and disposing every held socket exactly once, never an accepted socket.
 - Auto: the two activation platforms INVERT each other on descriptor count and neither adapter is written to expect the other's shape, so each rides its OWN row's arm rather than a source comparison at the call site. A systemd row consumes `LISTEN_FDS` directly — no libsystemd binding — checking `$LISTEN_PID` equals `Environment.ProcessId`, taking the count off `LISTEN_FDS` (never an assumed family pair), adopting every fd of the named service's contiguous run from `SD_LISTEN_FDS_START=3`, and self-setting `FD_CLOEXEC` through `fcntl` on each because systemd passes them without the flag; a bare `ListenStream=<port>` yields ONE dual-mode `AF_INET6` descriptor serving IPv4 as `::ffff:*` under the default `net.ipv6.bindv6only=0`, and a second descriptor exists ONLY where the unit declares `BindIPv6Only=ipv6-only`; `$LISTEN_FDNAMES` REPEATS the unit name once per fd rather than naming each distinctly, so a name lookup returns the run's FIRST index and never disambiguates within it, and POSITION is the only selector — the adapter reads the name only to find and skip a foreign unit's block, then takes the whole matching span, answering an OPTION rather than a `(-1, 0)` sentinel a caller could arithmetic on; a launchd row calls `launch_activate_socket(name, &fds, &cnt)` and adopts EVERY descriptor the count reports before freeing the array through `free` — a `Sockets` entry declaring no `SockFamily` yields one listener per family, so taking `fds[0]` alone leaves its sibling open, unlistened, and undiagnosed, and each adopted descriptor's family is read off the `Socket` it opens rather than assumed from its array position; the call RETURNS its errno as the `int` result and never sets the errno global, so the mapping reads the return value alone and `EALREADY=37`, `ESRCH=3`, and `ENOENT=2` are separate typed cases routing to separate repairs; the set is captured once at composition-root startup and threaded, never re-derived per listener, and `free(fds)` is owed on the success arm alone because both failure arms answer NULL; an inherited row carries each activated descriptor as a held `Socket` Kestrel adopts through `ListenHandle`, a fresh loopback-tcp row binds and listens the held socket with `SO_REUSEPORT` applied before bind, and a fresh unix-path row holds no socket — it defers the `ListenUnixSocket` bind to `ServiceHost.Bind` at the `Discovery.SocketPath` `sun_path`, and a bind onto an existing path probes it first: a live peer answers and the acquisition refuses, a dead file unlinks and re-binds as `Reclaimed`, which is the bind-failure-is-mutex law spelled as a fold; `SO_REUSEPORT` applies through `ReusePort.Apply` over `Socket.SetRawSocketOption` so the Linux load-balance and macOS last-wins kernel behaviors are one option write whose semantic divergence is the `ReusePolicy` row's documented evidence, never a code branch.
 - Result: `BoundEndpoint` carries the bound `BindAddress`, `BindOrigin`, `ReusePolicy`, and held `Seq<Socket>` listeners — one per fresh TCP socket, one per activated descriptor, and empty for a Unix path Kestrel binds and drain unlinks; readiness notify stays the `SystemdNotifier` mirror and SIGTERM/SIGQUIT/SIGHUP stay `FaultSpine.ArmTraps`.
 - Packages: Microsoft.Extensions.Hosting.Systemd, Rasm (kernel `CapabilitySet`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
@@ -732,7 +730,7 @@ public static class HostBindRows {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostBinding {
-    public static IO<Fin<BoundEndpoint>> Acquire(BindRequest request) => IO.pure(Bound(request));
+    public static IO<BoundEndpoint> Acquire(BindRequest request) => IO.lift(Bound(request));
 
     static Fin<BoundEndpoint> Bound(BindRequest request) =>
         from row in HostBindRows.Of(request)
@@ -791,7 +789,7 @@ public static partial class SystemdActivation {
         int.TryParse(BootVariable.ListenOwner.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int pid) && pid == Environment.ProcessId
         && int.TryParse(BootVariable.ListenCount.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int count) && count >= 1
             ? NameRun(BootVariable.ListenNames.Read(), activationName, count).Match(
-                Some: run => Op.Of().Catch(() => Fin.Succ(Range(ListenFdsStart + run.Offset, run.Length).Map(Cloexec).ToSeq().Strict()))
+                Some: run => Op.Of().Catch(() => Fin.Succ(toSeq(Enumerable.Range(ListenFdsStart + run.Offset, run.Length)).Map(Cloexec).Strict()))
                     .MapFail(static error => (Error)CompanionFault.Of(error)),
                 None: () => Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd fd run: {activationName}")))
             : Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd socket activation: {activationName}"));

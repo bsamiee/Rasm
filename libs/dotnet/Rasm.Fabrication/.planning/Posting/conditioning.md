@@ -273,7 +273,7 @@ public sealed partial class PostPolicy {
 - Law: `SpecializedToolpathEnvelope.Admit` folded kind correspondence, non-empty rows, and finite duration once, so a local revalidation here is the deleted form and its ROWS ride the AST intact — `Dialect` renders each row's own evidence rather than a flattening to moves.
 - Law: emitted node values are canonical millimetres and revolutions per minute, because `GParam.Number` writes into the `NodeKey` preimage. Every admitted quantity therefore projects at the ONE site that builds its word and never earlier, so the typed column stays typed everywhere a decision reads it.
 - Entry: `PostSource.Motion`, `PostSource.Placement`, and `PostSource.Specialized` enter one `Post.Assemble` fold and diverge only inside `PostSource.Switch`; every arm opens its program on `Prologue`, which prepends the run's keyed drawing marks as one verbatim comment block ahead of the frame assignments.
-- Auto: `ToolMagazine.Schedule` carries lifecycle and process-range evidence; `SetupSchedule.Apply` supplies WCS assignment; `Workholding.Apply` conditions motion; `ArcAlgebra.Apply` owns kerf, lead, and compensation. `Lookahead` interprets the NODES it is handed and never mints a content key for an intermediate tree.
+- Auto: `ToolMagazine.Schedule` carries lifecycle and process-range evidence; `SetupSchedule.Apply` supplies WCS assignment; the known motion arm composes `Fixtures.Condition` directly; `ArcAlgebra.Apply` owns kerf, lead, and compensation. `Lookahead` interprets the NODES it is handed and never mints a content key for an intermediate tree.
 - Exemption: `LookaheadKernel`, `Segments`, `Fit`, and `BulgeArc` are the named numeric kernels; every other join uses `Fold`, `FoldM`, `TraverseM`, generated `Switch`, and query syntax.
 - Boundary: only a thermal-only controller spells beam-on as the torch word, and the declared modality set decides it, so no dialect identity is tested.
 
@@ -316,13 +316,10 @@ public static partial class Post {
         Seq<ToolChange> changes,
         SetupSchedule schedule,
         Map<string, Arr<ProfileMarking>> tags) =>
-        from held in Workholding.Apply(new WorkholdingOp.Condition(
+        from moves in Fixtures.Condition(
             policy.Setup.Workholding.Fixture,
             policy.Setup.Workholding.State,
-            motion.Moves))
-        from moves in held is WorkholdingResult.Conditioned conditioned
-            ? Fin.Succ(conditioned.Moves)
-            : Fin.Fail<Seq<Move>>(FabricationFault.Inadmissible(FabConcern.Posting, "post:workholding-result"))
+            motion.Moves)
         from body in ToolSections(GNode.Moves(moves, motion.Directives, Point3d.Origin), changes, policy)
         from looked in Lookahead(body, policy.Cut.Dynamics)
         select CutProgram.Of(Prologue(schedule, tags).Concat(looked)
@@ -344,9 +341,9 @@ public static partial class Post {
             .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect);
 
     private static Fin<Seq<GNode>> Unlinked(FabricationResult.Placement placement, PostDialect dialect, PostPolicy policy) =>
-        from profiles in placement.Parts.Map(transform => policy.Cut.Profiles.Find(transform.PartId)
+        from profiles in placement.Parts.TraverseM(transform => policy.Cut.Profiles.Find(transform.PartId)
             .ToFin(FabricationFault.Inadmissible(FabConcern.Posting, $"post:profile:{transform.PartId}"))
-            .Bind(transform.Apply)).TraverseM(identity).As()
+            .Bind(transform.Apply)).As()
         from ordered in PolygonAlgebra.Apply(new PolygonOp.Topology(profiles.ToSeq(), PolygonFill.NonZero))
         from topology in ordered.Regioned(FabricationFault.Inadmissible(FabConcern.Posting, "post:placement-topology"))
         let loops = toSeq(topology.Nodes.OrderByDescending(static node => node.Depth)
@@ -476,7 +473,7 @@ public static partial class Post {
             .Fold(Seq(0.0), static (state, length) => state.Add(state.Last.IfNone(0.0) + length))
             .Concat(tabs.Bind(static window => Seq(window.Start, window.End))).Add(total)
             .Distinct().OrderBy(static value => value));
-        return Range(0, stations.Count - 1).ToSeq().Map(index =>
+        return Range(0, stations.Count - 1).ToSeq().TraverseM(index =>
             from from in Sampled(loop, stations[index])
             from to in Sampled(loop, stations[index + 1])
             let midpoint = (stations[index] + stations[index + 1]) / 2.0
@@ -487,8 +484,7 @@ public static partial class Post {
             let bulge = Math.Abs(sourceBulge) <= loop.Tolerance.Absolute.Value
                 ? 0.0 : Math.Sign(sourceBulge) * Math.Tan(Math.Atan(Math.Abs(sourceBulge)) * fraction)
             select new PathSegment(from.Segment, from.Point, to.Point, bulge,
-                tabs.Exists(window => midpoint > window.Start && midpoint < window.End)))
-            .TraverseM(identity).As();
+                tabs.Exists(window => midpoint > window.Start && midpoint < window.End))).As();
     }
 
     private static Fin<ProfileResult.Sampled> Sampled(Loop loop, double station) =>

@@ -92,7 +92,7 @@ public static class ReasoningSession {
         var contents = response.Messages.AsIterable().Bind(static message => message.Contents.AsIterable()).ToSeq();
         var results = contents.OfType<FunctionResultContent>()
             .ToFrozenDictionary(static result => result.CallId, StringComparer.Ordinal);
-        return contents.Choose(content => Row(content, results, wire)).ToSeq()
+        return contents.Choose(content => Row(content, results, wire))
             .Add(fault.Match(
                 Some: static error => new ReasoningTurn.Faulted(FaultWire.Observe(error)) as ReasoningTurn,
                 None: () => new ReasoningTurn.Completed(Optional(response.FinishReason), Optional(response.Usage))));

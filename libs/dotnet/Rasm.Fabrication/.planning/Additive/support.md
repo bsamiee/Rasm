@@ -871,10 +871,9 @@ internal static class SupportSites {
         return Probe<QueryResult.Hits>(index, new SpatialQuery.Range(box, Some(new Sphere(at, margin))), "support:parent-range")
             .Bind(hits => hits.Ids.IsEmpty
                 ? Probe<QueryResult.Nearest>(index, new SpatialQuery.Nearest(at, 1), "support:parent-nearest")
-                    .Bind(nearest => nearest.Ordered.Head.Match(
-                        Some: slot => Fin.Succ((child.Id, Seq(lower[slot].Id))),
-                        None: () => Fin.Fail<(int, Seq<int>)>(
-                            new KernelFault.InvalidValue("support", "support:parent-absent"))))
+                    .Bind(nearest => nearest.Ordered.Head
+                        .ToFin(new KernelFault.InvalidValue("support", "support:parent-absent"))
+                        .Map(slot => (child.Id, Seq(lower[slot].Id))))
                 : Fin.Succ((child.Id, hits.Ids.Map(slot => lower[slot].Id))));
     }
 

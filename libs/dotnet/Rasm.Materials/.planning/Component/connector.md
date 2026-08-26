@@ -150,7 +150,7 @@ public readonly record struct Allowable(double ConnectionKn, Option<double> Stee
 public readonly record struct EvaluationReport(string Number, ComponentAuthority Body, bool CombinesDirections);
 
 public readonly record struct GaugeRow(string Key, int GaugeNumber, double BaseThicknessMm, double DesignThicknessMm, double YieldMpa, string SubstanceId) {
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
     public double AxialSectionCapacityKnPerMm => YieldMpa * DesignThicknessMm * 1e-3;
 }
 
@@ -214,7 +214,7 @@ public readonly record struct ConnectorRow(
     double CarriedMemberWidthMm, double CarriedMemberDepthMm,
     Option<Allowable> DownloadKn, Option<Allowable> UpliftKn, Option<Allowable> LateralF1Kn, Option<Allowable> LateralF2Kn) {
 
-    static readonly MaterialId GalvanizedSheet = MaterialId.Of("steel.galvanized-sheet");
+    static readonly MaterialId GalvanizedSheet = MaterialId.Create("steel.galvanized-sheet");
     public MaterialId Substance => Gauge.Map(static gauge => gauge.Substance).IfNone(GalvanizedSheet);
     public Option<ConnectorPlate> Plate => Gauge.Map(gauge => Type.BuildPlate(this, gauge));
 
@@ -224,15 +224,13 @@ public readonly record struct ConnectorRow(
             lateralF1: LateralF1Kn, lateralF2: LateralF2Kn, out LoadResistance built), built);
 
     public Fin<ConnectorCapacity> GovernedCapacity(DurationRow duration, Op key) =>
-        from row in Fin.Succ(this)
-        from allowable in row.Allowable(key)
-        select new ConnectorCapacity(
-            row.Type,
+        Allowable(key).Map(allowable => new ConnectorCapacity(
+            Type,
             LoadDirection.Download.Published(allowable).Map(cell => cell.DesignKn(duration)),
             LoadDirection.Uplift.Published(allowable).Map(cell => cell.DesignKn(duration)),
             LoadDirection.LateralF1.Published(allowable).Map(cell => cell.DesignKn(duration)),
             LoadDirection.LateralF2.Published(allowable).Map(cell => cell.DesignKn(duration)),
-            row.Report.CombinesDirections);
+            Report.CombinesDirections));
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -259,7 +257,7 @@ public static class Durations {
 
 public static class Connectors {
     const double LbfToKn = 0.004448222;
-    internal static readonly MaterialId Galvanized = MaterialId.Of("metal.steel");
+    internal static readonly MaterialId Galvanized = MaterialId.Create("metal.steel");
     internal static readonly ComponentStandard Standard = new("us", StandardJointThicknessMm: 0.0, Authority: ComponentAuthority.IccEs);
 
     static readonly EvaluationReport Esr2105 = new("ESR-2105", ComponentAuthority.IccEs, CombinesDirections: false);
@@ -306,7 +304,7 @@ public static class ConnectorDetail {
     public static Fin<PropertyBag> Of(ConnectorRow row) =>
         from width in ComponentDetail.Measured(DetailSchema.CarriedMemberWidth, Dimension.LengthDim, row.CarriedMemberWidthMm * 1e-3)
         from depth in ComponentDetail.Measured(DetailSchema.CarriedMemberDepth, Dimension.LengthDim, row.CarriedMemberDepthMm * 1e-3)
-        from plate in row.Plate.Match(Some: p => PlateRow(p).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+        from plate in row.Plate.TraverseM(PlateRow).As()
         select ComponentDetail.RealizationRows([
             ComponentDetail.Token(DetailSchema.AccessoryType, row.Type.IfcAccessoryType),
             ComponentDetail.Token(DetailSchema.FastenerType, row.Install.FastenerKind.IfcPredefinedType),
@@ -352,13 +350,14 @@ public static class ConnectorSeed {
         ifc: static row => IfcBinding.Of("IfcDiscreteAccessory", row.Type.IfcAccessoryType));
 
     static Validation<Error, Unit> Coherence(ConnectorRow row, Op key) =>
-        (row.Allowable(key).ToValidation().Map(static _ => unit),
-         guard(double.IsFinite(row.CarriedMemberWidthMm) && row.CarriedMemberWidthMm > 0.0
-                 && double.IsFinite(row.CarriedMemberDepthMm) && row.CarriedMemberDepthMm > 0.0,
-             new KernelFault.InvalidValue(nameof(ConnectorRow), "positive finite connector and carried-member envelopes", Some(key))).ToValidation(),
-         guard(row.Fasteners > 0,
-             new KernelFault.OutOfRange(nameof(row.Fasteners), row.Fasteners, "positive", Some(key))).ToValidation())
-            .Apply(static (_, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            row.Allowable(key).ToValidation().Map(static _ => unit),
+            AdmissionSlots.Gate(
+                double.IsFinite(row.CarriedMemberWidthMm) && row.CarriedMemberWidthMm > 0.0
+                && double.IsFinite(row.CarriedMemberDepthMm) && row.CarriedMemberDepthMm > 0.0,
+                new KernelFault.InvalidValue(nameof(ConnectorRow), "positive finite connector and carried-member envelopes", Some(key))),
+            AdmissionSlots.Gate(row.Fasteners > 0,
+                new KernelFault.OutOfRange(nameof(row.Fasteners), row.Fasteners, "positive", Some(key)))));
 
     static Fin<SectionProfile> ProfileOf(ConnectorRow row, Op key) =>
         row.Plate.Match(

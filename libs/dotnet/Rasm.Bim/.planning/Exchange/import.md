@@ -512,8 +512,6 @@ public static partial class BimIo {
             public static readonly MeshoptMode Default = Attributes;
 
             public partial int Decode(byte* destination, nuint count, nuint stride, byte* source, nuint length);
-
-            public static Option<MeshoptMode> Route(string token) => TryGet(token, out var row) ? Some(row) : None;
         }
 
         [SmartEnum<string>]
@@ -528,8 +526,6 @@ public static partial class BimIo {
             public static readonly MeshoptFilter Default = None;
 
             public partial void Unfilter(void* buffer, nuint count, nuint stride);
-
-            public static Option<MeshoptFilter> Route(string token) => TryGet(token, out var row) ? Some(row) : None;
         }
 
         public static bool IsPresent(string json) =>
@@ -604,8 +600,8 @@ public static partial class BimIo {
         static unsafe void MeshoptView(ModelRoot model, BufferView view, JsonObject extension) {
             int count = (int)extension["count"]!;
             int stride = (int)extension["byteStride"]!;
-            MeshoptMode mode = Token(extension, "mode", MeshoptMode.Route, MeshoptMode.Default);
-            MeshoptFilter filter = Token(extension, "filter", MeshoptFilter.Route, MeshoptFilter.Default);
+            MeshoptMode mode = Token(extension, "mode", MeshoptMode.Default);
+            MeshoptFilter filter = Token(extension, "filter", MeshoptFilter.Default);
             var compressed = model.LogicalBuffers[(int)extension["buffer"]!].Content;
             int offset = Optional((int?)extension["byteOffset"]).IfNone(0);
             int length = (int)extension["byteLength"]!;
@@ -619,11 +615,12 @@ public static partial class BimIo {
             destination.CopyTo(view.Content.AsSpan(0, destination.Length));
         }
 
-        static TRow Token<TRow>(JsonObject extension, string member, Func<string, Option<TRow>> route, TRow fallback)
-            where TRow : class =>
+        static TRow Token<TRow>(JsonObject extension, string member, TRow fallback)
+            where TRow : class, ISmartEnum<string, TRow, ValidationError> =>
             Optional((string?)extension[member]).Match(
-                Some: token => route(token).IfNone(
-                    () => throw new InvalidDataException(string.Join(':', new object?[] { "import-decode", $"meshopt-{member}", token }))),
+                Some: token => TRow.TryGet(token, out TRow? row) && row is { } admitted
+                    ? admitted
+                    : throw new InvalidDataException(string.Join(':', new object?[] { "import-decode", $"meshopt-{member}", token })),
                 None: () => fallback);
 
         public static string JsonChunk(ReadOnlyMemory<byte> glb) {
@@ -660,7 +657,7 @@ public static partial class BimIo {
 
         public static readonly FrozenDictionary<EncodingChannel, Seq<PlyLane>> ByChannel =
             Items.GroupBy(static row => row.Channel)
-                .ToFrozenDictionary(static group => group.Key, static group => toSeq(group).OrderBy(static row => row.Ordinate).ToSeq());
+                .ToFrozenDictionary(static group => group.Key, static group => toSeq(group.OrderBy(static row => row.Ordinate)));
     }
 
     static Fin<ImportedGeometry> Ply(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimHooks> hooks, Op key) {
@@ -849,15 +846,14 @@ public static partial class BimIo {
         if (!instancer.ComputeInstanceTransformsAtTime(transforms, UsdTimeCode.Default(), UsdTimeCode.Default())) {
             return Seq<UsdNode>();
         }
-        return toSeq(Enumerable.Range(0, (int)protoIndices.size()))
-            .Filter(i => protoIndices[i] >= 0 && protoIndices[i] < protoPaths.Count)
-            .Map(i => (Slot: protoIndices[i], World: instancerWorld * Placed(transforms[i])))
-            .GroupBy(static instance => instance.Slot)
+        return toSeq(toSeq(Enumerable.Range(0, (int)protoIndices.size()))
+                .Filter(i => protoIndices[i] >= 0 && protoIndices[i] < protoPaths.Count)
+                .Map(i => (Slot: protoIndices[i], World: instancerWorld * Placed(transforms[i])))
+                .GroupBy(static instance => instance.Slot))
             .Choose(group => stage.GetPrimAtPath(protoPaths[group.Key]) is var proto
                 && proto.GetTypeName().ToString() == MeshType
                     ? Some((UsdNode)new UsdNode.Scattered(proto, toSeq(group).Map(static instance => instance.World)))
-                    : None)
-            .ToSeq();
+                    : None);
     }
 
     static UsdStage Staged(string path, Option<UsdScope> scope) =>
@@ -1396,8 +1392,8 @@ public static partial class BimIo {
     static Fin<ExplicitTessellation> Partition(DatabaseIfc db, IClock clock, Op key) {
         using var draft = MeshDraft.Of();
         return toSeq(db.Project.Extract<IfcProduct>())
-            .Fold(Fin.Succ((Deferred: Seq<string>(), Textures: Seq<string>(), Decoded: 0)), (acc, product) =>
-                acc.Bind(split => Items(product) is var items && items.IsEmpty
+            .FoldM((Deferred: Seq<string>(), Textures: Seq<string>(), Decoded: 0), (split, product) =>
+                Items(product) is var items && items.IsEmpty
                     ? Fin.Succ(split)
                     : !items.ForAll(static item => item is IfcTessellatedFaceSet set && Fannable(set))
                         ? Fin.Succ(split with { Deferred = split.Deferred.Add(product.GlobalId) })
@@ -1405,7 +1401,7 @@ public static partial class BimIo {
                             .Map(bound => split with {
                                 Textures = split.Textures + bound.Choose(identity),
                                 Decoded = split.Decoded + 1,
-                            })))
+                            })).As()
             .Bind(split => Sealed(draft, InterchangeFormat.Ifc, clock.GetCurrentInstant(), None, key)
                 .Map(geometry => new ExplicitTessellation(
                     geometry, split.Decoded, split.Deferred, split.Textures.Distinct())));

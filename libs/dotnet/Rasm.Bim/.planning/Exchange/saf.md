@@ -116,15 +116,12 @@ public sealed partial class StructuralCorrespondence {
     public Option<string> Condition { get; }
     public Seq<string> Saf { get; }
 
-    static readonly FrozenDictionary<string, StructuralCorrespondence> ByAnalytical =
-        Items.ToFrozenDictionary(static row => row.Key, static row => row, StringComparer.OrdinalIgnoreCase);
-
     static readonly FrozenDictionary<string, StructuralCorrespondence> ByPhysical =
         Items.SelectMany(static row => row.Physical.Keys.Select(cls => (Class: cls, Row: row)))
             .ToFrozenDictionary(static pair => pair.Class, static pair => pair.Row, StringComparer.OrdinalIgnoreCase);
 
     public static Option<StructuralCorrespondence> OfAnalytical(string ifcClass) =>
-        ByAnalytical.TryGetValue(ifcClass, out StructuralCorrespondence? row) && row is { } hit ? Some(hit) : None;
+        TryGet(ifcClass, out StructuralCorrespondence? row) && row is { } hit ? Some(hit) : None;
 
     public static Option<StructuralCorrespondence> OfPhysical(string ifcClass) =>
         ByPhysical.TryGetValue(ifcClass, out StructuralCorrespondence? row) && row is { } hit ? Some(hit) : None;
@@ -151,11 +148,8 @@ public sealed partial class CurveVariety {
     static readonly FrozenDictionary<ExcelCurveBehaviour, CurveVariety> ByBehaviour =
         Items.Where(static row => row.Elected).ToFrozenDictionary(static row => row.Behaviour, static row => row);
 
-    static readonly FrozenDictionary<string, CurveVariety> ByVariety =
-        Items.ToFrozenDictionary(static row => row.Key, static row => row, StringComparer.Ordinal);
-
     public static Option<ExcelCurveBehaviour> BehaviourOf(string variety) =>
-        ByVariety.TryGetValue(variety, out CurveVariety? row) && row is { } hit ? Some(hit.Behaviour) : None;
+        TryGet(variety, out CurveVariety? row) && row is { } hit ? Some(hit.Behaviour) : None;
 
     public static IfcStructuralCurveMemberTypeEnum VarietyOf(Option<ExcelCurveBehaviour> behaviour) =>
         behaviour.Bind(static b => ByBehaviour.TryGetValue(b, out CurveVariety? row) && row is { } hit ? Some(hit) : None)
@@ -321,15 +315,15 @@ internal static partial class SafMapper {
     private static ExcelMemberThickness Plate(double si) => new() { ThicknessFirst = Length.FromMeters(si) };
 
     [UserMapping]
-    private static string? Cell(Option<string> value) => value.IfNoneUnsafe(() => null);
+    private static string? Cell(Option<string> value) => Op.ToHostSlot(value);
 
     [UserMapping]
     private static ExcelCurveBehaviour? Cell(Option<ExcelCurveBehaviour> value) =>
-        value.Match(Some: static behaviour => (ExcelCurveBehaviour?)behaviour, None: static () => null);
+        Op.ToHostNullable(value);
 
     [UserMapping]
     private static ExcelNationalCode? Cell(Option<ExcelNationalCode> value) =>
-        value.Match(Some: static code => (ExcelNationalCode?)code, None: static () => null);
+        Op.ToHostNullable(value);
 
     [UserMapping]
     private static ExcelFlexibleEnum<ExcelMember1DType>? Member1D(Option<string> role) => Flexible<ExcelMember1DType>(role);
@@ -383,7 +377,7 @@ public static class SafCodec {
             .TraverseM(member => joints.Filter(joint => joint.Source == member.Node.Id)
                 .TraverseM(joint => JointOf(graph, joint, key)).As()
                 .Map(resolved => new CorrespondenceRow(
-                    member.Node.Id, physicals.Find(member.Node.Id), member.Kind, member.Node.PredefinedType.Token,
+                    member.Node.Id, physicals.Find(member.Node.Id), member.Kind, member.Node.PredefinedType.ToValue(),
                     physicals.Find(member.Node.Id)
                         .Bind(graph.Find)
                         .Bind(node => node is Node.Object o ? member.Kind.Physical.Find(o.Classification.Code) : None),
@@ -395,12 +389,12 @@ public static class SafCodec {
         from kind in graph.Find(joint.Target)
             .Bind(static node => node is Node.Object o ? StructuralCorrespondence.OfAnalytical(o.Classification.Code) : None)
             .Filter(static row => row.Role == CorrespondenceRole.Connection)
-            .ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-connection-unrostered", joint.Target.Value })))
-        from eccentricity in joint.Attributes.Find(StructuralProjection.Eccentricity).Match(
-            Some: value => value is PropertyValue.Text text && UInt128.TryParse(text.Value, NumberStyles.HexNumber, null, out UInt128 parsed)
-                ? Fin.Succ(Some(parsed))
-                : Fin.Fail<Option<UInt128>>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-eccentricity-malformed", joint.Target.Value }))),
-            None: static () => Fin.Succ(Option<UInt128>.None))
+            .ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-connection-unrostered", joint.Target.ToValue() })))
+        from eccentricity in joint.Attributes.Find(StructuralProjection.Eccentricity)
+            .TraverseM(value => value is PropertyValue.Text text && UInt128.TryParse(text.Value, NumberStyles.HexNumber, null, out UInt128 parsed)
+                ? Fin.Succ(parsed)
+                : Fin.Fail<UInt128>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "correspondence-eccentricity-malformed", joint.Target.ToValue() }))))
+            .As()
         select new CorrespondenceJoint(joint.Target, kind,
             joint.Attributes.Find(StructuralRows.AtStart)
                 .Bind(static value => value is PropertyValue.Boolean b ? Some(JointEnd.Of(b.Value)) : None),
@@ -539,9 +533,9 @@ public static class SafCodec {
         return new ExcelRelConnectsStructuralMember {
             Name = $"{Host(objects, joint.Source)}-{Host(objects, joint.Target)}",
             Member = Host(objects, joint.Source),
-            Position = joint.Attributes.Find(StructuralRows.AtStart)
+            Position = Op.ToHostNullable(joint.Attributes.Find(StructuralRows.AtStart)
                 .Bind(static value => value is PropertyValue.Boolean b ? Some(JointEnd.Of(b.Value)) : None)
-                .Match(Some: static end => (ExcelPosition?)end.Position, None: static () => null),
+                .Map(static end => end.Position)),
             TranslationXType = restraint.Translations[0].Type,
             TranslationXStiffness = restraint.Translations[0].Spring(ForcePerLength.FromNewtonsPerMeter),
             TranslationYType = restraint.Translations[1].Type,
@@ -584,16 +578,15 @@ public static class SafCodec {
         activities.Choose(static edge => edge.Attributes.Find(StructuralRows.Case).Bind(Text)).Distinct()
             .Map(token => (IExcelModuleObject)new ExcelStructuralLoadCase {
                 Name = token,
-                ActionType = activities
+                ActionType = Op.ToHostNullable(activities
                     .Filter(edge => edge.Attributes.Find(StructuralRows.Case).Bind(Text) == Some(token))
                     .Choose(static edge => edge.Attributes.Find(StructuralRow.ActionClassRow.Name).Bind(Text)).Head
                     .Map(static nature => nature switch {
                         nameof(ActionClass.Permanent) => ExcelActionType.Permanent,
                         nameof(ActionClass.Accidental) => ExcelActionType.Accidental,
                         _ => ExcelActionType.Variable,
-                    })
-                    .Match(Some: static nature => (ExcelActionType?)nature, None: static () => null),
-                LoadType = SafCaseType.WireOf(token).Match(Some: static type => (ExcelLoadCaseType?)type, None: static () => null),
+                    })),
+                LoadType = Op.ToHostNullable(SafCaseType.WireOf(token)),
             });
 
     private static Seq<IExcelModuleObject> Actions(Map<NodeId, Node.Object> objects, Relationship.Generic edge) {
@@ -661,9 +654,9 @@ public static class SafCodec {
                 .Exists(static row => row.Role == CorrespondenceRole.Connection)
                 ? new ActionHost(host, null, null, null, null)
                 : new ActionHost(null, host, ExcelCoordinateDefinition.Relative,
-                    edge.Attributes.Find(StructuralRows.Station)
+                    Op.ToHostSlot(edge.Attributes.Find(StructuralRows.Station)
                         .Bind(static value => value is PropertyValue.Measure m ? Some(m.Value.Si) : None)
-                        .Match(Some: static station => (object)station, None: static () => null),
+                        .Map(static station => (object)station)),
                     ExcelOrigin.FromStart);
     }
 
@@ -691,12 +684,12 @@ public static class SafCodec {
             .Fold(Map<PropertyName, PropertyValue>(), static (folded, values) => folded.AddRange(values.ToSeq()));
 
     private static string Host(Map<NodeId, Node.Object> objects, NodeId id) =>
-        objects.Find(id).Map(SafName).IfNone(id.Value);
+        objects.Find(id).Map(SafName).IfNone(id.ToValue());
 
-    private static string SafName(Node.Object node) => node.Name.Length > 0 ? node.Name : node.Id.Value;
+    private static string SafName(Node.Object node) => node.Name.Length > 0 ? node.Name : node.Id.ToValue();
 
     private static Guid GuidOf(Node.Object node) =>
-        Guid.TryParseExact(node.Id.Value, "N", out Guid id) ? id : Guid.Empty;
+        Guid.TryParseExact(node.Id.ToValue(), "N", out Guid id) ? id : Guid.Empty;
 
     private static Option<string> Text(PropertyValue value) => value is PropertyValue.Text text ? Some(text.Value) : None;
 

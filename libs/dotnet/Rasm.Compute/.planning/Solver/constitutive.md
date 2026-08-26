@@ -266,43 +266,40 @@ public abstract partial record ConstitutiveModel {
     public Fin<Unit> Admits(ReadOnlyMemory<double> strain, ConstitutiveParameters parameters) =>
         Switch(
             state: (Strain: strain, Parameters: parameters),
-            plastic: static (input, model) => Require(
+            plastic: static (input, model) => Refusal.Unless(
                     input.Strain.Length == input.Parameters.Layout.Components,
-                    new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, input.Parameters.Layout.Components)))
-                .Bind(_ => Require(
+                    ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, input.Parameters.Layout.Components))).ToFin()
+                .Bind(_ => Refusal.Unless(
                     !model.Potential.NeedsSoil || input.Parameters.Soil.IsSome,
-                    new ComputeViolation.Required(ComputeSubject.Input))),
-            hyperelastic: static (input, _) => Require(
+                    ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Input)).ToFin()),
+            hyperelastic: static (input, _) => Refusal.Unless(
                     input.Strain.Length == 9,
-                    new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, 9L)))
+                    ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, 9L))).ToFin()
                 .Bind(_ => {
                     double determinant = Determinant(Real.Of(input.Strain.Span)).Value;
-                    return Require(determinant > 0.0, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(determinant)));
+                    return Refusal.Unless(determinant > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(determinant))).ToFin();
                 }),
-            viscoelastic: static (input, model) => Require(
+            viscoelastic: static (input, model) => Refusal.Unless(
                     input.Strain.Length == input.Parameters.Layout.Components,
-                    new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, input.Parameters.Layout.Components)))
-                .Bind(_ => Require(
+                    ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, input.Parameters.Layout.Components))).ToFin()
+                .Bind(_ => Refusal.Unless(
                     model.PronyTerms > 0 && model.PronyTerms <= input.Parameters.Prony.Count,
-                    new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(model.PronyTerms, 1, input.Parameters.Prony.Count))))
-                .Bind(_ => Require(
+                    ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(model.PronyTerms, 1, input.Parameters.Prony.Count))).ToFin())
+                .Bind(_ => Refusal.Unless(
                     double.IsFinite(model.TimeStep),
-                    new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(model.TimeStep))))
-                .Bind(_ => Require(
+                    ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(model.TimeStep))).ToFin())
+                .Bind(_ => Refusal.Unless(
                     model.TimeStep > 0.0,
-                    new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(model.TimeStep)))),
-            damage: static (input, model) => Require(
+                    ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(model.TimeStep))).ToFin()),
+            damage: static (input, model) => Refusal.Unless(
                     input.Strain.Length == input.Parameters.Layout.Components,
-                    new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, input.Parameters.Layout.Components)))
-                .Bind(_ => Require(
+                    ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(input.Strain.Length, input.Parameters.Layout.Components))).ToFin()
+                .Bind(_ => Refusal.Unless(
                     double.IsFinite(model.Exponent),
-                    new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(model.Exponent))))
-                .Bind(_ => Require(
+                    ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(model.Exponent))).ToFin())
+                .Bind(_ => Refusal.Unless(
                     model.Exponent > 0.0,
-                    new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(model.Exponent)))));
-
-    static Fin<Unit> Require(bool held, ComputeViolation evidence) =>
-        held ? Fin.Succ(unit) : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
+                    ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(model.Exponent))).ToFin()));
 
     public static double YieldValue(ReadOnlyMemory<double> strain, ConstitutiveState state, ConstitutiveParameters parameters,
         PlasticPotential potential, Regularization smoothing) =>
@@ -438,18 +435,18 @@ public sealed record ContactConstraint {
     public Option<ReadOnlyMemory<double>> Weights { get; }
 
     public static Fin<ContactConstraint> Of(Vector3 normal, double baseGap, Regularization smoothing, Option<ReadOnlyMemory<double>> weights) =>
-        Seq(
-            Claim(Math.Abs(normal.LengthSquared() - 1.0) <= EpsilonPolicy.SqrtEpsilon,
+        AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(Math.Abs(normal.LengthSquared() - 1.0) <= EpsilonPolicy.SqrtEpsilon, ComputeArea.Solver,
                 new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Scalar(normal.LengthSquared()))),
-            Claim(double.IsFinite(baseGap), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(baseGap))),
+            Refusal.Unless(double.IsFinite(baseGap), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(baseGap))),
             weights.Match(
-                Some: static held => Seq(
-                        Claim(!held.IsEmpty, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(held.Length, 1L))),
-                        Claim(TensorPrimitives.IsFiniteAll<double>(held.Span), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(held.Length))),
-                        Claim(TensorPrimitives.Min(held.Span) > 0.0, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(TensorPrimitives.Min(held.Span)))))
-                    .Traverse(static claim => claim).As().Map(static _ => unit),
+                Some: static held => AdmissionSlots.Accumulate(Seq(
+                        Refusal.Unless(!held.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(held.Length, 1L))),
+                        Refusal.Unless(TensorPrimitives.IsFiniteAll<double>(held.Span), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(held.Length))),
+                        Refusal.Unless(TensorPrimitives.Min(held.Span) > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(TensorPrimitives.Min(held.Span)))))
+                    ),
                 None: static () => Success<Error, Unit>(unit)))
-            .Traverse(static claim => claim).As()
+            )
             .Map(_ => new ContactConstraint(normal, baseGap, smoothing, weights)).ToFin();
 
     public double Weight(int pair) => Weights.Match(Some: held => held.Span[pair], None: static () => 1.0);
@@ -463,8 +460,6 @@ public sealed record ContactConstraint {
         return energy;
     }
 
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -618,22 +613,19 @@ public static class ContactEnforcement {
     static Fin<Unit> Admit(
         ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers,
         double penalty, Seq<(int Slave, int Master)> pairs) =>
-        Seq(
-            Claim(!displacement.IsEmpty, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(displacement.Length, 1L))),
-            Claim(TensorPrimitives.IsFiniteAll<double>(displacement.Span), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(displacement.Length))),
-            Claim(!pairs.IsEmpty, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(pairs.Count, 1L))),
-            Claim(pairs.ForAll(pair => pair.Slave >= 0 && pair.Master >= 0
-                    && pair.Slave + 2 < displacement.Length && pair.Master + 2 < displacement.Length),
+        AdmissionSlots.Accumulate(Seq(
+            Refusal.Unless(!displacement.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(displacement.Length, 1L))),
+            Refusal.Unless(TensorPrimitives.IsFiniteAll<double>(displacement.Span), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(displacement.Length))),
+            Refusal.Unless(!pairs.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(pairs.Count, 1L))),
+            Refusal.Unless(pairs.ForAll(pair => pair.Slave >= 0 && pair.Master >= 0
+                    && pair.Slave + 2 < displacement.Length && pair.Master + 2 < displacement.Length), ComputeArea.Solver,
                 new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(pairs.Count))),
-            Claim(contact.Weights.Map(static held => held.Length).IfNone(pairs.Count) == pairs.Count,
+            Refusal.Unless(contact.Weights.Map(static held => held.Length).IfNone(pairs.Count) == pairs.Count, ComputeArea.Solver,
                 new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(contact.Weights.Map(static held => held.Length).IfNone(pairs.Count), pairs.Count))),
-            Claim(double.IsFinite(penalty), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(penalty))),
-            Claim(penalty > 0.0, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(penalty))),
-            Claim(multipliers.Length == pairs.Count, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(multipliers.Length, pairs.Count))))
-            .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
-
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
+            Refusal.Unless(double.IsFinite(penalty), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(penalty))),
+            Refusal.Unless(penalty > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(penalty))),
+            Refusal.Unless(multipliers.Length == pairs.Count, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(multipliers.Length, pairs.Count)))))
+            .ToFin();
 
     static double[] Gap(ContactConstraint contact, ReadOnlyMemory<double> displacement, Seq<(int Slave, int Master)> pairs) {
         double[] gap = new double[pairs.Count];

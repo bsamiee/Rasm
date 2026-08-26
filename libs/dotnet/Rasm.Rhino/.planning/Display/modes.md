@@ -352,8 +352,8 @@ public sealed partial class ConcernRow {
     internal bool Admits(CapabilitySet<DisplayAxis> held) => toSeq(held.Held).ForAll(row => row.Concern == this);
 
     private static readonly Lazy<HashMap<ConcernRow, Seq<DisplayAxis>>> Domains = new(static () =>
-        toSeq(DisplayAxis.Items).GroupBy(static row => row.Concern)
-            .Fold(HashMap<ConcernRow, Seq<DisplayAxis>>(), (held, group) => held.Add(group.Key, toSeq(group))));
+        toSeq(DisplayAxis.Items.GroupBy(static row => row.Concern)).Fold(
+            HashMap<ConcernRow, Seq<DisplayAxis>>(), (held, group) => held.Add(group.Key, toSeq(group))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1047,9 +1047,9 @@ public static class Modes {
                 derived: static (held, plan) => new ModeOp.CopyCase(plan.Source, plan.Name).Apply(held.Op)
                     .Bind(modes => modes.Head.ToFin(held.Op.InvalidResult()))
                     .Bind(mode => Commit(mode, held.Policies, held.Concerns, held.Op)
-                        .BindFail(failure => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply(held.Op).Match(
-                            Succ: _ => Fin.Fail<ModeOutcome>(failure),
-                            Fail: cleanup => Fin.Fail<ModeOutcome>(failure + cleanup))))),
+                        .Rollback(
+                            release: () => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply(held.Op).Map(static _ => unit),
+                            key: held.Op)),
             bind: static (op, row) => Resolve(row.Mode, op)
                 .Bind(mode => ViewportLease.Of(row.Session, row.Target, op)
                     .Bind(lease => lease.Use(borrow => op.Catch(() => Fin.Succ((borrow.Viewport.DisplayMode = mode, unit).Item2)), op)))
@@ -1093,9 +1093,7 @@ public static class Modes {
                          from __ in ModePolicy.Write(policies, mode, key)
                          from ___ in new ModeOp.UpdateCase(mode).Apply(key)
                          select (ModeOutcome)new ModeOutcome.Configured(ModeId.Create(mode.Id)))
-            .BindFail(failure => Restore(mode, prior, band, key).Match(
-                Succ: _ => Fin.Fail<ModeOutcome>(failure),
-                Fail: cleanup => Fin.Fail<ModeOutcome>(failure + cleanup)))
+            .Rollback(release: () => Restore(mode, prior, band, key), key: key)
         select outcome;
 
     private static Fin<Unit> Restore(DisplayModeDescription mode, Seq<Appearance> concerns, CapabilitySet<ModeTrait> band, Op key) =>

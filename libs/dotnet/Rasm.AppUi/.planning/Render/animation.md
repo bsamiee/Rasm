@@ -309,7 +309,6 @@ public sealed partial class PlayDirection {
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject]
-[ValidationError]
 public readonly partial struct FrameWindow {
     public long First { get; }
 

@@ -1269,9 +1269,7 @@ public static class Settings {
         SubOwners owners, RenderState prior, Func<SubOwners, Op, Fin<Unit>> apply, Op op) =>
         prior.Use(
             borrow: record => apply(owners, op)
-                .BindFail(fault => record.Apply(owners: owners, key: op).Match(
-                    Succ: _ => Fin.Fail<Unit>(error: fault),
-                    Fail: restore => Fin.Fail<Unit>(error: fault + restore))),
+                .Rollback(release: () => record.Apply(owners: owners, key: op), key: op),
             key: op);
 
     private static Fin<Unit> Copy(SettingsSource source, SettingsSource target, Op op) =>
@@ -1379,9 +1377,10 @@ public sealed class AmbientWatch : IDisposable {
     }
 
     private static Fin<AmbientFact> Project(RenderPropertyChangedEvent args, AmbientFact contextual, Op op) =>
-        op.Catch(() => Optional(args.Document).Match(
-            Some: document => DocKey.Of(document: document, key: op).Map(key => contextual with { Key = Some(key) }),
-            None: () => Fin.Succ(value: contextual)));
+        op.Catch(() => Optional(args.Document)
+            .TraverseM(document => DocKey.Of(document: document, key: op))
+            .As()
+            .Map(key => contextual with { Key = key }));
 
     private static Fin<Unit> Park(AmbientFact fact, Error fault, Ring<AmbientFailure> failures, Op op) =>
         op.Catch(() => Fin.Succ(value: ignore(failures.Park(item: new AmbientFailure(Fact: fact, Fault: fault)))))

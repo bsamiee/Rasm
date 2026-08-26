@@ -454,19 +454,19 @@ public static class DialogSurface {
             IO.liftAsync(async () => await Request(root, ask).ConfigureAwait(true));
 
         public IO<Fin<Unit>> Apply(SessionVerb verb) =>
-            IO.lift(() => Guarded(root, RootKey.SessionSuffix, () => verb.Switch(
+            IO.lift<Fin<Unit>>(() => Guarded(root, RootKey.SessionSuffix, () => verb.Switch(
                 state: root,
                 advance: static (surface, step) =>
                     Optional(DialogHost.GetDialogSession(surface.Key.Identifier))
                         .ToFin(new DialogFault.SessionAbsent(surface.Key.Value))
                         .Bind(session => Ran(() => session.UpdateContent(step.Snapshot))),
-                retreat: static (surface, _) => surface.Port.Sessions().Rev() switch {
-                    { IsEmpty: true } => Fin.Fail<Unit>(new DialogFault.SessionAbsent(surface.Key.Value)),
-                    var stack when stack.Head.IsEnded => Fin.Fail<Unit>(new DialogFault.SessionAbsent($"{surface.Key.Value}:ended")),
-                    var stack => surface.Port.Blocks(stack.Head).Match(
-                        Some: reason => Fin.Fail<Unit>(new DialogFault.RetreatVetoed($"{surface.Key.Value}:{reason}")),
-                        None: () => Ran(() => stack.Head.Close(null))),
-                },
+                retreat: static (surface, _) => surface.Port.Sessions().Rev().Head.Match(
+                    Some: session => session.IsEnded
+                        ? Fin.Fail<Unit>(new DialogFault.SessionAbsent($"{surface.Key.Value}:ended"))
+                        : surface.Port.Blocks(session).Match(
+                            Some: reason => Fin.Fail<Unit>(new DialogFault.RetreatVetoed($"{surface.Key.Value}:{reason}")),
+                            None: () => Ran(() => session.Close(null))),
+                    None: () => Fin.Fail<Unit>(new DialogFault.SessionAbsent(surface.Key.Value))),
                 raise: static (surface, lift) => Ran(() => DialogHost.Pop(surface.Key.Identifier, lift.Content)),
                 dismiss: static (surface, _) => Ran(() => DialogHost.Close(surface.Key.Identifier)))));
 
@@ -481,11 +481,10 @@ public static class DialogSurface {
 
     private static Task<object?> Route(DialogTopology root, DialogIntent intent) => intent.Switch(
         state: root,
-        confirm: static (surface, request) => request.Friction switch {
-            ConfirmFriction.Inline inline => Anchored(inline.Anchor),
-            ConfirmFriction.Typed typed => Sessioned(surface, new TypedConfirmCell(request, typed.Target, surface.Key.Identifier)),
-            _ => Sessioned(surface, request),
-        },
+        confirm: static (surface, request) => request.Friction.Switch(
+            inline: inline => Anchored(inline.Anchor),
+            typed: typed => Sessioned(surface, new TypedConfirmCell(request, typed.Target, surface.Key.Identifier)),
+            acknowledge: _ => Sessioned(surface, request)),
         form: static (surface, request) => surface.Port.SessionMounted()
             ? Templated(surface, request.TemplateKey, request.Content, new DialogFault.TemplateMissing(request.TemplateKey)).Match(
                 Succ: content => DialogHost.Show(content, surface.Key.Identifier, null, surface.Port.Closing(request)),
@@ -856,10 +855,10 @@ public sealed class ToastPlane : WindowToastManager {
     public MotionPlan Plan { get; } = MotionPlan.Toast;
 
     public IO<Fin<Unit>> Present(QueuedToast note, Func<ToastClose, Unit> seal) =>
-        IO.lift(() => Owned(() => Mounted(note, seal)));
+        IO.lift<Fin<Unit>>(() => Owned(() => Mounted(note, seal)));
 
     public IO<Fin<Unit>> Settle(CorrelationId correlation, ToastRow row, string body) =>
-        IO.lift(() => Owned(() => live.Value.Find(correlation).Match(
+        IO.lift<Fin<Unit>>(() => Owned(() => live.Value.Find(correlation).Match(
             Some: entry => Fin.Succ(Dressed(entry, row, body)),
             None: () => Fin.Fail<Unit>(new DialogFault.CorrelationUnknown(correlation.ToString())))));
 

@@ -165,9 +165,7 @@ public static class Panelization {
             }
         }
         return toSeq(byCell.OrderBy(static row => row.Key))
-            .Map(row => Loop(row.Value, vertices, source.Mesh.Tolerance, row.Key).Map(ring => (Cell: row.Key, Ring: ring)))
-            .TraverseM(static ring => ring)
-            .As()
+            .TraverseM(row => Loop(row.Value, vertices, source.Mesh.Tolerance, row.Key).Map(ring => (Cell: row.Key, Ring: ring))).As()
             .Map(rings => Pack(rings, vertices, source.Uv));
     }
 
@@ -334,9 +332,7 @@ public static class Panelization {
     static Fin<(Arr<Point3d> Origin, Arr<Vector3d> X, Arr<Vector3d> Z)> Frames(
         SurfaceResult.UvTessellation source, PanelBuild build, Option<RoSyOrder> fieldSymmetry, Op key) =>
         Range(0, build.CornerOffsets.Count - 1).ToSeq()
-            .Map(p => FrameOf(source, build, fieldSymmetry, p, key))
-            .TraverseM(static frame => frame)
-            .As()
+            .TraverseM(p => FrameOf(source, build, fieldSymmetry, p, key)).As()
             .Map(static rows => (
                 toArr(rows.Map(static row => row.Origin)),
                 toArr(rows.Map(static row => row.X)),

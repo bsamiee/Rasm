@@ -55,8 +55,6 @@ public sealed partial class ChatRole {
     public static readonly ChatRole User = new("user");
     public static readonly ChatRole Assistant = new("assistant");
     public static readonly ChatRole Tool = new("tool");
-
-    public static Option<ChatRole> FromWire(string wire) => TryGet(wire, out ChatRole? row) ? Some(row!) : None;
 }
 
 [SmartEnum<string>]
@@ -723,7 +721,7 @@ public static partial class GenerativeRun {
     public static Fin<Seq<UInt128>> Unload(Instant idleBefore) =>
         Residents.Unload(idleBefore).Map(evicted => {
             Seq<string> live = Residents.Seated().Map(static row => row.Held.ModelDir);
-            Witnesses.ToSeq()
+            Witnesses.AsIterable()
                 .Map(static pair => pair.Key)
                 .Filter(path => !live.Exists(held => held == path))
                 .Iter(path => Witnesses.Remove(path));
@@ -744,7 +742,7 @@ public static partial class GenerativeRun {
             () => IO.lift(() => {
                 Instant cutoff = clock.GetCurrentInstant() - idle;
                 return GenerativeChat.Sweep(cutoff).Bind(_ => Unload(cutoff)).Map(static _ => unit);
-            }).Bind(outcome => outcome.Match(Succ: static _ => IO.pure(unit), Fail: IO.fail<Unit>)));
+            }));
 
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
     public abstract partial record StagedRun : IDisposable {
@@ -1024,7 +1022,7 @@ public static partial class GenerativeRun {
                 if (invoke.Lead.Length > 0) { yield return new GenerationEvent.Piece(step.Cursor.Index, step.Cursor.Emitted - 1, invoke.Lead); }
                 Fin<string> resolved = await Resolved(policy.Tools, invoke.Call, token).ConfigureAwait(false);
                 if (resolved.Case is Error declined) {
-                    generator.RewindTo(floor.Value);
+                    generator.RewindTo(floor.ToValue());
                     yield return new GenerationEvent.Faulted(declined);
                     yield break;
                 }
@@ -1041,7 +1039,7 @@ public static partial class GenerativeRun {
         foreach (SequenceCursor cursor in cursors) {
             if (cursor.Tail.Length > 0) { yield return new GenerationEvent.Piece(cursor.Index, cursor.Emitted, cursor.Tail); }
         }
-        if (pending.Length > 0 && cursors.HeadOrNone().Case is SequenceCursor first) {
+        if (pending.Length > 0 && cursors.Head is { IsSome: true, Case: SequenceCursor first }) {
             yield return new GenerationEvent.Piece(first.Index, first.Emitted + 1, pending);
         }
         Fin<Duration> elapsed = opened.Bind(start => timeline.Capture()

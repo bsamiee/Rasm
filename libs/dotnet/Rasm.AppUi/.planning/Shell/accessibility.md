@@ -159,9 +159,8 @@ public sealed record SceneAccessTree(
                 .CountBy(identity, StringComparer.Ordinal)
                 .Where(static row => row.Value > 1)
                 .Select(static row => (Error)new AccessFault.GeometryRejected($"duplicate-node:{row.Key}"))),
-            () => nodes.OrderBy(static node => node.Rank)
-                .ThenBy(static node => node.ElementId, StringComparer.Ordinal)
-                .ToSeq());
+            () => toSeq(nodes.OrderBy(static node => node.Rank)
+                .ThenBy(static node => node.ElementId, StringComparer.Ordinal)));
 
     static Validation<Error, Unit> Parented(Seq<SceneAccessNode> nodes, Seq<Edge<string>> edges) =>
         Lift(edges.Filter(edge => !nodes.Exists(node => string.Equals(node.ElementId, edge.Source, StringComparison.Ordinal)))

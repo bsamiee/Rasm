@@ -498,13 +498,10 @@ public sealed record PathTracePass(
         return sum.Add(bounce.Throughput.Mul(Dome(rig, bounce.Wi, bounce.Pdf)));
     }
 
-    private static UnitInterval Draw(double value) =>
-        UnitInterval.TryCreate(value, out UnitInterval unit) ? unit : default;
-
     private Option<LightCandidate> Candidate(LightSource row, SurfacePoint point, double u0, double u1) =>
         row.Switch(
             state: (Self: this, Point: point, U0: u0, U1: u1),
-            environment: static (s, sky) => Some(sky.Dome.Sample(Draw(s.U0), Draw(s.U1)) switch {
+            environment: static (s, sky) => Some(sky.Dome.Sample(UnitInterval.Create(s.U0), UnitInterval.Create(s.U1)) switch {
                 var draw => new LightCandidate(
                     (draw.Direction.X, draw.Direction.Y, draw.Direction.Z), draw.Radiance, double.MaxValue, draw.Pdf),
             }),

@@ -124,7 +124,7 @@ public sealed partial class GeoSpec {
             (!held.Admits(GeoCapability.Measures) && (admission.Cap & Ordinates.M) != 0, "measure-loss"),
             (GeoFormat.Law.Admit(held).IsFail, "capability-corner"))
             .Filter(static rule => rule.Broken).Map(static rule => rule.Token);
-        if (!broken.IsEmpty) { validationError = new ValidationError(string.Join(" | ", new object?[] { $"<geo-spec:{string.Join(',', broken)}>" })); }
+        if (!broken.IsEmpty) { validationError = ValidationError.Create($"<geo-spec:{string.Join(',', broken)}>"); }
     }
 }
 
@@ -315,9 +315,7 @@ public static class GeoSource {
     static string Text(Origin source) => source.Read(path: File.ReadAllText, stream: static s => new StreamReader(s).ReadToEnd());
 
     internal static Validation<Error, TValue> Capture<TValue>(GeoFormat format, Func<TValue> codec) =>
-        Op.Of().Catch(() => Fin.Succ(codec())).Match(
-            Succ: static value => (Validation<Error, TValue>)value,
-            Fail: e => GeoIngestFault.Lift(format, e));
+        Op.Of().Catch(() => Fin.Succ(codec())).MapFail(e => GeoIngestFault.Lift(format, e)).ToValidation();
 }
 
 public static class GeoCells {
@@ -441,9 +439,8 @@ public sealed partial class GeoWire(GeoAdmission admission) {
         GeoSource.Capture(GeoFormat.GeoJson, () => Optional(spec.Source.Read(
             path:   static p => JsonSerializer.Deserialize<FeatureCollection>(File.ReadAllBytes(p), Options),
             stream: static s => JsonSerializer.Deserialize<FeatureCollection>(s, Options))))
-        .Bind(static held => held.Match(
-            Some: static collection => (Validation<Error, FeatureCollection>)collection,
-            None: static () => new GeoIngestFault.PayloadRejected("geojson", "<null-document>")));
+        .Bind(static held => held.ToValidation(
+            (Error)new GeoIngestFault.PayloadRejected("geojson", "<null-document>")));
 }
 
 public static class GeoContainer {

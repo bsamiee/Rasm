@@ -112,22 +112,20 @@ public sealed class PinnedPlane<T> : IDisposable where T : unmanaged {
     public unsafe nint Pointer => (nint)handle.Pointer;
 
     public static Fin<PinnedPlane<T>> Of(Tensor<T> plane, TensorDtype row, AllocationRequest staging) =>
-        (Element(row), Stride(row), Volume(plane, row))
+        (AdmissionSlots.Gate(
+             row.Clr == typeof(T),
+             TensorReason.DtypeMismatch.Fault("pin-dtype", row.Key, typeof(T).Name)),
+         AdmissionSlots.Gate(
+             row.OrtElementBytes.IsSome,
+             TensorReason.ByteStrideAbsent.Fault("pin-byte-stride", row.Key)),
+         Volume(plane, row))
             .Apply(static (_, _, bytes) => bytes).As().ToFin()
             .Bind(bytes => plane.IsDense
                 ? Rooted(row, () => new PinnedPlane<T>(plane.GetPinnedHandle(), None, plane.FlattenedLength, bytes, None))
                 : Repack(plane, row, plane.FlattenedLength, bytes, staging));
 
-    private static Validation<Error, Unit> Element(TensorDtype row) =>
-        row.Clr == typeof(T) ? unit : TensorReason.DtypeMismatch.Fault("pin-dtype", row.Key, typeof(T).Name);
-
-    private static Validation<Error, Unit> Stride(TensorDtype row) =>
-        row.OrtElementBytes.IsSome ? unit : TensorReason.ByteStrideAbsent.Fault("pin-byte-stride", row.Key);
-
     private static Validation<Error, long> Volume(Tensor<T> plane, TensorDtype row) =>
-        TensorBridge.NativeBytes(row, plane.FlattenedLength).Match(
-            Succ: static bytes => Validation<Error, long>.Success(bytes),
-            Fail: static error => Validation<Error, long>.Fail(error));
+        TensorBridge.NativeBytes(row, plane.FlattenedLength).ToValidation();
 
     static Fin<PinnedPlane<T>> Repack(Tensor<T> plane, TensorDtype row, long elements, long bytes, AllocationRequest staging) =>
         elements > int.MaxValue
@@ -197,9 +195,9 @@ public static class TensorBridge {
                 : Fin.Succ(admitted.Shape)));
 
     internal static Fin<long> NativeBytes(TensorDtype row, long elements) =>
-        row.OrtElementBytes.Match(
-            None: () => TensorReason.ByteStrideAbsent.Fail<long>("ingress-byte-stride", row.Key),
-            Some: stride => elements > long.MaxValue / stride
+        row.OrtElementBytes
+            .ToFin(TensorReason.ByteStrideAbsent.Fault("ingress-byte-stride", row.Key))
+            .Bind(stride => elements > long.MaxValue / stride
                 ? TensorReason.ExtentOverflow.Fail<long>("ingress-volume-overflow", row.Key)
                 : Fin.Succ(elements * stride));
 
@@ -530,9 +528,9 @@ public sealed record EncodedTensor(
     public Fin<OrtValue> Admit(AllocationRequest staging) => ToTensor(staging).Bind(static tensor => TensorBridge.Ingress(tensor));
 
     private static Fin<Seq<(FreeAxis Axis, long Extent)>> Derived(WireRow row, EncodedGeometry geometry, Option<Tensor<long>> indices) =>
-        row.Axes.Map<Fin<(FreeAxis Axis, long Extent)>>(axis => axis.Derive(geometry, indices).Match(
-                Some: extent => Fin.Succ((axis, extent)),
-                None: () => TensorReason.AxisUnderivable.Fail<(FreeAxis, long)>("free-dimension-underivable", axis.Key)))
+        row.Axes.Map<Fin<(FreeAxis Axis, long Extent)>>(axis => axis.Derive(geometry, indices)
+                .Map(extent => (axis, extent))
+                .ToFin(TensorReason.AxisUnderivable.Fault("free-dimension-underivable", axis.Key)))
             .TraverseM(identity).As();
 }
 ```

@@ -146,15 +146,15 @@ public static class EnergyResults {
     public static Fin<GraphDelta> Admit(Seq<EnergyResult> results, ElementGraph graph, Op key) {
         ResultTargets targets = ResultTargets.Of(graph);
         return results
-            .Fold(Fin.Succ(HashMap<(NodeId Target, ArtifactKey Run), (Instant At, Map<string, EnergyResult> Rows)>()),
-                (acc, result) => acc.Bind(grouped => targets.Resolve(result.Scope, key).Bind(target =>
+            .FoldM(HashMap<(NodeId Target, ArtifactKey Run), (Instant At, Map<string, EnergyResult> Rows)>(),
+                (grouped, result) => targets.Resolve(result.Scope, key).Bind(target =>
                     grouped.Find((target, result.Artifact)) is { IsSome: true, Case: (Instant at, Map<string, EnergyResult> rows) }
                         ? rows.ContainsKey(result.Quantity.Key)
                             ? Fin.Fail<HashMap<(NodeId, ArtifactKey), (Instant, Map<string, EnergyResult>)>>(
                                 new BimFault.Refused(key, BimScope.Energy, BimReason.Rejected, string.Join(':', new object?[] { "energy-result-duplicate", result.Artifact.Value, result.Quantity.Key })))
                             : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact), (at, rows.Add(result.Quantity.Key, result))))
                         : Fin.Succ(grouped.AddOrUpdate((target, result.Artifact),
-                            (result.At, Map((result.Quantity.Key, result))))))))
+                            (result.At, Map((result.Quantity.Key, result)))))).As()
             .Map(grouped => toSeq(grouped).Fold(GraphDelta.Empty, (delta, group) => {
                 Node.PropertySet bag = Author(
                     group.Key.Run, group.Value.At, toSeq(group.Value.Rows.Values), graph.Header.Tolerance);

@@ -102,8 +102,7 @@ public static class CompositionSurface {
     extension(ServiceCollection services) {
         public Fin<Unit> Compose(params ReadOnlySpan<ModuleContribution> modules) =>
             Iterable<ModuleContribution>.FromSpan(modules)
-                .TraverseM(module => Op.Of().Catch(() => Fin.Succ(Applied(services, module)))
-                    .Bind(static admitted => admitted)
+                .TraverseM(module => Op.Of().Catch(() => Applied(services, module))
                     .MapFail(error => (Error)new LifecycleFault.ModuleRejected(module.Module, error)))
                 .As()
                 .Map(_ => (fun(services.MakeReadOnly)(), unit).Item2);
@@ -111,9 +110,7 @@ public static class CompositionSurface {
 
     private static Fin<Unit> Applied(IServiceCollection services, ModuleContribution module) {
         module.Scan.IfSome(select => services.Scan(source => select(source.FromAssemblies(module.Assembly))));
-        return toSeq(DescriptorSlot.Items)
-            .OrderBy(static slot => slot.Rank)
-            .ToSeq()
+        return toSeq(DescriptorSlot.Items.OrderBy(static slot => slot.Rank))
             .Traverse(slot => Seated(services, slot, module[slot])
                 .ToValidation())
             .As()
@@ -187,7 +184,7 @@ public static class BoundaryActivation {
                 .MapFail(error => (Error)new LifecycleFault.ActivationRejected(typeof(T).Name, error));
 
         public bool Available<T>(Option<object> key = default) where T : notnull =>
-            key.Case is object serviceKey
+            key is { IsSome: true, Case: object serviceKey }
                 ? provider.GetRequiredService<IServiceProviderIsKeyedService>().IsKeyedService(typeof(T), serviceKey)
                 : provider.GetRequiredService<IServiceProviderIsService>().IsService(typeof(T));
 
@@ -882,7 +879,6 @@ public static class CompositionRoot {
 
         new RootBinding.Proven("companion-boot", static (provider, inputs) =>
             HostBinding.Acquire(inputs.Wire.Listener).Run()
-                .Bind(static bound => bound)
                 .Map(static _ => unit)),
 
         new RootBinding.Proven("agent-boot", static (provider, inputs) =>

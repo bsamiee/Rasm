@@ -788,9 +788,10 @@ internal static partial class Setups {
         SetupDraft state,
         SetupOperation operation,
         (Option<int> Setup, int Machine, Fixture Fixture, Mounting Mounting, Option<Carrier> Carrier) candidate) =>
-        Evidence(operation, candidate.Machine, candidate.Fixture, candidate.Mounting, space.Plan).Bind(evidence => evidence.Match(
-            Some: accepted => Commit(space, state, operation, candidate, accepted).Map(Some),
-            None: static () => Fin.Succ(Option<SetupDraft>.None)));
+        Evidence(operation, candidate.Machine, candidate.Fixture, candidate.Mounting, space.Plan)
+            .Bind(evidence => evidence
+                .TraverseM(accepted => Commit(space, state, operation, candidate, accepted))
+                .As());
 
     // --- [EVIDENCE]
     internal static Fin<Option<SetupEvidence>> Evidence(
@@ -845,26 +846,17 @@ internal static partial class Setups {
             sameOrientation: static (_, _) => true));
 
     private static Fin<RestraintProof> Holding(SetupOperation operation, Fixture fixture) =>
-        Workholding.Apply(new WorkholdingOp.Restrain(fixture, operation.Loads, operation.Demand.SafetyFactor))
-            .Bind(static result => result switch {
-                WorkholdingResult.Restrained(var result) => Fin.Succ(result),
-                _ => throw new InvalidOperationException("Workholding.Restrain returned a non-restraint result."),
-            });
+        Fixtures.Restrain(fixture, operation.Loads, operation.Demand.SafetyFactor.As(RatioUnit.DecimalFraction));
 
     private static Fin<Seq<WorkholdingResult.Clearance>> Clearance(SetupOperation operation, Fixture fixture) =>
         operation.Corridors.Traverse(corridor =>
-            Workholding.Apply(new WorkholdingOp.Clear(fixture, FixtureState.Cut, corridor))
-                .Bind(static result => result switch {
-                    WorkholdingResult.Clearance result => Fin.Succ(result),
-                    _ => throw new InvalidOperationException("Workholding.Clear returned a non-clearance result."),
-                }).ToValidation()).As().ToFin();
+            Fixtures.Clear(fixture, FixtureState.Cut, corridor)
+                .Map(static blocked => new WorkholdingResult.Clearance(blocked))
+                .ToValidation()).As().ToFin();
 
     private static Fin<Option<Point3d>> Machined(Fixture fixture) =>
         fixture.Spec.Current.Match(
-            Some: stock => Workholding.Apply(new WorkholdingOp.Machined(fixture, stock)).Bind(static result => result switch {
-                WorkholdingResult.MachinedHit(var point) => Fin.Succ(point),
-                _ => throw new InvalidOperationException("Workholding.Machined returned a non-machining result."),
-            }),
+            Some: stock => Fixtures.Machined(fixture, stock),
             None: static () => Fin.Succ(Option<Point3d>.None));
 
     // --- [COMMIT]
@@ -983,8 +975,8 @@ internal static partial class Setups {
         Mounting reframed = held.Mounting.Reframed(measured);
         return operations
             .Traverse(row => Evidence(row, held.Machine, held.Fixture, reframed, schedule.Plan)
-                .Bind(evidence => evidence.ToFin(new FabricationFault.SetupInfeasible(Some(row.Key), schedule.Setups.Count)))
-                .ToValidation())
+                .Bind(evidence => evidence.ToValidation(
+                    new FabricationFault.SetupInfeasible(Some(row.Key), schedule.Setups.Count))))
             .As().ToFin().Bind(proven => {
                 HashMap<int, SetupEvidence> reproven = proven.Fold(HashMap<int, SetupEvidence>(),
                     static (index, evidence) => index.Add(evidence.Operation, evidence));

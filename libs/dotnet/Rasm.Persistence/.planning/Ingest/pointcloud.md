@@ -72,9 +72,9 @@ public sealed partial class ScanSpec {
         ref ValidationError? validationError, ref ScanFormat format, ref Origin origin,
         ref int regionResolution, ref ScanStore blob) {
         if (origin is Origin.FromPath { Path: string path } && string.IsNullOrWhiteSpace(path)) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<scan-spec-path>" }));
+            validationError = ValidationError.Create("<scan-spec-path>");
         } else if (regionResolution is < 0 or > 15) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { "<scan-spec-resolution>" }));
+            validationError = ValidationError.Create("<scan-spec-resolution>");
         }
     }
 }
@@ -166,7 +166,7 @@ public static class ScanSource {
         }
         return (
             new ScanHeader(scan, spec.Format, meta.Points, meta.Wkt, extent, meta.Captured, meta.Sensor, now),
-            toSeq(regions).Map(row => new ScanRegion(scan, row.Key, row.Value.Count, row.Value.ZMin, row.Value.ZMax)));
+            regions.AsIterable().ToSeq().Map(row => new ScanRegion(scan, row.Key, row.Value.Count, row.Value.ZMin, row.Value.ZMax)));
     }
 
     static IO<Validation<Error, ScanYield>> Probed(ScanSpec spec, ReadOnlyMemory<byte> header, ProjectionContext frame) =>
@@ -208,8 +208,8 @@ public static class ScanSource {
 
     static ScanBatch Gathered(ScanBatch batch, List<int> kept) {
         double[] xyz = new double[kept.Count * 3];
-        byte[]? classes = batch.Classes.Map(static _ => new byte[kept.Count]).IfNoneUnsafe(() => null);
-        ushort[]? colors = batch.Colors.Map(static _ => new ushort[kept.Count * 3]).IfNoneUnsafe(() => null);
+        byte[]? classes = batch.Classes.Match<byte[]?>(Some: _ => new byte[kept.Count], None: static () => null);
+        ushort[]? colors = batch.Colors.Match<ushort[]?>(Some: _ => new ushort[kept.Count * 3], None: static () => null);
         for (int slot = 0; slot < kept.Count; slot++) {
             int at = kept[slot];
             batch.Positions.Span.Slice(at * 3, 3).CopyTo(xyz.AsSpan(slot * 3, 3));
@@ -248,11 +248,9 @@ public static class ScanSource {
         (payload.IsSingleSegment ? payload.First : new ReadOnlyMemory<byte>(payload.ToArray())).AsStream();
 
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
-        Op.Of().Catch(() => Fin.Succ(codec())).Match(
-            Succ: static value => (Validation<Error, TValue>)value,
-            Fail: static e => e.Exception.Case is ScanRefusal refusal
-                ? (Validation<Error, TValue>)refusal.Fault
-                : e);
+        Op.Of().Catch(() => Fin.Succ(codec()))
+            .MapFail(static e => e.Exception.Case is ScanRefusal refusal ? refusal.Fault : e)
+            .ToValidation();
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------

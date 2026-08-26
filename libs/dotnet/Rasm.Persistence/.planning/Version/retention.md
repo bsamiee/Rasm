@@ -67,7 +67,7 @@ public sealed partial class IdentityScheme {
     public ContentAddress Identity(ContentAddress contentKey, string name, ulong epoch) => Switch(
         state: (Key: contentKey, Name: name, Epoch: epoch),
         contentKeyed: static row => row.Key,
-        namePlusEpoch: static row => ContentAddress.Of(
+        namePlusEpoch: static row => ContentAddress.Create(
             ContentHash.Of(row, static (r, writer) => writer.String(r.Name).U128(r.Epoch))));
 }
 
@@ -433,7 +433,7 @@ public static class RetentionSweep {
         from _ in verdicts.Choose(static v => v is SweepVerdict.Cool c ? Some(c) : None)
                           .TraverseM(c => Redrive.Run(cls.Schedule.Redrive, demote(c.Key, c.To))).As()
         let summed = Summed(cls, verdicts, tally)
-        from _swept in IO.liftFin(Seq(("kept", summed.Kept), ("hold", summed.Held), ("cool", summed.Cooled), ("evict", summed.Evicted))
+        from _swept in IO.lift(Seq(("kept", summed.Kept), ("hold", summed.Held), ("cool", summed.Cooled), ("evict", summed.Evicted))
             .TraverseM(row => frame.Instruments.Write(StoreInstruments.RetentionSwept.Spec, row.Item2,
                 InstrumentSet.Tags((StoreInstruments.ClassSlot, cls.Key), (StoreInstruments.RuleSlot, row.Item1)))).As().Map(static _ => unit))
         select summed;

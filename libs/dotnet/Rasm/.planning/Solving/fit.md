@@ -741,7 +741,7 @@ public static class Fit {
                 ? op.Kinds.Filter(static kind => kind.NeedsNormals).Map(kind =>
                     (Validation<Error, Unit>)new GeometryFault.DegenerateInput(kind.Carrier, None, "no-normal-field"))
                 : Seq<Validation<Error, Unit>>());
-        return probes.Traverse(identity).As().Map(_ => op).ToFin();
+        return AdmissionSlots.Accumulate(probes).Map(_ => op).ToFin();
     }
 
     // --- [CONSENSUS]

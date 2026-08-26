@@ -14,7 +14,7 @@ That canonical content key is the single identity the lane composes by: `Symboli
 
 - Owner: `SymbolicExpr` `[ComplexValueObject]` over the `AngouriMath` `Entity`, identity-bearing through its canonical `XxHash128` content key (never `Entity.GetHashCode()`, per-process randomized and forbidden as a key source even though `Entity` equality is structural); `SymbolName`/`Order`/`Degree`/`Finite` the admitted scalars every downstream fold reads instead of a raw `string`/`int`/`double`; `Notation` the rendering axis; `NumberBox` the one projector collapsing the evaluated numeric tower to `Fin<double>`; `ComparerAccessors.StringOrdinal` the ordinal accessor the free-symbol set folds and sorts through; `CanonicalProbe` the composition-time gate proving the engine still canonicalizes a pinned expression set to the keys the corpus was written against.
 - Cases: the wrapped `Entity` is the engine's closed node hierarchy — numeric-tower leaves (`Integer` ⊂ `Rational` ⊂ `Real` ⊂ `Complex`, exact via the `PeterO.Numbers` carriers the content key depends on), `Entity.Variable` (free symbols `Name`-keyed, pi/e excluded from `Vars`), the arithmetic and function records, the deferred-analytic residues (`Derivativef`/`Integralf`/`Limitf` — the decline sentinels the operation fold gates on), the regime-switch nodes (`Entity.Piecewise` over its `Providedf(Expression, Predicate)` cases with the `ComparisonSign` records `Equalsf`/`Greaterf`/`GreaterOrEqualf`/`Lessf`/`LessOrEqualf` its predicates carry — the first-class carrier for design-code piecewise formulas, dimension-proved by `Symbolic/dimensional`), `Entity.Set` (the solve-result carrier), and the statement nodes (`Solver/satisfy` lowers); `NumberBox` collapses the tower to one `Fin<double>` at the `Real` leaf (subsuming `Rational`/`Integer`, carrying ±∞ as `Real` specials) and faults the `Complex`/unbound arms.
-- Entry: `SymbolicExpr.Of(Entity)` routes the generated `Create(entity, string.Empty, default)` whose `ValidateFactoryArguments` derives BOTH the canonical pre-image and the content key once from the entity (both passed slots are always overwritten, so a forged key or a forged rendering cannot desync identity), and `SymbolicExpr.Admit(Entity)` routes the generated `Validate` for the one FOREIGN tree — `[ValidationError]` makes that `Validate` return the domain fault, so the refusal lands on `Fin` with no translation hop; the projection is `e.Simplify().Stringize()` — the reduce pass first, because equivalent reductions can render distinct strings without it; `ContentKey` mints through the kernel `ContentHash.Of` federation entry over canonical UTF-8 bytes, so architecture endianness and runtime string layout never enter the cross-runtime key; `FreeSymbols` folds `Entity.Vars` (constants excluded) into the ordinal-sorted `SymbolName` set; `Tree` answers the forged-`default` null once for every consumer; `Evaluate(Map<SymbolName,Finite>)` routes the same `SymbolicOp.Substitute` fold and projects `Evaled` through `NumberBox`.
+- Entry: `SymbolicExpr.Of(Entity)` routes the generated `Create(entity, string.Empty, default)` whose `ValidateFactoryArguments` derives BOTH the canonical pre-image and the content key once from the entity (both passed slots are always overwritten, so a forged key or a forged rendering cannot desync identity), and `SymbolicExpr.Admit(Entity)` routes the generated `Validate` for the one FOREIGN tree through the Domain admission bridge, translating default `ValidationError` evidence onto `Fin` once; the projection is `e.Simplify().Stringize()` — the reduce pass first, because equivalent reductions can render distinct strings without it; `ContentKey` mints through the kernel `ContentHash.Of` federation entry over canonical UTF-8 bytes, so architecture endianness and runtime string layout never enter the cross-runtime key; `FreeSymbols` folds `Entity.Vars` (constants excluded) into the ordinal-sorted `SymbolName` set; `Tree` answers the forged-`default` null once for every consumer; `Evaluate(Map<SymbolName,Finite>)` routes the same `SymbolicOp.Substitute` fold and projects `Evaled` through `NumberBox`.
 - Auto: construction pays exactly ONE normalization and every read pays none — the canonical string and its key derive together, so builds with identical projections share one key and one cache slot while `Canonical` is a stored read rather than a re-simplify; equality and hashing are generated over `ContentKey` ALONE and both inert members ride one generic accessor. `Evaluate` reads `Evaled`, so an under-bound expression surfaces as `SymbolUndefined` at `NumberBox`. The admitted scalars carry their invariants at construction, so blank symbols, non-positive derivative orders, negative Taylor degrees, and non-finite expansion points are unspellable rather than re-tested per arm.
 - Result: none of its own — an interior value; differentiate/compile/evaluate outcomes ride the `lowering` `CompiledExpr` cache result and the `optimizer` `Optimization` slot, and a parse/dimension/analytic fault rides the `ComputeFault` channel at the admitting edge.
 - Packages: AngouriMath (`Entity`, `Simplify`/`Stringize`/`Latexise`/`Vars`/`Substitute`/`Evaled`), PeterO.Numbers (the exact-number carriers the `Entity.Number` leaves expose), Rasm (project, `Domain.ContentHash` — the one federation content-hash entry), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
@@ -34,7 +34,7 @@ public readonly partial struct SymbolName {
         }
     }
 
-    public Entity.Variable Var => MathS.Var(Value);
+    public Entity.Variable Var => MathS.Var(ToValue());
 }
 
 [ValueObject<int>]
@@ -98,9 +98,7 @@ public readonly partial struct SymbolicExpr {
     internal static SymbolicExpr Of(Entity entity) => Create(entity, string.Empty, default);
 
     internal static Fin<SymbolicExpr> Admit(Entity tree) =>
-        Validate(tree, string.Empty, default, out SymbolicExpr admitted) is ComputeFault refusal
-            ? Fin.Fail<SymbolicExpr>(refusal)
-            : Fin.Succ(admitted);
+        Op.Of(name: nameof(Admit)).AcceptValidated<SymbolicExpr>(Validate(tree, string.Empty, default, out SymbolicExpr admitted), admitted);
 
     public Fin<Entity> Tree =>
         this.Entity is not null
@@ -113,10 +111,10 @@ public readonly partial struct SymbolicExpr {
         toSeq(toSeq(this.Entity.Vars)
             .Map(static v => SymbolName.Create(v.Name))
             .Distinct()
-            .OrderBy(static symbol => symbol.Value, ComparerAccessors.StringOrdinal.Comparer));
+            .OrderBy(static symbol => symbol.ToValue(), ComparerAccessors.StringOrdinal.Comparer));
 
     public Fin<double> Evaluate(Map<SymbolName, Finite> bindings) =>
-        SymbolicOps.Apply(this, new SymbolicOp.Substitute(bindings.Map(static value => SymbolicExpr.Of(value.Value))))
+        SymbolicOps.Apply(this, new SymbolicOp.Substitute(bindings.Map(static value => SymbolicExpr.Of(value.ToValue()))))
             .Bind(static substituted => NumberBox.Project(substituted.Entity.Evaled));
 
     private sealed class Inert<T> : IEqualityComparerAccessor<T>, IEqualityComparer<T> {
@@ -241,7 +239,7 @@ public static class SymbolicOps {
         source.Tree.Bind(_ => Captured.Of(() => op.Switch(
                 source,
                 differentiate: static (c, src) => Bind(src, c.Symbol)
-                    .Bind(v => Settle<Entity.Derivativef>(src.Entity.Differentiate(v, c.Order.Value))),
+                    .Bind(v => Settle<Entity.Derivativef>(src.Entity.Differentiate(v, c.Order.ToValue()))),
                 integrate: static (c, src) => Bind(src, c.Symbol).Bind(v => c.Bounds.Match(
                     Some: b => Settle<Entity.Integralf>(src.Entity.Integrate(v, b.Lower.Entity, b.Upper.Entity)),
                     None: () => Settle<Entity.Integralf>(src.Entity.Integrate(v)))),
@@ -249,10 +247,10 @@ public static class SymbolicOps {
                     .Bind(v => Settle<Entity.Limitf>(src.Entity.Limit(v, c.Destination.Entity, c.Approach))),
                 solve: static (c, src) => Bind(src, c.Symbol).Map(v => SymbolicExpr.Of(src.Entity.Solve(v))),
                 taylor: static (c, src) => Bind(src, c.Symbol)
-                    .Map(v => SymbolicExpr.Of(MathS.Taylor(src.Entity, c.Degree.Value, (v, c.At.Value)))),
+                    .Map(v => SymbolicExpr.Of(MathS.Taylor(src.Entity, c.Degree.ToValue(), (v, c.At.ToValue())))),
                 simplify: static (c, src) => Fin.Succ(SymbolicExpr.Of(c.Form.Normalize(src.Entity))),
                 substitute: static (c, src) => Fin.Succ(SymbolicExpr.Of(
-                    c.Bindings.Fold(src.Entity, static (acc, pair) => acc.Substitute(pair.Key.Var, pair.Value.Entity))))))));
+                    c.Bindings.AsIterable().Fold(src.Entity, static (acc, pair) => acc.Substitute(pair.Key.Var, pair.Value.Entity))))))));
 
     public static Fin<Seq<double>> Coefficients(SymbolicExpr source, SymbolName symbol, long payloadBound) =>
         Captured.Of(() => Bind(source, symbol).Bind(variable =>
@@ -279,7 +277,7 @@ public static class SymbolicOps {
     static Fin<Entity.Variable> Bind(SymbolicExpr source, SymbolName symbol) =>
         source.FreeSymbols.Contains(symbol)
             ? Fin.Succ(symbol.Var)
-            : Fin.Fail<Entity.Variable>(new ComputeFault.SymbolUndefined($"<absent-symbol:{symbol.Value}>"));
+            : Fin.Fail<Entity.Variable>(new ComputeFault.SymbolUndefined($"<absent-symbol:{symbol.ToValue()}>"));
 
     static Fin<SymbolicExpr> Settle<TResidue>(Entity result) where TResidue : Entity =>
         result.Nodes.Any(static n => n is TResidue)

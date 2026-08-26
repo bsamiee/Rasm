@@ -30,7 +30,6 @@ using System.Threading;
 using IdsLib;
 using IdsLib.IfcSchema;
 using LanguageExt;
-using LanguageExt.UnsafeValueAccess;
 using Rasm.Bim.Model;
 using Rasm.Bim.Semantics;
 using Microsoft.Extensions.Logging;
@@ -268,9 +267,8 @@ public sealed record IdsSpecification(
             return Optional(Xids.LoadBuildingSmartIDS(stream, NullLogger.Instance))
                 .Map(static xids => toSeq(xids.AllSpecifications().Select(static (spec, i) => Project(spec) with { Ordinal = i })));
         })
-        .Bind(loaded => loaded.Match(
-            Some: Fin.Succ,
-            None: () => Fin.Fail<Seq<IdsSpecification>>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "ids-lane", "parse", "load-empty" })))));
+        .Bind(loaded => loaded.ToFin(
+            new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "ids-lane", "parse", "load-empty" }))));
 
     public static Fin<Seq<IdsResolved>> Resolve(Seq<IdsSpecification> specifications, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
         specifications.TraverseM(spec => Settle(spec, port, pins, token, key)).As();
@@ -587,14 +585,14 @@ public sealed record IdsSpecification(
         attribute:      static (_, f) => (IFacet)new AttributeFacet { AttributeName = RaiseName(f.Name), AttributeValue = RaiseMatches(f.Value) },
         property:       static (_, f) => (IFacet)new IfcPropertyFacet { PropertySetName = RaiseName(f.Set), PropertyName = RaiseName(f.Name), PropertyValue = RaiseMatches(f.Value) },
         classification: static (_, f) => (IFacet)new IfcClassificationFacet {
-                            ClassificationSystem = f.Branches.Head.Map(static b => new ValueConstraint(b.System)).ValueUnsafe(),
+                            ClassificationSystem = Op.ToHostSlot(f.Branches.Head.Map(static b => new ValueConstraint(b.System))),
                             Identification = f.Branches.IsEmpty ? null : new ValueConstraint(f.Branches.Map(static b => b.Code)),
                             IncludeSubClasses = f.Reach.Subsumes,
                         },
         material:       static (_, f) => (IFacet)new MaterialFacet { Value = RaiseMatches(f.Value) },
         partOf:         static (s, f) => {
                             PartOfFacet raised = new() {
-                                EntityType = f.Container.Bind(c => c is IdsFacet.Entity e ? Some((IfcTypeFacet)Raise(e, s)) : Option<IfcTypeFacet>.None).ValueUnsafe(),
+                                EntityType = Op.ToHostSlot(f.Container.Bind(c => c is IdsFacet.Entity e ? Some((IfcTypeFacet)Raise(e, s)) : Option<IfcTypeFacet>.None)),
                             };
                             raised.SetRelation(f.Relation.Foreign);
                             return (IFacet)raised;
@@ -614,12 +612,12 @@ public sealed record IdsSpecification(
                                         RaiseBound(r.Lower).Magnitude, RaiseBound(r.Lower).Inclusive,
                                         RaiseBound(r.Upper).Magnitude, RaiseBound(r.Upper).Inclusive)),
             ValueMatch.Length l  => Seq<IValueConstraintComponent>(new StructureConstraint {
-                                        MinLength = l.Min.Match<int?>(static v => v, static () => null),
-                                        MaxLength = l.Max.Match<int?>(static v => v, static () => null),
+                                        MinLength = Op.ToHostNullable(l.Min),
+                                        MaxLength = Op.ToHostNullable(l.Max),
                                     }),
             ValueMatch.Digits d  => Seq<IValueConstraintComponent>(new StructureConstraint {
-                                        TotalDigits = d.Total.Match<int?>(static v => v, static () => null),
-                                        FractionDigits = d.Fraction.Match<int?>(static v => v, static () => null),
+                                        TotalDigits = Op.ToHostNullable(d.Total),
+                                        FractionDigits = Op.ToHostNullable(d.Fraction),
                                     }),
             _                    => Seq<IValueConstraintComponent>(),
         });
@@ -794,7 +792,7 @@ public partial record ModelFinding {
     public string Coordinate => Switch(
         structural: static s => s.Finding.Category.Key,
         baseline: static b => $"{b.Finding.Set}.{b.Finding.Code}",
-        authored: static a => $"{a.Spec}:{a.Requirement}:{a.Key.Value:X32}");
+        authored: static a => $"{a.Spec}:{a.Requirement}:{a.Key.ToValue():X32}");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

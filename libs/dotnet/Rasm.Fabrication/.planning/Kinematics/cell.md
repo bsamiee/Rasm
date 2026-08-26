@@ -606,12 +606,14 @@ public static class RobotProgram {
                     Optional(row.Policy).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:motion-policy")),
                     Optional(row.Search).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:placement-policy")))
                 .Apply(static (policy, search) => (Policy: policy, Search: search))
+                .As()
                 .ToFin()
                 .Bind(admittedPolicy => Place(state, admittedPolicy.Policy, admittedPolicy.Search)),
             animation: static (state, row) => (
                     Optional(row.Policy).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:motion-policy")),
                     Optional(row.Clock).ToValidation((Error)new KernelFault.InvalidValue("cell", "robot-cell:animation-clock")))
                 .Apply(static (policy, clock) => (Policy: policy, Clock: clock))
+                .As()
                 .ToFin()
                 .Bind(admittedPolicy => Animate(state, admittedPolicy.Policy, admittedPolicy.Clock)))
         select result;

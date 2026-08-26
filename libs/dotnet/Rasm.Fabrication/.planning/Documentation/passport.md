@@ -312,26 +312,26 @@ public static class QualityReport {
     public static Fin<SealedRecord> Seal(QualityReportRequest request, Option<InstrumentSet> set = default) =>
         from admitted in QualityEvidence.RecordOp.Need(request)
         from _request in (
-            QualityEvidence.Gate(!admitted.Records.IsEmpty, RecordRefusal.Source),
-            QualityEvidence.Gate(admitted.Scope is not null, RecordRefusal.Scope),
-            QualityEvidence.Gate(
+            AdmissionSlots.Gate(!admitted.Records.IsEmpty, QualityEvidence.Refused(RecordRefusal.Source)),
+            AdmissionSlots.Gate(admitted.Scope is not null, QualityEvidence.Refused(RecordRefusal.Scope)),
+            AdmissionSlots.Gate(
                 admitted.Signers.ForAll(static signer => signer.Certificate is not null) && admitted.Trust is not null,
-                RecordRefusal.Credential))
+                QualityEvidence.Refused(RecordRefusal.Credential)))
             .Apply(static (_, _, _) => unit)
             .As()
             .ToFin()
         from _trusted in admitted.Signers.Traverse(signer => admitted.Trust(
             signer.Signer, signer.Role, signer.Credential, signer.Certificate)).As()
         from _quorum in (
-            QualityEvidence.Gate(
+            AdmissionSlots.Gate(
                 admitted.Signers.Map(static signer => (signer.Signer, signer.Role)).Distinct().Count == admitted.Signers.Count,
-                RecordRefusal.Credential),
-            QualityEvidence.Gate(!admitted.Signers.Exists(independent => independent.Role.IndependentAuthority
+                QualityEvidence.Refused(RecordRefusal.Credential)),
+            AdmissionSlots.Gate(!admitted.Signers.Exists(independent => independent.Role.IndependentAuthority
                 && admitted.Signers.Exists(authority => !authority.Role.IndependentAuthority
-                    && authority.Signer == independent.Signer)), RecordRefusal.Independence),
-            QualityEvidence.Gate(
+                    && authority.Signer == independent.Signer)), QualityEvidence.Refused(RecordRefusal.Independence)),
+            AdmissionSlots.Gate(
                 Required(admitted).ForAll(requirement => requirement.SatisfiedBy(admitted.Signers)),
-                RecordRefusal.Quorum))
+                QualityEvidence.Refused(RecordRefusal.Quorum)))
             .Apply(static (_, _, _) => unit)
             .As()
             .ToFin()

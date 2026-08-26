@@ -51,8 +51,6 @@ public sealed partial class SensorId {
   value = value.Trim();
  }
 
- public static Fin<SensorId> Of(string token, Op key) =>
-  key.AcceptValidated<SensorId>(token);
 }
 
 [SmartEnum<string>]
@@ -260,9 +258,7 @@ public sealed partial record ObservationSeries {
    static (label, op) => (Error)new KernelFault.InvalidValue(label, "carry a non-blank canonical unit", Some(op)));
 
  private static Validation<Error, Unit> Cadenced(Option<Duration> cadence, Op key) =>
-  cadence.Match(
-   Some: span => In(span.TotalSeconds, Band.Positive, "observation-cadence-seconds", key).Map(static _ => unit),
-   None: () => Success<Error, Unit>(unit));
+  cadence.Traverse(span => In(span.TotalSeconds, Band.Positive, "observation-cadence-seconds", key)).As().Map(static _ => unit);
 
  private static Validation<Error, Unit> Lawful(ObservationChunk chunk, Op key) =>
   Accumulate(Seq(
@@ -390,7 +386,7 @@ public readonly record struct SeriesStatistics(
   };
 
  private static Fin<MeasureValue> Figure(Option<MeasureValue> value, Op key, string column) =>
-  value.Match(Some: Fin.Succ, None: () => new ElementFault.ValueRejected(key, $"<observation-representative-absent:{column}>"));
+  value.ToFin(new ElementFault.ValueRejected(key, $"<observation-representative-absent:{column}>"));
 }
 ```
 

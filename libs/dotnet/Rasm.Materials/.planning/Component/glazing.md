@@ -41,13 +41,13 @@ namespace Rasm.Materials.Component;
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GlassType {
-    public static readonly GlassType Float            = new("float",             normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.0, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 1.00, strengtheningFactor: None,       safety: false, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType LowIron          = new("low-iron",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.50, formProcessGwpPerM2: 0.0, solarTransmittance: 0.90, solarReflectance: 0.080, visibleTransmittance: 0.91, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 1.00, strengtheningFactor: None,       safety: false, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType Patterned        = new("patterned",         normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.0, solarTransmittance: 0.78, solarReflectance: 0.075, visibleTransmittance: 0.85, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 0.75, strengtheningFactor: None,       safety: false, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType HeatStrengthened = new("heat-strengthened", normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.9, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 70.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: false, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType Tempered         = new("tempered",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 1.2, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: true, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType TemperedVertical = new("tempered-vertical", normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 1.2, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(0.6), safety: true, appearance: MaterialId.Of("glass.crown"));
-    public static readonly GlassType Borosilicate     = new("borosilicate",      normalEmissivity: 0.837, conductivityWmK: 1.14, densityKgM3: 2230.0, specificHeatJKgK: 830.0, substanceGwpPerKg: 2.00, formProcessGwpPerM2: 5.0, solarTransmittance: 0.70, solarReflectance: 0.070, visibleTransmittance: 0.85, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: true, appearance: MaterialId.Of("glass.flint"));
+    public static readonly GlassType Float            = new("float",             normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.0, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 1.00, strengtheningFactor: None,       safety: false, appearance: MaterialId.Create("glass.crown"));
+    public static readonly GlassType LowIron          = new("low-iron",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.50, formProcessGwpPerM2: 0.0, solarTransmittance: 0.90, solarReflectance: 0.080, visibleTransmittance: 0.91, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 1.00, strengtheningFactor: None,       safety: false, appearance: MaterialId.Create("glass.crown"));
+    public static readonly GlassType Patterned        = new("patterned",         normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.0, solarTransmittance: 0.78, solarReflectance: 0.075, visibleTransmittance: 0.85, visibleReflectance: 0.08, characteristicBendingMpa: 45.0, surfaceProfileFactor: 0.75, strengtheningFactor: None,       safety: false, appearance: MaterialId.Create("glass.crown"));
+    public static readonly GlassType HeatStrengthened = new("heat-strengthened", normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 0.9, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 70.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: false, appearance: MaterialId.Create("glass.crown"));
+    public static readonly GlassType Tempered         = new("tempered",          normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 1.2, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: true, appearance: MaterialId.Create("glass.crown"));
+    public static readonly GlassType TemperedVertical = new("tempered-vertical", normalEmissivity: 0.837, conductivityWmK: 1.00, densityKgM3: 2500.0, specificHeatJKgK: 720.0, substanceGwpPerKg: 1.43, formProcessGwpPerM2: 1.2, solarTransmittance: 0.82, solarReflectance: 0.075, visibleTransmittance: 0.90, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(0.6), safety: true, appearance: MaterialId.Create("glass.crown"));
+    public static readonly GlassType Borosilicate     = new("borosilicate",      normalEmissivity: 0.837, conductivityWmK: 1.14, densityKgM3: 2230.0, specificHeatJKgK: 830.0, substanceGwpPerKg: 2.00, formProcessGwpPerM2: 5.0, solarTransmittance: 0.70, solarReflectance: 0.070, visibleTransmittance: 0.85, visibleReflectance: 0.08, characteristicBendingMpa: 120.0, surfaceProfileFactor: 1.00, strengtheningFactor: Some(1.0), safety: true, appearance: MaterialId.Create("glass.flint"));
     public double NormalEmissivity { get; }
     public double ConductivityWmK { get; }
     public double DensityKgM3 { get; }
@@ -64,7 +64,7 @@ public sealed partial class GlassType {
     public bool Safety { get; }
 
     public MaterialId Appearance { get; }
-    public MaterialId Substance => MaterialId.Of($"glass.{Key}");
+    public MaterialId Substance => MaterialId.Create($"glass.{Key}");
 }
 
 [SmartEnum<string>]
@@ -357,8 +357,8 @@ public static class GlazingThermal {
             double right = PaneArealMass(panes[index + 1]);
             return 60.0 * Math.Sqrt((left + right) / (left * right * cavity.WidthMm.Value / 1000.0));
         });
-        double[] sri = new double[AcousticBand.Count];
-        double[] absorption = new double[AcousticBand.Count];
+        double[] sri = new double[AcousticBand.Items.Count];
+        double[] absorption = new double[AcousticBand.Items.Count];
         foreach (AcousticBand band in AcousticBand.Items) {
             double resonanceDip = resonances.Fold(0.0, (worst, resonance) => Math.Max(worst, Math.Max(0.0, 8.0 - 6.0 * Math.Abs(Math.Log2(band.CenterHz / resonance)))));
             sri[band.Key] = Math.Max(0.0, 20.0 * Math.Log10(Math.Max(areal, 1e-9) * band.CenterHz) - MassLawOffsetDb + bonus - resonanceDip);
@@ -385,9 +385,9 @@ public static class GlazingGwp {
             p.Glass.FormProcessGwpPerM2 + p.OutboardCoating.ProcessGwpPerM2 + p.InboardCoating.ProcessGwpPerM2 + (p.IsLaminated ? p.Interlayer.ProcessGwpPerM2 : 0.0))
             + IguAssemblyGwpPerM2;
         double edge = (seal.Primary.ProcessGwpPerM + seal.Secondary.ProcessGwpPerM + spacer.EdgeSealGwpPerM) * perimeterToAreaRatio;
-        Option<double>[] stages = new Option<double>[LifecycleStage.Count];
+        Option<double>[] stages = new Option<double>[LifecycleStage.Items.Count];
         Array.Fill(stages, Option<double>.None);
-        stages[LifecycleStage.A1A3.Index] = Some(substance + processing + edge);
+        stages[LifecycleStage.A1A3.Key] = Some(substance + processing + edge);
         return stages;
     }
 }
@@ -474,17 +474,22 @@ public static class GlazingDetail {
     static readonly PropertyEvidence GenericEpd = new("epd", "en 15804 generic insulating glass unit", Option<LocalDate>.None);
 
     internal static Validation<Error, Unit> Stack(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, Op key) =>
-        (guard(!panes.IsEmpty && cavities.Count == panes.Count - 1,
-             new KernelFault.InvalidValue(nameof(GlazingDetail), "one fewer cavity than panes", Some(key))).ToValidation(),
-         guard(!panes.IsEmpty && GlazingBuild.OfPaneCount(panes.Count).IsSome,
-             new KernelFault.InvalidValue(nameof(GlazingBuild), "a published pane-count build", Some(key))).ToValidation(),
-         guard(fireEiMinutes >= 0,
-             new KernelFault.OutOfRange(nameof(fireEiMinutes), fireEiMinutes, "non-negative", Some(key))).ToValidation(),
-         guard(panes.ForAll(Coherent),
-             new KernelFault.InvalidValue(nameof(panes), "coherent pane and interlayer declarations", Some(key))).ToValidation(),
-         guard(cavities.ForAll(Sane),
-             new KernelFault.InvalidValue(nameof(cavities), "admitted cavity width and fill fractions", Some(key))).ToValidation())
-            .Apply(static (_, _, _, _, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                !panes.IsEmpty && cavities.Count == panes.Count - 1,
+                new KernelFault.InvalidValue(nameof(GlazingDetail), "one fewer cavity than panes", Some(key))),
+            AdmissionSlots.Gate(
+                !panes.IsEmpty && GlazingBuild.OfPaneCount(panes.Count).IsSome,
+                new KernelFault.InvalidValue(nameof(GlazingBuild), "a published pane-count build", Some(key))),
+            AdmissionSlots.Gate(
+                fireEiMinutes >= 0,
+                new KernelFault.OutOfRange(nameof(fireEiMinutes), fireEiMinutes, "non-negative", Some(key))),
+            AdmissionSlots.Gate(
+                panes.ForAll(Coherent),
+                new KernelFault.InvalidValue(nameof(panes), "coherent pane and interlayer declarations", Some(key))),
+            AdmissionSlots.Gate(
+                cavities.ForAll(Sane),
+                new KernelFault.InvalidValue(nameof(cavities), "admitted cavity width and fill fractions", Some(key)))));
 
     internal static Fin<Unit> Admit(Seq<Pane> panes, Seq<Cavity> cavities, int fireEiMinutes, Op key) =>
         Stack(panes, cavities, fireEiMinutes, key).ToFin();
@@ -518,14 +523,16 @@ public static class GlazingDetail {
             MaterialPropertySet.Environmental.CarbonMatrix(GlazingGwp.StagesPerM2(panes, seal, spacer, perimeterToAreaRatio)),
             recycledContent: None, endOfLifeRecovery: None, key, evidence: GenericEpd)
         from fire in fireEiMinutes > 0
-            ? FireResistance.Ei(fireEiMinutes, key).Map(resistance => Seq(MaterialPropertySet.OfFire(None, resistance)))
+            ? FireResistance.Of(FireCoverage.Ei, fireEiMinutes, key).Map(resistance => Seq(MaterialPropertySet.OfFire(None, resistance)))
             : Fin.Succ(Seq<MaterialPropertySet>())
         let acoustic = MaterialPropertySet.OfAcoustic(perf.Acoustic)
         select Seq(thermal, acoustic, environmental) + fire;
 
     internal static Fin<Seq<Ply>> Plies(Seq<Pane> panes, Seq<Cavity> cavities, Op key) =>
         toSeq(Enumerable.Range(0, panes.Count + cavities.Count))
-            .Traverse(slot => (slot & 1) == 0 ? PanePlies(panes[slot / 2], key) : CavityPly(cavities[slot / 2])).As()
+            .Traverse(slot => (slot & 1) == 0
+                ? PanePlies(panes[slot / 2], key)
+                : Fin.Succ(Seq(new Ply(MaterialId.Create("gas.cavity"), cavities[slot / 2].WidthMm, PlyRole.Cavity)))).As()
             .Map(static plies => plies.Bind(static p => p));
 
     static Fin<Seq<Ply>> PanePlies(Pane pane, Op key) =>
@@ -534,17 +541,14 @@ public static class GlazingDetail {
               from inter in key.AcceptValidated<PositiveMagnitude>(candidate: pane.InterlayerThicknessMm)
               select Seq(
                   new Ply(pane.Glass.Appearance, half, PlyRole.Pane),
-                  new Ply(MaterialId.Of("glass.crown"), inter, PlyRole.Interlayer),
+                  new Ply(MaterialId.Create("glass.crown"), inter, PlyRole.Interlayer),
                   new Ply(pane.Glass.Appearance, half, PlyRole.Pane))
             : Fin.Succ(Seq(new Ply(pane.Glass.Appearance, pane.ThicknessMm, PlyRole.Pane)));
-
-    static Fin<Seq<Ply>> CavityPly(Cavity c) =>
-        Fin.Succ(Seq(new Ply(MaterialId.Of("gas.cavity"), c.WidthMm, PlyRole.Cavity)));
 
     internal static Fin<PropertyBag> Bag(Seq<Pane> panes, Seq<Cavity> cavities, SpacerType spacer, EdgeSeal edgeSeal, Option<MuntinGrid> muntin, int fireEiMinutes, EvidenceGrade source) =>
         from paneRows in toSeq(Enumerable.Range(0, panes.Count)).Traverse(i => PaneComplex(panes[i], i)).As()
         from cavityRows in toSeq(Enumerable.Range(0, cavities.Count)).Traverse(i => CavityComplex(cavities[i], i)).As()
-        from muntinRows in muntin.Match(Some: MuntinRows, None: static () => Fin.Succ(Seq<(PropertyName, PropertyValue)>()))
+        from muntinRows in muntin.TraverseM(MuntinRows).As().Map(static rows => rows.IfNone(Seq<(PropertyName, PropertyValue)>()))
         from fireRows in fireEiMinutes > 0
             ? Measured(DetailSchema.FireResistanceEi, Dimension.DurationDim, fireEiMinutes * 60.0).Map(static row => Seq(row))
             : Fin.Succ(Seq<(PropertyName, PropertyValue)>())
@@ -682,10 +686,11 @@ public static class GlazingSeed {
         appearance: static r => r.Panes[0].Glass.Appearance);
 
     static Validation<Error, Unit> Coherence(GlazingRow r, Op key) =>
-        (GlazingDetail.Stack(r.Panes, r.Cavities, r.FireResistanceEiMinutes, key),
-         guard(r.Muntin.ForAll(static m => m.HorizontalBars >= 0 && m.VerticalBars >= 0 && m.HorizontalBars + m.VerticalBars > 0),
-             new KernelFault.InvalidValue(nameof(r.Muntin), "non-negative bars with at least one muntin", Some(key))).ToValidation())
-            .Apply(static (_, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            GlazingDetail.Stack(r.Panes, r.Cavities, r.FireResistanceEiMinutes, key),
+            AdmissionSlots.Gate(
+                r.Muntin.ForAll(static m => m.HorizontalBars >= 0 && m.VerticalBars >= 0 && m.HorizontalBars + m.VerticalBars > 0),
+                new KernelFault.InvalidValue(nameof(r.Muntin), "non-negative bars with at least one muntin", Some(key)))));
 
     static Fin<SectionProfile> Profile(GlazingRow r, Op key) =>
         from plies in GlazingDetail.Plies(r.Panes, r.Cavities, key)

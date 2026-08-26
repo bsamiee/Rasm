@@ -900,7 +900,7 @@ public abstract partial class Tessellation : IValidityEvidence {
     }
 
     Fin<Tessellation> RecoverFacet(Conform.Facet facet, int index) =>
-        facet.Boundary.AsIterable().Map(static (v, i) => i).ToSeq().Fold(
+        Range(0, facet.Boundary.Count).ToSeq().Fold(
             Fin.Succ(this),
             (acc, i) => acc.Bind(t => t.RecoverOne(new Conform.Edge(facet.Boundary[i], facet.Boundary[(i + 1) % facet.Boundary.Count]), index)))
         .Bind(t => t.FacetConform(facet, index));

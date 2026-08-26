@@ -50,7 +50,7 @@ public static partial class MaterialShape {
     internal static MaterialId Substance(IfcMaterial? material) => Key(material?.Name);
 
     internal static MaterialId Key(string? name, string? fallback = null) =>
-        MaterialId.Of(PropertyLowering.Stated(name).IfNone(() => PropertyLowering.Stated(fallback).IfNone("")));
+        MaterialId.Create(PropertyLowering.Stated(name).IfNone(() => PropertyLowering.Stated(fallback).IfNone("")));
 
     internal static Option<int> Junction(int priority) => priority == int.MinValue ? None : Some(priority);
 
@@ -189,14 +189,14 @@ public static partial class MaterialProjection {
 
     static Fin<IfcMaterialDefinition> Definition(DatabaseIfc db, MaterialComposition composition, MaterialId key, IIfcProfileStore profiles, Option<string> profileSubtype, UnitScheme scale) =>
         composition.Switch(
-            single:        s => Fin.Succ<IfcMaterialDefinition>(MaterialOf(db, s.Material.Value)),
+            single:        s => Fin.Succ<IfcMaterialDefinition>(MaterialOf(db, s.Material.ToValue())),
             layerSet:      s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialLayerSet(
                                     s.Layers.Map(l => Layer(db, l, scale)), key.Value)),
             profileSet:    s => Rows(db, s, profiles, profileSubtype, scale).Map(rows => AuthorProfileSet(key, rows, s, profiles)),
             constituentSet: s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialConstituentSet(key.Value,
                                     s.Constituents.Map(c => new IfcMaterialConstituent(
-                                        string.IsNullOrEmpty(c.PartName) ? c.Material.Value : c.PartName,
-                                        MaterialOf(db, c.Material.Value)) { Fraction = c.Fraction, Category = c.Category }))));
+                                        string.IsNullOrEmpty(c.PartName) ? c.Material.ToValue() : c.PartName,
+                                        MaterialOf(db, c.Material.ToValue())) { Fraction = c.Fraction, Category = c.Category }))));
 
     static IfcMaterialDefinition AuthorProfileSet(MaterialId key, Seq<IfcMaterialProfile> rows, MaterialComposition.ProfileSet set, IIfcProfileStore profiles) {
         var authored = new IfcMaterialProfileSet(key.Value, [.. rows]);
@@ -206,7 +206,7 @@ public static partial class MaterialProjection {
     }
 
     static IfcMaterialLayer Layer(DatabaseIfc db, MaterialLayer layer, UnitScheme scale) {
-        var row = new IfcMaterialLayer(MaterialOf(db, layer.Material.Value), scale.Render(layer.Thickness).Value, layer.LayerName) {
+        var row = new IfcMaterialLayer(MaterialOf(db, layer.Material.ToValue()), scale.Render(layer.Thickness).Value, layer.LayerName) {
             Category = layer.Category,
             IsVentilated = layer.Ventilated.Match(Some: static v => v ? IfcLogicalEnum.TRUE : IfcLogicalEnum.FALSE, None: static () => IfcLogicalEnum.UNKNOWN),
         };
@@ -222,7 +222,7 @@ public static partial class MaterialProjection {
             .As();
 
     static IfcMaterialProfile Row(DatabaseIfc db, MaterialProfile row, IfcProfileDef profile, UnitScheme scale) {
-        IfcMaterial material = MaterialOf(db, row.Material.Value);
+        IfcMaterial material = MaterialOf(db, row.Material.ToValue());
         string name = row.Profile.Designation;
         IfcMaterialProfile authored = row.Offsets.Map(offset => scale.Render(offset).Value).ToArray() switch {
             [var start] => new IfcMaterialProfileWithOffsets(name, material, profile, start),
@@ -297,7 +297,7 @@ public static partial class MaterialProjection {
             ("RecycledContent", static e => Some<IfcValue>(new IfcNormalisedRatioMeasure(e.RecycledContent))),
             ("EndOfLifeRecovery", static e => Some<IfcValue>(new IfcNormalisedRatioMeasure(e.EndOfLifeRecovery))))
         + Discipline<MaterialPropertySet.Cost>("Pset_ConstructionCosts",
-            ("Currency", static c => Some<IfcValue>(new IfcLabel(c.Currency.Value))),
+            ("Currency", static c => Some<IfcValue>(new IfcLabel(c.Currency.ToValue()))),
             ("MeasurementBasis", static c => Some<IfcValue>(new IfcLabel(c.Basis.Key))),
             ("SupplyCost", static c => Some<IfcValue>(new IfcMonetaryMeasure(c.SupplyPerUnit))),
             ("InstallationCost", static c => Some<IfcValue>(new IfcMonetaryMeasure(c.InstallPerUnit))),
@@ -333,7 +333,7 @@ public static partial class MaterialProjection {
             value => value is TCase typed ? column.Read(typed) : None));
 
     static Seq<MaterialColumn> Stages(string set) =>
-        LifecycleStage.Items.AsIterable().ToSeq().Map(stage => new MaterialColumn(set, $"GlobalWarmingPotential_{stage.Module}",
+        toSeq(LifecycleStage.Items).Map(stage => new MaterialColumn(set, $"GlobalWarmingPotential_{stage.Module}",
             value => value is MaterialPropertySet.Environmental e ? Some<IfcValue>(new IfcReal(e.StageAt(stage))) : None));
 
     static readonly Seq<(string Name, Func<PropertyEvidence, Option<IfcValue>> Read)> EvidenceRows = Seq<(string, Func<PropertyEvidence, Option<IfcValue>>)>(

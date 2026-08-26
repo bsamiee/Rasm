@@ -11,7 +11,7 @@
 ## [02]-[EVENT_ALGEBRA]
 
 - Owner: `ChromeEvent` is the closed interaction vocabulary — one case per verified host callback family, each carrying the host payload verbatim; `ChromeDecision` is the right-biased merge monoid, so composing two policies is `left | right` with the right's settled slots winning and redraw accumulating.
-- Cases: `Layout`, `Pivot`, `Paint`, `Menu`, `Pointer`, `Key`, `Text`, `Focus`, `Tooltip`, `Resize`, and `Cursor` — each projecting its typed `ChromeKind` row, so trace keys are vocabulary rows, never `GetType().Name` strings; `PointerKind` and `KeyPhase` close the sub-discriminants, while `Resize` observes the live host `Size` after the setter's own invalidation and `Leave` carries no mouse payload. `Resize` reaches the resizable shell alone and `Cursor` the component shell alone, because the resizable base implements the cursor contract explicitly and the component base carries no size.
+- Cases: `Layout`, `Pivot`, `Paint`, `Menu`, `Pointer`, `Key`, `Text`, `Focus`, `Tooltip`, `Resize`, and `Cursor` — each projecting its typed `ChromeKind` row, so trace keys are vocabulary rows, never `GetType().Name` strings; kernel `PointerPhase` and `KeyPhase` close the sub-discriminants, while `Resize` observes the live host `Size` after the setter's own invalidation and `Leave` carries no mouse payload. `Resize` reaches the resizable shell alone and `Cursor` the component shell alone, because the resizable base implements the cursor contract explicitly and the component base carries no size.
 - Entry: a policy is one `Func<ChromeEvent, ChromeState, ChromeDecision>` — total by the union's generated dispatch, never a callback subclass per interaction.
 - Growth: a new host callback family is one union case; a new decision slot is one `ChromeDecision` member folded into `|`.
 - Law: chrome hit-testing rides the host's own region geometry — the cell stores the `Shape` its shell's last layout callback received, `ChromeState.Region` derives the current `Capsule` through `Capsule.CreateFromOuter(Shape, Bounds)` against live bounds rather than caching a paint-time capsule, and `Hits` folds `Bounds.Contains` as the coarse pre-filter with `SlabF.Contains` as the exact rounded-capsule answer. Every policy therefore decides on the real region and never on its bounding box; before the first layout the rectangle is the whole answer, which is exactly what the host itself knows.
@@ -19,27 +19,11 @@
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
+using Rasm.Interaction;
+
 namespace Rasm.Grasshopper.Components;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-[SmartEnum]
-public sealed partial class PointerKind {
-    public static readonly PointerKind Over = new();
-    public static readonly PointerKind Leave = new();
-    public static readonly PointerKind Down = new();
-    public static readonly PointerKind Drag = new();
-    public static readonly PointerKind Up = new();
-    public static readonly PointerKind Wheel = new();
-    public static readonly PointerKind SingleClick = new();
-    public static readonly PointerKind DoubleClick = new();
-}
-
-[SmartEnum]
-public sealed partial class KeyPhase {
-    public static readonly KeyPhase Down = new();
-    public static readonly KeyPhase Up = new();
-}
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -69,7 +53,7 @@ public abstract partial record ChromeEvent {
         Grasshopper2.UI.Primitives.Capsule Capsule,
         Grasshopper2.UI.Skinning.Shade Shade) : ChromeEvent;
     public sealed record Menu(Eto.Forms.ContextMenu Host) : ChromeEvent;
-    public sealed record Pointer(PointerKind Kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> Args) : ChromeEvent;
+    public sealed record Pointer(PointerPhase Kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> Args) : ChromeEvent;
     public sealed record Key(KeyPhase Phase, Eto.Forms.KeyEventArgs Args) : ChromeEvent;
     public sealed record Text(Eto.Forms.TextInputEventArgs Args) : ChromeEvent;
     public sealed record Focus(bool Gained) : ChromeEvent;
@@ -173,16 +157,16 @@ public sealed class ChromeCell {
     }
 
     private static Seq<Action<Grasshopper2.UI.Flex.Responses>> Hooks(ChromeCell cell, Grasshopper2.Doc.IAttributes host) => Seq<Action<Grasshopper2.UI.Flex.Responses>>(
-        responder => responder.MouseOverHook += args => ignore(cell.Pointer(PointerKind.Over, Optional(args), host)),
-        responder => responder.MouseLeaveHook += () => ignore(cell.Pointer(PointerKind.Leave, None, host)),
-        responder => responder.MouseDownHook += args => cell.Pointer(PointerKind.Down, Optional(args), host),
-        responder => responder.MouseDragHook += args => cell.Pointer(PointerKind.Drag, Optional(args), host),
-        responder => responder.MouseUpHook += args => cell.Pointer(PointerKind.Up, Optional(args), host),
-        responder => responder.MouseWheelHook += args => cell.Pointer(PointerKind.Wheel, Optional(args), host),
-        responder => responder.MouseSingleClickHook += args => cell.Pointer(PointerKind.SingleClick, Optional(args), host),
-        responder => responder.MouseDoubleClickHook += args => cell.Pointer(PointerKind.DoubleClick, Optional(args), host),
-        responder => responder.KeyDownHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.Down, args), host),
-        responder => responder.KeyUpHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.Up, args), host),
+        responder => responder.MouseOverHook += args => ignore(cell.Pointer(PointerPhase.Over, Optional(args), host)),
+        responder => responder.MouseLeaveHook += () => ignore(cell.Pointer(PointerPhase.Leave, None, host)),
+        responder => responder.MouseDownHook += args => cell.Pointer(PointerPhase.Down, Optional(args), host),
+        responder => responder.MouseDragHook += args => cell.Pointer(PointerPhase.Drag, Optional(args), host),
+        responder => responder.MouseUpHook += args => cell.Pointer(PointerPhase.Up, Optional(args), host),
+        responder => responder.MouseWheelHook += args => cell.Pointer(PointerPhase.Wheel, Optional(args), host),
+        responder => responder.MouseSingleClickHook += args => cell.Pointer(PointerPhase.SingleClick, Optional(args), host),
+        responder => responder.MouseDoubleClickHook += args => cell.Pointer(PointerPhase.DoubleClick, Optional(args), host),
+        responder => responder.KeyDownHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.KeyDown, args), host),
+        responder => responder.KeyUpHook += args => cell.Verdict(new ChromeEvent.Key(KeyPhase.KeyUp, args), host),
         responder => responder.TextInputHook += args => cell.Verdict(new ChromeEvent.Text(args), host),
         responder => responder.GotFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: true), host)),
         responder => responder.LostFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: false), host)));
@@ -193,9 +177,7 @@ public sealed class ChromeCell {
         Op op = key.OrDefault();
         ChromeDecision decision = op.Catch(() => Fin.Succ(chrome.Respond(
                 happening, new ChromeState(host.Bounds, host.Pivot, skinShape.Value))))
-            .Match(
-                Succ: identity,
-                Fail: cause => (Park(cause), ChromeDecision.Pass).Item2);
+            .IfFail(cause => (Park(cause), ChromeDecision.Pass).Item2);
         trace.Iter(drain => drain.Publish(
             source: ChromeSource.Row,
             fact: () => Fin.Succ(new ChromeTrace(Kind: happening.Kind, Decision: decision)),
@@ -216,7 +198,7 @@ public sealed class ChromeCell {
     private Unit Park(Error cause) => ignore(faults.Park(point: faultPoint, cause: cause));
 
     private Grasshopper2.UI.Flex.Response Pointer(
-        PointerKind kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> args, Grasshopper2.Doc.IAttributes host) =>
+        PointerPhase kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> args, Grasshopper2.Doc.IAttributes host) =>
         Verdict(new ChromeEvent.Pointer(kind, args), host);
 
     private Grasshopper2.UI.Flex.Response Verdict(ChromeEvent happening, Grasshopper2.Doc.IAttributes host) =>

@@ -346,9 +346,7 @@ public abstract partial record Touch {
         Fin<Seq<TouchResult>> primary = states
             .TraverseM(state => Apply(native: state.Native, key: key))
             .As();
-        return primary.BindFail(failure => Restore(states: states, key: key).Match(
-            Succ: _ => Fin.Fail<Seq<TouchResult>>(error: failure),
-            Fail: cleanup => Fin.Fail<Seq<TouchResult>>(error: failure + cleanup)));
+        return primary.Rollback(release: () => Restore(states: states, key: key), key: key);
     }
 
     private Fin<TouchResult> Apply(RhinoObject native, Op key) =>
@@ -616,9 +614,8 @@ public sealed class ObjectPiece {
         return Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
                 () => key.Catch(() => Fin.Succ(value: Op.Side(Geometry.Dispose))),
-                () => Attributes.Match(
-                    Some: value => key.Catch(() => Fin.Succ(value: Op.Side(value.Dispose))),
-                    None: static () => Fin.Succ(unit))),
+                () => Attributes.TraverseM(value => key.Catch(() => Fin.Succ(Op.Side(value.Dispose))))
+                    .As().Map(static _ => unit)),
             key: key);
     }
 
@@ -726,20 +723,13 @@ public sealed partial class PartState {
         bool selectableIgnoringSelection,
         bool highlighted,
         Op key) =>
-        from part in Part(component: component, key: key)
+        from part in key.AcceptValidated<PartIndex, ComponentIndex>(candidate: component)
         from row in key.AcceptValidated<PartState>(
             fault: Validate(
                 id, part, selected, selectable, selectableIgnoringSelection, highlighted,
                 out PartState? admitted),
             admitted: admitted)
         select row;
-
-    private static Fin<PartIndex> Part(ComponentIndex component, Op key) =>
-        (PartIndex.Validate(value: component, provider: CultureInfo.InvariantCulture, item: out PartIndex? admitted), admitted) switch {
-            (null, PartIndex part) => Fin.Succ(value: part),
-            (DraftFault refusal, _) => Fin.Fail<PartIndex>(error: refusal),
-            _ => Fin.Fail<PartIndex>(error: key.InvalidResult(detail: nameof(PartIndex))),
-        };
 }
 
 [ComplexValueObject]
@@ -899,9 +889,10 @@ public static class Objects {
                    .Bind(answer => answer is BlockGraphAnswer.Condensed condensed
                        ? Fin.Succ(value: condensed.Components.Filter(static component => component.Count > 1).Count)
                        : Fin.Fail<int>(error: op.InvalidResult()))
-               from archive in path.Match(
-                   Some: value => OpenArchive(path: value, op: op),
-                   None: static () => Fin.Succ(Option<ArchiveExtent>.None))
+               from archive in path
+                   .TraverseM(value => OpenArchive(path: value, op: op))
+                   .As()
+                   .Map(static opened => opened.Bind(static extent => extent))
                select new DocumentCensus(
                    Kinds: toSeq(usage.AsEnumerable().CountBy(static row => row.Kind)
                        .Select(static pair => (pair.Key, pair.Value))),

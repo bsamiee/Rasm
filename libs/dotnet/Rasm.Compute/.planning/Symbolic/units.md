@@ -57,10 +57,10 @@ internal static class UnitsEdge {
         Quantity.TryFrom(value, unit, out IQuantity? typed) ? Optional(typed) : None;
 
     public static Option<IQuantity> FromAbbreviation(UnitPolicy policy, double value, UnitToken abbreviation) =>
-        Quantity.TryFromUnitAbbreviation(policy.Culture, value, abbreviation.Value, out IQuantity? typed) ? Optional(typed) : None;
+        Quantity.TryFromUnitAbbreviation(policy.Culture, value, abbreviation.ToValue(), out IQuantity? typed) ? Optional(typed) : None;
 
     public static Option<Enum> Unit(UnitToken abbreviation, Type unitType, UnitPolicy policy) =>
-        UnitsNetSetup.Default.UnitParser.TryParse(abbreviation.Value, unitType, policy.Culture, out Enum? resolved) ? Optional(resolved) : None;
+        UnitsNetSetup.Default.UnitParser.TryParse(abbreviation.ToValue(), unitType, policy.Culture, out Enum? resolved) ? Optional(resolved) : None;
 
     public static Option<double> Convert(double value, Enum from, Enum to) =>
         UnitConverter.TryConvert(value, from, to, out double converted) && double.IsFinite(converted) ? Some(converted) : None;
@@ -134,15 +134,15 @@ public sealed partial class QuantityFamily {
         Captured.Of(() => input.Switch(
                 state: (Row: this, Policy: policy, Correlation: correlation),
                 typed: static (value, state) => state.Row.AdmitQuantity(value.Value, UnitResolution.Declared, state.Correlation),
-                text: static (value, state) => UnitsEdge.Parse(state.Policy, state.Row.Info.ValueType, value.Value.Value).Match(
-                    Some: parsed => state.Row.AdmitQuantity(parsed, UnitResolution.Inferred, state.Correlation),
-                    None: () => Fin.Fail<MeasureEvidence>(new ComputeFault.ParseRejected($"<unit-text:{state.Row.Key}:{value.Value.Value}>"))),
-                unitValue: static (value, state) => UnitsEdge.From(value.Value.Value, value.Unit).Match(
-                    Some: typed => state.Row.AdmitQuantity(typed, UnitResolution.Declared, state.Correlation),
-                    None: () => Fin.Fail<MeasureEvidence>(new ComputeFault.ParseRejected($"<unit-declared:{state.Row.Key}:{value.Unit}>"))),
-                abbreviated: static (value, state) => UnitsEdge.FromAbbreviation(state.Policy, value.Value.Value, value.Unit).Match(
-                    Some: typed => state.Row.AdmitQuantity(typed, UnitResolution.Declared, state.Correlation),
-                    None: () => Fin.Fail<MeasureEvidence>(new ComputeFault.ParseRejected($"<unit-abbreviation:{state.Row.Key}:{value.Unit.Value}>")))));
+                text: static (value, state) => UnitsEdge.Parse(state.Policy, state.Row.Info.ValueType, value.Value.ToValue())
+                    .ToFin(new ComputeFault.ParseRejected($"<unit-text:{state.Row.Key}:{value.Value.ToValue()}>"))
+                    .Bind(parsed => state.Row.AdmitQuantity(parsed, UnitResolution.Inferred, state.Correlation)),
+                unitValue: static (value, state) => UnitsEdge.From(value.Value.ToValue(), value.Unit)
+                    .ToFin(new ComputeFault.ParseRejected($"<unit-declared:{state.Row.Key}:{value.Unit}>"))
+                    .Bind(typed => state.Row.AdmitQuantity(typed, UnitResolution.Declared, state.Correlation)),
+                abbreviated: static (value, state) => UnitsEdge.FromAbbreviation(state.Policy, value.Value.ToValue(), value.Unit)
+                    .ToFin(new ComputeFault.ParseRejected($"<unit-abbreviation:{state.Row.Key}:{value.Unit.ToValue()}>"))
+                    .Bind(typed => state.Row.AdmitQuantity(typed, UnitResolution.Declared, state.Correlation))));
 
     public Fin<MeasureEvidence> Aggregate(Seq<IQuantity> parts, AggregateOp op, UnitPolicy policy, CorrelationId correlation) =>
         parts.IsEmpty
@@ -156,7 +156,7 @@ public sealed partial class QuantityFamily {
 
     public Fin<string> Render(double canonicalValue, UnitPolicy policy, Option<Enum> target = default) =>
         Captured.Of(() => target.IfNone(Display) is Enum resolved && double.IsFinite(canonicalValue) && resolved.GetType() == Info.UnitType
-                ? Fin.Succ(((IFormattable)Quantity.From(canonicalValue, Canonical).ToUnit(resolved)).ToString(policy.Format.Value, policy.Culture))
+                ? Fin.Succ(((IFormattable)Quantity.From(canonicalValue, Canonical).ToUnit(resolved)).ToString(policy.Format.ToValue(), policy.Culture))
                 : Fin.Fail<string>(new ComputeFault.ParseRejected($"<unit-render-target:{Key}:{Info.Name}>")));
 
     public Fin<bool> Equivalent(IQuantity left, IQuantity right) =>
@@ -293,9 +293,8 @@ public static class UnitAlgebra {
             .Map(static row => row.Left.Key);
 
     public static Fin<double> Numeric(Finite value, Enum from, Enum to) =>
-        UnitsEdge.Convert(value.Value, from, to).Match(
-            Some: Fin.Succ,
-            None: () => Fin.Fail<double>(new ComputeFault.ParseRejected($"<unit-convert-unsupported:{from}->{to}>")));
+        UnitsEdge.Convert(value.ToValue(), from, to)
+            .ToFin(new ComputeFault.ParseRejected($"<unit-convert-unsupported:{from}->{to}>"));
 }
 ```
 
@@ -316,9 +315,8 @@ public sealed partial class QuantityFamily {
         toSeq(Items).Fold(Map<QuantityType, QuantityFamily>(), static (index, row) => index.Add(row.Type, row)));
 
     public static Fin<QuantityFamily> Of(QuantityType type) =>
-        ByType.Value.Find(type).Match(
-            Some: Fin.Succ,
-            None: () => Fin.Fail<QuantityFamily>(new ComputeFault.ParseRejected($"<unit-family-unknown:{type.Value}>")));
+        ByType.Value.Find(type)
+            .ToFin(new ComputeFault.ParseRejected($"<unit-family-unknown:{type.ToValue()}>"));
 
     public static Seq<QuantityInfo> Catalogue() =>
         toSeq(Items).Map(static row => row.Info);

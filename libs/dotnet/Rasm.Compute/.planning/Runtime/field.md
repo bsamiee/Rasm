@@ -205,7 +205,7 @@ public sealed partial class FieldHeader {
     }
 
     static Validation<Error, FieldRank> Ranked(int order) =>
-        FieldRank.Items.Find(row => row.Order == order)
+        toSeq(FieldRank.Items).Find(row => row.Order == order)
             .ToValidation<Error>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Rank(order, FieldRank.Items.Count))));
 
     public byte[] Write() {
@@ -307,27 +307,26 @@ public static class FieldPack {
                         : Fail<Error, (FieldArtifact, FieldHeader)>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Consistent, new ContractEvidence.Count(payload.Length, header.GridCount)))))));
 
     public static Fin<ComputeArtifact> FieldEncode(FieldArtifact field, string formatKey, FieldCodecPolicy policy, Instant at, Option<ResidualPredictor> predictor = default) =>
-        AdmittedField.Validate(field, policy, out AdmittedField? admitted) is { } error
-            ? Fin.Fail<ComputeArtifact>((ComputeFault)error)
-            : admitted!.Policy.Storage.Switch(
+        Op.Of(name: nameof(FieldEncode)).AcceptValidated<AdmittedField>(AdmittedField.Validate(field, policy, out AdmittedField? admitted), admitted)
+            .Bind(admitted => admitted.Policy.Storage.Switch(
                 state: (admitted.Field, Predictor: predictor),
                 exact: static (s, _) => Fin.Succ(s.Field with { MaxResidual = 0.0 }),
                 quantized: static (s, q) => BoundedQuantize(s.Field, q),
                 predicted: static (s, p) => s.Predictor
                     .ToFin(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Required(ComputeSubject.Resource)))
                     .Bind(net => ResidualEncode(s.Field, p, net)))
-            .Bind(encoded => Pack(encoded, admitted!.Policy)
-                .Map(packed => ComputeArtifact.Of(formatKey, packed, at, [admitted.Policy.Storage.QuantizationBits, admitted.Policy.Storage.ErrorBound])));
+                .Bind(encoded => Pack(encoded, admitted.Policy)
+                    .Map(packed => ComputeArtifact.Of(formatKey, packed, at, [admitted.Policy.Storage.QuantizationBits, admitted.Policy.Storage.ErrorBound]))));
 
     static Fin<ReadOnlyMemory<byte>> Pack(FieldArtifact field, FieldCodecPolicy policy) =>
-        FieldHeader.Validate(
-                field.Station, field.Rank, field.Components, field.Count, field.Chunks.Length,
-                policy.Storage, policy.Compression,
-                toSeq(field.Grid.Grid.Span.ToArray()),
-                toSeq(field.Grid.Chunk.Span.ToArray().Select(static axis => (int)axis)),
-                out FieldHeader? header) is { } error
-            ? Fin.Fail<ReadOnlyMemory<byte>>((ComputeFault)error)
-            : policy.Compression.Pack(field.Chunks).Map(body => (ReadOnlyMemory<byte>)(byte[])[.. header!.Write(), .. body.Span]);
+        Op.Of(name: nameof(Pack)).AcceptValidated<FieldHeader>(FieldHeader.Validate(
+            field.Station, field.Rank, field.Components, field.Count, field.Chunks.Length,
+            policy.Storage, policy.Compression,
+            toSeq(field.Grid.Grid.Span.ToArray()),
+            toSeq(field.Grid.Chunk.Span.ToArray().Select(static axis => (int)axis)),
+            out FieldHeader? header), header)
+            .Bind(header => policy.Compression.Pack(field.Chunks)
+                .Map(body => (ReadOnlyMemory<byte>)(byte[])[.. header.Write(), .. body.Span]));
 
     public static Fin<FieldArtifact> Hdf5Decode(string formatKey, HdfHandle handle, string dataset, Instant at, Option<FieldWindow> window = default) =>
         handle.Dataset(dataset).ToValidation<Error>().Bind(source => {
@@ -381,7 +380,7 @@ public static class FieldPack {
     }
 
     static Validation<Error, FieldRank> Ranked(int dim, int components) =>
-        FieldRank.Items.Find(row => row.Components(dim) == components)
+        toSeq(FieldRank.Items).Find(row => row.Components(dim) == components)
             .ToValidation<Error>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(dim, components))));
 
     internal static float[] Narrowed(double[] wide) {
@@ -391,13 +390,12 @@ public static class FieldPack {
     }
 
     public static Fin<ComputeArtifact> Hdf5Encode(FieldArtifact field, FieldCodecPolicy policy, HdfArchivePolicy archive, Stream sink, Instant at) =>
-        AdmittedField.Validate(field, policy, out AdmittedField? admitted) is { } error
-            ? Fin.Fail<ComputeArtifact>((ComputeFault)error)
-            : admitted!.Policy.Storage.Switch(
+        Op.Of(name: nameof(Hdf5Encode)).AcceptValidated<AdmittedField>(AdmittedField.Validate(field, policy, out AdmittedField? admitted), admitted)
+            .Bind(admitted => admitted.Policy.Storage.Switch(
                 state: (admitted, archive, sink, at),
                 exact: static (s, _) => Emit(s.admitted.Field with { MaxResidual = 0.0 }, s.admitted.Policy, s.archive, s.sink, s.at),
                 quantized: static (s, q) => BoundedQuantize(s.admitted.Field, q).Bind(coded => Emit(coded, s.admitted.Policy, s.archive, s.sink, s.at)),
-                predicted: static (s, _) => Fin.Fail<ComputeArtifact>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.None()))));
+                predicted: static (s, _) => Fin.Fail<ComputeArtifact>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.None())))));
 
     static Fin<FieldArtifact> BoundedQuantize(FieldArtifact field, FieldStorage.Quantized storage) {
         FieldArtifact coded = Quantize(field, storage.Bits);

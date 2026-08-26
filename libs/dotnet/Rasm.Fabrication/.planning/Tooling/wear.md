@@ -804,8 +804,9 @@ public static class ToolWear {
                 from _wear in set.Write(FabricationInstruments.ToolWear, critical.FractionRemaining,
                     (FabricationInstruments.BasisSlot, critical.Basis.Key),
                     (FabricationInstruments.ActionSlot, result.Action.Disposition.Key))
-                from _fit in result.Diagnostics.Map(static row => row.RootMeanSquareResidual).Max().Match(
-                    Some: residual => set.Write(FabricationInstruments.FitResidual, residual,
+                from _fit in result.Diagnostics.Head.Match(
+                    Some: _ => set.Write(FabricationInstruments.FitResidual,
+                        result.Diagnostics.Max(static row => row.RootMeanSquareResidual),
                         (FabricationInstruments.ModelSlot, FabricationInstruments.Taylor)),
                     None: static () => Fin.Succ(unit))
                 from _floor in set.Level(FabricationInstruments.ToolFloor, critical.FractionRemaining, Some(critical.Basis.Key))
@@ -953,6 +954,7 @@ public static class ToolWear {
         Seq<(double Exposure, double Value, Instant At)> rows = sigma <= 0.0 ? raw
             : raw.Filter(row => Math.Abs(row.Value - spread.Mean) <= policy.OutlierSigma * sigma).ToSeq();
         return (rows.Head, rows.Last).Apply(static (first, last) => (First: first, Last: last))
+            .As()
             .ToFin(ToolKey.Tooling("wear:window"))
             .Bind(bounds => rows.Count >= policy.MinimumSamples
                 && !rows.Zip(rows.Skip(1)).Exists(pair => pair.Item2.At - pair.Item1.At > policy.MaximumGap)

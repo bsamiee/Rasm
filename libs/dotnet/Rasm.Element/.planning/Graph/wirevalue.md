@@ -18,7 +18,6 @@
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System.Numerics;
-using System.Diagnostics;
 using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
@@ -41,8 +40,8 @@ internal static partial class WireCodec {
    Inheritance = ToWire(bag.Inheritance),
    SourceRank = ToWire(bag.Source),
   };
-  wire.Values.AddRange(bag.Values.OrderBy(static pair => pair.Key.Value, StringComparer.Ordinal)
-   .Select(static pair => new NamedValueWire { Name = pair.Key.Value, Value = ToWire(pair.Value) }));
+  wire.Values.AddRange(bag.Values.OrderBy(static pair => pair.Key.ToValue(), StringComparer.Ordinal)
+   .Select(static pair => new NamedValueWire { Name = pair.Key.ToValue(), Value = ToWire(pair.Value) }));
   return wire;
  }
 
@@ -52,8 +51,8 @@ internal static partial class WireCodec {
    Inheritance = ToWire(bag.Inheritance),
    SourceRank = ToWire(bag.Source),
   };
-  wire.Values.AddRange(bag.Values.OrderBy(static pair => pair.Key.Value, StringComparer.Ordinal)
-   .Select(static pair => new NamedMeasureWire { Name = pair.Key.Value, Value = ToWire(pair.Value) }));
+  wire.Values.AddRange(bag.Values.OrderBy(static pair => pair.Key.ToValue(), StringComparer.Ordinal)
+   .Select(static pair => new NamedMeasureWire { Name = pair.Key.ToValue(), Value = ToWire(pair.Value) }));
   wire.Groups.AddRange(bag.Groups.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => {
    GroupIdentityWire identity = new();
    pair.Value.Discrimination.IfSome(value => identity.Discrimination = value);
@@ -69,7 +68,7 @@ internal static partial class WireCodec {
   evidence.Reference.IfSome(r => w.Reference = r);
   evidence.ValidUntil.IfSome(d => w.ValidUntil = NodaTime.Text.LocalDatePattern.Iso.Format(d));
   evidence.Attested.IfSome(a => w.Attested = new AttestationWire {
-   Role = ToWire(a.Role), Credential = a.Credential, Payload = ToWire(a.Payload.Value), At = a.At.ToTimestamp(),
+   Role = ToWire(a.Role), Credential = a.Credential, Payload = ToWire(a.Payload.ToValue()), At = a.At.ToTimestamp(),
   });
   evidence.Run.IfSome(run => w.Run = ToWire(run));
   return w;
@@ -88,7 +87,7 @@ internal static partial class WireCodec {
   bounded: v => { BoundedWire b = new(); v.Lower.IfSome(m => b.Lower = ToWire(m)); v.Upper.IfSome(m => b.Upper = ToWire(m)); v.SetPoint.IfSome(m => b.SetPoint = ToWire(m)); return new() { Bounded = b }; },
   list: v => { ListWire l = new(); l.Values.AddRange(v.Values.Map(ToWire)); return new() { List = l }; },
   table: v => { TableWire t = new() { Interpolation = ToWire(v.Interp) }; t.Rows.AddRange(v.Rows.Map(r => new TableRowWire { Defining = ToWire(r.Defining), Defined = ToWire(r.Defined) })); return new() { Table = t }; },
-  complex: v => { ComplexWire c = new() { UsageName = v.UsageName }; c.Properties.AddRange(v.Properties.OrderBy(static pair => pair.Key.Value, StringComparer.Ordinal).Select(static pair => new NamedValueWire { Name = pair.Key.Value, Value = ToWire(pair.Value) })); return new() { Complex = c }; },
+  complex: v => { ComplexWire c = new() { UsageName = v.UsageName }; c.Properties.AddRange(v.Properties.OrderBy(static pair => pair.Key.ToValue(), StringComparer.Ordinal).Select(static pair => new NamedValueWire { Name = pair.Key.ToValue(), Value = ToWire(pair.Value) })); return new() { Complex = c }; },
   temporal: v => new() { Temporal = v.Value.Switch<TemporalWire>(
    date: static t => new() { Date = t.Value.ToDate() },
    moment: static t => new() { Moment = ToWire(t.Value) },
@@ -176,7 +175,7 @@ internal static partial class WireCodec {
   from role in ToAttestationRole(w.Role, key)
   from at in Present(w.At, "attestation.at", key)
   from payload in ToKey(w.Payload, key)
-  select new Attestation(role, w.Credential, ContentAddress.Of(payload), at.ToInstant());
+  select new Attestation(role, w.Credential, ContentAddress.Create(payload), at.ToInstant());
 
  static Fin<PropertyBag> ToBag(PropertySetWire w, Op key) =>
   BagAxes(w.Inheritance, w.SourceRank, key).Bind(axes =>
@@ -200,20 +199,17 @@ internal static partial class WireCodec {
   Rasm.Contracts.Element.EvidenceGrade sourceRank,
   Op key) =>
   (ToInheritance(inheritance, key), ToEvidenceGrade(sourceRank, key))
-   .Apply(static (mode, rank) => (mode, rank)).As().ToFin();
+   .Apply(static (mode, rank) => (mode, rank)).As();
 
  static Fin<Map<PropertyName, PropertyValue>> ToValueMap(IEnumerable<NamedValueWire> entries, Op key) =>
   toSeq(entries).TraverseM(p =>
    key.AcceptValidated<PropertyName>(p.Name).Bind(name => ToValue(p.Value, key).Map(v => (Name: name, Value: v)))).As()
    .Bind(pairs => Named(pairs, key));
 
- static Rasm.Contracts.Element.InheritanceMode ToWire(InheritanceMode value) => value == InheritanceMode.OccurrenceWins
-  ? Rasm.Contracts.Element.InheritanceMode.OccurrenceWins
-  : value == InheritanceMode.TypeDrivenOverride
-   ? Rasm.Contracts.Element.InheritanceMode.TypeDrivenOverride
-   : value == InheritanceMode.TypeDrivenOnly
-    ? Rasm.Contracts.Element.InheritanceMode.TypeDrivenOnly
-    : throw new UnreachableException();
+ static Rasm.Contracts.Element.InheritanceMode ToWire(InheritanceMode value) => value.Switch(
+  occurrenceWins: static () => Rasm.Contracts.Element.InheritanceMode.OccurrenceWins,
+  typeDrivenOverride: static () => Rasm.Contracts.Element.InheritanceMode.TypeDrivenOverride,
+  typeDrivenOnly: static () => Rasm.Contracts.Element.InheritanceMode.TypeDrivenOnly);
 
  static Fin<InheritanceMode> ToInheritance(Rasm.Contracts.Element.InheritanceMode value, Op key) => value switch {
   Rasm.Contracts.Element.InheritanceMode.OccurrenceWins => Fin.Succ(InheritanceMode.OccurrenceWins),
@@ -222,15 +218,13 @@ internal static partial class WireCodec {
   _ => Fin.Fail<InheritanceMode>(key.InvalidInput(nameof(PropertySetWire.Inheritance))),
  };
 
- static Rasm.Contracts.Element.EvidenceGrade ToWire(EvidenceGrade value) => value.Key switch {
-  10 => Rasm.Contracts.Element.EvidenceGrade.Catalogue,
-  15 => Rasm.Contracts.Element.EvidenceGrade.Defined,
-  20 => Rasm.Contracts.Element.EvidenceGrade.Import,
-  25 => Rasm.Contracts.Element.EvidenceGrade.Measured,
-  30 => Rasm.Contracts.Element.EvidenceGrade.Derived,
-  40 => Rasm.Contracts.Element.EvidenceGrade.User,
-  _ => throw new UnreachableException(),
- };
+ static Rasm.Contracts.Element.EvidenceGrade ToWire(EvidenceGrade value) => value.Switch(
+  catalogue: static () => Rasm.Contracts.Element.EvidenceGrade.Catalogue,
+  defined: static () => Rasm.Contracts.Element.EvidenceGrade.Defined,
+  import: static () => Rasm.Contracts.Element.EvidenceGrade.Import,
+  measured: static () => Rasm.Contracts.Element.EvidenceGrade.Measured,
+  derived: static () => Rasm.Contracts.Element.EvidenceGrade.Derived,
+  user: static () => Rasm.Contracts.Element.EvidenceGrade.User);
 
  static Fin<EvidenceGrade> ToEvidenceGrade(Rasm.Contracts.Element.EvidenceGrade value, Op key) => value switch {
   Rasm.Contracts.Element.EvidenceGrade.Catalogue => Fin.Succ(EvidenceGrade.Catalogue),
@@ -242,15 +236,11 @@ internal static partial class WireCodec {
   _ => Fin.Fail<EvidenceGrade>(key.InvalidInput(nameof(PropertySetWire.SourceRank))),
  };
 
- static Rasm.Contracts.Element.Interpolation ToWire(Interpolation value) => value == Interpolation.NotDefined
-  ? Rasm.Contracts.Element.Interpolation.NotDefined
-  : value == Interpolation.Linear
-   ? Rasm.Contracts.Element.Interpolation.Linear
-   : value == Interpolation.LogLinear
-    ? Rasm.Contracts.Element.Interpolation.LogLinear
-    : value == Interpolation.LogLog
-     ? Rasm.Contracts.Element.Interpolation.LogLog
-     : throw new UnreachableException();
+ static Rasm.Contracts.Element.Interpolation ToWire(Interpolation value) => value.Switch(
+  notDefined: static () => Rasm.Contracts.Element.Interpolation.NotDefined,
+  linear: static () => Rasm.Contracts.Element.Interpolation.Linear,
+  logLinear: static () => Rasm.Contracts.Element.Interpolation.LogLinear,
+  logLog: static () => Rasm.Contracts.Element.Interpolation.LogLog);
 
  static Fin<Interpolation> ToInterpolation(Rasm.Contracts.Element.Interpolation value, Op key) => value switch {
   Rasm.Contracts.Element.Interpolation.NotDefined => Fin.Succ(Interpolation.NotDefined),
@@ -260,27 +250,17 @@ internal static partial class WireCodec {
   _ => Fin.Fail<Interpolation>(key.InvalidInput(nameof(TableWire.Interpolation))),
  };
 
- static Rasm.Contracts.Element.AttestationRole ToWire(AttestationRole value) => value == AttestationRole.Manufacturer
-  ? Rasm.Contracts.Element.AttestationRole.Manufacturer
-  : value == AttestationRole.ManufacturerAuthorized
-   ? Rasm.Contracts.Element.AttestationRole.ManufacturerAuthorized
-   : value == AttestationRole.Purchaser
-    ? Rasm.Contracts.Element.AttestationRole.Purchaser
-    : value == AttestationRole.Independent
-     ? Rasm.Contracts.Element.AttestationRole.Independent
-     : value == AttestationRole.Quality
-      ? Rasm.Contracts.Element.AttestationRole.Quality
-      : value == AttestationRole.Regulator
-       ? Rasm.Contracts.Element.AttestationRole.Regulator
-       : value == AttestationRole.WeldingInspector
-        ? Rasm.Contracts.Element.AttestationRole.WeldingInspector
-        : value == AttestationRole.CalibrationLaboratory
-         ? Rasm.Contracts.Element.AttestationRole.CalibrationLaboratory
-         : value == AttestationRole.MaterialReviewBoard
-          ? Rasm.Contracts.Element.AttestationRole.MaterialReviewBoard
-          : value == AttestationRole.SustainabilityVerifier
-           ? Rasm.Contracts.Element.AttestationRole.SustainabilityVerifier
-           : throw new UnreachableException();
+ static Rasm.Contracts.Element.AttestationRole ToWire(AttestationRole value) => value.Switch(
+  manufacturer: static () => Rasm.Contracts.Element.AttestationRole.Manufacturer,
+  manufacturerAuthorized: static () => Rasm.Contracts.Element.AttestationRole.ManufacturerAuthorized,
+  purchaser: static () => Rasm.Contracts.Element.AttestationRole.Purchaser,
+  independent: static () => Rasm.Contracts.Element.AttestationRole.Independent,
+  quality: static () => Rasm.Contracts.Element.AttestationRole.Quality,
+  regulator: static () => Rasm.Contracts.Element.AttestationRole.Regulator,
+  weldingInspector: static () => Rasm.Contracts.Element.AttestationRole.WeldingInspector,
+  calibrationLaboratory: static () => Rasm.Contracts.Element.AttestationRole.CalibrationLaboratory,
+  materialReviewBoard: static () => Rasm.Contracts.Element.AttestationRole.MaterialReviewBoard,
+  sustainabilityVerifier: static () => Rasm.Contracts.Element.AttestationRole.SustainabilityVerifier);
 
  static Fin<AttestationRole> ToAttestationRole(Rasm.Contracts.Element.AttestationRole value, Op key) => value switch {
   Rasm.Contracts.Element.AttestationRole.Manufacturer => Fin.Succ(AttestationRole.Manufacturer),

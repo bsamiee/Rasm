@@ -140,7 +140,7 @@ public sealed record PressPlan(
 
     public static Fin<PressPlan> Of(PressPlanDraft draft, PressSubject subject, Op key) =>
         Gates(draft, subject, key)
-            .Fold(Fin.Succ(unit), static (admitted, gate) => admitted.Bind(_ => gate()))
+            .TraverseM(static gate => gate()).As()
             .Map(_ => Order(draft.Bindings))
             .Map(ordered => new PressPlan(draft.Width, draft.Height, draft.Layers, draft.Law, ordered, draft.Backend,
                 draft.Seed, draft.Alpha, draft.HeightScaleMm, draft.Rungs, draft.Tile, draft.Material, draft.Conductor,
@@ -153,14 +153,14 @@ public sealed record PressPlan(
             () => guard(draft.Law.Admits(draft.Layers.Value), new MaterialFault.Parameter(key, $"<layer-law-rejects:{draft.Law.Key}:{draft.Layers.Value}>")),
             () => guard(draft.Bindings.Map(static b => b.Channel).Distinct().Count() == draft.Bindings.Count, new MaterialFault.Parameter(key, "<press-binding-duplicate-channel>")),
             () => draft.Rungs.Degenerate
-                .Map(bad => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<ladder-degenerate:{bad.Axis}:{bad.Rungs}>")))
-                .IfNone(Fin.Succ(unit)),
+                .TraverseM(bad => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<ladder-degenerate:{bad.Axis}:{bad.Rungs}>"))).As()
+                .Map(_ => unit),
             () => guard(draft.Bindings.ForAll(static b => Depth(b.Channel) >= 0), new MaterialFault.Parameter(key, "<derived-origin-cycle>")),
             () => AdmitSubject(draft, subject, key),
             () => draft.Tile
-                .Map(policy => guard(draft.Bindings.Exists(b => b.Channel == policy.Guide), new MaterialFault.Parameter(key, $"<tile-guide-unbound:{policy.Guide.Key}>")).ToFin())
-                .IfNone(Fin.Succ(unit)),
-            () => draft.Bindings.Fold(Fin.Succ(unit), (acc, b) => acc.Bind(_ => AdmitBinding(draft, b, key))),
+                .TraverseM(policy => guard(draft.Bindings.Exists(b => b.Channel == policy.Guide), new MaterialFault.Parameter(key, $"<tile-guide-unbound:{policy.Guide.Key}>")).ToFin()).As()
+                .Map(_ => unit),
+            () => draft.Bindings.TraverseM(binding => AdmitBinding(draft, binding, key)).As().Map(static _ => unit),
             () => AdmitLane(draft, subject, key));
 
     static Fin<Unit> AdmitLane(PressPlanDraft draft, PressSubject subject, Op key) =>
@@ -224,9 +224,8 @@ public sealed record PressPlan(
 
     static Fin<Seq<ChainNode>> ChainNodes(PressSubject.Graph subject, Op key) =>
         subject.Program.Compile(key).Bind(compiled =>
-            compiled.Order.Fold(Fin.Succ(Seq<ChainNode>()), (acc, node) =>
-                acc.Bind(built => ChainKernel(node, key)
-                    .Map(kernel => built.Add(new ChainNode(kernel, compiled.Operands(node), ChainWords(node, kernel)))))));
+            compiled.Order.TraverseM(node => ChainKernel(node, key)
+                .Map(kernel => new ChainNode(kernel, compiled.Operands(node), ChainWords(node, kernel)))).As());
 
     static Fin<WgslKernel> ChainKernel(AppearanceNode node, Op key) =>
         node switch {
@@ -323,15 +322,14 @@ public sealed record AgeLadder(Seq<OpenPbrSurface> Cells, int AgeRungs, int Cavi
     public static Fin<AgeLadder> Of(
         MaterialParameters row, ConductorMetal conductor, Seq<WeatheringDose> aging, LadderRungs rungs, Op key) =>
         toSeq(Enumerable.Range(0, checked((int)rungs.AgeCells)))
-            .Fold(Fin.Succ(Seq<OpenPbrSurface>()), (acc, cell) =>
-                acc.Bind(built => Weathering.Apply(row, aging,
+            .TraverseM(cell => Weathering.Apply(row, aging,
                         AgeParameter.Create((cell % rungs.Age) / (double)(rungs.Age - 1)),
                         new SurfaceExposure(
                             UnitInterval.Create(((cell / rungs.Age) % rungs.Cavity) / (double)(rungs.Cavity - 1)),
                             rungs.Curvature is 1 ? 0.0 : (((cell / rungs.Age) / rungs.Cavity) / (double)(rungs.Curvature - 1) * 2.0) - 1.0),
                         key)
-                    .Map(aged => built.Add(OpenPbrSurface.Of(aged, conductor)))))
-            .Map(built => new AgeLadder(built, rungs.Age, rungs.Cavity, rungs.Curvature));
+                    .Map(aged => OpenPbrSurface.Of(aged, conductor))).As()
+            .Map(cells => new AgeLadder(cells, rungs.Age, rungs.Cavity, rungs.Curvature));
 
     public OpenPbrSurface At(double age, double cavity, double curvature) =>
         Cells[(((Rung(Signed(curvature), CurvatureRungs) * CavityRungs) + Rung(cavity, CavityRungs)) * AgeRungs) + Rung(age, AgeRungs)];
@@ -488,25 +486,27 @@ public static class TexturePress {
     static Fin<PressProduct> Mint(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
         from program in Compile(subject, plan, key)
         from folded in plan.Bindings.Filter(b => Direct(program, b))
-            .Fold(Fin.Succ((Planes: HashMap<TextureChannel, TexturePyramid>.Empty, Evidence: HashMap<TextureChannel, PlaneTrace>.Empty, Downgraded: Seq<TextureChannel>(), Faulted: HashMap<TextureChannel, ulong>.Empty, Done: 0)), (acc, binding) =>
-                acc.Bind(carried => Staged(governance, carried.Done, plan.Bindings.Count, carried.Planes, () =>
+            .FoldM((Planes: HashMap<TextureChannel, TexturePyramid>.Empty, Evidence: HashMap<TextureChannel, PlaneTrace>.Empty, Downgraded: Seq<TextureChannel>(), Faulted: HashMap<TextureChannel, ulong>.Empty, Done: 0), (carried, binding) =>
+                Staged(governance, carried.Done, plan.Bindings.Count, carried.Planes, () =>
                     Land(program, plan, binding, (carried.Planes, carried.Evidence, carried.Downgraded, carried.Faulted), key, ticks, governance.Cancel)
                         .Map(next => (next.Planes, next.Evidence, next.Downgraded, next.Faulted, Done: carried.Done + 1))
-                        .Rollback([.. carried.Planes.Values]))))
+                        .Rollback([.. carried.Planes.Values])))
+            .As()
         from derived in plan.Bindings.Filter(b => !Direct(program, b))
-            .Fold(Fin.Succ(folded), (acc, binding) => acc.Bind(carried =>
+            .FoldM(folded, (carried, binding) =>
                 Staged(governance, carried.Done, plan.Bindings.Count, carried.Planes, () =>
                     Derive(program, plan, binding, (carried.Planes, carried.Evidence, carried.Downgraded, carried.Faulted), key, ticks, governance.Cancel)
                         .Map(next => (next.Planes, next.Evidence, next.Downgraded, next.Faulted, Done: carried.Done + 1))
-                        .Rollback([.. carried.Planes.Values]))))
+                        .Rollback([.. carried.Planes.Values])))
+            .As()
         from packed in Packed(plan, derived.Planes, key, governance.Cancel).Rollback([.. derived.Planes.Values])
         from set in TextureSet.Of(new TextureSetDraft(plan.Width, plan.Height, plan.Layers, plan.Law,
             NormalConvention.Gl, plan.Alpha, plan.HeightScaleMm, new Evidence<TileProof>.Absent(), Seq<UdimTile>(),
             packed.Channels.Filter((c, _) => plan.Bindings.Exists(b => b.Channel == c && b.Pack.IsNone)), packed.Packs,
             plan.Conductor, plan.Material), key).Rollback([.. derived.Planes.Values])
         from tiled in plan.Tile
-            .Map(policy => TileSynth.Tileify(set, policy, key, ticks).Map(static pair => pair.Set))
-            .IfNone(Fin.Succ(set))
+            .TraverseM(policy => TileSynth.Tileify(set, policy, key, ticks).Map(static pair => pair.Set)).As()
+            .Map(tiled => tiled.IfNone(set))
         select (PressProduct)new PressProduct.Minted(tiled, new PressRun(plan.Backend, plan.PlanKey,
             GraphKey(program), plan.Seed, Texels(tiled), ticks.GetElapsedTime(opened).TotalMilliseconds,
             derived.Evidence, derived.Downgraded, derived.Faulted, GpuDeltaMax: Option<double>.None,
@@ -543,8 +543,7 @@ public static class TexturePress {
         cancel.IsCancellationRequested
             ? Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, Seq<ChannelPackPlane>)>(Errors.Cancelled)
             : toSeq(plan.Bindings.Choose(static b => b.Pack).Distinct())
-            .Fold(Fin.Succ((Channels: landed, Packs: Seq<ChannelPackPlane>())), (acc, pack) =>
-                acc.Bind(carried => {
+            .FoldM((Channels: landed, Packs: Seq<ChannelPackPlane>()), (carried, pack) => {
                     Seq<TextureChannel> present = pack.Slots.Filter(carried.Channels.ContainsKey);
                     Seq<int> depths = toSeq(present.Choose(slot => carried.Channels.Find(slot)).Map(static c => c.Levels.Count).Distinct());
                     ChannelDtype depth = plan.Bindings.Filter(b => b.Pack == Some(pack)).Map(static b => b.Format.Depth).Head.IfNone(ChannelDtype.Unorm8);
@@ -557,14 +556,13 @@ public static class TexturePress {
                               select (
                                   carried.Channels.Filter((c, _) => !pack.Slots.Contains(c)),
                                   carried.Packs.Add(new ChannelPackPlane(pack, new TexturePyramid(levels, MipPolicy.Box, Coupled: false), present)));
-                }));
+                }).As();
 
     static Fin<Seq<TexturePlane>> Compose(
         ChannelPack pack, HashMap<TextureChannel, TexturePyramid> landed, int depth, PlaneFormat format, Op key, CancellationToken cancel) {
         Option<TexturePyramid> reference = pack.Slots.Choose(slot => landed.Find(slot)).Head;
         return reference.ToFin(new MaterialFault.Parameter(key, $"<pack-no-landed-slot:{pack.Key}>")).Bind(head =>
-            toSeq(Enumerable.Range(0, depth)).Fold(Fin.Succ(Seq<PackLevelJob>()), (acc, levelIndex) =>
-                acc.Bind(jobs => {
+            toSeq(Enumerable.Range(0, depth)).FoldM(Seq<PackLevelJob>(), (jobs, levelIndex) => {
                     TexturePlane extent = head.Levels[levelIndex];
                     return TexturePlane.Of(format, extent.Width, extent.Height, PlaneTransfer.Raw, AlphaMode.None, key, Some(extent.Layers))
                         .Map(target => jobs.Add(new PackLevelJob(
@@ -572,7 +570,7 @@ public static class TexturePress {
                             [.. pack.Slots.Map(slot => landed.Find(slot).Case is TexturePyramid chain ? chain.Levels[levelIndex] : null)],
                             [.. pack.Slots.Map(static slot => slot.Neutral.X)])))
                         .Rollback([.. jobs.Map(static job => job.Target)]);
-                }))
+                }).As())
             .Bind(jobs => key.Catch(() => {
                     PackLevelJob[] roster = [.. jobs];
                     PackCompose fold = new(cancel);
@@ -614,13 +612,14 @@ public static class TexturePress {
     static Fin<PressProduct> Accelerate(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
         from lease in PressDevice.Acquire(DevicePolicy.Default, key)
         from planes in lease.Use((Subject: subject, Plan: plan, Key: key, Governance: governance), static (state, device) =>
-            state.Plan.Bindings.Fold(Fin.Succ((Rows: HashMap<TextureChannel, TexturePyramid>.Empty, Done: 0)), (acc, binding) =>
-                acc.Bind(carried => Staged(state.Governance, carried.Done, state.Plan.Bindings.Count, carried.Rows, () =>
+            state.Plan.Bindings.FoldM((Rows: HashMap<TextureChannel, TexturePyramid>.Empty, Done: 0), (carried, binding) =>
+                Staged(state.Governance, carried.Done, state.Plan.Bindings.Count, carried.Rows, () =>
                     Lower(state.Subject, binding, state.Key)
                         .Bind(lowered => device.Dispatch(lowered.Kernel, Stage(state.Plan, lowered.Kernel, lowered.Field), state.Key))
                         .Bind(readback => Lift(state.Plan, binding, readback, state.Key))
                         .Map(plane => (Rows: carried.Rows.Add(binding.Channel, plane), Done: carried.Done + 1))
-                        .Rollback([.. carried.Rows.Values]))))
+                        .Rollback([.. carried.Rows.Values])))
+            .As()
             .Map(static carried => carried.Rows))
         select (PressProduct)new PressProduct.Preview(planes, new PressRun(plan.Backend, plan.PlanKey,
             Option<UInt128>.None, plan.Seed, Texels(plan, planes), ticks.GetElapsedTime(opened).TotalMilliseconds,
@@ -1055,11 +1054,11 @@ public abstract partial record PressProduct {
         minted.Run.PlanKey != preview.Run.PlanKey
             ? new MaterialFault.Parameter(key, $"<parity-plan-mismatch:{minted.Run.PlanKey:x}:{preview.Run.PlanKey:x}>")
             : toSeq(preview.Planes.AsIterable())
-                .Fold(Fin.Succ(Option<double>.None), (worst, entry) => worst.Bind(carried =>
+                .FoldM(Option<double>.None, (carried, entry) =>
                     minted.Set.Channels.Find(entry.Key)
                         .Map(cpu => Divergence(cpu.Base, entry.Value.Base, key)
                             .Map(delta => Some(carried.Map(seen => Math.Max(seen, delta)).IfNone(delta))))
-                        .IfNone(Fin.Succ(carried))))
+                        .IfNone(Fin.Succ(carried))).As()
                 .Map(delta => minted.Run with { GpuDeltaMax = delta });
 
     static Fin<double> Divergence(TexturePlane cpu, TexturePlane gpu, Op key) {

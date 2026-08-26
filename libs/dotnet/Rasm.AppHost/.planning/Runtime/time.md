@@ -222,10 +222,7 @@ public static class SchedulePort {
         IO.lift(() => clocks.Gauged<Unit>(
                 row: entry.Deadline,
                 work: key.OrDefault(),
-                body: () => Op.Of().Catch(() => Fin.Succ(Redrive.Run(policy: entry.Redrive, work: Occurrence(entry: entry)).Run()))))
-          .Bind(static gauged => gauged.Match(
-              Succ: static measured => IO.pure((measured.Value, measured.Span)),
-              Fail: IO.fail<(Fin<Unit> Outcome, GaugedSpan<DeadlineClass> Span)>));
+                body: () => Op.Of().Catch(() => Redrive.Run(policy: entry.Redrive, work: Occurrence(entry: entry)).Run())));
 
     static IO<Unit> Occurrence(ScheduleEntry entry) =>
         entry.Work()
@@ -306,8 +303,9 @@ public sealed partial class FenceVerb {
     public partial Fin<Option<FencingToken>> Fence(LeaseElection.Runtime runtime, string leaseKey, Option<FencingToken> held);
 
     static Fin<Option<FencingToken>> Held(Option<FencingToken> held, Func<FencingToken, Fin<Option<FencingToken>>> arm) =>
-        held.Match(Some: arm, None: static () => Fin.Fail<Option<FencingToken>>(
-            new KernelFault.InvalidValue(Label: nameof(FencingToken), Requirement: "a held generation")));
+        held.ToFin(new KernelFault.InvalidValue(
+                Label: nameof(FencingToken), Requirement: "a held generation"))
+            .Bind(arm);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -376,7 +374,7 @@ public static class FencedLease<TKey> where TKey : notnull, Thinktecture.IConver
 
     static IO<Fin<FenceStep<TKey>>> Run(
         FencedRuntime runtime, FenceVerb verb, TKey key, Option<FenceHolding<TKey>> prior, CorrelationId correlation) =>
-        IO.lift(() => verb.Fence(runtime.Lease, key.ToValue(), prior.Map(static held => held.Token))
+        IO.lift<Fin<FenceStep<TKey>>>(() => verb.Fence(runtime.Lease, key.ToValue(), prior.Map(static held => held.Token))
             .Bind(issued => issued.Match(Some: Some, None: () => prior.Map(static held => held.Token)).Match(
                 Some: token => Fin.Succ(new FenceStep<TKey>(
                     new FenceHolding<TKey>(

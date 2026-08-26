@@ -410,9 +410,7 @@ public static class ProfileSurface {
         (Hosted(profile), Crossing(profile)).Apply(static (_, _) => unit).Map(_ => profile).As();
 
     public static Fin<ResolvedProfile> Resolve(ConsumptionProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default) =>
-        from row in Admit(profile).Match(
-            Succ: Fin.Succ,
-            Fail: static faults => Fin.Fail<ConsumptionProfile>(Error.Many(faults.Map(static fault => (Error)fault).ToSeq())))
+        from row in Admit(profile).ToFin()
         from admitted in attachment.IsSome && !row.Holds(HostCapability.SingleInstance)
             ? Fin.Fail<Option<RuntimeAttachment>>(new ProfileFault.AttachmentRejected(row.HostKey))
             : Fin.Succ(attachment)
@@ -731,9 +729,9 @@ public sealed partial class FidelityScale {
     public int ParallelismCap { get; }
 
     public static FidelityScale Grade(PowerReading reading) =>
-        (reading.Thermal.Case, reading.Power, reading.BatteryFraction) switch {
-            (ThermalPressure heat, _, _) when heat >= ThermalPressure.Critical => Conserve,
-            (ThermalPressure heat, _, _) when heat >= ThermalPressure.Serious => Sustained,
+        (reading.Thermal, reading.Power, reading.BatteryFraction) switch {
+            ({ IsSome: true, Case: ThermalPressure heat }, _, _) when heat >= ThermalPressure.Critical => Conserve,
+            ({ IsSome: true, Case: ThermalPressure heat }, _, _) when heat >= ThermalPressure.Serious => Sustained,
             (_, var power, _) when power == PowerState.LowBattery => Sustained,
             (_, var power, < BatteryReserve) when power == PowerState.Battery => Sustained,
             (_, var power, _) when power == PowerState.Battery => Balanced,
@@ -922,7 +920,7 @@ public static partial class DarwinPower {
 
     private static Option<string> Text(Handle dictionary, string key) {
         Span<byte> buffer = stackalloc byte[128];
-        return Value(dictionary, key) is { Case: Handle held }
+        return Value(dictionary, key) is { IsSome: true, Case: Handle held }
             && CFStringGetCString(held.Address, buffer, buffer.Length, Utf8Encoding)
             && buffer.IndexOf((byte)0) is var terminator && terminator >= 0
             ? Some(Encoding.UTF8.GetString(buffer[..terminator]))

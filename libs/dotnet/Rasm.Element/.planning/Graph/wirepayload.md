@@ -17,7 +17,6 @@
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
-using System.Diagnostics;
 using Celly.Protovalidate;
 using Google.Protobuf;
 using LanguageExt;
@@ -46,7 +45,7 @@ internal static partial class WireCodec {
   ObjectWire wire = new() {
    Kind = ToWire(node.Kind),
    Classification = ToWire(node.Classification),
-   PredefinedType = node.PredefinedType.Token,
+   PredefinedType = node.PredefinedType.ToValue(),
    Name = node.Name,
    Tag = node.Tag,
    Span = ToWire(node.Span),
@@ -103,7 +102,7 @@ internal static partial class WireCodec {
    coverage: value => Fin.Succ(new() { Id = ToWire(value.Id), Coverage = ToWire(value.Grid) }),
    observation: value => Fin.Succ(new() { Id = ToWire(value.Id), Observation = ToWire(value.Series) }))
   .Map(wire => {
-   wire.ContentAddress = ToWire(ContentAddress.Of(node, tolerance).Value);
+   wire.ContentAddress = ToWire(ContentAddress.Of(node, tolerance).ToValue());
    return wire;
   }));
 
@@ -167,11 +166,9 @@ internal static partial class WireCodec {
      $"element-wire.{column}", "keys remain unique after domain admission", Some(key)))
     : Fin.Succ(map.Add(row.Key, row.Value))));
 
- static WireObjectKind ToWire(ObjectKind value) => value == ObjectKind.Occurrence
-  ? WireObjectKind.Occurrence
-  : value == ObjectKind.Type
-   ? WireObjectKind.Type
-   : throw new UnreachableException();
+ static WireObjectKind ToWire(ObjectKind value) => value.Switch(
+  occurrence: static () => WireObjectKind.Occurrence,
+  type: static () => WireObjectKind.Type);
 
  static Fin<ObjectKind> ToObjectKind(WireObjectKind value, Op key) => value switch {
   WireObjectKind.Occurrence => Fin.Succ(ObjectKind.Occurrence),
@@ -179,19 +176,13 @@ internal static partial class WireCodec {
   _ => Fin.Fail<ObjectKind>(key.InvalidInput(nameof(ObjectWire.Kind))),
  };
 
- static WireReleaseVersion ToWire(ReleaseVersion value) => value == ReleaseVersion.Ifc2X3
-  ? WireReleaseVersion.Ifc2X3
-  : value == ReleaseVersion.Ifc4
-   ? WireReleaseVersion.Ifc4
-   : value == ReleaseVersion.Ifc4X1
-    ? WireReleaseVersion.Ifc4X1
-    : value == ReleaseVersion.Ifc4X3
-     ? WireReleaseVersion.Ifc4X3
-     : value == ReleaseVersion.Ifc4X3Add2
-      ? WireReleaseVersion.Ifc4X3Add2
-      : value == ReleaseVersion.Ifc5
-       ? WireReleaseVersion.Ifc5
-       : throw new UnreachableException();
+ static WireReleaseVersion ToWire(ReleaseVersion value) => value.Switch(
+  ifc2X3: static () => WireReleaseVersion.Ifc2X3,
+  ifc4: static () => WireReleaseVersion.Ifc4,
+  ifc4X1: static () => WireReleaseVersion.Ifc4X1,
+  ifc4X3: static () => WireReleaseVersion.Ifc4X3,
+  ifc4X3Add2: static () => WireReleaseVersion.Ifc4X3Add2,
+  ifc5: static () => WireReleaseVersion.Ifc5);
 
  static Fin<ReleaseVersion> ToReleaseVersion(WireReleaseVersion value, Op key) => value switch {
   WireReleaseVersion.Ifc2X3 => Fin.Succ(ReleaseVersion.Ifc2X3),
@@ -203,20 +194,18 @@ internal static partial class WireCodec {
   _ => Fin.Fail<ReleaseVersion>(key.InvalidInput(nameof(SchemaSpanWire.IntroducedIn))),
  };
 
- static WireRepresentationKind ToWire(RepresentationSlot value) => value.Key switch {
-  1 => WireRepresentationKind.Body,
-  2 => WireRepresentationKind.Axis,
-  3 => WireRepresentationKind.FootPrint,
-  4 => WireRepresentationKind.Box,
-  5 => WireRepresentationKind.Annotation,
-  6 => WireRepresentationKind.Surface,
-  7 => WireRepresentationKind.Profile,
-  8 => WireRepresentationKind.Clearance,
-  9 => WireRepresentationKind.Cog,
-  10 => WireRepresentationKind.Lighting,
-  11 => WireRepresentationKind.Reference,
-  _ => throw new UnreachableException(),
- };
+ static WireRepresentationKind ToWire(RepresentationSlot value) => value.Switch(
+  body: static () => WireRepresentationKind.Body,
+  axis: static () => WireRepresentationKind.Axis,
+  footPrint: static () => WireRepresentationKind.FootPrint,
+  box: static () => WireRepresentationKind.Box,
+  annotation: static () => WireRepresentationKind.Annotation,
+  surface: static () => WireRepresentationKind.Surface,
+  profile: static () => WireRepresentationKind.Profile,
+  clearance: static () => WireRepresentationKind.Clearance,
+  cog: static () => WireRepresentationKind.Cog,
+  lighting: static () => WireRepresentationKind.Lighting,
+  reference: static () => WireRepresentationKind.Reference);
 
  static Fin<RepresentationSlot> ToRepresentationSlot(WireRepresentationKind value, Op key) => value switch {
   WireRepresentationKind.Body => Fin.Succ(RepresentationSlot.Body),

@@ -333,11 +333,10 @@ public abstract partial record PdfMark {
             from face in Face(family: mark.Family, form: mark.Form, op: ctx.Op)
             from height in Points(length: mark.Height.Height, op: ctx.Op)
             from stroke in mark.Stroke
-                .Map(row => Points(length: row.Width.Width, op: ctx.Op).Map(width => (Ink: row.Color, Width: width)))
-                .Sequence()
+                .Traverse(row => Points(length: row.Width.Width, op: ctx.Op).Map(width => (Ink: row.Color, Width: width)))
                 .As()
             from fill in mark.Fill.ToDrawing(key: ctx.Op)
-            from ink in stroke.Map(row => row.Ink.ToDrawing(key: ctx.Op)).Sequence().As()
+            from ink in stroke.Traverse(row => row.Ink.ToDrawing(key: ctx.Op)).As()
             from _drawn in ctx.Op.Catch(() => {
                 ctx.Pdf.DrawText(
                     pageNumber: ctx.Page,
@@ -364,7 +363,7 @@ public abstract partial record PdfMark {
             select unit,
         polylineCase: static (ctx, mark) =>
             from stroke in mark.Stroke.ToDrawing(key: ctx.Op)
-            from fill in mark.Fill.Map(row => row.ToDrawing(key: ctx.Op)).Sequence().As()
+            from fill in mark.Fill.Traverse(row => row.ToDrawing(key: ctx.Op)).As()
             from width in Points(length: mark.Width.Width, op: ctx.Op)
             from _drawn in ctx.Op.Catch(() => {
                 ctx.Pdf.DrawPolyline(
@@ -634,7 +633,7 @@ public abstract partial record PageSource {
                 width: (int)Math.Round(oriented.Width * dots),
                 height: (int)Math.Round(oriented.Height * dots),
                 key: ctx.Op)
-            select toSeq(Range(1, source.Count.Value)).Map(ordinal => (PublishPage)new PublishPage.BlankCase(
+            select toSeq(Enumerable.Range(1, source.Count.Value)).Map(ordinal => (PublishPage)new PublishPage.BlankCase(
                 Extent: pixels,
                 Stamp: ScopeOf(
                     document: ctx.Document, issue: ctx.Issue, pageName: source.Size.Key, viewName: string.Empty,
@@ -1092,25 +1091,19 @@ public static class Publishing {
         Op op) => op.Catch(() => {
             lock (PdfGate) {
                 PrintedPageDefinition[] prior = FilePdf.GetCustomPages();
-                return Restored(
-                    body: () => op.Catch(() => {
-                        FilePdf.SetCustomPages(pages: target.Policy.CustomPages.AsIterable());
-                        pdf.Write(filename: path);
-                        return Fin.Succ(value: unit);
-                    }),
-                    restore: () => op.Catch(() => {
-                        FilePdf.SetCustomPages(pages: prior);
-                        return Fin.Succ(value: unit);
-                    }));
+                return op.Catch(() => {
+                    FilePdf.SetCustomPages(pages: target.Policy.CustomPages.AsIterable());
+                    pdf.Write(filename: path);
+                    return Fin.Succ(value: unit);
+                })
+                    .Settled(
+                        release: () => op.Catch(() => {
+                            FilePdf.SetCustomPages(pages: prior);
+                            return Fin.Succ(value: unit);
+                        }),
+                        key: op);
             }
         });
-
-    private static Fin<T> Restored<T>(Func<Fin<T>> body, Func<Fin<Unit>> restore) =>
-        body().Match(
-            Succ: value => restore().Map(_ => value),
-            Fail: primary => restore().Match(
-                Succ: _ => Fin.Fail<T>(error: primary),
-                Fail: restoration => Fin.Fail<T>(error: primary + restoration)));
 }
 ```
 

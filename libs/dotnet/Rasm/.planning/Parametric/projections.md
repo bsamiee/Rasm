@@ -402,9 +402,7 @@ public readonly record struct CyclePlan(Option<int> Count, CycleShape Shape) {
     public static Fin<CyclePlan> Of(Option<int> count, CycleShape shape, Op? key = null) {
         Op op = key.OrDefault();
         return (op.Need(value: shape).ToValidation(),
-                count.Match(
-                    Some: value => guard(value >= 1, op.InvalidInput()).ToFin().Map(_ => Some(value)),
-                    None: () => Fin.Succ(Option<int>.None)).ToValidation())
+                count.TraverseM(value => guard(value >= 1, op.InvalidInput()).ToFin().Map(_ => value)).As().ToValidation())
             .Apply(static (traversal, bounded) => new CyclePlan(Count: bounded, Shape: traversal)).As().ToFin();
     }
     public CyclePosture Terminal => Count.Match(Some: bounded => Shape.Posture(iteration: bounded - 1L), None: () => CyclePosture.Forward);

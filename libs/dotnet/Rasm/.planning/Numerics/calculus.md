@@ -660,10 +660,10 @@ public static class SolarPosition {
     }
 
     public static Seq<(Instant Instant, SunPosition Sun)> SunPath(SolarSite site, Instant midnight, Duration step, Dimension samples) =>
-        Range(0, samples.Value).Map(i => {
+        toSeq(Enumerable.Range(0, samples.Value)).Map(i => {
             Instant at = midnight + step * i;
             return (at, At(site, at));
-        }).ToSeq();
+        });
 
     internal static double Wrap360(double degrees) => Reduce.Floored(value: degrees, period: 360.0);
 }

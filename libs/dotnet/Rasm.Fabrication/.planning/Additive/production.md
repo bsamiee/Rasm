@@ -567,18 +567,17 @@ public abstract partial record OrientationProgram {
             ? Refusal("orientation:cap")
             : Fin.Succ(Candidates(mesh, value.Cap)));
 
-    private static Seq<BuildOrientation> Candidates(MeshSpace model, int cap) =>
+    private static Seq<BuildOrientation> Candidates(MeshSpace model, int cap) => toSeq(
         model.Faces
             .Map(face => Facet(model, face))
             .Filter(static facet => facet.Area > 0.0)
             .Bind(static facet => Seq((facet.Normal, facet.Area), (-facet.Normal, facet.Area)))
             .GroupBy(static row => Deterministic.OrderKey(new Point3d(row.Item1)))
-            .Map(static group => (Direction: group.Head().Item1, Area: group.Sum(static row => row.Item2)))
+            .Select(static group => (Direction: group.Head().Item1, Area: group.Sum(static row => row.Item2)))
             .OrderByDescending(static row => row.Area)
             .Take(cap)
-            .Map(static row => new BuildOrientation(
-                Transform.Rotation(row.Direction, Vector3d.ZAxis, Point3d.Origin)))
-            .ToSeq();
+            .Select(static row => new BuildOrientation(
+                Transform.Rotation(row.Direction, Vector3d.ZAxis, Point3d.Origin))));
 
     private static (Vector3d Normal, double Area) Facet(MeshSpace model, (int A, int B, int C) face) {
         Vector3d cross = Vector3d.CrossProduct(
@@ -1089,7 +1088,7 @@ public static class ThreeMf {
             });
             return missing.IsEmpty
                 ? Bounded(document, policy, extensions)
-                : Fin.Fail<ThreeMfArtifact>(missing.Tail.Fold(missing.Head.Value!, static (faults, fault) => faults + fault));
+                : Fin.Fail<ThreeMfArtifact>(Error.Many(missing));
         }, Provider);
 
     private static Option<FabricationFault.ThreeMfWriteRejected> Provider(Error cause) =>
@@ -1131,7 +1130,7 @@ public static class ThreeMf {
 
         if (meshes.Exists(static mesh => !mesh.IsManifoldAndOriented()))
             return Rejected("mesh:not-manifold-and-oriented");
-        if (Placements(document).Choose(PlacementRefusal).Head.Case is string refusal)
+        if (Placements(document).Choose(PlacementRefusal).Head is { IsSome: true, Case: string refusal })
             return Rejected(refusal);
 
         Arr<(int Part, CMeshObject Mesh)> supports = document.Resources
@@ -1215,7 +1214,7 @@ public static class ThreeMf {
                         .SetUUID(Text(Canonical.Derived(document.Build, "assembly")));
                 },
                 None: () => {
-                    meshes.Map(static (mesh, index) => (Mesh: mesh, Index: index)).Iter(row =>
+                    toSeq(meshes).Map(static (mesh, index) => (Mesh: mesh, Index: index)).Iter(row =>
                         model.AddBuildItem(row.Mesh, TransformOf(Transform.Identity))
                             .SetUUID(Text(Canonical.Derived(document.Build, $"part:{row.Index}"))));
                     supports.Iter(support => model.AddBuildItem(support.Mesh, TransformOf(Transform.Identity))
@@ -1606,8 +1605,8 @@ public static class Production {
     private static Fin<ThreeMfDocument> Document(
         Seq<OrientedPart> parts, Seq<BuildArtifact> programs, Option<PlateLayout> plate, AdditiveBuild policy) =>
         from lattices in parts
-            .Map((part, index) => part.Measured.Support.Map(support => Lattice(index, support)).Sequence())
-            .Sequence()
+            .Map((part, index) => part.Measured.Support.TraverseM(support => Lattice(index, support)).As())
+            .Traverse(identity)
             .As()
         from attachments in Attachments(parts, programs, policy)
         select new ThreeMfDocument(

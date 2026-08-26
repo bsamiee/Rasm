@@ -70,17 +70,17 @@ public sealed record BimCommit(
     }
 
     public static BimCommit Sealed(Seq<ContentAddress> parents, Map<string, ElementFingerprint> fingerprints, string author, string message, Instant at, Option<FidelityLog> fidelity = default) {
-        Seq<ContentAddress> lineage = toSeq(parents.Distinct().OrderBy(static k => k.Value));
+        Seq<ContentAddress> lineage = toSeq(parents.Distinct().OrderBy(static k => k.ToValue()));
         return new(KeyOf(lineage, fingerprints), lineage, fingerprints, author, message, at, fidelity);
     }
 
     static ContentAddress KeyOf(Seq<ContentAddress> parents, Map<string, ElementFingerprint> fingerprints) =>
-        ContentAddress.Of(ContentHash.Of((Parents: parents, Fingerprints: fingerprints), static (state, w) => {
+        ContentAddress.Create(ContentHash.Of((Parents: parents, Fingerprints: fingerprints), static (state, w) => {
             w.Ordinal(state.Parents.Count);
-            foreach (ContentAddress p in state.Parents) { w.U128(p.Value); }
+            foreach (ContentAddress p in state.Parents) { w.U128(p.ToValue()); }
             w.Ordinal(state.Fingerprints.Count);
             foreach (var (id, fp) in state.Fingerprints.OrderBy(static e => e.Key, StringComparer.Ordinal)) {
-                w.String(id).U128(fp.ContentKey.Value).U128(fp.PlacementKey.Value);
+                w.String(id).U128(fp.ContentKey.ToValue()).U128(fp.PlacementKey.ToValue());
             }
         }));
 }
@@ -144,8 +144,8 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
     public Fin<MergeOutcome> Merge(ContentAddress ours, ContentAddress theirs, Func<string, ImmutableArray<AspectDelta>> deltas, Op key) =>
         from lineage in Fin.Succ(Lineage())
         from _ in guard(lineage.IsDirectedAcyclicGraph(), () => (Error)new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "merge-lineage-cyclic" })))
-        from o in Commits.Find(ours).ToFin(new BimFault.Refused(key, BimScope.Review, BimReason.DanglingReference, string.Join(':', new object?[] { "merge-commit-absent", "ours", ours.Value.ToString("X32", CultureInfo.InvariantCulture) })))
-        from t in Commits.Find(theirs).ToFin(new BimFault.Refused(key, BimScope.Review, BimReason.DanglingReference, string.Join(':', new object?[] { "merge-commit-absent", "theirs", theirs.Value.ToString("X32", CultureInfo.InvariantCulture) })))
+        from o in Commits.Find(ours).ToFin(new BimFault.Refused(key, BimScope.Review, BimReason.DanglingReference, string.Join(':', new object?[] { "merge-commit-absent", "ours", ours.ToValue().ToString("X32", CultureInfo.InvariantCulture) })))
+        from t in Commits.Find(theirs).ToFin(new BimFault.Refused(key, BimScope.Review, BimReason.DanglingReference, string.Join(':', new object?[] { "merge-commit-absent", "theirs", theirs.ToValue().ToString("X32", CultureInfo.InvariantCulture) })))
         let bases = MergeBases(lineage, ours, theirs).Choose(Commits.Find)
         select ModelHistory.Merge(o, t, bases, deltas);
 
@@ -154,7 +154,7 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
         Option<BimHooks> hooks = default) =>
         (Absent: parents.Filter(p => !Commits.ContainsKey(p)), resolved.IsClean) switch {
             _ when parents.Distinct().Count < 2 => Fin.Fail<(BimRepository, BimCommit)>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "merge-parent-arity", parents.Distinct().Count.ToString(CultureInfo.InvariantCulture) }))),
-            ({ IsEmpty: false } absent, _)      => Fin.Fail<(BimRepository, BimCommit)>(new BimFault.Refused(key, BimScope.Review, BimReason.DanglingReference, string.Join(':', new object?[] { "merge-commit-absent", "parent", string.Join(',', absent.Map(static p => p.Value.ToString("X32", CultureInfo.InvariantCulture))) }))),
+            ({ IsEmpty: false } absent, _)      => Fin.Fail<(BimRepository, BimCommit)>(new BimFault.Refused(key, BimScope.Review, BimReason.DanglingReference, string.Join(':', new object?[] { "merge-commit-absent", "parent", string.Join(',', absent.Map(static p => p.ToValue().ToString("X32", CultureInfo.InvariantCulture))) }))),
             (_, false)                          => Fin.Fail<(BimRepository, BimCommit)>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "merge-unresolved-conflicts", resolved.Conflicts.Count.ToString(CultureInfo.InvariantCulture) }))),
             _                                   => Fin.Succ(Seal(BimCommit.Sealed(parents, resolved.Merged, author, message, at), branch, key, hooks)),
         };
@@ -163,8 +163,8 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
         BimRepository advanced = Advance(branch, commit);
         ignore(hooks.Map(live => live.Fire(BimPoint.Committed, new BimFact.Committed(
             Key: key,
-            CommitKey: commit.CommitKey.Value,
-            Parents: ContentKeySet.Of(commit.ParentKeys.Map(static parent => parent.Value)),
+            CommitKey: commit.CommitKey.ToValue(),
+            Parents: ContentKeySet.Create(commit.ParentKeys.Map(static parent => parent.ToValue())),
             Branch: branch,
             Elements: commit.Fingerprints.Count), key)));
         return (advanced, commit);
@@ -183,7 +183,7 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
         return Seq(head) + toSeq(depths.Distances
             .Where(entry => entry.Key != head)
             .OrderBy(static entry => entry.Value)
-            .ThenBy(static entry => entry.Key.Value)
+            .ThenBy(static entry => entry.Key.ToValue())
             .Select(static entry => entry.Key));
     }
 

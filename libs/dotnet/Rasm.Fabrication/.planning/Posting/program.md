@@ -900,7 +900,7 @@ public static partial class Post {
         int line, string text, ProgramIngress.Rs274 ingress, ModalState modal, int locus) {
         ProgramLocus at = ProgramLocus.Root(line, locus);
         string record = text.Trim();
-        Seq<string> comments = CommentText.Matches(text).Select(static match => match.Value).ToSeq();
+        Seq<string> comments = toSeq(CommentText.Matches(text).Select(static match => match.Value));
         string body = CommentText.Replace(text, string.Empty).Trim();
         if (body.Length == 0 || body == "%") {
             GNode.Block empty = new(
@@ -909,7 +909,7 @@ public static partial class Post {
         }
         bool optional = body.StartsWith("/", StringComparison.Ordinal);
         string opened = optional ? body[1..].TrimStart() : body;
-        Seq<string> tokens = WordText.Matches(opened).Select(static match => match.Value).ToSeq();
+        Seq<string> tokens = toSeq(WordText.Matches(opened).Select(static match => match.Value));
         string residue = WordText.Replace(opened, string.Empty);
         Match check = ChecksumText.Match(record);
         Option<uint> parsedChecksum = ingress.Checksum.Bind(rule => check.Success
@@ -953,8 +953,9 @@ public static partial class Post {
         Seq<CommandSegment> segments = split.Closed.Concat(split.Open.ToSeq());
         return tokens.IsEmpty
             ? Fin.Succ(new ParseState(modal, Seq<GNode>()))
-            : segments.Head.Match(
-                Some: head => Seq(head with { Parameters = split.Leading.Concat(head.Parameters) })
+            : segments.Head
+                .ToFin(new FabricationFault.ProgramParse(line, ModalGroup.NonModal))
+                .Bind(head => Seq(head with { Parameters = split.Leading.Concat(head.Parameters) })
                     .Concat(segments.Tail)
                     .FoldM<Fin, ParseState>(new ParseState(modal, Seq<GNode>()), (state, segment) =>
                         from command in Resolve(line, segment, ingress)
@@ -964,8 +965,7 @@ public static partial class Post {
                         let node = (GNode)new GNode.Word(command, admitted, Feed(command))
                         from next in state.Modal.Push(locus.Descend(state.Nodes.Count), node)
                         select new ParseState(next, state.Nodes.Add(node)))
-                    .As(),
-                None: () => Fin.Fail<ParseState>(new FabricationFault.ProgramParse(line, ModalGroup.NonModal)));
+                    .As());
     }
 
     private static Fin<GCommand> Resolve(int line, CommandSegment segment, ProgramIngress.Rs274 ingress) {

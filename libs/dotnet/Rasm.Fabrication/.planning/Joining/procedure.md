@@ -818,9 +818,8 @@ public sealed partial record InspectionTestPlan(Seq<InspectionRequirement> Requi
         .Filter(hold => !Furnished(hold, releases).AdmitsAll(hold.Kind.Demands));
 
     public Fin<Unit> Released(Seq<HoldRelease> releases) => Unreleased(releases)
-        .Map(hold => AdmissionSlots.Gate(false,
+        .Traverse(hold => AdmissionSlots.Gate(false,
             new KernelFault.InvalidValue("procedure", $"hold-point:{hold.Key.Joint}:{hold.Key.Family.Key}:{Furnished(hold, releases).Missing(hold.Kind.Demands).Wire}")))
-        .Traverse(identity)
         .As()
         .ToFin()
         .Map(static _ => unit);
@@ -1038,8 +1037,7 @@ public static class Procedure {
 
     private static Fin<ProcedureAssessment> AssessAll(ProcedureRequest request) =>
         request.Demands
-            .Map(demand => AssessDemand(request, demand).ToValidation())
-            .Traverse(identity)
+            .Traverse(demand => AssessDemand(request, demand).ToValidation())
             .As()
             .ToFin()
             .Map(rows => Assess(request, rows.Bind(identity)));
@@ -1068,7 +1066,7 @@ public static class Procedure {
         QualificationSource source) =>
         wps.Profile.Variables
             .Filter(variable => variable.Sources.Contains(source))
-            .Map(variable => Admit(
+            .Traverse(variable => Admit(
                     demand.Joint,
                     variable,
                     DemandValue(demand, variable, at),
@@ -1077,7 +1075,6 @@ public static class Procedure {
                         : rules.Find(variable.Key),
                     source)
                 .ToValidation())
-            .Traverse(identity)
             .As()
             .ToFin();
 

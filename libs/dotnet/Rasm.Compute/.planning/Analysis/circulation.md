@@ -143,7 +143,7 @@ public static class CirculationAnalysis {
         Map<NodeId, int> index = NodeIndex(view, offset: 2);
         int NodeOf(NodeId id) => index[id];
         foreach ((NodeId Space, double AreaM2, OccupancyClass Occupancy) space in view.Spaces) { flow.AddArcWithCapacity(0, NodeOf(space.Space), view.OccupantLoad(space)); }
-        Seq<(int Arc, long Capacity, EgressEdge Edge)> arcs = view.Adjacency.Edges.ToSeq().Map(edge => {
+        Seq<(int Arc, long Capacity, EgressEdge Edge)> arcs = toSeq(view.Adjacency.Edges).Map(edge => {
             long capacity = (long)Math.Round(edge.ClearWidthM * policy.CapacityPerMetreWidth);
             return (flow.AddArcWithCapacity(NodeOf(edge.From), NodeOf(edge.To), capacity), capacity, edge);
         });
@@ -218,7 +218,7 @@ public static class EgressView {
                 .Filter(static f => !f.IsEmpty)
                 .Map(f => (Space: id, Boundary: f.Planar()))
                 .Filter(static row => row.Boundary.IsValid && row.Boundary.Area > 0.0)
-                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<space-boundary-unresolved:{id.Value}>")))
+                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<space-boundary-unresolved:{id.ToValue()}>")))
             .As()
             .Bind(resolved => resolved.TraverseM(row => request.Occupancies.Find(row.Space)
                 .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<space-occupancy-unresolved:{row.Space.Value}>"))
@@ -252,29 +252,29 @@ public static class EgressView {
         Option<NodeId> conflict = admitted.Choose(row => {
             NetTopologySuite.Geometries.Prepared.IPreparedGeometry prepared = NetTopologySuite.Geometries.Prepared.PreparedGeometryFactory.Prepare(row.Boundary);
             return toSeq(index.Query(row.Boundary.EnvelopeInternal))
-                .Filter(other => StringComparer.Ordinal.Compare(row.Space.Value, other.Value) < 0)
+                .Filter(other => StringComparer.Ordinal.Compare(row.Space.ToValue(), other.ToValue()) < 0)
                 .Find(other => admitted.Find(candidate => candidate.Space == other).Exists(candidate =>
                     prepared.Overlaps(candidate.Boundary) || prepared.Contains(candidate.Boundary.Centroid) || prepared.Covers(candidate.Boundary)));
         }).Head;
         return Fin.Fail<Unit>(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input,
-            $"<egress-space-boundaries-overlap:{conflict.Map(static id => id.Value).IfNone("unresolved")}>"));
+            $"<egress-space-boundaries-overlap:{conflict.Map(static id => id.ToValue()).IfNone("unresolved")}>"));
     }
 
     static Fin<Seq<EgressEdge>> DoorEdges(ElementGraph graph, GeometrySource geometry,
         Seq<(NodeId Space, NetTopologySuite.Geometries.Polygon Boundary)> resolved, Seq<(NodeId Space, NodeId Door)> bindings) =>
         toSeq(bindings.GroupBy(static binding => binding.Door)).TraverseM(door =>
             from width in DoorWidth(graph, door.Key)
-                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-door-width-unresolved:{door.Key.Value}>"))
+                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-door-width-unresolved:{door.Key.ToValue()}>"))
             from point in graph.Find<Node.Object>(door.Key).Bind(node => geometry.Footprint(node.Representations)).Filter(static footprint => !footprint.IsEmpty)
                 .Map(static footprint => footprint.Planar().Centroid)
-                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-door-footprint-unresolved:{door.Key.Value}>"))
+                .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-door-footprint-unresolved:{door.Key.ToValue()}>"))
             let bound = toSeq(door).Map(static binding => binding.Space)
             from edges in bound.Count >= 2
                 ? bound.Bind(a => bound.Filter(b => b != a).Map(b => (From: a, To: b))).TraverseM(pair =>
                     from a in Centroid(resolved, pair.From)
                     from b in Centroid(resolved, pair.To)
                     select new EgressEdge(pair.From, pair.To, width, a.Distance(point) + point.Distance(b))).As()
-                : bound.Head.ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-door-unbound:{door.Key.Value}>"))
+                : bound.Head.ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-door-unbound:{door.Key.ToValue()}>"))
                     .Bind(space => Centroid(resolved, space).Map(center => {
                         double length = center.Distance(point);
                         return Seq(new EgressEdge(space, door.Key, width, length), new EgressEdge(door.Key, space, width, length));
@@ -286,7 +286,7 @@ public static class EgressView {
 
     static Fin<NetTopologySuite.Geometries.Point> Centroid(Seq<(NodeId Space, NetTopologySuite.Geometries.Polygon Boundary)> resolved, NodeId space) =>
         resolved.Find(row => row.Space == space).Map(static row => row.Boundary.Centroid)
-            .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-space-centroid-unresolved:{space.Value}>"));
+            .ToFin(new ComputeFault.AnalysisFailed(SolvePhase.Admission, FailureKind.Input, $"<egress-space-centroid-unresolved:{space.ToValue()}>"));
 
     static Fin<Unit> Census(QuikGraph.AdjacencyGraph<NodeId, EgressEdge> adjacency, Seq<(NodeId Space, double AreaM2, OccupancyClass Occupancy)> spaces, Seq<NodeId> exits) {
         System.Collections.Generic.Dictionary<NodeId, int> components = [];

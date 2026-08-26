@@ -159,8 +159,8 @@ public readonly record struct ElectrodeClass(string Key, double ClassificationKs
     public static readonly ImmutableArray<ElectrodeClass> Rows = [E60, E70, E80, E90, E100, E110];
     public double TensileMpa => ClassificationKsi * KsiToMpa;
     public string Specification => ClassificationKsi <= 70.0 ? "AWS A5.1" : "AWS A5.5";
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public MaterialId Appearance => MaterialId.Of(AppearanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
+    public MaterialId Appearance => MaterialId.Create(AppearanceId);
 }
 
 public readonly record struct AdhesiveClass(string Key, double LapShearMpa, double PeelNmm, double ServiceCelsius, Option<double> StructuralBiteMpa, string SubstanceId) {
@@ -169,7 +169,7 @@ public readonly record struct AdhesiveClass(string Key, double LapShearMpa, doub
     public static readonly AdhesiveClass Polyurethane       = new("polyurethane",        15.0, 20.0, 90.0,  None,       "adhesive.polyurethane");
     public static readonly AdhesiveClass SiliconeStructural = new("silicone-structural", 1.0,  8.0,  150.0, Some(0.14), "sealant.silicone-structural");
     public static readonly ImmutableArray<AdhesiveClass> Rows = [Epoxy, Methacrylate, Polyurethane, SiliconeStructural];
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
 }
 
 public readonly record struct StudClass(string Key, double DiameterMm, double HeadDiameterMm, double HeadThicknessMm, double WeldCollarDiameterMm, double WeldCollarHeightMm, double BurnoffMm, double UltimateMpa) {
@@ -196,8 +196,8 @@ public readonly record struct StudGrade(string Key, double YieldMpa, double Ulti
     public static readonly StudGrade AwsA = new("aws-a", 340.0, 420.0, "steel.aws-a", "metal.steel");
     public static readonly StudGrade AwsB = new("aws-b", 350.0, 450.0, "steel.aws-b", "metal.steel");
     public static readonly ImmutableArray<StudGrade> Rows = [Sd1, Sd2, Sd3, AwsA, AwsB];
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public MaterialId Appearance => MaterialId.Of(AppearanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
+    public MaterialId Appearance => MaterialId.Create(AppearanceId);
 
     public double EnShearResistanceKn(StudClass stud) =>
         0.8 * Math.Min(UltimateMpa, EnUltimateCapMpa) * stud.AreaMm2 / EnGammaV * 1e-3;
@@ -334,9 +334,9 @@ public abstract partial record JointRow {
 public static class JointDetail {
     public static Fin<PropertyBag> Of(JointRow row, EvidenceGrade source) => row.Switch(
         weld: r =>
-            from throat in r.EffectiveThroatMm.Match(
-                Some: value => Measured(DetailSchema.EffectiveThroat, Dimension.LengthDim, value * 1e-3).Map(Some),
-                None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
+            from throat in r.EffectiveThroatMm
+                .TraverseM(value => Measured(DetailSchema.EffectiveThroat, Dimension.LengthDim, value * 1e-3))
+                .As()
             from length in Measured(DetailSchema.NominalLength, Dimension.LengthDim, r.LengthMm * 1e-3)
             from part in Measured(DetailSchema.PartThickness, Dimension.LengthDim, r.Geometry.PartThicknessMm * 1e-3)
             from prep in PrepRow(r)
@@ -476,7 +476,7 @@ public static class JointSeed {
         appearance: static row => row.Switch(
             weld: static r => r.Appearance,
             stud: static r => r.Grade.Appearance,
-            adhesive: static _ => MaterialId.Of("polymer.adhesive")),
+            adhesive: static _ => MaterialId.Create("polymer.adhesive")),
         ifc: static row => row.Kind.Binding);
 
     static ComponentAuthority Body(JointRow row) => row.Switch(

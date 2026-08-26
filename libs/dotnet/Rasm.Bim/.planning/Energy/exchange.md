@@ -109,10 +109,8 @@ public sealed partial class ArtifactKey {
     public static Fin<ArtifactKey> Admit(string? value, Op key) =>
         Optional(value)
             .Bind(static text => TryCreate(text, out ArtifactKey? row) && row is { } admitted ? Some(admitted) : None)
-            .Match(
-                Some: Fin.Succ,
-                None: () => Fin.Fail<ArtifactKey>(
-                    new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-artifact-key-malformed", Optional(value).IfNone(AbsentValue) }))));
+            .ToFin(new BimFault.Refused(key, BimScope.Events, BimReason.Codec,
+                string.Join(':', new object?[] { "event-artifact-key-malformed", Optional(value).IfNone(AbsentValue) })));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

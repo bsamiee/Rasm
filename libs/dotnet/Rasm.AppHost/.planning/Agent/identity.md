@@ -196,9 +196,6 @@ public abstract partial record IdentityFault : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TokenValidation {
     public static IO<Validation<Error, Principal>> Validate(IdentityRuntime runtime, string token) =>
-        Admit(runtime, token);
-
-    static IO<Validation<Error, Principal>> Admit(IdentityRuntime runtime, string token) =>
         Parsed(runtime.Handler, token).Match(
             Fail: error => IO.pure(Validation<Error, Principal>.Fail(error)),
             Succ: parsed => runtime.Trust.Resolve(parsed.Issuer).Match(
@@ -391,7 +388,7 @@ public static class Acquisition {
         Draw(runtime, flow).Bind(drawn => drawn.Match(
             Succ: bundle => Seat(runtime, flow, bundle).Bind(cell =>
                 runtime.Schedule(cell.Value.Refresh).Map(_ => Success<Error, Atom<TokenLease>>(cell))),
-            Fail: static errors => IO.pure(Validation<Error, Atom<TokenLease>>.Fail(Error.Many(errors)))));
+            Fail: static errors => IO.pure(Validation<Error, Atom<TokenLease>>.Fail(errors))));
 
     static IO<Validation<Error, TokenBundle>> Draw(IdentityRuntime runtime, GrantFlow flow) =>
         IO.liftAsync(() => Bracket(flow.RegistrationId, () => Drawn(runtime, flow)))
@@ -408,7 +405,7 @@ public static class Acquisition {
         IO.lift(() => cell.Value).Bind(prior => Renew(runtime, prior, cell).Bind(outcome =>
             Cell.Commit(cell, held => outcome.Match(
                     Succ: static renewed => renewed,
-                    Fail: errors => held with { Refusal = Some(Error.Many(errors)) }))
+                    Fail: errors => held with { Refusal = Some(errors) }))
                 .Switch(
                     committed: row => outcome.Match(
                         Succ: _ => runtime.Schedule(row.State.Refresh),

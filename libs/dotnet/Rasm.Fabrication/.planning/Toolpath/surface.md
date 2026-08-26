@@ -330,9 +330,9 @@ file static class SurfaceLayout {
         kind.Switch(
             state: (Mesh: mesh, StepOver: stepOver, Frame: frame),
             planarRaster: static (state, _) => Raster(state.Mesh, state.StepOver, state.Frame),
-            kernel: (state, row) => policy.Layout.Match(
-                Some: layout => Op.Of(name: row.Identity).Catch(() => layout(state.Mesh, row, state.StepOver)),
-                None: () => Fin.Fail<Seq<SurfaceDrive>>(new KernelFault.InvalidValue("surface", $"surface-layout:unbound:{row.Identity}"))))
+            kernel: (state, row) => policy.Layout
+                .ToFin(new KernelFault.InvalidValue("surface", $"surface-layout:unbound:{row.Identity}"))
+                .Bind(layout => Op.Of(name: row.Identity).Catch(() => layout(state.Mesh, row, state.StepOver))))
         .Bind(drives => drives.IsEmpty || drives.Exists(static drive => drive.Points.Count < 2 || drive.Points.Exists(static point => !point.IsValid))
             ? Fin.Fail<Option<SurfaceDriveSet>>(new GeometryFault.DegenerateInput(Kind.Curve, None, $"surface-layout:invalid:{kind.Identity}"))
             : Fin.Succ(Optional(new SurfaceDriveSet(kind, drives, stepOver))));
@@ -702,8 +702,7 @@ internal sealed record SurfaceSample(
             ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, index, "opencam:empty-path"))
             : Fin.Succ(unit)
         from moves in path.ToSeq()
-            .Map(point => Move.Linear.Of(run.Frame.Inverse * point.Location, feed))
-            .TraverseM(identity).As()
+            .TraverseM(point => Move.Linear.Of(run.Frame.Inverse * point.Location, feed)).As()
         from element in Element(run, moves, index, run.Operation.Key)
         select element;
 
@@ -907,9 +906,9 @@ internal static class OpenCamLib {
     }
 
     private static Fin<SurfaceSample> Paths(SurfaceRun run, OpenCamBinding binding) =>
-        run.Drives.Match(
-            None: () => Fin.Fail<SurfaceSample>(new KernelFault.InvalidValue("surface", "opencam:path-without-drives")),
-            Some: set => set.Drives.Traverse(drive => Path(run, binding, drive)).Map(units => Sampled(
+        run.Drives
+            .ToFin(new KernelFault.InvalidValue("surface", "opencam:path-without-drives"))
+            .Bind(set => set.Drives.Traverse(drive => Path(run, binding, drive)).Map(units => Sampled(
                 run,
                 units.Map(static unit => unit.Value),
                 units.Map(static unit => unit.Diagnostic),
@@ -963,9 +962,9 @@ internal static class OpenCamLib {
     }
 
     private static Fin<SurfaceSample> Fibers(SurfaceRun run, OpenCamBinding binding) =>
-        run.Drives.Match(
-            None: () => Fin.Fail<SurfaceSample>(new KernelFault.InvalidValue("surface", "opencam:fiber-without-drives")),
-            Some: set => Seq(
+        run.Drives
+            .ToFin(new KernelFault.InvalidValue("surface", "opencam:fiber-without-drives"))
+            .Bind(set => Seq(
                 (YDirection: false, Drives: set.Drives.Filter(static drive => AlongX(drive))),
                 (YDirection: true, Drives: set.Drives.Filter(static drive => !AlongX(drive))))
                 .Filter(static batch => !batch.Drives.IsEmpty)

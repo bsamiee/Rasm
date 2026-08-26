@@ -427,9 +427,9 @@ public sealed record TexturePlane(
     }
 
     private static Fin<Transform> Seat(Option<PositiveMagnitude> pitchMm, Op key) =>
-        pitchMm.Match(
-            Some: pitch => Placement.Build(new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: pitch.Value), key: key),
-            None: () => Fin.Succ(Transform.Identity));
+        pitchMm.TraverseM(pitch => Placement.Build(
+            new TransformSpec.UniformScale(Point3d.Origin, pitch.Value), key: key)).As()
+            .Map(static map => map.IfNone(Transform.Identity));
 
     public Dimension Width => Grid.Columns;
     public Dimension Height => Grid.Rows;
@@ -640,9 +640,9 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
     private static Fin<TexturePyramid> Chain(TexturePlane basePlane, MipPolicy policy, Option<TexturePyramid> paired, Op key) {
         bool coupled = policy.Traits.Admits(PlaneTrait.Coupled) && paired.IsSome;
         return Descend(basePlane.Grid, key).Bind(grids =>
-            grids.Fold(Fin.Succ(Seq(basePlane)), (state, grid) => state.Bind(levels =>
+            grids.FoldM(Seq(basePlane), (levels, grid) =>
                 Fold(levels[levels.Count - 1], grid, policy, coupled ? paired.Bind(chain => Level(chain, levels.Count)) : None, key)
-                    .Map(levels.Add))))
+                    .Map(levels.Add)).As())
             .Map(levels => new TexturePyramid(levels, policy, coupled));
     }
 

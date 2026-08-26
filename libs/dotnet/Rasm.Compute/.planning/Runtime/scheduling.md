@@ -95,14 +95,14 @@ public static class LaneChannels {
                 state: spec,
                 parked: static (s, row) => Fin.Succ(Channel.CreateBounded<T>(Bounded(row.Capacity, BoundedChannelFullMode.Wait, s))),
                 shedding: static (s, row) => Fin.Succ(Channel.CreateBounded(Bounded(row.Capacity, row.Mode, s), item => s.Dropped(item, row.Loss))),
-                ranked: static (s, row) => s.Rank.Match(
-                    Some: order => Fin.Succ(Channel.CreateUnboundedPrioritized(new UnboundedPrioritizedChannelOptions<T> {
+                ranked: static (s, row) => s.Rank
+                    .ToFin(new ComputeFault.LaneUnprofiled($"<lane-unranked:{row.Ceiling}>"))
+                    .Map(order => Channel.CreateUnboundedPrioritized(new UnboundedPrioritizedChannelOptions<T> {
                         Comparer = order,
                         SingleReader = s.Readers is 1,
                         SingleWriter = false,
                         AllowSynchronousContinuations = s.InlineContinuations,
-                    })),
-                    None: () => Fin.Fail<Channel<T>>(new ComputeFault.LaneUnprofiled($"<lane-unranked:{row.Ceiling}>"))));
+                    })));
     }
 
     private static BoundedChannelOptions Bounded<T>(int capacity, BoundedChannelFullMode mode, LaneChannel<T> spec) => new(capacity) {
@@ -181,7 +181,6 @@ public sealed class LaneRuntime(
                 state: (Runtime: this, Work: intent),
                 open: static (s, _) => Fin.Succ(s.Runtime.Mint(s.Work)),
                 fenced: static (s, f) => Fin.Fail<WorkItem>(new ComputeFault.ShutdownDrained($"<drain-shed:{s.Work.Spec.Lane.Key}:{f.Provenance}>"))))
-            .Bind(static admitted => admitted.Match(Succ: IO.pure, Fail: IO.fail<WorkItem>))
         from landed in Write(item)
         select item.Handle;
 
@@ -284,7 +283,7 @@ public sealed partial class PressureBand {
     public static readonly PressureBand Restore = new("restore");
 
     public static PressureBand Of(double reading, Percent enter, Percent leave) =>
-        reading >= enter.Value ? Shed : reading <= leave.Value ? Restore : Hold;
+        reading >= enter.ToValue() ? Shed : reading <= leave.ToValue() ? Restore : Hold;
 }
 
 [ValueObject<double>]
@@ -395,9 +394,9 @@ public readonly partial struct GovernorPolicy {
         ref ValidationError? validationError,
         ref Percent shedCpu, ref Percent restoreCpu, ref Percent spillMemory, ref Percent restoreMemory,
         ref SpillScale spillMemoryScale, ref Dimension reserveStep) =>
-        validationError = restoreCpu.Value < shedCpu.Value && restoreMemory.Value < spillMemory.Value
+        validationError = restoreCpu.ToValue() < shedCpu.ToValue() && restoreMemory.ToValue() < spillMemory.ToValue()
             ? validationError
-            : new ValidationError($"<governor-band:{restoreCpu.Value}:{shedCpu.Value}:{restoreMemory.Value}:{spillMemory.Value}>");
+            : new ValidationError($"<governor-band:{restoreCpu.ToValue()}:{shedCpu.ToValue()}:{restoreMemory.ToValue()}:{spillMemory.ToValue()}>");
 
     public static readonly GovernorPolicy Canonical = Create(
         shedCpu: Percent.Create(85d), restoreCpu: Percent.Create(55d),
@@ -419,15 +418,15 @@ public sealed class ResourceGovernor(CpuBudget posture, GovernorPolicy policy) {
     public CpuBudget Steer(UtilizationSample sample) {
         GovernorState next = live.Swap(held => {
             (PressureBand cpu, PressureBand memory) = (
-                PressureBand.Of(sample.CpuPercent.Value, policy.ShedCpu, policy.RestoreCpu),
-                PressureBand.Of(sample.MemoryPercent.Value, policy.SpillMemory, policy.RestoreMemory));
+                PressureBand.Of(sample.CpuPercent.ToValue(), policy.ShedCpu, policy.RestoreCpu),
+                PressureBand.Of(sample.MemoryPercent.ToValue(), policy.SpillMemory, policy.RestoreMemory));
             int reserve = cpu.Switch(
                 state: (Held: held.Budget, Floor: posture.HostReserve, Step: policy.ReserveStep.Value),
                 shed: static s => Math.Min(s.Held.HostReserve + s.Step, s.Held.Total - 1),
                 hold: static s => s.Held.HostReserve,
                 restore: static s => Math.Max(s.Held.HostReserve - s.Step, s.Floor));
             double scale = memory.Switch(
-                state: (Held: held.Budget.MemoryScale, Spill: policy.SpillMemoryScale.Value),
+                state: (Held: held.Budget.MemoryScale, Spill: policy.SpillMemoryScale.ToValue()),
                 shed: static s => s.Spill,
                 hold: static s => s.Held,
                 restore: static _ => 1d);
@@ -595,7 +594,7 @@ public sealed record JobNode(
     ReadOnlyMemory<byte> InputBytes,
     Dimension QosWeight,
     Option<GangKey> Gang = default) {
-    public string UnitKey => Gang.Match(Some: static gang => gang.Value, None: () => Id.Value);
+    public string UnitKey => Gang.Match(Some: static gang => gang.ToValue(), None: () => Id.ToValue());
 
     public bool Ready(HashMap<JobId, JobState> states) =>
         DependsOn.ForAll(dep => states.Find(dep).Map(static state => state == JobState.Completed).IfNone(false));
@@ -612,7 +611,7 @@ public sealed record JobNode(
             .Raw(state.Node.InputBytes.Span)
             .Sorted(
                 rows: state.Node.DependsOn,
-                key: static id => id.Value,
+                key: static id => id.ToValue(),
                 order: StringComparer.Ordinal,
                 field: (id, framed) => framed.U128(state.Keys.Find(id).IfNone(UInt128.Zero))));
 }
@@ -845,7 +844,7 @@ public sealed class JobGraph(
                 : IO.pure(Option<JobCheckpoint>.None)
             from fork in (launch.Resume && resume.IsNone
                 ? IO.pure(new JobReport(launch.Node.Id, new JobSignal.Faulted(Rejected(launch, CheckpointReason.ResumeMissing))))
-                : runner(new JobRun(launch.Node, resume, budget.MemoryLimit(launch.Node.MemoryBudget.Value)))
+                : runner(new JobRun(launch.Node, resume, budget.MemoryLimit(launch.Node.MemoryBudget.ToValue())))
                     .Map(signal => new JobReport(launch.Node.Id, Verified(launch, signal))))
                 .Fork()
             select fork).As()
@@ -855,7 +854,7 @@ public sealed class JobGraph(
         select reports;
 
     private static ComputeFault.CheckpointRejected Rejected(JobLaunch launch, CheckpointReason reason) =>
-        new($"<checkpoint-rejected:{reason.Key}:{launch.Node.Id.Value}:{launch.Key:x32}>");
+        new($"<checkpoint-rejected:{reason.Key}:{launch.Node.Id.ToValue()}:{launch.Key:x32}>");
 
     private static JobSignal Verified(JobLaunch launch, JobSignal signal) =>
         signal is JobSignal.Spilled spilled
@@ -903,7 +902,7 @@ public sealed class JobGraph(
 
     private static ComputeFault.GraphStalled Stalled(HashMap<JobId, JobState> states, StallReason reason) {
         Seq<JobId> blocked = toSeq(states.Filter(static (_, state) => !state.Terminal).Keys);
-        return new ComputeFault.GraphStalled($"<graph-stalled:{reason.Key}:{blocked.Count}>{string.Join(',', blocked.Map(static id => id.Value))}");
+        return new ComputeFault.GraphStalled($"<graph-stalled:{reason.Key}:{blocked.Count}>{string.Join(',', blocked.Map(static id => id.ToValue()))}");
     }
 
     private static JobLedger Settle(DriveState state, Duration elapsed) =>
@@ -921,13 +920,13 @@ public sealed class JobGraph(
             component.Map(id => byId[id].Tenant).Distinct().Count > 1);
         return !split.IsEmpty
             ? Fin.Fail<Seq<JobNode>>(new ComputeFault.GraphCyclic(
-                $"<graph-cyclic:{split.Count}>{string.Join(',', split.Map(static cycle => string.Join(">", cycle.Map(static id => id.Value))))}"))
+                $"<graph-cyclic:{split.Count}>{string.Join(',', split.Map(static cycle => string.Join(">", cycle.Map(static id => id.ToValue()))))}"))
             : Fin.Succ(components.Fold(nodes, static (acc, component) => Gang(acc, component)));
     }
 
     private static Seq<JobNode> Gang(Seq<JobNode> nodes, Seq<JobId> component) {
         LanguageExt.HashSet<JobId> members = toHashSet(component);
-        GangKey key = GangKey.Create(JobId.Of(JobId.Component, component.Map(static id => id.Value).Order(StringComparer.Ordinal).Head()).Value);
+        GangKey key = GangKey.Create(JobId.Of(JobId.Component, toSeq(component.Map(static id => id.ToValue()).Order(StringComparer.Ordinal))[0]).ToValue());
         return nodes.Map(node => members.Contains(node.Id)
             ? node with { Gang = Some(key), DependsOn = node.DependsOn.Filter(dependency => !members.Contains(dependency)) }
             : node);
@@ -942,16 +941,16 @@ public sealed class JobGraph(
         LanguageExt.HashSet<JobId> known = toHashSet(nodes.Map(static node => node.Id));
         return
             Rejects(AdmitReason.DuplicateId, Repeated(nodes.Map(static node => node.Id)))
-            & Rejects(AdmitReason.SelfEdge, nodes.Filter(static node => node.DependsOn.Contains(node.Id)).Map(static node => node.Id.Value))
+            & Rejects(AdmitReason.SelfEdge, nodes.Filter(static node => node.DependsOn.Contains(node.Id)).Map(static node => node.Id.ToValue()))
             & Rejects(AdmitReason.MissingEdge, nodes.Bind(node => node.DependsOn
                 .Filter(dependency => dependency != node.Id && !known.Contains(dependency))
-                .Map(dependency => $"{node.Id.Value}>{dependency.Value}")))
+                .Map(dependency => $"{node.Id.ToValue()}>{dependency.ToValue()}")))
             & Rejects(AdmitReason.DuplicateEdge, nodes.Bind(node =>
-                Repeated(node.DependsOn).Map(edge => $"{node.Id.Value}>{edge}")))
+                Repeated(node.DependsOn).Map(edge => $"{node.Id.ToValue()}>{edge}")))
             & Rejects(AdmitReason.MixedTenantGang, toSeq(nodes.Choose(static node => node.Gang.Map(gang => (Gang: gang, node.Tenant)))
                 .GroupBy(static row => row.Gang))
                 .Filter(static gang => gang.Select(static row => row.Tenant).Distinct().Count() > 1)
-                .Map(static gang => gang.Key.Value));
+                .Map(static gang => gang.Key.ToValue()));
     }
 
     private static Seq<string> Repeated<T>(Seq<T> rows) where T : notnull =>

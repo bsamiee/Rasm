@@ -451,7 +451,7 @@ public sealed partial class SemanticProjector(
     static Fin<(Map<PropertyName, MeasureValue> Values, Map<string, GroupIdentity> Groups)> FlattenQuantities(
         IEnumerable<IfcPhysicalQuantity> quantities, string prefix, UnitScheme scheme,
         (Map<PropertyName, MeasureValue> Values, Map<string, GroupIdentity> Groups) bag, Op key) =>
-        toSeq(quantities).Fold(Fin.Succ(bag), (result, quantity) => result.Bind(acc => quantity switch {
+        toSeq(quantities).FoldM(bag, (acc, quantity) => quantity switch {
             IfcPhysicalSimpleQuantity simple => PropertyLowering.Measure(simple, scheme, key)
                 .Map(value => acc with {
                     Values = acc.Values.AddOrUpdate(PropertyName.Create($"{prefix}{PropertyLowering.Stated(simple.Name).IfNone("")}"), value)
@@ -462,7 +462,7 @@ public sealed partial class SemanticProjector(
                     Groups = acc.Groups.AddOrUpdate($"{prefix}{PropertyLowering.Stated(complex.Name).IfNone("")}", GroupOf(complex))
                 }, key),
             _ => Fin.Fail<(Map<PropertyName, MeasureValue>, Map<string, GroupIdentity>)>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name }))),
-        }));
+        }).As();
 
     static GroupIdentity GroupOf(IfcPhysicalComplexQuantity complex) =>
         new(PropertyLowering.Stated(complex.Discrimination),
@@ -508,8 +508,7 @@ public sealed partial class SemanticProjector(
         .Bind(rows => Fidelity.Lift(rows.TraverseM(row => row.Value.Map(value => (row.Key, value))).As()))
         .Map(static values => values
             .Filter(static row => row.value switch { PropertyValue.Text text => text.Value.Length > 0, _ => true })
-            .Map(static row => (PropertyCategory.Neutral.Row(row.Key), row.value))
-            .ToSeq());
+            .Map(static row => (PropertyCategory.Neutral.Row(row.Key), row.value)));
 
     static (string, Fin<PropertyValue>) Scalar(string name, double native, Dimension dimension, UnitScheme scheme, Op key) =>
         (name, double.IsFinite(native)
@@ -627,23 +626,22 @@ public sealed class IfcLegality : IGraphConstraint {
 
     public Validation<Error, Unit> Validate(GraphDelta delta, ElementGraph graph) {
         Endpoints endpoints = Endpoints.Of(delta, graph);
-        return delta.AddedEdges.Map(edge => Rule(edge, endpoints))
-            .Fold(Success<Error, Unit>(unit), static (acc, rule) => (acc, rule).Apply(static (_, _) => unit).As());
+        return delta.AddedEdges.Traverse(edge => Rule(edge, endpoints)).As().Map(static _ => unit);
     }
 
     static Validation<Error, Unit> Rule(Relationship edge, Endpoints endpoints) => edge switch {
         Relationship.Compose c when c.SubKind == ComposeKind.Contain =>
-            (Require(c.Whole, endpoints, SpatialWhole, "containment-whole-not-spatial", c.Whole.Value),
+            (Require(c.Whole, endpoints, SpatialWhole, "containment-whole-not-spatial", c.Whole.ToValue()),
              SpatialRank(c.Whole, c.Part, endpoints)).Apply(static (_, _) => unit).As(),
         Relationship.Compose c when c.SubKind == ComposeKind.Aggregate =>
-            (Require(c.Whole, endpoints, OccurrenceWhole, "type-aggregates-occurrence", c.Whole.Value),
+            (Require(c.Whole, endpoints, OccurrenceWhole, "type-aggregates-occurrence", c.Whole.ToValue()),
              SpatialRank(c.Whole, c.Part, endpoints)).Apply(static (_, _) => unit).As(),
         Relationship.Void v when v.SubKind == VoidKind.Void =>
-            Require(v.Feature, endpoints, Subtraction, "voids-feature-not-subtraction", v.Feature.Value),
+            Require(v.Feature, endpoints, Subtraction, "voids-feature-not-subtraction", v.Feature.ToValue()),
         Relationship.Void v when v.SubKind == VoidKind.Fill =>
-            Require(v.Host, endpoints, Subtraction, "fills-host-not-subtraction", v.Host.Value),
+            Require(v.Host, endpoints, Subtraction, "fills-host-not-subtraction", v.Host.ToValue()),
         Relationship.Assign a when a.SubKind == AssignKind.TypeDefinition =>
-            Require(a.Definition, endpoints, TypeDefinition, "definesbytype-definition-not-type", a.Definition.Value),
+            Require(a.Definition, endpoints, TypeDefinition, "definesbytype-definition-not-type", a.Definition.ToValue()),
         _ => Success<Error, Unit>(unit),
     };
 
@@ -661,7 +659,7 @@ public sealed class IfcLegality : IGraphConstraint {
 
     static Validation<Error, Unit> Require(NodeId id, Endpoints endpoints, BimTerm rule, string detail, string subject) =>
         endpoints.Find(id).Match(
-            None: () => Fail<Error, Unit>(new BimFault.Refused(Gate, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "endpoint-unresolved", id.Value }))),
+            None: () => Fail<Error, Unit>(new BimFault.Refused(Gate, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "endpoint-unresolved", id.ToValue() }))),
             Some: obj => ElementQuery.Verdict(endpoints.Graph, obj, rule) switch {
                 { Holds: true } => Success<Error, Unit>(unit),
                 { Faults: var faults } when faults.IsEmpty is false => Fail<Error, Unit>(Error.Many(faults)),

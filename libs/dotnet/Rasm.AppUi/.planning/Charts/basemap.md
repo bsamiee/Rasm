@@ -130,7 +130,6 @@ public static class FeatureSlot {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class TilePolicy {
     public string Agent { get; }
     public Option<IPersistentCache<byte[]>> Cache { get; }
@@ -236,7 +235,6 @@ public sealed record Symbology(Func<IFeature, Viewport, IStyle?> Select) {
 }
 
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class ChoroplethSpec {
     public string Column { get; }
     public double Floor { get; }
@@ -412,7 +410,7 @@ public sealed partial class BasemapSurface {
                 .Match(Some: row => row.Retint(widget, ink), None: () => WidgetRow.Text(widget, ink)));
 
     public IO<Fin<Unit>> Navigate(MapNav verb) =>
-        IO.lift(() => verb.Move switch {
+        IO.lift<Fin<Unit>>(() => verb.Move switch {
             var move => move.Admitted
                 .Bind(_ => Op.Of(name: "appui.basemap.navigate").Catch(() => { move.Apply(Control.Map.Navigator); return Fin.Succ(unit); }))
                 .Bind(_ => Instruments.Write(Navigated, 1d,
@@ -644,7 +642,6 @@ public static class GeoOverlay {
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class PickPolicy {
     public static readonly PickPolicy Pointer = Create(TolerancePx: 8d, Arity: 8);
     public static readonly PickPolicy Touch = Create(TolerancePx: 16d, Arity: 12);
@@ -771,7 +768,6 @@ public sealed partial class RedlineLane : IGaugeLane<RedlineLane> {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError]
 public sealed partial class RedlineStyle {
     public PaintRole Paint { get; }
     public Option<PaintRole> Fill { get; }

@@ -340,9 +340,9 @@ public sealed partial class DenseOutputCoefficientFamily {
     internal Fin<Seq<double>> WeightsAt(double theta, int stageCount, Op key) => Evaluate(theta: theta, stageCount: stageCount, key: key, project: Horner);
     internal Fin<Seq<double>> DerivativeAt(double theta, int stageCount, Op key) => Evaluate(theta: theta, stageCount: stageCount, key: key, project: HornerDerivative);
     private bool Matches(ButcherTableau tableau) =>
-        Published.Map(held => tableau.StageCount == held.Fingerprint.Length
+        Published.Exists(held => tableau.StageCount == held.Fingerprint.Length
             && tableau.IsFunctionalSameAsLast
-            && held.Fingerprint.Zip(tableau.Abscissae).All(pair => Math.Abs(value: pair.First - pair.Second) <= ButcherTableau.CoefficientTolerance)).IfNone(noneValue: false);
+            && held.Fingerprint.Zip(tableau.Abscissae).All(pair => Math.Abs(value: pair.First - pair.Second) <= ButcherTableau.CoefficientTolerance));
     private Fin<Seq<double>> Evaluate(double theta, int stageCount, Op key, Func<double[], double, double> project) =>
         Published.Filter(held => held.Table.Length == stageCount)
             .Map(held => key.Accept(values: held.Table.Select(row => project(row, theta))))
@@ -492,14 +492,12 @@ internal static class ButcherDenseOutput {
         if (family.Source == DenseOutputSource.Published) { return Fin.Succ(new DenseOutputInterpolant(Order: order, Basis: [], Solve: None)); }
         int stages = tableau.StageCount;
         double[] design = MomentDesign(tableau: tableau, stages: stages, order: order);
-        return Range(0, order)
-            .Fold(Fin.Succ(Seq<(double[] Correction, LinearSolution Solve)>.Empty),
-                (built, moment) => built.Bind(columns =>
-                    BasisColumn(tableau: tableau, design: design, stages: stages, order: order, moment: moment, key: key).Map(columns.Add)))
+        return Range(0, order).ToSeq()
+            .TraverseM(moment => BasisColumn(tableau: tableau, design: design, stages: stages, order: order, moment: moment, key: key)).As()
             .Map(columns => new DenseOutputInterpolant(
                 Order: order,
                 Basis: [.. columns.Map(static column => column.Correction)],
-                Solve: columns.Rev().HeadOrNone().Map(static column => column.Solve)));
+                Solve: columns.Last.Map(static column => column.Solve)));
     }
 
     private static Fin<(double[] Correction, LinearSolution Solve)> BasisColumn(ButcherTableau tableau, double[] design, int stages, int order, int moment, Op key) {

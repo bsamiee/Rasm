@@ -40,7 +40,7 @@ internal static partial class WireCodec {
  internal static Fin<MaterialWire> ToWire(Node.Material node, Op key) =>
   toSeq(node.Properties).TraverseM(set => ToWire(set, key)).As().Map(properties => {
    MaterialWire wire = new() {
-    MaterialKey = node.MaterialKey.Value,
+    MaterialKey = node.MaterialKey.ToValue(),
     Composition = ToWire(node.Composition),
    };
    wire.PropertySets.AddRange(properties);
@@ -122,18 +122,18 @@ internal static partial class WireCodec {
  }
 
  internal static MaterialCompositionWire ToWire(MaterialComposition composition) => composition.Switch<MaterialCompositionWire>(
-  single: c => new() { Single = c.Material.Value },
+  single: c => new() { Single = c.Material.ToValue() },
   layerSet: c => { LayerSetWire w = new(); w.Layers.AddRange(c.Layers.Map(static l => ToWire(l))); return new() { LayerSet = w }; },
   profileSet: c => { ProfileSetWire w = new(); w.Profiles.AddRange(c.Profiles.Map(static p => ToWire(p))); c.Composite.IfSome(r => w.Composite = ToWire(r)); c.Section.IfSome(s => w.Section = ToWire(s)); return new() { ProfileSet = w }; },
-  constituentSet: c => { ConstituentSetWire w = new(); w.Constituents.AddRange(c.Constituents.Map(static x => new MaterialConstituentWire { MaterialKey = x.Material.Value, Category = x.Category, Fraction = x.Fraction, PartName = x.PartName })); return new() { ConstituentSet = w }; });
+  constituentSet: c => { ConstituentSetWire w = new(); w.Constituents.AddRange(c.Constituents.Map(static x => new MaterialConstituentWire { MaterialKey = x.Material.ToValue(), Category = x.Category, Fraction = x.Fraction, PartName = x.PartName })); return new() { ConstituentSet = w }; });
 
  internal static MaterialLayerWire ToWire(MaterialLayer layer) {
-  MaterialLayerWire w = new() { MaterialKey = layer.Material.Value, Thickness = ToWire(layer.Thickness), LayerName = layer.LayerName, Category = layer.Category };
+  MaterialLayerWire w = new() { MaterialKey = layer.Material.ToValue(), Thickness = ToWire(layer.Thickness), LayerName = layer.LayerName, Category = layer.Category };
   layer.Priority.IfSome(p => w.Priority = p); layer.Ventilated.IfSome(v => w.Ventilated = v); return w;
  }
 
  internal static MaterialProfileWire ToWire(MaterialProfile profile) {
-  MaterialProfileWire w = new() { MaterialKey = profile.Material.Value, Profile = ToWire(profile.Profile), Category = profile.Category };
+  MaterialProfileWire w = new() { MaterialKey = profile.Material.ToValue(), Profile = ToWire(profile.Profile), Category = profile.Category };
   profile.Priority.IfSome(p => w.Priority = p); w.Offsets.AddRange(profile.Offsets.Map(static o => ToWire(o))); return w;
  }
 
@@ -182,13 +182,13 @@ internal static partial class WireCodec {
  static Fin<Node> ToMaterial(NodeId id, MaterialWire w, Op key) =>
   Present(w.Composition, "material.composition", key).Bind(c => ToComposition(c, key)).Bind(composition =>
    toSeq(w.PropertySets).TraverseM(p => ToPropertySet(p, key)).As().Map(sets =>
-    (Node)new Node.Material(id, MaterialId.Of(w.MaterialKey), composition, sets)));
+    (Node)new Node.Material(id, MaterialId.Create(w.MaterialKey), composition, sets)));
 
  static Fin<MaterialComposition> ToComposition(MaterialCompositionWire w, Op key) => w.CompositionCase switch {
-  MaterialCompositionWire.CompositionOneofCase.Single => Fin.Succ(MaterialComposition.OfSingle(MaterialId.Of(w.Single))),
+  MaterialCompositionWire.CompositionOneofCase.Single => Fin.Succ(MaterialComposition.OfSingle(MaterialId.Create(w.Single))),
   MaterialCompositionWire.CompositionOneofCase.LayerSet =>
    toSeq(w.LayerSet.Layers).TraverseM(l => ToMeasure(l.Thickness, key).Map(t => new MaterialLayer(
-     MaterialId.Of(l.MaterialKey), t, l.LayerName,
+     MaterialId.Create(l.MaterialKey), t, l.LayerName,
      Opt(l.HasPriority, l.Priority), l.Category,
      Opt(l.HasVentilated, l.Ventilated)))).As()
     .Bind(layers => MaterialComposition.OfLayerSet(layers, key)),
@@ -199,7 +199,7 @@ internal static partial class WireCodec {
    from section in Optional(w.ProfileSet.Section).Traverse(s => ToSection(s, key)).As()
    select section.Match(Some: admitted.WithSection, None: () => admitted),
   MaterialCompositionWire.CompositionOneofCase.ConstituentSet => MaterialComposition.OfConstituentSet(
-   toSeq(w.ConstituentSet.Constituents).Map(c => new MaterialConstituent(MaterialId.Of(c.MaterialKey), c.Category, c.Fraction, c.PartName)), key),
+   toSeq(w.ConstituentSet.Constituents).Map(c => new MaterialConstituent(MaterialId.Create(c.MaterialKey), c.Category, c.Fraction, c.PartName)), key),
   _ => new KernelFault.InvalidValue("element-wire.material-composition", "one composition arm is required", Some(key)),
  };
 
@@ -207,7 +207,7 @@ internal static partial class WireCodec {
   from row in Present(w.Profile, "profile.ref", key)
   from profile in ToProfileRef(row, key)
   from offsets in toSeq(w.Offsets).TraverseM(o => ToMeasure(o, key)).As()
-  select new MaterialProfile(MaterialId.Of(w.MaterialKey), profile, Opt(w.HasPriority, w.Priority), w.Category, offsets);
+  select new MaterialProfile(MaterialId.Create(w.MaterialKey), profile, Opt(w.HasPriority, w.Priority), w.Category, offsets);
 
  static Fin<ProfileRef> ToProfileRef(ProfileRefWire w, Op key) =>
   ToKey(w.ContentKey, key).Bind(content => ProfileRef.Rehydrate(w.Standard, w.Designation, content, key));
@@ -235,21 +235,14 @@ internal static partial class WireCodec {
     : Fin.Fail<double[]>(new KernelFault.InvalidValue(
      $"element-wire.{column}", "carry every acoustic band exactly once", Some(key))));
 
- static Rasm.Contracts.Element.FireRating ToWire(FireRating value) => value == FireRating.A1
-  ? Rasm.Contracts.Element.FireRating.A1
-  : value == FireRating.A2
-   ? Rasm.Contracts.Element.FireRating.A2
-   : value == FireRating.B
-    ? Rasm.Contracts.Element.FireRating.B
-    : value == FireRating.C
-     ? Rasm.Contracts.Element.FireRating.C
-     : value == FireRating.D
-      ? Rasm.Contracts.Element.FireRating.D
-      : value == FireRating.E
-       ? Rasm.Contracts.Element.FireRating.E
-       : value == FireRating.F
-        ? Rasm.Contracts.Element.FireRating.F
-        : throw new UnreachableException();
+ static Rasm.Contracts.Element.FireRating ToWire(FireRating value) => value.Switch(
+  a1: static () => Rasm.Contracts.Element.FireRating.A1,
+  a2: static () => Rasm.Contracts.Element.FireRating.A2,
+  b: static () => Rasm.Contracts.Element.FireRating.B,
+  c: static () => Rasm.Contracts.Element.FireRating.C,
+  d: static () => Rasm.Contracts.Element.FireRating.D,
+  e: static () => Rasm.Contracts.Element.FireRating.E,
+  f: static () => Rasm.Contracts.Element.FireRating.F);
 
  static Fin<FireRating> ToFireRating(Rasm.Contracts.Element.FireRating value, Op key) => value switch {
   Rasm.Contracts.Element.FireRating.A1 => Fin.Succ(FireRating.A1),
@@ -290,15 +283,11 @@ internal static partial class WireCodec {
   _ => throw new UnreachableException(),
  };
 
- static Rasm.Contracts.Element.MeasurementBasis ToWire(MeasurementBasis value) => value == MeasurementBasis.PerKg
-  ? Rasm.Contracts.Element.MeasurementBasis.PerKg
-  : value == MeasurementBasis.PerM2
-   ? Rasm.Contracts.Element.MeasurementBasis.PerM2
-   : value == MeasurementBasis.PerM3
-    ? Rasm.Contracts.Element.MeasurementBasis.PerM3
-    : value == MeasurementBasis.PerItem
-     ? Rasm.Contracts.Element.MeasurementBasis.PerItem
-     : throw new UnreachableException();
+ static Rasm.Contracts.Element.MeasurementBasis ToWire(MeasurementBasis value) => value.Switch(
+  perKg: static () => Rasm.Contracts.Element.MeasurementBasis.PerKg,
+  perM2: static () => Rasm.Contracts.Element.MeasurementBasis.PerM2,
+  perM3: static () => Rasm.Contracts.Element.MeasurementBasis.PerM3,
+  perItem: static () => Rasm.Contracts.Element.MeasurementBasis.PerItem);
 
  static Fin<MeasurementBasis> ToMeasurementBasis(Rasm.Contracts.Element.MeasurementBasis value, Op key) => value switch {
   Rasm.Contracts.Element.MeasurementBasis.PerKg => Fin.Succ(MeasurementBasis.PerKg),
@@ -313,10 +302,10 @@ internal static partial class WireCodec {
    Key: (Category: (int)row.Category, Band: (int)row.Band),
    Value: row.Value)), "environmental.impacts", key)
   .Bind(values => values.Count == MaterialPropertySet.Environmental.MatrixArity
-   && Enumerable.Range(1, ImpactCategory.Count)
-    .All(category => Enumerable.Range(1, LifecycleStage.Count).All(band => values.ContainsKey((category, band))))
-   ? Fin.Succ(Enumerable.Range(1, ImpactCategory.Count)
-     .SelectMany(category => Enumerable.Range(1, LifecycleStage.Count).Select(band => values[(category, band)]))
+   && Enumerable.Range(1, ImpactCategory.Items.Count)
+    .All(category => Enumerable.Range(1, LifecycleStage.Items.Count).All(band => values.ContainsKey((category, band))))
+   ? Fin.Succ(Enumerable.Range(1, ImpactCategory.Items.Count)
+     .SelectMany(category => Enumerable.Range(1, LifecycleStage.Items.Count).Select(band => values[(category, band)]))
      .ToImmutableArray())
    : Fin.Fail<ImmutableArray<double>>(new KernelFault.InvalidValue(
     "element-wire.environmental.impacts", "carry the full unique impact-category by lifecycle-band tensor", Some(key))));
@@ -342,7 +331,6 @@ internal static partial class WireCodec {
      (ToSpectrum(w.Acoustic.Absorption, "acoustic.absorption", key),
       ToSpectrum(w.Acoustic.SoundReductionIndexDb, "acoustic.sound-reduction", key))
      .Apply(static (absorption, reduction) => (absorption, reduction)).As()
-     .ToFin()
      .Bind(rows => Acoustic.Of(
       rows.absorption, rows.reduction, key,
       Opt(w.Acoustic.HasDynamicStiffnessMnPerM3, w.Acoustic.DynamicStiffnessMnPerM3),
@@ -365,7 +353,7 @@ internal static partial class WireCodec {
       Opt(w.Environmental.HasRecycledContent, w.Environmental.RecycledContent),
       Opt(w.Environmental.HasEndOfLifeRecovery, w.Environmental.EndOfLifeRecovery), key, evidence))),
     MaterialPropertySetWire.PropertySetOneofCase.Cost => ToMeasurementBasis(w.Cost.Basis, key).Bind(basis =>
-     Currency.Parse(w.Cost.Currency, key).Bind(currency =>
+     key.AcceptValidated<Currency>(w.Cost.Currency).Bind(currency =>
       MaterialPropertySet.OfCost(basis, currency, w.Cost.SupplyPerUnit, w.Cost.InstallPerUnit, w.Cost.LifecyclePerUnit, key, evidence))),
     MaterialPropertySetWire.PropertySetOneofCase.Damping => MaterialPropertySet.OfDamping(
      w.Damping.DampingRatio, Optional(w.Damping.Rayleigh).Map(static r => (r.AlphaPerS, r.BetaS)), key, evidence),

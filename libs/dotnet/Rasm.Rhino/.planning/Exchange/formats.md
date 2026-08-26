@@ -542,9 +542,9 @@ public static class Codecs {
                    tune.Scale.IsNone || codec.Has(CodecAbility.Vector),
                    new ExchangeFault.AbilityMissing(
                        Key: op, Codec: codec.Key, Ability: CodecAbility.Vector.Key)).ToFin()
-               from _dial in tune.Dial.Match(
-                   Some: dial => dial.Admit(codec: codec, phase: request.Phase, key: op),
-                   None: static () => Fin.Succ(unit))
+               from _dial in tune.Dial
+                   .TraverseM(dial => dial.Admit(codec: codec, phase: request.Phase, key: op)).As()
+                   .Map(static _ => unit)
                from done in op.Catch(() => request.Dispatch(codec: codec, tune: tune, document: document, path: path.Value, op: op))
                select done;
     }
@@ -570,9 +570,9 @@ public static class CodecPort {
     private static readonly Atom<HashMap<(Guid PlugIn, CodecPhase Phase, int Index), FileCodec>> Registry =
         Atom(HashMap<(Guid, CodecPhase, int), FileCodec>());
 
-    private static readonly Atom<HashMap<Guid, Error>> Refusals = Atom(HashMap<Guid, Error>());
+    private static readonly AtomHashMap<Guid, Error> Refusals = AtomHashMap(HashMap<Guid, Error>());
 
-    public static Option<Error> Refusal(Guid plugIn) => Refusals.Value.Find(plugIn);
+    public static Option<Error> Refusal(Guid plugIn) => Refusals.Find(plugIn);
 
     internal static Fin<FileTypeList> Register(Guid plugIn, CodecPhase phase, Op? key = null) {
         Op op = key.OrDefault();
@@ -597,7 +597,7 @@ public static class CodecPort {
 
     internal static Unit Retire(Guid plugIn) {
         _ = Registry.Swap(map => map.Filter((key, _) => key.PlugIn != plugIn));
-        return ignore(Refusals.Swap(map => map.Remove(plugIn)));
+        return Refusals.Remove(plugIn);
     }
 
     internal static Fin<Unit> Dispatch(Guid plugIn, int index, RhinoDoc document, string filename, CodecRequest request) {
@@ -616,7 +616,7 @@ public static class CodecPort {
         outcome.Match(
             Succ: answer,
             Fail: failure => {
-                _ = Refusals.Swap(map => map.AddOrUpdate(plugIn, failure));
+                _ = Refusals.AddOrUpdate(plugIn, failure);
                 return refused;
             });
 

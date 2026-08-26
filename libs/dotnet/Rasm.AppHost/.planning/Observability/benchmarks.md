@@ -216,6 +216,7 @@ public static class BenchmarkGate {
                         (AppHostSlot.Case, stamped.Case),
                         (AppHostSlot.Verdict, stamped.Verdict.Key))))
             .Apply(static (_, _) => unit)
+            .As()
             .ToValidation()
             .Bind(_ => judged.Map(_ => stamped).As()))
         select observed;
@@ -223,7 +224,7 @@ public static class BenchmarkGate {
     static BenchmarkVerdict Settled(Validation<Error, Benchmark> judged) =>
         judged.Match(
             Succ: static passed => passed.Verdict,
-            Fail: static faults => faults.Exists(static fault => fault is BenchmarkFault.HostMismatch)
+            Fail: static faults => faults.AsIterable().Exists(static fault => fault is BenchmarkFault.HostMismatch)
                 ? BenchmarkVerdict.HostMismatch
                 : BenchmarkVerdict.Regressed);
 }
@@ -409,9 +410,8 @@ public static class ProfileCapture {
     }
 
     static Option<T> Guarded<T>(Func<Option<T>> call) =>
-        Op.Of().Catch(() => Fin.Succ(call())).Match(
-            Succ: static held => held,
-            Fail: static _ => Option<T>.None);
+        Op.Of().Catch(() => Fin.Succ(call()))
+            .IfFail(static _ => Option<T>.None);
 
     static Unit Publish(
         Atom<HashMap<int, Instant>> seen, ProfileCapturePolicy policy,

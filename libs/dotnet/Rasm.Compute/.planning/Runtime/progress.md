@@ -108,7 +108,7 @@ public readonly record struct ProgressMark(
         (At - prior.At).TotalSeconds is var seconds and > 0d
             ? from now in Segments
               from before in prior.Segments
-              select Math.Max(0L, now.Value - before.Value) / seconds
+              select Math.Max(0L, now.ToValue() - before.ToValue()) / seconds
             : None;
 
     public Option<Duration> Eta(ProgressMark prior) =>
@@ -127,7 +127,7 @@ public readonly record struct ProgressMark(
     private static ProgressMark Merged(ProgressMark prior, ProgressMark next) =>
         next with {
             Fraction = next.Phase == ProgressPhase.Completed ? Some(UnitInterval.Create(1d)) : Rising(prior.Fraction, next.Fraction, static (a, b) => a.Value >= b.Value),
-            Segments = Rising(prior.Segments, next.Segments, static (a, b) => a.Value >= b.Value),
+            Segments = Rising(prior.Segments, next.Segments, static (a, b) => a.ToValue() >= b.ToValue()),
             At = next.At < prior.At ? prior.At : next.At,
             Correlation = prior.Correlation,
         };
@@ -156,7 +156,7 @@ public readonly record struct ProgressMark(
             (_, { IsNone: true }) => accumulated,
             ({ IsNone: true }, var only) => only,
             ({ Case: SegmentCount held }, { Case: SegmentCount segment }) =>
-                long.MaxValue - held.Value >= segment.Value ? Some(SegmentCount.Create(held.Value + segment.Value)) : None,
+                long.MaxValue - held.ToValue() >= segment.ToValue() ? Some(SegmentCount.Create(held.ToValue() + segment.ToValue())) : None,
             _ => None,
         };
 }
@@ -168,7 +168,7 @@ public static class ProgressCadence {
             || next.Rank > prior.Rank
             || next.At - prior.At >= (policy.MinInterval < Duration.Zero ? Duration.Zero : policy.MinInterval)
             || Moved(next.Fraction, prior.Fraction, static (a, b) => Math.Abs(a.Value - b.Value)) >= Math.Max(0d, policy.MinFraction)
-            || Moved(next.Segments, prior.Segments, static (a, b) => (double)(a.Value - b.Value)) >= Math.Max(0L, policy.MinSegments);
+            || Moved(next.Segments, prior.Segments, static (a, b) => (double)(a.ToValue() - b.ToValue())) >= Math.Max(0L, policy.MinSegments);
     }
 
     private static double Moved<T>(Option<T> next, Option<T> prior, Func<T, T, double> delta) =>
@@ -282,7 +282,7 @@ public static partial class ProgressWireMap {
     public static WatchResponse ToWire(ProgressMark mark) {
         WatchResponse wire = Projected(mark);
         mark.Fraction.Iter(fraction => wire.Fraction = fraction.Value);
-        mark.Segments.Iter(segments => wire.Segments = (ulong)segments.Value);
+        mark.Segments.Iter(segments => wire.Segments = (ulong)segments.ToValue());
         return wire;
     }
 

@@ -155,13 +155,14 @@ internal sealed class SpecResponder : Responses, IResponsive {
     private Response Slotted<TEvent>(Option<Func<TEvent, InputVerdict>> slot, TEvent e, Func<Response> inherited) where TEvent : class;
     private void Beside(PointerPhase phase, ResponseMouseArgs? args, Action relay);
 
-    private Fin<InputVerdict> Governed(InputVerdict verdict) => hooks.Match(
-        Some: live => live.Fire(
+    private Fin<InputVerdict> Governed(InputVerdict verdict) => hooks
+        .TraverseM(live => live.Fire(
                 at: GrasshopperPoint.InteractionVerdict,
                 fact: new HookSignal.IntentCase(Operation: operation, DocumentId: None),
-                key: operation)
-            .Match(Succ: _ => Fin.Succ(verdict), Fail: _ => Fin.Succ(InputVerdict.Ignored)),
-        None: () => Fin.Succ(verdict));
+                key: operation))
+        .As()
+        .Map(_ => verdict)
+        .BindFail(_ => Fin.Succ(InputVerdict.Ignored));
 
     private bool Guarded(Func<PointF, bool> filter, PointF point);
 

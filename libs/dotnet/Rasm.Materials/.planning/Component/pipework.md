@@ -101,8 +101,8 @@ public sealed partial class PipeSystem {
     public string SubstanceId { get; }
     public string AppearanceId { get; }
     public IfcBinding Ifc => IfcBinding.Of("IfcPipeSegment", Flexible ? "FLEXIBLESEGMENT" : "RIGIDSEGMENT");
-    public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public MaterialId Appearance => MaterialId.Of(AppearanceId);
+    public MaterialId Substance => MaterialId.Create(SubstanceId);
+    public MaterialId Appearance => MaterialId.Create(AppearanceId);
 
     // --- [LADDERS]
     static readonly Option<Func<IpsRow, double>> Rated40 = Some<Func<IpsRow, double>>(static r => r.Rated40Psi);
@@ -230,19 +230,21 @@ public static class PipeworkSeed {
         ifc: static r => r.System.Ifc);
 
     static Validation<Error, Unit> Coherence(PipeRow r, Op key) =>
-        (guard(r.Size.RatedPsi.IsSome == r.System.Rated.IsSome,
-             new KernelFault.InvalidValue(nameof(r.Size.RatedPsi), "presence matching the pipe-system rating", Some(key))).ToValidation(),
-         guard(double.IsFinite(r.Size.OdMm) && double.IsFinite(r.Size.WallMm)
-                 && r.Size.WallMm > 0.0 && r.Size.OdMm > 2.0 * r.Size.WallMm,
-             new KernelFault.InvalidValue(nameof(r.Size), "a positive finite annulus", Some(key))).ToValidation())
-            .Apply(static (_, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                r.Size.RatedPsi.IsSome == r.System.Rated.IsSome,
+                new KernelFault.InvalidValue(nameof(r.Size.RatedPsi), "presence matching the pipe-system rating", Some(key))),
+            AdmissionSlots.Gate(
+                double.IsFinite(r.Size.OdMm) && double.IsFinite(r.Size.WallMm)
+                    && r.Size.WallMm > 0.0 && r.Size.OdMm > 2.0 * r.Size.WallMm,
+                new KernelFault.InvalidValue(nameof(r.Size), "a positive finite annulus", Some(key)))));
 
     static Fin<PropertyBag> Detail(PipeRow r, SectionProfile profile, Op key) =>
         from joint in ComponentDetail.Joint(r.System.Joint, key)
         from od in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, r.Size.OdMm * 1e-3)
         from wall in ComponentDetail.Measured(SegmentRows.WallThickness, Dimension.LengthDim, r.Size.WallMm * 1e-3)
-        from rated in Optional(r.Size.RatedPsi, static psi => ComponentDetail.Measured(SegmentRows.WorkingPressure, Dimension.PressureDim, psi * PsiPa))
-        from hub in Optional(r.Size.HubMm, static mm => ComponentDetail.Measured(Hub, Dimension.LengthDim, mm * 1e-3))
+        from rated in r.Size.RatedPsi.TraverseM(static psi => ComponentDetail.Measured(SegmentRows.WorkingPressure, Dimension.PressureDim, psi * PsiPa)).As()
+        from hub in r.Size.HubMm.TraverseM(static mm => ComponentDetail.Measured(Hub, Dimension.LengthDim, mm * 1e-3)).As()
         select ComponentDetail.ProductRows([
             ComponentDetail.Token(DetailSchema.PipeSchedule, r.System.Schedule),
             ComponentDetail.Token(DetailSchema.NominalBore, r.Size.Nominal),
@@ -252,9 +254,6 @@ public static class PipeworkSeed {
             .. rated.ToSeq(),
             .. hub.ToSeq(),
         ]);
-
-    static Fin<Option<(PropertyName, PropertyValue)>> Optional(Option<double> value, Func<double, Fin<(PropertyName, PropertyValue)>> mint) =>
-        value.Match(Some: v => mint(v).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None));
 
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
         new ComponentFault.CapacityUnavailable(key, component.Designation);

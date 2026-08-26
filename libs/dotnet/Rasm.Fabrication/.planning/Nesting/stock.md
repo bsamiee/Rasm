@@ -621,7 +621,7 @@ public static class StockNest {
         EvaluationAction action = new(strategies, assignments, frames, eligibility, results);
         ParallelHelper.For2D(0..strategies.Length, 0..assignments.Length, in action, run.Budget.BatchFloor);
         return results.ToSeq().TraverseM(identity).As()
-            .Map(static attempts => attempts.Choose(identity).Filter(static row => row.Placements.Count > 0))
+            .Map(static attempts => attempts.Somes().Filter(static row => row.Placements.Count > 0))
             .Bind(found => !found.IsEmpty
                 ? Fin.Succ(found)
                 : Fin.Fail<Seq<ProviderRun>>(new FabricationFault.StockOverflow(run.Parts.Count, frames.Count)));

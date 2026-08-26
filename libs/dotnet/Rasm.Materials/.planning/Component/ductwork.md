@@ -100,11 +100,11 @@ public static class DuctSchedule {
 
     public static Option<DuctGauge> Rect(DuctClass @class, double longestIn) =>
         longestIn <= @class.RectLimitIn
-            ? @class.Steps.Filter(step => longestIn <= step.UpToIn).Map(static step => step.Gauge).HeadOrNone()
+            ? @class.Steps.Filter(step => longestIn <= step.UpToIn).Map(static step => step.Gauge).Head
             : None;
 
     public static Option<DuctGauge> RoundOf(DuctClass @class, double diameterIn, DuctSeam seam) =>
-        toSeq(Round).Filter(row => diameterIn <= row.UpToIn).HeadOrNone().Bind(row => @class.Round(row, seam));
+        toSeq(Round).Filter(row => diameterIn <= row.UpToIn).Head.Bind(row => @class.Round(row, seam));
 }
 ```
 
@@ -160,8 +160,8 @@ public static class DuctworkSeed {
     static readonly ComponentStandard UsSmacna =
         new(ComponentAuthority.Smacna.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Smacna);
     static readonly IfcBinding Rigid = IfcBinding.Of("IfcDuctSegment", "RIGIDSEGMENT");
-    static readonly MaterialId Galvanized = MaterialId.Of("steel.galvanized");
-    static readonly MaterialId Sheet = MaterialId.Of("metal.steel");
+    static readonly MaterialId Galvanized = MaterialId.Create("steel.galvanized");
+    static readonly MaterialId Sheet = MaterialId.Create("metal.steel");
 
     public static readonly Seq<DuctRow> Roster = Seq(
         new DuctRow(new DuctShape.Round(8.0,  DuctSeam.Spiral), DuctClass.Two,  DuctSeal.C),
@@ -189,13 +189,15 @@ public static class DuctworkSeed {
         ifc: static _ => Rigid);
 
     static Validation<Error, Unit> Coherence(DuctRow r, Op key) =>
-        (guard(GaugeOf(r).IsSome,
-             new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule", Some(key))).ToValidation(),
-         guard(r.Shape.Switch(
-                 round: static x => double.IsFinite(x.DiameterIn) && x.DiameterIn > 0.0,
-                 rectangular: static x => double.IsFinite(x.WidthIn) && x.WidthIn > 0.0 && double.IsFinite(x.DepthIn) && x.DepthIn > 0.0),
-             new KernelFault.InvalidValue(nameof(r.Shape), "positive finite duct dimensions", Some(key))).ToValidation())
-            .Apply(static (_, _) => unit).As();
+        AdmissionSlots.Accumulate(Seq(
+            AdmissionSlots.Gate(
+                GaugeOf(r).IsSome,
+                new KernelFault.InvalidValue(nameof(DuctGauge), "a gauge inside the unreinforced schedule", Some(key))),
+            AdmissionSlots.Gate(
+                r.Shape.Switch(
+                    round: static x => double.IsFinite(x.DiameterIn) && x.DiameterIn > 0.0,
+                    rectangular: static x => double.IsFinite(x.WidthIn) && x.WidthIn > 0.0 && double.IsFinite(x.DepthIn) && x.DepthIn > 0.0),
+                new KernelFault.InvalidValue(nameof(r.Shape), "positive finite duct dimensions", Some(key)))));
 
     static Option<DuctGauge> GaugeOf(DuctRow r) => r.Shape.Switch(
         state: r.Class,

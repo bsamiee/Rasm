@@ -160,7 +160,7 @@ public sealed class OtlpOfflineQueue(
         ignore(Range(0, policy.DrainBatch).AsIterable().FoldUntil(
             Option<DrainPass>.None,
             (_, _) => Some(Emitted(spent() ? Stalled : Pass(template, forward, token))),
-            static step => step.Item1 is { Case: DrainPass.Settled }));
+            static step => step.Item1 is { IsSome: true, Case: DrainPass.Settled }));
 
     static DrainPass Stalled => new DrainPass.Settled(Option<OfflineDisposition>.None, 0L);
 
@@ -172,8 +172,8 @@ public sealed class OtlpOfflineQueue(
 
     DrainPass Pass(HttpRequestMessage template, Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> forward, CancellationToken token) =>
         Leased() switch {
-            { Case: PersistentBlob blob } => Read(blob) switch {
-                { Case: byte[] body } => Forwarded(blob, body, template, forward, token),
+            { IsSome: true, Case: PersistentBlob blob } => Read(blob) switch {
+                { IsSome: true, Case: byte[] body } => Forwarded(blob, body, template, forward, token),
                 _ => (fun(() => ignore(blob.TryDelete()))(), (DrainPass)new DrainPass.Moved(OfflineDisposition.Corrupt, 0L)).Item2,
             },
             _ => Stalled,

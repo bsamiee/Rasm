@@ -179,9 +179,8 @@ public static class EnergyDerive {
                 return (state.Faces.Add(new Hb.Face(
                         Identifier(bound.Surface), Face3D(bound.Ring), bound.Face,
                         bound.Condition.Face(), new Hb.FacePropertiesAbridged(
-                            energy: construction.Match(
-                                Some: static id => new Hb.FaceEnergyPropertiesAbridged(construction: id),
-                                None: static () => (Hb.FaceEnergyPropertiesAbridged?)null)),
+                            energy: Op.ToHostSlot(construction.Map(
+                                static id => new Hb.FaceEnergyPropertiesAbridged(construction: id)))),
                         apertures: [.. apertures], doors: [.. doors])),
                     opened.Land(EnergySlot.Surface));
             });
@@ -250,26 +249,24 @@ public static class EnergyDerive {
                         : (state.Faces, state.Notes.Add(new EnergyNote(EnergyReason.ClassUnmapped, Identifier(bound.Surface), 1))));
 
     static Seq<Node.Object> OpeningsOf(ElementGraph graph, NodeId space, string hostIdentifier) =>
-        graph.EdgesAt(space).Choose(e =>
+        toSeq(graph.EdgesAt(space)).Choose(e =>
             e is Relationship.Generic g && g.WireName == IfcRelKind.SpaceBoundary.Key && g.Relating == space
                 && g.Attributes.Find(BoundaryRows.Host).Exists(v => v is PropertyValue.Text t && t.Value == hostIdentifier)
                 ? graph.Find<Node.Object>(g.Related) : None)
-            .Filter(static o => o.Classification.Code == IfcClass.Window.Key || o.Classification.Code == IfcClass.Door.Key)
-            .ToSeq();
+            .Filter(static o => o.Classification.Code == IfcClass.Window.Key || o.Classification.Code == IfcClass.Door.Key);
 
     static Seq<Node.Object> SpacesUnder(ElementGraph graph, EnergyScope scope) =>
         graph.ObjectNodes.Filter(o => o.Classification.Code == IfcClass.Space.Key)
             .Filter(o => scope.Switch(
                 wholeModel: static _ => true,
-                spaces:     s => o.ExternalId.Exists(s.GlobalIds.Contains)))
-            .ToSeq();
+                spaces:     s => o.ExternalId.Exists(s.GlobalIds.Contains)));
 
     static Seq<(Relationship.Generic Edge, Node.Object Surface)> Boundaries(ElementGraph graph, NodeId space) =>
-        graph.EdgesAt(space).Choose(e =>
+        toSeq(graph.EdgesAt(space)).Choose(e =>
             e is Relationship.Generic g && g.WireName == IfcRelKind.SpaceBoundary.Key && g.Relating == space
                 && g.Attributes.Find(BoundaryRows.Host).IsNone
                 ? graph.Find<Node.Object>(g.Related).Map(s => (g, s))
-                : None).ToSeq();
+                : None);
 
     static (Seq<Hb.Aperture> Apertures, Seq<Hb.Door> Doors, LowerLog Log) Openings(
         ElementGraph graph, EnvelopeFace bound, GeometrySource geometry, Hb.ModelEnergyProperties store, LowerLog log) =>
@@ -285,16 +282,14 @@ public static class EnergyDerive {
                 return opening.Classification.Code == IfcClass.Window.Key
                     ? (state.Apertures.Add(new Hb.Aperture(Identifier(opening), Face3D(ring),
                            new Hb.Outdoors(), new Hb.AperturePropertiesAbridged(
-                               energy: construction.Match(
-                                   Some: static id => new Hb.ApertureEnergyPropertiesAbridged(construction: id),
-                                   None: static () => (Hb.ApertureEnergyPropertiesAbridged?)null)))),
+                               energy: Op.ToHostSlot(construction.Map(
+                                   static id => new Hb.ApertureEnergyPropertiesAbridged(construction: id))))),
                        state.Doors, opened)
                     : (state.Apertures,
                        state.Doors.Add(new Hb.Door(Identifier(opening), Face3D(ring),
                            new Hb.Outdoors(), new Hb.DoorPropertiesAbridged(
-                               energy: construction.Match(
-                                   Some: static id => new Hb.DoorEnergyPropertiesAbridged(construction: id),
-                                   None: static () => (Hb.DoorEnergyPropertiesAbridged?)null)))),
+                               energy: Op.ToHostSlot(construction.Map(
+                                   static id => new Hb.DoorEnergyPropertiesAbridged(construction: id))))),
                        opened);
             });
 
@@ -377,12 +372,11 @@ public static class EnergyDerive {
             .Filter(o => o.Classification.Code == IfcClass.GeographicElement.Key
                 || (o.Classification.Code == IfcClass.Building.Key && !massed.Contains(o.Id)))
             .Choose(o => geometry.Footprint(o.Representations).Map(ring =>
-                new Df.ContextShade(Identifier(o), [(ShadeGeometry)Face3D(ring)], new Df.ContextShadePropertiesAbridged())))
-            .ToSeq();
+                new Df.ContextShade(Identifier(o), [(ShadeGeometry)Face3D(ring)], new Df.ContextShadePropertiesAbridged())));
 
     static Seq<Vector3> Open(Seq<Vector3> ring, double tolerance) =>
         ring.Count > 1 && ring.Head.Exists(head => Vector3.Distance(head, ring.Last) <= tolerance)
-            ? ring.Take(ring.Count - 1).ToSeq()
+            ? ring.Take(ring.Count - 1)
             : ring;
 
     static Seq<(Vector3 From, Vector3 To)> Segments(Seq<Vector3> ring) =>
@@ -433,7 +427,7 @@ public static class EnergyDerive {
     const double DefaultFloorToCeiling = 3.0;
 
     static Option<double> Height(ElementGraph graph, NodeId space) =>
-        graph.EdgesAt(space).Choose(e =>
+        toSeq(graph.EdgesAt(space)).Choose(e =>
             e is Relationship.Assign { SubKind: var k } a && k == AssignKind.PropertyDefinition && a.Subject == space
                 ? graph.Find<Node.QuantitySet>(a.Definition) : None)
             .Filter(static qs => qs.Bag.SetName == QuantityRows.SpaceBaseQuantities).Head
@@ -441,7 +435,7 @@ public static class EnergyDerive {
             .Bind(static m => m.Length);
 
     static int Multiplier(ElementGraph graph, NodeId storey) =>
-        graph.EdgesAt(storey).Choose(e =>
+        toSeq(graph.EdgesAt(storey)).Choose(e =>
             e is Relationship.Assign { SubKind: var k } a && k == AssignKind.PropertyDefinition && a.Subject == storey
                 ? graph.Find<Node.PropertySet>(a.Definition) : None)
             .Filter(static ps => ps.Bag.SetName == EnergyProjector.EnergyModelSet).Head
@@ -450,10 +444,10 @@ public static class EnergyDerive {
             .IfNone(1);
 
     static Seq<Node.Object> Parts(ElementGraph graph, NodeId whole, IfcClass @class) =>
-        graph.EdgesAt(whole).Choose(e =>
+        toSeq(graph.EdgesAt(whole)).Choose(e =>
             e is Relationship.Compose c && c.Whole == whole && c.SubKind != ComposeKind.Reference
                 ? graph.Find<Node.Object>(c.Part).Filter(o => o.Classification.Code == @class.Key)
-                : None).ToSeq();
+                : None);
 
     static string Scoped(EnergyScope scope) => scope.Switch(
         wholeModel: static _ => "whole-model",

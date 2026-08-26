@@ -215,33 +215,33 @@ public abstract partial record BoundaryCondition {
     public Fin<Unit> Validate(int dofs) =>
         Switch(
             state: dofs,
-            dirichlet: static (n, bc) => Admit(
-                Claim(bc.Nodes.Length == bc.Values.Length, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Values.Length, bc.Nodes.Length))),
-                Claim(bc.Nodes.Length > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Nodes.Length, 1L))),
-                Claim(InRange(bc.Nodes, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Nodes.Length))),
-                Claim(bc.Values.All(double.IsFinite), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(bc.Values.Length)))),
-            neumann: static (n, bc) => Admit(
-                Claim(bc.Faces.Length == bc.Flux.Length, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Flux.Length, bc.Faces.Length))),
-                Claim(bc.Faces.Length > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Faces.Length, 1L))),
-                Claim(InRange(bc.Faces, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Faces.Length))),
-                Claim(bc.Flux.All(double.IsFinite), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(bc.Flux.Length)))),
-            robin: static (n, bc) => Admit(
-                Claim(bc.Faces.Length > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Faces.Length, 1L))),
-                Claim(InRange(bc.Faces, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Faces.Length))),
-                Claim(double.IsFinite(bc.Coefficient), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(bc.Coefficient))),
-                Claim(double.IsFinite(bc.Ambient), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(bc.Ambient)))),
-            periodic: static (n, bc) => Admit(
-                Claim(bc.Master.Length == bc.Slave.Length, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Slave.Length, bc.Master.Length))),
-                Claim(bc.Master.Length > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Master.Length, 1L))),
-                Claim(InRange(bc.Master, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Master.Length))),
-                Claim(InRange(bc.Slave, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Slave.Length)))),
-            contact: static (n, bc) => Admit(
-                Claim(bc.Master.Length == bc.Slave.Length, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Slave.Length, bc.Master.Length))),
-                Claim(bc.Master.Length > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Master.Length, 1L))),
-                Claim(Triples(bc.Master, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Master.Length))),
-                Claim(Triples(bc.Slave, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Slave.Length))),
-                Claim(double.IsFinite(bc.Penalty), new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(bc.Penalty))),
-                Claim(bc.Penalty > 0.0, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(bc.Penalty)))));
+            dirichlet: static (n, bc) => AdmissionSlots.Accumulate(Seq(
+                Refusal.Unless(bc.Nodes.Length == bc.Values.Length, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Values.Length, bc.Nodes.Length))),
+                Refusal.Unless(bc.Nodes.Length > 0, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Nodes.Length, 1L))),
+                Refusal.Unless(InRange(bc.Nodes, n), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Nodes.Length))),
+                Refusal.Unless(bc.Values.All(double.IsFinite), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(bc.Values.Length))))).ToFin(),
+            neumann: static (n, bc) => AdmissionSlots.Accumulate(Seq(
+                Refusal.Unless(bc.Faces.Length == bc.Flux.Length, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Flux.Length, bc.Faces.Length))),
+                Refusal.Unless(bc.Faces.Length > 0, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Faces.Length, 1L))),
+                Refusal.Unless(InRange(bc.Faces, n), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Faces.Length))),
+                Refusal.Unless(bc.Flux.All(double.IsFinite), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(bc.Flux.Length))))).ToFin(),
+            robin: static (n, bc) => AdmissionSlots.Accumulate(Seq(
+                Refusal.Unless(bc.Faces.Length > 0, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Faces.Length, 1L))),
+                Refusal.Unless(InRange(bc.Faces, n), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Faces.Length))),
+                Refusal.Unless(double.IsFinite(bc.Coefficient), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(bc.Coefficient))),
+                Refusal.Unless(double.IsFinite(bc.Ambient), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(bc.Ambient)))).ToFin(),
+            periodic: static (n, bc) => AdmissionSlots.Accumulate(Seq(
+                Refusal.Unless(bc.Master.Length == bc.Slave.Length, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Slave.Length, bc.Master.Length))),
+                Refusal.Unless(bc.Master.Length > 0, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Master.Length, 1L))),
+                Refusal.Unless(InRange(bc.Master, n), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Master.Length))),
+                Refusal.Unless(InRange(bc.Slave, n), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Slave.Length)))).ToFin(),
+            contact: static (n, bc) => AdmissionSlots.Accumulate(Seq(
+                Refusal.Unless(bc.Master.Length == bc.Slave.Length, ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Slave.Length, bc.Master.Length))),
+                Refusal.Unless(bc.Master.Length > 0, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Master.Length, 1L))),
+                Refusal.Unless(Triples(bc.Master, n), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Master.Length))),
+                Refusal.Unless(Triples(bc.Slave, n), ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Slave.Length))),
+                Refusal.Unless(double.IsFinite(bc.Penalty), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(bc.Penalty))),
+                Refusal.Unless(bc.Penalty > 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(bc.Penalty)))).ToFin());
 
     public Fin<ConstrainedSystem> Apply(ConstrainedSystem system, ConstraintMethod constraint) =>
         constraint.Bordered ? ApplyBordered(system) : Fin.Succ(ApplyFixed(system, constraint));
@@ -372,12 +372,6 @@ public abstract partial record BoundaryCondition {
 
     static bool InRange(long[] indices, int dofs) => indices.All(index => index >= 0 && index < dofs);
     static bool Triples(long[] bases, int dofs) => bases.All(index => index >= 0 && index + 2 < dofs);
-
-    static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
-        held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
-
-    static Fin<Unit> Admit(params Validation<Error, Unit>[] claims) =>
-        toSeq(claims).Traverse(static claim => claim).As().ToFin();
 
     static SparseCompressedRowMatrixStorage<double> Rebuilt(SparseCompressedRowMatrixStorage<double> operatorCsr, double[] values) =>
         SparseCompressedRowMatrixStorage<double>.OfCompressedSparseRowFormat(

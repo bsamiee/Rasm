@@ -260,7 +260,7 @@ internal static class Eurocode {
         eurocode.Match(
             None: static () => Fin.Succ(Map<PropertyName, PropertyValue>()),
             Some: policy => key.Catch(() => row.Action.Bind(action => action.Mint(policy, [])).Match(
-                    Some: variable => PsiRow.Items.ToSeq().Map(psi => (psi.Name, psi.Read(variable).DecimalFractions)),
+                    Some: variable => toSeq(PsiRow.Items).Map(psi => (psi.Name, psi.Read(variable).DecimalFractions)),
                     None: static () => Seq<(PropertyName, double)>())
                 + Partials(policy.Situation))
                 .Bind(rows => StructuralProjection.Measures(
@@ -269,7 +269,7 @@ internal static class Eurocode {
                     StructuralProjection.Enumerated(policy.Situation.Class.ToString(), SituationKinds))));
 
     private static Seq<(PropertyName, double)> Partials(IDesignSituation situation) =>
-        GammaRow.Items.ToSeq().Map(row => row.Read(situation).Map(gamma => (row.Name, gamma))).Somes();
+        toSeq(GammaRow.Items).Map(row => row.Read(situation).Map(gamma => (row.Name, gamma))).Somes();
 
     // --- [COMBINATION]
 

@@ -235,7 +235,7 @@ public sealed record Context {
 
     public static Context Canonical => Whole.Value;
     private static readonly Lazy<Context> Whole = new(
-        static () => Of(units: UnitSystem.Millimeters).As().ThrowIfFail(),
+        static () => Of(units: UnitSystem.Millimeters).ToFin().ThrowIfFail(),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static Validation<Error, Context> Of(RhinoDoc? doc) =>

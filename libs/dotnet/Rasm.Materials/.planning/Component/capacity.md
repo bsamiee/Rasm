@@ -518,11 +518,10 @@ public readonly partial struct Demand {
         double unitShearKnPerM = 0.0, double stressRangeMpa = 0.0, double cycleCount = 0.0) =>
         DemandColumn.Refusals(axialKn, momentYKnm, momentZKnm, shearYKn, shearZKn, torsionKnm, bearingKn,
                 unitShearKnPerM, stressRangeMpa, cycleCount)
-            .Map(token => (Error)new KernelFault.InvalidValue(token, "a finite demand scalar", Some(key)))
-            .Match(
-                Empty: () => Validation<Error, Demand>.Success(Create(axialKn, momentYKnm, momentZKnm, shearYKn,
-                    shearZKn, torsionKnm, bearingKn, unitShearKnPerM, stressRangeMpa, cycleCount)),
-                More: faults => Validation<Error, Demand>.Fail(faults.Reduce(static (all, next) => all + next)));
+            .Traverse(token => Validation<Error, Unit>.Fail(
+                new KernelFault.InvalidValue(token, "a finite demand scalar", Some(key))))
+            .Map(_ => Create(axialKn, momentYKnm, momentZKnm, shearYKn, shearZKn, torsionKnm, bearingKn,
+                unitShearKnPerM, stressRangeMpa, cycleCount)).As();
 
     public static Fin<Demand> Of(double axialKn, double momentYKnm, double momentZKnm, Op key,
         double shearYKn = 0.0, double shearZKn = 0.0, double torsionKnm = 0.0, double bearingKn = 0.0,
@@ -1274,12 +1273,11 @@ public static class SectionSelection {
         Op key) =>
         candidates.Bind(ranked =>
             toSeq(ranked.OrderBy(static candidate => candidate.MassPerMm))
-                .AsIterable()
                 .Map(candidate => candidate.Capacity().Map(capacity => (candidate.Subject, Verdict: capacity.Check(demand))))
                 .Choose(static priced => priced.Match(
                     Succ: static won => won.Verdict.SectionPasses ? Some(Fin.Succ(won)) : None,
                     Fail: static fault => Some(Fin.Fail<(TSubject Subject, Utilisation Verdict)>(fault))))
-                .Head()
+                .Head
                 .IfNone(() => Fin.Fail<(TSubject Subject, Utilisation Verdict)>(
                     new ComponentFault.SelectionExhausted(key, typeof(TSubject)))));
 

@@ -108,7 +108,7 @@ public sealed class SessionJournal : IDisposable {
         Option<JournalPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
         return from journal in Of(clock: clock, faults: faults, policy: policy, key: op)
-               from mounted in op.Catch(body: () => Fin.Succ(Op.Side(action: () => journal.consuming = Task.Run(
+               from mounted in op.Catch(() => journal.consuming = Task.Run(
                    async () => (await op.Catch(async token => {
                        await foreach (UiEvent<GhFact> fact in drain.Reader.ReadAllAsync(cancellationToken: token)) {
                            journal.Append(fact: fact, key: op)
@@ -116,7 +116,7 @@ public sealed class SessionJournal : IDisposable {
                                .IfFail(journal.Park);
                        }
                        return Fin.Succ(unit);
-                   }, token: journal.drain.Token)).IfFail(journal.Park)))))
+                   }, token: journal.drain.Token)).IfFail(journal.Park)))
                select (Lease<SessionJournal>)new Lease<SessionJournal>.Owned(Value: journal);
     }
 

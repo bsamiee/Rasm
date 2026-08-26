@@ -99,7 +99,7 @@ public sealed partial record CoverageCensus(
 
 ## [03]-[INTEGRITY_SWEEP]
 
-- Owner: `AuditCategory` carries the sweep, grade, and origin; `AuditEvidence` distinguishes a semantic detail from an exact result-returning refusal; `AuditFinding` carries category, severity, optional subject, and that evidence; `AuditTally` carries each category-severity count.
+- Owner: `AuditCategory` carries the sweep and grade; `AuditEvidence` distinguishes a semantic detail from an exact result-returning refusal; `AuditFinding` carries category, severity, optional subject, and that evidence; `AuditTally` carries each category-severity count.
 - Law: `Grade` is ROW DATA, never a call-site argument. Structural faults grade `Blocking` wherever found and coverage shortfalls `Warning`, so a sweep never re-decides its own class and a report cannot show one category under two grades. `ConstraintSeverity` IS the vocabulary — a parallel audit-severity enum makes `blocking` mean two things on one dashboard.
 - Law: each sweep retains the producing fault's evidence verbatim and uses numeric fault identity wherever routing or aggregation requires identity.
 - Entry: the sweeps are internal to the `[04]` fold; a consumer reads the graded findings off the `ModelAudit` and never runs one directly.
@@ -114,37 +114,30 @@ public sealed partial record CoverageCensus(
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class SweepOrigin {
-    public static readonly SweepOrigin Sweep = new("sweep");
-    public static readonly SweepOrigin Population = new("population");
-}
-
 public readonly record struct AuditRun(ElementGraph Graph, Op Key, CoverageCensus Census, AuditThresholds Policy);
 
 [SmartEnum<string>]
 public sealed partial class AuditCategory {
     public static readonly AuditCategory Orphan = new("orphan", grade: ConstraintSeverity.Blocking,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.Orphans(run.Graph));
+        sweep: static run => ModelAudit.Orphans(run.Graph));
     public static readonly AuditCategory DanglingReference = new("dangling-reference", grade: ConstraintSeverity.Blocking,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.Dangling(run.Graph));
+        sweep: static run => ModelAudit.Dangling(run.Graph));
     public static readonly AuditCategory ComposeCycle = new("compose-cycle", grade: ConstraintSeverity.Blocking,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.ComposeCycles(run.Graph));
+        sweep: static run => ModelAudit.ComposeCycles(run.Graph));
     public static readonly AuditCategory AddressDrift = new("address-drift", grade: ConstraintSeverity.Blocking,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.Drift(run.Graph, run.Key));
+        sweep: static run => ModelAudit.Drift(run.Graph, run.Key));
     public static readonly AuditCategory BakeRejected = new("bake-rejected", grade: ConstraintSeverity.Blocking,
-        origin: SweepOrigin.Population, sweep: static _ => Seq<AuditFinding>());
+        sweep: static _ => Seq<AuditFinding>());
     public static readonly AuditCategory EmptyRepresentation = new("empty-representation", grade: ConstraintSeverity.Warning,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.Representations(run.Graph));
+        sweep: static run => ModelAudit.Representations(run.Graph));
     public static readonly AuditCategory SourceBoundInterface = new("source-bound-interface", grade: ConstraintSeverity.Warning,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.Interfaces(run.Graph));
+        sweep: static run => ModelAudit.Interfaces(run.Graph));
     public static readonly AuditCategory AssessmentStale = new("assessment-stale", grade: ConstraintSeverity.Warning,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.Assessments(run.Graph));
+        sweep: static run => ModelAudit.Assessments(run.Graph));
     public static readonly AuditCategory CoverageShortfall = new("coverage-shortfall", grade: ConstraintSeverity.Warning,
-        origin: SweepOrigin.Sweep, sweep: static run => ModelAudit.Shortfalls(run.Census, run.Policy));
+        sweep: static run => ModelAudit.Shortfalls(run.Census, run.Policy));
 
     public ConstraintSeverity Grade { get; }
-    public SweepOrigin Origin { get; }
 
     [UseDelegateFromConstructor] public partial Seq<AuditFinding> Sweep(AuditRun run);
 }
@@ -173,7 +166,7 @@ public readonly record struct AuditTally(AuditCategory Category, ConstraintSever
 - Law: the audit holds ZERO authority — it mutates nothing, mints no node, and produces no result failure of its own. Blocking findings are DATA on the audit, never a `Fin.Fail`: an audit refusing to report on a broken model fails exactly where it is needed, and a consumer wanting a hard stop reads `Clears` and decides. `Fin` is the return so the entry sits on the contract's one result like every other entrypoint and the `Projection/observe#HOOKS` timed decoration binds it unchanged.
 - Law: the audit carries its own `AuditThresholds`, so a stored audit is re-readable against the policy it was graded under; re-evaluating a persisted audit against today's floors silently re-verdicts yesterday's delivery.
 - Entry: `ModelAudit.Of(ElementGraph graph, Op key, Option<AuditThresholds> thresholds = default)` runs the whole grade — one occurrence fold, then ONE fold over the `AuditCategory` roster where each row runs its own `Sweep(run)` — defaulting to `AuditThresholds.Structural`; `Blocking` and `Tallies` derive from one memoized pass, and `Clears` is the ONE delivery predicate folding the same `CoverageAxis` roster the census and the shortfall projection read.
-- Auto: the coverage fold reads each `CoverageAxis` row's own `Covered` predicate and rides ONE pass over the occurrence population with the bake verdicts (the `BakeRejected` row's `Origin` names that fold); the sweeps then run over the already-frozen node, edge, and view structures the snapshot built once. Coverage shortfalls project into the SAME finding stream as the integrity rows, so a report reads one shape and a dashboard bands one series. `ContentAddress.OfGraph` supplies the snapshot address, so an audit pins to exactly the content it graded.
+- Auto: the coverage fold reads each `CoverageAxis` row's own `Covered` predicate and rides ONE pass over the occurrence population with the bake verdicts; the `BakeRejected` row contributes its empty sweep because those population verdicts are already present, while the remaining sweeps run over the already-frozen node, edge, and view structures the snapshot built once. Coverage shortfalls project into the SAME finding stream as the integrity rows, so a report reads one shape and a dashboard bands one series. `ContentAddress.OfGraph` supplies the snapshot address, so an audit pins to exactly the content it graded.
 - Output: `ModelAudit` is what a delivery gate, a QA report, and the audit instrument series all read — the graded snapshot address, the coverage census, the finding stream, and the policy, with `Clears` the single predicate a gate evaluates.
 - Packages: LanguageExt.Core (`Seq`/`HashMap`/`Option`/`Fin` + the `Fold` state thread and the `ManyErrors` unpack), `Rasm` (the kernel `Op` op-key), `Projection/projection#PROJECTION_CONTRACT` (`ConstraintSeverity` the shared grade), `Projection/address#CONTENT_ADDRESS` (`ContentAddress.OfGraph` the snapshot identity, `Verify` the drift census), `Graph/element#ELEMENT_GRAPH` (the accessor family and the memoized `Bake`).
 - Growth: a new threshold axis is one `AuditThresholds` column with one clause in `Clears` and one row in the shortfall projection; a new sweep is one term in the finding concatenation. `ModelAudit.Of` is the ONE entry that reports while the owner repairs, so a second entry point, a mutating repair verb, or an audit-owned fault case is the deleted form.
@@ -249,7 +242,7 @@ public sealed partial record ModelAudit {
     internal static Seq<AuditFinding> Orphans(ElementGraph graph) =>
         toSeq(graph.Nodes.Values)
             .Filter(node => node is not Node.Object && graph.EdgesAt(node.Id).IsEmpty)
-            .Map(static node => AuditFinding.Of(AuditCategory.Orphan, $"<orphan-node:{node.Id.Value}>", Some(node.Id)));
+            .Map(static node => AuditFinding.Of(AuditCategory.Orphan, $"<orphan-node:{node.Id.ToValue()}>", Some(node.Id)));
 
     internal static Seq<AuditFinding> Dangling(ElementGraph graph) =>
         toSeq(graph.Nodes.Values)
@@ -258,7 +251,7 @@ public sealed partial record ModelAudit {
                 .Bind(static value => value.References())
                 .Filter(target => !graph.Nodes.ContainsKey(target))
                 .Map(target => AuditFinding.Of(
-                    AuditCategory.DanglingReference, $"<dangling-reference:{bag.Id.Value}:{target.Value}>", Some(bag.Id))));
+                    AuditCategory.DanglingReference, $"<dangling-reference:{bag.Id.ToValue()}:{target.ToValue()}>", Some(bag.Id))));
 
     internal static Seq<AuditFinding> ComposeCycles(ElementGraph graph) =>
         graph.View(EdgeFilter.Composition, EdgeOrientation.Forward).IsDirectedAcyclicGraph()
@@ -269,20 +262,20 @@ public sealed partial record ModelAudit {
         toSeq(graph.ObjectNodes)
             .Filter(static o => o.Kind == ObjectKind.Occurrence && o.Representations.ByIdentifier.IsEmpty)
             .Map(static o => AuditFinding.Of(
-                AuditCategory.EmptyRepresentation, $"<representations-empty:{o.Id.Value}>", Some(o.Id)));
+                AuditCategory.EmptyRepresentation, $"<representations-empty:{o.Id.ToValue()}>", Some(o.Id)));
 
     internal static Seq<AuditFinding> Interfaces(ElementGraph graph) =>
         toSeq(graph.Edges)
             .Choose(static edge => edge is Relationship.Connect { Interface.IsSome: true } connect ? Some(connect) : None)
             .Map(static connect => AuditFinding.Of(
-                AuditCategory.SourceBoundInterface, $"<connect-interface:{connect.From.Value}:{connect.To.Value}>"));
+                AuditCategory.SourceBoundInterface, $"<connect-interface:{connect.From.ToValue()}:{connect.To.ToValue()}>"));
 
     internal static Seq<AuditFinding> Assessments(ElementGraph graph) =>
         toSeq(graph.Nodes.Values)
             .Choose(static node => node is Node.Assessment assessment ? Some(assessment) : None)
             .Filter(static a => a.Payload.Outcome.Capabilities.Admits(OutcomeCapability.Reportable))
             .Map(static a => AuditFinding.Of(
-                AuditCategory.AssessmentStale, $"<assessment-{a.Payload.Outcome.Key}:{a.Id.Value}>", Some(a.Id)));
+                AuditCategory.AssessmentStale, $"<assessment-{a.Payload.Outcome.Key}:{a.Id.ToValue()}>", Some(a.Id)));
 
     internal static Seq<AuditFinding> Drift(ElementGraph graph, Op key) =>
         ContentAddress.Verify(graph, key).Match(

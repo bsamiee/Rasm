@@ -112,13 +112,13 @@ public static partial class SolutionControl {
 
     private static Fin<Unit> Heralded(
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks, Op op, Option<Guid> subject, Op key) =>
-        hooks.Match(
-            Some: live => live.Fire(
-                    at: GrasshopperPoint.SolutionLifecycle,
-                    fact: new HookSignal.IntentCase(Operation: op, DocumentId: subject),
-                    key: key)
-                .Map(static _ => unit),
-            None: () => Fin.Succ(unit));
+        hooks
+            .TraverseM(live => live.Fire(
+                at: GrasshopperPoint.SolutionLifecycle,
+                fact: new HookSignal.IntentCase(Operation: op, DocumentId: subject),
+                key: key))
+            .As()
+            .Map(static _ => unit);
 
     private static Fin<GateOutcome> Settle(Op key, Func<GateOutcome> settle) =>
         key.Catch(body: () => Fin.Succ(settle()));

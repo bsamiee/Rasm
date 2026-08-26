@@ -132,8 +132,7 @@ public sealed record SceneWalk<TNode>(
         walk.Compute(root);
         return referenced.Bind(seen =>
             toSeq(Enumerable.Range(start: 0, count: draft.Blocks.Count).Where(ordinal => !seen.Contains(ordinal)))
-                .Map(block => draft.Place(block: block, placement: Transform.Identity))
-                .TraverseM(identity).As()
+                .TraverseM(block => draft.Place(block: block, placement: Transform.Identity)).As()
                 .Map(_ => draft));
     }
 }
@@ -396,9 +395,9 @@ public readonly record struct Topology(
     internal Fin<TOut> Project<TOut>(Op key) {
         Topology self = this;
         return AtomProjection.Rows<Topology, TOut>(self: self, key: key,
-            ProjectionRow.Of<(int Euler, int Genus, int BoundaryComponents)>(() => self.Genus.Match(
-                Some: genus => Fin.Succ((self.EulerCharacteristic, genus, self.BoundaryComponents)),
-                None: () => Fin.Fail<(int Euler, int Genus, int BoundaryComponents)>(key.InvalidResult()))),
+            ProjectionRow.Of<(int Euler, int Genus, int BoundaryComponents)>(() => self.Genus
+                .ToFin(key.InvalidResult())
+                .Map(genus => (self.EulerCharacteristic, genus, self.BoundaryComponents))),
             ProjectionRow.Of<(int Euler, int BoundaryComponents, CapabilitySet<MeshTrait> Traits, int NonManifoldEdges, Option<int> Genus)>(() =>
                 Fin.Succ((self.EulerCharacteristic, self.BoundaryComponents, self.Traits, self.NonManifoldEdges, self.Genus))));
     }
@@ -424,7 +423,7 @@ public readonly record struct SignpostTransport(
     Option<CommonSubdivision> Subdivision = default) : IValidityEvidence {
     public bool ExactCommonSubdivision =>
         Subdivision.IsSome && NormalCoordinateParityErrors == 0
-        && CommonSubdivisionSegments.Map(segments => segments == SumNormalCoordinates).IfNone(noneValue: false);
+        && CommonSubdivisionSegments.Exists(segments => segments == SumNormalCoordinates);
     public bool IsValid {
         get {
             int edgeCount = IntrinsicEdgeCount;
