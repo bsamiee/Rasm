@@ -252,8 +252,8 @@ public sealed partial record TessellationRequest {
     static bool Finite(ImportedGeometry geometry) =>
         geometry.Lanes.Descriptors.Find(static d => d.Channel == EncodingChannel.Position).Match(
             Some: descriptor => {
-                float[] raw = new float[descriptor.Floats];
-                descriptor.Dtype.Unpack(geometry.Lanes.Channel(EncodingChannel.Position).Span, raw);
+                float[] raw = new float[geometry.Lanes.Count * descriptor.Channel.Arity];
+                descriptor.Channel.Dtype.Unpack(geometry.Lanes.Channel(EncodingChannel.Position).Span, raw);
                 return raw.All(static coordinate => float.IsFinite(coordinate));
             },
             None: static () => false);

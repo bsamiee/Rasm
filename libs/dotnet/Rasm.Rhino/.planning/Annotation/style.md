@@ -337,7 +337,7 @@ public sealed partial class LengthDisplayRow {
 - Law: `Overlay` duplicates a nil-id child against the annotation's bound style, applies the patch, and attaches through `SetOverrideDimStyle`.
 - Law: `StyleAxis` is a READ axis, not a label — `StyleField.On(axis)` is the memoized roster every axis-scoped census, override clear, and standards patch reads, so an axis column no consumer selects on reads as decorative and an axis-scoped request never re-derives the grouping.
 - Law: `DraftStandard` seats the ONE route a drafting standard reaches this schema by: the kernel `Drawing/sheet` ladders own every proportion — the ISO 3098-1 lettering height for the sheet extent, the `DraftingMetrics` derivations off `h` and `d`, the ISO 129-1 terminator size off the line group's wide rung, and the `DrawingPrecision` resolution off the scale and the sheet's declared units — and this page projects them onto its own rows. A free millimetre or a hand-typed decimal count anywhere in a `StylePatch` executes the deleted form; the schema rows carry no defaults of their own precisely because the standard owns them.
-- Packages: `Rasm.Drawing` (`TextHeight.For`, `LetteringForm.Metrics`, `DraftingMetrics`, `LineGroup.For`, `Terminator.Size`, `DrawingScale`, `DrawingUnits.For`, `DrawingPrecision.Of`, `DrawingPrecisionForm`, `SheetSize`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`), `Domain/validation` (`Op.Row`, `Op.AcceptValidated`); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon `DimensionStyle` per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Rasm.Drawing` (`TextHeight.For`, `LetteringForm.Metrics`, `DraftingMetrics`, `LineGroup.For`, `Terminator.Size`, `DrawingScale`, `DrawingUnits.For`, `DrawingPrecision`, `DrawingPrecisionForm`, `SheetSize`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`), `Domain/validation` (`Op.Row`, `Op.AcceptValidated`); Thinktecture.Runtime.Extensions; LanguageExt.Core; RhinoCommon `DimensionStyle` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a catalog-proven host config pairing is one row minted through its payload adapter; a second drafting schema is one `FieldTable` instantiation; a standards clause is one `DraftStandard` edit row. Every patch, snapshot, and census gains each without another operation surface, and each lands beside the rest.
 
 ```csharp
@@ -700,12 +700,12 @@ public static class DraftStandard {
         Op op = key.OrDefault();
         return from height in TextHeight.For(size: size, key: op)
                from group in LineGroup.For(size: size, key: op)
-               from resolution in DrawingPrecision.Of(scale: scale, units: DrawingUnits.For(standard: size.Standard)).Form(key: op)
+               let resolution = new DrawingPrecision(Scale: scale, Units: DrawingUnits.For(standard: size.Standard)).Form()
                let metrics = form.Metrics(height: height)
                let arrow = Terminator.ClosedArrow.Size(width: group.Wide)
                let places = resolution.Switch(
-                   places: static row => row.Count,
-                   fraction: static row => (int)Math.Log2(row.Denominator))
+                   places: static count => count,
+                   fraction: static denominator => (int)Math.Log2(denominator))
                from edits in Seq(
                    (Field: StyleField.TextHeight, Value: (StyleValue)new StyleValue.Real(metrics.Height.Height.Millimeters)),
                    (StyleField.TextGap, new StyleValue.Real(metrics.CharacterSpacing.Millimeters)),

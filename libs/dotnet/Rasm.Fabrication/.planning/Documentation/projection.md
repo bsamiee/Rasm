@@ -13,7 +13,7 @@
 - Owner: `ViewKey` owns view identity; `ProjectionSource` owns projection ingress; `ProjectionView` owns the authored roster and `ViewOp` the solve-time kernel request; `ProjectionPolicy` owns one-shot admission; `BooleanComposition` owns operand lineage; `ProjectionRun`, `ProjectionAnchor`, `BalloonAnchor`, and `ProjectionEvidence` own the settled evidence; `Hlr` owns the fold.
 - Cases: `ProjectionSource.Model` forwards the admitted `FabricationInput.Model` and `.Boolean` folds identified operand rows through `Arrangement.Apply`; `ProjectionView.Projected` composes silhouette, hidden-line, or outline with an authored orientation and `.Section` adds its cut plane, so multiple cuts coexist under distinct keys without reminting a kernel operation vocabulary.
 - Law: the operand ordinal is the position an operand took in its OWN boolean leg — the accumulated model enters at `0` and the operand at `1`, which is exactly what `BooleanCensus.ManifoldEvidence.OperandOf(face)` returns. A running count across legs makes every leg past the first attribute to nothing, because no leg ever sees an ordinal above one. Attribution therefore walks the legs in REVERSE: the last leg's provenance describes the final faces, an operand-`1` hit names that leg's source, and an operand-`0` hit falls through to the leg that produced the accumulated model.
-- Law: every scalar knob is dimensioned or bounded at admission — `CreaseDihedralRadians` enters as an `Angle`, the spatial leaf as a positive count, and `BetaSquared` as the squared silhouette-tolerance ratio the kernel's own crease test consumes. A bare double angle beside a typed length is the fork this admission deletes.
+- Law: every scalar knob is dimensioned or bounded at admission, and the carrier is the KERNEL's own — `CreaseDihedral` enters as the `VectorAngle` and `BetaSquared` as the `PositiveMagnitude` that `ViewPolicy.Of` admits, the spatial leaf as a positive count — so `Lower` hands both columns to `ViewPolicy.Of` under `Some` and the kernel's `Band` guard is the ONE gate. A bare double angle beside a typed length, a UnitsNet `Angle` re-gated by a hand-written radian clause, and a `with` over a policy member the kernel never publishes are the forks this admission deletes.
 - Law: the SHEET facts are one column. `PlotPolicy` carries the size, its standard, the ladder-admitted `DrawingScale`, the frame, the line group, the plot style table, and the PDF conformance in one privately-minted value, so the result's `Quadrant` DERIVES off it through `ProjectionAngle.For(standard)` — the kernel's own ISO 128-30 §5 row — and `ScaleLadder.For(standard).Admits(scale)` already ran inside the mint. Scale is read as `Plot.Scale`; an aliasing property beside it would be a rename wrapper over one hop. A local two-row angle table and a free positive `Ratio` were the deleted form: the ratio admitted `1:7.3`, and the local table keyed `first`/`third` where the kernel keys `first-angle`/`third-angle`.
 - Law: broad-phase inflation is the OPERAND's, not the policy's. `IntersectPolicy` carries no inflation column and the sweep band reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the band scales with the model and a caller wanting a wider sweep widens that context — one authority for the tolerance rather than a per-view scalar every hatch and view leg re-spelled.
 - Law: an anchor is projected evidence, not a cross product. A characteristic anchors in a view only where its locus projects to a FINITE POSITIVE depth in that view's own camera, so a locus behind the camera or on its plane records no anchor rather than a screen point a sheet would place.
@@ -22,8 +22,8 @@
 - Law: face-grain attribution reads the SEGMENT — `ProjectedSegment.SourceFace` carries the kernel's classifying face ordinal, which on this single-part solve IS the composed model's own face index, so `ProjectionEvidence.Attribute(segment.SourceFace)` resolves per-segment operand lineage with no side table; `SourceA`/`SourceB` stay source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, and a `-1` face (an inter-part boundary or section segment) attributes to nothing, the honest answer.
 - Entry: `Fabrication.Run` remains the sole public package entry; `Hlr.Solve` is internal, receives parameterized ingress and egress, and preserves every `ProjectedSegment` field of every requested view through the kernel `DrawingProjection` carrier.
 - Auto: the policy is CONSUMER-AUTHORED per run — a drafting consumer raises its own `ProjectionView` rows from the camera basis it already holds and its `PlotPolicy` from the sheet it is issuing to, minting the whole row through `PlotPolicy.Issue(size, key)` where it holds only the size — so no view, scale, or sheet convention originates inside this owner and admission validates whatever a consumer raises. Requested views enter one `Validation<Error>` traversal, so an unprojectable view reports beside every other failed view rather than masking them.
-- Result: `ProjectionEvidence` carries the issued `PlotPolicy`, publishes its `Quadrant` off that sheet's standard, and retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies, and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, the anchor stream carrying its symbol rows, and the per-part balloon stream a parts-list leader seats on.
-- Packages: `Rasm.Drawing` (`View.Apply`, `Hatching.Apply`, `ViewOp`, `ViewKind`, `ViewPolicy`, `ViewConvention`, `ViewPose`, `Camera`, `DrawingProjection`, `ProjectedSegment`, `EdgeHistogram`, `SuccessorChain`, `HatchOp`, `HatchPlan`, `HatchPolicy`, `HatchResult`, `PlotPolicy`, `DrawingScale`, `ScaleLadder`, `ProjectionAngle`, `SheetStandard`), `Rasm.Meshing` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult`, `MeshSpace`, `BooleanCensus`, `BooleanCensus.ManifoldEvidence`), `Rasm.Spatial` (`BuildPolicy`, `IntersectPolicy`), `Rasm.Numerics` (`Direction.Of`), `Rasm.Fabrication.Spec` (`FeatureFrame`, `FrameSymbolRow`, `CharacteristicId`).
+- Result: `ProjectionEvidence` carries the issued `PlotPolicy`, publishes its `Quadrant` off that sheet's standard, and retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies (`Counts` the per-`EdgeKind` tally beside `VisibleCount`/`HiddenCount`), and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, the anchor stream carrying its symbol rows, and the per-part balloon stream a parts-list leader seats on.
+- Packages: `Rasm.Drawing` (`View.Apply`, `Hatching.Apply`, `ViewOp`, `ViewKind`, `ViewPolicy`, `ViewConvention`, `ViewPose`, `Camera`, `DrawingProjection`, `ProjectedSegment`, `EdgeHistogram`, `SuccessorChain`, `HatchOp`, `HatchPlan`, `HatchPolicy`, `HatchResult`, `PlotPolicy`, `DrawingScale`, `ScaleLadder`, `ProjectionAngle`, `SheetStandard`), `Rasm.Meshing` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult`, `MeshSpace`, `BooleanCensus`, `BooleanCensus.ManifoldEvidence`), `Rasm.Spatial` (`BuildPolicy`, `IntersectPolicy`), `Rasm.Numerics` (`Direction.Of`, `VectorAngle`, `PositiveMagnitude`), `Rasm.Fabrication.Spec` (`FeatureFrame`, `FrameSymbolRow`, `CharacteristicId`).
 - Boundary: a boolean returns SHELLS, so a severing operand refuses typed mid-fold rather than silently framing one component of a disconnected model; silhouette, crease, and intersection loci are whole-model reads and projecting the first shell would drop geometry the operand legitimately produced.
 
 ```csharp
@@ -41,8 +41,6 @@ using Rasm.Numerics;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
-using UnitsNet;
-using UnitsNet.Units;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Documentation;
@@ -136,8 +134,8 @@ public sealed partial class ProjectionPolicy {
 
     public PlotPolicy Plot { get; }
 
-    public Angle CreaseDihedral { get; }
-    public double BetaSquared { get; }
+    public VectorAngle CreaseDihedral { get; }
+    public PositiveMagnitude BetaSquared { get; }
 
     public int SpatialLeaf { get; }
     public Map<ViewKey, HatchPlan> Hatching { get; }
@@ -149,15 +147,13 @@ public sealed partial class ProjectionPolicy {
         ref Seq<ProjectionView> views,
         ref ViewConvention convention,
         ref PlotPolicy plot,
-        ref Angle creaseDihedral,
-        ref double betaSquared,
+        ref VectorAngle creaseDihedral,
+        ref PositiveMagnitude betaSquared,
         ref int spatialLeaf,
         ref Map<ViewKey, HatchPlan> hatching,
         ref Seq<ProjectionCharacteristic> characteristics) {
         Set<ViewKey> roster = toSet(views.Map(static value => value.Key));
-        if (!plot.IsValid
-            || !double.IsFinite(creaseDihedral.Radians) || creaseDihedral.Radians is <= 0.0 or >= Math.PI
-            || !ValidityClaim.Positive(betaSquared).Holds || spatialLeaf <= 0
+        if (spatialLeaf <= 0
             || !source.Switch(
                 model: static _ => true,
                 boolean: static value => !value.Operands.IsEmpty
@@ -178,8 +174,8 @@ public sealed partial class ProjectionPolicy {
         Seq<ProjectionView> views,
         ViewConvention convention,
         PlotPolicy plot,
-        Angle creaseDihedral,
-        double betaSquared,
+        VectorAngle creaseDihedral,
+        PositiveMagnitude betaSquared,
         int spatialLeaf,
         Map<ViewKey, HatchPlan> hatching,
         Seq<ProjectionCharacteristic> characteristics) =>
@@ -352,15 +348,10 @@ internal static class Hlr {
         from pose in policy.Convention.Pose(bounds, Some(forward), model.Tolerance, HlrOp)
         from camera in pose.ToCamera(model.Tolerance, HlrOp)
         from broad in Broad(policy)
-        select (
-            pose,
-            camera,
-            ViewPolicy.Canonical with {
-                CreaseDihedralRadians = policy.CreaseDihedral.As(AngleUnit.Radian),
-                BetaSquared = policy.BetaSquared,
-                Narrow = IntersectPolicy.Canonical,
-                Broad = broad,
-            });
+        from view in ViewPolicy.Of(
+            model.Tolerance, creaseDihedral: Some(policy.CreaseDihedral), betaSquared: Some(policy.BetaSquared),
+            broad: Some(broad), key: HlrOp)
+        select (pose, camera, view);
 
     private static K<Validation<Error>, (ProjectionRun Run, Camera Camera)> ProjectionLeg(
         ProjectionView view,

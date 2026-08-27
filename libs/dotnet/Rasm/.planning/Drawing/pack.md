@@ -132,7 +132,7 @@ public sealed partial class DigestRoot {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PackKind {
-    public static readonly PackKind PointCloud = new("point-cloud", Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.ColorRgba, EncodingChannel.Consistency));
+    public static readonly PackKind PointCloud = new("point-cloud", Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.ColorRgba, EncodingChannel.Verticality));
     public static readonly PackKind MeshPatch  = new("mesh-patch",  Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.Uv, EncodingChannel.Curvature, EncodingChannel.Geodesic, EncodingChannel.Weight));
     public static readonly PackKind VoxelGrid  = new("voxel-grid",  Seq(EncodingChannel.Position, EncodingChannel.Occupancy, EncodingChannel.Weight));
     public static readonly PackKind BrepPatch  = new("brep-patch",  Seq(EncodingChannel.Position, EncodingChannel.Normal, EncodingChannel.Curvature));
@@ -144,20 +144,11 @@ public sealed partial class PackKind {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record EncodingChannelDescriptor(
-    EncodingChannel Channel, int Count, int ByteOffset, ChannelDtype Dtype, Option<EncodingChannel> Mask = default) {
-    public int Floats => Count * Channel.Arity;
-    public int Bytes => Floats * Dtype.Width;
-    public SchemaNullability Nulls => Mask.IsSome ? SchemaNullability.Masked : SchemaNullability.Dense;
-}
+public sealed record EncodingChannelDescriptor(EncodingChannel Channel, int ByteOffset, Option<EncodingChannel> Mask = default);
 
 [Equatable]
 public sealed partial record RoundTripWitness(
-    GeometryHash ContentHash, DigestRoot Root, [property: UnorderedEquality] HashMap<EncodingChannel, double> ChannelError) {
-
-    public static RoundTripWitness Of(GeometryHash digest, DigestRoot root, Seq<(EncodingChannel Channel, double Error)> errors) =>
-        new(digest, root, errors.Fold(HashMap<EncodingChannel, double>(), static (acc, e) => acc.Add(e.Channel, e.Error)));
-}
+    GeometryHash ContentHash, DigestRoot Root, [property: UnorderedEquality] HashMap<EncodingChannel, double> ChannelError);
 
 [Equatable]
 public sealed partial record EncodedGeometry(
@@ -167,28 +158,33 @@ public sealed partial record EncodedGeometry(
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Count, floor: 1),
         Descriptors.Map(static d => d.Channel).Distinct().Count == Descriptors.Count,
+        Descriptors.ForAll(d => d.Mask.Match(
+            Some: mask => mask != d.Channel && mask.Arity == 1 && Descriptors.Exists(candidate => candidate.Channel == mask),
+            None: static () => true)),
         ValidityClaim.CountExactly(count: Witness.ChannelError.Count, expected: Descriptors.Count),
-        Descriptors.ForAll(static d => (long)d.Count * d.Channel.Arity * d.Dtype.Width is > 0 and <= int.MaxValue),
-        Descriptors.Fold((Offset: 0L, Holds: true), static (acc, d) => {
-            long bytes = (long)d.Count * d.Channel.Arity * d.Dtype.Width;
-            return (acc.Offset + bytes, acc.Holds && d.ByteOffset == acc.Offset && d.Count == Count);
+        Descriptors.ForAll(d => (long)Count * d.Channel.Arity * d.Channel.Dtype.Width is > 0 and <= int.MaxValue),
+        Descriptors.Fold((Offset: 0L, Holds: true), (acc, d) => {
+            long bytes = (long)Count * d.Channel.Arity * d.Channel.Dtype.Width;
+            return (acc.Offset + bytes, acc.Holds && d.ByteOffset == acc.Offset);
         }) is var tile && tile.Holds && tile.Offset == Payload.Length,
         Witness.ChannelError.Values.AsIterable().ForAll(static error => double.IsFinite(error) && error >= 0.0),
         Lossless);
 
-    public bool Lossless => Descriptors.ForAll(d => Witness.ChannelError.Find(d.Channel).Exists(error => error <= d.Dtype.Tolerance));
+    public bool Lossless => Descriptors.ForAll(d => Witness.ChannelError.Find(d.Channel).Exists(error => error <= d.Channel.Dtype.Tolerance));
 
     public Option<ReadOnlyMemory<byte>> Channel(EncodingChannel channel) =>
-        Descriptors.Find(d => d.Channel == channel).Map(d => Payload.Slice(d.ByteOffset, d.Bytes));
+        Descriptors.Find(d => d.Channel == channel).Map(d => Payload.Slice(
+            d.ByteOffset, checked(Count * d.Channel.Arity * d.Channel.Dtype.Width)));
 
     public Fin<EncodingChannelDescriptor> Lane<T>(EncodingChannel channel) where T : unmanaged =>
-        Descriptors.Find(d => d.Channel == channel && Unsafe.SizeOf<T>() == d.Dtype.Width)
+        Descriptors.Find(d => d.Channel == channel && Unsafe.SizeOf<T>() == d.Channel.Dtype.Width)
             .ToFin(new GeometryFault.ChannelWidthMismatch(channel, Unsafe.SizeOf<T>()));
 
     public ReadOnlyTensorSpan<T> View<T>(EncodingChannelDescriptor lane) where T : unmanaged {
-        ReadOnlySpan<T> cast = MemoryMarshal.Cast<byte, T>(Payload.Span.Slice(lane.ByteOffset, lane.Bytes));
+        ReadOnlySpan<T> cast = MemoryMarshal.Cast<byte, T>(Payload.Span.Slice(
+            lane.ByteOffset, checked(Count * lane.Channel.Arity * lane.Channel.Dtype.Width)));
         return TensorMarshal.CreateReadOnlyTensorSpan(
-            ref MemoryMarshal.GetReference(cast), cast.Length, lengths: [lane.Count, lane.Channel.Arity], strides: [], pinned: false);
+            ref MemoryMarshal.GetReference(cast), cast.Length, lengths: [Count, lane.Channel.Arity], strides: [], pinned: false);
     }
 }
 
@@ -275,23 +271,29 @@ public abstract partial record PackOp {
         toolpath:      static _ => PackKind.Toolpath,
         gaussianSplat: static _ => PackKind.GaussianSplat);
 
-    internal PackPolicy Policy => Switch(
-        pointCloud: static p => p.Policy, meshPatch: static m => m.Policy, voxelGrid: static v => v.Policy,
-        brepPatch:  static b => b.Policy, field:     static f => f.Policy, toolpath:  static t => t.Policy,
-        gaussianSplat: static g => g.Policy);
-
     internal HashMap<EncodingChannel, Func<Fin<float[]>>> Lanes(Op key) => Switch(
         state: key,
-        pointCloud: static (k, c) => HashMap(
-            (EncodingChannel.Position,    () => Fin.Succ(Encode.Points(c.Source.Vertices))),
-            (EncodingChannel.Normal,      () => Encode.Oriented(c.Source, c.Policy, k).Map(Encode.Vectors)),
-            (EncodingChannel.ColorRgba,   () => Encode.Colors(c.Colors, c.Source.Vertices.Count)),
-            (EncodingChannel.Consistency, () => Encode.Oriented(c.Source, c.Policy, k).Map(Encode.Consistency))),
+        pointCloud: static (k, c) => {
+            Fin<Vector3d[]> normals = VectorCloudMetric.OrientedNormals
+                .Project<Seq<Vector3d>>(cloud: c.Source, policy: c.Policy.Cloud, key: k)
+                .Map(static values => values.ToArray());
+            return HashMap(
+                (EncodingChannel.Position, () => Fin.Succ(Encode.Points(c.Source.Vertices))),
+                (EncodingChannel.Normal, () => normals.Map(vectors => Encode.Interleave3(
+                    vectors.Length, i => (vectors[i].X, vectors[i].Y, vectors[i].Z)))),
+                (EncodingChannel.ColorRgba, () => c.Colors
+                    .ToFin(new GeometryFault.MissingEncodingChannel(EncodingChannel.ColorRgba))
+                    .Bind(rows => Encode.Block(rows, c.Source.Vertices.Count, EncodingChannel.ColorRgba))),
+                (EncodingChannel.Verticality, () => normals.Map(static vectors =>
+                    Array.ConvertAll(vectors, static vector => (float)Math.Abs(vector.Z)))));
+        },
         meshPatch: static (k, m) => HashMap(
             (EncodingChannel.Position,  () => Fin.Succ(Encode.Vertices(m.Source))),
             (EncodingChannel.Normal,    () => Fin.Succ(Encode.Normals(m.Source))),
             (EncodingChannel.Uv,        () => Encode.Uvs(m.Source)),
-            (EncodingChannel.Curvature, () => Encode.Vertexwise(Encode.Curvature(m.Source, m.Policy), m.Source, m.Policy.Tolerance, k)),
+            (EncodingChannel.Curvature, () => Encode.Vertexwise(
+                new ScalarField.MeanCurvatureFlowCase(m.Source, m.Policy.CurvatureStep, m.Policy.CurvatureRounds),
+                m.Source, m.Policy.Tolerance, k)),
             (EncodingChannel.Geodesic,  () => ScalarField.Geodesic(m.Source, m.Policy.GeodesicSources, k)
                 .Bind(field => Encode.Vertexwise(field, m.Source, m.Policy.Tolerance, k))),
             (EncodingChannel.Weight,    () => Fin.Succ(Encode.AreaWeight(m.Source)))),
@@ -302,7 +304,9 @@ public abstract partial record PackOp {
         brepPatch: static (k, b) => HashMap(
             (EncodingChannel.Position,  () => Fin.Succ(Encode.Vertices(b.Source))),
             (EncodingChannel.Normal,    () => Fin.Succ(Encode.Normals(b.Source))),
-            (EncodingChannel.Curvature, () => Encode.Vertexwise(Encode.Curvature(b.Source, b.Policy), b.Source, b.Policy.Tolerance, k))),
+            (EncodingChannel.Curvature, () => Encode.Vertexwise(
+                new ScalarField.MeanCurvatureFlowCase(b.Source, b.Policy.CurvatureStep, b.Policy.CurvatureRounds),
+                b.Source, b.Policy.Tolerance, k))),
         field: static (k, f) => HashMap(
             (EncodingChannel.Geodesic,  () => Encode.Vertexwise(f.Values, f.Source, f.Policy.Tolerance, k)),
             (EncodingChannel.Weight,    () => Fin.Succ(Encode.AreaWeight(f.Source)))),
@@ -326,7 +330,8 @@ public static class Encode {
         Op k = key.OrDefault();
         return Census(op)
             .Bind(count => PackChannels(op, op.Kind, count, k)
-                .Bind(packed => Witness(op, packed, k)
+                .Bind(packed => SourceDigest(op, k)
+                    .Bind(digest => Witness(packed, digest, DigestRoot.Source))
                     .Map(witness => new EncodedGeometry(packed.Store.Descriptors.ToSeq(), packed.Store.Payload, packed.Store.Count, witness))))
             .Bind(geometry => k.AcceptValue(geometry));
     }
@@ -351,7 +356,7 @@ public static class Encode {
                         : Fin.Fail<(int, int, Seq<PackedLane>)>(new GeometryFault.ChannelArityMismatch(
                             lane.Channel, (long)count * lane.Channel.Arity, lane.Raw.LongLength))))
                 .Map(s => new PackedChannels(store, s.Packed)))
-            .Bind(packed => Screened(packed, GeometryHash.Create(ContentHash.Of(packed.Store.Payload)), DigestRoot.Payload)
+            .Bind(packed => Witness(packed, GeometryHash.Create(ContentHash.Of(packed.Store.Payload)), DigestRoot.Payload)
                 .Map(witness => new EncodedGeometry(packed.Store.Descriptors.ToSeq(), packed.Store.Payload, packed.Store.Count, witness)))
             .Bind(geometry => k.AcceptValue(geometry));
     }
@@ -381,23 +386,22 @@ public static class Encode {
 
     static (int Slot, int Offset, Seq<PackedLane> Packed) Write(
         EncodedStore store, (int Slot, int Offset, Seq<PackedLane> Packed) state, EncodingChannel channel, int count, float[] raw, Option<EncodingChannel> mask) {
-        EncodingChannelDescriptor descriptor = new(channel, count, state.Offset, channel.Dtype, mask);
-        channel.Dtype.Pack(raw, store.Payload.AsSpan(state.Offset, descriptor.Bytes));
+        int bytes = checked(count * channel.Arity * channel.Dtype.Width);
+        EncodingChannelDescriptor descriptor = new(channel, state.Offset, mask);
+        channel.Dtype.Pack(raw, store.Payload.AsSpan(state.Offset, bytes));
         store.Descriptors[state.Slot] = descriptor;
-        return (state.Slot + 1, state.Offset + descriptor.Bytes, state.Packed.Add(new PackedLane(descriptor, raw)));
+        return (state.Slot + 1, state.Offset + bytes, state.Packed.Add(new PackedLane(descriptor, raw)));
     }
 
     // --- [WITNESS]
-    static Fin<RoundTripWitness> Witness(PackOp op, PackedChannels packed, Op key) =>
-        SourceDigest(op, key).Bind(digest => Screened(packed, digest, DigestRoot.Source));
-
-    static Fin<RoundTripWitness> Screened(PackedChannels packed, GeometryHash digest, DigestRoot root) {
+    static Fin<RoundTripWitness> Witness(PackedChannels packed, GeometryHash digest, DigestRoot root) {
         Seq<(EncodingChannel Channel, double Error)> errors = packed.Lanes.Map(lane => (
             lane.Descriptor.Channel,
-            Error(lane.Raw, packed.Store.Payload.AsSpan(lane.Descriptor.ByteOffset, lane.Descriptor.Bytes), lane.Descriptor.Dtype)));
+            Error(lane.Raw, packed.Store.Payload.AsSpan(
+                lane.Descriptor.ByteOffset, lane.Raw.Length * lane.Descriptor.Channel.Dtype.Width), lane.Descriptor.Channel.Dtype)));
         return errors.Find(e => !double.IsFinite(e.Error) || e.Error > e.Channel.Dtype.Tolerance).Match(
             Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingRoundTripExceeded(breach.Channel, breach.Error)),
-            None: () => Fin.Succ(RoundTripWitness.Of(digest, root, errors)));
+            None: () => Fin.Succ(new RoundTripWitness(digest, root, toHashMap(errors))));
     }
 
     static double Error(float[] raw, ReadOnlySpan<byte> stored, ChannelDtype dtype) {
@@ -493,20 +497,6 @@ public static class Encode {
             return (c.X, c.Y, c.Z);
         });
 
-    internal static Fin<float[]> Colors(Option<Arr<float>> block, int count) =>
-        block.Match(
-            Some: rows => Block(rows, count, EncodingChannel.ColorRgba),
-            None: () => Fin.Fail<float[]>(new GeometryFault.MissingEncodingChannel(EncodingChannel.ColorRgba)));
-
-    internal static float[] Vectors(Vector3d[] vectors) =>
-        Interleave3(vectors.Length, i => (vectors[i].X, vectors[i].Y, vectors[i].Z));
-
-    internal static float[] Consistency(Vector3d[] normals) {
-        float[] values = new float[normals.Length];
-        for (int i = 0; i < normals.Length; i++) values[i] = (float)Math.Abs(normals[i].Z);
-        return values;
-    }
-
     internal static float[] Centers(ToolpathPath path) =>
         Points(path.Start.Cons(path.Spans.Map(static span => span.Switch(
             line: static row => row.Target,
@@ -568,9 +558,6 @@ public static class Encode {
     }
 
     // --- [FIELDS]
-    internal static ScalarField Curvature(MeshSpace space, PackPolicy policy) =>
-        new ScalarField.MeanCurvatureFlowCase(Space: space, TimeStep: policy.CurvatureStep, Iterations: policy.CurvatureRounds);
-
     internal static Fin<float[]> Vertexwise(ScalarField field, MeshSpace space, Context tolerance, Op key) {
         Mesh native = space.Native;
         return toSeq(Enumerable.Range(0, native.Vertices.Count))
@@ -591,10 +578,6 @@ public static class Encode {
             .As()
             .Map(static values => values.ToArray());
     }
-
-    internal static Fin<Vector3d[]> Oriented(VectorCloud.ClusterCase cloud, PackPolicy policy, Op key) =>
-        VectorCloudMetric.OrientedNormals.Project<Seq<Vector3d>>(cloud: cloud, policy: policy.Cloud, key: key)
-            .Map(static seq => seq.ToArray());
 }
 ```
 
@@ -631,9 +614,9 @@ flowchart LR
 ## [03]-[CHANNEL]
 
 - Owner: `EncodingChannel` is the feature roster and the ONE place a channel's wire identity lives — `Arity` and `Dtype` the residency columns, `WireName` the glTF 2.0 accessor semantic an interchange writer emits, `Filter` the `MeshoptFilter` row that same writer stamps on the compressed bufferView. Both columns are DATA on the row, so an exporter reads them and never re-derives a token table per format.
-- Cases: `MeshoptFilter` carries the five `KHR_meshopt_compression` post-decompression filters, each row holding its bitstream `Ordinal` and its own `Admits(arity, width)` law — octahedral takes four 8- or 16-bit components, quaternion four 16-bit, color four 8- or 16-bit, exponential 4-byte float components, none everything. Each law is the SPEC's stride and component rule per filter, so a channel electing a filter its layout cannot carry refuses at the schema rather than emitting an undecodable bufferView.
+- Cases: `MeshoptFilter` carries the five `KHR_meshopt_compression` post-decompression filters, each row keyed by its bitstream token and holding its own `Admits(arity, width)` law — octahedral takes four 8- or 16-bit components, quaternion four 16-bit, color four 8- or 16-bit, exponential 4-byte float components, none everything. Each law is the SPEC's stride and component rule per filter, so a channel electing a filter its layout cannot carry refuses at the schema rather than emitting an undecodable bufferView.
 - Law: `WireName` is the glTF accessor semantic where the spec publishes one (`POSITION`, `NORMAL`, `COLOR_0`, `TEXCOORD_0`) and the underscore-prefixed application-specific spelling glTF 2.0 §3.7.2.1 mandates elsewhere; USD reads the SAME token behind its `primvars:` prefix at the format writer, so the correspondence is declared once here and projected there, never forked into a second column.
-- Law: a lane that is only meaningful under a companion column declares that companion rather than fabricating a value — `SpanKind` is the toolpath discriminant under which `ArcCenter` and `ArcSense` become declared-unread on a line row, and `Consistency` carries an estimate where `Intensity` would have claimed a measurement. A wire token whose declared meaning and packed quantity disagree is the defect both rows close.
+- Law: a lane that is only meaningful under a companion column declares that companion rather than fabricating a value — `SpanKind` is the toolpath discriminant under which `ArcCenter` and `ArcSense` become declared-unread on a line row, and `Verticality` carries an estimate where `Intensity` would have claimed a measurement. A wire token whose declared meaning and packed quantity disagree is the defect both rows close.
 - Law: every channel's `Filter` satisfies `Filter.Admits(Arity, Dtype.Width)`, and `PackSchema.IsValid` is the reader — a filter and a layout that disagree fail the schema before a byte moves. `Normal` and `Rotation` take `Exponential` rather than the semantically closer octahedral and quaternion rows because both carry `Float32` components: octahedral needs a four-component 8- or 16-bit lane, quaternion exactly four 16-bit, and claiming either at `Float32` width is the undecodable emission the law forecloses.
 - Boundary: this owner declares wire IDENTITY, never wire MACHINERY — no meshopt encoder, no glTF document model, and no `EXT_meshopt_compression` fallback-buffer policy lives in the kernel; the `Rasm.Element` interchange writer and the TypeScript `viewer/scene` decoder gate consume these rows, and the kernel's `Directory.Packages.props` carries no meshopt reference precisely because the rows are tokens and laws rather than a codec.
 
@@ -647,13 +630,11 @@ namespace Rasm.Drawing;
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MeshoptFilter {
-    public static readonly MeshoptFilter None        = new("NONE",        ordinal: 0, admits: static (_, _) => true);
-    public static readonly MeshoptFilter Octahedral  = new("OCTAHEDRAL",  ordinal: 1, admits: static (arity, width) => arity == 4 && width is 1 or 2);
-    public static readonly MeshoptFilter Quaternion  = new("QUATERNION",  ordinal: 2, admits: static (arity, width) => arity == 4 && width == 2);
-    public static readonly MeshoptFilter Exponential = new("EXPONENTIAL", ordinal: 3, admits: static (_, width) => width == 4);
-    public static readonly MeshoptFilter Color       = new("COLOR",       ordinal: 4, admits: static (arity, width) => arity == 4 && width is 1 or 2);
-
-    public int Ordinal { get; }
+    public static readonly MeshoptFilter None        = new("NONE",        admits: static (_, _) => true);
+    public static readonly MeshoptFilter Octahedral  = new("OCTAHEDRAL",  admits: static (arity, width) => arity == 4 && width is 1 or 2);
+    public static readonly MeshoptFilter Quaternion  = new("QUATERNION",  admits: static (arity, width) => arity == 4 && width == 2);
+    public static readonly MeshoptFilter Exponential = new("EXPONENTIAL", admits: static (_, width) => width == 4);
+    public static readonly MeshoptFilter Color       = new("COLOR",       admits: static (arity, width) => arity == 4 && width is 1 or 2);
 
     [UseDelegateFromConstructor] public partial bool Admits(int arity, int width);
 }
@@ -676,7 +657,7 @@ public sealed partial class EncodingChannel {
     public static readonly EncodingChannel Curvature = new("curvature",  arity: 1, dtype: ChannelDtype.Float16, wire: "_CURVATURE", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Geodesic  = new("geodesic",   arity: 1, dtype: ChannelDtype.Float16, wire: "_GEODESIC",  filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Intensity = new("intensity",  arity: 1, dtype: ChannelDtype.Float16, wire: "_INTENSITY", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
-    public static readonly EncodingChannel Consistency = new("consistency", arity: 1, dtype: ChannelDtype.Float16, wire: "_CONSISTENCY", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
+    public static readonly EncodingChannel Verticality = new("verticality", arity: 1, dtype: ChannelDtype.Float16, wire: "_VERTICALITY", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Occupancy = new("occupancy",  arity: 1, dtype: ChannelDtype.Float16, wire: "_OCCUPANCY", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Weight    = new("weight",     arity: 1, dtype: ChannelDtype.Float16, wire: "_WEIGHT",    filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel ArcCenter = new("arc-center", arity: 3, dtype: ChannelDtype.Float32, wire: "_ARCCENTER", filter: MeshoptFilter.Exponential, placement: ChannelPlacement.Positional);
@@ -696,9 +677,9 @@ public sealed partial class EncodingChannel {
 
 ## [04]-[SCHEMA_AND_EVIDENCE]
 
-- Owner: `PackSchema` is the columnar schema identity every kernel wire carries beside its payload — a `ContentHash`-derived `SchemaId` over the owning `PackKind` and one `PackSchemaField` per active channel, each field carrying its wire token and filter row so a token or filter drift RE-KEYS the schema. `SchemaNullability` is the null-semantics vocabulary, DERIVED from the descriptor's own `Mask` column so a masked lane is one that names its validity channel rather than a row nothing constructs. `EvidenceCodec` owns both evidence lanes: the lossless 106-bit count-prefixed binary block over `DoubleDoubleIOExpand`, and `Json`, one sealed `JsonSerializerOptions` identity carrying `DDoubleJsonConverter` over the `PackEvidenceContext` resolver.
+- Owner: `PackSchema` is the columnar schema identity every kernel wire carries beside its payload — a `ContentHash`-derived `SchemaId` over the owning `PackKind` and one `PackSchemaField` per active channel, each field naming its channel row and optional validity `Mask`, so a wire token, filter, or mask drift RE-KEYS the schema through the channel authority. Null semantics ride the field's own `Mask` column — a masked lane names its validity channel and an unmasked lane is dense by construction, so no parallel nullability roster restates the option. `EvidenceCodec` owns both evidence lanes: the lossless 106-bit count-prefixed binary block over `DoubleDoubleIOExpand`, and `Json`, one sealed `JsonSerializerOptions` identity carrying `DDoubleJsonConverter` over the `PackEvidenceContext` resolver.
 - Entry: `PackSchema.Of` is ONE polymorphic derivation discriminating on input shape — the `PackKind` projects the declaration truth, an `EncodedGeometry` projects the packed instance — and `Describes` validates both carriers before comparing ids on `Fin`; `EvidenceCodec.WriteBlock`/`ReadBlock` are the binary arms, both on `Fin` over `DoubleDoubleIOExpand`'s exact hi/lo extensions, and `EvidenceCodec.Json` is the one options argument every JSON evidence read and write binds.
-- Law: the schema id derives through the kernel `CanonicalWriter` — the framed writer, never a hand-joined preimage: one `String` for the kind key then one framed row per field in active-set order, so two kinds sharing an active set still key distinct and any field, arity, dtype, width, nullability, wire token, or filter drift re-keys. `Tag` is `ContentHash.Hex`, the ONE hex projection, so no consumer spells a format string.
+- Law: the schema id derives through the kernel `CanonicalWriter` — the framed writer, never a hand-joined preimage: one `String` for the kind key then one framed row per field in active-set order, so two kinds sharing an active set still key distinct and any channel key, arity, dtype, width, wire token, filter key, or mask drift re-keys. `Tag` is `ContentHash.Hex`, the ONE hex projection, so no consumer spells a format string.
 - Law: `Json` seals at type init through `JsonSerializerOptions.MakeReadOnly()`, so the converter set and resolver chain are fixed before the first evidence byte moves and a composition appending to either throws at the append; both lanes therefore carry the same 106-bit value and a `double`-degrading round trip is structurally unreachable.
 - Boundary: `SchemaId` is `UInt128` identity currency, its hex, two-lane `ulong`, and byte-order encodings consumer-side projections; schema identity binds the representation vocabulary declared here, so a consumer-side roster re-declaring field rows diverges. Each derived-stride column stays contiguous at its descriptor offset, so a consumer wraps every field zero-copy while the kernel never touches a columnar client — `Rasm.Compute` `Runtime/codecs#ARROW_BATCH` borrows those slices into record-batch columns and `Rasm.Persistence` `Query/lakehouse#FLAT_TABLE_EGRESS` owns the writers, hive generation, and Flight serving beneath them; the kernel reaches neither, and `SchemaId` is the identity the lake generation keys its tree on. `PackEvidenceContext` declares the kernel evidence payload alone and folds into the app-root suite as one `SuiteContracts.Wire` context argument — the kernel mints no second suite and admits no reflection resolver.
 
@@ -718,41 +699,28 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Drawing;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class SchemaNullability {
-    public static readonly SchemaNullability Dense = new(0);
-    public static readonly SchemaNullability Masked = new(1);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record PackSchemaField(
-    EncodingChannel Channel, int Arity, ChannelDtype Dtype, int ElementStride, SchemaNullability Nulls, string WireName, MeshoptFilter Filter) {
-
-    public static PackSchemaField Of(EncodingChannel channel, ChannelDtype dtype, SchemaNullability nulls) =>
-        new(Channel: channel, Arity: channel.Arity, Dtype: dtype, ElementStride: channel.Arity * dtype.Width,
-            Nulls: nulls, WireName: channel.WireName, Filter: channel.Filter);
-}
+public sealed record PackSchemaField(EncodingChannel Channel, Option<EncodingChannel> Mask);
 
 [Equatable]
 public sealed partial record PackSchema(
     UInt128 SchemaId, PackKind Kind, [property: OrderedEquality] Seq<PackSchemaField> Fields) : IValidityEvidence {
 
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.CountAtLeast(count: Fields.Count, floor: 1),
-        Fields.Map(static field => field.Channel).Distinct().Count == Fields.Count,
-        Fields.ForAll(static field =>
-            field.Arity > 0
-            && field.ElementStride == field.Arity * field.Dtype.Width
-            && field.Filter.Admits(field.Arity, field.Dtype.Width)),
+        Fields.Map(static field => field.Channel) == Kind.Channels,
+        Fields.ForAll(field =>
+            field.Channel.Filter.Admits(field.Channel.Arity, field.Channel.Dtype.Width)
+            && field.Mask.Match(
+                Some: mask => mask != field.Channel && mask.Arity == 1 && Fields.Exists(row => row.Channel == mask),
+                None: static () => true)),
         SchemaId == Of(kind: Kind, fields: Fields).SchemaId);
 
     public static PackSchema Of(PackKind kind) =>
-        Of(kind: kind, fields: kind.Channels.Map(static channel => PackSchemaField.Of(channel, channel.Dtype, SchemaNullability.Dense)));
+        Of(kind: kind, fields: kind.Channels.Map(static channel => new PackSchemaField(channel, None)));
 
     public static PackSchema Of(EncodedGeometry geometry, PackKind kind) =>
         Of(kind: kind, fields: geometry.Descriptors.Map(static descriptor =>
-            PackSchemaField.Of(descriptor.Channel, descriptor.Dtype, descriptor.Nulls)));
+            new PackSchemaField(descriptor.Channel, descriptor.Mask)));
 
     public Fin<Unit> Describes(EncodedGeometry geometry, Op? key = null) {
         PackSchema instance = Of(geometry: geometry, kind: Kind);
@@ -769,8 +737,10 @@ public sealed partial record PackSchema(
                 chunks: static (state, sink) => sink
                     .String(state.Kind.Key)
                     .Rows(state.Fields, static (field, row) => row
-                        .String(field.Channel.Key).Ordinal(field.Arity).Ordinal(field.Dtype.Key).Ordinal(field.Dtype.Width)
-                        .Ordinal(field.Nulls.Key).String(field.WireName).Ordinal(field.Filter.Ordinal))),
+                        .String(field.Channel.Key).Ordinal(field.Channel.Arity)
+                        .Ordinal(field.Channel.Dtype.Key).Ordinal(field.Channel.Dtype.Width)
+                        .String(field.Channel.WireName).String(field.Channel.Filter.Key)
+                        .Optional(field.Mask, static (mask, framed) => framed.String(mask.Key)))),
             Kind: kind, Fields: fields);
 }
 

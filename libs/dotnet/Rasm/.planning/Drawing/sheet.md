@@ -6,7 +6,7 @@ Composition is downward: `ModelUnit`/`UnitSystem` from `Domain/context` carry ev
 
 ## [01]-[INDEX]
 
-- [02]-[STANDARD]: `SheetStandard`, `PublishingBody`, `IRungRoster`, `RungLadder` — the publishing bodies, the standard-per-concern discriminant every roster keys on with its deferral index, and the one preferred-number snap every ladder reads.
+- [02]-[STANDARD]: `SheetStandard`, `PublishingBody`, `RungLadder` — the publishing bodies, the standard-per-concern discriminant every roster keys on with its deferral index, and the one preferred-number snap every ladder reads.
 - [03]-[SERIES]: `SheetSeries`, `SheetSize`, `SheetOrientation`, `SheetMargin` — algorithmic and declared extent series, the admitted size, orientation, and the binding-aware margin quad.
 - [04]-[FRAME]: `SheetFrame`, `FrameBand`, `ZoneGrid`, `ZoneRef`, `RevisionIndex`, `Revision`, `TitleBlock`, `TitleField`, `TitleBlockLayout`, `SheetOfGrammar` — the standard's extent-banded frame, zone designators, revision letters, and title-block field roster.
 - [05]-[SCALE]: `DrawingScale`, `ScaleNotation`, `ScaleLadder` — the ratio value, its notations, and the preferred ladders.
@@ -19,7 +19,7 @@ Composition is downward: `ModelUnit`/`UnitSystem` from `Domain/context` carry ev
 
 ## [02]-[STANDARD]
 
-- Owner: `RungLadder` — the ONE preferred-number snap, log-distance minimum over a roster's frozen log column, realized by `LineWidth`, `TextHeight`, and `ScaleLadder` through `IRungRoster`; `PublishingBody` `[SmartEnum<string>]` — the four bodies whose documents this page transcribes; `SheetStandard` `[SmartEnum<string>]` — the discriminant every roster on this page keys on, one row per standards FAMILY a drawing set is issued under: `Iso` (ISO 216 sizes, ISO 5457 frame, ISO 7200 title block, ISO 5455 scales, ISO 128 linework, ISO 3098 lettering, ISO 129 dimensioning), `Ansi` (ASME Y14.1 sheets and frames, ASME Y14.2 linework, ASME Y14.5, US NCS naming), `Arch` (the US architectural sheet series under the same NCS/AIA naming and ASME linework), `Jis` (JIS P 0138 B-series, JIS Z 8311 frame, JIS Z 8313 lettering, ISO-aligned linework).
+- Owner: `RungLadder` — the ONE preferred-number snap, log-distance minimum over a roster's frozen log column, read by `LineWidth`, `TextHeight`, and `ScaleLadder` each over its own private log cache; `PublishingBody` `[SmartEnum<string>]` — the four bodies whose documents this page transcribes; `SheetStandard` `[SmartEnum<string>]` — the discriminant every roster on this page keys on, one row per standards FAMILY a drawing set is issued under: `Iso` (ISO 216 sizes, ISO 5457 frame, ISO 7200 title block, ISO 5455 scales, ISO 128 linework, ISO 3098 lettering, ISO 129 dimensioning), `Ansi` (ASME Y14.1 sheets and frames, ASME Y14.2 linework, ASME Y14.5, US NCS naming), `Arch` (the US architectural sheet series under the same NCS/AIA naming and ASME linework), `Jis` (JIS P 0138 B-series, JIS Z 8311 frame, JIS Z 8313 lettering, ISO-aligned linework).
 - Cases: `Iso` · `Ansi` · `Arch` · `Jis` — the wire keys `iso`/`ansi`/`arch`/`jis` every consuming surface and exported document reads, ordinal-compared, never culture-folded.
 - Law: the standard is the SOURCE discriminant and nothing else — a `SheetSize` row, a frame row, a scale ladder, a lettering ladder, and a plot style each carry a `Standard` column and derive their `For(standard)` index through `SheetStandard.Index` behind an accessor-backed `Lazy`, so no roster restates the standard's own membership.
 - Law: `Defers` names the standard a family falls to where it publishes no convention of its own (JIS falls to ISO, ARCH to ANSI, the two roots to themselves), and `Index` resolves that hop ONCE at roster freeze — eight `For` reads on this page share the one law, and an unrostered root raises at static init rather than per read.
@@ -68,11 +68,6 @@ public sealed partial class SheetStandard {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal interface IRungRoster<TSelf> where TSelf : class, IRungRoster<TSelf> {
-    static abstract IReadOnlyList<TSelf> Items { get; }
-    static abstract double[] Logs { get; }
-}
-
 internal static class RungLadder {
     private const int StackRungs = 64;
     internal static int NearestIndex(ReadOnlySpan<double> logs, double magnitude) {
@@ -80,8 +75,6 @@ internal static class RungLadder {
         TensorPrimitives.Subtract(logs, Math.Log(magnitude), distance);
         return TensorPrimitives.IndexOfMinMagnitude<double>(distance);
     }
-    internal static TSelf Nearest<TSelf>(double magnitude) where TSelf : class, IRungRoster<TSelf> =>
-        TSelf.Items[NearestIndex(logs: TSelf.Logs, magnitude: magnitude)];
 }
 ```
 
@@ -93,7 +86,7 @@ internal static class RungLadder {
 - Auto: `Halved(index)` derives every ISO and JIS extent — `(w, h)` at index n is `(floor(h_{n−1} / 2), w_{n−1})` off the root — so A4 = 210 × 297 and B5 = 176 × 250 are computed, never stored, and a new index is nothing; the ISO 216 rounding is DOWN to the whole millimetre for every halving (A1's 594.5 → 594) while the ROOT rounds to the NEAREST millimetre (A0's 840.9 → 841), which is why the root is data and the halving is the formula.
 - Law: `Key` is the ONE wire spelling — series prefix followed by index for the halving series (`a3`, `b1`, `c4`, `jis-b4`), series prefix followed by its own suffix for the declared series (`ansi-b`, `arch-d`); a `Custom` extent spells `custom-{standard}-{width}x{height}mm` at round-trip precision, so two customs differing at any bit key apart and the standard survives the wire, and it never collides with a rostered key because no series prefix begins with `custom`.
 - Law: `In` refuses typed rather than scaling silently — an unadmitted unit regime fails at `ModelUnit`, so a sheet extent never crosses a boundary carrying a scale nobody admitted; the projection composes `ModelUnit.ScaleTo` off the millimetre base, and printer points (`UnitSystem.PrinterPoints`) are one more admitted regime, never a `72/25.4` constant at a consumer.
-- Packages: UnitsNet (`Length.FromMillimeters`/`FromInches`, `Millimeters`, `Inches`, `operator *(Length, double)`, `operator <=`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ObjectFactory<string>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Seq.Choose`, `Range`), System.Collections.Frozen (`FrozenDictionary`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Domain/results` (`Op`, `Fault`, `ValidityClaim`).
+- Packages: UnitsNet (`Length.FromMillimeters`/`FromInches`, `Millimeters`, `Inches`, `operator *(Length, double)`, `operator <=`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ObjectFactory<string>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Option`, `Range`, `ThrowIfFail`), System.Collections.Frozen (`FrozenDictionary`), `Domain/context` (`ModelUnit`, `UnitSystem`), `Domain/results` (`Op`, `Fault`, `ValidityClaim`).
 - Growth: a new halving series is one row naming its root; a new declared series is one row naming its table; a new size on a declared series is one row on that table; a new unit regime is nothing.
 - Boundary: the AppUi twin roster (`Rasm.AppUi/.planning/Render/drafting.md:45-60`, fifteen rows character-identical), the Rhino free struct (`Rasm.Rhino/.planning/Exchange/sheets.md:929` `SheetSize(LengthUnit, double, double)`), the AppUi points constant (`drafting.md:71-75`), the AppUi free-token page roster (`Document/export.md:1248`), and the AppUi centimetre report pair (`export.md:217`) all DELETE and read this owner — `Custom` is the one caller-override arm the Rhino struct needed. NAMED LOSS: the fifteen per-size static members (`SheetSize.A3`) — a consumer spells `SheetSize.Of(SheetSeries.IsoA, 3)` or parses `a3`; the sizes a series admits are its `Range` and never a hand roster.
 
@@ -236,8 +229,7 @@ public abstract partial record SheetSize : IValidityEvidence {
     private static readonly Lazy<FrozenDictionary<(SheetSeries Series, int Index), (Length Width, Length Height)>> Ladder =
         new(static () => toSeq(SheetSeries.Items)
             .Bind(static series => Range(series.Bounds.Floor, series.Bounds.Ceiling - series.Bounds.Floor + 1).ToSeq().Map(index => (Series: series, Index: index)))
-            .Choose(static seat => seat.Series.Extent(seat.Index, Op.Of()).ToOption().Map(extent => (Seat: seat, Extent: extent)))
-            .ToFrozenDictionary(static row => row.Seat, static row => row.Extent));
+            .ToFrozenDictionary(static seat => seat, static seat => seat.Series.Extent(seat.Index, Op.Of()).ThrowIfFail()));
     public SheetStandard Standard => Switch(rostered: static row => row.Series.Standard, custom: static row => row.Standard);
     public string Key => Switch(
         rostered: static row => row.Series.Spell(row.Index),
@@ -383,7 +375,7 @@ public sealed partial class RevisionIndex {
     }
     public static Fin<RevisionIndex> Of(string value, Op? key = null) =>
         key.OrDefault().AcceptValidated<RevisionIndex>(Validate(value, out RevisionIndex? index), index);
-    public Fin<RevisionIndex> Next(Op? key = null) => Of(value: Advance(held: Value), key: key);
+    public Fin<RevisionIndex> Next(Op? key = null) => Of(value: Advance(held: ToValue()), key: key);
     private static string Advance(string held) =>
         held.Length == 0 ? Alphabet[..1]
         : Alphabet.IndexOf(held[^1], StringComparison.Ordinal) + 1 is int seat && seat < Alphabet.Length
@@ -404,7 +396,7 @@ public sealed partial class Revision {
         key.OrDefault().AcceptValidated<Revision>(Validate(index, date, description, out Revision? revision), revision);
 }
 
-public sealed record TitleBlock : IValidityEvidence {
+public sealed record TitleBlock {
     private TitleBlock(string owner, string project, string client, string title, Option<string> supplement,
         SheetNumber number, DisciplineDesignator discipline, DrawingScale scale, DrawingUnits units,
         LocalDate date, Option<Revision> revision, string drawn, Option<string> checkedBy, Option<string> approvedBy,
@@ -428,7 +420,6 @@ public sealed record TitleBlock : IValidityEvidence {
     public Option<string> Approved { get; }
     public int Sheet { get; }
     public int SheetCount { get; }
-    public bool IsValid => ValidityClaim.All(Sheet >= 1, SheetCount >= Sheet, Owner.Length > 0, Title.Length > 0);
 
     public static Fin<TitleBlock> Of(string owner, string project, string client, string title, Option<string> supplement,
         SheetNumber number, DisciplineDesignator discipline, DrawingScale scale, DrawingUnits units,
@@ -466,14 +457,14 @@ public sealed partial class TitleField {
     public static readonly TitleField Project = new(key: "project", read: static (block, _) => block.Project);
     public static readonly TitleField Client = new(key: "client", read: static (block, _) => block.Client);
     public static readonly TitleField Discipline = new(key: "discipline", read: static (block, _) => block.Discipline.Title);
-    public static readonly TitleField Scale = new(key: "scale", read: static (block, standard) => block.Scale.Render(ScaleNotation.For(standard)));
+    public static readonly TitleField Scale = new(key: "scale", read: static (block, standard) => ScaleNotation.For(standard).Render(block.Scale));
     public static readonly TitleField Units = new(key: "units", read: static (block, _) => block.Units.Key);
     public static readonly TitleField Date = new(key: "date", read: static (block, _) => LocalDatePattern.Iso.Format(block.Date));
     public static readonly TitleField Drawn = new(key: "drawn", read: static (block, _) => block.Drawn);
     public static readonly TitleField Checked = new(key: "checked", read: static (block, _) => block.Checked.IfNone(string.Empty));
     public static readonly TitleField Approved = new(key: "approved", read: static (block, _) => block.Approved.IfNone(string.Empty));
     public static readonly TitleField Sheet = new(key: "sheet", read: static (block, standard) => SheetOfGrammar.For(standard).Render(block.Sheet, block.SheetCount));
-    public static readonly TitleField Revision = new(key: "revision", read: static (block, _) => block.Revision.Map(static r => r.Index.Value).IfNone(string.Empty));
+    public static readonly TitleField Revision = new(key: "revision", read: static (block, _) => block.Revision.Map(static r => r.Index.ToValue()).IfNone(string.Empty));
 
     [UseDelegateFromConstructor] public partial string Read(TitleBlock block, SheetStandard standard);
     public string LabelKey => string.Concat("sheet.field.", Key);
@@ -520,7 +511,7 @@ public sealed partial class SheetOfGrammar {
 ## [05]-[SCALE]
 
 - Owner: `DrawingScale` `[ComplexValueObject]` `[ObjectFactory<string>]` — the paper-to-model ratio as a reduced positive integer pair, admitted from any notation the standards publish and rendered through a `ScaleNotation` row; `ScaleNotation` `[SmartEnum<string>]` — `Ratio` (`1:50`, ISO 5455 §4), `Architectural` (`1/4" = 1'-0"`, US architectural convention), `Engineering` (`1" = 20'`, US engineering convention); `ScaleLadder` `[SmartEnum<string>]` — the preferred ladders: `Iso5455` is a FORMULA (the {1, 2, 5} × 10ⁿ series over reductions 1:2 … 1:10000 and enlargements 2:1 … 50:1, ISO 5455 Table 1), `Architectural` and `Engineering` are declared rosters with their upstream named; `Members` derive lazily and `Nearest(scale)` snaps a free ratio onto the ladder.
-- Entry: `DrawingScale.Of(paper, model, key)` reduces and admits; `DrawingScale.Admit(text, key)` parses every notation (`1:50`, `50:1`, `1/4"=1'-0"`, `1"=20'`, `3/32"=1'`) and hands back the ADMITTING notation beside the value; `DrawingScale.Validate(text)` is the same read through the `[ObjectFactory<string>]` plane; `scale.Render(notation)`; `scale.Ratio` (paper / model as `double`); `ScaleLadder.For(standard)`, `ladder.Members`, `ladder.Nearest(scale)`, `ladder.Admits(scale)`.
+- Entry: `DrawingScale.Of(paper, model, key)` reduces and admits; `DrawingScale.Admit(text, key)` parses every notation (`1:50`, `50:1`, `1/4"=1'-0"`, `1"=20'`, `3/32"=1'`) and hands back the ADMITTING notation beside the value; `DrawingScale.Validate(text)` is the same read through the `[ObjectFactory<string>]` plane; `ScaleNotation.For(standard).Render(scale)`; `scale.Ratio` (paper / model as `double`); `ScaleLadder.For(standard)`, `ladder.Members`, `ladder.Nearest(scale)`, `ladder.Admits(scale)`.
 - Auto: the ISO ladder GENERATES its members — mantissa {1, 2, 5} across `Decades` integer decades up to `Ceiling` — so `1:20000` is those two columns moving together and never a row; the imperial rosters carry their fraction spellings as data because their ratios (1:96, 1:48, 1:120) are not a mantissa series; every ladder freezes ONCE in ratio order beside its membership set and its log column, so `Members` publishes in ladder order and `Admits`/`Nearest` never scan.
 - Law: full scale is `1:1`; a reduction keeps `Paper = 1`, an enlargement keeps `Model = 1`; a ratio that reduces to neither (`3:2`) is admitted as its reduced pair — the ladder decides preferredness, the value never does.
 - Law: the notation that ADMITTED a text is carried out with the value, so a title block renders back the spelling its drawing set was issued in; the imperial rows discriminate on which side the text pins (architectural pins one foot of model, engineering one inch of paper), and both quantize on the AIA 1/64-in drafting denominator, which is therefore named once and never a bare `64`.
@@ -553,7 +544,6 @@ public sealed partial class DrawingScale {
         key.OrDefault().AcceptValidated<DrawingScale>(Validate(paper, model, out DrawingScale? scale), scale);
     public double Ratio => (double)Paper / Model;
     public bool IsReduction => Paper < Model;
-    public string Render(ScaleNotation notation) => notation.Render(this);
     public static Fin<(DrawingScale Scale, ScaleNotation Notation)> Admit(string text, Op? key = null) =>
         Admitted(text).ToFin(key.OrDefault().InvalidInput());
     private static Option<(DrawingScale Scale, ScaleNotation Notation)> Admitted(string? value) =>
@@ -584,7 +574,7 @@ public sealed partial class ScaleNotation {
 
     public SheetStandard Standard { get; }
     [UseDelegateFromConstructor] internal partial Option<DrawingScale> Parse(string text);
-    [UseDelegateFromConstructor] internal partial string Render(DrawingScale scale);
+    [UseDelegateFromConstructor] public partial string Render(DrawingScale scale);
     public static ScaleNotation For(SheetStandard standard) => ByStandard.Value[standard];
     private static readonly Lazy<FrozenDictionary<SheetStandard, ScaleNotation>> ByStandard =
         new(static () => SheetStandard.Index(Items, static row => row.Standard));
@@ -627,7 +617,7 @@ public sealed partial class ScaleNotation {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ScaleLadder {
     public static readonly ScaleLadder Iso5455 = new(key: "iso-5455", standard: SheetStandard.Iso, decades: 5, ceiling: 10000, rungs: static () =>
-        toSeq(new[] { 1, 2, 5 }).Bind(static mantissa => Powers(seed: mantissa, count: Iso5455!.Decades))
+        toSeq(new[] { 1, 2, 5 }).Bind(static mantissa => Range(0, Iso5455!.Decades).Fold(Seq<int>(), (held, _) => held.Add(held.Last.Map(static last => last * 10).IfNone(mantissa))))
             .Filter(static n => n >= 2 && n <= Iso5455!.Ceiling).Map(static n => DrawingScale.Of(paper: 1, model: n).ThrowIfFail())
             + Seq(DrawingScale.Of(1, 1).ThrowIfFail())
             + toSeq(new[] { 2, 5, 10, 20, 50 }).Map(static n => DrawingScale.Of(paper: n, model: 1).ThrowIfFail()));
@@ -647,15 +637,11 @@ public sealed partial class ScaleLadder {
         Seq<DrawingScale> ordered = toSeq(rungs.OrderBy(static row => row.Ratio)).Strict();
         return (ordered, ordered.ToFrozenSet(), ordered.Map(static row => Math.Log(row.Ratio)).ToArray());
     }
-    private static Seq<int> Powers(int seed, int count) =>
-        Range(0, count).Fold(Seq<int>(), (held, _) => held.Add(held.Last.Map(static last => last * 10).IfNone(seed)));
 
     public Seq<DrawingScale> Members => Frozen.Value[this].Members;
     public bool Admits(DrawingScale scale) => Frozen.Value[this].Held.Contains(scale);
     public DrawingScale Nearest(DrawingScale scale) =>
-        Frozen.Value[this] is var ladder && ladder.Members.IsEmpty
-            ? scale
-            : ladder.Members[RungLadder.NearestIndex(logs: ladder.Logs, magnitude: scale.Ratio)];
+        Members[RungLadder.NearestIndex(logs: Frozen.Value[this].Logs, magnitude: scale.Ratio)];
     public static ScaleLadder For(SheetStandard standard) => ByStandard.Value[standard];
     private static readonly Lazy<FrozenDictionary<SheetStandard, ScaleLadder>> ByStandard =
         new(static () => SheetStandard.Index(Items, static row => row.Standard));
@@ -854,8 +840,8 @@ public sealed partial class NamingStandard {
     private static readonly SearchValues<char> Digits = SearchValues.Create("0123456789");
 
     internal string Render(Seq<(NamingField Field, string Value)> fields) =>
-        Sequence.Map(static (field, index) => (field, index)).Fold(string.Empty, (held, pair) =>
-            string.Concat(held, pair.Item2 == 0 || Fused.Contains(pair.Item2 - 1) ? string.Empty : Delimiter, Value(fields, pair.Item1)));
+        fields.Map(static (pair, index) => (pair.Value, Index: index)).Fold(string.Empty, (held, pair) =>
+            string.Concat(held, pair.Index == 0 || Fused.Contains(pair.Index - 1) ? string.Empty : Delimiter, pair.Value));
 
     private static Validation<Error, (NamingField Field, string Value)> Field(Seq<(NamingField Field, string Value)> fields, NamingField field, Func<string, bool> admits, Op key, string requirement) =>
         fields.Find(pair => pair.Field.Equals(field)).Match(
@@ -863,7 +849,6 @@ public sealed partial class NamingStandard {
             Some: pair => admits(pair.Value)
                 ? Validation<Error, (NamingField, string)>.Success(pair)
                 : Validation<Error, (NamingField, string)>.Fail(new KernelFault.InvalidValue(Label: field.Key, Requirement: requirement, Key: Some(key))));
-    private static string Value(Seq<(NamingField Field, string Value)> fields, NamingField field) => fields.Find(pair => pair.Field.Equals(field)).Map(static pair => pair.Value).IfNone(string.Empty);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1121,7 +1106,7 @@ public sealed partial class PenCode {
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LineWidth : IRungRoster<LineWidth> {
+public sealed partial class LineWidth {
     public static readonly LineWidth W013 = new(key: "0.13", width: Length.FromMillimeters(0.13), pen: PenCode.Violet);
     public static readonly LineWidth W018 = new(key: "0.18", width: Length.FromMillimeters(0.18), pen: PenCode.Red);
     public static readonly LineWidth W025 = new(key: "0.25", width: Length.FromMillimeters(0.25), pen: PenCode.White);
@@ -1134,11 +1119,10 @@ public sealed partial class LineWidth : IRungRoster<LineWidth> {
     public Length Width { get; }
     public PenCode Pen { get; }
 
-    public static double[] Logs => LogLadder.Value;
     private static readonly Lazy<double[]> LogLadder = new(static () => Items.Select(static row => Math.Log(row.Width.Millimeters)).ToArray());
     public static Fin<LineWidth> For(Length width, Op? key = null) =>
         width.Millimeters > 0.0 && double.IsFinite(width.Millimeters)
-            ? Fin.Succ(RungLadder.Nearest<LineWidth>(magnitude: width.Millimeters))
+            ? Fin.Succ(Items[RungLadder.NearestIndex(logs: LogLadder.Value, magnitude: width.Millimeters)])
             : Fin.Fail<LineWidth>(new KernelFault.OutOfRange(Label: nameof(LineWidth), Scalar: width.Millimeters, Requirement: "a positive finite paper width", Key: Some(key.OrDefault())));
     public static LineWidth For(PenCode pen) => ByPen.Value[pen];
     private static readonly Lazy<FrozenDictionary<PenCode, LineWidth>> ByPen =
@@ -1238,7 +1222,7 @@ public abstract partial record PlotStyleKey {
     public sealed record Named : PlotStyleKey { internal Named(StyleName name) => Name = name; public StyleName Name { get; } }
     public static Fin<PlotStyleKey> Of(int index, Op? key = null) => AciIndex.Of(value: index, key: key).Map(static seat => (PlotStyleKey)new Indexed(index: seat));
     public static Fin<PlotStyleKey> Of(string name, Op? key = null) => StyleName.Of(value: name, key: key).Map(static seat => (PlotStyleKey)new Named(name: seat));
-    public string Text => Switch(indexed: static row => row.Index.Value.ToString(CultureInfo.InvariantCulture), named: static row => row.Name.Value);
+    public string Text => Switch(indexed: static row => row.Index.ToValue().ToString(CultureInfo.InvariantCulture), named: static row => row.Name.ToValue());
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1296,7 +1280,7 @@ namespace Rasm.Drawing;
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class TextHeight : IRungRoster<TextHeight> {
+public sealed partial class TextHeight {
     public static readonly TextHeight H18 = new(key: "1.8", height: Length.FromMillimeters(1.8));
     public static readonly TextHeight H25 = new(key: "2.5", height: Length.FromMillimeters(2.5));
     public static readonly TextHeight H35 = new(key: "3.5", height: Length.FromMillimeters(3.5));
@@ -1318,11 +1302,10 @@ public sealed partial class TextHeight : IRungRoster<TextHeight> {
         Floors.Value[size.Standard].Find(rung => size.Width <= rung.Ceiling).Map(static rung => rung.Floor)
             .ToFin(new KernelFault.InvalidValue(Label: nameof(TextHeight), Requirement: $"a lettering floor covering the '{size.Key}' extent", Key: Some(key.OrDefault())));
 
-    public static double[] Logs => LogLadder.Value;
     private static readonly Lazy<double[]> LogLadder = new(static () => Items.Select(static row => Math.Log(row.Height.Millimeters)).ToArray());
     public static Fin<TextHeight> For(Length height, Op? key = null) =>
         height.Millimeters > 0.0 && double.IsFinite(height.Millimeters)
-            ? Fin.Succ(RungLadder.Nearest<TextHeight>(magnitude: height.Millimeters))
+            ? Fin.Succ(Items[RungLadder.NearestIndex(logs: LogLadder.Value, magnitude: height.Millimeters)])
             : Fin.Fail<TextHeight>(new KernelFault.OutOfRange(Label: nameof(TextHeight), Scalar: height.Millimeters, Requirement: "a positive finite lettering height", Key: Some(key.OrDefault())));
 }
 
@@ -1461,10 +1444,10 @@ public sealed partial class SymbolSet {
 
 ## [10]-[UNITS]
 
-- Owner: `DrawingUnits` `[SmartEnum<string>]` — the unit a sheet DECLARES it is drawn in (millimetres, metres, inches, feet-and-inches), keyed to the standard family; `DrawingPrecisionForm` `[Union]` — the SHAPE a unit publishes its precision in, decimal places or an inch denominator; `DrawingPrecision` — the precision a scale implies: the smallest feature a plot resolves is the narrowest usable width of the `LineWidth` ladder on paper (ISO 128-24), so the model quantum is that width `× scale.Model / scale.Paper` and the unit's own row shapes it — a 1:100 plan dimensions to the centimetre, a 1:5 detail to the tenth of a millimetre, and a feet-and-inches drawing to an inch denominator off the published ladder, all by construction; `NorthPosture` `[SmartEnum<string>]` — project north versus true north as rows whose `Rotation(declination)` column answers the plan rotation, the declination read off `Rasm.Element` `GeoReference.RotationRadians` (the model's own `IfcGeometricRepresentationContext.TrueNorth`) and never hand-authored beside it.
-- Entry: `DrawingUnits.For(standard)`; `ProjectionAngle.For(standard)` with `QuadrantSign`; `DrawingPrecision.Of(scale, units)` → `Quantum` and `Form(key)`; `NorthPosture.X.Rotation(VectorAngle declination)`.
+- Owner: `DrawingUnits` `[SmartEnum<string>]` — the unit a sheet DECLARES it is drawn in (millimetres, metres, inches, feet-and-inches), keyed to the standard family; `DrawingPrecisionForm` `[Union<int, int>]` — the SHAPE a unit publishes its precision in, the `Places` decimal count or the `Fraction` inch denominator as two named slots; `DrawingPrecision` — the precision a scale implies: the smallest feature a plot resolves is the narrowest usable width of the `LineWidth` ladder on paper (ISO 128-24), so the model quantum is that width `× scale.Model / scale.Paper` and the unit's own row shapes it — a 1:100 plan dimensions to the centimetre, a 1:5 detail to the tenth of a millimetre, and a feet-and-inches drawing to an inch denominator off the published ladder, all by construction; `NorthPosture` `[SmartEnum<string>]` — project north versus true north as rows whose `Rotation(declination)` column answers the plan rotation, the declination read off `Rasm.Element` `GeoReference.RotationRadians` (the model's own `IfcGeometricRepresentationContext.TrueNorth`) and never hand-authored beside it.
+- Entry: `DrawingUnits.For(standard)`; `ProjectionAngle.For(standard)` with `QuadrantSign`; `new DrawingPrecision(scale, units)` → `Quantum` and `Form()`; `NorthPosture.X.Rotation(VectorAngle declination)`.
 - Law: three unit authorities exist — the MODEL's (`Rasm.Element` `UnitScheme`), the SHEET's (this row) and the USER's readout locale (AppUi `LocalePolicy`) — and a drawing STATES the sheet's; a title block reads `DrawingUnits`, never the locale.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`, `Seq`), System.Collections.Frozen (`FrozenDictionary`), `Numerics/atoms` (`VectorAngle`), UnitsNet (`Length.As`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union<T1, T2>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Seq`), System.Collections.Frozen (`FrozenDictionary`), `Numerics/atoms` (`VectorAngle`), UnitsNet (`Length.As`).
 - Growth: a unit is one row naming its standard, whether it is that standard's PREFERRED spelling, and the precision shape it publishes; a precision shape is one union case.
 - Boundary: the model geometric tolerance (`Rasm.Element` `Header.Tolerance`, a content-hash quantization grid) and the readout precision (`MeasureRole.decimals`) are DISTINCT and stay; AppUi `DraftPolicy.Declination` and Rhino `SunPlace.NorthAngle` delete for the one `GeoReference` read.
 
@@ -1480,12 +1463,8 @@ using UnitsNet.Units;
 namespace Rasm.Drawing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DrawingPrecisionForm {
-    private DrawingPrecisionForm() { }
-    public sealed record Places : DrawingPrecisionForm { internal Places(int count) => Count = count; public int Count { get; } }
-    public sealed record Fraction : DrawingPrecisionForm { internal Fraction(int denominator) => Denominator = denominator; public int Denominator { get; } }
-}
+[Union<int, int>(T1Name = "Places", T2Name = "Fraction")]
+public readonly partial struct DrawingPrecisionForm;
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1499,10 +1478,10 @@ public sealed partial class DrawingUnits {
     public bool Preferred { get; }
     [UseDelegateFromConstructor] public partial DrawingPrecisionForm Form(double resolved);
 
-    private static DrawingPrecisionForm Decimal(double resolved) => new DrawingPrecisionForm.Places(count: Math.Max(0, (int)Math.Ceiling(-Math.Log10(resolved))));
+    private static DrawingPrecisionForm Decimal(double resolved) => DrawingPrecisionForm.CreatePlaces(Math.Max(0, (int)Math.Ceiling(-Math.Log10(resolved))));
     private static readonly Seq<int> Denominators = Seq(2, 4, 8, 16, 32, 64);
     private static DrawingPrecisionForm Fractional(double resolvedFeet) =>
-        new DrawingPrecisionForm.Fraction(denominator: Denominators.Find(rung => 1.0 / rung <= resolvedFeet * 12.0).IfNone(Denominators[^1]));
+        DrawingPrecisionForm.CreateFraction(Denominators.Find(rung => 1.0 / rung <= resolvedFeet * 12.0).IfNone(Denominators[^1]));
 
     public static DrawingUnits For(SheetStandard standard) => ByStandard.Value[standard];
     private static readonly Lazy<FrozenDictionary<SheetStandard, DrawingUnits>> ByStandard =
@@ -1513,11 +1492,7 @@ public sealed partial class DrawingUnits {
 public readonly record struct DrawingPrecision(DrawingScale Scale, DrawingUnits Units) {
     private static Length PaperQuantum => LineWidth.W025.Width;
     public Length Quantum => PaperQuantum * ((double)Scale.Model / Scale.Paper);
-    public Fin<DrawingPrecisionForm> Form(Op? key = null) =>
-        Quantum.As(Units.Unit) is var resolved && resolved > 0.0 && double.IsFinite(resolved)
-            ? Fin.Succ(Units.Form(resolved: resolved))
-            : Fin.Fail<DrawingPrecisionForm>(new KernelFault.OutOfRange(Label: nameof(Quantum), Scalar: resolved, Requirement: "a positive finite model quantum", Key: Some(key.OrDefault())));
-    public static DrawingPrecision Of(DrawingScale scale, DrawingUnits units) => new(Scale: scale, Units: units);
+    public DrawingPrecisionForm Form() => Units.Form(resolved: Quantum.As(Units.Unit));
 }
 
 [SmartEnum<string>]
@@ -1615,7 +1590,7 @@ public sealed partial class IssuePosture {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record PlotPolicy : IValidityEvidence {
+public sealed record PlotPolicy {
     private PlotPolicy(SheetSize size, SheetOrientation orientation, SheetFrame frame, DrawingScale scale, LineGroup group,
         Option<PlotStyleTable> styles, PlotPosture posture, PlotResolution resolution, LayerEmission emission, CapabilitySet<PdfTrait> conformance) =>
         (Size, Orientation, Frame, Scale, Group, Styles, Posture, Resolution, Emission, Conformance) =
@@ -1631,21 +1606,19 @@ public sealed record PlotPolicy : IValidityEvidence {
     public PlotResolution Resolution { get; }
     public LayerEmission Emission { get; }
     public CapabilitySet<PdfTrait> Conformance { get; }
-    public bool IsValid => Size.IsValid;
 
     public static Fin<PlotPolicy> Of(SheetSize size, SheetOrientation orientation, DrawingScale scale, PlotPosture posture,
         PlotResolution resolution, LayerEmission emission, CapabilitySet<PdfTrait> conformance,
         Option<PlotStyleTable> styles = default, Op? key = null) {
         Op op = key.OrDefault();
         return (
-                size.IsValid ? Validation<Error, SheetSize>.Success(size) : Validation<Error, SheetSize>.Fail(op.InvalidInput()),
                 ScaleLadder.For(size.Standard).Admits(scale)
                     ? Validation<Error, DrawingScale>.Success(scale)
                     : Validation<Error, DrawingScale>.Fail(new KernelFault.InvalidValue(Label: nameof(scale), Requirement: "a rung of the standard's scale ladder", Key: Some(op))),
                 LineGroup.For(size: size, key: op).ToValidation(),
                 PdfTrait.Law.Admit(conformance).ToValidation())
-            .Apply((admittedSize, admittedScale, group, traits) => new PlotPolicy(
-                size: admittedSize, orientation: orientation, frame: SheetFrame.For(admittedSize.Standard), scale: admittedScale, group: group,
+            .Apply((admittedScale, group, traits) => new PlotPolicy(
+                size: size, orientation: orientation, frame: SheetFrame.For(size.Standard), scale: admittedScale, group: group,
                 styles: styles, posture: posture, resolution: resolution, emission: emission, conformance: traits))
             .As().ToFin();
     }

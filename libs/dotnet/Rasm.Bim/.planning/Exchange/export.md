@@ -450,8 +450,8 @@ public static partial class BimExport {
 
     static Option<float[]> Sliced(ImportedGeometry geometry, EncodingChannel channel) =>
         geometry.Lanes.Descriptors.Find(descriptor => descriptor.Channel == channel).Map(descriptor => {
-            float[] raw = new float[descriptor.Floats];
-            descriptor.Dtype.Unpack(geometry.Lanes.Channel(channel).Span, raw);
+            float[] raw = new float[geometry.Lanes.Count * descriptor.Channel.Arity];
+            descriptor.Channel.Dtype.Unpack(geometry.Lanes.Channel(channel).Span, raw);
             return raw;
         });
 

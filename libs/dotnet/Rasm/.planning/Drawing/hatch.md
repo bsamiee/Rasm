@@ -6,18 +6,18 @@ This page founds no clipping kernel: regions normalize once through `Arrangement
 
 ## [01]-[INDEX]
 
-- [02]-[HATCHING]: `HatchPattern` rhythm rows over `HatchFamily`/`HatchRhythm` columns; `HatchPlan`/`HatchPolicy` the per-region and solve policy rows; `HatchOp` folded by ONE `Hatching.Apply`; the overlay normalization, exact crossing-parity course weave, dash carve, and `Patterning` motif arm; `HatchResult` the successor-linked SoA wire with its `HatchArm` discriminant and `HatchCensus` evidence over the `HatchCount` census vocabulary.
+- [02]-[HATCHING]: `HatchPattern` rhythm rows over `HatchFamily`/`HatchRhythm` columns; `HatchPlan`/`HatchPolicy` the per-region and solve policy rows; `HatchOp` folded by ONE `Hatching.Apply`; the overlay normalization, exact crossing-parity course weave, dash carve, and `Patterning` motif arm; `HatchResult` the successor-linked SoA wire with its `IsMotif` discriminant column and its `HatchCount`-keyed census map.
 - [03]-[DENSITY_BAR]: per-axis owner, result, and case partition this page holds.
 
 ## [02]-[HATCHING]
 
-- Owner: `HatchRhythm` is the dash law (`Length`/`Gap`/`Stagger` in spacing units) and `HatchFamily` one course family (`AngleOffset`, `PositiveMagnitude` `SpacingScale`, `Phase`, `Option<HatchRhythm>` dash), both `[ComplexValueObject]` reading `Band` rows and returning default factory evidence for the kernel bridge, so a family or rhythm outside its band is unrepresentable rather than guarded per weave; `HatchPattern` `[SmartEnum<int>]` binds each pattern to its `Seq<HatchFamily>` rhythm table — the row IS the pattern's structure, so a new pattern is one row of family data, never a per-pattern class; `HatchPlan` carries the per-region policy (`Pattern`, absolute `Angle`/`Spacing`/`Origin`, `Option<HatchMotif>`) behind a `Of` accumulating its five claims, so an admitted plan needs no guard at use; `HatchMotif` pairs the `Parametric` `PatternPlan` orbit with the motif rings it stamps; `HatchPolicy` binds the composed `ArrangementPolicy`/`BuildPolicy` rows and the `CourseBudget` census ceiling; `HatchCount` is the census slot vocabulary, `HatchArm` the row discriminant telling a course run from a motif ring, and `HatchStore` the single-writer emission arena over a pooled `HatchRow` stream under the `Meshing/edit` arena law, `Freeze()` its one columnar projection; `HatchOp`/`HatchResult` are the request/result shapes and `Hatching` owns the ONE `Apply`.
+- Owner: `HatchRhythm` is the dash law (`Length`/`Gap`/`Stagger` in spacing units) and `HatchFamily` one course family (`AngleOffset`, `PositiveMagnitude` `SpacingScale`, `Phase`, `Option<HatchRhythm>` dash), both `[ComplexValueObject]` reading `Band` rows and returning default factory evidence for the kernel bridge, so a family or rhythm outside its band is unrepresentable rather than guarded per weave; `HatchPattern` `[SmartEnum<int>]` binds each pattern to its `Seq<HatchFamily>` rhythm table — the row IS the pattern's structure, so a new pattern is one row of family data, never a per-pattern class; `HatchPlan` carries the per-region policy (`Pattern`, absolute `Angle`/`Spacing`/`Origin`, `Option<HatchMotif>`) behind a `Of` accumulating its five claims, so an admitted plan needs no guard at use; `HatchMotif` pairs the `Parametric` `PatternPlan` orbit with the motif rings it stamps; `HatchPolicy` binds the composed `ArrangementPolicy`/`BuildPolicy` rows and the `CourseBudget` census ceiling; `HatchCount` is the census slot vocabulary, `IsMotif` the row column telling a motif ring from a course run, and `HatchStore` the single-writer emission arena over a pooled `HatchRow` stream under the `Meshing/edit` arena law, `Freeze()` its one columnar projection; `HatchOp`/`HatchResult` are the request/result shapes and `Hatching` owns the ONE `Apply`.
 - Cases: `HatchOp` cases `Regions` (per-region ring sets, each with its own plan — per-region policy IS the request shape) · `Projection` (a `DrawingProjection` whose `Fill` loops seed one plan); `HatchPattern` rows `Parallel` · `Crosshatch` · `Staggered` · `Motif` — the first three are family-table data over one weave, `Motif` carries no families because its plan's orbit realizes it; both op cases meet at one `Weave` fold, so ingress never forks the algebra.
-- Entry: `public static Fin<HatchResult> Hatching.Apply(HatchOp op, Op? key = null)` — the ONE entrypoint discriminating by op case, no `HatchRegion`/`HatchDrawing`/`HatchMotif` sibling statics. `DegenerateInput` routes the empty region SET; an empty covered region (a fully-clipped fill) hatches to nothing and is legal; an open boundary chain, a course or dash census over `CourseBudget`, or an orbit extent under the region radius routes `HatchFailed` naming the pattern row and region ordinal, while an unadmissible plan refuses at `HatchPlan.Of` naming the claim that failed; a composed sibling fault — overlay, crossing, orbit — surfaces unchanged, and non-geometric refusals ride the `Op` channel.
-- Auto: `Normalize` resolves each raw ring set ONCE through `ArrangementOp.PlanarOverlay` (`BooleanOp.Union`, `Axis.Z`) so every region enters as the canonical covered-region loops — outer CCW, holes CW — and the `Projection` case reads the SAME loops off `DrawingProjection.Fill`; `Frames` projects the loop ordinates ONCE per region and reduces them per family through `TensorPrimitives` into the course frame (direction `d`, normal `n`, spacing, phase), each frame proving its own `int` course count in the result; `Courses` gates the summed census against `CourseBudget` BEFORE any generation and prunes candidates per course through one BVH box `SpatialIndex.Query`; `Rows` decides each crossing by exact `Predicate.Orient2D` endpoint signs under the closed-open lift (a `Zero` sign reads `Positive`), the strict straddle minting its point through `IntersectOp.SegmentSegment` and a grazing vertex contributing its own explicit point, each row carrying the exact ±1 winding delta and the whole scan riding one `Fin` fold so no crossing is read off a forged empty answer; the winding walk opens a run at 0→nonzero and closes at nonzero→0, `Dashes` carves runs on the world dash grid anchored at the plan origin over LONG ordinals under the same census budget (`Stagger` phase-shifts alternate courses), and `Motifs` orbits the motif through `Patterning.Apply`, mints the loop-invariant orbit turn once, stamps each planar site by its spin and mirror parity, and clips each instance through `PlanarOverlay` intersection so per-instance provenance survives as columns.
-- Output: `HatchCensus` is ONE `HashMap<HatchCount, int>` census — region, course, crossing, grazing-incidence, instance, and culled-instance slots read through named `Option<int>` accessors, so a seventh census axis is one `HatchCount` row and zero signature edits. Every slot the taken arm measures seeds at zero in `Weave`, so a measured zero is PRESENT and an untaken arm's slot is ABSENT; `HatchResult` registers `IValidityEvidence`, its claims rejecting torn columns, out-of-range links, or a culled count that outruns or outlives its instance census.
-- Packages: `Rasm.Meshing` (`Arrangement.Apply`/`ArrangementOp.PlanarOverlay`/`BooleanOp`, `Intersection.Apply`/`IntersectOp.SegmentSegment`, `Chain`), `Rasm.Spatial` (`SpatialIndex.Build`, the box `Query` arm), `Rasm.Parametric` (`Patterning.Apply`, `PatternPlan`, `PlanarInstances` — the wallpaper-group symmetry vocabulary composed, never re-minted), `Rasm.Numerics` (`Predicate.Orient2D`, `Implicit`, `Sign`, `Axis`, `Band`, `Dimension`, `PositiveMagnitude`, `GeometryFault` family), `Rasm.Domain` (`Op`, `Fault`, `Admit.Claims`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Drawing/view` (`DrawingProjection`, `SuccessorChain` the shared chain walk), `System.Numerics.Tensors` (`TensorPrimitives` extent reduction), `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter`/`MemoryOwner` arenas), `Rhino.Geometry`, Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new pattern is one `HatchPattern` row of family data; a new rhythm axis (a dot rhythm, a per-course weight) is one `HatchFamily`/`HatchRhythm` column; a new ingress is one `HatchOp` case over the SAME `Weave` fold; a new per-region knob is one `HatchPlan` column; a new census axis is one `HatchCount` row; a new emission arm is one `HatchArm` row; a per-course render cue is one `HatchRow` column projected by `Freeze`; the frieze census (the 7 border groups, for curve-borne hatches) enters through `Patterning`'s own vocabulary, never a second orbit fold here; zero new entry surfaces.
+- Entry: `public static Fin<HatchResult> Hatching.Apply(HatchOp op, Op? key = null)` — the ONE entrypoint discriminating by op case, no `HatchRegion`/`HatchDrawing`/`HatchMotif` sibling statics. `DegenerateInput` routes the empty region SET; an empty covered region (a fully-clipped fill) hatches to nothing and is legal; a course or dash census over `CourseBudget` or an orbit extent under the region radius routes `HatchFailed` naming the pattern row and region ordinal, while an unadmissible plan refuses at `HatchPlan.Of` naming the claim that failed; a composed sibling fault — overlay, crossing, orbit — surfaces unchanged, and non-geometric refusals ride the `Op` channel.
+- Auto: the `Regions` arm resolves each raw ring set ONCE through `ArrangementOp.PlanarOverlay` (`BooleanOp.Union`, `Axis.Z`) so every region enters as the canonical covered-region loops — outer CCW, holes CW — and the `Projection` case reads the SAME loops off `DrawingProjection.Fill`; `Frames` projects the loop ordinates ONCE per region and reduces them per family through `TensorPrimitives` into the course frame (direction `d`, normal `n`, spacing, phase), each frame proving its own `int` course count in the result; `Courses` gates the summed census against `CourseBudget` BEFORE any generation and prunes candidates per course through one BVH box `SpatialIndex.Query`; `Rows` decides each crossing by exact `Predicate.Orient2D` endpoint signs under the closed-open lift (a `Zero` sign reads `Positive`), the strict straddle minting its point through `IntersectOp.SegmentSegment` and a grazing vertex contributing its own explicit point, each row carrying the exact ±1 winding delta and the whole scan riding one `Fin` fold so no crossing is read off a forged empty answer; the winding walk opens a run at 0→nonzero and closes at nonzero→0, `Dashes` carves runs on the world dash grid anchored at the plan origin over LONG ordinals under the same census budget (`Stagger` phase-shifts alternate courses), and `Motifs` orbits the motif through `Patterning.Apply`, mints the loop-invariant orbit turn once, stamps each planar site by its spin and mirror parity, and clips each instance through `PlanarOverlay` intersection so per-instance provenance survives as columns.
+- Output: `HatchResult.Census` is ONE `HashMap<HatchCount, int>` — region, course, crossing, grazing-incidence, instance, and culled-instance slots read through `Find` as `Option<int>`, so a seventh census axis is one `HatchCount` row and zero signature edits. Every slot the taken arm measures seeds at zero in `Weave`, so a measured zero is PRESENT and an untaken arm's slot is ABSENT; `HatchResult` registers `IValidityEvidence`, its claims rejecting torn columns, out-of-range links, or a culled count that outruns or outlives its instance census.
+- Packages: `Rasm.Meshing` (`Arrangement.Apply`/`ArrangementOp.PlanarOverlay`/`BooleanOp`, `Intersection.Apply`/`IntersectOp.SegmentSegment`, `Chain`), `Rasm.Spatial` (`SpatialIndex.Build`, the box `Query` arm), `Rasm.Parametric` (`Patterning.Apply`, `PatternPlan`, `PlanarInstances` — the wallpaper-group symmetry vocabulary composed, never re-minted), `Rasm.Numerics` (`Predicate.Orient2D`, `Implicit`, `Sign`, `Axis`, `Band`, `Dimension`, `PositiveMagnitude`, `GeometryFault` family), `Rasm.Domain` (`Op`, `Admit.Claims`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Drawing/view` (`DrawingProjection`, `SuccessorChain` the shared chain walk), `System.Numerics.Tensors` (`TensorPrimitives` extent reduction), `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter`/`MemoryOwner` arenas), `Rhino.Geometry`, Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new pattern is one `HatchPattern` row of family data; a new rhythm axis (a dot rhythm, a per-course weight) is one `HatchFamily`/`HatchRhythm` column; a new ingress is one `HatchOp` case over the SAME `Weave` fold; a new per-region knob is one `HatchPlan` column; a new census axis is one `HatchCount` row; a third emission kind graduates the `IsMotif` column to a closed row owner; a per-course render cue is one `HatchRow` column projected by `Freeze`; the frieze census (the 7 border groups, for curve-borne hatches) enters through `Patterning`'s own vocabulary, never a second orbit fold here; zero new entry surfaces.
 - Law: `HatchLaws` is the tier-2 law matrix over this owner — the parity verdict agrees with a point-in-polygon oracle at every emitted segment midpoint, the closed-open lift keeps the winding walk total through vertex and collinear incidences (a boundary-through-vertex crossing counts exactly once, a tangent touch nets zero), the dash grid aligns across courses and regions because `s` measures from the plan origin, a mirrored orbit seat places a mirrored motif, the wire's links partition into disjoint chains, and emission is a deterministic function of the input.
 - Law: at one coincident ordinate an ENTRY sorts before an exit, so a run passing through a shared boundary vertex stays one continuous row; the inverse tie-break closes and reopens the run at the same `s` and emits two chained rows where the geometry has one.
 - Boundary: the hatch owner is the ONE polymorphic `HatchOp` fold — a `ParallelHatcher`/`CrosshatchHatcher`/`MotifStamper` sibling-class family is the named density defect. Clipping is EXACT: region algebra composes `PlanarOverlay` (a page-local polygon clipper is deleted), crossing existence is the exact lifted-sign straddle and the crossing point the `SegmentSegment` construction (an epsilon-band straddle or a slope-intercept solve is the non-determinism defect), and the winding walk starts at zero because every course spans the extent with padded endpoints — no seed battery, no interior probe. Symmetry composes the `Parametric` wallpaper vocabulary (`Patterning.Apply` the orbit fold); a page-local Seitz table or a hand-rolled reflection coset is the deleted re-mint, and the `Drawing`→`Parametric` read is the recorded same-stratum S3 reach. Host `Rhino.Geometry.Hatch` never enters — the wire is host-neutral SoA data, host hatch materialization living at host `Annotation/hatch`, the hatch-table custody tier this synthesis stands beside, consumers selecting by output target; screen-plane raw `double` stays inside the course kernels, `Point3d`/`Line`/`Polyline` the only public coordinate carriers, and a magnitude, count, or unit-bounded fraction crossing a signature carries its band owner rather than a bare `double`. Dash rhythm is row data in spacing units — an absolute dash length beside the spacing is the killed twin knob — and the census is one slot-keyed fact stream over one `HatchRow`, so six parallel accumulators and the multi-argument delta signature that fed them are the killed parallel-counter form. Chain assembly composes `SuccessorChain` at `Drawing/view`, the ONE successor walk both Drawing carriers read; a second cursor loop beside it is the deleted twin. `Apply` is total over `Fin`; admission refusals ride the `Op` channel and geometry defects ride `GeometryFault` family, neither family absorbing the other.
@@ -26,7 +26,6 @@ This page founds no clipping kernel: regions normalize once through `Arrangement
 // --- [IMPORTS] -------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -51,12 +50,12 @@ public readonly partial struct HatchRhythm {
     public double Stagger { get; }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double length, ref double gap, ref double stagger) =>
-        validationError = HatchClaim.Banded(label: nameof(Length), band: Band.Nonnegative, value: length)
-            ?? HatchClaim.Banded(label: nameof(Gap), band: Band.Nonnegative, value: gap)
-            ?? HatchClaim.Banded(label: nameof(Stagger), band: Band.Fractional, value: stagger)
+        validationError = Band.Nonnegative.Guard(label: nameof(Length), value: ref length)
+            ?? Band.Nonnegative.Guard(label: nameof(Gap), value: ref gap)
+            ?? Band.Fractional.Guard(label: nameof(Stagger), value: ref stagger)
             ?? (length + gap > 0.0
                 ? null
-                : HatchClaim.Refused(label: nameof(HatchRhythm), requirement: "a dash period with Length + Gap strictly above zero"));
+                : ValidationError.Create("Length + Gap must be strictly positive."));
 }
 
 [ComplexValueObject]
@@ -68,14 +67,8 @@ public readonly partial struct HatchFamily {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double angleOffset, ref PositiveMagnitude spacingScale, ref double phase, ref Option<HatchRhythm> dash) =>
         validationError = ValidityClaim.Finite(value: angleOffset).Holds
-            ? HatchClaim.Banded(label: nameof(Phase), band: Band.Fractional, value: phase)
-            : HatchClaim.Refused(label: nameof(AngleOffset), requirement: "a finite radian offset from the plan angle");
-}
-
-[SmartEnum<int>]
-public sealed partial class HatchArm {
-    public static readonly HatchArm Course = new(0);
-    public static readonly HatchArm Motif  = new(1);
+            ? Band.Fractional.Guard(label: nameof(Phase), value: ref phase)
+            : ValidationError.Create("AngleOffset must be a finite radian offset from the plan angle.");
 }
 
 [SmartEnum<int>]
@@ -103,17 +96,6 @@ public sealed partial class HatchCount {
     public static readonly HatchCount Grazed    = new(3);
     public static readonly HatchCount Instances = new(4);
     public static readonly HatchCount Culled    = new(5);
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-internal static class HatchClaim {
-    internal static Fault? Banded(string label, Band band, double value) =>
-        band.Admits(value: value)
-            ? null
-            : Refused(label: label, requirement: string.Create(CultureInfo.InvariantCulture, $"a value in {band.Interval} (got {value:R})"));
-
-    internal static Fault Refused(string label, string requirement) =>
-        new KernelFault.InvalidValue(Label: label, Requirement: requirement);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -150,28 +132,12 @@ public sealed record HatchPlan {
 }
 
 [Equatable]
-public readonly partial record struct HatchRegion([property: OrderedEquality] Seq<Polyline> Rings, HatchPlan Plan);
-
-[Equatable]
-public sealed partial record HatchCensus([property: UnorderedEquality] HashMap<HatchCount, int> Counts) {
-    public static readonly HatchCensus Empty = new(HashMap<HatchCount, int>());
-
-    public Option<int> Of(HatchCount slot) => Counts.Find(slot);
-    public Option<int> Regions => Of(HatchCount.Regions);
-    public Option<int> Courses => Of(HatchCount.Courses);
-    public Option<int> Crossings => Of(HatchCount.Crossings);
-    public Option<int> Grazed => Of(HatchCount.Grazed);
-    public Option<int> Instances => Of(HatchCount.Instances);
-    public Option<int> Culled => Of(HatchCount.Culled);
-}
-
-[Equatable]
 public sealed partial record HatchResult(
     [property: OrderedEquality] Arr<Point3d> Start, [property: OrderedEquality] Arr<Point3d> End,
     [property: OrderedEquality] Arr<int> Region, [property: OrderedEquality] Arr<int> Family,
     [property: OrderedEquality] Arr<int> Course, [property: OrderedEquality] Arr<int> Next,
-    [property: OrderedEquality] Arr<HatchArm> Arm,
-    HatchCensus Census) : IValidityEvidence {
+    [property: OrderedEquality] Arr<bool> IsMotif,
+    [property: UnorderedEquality] HashMap<HatchCount, int> Census) : IValidityEvidence {
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: End.Count, expected: Start.Count),
@@ -179,26 +145,23 @@ public sealed partial record HatchResult(
         ValidityClaim.CountExactly(count: Family.Count, expected: Start.Count),
         ValidityClaim.CountExactly(count: Course.Count, expected: Start.Count),
         ValidityClaim.CountExactly(count: Next.Count, expected: Start.Count),
-        ValidityClaim.CountExactly(count: Arm.Count, expected: Start.Count),
+        ValidityClaim.CountExactly(count: IsMotif.Count, expected: Start.Count),
         Next.All(link => link >= -1 && link < Start.Count),
-        Census.Crossings.Map(static census => census >= 0).IfNone(true),
-        Census.Grazed.Map(static census => census >= 0).IfNone(true),
-        Census.Instances.Match(
-            Some: total => Census.Culled.Exists(culled => culled <= total),
-            None: () => Census.Culled.IsNone));
+        Census.Values.ForAll(static count => count >= 0),
+        Census.Find(HatchCount.Instances).Match(
+            Some: total => Census.Find(HatchCount.Culled).Exists(culled => culled <= total),
+            None: () => !Census.ContainsKey(HatchCount.Culled)));
 
     public Seq<Line> ToSegments() => toSeq(Enumerable.Range(0, Start.Count).Select(i => new Line(Start[i], End[i])));
 
-    public Seq<Polyline> ToPolylines() {
-        HatchResult wire = this;
-        return SuccessorChain.Walk(
+    public Seq<Polyline> ToPolylines() =>
+        SuccessorChain.Walk(
                 toSeq(Enumerable.Range(0, Start.Count)),
-                i => wire.Next[i] >= 0 ? Some(wire.Next[i]) : Option<int>.None)
-            .Map(chain => new Polyline(wire.Start[chain[0]].Cons(chain.Map(i => wire.End[i]))));
-    }
+                i => Next[i] >= 0 ? Some(Next[i]) : Option<int>.None)
+            .Map(chain => new Polyline(Start[chain[0]].Cons(chain.Map(i => End[i]))));
 }
 
-internal readonly record struct HatchRow(Point3d A, Point3d B, int Region, int Family, int Course, int Next, HatchArm Arm);
+internal readonly record struct HatchRow(Point3d A, Point3d B, int Region, int Family, int Course, int Next, bool IsMotif);
 
 internal sealed class HatchStore : IDisposable {
     readonly ArrayPoolBufferWriter<HatchRow> rows = new();
@@ -223,12 +186,12 @@ internal sealed class HatchStore : IDisposable {
         (Point3d[] start, Point3d[] end) = (new Point3d[written.Length], new Point3d[written.Length]);
         (int[] region, int[] family) = (new int[written.Length], new int[written.Length]);
         (int[] course, int[] next) = (new int[written.Length], new int[written.Length]);
-        HatchArm[] arm = new HatchArm[written.Length];
+        bool[] isMotif = new bool[written.Length];
         for (int i = 0; i < written.Length; i++) {
-            (start[i], end[i], region[i], family[i], course[i], next[i], arm[i]) =
-                (written[i].A, written[i].B, written[i].Region, written[i].Family, written[i].Course, written[i].Next, written[i].Arm);
+            (start[i], end[i], region[i], family[i], course[i], next[i], isMotif[i]) =
+                (written[i].A, written[i].B, written[i].Region, written[i].Family, written[i].Course, written[i].Next, written[i].IsMotif);
         }
-        return new(new(start), new(end), new(region), new(family), new(course), new(next), new(arm), new HatchCensus(counts));
+        return new(new(start), new(end), new(region), new(family), new(course), new(next), new(isMotif), counts);
     }
 
     public void Dispose() => rows.Dispose();
@@ -236,10 +199,8 @@ internal sealed class HatchStore : IDisposable {
 
 // --- [POLICIES] ------------------------------------------------------------------------
 public sealed record HatchPolicy(ArrangementPolicy Arrange, BuildPolicy Broad, Dimension CourseBudget) {
-    public static readonly Dimension WireCourseCeiling = Dimension.Create(value: 100_000);
-
     public static readonly HatchPolicy Canonical = new(
-        Arrange: ArrangementPolicy.Canonical, Broad: BuildPolicy.Canonical, CourseBudget: WireCourseCeiling);
+        Arrange: ArrangementPolicy.Canonical, Broad: BuildPolicy.Canonical, CourseBudget: Dimension.Create(value: 100_000));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -248,8 +209,8 @@ public abstract partial record HatchOp {
     private HatchOp(HatchPolicy policy) => Policy = policy;
 
     public sealed record Regions : HatchOp {
-        public Regions(Seq<HatchRegion> set, HatchPolicy policy) : base(policy) => Set = set;
-        public Seq<HatchRegion> Set { get; }
+        public Regions(Seq<(Seq<Polyline> Rings, HatchPlan Plan)> set, HatchPolicy policy) : base(policy) => Set = set;
+        public Seq<(Seq<Polyline> Rings, HatchPlan Plan)> Set { get; }
     }
 
     public sealed record Projection : HatchOp {
@@ -273,8 +234,11 @@ public static class Hatching {
             regions: static (s, r) => r.Set.IsEmpty
                 ? Fin.Fail<HatchResult>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "empty region set"))
                 : r.Set.Map(static (region, ordinal) => (Region: region, Ordinal: ordinal))
-                    .TraverseM(entry => Normalize(entry.Region.Rings, r.Policy, s.Key)
-                        .Bind(loops => Weave(s.Store, entry.Ordinal, loops, entry.Region.Plan, r.Policy, s.Key)))
+                    .TraverseM(entry => Arrangement.Apply(new ArrangementOp.PlanarOverlay(
+                            A: entry.Region.Rings, B: Seq<Polyline>(), Op: BooleanOp.Union, Plane: Axis.Z, Policy: r.Policy.Arrange), s.Key)
+                        .Bind(result => result is ArrangementResult.Overlay overlay
+                            ? Weave(s.Store, entry.Ordinal, overlay.Loops, entry.Region.Plan, r.Policy, s.Key)
+                            : Fin.Fail<Unit>(s.Key.InvalidResult())))
                     .As()
                     .Map(_ => s.Store.Freeze()),
             projection: static (s, p) => p.Source.Fill(p.Policy.Arrange, s.Key)
@@ -285,38 +249,18 @@ public static class Hatching {
                 .Map(_ => s.Store.Freeze()));
     }
 
-    // --- [NORMALIZE]
-    static Fin<Seq<Chain>> Normalize(Seq<Polyline> rings, HatchPolicy policy, Op key) =>
-        Arrangement.Apply(new ArrangementOp.PlanarOverlay(A: rings, B: Seq<Polyline>(), Op: BooleanOp.Union, Plane: Axis.Z, Policy: policy.Arrange), key)
-            .Bind(result => result is ArrangementResult.Overlay overlay
-                ? Fin.Succ(overlay.Loops)
-                : Fin.Fail<Seq<Chain>>(key.InvalidResult()));
-
     // --- [WEAVE]
     static Fin<Unit> Weave(HatchStore store, int region, Seq<Chain> loops, HatchPlan plan, HatchPolicy policy, Op key) {
         if (loops.IsEmpty) { return Fin.Succ(unit); }
-        if (loops.Exists(static loop => !loop.Points.IsClosed)) {
-            return Fin.Fail<Unit>(new GeometryFault.HatchFailed(plan.Pattern, region, "open boundary chain"));
-        }
         store.Tally(HatchCount.Regions);
         (plan.Motif.IsSome
             ? Seq(HatchCount.Instances, HatchCount.Culled)
             : Seq(HatchCount.Courses, HatchCount.Crossings, HatchCount.Grazed)).Iter(slot => store.Tally(slot, delta: 0));
         return plan.Motif.Match(
             Some: motif => Motifs(store, region, loops, plan, motif, policy, key),
-            None: () => Courses(store, region, Edges(loops), plan, policy, key));
-    }
-
-    static (Point3d A, Point3d B)[] Edges(Seq<Chain> loops) {
-        using ArrayPoolBufferWriter<(Point3d A, Point3d B)> edges = new();
-        foreach (Chain loop in loops) {
-            for (int v = 0; v + 1 < loop.Points.Count; v++) {
-                Span<(Point3d A, Point3d B)> slot = edges.GetSpan(sizeHint: 1);
-                slot[0] = (loop.Points[v], loop.Points[v + 1]);
-                edges.Advance(count: 1);
-            }
-        }
-        return edges.WrittenSpan.ToArray();
+            None: () => Courses(store, region,
+                [.. loops.Bind(static loop => toSeq(loop.Points.GetSegments()).Map(static segment => (A: segment.From, B: segment.To)))],
+                plan, policy, key));
     }
 
     // --- [COURSES]
@@ -326,7 +270,7 @@ public static class Hatching {
         return frames.TraverseM(frame => frame.Count(key)).As().Bind(counts =>
             counts.Fold(0L, static (sum, rung) => sum + rung) is long census && census > policy.CourseBudget.Value
                 ? Fin.Fail<Unit>(new GeometryFault.HatchFailed(plan.Pattern, region, $"course census {census} over budget {policy.CourseBudget.Value}"))
-                : Broad(edges, policy.Broad, key).Bind(index =>
+                : SpatialIndex.Build(SpatialKind.Bvh, System.Array.ConvertAll(edges, static edge => new BoundingBox([edge.A, edge.B])), policy.Broad, key).Bind(index =>
                     frames.Map(static (frame, ordinal) => (Frame: frame, Ordinal: ordinal))
                         .TraverseM(entry => toSeq(Enumerable.Range(0, counts[entry.Ordinal]))
                             .TraverseM(ordinal => CourseOf(store, index, edges, origin, entry.Frame, ordinal, region, plan.Pattern, policy, key))
@@ -380,17 +324,19 @@ public static class Hatching {
         double pad = frame.Spacing;
         Line hatch = new(At(origin, frame, c, frame.TMin - pad), At(origin, frame, c, frame.TMax + pad));
         store.Tally(HatchCount.Courses);
-        return Candidates(index, hatch, key)
+        BoundingBox box = new([hatch.From, hatch.To]);
+        box.Inflate(hatch.Length * EpsilonPolicy.SqrtEpsilon);
+        return index.Query(box, key: key)
             .Bind(ids => Rows((hatch, origin, frame.D), edges, ids, key))
             .Bind(scan => scan.Rows
-                .Fold(Fin.Succ((Winding: 0, Open: 0.0)), (state, row) => state.Bind(held => {
+                .FoldBackM((Winding: 0, Open: 0.0), (held, row) => {
                     int stepped = held.Winding + row.Delta;
                     return held.Winding == 0 && stepped != 0
                         ? Fin.Succ((stepped, row.S))
                         : held.Winding != 0 && stepped == 0 && row.S > held.Open
                             ? Dashes(store, origin, frame, region, ordinal, odd, c, held.Open, row.S, pattern, policy, key).Map(_ => (stepped, held.Open))
                             : Fin.Succ((stepped, held.Open));
-                }))
+                }).As()
                 .Map(_ => {
                     store.Tally(HatchCount.Crossings, scan.Rows.Count);
                     store.Tally(HatchCount.Grazed, scan.Grazed);
@@ -400,7 +346,7 @@ public static class Hatching {
 
     // --- [PARITY]
     static Fin<(Seq<(double S, int Delta)> Rows, int Grazed)> Rows((Line Hatch, Point3d Origin, Vector3d D) course, (Point3d A, Point3d B)[] edges, Seq<int> ids, Op key) =>
-        ids.Fold(Fin.Succ((Rows: Seq<(double S, int Delta)>(), Grazed: 0)), (state, id) => state.Bind(acc => {
+        ids.FoldBackM((Rows: Seq<(double S, int Delta)>(), Grazed: 0), (acc, id) => {
                 (Point3d ea, Point3d eb) = edges[id];
                 Sign rawFrom = Predicate.Orient2D(course.Hatch.From, course.Hatch.To, ea, Axis.Z);
                 Sign rawTo = Predicate.Orient2D(course.Hatch.From, course.Hatch.To, eb, Axis.Z);
@@ -417,13 +363,13 @@ public static class Hatching {
                     .Bind(result => result is IntersectResult.Points { Hits: var hits } && !hits.IsEmpty
                         ? Fin.Succ((acc.Rows.Add((((hits[0] - course.Origin) * course.D), delta)), grazed))
                         : Fin.Fail<(Seq<(double S, int Delta)>, int)>(key.InvalidResult()));
-            }))
+            }).As()
             .Map(static acc => (toSeq(acc.Rows.OrderBy(static row => row.S).ThenByDescending(static row => row.Delta)), acc.Grazed));
 
     // --- [DASHES]
     static Fin<Unit> Dashes(HatchStore store, Point3d origin, CourseFrame frame, int region, int course, bool odd, double c, double sA, double sB, HatchPattern pattern, HatchPolicy policy, Op key) {
         if (frame.Dash.Case is not HatchRhythm dash) {
-            _ = store.Add(new HatchRow(At(origin, frame, c, sA), At(origin, frame, c, sB), region, frame.Family, course, -1, HatchArm.Course));
+            _ = store.Add(new HatchRow(At(origin, frame, c, sA), At(origin, frame, c, sB), region, frame.Family, course, -1, IsMotif: false));
             return Fin.Succ(unit);
         }
         double period = (dash.Length + dash.Gap) * frame.Spacing;
@@ -438,7 +384,7 @@ public static class Hatching {
             double a = Math.Max(sA, ((first + step) * period) + phase);
             double b = Math.Min(sB, ((first + step) * period) + phase + onSpan);
             if (b > a) {
-                _ = store.Add(new HatchRow(At(origin, frame, c, a), At(origin, frame, c, b), region, frame.Family, course, -1, HatchArm.Course));
+                _ = store.Add(new HatchRow(At(origin, frame, c, a), At(origin, frame, c, b), region, frame.Family, course, -1, IsMotif: false));
             }
         });
         return Fin.Succ(unit);
@@ -484,22 +430,12 @@ public static class Hatching {
     static void Ring(HatchStore store, int region, int familyOrdinal, int courseOrdinal, Chain loop) {
         (int head, int prev) = (-1, -1);
         for (int v = 0; v + 1 < loop.Points.Count; v++) {
-            int slot = store.Add(new HatchRow(loop.Points[v], loop.Points[v + 1], region, familyOrdinal, courseOrdinal, -1, HatchArm.Motif));
+            int slot = store.Add(new HatchRow(loop.Points[v], loop.Points[v + 1], region, familyOrdinal, courseOrdinal, -1, IsMotif: true));
             if (head < 0) { head = slot; }
             if (prev >= 0) { store.Link(prev, slot); }
             prev = slot;
         }
         if (loop.Points.IsClosed && prev >= 0 && prev != head) { store.Link(prev, head); }
-    }
-
-    // --- [PRIMITIVES]
-    static Fin<SpatialIndex> Broad((Point3d A, Point3d B)[] edges, BuildPolicy policy, Op key) =>
-        SpatialIndex.Build(SpatialKind.Bvh, System.Array.ConvertAll(edges, static e => new BoundingBox([e.A, e.B])), policy, key);
-
-    static Fin<Seq<int>> Candidates(SpatialIndex index, Line hatch, Op key) {
-        BoundingBox box = new([hatch.From, hatch.To]);
-        box.Inflate(hatch.Length * EpsilonPolicy.SqrtEpsilon);
-        return index.Query(box, key: key);
     }
 }
 ```
@@ -515,16 +451,16 @@ config:
 flowchart LR
     accTitle: Hatch synthesis flow
     accDescr: Hatch operations normalize regions through the planar overlay, weave pattern courses by exact crossing parity or orbit motifs through the wallpaper fold, and emit the successor-linked SoA hatch wire.
-    HatchOp -->|"Regions rings / Projection Fill loops"| Normalize["ArrangementOp.PlanarOverlay — outer CCW / holes CW"]
-    Normalize -->|"HatchPattern.Families frames + census gate"| Courses["course generation over the region extent"]
-    Courses -->|"BVH box Query"| Candidates["candidate boundary edges"]
-    Candidates -->|"exact Orient2D lifted signs + SegmentSegment points"| Parity["crossing rows (s, ±1 delta) on one Fin fold"]
+    HatchOp -->|"Regions rings / Projection Fill loops"| Overlay["ArrangementOp.PlanarOverlay — outer CCW / holes CW"]
+    Overlay -->|"HatchPattern.Families frames + census gate"| Courses["course generation over the region extent"]
+    Courses -->|"BVH box Query"| Pruned["candidate boundary edges"]
+    Pruned -->|"exact Orient2D lifted signs + SegmentSegment points"| Parity["crossing rows (s, ±1 delta) on one Fin fold"]
     Parity -->|"winding walk — runs where w != 0"| Dashes["dash carve on the origin-anchored grid"]
-    Normalize -->|"Motif plan"| Orbit["Patterning.Apply — PatternPlan orbit"]
+    Overlay -->|"Motif plan"| Orbit["Patterning.Apply — PatternPlan orbit"]
     Orbit -->|"seat spin + mirror parity stamp"| Clip["per-instance PlanarOverlay intersection"]
     Dashes --> Wire["HatchResult — successor-linked SoA wire"]
     Clip --> Wire
-    Wire -->|"HatchCount slot census"| Census["HatchCensus"]
+    Wire -->|"HatchCount slot census"| Census["HatchResult.Census map"]
     Wire -->|"ToSegments / ToPolylines"| Sheet["Fabrication Documentation/projection sheet layer"]
     HatchOp -.->|"DegenerateInput / HatchFailed"| GeometryFault
 ```
@@ -542,18 +478,16 @@ flowchart LR
 |  [05]   | Solve policy   | `HatchPolicy`  | value                                 |    —    |
 |  [06]   | Census slots   | `HatchCount`   | census rows (pure)                    |    6    |
 |  [07]   | Result carrier | `HatchResult`  | carrier (`ToSegments`/`ToPolylines`)  |    —    |
-|  [08]   | Emission arm   | `HatchArm`     | row discriminant (pure)               |    2    |
 
 - [01]-[HATCHING]: `[Union]` (`Regions`/`Projection`) folded by ONE `Apply` with `Op?` threading, policy threaded through the base positional.
 - [02]-[PATTERN_ROWS]: `[SmartEnum<int>]` four rows — family-table data over one weave, `Motif` realized by its plan's orbit.
 - [03]-[FAMILY_RHYTHM]: `[ComplexValueObject]` relative angle/spacing/phase and the spacing-unit dash law, bounds read off `Band` rows at construction and default validation evidence crossing through the kernel bridge; absolute scale enters once on the plan.
 - [04]-[REGION_PLAN]: per-region pattern, angle, `PositiveMagnitude` spacing, origin, and the optional `Patterning` orbit — policy on the request shape, five claims accumulated once at `Of`.
 - [05]-[SOLVE_POLICY]: composed `ArrangementPolicy`/`BuildPolicy` rows + the `Dimension` `CourseBudget` census ceiling.
-- [06]-[CENSUS_SLOTS]: `[SmartEnum<int>]` six slots over ONE `HashMap`-backed fact stream, read through named `Option<int>` `HatchCensus` accessors so an unmeasured slot never reads as a measured zero.
-- [07]-[RESULT_CARRIER]: successor-linked SoA columns with the `HatchArm` discriminant + the slot-keyed `HatchCensus`; chaining composes `SuccessorChain`, and every collection member carries its equality attribute.
-- [08]-[EMISSION_ARM]: `[SmartEnum<int>]` course/motif — separating a family ordinal from an orbit seat, a course ordinal from an instance one.
+- [06]-[CENSUS_SLOTS]: `[SmartEnum<int>]` six slots over ONE `HashMap`-backed fact stream, read through `Find` as `Option<int>` so an unmeasured slot never reads as a measured zero.
+- [07]-[RESULT_CARRIER]: successor-linked SoA columns with the `IsMotif` discriminant column — separating a family ordinal from an orbit seat, a course ordinal from an instance one — + the slot-keyed `Census` map; chaining composes `SuccessorChain`, and every collection member carries its equality attribute.
 
-Every cluster — `[NORMALIZE]`, `[WEAVE]`, `[COURSES]`, `[PARITY]`, `[DASHES]`, `[MOTIF]`, `[PRIMITIVES]` — composes only landed public entries; no member depends on a host spelling beyond the stable `Point3d`/`Line`/`Polyline`/`Plane`/`Transform` surface the siblings pin.
+Every cluster — `[WEAVE]`, `[COURSES]`, `[PARITY]`, `[DASHES]`, `[MOTIF]` — composes only landed public entries; no member depends on a host spelling beyond the stable `Point3d`/`Line`/`Polyline`/`Plane`/`Transform` surface the siblings pin.
 
 ## [04]-[RESEARCH]
 

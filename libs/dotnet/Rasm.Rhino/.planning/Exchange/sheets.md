@@ -905,7 +905,6 @@ public abstract partial record SheetOp {
         ensureCase: static ensure =>
             ensure.Spec is not null
             && !string.IsNullOrWhiteSpace(ensure.Spec.Name)
-            && ensure.Spec.Plot.ForAll(static policy => policy.IsValid)
             && ensure.Spec.Volume.ForAll(static volume => volume is not null)
             && ensure.Spec.Ordinal.ForAll(static ordinal => ordinal.Value > 0),
         cloneCase: static clone => clone.Policy is not null,

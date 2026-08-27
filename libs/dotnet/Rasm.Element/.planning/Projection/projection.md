@@ -253,8 +253,8 @@ public sealed partial record ImportedGeometry(
             });
         long[] indices = new long[indexTotal];
         (EncodingChannel Channel, float[] Source, float[] Placed)[] lanes = [.. Lanes.Descriptors.Map(d => {
-            float[] source = new float[d.Floats];
-            d.Dtype.Unpack(Lanes.Channel(d.Channel).Span, source);
+            float[] source = new float[Lanes.Count * d.Channel.Arity];
+            d.Channel.Dtype.Unpack(Lanes.Channel(d.Channel).Span, source);
             return (d.Channel, source, new float[vertexTotal * d.Channel.Arity]);
         })];
         var (blocks, placed, vSlot, iSlot) = Instances.Fold(

@@ -342,7 +342,8 @@ public static class InterchangeIdentity {
             Head(w, s.formatKey, s.policy.Span, present: !(s.lanes.Descriptors.IsEmpty && s.indices.IsEmpty))
                 .Ordinal(s.lanes.Witness.Root.Key)
                 .U128((UInt128)s.lanes.Witness.ContentHash)
-                .Rows(s.lanes.Descriptors, static (d, x) => x.String(d.Channel.Key).String(d.Dtype.Key).I64(d.Count))
+                .I64(s.lanes.Count)
+                .Rows(s.lanes.Descriptors, static (d, x) => x.String(d.Channel.Key).Ordinal(d.Channel.Dtype.Key))
                 .Ordinal(s.indices.Length)
                 .Raw(s.indices.Span));
 

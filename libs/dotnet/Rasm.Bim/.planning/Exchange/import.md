@@ -477,8 +477,8 @@ public static partial class BimIo {
         Matrix4x4 basis = Basis(format);
         Matrix4x4 inverse = Matrix4x4.Transpose(basis);
         Seq<(EncodingChannel Channel, float[] Raw)> lanes = geometry.Lanes.Descriptors.Map(descriptor => {
-            var raw = new float[descriptor.Count * descriptor.Channel.Arity];
-            descriptor.Dtype.Unpack(geometry.Lanes.Channel(descriptor.Channel).Span, raw);
+            var raw = new float[geometry.Lanes.Count * descriptor.Channel.Arity];
+            descriptor.Channel.Dtype.Unpack(geometry.Lanes.Channel(descriptor.Channel).Span, raw);
             if (descriptor.Channel == EncodingChannel.Position || descriptor.Channel == EncodingChannel.Normal) {
                 FrameNormalization.Canonicalize(format, raw.AsSpan(), stride: descriptor.Channel.Arity);
             }

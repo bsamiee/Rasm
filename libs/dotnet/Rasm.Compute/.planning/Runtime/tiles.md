@@ -171,8 +171,8 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
 
     static float[] Lane(EncodedGeometry arena, EncodingChannel channel) {
         if (arena.Descriptors.Find(d => d.Channel == channel).Case is not EncodingChannelDescriptor found) { return []; }
-        float[] raw = new float[found.Floats];
-        found.Dtype.Unpack(arena.Channel(channel).Span, raw);
+        float[] raw = new float[arena.Count * found.Channel.Arity];
+        found.Channel.Dtype.Unpack(arena.Channel(channel).Span, raw);
         return raw;
     }
 

@@ -511,7 +511,7 @@ public sealed record EncodedTensor(
                             foreach (EncodingChannelDescriptor descriptor in Descriptors) {
                                 int arity = descriptor.Channel.Arity;
                                 Span<float> lane = scratch.Buffer.Span[..(Count * arity)];
-                                descriptor.Dtype.Unpack(admitted[index].Span, lane);
+                                descriptor.Channel.Dtype.Unpack(admitted[index].Span, lane);
                                 for (int element = 0; element < Count; element++) {
                                     lane.Slice(element * arity, arity).CopyTo(destination.GetRowSpan(element).Slice(column, arity));
                                 }
