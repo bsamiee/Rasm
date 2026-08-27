@@ -94,7 +94,7 @@ Every reopen predicate rides the license gate.
 - `SheetSize.Key` is the ONE wire spelling, series prefix with index or suffix — a free-text key forks host re-entry by exact name.
 - `RungLadder` is the ONE Renard-series snap — a page-local rounding table drifts from the published ladder.
 - `WindowTaper` is the ONE taper roster and `SpectralArena` the ONE transform carrier — a framing is a COLUMN on the row, never a second roster.
-- `Op.Row` decoupled arms carry every cross-typed column resolve — column equality rides the `match` argument, never a re-keyed roster or index.
+- `FactoryBridge.Row` decoupled arms carry every cross-typed column resolve — column equality rides the `match` argument, never a re-keyed roster or index.
 - Public host-boundary entries alone spell an optional key `Op? key = null` read once through `OrDefault()`; every other optional rides `Option<T> = default`.
 - `CapabilitySet.Wire` derives from ordinal key order — a semantic rank lives explicitly on its owning vocabulary and never on the generic capability floor.
 - Capability-read failure posture is the consumer boundary's — `Require` refuses with `Missing` evidence, the law row settling emptiness at construction.

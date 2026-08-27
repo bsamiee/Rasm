@@ -52,7 +52,7 @@
 - `IArchiveCodec` at `Persistence/userdata` roots the archive codec as an INTERFACE — `TypedUserData<TSelf>` derives the host `UserData` base.
 - Host `{Owner}State` crosses AS the host type — `GetCurrentState` mints a detached instance per call, a branch mirror REFUSING under a `ref` verb.
 - `SettingStore` names the store here — `Settings` spells none, and `SettingsBridge` and `ArchiveReach` carry bridge and reach concepts instead.
-- Host-enum rosters stay `[SmartEnum<int>]` on default `ValidationError` so `Op.Row` type-checks; `[ValidationError]` binds value types.
+- Host-enum rosters stay `[SmartEnum<int>]` on default `ValidationError` so `FactoryBridge.Row` type-checks; `[ValidationError]` binds value types.
 - Capability axes a host seats declare ONE static `HostAxis` each — the column IS legality; `RefusalsFor` proves and `Seat` writes the same field.
 - `FormatDial.Admit` refuses seat and axis demands at the entry gate; `Mint` stays TOTAL, a `Fin` on a body that cannot fail being ceremony.
 - Capability wire order is the kernel's ordinal key projection — domain precedence and host flag masks remain explicit at their owning rows.
@@ -66,7 +66,7 @@
 - `QuartetFace.UsesBold`/`UsesItalic` stay a bool PAIR — all four corners are legal and both ride `Font.FromQuartetProperties` as its argument shape.
 - Read products a write payload reconstructs EMBED it — `DecalSnapshot` and `MaterialRefSnapshot` carry their seeds; a restatement forks authority.
 - `PhotometricFile` is a FILE REFERENCE admitted by extension, AppUi's `PhotometricWeb` a DECODED candela table — two forms forking at the name.
-- Codec-carried host-enum fields feeding a host write stay RAW — only a field domain logic reads crosses the kernel `Op.Row` arm.
+- Codec-carried host-enum fields feeding a host write stay RAW — only a field domain logic reads crosses the kernel `FactoryBridge.Row` arm.
 
 ## [04]-[STRUCTURE]
 

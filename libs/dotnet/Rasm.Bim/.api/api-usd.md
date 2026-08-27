@@ -1,6 +1,6 @@
 # [RASM_BIM_API_USD]
 
-`UniversalSceneDescription` is the managed OpenUSD scene-graph codec owning the read and write of `.usd`/`.usda`/`.usdc`/`.usdz` through `UsdStage`, backing the `Exchange/format#FORMAT_AXIS` `InterchangeCodec.UsdStage` slot. USD is a scene-graph peer to the GeometryGym IFC semantic graph, never a BIM-semantic replacement: it carries the geometry, shading, and instancing scene while the IFC graph carries the BIM vocabulary, and the two coexist at one `format#FORMAT_AXIS` row. A codec throw remains the exact exceptional `Error` through `Op.Catch`; explicit scope/capability refusals mint `BimFault.Refused`.
+`UniversalSceneDescription` is the managed OpenUSD scene-graph codec owning the read and write of `.usd`/`.usda`/`.usdc`/`.usdz` through `UsdStage`, backing the `Exchange/format#FORMAT_AXIS` `InterchangeCodec.UsdStage` slot. USD is a scene-graph peer to the GeometryGym IFC semantic graph, never a BIM-semantic replacement: it carries the geometry, shading, and instancing scene while the IFC graph carries the BIM vocabulary, and the two coexist at one `format#FORMAT_AXIS` row. A codec throw remains the exact exceptional `Error` through `Try.lift`; explicit scope/capability refusals mint `BimFault.Refused`.
 
 ## [01]-[PUBLIC_TYPES]
 

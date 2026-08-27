@@ -13,7 +13,7 @@
 
 - Owner: the generated vocabularies own host side, access, presence, and visibility with semantic carrier families; `PortAxes` states whether a row consumes access, presence, appearance, hidden registration, and one side-scoped trim family — the four parallel axis FIELDS collapse to ONE `HashMap<PortAxis, CapabilitySet<PinSide>>` (E-G42), so an axis is a ROW and an absent row is the empty capability set, never a fifth field.
 - Cases: `PinSide` mirrors `Side` AND realizes `ICapability<PinSide>` — side capability is `CapabilitySet<PinSide>` membership, so the four-row `PortSides` bool-pair vocabulary (`Both`/`InputOnly`/`OutputOnly`/`Neither`) deletes onto the set algebra (`All`/`Of(Input)`/`Of(Output)`/`None`); `PinAccess` mirrors `Access`, `PinPresence` mirrors `Requirement`, and `PinVisibility` closes shown/hidden. `Document/graph.md`'s `GripHit` composes the same `CapabilitySet<PinSide>` for its in-range sides — one side vocabulary across the folder.
-- Entry: `PinSide.Of(Side, Op?)` is the one reverse projection; unknown host values fail typed.
+- Entry: `PinSide.Of(Side)` is the one reverse projection; unknown host values fail typed.
 - Growth: a new host discriminant value is one row on the owning vocabulary.
 - Boundary: `Side`, `Access`, and `Requirement` never travel past a binding delegate; interior code holds only the folder vocabulary.
 
@@ -123,7 +123,7 @@ public sealed record PortAxes(
 - Entry: `PinPlan.Realize(IParameter)` admits one trim, projects its exact host property types, and assigns only carrier-compatible persistent tree data.
 - Law: a refused trim-to-parameter pairing is `GhFault.ContractRefused(GhContract.Pin, evidence)` naming both shapes.
 - Growth: a new writable parameter policy is one trim case and one row capability; a new adder shape is one `PortBinding` case.
-- Boundary: policy assignment crosses through `Op.Catch`; an incompatible trim fails by exact case and host type before any property is written. Every column a trim writes is a `public { get; set; }` auto-property on the concrete parameter, so a trim is a post-declaration write and never a declaration argument.
+- Boundary: policy assignment crosses through `Try.lift`; an incompatible trim fails by exact case and host type before any property is written. Every column a trim writes is a `public { get; set; }` auto-property on the concrete parameter, so a trim is a post-declaration write and never a declaration argument.
 - Boundary: `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the base's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol — so `AngleEnforcement` is the owner that types those four wire constants and its `int Host` column is the host's own value, not a hand-numbered stand-in for an enum ordinal.
 
 ```csharp

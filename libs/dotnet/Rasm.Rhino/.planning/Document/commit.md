@@ -290,7 +290,7 @@ internal ref struct UndoBracket {
 }
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` — undo-record bracketing, redraw suspension members); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` redraw/interaction rows, the `BracketCustody` `[Union]`); kernel `Domain/results` (`Op`, `Fin`, `Lease`, `Custody.Rollback`).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` — undo-record bracketing, redraw suspension members); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` redraw/interaction rows, the `BracketCustody` `[Union]`); kernel `Domain/results` (`Fin`, `Lease`, `Custody.Rollback`).
 
 ## [05]-[RESEARCH]
 

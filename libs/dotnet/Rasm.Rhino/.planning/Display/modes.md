@@ -25,7 +25,7 @@
 - Law: the per-face override product is two `CapabilitySet<FaceAxis>` columns under the stated corner law — the host publishes no back-face colour-override slot, so of the sixteen face-axis corners twelve are legal and `FaceAxis.BackLaw` refuses the four that hold `Color` on the back face at admission rather than skipping a write the value silently claimed.
 - Growth: a host flag is one `DisplayAxis` row naming its concern; a host appearance concern lands as one column or carrier field on the case that owns it, and only a genuinely new concern earns an `Appearance` case, one `ConcernRow` row, and one dispatch arm.
 - Boundary: colors quantize once at the writer through `Quant.Sys` — the folder's one `System.Drawing` egress composing the kernel `PerceptualColor.ToDrawing` at `Display/draw.md`; raw host colors and attribute editors stay inside the boundary.
-- Packages: RhinoCommon `Rhino.Display` (`DisplayPipelineAttributes` and its nested vocabularies — `.api/api-rhinocommon-display.md`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`, `[ComplexValueObject]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `ICapability`, `Op`).
+- Packages: RhinoCommon `Rhino.Display` (`DisplayPipelineAttributes` and its nested vocabularies — `.api/api-rhinocommon-display.md`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`, `[ComplexValueObject]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `ICapability`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------

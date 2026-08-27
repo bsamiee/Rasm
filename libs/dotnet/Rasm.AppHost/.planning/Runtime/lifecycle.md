@@ -431,7 +431,7 @@ public static class DrainConductor {
 ## [05]-[CANCEL_SPINE]
 
 - Owner: `CancelScope` — the one root source and every derived scope as provenance-carrying values; `CancelDeadline` carries the lane and effective allotment beside its timer.
-- Entry: `CancelScope Derive(ClockPolicy clocks, Option<DeadlineClass> bound = default)` derives a local row allotment; `Derive(Op, ClockPolicy, DeadlineClass, Duration)` preserves a caller-inherited effective allotment without minting a second deadline owner.
+- Entry: `CancelScope Derive(ClockPolicy clocks, Option<DeadlineClass> bound = default)` derives a local row allotment; `Derive(ClockPolicy, DeadlineClass, Duration)` preserves a caller-inherited effective allotment without minting a second deadline owner.
 - Packages: Rasm (kernel `Op`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one derivation row per scope axis — phase, queue, hop attempt; zero new surface.
 - Boundary: the root lives on the `Lifecycle` capsule and every scope below it derives through linked tokens — a free-floating `CancellationTokenSource` below the spine is the named defect; provenance is a SEQUENCE of `Op` segments rather than a concatenated path string, so a consumer reads the segment it cares about instead of splitting text and `Path` renders once at the boundary that surfaces it in `BandFact.Name`; `CancelDeadline` always retains the owning `DeadlineClass` even when its effective allotment is a shorter inherited remainder, and the deadline source binds the policy's `TimeProvider` at construction so fake-clock specs drive expiry deterministically.

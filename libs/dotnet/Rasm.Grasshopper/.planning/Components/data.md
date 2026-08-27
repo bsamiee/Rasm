@@ -13,10 +13,10 @@
 
 - Owner: `GhFault` is the direct Components boundary family, and `Notice` recursively projects standard `ManyErrors` onto `IDataAccess`.
 - Cases: `Absent | ContractRefused | Conversion | Registration | Overdue`, carrying the compact `[FaultCase]` ordinals `0..4` on `FaultBand.Grasshopper`.
-- Entry: `Op.Catch` absorbs value-returning and void host calls and threads the exact execution token when cancellation is possible; `Notice.Fan(Error)` emits each `ManyErrors` leaf with its optional generated code.
-- Packages: `Rasm.Domain` (`Fault`, `KernelFault`, `Op`, `OrDefault()`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Entry: `Try.lift` absorbs value-returning and void host calls and threads the exact execution token when cancellation is possible; `Notice.Fan(Error)` emits each `ManyErrors` leaf with its optional generated code.
+- Packages: `Rasm.Domain` (`Fault`, `KernelFault`, `OrDefault()`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new crossing cause is one fault case; a new document message channel is one `Severity` row.
-- Boundary: `Op.Catch` preserves unknown host exceptions and recognizes cancellation only from its requested execution token.
+- Boundary: `Try.lift` preserves unknown host exceptions and recognizes cancellation only from its requested execution token.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -101,7 +101,7 @@ public sealed record Notice(
 - Owner: `Transfer<T>` is the topology union for pin payloads; `Retention` owns metadata preservation or reprojection across every topology; `HostRead<T>` is the ONE typed ingress row over every out-parameter `IDataAccess` read — the array family and the assistant family were two parallel delegate-plus-wrapper shapes over one fact (a host read that answers a value and a bool), so one `HostIngress<T>` delegate and one row type carry both, an assistant pair riding as `HostRead<Assisted<TValue, TAssistant>>` whose row lambda fuses the host's two out-parameters.
 - Cases: `Item` carries a bare value with its `MetaData`; `OfPear`, `OfTwig`, and `OfTree` carry the host carriers verbatim.
 - Entry: `GardenData.Read<T>` discriminates depth by `PinAccess`; `GardenData.Read<T>(access, pin, HostRead<T>)` consumes any typed ingress row — the `ReadArray`/`ReadAssistant` arity twins collapse onto it; `Write<T>` retags pear metadata before emission; `AsTree`, `Zip`, `Amend`, `Evaluate`, and `ConvertTwig` lift the host algebra onto `Fin`.
-- Law: every fold lands on `Fin` — an absent pin is `GhFault.Absent`, while `Op.Catch` retains a raised host exception as its original `Error`.
+- Law: every fold lands on `Fin` — an absent pin is `GhFault.Absent`, while `Try.lift` retains a raised host exception as its original `Error`.
 - Packages: `Grasshopper2` `Garden`, `Tree<T>`/`Twig<T>`/`Pear<T>`, and `MetaData` are the composed algebra; no local tree walker exists beside them.
 - Growth: a new topology the host admits is one `Transfer<T>` case with one arm per fold.
 - Boundary: presence law remains the pin's declared host `Requirement`; a failed ingress becomes `GhFault.Absent`, and all metadata reconstruction uses the `Pear<T>.Create(T, MetaData)` mint.

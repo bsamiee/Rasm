@@ -383,7 +383,7 @@ public static partial class Support {
 - Law: a `BaseAdhesion` family seats its rows at the plate layer under the whole model footprint rather than under an overhang, so the planar fold reads the family column instead of testing the key against a roster.
 - Law: `Complete` derives one `SupportCoverage` row per demand and `AdmitProjection` accumulates every structural invariant — coverage cardinality, coverage uniqueness, tree completion within the three dimensioned tolerances, absent extra contacts, exact bridge correspondence, layer bounds, physical signs, and the node cap — so a refused projection names every violated invariant rather than the first.
 - Entry: every `SupportProgram` case returns the same `SupportDraft`, so no consumer learns which modality produced it.
-- Auto: generated callback faults enter `Op.Catch` before projection admission; an admitted generated projection is indistinguishable from a built-in one downstream.
+- Auto: generated callback faults enter `Try.lift` before projection admission; an admitted generated projection is indistinguishable from a built-in one downstream.
 - Boundary: coverage indexes demand by ordinal, so an out-of-range or duplicate ordinal refuses at admission and no read below carries an absence arm.
 
 ```csharp

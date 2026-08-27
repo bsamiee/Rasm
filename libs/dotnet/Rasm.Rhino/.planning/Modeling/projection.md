@@ -17,7 +17,7 @@
 - Law: `Directed` requires its up vector — a local orthogonalization fallback is the killed form the camera page names, so an explicit up crosses the case and the plan case reads the drafting plane's own `YAxis`; `IsValid` proves both direction axes non-degenerate before any arm reaches a seat step.
 - Law: the lens seat performs no optics arithmetic — `LensAngle` is the FULL vertical view angle and `ViewportInfo.CameraAngle` holds its HALF (live-proven 13.4957 deg = atan(12/50) at 50mm, identical on `RhinoViewport.CameraAngle`), so the seat halves on write exactly as `Viewport/camera.md` doubles on read; the write is a NAMED side effect so no mutation hides inside a dispatch arm, the 35mm lens length reads back off `Camera35mmLensLength` so the half-frame diagonal is the host's own constant rather than a transcribed literal, and the perspective target distance reads the pose's admitted target, never a magic depth.
 - Boundary: screen landing is not this owner — a consumer placing the flattened drawing on a sheet composes `ViewTransforms.Mapping` over `ViewMapping` on the Viewport pipeline; this frame ends at the projection compute.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing*` `:149-158`, `Silhouette` `:178-188`), RhinoCommon document (`.api/api-rhinocommon-document.md` — `Rhino.DocObjects.ViewportInfo` seat and `Camera35mmLensLength`), kernel `Domain/results` (`Op`, `Lease<T>.Acquire`, `ValidityClaim`, `IValidityEvidence`, `Fin`), `Rasm.Rhino.Viewport` (`CameraSnapshot`, `CameraPose`, `LensAngle`, `ProjectionKind`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing*` `:149-158`, `Silhouette` `:178-188`), RhinoCommon document (`.api/api-rhinocommon-document.md` — `Rhino.DocObjects.ViewportInfo` seat and `Camera35mmLensLength`), kernel `Domain/results` (`Lease<T>.Acquire`, `ValidityClaim`, `IValidityEvidence`, `Fin`), `Rasm.Rhino.Viewport` (`CameraSnapshot`, `CameraPose`, `LensAngle`, `ProjectionKind`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -126,7 +126,7 @@ public abstract partial record ProjectionFrame : IValidityEvidence {
 - Law: every policy value is admitted at CONSTRUCTION — `ProjectionPacing`, `ProjectionSubject`, and `DrawingLaw` run the same fold their `IsValid` reads, so the null-check chain that stood in for admission at the operation gate deletes and the roster's `Admitted` states domain facts alone. NAMED LOSS: the defaulted `Placement`/`Clips` columns must now be supplied at the call; bought back by an invalid subject being unconstructible.
 - Law: pacing is ONE value and cancellation ONE spelling — `ProjectionPacing` fuses the token, optional progress, and the thread row, and `Outline` and `Draft` carry a bare `CancellationToken` whose `default` IS the host's own `CancellationToken.None`; an `Option<CancellationToken>` stacks a second absence on a value that already models it. Reporter lowering rides `HostEdge.Slot` at the ONE call that writes it; `ModelRuntime` carries the shared context while this operation-owned value selects host compute behavior.
 - Law: every short host overload delegates verbatim to its long form with `null` progress or planes and `CancellationToken.None`, so this page composes the long form alone and no arm branches to pick an overload — an identity `Transform` and an empty plane list are the host's own no-op spellings.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawingParameters` `:149-158` incl. `AddGeometryAndPlanes`, `SetViewport`, `AddClippingPlane`, and the five flag members; `SilhouetteType` `[Flags]` roster `:81`), kernel `Domain/results` (`Op`, `HostEdge.Slot`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`), kernel `Numerics/atoms` (`TransformSpec`, `Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawingParameters` `:149-158` incl. `AddGeometryAndPlanes`, `SetViewport`, `AddClippingPlane`, and the five flag members; `SilhouetteType` `[Flags]` roster `:81`), kernel `Domain/results` (`HostEdge.Slot`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`), kernel `Numerics/atoms` (`TransformSpec`, `Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -286,7 +286,7 @@ public readonly partial struct DrawingLaw : IValidityEvidence {
 
 ## [04]-[OPERATION_PIPELINE]
 
-- Owner: `ProjectionOp` `[Union]` `` closes the drawing, silhouette, and draft verbs; `Projections.Build` folds the admitted spread through `ModelGate` and returns the owned handles directly.
+- Owner: `ProjectionOp` `[Union]` closes the drawing, silhouette, and draft verbs; `Projections.Build` folds the admitted spread through `ModelGate` and returns the owned handles directly.
 - Law: products detach before the engine dies — every segment curve duplicates out of the disposable `HiddenLineDrawing` onto an owned handle inside the compute window, silhouette curves own directly because `Silhouette.Compute` returns fresh geometry, and the drawing, its `ViewportInfo`, and every mid-fold failure release symmetrically.
 - Law: native projections materialize inside their custody window — every map over `HiddenLineDrawingSegment` or `Silhouette` closes with `Strict()` before its native owner releases.
 - Law: clipping planes cross one admission fold — drawing-global, subject-selective, and outline clip sets traverse `AcceptInput` applicatively, and each arm hands the admitted sequence to the one host overload it composes; an empty admitted set reaches the host as an empty plane list, which the native reads exactly as the no-planes short form does.
@@ -295,7 +295,7 @@ public readonly partial struct DrawingLaw : IValidityEvidence {
 - Law: admission NAMES its axis and closes at compile — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a new verb breaks the compile instead of falling to a silent refusal and a request breaching several constraints reports each one.
 - Boundary: geometric curve projection stays the curve pipeline — `CurveOp.Project` over `ProjectTarget` owns plane, brep, and mesh target projection with index maps; this pipeline begins at host hidden-line and silhouette capture.
 - Growth: a new drawing modality is one `ProjectionOp` case with its arm; a new frame source is one `ProjectionFrame` case every verb reads.
-- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing.Compute`/`Segments`/`RejoinCompatibleVisible` `:149-158`, `Silhouette.Compute`/`ComputeDraftCurve` `:178-188`), kernel `Domain/results` (`Op`, `` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Numerics/atoms` (`Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`TraverseM`, `Traverse`, `Choose`, `Strict`, `Zip`), Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing.Compute`/`Segments`/`RejoinCompatibleVisible` `:149-158`, `Silhouette.Compute`/`ComputeDraftCurve` `:178-188`), kernel `Domain/results` (`ValidityClaim`, `Fin`), kernel `Numerics/atoms` (`Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`TraverseM`, `Traverse`, `Choose`, `Strict`, `Zip`), Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -330,7 +330,6 @@ public abstract partial record ProjectionOp {
         Switch(
             context: domain,
             drawing: static (model, edit) => {
-                 = Drawing.SelfOp;
                 DrawingLaw law = edit.Law;
                 return ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(
                     handles: edit.Subjects.Map(static subject => subject.Geometry),
@@ -350,7 +349,6 @@ public abstract partial record ProjectionOp {
                         select harvested);
             },
             outline: static (model, edit) => {
-                 = Outline.SelfOp;
                 return from clips in AdmittedClips(edit.Clips)
                        from built in ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Subject, body: native =>
                     edit.Frame.Switch(
@@ -379,7 +377,6 @@ public abstract partial record ProjectionOp {
                        select built;
             },
             draft: static (model, edit) => {
-                 = Draft.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Subject, body: native =>
                     from pull in Acceptance.Input(value: edit.Pull)
                     from built in Captured(token: edit.Cancel, run: () =>

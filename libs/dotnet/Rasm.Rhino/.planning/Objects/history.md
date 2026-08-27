@@ -22,7 +22,7 @@
 - Law: `HistoryScript.Mint` answers a `Lease<HistoryRecord>` the host copies out of, `ReplayProgram` mutates host-owned `ReplayHistoryData` inside its callback, and `Chronicle.Bind` alone rides `ObjectSpine.Commit` because linkage mutates document state.
 - Law: payload bools are HOST SLOTS, not policy. `Toggle` and `Toggles` transcribe `SetBool`/`SetBools`, whose two states are the datum a caller stores, so no vocabulary stands between them and the record — while every bool this page authored about its own conduct carries a named row instead.
 - Growth: a new payload kind is one `SlotValue` case whose write and read arms are compiler-coupled; write-only cases return typed unreadable failure.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/results` (`Op.Catch`, `Op.Confirm`, `Op.Unsupported`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `KernelFault.Unsupported`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -222,7 +222,7 @@ public abstract partial record SlotValue {
 - Law: the version is the compatibility key — `ReplayProgram` folds a mismatched `HistoryVersion` to graceful non-replay, so bumping the script version retires stale records without faulting old documents.
 - Law: replace survival is its OWN two-state row. `CopyOnReplaceObject` decides whether the record follows a replaced object, which is neither enablement nor a signal, so `ReplaceSurvival.Copies`/`Drops` names the posture and `ObjectSignal` — which spells ENABLED and DISABLED — never stands in for it.
 - Boundary: the record keys on the seat's identity, so a script replays only under the command that authored it; the command page's adapter is the only `ReplayHistory` override site and the only producer of a `HistoryOwner`.
-- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[SmartEnum<bool>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/results` (`Lease<T>.Owned`, `Lease<T>.Dispose`, `Op.Catch`); RhinoCommon objects (`HistoryRecord.CopyOnReplaceObject`, `ObjRef`); `Commands/command.md` (`HistoryOwner.Mint`); `Document/session.md` (`DraftFault`).
+- Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[SmartEnum<bool>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/results` (`Lease<T>.Owned`, `Lease<T>.Dispose`, `Try.lift`); RhinoCommon objects (`HistoryRecord.CopyOnReplaceObject`, `ObjRef`); `Commands/command.md` (`HistoryOwner.Mint`); `Document/session.md` (`DraftFault`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -311,7 +311,7 @@ public sealed class HistoryScript {
 - Owner: `SlotValue.Recover` dispatches from the same generated case that wrote the slot; no parallel type roster can drift from the setter family.
 - Law: host-readable cases call their matching `TryGet*` member; the nine write-only cases refuse through `Unsupported(ReplayHistoryData -> <case>)`, which is the capability answer their arms owe — an invalid-input refusal blamed the caller for a payload kind the host never publishes a reader for. A false host result remains missing-or-mistyped evidence.
 - Law: source recovery projects `GetRhinoObjRef` into `HistorySource` and disposes the live handle inside the callback; source geometry re-enters only through `ReplayFrame.Use`.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `toSeq`); RhinoCommon objects (`ReplayHistoryData.TryGetBool`/`TryGetInt`/`TryGetDouble`/`TryGetPoint3d`/`TryGetVector3d`/`TryGetTransform`/`TryGetColor`/`TryGetGuid`/`TryGetString`/`TryGetInts`/`TryGetDoubles`/`TryGetGuids`/`TryGetPoint3dOnObject`/`GetRhinoObjRef`); kernel `Domain/results` (`Op.Unsupported`, `Op.MissingContext`).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `toSeq`); RhinoCommon objects (`ReplayHistoryData.TryGetBool`/`TryGetInt`/`TryGetDouble`/`TryGetPoint3d`/`TryGetVector3d`/`TryGetTransform`/`TryGetColor`/`TryGetGuid`/`TryGetString`/`TryGetInts`/`TryGetDoubles`/`TryGetGuids`/`TryGetPoint3dOnObject`/`GetRhinoObjRef`); kernel `Domain/results` (`KernelFault.Unsupported`, `KernelFault.MissingContext`).
 
 ## [05]-[REGROWN]
 
@@ -321,7 +321,7 @@ public sealed class HistoryScript {
 - Law: clipping-plane arity collapses onto the plural overload. One viewport is a one-element sequence, and empty viewport rosters are refused at admission.
 - Law: raw-text emphasis is a SET. Bold and italic are independently held, their product is open, and a third emphasis axis lands as one row — so the pair rides `CapabilitySet<TextEmphasis>` and the host's two boolean arguments read their rows at the one call that takes them.
 - Growth: a host overload adds one `Regrown` case and the generator forces both admission and application arms; a new emphasis axis is one `TextEmphasis` row.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/results` (`Op.AcceptInput`, `Op.AcceptText`, `Op.Positive`, `Op.Confirm`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/results` (`Acceptance.Input`, `Acceptance.Text`, `Admit.Positive`, `Admit.Confirm`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -483,7 +483,7 @@ public abstract partial record Regrown {
 - Law: the program lands on the policy row — `CommandPolicy.Replay` carries `program.Delegate`, so the command page's sealed `ReplayHistory` override routes here with zero adapter code and a replay-free command keeps the absent row.
 - Law: the plan admits every regrow value before any result setter runs, settles the roster with complete prior-array compensation, then emits setters. Native replay commits only a successful strict-`bool` callback, so any setter refusal keeps existing geometry and drops the failed history link; appended results carry absent attributes.
 - Boundary: `ReplayFrame` is `readonly ref struct` and enters `ReplayStep` as `scoped ref readonly`; only the sealed adapter delegate receives `ReplayHistoryData`, and no consumer callback receives `ReplayHistoryResult`.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `BindFail`); RhinoCommon objects (`ReplayHistoryData.Results`/`AppendHistoryResult`/`UpdateResultArray`/`HistoryVersion`/`RecordId`/`Document`, `ReplayHistoryResult.ExistingObject`); `Commands/command.md` (`ReplayHook`, `CommandPolicy.Replay`); `Objects/authoring.md` (`ObjectsTelemetry.Publish`, `FaultSite.Replay`); kernel `Domain/results` (`Op.Catch`, `Error` monoid).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `BindFail`); RhinoCommon objects (`ReplayHistoryData.Results`/`AppendHistoryResult`/`UpdateResultArray`/`HistoryVersion`/`RecordId`/`Document`, `ReplayHistoryResult.ExistingObject`); `Commands/command.md` (`ReplayHook`, `CommandPolicy.Replay`); `Objects/authoring.md` (`ObjectsTelemetry.Publish`, `FaultSite.Replay`); kernel `Domain/results` (`Try.lift`, `Error` monoid).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------

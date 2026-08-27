@@ -12,7 +12,7 @@
 ## [02]-[TABLE_VOCABULARY]
 
 - Owner: `TableKind` `[SmartEnum<int>]` binds each admitted document table to its `ModelComponentType` and table-owned reclamation delegate.
-- Entry: `ForComponentType(ModelComponentType) : Fin<Seq<TableKind>>` returns every mapped row, expands `ModelComponentType.Mixed` across every explicit correspondence, treats `ModelComponentType.Unset` as absent correspondence, and rejects an undefined foreign ordinal. `Reclaim(RhinoDoc, Op) : Fin<int>` invokes the row delegate and rejects a table with no host reclamation member.
+- Entry: `ForComponentType(ModelComponentType) : Fin<Seq<TableKind>>` returns every mapped row, expands `ModelComponentType.Mixed` across every explicit correspondence, treats `ModelComponentType.Unset` as absent correspondence, and rejects an undefined foreign ordinal. `Reclaim(RhinoDoc) : Fin<int>` invokes the row delegate and rejects a table with no host reclamation member.
 - Law: table behavior resides on the row. A table extension declares component correspondence and reclamation behavior at construction, so no external dictionary or accessibility flag can drift from the vocabulary.
 - Law: `ModelComponentType.Unset` is the ONE row-side sentinel for absent correspondence, so the expansion arm reads as "every row that has one" and a lookup never manufactures a row it cannot also expand; `Mixed` is a QUERY argument alone and never a row value, because a row carrying it would be excluded by name from its own expansion and unreachable by lookup — an inert correspondence column no input returns.
 
@@ -1507,7 +1507,7 @@ public static class Tables {
 |  [13]   | space partition        | `ActiveSpaceUse`               | host-keyed rows              | `Get` / `Key`                         |
 |  [14]   | selection conduct      | `SelectionAxis`                | capability vocabulary        | `Baseline` / `Admits`                 |
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` + `api-rhinocommon-document-state.md` — the component-table surface: layers, groups, views, instance definitions, named states); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` query/selection/trait rows and `[ValueObject]` `ResourceName` with `[KeyMemberEqualityComparer]`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`/`HashMap` table projections); kernel `Domain/results` + `Domain/validation` (`Op.Row` host-enum admission).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` + `api-rhinocommon-document-state.md` — the component-table surface: layers, groups, views, instance definitions, named states); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` query/selection/trait rows and `[ValueObject]` `ResourceName` with `[KeyMemberEqualityComparer]`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`/`HashMap` table projections); kernel `Domain/results` + `Domain/validation` (`FactoryBridge.Row` host-enum admission).
 
 ## [06]-[RESEARCH]
 

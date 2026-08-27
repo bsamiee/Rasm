@@ -182,11 +182,11 @@ public sealed record PluginProtection(PluginKey Plugin, LoadProtection Behavior)
 - Owner: `PluginRead` and `PluginLookup` are the host reads AS DATA — one row per free-standing registry static, each row owning the call it makes and the `PluginAnswer` case it produces, so a new registry read is one row and no arm, no case, and no admission leg moves.
 - Law: the two tables split on PAYLOAD, not on answer — `PluginRead` rows take an admitted `PluginKey` and `PluginLookup` rows take admitted text, which is exactly the admission each needs; a single table would carry a payload half its rows cannot use.
 - Owner: `PluginQuery` closes every registry read in six cases where fourteen stood, because eleven of them differed only in which host static an arm called.
-- Law: admission runs before any host call — text coordinates pass `Op.AcceptText`, identity coordinates pass `PluginKey.Admit`, and the kind filter passes `PluginKind.Law.Admit`, so a query that cannot resolve never reaches the native manager. The roster case's three independent columns ACCUMULATE, so a caller learns every absent column at once.
+- Law: admission runs before any host call — text coordinates pass `Acceptance.Text`, identity coordinates pass `PluginKey.Admit`, and the kind filter passes `PluginKind.Law.Admit`, so a query that cannot resolve never reaches the native manager. The roster case's three independent columns ACCUMULATE, so a caller learns every absent column at once.
 - Law: an unresolved identity or path is `None`, not a fault — the host answers `Guid.Empty` or an empty string for an unknown coordinate, and those sentinels are projected away by `PluginKey.Maybe` and `HostEdge.Text` at the row rather than surfacing as a value.
 - Law: an answer names the request it answers where the payload alone cannot — `PluginAnswer.Names` carries its `NameSource`, because a command roster, an installed-name roster, and a folder roster are three questions with one payload shape (folder RULINGS `[02]`).
 - Boundary: the descriptor row is the ONE read that touches `PlugInInfo`; every other row reads a free-standing static, so the native record's lifetime never spans two reads.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/results` (`Op.AcceptText`, `HostEdge.Text`, `Op.Need`, `HostEdge.Probe`, `Op.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/results` (`Acceptance.Text`, `HostEdge.Text`, `Admit.Need`, `HostEdge.Probe`, `FactoryBridge.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
 
 ```csharp
 // --- [TABLES] --------------------------------------------------------------------------
@@ -346,12 +346,12 @@ public abstract partial record PluginAnswer {
 
 ## [05]-[CENSUS]
 
-- Entry: `PluginCensus.Ask(PluginQuery, Op?)` is the single read entry; a new registry read is one ROW on `PluginRead` or `PluginLookup`, and the entry itself does not move.
-- Law: the descriptor's kind and schedule project through `Op.Row` against the host value; an ordinal the vocabulary does not carry refuses typed rather than defaulting to a row the registry never reported.
+- Entry: `PluginCensus.Ask(PluginQuery)` is the single read entry; a new registry read is one ROW on `PluginRead` or `PluginLookup`, and the entry itself does not move.
+- Law: the descriptor's kind and schedule project through `FactoryBridge.Row` against the host value; an ordinal the vocabulary does not carry refuses typed rather than defaulting to a row the registry never reported.
 - Law: the kind filter leaves the capability owner ONCE, at the one host member that takes the raw flag word, so the OR-fold has a single spelling and no caller re-derives it.
 - Law: `Icon` is a separate leased entry, not a `PluginInfo` field, because a raster is caller-disposed custody and a record field would make its lifetime ambient; it answers the kernel `AssetOrigin.Raster` over an `AssetRaster.Gdi` scale row, so a consumer receives extent and scale rather than an unlabelled bitmap and composes `AssetOrigin.Resolve` for any other product shape.
 - Boundary: every native string crosses through `HostEdge.Text` and every registry identity through `PluginKey.Maybe`, so a host null, an empty string, and a `Guid.Empty` are each the same typed absence.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/results` (`Op`, `HostEdge.Text`, `Op.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/results` (`HostEdge.Text`, `Admit.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -400,12 +400,12 @@ public static class PluginCensus {
 ## [06]-[ADMISSION]
 
 - Owner: `PluginAct` closes registry mutation — load by path, load by identity, and load-protection assignment.
-- Entry: `PluginRegistry.Commit(PluginAct, Op?)` is the one mutation entry; the two host load overloads are two cases on it, never two entrypoints. `lifecycle#LOAD_ROOT` folds a program's declared `PluginBoot.Prerequisites` through it at plug-in load, which is the only moment a package may load its own dependencies.
+- Entry: `PluginRegistry.Commit(PluginAct)` is the one mutation entry; the two host load overloads are two cases on it, never two entrypoints. `lifecycle#LOAD_ROOT` folds a program's declared `PluginBoot.Prerequisites` through it at plug-in load, which is the only moment a package may load its own dependencies.
 - Law: `PathLoadVerdict` mirrors `LoadPlugInResult` whole — the host publishes exactly `Success`, `SuccessAlreadyLoaded`, and `ErrorUnknown` (`.api/api-rhinocommon-plugins.md:53`) — so "already loaded" stays a distinct success rather than collapsing into the plain success arm.
 - Law: identity-keyed load answers a bare `bool`, so a false answer refuses typed with the requested key as detail; the host publishes no richer reason on that overload.
 - Law: `SetLoadProtection` returns nothing and the host publishes no failure signal, so `PluginOutcome.Protected` reports the assignment the boundary made and a caller wanting the settled state re-reads `PluginRead.Protection`.
 - Boundary: loading a plug-in runs its `OnLoad` inside this call, so a `Commit` is a host lifecycle event, never a query — this is exactly why the read family carries no load flag.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `HostEdge.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/results` (`Admit.Need`, `Try.lift`, `HostEdge.Side`), `Domain/validation` (`FactoryBridge.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

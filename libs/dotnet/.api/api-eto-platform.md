@@ -150,7 +150,7 @@
 
 [STACKING]:
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): the identity vocabulary — `Platforms` ids and `PlatformFeatures` flags — maps at each boundary onto `[SmartEnum]` and flag owners, so a platform-gate decision is exhaustive dispatch rather than a stringly-keyed `ID` comparison collapsing an `IsMac`/`IsWpf` predicate ladder.
-- `LanguageExt.Core`(`.api/api-languageext.md`): runtime-nullable `Platform.Instance`, `Find`, and `CreateNativeControlArgs.NativeControl` lower onto `Option<T>`/`Fin<T>` at each boundary; `Platform.Create<T>()` and an invalid native-host payload enter `Op.Catch` before `Eff<A>` scopes the already-carried native attach and detach lifecycle for deterministic release.
+- `LanguageExt.Core`(`.api/api-languageext.md`): runtime-nullable `Platform.Instance`, `Find`, and `CreateNativeControlArgs.NativeControl` lower onto `Option<T>`/`Fin<T>` at each boundary; `Platform.Create<T>()` and an invalid native-host payload enter `Try.lift` before `Eff<A>` scopes the already-carried native attach and detach lifecycle for deterministic release.
 - `api-eto-forms`(`.api/api-eto-forms.md`) and `api-eto-drawing`(`.api/api-eto-drawing.md`): this root resolves the control object each consumes, and the `Themed*Handler` backend classes register through `Platform.Add<TWidget.IHandler>` at this registry rather than as widget-construction rows.
 
 [LOCAL_ADMISSION]:

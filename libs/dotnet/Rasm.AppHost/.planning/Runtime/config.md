@@ -152,7 +152,7 @@ public sealed partial class ConfigSource {
 - Entry: `Bind<T>(IConfigurationRoot root, string section)` — `Validation<Error,T>` accumulates; unknown keys fail closed through `ErrorOnUnknownConfiguration`.
 - Packages: Microsoft.Extensions.Configuration.Binder, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one case on `ConfigError`; zero new surface.
-- Boundary: `EnableConfigurationBindingGenerator` is a required project property on every options-binding app package — the generator intercepts `Get<T>` and `Bind` call sites with reflection-free binding; policy records are constructor-bound immutable records and `BindNonPublicProperties` is rejected; temporal scalars parse through `InstantPattern.ExtendedIso` and `DurationPattern.Roundtrip`, never culture-ambient parse; the binder exception channel folds through `Op.Catch` without message reminting.
+- Boundary: `EnableConfigurationBindingGenerator` is a required project property on every options-binding app package — the generator intercepts `Get<T>` and `Bind` call sites with reflection-free binding; policy records are constructor-bound immutable records and `BindNonPublicProperties` is rejected; temporal scalars parse through `InstantPattern.ExtendedIso` and `DurationPattern.Roundtrip`, never culture-ambient parse; the binder exception channel folds through `Try.lift` without message reminting.
 
 ```csharp
 // --- [ERRORS] --------------------------------------------------------------------------

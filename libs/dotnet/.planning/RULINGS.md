@@ -85,7 +85,7 @@
 - Exact planar adjudication is the kernel's — Clipper2/NTS serve float planes, a consumer's tolerance source picks the tier, a verdict never rises.
 - Corpus proto descriptors keep ONE spelling — an owner page carries the header-only fence alone; the roster is gate-emitted and a hand mirror forks.
 - `params` entrypoints mint their own `Op` at the entry — an optional `Op? key = null` ahead of the spread forecloses every positional call.
-- Host-enum reads resolve a `[SmartEnum]` row through `Op.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
+- Host-enum reads resolve a `[SmartEnum]` row through `FactoryBridge.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
 - `Rasm.Bim`'s graph set renames `ElementQuery` and `Rasm.Persistence`'s keyed selection `KeySelection`, both over the shared `Selection<TKey>`.
 - `Rasm.Element` `Predicate<ElementLeaf>` is the ONE class-selection closure — `NodeClassSelector` admits through `All(ByKind, ByClassification)`.
 - `Rasm.Element` owns `SectionProperties`, the measure-columned cross-section algebra — `Rasm.Fabrication` `Forming/tube`'s mm-basis record renames.
@@ -99,7 +99,7 @@
 - `Rasm.Persistence` `ContentBlobPort` is the ONE key-minting object-plane byte boundary — derived off `BlobRemote`, bound at the composition root.
 - Kernel `MeasureBundle` is the ONE multi-kind takeoff carrier over `(MassKind, Magnitude)` rows — `GeometryMeasures` stays the single-domain bundle.
 - `Fault` is the sole expected-failure base; `KernelFault` its universal family — each bounded local fault family is one direct `[Union]` root.
-- `Op.Catch` is the one exception admission — it preserves foreign `Error`; only token-proved cancellation or a typed provider refusal remaps.
+- `Try.lift` is the one exception admission — it preserves foreign `Error`; only token-proved cancellation or a typed provider refusal remaps.
 - `ICausedFault` carries the original `Error` on every case minted from a capture — `Fault.Inner` projects that cause unchanged.
 - Generated value admission crosses ONCE into `KernelFault.InvalidValue`/`OutOfRange` — a package `IValidationError<T>` mints a parallel error plane.
 - `Validation<Error,T>` accumulates package faults — a `TFault` carrier compiles until `Fail` demands a `Monoid` whose `Empty` means success.

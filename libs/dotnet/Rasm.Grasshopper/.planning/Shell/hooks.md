@@ -67,7 +67,7 @@ public sealed partial class GrasshopperPoint : IHookRoster<GrasshopperPoint> {
 - Law: fault custody is the composition's `FaultCell` — bounded ring, oldest-out, `Shed` and `Lost` counted — handed whole at the mint; the cell's tap writes each parked `IsolatedFault` through `Shell/telemetry.md`'s `GhInstruments.Hooked` and no page-local `Atom<Seq<IsolatedFault>>`, cap const, or trim fold exists.
 - Law: replay capture comes from `Shell/journal.md` `SessionJournal.Export` or the `HistoryLedger` action stream, re-fired in captured order through the kernel's `TraverseM` verdict fold, so `Ok` certifies the whole window re-fired and a late-mounted panel reads the recent path without a second recording surface.
 - Boundary: raise sites are the owning pages named in the `[02]` census — this page owns the roster and the fact union, never a raise; fire is synchronous, so an effect raise site lifts at its own composition boundary (`IO.lift(() => hooks.Fire(...))`).
-- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Domain` (`HookSet`, `IHookFact`, `HookMounts`, `FaultCell`, `Op`), `Shell/events.md` (`GhFact`, `UiEvent<GhFact>`).
+- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Domain` (`HookSet`, `IHookFact`, `HookMounts`, `FaultCell`), `Shell/events.md` (`GhFact`, `UiEvent<GhFact>`).
 - Growth: zero on the mechanism — new capability lands as `GrasshopperPoint` rows and `HookSignal` cases, a case declaring the arm of the seating fan it answers to; the kernel dispatch never widens per folder.
 
 ```csharp

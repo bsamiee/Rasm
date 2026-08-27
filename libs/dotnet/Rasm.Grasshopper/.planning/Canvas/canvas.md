@@ -24,7 +24,7 @@ Settlement is the kernel gauge composed: `Apply` answers the `GaugedSpan<CanvasL
 - Law: finiteness folds are the kernel's — `ValidityClaim.Finite(point:)`/`Finite(frame:)` (`Rasm/Interaction/input.md UiClaim`); the six page-private `Finite` helpers are deleted and no local geometry claim survives.
 - Law: `Map` is the coordinate authority for host `Screen`/`Control`/`Content` frames; the two map factories admit the source value and frames at the mint and answer the mapped value directly.
 - Boundary: `RepaintRow` owns this canvas's repaint policy; canvas paint, wire routing, and responder registration remain separate canvas owners. Rasters leave as Eto `Bitmap` leases — pixel access is the kernel `PixelLease`'s.
-- Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, pick and raster surfaces, `DragPickingMode`, `CanvasActions`, snap axes, skins, cursors, ZUI state, `SelectionResult`, `Pick`, `WireEnds`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]` — per-project `PrivateAssets` admission), `Rasm.Interaction` (`PickAxis`, `PickGates`, `UiClaim`), `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `Op`, `Lease<T>`), `Shell/telemetry.md` (`GhInstruments`), Thinktecture, LanguageExt.Core.
+- Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, pick and raster surfaces, `DragPickingMode`, `CanvasActions`, snap axes, skins, cursors, ZUI state, `SelectionResult`, `Pick`, `WireEnds`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]` — per-project `PrivateAssets` admission), `Rasm.Interaction` (`PickAxis`, `PickGates`, `UiClaim`), `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `Lease<T>`), `Shell/telemetry.md` (`GhInstruments`), Thinktecture, LanguageExt.Core.
 - Growth: a new read is one result-typed factory; a new pick corner is one legal row on `CanvasPick.Law`; a new host drag grain is one `PickGrain` row keyed on its ordinal; a new raster layer is one `RasterLayer` row.
 
 ```csharp
@@ -285,7 +285,7 @@ internal static partial class CanvasMap {
 ## [03]-[OPERATOR]
 
 - Owner: `CanvasLane` `[SmartEnum<int>]` realizing `IGaugeLane<CanvasLane>` — the canvas gauge vocabulary; each row's bound DERIVES from the kernel dispatch lane it crosses on, so no millisecond literal exists here and a display migration moves the seated pace, never these rows. Kernel `GaugedSpan<CanvasLane>` IS the command's settlement — entry, settle, latency, and the breach verdict all derive from the span, and the caller already holds the case it applied, so the three stamp-pair carriers the fan once kept and the wrapper that re-carried the case identity beside the span are deleted.
-- Owner: `CanvasOp` `[Union]` `` — the closed command family over the host's public navigation, projection, dwell, sparkle, marquee, selection, policy, and inline-editing mutations, each case answering its generated `SelfOp` from the same total dispatch that performs the mutation.
+- Owner: `CanvasOp` `[Union]` — the closed command family over the host's public navigation, projection, dwell, sparkle, marquee, selection, policy, and inline-editing mutations, each case answering its generated `SelfOp` from the same total dispatch that performs the mutation.
 - Owner: `NavTarget` `[Union]` — the three `IFlexControl.Navigate` shapes; `SparkleSpec` `[Union]` — the public host sparkle constructors with `Attached` HOISTED to the union base (the four mint cases carried it identically; the bespoke case carries a live `ISparkle` whose attachment is its own and reads the base column never); `ActionGate` `[SmartEnum<int>]` realizing `ICapability<ActionGate>` — the `CanvasActions` vocabulary over paired `Write`/`Read` delegate columns; `InlinePrompt` — the content-frame editor intent whose deferred cancellation callback carries the root fault cell.
 - Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline clock)` → `Fin<GaugedSpan<CanvasLane>>`; `CanvasOperator.Read<TResult>(CanvasQuery<TResult> query)` → `Fin<TResult>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default)` → `Fin<Unit>`. Clock is the session's ONE injected timeline (folder RULINGS `[02]`).
 - Law: `Apply` brackets the marshalled case in `clock.Gauged< CanvasLane>(CanvasLane.Command, …)` — the span lands on a refused command too, so the pulse evidence covers every crossing.
@@ -408,20 +408,20 @@ public abstract partial record CanvasOp : IValidityEvidence {
     internal Fin<> Execute(HostCanvas surface) => Switch(
         state: surface,
         navigateCase: static (state, command) => command.Target.Steer(surface: state)
-            .Map(static _ => NavigateCase.SelfOp),
+,
         projectionCase: static (state, command) => Try.lift(() =>
-            state.Projection = command.Next).Run().Bind(static inner => inner).Map(static _ => ProjectionCase.SelfOp),
+            state.Projection = command.Next).Run().Bind(static inner => inner),
         dwellCase: static (state, command) => Try.lift(() =>
-            state.MouseDwellDelay = command.Delay).Run().Bind(static inner => inner).Map(static _ => DwellCase.SelfOp),
+            state.MouseDwellDelay = command.Delay).Run().Bind(static inner => inner),
         sparkleCase: static (state, command) => Try.lift(() =>
-            state.AddSparkle(command.Spec.Mint())).Run().Bind(static inner => inner).Map(static _ => SparkleCase.SelfOp),
-        marqueeOpenCase: static (state, _) => Try.lift(state.BeginWindowSelect).Run().Bind(static inner => inner).Map(static _ => MarqueeOpenCase.SelfOp),
-        marqueeCloseCase: static (state, _) => Try.lift(state.EndWindowSelect).Run().Bind(static inner => inner).Map(static _ => MarqueeCloseCase.SelfOp),
+            state.AddSparkle(command.Spec.Mint())).Run().Bind(static inner => inner),
+        marqueeOpenCase: static (state, _) => Try.lift(state.BeginWindowSelect).Run().Bind(static inner => inner),
+        marqueeCloseCase: static (state, _) => Try.lift(state.EndWindowSelect).Run().Bind(static inner => inner),
         gatesCase: static (state, command) => Try.lift(() => {
                 state.WindowSelectObjects = command.Gates.Admits(SelectAxis.Objects);
                 state.WindowSelectWires = command.Gates.Admits(SelectAxis.Wires);
                 state.WindowSelectGroups = command.Gates.Admits(SelectAxis.Groups);
-            }).Run().Bind(static inner => inner).Map(static _ => GatesCase.SelfOp),
+            }).Run().Bind(static inner => inner),
         policyCase: static (state, command) => Try.lift(() => {
                 CanvasActions actions = state.AllowedActions;
                 toSeq(ActionGate.Items).Iter(gate => gate.Write(actions: actions, allowed: command.Allowed.Admits(gate)));
@@ -429,13 +429,13 @@ public abstract partial record CanvasOp : IValidityEvidence {
                     actions.MakeWireFilter = HostEdge.Slot(filters.Make);
                     actions.DeleteWireFilter = HostEdge.Slot(filters.Delete);
                 });
-            }).Run().Bind(static inner => inner).Map(static _ => PolicyCase.SelfOp),
+            }).Run().Bind(static inner => inner),
         editCase: static (state, command) => Try.lift(() =>
             state.ShowInlineEditor(
                 command.Prompt.Frame,
                 command.Prompt.Seed,
                 text => command.Prompt.Apply(text: text),
-                HostEdge.Slot(command.Prompt.Cancellation()))).Run().Bind(static inner => inner).Map(static _ => EditCase.SelfOp));
+                HostEdge.Slot(command.Prompt.Cancellation()))).Run().Bind(static inner => inner));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

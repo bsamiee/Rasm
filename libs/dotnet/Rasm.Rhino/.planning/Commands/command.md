@@ -684,7 +684,7 @@ public static class Scripting {
 }
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-commands.md` — `Command` subclassing, `RunCommand`, command-context enums); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` census rows, `[ComplexValueObject]`/`[ValueObject]` carriers); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the `CommandMap` `[Mapper]`); kernel `Domain/results` (`Op`, `Fin`) and `Domain/hooks` (`HookSet`, `IHookFact`).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-commands.md` — `Command` subclassing, `RunCommand`, command-context enums); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` census rows, `[ComplexValueObject]`/`[ValueObject]` carriers); `Riok.Mapperly` (`libs/dotnet/.api/api-mapperly.md` — the `CommandMap` `[Mapper]`); kernel `Domain/results` (`Fin`) and `Domain/hooks` (`HookSet`, `IHookFact`).
 
 ## [07]-[RESEARCH]
 

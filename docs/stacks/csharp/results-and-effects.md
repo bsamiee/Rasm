@@ -40,7 +40,7 @@ Choose the narrowest carrier that preserves the real outcome. A wider carrier is
 Every boundary converts once into the carrier that states the real outcome; reusable transforms keep that carrier and never re-project mid-pipeline.
 
 [EXCEPTION_CAPTURE]:
-- Use: `Op.Catch` as the one shared capture hook over the body, returning `Fin<T>` and flattening a body-returned `Fin<T>` exactly once.
+- Use: `Try.lift` as the one shared capture hook over the body, returning `Fin<T>` and flattening a body-returned `Fin<T>` exactly once.
 - Law: `Try.lift(...).Run()` is NOT a capture primitive — it normalizes a thrown cancellation or timeout into an `Expected` error at a reserved negative code with the exception dropped, and splays an `AggregateException` into `ManyErrors` while flipping its inner timeout the same way, so every later rule reads evidence the lift already destroyed; `IO.lift` rethrows cancellation instead of capturing it.
 - Law: the caught exception becomes `Error.New(raised.Message, raised)` off an `Exception`-typed variable — `Error.New(raised)` performs the same lossy normalization, and a derived static type makes the two-argument call ambiguous against `New(string, Error)` (CS0121).
 - Law: cancellation is cancellation only when the token handed to the body proves requested; an unrequested or tokenless `OperationCanceledException` stays an ordinary captured failure, never inferred from the exception class.

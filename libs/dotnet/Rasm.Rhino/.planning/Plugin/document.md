@@ -22,7 +22,7 @@
 - Boundary: `FileWriteOptions.RhinoDoc` is not detached into the intent — the crossing already carries the document as a `DocKey`, and a second document coordinate could disagree with it.
 - Boundary: `GetFileName()` is not detached either; `DestinationFileName` is the declared target and the host's derived name is a presentation of it.
 - Boundary: `SuppressDialogBoxes`, `SuppressAllInput`, and `AllowUserInterfaceWithHeadlessDocument` are host FILE-OPTIONS facts read at a save or open boundary, not interaction policy — they stay rows on this boundary and reach no kernel interaction owner.
-- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Op.Need`, `Op.Catch`, `HostEdge.Text`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
+- Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/results` (`Admit.Need`, `Try.lift`, `HostEdge.Text`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -137,7 +137,7 @@ public sealed record ReadIntent(
 - Law: `Declares` answers `Fin<bool>` — the host asks `ShouldCallWriteDocument` before it asks for bytes, and a participant that cannot decide must be able to REFUSE rather than have its throw become an unattributable crossing fault; a participant answering false there is then never asked to compose, and a composer that refuses after a true predicate is a participant fault, not a host one.
 - Law: `ArchiveSchema` belongs to the participant, so schema versioning is per-plug-in: the current version is what a write stamps, the readable set is what a read accepts, and `ArchiveIo` refuses an out-of-set frame before any payload is detached.
 - Boundary: the adopter receives the whole `ArchiveEnvelope` — payload beside `ArchiveIntegrity.ReadCase` — so a consumer that cares about checksum or archive version reads its own evidence rather than trusting an unverified payload.
-- Packages: LanguageExt.Core (`Fin`, `Unit`); kernel `Domain/results` (`Op`); `Persistence/userdata` (`ArchiveSchema`, `ArchiveEnvelope`), `Persistence/dictionary` (`ArchiveMap`); `Document/session` (`DocKey`).
+- Packages: LanguageExt.Core (`Fin`, `Unit`); kernel `Domain/results` ; `Persistence/userdata` (`ArchiveSchema`, `ArchiveEnvelope`), `Persistence/dictionary` (`ArchiveMap`); `Document/session` (`DocKey`).
 
 ```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -151,16 +151,16 @@ public interface IParticipant {
 
 ## [04]-[CROSSING]
 
-- Entry: `Participation.Cross(ParticipationAsk, Op?)` is the one document-participation entry; the three host callbacks are three cases on it.
+- Entry: `Participation.Cross(ParticipationAsk)` is the one document-participation entry; the three host callbacks are three cases on it.
 - Law: every case detaches its intent BEFORE the participant runs, so a participant never observes a live host options object and a detach fault refuses the crossing rather than half-composing it.
 - Law: the write case composes the payload first and frames it second, so a composer refusal never opens a chunk the boundary would then have to abandon mid-frame.
 - Law: the read case adopts AFTER `ArchiveIo` has proved schema readability, checksum, and reader state, so a participant never sees a payload the frame did not verify.
 - Law: the exchange result is read through its own total dispatch — the caller knows which direction it asked for, but the union answers both, so the mismatched arm refuses by CASE rather than by an `is`-probe with a fall-through a third direction would silently take.
-- Law: the participant's own members are already carried, so each call crosses through `Op.Catch` alone and no arm re-wraps an existing `Fin` in a second success.
+- Law: the participant's own members are already carried, so each call crosses through `Try.lift` alone and no arm re-wraps an existing `Fin` in a second success.
 - Output: both crossings answer their `ArchiveIntegrity` evidence, so a caller records what the archive actually reported rather than inferring success from the absence of a fault.
 - Boundary: the `ParticipationAsk` cases carry LIVE `RhinoDoc`, `BinaryArchiveWriter`, `BinaryArchiveReader`, and file-options handles by design — this pipeline is the boundary where `lifecycle#ADAPTER` terminates them, which is why the detach-first law lives INSIDE the arms rather than at the case constructors.
 - Boundary: this pipeline runs inside the host's own save and open sequence and opens no document session; the document is already the host's and the crossing mutates no table. No deferral and no re-drive is expressible here — the host callback owns the thread and a retried write reopens a chunk the host already closed.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Seq`); kernel `Domain/results` (`Op.Need`, `Op.Catch`); `Persistence/userdata` (`ArchiveIo.Cross`, `ArchiveIntegrity`, `ArchiveEnvelope`); `Document/session` (`DocKey.Of`); RhinoCommon file I/O (`.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
+- Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Seq`); kernel `Domain/results` (`Admit.Need`, `Try.lift`); `Persistence/userdata` (`ArchiveIo.Cross`, `ArchiveIntegrity`, `ArchiveEnvelope`); `Document/session` (`DocKey.Of`); RhinoCommon file I/O (`.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -232,7 +232,7 @@ public static class Participation {
 - Law: observation is `SettingStore.Observe` over `PlugIn.SettingsSaved` — the instance event on the owning derivation — so this page mints no second event lifecycle and the `SavedSettingsRoot` vocabulary is composed, never re-declared. The sink runs on the host's own settings-saved thread and no marshal is minted here.
 - Law: independent columns ACCUMULATE — the watch case reports every absent argument at once through the applicative join rather than folding four probes into one message a caller cannot decode.
 - Boundary: this bridge addresses the plug-in root alone. `SettingsRoot` also carries a command root keyed on the host `Rhino.Commands.Command` instance, which a command holds for itself, while `SavedSettingsRoot.CommandCase` names the command for observation — both live at their owner and this page seats no second addressing family.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<bool>]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` tuple `.Apply`); kernel `Domain/results` (`Op.Need`, `Op.Catch`, `Op.AcceptValidated`); `Persistence/settings` (`SettingKey`, `SettingPath`, `SettingsRoot.PlugInCase`, `SavedSettingsRoot`, `SettingsTree`, `SettingsSaved`, `SettingStore.Observe`), `Document/lifetime` (`Subscription`); `Plugin/census` (`PluginCensus.Ask`, `PluginQuery.Keyed`, `PluginRead.Presence`, `PluginPresence`, `PluginState`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `GetPluginSettings`, `SavePluginSettings`, `SaveSettings`, `FlushSettingsSavedQueue`, `RaiseOnPlugInSettingsSavedEvent`, `SettingsSaved`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<bool>]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` tuple `.Apply`); kernel `Domain/results` (`Admit.Need`, `Try.lift`, `FactoryBridge.Accept`); `Persistence/settings` (`SettingKey`, `SettingPath`, `SettingsRoot.PlugInCase`, `SavedSettingsRoot`, `SettingsTree`, `SettingsSaved`, `SettingStore.Observe`), `Document/lifetime` (`Subscription`); `Plugin/census` (`PluginCensus.Ask`, `PluginQuery.Keyed`, `PluginRead.Presence`, `PluginPresence`, `PluginState`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `GetPluginSettings`, `SavePluginSettings`, `SaveSettings`, `FlushSettingsSavedQueue`, `RaiseOnPlugInSettingsSavedEvent`, `SettingsSaved`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

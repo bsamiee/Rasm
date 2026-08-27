@@ -16,9 +16,9 @@
 - Owner: `DimensionSpec` carries one payload per host construction form and admits every raw geometric value before native construction.
 - Law: `AngularExtension` carries extension-point behavior as a value consumed by the line-pair constructor.
 - Law: admission ACCUMULATES — a frame refused on its plane and its horizontal axis alike reports both clauses through `DraftFault`'s own semigroup, so a caller fixing one defect does not discover the next on the following attempt.
-- Boundary: `DimensionSpec.Mint` captures the native constructor family through the one `Op.Catch` funnel, so a throwing constructor lands as the keyed `InvalidResult` carrying the caught detail.
+- Boundary: `DimensionSpec.Mint` captures the native constructor family through the one `Try.lift` funnel, so a throwing constructor lands as the keyed `InvalidResult` carrying the caught detail.
 - Boundary: a curve-driven construction takes a `GeometryHandle` and reads its native inside one `DraftBorrow` scope, matching the custody every exploded product already crosses on — a raw `Curve` in a public payload names no owner and no lifetime.
-- Packages: `Domain/context` (`Context.For`, `Tolerance`, `ToleranceLane.Orientation`), `Domain/validation` (`Op.Accept` span receiver, `Op.AcceptValidated`), `Document/session.md` (`DraftFault`), `Annotation/style.md` (`DraftBorrow`, `DraftScale`); RhinoCommon `LinearDimension`/`AngularDimension`/`RadialDimension`/`OrdinateDimension`/`Centermark` per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Domain/context` (`Context.For`, `Tolerance`, `ToleranceLane.Orientation`), `Domain/validation` (`Acceptance.Rows` span receiver, `FactoryBridge.Accept`), `Document/session.md` (`DraftFault`), `Annotation/style.md` (`DraftBorrow`, `DraftScale`); RhinoCommon `LinearDimension`/`AngularDimension`/`RadialDimension`/`OrdinateDimension`/`Centermark` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a construction form lands as one `DimensionSpec` case and one total dispatch arm; a new point roster is one product both families read.
 
 ```csharp
@@ -218,7 +218,7 @@ public abstract partial record DimensionSpec {
 - Law: `DimAdjust.Linear` is the one arm carrying its own roster — the host refits a linear dimension from PLANE-space `Point2d` triples where every other family takes world points — and the divergence is the host member's, named here rather than smoothed over.
 - Law: a pose gate reports every violated column, so a caller correcting a non-finite rotation is not then told its scale is non-positive; the two `is not null` re-checks the gate once carried are the boundary's job and the boundary already did it.
 - Boundary: refit and pose act on the duplicate supplied by `TextOp.Reworked`, so a rejected native edit never mutates document-owned geometry.
-- Packages: `Domain/validation` (`Op.Accept`, `Op.AcceptValidated`), `Document/session.md` (`DraftFault`); RhinoCommon `AdjustFromPoints`/`SetLocations` per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Domain/validation` (`Acceptance.Rows`, `FactoryBridge.Accept`), `Document/session.md` (`DraftFault`); RhinoCommon `AdjustFromPoints`/`SetLocations` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a refit form is one `DimAdjust` case reading one point product; a pose column is one member and one clause.
 
 ```csharp
@@ -439,7 +439,7 @@ public static class Dimensions {
 - Law: the read side names the text-point axis with the SAME row the write side does — an asymmetric raw `bool` on one half of one concept is the discarded discriminant, not a simpler shape.
 - Boundary: exploded geometry crosses through `DraftCrossing.Crossed`, the namespace's one detach fold, and `DimAnswer.Pieces` owns the detached handles until the caller folds `Release`.
 - Boundary: custody release rides the RESULT, not a disposer. A `void Dispose` swallows its cleanup fault or replaces a primary exception mid-unwind, so `DimAnswer.Release` returns `Fin<Unit>` and the accumulated release fault reaches the caller typed. NAMED LOSS: `using`-scopability of the answer — bought back by a fault a consumer reads, where the cell it used to park on had no reader anywhere; witness — the `pieces` arm folds kernel `Custody.Dispose` and every other case answers success.
-- Packages: `Annotation/style.md` (`DraftCrossing`, `DraftScale`, `StyleField`, `StyleSetting`, `StyleValue`), `Domain/results` (`Custody`, `Op.Catch`, `Op.Unsupported`); RhinoCommon `Get3dPoints`/`GetDisplayLines`/`GetTextRectangle`/`GetAngleDisplayText`/`GetDistanceDisplayText`/`GetTextTransform`/`Explode` per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Annotation/style.md` (`DraftCrossing`, `DraftScale`, `StyleField`, `StyleSetting`, `StyleValue`), `Domain/results` (`Custody`, `Try.lift`, `KernelFault.Unsupported`); RhinoCommon `Get3dPoints`/`GetDisplayLines`/`GetTextRectangle`/`GetAngleDisplayText`/`GetDistanceDisplayText`/`GetTextTransform`/`Explode` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a measuring family is one `DimFamily` row answering every column; a read is one `DimAsk` case with its `DimAnswer` twin.
 
 ```csharp

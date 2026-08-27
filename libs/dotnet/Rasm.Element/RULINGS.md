@@ -28,7 +28,7 @@
 - `MeasureStat` pairs kernel `Stat<Scalar>` with a `QuantitySignature` — a moments fold over `MeasureValue` drops the signature the pair carries.
 - `ResolveRepresentation` is the ONE content-key→geometry resolver the contract publishes; a same-named narrower twin composes or renames.
 - `[ValidationError]`-stamped owners admit through `key.AcceptValidated<TVO>` — a generic-token wrapper is deleted.
-- By-column roster resolves compose kernel `Op.Row` with the comparer stated on site and preserve its kernel read refusal.
+- By-column roster resolves compose kernel `FactoryBridge.Row` with the comparer stated on site and preserve its kernel read refusal.
 - `TableDeclaration` is the ONE dataset self-description and `TableBatch` keys on it — a foreign producer instantiates the carrier, never a row.
 - Contract value-space compares read a kernel `Tolerance` minted on the `Relative` lane — a bare tolerance double beside the contract is the deleted form.
 - Snapshot memos are cache mechanics, never domain facts — observability lives at the consumer's cache, a latency series as a caller `GaugedSpan`.

@@ -108,7 +108,7 @@ public abstract partial record GhFact : IUiFact {
 - Law: the emit thunk publishes into the kernel drain through `UiEvents.Observe` — projection runs inside the drain's own admission, a refused projection counts on `Refused`, a dropped event on `Shed`, and the ordinal mints under the drain's one compare-and-swap. No row touches an ordinal, a fault cell, or a log; the loss accounting is the kernel's.
 - Law: subscription is `UiEvents.Observe(anchor, drain, Atomicity.AllOrNothing, key, rows)` — the folder's ruled posture: a refused row detaches every seated sibling and refuses whole, because the journal reading the drain is replayable only over a complete row set. Diagnostic consumer wanting partial attach names `Atomicity.Partial` at its own call site; both are kernel rows, not folder forks.
 - Boundary: native-monitor streams stay `Platform/native.md`'s — the platform owner projects its gated monitors into the same drain from above; the eight canvas paint fences are `Canvas/paint.md`'s executor and never rows here.
-- Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and args types), `Rasm.Interaction` (`IUiSource`, `EventAnchor`, `UiEvents`, `EvidenceDrain`, `Atomicity`), `Rasm.Domain` (`Op`, `Fault`).
+- Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and args types), `Rasm.Interaction` (`IUiSource`, `EventAnchor`, `UiEvents`, `EvidenceDrain`, `Atomicity`), `Rasm.Domain` (`Fault`).
 - Growth: a new host stream is one row through an existing fold; a new args family is one `EventTable` instantiation — the roster's two folds and the kernel gate never change.
 
 ```csharp
@@ -223,7 +223,7 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
 - Owner: `HookBridge` — the two veto bridges the hook census names as this page's fire sites: `Window.Closing` and `Application.Terminating` carry `CancelEventArgs` the kernel fact projection cannot write back, so each bridge attaches the raw handler, fires its own point — `hooks.Fire(at: GrasshopperPoint.WindowClose, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None))` at the closing bridge, `ShellTerminate` at the terminating one — and writes `args.Cancel = true` on the `Fail` leg — the one host readback in the module, stated rather than hidden in a source row.
 - Law: the bridge takes the hooks as a REQUIRED parameter (minted at `Platform/composition.md`); a mount with no hooks has no veto to consult and does not exist.
 - Law: the bridge is not an event row — the same host events also ride the kernel `UiSource.Closing`/`Terminating` rows as facts; the bridge exists only for the verdict write-back, so observation and governance stay two boundaries with two shapes.
-- Packages: Eto.Forms (`Window`, `Application`, `CancelEventArgs`), `Rasm.Domain` (`HookSet`, `Op`, `Lease<T>`).
+- Packages: Eto.Forms (`Window`, `Application`, `CancelEventArgs`), `Rasm.Domain` (`HookSet`, `Lease<T>`).
 - Growth: a third `CancelEventArgs` surface is one mount arm; the write-back law never widens.
 
 ```csharp

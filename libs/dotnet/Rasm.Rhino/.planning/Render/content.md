@@ -14,12 +14,12 @@
 
 - Owner: `ContentKind` rows own kind-specific table behavior, `ContentStyle` is the capability vocabulary the native style mask decodes onto, `ProxyKind` classifies proxy topology, `ChangeReason` translates change context, and `ChangeScope` closes every direct mutation bracket. Sibling mutation pipelines commit through the Document spine's `DocumentCommit.Sealed` (which owns the suppress/restore/flush bracket), and `Bridge` carries the two folder-wide projections — `Row` (a host column onto its vocabulary row) and `Minted` (a null-answering host mint into owned custody).
 - Entry: `ContentKind.Attach`/`Detach` are the result-typed table writes; `ContentKind.Table` is the ONE table change window, and `Roster` the kind's live census.
-- Law: kind is derived, never asked — each `ContentKind` row carries a `Holds` predicate over the live subtype, `ContentKind.Of(RenderContent, Op)` derives from `Items`, and `ContentKind.Of(RenderContentKind, Op)` admits the native discriminant through the kernel host-enum row read, so an undefined ordinal refuses before the roster is scanned. Null ingress is invalid input; an unmatched live subtype is an invalid host result.
+- Law: kind is derived, never asked — each `ContentKind` row carries a `Holds` predicate over the live subtype, `ContentKind.Of(RenderContent)` derives from `Items`, and `ContentKind.Of(RenderContentKind)` admits the native discriminant through the kernel host-enum row read, so an undefined ordinal refuses before the roster is scanned. Null ingress is invalid input; an unmatched live subtype is an invalid host result.
 - Law: every direct field, parameter, parameter-binding, texture, rename, or child-slot write rides `ChangeScope.Write` with a named `ChangeReason`; host-owned table, assignment, replacement, grouping, and export verbs retain their own change semantics.
 - Law: host begin/end windows are CUSTODY, never a `finally` — `ChangeScope` and `TableScope` are `IDisposable` windows carried on `Lease<T>`, so the kernel `Use` fold aggregates an `EndChange`/`EndChange` refusal INTO the body's own fault. Wrapping the same pair in `try/finally` silently replaces the body's fault with the release's, which is the deleted form.
 - Law: `ContentKind` columns are the only site naming `RenderMaterials`/`RenderEnvironments`/`RenderTextures`; every content operation reaches a table through its kind row.
 - Growth: a new change context is one `ChangeReason` row; a new content kind is one `ContentKind` row whose columns close its table behavior.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/results` (`Op`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `FactoryBridge.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -198,7 +198,7 @@ internal static class Bridge {
 - Law: resolution reads live per call — the content graph mutates under UI edits, undo, and linked events, so no resolved handle is cached on a value; a consumer holding a `ContentRef` re-resolves at each use inside the owning operation.
 - Law: every public factory threads the caller's `Op` — a key minted inside the owner names the owner instead of the operation that asked, so the fault loses the call site it came from.
 - Boundary: `Resolve` is the only site naming `RenderContent.FromId` and `FindChild`; every sibling page addresses through this union.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/results` (`Op.OrDefault`, `Op.AcceptText`, `Op.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/results` (`Op.OrDefault`, `Acceptance.Text`, `KernelFault.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -245,7 +245,7 @@ public abstract partial record ContentRef {
 - Law: the read owns its own witness — `Read` mints the `HashWitness`, so the workflow scope recorded on the witness is the scope the read took. Storing a posture flag on the probe beside a caller-chosen overload lets the witness disagree with the call, which is the deleted form.
 - Law: a live `LinearWorkflow` never reaches a stored value — it enters `Read` as an argument the caller resolved inside its own demand window, and only the `HashScope` row it selects crosses onto the witness.
 - Growth: a content fact is one `ContentTrait` row with its predicate; an exclusion axis is one `HashAxis` row with its bit.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderHash`, `RenderHashExclude` both arities, `Styles`, `ProxyType`, `ModelUnits`, `TopLevel`/`Hidden`/`Private`/`IsLocked`/`CanBeEdited`/`IsDefaultInstance`/`IsHiddenByAutoDelete`, `IsReference`, `UseCount`, `DocumentOwner`/`DocumentAssoc`, `FirstChild`/`NextSibling`/`ChildSlotName`/`ChildSlotDisplayName`, `ChildSlotOn`/`ChildSlotAmount`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/context` (`ModelUnit.Of(LengthUnit, Op)`), `Domain/validation` (`ICapability`, `CapabilitySet.Of`/`OfMask`/`Mask`/`Wire`); LanguageExt.Core (`List.unfold`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderHash`, `RenderHashExclude` both arities, `Styles`, `ProxyType`, `ModelUnits`, `TopLevel`/`Hidden`/`Private`/`IsLocked`/`CanBeEdited`/`IsDefaultInstance`/`IsHiddenByAutoDelete`, `IsReference`, `UseCount`, `DocumentOwner`/`DocumentAssoc`, `FirstChild`/`NextSibling`/`ChildSlotName`/`ChildSlotDisplayName`, `ChildSlotOn`/`ChildSlotAmount`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/context` (`ModelUnit.Of(LengthUnit)`), `Domain/validation` (`ICapability`, `CapabilitySet.Of`/`OfMask`/`Mask`/`Wire`); LanguageExt.Core (`List.unfold`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -405,7 +405,7 @@ public sealed record ContentSnapshot(
 - Law: `Lease<RenderContent>` disposes every untransferred mint; successful table attachment transfers custody to the document.
 - Law: XML and archive cases preserve the host's two serialized ingress routes; XML/file egress and embedded-file evidence belong to registry programs because those operations start from addressed live content.
 - Boundary: factory-registry minting (`RenderContent.Create` by type id) is the registry page's; this union owns only the serialized-form ingress.
-- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/results` (`Lease<T>.Owned`, `Op.AcceptText`, `Op.OrDefault`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/results` (`Lease<T>.Owned`, `Acceptance.Text`, `Op.OrDefault`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

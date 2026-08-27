@@ -6,11 +6,11 @@
 
 [PUBLIC_TYPE_SCOPE]: facade and shape vocabulary
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                              |
 | :-----: | :------------------- | :------------ | :------------------------------------------------------- |
 |  [01]   | `Shapefile`          | class         | abstract facade over readers, writers, and type sniff    |
 |  [02]   | `ShapeType`          | enum          | one shape type per file; heterogeneous rejected at write |
-|  [03]   | `ShapefileException` | class         | foreign codec exception preserved exactly by `Op.Catch`  |
+|  [03]   | `ShapefileException` | class         | foreign codec exception preserved exactly by `Try.lift`  |
 
 [SHAPE_TYPE]: `NullShape` `Point` `PolyLine` `Polygon` `MultiPoint` `PointZM` `PolyLineZM` `PolygonZM` `MultiPointZM` `PointM` `PolyLineM` `PolygonM` `MultiPointM` `MultiPatch`
 
@@ -18,7 +18,7 @@
 
 [PUBLIC_TYPE_SCOPE]: forward-only readers
 
-| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY] | [CAPABILITY]                              |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                              |
 | :-----: | :--------------------------------------------------- | :------------ | :---------------------------------------- |
 |  [01]   | `ShapefileReader`                                    | class         | abstract `IEnumerable<Feature>` cursor    |
 |  [02]   | `Shapefile{Point,PolyLine,Polygon,MultiPoint}Reader` | class         | per-type readers `OpenRead` dispatches to |
@@ -28,7 +28,7 @@
 
 [PUBLIC_TYPE_SCOPE]: forward-only writers
 
-| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY] | [CAPABILITY]                               |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                              |
 | :-----: | :--------------------------------------------------- | :------------ | :----------------------------------------- |
 |  [01]   | `ShapefileWriter`                                    | class         | abstract, flush-on-dispose cursor          |
 |  [02]   | `Shapefile{Point,PolyLine,Polygon,MultiPoint}Writer` | class         | per-type writers `OpenWrite` dispatches to |
@@ -58,7 +58,7 @@
 
 [ENTRYPOINT_SCOPE]: read shapefiles
 
-| [INDEX] | [SURFACE]                                                                    | [SHAPE] | [CAPABILITY]                        |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                           |
 | :-----: | :--------------------------------------------------------------------------- | :------ | :---------------------------------- |
 |  [01]   | `Shapefile.OpenRead(string, ShapefileReaderOptions?) -> ShapefileReader`     | static  | streaming reader (large files)      |
 |  [02]   | `Shapefile.OpenRead(Stream shp, Stream dbf, ShapefileReaderOptions?)`        | static  | stream overload (in-memory ingest)  |

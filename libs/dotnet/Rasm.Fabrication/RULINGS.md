@@ -39,7 +39,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - Request-indexed folds answer the case their demand seats — `ISpecDemand<TResult>` binds the correspondence at compile time.
 - Payload-free closed vocabularies are `[SmartEnum]` row families — `[Union]` mints two record types and a conversion plane to say what a row says.
 - `bool` parameters are lawful only at the LAST hop into a kernel or provider arity that takes one — every other one is a declared policy row.
-- Finiteness, range, and count gates read the kernel `ValidityClaim` — a hand `double.IsFinite` ladder forks what `Op.Demand` already answers.
+- Finiteness, range, and count gates read the kernel `ValidityClaim` — a hand `double.IsFinite` ladder forks what `Admit.Demand` already answers.
 - Derived caches ride `[IgnoreMember]` on the generated owner — a sealed twin re-declares construction, equality, and admission for one view.
 - Foreign data keep their raw carrier and authored data the kernel grammar — typing a drawing's own layer name refuses the drawings the reader reads.
 - Host inheritance ordinals are ABSENCE, never values — ACI 0 and 256 name ByBlock and ByLayer, so a colour column reads `Option<AciIndex>`.

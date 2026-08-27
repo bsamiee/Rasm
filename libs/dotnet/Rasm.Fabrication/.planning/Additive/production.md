@@ -1050,7 +1050,7 @@ public static partial class ThreeMfCensusMap {
 - Auto: `Wrapper.GetSpecificationVersion` capability-probes each namespace; every unsupported namespace accumulates and the refusal names them all.
 - Exemption: the writer lease is the named statement kernel — native construction, per-resource emission, and read-back are platform-shaped sequences, and each disposes before egress.
 - Packages: `Lib3MF` (`Wrapper`, `CModel`, `CMeshObject`, `CComponentsObject`, `CBaseMaterialGroup`, `CMultiPropertyGroup`, `CBeamLattice`, `CBeamSet`, `CSliceStack`, `CSlice`, `CImageStack`, `CFunctionFromImage3D`, `CLevelSet`, `CVolumeData`, `CAttachment`, `CWriter`, `CReader`).
-- Boundary: `Op.Catch` classifies only `Lib3MFException` as `FabricationFault.ThreeMfWriteRejected` with its exact cause; every other captured error remains unchanged.
+- Boundary: `Try.lift` classifies only `Lib3MFException` as `FabricationFault.ThreeMfWriteRejected` with its exact cause; every other captured error remains unchanged.
 
 ```csharp
 public static class ThreeMf {

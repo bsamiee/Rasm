@@ -11,7 +11,7 @@ Session clock is the folder's ONE injected `MonotonicTimeline` (folder RULINGS `
 
 ## [02]-[SCOPE]
 
-- Owner: `ScopeTarget` carries three acquisition rows over one `Acquire(Op)` column: `EditorHost` reads `Editor.Instance`, `CanvasHost` continues through `Editor.Canvas`, and `DocumentHost` continues through `Canvas.Document`. Every hop null-gates to `KernelFault.MissingContext`. `GhScope` closes the corresponding editor, canvas, and document cases and derives optional projections by total case dispatch. `GhCrossing.Bind` is the scope-binding wrapper (E-G53): it closes acquisition INSIDE a `Func<Fin<TOut>>` body any kernel `UiDispatch<TOut>` case wraps — `Current`, `Blocking`, `Pumped`, `Awaited`, or `Queued` — so the five crossing postures share one acquisition law and a pre-acquired scope smuggled across a crossing is unconstructible.
+- Owner: `ScopeTarget` carries three acquisition rows over one `Acquire()` column: `EditorHost` reads `Editor.Instance`, `CanvasHost` continues through `Editor.Canvas`, and `DocumentHost` continues through `Canvas.Document`. Every hop null-gates to `KernelFault.MissingContext`. `GhScope` closes the corresponding editor, canvas, and document cases and derives optional projections by total case dispatch. `GhCrossing.Bind` is the scope-binding wrapper (E-G53): it closes acquisition INSIDE a `Func<Fin<TOut>>` body any kernel `UiDispatch<TOut>` case wraps — `Current`, `Blocking`, `Pumped`, `Awaited`, or `Queued` — so the five crossing postures share one acquisition law and a pre-acquired scope smuggled across a crossing is unconstructible.
 - Entry: acquisition is internal to `GhSession` — a consumer names a `ScopeTarget` row and receives the projected value or the gauged span; no public `Acquire` exists, so scope choreography never leaks past the gate.
 - Law: acquisition and consumption share one marshal window. `Run<TOut>` admits only detached values or explicitly owned leases as outputs; returning a borrowed `GhScope`, `Editor`, `Canvas`, or `Document` reference violates the boundary even though the generic carrier cannot encode that prohibition.
 - Boundary: shell chrome remains `Shell/editor.md`; reveal uses the public `Editor.ShowEditor(bool, string)` surface, which creates the editor when absent and makes an existing hidden editor visible.
@@ -20,15 +20,15 @@ Session clock is the folder's ONE injected `MonotonicTimeline` (folder RULINGS `
 
 ## [03]-[OPERATOR]
 
-- Owner: `SessionOp` `[Union]` `` closes reveal, execute, repaint, style, focus, and release. Each successful arm returns its generated `SelfOp`; no string verb or caller key substitutes for command identity. `RepaintPlan` `[Union]` carries exact host policy as case shape: `InvalidateCase` calls `Control.Invalidate`, `ScheduledCase` calls `ScheduleRedraw()`, and `DeferredCase(TimeSpan)` carries the nonnegative delay `ScheduleRedraw(TimeSpan)` requires — the delay lives ON the one case that reads it, so the option-plus-guard machinery two delay-free rows carried is unconstructible. `ExecuteCase(ScopeTarget Target, DispatchLane Lane, Action<GhScope> Work, Option<FaultCell> Park)` selects its crossing posture by PAYLOAD PRESENCE: `None` rides the blocking sync crossing and the span proves settlement; `Some(cell)` rides the kernel `Queued` async crossing, the span proves admission only, and the eventual settlement fault PARKS on the supplied cell — a queued execute without a place for its fault to land is unconstructible, so no deferred failure can vanish.
+- Owner: `SessionOp` `[Union]` closes reveal, execute, repaint, style, focus, and release. Each successful arm returns its generated `SelfOp`; no string verb or caller key substitutes for command identity. `RepaintPlan` `[Union]` carries exact host policy as case shape: `InvalidateCase` calls `Control.Invalidate`, `ScheduledCase` calls `ScheduleRedraw()`, and `DeferredCase(TimeSpan)` carries the nonnegative delay `ScheduleRedraw(TimeSpan)` requires — the delay lives ON the one case that reads it, so the option-plus-guard machinery two delay-free rows carried is unconstructible. `ExecuteCase(ScopeTarget Target, DispatchLane Lane, Action<GhScope> Work, Option<FaultCell> Park)` selects its crossing posture by PAYLOAD PRESENCE: `None` rides the blocking sync crossing and the span proves settlement; `Some(cell)` rides the kernel `Queued` async crossing, the span proves admission only, and the eventual settlement fault PARKS on the supplied cell — a queued execute without a place for its fault to land is unconstructible, so no deferred failure can vanish.
 - Owner: `SessionLane` `[SmartEnum<int>]` `IGaugeLane<SessionLane>` — the session gauge vocabulary: `Reveal` (editor creation is the slow path and carries the larger budget) and `Command` (every other verb). `Apply` answers the `Deferred` discriminator beside the `GaugedSpan<SessionLane>` — entry, acknowledgement, latency, and the budget verdict all derive from the kernel gauge, and the caller already holds the case it applied. For blocking commands, acknowledgement follows host settlement. For queued execution, acknowledgement follows queue admission and never claims that the deferred body succeeded.
 - Entry: `GhSession.Apply(SessionOp op, MonotonicTimeline clock)` → `Fin<(bool Deferred, GaugedSpan<SessionLane> Span)>` — the command gate, the clock the session's injected timeline, REQUIRED; `GhSession.Run<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> project)` → `Fin<TOut>` — the value gate. Two gates, two shapes of demand (settlement versus projection); everything else on the page is internal.
 - Law: every blocking case acquires and mutates inside one kernel `UiThread.Run` window through the bound crossing. Queued `ExecuteCase` validates its target, lane, work, and park cell before admission, then reacquires scope inside the eventual crossing body. `Run` performs acquisition and projection inside one blocking crossing.
-- Law: every case body runs under `Op.Catch`. Failed blocking command or refused queue admission returns its fault without a span. Queued admission answers `Deferred = true`; a deferred settlement fault parks on the case's own `FaultCell` with the command's op, so the cell's ring is the queued-outcome stream and no fault is rewritten as successful settlement.
+- Law: every case body runs under `Try.lift`. Failed blocking command or refused queue admission returns its fault without a span. Queued admission answers `Deferred = true`; a deferred settlement fault parks on the case's own `FaultCell` with the command's op, so the cell's ring is the queued-outcome stream and no fault is rewritten as successful settlement.
 - Law: `Apply` writes `GhInstruments.Settled` after the gauge closes — the bounded `op` tag is the case's generated `SelfOp`, the document tag the scope the case acquired when it acquired one, and a refused write rides the returned result — so `session.ack` and `session.commands` partition on the six cases at the one site that knows them.
 - Law: `ReleaseCase` is the one teardown spelling — `Form.Close` executes inside the lease window, the `Owned` fold disposes after projection even when close faults, and `Borrowed` closes without disposing the host-owned form.
 - Boundary: repaint plans target the GH2 canvas; the flex-interface redraw (`IFlexControl.ScheduleRedraw`) on non-canvas flex controls is `Canvas/canvas.md`'s operator, and the paint fences are `Canvas/paint.md`'s executor. Undo grouping (`History.Do` + `ActionList`) rides `Document/history.md`; a session command never opens an undo record. `Shell/telemetry.md` declares the `rasm.grasshopper.session.*` rows; this page writes them through `GhInstruments.Settled` and spells no meter.
-- Packages: Grasshopper2 (`Canvas.ScheduleRedraw`, `Editor.ShowEditor`), Eto (`Control.Invalidate`, `Control.Focus`, `Form.Close`), Rhino.UI (`EtoExtensions.UseRhinoStyle`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`, `Gauged`, `GaugedSpan`, `IGaugeLane`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`, `FaultCell`).
+- Packages: Grasshopper2 (`Canvas.ScheduleRedraw`, `Editor.ShowEditor`), Eto (`Control.Invalidate`, `Control.Focus`, `Form.Close`), Rhino.UI (`EtoExtensions.UseRhinoStyle`), `Rasm.Domain` (`Fault`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`, `Gauged`, `GaugedSpan`, `IGaugeLane`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`, `FaultCell`).
 - Growth: a new session verb is one `SessionOp` case and one total `Switch` arm; a new repaint posture is one `RepaintPlan` case; a new budget band is one `SessionLane` row.
 
 ```csharp
@@ -132,7 +132,7 @@ public static class GhSession {
                             createVisible: true,
                             layoutRules: HostEdge.Slot(c.Layout))).Run().Bind(static inner => inner),
                         DispatchLane.Interactive, k)
-                        .Map(_ => (Operation: c.SelfOp, Deferred: false)),
+                        .Map(static _ => false),
                     executeCase: static (k, c) =>
                         from target in Admit.Need(c.Target)
                         from lane in Admit.Need(c.Lane)
@@ -153,7 +153,7 @@ public static class GhSession {
                                     body: scope => Fin.Succ(HostEdge.Side(action: () => work(obj: scope))),
                                     key: k)),
                                 lane, k))
-                        select (Operation: c.SelfOp, Deferred: c.Park.IsSome),
+                        select c.Park.IsSome,
                     repaintCase: static (k, c) => UiThread.Run(new UiDispatch<Unit>.Blocking(GhCrossing.Bind<Unit>(
                             target: ScopeTarget.CanvasHost,
                             body: scope => scope.Canvas.ToFin(new KernelFault.MissingContext()).Bind(surface => c.Plan.Switch(
@@ -166,25 +166,25 @@ public static class GhSession {
                                     select painted)),
                             key: k)),
                             DispatchLane.Interactive, k)
-                        .Map(_ => (Operation: c.SelfOp, Deferred: false)),
+                        .Map(static _ => false),
                     styleCase: static (k, c) =>
                         from surface in Admit.Need(c.Surface)
                         from styled in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
                             Try.lift(surface.UseRhinoStyle).Run().Bind(static inner => inner)),
                             DispatchLane.Interactive, k)
-                        select (Operation: c.SelfOp, Deferred: false),
+                        select false,
                     focusCase: static (k, c) =>
                         from surface in Admit.Need(c.Surface)
                         from focused in UiThread.Run(new UiDispatch<Unit>.Blocking(() =>
                             Try.lift(surface.Focus).Run().Bind(static inner => inner)),
                             DispatchLane.Interactive, k)
-                        select (Operation: c.SelfOp, Deferred: false),
+                        select false,
                     releaseCase: static (k, c) =>
                         from surface in Admit.Need(c.Surface)
                         from released in UiThread.Run(new UiDispatch<Unit>.Blocking(() => Try.lift(() =>
                             Fin.Succ(surface.Use(project: static form => HostEdge.Side(action: form.Close)))).Run().Bind(static inner => inner)),
                             DispatchLane.Interactive, k)
-                        select (Operation: c.SelfOp, Deferred: false)),
+                        select false),
                 key: active)
             from outcome in gauged.Value
             from written in GhInstruments.Settled(document: None, operation: outcome.Operation, deferred: outcome.Deferred, span: gauged.Span)
@@ -235,7 +235,7 @@ flowchart LR
 |  [05]   | gauge vocabulary  | `SessionLane`             | `GaugedSpan<SessionLane>` per command |    2    |
 |  [06]   | value projection  | `GhSession.Run<TOut>`     | one blocking crossing                 |    1    |
 
-Kernel `UiThread`/`UiDispatch`/`DispatchLane`/`FaultCell`, `MonotonicTimeline`/`Gauged`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners. Deleted whole: the per-call timeline mint, the stamp-pair record with its `Order`/`Elapsed` arithmetic and hand-rolled order claim, the settled-operation column (the caller holds the case; `Span.Work` is the key) (the `MonotonicTimeline.Order → Fin<StampOrder>` consumer-break at the former `:138` clears by deletion — no caller remains), the `RepaintRow` option-plus-guard machinery, the `EtoDispatch`/`DispatchEcho` marshal (queued outcomes now park on the case's own `FaultCell`), and the whole cache module — `DocumentToken`, `CacheSlot`, `SlotPolicy`, `SessionCache`, `PlatformCache` — with zero consumers (E-G12); its standing re-mint obligations live at `Platform/composition.md`'s cache boundary row.
+Kernel `UiThread`/`UiDispatch`/`DispatchLane`/`FaultCell`, `MonotonicTimeline`/`Gauged`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners. Deleted whole: the per-call timeline mint, the stamp-pair record with its `Order`/`Elapsed` arithmetic and hand-rolled order claim, the settled-operation column (the caller holds the case; `Span.Work` is the key) (the `MonotonicTimeline.Order → Fin<StampOrder>` consumer-break at the former `:138` clears by deletion — no caller remains), the `RepaintRow` option-plus-guard machinery, the `EtoDispatch`/`DispatchEcho` marshal (queued outcomes now park on the case's own `FaultCell`), and the whole cache module — `DocumentToken`, `CacheSlot`, `SlotPolicy`, `SessionCache`, `PlatformCache` — with zero consumers (E-G12); its standing re-mint obligations live at `Platform/composition.md`'s cache boundary row.
 
 ## [05]-[RESEARCH]
 

@@ -116,7 +116,7 @@
 
 [TOPOLOGY]:
 - Extension declarations handed to the ctor AND to every decode ARE part of the wire contract: a non-string attribute declared for a write and forgotten at its read decodes under the wrong value space, so each consumer derives the fields it reads from generated descriptors.
-- `Validate()` throws rather than refusing, so an envelope mint is a BOUNDARY: it captures through one `Op.Catch` funnel onto the typed carrier and a caller composing events never has a construction fault escape past its own `Fin` signature. `CloudEventsSpecVersion.V1_0` requires `id`/`source`/`type` and admits optional `subject`/`datacontenttype`/`dataschema`/`time`; `IsValid` checks required completeness alone.
+- `Validate()` throws rather than refusing, so an envelope mint is a BOUNDARY: it captures through one `Try.lift` funnel onto the typed carrier and a caller composing events never has a construction fault escape past its own `Fin` signature. `CloudEventsSpecVersion.V1_0` requires `id`/`source`/`type` and admits optional `subject`/`datacontenttype`/`dataschema`/`time`; `IsValid` checks required completeness alone.
 - Attribute assignment through either indexer runs the attribute's own validator and THROWS on refusal, so every extension write is part of the same boundary the mint funnels.
 - Each encode member's `out ContentType` is the framing an app-tier transport binding stamps AND the discriminant a decode reads to pick its reader, so both travel as one carrier value and neither half is re-derived.
 - Batch framing is the `BatchMediaType` PREFIX each formatter extends with its own suffix, so a framing probe reads the prefix constant and never a literal media type.

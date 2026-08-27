@@ -102,7 +102,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 
 Strata rank the kernel interior; seating rows carry only the law the fence cannot show.
 
-- S0 co-seat — `Domain` and `Numerics` compose mutually at file grain: `Integrate` reads `Op`, `Evaluation` reads `ResultProjection`, no module cycle.
+- S0 co-seat — `Domain` and `Numerics` compose mutually at file grain: `Integrate` reads `Evaluation` reads `ResultProjection`, no module cycle.
 - S0 law — no floor file names an upper type; every upper stratum threads the exact-predicate ladder and the `Context` tolerance read.
 - S1 interior — `Intersect` reads the spatial index and `Reconciliation` the mesh store inside the rank, so the layering stays one stratum.
 - S2 interior — the ICP registration optimizer instantiates the `Lm` functor inside the rank, so optimization mints no third stratum.

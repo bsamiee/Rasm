@@ -20,7 +20,7 @@ This page also seats the Modeling spine's shared vocabulary — `ModelClaim`, `F
 - Law: `FitPosture` and `PairPosture` are rows because the host projection is a COLUMN, not a name. `Loose` was a case-name suffix on four `PullTarget` cases and one `OffsetFrame` case, and the reversal pair was six positional bools across three `CurveOp` cases and two `lofting.md` vocabularies; both now travel as one value whose host projection the row carries, so a call site cannot transpose the pair and a new corner is a row. Row status needs a host column, a writer, or a correlated sibling; without one a two-state modality stays a named `bool` on its owning case — `PreserveTangents`, `Simple`, `FixEnds`, `Interpolate`, `Average` are that form, and the sibling pages' two-row `Native` vocabularies are the opposite form and correct as they stand.
 - Law: canonical capability text is the kernel's ordinal key projection, so no roster on this spine carries a source-position mirror. Vocabularies mirroring a HOST flag word (`TextFace`, `SilhouetteKind`) project that bit only through the mask function because the bit IS the host contract and `CapabilitySet.Mask` already reads it.
 - Growth: a new shape claim is one `ModelClaim` member; a new shared modality corner is one `FitPosture`/`PairPosture` row with every consumer's projection unchanged.
-- Packages: kernel `Domain/results` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `ValidityClaim`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Rasm.Rhino.Document` (`GeometryHandle`), LanguageExt.Core (`Validation`, `Seq`, `Traverse` — `libs/dotnet/.api/api-languageext.md`), Thinktecture.Runtime.Extensions (`[SmartEnum]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
+- Packages: kernel `Domain/results` (`KernelFault.InvalidInput(Key, Axis)`, `ValidityClaim`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Rasm.Rhino.Document` (`GeometryHandle`), LanguageExt.Core (`Validation`, `Seq`, `Traverse` — `libs/dotnet/.api/api-languageext.md`), Thinktecture.Runtime.Extensions (`[SmartEnum]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -90,7 +90,7 @@ internal static class ModelClaim {
 - Law: `RibbonLaw.Rig` is the one site naming `RibbonOffsetParameters` — offset distance, location, plane vector, blend radius, rebuild and refit knobs, cross-section alignment, and the `RibbonOffsetSurfaceMethod` row bake in one member with the tolerance slot reading the regime; the ribbon, rails, cross-sections, and breps return in native result order. Generated transcription does not reach this member: four of its nine slots are regime derivations (`OffsetTolerance`, `RefitTolerance`) or `Option`-to-sentinel lowerings (`BlendRadius`, `OffsetPlaneVector3d`) that no source-to-target mapping expresses, and a mapper carrying the residual four beside them is the split form `Exchange/options.md` already carves against.
 - Law: an absent optional lowers to the host's own sentinel, never a zero — `BlendRadius` is `Option<CurveScalar>` mapped to `RhinoMath.UnsetValue` and `PlaneVector` is `Option<Vector3d>` mapped to `Vector3d.Unset`, so "no blend" and "a zero-radius blend" stay distinct requests instead of collapsing on a default-constructed slot.
 - Law: `RibbonLaw` is unconstructible when invalid — its generated factory runs the same fold its `IsValid` reads, so the ribbon arm never receives a policy whose location, rebuild count, plane vector, or surface method is unsound. NAMED LOSS: the five defaulted columns the record form carried must now be supplied at the call; bought back by an invalid instance being unrepresentable rather than caught one layer later at `Admitted`.
-- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `RibbonOffsetParameters` `[04]`, `RibbonOffsetSurfaceMethod` `[09]`, `Curve.RibbonOffset` `:214`, `Curve.OffsetOnSurface`/`OffsetNormalToSurface`/`OffsetTangentToSurface`), kernel `Domain/results` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`), `Rasm.Rhino.Document` (`GeometryHandle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `RibbonOffsetParameters` `[04]`, `RibbonOffsetSurfaceMethod` `[09]`, `Curve.RibbonOffset` `:214`, `Curve.OffsetOnSurface`/`OffsetNormalToSurface`/`OffsetTangentToSurface`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`), `Rasm.Rhino.Document` (`GeometryHandle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -246,7 +246,7 @@ public readonly partial struct RibbonLaw : IValidityEvidence {
 - Law: no native mode int crosses a case payload — `ArcDegree` and `ArcSlider` carry the non-rational arc-bezier degree and sliders off the folder's shared owners, `CurveCompatibility` carries the simplify method with its rebuild count, and `TextFace` folds the additive font-style bits through `CapabilitySet.Mask`, so the empty set IS the host's `0` Normal and no arm re-derives an encoding.
 - Law: the rail fillet declares three host rosters the arc-bezier owners do not share — `FilletRailDegree` closes the rail direction at 3 or 5, `FilletArcDegree` closes the arc direction at 2 through 5 where 2 alone yields a rational surface, and the slider pair is a two-slot tuple of `ArcSlider` because the host takes exactly two; a `Seq` of sliders lets the wrong arity reach a native that reads two.
 - Law: `FitLaw.Rig` stays hand-seated for the reason `RibbonLaw.Rig` does, and harder — three `FitAxis` members each fan to a target intensity AND coefficient slot, the grant column fans to four target bools, and `KinkAngleRadians` reads the regime, so six of nine source members are one-to-many fans no source-complete mapping admits.
-- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurveFitParameters` `[05]`, `Curve.CreateFilletCurves` `:170`, `Curve.JoinCurves` `:209`, `Curve.CreateTextOutlines` `:213`, `NurbsCurve.MakeCompatible` `:193`, `Curve.PullToBrepFace`/`PullToMesh` `:112-118`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Op`), `Modeling/lofting.md` (`CurveCompatibility`, `SweepEnds`), `Modeling/meshing.md` (`SmoothLaw`), `Modeling/solids.md` (`ArcDegree`, `ArcSlider`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurveFitParameters` `[05]`, `Curve.CreateFilletCurves` `:170`, `Curve.JoinCurves` `:209`, `Curve.CreateTextOutlines` `:213`, `NurbsCurve.MakeCompatible` `:193`, `Curve.PullToBrepFace`/`PullToMesh` `:112-118`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`), `Modeling/lofting.md` (`CurveCompatibility`, `SweepEnds`), `Modeling/meshing.md` (`SmoothLaw`), `Modeling/solids.md` (`ArcDegree`, `ArcSlider`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -665,7 +665,7 @@ public readonly partial struct RailFilletLaw : IValidityEvidence {
 
 ## [05]-[OPERATION_PIPELINE]
 
-- Owner: `CurveOp` `[Union]` `` owns the verified curve host-operation roster with each case carrying its generated `SelfOp`; `HostCurves` folds an operation spread into the owned geometry sequence.
+- Owner: `CurveOp` `[Union]` owns the verified curve host-operation roster with each case carrying its generated `SelfOp`; `HostCurves` folds an operation spread into the owned geometry sequence.
 - Law: the entry family renames at the boundary — the kernel owns `Curves` (`Analysis/select.md`), so this host roster is `HostCurves` under the branch rule that a boundary declaration whose simple name matches a kernel owner renames on the host side.
 - Law: refinement is value-semantic — fair, fit, rebuild, smooth, and simplify run the instance member on the borrowed curve and own the returned refinement; the boolean tolerance-less and tween tolerance-less overloads are obsolete, so every arm runs the tolerance form off the regime.
 - Law: `CurveBooleanRegions` remains scoped to its operation arm while every region curve crosses through owned geometry handles.
@@ -676,7 +676,7 @@ public readonly partial struct RailFilletLaw : IValidityEvidence {
 - Law: smoothing seats once — `Curve.Smooth` and `Mesh.Smooth` take the IDENTICAL five knobs (factor, three axis bits, boundary bit, coordinate system, frame), so `Smooth` consumes the meshing pipeline's `SmoothLaw` rather than respelling them as five payload fields; the mesh-only pass count and vertex selection stay on that page's cases, and the law's valid-frame admission means this arm composes the long host overload alone.
 - Law: compatibility seats once and reconciles once — `CurveCompatibility` is the lofting pipeline's `[ComplexValueObject]` over the simplify method and rebuild count, `SweepEnds` is that pipeline's admitted terminal pair whose `StartOrUnset`/`EndOrUnset` lower `None` to the host's documented `Point3d.Unset` omit spelling, and `CurveOp.Compatible` is the ONE `NurbsCurve.MakeCompatible` call site in the folder. Lofting's second compatibility verb wrapped the same host member behind a second slot and is deleted; a caller batching compatibility before a loft composes two operations in one `Build` spread.
 - Growth: a new curve host verb is one case with its arm; a new modality is one case on the owning policy union.
-- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the `Curve`/`NurbsCurve` construction, boolean, blend, fillet, tween, match, and outline rosters `:160-225`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `CurveBooleanRegions`, `CurveSimplifyOptions`, `IndexPair`), kernel `Domain/results` (`Op`, `Fault`, `ValidityClaim`, `` + generated `SelfOp`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), `Modeling/lofting.md` (`SweepEnds`, `CurveCompatibility`), `Modeling/meshing.md` (`SmoothLaw`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the `Curve`/`NurbsCurve` construction, boolean, blend, fillet, tween, match, and outline rosters `:160-225`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `CurveBooleanRegions`, `CurveSimplifyOptions`, `IndexPair`), kernel `Domain/results` (`Fault`, `ValidityClaim`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), `Modeling/lofting.md` (`SweepEnds`, `CurveCompatibility`), `Modeling/meshing.md` (`SmoothLaw`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1039,7 +1039,6 @@ public abstract partial record CurveOp {
                 toPlane: static (ctx, law) => ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: law.Curve, body: curve =>
                     ModelGate.Single(() => Curve.ProjectToPlane(curve: curve, plane: law.Plane)))),
             join: static (model, edit) => {
-                 = Join.SelfOp;
                 return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
                     Try.lift(() => {
                         Curve[] joined = Curve.JoinCurves(
@@ -1066,7 +1065,6 @@ public abstract partial record CurveOp {
                         ModelGate.Many(() => Curve.CreateBooleanDifference(
                             curveA: first, subtractors: subtractors.AsIterable(), tolerance: ctx.Absolute.Value))))),
             regions: static (model, edit) => {
-                 = Regions.SelfOp;
                 return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
                     Try.lift(() => {
                         CurveBooleanRegions? acquired = edit.Points.IsEmpty
@@ -1083,7 +1081,6 @@ public abstract partial record CurveOp {
                     }).Run().Bind(static inner => inner));
             },
             blend: static (_, edit) => {
-                 = Blend.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         edit.Law.Switch(
@@ -1106,7 +1103,6 @@ public abstract partial record CurveOp {
                     startPt: ctx.Start, startDir: ctx.StartDirection, endPt: ctx.End,
                     endDir: ctx.EndDirection, radius: law.Radius.Value))),
             filletCurves: static (model, edit) => {
-                 = FilletCurves.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         ModelGate.Many(() => Curve.CreateFilletCurves(
@@ -1121,7 +1117,6 @@ public abstract partial record CurveOp {
                 ModelGate.Single(() => Curve.CreateFilletCornersCurve(
                     curve: curve, radius: edit.Radius, tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))),
             tween: static (model, edit) => {
-                 = Tween.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         edit.Law.Switch(
@@ -1135,7 +1130,6 @@ public abstract partial record CurveOp {
                                 numSamples: law.Samples, tolerance: ctx.Model.Absolute.Value)))));
             },
             matchCurve: static (_, edit) => {
-                 = MatchCurve.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         ModelGate.Many(() => Curve.CreateMatchCurve(
@@ -1143,37 +1137,31 @@ public abstract partial record CurveOp {
                             curve1: second, reverse1: edit.Reverse.Second, preserve: edit.Preserve, average: edit.Average))));
             },
             mean: static (model, edit) => {
-                 = Mean.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         ModelGate.Single(() => Curve.CreateMeanCurve(curveA: first, curveB: second, angleToleranceRadians: model.Angle.Value))));
             },
             twoView: static (model, edit) => {
-                 = TwoView.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         ModelGate.Many(() => Curve.CreateCurve2View(
                             curveA: first, curveB: second, vectorA: edit.FirstDirection, vectorB: edit.SecondDirection,
                             tolerance: model.Absolute.Value, angleTolerance: model.Angle.Value))));
             },
-            interpolated: static (_, edit) => ModelGate.Single(Interpolated.SelfOp,
-                () => (edit.Knots.Case, edit.Tangents.Case) switch {
+            interpolated: static (_, edit) => ModelGate.Single(() => (edit.Knots.Case, edit.Tangents.Case) switch {
                     (CurveKnotStyle knots, (Vector3d start, Vector3d end)) => Curve.CreateInterpolatedCurve(
                         points: edit.Points.AsIterable(), degree: edit.Degree, knots: knots, startTangent: start, endTangent: end),
                     (CurveKnotStyle knots, _) => Curve.CreateInterpolatedCurve(points: edit.Points.AsIterable(), degree: edit.Degree, knots: knots),
                     _ => Curve.CreateInterpolatedCurve(points: edit.Points.AsIterable(), degree: edit.Degree),
                 }),
-            controlPoints: static (_, edit) => ModelGate.Single(ControlPoints.SelfOp,
-                () => Curve.CreateControlPointCurve(points: edit.Points.AsIterable(), degree: edit.Degree)),
-            fitPoints: static (model, edit) => ModelGate.Single(FitPoints.SelfOp,
-                () => edit.Constrained.Case switch {
+            controlPoints: static (_, edit) => ModelGate.Single(() => Curve.CreateControlPointCurve(points: edit.Points.AsIterable(), degree: edit.Degree)),
+            fitPoints: static (model, edit) => ModelGate.Single(() => edit.Constrained.Case switch {
                     (int degree, Vector3d start, Vector3d end) => NurbsCurve.CreateFromFitPoints(
                         points: edit.Points.AsIterable(), tolerance: model.Absolute.Value, degree: degree,
                         periodic: edit.Periodic, startTangent: start, endTangent: end),
                     _ => NurbsCurve.CreateFromFitPoints(points: edit.Points.AsIterable(), tolerance: model.Absolute.Value, periodic: edit.Periodic),
                 }),
-            hSpline: static (_, edit) => ModelGate.Single(HSpline.SelfOp,
-                () => edit.Tangents.Case switch {
+            hSpline: static (_, edit) => ModelGate.Single(() => edit.Tangents.Case switch {
                     (Vector3d start, Vector3d end) => NurbsCurve.CreateHSpline(points: edit.Points.AsIterable(), startTangent: start, endTangent: end),
                     _ => NurbsCurve.CreateHSpline(points: edit.Points.AsIterable()),
                 }),
@@ -1187,11 +1175,9 @@ public abstract partial record CurveOp {
                     (int points, bool periodic) => NurbsCurve.CreateSubDFriendly(curve: curve, pointCount: points, periodicClosedCurve: periodic),
                     _ => NurbsCurve.CreateSubDFriendly(curve: curve),
                 })),
-            subDFriendlyPoints: static (_, edit) => ModelGate.Single(SubDFriendlyPoints.SelfOp,
-                () => NurbsCurve.CreateSubDFriendly(
+            subDFriendlyPoints: static (_, edit) => ModelGate.Single(() => NurbsCurve.CreateSubDFriendly(
                     points: edit.Points.AsIterable(), interpolatePoints: edit.Interpolate, periodicClosedCurve: edit.PeriodicClosed)),
             compatible: static (model, edit) => {
-                 = Compatible.SelfOp;
                 return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
                     ModelGate.Many(() => NurbsCurve.MakeCompatible(
                         curves: curves.AsIterable(), startPt: edit.Ends.StartOrUnset, endPt: edit.Ends.EndOrUnset,
@@ -1209,19 +1195,16 @@ public abstract partial record CurveOp {
                         pitch: ctx.Pitch, turnCount: ctx.TurnCount, radius0: ctx.Radius0,
                         radius1: ctx.Radius1, pointsPerTurn: law.PointsPerTurn)))),
             parabola: static (_, edit) => edit.Seed.Switch(
-                state: Parabola.SelfOp,
                 fromVertex: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateParabolaFromVertex(
                     vertex: seed.Vertex, startPoint: seed.Start, endPoint: seed.End)),
                 fromFocus: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateParabolaFromFocus(
                     focus: seed.Focus, startPoint: seed.Start, endPoint: seed.End)),
                 fromPoints: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateParabolaFromPoints(
                     startPoint: seed.Start, innerPoint: seed.Inner, endPoint: seed.End))),
-            arcBezier: static (_, edit) => ModelGate.Single(ArcBezier.SelfOp,
-                () => NurbsCurve.CreateNonRationalArcBezier(
+            arcBezier: static (_, edit) => ModelGate.Single(() => NurbsCurve.CreateNonRationalArcBezier(
                     degree: edit.Degree.Key, center: edit.Center, start: edit.Start, end: edit.End,
                     radius: edit.Radius, tanSlider: edit.TanSlider.Value, midSlider: edit.MidSlider.Value)),
             analytic: static (_, edit) => edit.Seed.Switch(
-                state: Analytic.SelfOp,
                 ofLine: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateFromLine(line: seed.Value)),
                 ofArc: static (key, seed) => ModelGate.Single(() => seed.Structure.Case switch {
                     (int degree, int cvCount) => NurbsCurve.CreateFromArc(arc: seed.Value, degree: degree, cvCount: cvCount),
@@ -1233,7 +1216,6 @@ public abstract partial record CurveOp {
                 }),
                 ofEllipse: static (key, seed) => ModelGate.Single(() => NurbsCurve.CreateFromEllipse(ellipse: seed.Value))),
             catenary: static (_, edit) => {
-                 = Catenary.SelfOp;
                 return Try.lift(() => {
                     Curve hung = edit.Law.Switch(
                         state: edit,
@@ -1245,7 +1227,6 @@ public abstract partial record CurveOp {
                 }).Run().Bind(static inner => inner);
             },
             makeEndsMeet: static (_, edit) => {
-                 = MakeEndsMeet.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         Try.lift(() => {
@@ -1259,7 +1240,6 @@ public abstract partial record CurveOp {
                         }).Run().Bind(static inner => inner)));
             },
             railFillet: static (model, edit) => {
-                 = RailFillet.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail, body: rail =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                         ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
@@ -1283,7 +1263,6 @@ public abstract partial record CurveOp {
                             select built)));
             },
             textOutlines: static (model, edit) => {
-                 = TextOutlines.SelfOp;
                 return
                     from text in Acceptance.Text(value: edit.Text)
                     from font in Acceptance.Text(value: edit.Font)

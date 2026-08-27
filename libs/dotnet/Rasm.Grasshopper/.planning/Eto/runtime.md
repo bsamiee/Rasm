@@ -16,7 +16,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 - Law: a release refusal PARKS on the composition's `FaultCell` under the capsule's own point id — the cell's `Parked`/`Lost` gauges are the telemetry root's reads, so a still-attached handler is counted evidence, never an invisible discard; a capsule-local `Atom<Seq<Error>>` ledger nothing read was the deleted FaultCell twin.
 - Law: identity lives in the KERNEL clock — the tick this timer drives is `UiClock`'s own; drift, misses, ordinals, postures, observers, and fault custody are the kernel's, and a body here that computes any of them re-derives what the beat already carries. This page supplies the platform lease and NOTHING else, per the kernel clock boundary law.
 - Law: this is the folder's ONE repeating-tick platform surface — a second `System.Threading.Timer`, `Task.Delay` loop, or per-consumer `UITimer` beside it is the deleted form; high-cadence display-link pacing is `Platform/native.md`'s macOS replacement layer, selected by the consumer, never a fork inside this owner.
-- Packages: Eto (`UITimer.Interval`/`Elapsed`/`Start`/`Stop`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`), `Rasm.Numerics` (`PositiveMagnitude`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`, `HookId`, `Custody`), LanguageExt.Core (`Fin`, `Seq`).
+- Packages: Eto (`UITimer.Interval`/`Elapsed`/`Start`/`Stop`), `Rasm.Interaction` (`UiThread`, `UiDispatch`, `DispatchLane`), `Rasm.Numerics` (`PositiveMagnitude`), `Rasm.Domain` (`Lease<T>`, `FaultCell`, `HookId`, `Custody`), LanguageExt.Core (`Fin`, `Seq`).
 - Growth: none expected — a new platform tick source is a sibling supplier at ITS platform page, never a widening here.
 
 ## [03]-[PACE]
@@ -25,7 +25,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 - Law: the interval is MEASURED, never declared — `Platform/native.md`'s display-link measurement produces it on macOS and the display metadata read is the fallback; the kernel seeds `StallPolicy.Portable` so an untuned floor over-reports a stall and never hides one, and this producer only ever tightens toward the real display.
 - Law: the seat transition is the kernel's — `Tune` answers the kernel `Transition<StallPolicy>` semantics, so a tune that lost a race under contention is a read case, never an assumed swap; this producer retries nothing and reports the refusal.
 - Boundary: WHO calls `Feed` is `Platform/composition.md`'s load roster (the pacer row) and `Platform/native.md`'s re-measure on display change; this page owns the producer spelling alone.
-- Packages: `Rasm.Interaction` (`UiThread.Tune`, `StallPolicy`, `DispatchLane`), `Rasm.Parametric` (`PaceBand`, `MonotonicTimeline`), `Rasm.Numerics` (`PositiveMagnitude`), `Rasm.Domain` (`Op`).
+- Packages: `Rasm.Interaction` (`UiThread.Tune`, `StallPolicy`, `DispatchLane`), `Rasm.Parametric` (`PaceBand`, `MonotonicTimeline`), `Rasm.Numerics` (`PositiveMagnitude`), `Rasm.Domain` .
 - Growth: a measured per-lane pathology is one stretch row in the policy this producer seats; the entry never widens.
 
 ```csharp

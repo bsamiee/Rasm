@@ -170,7 +170,7 @@
 
 [STACKING]:
 - `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): CSR storage, dense factorization, and Krylov iteration are the peer lanes; matrix density and factor reuse select among the three, and all exit on one solve result.
-- `LanguageExt.Core`(`.api/api-languageext.md`): every throwing `Create` and `Solve` enters `Op.Catch`, preserving the foreign exceptional `Error` until a documented provider refusal maps to an owning fault.
+- `LanguageExt.Core`(`.api/api-languageext.md`): every throwing `Create` and `Solve` enters `Try.lift`, preserving the foreign exceptional `Error` until a documented provider refusal maps to an owning fault.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds over the same `Span<double>` GEMV and `Solve` write, so residual, axpy, and norm passes vectorize on the solve buffers with no copy.
 - `QuikGraph`(`.api/api-quikgraph.md`): pattern-graph work stays on `SymbolicColumnStorage` — `DulmageMendelsohn` and `StronglyConnectedComponents` decompose the CSC directly, so a matrix never round-trips through a vertex-and-edge container.
 - `MatrixKernel` threads the whole lane: a scatter accumulates shared parameters into `CoordinateStorage<double>`, `OfIndexed` finalizes once, the standing factorization is held behind `ISolver<double>` so LU, LDL', and Cholesky swap by problem class, and `NonZerosCount` lands in the solve result.

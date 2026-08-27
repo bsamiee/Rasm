@@ -15,7 +15,7 @@ Consumption stays off the UI thread: one single-reader loop drains the kernel `E
 - Owner: `JournalRow` readonly record struct — one appended envelope under its `Sequence` ordinal beside its optional owning document; a partition's rows are monotone by construction because the envelope's `Stamp` was minted off ONE timeline at publication.
 - Law: orders are layered, never merged — the kernel envelope's `Ordinal` is the drain's total publication order and its `Stamp` the timeline position, the journal's `Sequence` is its own append order; each answers a different question and none substitutes.
 - Law: document attribution derives from the fact — a `DocumentCase` fact keys its partition through the host-published `Document.Identity`, and an unattributable fact lands in the session partition rather than being dropped; a `GraphCase` subject id is object-instance identity and never keys a partition.
-- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Rasm.Interaction` (`UiEvent<TFact>`), `Shell/events.md` (`GhFact`).
+- Packages: LanguageExt.Core, `Rasm.Domain` , `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Rasm.Interaction` (`UiEvent<TFact>`), `Shell/events.md` (`GhFact`).
 - Growth: a new journaled fact is one `GhFact` case at `Shell/events.md`; the row shape never widens.
 
 ## [03]-[FOLD]
@@ -23,10 +23,10 @@ Consumption stays off the UI thread: one single-reader loop drains the kernel `E
 - Owner: `JournalLedger` readonly record struct — the committed fold state: partitions keyed by document identity (the session partition rides `Guid.Empty`) beside the next sequence and the appended and shed tallies, advanced by one pure `Folded` transition. Ordinal lives INSIDE the ledger, so one `Cell.Commit` settles the row, the sequence, and the tallies as one committed value — the split commit (an interlocked counter beside a CAS) tears an export into three figures that disagree.
 - Owner: `JournalExport` `[Equatable]` sealed record — the export projection: the selected rows in sequence order (`[OrderedEquality]`), the whole `JournalLedger` tally snapshot, and the capture stamp, detached from every live cell. `Signals` is the replay grounding this page promises: each row projects to its `Shell/hooks.md` `HookSignal`, so replay capture and analytics export are ONE record, never two recordings.
 - Entry: `SessionJournal.Of(MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default)` → `Fin<SessionJournal>` — the clock is the session's one injected timeline (folder RULINGS `[02]`; no mint here) and the fault cell is the composition's; `Append(UiEvent<GhFact> fact)` → `Fin<JournalRow>` — the partition derives from the fact; `Export(Option<Guid> document = default)` → `Fin<JournalExport>` — `Some` exports one partition, `None` merges every partition ordered by sequence; `Mount(EvidenceDrain<GhFact> drain, …)` → `Fin<Lease<SessionJournal>>` — the off-thread drain consumer the composition root's roster names.
-- Law: `Mount` owns the single-reader contract — one retained consumer task drains `ReadAllAsync` under the journal's cancellation source, its whole loop inside the kernel's ASYNC `Op.Catch` arm, so a cancelled drain keeps the `KernelFault.Cancelled` case and an unknown raise keeps its original exceptional `Error` on the composition's fault cell. Consumer stays a deliberately off-UI-thread `Task.Run`; disposal cancels, joins the task, then releases, so no unowned consumer survives its lease.
+- Law: `Mount` owns the single-reader contract — one retained consumer task drains `ReadAllAsync` under the journal's cancellation source, its whole loop inside the kernel's ASYNC `Try.lift` arm, so a cancelled drain keeps the `KernelFault.Cancelled` case and an unknown raise keeps its original exceptional `Error` on the composition's fault cell. Consumer stays a deliberately off-UI-thread `Task.Run`; disposal cancels, joins the task, then releases, so no unowned consumer survives its lease.
 - Law: every journal fault PARKS on the injected `FaultCell` — bounded ring, `Shed` and `Lost` counted — never a newest-only `Atom<Option<Error>>`; the release one-shot is the kernel `Atom<bool>` latch through `Cell.Step`.
 - Boundary: serialization, upload, and bundle formats are app-root concerns over the detached export; the journal never names a serializer or a wire.
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`, `Atom`, `Cell`), .NET (`CancellationTokenSource`, `Task`), Generator.Equals, Microsoft.Extensions.Logging.Abstractions (`JournalLog`), `Rasm.Domain` (`Op`, `Lease<T>`, `FaultCell`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`EvidenceDrain<TFact>`).
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `HashMap`, `Atom`, `Cell`), .NET (`CancellationTokenSource`, `Task`), Generator.Equals, Microsoft.Extensions.Logging.Abstractions (`JournalLog`), `Rasm.Domain` (`Lease<T>`, `FaultCell`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`EvidenceDrain<TFact>`).
 - Growth: a new export slice is one filter over the one fold; a new retention posture is one `JournalPolicy` field.
 
 ```csharp
@@ -174,10 +174,10 @@ public sealed class SessionJournal : IDisposable {
 | :-----: | :---------------- | :--------------------- | :---------------------------------------------- | :-----: |
 |  [01]   | fact admission    | `JournalRow`           | one envelope family → sequenced row evidence    |    1    |
 |  [02]   | bounded fold      | `JournalLedger`        | one `Cell.Commit` — row, ordinal, tallies whole |    1    |
-|  [03]   | drain consumption | `SessionJournal.Mount` | async `Op.Catch` loop → `FaultCell` parks       |    1    |
+|  [03]   | drain consumption | `SessionJournal.Mount` | async `Try.lift` loop → `FaultCell` parks       |    1    |
 |  [04]   | export + replay   | `JournalExport`        | one record — bundle rows AND `Signals` window   |    1    |
 
-`Op`, `Lease<T>`, `FaultCell`, `MonotonicTimeline`, `EvidenceDrain<GhFact>`, and `UiEvent<GhFact>` are composed upstream owners; the evidence-union tee and the per-row journal stamp are deleted (one fact family, so the envelope's own stamp orders the partition); retention, serialization, and upload policy compose at the app root over the detached export.
+`Lease<T>`, `FaultCell`, `MonotonicTimeline`, `EvidenceDrain<GhFact>`, and `UiEvent<GhFact>` are composed upstream owners; the evidence-union tee and the per-row journal stamp are deleted (one fact family, so the envelope's own stamp orders the partition); retention, serialization, and upload policy compose at the app root over the detached export.
 
 ## [05]-[RESEARCH]
 

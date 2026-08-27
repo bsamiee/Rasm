@@ -16,7 +16,7 @@
 - Law: `SweepEnds` is admitted at CONSTRUCTION — its generated factory runs the same fold `IsValid` reads, so an unset-bearing terminal cannot enter the pipeline and be caught one layer later; `StartOrUnset`/`EndOrUnset` lower `None` to the host's documented `Point3d.Unset` omit spelling at the call, which is the one place the sentinel is legal.
 - Law: the shape grants are a `CapabilitySet`, so the partitioned two-rail station mode states its legal corner as ONE value comparison against `CapabilitySet.Of(AutoAdjust)` rather than a set-equality probe over a frozen set whose record equality compares by reference.
 - Growth: a new station modality is one case on its rail's union; a new sweep grant is one vocabulary row.
-- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep`/`CreateFromSweepSegmented`/`CreateFromSweepInParts`, `Brep.CreateFromLoft`/`CreateFromLoftRebuild`/`CreateFromLoftRefit`, `DevelopableSrf` `:139-141`), RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurve.MakeCompatible` `:193`), kernel `Domain/results` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep`/`CreateFromSweepSegmented`/`CreateFromSweepInParts`, `Brep.CreateFromLoft`/`CreateFromLoftRebuild`/`CreateFromLoftRefit`, `DevelopableSrf` `:139-141`), RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurve.MakeCompatible` `:193`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -400,14 +400,14 @@ public readonly partial struct LoftTangency : IValidityEvidence {
 
 ## [04]-[ALGEBRA]
 
-- Owner: `LoftOp` `[Union]` `` — the sole construction algebra, each case carrying its generated `SelfOp`; `VariationalThreading` — the solver parallelism row; `Lofts` — the one entry, and the folder's runtime-bound variant of the spine.
+- Owner: `LoftOp` `[Union]` — the sole construction algebra, each case carrying its generated `SelfOp`; `VariationalThreading` — the solver parallelism row; `Lofts` — the one entry, and the folder's runtime-bound variant of the spine.
 - Law: the governance band is CONSUMED, never minted — the spine's `ModelRuntime` carries the regime, the cancellation token, and the optional fraction reporter a `ProgressLease` produces (`HostUi/shell.md` is the package's ONE producer), so an `IProgress` shim or a `CancellationTokenSource` minted beside a lease is the forked form. With no lease the token is `CancellationToken.None` and the reporter lowers to `null`, which is exactly what `Brep.CreateVariationalPatch` reads as an unpaced run.
 - Law: the spine's `Context` is authoritative — `Apply` takes the regime the fold hands it AND the runtime that carries the band, so no arm reads a second context off the runtime and no parameter is discarded. Only the variational patch takes the band, so the token and reporter reach exactly one native and every other arm runs unpaced by the host's own shape.
 - Law: `Lofts.Build` materializes the operation span ahead of the runtime bind — a span cannot cross the `Eff.runtime<ModelRuntime>()` lambda — then runs the spine's `ModelGate.Entry` over the sequence, so capture, the non-empty guard, accumulating admission, and custody-safe product fold remain spine-owned.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into `ModelClaim.Admits`, so a sweep breaching station congruence AND rail refit reports both, and each nested `guard` inside an arm names the axis it gates instead of one shared refusal.
 - Law: compatibility is the CURVE pipeline's — `NurbsCurve.MakeCompatible` has one call site in the folder (`CurveOp.Compatible`), and the loft verb that wrapped the same native behind a second slot is deleted; a caller batching compatibility before a loft composes two operations in one `Build` spread, which is what this pipeline's own flow already described.
 - Growth: a new construction verb is one `LoftOp` case with its arm.
-- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep*`, `Brep.CreateFromLoft*`, `Brep.CreatePatch`, `Brep.CreateVariationalPatch` `:94-100`, `Brep.CreateDevelopableLoft`), kernel `Domain/results` (`Op`, `` + generated `SelfOp`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), LanguageExt.Core (`Eff.runtime`, `Zip`, `Seq`), Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep*`, `Brep.CreateFromLoft*`, `Brep.CreatePatch`, `Brep.CreateVariationalPatch` `:94-100`, `Brep.CreateDevelopableLoft`), kernel `Domain/results` (`Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`), LanguageExt.Core (`Eff.runtime`, `Zip`, `Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -492,7 +492,6 @@ public abstract partial record LoftOp {
         Switch(
             (Domain: domain, Runtime: runtime),
             sweepOne: static (model, edit) => {
-                 = SweepOne.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail, body: rail =>
                     ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Shapes, body: shapes =>
                         edit.Mode.Switch(
@@ -538,7 +537,6 @@ public abstract partial record LoftOp {
                                 }).Run().Bind(static inner => inner))));
             },
             sweepTwo: static (model, edit) => {
-                 = SweepTwo.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail1, body: rail1 =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail2, body: rail2 =>
                         ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Shapes, body: shapes =>
@@ -593,7 +591,6 @@ public abstract partial record LoftOp {
                                     select built))));
             },
             loft: static (model, edit) => {
-                 = Loft.SelfOp;
                 return from _ in guard(!edit.Fit.IncludesRails, new KernelFault.InvalidInput(Axis: Some(nameof(edit.Fit))))
                        from built in ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Shapes, body: shapes =>
                            edit.Tangency.Case switch {
@@ -624,7 +621,6 @@ public abstract partial record LoftOp {
                        select built;
             },
             patch: static (model, edit) => {
-                 = Patch.SelfOp;
                 return ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Geometry, body: constraints =>
                     edit.StartingSurface.Case switch {
                         GeometryHandle starting => ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: starting,
@@ -633,7 +629,6 @@ public abstract partial record LoftOp {
                     });
             },
             variational: static (model, edit) => {
-                 = Variational.SelfOp;
                 return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Edges.Map(static row => row.Curve), body: edgeCurves =>
                     ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.InternalCurves.Map(static row => row.Curve), allowEmpty: true, body: interiorCurves => {
                         Fin<Seq<GeometryHandle>> Solve(Option<Surface> initial) =>

@@ -11,12 +11,12 @@
 ## [02]-[MORPH]
 
 - Owner: `MorphKind` `[Union]` — the sole deformation discriminant, eleven engine forms behind one mint; `BendBehavior`, `FlowBehavior`, `TaperBehavior`, and `MorphBehavior` — the grant vocabularies replacing every positional host bool; `MorphExtent` — the infinite-twist row.
-- Law: every concrete engine enters the same duplicate-morph-own kernel — `Deformed` mints the engine inside `Op.Catch` under a `using`, seats tolerance and the two tuning grants, and hands the morph body to `Duplicated`; `MorphControl` is not a `SpaceMorph`, so its arm builds the driver and re-enters `Duplicated` directly, and that carve is the only reason a second mint exists.
+- Law: every concrete engine enters the same duplicate-morph-own kernel — `Deformed` mints the engine inside `Try.lift` under a `using`, seats tolerance and the two tuning grants, and hands the morph body to `Duplicated`; `MorphControl` is not a `SpaceMorph`, so its arm builds the driver and re-enters `Duplicated` directly, and that carve is the only reason a second mint exists.
 - Law: morphability gates before duplication — `Duplicated` refuses a non-morphable source through `Unsupported` with both types named, duplicates only after that verdict, and disposes the working copy on the morph's failure edge, so a refused morph never strands a live duplicate.
 - Law: grants are a `CapabilitySet`, never a `FrozenSet` — membership outside the roster is unrepresentable rather than probed at admission, and the runtime `Declared` membership check three Modeling pages spelled by hand deletes with it. `CapabilitySet`'s `[UnorderedEquality]` comparison also fixes the reference-equality reading a raw frozen set gives every value object holding one.
 - Law: a two-state modality carrying a HOST projection column is a row — `MorphExtent` renders `InfiniteTwist`, so the bit lives on the row that names both corners and a caller cannot pass a bare `true` whose meaning the call site alone carries. Grants with no host column and no correlated partner stay `CapabilitySet` members; a solitary independent bit stays a named bool on its owning case.
 - Growth: a new morph engine is one `MorphKind` case with its mint; a new grant is one vocabulary row.
-- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Morphs.BendSpaceMorph`/`FlowSpaceMorph`/`MaelstromSpaceMorph`/`SplopSpaceMorph`/`SporphSpaceMorph`/`StretchSpaceMorph`/`TaperSpaceMorph`/`TwistSpaceMorph`/`MeshCageMorph`, `MorphControl`, `SpaceMorph.IsMorphable`), kernel `Domain/results` (`Op`, `Fin`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Morphs.BendSpaceMorph`/`FlowSpaceMorph`/`MaelstromSpaceMorph`/`SplopSpaceMorph`/`SporphSpaceMorph`/`StretchSpaceMorph`/`TaperSpaceMorph`/`TwistSpaceMorph`/`MeshCageMorph`, `MorphControl`, `SpaceMorph.IsMorphable`), kernel `Domain/results` (`Fin`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -219,7 +219,7 @@ public abstract partial record MorphKind : IValidityEvidence {
 - Law: `SquishLaw.Rig` hands back a LEASE, never a bare native — `SquishParameters.Default` mints a fresh instance on every read (`ReferenceEquals(Default, Default)` is false) and the type is `IDisposable`, so the rig acquires through `Lease.Acquire`, configures inside a rolled-back `Catch` that disposes on a mid-configure throw, and the consuming arm's `Lease.Use` closes it with the cleanup fault aggregated into the primary. Both the `= null` custody sentinel and the hand `try`/`finally` delete: custody is a case, never a nulled local.
 - Law: the spring pair is one value — `SetSpringConstants` takes both biases together and `GetSpringConstants` answers both, so `SquishSpring` carries the pair and an absent spring is `None` rather than two defaulted zeros.
 - Growth: a new flattener grant is one `SquishBehavior` row; a new solver weight is one `SquishLaw` column with its claim.
-- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller` `:37` (`ExplodeOutput`, `ExplodeSpacing`, `AbsoluteTolerance`, `RelativeTolerance`, `AddFollowingGeometry`, `PerformUnroll`), `Squisher`, `SquishParameters`, `SquishFlatteningAlgorithm`, `SquishDeformation`), kernel `Domain/results` (`Lease<T>.Acquire`/`Use`, `Op`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller` `:37` (`ExplodeOutput`, `ExplodeSpacing`, `AbsoluteTolerance`, `RelativeTolerance`, `AddFollowingGeometry`, `PerformUnroll`), `Squisher`, `SquishParameters`, `SquishFlatteningAlgorithm`, `SquishDeformation`), kernel `Domain/results` (`Lease<T>.Acquire`/`Use`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -393,13 +393,13 @@ public readonly partial struct SquishLaw : IValidityEvidence {
 
 ## [04]-[ALGEBRA]
 
-- Owner: `DeformOp` `[Union]` `` — the sole operation algebra, each case carrying its generated `SelfOp`; `Deforms` — the one entry folding any operation spread into one owned geometry sequence.
+- Owner: `DeformOp` `[Union]` — the sole operation algebra, each case carrying its generated `SelfOp`; `Deforms` — the one entry folding any operation spread into one owned geometry sequence.
 - Law: the entry is `Build`, as on every sibling — one concept, one spelling across the eight Modeling rosters, and the `Apply` name stays where it means "run this operation" on `DeformOp` itself.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis and a new case breaks the compile rather than falling to a silent refusal.
 - Law: every arm returns only owned geometry handles through `ModelGate`; unconsumed native side channels close inside the producing call.
 - Law: engine custody splits on the host and is stated where it bites — `Squisher` and `MeshUnwrapper` are `IDisposable` and release after every geometry product has detached; `Unroller` holds no native handle and needs no release. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix, and every `Rollback` in the squish chain releases the exact accumulated prefix at its own edge.
 - Growth: a new deformation verb is one `DeformOp` case with its arm.
-- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `Get2dMesh`, `Get3dMesh`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/results` (`Op.Catch`, `Op.Confirm`, `Lease<T>.Use`, `` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`Seq`), Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `Get2dMesh`, `Get3dMesh`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `Lease<T>.Use`, `` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -437,12 +437,10 @@ public abstract partial record DeformOp {
         Switch(
             domain,
             morph: static (model, edit) => {
-                 = Morph.SelfOp;
                 return edit.Kind.Morph(target: edit.Target, tuning: edit.Behavior, context: model)
                     .Map(product => Seq(product));
             },
             unroll: static (model, edit) => {
-                 = Unroll.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
                     ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Followers.Curves, allowEmpty: true, body: followers =>
                         Try.lift(() => {
@@ -476,7 +474,6 @@ public abstract partial record DeformOp {
                         }).Run().Bind(static inner => inner)));
             },
             squish: static (_, edit) => {
-                 = Squish.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
                     ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, allowEmpty: true, body: marks =>
                         from parameters in edit.Law.Rig()
@@ -518,7 +515,6 @@ public abstract partial record DeformOp {
                         select flattened));
             },
             squishBack: static (_, edit) => {
-                 = SquishBack.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Pattern, body: pattern =>
                     ModelGate.BorrowMany<GeometryBase, Seq<GeometryHandle>>(handles: edit.Marks, body: marks =>
                         from _ in Admit.Confirm(success: Squisher.Is2dPatternSquished(geometry: pattern))
@@ -527,7 +523,6 @@ public abstract partial record DeformOp {
                         select restored));
             },
             unwrap: static (_, edit) => {
-                 = Unwrap.SelfOp;
                 return ModelGate.BorrowMany<Mesh, Seq<GeometryHandle>>(handles: edit.Meshes, body: sources =>
                     from working in sources.FoldM<Fin, Seq<Mesh>>(Seq<Mesh>(), (held, source) =>
                         Try.lift(() => Optional(source.Duplicate() as Mesh).ToFin(Fail: new KernelFault.InvalidResult())).Run().Bind(static inner => inner)

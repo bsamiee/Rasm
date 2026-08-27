@@ -107,7 +107,7 @@
 
 [TOPOLOGY]:
 - `AssimpContext` owns native handles as `IDisposable`; construct once per ingest, reuse for a batch, dispose in a `using`, and never share one instance across threads.
-- Format support resolves through `IsImportFormatSupported`/`IsExportFormatSupported` before the call, mapping a miss to `BimFault.Refused` under the import/export capability axis; every `ImportFile*`/`ExportFile`/`Convert*` sits in `Op.Catch`, preserving an `AssimpException` as the exact exceptional `Error` rather than reminting its message.
+- Format support resolves through `IsImportFormatSupported`/`IsExportFormatSupported` before the call, mapping a miss to `BimFault.Refused` under the import/export capability axis; every `ImportFile*`/`ExportFile`/`Convert*` sits in `Try.lift`, preserving an `AssimpException` as the exact exceptional `Error` rather than reminting its message.
 - Bim ingest normalizes with `Triangulate | JoinIdenticalVertices | GenerateSmoothNormals | CalculateTangentSpace | GenerateUVCoords`; FBX and Collada arrive Y-up right-handed, so the handedness flip rides the per-importer `FrameNormalization` axis, never a blanket `MakeLeftHanded`.
 - A mesh world matrix is the product of `Node.Transform` up the `Parent` chain; `PreTransformVertices` flattens it only where per-instance node identity is unused downstream.
 

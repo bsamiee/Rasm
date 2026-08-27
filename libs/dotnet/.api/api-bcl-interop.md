@@ -124,7 +124,7 @@
 - Reinterpretation aliases rather than copies, so the storage owner outlives every span, memory, and ref this surface projects from it.
 
 [STACKING]:
-- `api-languageext`(`.api/api-languageext.md`): `Create`, `Load`, and `GetExport` throw, so each enters `Op.Catch` before any `Eff`/`IO` deferral and lands on `Fin<A>` with the original exception preserved; the `IDisposable` registrations collect in an `Atom<Seq<IDisposable>>` cell disposed in reverse-registration order.
+- `api-languageext`(`.api/api-languageext.md`): `Create`, `Load`, and `GetExport` throw, so each enters `Try.lift` before any `Eff`/`IO` deferral and lands on `Fin<A>` with the original exception preserved; the `IDisposable` registrations collect in an `Atom<Seq<IDisposable>>` cell disposed in reverse-registration order.
 - `api-tensors`(`.api/api-tensors.md`): `MemoryMarshal.Cast`/`AsBytes` re-type a coordinate buffer in place and `TensorMarshal` lifts the same reference into `TensorSpan<T>`, so a tensor view is never re-declared here.
 - `api-highperformance`(`.api/api-highperformance.md`): `MemoryOwner<T>` and `ArrayPoolBufferWriter<T>` own the rented buffer while `MemoryMarshal.TryGetArray`/`CreateSpan` project it, keeping pooling and reinterpretation on separate owners.
 - `api-hosting-lifetimes`(`Rasm.AppHost/.api/api-hosting-lifetimes.md`): `SystemdLifetime` owns sd_notify state and the watchdog keep-alive, so this surface carries the signal trap alone.

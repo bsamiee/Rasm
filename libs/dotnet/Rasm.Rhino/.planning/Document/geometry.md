@@ -924,7 +924,7 @@ public sealed record ClipState(
 public readonly record struct ClipTransition(ClipState Before, ClipState After);
 ```
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-geometry.md` — geometry duplication/transform members; `api-rhinocommon-objects.md` — `SetClipParticipation`, handle custody); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]`/`[ValueObject]` clip and handle vocabularies, `[ComplexValueObject]` `FieldOverride<T>`); kernel `Domain/results` (`Transition`, `Cell`, `Op`) + `Analysis` measures.
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-geometry.md` — geometry duplication/transform members; `api-rhinocommon-objects.md` — `SetClipParticipation`, handle custody); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]`/`[ValueObject]` clip and handle vocabularies, `[ComplexValueObject]` `FieldOverride<T>`); kernel `Domain/results` (`Transition`, `Cell`) + `Analysis` measures.
 
 ## [05]-[RESEARCH]
 

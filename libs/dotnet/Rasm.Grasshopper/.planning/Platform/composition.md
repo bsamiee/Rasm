@@ -44,7 +44,7 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 |  [10]   | telemetry capsule       | `GhTelemetry.Of` seating the meter and logger on the per-ALC cell    | `Shell/telemetry`                   |
 
 - Boundary: cache substrate — the folder currently CACHES NOTHING (`Shell/session.md`'s cache module deleted with zero consumers), so no `HybridCache` registers and the package reference is retired. Future cached carrier re-mints at the shell under these standing obligations: the codec for any non-inbuilt carrier registers BEFORE `AddHybridCache` (the substrate's try-add seeding makes the earlier registration the binding one); `MaximumPayloadBytes` sizes against the largest admitted payload because an over-quota payload logs and returns uncached silently; `ReportTagMetrics` arms the per-document hit/miss dimension and no folder instrument doubles it; no L2 registers unless the shell binds a real `IDistributedCache` — the block is pure L1 by construction.
-- Packages: `Rasm.Domain` (`Op`, `Lease<T>`, `PackageIdentity`, `FaultCell`, `Custody`), `Rasm.Numerics` (`Dimension`), `Rasm.Parametric` (`MonotonicTimeline`), `Components/data.md` (`BrokerLedger`), LanguageExt.Core.
+- Packages: `Rasm.Domain` (`Lease<T>`, `PackageIdentity`, `FaultCell`, `Custody`), `Rasm.Numerics` (`Dimension`), `Rasm.Parametric` (`MonotonicTimeline`), `Components/data.md` (`BrokerLedger`), LanguageExt.Core.
 - Growth: a new mounted family is one roster row naming its entry; a new process-wide registry is one cell on this capsule, never a static on a library page.
 
 ```csharp

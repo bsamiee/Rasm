@@ -137,7 +137,7 @@ Each op pairs a model-returning `*Async` (throws `ApiException`) with a `*WithHt
 - `LBT.RestSharp` (HTTP) and `LBT.Newtonsoft.Json` (JSON) carry distinct package ids from the Persistence folder's `Newtonsoft.Json` and its System.Text.Json legs, so the vendored RestSharp-106 + Newtonsoft-fork closure never collides.
 - `Microsoft.Data.Sqlite` is touched only by the `Wrapper.LocalDatabase` cache through the ADO.NET `SqliteConnection`/`SqliteCommand` surface; the `*Api` REST layer never references it.
 - Token auth is connection input the app root hands over (`Configuration.AddDefaultHeader`/`TokenRepo`), never a fence member.
-- SDK `ApiException` throws enter `Op.Catch`; the owner classifies the documented HTTP status once into `ComputeFault.ProviderFailed` while retaining the captured `Error` as `Cause`, never reminting the exception into non-caused `ComputeFault.AnalysisFailed`.
+- SDK `ApiException` throws enter `Try.lift`; the owner classifies the documented HTTP status once into `ComputeFault.ProviderFailed` while retaining the captured `Error` as `Cause`, never reminting the exception into non-caused `ComputeFault.AnalysisFailed`.
 
 [STACKING]:
 - `api-objectstore.md`(`Rasm.Persistence/.api/api-objectstore.md`): `ArtifactsApi.CreateArtifactAsync` returns an `S3UploadRequest` presigned PUT and the `*Download*` ops resolve S3-backed assets, so the byte transfer rides the folder's object-store owner (`AWSSDK.S3`/`Minio`) on the same S3 plane; a downloaded `RunAsset` lands content-keyed (`XxHash128`) through that same body bridge, never a second HTTP uploader.

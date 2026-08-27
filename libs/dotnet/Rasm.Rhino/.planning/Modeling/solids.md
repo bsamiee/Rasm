@@ -17,9 +17,9 @@
 - Law: a construction result is an acquisition, never a crossing — `Own` mints native results directly, `OwnMany` refuses null and undeclared empty spreads, optional secondary stages admit empty explicitly, and a mid-spread failure disposes every handle already minted.
 - Law: the batch fold is failure-symmetric — `Folded` concatenates owned products and releases every product accumulated by earlier operations the moment a later operation faults, so a batch never half-leaks custody.
 - Law: `Borrow` is the type gate — a handle whose live native is not the demanded kind refuses through `Unsupported` with both types named, so no arm ever pattern-matches raw geometry beyond its own dispatch.
-- Law: `BenchBand.Measured` brackets an observed operation through the injected session `MonotonicTimeline`, reads thread allocation, and converts synchronous runner exceptions through `Op.Catch`; `BenchEvidence` carries the capture pipeline's benchmark shape while the corpus gate owns aggregation and thresholds.
+- Law: `BenchBand.Measured` brackets an observed operation through the injected session `MonotonicTimeline`, reads thread allocation, and converts synchronous runner exceptions through `Try.lift`; `BenchEvidence` carries the capture pipeline's benchmark shape while the corpus gate owns aggregation and thresholds.
 - Growth: a new custody modality is one `ModelGate` member; a new bench dimension is one `BenchEvidence` field; sibling pages add zero spine surface.
-- Packages: kernel `Domain/results` (`Op`, `Fault`, `Fin`, `ValidityClaim`, `Custody`, `Op.Catch`/`Confirm`/`Need`), kernel `Domain/context` (`Context`, `Tolerance`), kernel `Parametric/projections` (`MonotonicTimeline`), `Rasm.Rhino.Document` (`GeometryHandle`, `Lease<T>`, `CrossingMode`, `GeometryCrossing`), `Modeling/curves.md` (`ModelClaim`), RhinoCommon (`Rhino.Runtime.HostUtils`, `Rhino.Geometry` — `.api/api-rhinocommon-solids.md`, `.api/api-rhinocommon-geometry.md`), LanguageExt.Core (`Seq`, `FoldM`, `Traverse`, `Validation`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
+- Packages: kernel `Domain/results` (`Fault`, `Fin`, `ValidityClaim`, `Custody`, `Try.lift`/`Confirm`/`Need`), kernel `Domain/context` (`Context`, `Tolerance`), kernel `Parametric/projections` (`MonotonicTimeline`), `Rasm.Rhino.Document` (`GeometryHandle`, `Lease<T>`, `CrossingMode`, `GeometryCrossing`), `Modeling/curves.md` (`ModelClaim`), RhinoCommon (`Rhino.Runtime.HostUtils`, `Rhino.Geometry` — `.api/api-rhinocommon-solids.md`, `.api/api-rhinocommon-geometry.md`), LanguageExt.Core (`Seq`, `FoldM`, `Traverse`, `Validation`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -278,7 +278,7 @@ internal static class ModelGate {
 - Law: admission is owner-local and evidence-shaped — every policy union and every policy value answers `IValidityEvidence.IsValid` off its generated `Switch` or the same fold its generated factory ran, so a new case breaks its owning owner's evidence at compile; the shape claims are the spine's `ModelClaim` and the kernel's `ValidityClaim` rows, never a page-local predicate class, and one `object?`-typed predicate switching over every policy type is the deleted form that let a new case pass unchecked.
 - Law: `Rig` is a capability projection on the fault channel, NOT a `[Mapper]` transcription — the grant-column collapse consumed the field-for-field mirroring a Mapperly seat owns, so `FilletLaw.Rig` delegates the profile to `FilletShape.Bake`'s generated `Switch` over four host factories and writes one `Admits` read, and `MatchLaw.Rig` writes four of its five `MatchSrfSettings` slots off `MatchCapability` before handing the settings to `MatchRefinement.Apply`. Mapperly maps a declared source property onto a same-shaped target property on a pure signature and expresses neither the dispatch, the grant read, nor the `Fin` carrier, so a mapper seated here carries a hand-written body per slot and maps nothing; the folder's `[Mapper]` seats stay on the pages transcribing a foreign record field-for-field.
 - Growth: a new profile is one `FilletShape` case; a new primitive is one `SolidSeed` case; a new edit verb is one `SolidEdit` case; a new grant is one row on its owning vocabulary — the pipeline and every consumer read them with zero new surface.
-- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `Brep.FilletSurfaceSettings` `[01]` and its four factories `:84`, `Brep.CreateFilletSurface`/`CreateFilletSurfaceCurve` `:80-81`, `SurfaceFilletBase` section family, `Brep.CreateBoolean*`, `Brep.CreatePlanar*`, `Brep.CreatePipe`/`CreateThickPipe`, `Brep.CreateOffsetBrep`, `MatchSrfSettings`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Box`, `Cone`, `Cylinder`, `Torus`, `Sphere`, `ComponentIndex`, `Continuity`, `BlendType`, `RailType`, `PipeCapMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `Brep.FilletSurfaceSettings` `[01]` and its four factories `:84`, `Brep.CreateFilletSurface`/`CreateFilletSurfaceCurve` `:80-81`, `SurfaceFilletBase` section family, `Brep.CreateBoolean*`, `Brep.CreatePlanar*`, `Brep.CreatePipe`/`CreateThickPipe`, `Brep.CreateOffsetBrep`, `MatchSrfSettings`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Box`, `Cone`, `Cylinder`, `Torus`, `Sphere`, `ComponentIndex`, `Continuity`, `BlendType`, `RailType`, `PipeCapMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/results` (`ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -802,7 +802,7 @@ public sealed record MatchLaw(
 
 ## [04]-[OPERATION_PIPELINE]
 
-- Owner: `SolidOp` `[Union]` `` — the whole verified solid-construction verb roster, each case carrying its own generated `SelfOp`; `Solids` — the one entry folding any operation spread into owned geometry handles.
+- Owner: `SolidOp` `[Union]` — the whole verified solid-construction verb roster, each case carrying its own generated `SelfOp`; `Solids` — the one entry folding any operation spread into owned geometry handles.
 - Law: every construction arm returns the owned geometry produced by RhinoCommon directly; native diagnostics and correspondence outputs stay local when no caller consumes them.
 - Law: the pipeline is value-semantic — `Edit` duplicates its borrowed brep, runs the in-place host member on the working copy, and owns the copy (or the member's returned brep, disposing the copy) as the product; no operation mutates the geometry behind an input handle.
 - Law: boolean payload shape is admission — `SolidBooleanLaw` carries each set topology and manifold grant, and `PlanarBooleanLaw` carries union spread or exact pair.
@@ -812,7 +812,7 @@ public sealed record MatchLaw(
 - Boundary: sweep, loft, and patch construction is the lofting page's pipeline; freeform surface and curve construction is the surfaces and curves pages'; this pipeline owns the solid-topology verbs alone.
 - Boundary: this pipeline is unpaced because no Brep construction member consumes cancellation or progress; `ModelRuntime` supplies the shared context while meshing, lofting, and projection consume their pacing columns.
 - Growth: a new host solid verb is one case with its arm; the spine and every consumer read it with zero new surface.
-- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — the `Brep` boolean, fillet, blend, offset, shell, pipe, join, merge, match, split, trim, and extrusion rosters `:44-160`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Extrusion`, `ComponentIndex`, `MeshType`, `ExtrudeCornerType`), kernel `Domain/results` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `` + generated `SelfOp`, `Fin`), kernel `Domain/validation` (`CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — the `Brep` boolean, fillet, blend, offset, shell, pipe, join, merge, match, split, trim, and extrusion rosters `:44-160`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Extrusion`, `ComponentIndex`, `MeshType`, `ExtrudeCornerType`), kernel `Domain/results` (`KernelFault.InvalidInput(Key, Axis)`, `Fin`), kernel `Domain/validation` (`CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1042,7 +1042,6 @@ public abstract partial record SolidOp {
                                 firstSet: first.AsIterable(), secondSet: second.AsIterable(), tolerance: ctx.Absolute.Value)))));
             },
             planarBoolean: static (model, edit) => {
-                 = PlanarBoolean.SelfOp;
                 return edit.Law.Switch(
                     state: (Edit: edit, Model: model),
                     union: static (ctx, law) => ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: law.Breps, body: breps =>
@@ -1058,12 +1057,10 @@ public abstract partial record SolidOp {
                                 b0: first, b1: second, plane: ctx.Edit.Plane, tolerance: ctx.Absolute.Value)))));
             },
             solidify: static (model, edit) => {
-                 = Solidify.SelfOp;
                 return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Open, body: open =>
                     ModelGate.Many(() => Brep.CreateSolid(breps: open.AsIterable(), tolerance: model.Absolute.Value)));
             },
             filletEdges: static (model, edit) => {
-                 = FilletEdges.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     from _ in guard(edit.Edges.ForAll(row => row.Edge < target.Edges.Count), new KernelFault.InvalidInput())
                     from built in edit.Edges.Exists(static row => row.Law is RadiusLaw.Profiled)
@@ -1090,7 +1087,6 @@ public abstract partial record SolidOp {
                     select built);
             },
             faceFillet: static (model, edit) => {
-                 = FaceFillet.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count, new KernelFault.InvalidInput())
@@ -1104,7 +1100,6 @@ public abstract partial record SolidOp {
                         select built));
             },
             faceCurveFillet: static (model, edit) => {
-                 = FaceCurveFillet.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Host, body: host =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Along, body: along =>
                         from _ in guard(edit.Face < host.Faces.Count, new KernelFault.InvalidInput())
@@ -1117,7 +1112,6 @@ public abstract partial record SolidOp {
                         select built));
             },
             sectionFillet: static (model, edit) => {
-                 = SectionFillet.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
@@ -1130,7 +1124,6 @@ public abstract partial record SolidOp {
                         select built));
             },
             blendSurface: static (_, edit) => {
-                 = BlendSurface.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
@@ -1143,7 +1136,6 @@ public abstract partial record SolidOp {
                         select built));
             },
             blendSection: static (_, edit) => {
-                 = BlendSection.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
@@ -1156,7 +1148,6 @@ public abstract partial record SolidOp {
                         select built));
             },
             offsetSolid: static (model, edit) => {
-                 = OffsetSolid.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     Try.lift(() => {
                         Brep[] offsets = Brep.CreateOffsetBrep(
@@ -1171,7 +1162,6 @@ public abstract partial record SolidOp {
                     }).Run().Bind(static inner => inner));
             },
             faceOffset: static (model, edit) => {
-                 = FaceOffset.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     from _ in guard(edit.Face < target.Faces.Count, new KernelFault.InvalidInput())
                     from built in ModelGate.Single(() => Brep.CreateFromOffsetFace(
@@ -1182,7 +1172,6 @@ public abstract partial record SolidOp {
                     select built);
             },
             shell: static (model, edit) => {
-                 = Shell.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     from _ in guard(edit.FacesToRemove.ForAll(face => face < target.Faces.Count), new KernelFault.InvalidInput())
                     from built in ModelGate.Many(() => Brep.CreateShell(
@@ -1190,7 +1179,6 @@ public abstract partial record SolidOp {
                     select built);
             },
             pipe: static (model, edit) => {
-                 = Pipe.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Rail, body: rail =>
                     edit.Law.Switch(
                         state: (Rail: rail, Edit: edit, Tolerance: model.Absolute.Value, Angle: model.Angle.Value),
@@ -1211,11 +1199,9 @@ public abstract partial record SolidOp {
                             absoluteTolerance: ctx.Tolerance, angleToleranceRadians: ctx.Angle))));
             },
             seed: static (model, edit) => {
-                 = Seed.SelfOp;
                 return edit.Value.Build(domain: model).Map(Seq);
             },
             taperedExtrude: static (model, edit) => {
-                 = TaperedExtrude.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Profile, body: profile =>
                     ModelGate.Many(() => Brep.CreateFromTaperedExtrude(
                         curveToExtrude: profile, distance: edit.Distance, direction: edit.Direction, basePoint: edit.BasePoint,
@@ -1223,31 +1209,26 @@ public abstract partial record SolidOp {
                         tolerance: model.Absolute.Value, angleToleranceRadians: model.Angle.Value)));
             },
             taperedExtrudeRef: static (model, edit) => {
-                 = TaperedExtrudeRef.SelfOp;
                 return ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Profile, body: profile =>
                     ModelGate.Many(() => Brep.CreateFromTaperedExtrudeWithRef(
                         curve: profile, direction: edit.Direction, distance: edit.Distance,
                         draftAngle: edit.DraftAngleRadians, plane: edit.Reference, tolerance: model.Absolute.Value)));
             },
             planarFill: static (model, edit) => {
-                 = PlanarFill.SelfOp;
                 return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Loops, body: loops =>
                     ModelGate.Many(() => Brep.CreatePlanarBreps(inputLoops: loops.AsIterable(), tolerance: model.Absolute.Value)));
             },
             edgeSurface: static (_, edit) => {
-                 = EdgeSurface.SelfOp;
                 return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Rails, body: rails =>
                     from _ in guard(rails.Count >= 2 && rails.Count <= 4, new KernelFault.InvalidInput())
                     from built in ModelGate.Single(() => Brep.CreateEdgeSurface(curves: rails.AsIterable()))
                     select built);
             },
             trimmedPlane: static (_, edit) => {
-                 = TrimmedPlane.SelfOp;
                 return ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
                     ModelGate.Single(() => Brep.CreateTrimmedPlane(plane: edit.Frame, curves: curves.AsIterable())));
             },
             join: static (model, edit) => {
-                 = Join.SelfOp;
                 return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Targets, body: targets =>
                     Try.lift(() => {
                         Brep[] joined = Brep.JoinBreps(
@@ -1258,7 +1239,6 @@ public abstract partial record SolidOp {
                     }).Run().Bind(static inner => inner));
             },
             joinEdges: static (model, edit) => {
-                 = JoinEdges.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(
@@ -1269,12 +1249,10 @@ public abstract partial record SolidOp {
                         select built));
             },
             merge: static (model, edit) => {
-                 = Merge.SelfOp;
                 return ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Targets, body: targets =>
                     ModelGate.Single(() => Brep.MergeBreps(brepsToMerge: targets.AsIterable(), tolerance: model.Absolute.Value)));
             },
             mergeFaces: static (model, edit) => {
-                 = MergeFaces.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         edit.Law.Switch(
@@ -1288,7 +1266,6 @@ public abstract partial record SolidOp {
                                 point0: law.First, point1: law.Second, roundness: law.Roundness, smooth: law.Smooth)))));
             },
             match: static (model, edit) => {
-                 = Match.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.TargetCurves, body: curves =>
                         from _ in guard(edit.Edge < target.Edges.Count, new KernelFault.InvalidInput())
@@ -1301,7 +1278,6 @@ public abstract partial record SolidOp {
                         select built));
             },
             extendToConnect: static (model, edit) => {
-                 = ExtendToConnect.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.First, body: first =>
                     ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Second, body: second =>
                         from _ in guard(edit.FirstFace < first.Faces.Count && edit.SecondFace < second.Faces.Count, new KernelFault.InvalidInput())
@@ -1331,7 +1307,6 @@ public abstract partial record SolidOp {
                         select built));
             },
             splitPieces: static (_, edit) => {
-                 = SplitPieces.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     Try.lift(() => {
                         Brep[] pieces = Brep.SplitDisjointPieces(brep: target);
@@ -1339,7 +1314,6 @@ public abstract partial record SolidOp {
                     }).Run().Bind(static inner => inner));
             },
             splitBy: static (model, edit) => {
-                 = SplitBy.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     ModelGate.BorrowMany<Brep, Seq<GeometryHandle>>(handles: edit.Cutters, body: cutters =>
                         cutters.Count == 1
@@ -1350,7 +1324,6 @@ public abstract partial record SolidOp {
                             : ModelGate.Many(() => target.Split(cutters: cutters.AsIterable(), intersectionTolerance: model.Absolute.Value))));
             },
             trim: static (model, edit) => {
-                 = Trim.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.Target, body: target =>
                     edit.Cutter.Switch(
                         state: (Target: target, Tolerance: model.Absolute.Value),
@@ -1359,7 +1332,6 @@ public abstract partial record SolidOp {
                         byPlane: static (ctx, cutter) => ModelGate.Many(() => ctx.Target.Trim(cutter: cutter.Cutter, intersectionTolerance: ctx.Tolerance))));
             },
             cutUp: static (model, edit) => {
-                 = CutUp.SelfOp;
                 return ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.Source, body: surface =>
                     ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Curves, body: curves =>
                         ModelGate.Many(() => Brep.CutUpSurface(
@@ -1367,7 +1339,6 @@ public abstract partial record SolidOp {
                             fitTolerance: model.Absolute.Value, keepTolerance: model.Absolute.Value))));
             },
             copyTrims: static (model, edit) => {
-                 = CopyTrims.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: edit.TrimSource, body: source =>
                     ModelGate.Borrow<Surface, Seq<GeometryHandle>>(handle: edit.SurfaceSource, body: surface =>
                         from _ in guard(edit.Face < source.Faces.Count, new KernelFault.InvalidInput())
@@ -1376,22 +1347,18 @@ public abstract partial record SolidOp {
                         select built));
             },
             edit: static (model, request) => {
-                 = Edit.SelfOp;
                 return ModelGate.Borrow<Brep, Seq<GeometryHandle>>(handle: request.Target, body: source =>
                     Try.lift(() => Optional(source.DuplicateBrep()).ToFin(Fail: new KernelFault.InvalidResult()).Bind(working =>
                         Edited(working: working, verb: request.Verb, domain: model).Rollback(working))).Run().Bind(static inner => inner));
             },
             simplify: static (_, edit) => {
-                 = Simplify.SelfOp;
                 return ModelGate.Borrow<GeometryBase, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
                     ModelGate.Single(() => Brep.TryConvertBrep(geometry: source)));
             },
             lite: static (_, edit) => {
-                 = Lite.SelfOp;
                 return edit.Value.Build().Map(Seq);
             },
             liteProfiled: static (_, edit) => {
-                 = LiteProfiled.SelfOp;
                 return ModelGate.Borrow<Extrusion, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
                     ModelGate.Borrow<Curve, Seq<GeometryHandle>>(handle: edit.Outer, body: outer =>
                         ModelGate.BorrowMany<Curve, Seq<GeometryHandle>>(handles: edit.Inners, allowEmpty: true, body: inners =>
@@ -1408,7 +1375,6 @@ public abstract partial record SolidOp {
                                 .Rollback(working))).Run().Bind(static inner => inner))));
             },
             liteRead: static (_, edit) => {
-                 = LiteRead.SelfOp;
                 return ModelGate.Borrow<Extrusion, Seq<GeometryHandle>>(handle: edit.Target, body: source =>
                     edit.Read.Switch(
                         state: source,

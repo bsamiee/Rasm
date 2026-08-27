@@ -50,7 +50,7 @@
 |  [03]   | `Status.UnpackDetailMessages(TypeRegistry) -> IEnumerable<IMessage>` | instance | every detail resolvable by the caller's registry      |
 |  [04]   | `StandardErrorTypeRegistry.Registry -> TypeRegistry`                 | static   | every standard detail message                         |
 
-- `Status.GetDetail<T>`: an `Any` of the right type name that fails to unpack throws; the solution filters by `Any.Is(FaultDetail.Descriptor)` and unpacks under `Op.Catch` to keep malformed distinct from absent.
+- `Status.GetDetail<T>`: an `Any` of the right type name that fails to unpack throws; the solution filters by `Any.Is(FaultDetail.Descriptor)` and unpacks under `Try.lift` to keep malformed distinct from absent.
 - `UnpackDetailMessages(registry)`: silently drops a detail the registry cannot resolve, so a solution detail reaches it only through a registry carrying the solution descriptors.
 
 [ENTRYPOINT_SCOPE]: `Google.Type` calendar fields
