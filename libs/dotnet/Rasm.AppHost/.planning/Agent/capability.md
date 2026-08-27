@@ -412,7 +412,7 @@ public sealed record CommandResult(
 public sealed record CommandRuntime(
     CapabilityRegistry Registry,
     GrantBroker Broker,
-    LaneGuard.Runtime Lanes,
+    Atom<Option<LaneGuard.Runtime>> Lanes,
     Func<CommandBody, Spec, CommandArguments, IO<Fin<DispatchResult>>> Dispatch,
     Func<string, Option<string>> CompensationOf,
     ClockPolicy Clocks,
@@ -463,9 +463,12 @@ public static class CommandAlgebra {
                 select minted);
 
     static IO<Fin<DispatchResult>> Governed(CommandRuntime runtime, Spec spec, CommandBody body, CommandArguments arguments) =>
-        LaneGuard.Run(runtime.Lanes, spec.Lane, _ => runtime.Dispatch(body, spec, arguments))
-            .Catch(static (Error error) => error is LaneFault,
-                   static (Error error) => IO.pure(Fin.Fail<DispatchResult>(error)));
+        runtime.Lanes.Value.Match(
+            Some: lanes => LaneGuard.Run(lanes, spec.Lane, _ => runtime.Dispatch(body, spec, arguments))
+                .Catch(static (Error error) => error is LaneFault,
+                       static (Error error) => IO.pure(Fin.Fail<DispatchResult>(error))),
+            None: () => IO.pure(Fin.Fail<DispatchResult>(new LaneFault.Broken(
+                RetryAfter: None, Cause: new KernelFault.InvalidContext()))));
 
     static IO<CommandTxn> Compensate(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, Error forward) =>
         descriptor.Effect.Reversible

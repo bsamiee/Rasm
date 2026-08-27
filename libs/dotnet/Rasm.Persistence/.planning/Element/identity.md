@@ -134,7 +134,6 @@ public sealed class IdentityContext : DbContext {
     public DbSet<NodeCell> Cells => Set<NodeCell>();
 
     protected override void OnModelCreating(ModelBuilder model) {
-        ArgumentNullException.ThrowIfNull(model);
         IdentityShapeRow row = shape.IfNone(static () => throw new InvalidOperationException("<identity-shape:runtime-model-build>"));
         model.ApplyConfiguration(new IdentityShape(row));
         model.ApplyConfiguration(new NodeCellShape());
@@ -143,7 +142,6 @@ public sealed class IdentityContext : DbContext {
 
 public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<IdentityContext> {
     public IdentityContext CreateDbContext(string[] args) {
-        ArgumentNullException.ThrowIfNull(args);
         IdentityShapeRow row = args is [string key, ..]
             ? IdentityShapeRow.Get()
             : throw new InvalidOperationException("<identity-design-profile:absent>");
@@ -156,7 +154,6 @@ public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<Identity
 
 public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfiguration<ElementIdentity> {
     public void Configure(EntityTypeBuilder<ElementIdentity> identity) {
-        ArgumentNullException.ThrowIfNull(identity);
         identity.ToTable("element_identity");
         identity.HasKey(static e => e.Model);
         identity.Property(static e => e.Roots)
@@ -201,7 +198,6 @@ public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfigura
 
 public sealed class NodeCellShape : IEntityTypeConfiguration<NodeCell> {
     public void Configure(EntityTypeBuilder<NodeCell> node) {
-        ArgumentNullException.ThrowIfNull(node);
         node.ToTable("node_cell");
         node.HasKey(static n => new { n.Model, n.Node });
         node.Property(static n => n.Tenant).HasColumnType("text").HasConversion(ConverterOptions.Tenant);
@@ -214,7 +210,6 @@ public static class IdentityStore {
     static readonly GeometryFactory Wgs84 = new(new PrecisionModel(), 4326);
 
     public static Fin<IdentityWriter> Bind(StoreProfile profile) {
-        ArgumentNullException.ThrowIfNull(profile);
         return profile.Model().FindEntityType(typeof(ElementIdentity)) is { } entity
             ? entity.GetTableName() is { } named
                 ? Framed(entity, StoreObjectIdentifier.Table(named, entity.GetSchema()))
@@ -259,14 +254,11 @@ public static class IdentityStore {
         property.PropertyInfo is { } member ? member.GetValue : static _ => null;
 
     public static IDocumentSession Stamp(IDocumentSession session, ElementIdentity identity, IdentityWriter writer) {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(writer);
         session.QueueSqlCommand(writer.Sql, writer.Binds(identity));
         return session;
     }
 
     public static Fin<H3Cell> Cell(Envelope bounds, int resolution) {
-        ArgumentNullException.ThrowIfNull(bounds);
         H3.H3Index index = H3.H3Index.FromPoint(new Point(bounds.Centre.X, bounds.Centre.Y) { SRID = 4326 }, resolution);
         return index.IsValidCell
             ? Fin<H3Cell>.Succ(H3Cell.Of(index))
@@ -503,8 +495,6 @@ public static class IdentityDispatch {
         static e => new IdentityView(e.Model, e.Tenant, e.Cell, e.ZMin, e.ZMax, e.Classification, e.At);
 
     public static IO<Fin<IdentityOutcome>> Run(IdentityLease lease, IdentityOp op, ProjectionContext frame, CancellationToken cancellationToken) {
-        ArgumentNullException.ThrowIfNull(lease);
-        ArgumentNullException.ThrowIfNull();
         return Admit(lease).Match(
             Succ: facts => Bracket(lease, facts, frame, cancellationToken),
             Fail: error => IO.pure(Fin<IdentityOutcome>.Fail(error)));
@@ -744,8 +734,6 @@ public static class IdentitySpine {
     static readonly Seq<SpineAltitude> Order = Seq(SpineAltitude.Compilation, SpineAltitude.UnitOfWork);
 
     public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options, SpineMount mount) {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(mount);
         return options.AddInterceptors(Order.Bind(altitude => altitude.Mount(mount)))
             .ConfigureWarnings(static warnings => warnings.Throw(
                 CoreEventId.RowLimitingOperationWithoutOrderByWarning,
@@ -1044,7 +1032,6 @@ public abstract partial record IdentityFault : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ModelFingerprint {
     public static UInt128 Of(IModel model) {
-        ArgumentNullException.ThrowIfNull(model);
         return ContentHash.Of(model, static (mounted, w) =>
             w.Sorted(toSeq(mounted.GetEntityTypes()), static type => type.Name, StringComparer.Ordinal, Entity));
     }
@@ -1086,8 +1073,6 @@ public static class IdentityDdl {
 
 public static class SchemaGate {
     public static Fin<SchemaVerdict> Admit(DbContext store, Placement placement, FrozenSet<string> census, Option<UInt128> published) {
-        ArgumentNullException.ThrowIfNull(store);
-        ArgumentNullException.ThrowIfNull(placement);
         UInt128 compiled = ModelFingerprint.Of(store.Model);
         Seq<string> declared = toSeq(store.Model.GetEntityTypes())
             .Map(static type => StoreObjectIdentifier.Create(type, StoreObjectType.Table) is { } table ? table.Name : string.Empty)

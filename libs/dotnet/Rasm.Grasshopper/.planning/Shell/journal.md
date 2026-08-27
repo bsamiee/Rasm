@@ -79,9 +79,10 @@ public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Parti
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class JournalLog {
     internal const int ConsumerFault = 4711;
-    static JournalLog() => HostEdge.SideWhen(
-        condition: ConsumerFault != FaultBand.GrasshopperLog.Code(offset: 11),
-        action: static () => throw new InvalidOperationException("JournalLog.ConsumerFault drifted from FaultBand.GrasshopperLog."));
+    internal static Fin<Unit> Proof() =>
+        ConsumerFault != FaultBand.GrasshopperLog.Code(offset: 11)
+            ? Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: nameof(JournalLog), Requirement: "JournalLog.ConsumerFault drifted from FaultBand.GrasshopperLog."))
+            : Fin.Succ(unit);
 
     [LoggerMessage(EventId = ConsumerFault, Level = LogLevel.Error, Message = "Journal consumer faulted: {Detail}")]
     internal static partial void ConsumerFaulted(ILogger logger, [UserContent] string detail);

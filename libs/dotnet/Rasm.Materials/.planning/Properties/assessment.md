@@ -282,13 +282,12 @@ public static class DeclarationWire {
     }
 
     static int Band(Module stage) => (int)stage switch {
-        1 => 0,
+        <= 1 => 0,
         2 => 1,
         3 => 2,
-        >= 4 and <= 10 => 3,
-        >= 11 and <= 14 => 4,
-        15 => 5,
-        _ => throw new UnreachableException(),
+        <= 10 => 3,
+        <= 14 => 4,
+        _ => 5,
     };
 }
 ```

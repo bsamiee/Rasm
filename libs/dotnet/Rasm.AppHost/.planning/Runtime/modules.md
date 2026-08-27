@@ -729,8 +729,7 @@ public static class CompositionRoot {
                         provider => new CommandRuntime(
                             Registry: provider.GetRequiredService<CapabilityRegistry>(),
                             Broker: provider.GetRequiredService<GrantBroker>(),
-                            Lanes: provider.GetRequiredService<Atom<Option<LaneGuard.Runtime>>>().Value
-                                .IfNone(() => throw new UnreachableException(nameof(LaneGuard))),
+                            Lanes: provider.GetRequiredService<Atom<Option<LaneGuard.Runtime>>>(),
                             Dispatch: provider.GetRequiredService<Func<CommandBody, Spec, CommandArguments, IO<Fin<DispatchResult>>>>(),
                             CompensationOf: provider.GetRequiredService<Func<string, Option<string>>>(),
                             Clocks: inputs.Clocks,

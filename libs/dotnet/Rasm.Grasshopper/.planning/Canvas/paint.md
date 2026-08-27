@@ -108,9 +108,10 @@ public sealed class Mounted<TFacts> : IDisposable {
 internal static partial class PaintLog {
     internal const int CallbackFault = 4701;
     internal const int ReleaseFault = 4703;
-    static PaintLog() => HostEdge.SideWhen(
-        condition: CallbackFault != FaultBand.GrasshopperLog.Code(offset: 1) || ReleaseFault != FaultBand.GrasshopperLog.Code(offset: 3),
-        action: static () => throw new InvalidOperationException("PaintLog ids drifted from FaultBand.GrasshopperLog."));
+    internal static Fin<Unit> Proof() =>
+        CallbackFault != FaultBand.GrasshopperLog.Code(offset: 1) || ReleaseFault != FaultBand.GrasshopperLog.Code(offset: 3)
+            ? Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: nameof(PaintLog), Requirement: "PaintLog ids drifted from FaultBand.GrasshopperLog."))
+            : Fin.Succ(unit);
 
     [LoggerMessage(EventId = CallbackFault, Level = LogLevel.Error, Message = "Paint callback faulted: {Detail}")]
     internal static partial void PaintFault(ILogger logger, [UserContent] string detail);

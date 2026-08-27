@@ -234,7 +234,7 @@ public static class GraphForge {
    12 => Fin.Succ((PropertyValue)new PropertyValue.Complex("corpus-complex",
     Map((PropertyName.Create("corpus-inner"), (PropertyValue)new PropertyValue.Number(draw))))),
    13 => Timed(slot).Map(static value => (PropertyValue)new PropertyValue.Temporal(value)),
-   var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:property-value:{unreached}>"),
+   var unreached => Fin.Fail<PropertyValue>(new KernelFault.OutOfRange(Label: "corpus-property-value", Scalar: unreached, Requirement: $"an arm below {PropertyCases}")),
   };
  }
 
@@ -244,7 +244,7 @@ public static class GraphForge {
   2 => Fin.Succ<TemporalValue>(new TemporalValue.Time(CorpusInstant.InUtc().TimeOfDay.PlusMinutes(slot))),
   3 => Fin.Succ<TemporalValue>(new TemporalValue.Span(Period.FromDays(slot + 1))),
   4 => Fin.Succ<TemporalValue>(new TemporalValue.Stamp(CorpusInstant + (CorpusCadence * slot))),
-  var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:temporal:{unreached}>"),
+  var unreached => Fin.Fail<TemporalValue>(new KernelFault.OutOfRange(Label: "corpus-temporal", Scalar: unreached, Requirement: $"an arm below {TemporalArms}")),
  };
 
  static Fin<MeasureValue> Metre(double si) =>
@@ -267,7 +267,7 @@ public static class GraphForge {
    .Bind(admitted => Section(slot).Map(admitted.WithSection)),
   3 => MaterialComposition.OfConstituentSet(
    Seq(new MaterialConstituent(material, "corpus", 0.5, "corpus-a"), new MaterialConstituent(material, "corpus", 0.5, "corpus-b"))),
-  var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:composition:{unreached}>"),
+  var unreached => Fin.Fail<CompositionValue>(new KernelFault.OutOfRange(Label: "corpus-composition", Scalar: unreached, Requirement: "a declared composition arm")),
  };
 
  static Fin<Seq<MaterialUsage>> Usages(int typeCount) =>
@@ -280,7 +280,7 @@ public static class GraphForge {
    2 => Metre(3.0 + t).Bind(extent =>
     MaterialUsage.ProfileSet.Of(Some(1 + (t % CardinalPoint.Items.Count)), Some(extent))),
    0 or 3 => Fin.Succ((MaterialUsage)new MaterialUsage.Unbound()),
-   var unreached => throw new InvalidOperationException($"<corpus-arm-unreached:usage:{unreached}>"),
+   var unreached => Fin.Fail<UsageValue>(new KernelFault.OutOfRange(Label: "corpus-usage", Scalar: unreached, Requirement: "a declared usage arm")),
   }).As();
 
  static Fin<Seq<MaterialPropertySet>> Properties(int slot) =>

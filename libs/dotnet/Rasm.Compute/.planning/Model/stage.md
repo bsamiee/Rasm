@@ -334,7 +334,7 @@ public static partial class StageWireMap {
         wire.KindCase switch {
             StageInputWire.KindOneofCase.Source => new StageInput(string.Empty, string.Empty, ContentHash.Hex(Digest(wire.Source.Key))),
             StageInputWire.KindOneofCase.Produced => new StageInput(WireKeys.Camel(wire.Produced.Stage), Product(wire.Produced.Product), string.Empty),
-            var unset => throw new UnreachableException($"<stage-input-kind:{unset}>"),
+            _ => new StageInput(string.Empty, string.Empty, string.Empty),
         };
 
     static string Product(StageProductWire role) =>
@@ -342,7 +342,7 @@ public static partial class StageWireMap {
             StageProductWire.RoleOneofCase.Channel => role.Channel,
             StageProductWire.RoleOneofCase.Prior => WireKeys.Camel(role.Prior),
             StageProductWire.RoleOneofCase.Measure => WireKeys.Camel(role.Measure),
-            var unset => throw new UnreachableException($"<stage-product-role:{unset}>"),
+            _ => string.Empty,
         };
 
     [UserMapping] static StageProductWire Role(string key) =>

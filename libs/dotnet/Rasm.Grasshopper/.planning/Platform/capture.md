@@ -157,9 +157,10 @@ public readonly record struct CaptureTie(long Row, long Frame, TimeSpan Lag);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class CaptureLog {
-    static CaptureLog() => HostEdge.SideWhen(
-        condition: FaultBand.GrasshopperLog.Code(offset: 6) != FaultBand.GrasshopperLogBase + 6,
-        action: static () => throw new InvalidOperationException("CaptureLog ids drifted from FaultBand.GrasshopperLog."));
+    internal static Fin<Unit> Proof() =>
+        FaultBand.GrasshopperLog.Code(offset: 6) != FaultBand.GrasshopperLogBase + 6
+            ? Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: nameof(CaptureLog), Requirement: "CaptureLog ids drifted from FaultBand.GrasshopperLog."))
+            : Fin.Succ(unit);
 
     [LoggerMessage(EventId = FaultBand.GrasshopperLogBase + 6, Level = LogLevel.Error, Message = "Capture stream stopped by host: {Detail}")]
     internal static partial void StreamFault(ILogger logger, [UserContent] string detail);

@@ -135,7 +135,6 @@ public sealed partial class Kind {
             .Exists(row => row.Kind.Type == target))
         || (target == typeof(Brep) && Capabilities.Admits(Capability.BrepForm));
     public static Option<Kind> Of(Type type) {
-        ArgumentNullException.ThrowIfNull(argument: type);
         return type == typeof(RhinoPoint)
             ? Some(Point)
             : Optional(ByType.Value.GetValueOrDefault(key: type)) | InheritsBase(type: type).Bind(static seat => Optional(ByType.Value.GetValueOrDefault(key: seat)));
@@ -362,7 +361,6 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
     public Fin<T> As<T>() where T : class =>
         As<T>().ToFin(Fail: new KernelFault.Unsupported(InputType: Value.GetType(), OutputType: typeof(T)));
     public Fin<TopologyProjection> DetachFrom(GeometryBase source) {
-        ArgumentNullException.ThrowIfNull(argument: source);
         return (Value, source) switch {
             (BrepFace face, _) when ReferenceEquals(objA: face.Brep, objB: source) => Admitted(
                 value: new Lease<GeometryBase>.Owned(Value: face.DuplicateFace(duplicateMeshes: false)),

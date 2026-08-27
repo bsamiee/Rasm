@@ -321,7 +321,6 @@ public sealed record FaultObservation(
     public Option<int> Code => Identity.Map(static id => id.Code);
 
     public static FaultObservation Of(Error error) {
-        ArgumentNullException.ThrowIfNull(error);
         const int causeCeiling = 8;
         Queue<Error> pending = new();
         pending.Enqueue(error);

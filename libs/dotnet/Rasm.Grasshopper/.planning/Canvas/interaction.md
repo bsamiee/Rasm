@@ -178,9 +178,10 @@ internal sealed class SpecResponder : Responses, IResponsive {
 
 internal static partial class InteractionLog {
     internal const int ResponderFaulted = 4714;
-    static InteractionLog() => HostEdge.SideWhen(
-        condition: ResponderFaulted != FaultBand.GrasshopperLog.Code(offset: 14),
-        action: static () => throw new InvalidOperationException("InteractionLog ids drifted from FaultBand.GrasshopperLog."));
+    internal static Fin<Unit> Proof() =>
+        ResponderFaulted != FaultBand.GrasshopperLog.Code(offset: 14)
+            ? Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: nameof(InteractionLog), Requirement: "InteractionLog ids drifted from FaultBand.GrasshopperLog."))
+            : Fin.Succ(unit);
 
     [LoggerMessage(EventId = ResponderFaulted, Level = LogLevel.Error, Message = "Responder callback faulted: {Detail}")]
     internal static partial void ResponderFault(ILogger logger, [UserContent] string detail);

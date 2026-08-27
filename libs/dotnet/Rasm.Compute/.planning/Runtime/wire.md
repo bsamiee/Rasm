@@ -128,7 +128,7 @@ public static class RuleViolations {
             FieldPathElement.SubscriptOneofCase.IntKey => $"[{element.IntKey.ToString(CultureInfo.InvariantCulture)}]",
             FieldPathElement.SubscriptOneofCase.UintKey => $"[{element.UintKey.ToString(CultureInfo.InvariantCulture)}]",
             FieldPathElement.SubscriptOneofCase.StringKey => $"[{JsonSerializer.Serialize(element.StringKey)}]",
-            _ => throw new UnreachableException($"Unknown field-path subscript {element.SubscriptCase}"),
+            var unresolved => $"[{unresolved}]",
         });
 }
 

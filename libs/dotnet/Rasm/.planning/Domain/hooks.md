@@ -211,7 +211,6 @@ public sealed class Ring<T>(Dimension cap) {
     public RingSettlement<T> Park(T item) => Park(item: item, release: None);
 
     public RingSettlement<T> Park(T item, Func<T, Fin<Unit>> release) {
-        ArgumentNullException.ThrowIfNull(release);
         return Park(item: item, release: Some(release));
     }
 

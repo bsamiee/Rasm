@@ -311,14 +311,12 @@ public static class Deterministic {
 
     // --- [BOUNDED_DRAW]
     public static ulong NextBelow(ref ulong state, ulong exclusiveCeiling) {
-        ArgumentOutOfRangeException.ThrowIfZero(value: exclusiveCeiling);
         ulong threshold = (0UL - exclusiveCeiling) % exclusiveCeiling;
         ulong draw = Advance(state: ref state);
         while (unchecked(draw * exclusiveCeiling) < threshold) draw = Advance(state: ref state);
         return Math.BigMul(a: draw, b: exclusiveCeiling, low: out _);
     }
     public static int NextBelow(ref ulong state, int exclusiveCeiling) {
-        ArgumentOutOfRangeException.ThrowIfNegative(value: exclusiveCeiling);
         return (int)NextBelow(state: ref state, exclusiveCeiling: (ulong)exclusiveCeiling);
     }
 
@@ -340,8 +338,6 @@ public static class Deterministic {
         return inverse;
     }
     public static (double U0, double U1) Hammersley(int index, int count) {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value: count);
-        ArgumentOutOfRangeException.ThrowIfNegative(value: index);
         return ((index + 0.5) / count, RadicalInverse(bits: (uint)index));
     }
 
@@ -360,7 +356,6 @@ public static class Deterministic {
         public override long NextInt64(long maxValue) => (long)Draw(state: ref state, extent: Extent(floor: 0L, ceiling: maxValue));
         public override long NextInt64(long minValue, long maxValue) => unchecked(minValue + (long)Draw(state: ref state, extent: Extent(floor: minValue, ceiling: maxValue)));
         public override void NextBytes(byte[] buffer) {
-            ArgumentNullException.ThrowIfNull(argument: buffer);
             NextBytes(buffer: buffer.AsSpan());
         }
         public override void NextBytes(Span<byte> buffer) {
@@ -375,7 +370,6 @@ public static class Deterministic {
             }
         }
         private static ulong Extent(long floor, long ceiling) {
-            ArgumentOutOfRangeException.ThrowIfLessThan(value: ceiling, other: floor);
             return unchecked((ulong)ceiling - (ulong)floor);
         }
         private static ulong Draw(ref ulong state, ulong extent) => extent == 0UL ? 0UL : NextBelow(state: ref state, exclusiveCeiling: extent);

@@ -530,28 +530,27 @@ public static class ArrowBatch {
         return dataset.Instances
             .Traverse(instance => dataset.Schema.Describes(instance).ToValidation<Error>())
             .As().ToFin()
-            .Map(_ => dataset.Instances.Map(instance => Batch(wire, dataset.Kind.Channels, instance, allocator)));
+            .Bind(_ => dataset.Instances.Traverse(instance => Batch(wire, dataset.Kind.Channels, instance, allocator)).As());
     }
 
-    static RecordBatch Batch(Schema wire, Seq<EncodingChannel> channels, EncodedGeometry instance, Option<MemoryAllocator> allocator) {
+    static Fin<RecordBatch> Batch(Schema wire, Seq<EncodingChannel> channels, EncodedGeometry instance, Option<MemoryAllocator> allocator) {
         string node = string.Create(CultureInfo.InvariantCulture, $"{instance.Witness.Root.Key}:{(UInt128)instance.Witness.ContentHash:x32}");
         MemoryAllocator? arena = allocator.IfNoneUnsafe(() => null!);
-        Seq<IArrowArray> columns = channels.Map(channel => Wrap(channel, instance)) + Seq<IArrowArray>(
-            new StringArray.Builder().Reserve(instance.Count)
-                .AppendRange(Enumerable.Repeat(node, instance.Count)).Build(arena),
-            new Int32Array.Builder().Reserve(instance.Count)
-                .Append(Enumerable.Range(0, instance.Count).ToArray()).Build(arena));
-        return new RecordBatch(wire, columns, instance.Count);
+        return channels.Traverse(channel => Wrap(channel, instance)).As().Map(mapped => new RecordBatch(
+            wire,
+            mapped + Seq<IArrowArray>(
+                new StringArray.Builder().Reserve(instance.Count)
+                    .AppendRange(Enumerable.Repeat(node, instance.Count)).Build(arena),
+                new Int32Array.Builder().Reserve(instance.Count)
+                    .Append(Enumerable.Range(0, instance.Count).ToArray()).Build(arena)),
+            instance.Count));
     }
 
-    static IArrowArray Wrap(EncodingChannel channel, EncodedGeometry instance) {
-        ArenaLane lane = Lane(channel.Dtype).IfFail(_ => throw new UnreachableException());
-        ArrowBuffer buffer = new(instance.Channel(channel));
-        return channel.Arity == 1
+    static Fin<IArrowArray> Wrap(EncodingChannel channel, EncodedGeometry instance) =>
+        Lane(channel.Dtype).Map(lane => new ArrowBuffer(instance.Channel(channel)) is var buffer && channel.Arity == 1
             ? lane.Borrow(buffer, instance.Count)
             : new FixedSizeListArray(new FixedSizeListType(lane.Column.Arrow, channel.Arity), instance.Count,
-                lane.Borrow(buffer, checked(instance.Count * channel.Arity)), ArrowBuffer.Empty);
-    }
+                lane.Borrow(buffer, checked(instance.Count * channel.Arity)), ArrowBuffer.Empty));
 
     static Validation<Error, ArenaLane> Lane(ChannelDtype dtype) => dtype.Switch(
         float32:  static _ => Success<Error, ArenaLane>(new ArenaLane(ColumnType.Float32, static (buffer, length) => new FloatArray(buffer, ArrowBuffer.Empty, length, 0, 0))),

@@ -83,8 +83,8 @@ internal static partial class WireCodec {
  [UserMapping] internal static FireWire ToWire(MaterialPropertySet.Fire set) {
   FireWire w = new() { Resistance = ToWire(set.Resistance) };
   set.Reaction.IfSome(reaction => w.Reaction = ToWire(reaction));
-  if (set.Suffix.Smoke.Length > 0) { w.Smoke = ToSmokeClass(set.Suffix.Smoke); }
-  if (set.Suffix.Droplets.Length > 0) { w.Droplets = ToDropletClass(set.Suffix.Droplets); }
+  ToSmokeClass(set.Suffix.Smoke).Iter(value => w.Smoke = value);
+  ToDropletClass(set.Suffix.Droplets).Iter(value => w.Droplets = value);
   return w;
  }
 
@@ -255,32 +255,32 @@ internal static partial class WireCodec {
   _ => Fin.Fail<FireRating>(new KernelFault.InvalidInput(Axis: Some(nameof(FireWire.Reaction)))),
  };
 
- static Rasm.Contracts.Element.SmokeClass ToSmokeClass(string value) => value switch {
+ static Option<Rasm.Contracts.Element.SmokeClass> ToSmokeClass(string value) => value switch {
   "s1" => Rasm.Contracts.Element.SmokeClass.S1,
   "s2" => Rasm.Contracts.Element.SmokeClass.S2,
   "s3" => Rasm.Contracts.Element.SmokeClass.S3,
-  _ => throw new UnreachableException(),
+  _ => None,
  };
 
- static Rasm.Contracts.Element.DropletClass ToDropletClass(string value) => value switch {
+ static Option<Rasm.Contracts.Element.DropletClass> ToDropletClass(string value) => value switch {
   "d0" => Rasm.Contracts.Element.DropletClass.D0,
   "d1" => Rasm.Contracts.Element.DropletClass.D1,
   "d2" => Rasm.Contracts.Element.DropletClass.D2,
-  _ => throw new UnreachableException(),
+  _ => None,
  };
 
  static string ToSmokeToken(FireWire wire) => !wire.HasSmoke ? "" : wire.Smoke switch {
   Rasm.Contracts.Element.SmokeClass.S1 => "s1",
   Rasm.Contracts.Element.SmokeClass.S2 => "s2",
   Rasm.Contracts.Element.SmokeClass.S3 => "s3",
-  _ => throw new UnreachableException(),
+  _ => "",
  };
 
  static string ToDropletToken(FireWire wire) => !wire.HasDroplets ? "" : wire.Droplets switch {
   Rasm.Contracts.Element.DropletClass.D0 => "d0",
   Rasm.Contracts.Element.DropletClass.D1 => "d1",
   Rasm.Contracts.Element.DropletClass.D2 => "d2",
-  _ => throw new UnreachableException(),
+  _ => "",
  };
 
  static Rasm.Contracts.Element.MeasurementBasis ToWire(MeasurementBasis value) => value.Switch(

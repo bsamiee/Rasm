@@ -181,7 +181,6 @@ public static class HostThread {
     private sealed record Crossed<T>(Fin<T> Value) : IDetachedDocumentResult;
 
     public static Fin<T> Run<T>(HostWork<T> work) {
-        ArgumentNullException.ThrowIfNull(work);
         return work.Switch(execute: static (held, request) => RhinoApp.IsOnMainThread
                 ? Try.lift(request.Body).Run().Bind(static inner => inner)
                 : Marshalled(body: request.Body, op: held, lane: DispatchLane.Immediate),
@@ -409,7 +408,6 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
             .Fold(Seq<StatusOp>(), static (all, next) => all + next.Operations));
 
     public Fin<Seq<ToastOutcome>> Apply(DocumentSession session) {
-        ArgumentNullException.ThrowIfNull(session);
         return HostThread.Run(
             work: new HostWork<Seq<ToastOutcome>>.Session(
                 Document: session,
@@ -461,7 +459,6 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PromptWatch {
     public static Fin<Subscription> Observe(CallbackObserver<PromptFact> observer) {
-        ArgumentNullException.ThrowIfNull(observer);
         Atom<long> ordinal = Atom(0L);
         EventHandler<CommandPromptChangedEventArgs> handler = (_, args) => ignore(observer.Guard(
             project: () => Fin.Succ(value: new PromptFact(
@@ -739,10 +736,6 @@ public static class Progress {
         ProgressPolicy policy,
         FaultCell faults,
         Func<ProgressLease, Fin<T>> body) {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(policy);
-        ArgumentNullException.ThrowIfNull(faults);
-        ArgumentNullException.ThrowIfNull(body);
         return HostThread.Run(
             work: new HostWork<T>.Session(
                 Document: session,
@@ -843,7 +836,6 @@ public sealed partial class WindowPolicy {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShellWindows {
     public static Fin<Window> Parent(WindowScope scope) {
-        ArgumentNullException.ThrowIfNull(scope);
         return scope.Switch(application: static (held, _) => HostThread.Run(
                 work: new HostWork<Window>.Execute(Body: () => Optional(RhinoEtoApp.MainWindow).ToFin(Fail: new KernelFault.MissingContext())),
                 key: held),
@@ -856,9 +848,6 @@ public static class ShellWindows {
     }
 
     public static Fin<Form> Adopt(Form window, DocumentSession session, WindowPolicy policy) {
-        ArgumentNullException.ThrowIfNull(window);
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(policy);
         return HostThread.Run(
             work: new HostWork<Form>.Session(
                 Document: session,
@@ -888,8 +877,6 @@ public static class ShellWindows {
         Dialog<TResult> dialog,
         DocumentSession session,
         Option<Control> parent = default) {
-        ArgumentNullException.ThrowIfNull(dialog);
-        ArgumentNullException.ThrowIfNull(session);
         return HostThread.Run(
             work: new HostWork<TResult>.Session(
                 Document: session,
@@ -900,8 +887,6 @@ public static class ShellWindows {
     }
 
     public static Fin<Unit> Present(Dialog dialog, DocumentSession session, Option<Control> parent = default) {
-        ArgumentNullException.ThrowIfNull(dialog);
-        ArgumentNullException.ThrowIfNull(session);
         return HostThread.Run(
             work: new HostWork<Unit>.Session(
                 Document: session,
@@ -912,8 +897,6 @@ public static class ShellWindows {
     }
 
     public static Fin<DialogResult> Present(CommonDialog dialog, DocumentSession session, Option<Control> parent = default) {
-        ArgumentNullException.ThrowIfNull(dialog);
-        ArgumentNullException.ThrowIfNull(session);
         return HostThread.Run(
             work: new HostWork<DialogResult>.Session(
                 Document: session,
@@ -924,7 +907,6 @@ public static class ShellWindows {
     }
 
     public static Fin<Seq<TWindow>> Discover<TWindow>(DocumentSession session) where TWindow : Window {
-        ArgumentNullException.ThrowIfNull(session);
         return HostThread.Run(
             work: new HostWork<Seq<TWindow>>.Session(
                 Document: session,
@@ -933,7 +915,6 @@ public static class ShellWindows {
     }
 
     public static Fin<DocKey> Owner(Form window) {
-        ArgumentNullException.ThrowIfNull(window);
         return HostThread.Run(
             work: new HostWork<DocKey>.Execute(
                 Body: () => Optional(EtoExtensions.GetRhinoDoc(window))
@@ -946,8 +927,6 @@ public static class ShellTheme {
     public static ThemeVariant Current => HostUtils.RunningInDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
 
     public static Fin<Subscription> Observe(ThemePort theme, CallbackObserver<ThemeChange> observer) {
-        ArgumentNullException.ThrowIfNull(theme);
-        ArgumentNullException.ThrowIfNull(observer);
         EventHandler handler = (_, _) => ignore(observer.Guard(
             project: () => theme.Change(shift: new ThemeShift.Generated(Variant: Current))));
         return Subscription.Attach(
@@ -1071,7 +1050,6 @@ public sealed record ExtensionTally(PluginKey Plugin, int Applied, Option<Error>
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostFacts {
     public static Fin<HostFact> Probe(HostProbe probe) {
-        ArgumentNullException.ThrowIfNull(probe);
         return probe.Switch(process: static (held, _) => Process(op: held).Map<HostFact>(static snapshot => new HostFact.ProcessCase(Snapshot: snapshot)),
             printers: static (held, _) => Try.lift(() => Fin.Succ<HostFact>(value: new HostFact.PrinterCase(
                 Printers: toSeq(HostUtils.GetPrinterNames()).Map(printer => new PrinterSlot(
@@ -1146,7 +1124,6 @@ public static class HostAssemblies {
     }
 
     public static Fin<Assembly> Load(AssemblyIntake intake) {
-        ArgumentNullException.ThrowIfNull(intake);
         return intake.Switch(fromPath: static (held, row) => Acceptance.Text(value: row.Path)
                 .Bind(path => Try.lift(() => Optional(HostUtils.LoadAssemblyFrom(path: path))
                     .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(nameof(HostUtils.LoadAssemblyFrom))))).Run().Bind(static inner => inner)),
@@ -1267,7 +1244,6 @@ public static class HostScripts {
     }
 
     public static Fin<ScriptOutcome> Run(ScriptRun run, Seq<ScriptBinding> bindings = default) {
-        ArgumentNullException.ThrowIfNull(run);
         return from admitted in run.Admit()
                from prepared in bindings.TraverseM(binding =>
                        from row in Admit.Need(binding)
@@ -1369,7 +1345,6 @@ public abstract class ShellSkin : Skin {
     private readonly Ring<Error> faults = ShellFaults.Ring();
 
     protected ShellSkin(SkinProgram program) {
-        ArgumentNullException.ThrowIfNull(program);
         this.program = program;
     }
 
@@ -1551,7 +1526,6 @@ public sealed class TokenLease : IDisposable {
 public static class Accounts {
     public static ValueTask<Fin<TokenLease>> Ask(
         TokenAsk ask, Option<Action<LoginPulse>> progress = default, Option<Env> env = default) {
-        ArgumentNullException.ThrowIfNull(ask);
         return ask.Admit().Match(
             Succ: request => Dispatch(request: request, progress: progress, env: env),
             Fail: fault => ValueTask.FromResult(Fin.Fail<TokenLease>(error: fault)));
@@ -1594,7 +1568,6 @@ public static class Accounts {
 
 public static class HostEndpoints {
     public static Fin<HostEndpoint> Register(string path, Type contract) {
-        ArgumentNullException.ThrowIfNull(contract);
         return from admitted in Acceptance.Text(value: path)
                from row in Try.lift(() => {
                    HostUtils.RegisterComputeEndpoint(endpointPath: admitted, t: contract);
@@ -1940,9 +1913,6 @@ public static class NamedCallbacks {
         Seq<NamedSlot> request,
         Func<NamedBag, Fin<NamedBag>> body,
         Action<Error> report) {
-        ArgumentNullException.ThrowIfNull(registry);
-        ArgumentNullException.ThrowIfNull(body);
-        ArgumentNullException.ThrowIfNull(report);
         return from admitted in Acceptance.Text(value: name)
                from schema in NamedSlot.Admit(slots: request)
                from claim in registry.Claim(name: admitted, plugin: plugin)
@@ -1968,7 +1938,6 @@ public static class NamedCallbacks {
         NamedBag bag,
         Seq<NamedSlot> response,
         Option<Env> env = default) {
-        ArgumentNullException.ThrowIfNull(bag);
         return from admitted in Acceptance.Text(value: name)
                from schema in NamedSlot.Admit(slots: response)
                from _ in guard(
@@ -2238,10 +2207,6 @@ public static class Notices {
         CallbackObserver<NoticeFact> observer,
         MonotonicTimeline timeline,
         Func<NoticeLease, Fin<T>> body) {
-        ArgumentNullException.ThrowIfNull(spec);
-        ArgumentNullException.ThrowIfNull(observer);
-        ArgumentNullException.ThrowIfNull(timeline);
-        ArgumentNullException.ThrowIfNull(body);
         return HostThread.Run(
             work: new HostWork<T>.Execute(Body: () => Mint(spec: spec, observer: observer, timeline: timeline)
                 .Bind(lease => Try.lift(() => body(lease)).Run().Bind(static inner => inner)
@@ -2257,7 +2222,6 @@ public static class Notices {
         Seq<Assembly> guards = default,
         Option<HostText> confirmCaption = default,
         Option<HostText> alternateCaption = default) {
-        ArgumentNullException.ThrowIfNull(body);
         return outcome.TraverseM(settled =>
                 from spec in NoticeSpec.OfRun(
                     outcome: settled, message: message, guards: guards,

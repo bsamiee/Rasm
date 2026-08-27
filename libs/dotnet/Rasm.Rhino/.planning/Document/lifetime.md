@@ -194,7 +194,6 @@ public sealed class Subscription : IDisposable {
     }
 
     internal static Subscription Of(Action detach) {
-        ArgumentNullException.ThrowIfNull(detach);
         return new(detach: Seq(detach));
     }
 
@@ -205,8 +204,6 @@ public sealed class Subscription : IDisposable {
     }
 
     public static Fin<Subscription> Acquire(Action acquire, Action release) {
-        ArgumentNullException.ThrowIfNull(acquire);
-        ArgumentNullException.ThrowIfNull(release);
         return Try.lift(() => { acquire(); return Fin.Succ(value: Of(detach: release)); }).Run().Bind(static inner => inner)
             .Rollback(release: () => Try.lift(() => { release(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner));
     }
@@ -219,7 +216,6 @@ public sealed class Subscription : IDisposable {
                 .MapFail(held.Rollback)));
 
     internal Subscription Combine(Subscription other) {
-        ArgumentNullException.ThrowIfNull(other);
         return new(detach: other.Snapshot().Concat(Snapshot()));
     }
 

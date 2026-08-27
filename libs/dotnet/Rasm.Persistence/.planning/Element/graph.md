@@ -89,8 +89,6 @@ public abstract partial record GraphEvent {
 // --- [SERVICES] ------------------------------------------------------------------------
 public static class ElementSchema {
     public static StoreOptions Configure(StoreOptions opts, NpgsqlDataSource source) {
-        ArgumentNullException.ThrowIfNull(opts);
-        ArgumentNullException.ThrowIfNull(source);
         opts.Connection(source);
         opts.Events.StreamIdentity = StreamIdentity.AsGuid;
         opts.Events.AppendMode = EventAppendMode.Rich;
@@ -109,14 +107,10 @@ public static class ElementSchema {
     }
 
     public static StreamAction Open(IDocumentSession session, ModelId model, Header header, GraphDelta opening) {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(opening);
         return session.Events.StartStream<GraphProjection>(model.Value, new GraphEvent.GraphCreated(header, opening));
     }
 
     public static StreamAction Append(IDocumentSession session, ModelId model, GraphEvent body, long expectedVersion) {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(body);
         return session.Events.Append(model.Value, expectedVersion, body);
     }
 }
