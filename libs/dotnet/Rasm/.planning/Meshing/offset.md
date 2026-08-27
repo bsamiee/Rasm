@@ -479,7 +479,7 @@ public static partial class Offsetting {
 
     static Fin<OffsetResult> Snapshot(OffsetOp.Offset op) =>
         op.Reach.Switch(
-            state: (Op: op, Key: key, Span: op.Reach.Span),
+            state: (Key: key, Span: op.Reach.Span),
             uniform: static (s, u) => double.IsFinite(u.Distance)
                 ? s.Op.Path.IsClosed && u.Distance > 0.0
                     ? AdmitRing(s.Op.Path, s.Op.Policy)

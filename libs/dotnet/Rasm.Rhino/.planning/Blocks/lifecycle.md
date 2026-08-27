@@ -493,7 +493,7 @@ public sealed class BlockVault {
                 return (changed, new VaultOutcome.Committed(Version: version, Image: image, Closing: closing));
             })
             .Bind(outcome => outcome.SwitchPartially(
-                state: (Key: key, Op: op, Cell: this),
+                state: (Key: key, Cell: this),
                 @default: static (held, _) => Fin.Fail<PreviewGrant>(error: new KernelFault.InvalidResult()),
                 committed: (held, committed) => Granted(version: committed.Version,
                     image: committed.Image,
@@ -509,7 +509,7 @@ public sealed class BlockVault {
                 new VaultOutcome.Granted(Version: current.Version, Image: current.Image)),
             _ => (state, new VaultOutcome.Miss()),
         }).Bind(outcome => outcome.SwitchPartially(
-            state: (Key: key, Op: op, Cell: this),
+            state: (Key: key, Cell: this),
             @default: static (_, _) => Fin.Succ(Option<PreviewGrant>.None),
             granted: (held, granted) => Granted(version: granted.Version,
                     image: granted.Image,

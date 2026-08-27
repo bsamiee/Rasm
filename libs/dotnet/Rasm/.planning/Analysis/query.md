@@ -575,7 +575,7 @@ flowchart LR
     Operation -->|CostMark → Cost at one exit| Sink[TelemetrySink tap]
     Sink -.->|refusal parks at the fact's seat| Cell[FaultCell bounded ring]
     Env -->|Context · Progress · Cancellation · Telemetry · Live| Eff
-    Eff -->|AnalysisOutput → Op.AcceptValue| Oracle[one validity oracle]
+    Eff -->|AnalysisOutput → Acceptance.Value| Oracle[one validity oracle]
     Analyze -->|Scope / From RhinoDoc / In / Run / Rows| Operation
     Eff -.->|KernelFault.Unsupported| Validation[Validation Error Seq TOut]
 ```

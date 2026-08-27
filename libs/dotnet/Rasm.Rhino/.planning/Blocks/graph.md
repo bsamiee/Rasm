@@ -409,9 +409,9 @@ public static partial class BlockGraph {
         GraphSource source,
         Func<RhinoDoc, Fin<BlockGraphAnswer>> read) =>
         source.SwitchPartially(
-            context: (Op: op, Read: read),
+            context: read,
             live: static (ctx, held) => Admit.Need(held.Session)
-                .Bind(session => Admit.Demand(use: ctx.Read, needs: [SessionNeed.Read])),
+                .Bind(session => Admit.Demand(use: ctx, needs: [SessionNeed.Read])),
             @default: static (ctx, _) => Fin.Fail<BlockGraphAnswer>(error: new KernelFault.Unsupported(
                 InputType: typeof(GraphSource),
                 OutputType: typeof(BlockGraphAnswer))));

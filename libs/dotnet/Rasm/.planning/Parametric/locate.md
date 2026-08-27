@@ -327,7 +327,7 @@ config:
 flowchart LR
     accTitle: Location operation flow
     accDescr: AnalysisQuery.LocationCase threads the verb key into the Location case fold; each case lowers through one Locate builder that leases the native, reads its selector or division row, and returns to the Analysis runtime.
-    Query["Analysis/query AnalysisQuery.LocationCase · Op key"] -->|Location.Operation with key| Location["Location case Switch"]
+    Query["Analysis/query AnalysisQuery.LocationCase"] -->|Location.Operation| Location["Location case Switch"]
     Location -->|CurveAt / CurveDerivative| CurveArm["Locate.Curve · CurveDerivative — CurveForm lease · CurveAddress.Resolve"]
     Location -->|SurfaceAt / SurfaceDerivative / ShortPath| SurfaceArm["Locate.Surface · SurfaceDerivative · ShortPath — SurfaceForm lease"]
     Location -->|Closest| ClosestArm["Locate.Closest — SupportSpace.Closest + SupportProjection.Project"]

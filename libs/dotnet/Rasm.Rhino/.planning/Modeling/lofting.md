@@ -400,7 +400,7 @@ public readonly partial struct LoftTangency : IValidityEvidence {
 
 ## [04]-[ALGEBRA]
 
-- Owner: `LoftOp` `[Union]` — the sole construction algebra, each case carrying its generated `SelfOp`; `VariationalThreading` — the solver parallelism row; `Lofts` — the one entry, and the folder's runtime-bound variant of the spine.
+- Owner: `LoftOp` `[Union]` — the sole construction algebra; `VariationalThreading` — the solver parallelism row; `Lofts` — the one entry, and the folder's runtime-bound variant of the spine.
 - Law: the governance band is CONSUMED, never minted — the spine's `ModelRuntime` carries the regime, the cancellation token, and the optional fraction reporter a `ProgressLease` produces (`HostUi/shell.md` is the package's ONE producer), so an `IProgress` shim or a `CancellationTokenSource` minted beside a lease is the forked form. With no lease the token is `CancellationToken.None` and the reporter lowers to `null`, which is exactly what `Brep.CreateVariationalPatch` reads as an unpaced run.
 - Law: the spine's `Context` is authoritative — `Apply` takes the regime the fold hands it AND the runtime that carries the band, so no arm reads a second context off the runtime and no parameter is discarded. Only the variational patch takes the band, so the token and reporter reach exactly one native and every other arm runs unpaced by the host's own shape.
 - Law: `Lofts.Build` materializes the operation span ahead of the runtime bind — a span cannot cross the `Eff.runtime<ModelRuntime>()` lambda — then runs the spine's `ModelGate.Entry` over the sequence, so capture, the non-empty guard, accumulating admission, and custody-safe product fold remain spine-owned.

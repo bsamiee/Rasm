@@ -385,7 +385,7 @@ public static class Heal {
     internal static Fin<RepairEdit> Boolean(HealOp.Boolean op, MeshSpace current, RepairPolicy policy) =>
         Arrangement.Apply(new ArrangementOp.MeshBoolean(Seq(current, op.Tool), policy.Arrangement))
             .Bind(result => result.Switch(
-                state: (Op: op.Op, Policy: policy, Key: key),
+                state: (Policy: policy, Key: key),
                 boolean: static (state, merged) => merged.Shells is [MeshSpace solid]
                     ? Fin.Succ<RepairEdit>((MeshEdit.Of(solid, state.Policy.Arena), Some((merged.Census)), None))
                     : Fin.Fail<RepairEdit>(new GeometryFault.UnrepairableMesh(

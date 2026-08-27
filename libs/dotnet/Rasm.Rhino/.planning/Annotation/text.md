@@ -1107,7 +1107,7 @@ public abstract partial record TextAsk {
             select (TextAnswer)new TextAnswer.State(Snapshot: snapshot),
         leaderState: static (context, ask) =>
             from native in Single(document: context, target: ask.Target)
-            from facts in context.Op.Catch(() =>
+            from facts in Try.lift(() =>
                 from leader in Admit.Need(native.AnnotationGeometry as Leader)
                 from id in ResourceId.Admit(native.Id)
                 from arrow in FactoryBridge.Row<DimensionStyle.ArrowType, LeaderArrow>(
@@ -1133,7 +1133,7 @@ public abstract partial record TextAsk {
                     VerticalAlignment: down,
                     Landing: leader.LeaderHasLanding ? Some(leader.LeaderLandingLength) : Option<double>.None,
                     Spline: Optional(leader.Curve).Map(static value =>
-                        (Lease<NurbsCurve>)new Lease<NurbsCurve>.Owned(Value: (NurbsCurve)value.Duplicate()))))
+                        (Lease<NurbsCurve>)new Lease<NurbsCurve>.Owned(Value: (NurbsCurve)value.Duplicate())))).Run().Bind(static inner => inner)
             select (TextAnswer)new TextAnswer.LeaderState(Facts: facts),
         runMap: static (context, ask) =>
             from native in Single(document: context, target: ask.Target)

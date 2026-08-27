@@ -829,7 +829,7 @@ public abstract partial record DocumentWritePolicy {
                 from archived in Archived()
                 from _extension in guard(
                     archived.EnsureExtension(path: ctx.Path) == ctx.Path,
-                    new KernelFault.InvalidValue(nameof(TemplateCase), string.Join(" | ", new object?[] { ctx.Op, "a `.3dm` template destination" })))
+                    new KernelFault.InvalidValue(nameof(TemplateCase), string.Join(" | ", new object?[] { "a `.3dm` template destination" })))
                 from written in Try.lift(() => policy.Version.Match(
                     Some: version => Admit.Confirm(success: ctx.Document.SaveAsTemplate(
                         file3dmTemplatePath: ctx.Path, version: version.Value)),
@@ -1127,7 +1127,7 @@ public static class Exchanges {
                 ctx.Dirty
                     ? from _path in guard(
                           !string.IsNullOrWhiteSpace(value: ctx.Document.Path),
-                          new KernelFault.InvalidValue(nameof(RhinoDoc.Path), string.Join(" | ", new object?[] { ctx.Op, "a document path" }))).ToFin()
+                          new KernelFault.InvalidValue(nameof(RhinoDoc.Path), string.Join(" | ", new object?[] { "a document path" }))).ToFin()
                       from _saved in Try.lift(() => Admit.Confirm(success: ctx.Document.Save())).Run().Bind(static inner => inner)
                       select ExchangeOutcome.One(fact: new ExchangeFact.SaveCase(Written: true))
                     : Fin.Succ(value: ExchangeOutcome.One(fact: new ExchangeFact.SaveCase(Written: false))),
@@ -1143,7 +1143,7 @@ public static class Exchanges {
             geometryCase: static (ctx, edit) =>
                 from _rows in guard(
                     !edit.Geometry.IsEmpty,
-                    new KernelFault.InvalidValue(nameof(DocumentOp.GeometryCase.Geometry), string.Join(" | ", new object?[] { ctx.Op, "geometry to exchange" }))).ToFin()
+                    new KernelFault.InvalidValue(nameof(DocumentOp.GeometryCase.Geometry), string.Join(" | ", new object?[] { "geometry to exchange" }))).ToFin()
                 from policy in Admit.Need(edit.Policy)
                 from output in Admit.Need(edit.Output)
                 from archived in Codecs.Archive.ToFin(

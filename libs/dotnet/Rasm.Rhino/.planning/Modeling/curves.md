@@ -665,7 +665,7 @@ public readonly partial struct RailFilletLaw : IValidityEvidence {
 
 ## [05]-[OPERATION_PIPELINE]
 
-- Owner: `CurveOp` `[Union]` owns the verified curve host-operation roster with each case carrying its generated `SelfOp`; `HostCurves` folds an operation spread into the owned geometry sequence.
+- Owner: `CurveOp` `[Union]` owns the verified curve host-operation roster; `HostCurves` folds an operation spread into the owned geometry sequence.
 - Law: the entry family renames at the boundary — the kernel owns `Curves` (`Analysis/select.md`), so this host roster is `HostCurves` under the branch rule that a boundary declaration whose simple name matches a kernel owner renames on the host side.
 - Law: refinement is value-semantic — fair, fit, rebuild, smooth, and simplify run the instance member on the borrowed curve and own the returned refinement; the boolean tolerance-less and tween tolerance-less overloads are obsolete, so every arm runs the tolerance form off the regime.
 - Law: `CurveBooleanRegions` remains scoped to its operation arm while every region curve crosses through owned geometry handles.

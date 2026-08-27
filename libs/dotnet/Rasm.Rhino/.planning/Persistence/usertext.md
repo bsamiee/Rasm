@@ -414,7 +414,7 @@ public static class UserTexts {
                         None: () => state.Fold.Sections.Remove(address.Address)),
                 }),
             objectCase: static (state, address) => Fin.Fail<DocumentFold>(
-                error: new KernelFault.InvalidValue(nameof(TextMutationBatch), string.Join(" | ", new object?[] { state.Op, $"a document address in a document batch; got '{address.Key.Value}'" }))));
+                error: new KernelFault.InvalidValue(nameof(TextMutationBatch), string.Join(" | ", new object?[] { $"a document address in a document batch; got '{address.Key.Value}'" }))));
 
     private static Fin<Unit> Written(
         TextMutation mutation,

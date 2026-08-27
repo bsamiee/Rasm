@@ -800,7 +800,7 @@ public sealed record MatchLaw(
 
 ## [04]-[OPERATION_PIPELINE]
 
-- Owner: `SolidOp` `[Union]` — the whole verified solid-construction verb roster, each case carrying its own generated `SelfOp`; `Solids` — the one entry folding any operation spread into owned geometry handles.
+- Owner: `SolidOp` `[Union]` — the whole verified solid-construction verb roster; `Solids` — the one entry folding any operation spread into owned geometry handles.
 - Law: every construction arm returns the owned geometry produced by RhinoCommon directly; native diagnostics and correspondence outputs stay local when no caller consumes them.
 - Law: the pipeline is value-semantic — `Edit` duplicates its borrowed brep, runs the in-place host member on the working copy, and owns the copy (or the member's returned brep, disposing the copy) as the product; no operation mutates the geometry behind an input handle.
 - Law: boolean payload shape is admission — `SolidBooleanLaw` carries each set topology and manifold grant, and `PlanarBooleanLaw` carries union spread or exact pair.

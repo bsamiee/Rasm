@@ -162,7 +162,6 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
     public CorrelationId CorrelationId { get; } = correlationId;
     public HookSet<AppHostPoint, AppHostFact, TelemetrySource> Hooks { get; } = hooks;
     public InstrumentSet Instruments { get; } = instruments;
-    public Op Key { get; } = key;
     public CancelScope Spine { get; } = CancelScope.Root();
     public RuntimePhase Phase => cell.Value.To;
     public PhaseCommit Latest => cell.Value;

@@ -378,7 +378,7 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
 
 ## [03]-[OPERATION_PIPELINE]
 
-- Owner: `FreeformOp` `[Union]` — the whole verified freeform-construction verb roster, each case carrying its own generated `SelfOp`; `HostSurfaces` — the one entry folding any operation spread into one owned geometry sequence.
+- Owner: `FreeformOp` `[Union]` — the whole verified freeform-construction verb roster; `HostSurfaces` — the one entry folding any operation spread into one owned geometry sequence.
 - Law: the entry class holds the entry ALONE — the degree ceiling, the degree predicate, the grid-shape predicate, and the roster-membership probe that once sat beside `Build` are now the `SurfaceDegrees`/`SurfaceGrid` admission and the `CapabilitySet` type, so this page's static class matches every sibling pipeline's one-member shape.
 - Law: `NetworkLaw.Build` captures both native topologies and refuses a null product or a nonzero error code before ownership.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis, and a new case breaks the compile instead of falling through a catch-all to a silent refusal.

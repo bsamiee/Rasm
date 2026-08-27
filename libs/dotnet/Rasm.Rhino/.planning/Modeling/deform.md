@@ -393,13 +393,13 @@ public readonly partial struct SquishLaw : IValidityEvidence {
 
 ## [04]-[ALGEBRA]
 
-- Owner: `DeformOp` `[Union]` — the sole operation algebra, each case carrying its generated `SelfOp`; `Deforms` — the one entry folding any operation spread into one owned geometry sequence.
+- Owner: `DeformOp` `[Union]` — the sole operation algebra; `Deforms` — the one entry folding any operation spread into one owned geometry sequence.
 - Law: the entry is `Build`, as on every sibling — one concept, one spelling across the eight Modeling rosters, and the `Apply` name stays where it means "run this operation" on `DeformOp` itself.
 - Law: admission NAMES its axis — `Admitted` dispatches the generated `Switch` into the spine's `ModelClaim.Admits`, so a request breaching several constraints answers one keyed fault per breached axis and a new case breaks the compile rather than falling to a silent refusal.
 - Law: every arm returns only owned geometry handles through `ModelGate`; unconsumed native side channels close inside the producing call.
 - Law: engine custody splits on the host and is stated where it bites — `Squisher` and `MeshUnwrapper` are `IDisposable` and release after every geometry product has detached; `Unroller` holds no native handle and needs no release. `ModelGate.OwnEach` owns each direct squish result before producing the next, so a later refusal releases the complete prefix, and every `Rollback` in the squish chain releases the exact accumulated prefix at its own edge.
 - Growth: a new deformation verb is one `DeformOp` case with its arm.
-- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `Get2dMesh`, `Get3dMesh`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `Lease<T>.Use`, `` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`Seq`), Thinktecture.Runtime.Extensions.
+- Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `Get2dMesh`, `Get3dMesh`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/results` (`Try.lift`, `Admit.Confirm`, `Lease<T>.Use`, ``), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core (`Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]

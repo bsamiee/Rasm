@@ -71,7 +71,6 @@ public sealed record ProcessScope {
 
     public required CancellationToken Cancel { get; init; }
 
-    public required Op Operation { get; init; }
 
     internal Atom<LanguageExt.HashSet<OutputPlan>> Emitted { get; } = Atom(LanguageExt.HashSet<OutputPlan>());
 

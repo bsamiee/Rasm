@@ -237,7 +237,7 @@ public static class HostThread {
                     step: static held => held is PostedState.Pending ? Some<PostedState>(new PostedState.Expired()) : None,
                     declined: new KernelFault.InvalidContext())
                 .Switch(
-                    state: (Op: op, Task: completed.Task),
+                    state: (Task: completed.Task),
                     committed: static (ctx, _) => Fin.Fail<T>(error: new UiFault.HostRejected(Detail: nameof(RhinoApp.InvokeOnUiThread))),
                     ceded: static (ctx, _) => Fin.Fail<T>(error: new KernelFault.InvalidResult()),
                     refused: static (ctx, row) => row.State is PostedState.Settled
@@ -615,7 +615,7 @@ public sealed class ProgressLease : IDisposable {
             work: new HostWork<ProgressReading>.Execute(Body: () => {
                 lock (sync) {
                     return state.Switch(
-                        (Self: this, Move: move, Op: held),
+                        (Self: this, Move: move),
                         live: static (ctx, row) =>
                             from next in ctx.Move.Switch(
                                 (Held: row.Held, Policy: ctx.Self.policy),
@@ -705,7 +705,7 @@ public sealed class ProgressLease : IDisposable {
                     operation: new PresenceOp.Pulse(State: new PulseState.Working(Progress: fraction)),
                     faults: cell)
                 from seated in Cell.Seat(presence, () => mount).Switch(
-                    state: (Op: op, Mount: mount),
+                    state: (Mount: mount),
                     committed: static (_, _) => Fin.Succ(value: unit),
                     ceded: static (ctx, _) => (HostEdge.Side(ctx.Mount.Dispose), Fin.Fail<Unit>(error: new KernelFault.InvalidContext())).Item2,
                     refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
@@ -2331,7 +2331,7 @@ public abstract partial record ShellMount {
     public sealed record Pacing(PaceBand Band, HashMap<DispatchLane, double> Stretch) : ShellMount;
     public sealed record Theme(ThemeProgram Program, ThemeVariant Initial, Seq<ContrastRule> Contrast) : ShellMount;
     public sealed record Named(Seq<NamedRow> Rows) : ShellMount;
-    public sealed record Hooks(Seq<Func<PluginKey, Op?, Fin<IDisposable>>> Mounts) : ShellMount;
+    public sealed record Hooks(Seq<Func<PluginKey, Fin<IDisposable>>> Mounts) : ShellMount;
     public sealed record Vault(ShellSeat Seat) : ShellMount;
     public sealed record Engines(ShellSeat Seat) : ShellMount;
     public sealed record Resolver(Seq<AssemblySource> Sources) : ShellMount;
