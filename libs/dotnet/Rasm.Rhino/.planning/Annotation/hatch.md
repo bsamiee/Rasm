@@ -66,7 +66,7 @@ public sealed partial class LineDef {
     }
 
     public static Fin<LineDef> Of(DraftAngle angle, Point2d @base, Vector2d offset, Seq<SegmentRow> dashes) =>
-        key.OrDefault().AcceptValidated<LineDef>(
+        FactoryBridge.Accept<LineDef>(
             fault: Validate(angle, @base, offset, dashes, out LineDef? admitted), admitted: admitted);
 
     internal Fin<HatchLine> Mint() => Try.lift(() => {
@@ -104,7 +104,7 @@ public sealed partial class PatternDef {
     public static Fin<PatternDef> Of(
         ResourceName name, FillKind fill, ModelUnit units, PatternDistance distances, Seq<LineDef> lines,
         Option<string> description = default, HashMap<string, string> tags = default) =>
-        key.OrDefault().AcceptValidated<PatternDef>(
+        FactoryBridge.Accept<PatternDef>(
             fault: Validate(name, description, fill, units, distances, lines, tags, out PatternDef? admitted),
             admitted: admitted);
 
@@ -201,7 +201,7 @@ public sealed partial class GradientStop {
     }
 
     public static Fin<GradientStop> Of(PerceptualColor color, double position) =>
-        key.OrDefault().AcceptValidated<GradientStop>(
+        FactoryBridge.Accept<GradientStop>(
             fault: Validate(color, position, out GradientStop? admitted), admitted: admitted);
 }
 
@@ -227,7 +227,7 @@ public sealed partial class FillGradient {
 
     public static Fin<FillGradient> Of(
         GradientForm form, double repeat, Point3d start, Point3d end, Seq<GradientStop> stops) =>
-        key.OrDefault().AcceptValidated<FillGradient>(
+        FactoryBridge.Accept<FillGradient>(
             fault: Validate(form, repeat, start, end, stops, out FillGradient? admitted), admitted: admitted);
 
     internal Fin<ColorGradient> Mint() =>
@@ -496,12 +496,11 @@ public abstract partial record HatchProgram {
 public static class Hatches {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<HatchProgram> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document),
-            op: Op.Of(name: nameof(Hatches)));
+            apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<HatchAnswer> Ask(DocumentSession session, HatchAsk request) {
         return from admitted in Acceptance.Input(value: request)
-               from answer in session.Demand(
+               from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
@@ -680,8 +679,7 @@ public abstract partial record HatchAnswer : IDetachedDocumentResult {
     public sealed record Pieces(Seq<GeometryHandle> Products) : HatchAnswer;
 
     public Fin<Unit> Release() => SwitchPartially(
-        context: key.OrDefault(),
-        @default: static (_, _) => Fin.Succ(value: unit),
+        @default: static _ => Fin.Succ(value: unit),
         drawable: static (row) => Custody.Dispose(
             held: row.Display.Bounds + row.Display.Solid.ToSeq()),
         boundary: static (row) => Custody.Dispose(held: row.Curves),

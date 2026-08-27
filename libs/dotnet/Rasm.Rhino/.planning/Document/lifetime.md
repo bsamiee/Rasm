@@ -249,8 +249,7 @@ public sealed class Subscription : IDisposable {
         SubscriptionClosure.Ready owner = claimed!;
         (Seq<Action> Retry, Seq<Error> Errors) outcome = owner.Pending.Fold(
             (Retry: Seq<Action>(), Errors: Seq<Error>()),
-            static (state, action) => Op.Of(name: nameof(Subscription))
-                .Catch(() => { action(); return Fin.Succ(value: unit); })
+            static (state, action) => Try.lift(() => { action(); return Fin.Succ(value: unit); }).Run().Bind(static inner => inner)
                 .Match(
                     Succ: _ => state,
                     Fail: error => (

@@ -59,7 +59,7 @@ public sealed partial class SegmentRow {
     }
 
     public static Fin<SegmentRow> Of(double length, DashRole role) =>
-        key.OrDefault().AcceptValidated<SegmentRow>(
+        FactoryBridge.Accept<SegmentRow>(
             fault: Validate(length, role, out SegmentRow? admitted), admitted: admitted);
 
     internal double Signed => Role.Signed(length: Length);
@@ -139,7 +139,7 @@ public sealed partial class TaperRow {
     }
 
     public static Fin<TaperRow> Of(double startWidth, double endWidth, Option<Point2d> mid = default) =>
-        key.OrDefault().AcceptValidated<TaperRow>(
+        FactoryBridge.Accept<TaperRow>(
             fault: Validate(startWidth, mid, endWidth, out TaperRow? admitted), admitted: admitted);
 
     internal Fin<Unit> Apply(Linetype linetype) => Mid.Match(
@@ -207,7 +207,7 @@ public sealed partial class StrokeDef {
         ResourceName name, Seq<SegmentRow> segments, Seq<ShapeRow> shapes, Option<TaperRow> taper,
         LinetypeCap cap, LinetypeJoin join, double width, ModelUnit widthUnits, PatternDistance distances,
         PatternLock @lock, HashMap<string, string> tags = default) =>
-        key.OrDefault().AcceptValidated<StrokeDef>(
+        FactoryBridge.Accept<StrokeDef>(
             fault: Validate(name, segments, shapes, taper, cap, join, width, widthUnits, distances, @lock, tags,
                 out StrokeDef? admitted),
             admitted: admitted);
@@ -451,12 +451,11 @@ public abstract partial record LinetypeOp {
 public static class Linetypes {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<LinetypeOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document),
-            op: Op.Of(name: nameof(Linetypes)));
+            apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<LinetypeAnswer> Ask(DocumentSession session, LinetypeAsk request) {
         return from admitted in Acceptance.Input(value: request)
-               from answer in session.Demand(
+               from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }

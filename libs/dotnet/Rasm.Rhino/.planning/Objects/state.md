@@ -144,7 +144,7 @@ public sealed record ObjectSnapshot(
     string ClosedDescription,
     ClosedStatus ClosedStatus) : IDetachedDocumentResult {
     internal static Fin<ObjectSnapshot> Of(RhinoObject native) =>
-        from grade in Try.lift(() => key.Row<int).Run().Bind(static inner => inner)
+        from grade in Try.lift(() => FactoryBridge.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true))).Run().Bind(static inner => inner)
         from closed in Try.lift(() => Fin.Succ(value: (
             Text: native.ShortDescriptionWithClosedStatus(prepend: false, plural: false, status: out int status),
             Status: status))).Run().Bind(static inner => inner)
@@ -316,7 +316,7 @@ public abstract partial record Touch {
     private Fin<TouchState> Capture(RhinoObject native) {
         Touch self = this;
         return Try.lift(() =>
-            from selection in key.Row<int).Run().Bind(static inner => inner);
+            from selection in FactoryBridge.Row<int, SelectionGrade>(native.IsSelected(checkSubObjects: true))
     }
 
     private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states) {

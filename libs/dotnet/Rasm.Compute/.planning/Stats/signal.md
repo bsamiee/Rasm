@@ -418,7 +418,7 @@ public static class Transform {
         double[] s1 = new double[power.Bins];
         (double[] vre, double[] vim) = (new double[power.Bins * n], new double[power.Bins * n]);
         for (int k = 0; k < power.Bins; k++) { s1[k] = Dominant(power, k, vre.AsSpan(k * n, n), vim.AsSpan(k * n, n)) / power.Segments; }
-        return Distribution<Scalar>.Of(toSeq(s1.Select(static v => (Scalar)v)), Seq<double>(), Op.Of(name: nameof(Modal)))
+        return Distribution<Scalar>.Of(toSeq(s1.Select(static v => (Scalar)v)), Seq<double>())
             .Map(spectrum => {
                 double floor = ModalPeakFloor * spectrum.Median.To();
                 Seq<MeasuredMode> modes = Seq<MeasuredMode>();

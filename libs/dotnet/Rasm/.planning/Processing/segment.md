@@ -59,7 +59,7 @@ public readonly partial struct MeshDescriptor {
         SpectralFilter filter,
         Option<Seq<int>> sources = default,
         Option<SpectralDescriptorPolicy> policy = default) =>
-        key.OrDefault().AcceptValidated<MeshDescriptor>(
+        FactoryBridge.Accept<MeshDescriptor>(
             Validate(filter, sources, policy.IfNone(SpectralDescriptorPolicy.Raw), out MeshDescriptor value),
             value);
 }
@@ -889,7 +889,7 @@ public abstract partial record QuadTarget {
     public sealed record EdgeLengthCase(PositiveMagnitude Length) : QuadTarget;
     public sealed record QuadCountCase(Dimension Count, UnitInterval AdaptiveSize, bool AdaptiveQuadCount) : QuadTarget;
     public static Fin<QuadTarget> EdgeLength(double length) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: length).Map(static value => (QuadTarget)new EdgeLengthCase(Length: value));
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: length).Map(static value => (QuadTarget)new EdgeLengthCase(Length: value));
     public static Fin<QuadTarget> QuadCount(int count, double adaptiveSize, bool adaptiveQuadCount = true) =>
         from quads in FactoryBridge.Accept<Dimension>(candidate: count) from size in FactoryBridge.Accept<UnitInterval>(candidate: adaptiveSize) select (QuadTarget)new QuadCountCase(Count: quads, AdaptiveSize: size, AdaptiveQuadCount: adaptiveQuadCount);
 }

@@ -1107,8 +1107,7 @@ public static partial class Slice {
         from boundary in region.Loops.Head
             .ToFin(new KernelFault.InvalidValue("slicing", "slice:cell-boundary"))
         from trace in PolygonAlgebra.Apply(
-            new PolygonOp.Cells(policy.Seeds(boundary.Bound()), boundary, policy.Policy),
-            Op.Of(name: nameof(Cells)))
+            new PolygonOp.Cells(policy.Seeds(boundary.Bound()), boundary, policy.Policy))
         from diagram in trace.Diagram(
             new KernelFault.InvalidValue("slicing", "slice:cell-trace"))
         select toSeq(diagram.Adjacency).Map(edge => new Edge3(

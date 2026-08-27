@@ -723,7 +723,7 @@ public sealed partial record PackSchema(
         PackSchema instance = Of(geometry: geometry, kind: Kind);
         return IsValid && geometry.IsValid && instance.IsValid && instance.SchemaId == SchemaId
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(key.OrDefault().InvalidResult(detail: $"descriptor set diverges from schema {Tag}"));
+            : Fin.Fail<Unit>(new KernelFault.InvalidResult(Detail: Some($"descriptor set diverges from schema {Tag}")));
     }
 
     public string Tag => ContentHash.Hex(SchemaId);

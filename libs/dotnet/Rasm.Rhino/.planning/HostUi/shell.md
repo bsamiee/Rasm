@@ -247,7 +247,7 @@ public static class HostThread {
         }).Run().Bind(static inner => inner);
 
     private static Fin<T> Session<T>(HostWork<T>.Session work) =>
-        work.Document.Demand(
+        Admit.Demand(
                 use: document => Fin.Succ(value: new Crossed<T>(Value: Try.lift(() => work.Body(document)).Run().Bind(static inner => inner))),
                 needs: work.Needs.ToArray())
             .Bind(static held => held.Value);
@@ -557,7 +557,7 @@ public sealed partial class ProgressPolicy {
         int upper,
         HostText label,
         FrozenSet<ProgressFeature> features) =>
-        key.OrDefault().AcceptValidated<ProgressPolicy>(
+        FactoryBridge.Accept<ProgressPolicy>(
             Validate(lower: lower, upper: upper, label: label, features: features, obj: out ProgressPolicy? admitted),
             admitted);
 }
@@ -963,7 +963,7 @@ public static class ShellTheme {
 - Owner: `HostProbe` closes the capability-read request family and `HostFact` its detached answers; `HostSnapshot` is the one process-and-OS record; `HostTrait` is its capability column.
 - Owner: `HostAssemblies` pre-admits every resolver source, reports the applied prefix with its refusal, and folds collectible loading over `AssemblyIntake` cases.
 - Cases: `HostProbe` is process, printers, scripting, entitlement, or compute; `EntitlementFact` is granted with its signature or denied with its reason, so the corner where a denial carries no reason and an entitlement carries one is unrepresentable.
-- Entry: `HostFacts.Probe(HostProbe)` answers the family; `HostFacts.Process()` is the typed process probe whose RETURN TYPE is the answer, so the capsule binds it as the S14 host slot and no case test stands between the probe and the identity.
+- Entry: `Admit.Probe(HostProbe)` answers the family; `HostFacts.Process()` is the typed process probe whose RETURN TYPE is the answer, so the capsule binds it as the S14 host slot and no case test stands between the probe and the identity.
 - Auto: the four independent host switches — dark mode, server host, pre-release build, Mono runtime — ride ONE `CapabilitySet<HostTrait>` read by set algebra. Every corner is real (a pre-release server build under Mono in dark mode is a machine that exists), so the law is `CapabilityLaw.Open` and states it.
 - Law: platform capability stays behind `HostFacts` and enters through the two host locators by shape — `HostUtils.GetPlatformService<T>` resolves a typed service contract and `Rhino.UI.Runtime.PlatformServiceProvider` answers the fixed process facts it publishes directly — so a new capability read is one `HostProbe` case and one arm.
 - Law: engine presence is a probed host fact, never an assumption — `HostProbe.Scripting` answers the `ScriptEngineSnapshot` search-path and runtime-assembly census, and every `HostScripts` entry refuses typed when `PythonScript.Create()` answers null.
@@ -1371,7 +1371,6 @@ public abstract class ShellSkin : Skin {
     protected ShellSkin(SkinProgram program) {
         ArgumentNullException.ThrowIfNull(program);
         this.program = program;
-        op = key.OrDefault();
     }
 
     public Seq<Error> Faults => faults.Parked;
@@ -2076,7 +2075,7 @@ public sealed partial class NoticeSpec {
         Option<HostText> alternateCaption = default,
         Option<FrozenDictionary<string, string>> metadata = default,
         Seq<Assembly> guards = default) =>
-        key.OrDefault().AcceptValidated<NoticeSpec>(
+        FactoryBridge.Accept<NoticeSpec>(
             Validate(
                 title, message, description, severity, confirmCaption, cancelCaption, alternateCaption,
                 metadata.IfNone(FrozenDictionary<string, string>.Empty), guards, out NoticeSpec? admitted),

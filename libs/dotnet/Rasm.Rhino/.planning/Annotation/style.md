@@ -887,8 +887,7 @@ public sealed record DraftPlan<TOp> where TOp : class {
 public static class Styles {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<StyleOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document),
-            op: Op.Of(name: nameof(Styles)));
+            apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<StyleAnswer> Ask(DocumentSession session, StyleAsk request) {
         return from admitted in Acceptance.Input(value: request)

@@ -295,7 +295,7 @@ public sealed partial class EventFamily {
 
     public static Fin<Seq<EventFamily>> In(EventBand band) =>
         Optional(band)
-            .ToFin(Fail: key.OrDefault().InvalidInput())
+            .ToFin(Fail: new KernelFault.InvalidInput())
             .Map(active => toSeq(Items).Filter(family => family.Band == active));
 
     private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
@@ -453,7 +453,7 @@ public sealed partial class EventFamily {
             .Concat(toSeq(args.GripOwners))
             .Concat(toSeq(args.Grips))
             .Choose(static item => Optional(item).Bind(static value => Optional(value.Document)))
-            .Choose(static document => DocKey.Of(document: document, key: Op.Of(name: nameof(TransformDocument))).ToOption())
+            .Choose(static document => DocKey.Of(document: document).ToOption())
             .Head;
 
     private static Seq<(Guid Id, uint Serial)> ObjectRefs(IEnumerable<RhinoObject?> objects) =>
@@ -1575,8 +1575,7 @@ public static class MountRegistry {
                         state: (Point: point, Plugin: plugin),
                         committed: static (ctx, _) => Fin.Succ((IDisposable)Subscription.Of(
                             detach: () => Unseat(pointKey: ctx.Point.Key, plugin: ctx.Plugin))),
-                        ceded: static (ctx, _) => Fin.Fail<IDisposable>(new DocumentFault.RiderDuplicate(
-                            Key: Op.Of(name: nameof(MountRegistry)), Point: ctx.Point, Plugin: PluginKey.Create(ctx.Plugin))),
+                        ceded: static (ctx, _) => Fin.Fail<IDisposable>(new DocumentFault.RiderDuplicate(Point: ctx.Point, Plugin: PluginKey.Create(ctx.Plugin))),
                         refused: static (_, row) => Fin.Fail<IDisposable>(row.Cause),
                         contended: static (ctx, _) => Fin.Fail<IDisposable>(new KernelFault.InvalidResult()));
 

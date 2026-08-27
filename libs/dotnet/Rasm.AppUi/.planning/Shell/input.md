@@ -470,7 +470,7 @@ public static class InputFabric {
         (string Key, CommandPayload Payload) invocation,
         CommandDeck deck,
         CommandRow.Availability availability) =>
-        deck.Row(invocation.Key).Match(
+        FactoryBridge.Row(invocation.Key).Match(
             Some: row => row.Admits(availability)
                 ? (IntentRoute)new IntentRoute.Raised(new DeviceInvocation(row, invocation.Payload))
                 : new IntentRoute.Denied(new InputDriverFault.IntentDenied($"{device.Id}:{invocation.Key}")),
@@ -838,8 +838,7 @@ public static class InputDrivers {
     private static IDisposable Quieted<THandle>(
         THandle handle, Action<THandle> quiet, Action<THandle> release, Action<Error> fault) =>
         Disposable.Create((Handle: handle, Quiet: quiet, Release: release, Fault: fault), static held => {
-            ignore(Op.Of(name: "appui.input.quiet")
-                .Catch(() => { fun(held.Quiet)(held.Handle); return Fin.Succ(unit); })
+            ignore(Try.lift(() => { fun(held.Quiet)(held.Handle); return Fin.Succ(unit); }).Run().Bind(static inner => inner)
                 .IfFail(fun(held.Fault)));
             held.Release(held.Handle);
         });

@@ -355,11 +355,11 @@ public static class Linking {
                     row.loop.At(segment) + (0.5 * (row.loop.At(segment + 1) - row.loop.At(segment)))))));
         double radius = (0.5 * run.Policy.CutWidth.Millimeters) + run.Policy.MatchToleranceMm
             + run.Policy.MaxSegmentSpan.Millimeters;
-        return SpatialIndex.Build(SpatialKind.Bvh, sites.Map(site => Ball(site.Midpoint, radius)).ToArray(), BuildPolicy.Canonical, Op.Of(name: nameof(Candidates)))
+        return SpatialIndex.Build(SpatialKind.Bvh, sites.Map(site => Ball(site.Midpoint, radius)).ToArray(), BuildPolicy.Canonical)
             .Bind(index => sites
                 .Map((site, ordinal) => (site, ordinal))
                 .Traverse(row => index
-                    .Query(Ball(row.site.Midpoint, radius), Some(new Sphere(row.site.Midpoint, radius)), Op.Of(name: nameof(Candidates)))
+                    .Query(Ball(row.site.Midpoint, radius), Some(new Sphere(row.site.Midpoint, radius)))
                     .Map(found => found
                         .Filter(other => other > row.ordinal)
                         .Map(other => (Left: row.site, Right: sites[other])))
@@ -727,7 +727,7 @@ public static class Linking {
                        ? Some(SiteMerge.Create(minimumArea: 0.0, minimumSeparation: policy.MergeDistance.Millimeters))
                        : None)
                from trace in PolygonAlgebra.Apply(
-                   new PolygonOp.Cells(seeds.ToArr(), outline, policyRow), Op.Of(name: nameof(BuildVoronoi)))
+                   new PolygonOp.Cells(seeds.ToArr(), outline, policyRow))
                from diagram in trace.Diagram(
                    new KernelFault.InvalidValue("linking", "link:waste-cell-trace"))
                let raw = diagram.Adjacency.ToSeq()

@@ -45,7 +45,7 @@ public sealed record DevelopPolicy(
     Option<Arr<Point2d>> Seed) {
     public static Fin<DevelopPolicy> Of(
         Context context, double width, Option<Arr<Point2d>> seed = default) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: width)
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: width)
             .Map(admitted => new DevelopPolicy(
                 Width: admitted, Stations: Dimension.Create(value: 32),
                 Torsal: context.For(lane: ToleranceLane.Torsal),
@@ -81,9 +81,8 @@ public abstract partial record DevelopmentResult {
 public static class Development {
     public static Fin<DevelopmentResult> Apply(DevelopOp op) =>
         op.Switch(
-            state: key.OrDefault(),
-            decompose: static (k, d) => DecomposeOf(d.Source, d.Policy, k).Map(static field => (DevelopmentResult)new DevelopmentResult.Strips(field)),
-            unroll:    static (k, u) => DecomposeOf(u.Source, u.Policy, k).Bind(field => UnrollOf(u.Source, u.Policy, field, k)));
+            decompose: static d => DecomposeOf(d.Source, d.Policy).Map(static field => (DevelopmentResult)new DevelopmentResult.Strips(field)),
+            unroll:    static u => DecomposeOf(u.Source, u.Policy).Bind(field => UnrollOf(u.Source, u.Policy, field)));
 
     // --- [STRIP_DECOMPOSITION]
     static Fin<StripField> DecomposeOf(SurfaceResult.UvTessellation source, DevelopPolicy policy) =>

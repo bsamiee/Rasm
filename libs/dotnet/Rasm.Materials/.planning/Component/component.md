@@ -615,17 +615,15 @@ public abstract partial record SectionProfile {
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 file static class Admit {
-    extension() {
-        public Fin<PositiveMagnitude> Pm(double candidateMm) => FactoryBridge.Accept<PositiveMagnitude>(candidate: candidateMm);
-        public Fin<double> Edge(double candidateMm) =>
-            double.IsFinite(candidateMm) && candidateMm >= 0.0
-                ? Fin.Succ(candidateMm)
-                : new KernelFault.OutOfRange(nameof(candidateMm), candidateMm, "finite and non-negative");
-        public Fin<double> Slope(double candidate) =>
-            double.IsFinite(candidate)
-                ? Fin.Succ(candidate)
-                : new KernelFault.InvalidValue(nameof(candidate), "a finite scalar");
-    }
+    public static Fin<PositiveMagnitude> Pm(double candidateMm) => FactoryBridge.Accept<PositiveMagnitude>(candidate: candidateMm);
+    public static Fin<double> Edge(double candidateMm) =>
+        double.IsFinite(candidateMm) && candidateMm >= 0.0
+            ? Fin.Succ(candidateMm)
+            : new KernelFault.OutOfRange(nameof(candidateMm), candidateMm, "finite and non-negative");
+    public static Fin<double> Slope(double candidate) =>
+        double.IsFinite(candidate)
+            ? Fin.Succ(candidate)
+            : new KernelFault.InvalidValue(nameof(candidate), "a finite scalar");
 }
 ```
 

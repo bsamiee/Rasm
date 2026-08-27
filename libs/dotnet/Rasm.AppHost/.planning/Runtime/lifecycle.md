@@ -163,7 +163,7 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
     public HookSet<AppHostPoint, AppHostFact, TelemetrySource> Hooks { get; } = hooks;
     public InstrumentSet Instruments { get; } = instruments;
     public Op Key { get; } = key;
-    public CancelScope Spine { get; } = CancelScope.Root(Op.Of(nameof(Lifecycle)));
+    public CancelScope Spine { get; } = CancelScope.Root();
     public RuntimePhase Phase => cell.Value.To;
     public PhaseCommit Latest => cell.Value;
 
@@ -186,7 +186,7 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
         select held;
 
     public HookTap<AppHostPoint, AppHostFact, TelemetrySource> DegradationTap =>
-        new(Name: Op.Of(nameof(DegradationTap)),
+        new(Name: nameof(DegradationTap),
             Observe: fact => fact.Switch(
                 phase: static _ => Fin.Succ(unit),
                 command: static _ => Fin.Succ(unit),

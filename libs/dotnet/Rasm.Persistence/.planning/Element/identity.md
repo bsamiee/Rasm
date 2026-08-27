@@ -523,7 +523,7 @@ public static class IdentityDispatch {
             : Fin<IdentityOpFacts>.Succ(op.Facts);
 
     static IO<Fin<IdentityOutcome>> Bracket(IdentityLease lease, IdentityOp op, IdentityOpFacts facts, ProjectionContext frame, CancellationToken cancellationToken) =>
-        IO.liftAsync(async () => await Op.Of().Catch(async token => {
+        IO.liftAsync(async () => await Try.lift(async () => {
             await using IdentityContext store = await lease.Pool.CreateDbContextAsync(token).ConfigureAwait(false);
             store.ChangeTracker.QueryTrackingBehavior = lease.Codec.Tracking;
             store.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -925,7 +925,7 @@ public static class Custody {
         : keyring.Verify(digest.Bytes, authorship.Signature).Map(valid => valid ? (CustodyVerdict)new CustodyVerdict.Authentic(authorship.Actor, authorship.SigningKeyId) : new CustodyVerdict.Forged(authorship.Actor, authorship.SigningKeyId));
 
     public static IO<CustodyVerdict> Wrap(EnvelopeKeyring keyring, EnvelopeAad aad, WrapForm form) =>
-        from state in keyring.Probe()
+        from state in Admit.Probe()
         from verdict in state.Usable
             ? form.Switch(
                 bound: () => keyring.Mint(aad).Map(static r => (CustodyVerdict)new CustodyVerdict.Wrapped(r.Dek, r.Wrapped)),
@@ -937,7 +937,7 @@ public static class Custody {
         keyring.Unwrap(wrapped, aad).Map(static dek => (CustodyVerdict)new CustodyVerdict.Unwrapped(dek));
 
     public static IO<CustodyVerdict> Rewrap(EnvelopeKeyring keyring, WrappedKey wrapped, EnvelopeAad aad) =>
-        from state in keyring.Probe()
+        from state in Admit.Probe()
         from verdict in state.Usable
             ? keyring.Rewrap(wrapped, aad).Map(static next => (CustodyVerdict)new CustodyVerdict.Wrapped(ReadOnlyMemory<byte>.Empty, next))
             : IO.pure<CustodyVerdict>(new CustodyVerdict.KeyUnusable(wrapped.WrappingKeyId, state))

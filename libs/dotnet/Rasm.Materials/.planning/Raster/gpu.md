@@ -518,7 +518,7 @@ public static class WgslOpCode {
 
     static readonly Fin<Unit> Verdict = Uncovered.IsEmpty
         ? Fin.Succ(unit)
-        : Fin.Fail<Unit>(new RasterFault.Device(Op.Of(name: nameof(WgslOpCode)), $"<wgsl-op-roster-drift:{string.Join(',', Uncovered)}>"));
+        : Fin.Fail<Unit>(new RasterFault.Device($"<wgsl-op-roster-drift:{string.Join(',', Uncovered)}>"));
 
     public static Fin<Unit> Total() => Verdict;
 
@@ -1288,10 +1288,10 @@ public sealed record OracleVector(
 
 public static class OracleBand {
     public static Tolerance Abs(double value) =>
-        Tolerance.Of(lane: ToleranceLane.Residual, value: value, key: Op.Of(name: nameof(OracleBand)))
+        Tolerance.Of(lane: ToleranceLane.Residual, value: value)
             .IfFail(static e => throw e.ToException());
     public static Tolerance Rel(double value) =>
-        Tolerance.Of(lane: ToleranceLane.Relative, value: value, key: Op.Of(name: nameof(OracleBand)))
+        Tolerance.Of(lane: ToleranceLane.Relative, value: value)
             .IfFail(static e => throw e.ToException());
 }
 

@@ -1095,7 +1095,7 @@ public sealed partial class HeightSolver {
 public readonly record struct HeightPolicy(int DirectCeiling, int KrylovIterations, Tolerance KrylovStop) {
     public static readonly Lazy<HeightPolicy> Standard = new(static () => new HeightPolicy(
         DirectCeiling: 1 << 22, KrylovIterations: 1000,
-        KrylovStop: Tolerance.Of(lane: ToleranceLane.Krylov, value: 1e-9, key: Op.Of(name: nameof(HeightPolicy)))
+        KrylovStop: Tolerance.Of(lane: ToleranceLane.Krylov, value: 1e-9)
             .IfFail(static e => throw e.ToException())));
     public string Digest =>
         string.Create(CultureInfo.InvariantCulture, $"{DirectCeiling}|{KrylovIterations}|{KrylovStop.Value:R}");

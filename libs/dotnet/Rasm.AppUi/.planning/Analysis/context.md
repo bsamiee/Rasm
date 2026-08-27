@@ -238,7 +238,6 @@ public static class ContextChannel {
                     next.Grain.Span.Sweeps,
                     checked((uint)(Period.DaysBetween(span.From, span.To) + 1)),
                     new EffectMeasure.Moment(next.Moment)),
-                key: Op.Of(name: Intent(edit)),
                 body: _ => Fin.Succ(next)),
         });
 

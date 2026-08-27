@@ -239,12 +239,12 @@ public abstract partial record ChromeOutcome {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Painters {
     public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Shortcut(string lead, Either<Keys, char> chord, string tail) =>
-        key.OrDefault().Catch(body: () => Fin.Succ(chord.Match(
+        Try.lift(() => Fin.Succ(chord.Match(
             Left: keys => Frame.CreateShortcutPainter(lead, keys, tail),
-            Right: glyph => Frame.CreateShortcutPainter(lead, glyph, tail))));
+            Right: glyph => Frame.CreateShortcutPainter(lead, glyph, tail)))).Run().Bind(static inner => inner);
 
     public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Composite(object[] parts) =>
-        key.OrDefault().Catch(body: () => Fin.Succ(Frame.CreateTextAndIconPainter(parts)));
+        Try.lift(() => Fin.Succ(Frame.CreateTextAndIconPainter(parts))).Run().Bind(static inner => inner);
 }
 
 public static class Chrome {

@@ -72,7 +72,7 @@ public sealed partial class Axis {
         return d.IsValid && !d.IsZero
             && x <= Expansion.SplitCeiling && y <= Expansion.SplitCeiling && z <= Expansion.SplitCeiling
                 ? Fin.Succ(x >= y && x >= z ? X : y >= z ? Y : Z)
-                : Fin.Fail<Axis>(key.OrDefault().InvalidInput());
+                : Fin.Fail<Axis>(new KernelFault.InvalidInput());
     }
 
     public static Fin<Axis> DominantOf(Point3d a, Point3d b, Point3d c) =>

@@ -328,7 +328,7 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
         Measures.ForAll(static row => row.Kind is not null && ValidityClaim.Nonnegative(row.Magnitude).Holds));
 
     public static Fin<MeasureBundle> Of(Seq<(MassKind Kind, double Magnitude)> measures) =>
-        key.OrDefault().AcceptValue(value: new MeasureBundle(Measures: measures));
+        Acceptance.Value(value: new MeasureBundle(Measures: measures));
 
     public static Fin<MeasureBundle> Of(GeometryBase geometry, CapabilitySet<MassKind> kinds, Context context) {
         return toSeq(MassKind.Items).Filter(kinds.Admits)
@@ -612,7 +612,7 @@ public sealed partial class ConformanceMetric {
         (count.Case, metric.Admits(geometry: typeof(TGeometry), target: typeof(TTarget)) && metric.Output.Serves<TOut>()) switch {
             (Dimension budget, true) => Build<TGeometry, TTarget, TOut>(metric: metric, count: budget, percentiles: percentiles),
             (not Dimension, _) => Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(fault: new KernelFault.InvalidInput()),
-            _ => key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
+            _ => OperationLift.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
     internal static Operation<TGeometry, TOut> Measured<TGeometry, TOut>(ConformanceMetric metric, Seq<double> percentiles) where TGeometry : notnull =>
         (typeof(TGeometry) == typeof(ResidualSample) && metric.Output.Serves<TOut>())

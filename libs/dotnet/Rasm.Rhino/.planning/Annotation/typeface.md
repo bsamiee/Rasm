@@ -214,7 +214,7 @@ public sealed record FaceInfo(
     string EnglishFaceName, string EnglishFamilyName, string EnglishQuartetName,
     FaceWeight Weight, FaceSlant Slant, FaceStretch Stretch,
     CapabilitySet<FaceDecoration> Decorations, CapabilitySet<FaceTrait> Traits, double PointSize) {
-    internal static Fin<FaceInfo> Of(Font font) => key.Catch(() =>
+    internal static Fin<FaceInfo> Of(Font font) => Try.lift(() =>
         from weight in FactoryBridge.Row<Font.FontWeight, FaceWeight>(candidate: font.Weight, ordinal: static value => (int)value)
         from slant in FactoryBridge.Row<Font.FontStyle, FaceSlant>(candidate: font.Style, ordinal: static value => (int)value)
         from stretch in FactoryBridge.Row<Font.FontStretch, FaceStretch>(candidate: font.Stretch, ordinal: static value => (int)value)
@@ -916,7 +916,8 @@ public abstract partial record SectionAsk {
         from width in FactoryBridge.Accept<DraftScale>(candidate: style.BoundaryWidthScale)
         from name in FactoryBridge.Accept<ResourceName>(candidate: style.Name)
         from rule in FactoryBridge.Row<SectionRule>(field: style.SectionFillRule)
-        from mode in key.Row<SectionBackgroundFillMode).Run().Bind(static inner => inner);
+        from mode in FactoryBridge.Row<SectionBackgroundFillMode, SectionFillMode>(
+            candidate: style.BackgroundFillMode, ordinal: static value => (int)value)
 
     private static Fin<Option<SectionStroke>> Stroke(SectionStyle style) =>
         Optional(style.GetBoundaryLinetype()) is { IsSome: true, Case: Linetype embedded }

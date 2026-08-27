@@ -117,13 +117,12 @@ public abstract partial record SurfaceResult {
 public static class Surfaces {
     public static Fin<SurfaceResult> Apply(SurfaceOp op) =>
         op.Switch(
-            state: key.OrDefault(),
-            tessellate:      static (k, t) => TessellateOf(t, k),
-            isolines:        static (_, i) => IsolinesOf(i),
-            geodesics:       static (k, g) => GeodesicsOf(g, k),
-            normalOffset:    static (k, o) => NormalOffsetOf(o, k),
-            curvatureSample: static (k, c) => CurvatureOf(c, k),
-            project:         static (k, p) => ProjectOf(p, k));
+            tessellate:      static t => TessellateOf(t),
+            isolines:        static i => IsolinesOf(i),
+            geodesics:       static g => GeodesicsOf(g),
+            normalOffset:    static o => NormalOffsetOf(o),
+            curvatureSample: static c => CurvatureOf(c),
+            project:         static p => ProjectOf(p));
 
     // --- [TESSELLATE]
     static Fin<SurfaceResult> TessellateOf(SurfaceOp.Tessellate op) =>

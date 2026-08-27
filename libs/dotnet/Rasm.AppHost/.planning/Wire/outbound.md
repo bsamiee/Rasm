@@ -838,7 +838,7 @@ public static class OutboundSurface {
     static IO<HopSettled<T>> Execute<T>(
         OutboundRuntime runtime, HopPolicy row, OutboundHop hop,
         Func<CancellationToken, Task<(HopOutcome Outcome, T Value)>> send, Option<ILatencyContext> latency) =>
-        from start in IO.lift(() => Error.New(Op.Of().Message))
+        from start in IO.lift(runtime.Clock.Capture)
         from settled in IO.liftAsync(envIO => ValueTask.FromResult(Leased(runtime, row, hop, envIO.Token))).Bracket(
             Use: context => Dialed(runtime, row, context, send).Bind(fold => Sealed(runtime, row, start, context, fold)),
             Catch: error => IO.pure(new HopSettled<T>(
@@ -877,7 +877,7 @@ public static class OutboundSurface {
     static IO<HopSettled<T>> Sealed<T>(
         OutboundRuntime runtime, HopPolicy row, Fin<MonotonicStamp> start, ResilienceContext context,
         (HopOutcome Outcome, Option<T> Value) fold) =>
-        from end in IO.lift(() => Error.New(Op.Of().Message))
+        from end in IO.lift(runtime.Clock.Capture)
         from span in IO.lift(() =>
             from opened in start
             from closed in end

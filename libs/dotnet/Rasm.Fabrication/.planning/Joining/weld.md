@@ -1425,8 +1425,7 @@ public static class Weld {
         Seq<WeldPass> passes,
         double maximum) =>
         policy.DemandBindings
-            .Traverse(binding => Op.Of(name: binding.Field.Key.Value)
-                .Catch(() => binding.Resolve(new WeldDemandBinding.Facts(joint, budget, passes, maximum)))
+            .Traverse(binding => Try.lift(() => binding.Resolve(new WeldDemandBinding.Facts(joint, budget, passes, maximum))).Run().Bind(static inner => inner)
                 .Map(value => (binding.Field.Key, value))
                 .ToValidation())
             .As()
@@ -1451,7 +1450,7 @@ public static class Weld {
                 .Weave(pass.Weave).Lineage(pass.Lineage).Deposit(pass.Deposit).Arc(pass.Arc)
                 .Rows(pass.Segments, static (row, segment) => row.Segment(segment)))
             .Rows(actions, static (sink, action) => sink.Action(action))
-            .Rows(demands, static (sink, demand) => sink.Demand(demand));
+            .Rows(demands, static (sink, demand) => Admit.Demand(demand));
 
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Segment(DepositSegment segment) => sink

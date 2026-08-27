@@ -50,7 +50,7 @@ public readonly record struct HostRow<TNative> where TNative : struct, Enum {
 
     public static Fin<HostRow<TNative>> Of(TNative native) => Enum.IsDefined(value: native)
         ? Fin.Succ(new HostRow<TNative>(native: native))
-        : Fin.Fail<HostRow<TNative>>(key.OrDefault().InvalidInput(axis: typeof(TNative).Name));
+        : Fin.Fail<HostRow<TNative>>(new KernelFault.InvalidInput(Axis: Some(typeof(TNative).Name)));
 
     public static HostRow<TNative> Row(TNative native) => new(native: native);
 }
@@ -447,14 +447,12 @@ public abstract partial record Appearance {
             && row.RealtimePasses > 0);
 
     internal static Fin<Unit> Write(Seq<Appearance> concerns, DisplayPipelineAttributes target) =>
-        concerns.TraverseM(concern => Op.Of(name: $"{key.Value}.{concern.Row.Key}")
-            .Catch(() => Fin.Succ(concern.Write(target)))).As()
+        concerns.TraverseM(concern => Try.lift(() => Fin.Succ(concern.Write(target))).Run().Bind(static inner => inner)).As()
             .Map(static _ => unit);
 
     internal static Fin<Seq<Appearance>> Of(DisplayPipelineAttributes source) =>
         Optional(source).ToFin(new KernelFault.InvalidInput())
-            .Bind(live => toSeq(ConcernRow.Items).TraverseM(row => Op.Of(name: $"{key.Value}.{row.Key}")
-                .Catch(op => row.Read(live))).As());
+            .Bind(live => toSeq(ConcernRow.Items).TraverseM(row => Try.lift(op => row.Read(live)).Run().Bind(static inner => inner)).As());
 
     private static Fin<PerceptualColor> Ink(System.Drawing.Color value) =>
         PerceptualColor.OfRgb(value.R, value.G, value.B, value.A);
@@ -1096,24 +1094,24 @@ public static class Modes {
     private static Fin<ModeOutcome> Analyze(DocumentSession session, AnalysisEdit edit) => edit.Switch(
         session,
         set: static (ctx, row) => Set(ctx, row.Objects, row.Kind, row.State),
-        census: static (ctx, row) => ctx.Session.Demand(
+        census: static (ctx, row) => Admit.Demand(
             document => Try.lift(() => Optional(document.Objects.FindId(row.Object)).ToFin(new KernelFault.InvalidInput())
                 .Map(subject => (ModeOutcome)new ModeOutcome.AnalysisCensus(
                     row.Object,
                     toSeq(subject.GetActiveVisualAnalysisModes()).Map(static mode => AnalysisId.Create(mode.Id))))).Run().Bind(static inner => inner),
             [SessionNeed.Read]),
-        adjustMeshes: static (ctx, row) => ctx.Session.Demand(
+        adjustMeshes: static (ctx, row) => Admit.Demand(
             document => Analysis(row.Kind).Bind(mode => Try.lift(() =>
                 Admit.Confirm(VisualAnalysisMode.AdjustAnalysisMeshes(document, mode.Id))).Run().Bind(static inner => inner)
                 .Map(_ => (ModeOutcome)new ModeOutcome.AnalysisAdjusted(AnalysisId.Create(mode.Id)))),
             [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Dialog]),
-        userInterface: static (ctx, row) => ctx.Session.Demand(
+        userInterface: static (ctx, row) => Admit.Demand(
             _ => Analysis(row.Kind)
                 .Bind(mode => Try.lift(() => Fin.Succ((
                     HostEdge.Side(() => mode.EnableUserInterface(row.Panel.Key)),
                     (ModeOutcome)new ModeOutcome.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2)).Run().Bind(static inner => inner)),
             [SessionNeed.Dialog]),
-        range: static (ctx, row) => ctx.Session.Demand(
+        range: static (ctx, row) => Admit.Demand(
             _ => Try.lift(() => Fin.Succ((row.Value.Apply(), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2)).Run().Bind(static inner => inner),
             [SessionNeed.Dialog]),
         overlay: static (ctx, row) => AnalysisMode.Register<AnalysisOverlay>()
@@ -1123,7 +1121,7 @@ public static class Modes {
             .Map(lease => (ModeOutcome)new ModeOutcome.Retained(lease)));
 
     private static Fin<ModeOutcome> Set(DocumentSession session, Seq<Guid> objects, AnalysisKind kind, AnalysisState state) =>
-        session.Demand(
+        Admit.Demand(
             document => Analysis(kind).Bind(mode => objects.TraverseM(id => Try.lift(() =>
                     from subject in Optional(document.Objects.FindId(id)).ToFin(new KernelFault.InvalidInput())
                     from _ in guard(mode.ObjectSupportsAnalysisMode(subject), new KernelFault.InvalidInput())

@@ -241,7 +241,7 @@ public sealed record SiteActionPolicy(
     public static readonly Validation<Error, SiteActionPolicy> Canonical = Of(
         basicWindSpeedMPerS: 51.0, WindExposureClass.C, kzt: 1.0, kd: 0.85, gcpNet: 0.8,
         groundSnowPa: Some(1_000.0), ce: 1.0, ct: 1.0, snowImportance: 1.0, roofSlopeFactor: 1.0,
-        LiveLoadClass.Office, tributaryWidthM: 3.0, roofBandM: Some(0.5), Op.Of(name: nameof(Canonical)));
+        LiveLoadClass.Office, tributaryWidthM: 3.0, roofBandM: Some(0.5));
 
     public double VelocityPressurePa(double heightM) =>
         0.613 * Exposure.Kz(heightM) * Kzt.Value * Kd.Value * BasicWindSpeedMPerS.Value * BasicWindSpeedMPerS.Value;

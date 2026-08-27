@@ -204,11 +204,10 @@ public abstract partial record ReconcileAnswer : IValidityEvidence {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Reconciliation {
     public static Fin<ReconcileAnswer> Apply(ReconcileOp op) => op.Switch(
-        state: key.OrDefault(),
-        encode: static (k, e) => Acceptance.Input(e.Form)
+        encode: static e => Acceptance.Input(e.Form)
             .Map(static form => (ReconcileAnswer)new ReconcileAnswer.Digest(Digest(form)))
             .Bind(answer => Acceptance.Value(answer)),
-        reconcile: static (k, r) => (Acceptance.Input(r.Prior), Acceptance.Input(r.Rebuilt))
+        reconcile: static r => (Acceptance.Input(r.Prior), Acceptance.Input(r.Rebuilt))
             .Apply(static (prior, rebuilt) => (Prior: prior, Rebuilt: rebuilt)).As()
             .Bind(admitted => {
                 Set<GeometryHash> live = admitted.Rebuilt.Entities.Fold(Set<GeometryHash>(),

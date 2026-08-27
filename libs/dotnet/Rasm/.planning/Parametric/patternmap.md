@@ -194,7 +194,7 @@ public static class Patterning {
     public static Fin<PlanarInstances> Apply(PatternPlan plan) =>
         plan is not null && plan.IsValid
             ? Fin.Succ(Orbit(plan))
-            : Fin.Fail<PlanarInstances>(key.OrDefault().InvalidInput());
+            : Fin.Fail<PlanarInstances>(new KernelFault.InvalidInput());
 
     public static Fin<SurfaceInstances> Apply(PatternMap map) {
         if (map is null || !map.Plan.IsValid || !map.Policy.IsValid

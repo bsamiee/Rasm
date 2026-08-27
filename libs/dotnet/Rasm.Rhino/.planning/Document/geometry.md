@@ -365,7 +365,7 @@ public sealed partial class GeometryBounds {
             : new ValidationError(message: "Bounds query requires a frame and a finite nonnegative inflation vector.");
 
     public static Fin<GeometryBounds> Of(BoundsFrame frame, Option<Vector3d> inflation = default) =>
-        key.OrDefault().AcceptValidated<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), value: admitted);
+        FactoryBridge.Accept<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), value: admitted);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -315,7 +315,7 @@ public abstract partial record AnalysisQuery {
     internal Operation<(TA A, TB B), TOut> Pair<TA, TB, TOut>() where TA : notnull where TB : notnull where TOut : notnull =>
         this is IPairQuery pair
             ? pair.Build<TA, TB, TOut>()
-            : key.Unsupported<(TA A, TB B), TOut>();
+            : OperationLift.Unsupported<(TA A, TB B), TOut>();
     internal Operation<Unit, TOut> Service<TOut>() where TOut : notnull =>
         this is IServiceQuery served
             ? served.Build<TOut>()
@@ -543,10 +543,9 @@ public static class Analyze {
 }
 
 internal static class OperationLift {
-    extension() {
-        internal Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>() where TGeometry : notnull =>
-            Operation<TGeometry, TOut>.Reject(fault: new KernelFault.Unsupported(InputType: typeof(TGeometry), OutputType: typeof(TOut)));
-    }
+    internal static Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>() where TGeometry : notnull =>
+        Operation<TGeometry, TOut>.Reject(fault: new KernelFault.Unsupported(InputType: typeof(TGeometry), OutputType: typeof(TOut)));
+
     extension(object operation) {
         internal Operation<TGeometry, TOut> As<TGeometry, TOut>() where TGeometry : notnull => operation switch {
             Operation<TGeometry, TOut> typed => typed,

@@ -243,12 +243,12 @@ public readonly record struct Stat<TCarrier>(
     public static Fin<Stat<TCarrier>> Merge(Stat<TCarrier> left, Stat<TCarrier> right) =>
         left.IsValid && right.IsValid && left.Context == right.Context
             ? Admit(held: left.State.Join(other: right.State), context: left.Context)
-            : Fin.Fail<Stat<TCarrier>>(error: key.OrDefault().InvalidInput());
+            : Fin.Fail<Stat<TCarrier>>(error: new KernelFault.InvalidInput());
     public static Fin<Stat<TCarrier>> Update(Stat<TCarrier> prior, TCarrier sample, Option<double> weight = default) =>
         prior.IsValid
             ? Admit(held: prior.State.Step(sample: sample.To(), weight: weight.IfNone(1.0)),
                 context: prior.Context)
-            : Fin.Fail<Stat<TCarrier>>(error: key.OrDefault().InvalidInput());
+            : Fin.Fail<Stat<TCarrier>>(error: new KernelFault.InvalidInput());
     private static Fin<Stat<TCarrier>> Admit(Moments held, Option<StatContext> context) =>
         held.Count > 0
             ? from minimum in TCarrier.From(held.Minimum)
@@ -438,7 +438,7 @@ public readonly record struct QuantileSketch(double Fraction, int Count, MarkerR
         return Some(held[(int)Math.Clamp(value: Math.Round(a: Fraction * (Count - 1)), min: 0, max: Count - 1)]);
     }
     public static Fin<QuantileSketch> Of(double fraction) {
-        if (fraction is not (> 0.0 and < 1.0)) { return Fin.Fail<QuantileSketch>(error: key.OrDefault().InvalidInput()); }
+        if (fraction is not (> 0.0 and < 1.0)) { return Fin.Fail<QuantileSketch>(error: new KernelFault.InvalidInput()); }
         MarkerRow positions = default;
         for (int marker = 0; marker < Markers; marker++) { positions[marker] = marker + 1.0; }
         return Fin.Succ(new QuantileSketch(Fraction: fraction, Count: 0, Heights: default, Positions: positions));

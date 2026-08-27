@@ -857,8 +857,7 @@ public abstract partial record ShardDispatch {
         ContentHash address = plan.Provider.SolveDedupKey(Digest(request));
         return context.Reuse.Lookup(address).Bind(row => row.Match(
             Some: cached => context.FetchPayload(cached.Placement).Bind(bytes => bytes.Match(
-                Some: payload => IO.pure(Op.Of(name: "cached-solve-payload")
-                    .Catch(() => Fin.Succ(SolveResponse.Parser.ParseFrom(payload.Span)))
+                Some: payload => IO.pure(Try.lift(() => Fin.Succ(SolveResponse.Parser.ParseFrom(payload.Span))).Run().Bind(static inner => inner)
                     .Bind(response => Materialize(response, start, height, right.ColumnCount))),
                 None: () => DialAndStore(plan, context, request, address, start, height, right.ColumnCount))),
             None: () => DialAndStore(plan, context, request, address, start, height, right.ColumnCount)));

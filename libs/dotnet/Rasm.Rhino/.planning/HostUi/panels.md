@@ -134,7 +134,6 @@ public abstract class HostPanel : Panel, IPanel {
     private readonly Atom<MountState> state = Atom<MountState>(new MountState.Live());
 
     protected HostPanel(PluginKey plugin, ControlSpec content, ElementRuntime runtime) {
-        op = key.OrDefault();
         owner = plugin.Admit().Map(_ => plugin);
         identity = PanelKey.Of(panelType: GetType());
         Construction = ControlForge.Realize(spec: content, runtime: runtime);
@@ -422,7 +421,9 @@ public static class PanelHost {
                        panel: held.Panel),
                    dockBarUsage: static (held, work) => HostThread.Run(
                        work: new HostWork<PanelMount<TPanel>>.Execute(Body: () => Try.lift(() =>
-                           held.Op.Row<bool).Run().Bind(static inner => inner))))
+                           FactoryBridge.Row<bool, DockBarUse>(candidate: Panels.DockBarIdInUse(work.DockBar))
+                               .Map<PanelMount<TPanel>>(use => new PanelMount<TPanel>.DockBar(
+                                   Id: work.DockBar, Use: use))).Run().Bind(static inner => inner))
                select outcome;
     }
 

@@ -309,7 +309,7 @@ public static class ColumnarLane {
             (cause, engine) => new ColumnarFault.MountRefused(alias, engine.ErrorType, cause))));
 
     public static IO<Fin<Unit>> Secret(ColumnarSession session, SecretScope scope, Identifier name, Seq<(Identifier Key, string Value)> config, SecretStorage storage) =>
-        IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
+        IO.liftAsync(async () => (await Try.lift(async () => {
             await using DuckDBConnection lane = session.Lane();
             await using DuckDBCommand command = lane.CreateCommand();
             string into = storage is SecretStorage.Persistent ? $" IN {scope.PersistInto}" : string.Empty;

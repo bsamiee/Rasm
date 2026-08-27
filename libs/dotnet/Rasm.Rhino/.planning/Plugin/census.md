@@ -237,7 +237,7 @@ public sealed partial class PluginRead {
     private static Fin<PluginAnswer> Detached(PluginKey plugin) =>
         from record in Handle(plugin: plugin)
         from presence in Probed(plugin: plugin)
-        from info in op.Catch(() =>
+        from info in Try.lift(() =>
             from name in Acceptance.Text(value: record.Name)
             from kind in FactoryBridge.Row<PlugInType, PluginKind>(record.PlugInType)
             from schedule in FactoryBridge.Row<PlugInLoadTime, PluginSchedule>(record.PlugInLoadTime)

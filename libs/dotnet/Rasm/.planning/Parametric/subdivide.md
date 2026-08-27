@@ -127,9 +127,8 @@ public static class Subdivision {
 
     public static Fin<SubdivisionResult> Apply(SubdivideOp op) =>
         op.Switch(
-            state: key.OrDefault(),
-            refine: static (k, r) => RefineOf(r, k),
-            limit:  static (k, l) => LimitOf(l, k));
+            refine: static r => RefineOf(r),
+            limit:  static l => LimitOf(l));
 
     // --- [REFINEMENT_FOLD]
     sealed record Level(double[] X, double[] Y, double[] Z, int[] Corners, int[] FaceOffsets, Edges Edges, Option<(double[] U, double[] V)> Uv);

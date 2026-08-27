@@ -1552,7 +1552,7 @@ internal static class Fixtures {
 
     private static Fin<Seq<Seq<Edge3>>> Clipped(Seq<Seq<Edge3>> runs, Seq<Loop> clip) =>
         PolygonAlgebra
-            .Apply(new PolygonOp.ClipOpen(runs, clip, PolygonFill.NonZero), Op.Of(name: nameof(ExclusionZone)))
+            .Apply(new PolygonOp.ClipOpen(runs, clip, PolygonFill.NonZero))
             .Bind(static trace => trace
                 .Runs(new KernelFault.InvalidValue("workholding", nameof(ExclusionZone)))
                 .Map(static split => split.Inside));

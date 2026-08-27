@@ -69,7 +69,7 @@ public sealed partial record TextSection(string Section, string Entry) {
     }
 
     public static Fin<TextSection> Of(string section, string entry) =>
-        key.OrDefault().AcceptValidated<TextSection>(Validate(section, entry, out TextSection? value), value);
+        FactoryBridge.Accept<TextSection>(Validate(section, entry, out TextSection? value), value);
 
     internal string Wire => $"{Section}\\{Entry}";
 }
@@ -125,7 +125,7 @@ public abstract partial record TextAddress {
     internal sealed record ObjectCase(ResourceId ObjectId, ObjectTextStore Store, TextKey Key) : TextAddress;
 
     public static Fin<TextAddress> Document(string key) =>
-        okey.OrDefault().AcceptValidated<TextKey>(candidate: key)
+        FactoryBridge.Accept<TextKey>(candidate: key)
             .Map<TextAddress>(static admitted => new DocumentKeyCase(Key: admitted));
 
     public static Fin<TextAddress> Document(string section, string entry) =>
@@ -158,7 +158,7 @@ public abstract partial record TextEdit {
     internal sealed record DeleteCase : TextEdit;
 
     public static Fin<TextEdit> Set(string value) =>
-        key.OrDefault().AcceptValidated<UserTextValue>(candidate: value)
+        FactoryBridge.Accept<UserTextValue>(candidate: value)
             .Map<TextEdit>(static admitted => new SetCase(Value: admitted));
 
     public static TextEdit Delete() => new DeleteCase();
@@ -180,7 +180,7 @@ public abstract partial record TextObjectFilter {
     public static TextObjectFilter Kinds(ObjectType kinds) => new KindsCase(Kinds: kinds);
 
     public static Fin<TextObjectFilter> Enumerated(ObjectEnumeratorSettings settings) =>
-        key.OrDefault().Need(value: settings).Map<TextObjectFilter>(static admitted => new EnumeratorCase(Settings: admitted));
+        Admit.Need(value: settings).Map<TextObjectFilter>(static admitted => new EnumeratorCase(Settings: admitted));
 }
 
 public sealed record TextSearch(TextKey Key, UserTextValue Pattern, TextSearchPolicy Policy, TextObjectFilter Filter);
@@ -333,11 +333,11 @@ public static class UserTexts {
                from request in Admit.Need(value: batch)
                from completed in request.Switch<(DocumentSession Session), Fin<Unit>>(
                    state: (owner),
-                   documentCase: static (state, document) => state.Session.Demand(
+                   documentCase: static (state, document) => Admit.Demand(
                        use: owner => MutateDocument(document: owner, mutations: document.Mutations),
                        needs: SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: RedrawPolicy.None).ToArray()),
                    objectsCase: static (state, objects) =>
-                       from plan in state.Session.Demand(
+                       from plan in Admit.Demand(
                            use: owner => Plan(document: owner, mutations: objects.Mutations),
                            needs: [SessionNeed.Read])
                        from _committed in CommitPlan(session: state.Session, plan: plan)
@@ -350,18 +350,18 @@ public static class UserTexts {
                from request in Admit.Need(value: query)
                from answer in request.Switch<(DocumentSession Session), Fin<UserTextAnswer>>(
                    state: (owner),
-                   readDocumentCase: static (state, _) => state.Session.Demand(
+                   readDocumentCase: static (state, _) => Admit.Demand(
                        use: document => ReadDocument(document: document)
                            .Map<UserTextAnswer>(static value => new UserTextAnswer.DocumentCase(Snapshot: value)),
                        needs: [SessionNeed.Read]),
-                   readObjectsCase: static (state, read) => state.Session.Demand(
+                   readObjectsCase: static (state, read) => Admit.Demand(
                        use: document => read.ObjectIds
                            .Traverse(id => ReadObject(document: document, objectId: id).ToValidation())
                            .As()
                            .ToFin()
                            .Map<UserTextAnswer>(static values => new UserTextAnswer.ObjectsCase(Snapshots: values)),
                        needs: [SessionNeed.Read]),
-                   searchCase: static (state, search) => state.Session.Demand(
+                   searchCase: static (state, search) => Admit.Demand(
                        use: document => Search(document: document, search: search.Search)
                            .Map<UserTextAnswer>(static values => new UserTextAnswer.MatchesCase(Matches: values)),
                        needs: [SessionNeed.Read]))

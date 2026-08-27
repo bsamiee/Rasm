@@ -257,7 +257,7 @@ public sealed class EdgeResize {
 
     public Fin<Unit> End() =>
         Cell.Step(cell: engaged, step: static held => held.Map(static _ => Option<EdgeGrip>.None),
-            declined: key.OrDefault().InvalidContext()) switch {
+            declined: new KernelFault.InvalidContext()) switch {
             Transition<Option<EdgeGrip>>.Refused row => Fin.Fail<Unit>(row.Cause),
             _ => Fin.Succ(unit),
         };

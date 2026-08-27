@@ -155,10 +155,9 @@ public static partial class Arrangement {
 
     public static Fin<ArrangementResult> Apply(ArrangementOp op) =>
         op.Switch(
-            state: key.OrDefault(),
-            meshBoolean:   static (site, m) => Volumetric(m.Operands, m.Policy, site),
-            planarOverlay: static (_, p) => Overlay(p),
-            cellComplex:   static (site, c) => Volumetric(Seq(c.A, c.B), None, c.Policy, site));
+            meshBoolean:   static m => Volumetric(m.Operands, m.Policy),
+            planarOverlay: static p => Overlay(p),
+            cellComplex:   static c => Volumetric(Seq(c.A, c.B), None, c.Policy));
 
     static Fin<ArrangementResult> Volumetric(Seq<MeshSpace> operands, Option<BooleanOp> keep, ArrangementPolicy policy) =>
         Gate(operands, policy).Bind(gate => (gate.Native, keep.Case) switch {

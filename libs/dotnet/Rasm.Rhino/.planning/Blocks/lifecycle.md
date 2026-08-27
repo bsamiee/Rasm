@@ -119,7 +119,7 @@ public sealed partial class LinkWatchPolicy {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkWatchPolicy), "a non-negative debounce and a facts bound", Option<>.None }));
 
     public static Fin<LinkWatchPolicy> Of(Duration debounce, StreamPolicy stream) =>
-        key.OrDefault().AcceptValidated<LinkWatchPolicy>(
+        FactoryBridge.Accept<LinkWatchPolicy>(
             fault: Validate(debounce, stream, out LinkWatchPolicy? policy),
             admitted: policy);
 }
@@ -328,7 +328,7 @@ public sealed class BlockVault {
 
     internal Fin<PreviewGrant> Lease(DocumentSession owner, ResourceRef address, BlockPreview request) =>
         from seal in Engage(session: owner, policy: RefreshPolicy.Lazy)
-        from key in owner.Demand(
+        from key in Admit.Demand(
             use: document => Definitions.Resolve(target: address, document: document)
                 .Map(definition => new PreviewKey(
                     seal: seal,

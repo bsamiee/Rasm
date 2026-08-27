@@ -495,8 +495,7 @@ public static class SourcePartition {
                   new PolygonOp.Cells(
                       policy.Sources.Map(static source => new Point3d(source.Field.Center.X, source.Field.Center.Y, 0.0)).ToArr(),
                       boundary,
-                      SitePolicy.Create(policy.FieldRelaxations, policy.FieldRelaxationStrength.DecimalFractions, merge: None)),
-                  Op.Of(name: nameof(Build)))
+                      SitePolicy.Create(policy.FieldRelaxations, policy.FieldRelaxationStrength.DecimalFractions, merge: None)))
               from diagram in trace.Diagram(
                   new KernelFault.InvalidValue("scanpath", "scan:cell-trace"))
               from _census in diagram.Cells.Count == policy.Sources.Count
@@ -538,7 +537,7 @@ public static class SourcePartition {
         new Point3d(stack.U.Max(), stack.V.Max(), 0.0));
 
     private static Fin<PolygonMeasure> Measure(Seq<Loop> paths) =>
-        PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero), Op.Of(name: nameof(Measure)))
+        PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero))
             .Bind(static trace => trace.Measure(
                 new KernelFault.InvalidValue("scanpath", "scan:measure-trace")));
 
@@ -887,7 +886,7 @@ public static class Scan {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue("scanpath", $"scan:thermal-contention:{contention}"))
         from layers in Events(elections, policy)
-        from bytes in ScanCodec.Write(policy, layers, Op.Of(name: nameof(Plan)))
+        from bytes in ScanCodec.Write(policy, layers)
         let evidence = Measured(fields, elections, layers, bytes.Length)
         let key = ContentKey.Of(EgressKind.ScanVectors, bytes.Span)
         from _steps in set.Steps(
@@ -1008,8 +1007,8 @@ public static class Scan {
     private static Fin<WaveElection> Waves(Seq<SourceAssignment> rows, ScanPlane plane) {
         double separation = plane.Thermal.Contention.Millimeters;
         BoundingBox[] boxes = rows.Map(row => Inflated(row.Vector.Geometry, separation * 0.5)).ToArray();
-        return from index in SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical, Op.Of(name: nameof(Waves)))
-               from pairs in index.Query(separation, Op.Of(name: nameof(Waves)))
+        return from index in SpatialIndex.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical)
+               from pairs in index.Query(separation)
                let adjacency = Adjacency(rows, pairs, plane)
                select Coloured(rows, adjacency, plane.Thermal.Window);
     }

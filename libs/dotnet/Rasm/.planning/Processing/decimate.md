@@ -260,7 +260,7 @@ public static class Simplify {
     }
 
     public static readonly BenchClaim HausdorffClaim = new(
-        Claim: Op.Of(name: nameof(Hausdorff)),
+        Claim: nameof(Hausdorff),
         VectorizedLane: "TensorPrimitives.Max<double> over the pooled distance plane",
         ReferenceLane: "scalar Math.Max fold over the same pooled plane",
         SpeedupFloor: 1.0);

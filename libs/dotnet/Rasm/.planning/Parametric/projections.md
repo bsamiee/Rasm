@@ -842,7 +842,7 @@ public sealed partial class PaceBand {
 
     public Fin<PaceBand> ScaleTo(PositiveMagnitude ceiling) {
         double factor = ceiling.Value / Maximum;
-        return key.OrDefault().AcceptValidated<PaceBand>(
+        return FactoryBridge.Accept<PaceBand>(
             Validate(Minimum * factor, Maximum * factor, Preferred * factor, out PaceBand? scaled), scaled);
     }
 }

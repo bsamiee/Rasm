@@ -108,7 +108,7 @@ public abstract partial record StreamMonitor {
     public static Fin<StreamMonitor> OfQuantile(string monitorId, double probability, double limit) =>
         (FactoryBridge.Accept<MonitorKey>(monitorId).ToValidation(),
          FactoryBridge.Accept<Threshold>(limit).ToValidation(),
-         QuantileSketch.Of(probability, Op.Of(name: nameof(OfQuantile))).ToValidation())
+         QuantileSketch.Of(probability).ToValidation())
             .Apply(static (id, bound, sketch) => (StreamMonitor)new Quantile(id, bound, sketch))
             .As()
             .ToFin();
@@ -136,7 +136,7 @@ public static class MonitorLane {
     public static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Advance(StreamMonitor monitor, double sample, IClock clock) =>
         Scalar.From(sample).Match(
             Succ: admitted => monitor.Switch(
-                state: (Sample: admitted, At: clock.GetCurrentInstant(), Key: Op.Of(name: nameof(Advance))),
+                state: (Sample: admitted, At: clock.GetCurrentInstant()),
                 ewma: static (s, held) => Smoothed(held, s.Sample, s.At, s.Key),
                 quantile: static (s, held) => Sketched(held, s.Sample, s.At, s.Key),
                 detector: static (s, held) => Detected(held, s.Sample, s.At)),

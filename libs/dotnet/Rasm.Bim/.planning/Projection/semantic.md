@@ -346,22 +346,22 @@ public sealed partial class SemanticProjector(
     internal static readonly string PositioningAttributeSet = "IfcLinearPositioning";
     internal static readonly string ProjectAttributeSet = "IfcProjectContext";
 
-    internal static readonly PropertyName Phase = PropertyCategory.Neutral.Row("Phase");
-    internal static readonly PropertyName LongName = PropertyCategory.Neutral.Row("LongName");
+    internal static readonly PropertyName Phase = FactoryBridge.Row("Phase");
+    internal static readonly PropertyName LongName = FactoryBridge.Row("LongName");
 
     public static class SignatureRows {
-        public static readonly PropertyName GlobalId = PropertyCategory.Neutral.Row("GlobalId");
-        public static readonly PropertyName IfcEntity = PropertyCategory.Neutral.Row("IfcEntity");
-        public static readonly PropertyName PredefinedType = PropertyCategory.Neutral.Row("PredefinedType");
-        public static readonly PropertyName Name = PropertyCategory.Neutral.Row("Name");
-        public static readonly PropertyName MaterialName = PropertyCategory.Neutral.Row("MaterialName");
-        public static readonly PropertyName MaterialCategory = PropertyCategory.Neutral.Row("MaterialCategory");
-        public static readonly PropertyName MaterialStandard = PropertyCategory.Neutral.Row("MaterialStandard");
-        public static readonly PropertyName MaterialGrade = PropertyCategory.Neutral.Row("MaterialGrade");
-        public static readonly PropertyName ProfileStandard = PropertyCategory.Neutral.Row("ProfileStandard");
-        public static readonly PropertyName ProfileDesignation = PropertyCategory.Neutral.Row("ProfileDesignation");
-        public static readonly PropertyName ProfileEntity = PropertyCategory.Neutral.Row("ProfileEntity");
-        public static readonly PropertyName ProfileStepKey = PropertyCategory.Neutral.Row("ProfileStepKey");
+        public static readonly PropertyName GlobalId = FactoryBridge.Row("GlobalId");
+        public static readonly PropertyName IfcEntity = FactoryBridge.Row("IfcEntity");
+        public static readonly PropertyName PredefinedType = FactoryBridge.Row("PredefinedType");
+        public static readonly PropertyName Name = FactoryBridge.Row("Name");
+        public static readonly PropertyName MaterialName = FactoryBridge.Row("MaterialName");
+        public static readonly PropertyName MaterialCategory = FactoryBridge.Row("MaterialCategory");
+        public static readonly PropertyName MaterialStandard = FactoryBridge.Row("MaterialStandard");
+        public static readonly PropertyName MaterialGrade = FactoryBridge.Row("MaterialGrade");
+        public static readonly PropertyName ProfileStandard = FactoryBridge.Row("ProfileStandard");
+        public static readonly PropertyName ProfileDesignation = FactoryBridge.Row("ProfileDesignation");
+        public static readonly PropertyName ProfileEntity = FactoryBridge.Row("ProfileEntity");
+        public static readonly PropertyName ProfileStepKey = FactoryBridge.Row("ProfileStepKey");
     }
 
     Fin<Option<PropertyBag>> SourceBag(IfcObjectDefinition definition, UnitScheme scheme) =>
@@ -506,7 +506,7 @@ public sealed partial class SemanticProjector(
         .Bind(rows => Fidelity.Lift(rows.TraverseM(row => row.Value.Map(value => (row.Key, value))).As()))
         .Map(static values => values
             .Filter(static row => row.value switch { PropertyValue.Text text => text.Value.Length > 0, _ => true })
-            .Map(static row => (PropertyCategory.Neutral.Row(row.Key), row.value)));
+            .Map(static row => (FactoryBridge.Row(row.Key), row.value)));
 
     static (string, Fin<PropertyValue>) Scalar(string name, double native, Dimension dimension, UnitScheme scheme) =>
         (name, double.IsFinite(native)

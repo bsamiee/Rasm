@@ -465,8 +465,7 @@ public static class EventCarrier {
             .Bind(attribute => Optional(envelope[attribute]).Map(attribute.Format));
 
     public static Option<CloudEventAttribute> Write(CloudEvent envelope, string field, string value) =>
-        Optional(envelope.GetAttribute(field)).Bind(attribute => Op.Of(name: nameof(EventCarrier))
-            .Catch(() => Fin.Succ(envelope[attribute] = attribute.Parse(value)))
+        Optional(envelope.GetAttribute(field)).Bind(attribute => Try.lift(() => Fin.Succ(envelope[attribute] = attribute.Parse(value))).Run().Bind(static inner => inner)
             .ToOption()
             .Map(_ => attribute));
 }

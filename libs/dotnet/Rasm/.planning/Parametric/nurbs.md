@@ -296,23 +296,21 @@ public abstract partial record NurbsForm {
 
     // --- [IDENTITY_PROJECTION]
     public Fin<EncodeForm> ToEncodeForm() => Switch(
-        state: key.OrDefault(),
-        curve: static (k, c) => EncodeForm.Of(
+        curve: static c => EncodeForm.Of(
             new Arr<(int Degree, Arr<double> Knots)>([(c.Knots.Degree, c.Knots.Knots)]),
-            c.Weights, c.ControlPoints, k),
-        surface: static (k, s) => EncodeForm.Of(
+            c.Weights, c.ControlPoints),
+        surface: static s => EncodeForm.Of(
             new Arr<(int Degree, Arr<double> Knots)>([
                 (s.KnotsU.Degree, s.KnotsU.Knots),
                 (s.KnotsV.Degree, s.KnotsV.Knots)]),
-            s.Weights, s.ControlPoints, k));
+            s.Weights, s.ControlPoints));
 }
 
 public static class Nurbs {
     public static Fin<NurbsForm> Of(NurbsInput input) =>
         input.Switch(
-            state: key.OrDefault(),
-            curve:      static (_, c) => AdmitCurve(c),
-            surface:    static (_, s) => AdmitSurface(s),
+            curve:      static c => AdmitCurve(c),
+            surface:    static s => AdmitSurface(s),
             curveFit:   static (k, f) => FitCurve(f.Samples, f.Policy, k),
             surfaceFit: static (k, f) => FitSurface(f.CountU, f.Samples, f.Policy, k),
             ruled:      static (k, r) => AdmitRuled(r.Edge, r.Opposite, k),

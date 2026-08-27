@@ -178,7 +178,7 @@ public sealed partial class ClosureBudget {
         long maxLinks,
         int maxDepth,
         long maxBytes) =>
-        key.OrDefault().AcceptValidated<ClosureBudget>(
+        FactoryBridge.Accept<ClosureBudget>(
             Validate(maxArchives, maxLinks, maxDepth, maxBytes, out ClosureBudget? admitted),
             admitted);
 }
@@ -324,7 +324,7 @@ public static partial class BlockGraph {
     private static Fin<Topology> Of(GraphSource source) =>
         Admit.Need(source).Bind(request => request.Switch(
             context: key,
-            live: static (held) => Admit.Need(held.Session).Bind(session => session.Demand(
+            live: static (held) => Admit.Need(held.Session).Bind(session => Admit.Demand(
                 use: document => LiveTopology(document: document),
                 needs: [SessionNeed.Read])),
             loaded: static (held) => Admit.Need(held.Archive)
@@ -411,7 +411,7 @@ public static partial class BlockGraph {
         source.SwitchPartially(
             context: (Op: op, Read: read),
             live: static (ctx, held) => Admit.Need(held.Session)
-                .Bind(session => session.Demand(use: ctx.Read, needs: [SessionNeed.Read])),
+                .Bind(session => Admit.Demand(use: ctx.Read, needs: [SessionNeed.Read])),
             @default: static (ctx, _) => Fin.Fail<BlockGraphAnswer>(error: new KernelFault.Unsupported(
                 InputType: typeof(GraphSource),
                 OutputType: typeof(BlockGraphAnswer))));
@@ -456,7 +456,7 @@ internal static class GraphFold {
         BidirectionalGraph<TVertex, SEdge<TVertex>> graph) where TVertex : notnull =>
         Try.lift(() => graph.IsDirectedAcyclicGraph()
             ? Fin.Succ(value: graph.ComputeTransitiveReduction())
-            : Fin.Fail<BidirectionalGraph<TVertex).Run().Bind(static inner => inner);
+            : Fin.Fail<BidirectionalGraph<TVertex, SEdge<TVertex>>>(error: new KernelFault.InvalidResult(Detail: Some(nameof(Cycles))))).Run().Bind(static inner => inner);
 
     internal static (Seq<Seq<TVertex>> Components, Seq<(int From, int To)> Edges) Condensed<TVertex>(
         BidirectionalGraph<TVertex, SEdge<TVertex>> graph,

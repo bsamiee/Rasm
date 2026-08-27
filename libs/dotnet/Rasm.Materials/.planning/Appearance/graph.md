@@ -659,7 +659,7 @@ public static class MaterialLibrary {
 
     static readonly Fin<Unit> Admission =
         toSeq(Rows).Traverse(static entry =>
-                MaterialParameters.Of(entry.Value, Op.Of(name: $"material-library-admit:{entry.Key.ToValue()}"))
+                MaterialParameters.Of(entry.Value)
                     .ToValidation())
             .As()
             .ToFin()

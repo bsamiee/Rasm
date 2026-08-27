@@ -531,7 +531,7 @@ public static class ProfileBoot {
         select outcome;
 
     public static HookTap<AppHostPoint, AppHostFact, TelemetrySource> MirrorService(ISystemdNotifier notifier) =>
-        new(Name: Op.Of(nameof(MirrorService)),
+        new(Name: nameof(MirrorService),
             Observe: fact => fact.Switch(
                 phase: row => Emit(notifier, row.Commit.To),
                 command: static _ => Fin.Succ(unit),

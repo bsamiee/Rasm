@@ -176,11 +176,11 @@ public abstract partial record SheetSize : IValidityEvidence {
     public static Fin<SheetSize> Of(SheetSeries series, int index) =>
         index >= series.Bounds.Floor && index <= series.Bounds.Ceiling
             ? Fin.Succ<SheetSize>(new Rostered(series: series, index: index))
-            : Fin.Fail<SheetSize>(key.OrDefault().InvalidInput());
+            : Fin.Fail<SheetSize>(new KernelFault.InvalidInput());
     public static Fin<SheetSize> Of(Length width, Length height, SheetStandard standard) =>
         width > Length.Zero && height > Length.Zero && double.IsFinite(width.Millimeters) && double.IsFinite(height.Millimeters)
             ? Fin.Succ<SheetSize>(new Custom(width: width, height: height, standard: standard))
-            : Fin.Fail<SheetSize>(key.OrDefault().InvalidInput());
+            : Fin.Fail<SheetSize>(new KernelFault.InvalidInput());
     public static Fin<SheetSize> Of(double width, double height, ModelUnit unit, SheetStandard standard) {
         return from scale in MillimetreScale(unit: unit)
                from admitted in Of(width: Length.FromMillimeters(width * scale.From), height: Length.FromMillimeters(height * scale.From), standard: standard)
@@ -370,7 +370,7 @@ public sealed partial class RevisionIndex {
             : new ValidationError(message: "RevisionIndex admits the ASME Y14.35 letters A-Y (I, O, Q, S, X, Z excluded), extending as AA, AB.");
     }
     public static Fin<RevisionIndex> Of(string value) =>
-        key.OrDefault().AcceptValidated<RevisionIndex>(Validate(value, out RevisionIndex? index), index);
+        FactoryBridge.Accept<RevisionIndex>(Validate(value, out RevisionIndex? index), index);
     public Fin<RevisionIndex> Next() => Of(value: Advance(held: ToValue()));
     private static string Advance(string held) =>
         held.Length == 0 ? Alphabet[..1]
@@ -389,7 +389,7 @@ public sealed partial class Revision {
         validationError = description.Length > 0 ? null : new ValidationError(message: "Revision requires a description.");
     }
     public static Fin<Revision> Of(RevisionIndex index, LocalDate date, string description) =>
-        key.OrDefault().AcceptValidated<Revision>(Validate(index, date, description, out Revision? revision), revision);
+        FactoryBridge.Accept<Revision>(Validate(index, date, description, out Revision? revision), revision);
 }
 
 public sealed record TitleBlock {
@@ -536,11 +536,11 @@ public sealed partial class DrawingScale {
         (paper, model) = (paper / divisor, model / divisor);
     }
     public static Fin<DrawingScale> Of(int paper, int model) =>
-        key.OrDefault().AcceptValidated<DrawingScale>(Validate(paper, model, out DrawingScale? scale), scale);
+        FactoryBridge.Accept<DrawingScale>(Validate(paper, model, out DrawingScale? scale), scale);
     public double Ratio => (double)Paper / Model;
     public bool IsReduction => Paper < Model;
     public static Fin<(DrawingScale Scale, ScaleNotation Notation)> Admit(string text) =>
-        Admitted(text).ToFin(key.OrDefault().InvalidInput());
+        Admitted(text).ToFin(new KernelFault.InvalidInput());
     private static Option<(DrawingScale Scale, ScaleNotation Notation)> Admitted(string? value) =>
         Optional(value).Bind(text => toSeq(ScaleNotation.Items).Choose(row => row.Parse(text.Trim()).Map(scale => (Scale: scale, Notation: row))).Head);
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out DrawingScale? item) {
@@ -859,7 +859,7 @@ public sealed partial class SheetNumber {
         return standard.Admit(cased).ToFin().Bind(admitted => FactoryBridge.Accept<SheetNumber>(Validate(standard, admitted, out SheetNumber? number), number));
     }
     public static Fin<SheetNumber> Parse(NamingStandard standard, string text) =>
-        standard.Parse(text).ToFin(key.OrDefault().InvalidInput()).Bind(fields => Of(standard: standard, fields: fields));
+        standard.Parse(text).ToFin(new KernelFault.InvalidInput()).Bind(fields => Of(standard: standard, fields: fields));
     public static Fin<SheetNumber> Ncs(DisciplineDesignator discipline, SheetType type, int sequence) =>
         Of(NamingStandard.Ncs, Seq((NamingField.Discipline, discipline.Key), (NamingField.SheetType, type.Key.ToString(CultureInfo.InvariantCulture)), (NamingField.Sequence, sequence.ToString("00", CultureInfo.InvariantCulture))));
     public static Fin<SheetNumber> Iso19650(string project, string originator, string volume, string level, ContainerType type, ContainerRole role, int number) =>
@@ -1034,7 +1034,7 @@ public sealed partial class LayerName {
         return standard.Admit(cased).ToFin().Bind(admitted => FactoryBridge.Accept<LayerName>(Validate(standard, admitted, out LayerName? name), name));
     }
     public static Fin<LayerName> Parse(LayerStandard standard, string text) =>
-        standard.Parse(text).ToFin(key.OrDefault().InvalidInput()).Bind(fields => Of(standard: standard, fields: fields));
+        standard.Parse(text).ToFin(new KernelFault.InvalidInput()).Bind(fields => Of(standard: standard, fields: fields));
     public string Text => Standard.Render(Fields);
     public Option<string> Read(LayerField field) => Fields.Find(pair => pair.Field.Equals(field)).Map(static pair => pair.Value);
 }
@@ -1191,7 +1191,7 @@ public sealed partial class AciIndex {
             ? null
             : new ValidationError(message: "AciIndex admits an AutoCAD Colour Index 1-255; ByBlock and ByLayer are host inheritance cases.");
     public static Fin<AciIndex> Of(int value) =>
-        key.OrDefault().AcceptValidated<AciIndex>(Validate(value, out AciIndex? index), index);
+        FactoryBridge.Accept<AciIndex>(Validate(value, out AciIndex? index), index);
 }
 
 [ValueObject<string>]
@@ -1205,7 +1205,7 @@ public sealed partial class StyleName {
             : new ValidationError(message: "StyleName requires a non-blank name free of the AutoCAD reserved glyphs.");
     }
     public static Fin<StyleName> Of(string value) =>
-        key.OrDefault().AcceptValidated<StyleName>(Validate(value, out StyleName? name), name);
+        FactoryBridge.Accept<StyleName>(Validate(value, out StyleName? name), name);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1226,7 +1226,7 @@ public sealed partial class PlotStyle {
     public PerceptualColor Colour { get; }
     public UnitInterval Screening { get; }
     public static Fin<PlotStyle> Of(PlotStyleKey key, LineWidth width, UnitInterval screening, Option<PerceptualColor> colour = default) =>
-        op.OrDefault().AcceptValidated<PlotStyle>(Validate(width, colour.IfNone(width.Pen.Ink), screening, out PlotStyle? style), style);
+        FactoryBridge.Accept<PlotStyle>(Validate(width, colour.IfNone(width.Pen.Ink), screening, out PlotStyle? style), style);
 }
 
 [Union]
@@ -1360,7 +1360,7 @@ public sealed partial class DatumDesignator {
             : new ValidationError(message: "DatumDesignator admits one ISO 5459 letter or a common-datum pair (A-B); I, O, Q excluded.");
     private static bool Letter(char glyph) => glyph is (>= 'A' and <= 'Z') and not 'I' and not 'O' and not 'Q';
     public static Fin<DatumDesignator> Of(char primary, Option<char> secondary = default) =>
-        key.OrDefault().AcceptValidated<DatumDesignator>(Validate(primary, secondary, out DatumDesignator? datum), datum);
+        FactoryBridge.Accept<DatumDesignator>(Validate(primary, secondary, out DatumDesignator? datum), datum);
     public bool IsCommon => Secondary.IsSome;
     public string Text => Secondary.Match(
         Some: second => string.Create(CultureInfo.InvariantCulture, $"{Primary}-{second}"),

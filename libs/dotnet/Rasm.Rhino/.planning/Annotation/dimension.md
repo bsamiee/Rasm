@@ -326,7 +326,7 @@ public sealed partial class DimPose {
         Option<Point2d> textPosition = default, Option<double> textRotation = default,
         Option<TextPointMode> textPoint = default, Option<string> plainUserText = default,
         Option<DraftScale> distanceScale = default, Option<DetailEdit> detail = default) =>
-        key.OrDefault().AcceptValidated<DimPose>(
+        FactoryBridge.Accept<DimPose>(
             fault: Validate(textPosition, textRotation, textPoint, plainUserText, distanceScale, detail, out DimPose? admitted),
             admitted: admitted);
 
@@ -416,12 +416,11 @@ public abstract partial record DimOp {
 public static class Dimensions {
     public static Fin<Unit> Commit(DocumentSession session, DraftPlan<DimOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
-            apply: static (document, operation, key) => operation.Apply(document: document),
-            op: Op.Of(name: nameof(Dimensions)));
+            apply: static (document, operation, key) => operation.Apply(document: document));
 
     public static Fin<DimAnswer> Ask(DocumentSession session, DimAsk request) {
         return from admitted in Acceptance.Input(value: request)
-               from answer in session.Demand(
+               from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }
@@ -608,7 +607,7 @@ public sealed partial class DimFamily {
     internal partial Fin<string> Text(Dimension geometry, UnitSystem units);
 
     internal static Fin<DimFamily> Of(Dimension geometry) =>
-        toSeq(Items).Find(row => row.Probe(geometry: geometry))
+        toSeq(Items).Find(row => Admit.Probe(geometry: geometry))
             .ToFin(Fail: new KernelFault.Unsupported(valueType: geometry.GetType(), OutputType: typeof(DimFamily)));
 
     private delegate bool TextRectProbe(out Point3d[] corners);
@@ -709,8 +708,7 @@ public abstract partial record DimAnswer : IDetachedDocumentResult {
     public sealed record Pieces(Seq<GeometryHandle> Products) : DimAnswer;
 
     public Fin<Unit> Release() => SwitchPartially(
-        context: key.OrDefault(),
-        @default: static (_, _) => Fin.Succ(value: unit),
+        @default: static _ => Fin.Succ(value: unit),
         pieces: static (row) => Custody.Dispose(held: row.Products));
 }
 ```

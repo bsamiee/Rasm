@@ -108,7 +108,7 @@ public sealed class ViewportLease : IDetachedDocumentResult {
         ViewportBorrowMode mode,
         ViewportCardinality cardinality) =>
         UiThread.Run(
-            new UiDispatch<Seq<TOut>>.Blocking(() => session.Demand(
+            new UiDispatch<Seq<TOut>>.Blocking(() => Admit.Demand(
                 use: document =>
                     from rows in target.Resolve(document: document)
                     from _ in cardinality.Admit(count: rows.Count)
@@ -419,7 +419,7 @@ public sealed partial class CameraDof {
         double aperture,
         double jitter,
         uint sampleCount) =>
-        key.OrDefault().AcceptValidated<CameraDof>(
+        FactoryBridge.Accept<CameraDof>(
             fault: Validate(mode, distance, aperture, jitter, sampleCount, out CameraDof admitted),
             admitted: admitted);
 
@@ -486,11 +486,11 @@ public abstract partial record DetailLength {
     public sealed record ModelCase(DetailMagnitude Value) : DetailLength;
 
     public static Fin<DetailLength> Paper(double value) =>
-        key.OrDefault().AcceptValidated<DetailMagnitude>(candidate: value)
+        FactoryBridge.Accept<DetailMagnitude>(candidate: value)
             .Map(static admitted => (DetailLength)new PaperCase(Value: admitted));
 
     public static Fin<DetailLength> Model(double value) =>
-        key.OrDefault().AcceptValidated<DetailMagnitude>(candidate: value)
+        FactoryBridge.Accept<DetailMagnitude>(candidate: value)
             .Map(static admitted => (DetailLength)new ModelCase(Value: admitted));
 
     public Fin<DetailLength> Convert(ViewportLease lease) {

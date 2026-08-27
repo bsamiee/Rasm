@@ -178,7 +178,7 @@ public abstract partial record SheetScale {
     public sealed record NamedCase(string Spelling) : SheetScale;
 
     public static Fin<SheetScale> Ratio(DrawingScale scale) =>
-        key.OrDefault().Need(value: scale).Map(static admitted => (SheetScale)new RatioCase(Scale: admitted));
+        Admit.Need(value: scale).Map(static admitted => (SheetScale)new RatioCase(Scale: admitted));
 
     public static Fin<SheetScale> Ratio(int paper, int model, SheetStandard standard) =>
         from admitted in DrawingScale.Of(paper: paper, model: model)
@@ -1027,7 +1027,7 @@ public static class Sheets {
                from _sessioned in guard(admission.Operation is SheetOp.AdoptCase || !profile.Sessioned, new KernelFault.InvalidInput())
                from _committed in admission.Operation switch {
                    SheetOp.AdoptCase adopt => Adopt(session: admission.Session, adopt: adopt),
-                   _ => admission.Session.Demand(
+                   _ => Admit.Demand(
                        use: document => Recorded(document: document, request: admission.Operation, profile: profile),
                        needs: [.. profile.Needs]),
                }
@@ -1048,7 +1048,7 @@ public static class Sheets {
                from profile in admission.Operation.Admit(budget: admission.Budget)
                from _sessioned in guard(!profile.Sessioned, new KernelFault.InvalidInput())
                from _stable in guard(admission.Operation is not SheetOp.BatchCase || !profile.Mutates, new KernelFault.InvalidInput())
-               from _previewed in admission.Session.Demand(
+               from _previewed in Admit.Demand(
                    use: document => Preflight(document: document, request: admission.Operation),
                    needs: [SessionNeed.Read])
                select unit;

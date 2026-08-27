@@ -140,7 +140,7 @@ public sealed partial class RenderMeshPolicy {
             ? null
             : MeshingParameters.FromEncodedString(value);
         if (native is null) {
-            validationError = new ValidationError(string.Join(" | ", new object?[] { Op.Of(name: nameof(RenderMeshPolicy)), nameof(MeshingParameters.FromEncodedString), value ?? string.Empty }));
+            validationError = new ValidationError(string.Join(" | ", new object?[] { nameof(MeshingParameters.FromEncodedString), value ?? string.Empty }));
         } else {
             value = native.ToEncodedString();
         }
@@ -164,7 +164,7 @@ public readonly partial struct MeshUiStyle {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(name: nameof(MeshUiStyle)), nameof(MeshUiStyle), value, "non-negative" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(MeshUiStyle), value, "non-negative" }));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

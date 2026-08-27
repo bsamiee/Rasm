@@ -57,7 +57,7 @@ public sealed partial class IntersectionTangency {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) : IValidityEvidence {
     public static Fin<RayQuery> Of(Ray3d ray, Option<int> maxReflections = default) =>
-        key.OrDefault().AcceptValue(value: new RayQuery(Ray: ray, MaxReflections: maxReflections.IfNone(noneValue: 1)));
+        Acceptance.Value(value: new RayQuery(Ray: ray, MaxReflections: maxReflections.IfNone(noneValue: 1)));
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Ray.Position),
         ValidityClaim.Finite(Ray.Direction),
@@ -507,7 +507,7 @@ internal static partial class Relations {
                     from deviation in DeviationOf(left: resolved.A, right: resolved.B, context: runtime.Context).ToEff()
                     from result in AnalysisOutput<TOut>.Project(values: Seq(deviation)).ToEff()
                     select result)
-            : key.Unsupported<(TA A, TB B), TOut>();
+            : OperationLift.Unsupported<(TA A, TB B), TOut>();
     internal static Operation<TGeometry, TOut> SelfIntersect<TGeometry, TOut>() where TGeometry : notnull =>
         ((typeof(TGeometry) == typeof(object)
             || typeof(Curve).IsAssignableFrom(c: typeof(TGeometry))
@@ -578,7 +578,7 @@ internal static partial class Relations {
                     from result in state.Compute(resolved.A, resolved.B, runtime, state.Key).ToEff()
                     from typed in result.Project<TOut>().ToEff()
                     select typed),
-            false => key.Unsupported<(TA A, TB B), TOut>(),
+            false => OperationLift.Unsupported<(TA A, TB B), TOut>(),
         };
     private static Option<(RayQuery Query, GeometryBase Target, bool RayLeads)> RayRole<TA, TB>(TA a, TB b) =>
         (a, b) switch {

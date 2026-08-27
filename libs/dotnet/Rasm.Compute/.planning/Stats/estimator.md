@@ -179,7 +179,7 @@ public sealed record FitBudget(Dimension MaxIterations, Tolerance Stop) {
 
     public static Fin<FitBudget> Admit(int iterations, double stop) =>
         (Fin<Dimension>.Succ(Dimension.Create(value: Math.Max(1, iterations))).ToValidation(),
-         Tolerance.Of(ToleranceLane.Convergence, stop, Op.Of(name: nameof(FitBudget))).ToValidation())
+         Tolerance.Of(ToleranceLane.Convergence, stop).ToValidation())
             .Apply(static (cap, band) => new FitBudget(cap, band))
             .As()
             .ToFin();
@@ -396,7 +396,7 @@ public static class EstimatorFold {
                 : estimator.Family.Supervised
                     ? HeldOut(estimator, design, policy, selection.Folds, ambients)
                     : Fin.Fail<Seq<double>>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(estimator.Key)))))
-            .Bind(quality => Stat<Scalar>.Of(quality.Map(static q => (Scalar)q), Op.Of(name: nameof(Validate)))
+            .Bind(quality => Stat<Scalar>.Of(quality.Map(static q => (Scalar)q))
                 .Map(stat => new ValidationReport(
                     estimator, quality, stat.Mean, stat.Deviation(MomentNormalizer.Population),
                     MomentNormalizer.Population, selection.Folds, ambients.Clock.GetCurrentInstant())));

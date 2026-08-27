@@ -502,7 +502,7 @@ public static class Remnants {
             ? Fin.Fail<Seq<(Loop Outer, Seq<Loop> Holes)>>(
                 new GeometryFault.DegenerateInput(Kind.Polyline, None, "remnant:region"))
             : PolygonAlgebra
-                .Apply(new PolygonOp.Topology(region, PolygonFill.NonZero), Op.Of(name: nameof(ComponentsOf)))
+                .Apply(new PolygonOp.Topology(region, PolygonFill.NonZero))
                 .Bind(static trace => trace
                     .Regioned(new KernelFault.InvalidValue("remnant", "remnant:topology-trace"))
                     .Bind(Assemble))

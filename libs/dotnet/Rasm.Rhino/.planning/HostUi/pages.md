@@ -97,7 +97,7 @@ public sealed partial class ObjectPageSeat {
     public static readonly ObjectPageSeat View = new(key: PropertyPageType.View);
 
     public static Fin<ObjectPageSeat> OfHost(PropertyPageType candidate) =>
-        key.OrDefault().Row<PropertyPageType, ObjectPageSeat>(candidate: candidate);
+        FactoryBridge.Row<PropertyPageType, ObjectPageSeat>(candidate: candidate);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

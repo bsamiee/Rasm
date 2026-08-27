@@ -105,8 +105,7 @@ public sealed record TimeTravel(
     public Fin<DiffBatch> Changes(Frontiers from, Frontiers to) => CollabDoc.Lift(() => Document.Doc.Diff(from, to));
 
     public Fin<CollabDoc> Fork(Frontiers cut) =>
-        from key in Op.Of(name: "appui.compare.branch")
-            .AcceptValidated<DocumentKey>($"{Document.Key.Value}/fork/{Guid.CreateVersion7():N}")
+        from key in FactoryBridge.Accept<DocumentKey>($"{Document.Key.Value}/fork/{Guid.CreateVersion7():N}")
         from forked in CollabDoc.Lift(() => Document.Doc.ForkAt(cut))
         select CollabDoc.Of(forked);
 }

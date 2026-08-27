@@ -52,11 +52,11 @@ public abstract partial record NeighborQuery {
     public sealed record OverlapsCase(NeighborIndex Other, Tolerance Band) : NeighborQuery;
     public sealed record PairsCase(Seq<Point3d> Needles, NeighborQuery Probe) : NeighborQuery;
     public static Fin<NeighborQuery> Nearest(int k, Option<NeighborMetric> metric = default) =>
-        key.OrDefault().AcceptValidated<Dimension>(k)
+        FactoryBridge.Accept<Dimension>(k)
             .Map(count => (NeighborQuery)new NearestCase(count, metric.IfNone(NeighborMetric.Euclidean)));
     public static Fin<NeighborQuery> Radius(double r, Option<int> cap = default, Option<NeighborMetric> metric = default) =>
-        from magnitude in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: r)
-        from bound in cap.TraverseM(c => key.OrDefault().AcceptValidated<Dimension>(candidate: c)).As()
+        from magnitude in FactoryBridge.Accept<PositiveMagnitude>(candidate: r)
+        from bound in cap.TraverseM(c => FactoryBridge.Accept<Dimension>(candidate: c)).As()
         select (NeighborQuery)new RadiusCase(R: magnitude, Cap: bound, Metric: metric.IfNone(NeighborMetric.Euclidean));
 }
 
@@ -219,7 +219,7 @@ public abstract partial record NeighborIndex {
 - Owner: `NeighborKernel` owns every per-point measurement, and `NeighborhoodPolicy` is the one record each fold threads.
 - Entry: `GraphOf` is the batch spine; `PcaOf`, `EstimateNormals`, `OrientNormals`, and `PrincipalCurvatures` fold per point over it, and a bare neighborhood census is `GraphOf(...).Map(graph => graph.Census)` at the caller.
 - Auto: per-point PCA clamps eigenvalues to the floor and emits the sample `register.md` reads as its GICP precision field; normal orientation runs Hoppe-DeRose over the minimum spanning FOREST of the kNN graph — Kruskal, because a sampled cloud's kNN graph is routinely disconnected and Prim would leave every non-root component unoriented — propagating sign along ONE depth-first walk of that forest; principal curvature routes its quadric solve to the `matrix.md` owners. `CurvatureAxis` owns every derived curvature scalar as a projection row, so `Project` and the range bands are one fold over that vocabulary and each formula has exactly one site; the aggregate `CurvatureRange.Kind` derives from the tally as an `Option`, absent over zero accepted samples, never a stored row.
-- Exemption: `OrientNormals` holds ONE `key.Catch` span window over the whole Hoppe-DeRose leg — the two `AddVertexRange` seeds fill by mutation because that is the container's own admission surface, and the sign fold runs on a `Vector3d[]` scratch because `Arr<A>.SetItem` copies its backing array, which makes one propagation pass quadratic; the window freezes to `Seq` through `key.Accept` before anything leaves.
+- Exemption: `OrientNormals` holds ONE `Try.lift` span window over the whole Hoppe-DeRose leg — the two `AddVertexRange` seeds fill by mutation because that is the container's own admission surface, and the sign fold runs on a `Vector3d[]` scratch because `Arr<A>.SetItem` copies its backing array, which makes one propagation pass quadratic; the window freezes to `Seq` through `key.Accept` before anything leaves.
 - Law: `NeighborhoodPolicy.Of` reads its two numeric floors from `Domain/context` lanes — `Svd` for the eigen gap and `Residual` for the quadric fit — so neither is a page literal. `SphereLikenessBand` stays a declared `UnitInterval` because a classification band measures shape similarity, not numeric agreement, and no tolerance lane owns it. A non-Euclidean metric is a `PointsCase` capability: the `CloudCase` arm of `GraphOf` refuses it as `Unsupported` inside its own dispatch arm, so no type probe over `NeighborIndex` runs ahead of the fold.
 - Packages: QuikGraph (`UndirectedGraph`, `AddEdgeRange`, `MinimumSpanningTreeKruskal`, `AdjacencyGraph`, `DepthFirstSearchAlgorithm`, `EdgeRecorderObserver`), `Rasm.Domain` (`Stat<Scalar>`, the ONE moment owner every census spread reads), RhinoCommon, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new per-point measurement is one fold over the `NeighborhoodGraph` spine with its census columns; a new derived curvature scalar is one `CurvatureAxis` row that joins every band set unasked; a new curvature classification is one `CurvatureRangeKind` row carrying its own `Admits` body, which the tally fold counts unasked; a new quadric refusal cause is one `QuadricAttempt` case and one census arm; a new orientation strategy is one arm beside the MST fold.

@@ -404,7 +404,7 @@ public sealed record PixelBlock {
 
     public static Fin<PixelBlock> Of(Offset2i origin, Size2i extent, ReadOnlyMemory<Color4f> pixels) {
         PixelBlock candidate = new(origin, extent, pixels);
-        return candidate.IsValid ? Fin.Succ(candidate) : Fin.Fail<PixelBlock>(key.OrDefault().InvalidInput());
+        return candidate.IsValid ? Fin.Succ(candidate) : Fin.Fail<PixelBlock>(new KernelFault.InvalidInput());
     }
 
     internal Fin<Unit> Blit(RenderWindow window) {
@@ -643,7 +643,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
         lock (lifecycle) {
             return guard(!phase.Value.Closes, new KernelFault.InvalidContext()).ToFin()
                 .Bind(_ => guard(request is not null && request.IsValid, new KernelFault.InvalidInput()).ToFin())
-                .Bind(_ => session.Demand(
+                .Bind(_ => Admit.Demand(
                     use: document => Current(document).Bind(current => Apply(current, request)),
                     needs: request.Needs.ToArray()));
         }
@@ -1056,7 +1056,7 @@ internal sealed class SeatRegistry<TSeat> where TSeat : notnull {
 }
 
 public static class RealtimeEngines {
-    private static readonly SeatRegistry<RealtimeEnginePlan> Seats = new(Op.Of(name: nameof(RealtimeEngines)));
+    private static readonly SeatRegistry<RealtimeEnginePlan> Seats = new();
 
     public static Seq<Error> Faults => Seats.Faults;
     public static long Shed => Seats.Shed;
@@ -1373,7 +1373,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 }
 
 public static class LightAuthorities {
-    private static readonly SeatRegistry<LightAuthorityProgram> Seats = new(Op.Of(name: nameof(LightAuthorities)));
+    private static readonly SeatRegistry<LightAuthorityProgram> Seats = new();
     private static readonly AtomHashMap<Guid, LightAuthorityHost> Hosts = AtomHashMap(HashMap<Guid, LightAuthorityHost>());
 
     public static Seq<Error> Faults => Seats.Faults;
@@ -1398,7 +1398,7 @@ public static class LightAuthorities {
         return from source in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
                from move in Admit.Need(change)
                from host in Hosts.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Engine: engine))
-               from _ in source.Demand(
+               from _ in Admit.Demand(
                    use: document => Try.lift(() => {
                        Light unread = default;
                        host.OnCustomLightEvent(document, move.Key, ref unread);
@@ -1527,7 +1527,6 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 - Law: the GPU frame buffer is post-effect territory alone — `PostEffectChannel.GPU()` is the one managed producer of a texture handle, so `EffectPass.Handle` reads it inside the execute window under `GpuAllowed`, closes it on that window, and `CopyDown` is the only route from a texture back to per-pixel values. `Advance` reports row progress and a refused report is the user's cancel, which halts the pixel loop through the carrier.
 - Law: live-versus-baked is the union's discriminant, selected by the texture's own capability — a consumer asks for live first and falls to the baked case on refusal, and the fallback is a case transition, never a silent quality change. A live evaluator is INITIALIZED before the body sees it, because the host publishes `Initialize` as a separate verdict and an uninitialized evaluator answers colours no sampler measured; the bake takes the host's RETURN-shaped `SimulatedTexture` sibling, so the `ref`-fill and its `null!` seed have no spelling left.
 - Boundary: `PostEffectPipeline`, `PostEffectChannel`, `RenderWindow.Channel`, and `RenderWindow.ChannelGPU` stay inside `EffectPass`; an authored body BORROWS a `ChannelView` or `GpuHandle` for the length of the host bracket and only its own computed value crosses out — a texture id or pixel port that outlives the bracket names freed native memory, so neither port is a detached result. `TextureBake.Evaluate` disposes evaluator or simulation before detached egress.
-- Boundary: the owner-scoped key spelling is `key ?? this.key` — an `Op` fallback needs no receiver row, and the kernel publishes `OrDefault()` alone (branch `[03]` optional-key row), so no second arity is owed upward.
 - Packages: `api-rhinocommon-render.md` (`PostEffect`, `PostEffectPipeline`, `PostEffectChannel`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`, `RenderTexture`, `TextureEvaluator`, `RenderWindow.Channel`/`ChannelGPU`); `api-rhinocommon-rendersettings.md` (`PostEffectCollection`, `PostEffectData` cursor semantics); `api-rhinocommon-rendercontent.md` (`SimulatedTexture`, `RenderContent.ChangeContexts`); `api-rhinocommon-display.md` (`DisplayTechnology`); kernel `Numerics/atoms` (`PerceptualColor`, `RgbTransfer`, `GamutPolicy`, `UnitInterval`, `Dimension`), `Domain/validation` (`CapabilitySet`, `FactoryBridge.Row`, `HostEdge.Settle`), `Domain/results` (`Lease`); `Render/content.md` (`ContentRef`, `ChangeReason`); kernel `Domain/results` (`Custody`); NodaTime (`Duration`).
 
 ```csharp
@@ -1594,7 +1593,7 @@ public sealed partial class BuiltinEffect {
     [UseDelegateFromConstructor]
     internal partial Guid Uuid();
 
-    public Fin<EffectId> Address() => key.OrDefault().Catch(() => Fin.Succ(EffectId.Create(Uuid())));
+    public Fin<EffectId> Address() => Try.lift(() => Fin.Succ(EffectId.Create(Uuid()))).Run().Bind(static inner => inner);
 
     internal static Option<BuiltinEffect> Named(EffectId effect) =>
         toSeq(Items).Find(row => row.Uuid() == effect.Value);
@@ -1782,7 +1781,7 @@ public abstract partial record TextureBake : IValidityEvidence {
         where TOut : IDetachedDocumentResult {
         TextureBake self = this;
         return guard(session is not null && live is not null && baked is not null && IsValid, new KernelFault.InvalidInput()).ToFin()
-            .Bind(_ => session.Demand(
+            .Bind(_ => Admit.Demand(
                 use: document => self.Switch(
                     state: (Document: document, Live: live, Baked: baked),
                     liveCase: static (ctx, bake) =>
@@ -1983,8 +1982,7 @@ public abstract class EffectHost : PostEffects.PostEffect {
     private readonly EffectProgram program;
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
 
-    protected EffectHost(EffectProgram program) =>
-        (this.program, this.key) = (program, key ?? Op.Of(name: nameof(EffectHost)));
+    protected EffectHost(EffectProgram program) => this.program = program;
 
     public Seq<Error> Faults => faults.Parked;
     public long Shed => faults.Shed;
@@ -2092,7 +2090,7 @@ public static class Effects {
         return from source in Optional(session).ToFin(Fail: new KernelFault.MissingContext())
                from admitted in guard(
                    !ops.IsEmpty && ops.ForAll(static row => row is { IsValid: true }), new KernelFault.InvalidInput(Axis: Some(nameof(ops))))
-               from roster in source.Demand(
+               from roster in Admit.Demand(
                    use: document => Try.lift(() => {
                        using PostEffects.PostEffectCollection collection = document.RenderSettings.PostEffects;
                        return ops.TraverseM(row => row.Apply(collection: collection)).As()
@@ -2113,7 +2111,7 @@ public static class Effects {
         select new EffectRoster(Rows: rows.Strict(), Selected: selected);
 
     private static Fin<EffectFact> Detached(PostEffects.PostEffectData data) => Try.lift(() =>
-        from stage in op.Row<PostEffects.PostEffectType).Run().Bind(static inner => inner);
+        from stage in FactoryBridge.Row<PostEffects.PostEffectType, EffectStage>(candidate: data.Type)
 }
 
 [PostEffects.CustomPostEffect(
@@ -2144,8 +2142,7 @@ public sealed class ChannelEffect() : EffectHost(program: Program) {
         Param: static field => Fin.Succ(field == Gain ? Some<EffectValue>(new EffectValue.Number(1.0)) : Option<EffectValue>.None),
         Tune: static (field, value) => field == Gain && value is EffectValue.Number
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new RenderFault.HostRefused(
-                Key: Op.Of(name: nameof(ChannelEffect)), Member: nameof(EffectProgram.Tune), Detail: field.Value)),
+            : Fin.Fail<Unit>(new RenderFault.HostRefused(Member: nameof(EffectProgram.Tune), Detail: field.Value)),
         Admits: static pass => pass.Frame.Map(static frame => frame.Width > 0 && frame.Height > 0));
 }
 ```
@@ -2290,7 +2287,7 @@ public sealed record QueuePolicy {
         Option<PackPolicy> residency = default,
         Option<Func<BakeDemand, Fin<Rasm.Numerics.Dimension>>> bakeSize = default,
         Option<Func<ContentDigest, Fin<uint>>> contentDigest = default) =>
-        guard(capacity.Value > 0, key.OrDefault().InvalidInput(axis: nameof(capacity))).ToFin()
+        guard(capacity.Value > 0, new KernelFault.InvalidInput(Axis: Some(nameof(capacity)))).ToFin()
             .Map(_ => new QueuePolicy(capacity, baking, traits, residency, bakeSize, contentDigest));
 
     internal Cq.ChangeQueue.BakingFunctions Bake =>

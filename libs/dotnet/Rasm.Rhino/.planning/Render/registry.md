@@ -82,7 +82,7 @@ public sealed record ContentUuidSeed(string Name, ContentKind Kind, ContentUuidR
 
 public static class ContentUuidCatalog {
     private static readonly Lazy<Fin<Seq<ContentUuidSeed>>> Seeds = new(
-        static () => Build(Op.Of(name: nameof(ContentUuidCatalog))),
+        static () => Build(),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static Fin<Seq<ContentUuidSeed>> Census() => Seeds.Value;
@@ -1631,7 +1631,7 @@ public sealed partial class ContentPulse {
             subscribe: static h => RenderContent.CurrentEnvironmentChanged += h,
             unsubscribe: static h => RenderContent.CurrentEnvironmentChanged -= h,
             handler: (_, args) => ignore(
-                EnvironmentRole.Of(args.EnvironmentUsageEx, Op.Of(name: nameof(ContentPulse))).ToOption()
+                EnvironmentRole.Of(args.EnvironmentUsageEx).ToOption()
                     .Bind(role => Gate(pulse: pulse, scope: scope, document: args.Document,
                         signal: new ContentSignal.EnvironmentFlip(Usage: role)))
                     .TraverseM(deliver).As().Map(static _ => unit))));
@@ -1640,7 +1640,7 @@ public sealed partial class ContentPulse {
             subscribe: static h => RenderContent.ContentChanged += h,
             unsubscribe: static h => RenderContent.ContentChanged -= h,
             handler: (_, args) => ignore(
-                (from reason in ChangeReason.Of(native: args.ChangeContext, key: Op.Of(name: nameof(ContentPulse))).ToOption()
+                (from reason in ChangeReason.Of(native: args.ChangeContext).ToOption()
                     .Filter(reason => filter.Admits(Some(reason)))
                  from content in ResourceId.Maybe(args.Content.Id)
                  from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
@@ -1654,7 +1654,7 @@ public sealed partial class ContentPulse {
             subscribe: static h => RenderContent.ContentFieldChanged += h,
             unsubscribe: static h => RenderContent.ContentFieldChanged -= h,
             handler: (_, args) => ignore(
-                (from reason in ChangeReason.Of(native: args.ChangeContext, key: Op.Of(name: nameof(ContentPulse))).ToOption()
+                (from reason in ChangeReason.Of(native: args.ChangeContext).ToOption()
                     .Filter(reason => filter.Admits(Some(reason)))
                  from content in ResourceId.Maybe(args.Content.Id)
                  from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
@@ -1667,7 +1667,7 @@ public sealed partial class ContentPulse {
             unsubscribe: static h => RenderContent.PreviewRendered -= h,
             handler: (_, args) => ignore(
                 (from image in Optional(args.Bitmap)
-                 from quality in PreviewQuality.Of(args.Quality, Op.Of(name: nameof(ContentPulse))).ToOption()
+                 from quality in PreviewQuality.Of(args.Quality).ToOption()
                  select new ContentFact(
                       Pulse: pulse,
                       Key: Option<DocKey>.None,
@@ -1675,8 +1675,7 @@ public sealed partial class ContentPulse {
                           Image: new Lease<System.Drawing.Bitmap>.Owned(Value: (System.Drawing.Bitmap)image.Clone()),
                           Signature: Optional(args.PreviewJobSignature)
                               .Bind(signature => Size2i.Of(
-                                  width: signature.ImageWidth(), height: signature.ImageHeight(),
-                                  key: Op.Of(name: nameof(ContentPulse))).ToOption()),
+                                  width: signature.ImageWidth(), height: signature.ImageHeight()).ToOption()),
                           Quality: quality)))
                 .TraverseM(deliver).As().Map(static _ => unit))));
 
@@ -1693,7 +1692,7 @@ public sealed partial class ContentPulse {
             subscribe: subscribe,
             unsubscribe: unsubscribe,
             handler: (EventHandler<RenderContentEventArgs>)((_, args) => ignore(
-                (from reason in LifecycleReason.Of(args.Reason, Op.Of(name: nameof(ContentPulse))).ToOption()
+                (from reason in LifecycleReason.Of(args.Reason).ToOption()
                  from content in ResourceId.Maybe(args.Content.Id)
                  from fact in Gate(pulse: pulse, scope: scope, document: args.Document,
                      signal: new ContentSignal.Lifecycle(Content: content, Reason: reason))
@@ -1702,7 +1701,7 @@ public sealed partial class ContentPulse {
 
     private static Option<ContentFact> Gate(ContentPulse pulse, EventScope scope, RhinoDoc? document, ContentSignal signal) =>
         Optional(document)
-            .Bind(static active => DocKey.Of(document: active, key: Op.Of(name: nameof(ContentPulse))).ToOption())
+            .Bind(static active => DocKey.Of(document: active).ToOption())
             .Match(
                 Some: key => scope.Switch(
                     (Pulse: pulse, Signal: signal),

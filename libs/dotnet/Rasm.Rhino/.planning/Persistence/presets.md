@@ -225,7 +225,7 @@ public sealed partial record CPlaneModel(
     }
 
     public static Fin<CPlaneModel> Of(PresetName name, Plane plane, CPlaneGrid grid, CPlanePalette palette) =>
-        key.OrDefault().AcceptValidated<CPlaneModel>(
+        FactoryBridge.Accept<CPlaneModel>(
             Validate(name, plane, grid, palette, out CPlaneModel? value),
             value);
 
@@ -347,7 +347,7 @@ public abstract partial record PositionRef {
         ResourceId.Admit(value: id).Map<PositionRef>(static admitted => new IdCase(Id: admitted));
 
     public static Fin<PositionRef> Of(string name) =>
-        key.OrDefault().AcceptValidated<PresetName>(candidate: name)
+        FactoryBridge.Accept<PresetName>(candidate: name)
             .Map<PositionRef>(static admitted => new NameCase(Name: admitted));
 }
 
@@ -439,7 +439,7 @@ public abstract partial record PresetOperation {
     internal sealed record ImportLayerStatesCase(DocumentPath Path) : PresetOperation;
 
     public static Fin<PresetOperation> PutCPlane(CPlaneModel model) =>
-        key.OrDefault().Need(value: model).Map<PresetOperation>(static admitted => new PutCPlaneCase(Model: admitted));
+        Admit.Need(value: model).Map<PresetOperation>(static admitted => new PutCPlaneCase(Model: admitted));
 
     public static Fin<PresetOperation> DeleteCPlane(string name) =>
         Named(name: name).Map<PresetOperation>(static admitted => new DeleteCPlaneCase(Name: admitted));
@@ -473,7 +473,7 @@ public abstract partial record PresetOperation {
     }
 
     public static Fin<PresetOperation> DeletePosition(PositionRef position) =>
-        key.OrDefault().Need(value: position).Map<PresetOperation>(static address => new DeletePositionCase(Position: address));
+        Admit.Need(value: position).Map<PresetOperation>(static address => new DeletePositionCase(Position: address));
 
     public static Fin<PresetOperation> SaveLayerState(string name, Option<Guid> viewportId = default) {
         return (Named(name: name).ToValidation(), Viewport(viewport: viewportId).ToValidation())
@@ -522,7 +522,7 @@ public abstract partial record PresetOperation {
         importLayerStatesCase:  static _ => PresetExecution.Mutate);
 
     private static Fin<PresetName> Named(string name) =>
-        key.OrDefault().AcceptValidated<PresetName>(candidate: name);
+        FactoryBridge.Accept<PresetName>(candidate: name);
 
     private static Fin<Seq<ResourceId>> Participants(ReadOnlySpan<Guid> ids) =>
         from admitted in toSeq(ids.ToArray())
@@ -575,7 +575,7 @@ public static class Presets {
     public static Fin<PresetAnswer> Read(DocumentSession session, PresetQuery query) {
         return from owner in Admit.Need(value: session)
                from request in Admit.Need(value: query)
-               from answer in owner.Demand(
+               from answer in Admit.Demand(
                    use: document => request.Switch<(RhinoDoc Document), Fin<PresetAnswer>>(
                        state: (document),
                        censusCase: static (state, _) => Census(document: state.Document)
@@ -598,7 +598,7 @@ public static class Presets {
                from _nonempty in guard(!program.IsEmpty,
                    (Error)new KernelFault.InvalidValue(nameof(operations), string.Join(" | ", new object?[] { op, "at least one persistence operation" })))
                let posture = PresetExecution.Strongest(postures: program.Map(static value => value.Execution))
-               from completed in owner.Demand(
+               from completed in Admit.Demand(
                    use: document => DocumentCommit.Sealed(
                        document: document,
                        name: nameof(Commit),

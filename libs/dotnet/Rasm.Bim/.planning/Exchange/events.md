@@ -164,7 +164,7 @@ public static class BimEventing {
     public static readonly string PayloadMedia = MediaTypeNames.Application.Json;
 
     public static BimObserver Observe(BimEventPort port, IClock clock) =>
-        new(Name: Op.Of(name: "rasm.bim.announce"),
+        new(Name: "rasm.bim.announce",
             Observe: fact => Mint(fact: fact, port: port, at: clock.GetCurrentInstant())
                 .Bind(held => held.TraverseM(port.Emit).As().Map(static _ => unit)),
             Scope: Some(Seq(BimPoint.Committed, BimPoint.IssueMutated, BimPoint.Verdict, BimPoint.Exported, BimPoint.Emitted)));

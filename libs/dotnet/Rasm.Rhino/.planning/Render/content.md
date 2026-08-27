@@ -416,10 +416,10 @@ public abstract partial record ContentIo {
     private sealed record ArchiveCase(string Path) : ContentIo;
 
     public static Fin<ContentIo> Xml(string value) =>
-        key.OrDefault().AcceptText(value: value).Map(static admitted => (ContentIo)new XmlCase(Value: admitted));
+        Acceptance.Text(value: value).Map(static admitted => (ContentIo)new XmlCase(Value: admitted));
 
     public static Fin<ContentIo> Archive(string path) =>
-        key.OrDefault().AcceptText(value: path).Map(static admitted => (ContentIo)new ArchiveCase(Path: admitted));
+        Acceptance.Text(value: path).Map(static admitted => (ContentIo)new ArchiveCase(Path: admitted));
 
     internal Fin<Lease<RenderContent>> Mint(RhinoDoc document) =>
         Switch(

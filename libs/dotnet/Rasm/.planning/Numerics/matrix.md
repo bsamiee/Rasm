@@ -112,8 +112,8 @@ public readonly record struct KrylovPolicy(
     Option<KrylovStop> Stop, bool CanFallback) {
     public static Fin<KrylovPolicy> Of(SparsePreconditioner preconditioner, double tolerance, Dimension budget,
         Option<KrylovSolver> solver = default, Option<KrylovStop> stop = default, bool canFallback = false) =>
-        from _ in key.OrDefault().Finite(value: tolerance)
-        from gated in guard(tolerance > 0.0, key.OrDefault().InvalidInput())
+        from _ in Admit.Finite(value: tolerance)
+        from gated in guard(tolerance > 0.0, new KernelFault.InvalidInput())
         select new KrylovPolicy(Preconditioner: preconditioner, Solver: solver.IfNone(noneValue: KrylovSolver.BiCgStab),
             Tolerance: tolerance, Budget: budget, Stop: stop, CanFallback: canFallback);
     public static Dimension AutoBudget(Dimension rows) =>
@@ -275,8 +275,8 @@ public readonly record struct Matrix : IValidityEvidence {
     public Dimension Cols { get; }
     public Arr<double> Entries { get; }
     public static Fin<Matrix> Of(Dimension rows, Dimension cols, Arr<double> entries) =>
-        from _ in guard(entries.Count == rows.Value * cols.Value, key.OrDefault().InvalidInput()).ToFin()
-        from finite in guard(TensorPrimitives.IsFiniteAll<double>(entries.AsSpan()), key.OrDefault().InvalidInput())
+        from _ in guard(entries.Count == rows.Value * cols.Value, new KernelFault.InvalidInput()).ToFin()
+        from finite in guard(TensorPrimitives.IsFiniteAll<double>(entries.AsSpan()), new KernelFault.InvalidInput())
         select new Matrix(rows: rows, cols: cols, entries: entries);
     internal static Matrix Trusted(Dimension rows, Dimension cols, Arr<double> entries) => new(rows: rows, cols: cols, entries: entries);
     public static Matrix Identity(Dimension dim) =>
@@ -287,11 +287,11 @@ public readonly record struct Matrix : IValidityEvidence {
     public Matrix Transpose() => MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Transpose(), Cols, Rows);
     public Fin<Matrix> Multiply(Matrix other) =>
         Cols.Value != other.Rows.Value
-            ? Fin.Fail<Matrix>(error: key.OrDefault().InvalidInput())
+            ? Fin.Fail<Matrix>(error: new KernelFault.InvalidInput())
             : MatrixKernel.DenseResult(source: this, rows: Rows, cols: other.Cols, project: left => left.Multiply(MatrixKernel.ToMathNet(other)));
     public Fin<Matrix> Inverse() =>
         Rows.Value != Cols.Value
-            ? Fin.Fail<Matrix>(error: key.OrDefault().InvalidInput())
+            ? Fin.Fail<Matrix>(error: new KernelFault.InvalidInput())
             : MatrixKernel.DenseResult(source: this, rows: Rows, cols: Cols, project: static matrix => matrix.Inverse());
     public Fin<Matrix> PseudoInverse() =>
         MatrixKernel.DenseResult(source: this, rows: Cols, cols: Rows, project: static matrix => matrix.PseudoInverse());
@@ -299,9 +299,9 @@ public readonly record struct Matrix : IValidityEvidence {
     public Fin<LuResult> DecomposeLu() => MatrixKernel.Lu(matrix: this);
     public Fin<QrResult> DecomposeQr() => MatrixKernel.Qr(matrix: this);
     public Fin<SvdResult> DecomposeSvd() => MatrixKernel.Svd(matrix: this);
-    public Fin<double> Norm(MatrixNormKind kind) => key.OrDefault().Finite(value: kind.Compute(matrix: this));
+    public Fin<double> Norm(MatrixNormKind kind) => Admit.Finite(value: kind.Compute(matrix: this));
     public Fin<double> Trace() =>
-        Rows.Value != Cols.Value ? Fin.Fail<double>(key.OrDefault().InvalidInput()) : key.OrDefault().Finite(value: MatrixKernel.ToMathNet(this).Trace());
+        Rows.Value != Cols.Value ? Fin.Fail<double>(new KernelFault.InvalidInput()) : Admit.Finite(value: MatrixKernel.ToMathNet(this).Trace());
     public Fin<double> Determinant() => MatrixKernel.Determinant(matrix: this);
     public Fin<LinearSolution> SolveDetailed(Arr<double> rhs) => MatrixKernel.Solve(matrix: this, rhs: rhs);
     public Fin<LinearSolution> LeastSquaresDetailed(Arr<double> rhs) => MatrixKernel.LeastSquares(matrix: this, rhs: rhs);
@@ -316,8 +316,8 @@ public readonly record struct SymmetricMatrix : IValidityEvidence {
     public Dimension Dimension { get; }
     public Arr<double> Upper { get; }
     public static Fin<SymmetricMatrix> Of(Dimension dim, Arr<double> upper) =>
-        from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2, key.OrDefault().InvalidInput()).ToFin()
-        from finite in guard(TensorPrimitives.IsFiniteAll<double>(upper.AsSpan()), key.OrDefault().InvalidInput())
+        from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2, new KernelFault.InvalidInput()).ToFin()
+        from finite in guard(TensorPrimitives.IsFiniteAll<double>(upper.AsSpan()), new KernelFault.InvalidInput())
         select new SymmetricMatrix(dimension: dim, upper: upper);
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: Upper.Count, expected: Dimension.Value * (Dimension.Value + 1) / 2),
@@ -335,11 +335,11 @@ public readonly record struct SymmetricMatrix : IValidityEvidence {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V, int Rank) : IValidityEvidence {
     public Fin<double> Spectral() =>
-        Sigma.IsEmpty ? Fin.Fail<double>(key.OrDefault().InvalidResult()) : key.OrDefault().Finite(value: Sigma[0]);
+        Sigma.IsEmpty ? Fin.Fail<double>(new KernelFault.InvalidResult()) : Admit.Finite(value: Sigma[0]);
     public Fin<double> Condition() =>
         Sigma.IsEmpty || Sigma[Sigma.Count - 1] <= EpsilonPolicy.ZeroTolerance
-            ? Fin.Fail<double>(key.OrDefault().InvalidResult())
-            : key.OrDefault().Finite(value: Sigma[0] / Sigma[Sigma.Count - 1]);
+            ? Fin.Fail<double>(new KernelFault.InvalidResult())
+            : Admit.Finite(value: Sigma[0] / Sigma[Sigma.Count - 1]);
     public bool IsValid => ValidityClaim.All(
         U.IsValid && V.IsValid,
         Sigma.All(static value => double.IsFinite(value) && value >= 0.0),
@@ -478,7 +478,7 @@ public readonly record struct SparseHermitian : IValidityEvidence {
     }
     public Fin<Arr<Complex>> Multiply(Arr<Complex> vector) =>
         vector.Count != Order.Value || !Admit.FiniteComplexSpan(vector.AsSpan())
-            ? Fin.Fail<Arr<Complex>>(key.OrDefault().InvalidInput())
+            ? Fin.Fail<Arr<Complex>>(new KernelFault.InvalidInput())
             : MatrixKernel.HermitianProduct(self: this, x: vector);
     public Fin<EigenSolution<double, Arr<Complex>>> SmallestEigenpairsDetailed(int k, double tolerance, Dimension budget) =>
         MatrixKernel.LobpcgHermitian(matrix: this, k: k, tolerance: tolerance, budget: budget);
@@ -500,11 +500,11 @@ public sealed record CholeskySparse : IValidityEvidence {
     internal void SolveGuarded(double[] b, double[] x) { lock (solveLock) { Factor.Solve(input: b.AsSpan(), result: x.AsSpan()); } }
     public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Option<IProgress<double>> progress = default) =>
         symmetric.Rows.Value != symmetric.Cols.Value
-            ? Fin.Fail<CholeskySparse>(error: key.OrDefault().InvalidInput())
+            ? Fin.Fail<CholeskySparse>(error: new KernelFault.InvalidInput())
             : from csc in MatrixKernel.ToCSparseSymmetric(s: symmetric)
-              from factor in key.OrDefault().Catch(() => Fin.Succ(progress.Match(
+              from factor in Try.lift(() => Fin.Succ(progress.Match(
                   Some: report => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA, progress: report),
-                  None: () => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA))))
+                  None: () => CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA)))).Run().Bind(static inner => inner)
               select new CholeskySparse(source: symmetric, factor: factor, order: symmetric.Rows);
     public SparseMatrix Source { get; private set; }
     internal CSparse.Double.Factorization.SparseCholesky Factor { get; }
@@ -623,7 +623,7 @@ public readonly record struct EigenSolution<TEigen, TVector>(
     public Fin<Seq<(TEigen Eigenvalue, TVector Eigenvector)>> PairsIn(EigenOrder expected) =>
         IsValid && Order.Equals(expected)
             ? Fin.Succ(Pairs)
-            : Fin.Fail<Seq<(TEigen Eigenvalue, TVector Eigenvector)>>(key.OrDefault().InvalidResult());
+            : Fin.Fail<Seq<(TEigen Eigenvalue, TVector Eigenvector)>>(new KernelFault.InvalidResult());
 }
 
 public readonly record struct GaugeFix(
@@ -1403,7 +1403,7 @@ internal static partial class MatrixKernel {
     private static Matrix<T> ScatterRows<T>(Matrix<T> reduced, int rows, int[] sourceRows)
         where T : struct, IEquatable<T>, IFormattable {
         Matrix<T> full = Matrix<T>.Build.Dense(rows: rows, columns: reduced.ColumnCount);
-        for (int i = 0; i < sourceRows.Length; i++) full.SetRow(rowIndex: sourceRows[i], row: reduced.Row(i));
+        for (int i = 0; i < sourceRows.Length; i++) full.SetRow(rowIndex: sourceRows[i], row: FactoryBridge.Row(i));
         return full;
     }
     private static LinearVector DiagonalInverse(Matrix<double> a) =>
@@ -1421,7 +1421,7 @@ internal static partial class MatrixKernel {
     private static Matrix<T> ApplyJacobi<T>(Matrix<T> R, MathNet.Numerics.LinearAlgebra.Vector<T> invDiag)
         where T : struct, IEquatable<T>, IFormattable {
         Matrix<T> scaled = R.Clone();
-        for (int i = 0; i < R.RowCount; i++) scaled.SetRow(rowIndex: i, row: R.Row(i).Multiply(scalar: invDiag[i]));
+        for (int i = 0; i < R.RowCount; i++) scaled.SetRow(rowIndex: i, row: FactoryBridge.Row(i).Multiply(scalar: invDiag[i]));
         return scaled;
     }
     private static Matrix<T> TakeSmallest<T>(MathNet.Numerics.LinearAlgebra.Vector<T> eigVals, Matrix<T> eigVecs, int k, Func<T, double> key)

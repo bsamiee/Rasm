@@ -262,7 +262,7 @@ public sealed partial class Radiance {
     }
 
     public static Fin<Radiance> Of(RadianceUnit unit, double magnitude) =>
-        key.OrDefault().AcceptValidated<Radiance>(
+        FactoryBridge.Accept<Radiance>(
             fault: Validate(unit, magnitude, out Radiance? admitted), admitted: admitted);
 
     internal Unit Apply(Light working) {
@@ -727,7 +727,7 @@ public sealed record SceneCapture(
 public static class Lights {
     public static Fin<LightRoster> Ask(DocumentSession session, LightSelect scope) {
         return from address in Admit.Need(scope)
-               from roster in session.Demand(
+               from roster in Admit.Demand(
                    use: document =>
                        from model in Rasm.Domain.Context.Of(doc: document).ToFin()
                        from rows in address.Resolve(document: document)
@@ -764,7 +764,7 @@ public static class Lights {
         return from band in Admit.Need(sun)
                from artifact in Admit.Need(shading)
                from registry in Admit.Need(webs)
-               from capture in session.Demand(
+               from capture in Admit.Demand(
                    use: document =>
                        from model in Rasm.Domain.Context.Of(doc: document).ToFin()
                        from rows in new LightSelect.Every().Resolve(document: document)

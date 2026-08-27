@@ -52,7 +52,7 @@ public readonly partial struct LeafName : IDetachedDocumentResult {
     };
 
     public static Fin<LeafName> Of(string value) =>
-        key.OrDefault().AcceptValidated<LeafName>(candidate: value);
+        FactoryBridge.Accept<LeafName>(candidate: value);
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -89,7 +89,7 @@ public readonly partial struct LayerPath : IDetachedDocumentResult {
     }
 
     public static Fin<LayerPath> Of(string value) =>
-        key.OrDefault().AcceptValidated<LayerPath>(candidate: value);
+        FactoryBridge.Accept<LayerPath>(candidate: value);
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
@@ -127,7 +127,7 @@ public abstract partial record LayerRef {
         ResourceIndex.Admit(value: value).Map(static index => (LayerRef)new IndexCase(Value: index));
 
     public static Fin<LayerRef> AtPath(LayerPath value) =>
-        guard(value != default, key.OrDefault().InvalidInput()).ToFin()
+        guard(value != default, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (LayerRef)new PathCase(Value: value));
 
     public static LayerRef Current { get; } = new CurrentCase();
@@ -256,7 +256,7 @@ public abstract partial record PrintPen {
     public static PrintPen NoPlot { get; } = new NoPlotCase();
 
     public static Fin<PrintPen> Pen(Rasm.Drawing.LineWidth width) =>
-        key.OrDefault().Need(value: width).Map(static rung => (PrintPen)new PenCase(Width: rung));
+        Admit.Need(value: width).Map(static rung => (PrintPen)new PenCase(Width: rung));
 
     internal static Fin<PrintPen> OfHost(double weight) => weight switch {
         0.0 => Fin.Succ<PrintPen>(new HostDefaultCase()),
@@ -396,7 +396,7 @@ public sealed class LayerTree : IDetachedDocumentResult {
         from name in LeafName.Of(value: layer.Name)
         from face in LayerFace.Of(layer: layer)
         from details in detailViewports
-            .Traverse(viewport => DetailFace.Probe(layer: layer, viewport: viewport).ToValidation())
+            .Traverse(viewport => Admit.Probe(layer: layer, viewport: viewport).ToValidation())
             .As()
             .ToFin()
         select new LayerNode(
@@ -413,7 +413,7 @@ public sealed class LayerTree : IDetachedDocumentResult {
         HashMap<Guid, LayerNode> byId = toHashMap(nodes.Map(static node => (node.Identity.Id, node)));
         Option<LayerNode> orphan = nodes.Find(node => node.Parent.Exists(parent => byId.Find(parent).IsNone));
         if (orphan.Case is LayerNode lost) {
-            return Fin.Fail<(Seq<LayerNode>, int)>(error: key.MissingContext(detail: lost.Identity.Path.Value));
+            return Fin.Fail<(Seq<LayerNode>, int)>(error: new KernelFault.InvalidValue(Label: lost.Identity.Path.Value, Requirement: "a resolvable parent layer"));
         }
         BidirectionalGraph<Guid, SEdge<Guid>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(vertices: nodes.Map(static node => node.Identity.Id));
@@ -540,7 +540,7 @@ public abstract partial record LayerOverride {
         Addressed(viewport: viewport, mint: address => new PurgeCase(Viewport: address));
 
     private static Fin<LayerOverride> Addressed(Guid viewport, Func<Guid, LayerOverride> mint) =>
-        guard(viewport != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => mint(arg: viewport));
+        guard(viewport != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => mint(arg: viewport));
 
     internal Fin<Unit> Apply(Layer layer) =>
         Switch(
@@ -630,7 +630,7 @@ public abstract partial record LayerEdit {
     public static LayerEdit PrintColor(System.Drawing.Color value) => new PaintCase(Column: PaintColumn.PrintColor, Value: value);
 
     public static Fin<LayerEdit> Pen(PrintPen value) =>
-        key.OrDefault().Need(value: value).Map(static pen => (LayerEdit)new PenCase(Value: pen));
+        Admit.Need(value: value).Map(static pen => (LayerEdit)new PenCase(Value: pen));
 
     public static Fin<LayerEdit> Linetype(int index) =>
         Seated(column: SeatColumn.Linetype, index: index);
@@ -657,7 +657,7 @@ public abstract partial record LayerEdit {
     public static LayerEdit PersistentLocking(Option<bool> value = default) => new PersistCase(Slot: PersistSlot.Locking, Value: value);
 
     public static Fin<LayerEdit> Description(string value) =>
-        key.OrDefault().AcceptText(value: value)
+        Acceptance.Text(value: value)
             .Map(admitted => (LayerEdit)new DescriptionCase(Value: Some(admitted)));
 
     public static LayerEdit ClearDescription() => new DescriptionCase(Value: Option<string>.None);
@@ -665,7 +665,7 @@ public abstract partial record LayerEdit {
     public static LayerEdit Override(LayerOverride value) => new OverrideCase(Value: value);
 
     private static Fin<LayerEdit> Seated(SeatColumn column, int index) =>
-        guard(index >= column.Floor, key.OrDefault().InvalidInput()).ToFin()
+        guard(index >= column.Floor, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (LayerEdit)new SeatCase(Column: column, Index: index));
 
     internal Fin<Unit> Apply(Layer staged) =>
@@ -792,7 +792,7 @@ public abstract partial record LayerOp {
             .Map(admitted => (LayerOp)new CreateCase(Name: name, Parent: parent, Edits: admitted));
 
     public static Fin<LayerOp> Graft(LayerPath path, Option<System.Drawing.Color> color = default) =>
-        guard(path != default, key.OrDefault().InvalidInput()).ToFin()
+        guard(path != default, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (LayerOp)new GraftCase(Path: path, Color: color));
 
     public static Fin<LayerOp> Amend(LayerRef target, params ReadOnlySpan<LayerEdit> edits) {
@@ -838,7 +838,7 @@ public abstract partial record LayerOp {
         Addressed(target: target, mint: static address => new ExposeCase(Target: address));
 
     public static Fin<LayerOp> Arrange(LayerArrangement arrangement) =>
-        Optional(arrangement).ToFin(Fail: key.OrDefault().InvalidInput()).Map(order => (LayerOp)new ArrangeCase(Arrangement: order));
+        Optional(arrangement).ToFin(Fail: new KernelFault.InvalidInput()).Map(order => (LayerOp)new ArrangeCase(Arrangement: order));
 
     public static Fin<LayerOp> Rollback(LayerRef target, Option<UndoSerial> serial = default) =>
         Addressed(target: target, mint: address => new RollbackCase(Target: address, Serial: serial));
@@ -846,7 +846,7 @@ public abstract partial record LayerOp {
     public static LayerOp Reclaim { get; } = new ReclaimCase();
 
     private static Fin<LayerOp> Addressed(LayerRef target, Func<LayerRef, LayerOp> mint) =>
-        Optional(target).ToFin(Fail: key.OrDefault().InvalidInput()).Map(address => mint(arg: address));
+        Optional(target).ToFin(Fail: new KernelFault.InvalidInput()).Map(address => mint(arg: address));
 
     private static Fin<LayerOp> Dialogued(
         LayerRef target,
@@ -1069,13 +1069,13 @@ public sealed record LayerDelta {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Layers {
     public static Fin<LayerTree> Ask(DocumentSession session, Option<Seq<Guid>> detailViewports = default) {
-        return session.Demand(
+        return Admit.Demand(
             use: document => LayerTree.Of(document: document, detailViewports: detailViewports.IfNone(Seq<Guid>())),
             needs: [SessionNeed.Read]);
     }
 
     public static Fin<Unit> Commit(DocumentSession session, LayerDelta delta) {
-        return session.Demand(
+        return Admit.Demand(
             use: document => DocumentCommit.Sealed(
                 document: document,
                 name: delta.RecordName.IfNone(nameof(Layers)),
@@ -1152,7 +1152,7 @@ public static partial class Layers {
                    .Traverse(view => guard(view != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => view).ToValidation())
                    .As()
                    .ToFin()
-               from fact in admission.First.Demand(
+               from fact in Admit.Demand(
                    use: document =>
                        from tree in LayerTree.Of(document: document, detailViewports: probes)
                        from projected in Projected(document: document, tree: tree, authority: admission.Second)

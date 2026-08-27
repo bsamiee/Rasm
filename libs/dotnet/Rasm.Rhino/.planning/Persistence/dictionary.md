@@ -470,7 +470,7 @@ public sealed record ArchiveMap {
     }
 
     public Fin<ArchiveMap> Remove(ArchiveKey key) =>
-        operation.OrDefault().AcceptValidated<ArchiveKey>(key.Value)
+        FactoryBridge.Accept<ArchiveKey>(key.Value)
             .Map(admitted => this with { Entries = Entries.Remove(admitted) });
 
     public Fin<ArchiveMap> Merge(ArchiveMap incoming, ArchiveMerge policy) {

@@ -471,10 +471,10 @@ public abstract partial record TextureMint {
     private sealed record SimulatedCase(TextureFacsimile Value) : TextureMint;
 
     public static Fin<TextureMint> From(System.Drawing.Bitmap value) =>
-        key.OrDefault().Need(value).Map(static admitted => (TextureMint)new BitmapCase(Value: admitted));
+        Admit.Need(value).Map(static admitted => (TextureMint)new BitmapCase(Value: admitted));
 
     public static Fin<TextureMint> From(TextureFacsimile value) =>
-        key.OrDefault().Need(value).Map(static admitted => (TextureMint)new SimulatedCase(Value: admitted));
+        Admit.Need(value).Map(static admitted => (TextureMint)new SimulatedCase(Value: admitted));
 
     internal Fin<Lease<RenderContent>> Mint(RhinoDoc document) =>
         Switch(
@@ -595,7 +595,8 @@ public sealed partial class PhotometricDialect {
     internal string Description { get; }
 
     internal static Fin<PhotometricDialect> OfPath(FileLocation path) =>
-        Try.lift(() => key.Row<string).Run().Bind(static inner => inner);
+        Try.lift(() => FactoryBridge.Row<string, PhotometricDialect>(
+            System.IO.Path.GetExtension(path.Value).ToLowerInvariant())).Run().Bind(static inner => inner);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

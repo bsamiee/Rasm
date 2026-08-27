@@ -882,7 +882,7 @@ public static class FlatPattern {
         PanelClosure closure,
         Context tolerance) =>
         islands.Map((island, index) => (Island: island, Index: index))
-            .Traverse(row => row.Island.Boundary(tolerance, Op.Of(name: nameof(Neutralize)))
+            .Traverse(row => row.Island.Boundary(tolerance)
                 .Bind(chains => Nest.Rings(chains, tolerance))
                 .Map(loops => loops.Map(loop => new PanelRegion(row.Index, loop))).ToValidation()).As().ToFin()
             .Map(static regions => regions.Bind(static region => region))

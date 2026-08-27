@@ -44,7 +44,7 @@ public sealed partial class CommandVerdict : IDetachedDocumentResult {
 
     public static Fin<CommandVerdict> OfNative(Result result) =>
         Items.AsIterable().Find(verdict => verdict.Native == result)
-            .ToFin(Fail: key.OrDefault().InvalidResult(detail: result.ToString()));
+            .ToFin(Fail: new KernelFault.InvalidResult(Detail: Some(result.ToString())));
 }
 
 [SmartEnum<bool>]
@@ -519,7 +519,7 @@ internal static partial class CommandMap {
 
     [Riok.Mapperly.Abstractions.UserMapping]
     private static Fin<CommandVerdict> Verdict(Result result) =>
-        CommandVerdict.OfNative(result: result, key: Op.Of(name: nameof(CommandMap)));
+        CommandVerdict.OfNative(result: result);
 
     [Riok.Mapperly.Abstractions.UserMapping]
     private static Fin<UndoMoment> Moment(UndoRedoEventArgs args) =>
@@ -529,7 +529,7 @@ internal static partial class CommandMap {
     [Riok.Mapperly.Abstractions.UserMapping]
     private static Seq<CommandOptionEvent> Options(CommandPromptChangedEventArgs args) =>
         toSeq(args.Options ?? []).Choose(option => OptionKind
-            .Of(native: option.OptionType, key: Op.Of(name: nameof(CommandOptionEvent)))
+            .Of(native: option.OptionType)
             .ToOption()
             .Map(kind => new CommandOptionEvent(
                 Index: option.Index,
@@ -633,7 +633,7 @@ public static class Scripting {
         return from request in Admit.Need(script)
                from target in Admit.Need(session)
                from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext())
-               from verdict in target.Demand(
+               from verdict in Admit.Demand(
                    use: document => request.Switch(
                        state: (Serial: (uint)target.Key, Document: document),
                        macro: static (held, run) =>
@@ -663,7 +663,7 @@ public static class Scripting {
                from run in Admit.Need(body)
                from data in Admit.Need(payload)
                from _ in guard(RhinoApp.IsOnMainThread, new KernelFault.InvalidContext())
-               from dispatched in target.Demand(
+               from dispatched in Admit.Demand(
                    use: document => Try.lift(() => {
                        Command.RunProxyCommand(
                            commandCallback: (_, mode, _) => SessionMode.OfRunMode(mode: mode)

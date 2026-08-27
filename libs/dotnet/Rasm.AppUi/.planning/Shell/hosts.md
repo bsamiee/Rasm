@@ -147,7 +147,7 @@ public sealed class SurfaceRuntime : IDisposable {
 
     public Fin<Unit> Release() =>
         Cell.Seat(released, static () => unit) is Transition<Option<Unit>>.Committed
-            ? Hooks.Release(AppUiTelemetry.Source, Op.Of(name: nameof(Release)))
+            ? Hooks.Release(AppUiTelemetry.Source)
             : Fin.Succ(unit);
 
     public void Dispose() =>

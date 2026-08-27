@@ -462,7 +462,7 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
         long ceiling, RetentionPosture posture, Func<TValue, long> bytes, Action<TValue> release, Func<TKey, long, Error> refuse) =>
         ceiling > 0L
             ? Fin.Succ(new BudgetedCache<TKey, TValue>(ceiling, posture, bytes, release, refuse))
-            : Fin.Fail<BudgetedCache<TKey, TValue>>(key.OrDefault().InvalidInput());
+            : Fin.Fail<BudgetedCache<TKey, TValue>>(new KernelFault.InvalidInput());
 
     public long Generation => ledger.Value.Generation;
     public long Bytes => ledger.Value.Bytes;

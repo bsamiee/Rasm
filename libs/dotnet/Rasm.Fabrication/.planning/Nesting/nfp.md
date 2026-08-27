@@ -709,7 +709,7 @@ public static class Nest {
         !double.IsFinite(maxAreaStretch) || maxAreaStretch < 1.0
         || atlas.Distortion.MaxArea > maxAreaStretch || atlas.Distortion.MinArea < 1.0 / maxAreaStretch
             ? Fin.Fail<Arr<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "atlas:distortion"))
-            : atlas.Islands.TraverseM(island => island.Boundary(tolerance, Op.Of(name: nameof(Charts)))
+            : atlas.Islands.TraverseM(island => island.Boundary(tolerance)
                     .Bind(chains => Rings(chains, tolerance))).As()
                 .Map(static regions => regions.Bind(static loops => loops).ToArr());
 
@@ -900,8 +900,7 @@ public static class Nest {
             : PolygonScan.Scan(
                 placed.Map(static row => row.Envelope),
                 PolygonFill.NonZero,
-                scan => body(Some(scan)),
-                Op.Of(name: nameof(Scanning)));
+                scan => body(Some(scan)));
 
     static Fin<PlacementDecision> Exact(Candidate candidate, Seq<Placed> placed, Option<PolygonScan> scan,
         Seq<Stock> inventory, HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants, NestPolicy policy,
@@ -924,7 +923,7 @@ public static class Nest {
                 from stockRelations in scope.Stock.Region.TraverseM(region => Relate(region, boundaryEnvelope)
                     .Map(relation => (region, relation))).As()
                 from contact in scan.Match(
-                    Some: row => row.Intersects(Seq(envelope), Op.Of(name: nameof(Exact))),
+                    Some: row => row.Intersects(Seq(envelope)),
                     None: static () => Fin.Succ(false))
                 from overlaps in contact
                     ? placed.TraverseM(row => Relate(row.Envelope, envelope).Map(relation => (row, relation))).As()
@@ -982,8 +981,7 @@ public static class Nest {
                         new PolygonOp.Cells(
                             points.ToArr(),
                             row.stock.Region[0],
-                            SitePolicy.Create(relaxations: iterations, relaxationStrength: strength, merge: None)),
-                        Op.Of(name: nameof(VoronoiCandidates)))
+                            SitePolicy.Create(relaxations: iterations, relaxationStrength: strength, merge: None)))
                     .Bind(trace => trace
                         .Diagram(new KernelFault.InvalidValue("nfp", "nest:cell-trace"))
                         .Map(diagram => diagram.Cells.ToSeq().Map(cell => new Candidate(

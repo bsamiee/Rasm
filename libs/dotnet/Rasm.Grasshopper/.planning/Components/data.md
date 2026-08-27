@@ -14,7 +14,7 @@
 - Owner: `GhFault` is the direct Components boundary family, and `Notice` recursively projects standard `ManyErrors` onto `IDataAccess`.
 - Cases: `Absent | ContractRefused | Conversion | Registration | Overdue`, carrying the compact `[FaultCase]` ordinals `0..4` on `FaultBand.Grasshopper`.
 - Entry: `Try.lift` absorbs value-returning and void host calls and threads the exact execution token when cancellation is possible; `Notice.Fan(Error)` emits each `ManyErrors` leaf with its optional generated code.
-- Packages: `Rasm.Domain` (`Fault`, `KernelFault`, `OrDefault()`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Packages: `Rasm.Domain` (`Fault`, `KernelFault`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new crossing cause is one fault case; a new document message channel is one `Severity` row.
 - Boundary: `Try.lift` preserves unknown host exceptions and recognizes cancellation only from its requested execution token.
 
@@ -227,31 +227,30 @@ public static class GardenData {
 
     public static Fin<Tree<T>> AsTree<T>(Transfer<T> payload) =>
         payload.Switch(
-            state: key.OrDefault(),
             item: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromPears([Pear<T>.Create(row.Value, row.Meta)]))).Run().Bind(static inner => inner),
             ofPear: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromPears([row.Pear]))).Run().Bind(static inner => inner),
             ofTwig: static (row) => Try.lift(() => Fin.Succ(Garden.TreeFromTwigs([row.Twig]))).Run().Bind(static inner => inner),
-            ofTree: static (_, row) => Fin.Succ(row.Tree));
+            ofTree: static row => Fin.Succ(row.Tree));
 
     public static Fin<Tree<TOut>> Zip<TLeft, TRight, TOut>(
         Tree<TLeft> left, Tree<TRight> right, Func<TLeft, TRight, TOut> merge, CancellationToken cancel) =>
-        key.OrDefault().Catch(() => Fin.Succ(Garden.PairWiseOp(left, right, merge, cancel)), cancel);
+        Try.lift(() => Fin.Succ(Garden.PairWiseOp(left, right, merge, cancel))).Run().Bind(static inner => inner);
 
     public static Fin<Tree<T>> Amend<T>(Tree<T> tree, Func<Pear<T>, Pear<T>> project, CancellationToken cancel) =>
-        key.OrDefault().Catch(() => Fin.Succ(Garden.PearWiseOp(tree, project, cancel)), cancel);
+        Try.lift(() => Fin.Succ(Garden.PearWiseOp(tree, project, cancel))).Run().Bind(static inner => inner);
 
     public static Fin<(Twig<T> Twig, Grasshopper2.Data.IExpressionReport Report)> Evaluate<T>(
         Twig<T> twig,
         Grasshopper2.Expressions.Expression expression,
         Grasshopper2.Expressions.Resolver resolver) =>
-        key.OrDefault().Catch(() => Fin.Succ((
+        Try.lift(() => Fin.Succ((
             Twig: twig.Apply(expression, resolver, out Grasshopper2.Data.IExpressionReport report),
-            Report: report)));
+            Report: report))).Run().Bind(static inner => inner);
 
     public static Fin<Twig<TOut>> ConvertTwig<TIn, TOut>(
         Twig<TIn> twig, Grasshopper2.Types.Conversion.ConversionDelegate<TIn, TOut> convert,
         CancellationToken cancel, Grasshopper2.Data.ConversionRecord record) =>
-        key.OrDefault().Catch(() => Fin.Succ(twig.Convert(convert, cancel, record)), cancel);
+        Try.lift(() => Fin.Succ(twig.Convert(convert, cancel, record))).Run().Bind(static inner => inner);
 
     private static Pear<T> Retag<T>(Pear<T> pear, Retention retention) =>
         pear is null ? pear : Pear<T>.Create(pear.Item, retention.Applied(pear.Meta));

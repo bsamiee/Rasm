@@ -50,7 +50,7 @@ public readonly partial struct SlotKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { Op.Of(name: nameof(SlotKey)), nameof(SlotKey), value, "non-negative" }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(SlotKey), value, "non-negative" }));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -246,7 +246,7 @@ public sealed partial class HistorySource : IDetachedDocumentResult {
         ref Guid id,
         ref ComponentIndex component) =>
         validationError = id == Guid.Empty
-            ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(name: nameof(HistorySource)), nameof(Id) }))
+            ? new ValidationError(string.Join(" | ", new object?[] { nameof(Id) }))
             : validationError;
 
     internal static Fin<HistorySource> Capture(ObjRef source) =>
@@ -670,7 +670,7 @@ public sealed partial class WebBudget {
     }
 
     public static Fin<WebBudget> Of(int maxNodes, long maxEdges) =>
-        key.OrDefault().AcceptValidated<WebBudget>(
+        FactoryBridge.Accept<WebBudget>(
             fault: Validate(maxNodes, maxEdges, out WebBudget? admitted),
             admitted: admitted);
 }
@@ -776,7 +776,7 @@ public static class Chronicle {
 
     public static Fin<WebAnswer> Ask(DocumentSession session, WebAsk ask) {
         return from active in Admit.Need(ask)
-               from answer in session.Demand(
+               from answer in Admit.Demand(
                    use: document => active.Switch(
                        document,
                        targeted: static (ctx, query) =>

@@ -103,7 +103,7 @@ public sealed partial class RefinePolicy {
     public static Fin<RefinePolicy> Of(Context context, Option<Tolerance> limit = default) {
         Tolerance target = context.For(lane: ToleranceLane.Deviation);
         Tolerance accepted = limit.IfNone(target);
-        return key.OrDefault().AcceptValidated<RefinePolicy>(
+        return FactoryBridge.Accept<RefinePolicy>(
             Validate(
                 target, accepted,
                 Dimension.Create(value: 6), Dimension.Create(value: 24),
@@ -178,23 +178,22 @@ public abstract partial record ParametricResult {
 public static class Parametric {
     public static Fin<ParametricResult> Apply(ParametricOp op) =>
         op.Switch(
-            state: key.OrDefault(),
-            evaluate:         static (k, e) => EvaluateOf(e, k),
-            measure:          static (k, m) => MeasureOf(m, k),
-            divide:           static (k, d) => Stationize(d.Curve, d.Rule, k).Map(rows =>
+            evaluate:         static e => EvaluateOf(e),
+            measure:          static m => MeasureOf(m),
+            divide:           static d => Stationize(d.Curve, d.Rule).Map(rows =>
                 (ParametricResult)new ParametricResult.Division(
                     rows.Parameters,
                     new Arr<Point3d>([.. rows.Parameters.Select(d.Curve.PointAt)]))),
-            stations:         static (k, s) => StationsOf(s, k),
-            split:            static (k, s) => SplitOf(s, k),
-            reconstruct:      static (k, r) => ReconstructOf(r, k),
-            offset:           static (k, o) => OffsetOf(o, k),
-            blend:            static (k, b) => BlendOf(b, k),
-            project:          static (k, p) => ProjectOf(p, k),
-            intersect:        static (k, i) => CrossingsOf(i.Curve, i.Other, i.Plane, k),
-            section:          static (k, s) => SectionOf(s.Curve, s.Cut, k),
-            roundedRectangle: static (k, r) => RoundedOf(r, k),
-            cardinalSpline:   static (k, c) => CardinalOf(c, k));
+            stations:         static s => StationsOf(s),
+            split:            static s => SplitOf(s),
+            reconstruct:      static r => ReconstructOf(r),
+            offset:           static o => OffsetOf(o),
+            blend:            static b => BlendOf(b),
+            project:          static p => ProjectOf(p),
+            intersect:        static i => CrossingsOf(i.Curve, i.Other, i.Plane),
+            section:          static s => SectionOf(s.Curve, s.Cut),
+            roundedRectangle: static r => RoundedOf(r),
+            cardinalSpline:   static c => CardinalOf(c));
 
     // --- [EVALUATE_MEASURE]
     static Fin<ParametricResult> EvaluateOf(ParametricOp.Evaluate op) =>

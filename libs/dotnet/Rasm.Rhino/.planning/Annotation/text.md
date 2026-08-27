@@ -242,7 +242,7 @@ public abstract partial record RunEdit {
     }
 
     public static Fin<RunEdit> Wrap(TextWidth width) =>
-        key.OrDefault().Need(value: width).Map(static value => (RunEdit)new WrapCase(Width: value));
+        Admit.Need(value: width).Map(static value => (RunEdit)new WrapCase(Width: value));
 
     internal Fin<Unit> Apply(AnnotationBase annotation) => Switch(
         annotation,
@@ -264,7 +264,7 @@ public abstract partial record RunEdit {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TextRtf {
     public static Fin<string> FromPlain(string text) =>
-        key.OrDefault().AcceptText(value: text).Map(static value => AnnotationBase.PlainTextToRtf(str: value));
+        Acceptance.Text(value: text).Map(static value => AnnotationBase.PlainTextToRtf(str: value));
 
     public static Fin<string> Restyled(string rtf, params ReadOnlySpan<RunFormat> formats) {
         return from source in Acceptance.Text(value: rtf)
@@ -1028,7 +1028,7 @@ public sealed record TextState(
     Plane Frame, BoundingBox Bounds,
     TextContentState Content, TextFormatState Format, TextMask Mask,
     TextStyleState Style) : IDetachedDocumentResult {
-    internal static Fin<TextState> Of(AnnotationObjectBase native) => key.Catch(() =>
+    internal static Fin<TextState> Of(AnnotationObjectBase native) => Try.lift(() =>
         from annotation in Optional(native.AnnotationGeometry).ToFin(Fail: new KernelFault.InvalidResult())
         from id in ResourceId.Admit(native.Id)
         from kind in FactoryBridge.Row<AnnotationType, AnnotationKind>(
@@ -1217,7 +1217,7 @@ public static class Texts {
 
     public static Fin<TextAnswer> Ask(DocumentSession session, TextAsk request) {
         return from admitted in Acceptance.Input(value: request)
-               from answer in session.Demand(
+               from answer in Admit.Demand(
                    use: document => admitted.Answer(document: document), needs: [SessionNeed.Read])
                select answer;
     }

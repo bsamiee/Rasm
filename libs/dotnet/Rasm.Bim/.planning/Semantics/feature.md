@@ -84,7 +84,7 @@ public static class GeoServices {
     public static GeometryFactory Factory => Configure().CreateGeometryFactory(Srid);
 
     public static readonly Fin<GeoReference> Wgs84 = GeoReference.Admit(
-        0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, "WGS84", "", "EPSG:4326", "", "", "", Op.Of(name: nameof(GeoServices)));
+        0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, "WGS84", "", "EPSG:4326", "", "", "");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

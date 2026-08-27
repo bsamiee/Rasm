@@ -141,7 +141,7 @@ public sealed partial class TilePolicy {
     static readonly Duration CacheLife = Duration.FromDays(14);
 
     public static Fin<TilePolicy> Of(string product, Option<string> cacheDirectory) =>
-        key.OrDefault().AcceptValidated<TilePolicy>(
+        FactoryBridge.Accept<TilePolicy>(
             Validate(
                 $"{product} ({HttpClientTools.GetDefaultApplicationUserAgent()})",
                 cacheDirectory.Map(directory => (IPersistentCache<byte[]>)new FileCache(directory, "png", CacheLife.ToTimeSpan())),
@@ -246,7 +246,7 @@ public sealed partial class ChoroplethSpec {
             .Apply(static (name, low, high, count) => (Name: name, Low: low, High: high, Count: count))
             .As()
             .ToFin()
-            .Bind(admitted => key.OrDefault().AcceptValidated<ChoroplethSpec>(
+            .Bind(admitted => FactoryBridge.Accept<ChoroplethSpec>(
                 Validate(admitted.Name, admitted.Low, admitted.High, admitted.Count, out ChoroplethSpec? spec), spec));
 
     static Validation<Error, string> Named(string column) =>
@@ -776,7 +776,7 @@ public sealed partial class RedlineStyle {
     public Seq<double> Dash { get; }
 
     public static Fin<RedlineStyle> Of(RedlineStroke stroke, double opacity, Seq<double> dash) =>
-        key.OrDefault().AcceptValidated<RedlineStyle>(
+        FactoryBridge.Accept<RedlineStyle>(
             Validate(
                 stroke.Ink,
                 Option<PaintRole>.None,
@@ -994,7 +994,7 @@ public sealed class RedlineSurface(
         RedlineLane lane, MonotonicTimeline line, Func<Fin<EditIntent>> seal,
         DocumentKey docKey, ContainerKey targetId, Option<JsonElement> before,
         RevertCursor cursor) =>
-        line.Gauged(lane, Op.Of(name: nameof(Durable)), seal).Match(
+        line.Gauged(lane, seal).Match(
             Succ: gauged => gauged.Value.Match(
                 Succ: intent => History
                     .Record(
@@ -1046,7 +1046,7 @@ public sealed class RedlineSurface(
                     EvidenceOps.Wire)));
 
     public Fin<(Fin<Unit> Applied, GaugedSpan<RedlineLane> Span)> Replay(RevertibleOp op, MonotonicTimeline line) =>
-        line.Gauged(RedlineLane.Replay, Op.Of(name: nameof(Replay)), () => Applied());
+        line.Gauged(RedlineLane.Replay, () => Applied());
 
     Fin<Unit> Applied(RevertibleOp op) =>
         op.Delta is RevertDelta.Set set

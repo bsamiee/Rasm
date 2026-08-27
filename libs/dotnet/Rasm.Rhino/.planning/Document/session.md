@@ -527,7 +527,7 @@ public static class SessionWorksession {
     extension(DocumentSession session) {
         public Fin<WorksessionSnapshot> Worksession(params ReadOnlySpan<uint> modelSerials) {
             Seq<uint> serials = toSeq(modelSerials.ToArray());
-            return Admit.Need(session).Bind(scope => scope.Demand(
+            return Admit.Need(session).Bind(scope => Admit.Demand(
                 use: document => WorksessionSnapshot.Of(document: document, key: op, modelSerials: serials),
                 key: op,
                 needs: [SessionNeed.Read]));
@@ -536,7 +536,7 @@ public static class SessionWorksession {
         public Fin<WorksessionOutcome> Worksession(WorksessionOp change) {
             return from scope in Admit.Need(session)
                    from request in Admit.Need(change)
-                   from outcome in scope.Demand(
+                   from outcome in Admit.Demand(
                        use: document =>
                            from before in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
                            from completed in DocumentCommit.Compensated(
@@ -760,7 +760,7 @@ public readonly partial struct DocumentPath : IDetachedDocumentResult {
     }
 
     public static Fin<DocumentPath> Of(string value) =>
-        key.OrDefault().AcceptValidated<DocumentPath>(candidate: value);
+        FactoryBridge.Accept<DocumentPath>(candidate: value);
 
     internal Fin<string> Resolve(DocumentFile file) =>
         from policy in Admit.Need(file)
@@ -1396,7 +1396,7 @@ public static class SessionRegimes {
     extension(DocumentSession session) {
         public Fin<UnitRegime> Regime(DocumentSpace space) {
             return from admission in Admission.Pair(first: session, second: space)
-                   from regime in admission.First.Demand(
+                   from regime in Admit.Demand(
                        use: document => admission.Second.Read(document: document),
                        needs: [SessionNeed.Read])
                    select regime;
@@ -1415,7 +1415,7 @@ public static class SessionRegimes {
                            Request: request))
                        .As()
                        .ToFin()
-                   from outcome in admission.Scope.Demand(
+                   from outcome in Admit.Demand(
                        use: document => DocumentCommit.Sealed(
                            document: document,
                            name: nameof(Adjust),
@@ -1573,19 +1573,19 @@ public abstract partial record UnitText : IDetachedDocumentResult {
         string text,
         Option<UnitDialect> dialect = default,
         Option<UnitForm> form = default) =>
-        key.OrDefault().AcceptText(value: text).Map(admitted => (UnitText)new LengthTextCase(
+        Acceptance.Text(value: text).Map(admitted => (UnitText)new LengthTextCase(
             text: admitted,
             dialect: dialect.IfNone(UnitDialect.Standard),
             form: form.IfNone(UnitForm.CleanDecimal)));
 
     public static Fin<UnitText> Scale(string text, Option<UnitDialect> dialect = default) =>
-        key.OrDefault().AcceptText(value: text)
+        Acceptance.Text(value: text)
             .Map(admitted => (UnitText)new ScaleTextCase(
                 text: admitted,
                 dialect: dialect.IfNone(UnitDialect.Standard)));
 
     public static Fin<UnitText> Angle(string text, Option<AngleGrammar> grammar = default) =>
-        key.OrDefault().AcceptText(value: text)
+        Acceptance.Text(value: text)
             .Map(admitted => (UnitText)new AngleTextCase(text: admitted, grammar: grammar.IfNone(AngleGrammar.Radians)));
 
     internal Fin<UnitText> Cross(UnitRegime regime) => Switch(

@@ -96,7 +96,7 @@ public readonly partial struct ScreenDrag : IDisallowDefaultValue {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(ScreenDrag), "two distinct valid screen points inside the integer window" }));
 
     public static Fin<ScreenDrag> Of(Point2d from, Point2d to) =>
-        key.OrDefault().AcceptValidated<ScreenDrag>(fault: Validate(from, to, out ScreenDrag admitted), admitted: admitted);
+        FactoryBridge.Accept<ScreenDrag>(fault: Validate(from, to, out ScreenDrag admitted), admitted: admitted);
 
     internal System.Drawing.Point Previous => new((int)From.X, (int)From.Y);
     internal System.Drawing.Point Current => new((int)To.X, (int)To.Y);
@@ -650,10 +650,10 @@ public abstract partial record CameraOp {
     }
 
     public static Fin<CameraOp> Clip(ClipLink link) =>
-        key.OrDefault().Need(value: link).Map(static valid => (CameraOp)new ClipCase(Link: valid));
+        Admit.Need(value: link).Map(static valid => (CameraOp)new ClipCase(Link: valid));
 
     public static Fin<CameraOp> Convention(ViewPose pose) =>
-        key.OrDefault().AcceptValue(value: pose).Map(static valid => (CameraOp)new ConventionCase(Pose: valid));
+        Acceptance.Value(value: pose).Map(static valid => (CameraOp)new ConventionCase(Pose: valid));
 }
 
 public sealed record CameraDrive(CameraTrack Track, MotionScript Script, Option<FrameClock> Clock) {

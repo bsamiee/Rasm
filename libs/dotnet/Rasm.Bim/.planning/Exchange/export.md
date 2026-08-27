@@ -112,7 +112,7 @@ public sealed record InterchangePolicy(
     public static InterchangePolicy Pbr => PbrRows.Value;
 
     static Tolerance Band(ToleranceLane lane, double value) =>
-        Tolerance.Of(lane, value, Op.Of(nameof(InterchangePolicy))).ThrowIfFail();
+        Tolerance.Of(lane, value).ThrowIfFail();
 
     static readonly Lazy<InterchangePolicy> CanonicalRows = new(static () => new(
         Chord: Band(ToleranceLane.Chord, 0.01), Distance: Band(ToleranceLane.Distance, 1e-6), Angle: Band(ToleranceLane.Angle, 1e-4),

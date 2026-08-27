@@ -582,7 +582,6 @@ public readonly record struct QuantityArrow(PhysicsQuantity Axis, FabConcern Rai
 public static class Fabrication {
     public static ValueTask<Fin<RunEvidence>> Run(FabricationInput input, FabricationRuntime runtime) =>
         (from _ in Ready(runtime, RunStage.Started)
-         let key = Op.Of()
          let started = runtime.Clock.GetCurrentInstant()
          let asked = new FabricationHookFact.Admission(input)
          from admitted in runtime.Hooks.Fire(asked.At, asked, static fact => fact is FabricationHookFact.Admission settled

@@ -323,19 +323,19 @@ public sealed class PolygonScan : IDisposable {
 
     public static Fin<PolygonScan> Of(Seq<Loop> paths, PolygonFill fill) =>
         from admitted in PolygonAlgebra.Regions(paths)
-        from resolved in key.OrDefault().Need(fill)
-        from scan in key.OrDefault().Catch(() => {
+        from resolved in Admit.Need(fill)
+        from scan in Try.lift(() => {
             double scale = PolygonAlgebra.Scale(admitted[0].Tolerance);
             Paths64 native = PolygonAlgebra.ToPaths64(admitted, scale);
             ReuseableDataContainer64 container = new();
             container.AddPaths(native, PathType.Subject, isOpen: false);
             return Fin.Succ(new PolygonScan(container, Clipper.GetBounds(native), scale, PolygonAlgebra.FillOf(resolved)));
-        })
+        }).Run().Bind(static inner => inner)
         select scan;
 
     public Fin<bool> Intersects(Seq<Loop> candidate) =>
         from admitted in PolygonAlgebra.Regions(candidate)
-        from verdict in key.OrDefault().Catch(() => {
+        from verdict in Try.lift(() => {
             Paths64 native = PolygonAlgebra.ToPaths64(admitted, scale);
             if (!bounds.Intersects(Clipper.GetBounds(native))) { return Fin.Succ(false); }
             Clipper64 engine = new();
@@ -343,7 +343,7 @@ public sealed class PolygonScan : IDisposable {
             engine.AddClip(native);
             Paths64 result = [];
             return Fin.Succ(engine.Execute(ClipType.Intersection, fill, result) && result.Count > 0);
-        })
+        }).Run().Bind(static inner => inner)
         select verdict;
 
     public void Dispose() => subject.Clear();
@@ -394,7 +394,7 @@ public static class EdgeSeparation {
 
 public static class PolygonAlgebra {
     public static Fin<PolygonTrace> Apply(PolygonOp? operation) =>
-        from admitted in key.OrDefault().Need(operation)
+        from admitted in Admit.Need(operation)
         let resolved = Resolve(admitted)
         from result in Try.lift(() => admitted.Switch(
                 state: resolved,
@@ -411,18 +411,6 @@ public static class PolygonAlgebra {
                 calipers: static (request) => CalipersOf(request))).Run().Bind(static inner => inner)
         select result;
 
-    private static Op Resolve(PolygonOp operation) => key ?? operation.Switch(
-        offset: static _ => Op.Of(name: nameof(PolygonOp.Offset)),
-        boolean: static _ => Op.Of(name: nameof(PolygonOp.Boolean)),
-        clipOpen: static _ => Op.Of(name: nameof(PolygonOp.ClipOpen)),
-        hygiene: static _ => Op.Of(name: nameof(PolygonOp.Hygiene)),
-        morphology: static _ => Op.Of(name: nameof(PolygonOp.Morphology)),
-        measure: static _ => Op.Of(name: nameof(PolygonOp.Measure)),
-        contains: static _ => Op.Of(name: nameof(PolygonOp.Contains)),
-        topology: static _ => Op.Of(name: nameof(PolygonOp.Topology)),
-        cells: static _ => Op.Of(name: nameof(PolygonOp.Cells)),
-        raster: static _ => Op.Of(name: nameof(PolygonOp.Raster)),
-        calipers: static _ => Op.Of(name: nameof(PolygonOp.Calipers)));
 
     private static Fin<PolygonTrace> OffsetOf(PolygonOp.Offset request) =>
         from paths in Admitted(request.Paths, LoopDemand.Any)

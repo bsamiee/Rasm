@@ -200,7 +200,7 @@ public sealed record Camera {
 
     public Fin<Transform> ScreenBasis() =>
         Perspective
-            ? Fin.Fail<Transform>(key.OrDefault().InvalidInput())
+            ? Fin.Fail<Transform>(new KernelFault.InvalidInput())
             : Fin.Succ(Transform.ChangeBasis(plane0: Plane.WorldXY, plane1: Screen));
 }
 

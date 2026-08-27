@@ -536,7 +536,7 @@ public sealed partial class FilterSense {
 
     private static Fin<ValueGate> Infixes(Seq<PropertyValue> operands) =>
         operands.TraverseM(static value =>
-                ValueMatch.Pattern.Of($"(?i).*{Regex.Escape(value.Render())}.*", Op.Of(name: nameof(FilterSense))))
+                ValueMatch.Pattern.Of($"(?i).*{Regex.Escape(value.Render())}.*"))
             .As()
             .Map(static rows => (ValueGate)new ValueGate.Restricted(rows));
 
@@ -544,7 +544,7 @@ public sealed partial class FilterSense {
         Fin.Succ<ValueGate>(new ValueGate.Restricted(operands.Map(static value => (ValueMatch)new ValueMatch.Prefix(value.Render()))));
 
     private static Fin<ValueGate> Substance(Seq<PropertyValue> operands) =>
-        ValueMatch.Pattern.Of(Substantial, Op.Of(name: nameof(FilterSense)))
+        ValueMatch.Pattern.Of(Substantial)
             .Map(static row => (ValueGate)new ValueGate.Restricted(Seq(row)));
 
     private static Fin<ValueGate> LowerBound(Seq<PropertyValue> operands) =>

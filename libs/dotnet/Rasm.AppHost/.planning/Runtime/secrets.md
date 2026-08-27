@@ -209,17 +209,15 @@ public static class CredentialPublic {
     public static Fin<CredentialMaterial> Chain(Seq<ReadOnlyMemory<byte>> certificates) =>
         certificates.IsEmpty
             ? Fin.Fail<CredentialMaterial>(new PemFault.ChainEmpty())
-            : Op.Of()
-                .Catch(() => Fin.Succ(certificates.Map(static octets => {
+            : Try.lift(() => Fin.Succ(certificates.Map(static octets => {
                     using X509Certificate2 proved = X509CertificateLoader.LoadCertificate(octets.Span);
                     return Der.Of(proved.RawDataMemory.Span);
-                }).Strict()))
+                }).Strict())).Run().Bind(static inner => inner)
                 .Map(static proved => (CredentialMaterial)new CredentialMaterial.Chain(new DerChain(proved)))
                 .MapFail(static error => (Error)new PemFault.CertRejected(error));
 
     public static Fin<CredentialMaterial> Spki(ReadOnlyMemory<byte> key) =>
-        Op.Of()
-            .Catch(() => Fin.Succ(Admit(key.Span)))
+        Try.lift(() => Fin.Succ(Admit(key.Span))).Run().Bind(static inner => inner)
             .Map(static admitted => (CredentialMaterial)new CredentialMaterial.Spki(admitted))
             .MapFail(static error => (Error)new PemFault.SpkiRejected(error));
 

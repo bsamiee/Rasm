@@ -177,7 +177,7 @@ public sealed partial class PluginBoot {
 
     public static Fin<PluginBoot> Of(
         Seq<PluginAct> prerequisites, Seq<SettingKey> settings, Seq<ShellMount> mounts, TimeProvider clock) =>
-        key.OrDefault().AcceptValidated<PluginBoot>(
+        FactoryBridge.Accept<PluginBoot>(
             fault: Validate(prerequisites, settings, mounts, clock, out PluginBoot? admitted),
             admitted: admitted);
 }

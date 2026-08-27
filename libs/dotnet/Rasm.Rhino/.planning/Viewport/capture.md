@@ -90,7 +90,7 @@ public readonly partial struct Size2i : IDisallowDefaultValue {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(Size2i), "positive pixel extents whose area fits an int" }));
 
     public static Fin<Size2i> Of(int width, int height) =>
-        key.OrDefault().AcceptValidated<Size2i>(fault: Validate(width, height, out Size2i admitted), admitted: admitted);
+        FactoryBridge.Accept<Size2i>(fault: Validate(width, height, out Size2i admitted), admitted: admitted);
 
     internal System.Drawing.Size Native => new(Width, Height);
 }
@@ -108,7 +108,7 @@ public readonly partial struct Offset2i {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(Offset2i), "nonnegative pixel coordinates" }));
 
     public static Fin<Offset2i> Of(int x, int y) =>
-        key.OrDefault().AcceptValidated<Offset2i>(fault: Validate(x, y, out Offset2i admitted), admitted: admitted);
+        FactoryBridge.Accept<Offset2i>(fault: Validate(x, y, out Offset2i admitted), admitted: admitted);
 
     internal System.Drawing.Rectangle Window(Size2i extent) => new(X, Y, extent.Width, extent.Height);
 }
@@ -122,7 +122,7 @@ public readonly partial struct CaptureDpi : IDisallowDefaultValue {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(CaptureDpi), value, "a finite positive resolution" }));
 
     public static Fin<CaptureDpi> Of(double value) =>
-        key.OrDefault().AcceptValidated<CaptureDpi>(candidate: value);
+        FactoryBridge.Accept<CaptureDpi>(candidate: value);
 
     public static Fin<CaptureDpi> Of(PlotResolution resolution) {
         return Admit.Need(value: resolution).Bind(row => Of(value: row.Dpi.Value));
@@ -220,11 +220,11 @@ public abstract partial record CaptureArea {
     public static CaptureArea Extents { get; } = new ExtentsCase();
 
     public static Fin<CaptureArea> ScreenWindow(Point2d a, Point2d b) =>
-        guard(ValidityClaim.All(a.IsValid, b.IsValid, a != b), key.OrDefault().InvalidInput()).ToFin()
+        guard(ValidityClaim.All(a.IsValid, b.IsValid, a != b), new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (CaptureArea)new ScreenWindowCase(A: a, B: b));
 
     public static Fin<CaptureArea> WorldWindow(Point3d a, Point3d b) =>
-        guard(ValidityClaim.All(a.IsValid, b.IsValid, a != b), key.OrDefault().InvalidInput()).ToFin()
+        guard(ValidityClaim.All(a.IsValid, b.IsValid, a != b), new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (CaptureArea)new WorldWindowCase(A: a, B: b));
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings) => Switch(
@@ -253,7 +253,7 @@ public abstract partial record CaptureScale {
     public static CaptureScale ToFit { get; } = new ToFitCase();
 
     public static Fin<CaptureScale> ToValue(DrawingScale scale) =>
-        key.OrDefault().Need(value: scale).Map(static admitted => (CaptureScale)new ToValueCase(Scale: admitted));
+        Admit.Need(value: scale).Map(static admitted => (CaptureScale)new ToValueCase(Scale: admitted));
 
     internal Fin<Unit> Apply(ViewCaptureSettings settings) => Switch(
         settings,
@@ -316,7 +316,7 @@ public sealed partial class CaptureCrop {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(CaptureCrop), "a crop window inside the media extent" }));
 
     public static Fin<CaptureCrop> Of(Size2i media, Offset2i origin, Size2i extent) =>
-        key.OrDefault().AcceptValidated<CaptureCrop>(fault: Validate(media, origin, extent, out CaptureCrop? admitted), admitted: admitted);
+        FactoryBridge.Accept<CaptureCrop>(fault: Validate(media, origin, extent, out CaptureCrop? admitted), admitted: admitted);
 }
 
 [ComplexValueObject]
@@ -341,7 +341,7 @@ public sealed partial class CaptureOffset {
                 nameof(CaptureOffset), "a non-custom unit regime and finite nonnegative offsets" }));
 
     public static Fin<CaptureOffset> Of(ModelUnit units, OffsetOrigin origin, double x, double y) =>
-        key.OrDefault().AcceptValidated<CaptureOffset>(fault: Validate(units, origin, x, y, out CaptureOffset? admitted), admitted: admitted);
+        FactoryBridge.Accept<CaptureOffset>(fault: Validate(units, origin, x, y, out CaptureOffset? admitted), admitted: admitted);
 }
 
 [ComplexValueObject]
@@ -362,7 +362,7 @@ public sealed partial class CaptureBanner {
     }
 
     public static Fin<CaptureBanner> Of(string header, string footer) =>
-        key.OrDefault().AcceptValidated<CaptureBanner>(fault: Validate(header, footer, out CaptureBanner? admitted), admitted: admitted);
+        FactoryBridge.Accept<CaptureBanner>(fault: Validate(header, footer, out CaptureBanner? admitted), admitted: admitted);
 }
 
 [ComplexValueObject]
@@ -670,7 +670,7 @@ public abstract partial record DepthProjection {
     public static DepthProjection Grayscale { get; } = new GrayscaleCase();
 
     public static Fin<DepthProjection> Samples(ReadOnlySpan<Offset2i> pixels) =>
-        guard(pixels.Length > 0, key.OrDefault().InvalidInput()).ToFin()
+        guard(pixels.Length > 0, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (DepthProjection)new SamplesCase(Pixels: toSeq(pixels.ToArray()).Strict()));
 
     internal Fin<DepthPayload> Project(ZBufferCapture capture, Size2i extent) => Switch(
@@ -830,7 +830,7 @@ public abstract partial record SequenceTrack {
 
     public static Fin<SequenceTrack> Points(ReadOnlySpan<Point3d> points) {
         Seq<Point3d> rows = toSeq(points.ToArray()).Strict();
-        return guard(rows.Count >= 2 && rows.ForAll(static point => point.IsValid), key.OrDefault().InvalidInput()).ToFin()
+        return guard(rows.Count >= 2 && rows.ForAll(static point => point.IsValid), new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (SequenceTrack)new PointsCase(Rows: rows));
     }
 
@@ -941,7 +941,7 @@ public abstract partial record SequenceKind {
     }
 
     public static Fin<SequenceKind> Flythrough(SequenceTrack track) =>
-        key.OrDefault().Need(value: track)
+        Admit.Need(value: track)
             .Map(static admitted => (SequenceKind)new FlythroughCase(Track: admitted));
 
     public static Fin<SequenceKind> Sun(SunPlace place, SunWindow window) {
@@ -1077,7 +1077,7 @@ public abstract partial record SequenceOp {
     public static SequenceOp Inspect { get; } = new InspectCase();
 
     public static Fin<SequenceOp> Adopt(FrameSequenceSpec spec) =>
-        key.OrDefault().Need(value: spec)
+        Admit.Need(value: spec)
             .Map(static admitted => (SequenceOp)new AdoptCase(Spec: admitted));
 
     internal Seq<SessionNeed> Needs => Switch(
@@ -1138,7 +1138,7 @@ internal static partial class SequenceMap {
 - Law: preparation applies viewport → area → layout → scale → decoration exactly once, then derives a preview from that completed basis when requested. Viewport binding precedes window projection, aspect matching, and fit scaling, and the bound viewport is the resolved row's own — a page address resolves to `RhinoPageView.MainViewport` and a detail address to `DetailViewObject.Viewport` at the target resolution, so no capture-side re-addressing exists. A settings handle never appears on a public signature.
 - Law: bench identity spells the REQUEST factory (`nameof(CaptureRequest.<verb>)`), never the private staging helper that happens to share the verb's name — an unqualified `nameof` binds the helper and re-keys every recorded row the moment that helper is renamed.
 - Law: run-pipeline timing stamps `CaptureArtifact.Bench` on success; failure keeps the original cause, and no second measurement fault exists.
-- Boundary: every entry crosses the kernel dispatch on the immediate lane and proves its own `SessionNeed` set inside the same window — `UiThread.Run(new UiDispatch<T>.Blocking(() => session.Demand(…)), DispatchLane.Immediate)` — so the crossing asserts the thread and the demand serializes the host call, and neither authority is re-derived at a call site. Target resolution, host work, and release stay inside that scope.
+- Boundary: every entry crosses the kernel dispatch on the immediate lane and proves its own `SessionNeed` set inside the same window — `UiThread.Run(new UiDispatch<T>.Blocking(() => Admit.Demand(…)), DispatchLane.Immediate)` — so the crossing asserts the thread and the demand serializes the host call, and neither authority is re-derived at a call site. Target resolution, host work, and release stay inside that scope.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -1167,7 +1167,7 @@ public sealed record CapturePlan(CaptureSubject Subject, CaptureArea Area, Captu
         Option<CaptureScale> scale = default,
         Option<MediaLayout> layout = default,
         Option<CaptureDecor> decor = default) =>
-        key.OrDefault().Need(value: subject).Map(origin => new CapturePlan(
+        Admit.Need(value: subject).Map(origin => new CapturePlan(
             Subject: origin,
             Area: area.IfNone(CaptureArea.FullView),
             Scale: scale.IfNone(CaptureScale.Native),
@@ -1194,13 +1194,13 @@ public abstract partial record CaptureRequest {
     internal sealed record SequenceCase(SequenceOp Operation) : CaptureRequest;
 
     public static Fin<CaptureRequest> Transparent(TransparentCaptureSpec spec) =>
-        key.OrDefault().Need(value: spec).Map(static admitted => (CaptureRequest)new TransparentCase(Spec: admitted));
+        Admit.Need(value: spec).Map(static admitted => (CaptureRequest)new TransparentCase(Spec: admitted));
 
     public static Fin<CaptureRequest> Depth(DepthCaptureSpec spec) =>
-        key.OrDefault().Need(value: spec).Map(static admitted => (CaptureRequest)new DepthCase(Spec: admitted));
+        Admit.Need(value: spec).Map(static admitted => (CaptureRequest)new DepthCase(Spec: admitted));
 
     public static Fin<CaptureRequest> Sequence(SequenceOp operation) =>
-        key.OrDefault().Need(value: operation).Map(static admitted => (CaptureRequest)new SequenceCase(Operation: admitted));
+        Admit.Need(value: operation).Map(static admitted => (CaptureRequest)new SequenceCase(Operation: admitted));
 
     internal Seq<SessionNeed> Needs => Switch(
         transparentCase: static _ => Seq(SessionNeed.Redraw),
@@ -1263,7 +1263,7 @@ public static class Captures {
         (string Operation, long Scale) identity,
         Func<RhinoDoc, Fin<CaptureArtifact>> body) =>
         UiThread.Run(
-            new UiDispatch<CaptureArtifact>.Blocking(() => session.Demand(
+            new UiDispatch<CaptureArtifact>.Blocking(() => Admit.Demand(
                 use: document => Measured(timeline: timeline, identity: identity, run: () => body(document)),
                 needs: needs.ToArray())),
             DispatchLane.Immediate);
@@ -1287,7 +1287,7 @@ public static class Captures {
                from body in Admit.Need(value: consume)
                from _rows in guard(!requested.IsEmpty, new KernelFault.InvalidInput())
                from output in UiThread.Run(
-                   new UiDispatch<TOut>.Blocking(() => owner.Demand(
+                   new UiDispatch<TOut>.Blocking(() => Admit.Demand(
                        use: document => Prepared(document: document, plans: requested, body: body),
                        needs: [SessionNeed.Redraw])),
                    DispatchLane.Immediate)

@@ -193,7 +193,7 @@ public abstract partial record ParamOp {
 
 public static class Flatten {
     public static readonly BenchClaim DistortionClaim = new(
-        Claim: Op.Of(name: nameof(Distortion)),
+        Claim: nameof(Distortion),
         VectorizedLane: "TensorPrimitives.Max/Sum/MaxMagnitude over the per-face distortion planes",
         ReferenceLane: "scalar element loops over the same planes",
         SpeedupFloor: 1.0);

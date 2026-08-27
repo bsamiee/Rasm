@@ -151,8 +151,7 @@ public abstract partial record BoardItem(string Key, BoardBox Box) {
     public Fin<BoardItem> WithReference(Option<string> reference) => Switch(
         state: reference,
         viewFrame: static (key, frame) => Fin.Succ<BoardItem>(frame with { ViewKey = key }),
-        statCard: static (key, card) => Op.Of(name: "appui.board.reference")
-            .AcceptValidated<MetricBinding>(MetricBinding.Validate(
+        statCard: static (key, card) => FactoryBridge.Accept<MetricBinding>(MetricBinding.Validate(
                 card.Binding.MetricKey, card.Binding.Measure, out MetricBinding? bound), bound)
             .Map<BoardItem>(binding => card with { Binding = binding }),
         sheetFrame: static (key, sheet) => Fin.Succ<BoardItem>(sheet with { SheetKey = key }),

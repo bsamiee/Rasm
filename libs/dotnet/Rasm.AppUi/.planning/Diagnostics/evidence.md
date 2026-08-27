@@ -849,8 +849,7 @@ public sealed record StateSeal(StateKey Key, int Generation, StateResidue Residu
     public Restored<T> Read<T>(string blob, Func<T, Fin<T>> admit) =>
         (blob.Length > Ceiling
             ? Option<T>.None
-            : Op.Of(name: "appui.state.read")
-                .Catch(() => Fin.Succ(JsonSerializer.Deserialize<StateParcel<T>>(blob, EvidenceOps.Wire)))
+            : Try.lift(() => Fin.Succ(JsonSerializer.Deserialize<StateParcel<T>>(blob, EvidenceOps.Wire))).Run().Bind(static inner => inner)
                 .ToOption()
                 .Bind(Optional)
                 .Filter(parcel => parcel.Generation == Generation)

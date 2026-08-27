@@ -45,7 +45,7 @@ public abstract partial record BlendKind {
     public double ErosionFactor { get; }
     public static BlendKind Hard { get; } = new HardCase();
     public static Fin<BlendKind> Polynomial(double k) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new PolynomialCase(K: v));
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new PolynomialCase(K: v));
 
     internal double Smin(double a, double b) => Switch(state: (A: a, B: b),
         hardCase: static (s, _) => Math.Min(s.A, s.B),
@@ -74,7 +74,7 @@ public abstract partial record RayPolicy {
     public static RayPolicy Forward { get; } = new InfiniteCase(Sense: BoundarySense.Toward);
     public static RayPolicy Reverse { get; } = new InfiniteCase(Sense: BoundarySense.Away);
     public static Fin<RayPolicy> Segment(double length, Option<BoundarySense> sense = default) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: length)
+        FactoryBridge.Accept<PositiveMagnitude>(candidate: length)
             .Map(l => (RayPolicy)new SegmentCase(Sense: sense.IfNone(BoundarySense.Toward), Length: l));
     internal Fin<TOut> Project<TOut>(Point3d origin, Direction direction, Context context);
 }
@@ -313,7 +313,7 @@ public abstract partial record ScalarField {
     public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonSolve Solve) : ScalarField(None);
 
     public static Fin<ScalarField> Lattice(CellLattice grid, Arr<double> values, Option<LatticeInterpolation> interp = default) =>
-        from _ in guard(values.Count == grid.CellCount && values.ForAll(double.IsFinite), key.OrDefault().InvalidInput()).ToFin()
+        from _ in guard(values.Count == grid.CellCount && values.ForAll(double.IsFinite), new KernelFault.InvalidInput()).ToFin()
         select (ScalarField)new LatticeCase(Grid: grid, Values: values, Interp: interp.IfNone(LatticeInterpolation.Linear));
     public static Fin<ScalarField> Density(Point3d center, double spread, double strength) {
         return (FactoryBridge.Accept<PositiveMagnitude>(spread).ToValidation(),
@@ -321,7 +321,7 @@ public abstract partial record ScalarField {
             .Apply((s, _) => (ScalarField)new DensityCase(center, s, strength)).As().ToFin();
     }
     public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources) =>
-        guard(!sources.IsEmpty && sources.ForAll(v => v >= 0 && v < space.Native.Vertices.Count), key.OrDefault().InvalidInput())
+        guard(!sources.IsEmpty && sources.ForAll(v => v >= 0 && v < space.Native.Vertices.Count), new KernelFault.InvalidInput())
             .ToFin().Map(_ => (ScalarField)new GeodesicCase(Space: space, Sources: sources));
 
     public static ScalarField operator +(ScalarField left, ScalarField right) =>
@@ -401,7 +401,7 @@ public abstract partial record VectorField {
     public static Fin<VectorField> CrossField(MeshSpace space, RosyOrder order, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones) =>
         guard(constraints.Map(rows => rows.ForAll(row => row.Vertex >= 0 && row.Vertex < space.Native.Vertices.Count)).IfNone(true)
               && cones.Map(rows => rows.ForAll(row => row.Vertex >= 0 && row.Vertex < space.Native.Vertices.Count && double.IsFinite(row.HolonomyDeficit))).IfNone(true),
-              key.OrDefault().InvalidInput())
+              new KernelFault.InvalidInput())
             .ToFin().Map(_ => (VectorField)new CrossFieldCase(Space: space, Order: order, Constraints: constraints, Cones: cones));
 
     internal Fin<Vector3d> SampleVector(Point3d sample, Context context) =>
@@ -465,7 +465,7 @@ public abstract partial record VectorField {
 - Entry: `SampleTensor → Fin<SymmetricMatrix>` is the case `Switch`; `PrincipalDirections` decomposes the sample through `matrix.md` eigen; `Sampler` is the closure bridge `calculus.md` `Falloff.Metric` takes, so the anisotropic decay samples this union without calculus naming a field type.
 - Auto: the `Curvature` arm is the single second-fundamental-form consumer — it reads `projections.md`'s `SurfaceProjection.ShapeOperator` at the recovered `(u,v)` and never re-derives principal curvatures. `Warp` transforms by congruence `R·M·Rᵀ` through `matrix.md`; `Blend` traverses its dimension-agreeing tensors applicatively and sums component-wise, dividing by count when `Average` holds.
 - Growth: a new tensor species is one case and one arm; a curvature variant delegates to its owning page, never local differential geometry.
-- Boundary: `LiftCase` is the only closure-carrying case, its sampler running inside `key.Catch` with an `IsValid` gate — the one foreign-code boundary. Congruence requires an invertible spatial map and dimension-3 tensors, both admission facts faulted not defaulted.
+- Boundary: `LiftCase` is the only closure-carrying case, its sampler running inside `Try.lift` with an `IsValid` gate — the one foreign-code boundary. Congruence requires an invertible spatial map and dimension-3 tensors, both admission facts faulted not defaulted.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -480,9 +480,9 @@ public abstract partial record TensorField {
     public sealed record BlendCase(Seq<TensorField> Fields, bool Average) : TensorField;
 
     public static Fin<TensorField> Constant(SymmetricMatrix value) =>
-        guard(value.Dimension.Value == 3, key.OrDefault().InvalidInput()).ToFin().Map(_ => (TensorField)new ConstantCase(Value: value));
+        guard(value.Dimension.Value == 3, new KernelFault.InvalidInput()).ToFin().Map(_ => (TensorField)new ConstantCase(Value: value));
     public static Fin<TensorField> Warp(TensorField source, Transform map) =>
-        guard(map.TryGetInverse(out _), key.OrDefault().InvalidInput()).ToFin().Map(_ => (TensorField)new WarpCase(Source: source, Map: map));
+        guard(map.TryGetInverse(out _), new KernelFault.InvalidInput()).ToFin().Map(_ => (TensorField)new WarpCase(Source: source, Map: map));
 
     internal Fin<SymmetricMatrix> SampleTensor(Point3d sample, Context context) =>
         Acceptance.Value(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context),

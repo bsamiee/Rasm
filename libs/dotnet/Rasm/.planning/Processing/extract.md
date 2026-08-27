@@ -104,13 +104,13 @@ public abstract partial record ExtractionDomain {
     public sealed record LatticeCase : ExtractionDomain { internal LatticeCase(CellLattice value) => Value = value; public CellLattice Value { get; } }
     private ExtractionDomain() { }
     public static Fin<ExtractionDomain> Support(SupportSpace value) =>
-        Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
+        Optional(value).ToFin(new KernelFault.InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
     public static Fin<ExtractionDomain> Mesh(MeshSpace value) =>
-        key.OrDefault().Need(value.Native).Map(_ => (ExtractionDomain)new MeshCase(value: value));
+        Admit.Need(value.Native).Map(_ => (ExtractionDomain)new MeshCase(value: value));
     public static Fin<ExtractionDomain> Cloud(VectorCloud value) =>
         Admit.NotNull(value).Map(static cloud => (ExtractionDomain)new CloudCase(cloud));
     public static Fin<ExtractionDomain> Lattice(CellLattice value) =>
-        key.OrDefault().AcceptValue(value: (ExtractionDomain)new LatticeCase(value: value));
+        Acceptance.Value(value: (ExtractionDomain)new LatticeCase(value: value));
     public static Fin<ExtractionDomain> Of(object? value, Context context) {
         return Optional(value).ToFin(new KernelFault.InvalidInput()).Bind(source => source switch {
             ExtractionDomain domain => Fin.Succ(domain),

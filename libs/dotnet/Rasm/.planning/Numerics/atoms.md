@@ -207,7 +207,7 @@ public sealed partial class VectorRelation {
     public static readonly VectorRelation AntiParallel = new(key: -1);
     public static readonly VectorRelation Perpendicular = new(key: 2);
     public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, Context context) =>
-        from model in Optional(context).ToFin(key.OrDefault().MissingContext())
+        from model in Optional(context).ToFin(new KernelFault.MissingContext())
         from left in Direction.Of(value: a, context: model)
         from right in Direction.Of(value: b, context: model)
         select (left.Value.IsParallelTo(other: right.Value, angleTolerance: model.Angle.Value), left.Value.IsPerpendicularTo(other: right.Value, angleTolerance: model.Angle.Value)) switch {
@@ -416,26 +416,26 @@ public sealed partial class PerceptualColor {
     public static Fin<PerceptualColor> Of(double lightness, double opponentA, double opponentB, double alpha = 1.0) =>
         Validate(lightness, opponentA, opponentB, alpha, out PerceptualColor? admitted) is null && admitted is not null
             ? Fin.Succ(value: admitted)
-            : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
+            : Fin.Fail<PerceptualColor>(error: new KernelFault.InvalidInput());
     public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, double alpha = 1.0) =>
-        from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
+        from coverage in FactoryBridge.Accept<UnitInterval>(candidate: alpha)
         from admitted in OfOklab(colour: new Unicolour(ColourSpace.Rgb255, red, green, blue, coverage.Value), alpha: coverage.Value)
         select admitted;
     public static Fin<PerceptualColor> OfRgb(byte red, byte green, byte blue, byte alpha) =>
         OfRgb(red: red, green: green, blue: blue, alpha: alpha / (double)byte.MaxValue);
     public static Fin<PerceptualColor> OfRgb(UnitInterval red, UnitInterval green, UnitInterval blue, RgbProfile profile, double alpha = 1.0) =>
-        from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
+        from coverage in FactoryBridge.Accept<UnitInterval>(candidate: alpha)
         from admitted in OfOklab(
             colour: new Unicolour(profile.Configuration, ColourSpace.Rgb, red.Value, green.Value, blue.Value, coverage.Value).ConvertToConfiguration(Configuration.Default),
             alpha: coverage.Value)
         select admitted;
     public static Fin<PerceptualColor> OfRgb(double red, double green, double blue, RgbProfile profile, double alpha = 1.0) =>
-        from coverage in key.OrDefault().AcceptValidated<UnitInterval>(candidate: alpha)
+        from coverage in FactoryBridge.Accept<UnitInterval>(candidate: alpha)
         from admitted in Band.Parameter.Admits(value: red) && Band.Parameter.Admits(value: green) && Band.Parameter.Admits(value: blue)
             ? OfOklab(
                 colour: new Unicolour(profile.Configuration, ColourSpace.RgbLinear, red, green, blue, coverage.Value).ConvertToConfiguration(Configuration.Default),
                 alpha: coverage.Value)
-            : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput())
+            : Fin.Fail<PerceptualColor>(error: new KernelFault.InvalidInput())
         select admitted;
     public static Fin<PerceptualColor> OfArgb(int packed) =>
         OfRgb(red: (byte)(packed >> 16), green: (byte)(packed >> 8), blue: (byte)packed, alpha: (byte)(packed >> 24));
@@ -444,9 +444,9 @@ public sealed partial class PerceptualColor {
     public static Fin<PerceptualColor> OfHost(Rhino.Display.Color4f host, Option<RgbTransfer> transfer = default) =>
         transfer.IfNone(RgbTransfer.Encoded) == RgbTransfer.Linear
             ? OfRgb(red: host.R, green: host.G, blue: host.B, profile: RgbProfile.Srgb, alpha: host.A)
-            : from red in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.R)
-              from green in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.G)
-              from blue in key.OrDefault().AcceptValidated<UnitInterval>(candidate: host.B)
+            : from red in FactoryBridge.Accept<UnitInterval>(candidate: host.R)
+              from green in FactoryBridge.Accept<UnitInterval>(candidate: host.G)
+              from blue in FactoryBridge.Accept<UnitInterval>(candidate: host.B)
               from admitted in OfRgb(red: red, green: green, blue: blue, profile: RgbProfile.Srgb, alpha: host.A)
               select admitted;
     public static Fin<PerceptualColor> OfTemperature(double cct, double duv = 0.0, Locus locus = Locus.Blackbody, double luminance = 1.0) =>
@@ -457,7 +457,7 @@ public sealed partial class PerceptualColor {
                     ? new Unicolour(Configuration.Default, cct, locus, luminance)
                     : new Unicolour(Configuration.Default, new Temperature(cct, duv), luminance),
                 alpha: 1.0)
-            : Fin.Fail<PerceptualColor>(error: key.OrDefault().InvalidInput());
+            : Fin.Fail<PerceptualColor>(error: new KernelFault.InvalidInput());
     public static Fin<PerceptualColor> Achromatic(double lightness, double alpha = 1.0) =>
         Of(lightness: lightness, opponentA: 0.0, opponentB: 0.0, alpha: alpha);
     public PerceptualColor Mix(PerceptualColor other, UnitInterval amount, Option<BlendPath> path = default) {
@@ -490,7 +490,7 @@ public sealed partial class PerceptualColor {
             .Choose(static candidate => candidate.ToOption())
             .TakeWhile(candidate => candidate.Contrast(against) >= ratio.Value)
             .Last
-            .ToFin(key.OrDefault().InvalidResult());
+            .ToFin(new KernelFault.InvalidResult());
     }
     public AppearanceReading Appearance(BlendPath.Appearance under) =>
         AsUnicolour().ConvertToConfiguration(under.Working).GetRepresentation(under.Space).Triplet switch {
@@ -520,13 +520,13 @@ public sealed partial class PerceptualColor {
                     green: (int)clipped.G,
                     blue: (int)clipped.B).ToArgb()),
             },
-            _ => Fin.Fail<int>(error: key.OrDefault().InvalidResult(detail: "colour outside the display gamut")),
+            _ => Fin.Fail<int>(error: new KernelFault.InvalidResult(Detail: Some("colour outside the display gamut"))),
         };
     public Fin<System.Drawing.Color> ToDrawing(Option<GamutPolicy> gamut = default) =>
         ToArgb(gamut: gamut).Map(static packed => System.Drawing.Color.FromArgb(packed));
     public Fin<Rhino.Display.Color4f> ToColor4f(Option<GamutPolicy> gamut = default, Option<RgbTransfer> transfer = default) =>
         transfer.IfNone(RgbTransfer.Encoded) == RgbTransfer.Encoded && !GamutPolicy.Clipped.Contains(colour: gamut.IfNone(GamutPolicy.Perceptual).Bound(AsUnicolour()))
-            ? Fin.Fail<Rhino.Display.Color4f>(error: key.OrDefault().InvalidResult(detail: "colour outside the display gamut"))
+            ? Fin.Fail<Rhino.Display.Color4f>(error: new KernelFault.InvalidResult(Detail: Some("colour outside the display gamut")))
             : ToRgb(profile: RgbProfile.Srgb, gamut: gamut, transfer: transfer) switch {
                 var (red, green, blue, alpha) => Fin.Succ(value: new Rhino.Display.Color4f((float)red, (float)green, (float)blue, (float)alpha)),
             };
@@ -985,7 +985,7 @@ public readonly record struct Direction : IValidityEvidence {
         ValidityClaim.Finite(value: Value),
         Math.Abs(value: Value.Length - 1.0) <= EpsilonPolicy.SqrtEpsilon);
     public static Fin<Direction> Of(Vector3d value, Context context) =>
-        Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value));
+        Optional(context).ToFin(new KernelFault.MissingContext()).Bind(model => Of(value: value, tolerance: model.Absolute.Value));
     internal static Fin<Direction> Of(Vector3d value, double tolerance) =>
         Admit.Directional(value: value, tolerance: tolerance).Bind(vector =>
             vector.Unitize() ? Fin.Succ(new Direction(value: vector)) : Fin.Fail<Direction>(error: new KernelFault.InvalidInput()));
@@ -1068,7 +1068,7 @@ public readonly record struct VectorFrame {
     private VectorFrame(Plane value) => Value = value;
     public Plane Value { get; }
     public static Fin<VectorFrame> Of(Point3d origin, Vector3d normal, Option<Vector3d> xHint, Context context) =>
-        from point in key.OrDefault().AcceptValue(value: origin)
+        from point in Acceptance.Value(value: origin)
         from z in Direction.Of(value: normal, context: context)
         let tangent = xHint.Map(raw => raw - (z.Value * (raw * z.Value))).Filter(v => !v.IsTiny(context.Absolute.Value)).IfNone(SeedPerpendicular(axis: z.Value))
         from x in Direction.Of(value: tangent, context: context)
@@ -1112,11 +1112,11 @@ public readonly record struct VectorCone {
     public Fin<double> Spread() =>
         HalfAngle.Value < Math.PI / 2.0
             ? Fin.Succ(Math.Tan(a: HalfAngle.Value))
-            : Fin.Fail<double>(key.OrDefault().InvalidResult());
+            : Fin.Fail<double>(new KernelFault.InvalidResult());
     public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context) =>
         from _ in Admit.Cone(apex: apex, axis: axis, halfAngle: halfAngleRadians)
         from direction in Direction.Of(value: axis, context: context)
-        from angle in key.OrDefault().AcceptValidated<VectorAngle>(candidate: halfAngleRadians)
+        from angle in FactoryBridge.Accept<VectorAngle>(candidate: halfAngleRadians)
         select new VectorCone(apex: apex, axis: direction, halfAngle: angle);
     public Fin<bool> Contains(Vector3d query, Context context) {
         VectorCone cone = this;

@@ -119,7 +119,7 @@ public sealed partial class PlanePrimaries {
         (Space, Cicp, Assign, Geometry) = (space, cicp, assign, geometry);
 
     private static readonly Lazy<Tolerance> CoordinateBand = new(static () =>
-        Tolerance.Of(lane: ToleranceLane.Coordinate, value: 1e-3, key: Op.Of(name: nameof(PlanePrimaries)))
+        Tolerance.Of(lane: ToleranceLane.Coordinate, value: 1e-3)
             .IfFail(static e => throw e.ToException()));
 
     private static readonly Lazy<FrozenDictionary<int, PlanePrimaries>> ByCicp =

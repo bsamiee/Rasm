@@ -351,7 +351,7 @@ public sealed record GumballLook {
         int radius,
         int axisThickness,
         int arcThickness) =>
-        guard(radius > 0 && axisThickness > 0 && arcThickness > 0, key.OrDefault().InvalidInput()).ToFin()
+        guard(radius > 0 && axisThickness > 0 && arcThickness > 0, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => new GumballLook(handles, x, y, z, menu, radius, axisThickness, arcThickness));
 
     internal GumballAppearanceSettings Native() {
@@ -424,7 +424,7 @@ public sealed class GumballRig : IDisposable {
             refused: static (_, row) => Fin.Fail<Unit>(row.Cause),
             contended: static (ctx, _) => Fin.Fail<Unit>(new KernelFault.InvalidResult()));
 
-    public void Dispose() => _ = Release(Op.Of(nameof(GumballRig)))
+    public void Dispose() => _ = Release()
         .IfFail(failure => ignore(faults.Park(point: HookPoint, cause: failure)));
 }
 
@@ -856,10 +856,10 @@ public sealed class WidgetHost : IDisposable {
                                widget,
                                allDocuments: static (ctx, _) => Admit.Confirm(ctx.RegisterForAllDocuments())
                                    .Map(_ => (Func<Fin<Unit>>)(() => Try.lift(ctx.Unregister).Run().Bind(static inner => inner))),
-                               document: static (ctx, row) => row.Session.Demand(
+                               document: static (ctx, row) => Admit.Demand(
                                    use: doc => Admit.Confirm(doc.ViewUserInterface.Add(ctx, row.Group)).Map(static _ => unit),
                                    needs: [SessionNeed.Mutate])
-                                   .Map(_ => (Func<Fin<Unit>>)(() => row.Session.Demand(
+                                   .Map(_ => (Func<Fin<Unit>>)(() => Admit.Demand(
                                        use: doc => Try.lift(() => Admit.Confirm(doc.ViewUserInterface.Remove(ctx) > 0)).Run().Bind(static inner => inner),
                                        needs: [SessionNeed.Mutate]))))
                            let value = new WidgetMount(widget, sink, retire)
@@ -897,7 +897,7 @@ public sealed class WidgetHost : IDisposable {
                 .Bind(_ => Find(identity))
                 .Bind(value => probe.Switch(
                     value,
-                    glyphs: static (ctx, row) => row.Session.Demand(
+                    glyphs: static (ctx, row) => Admit.Demand(
                         use: doc => Try.lift(() =>
                             from view in Optional(doc.Views.Find(row.Viewport)).ToFin(new KernelFault.InvalidInput())
                             from visible in ctx switch {
@@ -908,7 +908,7 @@ public sealed class WidgetHost : IDisposable {
                             select (WidgetAnswer)new WidgetAnswer.Glyphs(visible)).Run().Bind(static inner => inner),
                         needs: [SessionNeed.Read]),
                     region: static (ctx, row) => ctx is SvgWidget control
-                        ? row.Session.Demand(
+                        ? Admit.Demand(
                             use: doc => Try.lift(() => {
                                 System.Drawing.RectangleF frame = control.ComputedRectangle(doc.Views.ActiveView, row.Space.Key);
                                 return Fin.Succ<WidgetAnswer>(new WidgetAnswer.Region(
@@ -966,8 +966,7 @@ public sealed class WidgetHost : IDisposable {
 
     public void Dispose() => _ = lifecycle.Close(
         stop: static () => Fin.Succ(unit),
-        settle: () => ReleaseAll(Op.Of(nameof(WidgetHost))),
-        key: Op.Of(nameof(WidgetHost)))
+        settle: () => ReleaseAll())
         .IfFail(error => ignore(faults.Park(point: HookPoint, cause: error)));
 }
 ```

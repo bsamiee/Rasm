@@ -72,7 +72,7 @@ public sealed partial class BlockHyperlink {
     }
 
     public static Fin<BlockHyperlink> Of(string url, string tag) =>
-        key.OrDefault().AcceptValidated<BlockHyperlink>(
+        FactoryBridge.Accept<BlockHyperlink>(
             fault: Validate(url, tag, out BlockHyperlink? admitted),
             admitted: admitted);
 
@@ -101,7 +101,7 @@ public sealed partial class BlockMetadata {
 
     public static Fin<BlockMetadata> Of(
         ResourceName name, string description, Option<BlockHyperlink> hyperlink = default) =>
-        key.OrDefault().AcceptValidated<BlockMetadata>(
+        FactoryBridge.Accept<BlockMetadata>(
             fault: Validate(name, description, hyperlink, out BlockMetadata? admitted),
             admitted: admitted);
 }
@@ -150,7 +150,7 @@ public sealed partial class BlockMember {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(BlockMember), "an admitted geometry intake beside its attribute set", Option<>.None }));
 
     public static Fin<BlockMember> Of(GeometryIntake source, ObjectAttributes attributes) =>
-        key.OrDefault().AcceptValidated<BlockMember>(
+        FactoryBridge.Accept<BlockMember>(
             fault: Validate(source, attributes, out BlockMember? admitted),
             admitted: admitted);
 }
@@ -628,7 +628,7 @@ public static class Blocks {
     public static Fin<Unit> Commit(DocumentSession session, BlockTransaction transaction) {
         return from owner in Admit.Need(session)
                from plan in Admit.Need(transaction)
-               from _ in owner.Demand(
+               from _ in Admit.Demand(
                    use: document => Run(document: document, plan: plan),
                    needs: SessionNeed.Mutation(custody: plan.Custody, redraw: plan.Redraw).ToArray())
                select unit;
@@ -637,7 +637,7 @@ public static class Blocks {
     public static Fin<BlockAnswer> Ask(DocumentSession session, BlockAsk request) {
         return from owner in Admit.Need(session)
                from active in Admit.Need(request)
-               from answer in owner.Demand(
+               from answer in Admit.Demand(
                    use: document => active.Switch(
                        context: document,
                        state: static (ctx, ask) =>

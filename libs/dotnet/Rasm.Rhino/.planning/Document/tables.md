@@ -73,7 +73,7 @@ public sealed partial class TableKind {
                     .ToSeq(),
                 _ => Items.AsIterable().Filter(kind => kind.ComponentType == type).ToSeq(),
             })
-            : Fin.Fail<Seq<TableKind>>(error: key.OrDefault().InvalidInput());
+            : Fin.Fail<Seq<TableKind>>(error: new KernelFault.InvalidInput());
 
     private static Fin<int> Count(int value) =>
         guard(value >= 0, new KernelFault.InvalidResult()).ToFin().Map(_ => value);
@@ -248,7 +248,7 @@ public sealed partial class QuerySpec {
         Option<string> name = default,
         Option<ActiveSpaceUse> space = default,
         Option<ViewportTarget> viewport = default) =>
-        key.OrDefault().AcceptValidated<QuerySpec>(
+        FactoryBridge.Accept<QuerySpec>(
             fault: Validate(
                 axes.IfNone(QueryAxis.Baseline),
                 kinds.IfNone(ObjectKinds.Any),
@@ -315,10 +315,10 @@ public abstract partial record TablePredicate {
     private sealed record BoundsCase(BoundingBox Region, BoundsMatch Match, Tolerance Band) : TablePredicate;
 
     public static Fin<TablePredicate> Tag(string name, Option<string> expected = default) =>
-        key.OrDefault().AcceptText(value: name).Map(valid => (TablePredicate)new TagCase(Key: valid, Expected: expected));
+        Acceptance.Text(value: name).Map(valid => (TablePredicate)new TagCase(Key: valid, Expected: expected));
 
     public static Fin<TablePredicate> Color(PerceptualColor value) =>
-        key.OrDefault().Need(value).Map(static admitted => (TablePredicate)new ColorCase(Value: admitted));
+        Admit.Need(value).Map(static admitted => (TablePredicate)new ColorCase(Value: admitted));
 
     public static Fin<TablePredicate> Bounds(BoundingBox region, BoundsMatch match, Context context, double inflation = 0.0) {
         return from _ in guard(region.IsValid, new KernelFault.InvalidInput()).ToFin()
@@ -513,17 +513,17 @@ public abstract partial record ViewportTarget {
 
     public static Fin<ViewportTarget> Every(ReadOnlySpan<ViewportScope> scopes) {
         Seq<ViewportScope> rows = toSeq(scopes.ToArray()).Strict();
-        return guard(!rows.IsEmpty && rows.ForAll(static scope => scope is not null), key.OrDefault().InvalidInput()).ToFin()
+        return guard(!rows.IsEmpty && rows.ForAll(static scope => scope is not null), new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (ViewportTarget)new EveryCase(Scopes: rows.ToFrozenSet()));
     }
     public static Fin<ViewportTarget> Named(string name) =>
-        key.OrDefault().AcceptText(value: name).Map(static valid => (ViewportTarget)new NamedCase(Name: valid));
+        Acceptance.Text(value: name).Map(static valid => (ViewportTarget)new NamedCase(Name: valid));
     public static Fin<ViewportTarget> Id(Guid viewportId) =>
-        guard(viewportId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => (ViewportTarget)new IdCase(ViewportId: viewportId));
+        guard(viewportId != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => (ViewportTarget)new IdCase(ViewportId: viewportId));
     public static Fin<ViewportTarget> Page(Guid pageViewId) =>
-        guard(pageViewId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => (ViewportTarget)new PageCase(PageViewId: pageViewId));
+        guard(pageViewId != Guid.Empty, new KernelFault.InvalidInput()).ToFin().Map(_ => (ViewportTarget)new PageCase(PageViewId: pageViewId));
     public static Fin<ViewportTarget> Detail(Guid pageViewId, Guid detailId) =>
-        guard(pageViewId != Guid.Empty && detailId != Guid.Empty, key.OrDefault().InvalidInput()).ToFin()
+        guard(pageViewId != Guid.Empty && detailId != Guid.Empty, new KernelFault.InvalidInput()).ToFin()
             .Map(_ => (ViewportTarget)new DetailCase(PageViewId: pageViewId, DetailId: detailId));
 
     internal Fin<Seq<ViewportRef>> Resolve(RhinoDoc document) =>
@@ -1057,7 +1057,7 @@ public abstract partial record TableOp {
             new StateCase(Target: address, State: mutation, Modes: policy));
 
     public static Fin<TableOp> ClearSelection(SelectionClear scope) =>
-        key.OrDefault().Need(scope)
+        Admit.Need(scope)
             .Map(value => (TableOp)new ClearSelectionCase(Scope: value));
 
     public static Fin<TableOp> Flash(TableTarget target, FlashMode mode) =>
@@ -1138,7 +1138,7 @@ public abstract partial record TableOp {
     }
 
     public static Fin<TableOp> Reclaim(TableKind kind) =>
-        Optional(kind).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => (TableOp)new ReclaimCase(Kind: value));
+        Optional(kind).ToFin(Fail: new KernelFault.InvalidInput()).Map(static value => (TableOp)new ReclaimCase(Kind: value));
 
     public static Fin<TableOp> ImportPage(DocumentPath path, Guid mainViewportId, string pageName) {
         return (
@@ -1154,10 +1154,10 @@ public abstract partial record TableOp {
     }
 
     public static Fin<TableOp> RestoreView(NamedRestore restore) =>
-        Optional(restore).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => (TableOp)new RestoreViewCase(Restore: value));
+        Optional(restore).ToFin(Fail: new KernelFault.InvalidInput()).Map(static value => (TableOp)new RestoreViewCase(Restore: value));
 
     public static Fin<TableOp> Roll(HistoryRoll navigation) =>
-        Optional(navigation).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => (TableOp)new RollCase(Navigation: value));
+        Optional(navigation).ToFin(Fail: new KernelFault.InvalidInput()).Map(static value => (TableOp)new RollCase(Navigation: value));
 
     internal TableOpTraits Traits => Map(
         addCase: TableOpTraits.Sourced,
@@ -1415,7 +1415,7 @@ public abstract partial record GeometryIntake {
     private sealed record ValueCase(object Source) : GeometryIntake;
 
     public static Fin<GeometryIntake> Of(object source) =>
-        Optional(source).ToFin(Fail: key.OrDefault().InvalidInput()).Map(static value => value switch {
+        Optional(source).ToFin(Fail: new KernelFault.InvalidInput()).Map(static value => value switch {
             GeometryBase native => (GeometryIntake)new NativeCase(Source: native),
             _ => new ValueCase(Source: value),
         });
@@ -1448,7 +1448,7 @@ public static class Tables {
         TableTransaction transaction) {
         return from admission in Admission.Pair(first: session, second: transaction)
                let plan = admission.Second.Materialize()
-               from _ in admission.First.Demand(
+               from _ in Admit.Demand(
                    use: document => Run(document: document, plan: plan),
                    needs: SessionNeed.Mutation(
                        undo: plan.Undo.Demands().Admits(capability: UndoTrait.Required),

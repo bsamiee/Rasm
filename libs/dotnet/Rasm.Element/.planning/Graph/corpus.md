@@ -472,7 +472,7 @@ public sealed partial class CorpusGrade {
  public CorpusProfile Profile { get; }
 
  static CorpusProfile Row(int nodes, double density, int bagWidth, Seq<Discipline> disciplines, int depth, long seed) =>
-  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed, Op.Of(name: nameof(CorpusGrade)))
+  CorpusProfile.Of(nodes, density, bagWidth, disciplines, depth, seed)
    .IfFail(static _ => throw new InvalidOperationException("Corpus grade declaration violates CorpusProfile admission."));
 }
 

@@ -60,7 +60,7 @@ public abstract partial record MotionTiming(Duration Duration, Func<double, doub
         admitted.Match<Func<double, double>>(
             Succ: shape => t => shape.Evaluate(
                     origin: new SpringState(Position: 0d, Velocity: 0d), target: 1d,
-                    elapsed: Duration.FromSeconds(Math.Clamp(t, 0d, 1d) * response), key: Op.Of(name: nameof(SpringProgress)))
+                    elapsed: Duration.FromSeconds(Math.Clamp(t, 0d, 1d) * response))
                 .Match(Succ: static state => state.Position, Fail: static _ => 1d),
             Fail: static _ => static t => 1d);
 }
@@ -82,11 +82,11 @@ public readonly partial struct SpringValue {
 
     public Fin<SpringState> Advance(SpringState origin, double target, Duration elapsed) =>
         Shape.Bind(shape => shape.Evaluate(
-            origin: origin, target: target, elapsed: elapsed, key: Op.Of(name: nameof(Advance))));
+            origin: origin, target: target, elapsed: elapsed));
 
     public Fin<Duration> Settling(SpringState origin, double target, SettleBand band) =>
         Shape.Bind(shape => shape.Settle(
-            origin: origin, target: target, band: band, key: Op.Of(name: nameof(Settling))));
+            origin: origin, target: target, band: band));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float response, ref float dampingFraction) {
         (float r, float d) = (response, dampingFraction);
@@ -681,7 +681,7 @@ public sealed partial class MotionDecay {
 
     public Fin<double> Project(double velocity) =>
         Shape.Bind(shape => shape.Project(
-            velocity: velocity / NodaConstants.MillisecondsPerSecond, key: Op.Of(name: nameof(Project))));
+            velocity: velocity / NodaConstants.MillisecondsPerSecond));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

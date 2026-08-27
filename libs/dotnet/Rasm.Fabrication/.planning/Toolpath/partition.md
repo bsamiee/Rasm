@@ -404,11 +404,10 @@ public static class Partition {
             .DistinctBy(site => (Math.Round(site.X / request.Boundary.Tolerance.Absolute.Value),
                 Math.Round(site.Y / request.Boundary.Tolerance.Absolute.Value)))
         from trace in PolygonAlgebra.Apply(
-            new PolygonOp.Cells(footprints.ToArr(), request.Boundary, policy),
-            Op.Of(name: nameof(Tessellate)))
+            new PolygonOp.Cells(footprints.ToArr(), request.Boundary, policy))
         from diagram in trace.Diagram(
             new FabricationFault.PartitionDegenerate(Subject(request.Strategy), accepted.Count))
-        from anchor in diagram.Locate(request.Boundary.At(0), Op.Of(name: nameof(Tessellate)))
+        from anchor in diagram.Locate(request.Boundary.At(0))
         from solids in Solids(request, accepted)
         select new SiteDiagram(
             diagram, request.Strategy, field, candidates.Count, accepted.Count, request.Boundary, anchor, solids);
@@ -416,8 +415,8 @@ public static class Partition {
     private static Fin<Seq<PartitionSolid>> Solids(PartitionRequest request, Seq<Point3d> accepted) =>
         request.Projection.DepthMm <= 0.0
             ? Fin.Succ(Seq<PartitionSolid>())
-            : from cloud in VectorCloud.Cluster(accepted, request.Boundary.Tolerance, key: Op.Of(name: nameof(Solids)))
-              from dual in CloudVoronoiResult.Of(cloud, key: Op.Of(name: nameof(Solids)))
+            : from cloud in VectorCloud.Cluster(accepted, request.Boundary.Tolerance)
+              from dual in CloudVoronoiResult.Of(cloud)
               select dual.Cells.Map(static cell => {
                   (Option<double> volume, Option<Point3d> centroid, Option<double> extent) = cell.Measure.Switch(
                       bounded: static measured => (Some(measured.Volume), Some(measured.Centroid), Some(measured.Extent)),

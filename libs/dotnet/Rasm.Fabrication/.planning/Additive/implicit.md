@@ -1432,7 +1432,7 @@ public static partial class Sdf {
                     mode.UnitsInMillimeters,
                     sink));
                 return ImplicitCanonical
-                    .Cli(slices, Seq(scope.Metrics.Field), operation.Policy, Some(mode), Op.Of(name: nameof(Vector)))
+                    .Cli(slices, Seq(scope.Metrics.Field), operation.Policy, Some(mode))
                     .Map(key => new CliStack(
                         slices.nCount(), Seq<ContentKey>(), Seq(scope.Metrics.Field), Some(scope.Metrics), None));
             }).Run().Bind(static inner => inner);
@@ -1450,12 +1450,11 @@ public static partial class Sdf {
                         image,
                         RasterFrame.Of(scope.Native, index),
                         scope.Metrics.Field,
-                        operation.Policy,
-                        Op.Of(name: nameof(Grayscale)));
+                        operation.Policy);
                     masks = masks.Bind(held => mask.Map(held.Add));
                 }
                 return masks.Bind(settled => ImplicitCanonical
-                    .MaskIndex(settled, scope.Metrics.Field, operation.Policy, mode, Op.Of(name: nameof(Grayscale)))
+                    .MaskIndex(settled, scope.Metrics.Field, operation.Policy, mode)
                     .Map(key => new CliStack(
                         settled.Count, settled, Seq(scope.Metrics.Field), Some(scope.Metrics), None)));
             }).Run().Bind(static inner => inner);
@@ -1474,8 +1473,7 @@ public static partial class Sdf {
                             progress.ValueUnsafe());
                         CliIo.Result imported = CliIo.oSlicesFromCliFile(mode.Target.FullName);
                         return ImplicitCanonical
-                            .Cli(imported.oSlices, Seq(vdb.Origin.Key), vdb.Policy, Option<CliMode.CliVector>.None,
-                                Op.Of(name: nameof(Direct)))
+                            .Cli(imported.oSlices, Seq(vdb.Origin.Key), vdb.Policy, Option<CliMode.CliVector>.None)
                             .Map(key => new CliStack(
                                 imported.oSlices.nCount(),
                                 Seq<ContentKey>(),

@@ -167,7 +167,7 @@ public sealed class CanonicalWriter {
 
     public Fin<ReadOnlyMemory<byte>> ToBytes() =>
         retained.Map(static buffer => buffer.WrittenMemory)
-            .ToFin(Fail: key.OrDefault().InvalidContext());
+            .ToFin(Fail: new KernelFault.InvalidContext());
 
     private CanonicalWriter Emit(ReadOnlySpan<byte> bytes) {
         accumulator.Append(source: bytes);

@@ -213,7 +213,7 @@ public readonly partial struct DracoDial {
                 label, value, $"a Draco value in [{floor}, {ceiling}]" }));
 
     public static Fin<DracoDial> Of(int level, int positionBits, int normalBits, int textureBits) =>
-        key.OrDefault().AcceptValidated<DracoDial>(
+        FactoryBridge.Accept<DracoDial>(
             fault: Validate(
                 level: Rasm.Numerics.Dimension.Create(value: level),
                 positionBits: Rasm.Numerics.Dimension.Create(value: positionBits),
@@ -249,7 +249,7 @@ public readonly partial struct ObjNgonDial {
         int minFaces,
         bool includeUnweldedEdges = true,
         bool cullInteriorVertexes = true) =>
-        key.OrDefault().AcceptValidated<ObjNgonDial>(
+        FactoryBridge.Accept<ObjNgonDial>(
             fault: Validate(
                 mode: mode,
                 minFaces: Rasm.Numerics.Dimension.Create(value: minFaces),

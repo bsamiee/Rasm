@@ -790,7 +790,7 @@ public static class LayerProgram {
                 .Ordinal(part.Measured.Stack.LayerCount)
                 .Maybe(part.Measured.Scan, static (row, plan) => plan.Key.CanonicalBytes(row))
                 .Rows(tracks, static (row, track) => track.CanonicalBytes(row))
-                .ToBytes(Op.Of(name: nameof(Planar)))
+                .ToBytes()
                 .Map(bytes => (BuildArtifact)new BuildArtifact.LayerProgram(
                     kind, part.Measured.Stack, part.Measured.Scan, tracks,
                     ContentKey.Of(kind.Vectors ? EgressKind.ScanVectors : EgressKind.Plan, bytes.Span),
@@ -805,8 +805,7 @@ public static class LayerProgram {
                 .Traverse(value => FabricationCanon.Keyed(
                     EgressKind.Plan,
                     AdditivePolicyRows.CanonicalGridMm,
-                    row => row.Discriminant(channel).String(part.Measured.Part.Material.Key).Double(value),
-                    Op.Of(name: nameof(Track))))
+                    row => row.Discriminant(channel).String(part.Measured.Part.Material.Key).Double(value)))
                 .As()
                 .Map(keys => (LayerTrack)new LayerTrack.Keys(channel, keys))
             : Sheets(part, tolerance).Map(loops => (LayerTrack)new LayerTrack.Contours(channel, loops));
@@ -1393,7 +1392,7 @@ public static class Canonical {
     public static Guid Derived(Guid space, string name) => Guid.CreateVersion5(space, Encoding.UTF8.GetBytes(name));
 
     private static Fin<ReadOnlyMemory<byte>> Written(Func<CanonicalWriter, CanonicalWriter> emit) =>
-        emit(CanonicalWriter.Retaining(AdditivePolicyRows.CanonicalGridMm)).ToBytes(Op.Of(name: nameof(Written)));
+        emit(CanonicalWriter.Retaining(AdditivePolicyRows.CanonicalGridMm)).ToBytes();
 }
 
 public static class Outline {

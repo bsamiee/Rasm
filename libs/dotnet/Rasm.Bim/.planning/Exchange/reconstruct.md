@@ -107,7 +107,7 @@ public readonly record struct ReconstructionContext(
     public static ReconstructionContext Building => BuildingRows.Value;
 
     static Tolerance Band(ToleranceLane lane, double value) =>
-        Tolerance.Of(lane, value, Op.Of(nameof(ReconstructionContext))).ThrowIfFail();
+        Tolerance.Of(lane, value).ThrowIfFail();
 
     static readonly Lazy<ReconstructionContext> BuildingRows = new(static () => new(
         IfcDomain.Architecture,

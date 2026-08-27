@@ -328,10 +328,10 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 
     public Fin<Unit> Flex(PinSide side, int index, PinVisibility visibility, Grasshopper2.Undo.ActionList undo) {
         ModularList list = side.Switch(state: this, input: static self => self.ModularInputs, output: static self => self.ModularOutputs);
-        return key.OrDefault().Catch(() => visibility.Switch(
+        return Try.lift(() => visibility.Switch(
             state: (List: list, Index: index, Undo: undo),
             shown: static s => s.List.Show(s.Index, s.Undo),
-            hidden: static s => s.List.Hide(s.Index, s.Undo)));
+            hidden: static s => s.List.Hide(s.Index, s.Undo))).Run().Bind(static inner => inner);
     }
 
     private Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel) =>
@@ -489,7 +489,6 @@ public static class Catalogue {
         });
 
     public static Fin<Unit> Load(PluginSource source) => source.Switch(
-        state: key.OrDefault(),
         location: static (row) => Try.lift(() =>
                 Grasshopper2.Framework.PluginServer.LoadPlugin(row.Path, out Grasshopper2.Framework.FailureInfo failure)
                     ? Fin.Succ(unit)

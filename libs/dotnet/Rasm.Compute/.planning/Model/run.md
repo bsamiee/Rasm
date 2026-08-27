@@ -348,7 +348,7 @@ public static partial class RunOps {
 
     static Fin<T> Bracket<T>(CancelScope scope, Seq<(string Name, OrtValue Value)> owned, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project, Func<IDisposableReadOnlyCollection<OrtValue>> run) =>
         Custody.Bracket(
-                () => Custody.Bracket(run, project, Op.Of(nameof(RunOps))),
+                () => Custody.Bracket(run, project),
                 [.. owned.Map(static row => (IDisposable?)row.Value)])
             .MapFail(error => ModelSessions.Faulted(scope, error));
 }

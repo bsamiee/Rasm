@@ -628,7 +628,7 @@ public static class NativeObject {
         (kind, seed) switch {
             (null, _) or (_, null) => Fin.Fail<Grasshopper2.Doc.IDocumentObject>(
                 new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Mint)))),
-            (var row, PersistedValue.Empty) => key.OrDefault().Catch(() => Fin.Succ(row.Create())),
+            (var row, PersistedValue.Empty) => Try.lift(() => Fin.Succ(row.Create())).Run().Bind(static inner => inner),
             var (row, value) => row.Mint(value),
         };
 
@@ -637,19 +637,19 @@ public static class NativeObject {
         (kind, reader) switch {
             (null, _) or (_, null) => Fin.Fail<Grasshopper2.Doc.IDocumentObject>(
                 new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Rehydrate)))),
-            var (row, source) => key.OrDefault().Catch(() => Fin.Succ(row.Rehydrate(source))),
+            var (row, source) => Try.lift(() => Fin.Succ(row.Rehydrate(source))).Run().Bind(static inner => inner),
         };
 
     public static Fin<Unit> Persist(
         Grasshopper2.Doc.IDocumentObject? host, GrasshopperIO.IWriter? writer) =>
         (host, writer) switch {
             (null, _) or (_, null) => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Persist)))),
-            var (target, sink) => key.OrDefault().Catch(() => target.Store(sink)),
+            var (target, sink) => Try.lift(() => target.Store(sink)).Run().Bind(static inner => inner),
         };
 
     public static Fin<PersistedValue> ValueOf(Grasshopper2.Doc.IDocumentObject? host) =>
         Row(host, nameof(ValueOf))
-            .Bind(pair => key.OrDefault().Catch(() => Fin.Succ(pair.Row.Read(pair.Host))));
+            .Bind(pair => Try.lift(() => Fin.Succ(pair.Row.Read(pair.Host))).Run().Bind(static inner => inner));
 
     public static Fin<Unit> Assign(Grasshopper2.Doc.IDocumentObject? host, PersistedValue? value) =>
         value is null
@@ -661,14 +661,14 @@ public static class NativeObject {
         Grasshopper2.Parameters.Special.ValueListObject? list, ListStep step) =>
         (list, step) switch {
             (null, _) or (_, null) => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Step)))),
-            var (live, row) => key.OrDefault().Catch(() => row.Advance(live)),
+            var (live, row) => Try.lift(() => row.Advance(live)).Run().Bind(static inner => inner),
         };
 
     public static Fin<Unit> Pulse(
         Grasshopper2.Parameters.Special.ButtonObject? button, ButtonPulse pulse) =>
         (button, pulse) switch {
             (null, _) or (_, null) => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Pulse)))),
-            var (live, row) => key.OrDefault().Catch(() => row.Drive(live)),
+            var (live, row) => Try.lift(() => row.Drive(live)).Run().Bind(static inner => inner),
         };
 
     private static Fin<(NativeKind Row, Grasshopper2.Doc.IDocumentObject Host)> Row(
@@ -696,15 +696,15 @@ public static class NativeObject {
 
     public static Fin<(Grasshopper2.Components.Standard.Cluster Cluster, Guid[][] InputMapping, Guid[][] OutputMapping)> Clustered(
         Grasshopper2.Doc.IDocumentObject[] members) =>
-        key.OrDefault().Catch(() => {
+        Try.lift(() => {
             Grasshopper2.Components.Standard.Cluster cluster = new(
                 members, out Guid[][] inputMapping, out Guid[][] outputMapping);
             return Fin.Succ((cluster, inputMapping, outputMapping));
-        });
+        }).Run().Bind(static inner => inner);
 
     public static Fin<(Seq<Grasshopper2.Parameters.Special.Listen> Inputs, Seq<Grasshopper2.Parameters.Special.Shout> Outputs)> Boundary(
         Grasshopper2.Components.Standard.Cluster cluster) =>
-        key.OrDefault().Catch(() => {
+        Try.lift(() => {
             cluster.EnsureMaps(
                 out Grasshopper2.Parameters.Special.Listen[] listeners,
                 out Grasshopper2.Parameters.Special.Shout[] shouters);
@@ -715,10 +715,10 @@ public static class NativeObject {
                 ? Fin.Fail<(Seq<Grasshopper2.Parameters.Special.Listen>, Seq<Grasshopper2.Parameters.Special.Shout>)>(
                     new GhFault.ContractRefused(GhContract.Object, new GhEvidence(nameof(Boundary))))
                 : Fin.Succ((toSeq(listeners), toSeq(shouters)));
-        });
+        }).Run().Bind(static inner => inner);
 
     public static Fin<Unit> Disentangle(Grasshopper2.Components.Standard.Cluster cluster, Grasshopper2.Undo.ActionList actions) =>
-        key.OrDefault().Catch(() => cluster.Disentangle(actions));
+        Try.lift(() => cluster.Disentangle(actions)).Run().Bind(static inner => inner);
 
     private static Fin<Unit> Target(
         Grasshopper2.Parameters.Special.TimerObject timer, Guid id, bool add) =>

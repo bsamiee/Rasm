@@ -220,7 +220,6 @@ public static class SchedulePort {
     public static IO<(Fin<Unit> Outcome, GaugedSpan<DeadlineClass> Span)> Run(ClockPolicy clocks, ScheduleEntry entry) =>
         IO.lift(() => clocks.Gauged<Unit>(
                 row: entry.Deadline,
-                work: key.OrDefault(),
                 body: () => Try.lift(() => Redrive.Run(policy: entry.Redrive, work: Occurrence(entry: entry)).Run()).Run().Bind(static inner => inner)));
 
     static IO<Unit> Occurrence(ScheduleEntry entry) =>

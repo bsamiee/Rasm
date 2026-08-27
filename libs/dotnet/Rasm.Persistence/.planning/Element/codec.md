@@ -109,7 +109,7 @@ public sealed partial class SnapshotCodec {
             : Fin.Fail<object?>(new CodecFault.ShapeRefused(shape.Name))).Run().Bind(static inner => inner);
 
     public static Fin<SnapshotCodec> ByHeaderId(int headerId) =>
-        key.OrDefault().Row<int, string, SnapshotCodec>(candidate: headerId, column: static row => row.HeaderId, match: None);
+        FactoryBridge.Row<int, string, SnapshotCodec>(candidate: headerId, column: static row => row.HeaderId, match: None);
     public bool Serves(WireSurface surface) => Membership.Contains(surface);
 
     public static Fin<SnapshotCodec> Negotiate(WireSurface surface, Type shape, Seq<string> accepted) =>
@@ -213,7 +213,7 @@ public sealed partial class CompressionPolicy {
     public int HeaderId { get; }
     public Option<ZstdTuning> Tuning { get; }
     public static Fin<CompressionPolicy> ByHeaderId(int headerId) =>
-        key.OrDefault().Row<int, string, CompressionPolicy>(candidate: headerId, column: static row => row.HeaderId, match: None);
+        FactoryBridge.Row<int, string, CompressionPolicy>(candidate: headerId, column: static row => row.HeaderId, match: None);
     [UseDelegateFromConstructor] public partial Fin<byte[]> Pack(ReadOnlyMemory<byte> payload);
     [UseDelegateFromConstructor] public partial Fin<byte[]> Unpack(ReadOnlyMemory<byte> framed);
 }
@@ -290,7 +290,7 @@ public sealed partial class HashPolicy {
     public string HexFormat { get; }
     [UseDelegateFromConstructor] public partial UInt128 Compute(ReadOnlyMemory<byte> payload);
     public static Fin<HashPolicy> ByDomainId(byte domainId) =>
-        key.OrDefault().Row<byte, string, HashPolicy>(candidate: domainId, column: static row => row.DomainId, match: None);
+        FactoryBridge.Row<byte, string, HashPolicy>(candidate: domainId, column: static row => row.DomainId, match: None);
 }
 ```
 

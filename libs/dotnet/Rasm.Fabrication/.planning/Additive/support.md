@@ -247,7 +247,7 @@ public static partial class Support {
         from admitted in AdmitProjection(context, projection)
         from topology in SupportTopology.Admit(admitted.SupportNodes)
         from graph in SupportGraph.Measure(topology)
-        from bytes in SupportCodec.Write(policy, admitted, Op.Of(name: nameof(Grow)))
+        from bytes in SupportCodec.Write(policy, admitted)
         from evidence in Measured(admitted, graph, policy, bytes.Length)
         select new SupportPlan(
             admitted.PlanarRows,
@@ -640,7 +640,7 @@ public static partial class Support {
 
 internal static class SupportSites {
     internal static Fin<SpatialIndex> Index(Seq<Point3d> sites) =>
-        SpatialIndex.Build(SpatialKind.Bvh, [.. sites.Map(static at => new BoundingBox(at, at))], BuildPolicy.Canonical, Op.Of(name: nameof(Index)));
+        SpatialIndex.Build(SpatialKind.Bvh, [.. sites.Map(static at => new BoundingBox(at, at))], BuildPolicy.Canonical);
 
     public static Fin<Seq<TreeSeed>> Tips(Seq<SupportDemand> demand, GrowthPolicy policy) =>
         demand.Traverse(row => row.Region.IsEmpty
@@ -669,8 +669,7 @@ internal static class SupportSites {
                 policy.RelaxationStrength.DecimalFractions,
                 Some(SiteMerge.Create(minimumArea: 0.0, policy.MergeDistance.Millimeters))))
         from trace in PolygonAlgebra.Apply(
-            new PolygonOp.Cells(pattern.Seeds(row.Region.Bound()), boundary, pattern.Policy),
-            Op.Of(name: nameof(Sites)))
+            new PolygonOp.Cells(pattern.Seeds(row.Region.Bound()), boundary, pattern.Policy))
         from diagram in trace.Diagram(
             new KernelFault.InvalidValue("support", $"support:cell-trace:{row.Layer}"))
         select diagram.Cells.ToSeq()
@@ -757,7 +756,7 @@ internal static class SupportSites {
     public static Fin<Seq<TreeSeed>> Merge(Seq<TreeSeed> rows, Length distance) => rows.IsEmpty
         ? Fin.Succ(rows)
         : from index in Index(rows.Map(static row => row.At))
-          from overlaps in index.Query(distance.Millimeters, Op.Of(name: nameof(Merge)))
+          from overlaps in index.Query(distance.Millimeters)
           let close = overlaps.Filter(pair =>
               rows[pair.Left].Layer == rows[pair.Right].Layer
               && rows[pair.Left].At.DistanceTo(rows[pair.Right].At) <= distance.Millimeters)
@@ -851,9 +850,9 @@ internal static class SupportSites {
         BoundingBox box = new(
             new Point3d(at.X - margin, at.Y - margin, at.Z - margin),
             new Point3d(at.X + margin, at.Y + margin, at.Z + margin));
-        return index.Query(box, Some(new Sphere(at, margin)), Op.Of(name: nameof(Parents)))
+        return index.Query(box, Some(new Sphere(at, margin)))
             .Bind(hits => hits.IsEmpty
-                ? index.Query(at, 1, Op.Of(name: nameof(Parents)))
+                ? index.Query(at, 1)
                     .Bind(nearest => nearest.Head
                         .ToFin(new KernelFault.InvalidValue("support", "support:parent-absent"))
                         .Map(slot => (child.Id, Seq(lower[slot].Id))))
