@@ -347,7 +347,7 @@ internal static class Hlr {
         ProjectionDir direction,
         ProjectionPolicy policy) =>
         from bounds in HlrOp.Catch(() => Fin.Succ(model.Native.GetBoundingBox(accurate: false)))
-        from _ in guard(bounds.IsValid, HlrOp.InvalidInput()).ToFin()
+        from _ in guard(bounds.IsValid, HlrOp.InvalidInput())
         from forward in Direction.Of(direction.Forward, model.Tolerance, HlrOp)
         from pose in policy.Convention.Pose(bounds, Some(forward), model.Tolerance, HlrOp)
         from camera in pose.ToCamera(model.Tolerance, HlrOp)

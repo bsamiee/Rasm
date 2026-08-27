@@ -188,7 +188,7 @@ public readonly record struct ViewPose(VectorFrame Frame, Point3d Eye, Point3d T
         return from look in Direction.Of(value: self.Target - self.Eye, context: tolerance, key: op)
                from _ in guard(!self.Projection.Perspective
                        || self.Subject.GetCorners().AsIterable().ForAll(c => (c - self.Eye) * look.Value > tolerance.For(ToleranceLane.Length).Value),
-                   op.InvalidInput()).ToFin()
+                   op.InvalidInput())
                from screen in Admit.Plane(basis: new Plane(origin: self.Target, normal: look.Value), key: op)
                select Camera.Admitted(eye: self.Eye, direction: look.Value, screen: Rectified(screen, self.Projection),
                    perspective: self.Projection.Perspective, tolerance: tolerance);

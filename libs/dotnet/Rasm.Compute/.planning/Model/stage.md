@@ -428,7 +428,7 @@ public static partial class StageRun {
         RunOptions options, CancelScope scope, IClock clock, MonotonicTimeline timeline) =>
         from opened in timeline.Capture()
         from licensed in request.SelectedLicense.ToFin(StageRefusal.License.Fault())
-        from _ in guard(licensed.Grants, (Error)StageRefusal.Blocked.Fault()).ToFin()
+        from _ in guard(licensed.Grants, (Error)StageRefusal.Blocked.Fault())
         from precision in request.SelectedPrecision.ToFin(StageRefusal.Precision.Fault())
         from keys in Sources(request, produced)
         from planes in keys.Traverse(key => ports.Read(key).ToValidation()).As().ToFin()

@@ -311,7 +311,7 @@ internal static class Evaluation {
     }
     private static Fin<ClosestHit> Closest(object source, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput()).ToFin()
-        from __ in guard(!Capability.Closest.Admits(type: source.GetType()) || OpAcceptance.ValidityOf(source: source).Exists(static valid => valid), key.InvalidInput()).ToFin()
+        from __ in guard(!Capability.Closest.Admits(type: source.GetType()) || OpAcceptance.ValidityOf(source: source).Exists(static valid => valid), key.InvalidInput())
         from hit in ClosestForm.Of(source.GetType()).Case switch {
             ClosestForm row => row.Recover(value: source, target: target, key: key),
             _ => Recovered(source: source, key: key, verb: (value, op) => Closest(source: value, target: target, key: op)),

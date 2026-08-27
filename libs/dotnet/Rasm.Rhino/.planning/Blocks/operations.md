@@ -268,7 +268,7 @@ public abstract partial record BlockOp {
             regeometry: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
                 from mode in SourceMode.Of(update: definition.UpdateType, key: context.Op)
-                from writable in guard(!mode.Facets.Admits(capability: SourceFacet.Reads), context.Op.InvalidInput()).ToFin()
+                from writable in guard(!mode.Facets.Admits(capability: SourceFacet.Reads), context.Op.InvalidInput())
                 from applied in Admitted(
                     members: edit.Members,
                     domain: context.Domain,
@@ -296,7 +296,7 @@ public abstract partial record BlockOp {
                 from mode in SourceMode.Of(update: definition.UpdateType, key: context.Op)
                 from _ in guard(
                     !definition.IsTenuous && mode.Facets.Admits(capability: SourceFacet.Reads),
-                    context.Op.InvalidInput()).ToFin()
+                    context.Op.InvalidInput())
                 from __ in context.Op.Confirm(success: context.Document.InstanceDefinitions.RefreshLinkedBlock(definition: definition))
                 select unit,
             retarget: static (context, edit) =>
@@ -308,7 +308,7 @@ public abstract partial record BlockOp {
             style: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
                 from mode in SourceMode.Of(update: definition.UpdateType, key: context.Op)
-                from _ in guard(mode.Facets.Admits(capability: SourceFacet.Reads), context.Op.InvalidInput()).ToFin()
+                from _ in guard(mode.Facets.Admits(capability: SourceFacet.Reads), context.Op.InvalidInput())
                 from __ in context.Op.Catch(() => {
                     definition.LayerStyle = edit.LayerStyle.Host;
                     return context.Op.Confirm(success: definition.LayerStyle == edit.LayerStyle.Host);
@@ -344,7 +344,7 @@ public abstract partial record BlockOp {
                 select unit,
             place: static (context, edit) =>
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
-                from _ in guard(!edit.Instances.IsEmpty, context.Op.InvalidInput()).ToFin()
+                from _ in guard(!edit.Instances.IsEmpty, context.Op.InvalidInput())
                 from __ in edit.Instances.TraverseM(placement => placement.Switch(
                     state: (Document: context.Document, Index: definition.Index, Op: context.Op),
                     bare: static (ctx, request) => Place(motion: request.Motion, op: ctx.Op,
@@ -387,7 +387,7 @@ public abstract partial record BlockOp {
                             : Fin.Fail<Seq<Guid>>(error: context.Op.InvalidResult())))
                 from __ in guard(
                     expected >= 0 && (edit.Depth.Nested ? ids.Count >= expected : ids.Count == expected),
-                    context.Op.InvalidResult()).ToFin()
+                    context.Op.InvalidResult())
                 select unit);
 
     private static Fin<Unit> Authored(

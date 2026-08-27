@@ -406,7 +406,7 @@ public abstract partial record LinetypeOp {
         authorReference: static (context, edit) =>
             from definition in edit.Source.Resolve(document: context.Document, lens: Lens, key: context.Op)
             from name in context.Op.AcceptValidated<ResourceName>(candidate: definition.Name)
-            from _ in guard(!Grip.Occupied(context.Document, name), context.Op.InvalidInput()).ToFin()
+            from _ in guard(!Grip.Occupied(context.Document, name), context.Op.InvalidInput())
             from __ in context.Op.Catch(() =>
                 ResourceIndex.Admit(context.Document.Linetypes.AddReferenceLinetype(linetype: definition), context.Op))
             select unit,
@@ -433,7 +433,7 @@ public abstract partial record LinetypeOp {
         loadDefaults: static (context, edit) =>
             from count in context.Op.Catch(() => Fin.Succ(value: context.Document.Linetypes.LoadDefaultLinetypes(
                 ignoreDeleted: edit.Policy.Key)))
-            from _ in guard(count >= 0, context.Op.InvalidResult()).ToFin()
+            from _ in guard(count >= 0, context.Op.InvalidResult())
             select unit);
 
     private static ListSurface<SegmentRow> Run(Linetype linetype) => new(
@@ -441,7 +441,7 @@ public abstract partial record LinetypeOp {
         Append: (row, key) =>
             from index in key.Catch(() => Fin.Succ(value: linetype.AppendSegment(
                 length: row.Length, isSolid: row.Role == DashRole.Dash)))
-            from _ in guard(index >= 0, key.InvalidResult()).ToFin()
+            from _ in guard(index >= 0, key.InvalidResult())
             select unit,
         Remove: (index, key) => key.Confirm(success: linetype.RemoveSegment(index: index)),
         Write: Some<Func<int, SegmentRow, Op, Fin<Unit>>>((index, row, key) => key.Confirm(success: linetype.SetSegment(

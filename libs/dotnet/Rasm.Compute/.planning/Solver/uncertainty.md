@@ -48,7 +48,7 @@ public sealed partial class UqStrategy {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class UncertaintyMethod {
+public sealed partial class UncertaintyMethod : IDrawLane<UncertaintyMethod> {
     public static readonly UncertaintyMethod MonteCarlo = new("monte-carlo", UqStrategy.MatrixSampling, SampleDesign.PseudoRandom, lane: 1L);
     public static readonly UncertaintyMethod LatinHypercubeMc = new("latin-hypercube-mc", UqStrategy.MatrixSampling, SampleDesign.Stratified, lane: 2L);
     public static readonly UncertaintyMethod PolynomialChaos = new("polynomial-chaos", UqStrategy.SpectralFit, SampleDesign.Stratified, lane: 3L);

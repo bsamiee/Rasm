@@ -279,7 +279,7 @@ public static class MacGate {
         return from platform in op.Catch(body: () => Optional(global::Eto.Platform.Instance).ToFin(op.MissingContext()))
                from admitted in guard(
                    platform is global::Eto.Mac.Platform && platform.IsMac && platform.IsValid,
-                   op.Unsupported(inputType: typeof(NSView), outputType: typeof(Unit))).ToFin()
+                   op.Unsupported(inputType: typeof(NSView), outputType: typeof(Unit)))
                select admitted;
     }
 }
@@ -459,7 +459,7 @@ public static class NativeLayer {
             maximumFrames > 0 &&
             double.IsFinite(minimumInterval) && minimumInterval > 0.0 &&
             double.IsFinite(maximumInterval) && maximumInterval >= minimumInterval,
-            key.InvalidResult()).ToFin()
+            key.InvalidResult())
         select new PaceBounds(
             ScreenHandle: screenHandle,
             MaximumFramesPerSecond: maximumFrames,

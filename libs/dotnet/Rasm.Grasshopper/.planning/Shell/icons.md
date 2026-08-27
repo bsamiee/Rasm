@@ -133,7 +133,7 @@ public sealed class IconCatalog {
     public static Fin<IconCatalog> Freeze(Seq<(IconTag Key, AssetOrigin Source)> rows, Op? key = null) {
         Op op = key.OrDefault();
         return from nonEmpty in guard(!rows.IsEmpty, op.InvalidInput()).ToFin()
-               from unique in guard(rows.Map(static row => row.Key).Distinct().Count == rows.Count, op.InvalidInput()).ToFin()
+               from unique in guard(rows.Map(static row => row.Key).Distinct().Count == rows.Count, op.InvalidInput())
                from minted in rows.TraverseM(row => IconOwner.Mint(origin: row.Source, key: op).Map(handle => (row.Key, Handle: handle))).As()
                select new IconCatalog(rows: toHashMap(minted.Map(static row => (row.Key, row.Handle))));
     }

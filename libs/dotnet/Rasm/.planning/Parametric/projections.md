@@ -481,7 +481,7 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
         return from tolerance in key.Positive(value: band.Position)
                from goal in key.Finite(value: target)
-               from decaying in guard(zeta > 0.0, key.InvalidInput()).ToFin()
+               from decaying in guard(zeta > 0.0, key.InvalidInput())
                let offset = origin.Position - goal
                let bound = DampingRegime.Of(zeta: zeta).Envelope(offset: offset, velocity: origin.Velocity, omega: omega, zeta: zeta)
                from seconds in key.Finite(value: Math.Max(
@@ -666,7 +666,7 @@ public sealed class MonotonicStamp : IValidityEvidence {
     internal int CompareCapture(MonotonicStamp other) => _captureOrdinal.CompareTo(value: other._captureOrdinal);
     internal Fin<TimeSpan> SpanTo(MonotonicStamp end, Op key) =>
         from active in key.Need(value: end)
-        from owned in guard(IsValid && active.IsValid && SharesTimeline(other: active), key.InvalidInput()).ToFin()
+        from owned in guard(IsValid && active.IsValid && SharesTimeline(other: active), key.InvalidInput())
         from elapsed in key.Catch(body: () => Fin.Succ(_provider.GetElapsedTime(startingTimestamp: _timestamp, endingTimestamp: active._timestamp)))
         select elapsed;
 }
@@ -804,7 +804,7 @@ public sealed class MonotonicTimeline {
                from delta in prior.Match(
                    Some: beat => Elapsed(start: beat.Stamp, end: current, key: op),
                    None: () => Fin.Succ(elapsed))
-               from ordered in guard(prior.Map(beat => elapsed >= beat.Elapsed && delta <= elapsed).IfNone(noneValue: true), op.InvalidResult()).ToFin()
+               from ordered in guard(prior.Map(beat => elapsed >= beat.Elapsed && delta <= elapsed).IfNone(noneValue: true), op.InvalidResult())
                let expected = prior.Map(static beat => beat.Stamp).IfNone(start)
                from ordinal in admitted.Sequence.Advance(expected: expected, current: current, delta: delta, cadence: cadence, key: op)
                from beat in op.AcceptValue(value: new MonotonicBeat(ordinal: ordinal, origin: start, sequence: admitted.Sequence, stamp: current, elapsed: elapsed, delta: delta))
@@ -813,12 +813,12 @@ public sealed class MonotonicTimeline {
 
     private Fin<MonotonicStamp> Admit(MonotonicStamp stamp, Op key) =>
         from active in key.Need(value: stamp)
-        from owned in guard(active.IsValid && active.BelongsTo(timeline: this), key.InvalidInput()).ToFin()
+        from owned in guard(active.IsValid && active.BelongsTo(timeline: this), key.InvalidInput())
         select active;
 
     private Fin<MonotonicBeat> Admit(MonotonicBeat beat, Op key) =>
         from active in key.Need(value: beat)
-        from valid in guard(active.IsValid, key.InvalidInput()).ToFin()
+        from valid in guard(active.IsValid, key.InvalidInput())
         from origin in Admit(stamp: active.Origin, key: key)
         from stamp in Admit(stamp: active.Stamp, key: key)
         select active;

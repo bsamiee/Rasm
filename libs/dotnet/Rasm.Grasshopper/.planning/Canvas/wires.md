@@ -63,7 +63,7 @@ public static class RouteStyle {
                        Clause(!candidate.IsAbstract && !candidate.ContainsGenericParameters, "a closed concrete type", op),
                        Clause(candidate.GetConstructor([typeof(PointF), typeof(PointF)]) is not null, "a public (PointF, PointF) constructor", op))
                    .Apply(static (_, _, _) => unit).As().ToFin()
-               from free in guard(WireShape.ShapeType is null, op.InvalidContext()).ToFin()
+               from free in guard(WireShape.ShapeType is null, op.InvalidContext())
                from seated in op.Catch(() => {
                    WireShape.ShapeType = candidate;
                    return Fin.Succ((Lease<Mounted<Unit>>)new Lease<Mounted<Unit>>.Owned(Value: new Mounted<Unit>(

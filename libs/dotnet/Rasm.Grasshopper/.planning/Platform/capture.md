@@ -585,7 +585,7 @@ public static class PaintProof {
                from rows in op.Need(journal).Map(static export => export.Rows)
                from clock in op.Need(timeline)
                from rate in op.Finite(value: (double)pace)
-               from positive in guard(rate > 0.0, op.InvalidInput()).ToFin()
+               from positive in guard(rate > 0.0, op.InvalidInput())
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
                from ties in rows.TraverseM(row => row.Fact.Fact switch {
                    GhFact.CanvasCase { Signal: var signal } when signal == CanvasSignal.Draw =>

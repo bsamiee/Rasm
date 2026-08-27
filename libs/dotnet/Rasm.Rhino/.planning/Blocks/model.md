@@ -363,7 +363,7 @@ public sealed partial record BlockSnapshot(
                            .As())
                        .As()
                        .ToFin()
-                   from _ in guard(projected.Count == active.ObjectCount, key.InvalidResult()).ToFin()
+                   from _ in guard(projected.Count == active.ObjectCount, key.InvalidResult())
                    let memberIds = projected.Map(static member => member.Id)
                    let crc = projected.Fold(0u, static (chain, member) =>
                        member.Geometry.DataCRC(currentRemainder: chain))

@@ -520,7 +520,7 @@ public abstract partial record LightSelect {
         Error failure) =>
         from slot in ResourceIndex.Maybe(value: index).ToFin(Fail: failure)
         from native in Optional(document.Lights.FindIndex(slot.Value)).ToFin(Fail: failure)
-        from _ in guard(state(native), failure).ToFin()
+        from _ in guard(state(native), failure)
         select (slot, native);
 
     private static Fin<Seq<(ResourceIndex Index, LightObject Native)>> Row(RhinoDoc document, int index, Op key) =>
@@ -549,7 +549,7 @@ public abstract partial record LightOp {
                 select (LightOp)new Mint(Seed: seed, Name: name),
             amend: static (key, work) =>
                 from address in key.Need(work.Select)
-                from _ in guard(!work.Edits.IsEmpty, key.InvalidInput()).ToFin()
+                from _ in guard(!work.Edits.IsEmpty, key.InvalidInput())
                 from edits in work.Edits.TraverseM(edit => key.Need(edit)
                     .Bind(value => value.Admit(op: key))).As()
                 select (LightOp)new Amend(Select: address, Edits: edits),
@@ -624,7 +624,7 @@ public readonly record struct PhotometricPower(
 public readonly record struct PhotometricWebRef(ArtifactContent Artifact, Wire.WebDialect Dialect) {
     internal Fin<PhotometricWebRef> Admit(Op op) =>
         from artifact in op.Need(Artifact)
-        from _ in guard(Dialect != Wire.WebDialect.Unspecified, op.InvalidInput()).ToFin()
+        from _ in guard(Dialect != Wire.WebDialect.Unspecified, op.InvalidInput())
         select this with { Artifact = artifact };
 }
 
@@ -640,7 +640,7 @@ public readonly record struct SceneShading(
             fidelity.TriangleBudget > 0UL && TriangleCount <= fidelity.TriangleBudget
             && double.IsFinite(fidelity.DeflectionM) && fidelity.DeflectionM > 0d
             && double.IsFinite(fidelity.AngleToleranceRad) && fidelity.AngleToleranceRad > 0d,
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         select this with { Artifact = artifact, Fidelity = fidelity.Clone() };
 }
 
@@ -682,7 +682,7 @@ public sealed record ScenePhotometry(
             && (power.RadiantFluxIsAuthority
                 ? double.IsFinite(power.Watts) && power.Watts > 0d
                 : double.IsFinite(power.Scale) && power.Scale >= 0d),
-            key.InvalidInput()).ToFin()
+            key.InvalidInput())
         from direction in SceneMap.Direction(value: active.Direction, key: key)
         from perpendicular in SceneMap.Direction(value: active.PerpendicularDirection, key: key)
         from extent in active.Area.Traverse(area => area.Scaled(scale: scale, op: key)).As()
@@ -718,7 +718,7 @@ public sealed record SceneCapture(
         from band in op.Need(sun)
         from _ in guard(
             double.IsFinite(band.IntensityScale) && band.IntensityScale >= 0d,
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         from artifact in op.Need(shading).Bind(value => value.Admit(op: op))
         from regime in op.Need(unit)
         let source = regime.Name.IfNone(() => regime.System.ToString())
@@ -751,7 +751,7 @@ public static class Lights {
         return from policy in op.Need(redraw)
                from requested in LanguageExt.Iterable<LightOp>.FromSpan(operations).ToSeq()
                    .TraverseM(work => op.Need(work)).As()
-               from _ in guard(!requested.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!requested.IsEmpty, op.InvalidInput())
                from plan in requested.TraverseM(work => work.Admit(op: op)).As()
                from _ in ObjectSpine.Commit(
                    session: session,

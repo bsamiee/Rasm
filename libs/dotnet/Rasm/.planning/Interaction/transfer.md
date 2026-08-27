@@ -119,7 +119,7 @@ public abstract partial record PayloadSlot : IDisposable {
 
     public static Fin<PayloadSlot> Box(Mime key, object value, Op op) =>
         from held in op.Need(value: value)
-        from owned in guard(held is not IDisposable, op.InvalidInput()).ToFin()
+        from owned in guard(held is not IDisposable, op.InvalidInput())
         select (PayloadSlot)new Boxed(Key: key, Carried: held.GetType(), Value: held);
 
     public PayloadShape Shape { get; }

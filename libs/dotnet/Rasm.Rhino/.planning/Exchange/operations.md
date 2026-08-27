@@ -814,7 +814,7 @@ public abstract partial record DocumentWritePolicy {
                from _backup in guard(
                    !held.Admits(capability: WriteContent.AuxiliaryBackup)
                    || held.Admits(capability: WriteContent.PrimaryBackup),
-                   new KernelFault.InvalidValue(nameof(WriteContent.AuxiliaryBackup), string.Join(" | ", new object?[] { op, "auxiliary backups only beside primary backups" }))).ToFin()
+                   new KernelFault.InvalidValue(nameof(WriteContent.AuxiliaryBackup), string.Join(" | ", new object?[] { op, "auxiliary backups only beside primary backups" })))
                from admitted in WriteContent.Law.Admit(held: held)
                select admitted;
     }
@@ -849,7 +849,7 @@ public abstract partial record DocumentWritePolicy {
                 from archived in Archived(op: ctx.Op)
                 from _extension in guard(
                     archived.EnsureExtension(path: ctx.Path) == ctx.Path,
-                    new KernelFault.InvalidValue(nameof(TemplateCase), string.Join(" | ", new object?[] { ctx.Op, "a `.3dm` template destination" }))).ToFin()
+                    new KernelFault.InvalidValue(nameof(TemplateCase), string.Join(" | ", new object?[] { ctx.Op, "a `.3dm` template destination" })))
                 from written in ctx.Op.Catch(() => policy.Version.Match(
                     Some: version => ctx.Op.Confirm(success: ctx.Document.SaveAsTemplate(
                         file3dmTemplatePath: ctx.Path, version: version.Value)),

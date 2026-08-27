@@ -216,7 +216,7 @@ public abstract record RosterMove<TGrow, TCut> {
             ? Fin.Succ(value: value)
             : Fin.Fail<T>(error: key.InvalidInput())).As()
         let admitted = roster.Distinct()
-        from _ in guard(admitted.Count >= floor, key.InvalidInput()).ToFin()
+        from _ in guard(admitted.Count >= floor, key.InvalidInput())
         select admitted;
 }
 
@@ -394,7 +394,7 @@ public abstract partial record AttributeEdit {
             identity: static (key, edit) =>
                 from name in edit.Name.Traverse(text => key.AcceptText(value: text)).As()
                 from url in edit.Url.Traverse(text => key.AcceptText(value: text)).As()
-                from _ in guard(name.IsSome || url.IsSome, key.InvalidInput()).ToFin()
+                from _ in guard(name.IsSome || url.IsSome, key.InvalidInput())
                 select (AttributeEdit)new Identity(Name: name, Url: url),
             layer: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             paint: static (key, edit) => key.Need(edit.Source)
@@ -408,7 +408,7 @@ public abstract partial record AttributeEdit {
                 from admitted in SourceValue(source.FromObject, edit.Index, edit, key)
                 from _ in guard(edit.PatternScale
                     .Map(static value => double.IsFinite(value) && value > 0.0)
-                    .IfNone(noneValue: true), key.InvalidInput()).ToFin()
+                    .IfNone(noneValue: true), key.InvalidInput())
                 select admitted,
             customLine: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             materialBind: static (key, edit) => key.Need(edit.Source)
@@ -467,7 +467,7 @@ public abstract partial record AttributeEdit {
                 .Map(static move => (AttributeEdit)new Decals(Move: move)),
             tag: static (key, edit) =>
                 from operation in key.Need(edit.Operation)
-                from _ in guard(operation.Mutates, key.InvalidInput()).ToFin()
+                from _ in guard(operation.Mutates, key.InvalidInput())
                 select (AttributeEdit)edit,
             faceMaterials: static (key, edit) => key.Need(edit.Move)
                 .Bind(move => move.Admit(grow: static seed => seed is not null, cut: static plugin => plugin != Guid.Empty, key: key))
@@ -664,7 +664,7 @@ public sealed class AttributeProgram {
         Op op = Op.Of(name: nameof(AttributeProgram));
         return from admitted in LanguageExt.Iterable<AttributeEdit>.FromSpan(edits).ToSeq()
                    .TraverseM(edit => op.Need(edit).Bind(value => value.Admit(op: op))).As()
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                select new AttributeProgram(edits: admitted);
     }
 

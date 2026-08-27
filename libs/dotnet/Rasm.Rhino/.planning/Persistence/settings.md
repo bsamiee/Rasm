@@ -733,8 +733,8 @@ public static class SettingStore {
             .Map(row => op.AcceptValidated<SettingKey>(row.Value))
             .Traverse(static value => value)
             .As()
-        from _distinct in guard(rows.Distinct().Count() == rows.Count, op.InvalidInput()).ToFin()
-        from _self in guard(!rows.Exists(row => row == key), op.InvalidInput()).ToFin()
+        from _distinct in guard(rows.Distinct().Count() == rows.Count, op.InvalidInput())
+        from _self in guard(!rows.Exists(row => row == key), op.InvalidInput())
         select rows;
 
     private static Fin<SavedSettingsRoot> Admit(SavedSettingsRoot source, Op op) => source.Switch<Op, Fin<SavedSettingsRoot>>(
@@ -755,7 +755,7 @@ public static class SettingStore {
         op.Need(source).Bind(value => op.Catch(() =>
             from kind in op.Need(value.Kind)
             from hostType in op.Need(value.HostType)
-            from _shape in guard(kind.Accepts(hostType), op.InvalidInput()).ToFin()
+            from _shape in guard(kind.Accepts(hostType), op.InvalidInput())
             select value));
 
     private static Fin<SettingOperation> At<T>(
@@ -932,7 +932,7 @@ public static class SettingStore {
         from after in Visibility(node, op)
         from _proof in guard(
             after == request.Visibility,
-            op.InvalidResult(detail: "Settings node visibility postcondition failed.")).ToFin()
+            op.InvalidResult(detail: "Settings node visibility postcondition failed."))
         select (SettingAnswer)new SettingAnswer.NodeCase(new NodeMutation(request.Path, None, before, after));
 
     private static Fin<SettingsVisibility> Visibility(PersistentSettings node, Op op) =>

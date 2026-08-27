@@ -477,7 +477,7 @@ public static class MaterialAsk {
         from owners in Optional(attributes).ToFin(Fail: key.InvalidResult())
             .Map(static values => toSeq(values).Map(static value => value.ObjectId).Strict())
         from pieces in ObjectPiece.Paired(geometry: meshes, attributes: attributes, key: key)
-        from _ in guard(pieces.Count == owners.Count, key.InvalidResult()).ToFin()
+        from _ in guard(pieces.Count == owners.Count, key.InvalidResult())
         select pieces.Map((piece, index) => (owners[index], piece)).Strict();
 }
 ```

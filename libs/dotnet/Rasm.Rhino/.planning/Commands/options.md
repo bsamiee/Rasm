@@ -281,7 +281,7 @@ public sealed class TypedEnumBinding<TEnum> : IEnumBinding where TEnum : struct,
                    key.InvalidInput(axis: nameof(selection))).ToFin()
                from named in rows.TraverseM(value => Named(value, key)).As()
                from seated in Named(current, key)
-               from __ in guard(named.Exists(row => row.Value.Equals(seated.Value)), key.InvalidInput()).ToFin()
+               from __ in guard(named.Exists(row => row.Value.Equals(seated.Value)), key.InvalidInput())
                select (IEnumBinding)new TypedEnumBinding<TEnum>(selection: selection, current: seated);
     }
 
@@ -311,7 +311,7 @@ public sealed class TypedEnumBinding<TEnum> : IEnumBinding where TEnum : struct,
 
     private Fin<IEnumBinding> Seated(TEnum value, Op key) =>
         from named in Named(value, key)
-        from _ in guard(Roster.Exists(item => item.Equals(named.Value)), key.InvalidInput()).ToFin()
+        from _ in guard(Roster.Exists(item => item.Equals(named.Value)), key.InvalidInput())
         select (IEnumBinding)new TypedEnumBinding<TEnum>(selection: selection, current: named);
 
     private static Fin<(TEnum Value, string Name)> Named(TEnum value, Op key) =>

@@ -299,7 +299,7 @@ public abstract partial record PdfMark {
                 && mark.Across is not null
                 && mark.Down is not null
                 && mark.Stroke.ForAll(static stroke => stroke.Color is not null && stroke.Width is not null),
-                ctx.Op.InvalidInput()).ToFin()
+                ctx.Op.InvalidInput())
             select (PdfMark)mark,
         lineCase: static (ctx, mark) => guard(
             mark.From.IsValid && mark.To.IsValid && mark.Stroke is not null,
@@ -316,7 +316,7 @@ public abstract partial record PdfMark {
                 ctx.Op.InvalidInput()).ToFin()
             from _bytes in guard(
                 mark.Image.Value.Length <= ctx.Images.EncodedBytes.Value,
-                ctx.Op.InvalidInput()).ToFin()
+                ctx.Op.InvalidInput())
             from _decoded in ctx.Op.Catch(() => {
                 using System.IO.MemoryStream stream = new(buffer: mark.Image.Value.ToArray(), writable: false);
                 using System.Drawing.Bitmap decoded = new(stream: stream);
@@ -495,7 +495,7 @@ public abstract partial record CaptureFrame {
         Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in CaptureDpi.Of(value: dpi, key: op)
-               from _pixels in guard(pixels.IsValid, op.InvalidInput()).ToFin()
+               from _pixels in guard(pixels.IsValid, op.InvalidInput())
                select (CaptureFrame)new TransparentCase(
                    DotsPerInch: admitted, Extent: pixels, Facade: facade, RealtimePasses: realtimePasses);
     }
@@ -558,7 +558,7 @@ public abstract partial record PageSource {
                 .Traverse(name => key.AcceptText(value: name).ToValidation())
                 .As()
                 .ToFin()
-            from _count in guard(!names.IsEmpty, key.InvalidInput()).ToFin()
+            from _count in guard(!names.IsEmpty, key.InvalidInput())
             select (PageSource)new NamedCase(Names: names),
         viewportCase: static (key, source) => Optional(source.Target)
             .ToFin(Fail: key.InvalidInput())
@@ -739,7 +739,7 @@ public sealed record PdfPolicy(
 
     internal Fin<PdfPolicy> Admit(Op op) =>
         from images in op.Need(Images)
-        from _custom in guard(CustomPages.ForAll(static page => page is not null), op.InvalidInput()).ToFin()
+        from _custom in guard(CustomPages.ForAll(static page => page is not null), op.InvalidInput())
         from _marks in (PageMarks + FinalMarks)
             .TraverseM(mark => op.Need(mark)
                 .Bind(candidate => candidate.Admit(images: images, op: op)))
@@ -839,7 +839,7 @@ public static class Publishing {
                        .Map(static resolved => new ResolvedPages(Pages: resolved)),
                    key: op,
                    needs: [SessionNeed.Read, SessionNeed.Export])
-               from _count in guard(!pages.Pages.IsEmpty, op.InvalidInput()).ToFin()
+               from _count in guard(!pages.Pages.IsEmpty, op.InvalidInput())
                from _published in publication.Target.Switch(
                    (Session: active, Timeline: clock, Request: publication, Pages: pages.Pages, Op: op),
                    pdfCase: static (ctx, target) => Pdf(session: ctx.Session, request: ctx.Request, target: target, pages: ctx.Pages, op: ctx.Op),

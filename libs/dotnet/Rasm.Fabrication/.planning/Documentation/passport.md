@@ -262,7 +262,7 @@ public sealed record RecordAttestation(
                        payload.Span,
                        Signature.Span,
                        HashAlgorithmName.SHA384,
-                       DSASignatureFormat.Rfc3279DerSequence), QualityEvidence.Refused(RecordRefusal.Signature)).ToFin()
+                       DSASignatureFormat.Rfc3279DerSequence), QualityEvidence.Refused(RecordRefusal.Signature))
                    select unit;
         })
         select verified;

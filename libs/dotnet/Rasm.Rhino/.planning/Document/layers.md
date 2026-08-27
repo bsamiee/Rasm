@@ -149,11 +149,11 @@ public abstract partial record LayerRef {
                         ignoreDeletedLayers: !context.Liveness.Key),
                     key: context.Op))
                 from row in Optional(context.Document.Layers.FindIndex(index: index.Value)).ToFin(Fail: context.Op.MissingContext())
-                from admitted in guard(context.Liveness.Admits(row: row), context.Op.MissingContext()).ToFin()
+                from admitted in guard(context.Liveness.Admits(row: row), context.Op.MissingContext())
                 select row,
             indexCase: static (context, address) =>
                 from row in Optional(context.Document.Layers.FindIndex(index: address.Value.Value)).ToFin(Fail: context.Op.MissingContext())
-                from admitted in guard(context.Liveness.Admits(row: row), context.Op.MissingContext()).ToFin()
+                from admitted in guard(context.Liveness.Admits(row: row), context.Op.MissingContext())
                 select row,
             pathCase: static (context, address) =>
                 from index in context.Op.Catch(() => ResourceIndex.Admit(
@@ -162,7 +162,7 @@ public abstract partial record LayerRef {
                         notFoundReturnValue: NoLayer),
                     key: context.Op))
                 from row in Optional(context.Document.Layers.FindIndex(index: index.Value)).ToFin(Fail: context.Op.MissingContext())
-                from admitted in guard(Liveness.ActiveOnly.Admits(row: row), context.Op.MissingContext()).ToFin()
+                from admitted in guard(Liveness.ActiveOnly.Admits(row: row), context.Op.MissingContext())
                 select row,
             currentCase: static (context, _) => Optional(context.Document.Layers.CurrentLayer)
                 .Filter(static row => !row.IsDeleted)
@@ -751,7 +751,7 @@ public abstract partial record LayerArrangement {
     public static Fin<LayerArrangement> Explicit(params ReadOnlySpan<LayerRef> order) {
         Op op = Op.Of();
         return from values in Admission.All(values: order, key: op)
-               from _ in guard(!values.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!values.IsEmpty, op.InvalidInput())
                select (LayerArrangement)new ExplicitCase(Order: values);
     }
 
@@ -770,8 +770,8 @@ public abstract partial record LayerArrangement {
                     .As()
                     .ToFin()
                 let unique = indices.Distinct()
-                from _unique in guard(unique.Count == indices.Count, context.Op.InvalidInput()).ToFin()
-                from _complete in guard(unique.Count == context.Document.Layers.ActiveCount, context.Op.InvalidInput()).ToFin()
+                from _unique in guard(unique.Count == indices.Count, context.Op.InvalidInput())
+                from _complete in guard(unique.Count == context.Document.Layers.ActiveCount, context.Op.InvalidInput())
                 from _ in context.Op.Catch(() => {
                     context.Document.Layers.Sort(layerIndices: unique.AsIterable());
                     return Fin.Succ(value: unit);
@@ -810,7 +810,7 @@ public abstract partial record LayerOp {
         Op op = Op.Of();
         return from address in op.Need(target)
                from admitted in Admission.All(values: edits, key: op)
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                select (LayerOp)new AmendCase(Target: address, Edits: admitted);
     }
 
@@ -821,7 +821,7 @@ public abstract partial record LayerOp {
         Op op = key.OrDefault();
         return from origin in op.Need(source)
                from destination in op.Need(target)
-               from _ in guard(origin != destination, op.InvalidInput()).ToFin()
+               from _ in guard(origin != destination, op.InvalidInput())
                select (LayerOp)new MergeCase(Source: origin, Target: destination);
     }
 
@@ -889,14 +889,14 @@ public abstract partial record LayerOp {
                         state.Parent.IfSome(id => minted.ParentLayerId = id);
                         return Fin.Succ(value: state.Document.Layers.Add(layer: minted));
                     }))
-                from _ in guard(index >= 0, context.Op.InvalidResult()).ToFin()
+                from _ in guard(index >= 0, context.Op.InvalidResult())
                 from _edited in Amended(document: context.Document, index: index, edits: edit.Edits, op: context.Op)
                 select unit,
             graftCase: static (context, edit) =>
                 from index in context.Op.Catch(() => Fin.Succ(value: edit.Color.Match(
                     Some: color => context.Document.Layers.AddPath(layerPath: edit.Path.Value, layerColor: color),
                     None: () => context.Document.Layers.AddPath(layerPath: edit.Path.Value))))
-                from _ in guard(index >= 0, context.Op.InvalidResult()).ToFin()
+                from _ in guard(index >= 0, context.Op.InvalidResult())
                 from _stamped in Stamped(document: context.Document, index: index, op: context.Op)
                 select unit,
             amendCase: static (context, edit) =>
@@ -910,7 +910,7 @@ public abstract partial record LayerOp {
                     .As()
                 from acyclic in guard(
                     parent.Map(candidate => candidate.Id != target.Id && !candidate.IsChildOf(otherlayerId: target.Id)).IfNone(noneValue: true),
-                    context.Op.InvalidInput()).ToFin()
+                    context.Op.InvalidInput())
                 from _written in Staged(
                     document: context.Document,
                     index: target.LayerIndex,
@@ -923,7 +923,7 @@ public abstract partial record LayerOp {
             mergeCase: static (context, edit) =>
                 from source in edit.Source.Resolve(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
                 from target in edit.Target.Resolve(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
-                from distinct in guard(source.Id != target.Id, context.Op.InvalidInput()).ToFin()
+                from distinct in guard(source.Id != target.Id, context.Op.InvalidInput())
                 from _merged in Merged(
                     document: context.Document,
                     sourceIndex: source.LayerIndex,
@@ -936,7 +936,7 @@ public abstract partial record LayerOp {
                     layerIndex: index.Value,
                     duplicateObjects: edit.Scope.Objects,
                     duplicateSublayers: edit.Scope.Sublayers))))
-                from _ in guard(!minted.IsEmpty, context.Op.InvalidResult()).ToFin()
+                from _ in guard(!minted.IsEmpty, context.Op.InvalidResult())
                 from _stamped in minted
                     .Traverse(row => Stamped(document: context.Document, index: row, op: context.Op).ToValidation())
                     .As()
@@ -1084,7 +1084,7 @@ public sealed record LayerDelta {
     public static Fin<LayerDelta> Of(RedrawPolicy redraw, Option<string> recordName = default, params ReadOnlySpan<LayerOp> operations) {
         Op op = Op.Of();
         return from admitted in Admission.All(values: operations, key: op)
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                select new LayerDelta(Operations: admitted, RecordName: recordName, Redraw: redraw);
     }
 }

@@ -162,7 +162,7 @@ internal sealed partial class TargetReach {
 
     internal Fin<ViewportTarget> Admit(ViewportTarget target, Op key) =>
         from held in key.Need(value: target)
-        from _reach in guard(Admits(target: held), key.InvalidInput()).ToFin()
+        from _reach in guard(Admits(target: held), key.InvalidInput())
         select held;
 }
 
@@ -183,14 +183,14 @@ public abstract partial record CaptureSubject {
     public static Fin<CaptureSubject> Page(ViewportTarget target, CaptureDpi dpi, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(value: target)
-               from _page in guard(valid is ViewportTarget.PageCase, op.InvalidInput()).ToFin()
+               from _page in guard(valid is ViewportTarget.PageCase, op.InvalidInput())
                select (CaptureSubject)new PageCase(Target: valid, Dpi: dpi);
     }
 
     public static Fin<CaptureSubject> Preview(CaptureSubject source, Size2i pixels, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(value: source)
-               from _source in guard(valid is ViewCase or PageCase, op.InvalidInput()).ToFin()
+               from _source in guard(valid is ViewCase or PageCase, op.InvalidInput())
                select (CaptureSubject)new PreviewCase(Source: valid, Pixels: pixels);
     }
 
@@ -752,7 +752,7 @@ public sealed record TransparentCaptureSpec(
         Op op = key.OrDefault();
         return from address in TargetReach.View.Admit(target: target, key: op)
                from held in CaptureSurface.Transparent.Admit(held: features, key: op)
-               from _passes in guard(realtimePasses.ForAll(static passes => passes.Value >= 1), op.InvalidInput()).ToFin()
+               from _passes in guard(realtimePasses.ForAll(static passes => passes.Value >= 1), op.InvalidInput())
                select new TransparentCaptureSpec(
                    Target: address,
                    Extent: extent,
@@ -1055,7 +1055,7 @@ public sealed record FrameSequenceSpec(
         Op? key = null) {
         Op op = key.OrDefault();
         return from motion in op.Need(value: kind)
-               from _frames in guard(frames.Value >= 1, op.InvalidInput()).ToFin()
+               from _frames in guard(frames.Value >= 1, op.InvalidInput())
                from address in TargetReach.Row.Admit(target: target, key: op)
                select new FrameSequenceSpec(
                    Kind: motion,
@@ -1259,7 +1259,7 @@ internal sealed class PreparedCapture : IDisposable {
 
     internal Fin<TOut> Use<TOut>(Func<Seq<ViewCaptureSettings>, Fin<TOut>> body, Op key) =>
         from consumer in key.Need(value: body)
-        from _live in guard(gate.Value is PrepareGate.Live, key.InvalidContext()).ToFin()
+        from _live in guard(gate.Value is PrepareGate.Live, key.InvalidContext())
         from output in key.Catch(() => consumer(rows))
         select output;
 
@@ -1326,7 +1326,7 @@ public static class Captures {
         Seq<CapturePlan> requested = toSeq(plans.ToArray()).Strict();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
                from body in op.Need(value: consume)
-               from _rows in guard(!requested.IsEmpty, op.InvalidInput()).ToFin()
+               from _rows in guard(!requested.IsEmpty, op.InvalidInput())
                from output in UiThread.Run(
                    new UiDispatch<TOut>.Blocking(() => owner.Demand(
                        use: document => Prepared(document: document, plans: requested, body: body, key: op),

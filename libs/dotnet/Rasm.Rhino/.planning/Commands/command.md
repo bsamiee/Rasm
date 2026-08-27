@@ -76,7 +76,7 @@ public sealed class HistoryOwner {
     public static Fin<HistoryOwner> Of(Command owner, Op? key = null) {
         Op op = key.OrDefault(name: nameof(HistoryOwner));
         return from admitted in op.Need(owner)
-               from _ in guard(admitted.Id != Guid.Empty, op.InvalidInput(axis: nameof(Id))).ToFin()
+               from _ in guard(admitted.Id != Guid.Empty, op.InvalidInput(axis: nameof(Id)))
                select new HistoryOwner(owner: admitted, id: admitted.Id);
     }
 

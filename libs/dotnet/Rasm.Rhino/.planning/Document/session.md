@@ -520,12 +520,12 @@ public sealed record WorksessionOp {
     private static Fin<WorksessionOp> Scriptable(DocumentPath model, Seq<WorksessionVerb> verbs) {
         Op op = Op.Of();
         return from admitted in guard(model != default, op.InvalidInput()).ToFin()
-               from safe in guard(model.Value.IndexOfAny(['\r', '\n', '"']) < 0, op.InvalidInput()).ToFin()
+               from safe in guard(model.Value.IndexOfAny(['\r', '\n', '"']) < 0, op.InvalidInput())
                from program in verbs
                    .Traverse(verb => op.Need(verb).ToValidation())
                    .As()
                    .ToFin()
-               from nonempty in guard(!program.IsEmpty, op.InvalidInput()).ToFin()
+               from nonempty in guard(!program.IsEmpty, op.InvalidInput())
                select new WorksessionOp(model: model, verbs: program.Strict());
     }
 }
@@ -576,11 +576,11 @@ public static class SessionWorksession {
 
     private static Fin<Unit> Apply(RhinoDoc document, DocumentPath model, WorksessionVerb verb, Op op) =>
         from current in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-        from admitted in guard(current.Member(path: model) == verb.Shift.Before, op.InvalidInput()).ToFin()
+        from admitted in guard(current.Member(path: model) == verb.Shift.Before, op.InvalidInput())
         from landed in (
             from run in Run(document: document, model: model, verb: verb, op: op)
             from proof in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-            from exact in guard(proof.Member(path: model) == verb.Shift.After, op.InvalidResult()).ToFin()
+            from exact in guard(proof.Member(path: model) == verb.Shift.After, op.InvalidResult())
             select unit)
             .Rollback(() => Restore(document: document, model: model, completed: Seq(verb), op: op))
         select unit;
@@ -598,7 +598,7 @@ public static class SessionWorksession {
                         : from admitted in guard(current.Member(path: model) == inverse.Shift.Before, op.InvalidResult()).ToFin()
                           from run in Run(document: document, model: model, verb: inverse, op: op)
                           from proof in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
-                          from landed in guard(proof.Member(path: model) == inverse.Shift.After, op.InvalidResult()).ToFin()
+                          from landed in guard(proof.Member(path: model) == inverse.Shift.After, op.InvalidResult())
                           select unit
                     select restored).ToValidation();
         })
@@ -782,7 +782,7 @@ public readonly partial struct DocumentPath : IDetachedDocumentResult {
 
     internal Fin<string> Resolve(DocumentFile file, Op key) =>
         from policy in key.Need(file)
-        from pathAdmitted in guard(flag: policy.Admits(path: Value), False: key.InvalidInput()).ToFin()
+        from pathAdmitted in guard(flag: policy.Admits(path: Value), False: key.InvalidInput())
         select Value;
 }
 
@@ -1074,9 +1074,9 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         SessionMode mode,
         Op op) =>
         from demanded in Admission.All(values: needs, key: op)
-        from nonempty in guard(flag: !demanded.IsEmpty, False: op.InvalidInput()).ToFin()
+        from nonempty in guard(flag: !demanded.IsEmpty, False: op.InvalidInput())
         let distinct = toHashSet(demanded)
-        from unique in guard(flag: distinct.Count == demanded.Count, False: op.InvalidInput()).ToFin()
+        from unique in guard(flag: distinct.Count == demanded.Count, False: op.InvalidInput())
         from modeAdmitted in distinct.AsIterable()
             .Traverse(need => need.AdmitsMode(mode: mode)
                 ? Validation<Error, SessionNeed>.Success(need)
@@ -1104,7 +1104,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
             from laneAdmitted in guard(
                 flag: snapshot.Conditions.Admits(capability: SessionCondition.Headless)
                     != lane.Capabilities().Admits(capability: LaneCapability.Live),
-                False: op.InvalidInput()).ToFin()
+                False: op.InvalidInput())
             from capabilities in granted.AsIterable()
                 .Traverse(need => need.Admit(snapshot: snapshot, mode: lane, op: op))
                 .As()
@@ -1497,7 +1497,7 @@ public static class SessionRegimes {
                                from after in (
                                    from observed in admission.Axis.Read(document: document, op: op)
                                    from matches in admission.Request.Matches(actual: observed, op: op)
-                                   from exact in guard(flag: matches, False: op.InvalidResult()).ToFin()
+                                   from exact in guard(flag: matches, False: op.InvalidResult())
                                    select observed).Rollback(() => admission.Request.Restore(
                                    document: document,
                                    space: admission.Axis,
@@ -1670,7 +1670,7 @@ public abstract partial record UnitText : IDetachedDocumentResult {
                        flag: parsedAll && !parsed.IsUnset(),
                        False: context.Op.InvalidInput()).ToFin()
                    from value in context.Op.Catch(() => Fin.Succ(value: parsed.Length(units: context.Regime.Native)))
-                   from finite in guard(flag: double.IsFinite(value), False: context.Op.InvalidResult()).ToFin()
+                   from finite in guard(flag: double.IsFinite(value), False: context.Op.InvalidResult())
                    select (UnitText)new LengthValueCase(
                        value: value,
                        unit: context.Regime.Unit,
@@ -1681,7 +1681,7 @@ public abstract partial record UnitText : IDetachedDocumentResult {
         lengthValueCase: static (context, value) =>
             from scale in value.Unit.ScaleTo(target: context.Regime.Unit, key: context.Op)
             let converted = value.Value * scale
-            from finite in guard(flag: double.IsFinite(converted), False: context.Op.InvalidResult()).ToFin()
+            from finite in guard(flag: double.IsFinite(converted), False: context.Op.InvalidResult())
             from rendered in context.Op.Catch(() => {
                 using LengthValue formatted = LengthValue.Create(
                     length: converted,

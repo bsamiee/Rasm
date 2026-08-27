@@ -442,10 +442,12 @@ internal static class DenseOutput {
     private static Fin<(double[] Correction, LinearSolution Solve)> BasisColumn(ButcherTableau tableau, double[] design, int stages, int order, int moment, Op key) {
         double[] unit = new double[order];
         unit[moment] = 1.0;
-        return MomentPreimage(tableau: tableau, stages: stages, order: order, rhs: new Arr<double>(unit), key: key).Bind(preimage =>
-            Matrix.Of(rows: Dimension.Create(value: stages), cols: Dimension.Create(value: order), entries: new Arr<double>(design), key: key)
-                .Bind(matrix => matrix.LeastSquaresDetailed(rhs: preimage, key: key))
-                .Map(solved => (Correction: DesignProduct(design: design, solution: solved.Solution, stages: stages, order: order), Solve: solved)));
+        return from preimage in MomentPreimage(tableau: tableau, stages: stages, order: order, rhs: new Arr<double>(unit), key: key)
+               from rows in key.AcceptValidated<Dimension>(stages)
+               from cols in key.AcceptValidated<Dimension>(order)
+               from matrix in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>(design), key: key)
+               from solved in matrix.LeastSquaresDetailed(rhs: preimage, key: key)
+               select (Correction: DesignProduct(design: design, solution: solved.Solution, stages: stages, order: order), Solve: solved);
     }
 
     private static double[] DesignProduct(double[] design, Arr<double> solution, int stages, int order) {
@@ -470,7 +472,8 @@ internal static class DenseOutput {
             double raised = 1.0;
             for (int row = 0; row < order; row++) { vandermonde[(row * order) + col] = raised; raised *= tableau.Abscissae[anchors[col]]; }
         }
-        return Matrix.Of(rows: Dimension.Create(value: order), cols: Dimension.Create(value: order), entries: new Arr<double>(vandermonde), key: key)
+        return key.AcceptValidated<Dimension>(order).Bind(dim =>
+            Matrix.Of(rows: dim, cols: dim, entries: new Arr<double>(vandermonde), key: key))
             .Bind(matrix => matrix.SolveDetailed(rhs: rhs, key: key))
             .Map(solved => {
                 double[] preimage = new double[stages];

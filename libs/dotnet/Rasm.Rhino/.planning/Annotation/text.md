@@ -140,7 +140,7 @@ public sealed record LeaderPath {
     public static Fin<LeaderPath> Of(params ReadOnlySpan<Point3d> points) {
         Op op = Op.Of(name: nameof(LeaderPath));
         return from run in op.Accept(values: points)
-               from _ in guard(ValidityClaim.CountAtLeast(count: run.Count, floor: 2), op.InvalidInput()).ToFin()
+               from _ in guard(ValidityClaim.CountAtLeast(count: run.Count, floor: 2), op.InvalidInput())
                select new LeaderPath(points: run);
     }
 }
@@ -241,7 +241,7 @@ public abstract partial record RunEdit {
     public static Fin<RunEdit> Format(params ReadOnlySpan<RunFormat> changes) {
         Op op = Op.Of(name: nameof(RunEdit));
         return from admitted in op.Accept(values: changes)
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                select (RunEdit)new FormatCase(Changes: admitted);
     }
 
@@ -274,7 +274,7 @@ public static class TextRtf {
         Op op = Op.Of(name: nameof(TextRtf));
         return from source in op.AcceptText(value: rtf)
                from admitted in op.Accept(values: formats)
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                let delta = admitted.Fold(
                    (Decorations: HashMap<FaceDecoration, TextToggle>(), Face: Option<FaceDelta>.None),
                    static (state, format) => format.Switch(
@@ -443,7 +443,7 @@ public sealed record FieldExpr {
                let positional = admitted.FoldBack(
                    Seq<FormulaValue>(),
                    static (tail, value) => tail.IsEmpty && value.Kind == FormulaKind.Absent ? tail : value.Cons(tail))
-               from _ in guard(admittedKind.Accepts(positional), op.InvalidInput()).ToFin()
+               from _ in guard(admittedKind.Accepts(positional), op.InvalidInput())
                select new FieldExpr(kind: admittedKind, values: positional);
     }
 
@@ -464,7 +464,7 @@ public sealed record FieldProgram {
     public static Fin<FieldProgram> Of(params ReadOnlySpan<TextRun> runs) {
         Op op = Op.Of(name: nameof(FieldProgram));
         return from admitted in op.Accept(values: runs)
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                select new FieldProgram(runs: admitted);
     }
 
@@ -775,7 +775,7 @@ public abstract partial record TextOp {
     public static Fin<TextOp> Amend(TableTarget target, params ReadOnlySpan<RunEdit> edits) {
         Op op = Op.Of(name: nameof(TextOp));
         return from admitted in op.Accept(values: edits)
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                from source in op.Need(value: target)
                select (TextOp)new AmendCase(Target: source, Edits: admitted);
     }

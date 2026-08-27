@@ -141,7 +141,7 @@ public static class ArchiveIo {
                })
                from _sound in guard(
                    integrity.IsValid,
-                   op.InvalidResult(detail: "Binary archive writer reported an integrity fault.")).ToFin()
+                   op.InvalidResult(detail: "Binary archive writer reported an integrity fault."))
                select integrity;
     }
 
@@ -188,7 +188,7 @@ public static class ArchiveIo {
                })
                from _sound in guard(
                    captured.Integrity.IsValid,
-                   op.InvalidResult(detail: "Binary archive checksum or reader state is invalid.")).ToFin()
+                   op.InvalidResult(detail: "Binary archive checksum or reader state is invalid."))
                from payload in ArchiveMap.Detach(captured.Native, op)
                select new ArchiveEnvelope(payload, captured.Integrity);
     }
@@ -463,7 +463,7 @@ public static class Custody {
             .As()
             .ToFin()
         from _redraw in op.Need(program.Redraw)
-        from _nonEmpty in guard(!steps.IsEmpty, op.InvalidInput()).ToFin()
+        from _nonEmpty in guard(!steps.IsEmpty, op.InvalidInput())
         select program with { Steps = steps };
 
     private static Fin<CustodyQuery> Admit(CustodyQuery query, Op op) => query.Switch<Op, Fin<CustodyQuery>>(
@@ -536,7 +536,7 @@ public static class Custody {
         copyCase: static (op, copy) => op.Catch(() => UserData.Copy(copy.Source, copy.Destination)),
         moveCase: static (op, move) =>
             from id in op.Catch(() => Fin.Succ(value: UserData.MoveUserDataFrom(move.Source)))
-            from _present in guard(id != Guid.Empty, op.InvalidResult(detail: "User-data move found no transferable custody.")).ToFin()
+            from _present in guard(id != Guid.Empty, op.InvalidResult(detail: "User-data move found no transferable custody."))
             from _placed in op.Catch(() => UserData.MoveUserDataTo(move.Destination, id, move.Placement.Key))
             select unit,
         replaceCase: static (op, replace) => Open(replace.Target, op)
@@ -558,7 +558,7 @@ public static class Custody {
             from current in ArchiveMap.Detach(opened.Dictionary, op)
             from _proof in guard(
                 current.SameContent(payload),
-                op.InvalidResult(detail: "Shared user dictionary postcondition failed.")).ToFin()
+                op.InvalidResult(detail: "Shared user dictionary postcondition failed."))
             select unit)
             .Rollback(() => RestoreShared(opened, prior, op))
         select settled;

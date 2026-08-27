@@ -838,7 +838,7 @@ public static class PageMount {
             stacked: static (held, target) =>
                 from pages in held.Op.Need(target.Pages)
                 from plan in held.Page.StackedPlan.ToFin(Fail: held.Op.InvalidInput())
-                from _ in guard(flag: plan.Seat == target.Seat, False: held.Op.InvalidInput()).ToFin()
+                from _ in guard(flag: plan.Seat == target.Seat, False: held.Op.InvalidInput())
                 from leaf in held.Page.StackedLeaf.ToFin(Fail: held.Op.InvalidResult())
                 select new PageLanding(
                     Page: held.Page,

@@ -814,7 +814,7 @@ public static class GripRig {
         return from factory in op.Need(mint)
                from _ in guard(
                    typeof(TGrips).IsDefined(typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false),
-                   op.InvalidInput()).ToFin()
+                   op.InvalidInput())
                from seat in op.Catch(() => {
                    CustomObjectGrips.RegisterGripsEnabler(
                        enabler: candidate => Enable(factory: factory, candidate: candidate),
@@ -887,7 +887,7 @@ public abstract partial record GripEdit {
             rig: static (key, edit) => key.Need(edit.Signal).Map(_ => (GripEdit)edit),
             move: static (key, edit) =>
                 from motion in key.Need(edit.Motion).Bind(value => value.Admit(op: key))
-                from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), key.InvalidInput()).ToFin()
+                from _ in guard(edit.Index.Map(static value => value >= 0).IfNone(noneValue: true), key.InvalidInput())
                 select (GripEdit)new Move(Index: edit.Index, Motion: motion));
 }
 
@@ -972,7 +972,7 @@ public static class Grips {
                                    },
                                    _ => Fin.Succ(value: roster),
                                }
-                               from _ in guard(!chosen.IsEmpty, ctx.Op.MissingContext()).ToFin()
+                               from _ in guard(!chosen.IsEmpty, ctx.Op.MissingContext())
                                from __ in chosen.TraverseM(grip => edit.Motion.Apply(grip: grip, op: ctx.Op)).As()
                                select ctx.Native.Id)).As()
                        select ids,

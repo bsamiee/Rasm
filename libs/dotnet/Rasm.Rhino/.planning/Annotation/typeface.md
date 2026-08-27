@@ -193,7 +193,7 @@ public abstract partial record FaceQuery {
                     .Find(row => string.Equals(row.QuartetName, query.Name.Value, StringComparison.OrdinalIgnoreCase))
                     .ToFin(Fail: op.MissingContext()))
                 from info in QuartetInfo.Of(quartet: family, key: op)
-                from _ in guard(info.Faces.Admits(capability: query.Face), op.MissingContext()).ToFin()
+                from _ in guard(info.Faces.Admits(capability: query.Face), op.MissingContext())
                 from font in op.Catch(() => Optional(Font.FromQuartetProperties(
                         quartetName: query.Name.Value, bold: query.Face.UsesBold, italic: query.Face.UsesItalic))
                     .ToFin(Fail: op.MissingContext()))
@@ -706,11 +706,11 @@ public abstract partial record SectionOp {
         Retire: static (document, indices, interaction, key) =>
             from _ in indices.TraverseM(index =>
                 from usage in SectionUsage.Read(document: document, index: index, key: key)
-                from __ in guard(!usage.Bound, key.InvalidInput()).ToFin()
+                from __ in guard(!usage.Bound, key.InvalidInput())
                 select unit).As()
             from removed in key.Catch(() => Fin.Succ(value: document.SectionStyles.Delete(
                 sectionStyleIndices: indices.AsIterable(), quiet: interaction.IsQuiet)))
-            from __ in guard(removed == indices.Count, key.InvalidResult()).ToFin()
+            from __ in guard(removed == indices.Count, key.InvalidResult())
             select unit,
         Elect: static (_, _, _, key) => Fin.Fail<Unit>(error: key.Unsupported(
             valueType: typeof(SectionStyle), outputType: typeof(Unit))));
@@ -723,7 +723,7 @@ public abstract partial record SectionOp {
             from existing in Optional(document.HatchPatterns.FindName(name: canonical.Name))
                 .TraverseM(held =>
                     from current in PatternDef.Read(pattern: held, key: op)
-                    from _ in guard(definition == current, op.InvalidInput()).ToFin()
+                    from _ in guard(definition == current, op.InvalidInput())
                     select ResourceIndex.Create(held.Index))
                 .As()
             select new PatternIntent(Source: source.Index, Pattern: canonical, Existing: existing);
@@ -804,7 +804,7 @@ public abstract partial record SectionOp {
         from ___ in Keyed(rows: styles, key: static row => row.Name, op: op)
         from ____ in guard(
             styles.ForAll(row => row.Style.HatchIndex < 0 || bySource.ContainsKey(row.Style.HatchIndex)),
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         select (patterns, styles));
 
     private static Fin<HashMap<TKey, TRow>> Keyed<TKey, TRow>(Seq<TRow> rows, Func<TRow, TKey> key, Op op) {

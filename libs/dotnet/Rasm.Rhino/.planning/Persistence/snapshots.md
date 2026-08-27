@@ -366,7 +366,7 @@ public sealed class ParticipantSpec {
                    .ToFin()
                from _lanes in guard(
                    document.IsSome || objects.IsSome || animation.IsSome,
-                   (Error)new KernelFault.InvalidValue("SnapshotLane", string.Join(" | ", new object?[] { op, "at least one snapshot lane" }))).ToFin()
+                   (Error)new KernelFault.InvalidValue("SnapshotLane", string.Join(" | ", new object?[] { op, "at least one snapshot lane" })))
                select new ParticipantSpec(
                    plugInId: plugInId,
                    clientId: clientId,

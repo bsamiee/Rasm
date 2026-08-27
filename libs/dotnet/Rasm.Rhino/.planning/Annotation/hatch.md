@@ -385,7 +385,7 @@ public abstract partial record HatchProgram {
         Retire: static (document, indices, interaction, key) =>
             from removed in key.Catch(() => Fin.Succ(value: document.HatchPatterns.Delete(
                 hatchPatternIndices: indices.AsIterable(), quiet: interaction.IsQuiet)))
-            from _ in guard(removed == indices.Count, key.InvalidResult()).ToFin()
+            from _ in guard(removed == indices.Count, key.InvalidResult())
             select unit,
         Elect: static (document, index, _, key) => key.Catch(() => Fin.Succ(value: Op.Side(
             () => document.HatchPatterns.CurrentHatchPatternIndex = index))),
@@ -423,7 +423,7 @@ public abstract partial record HatchProgram {
                 revise: (copy, key) =>
                     from applied in edit.Edits.TraverseM(row => row.Apply(surface: Generators(copy), op: key)).As()
                     from __ in guard(copy.FillType != HatchPatternFillType.Lines || copy.HatchLineCount > 0,
-                        key.InvalidResult()).ToFin()
+                        key.InvalidResult())
                     select unit)
             select unit,
         place: static (context, edit) =>
@@ -453,7 +453,7 @@ public abstract partial record HatchProgram {
         Append: (row, key) =>
             from line in row.Mint(key: key)
             from index in key.Catch(() => Fin.Succ(value: pattern.AddHatchLine(hatchLine: line)))
-            from _ in guard(index >= 0, key.InvalidResult()).ToFin()
+            from _ in guard(index >= 0, key.InvalidResult())
             select unit,
         Remove: (index, key) => key.Confirm(success: pattern.RemoveHatchLine(hatchLineIndex: index)),
         Write: default,

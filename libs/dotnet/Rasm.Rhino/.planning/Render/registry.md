@@ -97,11 +97,11 @@ public static class ContentUuidCatalog {
 
     private static Fin<Seq<ContentUuidSeed>> Build(Op op) =>
         from slots in op.Catch(() => Fin.Succ(toSeq(Slots())))
-        from _ in guard(!slots.IsEmpty, (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "at least one content identity")).ToFin()
+        from _ in guard(!slots.IsEmpty, (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "at least one content identity"))
         from seeds in slots.TraverseM(slot => Seed(slot, op)).As()
         from __ in guard(
             seeds.Map(static seed => seed.Id).Distinct().Count == seeds.Count,
-            (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "distinct seed identities")).ToFin()
+            (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "distinct seed identities"))
         select seeds.Strict();
 
     private static IEnumerable<(string Name, Func<Guid> Read)> Slots() =>
@@ -325,7 +325,7 @@ public abstract partial record ShellRow {
                from label in op.AcceptText(value: caption)
                from _ in guard(
                    engine.ForAll(static id => id != Guid.Empty),
-                   (Error)new KernelFault.InvalidValue(nameof(engine), "a non-empty render engine identity")).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(engine), "a non-empty render engine identity"))
                select (ShellRow)new PanelCase(
                    Kind: kind ?? ShellPanelKind.RenderWindow, Visibility: visibility,
                    Place: place ?? SidePanePlace.Left, Seat: keyed, Label: label, Renderer: engine);
@@ -339,7 +339,7 @@ public abstract partial record ShellRow {
                from art in op.Need(icon)
                from _ in guard(
                    engine.ForAll(static id => id != Guid.Empty),
-                   (Error)new KernelFault.InvalidValue(nameof(engine), "a non-empty render engine identity")).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(engine), "a non-empty render engine identity"))
                select (ShellRow)new TabCase(Icon: art, Seat: keyed, Label: label, Renderer: engine);
     }
 
@@ -376,13 +376,13 @@ public abstract partial record ShellRow {
         from active in op.Need(body)
         from _ in guard(
             active is { IsClass: true, IsPublic: true },
-            (Error)new KernelFault.InvalidValue(nameof(body), "a public class")).ToFin()
+            (Error)new KernelFault.InvalidValue(nameof(body), "a public class"))
         from __ in guard(
             active.GetConstructor(Type.EmptyTypes) is not null,
-            (Error)new KernelFault.InvalidValue(active.Name, "a parameterless constructor")).ToFin()
+            (Error)new KernelFault.InvalidValue(active.Name, "a parameterless constructor"))
         from ___ in guard(
             active.GetCustomAttributes(typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false).Length == 1,
-            (Error)new KernelFault.InvalidValue(active.Name, "exactly one GuidAttribute")).ToFin()
+            (Error)new KernelFault.InvalidValue(active.Name, "exactly one GuidAttribute"))
         select active;
 }
 
@@ -397,7 +397,7 @@ public sealed record RenderShellProgram(PlugIn Owner, Seq<ShellRow> Rows) {
         return from active in op.Need(owner)
                from _ in guard(
                    !rows.IsEmpty && rows.ForAll(static row => row is not null),
-                   (Error)new KernelFault.InvalidValue(nameof(RenderShellProgram), "a non-empty row set")).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(RenderShellProgram), "a non-empty row set"))
                select new RenderShellProgram(Owner: active, Rows: rows.Strict());
     }
 }
@@ -510,7 +510,7 @@ public static class RenderShell {
         where TBody : class {
         Op op = key.OrDefault();
         return from active in op.Need(owner)
-               from _ in guard(session != Guid.Empty, (Error)new KernelFault.InvalidValue(nameof(session), "a non-empty render session identity")).ToFin()
+               from _ in guard(session != Guid.Empty, (Error)new KernelFault.InvalidValue(nameof(session), "a non-empty render session identity"))
                from program in Gate.Value.Declared.ToFin(Fail: op.MissingContext())
                from row in program.Rows.Find(candidate => candidate.Body == typeof(TBody))
                    .ToFin(Fail: new RenderFault.SeatAbsent(Key: op, Engine: Guid.Empty))
@@ -567,7 +567,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
                from local in op.AcceptText(active.LocalDescription)
                from _ in guard(
                    active.Read.IsSome || active.Write.IsSome || active.LoadMultiple.IsSome,
-                   (Error)new KernelFault.InvalidValue(nameof(SerializerProgram), "at least one serializer route")).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(SerializerProgram), "at least one serializer route"))
                select new ContentSerializer(active with {
                    FileExtension = extension,
                    Kind = kind,
@@ -617,7 +617,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
                 from files in op.Catch(() => Fin.Succ(toSeq(activePaths)))
                 from _0 in guard(
                     !files.IsEmpty && files.ForAll(static path => !string.IsNullOrWhiteSpace(path)),
-                    (Error)new KernelFault.InvalidValue(nameof(paths), "a non-empty path set")).ToFin()
+                    (Error)new KernelFault.InvalidValue(nameof(paths), "a non-empty path set"))
                 from load in program.LoadMultiple.ToFin(Fail: new RenderFault.Unbound(Key: op, Member: nameof(LoadMultiple)))
                 from admittedKind in ContentKind.Of(kind, op)
                 from policy in LoadPolicy.Of(flags, op)
@@ -753,7 +753,7 @@ public abstract partial record ContentAdmission {
         ContentKind expected, Lease<RenderContent> lease, RhinoDoc document,
         Option<(RenderContent Content, string Slot)> parent, ChangeReason reason, Op op) =>
         (from actual in ContentKind.Of(lease.Resource, op)
-         from _ in guard(actual == expected, (Error)new KernelFault.InvalidValue(nameof(ContentKind), expected.ToString())).ToFin()
+         from _ in guard(actual == expected, (Error)new KernelFault.InvalidValue(nameof(ContentKind), expected.ToString()))
          from transferred in parent.Case switch {
              (RenderContent content, string slot) =>
                  from _acceptable in TreeMutation.Accepts(
@@ -802,7 +802,7 @@ public abstract partial record TreeMutation {
                 from _ in guard(
                     (edit.On.IsSome || edit.Amount.IsSome)
                     && edit.Amount.Map(static amount => (bool)ValidityClaim.Finite(value: amount)).IfNone(true),
-                    (Error)new KernelFault.InvalidValue(nameof(TreeMutation.Slot), "at least one finite slot patch")).ToFin()
+                    (Error)new KernelFault.InvalidValue(nameof(TreeMutation.Slot), "at least one finite slot patch"))
                 from __ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op, body: live => ctx.Op.Catch(() =>
                     Fin.Succ(value: Op.Side(() => {
                         ignore(edit.On.Iter(on => live.SetChildSlotOn(name, on, reason.Native)));
@@ -991,7 +991,7 @@ public abstract partial record ContentMutation {
     private static Fin<Unit> ReplaceWith(RenderContent target, Lease<RenderContent> lease, Op op) =>
         (from targetKind in ContentKind.Of(target, op)
          from replacementKind in ContentKind.Of(lease.Resource, op)
-         from _ in guard(targetKind == replacementKind, (Error)new KernelFault.InvalidValue(nameof(ContentKind), targetKind.ToString())).ToFin()
+         from _ in guard(targetKind == replacementKind, (Error)new KernelFault.InvalidValue(nameof(ContentKind), targetKind.ToString()))
          from __ in op.Catch(() => op.Confirm(success: target.Replace(newcontent: lease.Resource)))
          select unit)
         .Rollback(release: () => op.Catch(() => Fin.Succ(value: lease.Dispose())), key: op);
@@ -1012,7 +1012,7 @@ public abstract partial record ContentOp {
             context: (Document: document, Scope: scope, Reason: reason, Op: op),
             admit: static (ctx, edit) =>
                 from source in ctx.Op.Need(edit.Source)
-                from _ in guard(source.Expected == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString())).ToFin()
+                from _ in guard(source.Expected == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString()))
                 from admitted in source.Apply(document: ctx.Document, reason: ctx.Reason, op: ctx.Op)
                 select admitted,
             mutate: static (ctx, edit) =>
@@ -1020,7 +1020,7 @@ public abstract partial record ContentOp {
                 from change in ctx.Op.Need(edit.Change)
                 from content in target.Resolve(document: ctx.Document, key: ctx.Op)
                 from kind in ContentKind.Of(content, ctx.Op)
-                from _ in guard(kind == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString())).ToFin()
+                from _ in guard(kind == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString()))
                 from changed in change.Apply(content: content, document: ctx.Document, op: ctx.Op)
                 select changed);
 }
@@ -1274,7 +1274,7 @@ public static class ContentQuery {
         where TOut : IDetachedDocumentResult =>
         As<RenderMaterial, TOut>((material, op) =>
             from activeBorrow in op.Need(borrow)
-            from _ in guard(Enum.IsDefined(generation), (Error)new KernelFault.InvalidValue(nameof(RenderTexture.TextureGeneration), "a defined generation")).ToFin()
+            from _ in guard(Enum.IsDefined(generation), (Error)new KernelFault.InvalidValue(nameof(RenderTexture.TextureGeneration), "a defined generation"))
             from result in MaterialBridge.Bake(
                 material: material, generation: generation, borrow: activeBorrow, key: op)
             select result);
@@ -1284,7 +1284,7 @@ public static class ContentQuery {
         where TOut : IDetachedDocumentResult =>
         As<RenderMaterial, TOut>((material, op) =>
             from activeBorrow in op.Need(borrow)
-            from _ in guard(Enum.IsDefined(generation), (Error)new KernelFault.InvalidValue(nameof(RenderTexture.TextureGeneration), "a defined generation")).ToFin()
+            from _ in guard(Enum.IsDefined(generation), (Error)new KernelFault.InvalidValue(nameof(RenderTexture.TextureGeneration), "a defined generation"))
             from result in MaterialBridge.Pbr(
                 material: material, generation: generation, borrow: activeBorrow, key: op)
             select result);
@@ -1467,7 +1467,7 @@ public static class Registry {
         from name in op.AcceptText(value: active.Name)
         from _ in guard(
             !active.Operations.IsEmpty && active.Operations.ForAll(static operation => operation is not null),
-            (Error)new KernelFault.InvalidValue(nameof(ContentTransaction), "a non-empty operation set")).ToFin()
+            (Error)new KernelFault.InvalidValue(nameof(ContentTransaction), "a non-empty operation set"))
         let admitted = active with { Kind = kind, Reason = reason, Redraw = redraw, Undo = undo, Name = name }
         from changed in activeSession.Demand(
             use: document => Change(document: document, plan: admitted, op: op),
@@ -1785,10 +1785,10 @@ public sealed record ContentObservation {
                from activeSink in op.Need(sink)
                from _ in guard(
                    !pulses.IsEmpty && pulses.ForAll(static pulse => pulse is not null),
-                   (Error)new KernelFault.InvalidValue(nameof(ContentObservation), "a non-empty pulse set")).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(ContentObservation), "a non-empty pulse set"))
                from __ in guard(
                    pulses.ForAll(pulse => pulse.Affinity.Admits(scope: activeScope)),
-                   (Error)new KernelFault.InvalidValue(nameof(ScopeAffinity), "pulses this scope can deliver")).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(ScopeAffinity), "pulses this scope can deliver"))
                select new ContentObservation(
                    scope: activeScope, pulses: pulses.Distinct().Strict(), filter: activeFilter,
                    journalCap: journalCap, settleWithin: settleWithin, sink: activeSink);

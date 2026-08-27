@@ -303,7 +303,7 @@ public abstract partial record Touch {
         Op op = Op.Of();
         return from address in op.Need(scope).Bind(value => value.Admit(op: op))
                from state in op.Need(signal)
-               from _ in guard(address is not Reach.Whole && !(address is Reach.EveryPart && state.On), op.InvalidInput()).ToFin()
+               from _ in guard(address is not Reach.Whole && !(address is Reach.EveryPart && state.On), op.InvalidInput())
                select (Touch)new SelectCase(Scope: address, Signal: state, Policy: policy);
     }
 
@@ -311,7 +311,7 @@ public abstract partial record Touch {
         Op op = Op.Of();
         return from address in op.Need(scope).Bind(value => value.Admit(op: op))
                from state in op.Need(signal)
-               from _ in guard(!(address is Reach.EveryPart && state.On), op.InvalidInput()).ToFin()
+               from _ in guard(!(address is Reach.EveryPart && state.On), op.InvalidInput())
                select (Touch)new HighlightCase(Scope: address, Signal: state);
     }
 
@@ -497,7 +497,7 @@ public abstract partial record SectionCut {
                    ? Fin.Succ(value: id)
                    : Fin.Fail<Guid>(error: op.InvalidInput())).As()
                from span in op.Need(fills)
-               from _ in guard(!ids.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!ids.IsEmpty, op.InvalidInput())
                select (SectionCut)new FillCase(ClippingPlanes: ids.Distinct(), Fills: span);
     }
 
@@ -532,7 +532,7 @@ public sealed class ObjectPiece {
     internal static Fin<Seq<ObjectPiece>> Paired(GeometryBase[]? geometry, ObjectAttributes[]? attributes, Op key) {
         Fin<Seq<ObjectPiece>> result =
             from shapes in Optional(geometry).ToFin(Fail: key.InvalidResult()).Map(static values => toSeq(values).Strict())
-            from _ in guard(attributes is null || attributes.Length == shapes.Count, key.InvalidResult()).ToFin()
+            from _ in guard(attributes is null || attributes.Length == shapes.Count, key.InvalidResult())
             from pieces in ObjectPiece.DetachAll(
                 rows: shapes.Map((shape, index) => (shape, Optional(attributes).Bind(paired => Optional(paired[index])))),
                 key: key)

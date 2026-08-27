@@ -113,7 +113,7 @@ public readonly record struct KrylovPolicy(
     public static Fin<KrylovPolicy> Of(SparsePreconditioner preconditioner, double tolerance, Dimension budget,
         Option<KrylovSolver> solver = default, Option<KrylovStop> stop = default, bool canFallback = false, Op? key = null) =>
         from _ in key.OrDefault().Finite(value: tolerance)
-        from gated in guard(tolerance > 0.0, key.OrDefault().InvalidInput()).ToFin()
+        from gated in guard(tolerance > 0.0, key.OrDefault().InvalidInput())
         select new KrylovPolicy(Preconditioner: preconditioner, Solver: solver.IfNone(noneValue: KrylovSolver.BiCgStab),
             Tolerance: tolerance, Budget: budget, Stop: stop, CanFallback: canFallback);
     public static Dimension AutoBudget(Dimension rows) =>
@@ -276,7 +276,7 @@ public readonly record struct Matrix : IValidityEvidence {
     public Arr<double> Entries { get; }
     public static Fin<Matrix> Of(Dimension rows, Dimension cols, Arr<double> entries, Op? key = null) =>
         from _ in guard(entries.Count == rows.Value * cols.Value, key.OrDefault().InvalidInput()).ToFin()
-        from finite in guard(TensorPrimitives.IsFiniteAll<double>(entries.AsSpan()), key.OrDefault().InvalidInput()).ToFin()
+        from finite in guard(TensorPrimitives.IsFiniteAll<double>(entries.AsSpan()), key.OrDefault().InvalidInput())
         select new Matrix(rows: rows, cols: cols, entries: entries);
     internal static Matrix Trusted(Dimension rows, Dimension cols, Arr<double> entries) => new(rows: rows, cols: cols, entries: entries);
     public static Matrix Identity(Dimension dim) =>
@@ -317,7 +317,7 @@ public readonly record struct SymmetricMatrix : IValidityEvidence {
     public Arr<double> Upper { get; }
     public static Fin<SymmetricMatrix> Of(Dimension dim, Arr<double> upper, Op? key = null) =>
         from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2, key.OrDefault().InvalidInput()).ToFin()
-        from finite in guard(TensorPrimitives.IsFiniteAll<double>(upper.AsSpan()), key.OrDefault().InvalidInput()).ToFin()
+        from finite in guard(TensorPrimitives.IsFiniteAll<double>(upper.AsSpan()), key.OrDefault().InvalidInput())
         select new SymmetricMatrix(dimension: dim, upper: upper);
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: Upper.Count, expected: Dimension.Value * (Dimension.Value + 1) / 2),

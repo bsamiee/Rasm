@@ -707,7 +707,7 @@ public static partial class GenerativeRun {
             Op.Of(name: "generative.model-open").Catch(() => Fin.Succ(new Model(config)))
                 .Bind(session =>
                     from fresh in Unchanged(modelDir, witness)
-                    from _ in guard(fresh, (Error)GenerativeRefusal.ResidentChanged.Fault()).ToFin()
+                    from _ in guard(fresh, (Error)GenerativeRefusal.ResidentChanged.Fault())
                     from __ in Op.Of(name: "generative.model-data-release").Catch(() => {
                         policy.InMemory.Iter(data => config.RemoveModelData(data.Filename));
                         return Fin.Succ(unit);

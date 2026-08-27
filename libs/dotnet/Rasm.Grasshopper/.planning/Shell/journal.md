@@ -124,7 +124,7 @@ public sealed class SessionJournal : IDisposable {
         Op op = key.OrDefault();
         Option<Guid> document = DocumentOf(fact: fact);
         return from valid in op.AcceptValue(value: fact)
-               from live in guard(!released.Value, op.InvalidResult()).ToFin()
+               from live in guard(!released.Value, op.InvalidResult())
                from committed in Cell.Commit(ledger, held => held.Folded(
                        document: document, fact: valid, capacity: policy.Capacity).Ledger)
                    .Switch(

@@ -151,7 +151,7 @@ public sealed record PickCapture(
         Op key) =>
         from part in key.AcceptValidated<PartIndex, ComponentIndex>(candidate: component)
         from admittedOrigin in key.Need(origin)
-        from _ in guard(objectId != Guid.Empty, key.InvalidResult(detail: nameof(ObjectId))).ToFin()
+        from _ in guard(objectId != Guid.Empty, key.InvalidResult(detail: nameof(ObjectId)))
         select new PickCapture(
             ObjectId: objectId,
             Component: part,
@@ -412,7 +412,7 @@ public static class Picks {
                from owned in op.Catch(() => Fin.Succ(toSeq(source).Strict()))
                from _ in guard(
                    owned.ForAll(static reference => reference is not null),
-                   op.InvalidResult(detail: nameof(references))).ToFin()
+                   op.InvalidResult(detail: nameof(references)))
                from outcome in owned
                    .Map(reference => Capture(reference: reference, key: op))
                    .PartitionFallible()
@@ -489,7 +489,7 @@ public static class Picks {
                from query in op.Need(ask)
                from _ in guard(
                    !subjects.IsEmpty && subjects.ForAll(static shape => shape is not null),
-                   op.InvalidInput(axis: nameof(subjects))).ToFin()
+                   op.InvalidInput(axis: nameof(subjects)))
                from domain in active.Context(key: op)
                from measured in Analyze.In(context: domain)
                    .Run(operation: Analyze.Query<GeometryBase, TOut>(query: query, key: op), input: [.. subjects])

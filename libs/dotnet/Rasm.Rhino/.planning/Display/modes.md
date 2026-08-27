@@ -1137,7 +1137,7 @@ public static class Modes {
         session.Demand(
             document => Analysis(kind, key).Bind(mode => objects.TraverseM(id => key.Catch(() =>
                     from subject in Optional(document.Objects.FindId(id)).ToFin(key.InvalidInput())
-                    from _ in guard(mode.ObjectSupportsAnalysisMode(subject), key.InvalidInput()).ToFin()
+                    from _ in guard(mode.ObjectSupportsAnalysisMode(subject), key.InvalidInput())
                     let prior = AnalysisState.Of(toSeq(subject.GetActiveVisualAnalysisModes()).Exists(active => active.Id == mode.Id))
                     select (Id: id, Subject: subject, Prior: prior))).As()
                 .Bind(subjects => DocumentCommit.Compensated(

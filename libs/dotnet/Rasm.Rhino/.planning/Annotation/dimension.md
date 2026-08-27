@@ -657,7 +657,7 @@ public abstract partial record DimAsk {
             from dimension in Resolved(ctx.Document, ask.Target, ctx.Op)
             from annotation in TextState.Of(native: dimension.Native, key: ctx.Op)
             from kind in ctx.Op.AcceptValidated<AnnotationKind>(candidate: (int)dimension.Geometry.AnnotationType)
-            from _ in guard(kind.Measures, ctx.Op.InvalidResult(detail: kind.Key.ToString(CultureInfo.InvariantCulture))).ToFin()
+            from _ in guard(kind.Measures, ctx.Op.InvalidResult(detail: kind.Key.ToString(CultureInfo.InvariantCulture)))
             from family in DimFamily.Of(geometry: dimension.Geometry, key: ctx.Op)
             from facts in family.Facts(geometry: dimension.Geometry, key: ctx.Op)
             from mode in ctx.Op.AcceptValidated<TextPointMode>(candidate: dimension.Geometry.UseDefaultTextPoint)

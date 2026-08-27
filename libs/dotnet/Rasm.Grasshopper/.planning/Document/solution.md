@@ -98,7 +98,7 @@ public static partial class SolutionControl {
         Option<HookSet<GrasshopperPoint, HookSignal, HookScope>> hooks,
         Op key) =>
         from onMarshal in UiThread.OnMarshal(key: key)
-        from _ in guard(!onMarshal, (Error)key.InvalidContext()).ToFin()
+        from _ in guard(!onMarshal, (Error)key.InvalidContext())
         from seat in DocumentGate.Resolve(graph: graph, key: key,
             body: document => key.Catch(body: () => Fin.Succ((document.Identity, Server: document.Solution))))
         from heralded in Heralded(hooks: hooks, op: command.SelfOp, subject: Some(seat.Identity), key: key)

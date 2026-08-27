@@ -305,9 +305,9 @@ public abstract partial record SpatialProbe {
 
     private static Fin<BoundingBox> Bounds(GeometryBase geometry, Op key) =>
         from held in key.Need(value: geometry)
-        from _ in guard(held.IsValid, key.InvalidInput()).ToFin()
+        from _ in guard(held.IsValid, key.InvalidInput())
         from bounds in key.Catch(() => Fin.Succ(held.GetBoundingBox(accurate: false)))
-        from __ in guard(bounds.IsValid, key.InvalidInput()).ToFin()
+        from __ in guard(bounds.IsValid, key.InvalidInput())
         select bounds;
 
     private static Fin<DepthExtent> Extent(bool hit, double near, double far, Op key) =>

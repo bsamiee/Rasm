@@ -463,15 +463,15 @@ public abstract partial record GeometryMotion {
         Op op = key.OrDefault();
         return from admitted in op.Finite(value: factor)
                from domain in Optional(context).ToFin(Fail: op.MissingContext())
-               from _ in guard(Math.Abs(value: admitted) > domain.For(lane: ToleranceLane.Neglect).Value, op.InvalidInput(axis: nameof(factor))).ToFin()
+               from _ in guard(Math.Abs(value: admitted) > domain.For(lane: ToleranceLane.Neglect).Value, op.InvalidInput(axis: nameof(factor)))
                select (GeometryMotion)new UniformScale(factor: admitted);
     }
 
     public static Fin<GeometryMotion> Rotate(double angleRadians, Vector3d axis, Point3d center, Op? key = null) {
         Op op = key.OrDefault();
         return from angle in op.Finite(value: angleRadians)
-               from _axis in guard(ValidityClaim.Direction(value: axis), op.InvalidInput(axis: nameof(axis))).ToFin()
-               from _center in guard(ValidityClaim.Finite(value: center), op.InvalidInput(axis: nameof(center))).ToFin()
+               from _axis in guard(ValidityClaim.Direction(value: axis), op.InvalidInput(axis: nameof(axis)))
+               from _center in guard(ValidityClaim.Finite(value: center), op.InvalidInput(axis: nameof(center)))
                select (GeometryMotion)new Rotation(angleRadians: angle, axis: axis, center: center);
     }
 

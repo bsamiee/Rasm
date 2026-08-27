@@ -377,7 +377,7 @@ public abstract partial record Falloff {
             metricCase: static (s, k) =>
                 from m in s.Offset.ToFin(s.Key.Unsupported(inputType: typeof(MetricCase), outputType: typeof(double)))
                 from tensor in k.Metric(arg: m.Sample)
-                from _ in guard(tensor.Dimension.Value == 3, s.Key.InvalidInput()).ToFin()
+                from _ in guard(tensor.Dimension.Value == 3, s.Key.InvalidInput())
                 from definite in tensor.Definite(key: s.Key)
                 from metricDistance in (m.Offset.X, m.Offset.Y, m.Offset.Z) switch {
                     (double x, double y, double z) when

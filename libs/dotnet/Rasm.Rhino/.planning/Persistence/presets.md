@@ -336,7 +336,7 @@ public abstract partial record LayerRestore {
         Op op = key.OrDefault();
         return from admitted in LayerFacet.Law.Admit(held: facets)
                from _held in guard(!admitted.Held.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(LayerRestore), string.Join(" | ", new object?[] { op, "at least one restored property group" }))).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(LayerRestore), string.Join(" | ", new object?[] { op, "at least one restored property group" })))
                select (LayerRestore)new SelectedCase(Facets: admitted);
     }
 
@@ -521,7 +521,7 @@ public abstract partial record PresetOperation {
         return from admitted in DocumentPath.Of(value: path, key: op)
                from _archive in guard(
                    string.Equals(Path.GetExtension(admitted.Value), ".3dm", StringComparison.OrdinalIgnoreCase),
-                   (Error)new KernelFault.InvalidValue(nameof(ImportLayerStates), string.Join(" | ", new object?[] { op, "an absolute .3dm archive path" }))).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(ImportLayerStates), string.Join(" | ", new object?[] { op, "an absolute .3dm archive path" })))
                select (PresetOperation)new ImportLayerStatesCase(Path: admitted);
     }
 
@@ -549,7 +549,7 @@ public abstract partial record PresetOperation {
             .ToFin()
         from _distinct in guard(
             !admitted.IsEmpty && admitted.Distinct().Count == admitted.Count,
-            (Error)new KernelFault.InvalidValue("ObjectIds", string.Join(" | ", new object?[] { key, "a non-empty roster of distinct object ids" }))).ToFin()
+            (Error)new KernelFault.InvalidValue("ObjectIds", string.Join(" | ", new object?[] { key, "a non-empty roster of distinct object ids" })))
         select admitted;
 
     private static Fin<Option<Guid>> Viewport(Option<Guid> viewport, Op key) =>
@@ -617,7 +617,7 @@ public static class Presets {
                    .As()
                    .ToFin()
                from _nonempty in guard(!program.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(operations), string.Join(" | ", new object?[] { op, "at least one persistence operation" }))).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(operations), string.Join(" | ", new object?[] { op, "at least one persistence operation" })))
                let posture = PresetExecution.Strongest(postures: program.Map(static value => value.Execution))
                from completed in owner.Demand(
                    use: document => DocumentCommit.Sealed(
@@ -763,7 +763,7 @@ public static class Presets {
             nameCase: static (state, named) => state.Op.Catch(() => Fin.Succ(value: state.Table.Id(named.Name.Value))))
         from present in key.Catch(() => Fin.Succ(value: table.Ids.Contains(candidate)))
         from _member in guard(present,
-            (Error)new PersistenceFault.AbsentEntry(Key: key, Table: nameof(NamedPositionTable), Entry: candidate.ToString())).ToFin()
+            (Error)new PersistenceFault.AbsentEntry(Key: key, Table: nameof(NamedPositionTable), Entry: candidate.ToString()))
         from admitted in ResourceId.Admit(value: candidate, key: key)
         select admitted;
 

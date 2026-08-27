@@ -119,7 +119,7 @@ public sealed record RulePlan<TRule, TSlot>(Seq<TRule> Rules)
         return from _ in guard(rules.ForAll(static rule => rule is not null), key.InvalidInput()).ToFin()
                from __ in guard(
                    slotted.Map(static rule => rule.SlotKey).Distinct().Count == slotted.Count,
-                   key.InvalidInput()).ToFin()
+                   key.InvalidInput())
                from ___ in rules.TraverseM(rule => admit(rule, key)).As()
                select new RulePlan<TRule, TSlot>(Rules: rules);
     }
@@ -930,7 +930,7 @@ public abstract partial record AcquireIntent {
                                && row.Cases.ForAll(static value => value is not null)
                                && row.Cases.Map(static value => value.Terminal).Distinct().Count == row.Cases.Count,
                                key.InvalidInput()).ToFin()
-                            from __ in guard(row.Point is not null, key.InvalidInput()).ToFin()
+                            from __ in guard(row.Point is not null, key.InvalidInput())
                             from ____ in row.Cases.TraverseM(value => value.Admit(key)).As()
                             select unit,
         objects: row => guard(row.Plan is not null, key.InvalidInput()).ToFin(),
@@ -1027,12 +1027,12 @@ public sealed record Acquire {
                from admittedAccept in op.Need(accept)
                from admittedPrompt in op.AcceptText(prompt)
                from _ in admittedIntent.Admit(op)
-               from __ in guard(options.IsNone || admittedIntent.Admits(RequestColumn.Options), op.InvalidInput()).ToFin()
-               from ___ in guard(promptDefault.IsNone || admittedIntent.Admits(RequestColumn.PromptDefault), op.InvalidInput()).ToFin()
+               from __ in guard(options.IsNone || admittedIntent.Admits(RequestColumn.Options), op.InvalidInput())
+               from ___ in guard(promptDefault.IsNone || admittedIntent.Admits(RequestColumn.PromptDefault), op.InvalidInput())
                from ____ in guard(
                    (drag.IsNone || admittedIntent.Admits(RequestColumn.Drag)) && (!admittedIntent.NeedsDrag || drag.IsSome),
-                   op.InvalidInput()).ToFin()
-               from _____ in guard(admittedAccept.Rules.ForAll(rule => admittedIntent.Accepts(rule)), op.InvalidInput()).ToFin()
+                   op.InvalidInput())
+               from _____ in guard(admittedAccept.Rules.ForAll(rule => admittedIntent.Accepts(rule)), op.InvalidInput())
                from ______ in promptDefault.TraverseM(value => op.AcceptText(value).Map(static _ => unit)).As()
                    .Map(static _ => unit)
                from _______ in @default.TraverseM(value => value.Admit(op)

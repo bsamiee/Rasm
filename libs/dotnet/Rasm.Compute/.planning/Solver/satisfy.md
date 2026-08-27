@@ -146,7 +146,7 @@ public static partial class RuleSatisfaction {
         ImmutableArray<Interval> box = [.. order.Map(name => Interval.Of(bounds[name].Lower, bounds[name].Upper))];
         Seq<(ComplianceRule Rule, Option<EnclosureVerdict> Verdict)> certified = rules.Map(rule => (
             Rule: rule,
-            Verdict: from _ in guard(rule.Grounding.IsEmpty, unit).ToOption()
+            Verdict: from _ in guard(rule.Grounding.IsEmpty, unit).ToFin().ToOption()
                      from g in Gform(rule.Constraint)
                      from verdict in EnclosureFold.Certify(g, order, box).ToOption()
                      select verdict));

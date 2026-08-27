@@ -1156,10 +1156,10 @@ public abstract partial record QualityRecord {
             calibration: static value => QualityEvidence.RecordOp.Need(value.Evidence).Map(static evidence => (QualityRecord)new Calibration(evidence)),
             declaration: static value =>
                 from declaration in QualityEvidence.RecordOp.Need(value.Declaration)
-                from _ in guard(declaration.Valid, QualityEvidence.Refused(RecordRefusal.Declaration)).ToFin()
+                from _ in guard(declaration.Valid, QualityEvidence.Refused(RecordRefusal.Declaration))
                 from _lineage in guard(
                     !value.Records.IsEmpty && value.Records.Distinct().Count == value.Records.Count,
-                    QualityEvidence.Refused(RecordRefusal.Lineage)).ToFin()
+                    QualityEvidence.Refused(RecordRefusal.Lineage))
                 select (QualityRecord)new Conformance(declaration, value.Records, value.IssuedAt),
             record: static value => QualityEvidence.RecordOp.Need(value.Value))
         select record;

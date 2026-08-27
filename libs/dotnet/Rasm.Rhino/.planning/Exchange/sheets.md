@@ -662,7 +662,7 @@ public abstract partial record DetailState {
             static (form, state) => state is ProjectionCase projection ? ProjectionForm.Of(projection: projection.Projection) : form)
         from _finalScale in guard(
             settled.Scaled || !program.Exists(static state => state is ScaleCase),
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         from _axes in program
             .Traverse(state => state.ValidateAxis(document: document, detail: detail, op: op).ToValidation())
             .As()
@@ -710,7 +710,7 @@ internal static class Clips {
         (Document: document, Detail: detail, Op: op),
         addCase: static (ctx, seed) =>
             from _plane in guard(seed.Plane.IsValid, ctx.Op.InvalidInput()).ToFin()
-            from _program in guard(seed.Program.ForAll(static edit => edit is not null), ctx.Op.InvalidInput()).ToFin()
+            from _program in guard(seed.Program.ForAll(static edit => edit is not null), ctx.Op.InvalidInput())
             select unit,
         attachCase: static (ctx, seat) => Plane(document: ctx.Document, id: seat.PlaneId, op: ctx.Op).Map(static _ => unit),
         detachCase: static (ctx, seat) => Plane(document: ctx.Document, id: seat.PlaneId, op: ctx.Op).Map(static _ => unit),
@@ -718,7 +718,7 @@ internal static class Clips {
             from _plane in Plane(document: ctx.Document, id: seat.PlaneId, op: ctx.Op)
             from _program in guard(
                 !seat.Program.IsEmpty && seat.Program.ForAll(static edit => edit is not null),
-                ctx.Op.InvalidInput()).ToFin()
+                ctx.Op.InvalidInput())
             select unit,
         pruneCase: static (_, _) => Fin.Succ(value: unit));
 
@@ -734,7 +734,7 @@ internal static class Clips {
                     clippedViewportIds: Seq(ctx.Detail.Viewport.Id).AsIterable(),
                     attributes: attributes));
             })
-            from _minted in guard(id != Guid.Empty, ctx.Op.InvalidResult()).ToFin()
+            from _minted in guard(id != Guid.Empty, ctx.Op.InvalidResult())
             from _programmed in Programmed(document: ctx.Document, id: id, program: seed.Program, op: ctx.Op)
             select unit,
         attachCase: static (ctx, seat) => Membership(
@@ -860,7 +860,7 @@ public abstract partial record SheetOp {
             from names in Names.TraverseM(name => op.AcceptText(value: name)).As()
             from _unique in guard(
                 names.Map(static name => name.ToUpperInvariant()).Distinct().Count == names.Count,
-                op.InvalidInput()).ToFin()
+                op.InvalidInput())
             from pages in names.TraverseM(name => SheetSelect.Named(name: name).Single(document: document, op: op)).As()
             select (Names: names, Pages: pages);
     }
@@ -897,7 +897,7 @@ public abstract partial record SheetOp {
               let nested = node is StateCase program ? program.Program.Count : 0
               from _nested in guard(
                   (nested == 0 || depth < limit.Depth.Value) && entered.Nodes + nested <= limit.Nodes.Value,
-                  op.InvalidInput()).ToFin()
+                  op.InvalidInput())
               select new SheetCharge(Nodes: entered.Nodes + nested, Profile: entered.Profile + node.LeafProfile)
         select charged;
 
@@ -984,9 +984,9 @@ public sealed record NumberRule(NamingStandard Standard, Seq<(NamingField Field,
 
     internal Fin<Seq<NumberSeat>> Seats(RhinoDoc document, Seq<RhinoPageView> pages, Op op) =>
         from _standard in op.Need(value: Standard)
-        from _fields in guard(Fields.Map(static pair => pair.Field).Equals(Standard.Sequence), op.InvalidInput()).ToFin()
-        from _pages in guard(!pages.IsEmpty, op.InvalidInput()).ToFin()
-        from _start in guard(Start.Value > 0, op.InvalidInput()).ToFin()
+        from _fields in guard(Fields.Map(static pair => pair.Field).Equals(Standard.Sequence), op.InvalidInput())
+        from _pages in guard(!pages.IsEmpty, op.InvalidInput())
+        from _start in guard(Start.Value > 0, op.InvalidInput())
         let all = toSeq(document.Views.GetPageViews())
         let selected = toHashSet(pages.Map(static page => page.MainViewport.Id))
         let untouched = all.Filter(page => !selected.Contains(page.MainViewport.Id))
@@ -1010,19 +1010,19 @@ public sealed record NumberRule(NamingStandard Standard, Seq<(NamingField Field,
             select seat).As()
         from _names in guard(
             seats.Map(static seat => seat.Name.ToUpperInvariant()).Distinct().Count == seats.Count,
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         from _temporaryFinals in guard(
             !seats.Exists(seat => seats.Exists(other => string.Equals(
                 a: seat.Name,
                 b: other.TemporaryName,
                 comparisonType: StringComparison.OrdinalIgnoreCase))),
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         from _untouched in guard(
             !untouched.Exists(page => seats.Exists(seat =>
                 page.PageNumber == seat.PageNumber
                 || string.Equals(a: page.PageName, b: seat.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
                 || string.Equals(a: page.PageName, b: seat.TemporaryName, comparisonType: StringComparison.OrdinalIgnoreCase))),
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         select seats;
 }
 
@@ -1042,7 +1042,7 @@ public static class Sheets {
                    .As()
                    .ToFin()
                from profile in admission.Operation.Admit(budget: admission.Budget, op: op)
-               from _sessioned in guard(admission.Operation is SheetOp.AdoptCase || !profile.Sessioned, op.InvalidInput()).ToFin()
+               from _sessioned in guard(admission.Operation is SheetOp.AdoptCase || !profile.Sessioned, op.InvalidInput())
                from _committed in admission.Operation switch {
                    SheetOp.AdoptCase adopt => Adopt(session: admission.Session, adopt: adopt, op: op),
                    _ => admission.Session.Demand(
@@ -1067,8 +1067,8 @@ public static class Sheets {
                    .As()
                    .ToFin()
                from profile in admission.Operation.Admit(budget: admission.Budget, op: op)
-               from _sessioned in guard(!profile.Sessioned, op.InvalidInput()).ToFin()
-               from _stable in guard(admission.Operation is not SheetOp.BatchCase || !profile.Mutates, op.InvalidInput()).ToFin()
+               from _sessioned in guard(!profile.Sessioned, op.InvalidInput())
+               from _stable in guard(admission.Operation is not SheetOp.BatchCase || !profile.Mutates, op.InvalidInput())
                from _previewed in admission.Session.Demand(
                    use: document => Preflight(document: document, request: admission.Operation, op: op),
                    key: op,
@@ -1088,7 +1088,7 @@ public static class Sheets {
                     owner: existing.Head.Map(static page => page.MainViewport.Id),
                     ordinal: value,
                     op: ctx.Op).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
-                from _unique in guard(existing.Count <= 1, ctx.Op.InvalidInput()).ToFin()
+                from _unique in guard(existing.Count <= 1, ctx.Op.InvalidInput())
                 select unit,
             cloneCase: static (ctx, edit) =>
                 from _policy in ctx.Op.Need(edit.Policy)
@@ -1165,7 +1165,7 @@ public static class Sheets {
             !toSeq(document.Views.GetPageViews()).Exists(page =>
                 owner.Map(id => page.MainViewport.Id != id).IfNone(noneValue: true)
                     && page.PageNumber == number),
-            op.InvalidInput()).ToFin()
+            op.InvalidInput())
         select number;
 
     private static Fin<Unit> Adopt(DocumentSession session, SheetOp.AdoptCase adopt, Op op) =>
@@ -1387,7 +1387,7 @@ public static class Sheets {
         GroupPolicy policy,
         Op op) =>
         from admittedGroup in op.AcceptText(value: volume.Text)
-        from _pages in guard(!pages.IsEmpty, op.InvalidInput()).ToFin()
+        from _pages in guard(!pages.IsEmpty, op.InvalidInput())
         from pageGroup in op.Catch(() => document.PageViewGroups.FindName(name: admittedGroup) switch {
             PageViewGroup existing => Fin.Succ(value: existing),
             _ => document.PageViewGroups.Add(new PageViewGroup { Name = admittedGroup }, pages.AsIterable()) switch {
@@ -1405,13 +1405,13 @@ public static class Sheets {
                 : Fin.Succ(value: unit)
             from _removedPostcondition in guard(
                 !policy.IsExclusive || toSeq(page.GetPageViewGroupList()).ForAll(index => index == pageGroup.Index),
-                op.InvalidResult()).ToFin()
+                op.InvalidResult())
             from _added in page.IsInPageViewGroup(pageViewGroupIndex: pageGroup.Index)
                 ? Fin.Succ(value: unit)
                 : op.Confirm(success: page.AddToPageViewGroup(pageViewGroupIndex: pageGroup.Index))
             from _addedPostcondition in guard(
                 page.IsInPageViewGroup(pageViewGroupIndex: pageGroup.Index),
-                op.InvalidResult()).ToFin()
+                op.InvalidResult())
             select unit).As()
         select unit;
 }

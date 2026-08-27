@@ -307,7 +307,7 @@ internal static class AlignKernel {
                              from targetCount in Admit.SameCount(expected: target.Vertices.Count, key: key, counts: [targetMass.Count])
                              from normalCount in normals.Length == 0 ? Fin.Succ(unit) : Admit.SameCount(expected: target.Vertices.Count, key: key, counts: [normals.Length])
                              from sourceNormalCount in sourceNormals.Length == 0 ? Fin.Succ(unit) : Admit.SameCount(expected: source.Count, key: key, counts: [sourceNormals.Length])
-                             from transform in guard(current.IsValid && rows.All(row => row >= 0 && row < source.Count), key.InvalidInput()).ToFin()
+                             from transform in guard(current.IsValid && rows.All(row => row >= 0 && row < source.Count), key.InvalidInput())
                              select unit;
         return admitted.Bind(_ => {
             Point3d[] transformed = [.. rows.Select(row => current * source[index: row])];
@@ -516,7 +516,8 @@ internal static class AlignKernel {
                 aFlat[(i * 6) + 3] = nrm.X; aFlat[(i * 6) + 4] = nrm.Y; aFlat[(i * 6) + 5] = nrm.Z;
                 b[i] = (q - p) * nrm;
             }
-            return Matrix.Of(rows: Dimension.Create(value: n), cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat), key: key)
+            return key.AcceptValidated<Dimension>(n).Bind(rows =>
+                Matrix.Of(rows: rows, cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat), key: key))
                 .Bind(design => design.LeastSquaresDetailed(rhs: new Arr<double>(b), key: key))
                 .Bind(solve => solve.Solution.Count == 6 && solve.Solution.ForAll(RhinoMath.IsValidDouble)
                     ? Fin.Succ(new AlignmentStep(

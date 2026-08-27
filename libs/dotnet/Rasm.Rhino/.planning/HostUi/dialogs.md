@@ -209,7 +209,7 @@ public sealed partial class ChoiceMultiplicity {
                 defaults: rows.Filter(static pair => pair.Row.Selected).Map(static pair => pair.Caption).ToArray()))
             .ToFin(Fail: new UiFault.Dismissed(Key: op))
         let chosen = toSeq(selected).Strict()
-        from _ in guard(flag: chosen.Distinct().Count == chosen.Count, False: op.InvalidResult()).ToFin()
+        from _ in guard(flag: chosen.Distinct().Count == chosen.Count, False: op.InvalidResult())
         from matched in chosen.TraverseM(caption => Resolved(rows: rows, caption: caption, op: op)).As()
         select (InquiryAnswer)new InquiryAnswer.Choices(Keys: matched.Map(static row => row.Key).Strict());
 
@@ -423,7 +423,7 @@ public static class Inquiries {
                             count: frame.Frame.Model.Layers.Count,
                             sentinel: None,
                             failure: frame.Op.InvalidInput())
-                        from _ in guard(flag: seeds.Count <= 1, False: frame.Op.InvalidInput()).ToFin()
+                        from _ in guard(flag: seeds.Count <= 1, False: frame.Op.InvalidInput())
                         from answer in SelectLayer(
                             request: frame.Request, model: frame.Frame.Model, scope: scope,
                             seed: seeds.Head.IfNone(-1), op: frame.Op)
@@ -497,9 +497,9 @@ public static class Inquiries {
     private static Fin<Seq<(string Caption, TRow Row)>> Keyed<TRow>(Seq<TRow> rows, Op op) where TRow : InquiryRow =>
         from _ in guard(flag: !rows.IsEmpty, False: op.InvalidInput()).ToFin()
         from keys in rows.TraverseM(row => op.AcceptValidated<InquiryKey>(row.Identity.ToValue())).As()
-        from __ in guard(flag: keys.Distinct().Count == keys.Count, False: op.InvalidInput()).ToFin()
+        from __ in guard(flag: keys.Distinct().Count == keys.Count, False: op.InvalidInput())
         from captions in rows.TraverseM(row => op.AcceptText(value: row.Label.Resolve())).As()
-        from ___ in guard(flag: captions.Distinct().Count == captions.Count, False: op.InvalidInput()).ToFin()
+        from ___ in guard(flag: captions.Distinct().Count == captions.Count, False: op.InvalidInput())
         select captions.Zip(rows).Strict();
 
     private static Fin<Seq<(InquiryKey Key, TValue Value)>> Zipped<TRow, TValue>(
@@ -561,7 +561,7 @@ public static class Inquiries {
             layerIndices: out int[] indices)
             ? Fin.Succ(value: toSeq(indices).Strict())
             : Fin.Fail<Seq<int>>(error: new UiFault.Dismissed(Key: op))
-        from __ in guard(flag: !picked.IsEmpty, False: op.InvalidResult()).ToFin()
+        from __ in guard(flag: !picked.IsEmpty, False: op.InvalidResult())
         from admitted in Roster(values: picked, count: model.Layers.Count, sentinel: None, failure: op.InvalidResult())
         select admitted;
 
@@ -676,7 +676,7 @@ public abstract partial record HostAsset {
         meshPreview: static (op, ask) =>
             from _ in op.Accept<object>(ask.Session, ask.Ink, ask.Extent)
             from meshes in op.AcceptValidated<Rasm.Numerics.Dimension>(ask.Meshes.Count)
-            from __ in guard(flag: meshes.Value > 0, False: op.InvalidInput()).ToFin()
+            from __ in guard(flag: meshes.Value > 0, False: op.InvalidInput())
             from ___ in ask.Ink.Admit(meshes: meshes, op: op)
             select unit,
         strokes: static (op, ask) => op.Accept<object>(ask.Curve, ask.Linetype, ask.Extent).Map(static _ => unit),

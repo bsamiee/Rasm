@@ -111,7 +111,7 @@ internal sealed record Topology(
                    .Traverse(node => guard(node != Guid.Empty, key.InvalidResult()).ToFin().ToValidation())
                    .As()
                    .ToFin()
-               from __ in guard(keys.Count == nodes.Count, key.InvalidResult()).ToFin()
+               from __ in guard(keys.Count == nodes.Count, key.InvalidResult())
                from ___ in Edges
                    .Traverse(edge => guard(
                        keys.Contains(value: edge.Used) && keys.Contains(value: edge.Container),

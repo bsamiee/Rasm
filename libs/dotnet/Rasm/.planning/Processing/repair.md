@@ -130,7 +130,7 @@ public sealed record HealPlan(MeshSpace Input, Seq<HealOp> Ops, RepairPolicy Pol
         Op op = key.OrDefault();
         Seq<HealOp> sequence = ops.IfNone(() => Heal.Standard);
         return from space in op.AcceptInput(input)
-               from _ in guard(!sequence.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!sequence.IsEmpty, op.InvalidInput())
                select new HealPlan(space, sequence, policy.IfNone(RepairPolicy.Canonical));
     }
 }

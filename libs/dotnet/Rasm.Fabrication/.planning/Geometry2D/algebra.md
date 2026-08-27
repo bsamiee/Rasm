@@ -497,7 +497,7 @@ public static class PolygonAlgebra {
     private static Fin<PolygonTrace> MorphologyOf(PolygonOp.Morphology request, Op op) =>
         from kind in op.Need(request.Kind)
         from operands in Admitted(Seq(request.Pattern, request.Path), LoopDemand.Any)
-        from _ in guard(operands[0].Closed, new GeometryFault.DegenerateInput(Kind.Polyline, 0, "morphology:open-pattern")).ToFin()
+        from _ in guard(operands[0].Closed, new GeometryFault.DegenerateInput(Kind.Polyline, 0, "morphology:open-pattern"))
         from pattern in kind.ReflectPattern ? Reflected(operands[0]) : Fin.Succ(operands[0])
         from convolved in Offsetting.Apply(
             new OffsetOp.Minkowski(ToPolyline(operands[1]), ToPolyline(pattern), OffsetPolicy.Of(Context.Canonical)), op)
@@ -519,13 +519,13 @@ public static class PolygonAlgebra {
         from fill in op.Need(request.Fill)
         from tree in TreeOf(ToPaths(paths), fill, paths[0].Tolerance, op)
         from topology in TopologyOf(tree, paths[0].Tolerance, paths[0].Plane, fill, op)
-        from _ in guard(!topology.Nodes.IsEmpty, new GeometryFault.DegenerateInput(Kind.Polyline, None, "measure:empty-fill")).ToFin()
+        from _ in guard(!topology.Nodes.IsEmpty, new GeometryFault.DegenerateInput(Kind.Polyline, None, "measure:empty-fill"))
         select (PolygonTrace)new PolygonTrace.Measured(MeasureOf(topology));
 
     private static Fin<PolygonTrace> CalipersOf(PolygonOp.Calipers request, Op op) =>
         from paths in Admitted(request.Paths, LoopDemand.Any)
         let hull = Hull(paths.Bind(static path => toSeq(path.Vertices)))
-        from _ in guard(hull.Count >= 3, new GeometryFault.DegenerateInput(Kind.Polyline, None, "calipers:collinear")).ToFin()
+        from _ in guard(hull.Count >= 3, new GeometryFault.DegenerateInput(Kind.Polyline, None, "calipers:collinear"))
         select (PolygonTrace)new PolygonTrace.Enveloped(Envelope(hull));
 
     private static Arr<Point3d> Hull(Seq<Point3d> points) {

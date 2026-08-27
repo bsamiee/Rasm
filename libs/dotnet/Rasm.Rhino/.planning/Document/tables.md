@@ -395,7 +395,7 @@ public abstract partial record TableTarget {
                    .As()
                    .ToFin()
                let distinct = values.Distinct()
-               from _ in guard(!distinct.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!distinct.IsEmpty, op.InvalidInput())
                select (TableTarget)new IdsCase(Values: distinct);
     }
 
@@ -1256,7 +1256,7 @@ public abstract partial record TableOp {
                 from ids in edit.Target.Resolve(document: context.Document, key: context.Op)
                 from _ in guard(
                     edit.Edit.Apply(table: context.Document.Objects, ids: ids.AsIterable(), held: edit.Policy) >= 0,
-                    context.Op.InvalidResult()).ToFin()
+                    context.Op.InvalidResult())
                 select unit,
             stateCase: static (context, edit) =>
                 from targets in edit.Target.Resolve(document: context.Document, key: context.Op)
@@ -1303,7 +1303,7 @@ public abstract partial record TableOp {
                 let before = context.Document.Views.PageViewCount
                 from _ in context.Op.Confirm(success: context.Document.Views.ImportPageView(filename: path, mainViewportId: edit.MainViewportId, pageName: edit.PageName))
                 let imported = context.Document.Views.PageViewCount - before
-                from __ in guard(imported > 0, context.Op.InvalidResult()).ToFin()
+                from __ in guard(imported > 0, context.Op.InvalidResult())
                 select unit,
             restoreViewCase: static (context, edit) =>
                 from _ in edit.Restore.Apply(document: context.Document, key: context.Op)
@@ -1382,7 +1382,7 @@ public abstract partial record TableTransaction {
                    && admitted.Plan.Operations.ForAll(static operation =>
                        operation.Traits.Demands().Admits(capability: OpTrait.RecordsUndo)
                        && !operation.Traits.Demands().Admits(capability: OpTrait.Navigates)),
-                   op.InvalidInput()).ToFin()
+                   op.InvalidInput())
                select (TableTransaction)new RecordedCase(
                    Name: admitted.Name,
                    Operations: admitted.Plan.Operations,
@@ -1398,7 +1398,7 @@ public abstract partial record TableTransaction {
                    && plan.Operations.ForAll(static operation =>
                        !operation.Traits.Demands().Admits(capability: OpTrait.RecordsUndo)
                        && !operation.Traits.Demands().Admits(capability: OpTrait.Navigates)),
-                   op.InvalidInput()).ToFin()
+                   op.InvalidInput())
                select (TableTransaction)new ImmediateCase(Operations: plan.Operations, Redraw: plan.Redraw);
     }
 

@@ -971,7 +971,7 @@ public static class Placement {
             b: supplied.Value,
             context: context,
             key: key)
-        from _ in guard(relation == VectorRelation.Parallel, key.InvalidInput()).ToFin()
+        from _ in guard(relation == VectorRelation.Parallel, key.InvalidInput())
         select (X: frame.XAxis, Y: frame.YAxis, Z: frame.ZAxis);
 }
 ```

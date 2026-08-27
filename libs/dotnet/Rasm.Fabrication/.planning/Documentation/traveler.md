@@ -991,12 +991,12 @@ internal static class Traveler {
                     from _clock in guard(
                         amendment.At >= state.At
                         && (amendment is not TravelerAmendment.Completed completed || completed.Started >= document.StampedAt),
-                        (Error)Refusal("chain-clock")).ToFin()
+                        (Error)Refusal("chain-clock"))
                     let step = amendment.Step.ToValue()
                     from _order in guard(
                         predecessors.Find(step).IfNone(Seq<int>()).ForAll(prior =>
                             state.States.Find(prior).IfNone(TravelerStepState.NotStarted).Terminal),
-                        (Error)Refusal($"route-precedence:{step}")).ToFin()
+                        (Error)Refusal($"route-precedence:{step}"))
                     from next in amendment.Advance(state.States.Find(step).IfNone(TravelerStepState.NotStarted))
                     from key in TravelerPreimage.Of(new TravelerCanonicalSource.Amendment(amendment))
                     from encoded in TravelerCanonicalCodec.Encode(new TravelerCanonicalSource.Amendment(amendment))

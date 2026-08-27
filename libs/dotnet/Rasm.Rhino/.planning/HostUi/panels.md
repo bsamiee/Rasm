@@ -363,7 +363,7 @@ public abstract partial record PanelIntent<TPanel> where TPanel : HostPanel {
         (Plugin: plugin, Op: op),
         register: static (held, row) =>
             from owner in held.Op.Need(row.Owner)
-            from _ in guard(flag: owner.Id == held.Plugin.ToValue(), False: held.Op.InvalidInput()).ToFin()
+            from _ in guard(flag: owner.Id == held.Plugin.ToValue(), False: held.Op.InvalidInput())
             from __ in held.Op.Accept<object>(row.Caption, row.Icon, row.Site)
             select unit,
         open: static (held, row) => held.Op.Need(row.Placement).Bind(place => place.Admit(held.Op)),
@@ -755,7 +755,7 @@ public abstract partial record RuiFileRef {
     internal static Fin<string> PathOf(string candidate, Op op) =>
         from text in op.AcceptText(value: candidate)
         from path in op.Catch(() => Fin.Succ(value: System.IO.Path.GetFullPath(text)))
-        from _ in guard(flag: System.IO.Path.IsPathFullyQualified(path), False: op.InvalidInput()).ToFin()
+        from _ in guard(flag: System.IO.Path.IsPathFullyQualified(path), False: op.InvalidInput())
         select path;
 }
 
@@ -798,7 +798,7 @@ public abstract partial record RuiCommand {
             select (RuiCommand)(row with { File = file, Target = target }),
         group: static (held, row) =>
             from file in held.Need(row.File).Bind(value => value.Admit(held))
-            from _ in guard(flag: row.GroupId != Guid.Empty, False: held.InvalidInput()).ToFin()
+            from _ in guard(flag: row.GroupId != Guid.Empty, False: held.InvalidInput())
             select (RuiCommand)(row with { File = file }),
         sidebar: static (_, row) => Fin.Succ<RuiCommand>(value: row),
         barSize: static (held, row) => held.Need(row.Size).Map<RuiCommand>(_ => row));
@@ -1414,7 +1414,7 @@ public abstract partial record HostControl {
         addRemove: static (held, row) =>
             from add in held.AcceptValidated<IntentKey>(candidate: row.Add.Value)
             from remove in held.AcceptValidated<IntentKey>(candidate: row.Remove.Value)
-            from _ in guard(flag: add != remove, False: held.InvalidInput()).ToFin()
+            from _ in guard(flag: add != remove, False: held.InvalidInput())
             select unit,
         actionRow: static (held, row) =>
             from _ in guard(flag: !row.Rows.IsEmpty, False: held.InvalidInput()).ToFin()

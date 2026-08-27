@@ -660,7 +660,7 @@ public abstract partial record ChannelState : IDetachedDocumentResult {
                 .As()
                 .ToFin()
             from state in Fin.Succ<ChannelState>(new Custom(Values: admitted))
-            from _ in guard(state.IsValid, key.InvalidResult()).ToFin()
+            from _ in guard(state.IsValid, key.InvalidResult())
             select state,
         _ => Fin.Fail<ChannelState>(key.InvalidResult()),
     };
@@ -892,7 +892,7 @@ public sealed record RenderConfig(
                        self.Source is { IsValid.Holds: true },
                        self.Environments is not null,
                        ValidityClaim.CountAtLeast(count: self.ShadowmapLevel, floor: 0)),
-                   key.InvalidInput()).ToFin()
+                   key.InvalidInput())
                from ambient in self.Ambient.ToDrawing(key: key)
                from top in self.BackgroundTop.ToDrawing(key: key)
                from bottom in self.BackgroundBottom.ToDrawing(key: key)
@@ -1076,7 +1076,7 @@ public static class SunSolver {
     public static Fin<SunSolution> Solve(SunProblem problem, Op? key = null) {
         Op op = key.OrDefault();
         return from active in op.Need(problem)
-               from _ in guard(active.IsValid, op.InvalidInput()).ToFin()
+               from _ in guard(active.IsValid, op.InvalidInput())
                from solution in active.Switch(
             context: op,
             direction: static (state, query) => state.Catch(() => Fin.Succ<SunSolution>(new SunSolution.Vector(
@@ -1355,7 +1355,7 @@ public sealed class AmbientWatch : IDisposable {
                    ValidityClaim.All(
                        ValidityClaim.CountAtLeast(count: pulses.Count, floor: 1),
                        pulses.ForAll(static pulse => pulse is not null)),
-                   op.InvalidInput()).ToFin()
+                   op.InvalidInput())
                from attached in Subscription.AttachAll(
                    pulses.Distinct().Map(pulse => (Func<Fin<Subscription>>)(() =>
                        pulse.Bind(handler: (_, args) => ignore(Deliver(

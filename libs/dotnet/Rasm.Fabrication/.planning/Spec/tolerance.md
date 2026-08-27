@@ -1113,7 +1113,7 @@ public sealed partial class RaTarget {
                 $"{admittedSource.ToValue()} amplitude upper limit"))
         let micrometers = measured * ratio
         from _ in guard(double.IsFinite(micrometers) && micrometers > 0.0, ToleranceSpec.Range("surface-texture:ra",
-            micrometers, "finite and positive")).ToFin()
+            micrometers, "finite and positive"))
         select Create(micrometers, factor);
 }
 ```
@@ -1185,7 +1185,7 @@ public sealed partial class ToleranceTerm {
         ProcessDistribution distribution) =>
         from admitted in Optional(fit).ToFin(ToleranceSpec.Invalid("tolerance-term:fit"))
         from _ in guard(double.IsFinite(nominalMm) && admitted.Grade.Diameter.Contains(nominalMm),
-            ToleranceSpec.Range("tolerance-term:nominal", nominalMm, "finite and inside the fit diameter band")).ToFin()
+            ToleranceSpec.Range("tolerance-term:nominal", nominalMm, "finite and inside the fit diameter band"))
         let sizes = admitted.Sizes(nominalMm)
         from term in Validate(key, sizes.LowerMm - nominalMm, sizes.UpperMm - nominalMm, sensitivity, distribution,
             out ToleranceTerm value).Admitted(value)
@@ -1527,7 +1527,7 @@ public abstract partial record ToleranceSpec {
         let maximum = Length.FromMicrometers(demand.Hole.Limits.UpperUm - demand.Shaft.Limits.LowerUm).Millimeters
         let minimum = Length.FromMicrometers(demand.Hole.Limits.LowerUm - demand.Shaft.Limits.UpperUm).Millimeters
         from _limits in guard(double.IsFinite(maximum) && double.IsFinite(minimum) && maximum >= minimum,
-            Invalid("fit:limits")).ToFin()
+            Invalid("fit:limits"))
         let character = FitCharacter.Of(minimum, maximum)
         from limits in FitLimits.Validate(demand.Source, demand.NominalMm, demand.Hole, demand.Shaft,
             character, out FitLimits value).Admitted(value)
@@ -1557,9 +1557,9 @@ public abstract partial record ToleranceSpec {
     private static Fin<ToleranceResult.Effective> Effective(ToleranceRequest.Effective demand) =>
         from admitted in Optional(demand.Control).ToFin(Invalid("effective:control"))
         from _1 in guard(double.IsFinite(demand.DepartureMm) && demand.DepartureMm >= 0.0,
-            Range("effective:departure", demand.DepartureMm, "finite and nonnegative")).ToFin()
+            Range("effective:departure", demand.DepartureMm, "finite and nonnegative"))
         from _2 in guard(admitted.Material != MaterialCondition.Regardless || demand.DepartureMm == 0.0,
-            Range("effective:departure", demand.DepartureMm, "zero under a regardless-of-feature-size control")).ToFin()
+            Range("effective:departure", demand.DepartureMm, "zero under a regardless-of-feature-size control"))
         let width = admitted.Zone.Width.ToValue()
         let boundaries = admitted.Size.Bind(size => admitted.Material.Boundaries(size, width))
         select new ToleranceResult.Effective(admitted,
@@ -1587,9 +1587,9 @@ public abstract partial record ToleranceSpec {
         let height = admittedTarget.ScallopHeightMm
         let radicand = (2.0 * radius * height) - (height * height)
         from _1 in guard(double.IsFinite(radius) && radius > 0.0,
-            Range("scallop:radius", radius, "finite and positive")).ToFin()
+            Range("scallop:radius", radius, "finite and positive"))
         from _2 in guard(double.IsFinite(radicand) && radicand > 0.0,
-            Range("scallop:radicand", radicand, "finite and positive")).ToFin()
+            Range("scallop:radicand", radicand, "finite and positive"))
         select new ToleranceResult.Scallop(2.0 * Math.Sqrt(radicand));
 }
 

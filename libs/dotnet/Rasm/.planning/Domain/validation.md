@@ -728,7 +728,7 @@ internal static class Admit {
     internal static Fin<Unit> Cone(Point3d apex, Vector3d axis, double halfAngle, Op key) =>
         from _ in AllFinite(key, apex)
         from direction in Directional(value: axis, tolerance: EpsilonPolicy.ZeroTolerance, key: key)
-        from angle in guard(Band.HalfTurn.Admits(value: halfAngle), key.InvalidInput()).ToFin()
+        from angle in guard(Band.HalfTurn.Admits(value: halfAngle), key.InvalidInput())
         select unit;
     internal static Fin<Unit> KernelInput(double distance, double radius, Op key) =>
         guard(ValidityClaim.All(ValidityClaim.Nonnegative(value: distance), Band.Positive.Admits(value: radius)), key.InvalidInput()).ToFin();

@@ -446,7 +446,7 @@ public static class RasmEventEnvelope {
             Label: nameof(EventSource), Requirement: "the generated EventSource admission", Key: Some(key)))
         from id in key.AcceptValidated<EventId>(admitted.Id!)
         from _domain in guard(source.Domain == type.Domain, new KernelFault.InvalidValue(
-            Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key))).ToFin()
+            Label: nameof(EventSource), Requirement: "the same domain as EventType", Key: Some(key)))
         from subject in Optional(admitted.Subject).Traverse(value => ContentHash.Admit(hex: value, key: key)
             .MapFail(_ => new KernelFault.InvalidValue(
                 Label: nameof(CloudEvent.Subject),

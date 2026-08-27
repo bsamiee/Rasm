@@ -212,7 +212,7 @@ public abstract partial record TextMutationBatch {
                    .As()
                    .ToFin()
                from _nonempty in guard(!admitted.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(mutations), string.Join(" | ", new object?[] { op, "at least one text mutation" }))).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(mutations), string.Join(" | ", new object?[] { op, "at least one text mutation" })))
                from _side in FactoryValidation.Admit(admitted
                    .Filter(value => value.Address.IsObject != objects)
                    .Map(value => new ValidationClause(string.Join(" | ", new object?[] {
@@ -238,7 +238,7 @@ public abstract partial record TextQuery {
                    .As()
                    .ToFin()
                from _nonempty in guard(!admitted.IsEmpty,
-                   (Error)new KernelFault.InvalidValue(nameof(objectIds), string.Join(" | ", new object?[] { op, "at least one object identity" }))).ToFin()
+                   (Error)new KernelFault.InvalidValue(nameof(objectIds), string.Join(" | ", new object?[] { op, "at least one object identity" })))
                select (TextQuery)new ReadObjectsCase(ObjectIds: admitted);
     }
 
@@ -406,7 +406,7 @@ public static class UserTexts {
                         Key: key,
                         Subject: nameof(DocumentTextSnapshot),
                         Expected: $"flat={folded.Flat.Count}:sections={folded.Sections.Count}",
-                        Observed: $"flat={settled.Flat.Count}:sections={settled.Sections.Count}")).ToFin()
+                        Observed: $"flat={settled.Flat.Count}:sections={settled.Sections.Count}"))
                 select unit,
             project: Fin.Succ,
             op: key);
@@ -508,7 +508,7 @@ public static class UserTexts {
                         Key: key,
                         Subject: nameof(PlanAttributes),
                         Expected: planned.Count.ToString(),
-                        Observed: actual.Count.ToString())).ToFin()
+                        Observed: actual.Count.ToString()))
                 select unit,
                 out AttributeChange? value),
             value)

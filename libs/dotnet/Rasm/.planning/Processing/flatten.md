@@ -565,7 +565,7 @@ file sealed class MeshDec {
 
     public static Fin<MeshDec> Of(MeshSpace chart, ParamPolicy policy, Op key) =>
         from snapshot in MeshAdjointSnapshot.Of(chart, key)
-        from _ in guard(snapshot.FaceCount > 0, new GeometryFault.DegenerateInput(Kind.Mesh, snapshot.FaceCount, "parameterization: faceless chart")).ToFin()
+        from _ in guard(snapshot.FaceCount > 0, new GeometryFault.DegenerateInput(Kind.Mesh, snapshot.FaceCount, "parameterization: faceless chart"))
         from featurePolicy in MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedral.Value, space: chart, faceRegions: Option<Arr<int>>.None, key: key)
         from intent in VectorIntent.Features(chart, featurePolicy, key)
         from features in intent.Project<FeatureEdges>(chart.Tolerance, key)

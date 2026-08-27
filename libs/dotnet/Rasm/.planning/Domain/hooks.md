@@ -103,12 +103,12 @@ internal sealed class HookPoint<TFact>(HookId id, CapabilitySet<HookModality> mo
 
     public Fin<IDisposable> Veto(Func<TFact, Fin<TFact>> gate, Op key) =>
         from admitted in key.Need(gate)
-        from _ in guard(Modalities.Held.Exists(static row => row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "a veto-capable point")).ToFin()
+        from _ in guard(Modalities.Held.Exists(static row => row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "a veto-capable point"))
         select Attach(cell: vetoes, row: admitted);
 
     public Fin<IDisposable> Observe(Func<TFact, IO<Unit>> tap, Op key) =>
         from admitted in key.Need(tap)
-        from _ in guard(Modalities.Held.Exists(static row => !row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "an observable point")).ToFin()
+        from _ in guard(Modalities.Held.Exists(static row => !row.CanVeto), (Error)new KernelFault.InvalidValue(Label: Id.ToValue(), Requirement: "an observable point"))
         select (Attach(cell: taps, row: admitted),
             buffer.Value.Iter(held => Forked(fact: held, tap: admitted, key: key))).Item1;
 

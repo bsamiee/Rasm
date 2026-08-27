@@ -507,7 +507,7 @@ public static class Codecs {
         return from text in op.AcceptText(value: keyOrExtension)
                from _reserved in guard(
                    !Reserved.Contains(text),
-                   new ExchangeFault.CodecUnknown(Key: op, Requested: text)).ToFin()
+                   new ExchangeFault.CodecUnknown(Key: op, Requested: text))
                from row in Resolve(text: text, op: op)
                select row;
     }
@@ -541,7 +541,7 @@ public static class Codecs {
                from _scale in guard(
                    tune.Scale.IsNone || codec.Has(CodecAbility.Vector),
                    new ExchangeFault.AbilityMissing(
-                       Key: op, Codec: codec.Key, Ability: CodecAbility.Vector.Key)).ToFin()
+                       Key: op, Codec: codec.Key, Ability: CodecAbility.Vector.Key))
                from _dial in tune.Dial
                    .TraverseM(dial => dial.Admit(codec: codec, phase: request.Phase, key: op)).As()
                    .Map(static _ => unit)

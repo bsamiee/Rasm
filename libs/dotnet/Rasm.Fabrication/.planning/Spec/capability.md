@@ -1182,7 +1182,7 @@ public static class Capability {
 
     private static Fin<CapabilitySeries> Series(Seq<ResidualSample> samples, int subgroupSize) =>
         from _1 in guard(!samples.IsEmpty && subgroupSize >= 1 && subgroupSize <= samples.Count, Refusal("subgroup-size")).ToFin()
-        from _2 in guard(subgroupSize == 1 ? samples.Count >= 2 : samples.Count % subgroupSize == 0, Refusal("subgroup-partition")).ToFin()
+        from _2 in guard(subgroupSize == 1 ? samples.Count >= 2 : samples.Count % subgroupSize == 0, Refusal("subgroup-partition"))
         let residual = samples.Map(static sample => sample.Distance).ToArr()
         let walk = toSeq(residual)
         let groups = subgroupSize == 1

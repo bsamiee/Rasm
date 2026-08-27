@@ -1064,7 +1064,7 @@ internal sealed class SeatRegistry<TSeat> where TSeat : notnull {
 
     internal Fin<Unit> Retire(Guid engine, SeatToken token, Func<Fin<Unit>> uninstall, Op op) =>
         from held in seats.Value.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Key: op, Engine: engine))
-        from owned in guard(held.Token == token, (Error)new RenderFault.SeatTaken(Key: op, Engine: engine)).ToFin()
+        from owned in guard(held.Token == token, (Error)new RenderFault.SeatTaken(Key: op, Engine: engine))
         from _ in Custody.Release(Seq<Func<Fin<Unit>>>(uninstall, () => Fin.Succ(Release(engine, token))), op)
         select unit;
 
@@ -1096,7 +1096,7 @@ public static class RealtimeEngines {
                    let installed = toSeq(rows).Map(static row => row.GUID).Strict()
                    from matched in guard(
                        installed.Exists(row => row == engine),
-                       (Error)new RenderFault.SeatAbsent(Key: op, Engine: engine)).ToFin()
+                       (Error)new RenderFault.SeatAbsent(Key: op, Engine: engine))
                    select installed, op)
                select claimed;
     }
@@ -1902,7 +1902,7 @@ public sealed class ChannelView {
         from _ in Within(origin)
         from __ in guard(
             origin.X + extent.Width <= Extent.Width && origin.Y + extent.Height <= Extent.Height,
-            key.InvalidInput(axis: nameof(extent))).ToFin()
+            key.InvalidInput(axis: nameof(extent)))
         from values in key.Catch(() => {
             float[] buffer = new float[checked(extent.Width * extent.Height * Order.Components)];
             channel.GetValues(
@@ -2149,7 +2149,7 @@ public static class Effects {
         Op op = key.OrDefault();
         return from source in Optional(session).ToFin(Fail: op.MissingContext())
                from admitted in guard(
-                   !ops.IsEmpty && ops.ForAll(static row => row is { IsValid: true }), op.InvalidInput(axis: nameof(ops))).ToFin()
+                   !ops.IsEmpty && ops.ForAll(static row => row is { IsValid: true }), op.InvalidInput(axis: nameof(ops)))
                from roster in source.Demand(
                    use: document => op.Catch(() => {
                        using PostEffects.PostEffectCollection collection = document.RenderSettings.PostEffects;

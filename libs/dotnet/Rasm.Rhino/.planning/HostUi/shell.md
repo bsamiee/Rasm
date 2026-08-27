@@ -1939,7 +1939,7 @@ public sealed record NamedBag {
         Op op = key.OrDefault();
         return from admitted in op.AcceptText(value: name)
                from payload in op.Need(value)
-               from _ in guard(flag: Rows.Find(admitted).IsNone, False: op.InvalidInput(axis: admitted)).ToFin()
+               from _ in guard(flag: Rows.Find(admitted).IsNone, False: op.InvalidInput(axis: admitted))
                select new NamedBag(rows: Rows.Add(admitted, payload));
     }
 
@@ -2057,7 +2057,7 @@ public static class NamedCallbacks {
                from schema in NamedSlot.Admit(slots: response, op: op)
                from _ in guard(
                    flag: env.Map(static held => !held.Cancellation.IsCancellationRequested).IfNone(true),
-                   False: Errors.Cancelled).ToFin()
+                   False: Errors.Cancelled)
                from reply in bag.Mint(op: op).Bind(packet => packet.Within(
                    body: args => HostUtils.ExecuteNamedCallback(name: admitted, args: args)
                        ? NamedBag.Detach(args: args, schema: schema, op: op).Map(Some)

@@ -292,7 +292,7 @@ public sealed class HistoryScript {
                from rows in toSeq(slots.ToArray()).TraverseM(slot => op.Need(slot.Value)
                    .Bind(value => value.Admit(op: op))
                    .Map(value => (slot.Key, value))).As()
-               from __ in guard(!rows.IsEmpty && rows.Map(static slot => slot.Key).Distinct().Count == rows.Count, op.InvalidInput()).ToFin()
+               from __ in guard(!rows.IsEmpty && rows.Map(static slot => slot.Key).Distinct().Count == rows.Count, op.InvalidInput())
                select new HistoryScript(version: version, owner: seat, copyOnReplace: survival, slots: rows);
     }
 
@@ -382,7 +382,7 @@ public abstract partial record Regrown {
             line: static (gate, value) =>
                 from start in gate.AcceptInput(value.Value.From)
                 from end in gate.AcceptInput(value.Value.To)
-                from _ in guard(start != end, gate.InvalidInput()).ToFin()
+                from _ in guard(start != end, gate.InvalidInput())
                 select (Regrown)new Line(new LineGrowth(start, end)),
             polyline: static (gate, value) => guard(value.Values.Count >= 2, gate.InvalidInput()).ToFin()
                 .Bind(_ => AdmitPoints(value.Values, gate))
@@ -407,7 +407,7 @@ public abstract partial record Regrown {
                     double.IsFinite(value.Value.U) && value.Value.U > 0.0
                     && double.IsFinite(value.Value.V) && value.Value.V > 0.0
                     && !value.Value.Viewports.IsEmpty,
-                    gate.InvalidInput()).ToFin()
+                    gate.InvalidInput())
                 from ids in value.Value.Viewports.TraverseM(id => id != Guid.Empty
                     ? Fin.Succ(id)
                     : Fin.Fail<Guid>(gate.InvalidInput())).As()
@@ -620,7 +620,7 @@ public sealed class ReplayProgram {
                              .Bind(proposed => proposed.Admit(op))).As()
                      from _ in program.roster.Apply(active, op)
                      from results in Fin.Succ(value: toSeq(active.Results))
-                     from __ in guard(results.Count == staged.Count, op.InvalidResult()).ToFin()
+                     from __ in guard(results.Count == staged.Count, op.InvalidResult())
                      from ___ in results
                          .Map(static (result, index) => (Result: result, Index: index))
                          .TraverseM(row => staged[row.Index].Apply(
@@ -867,12 +867,12 @@ public static class Chronicle {
     private static Fin<WebAnswer> Adjacent(
         RhinoDoc document, TableTarget target, WebBudget budget, Op op, Func<RhinoObject, Guid[]> linked) =>
         from natives in Objects.Resolve(document: document, target: target, key: op)
-        from _ in guard(natives.Count <= budget.MaxNodes, op.InvalidResult(detail: nameof(WebBudget.MaxNodes))).ToFin()
+        from _ in guard(natives.Count <= budget.MaxNodes, op.InvalidResult(detail: nameof(WebBudget.MaxNodes)))
         from rows in natives.TraverseM(native => op.Catch(() =>
             Fin.Succ(value: (native.Id, toSeq(linked(native)))))).As()
         from __ in guard(
             rows.Fold(0L, static (count, row) => checked(count + row.Item2.Count)) <= budget.MaxEdges,
-            op.InvalidResult(detail: nameof(WebBudget.MaxEdges))).ToFin()
+            op.InvalidResult(detail: nameof(WebBudget.MaxEdges)))
         select (WebAnswer)new WebAnswer.Edges(Rows: rows);
 
     private static Fin<WebAnswer> Projected(

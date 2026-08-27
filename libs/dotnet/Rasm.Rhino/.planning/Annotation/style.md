@@ -128,13 +128,13 @@ public abstract partial record ListEdit<TRow> where TRow : class {
             select unit,
         remove: static (context, edit) =>
             from _ in Bounded(surface: context.Surface, index: edit.Index, key: context.Op)
-            from __ in guard(context.Surface.Count() > context.Surface.Floor, context.Op.InvalidInput()).ToFin()
+            from __ in guard(context.Surface.Count() > context.Surface.Floor, context.Op.InvalidInput())
             from ___ in context.Surface.Remove(edit.Index, context.Op)
             select unit,
         clear: static (context, _) =>
             from purge in context.Surface.Purge.ToFin(context.Op.Unsupported(
                 valueType: typeof(TRow), outputType: typeof(Unit)))
-            from _ in guard(context.Surface.Floor is 0, context.Op.InvalidInput()).ToFin()
+            from _ in guard(context.Surface.Floor is 0, context.Op.InvalidInput())
             from __ in purge(context.Op)
             select unit);
 
@@ -221,7 +221,7 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
             from rows in edit.Targets.TraverseM(target => target.Resolve(
                 document: context.Document, lens: context.Grip.Lens, key: context.Op)).As()
             let indices = rows.Map(row => context.Grip.Index(row))
-            from __ in guard(indices.Distinct().Count == indices.Count, context.Op.InvalidInput()).ToFin()
+            from __ in guard(indices.Distinct().Count == indices.Count, context.Op.InvalidInput())
             from ___ in context.Grip.Retire(context.Document, indices, edit.Interaction, context.Op)
             select unit,
         setCurrent: static (context, edit) =>
@@ -239,7 +239,7 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
                 !read.IsEmpty
                 && titles.Distinct().Count == titles.Count
                 && !titles.Exists(title => context.Grip.Occupied(context.Document, title)),
-                context.Op.InvalidInput()).ToFin()
+                context.Op.InvalidInput())
                 .Rollback(release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op)
             from __ in DocumentCommit.Compensated(
                 source: read,
@@ -253,7 +253,7 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
                 valueType: typeof(Seq<TComponent>), outputType: typeof(DraftPath)))
             from rows in edit.Targets.TraverseM(target => target.Resolve(
                 document: context.Document, lens: context.Grip.Lens, key: context.Op)).As()
-            from _ in guard(!rows.IsEmpty, context.Op.InvalidInput()).ToFin()
+            from _ in guard(!rows.IsEmpty, context.Op.InvalidInput())
             from __ in emit(edit.Path, rows, context.Op)
             select unit);
 }
@@ -487,7 +487,7 @@ public static class FieldTable<TOwner, THostEnum>
             Accepts: accepts,
             Read: (owner, key) =>
                 from value in key.Catch(() => wrap(get(owner), key))
-                from _ in guard(accepts(value), key.InvalidResult()).ToFin()
+                from _ in guard(accepts(value), key.InvalidResult())
                 select value,
             Write: (owner, value, key) =>
                 from typed in unwrap(value, key)
@@ -673,7 +673,7 @@ public sealed record StylePatch {
     public static Fin<StylePatch> Of(Seq<StyleEdit> run) {
         Op op = Op.Of(name: nameof(StylePatch));
         return from admitted in run.Traverse(edit => op.AcceptInput(value: edit).ToValidation()).As().ToFin()
-               from _ in guard(!admitted.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admitted.IsEmpty, op.InvalidInput())
                select new StylePatch(edits: admitted);
     }
 
@@ -885,7 +885,7 @@ public sealed record DraftPlan<TOp> where TOp : class {
         return from label in op.AcceptText(value: name)
                from admittedMode in op.AcceptInput(value: mode)
                from admittedRun in op.Accept(values: operations)
-               from _ in guard(!admittedRun.IsEmpty, op.InvalidInput()).ToFin()
+               from _ in guard(!admittedRun.IsEmpty, op.InvalidInput())
                select new DraftPlan<TOp>(name: label, mode: admittedMode, operations: admittedRun);
     }
 }
