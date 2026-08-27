@@ -185,4 +185,4 @@ Guarantee reads populate `BooleanCensus` and `ManifoldStatus` without a second c
 
 [LOCAL_ADMISSION]:
 - Arrangement tier-3 routing owns every `manifoldc` call site, activating when combined operands exceed `ArrangementPolicy.ScaleCeiling`, the per-RID native asset resolves, and the native engine's genus/area/volume/bounds guarantee reads agree with the managed exact owner.
-- Kind mismatch and nonzero `manifold_status` fold to a typed `Fin` failure; a missing per-RID asset over the ceiling folds to `NativeAssetMissing`; the `Fin` boundary result contains both without exceptions.
+- Kind mismatch and nonzero `manifold_status` fold to a typed `Fin` failure; a missing per-RID asset over the ceiling folds to `ManifoldLibraryUnavailable`; the `Fin` boundary result contains both without exceptions.

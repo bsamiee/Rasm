@@ -12,7 +12,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Numeric Floor">
-        <PackageReference Include="ExtendedNumerics.BigRational" />
         <PackageReference Include="TYoshimura.DoubleDouble" />
     </ItemGroup>
 

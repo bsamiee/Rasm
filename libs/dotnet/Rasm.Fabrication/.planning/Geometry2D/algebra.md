@@ -733,7 +733,7 @@ public static class PolygonAlgebra {
         from tessellation in Tessellation.Build(
             new TessellationOp.Points(
                 TessellationKind.Triangulation,
-                [.. seeds.Map(static seed => new Implicit(seed))],
+                [.. seeds.Map(static seed => (Implicit)seed)],
                 Seq<Constraint>(),
                 TessellationPolicy.Canonical,
                 Axis.Z),

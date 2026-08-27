@@ -56,19 +56,19 @@ Every reopen predicate rides the license gate.
 - `Lm.Minimize` is the ONE damped iterate, `Schedule.recurs` its sole budget authority — a private loop forks the singular guard and accept order.
 - `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
 - `Heal.Merge` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.
-- Geometry-fold abandonment lowers `GeometryFault.RunAbandoned` on both arrangement routes; a direct `Eff` token poll returns `Errors.Cancelled`.
+- Geometry-fold abandonment lowers the direct cancellation leaves — `GeometryFault.SubdivisionCancelled`, `ClassificationCancelled`, `WeldCancelled`, and `NativeBooleanCancelled` — on both arrangement routes; a direct `Eff` token poll returns `Errors.Cancelled`.
 - Adjoint sensitivity is `Rasm.Compute`'s — the kernel emits `MeshAdjointSnapshot`, its own differentiation staying `Lm`'s forward-mode dual floor.
 - `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer, and a sibling egress member forks it.
 - Kernel laws bind only where their compliant construction is public — `RgbProfile.Viewed` and `DeltaMetric.Measure` publish for exactly that reason.
 - Meeting a stated contrast ratio is kernel work — `PerceptualColor.ToneFor` walks to the least extreme clearing rung and REFUSES where none clears.
-- `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
+- `ResultProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
 - `TenantContext.Key` is the one tenancy read and its absent arm structural — the re-derived `Partitions ? Entry : absent` ternary is deleted.
 - `EncodedGeometry` equality excludes `Payload` under `[IgnoreEquality]`, keyed by `Witness.ContentHash` — the memory member compares coordinates.
 - `RoundTripWitness.Root` names the digest root — `Apply` roots Source and `Of` roots Payload, so a dedup or lake consumer reads it before comparing.
 - `Band` rows are the ONE range guard — a `ValidateFactoryArguments` body spelling its own bounds forks the guard from its readers.
 - `SymmetricMatrix.FlatIndex` is the ONE packed-upper index mint — `SampleMoment` and `Lm` delegate to it rather than mirroring the arithmetic.
 - `MatrixKernel` is `partial` across `Numerics/matrix` and `Numerics/transform`, so the one-funnel ruling binds the TYPE and never a file.
-- `Interpolant<TCap>` is the ONE interpolation capability owner — `TCap` carries differentiation and integration, so unsupported calls never compile.
+- `Interpolant<TCapability>` is the ONE interpolation capability owner — `TCapability` carries differentiation and integration, so unsupported calls never compile.
 - `PerceptualColor` host egress REFUSES an out-of-display colour where the byte leg CLIPS — a silent clip hands a painter an unattributable colour.
 - `UiThread.Run(crossing, lane, key)` is the ONE marshal entry — the crossing CASE selects arity, and a crossing never swallows a body's `Fin`.
 - `MountCustody` is the ONE release latch on host chrome — teardown runs recursive and mint-reverse behind the machine's own published transitions.

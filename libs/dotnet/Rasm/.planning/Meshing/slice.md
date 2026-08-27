@@ -2,7 +2,7 @@
 
 `Slicing.Apply(SliceOp, Op?)` owns the slice stack of `Rasm.Meshing` — one section fold composing `Intersection.Apply(IntersectOp.PlaneMesh(...))` over a parallel-plane family. Crossing existence, on-plane vertex handling, segment orientation, and chain connectivity are the intersect owner's exact machinery, composed one level up. `LayerPlan` generates the plane family rather than enumerating it: its cases are height-law data over one `March` integrator, so the next layer policy is one case carrying one height law, never a sibling planner body.
 
-Per-layer contours arrive oriented from the composed fold — segments store `from → to` along `cut.Normal × faceNormal`, closing outer loops CCW and holes CW — and a non-watertight section lands as typed open `Chain(Closed: false)` rows or the typed `SectionFault` under the policy's `SealPosture` row. Nesting is an exact-parity containment fold over the canonical coordinates every decoder reads; QuikGraph serves in-computation only. `SliceStack`, the kernel-owned SoA forest wire, binds the `Rasm.Fabrication` and `Rasm.Compute` decoders, `Chain` rows projecting from the channels on read.
+Per-layer contours arrive oriented from the composed fold — segments store `from → to` along `cut.Normal × faceNormal`, closing outer loops CCW and holes CW — and a non-watertight section lands as typed open `Chain(Closed: false)` rows or the typed `OpenSection` under the policy's `SealPosture` row. Nesting is an exact-parity containment fold over the canonical coordinates every decoder reads; QuikGraph serves in-computation only. `SliceStack`, the kernel-owned SoA forest wire, binds the `Rasm.Fabrication` and `Rasm.Compute` decoders, `Chain` rows projecting from the channels on read.
 
 ## [01]-[INDEX]
 
@@ -13,14 +13,14 @@ Per-layer contours arrive oriented from the composed fold — segments store `fr
 
 - Owner: `SealPosture` the `[SmartEnum]` open-section law whose `[UseDelegateFromConstructor]` `Admit` column decides fault-or-admit for a layer that carries open rows; `Containment` the `[SmartEnum]` nesting verdict — its `Record` column owns what each verdict DOES to the containment graph, so the overlap contradiction is a row and never a null, and `Of` is THE even-odd point-in-ring predicate the nesting fold here and `Meshing/offset`'s medial interior test both read; `SlicePolicy` the policy row — the seal posture, guarded `Dimension` layer ceiling, slope-bin count, parallel floor, and the composed `IntersectPolicy` every per-plane fold threads; `SliceFrame` the per-run facts computed once from the soup — datum, nesting axis, elevation extent, and the binned steepest-slope and start-sorted overhang tables the height laws read; `LayerPlan` the `[Union]` height-law generator, each case one `Fin<Arr<double>>` `Elevations(SliceFrame, SlicePolicy)` fold lowering to a `Func<double,double>` height law over the one `March` body; `SliceOp` the request record — one modality, so the modality axis lives in the plan union, never a one-case request ceremony; `SliceStack` the frozen `Arr`-column result carrier admitted through `Of`, with `ContourAt`/`LayerAt`/`RootsOf`/`Depth` projections; `Slicing` the static surface.
 - Cases: `LayerPlan` cases `Uniform(Height)` · `Adaptive(CuspHeight, MinHeight, MaxHeight)` · `BySlope(Arr<(SlopeCeiling, Height)> Bands)` · `SupportInterface(BaseHeight, InterfaceHeight, InterfaceLayers, OverhangCosine)` · `AtElevations(Arr<double> Elevations)` — height-law seed data the `Rasm.Fabrication` additive lane and the `Rasm.Compute` circulation bind, the family open to one more case; `SealPosture` 2 (`Required`/`Admitted`); `Containment` 3 (`Inside`/`Outside`/`Overlap`).
-- Entry: `public static Fin<SliceStack> Apply(SliceOp op, Op? key = null)` — the one entry, resolving the key every interior static then takes outright. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind, index, witness)` on an inadmissible request and `GeometryFault.SectionFault(layer, elevation, openChains)` on a layer defect — a non-watertight layer under `SealPosture.Required` or a nesting contradiction, a containment cycle or multi-parent reduction. Composed per-plane failures surface unchanged; the fold never re-labels a sibling's typed fault. No `SliceUniform`/`SliceAdaptive`/`SliceAt` siblings — one polymorphic `Apply`, the plan case discriminating.
+- Entry: `public static Fin<SliceStack> Apply(SliceOp op, Op? key = null)` — the one entry, resolving the key every interior static then takes outright. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind, index, detail)` on an inadmissible request, `GeometryFault.OpenSection(layer, elevation, chains)` on a non-watertight layer under `SealPosture.Required`, and `GeometryFault.InvalidSectionNesting(layer, elevation, contours)` on a nesting contradiction, containment cycle, or multi-parent reduction. Composed per-plane failures surface unchanged; the fold never re-labels a sibling's typed fault. No `SliceUniform`/`SliceAdaptive`/`SliceAt` siblings — one polymorphic `Apply`, the plan case discriminating.
 - Auto: `SliceFrame.Of` makes one soup pass — projecting vertices onto the datum normal for the extent, binning per-face `|n·d|` into the max-slope table, and collecting start-sorted overhang rows so the interface law filters past its own `OverhangCosine` at read, never a frame re-pass per plan. `Elevations` folds the plan's generated switch: `Adaptive` is the cusp-height bound `clamp(cusp / maxSlope, hMin, hMax)` — the geometric-error law, a height-`h` layer over cosine `|n·d|` leaving cusp `c = h·|n·d|`, so flat caps force fine layers and vertical walls admit coarse ones; `BySlope`'s band table IS the law; `SupportInterface` opens an interface band around overhangs steeper than its cosine floor; `AtElevations` validates finite, strictly ascending, in-extent. `March` is the one integrator, `MaxLayers`-gated. `ParallelHelper` partitions the plane family across pooled result slots the section fold rents — each plane's sweep independent, the fold the parallel axis and the intersect owner single-threaded per plane. Assembly drains the slots in layer order: the seal posture's `Admit` fires on any layer carrying open rows, closed rings append their vertices without the duplicate terminal, and nesting runs per layer — bbox-pruned pairs cast an exact `+U` ray whose RAW crossing count classifies even-odd into a `Containment` row, each row's `Record` column folding into the containment DAG, `ComputeTransitiveReduction` yields the immediate-parent forest (laminar ⇒ in-degree ≤ 1, a violation faults), and an in-degree-0 contour keeps `Parent = -1`, the root encoding. `SliceStack.Of` materializes the channels once as frozen `Arr` columns — never live pool leases on the wire — and re-proves the whole parent forest acyclic there, so `Depth` needs no cycle guard of its own.
 - Output: `SliceStack`, the result and the wire at once — its channels carry the layer, contour, nesting-forest, open-chain, and elevation census and the `Chain` projections read over them; the hash-eligible artifacts are the frozen channel arrays, never the pooled writers or slots.
 - Law: `SlicePolicy`'s three counts are guarded `Dimension` values, so a nonpositive ceiling, bin count, or floor is unrepresentable and the record carries no evidence fold of its own; the composed `IntersectPolicy` keeps its own. Height-law bounds validate ONCE at `LayerPlan.Admit`, so `March` never sees a non-positive step.
 - Exemption: the mutable tables live inside one assembly sweep and publish only through `SliceStack.Of` — the `layerPtr`/`contourPtr`/`parent`/`open` channel accumulators, the pooled `MemoryOwner` slot span the parallel fold writes, and the `childPtr`/`cursor` CSR scratch pair.
 - Packages: `Rasm.Meshing` (sibling — `Intersection.Apply`/`IntersectOp.PlaneMesh`/`IntersectResult.Chains`/`Chain`/`IntersectPolicy` composed never re-founded, `MeshEdit.Of` the one soup adapter, `MeshSpace`), `Rasm.Numerics` (`Predicate.Orient2D`/`Predicate.Compare` + `Sign`/`Axis` the exact nesting signs, `Dimension` the guarded counts, `GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Polyline`/`BoundingBox`), QuikGraph (`BidirectionalGraph`/`AddVertexRange`/`AddEdge`/`IsDirectedAcyclicGraph`/`ComputeTransitiveReduction`/`InDegree`/`InEdge` — every member the deepest binding rung for its concern, in-computation only per the bounded-lane law), CommunityToolkit.HighPerformance (`MemoryOwner<T>` slots, `ArrayPoolBufferWriter<T>` channel emit, `ParallelHelper.For` + `IAction`), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Arr<T>` the frozen channel carrier), BCL (`Array.BinarySearch` over the frame's own sorted overhang starts).
 - Growth: a new layer policy is one `LayerPlan` case carrying its height law into the same `March`; a new open-section posture is one `SealPosture` row carrying its own `Admit`; a per-layer plane-slab broad-phase prune is the recorded growth row on `Spatial/index` (a plane-slab `SpatialQuery` case, never a slice-local acceleration structure); a further per-layer metric follows the `AreaAt`/`PerimeterAt`/`CentroidAt` projection rows over the existing channels; one more wire channel is a further frozen column the decoders re-bind loudly; zero new entry surface.
-- Boundary: the slice owner composes `Intersection.Apply` — a slice-local plane sweep, crossing kernel, or chain walker re-founds geometry that has one owner; contour orientation is inherited from intersect's material-oriented accumulation, so a slice-side re-orientation pass repeats a decision the fold already made. Open sections are typed rows or `GeometryFault.SectionFault` under `SealPosture.Required`, never silent closure or drop. Nesting verdicts are exact parity signs — the bbox prune alone is float, a winding-number point-in-polygon with epsilon ray offsets is the deleted form — and a hand-rolled O(C²) immediate-parent scan re-does what `ComputeTransitiveReduction` owns. Wire storage is the frozen channel schema; a `Seq<Seq<Chain>>` nested-collection result beside it is a dual carriage, typed rows minting from the channels instead. Channel arrays materialize at freeze and the pool dies at assembly end, so no pooled lease crosses the boundary. `Apply` is total over `Fin` — a thrown exception on a degenerate plan or non-watertight layer is unrepresentable.
+- Boundary: the slice owner composes `Intersection.Apply` — a slice-local plane sweep, crossing kernel, or chain walker re-founds geometry that has one owner; contour orientation is inherited from intersect's material-oriented accumulation, so a slice-side re-orientation pass repeats a decision the fold already made. Open sections are typed rows or `GeometryFault.OpenSection` under `SealPosture.Required`, never silent closure or drop. Nesting verdicts are exact parity signs — the bbox prune alone is float, a winding-number point-in-polygon with epsilon ray offsets is the deleted form — and a hand-rolled O(C²) immediate-parent scan re-does what `ComputeTransitiveReduction` owns. Wire storage is the frozen channel schema; a `Seq<Seq<Chain>>` nested-collection result beside it is a dual carriage, typed rows minting from the channels instead. Channel arrays materialize at freeze and the pool dies at assembly end, so no pooled lease crosses the boundary. `Apply` is total over `Fin` — a thrown exception on a degenerate plan or non-watertight layer is unrepresentable.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -45,7 +45,7 @@ namespace Rasm.Meshing;
 [SmartEnum]
 public sealed partial class SealPosture {
     public static readonly SealPosture Required = new(static (layer, elevation, open) =>
-        Fin.Fail<Unit>(new GeometryFault.SectionFault(layer, elevation, open)));
+        Fin.Fail<Unit>(new GeometryFault.OpenSection(layer, elevation, open)));
     public static readonly SealPosture Admitted = new(static (_, _, _) => Fin.Succ(unit));
 
     [UseDelegateFromConstructor]
@@ -68,12 +68,12 @@ internal sealed partial class Containment {
         int crossings = 0;
         for (int i = 0; i < ring.Count - 1; i++) {
             (Point3d s, Point3d t) = (ring[i], ring[i + 1]);
-            Sign sv = Predicate.Compare(new Implicit(s), new Implicit(probe), vAxis);
-            Sign tv = Predicate.Compare(new Implicit(t), new Implicit(probe), vAxis);
+            Sign sv = Predicate.Compare(s, probe, vAxis);
+            Sign tv = Predicate.Compare(t, probe, vAxis);
             bool sBelow = sv == Sign.Negative;
             bool tBelow = tv == Sign.Negative;
             if (sBelow == tBelow) { continue; }
-            Sign side = Predicate.Orient2D(new Implicit(s), new Implicit(t), new Implicit(probe), plane);
+            Sign side = Predicate.Orient2D(s, t, probe, plane);
             if (side == Sign.Zero) { return Overlap; }
             if (sBelow ? side == Sign.Positive : side == Sign.Negative) { crossings++; }
         }
@@ -216,7 +216,7 @@ public sealed record SliceStack {
         }
         return forest.IsDirectedAcyclicGraph<int, SEdge<int>>()
             ? Fin.Succ(new SliceStack(elevations, layerPtr, contourPtr, x, y, z, parent, childPtr, children, open))
-            : Fin.Fail<SliceStack>(new GeometryFault.SectionFault(elevations.Count, 0.0, parent.Count));
+            : Fin.Fail<SliceStack>(key.InvalidResult());
     }
 
     public int LayerCount => Elevations.Count;
@@ -327,9 +327,9 @@ public static class Slicing {
 
         Fin<Unit> Layer(int k) =>
             slots.Span[k]
-                .Bind(static result => result is IntersectResult.Chains chains
+                .Bind(result => result is IntersectResult.Chains chains
                     ? Fin.Succ(chains.Walked)
-                    : Fin.Fail<Seq<Chain>>(new GeometryFault.IntersectionFault(PrimitiveKind.Plane, PrimitiveKind.Mesh)))
+                    : Fin.Fail<Seq<Chain>>(key.InvalidResult()))
                 .Bind(walked => {
                     Seq<Chain> closed = walked.Filter(static chain => chain.Closed);
                     Seq<Chain> openRows = walked.Filter(static chain => !chain.Closed);
@@ -347,7 +347,7 @@ public static class Slicing {
                             open.Add(!chain.Closed);
                             parent.Add(-1);
                         }
-                        return Nest(frame, closed, baseOrdinal, parent, k, family[k], openRows.Count)
+                        return Nest(frame, closed, baseOrdinal, parent, k, family[k])
                             .Map(_ => { layerPtr.Add(contourPtr.Count - 1); return unit; });
                     });
                 });
@@ -371,7 +371,7 @@ public static class Slicing {
     }
 
     // --- [NESTING]
-    static Fin<Unit> Nest(SliceFrame frame, Seq<Chain> closed, int baseOrdinal, List<int> parent, int layer, double elevation, int openCount) {
+    static Fin<Unit> Nest(SliceFrame frame, Seq<Chain> closed, int baseOrdinal, List<int> parent, int layer, double elevation) {
         int n = closed.Count;
         if (n <= 1) { return Fin.Succ(unit); }
         Axis v = Axis.Get(frame.Vertical.V);
@@ -382,7 +382,7 @@ public static class Slicing {
         }
         BidirectionalGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, n));
-        Error Contradiction() => new GeometryFault.SectionFault(layer, elevation, openCount);
+        Error Contradiction() => new GeometryFault.InvalidSectionNesting(layer, elevation, n);
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
                 if (i == j || boxes[i].LoU < boxes[j].LoU || boxes[i].HiU > boxes[j].HiU || boxes[i].LoV < boxes[j].LoV || boxes[i].HiV > boxes[j].HiV) { continue; }
@@ -402,9 +402,9 @@ public static class Slicing {
     static ((double, double, double, double) Box, Point3d Anchor) Extremes(Polyline ring, Axis vertical) {
         (double loU, double hiU, double loV, double hiV) = (double.PositiveInfinity, double.NegativeInfinity, double.PositiveInfinity, double.NegativeInfinity);
         Point3d anchor = ring[0];
-        (double aU, double aV) = (Axis.Coord(anchor, vertical.U), Axis.Coord(anchor, vertical.V));
+        (double aU, double aV) = (vertical.U.Read(anchor), vertical.V.Read(anchor));
         for (int i = 0; i < ring.Count - 1; i++) {
-            (double pu, double pv) = (Axis.Coord(ring[i], vertical.U), Axis.Coord(ring[i], vertical.V));
+            (double pu, double pv) = (vertical.U.Read(ring[i]), vertical.V.Read(ring[i]));
             (loU, hiU, loV, hiV) = (double.Min(loU, pu), double.Max(hiU, pu), double.Min(loV, pv), double.Max(hiV, pv));
             if (pu > aU || (pu == aU && pv > aV)) { (anchor, aU, aV) = (ring[i], pu, pv); }
         }
@@ -433,7 +433,7 @@ flowchart LR
     Fold -->|containment DAG → transitive reduction| QuikGraph
     QuikGraph -->|immediate-parent forest| SliceStack
     SliceStack -->|five-channel SoA wire| Decoders["Fabrication Additive/slicing · Compute circulation"]
-    SliceOp -.->|DegenerateInput / SectionFault| GeometryFault
+    SliceOp -.->|DegenerateInput / OpenSection / InvalidSectionNesting| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

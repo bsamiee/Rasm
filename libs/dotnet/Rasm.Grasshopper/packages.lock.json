@@ -131,7 +131,6 @@
           "CloudNative.CloudEvents.Protobuf": "[2.9.0, )",
           "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )",
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
-          "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "Generator.Equals": "[4.0.2, )",
           "Google.Protobuf": "[3.36.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
@@ -220,12 +219,6 @@
         "requested": "[4.4.0, )",
         "resolved": "4.4.0",
         "contentHash": "MgiHddgPDkcFr9KtYK3mJFUBEsjcCblGmEGlSvXVT1999EIOyH6XO6vVeuw9YFmYb7JyR8U+/++vZyhgVxDWbg=="
-      },
-      "ExtendedNumerics.BigRational": {
-        "type": "CentralTransitive",
-        "requested": "[3000.0.2.132, )",
-        "resolved": "3000.0.2.132",
-        "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
       },
       "Google.Protobuf": {
         "type": "CentralTransitive",

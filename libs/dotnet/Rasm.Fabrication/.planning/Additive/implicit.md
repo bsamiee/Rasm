@@ -552,7 +552,8 @@ file static class SpectralMorphology {
                                held.fSignedDistance(new Vector3((float)point.X, (float)point.Y, (float)point.Z)), 0.0))],
                        lattice)))
                from forward in sampled.Transform(SpectralSense.Forward, SpectralScaling.Symmetric, key)
-               from axes in Seq(SignedAxis.X, SignedAxis.Y, SignedAxis.Z).TraverseM(axis => forward.Axis(axis, key)).As()
+               from axes in Seq(SignedAxis.PositiveX, SignedAxis.PositiveY, SignedAxis.PositiveZ)
+                   .TraverseM(axis => forward.Frequencies(axis, key)).As()
                let symbol = Enumerable.Range(0, (int)forward.Cells)
                    .Select(bin => lattice.Coordinate(bin))
                    .Select(at => step.Symbol.Of(

@@ -152,15 +152,16 @@
 | :-----: | :---------------------------------------------------------------------------- | :------ | :----------------------------------------- |
 |  [01]   | `Integrate.OnClosedInterval(F1, double, double)`                              | static  | double-exponential, `1e-8` absolute target |
 |  [02]   | `Integrate.OnClosedInterval(F1, double, double, double)`                      | static  | the same rule at a caller error target     |
-|  [03]   | `Integrate.DoubleExponential(F1, double, double, double)`                     | static  | the transformation named directly          |
-|  [04]   | `Integrate.GaussLegendre(F1, double, double, int)`                            | static  | fixed-order Legendre rule                  |
-|  [05]   | `Integrate.GaussKronrod(F1, double, double, double, int, int)`                | static  | adaptive rule at a relative-error target   |
+|  [03]   | `Integrate.DoubleExponential(F1, double, double, double)`                     | static  | public facade; either or both limits may be infinite through the facade substitution |
+|  [04]   | `Integrate.GaussLegendre(F1, double, double, int)`                            | static  | public facade; either or both limits may be infinite through the facade substitution |
+|  [05]   | `Integrate.GaussKronrod(F1, double, double, double, int, int)`                | static  | public facade; adaptive at a relative-error target, either or both limits may be infinite through the facade substitution |
 |  [06]   | `Integrate.OnRectangle(F2, double, double, double, double)`                   | static  | 2-D Legendre product rule                  |
 |  [07]   | `Integrate.OnRectangle(F2, double, double, double, double, int)`              | static  | the same rule at a caller node order       |
 |  [08]   | `Integrate.OnCuboid(F3, double, double, double, double, double, double, int)` | static  | 3-D Legendre product rule                  |
 
 - `F1`, `F2`, and `F3` abbreviate `Func<double,double>`, `Func<double,double,double>`, and `Func<double,double,double,double>`; every surface returns `double`.
 - `Integrate.GaussKronrod` seats `out double` error and L1-norm estimates ahead of the optional tail in its second overload.
+- Infinite-limit substitution lives on these three public facades alone; the direct double-exponential kernel below them feeds infinity into abscissa evaluation and yields `NaN` weights, so infinite bounds never bypass the facade.
 
 [ENTRYPOINT_SCOPE]: root finding via `MathNet.Numerics.RootFinding`
 
@@ -222,6 +223,26 @@
 
 [INTERPOLATION_INTERFACE]: `Interpolate` `Differentiate` `Differentiate2` `Integrate` `SupportsDifferentiation` `SupportsIntegration`
 
+[ENTRYPOINT_SCOPE]: interpolation via the per-scheme `*Sorted` constructors, every entry taking already-ascending `double[]` columns as-is
+
+| [INDEX] | [SURFACE]                                                                                   | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------------------------ | :------ | :--------------------------------------- |
+|  [01]   | `CubicSpline.InterpolateNaturalSorted(double[], double[])`                                  | factory | natural cubic spline                     |
+|  [02]   | `CubicSpline.InterpolateAkimaSorted(double[], double[])`                                    | factory | Akima cubic, outlier-tolerant            |
+|  [03]   | `CubicSpline.InterpolatePchipSorted(double[], double[])`                                    | factory | PCHIP monotone cubic                     |
+|  [04]   | `CubicSpline.InterpolateHermiteSorted(double[], double[], double[])`                        | factory | Hermite cubic at prescribed slopes       |
+|  [05]   | `LinearSpline.InterpolateSorted(double[], double[])`                                        | factory | piecewise linear spline                  |
+|  [06]   | `StepInterpolation.InterpolateSorted(double[], double[])`                                   | factory | piecewise constant                       |
+|  [07]   | `NevillePolynomialInterpolation.InterpolateSorted(double[], double[])`                      | factory | Neville polynomial                       |
+|  [08]   | `LogLinear.InterpolateSorted(double[], double[])`                                           | factory | log-linear spline                        |
+|  [09]   | `BulirschStoerRationalInterpolation.InterpolateSorted(double[], double[])`                  | factory | Bulirsch-Stoer rational, poles admitted  |
+|  [10]   | `Barycentric.InterpolateRationalFloaterHormannSorted(double[], double[])`                   | factory | Floater-Hormann pole-free rational       |
+|  [11]   | `Barycentric.InterpolatePolynomialEquidistantSorted(double[], double[])`                    | factory | barycentric polynomial on a uniform grid |
+|  [12]   | `TransformedInterpolation.InterpolateSorted(Func<double,double>, Func<double,double>, double[], double[])` | factory | domain-transformed fit        |
+|  [13]   | `new QuadraticSpline(double[] x, double[] c0, double[] c1, double[] c2)`                    | ctor    | per-segment quadratic coefficients       |
+
+- The enumerable `Interpolate` roster copies and sorts its columns before delegating to these entries, so a caller that has already proved its abscissa ascending hands the `*Sorted` constructor the exact arrays and pays no second sort.
+
 [ENTRYPOINT_SCOPE]: regression and curve fitting via `Fit`, every surface static over `double[]` samples
 
 | [INDEX] | [SURFACE]                                                                    | [SHAPE] | [CAPABILITY]                                    |
@@ -246,7 +267,7 @@
 [GAMMA]: `Gamma` `GammaLn` `GammaLowerIncomplete` `GammaUpperIncomplete` `GammaLowerRegularized` `GammaUpperRegularized` `GammaLowerRegularizedInv` `DiGamma` `DiGammaInv`
 [BETA]: `Beta` `BetaLn` `BetaIncomplete` `BetaRegularized`
 [ERROR_FUNCTION]: `Erf` `Erfc` `ErfInv` `ErfcInv`
-[COMBINATORIC]: `Factorial` `FactorialLn` `Binomial` `BinomialLn` `Multinomial` `RisingFactorial` `FallingFactorial` `Harmonic` `GeneralHarmonic`
+[COMBINATORIC]: `Factorial` `FactorialLn` `Binomial(int, int) -> double` `BinomialLn` `Multinomial` `RisingFactorial` `FallingFactorial` `Harmonic` `GeneralHarmonic`
 [BESSEL]: `BesselJ` `BesselY` `BesselI` `BesselK` `BesselI0` `BesselI1` `BesselK0` `BesselK1` `SphericalBesselJ` `SphericalBesselY` `HankelH1` `HankelH2`
 [AIRY_KELVIN_STRUVE]: `AiryAi` `AiryBi` `AiryAiPrime` `AiryBiPrime` `KelvinBer` `KelvinBei` `KelvinKer` `KelvinKei` `StruveL0` `StruveL1`
 [ELEMENTARY]: `Logistic` `Logit` `Log1p` `Expm1` `Hypotenuse` `ExponentialIntegral` `MarcumQ` `MittagLefflerE` `GeneralizedHypergeometric`

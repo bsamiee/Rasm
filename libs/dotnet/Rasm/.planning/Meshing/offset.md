@@ -590,7 +590,7 @@ public static class Offsetting {
     static Fin<SkeletonGraph> MedialOf(AdmittedRing admitted, Op key) {
         Polyline ring = admitted.Ring;
         int n = ring.Count - 1;
-        Arr<Implicit> rows = new Arr<Implicit>([.. Enumerable.Range(0, n).Select(i => new Implicit(ring[i]))]);
+        Arr<Implicit> rows = new([.. Enumerable.Range(0, n).Select(i => (Implicit)ring[i])]);
         Seq<Conform> edges = toSeq(Enumerable.Range(0, n).Select(i => (Conform)new Conform.Edge(i, (i + 1) % n)));
         return Tessellation.Build(new TessellationOp.Points(TessellationKind.Triangulation, rows, edges, TessellationPolicy.Canonical, Axis.Z), key)
             .Bind(t => t.VoronoiDual(key).Map(dual => (Tess: t, Dual: dual)))

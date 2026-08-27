@@ -254,7 +254,7 @@ public static class Reconciliation {
             .Traverse(entry => Content(kind: entry.Kind, canonical: entry.Canonical) switch {
                 UInt128 digest when live.Contains(digest) =>
                     Validation.Success<Error, NameAddress>(new NameAddress(entry.Name, entry.Kind, GeometryHash.Create(digest))),
-                _ => Validation.Fail<Error, NameAddress>(new GeometryFault.HashMismatch(entry.Name, entry.Kind)),
+                _ => Validation.Fail<Error, NameAddress>(new GeometryFault.TopologyContentMissing(entry.Name, entry.Kind)),
             })
             .As()
             .Map(static addresses => addresses.Fold(HashMap<TopoName, NameAddress>.Empty,

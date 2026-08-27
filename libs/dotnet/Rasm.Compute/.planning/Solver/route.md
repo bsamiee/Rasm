@@ -16,7 +16,7 @@ Terminal evidence is likewise measured, never stamped: a direct factorization on
 ## [02]-[SOLVE_ROUTES]
 
 - Owner: `RouteRequest` the one request carrier every body takes; `MarchRequest` the transient carrier the integrator row's own body reads; `Step<TState>` the continue-or-settle carrier; `Fixpoint` the ONE bounded fold; `ResidualEvaluation` the per-evaluation internal force, trial ledger, trial multipliers, and consistent tangent; `DofSplit`/`Reduced` the condensation carriers; `SolveRoutes` the bodies.
-- Entry: every body is `static Fin<SolveResult> <Route>(RouteRequest request, <Case> row)`, reached from the one `SolveLane.Solve` `Switch` and from nowhere else. `Traced` is the `Tensor/quadrature#TRAJECTORY_DRIVER` consumer: the semi-discrete first-order system integrates on `Trajectory.Trace` over a `FieldCarrier` module, and the driver's `TrajectoryTerminal` and `ConvergenceClaim` land as the result's `Convergence` verdict and its `QuadratureEvidence`.
+- Entry: every body is `static Fin<SolveResult> <Route>(RouteRequest request, <Case> row)`, reached from the one `SolveLane.Solve` `Switch` and from nowhere else. `Traced` is the `Tensor/quadrature#TRAJECTORY_DRIVER` consumer: the semi-discrete first-order system integrates on `Trajectory.Trace` over a `FieldCarrier` module, and the driver's `TerminalDisposition` and last measured error land as the result's `Convergence` verdict and its `QuadratureEvidence`.
 - Auto: the transient route reads its integrator ROW's own march body, so the three-deep ternary over form, implicitness, and mass singularity becomes one form test and one row delegate; the modal routes are separate cases, so the buckling-versus-condensed ternary and the condensation `Option` match both delete with the union that carries the payload.
 - Result: the result's `Convergence` verdict, iteration count, and measured residual land on `Solver/contract`'s `Solve` result; the condensed route adds its `CondensationEvidence`.
 - Packages: MathNet.Numerics, CSparse, System.Numerics.Tensors, CommunityToolkit.HighPerformance, LanguageExt.Core (`Fin`/`Option`/`IO.Bracket`/`Schedule`), NodaTime, Thinktecture.Runtime.Extensions
@@ -26,7 +26,7 @@ Terminal evidence is likewise measured, never stamped: a direct factorization on
 - Boundary: implicit schemes add stiffness and damping to the effective operator, so an inertia-free row still carries a solvable diagonal; the explicit scheme DIVIDES by inertia, so the same row is unmarchable and a guard would freeze it at zero and publish that as motion. A frame's rotational rows are exactly those rows, so the explicit integrator refuses the model by naming the row.
 - Boundary: contact is nonlinear-only. Its ids name the base dof of a translational triple, the gap projects onto the constraint normal, and ONE `ContactEnforcement.Enforce` per residual evaluation returns the force, the gap-space stiffness, and the advanced multipliers. Both derivative legs project through `∂g/∂u = ±w·n`: the force scatters over the triple and the stiffness scatters as `h·n⊗n` over the pair's four blocks through a re-ingest, because the elastic sparsity holds no slot for a coupling no element makes.
 - Boundary: material history is path-dependent across steps and NOT across probes. Residual evaluations evolve TRIAL rows from the committed ledger, line-search probes and rejected iterations never advance history, and only a converged load or arc step commits its trial ledger and contact multipliers.
-- Boundary: the error-controlled march ELECTS its `StepLaw` on the `FieldIntegrator` it mints and composes the `Trajectory` driver; it never calls the kernel `FieldIntegrator.Step` itself. `Step` is a PURE step function the kernel deliberately surrounds with no run loop — reject retry, underflow floor, step budget, and the `StepHistory` thread a PI or Gustafsson law reads are all the driver's, and a second loop here would re-derive the four run-level facts `Trajectory` already partitions. A route electing a fixed integrator therefore reports `ConvergenceClaim.Unwitnessed`, and unless its own accuracy intent said `RequireErrorWitness = false` it REFUSES rather than publishing an unmeasured march under a converged verdict.
+- Boundary: the error-controlled march ELECTS its `StepController` on the `RungeKuttaIntegrator` it mints and composes the `Trajectory` driver; it never calls the kernel `RungeKuttaIntegrator.Step` itself. `Step` is a PURE step function the kernel deliberately surrounds with no run loop — reject retry, underflow floor, step budget, and the `Option<StepHistory>` the driver mints from each outcome's error and its own selected next step for a PI or Gustafsson law to read are all the driver's, and a second loop here would re-derive the four run-level facts `Trajectory` already partitions. A route electing a fixed integrator therefore carries no error estimate — its `QuadratureEvidence.Error` is `None` — and unless its own accuracy intent said `RequireErrorWitness = false` it REFUSES rather than publishing an unmeasured march under a converged verdict.
 - Boundary: a route holding a live archive session brackets it — the session releases on the refusing path exactly as on the settling one, because a `using` inside a `Bind` lambda leaks the handle on every path the lambda does not return through.
 - Exemption: the block partition walk, the transformation column march, the pencil sweep, the geometric-stiffness scatter, and the mode recovery are MEASURED span kernels over indices the partition already carries; each dies with the reduction that fills it.
 
@@ -308,24 +308,24 @@ public static class SolveRoutes {
     private static readonly Op TraceKey = Op.Of(name: "solve-traced");
 
     static Fin<SolveResult> Witnessed(RouteRequest request, SolveRoute.Traced row, TrajectoryRun<FieldState> run) {
-        ConvergenceClaim claim = run.LastError.IsSome ? ConvergenceClaim.Estimated : ConvergenceClaim.Unwitnessed;
-        return claim == ConvergenceClaim.Unwitnessed && row.Accuracy.RequireErrorWitness
-            ? Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Keys(row.Integrator.Kind.Key, run.Terminal.Key))))
-            : run.Terminal == TrajectoryTerminal.NonFinite
-                ? Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(run.Steps))))
-                : Fin.Succ(request.Settled([.. run.Final.Values], run.Steps, 1, run.LastError.IfNone(0.0), Verdict(run, row)) with {
+        Option<double> lastError = run.Cursor.History.Map(static h => h.Error);
+        return !lastError.IsSome && row.Accuracy.RequireErrorWitness
+            ? Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Keys(row.Integrator.Method.Key, run.Terminal.Key))))
+            : run.Terminal is TerminalDisposition.Divergent
+                ? Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(run.Cursor.Steps))))
+                : Fin.Succ(request.Settled([.. run.Cursor.State.Values], run.Cursor.Steps, 1, lastError.IfNone(0.0), Verdict(run, row)) with {
                     Evidence = Some(new QuadratureEvidence(
-                        Value: run.Achieved, Error: run.LastError, L1Norm: None, Ratio: None,
-                        Skipped: run.Rejects, Claim: claim)),
+                        Value: run.Cursor.Time, Error: lastError, L1Norm: None, Ratio: None,
+                        Skipped: run.Cursor.Rejects)),
                 });
     }
 
-    static Convergence Verdict(TrajectoryRun<FieldState> run, SolveRoute.Traced row) =>
-        run.Terminal == TrajectoryTerminal.Completed
-            ? new Convergence.Converged(run.LastError.IfNone(0.0))
-            : run.Terminal == TrajectoryTerminal.BudgetExhausted
-                ? new Convergence.Exhausted(row.Control.MaxSteps)
-                : new Convergence.Stalled();
+    static Convergence Verdict(TrajectoryRun<FieldState> run, SolveRoute.Traced row) => run.Terminal.Switch(
+        converged: _ => (Convergence)new Convergence.Converged(run.Cursor.History.Map(static h => h.Error).IfNone(0.0)),
+        relaxable: relaxable => relaxable.Axis == RelaxAxis.Steps
+            ? new Convergence.Exhausted(row.Control.MaxSteps)
+            : new Convergence.Stalled(),
+        divergent: static _ => new Convergence.Stalled());
 
     static ConstitutiveState[] Pristine(DiscreteMesh mesh, SolveProblem problem, ConstitutiveModel model) {
         int components = model is ConstitutiveModel.Hyperelastic ? 9 : problem.Physics.StrainDim;

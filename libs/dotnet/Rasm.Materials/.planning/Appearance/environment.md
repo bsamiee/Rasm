@@ -418,7 +418,7 @@ public static class SolarFrame {
         from site in key.AcceptValidated(SolarSite.Validate(
             latitudeDeg: latitudeDegrees,
             longitudeDeg: longitudeDegrees,
-            timezone: Offset.Zero,
+            standardOffset: Offset.Zero,
             elevationM: elevationM,
             out SolarSite? admitted), admitted)
         select Project(SolarPosition.At(site, instant));

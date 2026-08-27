@@ -19,9 +19,9 @@ Fitting solves compose the `matrix.md` sparse owners through `SplineFit`'s own s
 - Law: every count on the engine's PUBLIC surface is `Dimension` — policy orders and budgets, derivative order, and the degree targets `ElevateDegree`/`ReduceDegree` take — so a non-positive order or target is unrepresentable rather than guarded at each read, and no consumer clamps one into range on this engine's behalf. `KnotVector.Of(int degree, …)` stays raw because it IS the boundary admission. The two tolerance columns anchor on `EpsilonPolicy` and `Of(context)` derives them from `ToleranceLane.Length`/`ToleranceLane.Root` wherever a caller holds a model context.
 - Law: closure is MODEL-SPACE and reads `ToleranceLane.Closure` off a threaded `Context`, on both carriers. NAMED LOSS: the parameterless `IsClosed` accessor; a dimensionless anchor called essentially nothing closed on a metre model and disagreed with a millimetre one about the same curve.
 - Law: knot coincidence has ONE regime — the `Coincident` band both multiplicity walks and the wrap proof read. NAMED LOSS: exact float equality at the ends, which held only on an unstated bit-exactness invariant a later change to the normalization would have broken silently.
-- Packages: `MathNet.Numerics` (`Brent.TryFindRoot` length inversion, `RobustNewtonRaphson.TryFindRoot` guarded Newton projection — both no-throw twins, so budget exhaustion lands as a typed fault in the result); `TYoshimura.DoubleDouble` (`ddouble` + `DoubleDoubleEnumerableExpand.Sum` — the 106-bit arc-length table, narrowed only at public signatures); `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane` native carriers); `Rasm.Numerics` (`Quadrature.Integrate`/`IntegrationDomain.Line`/`QuadratureRoute.GaussLegendre`/`QuadratureControl` arc-length quadrature, `SparseMatrix.FromTriplets`/`SolveDetailed` and `CholeskySparse.SolveDetailed` fitting solves, `EpsilonPolicy`/`Dimension` atoms, `GeometryFault.ParametricFault`/`ParametricStage`); `Rasm.Spatial` (`EncodeForm`/`EncodeForm.Direction` identity target); `Rasm.Domain` (`Op`/`Op.Catch`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`); `Thinktecture.Runtime.Extensions`; `LanguageExt.Core` (`Fin`/`Arr`/`Seq`/`Option`, `Validation` + applicative `Apply` the accumulating admission); `System.Numerics.Tensors` (`TensorPrimitives.Subtract`/`Divide`/`IsFiniteAll` — the knot normalization and its one finiteness reduction); `CommunityToolkit.HighPerformance` (`MemoryOwner<double>` the knot-merge staging plane); BCL inbox.
+- Packages: `MathNet.Numerics` (`Brent.TryFindRoot` length inversion, `RobustNewtonRaphson.TryFindRoot` guarded Newton projection — both no-throw twins, so budget exhaustion lands as a typed fault in the result); `TYoshimura.DoubleDouble` (`ddouble` + `DoubleDoubleEnumerableExpand.Sum` — the 106-bit arc-length table, narrowed only at public signatures); `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane` native carriers); `Rasm.Numerics` (`Quadrature.Integrate`/`QuadratureDomain.Line`/`QuadratureRoute.GaussLegendre`/`QuadratureControl` arc-length quadrature, `SparseMatrix.FromTriplets`/`SolveDetailed` and `CholeskySparse.SolveDetailed` fitting solves, `EpsilonPolicy`/`Dimension` atoms, the `GeometryFault` union); `Rasm.Spatial` (`EncodeForm`/`EncodeForm.Direction` identity target); `Rasm.Domain` (`Op`/`Op.Catch`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`); `Thinktecture.Runtime.Extensions`; `LanguageExt.Core` (`Fin`/`Arr`/`Seq`/`Option`, `Validation` + applicative `Apply` the accumulating admission); `System.Numerics.Tensors` (`TensorPrimitives.Subtract`/`Divide`/`IsFiniteAll` — the knot normalization and its one finiteness reduction); `CommunityToolkit.HighPerformance` (`MemoryOwner<double>` the knot-merge staging plane); BCL inbox.
 - Growth: a new evaluation member is one projection over the existing derivative kernels; a new fitting scheme is one `SplineFit` row carrying its own `Solve` column, consumers untouched; a further constructive wire (swept, lofted-through-N) is one `NurbsWire` case folded by the same `Of` — `Ruled`/`Revolved` are the executed precedent — zero new entry surfaces, zero new carriers.
-- Boundary: evaluation members live on `NurbsForm` and the op APIs live in `curve.md`/`surface.md`, so an op union here or an evaluation re-derivation there is the altitude violation; the engine speaks `Point3d`/`Vector3d`/`Plane` natively with no private point vocabulary or marshal layer; parameters are the normalized `[0,1]`/`[0,1]²` domain and knots store clamped-normalized — or wrap-periodic UNCLAMPED under `KnotForm.Periodic`, where the span arm wraps the parameter and closure holds at `C^{p−1}`; weights are strictly positive at admission and a zero-or-negative weight is a `Construction` fault, never a NaN downstream; `ToEncodeForm` re-proves `EncodeForm.Of`'s normalized-CLAMPED gate, so a periodic carrier refuses identity projection until a consumer clamps it — one key per curve is worth the refusal, a second layout is not; every failure routes `GeometryFault.ParametricFault` naming the failing stage over `Fin`, and no exception crosses the public surface; RhinoCommon owns the Rhino-host parametric surface and this engine the host-neutral one — a runtime split, never capability — with the Rhino-trimmed knot spelling extending at the wire under one admission law.
+- Boundary: evaluation members live on `NurbsForm` and the op APIs live in `curve.md`/`surface.md`, so an op union here or an evaluation re-derivation there is the altitude violation; the engine speaks `Point3d`/`Vector3d`/`Plane` natively with no private point vocabulary or marshal layer; parameters are the normalized `[0,1]`/`[0,1]²` domain and knots store clamped-normalized — or wrap-periodic UNCLAMPED under `KnotForm.Periodic`, where the span arm wraps the parameter and closure holds at `C^{p−1}`; weights are strictly positive at admission and a zero-or-negative weight is a `DegenerateInput` admission fault naming its index, never a NaN downstream; `ToEncodeForm` re-proves `EncodeForm.Of`'s normalized-CLAMPED gate, so a periodic carrier refuses identity projection until a consumer clamps it — one key per curve is worth the refusal, a second layout is not; every failure routes its direct `GeometryFault` case — `InvalidKnotVector`, `LengthInversionUnconverged`, `CurveProjectionUnconverged`, or `DegenerateInput` — over `Fin`, and no exception crosses the public surface; RhinoCommon owns the Rhino-host parametric surface and this engine the host-neutral one — a runtime split, never capability — with the Rhino-trimmed knot spelling extending at the wire under one admission law.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -125,15 +125,15 @@ public readonly record struct KnotVector(int Degree, Arr<double> Knots, KnotForm
     public int ControlCount => Knots.Count - Degree - 1;
 
     public static Fin<KnotVector> Of(int degree, ReadOnlySpan<double> raw) {
-        if (degree < 1 || raw.Length < 2 * degree) { return Fail("degree under 1 or knot vector under the trimmed floor"); }
+        if (degree < 1 || raw.Length < 2 * degree) { return Fail(degree, raw.Length, "degree under 1 or knot vector under the trimmed floor"); }
         (double lo, double hi) = (raw[0], raw[^1]);
-        if (!double.IsFinite(lo) || !double.IsFinite(hi) || hi <= lo) { return Fail("degenerate knot extent"); }
+        if (!double.IsFinite(lo) || !double.IsFinite(hi) || hi <= lo) { return Fail(degree, raw.Length, "degenerate knot extent"); }
         double[] knots = new double[raw.Length];
         TensorPrimitives.Subtract(raw, lo, knots);
         TensorPrimitives.Divide<double>(knots, hi - lo, knots);
-        if (!TensorPrimitives.IsFiniteAll<double>(knots)) { return Fail("non-finite knot after normalization"); }
+        if (!TensorPrimitives.IsFiniteAll<double>(knots)) { return Fail(degree, raw.Length, "non-finite knot after normalization"); }
         for (int i = 1; i < knots.Length; i++) {
-            if (knots[i] < knots[i - 1]) { return Fail($"non-monotone knot at {i}"); }
+            if (knots[i] < knots[i - 1]) { return Fail(degree, raw.Length, $"non-monotone knot at {i}"); }
         }
         int head = 0;
         while (head < knots.Length && Coincident(knots[head], 0.0)) { head++; }
@@ -146,16 +146,16 @@ public readonly record struct KnotVector(int Degree, Arr<double> Knots, KnotForm
         };
         return clamped.Match(
             Some: vector => vector.Length - degree - 1 < degree + 1
-                ? Fail("control extent under degree + 1")
+                ? Fail(degree, knots.Length, "control extent under degree + 1")
                 : Fin.Succ(new KnotVector(degree, new Arr<double>(vector), KnotForm.Clamped)),
             None: () => !PeriodicWrap(knots, degree)
-                ? Fail("unclamped knot vector — neither clamped, trimmed, nor wrap-periodic")
+                ? Fail(degree, knots.Length, "unclamped knot vector — neither clamped, trimmed, nor wrap-periodic")
                 : knots.Length - degree - 1 < degree + 1
-                    ? Fail("control extent under degree + 1")
+                    ? Fail(degree, knots.Length, "control extent under degree + 1")
                     : Fin.Succ(new KnotVector(degree, new Arr<double>(knots), KnotForm.Periodic)));
 
-        static Fin<KnotVector> Fail(string witness) =>
-            Fin.Fail<KnotVector>(new GeometryFault.ParametricFault(ParametricStage.Construction, ParametricCarrier.Knots, witness));
+        static Fin<KnotVector> Fail(int degree, int knotCount, string detail) =>
+            Fin.Fail<KnotVector>(new GeometryFault.InvalidKnotVector(degree, knotCount, detail));
     }
 
     static bool Coincident(double a, double b) => Math.Abs(a - b) <= EpsilonPolicy.SqrtEpsilon;
@@ -328,11 +328,11 @@ public static class Nurbs {
 
     static Fin<NurbsForm> AdmitCurve(NurbsWire.Curve wire) =>
         (KnotVector.Of(wire.Degree, [.. wire.Knots]).ToValidation(),
-         WeightsPositive(wire.Weights, ParametricCarrier.Curve).ToValidation(),
-         PointsFinite(wire.Points, ParametricCarrier.Curve).ToValidation())
+         WeightsPositive(wire.Weights, Kind.Curve).ToValidation(),
+         PointsFinite(wire.Points, Kind.Curve).ToValidation())
         .Apply(static (knots, _, _) => knots).As().ToFin()
         .Bind(knots => knots.ControlCount != wire.Points.Count || wire.Weights.Count != wire.Points.Count
-            ? Construction<NurbsForm>(ParametricCarrier.Curve, "control/weight extent disagrees with the knot vector")
+            ? Fin.Fail<NurbsForm>(new GeometryFault.DegenerateInput(Kind.Curve, None, "control/weight extent disagrees with the knot vector"))
             : Homogenize(wire.Points, wire.Weights) switch {
                 (double[] wx, double[] wy, double[] wz, double[] w) =>
                     Fin.Succ<NurbsForm>(new NurbsForm.Curve(knots, wx, wy, wz, w, wire.Origin)),
@@ -341,27 +341,27 @@ public static class Nurbs {
     static Fin<NurbsForm> AdmitSurface(NurbsWire.Surface wire) =>
         (KnotVector.Of(wire.DegreeU, [.. wire.KnotsU]).ToValidation(),
          KnotVector.Of(wire.DegreeV, [.. wire.KnotsV]).ToValidation(),
-         WeightsPositive(wire.Weights, ParametricCarrier.Surface).ToValidation(),
-         PointsFinite(wire.Grid, ParametricCarrier.Surface).ToValidation())
+         WeightsPositive(wire.Weights, Kind.Surface).ToValidation(),
+         PointsFinite(wire.Grid, Kind.Surface).ToValidation())
         .Apply(static (u, v, _, _) => (U: u, V: v)).As().ToFin()
         .Bind(axes => axes.U.ControlCount != wire.CountU
                 || wire.Grid.Count != axes.U.ControlCount * axes.V.ControlCount
                 || wire.Weights.Count != wire.Grid.Count
-            ? Construction<NurbsForm>(ParametricCarrier.Surface, "grid extent disagrees with the knot vectors")
+            ? Fin.Fail<NurbsForm>(new GeometryFault.DegenerateInput(Kind.Surface, None, "grid extent disagrees with the knot vectors"))
             : Homogenize(wire.Grid, wire.Weights) switch {
                 (double[] wx, double[] wy, double[] wz, double[] w) =>
                     Fin.Succ<NurbsForm>(new NurbsForm.Surface(axes.U, axes.V, wx, wy, wz, w, wire.Origin)),
             });
 
-    static Fin<Arr<double>> WeightsPositive(Arr<double> weights, ParametricCarrier carrier) =>
-        weights.Exists(static w => !ValidityClaim.Positive(value: w))
-            ? Construction<Arr<double>>(carrier, "non-positive weight")
-            : Fin.Succ(weights);
+    static Fin<Arr<double>> WeightsPositive(Arr<double> weights, Kind kind) =>
+        toSeq(Enumerable.Range(0, weights.Count)).Find(i => !ValidityClaim.Positive(value: weights[i])).Match(
+            Some: at => Fin.Fail<Arr<double>>(new GeometryFault.DegenerateInput(kind, at, "non-positive weight")),
+            None: () => Fin.Succ(weights));
 
-    static Fin<Arr<Point3d>> PointsFinite(Arr<Point3d> points, ParametricCarrier carrier) =>
-        points.Exists(static p => !ValidityClaim.Finite(value: p))
-            ? Construction<Arr<Point3d>>(carrier, "non-finite control point")
-            : Fin.Succ(points);
+    static Fin<Arr<Point3d>> PointsFinite(Arr<Point3d> points, Kind kind) =>
+        toSeq(Enumerable.Range(0, points.Count)).Find(i => !ValidityClaim.Finite(value: points[i])).Match(
+            Some: at => Fin.Fail<Arr<Point3d>>(new GeometryFault.DegenerateInput(kind, at, "non-finite control point")),
+            None: () => Fin.Succ(points));
 
     static (double[] WX, double[] WY, double[] WZ, double[] W) Homogenize(Arr<Point3d> points, Arr<double> weights) {
         int n = points.Count;
@@ -382,9 +382,6 @@ public static class Nurbs {
 
     internal static Fin<double[]> ParameterizeSamples(Arr<Point3d> samples, ChordRule rule, Op key);
     internal static Fin<KnotVector> AveragedKnots(double[] parameters, int degree, int controlCount, Op key);
-
-    static Fin<T> Construction<T>(ParametricCarrier carrier, string witness) =>
-        Fin.Fail<T>(new GeometryFault.ParametricFault(ParametricStage.Construction, carrier, witness));
 }
 
 // --- [KERNELS] -------------------------------------------------------------------------
@@ -403,9 +400,9 @@ internal static class NurbsKernel {
         QuadratureControl control = QuadratureControl.Default with { LegendreOrder = policy.GaussOrder.Value, RequireErrorWitness = false };
         return toSeq(BezierSegments(curve))
             .TraverseM(segment => Quadrature.Integrate(
-                new IntegrationDomain.Line(
+                new QuadratureDomain.Line(
                     F: t => CurveRationalDerivatives(segment, t, 1).Ders[0].Length,
-                    Bounds: new IntervalSpec(Lower: 0.0, Upper: 1.0),
+                    Bounds: new IntegrationInterval(Lower: 0.0, Upper: 1.0),
                     Route: QuadratureRoute.GaussLegendre),
                 control: control, key: key)).As()
             .Map(static evidence => {
@@ -426,7 +423,7 @@ internal static class NurbsKernel {
                 t => LengthTo(curve, cumulative, t, policy) - target, lo, hi,
                 policy.LengthTolerance, policy.ProjectIterations.Value, out double root)
             ? Fin.Succ(root)
-            : Fin.Fail<double>(new GeometryFault.ParametricFault(ParametricStage.Station, ParametricCarrier.Curve, $"length inversion unconverged at {target}"));
+            : Fin.Fail<double>(new GeometryFault.LengthInversionUnconverged(target));
     }
 
     internal static Fin<double> NewtonProject(NurbsForm.Curve curve, Point3d probe, double seedLo, double seedHi, NurbsPolicy policy, Op key) =>
@@ -437,8 +434,7 @@ internal static class NurbsKernel {
                 out double root)
             ? Some(root)
             : Option<double>.None))
-        .Bind(root => root.ToFin(Fail: new GeometryFault.ParametricFault(
-            ParametricStage.Evaluation, ParametricCarrier.Curve, $"newton projection unconverged at {probe}")));
+        .Bind(root => root.ToFin(Fail: new GeometryFault.CurveProjectionUnconverged(probe)));
 
     internal static double ProjectionObjective(NurbsForm.Curve curve, Point3d probe, double t) =>
         Jet(curve, t) switch { var jet => (jet.Point - probe) * jet.Ders[0] };
@@ -474,7 +470,7 @@ flowchart LR
     NurbsForm -->|"RationalDerivatives #234-fixed"| Forms["fundamental forms · curvature"]
     NurbsForm -->|"ToEncodeForm — normalized bytes"| EncodeForm["reconciliation EncodeForm.Parametric"]
     NurbsForm -->|"evaluation members"| Consumers["curve.md · surface.md · develop.md ops"]
-    Wire -.->|"ParametricFault — Construction / Evaluation / Station"| GeometryFault
+    Wire -.->|"InvalidKnotVector / LengthInversionUnconverged / CurveProjectionUnconverged"| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

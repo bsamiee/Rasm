@@ -277,9 +277,9 @@ public sealed partial class VectorCloudMetric {
             (false, _) => Fin.Fail<TOut>(error: key.Unsupported(inputType: cloud.GetType(), outputType: typeof(TOut))),
             (_, false) => Fin.Fail<TOut>(error: key.Unsupported(inputType: typeof(VectorCloudMetric), outputType: typeof(TOut))),
             _ => Measure(cloud: cloud, policy: policy, key: key).Bind(value => value switch {
-                Seq<Vector3d> vs => AtomProjection.Values<Vector3d, TOut>(values: vs, key: key, owner: typeof(VectorCloudMetric)),
-                Seq<double> ds => AtomProjection.Values<double, TOut>(values: ds, key: key, owner: typeof(VectorCloudMetric)),
-                Seq<Plane> ps => AtomProjection.Values<Plane, TOut>(values: ps, key: key, owner: typeof(VectorCloudMetric)),
+                Seq<Vector3d> vs => ResultProjection.Values<Vector3d, TOut>(values: vs, key: key, owner: typeof(VectorCloudMetric)),
+                Seq<double> ds => ResultProjection.Values<double, TOut>(values: ds, key: key, owner: typeof(VectorCloudMetric)),
+                Seq<Plane> ps => ResultProjection.Values<Plane, TOut>(values: ps, key: key, owner: typeof(VectorCloudMetric)),
                 _ => key.AcceptValue(value: value).Map(static v => (TOut)v),
             }),
         };
@@ -498,7 +498,7 @@ public readonly record struct CloudHullResult(
 
     internal Fin<TOut> Project<TOut>(Context context, Op key) {
         CloudHullResult self = this;
-        return AtomProjection.Rows<CloudHullResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<CloudHullResult, TOut>(self: self, key: key,
             ProjectionRow.Of<CloudSolid>(() => self.Solid.ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(CloudSolid)))),
             ProjectionRow.Of<Seq<CloudFacet>>(() => self.Solid.Map(static solid => solid.Facets)
                 .ToFin(key.Unsupported(inputType: typeof(CloudHullResult), outputType: typeof(Seq<CloudFacet>)))),
@@ -645,7 +645,7 @@ public readonly record struct CloudVoronoiResult(
 
     internal Fin<TOut> Project<TOut>(Context context, Op key) {
         CloudVoronoiResult self = this;
-        return AtomProjection.Rows<CloudVoronoiResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<CloudVoronoiResult, TOut>(self: self, key: key,
             ProjectionRow.Of<CloudVoronoiCensus>(() => Fin.Succ(self.Census)),
             ProjectionRow.Of<Seq<CloudVoronoiCell>>(() => Fin.Succ(self.Cells)),
             ProjectionRow.Of<Seq<Line>>(() => Fin.Succ(toSeq(self.Skeleton.AsIterable()

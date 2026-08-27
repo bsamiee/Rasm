@@ -148,9 +148,9 @@ public sealed record AnalysisContext(
                     new ContextFault.ContextRejected(months.Match(
                         Some: static span => $"months {span.From}..{span.To} outside an ascending 1..12",
                         None: static () => "months"))),
-                Gate(interval.StandardOffset == site.Timezone,
+                Gate(interval.StandardOffset == site.StandardOffset,
                     new ContextFault.SiteRejected(
-                        $"site {site.Timezone} against {calendar.Zone.Id} standard {interval.StandardOffset}")))
+                        $"site {site.StandardOffset} against {calendar.Zone.Id} standard {interval.StandardOffset}")))
                 .Apply((_, _, _) => new AnalysisContext(site, calendar, at, grain, months, scenario))
                 .As().ToFin(),
         };

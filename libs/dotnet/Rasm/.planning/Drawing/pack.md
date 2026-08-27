@@ -1,6 +1,6 @@
 # [RASM_ENCODING_PACK]
 
-`Rasm.Drawing` encoding folds one `PackOp` through `Encode.Apply` into a dtype-strided `EncodedGeometry`, every active channel proven against its quantization tolerance or routed as `GeometryFault.EncodingFault`. `ToolpathPath` retains line and circular spans, so arc centre and sense survive packing, posting, and reconciliation as content, never collapsing to sampled chords.
+`Rasm.Drawing` encoding folds one `PackOp` through `Encode.Apply` into a dtype-strided `EncodedGeometry`, every active channel proven against its quantization tolerance or routed as its direct encoding fault case. `ToolpathPath` retains line and circular spans, so arc centre and sense survive packing, posting, and reconciliation as content, never collapsing to sampled chords.
 
 `Meshing/mesh` composes `Encode.Of` as the arena mint behind `MeshDraft.Close`, and its `MeshSource.Arena`/`MeshSource.Volume` arms carry `EncodedGeometry` verbatim. Compute wraps `EncodedGeometry.Payload` and its descriptors as an `EncodedTensor` residency view, and AppHost marshals the descriptor set through `SolverKind` rows whose `Input`/`Output` columns speak `PackKind` directly.
 
@@ -14,8 +14,8 @@
 
 - Owner: `PackKind` binds each representation to its active `EncodingChannel` set; `EncodingChannel` is pure ROW DATA — arity, dtype, wire columns — and the lane that fills it belongs to the `PackOp` case that owns the source, so no channel row carries a dispatch over inputs it cannot see. `ChannelDtype` owns the quantization boundary — width, tolerance, the `ToleranceMode` that says whether that tolerance is a relative mantissa fact or an absolute rounding step, the `Complex` pairing column, and the bulk `TensorPrimitives` pack/unpack arms — as the ONE storage-type roster the `Rasm.Element` raster sample vocabulary and the `Rasm.Materials` plane depth vocabulary seat onto; every channel writes into one descriptor-tiled byte arena carrying its round-trip proof. `Uv` stays `Float32` by law — the surface parameter domain is unbounded and a normalized dtype clamps silently while passing its own witness — and it reads the per-corner UV column the `Meshing/edit` arena publishes through its `ToSpace` freeze, so a textured `MeshPatch` travels as one payload.
 - Cases: `ToolpathSpan` splits `Line` and `Arc`, the arc retaining its analytic centre and sense; the voxel sweep addresses through the `Numerics/atoms` `CellLattice`; `GaussianSplat` packs per-point scale, rotation, and SH-coefficient blocks over the SAME witness and schema identity; every `PackKind` shares one `Apply`, one lane map, and one witness fold.
-- Entry: `Encode.Apply(PackOp, Op?)` is the ONE encoding entrypoint, discriminating by `PackOp` case on `Fin` and gating `EncodedGeometry` at `key.AcceptValue`; `Encode.Of(int count, Seq<(EncodingChannel, float[], Option<EncodingChannel>)> lanes, Op?)` is its raw-lane modality — the interchange entry's mint for a decode already holding per-lane floats and, where the source column is sparse, the validity lane that masks it; the mint `MeshDraft.Close` composes — running the SAME reserve/pack/witness tail with the digest rooted on the packed payload, so its witness stamps `DigestRoot.Payload` where `Apply` stamps `DigestRoot.Source`. `PackPolicy.Tolerance` sets the voxel SDF iso-band and the field-sampling floor, never a domain-local epsilon. `EncodingFault` routes an unbound lane, a doubled raw-lane channel, an extent-versus-arity disagreement, or an unpack breaching `Dtype.Tolerance`; `DegenerateInput` routes an empty or sub-floor source; a non-digest reconcile answer routes the `Op` admission channel.
-- Auto: `PackOp.Lanes` is the ONE total `Switch` on this page — each case answers with the lane map its own source can fill, and `PackChannels` resolves every channel `PackKind.Channels` declares against that map, so an eighth case breaks the build at exactly one site and a kind declaring a channel its case cannot fill routes `EncodingFault` naming the pair. `SourceDigest` reads a `ToolpathPath`'s own framed `CanonicalWriter` preimage — the span kind rides an ordinal frame and an arc carries centre and sense as fields — so every analytic distinction keys, and neither sampled chords nor a coordinate-encoded discriminant stands in for one.
+- Entry: `Encode.Apply(PackOp, Op?)` is the ONE encoding entrypoint, discriminating by `PackOp` case on `Fin` and gating `EncodedGeometry` at `key.AcceptValue`; `Encode.Of(int count, Seq<(EncodingChannel, float[], Option<EncodingChannel>)> lanes, Op?)` is its raw-lane modality — the interchange entry's mint for a decode already holding per-lane floats and, where the source column is sparse, the validity lane that masks it; the mint `MeshDraft.Close` composes — running the SAME reserve/pack/witness tail with the digest rooted on the packed payload, so its witness stamps `DigestRoot.Payload` where `Apply` stamps `DigestRoot.Source`. `PackPolicy.Tolerance` sets the voxel SDF iso-band and the field-sampling floor, never a domain-local epsilon. `UnboundEncodingChannel`, `DuplicateEncodingChannel`, `ChannelArityMismatch`, and `EncodingRoundTripExceeded` route an unbound lane, a doubled raw-lane channel, an extent-versus-arity disagreement, and an unpack breaching `Dtype.Tolerance`; `DegenerateInput` routes an empty or sub-floor source; a non-digest reconcile answer routes the `Op` admission channel.
+- Auto: `PackOp.Lanes` is the ONE total `Switch` on this page — each case answers with the lane map its own source can fill, and `PackChannels` resolves every channel `PackKind.Channels` declares against that map, so an eighth case breaks the build at exactly one site and a kind declaring a channel its case cannot fill routes `UnboundEncodingChannel` naming the channel. `SourceDigest` reads a `ToolpathPath`'s own framed `CanonicalWriter` preimage — the span kind rides an ordinal frame and an arc carries centre and sense as fields — so every analytic distinction keys, and neither sampled chords nor a coordinate-encoded discriminant stands in for one.
 - Output: `EncodedGeometry` is the `IValidityEvidence` carrier; its claim set rejects any descriptor set that gaps, overlaps, or carries a non-finite witness error, so a hand-assembled carrier fails the acceptance oracle. `RoundTripWitness.Lossless` is DERIVED from the per-channel census against the dtype rows — a stored verdict beside the census it restates gives one fact two authorities — and the census keys on the typed `EncodingChannel` so no reader round trips through its text. `Lane<T>` is the fallible resolve — an absent channel or a width the `Dtype` row does not spell refuses typed — and `View<T>` is TOTAL on a lane this carrier issued, so no reader ever reads an empty view as a legitimately empty channel. Structural equality is Generator.Equals-generated with `Payload` excluded and every collection member attributed: `Witness.ContentHash` keys the content under its `Witness.Root` provenance, and an `ImmutableArray<byte>` carrier swap re-types the public residency surface every wrapper composes.
 - Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Domain`, RhinoCommon, `System.Numerics.Tensors`, `CommunityToolkit.HighPerformance`, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`, and BCL inbox.
 - Growth: a new modality is one `PackKind` row, one `PackOp` case, and that case's lane map; a new feature is one `EncodingChannel` row with its lane entry on each kind that carries it; a new quantization is one `ChannelDtype` row carrying its `ToleranceMode` over the SAME witness; a per-instance block descriptor is one column on `EncodingChannelDescriptor`. Zero new surface.
@@ -44,19 +44,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Drawing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class EncodingStage {
-    public static readonly EncodingStage LaneWidth        = new("lane-width");
-    public static readonly EncodingStage DuplicateChannel = new("duplicate-channel");
-    public static readonly EncodingStage Arity            = new("arity");
-    public static readonly EncodingStage UnboundLane      = new("unbound-lane");
-    public static readonly EncodingStage PayloadExtent    = new("payload-extent");
-    public static readonly EncodingStage RoundTrip        = new("round-trip");
-    public static readonly EncodingStage MissingColumn    = new("missing-column");
-}
-
 [SmartEnum<int>]
 public sealed partial class ToleranceMode {
     public static readonly ToleranceMode Absolute = new(0);
@@ -197,7 +184,7 @@ public sealed partial record EncodedGeometry(
 
     public Fin<EncodingChannelDescriptor> Lane<T>(EncodingChannel channel) where T : unmanaged =>
         Descriptors.Find(d => d.Channel == channel && Unsafe.SizeOf<T>() == d.Dtype.Width)
-            .ToFin(new GeometryFault.EncodingFault(channel, channel.Dtype, EncodingStage.LaneWidth, Actual: Unsafe.SizeOf<T>()));
+            .ToFin(new GeometryFault.ChannelWidthMismatch(channel, Unsafe.SizeOf<T>()));
 
     public ReadOnlyTensorSpan<T> View<T>(EncodingChannelDescriptor lane) where T : unmanaged {
         ReadOnlySpan<T> cast = MemoryMarshal.Cast<byte, T>(Payload.Span.Slice(lane.ByteOffset, lane.Bytes));
@@ -208,7 +195,9 @@ public sealed partial record EncodedGeometry(
 
 internal sealed record EncodedStore(int Count, byte[] Payload, EncodingChannelDescriptor[] Descriptors) {
     internal static EncodedStore Reserve(int count, Seq<EncodingChannel> channels) =>
-        new(count, new byte[channels.Fold(0, static (acc, c) => acc + (count * c.Arity * c.Dtype.Width))], new EncodingChannelDescriptor[channels.Count]);
+        new(count, new byte[checked((int)channels.Fold(0L,
+                (extent, channel) => extent + ((long)count * channel.Arity * channel.Dtype.Width)))],
+            new EncodingChannelDescriptor[channels.Count]);
 }
 
 internal readonly record struct PackedLane(EncodingChannelDescriptor Descriptor, float[] Raw);
@@ -352,17 +341,16 @@ public static class Encode {
                 ? (acc.Seen, acc.Dup.IsNone ? Some(lane.Channel) : acc.Dup)
                 : (acc.Seen.Add(lane.Channel), acc.Dup)).Dup;
         if (doubled.Case is EncodingChannel dup) {
-            return Fin.Fail<EncodedGeometry>(new GeometryFault.EncodingFault(dup, dup.Dtype, EncodingStage.DuplicateChannel));
+            return Fin.Fail<EncodedGeometry>(new GeometryFault.DuplicateEncodingChannel(dup));
         }
         Seq<EncodingChannel> channels = lanes.Map(static lane => lane.Channel);
         return Extent(count, channels)
             .Map(_ => EncodedStore.Reserve(count, channels))
             .Bind(store => lanes.Fold(Fin.Succ((Slot: 0, Offset: 0, Packed: Seq<PackedLane>())), (state, lane) =>
-                    state.Bind(s => lane.Raw.Length == count * lane.Channel.Arity
+                    state.Bind(s => lane.Raw.LongLength == (long)count * lane.Channel.Arity
                         ? Fin.Succ(Write(store, s, lane.Channel, count, lane.Raw, lane.Mask))
-                        : Fin.Fail<(int, int, Seq<PackedLane>)>(new GeometryFault.EncodingFault(
-                            lane.Channel, lane.Channel.Dtype, EncodingStage.Arity,
-                            Expected: count * lane.Channel.Arity, Actual: lane.Raw.Length))))
+                        : Fin.Fail<(int, int, Seq<PackedLane>)>(new GeometryFault.ChannelArityMismatch(
+                            lane.Channel, (long)count * lane.Channel.Arity, lane.Raw.LongLength))))
                 .Map(s => new PackedChannels(store, s.Packed)))
             .Bind(packed => Screened(packed, GeometryHash.Create(ContentHash.Of(packed.Store.Payload)), DigestRoot.Payload)
                 .Map(witness => new EncodedGeometry(packed.Store.Descriptors.ToSeq(), packed.Store.Payload, packed.Store.Count, witness)))
@@ -376,13 +364,12 @@ public static class Encode {
             .Map(_ => EncodedStore.Reserve(count, kind.Channels))
             .Bind(store => kind.Channels.Fold(Fin.Succ((Slot: 0, Offset: 0, Packed: Seq<PackedLane>())), (state, channel) =>
                     state.Bind(s => lanes.Find(channel)
-                        .ToFin(new GeometryFault.EncodingFault(channel, channel.Dtype, EncodingStage.UnboundLane))
+                        .ToFin(new GeometryFault.UnboundEncodingChannel(channel))
                         .Bind(lane => lane())
-                        .Bind(raw => raw.Length == count * channel.Arity
+                        .Bind(raw => raw.LongLength == (long)count * channel.Arity
                             ? Fin.Succ(Write(store, s, channel, count, raw, Option<EncodingChannel>.None))
-                            : Fin.Fail<(int, int, Seq<PackedLane>)>(new GeometryFault.EncodingFault(
-                                channel, channel.Dtype, EncodingStage.Arity,
-                                Expected: count * channel.Arity, Actual: raw.Length)))))
+                            : Fin.Fail<(int, int, Seq<PackedLane>)>(new GeometryFault.ChannelArityMismatch(
+                                channel, (long)count * channel.Arity, raw.LongLength)))))
                 .Map(s => new PackedChannels(store, s.Packed)));
     }
 
@@ -390,8 +377,7 @@ public static class Encode {
         long bytes = channels.Fold(0L, (extent, channel) => extent + ((long)count * channel.Arity * channel.Dtype.Width));
         return bytes <= Array.MaxLength
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new GeometryFault.EncodingFault(
-                channels[0], channels[0].Dtype, EncodingStage.PayloadExtent, Expected: Array.MaxLength, Actual: bytes));
+            : Fin.Fail<Unit>(new GeometryFault.EncodingPayloadTooLarge(bytes));
     }
 
     static (int Slot, int Offset, Seq<PackedLane> Packed) Write(
@@ -411,9 +397,7 @@ public static class Encode {
             lane.Descriptor.Channel,
             Error(lane.Raw, packed.Store.Payload.AsSpan(lane.Descriptor.ByteOffset, lane.Descriptor.Bytes), lane.Descriptor.Dtype)));
         return errors.Find(e => !double.IsFinite(e.Error) || e.Error > e.Channel.Dtype.Tolerance).Match(
-            Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingFault(
-                breach.Channel, breach.Channel.Dtype, EncodingStage.RoundTrip,
-                Expected: breach.Channel.Dtype.Tolerance, Actual: breach.Error)),
+            Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingRoundTripExceeded(breach.Channel, breach.Error)),
             None: () => Fin.Succ(RoundTripWitness.Of(digest, root, errors)));
     }
 
@@ -495,8 +479,7 @@ public static class Encode {
     internal static Fin<float[]> Uvs(MeshSpace space) {
         Mesh native = space.Native;
         if (native.TextureCoordinates.Count != native.Vertices.Count) {
-            return Fin.Fail<float[]>(new GeometryFault.EncodingFault(
-                EncodingChannel.Uv, EncodingChannel.Uv.Dtype, EncodingStage.MissingColumn));
+            return Fin.Fail<float[]>(new GeometryFault.MissingEncodingChannel(EncodingChannel.Uv));
         }
         float[] buffer = new float[native.TextureCoordinates.Count * 2];
         for (int i = 0; i < native.TextureCoordinates.Count; i++) {
@@ -515,8 +498,7 @@ public static class Encode {
     internal static Fin<float[]> Colors(Option<Arr<float>> block, int count) =>
         block.Match(
             Some: rows => Block(rows, count, EncodingChannel.ColorRgba),
-            None: () => Fin.Fail<float[]>(new GeometryFault.EncodingFault(
-                EncodingChannel.ColorRgba, EncodingChannel.ColorRgba.Dtype, EncodingStage.MissingColumn)));
+            None: () => Fin.Fail<float[]>(new GeometryFault.MissingEncodingChannel(EncodingChannel.ColorRgba)));
 
     internal static float[] Vectors(Vector3d[] vectors) =>
         Interleave3(vectors.Length, i => (vectors[i].X, vectors[i].Y, vectors[i].Z));
@@ -543,10 +525,9 @@ public static class Encode {
             arc:  static _ => 1f))).ToArray();
 
     internal static Fin<float[]> Block(Arr<float> block, int count, EncodingChannel channel) =>
-        block.Count == count * channel.Arity
+        block.Count == (long)count * channel.Arity
             ? Fin.Succ(block.ToArray())
-            : Fin.Fail<float[]>(new GeometryFault.EncodingFault(
-                channel, channel.Dtype, EncodingStage.Arity, Expected: count * channel.Arity, Actual: block.Count));
+            : Fin.Fail<float[]>(new GeometryFault.ChannelArityMismatch(channel, (long)count * channel.Arity, block.Count));
 
     internal static float[] Fill(int count, float value) {
         float[] buffer = new float[count];
@@ -647,7 +628,7 @@ flowchart LR
     EncodedGeometry -->|"PackSchema.Of — ContentHash schema id"| Schema["PackSchema — columnar field rows"]
     Schema -->|"WireName + MeshoptFilter columns"| Wire["glTF / USD interchange writers"]
     Schema -->|"SchemaId keys the lake generation"| Lake["Rasm.Compute ArrowBatch → Persistence lake"]
-    PackOp -.->|"DegenerateInput / EncodingFault"| GeometryFault
+    PackOp -.->|"DegenerateInput / direct encoding cases"| GeometryFault
 ```
 
 ## [03]-[CHANNEL]

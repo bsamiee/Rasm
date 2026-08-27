@@ -417,8 +417,8 @@ public static class Heal {
         Dictionary<CrossKey, int> slotOf = new();
         return Axis.DominantOf(pa, pb, pc, key).Bind(plane => {
             Vector3d normal = Vector3d.CrossProduct(pb - pa, pc - pa);
-            Vector3d lift = new(plane.Key == 0 ? 1.0 : 0.0, plane.Key == 1 ? 1.0 : 0.0, plane.Key == 2 ? 1.0 : 0.0);
-            bool mirrored = (plane.Key == 0 ? normal.X : plane.Key == 1 ? normal.Y : normal.Z) < 0.0;
+            Vector3d lift = plane.Basis;
+            bool mirrored = plane.Along(normal) < 0.0;
             List<Conform> conforms = new(cuts.Count);
             foreach (Cut cut in cuts) {
                 (Point3d p, Point3d q, Point3d r) = cut.Switch(

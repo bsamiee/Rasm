@@ -207,7 +207,7 @@ public abstract partial record AssessmentRequest {
             w.Optional(r.Weather, static (source, k) => source.Switch(
                     epw: row => k.String(row.Weather.EpwPath).String(row.Weather.Station),
                     gridded: row => k.String($"{row.CorpusKey:x32}").Ordinal(row.LatIndex).Ordinal(row.LonIndex).Ordinal(row.Years)))
-                .Optional(r.Site, static (site, k) => k.Double(site.LatitudeDeg).Double(site.LongitudeDeg).Double(site.TimezoneHours).Double(site.ElevationM))
+                .Optional(r.Site, static (site, k) => k.Double(site.LatitudeDeg).Double(site.LongitudeDeg).Double(site.OffsetHours).Double(site.ElevationM))
                 .Ordinal(r.Policy.SunSamplesPerDay).Double(r.Policy.SunStepHours).Ordinal(r.Policy.HemisphereAzimuths)
                 .Ordinal(r.Policy.HemisphereAltitudes).Ordinal(r.Policy.OcclusionCadenceHours)
                 .Double(r.RequiredSunHours).String($"{r.Scene.Key:x32}").Ordinal(r.DesignDays.Count);

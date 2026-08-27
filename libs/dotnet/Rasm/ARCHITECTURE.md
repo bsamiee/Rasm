@@ -23,9 +23,9 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 ├── Numerics/              # Exact-predicate floor and host-neutral-shaped numerics
 │   ├── Predicates.cs      # Sign total over explicit and constructed points; defining-point carriage rounds once at the emission boundary
 │   ├── Faults.cs          # GeometryFault [Union] with compact generated FaultCase identities on the LanguageExt base
-│   ├── Atoms.cs           # Guard Bands, PerceptualColor, AtomProjection rows with the identity fallthrough, primitive vector types
+│   ├── Atoms.cs           # Guard Bands, PerceptualColor, ResultProjection rows with the identity fallthrough, primitive vector types
 │   ├── Matrix.cs          # MatrixKernel partial with transform; solutions carry route, stop, residual — no raw Matrix<double> crosses
-│   ├── Transform.cs       # WindowTaper roster, Interpolant<TCap>, SpectralArena over the four MathNet layouts, both convolution routes
+│   ├── Transform.cs       # WindowTaper roster, Interpolant<TCapability>, SpectralArena over the four MathNet layouts, both convolution routes
 │   ├── Integrate.cs       # Step is pure with no in-kernel reject loop; dense output localizes events on the solution curve
 │   ├── Spectral.cs        # Mesh-free DEC carrier layer and eigen filter surface; Meshing/dec owns the mesh-bound assembly above it
 │   └── Calculus.cs        # Sampler-generic differential operators and the closed-form site-and-instant almanac; no mesh type reaches here
@@ -46,7 +46,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Develop.cs         # Per-strip ddouble isometry witness; a strip over budget faults rather than shipping approximate flattening
 │   ├── Panelize.cs        # PanelFamily rides the request as data; each panel leaves with origin, field-aligned x-axis, metric-true normal
 │   ├── Patternmap.cs      # Wallpaper symmetry closed by theorem as data; the emitted InstanceStream is the Generation plane's exact input
-│   ├── Projections.cs     # Selectors drain one Project<TOut> into AtomProjection.Raw; clock values stay branded to the injected timeline
+│   ├── Projections.cs     # Selectors drain one Project<TOut> into ResultProjection.Raw; clock values stay branded to the injected timeline
 │   └── Locate.cs          # Operation<TGeometry, TOut> under Eff<Env, Seq<TOut>>; AnalysisQuery.Location is the sole public route in
 ├── Meshing/               # Mesh substrate and construction ops
 │   ├── Delaunay.cs        # Tessellation.Build over one SimplexStore arena; Implicit carriage keeps exact signs to ToMesh
@@ -103,7 +103,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 
 Strata rank the kernel interior; seating rows carry only the law the fence cannot show.
 
-- S0 co-seat — `Domain` and `Numerics` compose mutually at file grain: `Integrate` reads `Op`, `Evaluation` reads `AtomProjection`, no module cycle.
+- S0 co-seat — `Domain` and `Numerics` compose mutually at file grain: `Integrate` reads `Op`, `Evaluation` reads `ResultProjection`, no module cycle.
 - S0 law — no floor file names an upper type; every upper stratum threads the exact-predicate ladder and the `Context` tolerance read.
 - S1 interior — `Intersect` reads the spatial index and `Reconciliation` the mesh store inside the rank, so the layering stays one stratum.
 - S2 interior — the ICP registration optimizer instantiates the `Lm` functor inside the rank, so optimization mints no third stratum.
@@ -215,7 +215,7 @@ flowchart LR
     Domain e14@-->|"[SHAPE]: BenchClaim"| Materials
     Domain e15@-->|"[EVENT]: RasmEventEnvelope"| Materials
     Numerics e16@<-->|"[SHAPE]: DiscreteCalculus"| Compute
-    Numerics e17@-->|"[SHAPE]: Predicate + SunPosition + FieldIntegrator + IntegrationDomain"| Compute
+    Numerics e17@-->|"[SHAPE]: Predicate + SunPosition + RungeKuttaIntegrator + QuadratureDomain"| Compute
     Numerics e18@-->|"[SHAPE]: CellLattice"| Element
     Numerics e19@-->|"[SHAPE]: RgbProfile + CellLattice"| Bim
     Numerics e20@-->|"[SHAPE]: SunPosition + CellLattice"| AppUi

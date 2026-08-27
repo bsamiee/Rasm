@@ -2,7 +2,7 @@
 
 `FlowKernel.Trace` advances any `VectorField` into a streamline under the `Numerics/integrate.md` adaptive stepper, deciding every stop through one `Termination` `[Union]` and localizing every crossing onto the high-order solution curve. `MorseAtlas.Of` folds that same tracer over a caller's cell partition into the flow's topology — recurrent sets, eigen-classified critical sites, and saddle-seeded separatrices — as one frozen-column `MorseGraph`.
 
-Every result validates through the `Domain/results.md` `ValidityClaim.All` fold under page-only cross-field claims, and raw ingress gates through its acceptance bridge; `Numerics/atoms.md` `AtomProjection.Rows` resolves projection with the result as its implicit self row.
+Every result validates through the `Domain/results.md` `ValidityClaim.All` fold under page-only cross-field claims, and raw ingress gates through its acceptance bridge; `Numerics/atoms.md` `ResultProjection.Rows` resolves projection with the result as its implicit self row.
 
 ## [01]-[INDEX]
 
@@ -20,10 +20,10 @@ Every result validates through the `Domain/results.md` `ValidityClaim.All` fold 
 
 ## [03]-[TRACE]
 
-- Owner: `TracePolicy` carries the iteration ceiling and localization budget as policy rows, never compiled-in constants; `SpatialIntegration.Module` is the one `IntegrationModule<Point3d, Vector3d>` instance `integrate.md` assigns this consumer; `StreamlineState.Accept`/`Reject` are the immutable fold state's only transitions.
+- Owner: `TracePolicy` carries the iteration ceiling and localization budget as policy rows, never compiled-in constants; `SpatialIntegration.Module` is the one `IntegrationModule<Point3d, Vector3d>` instance `integrate.md` assigns this consumer; `StreamlineState.Accept`/`Reject` are the immutable fold state's only transitions, each minting the `Option<StepHistory>` the next kernel `Step` reads from the outcome's error and the selected step ratio — the driver owns run history, the stateless stepper returns error plus a suggestion — and a rejection past `RejectBudget` permitted rejections stops the trace.
 - Entry: `FlowKernel.Trace<TOut>` is the one trace entrypoint, `TOut` discriminating the projection.
 - Auto: `PolylineOf` substitutes the localized event point for the final trail vertex, so emitted geometry ends exactly at the crossing.
-- Packages: `Rasm`/Numerics (`FieldIntegrator`/`IntegrationModule`/`IntegrationStep`/`DenseOutputSpan`/`DenseConditions` stepper floor; `AtomProjection`/`ProjectionRow`; `Dimension`/`PositiveMagnitude`/`EpsilonPolicy`), `Rasm`/Spatial (`SupportSpace`; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`; `Cell.Converge`/`Transition`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve`).
+- Packages: `Rasm`/Numerics (`RungeKuttaIntegrator`/`IntegrationModule`/`IntegrationStep`/`StepHistory`/`DenseOutputSpan`/`DenseConditions` stepper floor; `ResultProjection`/`ProjectionRow`; `Dimension`/`PositiveMagnitude`/`EpsilonPolicy`), `Rasm`/Spatial (`SupportSpace`; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`; `Cell.Converge`/`Transition`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve`).
 - Growth: a new stop condition is one `Termination` case and one `Evaluate` arm, the generated `Switch` breaking every dispatch site loudly; a new event source is one `TraceEventKind` row over the same localizer; a new output shape is one `ProjectionRow`; a bidirectional or multi-seed trace folds over this same entry, never a sibling tracer.
 - Law: the event localizer's bisection rides `Cell.Converge` over one `Atom<Fin<Bracket>>`, with the settled midpoint in one `Option` slot; a crossing test is exact-SIGN opposition through `Sign.Of`, never a magnitude product that can underflow to zero.
 - Law: the trace cell's total step writes one `Fin<StreamlineState>` per commit; `Cell.Converge` returns the terminal transition state, whose absent `Stop` lowers to `MaxIterationsExhausted`.
@@ -32,7 +32,7 @@ Every result validates through the `Domain/results.md` `ValidityClaim.All` fold 
 ## [04]-[TOPOLOGY]
 
 - Owner: `MorseGraph` is the atlas carrier — cell-indexed `CellComponent`, component-indexed `Site`/`Kind`, arc-indexed `Arc`/`Crossing`, and the `Separatrix` rows — every column frozen at the mint; `FixedPointKind` `[SmartEnum<int>]` closes the critical-point signature vocabulary with `Transient` for the component the atlas measured no linearization at; `FlowPartition` is the caller's cell capsule (census, representative, total locate) and `TopologyPolicy` its scale and horizon record; `MorseAtlas` is the static surface.
-- Entry: `MorseAtlas.Of(VectorField, FlowPartition, PositiveMagnitude, FieldIntegrator, TopologyPolicy, Context, Op, Option<TracePolicy>)` is the one atlas entrypoint, returning the validated `MorseGraph`; a caller supplies field, partition, and scale and never sequences the transition, labelling, contraction, classification, and separatrix legs itself.
+- Entry: `MorseAtlas.Of(VectorField, FlowPartition, PositiveMagnitude, RungeKuttaIntegrator, TopologyPolicy, Context, Op, Option<TracePolicy>)` is the one atlas entrypoint, returning the validated `MorseGraph`; a caller supplies field, partition, and scale and never sequences the transition, labelling, contraction, classification, and separatrix legs itself.
 - Auto: the cell-transition digraph materializes ONCE through `GraphExtensions.ToAdjacencyGraph`, so `StronglyConnectedComponents` and `CondensateStronglyConnected` read one container — Tarjan's labels fill the caller's dictionary and ARE the component partition — recurrent wherever a component holds two or more cells and, for a singleton, exactly where its own self-arc says the horizon trapped it — while the condensation's vertices are the component subgraphs and each condensed edge carries the merged cell transitions its `Crossing` weight counts. Classification linearizes at the component's representative through the `Numerics/calculus` `Nabla.SampleAxes` six-tap stencil and reads the GENERAL `Matrix.DecomposeEigenDetailed` spectrum: a flow Jacobian is not symmetric, so its complex pairs are what separate a centre from a node, and the signature folds spectral-radius-relative against `EpsilonPolicy.SqrtEpsilon`. Separatrices are multi-seed traces over the settled `FlowKernel.Trace<TOut>` — both senses of every real unstable eigendirection of every saddle, each seeded clear of every capture ball — so the band adds zero integration surface.
 - Output: `MorseGraph` is the typed evidence under one `ValidityClaim.All` fold gating column alignment, node ranges, and every `Separatrix` row; an atlas failing that fold routes `InvalidResult` rather than publishing a misaligned column, and `Project<TOut>` resolves the sites, the separatrix rows, the condensed arcs as world segments, and the graph itself off the carrier's self row.
 - Packages: `Rasm`/Numerics (`Nabla.SampleAxes`; `Matrix`/`EigenSolution`/`EigenOrder`; `EpsilonPolicy`; `Dimension`/`PositiveMagnitude`), `Rasm`/Spatial (`VectorField.SampleVector`), `Rasm`/Domain (`Op`/`Context`/`ValidityClaim`), QuikGraph (`SEdge`/`AdjacencyGraph`, `GraphExtensions.ToAdjacencyGraph`, `AlgorithmExtensions.StronglyConnectedComponents`/`CondensateStronglyConnected`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`HashSet`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`), BCL inbox (`System.Numerics.Complex`).
@@ -382,7 +382,7 @@ public readonly record struct MorseGraph(
 
     internal Fin<TOut> Project<TOut>(Op key) {
         MorseGraph self = this;
-        return AtomProjection.Rows<MorseGraph, TOut>(self: self, key: key,
+        return ResultProjection.Rows<MorseGraph, TOut>(self: self, key: key,
             ProjectionRow.Of<Seq<Point3d>>(() => self.Site.TraverseM(site => key.AcceptValue(value: site)).As()),
             ProjectionRow.Of<Seq<Separatrix>>(() => Fin.Succ(self.Separatrices)),
             ProjectionRow.Of<Seq<Line>>(() => Fin.Succ(self.Arc.Map(arc =>
@@ -397,11 +397,11 @@ internal readonly record struct Bracket(
 
 internal readonly record struct StreamlineState(
     Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps,
-    double MinStep, double MaxStep, Option<double> LastError, double MaxError,
+    double MinStep, double MaxStep, Option<StepHistory> History, double MaxError,
     Option<DenseOutputSpan<Point3d, Vector3d>> Dense, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {
     internal static StreamlineState Start(Point3d seed, double h) =>
         new(Trail: Seq(seed), Current: seed, H: h, Arc: 0.0, Steps: 0, Rejects: 0, RejectedSteps: 0,
-            MinStep: h, MaxStep: h, LastError: Option<double>.None, MaxError: 0.0,
+            MinStep: h, MaxStep: h, History: Option<StepHistory>.None, MaxError: 0.0,
             Dense: Option<DenseOutputSpan<Point3d, Vector3d>>.None, Event: Option<TraceEvent>.None, Stop: Option<StreamlineStopKind>.None);
     internal StreamlineState Accept(IntegrationStep<Point3d, Vector3d>.AcceptedCase accepted) =>
         Advance(suggested: accepted.SuggestedStep, error: accepted.Error) with {
@@ -410,20 +410,20 @@ internal readonly record struct StreamlineState(
             Dense = Some(accepted.Dense),
         };
     internal StreamlineState Reject(IntegrationStep<Point3d, Vector3d>.RejectedCase rejected, int rejectBudget) =>
-        Advance(suggested: rejected.SuggestedStep, error: rejected.Error) with {
+        Advance(suggested: rejected.SuggestedStep, error: Some(rejected.Error)) with {
             Rejects = Rejects + 1, RejectedSteps = RejectedSteps + 1, Dense = Option<DenseOutputSpan<Point3d, Vector3d>>.None,
-            Stop = Rejects + 1 >= rejectBudget ? Some(StreamlineStopKind.RejectBudgetExhausted) : Stop,
+            Stop = Rejects + 1 > rejectBudget ? Some(StreamlineStopKind.RejectBudgetExhausted) : Stop,
         };
     private StreamlineState Advance(double suggested, Option<double> error) =>
         this with {
-            H = suggested, MinStep = Math.Min(val1: MinStep, val2: suggested), MaxStep = Math.Max(val1: MaxStep, val2: suggested),
-            LastError = error, MaxError = Math.Max(val1: MaxError, val2: error.IfNone(0.0)),
+            H = suggested, MinStep = Math.Min(MinStep, suggested), MaxStep = Math.Max(MaxStep, suggested),
+            History = error.Map(value => new StepHistory(value, suggested / H)), MaxError = Math.Max(MaxError, error.IfNone(0.0)),
         };
 }
 
 internal static class FlowKernel {
-    internal static Fin<TOut> Trace<TOut>(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key, Option<TracePolicy> policy = default) =>
-        from activeIntegrator in FieldIntegrator.Admit(value: integrator, key: key)
+    internal static Fin<TOut> Trace<TOut>(VectorField source, Point3d seed, PositiveMagnitude initialStep, RungeKuttaIntegrator integrator, Termination termination, Context context, Op key, Option<TracePolicy> policy = default) =>
+        from activeIntegrator in RungeKuttaIntegrator.Admit(value: integrator, key: key)
         from activeTermination in Termination.Admit(value: termination, key: key)
         from validSeed in key.AcceptValue(value: seed)
         from state in TraceState(source: source, seed: validSeed, initialStep: initialStep, integrator: activeIntegrator, termination: activeTermination, policy: policy.IfNone(TracePolicy.Default), context: context, key: key)
@@ -433,7 +433,7 @@ internal static class FlowKernel {
 
     internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
         from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(error: key.InvalidResult())
-        from output in AtomProjection.Rows<StreamlineTrace, TOut>(self: valid, key: key,
+        from output in ResultProjection.Rows<StreamlineTrace, TOut>(self: valid, key: key,
             ProjectionRow.Of<Seq<Point3d>>(() => valid.Trail.TraverseM(point => key.AcceptValue(value: point)).As()),
             ProjectionRow.Of<Polyline>(() => valid.IsComplete ? PolylineOf(trace: valid, key: key) : Fin.Fail<Polyline>(key.InvalidResult())),
             ProjectionRow.Of<Curve>(() => valid.IsComplete
@@ -441,7 +441,7 @@ internal static class FlowKernel {
                 : Fin.Fail<Curve>(key.InvalidResult())))
         select output;
 
-    private static Fin<StreamlineState> TraceState(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, TracePolicy policy, Context context, Op key) {
+    private static Fin<StreamlineState> TraceState(VectorField source, Point3d seed, PositiveMagnitude initialStep, RungeKuttaIntegrator integrator, Termination termination, TracePolicy policy, Context context, Op key) {
         Atom<Fin<StreamlineState>> cell = Atom(value: Fin.Succ(StreamlineState.Start(seed: seed, h: initialStep.Value)));
         Transition<Fin<StreamlineState>> driven = Cell.Converge(
             cell: cell,
@@ -453,7 +453,7 @@ internal static class FlowKernel {
             declined: key.InvalidResult());
         return driven.Current;
     }
-    private static Fin<StreamlineState> AdvanceState(StreamlineState state, VectorField source, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
+    private static Fin<StreamlineState> AdvanceState(StreamlineState state, VectorField source, RungeKuttaIntegrator integrator, Termination termination, Context context, Op key) =>
         from vector in source.SampleVector(sample: state.Current, context: context, key: key)
         from decision in termination.Evaluate(state: state, currentSample: vector, context: context, key: key)
         from next in decision.Stop
@@ -461,17 +461,17 @@ internal static class FlowKernel {
             : integrator.Step(
                     module: SpatialIntegration.Module,
                     sample: point => source.SampleVector(sample: point, context: context, key: key),
-                    state: state.Current, h: state.H, key: key)
+                    state: state.Current, h: state.H, key: key, history: state.History)
                 .Map(step => step.Switch(
                     state: (State: state, Budget: integrator.RejectBudget),
                     acceptedCase: static (s, accepted) => s.State.Accept(accepted: accepted),
                     rejectedCase: static (s, rejected) => s.State.Reject(rejected: rejected, rejectBudget: s.Budget)))
         select next;
-    private static StreamlineTrace ToTrace(StreamlineState state, FieldIntegrator integrator) =>
+    private static StreamlineTrace ToTrace(StreamlineState state, RungeKuttaIntegrator integrator) =>
         new(Trail: state.Trail, Stop: state.Stop.IfNone(StreamlineStopKind.MaxIterationsExhausted),
             RejectedSteps: state.RejectedSteps, ArcLength: state.Arc, FinalStep: state.H,
             MethodOrder: integrator.MethodOrder, EmbeddedOrder: integrator.EmbeddedOrder,
-            LastError: state.LastError, MaxError: state.MaxError, MinStep: state.MinStep, MaxStep: state.MaxStep,
+            LastError: state.History.Map(static h => h.Error), MaxError: state.MaxError, MinStep: state.MinStep, MaxStep: state.MaxStep,
             TerminationPoint: state.Event.Map(static @event => @event.Points.Localized).IfNone(state.Current), Event: state.Event);
     private static Fin<Polyline> PolylineOf(StreamlineTrace trace, Op key) {
         Point3d[] points = trace.Event.Match(
@@ -484,7 +484,7 @@ internal static class FlowKernel {
 
 internal static class MorseAtlas {
     internal static Fin<MorseGraph> Of(
-        VectorField source, FlowPartition partition, PositiveMagnitude initialStep, FieldIntegrator integrator,
+        VectorField source, FlowPartition partition, PositiveMagnitude initialStep, RungeKuttaIntegrator integrator,
         TopologyPolicy policy, Context context, Op key, Option<TracePolicy> tracePolicy = default) =>
         from horizon in Termination.Steps(count: policy.TransitionSteps.Value, key: key)
         from arcs in Ordinals(partition: partition).TraverseM(cell =>
@@ -513,7 +513,7 @@ internal static class MorseAtlas {
     private static Seq<int> Ordinals(FlowPartition partition) => toSeq(Enumerable.Range(start: 0, count: partition.Cells.Value));
 
     private static Fin<Seq<int>> Visited(
-        VectorField source, FlowPartition partition, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator,
+        VectorField source, FlowPartition partition, Point3d seed, PositiveMagnitude initialStep, RungeKuttaIntegrator integrator,
         Termination termination, Context context, Op key, Option<TracePolicy> policy) =>
         FlowKernel.Trace<Seq<Point3d>>(source: source, seed: seed, initialStep: initialStep, integrator: integrator,
                 termination: termination, context: context, key: key, policy: policy)
@@ -596,7 +596,7 @@ internal static class MorseAtlas {
     private static Fin<Seq<Separatrix>> SeparatrixRows(
         VectorField source, FlowPartition partition, Seq<Point3d> sites, Seq<int> component,
         Seq<(FixedPointKind Kind, Seq<Vector3d> Unstable)> critical, PositiveMagnitude initialStep,
-        FieldIntegrator integrator, TopologyPolicy policy, Context context, Op key) =>
+        RungeKuttaIntegrator integrator, TopologyPolicy policy, Context context, Op key) =>
         from capture in Termination.CriticalCapture(sites: sites, captureRadius: policy.CaptureRadius.Value, key: key)
         from rows in critical.Map(static (row, node) => (Row: row, Node: node))
             .Filter(static entry => entry.Row.Kind.Equals(FixedPointKind.Saddle))
@@ -611,7 +611,7 @@ internal static class MorseAtlas {
 
     private static Fin<Separatrix> Follow(
         VectorField source, FlowPartition partition, Seq<int> component, int node, Point3d seed, PositiveMagnitude initialStep,
-        FieldIntegrator integrator, Termination termination, TopologyPolicy policy, Context context, Op key) =>
+        RungeKuttaIntegrator integrator, Termination termination, TopologyPolicy policy, Context context, Op key) =>
         FlowKernel.Trace<StreamlineTrace>(source: source, seed: seed, initialStep: initialStep, integrator: integrator,
                 termination: termination, context: context, key: key,
                 policy: Some(TracePolicy.Default with { MaxIterations = policy.SeparatrixSteps }))

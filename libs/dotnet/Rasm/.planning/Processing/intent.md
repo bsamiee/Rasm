@@ -2,7 +2,7 @@
 
 `VectorIntent` owns the kernel consumer API: one `[Union]` spanning every kernel capability band, reached through one `Project<TOut>(Context, Op?)` egress. `Rasm.Rhino` Camera and the settled corpus bind that exact egress signature, so the entry contract holds as a frozen wire name while every owner behind it re-derives freely.
 
-Every case admits through exactly one factory that internalizes `Domain/validation.md` and each payload owner's `Admit`, so dispatch never re-validates an admitted intent. Dispatch composes, never computes: every arm routes to the owning page's entry and projects the result through the `Numerics/atoms.md` `AtomProjection` rows, `Op` threaded as the explicit value key.
+Every case admits through exactly one factory that internalizes `Domain/validation.md` and each payload owner's `Admit`, so dispatch never re-validates an admitted intent. Dispatch composes, never computes: every arm routes to the owning page's entry and projects the result through the `Numerics/atoms.md` `ResultProjection` rows, `Op` threaded as the explicit value key.
 
 ## [01]-[INDEX]
 
@@ -22,7 +22,7 @@ Every case admits through exactly one factory that internalizes `Domain/validati
 ## [03]-[DISPATCH]
 
 - Entry: `Project<TOut>(Context, Op?)` is frozen; a context gate rejects a null `Context` before the total `Switch`, and `TOut` — the output discriminant each owner's projection rows resolve — lets one entry serve every typed evidence carrier the owners publish.
-- Auto: every arm delegates to its owning page's entry and gates output through the `AtomProjection` rows; the `Switch` body carries each arm's owner target.
+- Auto: every arm delegates to its owning page's entry and gates output through the `ResultProjection` rows; the `Switch` body carries each arm's owner target.
 - Law: this API mints no evidence of its own; every arm surfaces the owner's typed result through the owner's projection rows, so evidence provenance is single-sourced.
 - Boundary: dispatch carries zero domain math; `Project<TOut>` is total over `Fin`, an unsupported `TOut` returns the owner's typed `Unsupported` fault naming both the case and the requested type, and the generated `Switch` with no `_` arm is the exhaustiveness proof a new case cannot silently escape.
 
@@ -59,8 +59,8 @@ public abstract partial record VectorIntent {
     public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Basis) : VectorIntent;
     public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
     public sealed record BounceCase(Direction Incident, SupportSpace Target, Point3d Query, BouncePolicy Policy) : VectorIntent;
-    public sealed record StreamlineCase : VectorIntent { internal StreamlineCase(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination) { Source = source; Seed = seed; InitialStep = initialStep; Integrator = integrator; Termination = termination; } public VectorField Source { get; } public Point3d Seed { get; } public PositiveMagnitude InitialStep { get; } public FieldIntegrator Integrator { get; } public Termination Termination { get; } }
-    public sealed record AtlasCase : VectorIntent { internal AtlasCase(VectorField source, FlowPartition partition, PositiveMagnitude initialStep, FieldIntegrator integrator, TopologyPolicy policy) { Source = source; Partition = partition; InitialStep = initialStep; Integrator = integrator; Policy = policy; } public VectorField Source { get; } public FlowPartition Partition { get; } public PositiveMagnitude InitialStep { get; } public FieldIntegrator Integrator { get; } public TopologyPolicy Policy { get; } }
+    public sealed record StreamlineCase : VectorIntent { internal StreamlineCase(VectorField source, Point3d seed, PositiveMagnitude initialStep, RungeKuttaIntegrator integrator, Termination termination) { Source = source; Seed = seed; InitialStep = initialStep; Integrator = integrator; Termination = termination; } public VectorField Source { get; } public Point3d Seed { get; } public PositiveMagnitude InitialStep { get; } public RungeKuttaIntegrator Integrator { get; } public Termination Termination { get; } }
+    public sealed record AtlasCase : VectorIntent { internal AtlasCase(VectorField source, FlowPartition partition, PositiveMagnitude initialStep, RungeKuttaIntegrator integrator, TopologyPolicy policy) { Source = source; Partition = partition; InitialStep = initialStep; Integrator = integrator; Policy = policy; } public VectorField Source { get; } public FlowPartition Partition { get; } public PositiveMagnitude InitialStep { get; } public RungeKuttaIntegrator Integrator { get; } public TopologyPolicy Policy { get; } }
     public sealed record LerpCase(Vector3d A, Vector3d B, UnitInterval Parameter) : VectorIntent;
     public sealed record SlerpCase(Direction A, Direction B, UnitInterval Parameter) : VectorIntent;
     public sealed record ProjectOntoCase(Vector3d Value, Plane Target) : VectorIntent;
@@ -147,22 +147,22 @@ public abstract partial record VectorIntent {
                from point in op.AcceptValue(value: sample)
                select (VectorIntent)new BounceCase(Incident: incident, Target: target, Query: point, Policy: bounce);
     }
-    public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, Option<FieldIntegrator> integrator = default, Op? key = null) {
+    public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, Option<RungeKuttaIntegrator> integrator = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validField in Admit.NotNull(value: field, key: op)
                from validStop in Termination.Admit(value: termination, key: op)
                from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
                from validSeed in op.AcceptValue(value: seed)
-               from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
+               from validIntegrator in RungeKuttaIntegrator.AdmitOrFixed(value: integrator, key: op)
                select (VectorIntent)new StreamlineCase(source: validField, seed: validSeed, initialStep: h, integrator: validIntegrator, termination: validStop);
     }
-    public static Fin<VectorIntent> Atlas(VectorField field, FlowPartition partition, double initialStep, TopologyPolicy policy, Option<FieldIntegrator> integrator = default, Op? key = null) {
+    public static Fin<VectorIntent> Atlas(VectorField field, FlowPartition partition, double initialStep, TopologyPolicy policy, Option<RungeKuttaIntegrator> integrator = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validField in Admit.NotNull(value: field, key: op)
                from validPartition in Admit.NotNull(value: partition, key: op)
                from validPolicy in Admit.NotNull(value: policy, key: op)
                from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
-               from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
+               from validIntegrator in RungeKuttaIntegrator.AdmitOrFixed(value: integrator, key: op)
                select (VectorIntent)new AtlasCase(source: validField, partition: validPartition, initialStep: h, integrator: validIntegrator, policy: validPolicy);
     }
     public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
@@ -291,7 +291,7 @@ public abstract partial record VectorIntent {
                 .TraverseM(axis => Numerics.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
                 .As()
             from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
-            from output in AtomProjection.Self<Seq<Vector3d>, TOut>(value: axes, key: state.Key, owner: typeof(AxesCase))
+            from output in ResultProjection.Self<Seq<Vector3d>, TOut>(value: axes, key: state.Key, owner: typeof(AxesCase))
             select output,
         angularCase: static (state, intent) =>
             from angle in VectorAngle.Of(a: intent.A, b: intent.B, context: state.Context, pivot: intent.Pivot, key: state.Key)
@@ -312,13 +312,13 @@ public abstract partial record VectorIntent {
         windingCase: static (state, intent) =>
             from normal in CloudKernel.RingNormalOf(ring: intent.Value, key: state.Key)
             from winding in CloudKernel.PlanarWindingOf(ring: intent.Value.Vertices, planeNormal: normal, query: intent.Query, key: state.Key)
-            from output in AtomProjection.Self<int, TOut>(value: winding, key: state.Key, owner: typeof(WindingCase))
+            from output in ResultProjection.Self<int, TOut>(value: winding, key: state.Key, owner: typeof(WindingCase))
             select output,
         coneCase: static (state, intent) => intent.Mode.Project<TOut>(cone: intent.Value, key: state.Key),
         componentsCase: static (state, intent) =>
             from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
             from components in span.Components(frame: intent.Basis, key: state.Key)
-            from output in AtomProjection.Self<(double X, double Y), TOut>(value: components, key: state.Key, owner: typeof(ComponentsCase))
+            from output in ResultProjection.Self<(double X, double Y), TOut>(value: components, key: state.Key, owner: typeof(ComponentsCase))
             select output,
         relationCase: static (state, intent) =>
             from relation in VectorRelation.Of(a: intent.A, b: intent.B, context: state.Context, key: state.Key)
@@ -356,7 +356,7 @@ public abstract partial record VectorIntent {
         poseCase: static (state, intent) =>
             from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter, context: state.Context, key: state.Key)
             from output in Admit.Plane(basis: pose, key: state.Key)
-                .Bind(plane => AtomProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
+                .Bind(plane => ResultProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
             select output,
         flattenHostCase: static (state, intent) =>
             from result in SegmentKernel.ParameterizeFlattenDetailed(space: intent.Space, key: state.Key)

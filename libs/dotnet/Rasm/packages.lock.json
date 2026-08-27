@@ -61,12 +61,6 @@
         "resolved": "4.4.0",
         "contentHash": "MgiHddgPDkcFr9KtYK3mJFUBEsjcCblGmEGlSvXVT1999EIOyH6XO6vVeuw9YFmYb7JyR8U+/++vZyhgVxDWbg=="
       },
-      "ExtendedNumerics.BigRational": {
-        "type": "Direct",
-        "requested": "[3000.0.2.132, )",
-        "resolved": "3000.0.2.132",
-        "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
-      },
       "Generator.Equals": {
         "type": "Direct",
         "requested": "[4.0.2, )",

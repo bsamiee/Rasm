@@ -2,7 +2,7 @@
 
 `Evaluation` owns the closest-point, sampling, and differential-frame family: one polymorphic entry answers where every admissible Rhino form sits relative to a sample, what its local frame is, and which points it yields, recovering the richest evidence each form admits into one `ClosestHit`. Evaluation reads `Rhino.Geometry` values only — document or view reach is the boundary-law violation — and nothing above the family re-derives closest-point logic.
 
-Rebuilds compose these boundaries unchanged: `ClosestHit` conforms to the `Domain/results` `IValidityEvidence` fold the `Domain/validation` oracle reads through one interface arm; typed output projects through the `Numerics/atoms` `AtomProjection` rows, one `ProjectionRow` per facet; capability admission rides the `Domain/normalization` `Capability` rows while analytic value forms reach native arms through `Lease` recoveries; and facet selection past the canonical projection is `Spatial/support` `SupportProjection`'s row vocabulary over the hit fields, so no boolean rides a signature.
+Rebuilds compose these boundaries unchanged: `ClosestHit` conforms to the `Domain/results` `IValidityEvidence` fold the `Domain/validation` oracle reads through one interface arm; typed output projects through the `Numerics/atoms` `ResultProjection` rows, one `ProjectionRow` per facet; capability admission rides the `Domain/normalization` `Capability` rows while analytic value forms reach native arms through `Lease` recoveries; and facet selection past the canonical projection is `Spatial/support` `SupportProjection`'s row vocabulary over the hit fields, so no boolean rides a signature.
 
 ## [01]-[INDEX]
 
@@ -17,8 +17,8 @@ Rebuilds compose these boundaries unchanged: `ClosestHit` conforms to the `Domai
 - Law: `ClosestHit` is the one evidence carrier for every arm; a per-form `CurveHit`/`MeshHit`/`BrepHit` family is the rejected proliferation, an absent facet is `Option.None` never a `double.NaN` or `Point2d.Unset` sentinel, and the hit's own `IValidityEvidence` conformance retires the acceptance oracle's hand-enumerated arm under the one-oracle law.
 - Law: `At` computes `Distance` from the query target, so a caller-supplied distance is the rejected trust hole.
 - Growth: a new hit facet is one `Option` field, one `ProjectionRow`, and one `IsValid` conjunct, every existing arm compiling unchanged because an absent facet is `None`.
-- Boundary: projection is `ProjectionRow` data through the one `AtomProjection.Rows` fold, so hit and atom projection share one dispatch; distance is the `double` projection at this altitude while parameter, span, signed, and containment facet selection is `Spatial/support` `SupportProjection`'s row vocabulary over the same hit fields, which is the only path to the tangent and parameter facets the CLR-type-keyed projection cannot discriminate.
-- Packages: RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`/`ProjectionRow`, LanguageExt.Core types, and the Foundation contract.
+- Boundary: projection is `ProjectionRow` data through the one `ResultProjection.Rows` fold, so hit and atom projection share one dispatch; distance is the `double` projection at this altitude while parameter, span, signed, and containment facet selection is `Spatial/support` `SupportProjection`'s row vocabulary over the same hit fields, which is the only path to the tangent and parameter facets the CLR-type-keyed projection cannot discriminate.
+- Packages: RhinoCommon geometry members, `Rasm.Numerics` `ResultProjection`/`ProjectionRow`, LanguageExt.Core types, and the Foundation contract.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -69,7 +69,7 @@ public readonly record struct ClosestHit(
     internal Fin<TOut> Project<TOut>(Op key) {
         ClosestHit hit = this;
         Fin<TValue> Facet<TValue>(Option<TValue> facet) => facet.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptValue(value: value));
-        return AtomProjection.Rows<ClosestHit, TOut>(
+        return ResultProjection.Rows<ClosestHit, TOut>(
             self: this,
             key: key,
             ProjectionRow.Of<ClosestHit>(() => key.AcceptValue(value: hit)),
@@ -268,8 +268,8 @@ internal sealed partial class ClosestForm {
 - Law: signed distance derives its own hit and owns the one sign convention — the recovered normal against the sample-to-point offset decides the sign. Callers hand none in, so a hit from a DIFFERENT geometry never pairs with a sample and answers without refusal.
 - Law: `SurfaceDomain` is the ONE surface-domain usability answer — both intervals valid and each longer than the model tolerance. `SurfaceUv`, `SurfaceSampleUv`, and `Domain/validation`'s domain readiness row all read it, so a degenerate-domain surface is refused identically at every altitude; the collapse TIGHTENS the two sampling members, which previously admitted a zero-length domain that produced a degenerate grid.
 - Law: `NormalAt` flips for `BrepFace.OrientationIsReversed` and `FrameAt` re-handeds the frame to agree, so the hit never carries a frame/normal disagreement.
-- Output: `Evaluate<TOut>` is the one typed egress — a hit projects through its own facet rows, a distance and a point sequence through the `AtomProjection` value and sequence rows.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]` request with generated total `Switch`), RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`, LanguageExt.Core types.
+- Output: `Evaluate<TOut>` is the one typed egress — a hit projects through its own facet rows, a distance and a point sequence through the `ResultProjection` value and sequence rows.
+- Packages: Thinktecture.Runtime.Extensions (`[Union]` request with generated total `Switch`), RhinoCommon geometry members, `Rasm.Numerics` `ResultProjection`, LanguageExt.Core types.
 - Growth: a new verb is one `EvaluationRequest` case and one `Switch` arm; a new evaluatable form is one `ClosestForm` row or one arm in the verb's own roster.
 - Boundary: `Evaluation` preserves every recovery the mature kernel performed; the recursion ordering fixes change no terminating input's result, and the `BrepFace` totalization trades one silently-untrimmed underlying-surface point for a typed refusal.
 
@@ -304,9 +304,9 @@ internal static class Evaluation {
             from result in request.Switch(
                 state: (Source: source, Key: key),
                 closest: static (state, verb) => Closest(source: state.Source, target: verb.Target, key: state.Key).Bind(hit => hit.Project<TOut>(key: state.Key)),
-                signed: static (state, verb) => Signed(source: state.Source, sample: verb.Sample, key: state.Key).Bind(value => AtomProjection.Value<double, TOut>(value, state.Key, typeof(Evaluation))),
-                sample: static (state, verb) => Sampled(source: state.Source, count: verb.Count, context: verb.Model, key: state.Key).Bind(values => AtomProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))),
-                vertices: static (state, _) => Vertices(source: state.Source, key: state.Key).Bind(values => AtomProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))))
+                signed: static (state, verb) => Signed(source: state.Source, sample: verb.Sample, key: state.Key).Bind(value => ResultProjection.Value<double, TOut>(value, state.Key, typeof(Evaluation))),
+                sample: static (state, verb) => Sampled(source: state.Source, count: verb.Count, context: verb.Model, key: state.Key).Bind(values => ResultProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))),
+                vertices: static (state, _) => Vertices(source: state.Source, key: state.Key).Bind(values => ResultProjection.Values<Point3d, TOut>(values, state.Key, typeof(Evaluation))))
             select result;
     }
     private static Fin<ClosestHit> Closest(object source, Point3d target, Op key) =>
@@ -450,7 +450,7 @@ flowchart LR
     VertexRows -.-> Ladder
     Signed --> Hit
     Ladder -->|"Lease recovery ≤2 deep"| Dispatch
-    Hit --> Typed["Evaluate TOut · AtomProjection rows · value · sequence"]
+    Hit --> Typed["Evaluate TOut · ResultProjection rows · value · sequence"]
     Sampling --> Typed
     VertexRows --> Typed
     Hit -->|fields read by rows| Support["Spatial/support SupportProjection facets"]

@@ -2,7 +2,7 @@
 
 `ExtractionDomain` owns the extraction/projection API: one polymorphic `Of` ingress admits raw Rhino geometry or an admitted `CellLattice` into a typed sampling domain, `ContourPolicy` sections every domain through the owner its shape names — RhinoCommon's contour and iso adapters for the multi-plane and surface-iso routes, the `Meshing/intersect` `IntersectOp.PlaneMesh` crossing table for a single mesh section, the `reconstruct.md` marching-squares owner for lattice scalar levels — and typed projection rows fold every request shape to any output type. One local marching-triangles kernel serves the per-vertex scalar contouring no owner carries.
 
-Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; evidence validity folds through `Domain/results.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rows, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this API re-implements none of them.
+Output dispatch rides `Numerics/atoms.md`'s `ResultProjection.Rows`; evidence validity folds through `Domain/results.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rows, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this API re-implements none of them.
 
 ## [01]-[INDEX]
 
@@ -384,7 +384,7 @@ public abstract partial record ExtractionProbe {
         tensorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe));
     internal Fin<TOut> Project<TOut>(Point3d sample, Context context, Op key) => Switch(
         state: (Sample: sample, Context: context, Key: key),
-        vectorCase: static (state, probe) => AtomProjection.Rows<ExtractionProbe.VectorCase, TOut>(self: probe, key: state.Key, owner: typeof(VectorCase),
+        vectorCase: static (state, probe) => ResultProjection.Rows<ExtractionProbe.VectorCase, TOut>(self: probe, key: state.Key, owner: typeof(VectorCase),
             ProjectionRow.Of<TangentLogMapResult>(() => probe.Source is VectorField.TangentLogMapCase log
                 ? GeodesicKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key)
                 : Fin.Fail<TangentLogMapResult>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(TangentLogMapResult)))),
@@ -402,11 +402,11 @@ public abstract partial record ExtractionProbe {
             ProjectionRow.Of<VectorSpan>(() => SpanAt(probe: probe, state: state)),
             ProjectionRow.Of<Direction>(() => SpanAt(probe: probe, state: state).Bind(span => span.Project<Direction>(key: state.Key))),
             ProjectionRow.Of<Line>(() => SpanAt(probe: probe, state: state).Bind(span => span.Project<Line>(key: state.Key)))),
-        scalarCase: static (state, probe) => AtomProjection.Rows<ExtractionProbe.ScalarCase, TOut>(self: probe, key: state.Key, owner: typeof(ScalarCase),
+        scalarCase: static (state, probe) => ResultProjection.Rows<ExtractionProbe.ScalarCase, TOut>(self: probe, key: state.Key, owner: typeof(ScalarCase),
             ProjectionRow.Of<SdfSample>(() => probe.Source.SampleSdfDetailed(sample: state.Sample, context: state.Context, key: state.Key)),
             ProjectionRow.Of<FieldSample>(() => probe.Source.SampleDetailed(sample: state.Sample, context: state.Context, key: state.Key)),
             ProjectionRow.Of<double>(() => probe.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key))),
-        tensorCase: static (state, probe) => AtomProjection.Rows<ExtractionProbe.TensorCase, TOut>(self: probe, key: state.Key, owner: typeof(TensorCase),
+        tensorCase: static (state, probe) => ResultProjection.Rows<ExtractionProbe.TensorCase, TOut>(self: probe, key: state.Key, owner: typeof(TensorCase),
             ProjectionRow.Of<SymmetricMatrix>(() => probe.Source.SampleTensor(sample: state.Sample, context: state.Context, key: state.Key)),
             ProjectionRow.Of<Seq<(double Eigenvalue, Direction Eigenvector)>>(() => probe.Source.PrincipalDirections(sample: state.Sample, context: state.Context, key: state.Key))));
     private static Fin<VectorSpan> SpanAt(VectorCase probe, (Point3d Sample, Context Context, Op Key) state) =>
@@ -418,7 +418,7 @@ public abstract partial record ExtractionProbe {
 public abstract partial record SampledExtraction {
     public sealed record GlyphCase(VectorField Field, PositiveMagnitude Scale) : SampledExtraction;
     public sealed record GridCase(ScalarField Field) : SampledExtraction;
-    public sealed record StreamBundleCase(VectorField Field, PositiveMagnitude InitialStep, FieldIntegrator Integrator, Termination Termination) : SampledExtraction;
+    public sealed record StreamBundleCase(VectorField Field, PositiveMagnitude InitialStep, RungeKuttaIntegrator Integrator, Termination Termination) : SampledExtraction;
     public sealed record DrapeCase(Vector3d Direction) : SampledExtraction;
     private SampledExtraction() { }
     public static Fin<SampledExtraction> Glyph(VectorField field, double scale, Op? key = null) {
@@ -434,12 +434,12 @@ public abstract partial record SampledExtraction {
         return guard(ValidityClaim.Finite(direction) && direction.Length > 0.0, op.InvalidInput()).ToFin()
             .Map(_ => (SampledExtraction)new DrapeCase(Direction: direction));
     }
-    public static Fin<SampledExtraction> StreamBundle(VectorField field, double initialStep, Termination termination, Option<FieldIntegrator> integrator = default, Op? key = null) {
+    public static Fin<SampledExtraction> StreamBundle(VectorField field, double initialStep, Termination termination, Option<RungeKuttaIntegrator> integrator = default, Op? key = null) {
         Op op = key.OrDefault();
         return from source in Admit.NotNull(value: field, key: op)
                from step in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
                from stop in Termination.Admit(value: termination, key: op)
-               from active in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
+               from active in RungeKuttaIntegrator.AdmitOrFixed(value: integrator, key: op)
                select (SampledExtraction)new StreamBundleCase(Field: source, InitialStep: step, Integrator: active, Termination: stop);
     }
 }
@@ -484,7 +484,7 @@ public abstract partial record Extraction {
         probeCase: static (state, extraction) => extraction.Source.Project<TOut>(sample: extraction.Sample, context: state.Context, key: state.Key),
         contourCase: static (state, extraction) =>
             from batch in extraction.Domain.Contours(policy: extraction.Policy, context: state.Context, key: state.Key)
-            from output in AtomProjection.Rows<ExtractionTally, TOut>(self: batch.Tally, key: state.Key, owner: typeof(ContourCase),
+            from output in ResultProjection.Rows<ExtractionTally, TOut>(self: batch.Tally, key: state.Key, owner: typeof(ContourCase),
                 ProjectionRow.Of<Seq<Curve>>(() => Fin.Succ(batch.Curves)),
                 ProjectionRow.Of<ScalarIsolineResult>(() => batch.ScalarIsoline.ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineResult)))),
                 ProjectionRow.Of<IsolineCensus>(() => batch.ScalarIsoline.Map(static result => result.Census).ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(IsolineCensus)))))
@@ -492,7 +492,7 @@ public abstract partial record Extraction {
         isoSurfaceCase: static (state, extraction) =>
             from result in IsoSurface.Detailed(field: extraction.Field, bounds: extraction.Bounds, resolution: extraction.Resolution.Value,
                 policy: IsoSurfacePolicy.Default with { MaxRootSteps = extraction.MaxRootSteps }, context: state.Context, key: state.Key)
-            from output in AtomProjection.Rows<IsoSurfaceRun, TOut>(self: result.Run, key: state.Key, owner: typeof(IsoSurfaceCase),
+            from output in ResultProjection.Rows<IsoSurfaceRun, TOut>(self: result.Run, key: state.Key, owner: typeof(IsoSurfaceCase),
                 ProjectionRow.Of<Mesh>(() => result.Run.Valid ? Fin.Succ(result.Mesh) : Fin.Fail<Mesh>(state.Key.InvalidResult())),
                 ProjectionRow.Of<IsoSurfaceResult>(() => result.Run.Valid ? Fin.Succ(result) : Fin.Fail<IsoSurfaceResult>(state.Key.InvalidResult())),
                 ProjectionRow.Of<ExtractionTally>(() => ExtractionTally.Of(
@@ -508,19 +508,19 @@ public abstract partial record Extraction {
                 seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (point, model, op) => ExtractionProbe.Vector(source: mode.Field).Project<VectorSpan>(sample: point, context: model, key: op)
                     .Map(span => new Line(span.Anchor, span.Anchor + (mode.Scale.Value * span.Value))),
-                project: static (glyphs, rejected, tally, op) => AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.GlyphCase),
+                project: static (glyphs, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.GlyphCase),
                     Gated<Seq<Line>>(rejected, op, () => Fin.Succ(glyphs)))),
             gridCase: static (s, mode) => ProjectSamples<TOut, (Point3d Point, double Value)>(
                 seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (point, model, op) => mode.Field.SampleScalar(sample: point, context: model, key: op).Map(value => (Point: point, Value: value)),
-                project: static (samples, rejected, tally, op) => AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.GridCase),
+                project: static (samples, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.GridCase),
                     Gated<Seq<(Point3d Point, double Value)>>(rejected, op, () => samples.ForAll(static sample => ValidityClaim.Finite(sample.Point) && ValidityClaim.Finite(value: sample.Value))
                         ? Fin.Succ(samples)
                         : Fin.Fail<Seq<(Point3d Point, double Value)>>(op.InvalidResult())))),
             streamBundleCase: static (s, mode) => ProjectSamples<TOut, StreamlineTrace>(
                 seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: mode.Field, seed: seed, initialStep: mode.InitialStep, integrator: mode.Integrator, termination: mode.Termination, context: model, key: op),
-                project: static (traces, rejected, tally, op) => AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.StreamBundleCase),
+                project: static (traces, rejected, tally, op) => ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.StreamBundleCase),
                     Streamed<StreamlineTrace>(rejected, op, traces),
                     Streamed<Polyline>(rejected, op, traces),
                     Streamed<Curve>(rejected, op, traces))),
@@ -538,7 +538,7 @@ public abstract partial record Extraction {
                       route: ExtractionRoute.Native, attempted: samples.Points.Count, emitted: hits.Projected.Length,
                       tolerance: ExtractionTolerance.FromContext(s.Context.Absolute), key: s.Key,
                       sample: Some(samples.Tally), itemFailures: Some(samples.Points.Count - covered))
-                  from output in AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: s.Key, owner: typeof(SampledExtraction.DrapeCase),
+                  from output in ResultProjection.Rows<ExtractionTally, TOut>(self: tally, key: s.Key, owner: typeof(SampledExtraction.DrapeCase),
                       ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(toSeq(hits.Projected))),
                       ProjectionRow.Of<Seq<(int Source, Point3d Point)>>(() => Fin.Succ(toSeq(hits.Indices.Zip(hits.Projected, static (source, point) => (Source: source, Point: point))))))
                   select output

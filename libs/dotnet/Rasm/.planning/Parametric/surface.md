@@ -15,10 +15,10 @@ Every emitted `NurbsForm.Surface` carries `ToEncodeForm()` into the reconciliati
 - Entry: `Geodesics` takes the `UvTessellation` carrier, so the provenance proof is the parameter type.
 - Auto: every op composes the vendored engine with the landed distance, refit, and arena machinery; no evaluation arithmetic is local.
 - Law: the curvature bands are `Stat<Scalar>` off `Stat<Scalar>.Of(ReadOnlySpan<double>, key)` — the kernel's ONE moment owner and the leg that already carries the vectorized reduction. NAMED LOSS: the page's local `FieldExtrema` triple and its registered `CurvatureSummaryClaim`; the speed claim belongs to the reduction's owner, and the consumer gains variance, RMS, and the rejected count no triple carries. WITNESS: `FieldExtrema.Of(k1Plane)` rebuilt as `Stat<Scalar>.Of(k1Plane, key)`, whose `Minimum`/`Maximum`/`Mean` read the same three values.
-- Law: the area integral rides `Quadrature.Integrate` over `IntegrationDomain.Rectangle`, never a raw `Integrate.OnRectangle` — the funnel's finite guard, skip budget, and `QuadratureEvidence` are the evidence a bare product rule cannot produce, and a pole in `|Su×Sv|` poisons an unguarded weighted sum silently.
+- Law: the area integral rides `Quadrature.Integrate` over `QuadratureDomain.Rectangle`, never a raw `Integrate.OnRectangle` — the funnel's finite guard, skip budget, and `QuadratureEvidence` are the evidence a bare product rule cannot produce, and a pole in `|Su×Sv|` poisons an unguarded weighted sum silently.
 - Law: the dense-pullback seed lookup is `NeighborIndex` — Rasm `RULINGS [02]` seats bare-point neighborhoods there, and the query subject is a bare point. NAMED LOSS: the page-local `Supercluster.KDTree.Net` admission, its per-probe boxing of three doubles into an `IReadOnlyList<double>`, and a `.First()` that threw on an empty answer; the gain is one batch query, one owner, and a `Fin` result through the seed leg.
 - Law: `GeodesicField.Grade` records the distance lane a consumer dispatches on; `UvTessellation` carries its own provenance and nothing beside it.
-- Packages: `nurbs.md` the vendored engine (`NurbsPolicy` knobs, `SplinePolicy` the G5 refit seed); `Rasm.Numerics` for `Quadrature.Integrate`/`IntegrationDomain.Rectangle`/`IntervalSpec` area cubature, `Dimension` atoms, and `GeometryFault.ParametricFault`/`ParametricStage`; `Rasm.Spatial` for the `NeighborIndex`/`NeighborSource`/`NeighborKernel` bare-point seed lookup; `Rasm.Meshing` for the `MeshEdit` arena, the `MeshSpace` freeze, the `Chain` ring carrier, and the `Conform` constrained-tessellation carriage; `Rasm.Processing` for the landed distance lanes; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`, `Stat<Scalar>`/`Scalar`, and validity; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: `nurbs.md` the vendored engine (`NurbsPolicy` knobs, `SplinePolicy` the G5 refit seed); `Rasm.Numerics` for `Quadrature.Integrate`/`QuadratureDomain.Rectangle`/`IntegrationInterval` area cubature, `Dimension` atoms, and the `GeometryFault` union; `Rasm.Spatial` for the `NeighborIndex`/`NeighborSource`/`NeighborKernel` bare-point seed lookup; `Rasm.Meshing` for the `MeshEdit` arena, the `MeshSpace` freeze, the `Chain` ring carrier, and the `Conform` constrained-tessellation carriage; `Rasm.Processing` for the landed distance lanes; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`, `Stat<Scalar>`/`Scalar`, and validity; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new tessellation density is one `TessellateRule` case; a new isoline selection one `IsolineRule` case; a second distance lane one `GeodesicGrade` row; a new field quantity one `CurvatureField` column off the same `CurvatureAt` sweep; a lofted, swept, or revolved construction is a growth row on the engine admission.
 - Boundary: basis, derivative, and projection arithmetic stay `nurbs.md`'s engine members; a trimmed region is `Trim` DATA on the one `Tessellate` case — the constrained cells ride the `Meshing/delaunay` `Tessellation.Build` substrate with `PlanarOverlay`'s exact winding classification, so THIS owner emits both the full-domain and the trimmed `UvTessellation` and no consumer mints a constrained substrate beside it.
 
@@ -165,7 +165,7 @@ public static class Surfaces {
     // --- [GEODESICS]
     static Fin<SurfaceResult> GeodesicsOf(SurfaceOp.Geodesics op, Op key) =>
         !op.Plan.IsValid
-            ? Fault<SurfaceResult>(ParametricStage.Evaluation, ParametricCarrier.Geodesic, "empty sources or non-positive level")
+            ? Fin.Fail<SurfaceResult>(key.InvalidInput())
             : VertexDistances(op.Source, op.Plan, key).Map(distances =>
                 (SurfaceResult)ChainContours(op.Source, distances, op.Plan));
 
@@ -178,7 +178,7 @@ public static class Surfaces {
             op.Refine, GrevilleGrid(op.Surface),
             fit: (grid, round) => OffsetFit(op, grid, round, key),
             densify: Densified,
-            unconverged: deviation => new GeometryFault.ParametricFault(ParametricStage.Construction, ParametricCarrier.Surface, $"normal offset unconverged at deviation {deviation}"))
+            unconverged: deviation => new GeometryFault.OffsetUnconverged(Kind.Surface, deviation))
         .Map(final => (SurfaceResult)new SurfaceResult.Offsets(final.Fit, final.Refinement));
 
     static Arr<Point2d> GrevilleGrid(NurbsForm.Surface surface);
@@ -189,13 +189,13 @@ public static class Surfaces {
     static Fin<SurfaceResult> CurvatureOf(SurfaceOp.CurvatureSample op, Op key) {
         NurbsPolicy policy = op.Policy.IfNone(noneValue: NurbsPolicy.Canonical);
         return Quadrature.Integrate(
-                new IntegrationDomain.Rectangle(
+                new QuadratureDomain.Rectangle(
                     F: (u, v) => {
                         Vector3d[][] skl = op.Surface.RationalDerivatives(u, v);
                         return Vector3d.CrossProduct(skl[1][0], skl[0][1]).Length;
                     },
-                    X: new IntervalSpec(Lower: 0.0, Upper: 1.0),
-                    Y: new IntervalSpec(Lower: 0.0, Upper: 1.0),
+                    X: new IntegrationInterval(Lower: 0.0, Upper: 1.0),
+                    Y: new IntegrationInterval(Lower: 0.0, Upper: 1.0),
                     Order: policy.GaussOrder.Value),
                 control: Some(QuadratureControl.Default with { RequireErrorWitness = false }),
                 key: key)
@@ -226,9 +226,6 @@ public static class Surfaces {
 
     static (Point3d[] Seeds, Point2d[] SeedUv) SeedGrid(NurbsForm.Surface surface, PullbackPolicy policy);
     static SurfaceResult Emit(SurfaceOp.Pullback op, Arr<(double U, double V)> uv);
-
-    static Fin<T> Fault<T>(ParametricStage stage, ParametricCarrier carrier, string witness) =>
-        Fin.Fail<T>(new GeometryFault.ParametricFault(stage, carrier, witness));
 }
 ```
 
@@ -251,7 +248,7 @@ flowchart LR
     Engine -->|"CurvatureAt sweep + Rectangle cubature"| Field["CurvatureField SoA + Stat&lt;Scalar&gt; bands"]
     Engine -->|"NeighborIndex batch seed → seeded ClosestParameter"| Pulled
     Engine -->|"ToEncodeForm — 2 Directions U/V"| Identity["reconciliation EncodeForm.Parametric"]
-    Op -.->|"ParametricFault — Construction / Evaluation"| GeometryFault
+    Op -.->|"OffsetUnconverged / InvalidInput / InvalidResult"| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

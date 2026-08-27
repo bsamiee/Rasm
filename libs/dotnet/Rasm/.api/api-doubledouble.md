@@ -221,16 +221,16 @@ Every elliptic function takes parameter `m = k²`.
 
 [TOPOLOGY]:
 - representation: one `readonly struct ddouble` holds a private unevaluated hi/lo `double` pair (~106-bit significand, ~31 decimal digits via `DecimalDigits`); the pair is internal, so a consumer treats `ddouble` purely as a number.
-- precision boundary: precision is fixed at two doubles, so `ddouble` deterministically refines `double` but cannot stand in for the `BigRational` exact `Sign` oracle; a result needing more than ~106 bits escalates to `Fraction`.
+- precision boundary: precision is fixed at two doubles, so `ddouble` deterministically refines `double` but cannot stand in for the sign-exact `Expansion` verdict; a result needing more than ~106 bits escalates to `Expansion.SignOf`, where the runtime ladder ends.
 - error-free transforms: FMA `TwoProduct` and Knuth/Dekker `TwoSum` match the `Expansion` kernel, so the 106-bit stage and the `Expansion` exact branch share one rounding model and agree on a determinant sign up to 106-bit resolution.
 
 [STACKING]:
-- `ExtendedNumerics.BigRational`(`.api/api-bigrational.md`): `ddouble` sits above the `double` filter and below the `Expansion` exact branch and the `Fraction` rational oracle; the shared `Expansion` rounding model makes the ladder monotone, each tier refining the one below, and only sub-106-bit-degenerate residue promotes to `Fraction.Sign`.
+- within-lib `Expansion` (`Numerics/predicates.md`): `ddouble` sits above the `double` filter and below the `Expansion` exact branch, the terminal tier of the runtime ladder; the shared `Expansion` rounding model makes the ladder monotone, each tier refining the one below, and only sub-106-bit-degenerate residue promotes to `Expansion.SignOf`.
 - `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): a kernel parameterized on `INumber<T>` lifts the `double` `SpecialFunctions`/`Integrate`/`RootFinding` lane to `ddouble` by substituting the type argument, changing precision only in the accuracy-critical special-function evaluation.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives<T>` operate on any `INumber<T>`, so a span of `ddouble` flows through the generic tensor primitives with no `ddouble`-specific SIMD path, and `DoubleDoubleEnumerableExpand.Sum`/`Average` give the accumulation-accurate fold off that path.
 - within-lib: `DDoubleJsonConverter` on `JsonSerializerOptions.Converters` and `DoubleDoubleIOExpand.Write`/`ReadDDouble` carry a 106-bit value across a wire or persistence boundary without degrading to `double`.
 
 [LOCAL_ADMISSION]:
-- `ddouble` is the middle predicate tier between the interior `double` filter and the sign-exact `Expansion`/`Fraction` adjudicators: the predicate recomputes the determinant in `ddouble` when the `double` error bound brackets zero, and only sub-106-bit-degenerate residue advances to exact adjudication.
+- `ddouble` is the middle predicate tier between the interior `double` filter and the sign-exact `Expansion` terminal tier: the predicate recomputes the determinant in `ddouble` when the `double` error bound brackets zero, and only sub-106-bit-degenerate residue advances to the exact expansion.
 - `ddouble.Sign` or an operator comparison gives the predicate its verdict and the value is discarded.
 - non-predicate numeric work (curvature, geodesic, fitting residuals, quadrature weights) uses the special-function library at 106-bit where the `double` `MathNet.Numerics` result loses too many digits, narrowing to `double` only at the reporting boundary.

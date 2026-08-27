@@ -18,7 +18,7 @@ Rebuild work composes the `Meshing/edit` arena as the sole position and face car
 - Law: `TargetLength` is `PositiveMagnitude` and every policy scalar an admitted value object, so `Admit` gates shape (a faceless mesh, an inverted hysteresis band) and never re-tests a range its carrier already holds. Quad arms carry `RoSyOrder`, whose key IS the order, and forward it to the `VectorField.CrossField` owner that proves the n-RoSy set.
 - Exemption: the split/collapse/flip/relax passes and the quad-cell extraction are statement kernels over one single-writer arena; their `Dictionary`/`HashSet` tables are rebuilt per phase and dropped inside the fold, so none becomes a frozen table.
 - Output: `RemeshTrace` witnesses every rewrite, carrying the deviation as the branch's one `Stat<Scalar>` band so mean, maximum, count, and spread arrive off one derivation; `QuadProvenance` rides `RewriteResult.Quads` on the quad arm alone and answers a typed refusal on a triangle rewrite.
-- Packages: `Rasm.Meshing`, `Rasm.Spatial` (`SpatialIndex.ClosestOnTriangle` the one point-triangle refinement behind the BVH prune), `Rasm.Processing`, `Rasm.Numerics` (`AtomProjection`/`ProjectionRow` the rewrite egress), and `Rasm.Domain` (`Stat<Scalar>`/`Scalar` the deviation band; `Cell.Converge` the pass driver) are the composed kernel siblings over Rhino.Geometry at the boundary; QuikGraph's `ConnectedComponents` labels the patch decomposition, CommunityToolkit.HighPerformance's `IAction` drives the double-buffered relax sweep, and Thinktecture.Runtime.Extensions with LanguageExt.Core generate the op dispatch and carry its `Fin`/`Atom` types.
+- Packages: `Rasm.Meshing`, `Rasm.Spatial` (`SpatialIndex.ClosestOnTriangle` the one point-triangle refinement behind the BVH prune), `Rasm.Processing`, `Rasm.Numerics` (`ResultProjection`/`ProjectionRow` the rewrite egress), and `Rasm.Domain` (`Stat<Scalar>`/`Scalar` the deviation band; `Cell.Converge` the pass driver) are the composed kernel siblings over Rhino.Geometry at the boundary; QuikGraph's `ConnectedComponents` labels the patch decomposition, CommunityToolkit.HighPerformance's `IAction` drives the double-buffered relax sweep, and Thinktecture.Runtime.Extensions with LanguageExt.Core generate the op dispatch and carry its `Fin`/`Atom` types.
 - Growth: a new rewrite modality is one `RemeshOp` case over the same pass machinery; a new n-RoSy order is one `RoSyOrder` row; a new terminal state is one `PassVerdict` case breaking the terminal `Switch` loudly; a new sizing law is one `RemeshPolicy.Sizing` producer — the hysteresis tests already read the per-position field; feature-vertex sliding is one relax-arm branch on the feature census; a new pass verb is one arm in `Pass`.
 - Boundary: `RemeshOp` owns the author-kernel rewrite alone, and QuikGraph's adjacency graph never leaves the extraction.
 
@@ -91,7 +91,7 @@ public sealed record QuadProvenance(Arr<int> Corners, Arr<int> PatchOf, Arr<doub
 public sealed record RewriteResult(MeshSpace Mesh, RemeshTrace Trace, Option<QuadProvenance> Quads) {
     internal Fin<TOut> Project<TOut>(Op key) {
         RewriteResult self = this;
-        return AtomProjection.Rows<RewriteResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<RewriteResult, TOut>(self: self, key: key,
             ProjectionRow.Of<MeshSpace>(() => Fin.Succ(self.Mesh)),
             ProjectionRow.Of<RemeshTrace>(() => Fin.Succ(self.Trace)),
             ProjectionRow.Of<QuadProvenance>(() => self.Quads.ToFin(key.Unsupported(inputType: typeof(RewriteResult), outputType: typeof(QuadProvenance)))));
@@ -393,16 +393,16 @@ public static class Remeshing {
         return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
             .Bind(answer => answer is SpatialAnswer.Index built
                 ? Fin.Succ(new Source(built.Value, corners))
-                : Fin.Fail<Source>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Nearest)));
+                : Fin.Fail<Source>(key.InvalidResult()));
     }
 
     static Fin<Unit> Project(MeshEdit arena, Source source, RemeshPolicy policy, Op key) =>
         Range(0, arena.VertexCount).ToSeq().TraverseM(v => {
             Point3d p = arena.Position(v);
             return Spatial.Apply(new SpatialOp.Query(source.Index, new SpatialQuery.Nearest(p, policy.ProjectCandidates.Value)), key)
-                .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest hits }
+                .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Nearest hits }
                     ? Fin.Succ(hits.Ordered)
-                    : Fin.Fail<Seq<int>>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Nearest)))
+                    : Fin.Fail<Seq<int>>(key.InvalidResult()))
                 .Map(hits => {
                     (Point3d at, Option<double> _) = hits.Fold(
                         (At: p, Distance: Option<double>.None),

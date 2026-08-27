@@ -14,7 +14,7 @@
 - Owner: `ReconstructionPolicy` `[Union]` is the one construction discriminant, each case carrying its typed policy payload — `MlsPolicy` beside `LevinMlsPolicy` and `ApssPolicy`, so all three MLS-family arms read their neighbourhood axes from a row — and deriving its `ReconstructionMode` row; `Reconstruction` is the build/evaluate kernel; `SignedHeatDiscretization` `[Union]` the spine discriminant and `SignedHeatSpine` its one four-stage signed-heat law; `MeshSdf` the mesh-SDF dispatch over `SdfMeshMethod`; `IsoSurface` the native extraction adapter; `TetMeshDomain` the validated tetrahedral domain deriving its full face roster and boundary topology at admission, `TetFace` the Crouzeix-Raviart degree of freedom that roster seats; `PlaneSeat` and `NormalPosture` the two Levin frame rows the sample fit witnesses. Every knob is a validated policy row carrying a preset, every THRESHOLD is a `Tolerance` minted off its own `ToleranceLane` through the run's `Context`, and every optional argument is an `Option<T>` the owner resolves through `IfNone` against its own canonical row — no factory tail spells absence as null and no factory mints an epsilon literal.
 - Cases: `ReconstructionPolicy` cases `RbfCase`/`MlsCase`/`LevinCase`/`ApssCase`/`PoissonCase`/`SibsonCase` select the build kernel; `ReconstructionMode` carries the eight modes with normals, degree, and status columns, the normal column the one admission fold's own clause; `SignedHeatDiscretization` cases `TetFem`/`BoundarySource`/`ClosedVolumeGrid`; `SdfMeshMethod` carries `GeneralizedWindingNumber`/`BoundarySignedHeat`/`ClosedSurfaceSignedHeat`, and the method row IS the mesh-SDF classification; `PoissonBoundary` carries `Neumann` (singular) and `Dirichlet` (definite) over ONE `Singular` column, its complement and its unread exterior constant both deleted; `IsoSurfaceStatus` carries three reachable rows, each with its own evidence predicate; `PlaneSeat` carries `Centroid`/`ThroughPoint` and `NormalPosture` `Raw`/`Oriented`, the two axes the Levin frame once spelled as bool knobs. Every single-value policy enum lands one row in the fence.
 - Entry: `Reconstruction.Reconstruct` is the one reconstruction entry — the policy case selects the build kernel, admission internalizes per case (finite positions/normals/values, mode-specific guards), and the result carries a frozen `Spatial/fields` case with `ReconstructionFit`. `SignedHeatSpine.Solve` routes each `SignedHeatDiscretization` case to its row kernel over the same four-stage law. `MeshSdf.SignedDistanceDetailed` dispatches on `policy.Method` and `MeshSdf.Prewarm` factors and caches the solves without sampling. `IsoSurface.Detailed` returns the classified run for every native outcome — admission failures alone fail the result, consumers gate on `Run.Valid` — and its extracted host mesh admits ONCE through `MeshSpace.Of(new MeshSource.Native(…))`, so the result carries an `Option<MeshSpace>` and an extraction that produced nothing carries ABSENCE rather than an empty mesh. `IsoContour.Detailed` is the rank-2 managed analogue, gated `grid.Rank is 2`, chaining crossings into oriented `Meshing/intersect` `Chain` loops. No per-mode public factory siblings on the surface.
-- Auto: RBF selects interpolation vs approximation by the smoothing row (`≤ ZeroTolerance` → exact kernel-matrix solve; `> 0` → `√smoothing`-diagonal-augmented least squares) — the mode split is a value consequence, not a knob. MLS solves the 4-equation-per-neighbor design (`[1, −offset] · [value; gradient]` rows weighted by `√profile`) and gates on rank ≥ 4 and normal agreement against `MlsPolicy.NormalAgreementFloor`, its own policy column. Levin runs step one as covariance plane seed (smallest eigenvector, orientation-corrected) then alternates Brent root-finding on the weighted energy derivative along the normal (bracket/accuracy scale-derived from support) with normal re-estimation (at most `NormalMaxIter` inner steps against `NormalTau`, offset/normal convergence at `StepEps`/`NormalStepTol`), gated by the planarity ratio `λ0/λ2 ≤ PlanarityTau`; step two fits the ridge-regularized degree-`PolyDegree` height polynomial in the local tangent frame. APSS fits the algebraic sphere `(hc, hl, hq)` by Pratt normalization, classifies the plane-degenerate branch by `DegeneracyRatio ≤ EpsDegeneracy`, and projects iteratively with `StepDamping` under `ProjTol`. Poisson splats inward normals trilinearly onto the `2^Depth` lattice — the degree-1 discretization, the ONE splat the lattice owns (splat radius `Width`-scaled per cell; density estimate normalized by `SamplesPerNode` with weight floor `max(√ε, Density)`; bounding box grown by `Scale`) — assembles the 7-point Laplacian with one-sided boundary differences, adds `α = 8^Depth · PointWeight` screening outer products per sample when screened, imposes the boundary's row set when `Boundary.Singular` is false, solves definite systems by `CholeskySparse` and singular unscreened ones by `SingularSolveDetailed` under `GaugePolicy.PinConstant(interior, GaugeShift.PinZero)` — residual-gated against `Solver.ResidualTolerance` like every other solve on this page — and derives the isovalue `γ` as the density-weighted mean sample indicator. Sibson is EVALUATED, never fitted: the build admits the position/value pairs and resolves the dual tolerance, and each query derives its own natural-neighbour weights from the `Spatial/cloud` Voronoi dual over samples-plus-query, so the exactness at the samples is a property of the weights rather than of a solve. Signed-heat rows specialize the same four stages across Crouzeix-Raviart tet FEM, boundary CR, and closed volume-grid discretizations — the tet row seating one degree of freedom per FACE and closing with the `(AᵀMA)w = AᵀMu` projection onto vertices — heat time resolving per row from `SignedHeatTime` against that row's own node spacing.
+- Auto: RBF selects interpolation vs approximation by the smoothing row (`≤ ZeroTolerance` → exact kernel-matrix solve; `> 0` → `√smoothing`-diagonal-augmented least squares) — the mode split is a value consequence, not a knob. MLS solves the 4-equation-per-neighbor design (`[1, −offset] · [value; gradient]` rows weighted by `√profile`) and gates on rank ≥ 4 and normal agreement against `MlsPolicy.NormalAgreementFloor`, its own policy column. Levin runs step one as covariance plane seed (smallest eigenvector, orientation-corrected) then alternates Brent root-finding on the weighted energy derivative along the normal (bracket/accuracy scale-derived from support) with normal re-estimation (at most `NormalMaxIter` inner steps against `NormalTau`, offset/normal convergence at `StepEps`/`NormalStepTol`), gated by the planarity ratio `λ0/λ2 ≤ PlanarityTau`; step two fits the ridge-regularized degree-`PolyDegree` height polynomial in the local tangent frame. APSS fits the algebraic sphere `(hc, hl, hq)` by Pratt normalization, classifies the plane-degenerate branch by `DegeneracyRatio ≤ EpsDegeneracy`, and projects iteratively with `StepDamping` under `ProjTol`. Poisson splats inward normals trilinearly onto the `2^Depth` lattice — the degree-1 discretization, the ONE splat the lattice owns (splat radius `Width`-scaled per cell; density estimate normalized by `SamplesPerNode` with weight floor `max(√ε, Density)`; bounding box grown by `Scale`) — assembles the 7-point Laplacian with one-sided boundary differences, adds `α = 8^Depth · PointWeight` screening outer products per sample when screened, imposes the boundary's row set when `Boundary.Singular` is false, solves definite systems by `CholeskySparse` and singular unscreened ones by `SingularSolveDetailed` under `GaugePolicy.Pinned([interior])` — residual-gated against `Solver.ResidualTolerance` like every other solve on this page — and derives the isovalue `γ` as the density-weighted mean sample indicator. Sibson is EVALUATED, never fitted: the build admits the position/value pairs and resolves the dual tolerance, and each query derives its own natural-neighbour weights from the `Spatial/cloud` Voronoi dual over samples-plus-query, so the exactness at the samples is a property of the weights rather than of a solve. Signed-heat rows specialize the same four stages across Crouzeix-Raviart tet FEM, boundary CR, and closed volume-grid discretizations — the tet row seating one degree of freedom per FACE and closing with the `(AᵀMA)w = AᵀMu` projection onto vertices — heat time resolving per row from `SignedHeatTime` against that row's own node spacing.
 - Output: every build, point evaluation, and spine step carries its typed evidence as one `ValidityClaim.All` fold. `ReconstructionFit`/`SampleFit` ride the RBF/MLS/Sibson arm with the interpolation verdict on `Mode.Status` and every measurement an arm skips — kernel, radius, rank, condition, agreement, gradient, solve — on its own optional slot; the deep `LevinFit`/`ApssFit` carry their solver witnesses; `PoissonSolve` carries the splat-conservation claim; `SignedHeatSolve`/`VolumeSolve`/`TetSignedHeatSolve` sit per spine row, `SdfSolve` on the mesh-SDF arm, `IsoSurfaceRun` inside `IsoSurfaceResult`, and `IsoContourResult` carries its isovalue, ambiguous-cell count, and open-run count directly.
 - Packages: `Rasm.Numerics` `Numerics/matrix` (sparse and dense solves, gauge policy, solve evidence) and `Numerics/calculus` (kernel-profile math, composed never re-minted); `Meshing/mesh` (the `MeshSpace` snapshot and its `MeshSource` admission discriminant, cache memo slots, `Topology`) and `Meshing/dec` (CR heat-system assembly, face-field sampling, intrinsic divergence); `Spatial/fields` (`ScalarField` frozen cases as the build product); `Spatial/index` (`Spatial.Apply` over `SpatialQuery.Winding`, the accelerated GWN lane); `Spatial/cloud` (`NaturalNeighborField.Of`/`Weights` over the `VoronoiMesh` dual — the one hull owner, never a page-local dual, and the base dual minted once per field rather than per query); `Domain/results` and `Domain/context` (`Context.For` the ONE tolerance read, `Tolerance` every threshold column, `ToleranceLane` rows `Neglect`/`Step`/`Residual`/`Fraction`/`Convergence`); CommunityToolkit.HighPerformance (`MemoryOwner<T>` + `Span2D<T>` the RBF design plane); MathNet.Numerics (`RootFinding.Brent` for the Levin energy root); RhinoCommon (`Mesh.CreateFromIsosurface` and the inside/closest/orientation predicates, genuinely Rhino-boundary, never thinned); LanguageExt.Core; BCL (`Interlocked`).
 - Law: absence is `Option` everywhere past a factory — a `T? x = null` tail, a `?? new Mesh()` fallback, and a `bool` frame knob are all the deleted forms; every evidence fold reads the implicit `bool -> ValidityClaim` conversion and no `ValidityClaim.Of(` wrapper survives; a positivity a value object's `Band` already holds never re-appears as a hand clause, so a record with nothing left to claim carries no fold at all.
@@ -203,19 +203,19 @@ public readonly record struct TetSignedHeatPolicy(
 public readonly record struct LevinMlsPolicy(
     PositiveMagnitude Support, int PolyDegree, Tolerance NeglectEps, int MinNeighbors, double BracketFactor,
     int MaxOuterIter, Tolerance StepEps, Tolerance RootTol, int NormalMaxIter, Tolerance NormalStepTol, Tolerance PlanarityTau,
-    double RidgeLambda, Tolerance NormalTau, Tolerance ProjEps, PlaneSeat Seat, NormalPosture Normals, WeightKernelFamily WeightKernel) {
+    double RidgeLambda, Tolerance NormalTau, Tolerance ProjEps, PlaneSeat Seat, NormalPosture Normals, WeightKernel WeightKernel) {
     public static Fin<LevinMlsPolicy> Of(double support, Context context, int polyDegree = 2, int minNeighbors = 6,
         double bracketFactor = 2.0, int maxOuterIter = 16, int normalMaxIter = 32, double ridgeLambda = 0.0,
         Option<PlaneSeat> seat = default, Option<NormalPosture> normals = default,
-        Option<WeightKernelFamily> weightKernel = default, Op? key = null);
+        Option<WeightKernel> weightKernel = default, Op? key = null);
 }
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MlsPolicy(
-    KernelKind Kernel, PositiveMagnitude Radius, WeightKernelFamily WeightKernel, Tolerance Neglect,
+    KernelKind Kernel, PositiveMagnitude Radius, WeightKernel WeightKernel, Tolerance Neglect,
     int MinNeighbors, UnitInterval NormalAgreementFloor) {
     public static Fin<MlsPolicy> Of(KernelKind kernel, double radius, Context context, int minNeighbors = 4,
-        Option<WeightKernelFamily> weightKernel = default, Option<UnitInterval> normalAgreementFloor = default, Op? key = null);
+        Option<WeightKernel> weightKernel = default, Option<UnitInterval> normalAgreementFloor = default, Op? key = null);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -233,9 +233,9 @@ public readonly record struct SibsonPolicy(Option<PositiveMagnitude> Tolerance, 
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ApssPolicy(
-    PositiveMagnitude Support, WeightKernelFamily WeightKernel, double Beta, Tolerance NeglectEps, Tolerance EpsDegeneracy,
+    PositiveMagnitude Support, WeightKernel WeightKernel, double Beta, Tolerance NeglectEps, Tolerance EpsDegeneracy,
     Tolerance EpsPratt, int ProjMaxIter, Tolerance ProjTol, double StepDamping, int MinNeighbors) {
-    public static Fin<ApssPolicy> Of(double support, Context context, Option<WeightKernelFamily> weightKernel = default,
+    public static Fin<ApssPolicy> Of(double support, Context context, Option<WeightKernel> weightKernel = default,
         double beta = 1.0, int projMaxIter = 16, double stepDamping = 1.0, int minNeighbors = 6, Op? key = null);
 }
 
@@ -278,7 +278,7 @@ public readonly record struct ReconstructionFit(
 public readonly record struct ReconstructionResult(ScalarField Field, ReconstructionFit Fit) {
     internal Fin<TOut> Project<TOut>(Op key) {
         ReconstructionResult self = this;
-        return AtomProjection.Rows<ReconstructionResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<ReconstructionResult, TOut>(self: self, key: key,
             ProjectionRow.Of<ReconstructionFit>(() => Fin.Succ(self.Fit)),
             ProjectionRow.Of<ScalarField>(() => Optional(self.Field).ToFin(key.InvalidResult())));
     }
@@ -383,7 +383,7 @@ public readonly record struct VolumeSolve(
     int GaugeNode, double SurfaceShift, LatticeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition,
     VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.CountAtLeast(count: (int)Grid.NodeCount, floor: InsideNodeCount + OutsideNodeCount),
+        Grid.NodeCount <= int.MaxValue && InsideNodeCount >= 0 && OutsideNodeCount >= 0 && ((Int128)InsideNodeCount + OutsideNodeCount) <= Grid.NodeCount,
         ValidityClaim.Positive(HeatTime), ValidityClaim.Nonnegative(SourceArea),
         ValidityClaim.CountAtLeast(count: SourceTriangleCount, floor: 1), ValidityClaim.Finite(SurfaceShift), ValidityClaim.Finite(Residual));
 }
@@ -459,7 +459,7 @@ public readonly record struct TetSignedHeatSample(double Value, TetSignedHeatSol
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct IsoSurfaceRun(
-    bool NativeRouted, IsoSurfaceStatus Status, CellLattice Grid, long HexCellCount, long CornerSampleCount,
+    bool NativeRouted, IsoSurfaceStatus Status, CellLattice Grid, long HexCellCount, Int128 CornerSampleCount,
     int MaxRootSteps, double IsoValue, bool NativeNormalsDiscarded,
     bool ParallelCallback, int EvaluatorFailures, int VertexCount, int FaceCount, Option<int> NakedBoundaryLoopCount,
     Option<double> FixedTolerance, Option<double> FixedNormalSampleDistance, Option<SdfSolve> MeshPreflight) : IValidityEvidence {
@@ -571,7 +571,7 @@ public static class Reconstruction {
                from splat in key.AcceptValue(value: SplatNormals(samples: samples, grid: grid, policy: policy))
                from laplacian in AssembleLaplacian(grid: grid, policy: policy, splat: splat, key: key)
                from solve in policy.Boundary.Singular && policy.PointWeight <= 0.0
-                   ? laplacian.System.SingularSolveDetailed(rhs: laplacian.Rhs, gauge: GaugePolicy.PinConstant(index: 0, shift: GaugeShift.PinZero), context: context, key: key)
+                   ? laplacian.System.SingularSolveDetailed(rhs: laplacian.Rhs, gauge: GaugePolicy.Pinned(indices: [0]), context: context, key: key)
                    : CholeskySparse.Of(symmetric: laplacian.System, key: key).Bind(factor => factor.SolveDetailed(rhs: laplacian.Rhs, key: key))
                from _ in guard(solve.Residual <= policy.Solver.ResidualTolerance.Value, key.InvalidResult()).ToFin()
                from gamma in key.AcceptValue(value: IsovalueOf(samples: samples, grid: grid, chi: solve.Solution, splat: splat))
@@ -682,7 +682,7 @@ public static class Reconstruction {
                 RejectedWeightCount: values.Count - weights.Count, WeightSum: sum, Rank: Option<int>.None,
                 Condition: Option<double>.None, NormalAgreement: Option<double>.None,
                 GradientNorm: Option<double>.None, Solve: Option<LinearSolution>.None));
-    private static Fin<Neighbor[]> CollectNeighborhood(Seq<MlsSample> samples, Point3d sample, double support, WeightKernelFamily kernel, double neglectEps, int minNeighbors, Context context, Op key) {
+    private static Fin<Neighbor[]> CollectNeighborhood(Seq<MlsSample> samples, Point3d sample, double support, WeightKernel kernel, double neglectEps, int minNeighbors, Context context, Op key) {
         double neglect = support * Math.Sqrt(d: Math.Log(d: 1.0 / neglectEps));
         Neighbor[] survivors = [.. samples
             .Map(s => (Sample: s, Offset: s.Position - sample))

@@ -171,7 +171,7 @@ flowchart LR
     Rasm e7@-->|"[SHAPE]: MeshAdjointSnapshot"| Tensor
     Rasm e8@-->|"[WIRE]: SpatialIndex"| Solver
     Rasm e9@-->|"[WIRE]: EncodedGeometry"| Tensor
-    Rasm e10@-->|"[SHAPE]: FieldIntegrator + IntegrationDomain"| Tensor
+    Rasm e10@-->|"[SHAPE]: RungeKuttaIntegrator + QuadratureDomain"| Tensor
     Rasm e11@-->|"[SHAPE]: SunPosition"| Analysis
     Rasm e12@-->|"[SHAPE]: MeasureBundle"| Analysis
     Model e13@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence

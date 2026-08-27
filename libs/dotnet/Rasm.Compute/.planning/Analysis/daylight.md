@@ -81,7 +81,7 @@ public readonly record struct SkyState(Instant At, SunPosition Sun, double Direc
             ? ((diffuseHorizontalWm2 + directNormalWm2) / diffuseHorizontalWm2 + kappa) / (1.0 + kappa)
             : 1.0;
         return new SkyState(at, sun, directNormalWm2, diffuseHorizontalWm2,
-            diffuseHorizontalWm2 * AirMass(sun.ZenithDeg) / Extraterrestrial(at.WithOffset(site.Timezone).DayOfYear),
+            diffuseHorizontalWm2 * AirMass(sun.ZenithDeg) / Extraterrestrial(at.WithOffset(site.StandardOffset).DayOfYear),
             PerezBand.OfClearness(clearness));
     }
 
@@ -170,7 +170,7 @@ public static class WeatherIngress {
                             out SolarSite? admitted), admitted));
                     return site.Bind(admitted => {
                         using OpenStudio.EpwDataPointVector data = epw.data();
-                        Instant yearStart = new LocalDate(2001, 1, 1).AtMidnight().WithOffset(admitted.Timezone).ToInstant();
+                        Instant yearStart = new LocalDate(2001, 1, 1).AtMidnight().WithOffset(admitted.StandardOffset).ToInstant();
                         Seq<(Instant At, double Dni, double Dhi)> readings = toSeq(Enumerable.Range(0, checked((int)data.Count)))
                             .Choose(i => {
                                 using OpenStudio.EpwDataPoint point = data[i];
@@ -194,7 +194,7 @@ public static class WeatherIngress {
                     .Bind(dated => Column(handle, source, source.DniVar, dated.Hours)
                         .Bind(dni => Column(handle, source, source.DhiVar, dated.Hours)
                             .Bind(dhi => {
-                                Instant epoch = dated.Epoch.Epoch.AtMidnight().WithOffset(site.Timezone).ToInstant();
+                                Instant epoch = dated.Epoch.Epoch.AtMidnight().WithOffset(site.StandardOffset).ToInstant();
                                 return Stream(site,
                                     toSeq(Enumerable.Range(0, dated.Hours)).Map(i => (At: epoch + Duration.FromHours(i), Dni: dni.Span[i], Dhi: dhi.Span[i])),
                                     Some((source.CorpusKey, source.LatIndex, source.LonIndex, source.Years)));
@@ -341,7 +341,7 @@ public static class DaylightAnalysis {
     static Fin<Seq<SunSample>> DesignSweep(DaylightScene scene, Vector3 origin, SolarSite site, AssessmentRequest.Daylight request) =>
         request.DesignDays
             .Bind(day => SolarPosition
-                .SunPath(site, day.AtMidnight().WithOffset(site.Timezone).ToInstant(), Duration.FromHours(request.Policy.SunStepHours), request.Policy.SunSamplesPerDay)
+                .SunPath(site, day.AtMidnight().WithOffset(site.StandardOffset).ToInstant(), Duration.FromHours(request.Policy.SunStepHours), request.Policy.SunSamplesPerDay)
                 .Filter(static row => row.Sun.AboveHorizon)
                 .Map(row => (Day: day, Ray: SurveyRay(row.Sun))))
             .TraverseM(row => ClashScale.Occluded(scene.Scene, origin, row.Ray, scene.SceneDiameter)

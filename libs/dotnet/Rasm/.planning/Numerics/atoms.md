@@ -197,7 +197,7 @@ public readonly partial struct VectorAngle {
         from right in Direction.Of(value: b, context: context, key: key)
         from angle in Of(a: left, b: right, pivot: pivot.IfNone(AnglePivot.World), key: key)
         select angle;
-    internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.SelfOrValue<VectorAngle, double, TOut>(self: this, value: Value, key: key);
+    internal Fin<TOut> Project<TOut>(Op key) => ResultProjection.SelfOrValue<VectorAngle, double, TOut>(self: this, value: Value, key: key);
 }
 
 [SmartEnum<int>]
@@ -216,7 +216,7 @@ public sealed partial class VectorRelation {
             (_, true) => Perpendicular,
             _ => Oblique,
         };
-    internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.Self<VectorRelation, TOut>(value: this, key: key);
+    internal Fin<TOut> Project<TOut>(Op key) => ResultProjection.Self<VectorRelation, TOut>(value: this, key: key);
 }
 
 [SmartEnum<int>]
@@ -399,12 +399,6 @@ public sealed partial class ToneSweep {
 
     [UseDelegateFromConstructor]
     internal partial int Step(double ground);
-
-    internal Seq<UnitInterval> Walk(double ground, Dimension grid) =>
-        (Direction: Step(ground: ground), Steps: grid.Value) switch {
-            var (direction, steps) => toSeq(Enumerable.Range(start: 0, count: steps + 1))
-                .Map(step => UnitInterval.Create(value: direction > 0 ? 1.0 - ((double)step / steps) : (double)step / steps)),
-        };
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -421,7 +415,6 @@ public sealed partial class PerceptualColor {
             ?? Band.Parameter.Guard(label: nameof(OpponentA), value: ref opponentA)
             ?? Band.Parameter.Guard(label: nameof(OpponentB), value: ref opponentB)
             ?? Band.Unit.Guard(label: nameof(Alpha), value: ref alpha);
-    public static Dimension ToneGrid { get; } = Dimension.Create(value: 100);
     public static Fin<PerceptualColor> Of(double lightness, double opponentA, double opponentB, double alpha = 1.0, Op? key = null) =>
         Validate(lightness, opponentA, opponentB, alpha, out PerceptualColor? admitted) is null && admitted is not null
             ? Fin.Succ(value: admitted)
@@ -493,11 +486,11 @@ public sealed partial class PerceptualColor {
         return OfOklab(colour: new Unicolour(ColourSpace.Hct, hct.H, hct.C, tone.Value * 100.0), alpha: Alpha);
     }
     public Fin<PerceptualColor> ToneFor(PerceptualColor against, PositiveMagnitude ratio, ToneSweep sweep, Option<Dimension> grid = default, Op? key = null) {
-        PerceptualColor seed = this;
-        return sweep.Walk(ground: against.ReferenceLightness, grid: grid.IfNone(ToneGrid))
-            .Map(tone => seed.Tone(tone: tone))
+        int direction = sweep.Step(against.ReferenceLightness), steps = grid.Map(static value => value.Value).IfNone(100);
+        return toSeq(Enumerable.Range(0, steps).Append(steps))
+            .Map(step => Tone(UnitInterval.Create(direction > 0 ? 1.0 - ((double)step / steps) : (double)step / steps)))
             .Choose(static candidate => candidate.ToOption())
-            .TakeWhile(candidate => candidate.Contrast(other: against) >= ratio.Value)
+            .TakeWhile(candidate => candidate.Contrast(against) >= ratio.Value)
             .Last
             .ToFin(key.OrDefault().InvalidResult());
     }
@@ -553,10 +546,10 @@ public sealed partial class PerceptualColor {
 
 ## [03]-[TRANSFORM_ALGEBRA]
 
-- Owner: `TransformSpec` is the public construction `[Union]`, each case the irreducible payload of one affine factory semantic, and `Compose` an ordered program of already-built transforms. `OrientationSense` re-closes host orientation results, `Decomposition` is the typed result `[Union]`, `DecomposeAs` and `TransformRewrite` are behavior-bearing smart-enum rows, and `Placement` is the single construction and transform-operation surface.
+- Owner: `TransformSpec` is the public construction `[Union]`, each case the irreducible payload of one affine factory semantic, and `Compose` an ordered program of already-built transforms. `Decomposition` is the typed result `[Union]` — its similarity and rigid cases carry the `ReversesOrientation` fact — `DecompositionMethod` and `TransformRewrite` are behavior-bearing smart-enum rows, and `Placement` is the single construction and transform-operation surface.
 - Entry: `Placement.Build` constructs every spec case through one generated total `Switch`; the `Transform` extension members admit the receiver once and keep every refusal on `Fin<T>`.
-- Auto: `Compose` left-composes its sequence first to last and maps the empty sequence to `Transform.Identity`; `DecomposeAs` carries each host factorization as one delegate row, `TransformRewrite` copies before every mutating host operation, and `OrientationSense` converts only admitted rigid or similarity outcomes.
-- Output: `Decomposition` preserves every factor and orientation discriminant the selected factorization produces; construction, inverse, rewrite, bounds, list, and transpose return the admitted host value directly.
+- Auto: `Compose` left-composes its sequence first to last and maps the empty sequence to `Transform.Identity`; `DecompositionMethod` carries each host factorization as one delegate row, `TransformRewrite` mutates the by-value delegate parameter so the caller's transform is untouched, and the similarity and rigid rows gate the host status exhaustively — only the two successful orientation outcomes are admitted, and `ReversesOrientation` projects from the admitted status in place.
+- Output: `Decomposition` preserves every factor the selected factorization produces, with `ReversesOrientation` the orientation fact on the similarity and rigid cases; construction, inverse, and rewrite return the admitted host value directly.
 - Packages: Thinktecture.Runtime.Extensions for the union and smart-enum owners; LanguageExt.Core for the `Fin`/`Option`/`Seq` types; Rasm.Domain (project) for `Context`, `Op`, and `Admit`; RhinoCommon for `Transform` and its factorization results.
 - Growth: a factory semantic is one `TransformSpec` case and one generated-switch arm; a factorization or copy rewrite is one behavior row; a new result shape is one `Decomposition` case. Every consumer continues through `Placement`.
 - Boundary: `TransformSpec` is DISTINCT-BY-DESIGN from every same-named upper twin — it names an affine CONSTRUCTION request the host factories realize, where an upper `TransformSpec` names a placement authored against a document; the discriminant is the admission path, stated here once and never per site. `Transform.Unset`, zero matrices, and pseudo-inverses are never control values; failed construction and factorization stay failures, `TryGetInverse` returning `false` rejects its pseudo-inverse output, and only `Identity` or an empty `Compose` supplies an identity value.
@@ -591,33 +584,11 @@ public abstract partial record TransformSpec {
     public sealed record Compose(Seq<Transform> Values) : TransformSpec;
 }
 
-[SmartEnum<int>]
-public sealed partial class OrientationSense {
-    public static readonly OrientationSense Reversing = new(key: -1);
-    public static readonly OrientationSense Preserving = new(key: 1);
-
-    internal static Fin<OrientationSense> Of(TransformSimilarityType value, Op key) =>
-        value switch {
-            TransformSimilarityType.OrientationReversing => Fin.Succ(Reversing),
-            TransformSimilarityType.OrientationPreserving => Fin.Succ(Preserving),
-            TransformSimilarityType.NotSimilarity => Fin.Fail<OrientationSense>(error: key.InvalidResult()),
-            _ => Fin.Fail<OrientationSense>(error: key.InvalidResult()),
-        };
-
-    internal static Fin<OrientationSense> Of(TransformRigidType value, Op key) =>
-        value switch {
-            TransformRigidType.RigidReversing => Fin.Succ(Reversing),
-            TransformRigidType.Rigid => Fin.Succ(Preserving),
-            TransformRigidType.NotRigid => Fin.Fail<OrientationSense>(error: key.InvalidResult()),
-            _ => Fin.Fail<OrientationSense>(error: key.InvalidResult()),
-        };
-}
-
 [Union]
 public abstract partial record Decomposition {
     private Decomposition() { }
-    public sealed record Similarity(Vector3d Translation, double Dilation, Transform Rotation, OrientationSense Orientation) : Decomposition;
-    public sealed record Rigid(Vector3d Translation, Transform Rotation, OrientationSense Orientation) : Decomposition;
+    public sealed record Similarity(Vector3d Translation, double Dilation, Transform Rotation, bool ReversesOrientation) : Decomposition;
+    public sealed record Rigid(Vector3d Translation, Transform Rotation, bool ReversesOrientation) : Decomposition;
     public sealed record TranslationLinear(Vector3d Translation, Transform Linear) : Decomposition;
     public sealed record LinearTranslation(Transform Linear, Vector3d Translation) : Decomposition;
     public sealed record AffineFactors(Vector3d Translation, Transform Rotation, Transform Orthogonal, Vector3d Diagonal) : Decomposition;
@@ -629,17 +600,17 @@ public abstract partial record Decomposition {
 }
 
 [SmartEnum]
-public sealed partial class DecomposeAs {
-    public static readonly DecomposeAs Similarity = new(apply: SimilarityOf);
-    public static readonly DecomposeAs Rigid = new(apply: RigidOf);
-    public static readonly DecomposeAs TranslationLinear = new(apply: TranslationLinearOf);
-    public static readonly DecomposeAs LinearTranslation = new(apply: LinearTranslationOf);
-    public static readonly DecomposeAs AffineFactors = new(apply: AffineFactorsOf);
-    public static readonly DecomposeAs Symmetric = new(apply: SymmetricOf);
-    public static readonly DecomposeAs Quaternion = new(apply: QuaternionOf);
-    public static readonly DecomposeAs YawPitchRoll = new(apply: YawPitchRollOf);
-    public static readonly DecomposeAs EulerZYZ = new(apply: EulerZYZOf);
-    public static readonly DecomposeAs Texture = new(apply: TextureOf);
+public sealed partial class DecompositionMethod {
+    public static readonly DecompositionMethod Similarity = new(apply: SimilarityOf);
+    public static readonly DecompositionMethod Rigid = new(apply: RigidOf);
+    public static readonly DecompositionMethod TranslationLinear = new(apply: TranslationLinearOf);
+    public static readonly DecompositionMethod LinearTranslation = new(apply: LinearTranslationOf);
+    public static readonly DecompositionMethod AffineFactors = new(apply: AffineFactorsOf);
+    public static readonly DecompositionMethod Symmetric = new(apply: SymmetricOf);
+    public static readonly DecompositionMethod Quaternion = new(apply: QuaternionOf);
+    public static readonly DecompositionMethod YawPitchRoll = new(apply: YawPitchRollOf);
+    public static readonly DecompositionMethod EulerZYZ = new(apply: EulerZYZOf);
+    public static readonly DecompositionMethod Texture = new(apply: TextureOf);
 
     [UseDelegateFromConstructor]
     internal partial Fin<Decomposition> Apply(Transform source, Context context, Op key);
@@ -650,15 +621,11 @@ public sealed partial class DecomposeAs {
             dilation: out double dilation,
             rotation: out Transform rotation,
             tolerance: context.Fractional);
-        return from orientation in OrientationSense.Of(value: kind, key: key)
-               from result in (key.AcceptValue(value: translation), key.AcceptValue(value: dilation), key.AcceptValue(value: rotation))
-                   .Apply((move, scale, spin) => (Decomposition)new Decomposition.Similarity(
-                       Translation: move,
-                       Dilation: scale,
-                       Rotation: spin,
-                       Orientation: orientation))
-                   .As()
-               select result;
+        return kind is TransformSimilarityType.OrientationReversing or TransformSimilarityType.OrientationPreserving
+            ? (key.AcceptValue(translation), key.AcceptValue(dilation), key.AcceptValue(rotation))
+                .Apply((move, scale, spin) => (Decomposition)new Decomposition.Similarity(move, scale, spin,
+                    ReversesOrientation: kind is TransformSimilarityType.OrientationReversing)).As()
+            : Fin.Fail<Decomposition>(key.InvalidResult());
     }
 
     private static Fin<Decomposition> RigidOf(Transform source, Context context, Op key) {
@@ -666,14 +633,11 @@ public sealed partial class DecomposeAs {
             translation: out Vector3d translation,
             rotation: out Transform rotation,
             tolerance: context.Fractional);
-        return from orientation in OrientationSense.Of(value: kind, key: key)
-               from result in (key.AcceptValue(value: translation), key.AcceptValue(value: rotation))
-                   .Apply((move, spin) => (Decomposition)new Decomposition.Rigid(
-                       Translation: move,
-                       Rotation: spin,
-                       Orientation: orientation))
-                   .As()
-               select result;
+        return kind is TransformRigidType.RigidReversing or TransformRigidType.Rigid
+            ? (key.AcceptValue(translation), key.AcceptValue(rotation))
+                .Apply((move, spin) => (Decomposition)new Decomposition.Rigid(move, spin,
+                    ReversesOrientation: kind is TransformRigidType.RigidReversing)).As()
+            : Fin.Fail<Decomposition>(key.InvalidResult());
     }
 
     private static Fin<Decomposition> TranslationLinearOf(Transform source, Context context, Op key) =>
@@ -749,32 +713,21 @@ public sealed partial class DecomposeAs {
 
 [SmartEnum]
 public sealed partial class TransformRewrite {
-    public static readonly TransformRewrite Affine = new(apply: AffineOf);
-    public static readonly TransformRewrite Linear = new(apply: LinearOf);
-    public static readonly TransformRewrite Orthogonal = new(apply: OrthogonalOf);
+    public static readonly TransformRewrite Affine = new(apply: static (source, _, key) => {
+        source.Affineize();
+        return key.AcceptValue(source);
+    });
+    public static readonly TransformRewrite Linear = new(apply: static (source, _, key) => {
+        source.Linearize();
+        return key.AcceptValue(source);
+    });
+    public static readonly TransformRewrite Orthogonal = new(apply: static (source, context, key) =>
+        source.Orthogonalize(Math.Max(EpsilonPolicy.SqrtEpsilon, context.Fractional))
+            ? key.AcceptValue(source)
+            : Fin.Fail<Transform>(error: key.InvalidResult()));
 
     [UseDelegateFromConstructor]
     internal partial Fin<Transform> Apply(Transform source, Context context, Op key);
-
-    private static Fin<Transform> AffineOf(Transform source, Context context, Op key) {
-        Transform rewritten = source;
-        rewritten.Affineize();
-        return key.AcceptValue(value: rewritten);
-    }
-
-    private static Fin<Transform> LinearOf(Transform source, Context context, Op key) {
-        Transform rewritten = source;
-        rewritten.Linearize();
-        return key.AcceptValue(value: rewritten);
-    }
-
-    private static Fin<Transform> OrthogonalOf(Transform source, Context context, Op key) {
-        Transform rewritten = source;
-        double tolerance = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: context.Fractional);
-        return rewritten.Orthogonalize(tolerance: tolerance)
-            ? key.AcceptValue(value: rewritten)
-            : Fin.Fail<Transform>(error: key.InvalidResult());
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -922,24 +875,22 @@ public static class Placement {
                     plane0: source,
                     plane1: target))
                 select result,
-            vectorBasisMap: static (state, value) => VectorBasis(
-                x0: value.X0,
-                y0: value.Y0,
-                z0: value.Z0,
-                x1: value.X1,
-                y1: value.Y1,
-                z1: value.Z1,
-                key: state.Key),
-            pointBasisMap: static (state, value) => PointBasis(
-                p0: value.P0,
-                x0: value.X0,
-                y0: value.Y0,
-                z0: value.Z0,
-                p1: value.P1,
-                x1: value.X1,
-                y1: value.Y1,
-                z1: value.Z1,
-                key: state.Key),
+            vectorBasisMap: static (state, value) =>
+                (state.Key.AcceptInput(value.X0), state.Key.AcceptInput(value.Y0), state.Key.AcceptInput(value.Z0),
+                 state.Key.AcceptInput(value.X1), state.Key.AcceptInput(value.Y1), state.Key.AcceptInput(value.Z1))
+                    .Apply(static (x0, y0, z0, x1, y1, z1) => Transform.ChangeBasis(
+                        X0: x0, Y0: y0, Z0: z0, X1: x1, Y1: y1, Z1: z1))
+                    .As()
+                    .Bind(result => state.Key.AcceptValue(result)),
+            pointBasisMap: static (state, value) =>
+                (state.Key.AcceptInput(value.P0), state.Key.AcceptInput(value.X0), state.Key.AcceptInput(value.Y0),
+                 state.Key.AcceptInput(value.Z0), state.Key.AcceptInput(value.P1), state.Key.AcceptInput(value.X1),
+                 state.Key.AcceptInput(value.Y1), state.Key.AcceptInput(value.Z1))
+                    .Apply(static (p0, x0, y0, z0, p1, x1, y1, z1) => Transform.ChangeBasis(
+                        P0: p0, X0: x0, Y0: y0, Z0: z0,
+                        P1: p1, X1: x1, Y1: y1, Z1: z1))
+                    .As()
+                    .Bind(result => state.Key.AcceptValue(result)),
             planarProjection: static (state, value) =>
                 from plane in Admit.Plane(basis: value.Plane, key: state.Key)
                 from result in state.Key.AcceptValue(value: Transform.PlanarProjection(plane: plane))
@@ -963,9 +914,13 @@ public static class Placement {
                     y: y,
                     z: z))
                 select result,
-            compose: static (state, value) => Compose(
-                values: value.Values,
-                key: state.Key)));
+            compose: static (state, value) => value.Values
+                .TraverseM(transform => state.Key.AcceptInput(transform))
+                .As()
+                .Map(static admitted => admitted.Fold(
+                    initialState: Transform.Identity,
+                    f: static (combined, next) => next * combined))
+                .Bind(result => state.Key.AcceptValue(result))));
     }
 
     extension(Transform source) {
@@ -978,12 +933,12 @@ public static class Placement {
                    select inverse;
         }
 
-        public Fin<Decomposition> Decompose(DecomposeAs mode, Context context, Op? key = null) {
+        public Fin<Decomposition> Decompose(DecompositionMethod method, Context context, Op? key = null) {
             Op op = key.OrDefault();
             return from active in op.AcceptInput(value: source)
-                   from selector in Optional(mode).ToFin(Fail: op.InvalidInput())
+                   from activeMethod in Optional(method).ToFin(Fail: op.InvalidInput())
                    from model in Optional(context).ToFin(Fail: op.MissingContext())
-                   from result in selector.Apply(source: active, context: model, key: op)
+                   from result in activeMethod.Apply(source: active, context: model, key: op)
                    select result;
         }
 
@@ -996,31 +951,6 @@ public static class Placement {
                    select result;
         }
 
-        public Fin<BoundingBox> TransformBoundingBox(BoundingBox bounds, Op? key = null) {
-            Op op = key.OrDefault();
-            return from active in op.AcceptInput(value: source)
-                   from admitted in op.AcceptInput(value: bounds)
-                   from result in op.AcceptValue(value: active.TransformBoundingBox(bbox: admitted))
-                   select result;
-        }
-
-        public Fin<Seq<Point3d>> TransformList(IEnumerable<Point3d> points, Op? key = null) {
-            Op op = key.OrDefault();
-            return from active in op.AcceptInput(value: source)
-                   from values in Optional(points).ToFin(Fail: op.InvalidInput())
-                   from admitted in values.AsIterable().ToSeq()
-                       .TraverseM(value => op.AcceptInput(value: value))
-                       .As()
-                   from result in op.Catch(body: () => op.Accept(values: active.TransformList(points: admitted)))
-                   select result;
-        }
-
-        public Fin<Transform> Transpose(Op? key = null) {
-            Op op = key.OrDefault();
-            return from active in op.AcceptInput(value: source)
-                   from result in op.AcceptValue(value: active.Transpose())
-                   select result;
-        }
     }
 
     private static Fin<(Vector3d X, Vector3d Y, Vector3d Z)> RotationBasis(
@@ -1043,91 +973,21 @@ public static class Placement {
             key: key)
         from _ in guard(relation == VectorRelation.Parallel, key.InvalidInput()).ToFin()
         select (X: frame.XAxis, Y: frame.YAxis, Z: frame.ZAxis);
-
-    private static Fin<Transform> VectorBasis(
-        Vector3d x0,
-        Vector3d y0,
-        Vector3d z0,
-        Vector3d x1,
-        Vector3d y1,
-        Vector3d z1,
-        Op key) =>
-        (key.AcceptInput(value: x0),
-         key.AcceptInput(value: y0),
-         key.AcceptInput(value: z0),
-         key.AcceptInput(value: x1),
-         key.AcceptInput(value: y1),
-         key.AcceptInput(value: z1))
-            .Apply(static (ax, ay, az, bx, by, bz) => Transform.ChangeBasis(
-                X0: ax,
-                Y0: ay,
-                Z0: az,
-                X1: bx,
-                Y1: by,
-                Z1: bz))
-            .As()
-            .Bind(result => key.AcceptValue(value: result));
-
-    private static Fin<Transform> PointBasis(
-        Point3d p0,
-        Vector3d x0,
-        Vector3d y0,
-        Vector3d z0,
-        Point3d p1,
-        Vector3d x1,
-        Vector3d y1,
-        Vector3d z1,
-        Op key) =>
-        (key.AcceptInput(value: p0),
-         key.AcceptInput(value: x0),
-         key.AcceptInput(value: y0),
-         key.AcceptInput(value: z0),
-         key.AcceptInput(value: p1),
-         key.AcceptInput(value: x1),
-         key.AcceptInput(value: y1),
-         key.AcceptInput(value: z1))
-            .Apply(static (a0, ax, ay, az, b0, bx, by, bz) => Transform.ChangeBasis(
-                P0: a0,
-                X0: ax,
-                Y0: ay,
-                Z0: az,
-                P1: b0,
-                X1: bx,
-                Y1: by,
-                Z1: bz))
-            .As()
-            .Bind(result => key.AcceptValue(value: result));
-
-    private static Fin<Transform> Compose(Seq<Transform> values, Op key) =>
-        values
-            .TraverseM(value => key.AcceptInput(value: value))
-            .As()
-            .Map(static admitted => admitted.Fold(
-                initialState: Transform.Identity,
-                f: static (combined, next) => next * combined))
-            .Bind(result => key.AcceptValue(value: result));
 }
 ```
 
 ## [04]-[VECTOR_ALGEBRA]
 
-- Owner: `Direction` is the single admitted unit-vector currency of the kernel; `VectorSpan` the anchored vector, `VectorFrame` the validated orthonormal frame over `Plane`, `VectorCone` the apex/axis/half-angle solid sector. `ChainClosure` closes the ring posture of a point chain. All four carriers are construction-gated — the private constructor is unreachable except through the validating `Of`, so an instance is its own admission evidence.
+- Owner: `Direction` is the single admitted unit-vector currency of the kernel; `VectorSpan` the anchored vector, `VectorFrame` the validated orthonormal frame over `Plane`, `VectorCone` the apex/axis/half-angle solid sector. All four carriers are construction-gated — the private constructor is unreachable except through the validating `Of`, so an instance is its own admission evidence.
 - Cases: `Direction` owns admission, reflection, refraction, and transport; `VectorSpan` anchored magnitude decomposition; `VectorFrame` orthonormal admission and chained construction; `VectorCone` containment, enclosure, and rim partition.
 - Law: `Direction` implements `IValidityEvidence`, so its `IsValid` is the ruled `ValidityClaim.All` fold rather than a loose bool — the unit-length claim and the host-finiteness claim compose there and every reader sees one evidence surface.
 - Entry: every constructor and host-backed transform returns `Fin<T>` under one `Op`; `Direction.Reflect` and `ParallelTransport`, the `VectorFrame` transform projection, and the `VectorCone` rotation folds construct only through `Placement.Build`.
 - Auto: `Transported` re-admits every rigid-transform result against the type's OWN validity band so reflection, refraction, and parallel transport share one floor instead of gating a unit quantity on a distance-degeneracy epsilon; `VectorSpan.Value` recomposes `Direction * Magnitude` so the stored triple is the canonical decomposition; `SeedPerpendicular` is the deterministic perpendicular seed shared by frame construction and cone partition; `NewellNormal` is the one inexact polygon-normal fold every ring and panel fit composes, the exact carrier staying on the predicates ladder.
 - Packages: LanguageExt.Core for the `Fin`/`Seq`/`Option` types; Thinktecture.Runtime.Extensions for the generated owners; Rasm.Domain (project) for `Op`, `Context`, `ValidityClaim`, and the `Admit` vocabulary; RhinoCommon for the `Vector3d`, `Point3d`, `Plane`, and `Line` value structs.
-- Growth: a new direction algorithm is one member on `Direction` or `VectorCone`, never a sibling `DirectionUtils`; a new frame-construction modality is one `Of` overload discriminating on input shape; a new chain posture is one `ChainClosure` row.
-- Boundary: `VectorFrame.Chain` composes the one rotation-minimizing-frame owner in `Spatial/neighbors`, which owns the chain math while this page owns only frame admission over the chained planes and the `ChainClosure` posture it hands down; quaternion pose interpolation is `Parametric/projections`' and never re-derives here; `Direction.ParallelTransport` transports through given frames, so a second double-reflection implementation here is the deleted form.
+- Growth: a new direction algorithm is one member on `Direction` or `VectorCone`, never a sibling `DirectionUtils`; a new frame-construction modality is one `Of` overload discriminating on input shape.
+- Boundary: `VectorFrame.Chain` composes the one rotation-minimizing-frame owner in `Spatial/neighbors`, which owns the chain math while this page owns only frame admission over the chained planes and the `isClosed` posture it hands down; quaternion pose interpolation is `Parametric/projections`' and never re-derives here; `Direction.ParallelTransport` transports through given frames, so a second double-reflection implementation here is the deleted form.
 
 ```csharp
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class ChainClosure {
-    public static readonly ChainClosure Open = new(key: 0);
-    public static readonly ChainClosure Closed = new(key: 1);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Direction : IValidityEvidence {
     private Direction(Vector3d value) => Value = value;
@@ -1180,7 +1040,7 @@ public readonly record struct Direction : IValidityEvidence {
                             key: op)
                         .Bind(transform => Transported(value: transform * prev.Value, key: op)))));
     }
-    internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value, key: key);
+    internal Fin<TOut> Project<TOut>(Op key) => ResultProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value, key: key);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -1210,7 +1070,7 @@ public readonly record struct VectorSpan {
     }
     internal Fin<TOut> Project<TOut>(Op key) {
         VectorSpan self = this;
-        return AtomProjection.Rows<VectorSpan, TOut>(self: self, key: key,
+        return ResultProjection.Rows<VectorSpan, TOut>(self: self, key: key,
             ProjectionRow.Of<Direction>(() => Fin.Succ(self.Direction)),
             ProjectionRow.Of<Vector3d>(() => key.AcceptValue(value: self.Value)),
             ProjectionRow.Of<Line>(() => key.AcceptValue(value: self.Axis)),
@@ -1231,8 +1091,8 @@ public readonly record struct VectorFrame {
         let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
         from valid in Admit.Plane(basis: frame, key: key.OrDefault())
         select new VectorFrame(value: valid);
-    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, ChainClosure closure, Context context, Op? key = null) =>
-        NeighborKernel.BishopChain(points: points, initialNormal: initialNormal, closure: closure, context: context, key: key.OrDefault())
+    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context, Op? key = null) =>
+        NeighborKernel.BishopChain(points: points, initialNormal: initialNormal, isClosed: isClosed, context: context, key: key.OrDefault())
             .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key.OrDefault())).As());
     internal static Vector3d SeedPerpendicular(Vector3d axis) {
         Vector3d seed = Vector3d.Zero;
@@ -1248,7 +1108,7 @@ public readonly record struct VectorFrame {
     }
     internal Fin<TOut> Project<TOut>(Op key) {
         VectorFrame self = this;
-        return AtomProjection.Rows<VectorFrame, TOut>(self: self, key: key,
+        return ResultProjection.Rows<VectorFrame, TOut>(self: self, key: key,
             ProjectionRow.Of<Plane>(() => Admit.Plane(basis: self.Value, key: key)),
             ProjectionRow.Of<Transform>(() => Placement.Build(
                 spec: new TransformSpec.PlaneMap(
@@ -1337,8 +1197,8 @@ public readonly record struct VectorCone {
 ## [05]-[CELL_LATTICE]
 
 - Owner: `CellLattice` is the kernel's ONE bounded rectangular cell lattice — an index-to-world affine, a per-axis cell census, and one budget ceiling admitted together. `LatticeInterpolation` rows carry the sample reconstruction each consumer reads. Construction is gated: the private constructor is unreachable except through `Of`, so an instance is its own admission evidence and every derived member is total.
-- Entry: `CellLattice.Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null)` is the general admission, `Of(ReadOnlySpan<double> affine, …)` the host-neutral twelve-value form boundary and wire consumers round-trip through with `Affine` its projection dual, and `Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null)` the axis-aligned isotropic overload discriminating on input shape. `Center`, `Corner`, `Locate`, `Nearest`, `Contains`, and `Linear`/`Coordinate` close addressing; `Coarsen` halves the census for a pyramid level.
-- Auto: `Of` computes and stores the inverse affine at admission, so `Locate` is a multiply rather than a per-call factorization and a singular map is unrepresentable past the gate. Host-neutral admission runs its twelve values through `Band.Parameter` before minting, so a wire-borne `NaN` never reaches the inverse. `Rank` derives from `Layers` — a one-layer lattice IS the plane, so no sibling 2D type exists and no consumer branches on dimension. `CellSize` reads the affine's per-axis column norm, so an anisotropic, rotated, or sheared lattice reports its own extents.
+- Entry: `CellLattice.Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null)` is the general admission, `Of(ReadOnlySpan<double> affine, …)` the host-neutral twelve-value form boundary and wire consumers round-trip through with `Affine` its projection dual — `Affine` and `Inverse` are the ONLY public transform projections, the host `Transform` pair and the ordinal helpers staying assembly-internal — and `Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null)` the axis-aligned isotropic overload discriminating on input shape. `Center`, `Corner`, `Locate`, `Nearest`, `Contains`, and `Linear`/`Coordinate` close addressing; `Coarsen` ceiling-halves each reducible axis for a pyramid level — an odd axis rounds up so the doubled coarse cells still cover the final source cell, only an axis with reducible cells doubles its basis column while a terminal axis keeps one cell and its existing basis, and a rank-three lattice floors at two layers so no coarse level silently collapses to a plane.
+- Auto: `Of` computes and stores the inverse affine at admission, so `Locate` is a multiply rather than a per-call factorization and a singular map is unrepresentable past the gate. Host-neutral admission runs its twelve values through `Band.Parameter` before minting, so a wire-borne `NaN` never reaches the inverse. `Rank` derives from `Layers` — a one-layer lattice IS the plane, so no sibling 2D type exists and no consumer branches on dimension. `CellSize` reads the affine's per-axis column norm, and `CellMeasure` derives the exact cell area or volume from the basis itself — the cross-product norm at rank two, the absolute determinant at rank three — so rotation, anisotropy, and shear all measure exactly; admission refuses a non-affine map before the inverse is stored; `NodeCount` is the exact `Int128` derived node census — every operand widens before arithmetic and a planar lattice counts one node sheet, never a phantom second z-plane.
 - Law: the lattice is an admitted value and its evidence is its own construction; sweep census, budget, and outcome ride the consuming surface's result.
 - Packages: Rasm.Domain (project) for `Op`, `Context`, and the `Admit` vocabulary; LanguageExt.Core for the `Fin`/`Option` types; Thinktecture.Runtime.Extensions for the generated smart-enum owner; RhinoCommon for `Transform`, `Point3d`, and `BoundingBox`.
 - Growth: a new addressing modality is one member; a new sample reconstruction is one `LatticeInterpolation` row carrying its own separable `Axis` body, so a consumer's recursion picks it up with no branch edited; a new census projection is one derived property. Consumer-local `Nx`/`Ny`/`Nz`, `Columns`/`Rows`, cell-center arithmetic, per-row interpolation branch ladders, and budget comparison are the deleted form.
@@ -1348,19 +1208,17 @@ public readonly record struct VectorCone {
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class LatticeInterpolation {
-    public static readonly LatticeInterpolation Nearest = new(key: 0, support: 0, continuity: 0,
+    public static readonly LatticeInterpolation Nearest = new(key: 0, centerOffset: 0.0,
         axis: static (tap, _) => tap(arg: 0));
-    public static readonly LatticeInterpolation Linear  = new(key: 1, support: 1, continuity: 0,
+    public static readonly LatticeInterpolation Linear  = new(key: 1, centerOffset: 0.5,
         axis: static (tap, t) => double.Lerp(tap(arg: 0), tap(arg: 1), t));
-    public static readonly LatticeInterpolation Cubic   = new(key: 2, support: 2, continuity: 1,
-        axis: static (tap, t) => CatmullRom(p0: tap(arg: -1), p1: tap(arg: 0), p2: tap(arg: 1), p3: tap(arg: 2), t: t));
-    internal int Support { get; }
-    internal int Continuity { get; }
-    internal double CenterOffset => Support == 0 ? 0.0 : 0.5;
+    public static readonly LatticeInterpolation Cubic   = new(key: 2, centerOffset: 0.5,
+        axis: static (tap, t) => {
+            double p0 = tap(-1), p1 = tap(0), p2 = tap(1), p3 = tap(2);
+            return p1 + (0.5 * t * (p2 - p0 + (t * ((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3 + (t * ((3.0 * (p1 - p2)) + p3 - p0))))));
+        });
+    internal double CenterOffset { get; }
     [UseDelegateFromConstructor] internal partial double Axis(Func<int, double> tap, double t);
-
-    private static double CatmullRom(double p0, double p1, double p2, double p3, double t) =>
-        p1 + (0.5 * t * (p2 - p0 + (t * ((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3 + (t * ((3.0 * (p1 - p2)) + p3 - p0))))));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1369,8 +1227,8 @@ public readonly record struct CellLattice {
     private CellLattice(Transform indexToWorld, Transform worldToIndex, Dimension columns, Dimension rows, Dimension layers, long ceiling) =>
         (IndexToWorld, WorldToIndex, Columns, Rows, Layers, Ceiling) =
             (indexToWorld, worldToIndex, columns, rows, layers, ceiling);
-    public Transform IndexToWorld { get; }
-    public Transform WorldToIndex { get; }
+    internal Transform IndexToWorld { get; }
+    internal Transform WorldToIndex { get; }
     public Dimension Columns { get; }
     public Dimension Rows { get; }
     public Dimension Layers { get; }
@@ -1378,12 +1236,12 @@ public readonly record struct CellLattice {
 
     public static Fin<CellLattice> Of(Transform indexToWorld, Dimension columns, Dimension rows, Dimension layers, long ceiling, Op? key = null) {
         Op op = key.OrDefault();
-        long cells = (long)columns.Value * rows.Value * layers.Value;
-        return indexToWorld.TryGetInverse(inverseTransform: out Transform inverse) && inverse.IsValid
+        Int128 cells = (Int128)columns.Value * rows.Value * layers.Value;
+        return indexToWorld.IsAffine && indexToWorld.TryGetInverse(inverseTransform: out Transform inverse) && inverse.IsValid
             ? cells <= ceiling && Band.Count.Admits(value: ceiling)
                 ? Fin.Succ(new CellLattice(indexToWorld: indexToWorld, worldToIndex: inverse,
                       columns: columns, rows: rows, layers: layers, ceiling: ceiling))
-                : Fin.Fail<CellLattice>(error: new KernelFault.OutOfRange(Label: "lattice-cells", Scalar: cells, Requirement: $"<= {ceiling}", Key: Some(op)))
+                : Fin.Fail<CellLattice>(error: new KernelFault.OutOfRange(Label: "lattice-cells", Scalar: double.CreateSaturating(cells), Requirement: $"<= {ceiling}", Key: Some(op)))
             : Fin.Fail<CellLattice>(error: op.InvalidInput());
     }
 
@@ -1400,10 +1258,14 @@ public readonly record struct CellLattice {
 
     public static Fin<CellLattice> Of(BoundingBox bounds, PositiveMagnitude cell, long ceiling, Op? key = null) {
         Op op = key.OrDefault();
-        return bounds.IsValid
-            ? from columns in op.AcceptValidated<Dimension>(candidate: (int)Math.Ceiling(a: bounds.Diagonal.X / cell.Value))
-              from rows in op.AcceptValidated<Dimension>(candidate: (int)Math.Ceiling(a: bounds.Diagonal.Y / cell.Value))
-              from layers in op.AcceptValidated<Dimension>(candidate: Math.Max(val1: 1, val2: (int)Math.Ceiling(a: bounds.Diagonal.Z / cell.Value)))
+        if (!bounds.IsValid) { return Fin.Fail<CellLattice>(error: op.InvalidInput()); }
+        Vector3d extent = bounds.Diagonal;
+        (double Columns, double Rows, double Layers) counts =
+            (Math.Ceiling(extent.X / cell.Value), Math.Ceiling(extent.Y / cell.Value), Math.Max(1.0, Math.Ceiling(extent.Z / cell.Value)));
+        return counts is { Columns: >= 1.0 and <= int.MaxValue, Rows: >= 1.0 and <= int.MaxValue, Layers: >= 1.0 and <= int.MaxValue }
+            ? from columns in op.AcceptValidated<Dimension>((int)counts.Columns)
+              from rows in op.AcceptValidated<Dimension>((int)counts.Rows)
+              from layers in op.AcceptValidated<Dimension>((int)counts.Layers)
               from scale in Placement.Build(spec: new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: cell.Value), key: op)
               from shift in Placement.Build(spec: new TransformSpec.Translation(Motion: (Vector3d)bounds.Min), key: op)
               from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, shift)), key: op)
@@ -1414,12 +1276,15 @@ public readonly record struct CellLattice {
 
     public int Rank => Layers.Value > 1 ? 3 : 2;
     public long CellCount => (long)Columns.Value * Rows.Value * Layers.Value;
-    public long NodeCount => (long)(Columns.Value + 1) * (Rows.Value + 1) * (Layers.Value + 1);
+    public Int128 NodeCount => ((Int128)Columns.Value + 1) * ((Int128)Rows.Value + 1)
+        * (Rank is 3 ? (Int128)Layers.Value + 1 : 1);
     public Vector3d CellSize => new(
         x: new Vector3d(x: IndexToWorld.M00, y: IndexToWorld.M10, z: IndexToWorld.M20).Length,
         y: new Vector3d(x: IndexToWorld.M01, y: IndexToWorld.M11, z: IndexToWorld.M21).Length,
         z: new Vector3d(x: IndexToWorld.M02, y: IndexToWorld.M12, z: IndexToWorld.M22).Length);
-    public double CellMeasure => Rank is 2 ? CellSize.X * CellSize.Y : CellSize.X * CellSize.Y * CellSize.Z;
+    public double CellMeasure => Rank is 2
+        ? Vector3d.CrossProduct(new(IndexToWorld.M00, IndexToWorld.M10, IndexToWorld.M20), new(IndexToWorld.M01, IndexToWorld.M11, IndexToWorld.M21)).Length
+        : Math.Abs(IndexToWorld.Determinant);
     public ImmutableArray<double> Affine => [
         IndexToWorld.M00, IndexToWorld.M01, IndexToWorld.M02, IndexToWorld.M03,
         IndexToWorld.M10, IndexToWorld.M11, IndexToWorld.M12, IndexToWorld.M13,
@@ -1431,9 +1296,9 @@ public readonly record struct CellLattice {
 
     public long Linear(int column, int row, int layer = 0) =>
         column + ((long)Columns.Value * (row + ((long)Rows.Value * layer)));
-    public Dimension Extent(int ordinal) => ordinal switch { 0 => Columns, 1 => Rows, _ => Layers };
-    public int Stride(int ordinal) => ordinal switch { 0 => 1, 1 => Columns.Value, _ => Columns.Value * Rows.Value };
-    public double Spacing(int ordinal) => ordinal switch { 0 => CellSize.X, 1 => CellSize.Y, _ => CellSize.Z };
+    internal Dimension Extent(int ordinal) => ordinal switch { 0 => Columns, 1 => Rows, _ => Layers };
+    internal int Stride(int ordinal) => ordinal switch { 0 => 1, 1 => Columns.Value, _ => Columns.Value * Rows.Value };
+    internal double Spacing(int ordinal) => ordinal switch { 0 => CellSize.X, 1 => CellSize.Y, _ => CellSize.Z };
     public (int Column, int Row, int Layer) Coordinate(long linear) {
         long plane = (long)Columns.Value * Rows.Value;
         long layer = linear / plane, rest = linear - (layer * plane), row = rest / Columns.Value;
@@ -1464,11 +1329,14 @@ public readonly record struct CellLattice {
 
     public Fin<CellLattice> Coarsen(Op? key = null) {
         Op op = key.OrDefault();
-        return from scale in Placement.Build(spec: new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: 2.0), key: op)
+        return from columns in op.AcceptValidated<Dimension>((Columns.Value / 2) + (Columns.Value % 2))
+               from rows in op.AcceptValidated<Dimension>((Rows.Value / 2) + (Rows.Value % 2))
+               from layers in op.AcceptValidated<Dimension>(Rank is 3 ? Math.Max(2, (Layers.Value / 2) + (Layers.Value % 2)) : 1)
+               from scale in Placement.Build(spec: new TransformSpec.Diagonal(Values: new Vector3d(
+                   x: Columns.Value > 1 ? 2.0 : 1.0,
+                   y: Rows.Value > 1 ? 2.0 : 1.0,
+                   z: Rank is 3 && Layers.Value > 2 ? 2.0 : 1.0)), key: op)
                from map in Placement.Build(spec: new TransformSpec.Compose(Values: Seq(scale, IndexToWorld)), key: op)
-               from columns in op.AcceptValidated<Dimension>(candidate: Math.Max(val1: 1, val2: Columns.Value / 2))
-               from rows in op.AcceptValidated<Dimension>(candidate: Math.Max(val1: 1, val2: Rows.Value / 2))
-               from layers in op.AcceptValidated<Dimension>(candidate: Rank is 3 ? Math.Max(val1: 1, val2: Layers.Value / 2) : 1)
                from level in Of(indexToWorld: map, columns: columns, rows: rows, layers: layers, ceiling: Ceiling, key: op)
                select level;
     }
@@ -1477,15 +1345,15 @@ public readonly record struct CellLattice {
 
 ## [06]-[PROJECTION_ROW]
 
-- Owner: `ProjectionRow` is the typed dispatch row — a `Type`/`Make` pair whose `Of<TValue>` factory erases once at declaration so call sites never spell an `(object)` cast — and `AtomProjection` is the corpus-wide raw-to-typed output dispatch every kernel surface resolves its `.Project<TOut>` output type through. `RawAdmission` is the capability vocabulary a raw-boundary caller declares its conditional arms with.
+- Owner: `ProjectionRow` is the typed dispatch row — a `Type`/`Make` pair whose `Of<TValue>` factory erases once at declaration so call sites never spell an `(object)` cast — and `ResultProjection` is the corpus-wide raw-to-typed output dispatch every kernel surface resolves its `.Project<TOut>` output type through. `RawAdmission` is the capability vocabulary a raw-boundary caller declares its conditional arms with.
 - Cases: `Rows` scans a typed row-table with identity fallthrough; `Self`, `Value`, `SelfOrValue`, `Values`, and `Custom` cover the fixed acceptance shapes; `Raw` is the one raw-`object` boundary case where a loose payload meets the typed world.
 - Law: a conditional `Raw` arm reads a `CapabilitySet<RawAdmission>` the caller declares as row data, never a boolean beside the payload — magnitude admission is a property of the producing row and the set is how that row states it.
 - Exemption: `Rows` carries two arities because a `params` span may not follow an optional parameter; the owner-bearing arity is the primary and the other forwards its absent owner.
-- Entry: `AtomProjection.Rows` scans the row table, first match winning and `TOut == TSelf` yielding the value itself, anything else failing `key.Unsupported`; `ProjectionRow.Of` declares one row.
+- Entry: `ResultProjection.Rows` scans the row table, first match winning and `TOut == TSelf` yielding the value itself, anything else failing `key.Unsupported`; `ProjectionRow.Of` declares one row.
 - Auto: the row table is data — a surface grows an output modality by adding one `ProjectionRow` beside its peers while the dispatch body never changes; `Raw` admits through the owning model's `Of`, so the row is an admission funnel, not a cast.
 - Packages: LanguageExt.Core for the `Fin`/`Option`/`Seq` types; Thinktecture.Runtime.Extensions for the capability vocabulary; Rasm.Domain (project) for the `Op` fault factory and the `ICapability`/`CapabilitySet` idiom; RhinoCommon for the value structs at the `Raw` case; the BCL for `Type` and `ReadOnlySpan<T>`.
 - Growth: a new projectable output is one `ProjectionRow` at the owning surface or one arm in the `Raw` case; a new conditional raw arm is one `RawAdmission` row read by set algebra, never a new parameter; a surface-local `typeof(TOut)` switch is the collapse trigger that routes here.
-- Boundary: `AtomProjection` is the one sanctioned type-directed dispatch site in the kernel; inline `typeof(TOut)` reflection branching inside a consumer surface is the deleted form. `AtomProjection` stays `internal`, so consumers reach it only through their surface's `.Project<TOut>` and the public API never exposes an untyped `object` entry. `AtomProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
+- Boundary: `ResultProjection` is the one sanctioned type-directed dispatch site in the kernel; inline `typeof(TOut)` reflection branching inside a consumer surface is the deleted form. `ResultProjection` stays `internal`, so consumers reach it only through their surface's `.Project<TOut>` and the public API never exposes an untyped `object` entry. `ResultProjection.Rows`' identity fallthrough IS the whole-result row — an explicit self row earns its seat only by adding admission.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1502,7 +1370,7 @@ internal readonly record struct ProjectionRow(Type Output, Func<Fin<object>> Mak
         new(Output: typeof(TValue), Make: () => make().Map(static value => (object)value!));
 }
 
-internal static class AtomProjection {
+internal static class ResultProjection {
     internal static Fin<TOut> Rows<TSelf, TOut>(TSelf self, Op key, Option<Type> owner, params ReadOnlySpan<ProjectionRow> rows) {
         foreach (ProjectionRow row in rows) {
             if (row.Output == typeof(TOut)) {

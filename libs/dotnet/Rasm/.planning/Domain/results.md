@@ -190,7 +190,7 @@ public sealed partial class FaultBand {
     // --- [AEC_AND_KERNEL_GEOMETRY]
     public static readonly FaultBand Core             = new(2200,  30, BandKind.Fault, TelemetrySource.Compute);
     public static readonly FaultBand Component        = new(2300,  41, BandKind.Fault, TelemetrySource.Materials);
-    public static readonly FaultBand Geometry         = new(2400,  28, BandKind.Fault, TelemetrySource.Kernel);
+    public static readonly FaultBand Geometry         = new(2350,  62, BandKind.Fault, TelemetrySource.Kernel);
     public static readonly FaultBand Appearance       = new(2450,   3, BandKind.Fault, TelemetrySource.Materials);
     public static readonly FaultBand Raster           = new(2460,   7, BandKind.Fault, TelemetrySource.Materials);
     public static readonly FaultBand Projection       = new(2470,   3, BandKind.Fault, TelemetrySource.Materials);

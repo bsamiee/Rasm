@@ -47,7 +47,7 @@ using System.Numerics.Tensors;
 using Thinktecture;
 using Band = Rasm.Numerics.Band;
 using Interpolant = Rasm.Numerics.Interpolant;
-using InterpolantSmooth = Rasm.Numerics.Interpolant<Rasm.Numerics.Smooth>;
+using CalculusInterpolant = Rasm.Numerics.Interpolant<Rasm.Numerics.ICalculus>;
 using static LanguageExt.Prelude;
 using static Rasm.Domain.AdmissionSlots;
 
@@ -252,9 +252,9 @@ public readonly record struct Attestation(AttestationRole Role, string Credentia
 public sealed partial record SampledCurve {
  [property: OrderedEquality] public ImmutableArray<double> Axis { get; }
  [property: OrderedEquality] public ImmutableArray<double> Values { get; }
- [IgnoreEquality] private readonly InterpolantSmooth fit;
+ [IgnoreEquality] private readonly CalculusInterpolant fit;
 
- private SampledCurve(ImmutableArray<double> axis, ImmutableArray<double> values, InterpolantSmooth fit) =>
+ private SampledCurve(ImmutableArray<double> axis, ImmutableArray<double> values, CalculusInterpolant fit) =>
   (Axis, Values, this.fit) = (axis, values, fit);
 
  public static Fin<SampledCurve> Of(ReadOnlyMemory<double> axis, ReadOnlyMemory<double> values, Op key) =>
@@ -264,7 +264,7 @@ public sealed partial record SampledCurve {
     .Apply(static (_, _) => unit).As().ToFin()
     .Bind(_ => NotIncreasing(axis.Span)
      ? new ElementFault.ValueRejected(key, "<curve-axis-not-increasing>")
-     : Interpolant.Linear(toArr(axis.ToArray()), toArr(values.ToArray()), key)
+     : Interpolant.LinearSpline(toArr(axis.ToArray()), toArr(values.ToArray()), key)
         .Map(fitted => new SampledCurve([.. axis.Span], [.. values.Span], fitted)));
 
  public Fin<double> At(double x, Op key) =>
@@ -274,7 +274,7 @@ public sealed partial record SampledCurve {
 
  internal Fin<double> AtAdmitted(double x, Op key) {
   ReadOnlySpan<double> a = Axis.AsSpan();
-  return fit.Value(Math.Clamp(x, a[0], a[^1]), key);
+  return fit.Evaluate(Math.Clamp(x, a[0], a[^1]), key);
  }
 
  public void CanonicalBytes(CanonicalWriter w) =>

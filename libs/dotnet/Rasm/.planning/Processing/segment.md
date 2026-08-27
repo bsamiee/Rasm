@@ -15,7 +15,7 @@ Eigen systems ride the `matrix` owners — `MatrixKernel.GeneralizedEigenpairsDe
 ## [02]-[DESCRIPTORS]
 
 - Owner: `MeshDescriptor` is one guarded `[ComplexValueObject]` over `(Filter, Sources, Policy)`, never a thinned ShapeDNA clone — the `spectral` `SpectralFilter` transfer algebra already spans the heat, wave, biharmonic, diffusion, and commute-time variants, so a descriptor variant is a filter row, a `MeshDescriptorKind` sibling enum re-listing filter names is the rejected duplicate vocabulary, and a one-case union around the same coordinates is a vacuous type test at every read.
-- Entry: `DescribeShape<TOut>` projects output-typed through `AtomProjection` rows and computes the assembly witness ONLY when `TOut` carries it, so a value projection never pays a DEC build; `SpectralDistanceAt` and `ValidateSamplingSpectrum`, which stamps the blue-noise verdict into the `sample` result's tally, complete the arms.
+- Entry: `DescribeShape<TOut>` projects output-typed through `ResultProjection` rows and computes the assembly witness ONLY when `TOut` carries it, so a value projection never pays a DEC build; `SpectralDistanceAt` and `ValidateSamplingSpectrum`, which stamps the blue-noise verdict into the `sample` result's tally, complete the arms.
 - Auto: descriptors pull the cached `SpectralBasisBundle` — one generalized eigensolve per basis size per mesh snapshot, the cache-hit flag in `DescriptorSolve` — apply the filter, and project; the blue-noise gate bounds low-band energy against `SpectrumPolicy` — ceiling, basis cap, and low-mode count on one admitted value carrying its own provenance, never three page globals — and a total energy under the floor REFUSES rather than stamping a fabricated worst-case ratio.
 - Boundary: output selection lives in `ProjectionRow` keys, so reflection branching in a solver body is the deleted form, and the ONE sanctioned entry-level type test is the lazy-assembly gate; the descriptor family is closed over the filter algebra.
 
@@ -119,11 +119,11 @@ internal static partial class SegmentKernel {
         DescribeSpectralShape(space: space, spec: spec, eigenpairs: eigenpairs, includeAssembly: false, key: key);
     private static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor spec, int eigenpairs, bool includeAssembly, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: Dimension.Create(value: eigenpairs), key: key)
-        from spectral in spec.Filter.ApplyDetailed(basis: bundle.Basis, sources: spec.Sources, policy: spec.Policy, key: key)
+        from spectral in spec.Filter.Evaluate(basis: bundle.Basis, sources: spec.Sources, policy: spec.Policy, key: key)
         from assembly in includeAssembly ? DecAssembly.Build(space: space, key: key).Map(calculus => Some(calculus.Assembly)) : Fin.Succ(Option<SpectralAssembly>.None)
         select new DescriptorResult(Values: spectral.Values, Solve: new DescriptorSolve(Spectral: spectral.Profile, Eigen: bundle.Eigen, Origin: bundle.Origin, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros, Assembly: assembly));
     private static Fin<TOut> ProjectDescriptor<TOut>(DescriptorResult descriptor, Op key) =>
-        AtomProjection.Rows<DescriptorResult, TOut>(self: descriptor, key: key, owner: typeof(MeshDescriptor),
+        ResultProjection.Rows<DescriptorResult, TOut>(self: descriptor, key: key, owner: typeof(MeshDescriptor),
             ProjectionRow.Of<DescriptorSolve>(() => Fin.Succ(descriptor.Solve)),
             ProjectionRow.Of<SpectralDescriptor>(() => Fin.Succ(new SpectralDescriptor(Values: descriptor.Values, Profile: descriptor.Solve.Spectral))),
             ProjectionRow.Of<DescriptorProfile>(() => Fin.Succ(descriptor.Solve.Spectral)),
@@ -131,7 +131,7 @@ internal static partial class SegmentKernel {
 
     internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: Dimension.Create(value: pairs), key: key)
-        from descriptor in filter.ApplyDetailed(basis: bundle.Basis, sources: sources.IsEmpty ? Option<Seq<int>>.None : Some(sources), key: key)
+        from descriptor in filter.Evaluate(basis: bundle.Basis, sources: sources.IsEmpty ? Option<Seq<int>>.None : Some(sources), key: key)
         from interpolated in MeshProbe.ScalarOn(space: space, sample: sample, perVertex: descriptor.Values, key: key)
         select interpolated;
 
@@ -230,7 +230,7 @@ public readonly record struct FeatureEdges(
         ValidityClaim.CountExactly(count: TopologyEdgeCount, expected: Edges.Count + UnclassifiedEdges));
     internal Fin<TOut> Project<TOut>(Op key) {
         FeatureEdges self = this;
-        return AtomProjection.Rows<FeatureEdges, TOut>(self: self, key: key,
+        return ResultProjection.Rows<FeatureEdges, TOut>(self: self, key: key,
             ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Edges)),
             ProjectionRow.Of<Seq<(int A, int B)>>(() => Fin.Succ(toSeq(self.Edges.AsIterable()
                 .Where(static edge => !edge.Verdict.Kind.Equals(MeshFeatureKind.NgonInteriorSkipped))
@@ -355,7 +355,7 @@ internal static partial class SegmentKernel {
 
 - Owner: `MeshSegmentation` `[Union]` carries one case per algorithm with monadic factories internalizing admission; `Segmentation` is the one evidence record for every algorithm, and `MeshSegmentationResult` carries face regions, majority-vote vertex regions, and the segmentation.
 - Cases: a new algorithm is one union case and one dispatch arm.
-- Entry: `Segment<TOut>` folds a generated total `Switch` over the union, projecting through `AtomProjection` rows — one entry, the algorithm is the case, `TOut` is the projection.
+- Entry: `Segment<TOut>` folds a generated total `Switch` over the union, projecting through `ResultProjection` rows — one entry, the algorithm is the case, `TOut` is the projection.
 - Auto: every algorithm shares ONE scalar derivation, ONE memoized frozen face-adjacency graph, and ONE connected-component split, so a per-algorithm re-derivation is the deleted form; the normalized-cut affinity `σ` is scale-derived from the value range over `√faceCount`, never a knob, and clustering is deterministic farthest-first k-means with no RNG, and both round folds ride `Cell.Converge` — each step commits its explicit settlement fact, so no hand `while` shadows the schedule and normal completion never borrows `Refused`.
 - Law: one `Segmentation` shape carries every algorithm — algorithm-specific evidence rides `Option` columns, never sibling types.
 - Boundary: `UnassignedRegion = -1` is the interior packing alone — `RegionLabel` admits nonnegative ordinals and the result publishes `Option<RegionLabel>`, so absence never crosses the boundary as an int a consumer must decode by prose; a NaN scalar is a MASK the algorithms census and segment around, so a partial field segments its defined region; every factory admits through the `Op` gate, so an invalid request never constructs.
@@ -512,7 +512,7 @@ internal static partial class SegmentKernel {
                 let labels = ConnectedComponents(adjacency: adjacency, buckets: kmeans.Labels)
                 select ResultOf(mesh: state.Space.Native, faceRegions: labels, scalars: scalars,
                     run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.NormalizedCut, RequestedRegionCount: cut.RegionCount.Value, SeedCount: 0, Status: kmeans.Converged ? MeshSegmentationStatus.Completed : MeshSegmentationStatus.MaxIterationsExhausted, Iterations: Some(kmeans.Iterations), MaxIterations: Some(cut.MaxIterations.Value), Tolerance: Some(cut.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Option<DescriptorSolve>.None, FactorNonZeros: eigen.Evidence.FactorNonZeros, NormalizedCutValue: NormalizedCutValue(adjacency: adjacency, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma), AffinityNonZeros: Some(system.AffinityNonZeros), Eigen: Some(eigen))))
-            .Bind(result => AtomProjection.Rows<MeshSegmentationResult, TOut>(self: result, key: key, owner: typeof(MeshSegmentation),
+            .Bind(result => ResultProjection.Rows<MeshSegmentationResult, TOut>(self: result, key: key, owner: typeof(MeshSegmentation),
                 ProjectionRow.Of<Segmentation>(() => Fin.Succ(result.Segmentation)),
                 ProjectionRow.Of<Arr<Option<RegionLabel>>>(() => Fin.Succ(result.FaceRegions))));
 
@@ -1014,7 +1014,7 @@ public readonly record struct RemeshCapture(
 public readonly record struct RemeshResult(Mesh Mesh, RemeshCapture Capture) {
     internal Fin<TOut> Project<TOut>(Op key) {
         RemeshResult self = this;
-        return AtomProjection.Rows<RemeshResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<RemeshResult, TOut>(self: self, key: key,
             ProjectionRow.Of<Mesh>(() => key.AcceptValue(value: self.Mesh)),
             ProjectionRow.Of<RemeshCapture>(() => Fin.Succ(self.Capture)));
     }
@@ -1032,7 +1032,7 @@ public readonly record struct FlattenCapture(int VertexCount, int UvCount, int T
 public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenCapture Capture) {
     internal Fin<TOut> Project<TOut>(Op key) {
         FlattenResult self = this;
-        return AtomProjection.Rows<FlattenResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<FlattenResult, TOut>(self: self, key: key,
             ProjectionRow.Of<Arr<Point2d>>(() => Fin.Succ(self.Uvs)),
             ProjectionRow.Of<FlattenCapture>(() => Fin.Succ(self.Capture)),
             ProjectionRow.Of<Mesh>(() => key.AcceptValue(value: self.Mesh)));
@@ -1222,7 +1222,7 @@ One owner per axis; capability is a case, arm, or policy column, never a sibling
 - [05]-[DIRECTION_FIELDS]: GODF arms — smoothest LOBPCG, constrained Cholesky, cone-prescribed, one memo.
 - [06]-[STRIPE_SCALAR]: cross-field-aligned level-set over blended vertex frames.
 - [07]-[HOST_RESTRUCTURE]: `ApplyRemeshDetailed` and the flatten arm — host-capture unions with parameter-echo captures.
-- [08]-[EVIDENCE]: `ValidityClaim.All` fold, declared gates, `AtomProjection` rows.
+- [08]-[EVIDENCE]: `ValidityClaim.All` fold, declared gates, `ResultProjection` rows.
 - [09]-[ROSY_ORDER]: `RosySymmetry` — the closed {1,2,4,6} order admitted once, its `Phase` the one int-to-double seat.
 
 Flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; the `QuadRemesh`/`Reduce`/LSCM arms are the named platform-forced boundary, native calls returning nullable results converted at the boundary.

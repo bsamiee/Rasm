@@ -152,9 +152,9 @@ public sealed partial class NoiseKind {
     public static readonly NoiseKind Perlin = new(key: 0, declared: CapabilitySet<NoiseTrait>.Of(NoiseTrait.Cautioned, NoiseTrait.Differentiable),
         sample: static (p, seed, f) => FieldNoise.PerlinAt(point: p, seed: seed, frequency: f));
     public static readonly NoiseKind Simplex = new(key: 1, declared: CapabilitySet<NoiseTrait>.Of(NoiseTrait.Differentiable),
-        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, blend: SimplexBlend.Single));
-    public static readonly NoiseKind SmoothSimplex = new(key: 2, declared: CapabilitySet<NoiseTrait>.Of(NoiseTrait.Differentiable),
-        sample: static (p, seed, f) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: f, blend: SimplexBlend.Rotated));
+        sample: static (p, seed, f) => FieldNoise.SimplexAt(p, seed, f, rotationMix: 0.0));
+    public static readonly NoiseKind RotatedSimplex = new(key: 2, declared: CapabilitySet<NoiseTrait>.Of(NoiseTrait.Differentiable),
+        sample: static (p, seed, f) => FieldNoise.SimplexAt(p, seed, f, rotationMix: 0.5));
     public static readonly NoiseKind Worley = new(key: 3, declared: CapabilitySet<NoiseTrait>.None,
         sample: static (p, seed, f) => FieldNoise.WorleyAt(point: p, seed: seed, frequency: f));
     private CapabilitySet<NoiseTrait> Declared { get; }

@@ -2,28 +2,28 @@
 
 Rasm.Compute measured-integration lane composes the kernel `Rasm.Numerics` integration floor whole: batched quadrature accumulates independent-domain refusals, the solver-domain state carrier extends the kernel scalar pair, the adaptive driver returns its cursor and terminal disposition, and Fourier multipliers act over the kernel transform plane.
 
-Kernel `Step` returns one `IntegrationStep` Accepted or Rejected and owns no reject loop, run-level terminal partition, step-underflow floor, total-step budget, or run-level dense trajectory — each is the driver's, and each is load-bearing: budget exhaustion, underflow, and non-finite error all return best-so-far indistinguishable without the marker. The driver also owns the `StepHistory` the kernel's own `StepLaw` reads, because a proportional or Gustafsson rescale is a fact about the RUN and the stepper is stateless by construction.
+Kernel `Step` returns one `IntegrationStep` Accepted or Rejected and owns no reject loop, run-level terminal partition, step-underflow floor, total-step budget, or run-level dense trajectory — each is the driver's, and each is load-bearing: budget exhaustion, underflow, and non-finite error all return best-so-far indistinguishable without the marker. The driver also owns the `Option<StepHistory>` the kernel's own `StepController` reads — it mints the pair from the outcome's error and the next step it actually selected after its own caps, stores it on the cursor, and threads it into the next `Step` — because a proportional or Gustafsson rescale is a fact about the RUN and the stepper is stateless by construction, returning error plus a suggestion and never run state.
 
 ## [01]-[INDEX]
 
-- [02]-[INTEGRATION_LANE]: batched `Integration.Measure` over the kernel `IntegrationDomain` arity union, the `MeasurePolicy` accuracy budget with its explicit witness intent, and the `QuadratureRun` evidence fold over the kernel `ConvergenceClaim`.
-- [03]-[TRAJECTORY_DRIVER]: `FieldState` scaled-norm carrier, `TrajectoryPhase` continue-or-done fold over the kernel `FieldIntegrator.Step` with its threaded `StepHistory`, `TerminalDisposition` typed partition with its relax axis, and dense-station harvest.
+- [02]-[INTEGRATION_LANE]: batched `Integration.Measure` over the kernel `QuadratureDomain` arity union, the `MeasurePolicy` accuracy budget with its explicit witness intent, and the `QuadratureRun` evidence fold counting rows whose kernel `QuadratureEvidence.Error` is absent.
+- [03]-[TRAJECTORY_DRIVER]: `FieldState` scaled-norm carrier, `TrajectoryPhase` continue-or-done fold over the kernel `RungeKuttaIntegrator.Step` with its threaded `StepHistory`, `TerminalDisposition` typed partition with its relax axis, and dense-station harvest.
 - [04]-[SPECTRAL_OPERATOR]: `Spectral` applies each `SpectralSymbol` multiplier pointwise over the kernel `SpectralArena` under parity-derived Nyquist zeroing — the packed-real arena on even lengths, the split arena with its imaginary-residual gate on odd.
 
 ## [02]-[INTEGRATION_LANE]
 
 - Owner: `MeasurePolicy` owns the accuracy policy; `QuadratureRun` folds kernel `QuadratureEvidence`; `Integration.Measure` returns that run and `Integration.Trace` returns `TrajectoryRun<TState>` directly.
-- Cases: `IntegrationDomain` arms arrive from the kernel — `Line` · `Rectangle` · `Cuboid` · `SparseGrid` · `Simplex`; `QuadratureRoute` rows `DoubleExponential` · `GaussLegendre` · `GaussKronrod`; `ConvergenceClaim` rows `Estimated` · `Unwitnessed`; `ReferenceElement` rows `Line` · `Tri` · `Tet` · `Quad` · `Hex` · `Wedge` · `Pyramid`. This page adds no arity and no accuracy row.
-- Entry: `Integration.Measure(MeasurePolicy policy, Op key, params ReadOnlySpan<IntegrationDomain> domains)` absorbs the singular, batch, and empty call in one signature — a moment set, a polynomial-chaos coefficient sweep, and a single element integral are the same call at three arities; `Integration.Trace(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key)` delegates the fold to `[03]`'s `Trajectory.Trace` — the control's own `Spill` column selecting the archived leg — and mints the result over the same scope.
-- Auto: batched domains are INDEPENDENT, so the fold is the applicative `Traverse` over `Validation<Error, QuadratureRun>` and a caller sees every refusing domain at once where a monadic fold reports only the first; the carrier alone selects that policy, and `ToFin` is the caller's own short-circuit egress. Kernel `Quadrature.Integrate` already owns the finite guard, the skip budget, the infinite-bound capability gate, the three-tier admission, and the `RequireErrorWitness` verdict, so this lane re-imposes none of them and adds only what the kernel cannot see: the Compute band, the lane scope, and the batch census.
-- Result: `QuadratureRun` carries the domain count, the summed skip census, the count of rows whose `ConvergenceClaim` is `Unwitnessed`, and the batch's WORST reported channels — the largest error estimate and the smallest cancellation ratio — each `double?` because the wire edge is where absence collapses, and a batch of non-adaptive rows therefore reports honest absence rather than a zero no route measured; `TrajectoryRun<TState>` carries the method and embedded orders, the terminal key with the relax axis its disposition names, the achieved horizon, and the step/reject/sample census.
+- Cases: `QuadratureDomain` arms arrive from the kernel — `Line` · `Rectangle` · `Cuboid` · `SparseGrid` · `Reference`; `QuadratureRoute` rows `DoubleExponential` · `GaussLegendre` · `GaussKronrod`; `ReferenceElement` rows `Line` · `Tri` · `Tet` · `Quad` · `Hex` · `Wedge` · `Pyramid`. This page adds no arity and no accuracy row.
+- Entry: `Integration.Measure(MeasurePolicy policy, Op key, params ReadOnlySpan<QuadratureDomain> domains)` absorbs the singular, batch, and empty call in one signature — a moment set, a polynomial-chaos coefficient sweep, and a single element integral are the same call at three arities; `Integration.Trace(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key)` delegates the fold to `[03]`'s `Trajectory.Trace` — the control's own `Spill` column selecting the archived leg — and mints the result over the same scope.
+- Auto: batched domains are INDEPENDENT, so the fold is the applicative `Traverse` over `Validation<Error, QuadratureRun>` and a caller sees every refusing domain at once where a monadic fold reports only the first; the carrier alone selects that policy, and `ToFin` is the caller's own short-circuit egress. Kernel `Quadrature.Integrate` already owns the finite guard, the skip budget, the line domain's structural infinite-limit admission through the MathNet facades, the three-tier admission, and the `RequireErrorWitness` verdict, so this lane re-imposes none of them and adds only what the kernel cannot see: the Compute band, the lane scope, and the batch census.
+- Result: `QuadratureRun` carries the domain count, the summed skip census, the count of rows whose `Error` estimate is absent — unwitnessed —, and the batch's WORST reported channels — the largest error estimate and the smallest cancellation ratio — each `double?` because the wire edge is where absence collapses, and a batch of non-adaptive rows therefore reports honest absence rather than a zero no route measured; `TrajectoryRun<TState>` carries the method and embedded orders, the terminal key with the relax axis its disposition names, the achieved horizon, and the step/reject/sample census.
 - Packages: Rasm (project — the kernel integration floor, the archive session, the signal capsule), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new accuracy kernel, arity, or reference domain is one kernel row and reaches this lane with zero edits here; a new outcome column is one field on the owning run result; a new integration modality is one entry on `Integration`.
 - Boundary — policy: `Measure` reads the accuracy budget and `Trace` reads the step budget, and the two never merge, because forcing a definite-integral caller to name a minimum step, a step ceiling, and a total-step budget to integrate one rectangle constructs evidence for a run it never starts. The two policies are no longer two RECORDS: the trace budget IS `TrajectoryControl`, which already carried every stepping column and now carries the lane and the optional spill target beside them, so the wrapper that existed only to add two columns to it is deleted — and with it the third same-axis `TracePolicy` spelling this branch held against the kernel's own.
-- Boundary — witness intent: the kernel's `QuadratureControl.RequireErrorWitness` defaults TRUE, so every batched domain on a route carrying no error estimate — `DoubleExponential`, `GaussLegendre`, and every `Rectangle`, `Cuboid`, `SparseGrid`, or `Simplex` tensor rule — refuses typed rather than returning a success indistinguishable from a converged one. `MeasurePolicy.Default` therefore states its intent EXPLICITLY as `QuadratureControl.Default with { RequireErrorWitness = false }`, and `MeasurePolicy.Witnessed` is the adaptive-route posture that keeps the demand; a caller wanting a witnessed batch routes it through `GaussKronrod`. The count of unwitnessed rows rides the result, so a lane that opted out is readable rather than merely permitted.
-- Boundary — reference elements: `ReferenceElement.Rule` elects the smallest owned rule at or above the requested order and REFUSES typed against its own `Ceiling` when none reaches it, so this lane never under-integrates behind a success. Those ceilings are the kernel's own construction, not a wish: line 3, triangle 5, tet 2, quad 5, hex 5, wedge 5 (through the degree-5 seven-point triangle leg — a prism is exact to `min(triangle degree, 2n−1)`, so the weaker leg governs), and pyramid 2 (a conical product is bounded by its base directions after the collapse weight). A consumer declaring an element order past its row's ceiling reads that ceiling in the refusal.
-- Boundary — composition: `Quadrature.Integrate` is the ONE quadrature call site in this package — a raw `Integrate.GaussLegendre`/`GaussKronrod`/`OnRectangle`/`OnCuboid` call skips the kernel's finite guard, skip budget, and typed evidence and is the deleted form, as is a package-local `QuadratureRoute`/`IntegrationDomain`/`QuadratureRule`/`SmolyakCubature` re-declaration. Kernel refusals remain their original `Error`, so consumers read the fault's own code and message without a second vocabulary mirroring `Rasm.Domain` arm for arm.
-- Boundary — consumers: `Solver/route#SOLVE_ROUTES` is this lane's standing consumer — `FieldIntegrator.Step` threads its `StepHistory` through the transient route's own driver, while `QuadratureEvidence.Claim` gates the element-integration result.
+- Boundary — witness intent: the kernel's `QuadratureControl.RequireErrorWitness` defaults TRUE, so every batched domain on a route carrying no error estimate — `DoubleExponential`, `GaussLegendre`, and every `Rectangle`, `Cuboid`, `SparseGrid`, or `Reference` tensor rule — refuses typed rather than returning a success indistinguishable from a converged one. `MeasurePolicy.Default` therefore states its intent EXPLICITLY as `QuadratureControl.Default with { RequireErrorWitness = false }`, and `MeasurePolicy.Witnessed` is the adaptive-route posture that keeps the demand; a caller wanting a witnessed batch routes it through `GaussKronrod`. The count of unwitnessed rows rides the result, so a lane that opted out is readable rather than merely permitted.
+- Boundary — reference elements: `ReferenceElement.Rule` elects the smallest owned rule at or above a positive requested order and REFUSES typed when none reaches it, computing the normalized ladder's terminal order locally and carrying that value in the refusal, so this lane never under-integrates behind a success. Those ceilings are the kernel's own construction, not a wish: line 5, triangle 5, tet 2, quad 5, hex 5, wedge 5 (through the degree-5 seven-point triangle leg — a prism is exact to `min(triangle degree, 2n−1)`, so the weaker leg governs), and pyramid 3 (a conical product is bounded by the weaker of its base leg `2n−1` and its height leg `2m−3` after the `(1−z)²` collapse weight). A consumer declaring an element order past its row's ceiling reads that ceiling in the refusal.
+- Boundary — composition: `Quadrature.Integrate` is the ONE quadrature call site in this package — a raw `Integrate.GaussLegendre`/`GaussKronrod`/`OnRectangle`/`OnCuboid` call skips the kernel's finite guard, skip budget, and typed evidence and is the deleted form, as is a package-local `QuadratureRoute`/`QuadratureDomain`/`QuadratureRule`/sparse-grid re-declaration. Kernel refusals remain their original `Error`, so consumers read the fault's own code and message without a second vocabulary mirroring `Rasm.Domain` arm for arm.
+- Boundary — consumers: `Solver/route#SOLVE_ROUTES` is this lane's standing consumer — `RungeKuttaIntegrator.Step` threads its `StepHistory` through the transient route's own driver, while `QuadratureEvidence.Error` presence gates the element-integration result.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -39,7 +39,7 @@ public sealed record TraceSpill(Stream Sink, HdfArchivePolicy Archive);
 public sealed record QuadratureRun(Seq<QuadratureEvidence> Evidence) {
     public int Domains => Evidence.Count;
     public int Skipped => Evidence.Fold(initialState: 0, f: static (sum, row) => sum + row.Skipped);
-    public int Unwitnessed => Evidence.Count(static row => row.Claim == ConvergenceClaim.Unwitnessed);
+    public int Unwitnessed => Evidence.Count(static row => !row.Error.IsSome);
     public Option<double> ErrorBound =>
         Evidence.Fold(initialState: Option<double>.None, f: static (held, row) => Widen(held: held, next: row.Error, pick: static (a, b) => Math.Max(val1: a, val2: b)));
     public Option<double> Conditioning =>
@@ -54,15 +54,15 @@ public sealed record QuadratureRun(Seq<QuadratureEvidence> Evidence) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Integration {
-    public static Validation<Error, QuadratureRun> Measure(MeasurePolicy policy, Op key, params ReadOnlySpan<IntegrationDomain> domains) =>
+    public static Validation<Error, QuadratureRun> Measure(MeasurePolicy policy, Op key, params ReadOnlySpan<QuadratureDomain> domains) =>
         domains.IsEmpty
             ? Validation<Error, QuadratureRun>.Fail(TensorReason.EmptyOperand.Fault("integration-domains"))
-            : Batch(pending: Iterable<IntegrationDomain>.FromSpan(domains), policy: policy, key: key);
+            : Batch(pending: Iterable<QuadratureDomain>.FromSpan(domains), policy: policy, key: key);
 
     public static Fin<TrajectoryRun<TState>> Trace<TState, TDelta>(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key) =>
         Trajectory.Trace(spec: spec, control: control, key: key);
 
-    private static Validation<Error, QuadratureRun> Batch(Iterable<IntegrationDomain> pending, MeasurePolicy policy, Op key) =>
+    private static Validation<Error, QuadratureRun> Batch(Iterable<QuadratureDomain> pending, MeasurePolicy policy, Op key) =>
         pending
             .Traverse(domain => Quadrature.Integrate(domain: domain, control: Some(policy.Accuracy), key: key)
                 .ToValidation())
@@ -77,12 +77,12 @@ public static class Integration {
 - Owner: `FieldState` the solver-domain carrier — a time component beside the value slab, so a NON-AUTONOMOUS field integrates on the kernel's autonomous `Step` with no second clock threaded through the fold; `FieldCarrier` the module mint deriving the kernel `IntegrationModule<FieldState, FieldState>` at an accepted state; `TrajectoryControl` the driver policy the kernel's `StepControl` does not carry, holding the lane and the optional spill beside its stepping columns; `TrajectorySpec` the run declaration carrying the station projector column and its once-read width; `TrajectoryPhase` the closed continue-or-done step the run iterates; `RelaxAxis` the knob a retryable terminal names; `TerminalDisposition` the run-level terminal partition; `TrajectoryRun` the run result holding the cursor whole; `Trajectory` the driver itself, its spilled leg landing the `[Stations.Count, width]` chunked station stream through the `Runtime/archive#HDF_ARCHIVE` `ArchiveSession` cursor.
 - Cases: `TrajectoryPhase` `Advancing` · `Halted`; `TerminalDisposition` `Converged` · `Relaxable(RelaxAxis)` · `Divergent`; `RelaxAxis` rows steps · step-floor · horizon · stations (4).
 - Entry: `Trajectory.Trace(TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key)` — the carrier is a type argument, so one driver integrates a scalar ODE on the kernel `IntegrationModule<double, double>.Scalar`, a frequency-domain state on `.ComplexScalar`, and a field slab on `FieldCarrier.Of` with no per-carrier driver copy, and the control's own `Spill` column selects whether the harvest accumulates or streams.
-- Auto: `Admit` gates the control, the span, and the ascending in-range station set ONCE and ACCUMULATES all three, so a caller handed a bad horizon and an unsorted station set learns both; the run is then a bounded `RepeatWhile` over the `TrajectoryPhase` step that short-circuits at the first `Halted`. Each advance clamps `h` to the remaining horizon and `MaxStep`, re-mints the carrier at the current state, calls the kernel `Step` with the run's own `StepHistory`, and dispatches its `Accepted`/`Rejected` outcome; the accepted arm publishes the fresh history off the outcome so a `StepLaw.Proportional` or `StepLaw.Gustafsson` control reads a real previous error rather than degrading silently to the elementary factor. The reject arm reads non-finite error, consecutive-reject budget, and the underflow floor as ONE flattened tuple pattern. Dense stations harvest INSIDE the accepted span through `DenseOutputSpan.PointAt`, one monotone station cursor, so fixed-output-time trajectories never re-trace the field and no span outlives its own step.
-- Result: `TrajectoryRun` holds the terminal disposition beside the CURSOR WHOLE — achieved horizon, step and reject census, last error, station tally, and samples are the cursor's own columns and were hand-copied field by field into a parallel record before — plus the kernel's own reject budget; convergence, budget exhaustion, underflow, and a refusing field all return best-so-far and are indistinguishable without the disposition.
+- Auto: `Admit` gates the control, the span, and the ascending in-range station set ONCE and ACCUMULATES all three, so a caller handed a bad horizon and an unsorted station set learns both; the run is then a bounded `RepeatWhile` over the `TrajectoryPhase` step that short-circuits at the first `Halted`. Each advance clamps `h` to the remaining horizon and `MaxStep`, re-mints the carrier at the current state, calls the kernel `Step` with the run's own optional `StepHistory`, and dispatches its `Accepted`/`Rejected` outcome; each arm selects the next step under `MaxStep` and the remaining horizon FIRST and only then mints `StepHistory(error, nextStep / step)` — `Some` exactly when the outcome carried an error — so a `StepController.ProportionalIntegral` or `StepController.Gustafsson` controller reads the previous error beside the scale the run really applied rather than the stepper's uncapped suggestion, and a fixed method's `None` history degrades no memory-bearing law silently. The reject arm reads non-finite error, consecutive-reject budget, and the underflow floor as ONE flattened tuple pattern. Dense stations harvest INSIDE the accepted span through `DenseOutputSpan.PointAt`, one monotone station cursor, so fixed-output-time trajectories never re-trace the field and no span outlives its own step.
+- Result: `TrajectoryRun` holds the terminal disposition beside the CURSOR WHOLE — achieved horizon, step and reject census, the optional step history whose `Error` is the last measured error, station tally, and samples are the cursor's own columns and were hand-copied field by field into a parallel record before — plus the kernel's own reject budget; convergence, budget exhaustion, underflow, and a refusing field all return best-so-far and are indistinguishable without the disposition.
 - Packages: Rasm (project — the kernel integration floor, the archive session), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new state carrier is one `IntegrationModule` mint at its consumer; a new termination cause is one `TerminalDisposition` case (or one `RelaxAxis` row where the cause is a knob) and one arm the flattened pattern demands; a new integrator or rescale law is one kernel `IntegratorKind`/`StepLaw` row — the driver body never changes.
+- Growth: a new state carrier is one `IntegrationModule` mint at its consumer; a new termination cause is one `TerminalDisposition` case (or one `RelaxAxis` row where the cause is a knob) and one arm the flattened pattern demands; a new integrator or step controller is one kernel `RungeKuttaMethod`/`StepController` row — the driver body never changes.
 - Boundary — iteration: the run is a bounded repeat that SHORT-CIRCUITS. Folding over the whole step ceiling is pure and total, and it also executes every one of those iterations for a trajectory that halted at ten; `RepeatWhile(Schedule.recurs(control.MaxSteps), static p => p is Advancing)` is both — the ceiling stays the bound it was, the run costs its own length, and the phase never leaves the result. One phase still `Advancing` when the bound expires IS budget exhaustion, which is what `Settle` reads off it, so the loop carries no terminal of its own.
-- Boundary — control: the error target on the kernel `AdaptiveCase` is 1.0 because the SCALE lives in the carrier's `Norm` — a per-component RMS dividing by `atol + rtol·|yᵢ|` BEFORE squaring, so large-magnitude state never overflows the naive squared-sum-then-root and a fixed absolute tolerance never starves a growing solution. Kernel `Norm` reads the delta alone, so the scale rides a carrier re-minted at each ACCEPTED state and never inside the reject retry, and the zero delta is minted once with that carrier rather than re-allocated per accepted step. Time is a state component with unit derivative, never a driver-threaded argument, so the kernel's autonomous `sample` contract holds by construction. `StepControl.Safety` and its required `StepLaw Law` column travel together on the kernel row, and `StepHistory` is the driver's to thread: a control electing a memory-bearing law and a driver dropping the history is a degradation with no diagnostic, so the history rides the cursor.
+- Boundary — control: the error target on the kernel `AdaptiveCase` is 1.0 because the SCALE lives in the carrier's `Norm` — a per-component RMS dividing by `atol + rtol·|yᵢ|` BEFORE squaring, so large-magnitude state never overflows the naive squared-sum-then-root and a fixed absolute tolerance never starves a growing solution. Kernel `Norm` reads the delta alone, so the scale rides a carrier re-minted at each ACCEPTED state and never inside the reject retry, and the zero delta is minted once with that carrier rather than re-allocated per accepted step. Time is a state component with unit derivative, never a driver-threaded argument, so the kernel's autonomous `sample` contract holds by construction. `StepControl.Safety` and its required `StepController Controller` column travel together on the kernel row, and `Option<StepHistory>` is the driver's to mint and thread: a control electing a memory-bearing controller and a driver dropping the history is a degradation with no diagnostic, so the history rides the cursor.
 - Boundary — terminal: only an inadmissible control, span, or station set faults — every termination SUCCEEDS with its disposition, because mapping budget exhaustion onto `Fin.Fail` destroys the relaxed-criterion retry the partition exists to serve. Retriability is a TYPE, not a bool pair: `Relaxable` carries the `RelaxAxis` naming which knob to move — budget exhaustion relaxes `MaxSteps`, underflow relaxes `MinStep` or the tolerance pair, a refusing field relaxes the horizon, and a refusing interpolant relaxes the station set the accepted span was asked to interpolate — where two independent bools admitted a `(true, true)` state no run can reach and told a caller nothing about what to change. `Divergent` alone is unretryable, because a state the norm cannot read is the field's own divergence and no control value reaches it.
 - Boundary — spill: the archive session is the `Runtime/archive#HDF_ARCHIVE` capsule's, so this driver declares its slot and attributes and takes the cursor it hands back. Release brackets the ACQUISITION through `ArchiveSession.Write`, binding to every outcome arm where a `using` inside a result lambda bound it to the success arm alone. The station ordinal IS the chunk ordinal and the cursor holds it, so write-once is structural rather than a monotonicity argument, and the spilled leg accumulates NO sample seq — the stream is its record, so `Samples` is empty by the leg's own construction and `Station` still reports what landed.
 
@@ -144,7 +144,7 @@ public sealed record TrajectoryControl(
 }
 
 public sealed record TrajectorySpec<TState, TDelta>(
-    FieldIntegrator Integrator,
+    RungeKuttaIntegrator Integrator,
     Func<TState, IntegrationModule<TState, TDelta>> Carrier,
     Func<TState, Fin<TDelta>> Field,
     TState Initial,
@@ -158,7 +158,7 @@ public sealed record TrajectorySpec<TState, TDelta>(
 
 public sealed record TrajectoryCursor<TState>(
     double Time, double Step, TState State, int Steps, int Rejects, int Streak,
-    Option<double> Error, StepHistory History, Seq<TrajectorySample<TState>> Samples, int Station);
+    Option<StepHistory> History, Seq<TrajectorySample<TState>> Samples, int Station);
 
 [Union]
 public abstract partial record TrajectoryPhase<TState> {
@@ -168,9 +168,7 @@ public abstract partial record TrajectoryPhase<TState> {
     public sealed record Halted(TrajectoryCursor<TState> Cursor, TerminalDisposition Terminal) : TrajectoryPhase<TState>;
 }
 
-public sealed record TrajectoryRun<TState>(TrajectoryCursor<TState> Cursor, TerminalDisposition Terminal, int RejectBudget) {
-    public TState Final => Cursor.State;
-}
+public sealed record TrajectoryRun<TState>(TrajectoryCursor<TState> Cursor, TerminalDisposition Terminal, int RejectBudget);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FieldCarrier {
@@ -251,7 +249,7 @@ public static class Trajectory {
             .Apply(static (_, _, _) => unit).As().ToFin()
             .Map(_ => new TrajectoryCursor<TState>(
                 Time: spec.Start, Step: Math.Min(val1: spec.FirstStep, val2: control.MaxStep), State: spec.Initial,
-                Steps: 0, Rejects: 0, Streak: 0, Error: Option<double>.None, History: StepHistory.Fresh, Samples: [], Station: 0));
+                Steps: 0, Rejects: 0, Streak: 0, History: None, Samples: [], Station: 0));
 
     private static Validation<Error, Unit> Span<TState, TDelta>(TrajectorySpec<TState, TDelta> spec) =>
         double.IsFinite(spec.Start) && spec.Horizon > spec.Start && spec.FirstStep > 0.0 && double.IsFinite(spec.FirstStep)
@@ -272,40 +270,44 @@ public static class Trajectory {
                 Succ: outcome => outcome.Switch(
                     state: (Cursor: cursor, Step: step, Spec: spec, Control: control, Key: key, Spill: spill),
                     acceptedCase: static (s, accepted) => Accepted(cursor: s.Cursor, step: s.Step, accepted: accepted, spec: s.Spec, control: s.Control, key: s.Key, spill: s.Spill),
-                    rejectedCase: static (s, rejected) => Rejected(cursor: s.Cursor, rejected: rejected, spec: s.Spec, control: s.Control)),
+                    rejectedCase: static (s, rejected) => Rejected(cursor: s.Cursor, step: s.Step, rejected: rejected, spec: s.Spec, control: s.Control)),
                 Fail: _ => (TrajectoryPhase<TState>)new TrajectoryPhase<TState>.Halted(cursor, new TerminalDisposition.Relaxable(RelaxAxis.Horizon)));
     }
 
     private static TrajectoryPhase<TState> Accepted<TState, TDelta>(
         TrajectoryCursor<TState> cursor, double step, IntegrationStep<TState, TDelta>.AcceptedCase accepted,
-        TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key, Option<StationSink<TState>> spill) =>
-        Harvest(cursor: cursor, at: cursor.Time, step: step, dense: accepted.Dense, stations: spec.Stations, key: key, spill: spill).Match(
+        TrajectorySpec<TState, TDelta> spec, TrajectoryControl control, Op key, Option<StationSink<TState>> spill) {
+        double remaining = spec.Horizon - (cursor.Time + step);
+        double proposed = Math.Min(accepted.SuggestedStep, control.MaxStep);
+        double nextStep = remaining > control.MinStep ? Math.Min(proposed, remaining) : proposed;
+        return Harvest(cursor: cursor, at: cursor.Time, step: step, dense: accepted.Dense, stations: spec.Stations, key: key, spill: spill).Match(
             Succ: taken => Land(
                 cursor: cursor with {
                     Time = cursor.Time + step,
-                    Step = Math.Min(val1: accepted.SuggestedStep, val2: control.MaxStep),
+                    Step = nextStep,
                     State = accepted.Next,
                     Steps = cursor.Steps + 1,
                     Streak = 0,
-                    Error = accepted.Error,
-                    History = accepted.History,
+                    History = accepted.Error.Map(error => new StepHistory(error, nextStep / step)),
                     Samples = taken.Samples,
                     Station = taken.Station,
                 },
                 spec: spec, control: control),
             Fail: _ => (TrajectoryPhase<TState>)new TrajectoryPhase<TState>.Halted(cursor, new TerminalDisposition.Relaxable(RelaxAxis.Stations)));
+    }
 
     private static TrajectoryPhase<TState> Rejected<TState, TDelta>(
-        TrajectoryCursor<TState> cursor, IntegrationStep<TState, TDelta>.RejectedCase rejected,
+        TrajectoryCursor<TState> cursor, double step, IntegrationStep<TState, TDelta>.RejectedCase rejected,
         TrajectorySpec<TState, TDelta> spec, TrajectoryControl control) {
+        double remaining = spec.Horizon - cursor.Time;
+        double nextStep = Math.Min(Math.Min(rejected.SuggestedStep, control.MaxStep), remaining);
         TrajectoryCursor<TState> next = cursor with {
-            Step = Math.Min(val1: rejected.SuggestedStep, val2: control.MaxStep),
+            Step = nextStep,
             Rejects = cursor.Rejects + 1,
             Streak = cursor.Streak + 1,
-            Error = rejected.Error,
-            History = rejected.History,
+            History = Some(new StepHistory(rejected.Error, nextStep / step)),
         };
-        return (Finite: rejected.Error.Map(double.IsFinite).IfNone(noneValue: true),
+        return (Finite: double.IsFinite(rejected.Error),
                 Within: next.Streak <= spec.Integrator.RejectBudget,
                 Above: next.Step >= control.MinStep) switch {
             (Finite: false, _, _) => (TrajectoryPhase<TState>)new TrajectoryPhase<TState>.Halted(next, new TerminalDisposition.Divergent()),
@@ -342,15 +344,15 @@ public static class Trajectory {
 
 ## [04]-[SPECTRAL_OPERATOR]
 
-- Owner: `SpectralSymbol` the `[SmartEnum<string>]` Fourier-multiplier vocabulary carrying each operator's generated symbol column and its parity; `SymbolParity` the composing parity policy; `Spectral` the pointwise-product composition carrier; `WaveAxis` the split-spectrum wavenumber owner over the kernel arena's own axis read; `SpectralControl` the imaginary-residual band; `SpectralPlane` the two-case arena carrier the parity of the field length selects; `SpectralOperator.Apply` the forward-multiply-inverse application with its Hermitian gate.
+- Owner: `SpectralSymbol` the `[SmartEnum<string>]` Fourier-multiplier vocabulary carrying each operator's generated symbol column and its parity; `SymbolParity` the composing parity policy; `Spectral` the pointwise-product composition carrier; `WaveAxis` the split-spectrum wavenumber owner over the kernel spectrum's own frequency read; `SpectralControl` the imaginary-residual band; `SpectralPlane` the two-case arena carrier the parity of the field length selects; `SpectralOperator.Apply` the forward-multiply-inverse application with its Hermitian gate.
 - Cases: `SpectralSymbol` rows derivative (`i·k`), laplacian (`−k²`), biharmonic (`k⁴`), hilbert (`−i·sgn k`), anti-derivative (`1/(i·k)`, zero mode killed) (5); `SymbolParity` rows even · odd (2); `SpectralPlane` cases `Packed(SpectralArena.HalfSpectrum)` · `Split(SpectralArena.Split)` (2 — the two kernel arena layouts a real one-dimensional field admits into).
 - Entry: `SpectralOperator.Apply(ReadOnlySpan<double> field, WaveAxis axis, Spectral op, Option<SpectralControl> control)` — the composition is the value, so a chained operator and a single symbol are the same call.
-- Auto: `Spectral.At(k)` is the pointwise product of factor rows and `Spectral.Parity` the XOR-fold of factor parities, so the Nyquist bin zeroes exactly when the composition is odd; `Apply` selects the kernel arena case by field length — even lengths ride `SpectralArena.HalfSpectrum` (half the transform work, real output BY CONSTRUCTION, the symbol multiplying each nonnegative-k packed pair so Hermitian symmetry is structural), odd lengths ride `SpectralArena.Split` whose imaginary-residual gate diagnoses broken symmetry — and BOTH transform through the kernel `SpectralArena.Transform` entry, so the four raw `Fourier.*` reaches this lane once held are gone and one convention vocabulary spans the strata boundary. Admission is the vectorized `TensorPrimitives.IsFiniteAll` sweep, never a per-element predicate walk; the wavenumbers derive from the kernel `SpectralResult.Axis` bin read scaled by 2π, never a hand-indexed bin walk or a raw `Fourier.FrequencyScale` reach.
+- Auto: `Spectral.At(k)` is the pointwise product of factor rows and `Spectral.Parity` the XOR-fold of factor parities, so the Nyquist bin zeroes exactly when the composition is odd; `Apply` selects the kernel arena case by field length — even lengths ride `SpectralArena.HalfSpectrum` (half the transform work, real output BY CONSTRUCTION, the symbol multiplying each nonnegative-k packed pair so Hermitian symmetry is structural), odd lengths ride `SpectralArena.Split` whose imaginary-residual gate diagnoses broken symmetry — and BOTH transform through the kernel `SpectralArena.Transform` entry, so the four raw `Fourier.*` reaches this lane once held are gone and one convention vocabulary spans the strata boundary. Admission is the vectorized `TensorPrimitives.IsFiniteAll` sweep, never a per-element predicate walk; the wavenumbers derive from the kernel `Spectrum.Frequencies` bin read on `SignedAxis.PositiveX` scaled by 2π, never a hand-indexed bin walk or a raw `Fourier.FrequencyScale` reach.
 - Result: `SpectralEvidence` carries the real result as owned `ImmutableArray<double>`, the composed parity, and `Option<double>` imaginary residual — `Some` only on the split leg where the gate read it, `None` on the packed leg whose realness is structural; excess residual fails the split leg as broken Hermitian symmetry, never a usable result.
 - Packages: Rasm (project — the kernel transform band and its arena, `Numerics/atoms` `Dimension`/`PositiveMagnitude`/`SignedAxis`), System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new operator is one `SpectralSymbol` row with its generated symbol column and parity; a composite is a `Spectral.Then` chain; a tighter Hermitian band is one `SpectralControl` value; a new buffer layout is one kernel `SpectralArena` case, which breaks the `SpectralPlane` fold at compile time — zero new code path.
 - Boundary — symbols: every constant-coefficient periodic operator is one `SpectralSymbol` row applied pointwise to the forward transform; symbols compose by pointwise multiplication before a single inverse, and parity is row data the operator owns, never a `bool oddOrder` knob nor a bare `Func<double, Complex>` riding beside the call. `ZeroesNyquist` is DERIVED from the parity row rather than kept as a column beside it: an odd symbol is discontinuous across ±Nyquist and therefore zeroes that bin, which is a fact about the row, not a second value that can disagree with it.
-- Boundary — arena: the transform floor is the kernel's whole. `SpectralArena` is the ONE transform carrier and `arena.Transform(sense, scaling, key)` the one entry, so this lane picks the arena CASE its field parity implies and spells no transform of its own; `SpectralScaling.Unscaled` is the convention value because this lane READS BETWEEN the legs — an unscaled forward leaves the intermediate bins carrying true DFT coefficients so a symbol's magnitude IS the operator's transfer function, where a `1/√N` forward rescales every spectrum the imaginary-residual gate and any bin-domain consumer inspect, and the round-trip factor the `Unscaled` row carries is applied once on the way out. The symbol MULTIPLY stays this lane's because the kernel's own `SpectralResult.Modulate` binds the interleaved plane arena alone and neither one-dimensional case reaches it — the generation of a multiplier is consumer domain policy exactly as tap generation is, and both legs' multiply is the same three-line fold over the arena's own layout. The split-spectrum wavenumber derives once from the transformed result's own axis read (ascending positives through Nyquist, then descending negatives, scaled by `2π`), because hand-indexing the bin applies an aliased symbol past the half length silently, and `WaveAxis` therefore owns the extent-to-rate projection alone rather than a second frequency table.
+- Boundary — arena: the transform floor is the kernel's whole. `SpectralArena` is the ONE transform carrier and `arena.Transform(sense, scaling, key)` the one entry, so this lane picks the arena CASE its field parity implies and spells no transform of its own; `SpectralScaling.Unscaled` is the convention value because this lane READS BETWEEN the legs — an unscaled forward leaves the intermediate bins carrying true DFT coefficients so a symbol's magnitude IS the operator's transfer function, where a `1/√N` forward rescales every spectrum the imaginary-residual gate and any bin-domain consumer inspect, and the round-trip factor the `Unscaled` row carries is applied once on the way out. The symbol MULTIPLY stays this lane's because the kernel's own `Spectrum.Modulate` binds the interleaved plane arena alone and neither one-dimensional case reaches it — the generation of a multiplier is consumer domain policy exactly as tap generation is, and both legs' multiply is the same three-line fold over the arena's own layout. The split-spectrum wavenumber derives once from the transformed spectrum's own `Frequencies` read (ascending positives through Nyquist, then descending negatives, scaled by `2π`), because hand-indexing the bin applies an aliased symbol past the half length silently, and `WaveAxis` therefore owns the extent-to-rate projection alone rather than a second frequency table.
 - Boundary — gate: `SpectralControl` binds the SPLIT leg ALONE, and the discriminant is field PARITY, never caller intent. Even-length fields ride the packed arena whose output is real by construction — no imaginary channel to measure, the floor goes unread, and the evidence reports `None`; passing a tighter floor with an even grid changes nothing the run does. That asymmetry is why the residual is `Option<double>`, never a `0.0` written by both legs — a reader treating a missing residual as a passed gate has inverted the one leg that proves Hermitian symmetry. The control arrives as an `Option`, so absence is a carrier rather than a nullable reference crossing a public boundary. The residual denominator floors at the smallest NORMAL double rather than at `double.Epsilon`, whose value is the smallest subnormal and which therefore names a quantity a hundred orders of magnitude below the guard it was standing in for.
 - Boundary — discriminant against the `Stats/signal#SIGNAL_LANE` `SpectralTransform` axis is spatial-versus-sampled, never availability: a symbol is a differential operator over a SPATIAL extent in angular wavenumber, that axis transform-and-invert, framing, and windowing over a SAMPLE RATE in bin frequency. Collapsing either end hands a spatial operator frame, hop, and window evidence it has none of, or a spectrogram a parity column no transform owns.
 
@@ -414,8 +416,8 @@ public readonly record struct WaveAxis(int Length, double Extent) {
 
     public Option<int> Nyquist => int.IsEvenInteger(Length) ? Some(Length >> 1) : None;
 
-    public Fin<double[]> Wavenumbers(SpectralResult result, Op key) =>
-        result.Axis(axis: SignedAxis.X, key: key).Map(static cycles => {
+    public Fin<double[]> Wavenumbers(Rasm.Numerics.Spectrum spectrum, Op key) =>
+        spectrum.Frequencies(axis: SignedAxis.PositiveX, key: key).Map(static cycles => {
             double[] k = new double[cycles.Count];
             TensorPrimitives.Multiply<double>(cycles.AsSpan(), 2.0 * Math.PI, k);
             return k;
@@ -481,7 +483,7 @@ public static class SpectralOperator {
     static Complex Factor(Spectral op, double[] k, Option<int> nyquist, int bin) =>
         op.Parity.ZeroesNyquist && nyquist == Some(bin) ? Complex.Zero : op.At(wavenumber: k[bin]);
 
-    static Fin<SpectralEvidence> Settled(SpectralPlane plane, Spectral op, WaveAxis axis, SpectralResult inverse, SpectralControl control) {
+    static Fin<SpectralEvidence> Settled(SpectralPlane plane, Spectral op, WaveAxis axis, Rasm.Numerics.Spectrum inverse, SpectralControl control) {
         double[] result = new double[axis.Length];
         return plane.Switch(
             state: (Axis: axis, Result: result, Factor: inverse.RoundTripFactor),

@@ -12,7 +12,7 @@ Correspondence rides the one `neighbors` substrate `NeighborKernel.GraphOf` and 
 
 - Owner: `AlignKind` mints the one dispatcher — each row's `CapabilitySet<AlignNeed>` declares what the estimation pass provisions for it, its delegate owns the inner solve, and one outer fold (correspond → reject → solve step → compose → converge) owns iteration for every row; `AlignNeed` is that provisioning vocabulary and `PoseFit` the rigid/similarity closing lane of the Procrustes seat; `AlignmentPolicy` is the one knob record, admitted monadically before any round runs and carrying LANES where it once carried epsilons — `Fit` picks the Procrustes closing row, `TrimFraction` trims each round's worst correspondences by quantile, and `CoarseLevels` runs a stride-subsampled coarse-to-fine schedule whose row map keeps every per-row array aligned; `AlignBands` resolves every threshold once off the clouds' own bound `Context`.
 - Entry: `AlignDetailed` is the one entry, the variant riding the receiver row and an absent policy seating `AlignmentPolicy.Default`; `VectorIntent.Align` composes it, and `Alignment.Project<Transform>` gates on convergence, so a stalled run faults rather than yielding a half-aligned transform.
-- Output: `Alignment` carries the run's transform, stop, iteration evidence, and final correspondence set with `RobustWeights` and `GicpSolve` nested inside it, projecting through the `AtomProjection` typed rows.
+- Output: `Alignment` carries the run's transform, stop, iteration evidence, and final correspondence set with `RobustWeights` and `GicpSolve` nested inside it, projecting through the `ResultProjection` typed rows.
 - Packages: TYoshimura.DoubleDouble mints the `ddouble` cost fold, Thinktecture.Runtime.Extensions the smart-enum row vocabulary and its delegate binding, `Rasm.Domain` the `CapabilitySet<AlignNeed>` provisioning column, the `Context`/`ToleranceLane` band derivation, the `Stat<Scalar>`/`Distribution<Scalar>` moment and order-statistic owners, the `Cell.Converge` round driver, and the `Fin`/`Option` types, LanguageExt.Core the carriers and `Atom`, and System.Numerics.Tensors the mass fold.
 - Law: the three provisioning bools collapsed into ONE `CapabilitySet<AlignNeed>` column read by set algebra at the single provision fold — NAMED LOSS: per-need compile-time exhaustiveness, bought back by the roster's own construction and by the one `Admits` read per need; the scale decision left the policy as a `PoseFit` row so the Procrustes seat carries its own closing arm instead of a ternary on a flag.
 - Law: `FinalDelta` is `Option` — a run that measured no round states its absence rather than reporting an infinity the alignment's own finiteness claim then has to excuse.
@@ -190,7 +190,7 @@ public readonly record struct Alignment(
         SimilarityScale.Map(static scale => double.IsFinite(scale) && scale > 0.0).IfNone(noneValue: true));
     public Fin<TOut> Project<TOut>(Op key) {
         Alignment self = this;
-        return AtomProjection.Rows<Alignment, TOut>(self: self, key: key,
+        return ResultProjection.Rows<Alignment, TOut>(self: self, key: key,
             ProjectionRow.Of<Transform>(() => self.Stop.Equals(AlignmentStopKind.Converged)
                 ? key.AcceptValue(value: self.Transform)
                 : Fin.Fail<Transform>(key.InvalidResult())));

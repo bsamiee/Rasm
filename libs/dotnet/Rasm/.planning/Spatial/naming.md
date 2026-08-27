@@ -189,7 +189,7 @@ public static class Naming {
             .Filter(static e => e.Kind == EntityKind.Vertex).Map(static e => (e.Self, e.KindHistogram)));
         (NameTable Table, Set<TopoName> Claimed, Seq<Error> Collisions) folded = toSeq(rebuilt.Entities.OrderBy(static e => e.Kind.Key))
             .Fold((Table: NameTable.Empty with { Generation = next }, Claimed: Set<TopoName>.Empty, Collisions: Seq<Error>()),
-                (state, entity) => Step(prior, entity, stars, next, policy, state));
+                (state, entity) => Step(prior, entity, stars, next, policy, key, state));
         return folded.Collisions.IsEmpty
             ? Fin.Succ(RefineVertices(prior, folded.Table, rebuilt, policy, next))
                 .Bind(refined => guard(refined.IsValid, key.InvalidResult()).ToFin().Map(_ => refined))
@@ -197,7 +197,7 @@ public static class Naming {
     }
 
     static (NameTable Table, Set<TopoName> Claimed, Seq<Error> Collisions) Step(
-        NameTable prior, RebuiltEntity entity, HashMap<int, Arr<int>> stars, Generation next, NamingPolicy policy,
+        NameTable prior, RebuiltEntity entity, HashMap<int, Arr<int>> stars, Generation next, NamingPolicy policy, Op key,
         (NameTable Table, Set<TopoName> Claimed, Seq<Error> Collisions) state) {
         Seq<TopoName> boundary = entity.Kind.BoundaryOf(table: state.Table, entity: entity);
         TopoSignature signature = TopoSignature.Of(entity.Kind, boundary, entity.Kind.FingerprintOf(entity: entity, stars: stars));
@@ -205,7 +205,7 @@ public static class Naming {
             .Filter(name => !state.Claimed.Contains(name))
             .Head
             .Match(
-                Some: name => Survive(prior, name, signature, boundary, next, entity),
+                Some: name => Survive(prior, name, signature, boundary, next, entity, key),
                 None: () => MigrateOrBirth(prior, entity, signature, boundary, next, policy))
             .Bind(entry => state.Claimed.Contains(entry.Name)
                 ? Fin.Fail<NameEntry>(new GeometryFault.NameCollision(entry.Name, entity.Kind))
@@ -215,9 +215,9 @@ public static class Naming {
             Fail: error => (state.Table, state.Claimed, state.Collisions.Add(error)));
     }
 
-    static Fin<NameEntry> Survive(NameTable prior, TopoName name, TopoSignature signature, Seq<TopoName> boundary, Generation next, RebuiltEntity entity) =>
+    static Fin<NameEntry> Survive(NameTable prior, TopoName name, TopoSignature signature, Seq<TopoName> boundary, Generation next, RebuiltEntity entity, Op key) =>
         prior.Entries.Find(name)
-            .ToFin(new GeometryFault.NameCollision(name, entity.Kind))
+            .ToFin(key.InvalidResult())
             .Map(prev => prev with { LastSeen = next, Signature = signature, Boundary = boundary, Canonical = entity.Canonical });
 
     static Fin<NameEntry> MigrateOrBirth(NameTable prior, RebuiltEntity entity, TopoSignature signature, Seq<TopoName> boundary, Generation next, NamingPolicy policy) {

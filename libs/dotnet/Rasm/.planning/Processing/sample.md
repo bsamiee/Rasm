@@ -140,7 +140,7 @@ public sealed partial class PowerCcvtGauge {
     internal GaugePolicy Policy(Arr<double> fragmentMasses) => Switch(
         state: fragmentMasses,
         zeroMean: static mass => GaugePolicy.MeanZeroConstant(dimension: mass.Count, mass: Some(mass), shift: GaugeShift.MeanZero),
-        pinIndexZero: static mass => GaugePolicy.PinConstant(index: 0, mass: Some(mass), shift: GaugeShift.MeanZero));
+        pinIndexZero: static mass => GaugePolicy.Pinned(indices: [0], mass: Some(mass), shift: GaugeShift.MeanZero));
 }
 
 [SmartEnum<int>]
@@ -280,7 +280,7 @@ public abstract partial record SampleKind {
     public Fin<TOut> Project<TOut>(ExtractionDomain domain, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from result in Evaluate(domain: domain, context: context, key: op)
-               from output in AtomProjection.Rows<SampleTally, TOut>(self: result.Tally, key: op, owner: typeof(SampleKind),
+               from output in ResultProjection.Rows<SampleTally, TOut>(self: result.Tally, key: op, owner: typeof(SampleKind),
                    ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(result.Points)),
                    ProjectionRow.Of<VectorCloud>(() => result.Mass.Match(
                        Some: mass => VectorCloud.Cluster(points: result.Points, context: context, mass: Some(mass), key: op),

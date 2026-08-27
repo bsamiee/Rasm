@@ -50,7 +50,6 @@
 
     <ItemGroup Label="Kernel Numerics">
         <PackageVersion Include="CSparse"                                                 Version="4.4.0" />
-        <PackageVersion Include="ExtendedNumerics.BigRational"                            Version="3000.0.2.132" />
         <PackageVersion Include="MathNet.Numerics"                                        Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Numerics.Providers.MKL"                          Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Numerics.Data.Text"                              Version="6.0.0-beta2" />

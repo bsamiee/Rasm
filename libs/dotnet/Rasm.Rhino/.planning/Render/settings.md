@@ -390,8 +390,8 @@ public abstract partial record SunPlacement {
     internal ValidityClaim IsValid => Switch(
         automatic: static placement => ValidityClaim.All(
             Coordinate(latitude: placement.Latitude, longitude: placement.Longitude),
-            ValidityClaim.Ordered(lower: -24d, upper: placement.TimeZone),
-            ValidityClaim.Ordered(lower: placement.TimeZone, upper: 24d),
+            ValidityClaim.Ordered(lower: -12d, upper: placement.TimeZone),
+            ValidityClaim.Ordered(lower: placement.TimeZone, upper: 14d),
             ValidityClaim.WhenPresent(placement.DaylightSaving, static minutes => (ValidityClaim)(minutes is >= 0 and <= 1440))),
         manualAngles: static placement => ValidityClaim.All(
             ValidityClaim.Finite(value: placement.Azimuth),
@@ -1007,8 +1007,8 @@ public sealed partial class SolarFrame {
         ref Instant moment) {
         validationError = ValidityClaim.All(
             site is not null,
-            site is not null && ValidityClaim.Ordered(lower: -12d, upper: site.TimezoneHours),
-            site is not null && ValidityClaim.Ordered(lower: site.TimezoneHours, upper: 14d),
+            site is not null && ValidityClaim.Ordered(lower: -12d, upper: site.OffsetHours),
+            site is not null && ValidityClaim.Ordered(lower: site.OffsetHours, upper: 14d),
             site is not null && ValidityClaim.Ordered(lower: -300d, upper: site.ElevationM),
             site is not null && site.ElevationM < 8900d,
             ValidityClaim.Finite(value: northAxisDegrees),
@@ -1034,7 +1034,7 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
                 from site in context.Op.AcceptValidated(SolarSite.Validate(
                     latitudeDeg: placement.Latitude,
                     longitudeDeg: placement.Longitude,
-                    timezoneHours: placement.TimeZone,
+                    standardOffset: Offset.FromTicks((long)(placement.TimeZone * NodaConstants.TicksPerHour)),
                     elevationM: context.Elevation,
                     out SolarSite? admitted), admitted)
                 from frame in context.Op.AcceptValidated(SolarFrame.Validate(

@@ -2,7 +2,7 @@
 
 `NeighborIndex` and `NeighborKernel` own the Rhino-native and static-point neighborhood substrate; every proximity consumer routes its index, query, and per-point fold through these owners.
 
-Tolerances arrive from `Domain/context` lanes rather than page literals: the eigen-gap floor reads `ToleranceLane.Svd` and the quadric residual floor `ToleranceLane.Residual`, so a model that widens either widens it here without a second policy. `ChainClosure` (`Numerics/atoms`) carries the ring posture every chain fold reads, so no boolean closure knob crosses a signature on this page.
+Tolerances arrive from `Domain/context` lanes rather than page literals: the eigen-gap floor reads `ToleranceLane.Svd` and the quadric residual floor `ToleranceLane.Residual`, so a model that widens either widens it here without a second policy. Ring posture crosses as the one `isClosed` discriminant `VectorFrame.Chain` (`Numerics/atoms`) threads down, so every chain fold reads a single declared fact rather than re-deriving it per call.
 
 ## [01]-[INDEX]
 
@@ -579,7 +579,7 @@ internal static partial class NeighborKernel {
 ## [04]-[BISHOP_CHAIN]
 
 - Owner: `NeighborKernel.BishopChain` mints the one point-chain rotation-minimizing-frame body that `VectorFrame.Chain` delegates to.
-- Law: ring posture is a `ChainClosure` row (`Numerics/atoms`), never a boolean — `VectorFrame.Chain` already threads that row, so a `bool closed` tail here spells the same fact twice and lets a caller pass the pair inconsistently.
+- Law: ring posture is the one `bool isClosed` discriminant `VectorFrame.Chain` threads down — a payloadless two-case type over the same binary fact is the forbidden second spelling, so the boolean column owns the posture and each `VectorCloud` arm states it exactly once.
 - Exemption: the double-reflection walk is a named span kernel — each step's reference vector is the previous step's product, so no fold or traversal owner carries it and the tangent/reference arrays stay mutable for exactly that pass.
 - Growth: a new transport flavor is one policy argument on this fold.
 - Boundary: every emitted plane admits through `VectorFrame.Of`; `Direction.ParallelTransport` applies caller-supplied frames, and parametric-curve sweeps route `Parametric/curve.md` `PerpendicularFrames`.
@@ -591,26 +591,25 @@ internal static partial class NeighborKernel {
         state: key,
         ringCase: static (k, r) =>
             from seed in Direction.Of(value: VectorFrame.NewellNormal(ring: r.Vertices.ToArray()), context: r.Tolerance, key: k)
-            from chain in BishopChain(points: r.Vertices, initialNormal: seed, closure: ChainClosure.Closed, context: r.Tolerance, key: k)
+            from chain in BishopChain(points: r.Vertices, initialNormal: seed, isClosed: true, context: r.Tolerance, key: k)
             select chain,
         polylineCase: static (k, p) =>
             from _ in guard(p.Vertices.Count >= 2, k.InvalidInput()).ToFin()
             from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance, key: k)
-            from chain in BishopChain(points: p.Vertices, initialNormal: seed, closure: ChainClosure.Open, context: p.Tolerance, key: k)
+            from chain in BishopChain(points: p.Vertices, initialNormal: seed, isClosed: false, context: p.Tolerance, key: k)
             select chain,
         clusterCase: static (k, _) => Fin.Fail<Seq<Plane>>(k.Unsupported(inputType: typeof(VectorCloud.ClusterCase), outputType: typeof(Seq<Plane>))));
 
-    internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, ChainClosure closure, Context context, Op key) =>
+    internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, bool isClosed, Context context, Op key) =>
         from _ in guard(points.Count >= 2, key.InvalidInput()).ToFin()
         from columns in key.Catch(() => {
             Point3d[] p = [.. points];
-            bool closed = closure.Equals(ChainClosure.Closed);
             double step = context.For(lane: ToleranceLane.Collapse).Value;
             double floor = step * step;
             var tangents = new Vector3d[p.Length];
             Vector3d prior = p[1] - p[0];
             for (int i = 0; i < p.Length; i++) {
-                Vector3d advance = i < p.Length - 1 ? p[i + 1] - p[i] : closed ? p[0] - p[i] : prior;
+                Vector3d advance = i < p.Length - 1 ? p[i + 1] - p[i] : isClosed ? p[0] - p[i] : prior;
                 tangents[i] = advance.IsTiny(step) ? prior : advance;
                 prior = tangents[i];
                 _ = tangents[i].Unitize();
@@ -623,7 +622,7 @@ internal static partial class NeighborKernel {
             for (int i = 0; i < p.Length - 1; i++) {
                 reference[i + 1] = Transported(reference: reference[i], tangent: tangents[i], next: tangents[i + 1], chord: p[i + 1] - p[i], floor: floor);
             }
-            if (closed) {
+            if (isClosed) {
                 Vector3d returned = Transported(reference: reference[^1], tangent: tangents[^1], next: tangents[0], chord: p[0] - p[^1], floor: floor);
                 double residual = Math.Atan2(Vector3d.CrossProduct(a: reference[0], b: returned) * tangents[0], reference[0] * returned);
                 for (int i = 1; i < p.Length; i++) {

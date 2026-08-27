@@ -11,14 +11,14 @@ Rebuilding composes the broad phase from `Spatial.Apply`, the triangle soups fro
 
 ## [02]-[INTERSECTION]
 
-- Owner: `PrimitiveKind` `[SmartEnum<string>]` mints the primitive vocabulary the `GeometryFault.IntersectionFault` payload reads; `IntersectKind` `[SmartEnum<string>]` carries the `A`/`B` primitive-pair columns the fault payload derives from its own row; `IntersectPolicy` registers `IValidityEvidence`; `CrossKey` is the defining-entity merge key where integer equality IS the cross-face merge; `Crossing` pairs the `Implicit` exact point with its `CrossKey`; `CrossingStore` interns key-classified crossing rows and segment pairs, freezing into the `CrossTable` projection; `Chain` is the typed result row and `ChainWalk` the ONE oriented-edge decomposition behind it, composed here and by the arrangement rim; `IntersectOp`/`IntersectResult` are the request/result unions folded by the `Intersection` static surface.
+- Owner: `PrimitiveKind` `[SmartEnum<string>]` mints the primitive vocabulary the direct intersection fault payloads read; `IntersectKind` `[SmartEnum<string>]` carries the `A`/`B` primitive-pair columns the fault payload derives from its own row; `IntersectPolicy` registers `IValidityEvidence`; `CrossKey` is the defining-entity merge key where integer equality IS the cross-face merge; `Crossing` pairs the `Implicit` exact point with its `CrossKey`; `CrossingStore` interns key-classified crossing rows and segment pairs, freezing into the `CrossTable` projection; `Chain` is the typed result row and `ChainWalk` the ONE oriented-edge decomposition behind it, composed here and by the arrangement rim; `IntersectOp`/`IntersectResult` are the request/result unions folded by the `Intersection` static surface.
 - Cases: `IntersectOp` cases `SegmentSegment` · `SegmentTriangle` · `TriangleTriangle` · `RayMesh` · `MeshMesh` · `SelfMesh` · `PlaneMesh`; `IntersectResult` cases `Points` · `Segments` · `Chains`.
-- Entry: `Apply` discriminates on the op case and resolves the ONE key every interior static then takes outright; `Fin<T>` routes `GeometryFault.DegenerateInput` on an inadmissible primitive and `GeometryFault.IntersectionFault` — carrying the offending endpoint slot in its `Junction` column — on a section edge key incident to three or more faces, while an OPEN section on a boundaried mesh is a typed `Chain(Closed: false)`, never a fault. `SegmentSegment` carries its projection `Axis`, so the 2D restriction lives in the request shape.
+- Entry: `Apply` discriminates on the op case and resolves the ONE key every interior static then takes outright; `Fin<T>` routes `GeometryFault.DegenerateInput` on an inadmissible primitive and `GeometryFault.NonManifoldIntersection` — carrying the offending endpoint in its `Junction` column — on a section edge key incident to three or more faces, while an OPEN section on a boundaried mesh is a typed `Chain(Closed: false)`, never a fault. `SegmentSegment` carries its projection `Axis`, so the 2D restriction lives in the request shape.
 - Auto: point-level cases run the exact straddle directly; mesh-level cases fold `MeshEdit.Of`, the `Spatial.Apply` BVH broad phase, and the narrow phase, interning each crossing endpoint into `CrossingStore` by `CrossKey` so a crossing reached from two face pairs lands on one row and a hit on a pierced edge or corner keys by its classified landing, not by either incident face. Chain assembly hands the material-oriented segments stored `from → to` to `ChainWalk`, which seats them in a bidirectional container source-first: an out-degree or in-degree above one on any endpoint routes the non-manifold junction fault carrying that endpoint, a zero-indegree head opens a typed open chain, a head the container gives a predecessor sits on a cycle and closes an oriented loop, and every remaining component is reached by the one depth-first sweep.
 - Output: `IntersectResult`, its `Chains` case carrying the frozen `CrossTable` as payload; the hash-eligible artifacts are the `Polyline`/`Point3d` values at the `Round()` boundary.
 - Law: every crossing row keys by INTEGER defining entities, and the one coincidence fallback keys by `Axis.BitKey` — the predicate owner's exact IEEE triple with signed zero folded onto positive, the same zero the exact `Compare` reads — so the arena carries no float-keyed table, no page re-derives that ordinal, and no tolerance decides identity. Broad-phase inflation reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the sweep band scales with the model instead of pinning an absolute epsilon on the policy row. `IntersectPolicy.KeepCoplanar` stays a bare bool: it gates whether the coplanar AREA contact emits constraint rows at all, and no second policy column shares a legal-corner law with it.
 - Exemption: the mutable tables are arena or statement-kernel state, never frozen — `CrossingStore`'s `interned`/`byBits` intern maps and `segments`/`coplanar` accumulators (the arena's own columns, published only through `Freeze`), the `shared` third-vertex ledger inside one `Section` sweep, and `ChainWalk`'s `incoming` seed set, which orders the container's insertion and dies with the build.
-- Packages: `Rasm.Numerics` (`Predicate`, `Implicit`/`Ssi`/`Lpi`, `Sign`, `Axis` with `Coord`/`BitKey`, `GeometryFault`), `Rasm.Spatial` (`Spatial.Apply` broad phase), `Rasm.Meshing` (`MeshEdit.Of`, `MeshSpace`), `Rasm.Domain` (`Op`, `Kind`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`), QuikGraph (`GraphExtensions.ToAdjacencyGraph`/`ToBidirectionalGraph`, `BidirectionalGraph`/`SEdge`, `DepthFirstSearchAlgorithm` under `ProcessAllComponents`, `VertexPredecessorPathRecorderObserver` — the chain decomposition's one container, one walk, one observer), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: `Rasm.Numerics` (`Predicate`, `Implicit` with its `SegmentIntersection`/`LinePlaneIntersection` cases, `Sign`, `Axis` with `Read`/`Along`/`BitKey`, `GeometryFault`), `Rasm.Spatial` (`Spatial.Apply` broad phase), `Rasm.Meshing` (`MeshEdit.Of`, `MeshSpace`), `Rasm.Domain` (`Op`, `Kind`, `Context`/`ToleranceLane`, `ValidityClaim`/`IValidityEvidence`), QuikGraph (`GraphExtensions.ToAdjacencyGraph`/`ToBidirectionalGraph`, `BidirectionalGraph`/`SEdge`, `DepthFirstSearchAlgorithm` under `ProcessAllComponents`, `VertexPredecessorPathRecorderObserver` — the chain decomposition's one container, one walk, one observer), `Rhino.Geometry`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new crossing modality is one `IntersectKind` row and one `IntersectOp` case reading the same narrow phase and key-connectivity assembly; a new crossing construction is a predicate-owner `Implicit` case; a new broad-phase knob is one `IntersectPolicy` column, and a new band is one `ToleranceLane` row at the context owner.
 - Boundary: one `IntersectOp` `[Union]` folds every case; connectivity derives from integer `CrossKey` equality and exact `Compare` signs; every ordering is a TOTAL function of the input, the arena slot or arrival ordinal settling the `Compare` tie a collinear multi-touch produces, so no emission depends on an unstable sort's array layout; loops emit oriented at emission and open sections emit as typed rows; `Apply` is total over `Fin`; `CrossingStore` is the single-writer arena whose frozen `CrossTable` is the only projection consumers hold.
 
@@ -98,7 +98,7 @@ internal static class ChainWalk {
             .ToAdjacencyGraph<int, SEdge<int>>(allowParallelEdges: true)
             .ToBidirectionalGraph();
         if (toSeq(graph.Vertices).Find(v => graph.OutDegree(v) > 1 || graph.InDegree(v) > 1).Case is int junction) {
-            return Fin.Fail<Seq<Chain>>(new GeometryFault.IntersectionFault(a, b, Some(junction)));
+            return Fin.Fail<Seq<Chain>>(new GeometryFault.NonManifoldIntersection(a, b, junction));
         }
         if (graph.EdgeCount == 0) { return Fin.Succ(Seq<Chain>()); }
         DepthFirstSearchAlgorithm<int, SEdge<int>> walk = new(graph) { ProcessAllComponents = true };
@@ -111,24 +111,23 @@ internal static class ChainWalk {
             if (run.Length == 0) { continue; }
             covered += run.Length;
             bool closed = graph.InDegree(run[0].Source) == 1;
-            if (Corners(run, corner).Case is not Polyline points) {
-                return Fin.Fail<Seq<Chain>>(new GeometryFault.IntersectionFault(a, b, Some(run[0].Source)));
-            }
+            Fin<Polyline> walked = Corners(run, corner, a, b);
+            if (walked.Case is not Polyline points) { return walked.Map(static _ => Seq<Chain>()); }
             if (closed) { points.Add(points[0]); }
             chains.Add(new Chain(points, closed));
         }
-        return covered == graph.EdgeCount
-            ? Fin.Succ(toSeq(chains))
-            : Fin.Fail<Seq<Chain>>(new GeometryFault.IntersectionFault(a, b, Some(graph.Edges.First().Source)));
+        if (covered == graph.EdgeCount) { return Fin.Succ(toSeq(chains)); }
+        SEdge<int> missed = graph.Edges.First();
+        return Fin.Fail<Seq<Chain>>(new GeometryFault.IncompleteIntersectionWalk(a, b, missed.Source, missed.Target));
     }
 
-    static Option<Polyline> Corners(SEdge<int>[] run, Func<int, Option<Point3d>> corner) {
+    static Fin<Polyline> Corners(SEdge<int>[] run, Func<int, Option<Point3d>> corner, PrimitiveKind a, PrimitiveKind b) {
         Polyline line = new();
         foreach (int slot in run.Select(static edge => edge.Source).Append(run[^1].Target)) {
-            if (corner(slot).Case is not Point3d at) { return None; }
+            if (corner(slot).Case is not Point3d at) { return Fin.Fail<Polyline>(new GeometryFault.MissingIntersectionVertex(a, b, slot)); }
             line.Add(at);
         }
-        return Some(line);
+        return Fin.Succ(line);
     }
 }
 
@@ -250,23 +249,23 @@ public static class Intersection {
         && Predicate.Orient2D(Swap(a, Axis.X), Swap(b, Axis.X), Swap(c, Axis.X)) == Sign.Zero
         && Predicate.Orient2D(Swap(a, Axis.Y), Swap(b, Axis.Y), Swap(c, Axis.Y)) == Sign.Zero;
 
-    static Point3d Swap(Point3d p, Axis axis) => new(Axis.Coord(p, axis.U), Axis.Coord(p, axis.V), 0.0);
+    static Point3d Swap(Point3d p, Axis axis) => new(axis.U.Read(p), axis.V.Read(p), 0.0);
 
     // --- [NARROW_PHASE]
     static Option<Crossing> CrossSegments2D(Line a, Line b, Axis plane) {
-        Sign d1 = Predicate.Orient2D(new Implicit(a.From), new Implicit(a.To), new Implicit(b.From), plane);
-        Sign d2 = Predicate.Orient2D(new Implicit(a.From), new Implicit(a.To), new Implicit(b.To), plane);
-        Sign d3 = Predicate.Orient2D(new Implicit(b.From), new Implicit(b.To), new Implicit(a.From), plane);
-        Sign d4 = Predicate.Orient2D(new Implicit(b.From), new Implicit(b.To), new Implicit(a.To), plane);
+        Sign d1 = Predicate.Orient2D(a.From, a.To, b.From, plane);
+        Sign d2 = Predicate.Orient2D(a.From, a.To, b.To, plane);
+        Sign d3 = Predicate.Orient2D(b.From, b.To, a.From, plane);
+        Sign d4 = Predicate.Orient2D(b.From, b.To, a.To, plane);
         return d1.Times(d2) == Sign.Negative && d3.Times(d4) == Sign.Negative
-            ? Some(new Crossing(new Ssi(a.From, a.To, b.From, b.To, plane), CrossKey.Of(0, 0, 1, -1)))
+            ? Some(new Crossing(new Implicit.SegmentIntersection(a.From, a.To, b.From, b.To, plane), CrossKey.Of(0, 0, 1, -1)))
             : None;
     }
 
     static Option<Implicit> EdgePierce(Point3d u, Point3d v, Point3d a, Point3d b, Point3d c) {
         Sign su = Predicate.Orient3D(a, b, c, u), sv = Predicate.Orient3D(a, b, c, v);
         if (su.Times(sv) != Sign.Negative) { return None; }
-        Implicit hit = new Lpi(u, v, a, b, c);
+        Implicit hit = new Implicit.LinePlaneIntersection(u, v, a, b, c);
         return Axis.DominantOf(a, b, c).Case is Axis axis && InsideProjected(in hit, a, b, c, axis) ? Some(hit) : None;
     }
 
@@ -274,9 +273,9 @@ public static class Intersection {
         Placed(in p, a, b, c, axis).IsSome;
 
     static Option<(int Edge, int Vertex)> Placed(in Implicit p, Point3d a, Point3d b, Point3d c, Axis axis) {
-        Sign s0 = Predicate.Orient2D(new Implicit(a), new Implicit(b), in p, axis);
-        Sign s1 = Predicate.Orient2D(new Implicit(b), new Implicit(c), in p, axis);
-        Sign s2 = Predicate.Orient2D(new Implicit(c), new Implicit(a), in p, axis);
+        Sign s0 = Predicate.Orient2D(a, b, in p, axis);
+        Sign s1 = Predicate.Orient2D(b, c, in p, axis);
+        Sign s2 = Predicate.Orient2D(c, a, in p, axis);
         bool inside = (s0 != Sign.Negative && s1 != Sign.Negative && s2 != Sign.Negative)
             || (s0 != Sign.Positive && s1 != Sign.Positive && s2 != Sign.Positive);
         return !inside ? None
@@ -370,16 +369,16 @@ public static class Intersection {
         BoundingBox[] boxes = new BoundingBox[soup.FaceCount];
         for (int f = 0; f < soup.FaceCount; f++) { boxes[f] = soup.Bounds(f); }
         return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
-            .Bind(static answer => answer is SpatialAnswer.Index built
+            .Bind(answer => answer is SpatialAnswer.Index built
                 ? Fin.Succ(built.Value)
-                : Fin.Fail<SpatialIndex>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Overlap)));
+                : Fin.Fail<SpatialIndex>(key.InvalidResult()));
     }
 
     static Fin<Seq<(int Left, int Right)>> OverlapPairs(SpatialIndex a, SpatialIndex b, double inflation, Op key) =>
         Spatial.Apply(new SpatialOp.Query(a, new SpatialQuery.Overlap(b, inflation)), key)
-            .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Pairs pairs }
+            .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Pairs pairs }
                 ? Fin.Succ(pairs.Overlaps)
-                : Fin.Fail<Seq<(int, int)>>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Overlap)));
+                : Fin.Fail<Seq<(int, int)>>(key.InvalidResult()));
 
     // --- [CROSSINGS]
     static Fin<CrossingStore> Cross(IntersectOp.MeshMesh op, Op key) {
@@ -450,10 +449,10 @@ public static class Intersection {
                 (int u, int v) = (verts[e], verts[(e + 1) % 3]);
                 Sign su = signs[e], sv = signs[(e + 1) % 3];
                 if (su.Times(sv) == Sign.Negative) {
-                    Implicit hit = new Lpi(soup.Position(u), soup.Position(v), ta, tb, tc);
+                    Implicit hit = new Implicit.LinePlaneIntersection(soup.Position(u), soup.Position(v), ta, tb, tc);
                     if (Placed(in hit, ta, tb, tc, plane).Case is (int onEdge, int onVertex)) {
                         Keep(ends, onVertex >= 0
-                            ? store.Intern(new Implicit(other.Position(W(onVertex))), CrossKey.Vertex(otherSide, W(onVertex)))
+                            ? store.Intern(other.Position(W(onVertex)), CrossKey.Vertex(otherSide, W(onVertex)))
                             : onEdge >= 0
                                 ? store.Intern(in hit, CoplanarKey(side, otherSide, u, v, W(onEdge), W((onEdge + 1) % 3)))
                                 : store.Intern(in hit, CrossKey.Of(side, u, v, otherFace)));
@@ -545,20 +544,20 @@ public static class Intersection {
                 Sign third = s[(lying + 2) % 3];
                 if (!shared.TryGetValue((cu, cv), out Sign facing)) { shared[(cu, cv)] = third; continue; }
                 if (facing.Times(third) != Sign.Negative) { continue; }
-                int au = store.Intern(new Implicit(soup.Position(u)), CrossKey.Vertex(0, u));
-                int av = store.Intern(new Implicit(soup.Position(v)), CrossKey.Vertex(0, v));
+                int au = store.Intern(soup.Position(u), CrossKey.Vertex(0, u));
+                int av = store.Intern(soup.Position(v), CrossKey.Vertex(0, v));
                 (int from, int to) = Oriented(store, au, av, material);
                 store.Segment(from, to, f, -1);
                 continue;
             }
             List<int> ends = new(2);
             for (int i = 0; i < 3; i++) {
-                if (s[i] == Sign.Zero) { Keep(ends, store.Intern(new Implicit(soup.Position(verts[i])), CrossKey.Vertex(0, verts[i]))); }
+                if (s[i] == Sign.Zero) { Keep(ends, store.Intern(soup.Position(verts[i]), CrossKey.Vertex(0, verts[i]))); }
             }
             for (int e = 0; e < 3; e++) {
                 (int u, int v) = (verts[e], verts[(e + 1) % 3]);
                 if (s[e].Times(s[(e + 1) % 3]) == Sign.Negative) {
-                    Keep(ends, store.Intern(new Lpi(soup.Position(u), soup.Position(v), po, px, py), CrossKey.Of(0, u, v, -1)));
+                    Keep(ends, store.Intern(new Implicit.LinePlaneIntersection(soup.Position(u), soup.Position(v), po, px, py), CrossKey.Of(0, u, v, -1)));
                 }
             }
             if (ends.Count == 2) {
@@ -576,9 +575,9 @@ public static class Intersection {
         Sign forward = Along(op.Ray.Direction, axis);
         return Bvh(soup, key)
             .Bind(index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Range(new BoundingBox([from, to]), None)), key))
-            .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
+            .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
                 ? Fin.Succ(hits.Ids)
-                : Fin.Fail<Seq<int>>(new GeometryFault.KindMismatch(SpatialKind.Bvh, QueryKind.Range)))
+                : Fin.Fail<Seq<int>>(key.InvalidResult()))
             .Map(faces => {
                 Option<Implicit> best = None;
                 foreach (int f in faces) {
@@ -598,7 +597,7 @@ public static class Intersection {
             .Map(chains => (IntersectResult)new IntersectResult.Chains(chains, table));
 
     // --- [PRIMITIVES]
-    static Sign Along(Vector3d d, Axis axis) => Sign.Of(Axis.Coord(d, axis.Key));
+    static Sign Along(Vector3d d, Axis axis) => Sign.Of(axis.Along(d));
 }
 ```
 
@@ -616,13 +615,13 @@ flowchart LR
     IntersectOp -->|Orient3D / projected Orient2D straddles| Predicate
     IntersectOp -->|Overlap pairs / ray-reach Range via Spatial.Apply| SpatialIndex
     IntersectOp -->|MeshEdit.Of — the ONE soup| MeshEdit
-    Predicate -->|Lpi / Ssi defining-entity construction| Crossing
+    Predicate -->|LinePlaneIntersection / SegmentIntersection defining-entity construction| Crossing
     Crossing -->|CrossKey intern — exact cross-face merge| CrossingStore
     CrossingStore -->|key adjacency, Next successor| Chain
     Chain -->|oriented closed loops + typed open rows| IntersectResult
     CrossingStore -->|Freeze| CrossTable
     CrossTable -->|per-face constraint carriage| Arrangement
-    IntersectOp -.->|DegenerateInput / IntersectionFault| GeometryFault
+    IntersectOp -.->|DegenerateInput / direct intersection cases| GeometryFault
 ```
 
 ## [03]-[DENSITY_BAR]

@@ -14,7 +14,7 @@ Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Nu
 - Cases: every modality shares one quadric accumulation, one exact-plane-gated collapse loop, one Hausdorff bound, and one vsplit recorder.
 - Entry: `Simplify.Apply(SimplifyOp, Op?)` is the one decimation entrypoint, discriminating by `SimplifyOp` case and total over `Fin<DecimationResult>`, and reaches the kernel consumer API as `VectorIntent.Decimate` whose `SimplifyCase` arm projects through `DecimationResult.Project<TOut>`; `SimplifyPolicy.Of` is the one construction path so no entry re-tests it, and a budget no manifold-preserving collapse reaches faults typed.
 - Law: the target is ONE `SimplifyBudget` case, never a fraction-and-count knob pair a `> 0` sentinel selects between — the two spellings are one decision and the union names which was made. Ceilings that admit every bound read `None`, never a positive-infinity literal.
-- Law: the collapse fixpoint is `Cell.Converge` over one `Atom<bool>` under `CollapsePasses`; its transition state is read, and a stalled queue or exhausted budget lowers `DecimationFault` instead of becoming success-shaped termination.
+- Law: the collapse fixpoint is `Cell.Converge` over one `Atom<bool>` under `CollapsePasses`; its transition state is read, and a stalled queue or exhausted budget lowers `FaceBudgetMissed` instead of becoming success-shaped termination.
 - Law: the directed Hausdorff bound is MEASURED or absent — a run that sampled nothing lowers typed instead of publishing 0.0, and a nearest-query miss writes no distance and names its sample ordinals, so `TensorPrimitives.Max` folds only values the index answered.
 - Law: `SimplifyKind` carries ONE `CapabilitySet<SimplifyTrait>` column because the three guarantees have a corner law — a resampling kind rebuilds the surface from a level set, so `Resample` and `Topology` never co-occur on a row, and three independent bool columns spell that corner as representable.
 - Exemption: `QuadricStore.Pq` is a BCL `PriorityQueue` (K3): the collapse queue is a cost-keyed EVENT stream with lazy staleness rejection, not a graph walk, and QuikGraph carries no event queue. One-ring/incidence `HashSet[]` columns and the boundary-fan `Dictionary` stay mutable inside the single-writer span kernel — each is seeded once at `Seed` and mutated only by `ApplyCollapse` under the arena's own writer.
@@ -279,7 +279,7 @@ public sealed record DecimationResult(
     Seq<VertexSplit> Splits) {
     internal Fin<TOut> Project<TOut>(Op key) {
         DecimationResult self = this;
-        return AtomProjection.Rows<DecimationResult, TOut>(self: self, key: key,
+        return ResultProjection.Rows<DecimationResult, TOut>(self: self, key: key,
             ProjectionRow.Of<MeshSpace>(() => Fin.Succ(self.Mesh)),
             ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Features)),
             ProjectionRow.Of<Seq<VertexSplit>>(() => self.Traits.Admits(SimplifyTrait.Reversible)
@@ -357,7 +357,7 @@ public static class Simplify {
                 declined: key.InvalidResult());
             return driven.Current && store.Live <= budget
                 ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(new GeometryFault.DecimationFault(budget, store.Live));
+                : Fin.Fail<Unit>(new GeometryFault.FaceBudgetMissed(budget, store.Live));
 
             bool CollapsePass() {
                 EnqueueAll(store, edit, key);
@@ -606,7 +606,7 @@ public static class Simplify {
                     Atom<Seq<int>> misses = Atom(value: Seq<int>());
                     src.Parallel(filled, new DirectedDistance(index, src, samples.Memory, distances.Memory, misses, key));
                     return filled == 0
-                        ? Fin.Fail<double>(new GeometryFault.DecimationFault(0, lod.FaceCount))
+                        ? Fin.Fail<double>(key.InvalidResult())
                         : misses.Value.IsEmpty
                             ? Fin.Succ(TensorPrimitives.Max<double>(distances.Span[..filled]))
                             : Fin.Fail<double>(key.InvalidResult($"hausdorff: nearest-query miss at samples {string.Join(',', misses.Value.OrderBy(static ordinal => ordinal))}"));
@@ -684,7 +684,7 @@ flowchart LR
     CollapseValid -->|admit| ApplyCollapse
     ApplyCollapse -->|SetPosition / SetFace / KillFace| MeshEdit
     ApplyCollapse -->|VertexSplit record| Splits
-    ApplyCollapse -->|stall, no admissible| GeometryFault["DecimationFault"]
+    ApplyCollapse -->|stall, no admissible| GeometryFault["FaceBudgetMissed"]
     MeshEdit -->|ToSpace freeze| Simplified
     Simplified -->|Spatial.Apply Build+Nearest| SpatialIndex
     SpatialIndex -->|lane-keyed Deterministic draw + TensorPrimitives.Max| DecimationResult

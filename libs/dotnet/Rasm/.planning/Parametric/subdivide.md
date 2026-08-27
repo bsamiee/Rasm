@@ -142,7 +142,7 @@ public static class Subdivision {
     // --- [REFINEMENT_FOLD]
     static Fin<SubdivisionResult> RefineOf(SubdivideOp.Refine op, Op key) =>
         !op.Policy.IsValid
-            ? Fault<SubdivisionResult>(witness: "subdivision policy inadmissible")
+            ? Fin.Fail<SubdivisionResult>(key.InvalidInput())
             : AdmitBase(op).Bind(baseLevel => Range(0, op.Levels.Value).Fold(
                     Fin.Succ((Level: baseLevel, Creases: op.Policy.Creases, Corners: op.Policy.Corners, Closures: 0)),
                     (state, level) => state.Bind(s => Advance(op.Scheme, s.Level, s.Creases, s.Corners, op.Policy.Region, level)
@@ -167,9 +167,6 @@ public static class Subdivision {
                 new Arr<Vector3d>([.. rows.Select(static r => r.Normal)])));
 
     static Fin<(Point3d Point, Vector3d Normal)> EvaluateLimit(SubdivideOp.Limit op, FaceSample sample, Op key);
-
-    static Fin<T> Fault<T>(string witness, Option<int> unit = default) =>
-        Fin.Fail<T>(new GeometryFault.DevelopmentFault(DevelopmentStage.Subdivision, unit, witness));
 }
 ```
 
@@ -192,7 +189,7 @@ flowchart LR
     Fold -->|"CatmullClark: native quad Mesh"| Space["mesh.md MeshSpace.Of — quads preserved"]
     Scheme -->|"per-(scheme, valence), Cell.Claim memo"| Stam["Matrix.DecomposeEigenDetailed — Stam basis"]
     Stam -->|"(P̂ᵀV) Λᵐ (V⁻¹ b(u,v))"| LimitField
-    Op -.->|"DevelopmentFault.Subdivision — level"| GeometryFault
+    Op -.->|"InvalidInput — policy refusal"| GeometryFault
 ```
 
 ## [03]-[RESEARCH]
