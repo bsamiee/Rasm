@@ -87,6 +87,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS admit foreign material once at the boundary into evidence-carrying owners; the interior never re-validates and never sees raw shapes.
 - ALWAYS choose the outcome carrier once at admission, thread it unchanged, and collapse it only at the host, UI, or wire edge.
 - ALWAYS shape domain logic as expressions on the result type — dependence sequences, independence accumulates, and the carrier, never a flag, selects.
+- ALWAYS validate one invariant at one gate — distinct vocabularies sharing a shape reuse that gate instead of restating its clauses per lane.
 - ALWAYS keep boundary mapping at the edge; internal code uses canonical names and shapes.
 
 [COMPOSITION]:

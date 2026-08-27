@@ -109,7 +109,9 @@
 - `Rasm.Element` `RepresentationSlot` is the ONE representation roster — a peer composes it and seats its own admission column.
 - `Rasm.Materials` `DeclarationUnit` rosters declaration contracts and `Rasm.Compute` `DeclaredUnit` openEPD REST keys — neither set holds the other.
 - `Rasm.Materials` `SectionFactors` and `Rasm.Compute` `ResistanceFactors` split on the ALTITUDE word, as `SectionCapacity` splits `MemberCapacity`.
-- A `static` lambda reaches NO instance member — an arm calling one drops `static`; shadowing an enclosing local never earns it back.
+- `static` lambdas reach NO instance member — an arm calling one drops `static`; shadowing an enclosing local never earns it back.
+- Closed families dispatch through generated `Switch`/`Map` alone — a `_` arm or an `is` ladder forfeits the compile break each new case owes every consumer.
+- Subset coverage names `SwitchPartially`/`MapPartially` and its `@default:` arm, leaving the exhaustive pair unweakened and the narrowing visible at the call site.
 
 ## [03]-[COLLAPSE]
 
