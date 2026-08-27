@@ -103,7 +103,6 @@ Every reopen predicate rides the license gate.
 - `Hlc.Stamp` is the ONE causal stamp and `RasmEventEnvelope.Publish` the ONE door a durable kernel fact crosses — a sink or fan beside them forks.
 - Kernel hook facts are `SignalFact.Fault` and `SignalFact.Cost` alone — a result returns typed with its `IValidityEvidence`, never as a fact.
 - Semantic `IClock` and `MonotonicTimeline` never fuse — no joint invariant binds a wall instant to a monotonic mark, so a crossing takes both.
-- QuikGraph results leave as frozen SoA columns — a graph-typed member re-couples consumers to mutable topology; views project from columns on read.
 - `QuadratureRule` prism and conical rows derive order from the WEAKER leg — a wedge or pyramid rung is earned only by raising that leg.
 - `QuantileSketch` markers ride the `[InlineArray(5)]` `MarkerRow` pair with hand-written all-slot equality — the ValueType path reads slot 0 alone.
 - `Ring<T>.Park` transfers custody only after versioned state lands — eviction cleanup belongs to the committed settlement.
