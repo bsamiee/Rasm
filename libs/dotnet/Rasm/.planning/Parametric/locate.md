@@ -2,7 +2,7 @@
 
 `Rasm.Parametric` location algebra measures WHERE a point sits on a live `Curve`/`Surface` and WHAT value lives there, folding every addressing, value, subdivision, and curvature query to one `Operation<TGeometry, TOut>` the `Rasm.Analysis` runtime executes under `Eff<Env, Seq<TOut>>`. `AnalysisQuery.Location` is the sole public route in — everything behind that call is this owner's.
 
-Structural law is the (value × locator) matrix as CASE-OWNED rows: each `LocationValue` case owns its curve, surface, and perpendicular arms with a `Spatial/support` `SupportProjection` closest column, and the fold discriminates only the locator family. `Locator` carries its own `ResolveParameter` and `CurveRequirement`, so policy travels with the address; the page-local `Locate` static owner is the operation spine, the `Analysis/query` `Analyze` facade its only caller. Curve frame/tangent/curvature delegates to the `Parametric/projections` `CurveProjection` rows through `Processing/intent`, surface evaluation composes the `Domain/evaluation` family directly, coercion rides `Domain/normalization` leases, and statistics ride `Domain/stats`; every builder lands in `Operation<TGeometry, TOut>.Build`, whose substrate owns readiness and cancellation through `Prepare` so no arm re-checks them.
+Structural law is the (value × locator) matrix as CASE-OWNED rows: each `LocationValue` case owns its curve, surface, and perpendicular arms with a `Spatial/support` `SupportProjection` closest column, and the fold discriminates only the locator family. `Locator` carries its own `ResolveParameter` and `CurveRequirement`, so policy travels with the address; the page-local `Locate` static owner is the operation spine, the `Analysis/query` `Analyze` facade its only caller. Curve frame/tangent/curvature delegates to the `Parametric/projections` `CurveProjection` rows directly, surface evaluation composes the `Domain/evaluation` family directly, coercion rides `Domain/normalization` leases, and statistics ride `Domain/stats`; every builder lands in `Operation<TGeometry, TOut>.Build`, whose substrate owns readiness and cancellation through `Prepare` so no arm re-checks them.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ Structural law is the (value × locator) matrix as CASE-OWNED rows: each `Locati
 ## [02]-[LOCATION]
 
 - Owner: `Locator` `[Union]` is the addressing algebra — `CurveParameter`, `ArcLength`, `NormalizedLength`, `SurfaceParameter`, `ClosestTo`, `PerpendicularParameters`; `NormalizedMid` is the `NormalizedLength(0.5)` factory, the arc-length-normalized station family one payload. Addressing carries its own policy: `ResolveParameter` lowers the three curve addresses to a parameter under `Context.Fractional`, and `CurveRequirement` derives the readiness gate (`Requirement.CurveLength` for the length-driven addresses, `Requirement.Basic` otherwise), never a per-arm literal.
-- Owner: `LocationValue` `[Union]` — `Point`, `Frame`, `Normal`, `Tangent`, `Curvature`, `Derivative`, `Parameter`, `Length`, each a ROW of the (value × locator) matrix carrying a `nameof`-derived `Op Key`, an `Option<SupportProjection>` closest column, and virtual `OnCurve`/`OnSurface`/`OnPerpendicular` arms defaulting to `Unsupported`; `Resolve` folds the locator FAMILY to the owning arm, the curve family riding the default route. Curve arms delegate frame/tangent/curvature to the `Parametric/projections` `CurveProjection` rows through `VectorIntent.Curve`, never a second evaluation path; surface arms compose the `Domain/evaluation` floor; `Length` measures `Curve.GetLength` from `Domain.T0` to the resolved parameter; `Parameter` surfaces the address the resolution already computed; `Derivative` carries a `Dimension` order, so both arms lost the guard a non-positive order used to need. The seven parameterless rows are seated `static readonly` values, the payload-carrying `Derivative` alone a factory.
+- Owner: `LocationValue` `[Union]` — `Point`, `Frame`, `Normal`, `Tangent`, `Curvature`, `Derivative`, `Parameter`, `Length`, each a ROW of the (value × locator) matrix carrying a `nameof`-derived `Op Key`, an `Option<SupportProjection>` closest column, and virtual `OnCurve`/`OnSurface`/`OnPerpendicular` arms defaulting to `Unsupported`; `Resolve` folds the locator FAMILY to the owning arm, the curve family riding the default route. Curve arms delegate frame/tangent/curvature to the `Parametric/projections` `CurveProjection` rows' own `Project<TOut>` gate, never a second evaluation path; surface arms compose the `Domain/evaluation` floor; `Length` measures `Curve.GetLength` from `Domain.T0` to the resolved parameter; `Parameter` surfaces the address the resolution already computed; `Derivative` carries a `Dimension` order, so both arms lost the guard a non-positive order used to need. The seven parameterless rows are seated `static readonly` values, the payload-carrying `Derivative` alone a factory.
 - Owner: `Division` `[Union]` — `ByCount`, `ByLength`, `ByChord`, `AsContour`, each carrying its own `Admit(Context, Op)` — the count positive, the spacings and the contour axis span against `ToleranceLane.Length`/`ToleranceLane.Chord` — run inside `Locate.Divide`'s lease where the runtime `Context` is in hand, and lowering to `Curve.DivideByCount`/`DivideByLength`/`DivideEquidistant`/`DivideAsContour`; the length-driven cases carry `Requirement.CurveLength`, and each case is its own division LAW — arc-length, straight-line chord, and contour-plane spacing never collapse onto one distance knob.
 - Owner: `CurvatureMode` `[Union]` — `Vector`, `Scalar`, carrying the two derivation columns (`IsCurveMagnitude`; `SurfaceMetrics`, vector mode yielding `Gaussian`+`Mean` and a surface scalar its singleton) AND the per-family `OnCurve`/`OnSurface` lane arms that own the (mode × aggregation × output) matrix as ROWS; `CurvatureAggregation` `[Union]` — `Samples`, `Extrema`, its `Key` column selecting the operation identity, `Band` naming the `ToleranceLane` the sweep resolves against the runtime `Context` for the `Stat.Extrema` plateau set, and `Reduce` the one station→output projection both aggregations publish through.
 - Owner: `Location` `[Union]` — the aspect the query routes: `At`, `Curvature`, `Divide`, `Orientation`, `Contains`, `ShortPath`; twin sample/extrema cases collapse to ONE `CurvatureCase` discriminated by `CurvatureAggregation`, aggregation a value, not a sibling case.
@@ -21,7 +21,7 @@ Structural law is the (value × locator) matrix as CASE-OWNED rows: each `Locati
 - Law: the extremum plateau is a `ToleranceLane` on the case, resolved to a `Tolerance` at the sweep where the runtime `Context` is in hand — a stored double band cannot say WHICH gate widened the plateau, and a caller minting one has no document to mint it from. NAMED LOSS: the exact `band = 0.0` extremum; `ToleranceLane.Neglect` is the canonical row an absent band takes, a sub-tolerance floor no measured curvature pair separates.
 - Output: the typed value sequence IS the result, `Stat<Scalar>` the `Domain/stats` summary carrier, and refusals ride the `Op` fault taxonomy: `Reject` for admission-invalid requests, `Unsupported` for impossible (value, locator, geometry, output) combinations, `InvalidResult` for host-evaluation refusals.
 - Growth: a new value is one `LocationValue` case with its arms and columns; a new curve address is one `Locator` case with its `ResolveParameter` arm and the fold untouched, a non-curve address adding its own `Resolve` arm; a new aggregation is one `CurvatureAggregation` case; a new aspect is one `Location` case and one `Switch` arm — zero new entrypoints, zero new runtimes.
-- Boundary: this owner is Rhino-parametric ANALYSIS altitude, measuring live `Curve`/`Surface` under the `Analysis` runtime; `Parametric/curve` is the host-neutral counterpart for the non-Rhino runtime. Matrix rows live in the value AND mode cases — a central tuple-switch over either is the collapse-regression. Closest-point addressing composes `SupportSpace.Of` + `VectorIntent.Support` + the `SupportProjection` column; a locator-local closest-point implementation is the parallel-path defect. Coercion is always the `CurveForm`/`SurfaceForm` LEASE, a raw cast beside it the ownership leak. `SurfaceCurvature` bundles read lease-scoped everywhere except the two rows whose OUTPUT is the bundle — there disposal transfers to the caller by contract and the refusal path still disposes. Surface point/frame/normal arms compose the `Domain/evaluation` floor DIRECTLY: the operation has normalized the UV, so re-entering `SurfaceProjection.Project` re-admits and re-normalizes (the double-validation defect).
+- Boundary: this owner is Rhino-parametric ANALYSIS altitude, measuring live `Curve`/`Surface` under the `Analysis` runtime; `Parametric/curve` is the host-neutral counterpart for the non-Rhino runtime. Matrix rows live in the value AND mode cases — a central tuple-switch over either is the collapse-regression. Closest-point addressing composes `SupportSpace.Of` + `SupportSpace.Closest` + the `SupportProjection` column's `Project<TOut>`; a locator-local closest-point implementation is the parallel-path defect. Coercion is always the `CurveForm`/`SurfaceForm` LEASE, a raw cast beside it the ownership leak. `SurfaceCurvature` bundles read lease-scoped everywhere except the two rows whose OUTPUT is the bundle — there disposal transfers to the caller by contract and the refusal path still disposes. Surface point/frame/normal arms compose the `Domain/evaluation` floor DIRECTLY: the operation has normalized the UV, so re-entering `SurfaceProjection.Project` re-admits and re-normalizes (the double-validation defect).
 
 ## [03]-[OPERATIONS]
 
@@ -36,7 +36,6 @@ using System.Runtime.InteropServices;
 using Rasm.Analysis;
 using Rasm.Domain;
 using Rasm.Numerics;
-using Rasm.Processing;
 using Rasm.Spatial;
 using Rhino;
 
@@ -90,8 +89,7 @@ public abstract partial record LocationValue {
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Frame);
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, Plane>(key: LocationKeys.FrameAt, locator: locator, project: static (key, curve, t, context) =>
-                VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Frame, key: key)
-                    .Bind(intent => intent.Project<Plane>(context: context, key: key))
+                CurveProjection.Frame.Project<Plane>(curve: curve, parameter: t, context: context, key: key)
                     .Bind(plane => key.Accept(value: plane)));
         internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
             Locate.Surface<TGeometry, TOut, Plane>(key: LocationKeys.FrameAt, uv: uv, project: static (key, surface, p) =>
@@ -104,8 +102,7 @@ public abstract partial record LocationValue {
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Normal);
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, Vector3d>(key: LocationKeys.NormalAt, locator: locator, project: static (key, curve, t, context) =>
-                VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.FrameNormal, key: key)
-                    .Bind(intent => intent.Project<Vector3d>(context: context, key: key))
+                CurveProjection.FrameNormal.Project<Vector3d>(curve: curve, parameter: t, context: context, key: key)
                     .Bind(normal => key.Accept(value: normal)));
         internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
             Locate.Surface<TGeometry, TOut, Vector3d>(key: LocationKeys.NormalAt, uv: uv, project: static (key, surface, p) =>
@@ -116,16 +113,14 @@ public abstract partial record LocationValue {
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Tangent);
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, Vector3d>(key: LocationKeys.TangentAt, locator: locator, project: static (key, curve, t, context) =>
-                VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Tangent, key: key)
-                    .Bind(intent => intent.Project<Vector3d>(context: context, key: key))
+                CurveProjection.Tangent.Project<Vector3d>(curve: curve, parameter: t, context: context, key: key)
                     .Bind(tangent => key.Accept(value: tangent)));
     }
     public sealed record CurvatureCase : LocationValue {
         internal override Op Key => LocationKeys.CurvatureAt;
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, Vector3d>(key: LocationKeys.CurvatureAt, locator: locator, project: static (key, curve, t, context) =>
-                VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Curvature, key: key)
-                    .Bind(intent => intent.Project<Vector3d>(context: context, key: key))
+                CurveProjection.Curvature.Project<Vector3d>(curve: curve, parameter: t, context: context, key: key)
                     .Bind(curvature => key.Accept(value: curvature)));
         internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
             Locate.Surface<TGeometry, TOut, SurfaceCurvature>(key: LocationKeys.CurvatureAt, uv: uv, project: static (key, surface, p) =>
@@ -374,8 +369,9 @@ internal static class Locate {
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from space in SupportSpace.Of(value: geometry, key: state.Key).ToEff()
-                    from intent in VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection, key: state.Key).ToEff()
-                    from result in intent.Project<TOut>(context: context, key: state.Key).Map(static value => Seq(value)).ToEff()
+                    from hit in space.Closest(sample: state.Target, key: state.Key).ToEff()
+                    from result in state.Projection.Project<TOut>(space: space, hit: hit, sample: state.Target, context: context, key: state.Key)
+                        .Map(static value => Seq(value)).ToEff()
                     select result),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
@@ -555,8 +551,8 @@ flowchart LR
     Location -->|Divide / Orientation / Contains / ShortPath| Spine["Locate aspect builders"]
     Rows -->|curve family| CurveArm["Locate.Curve — CurveForm lease · Locator.ResolveParameter"]
     Rows -->|SurfaceParameter| SurfaceArm["Locate.Surface — SurfaceForm lease · Evaluation.SurfaceUv"]
-    Rows -->|ClosestTo × SupportProjection column| ClosestArm["Locate.Closest — SupportSpace + VectorIntent.Support"]
-    CurveArm -.->|VectorIntent.Curve → Frame / Tangent / Curvature| Projections["Parametric/projections CurveProjection rows"]
+    Rows -->|ClosestTo × SupportProjection column| ClosestArm["Locate.Closest — SupportSpace.Closest + SupportProjection.Project"]
+    CurveArm -.->|CurveProjection.Project → Frame / Tangent / Curvature| Projections["Parametric/projections CurveProjection rows"]
     Sweep -->|"Stat&lt;Scalar&gt;.Of · Stat.Extrema(band) · ScalarMetric"| Stats["Domain/stats"]
     Sweep -->|lease-scoped SurfaceCurvature| Rhino["Rhino.Geometry evaluation"]
     Spine --> Rhino

@@ -2,7 +2,7 @@
 
 Inspection owns the measured-query runtime's topology-scalar and mesh-quality diagnostics: `Topologies` `[Union]` closes structural interrogation over both Brep and Mesh, and `Meshes` `[Union]` closes mesh census, per-polygon metrics, and boundary extraction. Brep/mesh polymorphism collapses into one `OnGeometry` gate lowering brep-coercible inputs through the leased brep form, so every scalar, orientation, containment, and component fold is written once and a per-operation geometry switch is the deleted repetition. Both unions publish their operation builders on THEMSELVES — the `Analyze` facade lives once on `Analysis/query` and this page adds no fragment to it.
 
-Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/cloud` law projected through `Processing/intent` `VectorIntent`, the streaming moment fold is `Domain/stats` law on the `Scalar` carrier, and the `Kind` web, the `BrepForm`/`SurfaceForm` leases, and the `TopologyProjection` carrier are `Domain/normalization` law. Every carrier declares `IValidityEvidence`, admitted through the one `Domain/validation` acceptance oracle `Analysis/query` owns, and each family union exposes `internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>()` as that dispatch entry.
+Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/cloud` law projected through `VectorCloudMetric.Project`, direction and dihedral admission `Numerics/atoms` law through `Direction.Of` and `VectorAngle.Of`, the streaming moment fold is `Domain/stats` law on the `Scalar` carrier, and the `Kind` web, the `BrepForm`/`SurfaceForm` leases, and the `TopologyProjection` carrier are `Domain/normalization` law. Every carrier declares `IValidityEvidence`, admitted through the one `Domain/validation` acceptance oracle `Analysis/query` owns, and each family union exposes `internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>()` as that dispatch entry.
 
 ## [01]-[INDEX]
 
@@ -246,7 +246,7 @@ public sealed partial class TopologyScalar {
 - Law: absence is `Option`, never a null-object row. `Meshes.FaceQuality(Option<MeshMetric>)` defaults through `IfNone(MeshMetric.EdgeAspect)`, so the census `MeshMetric.None`, `MeshSampleGroup.None`, and `MeshSampleKind.None` rows — each existing only to be rejected — DELETE with the `Equals(None)` guards that read them.
 - Auto: `CensusSource` decides the capture with one row column — `Native` answers the host defaults and `Checked` runs `Requirement.MeshReport` once per census — so the standalone check operation and its nested `Apply` hop delete and every band row reads one capture. Visible-polygon resolution maps an ngon-or-face onto the canonical `ComponentIndex` (`MeshNgon` for ngon members, `MeshFace` otherwise) and extracts its boundary ring, so every per-polygon metric addresses one component vocabulary. Metric measurement short-circuits host fast paths where they exist and folds the `Spatial/cloud` ring metric everywhere else; ngon area sums constituent faces, ngon normals area-weight constituent normals, and the dihedral fold walks ngon-external adjacency for the maximum inter-polygon angle at `ToleranceLane.Angle`. Every per-polygon fold reads the runtime cancellation token between polygons, returning `Errors.Cancelled` mid-census rather than finishing a stale sweep; `Requirement.MeshCheck` gates every metric operation so no defective mesh reaches a measurement.
 - Output: `MeshSample`, `MeshMetricSample`, and `MeshFaceShape` carry the sample, the addressed measurement, and the addressed `Spatial/cloud` shape classification; each declares `IValidityEvidence` through the `Domain/results` `ValidityClaim` fold.
-- Packages: RhinoCommon (`Mesh.Check`/`MeshCheckParameters`, `MeshNgon` census, face and ngon accessors, outlines, `ComponentIndex`), `Rasm.Spatial` (`VectorCloud` ring metrics), `Rasm.Processing` (`VectorIntent`), `Rasm.Domain` (`Requirement.MeshCheck`/`MeshReport`, `Scalar`/`Stat`, `Tolerance`, `TopologyProjection`, `Op`/`Fault` types), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon (`Mesh.Check`/`MeshCheckParameters`, `MeshNgon` census, face and ngon accessors, outlines, `ComponentIndex`), `Rasm.Spatial` (`VectorCloud` ring metrics through `VectorCloudMetric.Project`), `Rasm.Numerics` (`Direction.Of`, `VectorAngle.Of`), `Rasm.Domain` (`Requirement.MeshCheck`/`MeshReport`, `Scalar`/`Stat`, `Tolerance`, `TopologyProjection`, `Op`/`Fault` types), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new mesh sample is one `MeshSampleKind` row in its band, the census and sample machinery untouched; a new face metric is one `MeshMetric` row binding a measure delegate over the same polygon resolution, and a new metric OUTPUT is one `OutputBinding` arm on `Measure` over the same census; a new capture source is one `CensusSource` row; a new polygon-level extraction is one `Meshes` case lifted through `Lift`.
 - Boundary: a row's band derives from its key decade — the `group:` column beside it was a second authority one edit could contradict, and the index is read through its accessor so the generator has filled `Items` first; defect rows read the one threaded `MeshCheckParameters` capture and a per-row `Mesh.Check` re-run is the killed N-fold host cost; face metrics measure visible polygons through the canonical `ComponentIndex` addressing, never a triangle-level parallel family; ring measurement routes through the `Spatial/cloud` metric surface exclusively, never a local perimeter/skewness/area loop; `AtVisiblePolygon` re-emits the `Domain/normalization` `TopologyProjection` carrier on its `Fin` result so downstream extraction shares the corpus transfer/disposal protocol.
 
@@ -259,7 +259,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.Processing;
+using Rasm.Numerics;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
@@ -496,8 +496,7 @@ public sealed partial class MeshMetric {
     private static Fin<TOut> Ring<TOut>(VectorCloudMetric metric, PolygonProbe probe, Context context, Op key) =>
         probe.Vertices.Match(Some: Fin.Succ, None: () => VerticesOf(mesh: probe.Mesh, source: probe.Source, key: key))
             .Bind(points => VectorCloud.Ring(points: points, context: context, key: key))
-            .Bind(cloud => VectorIntent.Cloud(cloud: cloud, metric: metric, key: key))
-            .Bind(intent => intent.Project<TOut>(context: context, key: key));
+            .Bind(cloud => metric.Project<TOut>(cloud: cloud, policy: Option<NeighborhoodPolicy>.None, key: key));
     private static Fin<Vector3d> NormalOf(PolygonProbe probe, Context context, Op key) => probe.Source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < probe.Mesh.Faces.Count =>
             probe.Moments.At(face: face, measure: () => FaceMomentOf(probe: probe, face: face, context: context, key: key)).Map(static moment => moment.Normal),
@@ -505,13 +504,13 @@ public sealed partial class MeshMetric {
             FaceIndicesOf(mesh: probe.Mesh, ngon: ngon, key: key)
                 .Bind(faces => Normals(mesh: probe.Mesh)
                     ? faces.TraverseM(face => probe.Moments.At(face: face, measure: () => FaceMomentOf(probe: probe, face: face, context: context, key: key))).As()
-                        .Bind(moments => VectorIntent.Direction(value: moments.Fold(initialState: Vector3d.Zero, f: static (sum, moment) => sum + (moment.Normal * moment.Area))).Project<Vector3d>(context: context, key: key))
+                        .Bind(moments => Rasm.Numerics.Direction.Of(value: moments.Fold(initialState: Vector3d.Zero, f: static (sum, moment) => sum + (moment.Normal * moment.Area)), context: context, key: key).Map(static direction => direction.Value))
                     : Ring<Vector3d>(metric: VectorCloudMetric.Normal, probe: probe, context: context, key: key)),
         _ => Fin.Fail<Vector3d>(key.InvalidInput()),
     };
     private static Fin<(Vector3d Normal, double Area)> FaceMomentOf(PolygonProbe probe, int face, Context context, Op key) =>
         Normals(mesh: probe.Mesh)
-            ? from normal in VectorIntent.Direction(value: new Vector3d(probe.Mesh.FaceNormals[face])).Project<Vector3d>(context: context, key: key)
+            ? from normal in Rasm.Numerics.Direction.Of(value: new Vector3d(probe.Mesh.FaceNormals[face]), context: context, key: key).Map(static direction => direction.Value)
               from area in Ring<double>(metric: VectorCloudMetric.Area, probe: probe.AtFace(face: face), context: context, key: key)
               select (Normal: normal, Area: area)
             : Fin.Fail<(Vector3d Normal, double Area)>(key.InvalidResult());
@@ -539,7 +538,7 @@ public sealed partial class MeshMetric {
                 _ => Fin.Fail<Seq<int>>(key.InvalidInput()),
             }).Bind((Seq<int> neighbours) => neighbours
                 .TraverseM(other => NormalOf(probe: probe.AtFace(face: other), context: context, key: key)
-                    .Bind(neighbour => VectorIntent.Angular(a: normal, b: neighbour).Project<double>(context: context, key: key))).As()
+                    .Bind(neighbour => VectorAngle.Of(a: normal, b: neighbour, context: context, pivot: Option<AnglePivot>.None, key: key).Map(static angle => angle.Value))).As()
                 .Bind(angles => Stat.Extrema(items: angles, projection: static angle => angle, band: context.For(lane: ToleranceLane.Angle), direction: ExtremumDirection.Maximum)
                     .Head.ToFin(key.InvalidResult()))));
 }

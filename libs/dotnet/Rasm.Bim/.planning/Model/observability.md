@@ -140,7 +140,7 @@ public abstract partial record BimFact : IHookFact<BimPoint> {
 
     public bool Seats(BimPoint at) => Point.Equals(at);
 
-    public BimPoint Point => this.Map(
+    public BimPoint Point => this.Switch(
         progress: static f => f.Lane.At(),
         imported: static _ => BimPoint.Imported,
         exported: static _ => BimPoint.Exported,

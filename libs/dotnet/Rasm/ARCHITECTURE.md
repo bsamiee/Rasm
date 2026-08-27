@@ -61,14 +61,13 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   └── Reconstruct.cs     # Each ReconstructionPolicy case builds a fields scalar field; native callbacks convert through Op.Catch
 ├── Processing/            # Algorithm pipelines over the floors
 │   ├── Repair.cs          # Total over its input class: non-manifold and odd-Euler meshes heal rather than fail; mints no content hash
-│   ├── Session.cs         # ManifoldStatus, per-op HealStep, HealSession, RebuildLog; interior types crossing to the naming fold
+│   ├── Session.cs         # HealStep evidence over the Topology witness, HealSession chain; interior heal evidence Heal.Repair returns
 │   ├── Decimate.cs        # Exact Orient3D gate refuses flipped faces by construction; reversible vertex-split stream, Hausdorff budget
 │   ├── Remesh.cs          # One projected-convexity exact flip gate over a single MeshEdit arena; first-principles rewrite, no host echo
 │   ├── Flatten.cs         # Pinned solves eliminate boundary rows so the interior factors SPD; penalty forms are the refused class
-│   ├── Intent.cs          # One Project<TOut>(Context, Op?) egress, the frozen signature Rasm.Rhino Camera binds while owners re-derive
 │   ├── Sample.cs          # PowerCcvtPolicy.Preset mints tuning on the Op channel; every threshold reads its own tolerance row at the run
 │   ├── Extract.cs         # ContourPolicy routes each domain to its named owner: host adapters, crossing table, or the marching lane
-│   ├── Flow.cs            # Termination union decides every stop; MorseAtlas.Of folds the tracer into a frozen-column MorseGraph
+│   ├── Flow.cs            # Termination union decides every stop; MorseAtlas.Of<TOut> folds the tracer into a frozen-column MorseGraph and projects it
 │   ├── Register.cs        # Two VectorCloud clusters in, one gated Transform out; the Procrustes lane adds scale under the policy record
 │   ├── Geodesics.cs       # Every solver runs against the shared LaplacianCache; fields case names delegate their bodies here
 │   └── Segment.cs         # Host restructure is CAPTURE; this page owns the native surface and never re-derives the first-principles tier
@@ -143,7 +142,7 @@ flowchart TB
         Domain[Domain]
     end
     Parametric e1@-->|"[IMPORT]: RemeshOp"| Processing
-    Drawing e2@-->|"[IMPORT]: VectorIntent"| Processing
+    Drawing e2@-->|"[IMPORT]: MeshFeaturePolicy"| Processing
     Parametric e3@-->|"[IMPORT]: MeshSpace"| Meshing
     Drawing e4@-->|"[IMPORT]: MeshSpace"| Meshing
     Drawing e5@-->|"[IMPORT]: ScalarField"| Spatial
@@ -267,11 +266,10 @@ flowchart LR
     Fabrication{{Rasm.Fabrication}}
     Domain e1@-->|"[WIRE]: Stat"| Fabrication
     Spatial e2@-->|"[SHAPE]: SpatialIndex"| Fabrication
-    Numerics e3@-->|"[SHAPE]: Predicate + SpectralArena + CellLattice"| Fabrication
+    Numerics e3@-->|"[SHAPE]: Predicate + SpectralArena + CellLattice + VectorCone"| Fabrication
     Meshing e4@-->|"[WIRE]: MeshSpace + SliceStack + CurveSkeleton"| Fabrication
     Parametric e5@-->|"[WIRE]: ParametricOp + DevelopOp + DevelopmentResult"| Fabrication
     Parametric e12@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceStream"| Fabrication
-    Processing e6@-->|"[WIRE]: VectorIntent"| Fabrication
     Processing e7@-->|"[PROJECTION]: ChartAtlas"| Fabrication
     Solving e8@-->|"[SHAPE]: ObjectiveSense"| Fabrication
     Solving e9@-->|"[WIRE]: Fitted"| Fabrication
@@ -296,7 +294,6 @@ flowchart LR
         Spatial[Spatial fields]
         Meshing[Mesh substrate]
         Parametric[Parametric producers]
-        Processing[Processing pipeline]
         Drawing[Drawing producers]
         Analysis[Analysis entry]
         Interaction[Interaction plane]
@@ -311,9 +308,8 @@ flowchart LR
     Numerics e6@-->|"[BOUNDARY]: Dimension + PerceptualColor + UnitInterval"| Grasshopper
     Spatial e7@-->|"[CONTENT_KEY]: GeometryHash"| Rhino
     Meshing e8@-->|"[WIRE]: MeshSpace"| Rhino
-    Parametric e9@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline + MotionDrive"| Rhino
+    Parametric e9@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline + MotionDrive + MotionInterpolation"| Rhino
     Parametric e10@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline + MotionDrive + SpringShape"| Grasshopper
-    Processing e11@-->|"[BOUNDARY]: VectorIntent"| Rhino
     Drawing e12@-->|"[BOUNDARY]: LayerName + LineWidth + SheetSize + ViewPose"| Rhino
     Drawing e13@-->|"[WIRE]: EncodedGeometry"| Rhino
     Analysis e14@-->|"[BOUNDARY]: AnalysisQuery"| Rhino

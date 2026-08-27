@@ -1081,10 +1081,10 @@ public static class ChatterStability {
                 .Map(lobe => (Mode: mode, Lobe: lobe, Response: request.Modal.Modes[mode])))
         from results in requests
             .Traverse(row => Band(row.Mode, row.Lobe, row.Response, coefficient, request).ToValidation()).As().ToFin()
-        let bands = results.Bind(static row => row.Map(
+        let bands = results.Bind(static row => row.Switch(
             solved: static solved => solved.Bands,
             rejected: static _ => Seq<StabilityBand>()))
-        let gaps = results.Bind(static row => row.Map(
+        let gaps = results.Bind(static row => row.Switch(
             solved: static solved => solved.Gaps,
             rejected: static rejected => rejected.Gaps))
         from _ in bands.IsEmpty

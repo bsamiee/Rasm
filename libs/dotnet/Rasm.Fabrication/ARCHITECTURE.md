@@ -255,7 +255,7 @@ flowchart LR
     Rasm e4@-->|"[WIRE]: CurveSkeleton"| Toolpath
     Rasm e5@-->|"[WIRE]: SliceStack"| Additive
     Rasm e6@-->|"[WIRE]: DevelopOp + DevelopmentResult"| Forming
-    Rasm e7@-->|"[WIRE]: VectorIntent"| Kinematics
+    Rasm e7@-->|"[SHAPE]: VectorCone"| Kinematics
     Rasm e8@-->|"[PROJECTION]: ChartAtlas"| Nesting
     Rasm e9@-->|"[WIRE]: Stat"| Spec
     Rasm e10@-->|"[WIRE]: Fitted"| Verify

@@ -66,46 +66,45 @@
 
 [PROCESSING]:
 - [49]-[REPAIR](.planning/Processing/repair.md): Repair API — closed `HealOp` algebra over the mesh arena with the typed `HealStep` chain.
-- [50]-[SESSION](.planning/Processing/session.md): Typed `HealStep` family and the heal-session fold feeding the naming re-anchor.
+- [50]-[SESSION](.planning/Processing/session.md): `HealStep` evidence over the `Topology` witness and the `HealSession` chain `Heal.Repair` returns.
 - [51]-[DECIMATE](.planning/Processing/decimate.md): Predicate-gated decimation and display LOD — one `SimplifyOp` over the quadric collapse queue.
-- [52]-[REMESH](.planning/Processing/remesh.md): Remesh substrate — isotropic and cross-field rewriting minting quad provenance panelize consumes.
+- [52]-[REMESH](.planning/Processing/remesh.md): Remesh substrate — isotropic and cross-field rewriting to one `RemeshResult` whose quad layout panelize consumes.
 - [53]-[FLATTEN](.planning/Processing/flatten.md): Robust UV-flattening — one `ParamOp` over the DEC substrate returning the typed chart atlas.
-- [54]-[INTENT](.planning/Processing/intent.md): Kernel consumer API — `VectorIntent` union with admission dispatching the owning pages.
-- [55]-[SAMPLE](.planning/Processing/sample.md): Point-sampling owner — `SampleKind` union with grouped preset policies over the sampling domains.
-- [56]-[EXTRACT](.planning/Processing/extract.md): Extraction/projection API — ingress, native-first sectioning, and typed projection rows.
-- [57]-[FLOW](.planning/Processing/flow.md): Streamline owner on any vector field — dense-output event localization, `MorseAtlas` topology fold.
-- [58]-[REGISTER](.planning/Processing/register.md): Registration owner — the `AlignKind` ICP dispatcher behind one alignment policy record.
-- [59]-[GEODESICS](.planning/Processing/geodesics.md): On-mesh distance suite — heat-method and geodesics, log/exp maps, and parallel transport.
-- [60]-[SEGMENT](.planning/Processing/segment.md): Spectral shape-analysis owner — descriptors, segmentation, cross-fields, and host capture.
+- [54]-[SAMPLE](.planning/Processing/sample.md): Point-sampling owner — `SampleKind` union with grouped preset policies over the sampling domains.
+- [55]-[EXTRACT](.planning/Processing/extract.md): Extraction/projection API — ingress, native-first sectioning, and typed projection rows.
+- [56]-[FLOW](.planning/Processing/flow.md): Streamline owner on any vector field — dense-output event localization, `MorseAtlas` topology fold.
+- [57]-[REGISTER](.planning/Processing/register.md): Registration owner — the `AlignKind` ICP dispatcher behind one alignment policy record.
+- [58]-[GEODESICS](.planning/Processing/geodesics.md): On-mesh distance suite — heat-method and geodesics, log/exp maps, and parallel transport.
+- [59]-[SEGMENT](.planning/Processing/segment.md): Spectral shape-analysis owner — descriptors, segmentation, cross-fields, and host capture.
 
 [SOLVING]:
-- [61]-[SOLVER](.planning/Solving/solver.md): Nonlinear least-squares owner — `Lm.Minimize`, `Dual<T>` auto-Jacobians, island-decomposed constraints.
-- [62]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — the MLESAC sampler and orthogonal-distance refine returning the typed `Fitted`.
+- [60]-[SOLVER](.planning/Solving/solver.md): Nonlinear least-squares owner — `Lm.Minimize`, `Dual<T>` auto-Jacobians, island-decomposed constraints.
+- [61]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — MSAC/MLESAC consensus and orthogonal-distance refine returning the typed `Fitted`.
 
 [DRAWING]:
-- [63]-[VIEW](.planning/Drawing/view.md): Exact hidden-line and silhouette projection — invisibility kernel returning `DrawingProjection` carrier.
-- [64]-[PACK](.planning/Drawing/pack.md): Canonical encoding owner — `PackOp` into the dtype-strided byte arena with a lossless round-trip witness.
-- [65]-[SHEET](.planning/Drawing/sheet.md): Drawing-standards owner — derived sheet series, frames, scale ladders, naming grammars, and plot policy.
-- [66]-[HATCH](.planning/Drawing/hatch.md): Pattern-fill synthesis — course and dash band rows, per-region policy, and the slot census.
+- [62]-[VIEW](.planning/Drawing/view.md): Exact hidden-line and silhouette projection — invisibility kernel returning `DrawingProjection` carrier.
+- [63]-[PACK](.planning/Drawing/pack.md): Canonical encoding owner — `PackOp` into the dtype-strided byte arena with a lossless round-trip witness.
+- [64]-[SHEET](.planning/Drawing/sheet.md): Drawing-standards owner — derived sheet series, frames, scale ladders, naming grammars, and plot policy.
+- [65]-[HATCH](.planning/Drawing/hatch.md): Pattern-fill synthesis — course and dash band rows, per-region policy, and the slot census.
 
 [ANALYSIS]:
-- [67]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one request algebra and its verb roster.
-- [68]-[MEASURE](.planning/Analysis/measure.md): Metrology owner — mass properties, enclosing bounds, and conformance residual sampling.
-- [69]-[INSPECT](.planning/Analysis/inspect.md): Diagnostics owner — genus and Euler topology folds with the full mesh defect and quality capture.
-- [70]-[SELECT](.planning/Analysis/select.md): Selection/extraction owner — the edge taxonomy, silhouette and draft capture, and PCA spread.
-- [71]-[RELATIONS](.planning/Analysis/relations.md): Pairwise-relation owner — RhinoCommon intersection table beside the meshing altitude.
+- [66]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one request algebra and its verb roster.
+- [67]-[MEASURE](.planning/Analysis/measure.md): Metrology owner — mass properties, enclosing bounds, and conformance residual sampling.
+- [68]-[INSPECT](.planning/Analysis/inspect.md): Diagnostics owner — genus and Euler topology folds with the full mesh defect and quality capture.
+- [69]-[SELECT](.planning/Analysis/select.md): Selection/extraction owner — the edge taxonomy, silhouette and draft capture, and PCA spread.
+- [70]-[RELATIONS](.planning/Analysis/relations.md): Pairwise-relation owner — RhinoCommon intersection table beside the meshing altitude.
 
 [INTERACTION]:
-- [72]-[DISPATCH](.planning/Interaction/dispatch.md): Control-tree crossing owner — modality union, gauged budget, and the UI fault band.
-- [73]-[CLOCK](.planning/Interaction/clock.md): Leased repeating UI beat over the kernel timeline, with its drift, miss count, and failure posture.
-- [74]-[TRANSFER](.planning/Interaction/transfer.md): Clipboard, drag, and drop payload algebra with symmetric custody across the boundary.
-- [75]-[BINDING](.planning/Interaction/binding.md): Control-to-model fusion — flow, cadence, source union, gate, and the legality table.
-- [76]-[CONTROL](.planning/Interaction/control.md): Recursive control-construction union realized into an owned mount tree with typed capture.
-- [77]-[CHROME](.planning/Interaction/chrome.md): Verb table projected into commands, menus, bars, windows, prompts, and the print family.
-- [78]-[PAINT](.planning/Interaction/paint.md): Immediate-mode mark vocabulary, resource stock, surface lease, and the host-colour correspondence.
-- [79]-[PLATFORM](.planning/Interaction/platform.md): Backend boundary — handler resolution with custody, the native mount, and the theme grid.
-- [80]-[ASSET](.planning/Interaction/asset.md): Icon and asset origin family with its pose, filter, and render request.
-- [81]-[INPUT](.planning/Interaction/input.md): Pointer, gesture, and pick evidence admitted once at the host callback.
+- [71]-[DISPATCH](.planning/Interaction/dispatch.md): Control-tree crossing owner — modality union, gauged budget, and the UI fault band.
+- [72]-[CLOCK](.planning/Interaction/clock.md): Leased repeating UI beat over the kernel timeline, with its drift, miss count, and failure posture.
+- [73]-[TRANSFER](.planning/Interaction/transfer.md): Clipboard, drag, and drop payload algebra with symmetric custody across the boundary.
+- [74]-[BINDING](.planning/Interaction/binding.md): Control-to-model fusion — flow, cadence, source union, gate, and the legality table.
+- [75]-[CONTROL](.planning/Interaction/control.md): Recursive control-construction union realized into an owned mount tree with typed capture.
+- [76]-[CHROME](.planning/Interaction/chrome.md): Verb table projected into commands, menus, bars, windows, prompts, and the print family.
+- [77]-[PAINT](.planning/Interaction/paint.md): Immediate-mode mark vocabulary, resource stock, surface lease, and the host-colour correspondence.
+- [78]-[PLATFORM](.planning/Interaction/platform.md): Backend boundary — handler resolution with custody, the native mount, and the theme grid.
+- [79]-[ASSET](.planning/Interaction/asset.md): Icon and asset origin family with its pose, filter, and render request.
+- [80]-[INPUT](.planning/Interaction/input.md): Pointer, gesture, and pick evidence admitted once at the host callback.
 
 ## [02]-[DOMAIN_PACKAGES]
 

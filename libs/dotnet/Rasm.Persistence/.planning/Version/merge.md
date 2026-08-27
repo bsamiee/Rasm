@@ -99,9 +99,9 @@ public abstract partial record EditOp {
     public sealed record Reorder(NodeId Key, int FromOrdinal, int ToOrdinal) : EditOp;
     public sealed record Retype(NodeId Key, NodeRole FromRole, NodeRole ToRole) : EditOp;
 
-    public NodeId Target => this.Map(match: m => m.Key, insert: i => i.Node.Key, delete: d => d.Key, update: u => u.Key, move: v => v.Key, reorder: r => r.Key, retype: t => t.Key);
-    public string KindName => this.Map(match: static _ => "match", insert: static _ => "insert", delete: static _ => "delete", update: static _ => "update", move: static _ => "move", reorder: static _ => "reorder", retype: static _ => "retype");
-    public string Axis => this.Map(match: static _ => "", insert: static _ => "insert", delete: static _ => "delete", update: static _ => "content", move: static _ => "parent", reorder: static _ => "ordinal", retype: static _ => "role");
+    public NodeId Target => this.Switch(match: m => m.Key, insert: i => i.Node.Key, delete: d => d.Key, update: u => u.Key, move: v => v.Key, reorder: r => r.Key, retype: t => t.Key);
+    public string KindName => this.Switch(match: static _ => "match", insert: static _ => "insert", delete: static _ => "delete", update: static _ => "update", move: static _ => "move", reorder: static _ => "reorder", retype: static _ => "retype");
+    public string Axis => this.Switch(match: static _ => "", insert: static _ => "insert", delete: static _ => "delete", update: static _ => "content", move: static _ => "parent", reorder: static _ => "ordinal", retype: static _ => "role");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
@@ -115,18 +115,18 @@ public abstract partial record MergeConflict {
     public sealed record TopologyBreak(NodeId Key, UInt128 OurGeometry, UInt128 TheirGeometry, Option<ConflictSide> Ours, Option<ConflictSide> Theirs) : MergeConflict;
     public sealed record ContainmentCycle(NodeId Key, NodeId Ancestor, bool ByOurs, Option<ConflictSide> Side) : MergeConflict;
 
-    public NodeId Subject => this.Map(parallelEdit: p => p.Key, deleteUpdate: d => d.Key, moveMove: m => m.Key, reorderReorder: r => r.Key, typeChange: t => t.Key, topologyBreak: b => b.Key, containmentCycle: y => y.Key);
-    public string KindName => this.Map(parallelEdit: static _ => "parallelEdit", deleteUpdate: static _ => "deleteUpdate", moveMove: static _ => "moveMove", reorderReorder: static _ => "reorderReorder", typeChange: static _ => "typeChange", topologyBreak: static _ => "topologyBreak", containmentCycle: static _ => "containmentCycle");
+    public NodeId Subject => this.Switch(parallelEdit: p => p.Key, deleteUpdate: d => d.Key, moveMove: m => m.Key, reorderReorder: r => r.Key, typeChange: t => t.Key, topologyBreak: b => b.Key, containmentCycle: y => y.Key);
+    public string KindName => this.Switch(parallelEdit: static _ => "parallelEdit", deleteUpdate: static _ => "deleteUpdate", moveMove: static _ => "moveMove", reorderReorder: static _ => "reorderReorder", typeChange: static _ => "typeChange", topologyBreak: static _ => "topologyBreak", containmentCycle: static _ => "containmentCycle");
 
     public ColumnFamily Family => this is TopologyBreak ? ColumnFamily.Geometry : ColumnFamily.Crdt;
 
-    public Option<string> ConflictAxis => this.Map(
+    public Option<string> ConflictAxis => this.Switch(
         parallelEdit: static _ => Some("content"), deleteUpdate: static _ => Option<string>.None,
         moveMove: static _ => Some("parent"), reorderReorder: static _ => Some("ordinal"),
         typeChange: static _ => Some("role"), topologyBreak: static _ => Some("content"),
         containmentCycle: static _ => Option<string>.None);
 
-    public (Option<ConflictSide> Held, Option<ConflictSide> Incoming) Evidence => this.Map(
+    public (Option<ConflictSide> Held, Option<ConflictSide> Incoming) Evidence => this.Switch(
         parallelEdit: static c => (c.Ours, c.Theirs),
         deleteUpdate: static c => (c.Ours, c.Theirs),
         moveMove: static c => (c.Ours, c.Theirs),

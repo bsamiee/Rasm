@@ -2,7 +2,7 @@
 
 `SolidImport` admits one detached input `SolidMesh`, one canonical `MeshSpace`, and one evidence-bearing result. `SolidFormat` binds each admitted extension to its provider read, `SolidPolicy` ADMITS tessellation through reader posture as one gated value, `SolidWeld` and `SolidFacePolicy` condition triangle soup ahead of measurement, `SolidTopology` proves input structure before kernel admission, and provider handles terminate at ingress. `SolidProjection` carries its own view delegate over the settled result.
 
-`MeshSpace`, `HealPlan`, `Heal`, `HealSession`, `Context`, and `Op` arrive settled from the kernel meshing and processing owners; `SourceSnapshot` arrives settled from `Ingress/profile#RAW_ADMISSION` as the sub-domain's ONE byte-to-path materialization. `ContentHash.Of` is the one kernel digest mint every fabrication egress key seeds from. `Process/faults` allocates this lane `IngressProviderUnavailable` over provider-neutral `SourceLocus.SolidSource`, `SourceLocus.MeshFace` for triangle evidence, `IngressGeometryUnfit` for a structurally inadmissible mesh, and `PolicyInadmissible` on `FabConcern.Ingress` for every declared-value refusal. Public entries defer boundary work on `Eff`, and each closes its `Fin` back onto that effect through `ToEff` rather than publishing a nested carrier.
+`MeshSpace`, `Heal`, `HealSession`, `Context`, and `Op` arrive settled from the kernel meshing and processing owners; `SourceSnapshot` arrives settled from `Ingress/profile#RAW_ADMISSION` as the sub-domain's ONE byte-to-path materialization. `ContentHash.Of` is the one kernel digest mint every fabrication egress key seeds from. `Process/faults` allocates this lane `IngressProviderUnavailable` over provider-neutral `SourceLocus.SolidSource`, `SourceLocus.MeshFace` for triangle evidence, `IngressGeometryUnfit` for a structurally inadmissible mesh, and `PolicyInadmissible` on `FabConcern.Ingress` for every declared-value refusal. Public entries defer boundary work on `Eff`, and each closes its `Fin` back onto that effect through `ToEff` rather than publishing a nested carrier.
 
 ## [01]-[INDEX]
 
@@ -517,7 +517,7 @@ public static partial class SolidImport {
 - Entry: `SolidImport.Read(SolidSource)` returns one deferred `Eff<ImportedSolid>` folding byte read, format admission, provider read, unit resolution, conditioning, measurement, kernel admission, repair, and closure on one effect — the `Fin` closes back onto `Eff` through `ToEff`, so the entry publishes its declared carrier rather than a nested one.
 - Auto: measurement runs edge census and the `ForestDisjointSet<int>` triangle-shell merge in one sweep, then derives boundary, non-manifold, and unused counts, per-shell signed volume against a tolerance-cubed floor, Euler characteristic per shell, and genus only where the conditioned mesh is watertight AND oriented, so an open shell reports no genus rather than a fabricated one; `SolidFacePolicy` treats a collapsed, duplicate, or sliver face as data under `Drop` and names it through `SourceLocus.MeshFace` under `Reject`; `InputMesh` and `InputTopology` bind the conditioned snapshot while `Space` and `Repair.Session.FinalStatus` bind the possibly repaired one, so a repair never overwrites the input evidence a rejection cites; `SolidClosure` reads input topology or final heal status, so a healed source satisfies a watertight demand its unhealed input fails.
 - Result: `ImportedSolid` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, the contract `Rasm.Element/Properties/quantity#UNIT_SCHEME` `MeasureEvidence` for the applied unit scale — `QuantityType.Length` over `1` of the resolved source unit against its millimetre canonical, the `UnitResolution` naming whether that unit was declared by the provider, assumed by policy, or caller-overridden — the conditioned input mesh with its weld evidence, input topology, the kernel `MeshSpace`, optional repair evidence, and the provider evidence with its exact bounds rescaled to millimeters.
-- Packages: `MeshSpace` owns kernel admission, `HealPlan` and `Heal` own repair and its session; `QuikGraph.Collections.ForestDisjointSet<int>` owns the triangle-to-shell partition and publishes its live `SetCount`; `UnitsNet` carries volume, length, and area evidence; `Rasm.Element` (project) owns `MeasureEvidence` the ONE conversion result, `UnitResolution` its posture vocabulary, and `QuantityType` the family identity; `LanguageExt.Core` owns the result types and immutable carriers.
+- Packages: `MeshSpace` owns kernel admission, `Heal` owns repair and its session; `QuikGraph.Collections.ForestDisjointSet<int>` owns the triangle-to-shell partition and publishes its live `SetCount`; `UnitsNet` carries volume, length, and area evidence; `Rasm.Element` (project) owns `MeasureEvidence` the ONE conversion result, `UnitResolution` its posture vocabulary, and `QuantityType` the family identity; `LanguageExt.Core` owns the result types and immutable carriers.
 - Growth: a new measured property is one `SolidTopology` field derived inside the one sweep; a new conditioning rule is one reason arm in the weld fold beside its `SolidDiagnostic.Degenerate` row; a new closure demand is one `SolidClosure` case with one predicate arm.
 - Exemption: vertex coalescing, face admission, and the edge-census shell-partition sweep are the bounded statement kernels — each is a single traversal whose incremental index IS the algorithm, and every fold around them is expression-shaped.
 - Boundary: `SolidTopology.Measure` refuses typed on a non-finite vertex, a non-triple index count, or an out-of-range index rather than throwing an admission gate; `Native` is the one place a kernel `Mesh` is constructed and no kernel handle travels back out.
@@ -695,13 +695,12 @@ public static partial class SolidImport {
 
     private static bool Healed(Option<SolidRepairEvidence> repair) => repair.Exists(
         static evidence => evidence.Session.IsValid
-            && evidence.Session.FinalStatus.Exists(static status => status.IsManifold && status.IsOriented
-                && status.BoundaryComponents == 0 && status.NonManifoldEdges == 0));
+            && evidence.Session.FinalStatus.Exists(static status => status.Watertight
+                && status.Traits.Admits(MeshTrait.Oriented) && status.BoundaryComponents == 0));
 
     private static Fin<(MeshSpace Space, Option<SolidRepairEvidence> Repair)> Repair(
         MeshSpace space, SolidTopology topology, SolidPolicy policy) => policy.Repair.Applies(topology)
-            ? HealPlan.Of(space, key: policy.Key)
-                .Bind(plan => Heal.Repair(plan, policy.Key))
+            ? Heal.Repair(space, key: policy.Key)
                 .Map(session => (session.Healed, Some(new SolidRepairEvidence(policy.Repair, session))))
             : Fin.Succ((space, Option<SolidRepairEvidence>.None));
 

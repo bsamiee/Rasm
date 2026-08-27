@@ -45,7 +45,6 @@ Every reopen predicate rides the license gate.
 - Tolerance MODE is the lane's `Band` fact — identity elections read `ToleranceLane.Identity`, probe steps `ToleranceLane.Probe`, no page epsilon.
 - `Cell.SwapBudget` is the ONE contended-commit default — an Interaction page minting a budget shell passes its own measured `Dimension` instead.
 - Device `ToleranceLane` rows derive `0.0`, BELOW their band's closed floor, so an un-overridden device gate hands back refusing evidence.
-- `HealStage.RebuildsTopology`/`Collects` stay a bool PAIR — independent axes with no illegal corner leave a capability set nothing to foreclose.
 - `Stat<Scalar>` derived off its own column is the ONE moment summary — a page-local tuple beside it forks the statistic per consumer.
 - Every policy gate reads `Context.For(lane)`, the ONE tolerance read off a `ToleranceLane` row — no page epsilon literal, no off-lane static.
 - `MinimumSpanningTreePrim` is single-component — a spanning forest over a labelled multi-component graph takes `MinimumSpanningTreeKruskal`.
@@ -55,7 +54,7 @@ Every reopen predicate rides the license gate.
 - Every `ILmModel` Jacobian arm is EXACT — closed form or forward-mode duals alone; FD halves the 106-bit objective and stays a test oracle.
 - `Lm.Minimize` is the ONE damped iterate, `Schedule.recurs` its sole budget authority — a private loop forks the singular guard and accept order.
 - `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
-- `Heal.Merge` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.
+- `Heal.Boolean` FAILS TYPED on a severed boolean — heal admits one arena, so severance lowers `UnrepairableMesh` carrying the shell count.
 - Geometry-fold abandonment lowers the direct cancellation leaves — `GeometryFault.SubdivisionCancelled`, `ClassificationCancelled`, `WeldCancelled`, and `NativeBooleanCancelled` — on both arrangement routes; a direct `Eff` token poll returns `Errors.Cancelled`.
 - Adjoint sensitivity is `Rasm.Compute`'s — the kernel emits `MeshAdjointSnapshot`, its own differentiation staying `Lm`'s forward-mode dual floor.
 - `PerceptualColor` egress splits on TRANSFER, never on member — the byte leg is the one content-key quantizer, and a sibling egress member forks it.
@@ -115,7 +114,7 @@ Every reopen predicate rides the license gate.
 - `SplineFit`/`SplinePolicy` are the `Rasm.Parametric` fitting names; `Solving` keeps `FitKind`/`FitPolicy` — same word, two bounded concepts.
 - Flattening splits by guarantee — `flatten` variational, `segment` host LSCM, `develop` exact isometry; the consumer's acceptance evidence decides.
 - `Parametric/curve` and `/locate` split by RUNTIME, never capability — vendored host-neutral against live Rhino, meeting at the wire.
-- `SimplifyKind.VoxelRemesh` stays a `decimate` modality, never a `RemeshOp` arm — its genus follows the level set; the rewrite preserves topology.
+- `SimplifyMode.VoxelRemesh` stays a `decimate` modality, never a `RemeshOp` arm — its genus follows the level set; the rewrite preserves topology.
 - `RemeshOp` stays beside `segment`'s host capture — first-principles rewrite against parameter echo; reopens on RhinoCommon structural predicates.
 - Hulls split by robustness class — `Spatial/cloud` composes admitted natives and concave kinds, `Meshing/delaunay` `LowerHull` the exact hull.
 - `SpatialIndex` owns primitive-AABB broad phase, `NeighborIndex` bare-point neighborhoods — the query subject decides, never one shared owner.

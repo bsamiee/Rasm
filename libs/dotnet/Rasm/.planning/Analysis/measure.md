@@ -2,7 +2,7 @@
 
 `Measure`, `Bounds`, and `ConformanceMetric` own the metrology surface of the measured-query runtime — mass properties, enclosing bounds, and sampled conformance residuals over host geometry, each folding to one dispatch the `Analysis/query` entry forwards. Every mass answer is a `(MassKind, MassProperty)` coordinate, every bounding modality a union case, and every conformance a policy row over one sampling fold, so a new metrology answer lands as a row and never a sibling operation family. Each family union publishes its builders on ITSELF — the `Analyze` facade lives once on `Analysis/query` and this page adds no fragment to it.
 
-Every native mass-properties handle leases through the `Domain/results` `Lease<T>` discipline — computed, projected, disposed, never escaped — and the aggregate fold disposes every non-surviving handle after summing siblings through the host `Sum` mutator. Statistics compose `Domain/stats` on the `Scalar` carrier, conformance distances the `Spatial/support` projection over the `Processing/intent` `VectorIntent.Support` verb, exact curve deviation the `Analysis/relations` kernel, and two-operand admission the `Domain/validation` `RequirementContext.Pair` combinator; every carrier carries `IValidityEvidence` and admits through the folder's one acceptance gate.
+Every native mass-properties handle leases through the `Domain/results` `Lease<T>` discipline — computed, projected, disposed, never escaped — and the aggregate fold disposes every non-surviving handle after summing siblings through the host `Sum` mutator. Statistics compose `Domain/stats` on the `Scalar` carrier, conformance distances the `Spatial/support` `SupportSpace.Closest` + `SupportProjection.Project` pair, exact curve deviation the `Analysis/relations` kernel, and two-operand admission the `Domain/validation` `RequirementContext.Pair` combinator; every carrier carries `IValidityEvidence` and admits through the folder's one acceptance gate.
 
 ## [01]-[INDEX]
 
@@ -375,8 +375,8 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
 - Owner: `Bounds` `[Union]` closes four modality clusters — box recovery, box projections, box metrics through one `Metric` builder, and enclosing solids — over one gate roster, one sampling fold, and one generic `RitterFit` parameterized by the constructed solid. `CornerSet` carries the corner-read law as rows and `SampleSource` the sampling provenance, so both tolerance and provenance travel with the row that wants them.
 - Cases: box recovery `AxisAligned`/`Oriented`/`Transformed`/`Principal`, projections `Center`/`Corners`/`Edges`, metrics `Area`/`Volume`/`Diagonal`/`AspectRatio`/`Tightness`, and enclosing solids `EnclosingSphere`/`EnclosingCircle`/`EnclosingCylinder`.
 - Entry: `Bounds.Operation<TGeometry, TOut>()` — one generated `Switch` whose arms carry evaluators alone; the `Gates` roster holds each case's declared `OutputBinding`, ingress predicate, and derived `Op` key, and `Admitted` reads it once, rejecting onto `KernelFault.Unsupported` at build time.
-- Auto: `Enclosing` samples the surface through `Domain/evaluation`'s `Evaluate` verb and reports WHICH source answered, degrading to the eight box corners only where the case admits `SampleSource.BoxCorners`; an absent budget derives off the chord lane against the bound diagonal; `RitterFit` is one generic two-pass fold shared verbatim by sphere and cylinder-disc; the cylinder admits its axis through `VectorIntent.Direction` and folds the exact axial extent, and the enclosing circle delegates to the host exact smallest-enclosing-circle in the projection plane.
-- Packages: RhinoCommon box accessors, oriented capture, and `Circle.TrySmallestEnclosingCircle`; `Rasm.Domain` `BoundsOf`/`Evaluate` entries, `ToleranceLane` rows, and `Capability` rows; `Rasm.Processing` `VectorIntent.Direction` axis admission.
+- Auto: `Enclosing` samples the surface through `Domain/evaluation`'s `Evaluate` verb and reports WHICH source answered, degrading to the eight box corners only where the case admits `SampleSource.BoxCorners`; an absent budget derives off the chord lane against the bound diagonal; `RitterFit` is one generic two-pass fold shared verbatim by sphere and cylinder-disc; the cylinder admits its axis through `Numerics/atoms` `Direction.Of` and folds the exact axial extent, and the enclosing circle delegates to the host exact smallest-enclosing-circle in the projection plane.
+- Packages: RhinoCommon box accessors, oriented capture, and `Circle.TrySmallestEnclosingCircle`; `Rasm.Domain` `BoundsOf`/`Evaluate` entries, `ToleranceLane` rows, and `Capability` rows; `Rasm.Numerics` `Direction.Of` axis admission.
 - Growth: a new box metric is one `Metric` arm plus one `Gates` row, a new enclosing solid composes the same sampling and fit machinery, a new recovery frame one case arm, a new corner posture one `CornerSet` row, a new sampling source one `SampleSource` row — never a `BoundsCalculator` sibling.
 - Boundary: fifteen modalities live on one union under one `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the fragmentation this owner deletes; every box metric reads the length band the model carries, so the aspect denominator floors on a lane and the tightness gate compares a volume against that band CUBED rather than a length-scale anchor; `CornerSet.Unique` deduplicates at `ToleranceLane.Weld`, never a literal epsilon or a bare model tolerance; enclosing fits are measured approximations by contract, every sample enclosed rather than a minimal-ball claim, and the provenance rides out beside the sites so a corner-derived fit is never mistaken for a sampled one; box-metric ops accept box VALUES while recovery ops accept geometry, the gate roster keeping the two altitudes disjoint.
 
@@ -388,7 +388,6 @@ using System.Collections.Generic;
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.Processing;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -547,7 +546,7 @@ public abstract partial record Bounds {
             Analysis.Operation<TGeometry, Cylinder>.Build(key: key, requiresContext: true, state: (Key: key, cy.Axis, cy.Count, cy.Sources),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from axis in VectorIntent.Direction(value: state.Axis).Project<Vector3d>(context: context, key: state.Key).ToEff()
+                    from axis in Rasm.Numerics.Direction.Of(value: state.Axis, context: context, key: state.Key).Map(static direction => direction.Value).ToEff()
                     from sites in Enclosing(geometry: geometry, count: state.Count, sources: state.Sources, context: context, key: state.Key).ToEff()
                     let plane = new Plane(origin: Point3d.Origin, normal: axis)
                     from projected in Fin.Succ(sites.Sites.Map(plane.ClosestPoint)).ToEff()
@@ -622,7 +621,7 @@ public abstract partial record Bounds {
 - Law: the three former bool columns are ONE `CapabilitySet<ResidualTrait>` over `Signed`/`Containment`/`Exact`, and the legal corners are the roster's own closed data on this page: `Containment` never appears without `Signed`, because a containment residual is a signed one whose sign the enclosing solid decides. NAMED LOSS: per-trait compile-time exhaustiveness; the row set is the single mint site and `AcceptsTarget` the single reader.
 - Auto: pair admission is data-driven — `AcceptsTarget` reads the trait set and resolves every target class through a live `Capability` row, `TargetRequirement` escalates containment targets to solid topology, all through `RequirementContext.Pair` before any sample; a curve-vs-curve pair under an `Exact` metric SHORT-CIRCUITS to `Relations.DeviationOf`, one host call replacing N samples, while every other pair samples N points through the support-projection gate, reading the runtime token between samples so a cancelled run faults mid-stream rather than passing a truncated set as complete. `Project` is where both arities meet: it admits every sample through the oracle once, derives the band off the admitted stream, then runs the row's projection.
 - Law: `ResidualSample` is evidence-carrying and admitted through the acceptance gate; aggregate metrics re-emit `Stat<Scalar>`/`Distribution<Scalar>` constructed WITH `StatContext.Band`, so the band verdict rides the sample from birth and no consumer re-stamps a summary after the fold.
-- Packages: `Rasm.Spatial` support projection, `Rasm.Processing` `VectorIntent.Support`, `Rasm.Domain` `Scalar`/`Stat`/`Distribution`/`StatContext`/`Tolerance`/`RequirementContext`/`Evaluate`/`Capability` owners, RhinoCommon geometry payloads.
+- Packages: `Rasm.Spatial` `SupportSpace.Closest` and `SupportProjection.Project`, `Rasm.Domain` `Scalar`/`Stat`/`Distribution`/`StatContext`/`Tolerance`/`RequirementContext`/`Evaluate`/`Capability` owners, RhinoCommon geometry payloads.
 - Growth: a new conformance metric is one row — key, output, trait set, one projection; a new target admission class is one `ResidualTrait` row `AcceptsTarget` reads; a new residual SOURCE is one arity on the same entry — zero pipeline edits.
 - Boundary: the residual pipeline is one fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` family, or a residual-stream entrypoint beside the pair one, are the deleted forms; distance routes through the `Spatial/support` projection gate exclusively, a local closest-point switch beside it the killed parallel proximity path; every sample's `WithinBand` is DERIVED from the `Tolerance` it carries, so the evidence law makes an inconsistent sample unrepresentable past the oracle; the BAND is the stream's own, so a tranche measured against a probe band summarizes against that band and a tranche mixing bands refuses rather than folding two populations under one verdict; `Maximum` ranks on `|Distance|` because the band the sample carries is the same magnitude claim; percentiles reach only the `Distribution` row.
 
@@ -633,7 +632,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.Processing;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
@@ -719,8 +717,8 @@ public sealed partial class ConformanceMetric {
         let projection = metric.Traits.Admits(ResidualTrait.Containment) ? SupportProjection.ContainmentDistance
             : metric.Traits.Admits(ResidualTrait.Signed) ? SupportProjection.SignedDistance
             : SupportProjection.Distance
-        from intent in VectorIntent.Support(space: space, sample: point, projection: projection, key: key)
-        from distance in intent.Project<double>(context: context, key: key)
+        from hit in space.Closest(sample: point, key: key)
+        from distance in projection.Project<double>(space: space, hit: hit, sample: point, context: context, key: key)
         select distance;
     private static Fin<Seq<ResidualSample>> Residuals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Op key, CancellationToken cancel, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: key)

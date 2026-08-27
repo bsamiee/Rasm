@@ -2,7 +2,7 @@
 
 Camera mutation splits by payload TIMING, not by case. `CameraOp` is the static vocabulary `Cameras.Apply` executes inside one `ViewportLease` borrow, answering one `CameraRun` whose every summary column derives from a per-row evidence stream; `CameraDrive` is the paced request `Cameras.Drive` prepares once and hands to `MotionPump`, answering the running `MotionLease` itself. One union carried both and therefore spelled a case its own dispatch refused unconditionally, guarded out before the switch — the split makes that arm a compile fact.
 
-Gesture, projection, stack, framing, named-view, clipping, convention, and pose rows own their own admission and their own host lowering, so `CameraOp`'s factories lift an already-admitted request rather than re-walking it. The sampling algebra is the kernel's whole: `MotionScript`, `MotionSample`, and `MotionDrive.Step` arrive from `Rasm.Parametric`, `CameraTrack` composes `VectorIntent.Pose`, and this page computes no motion value.
+Gesture, projection, stack, framing, named-view, clipping, convention, and pose rows own their own admission and their own host lowering, so `CameraOp`'s factories lift an already-admitted request rather than re-walking it. The sampling algebra is the kernel's whole: `MotionScript`, `MotionSample`, and `MotionDrive.Step` arrive from `Rasm.Parametric`, `CameraTrack` composes `MotionInterpolation.Interpolate`, and this page computes no motion value.
 
 ## [01]-[INDEX]
 
@@ -26,7 +26,6 @@ using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Numerics;
 using Rasm.Parametric;
-using Rasm.Processing;
 using Rasm.Rhino.Document;
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
@@ -617,8 +616,8 @@ public sealed record CameraTrack(CameraPose From, CameraPose To, Context Context
     public Fin<CameraPose> Sample(UnitInterval progress, Op? key = null) {
         Op op = key.OrDefault();
         CameraTrack self = this;
-        return from intent in VectorIntent.Pose(from: self.From.Frame.Value, to: self.To.Frame.Value, t: progress.Value, mode: self.Interpolation, key: op)
-               from plane in intent.Project<Plane>(context: self.Context, key: op)
+        return from plane in self.Interpolation.Interpolate(
+                   a: self.From.Frame.Value, b: self.To.Frame.Value, t: progress, context: self.Context, key: op)
                from frame in VectorFrame.Of(origin: plane.Origin, normal: plane.ZAxis, xHint: Some(plane.XAxis), context: self.Context, key: op)
                from target in op.AcceptValue(value: self.From.Target + progress.Value * (self.To.Target - self.From.Target))
                from angle in op.AcceptValidated<LensAngle>(candidate: double.Lerp((double)self.From.Angle, (double)self.To.Angle, progress.Value))
@@ -875,7 +874,7 @@ public static class Cameras {
 }
 ```
 
-- Packages: Thinktecture.Runtime.Extensions; LanguageExt.Core (`Validation`, `.Apply`, `Traverse`, `Choose`, `Option`); `Rasm/Parametric/projections` (`MotionScript`, `MotionSample`, `MotionDrive.Admit`, `MotionInterpolation`, `MonotonicTimeline`); `Rasm/Processing` (`VectorIntent.Pose`); `Rasm/Numerics` (`VectorFrame`, `UnitInterval`); `Rasm/Drawing` (`ViewPose`, `ViewProjectionIntent`); `Rasm.Rhino/Viewport/camera` (`ViewportLease`, `CameraPose`, `CameraSeat`, `ViewportBorrowMode`); `Rasm.Rhino/Viewport/motion` (`MotionPump`, `MotionLease`, `FrameClock`, `RedrawTarget`); `Rasm.Rhino/Document/tables` (`ViewportTarget`, `ViewportRef`, `ResourceId`).
+- Packages: Thinktecture.Runtime.Extensions; LanguageExt.Core (`Validation`, `.Apply`, `Traverse`, `Choose`, `Option`); `Rasm/Parametric/projections` (`MotionScript`, `MotionSample`, `MotionDrive.Admit`, `MotionInterpolation.Interpolate`, `MonotonicTimeline`); `Rasm/Numerics` (`VectorFrame`, `UnitInterval`); `Rasm/Drawing` (`ViewPose`, `ViewProjectionIntent`); `Rasm.Rhino/Viewport/camera` (`ViewportLease`, `CameraPose`, `CameraSeat`, `ViewportBorrowMode`); `Rasm.Rhino/Viewport/motion` (`MotionPump`, `MotionLease`, `FrameClock`, `RedrawTarget`); `Rasm.Rhino/Document/tables` (`ViewportTarget`, `ViewportRef`, `ResourceId`).
 
 ```mermaid
 ---

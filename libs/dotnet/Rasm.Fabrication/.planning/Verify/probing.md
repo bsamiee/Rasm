@@ -709,7 +709,7 @@ public static class ProbeMemo {
             .String(policy.Convergence.Key).String(policy.Residual.Key)
             .String(policy.Step.Key).String(policy.Ridge.Key)
             .Double(policy.RobustScale.Value)
-            .I64(policy.OptimizerBudget.Value)
+            .Maybe(policy.OptimizerBudget.Map(static budget => budget.Value), static (row, budget) => row.I64(budget))
             .String(policy.Fit.Key.ToString())
             .Maybe(policy.TrimFraction.Map(static trim => trim.Value), static (row, trim) => row.Double(trim))
             .I64(policy.CoarseLevels.Value)
@@ -1018,7 +1018,7 @@ public static class Probe {
                 new FitOp(
                     row.Kinds,
                     state.Features.Map(static feature => feature.Measured).ToArray(),
-                    row.Kinds.Exists(static kind => kind.NeedsNormals)
+                    row.Kinds.Exists(static kind => kind.RequiresNormals)
                         ? Some(state.Features.Map(static feature => feature.Target.SurfaceNormal).ToArray())
                         : None,
                     row.FitPolicy),
@@ -1086,7 +1086,7 @@ public static class Probe {
             double uncertainty = Math.Sqrt(
                 Squared(row.MeasurementUncertaintyMm)
                 + Squared(registration)
-                + datum.Fit.Map(static fitted => Squared(fitted.Residual)).IfNone(0.0));
+                + datum.Fit.Map(static fitted => Squared(fitted.Rms)).IfNone(0.0));
             return new MeasuredFeature(
                 row.Target.Key,
                 row.Target.Plan,
@@ -1133,7 +1133,7 @@ public static class Probe {
                         new FitOp(
                             Seq(kind),
                             eligible.Map(static row => row.Measured).ToArray(),
-                            kind.NeedsNormals ? Some(eligible.Map(static row => row.SurfaceNormal).ToArray()) : None,
+                            kind.RequiresNormals ? Some(eligible.Map(static row => row.SurfaceNormal).ToArray()) : None,
                             policy),
                         context,
                         ProbeOp))

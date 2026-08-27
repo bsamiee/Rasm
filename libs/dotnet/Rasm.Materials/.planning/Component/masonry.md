@@ -543,7 +543,7 @@ public sealed partial class BondGeometry {
             Seats.Map(static s => (s.U, s.V, s.Spin)),
             Math.Sqrt(Math.Pow((unit.LengthMm.Value + jointMm) * 1e-3, 2.0) + Math.Pow((unit.HeightMm.Value + jointMm) * 1e-3 * courses, 2.0))
                 + (ExtentMarginCells * Math.Max(unit.LengthMm.Value, unit.HeightMm.Value) * 1e-3),
-            (0.0, 0.0), TangentLogMapAlgorithm.VectorHeatApproximate);
+            (0.0, 0.0), LogMapAlgorithm.VectorHeat);
 
     Seq<CourseTemplate> Bands(InstanceStream.Planar planar, PatternPlan plan, int courses) =>
         toSeq(Enumerable.Range(0, courses))

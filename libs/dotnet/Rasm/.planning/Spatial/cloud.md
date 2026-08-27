@@ -186,9 +186,9 @@ public readonly record struct CloudAdmission(
 
 ## [03]-[CLOUD_METRICS]
 
-- Owner: `VectorCloudMetric` mints one row per measurement behind ONE `Project<TOut>`, each row a single declaration line naming its fold and its admissible cloud cases; neighborhood-backed rows thread the `neighbors.md` `NeighborhoodPolicy` itself, so `Project<TOut>` takes the resolved policy its caller admitted.
+- Owner: `VectorCloudMetric` mints one row per measurement behind ONE `Project<TOut>`, each row a single declaration line naming its fold and its admissible cloud cases; neighborhood-backed rows thread the `neighbors.md` `NeighborhoodPolicy` itself, so `Project<TOut>` resolves its `Option<NeighborhoodPolicy>` against the cloud's own `Context` and admits it ahead of the case-compatibility and output gates — the one policy admission every metric caller shares.
 - Entry: the row builders — `Ring`, `All`, `Chain`, `Cluster` — are the whole declaration surface: each fixes the case admission and adapts its fold to the erased measure column, so a row is one line and no arm re-states a case test.
-- Auto: `PrincipalFrameOf` builds the frame from the two dominant eigenvectors, and ring orientation reads `ClosedCurveOrientation` against the fitted plane to sign the normal CCW-positive. Skewness is the worst normalized interior-angle deviation from the regular-polygon ideal, compactness `4πA/P²`, moment anisotropy the in-plane principal-moment ratio; chain rows are pure folds over unitized tangents, prefix-sum arc length, and turning-angle curvature. `PlanarWindingOf` takes the query point, so it is a kernel entry rather than a metric row, and the `intent.md` `WindingCase` composes it with the CCW-signed `RingNormalOf` normal — a sign-arbitrary best-fit-plane normal flips the winding integer. `Shape` answers one `VectorCloudShape` per cloud case, never a per-case sibling record.
+- Auto: `PrincipalFrameOf` builds the frame from the two dominant eigenvectors, and ring orientation reads `ClosedCurveOrientation` against the fitted plane to sign the normal CCW-positive. Skewness is the worst normalized interior-angle deviation from the regular-polygon ideal, compactness `4πA/P²`, moment anisotropy the in-plane principal-moment ratio; chain rows are pure folds over unitized tangents, prefix-sum arc length, and turning-angle curvature. `PlanarWindingOf` takes the query point, so it is a kernel entry rather than a metric row, and a winding consumer composes it with the CCW-signed `RingNormalOf` normal — a sign-arbitrary best-fit-plane normal flips the winding integer. `Shape` answers one `VectorCloudShape` per cloud case, never a per-case sibling record.
 - Packages: RhinoCommon (area mass properties, plane fitting, polyline geometry), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new measurement is ONE row through the matching builder; a new cloud case extends the builders' adapt arms; a policy knob is one column on `NeighborhoodPolicy`.
 - Boundary: neighborhood-backed rows delegate to `neighbors.md`, the fold living on that substrate while the metric row is its cloud-facing name and its census returns unchanged; `AreaMassProperties` and `PolylineCurve` natives stay inside their lease windows; `PlanarWinding` names the 2D ring fold, held distinct from the 3D solid-angle GWN family `reconstruct.md` owns.
@@ -238,17 +238,21 @@ public sealed partial class VectorCloudMetric {
     private static VectorCloudMetric Chain<TValue>(Func<VectorCloud, Op, Fin<TValue>> measure);
     private static VectorCloudMetric Cluster<TValue>(Func<VectorCloud.ClusterCase, NeighborhoodPolicy, Op, Fin<TValue>> measure);
 
-    internal Fin<TOut> Project<TOut>(VectorCloud cloud, NeighborhoodPolicy policy, Op key) =>
-        (AdmitsCase(cloud: cloud), Output == typeof(TOut)) switch {
-            (false, _) => Fin.Fail<TOut>(error: key.Unsupported(inputType: cloud.GetType(), outputType: typeof(TOut))),
-            (_, false) => Fin.Fail<TOut>(error: key.Unsupported(inputType: typeof(VectorCloudMetric), outputType: typeof(TOut))),
-            _ => Measure(cloud: cloud, policy: policy, key: key).Bind(value => value switch {
-                Seq<Vector3d> vs => ResultProjection.Values<Vector3d, TOut>(values: vs, key: key, owner: typeof(VectorCloudMetric)),
-                Seq<double> ds => ResultProjection.Values<double, TOut>(values: ds, key: key, owner: typeof(VectorCloudMetric)),
-                Seq<Plane> ps => ResultProjection.Values<Plane, TOut>(values: ps, key: key, owner: typeof(VectorCloudMetric)),
-                _ => key.AcceptValue(value: value).Map(static v => (TOut)v),
-            }),
-        };
+    internal Fin<TOut> Project<TOut>(VectorCloud cloud, Option<NeighborhoodPolicy> policy, Op key) =>
+        from active in policy.Match(
+            Some: candidate => candidate.Admit(key: key),
+            None: () => NeighborhoodPolicy.Of(context: cloud.Tolerance, key: key))
+        from output in (AdmitsCase(cloud: cloud), Output == typeof(TOut)) switch {
+            (false, _) => Fin.Fail<TOut>(key.Unsupported(inputType: cloud.GetType(), outputType: typeof(TOut))),
+            (_, false) => Fin.Fail<TOut>(key.Unsupported(inputType: typeof(VectorCloudMetric), outputType: typeof(TOut))),
+            _ => Measure(cloud: cloud, policy: active, key: key).Bind(value => value switch {
+                Seq<Vector3d> values => ResultProjection.Values<Vector3d, TOut>(values: values, key: key, owner: typeof(VectorCloudMetric)),
+                Seq<double> values => ResultProjection.Values<double, TOut>(values: values, key: key, owner: typeof(VectorCloudMetric)),
+                Seq<Plane> values => ResultProjection.Values<Plane, TOut>(values: values, key: key, owner: typeof(VectorCloudMetric)),
+                _ => key.AcceptValue(value: value).Map(static admitted => (TOut)admitted),
+            })
+        }
+        select output;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -513,7 +517,7 @@ internal static partial class CloudKernel {
 ## [05]-[VORONOI_COMPLEX]
 
 - Owner: `CloudVoronoiCell` is the 3D dual cell over a cluster cloud — one row per site — and its nested `Bound` union carries the measures boundedness licenses — `Bounded` alone holds volume, centroid, and extent, `Unbounded` and `Degenerate` hold none — so an impossible partial measurement is unrepresentable and no reader re-derives the relation.
-- Entry: `ComputeVoronoiDetailed` is cluster-only and takes the one admitted `PositiveMagnitude` it threads as `PlaneDistanceTolerance`; `CloudHullPolicy`'s angle, alpha, and lambda columns describe hull algorithms this fold cannot execute, so none of them reaches it. `NaturalNeighborField` is the Sibson stolen-volume owner — `Of` mints the base dual once and retains only its admitted vertices and site-keyed bounded volumes behind a private constructor, and each `Weights` query pays only the inserted-site dual and the volume-loss fold against that table, so an interpolant over M queries neither rebuilds the unchanging half nor re-mints a vertex M times — the one weight source the `Meshing/reconstruct` evaluator composes.
+- Entry: `CloudVoronoiResult.Of(VectorCloud, Option<PositiveMagnitude>, Op?)` is the one public 3D-dual entry — cluster-only, admitting the deviation-lane tolerance once as the `PositiveMagnitude` it threads as `PlaneDistanceTolerance`; `CloudKernel.CensusOf` takes that admitted value unchanged and derives one `epsilon` for MIConvexHull and the numeric kernels; `CloudHullPolicy`'s angle, alpha, and lambda columns describe hull algorithms this fold cannot execute, so none of them reaches it. `NaturalNeighborField` is the Sibson stolen-volume owner — `Of` mints the base dual once and retains only its admitted vertices and site-keyed bounded volumes behind a private constructor, and each `Weights` query pays only the inserted-site dual and the volume-loss fold against that table, so an interpolant over M queries neither rebuilds the unchanging half nor re-mints a vertex M times — the one weight source the `Meshing/reconstruct` evaluator composes.
 - Auto: each Delaunay cell IS a Voronoi vertex, so ONE circumsphere sweep over `VoronoiMesh.Vertices` mints the measured sphere table — a `FrozenDictionary` over the cells that HAVE a sphere, where a missing key IS degeneracy — and each `VoronoiEdge.Source`/`.Target` pair projects inside `CellRows` to the `Line` between the two centers that table holds, absent when either cell is unmeasured, so the 1-skeleton falls out as `Skeleton` with no second traversal and no reader can reach a dual before the sweep that measures it. Bound classification derives structurally, never by proximity heuristic: `SolidOf` over the sites answers the site hull in the same pass that answers `HullVolume`, and a site on that hull owns an open cell because the Voronoi region of a hull vertex extends to infinity. Bounded cells take the convex hull of their incident circumcenters as geometry, so `SolidOf` answers volume and centroid too and the `[04]` faceted row is this band's measurement kernel.
 - Law: `CloudVoronoiCensus` carries the tolerance and input count beside the completed census; `BoundedVolumeTotal` never exceeds `HullVolume`, and that ordering is the census's own conservation claim.
 - Packages: MIConvexHull (`VoronoiMesh.Create<CloudVertex, CloudCell>`, `VoronoiMesh.Vertices`/`.Edges`, `VoronoiEdge.Source`/`.Target`, `ConvexHull.Create<CloudVertex>` through `SolidOf`), RhinoCommon, Thinktecture.Runtime.Extensions, LanguageExt.Core.
@@ -591,40 +595,48 @@ public readonly record struct CloudVoronoiResult(
             ProjectionRow.Of<VectorCloud>(() => VectorCloud.Cluster(
                 points: toSeq(self.Vertices.AsIterable()), context: context, key: key)));
     }
+
+    public static Fin<CloudVoronoiResult> Of(
+        VectorCloud source, Option<PositiveMagnitude> tolerance = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from cloud in Admit.NotNull(value: source, key: op)
+               from cluster in cloud is VectorCloud.ClusterCase active
+                   ? Fin.Succ(active)
+                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(inputType: cloud.GetType(), outputType: typeof(CloudVoronoiResult)))
+               from distance in tolerance.Match(
+                   Some: static supplied => Fin.Succ(supplied),
+                   None: () => op.AcceptValidated<PositiveMagnitude>(candidate: cluster.Tolerance.For(lane: ToleranceLane.Deviation).Value))
+               from _ in guard(cluster.Vertices.Count >= 4, op.InvalidInput()).ToFin()
+               let sites = cluster.Vertices.Map(static (point, index) => new CloudVertex(index: index, x: point.X, y: point.Y, z: point.Z)).ToArray()
+               from result in op.Catch(() => CloudKernel.CensusOf(
+                   sites: sites, tolerance: distance, key: op,
+                   complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: sites, PlaneDistanceTolerance: distance.Value)))
+               select result;
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class CloudKernel {
-    internal static Fin<CloudVoronoiResult> ComputeVoronoiDetailed(
-        VectorCloud.ClusterCase cluster, PositiveMagnitude tolerance, Op key) =>
-        from _ in guard(cluster.Vertices.Count >= 4, key.InvalidInput()).ToFin()
-        let sites = cluster.Vertices.Map(static (p, i) => new CloudVertex(index: i, x: p.X, y: p.Y, z: p.Z)).ToArray()
-        from result in key.Catch(() => CensusOf(
-                sites: sites, tolerance: tolerance.Value, key: key,
-                complex: VoronoiMesh.Create<CloudVertex, CloudCell>(
-                    data: sites, PlaneDistanceTolerance: tolerance.Value)))
-        select result;
-
     internal static Fin<CloudVoronoiResult> CensusOf(
-        CloudVertex[] sites, VoronoiMesh<CloudVertex, CloudCell, CloudEdge> complex, double tolerance, Op key) {
+        CloudVertex[] sites, VoronoiMesh<CloudVertex, CloudCell, CloudEdge> complex, PositiveMagnitude tolerance, Op key) {
+        double epsilon = tolerance.Value;
         CloudCell[] cells = [.. complex.Vertices];
         FrozenDictionary<CloudCell, (Point3d Center, double Radius)> spheres = cells
-            .Select(cell => (Cell: cell, Sphere: Circumsphere(cell: cell, tolerance: tolerance)))
+            .Select(cell => (Cell: cell, Sphere: Circumsphere(cell: cell, tolerance: epsilon)))
             .Where(static row => row.Sphere.IsSome)
             .ToFrozenDictionary(static row => row.Cell,
                 static row => row.Sphere.IfNone(default((Point3d Center, double Radius))));
-        return from admitted in key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-               from hull in SolidOf(points: [.. sites.Select(PointOf)], tolerance: tolerance, key: key)
+        return from hull in SolidOf(points: [.. sites.Select(PointOf)], tolerance: epsilon, key: key)
                let open = hull.Map(static solid => solid.Facets.Fold(Set<int>(),
                    static (acc, facet) => facet.Vertices.Fold(acc, static (set, corner) => set.Add(corner)))).IfNone(Set<int>())
-               from rows in CellRows(cells: cells, complex: complex, spheres: spheres, open: open, sites: sites, tolerance: tolerance, key: key)
+               from rows in CellRows(cells: cells, complex: complex, spheres: spheres, open: open, sites: sites, tolerance: epsilon, key: key)
                let tally = rows.Cells.Fold((Bounded: 0, Unbounded: 0, Degenerate: 0, Volume: 0.0), static (acc, cell) => cell.Measure.Switch(
                    state: acc,
                    bounded: static (t, measured) => (t.Bounded + 1, t.Unbounded, t.Degenerate, t.Volume + measured.Volume),
                    unbounded: static (t, _) => (t.Bounded, t.Unbounded + 1, t.Degenerate, t.Volume),
                    degenerate: static (t, _) => (t.Bounded, t.Unbounded, t.Degenerate + 1, t.Volume)))
                let census = new CloudVoronoiCensus(
-                   PlaneDistanceTolerance: admitted, InputCount: sites.Length, DualVertexCount: cells.Length, UnmeasuredVertexCount: cells.Length - rows.Vertices.Count,
+                   PlaneDistanceTolerance: tolerance, InputCount: sites.Length, DualVertexCount: cells.Length, UnmeasuredVertexCount: cells.Length - rows.Vertices.Count,
                    DualEdgeCount: complex.Edges.Count(), SkeletonEdgeCount: rows.Skeleton.Count,
                    BoundedCellCount: tally.Bounded, UnboundedCellCount: tally.Unbounded, DegenerateCellCount: tally.Degenerate,
                    BoundedVolumeTotal: tally.Bounded > 0 ? Some(tally.Volume) : Option<double>.None,
@@ -672,7 +684,7 @@ public sealed class NaturalNeighborField {
     internal static Fin<NaturalNeighborField> Of(Seq<Point3d> sites, PositiveMagnitude tolerance, Op key) {
         CloudVertex[] seeds = sites.Map(static (p, i) => new CloudVertex(index: i, x: p.X, y: p.Y, z: p.Z)).ToArray();
         return from _ in guard(sites.Count >= 4, key.InvalidInput()).ToFin()
-               from dual in key.Catch(() => CloudKernel.CensusOf(sites: seeds, tolerance: tolerance.Value, key: key,
+               from dual in key.Catch(() => CloudKernel.CensusOf(sites: seeds, tolerance: tolerance, key: key,
                    complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: seeds, PlaneDistanceTolerance: tolerance.Value)))
                let volumes = dual.Cells.Bind(cell => cell.Measure.Switch(
                    bounded: measured => Seq((Site: cell.Site, Volume: measured.Volume)),
@@ -686,7 +698,7 @@ public sealed class NaturalNeighborField {
         CloudVertex[] after = [
             .. sites,
             new CloudVertex(index: sites.Length, x: query.X, y: query.Y, z: query.Z)];
-        return from inserted in key.Catch(() => CloudKernel.CensusOf(sites: after, tolerance: tolerance.Value, key: key,
+        return from inserted in key.Catch(() => CloudKernel.CensusOf(sites: after, tolerance: tolerance, key: key,
                    complex: VoronoiMesh.Create<CloudVertex, CloudCell>(data: after, PlaneDistanceTolerance: tolerance.Value)))
                from cell in inserted.Cells.Find(row => row.Site == sites.Length).ToFin(key.InvalidInput())
                from _support in cell.Measure.Switch(

@@ -1030,7 +1030,7 @@ public static class TubeProgram {
             chains.Table.Rows.Count,
             chains.Table.Segments.Count + chains.Table.Coplanar.Count,
             edges.Bind(static edge => Seq(edge.A, edge.B)),
-            Some(unrolled.Atlas.Result))
+            Some(unrolled.Atlas.Distortion))
         from key in Canonical(loops, evidence, source.Part.Mesh.Tolerance)
         select new CopePattern(loops, evidence, key);
 
@@ -1300,10 +1300,9 @@ public static class TubeProgram {
             .Double(row.MaxConformal).Double(row.MeanConformal)
             .Double(row.MaxArea).Double(row.MinArea).Double(row.MeanArea)
             .Double(row.MaxQuasiConformal).Ordinal(row.Iterations)
-            .Maybe(row.Residual, static (slot, value) => slot.Double(value))
+            .Double(row.SolveResidual).Maybe(row.ConvergenceDelta, static (slot, value) => slot.Double(value))
             .Maybe(row.FactorNonZeros, static (slot, value) => slot.Ordinal(value))
-            .Maybe(row.SpectralGap, static (slot, value) => slot.Double(value))
-            .Bool(row.FlipFreeBijective));
+            .Maybe(row.LscmEigenvalue, static (slot, value) => slot.Double(value)));
 
     private static Fin<ContentKey> Canonical(TubeEvidence evidence) => FabricationCanon.Keyed(
         EgressKind.BendProgram, evidence.Section.Profile.Tolerance, writer => Frame(evidence, writer), Key);

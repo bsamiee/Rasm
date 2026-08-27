@@ -2,7 +2,7 @@
 
 `Relations` owns pairwise geometric relation across the RhinoCommon-native intersection surface — intersection, classification, deviation, self-intersection, and ray casting. One data-driven table binds each type-pair to an admission predicate, a result shape, and a host-`Intersection` compute delegate taking the `Analysis/query` `Env` whole, so a new geometry pair is one row, never an `IntersectXxYy` method family. It is the host-parametric altitude, capturing the host's tolerance-banded machinery. This page's own static class owns it — the `Analyze` facade lives once on `Analysis/query` and this page adds no fragment to it.
 
-Every relation answer is oracle-admitted evidence: the hit `[Union]`, the `RayQuery` request, and `CurveDeviation` declare `IValidityEvidence` and register with the one `Domain/validation` oracle. Curve-like operands recover through the `Domain/normalization` `CurveForm` lease, tangency classification folds the `Processing/intent` `VectorIntent.Relation` verb onto the intersection answer, mesh work reads `ToleranceLane.MeshIntersection`, and every pair builder shares the one `Pair` admission spine — with `IntersectionHit` and `RayQuery` the frozen boundary spellings the Grasshopper surface re-enters by name.
+Every relation answer is oracle-admitted evidence: the hit `[Union]`, the `RayQuery` request, and `CurveDeviation` declare `IValidityEvidence` and register with the one `Domain/validation` oracle. Curve-like operands recover through the `Domain/normalization` `CurveForm` lease, tangency classification folds the `Numerics/atoms` `VectorRelation.Of` verdict onto the intersection answer, mesh work reads `ToleranceLane.MeshIntersection`, and every pair builder shares the one `Pair` admission spine — with `IntersectionHit` and `RayQuery` the frozen boundary spellings the Grasshopper surface re-enters by name.
 
 ## [01]-[INDEX]
 
@@ -456,8 +456,7 @@ internal static partial class Relations {
         }).As();
     private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, Context context, Op key) =>
         (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
-            (true, true) => Rasm.Processing.VectorIntent.Relation(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr))
-                .Project<Rasm.Numerics.VectorRelation>(context: context, key: key)
+            (true, true) => Rasm.Numerics.VectorRelation.Of(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr), context: context, key: key)
                 .Map(static relation => relation.Equals(Rasm.Numerics.VectorRelation.Parallel) || relation.Equals(Rasm.Numerics.VectorRelation.AntiParallel)
                     ? IntersectionTangency.Tangent
                     : IntersectionTangency.Transversal)
@@ -494,7 +493,7 @@ internal static partial class Relations {
 - Entry: each builder is the target of an `Analysis/query` relation-band case, `Pair`- or `Single`-dispatched; build-time gates read `IntersectionResult.Supports`, `CanDeviate`, and `CanSelfIntersect`, so an inadmissible combination rejects onto `KernelFault.Unsupported` before any geometry is touched.
 - Auto: `Pair` resolves the pair through `RequirementContext.Pair` — kind-resolve both operands, apply `Requirement.Basic`, under cancellation — except when one operand is a `RayQuery`: the ray is a request value, not geometry, so it admits through `Op.AcceptInput` while the geometry operand alone runs the readiness gate on whichever side it rides. `Deviate` escalates both operands to `Requirement.CurveLength`, since a below-tolerance curve carries no meaningful deviation. `SelfIntersect` runs under `Requirement.Basic` and discriminates curve (leased `Intersection.CurveSelf` events) from mesh (`GetSelfIntersections` at `ToleranceLane.MeshIntersection`, perforations tagged `Curve`, overlaps `Overlap`), a direct cancellation poll returning `Errors.Cancelled`. Every builder projects through the shape's `Project<TOut>`, so the output gate, oracle, and curve-disposal law apply uniformly.
 - Law: `CurveDeviation` constructs only through applicative acceptance of every field so a non-finite host answer never assembles one, and its band is the admitted `ToleranceLane.Deviation` `Tolerance` the verdict derives from; intersection answers carry no side carrier — the typed hits ARE the evidence, each oracle-admitted.
-- Packages: RhinoCommon (`Curve.GetDistancesBetweenCurves`/`ClosestPoint`/`TangentAt`/`Trim`/`PointAt`, `Intersection.CurveSelf`, `Mesh.GetSelfIntersections`, `CurveIntersections`, `TextLog`), `Rasm.Domain` (`RequirementContext.Pair`, `Requirement` rows, `Normalization.CurveForm`, `Capability.CurveForm`, `Tolerance`/`ToleranceLane`, `Lease`, `Op.ToHostSlot`, `Op`/`Fault`), `Rasm.Processing` (`VectorIntent.Relation` — the tangency verb), `Rasm.Numerics` (`VectorRelation`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: RhinoCommon (`Curve.GetDistancesBetweenCurves`/`ClosestPoint`/`TangentAt`/`Trim`/`PointAt`, `Intersection.CurveSelf`, `Mesh.GetSelfIntersections`, `CurveIntersections`, `TextLog`), `Rasm.Domain` (`RequirementContext.Pair`, `Requirement` rows, `Normalization.CurveForm`, `Capability.CurveForm`, `Tolerance`/`ToleranceLane`, `Lease`, `Op.ToHostSlot`, `Op`/`Fault`), `Rasm.Numerics` (`VectorRelation.Of` — the tangency verb), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new pairwise relation (a clearance query, a minimal-distance witness pair) is one builder over the same `Pair` spine with its kernel — admission, preparation, and projection are inherited; a new self-intersecting form is one `SelfIntersectionOf` arm with its `CanSelfIntersect` disjunct.
 - Boundary: `Pair` is the one pair-admission spine — a builder re-deriving kind resolution, readiness, or ray asymmetry locally is the deleted repetition. Classification never re-intersects and never re-leases: it opens the curve pair ONCE and hands the live natives to both the scan and the enrichment, a second curve-pair intersector or a second form recovery for tangency being the killed form; the tangency probe degrades to `Unknown` on the projection's OWN refusal — `KernelFault.Unsupported` and `KernelFault.InvalidResult` alone — since an unclassifiable contact is still a contact, while a cancellation or bad input rides out as itself rather than reading as a verdict. Deviation is exact by contract — the host extremum computation, never a sampled estimate, and `Analysis/measure`'s sampled conformance pipeline short-circuits to `DeviationOf` when exactness is demanded. Self-intersection disposal is total: event sets lease, and mesh polylines lift into owned curves the hit carriers dispose under the projection law.
 
@@ -639,7 +638,7 @@ flowchart LR
     Table -->|SolvedPosture + RayTarget budget| Shapes[IntersectionResult: Lines · Points · Intervals · Polylines · Hits]
     Table -->|curve-form lowering rows| Norm[Normalization.CurveForm lease]
     Shapes -->|OutputBinding.Admit + transfer verdict| Oracle[one validity oracle]
-    Builders -->|VectorIntent.Relation tangency fold| Hits[IntersectionHit enrichment]
+    Builders -->|VectorRelation.Of tangency fold| Hits[IntersectionHit enrichment]
     Builders -->|GetDistancesBetweenCurves exact| Deviation[CurveDeviation + Tolerance band]
     Robust[settled Meshing/intersect — predicate-exact] -.->|coexists, never called| Table
 ```
@@ -661,7 +660,7 @@ One owner per axis; a new pair, shape, or relation is a row, a case, or a builde
 |  [09]   | Pair dispatch       | `Relations`            | 24-row table + `Find` + attempt fold  | `Fin<IntersectionResult>`         |   24    |
 |  [10]   | Relation operations | `Relations`            | 5 `Pair` builders + kernels           | `Operation → Eff<Env, Seq<TOut>>` |    5    |
 
-`RequirementContext.Pair`, the `Requirement` rows, and the oracle are `Domain/validation` law; the form recoveries are `Domain/normalization` law; the tangency relation is `Numerics/atoms` and `Processing/intent` law — composed here, legislated there.
+`RequirementContext.Pair`, the `Requirement` rows, and the oracle are `Domain/validation` law; the form recoveries are `Domain/normalization` law; the tangency relation is `Numerics/atoms` law — composed here, legislated there.
 
 ## [06]-[RESEARCH]
 

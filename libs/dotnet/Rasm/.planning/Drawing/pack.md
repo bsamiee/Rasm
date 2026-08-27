@@ -17,7 +17,7 @@
 - Entry: `Encode.Apply(PackOp, Op?)` is the ONE encoding entrypoint, discriminating by `PackOp` case on `Fin` and gating `EncodedGeometry` at `key.AcceptValue`; `Encode.Of(int count, Seq<(EncodingChannel, float[], Option<EncodingChannel>)> lanes, Op?)` is its raw-lane modality — the interchange entry's mint for a decode already holding per-lane floats and, where the source column is sparse, the validity lane that masks it; the mint `MeshDraft.Close` composes — running the SAME reserve/pack/witness tail with the digest rooted on the packed payload, so its witness stamps `DigestRoot.Payload` where `Apply` stamps `DigestRoot.Source`. `PackPolicy.Tolerance` sets the voxel SDF iso-band and the field-sampling floor, never a domain-local epsilon. `UnboundEncodingChannel`, `DuplicateEncodingChannel`, `ChannelArityMismatch`, and `EncodingRoundTripExceeded` route an unbound lane, a doubled raw-lane channel, an extent-versus-arity disagreement, and an unpack breaching `Dtype.Tolerance`; `DegenerateInput` routes an empty or sub-floor source; a non-digest reconcile answer routes the `Op` admission channel.
 - Auto: `PackOp.Lanes` is the ONE total `Switch` on this page — each case answers with the lane map its own source can fill, and `PackChannels` resolves every channel `PackKind.Channels` declares against that map, so an eighth case breaks the build at exactly one site and a kind declaring a channel its case cannot fill routes `UnboundEncodingChannel` naming the channel. `SourceDigest` reads a `ToolpathPath`'s own framed `CanonicalWriter` preimage — the span kind rides an ordinal frame and an arc carries centre and sense as fields — so every analytic distinction keys, and neither sampled chords nor a coordinate-encoded discriminant stands in for one.
 - Output: `EncodedGeometry` is the `IValidityEvidence` carrier; its claim set rejects any descriptor set that gaps, overlaps, or carries a non-finite witness error, so a hand-assembled carrier fails the acceptance oracle. `RoundTripWitness.Lossless` is DERIVED from the per-channel census against the dtype rows — a stored verdict beside the census it restates gives one fact two authorities — and the census keys on the typed `EncodingChannel` so no reader round trips through its text. `Lane<T>` is the fallible resolve — an absent channel or a width the `Dtype` row does not spell refuses typed — and `View<T>` is TOTAL on a lane this carrier issued, so no reader ever reads an empty view as a legitimately empty channel. Structural equality is Generator.Equals-generated with `Payload` excluded and every collection member attributed: `Witness.ContentHash` keys the content under its `Witness.Root` provenance, and an `ImmutableArray<byte>` carrier swap re-types the public residency surface every wrapper composes.
-- Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Domain`, RhinoCommon, `System.Numerics.Tensors`, `CommunityToolkit.HighPerformance`, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`, and BCL inbox.
+- Packages: `Rasm.Meshing`, `Rasm.Spatial`, `Rasm.Numerics`, `Rasm.Domain`, RhinoCommon, `System.Numerics.Tensors`, `CommunityToolkit.HighPerformance`, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`, and BCL inbox.
 - Growth: a new modality is one `PackKind` row, one `PackOp` case, and that case's lane map; a new feature is one `EncodingChannel` row with its lane entry on each kind that carries it; a new quantization is one `ChannelDtype` row carrying its `ToleranceMode` over the SAME witness; a per-instance block descriptor is one column on `EncodingChannelDescriptor`. Zero new surface.
 - Law: `EncodingLaws` is the tier-2 law matrix — descriptor tiling, per-channel recovery within `Dtype.Tolerance`, active-set equality against `PackKind.Channels`, lane-map coverage of that active set, and schema-id agreement between kind declaration and packed instance.
 - Law: `BrepPatch` control-net quantization answers to the NURBS owner — any lane carrying the underlying control net ties to the `Rasm/Parametric/nurbs#NURBS_ENGINE` `NurbsForm` homogeneous SoA columns and the reconciliation `EncodeForm.Parametric` identity, whose admission gates (weights strictly positive, knots normalized) a dtype's rounding must preserve; a quantization whose round trip breaks either gate refuses at the witness rather than packing a net `Nurbs.Of` faults on re-admission.
@@ -35,7 +35,6 @@ using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;
 using Rasm.Numerics;
-using Rasm.Processing;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
@@ -594,8 +593,7 @@ public static class Encode {
     }
 
     internal static Fin<Vector3d[]> Oriented(VectorCloud.ClusterCase cloud, PackPolicy policy, Op key) =>
-        VectorIntent.Cloud(cloud, VectorCloudMetric.OrientedNormals, policy.Cloud, key)
-            .Bind(intent => intent.Project<Seq<Vector3d>>(policy.Tolerance, key))
+        VectorCloudMetric.OrientedNormals.Project<Seq<Vector3d>>(cloud: cloud, policy: policy.Cloud, key: key)
             .Map(static seq => seq.ToArray());
 }
 ```

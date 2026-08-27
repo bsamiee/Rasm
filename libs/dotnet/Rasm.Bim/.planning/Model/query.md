@@ -367,7 +367,7 @@ public static class StoreLowering {
             None: () => new StorePlan(EntityScan, Seq<object>(), residue));
     }
 
-    static (Option<Fragment> Store, Option<BimTerm> Residue) Split(BimTerm term) => term.Map(
+    static (Option<Fragment> Store, Option<BimTerm> Residue) Split(BimTerm term) => term.Switch(
         all: all => all.Operands.Map(Split).Fold(
             (Store: Option<Fragment>.None, Residue: Option<BimTerm>.None),
             static (acc, part) => (

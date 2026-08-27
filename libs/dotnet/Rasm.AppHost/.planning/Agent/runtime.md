@@ -54,7 +54,7 @@ public static class CommandDispatch {
         from _admission in IO.lift(runtime.Instruments.Write(
                 AppHostMeasure.CommandAdmissions.Row,
                 1d,
-                InstrumentSet.Tags(result.Tenant, (AppHostSlot.Txn.Key, result.Txn.Map(
+                InstrumentSet.Tags(result.Tenant, (AppHostSlot.Txn.Key, result.Txn.Switch(
                     committed: static _ => nameof(CommandTxn.Committed),
                     rolledBack: static _ => nameof(CommandTxn.RolledBack),
                     compensated: static _ => nameof(CommandTxn.Compensated),

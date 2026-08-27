@@ -201,7 +201,6 @@ flowchart LR
         Spatial([Spatial fields])
         Meshing([Mesh topology])
         Parametric([Parametric producers])
-        Processing([Processing pipeline])
         Drawing([Drawing producers])
         Analysis([Analysis entry])
         Interaction([Interaction plane])
@@ -239,12 +238,11 @@ flowchart LR
     Spatial e28@-->|"[CONTENT_KEY]: GeometryHash"| Display
     Meshing e29@-->|"[WIRE]: MeshSpace"| Display
     Parametric e30@-->|"[BOUNDARY]: MonotonicTimeline"| Modeling
-    Parametric e31@-->|"[BOUNDARY]: MonotonicTimeline + MotionDrive"| Viewport
+    Parametric e31@-->|"[BOUNDARY]: MonotonicTimeline + MotionDrive + MotionInterpolation"| Viewport
     Parametric e32@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline"| Display
     Parametric e33@-->|"[BOUNDARY]: MonotonicTimeline"| Exchange
     Parametric e34@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline"| HostUi
     Parametric e35@-->|"[BOUNDARY]: MonotonicTimeline"| Plugin
-    Processing e36@-->|"[BOUNDARY]: VectorIntent"| Viewport
     Drawing e37@-->|"[BOUNDARY]: LayerName + LineWidth"| Document
     Drawing e38@-->|"[BOUNDARY]: LineWidth + SheetSize"| Annotation
     Drawing e39@-->|"[BOUNDARY]: LineWidth + SheetSize + ViewPose"| Viewport

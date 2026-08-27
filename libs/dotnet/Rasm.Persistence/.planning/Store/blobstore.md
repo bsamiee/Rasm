@@ -386,7 +386,7 @@ file readonly record struct PartCursor(long Start, long Bytes, int Chunks) {
 }
 
 public static class ObjectIo {
-    public static ObjectLeg For(ObjectClient client) => client.Map(
+    public static ObjectLeg For(ObjectClient client) => client.Switch(
         s3: static r => S3Leg(r), azure: static r => AzureLeg(r), gcs: static r => GcsLeg(r), minio: static r => MinioLeg(r), presigned: static r => PresignedLeg(r));
 
     public static IO<BlobPlacement> Multipart(this ObjectLeg leg, ObjectStore provider, StorageTier tier, BlobHandle handle, BlobPlacement placement, ChunkManifest manifest, ReadOnlySequence<byte> source, Instant now) {

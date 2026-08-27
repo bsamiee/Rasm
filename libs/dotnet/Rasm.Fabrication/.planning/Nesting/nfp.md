@@ -706,8 +706,8 @@ public static class Nest {
     }
 
     public static Fin<Arr<Loop>> Charts(ChartAtlas atlas, double maxAreaStretch, Context tolerance) =>
-        !double.IsFinite(maxAreaStretch) || maxAreaStretch < 1.0 || !atlas.Result.FlipFreeBijective
-        || atlas.Result.MaxArea > maxAreaStretch || atlas.Result.MinArea < 1.0 / maxAreaStretch
+        !double.IsFinite(maxAreaStretch) || maxAreaStretch < 1.0
+        || atlas.Distortion.MaxArea > maxAreaStretch || atlas.Distortion.MinArea < 1.0 / maxAreaStretch
             ? Fin.Fail<Arr<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "atlas:distortion"))
             : atlas.Islands.TraverseM(island => island.Boundary(tolerance, Op.Of(name: nameof(Charts)))
                     .Bind(chains => Rings(chains, tolerance))).As()

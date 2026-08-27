@@ -2,7 +2,7 @@
 
 Selection unions decompose host sub-geometry for the measured-query runtime: `Curves`, `Faces`, and `Points` name which curves, faces, and points a geometry yields, each selected by feature, rank, or index and projected onto a typed output through the `Domain/normalization` `TopologyProjection` carrier under a leak-free transfer fold. Edge selection is data-driven — an internal `EdgeDescriptor` describes what an edge is and one `Features` projection derives the `EdgeFeature` rows it carries, so selection tests membership through `Matches(descriptor)`, never a per-source branch, and each extraction arm gates on the feature SET it serves. Each union publishes its operation builders on ITSELF — the `Analyze` facade lives once on `Analysis/query` and this page adds no fragment to it.
 
-Every projection duplicating host geometry travels as a `TopologyProjection` minted on the `Fin` result carrying its source `ComponentIndex`, so selection, repair, and host drains address one component space and a carrier that fails its own admission releases what it took; the carrier's `Project` fold releases every non-transferred duplicate and the `Domain/results` `Lease` with `DetachFrom` decides ownership, never a caller flag. Capability admission rides the `Domain/normalization` row vocabulary, evaluation composes `Domain/evaluation`'s `Evaluate` verb union, statistics `Domain/stats` on the `Scalar` carrier, the spread eigendecomposition `Numerics/matrix`, and direction with planar decomposition the `Processing/intent` `VectorIntent` verb. Factory spellings bind the Grasshopper component surface by name, so a rename breaks the host contract.
+Every projection duplicating host geometry travels as a `TopologyProjection` minted on the `Fin` result carrying its source `ComponentIndex`, so selection, repair, and host drains address one component space and a carrier that fails its own admission releases what it took; the carrier's `Project` fold releases every non-transferred duplicate and the `Domain/results` `Lease` with `DetachFrom` decides ownership, never a caller flag. Capability admission rides the `Domain/normalization` row vocabulary, evaluation composes `Domain/evaluation`'s `Evaluate` verb union, statistics `Domain/stats` on the `Scalar` carrier, the spread eigendecomposition `Numerics/matrix`, and direction with planar decomposition the `Numerics/atoms` `Direction.Of`, `VectorSpan.Components`, and `SignedAxis.Cardinal` owners. Factory spellings bind the Grasshopper component surface by name, so a rename breaks the host contract.
 
 ## [01]-[INDEX]
 
@@ -19,7 +19,7 @@ Every projection duplicating host geometry travels as a `TopologyProjection` min
 - Law: `bool smooth` is not a knob — `SegmentPosture` is the row, so the host call (`DuplicateSegments` vs `GetSubCurves`) and the provenance feature (`Segment` vs `SubCurve`) cannot drift apart, and every other optional rides `Option<T>` with the policy owner naming the fallback at one site.
 - Law: extraction admission reads a SET, never a mode flag — each arm names the `EdgeFeature` rows it serves and an absent kind asks for that arm's whole run, so a loops-only arm declines it by roster rather than by an `allowNone` argument; the draft angle is required because a zero-angle draft is a silhouette wearing the wrong provenance.
 - Auto: one fold owns extraction, selection, projection, and disposal — `Project` resolves the source kind, derives the emitted feature, extracts every candidate, applies `Select`, projects the chosen subset, and releases every non-transferred projection through `TopologyProjection.Project`, so a leaked duplicate is impossible on the success and failure branches alike; the per-source extraction table and the trim-aware iso kernel live in the fence.
-- Packages: RhinoCommon supplies brep, mesh, and SubD topology, iso extraction, and silhouette capture; `Rasm.Domain` supplies the capability vocabulary, form recoveries, the `TopologyProjection` carrier and its `Project` fold, `ToleranceLane` rows, and the `Lease`; `Rasm.Processing` supplies `VectorIntent`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
+- Packages: RhinoCommon supplies brep, mesh, and SubD topology, iso extraction, and silhouette capture; `Rasm.Domain` supplies the capability vocabulary, form recoveries, the `TopologyProjection` carrier and its `Project` fold, `ToleranceLane` rows, and the `Lease`; `Rasm.Numerics` supplies `Direction.Of`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
 - Growth: a new edge feature is one `EdgeFeature` row with its provenance column and one `Features` arm; a new extraction source is one table arm emitting `TopologyProjection`s; a new typed output is one projection row on the fan; a new segment reading is one `SegmentPosture` row — selection, projection, and disposal untouched.
 - Boundary: the edge taxonomy is data — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder is the wrong move it forecloses; every duplicate rides `TopologyProjection` with its true `ComponentIndex` so host drains and repair pages address one component space; owned lowering (`Surface`/`SubD` to brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index through the one `IndexSelection.At` fold both the curve and face families dispatch, so a family-local re-spelling of the empty/first/out-of-range arms is the wrong move; every `Curves` fold — `CanProject`, `Feature`, `Matches`, `Select` — is the generated total `Switch`, so a new case breaks all four loudly at compile time where a discard arm answers for it silently, and `EdgeDescriptor.Features` folds the same way with each host-enum tail stating its own emptiness; a projection that DECLINES refuses typed rather than vanishing under a `Choose`, so a caller asking for five curves and receiving three learns which arm refused; the silhouette arm is host capture beside the `Drawing/view` robust owner, so a local hidden-line kernel here is the altitude violation.
 
@@ -31,7 +31,6 @@ using System.Linq;
 using System.Threading;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.Processing;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -317,7 +316,7 @@ public abstract partial record Curves {
     private static Fin<Seq<TopologyProjection>> Silhouettes(GeometryBase geometry, SilhouetteCase silhouette, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(Errors.Cancelled)
-            : VectorIntent.Direction(value: silhouette.Direction.IfNone(Vector3d.ZAxis)).Project<Vector3d>(context: context, key: op)
+            : Rasm.Numerics.Direction.Of(value: silhouette.Direction.IfNone(Vector3d.ZAxis), context: context, key: op).Map(static admitted => admitted.Value)
                 .Bind(direction => (geometry switch {
                     Brep or BrepFace or Mesh or Extrusion => Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Borrowed(Value: geometry)),
                     Surface surface => Optional(surface.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: brep)),
@@ -350,8 +349,8 @@ internal static class IndexSelection {
 - Owner: `Faces` `[Union]` decomposes a geometry's faces by all, axis-rank, or index — top and bottom are one `RankedCase` whose `Domain/stats` `ExtremumDirection` sign selects the extremum, never two operations. One `Build` fan carries the union across the typed projection rows, each row binding its own `Requirement` — `SurfaceEvaluation` where it evaluates the face surface, `None` where it reads structure.
 - Cases: three selection cases — `AllCase`, `RankedCase` (axis and direction), `AtCase` — fanned across the typed projection rows one builder owns; the eight outputs are projections of one operation.
 - Entry: `Faces.Operation<TGeometry, TOut>()` is the family entry; admission gates through `Capability.DecomposeFaces.Admits` (universal ingress, `BrepFace` directly, any brep-coercible kind), and the output type selects the projection row at build time.
-- Auto: `Decompose` derives ownership from the `Lease` case — a borrowed brep yields carriers addressing the live `BrepFace` list, an owned brep (coerced) yields carriers detached through `TopologyProjection.DetachFrom` before the lease disposes at scope exit, so ownership never rides a caller flag; ranking admits the axis through `VectorIntent.Direction`, scores each mass-centroid against it, and selects through the one `Stat.Extrema` fold at `ToleranceLane.Project`, so every coplanar-tie face returns; `FrameAt` composes `Analysis/measure`'s `MassKind.CentroidOf` and `Domain/evaluation`'s `FrameAt`, and the `Interval` row reads `Analysis/inspect`'s `Topologies.DomainsOf`.
-- Packages: RhinoCommon supplies brep face access and the closest-point pull-back; `Rasm.Domain` supplies the decompose capability, form coercion, the carrier with `DetachFrom` and `Project`, the frame evaluation, `ToleranceLane` rows, and the extremum fold; `Rasm.Processing` supplies `VectorIntent`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
+- Auto: `Decompose` derives ownership from the `Lease` case — a borrowed brep yields carriers addressing the live `BrepFace` list, an owned brep (coerced) yields carriers detached through `TopologyProjection.DetachFrom` before the lease disposes at scope exit, so ownership never rides a caller flag; ranking admits the axis through `Direction.Of`, scores each mass-centroid against it, and selects through the one `Stat.Extrema` fold at `ToleranceLane.Project`, so every coplanar-tie face returns; `FrameAt` composes `Analysis/measure`'s `MassKind.CentroidOf` and `Domain/evaluation`'s `FrameAt`, and the `Interval` row reads `Analysis/inspect`'s `Topologies.DomainsOf`.
+- Packages: RhinoCommon supplies brep face access and the closest-point pull-back; `Rasm.Domain` supplies the decompose capability, form coercion, the carrier with `DetachFrom` and `Project`, the frame evaluation, `ToleranceLane` rows, and the extremum fold; `Rasm.Numerics` supplies `Direction.Of`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
 - Growth: a new face projection is one output arm on the fan; a new selection strategy is one case whose score projection feeds the same `Stat.Extrema` fold — zero new operations.
 - Boundary: eight outputs ride one builder — a `FacePlanes`/`FaceCentroids`/`FaceNormals` operation family is the proliferation this fan forecloses; the borrowed/owned asymmetry is the resource law, borrowed carriers transferring live faces and owned decompositions detaching so no emitted face dangles after the coerced brep disposes; ranking and index reject an out-of-range index through the same `IndexSelection.At` fold the curve family dispatches; the centroid frame composes `Analysis/measure` and `Domain/evaluation`, so a local mass or frame computation here is the wrong move.
 
@@ -361,7 +360,6 @@ using System;
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.Processing;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -395,7 +393,7 @@ public abstract partial record Faces {
                 Type t when t == typeof(Vector3d) => Build<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation,
                     project: static (chosen, runtime) => chosen.TraverseM(face => face.As<BrepFace>(key: Key)
                         .Bind(native => FrameAt(face: native, context: runtime, op: Key))
-                        .Bind(frame => VectorIntent.Direction(value: frame.ZAxis).Project<Vector3d>(context: runtime, key: Key))).As()),
+                        .Bind(frame => Rasm.Numerics.Direction.Of(value: frame.ZAxis, context: runtime, key: Key).Map(static direction => direction.Value))).As()),
                 Type t when t == typeof(ComponentIndex) => Build<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None,
                     project: static (chosen, _) => Key.Accept(values: chosen.Map(static face => face.Source))),
                 Type t when t == typeof(int) => Build<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None,
@@ -440,7 +438,7 @@ public abstract partial record Faces {
     private static Fin<Seq<TopologyProjection>> Ranked((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>
         state.Faces.IsEmpty switch {
             true => Fin.Succ(Seq<TopologyProjection>()),
-            false => from vector in VectorIntent.Direction(value: axis).Project<Vector3d>(context: state.Runtime, key: state.Key)
+            false => from vector in Rasm.Numerics.Direction.Of(value: axis, context: state.Runtime, key: state.Key).Map(static direction => direction.Value)
                      from ranked in state.Faces.TraverseM(face => face.As<BrepFace>(key: state.Key)
                          .Bind(native => MassKind.CentroidOf(geometry: native, context: state.Runtime, op: state.Key))
                          .Map(point => (Face: face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * vector))).As()
@@ -454,8 +452,8 @@ public abstract partial record Faces {
 - Owner: `SpreadAspect` `[SmartEnum<int>]` asks what a point set's spread is, each row binding its own `OutputBinding` (`Plane`, `Stat<Scalar>`, or `bool`) and its own `Fit` body. `Points` `[Union]` extracts directional extrema, edge midpoints, vertices, control points, or spread — one case per extraction kind, its operation key derived from the case name.
 - Cases: five extraction cases; `ExtremaCase` admits caller directions or derives the world quadrant set, and `SpreadCase` carries its `SpreadAspect`; a new aspect is a `SpreadAspect` row, a new extraction a case.
 - Entry: `Points.Operation<TGeometry, TOut>()` is the family entry; every arm gates capability through the `Domain/normalization` vocabulary — `Capability.ReadEdges` and `Capability.ReadControlPoints` are the rows, never a `Kind` bool column — and the output type before building.
-- Auto: extrema resolves directions through `VectorIntent.Axes` (planar curves collapse to the in-plane pair, absent directions derive the quadrant set) then folds `Curve.ExtremeParameters` through the one `Stat.Extrema` fold at `ToleranceLane.Project`; edge midpoints composes the `Curves` family so the edge walk lives once in the curve family; vertices routes `Domain/evaluation`'s `Evaluate` vertex verb; control points unfolds NURBS nets, lowering non-NURBS sources through owned leases; spread reads vertices and each aspect row runs its own `Fit`, folding centroid distances into `Stat<Scalar>.Of` or fitting a plane and deriving frame, principal frame, coplanarity, or collinearity — the principal angle is the PCA of the fit-plane coordinates, every point decomposing through `VectorIntent.Components`, the rows folding through `Domain/stats`'s `SampleMoment` covariance into a `Numerics/matrix` `SymmetricMatrix`, and the dominant eigenpair (selected by `Stat.Extrema` over eigenvalues, independent of decomposition return order) giving the axis; degeneracy answers ahead of the fit, so a plane-fit refusal never doubles as a coplanarity verdict.
-- Packages: RhinoCommon supplies curve extrema, NURBS control nets, and plane fitting; `Rasm.Domain` supplies the capability rows, the evaluation verb union, statistics on the `Scalar` carrier, `ToleranceLane` rows, and the lease; `Rasm.Processing` supplies `VectorIntent`; `Rasm.Numerics` supplies `SymmetricMatrix`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
+- Auto: extrema resolves directions through `Direction.Of` over the supplied set or `SignedAxis.Cardinal` at the curve's rank (planar curves collapse to the in-plane pair, absent directions derive the cardinal set) then folds `Curve.ExtremeParameters` through the one `Stat.Extrema` fold at `ToleranceLane.Project`; edge midpoints composes the `Curves` family so the edge walk lives once in the curve family; vertices routes `Domain/evaluation`'s `Evaluate` vertex verb; control points unfolds NURBS nets, lowering non-NURBS sources through owned leases; spread reads vertices and each aspect row runs its own `Fit`, folding centroid distances into `Stat<Scalar>.Of` or fitting a plane and deriving frame, principal frame, coplanarity, or collinearity — the principal angle is the PCA of the fit-plane coordinates, every point decomposing through `VectorSpan.Components`, the rows folding through `Domain/stats`'s `SampleMoment` covariance into a `Numerics/matrix` `SymmetricMatrix`, and the dominant eigenpair (selected by `Stat.Extrema` over eigenvalues, independent of decomposition return order) giving the axis; degeneracy answers ahead of the fit, so a plane-fit refusal never doubles as a coplanarity verdict.
+- Packages: RhinoCommon supplies curve extrema, NURBS control nets, and plane fitting; `Rasm.Domain` supplies the capability rows, the evaluation verb union, statistics on the `Scalar` carrier, `ToleranceLane` rows, and the lease; `Rasm.Numerics` supplies `Direction.Of`, `VectorSpan.Components`, `SignedAxis.Cardinal`, and `SymmetricMatrix`; Thinktecture.Runtime.Extensions and LanguageExt.Core the union and result substrate.
 - Growth: a new spread aspect is one `SpreadAspect` row carrying its `OutputBinding` and its `Fit` delegate over the same moment fold; a new extraction source is one table arm; a new extremum policy is a `ToleranceLane` row on the existing fold.
 - Boundary: spread mathematics is composed — `SampleMoment` owns the covariance, `SymmetricMatrix` owns the spectrum, `Stat.Extrema` owns the dominant-pair selection; a local covariance accumulation or eigen-ordering assumption is the double-owner defect, and selecting the dominant eigenvalue keeps the result order-independent where a first-returned-pair convention couples correctness to an upstream sort; planar-coordinate projection failures abort the fold, since a zero-row substitution biases the covariance toward the origin; `EdgeMidpoints` composes the `Curves` family, so a second topology-edge walker is the wrong move; control-point extraction leases every minted NURBS form so conversion never leaks. `Lattice` dispatches an ERASED `TGeometry` runtime value, not a closed family, so its discard arm is the boundary refusal the open ingress owes — it mints the typed `Unsupported` naming both the runtime type and the output, and collapsing it onto a generated `Switch` is unspellable where no union owns the input.
 
@@ -467,7 +465,6 @@ using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Numerics;
-using Rasm.Processing;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -507,7 +504,7 @@ public sealed partial class SpreadAspect {
             _ => Fin.Fail<(Plane, double)>(op.InvalidResult()),
         };
     private static Fin<double> Principal(Seq<Point3d> points, Plane fit, Context context, Op op) =>
-        points.TraverseM(point => VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit).Project<(double X, double Y)>(context: context, key: op)).As()
+        points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op).Bind(span => span.Components(frame: fit, key: op))).As()
             .Map(static planar => planar.Map(static row => Seq(row.X, row.Y)))
             .Bind(rows => SampleMoment.Of(rows: rows, key: op))
             .Bind(moment => SymmetricMatrix.Of(dim: Dimension.Create(value: moment.Dimension), upper: moment.UpperCovariance, key: op)
@@ -516,14 +513,14 @@ public sealed partial class SpreadAspect {
             .Map(static dominant => Math.Atan2(y: dominant.Eigenvector[1], x: dominant.Eigenvector[0]));
     private static Fin<Plane> Oriented(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in Principal(points: points, fit: fit, context: context, op: op)
-        from xAxis in VectorIntent.Direction(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle))).Project<Vector3d>(context: context, key: op)
-        from yAxis in VectorIntent.Direction(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)).Project<Vector3d>(context: context, key: op)
+        from xAxis in Rasm.Numerics.Direction.Of(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle)), context: context, key: op).Map(static direction => direction.Value)
+        from yAxis in Rasm.Numerics.Direction.Of(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis), context: context, key: op).Map(static direction => direction.Value)
         from plane in op.AcceptValue(value: new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis))
         select plane;
     private static Fin<double> Minor(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in Principal(points: points, fit: fit, context: context, op: op)
-        from offsets in points.TraverseM(point => VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit)
-            .Project<(double X, double Y)>(context: context, key: op)
+        from offsets in points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op)
+            .Bind(span => span.Components(frame: fit, key: op))
             .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))).As()
         from spread in Stat.Extrema(items: offsets, projection: static offset => offset, band: context.For(lane: ToleranceLane.Project), direction: ExtremumDirection.Maximum).Head.ToFin(op.InvalidResult())
         select spread;
@@ -557,17 +554,20 @@ public abstract partial record Points {
                     from lease in Normalization.CurveForm(source: geometry, key: state.Key).ToEff()
                     from points in lease.Use((Curve curve) => curve.IsValid switch {
                         false => Fin.Fail<Seq<Point3d>>(state.Key.InvalidInput()),
-                        true => VectorIntent.Axes(
-                                values: state.Directions,
-                                rank: curve.IsPlanar(tolerance: context.For(lane: ToleranceLane.PlaneDistance).Value) ? Some(Dimension.Create(value: 2)) : Option<Dimension>.None)
-                            .Project<Seq<Vector3d>>(context: context, key: state.Key)
-                            .Bind((Seq<Vector3d> directions) => directions.TraverseM((Vector3d direction) => Stat.Extrema(
-                                    items: toSeq(curve.ExtremeParameters(direction: direction) ?? []).Map(curve.PointAt),
-                                    projection: point => (Vector3d)point * direction,
-                                    band: context.For(lane: ToleranceLane.Project),
-                                    direction: ExtremumDirection.Maximum)
-                                .Head.ToFin(state.Key.InvalidResult()))
-                            .As()),
+                        true => state.Directions
+                            .IfNone(SignedAxis.Cardinal(rank: Dimension.Create(value: curve.IsPlanar(tolerance: context.For(lane: ToleranceLane.PlaneDistance).Value) ? 2 : 3))
+                                .Map(static axis => axis.World))
+                            .TraverseM(axis => Rasm.Numerics.Direction.Of(value: axis, context: context, key: state.Key).Map(static direction => direction.Value))
+                            .As()
+                            .Bind((Seq<Vector3d> directions) => directions.IsEmpty
+                                ? Fin.Fail<Seq<Point3d>>(state.Key.InvalidInput())
+                                : directions.TraverseM((Vector3d direction) => Stat.Extrema(
+                                        items: toSeq(curve.ExtremeParameters(direction: direction) ?? []).Map(curve.PointAt),
+                                        projection: point => (Vector3d)point * direction,
+                                        band: context.For(lane: ToleranceLane.Project),
+                                        direction: ExtremumDirection.Maximum)
+                                    .Head.ToFin(state.Key.InvalidResult()))
+                                .As()),
                     }).ToEff()
                     select points).As<TGeometry, TOut>(key: c.Key)
             : c.Key.Unsupported<TGeometry, TOut>(),

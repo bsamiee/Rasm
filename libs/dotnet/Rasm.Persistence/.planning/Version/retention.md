@@ -87,7 +87,7 @@ public abstract partial record LaneOutcome {
     public sealed record Replaced(long Bytes, ulong PriorEpoch) : LaneOutcome;
     public sealed record Deduped : LaneOutcome;
 
-    public long Committed => this.Map(stored: static s => s.Bytes, replaced: static r => r.Bytes, deduped: static _ => 0L);
+    public long Committed => this.Switch(stored: static s => s.Bytes, replaced: static r => r.Bytes, deduped: static _ => 0L);
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

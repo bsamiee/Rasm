@@ -44,7 +44,7 @@ public static class LifecycleRules {
 
     public static IO<Unit> Arm(ObjectClient client, Seq<RetentionClass> classes) {
         Seq<LifecycleRule> rules = Project(classes);
-        return rules.IsEmpty ? IO.pure(unit) : client.Map(
+        return rules.IsEmpty ? IO.pure(unit) : client.Switch(
             s3: r => ObjectIo.Bound(r, "s3", ObjectVerb.Lifecycle, default, () => r.Client.PutLifecycleConfigurationAsync(r.Bucket, new Amazon.S3.Model.LifecycleConfiguration {
                 Rules = rules.Map(rule => new Amazon.S3.Model.LifecycleRule {
                     Id = BlobName.Prefix(r.Tenant, rule.Class),

@@ -2,7 +2,7 @@
 
 `Panelization` owns cross-field-guided panelization: `Apply` maps a UV-provenanced surface into a panel graph whose every panel leaves with a placement frame — origin, field-aligned x-axis, and metric-true binding normal — because position without orientation is half a panel. `PanelFamily` rides the request as data, so a new family is one case over the shared assembly fold rather than a sibling mapper, and per-panel planarity is the fabrication acceptance measure whose breach routes a fault instead of shipping an unfabricatable lattice. Mould reuse keys through the `patternmap.md` material-symmetry law: a mirrored congruence merges only where the material's `MirrorGrant` merges it, `Flipped` records which panels ride the mirrored digest, and the merges the law refused count on the census as the mould-cost delta of the material choice.
 
-Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh, per-vertex `(u, v)`, and live `NurbsForm.Surface` binding — so an unbound mesh cannot enter and every `PanelField` keeps its UV provenance. `Lattice` consumes the remesh substrate's `QuadProvenance` without re-running any field solve while `Seeded` lands geodesic-Voronoi cells over the `sample.md` distribution suite, `Symmetry` the one `RoSyOrder` row keying both arms; adjacency composes through QuikGraph.
+Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh, per-vertex `(u, v)`, and live `NurbsForm.Surface` binding — so an unbound mesh cannot enter and every `PanelField` keeps its UV provenance. `Lattice` consumes the remesh substrate's `QuadLayout` without re-running any field solve while `Seeded` lands geodesic-Voronoi cells over the `sample.md` distribution suite, `Order` the one `segment` `RosyOrder` row keying both arms; adjacency composes through QuikGraph.
 
 ## [01]-[INDEX]
 
@@ -11,16 +11,16 @@ Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh, per-vertex `(u,
 ## [02]-[PANELIZATION]
 
 - Owner: `Panelization` mints the one static entry; `PanelFamily` carries the family as data, `PanelPolicy` the `IValidityEvidence` policy row carrying the lane-resolved planarity band and the `MaterialSymmetry` law the congruence fold reads (`None` reading `Free`), and `PanelResult` carries the panel-graph-plus-frame `PanelField` with its retained fabrication measures.
-- Cases: `PanelFamily` cases `Lattice` and `Seeded` — the substrate-guided lattice and the sample-suite distribution, `Symmetry` the one `RoSyOrder` row keying both; `PanelOp` cases `Map` and `Planarize` — generation versus fabrication-correction, `Planarize` consuming `Map`'s carrier.
+- Cases: `PanelFamily` cases `Lattice` and `Seeded` — the substrate-guided lattice and the sample-suite distribution, `Order` the one `segment` `RosyOrder` row keying both; `PanelOp` cases `Map` and `Planarize` — generation versus fabrication-correction, `Planarize` consuming `Map`'s carrier.
 - Entry: `public static Fin<PanelResult> Apply(PanelOp op, Op? key = null)` — the one entry discriminating on the op case, the family arm discriminating inside it.
-- Auto: `Map`+`Lattice` binds the substrate's `QuadProvenance` as the panel lattice and restores UV through one batch `Pullback`; `Map`+`Seeded` lands geodesic-Voronoi cells from cached heat-distance labels walled at the equidistance lerp. Both arms assemble identically — Newell plane per panel, planarity defect, adjacency composed through QuikGraph — and `Planarize` runs bounded proximal rounds toward the planarity band, keeping each panel's pre-planarization UV feet while frames and the `ShapeClass`/`Flipped`/`ChiralSplit` evidence re-derive from the planarized geometry — congruence answers the final rings, never the ones the rewrite retired.
+- Auto: `Map`+`Lattice` binds the substrate's `QuadLayout` as the panel lattice and restores UV through one batch `Pullback`; `Map`+`Seeded` lands geodesic-Voronoi cells from cached heat-distance labels walled at the equidistance lerp. Both arms assemble identically — Newell plane per panel, planarity defect, adjacency composed through QuikGraph — and `Planarize` runs bounded proximal rounds toward the planarity band, keeping each panel's pre-planarization UV feet while frames and the `ShapeClass`/`Flipped`/`ChiralSplit` evidence re-derive from the planarized geometry — congruence answers the final rings, never the ones the rewrite retired.
 - Law: the result's planarity band is ONE `Stat<Scalar>` derived from the field's own `Planarity` column, never a max/mean pair beside it. NAMED LOSS: the two scalar fields; the gain is that the band cannot disagree with the column it summarizes, and the consumer reads variance and RMS no pair carries. WITNESS: `result.MaxPlanarity` rebuilt as `result.Planarity.Maximum.To()`, the same value off `Stat<Scalar>.Of(column.AsSpan(), key)`.
 - Law: the acceptance ceiling is `Tolerance` off `ToleranceLane.Fraction` — the defect is dimensionless (max vertex-plane deviation over panel diameter), so it belongs to the ratio band and the document sets it. NAMED LOSS: `PanelPolicy.Canonical` and its `5e-3` literal.
 - Exemption: `Loop`, `Cells`, `SharedWalls`, and `ShapeClasses` hold mutable `Dictionary`/`HashSet`/`List` accumulators inside their own span windows — a walled-cell chain, a wall pairing, and a first-seen class roster are single-pass build state that never escapes the member, and `Grain` states its quantum (the model's absolute tolerance, the branch's emission-boundary grain) on site.
 - Output: `PanelResult` carries the planarity band, the `ChiralSplit` count, and planarize rounds beside the field; counts derivable from the field and unconsumed build tallies do not leave the producer.
-- Packages: `Rasm.Processing` for the remesh substrate (`QuadProvenance`, `RemeshOp.QuadField`, `RemeshPolicy`, `RoSyOrder`) and the seed suite (`SampleKind`, `SampleKernel.Sample`, `SegmentKernel.CrossFieldAt`, `GeodesicKernel.EnsureGeodesicDistances`, `ExtractionDomain.Mesh`); `Rasm.Parametric` `surface.md` for the `UvTessellation` input and `Pullback` restore, `nurbs.md` for the frame normals, and `patternmap.md` for the `MaterialSymmetry` law the congruence fold reads; `Rasm.Spatial` `ScalarField` for density seeds and `NeighborIndex`/`NeighborSource`/`NeighborKernel` for the one batch seed snap; `Rasm.Numerics` for `VectorFrame.NewellNormal`, `Dimension`/`PositiveMagnitude`, and `GeometryFault`; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`/`Tolerance`, `ContentHash`/`CanonicalWriter`, `Stat<Scalar>`/`Scalar`, and `IValidityEvidence`; QuikGraph for adjacency; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Packages: `Rasm.Processing` for the remesh substrate (`QuadLayout`, `RemeshOp`, `RemeshPolicy`, `RosyOrder`) and the seed suite (`SampleKind`, `SampleKernel.Sample`, `SegmentKernel.CrossFieldAt`, `GeodesicKernel.EnsureGeodesicDistances`, `ExtractionDomain.Mesh`); `Rasm.Parametric` `surface.md` for the `UvTessellation` input and `Pullback` restore, `nurbs.md` for the frame normals, and `patternmap.md` for the `MaterialSymmetry` law the congruence fold reads; `Rasm.Spatial` `ScalarField` for density seeds and `NeighborIndex`/`NeighborSource`/`NeighborKernel` for the one batch seed snap; `Rasm.Numerics` for `VectorFrame.NewellNormal`, `Dimension`/`PositiveMagnitude`, and `GeometryFault`; `Rasm.Domain` for `Op`, `Context`/`ToleranceLane`/`Tolerance`, `ContentHash`/`CanonicalWriter`, `Stat<Scalar>`/`Scalar`, and `IValidityEvidence`; QuikGraph for adjacency; Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new panel family is one `PanelFamily` case over the same assembly fold; a new seed distribution is one `SampleKind` row; a new panel measure is one `PanelField` column — `ShapeClass` congruence and its `Flipped` parity are the executed precedent; a fabrication-nesting order is one projection off the adjacency columns.
-- Boundary: the field solve is the substrate's — a `CrossFieldAt`/`StripeAt` loop here is the named re-derivation defect, the lattice arm consuming `QuadProvenance` whole, its sole local frame read (stripe-U off the quad's own corners) holding only because the emitted geometry is the integrated field. Output keeps provenance — a wire without UV columns is the named drop, restored by one batch `Pullback` never a per-vertex `ClosestParameter` loop; seeded labels are geodesic, a Euclidean nearest-seed the named naivety defect across folds. `Planarize` fits per-panel planes and never parameterizes, a conformal or ARAP energy belonging to `flatten.md`; every content key rides the branch `CanonicalWriter` — a second hasher or a hand `BinaryPrimitives` preimage forks the seed the federation reproduces; mould-reuse congruence merges a mirrored digest only where the material law's `MirrorRight.Merge` right licenses it — an unconditional min-digest merge cuts a mirrored panel from a blank a chiral material cannot flip, and a fold branching on grant identity instead of the rights set is the named re-derivation; a planarity breach routes `PanelPlanarityExceeded` with the worst panel and its measured deviation, every admission or impossible-result branch the resolved `Op.InvalidInput`/`Op.InvalidResult` channel, composed owners surfacing their own faults untranslated.
+- Boundary: the field solve is the substrate's — a `CrossFieldAt`/`StripeAt` loop here is the named re-derivation defect, the lattice arm consuming `QuadLayout` whole, its sole local frame read (stripe-U off the quad's own corners) holding only because the emitted geometry is the integrated field. Output keeps provenance — a wire without UV columns is the named drop, restored by one batch `Pullback` never a per-vertex `ClosestParameter` loop; seeded labels are geodesic, a Euclidean nearest-seed the named naivety defect across folds. `Planarize` fits per-panel planes and never parameterizes, a conformal or ARAP energy belonging to `flatten.md`; every content key rides the branch `CanonicalWriter` — a second hasher or a hand `BinaryPrimitives` preimage forks the seed the federation reproduces; mould-reuse congruence merges a mirrored digest only where the material law's `MirrorRight.Merge` right licenses it — an unconditional min-digest merge cuts a mirrored panel from a blank a chiral material cannot flip, and a fold branching on grant identity instead of the rights set is the named re-derivation; a planarity breach routes `PanelPlanarityExceeded` with the worst panel and its measured deviation, every admission or impossible-result branch the resolved `Op.InvalidInput`/`Op.InvalidResult` channel, composed owners surfacing their own faults untranslated.
 
 ```csharp
 // --- [IMPORTS] -------------------------------------------------------------------------
@@ -46,8 +46,8 @@ namespace Rasm.Parametric;
 public abstract partial record PanelFamily {
     private PanelFamily() { }
 
-    public sealed record Lattice(RoSyOrder Symmetry, PositiveMagnitude TargetLength) : PanelFamily;
-    public sealed record Seeded(SampleKind Seeds, RoSyOrder Symmetry) : PanelFamily;
+    public sealed record Lattice(RosyOrder Order, PositiveMagnitude TargetLength) : PanelFamily;
+    public sealed record Seeded(SampleKind Seeds, RosyOrder Order) : PanelFamily;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -93,10 +93,10 @@ public static class Panelization {
 
     // --- [LATTICE]
     static Fin<PanelResult> LatticePanels(SurfaceResult.UvTessellation source, PanelFamily.Lattice family, PanelPolicy policy, Op key) =>
-        Remeshing.Apply(new RemeshOp.QuadField(source.Mesh, family.TargetLength, family.Symmetry, policy.Remesh), key)
+        Remeshing.Apply(new RemeshOp(source.Mesh, family.TargetLength, policy.Remesh, Some(family.Order)), key)
             .Bind(remesh => remesh.Quads.Match(
                 Some: quads => Reprovenance(source, remesh.Mesh, policy, key)
-                    .Bind(uv => Assemble(source, LatticeBuild(remesh.Mesh, quads, uv), fieldSymmetry: None, policy, key)),
+                    .Bind(uv => Assemble(source, LatticeBuild(remesh.Mesh, quads, uv), fieldOrder: None, policy, key)),
                 None: () => Fin.Fail<PanelResult>(key.InvalidResult())));
 
     static Fin<Arr<Point2d>> Reprovenance(SurfaceResult.UvTessellation source, MeshSpace emitted, PanelPolicy policy, Op key) =>
@@ -105,7 +105,7 @@ public static class Panelization {
                 ? Fin.Succ(pulled.Uv)
                 : Fin.Fail<Arr<Point2d>>(key.InvalidResult()));
 
-    static PanelBuild LatticeBuild(MeshSpace emitted, QuadProvenance quads, Arr<Point2d> uv) {
+    static PanelBuild LatticeBuild(MeshSpace emitted, QuadLayout quads, Arr<Point2d> uv) {
         int panels = quads.Corners.Count / 4;
         return new PanelBuild(
             CornerOffsets: toArray(Enumerable.Range(0, panels + 1).Select(static p => 4 * p)),
@@ -120,7 +120,7 @@ public static class Panelization {
         ExtractionDomain.Mesh(source.Mesh, key)
             .Bind(domain => SampleKernel.Sample(family.Seeds, domain, source.Mesh.Tolerance, key))
             .Bind(seeds => SeededCells(source, seeds.Points, key))
-            .Bind(build => Assemble(source, build, fieldSymmetry: Some(family.Symmetry), policy, key));
+            .Bind(build => Assemble(source, build, fieldOrder: Some(family.Order), policy, key));
 
     static Fin<PanelBuild> SeededCells(SurfaceResult.UvTessellation source, Seq<Point3d> seeds, Op key) {
         Point3d[] vertices = source.Mesh.Native.Vertices.ToPoint3dArray();
@@ -255,7 +255,7 @@ public static class Panelization {
 
     // --- [ASSEMBLY]
     static Fin<PanelResult> Assemble(
-        SurfaceResult.UvTessellation source, PanelBuild build, Option<RoSyOrder> fieldSymmetry, PanelPolicy policy, Op key) {
+        SurfaceResult.UvTessellation source, PanelBuild build, Option<RosyOrder> fieldOrder, PanelPolicy policy, Op key) {
         int panels = build.CornerOffsets.Count - 1;
         UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, panels));
@@ -263,7 +263,7 @@ public static class Panelization {
         Dictionary<int, int> componentOf = new();
         graph.ConnectedComponents(componentOf);
         (Arr<int> offsets, Arr<int> adjacent) = AdjacencyColumns(graph, panels);
-        return Frames(source, build, fieldSymmetry, key).Bind(frames => {
+        return Frames(source, build, fieldOrder, key).Bind(frames => {
             Arr<double> planarity = PlanarityOf(build.CornerOffsets, build.Corners, build.Vertices);
             MaterialSymmetry law = policy.Law.IfNone(MaterialSymmetry.Free);
             (Arr<int> shapeClass, Arr<bool> flipped, int chiralSplit) = ShapeClasses(
@@ -330,22 +330,22 @@ public static class Panelization {
     }
 
     static Fin<(Arr<Point3d> Origin, Arr<Vector3d> X, Arr<Vector3d> Z)> Frames(
-        SurfaceResult.UvTessellation source, PanelBuild build, Option<RoSyOrder> fieldSymmetry, Op key) =>
+        SurfaceResult.UvTessellation source, PanelBuild build, Option<RosyOrder> fieldOrder, Op key) =>
         Range(0, build.CornerOffsets.Count - 1).ToSeq()
-            .TraverseM(p => FrameOf(source, build, fieldSymmetry, p, key)).As()
+            .TraverseM(p => FrameOf(source, build, fieldOrder, p, key)).As()
             .Map(static rows => (
                 toArray(rows.Map(static row => row.Origin)),
                 toArray(rows.Map(static row => row.X)),
                 toArray(rows.Map(static row => row.Z))));
 
     static Fin<(Point3d Origin, Vector3d X, Vector3d Z)> FrameOf(
-        SurfaceResult.UvTessellation source, PanelBuild build, Option<RoSyOrder> fieldSymmetry, int panel, Op key) {
+        SurfaceResult.UvTessellation source, PanelBuild build, Option<RosyOrder> fieldOrder, int panel, Op key) {
         (int lo, int hi) = (build.CornerOffsets[panel], build.CornerOffsets[panel + 1]);
         Point3d seat = Centroid(Ring(build.CornerOffsets, build.Corners, build.Vertices, panel));
         Point2d foot = UvSeat(build, lo, hi);
         return from normal in source.Source.NormalAt(foot.X, foot.Y)
-               from axis in fieldSymmetry.Match(
-                   Some: order => SegmentKernel.CrossFieldAt(source.Mesh, order.Key, None, None, seat, key),
+               from axis in fieldOrder.Match(
+                   Some: order => SegmentKernel.CrossFieldAt(source.Mesh, order, None, None, seat, key),
                    None: () => Fin.Succ(StripeU(build, lo, hi)))
                from frame in Orthonormal(seat, normal, axis, key)
                select frame;
@@ -536,7 +536,7 @@ flowchart LR
     accTitle: Panelization flow
     accDescr: PanelOp folds seeds through the cross-field remesh and pullback into the PanelField SoA wire with frames, planarity, adjacency, component, shape-class, and flip-parity columns.
     UvT["surface.md UvTessellation — mesh + (u,v) + binding"] -->|"Panelization.Apply — ONE Switch"| Family["PanelFamily — data rows"]
-    Family -->|"Lattice: Remeshing.Apply(QuadField)"| Remesh["remesh.md QuadProvenance channels"]
+    Family -->|"Lattice: Remeshing.Apply(RemeshOp with Order)"| Remesh["remesh.md QuadLayout channels"]
     Remesh -->|"ONE batch Pullback — provenance restore"| Build["PanelBuild — polygons + UV"]
     Family -->|"Seeded: SampleKernel.Sample over ExtractionDomain.Mesh"| Seeds["sample.md CCVT / blue-noise seeds"]
     Seeds -->|"k cached heat solves → argmin labels → lerp walls"| Build

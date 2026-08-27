@@ -989,10 +989,10 @@ internal static class MeshKernel {
         List<(int Edge, double Parameter, OverlayPoint Point)> crossings = [];
         foreach (((int Lo, int Hi) pair, SeedHalfedge seed) in imesh.SeedHalfedges) {
             (int face, int va, int vb, int vc, double seatAngle) = OverlaySeatOf(imesh: imesh, tail: pair.Lo, inputAngle: seed.AtLo, policy: policy);
-            GeodesicKernel.ExpTrace walk = GeodesicKernel.WalkChart(imesh: imesh, startFace: face, va: va, vb: vb, vc: vc,
+            GeodesicKernel.WalkTrace walk = GeodesicKernel.WalkChart(imesh: imesh, startFace: face, va: va, vb: vb, vc: vc,
                 seatAngle: seatAngle, seatedWorldDir: Vector3d.Unset, traceLength: seed.Length, coneAngles: coneAngles,
                 mode: GeodesicKernel.GeodesicWalkMode.EdgeOverlay, stopAtVertex: pair.Hi, policy: trace);
-            if (walk.Stop != GeodesicStopKind.StopVertex) return Fin.Fail<CommonSubdivision>(key.InvalidResult(detail: $"overlay-trace:{pair.Lo}-{pair.Hi}"));
+            if (walk.Stop != GeodesicStop.TargetReached) return Fin.Fail<CommonSubdivision>(key.InvalidResult(detail: $"overlay-trace:{pair.Lo}-{pair.Hi}"));
             Arr<double> tA = RecoverTraceParameters(walk: walk, imesh: imesh);
             for (int iC = 0; iC < walk.Crossings.Count; iC++) {
                 (int cutEdge, double u) = walk.Crossings[index: iC];
@@ -1037,7 +1037,7 @@ internal static class MeshKernel {
                    RowSumBand: space.Tolerance.For(ToleranceLane.Residual));
     }
     private static (int Face, int Va, int Vb, int Vc, double SeatAngle) OverlaySeatOf(IntrinsicMesh imesh, int tail, double inputAngle, SignpostPolicy policy);
-    private static Arr<double> RecoverTraceParameters(GeodesicKernel.ExpTrace walk, IntrinsicMesh imesh);
+    private static Arr<double> RecoverTraceParameters(GeodesicKernel.WalkTrace walk, IntrinsicMesh imesh);
     private static (List<int[]> Faces, Arr<int> SourceFaceB, int CornerCrossingSum) SliceFaces(IntrinsicMesh imesh, OverlayPoint?[][] alongB, List<OverlayPoint> points);
     private static Arr<int> RecoverSourceFacesA(MeshSpace space, IntrinsicMesh imesh, List<int[]> faces, List<OverlayPoint> points);
     private static (List<int[]> Faces, Arr<int> SourceFaceA, Arr<int> SourceFaceB) TriangulateOverlay(List<int[]> faces, Arr<int> sourceA, Arr<int> sourceB);

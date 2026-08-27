@@ -231,7 +231,7 @@ public static class CredentialPublic {
     }
 
     public static Host.CredentialPublicWire Carrier(CredentialMaterial material, string keyId) =>
-        material.Map(
+        material.Switch(
             chain: arm => new Host.CredentialPublicWire {
                 KeyId = keyId,
                 CertificateChain = new Host.CertificateChain {

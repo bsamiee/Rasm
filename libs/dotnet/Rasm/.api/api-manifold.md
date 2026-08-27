@@ -155,7 +155,7 @@ MeshGL carries its output triangles as RUNS — maximal contiguous index ranges 
 
 [GUARANTEE_EVIDENCE]:
 
-Guarantee reads populate `BooleanCensus` and `ManifoldStatus` without a second correctness owner.
+Guarantee reads populate `BooleanCensus` and the `Topology` witness without a second correctness owner.
 
 | [INDEX] | [SURFACE]                              | [CAPABILITY]          |
 | :-----: | :------------------------------------- | :-------------------- |
@@ -174,7 +174,7 @@ Guarantee reads populate `BooleanCensus` and `ManifoldStatus` without a second c
 
 [TOPOLOGY]:
 - Every op folds through the `void* mem` sizing ABI with deterministic release; Manifold guarantees manifold output at float precision, the managed exact arrangement retaining exact signs, implicit-point crossings, and cell classification.
-- `manifold_status` forces eagerly onto the single `BooleanCensus`/`ManifoldStatus` evidence pair, and it is also the op that consumes a context attachment — so the binding attaches at the result immediately before that read, never at the operands a deferred fold discards the context from.
+- `manifold_status` forces eagerly onto the single `BooleanCensus`/`Topology` evidence pair, and it is also the op that consumes a context attachment — so the binding attaches at the result immediately before that read, never at the operands a deferred fold discards the context from.
 - Lane infix rides the SYMBOL, never the handle type the .NET side declares: `nint` erases `ManifoldMeshGL` and `ManifoldMeshGL64` to one shape, so nothing but the entry-point spelling keeps the two lanes apart and a mis-suffixed `LibraryImport` fails at first call rather than at compile. Kernel bindings declare the `meshgl64` lane only.
 
 [STACKING]:

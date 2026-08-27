@@ -390,7 +390,7 @@ public abstract partial record ScalarField {
 ## [05]-[VECTOR_FIELD]
 
 - Owner: `VectorField` `[Union]` — vector algebra in families spanning analytic sources, proximity-driven fields, combinators and warps, differential operators, and mesh-aware solvers. Same admission law as the scalar union: mesh-aware cases construct only through their admitting factories, proving symmetry and vertex ranges once.
-- Entry: same construction law as the scalar union. `Ring` and `ClusterField` derive a default `Gaussian(radius/3)` falloff; `HitField` gates on `SupportProjection.CanProject<Vector3d>`; `CrossField` proves symmetry in {1,2,4,6}.
+- Entry: same construction law as the scalar union. `Ring` and `ClusterField` derive a default `Gaussian(radius/3)` falloff; `HitField` gates on `SupportProjection.CanProject<Vector3d>`; `CrossField` takes the `segment` `RosyOrder` row — the closed {1,2,4,6} order admitted at that owner — and proves constraint and cone vertex ranges once, forwarding the row unprojected to `SegmentKernel.CrossFieldAt`.
 - Auto: `SampleVector` is one total `Switch` over three shared folds — `RotationalField` (one swirl body serving `Vortex`, `Ring`, and `Helical`, where `Ring.Radius` drives only its default falloff), `RadialContribution` (the per-source radial term `Coulomb` and `ClusterField` traverse applicatively, then sum in one pure fold), and `ClosestDirected` (the closest-hit query feeding `Influence` shell residuals and `HitField` projections). Closed-form cases evaluate directly; differential arms delegate to the `calculus.md` `Nabla` stencil; mesh-aware arms delegate through the `MeshSpace` boundary.
 - Growth: a vector sample is a plain value; a new field species is one case and one arm, absorbing into a shared fold when it is a swirl, radial, or closest variant, and a provenance-tagged arm or a vector Lipschitz fold rides the existing `SdfStatus` and `Falloff.SlopeBound` columns.
 - Boundary: the three shared folds are the collapse law — a new analytic case re-implementing swirl, radial accumulation, or closest-directed shaping is the rejected duplication. On-source behavior is deliberately asymmetric: `ClosestDirected` faults on a sample coincident with its support, because a hit-directed vector is undefined at its own source and a silent zero corrupts a streamline, while `RadialContribution` answers a zero term for a coincident charge, whose remaining terms stay well-defined. `CurlNoise` refuses a potential whose noise rows do not all hold `NoiseTrait.Differentiable`, at construction, through a recursive fold over the payload tree — a `Worley` buried inside a `Blend` or `Csg` still refuses — so the sampler never guards.
@@ -400,6 +400,15 @@ public abstract partial record ScalarField {
 [Union]
 public abstract partial record VectorField {
     private VectorField() { }
+
+    // --- [MESH_SOLVERS]
+    public sealed record CrossFieldCase(MeshSpace Space, RosyOrder Order, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones) : VectorField;
+
+    public static Fin<VectorField> CrossField(MeshSpace space, RosyOrder order, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Op? key = null) =>
+        guard(constraints.Map(rows => rows.ForAll(row => row.Vertex >= 0 && row.Vertex < space.Native.Vertices.Count)).IfNone(true)
+              && cones.Map(rows => rows.ForAll(row => row.Vertex >= 0 && row.Vertex < space.Native.Vertices.Count && double.IsFinite(row.HolonomyDeficit))).IfNone(true),
+              key.OrDefault().InvalidInput())
+            .ToFin().Map(_ => (VectorField)new CrossFieldCase(Space: space, Order: order, Constraints: constraints, Cones: cones));
 
     internal Fin<Vector3d> SampleVector(Point3d sample, Context context, Op key) =>
         key.AcceptValue(value: sample).Bind(_ => Switch(state: (Sample: sample, Context: context, Key: key),
@@ -431,8 +440,8 @@ public abstract partial record VectorField {
             gradientCase: static (s, c) => Nabla.GradientAt(
                 sampler: p => c.Source.SampleScalar(sample: p, context: s.Context, key: s.Key),
                 point: s.Sample, eps: c.Epsilon.Value, key: s.Key),
-            crossFieldCase: static (s, c) => SegmentKernel.CrossFieldAt(space: c.Space, symmetry: c.Symmetry.Value, constraints: c.Constraints, cones: c.Cones, sample: s.Sample, key: s.Key),
-            tangentLogMapCase: static (s, c) => GeodesicKernel.TangentLogMapAt(space: c.Space, source: c.Source, sample: s.Sample, time: c.Time.Value, algorithm: c.Algorithm, trace: c.Trace, windows: c.Windows, key: s.Key).Map(static r => r.Tangent)
+            crossFieldCase: static (s, c) => SegmentKernel.CrossFieldAt(c.Space, c.Order, c.Constraints, c.Cones, s.Sample, s.Key),
+            tangentLogMapCase: static (s, c) => GeodesicKernel.LogMapAt(space: c.Space, source: c.Source, sample: s.Sample, time: c.Time.Value, algorithm: c.Algorithm, trace: c.Trace, windows: c.Windows, key: s.Key).Map(static r => r.Vector)
             ));
 
     private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {
