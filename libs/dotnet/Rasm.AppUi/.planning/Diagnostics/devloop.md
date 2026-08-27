@@ -197,14 +197,17 @@ public static class DevLoop {
                 Gate: new TaskCompletionSource<Fin<TimeSpan>>(TaskCreationOptions.RunContinuationsAsynchronously)))
          from _queued in boundary.Marshal(() => state.Gate.TrySetResult(
              state.Start.Bind(start => line.Capture().Bind(end => line.Elapsed(start, end)))))
-         from elapsed in IO.liftVAsync(() => DispatcherOp.Catch(
-                 async token => await state.Gate.Task
-                     .WaitAsync(timeout.ToTimeSpan(), token).ConfigureAwait(false),
-                 provider: error => error.HasException<TimeoutException>()
-                     ? Some(new DevLoopFault.DispatcherTimeout(
-                         $"dispatcher marshal exceeded {timeout}", error))
-                     : None,
-                 token: cancellation))
+         from elapsed in IO.liftVAsync(async () => {
+                 try {
+                     return await state.Gate.Task
+                         .WaitAsync(timeout.ToTimeSpan(), cancellation).ConfigureAwait(false);
+                 } catch (TimeoutException raised) {
+                     return Fin.Fail<TimeSpan>(new DevLoopFault.DispatcherTimeout(
+                         $"dispatcher marshal exceeded {timeout}", Error.New(raised.Message, raised)));
+                 } catch (Exception raised) {
+                     return Fin.Fail<TimeSpan>(Error.New(raised.Message, raised));
+                 }
+             })
              .Bind(static settled => IO.lift(settled))
          from _sunk in sink(Duration.FromTimeSpan(elapsed))
          select unit)
