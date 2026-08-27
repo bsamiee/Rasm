@@ -13,7 +13,7 @@
 ## [02]-[MESH_SOURCE]
 
 - Owner: `MeshSource` `[Union]` is the ONE mesh admission discriminant — `Native` the already-shaped host mesh, `Arena` the decoded lane pool with its corner roster, `Volume` the FE cell block under a `CellTopology` row; `CellTopology` `[SmartEnum<string>]` carries node count, corner count, and the reference-cell facet table as row data; `MeshDraft` is the decode-time accumulator a multi-source reader appends into block by block and the ONE public arena egress; `MeshBlockRange` is one appended block's vertex/corner extent with its declared lane set and shading key; `SceneWalk<TNode>` is the ONE scene-graph fold every interchange reader parameterizes; `MeshSpace` mints the validated defensive-snapshot handle every arm resolves to.
-- Cases: `MeshSource` closes at three arms and `MeshSpace.Of` is total over them through the generated `Map` — a fourth source is one case and one `Lift` arm, every existing call site untouched. `CellTopology` rows are the closed linear-and-quadratic Lagrange cell family (CGNS/VTK element roster, named upstream): `Tet4` `Tet10` `Hex8` `Hex20` `Wedge6` `Pyramid5`; a quadratic row shares its linear parent's facet table because a mid-side node carries no boundary corner.
+- Cases: `MeshSource` closes at three arms and `MeshSpace.Of` is total over them through the generated `Switch` — a fourth source is one case and one `Lift` arm, every existing call site untouched. `CellTopology` rows are the closed linear-and-quadratic Lagrange cell family (CGNS/VTK element roster, named upstream): `Tet4` `Tet10` `Hex8` `Hex20` `Wedge6` `Pyramid5`; a quadratic row shares its linear parent's facet table because a mid-side node carries no boundary corner.
 - Entry: `MeshSpace.Of(Mesh, …)` and `MeshSpace.Of(MeshSource, …)` are the two admission entries and `MeshSpace.Accrue(MeshDraft, …)` the draft close into a host snapshot; all three funnel one `Admit` gate — null screen, `Mesh.IsValid` gate, defensive `DuplicateMesh` snapshot, `Context` binding, assembly policy fixed for the snapshot lifetime. `MeshDraft.Close` is the PUBLIC arena egress beside it: it publishes the packed lanes, the rebased corner roster, and the block overlay without minting a host mesh at all, which is the read an Element-tier `ImportedGeometry` mint composes. `MeshSpace.Bounds` and `MeshSpace.Index` are the memoized extent and broad-phase reads — a consumer building its own per-face box roster re-opens the copy this memo collapses.
 - Auto: `Admit` is the one snapshot gate and takes its provenance as a parameter, so the `Native` arm re-wraps the SNAPSHOT (never the caller's mesh, which aliases the memory the defensive copy exists to escape) while the lane arms keep their immutable source arm. `LiftArena` reads the `Position` lane into vertices and the corner roster into triangles, carrying `Normal` and `Uv` when declared. `LiftVolume` folds the cell block through `CellTopology.Facets`, keying each facet on its sorted CORNER tuple; a key appearing once is a boundary facet and becomes a mesh face. `MeshDraft.Append` is total on its arena and returns the block's ORDINAL — the only block handle the scene fold carries — while `Close` pools each declared channel densely and refuses only an EMPTY column. `MeshDraft.Place` answers on the same `Fin` result, so a stale ordinal from a caller-side memo refuses instead of vanishing. `SceneWalk.Accrue` walks the scene depth-first, prunes each excluded subtree, threads the parent frame into every node's placements, appends each node's blocks through the accessor's own memo, and sweeps the draft's un-referenced ordinals in un-placed at identity — every placement and every parent-frame read folding onto the one accumulator the walk aborts on.
 - Law: `MeshDraft.Close` refuses a channel EMPTY across the whole arena and a vertex count past the encode boundary's own `int` width; it never refuses a ragged union. Per-block `Declared` is the gate every consumer reads, and a block that declared no lane leaves its ordinates in that lane untouched — never read as values — so the pooled lane stays dense while a partially-declaring pool stays honest. Inverting that law — refusing a block that declared fewer lanes than the draft's union — is the DELETED form: it refused every real multi-source import where a UV-bearing block sits beside a UV-free one.
@@ -47,9 +47,9 @@ namespace Rasm.Meshing;
 [SmartEnum<string>]
 public sealed partial class CellTopology {
     public static readonly CellTopology Tet4     = new("tet4",     nodes: 4,  corners: 4, facets: [[0, 2, 1], [0, 1, 3], [1, 2, 3], [2, 0, 3]]);
-    public static readonly CellTopology Tet10    = new("tet10",    nodes: 10, corners: 4, facets: [[0, 2, 1], [0, 1, 3], [1, 2, 3], [2, 0, 3]]);
+    public static readonly CellTopology Tet10    = new("tet10",    nodes: 10, corners: 4, facets: Tet4.Facets);
     public static readonly CellTopology Hex8     = new("hex8",     nodes: 8,  corners: 8, facets: [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]);
-    public static readonly CellTopology Hex20    = new("hex20",    nodes: 20, corners: 8, facets: [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]);
+    public static readonly CellTopology Hex20    = new("hex20",    nodes: 20, corners: 8, facets: Hex8.Facets);
     public static readonly CellTopology Wedge6   = new("wedge6",   nodes: 6,  corners: 6, facets: [[0, 2, 1], [3, 4, 5], [0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]]);
     public static readonly CellTopology Pyramid5 = new("pyramid5", nodes: 5,  corners: 5, facets: [[0, 3, 2, 1], [0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]]);
     public int Nodes { get; }
@@ -143,22 +143,20 @@ public readonly record struct MeshSpace {
         (Native, Source, Tolerance, Assembly) = (snapshot, source, tolerance, assembly);
     }
     public static Fin<MeshSpace> Of(Mesh native, Context context, Option<MeshAssemblyPolicy> assembly = default, Op? key = null) =>
-        Admit(native: native, provenance: static snapshot => new MeshSource.Native(Value: snapshot),
-            context: context, assembly: assembly, key: key.OrDefault());
+        Of(source: new MeshSource.Native(Value: native), context: context, assembly: assembly, key: key);
     public static Fin<MeshSpace> Of(MeshSource source, Context context, Option<MeshAssemblyPolicy> assembly = default, Op? key = null) {
         Op op = key.OrDefault();
-        return source.Map(
-            native: arm => Admit(native: arm.Value, provenance: static snapshot => new MeshSource.Native(Value: snapshot),
-                context: context, assembly: assembly, key: op),
-            arena: arm => LiftArena(lanes: arm.Lanes, corners: arm.Corners, key: op)
-                .Bind(mesh => Admit(native: mesh, provenance: _ => arm, context: context, assembly: assembly, key: op)),
-            volume: arm => LiftVolume(lanes: arm.Lanes, cells: arm.Cells, topology: arm.Topology, key: op)
-                .Bind(mesh => Admit(native: mesh, provenance: _ => arm, context: context, assembly: assembly, key: op)));
+        return source.Switch(
+            state: (Context: context, Assembly: assembly, Key: op),
+            native: static (s, arm) => Admit(arm.Value, static snapshot => new MeshSource.Native(snapshot), s.Context, s.Assembly, s.Key),
+            arena: static (s, arm) => LiftArena(arm.Lanes, arm.Corners, s.Key)
+                .Bind(mesh => Admit(mesh, _ => arm, s.Context, s.Assembly, s.Key)),
+            volume: static (s, arm) => LiftVolume(arm.Lanes, arm.Cells, arm.Topology, s.Key)
+                .Bind(mesh => Admit(mesh, _ => arm, s.Context, s.Assembly, s.Key)));
     }
     public static Fin<MeshSpace> Accrue(MeshDraft draft, Context context, Option<MeshAssemblyPolicy> assembly = default, Op? key = null) =>
-        draft.Close(key: key.OrDefault())
-            .Bind(closed => Of(source: new MeshSource.Arena(Lanes: closed.Lanes, Corners: closed.Corners),
-                context: context, assembly: assembly, key: key));
+        draft.Close(key.OrDefault()) >> (closed =>
+            Of(new MeshSource.Arena(closed.Lanes, closed.Corners), context, assembly, key.OrDefault()));
     private static Fin<MeshSpace> Admit(Mesh native, Func<Mesh, MeshSource> provenance, Context context, Option<MeshAssemblyPolicy> assembly, Op key) =>
         from active in Optional(native).ToFin(key.InvalidInput())
         from ctx in Optional(context).ToFin(key.MissingContext())
@@ -176,8 +174,15 @@ public readonly record struct MeshSpace {
     public Mesh DuplicateNative() => Native.DuplicateMesh();
     public BoundingBox Bounds => Cache.Bounds;
     public Fin<SpatialIndex> Index(Op? key = null) => Cache.Index(key: key.OrDefault());
-    public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) =>
-        MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
+    public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) {
+        (MeshSpace self, Op op) = (this, key.OrDefault());
+        return from active in Optional(kind).ToFin(op.InvalidInput())
+               from _ in active.RequiresQualityGate
+                   ? MeshKernel.AspectRatioGuard(self.Native, self.Assembly.AspectRatioCeiling, op)
+                   : Fin.Succ(unit)
+               from result in active.Select(self.Cache, op)
+               select result;
+    }
     public Fin<Arr<Vector3d>> FaceNormals(Op? key = null) => Cache.FaceNormals(key: key.OrDefault());
 }
 
@@ -185,15 +190,15 @@ public readonly record struct MeshSpace {
 
 ## [03]-[MESH_SUBSTRATE]
 
-- Owner: `MeshLaplacian` `[SmartEnum<int>]` selects the discretization and routes the owning cache memo, its quality gate DERIVED from the `TriangulationSource` row it carries; `LaplacianCache` mints the per-snapshot memoization service; `Cotangent` mints the one corner primitive both assembly paths, Crouzeix-Raviart pairs, and divergence scatter compose, and `MeshKernel.CotanEdgeWeightOf` the one `0.5(cot α + cot β)` edge weight the transport rows and `Meshing/dec` star-1 construction both read; `IntrinsicMesh`/`IntrinsicEdge`/`SeedHalfedge` mint the mutable-build/frozen-read triangulation internal to the assembly; `FlipFrontier` mints the folder's ONE Delaunay flip work-list and its budget census, parameterized on the interior, settled, and flip arms so the tessellation arena composes the same fixpoint; `MeshKernel` mints the substrate assembly kernel; `TuftedCoverMesh` mints the Sharp-Crane double cover; `RestrictedPowerDiagram`/`PowerCell`/`PowerFacet` mint the Laguerre diagram restricted to the mesh surface.
-- Cases: `MeshLaplacian` rows `Cotangent`/`IntrinsicDelaunay`/`TuftedIntrinsic` carry the triangulation source, cache memo, and kind-consistent intrinsic snapshot as row data, so no call site branches on row equality — the two columns the census carried as bools were perfectly correlated, a row running on the INPUT triangulation exactly when its quality is the caller's to answer for. `TransportHalf` is the transport vocabulary and a request is a `CapabilitySet<TransportHalf>` — frames answer direction and normal coordinates answer crossing, two INDEPENDENT measurements of one pass, so the three named encodings were exactly its three legal non-empty subsets and the roster derives instead of restating them. `CoverSubstitution`, `CoverLaw`, and `MeshTrait` are the cover-substitution, cover-proof, and topology vocabularies; `OverlayEmit` and `PowerDensityPolicy` carry their emission and fan-quadrature geometry the same way.
-- Entry: `MeshSpace.Laplacian` is the one Laplacian entry, the kind row's delegate routing the cache memo and the `TriangulationSource.Input` row routing the aspect-ratio guard while intrinsic kinds mollify; `MeshSpace.FaceNormals` is the one per-face normal read — the memoized unit-normal column over the native face roster, so a mesh-evidence consumer indexes faces without a native copy or a `ComputeFaceNormals` mutation; `MeshAdjointSnapshot.Of` projects the cached `DiscreteCalculus` for the adjoint interface; `MeshKernel.TopologyDetailed` is the total topology diagnostic; `MeshKernel.RestrictedPowerCells` is the power-diagram entry. One selector row owns each discretization, no per-kind assembly sibling.
-- Auto: `LaplacianCache.For` resolves the per-snapshot cache; each memo seats its `Atom<HashMap>` through `Cell.Claim` only on `Fin.Succ`, so a transient failure re-computes and a racing computer's seated value is what both callers read. Downstream solver artifacts ride the one type-keyed `Memoized` slot materialized from the `(TKey, T)` pair, so the substrate names no downstream type. Intrinsic assembly runs `FromMesh` → `FlipFrontier.Settle` → `Freeze` with the FLIP-N integer normal-coordinate update keeping the kernel integral and the parity invariant exact, and with signposts seeded over the input fan at `FromMesh` and maintained per flip, so the frozen snapshot's angles are the flipped triangulation's own and the input halfedge directions the overlay traces survive beside them; the tufted path builds the double cover, applies global Sharp-Crane mollification, settles the flip frontier, and admits only under the structural guards. Every degenerate-area floor is scale-derived from `DegenerateAreaFloorOf`, one owner.
+- Owner: `MeshLaplacian` `[SmartEnum<int>]` selects the discretization, routes the owning cache memo, and carries its own quality-gate column; `LaplacianCache` mints the per-snapshot memoization service; `Cotangent` mints the one corner primitive both assembly paths, Crouzeix-Raviart pairs, and divergence scatter compose, and `MeshKernel.CotanEdgeWeightOf` the one `0.5(cot α + cot β)` edge weight the transport rows and `Meshing/dec` star-1 construction both read; `IntrinsicMesh`/`IntrinsicEdge`/`SeedHalfedge` mint the mutable-build/frozen-read triangulation internal to the assembly; `FlipFrontier` mints the folder's ONE Delaunay flip work-list and its budget census, parameterized on the interior, settled, and flip arms so the tessellation arena composes the same fixpoint; `MeshKernel` mints the substrate assembly kernel and the folder's ONE exact quad-diagonal gate `QuadDiagonal`, which `Meshing/edit` ingress and `Processing/remesh` flip and extraction all compose; `TuftedCoverMesh` mints the Sharp-Crane double cover; `RestrictedPowerDiagram`/`PowerCell`/`PowerFacet` mint the Laguerre diagram restricted to the mesh surface.
+- Cases: `MeshLaplacian` rows `Cotangent`/`IntrinsicDelaunay`/`TuftedIntrinsic` carry the quality gate, cache memo, and kind-consistent intrinsic snapshot as row data, so no call site branches on row equality — the two columns the census carried as bools were perfectly correlated, a row running on the INPUT triangulation exactly when its quality is the caller's to answer for. `TransportHalf` is the transport vocabulary and a request is a `CapabilitySet<TransportHalf>` — frames answer direction and normal coordinates answer crossing, two INDEPENDENT measurements of one pass, so the three named encodings were exactly its three legal non-empty subsets and the roster derives instead of restating them. `CoverSubstitution`, `CoverLaw`, and `MeshTrait` are the cover-substitution, cover-proof, and topology vocabularies; overlay emission is `SignpostPolicy.TriangulateOverlay`, a policy fact with one branch and no roster to grow, and the density fan rule is `PowerClipPolicy.DensityQuadrature`, the optional node count the `ScalarField`'s own presence supplies.
+- Entry: `MeshSpace.Laplacian` is the one Laplacian entry, the kind row's delegate routing the cache memo and its `RequiresQualityGate` column routing the aspect-ratio guard while intrinsic kinds mollify; `MeshSpace.FaceNormals` is the one per-face normal read — the memoized unit-normal column over the native face roster, so a mesh-evidence consumer indexes faces without a native copy or a `ComputeFaceNormals` mutation; `MeshAdjointSnapshot.Of` projects the cached `DiscreteCalculus` for the adjoint interface; `MeshKernel.TopologyDetailed` is the total topology diagnostic; `MeshKernel.RestrictedPowerCells` is the power-diagram entry. One selector row owns each discretization, no per-kind assembly sibling.
+- Auto: `LaplacianCache.For` resolves the per-snapshot cache; each memo seats its `AtomHashMap` through `FindOrMaybeAdd` only on `Fin.Succ`, so a transient failure re-computes and a racing computer's seated value is what both callers read. Downstream solver artifacts ride the one type-keyed `Memoized` slot materialized from the `(TKey, T)` pair, so the substrate names no downstream type. Intrinsic assembly runs `FromMesh` → `FlipFrontier.Settle` → `Freeze` with the FLIP-N integer normal-coordinate update keeping the kernel integral and the parity invariant exact, and with signposts seeded over the input fan at `FromMesh` and maintained per flip, so the frozen snapshot's angles are the flipped triangulation's own and the input halfedge directions the overlay traces survive beside them; the tufted path builds the double cover, applies global Sharp-Crane mollification, settles the flip frontier, and admits only under the structural guards. Every degenerate-area floor is scale-derived from `DegenerateAreaFloorOf`, one owner.
 - Law: a band a consumer can override is a `ToleranceLane` read off `MeshSpace.Tolerance`; a scale-relative NUMERICAL floor — the cotangent denominator screen, `DegenerateAreaFloorOf`, `SpdMassShift` — stays an `EpsilonPolicy` row because it guards float arithmetic, not a domain decision, and admits no per-model override. Witnesses gated at a band CARRY that band, so a read later states the regime it passed under rather than assuming the reader's.
-- Output: `SparseLaplacian` carries the stiffness/mass/witness bundle under dimension-agreement claims; `TuftedCover` witnesses the full cover construction, its proved cover laws riding one `CapabilitySet<CoverLaw>` column and its residual band riding beside them; `Topology` is the total un-gated topology witness carrying its measured `CapabilitySet<MeshTrait>`, its DERIVED watertight and Euler-validated reads, and the typed `(Euler, Genus, BoundaryComponents)` projection row — every field is evidence and a new witness is one row; `SignpostTransport`, `CommonSubdivision`, and `PowerCensus` witness transport, overlay partition-of-unity, and radical-clip degeneracy. Census bool `SignpostTransport.IntrinsicSnapshot` is ABSORBED, not dropped: `TransportOf` guards `imesh is { IsFrozen: true, SignpostAngle: not null }` at entry, so a witness reporting an unfrozen snapshot is unrepresentable and the field carries a constant `true`. Every gated witness is one `ValidityClaim.All` fold over the claim rows; `Topology` alone stays gate-free.
-- Exemption: `FlipFrontier` is a WORK-LIST fixpoint, not a traversal, and names its refusal in-fence at the owner both flip consumers compose — QuikGraph's `BreadthFirstSearchAlgorithm` colours each vertex once and admits no re-entry, so composing it caps every edge at one flip and silently changes the algorithm, and `IQueue<TVertex>` selects a frontier over a STATIC container while every flip rewrites the incidence the frontier reads. Power-cell FIFO frontier and signpost fan orbit refuse the same operators for the same reason and stay measured statement kernels. `IntrinsicMesh.EdgeData` stays a mutable `Dictionary` because a flip rewrites it in place; `SeedHalfedges` freezes into a `FrozenDictionary` at `Freeze`, and `LaplacianCache.solverSlots` stays concurrent because it grows across the snapshot's whole lifetime. That same clause covers every span-kernel accumulator that dies with the fold that fills it: `LaplacianTriplets`' per-face triplet columns, the SPD assembly's `triplets` list, `TransportFramesOf`'s `rows`, and the overlay's `points`, `crossings`, and preallocated `alongB` slot table — the last is preallocated BY NORMAL COORDINATE precisely so a missed crossing lands as a null slot the completeness gate refuses. `MeshKernel.TraitsOf` takes five bools because RhinoCommon's `IsManifold` publishes its predicates as `out` parameters: the K2 exemption is a HOST-BOUNDARY one, the five arguments are consumed by one fold into `CapabilitySet<MeshTrait>` in the same expression that reads them, and no bool crosses a page surface.
-- Packages: RhinoCommon is a genuine Rhino boundary here per the Tier-0 capture law, never thinned; `Numerics/matrix` owns sparse assembly and the Cholesky factor, `Numerics/spectral` the `DiscreteCalculus` carrier, `Numerics/atoms` the projection and magnitude value objects, `Spatial/neighbors` the one k-NN substrate the power-incident seed rides rather than a private RTree, `Spatial/index` the broad phase the snapshot memoizes, `Processing/geodesics` the one chart-unfolding `WalkChart` the overlay trace seats in `EdgeOverlay` mode rather than minting a second unfold; `Domain/results` owns `Op`, the `ValidityClaim` fold, and the `Transition`/`Cell` CAS verdict the memos seat through, `Domain/context` the `Context` and its lanes, `Domain/validation` the `CapabilitySet`/`ICapability` idiom. Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL concurrency complete the floor.
-- Growth: a fourth Laplacian discretization is one `MeshLaplacian` row, one cache memo, and one assembly member, every call site untouched; a new memoized solver artifact is zero cache edits — the owning page mints its key record and calls `Memoized`; a new transport half is one `TransportHalf` row, a new cover law one `CoverLaw` row, a new topology fact one `MeshTrait` row; a new signpost gauge, power-density model, or topology witness is one row or one field. Zero new public surface.
+- Output: `SparseLaplacian` carries the stiffness/mass/witness bundle under dimension-agreement claims; `TuftedCover` witnesses the full cover construction, its proved cover laws riding one `CapabilitySet<CoverLaw>` column and its residual band riding beside them; `Topology` is the total un-gated topology witness carrying its measured `CapabilitySet<MeshTrait>`, its DERIVED watertight read, its `Option<int> Genus` whose absence IS the un-validated Euler case, and the typed `(Euler, Genus, BoundaryComponents)` projection row — every field is evidence and a new witness is one row; `SignpostTransport`, `CommonSubdivision`, and `PowerCensus` witness transport, overlay partition-of-unity, and radical-clip degeneracy. Census bool `SignpostTransport.IntrinsicSnapshot` is ABSORBED, not dropped: `TransportOf` guards `imesh is { IsFrozen: true, SignpostAngle: not null }` at entry, so a witness reporting an unfrozen snapshot is unrepresentable and the field carries a constant `true`. Every gated witness is one `ValidityClaim.All` fold over the claim rows; `Topology` alone stays gate-free.
+- Exemption: `FlipFrontier` is a WORK-LIST fixpoint, not a traversal, and names its refusal in-fence at the owner both flip consumers compose — QuikGraph's `BreadthFirstSearchAlgorithm` colours each vertex once and admits no re-entry, so composing it caps every edge at one flip and silently changes the algorithm, and `IQueue<TVertex>` selects a frontier over a STATIC container while every flip rewrites the incidence the frontier reads. Power-cell FIFO frontier and signpost fan orbit refuse the same operators for the same reason and stay measured statement kernels. `IntrinsicMesh.EdgeData` stays a mutable `Dictionary` because a flip rewrites it in place; `SeedHalfedges` freezes into a `FrozenDictionary` at `Freeze`, and `LaplacianCache.solverSlots` stays concurrent because it grows across the snapshot's whole lifetime. That same clause covers every span-kernel accumulator that dies with the fold that fills it: `LaplacianTriplets`' per-face triplet columns, the SPD assembly's `triplets` list, `TransportFramesOf`'s `rows`, and the overlay's `points`, `crossings`, and preallocated `alongB` slot table — the last is preallocated BY NORMAL COORDINATE precisely so a missed crossing lands as a null slot the completeness gate refuses. RhinoCommon's `IsManifold` publishes its predicates as `out` parameters, and that HOST-BOUNDARY exemption ends at `TopologyDetailed`: the bools fold into `CapabilitySet<MeshTrait>` in the same expression that reads them, so none crosses a page surface and no helper carries them.
+- Packages: RhinoCommon is a genuine Rhino boundary here per the Tier-0 capture law, never thinned; `Numerics/matrix` owns sparse assembly and the Cholesky factor, `Numerics/spectral` the `DiscreteCalculus` carrier, `Numerics/atoms` the projection and magnitude value objects, `Spatial/neighbors` the one k-NN substrate the power-incident seed rides rather than a private RTree, `Spatial/index` the broad phase the snapshot memoizes, `Processing/geodesics` the one chart-unfolding `WalkChart` the overlay trace seats in `EdgeOverlay` mode rather than minting a second unfold; `Domain/results` owns `Op` and the `ValidityClaim` fold, `Domain/context` the `Context` and its lanes, `Domain/validation` the `CapabilitySet`/`ICapability` idiom. Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL concurrency complete the floor.
+- Growth: a fourth Laplacian discretization is one `MeshLaplacian` row, one cache memo, and one assembly member, every call site untouched; a new memoized solver artifact is zero cache edits — the owning page mints its key record and calls `Memoized`; a new transport half is one `TransportHalf` row, a new cover law one `CoverLaw` row, a new topology fact one `MeshTrait` row; a new signpost gauge or topology witness is one row or one field, and a richer density rule is one `DensityQuadrature` node count. Zero new public surface.
 - Boundary: the radical clip is NOT this page's arithmetic — `Predicate.ClipHalfplane` is the one convex-ring half-plane fold, and the power path supplies its `Halfplane.Affine` cut, its band, and its floor, so the guarded crossing and the midpoint-fallback channel are the same code the bounded Voronoi cell runs. A `DenomFloor` hit publishes a midpoint the aggregate tally alone could not attribute, so `PowerCell.MidpointFallback` and `PowerFacet.MidpointFallback` name the contaminated rows and a Newton step refuses them rather than the run. Cache identity keys on the snapshot `Mesh` reference and memoizes success only — a keyed dictionary leaks across snapshot lifetimes and re-keys on value equality, so the `ConditionalWeakTable` is the load-bearing contract. `Cotangent` arithmetic lives in one owner and the edge weight over it in `CotanEdgeWeightOf`; a consumer re-deriving `(a·b)/(2A)`, the law-of-cosines form, or the half-sum of opposite cotangents inline re-opens the collapsed duplication. Face normals ride the memoized column the same way: a consumer duplicating the native to run `FaceNormals.ComputeFaceNormals` re-opens the per-consumer copy the column collapsed, and running it on the snapshot itself mutates a frozen mesh every cached reader aliases. `IntrinsicMesh` stays `internal` and the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, so no consumer mutates a frozen snapshot mid-cache. Aspect-ratio guard and intrinsic mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, and `MeshAssemblyPolicy` travels on `MeshSpace.Of` one value per snapshot, so per-run variation means a fresh snapshot rather than a per-call knob aliasing the Unit-keyed memos. The direct-cotangent host-read window sits wholly inside `Op.Catch`: a proved over-ceiling finite ratio alone mints `GeometryFault.CotangentQuality` with face and guarded ratio evidence, a malformed reading returns the kernel invalid-result refusal, and an unknown raise remains exact. Two solver families sharing one `(key-record, artifact)` pair alias one `Memoized` slot, so every family declares its own key record beside its kernel. `PowerFacet` carries the SIGNED dual length and the UNCLAMPED radical foot `OffsetI`, both built from the weights the clip itself ran under, so the BNOT weight-Newton Hessian reads them rather than re-deriving a site distance; a clamped foot or an unsigned length mints a wrong-sign Newton step no residual catches. `A_ij == A_ji` holds because the canonical `(min, max)` key accumulates ONCE — the FIFO frontier reaches both cell views and the two clip SEQUENCES differ by ulps, so summing both doubles every length. Euclidean k-NN seeds the power-incident set through `Spatial/neighbors`, so non-trivial weights can under-clip the k-th neighbour; the weighted security radius tests the farthest neighbour after the list exhausts, `KNearest` is a policy row, and the signed `IntegrationResidual`, the `NeighborFacetCount`-versus-`IncidentPairCount` gap, and `QueuePeakDepth` make any under-clip observable from two independent directions. Degenerate meshes route an `Op` fault over `Fin<T>`, never a throw.
 
 ```csharp
@@ -218,25 +223,18 @@ using Dimension = Rasm.Numerics.Dimension;
 namespace Rasm.Meshing;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class TriangulationSource {
-    public static readonly TriangulationSource Input = new("input");
-    public static readonly TriangulationSource Intrinsic = new("intrinsic");
-}
-
 [SmartEnum<int>]
 public sealed partial class MeshLaplacian {
-    public static readonly MeshLaplacian Cotangent = new(key: 0, triangulation: TriangulationSource.Input,
+    public static readonly MeshLaplacian Cotangent = new(key: 0, requiresQualityGate: true,
         select: static (cache, key) => cache.Cotangent(key),
-        snapshot: static (cache, key) => cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.Cotangent, key: key));
-    public static readonly MeshLaplacian IntrinsicDelaunay = new(key: 1, triangulation: TriangulationSource.Intrinsic,
+        snapshot: static (cache, key) => cache.InputIntrinsicSnapshot(key));
+    public static readonly MeshLaplacian IntrinsicDelaunay = new(key: 1, requiresQualityGate: false,
         select: static (cache, key) => cache.IntrinsicDelaunay(key),
-        snapshot: static (cache, key) => cache.IntrinsicMeshSnapshot(key: key));
-    public static readonly MeshLaplacian TuftedIntrinsic = new(key: 2, triangulation: TriangulationSource.Intrinsic,
-        select: static (cache, key) => cache.TuftedIntrinsic(key),
-        snapshot: static (cache, key) => cache.TuftedIntrinsicMeshSnapshot(key: key));
-    internal TriangulationSource Triangulation { get; }
-    internal bool RequiresQualityGate => Triangulation == TriangulationSource.Input;
+        snapshot: static (cache, key) => cache.IntrinsicMeshSnapshot(key));
+    public static readonly MeshLaplacian TuftedIntrinsic = new(key: 2, requiresQualityGate: false,
+        select: static (cache, key) => cache.TuftedIntrinsic(policy: TuftedCoverPolicy.Default, key: key),
+        snapshot: static (cache, key) => cache.TuftedIntrinsicMeshSnapshot(key));
+    internal bool RequiresQualityGate { get; }
     [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key);
     [UseDelegateFromConstructor] internal partial Fin<MeshKernel.IntrinsicMesh> Snapshot(LaplacianCache cache, Op key);
 }
@@ -279,12 +277,6 @@ public sealed partial class MeshTrait : ICapability<MeshTrait> {
     public int Rank { get; }
 }
 
-[SmartEnum<string>]
-public sealed partial class OverlayEmit {
-    public static readonly OverlayEmit Polygons = new("polygons");
-    public static readonly OverlayEmit Triangles = new("triangles");
-}
-
 [SmartEnum<int>]
 public sealed partial class SignpostGauge {
     public static readonly SignpostGauge FirstHalfedge        = new(key: 0,
@@ -292,14 +284,6 @@ public sealed partial class SignpostGauge {
     public static readonly SignpostGauge LowestVertexNeighbor = new(key: 1,
         reference: static (imesh, vertex) => imesh.LowestNeighborEdge(vertexIdx: vertex));
     [UseDelegateFromConstructor] internal partial int ReferenceEdge(MeshKernel.IntrinsicMesh imesh, int vertex);
-}
-
-[SmartEnum<int>]
-public sealed partial class PowerDensityPolicy {
-    public static readonly PowerDensityPolicy Constant            = new(key: 0, quadratureNodes: 0);
-    public static readonly PowerDensityPolicy ScalarFanQuadrature = new(key: 1, quadratureNodes: 3);
-    internal int QuadratureNodes { get; }
-    internal bool RequiresField => QuadratureNodes > 0;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -318,22 +302,21 @@ public readonly record struct TuftedCoverPolicy(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SignpostPolicy(
     CapabilitySet<TransportHalf> Halves, Option<Dimension> TraceMaxIters, Dimension TraceCapPerEdge,
-    ToleranceLane RescaleFloor, SignpostGauge ReferenceDirectionGauge, OverlayEmit Emit) {
+    ToleranceLane RescaleFloor, SignpostGauge ReferenceDirectionGauge, bool TriangulateOverlay) {
     public static readonly SignpostPolicy Default = new(
         Halves: CapabilitySet<TransportHalf>.Of(TransportHalf.Frames), TraceMaxIters: None,
         TraceCapPerEdge: Dimension.Create(value: 16),
         RescaleFloor: ToleranceLane.Collinear, ReferenceDirectionGauge: SignpostGauge.LowestVertexNeighbor,
-        Emit: OverlayEmit.Triangles);
-    internal int TraceCapFor(int edgeCount) =>
-        TraceMaxIters.Map(static cap => cap.Value).IfNone(noneValue: Math.Max(1, edgeCount) * TraceCapPerEdge.Value);
+        TriangulateOverlay: true);
     public static Fin<SignpostPolicy> Of(CapabilitySet<TransportHalf> halves, int traceMaxIters, int traceCapPerEdge,
-        ToleranceLane rescaleFloor, SignpostGauge referenceDirectionGauge, OverlayEmit emit, Op? key = null);
+        ToleranceLane rescaleFloor, SignpostGauge referenceDirectionGauge, bool triangulateOverlay, Op? key = null);
 }
 
 internal readonly record struct PowerClipPolicy(
     double ClipBand, double DenomFloor, double AreaFloor, double EdgeBand,
-    int KNearest, int MinPolygonVertices, PowerDensityPolicy Density) {
-    internal static Fin<PowerClipPolicy> Of(double diagonal, double meanEdge, PowerDensityPolicy density, Op key);
+    int KNearest, int MinPolygonVertices, Option<Dimension> DensityQuadrature) {
+    internal static Fin<PowerClipPolicy> Of(
+        double diagonal, double meanEdge, Option<Dimension> densityQuadrature, Op key);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -361,14 +344,13 @@ public readonly record struct TuftedCover(
     double MinCotanEdgeWeight, double MinBoundaryEdgeWeight, int NegativeWeightCount, double MinLumpedMass,
     double TotalCoveredArea, double EnergyScaleApplied, double SymmetryResidual, double RowSumResidual,
     int DroppedNonTriangleFaces) : IValidityEvidence {
-    public bool CoverAware => CoverFaces == 2 * IntrinsicFaces;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: OriginalFaces, floor: IntrinsicFaces + DroppedNonTriangleFaces),
         ValidityClaim.Nonnegative(MollificationEpsilon), ValidityClaim.Positive(LengthScaleH),
         ValidityClaim.CountAtLeast(count: DegenerateTriangleCount, floor: 0), ValidityClaim.CountAtLeast(count: IntrinsicFlips, floor: 0),
         ValidityClaim.Finite(SymmetryResidual), ValidityClaim.Finite(RowSumResidual), ValidityClaim.Nonnegative(TotalCoveredArea),
         ValidityClaim.Positive(EnergyScaleApplied),
-        !CoverAware || (Laws.AdmitsAll(CapabilitySet<CoverLaw>.All)
+        CoverFaces != 2 * IntrinsicFaces || (Laws.AdmitsAll(CapabilitySet<CoverLaw>.All)
             && GluingSymmetryViolations == 0 && NonDelaunayEdgesRemaining == 0 && FlipBudgetExhaustedEdges == 0
             && SymmetryResidual <= ResidualBand.Value && RowSumResidual <= ResidualBand.Value && MinLumpedMass > 0.0
             && MinCotanEdgeWeight >= -ResidualBand.Value && MinBoundaryEdgeWeight >= -ResidualBand.Value),
@@ -391,7 +373,6 @@ public readonly record struct Topology(
     int EulerCharacteristic, Option<int> Genus) {
     public bool Watertight =>
         Traits.AdmitsAll(CapabilitySet<MeshTrait>.Of(MeshTrait.Closed, MeshTrait.Solid, MeshTrait.Manifold)) && NonManifoldEdges == 0;
-    public bool EulerValidated => Genus.IsSome;
     internal Fin<TOut> Project<TOut>(Op key) {
         Topology self = this;
         return ResultProjection.Rows<Topology, TOut>(self: self, key: key,
@@ -419,25 +400,20 @@ public readonly record struct SignpostFrameFacts(
 public readonly record struct SignpostTransport(
     CapabilitySet<TransportHalf> Halves, int VertexCount, int IntrinsicEdgeCount, int IntrinsicFlipCount,
     int FlipBudgetExhaustedEdges, int NormalCoordinateParityErrors, int SumNormalCoordinates,
-    Option<SignpostFrameFacts> Frames, Option<int> CommonSubdivisionSegments, Option<int> TracedPathEdgeCount,
-    Option<CommonSubdivision> Subdivision = default) : IValidityEvidence {
-    public bool ExactCommonSubdivision =>
-        Subdivision.IsSome && NormalCoordinateParityErrors == 0
-        && CommonSubdivisionSegments.Exists(segments => segments == SumNormalCoordinates);
+    Option<SignpostFrameFacts> Frames, Option<CommonSubdivision> Subdivision = default) : IValidityEvidence {
     public bool IsValid {
         get {
-            int edgeCount = IntrinsicEdgeCount;
+            (int edgeCount, int parityErrors, int normalSum) = (IntrinsicEdgeCount, NormalCoordinateParityErrors, SumNormalCoordinates);
             return ValidityClaim.All(
                 Halves.Admits(TransportHalf.Frames) == Frames.IsSome,
                 Halves.Admits(TransportHalf.Overlay) == Subdivision.IsSome,
-                Subdivision.IsSome == CommonSubdivisionSegments.IsSome,
-                Subdivision.IsSome == TracedPathEdgeCount.IsSome,
                 Frames.Map(f =>
                     ValidityClaim.CountAtLeast(count: edgeCount, floor: f.TransportedEdgeCount + f.MissingFrameEdges).Holds
                     && ValidityClaim.CountAtLeast(count: f.TransportedEdgeCount, floor: f.ChordFallbackEdges).Holds
                     && ValidityClaim.Finite(f.MaxAngleRadians).Holds && ValidityClaim.Finite(f.MaxLengthResidual).Holds
                     && ValidityClaim.Finite(f.MaxSignpostUpdateResidual).Holds).IfNone(noneValue: true),
-                Subdivision.IsNone || ExactCommonSubdivision,
+                Subdivision.Map(sub => parityErrors == 0
+                    && sub.SumNormalCoordinates == normalSum).IfNone(noneValue: true),
                 Subdivision.Map(static sub => sub.IsValid).IfNone(noneValue: true),
                 ValidityClaim.CountAtLeast(count: SumNormalCoordinates, floor: 0));
         }
@@ -487,7 +463,7 @@ public readonly record struct PowerCensus(
     double FragmentAreaMin, double FragmentAreaMax, double TotalArea, double SurfaceArea, double IntegrationResidual,
     int FirstMomentFiniteCount, int NeighborFacetCount, int EmptyCellCount, int BoundarySiteCount,
     int DegenerateClipCount, int ClipDegeneracyCount, int NonFiniteDensityRejectionCount,
-    Tolerance AreaBand, Tolerance LengthBand, int KNearest, PowerDensityPolicy Density) : IValidityEvidence {
+    Tolerance AreaBand, Tolerance LengthBand, int KNearest, Option<Dimension> DensityQuadrature) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: SiteCount, floor: 1), ValidityClaim.CountAtLeast(count: KNearest, floor: 1),
         ValidityClaim.Ordered(lower: FragmentAreaMin, upper: FragmentAreaMax),
@@ -519,14 +495,12 @@ public readonly record struct RestrictedPowerDiagram(Arr<PowerCell> Cells, Arr<P
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class LaplacianCache {
-    private static readonly ConditionalWeakTable<object, LaplacianCache> Table = [];
-    private sealed class Memo<TKey, T> {
-        private readonly Atom<HashMap<TKey, T>> cache = Atom(value: HashMap<TKey, T>());
+    private static readonly ConditionalWeakTable<Mesh, LaplacianCache> Table = [];
+    private sealed class Memo<TKey, T> where TKey : notnull {
+        private readonly AtomHashMap<TKey, T> cache = AtomHashMap(HashMap<TKey, T>());
         internal Fin<T> Of(TKey probe, Func<Fin<T>> compute) =>
-            cache.Value.Find(key: probe).Map(static value => Fin.Succ(value)).IfNone(() =>
-                compute().Map(value =>
-                    Cell.Claim(cell: cache, key: probe, mint: () => value).Current.Find(key: probe).IfNone(noneValue: value)));
-        internal bool Contains(TKey probe) => cache.Value.ContainsKey(key: probe);
+            cache.Find(probe).Map(static value => Fin.Succ(value)).IfNone(() =>
+                compute().Map(value => cache.FindOrMaybeAdd(probe, () => Some(value)).IfNone(value)));
     }
     private readonly Memo<Unit, Arr<Vector3d>> faceNormals = new();
     private readonly Memo<Unit, SpatialIndex> index = new();
@@ -535,11 +509,10 @@ internal sealed class LaplacianCache {
     private readonly Memo<Unit, CholeskySparse> cholesky = new();
     private readonly Memo<Dimension, SpectralBasisBundle> spectral = new();
     private readonly Memo<Unit, DiscreteCalculus> calculus = new();
-    private readonly Memo<Unit, MeshKernel.IntrinsicMesh> intrinsicMesh = new(), tuftedIntrinsicMesh = new();
-    private readonly Memo<MeshLaplacian, MeshKernel.IntrinsicMesh> frozenIntrinsic = new();
+    private readonly Memo<Unit, MeshKernel.IntrinsicMesh> inputIntrinsic = new(), intrinsicMesh = new(), tuftedIntrinsicMesh = new();
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new();
-    private readonly Memo<double, EdgeConnectionFactor> edgeConnectionCholesky = new();
+    private readonly Memo<double, (CholeskySparse Factor, SpectralAssembly Assembly)> edgeConnectionCholesky = new();
     private readonly ConcurrentDictionary<(Type Key, Type Value), object> solverSlots = new();
     private readonly Lazy<double> meanEdgeLength;
     private readonly Lazy<BoundingBox> bounds;
@@ -566,11 +539,11 @@ internal sealed class LaplacianCache {
             from imesh in IntrinsicMeshSnapshot(key: key)
             from laplacian in MeshKernel.AssembleCotangentFromIntrinsic(imesh: imesh, key: key)
             select laplacian);
-    internal Fin<SparseLaplacian> TuftedIntrinsic(Op key) => TuftedIntrinsic(policy: TuftedCoverPolicy.Default, key: key);
     internal Fin<SparseLaplacian> TuftedIntrinsic(TuftedCoverPolicy policy, Op key) =>
         tuftedIntrinsic.Of(probe: policy, compute: () =>
             from imesh in TuftedIntrinsicMeshSnapshot(key: key)
-            from laplacian in MeshKernel.AssembleTuftedCotangentFromIntrinsic(imesh: imesh, space: space, policy: policy, key: key)
+            from cover in MeshKernel.TuftedCoverMesh.Construct(imesh, space, policy, key)
+            from laplacian in cover.Assemble(space, policy, key)
             select laplacian);
     internal Fin<CholeskySparse> Cholesky(Op key) =>
         cholesky.Of(probe: unit, compute: () =>
@@ -587,12 +560,13 @@ internal sealed class LaplacianCache {
             from baseFaces in TuftedBaseFaces.Of(source: space.Native, key: key)
             from imesh in MeshKernel.BuildIntrinsicMesh(mesh: baseFaces.Triangulated, assembly: space.Assembly, key: key)
             select imesh);
-    internal Fin<MeshKernel.IntrinsicMesh> EnsureFrozenIntrinsic(MeshLaplacian kind, Op key) =>
-        frozenIntrinsic.Of(probe: kind, compute: () => MeshKernel.FrozenIntrinsicFor(mesh: space.Native, kind: kind, assembly: space.Assembly, key: key));
+    internal Fin<MeshKernel.IntrinsicMesh> InputIntrinsicSnapshot(Op key) =>
+        inputIntrinsic.Of(probe: unit, compute: () =>
+            MeshKernel.IntrinsicMesh.FromMesh(mesh: space.Native, key: key).Map(static source => source.Freeze()));
     internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(Dimension k, Op key);
     internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Option<Arr<double>> edgeAdjustment, Op key);
     internal Fin<CholeskySparse> ScalarHeatCholesky(double time, Op key);
-    internal Fin<EdgeConnectionFactor> EdgeConnectionCholeskyDetailed(double time, Op key);
+    internal Fin<(CholeskySparse Factor, SpectralAssembly Assembly)> EdgeConnectionCholeskyDetailed(double time, Op key);
     internal Fin<T> Memoized<TKey, T>(TKey probe, Func<Fin<T>> compute) where TKey : notnull =>
         ((Memo<TKey, T>)solverSlots.GetOrAdd(key: (typeof(TKey), typeof(T)), valueFactory: static _ => new Memo<TKey, T>()))
             .Of(probe: probe, compute: compute);
@@ -650,14 +624,12 @@ internal static class MeshKernel {
         internal Fin<SparseLaplacian> Build(Op key);
     }
 
+    // --- [QUAD_DIAGONAL]
+    internal static bool QuadDiagonal(Point3d a, Point3d b, Point3d c, Point3d d) =>
+        Axis.DominantOf(a, b, c, d).Case is Axis axis
+        && Predicate.Orient2D(a, c, b, axis).Times(Predicate.Orient2D(a, c, d, axis)) == Sign.Negative;
+
     // --- [SELECTION_SPD]
-    internal static Fin<SparseLaplacian> LaplacianOf(MeshSpace space, MeshLaplacian kind, Op key) =>
-        from active in Optional(kind).ToFin(key.InvalidInput())
-        from _ in active.RequiresQualityGate
-            ? AspectRatioGuard(mesh: space.Native, ceiling: space.Assembly.AspectRatioCeiling, key: key)
-            : Fin.Succ(unit)
-        from result in active.Select(cache: space.Cache, key: key)
-        select result;
     internal static Fin<SparseMatrix> AssembleMassStiffnessSystem(SparseLaplacian laplacian, double stiffnessScale, Op key, double massScale = 1.0) {
         int n = laplacian.Stiffness.Rows.Value;
         if (n == 0) return Fin.Fail<SparseMatrix>(key.InvalidInput());
@@ -686,7 +658,7 @@ internal static class MeshKernel {
             MeshFace quad = active.Faces[index: f];
             if (!quad.IsQuad) continue;
             (Point3d qa, Point3d qb, Point3d qc, Point3d qd) = (active.Vertices[index: quad.A], active.Vertices[index: quad.B], active.Vertices[index: quad.C], active.Vertices[index: quad.D]);
-            bool ac = Kernels.QuadDiagonal(a: qa, b: qb, c: qc, d: qd);
+            bool ac = MeshKernel.QuadDiagonal(a: qa, b: qb, c: qc, d: qd);
             if (!active.Faces.SetFace(index: f, vertex1: quad.A, vertex2: quad.B, vertex3: ac ? quad.C : quad.D)) return Fin.Fail<SparseLaplacian>(key.InvalidResult());
             if (active.Faces.AddFace(vertex1: ac ? quad.A : quad.B, vertex2: quad.C, vertex3: quad.D) < 0) return Fin.Fail<SparseLaplacian>(key.InvalidResult());
         }
@@ -725,19 +697,12 @@ internal static class MeshKernel {
         }
         return triplets.Build(key: key);
     }
-    internal static Fin<SparseLaplacian> AssembleTuftedCotangentFromIntrinsic(IntrinsicMesh imesh, MeshSpace space, TuftedCoverPolicy policy, Op key) =>
-        TuftedCoverMesh.Construct(imesh: imesh, space: space, policy: policy, key: key)
-            .Bind(cover => cover.Assemble(space: space, policy: policy, key: key));
 
     // --- [IDT_AND_INTRINSIC]
     internal static Fin<IntrinsicMesh> BuildIntrinsicMesh(Mesh mesh, MeshAssemblyPolicy assembly, Op key) =>
         from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key)
         from flipped in SettleFlips(imesh: source, cap: assembly.FlipCapPerEdge, key: key)
         select flipped.Freeze();
-    internal static Fin<IntrinsicMesh> FrozenIntrinsicFor(Mesh mesh, MeshLaplacian kind, MeshAssemblyPolicy assembly, Op key) =>
-        kind.Triangulation == TriangulationSource.Input
-            ? IntrinsicMesh.FromMesh(mesh: mesh, key: key).Map(static source => source.Freeze())
-            : BuildIntrinsicMesh(mesh: mesh, assembly: assembly, key: key);
 
     internal static Fin<IntrinsicMesh> SettleFlips(IntrinsicMesh imesh, Dimension cap, Op key) {
         imesh.FlipBudgetExhaustedEdges = FlipFrontier.Settle(
@@ -916,17 +881,14 @@ internal static class MeshKernel {
         int numerator = (2 * components) - boundaryComponents - euler;
         bool hasGenus = manifold && oriented && components > 0 && numerator >= 0 && numerator % 2 == 0;
         return Fin.Succ(new Topology(
-            Traits: TraitsOf(hasBoundary: hasBoundary || boundaryComponents > 0, closed: mesh.IsClosed,
-                solid: mesh.IsSolid, manifold: manifold, oriented: oriented),
+            Traits: Seq((hasBoundary || boundaryComponents > 0, MeshTrait.Boundary), (mesh.IsClosed, MeshTrait.Closed),
+                    (mesh.IsSolid, MeshTrait.Solid), (manifold, MeshTrait.Manifold), (oriented, MeshTrait.Oriented))
+                .Fold(CapabilitySet<MeshTrait>.None, static (held, row) => row.Item1 ? held.With(row.Item2) : held),
             Vertices: mesh.Vertices.Count, TopologyVertices: mesh.TopologyVertices.Count, TopologyEdges: mesh.TopologyEdges.Count,
             Faces: mesh.Faces.Count, Triangles: mesh.Faces.TriangleCount, Quads: mesh.Faces.QuadCount, Ngons: mesh.Ngons.Count,
             VisiblePolygons: mesh.GetNgonAndFacesCount(), BoundaryComponents: boundaryComponents, NonManifoldEdges: nonManifoldEdges,
             EulerCharacteristic: euler, Genus: hasGenus ? Some(numerator / 2) : None));
     }
-    private static CapabilitySet<MeshTrait> TraitsOf(bool hasBoundary, bool closed, bool solid, bool manifold, bool oriented) =>
-        Seq((hasBoundary, MeshTrait.Boundary), (closed, MeshTrait.Closed), (solid, MeshTrait.Solid),
-                (manifold, MeshTrait.Manifold), (oriented, MeshTrait.Oriented))
-            .Fold(CapabilitySet<MeshTrait>.None, static (held, row) => row.Item1 ? held.With(row.Item2) : held);
     private static (int BoundaryComponents, int NonManifoldEdges) TopologyEdgeStatsOf(Mesh mesh);
 
     // --- [SIGNPOST_TRANSPORT]
@@ -989,8 +951,6 @@ internal static class MeshKernel {
             NormalCoordinateParityErrors: imesh.ParityErrorCount,
             SumNormalCoordinates: imesh.SumNormalCoordinates,
             Frames: frames.Map(static f => f.Facts),
-            CommonSubdivisionSegments: overlay.Map(static sub => sub.SumNormalCoordinates),
-            TracedPathEdgeCount: overlay.Map(static sub => sub.SourceEdgeCount),
             Subdivision: overlay));
     internal static Fin<SignpostTransport> SignpostTransportOf(MeshSpace space, IntrinsicMesh imesh, Op key, Option<SignpostPolicy> policy = default) =>
         TransportOf(space: space, imesh: imesh, policy: policy.IfNone(noneValue: SignpostPolicy.Default), key: key)
@@ -1022,7 +982,9 @@ internal static class MeshKernel {
             alongB[e] = new OverlayPoint?[edge.Crossings + 2];
             (alongB[e][0], alongB[e][edge.Crossings + 1]) = (points[index: edge.Lo], points[index: edge.Hi]);
         }
-        GeodesicTracePolicy trace = GeodesicTracePolicy.Default with { MaxSteps = Dimension.Create(value: policy.TraceCapFor(edgeCount: imesh.EdgeCount)) };
+        GeodesicTracePolicy trace = GeodesicTracePolicy.Default with {
+            MaxSteps = policy.TraceMaxIters.IfNone(
+                Dimension.Create(value: Math.Max(1, imesh.EdgeCount) * policy.TraceCapPerEdge.Value)) };
         double[] coneAngles = GeodesicKernel.ConeAnglesOf(imesh: imesh);
         List<(int Edge, double Parameter, OverlayPoint Point)> crossings = [];
         foreach (((int Lo, int Hi) pair, SeedHalfedge seed) in imesh.SeedHalfedges) {
@@ -1050,11 +1012,19 @@ internal static class MeshKernel {
                     return Fin.Fail<CommonSubdivision>(key.InvalidResult(detail: $"overlay-incomplete:{e}:{slot}"));
         (List<int[]> faces, Arr<int> sourceB, int cornerSum) = SliceFaces(imesh: imesh, alongB: alongB, points: points);
         Arr<int> sourceA = RecoverSourceFacesA(space: space, imesh: imesh, faces: faces, points: points);
-        (List<int[]> emitted, Arr<int> emittedA, Arr<int> emittedB) = policy.Emit == OverlayEmit.Triangles
+        (List<int[]> emitted, Arr<int> emittedA, Arr<int> emittedB) = policy.TriangulateOverlay
             ? TriangulateOverlay(faces: faces, sourceA: sourceA, sourceB: sourceB)
             : (faces, sourceA, sourceB);
-        return from a in InterpolationOf(points: points, columnCount: imesh.VertexCount, row: InputRowOf, key: key)
-               from b in InterpolationOf(points: points, columnCount: imesh.VertexCount, row: point => IntrinsicRowOf(point: point, imesh: imesh), key: key)
+        return from a in InterpolationOf(points: points, columnCount: imesh.VertexCount, row: static point => point.Switch(
+                       sharedCase: static c => Seq((c.Vertex, 1.0)),
+                       crossingCase: static c => Seq((c.TailA, 1.0 - c.ParameterA), (c.TipA, c.ParameterA))), key: key)
+               from b in InterpolationOf(points: points, columnCount: imesh.VertexCount, row: point => point.Switch(
+                       state: imesh,
+                       sharedCase: static (_, c) => Seq((c.Vertex, 1.0)),
+                       crossingCase: static (m, c) => {
+                           IntrinsicEdge edge = m.EdgeAt(index: c.EdgeB);
+                           return Seq((edge.Lo, 1.0 - c.ParameterB), (edge.Hi, c.ParameterB));
+                       }), key: key)
                select new CommonSubdivision(
                    SourceVertexCount: imesh.VertexCount, SourceEdgeCount: imesh.SeedHalfedges.Count,
                    SourceFaceCount: imesh.LiveFaceCount, SumNormalCoordinates: imesh.SumNormalCoordinates,
@@ -1073,15 +1043,6 @@ internal static class MeshKernel {
     private static (List<int[]> Faces, Arr<int> SourceFaceA, Arr<int> SourceFaceB) TriangulateOverlay(List<int[]> faces, Arr<int> sourceA, Arr<int> sourceB);
     private static Fin<(SparseMatrix Matrix, double RowSumResidual)> InterpolationOf(
         List<OverlayPoint> points, int columnCount, Func<OverlayPoint, Seq<(int Column, double Weight)>> row, Op key);
-    private static Seq<(int Column, double Weight)> InputRowOf(OverlayPoint point) => point.Switch(
-        sharedCase:   static c => Seq((c.Vertex, 1.0)),
-        crossingCase: static c => Seq((c.TailA, 1.0 - c.ParameterA), (c.TipA, c.ParameterA)));
-    private static Seq<(int Column, double Weight)> IntrinsicRowOf(OverlayPoint point, IntrinsicMesh imesh) => point.Switch(
-        state: imesh,
-        sharedCase:   static (_, c) => Seq((c.Vertex, 1.0)),
-        crossingCase: static (m, c) => CrossingRowOf(edge: m.EdgeAt(index: c.EdgeB), parameter: c.ParameterB));
-    private static Seq<(int Column, double Weight)> CrossingRowOf(IntrinsicEdge edge, double parameter) =>
-        Seq((edge.Lo, 1.0 - parameter), (edge.Hi, parameter));
     private static double EdgeLengthDisagreementOf(List<OverlayPoint> points, List<int[]> faces, MeshSpace space, IntrinsicMesh imesh);
 
     // --- [POWER_CELLS]
@@ -1090,8 +1051,8 @@ internal static class MeshKernel {
         return !box.IsValid || box.Diagonal.Length <= EpsilonPolicy.ZeroTolerance || sites.Count < 1
             ? Fin.Fail<RestrictedPowerDiagram>(key.InvalidInput())
             : from weightsActive in AdmitPowerWeights(sites: sites, weights: weights, key: key)
-              from policy in PowerClipPolicy.Of(diagonal: box.Diagonal.Length, meanEdge: MeanEdgeLengthOf(mesh: space.Native),
-                  density: density.IsSome ? PowerDensityPolicy.ScalarFanQuadrature : PowerDensityPolicy.Constant, key: key)
+              from policy in PowerClipPolicy.Of(diagonal: box.Diagonal.Length, meanEdge: space.Cache.MeanEdgeLength,
+                  densityQuadrature: density.Map(static _ => Dimension.Create(value: 3)), key: key)
               from diagram in PowerDiagramRun(space: space, sites: sites, weights: weightsActive, density: density, center: box.Center, policy: policy, key: key)
               select diagram;
     }
@@ -1128,7 +1089,7 @@ config:
 flowchart LR
     accTitle: Mesh substrate flow
     accDescr: Sources admit through one gate into the validated snapshot, then flow through the Laplacian row cache and the intrinsic triangulation into solver-facing carriers.
-    MeshSource -->|Map: Native / Arena / Volume| Admit
+    MeshSource -->|Switch: Native / Arena / Volume| Admit
     MeshDraft -->|Close: pooled lanes + corners + blocks| MeshSource
     SceneWalk -->|Accrue per node| MeshDraft
     Admit -->|IsValid + DuplicateMesh + Context| MeshSpace
@@ -1172,8 +1133,8 @@ Each `[RESULT]` cell names the one return type; the per-axis kind rides the inde
 - [03]-[DECODE_ACCUMULATION]: single-writer draft under the `Meshing/edit` arena law; ordinal-addressed blocks, densely pooled lanes.
 - [04]-[SCENE_FOLD]: parameterized depth-first scene walk over a delegate incidence graph, parent frame threaded.
 - [05]-[MESH_HANDLE]: validated defensive snapshot with bounds and broad-phase reads.
-- [06]-[LAPLACIAN_SELECTION]: `[SmartEnum<int>]`, triangulation-source column + `Select`/`Snapshot` delegates.
-- [07]-[MEMOIZATION]: `ConditionalWeakTable` service, `Cell.Claim` success-only memos + the type-keyed `Memoized` solver slot.
+- [06]-[LAPLACIAN_SELECTION]: `[SmartEnum<int>]`, quality-gate column + `Select`/`Snapshot` delegates.
+- [07]-[MEMOIZATION]: `ConditionalWeakTable` service, `AtomHashMap` success-only memos + the type-keyed `Memoized` solver slot.
 - [08]-[COTANGENT_PRIMITIVE]: one static owner, intrinsic + extrinsic arithmetic paths.
 - [09]-[INTRINSIC_SNAPSHOT]: mutable-build / frozen-read triangulation + FLIP-N coordinates.
 - [10]-[FLIP_SETTLEMENT]: work-list fixpoint owning its pending order, membership set, and per-edge budget census; three delegate arms carry every store-specific read.

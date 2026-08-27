@@ -2,7 +2,7 @@
 
 Rasm.Compute volumetric mesh generation: one `MeshLane` owner turning a boundary `BoundaryShell` into a frozen `Solver/field#DISCRETE_FIELD` `DiscreteMesh` through real Delaunay/octree/sweep/inflation cores, then refining it adaptively on the Dörfler-marked cell set. The element axis, its quality vocabulary, and the frame family are `Solver/element#ELEMENT_TOPOLOGY`'s; the frozen carrier and its field representation are `Solver/field`'s; this page owns the GENERATION half alone — the shell, its inclusion index, the strategy vocabulary, the four cores, the mesh policy, and the refinement fold.
 
-Exact tessellation is the kernel's. `Rasm/Meshing/delaunay#TESSELLATION` owns exact constrained triangulation AND tetrahedralization behind one `Tessellation.Build` over one `SimplexStore` arena, with `Implicit` defining-point carriage, Morton insertion order, constraint recovery, and typed exhaustion — every capability a hand Bowyer-Watson lacks — so the Delaunay and sweep cores compose it and this page keeps its genuine contribution: the interior seeding, the `Encloses` centroid filter, the section extrusion, and the wall-normal inflation. The FE cell rosters are likewise the kernel's through `Solver/element`. `MeshLane.Discretize` is the mesh producer of the `Solver/contract#SOLVE_REQUEST` solve fold — the Discretize-solve-optimize-sweep spine's first stage — so the generation half is reached by the same entry every analysis route already runs, never by a caller hand-building a mesh past the quality gate.
+Exact tessellation is the kernel's. `Rasm/Meshing/delaunay#TESSELLATION` owns exact constrained triangulation AND tetrahedralization behind one `Tessellation.Build`, with `Implicit` defining-point carriage, Morton insertion order, constraint recovery, and typed exhaustion — every capability a hand Bowyer-Watson lacks — so the Delaunay and sweep cores compose it through its frozen `Tetrahedra`/`Triangles` projections alone and this page keeps its genuine contribution: the interior seeding, the `Encloses` centroid filter, the section extrusion, and the wall-normal inflation. The FE cell rosters are likewise the kernel's through `Solver/element`. `MeshLane.Discretize` is the mesh producer of the `Solver/contract#SOLVE_REQUEST` solve fold — the Discretize-solve-optimize-sweep spine's first stage — so the generation half is reached by the same entry every analysis route already runs, never by a caller hand-building a mesh past the quality gate.
 
 ## [01]-[INDEX]
 
@@ -22,7 +22,7 @@ Exact tessellation is the kernel's. `Rasm/Meshing/delaunay#TESSELLATION` owns ex
 - Boundary: inclusion is ONE `ShellIndex` per `Discretize`, threaded to every core: the shell is immutable across a generation while seeding, octree recursion, and section rasterization each drive millions of probes, so a per-probe scan over the whole triangle soup makes generation quadratic in the boundary it meshes. `BoundaryShell.Of` proves the soup closed, manifold, and consistently wound before the index builds, which is what makes an odd crossing count interiority rather than a heuristic. `ShellIndex` stays this page's owner by query shape, never package availability — the `Solver/clash#CLASH_AND_TWIN` `AccelerationStructure` answers boolean occlusion over admitted host-typed scenes while generation needs a parity-crossing COUNT over its own shell facets, and widening the clash surface to serve one sibling's interior couples two lanes the strata keep separate.
 - Boundary: admission is a CONSTRUCTION refusal and it ACCUMULATES. `BoundaryShell.Of` and `MeshPolicy.Of` return `Fin` from private constructors over a `Validation` fold, so a caller fixing the target edge length learns about the grading ratio in the same round trip instead of the next one, and no interior fold re-tests a column the mint already proved. The quadrature election binds HERE: a policy naming an element whose declared integration order exceeds its kernel reference domain's ceiling refuses BY NAME at admission, and the proven rule rides the frozen mesh so no assembly fold re-elects.
 - Boundary: conformity is MEASURED on the built mesh, never inherited from an algorithm row's declared intent — the octree weld counts the nodes sitting mid-edge of a coarser neighbour and the entry refuses a mesh carrying them unless a `MortarPolicy` is present, because a hanging node without a constraint row is a solve whose interface equations are silently absent. Presence IS the constraint set, so the bool that once gated both the conformity bypass and the closure skip cannot be set for one and not the other. Weld keys quantize in double precision relative to the shell's own origin, so a model in a site coordinate system welds by its extent instead of losing the deciding bits to coordinate magnitude.
-- Boundary: the tessellation TOPOLOGY is the kernel's, not merely its sign path. `Tessellation.Build` owns incremental insertion, cavity flood, boundary re-fan, Morton locality order, constraint recovery, and typed exhaustion over exact `Implicit` carriage; a page-local Bowyer-Watson has none of them, re-derives its own super-simplex scaling, inserts in seed order, and reports an exhausted budget as a silently thin mesh. NAMED LOSS: the page's own paraboloid-lift in-circle argument and its centroid-constrained section law retire into the kernel owner that already states both — genuine edge recovery arrives with the kernel's `Conform` rows rather than as a rename of a dropped-triangle filter.
+- Boundary: the tessellation TOPOLOGY is the kernel's, not merely its sign path. `Tessellation.Build` owns incremental insertion, cavity flood, boundary re-fan, Morton locality order, constraint recovery, and typed exhaustion over exact `Implicit` carriage; a page-local Bowyer-Watson has none of them, re-derives its own super-simplex scaling, inserts in seed order, and reports an exhausted budget as a silently thin mesh. The arena stays sealed behind that owner: this lane reads `Tetrahedra()` corners and cells, never a simplex store. NAMED LOSS: the page's own paraboloid-lift in-circle argument and its centroid-constrained section law retire into the kernel owner that already states both — genuine edge recovery arrives with the kernel's `Conform` rows rather than as a rename of a dropped-triangle filter.
 - Exemption: the counting-sort index fill, the parity ray, the octree recursion, the wall-normal accumulation, and the layer offset ladder are MEASURED span kernels over pooled planes — each dies with the call that fills it and none crosses a page surface.
 
 ```csharp
@@ -385,30 +385,35 @@ public static partial class MeshLane {
 }
 
 public static class DelaunayCore {
-    private static readonly Op TessellateKey = Op.Of(name: "delaunay-core");
-
     public static Fin<MeshBuild> Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
         Seq<Vector3> points = Seed(boundary, index, policy);
         return Tessellation.Build(new TessellationOp.Points(
                 TessellationKind.Tetrahedralization,
                 toArr(points.Map(static p => (Implicit)new Point3d(p.X, p.Y, p.Z))),
-                Seq<Conform>(), TessellationPolicy.Canonical, Axis.Z), TessellateKey)
-            .Map(tessellation => Kept(tessellation, points, index, policy));
+                Seq<Conform>(), TessellationPolicy.Canonical, Axis.Z))
+            .Bind(static tessellation => tessellation.Tetrahedra())
+            .Map(projection => Kept(projection, index, policy));
     }
 
-    static MeshBuild Kept(Tessellation tessellation, Seq<Vector3> points, ShellIndex index, MeshPolicy policy) {
-        List<long> cells = new(tessellation.Store.LiveCount * 4);
+    static MeshBuild Kept(
+        (Arr<Point3d> Corners, Arr<(int A, int B, int C, int D)> Cells) projection, ShellIndex index, MeshPolicy policy) {
+        Arr<Point3d> corners = projection.Corners;
+        List<long> cells = new(projection.Cells.Count * 4);
         long count = 0;
-        foreach (int simplex in tessellation.Store.Live) {
-            ReadOnlySpan<int> vs = tessellation.Store.SimplexVertices(simplex);
-            Vector3 centroid = (points[vs[0]] + points[vs[1]] + points[vs[2]] + points[vs[3]]) * 0.25f;
+        foreach ((int a, int b, int c, int d) in projection.Cells) {
+            Vector3 centroid = (At(a) + At(b) + At(c) + At(d)) * 0.25f;
             if (!index.Encloses(centroid)) { continue; }
-            cells.AddRange([vs[0], vs[1], vs[2], vs[3]]);
+            cells.AddRange([a, b, c, d]);
             count++;
         }
-        float[] flat = new float[points.Count * 3];
-        for (int i = 0; i < points.Count; i++) { flat[i * 3] = points[i].X; flat[i * 3 + 1] = points[i].Y; flat[i * 3 + 2] = points[i].Z; }
-        return new MeshBuild(policy.Element, flat, cells, count, points.Count, 0).Scored(policy.Metric);
+        float[] flat = new float[corners.Count * 3];
+        for (int i = 0; i < corners.Count; i++) {
+            (flat[i * 3], flat[(i * 3) + 1], flat[(i * 3) + 2]) =
+                ((float)corners[i].X, (float)corners[i].Y, (float)corners[i].Z);
+        }
+        return new MeshBuild(policy.Element, flat, cells, count, corners.Count, 0).Scored(policy.Metric);
+
+        Vector3 At(int corner) => new((float)corners[corner].X, (float)corners[corner].Y, (float)corners[corner].Z);
     }
 
     static Seq<Vector3> Seed(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
@@ -439,8 +444,8 @@ public static class DelaunayCore {
         return Tessellation.Build(new TessellationOp.Points(
                 TessellationKind.Triangulation,
                 toArr(points.Map(p => (Implicit)new Point3d(p.X, p.Y, z))),
-                Seq<Conform>(), TessellationPolicy.Canonical, Axis.Z), TessellateKey)
-            .Bind(tessellation => tessellation.Triangles(TessellateKey))
+                Seq<Conform>(), TessellationPolicy.Canonical, Axis.Z))
+            .Bind(static tessellation => tessellation.Triangles())
             .Map(projection => (
                 Points: points,
                 Triangles: toSeq(projection.Faces).Filter(face =>

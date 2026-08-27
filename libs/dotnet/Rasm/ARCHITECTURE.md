@@ -56,7 +56,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Offset.cs          # Aichholzer-Aurenhammer wavefront; reflex, split, and ring decisions read exact Orient2D signs over input
 │   ├── Skeleton.cs        # MCF contraction, collapse surgery to the 1D remnant, QuikGraph extraction; admission gates watertight manifolds
 │   ├── Mesh.cs            # MeshSource discriminant, MeshDraft accumulator, LaplacianCache, intrinsic-triangulation witnesses
-│   ├── Edit.cs            # Single-writer SoA arena and the Kernels weld/transform/diagonal primitives; publish is freeze into MeshSpace
+│   ├── Edit.cs            # Single-writer SoA arena with in-place Weld and Apply verbs; publish is freeze into MeshSpace
 │   ├── Dec.cs             # Mesh-bound assembly of the spectral bundle under the ∂∂ = 0 gate; assembles, never re-derives
 │   └── Reconstruct.cs     # Each ReconstructionPolicy case builds a fields scalar field; native callbacks convert through Op.Catch
 ├── Processing/            # Algorithm pipelines over the floors

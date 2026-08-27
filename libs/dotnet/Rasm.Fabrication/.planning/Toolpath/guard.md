@@ -454,20 +454,17 @@ public sealed partial class GuardStock {
             .Admitted(stock);
 
     private static bool ChannelValid(CurveSkeleton channel) =>
-        channel.NodeCount > 0
-        && channel.NodeX.Length == channel.NodeCount
-        && channel.NodeY.Length == channel.NodeCount
-        && channel.NodeZ.Length == channel.NodeCount
-        && channel.Radius.Length == channel.NodeCount
-        && channel.Witness.Length == channel.NodeCount
-        && channel.ArcFrom.Length == channel.ArcCount
-        && channel.ArcTo.Length == channel.ArcCount
-        && channel.ArcOrigin.Length == channel.ArcCount
-        && channel.Component.Length == channel.ArcCount
-        && channel.ArcFrom.All(index => index >= 0 && index < channel.NodeCount)
-        && channel.ArcTo.All(index => index >= 0 && index < channel.NodeCount)
-        && channel.NodeX.Concat(channel.NodeY).Concat(channel.NodeZ).Concat(channel.Radius).All(double.IsFinite)
-        && channel.Radius.All(static radius => radius >= 0.0);
+        channel.Graph.Nodes.Count > 0
+        && channel.SectionA.Length == channel.Graph.Nodes.Count
+        && channel.SectionB.Length == channel.Graph.Nodes.Count
+        && channel.Component.Length == channel.Graph.Arcs.Count
+        && channel.Graph.Arcs.ForAll(arc =>
+            arc.From >= 0 && arc.From < channel.Graph.Nodes.Count
+            && arc.To >= 0 && arc.To < channel.Graph.Nodes.Count)
+        && channel.Graph.Nodes.ForAll(static node =>
+            double.IsFinite(node.At.X) && double.IsFinite(node.At.Y) && double.IsFinite(node.At.Z)
+            && double.IsFinite(node.Radius) && node.Radius >= 0.0)
+        && channel.SectionA.Concat(channel.SectionB).All(double.IsFinite);
 }
 
 [ComplexValueObject]
@@ -916,12 +913,10 @@ public static class ClearanceBench {
     private const int ArcSteps = 8;
 
     public static Fin<Arr<Point3d>> Probes(CurveSkeleton channel) =>
-        channel is { NodeCount: > 0, ArcCount: > 0 }
-            ? Fin.Succ(Range(0, channel.NodeCount).ToSeq()
-                .Map(node => new Point3d(channel.NodeX[node], channel.NodeY[node], channel.NodeZ[node]))
-                .Concat(Range(0, channel.ArcCount).ToSeq().Bind(arc => {
-                    Point3d from = new(channel.NodeX[channel.ArcFrom[arc]], channel.NodeY[channel.ArcFrom[arc]], channel.NodeZ[channel.ArcFrom[arc]]);
-                    Point3d to = new(channel.NodeX[channel.ArcTo[arc]], channel.NodeY[channel.ArcTo[arc]], channel.NodeZ[channel.ArcTo[arc]]);
+        channel.Graph is { Nodes.Count: > 0, Arcs.Count: > 0 }
+            ? Fin.Succ(channel.Graph.Nodes.Map(static node => node.At)
+                .Concat(channel.Graph.Arcs.Bind(arc => {
+                    (Point3d from, Point3d to) = (channel.Graph.Nodes[arc.From].At, channel.Graph.Nodes[arc.To].At);
                     return Range(1, ArcSteps).ToSeq().Map(step => from + ((double)step / (ArcSteps + 1) * (to - from)));
                 })).ToArr())
             : Fin.Fail<Arr<Point3d>>(new KernelFault.InvalidValue("guard", "bench:clearance-parallel"));

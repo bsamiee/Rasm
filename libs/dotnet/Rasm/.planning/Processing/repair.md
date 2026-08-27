@@ -104,14 +104,12 @@ public abstract partial record Cut {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record RepairPolicy(
     ToleranceLane Gap, ToleranceLane Sliver, Dimension MaxManifoldPasses,
-    ArenaPolicy Arena, IntersectPolicy Intersect, TessellationPolicy Retile, ArrangementPolicy Arrangement) : IValidityEvidence {
+    ArenaPolicy Arena, IntersectPolicy Intersect, TessellationPolicy Retile, ArrangementPolicy Arrangement) {
     public static readonly RepairPolicy Canonical = new(
         Gap: ToleranceLane.Closure, Sliver: ToleranceLane.Area,
         MaxManifoldPasses: Dimension.Create(value: 8),
         Arena: ArenaPolicy.Canonical, Intersect: IntersectPolicy.Canonical,
         Retile: TessellationPolicy.Constrained, Arrangement: ArrangementPolicy.Canonical);
-
-    public bool IsValid => ValidityClaim.All(Intersect.IsValid, Retile.IsValid, Arrangement.IsValid);
 
     public static Fin<RepairPolicy> Of(
         int maxManifoldPasses,
@@ -126,7 +124,7 @@ public sealed record RepairPolicy(
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HealPlan(MeshSpace Input, Seq<HealOp> Ops, RepairPolicy Policy) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(ValidityClaim.CountAtLeast(count: Ops.Count, floor: 1), Policy.IsValid);
+    public bool IsValid => ValidityClaim.CountAtLeast(count: Ops.Count, floor: 1);
 
     public static Fin<HealPlan> Of(MeshSpace input, Option<Seq<HealOp>> ops = default, Option<RepairPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -169,7 +167,7 @@ public abstract partial record HealOp {
     internal Fin<HealEdit> Apply(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key, Option<Incidence> carry) =>
         Switch(
             state: (Edit: edit, Current: current, Policy: policy, Key: key, Carry: carry),
-            duplicateWeld:        static (s, _) => Fin.Succ(HealEdit.Same(Kernels.WeldDuplicates(s.Edit))),
+            duplicateWeld:        static (s, _) => Fin.Succ(HealEdit.Same(s.Edit.Weld())),
             degenerateCollapse:   static (s, _) => Heal.Collapse(s.Edit, s.Policy),
             gapClose:             static (s, _) => Heal.Close(s.Edit, s.Policy, s.Key, s.Carry),
             manifoldRepair:       static (s, _) => Heal.Split(s.Edit, s.Policy, s.Carry),
@@ -380,7 +378,7 @@ public static class Heal {
             .Bind(result => result is IntersectResult.Chains hit
                 ? Fin.Succ(hit.Table)
                 : Fin.Fail<CrossTable>(key.InvalidResult()))
-            .Bind(table => table.Segments.Length == 0 && table.Coplanar.Length == 0
+            .Bind(table => table.Segments.Count == 0 && table.Coplanar.Count == 0
                 ? Fin.Succ(HealEdit.Same(edit))
                 : Recut(edit, current, table, policy, key));
 
@@ -431,15 +429,15 @@ public static class Heal {
             (int u, int v, int w) = edit.Face(face);
             Dictionary<Point3d, int> corner = new() { [pa] = u, [pb] = v, [pc] = w };
             return Tessellation.Build(new TessellationOp.Points(
-                    TessellationKind.Triangulation, [.. rows], toSeq(conforms), policy.Retile, plane, Some((pa, pb, pc))), key)
-                .Bind(tess => tess.Triangles(key))
+                    TessellationKind.Triangulation, [.. rows], toSeq(conforms), policy.Retile, plane, Some((pa, pb, pc))))
+                .Bind(static tess => tess.Triangles())
                 .Map(tris => Splice(edit, face,
                     toArr(tris.Faces.AsIterable().Map(f => (tris.Corners[f.A], tris.Corners[f.B], tris.Corners[f.C]))),
                     corner, minted, mirrored));
         });
 
         int Intern(int row) {
-            Crossing crossing = table.Rows[row];
+            CrossTable.Row crossing = table.Rows[row];
             if (slotOf.TryGetValue(crossing.Key, out int at)) return at;
             rows.Add(crossing.Point);
             return slotOf[crossing.Key] = rows.Count - 1;

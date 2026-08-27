@@ -21,7 +21,7 @@
 - Auto: a longest-first conflict fold selects non-overlapping common lines; `ConnectedComponents`, transitive reduction, topological order, Kruskal forest, breadth-first paths, and A-star routes derive chain and rapid topology; `PolygonOp.Cells` derives bounded point-site waste adjacency with its shared segments and each closed cell ring measures against the reusable floor; `PolygonAlgebra.Apply` owns line-space offset, Boolean, measure, relation, and open clip.
 - Law: no tour search seats on this page and none is owed. Chain order is PRECEDENCE order — containment reduced to its transitive core, topologically sorted, tie-broken by Kruskal-tree reach from the seat nearest the rapid origin — so reordering chains to shorten travel emits an inner contour before the outer part it drops out of. `RouteSheet` therefore folds a FIXED sequence and one search remains, the per-leg detour, already `ShortestPathsAStar` over the partition's own visibility graph. Any traveling-salesman pass over these nodes optimizes an order the precedence graph never leaves free.
 - Result: `LinkComparison` carries pierce, rapid, cut, shared, bridge, partition, heat, quality, and remnant-loss axes before and after the candidate topology; remnant loss combines partition kerf area with sub-floor cell area as offcut-side costs.
-- Packages: `LanguageExt.Core`, `QuikGraph` (`ConnectedComponents`, `ComputeTransitiveReduction`, `TopologicalSort`, `MinimumSpanningTreeKruskal`, `TreeBreadthFirstSearch`, `ShortestPathsAStar`, `IsDirectedAcyclicGraph` — every graph question on this page is one of these operators, and no hand walk stands beside one), `Thinktecture.Runtime.Extensions`, `Rasm` (`JoinType`/`EndType`/`BooleanOp`/`OffsetPolicy`, `ICapability`/`CapabilitySet`, `Context`/`ToleranceLane`), `UnitsNet` (`Length`, `Area`, `Ratio` on the policy's own spans), `RhinoCommon`, and the `Geometry2D` owners compose the surface.
+- Packages: `LanguageExt.Core`, `QuikGraph` (`ConnectedComponents`, `ComputeTransitiveReduction`, `TopologicalSort`, `MinimumSpanningTreeKruskal`, `TreeBreadthFirstSearch`, `ShortestPathsAStar`, `IsDirectedAcyclicGraph` — every graph question on this page is one of these operators, and no hand walk stands beside one), `Thinktecture.Runtime.Extensions`, `Rasm` (`JoinType`/`EndType`/`BooleanOp`/`OffsetPolicy`, `ICapability`/`CapabilitySet`, `Context`/`ToleranceLane`, `PositiveMagnitude`), `UnitsNet` (`Length`, `Area`, `Ratio` on the policy's own spans), `RhinoCommon`, and the `Geometry2D` owners compose the surface.
 - Growth: a cut edit is one `LinkOp` case; a scoring axis is one `LinkEvidence` member with one `CutLinkObjective` weight; a second waste decomposition turns `WasteVoronoi` into the union over its own payloads while the `Option` that routes enablement stays untouched; no consumer gains an orchestration step.
 - Boundary: `ChainRow.SheetIndex`, `Instances`, `SourceParts`, `Pierces`, `Members`, `Shared`, and `RapidPaths` form the posting boundary, and `ContourCut.Path` is entry-rotated so a consumer leads at parameter zero without re-deriving the entry; mutable `QuikGraph` construction is the one statement-bearing site, and the waste diagram is never minted here.
 
@@ -422,8 +422,10 @@ public static class Linking {
 
     private static Fin<bool> Clears(SharedEdge edge, Seq<PlacedPart> placed, LinkRun run) =>
         from segment in Loop.Admit(Arr(edge.Cut.A, edge.Cut.B), closed: false, Arr<double>(), edge.Tolerance)
-        let policy = OffsetPolicy.Canonical with {
-            MiterLimit = run.Policy.ClearanceMiterLimit.DecimalFractions, ArcTolerance = run.Policy.ArcToleranceMm }
+        from context in Context.Canonical.Override(
+            ToleranceLane.Arc, run.Policy.ArcToleranceMm, UnitsNet.Units.LengthUnit.Millimeter)
+        let policy = OffsetPolicy.Of(context) with {
+            MiterLimit = PositiveMagnitude.Create(run.Policy.ClearanceMiterLimit.DecimalFractions) }
         from clearanceTrace in PolygonAlgebra.Apply(new PolygonOp.Offset(
             Seq(segment),
             new OffsetField.Uniform((0.5 * run.Policy.CutWidth.Millimeters) + run.Policy.MatchToleranceMm),

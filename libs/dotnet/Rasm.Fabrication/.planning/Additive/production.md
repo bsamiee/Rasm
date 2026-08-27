@@ -542,7 +542,7 @@ public sealed record AdditiveBuild(
 - Law: `Orient` runs before slice, footprint, audit, scoring, and compilation; `OrientedPart` is the only compiler input, and every consumer reads its `Measured` columns in ONE hop — a forwarding accessor per column is a second name for the measurement's own surface and strands the next column it forgets.
 - Auto: `OrientationEvidence` carries ONE row per axis rather than fifteen named unit-typed members beside a parallel normalized map — a measure and its normalization are one fact, and the axis row already declares the unit. Admission folds the rows; no per-member clause exists.
 - Result: rejected candidates remain `OrientationVerdict.Rejected` rows with typed errors; selection fails only when no admitted row survives, and the refusal appends every rejection error monoidally.
-- Packages: `Rasm.Domain` (`Deterministic.OrderKey` — the stateless coordinate key deduping candidate directions), `Rasm.Meshing` (`Slicing.Apply`, `MeshEdit`, `Kernels.Apply`), `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Bounds`).
+- Packages: `Rasm.Domain` (`Deterministic.OrderKey` — the stateless coordinate key deduping candidate directions), `Rasm.Meshing` (`Slicing.Apply`, `MeshEdit`, `MeshEdit.Apply`), `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Bounds`).
 - Boundary: support generation belongs to `Additive/support`, scan planning to `Additive/scanpath`, and layer-stack pre-flight to `Verify/audit`; this cluster composes all three and regenerates none.
 
 ```csharp
@@ -813,8 +813,8 @@ public static class LayerProgram {
 
     private static Fin<Seq<Loop>> Sheets(OrientedPart part, Context tolerance) =>
         toSeq(Enumerable.Range(0, part.Measured.Stack.LayerCount))
-            .Traverse(layer => toSeq(part.Measured.Stack.RootsOf(layer))
-                .Map(contour => part.Measured.Stack.ContourAt(contour))
+            .Traverse(layer => part.Measured.Stack.RootsOf(layer)
+                .Map(contour => part.Measured.Stack.ContourAt(layer, contour))
                 .Head
                 .ToFin(Refusal($"program:lamination:layer:{layer}"))
                 .Bind(chain => Outline.Of(chain, tolerance)))
@@ -1400,8 +1400,8 @@ public static class Canonical {
 public static class Outline {
     public static Fin<Loop> Of(SliceStack stack, Context tolerance) =>
         toSeq(Enumerable.Range(0, stack.LayerCount))
-            .Bind(layer => toSeq(stack.RootsOf(layer)))
-            .Traverse(contour => Of(stack.ContourAt(contour), tolerance))
+            .Bind(layer => stack.RootsOf(layer).Map(contour => (Layer: layer, Contour: contour)))
+            .Traverse(row => Of(stack.ContourAt(row.Layer, row.Contour), tolerance))
             .As()
             .Bind(loops => loops.Head
                 .ToFin(new KernelFault.InvalidValue("production", "production:footprint:empty"))
@@ -1410,8 +1410,8 @@ public static class Outline {
                     (result, loop) => result.Bind(joined => Union(joined, Flattened(loop, first.Plane))))));
 
     public static Fin<Loop> Of(Chain chain, Context tolerance) => Loop.Admit(
-        toSeq(chain.Points).Take(chain.Closed ? chain.Points.Count - 1 : chain.Points.Count).ToArr(),
-        chain.Closed,
+        toSeq(chain.Points).Take(chain.Points.IsClosed ? chain.Points.Count - 1 : chain.Points.Count).ToArr(),
+        chain.Points.IsClosed,
         Arr<double>(),
         tolerance);
 
@@ -1521,7 +1521,7 @@ public static class Production {
         };
 
     private static Fin<OrientedPart> Evaluate(BuildPart part, BuildOrientation orientation, AdditiveBuild policy) =>
-        from model in Kernels.Apply(MeshEdit.Of(part.Model), orientation.ModelToBuild).ToSpace(policy.Tolerance)
+        from model in MeshEdit.Of(part.Model).Apply(orientation.ModelToBuild).ToSpace(policy.Tolerance)
         from bounds in Analyze.Run<MeshSpace, BoundingBox>(AnalysisQuery.Bounds(), model).ToFin()
             .Bind(rows => rows.Head.ToFin(Refusal("bounds")))
         from _envelope in AdmissionSlots.Gate(policy.Machine.Build.Contains(bounds),
@@ -1529,7 +1529,7 @@ public static class Production {
         from _material in AdmissionSlots.Gate(policy.Machine.Materials.Contains(part.Material)
             && part.Feedstock.Constituents.ForAll(row => row.Lot.Material.Key == part.Material.Key)
             && part.Feedstock.Available > Mass.Zero, FabConcern.Additive, "production:material", FabricationFault.Inadmissible).As().ToFin()
-        from stack in Slicing.Apply(new SliceOp(model, policy.Datum, policy.Layers, policy.Slicing))
+        from stack in Slicing.Apply(model, policy.Datum, policy.Layers, policy.Slicing)
         from _layers in AdmissionSlots.Gate(Layered(stack, policy.Machine.Layer),
             FabConcern.Additive, "production:layer-envelope", FabricationFault.Inadmissible).As().ToFin()
         from audit in Audit.Preflight(stack, policy.Audit)

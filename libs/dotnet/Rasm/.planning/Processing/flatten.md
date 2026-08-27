@@ -176,9 +176,11 @@ public sealed record UvIsland(ChartId Chart, Arr<int> Vertices, Arr<(int A, int 
             Point3d next = new(uv.X, uv.Y, 0.0);
             if (points.Count == 0 || points[^1].DistanceTo(next) > weld) points.Add(next);
         }
-        return points.Count >= 3
-            ? Fin.Succ(new Chain(points, Closed: true))
-            : Fin.Fail<Chain>(new GeometryFault.DegenerateInput(Kind.Mesh, loop[0], "island-boundary: loop collapsed under weld"));
+        if (points.Count < 3) {
+            return Fin.Fail<Chain>(new GeometryFault.DegenerateInput(Kind.Mesh, loop[0], "island-boundary: loop collapsed under weld"));
+        }
+        points.Add(points[0]);
+        return Fin.Succ(new Chain(points));
     }
 }
 

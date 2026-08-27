@@ -403,7 +403,7 @@ public abstract partial record VectorIntent {
             select output,
         descriptorCase: static (state, intent) => SegmentKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
         discreteCalculusCase: static (state, intent) =>
-            from calculus in DecAssembly.Build(space: intent.Space, kind: intent.Kind, key: state.Key)
+            from calculus in DecAssembly.Build(space: intent.Space, key: state.Key, kind: Some(intent.Kind))
             from output in calculus.Project<TOut>(key: state.Key)
             select output,
         segmentationCase: static (state, intent) => SegmentKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));

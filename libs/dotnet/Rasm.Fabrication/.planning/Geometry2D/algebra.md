@@ -17,9 +17,9 @@
 - Law: `PolygonTrace` publishes its own total projections — `Regioned`, `Loops`, `Runs`, `Measure`, `Relations`, `Diagram`, `Envelope` — and every consumer takes its read from one of them, because a caller's `is PolygonTrace.Regions` test answers false on a widened family and lets the miss read as a legitimate verdict, where the generated total dispatch breaks at compile time. `Loops` is the one two-arm projection, collapsing a region forest to its boundary rings for a caller that accepts either shape and dropping `Depth`/`Parent`/`IsHole` when it does; the `Field` case publishes none, because a sampled plane has no consumer outside the raster arm that mints it. `LoopDemand` is the matching law for INPUT: closure and emptiness are one declared row, so no admission takes a boolean parameter at the position that decides what its own fault says.
 - Exemption: `Hull`, `Envelope`, `Advance`, and `FillProbe.Relation` are named statement kernels — a monotone hull chain, an advancing-pointer caliper sweep, and an allocation-free per-point fill classification are measured byte-and-branch bodies whose expression forms allocate per candidate.
 - Entry: `OffsetField` survives on scalar-versus-matrix arity and `HygieneRule` on algorithm payload timing; each case carries only the evidence its arm consumes. `PolygonScan.Scan` is the bracketed entry that owns the handle's whole lifetime; `PolygonScan.Of` hands the raw handle only to a caller whose subject outlives one fold, and that caller owns the bracket.
-- Auto: offset, boolean, morphology, and cells lower onto the kernel owners — `Offsetting.Apply` wavefront offsets (per-vertex distances riding `OffsetPolicy.EdgeSpeed` through the `Weighted` case), `Arrangement.Apply` `PlanarOverlay` exact ring booleans, `OffsetOp.Minkowski` morphology with `MorphologyKind.ReflectPattern` as the lowering law, and `Tessellation.Build` + `VoronoiDual(boundary)` bounded point-site cells beside the unbounded `VoronoiDual(op)` the adjacency read folds; `ClipperD` owns the two shapes no owner below publishes — the region-nesting forest and the open-run partition — while area, extent, and orientation read the `Loop` atom's own polyline and the collinear and duplicate hygiene rules read that same built view through `RemoveRedundant`/`RemoveRepeatPos`; only error-bounded decimation and the three-valued point classification still cross to the `Clipper` statics, each carrying its own measured KERNEL-EXEMPTION, all behind the one `FillOf` interface; a placement scan hoists its recurring subject set into one `ReuseableDataContainer64` and folds it per position through `AddReuseableData`, `Rect64.Intersects` rejecting a disjoint candidate before the overlay runs; one `Try` boundary lowers package exceptions onto `Fin<T>`.
+- Auto: offset, boolean, morphology, and cells lower onto the kernel owners — `Offsetting.Apply` wavefront offsets (per-edge reaches riding `OffsetReach.PerEdge`), `Arrangement.Apply` `PlanarOverlay` exact ring booleans, `OffsetOp.Minkowski` morphology with `MorphologyKind.ReflectPattern` as the lowering law, and `Tessellation.Build` + `VoronoiDual(boundary)` bounded point-site cells beside the unbounded `VoronoiDual(op)` the adjacency read folds; `ClipperD` owns the two shapes no owner below publishes — the region-nesting forest and the open-run partition — while area, extent, and orientation read the `Loop` atom's own polyline and the collinear and duplicate hygiene rules read that same built view through `RemoveRedundant`/`RemoveRepeatPos`; only error-bounded decimation and the three-valued point classification still cross to the `Clipper` statics, each carrying its own measured KERNEL-EXEMPTION, all behind the one `FillOf` interface; a placement scan hoists its recurring subject set into one `ReuseableDataContainer64` and folds it per position through `AddReuseableData`, `Rect64.Intersects` rejecting a disjoint candidate before the overlay runs; one `Try` boundary lowers package exceptions onto `Fin<T>`.
 - Result: `PolygonTrace` distinguishes flat paths, region forests, split runs, measures, point relations, cell fields, sampled planes, and minimum-area oriented rectangles by evidence timing; `RegionNode.Parent` carries the pre-order ordinal the tree walk assigns, never a re-scanned reference match. `CellDiagram.Seeds` is the emitted diagram's own nearest-seed index and the owner of `Locate`, so a scan field pays one build rather than one ring walk per probe, and `CellDiagram.Adjacency` is what a merge rule reads to find a cell's true neighbours.
-- Packages: `Rasm` (project) supplies the boolean/fill/join/end vocabularies, the `Offsetting`/`Arrangement`/`Tessellation` owners, and the `CellLattice` plane; `Clipper2` supplies the region-nesting forest, the open-run partition, error-bounded decimation, the point classification, and the reusable scan container; `CavalierContours` supplies collinear and duplicate reduction through the polyline every `Loop` already holds; `Thinktecture` supplies generated owners and exhaustive dispatch; `LanguageExt` supplies admission, traversal, immutable carriers, and the exception channel; `Rasm.Domain` supplies the `Op` key carrier and the `Kind` fault taxonomy.
+- Packages: `Rasm` (project) supplies the boolean/fill/join/end/reach vocabularies, the `Offsetting`/`Arrangement`/`Tessellation` owners, and the `CellLattice` plane; `Clipper2` supplies the region-nesting forest, the open-run partition, error-bounded decimation, the point classification, and the reusable scan container; `CavalierContours` supplies collinear and duplicate reduction through the polyline every `Loop` already holds; `Thinktecture` supplies generated owners and exhaustive dispatch; `LanguageExt` supplies admission, traversal, immutable carriers, and the exception channel; `Rasm.Domain` supplies the `Op` key carrier and the `Kind` fault taxonomy.
 - Growth: a new operation is one `PolygonOp` case, one `PolygonTrace` case when its evidence differs, and one generated dispatch arm naming its own `Op`.
 - Boundary: `ClipperD` and the point relation are the statement-bearing native kernels, and region MEASUREMENT is not among them — area, length, extent, and orientation are the `Loop` atom's own reads, so a second engine can never disagree with the loops the result publishes; kernel-lowered arms terminate their `Chain` results back into `Loop` at the admitted context and elevation. Cells are Voronoi by definition, so a foreign bounded Fortune tessellator — with the third forked draw stream it carried — is the deleted form; relaxation and merge are folds over the kernel dual, never provider modes. Inputs share one `Context` and elevation before XY projection; bulges, mixed contexts, mixed elevations, invalid open edges, and closure-policy conflicts fail before execution, each naming the index of the first offending path.
 
@@ -441,7 +441,7 @@ public static class PolygonAlgebra {
             uniform: static (state, admitted) =>
                 from delta in state.Op.Finite(admitted.Distance)
                 from runs in state.Paths.TraverseM(path => Offsetting.Apply(
-                    new OffsetOp.Offset(ToPolyline(path), delta, state.Join, state.End, state.Policy), state.Op)).As()
+                    new OffsetOp.Offset(ToPolyline(path), new OffsetReach.Uniform(delta), state.Join, state.End, state.Policy), state.Op)).As()
                 select runs,
             variable: static (state, admitted) =>
                 from sized in guard(
@@ -451,7 +451,8 @@ public static class PolygonAlgebra {
                         state.Op.InvalidInput())
                     .ToFin()
                 from runs in state.Paths.Zip(admitted.Distances.ToSeq()).TraverseM(item => Offsetting.Apply(
-                    new OffsetOp.Weighted(ToPolyline(item.First), state.Policy with { EdgeSpeed = item.Second }), state.Op)).As()
+                    new OffsetOp.Offset(ToPolyline(item.First), new OffsetReach.PerEdge(item.Second),
+                        state.Join, state.End, state.Policy), state.Op)).As()
                 select runs)
         from chains in results.TraverseM(result => ChainsOf(result, op)).As()
         from loops in FromChains(chains.Bind(static c => c), paths[0].Tolerance, paths[0].Plane)
@@ -505,7 +506,7 @@ public static class PolygonAlgebra {
         from _ in guard(operands[0].Closed, new GeometryFault.DegenerateInput(Kind.Polyline, 0, "morphology:open-pattern")).ToFin()
         from pattern in kind.ReflectPattern ? Reflected(operands[0]) : Fin.Succ(operands[0])
         from convolved in Offsetting.Apply(
-            new OffsetOp.Minkowski(ToPolyline(operands[1]), ToPolyline(pattern), OffsetPolicy.Canonical), op)
+            new OffsetOp.Minkowski(ToPolyline(operands[1]), ToPolyline(pattern), OffsetPolicy.Of(Context.Canonical)), op)
         from chains in ChainsOf(convolved, op)
         from hull in FromChains(chains, operands[0].Tolerance, operands[0].Plane)
         from region in kind.ReflectPattern
@@ -694,8 +695,7 @@ public static class PolygonAlgebra {
     private static Fin<Seq<Chain>> ChainsOf(OffsetResult result, Op op) => result.Switch(
         state: op,
         graph: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "offset:non-curve-result")),
-        axis: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "offset:non-curve-result")),
-        curves: static (_, admitted) => Fin.Succ(admitted.Offset.Loops),
+        curves: static (_, loops) => Fin.Succ(loops),
         probe: static (key, _) => Fin.Fail<Seq<Chain>>(key.InvalidResult(detail: "offset:non-curve-result")));
 
     private static Fin<Seq<Chain>> OverlayChainsOf(ArrangementResult result, Op op) => result.Switch(
@@ -710,11 +710,11 @@ public static class PolygonAlgebra {
     private static Fin<Seq<Loop>> FromChains(Seq<Chain> chains, Context tolerance, double plane) =>
         chains.TraverseM(chain => {
             Arr<Point3d> points = toSeq(chain.Points).ToArr();
-            Arr<Point3d> vertices = chain.Closed && points.Count > 1
+            Arr<Point3d> vertices = chain.Points.IsClosed && points.Count > 1
                 && points[0].DistanceTo(points[points.Count - 1]) <= tolerance.Absolute.Value
                     ? points.RemoveAt(points.Count - 1)
                     : points;
-            return Loop.Admit(vertices.Map(point => new Point3d(point.X, point.Y, plane)), chain.Closed, [], tolerance);
+            return Loop.Admit(vertices.Map(point => new Point3d(point.X, point.Y, plane)), chain.Points.IsClosed, [], tolerance);
         }).As();
 
     private static Fin<Loop> Reflected(Loop pattern) =>
@@ -734,12 +734,11 @@ public static class PolygonAlgebra {
             new TessellationOp.Points(
                 TessellationKind.Triangulation,
                 [.. seeds.Map(static seed => (Implicit)seed)],
-                Seq<Constraint>(),
+                Seq<Conform>(),
                 TessellationPolicy.Canonical,
-                Axis.Z),
-            op)
+                Axis.Z))
         from bounded in tessellation.VoronoiDual(ring, op)
-        from graph in tessellation.VoronoiDual(op)
+        from graph in tessellation.VoronoiDual()
         from cells in toSeq(bounded).TraverseM(cell => Loop.Admit(
                 toSeq(cell.Ring).Map(point => new Point3d(point.X, point.Y, boundary.Plane)).ToArr(),
                 closed: true,

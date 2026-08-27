@@ -880,7 +880,7 @@ internal static partial class GeodesicKernel {
               let seat = SeatChord(frames: frames, from: space.Native.Vertices[index: source], to: sample, vertex: source)
               from result in seat.Chord <= space.Tolerance.Absolute.Value
                   ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Trace: ZeroTrace(algorithm: TangentLogMapAlgorithm.ExactStraightestExp, source: source, degenerateVertices: frames.DegenerateVertexCount)))
-                  : from imesh in space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+                  : from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
                     from coneAngles in ConeAngles(space: space, imesh: imesh, key: key)
                     from startFace in FirstLiveFaceAt(imesh: imesh, vertex: source) switch { int face when face >= 0 => Fin.Succ(face), _ => Fin.Fail<int>(key.InvalidResult()) }
                     let traceLength = seat.Chord > EpsilonPolicy.ZeroTolerance ? seat.Chord : Math.Max(val1: space.Cache.MeanEdgeLength, val2: space.Tolerance.Absolute.Value) * policy.TraceLengthFactor.Value
@@ -902,7 +902,7 @@ internal static partial class GeodesicKernel {
         int n = space.Native.Vertices.Count;
         return source < 0 || source >= n
             ? Fin.Fail<TangentLogMapResult>(key.InvalidInput())
-            : from imesh in space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+            : from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
               from frames in FrameBundle.Of(space: space, key: key)
               from coneAngles in ConeAngles(space: space, imesh: imesh, key: key)
               from faceIndex in IntrinsicFaceIndex(space: space, imesh: imesh, key: key)

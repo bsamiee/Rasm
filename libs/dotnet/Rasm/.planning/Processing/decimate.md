@@ -568,10 +568,14 @@ public static class Simplify {
     static Fin<MeshSpace> Voxelize(MeshSpace mesh, SimplifyPolicy policy, Context context, Op key) {
         BoundingBox bounds = mesh.DuplicateNative().GetBoundingBox(accurate: true);
         bounds.Inflate(context.Absolute.Value);
-        return SdfMeshPolicy.GeneralizedWinding(key: key)
-            .Bind(sdf => IsoSurface.Detailed(
-                new ScalarField.SignedDistanceFromMeshCase(mesh, sdf), bounds, policy.VoxelResolution.Value, IsoSurfacePolicy.Default, context, key))
-            .Bind(result => MeshSpace.Of(result.Mesh, context, key: key));
+        return from sdf in SdfMeshPolicy.GeneralizedWinding(context: context, key: key)
+               from cell in key.AcceptValidated<PositiveMagnitude>(candidate: bounds.Diagonal.MaximumCoordinate / policy.VoxelResolution.Value)
+               from grid in CellLattice.Of(bounds: bounds, cell: cell,
+                   ceiling: (long)policy.VoxelResolution.Value * policy.VoxelResolution.Value * policy.VoxelResolution.Value, key: key)
+               from run in IsoSurface.Detailed(field: new ScalarField.SignedDistanceFromMeshCase(mesh, sdf), grid: grid,
+                   policy: IsoSurfacePolicy.Default, context: context, key: key)
+               from space in run.Space.ToFin(key.InvalidResult())
+               select space;
     }
 
     // --- [EMIT]

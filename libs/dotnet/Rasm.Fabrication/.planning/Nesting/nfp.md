@@ -1360,7 +1360,7 @@ public static class Nest {
 
     internal static Fin<Seq<Loop>> Rings(Seq<Chain> chains, Context tolerance) =>
         chains.TraverseM(chain => Loop.Admit(
-            toSeq(chain.Points).ToArr(), chain.Closed, Arr<double>(), tolerance)).As();
+            toSeq(chain.Points).ToArr(), chain.Points.IsClosed, Arr<double>(), tolerance)).As();
 
 }
 

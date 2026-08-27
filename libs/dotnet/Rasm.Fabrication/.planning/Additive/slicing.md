@@ -25,7 +25,7 @@ The wall ladder is this page's defining law: a slice boundary is the part SURFAC
 - Auto: `Split` is the ONE open-clip result read and `Rays`/`Runs` are its two typed projections — a clipped run is one CONTINUOUS deposition path admitted as an open `Loop`, while an exposure consumer reads independent segments, so flattening happens at the reader that wants it rather than at the result.
 - Auto: `RecoaterLikelihood.Of` selects its own arm from the absent set and answers `None` where every term is absent, so a roster with nothing measured carries no index rather than a zero every ceiling clears.
 - Result: `LayerMetric` carries filled area, perimeter, centroid, and the optional unsupported, mass, exposure, heat, growth, and blade-strike axes per layer; `SliceRegion` carries outer and hole rings.
-- Packages: `Rasm.Meshing` (`SliceStack`, `Chain`, `Slicing.Apply`, `SliceOp`, `SlicePolicy`, `LayerPlan`); `Geometry2D/algebra` (`PolygonAlgebra.Apply`, `PolygonOp.Topology`/`Boolean`/`Offset`/`ClipOpen`/`Measure`, `PolygonTrace.Regioned`/`Runs`/`Measure`/`Diagram`, `RegionTopology`, `RegionNode`, `PolygonMeasure`, `OffsetField.Uniform`); `atoms#GEOMETRY` (`Loop`, `ProfileOp`, `ProfileResult`, `Edge3`); `UnitsNet`; LanguageExt; Thinktecture.
+- Packages: `Rasm.Meshing` (`SliceStack`, `Chain`, `Slicing.Apply`, `SlicePolicy`, `LayerPlan`); `Geometry2D/algebra` (`PolygonAlgebra.Apply`, `PolygonOp.Topology`/`Boolean`/`Offset`/`ClipOpen`/`Measure`, `PolygonTrace.Regioned`/`Runs`/`Measure`/`Diagram`, `RegionTopology`, `RegionNode`, `PolygonMeasure`, `OffsetField.Uniform`); `atoms#GEOMETRY` (`Loop`, `ProfileOp`, `ProfileResult`, `Edge3`); `UnitsNet`; LanguageExt; Thinktecture.
 - Boundary: `Slice` is the one additive slice-stack consumer and an in-page section sweep, triangle crossing kernel, or endpoint chain walker is the deleted form; variable layer height is `LayerPlan`'s and a Fabrication height loop is the sealed-boundary violation; a slice-local Clipper call site or a bare hole-blind `Seq<Loop>` region is the named duplication defect; `Bound` folds `Loop.Bound` because an arc span bulges outside its chord hull. A second per-layer measurement record anywhere in the folder is the deleted duplicate.
 
 ```csharp
@@ -144,8 +144,8 @@ public sealed partial class SliceRegion {
     public static Fin<SliceRegion> Of(SliceStack stack, int layer) =>
         from tolerance in Context.Millimeters().ToFin()
         from rings in toSeq(Enumerable.Range(stack.LayerPtr[layer], stack.LayerPtr[layer + 1] - stack.LayerPtr[layer]))
-            .Filter(contour => !stack.IsOpen(contour))
-            .Traverse(contour => Ring(stack, contour, tolerance)
+            .Filter(contour => !stack.Open[contour])
+            .Traverse(contour => Ring(stack, layer, contour, tolerance)
                 .Map(loop => (Hole: stack.Depth(contour) % 2 == 1, Loop: loop)))
             .As()
         let split = rings.Partition(static row => row.Hole)
@@ -222,9 +222,9 @@ public sealed partial class SliceRegion {
         result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary),
         result.Nodes.Filter(static node => node.IsHole).Map(static node => node.Boundary));
 
-    private static Fin<Loop> Ring(SliceStack stack, int contour, Context tolerance) =>
+    private static Fin<Loop> Ring(SliceStack stack, int layer, int contour, Context tolerance) =>
         Loop.Admit(
-            toArr(stack.ContourAt(contour).Points.SkipLast(1).Select(static point => new Point3d(point.X, point.Y, point.Z))),
+            toArr(stack.ContourAt(layer, contour).Points.SkipLast(1).Select(static point => new Point3d(point.X, point.Y, point.Z))),
             closed: true, Arr<double>(), tolerance);
 
     private static Fin<Loop> Run(Seq<Edge3> run, Context tolerance) =>
@@ -612,7 +612,7 @@ public abstract partial record InfillPattern(InfillPatternKind PatternKind) {
 - Cases: `ShellRun` carries `Wall`, `Path`, and `Bridging`; `DepositionOverride` carries pattern, bead law, and seam, each unsupplied slot deriving from the seed's own column.
 - Entry: `InfillPolicy.Of(DepositionSeed, …, Option<DepositionOverride>)` admits caller scalars through each owner's own `Validate`, so no boundary value reaches a throwing `Create`; `InfillPolicy.Admitted` gates the couplings no single owner proves.
 - Auto: `AdditivePolicy.Admit` is the one gate over every case's caller-owned egress delegate, so no downstream site re-checks it.
-- Packages: `Process/owner` (`FabricationPolicy.Additive`, `FabricationInput`, `FabricationResult.AdditiveResult`); `Process/faults` (`FabricationFault`, `Admission`); `Additive/support` (`SupportPlan`, `SupportPolicy`); `Additive/scanpath` (`ScanPolicy`); `Additive/production` (`AdditiveBuild`, `BuildJob`, `BuildOutcome`); `Additive/implicit` (`ImplicitOp`); `Rasm.Element` (`AdmissionSlots`); `Rasm.Meshing` (`LayerPlan`, `SlicePolicy`).
+- Packages: `Process/owner` (`FabricationPolicy.Additive`, `FabricationInput`, `FabricationResult.AdditiveResult`); `Process/faults` (`FabricationFault`, `Admission`); `Additive/support` (`SupportPlan`, `SupportPolicy`); `Additive/scanpath` (`ScanPolicy`); `Additive/production` (`AdditiveBuild`, `BuildJob`, `BuildOutcome`); `Additive/implicit` (`ImplicitOp`); `Rasm.Element` (`AdmissionSlots`); `Rasm.Meshing` (`LayerPlan`, `SlicePolicy`, `OffsetPolicy.Of`); `Rasm.Domain` (`Context.Canonical`/`Override`, `ToleranceLane.Arc`); `Rasm.Numerics` (`PositiveMagnitude`).
 - Boundary: a shell or cell failure flattened to empty geometry is the erased-failure defect; travel sequencing between deposition rows belongs to the egress consumer; result payloads carry owner atoms and content keys only.
 
 ```csharp
@@ -728,10 +728,11 @@ public abstract partial record InfillPolicy {
             overrides.Bind(static row => row.Seam).IfNone(seed.Seam),
             seed.OpenSheets)
         from feeds in FeedPolicy.Admit(feed, seed.FeedOverrides, seed.MinimumLayerTime, seed.CoolingFloor)
+        from offsetting in Offsetting(seed, bead)
         let policy = new Planar(
             overrides.Bind(static row => row.Pattern).IfNone(seed.Pattern),
             bead, shells, seed.InfillAngle, feeds, density,
-            Offsetting(seed, bead), seed.GroundingAllowance, egress)
+            offsetting, seed.GroundingAllowance, egress)
         from _admitted in Admitted(policy)
         select policy;
 
@@ -749,11 +750,12 @@ public abstract partial record InfillPolicy {
             .Apply(static (_, _, _, _, _) => unit).As().ToFin(),
         @implicit: static _ => Fin.Succ(unit));
 
-    private static OffsetPolicy Offsetting(DepositionSeed seed, BeadGeometry bead) =>
-        OffsetPolicy.Canonical with {
-            MiterLimit = MiterLimit,
-            ArcTolerance = seed.ArcToleranceFraction.DecimalFractions * bead.ExtrusionWidth.Millimeters,
-        };
+    private static Fin<OffsetPolicy> Offsetting(DepositionSeed seed, BeadGeometry bead) =>
+        Context.Canonical.Override(
+                ToleranceLane.Arc,
+                seed.ArcToleranceFraction.DecimalFractions * bead.ExtrusionWidth.Millimeters,
+                UnitsNet.Units.LengthUnit.Millimeter)
+            .Map(static context => OffsetPolicy.Of(context) with { MiterLimit = PositiveMagnitude.Create(MiterLimit) });
 
     private const double MiterLimit = 2.0;
 
@@ -849,7 +851,7 @@ public static partial class Slice {
 
     internal static Fin<Unit> Gate(SliceStack stack, OpenSheetLaw open) =>
         toSeq(Enumerable.Range(0, stack.LayerCount))
-            .Map(layer => (Layer: layer, Open: stack.LayerAt(layer).Filter(static chain => !chain.Closed).Count))
+            .Map(layer => (Layer: layer, Open: stack.LayerAt(layer).Filter(static chain => !chain.Points.IsClosed).Count))
             .Filter(static row => row.Open > 0)
             .Head
             .Match(
@@ -1193,11 +1195,11 @@ public static partial class Slice {
     private static Fin<SliceStack> Sliced(FabricationInput input, LayerPlan plan, SlicePolicy slice) =>
         input.Model
             .ToFin(new KernelFault.InvalidValue("slicing", "slice:model-missing"))
-            .Bind(model => Slicing.Apply(new SliceOp(model, Plane.WorldXY, plan, slice)));
+            .Bind(model => Slicing.Apply(model, Plane.WorldXY, plan, slice));
 
     private static Fin<Seq<Loop>> OpenTraces(SliceStack stack, int layer, Context tolerance) =>
         stack.LayerAt(layer)
-            .Filter(static chain => !chain.Closed)
+            .Filter(static chain => !chain.Points.IsClosed)
             .Filter(static chain => chain.Points.Count >= 2)
             .Traverse(chain => Loop.Admit(
                 toArr(chain.Points.Select(static point => new Point3d(point.X, point.Y, point.Z))),

@@ -69,15 +69,14 @@ public readonly partial struct MeshDescriptor {
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DescriptorSolve(
-    DescriptorProfile Spectral, EigenSolution<double, Arr<double>> Eigen, AssemblyOrigin Origin,
+    DescriptorProfile Spectral, EigenSolution<double, Arr<double>> Eigen, bool Cached,
     int RequestedEigenpairs, int ReturnedEigenpairs,
-    int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssembly> Assembly = default) : IValidityEvidence {
+    int SkippedDegenerateFaces = 0, Option<SpectralAssembly> Assembly = default) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Spectral.IsValid,
         Eigen.IsValid,
         RequestedEigenpairs >= 1 && ReturnedEigenpairs > 0 && ReturnedEigenpairs <= RequestedEigenpairs,
         ValidityClaim.CountAtLeast(count: SkippedDegenerateFaces, floor: 0),
-        FactorNonZeros.Map(static count => count > 0).IfNone(noneValue: true),
         ValidityClaim.Evidence(Assembly));
 }
 
@@ -121,7 +120,7 @@ internal static partial class SegmentKernel {
         from bundle in space.Cache.SpectralBasisBundleOf(k: Dimension.Create(value: eigenpairs), key: key)
         from spectral in spec.Filter.Evaluate(basis: bundle.Basis, sources: spec.Sources, policy: spec.Policy, key: key)
         from assembly in includeAssembly ? DecAssembly.Build(space: space, key: key).Map(calculus => Some(calculus.Assembly)) : Fin.Succ(Option<SpectralAssembly>.None)
-        select new DescriptorResult(Values: spectral.Values, Solve: new DescriptorSolve(Spectral: spectral.Profile, Eigen: bundle.Eigen, Origin: bundle.Origin, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros, Assembly: assembly));
+        select new DescriptorResult(Values: spectral.Values, Solve: new DescriptorSolve(Spectral: spectral.Profile, Eigen: bundle.Eigen, Cached: bundle.Cached, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, Assembly: assembly));
     private static Fin<TOut> ProjectDescriptor<TOut>(DescriptorResult descriptor, Op key) =>
         ResultProjection.Rows<DescriptorResult, TOut>(self: descriptor, key: key, owner: typeof(MeshDescriptor),
             ProjectionRow.Of<DescriptorSolve>(() => Fin.Succ(descriptor.Solve)),
@@ -434,8 +433,7 @@ public sealed partial class MeshSegmentationStatus {
 public readonly record struct Segmentation(
     MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount,
     int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations,
-    Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorSolve> Descriptor,
-    Option<LinearSolution> Solve, Option<AssemblyOrigin> SpectralOrigin, Option<int> FactorNonZeros,
+    Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorSolve> Descriptor, Option<LinearSolution> Solve,
     Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default,
     Option<EigenSolution<double, Arr<double>>> Eigen = default) : IValidityEvidence {
     public bool IsValid {
@@ -445,7 +443,7 @@ public readonly record struct Segmentation(
                 Algorithm is not null && Status is not null,
                 RequestedRegionCount >= 0 && RegionCount >= 0 && SeedCount >= 0 && AssignedFaceCount >= 0 && UnassignedFaceCount >= 0 && SkippedDegenerateFaces >= 0 && SkippedNonFiniteValues >= 0,
                 Iterations.Map(iter => iter >= 0 && maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true),
-                FactorNonZeros.Map(static count => count >= 0).IfNone(noneValue: true) && AffinityNonZeros.Map(static count => count >= 0).IfNone(noneValue: true) && WatershedSaddleCount.Map(static count => count >= 0).IfNone(noneValue: true),
+                AffinityNonZeros.Map(static count => count >= 0).IfNone(noneValue: true) && WatershedSaddleCount.Map(static count => count >= 0).IfNone(noneValue: true),
                 Tolerance.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true) && Threshold.Map(double.IsFinite).IfNone(noneValue: true) && NormalizedCutValue.Map(static value => double.IsFinite(value) && value >= 0.0).IfNone(noneValue: true),
                 ValidityClaim.Evidence(Descriptor), ValidityClaim.Evidence(Solve), ValidityClaim.Evidence(Eigen));
         }
@@ -459,7 +457,7 @@ internal static partial class SegmentKernel {
     private const int UnassignedRegion = -1;
     [StructLayout(LayoutKind.Auto)] private readonly record struct FaceAdjacencyKey();
     private readonly record struct SegmentationScalars(Arr<double> FaceValues, int SkippedDegenerateFaces, int SkippedNonFiniteValues, int FiniteCount, Option<(double Min, double Max)> Band);
-    private readonly record struct SegmentationRun(MeshSegmentationAlgorithm Algorithm, int RequestedRegionCount, int SeedCount, MeshSegmentationStatus Status, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorSolve> Descriptor, Option<LinearSolution> Solve = default, Option<int> FactorNonZeros = default, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolution<double, Arr<double>>> Eigen = default);
+    private readonly record struct SegmentationRun(MeshSegmentationAlgorithm Algorithm, int RequestedRegionCount, int SeedCount, MeshSegmentationStatus Status, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorSolve> Descriptor, Option<LinearSolution> Solve = default, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolution<double, Arr<double>>> Eigen = default);
     private readonly record struct WatershedState(int[] Regions, int SeedCount, int SaddleCount);
     private readonly record struct ClusterState(int[] Labels, double[] Centers, int Iterations, bool Converged);
     private readonly record struct NormalizedCutSystem(SparseMatrix Laplacian, SparseMatrix Degree, int AffinityNonZeros, double Sigma);
@@ -511,7 +509,7 @@ internal static partial class SegmentKernel {
                 from kmeans in ClusterLabels(values: masked, count: cut.RegionCount.Value, maxIterations: cut.MaxIterations, tolerance: cut.Tolerance.Value, key: state.Key)
                 let labels = ConnectedComponents(adjacency: adjacency, buckets: kmeans.Labels)
                 select ResultOf(mesh: state.Space.Native, faceRegions: labels, scalars: scalars,
-                    run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.NormalizedCut, RequestedRegionCount: cut.RegionCount.Value, SeedCount: 0, Status: kmeans.Converged ? MeshSegmentationStatus.Completed : MeshSegmentationStatus.MaxIterationsExhausted, Iterations: Some(kmeans.Iterations), MaxIterations: Some(cut.MaxIterations.Value), Tolerance: Some(cut.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Option<DescriptorSolve>.None, FactorNonZeros: eigen.Evidence.FactorNonZeros, NormalizedCutValue: NormalizedCutValue(adjacency: adjacency, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma), AffinityNonZeros: Some(system.AffinityNonZeros), Eigen: Some(eigen))))
+                    run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.NormalizedCut, RequestedRegionCount: cut.RegionCount.Value, SeedCount: 0, Status: kmeans.Converged ? MeshSegmentationStatus.Completed : MeshSegmentationStatus.MaxIterationsExhausted, Iterations: Some(kmeans.Iterations), MaxIterations: Some(cut.MaxIterations.Value), Tolerance: Some(cut.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Option<DescriptorSolve>.None, NormalizedCutValue: NormalizedCutValue(adjacency: adjacency, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma), AffinityNonZeros: Some(system.AffinityNonZeros), Eigen: Some(eigen))))
             .Bind(result => ResultProjection.Rows<MeshSegmentationResult, TOut>(self: result, key: key, owner: typeof(MeshSegmentation),
                 ProjectionRow.Of<Segmentation>(() => Fin.Succ(result.Segmentation)),
                 ProjectionRow.Of<Arr<Option<RegionLabel>>>(() => Fin.Succ(result.FaceRegions))));
@@ -778,7 +776,7 @@ internal static partial class SegmentKernel {
     private static MeshSegmentationResult ResultOf(Mesh mesh, int[] faceRegions, SegmentationScalars scalars, SegmentationRun run) {
         int assigned = faceRegions.Count(static label => label >= 0);
         int regionCount = faceRegions.Where(static label => label >= 0).Distinct().Count();
-        Segmentation segmentation = new(Algorithm: run.Algorithm, Status: run.Status, RequestedRegionCount: run.RequestedRegionCount, RegionCount: regionCount, SeedCount: run.SeedCount, AssignedFaceCount: assigned, UnassignedFaceCount: faceRegions.Length - assigned, SkippedDegenerateFaces: scalars.SkippedDegenerateFaces, SkippedNonFiniteValues: scalars.SkippedNonFiniteValues, Iterations: run.Iterations, MaxIterations: run.MaxIterations, Tolerance: run.Tolerance, Threshold: run.Threshold, Descriptor: run.Descriptor, Solve: run.Solve, SpectralOrigin: run.Descriptor.Map(static solve => solve.Origin), FactorNonZeros: run.FactorNonZeros.IsSome ? run.FactorNonZeros : run.Descriptor.Bind(static solve => solve.FactorNonZeros), NormalizedCutValue: run.NormalizedCutValue, AffinityNonZeros: run.AffinityNonZeros, WatershedSaddleCount: run.WatershedSaddleCount, Eigen: run.Eigen);
+        Segmentation segmentation = new(Algorithm: run.Algorithm, Status: run.Status, RequestedRegionCount: run.RequestedRegionCount, RegionCount: regionCount, SeedCount: run.SeedCount, AssignedFaceCount: assigned, UnassignedFaceCount: faceRegions.Length - assigned, SkippedDegenerateFaces: scalars.SkippedDegenerateFaces, SkippedNonFiniteValues: scalars.SkippedNonFiniteValues, Iterations: run.Iterations, MaxIterations: run.MaxIterations, Tolerance: run.Tolerance, Threshold: run.Threshold, Descriptor: run.Descriptor, Solve: run.Solve, NormalizedCutValue: run.NormalizedCutValue, AffinityNonZeros: run.AffinityNonZeros, WatershedSaddleCount: run.WatershedSaddleCount, Eigen: run.Eigen);
         return new MeshSegmentationResult(
             FaceRegions: new Arr<Option<RegionLabel>>([.. faceRegions.Select(RegionLabel.Of)]),
             VertexRegions: VertexRegionsOf(mesh: mesh, faceRegions: faceRegions), Segmentation: segmentation);

@@ -874,7 +874,7 @@ public static partial class Removal {
         return from space in MeshSpace.Of(native, context)
                from result in Intersection.Apply(new IntersectOp.PlaneMesh(frame, space, IntersectPolicy.Canonical))
                from loops in result is IntersectResult.Chains chains
-                   ? chains.Walked.Filter(static chain => chain.Closed)
+                   ? chains.Walked.Filter(static chain => chain.Points.IsClosed)
                        .TraverseM(chain => Loop
                            .Admit(toSeq(chain.Points).ToArr(), closed: true, bulges: Arr<double>(), tolerance: context)
                            .Map(static loop => loop.AsCcw()))

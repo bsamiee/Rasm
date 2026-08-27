@@ -1027,8 +1027,8 @@ public static class TubeProgram {
             .Traverse(chain => DevelopedChain(chain, stations, edges, source.Part.Mesh.Tolerance).ToValidation()).As().ToFin()
         let loops = developed.Bind(static run => run)
         let evidence = new CopeEvidence(
-            chains.Table.Rows.Length,
-            chains.Table.Segments.Length + chains.Table.Coplanar.Length,
+            chains.Table.Rows.Count,
+            chains.Table.Segments.Count + chains.Table.Coplanar.Count,
             edges.Bind(static edge => Seq(edge.A, edge.B)),
             Some(unrolled.Atlas.Result))
         from key in Canonical(loops, evidence, source.Part.Mesh.Tolerance)
@@ -1050,7 +1050,7 @@ public static class TubeProgram {
 
     private static Fin<CopeProjection> CrossUv(
         int index,
-        Crossing crossing,
+        CrossTable.Row crossing,
         int partFace,
         Mesh mesh,
         Context tolerance,
@@ -1151,7 +1151,7 @@ public static class TubeProgram {
                 None: () => held.Add(segment)))
         from loops in runs.Traverse(run => Loop.Admit(
             run.Points.ToArr(),
-            chain.Closed && runs.Count == 1,
+            chain.Points.IsClosed && runs.Count == 1,
             Arr<double>(),
             tolerance).ToValidation()).As().ToFin()
         select loops;

@@ -302,7 +302,7 @@ public static partial class Support {
 ## [04]-[DEMAND]
 
 - Owner: `SupportDemand` owns one unsupported island with its tributary area, reaction, conducted heat, and optional bridge; `BridgeSpan` owns a published chord of unsupported material.
-- Law: overhang demand is the current region minus the admissible grown footprint below, where the growth radius is the layer rise times the tangent of the admitted overhang angle. `SliceStack` publishes contours and per-layer metrics but no `SliceFrame`, so the mesh-normal slope statistic that governs adaptive layering is unavailable downstream by construction and overhang demand derives from the CONTOUR relation instead.
+- Law: overhang demand is the current region minus the admissible grown footprint below, where the growth radius is the layer rise times the tangent of the admitted overhang angle. `SliceStack` publishes contours and per-layer metrics but no run frame, so the mesh-normal slope statistic that governs adaptive layering is unavailable downstream by construction and overhang demand derives from the CONTOUR relation instead.
 - Law: the heat share reads `SliceStack.AreaAt`, the kernel's own signed-shoelace layer metric, so no fold on this page re-derives a filled area the wire already projects. A layer carrying an island but no measured area is a contradiction and refuses.
 - Law: each island retains its own bound and never borrows model extent for sparse or interface candidate generation.
 - Law: `BridgeSpan` endpoints are rim points extremal along the island's own PRINCIPAL bearing, taken from its rim second moment. A bounding-box diagonal names a direction the material need not occupy and its corners lie off the island entirely, so neither enters a published span; an admitted island rim carries at least three vertices, so the span has no absence arm.
@@ -1169,9 +1169,8 @@ public static class SupportCodec {
     private static CanonicalWriter Policy(CanonicalWriter writer, SupportPolicy policy) => Program(
         writer.Discriminant(policy.Family).Bool(policy.Family.Branching).Bool(policy.Family.BaseAdhesion),
         policy.Program)
-        .Double(policy.Offset.CollapseTolerance)
-        .Double(policy.Offset.MiterLimit).Double(policy.Offset.ArcTolerance)
-        .Rows(toSeq(policy.Offset.EdgeSpeed), static (row, speed) => row.Double(speed))
+        .Double(policy.Offset.CollapseBand)
+        .Double(policy.Offset.MiterLimit.Value).Double(policy.Offset.ArcBand)
         .Double(policy.Overhang.Radians)
         .Double(policy.Contact.Gap.Millimeters).Double(policy.Contact.ToothWidth.Millimeters)
         .Double(policy.Contact.ToothPitch.Millimeters).Double(policy.Contact.Penetration.Millimeters)

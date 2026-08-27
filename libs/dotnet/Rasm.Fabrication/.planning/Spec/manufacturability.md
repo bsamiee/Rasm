@@ -1162,17 +1162,18 @@ public static class Manufacturability {
     private static Fin<Seq<DfmObservation>> WallEvidence(AdmittedComponent component, DfmPolicy policy) =>
         component.Profiles.ToSeq().TraverseM(loop =>
             ToPolyline(loop, policy.ArcTolerance).Bind(polyline =>
-                Offsetting.Apply(new OffsetOp.Medial(polyline, OffsetPolicy.Canonical))
-                    .Bind(result => result is OffsetResult.Axis axis
-                        ? axis.Medial.Nodes.TraverseM(node => Observe(
+                Offsetting.Apply(new OffsetOp.Medial(polyline, OffsetPolicy.Of(Context.Canonical)))
+                    .Bind(result => result.Switch(
+                        graph: medial => medial.Nodes.TraverseM(node => Observe(
                             DfmConcern.MinimumWall,
                             DfmFeature.Wall,
                             new DfmMeasure.Quantity(Length.FromMillimeters(2.0 * node.Radius)),
                             new DfmLocus.AtPoint(node.At),
                             policy.At,
                             DfmProvenance.Sampled,
-                            Step(Length.FromMillimeters(2.0 * node.Radius), policy.ArcTolerance))).As()
-                        : Fin.Succ(Seq<DfmObservation>()))))
+                            Step(Length.FromMillimeters(2.0 * node.Radius), policy.ArcTolerance))).As(),
+                        curves: static _ => Fin.Succ(Seq<DfmObservation>()),
+                        probe: static _ => Fin.Succ(Seq<DfmObservation>())))))
             .As()
             .Map(static rows => rows.Bind(identity));
 

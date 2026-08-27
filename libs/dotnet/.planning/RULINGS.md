@@ -109,6 +109,7 @@
 - `Rasm.Element` `RepresentationSlot` is the ONE representation roster — a peer composes it and seats its own admission column.
 - `Rasm.Materials` `DeclarationUnit` rosters declaration contracts and `Rasm.Compute` `DeclaredUnit` openEPD REST keys — neither set holds the other.
 - `Rasm.Materials` `SectionFactors` and `Rasm.Compute` `ResistanceFactors` split on the ALTITUDE word, as `SectionCapacity` splits `MemberCapacity`.
+- A `static` lambda reaches NO instance member — an arm calling one drops `static`; shadowing an enclosing local never earns it back.
 
 ## [03]-[COLLAPSE]
 

@@ -1275,17 +1275,18 @@ public static class Cam {
     private static Fin<Seq<CutElement>> Adaptive(MotionRun run) =>
         toSeq(run.Input.Profiles).Traverse(loop =>
             from stock in ArcForest.Admit(Seq(loop), loop.Tolerance, loop.Plane).ToFin()
-            from result in Offsetting.Apply(new OffsetOp.Medial(Ring(loop), Rasm.Meshing.OffsetPolicy.Canonical))
-            from offset in result is OffsetResult.Axis axis
-                    ? SkeletonDemand.Admit(
-                        stock,
-                        axis.Medial,
-                        run.Policy.Cutter,
-                        run.Engagement,
-                        run.Engagement.Contour.Sense,
-                        run.Engagement.Infill.Walk,
-                        run.Pair.Modality).Bind(Skeleton.Walk)
-                    : Fin.Fail<SkeletonWalk>(new KernelFault.InvalidValue("motion", "cam:medial-result"))
+            from result in Offsetting.Apply(new OffsetOp.Medial(Ring(loop), Rasm.Meshing.OffsetPolicy.Of(Context.Canonical)))
+            from offset in result.Switch(
+                graph: medial => SkeletonDemand.Admit(
+                    stock,
+                    medial,
+                    run.Policy.Cutter,
+                    run.Engagement,
+                    run.Engagement.Contour.Sense,
+                    run.Engagement.Infill.Walk,
+                    run.Pair.Modality).Bind(Skeleton.Walk),
+                curves: static _ => Fin.Fail<SkeletonWalk>(new KernelFault.InvalidValue("motion", "cam:medial-result")),
+                probe: static _ => Fin.Fail<SkeletonWalk>(new KernelFault.InvalidValue("motion", "cam:medial-result")))
             from elements in run.Schedule
                             .Traverse(pass => offset.Elements.Traverse(element =>
                                 AtDepth(element, pass.DepthMm - pass.FloorAllowanceMm)))

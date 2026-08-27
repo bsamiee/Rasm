@@ -746,7 +746,7 @@ internal readonly record struct MetricState(
 - Entry: `public static Fin<AuditEvidence> Preflight(SliceStack stack, AuditPolicy policy)` admits the stack channels first because every later gate indexes them, then accumulates demand, evidence, and support admission before opening the pooled kernel. Allocation crosses one `Try` boundary and every owner disposes before egress.
 - Auto: `DemandGate` proves the co-axiality the frame convention rests on — a layer whose points scatter across local ordinates has no single ordinate and every grid read would mislocate — and bounds the rental in bytes against the admitted cell cap; open-contour counts read the stack's own per-contour `Open` column through its layer pointers rather than materializing every chain to count the unclosed ones; the support plan's own spatial index resolves the branch set crossing each layer once on the result, so no cell fold scans the node roster, and an absent index — the planar-only program's honest state — takes the same empty-capsule arm an absent plan does.
 - Output: `AuditEvidence` carries the process, per-layer metrics, component rows with parents and children, void rows with escape disposition, typed defects, and `Census` keyed by `AuditRisk`. The census seeds over the admitted families alone, so a zero means a family was checked and clean rather than a family the process cannot exhibit; a new defect case reports through it without a result edit.
-- Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `IsOpen`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult.Axis`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Canonical`); `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `SpatialAnswer.Result`, `QueryResult.Hits`); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the component lineage alone; `Process/faults`; LanguageExt.Core.
+- Packages: `Rasm.Meshing` (`SliceStack`, `LayerAt`, `Open`; `Offsetting.Apply`, `OffsetOp.Medial`, `OffsetResult`, `SkeletonGraph`, `ClearanceNode`, `OffsetPolicy.Of`); `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `SpatialAnswer.Result`, `QueryResult.Hits`); `Additive/support` (`SupportPlan.Topology`, `SupportTopology.Graph`, `.ById`, `.Sites`); QuikGraph (`BidirectionalGraph`, `SEdge`, `WeaklyConnectedComponents`) over the component lineage alone; `Process/faults`; LanguageExt.Core.
 - Boundary: wall thickness composes the kernel wavefront and never the raster, so this page mints no thickness measure of its own and speaks the same clearance vocabulary the toolpath boundary already reads. The wavefront admits ONE simple ring, so an outer ring's medial cannot see the layer's holes — every interior node re-measures against them, and that second read is the whole reason the wall fold is not the kernel call alone. QuikGraph addresses components, never cells: a lineage graph holds one vertex per labeled region while a raster graph holds one per cell, and only the former sizes with what the demand gate budgets. `IncrementalConnectedComponentsAlgorithm` and `ForestDisjointSet<T>` are refused for raster connectivity by name — both key on a boxed vertex, so either reintroduces the per-cell element count the run algebra exists to delete.
 
 ```csharp
@@ -799,21 +799,18 @@ public static class Audit {
             && stack.Elevations.Count == stack.LayerCount
             && stack.LayerPtr.Count == stack.LayerCount + 1
             && stack.ContourPtr.Count == stack.ContourCount + 1
-            && stack.X.Count == stack.Y.Count && stack.X.Count == stack.Z.Count
+            && stack.Datum.IsValid && stack.U.Count == stack.V.Count
             && stack.LayerPtr[0] == 0 && stack.LayerPtr[^1] == stack.ContourCount
-            && stack.ContourPtr[0] == 0 && stack.ContourPtr[^1] == stack.X.Count
-            && stack.Parent.Count == stack.ContourCount && stack.ChildPtr.Count == stack.ContourCount + 1
+            && stack.ContourPtr[0] == 0 && stack.ContourPtr[^1] == stack.U.Count
+            && stack.Parent.Count == stack.ContourCount
             && stack.Open.Count == stack.ContourCount
-            && stack.ChildPtr[0] == 0 && stack.ChildPtr[^1] == stack.Children.Count
             && Range(1, stack.LayerPtr.Count - 1).ForAll(index => stack.LayerPtr[index] >= stack.LayerPtr[index - 1])
             && Range(1, stack.ContourPtr.Count - 1).ForAll(index => stack.ContourPtr[index] > stack.ContourPtr[index - 1])
-            && Range(1, stack.ChildPtr.Count - 1).ForAll(index => stack.ChildPtr[index] >= stack.ChildPtr[index - 1])
             && stack.Parent.ForAll(parent => parent >= -1 && parent < stack.ContourCount)
-            && stack.Children.ForAll(child => child >= 0 && child < stack.ContourCount)
             && Range(0, stack.ContourCount).ForAll(contour =>
-                stack.ContourPtr[contour + 1] - stack.ContourPtr[contour] >= (stack.IsOpen(contour) ? 2 : 3))
-            && stack.Elevations.ForAll(double.IsFinite) && stack.X.ForAll(double.IsFinite)
-            && stack.Y.ForAll(double.IsFinite) && stack.Z.ForAll(double.IsFinite)
+                stack.ContourPtr[contour + 1] - stack.ContourPtr[contour] >= (stack.Open[contour] ? 2 : 3))
+            && stack.Elevations.ForAll(double.IsFinite)
+            && stack.U.ForAll(double.IsFinite) && stack.V.ForAll(double.IsFinite)
             && Range(1, Math.Max(0, stack.LayerCount - 1))
                 .ForAll(index => stack.Elevations[index] > stack.Elevations[index - 1]);
         return channels
@@ -891,7 +888,7 @@ public static class Audit {
     private static Fin<(SliceRegion Region, LayerRings Rings)> Region(
         SliceStack stack, int layer, Context context, AuditEnvelope envelope) =>
         stack.LayerAt(layer)
-            .Filter(static chain => chain.Closed)
+            .Filter(static chain => chain.Points.IsClosed)
             .Traverse(chain => Loop.Admit(
                 toSeq(chain.Points).Init.Map(envelope.Local).ToArr(), true, Arr<double>(), context)).As()
             .Bind(static loops => SliceRegion.Of(loops))
@@ -1099,11 +1096,13 @@ public static class Audit {
     private static Fin<Seq<AuditDefect>> Walls(AdmittedAudit admitted, int layer) {
         LayerRings rings = admitted.Rings[layer];
         return rings.Outers
-            .Traverse(ring => Offsetting.Apply(new OffsetOp.Medial(ring, OffsetPolicy.Canonical))
-                .Bind(result => result is OffsetResult.Axis axis
-                    ? Fin.Succ(Thinnest(axis.Medial, ring, rings.Holes, admitted.Policy.Thresholds.MinWall))
-                    : Fin.Fail<Option<(Length Thickness, Point3d At)>>(
-                        new KernelFault.InvalidValue("audit", "audit:medial")))).As()
+            .Traverse(ring => Offsetting.Apply(new OffsetOp.Medial(ring, OffsetPolicy.Of(Context.Canonical)))
+                .Bind(result => result.Switch(
+                    graph: medial => Fin.Succ(Thinnest(medial, ring, rings.Holes, admitted.Policy.Thresholds.MinWall)),
+                    curves: static _ => Fin.Fail<Option<(Length Thickness, Point3d At)>>(
+                        new KernelFault.InvalidValue("audit", "audit:medial")),
+                    probe: static _ => Fin.Fail<Option<(Length Thickness, Point3d At)>>(
+                        new KernelFault.InvalidValue("audit", "audit:medial"))))).As()
             .Map(found => found.Somes().Map(row => (AuditDefect)new AuditDefect.ThinWall(
                 layer, row.Thickness, admitted.Policy.Envelope.World(row.At))));
     }
@@ -1198,7 +1197,7 @@ public static class Audit {
         Range(0, admitted.Stack.LayerCount).ToSeq()
             .Map(layer => (Layer: layer, Count: Range(admitted.Stack.LayerPtr[layer],
                     admitted.Stack.LayerPtr[layer + 1] - admitted.Stack.LayerPtr[layer])
-                .Count(admitted.Stack.IsOpen)))
+                .Count(contour => admitted.Stack.Open[contour])))
             .Filter(static row => row.Count > 0)
             .Map(static row => (AuditDefect)new AuditDefect.OpenContour(row.Layer, row.Count));
 

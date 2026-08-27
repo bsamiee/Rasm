@@ -201,8 +201,6 @@ public static class Predicate {
             ddouble.Abs(det) > Bound(DoubleDoubleEpsilon) * permanent ? Sign.Of(ddouble.Sign(det)) : null;
     }
 
-    // --- [COORDINATE_CORE]
-
     // --- [ORIENT_2D]
     public static Sign Orient2D(Point3d a, Point3d b, Point3d c) => Orient2D(a.X, a.Y, b.X, b.Y, c.X, c.Y);
 

@@ -2,7 +2,7 @@
 
 `RemeshOp` owns predicate-gated mesh rewrite toward a target sampling: one `[Union]` folds isotropic edge-length equalization and cross-field quad extraction through a single `MeshEdit` arena under one exact projected-convexity flip gate.
 
-Rebuild work composes the `Meshing/edit` arena as the sole position and face carrier, the exact `Kernels.QuadDiagonal` gate, the `Spatial/index` BVH re-projecting every relaxed vertex onto the original surface, the `segment` Knöppel owners `SegmentKernel.CrossFieldAt`/`StripeAt` over the admitting `VectorField.CrossField` factory, and the `Domain/results` `Cell.Converge` law bounding the pass budget. Every request scalar arrives as an admitted value object, so the entry gate reads shape alone.
+Rebuild work composes the `Meshing/edit` arena as the sole position and face carrier, the exact `MeshKernel.QuadDiagonal` gate, the `Spatial/index` BVH re-projecting every relaxed vertex onto the original surface, the `segment` Knöppel owners `SegmentKernel.CrossFieldAt`/`StripeAt` over the admitting `VectorField.CrossField` factory, and the `Domain/results` `Cell.Converge` law bounding the pass budget. Every request scalar arrives as an admitted value object, so the entry gate reads shape alone.
 
 ## [01]-[INDEX]
 
@@ -327,7 +327,7 @@ public static class Remeshing {
             if (after >= before) { continue; }
             (Point3d pa, Point3d pb, Point3d pc, Point3d pd) =
                 (arena.Position(a), arena.Position(b), arena.Position(c), arena.Position(d));
-            if (!Kernels.QuadDiagonal(pa, pc, pb, pd) || !Kernels.QuadDiagonal(pc, pa, pd, pb)) { continue; }
+            if (!MeshKernel.QuadDiagonal(pa, pc, pb, pd) || !MeshKernel.QuadDiagonal(pc, pa, pd, pb)) { continue; }
             arena.SetFace(f0, a, d, c);
             arena.SetFace(f1, b, c, d);
             (valence[a], valence[b], valence[c], valence[d]) =
@@ -514,7 +514,7 @@ public static class Remeshing {
             }
             corners.AddRange(quad);
             patchOf.Add(patch);
-            if (Kernels.QuadDiagonal(emit.Position(quad[0]), emit.Position(quad[1]), emit.Position(quad[2]), emit.Position(quad[3]))) {
+            if (MeshKernel.QuadDiagonal(emit.Position(quad[0]), emit.Position(quad[1]), emit.Position(quad[2]), emit.Position(quad[3]))) {
                 emit.AddFace(quad[0], quad[1], quad[2]);
                 emit.AddFace(quad[0], quad[2], quad[3]);
             }
@@ -566,12 +566,12 @@ flowchart LR
     accDescr: Isotropic and quad-field rewrites folding the schedule-bounded arena passes onto a typed trace with the stall fault.
     RemeshOp -->|Isotropic: split/collapse/flip/relax/project passes| MeshEdit
     MeshEdit -->|Cell.Converge over Atom PassState| PassState
-    MeshEdit -->|exact flip gate — two QuadDiagonal probes| Kernels
+    MeshEdit -->|exact flip gate — two QuadDiagonal probes| MeshKernel
     MeshEdit -->|"Nearest(p, K) candidates → exact foot"| SpatialIndex
     RemeshOp -->|QuadField: CrossFieldAt + StripeAt| SegmentKernel
     SegmentKernel -->|per-vertex U/V stripe scalars| Extraction["integer-isoline cells"]
     Extraction -->|connected components cut at singular faces| QuikGraph
-    Extraction -->|QuadDiagonal exact triangulation| Kernels
+    Extraction -->|QuadDiagonal exact triangulation| MeshKernel
     MeshEdit -->|ToSpace freeze| RewriteResult
     RewriteResult -->|QuadProvenance channels| Panelize["Parametric/panelize substrate"]
     RemeshOp -.->|DegenerateInput / RemeshStalled| GeometryFault

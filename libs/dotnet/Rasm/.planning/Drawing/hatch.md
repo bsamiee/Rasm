@@ -11,7 +11,7 @@ This page founds no clipping kernel: regions normalize once through `Arrangement
 
 ## [02]-[HATCHING]
 
-- Owner: `HatchRhythm` is the dash law (`Length`/`Gap`/`Stagger` in spacing units) and `HatchFamily` one course family (`AngleOffset`, `PositiveMagnitude` `SpacingScale`, `Phase`, `Option<HatchRhythm>` dash), both `[ComplexValueObject]` reading `Band` rows and returning default factory evidence for the kernel bridge, so a family or rhythm outside its band is unrepresentable rather than guarded per weave; `HatchPattern` `[SmartEnum<int>]` binds each pattern to its `Seq<HatchFamily>` rhythm table — the row IS the pattern's structure, so a new pattern is one row of family data, never a per-pattern class; `HatchPlan` carries the per-region policy (`Pattern`, absolute `Angle`/`Spacing`/`Origin`, `Option<HatchMotif>`) behind a `Of` accumulating its five claims, so an admitted plan needs no guard at use; `HatchMotif` pairs the `Parametric` `PatternPlan` orbit with the motif rings it stamps; `HatchPolicy` binds the composed `ArrangementPolicy`/`IntersectPolicy`/`BuildPolicy` rows and the `CourseBudget` census ceiling; `HatchCount` is the census slot vocabulary, `HatchArm` the row discriminant telling a course run from a motif ring, and `HatchStore` the single-writer emission arena over a pooled `HatchRow` stream under the `Meshing/edit` arena law, `Freeze()` its one columnar projection; `HatchOp`/`HatchResult` are the request/result shapes and `Hatching` owns the ONE `Apply`.
+- Owner: `HatchRhythm` is the dash law (`Length`/`Gap`/`Stagger` in spacing units) and `HatchFamily` one course family (`AngleOffset`, `PositiveMagnitude` `SpacingScale`, `Phase`, `Option<HatchRhythm>` dash), both `[ComplexValueObject]` reading `Band` rows and returning default factory evidence for the kernel bridge, so a family or rhythm outside its band is unrepresentable rather than guarded per weave; `HatchPattern` `[SmartEnum<int>]` binds each pattern to its `Seq<HatchFamily>` rhythm table — the row IS the pattern's structure, so a new pattern is one row of family data, never a per-pattern class; `HatchPlan` carries the per-region policy (`Pattern`, absolute `Angle`/`Spacing`/`Origin`, `Option<HatchMotif>`) behind a `Of` accumulating its five claims, so an admitted plan needs no guard at use; `HatchMotif` pairs the `Parametric` `PatternPlan` orbit with the motif rings it stamps; `HatchPolicy` binds the composed `ArrangementPolicy`/`BuildPolicy` rows and the `CourseBudget` census ceiling; `HatchCount` is the census slot vocabulary, `HatchArm` the row discriminant telling a course run from a motif ring, and `HatchStore` the single-writer emission arena over a pooled `HatchRow` stream under the `Meshing/edit` arena law, `Freeze()` its one columnar projection; `HatchOp`/`HatchResult` are the request/result shapes and `Hatching` owns the ONE `Apply`.
 - Cases: `HatchOp` cases `Regions` (per-region ring sets, each with its own plan — per-region policy IS the request shape) · `Projection` (a `DrawingProjection` whose `Fill` loops seed one plan); `HatchPattern` rows `Parallel` · `Crosshatch` · `Staggered` · `Motif` — the first three are family-table data over one weave, `Motif` carries no families because its plan's orbit realizes it; both op cases meet at one `Weave` fold, so ingress never forks the algebra.
 - Entry: `public static Fin<HatchResult> Hatching.Apply(HatchOp op, Op? key = null)` — the ONE entrypoint discriminating by op case, no `HatchRegion`/`HatchDrawing`/`HatchMotif` sibling statics. `DegenerateInput` routes the empty region SET; an empty covered region (a fully-clipped fill) hatches to nothing and is legal; an open boundary chain, a course or dash census over `CourseBudget`, or an orbit extent under the region radius routes `HatchFailed` naming the pattern row and region ordinal, while an unadmissible plan refuses at `HatchPlan.Of` naming the claim that failed; a composed sibling fault — overlay, crossing, orbit — surfaces unchanged, and non-geometric refusals ride the `Op` channel.
 - Auto: `Normalize` resolves each raw ring set ONCE through `ArrangementOp.PlanarOverlay` (`BooleanOp.Union`, `Axis.Z`) so every region enters as the canonical covered-region loops — outer CCW, holes CW — and the `Projection` case reads the SAME loops off `DrawingProjection.Fill`; `Frames` projects the loop ordinates ONCE per region and reduces them per family through `TensorPrimitives` into the course frame (direction `d`, normal `n`, spacing, phase), each frame proving its own `int` course count in the result; `Courses` gates the summed census against `CourseBudget` BEFORE any generation and prunes candidates per course through one BVH `SpatialQuery.Range`; `Rows` decides each crossing by exact `Predicate.Orient2D` endpoint signs under the closed-open lift (a `Zero` sign reads `Positive`), the strict straddle minting its point through `IntersectOp.SegmentSegment` and a grazing vertex contributing its own explicit point, each row carrying the exact ±1 winding delta and the whole scan riding one `Fin` fold so no crossing is read off a forged empty answer; the winding walk opens a run at 0→nonzero and closes at nonzero→0, `Dashes` carves runs on the world dash grid anchored at the plan origin over LONG ordinals under the same census budget (`Stagger` phase-shifts alternate courses), and `Motifs` orbits the motif through `Patterning.Apply`, mints the loop-invariant orbit turn once, stamps each planar site by its spin and mirror parity, and clips each instance through `PlanarOverlay` intersection so per-instance provenance survives as columns.
@@ -235,14 +235,11 @@ internal sealed class HatchStore : IDisposable {
 }
 
 // --- [POLICIES] ------------------------------------------------------------------------
-public sealed record HatchPolicy(ArrangementPolicy Arrange, IntersectPolicy Narrow, BuildPolicy Broad, Dimension CourseBudget) : IValidityEvidence {
+public sealed record HatchPolicy(ArrangementPolicy Arrange, BuildPolicy Broad, Dimension CourseBudget) {
     public static readonly Dimension WireCourseCeiling = Dimension.Create(value: 100_000);
 
     public static readonly HatchPolicy Canonical = new(
-        Arrange: ArrangementPolicy.Canonical, Narrow: IntersectPolicy.Canonical, Broad: BuildPolicy.Canonical,
-        CourseBudget: WireCourseCeiling);
-
-    public bool IsValid => ValidityClaim.All(Arrange.IsValid, Narrow.IsValid);
+        Arrange: ArrangementPolicy.Canonical, Broad: BuildPolicy.Canonical, CourseBudget: WireCourseCeiling);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -298,7 +295,7 @@ public static class Hatching {
     // --- [WEAVE]
     static Fin<Unit> Weave(HatchStore store, int region, Seq<Chain> loops, HatchPlan plan, HatchPolicy policy, Op key) {
         if (loops.IsEmpty) { return Fin.Succ(unit); }
-        if (loops.Exists(static loop => !loop.Closed)) {
+        if (loops.Exists(static loop => !loop.Points.IsClosed)) {
             return Fin.Fail<Unit>(new GeometryFault.HatchFailed(plan.Pattern, region, "open boundary chain"));
         }
         store.Tally(HatchCount.Regions);
@@ -384,7 +381,7 @@ public static class Hatching {
         Line hatch = new(At(origin, frame, c, frame.TMin - pad), At(origin, frame, c, frame.TMax + pad));
         store.Tally(HatchCount.Courses);
         return Candidates(index, hatch, key)
-            .Bind(ids => Rows((hatch, origin, frame.D), edges, ids, policy, key))
+            .Bind(ids => Rows((hatch, origin, frame.D), edges, ids, key))
             .Bind(scan => scan.Rows
                 .Fold(Fin.Succ((Winding: 0, Open: 0.0)), (state, row) => state.Bind(held => {
                     int stepped = held.Winding + row.Delta;
@@ -402,7 +399,7 @@ public static class Hatching {
     }
 
     // --- [PARITY]
-    static Fin<(Seq<(double S, int Delta)> Rows, int Grazed)> Rows((Line Hatch, Point3d Origin, Vector3d D) course, (Point3d A, Point3d B)[] edges, Seq<int> ids, HatchPolicy policy, Op key) =>
+    static Fin<(Seq<(double S, int Delta)> Rows, int Grazed)> Rows((Line Hatch, Point3d Origin, Vector3d D) course, (Point3d A, Point3d B)[] edges, Seq<int> ids, Op key) =>
         ids.Fold(Fin.Succ((Rows: Seq<(double S, int Delta)>(), Grazed: 0)), (state, id) => state.Bind(acc => {
                 (Point3d ea, Point3d eb) = edges[id];
                 Sign rawFrom = Predicate.Orient2D(course.Hatch.From, course.Hatch.To, ea, Axis.Z);
@@ -416,7 +413,7 @@ public static class Hatching {
                     Point3d vertex = rawFrom == Sign.Zero ? ea : eb;
                     return Fin.Succ((acc.Rows.Add((((vertex - course.Origin) * course.D), delta)), grazed));
                 }
-                return Intersection.Apply(new IntersectOp.SegmentSegment(course.Hatch, new Line(ea, eb), Axis.Z, policy.Narrow), key)
+                return Intersection.Apply(new IntersectOp.SegmentSegment(course.Hatch, new Line(ea, eb), Axis.Z), key)
                     .Bind(result => result is IntersectResult.Points { Hits: var hits } && !hits.IsEmpty
                         ? Fin.Succ((acc.Rows.Add((((hits[0] - course.Origin) * course.D), delta)), grazed))
                         : Fin.Fail<(Seq<(double S, int Delta)>, int)>(key.InvalidResult()));
@@ -495,7 +492,7 @@ public static class Hatching {
             if (prev >= 0) { store.Link(prev, slot); }
             prev = slot;
         }
-        if (loop.Closed && prev >= 0 && prev != head) { store.Link(prev, head); }
+        if (loop.Points.IsClosed && prev >= 0 && prev != head) { store.Link(prev, head); }
     }
 
     // --- [PRIMITIVES]
@@ -549,7 +546,7 @@ flowchart LR
 |  [02]   | Pattern rows   | `HatchPattern` | rhythm rows (families column)         |    4    |
 |  [03]   | Family rhythm  | `HatchFamily`  | `Create → HatchFamily` (band-guarded) |    —    |
 |  [04]   | Region plan    | `HatchPlan`    | `Of(…) → Fin<HatchPlan>`              |    —    |
-|  [05]   | Solve policy   | `HatchPolicy`  | value (`IValidityEvidence`)           |    —    |
+|  [05]   | Solve policy   | `HatchPolicy`  | value                                 |    —    |
 |  [06]   | Census slots   | `HatchCount`   | census rows (pure)                    |    6    |
 |  [07]   | Result carrier | `HatchResult`  | carrier (`ToSegments`/`ToPolylines`)  |    —    |
 |  [08]   | Emission arm   | `HatchArm`     | row discriminant (pure)               |    2    |
@@ -558,7 +555,7 @@ flowchart LR
 - [02]-[PATTERN_ROWS]: `[SmartEnum<int>]` four rows — family-table data over one weave, `Motif` realized by its plan's orbit.
 - [03]-[FAMILY_RHYTHM]: `[ComplexValueObject]` relative angle/spacing/phase and the spacing-unit dash law, bounds read off `Band` rows at construction and default validation evidence crossing through the kernel bridge; absolute scale enters once on the plan.
 - [04]-[REGION_PLAN]: per-region pattern, angle, `PositiveMagnitude` spacing, origin, and the optional `Patterning` orbit — policy on the request shape, five claims accumulated once at `Of`.
-- [05]-[SOLVE_POLICY]: composed `ArrangementPolicy`/`IntersectPolicy`/`BuildPolicy` rows + the `Dimension` `CourseBudget` census ceiling.
+- [05]-[SOLVE_POLICY]: composed `ArrangementPolicy`/`BuildPolicy` rows + the `Dimension` `CourseBudget` census ceiling.
 - [06]-[CENSUS_SLOTS]: `[SmartEnum<int>]` six slots over ONE `HashMap`-backed fact stream, read through named `Option<int>` `HatchCensus` accessors so an unmeasured slot never reads as a measured zero.
 - [07]-[RESULT_CARRIER]: successor-linked SoA columns with the `HatchArm` discriminant + the slot-keyed `HatchCensus`; chaining composes `SuccessorChain`, and every collection member carries its equality attribute.
 - [08]-[EMISSION_ARM]: `[SmartEnum<int>]` course/motif — separating a family ordinal from an orbit seat, a course ordinal from an instance one.

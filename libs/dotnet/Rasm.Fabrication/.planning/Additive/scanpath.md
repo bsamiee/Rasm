@@ -485,7 +485,7 @@ public sealed record SourceAssignment(CandidateVector Vector, LaserSource Source
 public static class SourcePartition {
     public static Fin<Seq<FieldCell>> Build(SliceStack stack, SourcePolicy policy) =>
         stack.LayerCount == 0 || policy.Sources.IsEmpty
-        || stack.X.Count == 0 || stack.X.Count != stack.Y.Count || stack.X.Count != stack.Z.Count
+        || stack.U.Count == 0 || stack.U.Count != stack.V.Count
             ? Fin.Fail<Seq<FieldCell>>(new KernelFault.InvalidValue("scanpath", "scan:source-partition"))
             : policy.Sources.Map(static source => (source.Field.Center.X, source.Field.Center.Y)).Distinct().Count != policy.Sources.Count
             ? Fin.Fail<Seq<FieldCell>>(new KernelFault.InvalidValue("scanpath", "scan:duplicate-source-sites"))
@@ -534,8 +534,8 @@ public static class SourcePartition {
                 }))));
 
     private static BoundingBox Bound(SliceStack stack) => new(
-        new Point3d(stack.X.Min(), stack.Y.Min(), 0.0),
-        new Point3d(stack.X.Max(), stack.Y.Max(), 0.0));
+        new Point3d(stack.U.Min(), stack.V.Min(), 0.0),
+        new Point3d(stack.U.Max(), stack.V.Max(), 0.0));
 
     private static Fin<PolygonMeasure> Measure(Seq<Loop> paths) =>
         PolygonAlgebra.Apply(new PolygonOp.Measure(paths, PolygonFill.NonZero), Op.Of(name: nameof(Measure)))
@@ -1304,8 +1304,7 @@ public static class ScanCodec {
         .Double(value.IntersectionTolerance.Millimeters).Ordinal(value.Window);
 
     private static CanonicalWriter Apply(this CanonicalWriter writer, OffsetPolicy value) => writer
-        .Double(value.CollapseTolerance).Double(value.MiterLimit).Double(value.ArcTolerance)
-        .Rows(toSeq(value.EdgeSpeed), static (row, speed) => row.Double(speed));
+        .Double(value.CollapseBand).Double(value.MiterLimit.Value).Double(value.ArcBand);
 
     private static CanonicalWriter Apply(this CanonicalWriter writer, DistortionCompensation value) => value.Switch(
         state: writer,

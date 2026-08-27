@@ -229,7 +229,7 @@ public abstract partial record ExtractionDomain {
             surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(CellLattice), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
     private static Fin<CurveBatch> LatticeIsolines(CellLattice grid, Arr<double> values, Seq<double> levels, Context context, Op key) =>
         from field in ScalarField.Lattice(grid: grid, values: values, key: key)
-        from results in levels.TraverseM(level => IsoContour.Detailed(field: field, grid: grid, policy: new IsoContourPolicy(IsoValue: level), context: context, key: key)).As()
+        from results in levels.TraverseM(level => IsoContour.Detailed(field: field, grid: grid, isoValue: level, context: context, key: key)).As()
         from batch in AcceptCurves(
             curves: results.Bind(static result => result.Loops.Map(static chain => (Curve)chain.Points.ToPolylineCurve())),
             attempted: results.Sum(static result => result.Loops.Count),
@@ -490,17 +490,21 @@ public abstract partial record Extraction {
                 ProjectionRow.Of<IsolineCensus>(() => batch.ScalarIsoline.Map(static result => result.Census).ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(IsolineCensus)))))
             select output,
         isoSurfaceCase: static (state, extraction) =>
-            from result in IsoSurface.Detailed(field: extraction.Field, bounds: extraction.Bounds, resolution: extraction.Resolution.Value,
+            from cell in state.Key.AcceptValidated<PositiveMagnitude>(
+                candidate: extraction.Bounds.Diagonal.MaximumCoordinate / extraction.Resolution.Value)
+            from grid in CellLattice.Of(bounds: extraction.Bounds, cell: cell,
+                ceiling: (long)extraction.Resolution.Value * extraction.Resolution.Value * extraction.Resolution.Value, key: state.Key)
+            from run in IsoSurface.Detailed(field: extraction.Field, grid: grid,
                 policy: IsoSurfacePolicy.Default with { MaxRootSteps = extraction.MaxRootSteps }, context: state.Context, key: state.Key)
-            from output in ResultProjection.Rows<IsoSurfaceRun, TOut>(self: result.Run, key: state.Key, owner: typeof(IsoSurfaceCase),
-                ProjectionRow.Of<Mesh>(() => result.Run.Valid ? Fin.Succ(result.Mesh) : Fin.Fail<Mesh>(state.Key.InvalidResult())),
-                ProjectionRow.Of<IsoSurfaceResult>(() => result.Run.Valid ? Fin.Succ(result) : Fin.Fail<IsoSurfaceResult>(state.Key.InvalidResult())),
+            from output in ResultProjection.Rows<IsoSurfaceRun, TOut>(self: run, key: state.Key, owner: typeof(IsoSurfaceCase),
+                ProjectionRow.Of<Mesh>(() => run.Space.ToFin(state.Key.InvalidResult()).Map(static space => space.DuplicateNative())),
+                ProjectionRow.Of<MeshSpace>(() => run.Space.ToFin(state.Key.InvalidResult())),
                 ProjectionRow.Of<ExtractionTally>(() => ExtractionTally.Of(
-                    route: result.Run.NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local,
-                    attempted: 1, emitted: result.Run.Valid ? 1 : 0,
-                    tolerance: result.Run.FixedTolerance.Map(ExtractionTolerance.RhinoFixed).IfNone(ExtractionTolerance.RhinoDefault),
+                    route: ExtractionRoute.Native,
+                    attempted: 1, emitted: run.Space.IsSome ? 1 : 0,
+                    tolerance: ExtractionTolerance.RhinoFixed(run.FixedTolerance),
                     key: state.Key,
-                    isoSurface: Some(result.Run), itemFailures: result.Run.Valid ? Option<int>.None : Some(1))))
+                    isoSurface: Some(run), itemFailures: run.Space.IsSome ? Option<int>.None : Some(1))))
             select output,
         sampledCase: static (state, extraction) => extraction.Mode.Switch(
             state: (Domain: extraction.Domain, Seeds: extraction.Seeds, Context: state.Context, Key: state.Key),
